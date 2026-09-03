@@ -2565,6 +2565,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -2685,6 +2686,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -2805,6 +2807,7 @@
           "tag": "button",
           "text": "Continuar",
           "name": "Continuar",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -3894,6 +3897,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -4128,6 +4132,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -4362,6 +4367,7 @@
           "tag": "button",
           "text": "Continuar",
           "name": "Continuar",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -7070,6 +7076,7 @@
           "tag": "button",
           "text": "Open editor",
           "name": "Open editor",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -7193,6 +7200,7 @@
           "tag": "button",
           "text": "Open editor",
           "name": "Open editor",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -7316,6 +7324,7 @@
           "tag": "button",
           "text": "Abrir editor",
           "name": "Abrir editor",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -7486,6 +7495,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -7656,6 +7666,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -7826,6 +7837,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -7996,6 +8008,7 @@
           "tag": "button",
           "text": "Continuar",
           "name": "Continuar",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -8104,6 +8117,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -8212,6 +8226,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -8320,6 +8335,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -8428,6 +8444,7 @@
           "tag": "button",
           "text": "Continuar",
           "name": "Continuar",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -8548,6 +8565,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -8668,6 +8686,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -8788,6 +8807,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -8908,6 +8928,7 @@
           "tag": "button",
           "text": "Continuar",
           "name": "Continuar",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -12144,7 +12165,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -12178,6 +12199,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -12940,7 +12972,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -12974,6 +13006,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -13736,7 +13779,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -13770,6 +13813,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -14532,7 +14586,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "AgachamentoDobradiçaEmpurrarRemadaPuxada"
+          "name": "AgachamentoDobradiçaEmpurrarDesenvolvimento verticalRemadaPuxada"
         },
         {
           "tag": "button",
@@ -14566,6 +14620,17 @@
         {
           "tag": "span",
           "text": "Empurrar"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Desenvolvimento vertical",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Desenvolvimento vertical"
         },
         {
           "tag": "button",
@@ -15308,6 +15373,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -15612,6 +15678,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -15916,6 +15983,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -16220,6 +16288,7 @@
           "tag": "button",
           "text": "Continuar",
           "name": "Continuar",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -18417,7 +18486,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -18451,6 +18520,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -18765,7 +18845,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -18799,6 +18879,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -19113,7 +19204,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -19147,6 +19238,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -19461,7 +19563,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -19495,6 +19597,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -19809,7 +19922,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -19843,6 +19956,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -20157,7 +20281,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "AgachamentoDobradiçaEmpurrarRemadaPuxada"
+          "name": "AgachamentoDobradiçaEmpurrarDesenvolvimento verticalRemadaPuxada"
         },
         {
           "tag": "button",
@@ -20191,6 +20315,17 @@
         {
           "tag": "span",
           "text": "Empurrar"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Desenvolvimento vertical",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Desenvolvimento vertical"
         },
         {
           "tag": "button",
@@ -20505,7 +20640,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -20539,6 +20674,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -20832,6 +20978,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -21002,6 +21149,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -21172,6 +21320,7 @@
           "tag": "button",
           "text": "Continuar",
           "name": "Continuar",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -21280,6 +21429,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -21388,6 +21538,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -21496,6 +21647,7 @@
           "tag": "button",
           "text": "Continuar",
           "name": "Continuar",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -21616,6 +21768,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -21736,6 +21889,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -21856,6 +22010,7 @@
           "tag": "button",
           "text": "Continuar",
           "name": "Continuar",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -25574,7 +25729,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -25608,6 +25763,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -25846,7 +26012,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "SquatHingePressRowPulldown"
+          "name": "SquatHingePressVertical pressRowPulldown"
         },
         {
           "tag": "button",
@@ -25880,6 +26046,17 @@
         {
           "tag": "span",
           "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
         },
         {
           "tag": "button",
@@ -26118,7 +26295,7 @@
         {
           "tag": "div",
           "role": "group",
-          "name": "AgachamentoDobradiçaEmpurrarRemadaPuxada"
+          "name": "AgachamentoDobradiçaEmpurrarDesenvolvimento verticalRemadaPuxada"
         },
         {
           "tag": "button",
@@ -26152,6 +26329,17 @@
         {
           "tag": "span",
           "text": "Empurrar"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Desenvolvimento vertical",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Desenvolvimento vertical"
         },
         {
           "tag": "button",
@@ -27992,6 +28180,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -28296,6 +28485,7 @@
           "tag": "button",
           "text": "Continue",
           "name": "Continue",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -28600,375 +28790,7 @@
           "tag": "button",
           "text": "Continuar",
           "name": "Continuar",
-          "type": "button"
-        }
-      ]
-    },
-    {
-      "key": "onboarding-recommend/validation-error__phone-390-dark-en",
-      "flow": "onboarding-recommend",
-      "screen": "validation-error",
-      "label": "Recommend — validation error",
-      "viewport": "phone-390",
-      "theme": "dark",
-      "locale": "en",
-      "text": "normal",
-      "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Create program"
-        },
-        {
-          "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Recommend"
-        },
-        {
-          "tag": "p",
-          "text": "Section 1 of 5",
-          "aria-live": "polite"
-        },
-        {
-          "tag": "h2",
-          "text": "What do you want from this program?",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "Pick the result your program should be built around."
-        },
-        {
-          "tag": "div",
-          "role": "alert",
-          "name": "Answer neededChoose an answer in this section before continuing.",
-          "aria-live": "assertive",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "strong",
-          "text": "Answer needed"
-        },
-        {
-          "tag": "p",
-          "text": "Choose an answer in this section before continuing."
-        },
-        {
-          "tag": "div",
-          "role": "radiogroup",
-          "name": "What do you want from this program?",
-          "label": "What do you want from this program?"
-        },
-        {
-          "tag": "button",
-          "role": "radio",
-          "name": "Prioritize muscle growthMore volume for building muscle",
-          "aria-checked": "false",
-          "tabindex": "0",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Prioritize muscle growth"
-        },
-        {
-          "tag": "span",
-          "text": "More volume for building muscle"
-        },
-        {
-          "tag": "button",
-          "role": "radio",
-          "name": "Balance muscle and strengthGrow while keeping heavy compounds",
-          "aria-checked": "false",
-          "tabindex": "-1",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Balance muscle and strength"
-        },
-        {
-          "tag": "span",
-          "text": "Grow while keeping heavy compounds"
-        },
-        {
-          "tag": "button",
-          "role": "radio",
-          "name": "Prioritize strengthHeavier primary lifts with supporting volume",
-          "aria-checked": "false",
-          "tabindex": "-1",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Prioritize strength"
-        },
-        {
-          "tag": "span",
-          "text": "Heavier primary lifts with supporting volume"
-        },
-        {
-          "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Continue",
-          "name": "Continue",
-          "type": "button"
-        }
-      ]
-    },
-    {
-      "key": "onboarding-recommend/validation-error__phone-390-light-en",
-      "flow": "onboarding-recommend",
-      "screen": "validation-error",
-      "label": "Recommend — validation error",
-      "viewport": "phone-390",
-      "theme": "light",
-      "locale": "en",
-      "text": "normal",
-      "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Create program"
-        },
-        {
-          "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Recommend"
-        },
-        {
-          "tag": "p",
-          "text": "Section 1 of 5",
-          "aria-live": "polite"
-        },
-        {
-          "tag": "h2",
-          "text": "What do you want from this program?",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "Pick the result your program should be built around."
-        },
-        {
-          "tag": "div",
-          "role": "alert",
-          "name": "Answer neededChoose an answer in this section before continuing.",
-          "aria-live": "assertive",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "strong",
-          "text": "Answer needed"
-        },
-        {
-          "tag": "p",
-          "text": "Choose an answer in this section before continuing."
-        },
-        {
-          "tag": "div",
-          "role": "radiogroup",
-          "name": "What do you want from this program?",
-          "label": "What do you want from this program?"
-        },
-        {
-          "tag": "button",
-          "role": "radio",
-          "name": "Prioritize muscle growthMore volume for building muscle",
-          "aria-checked": "false",
-          "tabindex": "0",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Prioritize muscle growth"
-        },
-        {
-          "tag": "span",
-          "text": "More volume for building muscle"
-        },
-        {
-          "tag": "button",
-          "role": "radio",
-          "name": "Balance muscle and strengthGrow while keeping heavy compounds",
-          "aria-checked": "false",
-          "tabindex": "-1",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Balance muscle and strength"
-        },
-        {
-          "tag": "span",
-          "text": "Grow while keeping heavy compounds"
-        },
-        {
-          "tag": "button",
-          "role": "radio",
-          "name": "Prioritize strengthHeavier primary lifts with supporting volume",
-          "aria-checked": "false",
-          "tabindex": "-1",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Prioritize strength"
-        },
-        {
-          "tag": "span",
-          "text": "Heavier primary lifts with supporting volume"
-        },
-        {
-          "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Continue",
-          "name": "Continue",
-          "type": "button"
-        }
-      ]
-    },
-    {
-      "key": "onboarding-recommend/validation-error__phone-390-light-pt",
-      "flow": "onboarding-recommend",
-      "screen": "validation-error",
-      "label": "Recommend — validation error",
-      "viewport": "phone-390",
-      "theme": "light",
-      "locale": "pt",
-      "text": "normal",
-      "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Criar programa"
-        },
-        {
-          "tag": "button",
-          "text": "Cancelar",
-          "name": "Cancelar",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Recomendação"
-        },
-        {
-          "tag": "p",
-          "text": "Seção 1 de 5",
-          "aria-live": "polite"
-        },
-        {
-          "tag": "h2",
-          "text": "O que você quer deste programa?",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "Escolha o resultado em torno do qual o programa deve ser construído."
-        },
-        {
-          "tag": "div",
-          "role": "alert",
-          "name": "Falta uma respostaEscolha uma resposta nesta seção antes de continuar.",
-          "aria-live": "assertive",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "strong",
-          "text": "Falta uma resposta"
-        },
-        {
-          "tag": "p",
-          "text": "Escolha uma resposta nesta seção antes de continuar."
-        },
-        {
-          "tag": "div",
-          "role": "radiogroup",
-          "name": "O que você quer deste programa?",
-          "label": "O que você quer deste programa?"
-        },
-        {
-          "tag": "button",
-          "role": "radio",
-          "name": "Priorizar ganho de massaMais volume para hipertrofia",
-          "aria-checked": "false",
-          "tabindex": "0",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Priorizar ganho de massa"
-        },
-        {
-          "tag": "span",
-          "text": "Mais volume para hipertrofia"
-        },
-        {
-          "tag": "button",
-          "role": "radio",
-          "name": "Equilibrar massa e forçaCrescer mantendo compostos pesados",
-          "aria-checked": "false",
-          "tabindex": "-1",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Equilibrar massa e força"
-        },
-        {
-          "tag": "span",
-          "text": "Crescer mantendo compostos pesados"
-        },
-        {
-          "tag": "button",
-          "role": "radio",
-          "name": "Priorizar forçaLevantamentos principais mais pesados com volume de suporte",
-          "aria-checked": "false",
-          "tabindex": "-1",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "Priorizar força"
-        },
-        {
-          "tag": "span",
-          "text": "Levantamentos principais mais pesados com volume de suporte"
-        },
-        {
-          "tag": "button",
-          "text": "Voltar",
-          "name": "Voltar",
-          "label": "Voltar",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Continuar",
-          "name": "Continuar",
+          "disabled": true,
           "type": "button"
         }
       ]

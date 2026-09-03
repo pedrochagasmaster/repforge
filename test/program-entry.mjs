@@ -113,6 +113,7 @@ function resultFixture(route) {
 test("module imports in Node without browser globals", () => {
   assert.equal(typeof Entry.createState, "function");
   assert.deepEqual(Entry.ROUTES, ["recommend", "custom", "browse", "build", "import", "shared"]);
+  assert.deepEqual(Entry.ENTRY_MOVEMENTS, ["squat", "hinge", "press", "shoulder_press", "row", "pulldown"]);
 });
 
 test("every route reaches its declared preview or editor", () => {
