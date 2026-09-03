@@ -818,7 +818,7 @@ try {
       "review shows exercise, set, and approximate-duration facts", reviewCopy);
     assert(/Priorities/i.test(reviewCopy) && /Equipment assumptions/i.test(reviewCopy) && /Progression/i.test(reviewCopy),
       "review presents priorities, equipment assumptions, and progression", reviewCopy);
-    assert(/supported Taurifer progression/i.test(reviewCopy),
+    assert(/updates targets from completed training/i.test(reviewCopy),
       "common preview keeps factual copy for supported Taurifer strategies", reviewCopy);
     assert(await page.locator("#onbBody details").count() === 3,
       "review uses one collapsible summary per training day");
@@ -1254,7 +1254,7 @@ try {
     });
     await page.click("#onbNext");
     const emptyCopy = await page.locator('#onbBody [role="alert"]').innerText();
-    assert(/No released program fits these answers/.test(emptyCopy),
+    assert(/No available program fits these answers/.test(emptyCopy),
       "an empty released catalogue is announced without fabricating a fallback", emptyCopy);
     assert(await page.locator('[data-entry-action="change-schedule"]').isVisible(),
       "empty Browse offers an explicit schedule recovery action");
