@@ -1056,6 +1056,13 @@ async function main() {
   });
   await draftPage.goto(BASE, { waitUntil: "domcontentloaded" });
   await settle(draftPage);
+  // This context is its own device, and a device with no onboarded program has
+  // no session to draft against.
+  await persist(draftPage, `
+    s.program = ${JSON.stringify(seedProgram())};
+    s.programMeta = ${JSON.stringify(seedProgramMeta())};
+    s.log = [];`);
+  await reload(draftPage);
   const focusIds = await draftPage.evaluate(() => window.__repforgeFocus.list().map((e) => ({ id: e.id, name: e.name, day: e.day })));
   const skipEx = focusIds[1] || focusIds[0];
   const keepEx = focusIds[0];

@@ -162,6 +162,10 @@ async function freshPage(browser) {
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForApp(page);
   await clearState(page);
+  // A cleared device has not been through onboarding, so it holds no program
+  // and every surface below — Start workout, the block link, the log-mode
+  // controls — would have nothing to render. Hand it one.
+  await persistState(page, sampleState({ log: [] }));
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
   return { context, page };

@@ -6,14 +6,10 @@
  * page through all 35 screens in order, so a single broken step silently
  * poisoned every frame after it.
  */
-import { catalogState, emptyEntryState, localeState } from "./fixtures.mjs";
+import { catalogState, localeState } from "./fixtures.mjs";
 import { dismissChrome, sleep } from "./session.mjs";
 
-/** Screens that document a device with nothing onboarded yet. */
-const NO_PROGRAM = new Set(["today/no-program", "program/no-program"]);
-
 export function appState(_key, lang) {
-  if (NO_PROGRAM.has(_key)) return localeState(emptyEntryState(lang), lang);
   const state = catalogState();
   // The editor reference is intentionally a compact two-exercise day, matching
   // the canonical installed-editor mockup. Other catalog surfaces keep the
@@ -109,10 +105,6 @@ async function openSettings(page, anchor) {
 
 export const APP_SCENARIOS = {
   "today/ready": async (page) => { await dismissChrome(page); await sleep(page, 300); },
-  // Backing out of setup. `dismissChrome` leaves the entry hub exactly the way
-  // Cancel does, so this frame is what a lifter who declined onboarding sees.
-  "today/no-program": async (page) => { await dismissChrome(page); await sleep(page, 400); },
-  "program/no-program": async (page) => { await dismissChrome(page); await view(page, "program"); },
   "today/day-picker": async (page) => {
     await page.click("#chooseAnotherDay");
     await page.waitForSelector("#dayPickSheet.is-open", { timeout: 20000 });

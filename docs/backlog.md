@@ -115,6 +115,7 @@ These are real but do not outrank the foundation above.
 | Evidence only | Opener fallback/backdrop dismissal/coach marks | The shipped modal policy and current focus restoration are intentional. Reopen only with a reproduced accessibility or comprehension problem. |
 | Evidence only | Broad Focus/Program/Block redesign | There is no standing “redesign” task. File a specific observed problem with screenshots, affected state, and success criterion. |
 | Completed | No bundled program before onboarding | Backing out of setup used to leave a bundled three-day program presented as the lifter's own. A device that has not been through onboarding now holds no program, and Today and Program say so and offer the entry hub. |
+| Now | Catalog the two no-program screens | `today/no-program` and `program/no-program` are user-visible surfaces with no catalog frames: they were authored where the pinned Playwright browser could not be installed, and this renderer disagrees with the committed baselines on every existing frame, so declaring them would have shipped drift. Add both to `docs/ui-screens/manifest.json` with an `appState` override to `emptyEntryState` and a `dismissChrome` scenario, then run `node tools/capture-ui-screens.mjs` on a machine with the pinned browser. |
 
 ## 6. Engineering debt
 
