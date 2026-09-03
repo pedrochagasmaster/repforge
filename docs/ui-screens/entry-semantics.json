@@ -14,7 +14,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -38,11 +38,11 @@
         },
         {
           "tag": "p",
-          "text": "Complete, executable programs you can rename and edit after activation."
+          "text": "Complete programs you can run, rename, and edit after activation."
         },
         {
           "tag": "div",
-          "label": "Your Browse context"
+          "label": "Your selected limits"
         },
         {
           "tag": "span",
@@ -58,7 +58,7 @@
         },
         {
           "tag": "p",
-          "text": "Fits your 4 days"
+          "text": "Matches your 4 training days"
         },
         {
           "tag": "button",
@@ -144,7 +144,7 @@
         },
         {
           "tag": "span",
-          "text": "Built for limited equipment"
+          "text": "Works with limited equipment"
         },
         {
           "tag": "span",
@@ -292,7 +292,7 @@
         },
         {
           "tag": "span",
-          "text": "Built for limited equipment"
+          "text": "Works with limited equipment"
         },
         {
           "tag": "span",
@@ -444,7 +444,7 @@
         },
         {
           "tag": "span",
-          "text": "Built for limited equipment"
+          "text": "Works with limited equipment"
         },
         {
           "tag": "span",
@@ -596,7 +596,7 @@
         },
         {
           "tag": "span",
-          "text": "Built for limited equipment"
+          "text": "Works with limited equipment"
         },
         {
           "tag": "span",
@@ -748,7 +748,7 @@
         },
         {
           "tag": "span",
-          "text": "Built for limited equipment"
+          "text": "Works with limited equipment"
         },
         {
           "tag": "span",
@@ -830,7 +830,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -854,11 +854,11 @@
         },
         {
           "tag": "p",
-          "text": "Complete, executable programs you can rename and edit after activation."
+          "text": "Complete programs you can run, rename, and edit after activation."
         },
         {
           "tag": "div",
-          "label": "Your Browse context"
+          "label": "Your selected limits"
         },
         {
           "tag": "span",
@@ -874,7 +874,7 @@
         },
         {
           "tag": "p",
-          "text": "Fits your 4 days"
+          "text": "Matches your 4 training days"
         },
         {
           "tag": "button",
@@ -960,7 +960,7 @@
         },
         {
           "tag": "span",
-          "text": "Built for limited equipment"
+          "text": "Works with limited equipment"
         },
         {
           "tag": "span",
@@ -1108,7 +1108,7 @@
         },
         {
           "tag": "span",
-          "text": "Built for limited equipment"
+          "text": "Works with limited equipment"
         },
         {
           "tag": "span",
@@ -1260,7 +1260,7 @@
         },
         {
           "tag": "span",
-          "text": "Built for limited equipment"
+          "text": "Works with limited equipment"
         },
         {
           "tag": "span",
@@ -1412,7 +1412,7 @@
         },
         {
           "tag": "span",
-          "text": "Built for limited equipment"
+          "text": "Works with limited equipment"
         },
         {
           "tag": "span",
@@ -1564,7 +1564,7 @@
         },
         {
           "tag": "span",
-          "text": "Built for limited equipment"
+          "text": "Works with limited equipment"
         },
         {
           "tag": "span",
@@ -1646,7 +1646,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -1670,11 +1670,11 @@
         },
         {
           "tag": "p",
-          "text": "Programas completos e executáveis que você pode renomear e editar depois da ativação."
+          "text": "Programas completos que você pode executar, renomear e editar depois de ativá-los."
         },
         {
           "tag": "div",
-          "label": "Seu contexto de busca"
+          "label": "Suas escolhas de busca"
         },
         {
           "tag": "span",
@@ -1690,7 +1690,7 @@
         },
         {
           "tag": "p",
-          "text": "Encaixa nos seus 4 dias"
+          "text": "Combina com seus 4 dias de treino"
         },
         {
           "tag": "button",
@@ -1776,7 +1776,7 @@
         },
         {
           "tag": "span",
-          "text": "Feito para poucos equipamentos"
+          "text": "Funciona com poucos equipamentos"
         },
         {
           "tag": "span",
@@ -1924,7 +1924,7 @@
         },
         {
           "tag": "span",
-          "text": "Feito para poucos equipamentos"
+          "text": "Funciona com poucos equipamentos"
         },
         {
           "tag": "span",
@@ -2076,7 +2076,7 @@
         },
         {
           "tag": "span",
-          "text": "Feito para poucos equipamentos"
+          "text": "Funciona com poucos equipamentos"
         },
         {
           "tag": "span",
@@ -2228,7 +2228,7 @@
         },
         {
           "tag": "span",
-          "text": "Feito para poucos equipamentos"
+          "text": "Funciona com poucos equipamentos"
         },
         {
           "tag": "span",
@@ -2380,7 +2380,7 @@
         },
         {
           "tag": "span",
-          "text": "Feito para poucos equipamentos"
+          "text": "Funciona com poucos equipamentos"
         },
         {
           "tag": "span",
@@ -2462,7 +2462,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -2486,7 +2486,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a shortcut, then correct anything material."
+          "text": "Pick the closest option, then change anything that is wrong."
         },
         {
           "tag": "div",
@@ -2583,7 +2583,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -2607,7 +2607,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a shortcut, then correct anything material."
+          "text": "Pick the closest option, then change anything that is wrong."
         },
         {
           "tag": "div",
@@ -2704,7 +2704,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -2728,7 +2728,7 @@
         },
         {
           "tag": "p",
-          "text": "Comece com um atalho e corrija só o que for material."
+          "text": "Escolha a opção mais próxima e corrija o que estiver errado."
         },
         {
           "tag": "div",
@@ -2825,7 +2825,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -2844,7 +2844,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "h3",
@@ -2892,15 +2892,15 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -3110,7 +3110,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -3129,7 +3129,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "h3",
@@ -3177,15 +3177,15 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -3395,7 +3395,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -3414,7 +3414,7 @@
         },
         {
           "tag": "p",
-          "text": "Rascunho editável. O programa ativo permanece até você confirmar."
+          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
         },
         {
           "tag": "h3",
@@ -3462,7 +3462,7 @@
         },
         {
           "tag": "p",
-          "text": "As metas avançam a partir dos treinos concluídos, usando a progressão compatível de cada exercício no Taurifer."
+          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
         },
         {
           "tag": "h4",
@@ -3470,7 +3470,7 @@
         },
         {
           "tag": "p",
-          "text": "Não foi preciso abdicar de nada."
+          "text": "Nenhum ajuste foi necessário."
         },
         {
           "tag": "button",
@@ -3680,7 +3680,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -3699,12 +3699,12 @@
         },
         {
           "tag": "h2",
-          "text": "Fit the real week",
+          "text": "Fit training into your week",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Time is a ceiling, not a volume target."
+          "text": "Your time limit sets how much work fits in the session."
         },
         {
           "tag": "span",
@@ -3798,13 +3798,13 @@
         },
         {
           "tag": "span",
-          "text": "Maximum typical session"
+          "text": "Longest usual session"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Maximum typical session",
-          "labelledBy": "Maximum typical session"
+          "name": "Longest usual session",
+          "labelledBy": "Longest usual session"
         },
         {
           "tag": "button",
@@ -3915,7 +3915,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -3934,12 +3934,12 @@
         },
         {
           "tag": "h2",
-          "text": "Fit the real week",
+          "text": "Fit training into your week",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Time is a ceiling, not a volume target."
+          "text": "Your time limit sets how much work fits in the session."
         },
         {
           "tag": "span",
@@ -4033,13 +4033,13 @@
         },
         {
           "tag": "span",
-          "text": "Maximum typical session"
+          "text": "Longest usual session"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Maximum typical session",
-          "labelledBy": "Maximum typical session"
+          "name": "Longest usual session",
+          "labelledBy": "Longest usual session"
         },
         {
           "tag": "button",
@@ -4150,7 +4150,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -4169,12 +4169,12 @@
         },
         {
           "tag": "h2",
-          "text": "Encaixar na semana real",
+          "text": "Encaixe o treino na sua semana",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "O tempo é um teto, não uma meta de volume."
+          "text": "Seu limite de tempo define quanto trabalho cabe na sessão."
         },
         {
           "tag": "span",
@@ -4268,13 +4268,13 @@
         },
         {
           "tag": "span",
-          "text": "Sessão típica máxima"
+          "text": "Duração máxima de uma sessão típica"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Sessão típica máxima",
-          "labelledBy": "Sessão típica máxima"
+          "name": "Duração máxima de uma sessão típica",
+          "labelledBy": "Duração máxima de uma sessão típica"
         },
         {
           "tag": "button",
@@ -4385,7 +4385,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -4414,8 +4414,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
-          "name": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "text": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -4491,7 +4491,7 @@
           "tag": "button",
           "text": "Use this program",
           "name": "Use this program",
-          "describedBy": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "describedBy": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
           "disabled": true,
           "type": "button"
         }
@@ -4510,7 +4510,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -4539,8 +4539,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
-          "name": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "text": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -4616,7 +4616,7 @@
           "tag": "button",
           "text": "Use this program",
           "name": "Use this program",
-          "describedBy": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "describedBy": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
           "disabled": true,
           "type": "button"
         }
@@ -4635,7 +4635,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -4664,8 +4664,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
-          "name": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "text": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -4741,7 +4741,7 @@
           "tag": "button",
           "text": "Use this program",
           "name": "Use this program",
-          "describedBy": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "describedBy": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
           "disabled": true,
           "type": "button"
         }
@@ -4760,7 +4760,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -4789,8 +4789,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
-          "name": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "text": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -4866,7 +4866,7 @@
           "tag": "button",
           "text": "Use this program",
           "name": "Use this program",
-          "describedBy": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "describedBy": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
           "disabled": true,
           "type": "button"
         }
@@ -4885,7 +4885,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -4914,8 +4914,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
-          "name": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "text": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -4991,7 +4991,7 @@
           "tag": "button",
           "text": "Use this program",
           "name": "Use this program",
-          "describedBy": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "describedBy": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
           "disabled": true,
           "type": "button"
         }
@@ -5010,7 +5010,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -5039,8 +5039,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Adicione um exercício a: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
-          "name": "Adicione um exercício a: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "text": "Adicione um exercício a day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Adicione um exercício a day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -5116,7 +5116,7 @@
           "tag": "button",
           "text": "Usar este programa",
           "name": "Usar este programa",
-          "describedBy": "Adicione um exercício a: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "describedBy": "Adicione um exercício a day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
           "disabled": true,
           "type": "button"
         }
@@ -5135,7 +5135,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -5164,8 +5164,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
-          "name": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "text": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -5241,7 +5241,7 @@
           "tag": "button",
           "text": "Use this program",
           "name": "Use this program",
-          "describedBy": "Add an exercise to: day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "describedBy": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
           "disabled": true,
           "type": "button"
         }
@@ -5260,7 +5260,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -5289,8 +5289,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Add an exercise to: day_empty:manual_d2, day_empty:manual_d3.",
-          "name": "Add an exercise to: day_empty:manual_d2, day_empty:manual_d3.",
+          "text": "Add an exercise to day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Add an exercise to day_empty:manual_d2, day_empty:manual_d3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -5441,7 +5441,7 @@
           "tag": "button",
           "text": "Use this program",
           "name": "Use this program",
-          "describedBy": "Add an exercise to: day_empty:manual_d2, day_empty:manual_d3.",
+          "describedBy": "Add an exercise to day_empty:manual_d2, day_empty:manual_d3.",
           "disabled": true,
           "type": "button"
         }
@@ -5460,7 +5460,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -5489,8 +5489,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Add an exercise to: day_empty:manual_d2, day_empty:manual_d3.",
-          "name": "Add an exercise to: day_empty:manual_d2, day_empty:manual_d3.",
+          "text": "Add an exercise to day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Add an exercise to day_empty:manual_d2, day_empty:manual_d3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -5641,7 +5641,7 @@
           "tag": "button",
           "text": "Use this program",
           "name": "Use this program",
-          "describedBy": "Add an exercise to: day_empty:manual_d2, day_empty:manual_d3.",
+          "describedBy": "Add an exercise to day_empty:manual_d2, day_empty:manual_d3.",
           "disabled": true,
           "type": "button"
         }
@@ -5660,7 +5660,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -5689,8 +5689,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Adicione um exercício a: day_empty:manual_d2, day_empty:manual_d3.",
-          "name": "Adicione um exercício a: day_empty:manual_d2, day_empty:manual_d3.",
+          "text": "Adicione um exercício a day_empty:manual_d2, day_empty:manual_d3.",
+          "name": "Adicione um exercício a day_empty:manual_d2, day_empty:manual_d3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -5841,7 +5841,7 @@
           "tag": "button",
           "text": "Usar este programa",
           "name": "Usar este programa",
-          "describedBy": "Adicione um exercício a: day_empty:manual_d2, day_empty:manual_d3.",
+          "describedBy": "Adicione um exercício a day_empty:manual_d2, day_empty:manual_d3.",
           "disabled": true,
           "type": "button"
         }
@@ -5860,7 +5860,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -6230,7 +6230,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -6600,7 +6600,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -6970,7 +6970,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -7094,7 +7094,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -7218,7 +7218,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -7342,7 +7342,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -7361,22 +7361,22 @@
         },
         {
           "tag": "h2",
-          "text": "Your training background now",
+          "text": "Your recent training background",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "These answers describe recent reality, not a self-rated level."
+          "text": "Answer based on your recent training, not on a self-rating."
         },
         {
           "tag": "span",
-          "text": "Time following structured resistance programs"
+          "text": "How long you've followed structured resistance programs"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Time following structured resistance programs",
-          "labelledBy": "Time following structured resistance programs"
+          "name": "How long you've followed structured resistance programs",
+          "labelledBy": "How long you've followed structured resistance programs"
         },
         {
           "tag": "button",
@@ -7428,61 +7428,61 @@
         },
         {
           "tag": "span",
-          "text": "Recent consistency over about six weeks"
+          "text": "How consistently you trained in the past six weeks"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Recent consistency over about six weeks",
-          "labelledBy": "Recent consistency over about six weeks"
+          "name": "How consistently you trained in the past six weeks",
+          "labelledBy": "How consistently you trained in the past six weeks"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Completed most planned training",
+          "name": "Completed most planned sessions",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Completed most planned training"
+          "text": "Completed most planned sessions"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "About half of planned training",
+          "name": "Completed about half of planned sessions",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "About half of planned training"
+          "text": "Completed about half of planned sessions"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Only a few sessions",
+          "name": "Completed only a few sessions",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Only a few sessions"
+          "text": "Completed only a few sessions"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "None / returning after a break",
+          "name": "No recent training or returning after a break",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "None / returning after a break"
+          "text": "No recent training or returning after a break"
         },
         {
           "tag": "button",
@@ -7513,7 +7513,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -7532,22 +7532,22 @@
         },
         {
           "tag": "h2",
-          "text": "Your training background now",
+          "text": "Your recent training background",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "These answers describe recent reality, not a self-rated level."
+          "text": "Answer based on your recent training, not on a self-rating."
         },
         {
           "tag": "span",
-          "text": "Time following structured resistance programs"
+          "text": "How long you've followed structured resistance programs"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Time following structured resistance programs",
-          "labelledBy": "Time following structured resistance programs"
+          "name": "How long you've followed structured resistance programs",
+          "labelledBy": "How long you've followed structured resistance programs"
         },
         {
           "tag": "button",
@@ -7599,61 +7599,61 @@
         },
         {
           "tag": "span",
-          "text": "Recent consistency over about six weeks"
+          "text": "How consistently you trained in the past six weeks"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Recent consistency over about six weeks",
-          "labelledBy": "Recent consistency over about six weeks"
+          "name": "How consistently you trained in the past six weeks",
+          "labelledBy": "How consistently you trained in the past six weeks"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Completed most planned training",
+          "name": "Completed most planned sessions",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Completed most planned training"
+          "text": "Completed most planned sessions"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "About half of planned training",
+          "name": "Completed about half of planned sessions",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "About half of planned training"
+          "text": "Completed about half of planned sessions"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Only a few sessions",
+          "name": "Completed only a few sessions",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Only a few sessions"
+          "text": "Completed only a few sessions"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "None / returning after a break",
+          "name": "No recent training or returning after a break",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "None / returning after a break"
+          "text": "No recent training or returning after a break"
         },
         {
           "tag": "button",
@@ -7684,7 +7684,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -7703,22 +7703,22 @@
         },
         {
           "tag": "h2",
-          "text": "Your training background now",
+          "text": "Your recent training background",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "These answers describe recent reality, not a self-rated level."
+          "text": "Answer based on your recent training, not on a self-rating."
         },
         {
           "tag": "span",
-          "text": "Time following structured resistance programs"
+          "text": "How long you've followed structured resistance programs"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Time following structured resistance programs",
-          "labelledBy": "Time following structured resistance programs"
+          "name": "How long you've followed structured resistance programs",
+          "labelledBy": "How long you've followed structured resistance programs"
         },
         {
           "tag": "button",
@@ -7770,61 +7770,61 @@
         },
         {
           "tag": "span",
-          "text": "Recent consistency over about six weeks"
+          "text": "How consistently you trained in the past six weeks"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Recent consistency over about six weeks",
-          "labelledBy": "Recent consistency over about six weeks"
+          "name": "How consistently you trained in the past six weeks",
+          "labelledBy": "How consistently you trained in the past six weeks"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Completed most planned training",
+          "name": "Completed most planned sessions",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Completed most planned training"
+          "text": "Completed most planned sessions"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "About half of planned training",
+          "name": "Completed about half of planned sessions",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "About half of planned training"
+          "text": "Completed about half of planned sessions"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Only a few sessions",
+          "name": "Completed only a few sessions",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Only a few sessions"
+          "text": "Completed only a few sessions"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "None / returning after a break",
+          "name": "No recent training or returning after a break",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "None / returning after a break"
+          "text": "No recent training or returning after a break"
         },
         {
           "tag": "button",
@@ -7855,7 +7855,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -7874,22 +7874,22 @@
         },
         {
           "tag": "h2",
-          "text": "Seu contexto de treino agora",
+          "text": "Seu contexto recente de treino",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Essas respostas descrevem a realidade recente, não um nível autoavaliado."
+          "text": "Responda com base no seu treino recente, não em uma autoavaliação."
         },
         {
           "tag": "span",
-          "text": "Tempo seguindo programas estruturados de resistência"
+          "text": "Há quanto tempo você segue programas estruturados de resistência"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Tempo seguindo programas estruturados de resistência",
-          "labelledBy": "Tempo seguindo programas estruturados de resistência"
+          "name": "Há quanto tempo você segue programas estruturados de resistência",
+          "labelledBy": "Há quanto tempo você segue programas estruturados de resistência"
         },
         {
           "tag": "button",
@@ -7941,61 +7941,61 @@
         },
         {
           "tag": "span",
-          "text": "Consistência recente em cerca de seis semanas"
+          "text": "Com que consistência você treinou nas últimas seis semanas"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Consistência recente em cerca de seis semanas",
-          "labelledBy": "Consistência recente em cerca de seis semanas"
+          "name": "Com que consistência você treinou nas últimas seis semanas",
+          "labelledBy": "Com que consistência você treinou nas últimas seis semanas"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Completei a maior parte dos treinos planejados",
+          "name": "Completei a maioria das sessões planejadas",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Completei a maior parte dos treinos planejados"
+          "text": "Completei a maioria das sessões planejadas"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Cerca de metade dos treinos planejados",
+          "name": "Completei cerca de metade das sessões planejadas",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Cerca de metade dos treinos planejados"
+          "text": "Completei cerca de metade das sessões planejadas"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Só algumas sessões",
+          "name": "Completei apenas algumas sessões",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Só algumas sessões"
+          "text": "Completei apenas algumas sessões"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Nenhuma / voltando após uma pausa",
+          "name": "Não treinei recentemente ou estou voltando após uma pausa",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Nenhuma / voltando após uma pausa"
+          "text": "Não treinei recentemente ou estou voltando após uma pausa"
         },
         {
           "tag": "button",
@@ -8026,7 +8026,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -8050,7 +8050,7 @@
         },
         {
           "tag": "p",
-          "text": "Pick the result your program should be built around."
+          "text": "Choose what this program should prioritize."
         },
         {
           "tag": "div",
@@ -8077,7 +8077,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Balance muscle and strengthGrow while keeping heavy compounds",
+          "name": "Balance muscle and strengthBuild muscle while keeping heavy compound exercises",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -8088,12 +8088,12 @@
         },
         {
           "tag": "span",
-          "text": "Grow while keeping heavy compounds"
+          "text": "Build muscle while keeping heavy compound exercises"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Prioritize strengthHeavier primary lifts with supporting volume",
+          "name": "Prioritize strengthHeavier primary exercises with supporting volume",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -8104,7 +8104,7 @@
         },
         {
           "tag": "span",
-          "text": "Heavier primary lifts with supporting volume"
+          "text": "Heavier primary exercises with supporting volume"
         },
         {
           "tag": "button",
@@ -8135,7 +8135,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -8159,7 +8159,7 @@
         },
         {
           "tag": "p",
-          "text": "Pick the result your program should be built around."
+          "text": "Choose what this program should prioritize."
         },
         {
           "tag": "div",
@@ -8186,7 +8186,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Balance muscle and strengthGrow while keeping heavy compounds",
+          "name": "Balance muscle and strengthBuild muscle while keeping heavy compound exercises",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -8197,12 +8197,12 @@
         },
         {
           "tag": "span",
-          "text": "Grow while keeping heavy compounds"
+          "text": "Build muscle while keeping heavy compound exercises"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Prioritize strengthHeavier primary lifts with supporting volume",
+          "name": "Prioritize strengthHeavier primary exercises with supporting volume",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -8213,7 +8213,7 @@
         },
         {
           "tag": "span",
-          "text": "Heavier primary lifts with supporting volume"
+          "text": "Heavier primary exercises with supporting volume"
         },
         {
           "tag": "button",
@@ -8244,7 +8244,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -8268,7 +8268,7 @@
         },
         {
           "tag": "p",
-          "text": "Pick the result your program should be built around."
+          "text": "Choose what this program should prioritize."
         },
         {
           "tag": "div",
@@ -8295,7 +8295,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Balance muscle and strengthGrow while keeping heavy compounds",
+          "name": "Balance muscle and strengthBuild muscle while keeping heavy compound exercises",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -8306,12 +8306,12 @@
         },
         {
           "tag": "span",
-          "text": "Grow while keeping heavy compounds"
+          "text": "Build muscle while keeping heavy compound exercises"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Prioritize strengthHeavier primary lifts with supporting volume",
+          "name": "Prioritize strengthHeavier primary exercises with supporting volume",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -8322,7 +8322,7 @@
         },
         {
           "tag": "span",
-          "text": "Heavier primary lifts with supporting volume"
+          "text": "Heavier primary exercises with supporting volume"
         },
         {
           "tag": "button",
@@ -8353,7 +8353,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -8377,7 +8377,7 @@
         },
         {
           "tag": "p",
-          "text": "Escolha o resultado em torno do qual o programa deve ser construído."
+          "text": "Escolha o que este programa deve priorizar."
         },
         {
           "tag": "div",
@@ -8404,7 +8404,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Equilibrar massa e forçaCrescer mantendo compostos pesados",
+          "name": "Equilibrar massa e forçaGanhe massa sem deixar de fazer exercícios compostos pesados",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -8415,12 +8415,12 @@
         },
         {
           "tag": "span",
-          "text": "Crescer mantendo compostos pesados"
+          "text": "Ganhe massa sem deixar de fazer exercícios compostos pesados"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Priorizar forçaLevantamentos principais mais pesados com volume de suporte",
+          "name": "Priorizar forçaExercícios principais mais pesados, com volume complementar",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -8431,7 +8431,7 @@
         },
         {
           "tag": "span",
-          "text": "Levantamentos principais mais pesados com volume de suporte"
+          "text": "Exercícios principais mais pesados, com volume complementar"
         },
         {
           "tag": "button",
@@ -8462,7 +8462,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -8486,7 +8486,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a shortcut, then correct anything material."
+          "text": "Pick the closest option, then change anything that is wrong."
         },
         {
           "tag": "div",
@@ -8583,7 +8583,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -8607,7 +8607,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a shortcut, then correct anything material."
+          "text": "Pick the closest option, then change anything that is wrong."
         },
         {
           "tag": "div",
@@ -8704,7 +8704,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -8728,7 +8728,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a shortcut, then correct anything material."
+          "text": "Pick the closest option, then change anything that is wrong."
         },
         {
           "tag": "div",
@@ -8825,7 +8825,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -8849,7 +8849,7 @@
         },
         {
           "tag": "p",
-          "text": "Comece com um atalho e corrija só o que for material."
+          "text": "Escolha a opção mais próxima e corrija o que estiver errado."
         },
         {
           "tag": "div",
@@ -8946,7 +8946,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -8974,7 +8974,7 @@
         },
         {
           "tag": "p",
-          "text": "Search once, then choose exercises to include or avoid. Avoiding an exercise asks why."
+          "text": "Search for exercises, then choose which to include or avoid. Give a reason when you avoid one."
         },
         {
           "tag": "span",
@@ -9280,7 +9280,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -9308,7 +9308,7 @@
         },
         {
           "tag": "p",
-          "text": "Search once, then choose exercises to include or avoid. Avoiding an exercise asks why."
+          "text": "Search for exercises, then choose which to include or avoid. Give a reason when you avoid one."
         },
         {
           "tag": "span",
@@ -9614,7 +9614,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -9642,7 +9642,7 @@
         },
         {
           "tag": "p",
-          "text": "Search once, then choose exercises to include or avoid. Avoiding an exercise asks why."
+          "text": "Search for exercises, then choose which to include or avoid. Give a reason when you avoid one."
         },
         {
           "tag": "span",
@@ -9948,7 +9948,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -9976,7 +9976,7 @@
         },
         {
           "tag": "p",
-          "text": "Pesquise uma vez e escolha exercícios para incluir ou evitar. Ao evitar um exercício, você informa o motivo."
+          "text": "Pesquise exercícios e escolha quais incluir ou evitar. Ao evitar um, informe o motivo."
         },
         {
           "tag": "span",
@@ -10282,7 +10282,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -10301,7 +10301,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "h3",
@@ -10357,15 +10357,15 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -10575,7 +10575,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -10594,7 +10594,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "h3",
@@ -10650,15 +10650,15 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -10868,7 +10868,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -10887,7 +10887,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "h3",
@@ -10943,15 +10943,15 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -11161,7 +11161,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -11180,7 +11180,7 @@
         },
         {
           "tag": "p",
-          "text": "Rascunho editável. O programa ativo permanece até você confirmar."
+          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
         },
         {
           "tag": "h3",
@@ -11236,7 +11236,7 @@
         },
         {
           "tag": "p",
-          "text": "As metas avançam a partir dos treinos concluídos, usando a progressão compatível de cada exercício no Taurifer."
+          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
         },
         {
           "tag": "h4",
@@ -11244,7 +11244,7 @@
         },
         {
           "tag": "p",
-          "text": "Não foi preciso abdicar de nada."
+          "text": "Nenhum ajuste foi necessário."
         },
         {
           "tag": "button",
@@ -11454,7 +11454,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -11482,7 +11482,7 @@
         },
         {
           "tag": "p",
-          "text": "Set each muscle to normal, prioritize, de-emphasize, or ignore."
+          "text": "For each muscle, choose normal, prioritize, reduce emphasis, or ignore."
         },
         {
           "tag": "p",
@@ -11490,7 +11490,7 @@
         },
         {
           "tag": "p",
-          "text": "Each muscle has one setting. Choose normal unless you want Taurifer to adjust its emphasis."
+          "text": "Choose one setting for each muscle. Leave it at normal unless you want Taurifer to change its emphasis."
         },
         {
           "tag": "div",
@@ -12261,7 +12261,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -12289,7 +12289,7 @@
         },
         {
           "tag": "p",
-          "text": "Set each muscle to normal, prioritize, de-emphasize, or ignore."
+          "text": "For each muscle, choose normal, prioritize, reduce emphasis, or ignore."
         },
         {
           "tag": "p",
@@ -12297,7 +12297,7 @@
         },
         {
           "tag": "p",
-          "text": "Each muscle has one setting. Choose normal unless you want Taurifer to adjust its emphasis."
+          "text": "Choose one setting for each muscle. Leave it at normal unless you want Taurifer to change its emphasis."
         },
         {
           "tag": "div",
@@ -13068,7 +13068,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -13096,7 +13096,7 @@
         },
         {
           "tag": "p",
-          "text": "Set each muscle to normal, prioritize, de-emphasize, or ignore."
+          "text": "For each muscle, choose normal, prioritize, reduce emphasis, or ignore."
         },
         {
           "tag": "p",
@@ -13104,7 +13104,7 @@
         },
         {
           "tag": "p",
-          "text": "Each muscle has one setting. Choose normal unless you want Taurifer to adjust its emphasis."
+          "text": "Choose one setting for each muscle. Leave it at normal unless you want Taurifer to change its emphasis."
         },
         {
           "tag": "div",
@@ -13875,7 +13875,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -13903,7 +13903,7 @@
         },
         {
           "tag": "p",
-          "text": "Defina cada músculo como normal, priorizar, reduzir ênfase ou ignorar."
+          "text": "Para cada músculo, escolha normal, priorizar, reduzir ênfase ou ignorar."
         },
         {
           "tag": "p",
@@ -13911,7 +13911,7 @@
         },
         {
           "tag": "p",
-          "text": "Cada músculo tem uma única configuração. Escolha normal, a menos que queira que o Taurifer ajuste sua ênfase."
+          "text": "Escolha uma configuração para cada músculo. Deixe normal, a menos que queira que o Taurifer mude sua ênfase."
         },
         {
           "tag": "div",
@@ -14682,7 +14682,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -14701,7 +14701,7 @@
         },
         {
           "tag": "p",
-          "text": "Same answers and rules always produce the same result."
+          "text": "The same answers and rules produce the same program every time."
         },
         {
           "tag": "h3",
@@ -14721,7 +14721,7 @@
         },
         {
           "tag": "span",
-          "text": "Built around Balance muscle and strength."
+          "text": "Prioritizes Balance muscle and strength."
         },
         {
           "tag": "span",
@@ -14737,7 +14737,7 @@
         },
         {
           "tag": "span",
-          "text": "Honors these exercise choices: Include: Barbell bench press · Avoid: Barbell curl."
+          "text": "Uses these exercise choices: Include: Barbell bench press · Avoid: Barbell curl."
         },
         {
           "tag": "span",
@@ -14783,7 +14783,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -14802,7 +14802,7 @@
         },
         {
           "tag": "p",
-          "text": "Same answers and rules always produce the same result."
+          "text": "The same answers and rules produce the same program every time."
         },
         {
           "tag": "h3",
@@ -14822,7 +14822,7 @@
         },
         {
           "tag": "span",
-          "text": "Built around Balance muscle and strength."
+          "text": "Prioritizes Balance muscle and strength."
         },
         {
           "tag": "span",
@@ -14838,7 +14838,7 @@
         },
         {
           "tag": "span",
-          "text": "Honors these exercise choices: Include: Barbell bench press · Avoid: Barbell curl."
+          "text": "Uses these exercise choices: Include: Barbell bench press · Avoid: Barbell curl."
         },
         {
           "tag": "span",
@@ -14884,7 +14884,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -14903,7 +14903,7 @@
         },
         {
           "tag": "p",
-          "text": "Same answers and rules always produce the same result."
+          "text": "The same answers and rules produce the same program every time."
         },
         {
           "tag": "h3",
@@ -14923,7 +14923,7 @@
         },
         {
           "tag": "span",
-          "text": "Built around Balance muscle and strength."
+          "text": "Prioritizes Balance muscle and strength."
         },
         {
           "tag": "span",
@@ -14939,7 +14939,7 @@
         },
         {
           "tag": "span",
-          "text": "Honors these exercise choices: Include: Barbell bench press · Avoid: Barbell curl."
+          "text": "Uses these exercise choices: Include: Barbell bench press · Avoid: Barbell curl."
         },
         {
           "tag": "span",
@@ -14985,7 +14985,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -15004,7 +15004,7 @@
         },
         {
           "tag": "p",
-          "text": "As mesmas respostas e regras sempre produzem o mesmo resultado."
+          "text": "As mesmas respostas e regras produzem o mesmo programa todas as vezes."
         },
         {
           "tag": "h3",
@@ -15024,7 +15024,7 @@
         },
         {
           "tag": "span",
-          "text": "Construído em torno de Equilibrar massa e força."
+          "text": "Prioriza Equilibrar massa e força."
         },
         {
           "tag": "span",
@@ -15040,7 +15040,7 @@
         },
         {
           "tag": "span",
-          "text": "Respeita estas escolhas de exercícios: Incluir: Supino com barra · Evitar: Rosca com barra."
+          "text": "Considera estas escolhas de exercícios: Incluir: Supino com barra · Evitar: Rosca com barra."
         },
         {
           "tag": "span",
@@ -15086,7 +15086,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -15105,12 +15105,12 @@
         },
         {
           "tag": "h2",
-          "text": "Fit the real week",
+          "text": "Fit training into your week",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Time is a ceiling, not a volume target."
+          "text": "Your time limit sets how much work fits in the session."
         },
         {
           "tag": "span",
@@ -15204,13 +15204,13 @@
         },
         {
           "tag": "span",
-          "text": "Maximum typical session"
+          "text": "Longest usual session"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Maximum typical session",
-          "labelledBy": "Maximum typical session"
+          "name": "Longest usual session",
+          "labelledBy": "Longest usual session"
         },
         {
           "tag": "button",
@@ -15391,7 +15391,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -15410,12 +15410,12 @@
         },
         {
           "tag": "h2",
-          "text": "Fit the real week",
+          "text": "Fit training into your week",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Time is a ceiling, not a volume target."
+          "text": "Your time limit sets how much work fits in the session."
         },
         {
           "tag": "span",
@@ -15509,13 +15509,13 @@
         },
         {
           "tag": "span",
-          "text": "Maximum typical session"
+          "text": "Longest usual session"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Maximum typical session",
-          "labelledBy": "Maximum typical session"
+          "name": "Longest usual session",
+          "labelledBy": "Longest usual session"
         },
         {
           "tag": "button",
@@ -15696,7 +15696,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -15715,12 +15715,12 @@
         },
         {
           "tag": "h2",
-          "text": "Fit the real week",
+          "text": "Fit training into your week",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Time is a ceiling, not a volume target."
+          "text": "Your time limit sets how much work fits in the session."
         },
         {
           "tag": "span",
@@ -15814,13 +15814,13 @@
         },
         {
           "tag": "span",
-          "text": "Maximum typical session"
+          "text": "Longest usual session"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Maximum typical session",
-          "labelledBy": "Maximum typical session"
+          "name": "Longest usual session",
+          "labelledBy": "Longest usual session"
         },
         {
           "tag": "button",
@@ -16001,7 +16001,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -16020,12 +16020,12 @@
         },
         {
           "tag": "h2",
-          "text": "Encaixar na semana real",
+          "text": "Encaixe o treino na sua semana",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "O tempo é um teto, não uma meta de volume."
+          "text": "Seu limite de tempo define quanto trabalho cabe na sessão."
         },
         {
           "tag": "span",
@@ -16119,13 +16119,13 @@
         },
         {
           "tag": "span",
-          "text": "Sessão típica máxima"
+          "text": "Duração máxima de uma sessão típica"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Sessão típica máxima",
-          "labelledBy": "Sessão típica máxima"
+          "name": "Duração máxima de uma sessão típica",
+          "labelledBy": "Duração máxima de uma sessão típica"
         },
         {
           "tag": "button",
@@ -16306,7 +16306,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -16325,7 +16325,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "h3",
@@ -16361,7 +16361,7 @@
         },
         {
           "tag": "p",
-          "text": "No equipment assumption was supplied."
+          "text": "This program did not specify equipment."
         },
         {
           "tag": "h4",
@@ -16369,15 +16369,15 @@
         },
         {
           "tag": "p",
-          "text": "The program or you set each exercise's target. Taurifer does not invent load or rep suggestions."
+          "text": "The program sets each exercise's target, or you set it yourself. Taurifer does not invent load or rep suggestions."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -16440,7 +16440,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -16459,7 +16459,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "h3",
@@ -16495,7 +16495,7 @@
         },
         {
           "tag": "p",
-          "text": "No equipment assumption was supplied."
+          "text": "This program did not specify equipment."
         },
         {
           "tag": "h4",
@@ -16503,15 +16503,15 @@
         },
         {
           "tag": "p",
-          "text": "The program or you set each exercise's target. Taurifer does not invent load or rep suggestions."
+          "text": "The program sets each exercise's target, or you set it yourself. Taurifer does not invent load or rep suggestions."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -16574,7 +16574,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -16593,7 +16593,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "h3",
@@ -16629,7 +16629,7 @@
         },
         {
           "tag": "p",
-          "text": "No equipment assumption was supplied."
+          "text": "This program did not specify equipment."
         },
         {
           "tag": "h4",
@@ -16637,15 +16637,15 @@
         },
         {
           "tag": "p",
-          "text": "The program or you set each exercise's target. Taurifer does not invent load or rep suggestions."
+          "text": "The program sets each exercise's target, or you set it yourself. Taurifer does not invent load or rep suggestions."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -16708,7 +16708,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -16727,7 +16727,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "h3",
@@ -16763,7 +16763,7 @@
         },
         {
           "tag": "p",
-          "text": "No equipment assumption was supplied."
+          "text": "This program did not specify equipment."
         },
         {
           "tag": "h4",
@@ -16771,15 +16771,15 @@
         },
         {
           "tag": "p",
-          "text": "The program or you set each exercise's target. Taurifer does not invent load or rep suggestions."
+          "text": "The program sets each exercise's target, or you set it yourself. Taurifer does not invent load or rep suggestions."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -16842,7 +16842,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -16861,7 +16861,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "h3",
@@ -16897,7 +16897,7 @@
         },
         {
           "tag": "p",
-          "text": "No equipment assumption was supplied."
+          "text": "This program did not specify equipment."
         },
         {
           "tag": "h4",
@@ -16905,15 +16905,15 @@
         },
         {
           "tag": "p",
-          "text": "The program or you set each exercise's target. Taurifer does not invent load or rep suggestions."
+          "text": "The program sets each exercise's target, or you set it yourself. Taurifer does not invent load or rep suggestions."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -16976,7 +16976,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -16995,7 +16995,7 @@
         },
         {
           "tag": "p",
-          "text": "Rascunho editável. O programa ativo permanece até você confirmar."
+          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
         },
         {
           "tag": "h3",
@@ -17031,7 +17031,7 @@
         },
         {
           "tag": "p",
-          "text": "Nenhuma premissa de equipamento foi informada."
+          "text": "Este programa não especificou equipamentos."
         },
         {
           "tag": "h4",
@@ -17039,7 +17039,7 @@
         },
         {
           "tag": "p",
-          "text": "O programa ou você define a meta de cada exercício. O Taurifer não inventa carga nem repetições."
+          "text": "O programa define a meta de cada exercício, ou você a define. O Taurifer não inventa carga nem repetições."
         },
         {
           "tag": "h4",
@@ -17047,7 +17047,7 @@
         },
         {
           "tag": "p",
-          "text": "Não foi preciso abdicar de nada."
+          "text": "Nenhum ajuste foi necessário."
         },
         {
           "tag": "button",
@@ -17110,7 +17110,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -17129,7 +17129,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "h3",
@@ -17165,7 +17165,7 @@
         },
         {
           "tag": "p",
-          "text": "No equipment assumption was supplied."
+          "text": "This program did not specify equipment."
         },
         {
           "tag": "h4",
@@ -17173,15 +17173,15 @@
         },
         {
           "tag": "p",
-          "text": "The program or you set each exercise's target. Taurifer does not invent load or rep suggestions."
+          "text": "The program sets each exercise's target, or you set it yourself. Taurifer does not invent load or rep suggestions."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -17244,7 +17244,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -17259,7 +17259,7 @@
         },
         {
           "tag": "p",
-          "text": "Choose a Taurifer program file. You review every exercise before anything is activated."
+          "text": "Choose a Taurifer program file. Review every exercise before you activate the program."
         },
         {
           "tag": "button",
@@ -17289,7 +17289,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -17304,7 +17304,7 @@
         },
         {
           "tag": "p",
-          "text": "Choose a Taurifer program file. You review every exercise before anything is activated."
+          "text": "Choose a Taurifer program file. Review every exercise before you activate the program."
         },
         {
           "tag": "button",
@@ -17334,7 +17334,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -17349,7 +17349,7 @@
         },
         {
           "tag": "p",
-          "text": "Escolha um ficheiro de programa Taurifer. Você revê cada exercício antes de qualquer ativação."
+          "text": "Escolha um arquivo de programa Taurifer. Revise cada exercício antes de ativar o programa."
         },
         {
           "tag": "button",
@@ -17379,7 +17379,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -17417,7 +17417,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "h3",
@@ -17465,15 +17465,15 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -17690,7 +17690,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -17728,7 +17728,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "h3",
@@ -17776,15 +17776,15 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -18001,7 +18001,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -18039,7 +18039,7 @@
         },
         {
           "tag": "p",
-          "text": "Rascunho editável. O programa ativo permanece até você confirmar."
+          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
         },
         {
           "tag": "h3",
@@ -18087,7 +18087,7 @@
         },
         {
           "tag": "p",
-          "text": "As metas avançam a partir dos treinos concluídos, usando a progressão compatível de cada exercício no Taurifer."
+          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
         },
         {
           "tag": "h4",
@@ -18095,7 +18095,7 @@
         },
         {
           "tag": "p",
-          "text": "Não foi preciso abdicar de nada."
+          "text": "Nenhum ajuste foi necessário."
         },
         {
           "tag": "button",
@@ -18312,7 +18312,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -18637,11 +18637,11 @@
         {
           "tag": "p",
           "role": "note",
-          "name": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
+          "name": "Taurifer treats pain or discomfort as a safety constraint, not a preference. Choose a compatible substitute and stop any movement that hurts."
         },
         {
           "tag": "span",
-          "text": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
+          "text": "Taurifer treats pain or discomfort as a safety constraint, not a preference. Choose a compatible substitute and stop any movement that hurts."
         },
         {
           "tag": "button",
@@ -18671,7 +18671,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -18996,11 +18996,11 @@
         {
           "tag": "p",
           "role": "note",
-          "name": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
+          "name": "Taurifer treats pain or discomfort as a safety constraint, not a preference. Choose a compatible substitute and stop any movement that hurts."
         },
         {
           "tag": "span",
-          "text": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
+          "text": "Taurifer treats pain or discomfort as a safety constraint, not a preference. Choose a compatible substitute and stop any movement that hurts."
         },
         {
           "tag": "button",
@@ -19030,7 +19030,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -19355,11 +19355,11 @@
         {
           "tag": "p",
           "role": "note",
-          "name": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
+          "name": "Taurifer treats pain or discomfort as a safety constraint, not a preference. Choose a compatible substitute and stop any movement that hurts."
         },
         {
           "tag": "span",
-          "text": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
+          "text": "Taurifer treats pain or discomfort as a safety constraint, not a preference. Choose a compatible substitute and stop any movement that hurts."
         },
         {
           "tag": "button",
@@ -19389,7 +19389,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -19714,11 +19714,11 @@
         {
           "tag": "p",
           "role": "note",
-          "name": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
+          "name": "Taurifer treats pain or discomfort as a safety constraint, not a preference. Choose a compatible substitute and stop any movement that hurts."
         },
         {
           "tag": "span",
-          "text": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
+          "text": "Taurifer treats pain or discomfort as a safety constraint, not a preference. Choose a compatible substitute and stop any movement that hurts."
         },
         {
           "tag": "button",
@@ -19748,7 +19748,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -20073,11 +20073,11 @@
         {
           "tag": "p",
           "role": "note",
-          "name": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
+          "name": "Taurifer treats pain or discomfort as a safety constraint, not a preference. Choose a compatible substitute and stop any movement that hurts."
         },
         {
           "tag": "span",
-          "text": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
+          "text": "Taurifer treats pain or discomfort as a safety constraint, not a preference. Choose a compatible substitute and stop any movement that hurts."
         },
         {
           "tag": "button",
@@ -20107,7 +20107,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -20432,11 +20432,11 @@
         {
           "tag": "p",
           "role": "note",
-          "name": "Dor ou desconforto é tratado como restrição de segurança, não como preferência. Prefira uma substituição compatível e pare qualquer movimento que doa."
+          "name": "O Taurifer trata dor ou desconforto como restrição de segurança, não como preferência. Escolha uma substituição compatível e pare qualquer movimento que cause dor."
         },
         {
           "tag": "span",
-          "text": "Dor ou desconforto é tratado como restrição de segurança, não como preferência. Prefira uma substituição compatível e pare qualquer movimento que doa."
+          "text": "O Taurifer trata dor ou desconforto como restrição de segurança, não como preferência. Escolha uma substituição compatível e pare qualquer movimento que cause dor."
         },
         {
           "tag": "button",
@@ -20466,7 +20466,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -20791,11 +20791,11 @@
         {
           "tag": "p",
           "role": "note",
-          "name": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
+          "name": "Taurifer treats pain or discomfort as a safety constraint, not a preference. Choose a compatible substitute and stop any movement that hurts."
         },
         {
           "tag": "span",
-          "text": "Pain or discomfort is treated as a safety constraint, not preference. Prefer a compatible substitution and stop any movement that hurts."
+          "text": "Taurifer treats pain or discomfort as a safety constraint, not a preference. Choose a compatible substitute and stop any movement that hurts."
         },
         {
           "tag": "button",
@@ -20825,7 +20825,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -20844,22 +20844,22 @@
         },
         {
           "tag": "h2",
-          "text": "Your training background now",
+          "text": "Your recent training background",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "These answers describe recent reality, not a self-rated level."
+          "text": "Answer based on your recent training, not on a self-rating."
         },
         {
           "tag": "span",
-          "text": "Time following structured resistance programs"
+          "text": "How long you've followed structured resistance programs"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Time following structured resistance programs",
-          "labelledBy": "Time following structured resistance programs"
+          "name": "How long you've followed structured resistance programs",
+          "labelledBy": "How long you've followed structured resistance programs"
         },
         {
           "tag": "button",
@@ -20911,61 +20911,61 @@
         },
         {
           "tag": "span",
-          "text": "Recent consistency over about six weeks"
+          "text": "How consistently you trained in the past six weeks"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Recent consistency over about six weeks",
-          "labelledBy": "Recent consistency over about six weeks"
+          "name": "How consistently you trained in the past six weeks",
+          "labelledBy": "How consistently you trained in the past six weeks"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Completed most planned training",
+          "name": "Completed most planned sessions",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Completed most planned training"
+          "text": "Completed most planned sessions"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "About half of planned training",
+          "name": "Completed about half of planned sessions",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "About half of planned training"
+          "text": "Completed about half of planned sessions"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Only a few sessions",
+          "name": "Completed only a few sessions",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Only a few sessions"
+          "text": "Completed only a few sessions"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "None / returning after a break",
+          "name": "No recent training or returning after a break",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "None / returning after a break"
+          "text": "No recent training or returning after a break"
         },
         {
           "tag": "button",
@@ -20996,7 +20996,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -21015,22 +21015,22 @@
         },
         {
           "tag": "h2",
-          "text": "Your training background now",
+          "text": "Your recent training background",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "These answers describe recent reality, not a self-rated level."
+          "text": "Answer based on your recent training, not on a self-rating."
         },
         {
           "tag": "span",
-          "text": "Time following structured resistance programs"
+          "text": "How long you've followed structured resistance programs"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Time following structured resistance programs",
-          "labelledBy": "Time following structured resistance programs"
+          "name": "How long you've followed structured resistance programs",
+          "labelledBy": "How long you've followed structured resistance programs"
         },
         {
           "tag": "button",
@@ -21082,61 +21082,61 @@
         },
         {
           "tag": "span",
-          "text": "Recent consistency over about six weeks"
+          "text": "How consistently you trained in the past six weeks"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Recent consistency over about six weeks",
-          "labelledBy": "Recent consistency over about six weeks"
+          "name": "How consistently you trained in the past six weeks",
+          "labelledBy": "How consistently you trained in the past six weeks"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Completed most planned training",
+          "name": "Completed most planned sessions",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Completed most planned training"
+          "text": "Completed most planned sessions"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "About half of planned training",
+          "name": "Completed about half of planned sessions",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "About half of planned training"
+          "text": "Completed about half of planned sessions"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Only a few sessions",
+          "name": "Completed only a few sessions",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Only a few sessions"
+          "text": "Completed only a few sessions"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "None / returning after a break",
+          "name": "No recent training or returning after a break",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "None / returning after a break"
+          "text": "No recent training or returning after a break"
         },
         {
           "tag": "button",
@@ -21167,7 +21167,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -21186,22 +21186,22 @@
         },
         {
           "tag": "h2",
-          "text": "Seu contexto de treino agora",
+          "text": "Seu contexto recente de treino",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Essas respostas descrevem a realidade recente, não um nível autoavaliado."
+          "text": "Responda com base no seu treino recente, não em uma autoavaliação."
         },
         {
           "tag": "span",
-          "text": "Tempo seguindo programas estruturados de resistência"
+          "text": "Há quanto tempo você segue programas estruturados de resistência"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Tempo seguindo programas estruturados de resistência",
-          "labelledBy": "Tempo seguindo programas estruturados de resistência"
+          "name": "Há quanto tempo você segue programas estruturados de resistência",
+          "labelledBy": "Há quanto tempo você segue programas estruturados de resistência"
         },
         {
           "tag": "button",
@@ -21253,61 +21253,61 @@
         },
         {
           "tag": "span",
-          "text": "Consistência recente em cerca de seis semanas"
+          "text": "Com que consistência você treinou nas últimas seis semanas"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Consistência recente em cerca de seis semanas",
-          "labelledBy": "Consistência recente em cerca de seis semanas"
+          "name": "Com que consistência você treinou nas últimas seis semanas",
+          "labelledBy": "Com que consistência você treinou nas últimas seis semanas"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Completei a maior parte dos treinos planejados",
+          "name": "Completei a maioria das sessões planejadas",
           "aria-checked": "false",
           "tabindex": "0",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Completei a maior parte dos treinos planejados"
+          "text": "Completei a maioria das sessões planejadas"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Cerca de metade dos treinos planejados",
+          "name": "Completei cerca de metade das sessões planejadas",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Cerca de metade dos treinos planejados"
+          "text": "Completei cerca de metade das sessões planejadas"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Só algumas sessões",
+          "name": "Completei apenas algumas sessões",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Só algumas sessões"
+          "text": "Completei apenas algumas sessões"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Nenhuma / voltando após uma pausa",
+          "name": "Não treinei recentemente ou estou voltando após uma pausa",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Nenhuma / voltando após uma pausa"
+          "text": "Não treinei recentemente ou estou voltando após uma pausa"
         },
         {
           "tag": "button",
@@ -21338,7 +21338,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -21362,7 +21362,7 @@
         },
         {
           "tag": "p",
-          "text": "Pick the result your program should be built around."
+          "text": "Choose what this program should prioritize."
         },
         {
           "tag": "div",
@@ -21389,7 +21389,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Balance muscle and strengthGrow while keeping heavy compounds",
+          "name": "Balance muscle and strengthBuild muscle while keeping heavy compound exercises",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -21400,12 +21400,12 @@
         },
         {
           "tag": "span",
-          "text": "Grow while keeping heavy compounds"
+          "text": "Build muscle while keeping heavy compound exercises"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Prioritize strengthHeavier primary lifts with supporting volume",
+          "name": "Prioritize strengthHeavier primary exercises with supporting volume",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -21416,7 +21416,7 @@
         },
         {
           "tag": "span",
-          "text": "Heavier primary lifts with supporting volume"
+          "text": "Heavier primary exercises with supporting volume"
         },
         {
           "tag": "button",
@@ -21447,7 +21447,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -21471,7 +21471,7 @@
         },
         {
           "tag": "p",
-          "text": "Pick the result your program should be built around."
+          "text": "Choose what this program should prioritize."
         },
         {
           "tag": "div",
@@ -21498,7 +21498,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Balance muscle and strengthGrow while keeping heavy compounds",
+          "name": "Balance muscle and strengthBuild muscle while keeping heavy compound exercises",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -21509,12 +21509,12 @@
         },
         {
           "tag": "span",
-          "text": "Grow while keeping heavy compounds"
+          "text": "Build muscle while keeping heavy compound exercises"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Prioritize strengthHeavier primary lifts with supporting volume",
+          "name": "Prioritize strengthHeavier primary exercises with supporting volume",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -21525,7 +21525,7 @@
         },
         {
           "tag": "span",
-          "text": "Heavier primary lifts with supporting volume"
+          "text": "Heavier primary exercises with supporting volume"
         },
         {
           "tag": "button",
@@ -21556,7 +21556,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -21580,7 +21580,7 @@
         },
         {
           "tag": "p",
-          "text": "Escolha o resultado em torno do qual o programa deve ser construído."
+          "text": "Escolha o que este programa deve priorizar."
         },
         {
           "tag": "div",
@@ -21607,7 +21607,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Equilibrar massa e forçaCrescer mantendo compostos pesados",
+          "name": "Equilibrar massa e forçaGanhe massa sem deixar de fazer exercícios compostos pesados",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -21618,12 +21618,12 @@
         },
         {
           "tag": "span",
-          "text": "Crescer mantendo compostos pesados"
+          "text": "Ganhe massa sem deixar de fazer exercícios compostos pesados"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Priorizar forçaLevantamentos principais mais pesados com volume de suporte",
+          "name": "Priorizar forçaExercícios principais mais pesados, com volume complementar",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -21634,7 +21634,7 @@
         },
         {
           "tag": "span",
-          "text": "Levantamentos principais mais pesados com volume de suporte"
+          "text": "Exercícios principais mais pesados, com volume complementar"
         },
         {
           "tag": "button",
@@ -21665,7 +21665,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -21689,7 +21689,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a shortcut, then correct anything material."
+          "text": "Pick the closest option, then change anything that is wrong."
         },
         {
           "tag": "div",
@@ -21786,7 +21786,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -21810,7 +21810,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a shortcut, then correct anything material."
+          "text": "Pick the closest option, then change anything that is wrong."
         },
         {
           "tag": "div",
@@ -21907,7 +21907,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -21931,7 +21931,7 @@
         },
         {
           "tag": "p",
-          "text": "Comece com um atalho e corrija só o que for material."
+          "text": "Escolha a opção mais próxima e corrija o que estiver errado."
         },
         {
           "tag": "div",
@@ -22028,7 +22028,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -22052,7 +22052,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a shortcut, then correct anything material."
+          "text": "Pick the closest option, then change anything that is wrong."
         },
         {
           "tag": "div",
@@ -22279,7 +22279,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -22303,7 +22303,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a shortcut, then correct anything material."
+          "text": "Pick the closest option, then change anything that is wrong."
         },
         {
           "tag": "div",
@@ -22530,7 +22530,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -22554,7 +22554,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a shortcut, then correct anything material."
+          "text": "Pick the closest option, then change anything that is wrong."
         },
         {
           "tag": "div",
@@ -22781,7 +22781,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -22805,7 +22805,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a shortcut, then correct anything material."
+          "text": "Pick the closest option, then change anything that is wrong."
         },
         {
           "tag": "div",
@@ -23032,7 +23032,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -23056,7 +23056,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a shortcut, then correct anything material."
+          "text": "Pick the closest option, then change anything that is wrong."
         },
         {
           "tag": "div",
@@ -23283,7 +23283,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -23307,7 +23307,7 @@
         },
         {
           "tag": "p",
-          "text": "Comece com um atalho e corrija só o que for material."
+          "text": "Escolha a opção mais próxima e corrija o que estiver errado."
         },
         {
           "tag": "div",
@@ -23377,11 +23377,11 @@
         },
         {
           "tag": "summary",
-          "name": "Alterar o que este espaço inclui"
+          "name": "Alterar os equipamentos e as capacidades desta configuração"
         },
         {
           "tag": "span",
-          "text": "Alterar o que este espaço inclui"
+          "text": "Alterar os equipamentos e as capacidades desta configuração"
         },
         {
           "tag": "p",
@@ -23504,7 +23504,7 @@
         },
         {
           "tag": "p",
-          "text": "A lista mostra somente recursos de treino compatíveis. O uso de resistência externa é identificado pelos equipamentos além do peso corporal."
+          "text": "A lista mostra apenas capacidades de treino compatíveis. O Taurifer considera equipamentos além do peso corporal como resistência externa."
         },
         {
           "tag": "button",
@@ -23534,7 +23534,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -23558,7 +23558,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a shortcut, then correct anything material."
+          "text": "Pick the closest option, then change anything that is wrong."
         },
         {
           "tag": "div",
@@ -23785,7 +23785,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -23804,7 +23804,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "p",
@@ -23858,15 +23858,15 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -24083,7 +24083,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -24102,7 +24102,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "p",
@@ -24156,15 +24156,15 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -24381,7 +24381,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -24400,7 +24400,7 @@
         },
         {
           "tag": "p",
-          "text": "Rascunho editável. O programa ativo permanece até você confirmar."
+          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
         },
         {
           "tag": "p",
@@ -24454,7 +24454,7 @@
         },
         {
           "tag": "p",
-          "text": "As metas avançam a partir dos treinos concluídos, usando a progressão compatível de cada exercício no Taurifer."
+          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
         },
         {
           "tag": "h4",
@@ -24462,7 +24462,7 @@
         },
         {
           "tag": "p",
-          "text": "Não foi preciso abdicar de nada."
+          "text": "Nenhum ajuste foi necessário."
         },
         {
           "tag": "button",
@@ -24679,7 +24679,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -24698,7 +24698,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "h3",
@@ -24746,15 +24746,15 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -24971,7 +24971,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -24990,7 +24990,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "h3",
@@ -25038,15 +25038,15 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -25263,7 +25263,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -25282,7 +25282,7 @@
         },
         {
           "tag": "p",
-          "text": "Rascunho editável. O programa ativo permanece até você confirmar."
+          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
         },
         {
           "tag": "h3",
@@ -25330,7 +25330,7 @@
         },
         {
           "tag": "p",
-          "text": "As metas avançam a partir dos treinos concluídos, usando a progressão compatível de cada exercício no Taurifer."
+          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
         },
         {
           "tag": "h4",
@@ -25338,7 +25338,7 @@
         },
         {
           "tag": "p",
-          "text": "Não foi preciso abdicar de nada."
+          "text": "Nenhum ajuste foi necessário."
         },
         {
           "tag": "button",
@@ -25555,7 +25555,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -25838,7 +25838,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -26121,7 +26121,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -26404,7 +26404,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -26423,7 +26423,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "p",
@@ -26477,15 +26477,15 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -26702,7 +26702,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -26721,7 +26721,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "p",
@@ -26775,15 +26775,15 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -27000,7 +27000,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -27019,7 +27019,7 @@
         },
         {
           "tag": "p",
-          "text": "Rascunho editável. O programa ativo permanece até você confirmar."
+          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
         },
         {
           "tag": "p",
@@ -27073,7 +27073,7 @@
         },
         {
           "tag": "p",
-          "text": "As metas avançam a partir dos treinos concluídos, usando a progressão compatível de cada exercício no Taurifer."
+          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
         },
         {
           "tag": "h4",
@@ -27081,7 +27081,7 @@
         },
         {
           "tag": "p",
-          "text": "Não foi preciso abdicar de nada."
+          "text": "Nenhum ajuste foi necessário."
         },
         {
           "tag": "button",
@@ -27298,7 +27298,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -27317,7 +27317,7 @@
         },
         {
           "tag": "p",
-          "text": "Same answers and rules always produce the same result."
+          "text": "The same answers and rules produce the same program every time."
         },
         {
           "tag": "h3",
@@ -27337,7 +27337,7 @@
         },
         {
           "tag": "span",
-          "text": "Built around Balance muscle and strength."
+          "text": "Prioritizes Balance muscle and strength."
         },
         {
           "tag": "span",
@@ -27383,7 +27383,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -27402,7 +27402,7 @@
         },
         {
           "tag": "p",
-          "text": "Same answers and rules always produce the same result."
+          "text": "The same answers and rules produce the same program every time."
         },
         {
           "tag": "h3",
@@ -27422,7 +27422,7 @@
         },
         {
           "tag": "span",
-          "text": "Built around Balance muscle and strength."
+          "text": "Prioritizes Balance muscle and strength."
         },
         {
           "tag": "span",
@@ -27468,7 +27468,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -27487,7 +27487,7 @@
         },
         {
           "tag": "p",
-          "text": "Same answers and rules always produce the same result."
+          "text": "The same answers and rules produce the same program every time."
         },
         {
           "tag": "h3",
@@ -27507,7 +27507,7 @@
         },
         {
           "tag": "span",
-          "text": "Built around Balance muscle and strength."
+          "text": "Prioritizes Balance muscle and strength."
         },
         {
           "tag": "span",
@@ -27553,7 +27553,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -27572,7 +27572,7 @@
         },
         {
           "tag": "p",
-          "text": "Same answers and rules always produce the same result."
+          "text": "The same answers and rules produce the same program every time."
         },
         {
           "tag": "h3",
@@ -27592,7 +27592,7 @@
         },
         {
           "tag": "span",
-          "text": "Built around Balance muscle and strength."
+          "text": "Prioritizes Balance muscle and strength."
         },
         {
           "tag": "span",
@@ -27638,7 +27638,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -27657,7 +27657,7 @@
         },
         {
           "tag": "p",
-          "text": "Same answers and rules always produce the same result."
+          "text": "The same answers and rules produce the same program every time."
         },
         {
           "tag": "h3",
@@ -27677,7 +27677,7 @@
         },
         {
           "tag": "span",
-          "text": "Built around Balance muscle and strength."
+          "text": "Prioritizes Balance muscle and strength."
         },
         {
           "tag": "span",
@@ -27723,7 +27723,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -27742,7 +27742,7 @@
         },
         {
           "tag": "p",
-          "text": "As mesmas respostas e regras sempre produzem o mesmo resultado."
+          "text": "As mesmas respostas e regras produzem o mesmo programa todas as vezes."
         },
         {
           "tag": "h3",
@@ -27762,7 +27762,7 @@
         },
         {
           "tag": "span",
-          "text": "Construído em torno de Equilibrar massa e força."
+          "text": "Prioriza Equilibrar massa e força."
         },
         {
           "tag": "span",
@@ -27808,7 +27808,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -27827,7 +27827,7 @@
         },
         {
           "tag": "p",
-          "text": "Same answers and rules always produce the same result."
+          "text": "The same answers and rules produce the same program every time."
         },
         {
           "tag": "h3",
@@ -27847,7 +27847,7 @@
         },
         {
           "tag": "span",
-          "text": "Built around Balance muscle and strength."
+          "text": "Prioritizes Balance muscle and strength."
         },
         {
           "tag": "span",
@@ -27893,7 +27893,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -27912,12 +27912,12 @@
         },
         {
           "tag": "h2",
-          "text": "Fit the real week",
+          "text": "Fit training into your week",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Time is a ceiling, not a volume target."
+          "text": "Your time limit sets how much work fits in the session."
         },
         {
           "tag": "span",
@@ -28011,13 +28011,13 @@
         },
         {
           "tag": "span",
-          "text": "Maximum typical session"
+          "text": "Longest usual session"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Maximum typical session",
-          "labelledBy": "Maximum typical session"
+          "name": "Longest usual session",
+          "labelledBy": "Longest usual session"
         },
         {
           "tag": "button",
@@ -28198,7 +28198,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -28217,12 +28217,12 @@
         },
         {
           "tag": "h2",
-          "text": "Fit the real week",
+          "text": "Fit training into your week",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Time is a ceiling, not a volume target."
+          "text": "Your time limit sets how much work fits in the session."
         },
         {
           "tag": "span",
@@ -28316,13 +28316,13 @@
         },
         {
           "tag": "span",
-          "text": "Maximum typical session"
+          "text": "Longest usual session"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Maximum typical session",
-          "labelledBy": "Maximum typical session"
+          "name": "Longest usual session",
+          "labelledBy": "Longest usual session"
         },
         {
           "tag": "button",
@@ -28503,7 +28503,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -28522,12 +28522,12 @@
         },
         {
           "tag": "h2",
-          "text": "Encaixar na semana real",
+          "text": "Encaixe o treino na sua semana",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "O tempo é um teto, não uma meta de volume."
+          "text": "Seu limite de tempo define quanto trabalho cabe na sessão."
         },
         {
           "tag": "span",
@@ -28621,13 +28621,13 @@
         },
         {
           "tag": "span",
-          "text": "Sessão típica máxima"
+          "text": "Duração máxima de uma sessão típica"
         },
         {
           "tag": "div",
           "role": "radiogroup",
-          "name": "Sessão típica máxima",
-          "labelledBy": "Sessão típica máxima"
+          "name": "Duração máxima de uma sessão típica",
+          "labelledBy": "Duração máxima de uma sessão típica"
         },
         {
           "tag": "button",
@@ -28808,7 +28808,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -28865,7 +28865,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -28922,7 +28922,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -28979,7 +28979,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -29022,7 +29022,7 @@
         },
         {
           "tag": "p",
-          "text": "Pick the result your program should be built around."
+          "text": "Choose what this program should prioritize."
         },
         {
           "tag": "div",
@@ -29049,7 +29049,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Balance muscle and strengthGrow while keeping heavy compounds",
+          "name": "Balance muscle and strengthBuild muscle while keeping heavy compound exercises",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -29060,12 +29060,12 @@
         },
         {
           "tag": "span",
-          "text": "Grow while keeping heavy compounds"
+          "text": "Build muscle while keeping heavy compound exercises"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Prioritize strengthHeavier primary lifts with supporting volume",
+          "name": "Prioritize strengthHeavier primary exercises with supporting volume",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -29076,7 +29076,7 @@
         },
         {
           "tag": "span",
-          "text": "Heavier primary lifts with supporting volume"
+          "text": "Heavier primary exercises with supporting volume"
         },
         {
           "tag": "button",
@@ -29106,7 +29106,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -29149,7 +29149,7 @@
         },
         {
           "tag": "p",
-          "text": "Pick the result your program should be built around."
+          "text": "Choose what this program should prioritize."
         },
         {
           "tag": "div",
@@ -29176,7 +29176,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Balance muscle and strengthGrow while keeping heavy compounds",
+          "name": "Balance muscle and strengthBuild muscle while keeping heavy compound exercises",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -29187,12 +29187,12 @@
         },
         {
           "tag": "span",
-          "text": "Grow while keeping heavy compounds"
+          "text": "Build muscle while keeping heavy compound exercises"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Prioritize strengthHeavier primary lifts with supporting volume",
+          "name": "Prioritize strengthHeavier primary exercises with supporting volume",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -29203,7 +29203,7 @@
         },
         {
           "tag": "span",
-          "text": "Heavier primary lifts with supporting volume"
+          "text": "Heavier primary exercises with supporting volume"
         },
         {
           "tag": "button",
@@ -29233,7 +29233,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -29276,7 +29276,7 @@
         },
         {
           "tag": "p",
-          "text": "Escolha o resultado em torno do qual o programa deve ser construído."
+          "text": "Escolha o que este programa deve priorizar."
         },
         {
           "tag": "div",
@@ -29303,7 +29303,7 @@
         {
           "tag": "button",
           "role": "radio",
-          "name": "Equilibrar massa e forçaCrescer mantendo compostos pesados",
+          "name": "Equilibrar massa e forçaGanhe massa sem deixar de fazer exercícios compostos pesados",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -29314,12 +29314,12 @@
         },
         {
           "tag": "span",
-          "text": "Crescer mantendo compostos pesados"
+          "text": "Ganhe massa sem deixar de fazer exercícios compostos pesados"
         },
         {
           "tag": "button",
           "role": "radio",
-          "name": "Priorizar forçaLevantamentos principais mais pesados com volume de suporte",
+          "name": "Priorizar forçaExercícios principais mais pesados, com volume complementar",
           "aria-checked": "false",
           "tabindex": "-1",
           "type": "button"
@@ -29330,7 +29330,7 @@
         },
         {
           "tag": "span",
-          "text": "Levantamentos principais mais pesados com volume de suporte"
+          "text": "Exercícios principais mais pesados, com volume complementar"
         },
         {
           "tag": "button",
@@ -29531,7 +29531,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -29550,7 +29550,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "h3",
@@ -29598,15 +29598,15 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -29669,7 +29669,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -29688,7 +29688,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "h3",
@@ -29736,15 +29736,15 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -29807,7 +29807,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -29826,7 +29826,7 @@
         },
         {
           "tag": "p",
-          "text": "Editable draft. The active program stays until you confirm."
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
         },
         {
           "tag": "h3",
@@ -29874,15 +29874,15 @@
         },
         {
           "tag": "p",
-          "text": "Targets progress from completed training through each exercise's supported Taurifer progression."
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
         },
         {
           "tag": "h4",
-          "text": "Compromises"
+          "text": "Adjustments"
         },
         {
           "tag": "p",
-          "text": "Nothing had to be traded off."
+          "text": "No adjustments were needed."
         },
         {
           "tag": "button",
@@ -29964,7 +29964,7 @@
         },
         {
           "tag": "p",
-          "text": "Choose how you want to begin."
+          "text": "Choose where to start."
         },
         {
           "tag": "section",
@@ -29976,7 +29976,7 @@
         },
         {
           "tag": "button",
-          "name": "Create a program Answer a few questions or bring your own program",
+          "name": "Create a program Answer a few questions or build your own program",
           "type": "button"
         },
         {
@@ -29985,7 +29985,7 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions or bring your own program"
+          "text": "Answer a few questions or build your own program"
         },
         {
           "tag": "button",
@@ -30034,7 +30034,7 @@
         },
         {
           "tag": "p",
-          "text": "Choose how you want to begin."
+          "text": "Choose where to start."
         },
         {
           "tag": "section",
@@ -30046,7 +30046,7 @@
         },
         {
           "tag": "button",
-          "name": "Create a program Answer a few questions or bring your own program",
+          "name": "Create a program Answer a few questions or build your own program",
           "type": "button"
         },
         {
@@ -30055,7 +30055,7 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions or bring your own program"
+          "text": "Answer a few questions or build your own program"
         },
         {
           "tag": "button",
@@ -30104,7 +30104,7 @@
         },
         {
           "tag": "p",
-          "text": "Choose how you want to begin."
+          "text": "Choose where to start."
         },
         {
           "tag": "section",
@@ -30116,7 +30116,7 @@
         },
         {
           "tag": "button",
-          "name": "Create a program Answer a few questions or bring your own program",
+          "name": "Create a program Answer a few questions or build your own program",
           "type": "button"
         },
         {
@@ -30125,7 +30125,7 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions or bring your own program"
+          "text": "Answer a few questions or build your own program"
         },
         {
           "tag": "button",
@@ -30174,7 +30174,7 @@
         },
         {
           "tag": "p",
-          "text": "Choose how you want to begin."
+          "text": "Choose where to start."
         },
         {
           "tag": "section",
@@ -30186,7 +30186,7 @@
         },
         {
           "tag": "button",
-          "name": "Create a program Answer a few questions or bring your own program",
+          "name": "Create a program Answer a few questions or build your own program",
           "type": "button"
         },
         {
@@ -30195,7 +30195,7 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions or bring your own program"
+          "text": "Answer a few questions or build your own program"
         },
         {
           "tag": "button",
@@ -30244,7 +30244,7 @@
         },
         {
           "tag": "p",
-          "text": "Choose how you want to begin."
+          "text": "Choose where to start."
         },
         {
           "tag": "section",
@@ -30256,7 +30256,7 @@
         },
         {
           "tag": "button",
-          "name": "Create a program Answer a few questions or bring your own program",
+          "name": "Create a program Answer a few questions or build your own program",
           "type": "button"
         },
         {
@@ -30265,7 +30265,7 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions or bring your own program"
+          "text": "Answer a few questions or build your own program"
         },
         {
           "tag": "button",
@@ -30314,7 +30314,7 @@
         },
         {
           "tag": "p",
-          "text": "Escolha por onde você quer começar."
+          "text": "Escolha por onde começar."
         },
         {
           "tag": "section",
@@ -30326,25 +30326,25 @@
         },
         {
           "tag": "button",
-          "name": "Crie um programa Responda algumas perguntas ou traga o seu próprio programa",
+          "name": "Criar um programa Responda a algumas perguntas ou monte seu próprio programa",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Crie um programa"
+          "text": "Criar um programa"
         },
         {
           "tag": "span",
-          "text": "Responda algumas perguntas ou traga o seu próprio programa"
+          "text": "Responda a algumas perguntas ou monte seu próprio programa"
         },
         {
           "tag": "button",
-          "name": "Importe um programa Use um programa Taurifer compartilhado",
+          "name": "Importar um programa Use um programa Taurifer compartilhado",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Importe um programa"
+          "text": "Importar um programa"
         },
         {
           "tag": "span",
@@ -30384,7 +30384,7 @@
         },
         {
           "tag": "p",
-          "text": "Choose how you want to begin."
+          "text": "Choose where to start."
         },
         {
           "tag": "section",
@@ -30396,7 +30396,7 @@
         },
         {
           "tag": "button",
-          "name": "Create a program Answer a few questions or bring your own program",
+          "name": "Create a program Answer a few questions or build your own program",
           "type": "button"
         },
         {
@@ -30405,7 +30405,7 @@
         },
         {
           "tag": "span",
-          "text": "Answer a few questions or bring your own program"
+          "text": "Answer a few questions or build your own program"
         },
         {
           "tag": "button",
@@ -30435,7 +30435,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -30450,41 +30450,41 @@
         },
         {
           "tag": "p",
-          "text": "Choose how you want your first program written."
+          "text": "Choose how to start your first program."
         },
         {
           "tag": "p",
-          "text": "Taurifer writes it"
+          "text": "Taurifer builds the program"
         },
         {
           "tag": "button",
-          "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
+          "name": "Recommend a programAnswer a few questions. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Recommend one for me"
+          "text": "Recommend a program"
         },
         {
           "tag": "span",
-          "text": "Answer a few questions. Taurifer chooses the structure."
+          "text": "Answer a few questions. Taurifer builds the program."
         },
         {
           "tag": "button",
-          "name": "Generate a custom programChoose muscle emphasis and exercises to include or avoid. Taurifer writes the program.",
+          "name": "Create a custom programChoose muscle priorities and exercises to include or avoid. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Generate a custom program"
+          "text": "Create a custom program"
         },
         {
           "tag": "span",
-          "text": "Choose muscle emphasis and exercises to include or avoid. Taurifer writes the program."
+          "text": "Choose muscle priorities and exercises to include or avoid. Taurifer builds the program."
         },
         {
           "tag": "p",
-          "text": "Start from something"
+          "text": "Start with a program or empty days"
         },
         {
           "tag": "button",
@@ -30501,16 +30501,16 @@
         },
         {
           "tag": "button",
-          "name": "Bring or build my ownStart empty or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days or import a Taurifer program file.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Bring or build my own"
+          "text": "Use my own program"
         },
         {
           "tag": "span",
-          "text": "Start empty or import a Taurifer program file."
+          "text": "Start with empty days or import a Taurifer program file."
         }
       ]
     },
@@ -30527,7 +30527,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -30542,41 +30542,41 @@
         },
         {
           "tag": "p",
-          "text": "Choose how you want your first program written."
+          "text": "Choose how to start your first program."
         },
         {
           "tag": "p",
-          "text": "Taurifer writes it"
+          "text": "Taurifer builds the program"
         },
         {
           "tag": "button",
-          "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
+          "name": "Recommend a programAnswer a few questions. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Recommend one for me"
+          "text": "Recommend a program"
         },
         {
           "tag": "span",
-          "text": "Answer a few questions. Taurifer chooses the structure."
+          "text": "Answer a few questions. Taurifer builds the program."
         },
         {
           "tag": "button",
-          "name": "Generate a custom programChoose muscle emphasis and exercises to include or avoid. Taurifer writes the program.",
+          "name": "Create a custom programChoose muscle priorities and exercises to include or avoid. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Generate a custom program"
+          "text": "Create a custom program"
         },
         {
           "tag": "span",
-          "text": "Choose muscle emphasis and exercises to include or avoid. Taurifer writes the program."
+          "text": "Choose muscle priorities and exercises to include or avoid. Taurifer builds the program."
         },
         {
           "tag": "p",
-          "text": "Start from something"
+          "text": "Start with a program or empty days"
         },
         {
           "tag": "button",
@@ -30593,16 +30593,16 @@
         },
         {
           "tag": "button",
-          "name": "Bring or build my ownStart empty or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days or import a Taurifer program file.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Bring or build my own"
+          "text": "Use my own program"
         },
         {
           "tag": "span",
-          "text": "Start empty or import a Taurifer program file."
+          "text": "Start with empty days or import a Taurifer program file."
         }
       ]
     },
@@ -30619,7 +30619,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -30634,41 +30634,41 @@
         },
         {
           "tag": "p",
-          "text": "Choose how you want your first program written."
+          "text": "Choose how to start your first program."
         },
         {
           "tag": "p",
-          "text": "Taurifer writes it"
+          "text": "Taurifer builds the program"
         },
         {
           "tag": "button",
-          "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
+          "name": "Recommend a programAnswer a few questions. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Recommend one for me"
+          "text": "Recommend a program"
         },
         {
           "tag": "span",
-          "text": "Answer a few questions. Taurifer chooses the structure."
+          "text": "Answer a few questions. Taurifer builds the program."
         },
         {
           "tag": "button",
-          "name": "Generate a custom programChoose muscle emphasis and exercises to include or avoid. Taurifer writes the program.",
+          "name": "Create a custom programChoose muscle priorities and exercises to include or avoid. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Generate a custom program"
+          "text": "Create a custom program"
         },
         {
           "tag": "span",
-          "text": "Choose muscle emphasis and exercises to include or avoid. Taurifer writes the program."
+          "text": "Choose muscle priorities and exercises to include or avoid. Taurifer builds the program."
         },
         {
           "tag": "p",
-          "text": "Start from something"
+          "text": "Start with a program or empty days"
         },
         {
           "tag": "button",
@@ -30685,16 +30685,16 @@
         },
         {
           "tag": "button",
-          "name": "Bring or build my ownStart empty or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days or import a Taurifer program file.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Bring or build my own"
+          "text": "Use my own program"
         },
         {
           "tag": "span",
-          "text": "Start empty or import a Taurifer program file."
+          "text": "Start with empty days or import a Taurifer program file."
         }
       ]
     },
@@ -30711,7 +30711,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -30726,41 +30726,41 @@
         },
         {
           "tag": "p",
-          "text": "Choose how you want your first program written."
+          "text": "Choose how to start your first program."
         },
         {
           "tag": "p",
-          "text": "Taurifer writes it"
+          "text": "Taurifer builds the program"
         },
         {
           "tag": "button",
-          "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
+          "name": "Recommend a programAnswer a few questions. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Recommend one for me"
+          "text": "Recommend a program"
         },
         {
           "tag": "span",
-          "text": "Answer a few questions. Taurifer chooses the structure."
+          "text": "Answer a few questions. Taurifer builds the program."
         },
         {
           "tag": "button",
-          "name": "Generate a custom programChoose muscle emphasis and exercises to include or avoid. Taurifer writes the program.",
+          "name": "Create a custom programChoose muscle priorities and exercises to include or avoid. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Generate a custom program"
+          "text": "Create a custom program"
         },
         {
           "tag": "span",
-          "text": "Choose muscle emphasis and exercises to include or avoid. Taurifer writes the program."
+          "text": "Choose muscle priorities and exercises to include or avoid. Taurifer builds the program."
         },
         {
           "tag": "p",
-          "text": "Start from something"
+          "text": "Start with a program or empty days"
         },
         {
           "tag": "button",
@@ -30777,16 +30777,16 @@
         },
         {
           "tag": "button",
-          "name": "Bring or build my ownStart empty or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days or import a Taurifer program file.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Bring or build my own"
+          "text": "Use my own program"
         },
         {
           "tag": "span",
-          "text": "Start empty or import a Taurifer program file."
+          "text": "Start with empty days or import a Taurifer program file."
         }
       ]
     },
@@ -30803,7 +30803,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -30818,41 +30818,41 @@
         },
         {
           "tag": "p",
-          "text": "Choose how you want your first program written."
+          "text": "Choose how to start your first program."
         },
         {
           "tag": "p",
-          "text": "Taurifer writes it"
+          "text": "Taurifer builds the program"
         },
         {
           "tag": "button",
-          "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
+          "name": "Recommend a programAnswer a few questions. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Recommend one for me"
+          "text": "Recommend a program"
         },
         {
           "tag": "span",
-          "text": "Answer a few questions. Taurifer chooses the structure."
+          "text": "Answer a few questions. Taurifer builds the program."
         },
         {
           "tag": "button",
-          "name": "Generate a custom programChoose muscle emphasis and exercises to include or avoid. Taurifer writes the program.",
+          "name": "Create a custom programChoose muscle priorities and exercises to include or avoid. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Generate a custom program"
+          "text": "Create a custom program"
         },
         {
           "tag": "span",
-          "text": "Choose muscle emphasis and exercises to include or avoid. Taurifer writes the program."
+          "text": "Choose muscle priorities and exercises to include or avoid. Taurifer builds the program."
         },
         {
           "tag": "p",
-          "text": "Start from something"
+          "text": "Start with a program or empty days"
         },
         {
           "tag": "button",
@@ -30869,16 +30869,16 @@
         },
         {
           "tag": "button",
-          "name": "Bring or build my ownStart empty or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days or import a Taurifer program file.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Bring or build my own"
+          "text": "Use my own program"
         },
         {
           "tag": "span",
-          "text": "Start empty or import a Taurifer program file."
+          "text": "Start with empty days or import a Taurifer program file."
         }
       ]
     },
@@ -30895,7 +30895,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -30910,41 +30910,41 @@
         },
         {
           "tag": "p",
-          "text": "Escolha como quer que o seu primeiro programa seja escrito."
+          "text": "Escolha como começar seu primeiro programa."
         },
         {
           "tag": "p",
-          "text": "A Taurifer escreve-o"
+          "text": "O Taurifer monta o programa"
         },
         {
           "tag": "button",
-          "name": "Recomendar um para mimResponda algumas perguntas. O Taurifer escolhe a estrutura.",
+          "name": "Recomendar um programaResponda a algumas perguntas. O Taurifer monta o programa.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Recomendar um para mim"
+          "text": "Recomendar um programa"
         },
         {
           "tag": "span",
-          "text": "Responda algumas perguntas. O Taurifer escolhe a estrutura."
+          "text": "Responda a algumas perguntas. O Taurifer monta o programa."
         },
         {
           "tag": "button",
-          "name": "Gerar um programa personalizadoEscolha a ênfase muscular e os exercícios a incluir ou evitar. O Taurifer escreve o programa.",
+          "name": "Criar um programa personalizadoEscolha prioridades musculares e exercícios para incluir ou evitar. O Taurifer monta o programa.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Gerar um programa personalizado"
+          "text": "Criar um programa personalizado"
         },
         {
           "tag": "span",
-          "text": "Escolha a ênfase muscular e os exercícios a incluir ou evitar. O Taurifer escreve o programa."
+          "text": "Escolha prioridades musculares e exercícios para incluir ou evitar. O Taurifer monta o programa."
         },
         {
           "tag": "p",
-          "text": "Começar a partir de algo"
+          "text": "Comece com um programa ou dias vazios"
         },
         {
           "tag": "button",
@@ -30961,16 +30961,16 @@
         },
         {
           "tag": "button",
-          "name": "Trazer ou montar o meuComece vazio ou importe um arquivo de programa Taurifer.",
+          "name": "Usar meu próprio programaComece com dias vazios ou importe um arquivo de programa Taurifer.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Trazer ou montar o meu"
+          "text": "Usar meu próprio programa"
         },
         {
           "tag": "span",
-          "text": "Comece vazio ou importe um arquivo de programa Taurifer."
+          "text": "Comece com dias vazios ou importe um arquivo de programa Taurifer."
         }
       ]
     },
@@ -30987,7 +30987,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -31002,41 +31002,41 @@
         },
         {
           "tag": "p",
-          "text": "Choose how you want your first program written."
+          "text": "Choose how to start your first program."
         },
         {
           "tag": "p",
-          "text": "Taurifer writes it"
+          "text": "Taurifer builds the program"
         },
         {
           "tag": "button",
-          "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
+          "name": "Recommend a programAnswer a few questions. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Recommend one for me"
+          "text": "Recommend a program"
         },
         {
           "tag": "span",
-          "text": "Answer a few questions. Taurifer chooses the structure."
+          "text": "Answer a few questions. Taurifer builds the program."
         },
         {
           "tag": "button",
-          "name": "Generate a custom programChoose muscle emphasis and exercises to include or avoid. Taurifer writes the program.",
+          "name": "Create a custom programChoose muscle priorities and exercises to include or avoid. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Generate a custom program"
+          "text": "Create a custom program"
         },
         {
           "tag": "span",
-          "text": "Choose muscle emphasis and exercises to include or avoid. Taurifer writes the program."
+          "text": "Choose muscle priorities and exercises to include or avoid. Taurifer builds the program."
         },
         {
           "tag": "p",
-          "text": "Start from something"
+          "text": "Start with a program or empty days"
         },
         {
           "tag": "button",
@@ -31053,16 +31053,16 @@
         },
         {
           "tag": "button",
-          "name": "Bring or build my ownStart empty or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days or import a Taurifer program file.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Bring or build my own"
+          "text": "Use my own program"
         },
         {
           "tag": "span",
-          "text": "Start empty or import a Taurifer program file."
+          "text": "Start with empty days or import a Taurifer program file."
         }
       ]
     },
@@ -31079,7 +31079,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -31094,7 +31094,7 @@
         },
         {
           "tag": "p",
-          "text": "Choose how you want your first program written."
+          "text": "Choose how to start your first program."
         },
         {
           "tag": "p",
@@ -31104,37 +31104,37 @@
         },
         {
           "tag": "p",
-          "text": "Taurifer writes it"
+          "text": "Taurifer builds the program"
         },
         {
           "tag": "button",
-          "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
+          "name": "Recommend a programAnswer a few questions. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Recommend one for me"
+          "text": "Recommend a program"
         },
         {
           "tag": "span",
-          "text": "Answer a few questions. Taurifer chooses the structure."
+          "text": "Answer a few questions. Taurifer builds the program."
         },
         {
           "tag": "button",
-          "name": "Generate a custom programChoose muscle emphasis and exercises to include or avoid. Taurifer writes the program.",
+          "name": "Create a custom programChoose muscle priorities and exercises to include or avoid. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Generate a custom program"
+          "text": "Create a custom program"
         },
         {
           "tag": "span",
-          "text": "Choose muscle emphasis and exercises to include or avoid. Taurifer writes the program."
+          "text": "Choose muscle priorities and exercises to include or avoid. Taurifer builds the program."
         },
         {
           "tag": "p",
-          "text": "Start from something"
+          "text": "Start with a program or empty days"
         },
         {
           "tag": "button",
@@ -31151,16 +31151,16 @@
         },
         {
           "tag": "button",
-          "name": "Bring or build my ownStart empty or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days or import a Taurifer program file.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Bring or build my own"
+          "text": "Use my own program"
         },
         {
           "tag": "span",
-          "text": "Start empty or import a Taurifer program file."
+          "text": "Start with empty days or import a Taurifer program file."
         }
       ]
     },
@@ -31177,7 +31177,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -31192,7 +31192,7 @@
         },
         {
           "tag": "p",
-          "text": "Choose how you want your first program written."
+          "text": "Choose how to start your first program."
         },
         {
           "tag": "p",
@@ -31202,37 +31202,37 @@
         },
         {
           "tag": "p",
-          "text": "Taurifer writes it"
+          "text": "Taurifer builds the program"
         },
         {
           "tag": "button",
-          "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
+          "name": "Recommend a programAnswer a few questions. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Recommend one for me"
+          "text": "Recommend a program"
         },
         {
           "tag": "span",
-          "text": "Answer a few questions. Taurifer chooses the structure."
+          "text": "Answer a few questions. Taurifer builds the program."
         },
         {
           "tag": "button",
-          "name": "Generate a custom programChoose muscle emphasis and exercises to include or avoid. Taurifer writes the program.",
+          "name": "Create a custom programChoose muscle priorities and exercises to include or avoid. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Generate a custom program"
+          "text": "Create a custom program"
         },
         {
           "tag": "span",
-          "text": "Choose muscle emphasis and exercises to include or avoid. Taurifer writes the program."
+          "text": "Choose muscle priorities and exercises to include or avoid. Taurifer builds the program."
         },
         {
           "tag": "p",
-          "text": "Start from something"
+          "text": "Start with a program or empty days"
         },
         {
           "tag": "button",
@@ -31249,16 +31249,16 @@
         },
         {
           "tag": "button",
-          "name": "Bring or build my ownStart empty or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days or import a Taurifer program file.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Bring or build my own"
+          "text": "Use my own program"
         },
         {
           "tag": "span",
-          "text": "Start empty or import a Taurifer program file."
+          "text": "Start with empty days or import a Taurifer program file."
         }
       ]
     },
@@ -31275,7 +31275,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -31290,7 +31290,7 @@
         },
         {
           "tag": "p",
-          "text": "Escolha como quer que o seu primeiro programa seja escrito."
+          "text": "Escolha como começar seu primeiro programa."
         },
         {
           "tag": "p",
@@ -31300,37 +31300,37 @@
         },
         {
           "tag": "p",
-          "text": "A Taurifer escreve-o"
+          "text": "O Taurifer monta o programa"
         },
         {
           "tag": "button",
-          "name": "Recomendar um para mimResponda algumas perguntas. O Taurifer escolhe a estrutura.",
+          "name": "Recomendar um programaResponda a algumas perguntas. O Taurifer monta o programa.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Recomendar um para mim"
+          "text": "Recomendar um programa"
         },
         {
           "tag": "span",
-          "text": "Responda algumas perguntas. O Taurifer escolhe a estrutura."
+          "text": "Responda a algumas perguntas. O Taurifer monta o programa."
         },
         {
           "tag": "button",
-          "name": "Gerar um programa personalizadoEscolha a ênfase muscular e os exercícios a incluir ou evitar. O Taurifer escreve o programa.",
+          "name": "Criar um programa personalizadoEscolha prioridades musculares e exercícios para incluir ou evitar. O Taurifer monta o programa.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Gerar um programa personalizado"
+          "text": "Criar um programa personalizado"
         },
         {
           "tag": "span",
-          "text": "Escolha a ênfase muscular e os exercícios a incluir ou evitar. O Taurifer escreve o programa."
+          "text": "Escolha prioridades musculares e exercícios para incluir ou evitar. O Taurifer monta o programa."
         },
         {
           "tag": "p",
-          "text": "Começar a partir de algo"
+          "text": "Comece com um programa ou dias vazios"
         },
         {
           "tag": "button",
@@ -31347,16 +31347,16 @@
         },
         {
           "tag": "button",
-          "name": "Trazer ou montar o meuComece vazio ou importe um arquivo de programa Taurifer.",
+          "name": "Usar meu próprio programaComece com dias vazios ou importe um arquivo de programa Taurifer.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Trazer ou montar o meu"
+          "text": "Usar meu próprio programa"
         },
         {
           "tag": "span",
-          "text": "Comece vazio ou importe um arquivo de programa Taurifer."
+          "text": "Comece com dias vazios ou importe um arquivo de programa Taurifer."
         }
       ]
     },
@@ -31373,7 +31373,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -31388,41 +31388,41 @@
         },
         {
           "tag": "p",
-          "text": "Choose how you want your first program written."
+          "text": "Choose how to start your first program."
         },
         {
           "tag": "p",
-          "text": "Taurifer writes it"
+          "text": "Taurifer builds the program"
         },
         {
           "tag": "button",
-          "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
+          "name": "Recommend a programAnswer a few questions. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Recommend one for me"
+          "text": "Recommend a program"
         },
         {
           "tag": "span",
-          "text": "Answer a few questions. Taurifer chooses the structure."
+          "text": "Answer a few questions. Taurifer builds the program."
         },
         {
           "tag": "button",
-          "name": "Generate a custom programChoose muscle emphasis and exercises to include or avoid. Taurifer writes the program.",
+          "name": "Create a custom programChoose muscle priorities and exercises to include or avoid. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Generate a custom program"
+          "text": "Create a custom program"
         },
         {
           "tag": "span",
-          "text": "Choose muscle emphasis and exercises to include or avoid. Taurifer writes the program."
+          "text": "Choose muscle priorities and exercises to include or avoid. Taurifer builds the program."
         },
         {
           "tag": "p",
-          "text": "Start from something"
+          "text": "Start with a program or empty days"
         },
         {
           "tag": "button",
@@ -31439,20 +31439,20 @@
         },
         {
           "tag": "button",
-          "name": "Bring or build my ownStart empty or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days or import a Taurifer program file.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Bring or build my own"
+          "text": "Use my own program"
         },
         {
           "tag": "span",
-          "text": "Start empty or import a Taurifer program file."
+          "text": "Start with empty days or import a Taurifer program file."
         },
         {
           "tag": "button",
-          "name": "Build a programStart with empty training days and write it yourself.",
+          "name": "Build a programStart with empty training days and fill them in yourself.",
           "type": "button"
         },
         {
@@ -31461,11 +31461,11 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty training days and write it yourself."
+          "text": "Start with empty training days and fill them in yourself."
         },
         {
           "tag": "button",
-          "name": "Import a programReview a Taurifer program file or setup.",
+          "name": "Import a programReview a Taurifer program file or setup before using it.",
           "type": "button"
         },
         {
@@ -31474,7 +31474,7 @@
         },
         {
           "tag": "span",
-          "text": "Review a Taurifer program file or setup."
+          "text": "Review a Taurifer program file or setup before using it."
         }
       ]
     },
@@ -31491,7 +31491,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create program"
+          "label": "Create a program"
         },
         {
           "tag": "button",
@@ -31506,41 +31506,41 @@
         },
         {
           "tag": "p",
-          "text": "Choose how you want your first program written."
+          "text": "Choose how to start your first program."
         },
         {
           "tag": "p",
-          "text": "Taurifer writes it"
+          "text": "Taurifer builds the program"
         },
         {
           "tag": "button",
-          "name": "Recommend one for meAnswer a few questions. Taurifer chooses the structure.",
+          "name": "Recommend a programAnswer a few questions. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Recommend one for me"
+          "text": "Recommend a program"
         },
         {
           "tag": "span",
-          "text": "Answer a few questions. Taurifer chooses the structure."
+          "text": "Answer a few questions. Taurifer builds the program."
         },
         {
           "tag": "button",
-          "name": "Generate a custom programChoose muscle emphasis and exercises to include or avoid. Taurifer writes the program.",
+          "name": "Create a custom programChoose muscle priorities and exercises to include or avoid. Taurifer builds the program.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Generate a custom program"
+          "text": "Create a custom program"
         },
         {
           "tag": "span",
-          "text": "Choose muscle emphasis and exercises to include or avoid. Taurifer writes the program."
+          "text": "Choose muscle priorities and exercises to include or avoid. Taurifer builds the program."
         },
         {
           "tag": "p",
-          "text": "Start from something"
+          "text": "Start with a program or empty days"
         },
         {
           "tag": "button",
@@ -31557,20 +31557,20 @@
         },
         {
           "tag": "button",
-          "name": "Bring or build my ownStart empty or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days or import a Taurifer program file.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Bring or build my own"
+          "text": "Use my own program"
         },
         {
           "tag": "span",
-          "text": "Start empty or import a Taurifer program file."
+          "text": "Start with empty days or import a Taurifer program file."
         },
         {
           "tag": "button",
-          "name": "Build a programStart with empty training days and write it yourself.",
+          "name": "Build a programStart with empty training days and fill them in yourself.",
           "type": "button"
         },
         {
@@ -31579,11 +31579,11 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty training days and write it yourself."
+          "text": "Start with empty training days and fill them in yourself."
         },
         {
           "tag": "button",
-          "name": "Import a programReview a Taurifer program file or setup.",
+          "name": "Import a programReview a Taurifer program file or setup before using it.",
           "type": "button"
         },
         {
@@ -31592,7 +31592,7 @@
         },
         {
           "tag": "span",
-          "text": "Review a Taurifer program file or setup."
+          "text": "Review a Taurifer program file or setup before using it."
         }
       ]
     },
@@ -31609,7 +31609,7 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Criar programa"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
@@ -31624,41 +31624,41 @@
         },
         {
           "tag": "p",
-          "text": "Escolha como quer que o seu primeiro programa seja escrito."
+          "text": "Escolha como começar seu primeiro programa."
         },
         {
           "tag": "p",
-          "text": "A Taurifer escreve-o"
+          "text": "O Taurifer monta o programa"
         },
         {
           "tag": "button",
-          "name": "Recomendar um para mimResponda algumas perguntas. O Taurifer escolhe a estrutura.",
+          "name": "Recomendar um programaResponda a algumas perguntas. O Taurifer monta o programa.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Recomendar um para mim"
+          "text": "Recomendar um programa"
         },
         {
           "tag": "span",
-          "text": "Responda algumas perguntas. O Taurifer escolhe a estrutura."
+          "text": "Responda a algumas perguntas. O Taurifer monta o programa."
         },
         {
           "tag": "button",
-          "name": "Gerar um programa personalizadoEscolha a ênfase muscular e os exercícios a incluir ou evitar. O Taurifer escreve o programa.",
+          "name": "Criar um programa personalizadoEscolha prioridades musculares e exercícios para incluir ou evitar. O Taurifer monta o programa.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Gerar um programa personalizado"
+          "text": "Criar um programa personalizado"
         },
         {
           "tag": "span",
-          "text": "Escolha a ênfase muscular e os exercícios a incluir ou evitar. O Taurifer escreve o programa."
+          "text": "Escolha prioridades musculares e exercícios para incluir ou evitar. O Taurifer monta o programa."
         },
         {
           "tag": "p",
-          "text": "Começar a partir de algo"
+          "text": "Comece com um programa ou dias vazios"
         },
         {
           "tag": "button",
@@ -31675,20 +31675,20 @@
         },
         {
           "tag": "button",
-          "name": "Trazer ou montar o meuComece vazio ou importe um arquivo de programa Taurifer.",
+          "name": "Usar meu próprio programaComece com dias vazios ou importe um arquivo de programa Taurifer.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Trazer ou montar o meu"
+          "text": "Usar meu próprio programa"
         },
         {
           "tag": "span",
-          "text": "Comece vazio ou importe um arquivo de programa Taurifer."
+          "text": "Comece com dias vazios ou importe um arquivo de programa Taurifer."
         },
         {
           "tag": "button",
-          "name": "Montar um programaComece com dias de treino vazios e escreva você mesmo.",
+          "name": "Montar um programaComece com dias de treino vazios e preencha você mesmo.",
           "type": "button"
         },
         {
@@ -31697,11 +31697,11 @@
         },
         {
           "tag": "span",
-          "text": "Comece com dias de treino vazios e escreva você mesmo."
+          "text": "Comece com dias de treino vazios e preencha você mesmo."
         },
         {
           "tag": "button",
-          "name": "Importar um programaRevise um arquivo ou configuração de programa Taurifer.",
+          "name": "Importar um programaRevise o arquivo ou a configuração antes de usar o programa.",
           "type": "button"
         },
         {
@@ -31710,7 +31710,7 @@
         },
         {
           "tag": "span",
-          "text": "Revise um arquivo ou configuração de programa Taurifer."
+          "text": "Revise o arquivo ou a configuração antes de usar o programa."
         }
       ]
     }

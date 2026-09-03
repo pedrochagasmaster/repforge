@@ -397,7 +397,7 @@ async function run() {
     assert(accepted.calls === 1, "prompt() runs once per tap", String(accepted.calls));
     assert(accepted.toast === "Installing Taurifer…", "an accepted install is reported", String(accepted.toast));
     assert(
-      accepted.lede === "Choose how you want to begin." && !accepted.continueShown,
+      accepted.lede === "Choose where to start." && !accepted.continueShown,
       "the screen drops to the program question alone",
       JSON.stringify({ lede: accepted.lede, continueShown: accepted.continueShown })
     );
@@ -527,7 +527,7 @@ async function run() {
     }));
     assert(st.create && st.import, "the screen still asks the program question", JSON.stringify(st));
     assert(!st.section, "no install section is drawn", JSON.stringify(st));
-    assert(st.lede === "Choose how you want to begin.", "the lede drops the install sentence", st.lede);
+    assert(st.lede === "Choose where to start.", "the lede drops the install sentence", st.lede);
     assert(!st.continueShown, "no browser to continue in, no link offering it", JSON.stringify(st));
     assert(!st.banner && !st.topButton, "and nothing else promotes an install", JSON.stringify(st));
     allErrors.push(...errors);
@@ -556,7 +556,7 @@ async function run() {
     assert(st.create && st.import, "the installed app still offers Create and Import", JSON.stringify(st));
     assert(!st.onboarding, "it does not jump straight into the wizard", JSON.stringify(st));
     assert(!st.section, "it promotes no install", JSON.stringify(st));
-    assert(st.lede === "Choose how you want to begin.", "the lede drops the install sentence", st.lede);
+    assert(st.lede === "Choose where to start.", "the lede drops the install sentence", st.lede);
     assert(!st.continueShown, "and there is no browser to continue in", JSON.stringify(st));
     assert(!st.banner, "the banner stays away", JSON.stringify(st));
     assert(!st.topButton, "the top install button stays away", JSON.stringify(st));

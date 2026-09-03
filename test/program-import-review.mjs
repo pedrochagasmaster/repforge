@@ -392,7 +392,7 @@ async function main() {
       stagedImport.draft.state.result?.preview?.program?.length === 5,
     "the reviewed import persists as an owned setup candidate", JSON.stringify(stagedImport.draft));
     const manualProgressionCopy = await page.locator("#onbBody").innerText();
-    assert(/program or you set each exercise's target/i.test(manualProgressionCopy) &&
+    assert(/program sets each exercise's target, or you set it yourself/i.test(manualProgressionCopy) &&
       !/supported Taurifer progression/i.test(manualProgressionCopy),
     "common import preview explains that authored manual targets belong to the program or user",
     manualProgressionCopy);
