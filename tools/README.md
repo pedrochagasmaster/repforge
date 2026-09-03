@@ -33,6 +33,22 @@ node tools/build-i18n.mjs --check   # fail if i18n.js has drifted
 Edit the two JSON catalogs, then regenerate. `test/i18n.mjs` checks key parity,
 placeholders and catalog/runtime agreement; this does the mechanical half.
 
+## extract-ui-audit-findings.mjs
+
+Prints the headings and first-column table labels from the four source UI
+audits that [`docs/ui-audit.md`](../docs/ui-audit.md) consolidates.
+
+```bash
+node tools/extract-ui-audit-findings.mjs
+node tools/extract-ui-audit-findings.mjs --check
+```
+
+`--check` verifies that all four source reports still exist, the consolidated
+report cites each source, is marked final and owner-approved, and contains all
+32 finding IDs and all 88 grilling-decision IDs without duplicates. It also
+prints the current screen and frame counts so the report baseline can be
+checked after the catalog changes.
+
 ## build-exercises.mjs
 
 Generates `exercises.js` — the exercise library the picker and the program
