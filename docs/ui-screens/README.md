@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 71 screens,
-218 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 70 screens,
+215 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -54,7 +54,6 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Recommend 4 — equipment correction](screens/onboarding-recommend/environment-correction__phone-390-light-en.png) | 7 | The capability correction disclosure open. |
 | [Recommend 5 — priorities](screens/onboarding-recommend/priorities__phone-390-light-en.png) | 3 | Primary priorities plus optional movement and exercise-avoidance controls. |
 | [Recommend 5 — avoidance and pain safety](screens/onboarding-recommend/avoidance-pain__phone-390-light-en.png) | 7 | One avoided exercise with the pain reason selected and its safety copy. |
-| [Recommend — validation error](screens/onboarding-recommend/validation-error__phone-390-light-en.png) | 3 | Advancing without an answer. Errors sit adjacent to the control that failed. |
 | [Recommend — recommendation](screens/onboarding-recommend/result__phone-390-light-en.png) | 7 | One named recommendation with its factual Why it fits explanation. |
 | [Recommend — review before first activation](screens/onboarding-recommend/preview-first-run__phone-390-light-en.png) | 3 | Identity, source, day summaries, assumptions, Edit before using, Use this program. |
 | [Recommend — review with a program active](screens/onboarding-recommend/preview-existing__phone-390-light-en.png) | 3 | The same review while the current program remains untouched. |

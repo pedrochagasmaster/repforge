@@ -329,13 +329,6 @@
       "variants": "accessibility"
     },
     {
-      "id": "validation-error",
-      "flow": "onboarding-recommend",
-      "label": "Recommend — validation error",
-      "scenario": "Advancing without an answer. Errors sit adjacent to the control that failed.",
-      "variants": "localized"
-    },
-    {
       "id": "result",
       "flow": "onboarding-recommend",
       "label": "Recommend — recommendation",

@@ -9968,7 +9968,7 @@ function renderOnboarding(){
     next.textContent=stepId==="build_setup"?t("entry.build_setup.open"):
       stepId==="custom_shape"?t("entry.custom_shape.generate"):t("entry.next");
     const pendingReason=stepId==="exercise_preferences"&&entryPendingAvoid;
-    next.disabled=!!pendingReason;
+    next.disabled=!!pendingReason||ProgramEntry.validationIssues(entryState).length>0;
     if(pendingReason)next.setAttribute("aria-describedby","entryPendingAvoidNote");
     else next.removeAttribute("aria-describedby")}
   let html=`<span id="entryChoiceDisabledNote" class="visually-hidden">${esc(t("entry.choice.disabled"))}</span>`+

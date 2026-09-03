@@ -46,16 +46,34 @@ export async function runProgramEntryA11y(browser, check = assert) {
   check((await page.locator("#onbBack").getAttribute("aria-label")) === "Back", "Back has an explicit accessible name");
 
   await page.click('[data-entry-route="custom"]');
-  check(!(await page.locator("#onbNext").isDisabled()), "required-answer Continue remains operable for validation");
-  await page.click("#onbNext");
-  check(await page.locator("#entryValidation").isVisible(), "missing required answer is announced in an alert");
-  check(await page.locator("#entryValidation").evaluate((el) => el === document.activeElement), "validation alert receives focus");
+  check(await page.locator("#onbNext").isDisabled(), "Continue is disabled until the desired result is answered");
 
   await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
+  check(!(await page.locator("#onbNext").isDisabled()), "answering the desired result enables Continue");
   check(await page.locator('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]').evaluate((el) => el.getAttribute("aria-checked") === "true" && !el.hasAttribute("aria-pressed")), "radio exposes aria-checked, not aria-pressed");
   check(await page.getByRole("radio").count() === 3, "accessibility tree exposes the three desired-result radios");
   await page.keyboard.press("ArrowDown");
   check(await page.locator('[data-entry-pick="desiredResult"][data-entry-val="balanced"]').evaluate((el) => el.getAttribute("aria-checked") === "true" && el === document.activeElement), "radio arrows move selection and focus");
+
+  await page.click("#onbNext");
+  check(await page.locator("#onbNext").isDisabled(), "Continue is disabled when both background answers are missing");
+  await page.click('[data-entry-pick="structuredExperience"][data-entry-val="first"]');
+  check(await page.locator("#onbNext").isDisabled(), "Continue stays disabled when one background answer is missing");
+  await page.click('[data-entry-pick="recentConsistency"][data-entry-val="most"]');
+  check(!(await page.locator("#onbNext").isDisabled()), "answering both background questions enables Continue");
+
+  await page.click("#onbNext");
+  check(await page.locator("#onbNext").isDisabled(), "Continue is disabled when schedule answers are missing");
+  await page.click('[data-entry-pick="daysPerWeek"][data-entry-val="3"]');
+  await page.click('[data-entry-pick="sessionMinutes"][data-entry-val="60"]');
+  check(await page.locator("#onbNext").isDisabled(), "Continue stays disabled when the rest answer is missing");
+  await page.click('[data-entry-pick="preferredRestSeconds"][data-entry-val="auto"]');
+  check(!(await page.locator("#onbNext").isDisabled()), "answering every schedule question enables Continue");
+
+  await page.click("#onbNext");
+  check(await page.locator("#onbNext").isDisabled(), "Continue is disabled until the environment is answered");
+  await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
+  check(!(await page.locator("#onbNext").isDisabled()), "answering the environment enables Continue");
 
   await clean(page);
   await reachPriorities(page);
