@@ -73,7 +73,7 @@ async function main() {
   page.on("dialog", (d) => d.accept());
 
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
-  await page.waitForSelector("#dayTabs button", { state: "attached", timeout: 15000 });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.evaluate((d) => {
     localStorage.removeItem(d);
     window.closeFirstRun?.();
@@ -104,7 +104,7 @@ async function main() {
      s.programMeta = { ...(s.programMeta || {}), name: "Treino da Cecília", started: ${JSON.stringify(isoDaysAgo(21))}, onboarded: true };`
   );
   await page.reload({ waitUntil: "domcontentloaded" });
-  await page.waitForSelector("#dayTabs button", { state: "attached", timeout: 15000 });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.evaluate(dismissOverlays);
 
   await shot(page, "01_hoje");

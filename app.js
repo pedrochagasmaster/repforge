@@ -1621,28 +1621,10 @@ const rowMuscles=row=>{
   const ex=state.program.find(e=>e.name===row.name);
   return ex?{primary:ex.primary,secondary:ex.secondary}:{primary:"",secondary:""}};
 
-/* The bundled programs are minted, not re-read. A program becomes the lifter's
-   data the moment it exists, so these names and setup notes are resolved to the
-   reader's language when the rows are built and never touched again — the same
-   rule `program.beginner_name` already follows, and the reason a later language
-   switch leaves an existing program exactly as the lifter left it. Rows carry
-   the seed key rather than a literal so the alternates keep keying off it. */
-const seedName=k=>t("seed.ex."+k);
-const defaultAlternates={
-  hack_or_pendulum_squat:["leg_press","pendulum_squat"],
-  leg_press_45_quad:["hack_squat","belt_squat"],
-  incline_converging_chest_press:["flat_chest_press_machine","dumbbell_incline_press"],
-  neutral_grip_pulldown:["lat_pulldown","assisted_pull_up"]
-};
-const STARTER_ROWS=[
-["Day 1",1,"hack_or_pendulum_squat",2,4,8,"Quads","Glutes,Adductors"],["Day 1",2,"seated_leg_curl",2,4,8,"Hamstrings",""] ,["Day 1",3,"incline_converging_chest_press",2,4,8,"Chest","Front delts,Triceps"],["Day 1",4,"chest_supported_row",2,4,8,"Mid/upper back","Lats,Rear delts,Biceps"],["Day 1",5,"machine_lateral_raise",2,6,8,"Side delts",""] ,["Day 1",6,"hip_adduction_machine",2,6,8,"Adductors",""] ,
-["Day 2",1,"leg_press_45_quad",2,4,8,"Quads","Glutes,Adductors"],["Day 2",2,"smith_rdl_or_hip_hinge",2,4,8,"Hamstrings,Glutes","Spinal erectors"],["Day 2",3,"machine_shoulder_press",2,4,8,"Front delts","Side delts,Triceps"],["Day 2",4,"neutral_grip_pulldown",2,4,8,"Lats","Mid/upper back,Biceps"],["Day 2",5,"pec_deck",2,6,8,"Chest",""] ,["Day 2",6,"machine_preacher_curl",2,6,8,"Biceps",""] ,
-["Day 3",1,"leg_extension",2,6,8,"Quads",""] ,["Day 3",2,"lying_or_seated_leg_curl",2,6,8,"Hamstrings",""] ,["Day 3",3,"machine_chest_dip_or_press",2,4,8,"Chest","Front delts,Triceps"],["Day 3",4,"plate_loaded_high_row",2,4,8,"Lats,Mid/upper back","Rear delts,Biceps"],["Day 3",5,"reverse_pec_deck",2,6,8,"Rear delts","Mid/upper back"],["Day 3",6,"cable_pressdown",2,6,8,"Triceps",""]
-];
-const starterProgram=()=>STARTER_ROWS.map(x=>{
-  const ex={id:uid(),day:x[0],order:x[1],name:seedName(x[2]),sets:x[3],min:x[4],max:x[5],primary:x[6],secondary:x[7]};
-  if(defaultAlternates[x[2]])ex.alternates=defaultAlternates[x[2]].map(seedName);
-  return ex});
+/* There is no bundled starter program. A device that has never been through
+   onboarding holds no program at all: the entry hub is the only thing that
+   mints one, and until it does, Today says so rather than offering somebody
+   else's training as if the lifter had chosen it. */
 
 /* The single crossing from library entry to program template. Muscles and
    setup notes are copied rather than looked up through libraryId, so the audit
@@ -2338,7 +2320,7 @@ function normalizeProgramHistory(history,lookup){
       else normalized.programMeta=structured.meta}
     return normalized})}
 function normalizeLoaded(s,options={}){
-  if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program:starterProgram(),log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
+  if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program:[],log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
   if(!isValidStateShape(s))throw new TypeError("Invalid Taurifer state");
   const customs=normalizeCustomExercises(s.customExercises),lookup=snapshotLookup(customs);
   const out={settings:normalizeSettings(s.settings),programMeta:null,
@@ -4284,7 +4266,30 @@ function todayExListHtml(exs){if(!exs.length)return"";
       `<span>${esc(label)}</span><span class="chevron ${todayExOpen?"is-up":"is-down"}" aria-hidden="true"></span></button>`
     :"";
   return `<div class="today-exlist" id="todayExList">${rows}${more}</div>`}
+/* Today with nothing behind it. Backing out of onboarding used to land here on
+   a bundled program the lifter had never seen, which read as "your training" —
+   so the empty device now says it is empty and offers the way back in. Every
+   part of the dashboard that describes a program is taken down together: a week
+   strip and an Up next built from no program are the same lie in smaller type. */
+function renderTodayNoProgram(){
+  for(const sel of["#todayProgram","#todaySessionLabel","#todaySession","#startWorkout","#chooseAnotherDay",
+    "#viewExercises","#reviewTodaySession","#logAnotherSession","#todayWeekLabel","#todayWeek",
+    "#todayUpNextLabel","#todayUpNext","#todayLast"]){
+    const el=$(sel);if(el)el.classList.add("hidden")}
+  const sess=$("#todaySession");if(sess)sess.innerHTML="";
+  const empty=$("#todayNoProgram");if(empty)empty.classList.remove("hidden");
+  // No origin: `startOnboarding` reads first-run against the live state, which
+  // is the same reading the gate and Settings' Create program already get.
+  const cta=$("#todaySetupProgram");
+  if(cta)cta.onclick=()=>startOnboarding(null,{userInitiated:true})}
 function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent=formatLongDate(today());
+  // The dashboard describes a program: with none there is nothing to describe,
+  // and the empty state stands in for the whole surface.
+  const empty=$("#todayNoProgram");
+  if(!hasProgramContent())return renderTodayNoProgram();
+  if(empty)empty.classList.add("hidden");
+  for(const sel of["#todaySessionLabel","#todaySession","#todayWeekLabel","#todayWeek","#todayUpNextLabel","#todayUpNext","#todayLast"]){
+    const el=$(sel);if(el)el.classList.remove("hidden")}
   const week=weeklySnapshot();
   const mc=mesocycleWeek(),nm=state.programMeta?.name,progEl=$("#todayProgram");
   if(progEl){if(nm||mc.current!=null||mc.isComplete){progEl.classList.remove("hidden");
@@ -6612,7 +6617,23 @@ function openEntryDraftEditor(){
 function closeEntryDraftEditor(){
   setupEditorOpen=false;programEditMode=false;onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
   onboardingOrigin=null;document.body.classList.remove("is-entry-editor");closeOnboarding()}
-function renderProgram(){renderProgramOverview();
+function renderProgram(){
+  // Nothing to show: the tab is the same invitation Today carries, not a
+  // summary of a program that does not exist. A lifter who emptied their own
+  // program keeps the editor and its Add day — they have not been sent back to
+  // the start — so onboarding is asked about too, not just content.
+  const noProgram=!hasProgramContent()&&state?.programMeta?.onboarded!==true,blank=$("#programNoProgram");
+  if(blank)blank.classList.toggle("hidden",!noProgram);
+  if(noProgram){
+    for(const sel of["#programOverview","#programMeta","#programBlockBanner","#programEditorWrap","#programEditToggle"]){
+      const el=$(sel);if(el)el.classList.add("hidden")}
+    const cta=$("#programSetupProgram");
+    if(cta)cta.onclick=()=>startOnboarding(null,{userInitiated:true});
+    return}
+  for(const sel of["#programOverview","#programMeta","#programEditToggle"]){
+    const el=$(sel);if(el)el.classList.remove("hidden")}
+  $("#programEditorWrap")?.classList.remove("hidden");
+  renderProgramOverview();
   const view=$("#program"),ov=$("#programOverview"),ed=$("#programEditorWrap"),tog=$("#programEditToggle"),meta=$("#programMeta");
   view?.classList.toggle("program-editor-installed",programEditMode);
   if(ov)ov.classList.toggle("is-hidden",programEditMode);
@@ -8832,6 +8853,12 @@ function entryVersions(){return entryServices()?.currentVersions?.()||{
   recentConsistency:"1",simpleStart:"1"}}
 function liveProgramRevision(){return readRevision(state)}
 function hasActiveProgram(){return !!(state?.programMeta?.onboarded&&((state.program||[]).length||structureDayLabels(state.programMeta)))}
+/* Is there a program to show at all? Deliberately blind to `onboarded`, which
+   answers a different question: a restored backup or a migrated legacy snapshot
+   can carry a real program with the flag unset, and hiding it behind "No program
+   yet" would lose the lifter their training. `hasActiveProgram()` stays the test
+   for whether the entry hub is replacing something. */
+function hasProgramContent(){return !!((state?.program||[]).length||structureDayLabels(state?.programMeta))}
 function readSetupDraftRaw(){try{return localStorage.getItem(SETUP_DRAFT_KEY)}catch{return null}}
 function readSetupDraftRecord(){
   const raw=readSetupDraftRaw();
@@ -11291,6 +11318,10 @@ function init(){
   if(!maybeShowFirstRun()){
     maybeShowOnboarding();
     if(!$("#onboarding").classList.contains("active"))maybeShowInstallBanner()}
+  // The one signal that the whole boot pipeline — replica recovery, first-run
+  // persistence, the first render — has finished. Test gates used to wait for a
+  // day tab, which a device with no program never grows.
+  window.__repforgeBooted=true;
 }
 function applyGotoParam(){
   try{
@@ -11605,8 +11636,8 @@ async function handleSharedSetupHash(){
   // first-run gate over that preview.
   if(firstRunPending()&&!entryState)openFirstRun()}
 async function boot(){
-  // The starter program is minted while the first-run state is built, so the
-  // language has to be settled before that — not after the state exists.
+  // Program metadata and the first render are built from the loaded state, so
+  // the language has to be settled before that — not after the state exists.
   const sharedCandidate=captureSharedSetupSource();
   if(I18N)I18N.setLang(I18N.detectLang());
   bootTelemetry();

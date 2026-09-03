@@ -12,6 +12,7 @@
  */
 import { pathToFileURL } from "url";
 import { launchChromium } from "./browser.mjs";
+import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -24,7 +25,7 @@ function assert(cond, name, detail) {
 }
 
 async function waitForApp(page) {
-  await page.waitForSelector("#dayTabs button", { timeout: 15000, state: "attached" });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
     window.closeFirstRun?.();
@@ -83,6 +84,8 @@ async function main() {
     }, { k: KEY, d: DRAFT });
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
+    // A cleared device has no program; this walk needs one to attribute against.
+    await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
 
     // A quad slot: the seed program's first Day 1 exercise.
     let state = await getState(page);

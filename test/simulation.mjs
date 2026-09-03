@@ -18,6 +18,7 @@
  */
 
 import { launchChromium } from "./browser.mjs";
+import { installSeedProgram } from "./fixtures/seed-program.mjs";
 import { writeFileSync, readFileSync, mkdtempSync, rmSync } from "fs";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
@@ -84,7 +85,7 @@ async function dismissOnboardingIfPresent(page) {
 }
 
 async function waitForApp(page, { dismissOnboarding = true } = {}) {
-  await page.waitForSelector("#dayTabs button", { timeout: 10000, state: "attached" });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 10000 });
   if (dismissOnboarding) await dismissOnboardingIfPresent(page);
   await page.waitForFunction(() => typeof window.detectPRs === "function", { timeout: 10000 });
 }
@@ -264,6 +265,30 @@ async function wipePwaOrigin(page, context) {
   }, { k: KEY, d: DRAFT });
   const cdp = await context.newCDPSession(page);
   await cdp.send("Network.clearBrowserCache");
+}
+
+/**
+ * Clear the device and reload onto a known program.
+ *
+ * A device that has not been through onboarding holds no program, so the walk
+ * below — which logs, substitutes, and reads recommendations against Day 1..3 —
+ * installs one rather than inheriting whatever first run leaves behind.
+ */
+async function resetWithSeedProgram(page) {
+  await clearState(page);
+  await reloadApp(page);
+  // `clearState` leaves the device-only UI prefs alone, but an earlier phase
+  // clears them to replay the first-run tour. Landing on a ready program with
+  // `tourDone` unset reopens that tour over the app, and its overlay then eats
+  // every click the walk makes. Mark it seen: this reset hands the walk a
+  // device that is past first run.
+  await page.evaluate(() => {
+    const k = "repforge_ui_v1";
+    const prefs = JSON.parse(localStorage.getItem(k) || "{}");
+    prefs.tourDone = true;
+    localStorage.setItem(k, JSON.stringify(prefs));
+  });
+  await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
 }
 
 /** Bulk-inject a year of training history (fast path for stats/history coverage). */
@@ -962,8 +987,7 @@ async function main() {
   page.on("pageerror", (err) => consoleErrors.push(String(err)));
 
   await loadApp(page);
-  await clearState(page);
-  await reloadApp(page);
+  await resetWithSeedProgram(page);
 
   // ── Phase 1: Historical training data ────────────────────────────
   beginPhase(`Phase 1: Historical training data (${SIM_WEEKS} weeks, bulk seed)`);
@@ -2816,8 +2840,7 @@ async function main() {
   // ── Phase 12: All-tier upgrades ──────────────────────────────────
   beginPhase("Phase 12: Progression + UX + hypertrophy upgrades");
 
-  await clearState(page);
-  await reloadApp(page);
+  await resetWithSeedProgram(page);
 
   beginPhase("Phase 12a: Progression matrix (state-driven scenarios)");
   const matrixDay = "Day 1";
@@ -2886,8 +2909,7 @@ async function main() {
 
   // ── Phase 12a-dyn: Dynamic per-set suggestions (session + block signals) ──
   beginPhase("Phase 12a-dyn: Dynamic load/reps suggestions");
-  await clearState(page);
-  await reloadApp(page);
+  await resetWithSeedProgram(page);
   {
     const st = await getState(page);
     const dynEx = st.program
@@ -3197,8 +3219,7 @@ async function main() {
     };
 
     // ── Pure capacity math ────────────────────────────────────────
-    await clearState(page);
-    await reloadApp(page);
+    await resetWithSeedProgram(page);
     const capMath = await page.evaluate(() => {
       const C = window.__repforgeCapacity;
       if (!C) return null;
@@ -3446,8 +3467,7 @@ async function main() {
     );
 
     // ── Session freshness: temper-only cross-exercise signal ──────
-    await clearState(page);
-    await reloadApp(page);
+    await resetWithSeedProgram(page);
     const freshState = await getState(page);
     const freshDay1 = freshState.program
       .filter((e) => e.day === capDay)
@@ -3631,8 +3651,7 @@ async function main() {
   ];
 
   for (const c of recoverCaseDefs) {
-    await clearState(page);
-    await reloadApp(page);
+    await resetWithSeedProgram(page);
     const recoverEx = (await getExerciseMeta(page, matrixDay))[0];
     const mid = Math.max(recoverEx.min, Math.min(recoverEx.max - 1, recoverEx.min + 1));
     const card = await scenarioRecommendation(page, {
@@ -3735,8 +3754,7 @@ async function main() {
       },
     ];
 
-    await clearState(page);
-    await reloadApp(page);
+    await resetWithSeedProgram(page);
     const f1State = await getState(page);
     const day1Exs = f1State.program
       .filter((e) => e.day === "Day 1")
@@ -4079,8 +4097,7 @@ async function main() {
     await page.evaluate(() => window.__repforgeLeaveWorkout?.());
   }
 
-  await clearState(page);
-  await reloadApp(page);
+  await resetWithSeedProgram(page);
 
   // Settings auto-save on change (no Save click)
   await nav(page, "settings");
@@ -4569,8 +4586,7 @@ async function main() {
       { key: "top", i: 1, sets: 3, reps: 8, rir: 1 },
       { key: "below_range", i: 2, sets: 2, reps: 4, rir: 0 },
     ];
-    await clearState(page);
-    await reloadApp(page);
+    await resetWithSeedProgram(page);
     const whyState = await getState(page);
     const whyDay1 = whyState.program
       .filter((e) => e.day === "Day 1")
@@ -4926,8 +4942,7 @@ async function main() {
   );
 
   // Unit toggle: draft loads convert on unit change; persisted log stays kg
-  await clearState(page);
-  await reloadApp(page);
+  await resetWithSeedProgram(page);
   await nav(page, "log");
   await selectDay(page, "Day 1");
   const unitMeta = await getExerciseMeta(page, "Day 1");
@@ -6601,8 +6616,7 @@ async function main() {
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     }, n);
 
-    await clearState(page);
-    await reloadApp(page);
+    await resetWithSeedProgram(page);
     let f8 = await getState(page);
     await persistState(page, {
       ...f8,
@@ -7533,8 +7547,7 @@ async function main() {
   );
 
   beginPhase("Phase: delta write surfaces");
-  await clearState(page);
-  await reloadApp(page);
+  await resetWithSeedProgram(page);
   let deltaState = await getState(page);
   const deltaDay = "Day 1";
   const deltaEx = deltaState.program
@@ -7786,8 +7799,7 @@ async function main() {
   );
 
   beginPhase("Phase: strength dashboard (P12)");
-  await clearState(page);
-  await reloadApp(page);
+  await resetWithSeedProgram(page);
   await seedHistoricalLog(page);
   await reloadApp(page);
   await nav(page, "stats");
@@ -9916,7 +9928,7 @@ async function main() {
     );
     const noConfigBoot = optionalDeploymentAsset?.optionalMissing
       ? await pwaPage.evaluate(() => ({
-        appReady: typeof window.__repforgeStorage?.flush === "function" && !!document.querySelector("#dayTabs button"),
+        appReady: typeof window.__repforgeStorage?.flush === "function" && window.__repforgeBooted === true,
         telemetryBoundaryReady: typeof window.RepForgeTelemetry?.boot === "function",
         configAbsent: typeof window.__POSTHOG_CONFIG__ === "undefined",
       }))
@@ -10003,8 +10015,7 @@ async function main() {
 
 
   beginPhase("Phase: F7 load validation");
-  await clearState(page);
-  await reloadApp(page);
+  await resetWithSeedProgram(page);
 
   const parserKinds = await page.evaluate(({ nearKg, nearLb, exactLb }) => {
     const p = window.__repforgeParseLoad;

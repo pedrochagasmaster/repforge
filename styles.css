@@ -1756,6 +1756,9 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .emptystate__title{font-weight:650;font-size:18px;margin-bottom:6px}
 .emptystate__body{color:var(--ink-soft);font-size:14px;line-height:1.5;margin-bottom:14px}
 .emptystate .btn{width:100%}
+/* Today's version stands alone on the tab rather than heading a populated
+   surface, so it sits away from the page head instead of hugging it. */
+.emptystate--today{padding:36px 0 8px}
 
 /* ---- History / sessions ---- */
 .sessions{display:flex;flex-direction:column;gap:0;margin-bottom:8px}

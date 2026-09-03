@@ -253,6 +253,11 @@ jobs:
           REPFORGE_URL: http://localhost:8000/
         run: node test/today-day-picker.mjs
 
+      - name: Backing out of onboarding
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/onboarding-cancel.mjs
+
       - name: Focus mode
         env:
           REPFORGE_URL: http://localhost:8000/

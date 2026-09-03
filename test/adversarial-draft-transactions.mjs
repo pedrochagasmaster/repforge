@@ -240,7 +240,7 @@ async function waitForApp(page) {
       typeof window.__repforgeSaveWorkout === "function",
     { timeout: 15000 }
   );
-  await page.waitForSelector("#dayTabs button", { state: "attached", timeout: 15000 });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.evaluate(() => {
     const onboarding = document.querySelector("#onboarding");
     window.closeFirstRun?.();
@@ -265,7 +265,7 @@ async function waitForBootOrRecovery(page) {
   await page.waitForFunction(
     () =>
       typeof window.__repforgeStorage?.flush === "function" &&
-      (!!document.querySelector("#dayTabs button") || !!document.querySelector("#storageRecovery")?.open),
+      (window.__repforgeBooted === true || !!document.querySelector("#storageRecovery")?.open),
     { timeout: 15000 }
   );
 }

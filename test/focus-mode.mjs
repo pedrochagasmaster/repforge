@@ -12,6 +12,7 @@
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
+import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -67,7 +68,7 @@ async function settle(page) {
   // parses — long before boot has read storage and assigned state. Rendered day
   // tabs are the first thing that cannot appear until it has, which is what the
   // rest of this file then reaches into. Same gate as every other suite.
-  await page.waitForSelector("#dayTabs button", { state: "attached", timeout: 15000 });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
     window.closeFirstRun?.();
@@ -85,7 +86,13 @@ async function boot(page, { lang = "en", rirMode = "numeric", size } = {}) {
     if (window.stopRest) window.stopRest();
     localStorage.removeItem(d);
   }, DRAFT);
-  await persist(page, `s.settings = { ...(s.settings || {}), lang: ${JSON.stringify(lang)}, rirMode: ${JSON.stringify(rirMode)} };`);
+  // Focus mode is a view of a program, and a device that has not been through
+  // onboarding holds none — so this walk installs one before it starts.
+  await persist(page, `
+    s.settings = { ...(s.settings || {}), lang: ${JSON.stringify(lang)}, rirMode: ${JSON.stringify(rirMode)} };
+    s.program = ${JSON.stringify(seedProgram())};
+    s.programMeta = ${JSON.stringify(seedProgramMeta())};
+    s.log = [];`);
   await page.reload({ waitUntil: "domcontentloaded" });
   await settle(page);
 }
@@ -1049,6 +1056,13 @@ async function main() {
   });
   await draftPage.goto(BASE, { waitUntil: "domcontentloaded" });
   await settle(draftPage);
+  // This context is its own device, and a device with no onboarded program has
+  // no session to draft against.
+  await persist(draftPage, `
+    s.program = ${JSON.stringify(seedProgram())};
+    s.programMeta = ${JSON.stringify(seedProgramMeta())};
+    s.log = [];`);
+  await reload(draftPage);
   const focusIds = await draftPage.evaluate(() => window.__repforgeFocus.list().map((e) => ({ id: e.id, name: e.name, day: e.day })));
   const skipEx = focusIds[1] || focusIds[0];
   const keepEx = focusIds[0];

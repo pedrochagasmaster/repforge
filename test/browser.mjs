@@ -57,9 +57,10 @@ export async function assertServingApp(base = process.env.REPFORGE_URL || "http:
 /**
  * Wait for the app to reach its interactive boot state, with a diagnosis on
  * failure. The storage test export is assigned while app.js is still
- * parsing; day tabs are rendered by init() only after async replica
- * recovery and any first-run persistence complete, so their presence means
- * the whole pipeline finished.
+ * parsing; `__repforgeBooted` is set at the end of init(), after async replica
+ * recovery, any first-run persistence and the first render, so it means the
+ * whole pipeline finished. Day tabs used to stand in for it, which a device
+ * with no onboarded program never grows.
  */
 export async function waitForAppBoot(page, { timeout = 15000, base } = {}) {
   await assertServingApp(base);
@@ -68,7 +69,7 @@ export async function waitForAppBoot(page, { timeout = 15000, base } = {}) {
       () =>
         document.readyState === "complete" &&
         typeof window.__repforgeStorage?.flush === "function" &&
-        document.querySelector("#dayTabs button") !== null,
+        window.__repforgeBooted === true,
       undefined,
       { timeout }
     );
@@ -80,6 +81,7 @@ export async function waitForAppBoot(page, { timeout = 15000, base } = {}) {
           url: location.href,
           readyState: document.readyState,
           storageHook: typeof window.__repforgeStorage?.flush === "function",
+          booted: window.__repforgeBooted === true,
           dayTabButtons: document.querySelectorAll("#dayTabs button").length,
         }))
       );

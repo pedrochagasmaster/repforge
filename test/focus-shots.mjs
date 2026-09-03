@@ -59,7 +59,7 @@ async function boot(page, { lang = "pt", rirMode = "numeric", device = "ref" } =
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   // Day tabs, not a hoisted function name: boot assigns state asynchronously,
   // and everything below reads it.
-  await page.waitForSelector("#dayTabs button", { state: "attached", timeout: 15000 });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.evaluate((d) => {
     if (window.stopRest) window.stopRest();
     localStorage.removeItem(d);
@@ -73,7 +73,7 @@ async function boot(page, { lang = "pt", rirMode = "numeric", device = "ref" } =
   await page.reload({ waitUntil: "domcontentloaded" });
   // Day tabs, not a hoisted function name: boot assigns state asynchronously,
   // and everything below reads it.
-  await page.waitForSelector("#dayTabs button", { state: "attached", timeout: 15000 });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
     window.closeFirstRun?.();

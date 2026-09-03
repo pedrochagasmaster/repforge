@@ -12,6 +12,7 @@
  */
 import { pathToFileURL } from "url";
 import { launchChromium } from "./browser.mjs";
+import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -34,7 +35,7 @@ function assert(cond, name, detail) {
 const phase = (n) => console.log(`\n${n}`);
 
 async function waitForApp(page) {
-  await page.waitForSelector("#dayTabs button", { timeout: 15000, state: "attached" });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
     window.closeFirstRun?.();
@@ -161,6 +162,8 @@ async function freshPage(browser) {
   await clearState(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
+  // A cleared device has no program: install the one these cases pick days from.
+  await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
   return { context, page };
 }
 
@@ -515,6 +518,8 @@ phase("nothing floats over the open sheet");
   await clearState(page);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
+  // A cleared device has no program: install the one these cases pick days from.
+  await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
   // The install banner is a fixed card above the nav, and iOS Safari is where it
   // is offered; it used to be drawn over the sheet, hiding the first day rows.
   await page.evaluate(() => window.__repforgeUi.showInstallBanner(true));

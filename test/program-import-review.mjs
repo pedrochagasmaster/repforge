@@ -23,6 +23,7 @@
  */
 import { pathToFileURL } from "url";
 import { launchChromium } from "./browser.mjs";
+import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -36,7 +37,7 @@ function assert(cond, name, detail) {
 }
 
 async function waitForApp(page) {
-  await page.waitForSelector("#dayTabs button", { timeout: 15000, state: "attached" });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
     window.closeFirstRun?.();
@@ -63,6 +64,16 @@ async function reset(page) {
   }, { k: KEY, d: DRAFT, setup: SETUP_DRAFT });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
+}
+
+/**
+ * The same reset with a program installed. A cleared device has not been
+ * through onboarding and holds none, so the installed editor these cases import
+ * through has nothing to open; the onboarding cases below want the bare reset.
+ */
+async function resetWithProgram(page) {
+  await reset(page);
+  await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
 }
 
 async function openEditor(page) {
@@ -170,7 +181,7 @@ async function main() {
   try {
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForApp(page);
-    await reset(page);
+    await resetWithProgram(page);
     await openEditor(page);
 
     const acceptedTypes = await page.getAttribute("#importProgram", "accept");
@@ -477,7 +488,7 @@ async function main() {
     // An editor import may carry a future prescription, but it must never make
     // that unvalidated value executable. The explicit incompatibility marker
     // keeps the original data recoverable for a later reader.
-    await reset(page);
+    await resetWithProgram(page);
     await openEditor(page);
     await importFile(page, "future-progression.json", JSON.stringify({
       version: 3, meta: { name: "Future progression" },
@@ -617,7 +628,7 @@ async function main() {
     );
 
     // ---- older and simpler shapes still import ----
-    await reset(page);
+    await resetWithProgram(page);
     await openEditor(page);
     await importFile(page, "v2.json", JSON.stringify({
       version: 2, meta: { name: "Old export" },
@@ -634,7 +645,7 @@ async function main() {
     );
 
     // ---- the app's own text export ----
-    await reset(page);
+    await resetWithProgram(page);
     await openEditor(page);
     await importFile(page, "upper-lower.txt",
       "UPPER / LOWER, 2 days per week\n\nDAY 1: Chest · Back\n1. Barbell bench press [range@1]: 4× 4 to 8\n2. Barbell row: 3× 6 to 10\n\nDAY 2: Legs\n1. Leg press: 3× 8 to 12\n");
@@ -668,7 +679,7 @@ async function main() {
       after.programMeta.name
     );
 
-    await reset(page);
+    await resetWithProgram(page);
     await openEditor(page);
     await importFile(page, "legacy.txt",
       "LEGACY (1 day per week)\n\nDAY 1 — Chest\n1. Barbell bench press — 4× 4-8\n");
@@ -817,7 +828,7 @@ async function main() {
       reviewing: document.body.classList.contains("is-import"),
     }));
 
-    await reset(page);
+    await resetWithProgram(page);
     await openEditor(page);
     await importFile(page, "backup.json", backup);
     let choice = await dialogState();
@@ -847,7 +858,7 @@ async function main() {
     );
 
     // Merge takes the sessions without touching anything else.
-    await reset(page);
+    await resetWithProgram(page);
     await openEditor(page);
     await importFile(page, "backup.json", backup);
     await page.evaluate(() => document.querySelector("#importMerge").click());
@@ -857,7 +868,7 @@ async function main() {
       "merging from this door brings the sessions", JSON.stringify(restored.log?.length));
 
     // Program only is still there for a lifter who wants the split alone.
-    await reset(page);
+    await resetWithProgram(page);
     await openEditor(page);
     const cleanProgramOnly = JSON.parse(backup);
     cleanProgramOnly.programMeta.progressionModifiers = [];
@@ -901,7 +912,7 @@ async function main() {
       programHistory: [],
     });
 
-    await reset(page);
+    await resetWithProgram(page);
     await openEditor(page);
     await importFile(page, "empty-log.json", freshBackup);
     choice = await dialogState();
@@ -932,7 +943,7 @@ async function main() {
 
     // Program only is a partial import by choice — but the split's name is part
     // of the split, so it travels rather than being reinvented as "Untitled".
-    await reset(page);
+    await resetWithProgram(page);
     await openEditor(page);
     await importFile(page, "empty-log.json", freshBackup);
     await page.evaluate(() => document.querySelector("#importProgramOnly").click());
@@ -970,7 +981,7 @@ async function main() {
       "a restore answers the setup gate it came through", JSON.stringify(gates));
 
     // A program-only file is still a program file: it has no log to speak for.
-    await reset(page);
+    await resetWithProgram(page);
     await openEditor(page);
     await importFile(page, "program.json", JSON.stringify({
       version: 3, meta: { name: "Just a program" },

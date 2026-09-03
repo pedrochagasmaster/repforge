@@ -92,7 +92,7 @@ async function waitForApp(page) {
     () => typeof window.__repforgeStorage?.flush === "function",
     { timeout: 15000 }
   );
-  await page.waitForSelector("#dayTabs button", { state: "attached", timeout: 15000 });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.evaluate(() => {
     const onboarding = document.querySelector("#onboarding");
     window.closeFirstRun?.();

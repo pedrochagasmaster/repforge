@@ -27,7 +27,7 @@ async function shot(page, name) {
 const settle = (page, ms = 350) => page.waitForTimeout(ms);
 
 async function waitForApp(page) {
-  await page.waitForSelector("#dayTabs button", { timeout: 15000, state: "attached" });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.evaluate(() => {
     const el = document.querySelector("#onboarding");
     window.closeFirstRun?.();

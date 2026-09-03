@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 70 screens,
-215 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 72 screens,
+221 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -116,6 +116,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
+| [Today — no program](screens/today/no-program__phone-390-light-en.png) | 3 | A fresh device after leaving setup, with no program or workout controls. |
 | [Today — ready to start](screens/today/ready__phone-390-light-en.png) | 2 | A seeded program on its next scheduled day. |
 | [Today — choose another day](screens/today/day-picker__phone-390-light-en.png) | 2 | The day picker sheet open. |
 | [Today — session complete](screens/today/done__phone-390-light-en.png) | 2 | The state after the day's session is logged. |
@@ -166,6 +167,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
+| [Program — no program](screens/program/no-program__phone-390-light-en.png) | 3 | A fresh device's Program tab, with setup as the only action. |
 | [Program](screens/program/overview__phone-390-light-en.png) | 2 | The current program and its days. |
 | [Program — editor](screens/program/progression-editor__phone-390-light-en.png) | 3 | The installed program editor, with the first day open. |
 | [Program — exercise picker](screens/program/exercise-picker__phone-390-light-en.png) | 2 | The picker sheet. |
