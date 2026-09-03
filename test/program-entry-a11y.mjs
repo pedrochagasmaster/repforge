@@ -45,7 +45,26 @@ export async function runProgramEntryA11y(browser, check = assert) {
   check(await page.locator("#onbBack").evaluate((el) => getComputedStyle(el).minHeight === "44px"), "Back has a 44px minimum target");
   check((await page.locator("#onbBack").getAttribute("aria-label")) === "Back", "Back has an explicit accessible name");
 
-  await page.click('[data-entry-route="custom"]');
+  await page.locator('[data-entry-route="custom"]').focus();
+  await page.keyboard.press("Enter");
+  const transitionFocus = await page.locator("#entryHeading").evaluate((el) => {
+    const style = getComputedStyle(el);
+    return {
+      active: el === document.activeElement,
+      outlineStyle: style.outlineStyle,
+      outlineWidth: Number.parseFloat(style.outlineWidth) || 0,
+    };
+  });
+  check(transitionFocus.active, "screen transition moves semantic focus to the heading");
+  check(transitionFocus.outlineStyle === "none" || transitionFocus.outlineWidth === 0,
+    "screen-transition focus does not draw a ring", JSON.stringify(transitionFocus));
+  await page.locator('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]').focus();
+  const controlFocus = await page.locator('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]').evaluate((el) => {
+    const style = getComputedStyle(el);
+    return { outlineStyle: style.outlineStyle, outlineWidth: Number.parseFloat(style.outlineWidth) || 0 };
+  });
+  check(controlFocus.outlineStyle !== "none" && controlFocus.outlineWidth > 0,
+    "keyboard-focused controls retain a visible ring", JSON.stringify(controlFocus));
   check(await page.locator("#onbNext").isDisabled(), "Continue is disabled until the desired result is answered");
 
   await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
@@ -158,8 +177,17 @@ export async function runProgramEntryA11y(browser, check = assert) {
   await page.click("#importCommit");
   await page.waitForSelector("#entryActivate", { timeout: 10000 });
   check(await page.locator("#entryActivationStatus").isVisible(), "future strategy preview exposes an activation alert");
-  check(await page.locator("#entryActivationStatus").evaluate((el) => el === document.activeElement),
-    "future strategy preview focuses the activation alert on initial render");
+  const activationFocus = await page.locator("#entryActivationStatus").evaluate((el) => {
+    const style = getComputedStyle(el);
+    return {
+      active: el === document.activeElement,
+      outlineStyle: style.outlineStyle,
+      outlineWidth: Number.parseFloat(style.outlineWidth) || 0,
+    };
+  });
+  check(activationFocus.active, "future strategy preview focuses the activation alert on initial render");
+  check(activationFocus.outlineStyle === "none" || activationFocus.outlineWidth === 0,
+    "focused activation alert does not draw a ring", JSON.stringify(activationFocus));
   check(await page.locator("#entryActivate").isDisabled() &&
     (await page.locator("#entryActivate").getAttribute("aria-describedby")) === "entryActivationStatus",
   "future strategy preview keeps activation disabled with describedby guidance");

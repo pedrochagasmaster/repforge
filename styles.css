@@ -414,6 +414,9 @@ input:not(:where([type=checkbox],[type=radio])):focus,select:focus,textarea:focu
   outline:none;border-color:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.12)}
 :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+/* `tabindex=-1` lets scripts or pointer actions move focus without adding a Tab
+   stop. Keep those focus changes visual-free; regular keyboard stops retain rings. */
+[tabindex="-1"]:focus,[tabindex="-1"]:focus-visible{outline:none}
 
 /* ---- Toggle (iOS-style) ----
    The switch is a 51x31 track with a 27px knob, but the button that carries it
