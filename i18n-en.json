@@ -1671,6 +1671,7 @@
   "entry.movement.squat": "Squat",
   "entry.movement.hinge": "Hinge",
   "entry.movement.press": "Press",
+  "entry.movement.shoulder_press": "Vertical press",
   "entry.movement.row": "Row",
   "entry.movement.pulldown": "Pulldown",
   "entry.movement.pull": "Pull",

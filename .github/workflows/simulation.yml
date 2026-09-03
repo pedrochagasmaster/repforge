@@ -271,10 +271,12 @@ jobs:
           node test/progression-strategies-ui.mjs
           node test/progression-strategies-offline.mjs
 
-      - name: Program editor text fields
+      - name: Program editor interactions
         env:
           REPFORGE_URL: http://localhost:8000/
-        run: node test/program-editor-text-fields.mjs
+        run: |
+          node test/program-editor-text-fields.mjs
+          node test/program-editor-drag-selection.mjs
 
       - name: Plain-text program export
         env:

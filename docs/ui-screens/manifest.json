@@ -329,13 +329,6 @@
       "variants": "accessibility"
     },
     {
-      "id": "validation-error",
-      "flow": "onboarding-recommend",
-      "label": "Recommend — validation error",
-      "scenario": "Advancing without an answer. Errors sit adjacent to the control that failed.",
-      "variants": "localized"
-    },
-    {
       "id": "result",
       "flow": "onboarding-recommend",
       "label": "Recommend — recommendation",
@@ -525,6 +518,13 @@
       "variants": "localized"
     },
     {
+      "id": "no-program",
+      "flow": "today",
+      "label": "Today — no program",
+      "scenario": "A fresh device after leaving setup, with no program or workout controls.",
+      "variants": "localized"
+    },
+    {
       "id": "ready",
       "flow": "today",
       "label": "Today — ready to start",
@@ -663,6 +663,13 @@
       "label": "Exercise library — detail",
       "scenario": "The full movement detail surface.",
       "variants": "standard"
+    },
+    {
+      "id": "no-program",
+      "flow": "program",
+      "label": "Program — no program",
+      "scenario": "A fresh device's Program tab, with setup as the only action.",
+      "variants": "localized"
     },
     {
       "id": "overview",

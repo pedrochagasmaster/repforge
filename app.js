@@ -9017,7 +9017,7 @@ function disarmEntryHistory(){
 function closeOnboarding(){
   onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;setupEditorOpen=false;
   $("#onboarding")?.classList.remove("program-editor-onboarding");
-  $("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");document.body.classList.remove("is-onboarding","is-entry-editor");
+  $("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");document.body.classList.remove("is-onboarding","is-entry-editor","is-settings");
   disarmEntryHistory();
   const log=$("#log");if(log&&!log.classList.contains("active")){
     $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
@@ -9366,15 +9366,15 @@ function renderPrioritiesStep(){
     return entryHeading(t("entry.priorities.custom_title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
       `<p class="onb__explain">${esc(t("entry.priorities.custom_lede"))}</p>`+
       renderCustomMusclePriorities()+
-      `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid" role="group">`+
+      `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
       ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,t(`entry.movement.${m}`)||m,"",{multi:true,role:"checkbox"})).join("")+`</div>`}
   const primary=a.primaryMuscles||[];
   return entryHeading(t("entry.priorities.title"))+`<p class="entry__optional">${esc(t("entry.optional"))}</p>`+
     `<p class="onb__explain">${esc(t("entry.priorities.lede"))}</p>`+
     `<div class="onb__opts entry__none" role="radiogroup" aria-label="${esc(t("entry.priorities.primary"))}"><button type="button" class="radio-card${primary.length===0?" is-selected":""}" data-entry-action="clear-priorities" role="radio" aria-checked="${primary.length===0?"true":"false"}"><span class="radio-card__body"><span class="radio-card__title">${esc(t("entry.priorities.none"))}</span></span><span class="radio-card__mark" aria-hidden="true"></span></button></div>`+
-    `<p class="entry__group-lab">${esc(t("entry.priorities.primary"))}</p><div class="onb__opts onb__grid" role="group">`+
+    `<p class="entry__group-lab">${esc(t("entry.priorities.primary"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
     ENTRY_MUSCLES.map(m=>entryOpt("primaryMuscles",m,t(`entry.muscle.${m}`)||m,"",{multi:true,disabled:entryMuscleBlocked("primaryMuscles",m),role:"checkbox"})).join("")+`</div>`+
-    `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid" role="group">`+
+    `<p class="entry__group-lab">${esc(t("entry.priorities.movements"))}</p><div class="onb__opts onb__grid onb__grid--balanced" role="group">`+
     ENTRY_MOVEMENTS.map(m=>entryOpt("priorityMovements",m,t(`entry.movement.${m}`)||m,"",{multi:true,role:"checkbox"})).join("")+`</div>`+
     renderAvoidanceSection()}
 function renderCustomShapeStep(){
@@ -9955,6 +9955,7 @@ function renderOnboarding(){
   const focusToken=entryFocusToken();
   const onboarding=$("#onboarding");
   const screenKey=entryScreenKey();
+  const environmentCorrectionOpen=screenKey===entryVisibleScreenKey&&body.querySelector(".entry__correct")?.open===true;
   if(onboarding&&screenKey!==entryVisibleScreenKey){
     onboarding.scrollTo?.({top:0,left:0,behavior:"auto"});
     onboarding.scrollTop=0;onboarding.scrollLeft=0;
@@ -9995,7 +9996,7 @@ function renderOnboarding(){
     next.textContent=stepId==="build_setup"?t("entry.build_setup.open"):
       stepId==="custom_shape"?t("entry.custom_shape.generate"):t("entry.next");
     const pendingReason=stepId==="exercise_preferences"&&entryPendingAvoid;
-    next.disabled=!!pendingReason;
+    next.disabled=!!pendingReason||(!hideNext&&!isEditor&&ProgramEntry.validationIssues(entryState).length>0);
     if(pendingReason)next.setAttribute("aria-describedby","entryPendingAvoidNote");
     else next.removeAttribute("aria-describedby")}
   let html=`<span id="entryChoiceDisabledNote" class="visually-hidden">${esc(t("entry.choice.disabled"))}</span>`+
@@ -10026,6 +10027,8 @@ function renderOnboarding(){
   else html+=renderEntryHub();
   body.className=`onb__body entry-body entry-body--${stepId}${route?` entry-route--${route}`:" entry-route--hub"}`;
   body.innerHTML=html;
+  const environmentCorrection=body.querySelector(".entry__correct");
+  if(environmentCorrectionOpen&&environmentCorrection)environmentCorrection.open=true;
   const validation=$("#entryValidation");
   if(validation){
     const lede=body.querySelector(".onb__explain"),heading=body.querySelector(".onb__q");

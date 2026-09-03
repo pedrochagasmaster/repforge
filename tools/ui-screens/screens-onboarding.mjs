@@ -340,7 +340,6 @@ const FOCUS_SELECTOR = {
   "onboarding-recommend/avoidance-pain": ".entry__pain",
   "onboarding-custom/exercise-preferences": ".entry__exercise-selected-group",
   "onboarding-recommend/activation-conflict": ".entry__notice",
-  "onboarding-recommend/validation-error": "#entryValidation",
   "onboarding-build/editor-ready": "#entryEditorActivate",
 };
 
@@ -392,11 +391,6 @@ export const ONBOARDING_SCENARIOS = {
     }
     await page.locator("[data-entry-avoid-add]").first().click();
     await page.click('[data-entry-pick="avoidReason"][data-entry-val$="|pain"]');
-  },
-  "onboarding-recommend/validation-error": async (page) => {
-    await route(page, "recommend");
-    await next(page);
-    await page.waitForSelector("#entryValidation", { timeout: 20000 });
   },
   "onboarding-recommend/result": (page) => recommendTo(page, { result: true, desired: "balanced" }),
   "onboarding-recommend/preview-first-run": async (page) => {

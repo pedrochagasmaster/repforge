@@ -19,7 +19,7 @@
   const KNOWN_EQUIPMENT = Object.freeze(["barbell", "dumbbell", "machine", "cable", "smith", "bodyweight", "band"]);
   const KNOWN_CAPABILITIES = Object.freeze(["safe_pull", "training_support"]);
   const ENTRY_MUSCLES = Object.freeze(["chest", "back", "quads", "hamstrings", "glutes", "side_delts", "biceps", "triceps", "calves", "lats"]);
-  const ENTRY_MOVEMENTS = Object.freeze(["squat", "hinge", "press", "row", "pulldown"]);
+  const ENTRY_MOVEMENTS = Object.freeze(["squat", "hinge", "press", "shoulder_press", "row", "pulldown"]);
   const KNOWN_EQUIPMENT_SET = new Set(KNOWN_EQUIPMENT);
   const KNOWN_CAPABILITIES_SET = new Set(KNOWN_CAPABILITIES);
   const ENTRY_MUSCLES_SET = new Set(ENTRY_MUSCLES);

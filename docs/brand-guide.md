@@ -311,6 +311,34 @@ name's origin is allowed to show.
 - The mark carries **no themed text**: no caption, tooltip, or alt text about
   bulls or bearing. The Settings identity mark ships `alt=""`.
 
+## UI glyphs
+
+The interface glyphs are a separate system from [the mark](#the-mark) and carry
+none of its meaning: they are wayfinding, not identity. They live as CSS mask
+data URIs on `.icon-mask--*` in `styles.css`, painted with `currentColor`, so a
+selected card, a copper section label, and dark mode all recolour them for free.
+Never introduce one as a `<img>`, an emoji, or a font glyph — a mask is the only
+form that follows the ink.
+
+The drawing rules, so a row of them reads as one weight rather than a scrapbook:
+
+- **24 grid, 20 live area.** Every shape sits inside a 2-unit margin, and is
+  optically centred rather than mathematically centred — a wand on a diagonal
+  and a wide dumbbell both have to look centred at 28px.
+- **1.75 stroke, round caps, round joins.** One weight for the whole set. Solid
+  fills are reserved for shapes a stroke cannot carry (the wand's sparkles); the
+  rest are outlines.
+- **The metaphor is literal.** A bicep for muscle, a balance for the trade-off,
+  a dumbbell for strength, a kettlebell that is a ball with a handle. A glyph
+  that needs its label to be understood is not finished.
+- **Drawn for its display size, not for the artboard.** The entry glyphs render
+  at 18–28px; interior detail that survives at 64px and mushes at 26px (a
+  narrow handle hole, a crowded window grid) is drawn larger or dropped.
+
+A new glyph is checked at 18, 22 and 28px against the set before it lands,
+not just at full size, and the change is followed by the usual UI-screen capture
+(see `AGENTS.md`).
+
 ## Naming surfaces
 
 One decision, two vocabularies: **Taurifer** is the brand users see;

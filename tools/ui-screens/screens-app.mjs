@@ -6,15 +6,18 @@
  * page through all 35 screens in order, so a single broken step silently
  * poisoned every frame after it.
  */
-import { catalogState, localeState } from "./fixtures.mjs";
+import { catalogState, emptyEntryState, localeState } from "./fixtures.mjs";
 import { dismissChrome, sleep } from "./session.mjs";
 
-export function appState(_key, lang) {
+export function appState(key, lang) {
+  if (key === "today/no-program" || key === "program/no-program") {
+    return emptyEntryState(lang);
+  }
   const state = catalogState();
   // The editor reference is intentionally a compact two-exercise day, matching
   // the canonical installed-editor mockup. Other catalog surfaces keep the
   // richer fixture so their progress and volume evidence remains meaningful.
-  if (_key === "program/progression-editor") {
+  if (key === "program/progression-editor") {
     state.program = state.program.filter((exercise) =>
       exercise.day !== "Day 1" || exercise.id === "ex-sq" || exercise.id === "ex-curl");
   }
@@ -104,6 +107,7 @@ async function openSettings(page, anchor) {
 }
 
 export const APP_SCENARIOS = {
+  "today/no-program": async (page) => { await dismissChrome(page); await sleep(page, 300); },
   "today/ready": async (page) => { await dismissChrome(page); await sleep(page, 300); },
   "today/day-picker": async (page) => {
     await page.click("#chooseAnotherDay");
@@ -206,6 +210,7 @@ export const APP_SCENARIOS = {
     await sleep(page, 800);
   },
 
+  "program/no-program": async (page) => { await dismissChrome(page); await openProgram(page); },
   "program/overview": openProgram,
   "program/progression-editor": async (page) => {
     await openProgram(page);
