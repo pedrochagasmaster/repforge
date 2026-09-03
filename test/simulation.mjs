@@ -277,6 +277,17 @@ async function wipePwaOrigin(page, context) {
 async function resetWithSeedProgram(page) {
   await clearState(page);
   await reloadApp(page);
+  // `clearState` leaves the device-only UI prefs alone, but an earlier phase
+  // clears them to replay the first-run tour. Landing on a ready program with
+  // `tourDone` unset reopens that tour over the app, and its overlay then eats
+  // every click the walk makes. Mark it seen: this reset hands the walk a
+  // device that is past first run.
+  await page.evaluate(() => {
+    const k = "repforge_ui_v1";
+    const prefs = JSON.parse(localStorage.getItem(k) || "{}");
+    prefs.tourDone = true;
+    localStorage.setItem(k, JSON.stringify(prefs));
+  });
   await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
 }
 
