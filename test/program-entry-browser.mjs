@@ -490,7 +490,8 @@ try {
       "existing program remains usable without obsolete setup APIs", JSON.stringify({ existingProgram, existingWorkoutVisible }));
     await page.click("#leaveWorkout");
     const activeBefore = await page.evaluate((key) => localStorage.getItem(key), KEY);
-    await page.evaluate(() => window.startOnboarding("settings"));
+    await page.click("#openSettings");
+    await page.click("#createProgram");
     await page.click('[data-entry-route="recommend"]');
     await page.click('[data-entry-pick="desiredResult"][data-entry-val="muscle_growth"]');
     await page.click("#onbNext");
@@ -531,6 +532,14 @@ try {
     await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"));
     assert(await page.evaluate((key) => localStorage.getItem(key), DRAFT) !== null,
       "keep draft and leave preserves the resumable setup draft");
+    const chromeAfterCancel = await page.evaluate(() => ({
+      bodyClasses: document.body.className,
+      navDisplay: getComputedStyle(document.querySelector("nav")).display,
+      todayActive: document.querySelector("#log")?.classList.contains("active") === true,
+    }));
+    assert(chromeAfterCancel.todayActive && chromeAfterCancel.navDisplay !== "none" &&
+      !chromeAfterCancel.bodyClasses.includes("is-settings"),
+      "Settings program creation restores Today and its dock after Cancel", JSON.stringify(chromeAfterCancel));
 
     await page.evaluate(() => window.startOnboarding("settings"));
     await page.waitForSelector("#entryResumeContinue");
