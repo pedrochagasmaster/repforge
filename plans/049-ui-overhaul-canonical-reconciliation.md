@@ -2,8 +2,8 @@
 
 - **Plan number:** 049
 - **Phase:** 0 — Canonical reconciliation
-- **Status:** Implementation in owner review (PR #222); the corrective review pass landed on the same branch
-- **Owner approval state:** Product direction is approved in `docs/ui-audit.md`; the two explicit owner gates below remain open; a first owner review returned request-changes that this branch is addressing without reopening settled decisions
+- **Status:** Implementation in owner review (PR #222)
+- **Owner approval state:** Product direction is approved in `docs/ui-audit.md`; the two explicit owner gates below remain open. Past owner reviews returned request-changes; each is addressed on this branch without reopening settled decisions
 - **Depends on:** Planning PR #221 (merged as `ba423a7d`); `origin/main` containing the consolidated audit
 - **Blocks:** Plans 050–059
 - **Governing G decisions:** G-01–G-88 (canonical disposition); especially G-01–G-08, G-13–G-14, G-17, G-24, G-28, G-38–G-40, G-46, G-55–G-56, G-70–G-71, G-74–G-88
@@ -121,19 +121,20 @@ Specify the minimum isolated service, preferably under a non-root service direct
 
 #### Endpoint contract
 
-The specification must define equivalent operations to:
+The specification must define exactly these operations:
 
 1. `POST /v1/transfers`: accept one validated encrypted logical clone over TLS plus an idempotency key; return an opaque bearer token and absolute expiry on first creation only (retries return expiry without the token).
 2. `POST /v1/transfers/claims` with `{token, claimId}` in the body: atomically bind an available transfer to a client-generated claim ID and return the clone to that same claim on safe retries.
-3. `POST /v1/transfers/claims/commit` with `{token, claimId}` in the body, or an equivalent commit operation: delete encrypted payload immediately after the client proves atomic local import.
+3. `POST /v1/transfers/claims/commit` with `{token, claimId}` in the body: delete encrypted payload immediately after the client proves atomic local import.
 4. `POST /v1/transfers/status` with `{token}` in the body: return state plus expiry only, so the creating Safari learns the outcome by polling.
 5. Expiry processing: delete payload no later than one hour after creation, independent of client activity.
 
 The bearer token travels in request bodies only, never in a URL path, query
 string, fragment, or loggable surface. URL shapes above are exact, matching
-ADR 0013; that transport invariant is non-negotiable. Any other URL or
-transport change requires a new owner decision recorded in the governing ADR
-— implementations may not vary shapes on their own.
+ADR 0013 end to end; that transport invariant is non-negotiable. There are no
+equivalent operations: any other URL or transport shape requires a new owner
+decision recorded in the governing ADR — implementations may not vary shapes
+on their own, even with identical threat, retry, and deletion semantics.
 
 #### Security and privacy requirements
 
