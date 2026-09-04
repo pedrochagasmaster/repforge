@@ -314,12 +314,20 @@ a shared channel (none exists across the Safari/installed storage boundary):
 5. On `expired` with no claim ever bound, Safari clears the outbound marker
    and resumes normal use — the transfer never completed and nothing local
    ever changed. This is the only silent-resume path.
-6. If Safari restarts with an outbound marker but no token (memory lost,
-   cookie consumed or expired), it cannot authenticate status: it shows an
-   unknown-outcome state (check the installed app; the transfer window and
-   its expiry are shown). After expiry plus margin with no evidence, the user
-   may dismiss the marker and keep using the browser — the safe default,
-   since local data was never deleted or overwritten.
+6. If Safari restarts with an outbound marker, it first attempts to unseal
+   the token from that marker and resume polling at step 2 — a normal
+   restart must not lose a recoverable transfer.
+7. Only if unsealing genuinely fails does Safari enter unknown-outcome: the
+   installed PWA may already have imported the clone, so Safari cannot
+   safely dismiss the marker and resume. It shows an unknown-outcome state
+   (check the installed app; the transfer window and its expiry are shown).
+   If the installed app holds the data, Safari treats the transfer as
+   complete (freeze plus snapshot marker). Otherwise resuming browser use
+   requires the explicit G-88 divergence warning and confirmation — plain
+   dismissal is prohibited, because silent divergence is exactly what this
+   lifecycle exists to prevent. After expiry plus margin the same choice
+   applies; local data was never deleted or overwritten, but parallel use
+   without the warning is not permitted.
 
 `Resume in browser` presents an explicit divergence warning — future browser
 and installed changes will not merge — and confirmation removes the freeze
