@@ -59,9 +59,9 @@ fields stay valid and read as `legacy/no transition record`.
 | `successor.fingerprint` | string | Stable fingerprint of the incoming program; absent for overlays |
 | `successor.source` | string | Source provenance of the incoming program |
 | `successor.compilerProvenance` | object | Compiler provenance of the incoming program |
-| `diff.days` | array | Entries of `{day, before, after, reason}` keyed by stable day ID. Array order is the successor order; entries that moved carry `index` inside both snapshots (0-based); unmoved entries omit it |
-| `diff.exercises` | array | Entries of `{slot, movement, before, after, reason}`: `slot` is the stable program slot identity (compiler `slotId`, e.g. `growth_d1_s1`), `movement` is the successor movement ID in `library:` form (null when the slot is removed). A compiled program distinguishes exercise instances from movements — repeated movements in different slots have distinct `slot` values — so library IDs alone would collide and must never serve as diff identity. `before` and `after` are complete slot snapshots carrying their own `movement`, so a same-slot movement replacement reads `{slot: S, movement: new, before: {movement: old, …}, after: {movement: new, …}}` unambiguously; the fixture `test/fixtures/transition-proposal-v1.json` and the example below carry the exact shapes |
-| `diff.prescriptions` | array | Entries of `{slot, movement, before, after, reason}` keyed the same way |
+| `diff.days` | array | Entries of `{predecessorDay, successorDay, before, after, reason}`. Day and slot identities are blueprint-qualified compiler IDs and are never shared across blueprints, so every entry names both sides explicitly: both IDs for mapped days, `predecessorDay` only for removals, `successorDay` only for additions. Array order is the successor order; every non-null snapshot carries its 0-based `index` |
+| `diff.exercises` | array | Entries of `{predecessorSlot, successorSlot, movement, before, after, reason}`: slot identities are blueprint-qualified compiler IDs (e.g. `growth_4_d2_s1`) and are never shared across blueprints, so every entry names both sides explicitly — both slots for moved/retained work (a same-slot movement replacement reads as `before.movement ≠ after.movement` under one slot pair), `predecessorSlot` only for removals, `successorSlot` only for additions. `movement` is the successor movement ID in `library:` form. `before`/`after` are complete slot snapshots carrying their own `movement` and 0-based `index`. The fixture `test/fixtures/transition-proposal-v1.json` and the example below carry the exact shapes |
+| `diff.prescriptions` | array | Entries of `{predecessorSlot, successorSlot, movement, before, after, reason}` keyed the same way as `exercises` |
 | `diff.recoveryWeek` | object, optional | Present only for `recovery_week`: the overlay below |
 | `progressionContract.preservedRelations` | string[] | Relations and strategies carried over unchanged |
 | `progressionContract.resetRelations` | string[] | Explicitly reset relations with reasons |
@@ -101,7 +101,8 @@ transition. Array order is therefore total, not incidental:
   (day, slot) order first, then added entries in successor order, then
   removed entries sorted by slot ID ascending.
 - `index` inside `before` snapshots is the 0-based predecessor position;
-  inside `after` snapshots it is the 0-based successor position.
+  inside `after` snapshots it is the 0-based successor position. Validators
+  reject a non-null snapshot without `index` (see below).
 - Placement is reconstructable: every non-null `before` object carries
   `index` (its 0-based predecessor position) and every non-null `after`
   object carries `index` (its 0-based successor position). An entry with a
@@ -126,7 +127,7 @@ transition. Array order is therefore total, not incidental:
   preimage proposal (it deliberately contains a duplicate evidence ID and
   unsorted evidence to exercise the set rules); hashing it with the
   documented rule yields
-  `proposalHash: fdf2a6090e607b400e86a415c6508556b952e4c52d9c253ecd880868e66e47ee`.
+  `proposalHash: d9dca768503f79ba01d914ff7cc2bb7914c32fffb607b6b83f4605f3b94c19c1`.
   `node tools/canonical-proposal-hash.mjs` recomputes and verifies it; the
   example record below embeds the same fixture with its lifecycle fields and
   this digest filled in.
@@ -146,7 +147,7 @@ transition. Array order is therefore total, not incidental:
     "fingerprint": "fp9f2c41",
     "durableRevision": 18,
     "source": "Recommend",
-    "compilerProvenance": { "familyVersion": "growth-v3", "blueprintVersion": "growth-4d-v1", "compilerVersion": "2.4.0", "rulesVersion": "rules-v7", "catalogueVersion": "catalogue-v12" }
+    "compilerProvenance": { "familyVersion": "growth-v3", "blueprintVersion": 1, "compilerVersion": 2, "rulesVersion": 1, "catalogueVersion": 1 }
   },
   "diagnosis": {
     "kind": "fewer_days",
@@ -157,25 +158,29 @@ transition. Array order is therefore total, not incidental:
   "derivation": {
     "mode": "recompilation",
     "request": "lower-frequency-sibling",
-    "compilerContextVersions": { "compilerVersion": "2.4.0", "rulesVersion": "rules-v7", "catalogueVersion": "catalogue-v12" },
+    "compilerContextVersions": { "compilerVersion": 2, "rulesVersion": 1, "catalogueVersion": 1 },
     "policyVersions": {}
   },
   "successor": {
     "programId": "prog_local_b7",
     "fingerprint": "fp51ad0e",
     "source": "Recommend",
-    "compilerProvenance": { "familyVersion": "growth-v3", "blueprintVersion": "growth-3d-v1", "compilerVersion": "2.4.0", "rulesVersion": "rules-v7", "catalogueVersion": "catalogue-v12" }
+    "compilerProvenance": { "familyVersion": "growth-v3", "blueprintVersion": 1, "compilerVersion": 2, "rulesVersion": 1, "catalogueVersion": 1 }
   },
   "diff": {
     "days": [
-      { "day": "growth_d4", "before": { "label": "Day 4", "index": 3, "slots": 6 }, "after": null, "reason": "fewer_days: day not reconstructable in 3-day sibling" }
+      { "predecessorDay": "growth_4_d4", "successorDay": null, "before": { "label": "Day 4", "index": 3, "slots": 5 }, "after": null, "reason": "fewer_days: 4-day blueprint has no 3-day successor day; coverage preserved by mapped days" }
     ],
     "exercises": [
-      { "slot": "growth_d2_s3", "movement": "library:seated_cable_row", "before": { "movement": "library:seated_cable_row", "index": 1, "sets": 3 }, "after": { "movement": "library:seated_cable_row", "index": 1, "sets": 3 }, "reason": "retained with identical prescription" },
-      { "slot": "growth_d4_s2", "movement": null, "before": { "movement": "library:leg_press", "index": 5, "sets": 4 }, "after": null, "reason": "day removed; coverage preserved by growth_d1_s1 squat" }
+      { "predecessorSlot": "growth_4_d2_s1", "successorSlot": "growth_3_d1_s1", "movement": "library:sq_lp", "before": { "movement": "library:sq_lp", "index": 0, "sets": 3 }, "after": { "movement": "library:sq_lp", "index": 0, "sets": 3 }, "reason": "protected primary retained across sibling days" },
+      { "predecessorSlot": "growth_4_d1_s1", "successorSlot": "growth_3_d1_s2", "movement": "library:pr_mc", "before": { "movement": "library:pr_mc", "index": 0, "sets": 3 }, "after": { "movement": "library:pr_mc", "index": 1, "sets": 3 }, "reason": "retained; day order differs between siblings" },
+      { "predecessorSlot": "growth_4_d2_s3", "successorSlot": "growth_3_d2_s4", "movement": "library:sq_lp", "before": { "movement": "library:lg_bb", "index": 2, "sets": 3 }, "after": { "movement": "library:sq_lp", "index": 3, "sets": 3 }, "reason": "same-slot movement replacement: unilateral knee slot resolves to a different movement in the 3-day blueprint" },
+      { "predecessorSlot": "growth_4_d3_s2", "successorSlot": "growth_3_d3_s2", "movement": "library:ip_mc", "before": { "movement": "library:rw_mc", "index": 1, "sets": 3 }, "after": { "movement": "library:ip_mc", "index": 1, "sets": 3 }, "reason": "same-slot movement replacement with identical prescription" },
+      { "predecessorSlot": "growth_4_d1_s4", "successorSlot": null, "movement": null, "before": { "movement": "library:ip_mc", "index": 3, "sets": 3 }, "after": null, "reason": "slot removed with its day; coverage preserved by growth_3_d2_s5" },
+      { "predecessorSlot": "growth_4_d4_s1", "successorSlot": null, "movement": null, "before": { "movement": "library:hg_mc", "index": 0, "sets": 3 }, "after": null, "reason": "day removed; hinge coverage preserved by growth_3_d2_s1" }
     ],
     "prescriptions": [
-      { "slot": "growth_d1_s1", "movement": "library:back_squat", "before": { "sets": 4, "index": 0 }, "after": { "sets": 4, "index": 0 }, "reason": "protected primary unchanged" }
+      { "predecessorSlot": "growth_4_d1_s5", "successorSlot": "growth_3_d1_s5", "movement": "library:dl_cb", "before": { "sets": 2, "index": 4 }, "after": { "sets": 2, "index": 4 }, "reason": "protected-prescription parity on the mapped lateral-delt slot" }
     ]
   },
   "progressionContract": {
@@ -184,7 +189,7 @@ transition. Array order is therefore total, not incidental:
     "incompatibilities": []
   },
   "archiveId": "arc_01J9Z8X7C6V5B4N3M1",
-  "proposalHash": "fdf2a6090e607b400e86a415c6508556b952e4c52d9c253ecd880868e66e47ee"
+  "proposalHash": "d9dca768503f79ba01d914ff7cc2bb7914c32fffb607b6b83f4605f3b94c19c1"
 }
 ```
 

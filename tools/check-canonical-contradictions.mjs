@@ -265,26 +265,23 @@ required("docs/recovery-week-policy.md", [
     "canonical preimage",
     "sorted object keys",
     "lowercase hex",
-    "fdf2a6090e607b400e86a415c6508556b952e4c52d9c253ecd880868e66e47ee",
+    "d9dca768503f79ba01d914ff7cc2bb7914c32fffb607b6b83f4605f3b94c19c1",
     "transition-proposal-v1.json",
   ]) {
     check(hashSection.includes(anchor), `transition hashing: missing "${anchor}"`);
   }
-  // The fixture digest must actually verify with the documented rule.
+  // The fixture digest must actually verify with the documented rule: run
+  // the documented standalone command, and check the committed example
+  // record hashes to the digest the doc claims.
   try {
     const { execFileSync } = await import("node:child_process");
-    const out = execFileSync(
-      process.execPath,
-      ["--input-type=module", "-e", `
-        import { readFileSync } from 'node:fs';
-        import { proposalHashOf } from './tools/canonical-proposal-hash.mjs';
-        const doc = readFileSync('docs/block-transition-provenance.md', 'utf8');
-        const rec = JSON.parse([...doc.matchAll(/\u0060\u0060\u0060json\\n([\\s\\S]*?)\\n\u0060\u0060\u0060/g)].map(m => m[1])[0]);
-        const fixture = JSON.parse(readFileSync('test/fixtures/transition-proposal-v1.json', 'utf8'));
-        const h = proposalHashOf(rec);
-        if (h !== rec.proposalHash || h !== proposalHashOf(fixture)) process.exit(1);
-      `],
-      { cwd: ROOT, encoding: "utf8" },
+    execFileSync(process.execPath, ["tools/canonical-proposal-hash.mjs", "--check"], { cwd: ROOT, stdio: "pipe" });
+    const { proposalHashOf } = await import(join(ROOT, "tools", "canonical-proposal-hash.mjs"));
+    const example = JSON.parse([...docs.get("docs/block-transition-provenance.md").matchAll(/```json\n([\s\S]*?)\n```/g)].map((m) => m[1])[0]);
+    const computed = proposalHashOf(example);
+    check(
+      computed === example.proposalHash,
+      `transition hashing: doc example hashes to ${computed.slice(0, 12)}…, doc claims ${String(example.proposalHash).slice(0, 12)}…`,
     );
   } catch {
     failures.push("transition hashing: fixture digest does not verify with the documented rule");
