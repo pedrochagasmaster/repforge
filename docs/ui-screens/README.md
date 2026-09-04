@@ -23,6 +23,17 @@ catalog fails the build — it does not pass quietly.
 
 Never hand-edit a PNG.
 
+## Release matrix
+
+Coverage is risk-based rather than a full language × theme × text-size
+product ([ADR 0012](../adr/0012-ui-overhaul-canonical-reconciliation.md)).
+Broad normal-size coverage stays in both languages for every screen; the
+demanding surfaces named in ADR 0012 additionally capture PT-BR at 200% text
+(`pt-text200`, added by Plan 050). Document and component overflow assertions
+run across every catalog screen — image comparison alone cannot tell a
+designed scroller from a failure — and contrast is audited per rendered role
+under WCAG 2.2 AA.
+
 ## Naming
 
 ```

@@ -257,11 +257,15 @@ Principles the tokens can't express:
 
 - One accent, used sparingly — emphasis, primary actions, small highlights.
   Never decorative washes or large orange fields.
-- Hairline rules (`--rule`) separate content; no cards, no borders-as-boxes.
-- No drop shadows on surfaces (`--shadow: none` is deliberate); `box-shadow`
-  appears only as accent focus rings and inset hairlines. No decorative
-  gradients — the two in the CSS are functional (a select chevron and a
-  sticky-nav scroll fade).
+- Page content stays flat: hairlines (`--rule`) separate content, whitespace
+  groups it. Depth is allowlisted by semantic role only — `page`, `selected`,
+  `floating`, `modal`, and `persistent-action` as defined in
+  [ADR 0012](adr/0012-ui-overhaul-canonical-reconciliation.md). Anything outside
+  those roles stays flat, and nested-card tunnels (a card inside a card inside
+  a card) are prohibited everywhere.
+- Shadows draw only the allowed elevation roles, accent focus rings, and inset
+  hairlines. No decorative gradients — the two in the CSS are functional (a
+  select chevron and a sticky-nav scroll fade).
 - The light editorial look depends on restraint: warm paper, near-black ink,
   generous whitespace.
 

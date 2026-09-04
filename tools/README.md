@@ -61,6 +61,20 @@ node tools/check-ui-overhaul-disposition.mjs
 node tools/check-ui-overhaul-disposition.mjs --check
 ```
 
+## check-ui-semantic-roles.mjs
+
+Verifies the semantic role inventory and release matrix in
+[`docs/adr/0012-ui-overhaul-canonical-reconciliation.md`](../docs/adr/0012-ui-overhaul-canonical-reconciliation.md):
+all six role families present with at least the Plan 049 minimum counts,
+globally unique role names each with a meaning and a consuming plan, and a
+demanding-surfaces matrix whose entries name existing manifest flow/screens
+and only known variant sets.
+
+```bash
+node tools/check-ui-semantic-roles.mjs
+node tools/check-ui-semantic-roles.mjs --check
+```
+
 ## build-exercises.mjs
 
 Generates `exercises.js` — the exercise library the picker and the program
