@@ -11,7 +11,8 @@ agents always load is in `AGENTS.md`.
 
 Taurifer is a local-first progressive-overload tracker for calm, focused
 training. Ordinary training data stays on this device; Taurifer never
-uploads it. A coach may choose to put a program, its settings, and the app
+uploads it except through the explicit one-hour install transfer
+([ADR 0013](adr/0013-temporary-install-transfer.md)) or opted-in telemetry. A coach may choose to put a program, its settings, and the app
 language into a URL they send themselves — never workout history. That is
 a setup link, not an account or a backend (see
 [First-run modes](#first-run-modes); [ADR 0007](adr/0007-shared-setup-links.md)).
