@@ -142,9 +142,9 @@ on their own, even with identical threat, retry, and deletion semantics.
 - Encrypt each payload at rest with authenticated encryption and managed key rotation; TLS is mandatory in transit.
 - Treat the bearer as sensitive: never emit it or payload content in logs, analytics, error tracking, referrers, or URLs visible to unrelated origins.
 - Apply exact-origin CORS, `Cache-Control: no-store`, content-type enforcement, schema/depth/size bounds, rate limits, and constant-shape invalid/expired responses.
-- Prevent replay with an atomic `available → claiming → deleted/expired` state machine. A second claim ID never receives the payload. The bound claim may retry only until commit or expiry.
+- Prevent replay with an atomic `available → claiming → deleted` state machine, where a `claiming` record whose commit never arrives expires into `claimed-expired` (import possibly complete; never silently resumed). A second claim ID never receives the payload. The bound claim may retry only until commit or expiry.
 - The iOS handoff cookie carries only the opaque install-transfer token, never the clone. It is distinct from the historical `repforge_setup_v1` setup-proposal cookie and must use the matching HTML path, short lifetime, `SameSite=Lax`, and `Secure` outside localhost.
-- Disclose that the temporary service operator can process the decrypted clone, that the opaque token is sent with the matching HTML request, and that payload deletion occurs on claim or within one hour.
+- Disclose that the temporary service operator can process the decrypted clone, that the opaque token is sent with the matching HTML request, and that payload deletion occurs on verified local import (commit) or by the one-hour expiry, never on claim binding.
 
 Threat modeling must cover token theft, brute force, replay, log/referrer leakage, malicious or stale tabs, service/operator access, oversized or malformed payloads, cross-origin requests, interrupted claims, clock skew, expiration backlog, and compromise of encryption keys. Operational documentation must include expiry-job monitoring, deletion latency, key rotation, incident handling, cost/retention bounds, and a feature kill switch.
 

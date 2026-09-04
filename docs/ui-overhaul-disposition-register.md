@@ -119,7 +119,7 @@ names Plan 057 the finding owner); both record their rationale inline.
 | G-82 | split | 049 | 054 | Creator identity deferred; no unverified name or avatar ships |
 | G-83 | split | 049 | 053, 054, 055, 056, 057, 059 | Allowlisted privacy-preserving telemetry; owner interprets evidence |
 | G-84 | split | 049 | 051, 053 | Exact logical clone with explicit exclusions; schema in slice 5 |
-| G-85 | split | 049 | 053, 059 | Claim-or-60-minute deletion; service behavior in 053, evidence in 059 |
+| G-85 | split | 049 | 053, 059 | Verified-import (commit) deletion or ≤60-minute expiry; service behavior in 053, evidence in 059 |
 | G-86 | split | 049 | 053, 054 | Explicit informed install-and-transfer action |
 | G-87 | split | 049 | 053, 059 | Telemetry identity preserved across transfer with context split |
 | G-88 | split | 049 | 053, 054, 059 | Safari recovery snapshot with divergence warning |

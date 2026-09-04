@@ -309,7 +309,7 @@ Implementation agents stop at a gate. They do not choose for the owner, infer ap
 | G-82 | 049, 054 | Creator identity explicitly deferred; no implementation |
 | G-83 | 049, 053–057, 059 | Allowlisted privacy-preserving telemetry; owner interpretation |
 | G-84 | 049, 051, 053 | Exact logical clone and explicit exclusions |
-| G-85 | 049, 053, 059 | Immediate claim deletion and ≤60-minute expiry |
+| G-85 | 049, 053, 059 | One-hour clone lifetime: deletion on verified import (commit), never on claim; unclaimed records expire at ≤60 minutes |
 | G-86 | 049, 053, 054 | Explicit informed install-and-transfer action |
 | G-87 | 049, 053, 059 | Preserve telemetry identity; browser/standalone context |
 | G-88 | 049, 053, 054, 059 | Safari recovery snapshot and divergence warning |

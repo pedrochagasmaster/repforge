@@ -170,7 +170,7 @@ specified. Residual risk is accepted and disclosed, never defined away.
 |---|---|---|
 | T-01 | Token theft, including a bearer observed in static-host access logs before the legitimate claim | 256-bit bearer; digest-only storage; first-claim-wins binding; prompt claiming; ≤60-minute window; `Cookie`-header log redaction requirement. A pre-claim bearer CAN claim the clone — the window is narrowed, not closed |
 | T-02 | Brute force against tokens or claim IDs | 256-bit token / 128-bit claim entropy; digest lookup; rate limits; constant-shape failures |
-| T-03 | Replay or a second claimant | Atomic `available → claiming → deleted/expired`; bound claim retries only until commit or expiry |
+| T-03 | Replay or a second claimant | Atomic `available → claiming → deleted`, with uncommitted claims expiring into `claimed-expired`; bound claim retries only until commit or expiry |
 | T-04 | Log, referrer, or trace leakage of bearer, clone, or envelope fields | Ban from logs, analytics, error tracking, referrers, foreign URLs, fixtures, screenshots; sealed local credentials; redacted static-host logs |
 | T-05 | Malicious or stale tabs racing create, claim, or resume | Claim-ID binding; source operation lock; validate-before-touch; versioned import marker; cross-tab freeze |
 | T-06 | Service or operator access to the clone | Minimal one-hour retention; commit-verified deletion; explicit no-E2EE disclosure; kill switch and purge runbook |
@@ -181,7 +181,7 @@ specified. Residual risk is accepted and disclosed, never defined away.
 | T-11 | Expiration backlog or purge failure | Expiry-job monitoring with deletion-latency bounds; alarm and kill switch; manual purge runbook; no new creates until retention is healthy |
 | T-12 | Encryption-key compromise or rotation gap | Managed rotation; old keys retained only through the maximum live-record window; creation disabled rather than serving undecryptable data |
 | T-13 | Sealed commit-credential loss (key wiped, profile reset) | Unrecoverable by design; 60-minute expiry plus purge backstop; local data never at risk; fresh-transfer user guidance |
-| T-14 | Status-polling oracle or unknown-outcome confusion | Status returns state plus expiry only, to the bearer holder alone; unknown-outcome state with safe browser-continue default after expiry plus margin |
+| T-14 | Status-polling oracle or unknown-outcome confusion | Status returns state plus expiry only, to the bearer holder alone; every indeterminate outcome — credential loss, poll exhaustion, service failure, or status unavailability — routes into the non-silent G-88 divergence-warning path, never a silent browser continue |
 
 ## iOS handoff cookie
 
