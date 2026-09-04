@@ -259,7 +259,10 @@ installed state unchanged. If the installed context already holds meaningful
 local state, stop and require explicit choice; never overwrite automatically.
 Client states: `idle`, `creating`, `ready`, `claiming`, `validating`,
 `importing`, `localCommitted`, `deletingRemote`, `complete`, `retryable`,
-`terminalUnavailable`.
+`terminalUnavailable`, `unknown-outcome` (indeterminate result — Safari
+outbound credential loss, poll exhaustion, service failure, unavailable
+status, or post-purge polling; always follows the G-88 divergence-warning
+path, never silent continuation). Identical to Plan 053's client enum.
 
 ### Commit credentials (crash-safe remote deletion on both sides)
 
@@ -303,11 +306,16 @@ outbound marker and the installed inbound marker never cross contexts:
   credentials never touch logs, backup, telemetry, or the DOM.
 - After the remote commit is confirmed, the completing side wipes its marker
   and the device key material for that transfer.
-- If unsealing fails (key lost, profile reset), the credential is
-  unrecoverable by design: the record dies at its 60-minute expiry (plus the
-  purge runbook as backstop), local data was never at risk, and the user
-  starts a fresh transfer. This fallback is documented in the user-facing
-  failure copy.
+- Unsealing failure is context-specific. Installed inbound credential
+  loss (key lost, profile reset) makes deletion retry impossible: the record
+  dies at tombstone expiry (plus the purge runbook as backstop), the
+  imported state stays live, and Safari still learns the terminal state
+  through polling — no divergence warning is needed. Safari outbound
+  credential loss means Safari can never prove the outcome: it enters
+  `unknown-outcome` and follows the G-88 divergence-warning path exactly
+  like every other indeterminate outcome. Both fallbacks are documented in
+  the user-facing failure copy; "start a fresh transfer" is never offered
+  for an indeterminate Safari outcome.
 - Markers are excluded from backup export/import exactly like token and
   import markers (Plan 053), and are wiped no later than expiry plus an
   operational margin.
@@ -401,7 +409,7 @@ transfer requests or responses.
 
 Transfer: unavailable, eligible, creating, ready-to-install, claiming,
 importing, success/recovery-snapshot, invalid, expired, already-claimed,
-interrupted/retryable, service-disabled, divergence-warning. Recovery-week
-states live in `docs/recovery-week-policy.md`. Plans must never claim that
+interrupted/retryable, service-disabled, unknown-outcome, divergence-warning.
+Recovery-week states live in `docs/recovery-week-policy.md`. Plans must never claim that
 installation is required for offline use or that it supplies native-grade
 reminders or storage durability.
