@@ -9,8 +9,7 @@
 
 ## Status
 
-- **State:** READY FOR IMPLEMENTATION after Plan 047 can compile every claimed
-  route/frequency
+- **State:** IMPLEMENTED (see status note above); do not execute
 - **Priority:** P0 — fourth item in the canonical alpha queue
 - **Effort:** XL
 - **Risk:** HIGH — first-run activation, active-program replacement, import,

@@ -4,9 +4,9 @@
 - **Contract version:** 1
 - **Contract owner:** Plan 049
 - **Consumers:** Plans 050–059 (see per-role and per-surface owners below)
-- **Product direction:** [`docs/ui-audit.md`](ui-audit.md) (authoritative)
-- **Dispositions:** [`docs/ui-overhaul-disposition-register.md`](ui-overhaul-disposition-register.md)
-- **Execution map:** [`docs/ui-overhaul-implementation-sequence.md`](ui-overhaul-implementation-sequence.md)
+- **Product direction:** [`docs/ui-audit.md`](../ui-audit.md) (authoritative)
+- **Dispositions:** [`docs/ui-overhaul-disposition-register.md`](../ui-overhaul-disposition-register.md)
+- **Execution map:** [`docs/ui-overhaul-implementation-sequence.md`](../ui-overhaul-implementation-sequence.md)
 
 Later phases may add UI only through the semantic roles named here. Meanings
 cannot change per feature. Phase 7 (Plan 058) owns the full inventory and
@@ -239,7 +239,7 @@ a schema ad hoc.
 ## Recovery-week experiment (owner-gated)
 
 Recovery is a versioned week-one schedule overlay governed by
-[`docs/recovery-week-policy.md`](recovery-week-policy.md): eligibility on
+[`docs/recovery-week-policy.md`](../recovery-week-policy.md): eligibility on
 `maintained`/`declined` evidence plus checkpoint recovery input, base-versus-
 effective preview with explicit confirmation, optional work removed first,
 ordinary `minSets` crossable under the named policy, at least one working set

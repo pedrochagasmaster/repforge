@@ -15,8 +15,7 @@
 
 ## Status
 
-- **State:** READY FOR IMPLEMENTATION after Plan 046's strategy schema is
-  stable
+- **State:** IMPLEMENTED (see status note above); do not execute
 - **Priority:** P0 — third item in the canonical alpha queue
 - **Effort:** XL
 - **Risk:** HIGH — this is Taurifer's authored training product, not sample data

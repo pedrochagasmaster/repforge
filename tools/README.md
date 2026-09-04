@@ -90,6 +90,24 @@ node tools/check-recovery-invariants.mjs
 node tools/check-recovery-invariants.mjs --check
 ```
 
+## check-canonical-contradictions.mjs
+
+Phase 0 contradiction, path, and schema-consumer gate over 24 current-tense
+governing documents (frozen source-evidence reports and old plan bodies are
+out of scope by design). It fails on stale live-policy phrases (no-card
+rule, pinned cache example, stale READY states, unqualified never-uploads
+outside the wholesale/quoted carve-outs), rejected-claim reintroduction
+outside the register/sequence/audit, stale five-tab policy, missing canonical
+anchors, downstream vocabulary drift (Plan 052 transition fields, Plan 053
+transfer fields, Plan 058 role names, recovery Rule B constants), bearer
+tokens in ADR 0013 endpoint URLs, missing child-plan dependency/atomic/STOP/
+gate sections, and broken relative doc links.
+
+```bash
+node tools/check-canonical-contradictions.mjs
+node tools/check-canonical-contradictions.mjs --check
+```
+
 ## build-exercises.mjs
 
 Generates `exercises.js` — the exercise library the picker and the program
