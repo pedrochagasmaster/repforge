@@ -129,7 +129,7 @@ transition. Array order is therefore total, not incidental:
   preimage proposal (it deliberately contains a duplicate evidence ID and
   unsorted evidence to exercise the set rules); hashing it with the
   documented rule yields
-  `proposalHash: d9dca768503f79ba01d914ff7cc2bb7914c32fffb607b6b83f4605f3b94c19c1`.
+  `proposalHash: 2b7cd59234ebed5426d369a188361288c97380ec7b649f8c38d73d62b199f50c`.
   `node tools/canonical-proposal-hash.mjs` recomputes and verifies it; the
   example record below embeds the same fixture with its lifecycle fields and
   this digest filled in.
@@ -149,7 +149,7 @@ transition. Array order is therefore total, not incidental:
     "fingerprint": "fp9f2c41",
     "durableRevision": 18,
     "source": "Recommend",
-    "compilerProvenance": { "familyVersion": "growth-v3", "blueprintVersion": 1, "compilerVersion": 2, "rulesVersion": 1, "catalogueVersion": 1 }
+    "compilerProvenance": { "familyId": "growth", "blueprintId": "growth_4_v1", "blueprintVersion": 1, "compilerVersion": 2, "catalogueVersion": 1, "rulesVersion": 1, "contextVersion": 2, "profileId": "standard@1", "recentConsistencyVersion": 1 }
   },
   "diagnosis": {
     "kind": "fewer_days",
@@ -160,14 +160,14 @@ transition. Array order is therefore total, not incidental:
   "derivation": {
     "mode": "recompilation",
     "request": "lower-frequency-sibling",
-    "compilerContextVersions": { "compilerVersion": 2, "rulesVersion": 1, "catalogueVersion": 1 },
+    "compilerContextVersions": { "familyId": "growth", "blueprintId": "growth_3_v1", "compilerVersion": 2, "catalogueVersion": 1, "rulesVersion": 1, "contextVersion": 2, "profileId": "standard@1", "recentConsistencyVersion": 1 },
     "policyVersions": {}
   },
   "successor": {
     "programId": "prog_local_b7",
     "fingerprint": "fp51ad0e",
     "source": "Recommend",
-    "compilerProvenance": { "familyVersion": "growth-v3", "blueprintVersion": 1, "compilerVersion": 2, "rulesVersion": 1, "catalogueVersion": 1 }
+    "compilerProvenance": { "familyId": "growth", "blueprintId": "growth_3_v1", "blueprintVersion": 1, "compilerVersion": 2, "catalogueVersion": 1, "rulesVersion": 1, "contextVersion": 2, "profileId": "standard@1", "recentConsistencyVersion": 1 }
   },
   "diff": {
     "days": [
@@ -191,7 +191,7 @@ transition. Array order is therefore total, not incidental:
     "incompatibilities": []
   },
   "archiveId": "arc_01J9Z8X7C6V5B4N3M1",
-  "proposalHash": "d9dca768503f79ba01d914ff7cc2bb7914c32fffb607b6b83f4605f3b94c19c1"
+  "proposalHash": "2b7cd59234ebed5426d369a188361288c97380ec7b649f8c38d73d62b199f50c"
 }
 ```
 
