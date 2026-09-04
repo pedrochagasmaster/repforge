@@ -23,7 +23,7 @@ This exception must be implementable without turning Taurifer into a hosted acco
 - Transfer an exact logical clone: durable state, active DraftV2, device/UI preferences, analytics consent, telemetry identity, and the Phase 049 disposition for unfinished program-entry candidate state.
 - Exclude volatile journals, locks, transaction markers, caches, service-worker state, OS permissions, and session-only runtime values.
 - Create the encrypted temporary copy only after an explicit informed action.
-- Expire unclaimed payloads within 60 minutes; delete payload immediately after successful claim.
+- Expire unclaimed payloads within 60 minutes; delete payload after verified local import (commit), never on claim alone.
 - Permit only one claimant, while allowing the same interrupted claim to retry safely.
 - Import atomically. Retain original Safari data. After success, make Safari a recovery snapshot and warn explicitly before browser resume.
 - Emit consent-respecting `late_install_transfer` under the preserved identity and distinguish browser/standalone context.
@@ -72,6 +72,7 @@ kind: taurifer-install-transfer
 schemaVersion: 1
 createdAt
 source: { context: browser, logicalInstallationId }
+sourceRevision
 durableState: normalized repforge_v1 value
 workoutDraft: null | DraftV2 logical section
 programEntryDraft: null | versioned candidate section (per Plan 049)
@@ -113,7 +114,7 @@ createdAt, expectedLocalRevision
 
 Import protocol:
 
-1. Before app initialization exposes mutable UI, claim with a stable client-generated claim ID.
+1. Before app initialization exposes mutable UI, read the handoff token, stage the `repforge_transfer_inbound_v1` marker with the sealed token and a stable client-generated claim ID, then claim.
 2. Validate all envelope sections and canonical hash in memory.
 3. Acquire the cross-tab state/draft/import lock and freeze other tabs through BroadcastChannel/storage signaling.
 4. Stage the marker with complete previous and incoming snapshots.
@@ -125,13 +126,13 @@ On boot, an incomplete marker either finishes the entire incoming import if the 
 
 ### Browser recovery snapshot
 
-Safari retains its original data. It learns the outcome by polling `POST /v1/transfers/status` with the token — there is no acknowledgement channel or shared storage across the Safari/installed boundary. Safari backs off from 5 seconds to 60 seconds until a terminal state or `expiresAt` plus a 10-minute margin: `deleted` stores the local recovery-snapshot marker tied to token digest/time; `expired` (or terminal without claim) clears the source marker and resumes normal use. A restart with a source marker but no token shows an unknown-outcome state; after expiry plus margin with no evidence, the user may dismiss the marker and keep using the browser, which is safe because local data was never deleted or overwritten. While marked, normal mutating UI is replaced by a message directing the user to the installed app, plus read/recovery/backup access as approved in Phase 049. `Resume in browser` presents an explicit divergence warning: future browser and installed changes will not merge. Confirmation removes the freeze only in Safari and records that divergence was accepted.
+Safari retains its original data. It learns the outcome by polling `POST /v1/transfers/status` with the token — there is no acknowledgement channel or shared storage across the Safari/installed boundary. Safari backs off from 5 seconds to 60 seconds until a terminal state or `expiresAt` plus a 10-minute margin: `deleted` stores the local recovery-snapshot marker tied to token digest/time; `claimed-expired` (claim bound, commit never confirmed, import possibly complete) freezes exactly like success with may-have-completed copy and never resumes silently; `expired` with no claim ever bound clears the outbound marker and resumes normal use. A restart with an outbound marker but no token shows an unknown-outcome state; after expiry plus margin with no evidence, the user may dismiss the marker and keep using the browser, which is safe because local data was never deleted or overwritten. Creation records the source revision and takes the source operation lock; post-creation mutations are flagged so success messaging can warn the installed copy may be stale. While marked, normal mutating UI is replaced by a message directing the user to the installed app, plus read/recovery/backup access as approved in Phase 049. `Resume in browser` presents an explicit divergence warning: future browser and installed changes will not merge. Confirmation removes the freeze only in Safari and records that divergence was accepted.
 
 There is no mechanism that writes installed changes back to Safari.
 
 ## Domain/state model
 
-Server states: `available`, `claiming`, `deleted`, `expired`; ciphertext exists only in the first two. Client states: `idle`, `creating`, `ready`, `claiming`, `validating`, `importing`, `localCommitted`, `deletingRemote`, `complete`, `retryable`, `terminalUnavailable`. Recovery snapshot states: `none`, `awaitingClaimOutcome`, `confirmed`, `resumeWarning`, `resumedDiverged`.
+Server states: `available`, `claiming`, `deleted`, `expired`, `claimed-expired`; ciphertext exists only in the first two. A `claiming` record whose commit never arrives expires into `claimed-expired`, whose tombstone (digest, terminal state, original expiry) persists so Safari can learn it; `expired` strictly means never claimed. Client states: `idle`, `creating`, `ready`, `claiming`, `validating`, `importing`, `localCommitted`, `deletingRemote`, `complete`, `retryable`, `terminalUnavailable`. Recovery snapshot states: `none`, `awaitingClaimOutcome`, `confirmed`, `resumeWarning`, `resumedDiverged`.
 
 State transitions are closed and idempotent. Network timeouts never imply success. The server clock owns expiry. Claim retries use the same claim ID; create retries use an idempotency key so a timeout cannot produce multiple live clones.
 
@@ -198,7 +199,7 @@ Required cases:
 
 ## Privacy
 
-Privacy copy must say what is temporarily copied, why, who processes it, encryption in transit/at rest, one-time claim, immediate/one-hour deletion, token cookie transport, original Safari retention, recovery-snapshot/divergence behavior, and how telemetry identity/consent carry over. It must not claim end-to-end encryption unless the server truly cannot decrypt. No payload/token appears in logs, error tracking, analytics, URLs, clipboard by default, catalog fixtures, or support screenshots.
+Privacy copy must say what is temporarily copied, why, who processes it, encryption in transit/at rest, one-time claim, commit-verified/one-hour deletion, token cookie transport, original Safari retention, recovery-snapshot/divergence behavior, and how telemetry identity/consent carry over. It must not claim end-to-end encryption unless the server truly cannot decrypt. No payload/token appears in logs, error tracking, analytics, URLs, clipboard by default, catalog fixtures, or support screenshots.
 
 ## Telemetry
 
@@ -208,7 +209,7 @@ Emit `late_install_transfer` only after verified local import and according to t
 
 ### Service contract/security
 
-- Create/idempotency, claim bind/retry, competing/duplicate claim, immediate delete, 60-minute expiry, tombstone expiry, uniform invalid response, size/schema/CORS/content-type/rate limits.
+- Create/idempotency, claim bind/retry, competing/duplicate claim, commit-verified delete, 60-minute expiry, tombstone expiry, uniform invalid response, size/schema/CORS/content-type/rate limits.
 - AEAD tamper failure, unique nonces, token digest-only storage, entropy test, key rotation across maximum lifetime.
 - Assert structured logs/traces contain no token, claim ID, ciphertext, envelope fields, or request body.
 - Fake-clock expiry/deletion-lag tests and operational purge/kill-switch rehearsal.
@@ -239,7 +240,7 @@ Use a local fake service for deterministic browser CI and the approved staging s
 
 ## STOP conditions
 
-- Stop if the service cannot guarantee strong one-time claim, authenticated encryption, immediate payload deletion, or deletion within one hour.
+- Stop if the service cannot guarantee strong one-time claim, authenticated encryption, commit-verified payload deletion, or deletion within one hour.
 - Stop if provider/region/key/operations ownership or privacy wording is unresolved.
 - Stop if implementation would upload raw browser storage, log secrets, place the token in a URL, or overload the setup cookie.
 - Stop if atomic import would overwrite meaningful destination state or expose a partial clone.

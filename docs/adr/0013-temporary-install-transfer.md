@@ -53,6 +53,7 @@ it never uploads `localStorage`/IndexedDB wholesale.
 | `createdAt` | timestamp | Creation time |
 | `source.context` | `browser` | Creating context |
 | `source.logicalInstallationId` | string | Coarse logical installation reference, not a tracking ID |
+| `sourceRevision` | integer | Durable revision counter at creation; lets Safari detect post-creation source mutations (not transferred as storage metadata) |
 | `durableState` | object | Normalized `repforge_v1` value (program, history, archive, provenance, logical settings) |
 | `workoutDraft` | null \| object | DraftV2 logical section, or explicit null when absent |
 | `programEntryDraft` | null \| object | Unfinished program-entry candidate as a separately versioned section, or explicit null when absent. DECIDED: included — losing an active build/import draft would violate exact-clone fidelity (G-84). Inclusion changes nothing about activation: the candidate still requires explicit review and activation and is never auto-applied. |
@@ -77,6 +78,7 @@ limits and rejects unknown required versions.
   "schemaVersion": 1,
   "createdAt": "2026-10-01T09:00:00.000Z",
   "source": { "context": "browser", "logicalInstallationId": "li_7f3a" },
+  "sourceRevision": 42,
   "durableState": {
     "program": [{ "dayId": "growth_d1", "label": "Day 1", "slots": [{ "slotId": "growth_d1_s1", "libraryId": "sq_bb", "sets": 4 }] }],
     "programMeta": { "name": "Build Muscle", "onboarded": true },
@@ -129,13 +131,18 @@ implementation may not move the token into the path.
    record and deletion lag.
 
 Tokens carry at least 256 random bits and are never stored plaintext. Server
-states are `available`, `claiming`, `deleted`, `expired`; ciphertext exists
-only in the first two:
+states are `available`, `claiming`, `deleted`, `expired`, and
+`claimed-expired`; ciphertext exists only in the first two. A `claiming`
+record whose commit is never confirmed expires into `claimed-expired` — the
+import may have completed — and its tombstone (digest, terminal state,
+original expiry, no clone or identity) persists to the original expiry so the
+creating Safari can learn it. `expired` strictly means never claimed.
 
 ```text
 available ──claim──▶ claiming ──commit──▶ deleted
     │                   │
-    └──expiry──▶ expired ◀──expiry──┘
+    │                   └──expiry──▶ claimed-expired
+    └──expiry──▶ expired
 ```
 
 Responses use TLS, strict origin/CORS, `Cache-Control: no-store`, no
@@ -156,7 +163,7 @@ specified. Residual risk is accepted and disclosed, never defined away.
 | T-03 | Replay or a second claimant | Atomic `available → claiming → deleted/expired`; bound claim retries only until commit or expiry |
 | T-04 | Log, referrer, or trace leakage of bearer, clone, or envelope fields | Ban from logs, analytics, error tracking, referrers, foreign URLs, fixtures, screenshots; sealed local credentials; redacted static-host logs |
 | T-05 | Malicious or stale tabs racing create, claim, or resume | Claim-ID binding; source operation lock; validate-before-touch; versioned import marker; cross-tab freeze |
-| T-06 | Service or operator access to the clone | Minimal one-hour retention; immediate claim deletion; explicit no-E2EE disclosure; kill switch and purge runbook |
+| T-06 | Service or operator access to the clone | Minimal one-hour retention; commit-verified deletion; explicit no-E2EE disclosure; kill switch and purge runbook |
 | T-07 | Oversized or malformed payloads and envelopes | Schema/depth/size bounds enforced before and during parsing; unknown required versions fail closed |
 | T-08 | Cross-origin requests | Exact-origin CORS; content-type enforcement; no redirects |
 | T-09 | Interrupted create, claim, import, or commit | Same-key create dedupe; same-claim retry; two-sided sealed markers; boot finish-or-restore; idempotent remote commit retry |
@@ -186,7 +193,7 @@ controls, stated here so no later document can soften it:
 
 - The logged value is useful only before the legitimate claim: the first
   claim ID to bind wins, the installed client claims within seconds of
-  install, and the record dies on claim or within one hour. It is NOT true
+  install, and the record dies on verified-import commit or within one hour. It is NOT true
   that a logged token is harmless: anyone holding an unclaimed bearer can
   claim and retrieve the clone before the legitimate client does. The
   controls below narrow that window; they do not close it, and the residual
@@ -200,7 +207,7 @@ controls, stated here so no later document can soften it:
   `Cookie` values stripped or redacted, plus a manual purge runbook. No new
   transfer creation until log retention is healthy.
 - The user-facing disclosure names the temporary copy, its one-hour life,
-  immediate claim deletion, token-cookie transport including static-host
+  commit-verified deletion, token-cookie transport including static-host
   receipt, Safari retention, and recovery/divergence behavior.
 
 ## Atomic local import
@@ -247,13 +254,22 @@ after claim binding) would strand the ciphertext with no retry path. Each
 storage context therefore seals its own credentials locally; the Safari
 outbound marker and the installed inbound marker never cross contexts:
 
-- At creation, the Safari side writes a local-only
+- At creation, the Safari side writes a single local-only
   `repforge_transfer_outbound_v1` marker: `{idempotencyKey, sealedToken,
-  expiresAt, phase}`. At claim time it adds the sealed claim ID.
+  tokenDigest, createdAt, expiresAt, sourceRevision, mutatedAfterCreation,
+  phase}`. Safari never learns the installed app's claim ID and never needs
+  it: creation retry uses the idempotency key, outcome polling uses the
+  token. There is no second Safari-side marker.
+- `sourceRevision` captures the durable revision counter at creation, and
+  creation takes the source operation lock so two Safari tabs cannot mint
+  competing transfers. Any local mutation after creation sets
+  `mutatedAfterCreation`, which the success messaging surfaces (see
+  recovery).
 - On receiving the token and BEFORE sending the claim request, the installed
   side writes a local-only `repforge_transfer_inbound_v1` marker:
   `{sealedToken, sealedClaimId, expiresAt, phase}` with phase starting at
-  `claimed` and advancing through `local-committed` to `delete-confirmed`.
+  `staged`, advancing to `claiming` when the request is sent, then
+  `local-committed` and finally `delete-confirmed`.
   A crash after claim binding resumes the same claim ID from this marker; a
   crash after local commit retries the remote commit from it.
 - Sealing uses device-local WebCrypto AES-GCM under a non-extractable device
@@ -275,20 +291,27 @@ outbound marker and the installed inbound marker never cross contexts:
 Safari retains its original data. It learns the outcome by polling, never by
 a shared channel (none exists across the Safari/installed storage boundary):
 
-1. At creation Safari stores a local-only source marker
-   `{tokenDigest, createdAt, expiresAt}` and keeps the token in memory (own
-   cookie as fallback while it lives).
+1. At creation Safari writes the outbound marker above and keeps the token
+   in memory (own cookie as fallback while it lives).
 2. After handing off to installation, Safari polls `POST
    /v1/transfers/status` with the token, backing off from 5 seconds to 60
    seconds, until a terminal state or `expiresAt` plus a 10-minute margin.
 3. On `deleted`, Safari stores the recovery-snapshot marker (tied to token
    digest and time) and freezes mutating UI: a message directs the user to
-   the installed app, plus read/recovery/backup access.
-4. On `expired` (or terminal without claim), Safari clears the source marker
+   the installed app, plus read/recovery/backup access. If
+   `mutatedAfterCreation` is set, the message adds that the source changed
+   after sending and the installed copy may be stale.
+4. On `claimed-expired` — a claim was bound but the commit was never
+   confirmed, so the import MAY have completed — Safari must NOT silently
+   resume. It freezes exactly as in (3), with copy stating the transfer may
+   have completed and directing the user to the installed app. This is the
+   divergence case G-88 governs: two active copies are possible, and only an
+   explicit divergence warning may resume browser use.
+5. On `expired` with no claim ever bound, Safari clears the outbound marker
    and resumes normal use — the transfer never completed and nothing local
-   ever changed.
-5. If Safari restarts with a source marker but no token (memory lost, cookie
-   consumed or expired), it cannot authenticate status: it shows an
+   ever changed. This is the only silent-resume path.
+6. If Safari restarts with an outbound marker but no token (memory lost,
+   cookie consumed or expired), it cannot authenticate status: it shows an
    unknown-outcome state (check the installed app; the transfer window and
    its expiry are shown). After expiry plus margin with no evidence, the user
    may dismiss the marker and keep using the browser — the safe default,
@@ -317,7 +340,7 @@ size/content, program identity, or readiness data.
 Privacy copy must say what is temporarily copied, why, who processes it
 (static host sees the token header; the transfer service processes the
 encrypted clone), encryption in transit and at rest, one-time claim,
-immediate/one-hour deletion, token-cookie transport, Safari status polling,
+commit-verified or one-hour deletion, token-cookie transport, Safari status polling,
 sealed local commit credentials and their wipe rules, original Safari
 retention, recovery-snapshot/divergence behavior, and how telemetry
 identity/consent carry over. It must state the residual pre-claim token
