@@ -59,8 +59,8 @@ fields stay valid and read as `legacy/no transition record`.
 | `successor.fingerprint` | string | Stable fingerprint of the incoming program; absent for overlays |
 | `successor.source` | string | Source provenance of the incoming program |
 | `successor.compilerProvenance` | object | Compiler provenance of the incoming program |
-| `diff.days` | array | Entries of `{day, before, after, reason}` keyed by stable day ID |
-| `diff.exercises` | array | Entries of `{slot, movement, before, after, reason}`: `slot` is the stable program slot identity (compiler `slotId`, e.g. `growth_d1_s1`), `movement` is the library/custom movement ID in `library:` form. A compiled program distinguishes exercise instances from movements — repeated movements in different slots have distinct `slot` values — so library IDs alone would collide and must never serve as diff identity |
+| `diff.days` | array | Entries of `{day, before, after, reason}` keyed by stable day ID. Array order is the successor order; entries that moved carry `index` inside both snapshots (0-based); unmoved entries omit it |
+| `diff.exercises` | array | Entries of `{slot, movement, before, after, reason}`: `slot` is the stable program slot identity (compiler `slotId`, e.g. `growth_d1_s1`), `movement` is the successor movement ID in `library:` form (null when the slot is removed). A compiled program distinguishes exercise instances from movements — repeated movements in different slots have distinct `slot` values — so library IDs alone would collide and must never serve as diff identity. `before` and `after` are complete slot snapshots carrying their own `movement`, so a same-slot movement replacement reads `{slot: S, movement: new, before: {movement: old, …}, after: {movement: new, …}}` unambiguously |
 | `diff.prescriptions` | array | Entries of `{slot, movement, before, after, reason}` keyed the same way |
 | `diff.recoveryWeek` | object, optional | Present only for `recovery_week`: the overlay below |
 | `progressionContract.preservedRelations` | string[] | Relations and strategies carried over unchanged |
@@ -127,11 +127,12 @@ at their original program/session identities. Backup round-trips both records.
   },
   "diff": {
     "days": [
-      { "day": "growth_d4", "before": { "label": "Day 4", "slots": 6 }, "after": null, "reason": "fewer_days: day not reconstructable in 3-day sibling" }
+      { "day": "growth_d4", "before": { "label": "Day 4", "index": 3, "slots": 6 }, "after": null, "reason": "fewer_days: day not reconstructable in 3-day sibling" }
     ],
     "exercises": [
-      { "slot": "growth_d2_s3", "movement": "library:seated_cable_row", "before": { "sets": 3 }, "after": { "sets": 3 }, "reason": "retained with identical prescription" },
-      { "slot": "growth_d4_s2", "movement": "library:leg_press", "before": { "sets": 4 }, "after": null, "reason": "day removed; coverage preserved by growth_d1_s1 squat" }
+      { "slot": "growth_d2_s3", "movement": "library:seated_cable_row", "before": { "movement": "library:seated_cable_row", "sets": 3 }, "after": { "movement": "library:seated_cable_row", "sets": 3 }, "reason": "retained with identical prescription" },
+      { "slot": "growth_d4_s2", "movement": null, "before": { "movement": "library:leg_press", "sets": 4 }, "after": null, "reason": "day removed; coverage preserved by growth_d1_s1 squat" },
+      { "slot": "growth_d2_s5", "movement": "library:lat_pulldown", "before": { "movement": "library:assisted_pullup", "index": 4, "sets": 3 }, "after": { "movement": "library:lat_pulldown", "index": 2, "sets": 3 }, "reason": "same-slot substitution with reorder" }
     ],
     "prescriptions": [
       { "slot": "growth_d1_s1", "movement": "library:back_squat", "before": { "sets": 4 }, "after": { "sets": 4 }, "reason": "protected primary unchanged" }
