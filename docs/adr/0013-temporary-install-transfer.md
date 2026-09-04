@@ -83,20 +83,164 @@ limits and rejects unknown required versions.
   "kind": "taurifer-install-transfer",
   "schemaVersion": 1,
   "createdAt": "2026-10-01T09:00:00.000Z",
-  "source": { "context": "browser", "logicalInstallationId": "li_7f3a" },
+  "source": {
+    "context": "browser",
+    "logicalInstallationId": "li_7f3a"
+  },
   "sourceRevision": 42,
   "durableState": {
-    "program": [{ "dayId": "growth_d1", "label": "Day 1", "slots": [{ "slotId": "growth_d1_s1", "libraryId": "sq_bb", "sets": 4 }] }],
-    "programMeta": { "name": "Build Muscle", "onboarded": true },
-    "log": [],
-    "settings": { "unit": "kg", "lang": "en" }
+    "settings": {
+      "unit": "kg",
+      "lang": "en",
+      "restSec": 120,
+      "rirMode": "numeric"
+    },
+    "programMeta": {
+      "id": "pm_01J9Z8X7C6",
+      "name": "Build Muscle",
+      "started": "2026-09-07",
+      "created": "2026-09-07T08:00:00.000Z",
+      "updated": "2026-09-28T08:00:00.000Z",
+      "goal": "muscle_growth",
+      "experience": "6_to_24m",
+      "daysPerWeek": 3,
+      "splitType": null,
+      "equipment": [
+        "commercial_gym"
+      ],
+      "priorityMuscles": [],
+      "sessionLength": 60,
+      "mesocycleLengthWeeks": 6,
+      "mesocycleStatus": "active",
+      "completedAt": null,
+      "onboarded": true,
+      "progressionRelations": [],
+      "progressionModifiers": [],
+      "progressionIncompatibilities": [],
+      "programStructure": {
+        "schemaVersion": 1,
+        "provenance": {
+          "familyId": "growth",
+          "blueprintId": "growth_3_v1",
+          "blueprintVersion": 1,
+          "compilerVersion": 2,
+          "catalogueVersion": 1,
+          "rulesVersion": 1,
+          "contextVersion": 2,
+          "profileId": "standard@1",
+          "recentConsistencyVersion": 1
+        },
+        "weekPrescriptions": [],
+        "customizedFrom": null
+      },
+      "entrySource": {
+        "route": "recommend",
+        "fingerprint": "fp51ad0e"
+      }
+    },
+    "program": [
+      {
+        "id": "ex_01",
+        "day": "Day 1",
+        "order": 0,
+        "name": "Leg press",
+        "sets": 3,
+        "min": 8,
+        "max": 12,
+        "primary": "Quads",
+        "secondary": "Glutes",
+        "notes": "",
+        "alternates": [],
+        "slotId": "growth_3_d1_s1",
+        "dayId": "growth_3_d1",
+        "libraryId": "sq_lp",
+        "movementId": "library:sq_lp",
+        "progressionType": "range@1",
+        "targetRirStart": 2,
+        "targetRirEnd": 1,
+        "minSets": 2,
+        "maxSets": 4
+      },
+      {
+        "id": "ex_02",
+        "day": "Day 1",
+        "order": 1,
+        "name": "Machine chest press",
+        "sets": 3,
+        "min": 8,
+        "max": 12,
+        "primary": "Chest",
+        "secondary": "Triceps",
+        "notes": "",
+        "alternates": [],
+        "slotId": "growth_3_d1_s2",
+        "dayId": "growth_3_d1",
+        "libraryId": "pr_mc",
+        "movementId": "library:pr_mc",
+        "progressionType": "range@1",
+        "targetRirStart": 2,
+        "targetRirEnd": 1,
+        "minSets": 2,
+        "maxSets": 4
+      }
+    ],
+    "log": [
+      {
+        "session": "2026-09-08_Day 1_ex9k2",
+        "date": "2026-09-08",
+        "day": "Day 1",
+        "name": "Leg press",
+        "exerciseId": "ex_01",
+        "set": 1,
+        "load": 120,
+        "reps": 10,
+        "rir": 2,
+        "notes": "",
+        "created": "2026-09-08T18:00:00.000Z",
+        "primary": "Quads",
+        "secondary": "Glutes",
+        "performedName": "Leg press",
+        "performedPrimary": "Quads",
+        "performedSecondary": "Glutes",
+        "performedLibraryId": "sq_lp"
+      }
+    ],
+    "programHistory": [],
+    "customExercises": [
+      {
+        "id": "custom:c01",
+        "name": "Landmine press",
+        "namePt": "Desenvolvimento landmine",
+        "archived": false,
+        "equipment": [
+          "barbell"
+        ],
+        "primary": "Chest",
+        "secondary": "Triceps",
+        "notes": "Stubborn shoulder",
+        "patterns": [],
+        "beginnerFriendly": true,
+        "custom": true,
+        "created": "2026-09-10T08:00:00.000Z"
+      }
+    ]
   },
   "workoutDraft": null,
   "programEntryDraft": null,
-  "uiPreferences": { "theme": "system" },
-  "analytics": { "enabled": true },
-  "telemetryIdentity": { "schemaVersion": 1, "installationId": "ti_9c2e", "createdAt": "2026-08-01T10:00:00.000Z" },
-  "integrity": { "canonicalPayloadHash": "7b37e28213618d66a426b7decfa5918b28a26ca54fabe0ead50d586260587147" }
+  "uiPreferences": {
+    "theme": "system"
+  },
+  "analytics": {
+    "enabled": true
+  },
+  "telemetryIdentity": {
+    "schemaVersion": 1,
+    "installationId": "ti_9c2e",
+    "createdAt": "2026-08-01T10:00:00.000Z"
+  },
+  "integrity": {
+    "canonicalPayloadHash": "72464d2b29018617533c3d364a7476db75f47b163d40d1ba4710084349b36a70"
+  }
 }
 ```
 

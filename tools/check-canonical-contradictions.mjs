@@ -284,21 +284,44 @@ required("docs/recovery-week-policy.md", [
   ]) {
     check(hashSection.includes(anchor), `transition hashing: missing "${anchor}"`);
   }
-  // The fixture digest must actually verify with the documented rule: run
-  // the documented standalone command, and check the committed example
-  // record hashes to the digest the doc claims.
+  // The ADR's client enum must literally contain unknown-outcome — parse the
+  // "Client states:" block, not just any occurrence of the word.
+  {
+    const clientStates = (adr.split("Client states:")[1] || "").split(".").slice(0, 3).join(".");
+    check(clientStates.includes("`unknown-outcome`"), "ADR 0013: client enum omits unknown-outcome");
+  }
+  // Plan 053's client enum must also contain it.
+  {
+    const planClientStates = (plan053.split("Client states:")[1] || "").split(".").slice(0, 3).join(".");
+    check(planClientStates.includes("`unknown-outcome`"), "Plan 053: client enum omits unknown-outcome");
+  }
+  // Both hash contracts must execute cleanly (the run also validates the
+  // embedded fixture digests, frozen-input/no-mutation, hostile keys).
   try {
     const { execFileSync } = await import("node:child_process");
     execFileSync(process.execPath, ["tools/canonical-proposal-hash.mjs", "--check"], { cwd: ROOT, stdio: "pipe" });
-    const { proposalHashOf } = await import(join(ROOT, "tools", "canonical-proposal-hash.mjs"));
-    const example = JSON.parse([...docs.get("docs/block-transition-provenance.md").matchAll(/```json\n([\s\S]*?)\n```/g)].map((m) => m[1])[0]);
-    const computed = proposalHashOf(example);
-    check(
-      computed === example.proposalHash,
-      `transition hashing: doc example hashes to ${computed.slice(0, 12)}…, doc claims ${String(example.proposalHash).slice(0, 12)}…`,
-    );
   } catch {
     failures.push("transition hashing: fixture digest does not verify with the documented rule");
+  }
+  try {
+    const { execFileSync } = await import("node:child_process");
+    execFileSync(process.execPath, ["tools/canonical-clone-hash.mjs", "--check"], { cwd: ROOT, stdio: "pipe" });
+    // The ADR's displayed example envelope must equal the fixture and hash
+    // to the digest the ADR records.
+    const { clonePayloadHashOf } = await import(join(ROOT, "tools", "canonical-clone-hash.mjs"));
+    const adrExample = JSON.parse([...adr.matchAll(/```json\n([\s\S]*?)\n```/g)].map((m) => m[1])[0]);
+    const fixture = JSON.parse(readFileSync(join(ROOT, "test", "fixtures", "install-transfer-clone-v1.json"), "utf8"));
+    check(
+      JSON.stringify(adrExample) === JSON.stringify(fixture),
+      "ADR 0013: displayed envelope differs from test/fixtures/install-transfer-clone-v1.json",
+    );
+    const computed = clonePayloadHashOf(adrExample);
+    check(
+      computed === adrExample.integrity.canonicalPayloadHash,
+      `ADR 0013: envelope hashes to ${computed.slice(0, 12)}…, integrity claims ${String(adrExample.integrity.canonicalPayloadHash).slice(0, 12)}…`,
+    );
+  } catch {
+    failures.push("clone hashing: fixture digest does not verify with the documented rule");
   }
 }
 
