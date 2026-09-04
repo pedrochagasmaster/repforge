@@ -94,11 +94,11 @@ These are real but do not outrank the foundation above.
 
 | Status | Item | Decision needed / done condition |
 |---|---|---|
-| Next | Pound display and actionable increments | Design one end-to-end lb contract for stored historical values, editable targets, load steps, `minJump`, entry parsing, and “Why this weight?” copy. Never falsify history to make a target look loadable. |
-| Next | Truthful early workout finish | Let the user finish with incomplete planned work while preserving completed sets and explicitly classifying omitted work; do not pretend the whole prescription was completed. |
-| Next | PT-BR bundled/default day labels | Localize Taurifer-authored day labels or deliberately model them as user-owned data with authored PT-BR defaults. Do not mix English `Day N` into a Portuguese first-run program by accident. |
-| Next | Swapped-workout headings | Keep the immutable performed/program title separate from a temporary swap annotation; do not rewrite durable history labels to explain a one-session substitution. |
-| Next | Remaining native confirmations | Move destructive/discard confirmations into the shared accessible dialog policy without changing their transaction semantics. |
+| Later | Pound display and actionable increments | Design one end-to-end lb contract for stored historical values, editable targets, load steps, `minJump`, entry parsing, and “Why this weight?” copy. Never falsify history to make a target look loadable. |
+| Later | Truthful early workout finish | Let the user finish with incomplete planned work while preserving completed sets and explicitly classifying omitted work; do not pretend the whole prescription was completed. |
+| Later | PT-BR bundled/default day labels | Localize Taurifer-authored day labels or deliberately model them as user-owned data with authored PT-BR defaults. Do not mix English `Day N` into a Portuguese first-run program by accident. |
+| Later | Swapped-workout headings | Keep the immutable performed/program title separate from a temporary swap annotation; do not rewrite durable history labels to explain a one-session substitution. |
+| Later | Remaining native confirmations | Move destructive/discard confirmations into the shared accessible dialog policy without changing their transaction semantics. |
 | Later | ~~Focus/List preference~~ → Superseded | Superseded by G-22: Focus is the sole workout-logging experience. No List preference persists. |
 | Later | “View exercises” contract | Owned by the overhaul (G-44, UI-25; Plans 055/057): Today's secondary action becomes a real read-only preview. Do not rename it as a stopgap. |
 | Later | Progress drill-down and table affordance | Owned by the overhaul (G-34–G-36, UI-08; Plan 056): summary rows with drill-in detail; full tables only as secondary or export views. |
@@ -120,7 +120,7 @@ These are real but do not outrank the foundation above.
 | Evidence only | Larger chart ranges/global period | Reopen 12/26/52-week selection or one global Progress period only if users cannot answer real questions with the current scoped controls. |
 | Evidence only | Landscape-specific layout | Keep responsive correctness; build a dedicated landscape treatment only after real use shows value. |
 | Evidence only | History virtualization beyond current gate | Current linear index is tested at 5,000 sessions/20,000 rows. Add pagination/virtualization only when measured devices cross a performance budget. |
-| Evidence only | Web Push and extra reminder types | Reopen a server sidecar, backup/block-end reminders, or explicit schedule UI only when installed-PWA/local notifications fail a demonstrated retention or safety need. Pilot backup prominence is already Now. Unrelated to the one-hour install-transfer exception ([ADR 0013](adr/0013-temporary-install-transfer.md)), which is not a notification or reminder path. |
+| Evidence only | Web Push and extra reminder types | Reopen a server sidecar, backup/block-end reminders, or explicit schedule UI only when installed-PWA/local notifications fail a demonstrated retention or safety need. Pilot backup prominence is deferred with pilot-data protection above. Unrelated to the one-hour install-transfer exception ([ADR 0013](adr/0013-temporary-install-transfer.md)), which is not a notification or reminder path. |
 | Evidence only | Hosted short/opaque setup links | The released self-contained setup formats remain canonical. Add an opaque-token service only when measured URL length, revocation, attribution, or handoff needs justify server dependency. The approved install-transfer token ([ADR 0013](adr/0013-temporary-install-transfer.md)) is a separate one-hour claim object, not a setup-link format. |
 | Evidence only | Per-exercise units or plate calculator | First solve the end-to-end lb/load-step contract. Add equipment-specific loading tools only from observed logging friction. |
 | Evidence only | ~~Opener fallback/backdrop dismissal/coach marks~~ → Superseded in part | Superseded in part by G-40: the global tour is removed in favor of action-linked contextual cues (Plans 054–057 own the registry and anchors). Reopen per cue only with a reproduced accessibility or comprehension problem. |
@@ -132,11 +132,11 @@ These are real but do not outrank the foundation above.
 
 | Status | Item | Boundary |
 |---|---|---|
-| Next | One draft-transaction result contract | Replace the mixture of result kinds/flags with one documented shape without weakening partial-write and compensation semantics. |
-| Later | Extract the persistence protocol | Move the dual-replica write, WAL, lock rebasing, and recovery protocol out of `app.js` behind a tested module boundary. This is a refactor, not a storage rewrite. It also unblocks the generative recommendation-determinism/provenance and backup round-trip properties, which are deliberately waiting on a clean domain seam rather than scraping `app.js`; sequence it against the Now-tier generative expansion rather than after it. |
+| Later | One draft-transaction result contract | Replace the mixture of result kinds/flags with one documented shape without weakening partial-write and compensation semantics. |
+| Later | Extract the persistence protocol | Move the dual-replica write, WAL, lock rebasing, and recovery protocol out of `app.js` behind a tested module boundary. This is a refactor, not a storage rewrite. It also unblocks the generative recommendation-determinism/provenance and backup round-trip properties, which are deliberately waiting on a clean domain seam rather than scraping `app.js`; sequence it against the overhaul's persistence-adjacent work (Plans 051–053) rather than after it. |
 | Later | Centralize browser-test helpers | Unify app boot, lock fixtures, state seeding, and common browser assertions without hiding test intent. |
 | Completed | History identity/search contract | Current History matching uses performed library/movement identity for aliases and preserves immutable performed labels; focused tests hold the rule. |
-| Completed | Fast-check foundation | The framework exists. The remaining work is expanding domain/state-machine coverage listed under Now, not choosing another property-testing library. |
+| Completed | Fast-check foundation | The framework exists. The remaining work is expanding domain/state-machine coverage listed under deferred generative expansion, not choosing another property-testing library. |
 
 ## 7. Completed, superseded, or rejected
 
