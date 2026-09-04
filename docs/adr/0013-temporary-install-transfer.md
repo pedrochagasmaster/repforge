@@ -363,10 +363,13 @@ encrypted clone), encryption in transit and at rest, one-time claim,
 commit-verified or one-hour deletion, token-cookie transport, Safari status polling,
 sealed local commit credentials and their wipe rules, original Safari
 retention, recovery-snapshot/divergence behavior, and how telemetry
-identity/consent carry over. It must state the residual pre-claim token
-theft window honestly. No payload or token appears in logs, error
-tracking, analytics, URLs, clipboard by default, catalog fixtures, or
-support screenshots.
+identity/consent carry over. It must distinguish the two retention windows
+honestly: the clone ciphertext dies by minute 60, while the payload-free
+tombstone (token digest, terminal state, original expiry) remains until
+minute 75 so the creating Safari can learn the outcome. It must state the
+residual pre-claim token theft window honestly. No payload or token appears
+in logs, error tracking, analytics, URLs, clipboard by default, catalog
+fixtures, or support screenshots.
 
 ## Operations
 

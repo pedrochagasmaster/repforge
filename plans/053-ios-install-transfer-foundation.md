@@ -199,7 +199,7 @@ Required cases:
 
 ## Privacy
 
-Privacy copy must say what is temporarily copied, why, who processes it, encryption in transit/at rest, one-time claim, commit-verified/one-hour deletion, token cookie transport, original Safari retention, recovery-snapshot/divergence behavior, and how telemetry identity/consent carry over. It must not claim end-to-end encryption unless the server truly cannot decrypt. No payload/token appears in logs, error tracking, analytics, URLs, clipboard by default, catalog fixtures, or support screenshots.
+Privacy copy must say what is temporarily copied, why, who processes it, encryption in transit/at rest, one-time claim, commit-verified/one-hour clone deletion, the payload-free tombstone's longer lifetime (original expiry plus the 15-minute margin), token cookie transport, original Safari retention, recovery-snapshot/divergence behavior, and how telemetry identity/consent carry over. It must not claim end-to-end encryption unless the server truly cannot decrypt. No payload/token appears in logs, error tracking, analytics, URLs, clipboard by default, catalog fixtures, or support screenshots.
 
 ## Telemetry
 
