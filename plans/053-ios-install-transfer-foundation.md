@@ -152,7 +152,7 @@ Plan 053 supplies safe functional states for Plan 054 to style:
 - eligible explanation with included data, temporary processing, one-hour expiry, and original-browser retention;
 - explicit `Install and transfer` action;
 - creating, ready with iOS installation steps and absolute expiry/countdown;
-- offline/service unavailable with Retry and ordinary-app continuation;
+- offline/service unavailable with Retry and ordinary-app continuation (scoped to failures before transfer creation: once a transfer may exist, an unavailable status is indeterminate and follows the G-88 divergence-warning path, not silent continuation);
 - installed claim/validate/import progress with non-dismissable integrity boundary;
 - success directing the user into the installed app;
 - expired, invalid, already claimed, duplicate-other-client, malformed, and unsupported-version outcomes without leaking which token existed;
