@@ -120,9 +120,11 @@ transition. Array order is therefore total, not incidental:
   `progressionContract.preservedRelations`,
   `progressionContract.resetRelations`,
   `progressionContract.incompatibilities`) are deduplicated and sorted
-  ascending as strings before serialization. Any change to any preimage
-  field, however cosmetic, changes the hash and therefore the proposal
-  identity.
+  ascending as strings before serialization. Any change to the normalized
+  canonical preimage — any field value, any array element or order, any
+  added or removed entry — changes the hash and therefore the proposal
+  identity; duplicate set-array elements are normalized away and
+  deliberately do not.
 - Executable fixture: `test/fixtures/transition-proposal-v1.json` holds the
   preimage proposal (it deliberately contains a duplicate evidence ID and
   unsorted evidence to exercise the set rules); hashing it with the
