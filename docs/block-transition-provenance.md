@@ -90,6 +90,23 @@ Store transition-in on successor metadata and the transition-out link in the
 outgoing archive entry. History and log rows stay immutable and keep pointing
 at their original program/session identities. Backup round-trips both records.
 
+### Canonical array order and proposal hashing
+
+Two implementations must produce the same proposal hash for the same
+transition. Array order is therefore total, not incidental:
+
+- `days[]`: present days in successor order first, then removed days sorted
+  by day ID ascending.
+- `exercises[]` and `prescriptions[]`: retained entries in successor
+  (day, slot) order first, then added entries in successor order, then
+  removed entries sorted by slot ID ascending.
+- `index` inside `before` snapshots is the 0-based predecessor position;
+  inside `after` snapshots it is the 0-based successor position. Entries
+  that did not move omit it.
+- `proposalHash` is SHA-256 over canonical JSON: recursively sorted object
+  keys, UTF-8 encoding, and the array order defined here. Any reordering,
+  however cosmetic, changes the hash and therefore the proposal identity.
+
 ### Example record: `lower_frequency_sibling` (shape-exact)
 
 ```json
