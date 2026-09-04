@@ -101,3 +101,19 @@ already taken by the exercise template's setup-notes line.
 Verified by `test/install-modes.mjs` (every mode, both languages, the
 native accept/dismiss flows, and the gate's Create/Import/Continue
 paths).
+
+## Superseded in part (UI overhaul, Plan 049)
+
+The capability model above stands: `installMode()` readings, buttons only
+where they do something, and Chrome-prompt honesty are unchanged. Two scopes
+are superseded:
+
+- **First-run composition and promotion timing.** The install-first gate order
+  and snoozeable-banner cadence give way to the landing composition (G-09,
+  G-18–G-21) and the platform-sensitive, milestone-based promotion with
+  cooldown (G-39, G-48, G-72), specified by Plans 053–054.
+- **No late-data transfer.** The assumption that installation never moves
+  existing data is superseded by the one-hour encrypted install transfer
+  (G-71, G-84–G-88; [ADR 0013](0013-temporary-install-transfer.md)). The
+  transfer offer, claim/import protocol, recovery snapshot, and divergence
+  warning live there, not here.

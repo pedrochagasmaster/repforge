@@ -3,6 +3,15 @@
 **Status:** Living source of truth, reconciled through Q602 and the August 2026
 deferred-work review.
 
+**Active initiative:** the owner-approved UI overhaul (Plans 049–059) precedes
+the noncommercial alpha for polish purposes (G-04). It is specified by
+[`docs/ui-audit.md`](ui-audit.md), mapped by
+[`docs/ui-overhaul-implementation-sequence.md`](ui-overhaul-implementation-sequence.md),
+and contracted per decision and finding in
+[`docs/ui-overhaul-disposition-register.md`](ui-overhaul-disposition-register.md).
+Unrelated roadmap items below stay deferred; none may be pulled into an
+overhaul PR to "complete" a surface.
+
 **Governing product sources:**
 [`business-product-thesis.md`](business-product-thesis.md),
 [`ADR 0010`](adr/0010-product-business-thesis-and-validation-sequencing.md),
@@ -36,6 +45,7 @@ separate teams or synchronized delivery dates.
 
 | Work | Required outcome | Governing detail |
 |---|---|---|
+| Deliver the owner-approved UI overhaul | Execute Plans 049–059 in DAG order with owner gates honored: reconciled contracts, verified defect fixes, DraftV2/transition/transfer foundations, landing/entry, Focus-only workout, truthful Progress, converged management surfaces, system migration, and same-SHA launch validation. No governing current-tense document contradicts G-01–G-88. | [Plan 049](../plans/049-ui-overhaul-canonical-reconciliation.md), [sequence](ui-overhaul-implementation-sequence.md), [dispositions](ui-overhaul-disposition-register.md) |
 | Finish launch-readiness evidence | Complete the remaining real-device iOS/VoiceOver and Android/TalkBack cells, with the exact release-candidate build and evidence required by Plan 041. The implementation itself landed in PR #114. | [Plan 041](../plans/041-prelaunch-all-findings-remediation.md) |
 | Finish the measurement foundation | Audit the existing PostHog SDK/proxy integration; freeze the allowlisted event catalogue, identifiers, definitions, windows, funnels, dashboards, opt-out behavior, leakage tests, and measurement-health alerts before reading alpha results. No workout values, free text, setup fragments, full URLs, or uncontrolled properties may escape. | [Plan 045](../plans/045-posthog-measurement-foundation.md), governed by [Plan 044](../plans/044-posthog-measurement-experiments-paywall.md) |
 | Evolve the shared progression engine | Replace double progression as the only prescription policy with versioned range, rep-goal, anchor-plus-back-off, paired-exposure, block-profile, and manual strategies. Capacity remains shared evidence, not the universal rule. | [Plan 046](../plans/046-multi-strategy-progression-engine.md) |
@@ -97,10 +107,10 @@ These are real but do not outrank the foundation above.
 | Next | PT-BR bundled/default day labels | Localize Taurifer-authored day labels or deliberately model them as user-owned data with authored PT-BR defaults. Do not mix English `Day N` into a Portuguese first-run program by accident. |
 | Next | Swapped-workout headings | Keep the immutable performed/program title separate from a temporary swap annotation; do not rewrite durable history labels to explain a one-session substitution. |
 | Next | Remaining native confirmations | Move destructive/discard confirmations into the shared accessible dialog policy without changing their transaction semantics. |
-| Later | Focus/List preference | Persist the user's preferred workout presentation as a device-only UI preference; do not put it in program export or shared setup. |
-| Later | “View exercises” contract | Either make Today's secondary action a real read-only preview or rename it to say that it starts list-mode logging. |
-| Later | Progress drill-down and table affordance | Give Strength/Volume/PR rows a clear destination and make horizontally overflowing data visibly discoverable or mobile-native. Reuse the existing exercise-navigation seam. |
-| Later | Volume-signal explanation | Explain what “under target” means and where the threshold came from without presenting volume tolerance as known. |
+| Later | ~~Focus/List preference~~ → Superseded | Superseded by G-22: Focus is the sole workout-logging experience. No List preference persists. |
+| Later | “View exercises” contract | Owned by the overhaul (G-44, UI-25; Plans 055/057): Today's secondary action becomes a real read-only preview. Do not rename it as a stopgap. |
+| Later | Progress drill-down and table affordance | Owned by the overhaul (G-34–G-36, UI-08; Plan 056): summary rows with drill-in detail; full tables only as secondary or export views. |
+| Later | Volume-signal explanation | Owned by the overhaul (G-30–G-31, G-35; Plan 056): weekly status separated from actionable evidence with neutral baselines. |
 | Later | Full factory reset | If added, explicitly distinguish clearing logs, deleting all local Taurifer data, and resetting the installation identifier. Preserve export warnings. |
 | Later | One-tap `+1 rep` | Test whether it materially improves active-set speed without creating accidental commits. |
 | Later | Client-side encrypted export | Use a separately reviewed Web Crypto/passphrase design with recovery and failure behavior. Bad crypto is worse than none. |
@@ -109,11 +119,11 @@ These are real but do not outrank the foundation above.
 | Evidence only | Larger chart ranges/global period | Reopen 12/26/52-week selection or one global Progress period only if users cannot answer real questions with the current scoped controls. |
 | Evidence only | Landscape-specific layout | Keep responsive correctness; build a dedicated landscape treatment only after real use shows value. |
 | Evidence only | History virtualization beyond current gate | Current linear index is tested at 5,000 sessions/20,000 rows. Add pagination/virtualization only when measured devices cross a performance budget. |
-| Evidence only | Web Push and extra reminder types | Reopen a server sidecar, backup/block-end reminders, or explicit schedule UI only when installed-PWA/local notifications fail a demonstrated retention or safety need. Pilot backup prominence is already Now. |
-| Evidence only | Hosted short/opaque setup links | The released self-contained setup formats remain canonical. Add an opaque-token service only when measured URL length, revocation, attribution, or handoff needs justify server dependency. |
+| Evidence only | Web Push and extra reminder types | Reopen a server sidecar, backup/block-end reminders, or explicit schedule UI only when installed-PWA/local notifications fail a demonstrated retention or safety need. Pilot backup prominence is already Now. Unrelated to the one-hour install-transfer exception ([ADR 0013](adr/0013-temporary-install-transfer.md)), which is not a notification or reminder path. |
+| Evidence only | Hosted short/opaque setup links | The released self-contained setup formats remain canonical. Add an opaque-token service only when measured URL length, revocation, attribution, or handoff needs justify server dependency. The approved install-transfer token ([ADR 0013](adr/0013-temporary-install-transfer.md)) is a separate one-hour claim object, not a setup-link format. |
 | Evidence only | Per-exercise units or plate calculator | First solve the end-to-end lb/load-step contract. Add equipment-specific loading tools only from observed logging friction. |
-| Evidence only | Opener fallback/backdrop dismissal/coach marks | The shipped modal policy and current focus restoration are intentional. Reopen only with a reproduced accessibility or comprehension problem. |
-| Evidence only | Broad Focus/Program/Block redesign | There is no standing “redesign” task. File a specific observed problem with screenshots, affected state, and success criterion. |
+| Evidence only | ~~Opener fallback/backdrop dismissal/coach marks~~ → Superseded in part | Superseded in part by G-40: the global tour is removed in favor of action-linked contextual cues (Plans 054–057 own the registry and anchors). Reopen per cue only with a reproduced accessibility or comprehension problem. |
+| Evidence only | ~~Broad Focus/Program/Block redesign~~ → Superseded | Superseded by the owner-approved overhaul (G-02–G-04): whole-product polish, not partial cleanup. File specific observed problems against the overhaul contracts instead. |
 | Completed | No bundled program before onboarding | Backing out of setup used to leave a bundled three-day program presented as the lifter's own. A device that has not been through onboarding now holds no program, and Today and Program say so and offer the entry hub. |
 | Completed | Catalog the two no-program screens | `today/no-program` and `program/no-program` now use the empty-entry fixture and have localized light/dark reference frames generated with the pinned browser. |
 
@@ -172,6 +182,10 @@ Do not re-add these as backlog without new owner evidence.
 - Changing recover/stall windows, fatigue thresholds, or adding set-collapse
   heuristics is model-tuning work only after real evidence; it is not standing
   feature scope.
+- The pre-overhaul alpha-before-polish ordering is superseded by G-04: broader
+  visual and structural overhaul work moves ahead of the noncommercial alpha,
+  with the measurement, engine, family, and entry foundations continuing in
+  parallel.
 
 ### Rejected
 

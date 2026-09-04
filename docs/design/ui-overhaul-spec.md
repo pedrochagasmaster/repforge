@@ -1,5 +1,13 @@
 # RepForge UI overhaul — implementation spec
 
+> **Status note (UI overhaul, Plan 049):** this spec is a historical record
+> of its mock-driven pass. Where it conflicts with the owner-approved
+> `docs/ui-audit.md` — List-mode preservation, five equal Progress tabs, the
+> modal tour, the visual-only scope — the audit governs and
+> `docs/adr/0012-ui-overhaul-canonical-reconciliation.md` carries the
+> replacement contract. Do not implement from this spec without a governing
+> child plan (049–059).
+
 Source of truth: the nine mockups in `docs/design/mocks/` (view them with an image-capable
 tool; they are PNG screens, 484×1024). This document translates them into engineering
 requirements. Where a mockup and this spec disagree, this spec wins (it encodes scope

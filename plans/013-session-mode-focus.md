@@ -1,5 +1,12 @@
 # Plan 013: Session mode — one exercise at a time with visible progress
 
+> **Status note (UI overhaul, Plan 049):** this plan is implemented history.
+> Its additive, opt-in dual-mode direction — List preserved as the default
+> with Focus beside it — is superseded by G-22 (Focus-only) and UI-18. Do not
+> execute it against current code. Plan 051 owns the DraftV2 state migration
+> and Plan 055 owns List deletion after capability parity. The record below
+> stays readable as the rationale for what shipped.
+
 > **Executor instructions**: Follow step by step. Run every verification
 > command and confirm the result before moving on. On a STOP condition, stop
 > and report. When done, update this plan's status row in `plans/README.md`.

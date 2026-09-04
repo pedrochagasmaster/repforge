@@ -103,3 +103,14 @@ the breaks it was written with while the responsive composition remains
 contained and non-overlapping in both languages; ADR
 0004 carries an amendment pointer here. The canon itself stays internal, and
 the app past the gate stays as quiet as it was.
+
+## Superseded in part (UI overhaul, Plan 049)
+
+The landing composition above — full Milo hero plus complete poem passage as
+the first-run gate — is superseded by G-09, G-18–G-21, G-51, and G-73,
+specified by Plan 054: a product-explaining landing headed `Get the right
+program. Know what to do next.`, a restrained product preview (owner-selected
+from imagegen directions), one early `Start training` action, one short ethos
+line, and removal of the complete passage. Retained: the brand identity, the
+theme ban on every working surface, the mark and ground mechanics, and the
+shared-link consent boundary (which the adaptive landing preserves per G-37).
