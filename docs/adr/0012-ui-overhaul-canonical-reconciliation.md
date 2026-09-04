@@ -162,3 +162,28 @@ requirement.
 | onboarding-recommend/result | pt-text200 | Same title component as the Custom result |
 | onboarding-import/preview | pt-text200 | Import metric bands crowd at enlarged text (UI-03) |
 | onboarding-build/editor-empty | pt-text200 | Installed editor label collision across themes and enlarged text (UI-06) |
+
+## Workout truth and state ownership
+
+Plan 051's DraftV2 is the only active-session truth: stable exercise and set
+identity, programmed versus edited values, completion and uncommit, skip and
+restore, repeat-last values, substitution, warm-up marking, notes and session
+metadata, revisioned persistence, stale-tab rejection, and reload, crash, and
+save semantics. Every rendered value reads from that draft.
+
+DOM-backed value carriers are prohibited: hidden inputs must not own set data
+(the current List/Focus hidden-input coupling is the violation Plan 051
+removes). List markup is deleted only after DraftV2 migration proves
+capability parity (Plan 055); deleting the markup first would lose draft
+values.
+
+No consumer adds fields to another plan's schema. Schema changes return to
+the owning plan through a versioned Phase 0 amendment; renderers never extend
+a schema ad hoc.
+
+| State | Contract owner | Consumers | Serialization |
+|---|---|---|---|
+| Active workout draft (DraftV2) | 051 | 053 (logical clone), 055 (workout UI) | 051 → 053 → 055 |
+| Block-transition record and proposal | 052 | 056 (lifecycle UI) | 052 → 056 |
+| Install-transfer clone and import marker | 053 | 054 (promotion) | 053 → 054 |
+| Entry candidate draft and activation | 048 (existing) | 052/056 (transition adapter boundary), 057 (repair routes) | Provenance first, entry UI second, repair consumers last |

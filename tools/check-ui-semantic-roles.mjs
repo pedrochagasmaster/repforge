@@ -78,7 +78,8 @@ for (const r of roles) {
 }
 
 // Parse the demanding-surfaces matrix: `| flow/screen | variants | rationale |`.
-const matrixBlock = adr.split("### Demanding surfaces")[1] || "";
+// Only the table inside that subsection counts; later sections are excluded.
+let matrixBlock = (adr.split("### Demanding surfaces")[1] || "").split(/^## /m)[0];
 let matrixRows = 0;
 for (const line of matrixBlock.split("\n")) {
   if (!line.startsWith("|")) continue;
