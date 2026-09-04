@@ -243,16 +243,51 @@ required("docs/recovery-week-policy.md", [
     "Safari never learns",
     "tombstone margin",
     "15-minute",
+    "Poll exhaustion",
+    "service outage or unavailable status response",
+    "the tombstone has been purged",
   ]) {
     check(adr.includes(anchor), `ADR 0013: missing protocol anchor "${anchor}"`);
   }
   const plan053 = read("plans/053-ios-install-transfer-foundation.md");
-  for (const anchor of ["duplicate", "status", "sealed", "claimed-expired", "never resumes silently", "tombstone margin"]) {
+  for (const anchor of ["duplicate", "status", "sealed", "claimed-expired", "never resumes silently", "tombstone margin", "before transfer creation"]) {
     check(plan053.includes(anchor), `Plan 053: missing aligned protocol anchor "${anchor}"`);
   }
   const overlaySection = (docs.get("docs/block-transition-provenance.md").split("## Recovery-week overlay")[1] || "").split(/^## /m)[0];
   for (const anchor of ['"slot"', '"movement"', "pattern-rescue"]) {
     check(overlaySection.includes(anchor), `transition overlay: missing "${anchor}"`);
+  }
+  // proposalHash must be an executable rule: preimage projection, canonical
+  // JSON, set normalization, hex digest, and a verified fixture.
+  const hashSection = (docs.get("docs/block-transition-provenance.md").split("Canonical array order and proposal hashing")[1] || "").split(/^## /m)[0];
+  for (const anchor of [
+    "SHA-256",
+    "canonical preimage",
+    "sorted object keys",
+    "lowercase hex",
+    "fdf2a6090e607b400e86a415c6508556b952e4c52d9c253ecd880868e66e47ee",
+    "transition-proposal-v1.json",
+  ]) {
+    check(hashSection.includes(anchor), `transition hashing: missing "${anchor}"`);
+  }
+  // The fixture digest must actually verify with the documented rule.
+  try {
+    const { execFileSync } = await import("node:child_process");
+    const out = execFileSync(
+      process.execPath,
+      ["--input-type=module", "-e", `
+        import { readFileSync } from 'node:fs';
+        import { proposalHashOf } from './tools/canonical-proposal-hash.mjs';
+        const doc = readFileSync('docs/block-transition-provenance.md', 'utf8');
+        const rec = JSON.parse([...doc.matchAll(/\u0060\u0060\u0060json\\n([\\s\\S]*?)\\n\u0060\u0060\u0060/g)].map(m => m[1])[0]);
+        const fixture = JSON.parse(readFileSync('test/fixtures/transition-proposal-v1.json', 'utf8'));
+        const h = proposalHashOf(rec);
+        if (h !== rec.proposalHash || h !== proposalHashOf(fixture)) process.exit(1);
+      `],
+      { cwd: ROOT, encoding: "utf8" },
+    );
+  } catch {
+    failures.push("transition hashing: fixture digest does not verify with the documented rule");
   }
 }
 
