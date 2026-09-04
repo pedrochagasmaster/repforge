@@ -28,6 +28,10 @@ These are verified defects and test leverage. This phase fixes only them; it doe
 - Give installed editor labels their own geometry and reuse the canonical disabled-primary-action treatment.
 - Correct the implausible fixture now; leave sparse-chart policy to Plan 056.
 
+## Preserved strengths
+
+Preserve the palette/theme token swap, Sans/Mono jobs, licensed/empty exercise-media treatment, complete five-job entry and explicit activation, valid horizontal-scroll continuation cues, adjacent validation, core workout loop, and production-backed catalog. These defect fixes must not flatten or redesign surrounding surfaces.
+
 ## Non-goals
 
 - No general redesign, new navigation, route, state model, or transition behavior.

@@ -33,6 +33,10 @@ This phase makes Progress a two-level decision guide and evidence record, and co
 - One point is a snapshot; two points a comparison/delta; three or more a trend.
 - Mobile uses summary rows and drill-in, not clipped desktop tables.
 
+## Preserved strengths
+
+Preserve deterministic progression/`Why this weight?` facts, compiler provenance, explicit activation/confirmation, immutable workout history, local-first/offline analysis, core outcome evidence, warm palette and Sans/Mono data roles, accessible adjacent explanations, and catalog truth. Evidence presentation changes must not rewrite progression thresholds or claim certainty the logs do not support.
+
 ## Non-goals
 
 - No general intervention/cause-routing framework beyond these exact transition actions.

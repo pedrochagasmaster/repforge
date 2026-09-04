@@ -28,6 +28,10 @@ This phase creates one traceable release-candidate acceptance record. It does no
 - Freeze only the approved privacy-preserving comprehension/task, installation/transfer, and relevant outcome measurements. Owner interprets them.
 - Owner provides final sign-off; do not recruit representative lifters for this gate.
 
+## Preserved strengths
+
+Acceptance explicitly protects Taurifer's identity/palette, token-swap themes, Sans/Mono roles, licensed paper art and empty media, Today → Focus → save → Summary, `Why this weight?`, deterministic generation/progression language, adjacent validation and pain boundaries, explicit activation, local-first architecture with only the approved transfer exception, and the screen catalog as visual truth. A test or late fix that erodes one is a launch failure.
+
 ## Non-goals
 
 - No new product direction, visual direction, feature, metric, intervention, or post-Wave-3 roadmap work.

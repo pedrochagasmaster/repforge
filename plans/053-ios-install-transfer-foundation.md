@@ -28,6 +28,10 @@ This exception must be implementable without turning Taurifer into a hosted acco
 - Import atomically. Retain original Safari data. After success, make Safari a recovery snapshot and warn explicitly before browser resume.
 - Emit consent-respecting `late_install_transfer` under the preserved identity and distinguish browser/standalone context.
 
+## Preserved strengths
+
+Preserve ordinary static/offline/local-first Taurifer, user ownership/export, setup-link formats and pre-confirmation boundary, exact exercise identity, current crash-safe storage transactions, device theme/preferences, Safari source data, and the existing core loop. The service is a narrow transfer bridge, never a new source of truth.
+
 ## Non-goals
 
 - No accounts, login, sync, cloud backup, conflict merge, device list, remote workout history, publishing, generalized API, entitlement, or subscription infrastructure.

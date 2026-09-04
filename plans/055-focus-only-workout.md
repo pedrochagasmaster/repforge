@@ -29,6 +29,10 @@ After Plan 051 makes DraftV2 authoritative, this phase turns Focus into the only
 - Preserve correction/uncommit, recommendation context, `Why this weight?`, safety boundaries, save, and summary.
 - Reduce wasted space and fix previous-session minimum, timer geometry, and title shift.
 
+## Preserved strengths
+
+Preserve the Today → workout → save → centered summary loop, Focus's one-exercise/one-decision hierarchy, `Why this weight?`, deterministic next targets, adjacent validation, pain/discomfort handling, licensed/empty media behavior, token-swap themes, local-only draft behavior, and the screen catalog. List capabilities are preserved by relocation before List itself is removed.
+
 ## Non-goals
 
 - No progression-math or recommendation-policy change.

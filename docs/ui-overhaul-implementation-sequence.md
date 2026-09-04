@@ -14,6 +14,14 @@ Planning baseline:
 
 Phase 2 is deliberately split into three plans. Workout draft state, block-transition provenance, and temporary install transfer have different data-loss/security boundaries, test harnesses, deployment surfaces, and rollback paths. They can make useful progress independently, then close one Phase 2 gate together.
 
+## Repository reconstruction evidence
+
+The planning pass read the complete consolidated audit and its four evidence reports: `docs/ui-screen-audit-opus-taste.md`, `docs/taurifer-ui-audit-sol-design.md`, `docs/ui-screen-audit-sol-taste.md`, and `docs/ui-audit-opus-design.md`. It also inspected `plans/README.md`, the canonical backlog, all current ADRs, brand guide, Plans 047/048 and their governing program-entry/compiler/progression/shared-setup documents, old conflicting UI/List plans/specs, the complete catalog manifest/scenarios/tooling, browser/generative tests, and the live application modules.
+
+The branch/PR review was refreshed on 2026-09-04. Open PRs #183 (PostHog deployment), #179 (exercise-library expansion), and the older UI drafts do not alter current main and are not prerequisites or alternate sources of product direction. PR #221 is this planning branch. Recent merged UI-affecting work was accounted for: #214 established the no-program state, #218 fixed scripted heading focus, and #220 refined onboarding/gender copy at the audit baseline. The consolidated audit and its tool are the only changes after that baseline.
+
+Production-backed baseline checks passed before planning: Focus 116, History 40, program entry 287, install modes 348, accessibility 171, and session summary 45 assertions. `node tools/extract-ui-audit-findings.mjs --check` reported 72 screens, 221 frames, four source PRs, 32 findings, and 88 decisions; the catalog completeness check independently reported 72/221. These are current-state facts, not completion evidence for future plans.
+
 ## Plan inventory
 
 | Plan | Phase | Name | Findings | Principal G decisions | Depends on | Complexity | Risk |

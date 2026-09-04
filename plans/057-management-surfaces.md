@@ -30,6 +30,10 @@ This phase reshapes these surfaces around explicit task/commit boundaries while 
 - Settings uses visible groups: training behavior, app experience, data/privacy, help; links to Privacy and replays contextual guides.
 - Timer keeps orange live progress, uses neutral controls, and normalizes glyph weight.
 
+## Preserved strengths
+
+Preserve History/session facts, Share's fail-closed exact-identity boundary, Summary's centered hierarchy, Today → workout → save result, Program's explicit activation/editor capability, token-swap themes and paper-backed media, Sans/Mono roles, local-first storage/export, adjacent validation/destructive confirmation, and catalog evidence. Management clarity cannot weaken any of those contracts.
+
 ## Non-goals
 
 - No History bulk edit, calendar redesign beyond selected/read transition, cloud history, or new backup format.

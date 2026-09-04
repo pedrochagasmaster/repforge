@@ -26,6 +26,10 @@ This phase moves all active-session truth into one explicit, versioned draft. Bo
 - Set completion can be corrected/uncommitted; skip/restore and substitution are reversible; set order is stable.
 - Program replacement and draft removal continue to use the existing atomic draft transaction protocol.
 
+## Preserved strengths
+
+Preserve the Today → workout → atomic save → centered summary loop, Focus's one-exercise hierarchy, `Why this weight?`, deterministic recommendations, adjacent set validation, pain/discomfort boundaries, explicit program activation, local-only draft storage, both themes/media contracts, and catalog-backed regression evidence. State refactoring must initially render current List and Focus behavior equivalently.
+
 ## Non-goals
 
 - No Focus-only layout, List route deletion, immersive shell, Today preview, or session-sheet redesign.

@@ -31,6 +31,10 @@ The planning baseline is `origin/main` at `09772f91b86549f71a5d845a7c74849569d59
 
 The temporary one-hour install transfer is an approved, narrow exception to the static/local-first architecture. It is not an account, synchronization, backup, publishing, or generalized API platform.
 
+## Preserved strengths
+
+Preserve Taurifer's identity; warm paper/ink/burnt-orange palette; token-swap dark theme; Sans/Mono roles; licensed art on its paper and intentional empty tiles; Today → workout → save → summary; Focus hierarchy and `Why this weight?`; deterministic-generation language; adjacent validation and pain boundaries; explicit activation; local-first architecture outside the one-hour exception; and the screen catalog as visual truth. Every later plan inherits this list.
+
 ## Non-goals
 
 - No production JavaScript, CSS, HTML, service worker, backend, telemetry, or catalog image changes.

@@ -27,6 +27,10 @@ Plan 056 cannot safely expose structural actions until this phase makes each pro
 - Recovery is an eligible, confirmed, volume-only first week of the next normal block; week two restores the canonical prescription.
 - Every structural proposal previews the exact diff, preserves provenance, archives atomically, and cannot activate from insufficient evidence.
 
+## Preserved strengths
+
+Preserve deterministic compiler/family output, stable exercise and progression identity, explicit candidate activation, immutable history/archive facts, existing atomic program/draft replacement, safety-language boundaries, local-first operation, and exact setup-link validation. Recovery remains distinct from proven progression strategies and existing re-entry prescriptions.
+
 ## Non-goals
 
 - No Progress navigation/UI, questionnaire copy, chart, or outcome presentation; Plan 056 owns those.

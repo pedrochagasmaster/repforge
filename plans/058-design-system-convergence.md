@@ -29,6 +29,10 @@ This phase inventories and migrates the complete public surface after the main f
 - Apply WCAG 2.2 AA to actual rendered roles. Do not globally replace orange; distinguish decorative rules from required control boundaries.
 - Migrate every public surface and account for every exception.
 
+## Preserved strengths
+
+Preserve Taurifer's warm paper/ink/burnt-orange identity, token-only dark swap, Plex Sans/Mono division, licensed art on sampled paper and intentional empty tiles, core workout/summary flow, Focus hierarchy, `Why this weight?`, deterministic/safety/validation language, explicit activation, local-first exception boundary, selected Plan 054 landing continuity, and the complete catalog. Convergence means semantic consistency, not visual homogenization.
+
 ## Non-goals
 
 - No new routes, features, state models, content hierarchy, transition logic, progression math, or product decisions.

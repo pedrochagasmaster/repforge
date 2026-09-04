@@ -34,6 +34,10 @@ This phase redesigns those flows while preserving candidate-draft and explicit a
 - Replace the global tour with dismissible action-linked cues and replayable guides.
 - Provide a cached in-app Privacy page linked from landing and Settings; Share stays task-only.
 
+## Preserved strengths
+
+Preserve Taurifer's name/voice, warm paper/ink/burnt-orange system, token-swap dark theme and Sans/Mono roles; all five entry jobs; deterministic compiler language; adjacent validation and pain boundaries; explicit activation; licensed paper art/intentional empty media; local-first behavior and setup-link privacy boundary; and the catalog as the visual reference. The landing may explain the product more clearly without becoming a separate brand world.
+
 ## Non-goals
 
 - No creator avatar/name/trust claims, publisher attribution, or authenticity system (G-82 deferred).
