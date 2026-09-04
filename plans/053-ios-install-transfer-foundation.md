@@ -125,7 +125,7 @@ On boot, an incomplete marker either finishes the entire incoming import if the 
 
 ### Browser recovery snapshot
 
-Safari retains its original data. After installed success, a non-sensitive success acknowledgement/tombstone or same-origin channel lets Safari store a local recovery-snapshot marker tied to token digest/time. While marked, normal mutating UI is replaced by a message directing the user to the installed app, plus read/recovery/backup access as approved in Phase 049. `Resume in browser` presents an explicit divergence warning: future browser and installed changes will not merge. Confirmation removes the freeze only in Safari and records that divergence was accepted.
+Safari retains its original data. It learns the outcome by polling `POST /v1/transfers/status` with the token — there is no acknowledgement channel or shared storage across the Safari/installed boundary. Safari backs off from 5 seconds to 60 seconds until a terminal state or `expiresAt` plus a 10-minute margin: `deleted` stores the local recovery-snapshot marker tied to token digest/time; `expired` (or terminal without claim) clears the source marker and resumes normal use. A restart with a source marker but no token shows an unknown-outcome state; after expiry plus margin with no evidence, the user may dismiss the marker and keep using the browser, which is safe because local data was never deleted or overwritten. While marked, normal mutating UI is replaced by a message directing the user to the installed app, plus read/recovery/backup access as approved in Phase 049. `Resume in browser` presents an explicit divergence warning: future browser and installed changes will not merge. Confirmation removes the freeze only in Safari and records that divergence was accepted.
 
 There is no mechanism that writes installed changes back to Safari.
 
@@ -184,12 +184,12 @@ Creation/claim explicitly report that this one action needs a connection. Ordina
 
 Required cases:
 
-- crash/timeout during create: retry same idempotency key and return the one token/record;
+- crash/timeout during create: retry the same idempotency key; a live record returns `{duplicate: true, expiresAt}` with NO token, because the server cannot reproduce a bearer it never stored. Seal the received token to the outbound marker immediately; a client that never received the token starts over with a new key after the orphan expires. One key never yields two live records;
 - crash before claim bind: retry claim;
 - crash after bind: same claim ID resumes, different claim fails;
 - crash before local writes: installed prior state unchanged;
 - partial local write: boot marker finishes or fully restores;
-- crash after local commit before remote delete: imported state boots and deletion retries;
+- crash after local commit before remote delete: imported state boots and deletion retries from sealed per-context credentials (Safari outbound marker, installed inbound marker; WebCrypto-sealed token and claim ID, wiped on confirmation or expiry; unseal failure falls back to 60-minute expiry plus the purge runbook);
 - duplicate/expired/invalid token: no local change and generic terminal state;
 - two Safari tabs creating/claiming/resuming: one source operation lock; no duplicate active snapshot markers;
 - Safari/PWA divergence: browser frozen after success; resume requires explicit warning;
