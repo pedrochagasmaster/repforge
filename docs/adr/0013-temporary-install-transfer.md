@@ -176,7 +176,7 @@ specified. Residual risk is accepted and disclosed, never defined away.
 | T-06 | Service or operator access to the clone | Minimal one-hour retention; commit-verified deletion; explicit no-E2EE disclosure; kill switch and purge runbook |
 | T-07 | Oversized or malformed payloads and envelopes | Schema/depth/size bounds enforced before and during parsing; unknown required versions fail closed |
 | T-08 | Cross-origin requests | Exact-origin CORS; content-type enforcement; no redirects |
-| T-09 | Interrupted create, claim, import, or commit | Same-key create dedupe; same-claim retry; two-sided sealed markers; boot finish-or-restore; idempotent remote commit retry |
+| T-09 | Interrupted create, claim, import, or commit | Pre-request outbound marker with phase-specific fields; same-key create dedupe (duplicate returns expiry without the token); same-claim retry; two-sided sealed markers; boot finish-or-restore; idempotent remote commit retry |
 | T-10 | Clock skew between client, server, and expiry job | Absolute server-issued expiry; skew-tolerant acceptance window documented by the implementer; server clock owns expiry |
 | T-11 | Expiration backlog or purge failure | Expiry-job monitoring with deletion-latency bounds; alarm and kill switch; manual purge runbook; no new creates until retention is healthy |
 | T-12 | Encryption-key compromise or rotation gap | Managed rotation; old keys retained only through the maximum live-record window; creation disabled rather than serving undecryptable data |
@@ -265,11 +265,22 @@ storage context therefore seals its own credentials locally; the Safari
 outbound marker and the installed inbound marker never cross contexts:
 
 - At creation, the Safari side writes a single local-only
-  `repforge_transfer_outbound_v1` marker: `{idempotencyKey, sealedToken,
-  tokenDigest, createdAt, expiresAt, sourceRevision, mutatedAfterCreation,
-  phase}`. Safari never learns the installed app's claim ID and never needs
-  it: creation retry uses the idempotency key, outcome polling uses the
-  token. There is no second Safari-side marker.
+  `repforge_transfer_outbound_v1` marker BEFORE the create POST:
+  `{idempotencyKey, sealedToken?, tokenDigest?, createdAt, expiresAt?,
+  sourceRevision, mutatedAfterCreation, phase}` with phase `creating`. The
+  token-dependent fields are present only after the response: when the token
+  arrives the same marker is updated in place to `awaiting-claim` with
+  `sealedToken`, `tokenDigest`, and `expiresAt` filled. A crash before the
+  response leaves a `creating` marker that still holds the idempotency key
+  and creation timestamp — on reboot Safari retries the create with that
+  same key: a live record answers `{duplicate: true, expiresAt}` (no token;
+  the orphan dies at expiry and Safari starts a new transfer then), a
+  terminal record is confirmed and the marker cleared. One key never yields
+  two live records, and the fault test for this exact boundary is required
+  (crash between staged marker and response). Safari never learns the
+  installed app's claim ID and never needs it: creation retry uses the
+  idempotency key, outcome polling uses the token. There is no second
+  Safari-side marker.
 - `sourceRevision` captures the durable revision counter at creation, and
   creation takes the source operation lock so two Safari tabs cannot mint
   competing transfers. Any local mutation after creation sets
