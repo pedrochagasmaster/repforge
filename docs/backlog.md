@@ -47,8 +47,6 @@ separate teams or synchronized delivery dates.
 |---|---|---|
 | Deliver the owner-approved UI overhaul | Execute Plans 049–059 in DAG order with owner gates honored: reconciled contracts, verified defect fixes, DraftV2/transition/transfer foundations, landing/entry, Focus-only workout, truthful Progress, converged management surfaces, system migration, and same-SHA launch validation. No governing current-tense document contradicts G-01–G-88. | [Plan 049](../plans/049-ui-overhaul-canonical-reconciliation.md), [sequence](ui-overhaul-implementation-sequence.md), [dispositions](ui-overhaul-disposition-register.md) |
 | Finish launch-readiness evidence | Complete the remaining real-device iOS/VoiceOver and Android/TalkBack cells, with the exact release-candidate build and evidence required by Plan 041. The implementation itself landed in PR #114. | [Plan 041](../plans/041-prelaunch-all-findings-remediation.md) |
-| Expand generative/model-based journeys | Exercise onboarding, generation, all supported strategies, long workout histories, skips, stalls, overrides, interruptions, abandonment, transitions, and version migrations. Keep seeds, minimize failures, and promote them into regressions. | Thesis §12; `test/generative/` |
-| Protect pilot data | Request persistent storage where supported, make backup/export prominent, explain prototype durability honestly, and keep core training usable offline. Do not turn this into premature cloud sync. | Thesis §22 |
 
 The measurement foundation, shared progression engine, program families, and
 entry/onboarding flow (Plans 045–048) are implemented; their rows moved to
@@ -61,10 +59,9 @@ promise.
 
 ## 2. Next — complete the program relationship
 
-| Work | Required outcome | Gate / source |
-|---|---|---|
-| Program lifecycle and next-program transition | Archive the current program without touching the log; preserve provenance and history; start another Recommended, Custom, Browsed, Built, Imported, or Shared program; interpret partial history honestly. | Needed before early alpha users reach transition. |
-| Existing-user shared-program handoff | Add a reviewed, non-destructive replacement/transition flow for setup links. Preserve ADR 0007's released payload contracts. | Needed before a participant receives a later creator program. |
+No independent Next work is scheduled: the overhaul DAG above owns the
+sequenced program-relationship work (Plans 052–057), and everything else that
+lived here is deferred to Later below with its gate preserved.
 
 ## 3. Gated — working Pro and paid beta
 
@@ -115,6 +112,10 @@ These are real but do not outrank the foundation above.
 | Later | Equipment contexts and sibling program instances (deferred) | Unrelated to the overhaul: two or three gym contexts, curated sibling mappings, comparable free-weight history, separate non-comparable machine histories, explicit crowded-gym substitutions. Reopen with a new scheduling decision. |
 | Later | Cause-routed interventions (deferred) | Unrelated to the overhaul: per-issue evidence, diagnosis question, permitted change, cooldown/ignore behavior, and reassessment window. Reopen with a new scheduling decision. |
 | Later | General lifecycle/friction observability (deferred) | Only the Phase 049-approved telemetry allowlist is scheduled (see Completed: Plans 045–048 are done; the overhaul row governs). Persisting general transition/skip/override/friction/reason catalogues beyond that needs a new product decision. Submitted free text stays on the separate consented research path, never PostHog. |
+| Later | Program lifecycle and next-program transition (deferred) | Broader than the audit-bounded transition work owned by Plans 052/056: archiving, starting another program of any authorship, and honest partial-history interpretation as general lifecycle. Reopen with a new scheduling decision once the overhaul lifecycle is in place. |
+| Later | Existing-user shared-program handoff (deferred) | A reviewed, non-destructive replacement/transition flow for setup links, preserving ADR 0007's released payload contracts. Reopen before a participant receives a later creator program, with a new scheduling decision. |
+| Later | Generative/model-based journey expansion (deferred) | Exercise onboarding, generation, strategies, long histories, skips, stalls, overrides, interruptions, abandonment, transitions, and version migrations as a general program. Overhaul plans specify their own required test evidence; broader expansion needs a new scheduling decision. Keep seeds and minimize failures. |
+| Later | Pilot-data protection (deferred) | Persistent storage where supported, prominent backup/export, honest prototype-durability disclosure, offline-first training. Reopen with a new scheduling decision; do not turn it into premature cloud sync. |
 | Later | Bodyweight and relative-strength trends | Add only when enough users log bodyweight and the view answers a real question; never turn bodyweight-normalized strength into a universal training score. |
 | Evidence only | Larger chart ranges/global period | Reopen 12/26/52-week selection or one global Progress period only if users cannot answer real questions with the current scoped controls. |
 | Evidence only | Landscape-specific layout | Keep responsive correctness; build a dedicated landscape treatment only after real use shows value. |
