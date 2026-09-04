@@ -26,7 +26,7 @@ deferred; none of its unrelated features may be pulled into these plans.
 
 | Plan | Phase | State | Outcome |
 |---|---:|---|---|
-| [049](./049-ui-overhaul-canonical-reconciliation.md) | 0 | **IN PROGRESS — Plan 049 branch** | Reconcile canonical contracts and specify semantic roles, transition/recovery provenance, and the bounded transfer exception. |
+| [049](./049-ui-overhaul-canonical-reconciliation.md) | 0 | **IN PROGRESS — Plan 049 branch** | Reconcile canonical contracts and specify semantic roles, transition/recovery provenance, and the bounded transfer exception. Dispositions: [`docs/ui-overhaul-disposition-register.md`](../docs/ui-overhaul-disposition-register.md). |
 | [050](./050-ui-correctness-and-catalog-leverage.md) | 1 | **PLANNED — DEPENDS ON 049** | Fix verified UI-01–UI-07 defects and UI-29's fixture; add copy/overflow/risk-matrix leverage. |
 | [051](./051-workout-draft-state-foundation.md) | 2A | **PLANNED — DEPENDS ON 049** | Replace hidden DOM ownership with versioned, crash-safe DraftV2 state. |
 | [052](./052-block-transition-provenance-foundation.md) | 2B | **PLANNED — DEPENDS ON 049** | Make block transitions reconstructable, preview-hashed, provenance-preserving, and atomic. |

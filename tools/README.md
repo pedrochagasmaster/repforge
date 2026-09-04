@@ -49,6 +49,18 @@ report cites each source, is marked final and owner-approved, and contains all
 prints the current screen and frame counts so the report baseline can be
 checked after the catalog changes.
 
+## check-ui-overhaul-disposition.mjs
+
+Verifies [`docs/ui-overhaul-disposition-register.md`](../docs/ui-overhaul-disposition-register.md):
+every G-01–G-88 decision and UI-01–UI-32 finding appears exactly once with a
+valid disposition, a plan-number contract owner, and named consumers on `split`
+rows. Also checks the 11 rejected-claim guardrails.
+
+```bash
+node tools/check-ui-overhaul-disposition.mjs
+node tools/check-ui-overhaul-disposition.mjs --check
+```
+
 ## build-exercises.mjs
 
 Generates `exercises.js` — the exercise library the picker and the program
