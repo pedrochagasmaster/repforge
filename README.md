@@ -29,7 +29,7 @@ The name is new; the repository slug, GitHub Pages URL, and on-device storage ke
 
 ## Local-first data model
 
-The app files can be hosted on GitHub Pages, but ordinary training data stays on this device. There is no account and no sync; the only cross-device path is the explicit one-hour install transfer described below.
+The app files can be hosted on GitHub Pages, but ordinary training data stays on this device. There is no account and no sync; the only networked cross-device path is the explicit one-hour install transfer described below (user-mediated JSON backup/import through a file remains a manual path).
 
 Taurifer never uploads ordinary workout data except through that explicit install transfer or opted-in telemetry. A setup link is an intentional share: the coach creates a URL and sends it themselves. The program travels in the URL fragment (`#setup=`), which is not part of the initial HTTP request to GitHub Pages. The temporary installation-handoff cookie is sent to the static host as described below.
 

@@ -111,7 +111,7 @@ Specify a versioned `taurifer-install-transfer` envelope. It must be a logical c
 - the stable telemetry identity;
 - a schema version, creation time, source context, and integrity metadata.
 
-Phase 0 must decide and document whether an unfinished program-entry candidate is user-authored durable intent and therefore included. The default proposed disposition is **included as a separately versioned candidate section**, because losing an active build/import draft would violate “exact logical clone”; it must still retain its no-program-persistence boundary. Notification permission, service-worker/cache state, OS install state, locks, pending journals, storage revision counters, `_storageDraftTransaction`, `_storageSetupActivation`, claim cookies, PostHog session state, and other volatile runtime state are excluded.
+Phase 0 decides and documents whether an unfinished program-entry candidate is user-authored durable intent and therefore included. DECIDED: **included as a separately versioned candidate section** (ADR 0013), because losing an active build/import draft would violate “exact logical clone”; it retains its no-program-persistence boundary and is never auto-applied. Notification permission, service-worker/cache state, OS install state, locks, pending journals, storage revision counters, `_storageDraftTransaction`, `_storageSetupActivation`, claim cookies, PostHog session state, and other volatile runtime state are excluded.
 
 Each section is independently parsed and validated at the import boundary. Unknown required schema versions stop the import; unknown optional sections are retained only if the schema explicitly permits round-tripping. No implementation may enumerate browser storage and upload arbitrary keys.
 
@@ -123,12 +123,16 @@ Specify the minimum isolated service, preferably under a non-root service direct
 
 The specification must define equivalent operations to:
 
-1. `POST /v1/transfers`: accept one validated encrypted logical clone over TLS; return an opaque bearer token and absolute expiry.
-2. `POST /v1/transfers/{token}/claims`: atomically bind an available transfer to a client-generated claim ID and return the clone to that same claim on safe retries.
-3. `DELETE /v1/transfers/{token}/claims/{claimId}` or an equivalent commit operation: delete encrypted payload immediately after the client proves atomic local import.
-4. Expiry processing: delete payload no later than one hour after creation, independent of client activity.
+1. `POST /v1/transfers`: accept one validated encrypted logical clone over TLS plus an idempotency key; return an opaque bearer token and absolute expiry on first creation only (retries return expiry without the token).
+2. `POST /v1/transfers/claims` with `{token, claimId}` in the body: atomically bind an available transfer to a client-generated claim ID and return the clone to that same claim on safe retries.
+3. `POST /v1/transfers/claims/commit` with `{token, claimId}` in the body, or an equivalent commit operation: delete encrypted payload immediately after the client proves atomic local import.
+4. `POST /v1/transfers/status` with `{token}` in the body: return state plus expiry only, so the creating Safari learns the outcome by polling.
+5. Expiry processing: delete payload no later than one hour after creation, independent of client activity.
 
-An implementation may use different URL shapes only if the threat, retry, and deletion semantics are identical and recorded in the governing ADR.
+The bearer token travels in request bodies only, never in a URL path, query
+string, fragment, or loggable surface. An implementation may use different
+URL shapes only if the threat, retry, and deletion semantics are identical
+and recorded in the governing ADR.
 
 #### Security and privacy requirements
 
