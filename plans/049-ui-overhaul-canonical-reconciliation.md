@@ -130,9 +130,10 @@ The specification must define equivalent operations to:
 5. Expiry processing: delete payload no later than one hour after creation, independent of client activity.
 
 The bearer token travels in request bodies only, never in a URL path, query
-string, fragment, or loggable surface. An implementation may use different
-URL shapes only if the threat, retry, and deletion semantics are identical
-and recorded in the governing ADR.
+string, fragment, or loggable surface. URL shapes above are exact, matching
+ADR 0013; that transport invariant is non-negotiable. Any other URL or
+transport change requires a new owner decision recorded in the governing ADR
+— implementations may not vary shapes on their own.
 
 #### Security and privacy requirements
 

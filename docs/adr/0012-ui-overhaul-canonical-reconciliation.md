@@ -247,5 +247,5 @@ per primary pattern, week-two canonical restoration, and reassessment with no
 automatic repeat. It never mutates progression-engine arithmetic. The exact
 rounding, allocation, tiebreak, and primary-pattern constants are an explicit
 ⛔ owner gate: until the selection is recorded in the policy, no
-`recovery-week` transition record may be written and Plans 052/056 stop at
+`recovery_week` transition record may be written and Plans 052/056 stop at
 that gate.
