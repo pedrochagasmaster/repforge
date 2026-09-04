@@ -101,8 +101,7 @@ transition. Array order is therefore total, not incidental:
   (day, slot) order first, then added entries in successor order, then
   removed entries sorted by slot ID ascending.
 - `index` inside `before` snapshots is the 0-based predecessor position;
-  inside `after` snapshots it is the 0-based successor position. Entries
-  that did not move omit it.
+  inside `after` snapshots it is the 0-based successor position.
 - Placement is reconstructable: every non-null `before` object carries
   `index` (its 0-based predecessor position) and every non-null `after`
   object carries `index` (its 0-based successor position). An entry with a
