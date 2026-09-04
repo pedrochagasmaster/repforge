@@ -2,9 +2,9 @@
 
 - **Plan number:** 049
 - **Phase:** 0 — Canonical reconciliation
-- **Status:** Planned; implementation has not started
-- **Owner approval state:** Product direction is approved in `docs/ui-audit.md`; the two explicit owner gates below remain open
-- **Depends on:** Owner approval of the planning PR; `origin/main` containing the consolidated audit
+- **Status:** Implementation in owner review (PR #222); a corrective review pass is landing on the same branch
+- **Owner approval state:** Product direction is approved in `docs/ui-audit.md`; the two explicit owner gates below remain open; a first owner review returned request-changes that this branch is addressing without reopening settled decisions
+- **Depends on:** Planning PR #221 (merged as `ba423a7d`); `origin/main` containing the consolidated audit
 - **Blocks:** Plans 050–059
 - **Governing G decisions:** G-01–G-88 (canonical disposition); especially G-01–G-08, G-13–G-14, G-17, G-24, G-28, G-38–G-40, G-46, G-55–G-56, G-70–G-71, G-74–G-88
 - **Governing UI findings:** UI-01–UI-32 as a reconciliation register; no production finding is implemented here
