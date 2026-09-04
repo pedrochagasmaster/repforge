@@ -250,8 +250,22 @@ required("docs/recovery-week-policy.md", [
     check(adr.includes(anchor), `ADR 0013: missing protocol anchor "${anchor}"`);
   }
   const plan053 = read("plans/053-ios-install-transfer-foundation.md");
-  for (const anchor of ["duplicate", "status", "sealed", "claimed-expired", "never resumes silently", "tombstone margin", "before transfer creation"]) {
+  for (const anchor of ["duplicate", "status", "sealed", "claimed-expired", "never resumes silently", "tombstone margin", "before transfer creation", "unknown-outcome", "Safari outbound credential loss", "installed inbound credential loss"]) {
     check(plan053.includes(anchor), `Plan 053: missing aligned protocol anchor "${anchor}"`);
+  }
+  // Plan 053 must not carry the superseded unseal-only unknown-outcome rule.
+  check(
+    !/Only a genuine unseal failure enters unknown-outcome/i.test(plan053),
+    "Plan 053: superseded unseal-only unknown-outcome rule present",
+  );
+  // Negative checks: the current exclusivity sentences must not reappear.
+  for (const p of SCOPE) {
+    if (p === "docs/ui-audit.md") continue;
+    const text = docs.get(p);
+    check(
+      !/Only if unsealing genuinely fails does Safari enter unknown-outcome/i.test(text),
+      `${p}: superseded unseal-only unknown-outcome rule present`,
+    );
   }
   const overlaySection = (docs.get("docs/block-transition-provenance.md").split("## Recovery-week overlay")[1] || "").split(/^## /m)[0];
   for (const anchor of ['"slot"', '"movement"', "pattern-rescue"]) {
