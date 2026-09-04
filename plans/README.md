@@ -11,9 +11,43 @@ drift and current governing decisions.
 
 ## Current planning state
 
+The owner-approved UI/UX overhaul is the next planned implementation program.
+It is split into Plans 049–059. Read the
+[cross-plan implementation sequence](../docs/ui-overhaul-implementation-sequence.md)
+before starting any child plan; it owns the dependency DAG, serialization of
+shared files, finding/decision disposition, owner gates, and public-launch
+boundary.
+
+Do not start an implementation branch until the planning PR is owner-approved.
+After approval, Plan 049 starts first. The post-Wave-3 product roadmap remains
+deferred; none of its unrelated features may be pulled into these plans.
+
+### Owner-approved UI overhaul
+
+| Plan | Phase | State | Outcome |
+|---|---:|---|---|
+| [049](./049-ui-overhaul-canonical-reconciliation.md) | 0 | **PLANNED — START FIRST** | Reconcile canonical contracts and specify semantic roles, transition/recovery provenance, and the bounded transfer exception. |
+| [050](./050-ui-correctness-and-catalog-leverage.md) | 1 | **PLANNED — DEPENDS ON 049** | Fix verified UI-01–UI-07 defects and UI-29's fixture; add copy/overflow/risk-matrix leverage. |
+| [051](./051-workout-draft-state-foundation.md) | 2A | **PLANNED — DEPENDS ON 049** | Replace hidden DOM ownership with versioned, crash-safe DraftV2 state. |
+| [052](./052-block-transition-provenance-foundation.md) | 2B | **PLANNED — DEPENDS ON 049** | Make block transitions reconstructable, preview-hashed, provenance-preserving, and atomic. |
+| [053](./053-ios-install-transfer-foundation.md) | 2C | **PLANNED — DEPENDS ON 049/051** | Build the narrowly scoped one-hour encrypted iOS install transfer and recovery snapshot. |
+| [054](./054-landing-and-program-entry.md) | 3 | **PLANNED — OWNER VISUAL GATE** | Deliver the selected product-led landing, adaptive shared entry, five-job hierarchy, install policy, guides, and Privacy page. |
+| [055](./055-focus-only-workout.md) | 4 | **PLANNED — DEPENDS ON 051** | Reach capability parity in Focus, add read-only Preview/scope layers, then delete List. |
+| [056](./056-progress-and-block-lifecycle.md) | 5 | **PLANNED — DEPENDS ON 052** | Correct Progress scope/evidence and expose only exact, confirmed block transitions. |
+| [057](./057-management-surfaces.md) | 6 | **PLANNED — DEPENDS ON 054–056** | Make History read-first, Share repairable/fail-closed, and converge management hierarchy. |
+| [058](./058-design-system-convergence.md) | 7 | **PLANNED — PRINCIPAL SURFACES FIRST** | Inventory and migrate every public surface to bounded semantic roles and rendered-role AA. |
+| [059](./059-public-launch-ui-validation.md) | 8 | **PLANNED — FINAL OWNER GATE** | Bind catalog, automated, physical-device, accessibility, privacy, and telemetry evidence to one candidate SHA. |
+
+Phase 2 has three independently mergeable plans because workout data loss,
+program-transition provenance, and temporary backend security have distinct
+failure and rollback boundaries. Their combined completion gate closes the
+phase.
+
+### Prior foundation and historical plans
+
 | Plan | State | Meaning |
 |---|---|---|
-| [044](./044-posthog-measurement-experiments-paywall.md) | **ACTIVE CONTRACT** | Governs measurement, rolling alpha, working-Pro commercialization, and later AI Preview sequencing. It explicitly requires smaller successor implementation plans; do not implement it as one change. |
+| [044](./044-posthog-measurement-experiments-paywall.md) | **DEFERRED DURING UI OVERHAUL** | Historical umbrella for measurement and later commercialization sequencing. Do not resume its post-Wave-3 work through a UI-overhaul PR. |
 | [045](./045-posthog-measurement-foundation.md) | **READY — 1 OF 4** | Implements the strict PostHog boundary, pseudonymous identity, opt-out, leakage tests, and versioned alpha funnels/dashboards. |
 | [046](./046-multi-strategy-progression-engine.md) | **READY — 2 OF 4** | Extracts and evolves the shared Free engine through reviewed, versioned range, rep-goal, anchor/back-off, paired-exposure, block-modifier, and manual contracts. |
 | [047](./047-taurifer-program-families-compiler.md) | **READY — 3 OF 4** | Authors the initial original Taurifer families and compiles their 3-/5-day siblings plus reviewed 2-/6-day recipes through the shared engine. |
@@ -23,11 +57,11 @@ drift and current governing decisions.
 | [040](./040-launch-readiness-ui-ux-audit.md) | **HISTORICAL AUDIT** | Provenance for Plan 041, not an open remediation queue. |
 | [029](./029-phased-roadmap-pr-breakdown.md) | **HISTORICAL META-PLAN** | Its old four-phase roadmap shipped or was superseded. It is not current sequencing. |
 
-Plans 045–048 are the current ordered foundation. Their numbering records the
-dependency order: measurement boundary → shared engine → family/compiler →
-entry/onboarding. Lifecycle/transitions, equipment contexts, and the three-job
-Pro MVP remain approved without numbered execution plans; create a focused plan
-for each only when its canonical backlog gate is satisfied.
+Plans 045–048 describe the foundation on which the overhaul is planned. Their
+numbering records the dependency order: measurement boundary → shared engine →
+family/compiler → entry/onboarding. Plan 049 must reconcile their current-tense
+contracts where G-01–G-88 supersede them. General lifecycle work, equipment
+contexts, publisher attribution, and the Pro roadmap remain deferred.
 
 ## Implemented plans
 
@@ -60,7 +94,9 @@ dependencies or a platform rewrite through an implementation plan.
 
 ## Product guardrails
 
-- Core training stays local-first, serverless, owned, and exportable.
+- Core training stays local-first, owned, and exportable. Plan 053's explicit,
+  encrypted, one-hour install transfer is the only approved server exception in
+  this initiative; it is not sync or backup.
 - Minimal Phase 1 measurement/commerce infrastructure must have a direct
   approved validation purpose.
 - No fake doors, future-looking in-product controls, manual timeless Pro codes,
