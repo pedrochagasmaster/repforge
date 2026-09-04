@@ -47,13 +47,12 @@ separate teams or synchronized delivery dates.
 |---|---|---|
 | Deliver the owner-approved UI overhaul | Execute Plans 049–059 in DAG order with owner gates honored: reconciled contracts, verified defect fixes, DraftV2/transition/transfer foundations, landing/entry, Focus-only workout, truthful Progress, converged management surfaces, system migration, and same-SHA launch validation. No governing current-tense document contradicts G-01–G-88. | [Plan 049](../plans/049-ui-overhaul-canonical-reconciliation.md), [sequence](ui-overhaul-implementation-sequence.md), [dispositions](ui-overhaul-disposition-register.md) |
 | Finish launch-readiness evidence | Complete the remaining real-device iOS/VoiceOver and Android/TalkBack cells, with the exact release-candidate build and evidence required by Plan 041. The implementation itself landed in PR #114. | [Plan 041](../plans/041-prelaunch-all-findings-remediation.md) |
-| Finish the measurement foundation | Audit the existing PostHog SDK/proxy integration; freeze the allowlisted event catalogue, identifiers, definitions, windows, funnels, dashboards, opt-out behavior, leakage tests, and measurement-health alerts before reading alpha results. No workout values, free text, setup fragments, full URLs, or uncontrolled properties may escape. | [Plan 045](../plans/045-posthog-measurement-foundation.md), governed by [Plan 044](../plans/044-posthog-measurement-experiments-paywall.md) |
-| Evolve the shared progression engine | Replace double progression as the only prescription policy with versioned range, rep-goal, anchor-plus-back-off, paired-exposure, block-profile, and manual strategies. Capacity remains shared evidence, not the universal rule. | [Plan 046](../plans/046-multi-strategy-progression-engine.md) |
-| Build the initial Taurifer program families | Ship original hypertrophy/general-strength families through the shared compiler. Principal families need real three- and five-day siblings; Recommend/Custom must also cover two and six days. Home is a separate limited-equipment family; Foundation is an internal simple-start profile. Compiled slots carry exercise-library provenance, so illustrations, display aliases, performed attribution, and History identity resolve for every authored program rather than only for wizard-generated ones. | [Plan 047](../plans/047-taurifer-program-families-compiler.md) |
-| Replace the conflated entry/onboarding flow | Separate Recommend, Generate custom, Browse, Build, and Import by authorship. Keep setup short, show progress, let users skip genuinely optional questions, and finish with an editable review. Ask goal/experience/recent consistency/time/rest/equipment, and never ask users to estimate volume tolerance or choose Taurifer's programming math. | [Plan 048](../plans/048-program-entry-onboarding-redesign.md) |
-| Make lifecycle and friction observable | Persist complete/partial/unfinished program transitions; structured skip, override, session-overrun, schedule, pain, intensity, session-length, exercise-affinity, equipment, motivation, and free-text reasons; confidence and source type; resume/repair/rebase/switch outcomes. Submitted free text uses the separate consented research path, never PostHog. Scoped: only the Phase 049-approved telemetry allowlist (comprehension/task funnels, installation, `late_install_transfer`, task outcomes, owner-interpreted) is scheduled. General lifecycle/friction observability beyond that remains deferred; do not build it through an overhaul PR. | Thesis §§8.3, 11–12; decision register §§5–6 |
 | Expand generative/model-based journeys | Exercise onboarding, generation, all supported strategies, long workout histories, skips, stalls, overrides, interruptions, abandonment, transitions, and version migrations. Keep seeds, minimize failures, and promote them into regressions. | Thesis §12; `test/generative/` |
 | Protect pilot data | Request persistent storage where supported, make backup/export prominent, explain prototype durability honestly, and keep core training usable offline. Do not turn this into premature cloud sync. | Thesis §22 |
+
+The measurement foundation, shared progression engine, program families, and
+entry/onboarding flow (Plans 045–048) are implemented; their rows moved to
+Completed below. Do not re-add them as Now work.
 
 The rolling alpha starts organically, one participant at a time, after these
 foundations are credible. There is no synchronized cohort, special research
@@ -66,10 +65,6 @@ promise.
 |---|---|---|
 | Program lifecycle and next-program transition | Archive the current program without touching the log; preserve provenance and history; start another Recommended, Custom, Browsed, Built, Imported, or Shared program; interpret partial history honestly. | Needed before early alpha users reach transition. |
 | Existing-user shared-program handoff | Add a reviewed, non-destructive replacement/transition flow for setup links. Preserve ADR 0007's released payload contracts. | Needed before a participant receives a later creator program. |
-| Publisher attribution | Versioned publisher name, handle, description, and referral id with safe creator-specific acquisition events. Attribution is provenance, never engine input. | Required before creator pilots. |
-| Free one-off sessions | Implement manual, classic, muscle-focus, and user-directed temporary adaptation with honest History/program/progression eligibility. | [One-off specification](superpowers/specs/2026-08-25-one-off-session-design.md) |
-| Equipment contexts and sibling program instances | Let a user maintain two or three gym contexts, curate sibling mappings, share genuinely comparable free-weight history, and keep non-comparable machine histories separate. Support explicit crowded-gym substitutions. | Decision register §§14–15. |
-| Cause-routed interventions | Specify each observed issue, minimum evidence, diagnosis question, permitted change, cooldown/ignore behavior, and reassessment window. Deload requires performance stagnation/degradation plus corroboration. | Decision register §5. |
 
 ## 3. Gated — working Pro and paid beta
 
@@ -115,6 +110,11 @@ These are real but do not outrank the foundation above.
 | Later | One-tap `+1 rep` | Test whether it materially improves active-set speed without creating accidental commits. |
 | Later | Client-side encrypted export | Use a separately reviewed Web Crypto/passphrase design with recovery and failure behavior. Bad crypto is worse than none. |
 | Later | Strong/Sheets CSV import | Define mapping, identity reconciliation, preview, and partial-failure behavior before implementation. |
+| Later | Publisher attribution (deferred) | Unrelated to the overhaul: versioned publisher name, handle, description, and referral id with safe creator-specific acquisition events. Attribution is provenance, never engine input. Reopen only before creator pilots with a new scheduling decision. |
+| Later | Free one-off sessions (deferred) | Unrelated to the overhaul: manual, classic, muscle-focus, and user-directed temporary adaptation with honest History/program/progression eligibility. See the one-off specification. Reopen with a new scheduling decision, not through an overhaul PR. |
+| Later | Equipment contexts and sibling program instances (deferred) | Unrelated to the overhaul: two or three gym contexts, curated sibling mappings, comparable free-weight history, separate non-comparable machine histories, explicit crowded-gym substitutions. Reopen with a new scheduling decision. |
+| Later | Cause-routed interventions (deferred) | Unrelated to the overhaul: per-issue evidence, diagnosis question, permitted change, cooldown/ignore behavior, and reassessment window. Reopen with a new scheduling decision. |
+| Later | General lifecycle/friction observability (deferred) | Only the Phase 049-approved telemetry allowlist is scheduled (see Completed: Plans 045–048 are done; the overhaul row governs). Persisting general transition/skip/override/friction/reason catalogues beyond that needs a new product decision. Submitted free text stays on the separate consented research path, never PostHog. |
 | Later | Bodyweight and relative-strength trends | Add only when enough users log bodyweight and the view answers a real question; never turn bodyweight-normalized strength into a universal training score. |
 | Evidence only | Larger chart ranges/global period | Reopen 12/26/52-week selection or one global Progress period only if users cannot answer real questions with the current scoped controls. |
 | Evidence only | Landscape-specific layout | Keep responsive correctness; build a dedicated landscape treatment only after real use shows value. |
@@ -142,6 +142,11 @@ These are real but do not outrank the foundation above.
 Do not re-add these as backlog without new owner evidence.
 
 ### Completed or absorbed
+
+- Plans 045–048 are implemented (measurement foundation, shared progression
+  engine, program families/compiler, program entry/onboarding). Their former
+  Now rows above are closed; follow-up work belongs to the overhaul or a new
+  scheduling decision, not to these plans.
 
 - Plans 001–028, 030–037, 039, 042, and 043 are implemented. Plan 024's mesocycle
   lifecycle/build work also shipped; its old draft banner was documentation

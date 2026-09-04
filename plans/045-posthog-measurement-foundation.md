@@ -1,8 +1,11 @@
 # Plan 045: strict PostHog boundary and alpha measurement foundation
 
+> **Status note (UI overhaul, Plan 049):** this plan is implemented history.
+> Do not execute it against current code.
+
 ## Status
 
-- **State:** READY FOR IMPLEMENTATION
+- **State:** IMPLEMENTED (see status note above); do not execute
 - **Priority:** P0 — first item in the canonical alpha queue
 - **Effort:** L
 - **Risk:** HIGH — analytics sits beside local training, setup-link, and

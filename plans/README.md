@@ -50,8 +50,8 @@ phase.
 | Plan | State | Meaning |
 |---|---|---|
 | [044](./044-posthog-measurement-experiments-paywall.md) | **DEFERRED DURING UI OVERHAUL** | Historical umbrella for measurement and later commercialization sequencing. Do not resume its post-Wave-3 work through a UI-overhaul PR. |
-| [045](./045-posthog-measurement-foundation.md) | **READY — 1 OF 4** | Implements the strict PostHog boundary, pseudonymous identity, opt-out, leakage tests, and versioned alpha funnels/dashboards. |
-| [046](./046-multi-strategy-progression-engine.md) | **READY — 2 OF 4** | Extracts and evolves the shared Free engine through reviewed, versioned range, rep-goal, anchor/back-off, paired-exposure, block-modifier, and manual contracts. |
+| [045](./045-posthog-measurement-foundation.md) | **IMPLEMENTED** | Shipped PostHog boundary, pseudonymous identity, opt-out, leakage tests, and versioned alpha funnels/dashboards. |
+| [046](./046-multi-strategy-progression-engine.md) | **IMPLEMENTED** | Shipped shared Free engine with reviewed versioned strategies. |
 | [047](./047-taurifer-program-families-compiler.md) | **IMPLEMENTED** | Shipped compiler/catalogue are the record. Current-tense guidance stands except where G-01–G-88 supersede it (see the disposition register); Plans 052/056 own transition and recovery derivation from compiler output. |
 | [048](./048-program-entry-onboarding-redesign.md) | **IMPLEMENTED** | Shipped entry flow is the record (`docs/program-entry-flow.md`). Sequential result-then-preview is superseded by G-79; landing, install timing, and guides are specified by Plans 053–054; see the disposition register. |
 | [041](./041-prelaunch-all-findings-remediation.md) | **IMPLEMENTED; EVIDENCE PENDING** | PR #114 shipped the retained findings. Remaining work is the exact physical iOS/VoiceOver and Android/TalkBack release-evidence matrix recorded in the plan and canonical backlog. |
