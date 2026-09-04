@@ -258,14 +258,27 @@ required("docs/recovery-week-policy.md", [
 
 // Deletion happens only on verified import-commit, never on claim binding.
 // (Owner-approved ui-audit shorthand is reconciled openly in ADR 0013 and
-// excluded here by its refinement marker.)
+// excluded here by its refinement marker. G-85 row text is checked against
+// its reconciled phrasing rather than exempted: a re-drifted row fails.)
 for (const p of SCOPE) {
   if (p === "docs/ui-audit.md") continue;
   linesOf(p).forEach((line, i) => {
+    if (/refin|shorthand/.test(line)) return;
+    check(
+      !/deletes it on claim|delete on claim or expiry|after successful claim|deletion on claim|deletion occurs on claim|claim deletion|claim-or-60-minute/i.test(line),
+      `${p}:${i + 1}: deletion-on-claim wording (deletion happens only on verified import)`,
+    );
+  });
+}
+
+// Closed claim lifecycle: claims end at deleted or claimed-expired, never a
+// bare "deleted/expired" that would let an imported transfer silently expire.
+for (const p of SCOPE) {
+  linesOf(p).forEach((line, i) => {
     if (/refin|shorthand|G-71|G-85/.test(line)) return;
     check(
-      !/deletes it on claim|delete on claim or expiry|after successful claim|deletion on claim/i.test(line),
-      `${p}:${i + 1}: deletion-on-claim wording (deletion happens only on verified import)`,
+      !/claiming\s*(→|->)\s*deleted\s*\/\s*expired|deleted\/expired/i.test(line),
+      `${p}:${i + 1}: stale claiming → deleted/expired transition (use deleted or claimed-expired)`,
     );
   });
 }
