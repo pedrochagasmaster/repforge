@@ -1,0 +1,48 @@
+{
+  "schemaVersion": 1,
+  "transitionId": "tr_01J9Z8X7C6V5B4N3M2",
+  "kind": "lower_frequency_sibling",
+  "createdAt": "2026-10-01T09:00:00.000Z",
+  "predecessor": {
+    "programId": "prog_local_a1",
+    "fingerprint": "fp9f2c41",
+    "durableRevision": 18,
+    "source": "Recommend",
+    "compilerProvenance": { "familyVersion": "growth-v3", "blueprintVersion": "growth-4d-v1", "compilerVersion": "2.4.0", "rulesVersion": "rules-v7", "catalogueVersion": "catalogue-v12" }
+  },
+  "diagnosis": {
+    "kind": "fewer_days",
+    "answers": { "availableDays": 3 },
+    "eligibleEvidenceIds": ["sessions-14d-6-of-3", "sessions-14d-3-of-6", "sessions-14d-3-of-6"],
+    "insufficientEvidenceReasons": []
+  },
+  "derivation": {
+    "mode": "recompilation",
+    "request": "lower-frequency-sibling",
+    "compilerContextVersions": { "compilerVersion": "2.4.0", "rulesVersion": "rules-v7", "catalogueVersion": "catalogue-v12" },
+    "policyVersions": {}
+  },
+  "successor": {
+    "programId": "prog_local_b7",
+    "fingerprint": "fp51ad0e",
+    "source": "Recommend",
+    "compilerProvenance": { "familyVersion": "growth-v3", "blueprintVersion": "growth-3d-v1", "compilerVersion": "2.4.0", "rulesVersion": "rules-v7", "catalogueVersion": "catalogue-v12" }
+  },
+  "diff": {
+    "days": [
+      { "day": "growth_d4", "before": { "label": "Day 4", "index": 3, "slots": 6 }, "after": null, "reason": "fewer_days: day not reconstructable in 3-day sibling" }
+    ],
+    "exercises": [
+      { "slot": "growth_d2_s3", "movement": "library:seated_cable_row", "before": { "movement": "library:seated_cable_row", "index": 1, "sets": 3 }, "after": { "movement": "library:seated_cable_row", "index": 1, "sets": 3 }, "reason": "retained with identical prescription" },
+      { "slot": "growth_d4_s2", "movement": null, "before": { "movement": "library:leg_press", "index": 5, "sets": 4 }, "after": null, "reason": "day removed; coverage preserved by growth_d1_s1 squat" }
+    ],
+    "prescriptions": [
+      { "slot": "growth_d1_s1", "movement": "library:back_squat", "before": { "sets": 4, "index": 0 }, "after": { "sets": 4, "index": 0 }, "reason": "protected primary unchanged" }
+    ]
+  },
+  "progressionContract": {
+    "preservedRelations": ["range@1 anchors", "rep_goal@1 volume pairing"],
+    "resetRelations": [],
+    "incompatibilities": []
+  }
+}
