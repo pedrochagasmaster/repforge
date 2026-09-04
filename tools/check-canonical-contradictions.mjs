@@ -149,6 +149,9 @@ required("docs/block-transition-provenance.md", [
   '"before"',
   '"after"',
   '"reason"',
+  '"slot"',
+  '"movement"',
+  "Field presence",
   "nextBlockWeek1",
 ]);
 required("docs/adr/0013-temporary-install-transfer.md", [
@@ -161,6 +164,10 @@ required("docs/adr/0013-temporary-install-transfer.md", [
   "logicalInstallationId",
   "repforge_transfer_v1",
   "repforge_install_import_v1",
+  "repforge_transfer_outbound_v1",
+  "idempotencyKey",
+  "duplicate",
+  "/v1/transfers/status",
   "claimIdDigest",
   "expectedLocalRevision",
   "source_context",

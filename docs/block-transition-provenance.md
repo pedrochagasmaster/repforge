@@ -59,15 +59,32 @@ fields stay valid and read as `legacy/no transition record`.
 | `successor.fingerprint` | string | Stable fingerprint of the incoming program; absent for overlays |
 | `successor.source` | string | Source provenance of the incoming program |
 | `successor.compilerProvenance` | object | Compiler provenance of the incoming program |
-| `diff.days` | array | Entries of `{identity, before, after, reason}` |
-| `diff.exercises` | array | Entries of `{identity, before, after, reason}`; identity is the stable library/custom ID, never a display name |
-| `diff.prescriptions` | array | Entries of `{identity, before, after, reason}` |
+| `diff.days` | array | Entries of `{day, before, after, reason}` keyed by stable day ID |
+| `diff.exercises` | array | Entries of `{slot, movement, before, after, reason}`: `slot` is the stable program slot identity (compiler `slotId`, e.g. `growth_d1_s1`), `movement` is the library/custom movement ID in `library:` form. A compiled program distinguishes exercise instances from movements — repeated movements in different slots have distinct `slot` values — so library IDs alone would collide and must never serve as diff identity |
+| `diff.prescriptions` | array | Entries of `{slot, movement, before, after, reason}` keyed the same way |
 | `diff.recoveryWeek` | object, optional | Present only for `recovery_week`: the overlay below |
 | `progressionContract.preservedRelations` | string[] | Relations and strategies carried over unchanged |
 | `progressionContract.resetRelations` | string[] | Explicitly reset relations with reasons |
 | `progressionContract.incompatibilities` | string[] | Declared incompatibilities; never silent |
-| `archiveId` | string | Outgoing archive entry carrying the transition-out link |
+| `archiveId` | string \| null | Outgoing archive entry carrying the transition-out link; null wherever nothing is archived (see presence matrix) |
 | `proposalHash` | string | Immutable hash of the proposal; preview and commit must match |
+
+### Field presence by kind and status
+
+One schema, explicit presence — no separate proposal type, no silent
+defaults:
+
+| Field | `preview` / `stale` (any kind) | `confirmed` / `committed` / `failed-before-commit`, replacement kinds | `recovery_week` | `repeat` / `continue` |
+|---|---|---|---|---|
+| `confirmedAt` | Absent | Required | Required on confirmation | Required on confirmation |
+| `archiveId` | Absent | Required (committed) | Null — overlays archive nothing; evidence lives in `diagnosis` and the overlay | Null — nothing is replaced |
+| `successor.*` | Present as proposal | Required | Absent — no successor program exists | `successor.programId` equals predecessor; no new program is minted |
+| `diff.recoveryWeek` | Absent unless proposed | Absent | Required | Absent |
+| `diff` arrays | Proposed entries | Committed entries | Overlay-only changes live in the overlay; arrays may be empty | Empty arrays |
+
+`failed-before-commit` carries the `confirmed`-stage fields plus its terminal
+status; no failure-reason field is invented. A `stale` proposal is never
+edited in place — regeneration mints a new proposal with a new hash.
 
 Store transition-in on successor metadata and the transition-out link in the
 outgoing archive entry. History and log rows stay immutable and keep pointing
@@ -110,14 +127,14 @@ at their original program/session identities. Backup round-trips both records.
   },
   "diff": {
     "days": [
-      { "identity": "growth_d4", "before": { "label": "Day 4", "slots": 6 }, "after": null, "reason": "fewer_days: day not reconstructable in 3-day sibling" }
+      { "day": "growth_d4", "before": { "label": "Day 4", "slots": 6 }, "after": null, "reason": "fewer_days: day not reconstructable in 3-day sibling" }
     ],
     "exercises": [
-      { "identity": "lib:seated_cable_row", "before": { "day": "growth_d2", "sets": 3 }, "after": { "day": "growth_d2", "sets": 3 }, "reason": "retained with identical prescription" },
-      { "identity": "lib:leg_press", "before": { "day": "growth_d4", "sets": 4 }, "after": null, "reason": "day removed; coverage preserved by growth_d1 squat" }
+      { "slot": "growth_d2_s3", "movement": "library:seated_cable_row", "before": { "sets": 3 }, "after": { "sets": 3 }, "reason": "retained with identical prescription" },
+      { "slot": "growth_d4_s2", "movement": "library:leg_press", "before": { "sets": 4 }, "after": null, "reason": "day removed; coverage preserved by growth_d1_s1 squat" }
     ],
     "prescriptions": [
-      { "identity": "lib:back_squat", "before": { "sets": 4 }, "after": { "sets": 4 }, "reason": "protected primary unchanged" }
+      { "slot": "growth_d1_s1", "movement": "library:back_squat", "before": { "sets": 4 }, "after": { "sets": 4 }, "reason": "protected primary unchanged" }
     ]
   },
   "progressionContract": {
