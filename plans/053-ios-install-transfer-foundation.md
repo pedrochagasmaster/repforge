@@ -82,6 +82,15 @@ telemetryIdentity: { schemaVersion, installationId, createdAt }
 integrity: { canonicalPayloadHash }
 ```
 
+`canonicalPayloadHash` is the lowercase hex SHA-256 over the envelope's
+canonical preimage: the whole envelope with `integrity.canonicalPayloadHash`
+itself removed, serialized as canonical JSON (recursively sorted object keys,
+UTF-8, no insignificant whitespace), covering every other field including
+array order. It is validated in memory before any local write; a mismatch
+stops the import. The executable rule and fixture live in
+`tools/canonical-clone-hash.mjs` with `test/fixtures/install-transfer-clone-v1.json`
+(`node tools/canonical-clone-hash.mjs --check`).
+
 Normalization removes `_storageRevision`, `_storageFollowUp`, `_storageDraftTransaction`, `_storageSetupActivation`, pending/closing sidecar data, tab/writer/operation IDs, cookies, notification/permission runtime data, and provider analytics session IDs. It retains program/history/archive/provenance and other logical user settings in the durable state. Parsing applies explicit field/size/depth limits and rejects unknown required versions.
 
 ### Server record and endpoints

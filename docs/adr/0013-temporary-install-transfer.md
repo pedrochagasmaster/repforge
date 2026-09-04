@@ -68,7 +68,7 @@ it never uploads `localStorage`/IndexedDB wholesale.
 | `telemetryIdentity.schemaVersion` | integer | Identity schema version |
 | `telemetryIdentity.installationId` | string | Stable pseudonymous identity (preserved, not rotated) |
 | `telemetryIdentity.createdAt` | timestamp | Identity creation time |
-| `integrity.canonicalPayloadHash` | string | Digest over the canonical payload; validated in memory before any local write |
+| `integrity.canonicalPayloadHash` | string | Lowercase hex SHA-256 over the envelope's canonical preimage — the whole envelope with `integrity.canonicalPayloadHash` itself removed (self-field exclusion), serialized as canonical JSON (recursively sorted object keys, UTF-8, no insignificant whitespace) and covering every other field including array order. Validated in memory before any local write; a mismatch stops the import |
 
 Normalization removes `_storageRevision`, `_storageFollowUp`,
 `_storageDraftTransaction`, `_storageSetupActivation`, pending/closing sidecar
@@ -96,9 +96,14 @@ limits and rejects unknown required versions.
   "uiPreferences": { "theme": "system" },
   "analytics": { "enabled": true },
   "telemetryIdentity": { "schemaVersion": 1, "installationId": "ti_9c2e", "createdAt": "2026-08-01T10:00:00.000Z" },
-  "integrity": { "canonicalPayloadHash": "9f2c4151ad0e77c3b6d4e5f80918273a4b5c6d7e8f90a1b2c3d4e5f60718293a4" }
+  "integrity": { "canonicalPayloadHash": "7b37e28213618d66a426b7decfa5918b28a26ca54fabe0ead50d586260587147" }
 }
 ```
+
+Executable fixture: `test/fixtures/install-transfer-clone-v1.json` holds the
+exact envelope above; `node tools/canonical-clone-hash.mjs --check` recomputes
+its digest under the documented rule, verifies it against the recorded value,
+and proves the helper accepts frozen input without mutation.
 
 ## Server record and endpoints
 

@@ -1,0 +1,55 @@
+{
+  "kind": "taurifer-install-transfer",
+  "schemaVersion": 1,
+  "createdAt": "2026-10-01T09:00:00.000Z",
+  "source": {
+    "context": "browser",
+    "logicalInstallationId": "li_7f3a"
+  },
+  "sourceRevision": 42,
+  "durableState": {
+    "program": [
+      {
+        "dayId": "growth_3_d1",
+        "label": "Day 1",
+        "slots": [
+          {
+            "slotId": "growth_3_d1_s1",
+            "libraryId": "sq_lp",
+            "sets": 3
+          },
+          {
+            "slotId": "growth_3_d1_s2",
+            "libraryId": "pr_mc",
+            "sets": 3
+          }
+        ]
+      }
+    ],
+    "programMeta": {
+      "name": "Build Muscle",
+      "onboarded": true
+    },
+    "log": [],
+    "settings": {
+      "unit": "kg",
+      "lang": "en"
+    }
+  },
+  "workoutDraft": null,
+  "programEntryDraft": null,
+  "uiPreferences": {
+    "theme": "system"
+  },
+  "analytics": {
+    "enabled": true
+  },
+  "telemetryIdentity": {
+    "schemaVersion": 1,
+    "installationId": "ti_9c2e",
+    "createdAt": "2026-08-01T10:00:00.000Z"
+  },
+  "integrity": {
+    "canonicalPayloadHash": "7b37e28213618d66a426b7decfa5918b28a26ca54fabe0ead50d586260587147"
+  }
+}
