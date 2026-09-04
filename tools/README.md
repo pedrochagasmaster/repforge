@@ -97,11 +97,15 @@ governing documents (frozen source-evidence reports and old plan bodies are
 out of scope by design). It fails on stale live-policy phrases (no-card
 rule, pinned cache example, stale READY states, unqualified never-uploads
 outside the wholesale/quoted carve-outs), rejected-claim reintroduction
-outside the register/sequence/audit, stale five-tab policy, missing canonical
-anchors, downstream vocabulary drift (Plan 052 transition fields, Plan 053
-transfer fields, Plan 058 role names, recovery Rule B constants), bearer
-tokens in ADR 0013 endpoint URLs, missing child-plan dependency/atomic/STOP/
-gate sections, and broken relative doc links.
+outside the register/sequence/audit, stale five-tab policy, and missing
+canonical anchors. Downstream vocabularies are derived from the owning plans
+at check time — Plan 052's record/overlay/kind fields, Plan 053's clone
+fields, states, and endpoint paths, Plan 058's type steps, radii, elevations,
+progress dimensions, and colors — and each extracted token must appear in the
+corresponding Phase 0 contract, so downstream edits fail here until the
+contract follows. It also asserts every child plan's dependency/atomic/STOP/
+gate sections and resolves relative doc links across the scope docs plus
+every plan file.
 
 ```bash
 node tools/check-canonical-contradictions.mjs

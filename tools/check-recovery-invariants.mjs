@@ -98,7 +98,7 @@ for (const compilation of compilations) {
   } else {
     check(inBand, `${compilation.blueprintId}: ${(ratio * 100).toFixed(1)}% outside 40–60%`);
   }
-  table.push({ id: compilation.blueprintId, base, effective, ratio, inBand: inBand || !!known });
+  table.push({ id: compilation.blueprintId, base, effective, ratio, inBand, allowedMiss: !!known });
 }
 
 // Synthetic rescue path: a press-only program whose press slot is optional.
@@ -123,15 +123,17 @@ check(
 );
 
 const passCount = table.filter((r) => r.inBand).length;
+const missCount = table.filter((r) => r.allowedMiss).length;
 if (process.argv.includes("--check")) {
   if (failures.length > 0) {
     for (const f of failures) console.error(`FAIL: ${f}`);
     process.exit(1);
   }
-  console.log(`pass: Rule B deterministic over 20 fixtures, ${passCount}/20 in band (2 allowlisted misses), rescue path covered`);
+  console.log(`pass: Rule B deterministic over 20 fixtures, ${passCount}/20 in band with ${missCount} allowlisted misses, rescue path covered`);
 } else {
   for (const r of table) {
-    console.log(`${r.id} ${r.base}→${r.effective} ${(r.ratio * 100).toFixed(1)}%${r.inBand ? "" : " MISS"}`);
+    const tag = r.inBand ? "" : r.allowedMiss ? " allowlisted miss" : " MISS";
+    console.log(`${r.id} ${r.base}→${r.effective} ${(r.ratio * 100).toFixed(1)}%${tag}`);
   }
   if (failures.length > 0) {
     for (const f of failures) console.error(`FAIL: ${f}`);

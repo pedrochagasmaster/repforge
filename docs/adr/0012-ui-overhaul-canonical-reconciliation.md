@@ -97,7 +97,7 @@ never changes.
 | display | 2.5rem titles | 058 |
 | title | 1.875rem screen titles | 058 |
 | subtitle | 1.125rem content headings | 058 |
-| body | 1rem rows, prose, and controls | 058 |
+| body | 1rem rows, prose, and controls; also the control-text step, never a separate size | 058 |
 | body-small | 0.875rem secondary rows | 058 |
 | caption | 0.75rem supporting text, never the sole text of a critical control at normal scale | 058 |
 | label | 0.6875rem uppercase section labels; never a substitute for hierarchy | 058 |
@@ -154,11 +154,11 @@ and destructive are distinct roles even where early palette values relate.
 
 | Role | Meaning | First consumed by |
 |---|---|---|
-| action | Action and emphasis; used sparingly, never as decoration wash | 058 |
+| action | Action and emphasis; used sparingly, never as decoration wash (058 spelling: accent) | 058 |
 | action-text | Small text on or in the accent role where contrast requires depth | 058 |
-| improved | Improved outcomes and confirmed completions | 056 |
-| declined | Declined outcomes and attention states; reserved, never ambient | 056 |
-| maintained | Maintained outcomes and informational states | 056 |
+| improved | Improved outcomes and confirmed completions (058 spelling: success) | 056 |
+| declined | Declined outcomes and attention states; reserved, never ambient (058 spelling: warning) | 056 |
+| maintained | Maintained outcomes and informational states (058 spelling: neutral) | 056 |
 | destructive | Destructive actions and confirmations; distinct from declined | 057 |
 | focus | Live timer and active-workout signal | 055 |
 | disabled | Unavailable control mass; ordered below enabled actions, with compliant reason text | 050 |
