@@ -115,10 +115,15 @@ schemaVersion, policyVersion, transitionId, blockId
 activePeriod: nextBlockWeek1
 eligibilityEvidence
 baseProgramFingerprint
-entries: [{ exerciseId, movementPattern, baseWorkingSets,
+entries: [{ slot, movement, movementPattern, baseWorkingSets,
             effectiveWorkingSets, removedOptionalFirst, reason }]
 createdAt, confirmedAt, reassessmentDueAt
 ```
+
+`slot` is the stable program slot identity (compiler `slotId`);
+`movement` is the library/custom movement identity in `library:` form.
+Repeated movements in different slots — the fixtures contain protected and
+reducible leg-press slots for the same movement — must never share an entry.
 
 It applies only to working-set volume. It retains at least one working set for each approved primary movement pattern, may cross ordinary `minSets` under this named policy, and restores base prescriptions in week two without a data migration. Plan 049's selected deterministic allocation/rounding rule is an input; absent that version, `proposeRecoveryWeek` is disabled.
 

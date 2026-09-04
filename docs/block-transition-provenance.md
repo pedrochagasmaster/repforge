@@ -163,7 +163,7 @@ follows `docs/recovery-week-policy.md`; until the owner selects the rule,
 | `activePeriod` | `nextBlockWeek1` | Only valid period |
 | `eligibilityEvidence` | object | `maintained`/`declined` evidence plus checkpoint recovery input |
 | `baseProgramFingerprint` | string | Canonical program the overlay renders against |
-| `entries` | array | Per-exercise `{exerciseId, movementPattern, baseWorkingSets, effectiveWorkingSets, removedOptionalFirst, reason}` |
+| `entries` | array | Per-slot `{slot, movement, movementPattern, baseWorkingSets, effectiveWorkingSets, removedOptionalFirst, reason}`: `slot` is the stable program slot identity (compiler `slotId`), `movement` the library/custom movement ID, `movementPattern` the first-listed template pattern token (coverage is evaluated over the canonical knee-dominant, hip/hinge, and horizontal-press classes). Repeated movements in different slots — e.g. a protected and a reducible leg-press slot — must never share an entry |
 | `createdAt` | timestamp | Proposal creation time |
 | `confirmedAt` | timestamp | Explicit user-confirmation time |
 | `reassessmentDueAt` | timestamp | Reassessment point after week one; no automatic repeat |
@@ -180,8 +180,9 @@ follows `docs/recovery-week-policy.md`; until the owner selects the rule,
   "eligibilityEvidence": { "outcome": "maintained", "checkpointRecoveryInput": "high-life-stress" },
   "baseProgramFingerprint": "fp9f2c41",
   "entries": [
-    { "exerciseId": "lib:back_squat", "movementPattern": "knee-dominant", "baseWorkingSets": 4, "effectiveWorkingSets": 2, "removedOptionalFirst": false, "reason": "protected-ceil" },
-    { "exerciseId": "lib:dumbbell_curl", "movementPattern": "elbow-flexion", "baseWorkingSets": 2, "effectiveWorkingSets": 0, "removedOptionalFirst": true, "reason": "optional-removed" }
+    { "slot": "growth_2_d1_s1", "movement": "library:sq_lp", "movementPattern": "squat", "baseWorkingSets": 3, "effectiveWorkingSets": 2, "removedOptionalFirst": false, "reason": "protected-ceil" },
+    { "slot": "growth_2_d2_s4", "movement": "library:sq_lp", "movementPattern": "leg_extension", "baseWorkingSets": 3, "effectiveWorkingSets": 1, "removedOptionalFirst": false, "reason": "reducible-floor" },
+    { "slot": "growth_2_d1_s6", "movement": "library:cu_cb", "movementPattern": "curl", "baseWorkingSets": 2, "effectiveWorkingSets": 0, "removedOptionalFirst": true, "reason": "optional-removed" }
   ],
   "createdAt": "2026-10-01T09:00:00.000Z",
   "confirmedAt": "2026-10-01T09:12:00.000Z",
