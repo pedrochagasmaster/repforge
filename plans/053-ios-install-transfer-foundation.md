@@ -239,7 +239,7 @@ Use a local fake service for deterministic browser CI and the approved staging s
 
 ## Screen catalog changes
 
-- **New states:** transfer explanation, creating, ready/install instructions, importing, success, retryable failure, terminal expired/unavailable, Safari recovery snapshot, divergence warning.
+- **New states:** transfer explanation, creating, ready/install instructions, importing, success, retryable failure, terminal expired/unavailable, unknown-outcome (indeterminate result under the G-88 divergence-warning path), Safari recovery snapshot, divergence warning.
 - **Removed states:** none.
 - **Changed states:** current iOS install sheet gains functional transfer entry only for eligible established data; Settings hook may remain minimally wired until Plan 054.
 - **Matrix expansion:** consent, failure, and divergence states need EN/PT, light/dark, compact, 200%, and demanding PT-BR + 200%; installed/browser context labels need semantic evidence.
