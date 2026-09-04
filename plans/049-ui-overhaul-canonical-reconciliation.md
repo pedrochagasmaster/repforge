@@ -177,7 +177,13 @@ The preview must show base versus effective working sets per exercise and the ev
 
 The audit does **not** settle the exact rounding, allocation, optional-work ordering ties, or definition used to classify a primary movement pattern. Phase 0 must present a deterministic candidate rule with representative program proofs to the owner, record the selected constants in the ADR/specification, and stop before Plans 052/056 implement recovery if approval is absent. No agent may invent load, RIR, frequency, or duration formulas to fill the gap.
 
-## Documentation migrations
+## Domain/state model
+
+Phase 0 publishes schemas rather than runtime state. The authoritative models are the logical-clone envelope and import state machine, immutable block-transition proposal/record, recovery-week overlay, preliminary semantic-role inventory, and G/UI disposition register described above. Each has a version, closed variants, parse boundary, contract owner, and named consumer. Later plans may extend only through a versioned Phase 0 amendment; they cannot add ad hoc fields or states in a renderer.
+
+## Migrations
+
+The migrations in this phase are documentation/status migrations:
 
 1. Add a superseding overhaul ADR (or tightly scoped ADRs if transfer security requires separation) with explicit `Supersedes in part` references.
 2. Update current-tense canonical docs to link to the new decisions; do not rewrite old plan completion records as if they were never valid.

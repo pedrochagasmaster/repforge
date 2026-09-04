@@ -122,6 +122,10 @@ Persist the whole validated V2 document under the historical `repforge_draft_v1`
 
 Throttle/coalesce text-field persistence only within one operation stream and flush on blur, visibility change, navigation, and `pagehide`. Completion, skip, substitution, session metadata, and finish transitions persist immediately.
 
+## Domain/state model
+
+DraftV2 is the sole active-session aggregate. Its closed commands and invariants are defined above; UI-only state may remember an open sheet, focus target, pointer gesture, or animation, but it cannot duplicate values required for reload/save. Program and prior-session facts are immutable inputs captured by identity. Saved History remains a separate durable aggregate produced only by `toHistoryRows()` at explicit finish. A draft is active or absent—there is no hidden second List/Focus copy.
+
 ## Migrations
 
 On boot, parse in this order: valid V2; legacy V1-shaped flat object; absent; invalid.
