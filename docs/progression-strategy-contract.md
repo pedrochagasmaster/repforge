@@ -820,3 +820,15 @@ no fallback: an unsupported prescription never silently becomes `range@1`.
 - **API stability.** `kind`, `status`, and every reason code are an API
   surface. Add new codes; never repurpose an existing one. Each new strategy
   adds its own `<strategyId>.*` reason namespace.
+
+## Recovery-week overlay (schedule policy, not strategy math)
+
+Recovery is a confirmed, versioned week-one schedule policy governed by
+[`docs/recovery-week-policy.md`](recovery-week-policy.md), not a progression
+strategy, modifier, or block profile. The engines above are unchanged: no
+strategy branch, no target mutation, no automatic deload. A confirmed recovery
+writes a `recovery-week` transition record under
+[`docs/block-transition-provenance.md`](block-transition-provenance.md) with
+its evidence snapshot and policy version. The exact allocation constants are
+owner-gated in that policy; until selected, no recovery-week record may be
+written.

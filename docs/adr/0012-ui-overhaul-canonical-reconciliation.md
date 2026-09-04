@@ -187,3 +187,17 @@ a schema ad hoc.
 | Block-transition record and proposal | 052 | 056 (lifecycle UI) | 052 → 056 |
 | Install-transfer clone and import marker | 053 | 054 (promotion) | 053 → 054 |
 | Entry candidate draft and activation | 048 (existing) | 052/056 (transition adapter boundary), 057 (repair routes) | Provenance first, entry UI second, repair consumers last |
+
+## Recovery-week experiment (owner-gated)
+
+Recovery is a versioned week-one schedule overlay governed by
+[`docs/recovery-week-policy.md`](recovery-week-policy.md): eligibility on
+`maintained`/`declined` evidence plus checkpoint recovery input, base-versus-
+effective preview with explicit confirmation, optional work removed first,
+ordinary `minSets` crossable under the named policy, at least one working set
+per primary pattern, week-two canonical restoration, and reassessment with no
+automatic repeat. It never mutates progression-engine arithmetic. The exact
+rounding, allocation, tiebreak, and primary-pattern constants are an explicit
+⛔ owner gate: until the selection is recorded in the policy, no
+`recovery-week` transition record may be written and Plans 052/056 stop at
+that gate.
