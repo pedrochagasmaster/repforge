@@ -44,8 +44,16 @@ progression guidance, privacy wording) lands in later Plan 049 slices.
 - Licensed illustrations keep their sampled paper backgrounds in both themes;
   movements without licensed art keep the intentionally empty tile.
 - Plex Sans carries language and controls; Plex Mono carries training data
-  and technical values. The bounded size/line-height steps are defined during
-  the Plan 058 migration, not here.
+  and technical values. The bounded size and line-height steps are defined in
+  the role inventory below; Plan 058 migrates every surface onto them.
+
+## Role ownership rule
+
+Earlier phases consume only the names below. Any new role requires a
+versioned Phase 0 amendment; Plan 058's inventory reconciles these roles
+into selectors and tokens but must not rename their meanings or invent
+competing roles. Where Plan 058's token spelling differs from a name here,
+this semantic contract still governs.
 
 ## Semantic role inventory
 
@@ -53,82 +61,122 @@ progression guidance, privacy wording) lands in later Plan 049 slices.
 
 Depth is allowlisted by role. Page content stays flat on hairlines and
 whitespace. Nested-card tunnels (a card inside a card inside a card) are
-prohibited in every phase.
+prohibited in every phase. Elevated descendants inside an elevated ancestor
+are prohibited unless the inner role is `selected` or a true overlay.
 
 | Role | Meaning | First consumed by |
 |---|---|---|
-| page | Default flat content surface; hairlines separate, whitespace groups | 058 |
-| selected | Chosen option or current item; one level above page, never a tunnel wall | 058 |
-| floating | Transient surfaces above content: dock, toasts, rest chip | 058 |
-| modal | Blocking sheets and dialogs that take the interaction until dismissed | 058 |
+| flat | Default content surface; no shadow, optional decorative separator | 058 |
+| selected | Chosen option or current item; inset or high-contrast selection boundary, no floating shadow | 058 |
+| floating | Menu, toast, and Focus movable layers above content | 058 |
+| modal | Blocking sheets and dialogs with scrim and stronger depth | 058 |
 | persistent-action | Sticky editor/program action layers; restrained boundary, shallow lift, never card-like or modal | 057 |
 
 ### Family: radius
 
+Asymmetric sheet and top-edge radii derive from `prominent`.
+Exercise-artwork corners use `surface` or `prominent`; sampled paper color
+never changes.
+
 | Role | Meaning | First consumed by |
 |---|---|---|
-| compact-control | Small controls: chips, steppers, segmented options | 058 |
-| standard-control | Default buttons, inputs, cards, and sheets | 058 |
-| surface | Large containers: editor days, summary blocks | 058 |
-| pill | Full-round actions and timers only | 058 |
+| none | Sharp corners where the component carries the boundary | 058 |
+| compact | 4px: chips, steppers, segmented options | 058 |
+| control | 8px: default buttons, inputs, cards, sheets | 058 |
+| surface | 12px: large containers such as editor days and summary blocks | 058 |
+| prominent | 16px: modals and prominent sheets | 058 |
+| pill | Full-round actions and timers | 058 |
+| round | Circular geometry only | 058 |
 
 ### Family: typography
 
 | Role | Meaning | First consumed by |
 |---|---|---|
-| title | Screen titles; Sans, largest, tight tracking | 058 |
-| heading | Content headings: exercise and session names; Sans | 058 |
-| body | Rows, prose, and form text; Sans | 058 |
-| eyebrow | Uppercase section labels; Sans, small, tracked; never a substitute for hierarchy | 058 |
-| data | Training data numerals: loads, reps, sets; Mono with tabular figures | 058 |
-| technical | Timers and technical values; Mono | 058 |
+| language | Plex Sans for language and controls | 058 |
+| training-data | Plex Mono for training data and technical values, assigned by semantic value rather than component ancestry | 058 |
+| display | 2.5rem titles | 058 |
+| title | 1.875rem screen titles | 058 |
+| subtitle | 1.125rem content headings | 058 |
+| body | 1rem rows, prose, and controls | 058 |
+| body-small | 0.875rem secondary rows | 058 |
+| caption | 0.75rem supporting text, never the sole text of a critical control at normal scale | 058 |
+| label | 0.6875rem uppercase section labels; never a substitute for hierarchy | 058 |
+| tight | 1.1 line height for display and title | 058 |
+| standard | 1.4 line height for body and controls | 058 |
+| reading | 1.55 line height for sustained prose | 058 |
+
+Weights are regular, medium, and semibold from shipped font support; they
+are not separate roles. If a current unique size cannot map onto the steps
+above without losing hierarchy or 200% fit, Plan 058 documents one named
+additional role rather than retaining a literal.
 
 ### Family: controls
 
-Shared tokens, states, and semantics per role. A contextual variant is allowed
-only where the task justifies it (fast logging versus program editing); unlike
+Shared tokens, states, and semantics per role: default, hover where
+applicable, active/pressed, selected, focus-visible, disabled with reason,
+validation/error, and loading. A contextual variant is allowed only where the
+task justifies it (rapid workout stepper versus deliberate program stepper);
+target sizes, focus behavior, and disabled semantics stay shared, and unlike
 interactions are never forced into one visual component.
 
 | Role | Meaning | First consumed by |
 |---|---|---|
-| primary-action | The one forward action per screen; full emphasis | 050 |
-| secondary-action | Safe alternative beside or under the primary action | 050 |
+| primary | The one forward action per screen; full emphasis | 050 |
+| secondary | Safe alternative beside or under the primary action | 050 |
 | quiet-navigation | Text links, chevrons, and back actions that move without committing | 057 |
-| destructive-action | Deletion and irreversible clears; visually distinct from navigation | 057 |
+| destructive | Deletion and irreversible clears; visually distinct from navigation and from declined outcomes | 057 |
+| disclosure | Expand-versus-navigate glyphs with distinct semantics | 057 |
 | selection | Pickers, toggles, steppers, and choice groups with a visible selected state | 050 |
-| disabled-action | Unavailable actions; muted mass, no competing live accent, reason exposed where the audit requires it | 050 |
-| horizontal-scroller | Intentional horizontal scroll regions with a non-overlapping chip geometry and an edge continuation cue | 050 |
+| disabled | Unavailable actions; muted mass, no competing live accent, reason exposed where required | 050 |
+| icon-only | Glyph buttons with accessible names; normalized stroke weight | 055 |
+| horizontal-scroller | Intentional horizontal scroll regions with non-overlapping chip geometry and an edge continuation cue; reconciled into Plan 058's scroller inventory under this name | 050 |
 
 ### Family: progress
 
-Each dimension keeps its own encoding. No dimension may be deleted as a
+Each dimension keeps its own machine-readable encoding. Elements with
+identical dimension, value, and scope on one surface consolidate; different
+dimensions remain separately labelled. No dimension may be deleted as a
 "duplicate" without naming which surviving dimension carries its meaning.
 
 | Role | Meaning | First consumed by |
 |---|---|---|
-| block-progress | Position inside the current block: week N of M plus session completion | 056 |
-| weekly-completion | This week's completed versus planned sessions beside the day strip | 057 |
-| exercise-progression | Per-exercise readiness and recommendation state | 056 |
-| set-progression | Within-exercise completed versus planned sets | 055 |
-| onboarding-progress | Position inside an entry route's semantic steps | 054 |
-| task-progress | Short-lived task completion: install steps, import mapping, transfer states | 054 |
+| block | Position within the training block | 056 |
+| week | Sessions and volume within the current week | 057 |
+| exercise-set | Current exercise and ordered set execution | 055 |
+| task | Entry, import, transfer, and onboarding workflow progress | 054 |
 
 ### Family: color
 
 Words and icons always carry meaning; color supports them and never replaces
-them. Decorative orange is preserved where valid; deeper tokens are used where
-contrast is required (G-74, rendered-role audit in Plan 058).
+them. Decorative orange is preserved where valid; deeper tokens are used
+where contrast is required (G-74, rendered-role audit in Plan 058). Warning
+and destructive are distinct roles even where early palette values relate.
 
 | Role | Meaning | First consumed by |
 |---|---|---|
-| accent | Action and emphasis; used sparingly, never as decoration wash | 056 |
-| success | Improved outcomes and confirmed completions | 056 |
-| warning | Declined outcomes and attention states; reserved, never ambient | 056 |
-| neutral | Maintained outcomes and informational states | 056 |
+| action | Action and emphasis; used sparingly, never as decoration wash | 058 |
+| action-text | Small text on or in the accent role where contrast requires depth | 058 |
+| improved | Improved outcomes and confirmed completions | 056 |
+| declined | Declined outcomes and attention states; reserved, never ambient | 056 |
+| maintained | Maintained outcomes and informational states | 056 |
+| destructive | Destructive actions and confirmations; distinct from declined | 057 |
 | focus | Live timer and active-workout signal | 055 |
-| disabled | Unavailable control mass; exempt from contrast claims but ordered below enabled actions | 050 |
-| boundary | Control edges that are the only cue; must clear WCAG 2.2 AA for their role | 058 |
+| disabled | Unavailable control mass; ordered below enabled actions, with compliant reason text | 050 |
+| boundary | Required control edges that are the only cue; must clear WCAG 2.2 AA for their role | 058 |
 | decorative | Rules and separators that carry no meaning; never the sole cue for anything | 058 |
+| surface | Surface fills behind content | 058 |
+| ink | Text hierarchy fills | 058 |
+
+### Cross-family pairs
+
+Three names recur across families by design; each pair shares one meaning
+and may not drift per family.
+
+| Name | Families | Shared meaning |
+|---|---|---|
+| disabled | controls, color | Unavailable: muted control mass with an exposed reason |
+| destructive | controls, color | Irreversible clears, distinct from declined outcomes |
+| surface | radius, color | Large content containers and the fills behind them |
 
 ## Release matrix
 

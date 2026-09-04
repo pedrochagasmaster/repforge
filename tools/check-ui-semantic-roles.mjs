@@ -16,11 +16,11 @@ const MANIFEST = join(ROOT, "docs", "ui-screens", "manifest.json");
 
 const FAMILIES = {
   elevation: 5,
-  radius: 4,
-  typography: 6,
-  controls: 7,
-  progress: 6,
-  color: 8,
+  radius: 7,
+  typography: 12,
+  controls: 9,
+  progress: 4,
+  color: 12,
 };
 const KNOWN_VARIANTS = new Set([
   "standard",
@@ -64,10 +64,43 @@ for (const [family, minimum] of Object.entries(FAMILIES)) {
 }
 
 const names = roles.map((r) => r.role);
-check(
-  new Set(names).size === names.length,
-  `duplicate role names: ${names.filter((n, i) => names.indexOf(n) !== i).join(", ")}`,
-);
+for (const [family] of Object.entries(FAMILIES)) {
+  const familyNames = roles.filter((r) => r.family === family).map((r) => r.role);
+  check(
+    new Set(familyNames).size === familyNames.length,
+    `family "${family}" has duplicate role names: ${familyNames.filter((n, i) => familyNames.indexOf(n) !== i).join(", ")}`,
+  );
+}
+// Cross-family recurrence is allowed only when declared in the pairs table
+// with one shared meaning; undeclared duplicates are competing roles.
+const pairBlock = (adr.split("### Cross-family pairs")[1] || "").split(/^## /m)[0];
+const declaredPairs = new Map();
+for (const line of pairBlock.split("\n")) {
+  if (!line.startsWith("|")) continue;
+  const cells = line.split("|").map((c) => c.trim());
+  if (cells[1] === "Name" || /^-+$/.test(cells[1])) continue;
+  if (cells.length < 5 || !cells[1]) continue;
+  declaredPairs.set(cells[1], cells[2].split(",").map((s) => s.trim()));
+}
+const byName = new Map();
+for (const r of roles) {
+  if (!byName.has(r.role)) byName.set(r.role, new Set());
+  byName.get(r.role).add(r.family);
+}
+for (const [name, families] of byName) {
+  if (families.size < 2) continue;
+  const declared = declaredPairs.get(name);
+  check(!!declared, `role "${name}" recurs in ${[...families].join(", ")} without a cross-family pair declaration`);
+  if (declared) {
+    check(
+      declared.length === families.size && [...families].every((f) => declared.includes(f)),
+      `pair declaration for "${name}" names [${declared}], but role exists in [${[...families]}]`,
+    );
+  }
+}
+for (const [name, families] of declaredPairs) {
+  check(byName.has(name) && byName.get(name).size > 1, `declared pair "${name}" has no recurring role`);
+}
 for (const r of roles) {
   check(r.role.length > 0, `empty role name in family "${r.family}"`);
   check(r.meaning.length > 0, `role "${r.role}" has no meaning`);
