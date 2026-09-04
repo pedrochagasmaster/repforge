@@ -225,6 +225,32 @@ required("docs/recovery-week-policy.md", [
   "pattern-rescue",
 ]);
 
+// Protocol-semantics anchors: named contract points the vocabulary scan
+// cannot see (lowercase identifiers, lifecycle rules, table rows).
+{
+  const adr = docs.get("docs/adr/0013-temporary-install-transfer.md");
+  for (const anchor of [
+    "repforge_transfer_inbound_v1",
+    "repforge_transfer_outbound_v1",
+    "sealedToken",
+    "duplicate",
+    "unknown-outcome",
+    "T-01",
+    "T-14",
+    "programEntryDraft",
+  ]) {
+    check(adr.includes(anchor), `ADR 0013: missing protocol anchor "${anchor}"`);
+  }
+  const plan053 = read("plans/053-ios-install-transfer-foundation.md");
+  for (const anchor of ["duplicate", "status", "sealed"]) {
+    check(plan053.includes(anchor), `Plan 053: missing aligned protocol anchor "${anchor}"`);
+  }
+  const overlaySection = (docs.get("docs/block-transition-provenance.md").split("## Recovery-week overlay")[1] || "").split(/^## /m)[0];
+  for (const anchor of ['"slot"', '"movement"', "pattern-rescue"]) {
+    check(overlaySection.includes(anchor), `transition overlay: missing "${anchor}"`);
+  }
+}
+
 // Every child plan keeps its dependency, atomic, STOP, and gate sections.
 for (const n of ["050", "051", "052", "053", "054", "055", "056", "057", "058", "059"]) {
   const file = `plans/${n}-${{ "050": "ui-correctness-and-catalog-leverage", "051": "workout-draft-state-foundation", "052": "block-transition-provenance-foundation", "053": "ios-install-transfer-foundation", "054": "landing-and-program-entry", "055": "focus-only-workout", "056": "progress-and-block-lifecycle", "057": "management-surfaces", "058": "design-system-convergence", "059": "public-launch-ui-validation" }[n]}.md`;
