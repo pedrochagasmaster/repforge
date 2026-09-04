@@ -55,7 +55,7 @@ it never uploads `localStorage`/IndexedDB wholesale.
 | `source.logicalInstallationId` | string | Coarse logical installation reference, not a tracking ID |
 | `durableState` | object | Normalized `repforge_v1` value (program, history, archive, provenance, logical settings) |
 | `workoutDraft` | null \| object | DraftV2 logical section, or explicit null when absent |
-| `programEntryDraft` | null \| object | Versioned candidate section per the Plan 049 disposition (default: included as its own versioned section, retaining its no-program-persistence boundary), or explicit null |
+| `programEntryDraft` | null \| object | Unfinished program-entry candidate as a separately versioned section, or explicit null when absent. DECIDED: included — losing an active build/import draft would violate exact-clone fidelity (G-84). Inclusion changes nothing about activation: the candidate still requires explicit review and activation and is never auto-applied. |
 | `uiPreferences` | object | Normalized `repforge_ui_v1` value |
 | `analytics.enabled` | boolean | Analytics consent value |
 | `telemetryIdentity.schemaVersion` | integer | Identity schema version |
@@ -98,12 +98,19 @@ The bearer token travels in request bodies only, never in a URL path, query
 string, fragment, or loggable surface. URL shapes below are exact; an
 implementation may not move the token into the path.
 
-1. `POST /v1/transfers` with `{envelope}`: validate envelope and size, assign
-   `expiresAt <= serverNow + 60 minutes`, encrypt with AEAD (per-record nonce,
-   managed key version, schema/creation/expiry as associated data), store only
-   a keyed token digest, and return the plaintext opaque token plus absolute
-   expiry exactly once. Create retries use an idempotency key so a timeout
-   cannot produce multiple live clones.
+1. `POST /v1/transfers` with `{envelope, idempotencyKey}`: validate envelope
+   and size, assign `expiresAt <= serverNow + 60 minutes`, encrypt with AEAD
+   (per-record nonce, managed key version, schema/creation/expiry as
+   associated data), store only a keyed token digest alongside the
+   idempotency key, and return the plaintext opaque token plus absolute
+   expiry exactly once — on first creation only. A retry carrying a known
+   idempotency key while its record is still live returns
+   `{duplicate: true, expiresAt}` with NO token: the server cannot reproduce
+   a bearer it never stored. The client seals the received token to its
+   local outbound marker immediately (see commit credentials), so a crash
+   after receipt stays recoverable; a client that never received the token
+   starts over with a new key after the orphan expires. One key never yields
+   two live records.
 2. `POST /v1/transfers/claims` with `{token, claimId}`: atomically bind an
    `available` transfer to the client-generated claim ID (128+ bits) and
    return the clone to that same claim on safe retries. Every other claim ID
@@ -114,7 +121,10 @@ implementation may not move the token into the path.
    tombstone may retain only token digest, terminal state, and original expiry
    to communicate one-time/recovery status; it contains no clone or identity
    and disappears at expiry.
-4. Expiry processing: an independent process deletes ciphertext at or before
+4. `POST /v1/transfers/status` with `{token}`: return `{state, expiresAt}`
+   and nothing else — no clone, no identity. This is how the creating Safari
+   learns the outcome (see Safari polling below).
+5. Expiry processing: an independent process deletes ciphertext at or before
    60 minutes even when the client never returns. Monitor the oldest live
    record and deletion lag.
 
@@ -154,12 +164,15 @@ controls, stated here so no later document can soften it:
 
 - The logged value is useful only before the legitimate claim: the first
   claim ID to bind wins, the installed client claims within seconds of
-  install, and the record dies on claim or within one hour.
-- The token alone never exposes the clone; the clone lives only in the
-  transfer service ciphertext, never on the static host.
-- Processor trust is explicit: the static-host operator and the transfer
-  operator can each observe what they handle. Do not claim end-to-end
-  encryption unless the server truly cannot decrypt.
+  install, and the record dies on claim or within one hour. It is NOT true
+  that a logged token is harmless: anyone holding an unclaimed bearer can
+  claim and retrieve the clone before the legitimate client does. The
+  controls below narrow that window; they do not close it, and the residual
+  risk is accepted and disclosed rather than defined away.
+- Processor trust is explicit: the static-host operator (token header, timing)
+  and the transfer operator (encrypted clone, claim behavior) can each
+  observe what they handle. Do not claim end-to-end encryption unless the
+  server truly cannot decrypt.
 - Operational requirement (part of the owner gate): static-host access logs
   covering transfer-period requests must have a bounded retention with
   `Cookie` values stripped or redacted, plus a manual purge runbook. No new
@@ -196,26 +209,68 @@ createdAt, expectedLocalRevision
 
 On boot, an incomplete marker either finishes the entire incoming import if
 the committed sections and hash prove safe, or restores the entire previous
-snapshot. Mixed state is never exposed. Remote commit retries idempotently
-after a locally committed import. Failure before local commit leaves current
+snapshot. Mixed state is never exposed. Failure before local commit leaves current
 installed state unchanged. If the installed context already holds meaningful
 local state, stop and require explicit choice; never overwrite automatically.
 Client states: `idle`, `creating`, `ready`, `claiming`, `validating`,
 `importing`, `localCommitted`, `deletingRemote`, `complete`, `retryable`,
 `terminalUnavailable`.
 
+### Commit credentials (crash-safe remote deletion)
+
+Remote commit needs the plaintext token and claim ID, but the installed app
+expires its token cookie before ordinary boot and the import marker stores
+only digests — so a crash after local commit would strand the ciphertext
+with no retry path. Both sides therefore keep sealed local credentials:
+
+- At creation, the Safari side writes a local-only
+  `repforge_transfer_outbound_v1` marker: `{idempotencyKey, sealedToken,
+  expiresAt, phase}`. At claim time it adds the sealed claim ID.
+- Sealing uses device-local WebCrypto AES-GCM under a non-extractable device
+  key held in IndexedDB outside backup scope. Plaintext credentials never
+  touch logs, backup, telemetry, or the DOM.
+- After local commit, boot unseals the credential, retries the remote
+  commit, and only then wipes the marker and the device key material for
+  that transfer.
+- If unsealing fails (key lost, profile reset), the credential is
+  unrecoverable by design: the record dies at its 60-minute expiry (plus the
+  purge runbook as backstop), local data was never at risk, and the user
+  starts a fresh transfer. This fallback is documented in the user-facing
+  failure copy.
+- Markers are excluded from backup export/import exactly like token and
+  import markers (Plan 053), and are wiped no later than expiry plus an
+  operational margin.
+
 ## Browser recovery snapshot
 
-Safari retains its original data. After installed success, a non-sensitive
-success acknowledgement/tombstone or same-origin channel lets Safari store a
-local recovery-snapshot marker tied to token digest and time. While marked,
-normal mutating UI is replaced by a message directing the user to the
-installed app, plus read/recovery/backup access. `Resume in browser`
-presents an explicit divergence warning — future browser and installed
-changes will not merge — and confirmation removes the freeze only in Safari
-while recording accepted divergence. Recovery snapshot states: `none`,
-`awaitingClaimOutcome`, `confirmed`, `resumeWarning`, `resumedDiverged`.
-There is no mechanism that writes installed changes back to Safari.
+Safari retains its original data. It learns the outcome by polling, never by
+a shared channel (none exists across the Safari/installed storage boundary):
+
+1. At creation Safari stores a local-only source marker
+   `{tokenDigest, createdAt, expiresAt}` and keeps the token in memory (own
+   cookie as fallback while it lives).
+2. After handing off to installation, Safari polls `POST
+   /v1/transfers/status` with the token, backing off from 5 seconds to 60
+   seconds, until a terminal state or `expiresAt` plus a 10-minute margin.
+3. On `deleted`, Safari stores the recovery-snapshot marker (tied to token
+   digest and time) and freezes mutating UI: a message directs the user to
+   the installed app, plus read/recovery/backup access.
+4. On `expired` (or terminal without claim), Safari clears the source marker
+   and resumes normal use — the transfer never completed and nothing local
+   ever changed.
+5. If Safari restarts with a source marker but no token (memory lost, cookie
+   consumed or expired), it cannot authenticate status: it shows an
+   unknown-outcome state (check the installed app; the transfer window and
+   its expiry are shown). After expiry plus margin with no evidence, the user
+   may dismiss the marker and keep using the browser — the safe default,
+   since local data was never deleted or overwritten.
+
+`Resume in browser` presents an explicit divergence warning — future browser
+and installed changes will not merge — and confirmation removes the freeze
+only in Safari while recording accepted divergence. Recovery snapshot states:
+`none`, `awaitingClaimOutcome`, `confirmed`, `resumeWarning`,
+`resumedDiverged`. There is no mechanism that writes installed changes back
+to Safari.
 
 ## Telemetry
 
@@ -233,9 +288,11 @@ size/content, program identity, or readiness data.
 Privacy copy must say what is temporarily copied, why, who processes it
 (static host sees the token header; the transfer service processes the
 encrypted clone), encryption in transit and at rest, one-time claim,
-immediate/one-hour deletion, token-cookie transport, original Safari
+immediate/one-hour deletion, token-cookie transport, Safari status polling,
+sealed local commit credentials and their wipe rules, original Safari
 retention, recovery-snapshot/divergence behavior, and how telemetry
-identity/consent carry over. No payload or token appears in logs, error
+identity/consent carry over. It must state the residual pre-claim token
+theft window honestly. No payload or token appears in logs, error
 tracking, analytics, URLs, clipboard by default, catalog fixtures, or
 support screenshots.
 
