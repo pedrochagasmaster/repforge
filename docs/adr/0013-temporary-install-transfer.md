@@ -31,6 +31,12 @@ do not infer provider authorization from the repository's static hosting.
 
 ## Deployment boundary
 
+Reconciliation note on G-71/G-85 shorthand: the audit's "delete on claim"
+phrasing is refined here without changing the decision — deletion is verified
+at import-commit, because deleting at claim binding would destroy the retry
+source if the installed app crashes before import. The one-time record and
+the 60-minute maximum are unchanged.
+
 An isolated `services/install-transfer/` project with its own manifest,
 tests, deployment/runbook, and lockfile if the selected provider requires
 dependencies. No root package manager, no application dependency. The service
