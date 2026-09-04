@@ -144,6 +144,28 @@ nonces, entropy, and key rotation across the maximum lifetime are tested;
 structured logs and traces must contain no token, claim ID, ciphertext,
 envelope fields, or request body.
 
+## Threat model
+
+Each row names the threat, the controlling mitigation, and where it is
+specified. Residual risk is accepted and disclosed, never defined away.
+
+| # | Threat | Control |
+|---|---|---|
+| T-01 | Token theft, including a bearer observed in static-host access logs before the legitimate claim | 256-bit bearer; digest-only storage; first-claim-wins binding; prompt claiming; ≤60-minute window; `Cookie`-header log redaction requirement. A pre-claim bearer CAN claim the clone — the window is narrowed, not closed |
+| T-02 | Brute force against tokens or claim IDs | 256-bit token / 128-bit claim entropy; digest lookup; rate limits; constant-shape failures |
+| T-03 | Replay or a second claimant | Atomic `available → claiming → deleted/expired`; bound claim retries only until commit or expiry |
+| T-04 | Log, referrer, or trace leakage of bearer, clone, or envelope fields | Ban from logs, analytics, error tracking, referrers, foreign URLs, fixtures, screenshots; sealed local credentials; redacted static-host logs |
+| T-05 | Malicious or stale tabs racing create, claim, or resume | Claim-ID binding; source operation lock; validate-before-touch; versioned import marker; cross-tab freeze |
+| T-06 | Service or operator access to the clone | Minimal one-hour retention; immediate claim deletion; explicit no-E2EE disclosure; kill switch and purge runbook |
+| T-07 | Oversized or malformed payloads and envelopes | Schema/depth/size bounds enforced before and during parsing; unknown required versions fail closed |
+| T-08 | Cross-origin requests | Exact-origin CORS; content-type enforcement; no redirects |
+| T-09 | Interrupted create, claim, import, or commit | Same-key create dedupe; same-claim retry; two-sided sealed markers; boot finish-or-restore; idempotent remote commit retry |
+| T-10 | Clock skew between client, server, and expiry job | Absolute server-issued expiry; skew-tolerant acceptance window documented by the implementer; server clock owns expiry |
+| T-11 | Expiration backlog or purge failure | Expiry-job monitoring with deletion-latency bounds; alarm and kill switch; manual purge runbook; no new creates until retention is healthy |
+| T-12 | Encryption-key compromise or rotation gap | Managed rotation; old keys retained only through the maximum live-record window; creation disabled rather than serving undecryptable data |
+| T-13 | Sealed commit-credential loss (key wiped, profile reset) | Unrecoverable by design; 60-minute expiry plus purge backstop; local data never at risk; fresh-transfer user guidance |
+| T-14 | Status-polling oracle or unknown-outcome confusion | Status returns state plus expiry only, to the bearer holder alone; unknown-outcome state with safe browser-continue default after expiry plus margin |
+
 ## iOS handoff cookie
 
 Phase 049 selects the handoff key: **`repforge_transfer_v1`**.
