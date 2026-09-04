@@ -6,7 +6,7 @@
 - **Governing decisions:** G-07, G-39, G-48, G-71, G-84–G-88
 - **Companions:** [ADR 0007](0007-shared-setup-links.md) (setup-link proposal,
   a different object), [ADR 0012](0012-ui-overhaul-canonical-reconciliation.md)
-  (state ownership), `docs/block-transition-provenance.md` (no shared fields)
+  (state ownership)
 
 When iOS Safari already holds Taurifer data, `Install and transfer my data`
 creates a real short-lived backend record with a one-time install token. The
@@ -16,77 +16,111 @@ static/local-first architecture (G-07: local-first does not mean local-only).
 It is not an account, synchronization, backup, publishing, or generalized API
 platform, and no later plan may widen it without a new owner decision.
 
+Field names, state machines, and transport rules below are identical to Plan
+053's; Plan 053 implements them and must not rename them.
+
 ## ⛔ Owner gate (open)
 
-The infrastructure provider, region/data residency, key ownership and
-rotation owner, deletion mechanism, expiry-job and incident operations owner,
-and the approved user-facing privacy disclosure are unresolved. Plan 053 must
-not implement and Plan 054 must not offer the established-data transfer until
-the owner records them here. The contract below is written so the selection
-fills named slots without reshaping it.
+The infrastructure provider, region/data residency, datastore, encryption-key
+owner, expiry mechanism, alert owner, cost ceiling, incident/kill-switch
+authority, and the approved user-facing privacy disclosure are unresolved.
+Plan 053 must not implement and Plan 054 must not offer the established-data
+transfer until the owner records them here. A Cloudflare Worker plus a durable
+strongly consistent store is a suitable shape only if the owner approves it;
+do not infer provider authorization from the repository's static hosting.
 
-## Logical clone schema (`taurifer-install-transfer` v1)
+## Deployment boundary
 
-The envelope is a logical clone, never a raw storage dump. No implementation
-may enumerate browser storage and upload arbitrary keys.
+An isolated `services/install-transfer/` project with its own manifest,
+tests, deployment/runbook, and lockfile if the selected provider requires
+dependencies. No root package manager, no application dependency. The service
+has one purpose and one encrypted record type: it cannot query by
+user/installation, list transfers, retain payload history, or become a
+general state endpoint. A dependency-free browser module (`install-transfer.js`,
+loaded before `app.js`) owns envelope construction/validation, API calls,
+handoff-token parsing, claim state, and recovery-snapshot markers; storage
+mutation stays in the existing state persistence adapter.
 
-| Section | Contents |
-|---|---|
-| `schemaVersion` | `1` |
-| `createdAt` | Creation timestamp |
-| `sourceContext` | Browser/Safari context that created the record (coarse only) |
-| `durable` | Normalized durable state from `repforge_v1`, excluding storage revisions, write-ahead records, locks, and in-flight transaction markers |
-| `draft` | The active workout draft migrated to the Plan 051 schema, or explicit absence |
-| `candidate` | Unfinished program-entry candidate as a separately versioned section, or explicit absence (default disposition: included, because losing an active build/import draft would violate "exact logical clone"; it retains its no-program-persistence boundary) |
-| `uiPrefs` | Device/UI preferences from `repforge_ui_v1` |
-| `analyticsConsent` | Analytics consent value |
-| `telemetryIdentity` | The stable telemetry identity (preserved, not rotated) |
-| `integrity` | Integrity metadata (algorithm id plus digest; the digest covers every section above) |
+## Logical clone V1
 
-Excluded: notification permission, service-worker and cache state, OS install
-state, locks, pending journals, storage revision counters,
-`_storageDraftTransaction`, `_storageSetupActivation`, claim cookies, PostHog
-session state, and all other volatile runtime state.
+The browser constructs a fresh semantic envelope from parsed current state;
+it never uploads `localStorage`/IndexedDB wholesale.
 
-Each section is independently parsed and validated at the import boundary.
-Unknown required schema versions stop the import; unknown optional sections
-are retained only if a later schema version explicitly permits round-tripping.
+| Field | Type | Meaning |
+|---|---|---|
+| `kind` | `taurifer-install-transfer` | Envelope discriminator |
+| `schemaVersion` | `1` | Clone schema version |
+| `createdAt` | timestamp | Creation time |
+| `source.context` | `browser` | Creating context |
+| `source.logicalInstallationId` | string | Coarse logical installation reference, not a tracking ID |
+| `durableState` | object | Normalized `repforge_v1` value (program, history, archive, provenance, logical settings) |
+| `workoutDraft` | null \| object | DraftV2 logical section, or explicit null when absent |
+| `programEntryDraft` | null \| object | Versioned candidate section per the Plan 049 disposition (default: included as its own versioned section, retaining its no-program-persistence boundary), or explicit null |
+| `uiPreferences` | object | Normalized `repforge_ui_v1` value |
+| `analytics.enabled` | boolean | Analytics consent value |
+| `telemetryIdentity.schemaVersion` | integer | Identity schema version |
+| `telemetryIdentity.installationId` | string | Stable pseudonymous identity (preserved, not rotated) |
+| `telemetryIdentity.createdAt` | timestamp | Identity creation time |
+| `integrity.canonicalPayloadHash` | string | Digest over the canonical payload; validated in memory before any local write |
 
-### Example envelope (shape-exact; values redacted or illustrative)
+Normalization removes `_storageRevision`, `_storageFollowUp`,
+`_storageDraftTransaction`, `_storageSetupActivation`, pending/closing sidecar
+data, tab/writer/operation IDs, cookies, notification/permission runtime data,
+and provider analytics session IDs. Parsing applies explicit field/size/depth
+limits and rejects unknown required versions.
+
+### Example envelope (parseable; values illustrative)
 
 ```json
 {
+  "kind": "taurifer-install-transfer",
   "schemaVersion": 1,
   "createdAt": "2026-10-01T09:00:00.000Z",
-  "sourceContext": { "platform": "ios-safari", "standalone": false },
-  "durable": "<normalized repforge_v1: program, logs, history, settings; no revisions, journals, locks, or markers>",
-  "draft": "<DraftV2 active workout draft, or null when absent>",
-  "candidate": "<versioned program-entry candidate section, or null when absent>",
-  "uiPrefs": "<repforge_ui_v1 contents>",
-  "analyticsConsent": "<consent value>",
-  "telemetryIdentity": "<stable pseudonymous identity>",
-  "integrity": { "algorithm": "<named digest>", "digest": "<hex>" }
+  "source": { "context": "browser", "logicalInstallationId": "li_7f3a" },
+  "durableState": {
+    "program": [{ "dayId": "growth_d1", "label": "Day 1", "slots": [{ "slotId": "growth_d1_s1", "libraryId": "sq_bb", "sets": 4 }] }],
+    "programMeta": { "name": "Build Muscle", "onboarded": true },
+    "log": [],
+    "settings": { "unit": "kg", "lang": "en" }
+  },
+  "workoutDraft": null,
+  "programEntryDraft": null,
+  "uiPreferences": { "theme": "system" },
+  "analytics": { "enabled": true },
+  "telemetryIdentity": { "schemaVersion": 1, "installationId": "ti_9c2e", "createdAt": "2026-08-01T10:00:00.000Z" },
+  "integrity": { "canonicalPayloadHash": "9f2c4151ad0e77c3b6d4e5f80918273a4b5c6d7e8f90a1b2c3d4e5f60718293a4" }
 }
 ```
 
-## Endpoint contract
+## Server record and endpoints
 
-Equivalent operations (URL shapes may differ only if the threat, retry, and
-deletion semantics below are identical and recorded here):
+The bearer token travels in request bodies only, never in a URL path, query
+string, fragment, or loggable surface. URL shapes below are exact; an
+implementation may not move the token into the path.
 
-1. `POST /v1/transfers`: accept one validated encrypted logical clone over
-   TLS; return an opaque bearer token and an absolute expiry (creation + 60
-   minutes maximum).
-2. `POST /v1/transfers/{token}/claims`: atomically bind an available transfer
-   to a client-generated claim ID and return the clone to that same claim on
-   safe retries.
-3. `DELETE /v1/transfers/{token}/claims/{claimId}` (or an equivalent commit
-   operation): delete the encrypted payload immediately after the client
-   proves atomic local import.
-4. Expiry processing: delete any unclaimed payload no later than one hour
-   after creation, independent of client activity.
+1. `POST /v1/transfers` with `{envelope}`: validate envelope and size, assign
+   `expiresAt <= serverNow + 60 minutes`, encrypt with AEAD (per-record nonce,
+   managed key version, schema/creation/expiry as associated data), store only
+   a keyed token digest, and return the plaintext opaque token plus absolute
+   expiry exactly once. Create retries use an idempotency key so a timeout
+   cannot produce multiple live clones.
+2. `POST /v1/transfers/claims` with `{token, claimId}`: atomically bind an
+   `available` transfer to the client-generated claim ID (128+ bits) and
+   return the clone to that same claim on safe retries. Every other claim ID
+   receives a generic unavailable response with uniform invalid/expired/
+   claimed shape.
+3. `POST /v1/transfers/claims/commit` with `{token, claimId}`: accept the
+   bound claim and delete ciphertext immediately. A minimal non-sensitive
+   tombstone may retain only token digest, terminal state, and original expiry
+   to communicate one-time/recovery status; it contains no clone or identity
+   and disappears at expiry.
+4. Expiry processing: an independent process deletes ciphertext at or before
+   60 minutes even when the client never returns. Monitor the oldest live
+   record and deletion lag.
 
-Server state machine:
+Tokens carry at least 256 random bits and are never stored plaintext. Server
+states are `available`, `claiming`, `deleted`, `expired`; ciphertext exists
+only in the first two:
 
 ```text
 available ──claim──▶ claiming ──commit──▶ deleted
@@ -94,70 +128,116 @@ available ──claim──▶ claiming ──commit──▶ deleted
     └──expiry──▶ expired ◀──expiry──┘
 ```
 
-A second claim ID never receives the payload. The bound claim may retry only
-until commit or expiry. Invalid, already-claimed, and expired tokens return a
-constant-shape non-disclosing terminal response.
+Responses use TLS, strict origin/CORS, `Cache-Control: no-store`, no
+redirect, bounded bodies, and rate limiting. AEAD tamper failure, unique
+nonces, entropy, and key rotation across the maximum lifetime are tested;
+structured logs and traces must contain no token, claim ID, ciphertext,
+envelope fields, or request body.
 
-## Security and privacy requirements
+## iOS handoff cookie
 
-- Token entropy of at least 256 bits from a cryptographic generator; the
-  server stores only a keyed digest of the token, never the bearer.
-- Authenticated encryption at rest with managed key rotation; TLS in transit.
-- The bearer and the clone never enter logs, analytics, error tracking,
-  referrers, or URLs visible to unrelated origins.
-- Exact-origin CORS, `Cache-Control: no-store`, content-type enforcement,
-  schema/depth/size bounds, rate limits, and constant-shape
-  invalid/expired responses.
-- The iOS handoff cookie carries only the opaque install-transfer token,
-  never the clone. It is distinct from the historical `repforge_setup_v1`
-  setup-proposal cookie and uses the matching HTML path, a short lifetime,
-  `SameSite=Lax`, and `Secure` outside localhost.
-- User-facing disclosure (approved copy lands with the provider selection):
-  the temporary service operator can process the decrypted clone, the opaque
-  token is sent with the matching HTML request, and the payload is deleted on
-  claim or within one hour. No document may imply the operator cannot read a
-  payload it decrypts.
+Phase 049 selects the handoff key: **`repforge_transfer_v1`**.
+Historical-codename-compatible, distinct from `repforge_setup_v1`, which it
+never overloads — a setup proposal and a full-state transfer may coexist and
+are disambiguated deterministically. The cookie carries only the opaque token
+and expiry, never the clone: matching `index.html` path, short lifetime,
+`SameSite=Lax`, and `Secure` outside localhost. The installed context
+consumes and expires its transfer cookie before ordinary boot writes state.
+Token values never enter fragment/history, DOM text, telemetry, console,
+service-worker cache keys, or screenshots.
 
-## Threat model
+### The static host necessarily receives the cookie
 
-| Threat | Mitigation in this contract |
-|---|---|
-| Token theft | 256-bit bearer; digest-only storage; short lifetime; single claimant |
-| Brute force | Digest lookup with rate limits and constant-shape failures |
-| Replay | Atomic `available → claiming → deleted/expired`; second claim IDs rejected |
-| Log or referrer leakage | Bearer/clone ban from logs, analytics, errors, referrers, foreign URLs |
-| Malicious or stale tabs | Claim-ID binding; validate-before-touch; versioned import marker |
-| Service or operator access | Disclosure above; minimal one-hour retention; immediate claim deletion |
-| Oversized or malformed payloads | Schema/depth/size bounds enforced before and during parsing |
-| Cross-origin requests | Exact-origin CORS; content-type enforcement |
-| Interrupted claims | Same-claim retry before commit; boot-verified delete retry after commit |
-| Clock skew | Absolute server-issued expiry; skew-tolerant acceptance window documented by the implementer |
-| Expiration backlog | Expiry job with monitoring and deletion-latency bounds (operations) |
-| Key compromise | Managed rotation; incident handling with a feature kill switch |
+The matching static host gets the token in the `Cookie` request header, and
+ordinary access logs record request headers. This is accepted with layered
+controls, stated here so no later document can soften it:
 
-## Claim, import, and recovery protocol
+- The logged value is useful only before the legitimate claim: the first
+  claim ID to bind wins, the installed client claims within seconds of
+  install, and the record dies on claim or within one hour.
+- The token alone never exposes the clone; the clone lives only in the
+  transfer service ciphertext, never on the static host.
+- Processor trust is explicit: the static-host operator and the transfer
+  operator can each observe what they handle. Do not claim end-to-end
+  encryption unless the server truly cannot decrypt.
+- Operational requirement (part of the owner gate): static-host access logs
+  covering transfer-period requests must have a bounded retention with
+  `Cookie` values stripped or redacted, plus a manual purge runbook. No new
+  transfer creation until log retention is healthy.
+- The user-facing disclosure names the temporary copy, its one-hour life,
+  immediate claim deletion, token-cookie transport including static-host
+  receipt, Safari retention, and recovery/divergence behavior.
 
-1. The client creates a random claim ID and obtains a server claim lease.
-2. It validates the complete envelope before touching live state.
-3. It stages both the incoming clone and the pre-import local snapshot, then
-   acquires the existing cross-tab storage lock.
-4. A versioned import marker makes boot either finish the complete import or
-   restore the complete pre-import snapshot. Partial visibility is prohibited.
-5. Only after a verified local read-back does the client commit the remote
-   claim, causing immediate payload deletion.
-6. If the process stops before local commit, the same claim ID retries. If it
-   stops after local commit but before remote deletion, boot verifies the
-   import and retries the delete. A different or duplicate claimant sees the
-   non-disclosing terminal state. Invalid or expired tokens leave local data
-   unchanged.
-7. Safari retains its original local state. After the installed app reports a
-   successful claim, Safari is marked as a recovery snapshot: ordinary browser
-   use stops, and `Resume in browser` requires an explicit divergence warning
-   and confirmation. There is no reverse merge and no synchronization.
-8. `late_install_transfer` emits only after successful local import, under the
-   transferred telemetry identity and consent, with browser-versus-standalone
-   context and coarse outcome fields. Never the token, fingerprinting-granular
-   sizes, program contents, or clone fields.
+## Atomic local import
+
+A versioned `repforge_install_import_v1` transaction marker travels the
+existing durable write path:
+
+```text
+transactionId, claimIdDigest, phase
+previous: validated logical local clone
+incoming: validated logical clone
+createdAt, expectedLocalRevision
+```
+
+1. Before app initialization exposes mutable UI, claim with a stable
+   client-generated claim ID.
+2. Validate all envelope sections and the canonical hash in memory.
+3. Acquire the cross-tab state/draft/import lock; freeze other tabs via
+   BroadcastChannel/storage signaling.
+4. Stage the marker with complete previous and incoming snapshots.
+5. Write normalized durable state through the existing mirror/WAL path,
+   write or remove DraftV2 and the candidate draft, then
+   preferences/consent/identity.
+6. Re-read and validate every section and identity; set marker
+   `local-committed`.
+7. Release into installed boot, call remote commit/delete, then clear the
+   marker after confirmed or retryable deletion bookkeeping.
+
+On boot, an incomplete marker either finishes the entire incoming import if
+the committed sections and hash prove safe, or restores the entire previous
+snapshot. Mixed state is never exposed. Remote commit retries idempotently
+after a locally committed import. Failure before local commit leaves current
+installed state unchanged. If the installed context already holds meaningful
+local state, stop and require explicit choice; never overwrite automatically.
+Client states: `idle`, `creating`, `ready`, `claiming`, `validating`,
+`importing`, `localCommitted`, `deletingRemote`, `complete`, `retryable`,
+`terminalUnavailable`.
+
+## Browser recovery snapshot
+
+Safari retains its original data. After installed success, a non-sensitive
+success acknowledgement/tombstone or same-origin channel lets Safari store a
+local recovery-snapshot marker tied to token digest and time. While marked,
+normal mutating UI is replaced by a message directing the user to the
+installed app, plus read/recovery/backup access. `Resume in browser`
+presents an explicit divergence warning — future browser and installed
+changes will not merge — and confirmation removes the freeze only in Safari
+while recording accepted divergence. Recovery snapshot states: `none`,
+`awaitingClaimOutcome`, `confirmed`, `resumeWarning`, `resumedDiverged`.
+There is no mechanism that writes installed changes back to Safari.
+
+## Telemetry
+
+Emit `late_install_transfer` only after verified local import and according
+to transferred consent. Approved properties: coarse outcome (`success` for
+this event; separate coarse failure counters need Phase 049 approval),
+`source_context: browser`, `destination_context: standalone`, platform
+family, and schema version. Preserve `installationId`; never generate a
+second identity before event initialization. Never emit the token, claim ID,
+timestamps precise enough to correlate service records, payload
+size/content, program identity, or readiness data.
+
+## Privacy disclosure checklist
+
+Privacy copy must say what is temporarily copied, why, who processes it
+(static host sees the token header; the transfer service processes the
+encrypted clone), encryption in transit and at rest, one-time claim,
+immediate/one-hour deletion, token-cookie transport, original Safari
+retention, recovery-snapshot/divergence behavior, and how telemetry
+identity/consent carry over. No payload or token appears in logs, error
+tracking, analytics, URLs, clipboard by default, catalog fixtures, or
+support screenshots.
 
 ## Operations
 
@@ -165,7 +245,8 @@ The implementer documents expiry-job monitoring, deletion latency, key
 rotation, incident handling, cost and retention bounds, and a feature kill
 switch that removes the promotion and the action without stranding local
 data. A service outage never blocks ordinary browser use, setup links,
-backups, or manual installation.
+backups, or manual installation. Service-worker fetch handlers never cache
+transfer requests or responses.
 
 ## Specified UI states (no visual design)
 
