@@ -105,7 +105,12 @@ progress dimensions, and colors — and each extracted token must appear in the
 corresponding Phase 0 contract, so downstream edits fail here until the
 contract follows. It also asserts every child plan's dependency/atomic/STOP/
 gate sections and resolves relative doc links across the scope docs plus
-every plan file.
+every plan file. Lifecycle rules beyond vocabulary are pinned as named
+anchors: terminal `claimed-expired` with no silent Safari resume in ADR 0013
+and Plan 053, sealed inbound/outbound credential ownership, slot+movement
+overlay identity, the closed `recovery_week` enum (hyphenated code forms
+fail), documented v1/v2/v3 setup formats, and a Next-free backlog without
+stale Now-scoped claims.
 
 ```bash
 node tools/check-canonical-contradictions.mjs

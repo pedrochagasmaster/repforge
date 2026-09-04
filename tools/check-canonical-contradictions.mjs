@@ -238,17 +238,40 @@ required("docs/recovery-week-policy.md", [
     "T-01",
     "T-14",
     "programEntryDraft",
+    "claimed-expired",
+    "must NOT silently",
+    "Safari never learns",
   ]) {
     check(adr.includes(anchor), `ADR 0013: missing protocol anchor "${anchor}"`);
   }
   const plan053 = read("plans/053-ios-install-transfer-foundation.md");
-  for (const anchor of ["duplicate", "status", "sealed"]) {
+  for (const anchor of ["duplicate", "status", "sealed", "claimed-expired", "never resumes silently"]) {
     check(plan053.includes(anchor), `Plan 053: missing aligned protocol anchor "${anchor}"`);
   }
   const overlaySection = (docs.get("docs/block-transition-provenance.md").split("## Recovery-week overlay")[1] || "").split(/^## /m)[0];
   for (const anchor of ['"slot"', '"movement"', "pattern-rescue"]) {
     check(overlaySection.includes(anchor), `transition overlay: missing "${anchor}"`);
   }
+}
+
+// Closed recovery enum: the code-form identifier is recovery_week everywhere
+// in scope; hyphenated code forms are a disagreement with Plan 052.
+for (const p of SCOPE) {
+  check(!/`recovery-week`/.test(docs.get(p)), `${p}: hyphenated recovery enum identifier (use recovery_week)`);
+}
+
+// Shipped setup formats: v1, v2, and v3 decode forever; v2 is skipped for
+// progression-carrying payloads.
+for (const p of ["AGENTS.md", "README.md", "docs/adr/0007-shared-setup-links.md"]) {
+  check(docs.get(p).includes("v3."), `${p}: shipped v3 setup format not documented`);
+}
+
+// Backlog status honesty: no Next rows remain anywhere, and no stale
+// Now-scoped claims survive the deferral.
+{
+  const backlog = docs.get("docs/backlog.md");
+  check(!/^\| Next \|/m.test(backlog), "backlog: Next rows remain scheduled");
+  check(!/already Now|under Now|Now-tier/.test(backlog), "backlog: stale Now-scoped claim");
 }
 
 // Every child plan keeps its dependency, atomic, STOP, and gate sections.
