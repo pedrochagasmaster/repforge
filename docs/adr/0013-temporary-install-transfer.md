@@ -193,8 +193,9 @@ incoming: validated logical clone
 createdAt, expectedLocalRevision
 ```
 
-1. Before app initialization exposes mutable UI, claim with a stable
-   client-generated claim ID.
+1. Before app initialization exposes mutable UI, read the handoff token,
+   stage the `repforge_transfer_inbound_v1` marker with the sealed token and
+   a stable client-generated claim ID, then claim.
 2. Validate all envelope sections and the canonical hash in memory.
 3. Acquire the cross-tab state/draft/import lock; freeze other tabs via
    BroadcastChannel/storage signaling.
@@ -216,22 +217,28 @@ Client states: `idle`, `creating`, `ready`, `claiming`, `validating`,
 `importing`, `localCommitted`, `deletingRemote`, `complete`, `retryable`,
 `terminalUnavailable`.
 
-### Commit credentials (crash-safe remote deletion)
+### Commit credentials (crash-safe remote deletion on both sides)
 
-Remote commit needs the plaintext token and claim ID, but the installed app
-expires its token cookie before ordinary boot and the import marker stores
-only digests — so a crash after local commit would strand the ciphertext
-with no retry path. Both sides therefore keep sealed local credentials:
+Remote commit needs the plaintext token and claim ID, but each side keeps
+only digests in its durable markers — so a crash after local commit (or
+after claim binding) would strand the ciphertext with no retry path. Each
+storage context therefore seals its own credentials locally; the Safari
+outbound marker and the installed inbound marker never cross contexts:
 
 - At creation, the Safari side writes a local-only
   `repforge_transfer_outbound_v1` marker: `{idempotencyKey, sealedToken,
   expiresAt, phase}`. At claim time it adds the sealed claim ID.
+- On receiving the token and BEFORE sending the claim request, the installed
+  side writes a local-only `repforge_transfer_inbound_v1` marker:
+  `{sealedToken, sealedClaimId, expiresAt, phase}` with phase starting at
+  `claimed` and advancing through `local-committed` to `delete-confirmed`.
+  A crash after claim binding resumes the same claim ID from this marker; a
+  crash after local commit retries the remote commit from it.
 - Sealing uses device-local WebCrypto AES-GCM under a non-extractable device
-  key held in IndexedDB outside backup scope. Plaintext credentials never
-  touch logs, backup, telemetry, or the DOM.
-- After local commit, boot unseals the credential, retries the remote
-  commit, and only then wipes the marker and the device key material for
-  that transfer.
+  key held in that context's IndexedDB outside backup scope. Plaintext
+  credentials never touch logs, backup, telemetry, or the DOM.
+- After the remote commit is confirmed, the completing side wipes its marker
+  and the device key material for that transfer.
 - If unsealing fails (key lost, profile reset), the credential is
   unrecoverable by design: the record dies at its 60-minute expiry (plus the
   purge runbook as backstop), local data was never at risk, and the user
