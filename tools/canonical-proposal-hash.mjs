@@ -39,7 +39,7 @@ const thisFile = import.meta.url;
 const invoked = process.argv[1] ? pathToFileURL(process.argv[1]).href : null;
 if (invoked && thisFile === invoked) {
   const fixture = JSON.parse(readFileSync(join(ROOT, "test", "fixtures", "transition-proposal-v1.json"), "utf8")).proposal;
-  const EXPECTED_FIXTURE_DIGEST = "2b7cd59234ebed5426d369a188361288c97380ec7b649f8c38d73d62b199f50c";
+  const EXPECTED_FIXTURE_DIGEST = "9ffb1d6cc652416d1fdccc7429fea65530eb6585a69cb2467a06989331155508";
   if (process.argv.includes("--check")) {
     const digest = proposalHashOf(fixture);
     if (digest !== EXPECTED_FIXTURE_DIGEST) {
