@@ -90,7 +90,7 @@ Use Phase 049's endpoint semantics:
 
 - Create validates envelope/size, assigns `expiresAt <= serverNow + 60 minutes`, encrypts with authenticated encryption, stores only a keyed token digest, and returns the plaintext opaque token once.
 - Claim atomically changes `available` to `claiming(claimId)`. The bound claim ID can retry; every other claim receives a generic unavailable response.
-- Commit/delete accepts the bound claim and deletes ciphertext immediately. A minimal non-sensitive tombstone may retain only token digest, terminal state, and original expiry to communicate one-time/recovery status; it contains no clone or identity and disappears at expiry.
+- Commit/delete accepts the bound claim and deletes ciphertext immediately. A minimal non-sensitive tombstone retains only token digest, terminal state, and original expiry to communicate one-time/recovery status; it contains no clone or identity and is purged after the 15-minute tombstone margin. A `claiming` record whose commit never arrives expires into `claimed-expired` (import possibly complete); `expired` strictly means never claimed.
 - An independent expiry process deletes ciphertext at/before 60 minutes even when the client never returns. Monitor the oldest live record and deletion lag.
 
 Tokens have at least 256 random bits and are never stored plaintext. Claim IDs are independent 128+-bit random values. Responses use TLS, strict origin/CORS, `Cache-Control: no-store`, no redirect, uniform invalid/expired/claimed shape, bounded bodies, rate limiting, and no sensitive log fields. Use AEAD with per-record nonce and managed key version; authenticate schema/creation/expiry as associated data.
@@ -209,7 +209,7 @@ Emit `late_install_transfer` only after verified local import and according to t
 
 ### Service contract/security
 
-- Create/idempotency, claim bind/retry, competing/duplicate claim, commit-verified delete, 60-minute expiry, tombstone expiry, uniform invalid response, size/schema/CORS/content-type/rate limits.
+- Create/idempotency, claim bind/retry, competing/duplicate claim, commit-verified delete, 60-minute ciphertext expiry, tombstone retention through the 15-minute polling margin, uniform invalid response, size/schema/CORS/content-type/rate limits.
 - AEAD tamper failure, unique nonces, token digest-only storage, entropy test, key rotation across maximum lifetime.
 - Assert structured logs/traces contain no token, claim ID, ciphertext, envelope fields, or request body.
 - Fake-clock expiry/deletion-lag tests and operational purge/kill-switch rehearsal.

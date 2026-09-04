@@ -120,23 +120,27 @@ implementation may not move the token into the path.
    claimed shape.
 3. `POST /v1/transfers/claims/commit` with `{token, claimId}`: accept the
    bound claim and delete ciphertext immediately. A minimal non-sensitive
-   tombstone may retain only token digest, terminal state, and original expiry
+   tombstone retains only token digest, terminal state, and original expiry
    to communicate one-time/recovery status; it contains no clone or identity
-   and disappears at expiry.
+   and is purged after the tombstone margin below.
 4. `POST /v1/transfers/status` with `{token}`: return `{state, expiresAt}`
    and nothing else — no clone, no identity. This is how the creating Safari
    learns the outcome (see Safari polling below).
 5. Expiry processing: an independent process deletes ciphertext at or before
-   60 minutes even when the client never returns. Monitor the oldest live
-   record and deletion lag.
+   60 minutes even when the client never returns. The terminal tombstone
+   lives longer: original expiry plus a 15-minute tombstone margin, so a
+   `claimed-expired` record stays learnable through Safari's 10-minute
+   post-expiry polling window with 5 minutes of slack. Monitor the oldest
+   live record and deletion lag.
 
 Tokens carry at least 256 random bits and are never stored plaintext. Server
 states are `available`, `claiming`, `deleted`, `expired`, and
 `claimed-expired`; ciphertext exists only in the first two. A `claiming`
 record whose commit is never confirmed expires into `claimed-expired` — the
 import may have completed — and its tombstone (digest, terminal state,
-original expiry, no clone or identity) persists to the original expiry so the
-creating Safari can learn it. `expired` strictly means never claimed.
+original expiry, no clone or identity) persists through the 15-minute
+tombstone margin so the creating Safari can learn it. `expired` strictly
+means never claimed.
 
 ```text
 available ──claim──▶ claiming ──commit──▶ deleted
@@ -353,7 +357,8 @@ support screenshots.
 The implementer documents expiry-job monitoring, deletion latency, key
 rotation, incident handling, cost and retention bounds, and a feature kill
 switch that removes the promotion and the action without stranding local
-data. A service outage never blocks ordinary browser use, setup links,
+data. The purge path covers tombstones past the 15-minute margin as well as
+ciphertext. A service outage never blocks ordinary browser use, setup links,
 backups, or manual installation. Service-worker fetch handlers never cache
 transfer requests or responses.
 
