@@ -2,7 +2,7 @@
 
 - **Plan number:** 049
 - **Phase:** 0 — Canonical reconciliation
-- **Status:** Implementation in owner review (PR #222); a corrective review pass is landing on the same branch
+- **Status:** Implementation in owner review (PR #222); the corrective review pass landed on the same branch
 - **Owner approval state:** Product direction is approved in `docs/ui-audit.md`; the two explicit owner gates below remain open; a first owner review returned request-changes that this branch is addressing without reopening settled decisions
 - **Depends on:** Planning PR #221 (merged as `ba423a7d`); `origin/main` containing the consolidated audit
 - **Blocks:** Plans 050–059
