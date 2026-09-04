@@ -241,17 +241,33 @@ required("docs/recovery-week-policy.md", [
     "claimed-expired",
     "must NOT silently",
     "Safari never learns",
+    "tombstone margin",
+    "15-minute",
   ]) {
     check(adr.includes(anchor), `ADR 0013: missing protocol anchor "${anchor}"`);
   }
   const plan053 = read("plans/053-ios-install-transfer-foundation.md");
-  for (const anchor of ["duplicate", "status", "sealed", "claimed-expired", "never resumes silently"]) {
+  for (const anchor of ["duplicate", "status", "sealed", "claimed-expired", "never resumes silently", "tombstone margin"]) {
     check(plan053.includes(anchor), `Plan 053: missing aligned protocol anchor "${anchor}"`);
   }
   const overlaySection = (docs.get("docs/block-transition-provenance.md").split("## Recovery-week overlay")[1] || "").split(/^## /m)[0];
   for (const anchor of ['"slot"', '"movement"', "pattern-rescue"]) {
     check(overlaySection.includes(anchor), `transition overlay: missing "${anchor}"`);
   }
+}
+
+// Deletion happens only on verified import-commit, never on claim binding.
+// (Owner-approved ui-audit shorthand is reconciled openly in ADR 0013 and
+// excluded here by its refinement marker.)
+for (const p of SCOPE) {
+  if (p === "docs/ui-audit.md") continue;
+  linesOf(p).forEach((line, i) => {
+    if (/refin|shorthand|G-71|G-85/.test(line)) return;
+    check(
+      !/deletes it on claim|delete on claim or expiry|after successful claim|deletion on claim/i.test(line),
+      `${p}:${i + 1}: deletion-on-claim wording (deletion happens only on verified import)`,
+    );
+  });
 }
 
 // Closed recovery enum: the code-form identifier is recovery_week everywhere
