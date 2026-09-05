@@ -94,7 +94,7 @@ There must be one contract owner for each mutable concern. Cross-cutting verific
 
 Later phases may add UI only through documented semantic roles. Phase 0 must name, define, and test the intended meaning of at least:
 
-- elevation: page/flat, selected, floating, modal, and persistent-action;
+- elevation: flat, selected, floating, modal, and persistent-action;
 - radius: compact control, standard control, surface, and pill;
 - typography: language/control Sans roles and training-data/technical Mono roles, with bounded size/line-height steps;
 - controls: primary action, secondary action, quiet navigation, destructive action, selection, disabled action, and intentional horizontal scroller;

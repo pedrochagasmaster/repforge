@@ -217,6 +217,26 @@ const snakeTokens = (text) =>
     check(adr.includes(name), `roles contract missing Plan 058 color "${name}"`);
   }
 }
+
+// The brand guide and Plan 049 must use the canonical ADR/Plan 058 role name
+// `flat`; `page` and `page/flat` were review-era prose and are not live roles.
+const brandElevationLine = linesOf("docs/brand-guide.md").find((line) =>
+  line.includes("Depth is allowlisted by semantic role only"),
+);
+const plan049ElevationLine = linesOf("plans/049-ui-overhaul-canonical-reconciliation.md").find((line) =>
+  /^- elevation:/.test(line),
+);
+check(
+  !!brandElevationLine && brandElevationLine.includes("`flat`, `selected`") && !/\bpage(?:[/-]flat)?\b/i.test(brandElevationLine),
+  "brand guide: elevation role must use canonical flat",
+);
+check(
+  plan049ElevationLine === "- elevation: flat, selected, floating, modal, and persistent-action;",
+  "Plan 049: elevation role must use canonical flat",
+);
+check(plan058.includes("- flat:"), "Plan 058: canonical flat elevation role missing");
+check(docs.get("docs/adr/0012-ui-overhaul-canonical-reconciliation.md").includes("| flat |"), "ADR 0012: canonical flat elevation role missing");
+
 required("docs/recovery-week-policy.md", [
   "40–60%",
   "growth_2_v1",
