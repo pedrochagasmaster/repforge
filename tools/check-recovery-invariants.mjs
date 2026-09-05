@@ -107,9 +107,11 @@ const negativeControls = [
   ["protected rounding", (candidate) => { candidate.ruleB.protected.rounding = "floor"; }, "protected rounding"],
   ["reducible rounding", (candidate) => { candidate.ruleB.reducible.rounding = "ceil"; }, "reducible rounding"],
   ["primary pattern order", (candidate) => { candidate.primaryPatterns.reverse(); }, "pattern order"],
+  ["primary pattern set", (candidate) => { candidate.primaryPatterns[2] = "vertical pull"; }, "primary pattern set/order"],
   ["primary pattern mapping", (candidate) => { candidate.patternMapping.squat = "hip/hinge"; }, "pattern mapping"],
   ["version allowlist", (candidate) => { delete candidate.allowlistedMisses.growth_2_v1; }, "allowlist"],
   ["checkpoint answers", (candidate) => { candidate.eligibility.checkpointAnswers = ["Yes", "No"]; }, "checkpoint answers"],
+  ["minimumPatterns", (candidate) => { candidate.eligibility.minimumPatterns = 1; }, "minimumPatterns"],
   ["reassessment outcomes", (candidate) => { candidate.reassessment.outcomes = ["Better", "About the same"]; }, "reassessment outcomes"],
 ];
 const negativeControlMessages = [];
@@ -120,7 +122,74 @@ for (const [label, mutate, expectedNeedle] of negativeControls) {
     ...validatePolicyAgreement({ policyText: POLICY_TEXT, fixture, policy: mutated }),
     ...validateOverlayDocumentation({ provenanceText, planText, policy: mutated }),
   ];
-  const semantic = issues.find((message) => message.toLowerCase().includes(expectedNeedle));
+  const semantic = issues.find((message) => message.toLowerCase().includes(expectedNeedle.toLowerCase()));
+  check(!!semantic, `negative control ${label}: mutation was not rejected with a semantic ${expectedNeedle} message`);
+  if (semantic) negativeControlMessages.push(`${label}: ${semantic}`);
+}
+
+function firstEvidenceRow(text, id) {
+  const marker = `| ${id} |`;
+  const row = text.split("\n").find((line) => line.startsWith(marker));
+  if (!row) throw new Error(`negative-control fixture row missing: ${id}`);
+  return row;
+}
+
+function removeEvidenceRow(text, id) {
+  const row = firstEvidenceRow(text, id);
+  return text.replace(`${row}\n`, "");
+}
+
+function insertEvidenceRow(text, id, replacement) {
+  const row = firstEvidenceRow(text, id);
+  return text.replace(`${row}\n`, `${row}\n${replacement}\n`);
+}
+
+const firstFixtureId = fixture.reviewCompilations[0].blueprintId;
+const secondFixtureId = fixture.reviewCompilations[1].blueprintId;
+const renamedFixtureId = firstFixtureId.replace(/_v\d+$/, "_v9");
+const extraFixtureId = "growth_99_v1";
+const evidenceNegativeControls = [
+  ["missing evidence ID", (text) => removeEvidenceRow(text, firstFixtureId), "fixture evidence ID set"],
+  [
+    "extra evidence ID",
+    (text) => insertEvidenceRow(text, secondFixtureId, firstEvidenceRow(text, secondFixtureId).replace(secondFixtureId, extraFixtureId)),
+    "fixture evidence ID set",
+  ],
+  [
+    "renamed evidence ID",
+    (text) => text.replace(firstEvidenceRow(text, firstFixtureId), firstEvidenceRow(text, firstFixtureId).replace(firstFixtureId, renamedFixtureId)),
+    "fixture evidence ID set",
+  ],
+  [
+    "duplicate evidence ID",
+    (text) => insertEvidenceRow(text, firstFixtureId, firstEvidenceRow(text, firstFixtureId)),
+    "duplicate policy evidence IDs",
+  ],
+];
+for (const [label, mutate, expectedNeedle] of evidenceNegativeControls) {
+  const issues = validatePolicyAgreement({ policyText: mutate(POLICY_TEXT), fixture, policy });
+  const semantic = issues.find((message) => message.toLowerCase().includes(expectedNeedle.toLowerCase()));
+  check(!!semantic, `negative control ${label}: mutation was not rejected with a semantic ${expectedNeedle} message`);
+  if (semantic) negativeControlMessages.push(`${label}: ${semantic}`);
+}
+
+const duplicateFixture = clonePolicy(fixture);
+duplicateFixture.reviewCompilations[1].blueprintId = duplicateFixture.reviewCompilations[0].blueprintId;
+const missingFixture = clonePolicy(fixture);
+missingFixture.reviewCompilations.pop();
+const newFixture = clonePolicy(fixture);
+newFixture.reviewCompilations[0].blueprintId = extraFixtureId;
+const renamedFixture = clonePolicy(fixture);
+renamedFixture.reviewCompilations[0].blueprintId = renamedFixtureId;
+const fixtureIdNegativeControls = [
+  ["duplicate fixture ID", duplicateFixture, "duplicate fixture IDs"],
+  ["missing fixture ID", missingFixture, "fixture evidence ID set"],
+  ["new fixture ID", newFixture, "fixture evidence ID set"],
+  ["renamed fixture ID", renamedFixture, "fixture evidence ID set"],
+];
+for (const [label, mutatedFixture, expectedNeedle] of fixtureIdNegativeControls) {
+  const issues = validatePolicyAgreement({ policyText: POLICY_TEXT, fixture: mutatedFixture, policy });
+  const semantic = issues.find((message) => message.toLowerCase().includes(expectedNeedle.toLowerCase()));
   check(!!semantic, `negative control ${label}: mutation was not rejected with a semantic ${expectedNeedle} message`);
   if (semantic) negativeControlMessages.push(`${label}: ${semantic}`);
 }
@@ -133,7 +202,7 @@ if (process.argv.includes("--check")) {
     process.exit(1);
   }
   console.log(`pass: executable Rule B over ${passCount} fixtures, ${missCount} allowlisted misses, rescue and eligibility paths covered`);
-  console.log(`pass: ${negativeControlMessages.length}/${negativeControls.length} critical-rule negative controls rejected semantically`);
+  console.log(`pass: ${negativeControlMessages.length}/${negativeControls.length + evidenceNegativeControls.length + fixtureIdNegativeControls.length} critical-rule and fixture-ID negative controls rejected semantically`);
 } else {
   console.log(`policy version ${policy.policyVersion}: ${passCount} fixture rows, ${missCount} allowlisted misses`);
   for (const message of negativeControlMessages) console.log(`negative control rejected: ${message}`);

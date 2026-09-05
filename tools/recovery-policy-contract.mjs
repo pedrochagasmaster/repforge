@@ -6,6 +6,19 @@ const ROUNDERS = Object.freeze({
   floor: Math.floor,
 });
 
+const APPROVED_PRIMARY_PATTERNS = Object.freeze([
+  "knee-dominant",
+  "horizontal press",
+  "hip/hinge",
+]);
+
+const APPROVED_PATTERN_MAPPING = Object.freeze({
+  squat: "knee-dominant",
+  press: "horizontal press",
+  incline_press: "horizontal press",
+  hinge: "hip/hinge",
+});
+
 export function normalizePolicyText(text) {
   return text.replace(/[“”]/g, '"').replace(/\s+/g, " ").trim();
 }
@@ -22,18 +35,35 @@ export function parseExecutablePolicy(markdown) {
 }
 
 export function parseFixtureEvidence(markdown) {
-  const evidence = new Map();
+  const rows = [];
+  let inEvidenceTable = false;
   for (const line of markdown.split("\n")) {
+    if (/^\|\s*Blueprint\s*\|\s*Base\s*\|\s*Effective\s*\|\s*Ratio\s*\|\s*In 40[–-]60%\s*\|/.test(line)) {
+      inEvidenceTable = true;
+      continue;
+    }
+    if (!inEvidenceTable) continue;
+    if (/^\|\s*:?-+/.test(line)) continue;
     const match = line.match(/^\|\s*`?([a-z]+_\d+_v\d+)`?\s*\|\s*(\d+)\s*\|\s*(\d+)\s*\|\s*([^|]+?)\s*\|\s*([^|]+?)\s*\|/);
-    if (!match || evidence.has(match[1])) continue;
-    evidence.set(match[1], {
+    if (!match) {
+      inEvidenceTable = false;
+      continue;
+    }
+    rows.push({
+      id: match[1],
       base: Number(match[2]),
       effective: Number(match[3]),
       ratio: match[4].trim(),
       inBand: /^yes$/i.test(match[5].trim()),
     });
   }
-  return evidence;
+  const byId = new Map();
+  const duplicates = [];
+  for (const row of rows) {
+    if (byId.has(row.id)) duplicates.push(row.id);
+    else byId.set(row.id, row);
+  }
+  return { rows, byId, duplicates };
 }
 
 function list(values, conjunction, wrap) {
@@ -134,15 +164,19 @@ export function validatePolicyAgreement({ policyText, fixture, policy }) {
   fail(policy?.kind === "taurifer-recovery-policy", "policy contract: kind is not taurifer-recovery-policy");
   fail(policy?.policyVersion === 2, "policy contract: approved version 2 is missing");
   fail(policy?.status === "Approved", "policy contract: approved status is missing");
-  fail(Array.isArray(policy?.primaryPatterns) && policy.primaryPatterns.length === 3, "policy contract: three canonical primary patterns are required");
+  fail(Array.isArray(policy?.primaryPatterns) && policy.primaryPatterns.length === APPROVED_PRIMARY_PATTERNS.length, "policy contract: three canonical primary patterns are required");
+  fail(
+    JSON.stringify(policy?.primaryPatterns) === JSON.stringify(APPROVED_PRIMARY_PATTERNS),
+    `policy contract: primary pattern set/order must be ${JSON.stringify(APPROVED_PRIMARY_PATTERNS)}`,
+  );
   fail(policy?.patternMapping && typeof policy.patternMapping === "object", "policy contract: canonical first-token mapping is missing");
   fail(
-    objectEntries(policy.patternMapping).every(([, pattern]) => (policy.primaryPatterns || []).includes(pattern)),
-    "policy contract: first-token mapping points outside the canonical primary-pattern enum",
+    JSON.stringify(policy?.patternMapping) === JSON.stringify(APPROVED_PATTERN_MAPPING),
+    `policy contract: first-token mapping must be ${JSON.stringify(APPROVED_PATTERN_MAPPING)}`,
   );
   fail(Array.isArray(eligibility.qualifyingOutcomes), "policy contract: qualifying outcome enum is missing");
   fail(Array.isArray(eligibility.checkpointAnswers), "policy contract: checkpoint answer enum is missing");
-  fail(typeof eligibility.minimumPatterns === "number", "policy contract: minimum qualifying pattern count is missing");
+  fail(eligibility.minimumPatterns === 2, "policy contract: minimumPatterns must be exactly the owner-approved integer 2");
   fail(ruleB.optional && ruleB.protected && ruleB.reducible && ruleB.coverageRescue, "policy contract: Rule B stages are incomplete");
   fail(policy.acceptanceBand && typeof policy.acceptanceBand.minimum === "number" && typeof policy.acceptanceBand.maximum === "number", "policy contract: acceptance band is missing");
   fail(policy.allowlistedMisses && typeof policy.allowlistedMisses === "object", "policy contract: version allowlist is missing");
@@ -219,15 +253,37 @@ export function validatePolicyAgreement({ policyText, fixture, policy }) {
   );
 
   const evidence = parseFixtureEvidence(policyText);
-  fail(evidence.size === fixture.reviewCompilations.length, `fixture evidence: expected ${fixture.reviewCompilations.length} rows, found ${evidence.size}`);
-  const documentedMisses = new Set([...evidence].filter(([, row]) => !row.inBand).map(([id]) => id));
+  const compilations = Array.isArray(fixture?.reviewCompilations) ? fixture.reviewCompilations : [];
+  const fixtureIds = compilations.map((compilation) => String(compilation?.blueprintId ?? "<missing-blueprint-id>"));
+  const fixtureIdSet = new Set(fixtureIds);
+  const evidenceIdSet = new Set(evidence.rows.map((row) => row.id));
+  const missingEvidenceIds = [...fixtureIdSet].filter((id) => !evidenceIdSet.has(id));
+  const extraEvidenceIds = [...evidenceIdSet].filter((id) => !fixtureIdSet.has(id));
+  const duplicateFixtureIds = fixtureIds.filter((id, index) => fixtureIds.indexOf(id) !== index);
+  fail(
+    evidence.duplicates.length === 0,
+    `fixture evidence ID set: duplicate policy evidence IDs ${[...new Set(evidence.duplicates)].join(", ")}`,
+  );
+  fail(
+    duplicateFixtureIds.length === 0,
+    `fixture reviewCompilation ID set: duplicate fixture IDs ${[...new Set(duplicateFixtureIds)].join(", ")}`,
+  );
+  fail(
+    missingEvidenceIds.length === 0 && extraEvidenceIds.length === 0,
+    `fixture evidence ID set: missing rows ${missingEvidenceIds.join(", ") || "none"}; extra rows ${extraEvidenceIds.join(", ") || "none"}`,
+  );
+  fail(
+    evidence.rows.length === fixtureIds.length,
+    `fixture evidence row count: expected ${fixtureIds.length}, found ${evidence.rows.length}`,
+  );
+  const documentedMisses = new Set(evidence.rows.filter((row) => !row.inBand).map((row) => row.id));
   const executableMisses = new Set(Object.keys(policy.allowlistedMisses || {}));
   fail(
     JSON.stringify([...documentedMisses].sort()) === JSON.stringify([...executableMisses].sort()),
     `allowlist: executable misses ${[...executableMisses].sort().join(", ")} disagree with accepted evidence ${[...documentedMisses].sort().join(", ")}`,
   );
   for (const [blueprintId, expected] of objectEntries(policy.allowlistedMisses)) {
-    const row = evidence.get(blueprintId);
+    const row = evidence.byId.get(blueprintId);
     fail(!!row, `allowlist: missing accepted evidence row for ${blueprintId}`);
     if (row) {
       fail(row.base === expected.base && row.effective === expected.effective, `allowlist: ${blueprintId} expected ${expected.base}→${expected.effective} but evidence records ${row.base}→${row.effective}`);
@@ -235,33 +291,37 @@ export function validatePolicyAgreement({ policyText, fixture, policy }) {
   }
 
   const templates = fixture.slotContracts;
-  for (const compilation of fixture.reviewCompilations) {
+  for (const compilation of compilations) {
+    const compilationId = String(compilation?.blueprintId ?? "<missing-blueprint-id>");
     const slots = compilation.days.flatMap((day) =>
       day.slots.map((slot) => ({ templateId: slot.templateId, status: slot.status, sets: slot.sets })),
     );
-    const expected = evidence.get(compilation.blueprintId);
-    if (!expected) continue;
+    const expected = evidence.byId.get(compilationId);
+    if (!expected) {
+      failures.push(`fixture ${compilationId}: no policy evidence row for this reviewCompilation ID`);
+      continue;
+    }
     let result;
     try {
       result = applyRuleB(slots, { ...policy, slotContracts: templates });
     } catch (error) {
-      failures.push(`${compilation.blueprintId}: executable Rule B failed (${error.message})`);
+      failures.push(`${compilationId}: executable Rule B failed (${error.message})`);
       continue;
     }
     const base = slots.reduce((sum, slot) => sum + slot.sets, 0);
     const effective = result.effective.reduce((sum, value) => sum + value, 0);
-    fail(base === expected.base && effective === expected.effective, `fixture ${compilation.blueprintId}: executable Rule B gives ${base}→${effective}, accepted evidence is ${expected.base}→${expected.effective}`);
+    fail(base === expected.base && effective === expected.effective, `fixture ${compilationId}: executable Rule B gives ${base}→${effective}, accepted evidence is ${expected.base}→${expected.effective}`);
     const ratio = effective / base;
     const inBand = ratio >= band.minimum && ratio <= band.maximum;
-    fail(inBand === expected.inBand, `fixture ${compilation.blueprintId}: executable band result ${inBand ? "in band" : "outside band"} disagrees with accepted evidence (${expected.ratio})`);
+    fail(inBand === expected.inBand, `fixture ${compilationId}: executable band result ${inBand ? "in band" : "outside band"} disagrees with accepted evidence (${expected.ratio})`);
     const optionalsKept = slots.some((slot, index) => slot.status === "optional" && result.effective[index] > 0);
-    fail(!optionalsKept, `fixture ${compilation.blueprintId}: optional slot retains working sets`);
+    fail(!optionalsKept, `fixture ${compilationId}: optional slot retains working sets`);
     for (const pattern of policy.primaryPatterns || []) {
       const total = slots.reduce(
         (sum, slot, index) => sum + (primaryPatternForTemplate(templates, slot.templateId, policy) === pattern ? result.effective[index] : 0),
         0,
       );
-      fail(total >= 1, `fixture ${compilation.blueprintId}: canonical pattern ${pattern} left empty`);
+      fail(total >= 1, `fixture ${compilationId}: canonical pattern ${pattern} left empty`);
     }
   }
 
