@@ -74,7 +74,39 @@ Normalization removes `_storageRevision`, `_storageFollowUp`,
 `_storageDraftTransaction`, `_storageSetupActivation`, pending/closing sidecar
 data, tab/writer/operation IDs, cookies, notification/permission runtime data,
 and provider analytics session IDs. Parsing applies explicit field/size/depth
-limits and rejects unknown required versions.
+limits (below) and rejects unknown required versions.
+
+### Payload boundaries (exact)
+
+Both the browser module and the service enforce these limits identically;
+neither may invent different validators. They scale from the app's own
+existing bounds (`app.js` `PROGRESSION_VALUE_LIMITS`, the shared-setup
+`MAX_ENCODED_CHARS`/`MAX_COMPRESSED_BYTES` ceilings) so one payload can never
+pass one side and fail the other:
+
+| Boundary | Limit | Rationale |
+|---|---|---|
+| Request body (create) | ≤ 2,000,000 bytes | One complete logical clone with headroom; service rejects larger |
+| Request body (claim/commit/status) | ≤ 4,096 bytes | Token + claim ID only |
+| Envelope total JSON size | ≤ 2,000,000 bytes | Matches the body bound |
+| Nesting depth | ≤ 64 levels | Well above any real state shape; below pathological recursion |
+| Object keys per object | ≤ 256 | Bounded fan-out |
+| Array items per array | ≤ 10,000 | Long histories stay representable |
+| String value length | ≤ 8,000 chars | Longest real field (program export text) fits |
+| Identifier/key length | ≤ 256 chars | Storage-key and id namespacing |
+| `durableState.log` rows | ≤ 200,000 | A decade of daily training |
+| `durableState.program` rows | ≤ 2,000 | Far beyond any real split |
+| `durableState.programHistory` entries | ≤ 2,000 | Blocks of blocks |
+| `durableState.customExercises` | ≤ 1,000 | Far beyond real authorship |
+| Serialized `log` row size | ≤ 8,000 chars | One set with notes |
+| Claims per token | 1 | Server-enforced |
+| Claim ID length | 128–256 bits (22–43 base64url chars) | Entropy bound |
+| Create rate | ≤ 5/min per IP | Abuse bound |
+| Claim/commit/status rate | ≤ 60/min per token | Retry headroom |
+
+Parsing rejects any value outside these bounds before allocation; a request
+exceeding the body bound fails with the constant-shape terminal response.
+Depth and size are measured while parsing, never after.
 
 ### Example envelope (parseable; values illustrative)
 

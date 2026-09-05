@@ -91,7 +91,7 @@ stops the import. The executable rule and fixture live in
 `tools/canonical-clone-hash.mjs` with `test/fixtures/install-transfer-clone-v1.json`
 (`node tools/canonical-clone-hash.mjs --check`).
 
-Normalization removes `_storageRevision`, `_storageFollowUp`, `_storageDraftTransaction`, `_storageSetupActivation`, pending/closing sidecar data, tab/writer/operation IDs, cookies, notification/permission runtime data, and provider analytics session IDs. It retains program/history/archive/provenance and other logical user settings in the durable state. Parsing applies explicit field/size/depth limits and rejects unknown required versions.
+Normalization removes `_storageRevision`, `_storageFollowUp`, `_storageDraftTransaction`, `_storageSetupActivation`, pending/closing sidecar data, tab/writer/operation IDs, cookies, notification/permission runtime data, and provider analytics session IDs. It retains program/history/archive/provenance and other logical user settings in the durable state. Parsing applies explicit field/size/depth limits and rejects unknown required versions. The limits are exactly ADR 0013's payload-boundary table (create body ≤ 2,000,000 bytes; claim/commit/status body ≤ 4,096 bytes; envelope ≤ 2,000,000 bytes; depth ≤ 64; keys per object ≤ 256; array items ≤ 10,000; string values ≤ 8,000 chars; log rows ≤ 200,000; program rows ≤ 2,000; programHistory ≤ 2,000; customExercises ≤ 1,000; claim ID 128–256 bits; create ≤ 5/min per IP; claim/commit/status ≤ 60/min per token). The browser module and the service must enforce the same table — neither may invent different validators.
 
 ### Server record and endpoints
 
