@@ -1,9 +1,9 @@
-const CACHE = "repforge-v184";
+const CACHE = "repforge-v185";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./manifest.webmanifest",
   "./telemetry.js", "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js",
-  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=184", "./program-entry.js", "./program-entry.js?v=184", "./program-entry-adapter.js", "./program-entry-adapter.js?v=184", "./program-editor.js", "./program-editor.js?v=168",
-  "./shared-setup.js", "./shared-setup.js?v=184", "./app.js", "./app.js?v=184",
+  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=185", "./program-entry.js", "./program-entry.js?v=185", "./program-entry-adapter.js", "./program-entry-adapter.js?v=185", "./program-editor.js", "./program-editor.js?v=168",
+  "./shared-setup.js", "./shared-setup.js?v=185", "./app.js", "./app.js?v=185",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",

@@ -1813,10 +1813,10 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .pmeta__row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px}
 .pmeta__name{flex:1;min-width:min(12rem,100%);margin-top:0;font-size:.6875rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
 .pmeta__name input{margin-top:5px;font-weight:600;font-size:1rem;text-transform:none;letter-spacing:normal;padding:10px 11px;background:var(--surface)}
-.pmeta__started{flex:none;margin-top:0;font-size:.6875rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+.pmeta__started{flex:1 1 min(100%,10rem);min-width:0;max-width:100%;margin-top:0;font-size:.6875rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
 /* 16px, like every other field: below that iOS zooms the page in on focus and
    leaves it there. */
-.pmeta__started input{margin-top:5px;font-size:1rem;padding:9px 11px;background:var(--surface);color-scheme:var(--scheme)}
+.pmeta__started input{box-sizing:border-box;width:100%;min-width:0;max-width:100%;margin-top:5px;font-size:1rem;padding:9px 11px;background:var(--surface);color-scheme:var(--scheme)}
 .pmeta__chips{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-left:auto}
 .pmeta__chip{font-size:.75rem;color:var(--ink-soft);background:var(--surface);border:1px solid var(--rule);border-radius:999px;padding:6px 10px;white-space:nowrap}
 .pmeta__chip--status{color:var(--ink);border-color:var(--rule-strong);font-weight:600}
@@ -2605,12 +2605,12 @@ body.is-sheet-open .installbanner{display:none}
 .edhead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px}
 .edate{display:flex;flex-direction:column;align-items:flex-end;color:var(--ink-soft);font-size:11px;gap:0;text-transform:uppercase;letter-spacing:.08em}
 .edate input{width:auto;margin-top:5px;padding:9px 11px;font-size:16px}
-.edrow{display:grid;grid-template-columns:1fr 4.2rem 3.4rem 3.4rem auto;gap:8px;align-items:center;margin-top:8px}
+.edrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,20%) minmax(0,17%) minmax(0,17%) 44px;gap:8px;align-items:center;margin-top:8px}
 .edrow--head span{text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;color:var(--ink-faint);text-align:center;font-weight:600}
 .edrow--head span:first-child{text-align:left}
 .edrow__name{font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .edrow__name small{color:var(--ink-faint)}
-.edrow__in{margin-top:0;text-align:center;font-size:16px;padding:9px 4px;background:var(--surface)}
+.edrow__in{width:100%;min-width:0;margin-top:0;text-align:center;font-size:16px;padding:9px 4px;background:var(--surface)}
 .edrow__rm{
   justify-self:end;display:inline-flex;align-items:center;justify-content:center;
   width:44px;height:44px;flex:none;padding:0;cursor:pointer;
@@ -2767,7 +2767,7 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
   .setrow input{font-size:16px;padding:12px 2px}
   .stepbtn{width:44px;min-width:44px;font-size:17px}
   .saveset,.sets__head .sets__head-save{min-width:44px;padding:0 4px}
-  .edrow{grid-template-columns:1fr 3.4rem 3rem 3rem auto;gap:6px}
+  .edrow{grid-template-columns:minmax(0,1fr) minmax(0,20%) minmax(0,17%) minmax(0,17%) 44px;gap:6px}
   .curset__val{font-size:26px}
 }
 
@@ -3361,7 +3361,7 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry-body .onb__opts--reasons .radio-card__body{flex:0 0 auto}
 .entry-body .onb__opts--reasons .radio-card__title{font-size:.8125rem}
 
-.entry-body .onb__q{margin:0 0 6px;text-wrap:balance}
+.entry-body .onb__q{margin:0 0 6px;text-wrap:balance;overflow-wrap:anywhere}
 .entry-body .onb__explain{margin:0 0 20px;font-size:.9375rem;line-height:1.45;color:var(--ink-soft)}
 .entry-body .onb__explain:last-child{margin-bottom:0}
 .entry-body .entry__hint{margin:0 0 18px}
