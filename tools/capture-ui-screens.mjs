@@ -62,7 +62,6 @@ const CAPTURE_ATTEMPTS = Number(process.env.CAPTURE_ATTEMPTS || 3);
  * hardware in question rather than assumed from the core count.
  */
 const CAPTURE_CONCURRENCY = Math.max(1, Number(process.env.CAPTURE_CONCURRENCY || 2));
-const CONTRACT_ENABLED = process.env.CATALOG_CONTRACT === "1";
 
 function parseArgs(argv) {
   const options = { flows: [], screens: [], canonical: false, keepGoing: false };
@@ -240,12 +239,10 @@ async function main() {
         if (!isOnboarding(capture)) await dismissChrome(opened.page);
         await SCENARIOS[key](opened.page);
         await settle(opened.page);
-        if (CONTRACT_ENABLED) {
-          const contract = configForCapture(MANIFEST, capture);
-          const evidence = await opened.page.evaluate(collectCatalogEvidence, contract);
-          const failures = validateCatalogEvidence(evidence, contract, { knownKeyNamespaces: KNOWN_KEY_NAMESPACES, knownKeys: KNOWN_I18N_KEYS });
-          if (failures.length) throw new Error(`catalog contract ${key} ${variantSlug(capture)}: ${failures.join(" | ")}`);
-        }
+        const contract = configForCapture(MANIFEST, capture);
+        const evidence = await opened.page.evaluate(collectCatalogEvidence, contract);
+        const contractFailures = validateCatalogEvidence(evidence, contract, { knownKeyNamespaces: KNOWN_KEY_NAMESPACES, knownKeys: KNOWN_I18N_KEYS });
+        if (contractFailures.length) throw new Error(`catalog contract ${key} ${variantSlug(capture)}: ${contractFailures.join(" | ")}`);
         if (isOnboarding(capture)) {
           await focusOnboardingSubject(opened.page, key);
           const semantic = await opened.page.evaluate(collectProgramEntrySemantics);

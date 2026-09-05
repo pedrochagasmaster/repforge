@@ -4373,131 +4373,6 @@
       ]
     },
     {
-      "key": "onboarding-build/editor-empty__phone-320-light-en",
-      "flow": "onboarding-build",
-      "screen": "editor-empty",
-      "label": "Build — empty days",
-      "viewport": "phone-320",
-      "theme": "light",
-      "locale": "en",
-      "text": "normal",
-      "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Create a program"
-        },
-        {
-          "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
-          "type": "button"
-        },
-        {
-          "tag": "h1",
-          "text": "Build a program"
-        },
-        {
-          "tag": "div",
-          "label": "Program editor"
-        },
-        {
-          "tag": "span",
-          "text": "Program name"
-        },
-        {
-          "tag": "input",
-          "name": "Program name",
-          "label": "Program name",
-          "value": "Manual catalog program"
-        },
-        {
-          "tag": "p",
-          "role": "alert",
-          "text": "Add an exercise to Day 1, Day 2, Day 3.",
-          "name": "Add an exercise to Day 1, Day 2, Day 3.",
-          "aria-live": "assertive",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "input",
-          "name": "Day name",
-          "label": "Day name",
-          "value": "Day 1"
-        },
-        {
-          "tag": "span",
-          "text": "0 exercises"
-        },
-        {
-          "tag": "button",
-          "text": "⋮",
-          "name": "More",
-          "label": "More",
-          "aria-expanded": "false",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Add an exercise to each training day."
-        },
-        {
-          "tag": "button",
-          "text": "Add exercise",
-          "name": "＋ Add exercise",
-          "type": "button"
-        },
-        {
-          "tag": "input",
-          "name": "Day name",
-          "label": "Day name",
-          "value": "Day 2"
-        },
-        {
-          "tag": "span",
-          "text": "0 exercises"
-        },
-        {
-          "tag": "button",
-          "name": "Expand Day 2",
-          "label": "Expand Day 2",
-          "aria-expanded": "false",
-          "type": "button"
-        },
-        {
-          "tag": "input",
-          "name": "Day name",
-          "label": "Day name",
-          "value": "Day 3"
-        },
-        {
-          "tag": "span",
-          "text": "0 exercises"
-        },
-        {
-          "tag": "button",
-          "name": "Expand Day 3",
-          "label": "Expand Day 3",
-          "aria-expanded": "false",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Save draft",
-          "name": "Save draft",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
-          "describedBy": "Add an exercise to Day 1, Day 2, Day 3.",
-          "disabled": true,
-          "type": "button"
-        }
-      ]
-    },
-    {
       "key": "onboarding-build/editor-empty__phone-390-dark-en",
       "flow": "onboarding-build",
       "screen": "editor-empty",
@@ -4632,131 +4507,6 @@
       "locale": "en",
       "text": "normal",
       "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Create a program"
-        },
-        {
-          "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
-          "type": "button"
-        },
-        {
-          "tag": "h1",
-          "text": "Build a program"
-        },
-        {
-          "tag": "div",
-          "label": "Program editor"
-        },
-        {
-          "tag": "span",
-          "text": "Program name"
-        },
-        {
-          "tag": "input",
-          "name": "Program name",
-          "label": "Program name",
-          "value": "Manual catalog program"
-        },
-        {
-          "tag": "p",
-          "role": "alert",
-          "text": "Add an exercise to Day 1, Day 2, Day 3.",
-          "name": "Add an exercise to Day 1, Day 2, Day 3.",
-          "aria-live": "assertive",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "input",
-          "name": "Day name",
-          "label": "Day name",
-          "value": "Day 1"
-        },
-        {
-          "tag": "span",
-          "text": "0 exercises"
-        },
-        {
-          "tag": "button",
-          "text": "⋮",
-          "name": "More",
-          "label": "More",
-          "aria-expanded": "false",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Add an exercise to each training day."
-        },
-        {
-          "tag": "button",
-          "text": "Add exercise",
-          "name": "＋ Add exercise",
-          "type": "button"
-        },
-        {
-          "tag": "input",
-          "name": "Day name",
-          "label": "Day name",
-          "value": "Day 2"
-        },
-        {
-          "tag": "span",
-          "text": "0 exercises"
-        },
-        {
-          "tag": "button",
-          "name": "Expand Day 2",
-          "label": "Expand Day 2",
-          "aria-expanded": "false",
-          "type": "button"
-        },
-        {
-          "tag": "input",
-          "name": "Day name",
-          "label": "Day name",
-          "value": "Day 3"
-        },
-        {
-          "tag": "span",
-          "text": "0 exercises"
-        },
-        {
-          "tag": "button",
-          "name": "Expand Day 3",
-          "label": "Expand Day 3",
-          "aria-expanded": "false",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Save draft",
-          "name": "Save draft",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
-          "describedBy": "Add an exercise to Day 1, Day 2, Day 3.",
-          "disabled": true,
-          "type": "button"
-        }
-      ]
-    },
-    {
-      "key": "onboarding-build/editor-empty__phone-390-light-en-reduced",
-      "flow": "onboarding-build",
-      "screen": "editor-empty",
-      "label": "Build — empty days",
-      "viewport": "phone-390",
-      "theme": "light",
-      "locale": "en",
-      "text": "normal",
-      "motion": "reduced",
       "semantic": [
         {
           "tag": "section",
@@ -5123,125 +4873,125 @@
       ]
     },
     {
-      "key": "onboarding-build/editor-empty__phone-430-light-en",
+      "key": "onboarding-build/editor-empty__phone-390-light-pt-text200",
       "flow": "onboarding-build",
       "screen": "editor-empty",
       "label": "Build — empty days",
-      "viewport": "phone-430",
+      "viewport": "phone-390",
       "theme": "light",
-      "locale": "en",
-      "text": "normal",
+      "locale": "pt",
+      "text": "text200",
       "motion": "normal",
       "semantic": [
         {
           "tag": "section",
-          "label": "Create a program"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
+          "text": "Cancelar",
+          "name": "Cancelar",
           "type": "button"
         },
         {
           "tag": "h1",
-          "text": "Build a program"
+          "text": "Montar um programa"
         },
         {
           "tag": "div",
-          "label": "Program editor"
+          "label": "Editor de programa"
         },
         {
           "tag": "span",
-          "text": "Program name"
+          "text": "Nome do programa"
         },
         {
           "tag": "input",
-          "name": "Program name",
-          "label": "Program name",
+          "name": "Nome do programa",
+          "label": "Nome do programa",
           "value": "Manual catalog program"
         },
         {
           "tag": "p",
           "role": "alert",
-          "text": "Add an exercise to Day 1, Day 2, Day 3.",
-          "name": "Add an exercise to Day 1, Day 2, Day 3.",
+          "text": "Adicione um exercício a Day 1, Day 2, Day 3.",
+          "name": "Adicione um exercício a Day 1, Day 2, Day 3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
         {
           "tag": "input",
-          "name": "Day name",
-          "label": "Day name",
-          "value": "Day 1"
+          "name": "Nome do dia",
+          "label": "Nome do dia",
+          "value": "Dia 1"
         },
         {
           "tag": "span",
-          "text": "0 exercises"
+          "text": "0 exercícios"
         },
         {
           "tag": "button",
           "text": "⋮",
-          "name": "More",
-          "label": "More",
+          "name": "Mais",
+          "label": "Mais",
           "aria-expanded": "false",
           "type": "button"
         },
         {
           "tag": "p",
-          "text": "Add an exercise to each training day."
+          "text": "Adicione um exercício a cada dia de treino."
         },
         {
           "tag": "button",
-          "text": "Add exercise",
-          "name": "＋ Add exercise",
+          "text": "Adicionar exercício",
+          "name": "＋ Adicionar exercício",
           "type": "button"
         },
         {
           "tag": "input",
-          "name": "Day name",
-          "label": "Day name",
-          "value": "Day 2"
+          "name": "Nome do dia",
+          "label": "Nome do dia",
+          "value": "Dia 2"
         },
         {
           "tag": "span",
-          "text": "0 exercises"
+          "text": "0 exercícios"
         },
         {
           "tag": "button",
-          "name": "Expand Day 2",
-          "label": "Expand Day 2",
+          "name": "Expand Dia 2",
+          "label": "Expand Dia 2",
           "aria-expanded": "false",
           "type": "button"
         },
         {
           "tag": "input",
-          "name": "Day name",
-          "label": "Day name",
-          "value": "Day 3"
+          "name": "Nome do dia",
+          "label": "Nome do dia",
+          "value": "Dia 3"
         },
         {
           "tag": "span",
-          "text": "0 exercises"
+          "text": "0 exercícios"
         },
         {
           "tag": "button",
-          "name": "Expand Day 3",
-          "label": "Expand Day 3",
+          "name": "Expand Dia 3",
+          "label": "Expand Dia 3",
           "aria-expanded": "false",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "Save draft",
-          "name": "Save draft",
+          "text": "Salvar rascunho",
+          "name": "Salvar rascunho",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
-          "describedBy": "Add an exercise to Day 1, Day 2, Day 3.",
+          "text": "Usar este programa",
+          "name": "Usar este programa",
+          "describedBy": "Adicione um exercício a Day 1, Day 2, Day 3.",
           "disabled": true,
           "type": "button"
         }
@@ -5648,6 +5398,206 @@
       ]
     },
     {
+      "key": "onboarding-build/editor-partial__phone-390-light-en-text200",
+      "flow": "onboarding-build",
+      "screen": "editor-partial",
+      "label": "Build — partial draft",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Build a program"
+        },
+        {
+          "tag": "div",
+          "label": "Program editor"
+        },
+        {
+          "tag": "span",
+          "text": "Program name"
+        },
+        {
+          "tag": "input",
+          "name": "Program name",
+          "label": "Program name",
+          "value": "Manual catalog program"
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "Add an exercise to Day 2, Day 3.",
+          "name": "Add an exercise to Day 2, Day 3.",
+          "aria-live": "assertive",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 1"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Assisted pull-up",
+          "label": "Assisted pull-up",
+          "value": "Assisted pull-up"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Assisted pull-up",
+          "label": "Collapse Assisted pull-up",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SETS"
+        },
+        {
+          "tag": "span",
+          "text": "SETS"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
+        },
+        {
+          "tag": "span",
+          "text": "MIN"
+        },
+        {
+          "tag": "input",
+          "name": "MIN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MAX"
+        },
+        {
+          "tag": "input",
+          "name": "MAX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 2"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Day 2",
+          "label": "Expand Day 2",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 3"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Day 3",
+          "label": "Expand Day 3",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Save draft",
+          "name": "Save draft",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "describedBy": "Add an exercise to Day 2, Day 3.",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-build/editor-partial__phone-390-light-pt",
       "flow": "onboarding-build",
       "screen": "editor-partial",
@@ -5656,6 +5606,206 @@
       "theme": "light",
       "locale": "pt",
       "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um programa"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Montar um programa"
+        },
+        {
+          "tag": "div",
+          "label": "Editor de programa"
+        },
+        {
+          "tag": "span",
+          "text": "Nome do programa"
+        },
+        {
+          "tag": "input",
+          "name": "Nome do programa",
+          "label": "Nome do programa",
+          "value": "Manual catalog program"
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "Adicione um exercício a Day 2, Day 3.",
+          "name": "Adicione um exercício a Day 2, Day 3.",
+          "aria-live": "assertive",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "input",
+          "name": "Nome do dia",
+          "label": "Nome do dia",
+          "value": "Dia 1"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercício"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "Mais",
+          "label": "Mais",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Machine seated crunch",
+          "label": "Machine seated crunch",
+          "value": "Machine seated crunch"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Machine seated crunch",
+          "label": "Collapse Machine seated crunch",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SÉRIES"
+        },
+        {
+          "tag": "span",
+          "text": "SÉRIES"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "FAIXA DE REPETIÇÕES"
+        },
+        {
+          "tag": "span",
+          "text": "MÍN"
+        },
+        {
+          "tag": "input",
+          "name": "MÍN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MÁX"
+        },
+        {
+          "tag": "input",
+          "name": "MÁX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Substituir exercício",
+          "name": "Substituir exercício",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remover exercício",
+          "name": "Remover exercício",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Adicionar exercício",
+          "name": "＋ Adicionar exercício",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Nome do dia",
+          "label": "Nome do dia",
+          "value": "Dia 2"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercícios"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Dia 2",
+          "label": "Expand Dia 2",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Nome do dia",
+          "label": "Nome do dia",
+          "value": "Dia 3"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercícios"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Dia 3",
+          "label": "Expand Dia 3",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Salvar rascunho",
+          "name": "Salvar rascunho",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar este programa",
+          "name": "Usar este programa",
+          "describedBy": "Adicione um exercício a Day 2, Day 3.",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-build/editor-partial__phone-390-light-pt-text200",
+      "flow": "onboarding-build",
+      "screen": "editor-partial",
+      "label": "Build — partial draft",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "text200",
       "motion": "normal",
       "semantic": [
         {
@@ -6588,6 +6738,376 @@
       ]
     },
     {
+      "key": "onboarding-build/editor-ready__phone-390-light-en-text200",
+      "flow": "onboarding-build",
+      "screen": "editor-ready",
+      "label": "Build — activation ready",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Build a program"
+        },
+        {
+          "tag": "div",
+          "label": "Program editor"
+        },
+        {
+          "tag": "span",
+          "text": "Program name"
+        },
+        {
+          "tag": "input",
+          "name": "Program name",
+          "label": "Program name",
+          "value": "Manual catalog program"
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Draft saved",
+          "name": "Draft saved",
+          "aria-live": "polite",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 1"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Assisted pull-up",
+          "label": "Assisted pull-up",
+          "value": "Assisted pull-up"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Assisted pull-up",
+          "label": "Collapse Assisted pull-up",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SETS"
+        },
+        {
+          "tag": "span",
+          "text": "SETS"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
+        },
+        {
+          "tag": "span",
+          "text": "MIN"
+        },
+        {
+          "tag": "input",
+          "name": "MIN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MAX"
+        },
+        {
+          "tag": "input",
+          "name": "MAX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 2"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Barbell back squat",
+          "label": "Barbell back squat",
+          "value": "Barbell back squat"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Barbell back squat",
+          "label": "Collapse Barbell back squat",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SETS"
+        },
+        {
+          "tag": "span",
+          "text": "SETS"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
+        },
+        {
+          "tag": "span",
+          "text": "MIN"
+        },
+        {
+          "tag": "input",
+          "name": "MIN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MAX"
+        },
+        {
+          "tag": "input",
+          "name": "MAX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 3"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Barbell back squat",
+          "label": "Barbell back squat",
+          "value": "Barbell back squat"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Barbell back squat",
+          "label": "Collapse Barbell back squat",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SETS"
+        },
+        {
+          "tag": "span",
+          "text": "SETS"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
+        },
+        {
+          "tag": "span",
+          "text": "MIN"
+        },
+        {
+          "tag": "input",
+          "name": "MIN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MAX"
+        },
+        {
+          "tag": "input",
+          "name": "MAX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Save draft",
+          "name": "Save draft",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-build/editor-ready__phone-390-light-pt",
       "flow": "onboarding-build",
       "screen": "editor-ready",
@@ -6629,8 +7149,378 @@
         {
           "tag": "p",
           "role": "status",
-          "text": "Draft saved",
-          "name": "Draft saved",
+          "text": "Rascunho salvo",
+          "name": "Rascunho salvo",
+          "aria-live": "polite",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "input",
+          "name": "Nome do dia",
+          "label": "Nome do dia",
+          "value": "Dia 1"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercício"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "Mais",
+          "label": "Mais",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Machine seated crunch",
+          "label": "Machine seated crunch",
+          "value": "Machine seated crunch"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Machine seated crunch",
+          "label": "Collapse Machine seated crunch",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SÉRIES"
+        },
+        {
+          "tag": "span",
+          "text": "SÉRIES"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "FAIXA DE REPETIÇÕES"
+        },
+        {
+          "tag": "span",
+          "text": "MÍN"
+        },
+        {
+          "tag": "input",
+          "name": "MÍN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MÁX"
+        },
+        {
+          "tag": "input",
+          "name": "MÁX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Substituir exercício",
+          "name": "Substituir exercício",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remover exercício",
+          "name": "Remover exercício",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Adicionar exercício",
+          "name": "＋ Adicionar exercício",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Nome do dia",
+          "label": "Nome do dia",
+          "value": "Dia 2"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercício"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "Mais",
+          "label": "Mais",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Goblet squat",
+          "label": "Goblet squat",
+          "value": "Goblet squat"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Goblet squat",
+          "label": "Collapse Goblet squat",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SÉRIES"
+        },
+        {
+          "tag": "span",
+          "text": "SÉRIES"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "FAIXA DE REPETIÇÕES"
+        },
+        {
+          "tag": "span",
+          "text": "MÍN"
+        },
+        {
+          "tag": "input",
+          "name": "MÍN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MÁX"
+        },
+        {
+          "tag": "input",
+          "name": "MÁX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Substituir exercício",
+          "name": "Substituir exercício",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remover exercício",
+          "name": "Remover exercício",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Adicionar exercício",
+          "name": "＋ Adicionar exercício",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Nome do dia",
+          "label": "Nome do dia",
+          "value": "Dia 3"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercício"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "Mais",
+          "label": "Mais",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Goblet squat",
+          "label": "Goblet squat",
+          "value": "Goblet squat"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Goblet squat",
+          "label": "Collapse Goblet squat",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SÉRIES"
+        },
+        {
+          "tag": "span",
+          "text": "SÉRIES"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "FAIXA DE REPETIÇÕES"
+        },
+        {
+          "tag": "span",
+          "text": "MÍN"
+        },
+        {
+          "tag": "input",
+          "name": "MÍN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MÁX"
+        },
+        {
+          "tag": "input",
+          "name": "MÁX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Substituir exercício",
+          "name": "Substituir exercício",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remover exercício",
+          "name": "Remover exercício",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Adicionar exercício",
+          "name": "＋ Adicionar exercício",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Salvar rascunho",
+          "name": "Salvar rascunho",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar este programa",
+          "name": "Usar este programa",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-build/editor-ready__phone-390-light-pt-text200",
+      "flow": "onboarding-build",
+      "screen": "editor-ready",
+      "label": "Build — activation ready",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um programa"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Montar um programa"
+        },
+        {
+          "tag": "div",
+          "label": "Editor de programa"
+        },
+        {
+          "tag": "span",
+          "text": "Nome do programa"
+        },
+        {
+          "tag": "input",
+          "name": "Nome do programa",
+          "label": "Nome do programa",
+          "value": "Manual catalog program"
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Rascunho salvo",
+          "name": "Rascunho salvo",
           "aria-live": "polite",
           "tabindex": "-1"
         },
@@ -14670,6 +15560,813 @@
       ]
     },
     {
+      "key": "onboarding-custom/priorities__phone-390-light-pt-text200",
+      "flow": "onboarding-custom",
+      "screen": "priorities",
+      "label": "Custom 5 — muscle priorities",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um programa"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Programa personalizado"
+        },
+        {
+          "tag": "p",
+          "text": "Seção 5 de 6",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Prioridades musculares",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Opcional"
+        },
+        {
+          "tag": "p",
+          "text": "Para cada músculo, escolha normal, priorizar, reduzir ênfase ou ignorar."
+        },
+        {
+          "tag": "p",
+          "text": "Ênfase muscular"
+        },
+        {
+          "tag": "p",
+          "text": "Escolha uma configuração para cada músculo. Deixe normal, a menos que queira que o Taurifer mude sua ênfase."
+        },
+        {
+          "tag": "div",
+          "role": "group",
+          "name": "Ênfase muscular",
+          "labelledBy": "Ênfase muscular"
+        },
+        {
+          "tag": "span",
+          "text": "Peito"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "PeitoNormal",
+          "labelledBy": "PeitoNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Peito: Normal",
+          "label": "Peito: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Peito: Priorizar",
+          "label": "Peito: Priorizar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Priorizar"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Peito: Reduzir ênfase",
+          "label": "Peito: Reduzir ênfase",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reduzir ênfase"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Peito: Ignorar",
+          "label": "Peito: Ignorar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignorar"
+        },
+        {
+          "tag": "span",
+          "text": "Costas"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "CostasNormal",
+          "labelledBy": "CostasNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Costas: Normal",
+          "label": "Costas: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Costas: Priorizar",
+          "label": "Costas: Priorizar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Priorizar"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Costas: Reduzir ênfase",
+          "label": "Costas: Reduzir ênfase",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reduzir ênfase"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Costas: Ignorar",
+          "label": "Costas: Ignorar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignorar"
+        },
+        {
+          "tag": "span",
+          "text": "Quadríceps"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "QuadrícepsNormal",
+          "labelledBy": "QuadrícepsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quadríceps: Normal",
+          "label": "Quadríceps: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quadríceps: Priorizar",
+          "label": "Quadríceps: Priorizar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Priorizar"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quadríceps: Reduzir ênfase",
+          "label": "Quadríceps: Reduzir ênfase",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reduzir ênfase"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quadríceps: Ignorar",
+          "label": "Quadríceps: Ignorar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignorar"
+        },
+        {
+          "tag": "span",
+          "text": "Posteriores"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "PosterioresNormal",
+          "labelledBy": "PosterioresNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Posteriores: Normal",
+          "label": "Posteriores: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Posteriores: Priorizar",
+          "label": "Posteriores: Priorizar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Priorizar"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Posteriores: Reduzir ênfase",
+          "label": "Posteriores: Reduzir ênfase",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reduzir ênfase"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Posteriores: Ignorar",
+          "label": "Posteriores: Ignorar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignorar"
+        },
+        {
+          "tag": "span",
+          "text": "Glúteos"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "GlúteosNormal",
+          "labelledBy": "GlúteosNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glúteos: Normal",
+          "label": "Glúteos: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glúteos: Priorizar",
+          "label": "Glúteos: Priorizar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Priorizar"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glúteos: Reduzir ênfase",
+          "label": "Glúteos: Reduzir ênfase",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reduzir ênfase"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glúteos: Ignorar",
+          "label": "Glúteos: Ignorar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignorar"
+        },
+        {
+          "tag": "span",
+          "text": "Deltoides laterais"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Deltoides lateraisNormal",
+          "labelledBy": "Deltoides lateraisNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Deltoides laterais: Normal",
+          "label": "Deltoides laterais: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Deltoides laterais: Priorizar",
+          "label": "Deltoides laterais: Priorizar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Priorizar"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Deltoides laterais: Reduzir ênfase",
+          "label": "Deltoides laterais: Reduzir ênfase",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reduzir ênfase"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Deltoides laterais: Ignorar",
+          "label": "Deltoides laterais: Ignorar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignorar"
+        },
+        {
+          "tag": "span",
+          "text": "Bíceps"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "BícepsNormal",
+          "labelledBy": "BícepsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Bíceps: Normal",
+          "label": "Bíceps: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Bíceps: Priorizar",
+          "label": "Bíceps: Priorizar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Priorizar"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Bíceps: Reduzir ênfase",
+          "label": "Bíceps: Reduzir ênfase",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reduzir ênfase"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Bíceps: Ignorar",
+          "label": "Bíceps: Ignorar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignorar"
+        },
+        {
+          "tag": "span",
+          "text": "Tríceps"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "TrícepsNormal",
+          "labelledBy": "TrícepsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Tríceps: Normal",
+          "label": "Tríceps: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Tríceps: Priorizar",
+          "label": "Tríceps: Priorizar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Priorizar"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Tríceps: Reduzir ênfase",
+          "label": "Tríceps: Reduzir ênfase",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reduzir ênfase"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Tríceps: Ignorar",
+          "label": "Tríceps: Ignorar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignorar"
+        },
+        {
+          "tag": "span",
+          "text": "Panturrilhas"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "PanturrilhasNormal",
+          "labelledBy": "PanturrilhasNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Panturrilhas: Normal",
+          "label": "Panturrilhas: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Panturrilhas: Priorizar",
+          "label": "Panturrilhas: Priorizar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Priorizar"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Panturrilhas: Reduzir ênfase",
+          "label": "Panturrilhas: Reduzir ênfase",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reduzir ênfase"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Panturrilhas: Ignorar",
+          "label": "Panturrilhas: Ignorar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignorar"
+        },
+        {
+          "tag": "span",
+          "text": "Dorsais"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "DorsaisNormal",
+          "labelledBy": "DorsaisNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Dorsais: Normal",
+          "label": "Dorsais: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Dorsais: Priorizar",
+          "label": "Dorsais: Priorizar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Priorizar"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Dorsais: Reduzir ênfase",
+          "label": "Dorsais: Reduzir ênfase",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Reduzir ênfase"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Dorsais: Ignorar",
+          "label": "Dorsais: Ignorar",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignorar"
+        },
+        {
+          "tag": "p",
+          "text": "Padrões de movimento prioritários"
+        },
+        {
+          "tag": "div",
+          "role": "group",
+          "name": "AgachamentoDobradiçaEmpurrarDesenvolvimento verticalRemadaPuxada"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Agachamento",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Agachamento"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Dobradiça",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Dobradiça"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Empurrar",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Empurrar"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Desenvolvimento vertical",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Desenvolvimento vertical"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Remada",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Remada"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Puxada",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Puxada"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Continuar",
+          "name": "Continuar",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-custom/result__phone-390-dark-en",
       "flow": "onboarding-custom",
       "screen": "result",
@@ -14729,7 +16426,7 @@
         },
         {
           "tag": "span",
-          "text": "Written for a Full commercial gym."
+          "text": "Written for a full commercial gym."
         },
         {
           "tag": "span",
@@ -14830,7 +16527,7 @@
         },
         {
           "tag": "span",
-          "text": "Written for a Full commercial gym."
+          "text": "Written for a full commercial gym."
         },
         {
           "tag": "span",
@@ -14931,7 +16628,7 @@
         },
         {
           "tag": "span",
-          "text": "Written for a Full commercial gym."
+          "text": "Written for a full commercial gym."
         },
         {
           "tag": "span",
@@ -15032,7 +16729,7 @@
         },
         {
           "tag": "span",
-          "text": "Escrito para um Academia comercial completa."
+          "text": "Feito para uma academia comercial completa."
         },
         {
           "tag": "span",
@@ -16294,135 +17991,306 @@
       ]
     },
     {
-      "key": "onboarding-import/preview__phone-320-light-en",
-      "flow": "onboarding-import",
-      "screen": "preview",
-      "label": "Import — review",
-      "viewport": "phone-320",
+      "key": "onboarding-custom/schedule__phone-390-light-pt-text200",
+      "flow": "onboarding-custom",
+      "screen": "schedule",
+      "label": "Custom 3 — real week",
+      "viewport": "phone-390",
       "theme": "light",
-      "locale": "en",
-      "text": "normal",
+      "locale": "pt",
+      "text": "text200",
       "motion": "normal",
       "semantic": [
         {
           "tag": "section",
-          "label": "Create a program"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
+          "text": "Cancelar",
+          "name": "Cancelar",
           "type": "button"
         },
         {
           "tag": "div",
-          "text": "Import a program"
+          "text": "Programa personalizado"
+        },
+        {
+          "tag": "p",
+          "text": "Seção 3 de 6",
+          "aria-live": "polite"
         },
         {
           "tag": "h2",
-          "text": "Review program",
+          "text": "Encaixe o treino na sua semana",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "This draft is editable. Your active program stays unchanged until you confirm."
-        },
-        {
-          "tag": "h3",
-          "text": "Imported catalog program"
-        },
-        {
-          "tag": "p",
-          "text": "Imported program"
+          "text": "Seu limite de tempo define quanto trabalho cabe na sessão."
         },
         {
           "tag": "span",
-          "text": "Source"
-        },
-        {
-          "tag": "span",
-          "text": "1 exercise"
-        },
-        {
-          "tag": "span",
-          "text": "3 working sets"
-        },
-        {
-          "tag": "h4",
-          "text": "Priorities"
-        },
-        {
-          "tag": "p",
-          "text": "No special muscle priority"
-        },
-        {
-          "tag": "h4",
-          "text": "Equipment assumptions"
-        },
-        {
-          "tag": "p",
-          "text": "This program did not specify equipment."
-        },
-        {
-          "tag": "h4",
-          "text": "Progression"
-        },
-        {
-          "tag": "p",
-          "text": "The program sets each exercise's target, or you set it yourself. Taurifer does not invent load or rep suggestions."
-        },
-        {
-          "tag": "h4",
-          "text": "Adjustments"
-        },
-        {
-          "tag": "p",
-          "text": "No adjustments were needed."
-        },
-        {
-          "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Edit before using",
-          "name": "Edit before using",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Start over",
-          "name": "Start over",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Weekly structure"
-        },
-        {
-          "tag": "summary",
-          "text": "Day 1",
-          "name": "1Day 11 exercise · 3 working sets"
-        },
-        {
-          "tag": "span",
-          "text": "1 exercise · 3 working sets"
+          "text": "Dias de treino por semana"
         },
         {
           "tag": "div",
-          "text": "· 3×6–10"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell bench press"
+          "role": "radiogroup",
+          "name": "Dias de treino por semana",
+          "labelledBy": "Dias de treino por semana"
         },
         {
           "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
+          "role": "radio",
+          "name": "2dias",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "dias"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "3dias",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "dias"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "4dias",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "dias"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "5dias",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "5"
+        },
+        {
+          "tag": "span",
+          "text": "dias"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "6dias",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "6"
+        },
+        {
+          "tag": "span",
+          "text": "dias"
+        },
+        {
+          "tag": "span",
+          "text": "Duração máxima de uma sessão típica"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Duração máxima de uma sessão típica",
+          "labelledBy": "Duração máxima de uma sessão típica"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "30minutos",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "30"
+        },
+        {
+          "tag": "span",
+          "text": "minutos"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "45minutos",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "45"
+        },
+        {
+          "tag": "span",
+          "text": "minutos"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "60minutos",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "60"
+        },
+        {
+          "tag": "span",
+          "text": "minutos"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "75minutos",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "75"
+        },
+        {
+          "tag": "span",
+          "text": "minutos"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "90+minutos",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "90+"
+        },
+        {
+          "tag": "span",
+          "text": "minutos"
+        },
+        {
+          "tag": "span",
+          "text": "Descanso preferido entre séries exigentes"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Descanso preferido entre séries exigentes",
+          "labelledBy": "Descanso preferido entre séries exigentes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Deixar o Taurifer escolher",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Deixar o Taurifer escolher"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Cerca de 60 segundos",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Cerca de 60 segundos"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Cerca de 90 segundos",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Cerca de 90 segundos"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Cerca de 2 minutos",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Cerca de 2 minutos"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "3 minutos ou mais",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3 minutos ou mais"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Continuar",
+          "name": "Continuar",
+          "disabled": true,
           "type": "button"
         }
       ]
@@ -16571,140 +18439,6 @@
       "locale": "en",
       "text": "normal",
       "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Create a program"
-        },
-        {
-          "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Import a program"
-        },
-        {
-          "tag": "h2",
-          "text": "Review program",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "This draft is editable. Your active program stays unchanged until you confirm."
-        },
-        {
-          "tag": "h3",
-          "text": "Imported catalog program"
-        },
-        {
-          "tag": "p",
-          "text": "Imported program"
-        },
-        {
-          "tag": "span",
-          "text": "Source"
-        },
-        {
-          "tag": "span",
-          "text": "1 exercise"
-        },
-        {
-          "tag": "span",
-          "text": "3 working sets"
-        },
-        {
-          "tag": "h4",
-          "text": "Priorities"
-        },
-        {
-          "tag": "p",
-          "text": "No special muscle priority"
-        },
-        {
-          "tag": "h4",
-          "text": "Equipment assumptions"
-        },
-        {
-          "tag": "p",
-          "text": "This program did not specify equipment."
-        },
-        {
-          "tag": "h4",
-          "text": "Progression"
-        },
-        {
-          "tag": "p",
-          "text": "The program sets each exercise's target, or you set it yourself. Taurifer does not invent load or rep suggestions."
-        },
-        {
-          "tag": "h4",
-          "text": "Adjustments"
-        },
-        {
-          "tag": "p",
-          "text": "No adjustments were needed."
-        },
-        {
-          "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Edit before using",
-          "name": "Edit before using",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Start over",
-          "name": "Start over",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Weekly structure"
-        },
-        {
-          "tag": "summary",
-          "text": "Day 1",
-          "name": "1Day 11 exercise · 3 working sets"
-        },
-        {
-          "tag": "span",
-          "text": "1 exercise · 3 working sets"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×6–10"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
-          "type": "button"
-        }
-      ]
-    },
-    {
-      "key": "onboarding-import/preview__phone-390-light-en-reduced",
-      "flow": "onboarding-import",
-      "screen": "preview",
-      "label": "Import — review",
-      "viewport": "phone-390",
-      "theme": "light",
-      "locale": "en",
-      "text": "normal",
-      "motion": "reduced",
       "semantic": [
         {
           "tag": "section",
@@ -17098,121 +18832,121 @@
       ]
     },
     {
-      "key": "onboarding-import/preview__phone-430-light-en",
+      "key": "onboarding-import/preview__phone-390-light-pt-text200",
       "flow": "onboarding-import",
       "screen": "preview",
       "label": "Import — review",
-      "viewport": "phone-430",
+      "viewport": "phone-390",
       "theme": "light",
-      "locale": "en",
-      "text": "normal",
+      "locale": "pt",
+      "text": "text200",
       "motion": "normal",
       "semantic": [
         {
           "tag": "section",
-          "label": "Create a program"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
+          "text": "Cancelar",
+          "name": "Cancelar",
           "type": "button"
         },
         {
           "tag": "div",
-          "text": "Import a program"
+          "text": "Importar um programa"
         },
         {
           "tag": "h2",
-          "text": "Review program",
+          "text": "Revisar programa",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
         },
         {
           "tag": "h3",
-          "text": "Imported catalog program"
+          "text": "Programa de catálogo importado"
         },
         {
           "tag": "p",
-          "text": "Imported program"
+          "text": "Programa importado"
         },
         {
           "tag": "span",
-          "text": "Source"
+          "text": "Origem"
         },
         {
           "tag": "span",
-          "text": "1 exercise"
+          "text": "1 exercício"
         },
         {
           "tag": "span",
-          "text": "3 working sets"
+          "text": "3 séries de trabalho"
         },
         {
           "tag": "h4",
-          "text": "Priorities"
+          "text": "Prioridades"
         },
         {
           "tag": "p",
-          "text": "No special muscle priority"
+          "text": "Sem prioridade muscular especial"
         },
         {
           "tag": "h4",
-          "text": "Equipment assumptions"
+          "text": "Equipamentos considerados"
         },
         {
           "tag": "p",
-          "text": "This program did not specify equipment."
+          "text": "Este programa não especificou equipamentos."
         },
         {
           "tag": "h4",
-          "text": "Progression"
+          "text": "Progressão"
         },
         {
           "tag": "p",
-          "text": "The program sets each exercise's target, or you set it yourself. Taurifer does not invent load or rep suggestions."
+          "text": "O programa define a meta de cada exercício, ou você a define. O Taurifer não inventa carga nem repetições."
         },
         {
           "tag": "h4",
-          "text": "Adjustments"
+          "text": "Ajustes necessários"
         },
         {
           "tag": "p",
-          "text": "No adjustments were needed."
+          "text": "Nenhum ajuste foi necessário."
         },
         {
           "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
+          "text": "Usar este programa",
+          "name": "Usar este programa",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "Edit before using",
-          "name": "Edit before using",
+          "text": "Editar antes de usar",
+          "name": "Editar antes de usar",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "Start over",
-          "name": "Start over",
+          "text": "Começar de novo",
+          "name": "Começar de novo",
           "type": "button"
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Estrutura semanal"
         },
         {
           "tag": "summary",
-          "text": "Day 1",
-          "name": "1Day 11 exercise · 3 working sets"
+          "text": "Dia 1",
+          "name": "1Dia 11 exercício · 3 séries de trabalho"
         },
         {
           "tag": "span",
-          "text": "1 exercise · 3 working sets"
+          "text": "1 exercício · 3 séries de trabalho"
         },
         {
           "tag": "div",
@@ -17220,13 +18954,13 @@
         },
         {
           "tag": "b",
-          "text": "Barbell bench press"
+          "text": "Supino reto com barra"
         },
         {
           "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
           "type": "button"
         }
       ]
@@ -27286,91 +29020,6 @@
       ]
     },
     {
-      "key": "onboarding-recommend/result__phone-320-light-en",
-      "flow": "onboarding-recommend",
-      "screen": "result",
-      "label": "Recommend — recommendation",
-      "viewport": "phone-320",
-      "theme": "light",
-      "locale": "en",
-      "text": "normal",
-      "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Create a program"
-        },
-        {
-          "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Recommend"
-        },
-        {
-          "tag": "h2",
-          "text": "Recommended program",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "The same answers and rules produce the same program every time."
-        },
-        {
-          "tag": "h3",
-          "text": "Muscle + Strength"
-        },
-        {
-          "tag": "span",
-          "text": "3 days"
-        },
-        {
-          "tag": "span",
-          "text": "about 49–55 minutes"
-        },
-        {
-          "tag": "p",
-          "text": "Why it fits"
-        },
-        {
-          "tag": "span",
-          "text": "Prioritizes Balance muscle and strength."
-        },
-        {
-          "tag": "span",
-          "text": "Fits 3 training days, each capped at 60 minutes."
-        },
-        {
-          "tag": "span",
-          "text": "Written for a full commercial gym."
-        },
-        {
-          "tag": "span",
-          "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
-        },
-        {
-          "tag": "span",
-          "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
-        },
-        {
-          "tag": "button",
-          "text": "Review this program",
-          "name": "Review this program",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
-          "type": "button"
-        }
-      ]
-    },
-    {
       "key": "onboarding-recommend/result__phone-390-dark-en",
       "flow": "onboarding-recommend",
       "screen": "result",
@@ -27465,91 +29114,6 @@
       "locale": "en",
       "text": "normal",
       "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Create a program"
-        },
-        {
-          "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Recommend"
-        },
-        {
-          "tag": "h2",
-          "text": "Recommended program",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "The same answers and rules produce the same program every time."
-        },
-        {
-          "tag": "h3",
-          "text": "Muscle + Strength"
-        },
-        {
-          "tag": "span",
-          "text": "3 days"
-        },
-        {
-          "tag": "span",
-          "text": "about 49–55 minutes"
-        },
-        {
-          "tag": "p",
-          "text": "Why it fits"
-        },
-        {
-          "tag": "span",
-          "text": "Prioritizes Balance muscle and strength."
-        },
-        {
-          "tag": "span",
-          "text": "Fits 3 training days, each capped at 60 minutes."
-        },
-        {
-          "tag": "span",
-          "text": "Written for a full commercial gym."
-        },
-        {
-          "tag": "span",
-          "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
-        },
-        {
-          "tag": "span",
-          "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
-        },
-        {
-          "tag": "button",
-          "text": "Review this program",
-          "name": "Review this program",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
-          "type": "button"
-        }
-      ]
-    },
-    {
-      "key": "onboarding-recommend/result__phone-390-light-en-reduced",
-      "flow": "onboarding-recommend",
-      "screen": "result",
-      "label": "Recommend — recommendation",
-      "viewport": "phone-390",
-      "theme": "light",
-      "locale": "en",
-      "text": "normal",
-      "motion": "reduced",
       "semantic": [
         {
           "tag": "section",
@@ -27796,86 +29360,86 @@
       ]
     },
     {
-      "key": "onboarding-recommend/result__phone-430-light-en",
+      "key": "onboarding-recommend/result__phone-390-light-pt-text200",
       "flow": "onboarding-recommend",
       "screen": "result",
       "label": "Recommend — recommendation",
-      "viewport": "phone-430",
+      "viewport": "phone-390",
       "theme": "light",
-      "locale": "en",
-      "text": "normal",
+      "locale": "pt",
+      "text": "text200",
       "motion": "normal",
       "semantic": [
         {
           "tag": "section",
-          "label": "Create a program"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
+          "text": "Cancelar",
+          "name": "Cancelar",
           "type": "button"
         },
         {
           "tag": "div",
-          "text": "Recommend"
+          "text": "Recomendação"
         },
         {
           "tag": "h2",
-          "text": "Recommended program",
+          "text": "Programa recomendado",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "The same answers and rules produce the same program every time."
+          "text": "As mesmas respostas e regras produzem o mesmo programa todas as vezes."
         },
         {
           "tag": "h3",
-          "text": "Muscle + Strength"
+          "text": "Massa + força"
         },
         {
           "tag": "span",
-          "text": "3 days"
+          "text": "3 dias"
         },
         {
           "tag": "span",
-          "text": "about 49–55 minutes"
+          "text": "cerca de 49–55 minutos"
         },
         {
           "tag": "p",
-          "text": "Why it fits"
+          "text": "Por que combina com você"
         },
         {
           "tag": "span",
-          "text": "Prioritizes Balance muscle and strength."
+          "text": "Prioriza Equilibrar massa e força."
         },
         {
           "tag": "span",
-          "text": "Fits 3 training days, each capped at 60 minutes."
+          "text": "Encaixa em 3 dias de treino, cada um limitado a 60 minutos."
         },
         {
           "tag": "span",
-          "text": "Written for a full commercial gym."
+          "text": "Feito para uma academia comercial completa."
         },
         {
           "tag": "span",
-          "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
+          "text": "Usa Barra, Halteres, Máquina, Cabo, Smith."
         },
         {
           "tag": "span",
-          "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
+          "text": "Progride por Série pesada e séries mais leves · Faixa de repetições · Total de repetições."
         },
         {
           "tag": "button",
-          "text": "Review this program",
-          "name": "Review this program",
+          "text": "Revisar este programa",
+          "name": "Revisar este programa",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
           "type": "button"
         }
       ]
@@ -29462,6 +31026,63 @@
       ]
     },
     {
+      "key": "onboarding-shared/gate__phone-390-light-en-text200",
+      "flow": "onboarding-shared",
+      "screen": "gate",
+      "label": "Shared setup — confirmation gate",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Set up Taurifer",
+          "label": "Set up Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "p",
+          "text": "Strength isn't something you're born with."
+        },
+        {
+          "tag": "p",
+          "text": "Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it."
+        },
+        {
+          "tag": "p",
+          "text": "Your program is ready."
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Program"
+        },
+        {
+          "tag": "button",
+          "name": "Start this program Coach program · 1 day per week",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Start this program"
+        },
+        {
+          "tag": "span",
+          "text": "Coach program · 1 day per week"
+        }
+      ]
+    },
+    {
       "key": "onboarding-shared/gate__phone-390-light-pt",
       "flow": "onboarding-shared",
       "screen": "gate",
@@ -29470,6 +31091,63 @@
       "theme": "light",
       "locale": "pt",
       "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Set up Taurifer",
+          "label": "Set up Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "p",
+          "text": "Strength isn't something you're born with."
+        },
+        {
+          "tag": "p",
+          "text": "Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it."
+        },
+        {
+          "tag": "p",
+          "text": "Your program is ready."
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Program"
+        },
+        {
+          "tag": "button",
+          "name": "Start this program Coach program · 1 day per week",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Start this program"
+        },
+        {
+          "tag": "span",
+          "text": "Coach program · 1 day per week"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-shared/gate__phone-390-light-pt-text200",
+      "flow": "onboarding-shared",
+      "screen": "gate",
+      "label": "Shared setup — confirmation gate",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "text200",
       "motion": "normal",
       "semantic": [
         {

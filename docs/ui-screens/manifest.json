@@ -73,6 +73,13 @@
         "locale": "en",
         "text": "normal",
         "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "pt",
+        "text": "normal",
+        "motion": "normal"
       }
     ],
     "localized": [
@@ -175,6 +182,43 @@
         "viewport": "phone-390",
         "theme": "light",
         "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      }
+    ],
+    "demandingText": [
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "dark",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "pt",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "text200",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "pt",
         "text": "text200",
         "motion": "normal"
       }
@@ -362,7 +406,7 @@
       "flow": "onboarding-recommend",
       "label": "Recommend — recommendation",
       "scenario": "One named recommendation with its factual Why it fits explanation.",
-      "variants": "accessibility"
+      "variants": "demandingText"
     },
     {
       "id": "preview-first-run",
@@ -411,7 +455,7 @@
       "flow": "onboarding-custom",
       "label": "Custom 3 — real week",
       "scenario": "Days per week, session ceiling and preferred rest in the custom route.",
-      "variants": "customAccessibility"
+      "variants": "demandingText"
     },
     {
       "id": "environment",
@@ -425,7 +469,7 @@
       "flow": "onboarding-custom",
       "label": "Custom 5 — muscle priorities",
       "scenario": "Each muscle has one accessible emphasis setting before exercise preferences.",
-      "variants": "customAccessibility"
+      "variants": "demandingText"
     },
     {
       "id": "exercise-preferences",
@@ -488,21 +532,21 @@
       "flow": "onboarding-build",
       "label": "Build — empty days",
       "scenario": "Real empty day containers, Add exercise, Save draft, activation disabled.",
-      "variants": "accessibility"
+      "variants": "demandingText"
     },
     {
       "id": "editor-partial",
       "flow": "onboarding-build",
       "label": "Build — partial draft",
       "scenario": "One populated day and one incomplete day. Activation stays disabled.",
-      "variants": "localized"
+      "variants": "demandingText"
     },
     {
       "id": "editor-ready",
       "flow": "onboarding-build",
       "label": "Build — activation ready",
       "scenario": "A complete manual draft with supported progression and activation enabled.",
-      "variants": "localized"
+      "variants": "demandingText"
     },
     {
       "id": "source",
@@ -516,14 +560,14 @@
       "flow": "onboarding-import",
       "label": "Import — review",
       "scenario": "A mapped exercise with manual progression ownership and provenance.",
-      "variants": "accessibility"
+      "variants": "demandingText"
     },
     {
       "id": "gate",
       "flow": "onboarding-shared",
       "label": "Shared setup — confirmation gate",
       "scenario": "The first-run gate for an incoming setup link. Nothing persists until Start.",
-      "variants": "localized"
+      "variants": "demandingText"
     },
     {
       "id": "preview",
@@ -656,7 +700,7 @@
       "flow": "progress",
       "label": "Progress — Review",
       "scenario": "The mesocycle review surface.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "list",
@@ -670,7 +714,7 @@
       "flow": "history",
       "label": "History — expanded session",
       "scenario": "One session expanded in place.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "list",
@@ -733,7 +777,7 @@
       "flow": "program",
       "label": "Program — share setup link",
       "scenario": "The setup-link share sheet.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "text-export",

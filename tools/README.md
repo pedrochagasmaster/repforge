@@ -390,10 +390,10 @@ node tools/capture-ui-screens.mjs --canonical               # one frame each
 node tools/capture-ui-screens.mjs --keep-going              # report, don't abort
 ```
 
-Set `CATALOG_CONTRACT=1` to run the rendered-copy, document/component-overflow,
-non-overlap, and intentional-scroller contract after each stable production
-scenario. Plan 050 enables the complete matrix after the remaining known layout
-repairs land; its focused EN/PT-BR detector test exercises the same boundary now.
+Every capture runs the rendered-copy, document/component-overflow, non-overlap,
+and intentional-scroller contract after its stable production scenario. The
+manifest's narrow `catalogChecks` metadata documents the only intentional
+scrollers; a marker alone is never an allowance.
 
 A filtered run merges into a copy of the committed catalog, so the folder on
 disk stays complete. Nothing replaces committed evidence until every requested
