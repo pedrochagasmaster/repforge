@@ -1,0 +1,31 @@
+name: Verification evidence
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  verification-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Record real execution and test rejection paths
+        run: node tools/record-verification.mjs --output "$RUNNER_TEMP/verification-recorder.json" -- node --test test/verification-recorder.mjs
+      - name: Upload execution record
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: verification-recorder-${{ github.sha }}
+          path: ${{ runner.temp }}/verification-recorder.json
+          if-no-files-found: error
+          retention-days: 14
