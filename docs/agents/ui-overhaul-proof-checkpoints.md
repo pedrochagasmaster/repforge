@@ -1,7 +1,9 @@
 # First proof checkpoints for the UI overhaul
 
 These checkpoints operationalize existing Plans 049–059. They do not replace
-their acceptance criteria, change the delivery DAG, or resolve held owner gates.
+their acceptance criteria or change the delivery DAG. The approved recovery
+and transfer contracts are fixed; downstream staging, physical-device, and
+landing-asset gates remain where the plans name them.
 Use the [evidence protocol](implementation-evidence.md) in every plan PR.
 Record the actual command and assertion path when its first slice lands.
 
@@ -13,7 +15,9 @@ through `app.js` save/load and `program-compiler.js` structure migration; valida
 transition examples against compiled programs and progression relations. Check
 all consumers and examples from one authoritative contract. Deliberately remove
 structure, duplicate a target, alter a hash preimage, and drift an enum to prove
-the checks reject them. Provider and recovery selections remain owner gates.
+the checks reject them. The selected provider and recovery policy are checked
+as closed Phase 0 contracts; staging and physical-device evidence remain
+downstream gates.
 The existing PR owns these corrections; this workflow creates no competing schema.
 
 ## Plan 050: proven defects and catalog leverage
@@ -49,8 +53,9 @@ contract. Clone an actual normalized device state with log/history, custom
 definitions, active draft, preferences, and consent; compare all logical fields
 after import and reload. Test lost create response, claim/commit crashes, expiry,
 credential loss, and browser divergence. Check exact service/client limits and
-privacy behavior. Provider approval precedes implementation where the plan says
-so. Emulation cannot close the physical iOS handoff gate.
+privacy behavior. The selected Cloudflare/EU contract precedes implementation;
+drift is a STOP condition. Emulation cannot close the physical iOS handoff
+gate.
 
 ## Plan 054: landing and program entry
 
@@ -75,7 +80,8 @@ Use real logs and a known schedule to exercise zero/one/two/three-point evidence
 elapsed-week volume, and current-block versus all-history scope. Test labels
 against calculated denominators. Trace one eligible action through Plan 052's
 proposal/confirmation/archive path; insufficient evidence must not produce that
-proposal. Keep recovery behind its held rule gate and explicit confirmation.
+proposal. Recovery must preserve policy version 2, its explicit confirmation,
+allowlist, and reassessment contract.
 
 ## Plan 057: management surfaces
 

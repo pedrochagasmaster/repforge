@@ -114,13 +114,15 @@ node tools/check-ui-semantic-roles.mjs --check
 
 ## check-recovery-invariants.mjs
 
-Recomputes Candidate Rule B from [`docs/recovery-week-policy.md`](../docs/recovery-week-policy.md)
+Recomputes approved Rule B (policy version 2) from [`docs/recovery-week-policy.md`](../docs/recovery-week-policy.md)
 against the 20 Plan 047 review compilations in
 `test/fixtures/program-families-v1.json`: determinism, optional removal,
 primary-pattern coverage with rescue, and the 40–60% band with the two
 allowlisted known misses pinned (any other miss, or drift in a listed miss,
-fails). Includes a synthetic unit case for the pattern-rescue path, which the
-fixtures never trigger.
+fails). It also checks the exact two-pattern/Yes eligibility gate and negative
+controls for No, Not sure, and insufficient corroboration. Includes a
+synthetic unit case for the pattern-rescue path, which the fixtures never
+trigger.
 
 ```bash
 node tools/check-recovery-invariants.mjs

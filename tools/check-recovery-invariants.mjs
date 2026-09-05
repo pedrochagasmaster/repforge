@@ -1,4 +1,4 @@
-// Verifies Candidate Rule B in docs/recovery-week-policy.md against the 20
+// Verifies approved Rule B (policy version 2) in docs/recovery-week-policy.md against the 20
 // Plan 047 review compilations in test/fixtures/program-families-v1.json:
 //   - deterministic recomputation over compiled slot statuses and sets
 //   - no optional slot retains working sets

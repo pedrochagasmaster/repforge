@@ -1,6 +1,6 @@
 # UI overhaul decision and finding disposition register
 
-- **Version:** 1
+- **Version:** 2
 - **Owner:** Plan 049 (canonical reconciliation)
 - **Consumers:** Plans 050–059 (implementation), Plan 059 (final verification)
 - **Sources:** [`docs/ui-audit.md`](ui-audit.md) (authoritative product direction),
@@ -89,8 +89,8 @@ names Plan 057 the finding owner); both record their rationale inline.
 | G-52 | split | 050 | 054 | Visible 2x2 muscle choices resilient at enlarged text |
 | G-53 | split | 052 | 056 | Diagnose fewer days versus long sessions |
 | G-54 | split | 052 | 056 | Separate protected permanent volume reduction |
-| G-55 | split | 049 | 052, 056 | Volume-only week-one recovery; exact constants are owner-gated (slice 4) |
-| G-56 | split | 049 | 052, 056 | Stagnation/decline plus recovery-check evidence; corroboration input specified in slice 4 |
+| G-55 | split | 049 | 052, 056 | Volume-only week-one recovery under approved policy version 2; exact constants and rescue are closed there |
+| G-56 | split | 049 | 052, 056 | Maintained/declined evidence across two canonical patterns plus the policy-version-2 recovery checkpoint |
 | G-57 | split | 049 | 058 | Plex Sans/Mono jobs and bounded scale, slice 2 |
 | G-58 | split | 049 | 058, 059 | Paper backgrounds preserved in dark; 059 verifies |
 | G-59 | split | 050 | 059 | Risk-based language/text matrix and every-state overflow gate |
@@ -104,8 +104,8 @@ names Plan 057 the finding owner); both record their rationale inline.
 | G-67 | split | 055 | 057, 058 | Orange live timer progress with neutral controls |
 | G-68 | implemented | 057 | — | Explicit History Save/Cancel with isolated Delete |
 | G-69 | split | 054 | 055, 056, 057 | Lifecycle guide coverage: first set, utilities, Progress, transition, backup, install |
-| G-70 | split | 049 | 052, 056 | Recovery minimums policy; exact allocation rule is owner-gated (slice 4) |
-| G-71 | split | 049 | 053, 054 | One-hour backend transfer with atomic import; provider ownership is owner-gated (slice 5) |
+| G-70 | split | 049 | 052, 056 | Recovery minimums and first-stable-slot rescue are closed by policy version 2 |
+| G-71 | split | 049 | 053, 054 | One-hour Cloudflare/EU Durable Object transfer with atomic import and selected operations contract |
 | G-72 | implemented | 054 | — | Milestone install cadence with increasing cooldown |
 | G-73 | implemented | 054 | — | Complete ethos passage removed |
 | G-74 | split | 049 | 050, 058, 059 | WCAG 2.2 AA by rendered role; no blanket token swap |
@@ -184,7 +184,7 @@ if any reappears as a requirement. Transcribed from the sequence document.
 
 | Gate | State | Blocking |
 |---|---|---|
-| Transfer provider, region, key ownership, deletion mechanism, operations owner, and privacy disclosure | Open; specified as unresolved in slice 5 | Transfer implementation in Plan 053 and the established-data offer in Plan 054 |
-| Recovery-week deterministic rounding, allocation, optional-work ties, and primary-pattern rule | Open; candidate rule presented in slice 4 | Recovery implementation in Plans 052/056 |
+| Transfer provider, region, key ownership, deletion mechanism, operations owner, and privacy disclosure | Closed in Phase 0: Cloudflare Workers, EU-jurisdiction SQLite Durable Objects, token-derived server-side AEAD, owner-operated controls, and exact disclosure | Transfer implementation in Plan 053 and the established-data offer in Plan 054; staging/device evidence remains downstream |
+| Recovery-week deterministic rounding, allocation, optional-work ties, and primary-pattern rule | Closed in policy version 2: Rule B, primary-pattern rescue, two allowlisted misses, exact eligibility, and reassessment outcomes | Recovery implementation in Plans 052/056; future out-of-band versions require a new version-specific decision |
 | Landing mini-interface direction (G-51) | Open; recorded for Plan 054 | Production landing preview asset and markup |
 | Phase phone reviews and physical-device sign-off | Open; recorded for Plans 053–059 | Respective plan completion and the public-launch gate |

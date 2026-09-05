@@ -236,16 +236,22 @@ a schema ad hoc.
 | Install-transfer clone and import marker | 053 | 054 (promotion) | 053 → 054 |
 | Entry candidate draft and activation | 048 (existing) | 052/056 (transition adapter boundary), 057 (repair routes) | Provenance first, entry UI second, repair consumers last |
 
-## Recovery-week experiment (owner-gated)
+## Recovery-week experiment
 
 Recovery is a versioned week-one schedule overlay governed by
 [`docs/recovery-week-policy.md`](../recovery-week-policy.md): eligibility on
-`maintained`/`declined` evidence plus checkpoint recovery input, base-versus-
-effective preview with explicit confirmation, optional work removed first,
-ordinary `minSets` crossable under the named policy, at least one working set
-per primary pattern, week-two canonical restoration, and reassessment with no
-automatic repeat. It never mutates progression-engine arithmetic. The exact
-rounding, allocation, tiebreak, and primary-pattern constants are an explicit
-⛔ owner gate: until the selection is recorded in the policy, no
-`recovery_week` transition record may be written and Plans 052/056 stop at
-that gate.
+`maintained`/`declined` evidence across at least two of the three canonical
+primary patterns (`knee-dominant`, `horizontal press`, and `hip/hinge`) plus a
+local `Yes` answer to “During this block, did recovery feel worse than usual
+often enough to affect your training?”. The closed answers are `Yes`, `No`,
+and `Not sure`; only `Yes` qualifies. The answer has no free text or diagnosis.
+The base-versus-effective preview requires explicit confirmation, removes
+optional work first under approved Rule B, may cross ordinary `minSets`, keeps
+each primary pattern represented, and restores the canonical prescription in
+week two. After week one, record `Better`, `About the same`, or `Worse`.
+`About the same` and `Worse` route to ordinary Review with no automatic
+mutation. Recovery never extends or repeats in the same block and can be
+considered again only at a future block boundary with fresh evidence and a
+fresh `Yes`. Policy version 2 is closed; future program versions outside
+40–60% remain ineligible until a version-specific owner allowlist or policy
+change. The overlay never mutates progression-engine arithmetic.

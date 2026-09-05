@@ -1,6 +1,7 @@
 # Temporary iOS install transfer is a one-hour encrypted exception
 
-- **Status:** Specification accepted; deployment ⛔ BLOCKED on the owner gate below
+- **Status:** Specification accepted; provider and operations selected for Plan
+  053 implementation. Staging and physical-device evidence remain future gates.
 - **Contract owner:** Plan 049 (this ADR); implementer Plan 053; promotion
   consumer Plan 054; evidence consumer Plan 059
 - **Governing decisions:** G-07, G-39, G-48, G-71, G-84–G-88
@@ -19,15 +20,51 @@ platform, and no later plan may widen it without a new owner decision.
 Field names, state machines, and transport rules below are identical to Plan
 053's; Plan 053 implements them and must not rename them.
 
-## ⛔ Owner gate (open)
+## Selected provider and operations contract
 
-The infrastructure provider, region/data residency, datastore, encryption-key
-owner, expiry mechanism, alert owner, cost ceiling, incident/kill-switch
-authority, and the approved user-facing privacy disclosure are unresolved.
-Plan 053 must not implement and Plan 054 must not offer the established-data
-transfer until the owner records them here. A Cloudflare Worker plus a durable
-strongly consistent store is a suitable shape only if the owner approves it;
-do not infer provider authorization from the repository's static hosting.
+The approved implementation uses Cloudflare Workers with EU-jurisdiction
+SQLite Durable Objects. Each transfer has one Durable Object. Global Cloudflare
+edge ingress is accepted. Durable storage and Durable Object processing remain
+in the EU. Request bodies, bearer tokens, clone URLs, and full URLs are never
+written to logs. The Privacy page names the global edge handling and the
+temporary EU processing boundary.
+
+The Taurifer owner initially owns billing, key and pepper configuration, alert
+and watchdog health, incident response, and the transfer kill switch. The
+service uses a $10 USD/month operating threshold for **new creates**. Billing
+data can lag, so this is an operating threshold rather than a promised hard
+cap. At the threshold, the service fails new creates and alerts the owner. It
+continues claims, status, commit, and purge during a small overrun so existing
+transfers can recover. The owner must approve any threshold increase.
+
+New creates fail closed when deletion latency is uncertain, the alarm or
+watchdog is unhealthy, or key, configuration, or sensitive-log health is
+uncertain. Existing claim, status, commit, and purge paths remain available
+for safe recovery. The owner re-enables creates manually only after the runbook
+proves the deletion deadlines, purge path, alarms, configuration, and absence
+of sensitive logging.
+
+Public incident notice is required for a confirmed token or payload exposure,
+decryptable retention beyond the stated promise, or a material processor
+breach. Routine unavailability and harmless lag for ciphertext that is already
+unreadable do not require a public notice. Legal notification duties still
+apply.
+
+## Pre-transfer disclosure
+
+Before **Install and transfer**, show a short summary that names Cloudflare and
+states:
+
+- Cloudflare temporarily stores and processes the transfer in the EU.
+- Global Cloudflare edge ingress can handle the request before EU Durable
+  Object processing.
+- The action requires a network connection.
+- A live encrypted copy can exist for up to one hour.
+- The original Safari data remains on the device.
+- The cached Privacy page contains the full details.
+
+The summary is part of the explicit action. The Privacy page is the complete
+disclosure, not the system share message.
 
 ## Deployment boundary
 
@@ -670,10 +707,34 @@ The bearer token travels in request bodies only, never in a URL path, query
 string, fragment, or loggable surface. URL shapes below are exact; an
 implementation may not move the token into the path.
 
+### Token-derived server-side encryption
+
+The service generates a one-time token with at least 256 bits of cryptographic
+randomness. It derives the per-transfer AES-256-GCM key with HKDF-SHA-256 from
+the token bytes, a fresh random salt, and domain-separated information that
+includes the transfer-encryption protocol version. The service may store the
+random salt, nonce, and associated data with the ciphertext. It stores only a
+keyed token digest for lookup. It returns the token once, keeps neither the
+token nor the derived encryption key after the request, and never stores the
+derived key.
+
+A long-lived HMAC pepper may authenticate token and IP digests. That pepper is
+not an encryption key and cannot decrypt a clone. AES-GCM authenticates the
+schema, transfer identifier, creation time, expiry, and protocol version as
+associated data. A restored Cloudflare recovery image may contain ciphertext,
+salt, nonce, and associated data for up to 30 days, but the image alone cannot
+decrypt the ciphertext after the live token and derived key have been discarded.
+
+This is server-side encryption, not end-to-end encryption. Cloudflare
+transiently sees plaintext while it validates and creates the encrypted record
+and while it decrypts a claimed record for the installed client. The browser
+and service use TLS in transit. Intentional Safari and installed-app local
+copies remain outside remote deletion.
+
 1. `POST /v1/transfers` with `{envelope, idempotencyKey}`: validate envelope
-   and size, assign `expiresAt <= serverNow + 60 minutes`, encrypt with AEAD
-   (per-record nonce, managed key version, schema/creation/expiry as
-   associated data), store only a keyed token digest alongside the
+   and size, assign `expiresAt <= serverNow + 60 minutes`, derive the
+   token-bound AES-256-GCM key, encrypt with a per-record nonce and stored
+   random salt, and store only a keyed token digest alongside the
    idempotency key, and return the plaintext opaque token plus absolute
    expiry exactly once — on first creation only. A retry carrying a known
    idempotency key while its record is still live returns
@@ -721,9 +782,17 @@ available ──claim──▶ claiming ──commit──▶ deleted
 
 Responses use TLS, strict origin/CORS, `Cache-Control: no-store`, no
 redirect, bounded bodies, and rate limiting. AEAD tamper failure, unique
-nonces, entropy, and key rotation across the maximum lifetime are tested;
+nonces, entropy, and token-key disposal across the maximum lifetime are tested;
 structured logs and traces must contain no token, claim ID, ciphertext,
 envelope fields, or request body.
+
+Create abuse control uses a separate short-lived rate-limit Durable Object.
+Each bucket is keyed by an HMAC of the client IP with the rotating long-lived
+pepper. The service never stores a raw IP, links a bucket to a transfer or
+token, or keeps a bucket longer than two minutes. The exact create limit is
+five requests per minute per IP. Claim, commit, and status limits are
+sixty requests per minute per token. Pepper rotation invalidates old bucket
+keys without changing transfer decryption.
 
 ## Threat model
 
@@ -737,13 +806,13 @@ specified. Residual risk is accepted and disclosed, never defined away.
 | T-03 | Replay or a second claimant | Atomic `available → claiming → deleted`, with uncommitted claims expiring into `claimed-expired`; bound claim retries only until commit or expiry |
 | T-04 | Log, referrer, or trace leakage of bearer, clone, or envelope fields | Ban from logs, analytics, error tracking, referrers, foreign URLs, fixtures, screenshots; sealed local credentials; redacted static-host logs |
 | T-05 | Malicious or stale tabs racing create, claim, or resume | Claim-ID binding; source operation lock; validate-before-touch; versioned import marker; cross-tab freeze |
-| T-06 | Service or operator access to the clone | Minimal one-hour retention; commit-verified deletion; explicit no-E2EE disclosure; kill switch and purge runbook |
+| T-06 | Service or operator access to the clone | Token-derived server-side AEAD; Cloudflare transient plaintext access is disclosed; minimal one-hour retention; commit-verified deletion; kill switch and purge runbook |
 | T-07 | Oversized or malformed payloads and envelopes | Schema/depth/size bounds enforced before and during parsing; unknown required versions fail closed |
 | T-08 | Cross-origin requests | Exact-origin CORS; content-type enforcement; no redirects |
 | T-09 | Interrupted create, claim, import, or commit | Pre-request outbound marker with phase-specific fields; same-key create dedupe (duplicate returns expiry without the token); same-claim retry; two-sided sealed markers; boot finish-or-restore; idempotent remote commit retry |
 | T-10 | Clock skew between client, server, and expiry job | Absolute server-issued expiry; skew-tolerant acceptance window documented by the implementer; server clock owns expiry |
-| T-11 | Expiration backlog or purge failure | Expiry-job monitoring with deletion-latency bounds; alarm and kill switch; manual purge runbook; no new creates until retention is healthy |
-| T-12 | Encryption-key compromise or rotation gap | Managed rotation; old keys retained only through the maximum live-record window; creation disabled rather than serving undecryptable data |
+| T-11 | Expiration backlog or purge failure | Expiry-job monitoring with deletion-latency bounds; alarm and kill switch; manual purge runbook; no new creates while deletion health is uncertain |
+| T-12 | Token-derived-key compromise or disposal gap | The service keeps the token and derived key only in request memory; recovery images may retain ciphertext for up to 30 days, but cannot decrypt it without the discarded token; creation is disabled if key/config health is uncertain |
 | T-13 | Sealed commit-credential loss (key wiped, profile reset) | Unrecoverable by design; 60-minute expiry plus purge backstop; local data never at risk; fresh-transfer user guidance |
 | T-14 | Status-polling oracle or unknown-outcome confusion | Status returns state plus expiry only, to the bearer holder alone; every indeterminate outcome — Safari-outbound credential loss, poll exhaustion, service failure, or status unavailability — routes into the non-silent G-88 divergence-warning path, never a silent browser continue (installed-inbound credential loss is the separate deletion-retry fault, not an unknown outcome) |
 
@@ -776,10 +845,12 @@ controls, stated here so no later document can soften it:
   and the transfer operator (encrypted clone, claim behavior) can each
   observe what they handle. Do not claim end-to-end encryption unless the
   server truly cannot decrypt.
-- Operational requirement (part of the owner gate): static-host access logs
-  covering transfer-period requests must have a bounded retention with
-  `Cookie` values stripped or redacted, plus a manual purge runbook. No new
-  transfer creation until log retention is healthy.
+- Operational requirement: static-host and Cloudflare edge access logs covering
+  transfer-period requests have bounded retention with `Cookie`, request-body,
+  token, and full-URL values stripped or redacted, plus a manual purge runbook.
+  The service fails new creates when log health is uncertain. The Privacy page
+  names global edge ingress and the EU Durable Object boundary; it does not
+  claim that Cloudflare never sees the data.
 - The user-facing disclosure names the temporary copy, its one-hour life,
   commit-verified deletion, token-cookie transport including static-host
   receipt, Safari retention, and recovery/divergence behavior.
@@ -940,29 +1011,68 @@ size/content, program identity, or readiness data.
 
 ## Privacy disclosure checklist
 
-Privacy copy must say what is temporarily copied, why, who processes it
-(static host sees the token header; the transfer service processes the
-encrypted clone), encryption in transit and at rest, one-time claim,
-commit-verified or one-hour deletion, token-cookie transport, Safari status polling,
-sealed local commit credentials and their wipe rules, original Safari
-retention, recovery-snapshot/divergence behavior, and how telemetry
-identity/consent carry over. It must distinguish the two retention windows
-honestly: the clone ciphertext dies by minute 60, while the payload-free
-tombstone (token digest, terminal state, original expiry) remains until
-minute 75 so the creating Safari can learn the outcome. It must state the
-residual pre-claim token theft window honestly. No payload or token appears
-in logs, error tracking, analytics, URLs, clipboard by default, catalog
-fixtures, or support screenshots.
+The cached Privacy page is the full user disclosure. It names Cloudflare and
+states all of the following:
+
+- The logical clone includes normalized durable program and workout state,
+  history, archive and provenance, the active DraftV2 section, the unfinished
+  program-entry candidate section, UI preferences, analytics consent, and the
+  stable telemetry identity. Volatile locks, journals, transaction markers,
+  cookies, permissions, cache state, and provider session state are excluded.
+- Cloudflare transiently sees plaintext while it validates and creates the
+  record and while it claims and returns the clone. The transfer uses TLS and
+  token-derived server-side AES-256-GCM. It is not end-to-end encryption.
+- The service never stores the one-time token or its derived encryption key.
+  It stores the token digest, ciphertext, nonce, associated data, and allowed
+  random salt. A Cloudflare recovery image may retain ciphertext for up to 30
+  days, but a restored image alone cannot decrypt it after expiry.
+- The live ciphertext is deleted after verified local import and commit, or no
+  later than minute 60. A payload-free tombstone containing only the token
+  digest, terminal state, and original expiry remains through minute 75.
+- The transfer requires a network connection. Global Cloudflare edge ingress
+  can handle the request before durable storage and Durable Object processing
+  in the EU. The static-host handoff cookie carries only the opaque token and
+  is sent with the matching HTML request.
+- Create abuse counters use HMAC-derived IP buckets in a separate rate-limit
+  Durable Object. The buckets last no more than two minutes, store no raw IP,
+  and are not linked to a transfer or token.
+- Safari keeps its original local data. After a verified import, Safari enters
+  recovery-snapshot mode. Unknown outcomes require the explicit divergence
+  warning before browser use resumes. Browser and installed changes never
+  synchronize.
+- Analytics consent, telemetry identity, and UI preferences transfer with the
+  logical clone. This transfer is neither an account nor synchronization.
+
+The page also states that intentional Safari and installed-app local copies
+remain on their devices. It never claims end-to-end encryption, that Cloudflare
+never sees the data, or that all copies are deleted within one hour. It never
+places a token, payload, clone field, or full URL in logs, analytics, error
+tracking, referrers, screenshots, or support fixtures.
 
 ## Operations
 
-The implementer documents expiry-job monitoring, deletion latency, key
-rotation, incident handling, cost and retention bounds, and a feature kill
-switch that removes the promotion and the action without stranding local
-data. The purge path covers tombstones past the 15-minute margin as well as
-ciphertext. A service outage never blocks ordinary browser use, setup links,
-backups, or manual installation. Service-worker fetch handlers never cache
-transfer requests or responses.
+The owner monitors the expiry deadline, deletion latency, purge job, alarms,
+watchdog, key and pepper configuration, and sensitive-log redaction. The
+$10/month threshold applies to new creates. Billing lag means the threshold
+is not a hard cap. At the threshold, new creates fail and alert the owner;
+claims, status, commit, and purge continue during a small overrun. The owner
+raises the threshold only by explicit approval.
+
+The service fails new creates when retention, alarm/watchdog, key/config, or
+log health is uncertain. Manual re-enable requires a runbook check for
+deletion deadlines, purge completion, alarms, configuration, and clean logs.
+The purge path covers ciphertext by minute 60 and tombstones through minute
+75. It also accounts for Cloudflare recovery images that can retain ciphertext
+for up to 30 days without retaining the token-derived decryption key.
+
+The owner publishes an incident notice for confirmed token or payload exposure,
+decryptable retention past the promise, or a material processor breach. A
+routine outage or lag for ciphertext that is already unreadable does not by
+itself trigger a public notice, subject to legal duties. The kill switch
+removes new promotion and creation without stranding local data. A service
+outage never blocks ordinary browser use, setup links, backups, or manual
+installation. Service-worker fetch handlers never cache transfer requests or
+responses.
 
 ## Specified UI states (no visual design)
 

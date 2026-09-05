@@ -829,6 +829,9 @@ strategy, modifier, or block profile. The engines above are unchanged: no
 strategy branch, no target mutation, no automatic deload. A confirmed recovery
 writes a `recovery_week` transition record under
 [`docs/block-transition-provenance.md`](block-transition-provenance.md) with
-its evidence snapshot and policy version. The exact allocation constants are
-owner-gated in that policy; until selected, no recovery-week record may be
-written.
+its evidence snapshot and policy version. Policy version 2 closes the
+allocation constants, eligibility checkpoint, allowlisted fixture misses, and
+reassessment outcomes. An implementation must reject an unreviewed program
+version outside the 40–60% band; it must not clamp the percentage or silently
+reinterpret the policy. A future version-specific decision may extend the
+allowlist only at a future block boundary.

@@ -6,8 +6,8 @@
 - **Specified by:** Plan 049; later changes require a versioned Phase 0
   amendment, never ad hoc renderer fields
 - **Companion contracts:** [`docs/program-entry-flow.md`](program-entry-flow.md)
-  (activation boundary), `docs/recovery-week-policy.md` (recovery-week
-  overlay allocation; owner-gated), [ADR 0012](adr/0012-ui-overhaul-canonical-reconciliation.md)
+  (activation boundary), `docs/recovery-week-policy.md` (approved recovery-week
+  overlay allocation), [ADR 0012](adr/0012-ui-overhaul-canonical-reconciliation.md)
   (workout-truth and ownership rules)
 
 Every structural program change writes one immutable transition record
@@ -1717,8 +1717,9 @@ transition. Array order is therefore total, not incidental:
 
 Recovery changes no program: there is no successor activation, only an
 overlay linked from `diff.recoveryWeek` that Week two ignores. Allocation
-follows `docs/recovery-week-policy.md`; until the owner selects the rule,
-`proposeRecoveryWeek` stays disabled and no overlay is written.
+follows policy version 2 in `docs/recovery-week-policy.md`. The proposal is
+disabled for ineligible evidence or an unreviewed program version outside the
+40–60% band. The implementation never clamps a percentage or changes Rule B.
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -1727,38 +1728,44 @@ follows `docs/recovery-week-policy.md`; until the owner selects the rule,
 | `transitionId` | string | Parent transition record (`kind: recovery_week`) |
 | `blockId` | string | Target block identity |
 | `activePeriod` | `nextBlockWeek1` | Only valid period |
-| `eligibilityEvidence` | object | `maintained`/`declined` evidence plus checkpoint recovery input |
+| `eligibilityEvidence` | object | Sufficient `maintained`/`declined` evidence across at least two of `knee-dominant`, `horizontal press`, and `hip/hinge`, plus `checkpointAnswer: "Yes"` for the closed recovery question. The object has no free text or diagnosis |
 | `baseProgramFingerprint` | string | Canonical program the overlay renders against |
 | `entries` | array | Per-slot `{slot, movement, movementPattern, baseWorkingSets, effectiveWorkingSets, removedOptionalFirst, reason}`: `slot` is the stable program slot identity (compiler `slotId`), `movement` the library/custom movement ID, `movementPattern` the first-listed template pattern token (coverage is evaluated over the canonical knee-dominant, hip/hinge, and horizontal-press classes). Repeated movements in different slots — e.g. a protected and a reducible leg-press slot — must never share an entry |
 | `createdAt` | timestamp | Proposal creation time |
 | `confirmedAt` | timestamp | Explicit user-confirmation time |
 | `reassessmentDueAt` | timestamp | Reassessment point after week one; no automatic repeat |
+| `reassessmentOutcome` | null | enum | `null` until week one ends, then one of `Better`, `About the same`, or `Worse`; `About the same` and `Worse` route to ordinary Review without automatic mutation |
 
 ### Example overlay entry set (shape-exact)
 
 ```json
 {
   "schemaVersion": 1,
-  "policyVersion": 1,
+  "policyVersion": 2,
   "transitionId": "tr_01J9Z8X7C6V5B4N3M9",
   "blockId": "block_local_k2",
   "activePeriod": "nextBlockWeek1",
-  "eligibilityEvidence": { "outcome": "maintained", "checkpointRecoveryInput": "high-life-stress" },
+  "eligibilityEvidence": {
+    "outcomesByPattern": { "knee-dominant": "maintained", "horizontal press": "declined" },
+    "qualifyingPatterns": ["horizontal press", "knee-dominant"],
+    "checkpointAnswer": "Yes"
+  },
   "baseProgramFingerprint": "fp9f2c41",
   "entries": [
-    { "slot": "growth_2_d1_s1", "movement": "library:sq_lp", "movementPattern": "squat", "baseWorkingSets": 3, "effectiveWorkingSets": 2, "removedOptionalFirst": false, "reason": "protected-ceil" },
-    { "slot": "growth_2_d2_s4", "movement": "library:sq_lp", "movementPattern": "leg_extension", "baseWorkingSets": 3, "effectiveWorkingSets": 1, "removedOptionalFirst": false, "reason": "reducible-floor" },
+    { "slot": "growth_2_d1_s1", "movement": "library:sq_lp", "movementPattern": "knee-dominant", "baseWorkingSets": 3, "effectiveWorkingSets": 2, "removedOptionalFirst": false, "reason": "protected-ceil" },
+    { "slot": "growth_2_d2_s4", "movement": "library:sq_lp", "movementPattern": "knee-dominant", "baseWorkingSets": 3, "effectiveWorkingSets": 1, "removedOptionalFirst": false, "reason": "reducible-floor" },
     { "slot": "growth_2_d1_s6", "movement": "library:cu_cb", "movementPattern": "curl", "baseWorkingSets": 2, "effectiveWorkingSets": 0, "removedOptionalFirst": true, "reason": "optional-removed" }
   ],
   "createdAt": "2026-10-01T09:00:00.000Z",
   "confirmedAt": "2026-10-01T09:12:00.000Z",
-  "reassessmentDueAt": "2026-10-08T09:00:00.000Z"
+  "reassessmentDueAt": "2026-10-08T09:00:00.000Z",
+  "reassessmentOutcome": null
 }
 ```
 
 `reason` values are rule mechanics (`optional-removed`, `protected-ceil`,
-`reducible-floor`, `pattern-rescue`); the allocation rule that produces them
-is the open owner gate in the recovery policy.
+`reducible-floor`, `pattern-rescue`). Policy version 2 defines the allocation
+and the stable first-slot coverage rescue.
 
 ## Proposal lifecycle
 
@@ -1799,7 +1806,7 @@ is the open owner gate in the recovery policy.
 | Preview open while another tab replaces the program | Commit rejects the stale proposal hash; status becomes `stale`; user reviews a regenerated proposal |
 | Crash between archive write and successor activation | Boot completes the atomic transaction or restores the pre-commit state; partial visibility is prohibited |
 | Unknown `schemaVersion` on read | Fail closed; existing program and history untouched |
-| `kind` is `recovery_week` without an approved allocation rule | Refuse the proposal; record the gate, do not invent constants |
+| `kind` is `recovery_week` without policy version 2 or with ineligible evidence | Refuse the proposal; do not invent constants |
 | Confirmation hash differs from preview hash | Reject; preview and commit must be the same immutable proposal |
 | Duplicate confirmation | Idempotent on transition ID plus proposal hash; exactly one archive entry |
 | Corrupt or unknown recovery overlay | Render the canonical prescription with an explicit recoverable warning; retain raw evidence |

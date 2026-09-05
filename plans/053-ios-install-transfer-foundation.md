@@ -6,7 +6,10 @@ and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkp
 - **Plan number:** 053
 - **Phase:** 2C — State and lifecycle foundations
 - **Status:** Planned; implementation has not started
-- **Owner approval state:** One-hour encrypted one-time transfer is approved; provider/operations selection remains gated if Plan 049 does not resolve it
+- **Owner approval state:** One-hour transfer, Cloudflare provider, EU Durable
+  Object boundary, token-derived encryption, operations, incident rules, and
+  privacy disclosure are approved. Staging and physical-device evidence remain
+  implementation gates.
 - **Depends on:** Plan 049 clone/threat/endpoint contract and privacy reconciliation; Plan 051 DraftV2 before final clone integration
 - **Blocks:** Plan 054 install promotion/late-transfer UX and Plan 059 installed-device acceptance
 - **Governing G decisions:** G-07, G-39, G-48, G-71–G-72, G-84–G-88
@@ -30,6 +33,11 @@ This exception must be implementable without turning Taurifer into a hosted acco
 - Permit only one claimant, while allowing the same interrupted claim to retry safely.
 - Import atomically. Retain original Safari data. After success, make Safari a recovery snapshot and warn explicitly before browser resume.
 - Emit consent-respecting `late_install_transfer` under the preserved identity and distinguish browser/standalone context.
+
+Cloudflare Workers receive global edge ingress and use EU-jurisdiction SQLite
+Durable Objects for durable transfer records and processing. Each transfer has
+one Durable Object. The edge boundary is disclosed; request bodies, tokens,
+payloads, and full URLs are excluded from logs.
 
 ## Preserved strengths
 
@@ -62,7 +70,26 @@ Preserve ordinary static/offline/local-first Taurifer, user ownership/export, se
 
 Create an isolated `services/install-transfer/` project with its own manifest, tests, deployment/runbook, and lockfile if the selected provider requires dependencies. Do not add a root package manager or application dependency. The service has one purpose and one encrypted record type. It cannot query by user/installation, list transfers, retain payload history, or become a general state endpoint.
 
-Phase 049 records provider, region, datastore, encryption-key owner, expiry mechanism, alert owner, and kill switch. A Cloudflare Worker plus a durable strongly consistent store is a suitable shape only if the owner approves it; do not infer provider authorization from the repository's static hosting.
+The selected deployment is Cloudflare Workers with one EU-jurisdiction SQLite
+Durable Object per transfer. Global Cloudflare edge ingress is accepted while
+durable storage and Durable Object processing remain in the EU. The Taurifer
+owner owns billing, key and HMAC-pepper configuration, expiry alerts and
+watchdogs, incidents, and the kill switch. The Privacy page names Cloudflare,
+the edge boundary, and the EU processing boundary.
+
+The operating threshold is $10 USD/month for new creates. Billing data can lag,
+so this threshold is not a hard cap. At the threshold, fail new creates and
+alert the owner. Continue claims, status, commit, and purge during a small
+overrun so existing transfers can recover. Raise the threshold only after
+owner approval.
+
+Fail new creates when deletion lag, alarms/watchdogs, key/configuration health,
+or sensitive-log health is uncertain. Keep existing claim, status, commit, and
+purge recovery available. Manual re-enable requires a runbook proof of
+deadlines, purge, alarms, configuration, and clean logs. Public notice covers
+confirmed token or payload exposure, decryptable retention beyond the promise,
+or a material processor breach. Routine unavailability and lag for unreadable
+ciphertext do not by themselves require public notice, subject to legal duties.
 
 Add a dependency-free browser module such as `install-transfer.js` loaded before `app.js`. It owns envelope construction/validation, API calls, handoff-token parsing, claim state, and browser recovery-snapshot markers. Storage mutation stays in the existing state persistence adapter.
 
@@ -100,12 +127,27 @@ Normalization removes `_storageRevision`, `_storageFollowUp`, `_storageDraftTran
 
 Use Phase 049's endpoint semantics:
 
-- Create validates envelope/size, assigns `expiresAt <= serverNow + 60 minutes`, encrypts with authenticated encryption, stores only a keyed token digest, and returns the plaintext opaque token once.
+- Create validates envelope/size, assigns `expiresAt <= serverNow + 60 minutes`, generates a 256-bit one-time token, derives an AES-256-GCM key with HKDF-SHA-256 using domain-separated info and a stored random salt, stores only ciphertext/nonce/associated data/salt plus a keyed token digest, and returns the plaintext token once.
 - Claim atomically changes `available` to `claiming(claimId)`. The bound claim ID can retry; every other claim receives a generic unavailable response.
 - Commit/delete accepts the bound claim and deletes ciphertext immediately. A minimal non-sensitive tombstone retains only token digest, terminal state, and original expiry to communicate one-time/recovery status; it contains no clone or identity and is purged after the 15-minute tombstone margin. A `claiming` record whose commit never arrives expires into `claimed-expired` (import possibly complete); `expired` strictly means never claimed.
 - An independent expiry process deletes ciphertext at/before 60 minutes even when the client never returns. Monitor the oldest live record and deletion lag.
 
-Tokens have at least 256 random bits and are never stored plaintext. Claim IDs are independent 128+-bit random values. Responses use TLS, strict origin/CORS, `Cache-Control: no-store`, no redirect, uniform invalid/expired/claimed shape, bounded bodies, rate limiting, and no sensitive log fields. Use AEAD with per-record nonce and managed key version; authenticate schema/creation/expiry as associated data.
+The service keeps neither the token nor the derived encryption key after the
+request. A long-lived HMAC pepper may authenticate token and IP digests but
+cannot decrypt a clone. Cloudflare transiently sees plaintext during create
+and claim. A restored provider image may retain ciphertext for up to 30 days,
+but the image alone cannot decrypt it after the token and derived key are
+discarded. Claim IDs are independent 128+-bit random values. Responses use
+TLS, strict origin/CORS, `Cache-Control: no-store`, no redirect, uniform
+invalid/expired/claimed shape, bounded bodies, rate limiting, and no sensitive
+log fields. Authenticate schema, transfer identity, creation, expiry, and
+protocol version as associated data.
+
+Create rate limiting uses a separate short-lived Durable Object keyed by
+HMAC(IP). The service stores no raw IP and links no bucket to a transfer or
+token. Buckets last no more than two minutes. The exact limits are 5/min/IP
+for create and 60/min/token for claim, commit, and status. Pepper rotation
+changes authentication buckets without changing transfer decryption.
 
 ### iOS handoff
 
@@ -214,7 +256,34 @@ Required cases:
 
 ## Privacy
 
-Privacy copy must say what is temporarily copied, why, who processes it, encryption in transit/at rest, one-time claim, commit-verified/one-hour clone deletion, the payload-free tombstone's longer lifetime (original expiry plus the 15-minute margin), token cookie transport, original Safari retention, recovery-snapshot/divergence behavior, and how telemetry identity/consent carry over. It must not claim end-to-end encryption unless the server truly cannot decrypt. No payload/token appears in logs, error tracking, analytics, URLs, clipboard by default, catalog fixtures, or support screenshots.
+Before **Install and transfer**, show a short summary that names Cloudflare and
+states EU temporary storage and processing, global edge ingress as applicable,
+the network requirement, a live encrypted copy for up to one hour, original
+Safari retention, and a link to the cached Privacy page.
+
+The cached Privacy page is the complete disclosure. It states the exact clone
+allowlist: normalized durable program and workout state, history, archive and
+provenance, DraftV2, the unfinished program-entry candidate, UI preferences,
+analytics consent, and stable telemetry identity. It states that volatile
+locks, journals, transaction markers, cookies, permissions, cache state, and
+provider session state are excluded.
+
+The page names Cloudflare and states that Cloudflare transiently sees plaintext
+during create and claim. It explains token-derived server-side AES-256-GCM,
+HKDF-SHA-256, the never-stored token-derived key, verified-import-or-minute-60
+live deletion, the payload-free tombstone through minute 75, and Cloudflare
+recovery images that may retain ciphertext for up to 30 days without a
+decryptable token or key. It states that the static-host cookie carries only
+the token, global edge ingress can precede EU Durable Object processing, and
+HMAC-derived IP counters use no raw IP and last no more than two minutes.
+
+It explains Safari divergence and recovery-snapshot behavior, transferred
+analytics consent, telemetry identity, and UI preferences, and that transfer
+is neither an account nor synchronization. It must not claim end-to-end
+encryption, that Cloudflare never sees the data, or that all copies are
+deleted within one hour. No payload/token appears in logs, error tracking,
+analytics, URLs, clipboard by default, catalog fixtures, or support
+screenshots.
 
 ## Telemetry
 
@@ -225,7 +294,9 @@ Emit `late_install_transfer` only after verified local import and according to t
 ### Service contract/security
 
 - Create/idempotency, claim bind/retry, competing/duplicate claim, commit-verified delete, 60-minute ciphertext expiry, tombstone retention through the 15-minute polling margin, uniform invalid response, size/schema/CORS/content-type/rate limits.
-- AEAD tamper failure, unique nonces, token digest-only storage, entropy test, key rotation across maximum lifetime.
+- AEAD tamper failure, unique nonces, token digest-only storage, entropy test,
+  HKDF domain separation, derived-key disposal, and recovery-image
+  non-decryptability after expiry.
 - Assert structured logs/traces contain no token, claim ID, ciphertext, envelope fields, or request body.
 - Fake-clock expiry/deletion-lag tests and operational purge/kill-switch rehearsal.
 
@@ -249,14 +320,18 @@ Use a local fake service for deterministic browser CI and the approved staging s
 
 ## Owner gates
 
-1. Plan 049 must record provider, region, key/operations owner, expiry/deletion SLA, cost ceiling, and incident/kill-switch authority.
-2. Owner must review the exact temporary-processing/privacy disclosure before staging/production use.
-3. Physical iOS Safari → installed PWA transfer evidence is required before this primitive is considered complete; Plan 059 repeats it for launch sign-off.
+1. The implementation must preserve the selected Cloudflare/EU Durable Object,
+   token-derived encryption, operations, incident, and disclosure contract.
+2. Physical iOS Safari → installed PWA transfer evidence is required before
+   this primitive is considered complete; Plan 059 repeats it for launch
+   sign-off.
 
 ## STOP conditions
 
 - Stop if the service cannot guarantee strong one-time claim, authenticated encryption, commit-verified payload deletion, or deletion within one hour.
-- Stop if provider/region/key/operations ownership or privacy wording is unresolved.
+- Stop if the selected provider, EU processing boundary, token-derived key
+  disposal, operations controls, or privacy wording drifts from Plan 049 or
+  ADR 0013.
 - Stop if implementation would upload raw browser storage, log secrets, place the token in a URL, or overload the setup cookie.
 - Stop if atomic import would overwrite meaningful destination state or expose a partial clone.
 - Stop if interrupted claims cannot safely retry without allowing a second claimant.
@@ -271,7 +346,7 @@ The service has a creation kill switch and independent purge command. Client rol
 | # | Exact commit message | Contract delivered | Likely files | Prerequisite | Focused proof | Broader regression | Catalog impact | PR-body update | Rollback boundary |
 |---|---|---|---|---|---|---|---|---|---|
 | 1 | `test(install): define logical clone and transfer threat fixtures` | Exact include/exclude schema, hostile inputs, redaction assertions | new client/service tests and fixtures, transfer docs | Plan 049; Plan 051 schema known | Clone normalization/round-trip and threat checklist | Backup/shared-setup tests | None | Record provider/gates/schema | Tests/docs only |
-| 2 | `feat(install): add one-hour transfer service` | Create/idempotency, encrypted storage, claim binding, delete/expiry, kill switch | `services/install-transfer/**` | Commit 1 and provider approval | Service fake-clock/security suite | Service integration/lint only | None | Record staging endpoint, retention proof, no-secret logs | Disable create/purge service |
+| 2 | `feat(install): add one-hour transfer service` | Create/idempotency, encrypted storage, claim binding, delete/expiry, kill switch | `services/install-transfer/**` | Commit 1 and the selected Cloudflare/EU contract | Service fake-clock/security suite | Service integration/lint only | None | Record staging endpoint, retention proof, no-secret logs | Disable create/purge service |
 | 3 | `feat(install): build and claim logical browser clones` | Client envelope/API, token cookie, setup-cookie coexistence, context detection | new `install-transfer.js`, `app.js`, `index.html`, i18n, SW/script revisions, tests | Commits 1–2; Plan 051 merged | Browser create/claim/cookie/context tests | Install/shared-setup/backup suites | Functional transfer states begin | Record cache/schema and redaction proof | Disable action; retain token parser through expiry |
 | 4 | `feat(storage): import install transfers atomically` | Import marker, complete write/read-back, boot finish/rollback, remote delete retry | persistence portions of `app.js`, client module, storage/race tests | Commit 3 | Crash at every import boundary, partial write, two-tab | Thermonuclear/draft/backup/full storage suites | Import/recovery error states | Record every fault result | Keep recovery parser; kill new claims |
 | 5 | `feat(install): preserve browser recovery snapshot` | Safari freeze/success acknowledgement and explicit divergence resume | client/app UI, i18n, focused CSS/tests | Commit 4 | Safari/PWA context and divergence journeys | Install/accessibility suites | Recovery/divergence states added | Record state machine and limitations | Remove freeze only after kill switch; keep data |

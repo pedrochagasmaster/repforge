@@ -6,7 +6,10 @@ and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkp
 - **Plan number:** 049
 - **Phase:** 0 — Canonical reconciliation
 - **Status:** Implementation in owner review (PR #222)
-- **Owner approval state:** Product direction is approved in `docs/ui-audit.md`; the two explicit owner gates below remain open. Past owner reviews returned request-changes; each is addressed on this branch without reopening settled decisions
+- **Owner approval state:** Product direction, recovery policy version 2, and
+  the Cloudflare/EU transfer and operations contract are approved in the
+  authoritative artifacts below. Landing direction and physical-device gates
+  remain with their owning plans.
 - **Depends on:** Planning PR #221 (merged as `ba423a7d`); `origin/main` containing the consolidated audit
 - **Blocks:** Plans 050–059
 - **Governing G decisions:** G-01–G-88 (canonical disposition); especially G-01–G-08, G-13–G-14, G-17, G-24, G-28, G-38–G-40, G-46, G-55–G-56, G-70–G-71, G-74–G-88
@@ -120,13 +123,31 @@ Each section is independently parsed and validated at the import boundary. Unkno
 
 ### Temporary iOS install-transfer service
 
-Specify the minimum isolated service, preferably under a non-root service directory with its own deployment tooling so the static PWA remains dependency-free. If the infrastructure provider is not already owner-approved, selection is an owner gate.
+Specify the minimum isolated service under a non-root service directory with
+its own deployment tooling so the static PWA remains dependency-free. The
+approved provider is Cloudflare Workers with EU-jurisdiction SQLite Durable
+Objects, one Durable Object per transfer. Global Cloudflare edge ingress is
+accepted while durable storage and Durable Object processing remain in the EU.
+Request bodies, bearer tokens, payloads, and full URLs are excluded from logs.
+
+The owner initially owns billing, token/HMAC configuration, alerts and
+watchdogs, incidents, and the kill switch. The $10 USD/month threshold applies
+to new creates. Billing lag means it is not a hard cap. At the threshold, fail
+new creates and alert the owner, while claims, status, commit, and purge
+continue for existing transfers during a small overrun. Raise the threshold
+only with owner approval. Fail new creates when deletion, alarm/watchdog,
+key/configuration, or sensitive-log health is uncertain. Manual re-enable
+requires a runbook proof of deadlines, purge, alarms, configuration, and clean
+logs. Public notice covers confirmed token or payload exposure, decryptable
+retention beyond the promise, or a material processor breach. Routine
+unavailability and lag for unreadable ciphertext do not by themselves require
+public notice, subject to legal duties.
 
 #### Endpoint contract
 
 The specification must define exactly these operations:
 
-1. `POST /v1/transfers`: accept one validated encrypted logical clone over TLS plus an idempotency key; return an opaque bearer token and absolute expiry on first creation only (retries return expiry without the token).
+1. `POST /v1/transfers`: accept one validated logical clone over TLS plus an idempotency key; generate the one-time token and encrypt the clone at rest with its token-derived key; return the opaque bearer token and absolute expiry on first creation only (retries return expiry without the token).
 2. `POST /v1/transfers/claims` with `{token, claimId}` in the body: atomically bind an available transfer to a client-generated claim ID and return the clone to that same claim on safe retries.
 3. `POST /v1/transfers/claims/commit` with `{token, claimId}` in the body: delete encrypted payload immediately after the client proves atomic local import.
 4. `POST /v1/transfers/status` with `{token}` in the body: return state plus expiry only, so the creating Safari learns the outcome by polling.
@@ -142,12 +163,15 @@ on their own, even with identical threat, retry, and deletion semantics.
 #### Security and privacy requirements
 
 - Generate at least 256 bits of cryptographically secure token entropy; store only a keyed digest of the token.
-- Encrypt each payload at rest with authenticated encryption and managed key rotation; TLS is mandatory in transit.
+- Derive each AES-256-GCM payload key with HKDF-SHA-256 from the one-time token, a stored random salt, and domain-separated protocol information. Store ciphertext, nonce, associated data, salt, and token digest only. Return the token once, then discard the token and derived key. A long-lived HMAC pepper may authenticate token and IP digests but cannot decrypt a payload.
+- Cloudflare transiently sees plaintext during create and claim. This is not end-to-end encryption. TLS is mandatory in transit.
+- Cloudflare recovery images may retain ciphertext for up to 30 days, but a restored image alone cannot decrypt it after the live token and derived key are discarded.
 - Treat the bearer as sensitive: never emit it or payload content in logs, analytics, error tracking, referrers, or URLs visible to unrelated origins.
 - Apply exact-origin CORS, `Cache-Control: no-store`, content-type enforcement, schema/depth/size bounds, rate limits, and constant-shape invalid/expired responses.
+- Enforce create limits with a separate short-lived HMAC(IP)-keyed rate-limit Durable Object. Store no raw IP and link no bucket to a transfer or token. Buckets last no more than two minutes. Use 5/min/IP for create and 60/min/token for claim, commit, and status.
 - Prevent replay with an atomic `available → claiming → deleted` state machine, where a `claiming` record whose commit never arrives expires into `claimed-expired` (import possibly complete; never silently resumed). A second claim ID never receives the payload. The bound claim may retry only until commit or expiry.
 - The iOS handoff cookie carries only the opaque install-transfer token, never the clone. It is distinct from the historical `repforge_setup_v1` setup-proposal cookie and must use the matching HTML path, short lifetime, `SameSite=Lax`, and `Secure` outside localhost.
-- Disclose that the temporary service operator can process the decrypted clone, that the opaque token is sent with the matching HTML request, and that payload deletion occurs on verified local import (commit) or by the one-hour expiry, never on claim binding.
+- Disclose that Cloudflare can transiently process plaintext, that the opaque token is sent with the matching HTML request, that global edge ingress can precede EU Durable Object processing, and that payload deletion occurs on verified local import (commit) or by the one-hour expiry, never on claim binding.
 
 Threat modeling must cover token theft, brute force, replay, log/referrer leakage, malicious or stale tabs, service/operator access, oversized or malformed payloads, cross-origin requests, interrupted claims, clock skew, expiration backlog, and compromise of encryption keys. Operational documentation must include expiry-job monitoring, deletion latency, key rotation, incident handling, cost/retention bounds, and a feature kill switch.
 
@@ -179,16 +203,36 @@ The record is written atomically with outgoing archive and successor activation 
 
 ### Recovery-week experiment contract
 
-Recovery is a distinct, versioned schedule policy for week one of the next normal block. It does not mutate progression-engine arithmetic, the canonical compiled program, loads, RIR, frequency, or exercise identities. Week two automatically renders the canonical prescription.
+Recovery is a distinct, versioned schedule policy for week one of the next
+normal block. It does not mutate progression-engine arithmetic, the canonical
+compiled program, loads, RIR, frequency, or exercise identities. Week two
+always renders the canonical prescription.
 
-Eligibility requires both:
+Eligibility requires sufficient `maintained` or `declined` evidence across at
+least two of the three canonical primary patterns (`knee-dominant`, `horizontal
+press`, and `hip/hinge`) plus a local `Yes` answer to **“During this block, did
+recovery feel worse than usual often enough to affect your training?”** The
+closed answers are `Yes`, `No`, and `Not sure`; only `Yes` qualifies. The
+checkpoint is local-only and has no free-text response or diagnosis. Untested,
+insufficient, `improved`, `No`, and `Not sure` evidence is ineligible.
 
-- observed `maintained` or `declined` evidence under the approved outcome model, never untested/insufficient evidence; and
-- corroborating recovery/readiness input captured in the checkpoint.
+The preview shows base versus effective working sets per exercise and the
+evidence/provenance that enabled the proposal. The user explicitly confirms.
+Policy version 2 applies Rule B unchanged: optional slots receive zero,
+protected slots receive `ceil(sets / 2)`, reducible slots receive
+`floor(sets / 2)`, and a primary pattern receives one set in its first stable
+eligible slot only when the earlier steps would leave that pattern at zero.
+That `pattern-rescue` is flagged in the preview. The policy accepts the
+allowlisted `growth_2_v1` 32→12 and `growth_3_v1` 49→17 misses. An unreviewed
+program version outside 40–60% is ineligible. Runtime code must not clamp the
+percentage or change Rule B.
 
-The preview must show base versus effective working sets per exercise and the evidence/provenance that enabled the proposal. The user must explicitly confirm. Optional work is removed first, ordinary `minSets` may be crossed under this separately named policy, at least one working set remains for each primary movement pattern, and the target direction is approximately half normal working-set volume. Reassessment occurs after the recovery week; no automatic repeat is allowed.
-
-The audit does **not** settle the exact rounding, allocation, optional-work ordering ties, or definition used to classify a primary movement pattern. Phase 0 must present a deterministic candidate rule with representative program proofs to the owner, record the selected constants in the ADR/specification, and stop before Plans 052/056 implement recovery if approval is absent. No agent may invent load, RIR, frequency, or duration formulas to fill the gap.
+After week one, record `Better`, `About the same`, or `Worse` locally.
+`About the same` and `Worse` route to ordinary Review with no automatic
+mutation. No extension or repeat is allowed in the same block. A future
+recovery requires a future block boundary, fresh evidence, and a fresh `Yes`.
+The full contract and policy version are in
+[`docs/recovery-week-policy.md`](../docs/recovery-week-policy.md).
 
 ## Domain/state model
 
@@ -264,8 +308,17 @@ This phase defines schemas only. Approved future measurements are comprehension/
 
 ## Owner gates
 
-1. Approve the infrastructure provider/operational ownership for the bounded transfer service if it is not already an established Taurifer deployment target.
-2. Select the deterministic recovery-week rounding/allocation and primary-pattern rule after reviewing representative compiler outputs. This is a real STOP gate for recovery implementation, not for the rest of Phase 2.
+1. The bounded transfer contract is selected and recorded: Cloudflare Workers,
+   EU-jurisdiction SQLite Durable Objects, token-derived server-side AEAD,
+   owner-operated billing/keys/alerts/incidents/kill switch, and the disclosed
+   deletion/incident boundaries. Implementation must preserve this contract;
+   staging and physical-device evidence remain downstream gates.
+2. Recovery policy version 2 is selected and recorded in
+   [`docs/recovery-week-policy.md`](../docs/recovery-week-policy.md). Plans 052
+   and 056 consume its closed eligibility, Rule B, allowlist, and reassessment
+   contract. A future program version outside 40–60% needs a new
+   version-specific owner decision; it is not a runtime clamp or an open gate
+   in this phase.
 3. Record, but do not execute, the Plan 054 image-generation selection and Plan 059 physical-device sign-off gates.
 
 ## STOP conditions
@@ -273,8 +326,11 @@ This phase defines schemas only. Approved future measurements are comprehension/
 Stop rather than improvise if:
 
 - a G decision cannot be reconciled without changing its product meaning;
-- the transfer provider, data residency, key ownership, deletion mechanism, or operations owner is unresolved;
-- the exact recovery-week rule lacks owner approval;
+- the selected transfer provider, EU processing boundary, token-derived key
+  disposal, deletion mechanism, or operations controls drift from the approved
+  contract;
+- the recovery implementation drifts from policy version 2, its eligibility
+  evidence, allowlist, or reassessment outcomes;
 - a proposed schema expands into accounts, generalized storage, sync, or backup;
 - a doc change would erase historical rationale rather than supersede it;
 - a concurrently open PR owns the same canonical document without an agreed merge order.
@@ -292,8 +348,8 @@ Each documentation commit is independently revertible. Reverting Plan 049 restor
 | 1 | `docs(ui): establish overhaul decision disposition register` | One owner/disposition for G-01–G-88 and UI-01–UI-32; protected/rejected claims recorded | `docs/ui-audit.md` companion/register, `plans/README.md` | Approved planning PR | Disposition-count checker; audit extraction check | `git diff --check` | None | Mark row pushed; link register and SHA | Revert removes only register/index entry |
 | 2 | `docs(architecture): specify semantic UI roles and release matrix` | Preliminary elevation/type/radius/control/progress/color roles and responsive/accessibility matrix | brand guide, UI-screen/tool docs, new/current ADR | Commit 1 | Role inventory has unique meanings; matrix examples resolve | Path/link check | No frames; future matrix specified | Record role decisions and consumers | Revert restores prior visual policy and blocks UI work |
 | 3 | `docs(state): specify workout and transition foundation contracts` | DOM-not-state rule, transition provenance schema, ownership/dependency boundaries | state/progression/program docs, ADR | Commit 1 | Schema examples; stale-preview and atomic-archive tabletop | Audit extraction check | None | Record schema/version choices | Revert blocks Plans 051/052/055/056 |
-| 4 | `docs(recovery): specify owner-gated recovery-week policy` | Eligibility, bounded volume-only overlay, provenance, reassessment, explicit unresolved constants | progression docs, ADR | Commit 3 and owner selection for constants; otherwise land as `Blocked` specification | Representative family fixtures and invariant table | Link/check suite | None | Record owner decision or ⛔ gate exactly | Revert removes recovery authorization only |
-| 5 | `docs(install): specify temporary iOS transfer exception` | Logical clone, endpoints, threats, retry/import/delete/recovery snapshot, operations/privacy | dedicated ADR/spec, privacy/architecture docs | Commit 1 and provider gate if needed | Threat-model checklist; clone examples; endpoint state-machine review | Privacy phrase check; audit extraction | States specified only | Record provider and unresolved operational risks | Revert disables transfer plans without affecting local PWA |
+| 4 | `docs(recovery): publish approved recovery-week policy` | Eligibility, bounded volume-only overlay, provenance, reassessment, version-2 constants and allowlist | progression docs, ADR | Commit 3; policy version 2 is recorded before recovery implementation | Representative family fixtures, eligibility negatives, and invariant table | Link/check suite | None | Record policy version and exact proofs | Revert removes recovery authorization only |
+| 5 | `docs(install): specify temporary iOS transfer exception` | Logical clone, endpoints, threats, retry/import/delete/recovery snapshot, selected operations/privacy contract | dedicated ADR/spec, privacy/architecture docs | Commit 1; selected provider contract is recorded before implementation | Threat-model checklist; clone examples; endpoint state-machine review | Privacy phrase check; audit extraction | States specified only | Record selected provider and downstream staging/device gates | Revert disables transfer plans without affecting local PWA |
 | 6 | `docs(roadmap): make UI overhaul the active initiative` | Backlog/plan/ADR/brand cross-links agree; deferred roadmap remains deferred | `docs/backlog.md`, `plans/README.md`, affected ADRs/plans/spec status notes, `AGENTS.md` | Commits 1–5 | Contradiction/path checker | `git diff --check`; catalog check | None | Complete reconciliation evidence table | Revert this index slice only after consumers are also reverted |
 
 After every row: mark it 🟡 before work; implement only that row; run its focused proof; inspect the complete diff; remove unrelated changes; commit; push immediately; update the PR immediately; continue only when the remote is a truthful handoff boundary.
@@ -390,7 +446,9 @@ For fresh work, create and push `chore(plan-049): start implementation`, open a 
 - Historical decisions remain readable and are truthfully marked superseded in part where applicable.
 - Workout state, transition provenance, logical clone, transfer, preliminary design roles, and recovery experiment have versioned specifications and named owners.
 - Transfer threats, operations, privacy, rollback, and failure recovery are review-complete.
-- Recovery constants are owner-approved or the recovery slice is explicitly blocked without blocking unrelated plans.
+- Recovery policy version 2, its eligibility negatives, allowlisted misses, and
+  reassessment outcomes are approved and mechanically checked; future
+  out-of-band versions remain explicitly ineligible until separately reviewed.
 - Every Plan 050–059 document has dependencies, migrations, acceptance criteria, executable tests, rollback/recovery, owner gates, exact atomic commits, and the takeover protocol.
 - Post-Wave-3 work remains deferred.
 - Audit extraction, path/disposition checks, `git diff --check`, and catalog completeness pass.
