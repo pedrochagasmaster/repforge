@@ -79,10 +79,14 @@ limits (below) and rejects unknown required versions.
 ### Payload boundaries (exact)
 
 Both the browser module and the service enforce these limits identically;
-neither may invent different validators. They scale from the app's own
-existing bounds (`app.js` `PROGRESSION_VALUE_LIMITS`, the shared-setup
-`MAX_ENCODED_CHARS`/`MAX_COMPRESSED_BYTES` ceilings) so one payload can never
-pass one side and fail the other:
+neither may invent different validators. These are NEW transfer-envelope
+limits shared by the future client module and service — they are informed by
+the scale of the app's existing internal bounds (`app.js`
+`PROGRESSION_VALUE_LIMITS`, the shared-setup
+`MAX_ENCODED_CHARS`/`MAX_COMPRESSED_BYTES` ceilings) but are not the same
+numbers, because a whole-state clone is a different object from a progression
+value or a setup fragment. Sharing one table here is what stops the two
+sides from drifting; nothing in the app changes.
 
 | Boundary | Limit | Rationale |
 |---|---|---|
