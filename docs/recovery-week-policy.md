@@ -1,10 +1,8 @@
 # Recovery-week experiment contract
 
-- **Policy version:** 1 (candidate constants; see the gate below)
-- **Status:** ⛔ BLOCKED — the decided bounds below are binding, but the exact
-  rounding, allocation, tiebreak, and primary-pattern constants await owner
-  selection. Plans 052/056 must not implement recovery until the selection is
-  recorded here. All other Phase 2 work continues.
+- **Policy version:** 2
+- **Status:** Approved. Rule B, its two version-allowlisted fixture misses, the
+  eligibility checkpoint, and the reassessment contract below are binding.
 - **Contract owner:** Plan 049 (this policy); implementers Plans 052/056
 - **Governing decisions:** G-55, G-56, G-70; outcomes vocabulary G-24
 
@@ -22,10 +20,14 @@ share a code path or a transition kind.
 
 ## Decided bounds (binding)
 
-- **Eligibility requires both:** observed `maintained` or `declined` evidence
-  under the G-24 outcome model, and corroborating recovery/readiness input
-  captured in the block checkpoint. Untested or insufficient evidence never
-  qualifies.
+- **Eligibility requires both:** sufficient observed `maintained` or `declined`
+  evidence under the G-24 outcome model across at least two of the three
+  canonical primary patterns (`knee-dominant`, `horizontal press`, and
+  `hip/hinge`), and a checkpoint answer to **“During this block, did recovery
+  feel worse than usual often enough to affect your training?”** The closed
+  answers are `Yes`, `No`, and `Not sure`; only `Yes` qualifies. The answer and
+  evidence stay local, with no free-text response or diagnosis. Untested,
+  insufficient, `improved`, or `No`/`Not sure` evidence never qualifies.
 - **Preview before action:** the proposal shows base versus effective working
   sets per exercise plus the evidence and provenance that enabled it. The user
   explicitly confirms.
@@ -33,37 +35,41 @@ share a code path or a transition kind.
   crossed under this separately named policy; at least one working set remains
   for each primary movement pattern; the target direction is approximately
   half the normal working-set volume.
-- **Reassessment:** performance is reassessed after the recovery week. No
-  automatic repeat is allowed.
+- **Reassessment:** after week one, record one closed result: `Better`, `About
+  the same`, or `Worse`. Week two always renders the canonical prescription.
+  The policy never extends or repeats recovery in the same block. `About the
+  same` and `Worse` route to ordinary Review with no automatic mutation.
+  Another recovery can be considered only at a future block boundary from
+  fresh evidence and a fresh `Yes` answer.
 - **Provenance:** every confirmed recovery writes a `recovery_week`
   transition record with the overlay and evidence snapshot. No agent may
-  invent load, RIR, frequency, or duration formulas to fill the open
-  constants.
+  invent load, RIR, frequency, or duration formulas outside this approved
+  contract.
 
-## Candidate Rule B (proposed for owner selection, not decided)
+## Approved Rule B
 
-Candidate Rule A (`ceil` everywhere) failed representative evidence: 12 of 20
-fixtures landed above 60% (e.g. growth_4_v1 60→38, balanced_3_v1 43→28,
-home_5_v1 31→20). Rule B differentiates by the Plan 047 slot statuses,
-matching the compiler's own constraint-reduction order (optional first, then
-reducible assistance, protected primary preserved):
+Rule B differentiates by the Plan 047 slot statuses, matching the compiler's
+constraint-reduction order (optional first, then reducible assistance, with
+protected primary work preserved):
 
 1. Remove every `optional`-status slot entirely (0 working sets).
 2. `protected` slots keep `ceil(baseWorkingSets / 2)`.
 3. `reducible` slots keep `floor(baseWorkingSets / 2)` (a base-1 reducible
    slot is removed; only primary patterns carry a minimum).
-4. Primary-pattern coverage check, by first-listed template pattern token:
-   `squat` → knee-dominant, `hinge` → hip/hinge, `press`/`incline_press` →
-   horizontal press. If steps 1–3 would leave a pattern with zero week-one
-   working sets, retain the first such slot in stable program order at one
-   set instead (`pattern-rescue`, flagged in the preview).
+4. Check coverage in the fixed pattern order `knee-dominant`, `horizontal
+   press`, `hip/hinge`, using the first-listed template pattern token:
+   `squat` maps to `knee-dominant`, `press` and `incline_press` map to
+   `horizontal press`, and `hinge` maps to `hip/hinge`. If steps 1–3 would
+   leave a pattern at zero, restore one set to the first eligible slot in
+   stable program order (`pattern-rescue`). This is the only exception to
+   optional removal, and the preview flags it.
 5. Loads, RIR targets, strategies, exercises, frequency, schedule, and rest
-   are byte-identical to the canonical prescription.
+   remain byte-identical to the canonical prescription.
 
 `reason` values are rule mechanics: `optional-removed`, `protected-ceil`,
 `reducible-floor`, `pattern-rescue`.
 
-### Fixture evidence (20 Plan 047 review compilations)
+### Accepted fixture evidence (20 Plan 047 review compilations)
 
 Method: `test/fixtures/program-families-v1.json` `reviewCompilations`
 (base working sets per compiled slot) with template statuses and first-listed
@@ -96,11 +102,18 @@ unit case in the checker).
 | home_5_v1 | 31 | 16 | 51.6% | Yes |
 | home_6_v1 | 32 | 16 | 50.0% | Yes |
 
-18 of 20 land in band. The two misses sit just below it; no fixture exceeds
-60% and no primary pattern is left empty. The gate stays open: the owner may
-accept Rule B with the two named misses, adjust the band, or select another
-rule — but Plans 052/056 implement nothing until that selection is recorded
-with a policy version bump.
+18 of 20 land in band. The two misses sit below it, and no fixture exceeds
+60%. No primary pattern is left empty. The two misses are the approved,
+version-specific exceptions:
+
+| Blueprint version | Base | Effective | Ratio | Disposition |
+|---|---:|---:|---:|---|
+| `growth_2_v1` | 32 | 12 | 37.5% | Allowlisted exception |
+| `growth_3_v1` | 49 | 17 | 34.7% | Allowlisted exception |
+
+The checker rejects every other miss. It also rejects an unreviewed program
+version outside the 40–60% band. Runtime code must not clamp percentages or
+change Rule B to force a version into the band.
 
 ## Invariant table (acceptance for the owner review)
 
@@ -112,18 +125,24 @@ with a policy version bump.
 | I-4 | Each canonical primary pattern retains at least one week-one working set |
 | I-5 | Loads, RIR, exercises, frequency, schedule, and rest are identical to canonical |
 | I-6 | Week two renders the canonical prescription with no carryover reduction |
-| I-7 | The proposal cites `maintained`/`declined` evidence plus checkpoint recovery input; untested or insufficient evidence cannot produce a proposal |
+| I-7 | The proposal cites sufficient `maintained`/`declined` evidence across at least two canonical primary patterns plus a local checkpoint `Yes` answer; untested, insufficient, `improved`, `No`, and `Not sure` evidence cannot produce a proposal |
 
-## ⛔ Open constants (owner gate)
+## Eligibility and reassessment details
 
-1. Allocation rule: Candidate Rule B above versus another deterministic rule.
-2. Acceptance band: whether 40–60% with the two named misses is the right
-   reading of "approximately half".
-3. Optional-work ordering ties beyond slot status (candidate: stable program
-   order, earliest first).
-4. Primary-pattern definition (candidate: first-listed template pattern
-   mapping above).
+- The evidence snapshot names the qualifying patterns and the maintained or
+  declined observations that support each one. Fewer than two qualifying
+  patterns is ineligible.
+- The checkpoint stores only the closed answer enum. It does not store free
+  text, a diagnosis, or a clinical interpretation.
+- The post-week-one result is local evidence for ordinary Review. It never
+  changes the canonical program and never starts another recovery overlay in
+  the same block.
+- A future program version that falls outside 40–60% is ineligible until an
+  owner-reviewed, version-specific allowlist entry or a policy change records
+  how that version is handled. The current allowlist contains only
+  `growth_2_v1` and `growth_3_v1`.
 
-Record the selection with a policy version bump. Until then, `recovery_week`
-overlays must not be written, and Plans 052/056 stop at this gate without
-blocking unrelated DraftV2, provenance, or transfer work.
+Policy version 2 closes the allocation, rounding, tie, primary-pattern, and
+acceptance-band decisions. Plans 052 and 056 may implement `recovery_week`
+against this policy. A later policy change requires a new version and a new
+owner decision; no implementation may silently reinterpret version 2.

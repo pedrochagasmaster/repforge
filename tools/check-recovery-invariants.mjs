@@ -16,11 +16,15 @@ import { fileURLToPath } from "node:url";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const FIXTURE = join(ROOT, "test", "fixtures", "program-families-v1.json");
+const POLICY = readFileSync(join(ROOT, "docs", "recovery-week-policy.md"), "utf8");
+const POLICY_NORMALIZED = POLICY.replace(/[“”]/g, '"').replace(/\s+/g, " ");
 
 const KNOWN_MISSES = new Map([
   ["growth_2_v1", { base: 32, effective: 12 }],
   ["growth_3_v1", { base: 49, effective: 17 }],
 ]);
+
+const PRIMARY_PATTERNS = ["knee-dominant", "horizontal press", "hip/hinge"];
 
 const fixture = JSON.parse(readFileSync(FIXTURE, "utf8"));
 const templates = fixture.slotContracts;
@@ -44,7 +48,7 @@ function applyRuleB(slots) {
     return Math.floor(s.sets / 2);
   });
   const rescued = [];
-  for (const pattern of ["knee-dominant", "hip/hinge", "horizontal press"]) {
+  for (const pattern of PRIMARY_PATTERNS) {
     const total = slots.reduce((n, s, i) => n + (primaryPattern(s.templateId) === pattern ? effective[i] : 0), 0);
     if (total === 0) {
       const idx = slots.findIndex((s) => primaryPattern(s.templateId) === pattern && s.sets >= 1);
@@ -61,6 +65,84 @@ const failures = [];
 const check = (cond, message) => {
   if (!cond) failures.push(message);
 };
+
+// Policy v2 is closed. Keep the executable gate aligned with the authoritative
+// policy so a future edit cannot reopen the old owner decision by prose alone.
+check(POLICY.includes("**Policy version:** 2"), "policy: approved version 2 is missing");
+check(POLICY.includes("**Status:** Approved."), "policy: approved status is missing");
+for (const stale of [
+  "BLOCKED",
+  "Candidate Rule B (proposed for owner selection, not decided)",
+  "## ⛔ Open constants (owner gate)",
+  "await owner selection",
+  "until the owner selects the rule",
+]) {
+  check(!POLICY.includes(stale), `policy: stale open-decision phrase remains (${stale})`);
+}
+for (const anchor of [
+  "During this block, did recovery feel worse than usual often enough to affect your training?",
+  "The closed answers are `Yes`, `No`, and `Not sure`; only `Yes` qualifies.",
+  "no free-text response or diagnosis",
+  "Better",
+  "About the same",
+  "Worse",
+  "future block boundary",
+  "Runtime code must not clamp percentages",
+]) {
+  check(POLICY_NORMALIZED.includes(anchor), `policy: missing settled contract anchor (${anchor})`);
+}
+for (const [blueprintId, expected] of KNOWN_MISSES) {
+  check(
+    POLICY_NORMALIZED.includes(`| \`${blueprintId}\` | ${expected.base} | ${expected.effective} |`),
+    `policy: version-specific allowlist row missing for ${blueprintId}`,
+  );
+}
+
+// Eligibility is a closed local contract: at least two canonical patterns must
+// carry sufficient maintained/declined evidence, and only the Yes answer can
+// qualify. These deliberate controls keep the checker honest without
+// pretending to be the future runtime implementation.
+function eligible({ patternOutcomes, checkpointAnswer }) {
+  if (checkpointAnswer !== "Yes") return false;
+  return PRIMARY_PATTERNS.filter((pattern) =>
+    ["maintained", "declined"].includes(patternOutcomes[pattern]),
+  ).length >= 2;
+}
+check(
+  eligible({
+    patternOutcomes: {
+      "knee-dominant": "maintained",
+      "horizontal press": "declined",
+      "hip/hinge": "improved",
+    },
+    checkpointAnswer: "Yes",
+  }),
+  "eligibility: two maintained/declined patterns plus Yes must qualify",
+);
+for (const answer of ["No", "Not sure"]) {
+  check(
+    !eligible({
+      patternOutcomes: {
+        "knee-dominant": "maintained",
+        "horizontal press": "declined",
+        "hip/hinge": "maintained",
+      },
+      checkpointAnswer: answer,
+    }),
+    `eligibility: ${answer} must not qualify`,
+  );
+}
+check(
+  !eligible({
+    patternOutcomes: {
+      "knee-dominant": "maintained",
+      "horizontal press": "improved",
+      "hip/hinge": "untested",
+    },
+    checkpointAnswer: "Yes",
+  }),
+  "eligibility: fewer than two maintained/declined patterns must not qualify",
+);
 
 const compilations = fixture.reviewCompilations;
 check(compilations.length === 20, `expected 20 review compilations, got ${compilations.length}`);
