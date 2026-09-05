@@ -38,6 +38,7 @@ const MANIFEST = loadManifest();
 const CATALOG_METADATA_ERRORS = validateCatalogMetadata(MANIFEST);
 const KNOWN_KEY_NAMESPACES = [...new Set(Object.keys(JSON.parse(readFileSync(join(ROOT, "i18n-en.json"), "utf8")))
   .flatMap((key) => key.split(".").slice(0, -1).map((_, index, parts) => parts.slice(0, index + 1).join("."))))];
+const KNOWN_I18N_KEYS = Object.keys(JSON.parse(readFileSync(join(ROOT, "i18n-en.json"), "utf8")));
 const ARTIFACT_ROOT = join(ROOT, MANIFEST.artifactRoot);
 const SEMANTIC_PATH = join(ROOT, "docs", "ui-screens", "entry-semantics.json");
 const README_PATH = join(ROOT, "docs", "ui-screens", "README.md");
@@ -242,7 +243,7 @@ async function main() {
         if (CONTRACT_ENABLED) {
           const contract = configForCapture(MANIFEST, capture);
           const evidence = await opened.page.evaluate(collectCatalogEvidence, contract);
-          const failures = validateCatalogEvidence(evidence, contract, { knownKeyNamespaces: KNOWN_KEY_NAMESPACES });
+          const failures = validateCatalogEvidence(evidence, contract, { knownKeyNamespaces: KNOWN_KEY_NAMESPACES, knownKeys: KNOWN_I18N_KEYS });
           if (failures.length) throw new Error(`catalog contract ${key} ${variantSlug(capture)}: ${failures.join(" | ")}`);
         }
         if (isOnboarding(capture)) {

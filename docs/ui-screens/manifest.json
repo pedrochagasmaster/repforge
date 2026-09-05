@@ -201,16 +201,9 @@
     "nonOverlapGroups": [
       {
         "screen": "library/list",
-        "locator": "#libMuscleFilters",
-        "members": ".pchip",
-        "reason": "Visible filter chips may continue off-edge but must not cover one another.",
-        "owner": "plan-050"
-      },
-      {
-        "screen": "library/list",
-        "locator": "#libEquipmentFilters",
-        "members": ".pchip",
-        "reason": "Visible filter chips may continue off-edge but must not cover one another.",
+        "locator": "#libFilters",
+        "members": "#libMuscleFilters .pchip, #libEquipmentFilters .pchip",
+        "reason": "The two filter rails and their visible chips may continue off-edge but must not cover one another.",
         "owner": "plan-050"
       }
     ],

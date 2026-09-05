@@ -29,7 +29,6 @@ export function collectCatalogEvidence(config = {}) {
     const style = getComputedStyle(element);
     const rect = element.getBoundingClientRect();
     return style.display !== "none" && style.visibility !== "hidden" && rect.width > 0 && rect.height > 0
-      && rect.right > 0 && rect.bottom > 0 && rect.left < innerWidth && rect.top < innerHeight
       && !element.closest("[aria-hidden=\"true\"], [inert], .visually-hidden");
   };
   const rect = (element) => {
@@ -61,10 +60,19 @@ export function collectCatalogEvidence(config = {}) {
       scrollWidth: element.scrollWidth,
       tabIndex: element.tabIndex,
       touchAction: getComputedStyle(element).touchAction,
+      overflowX: getComputedStyle(element).overflowX,
       marker: element.getAttribute("data-allow-horizontal-scroll"),
       cue: element.getAttribute("data-horizontal-scroll-cue"),
       box,
       hasPartialChild: children.some((child) => child.left < box.right - 1 && child.right > box.right + 1),
+    };
+  });
+  const copyAllowances = (config.renderedCopyAllowances || []).map((allowance) => {
+    const element = document.querySelector(allowance.locator);
+    return {
+      ...allowance,
+      missing: !element,
+      matches: !!element && (element.innerText || element.getAttribute("aria-label") || "").includes(allowance.text),
     };
   });
   const nonOverlap = (config.nonOverlapGroups || []).map((group) => {
@@ -79,11 +87,21 @@ export function collectCatalogEvidence(config = {}) {
     }
     return { ...group, missing: false, pairs };
   });
-  const text = [document.body.innerText || ""];
-  for (const element of document.querySelectorAll("[aria-label]")) if (visible(element)) text.push(element.getAttribute("aria-label") || "");
+  const text = [];
+  for (const element of document.querySelectorAll("body, body *")) {
+    if (!visible(element)) continue;
+    const directText = [...element.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent || "").join("").trim();
+    if (directText) text.push({ locator: stableLocator(element), text: directText });
+    if (element.hasAttribute("aria-label")) text.push({ locator: stableLocator(element), text: element.getAttribute("aria-label") || "" });
+  }
+  const requestedI18nKeys = [...document.querySelectorAll("[data-i18n], [data-i18n-aria], [data-i18n-placeholder], [data-i18n-title]")]
+    .filter(visible)
+    .flatMap((element) => ["data-i18n", "data-i18n-aria", "data-i18n-placeholder", "data-i18n-title"]
+      .map((attribute) => element.getAttribute(attribute)).filter(Boolean)
+      .map((key) => ({ locator: stableLocator(element), key })));
   return {
     document: { clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth },
-    text, overflow, scrollers, nonOverlap,
+    text, overflow, scrollers, nonOverlap, copyAllowances, requestedI18nKeys,
   };
 }
 
@@ -112,6 +130,15 @@ export function validateCatalogMetadata(manifest) {
       errors.push(`non-overlap group needs a known screen, stable locator, members, reason, and owner`);
     }
   }
+  for (const item of checks.renderedCopyAllowances || []) {
+    const key = `${item.screen}|${item.locator}|${item.text}`;
+    if (!knownScreens.has(item.screen) || !item.locator?.startsWith("#") || /[\s,>]/.test(item.locator) ||
+      typeof item.text !== "string" || !item.text || !item.reason || !item.owner) {
+      errors.push("rendered-copy allowance needs a known screen, stable locator, exact text, reason, and owner");
+    }
+    if (seen.has(key)) errors.push(`duplicate rendered-copy allowance ${key}`);
+    seen.add(key);
+  }
   return errors;
 }
 
@@ -126,29 +153,41 @@ export function configForCapture(manifest, capture) {
   };
 }
 
-export function validateCatalogEvidence(evidence, config, { knownKeyNamespaces = [] } = {}) {
+export function validateCatalogEvidence(evidence, config, { knownKeyNamespaces = [], knownKeys = [] } = {}) {
   const failures = [];
   const excerpt = (text) => String(text).replace(/\s+/g, " ").slice(0, 240);
   if (evidence.document.scrollWidth > evidence.document.clientWidth + 1) {
     failures.push(`document overflow: client=${evidence.document.clientWidth} scroll=${evidence.document.scrollWidth}`);
   }
   for (const item of evidence.overflow) {
-    if (item.allowed !== "x") failures.push(`clipped ${item.tag} ${item.locator}: client=${item.clientWidth} scroll=${item.scrollWidth} box=${JSON.stringify(item.box)}`);
+    const allowance = evidence.scrollers.find((scroller) => scroller.locator === item.locator);
+    if (!allowance) failures.push(`clipped ${item.tag} ${item.locator}: client=${item.clientWidth} scroll=${item.scrollWidth} box=${JSON.stringify(item.box)}`);
   }
   for (const scroller of evidence.scrollers) {
     if (scroller.missing) failures.push(`intentional scroller missing: ${scroller.locator}`);
-    else if (scroller.scrollWidth > scroller.clientWidth + 1 && (scroller.marker !== "x" || scroller.tabIndex < 0 || !scroller.cue || !scroller.hasPartialChild)) {
-      failures.push(`invalid intentional scroller ${scroller.locator}: client=${scroller.clientWidth} scroll=${scroller.scrollWidth} marker=${scroller.marker} tabIndex=${scroller.tabIndex} cue=${scroller.cue} partial=${scroller.hasPartialChild}`);
+    else if (scroller.scrollWidth <= scroller.clientWidth + 1 || scroller.marker !== "x" || scroller.tabIndex < 0 ||
+      !["auto", "scroll", "overlay"].includes(scroller.overflowX) || scroller.touchAction === "none" || !scroller.cue || !scroller.hasPartialChild) {
+      failures.push(`invalid intentional scroller ${scroller.locator}: client=${scroller.clientWidth} scroll=${scroller.scrollWidth} overflowX=${scroller.overflowX} touchAction=${scroller.touchAction} marker=${scroller.marker} tabIndex=${scroller.tabIndex} cue=${scroller.cue} partial=${scroller.hasPartialChild}`);
     }
   }
   for (const group of evidence.nonOverlap) {
     if (group.missing) failures.push(`non-overlap group missing: ${group.locator}`);
     for (const pair of group.pairs) failures.push(`overlap ${group.locator}: ${pair.a} ${JSON.stringify(pair.aBox)} intersects ${pair.b} ${JSON.stringify(pair.bBox)}`);
   }
-  for (const source of evidence.text) {
-    for (const prefix of INTERNAL_COPY_PREFIXES) if (source.includes(prefix)) failures.push(`raw internal copy (${prefix}): ${excerpt(source)}`);
-    if (unresolved.test(source)) failures.push(`unresolved rendered copy: ${excerpt(source)}`);
-    for (const token of source.match(rawKey) || []) {
+  for (const allowance of evidence.copyAllowances) {
+    if (allowance.missing || !allowance.matches) failures.push(`stale rendered-copy allowance ${allowance.locator}: ${allowance.text}`);
+  }
+  const knownKeySet = new Set(knownKeys);
+  for (const request of evidence.requestedI18nKeys || []) {
+    if (!knownKeySet.has(request.key)) failures.push(`missing requested translation key ${request.key} at ${request.locator}`);
+  }
+  for (const sourceRecord of evidence.text) {
+    const source = sourceRecord.text;
+    const allowances = evidence.copyAllowances.filter((allowance) => allowance.locator === sourceRecord.locator && allowance.matches);
+    const permitted = allowances.reduce((text, allowance) => text.replaceAll(allowance.text, ""), source);
+    for (const prefix of INTERNAL_COPY_PREFIXES) if (permitted.includes(prefix)) failures.push(`raw internal copy (${prefix}): ${excerpt(permitted)}`);
+    if (unresolved.test(permitted)) failures.push(`unresolved rendered copy: ${excerpt(permitted)}`);
+    for (const token of permitted.match(rawKey) || []) {
       if (knownKeyNamespaces.some((namespace) => token === namespace || token.startsWith(`${namespace}.`))) {
         failures.push(`raw translation key ${token}: ${excerpt(source)}`);
       }
