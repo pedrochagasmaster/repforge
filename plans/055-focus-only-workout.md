@@ -1,5 +1,8 @@
 # Plan 055: Focus-only workout
 
+Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
+and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
+
 - **Plan number:** 055
 - **Phase:** 4 — Focus-only workout
 - **Status:** Planned; implementation has not started

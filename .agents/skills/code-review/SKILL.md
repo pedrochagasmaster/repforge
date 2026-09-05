@@ -14,6 +14,16 @@ The issue tracker should have been provided to you. If `docs/agents/issue-tracke
 
 ## Process
 
+### Taurifer evidence protocol
+
+For UI-overhaul, durable-schema, or checker reviews, read
+`docs/agents/implementation-evidence.md` and include the applicable phase
+checkpoint and acceptance-contract rows in both reviewer prompts. Review the
+whole affected contract on the first pass. Reproduce candidate blockers against
+the real producer/consumer and keep stable finding IDs on correction passes.
+Apply the protocol's blocker calibration before reporting either axis; a smell
+or a green check alone does not establish a defect or correctness.
+
 ### 1. Pin the fixed point
 
 Whatever the user said is the fixed point (a commit SHA, branch name, tag, `main`, `HEAD~5`, etc.). If they didn't specify one, ask for it.

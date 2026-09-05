@@ -80,6 +80,11 @@ direction was superseded.
 
 ## How to create or use a plan
 
+For the UI overhaul, use the [implementation evidence protocol](../docs/agents/implementation-evidence.md)
+and [phase proof checkpoints](../docs/agents/ui-overhaul-proof-checkpoints.md).
+They govern first-slice proof and correction review; the numbered plans retain
+their product scope, dependencies, atomic commits, and owner gates.
+
 1. Confirm the work is present and correctly prioritized in
    [`docs/backlog.md`](../docs/backlog.md).
 2. Read the current `AGENTS.md`, governing ADRs, and relevant specification.
