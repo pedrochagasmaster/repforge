@@ -72,6 +72,8 @@ try {
     const copyConfig = { ...en.config, renderedCopyAllowances: [{
       screen: "library/list", locator: "#catalogCopyAllowance", text: "day_empty:documented", reason: "Fixture proves a locator-bound exception.", owner: "plan-050",
     }] };
+    const allowanceManifest = { ...manifest, catalogChecks: { ...manifest.catalogChecks, renderedCopyAllowances: copyConfig.renderedCopyAllowances } };
+    assert.deepEqual(validateCatalogMetadata(allowanceManifest), [], "a complete rendered-copy allowance has valid metadata");
     await en.page.evaluate(() => document.body.insertAdjacentHTML("beforeend", '<div id="catalogContractBad"><p id="catalogCopyAllowance">day_empty:documented</p></div>'));
     const allowedCopy = validate(await en.page.evaluate(collectCatalogEvidence, copyConfig), copyConfig);
     await en.page.evaluate(() => document.querySelector("#catalogContractBad")?.remove());
@@ -80,6 +82,10 @@ try {
     const unrelatedCopy = await injectedFailures('<div id="catalogContractBad"><p id="catalogUnrelatedCopy">day_empty:documented</p></div>');
     assert.ok(unrelatedCopy.some((failure) => failure.startsWith("raw internal copy (day_empty:)")),
       `copy allowance does not suppress unrelated text: ${unrelatedCopy.join(" | ")}`);
+    const staleCopy = validate(await en.page.evaluate(collectCatalogEvidence, copyConfig), copyConfig);
+    assert.ok(staleCopy.some((failure) => failure.startsWith("stale rendered-copy allowance #catalogCopyAllowance")),
+      `copy allowance fails when its exact element disappears: ${staleCopy.join(" | ")}`);
+    console.log(`deliberate stale-copy-allowance rejection: ${staleCopy.find((failure) => failure.startsWith("stale rendered-copy allowance #catalogCopyAllowance"))}`);
 
     const clipped = await injectedFailures('<div id="catalogContractBad" style="position:fixed;top:100px;left:0"><button style="display:block;width:20px;padding:0;white-space:nowrap;overflow:hidden">Clipped control text</button></div>');
     assert.ok(clipped.some((failure) => failure.startsWith("clipped button")), `clipped-control artifact is rejected: ${clipped.join(" | ")}`);
@@ -94,6 +100,21 @@ try {
     assert.ok(belowFold.some((failure) => failure.startsWith("clipped button #offscreen-clipped")),
       `a below-fold clipped control is still measured: ${belowFold.join(" | ")}`);
     console.log(`deliberate below-fold rejection: ${belowFold.find((failure) => failure.startsWith("clipped button #offscreen-clipped"))}`);
+
+    const staleScrollerConfig = { ...en.config, intentionalScrollers: [...en.config.intentionalScrollers, {
+      screen: "library/list", locator: "#missingFilterRail", axis: "x", reason: "Fixture proves stale locator rejection.", owner: "plan-050",
+    }] };
+    const staleScroller = validate(await en.page.evaluate(collectCatalogEvidence, staleScrollerConfig), staleScrollerConfig);
+    assert.ok(staleScroller.some((failure) => failure.startsWith("intentional scroller missing: #missingFilterRail")),
+      `intentional-scroller metadata fails when its exact locator disappears: ${staleScroller.join(" | ")}`);
+    console.log(`deliberate stale-scroller rejection: ${staleScroller.find((failure) => failure.startsWith("intentional scroller missing: #missingFilterRail"))}`);
+
+    await en.page.evaluate(() => { document.querySelector("#libEquipmentFilters").style.touchAction = "none"; });
+    const noTouch = validate(await en.page.evaluate(collectCatalogEvidence, en.config), en.config);
+    await en.page.evaluate(() => { document.querySelector("#libEquipmentFilters").style.touchAction = ""; });
+    assert.ok(noTouch.some((failure) => failure.startsWith("invalid intentional scroller #libEquipmentFilters")),
+      `an allowlisted rail still fails without touch reachability: ${noTouch.join(" | ")}`);
+    console.log(`deliberate touch-reachability rejection: ${noTouch.find((failure) => failure.startsWith("invalid intentional scroller #libEquipmentFilters"))}`);
 
     const overlap = await injectedFailures('<div id="catalogContractBad"></div>');
     assert.deepEqual(overlap, [], "a neutral isolated artifact does not create a false failure");

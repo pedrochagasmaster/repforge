@@ -107,6 +107,7 @@ export function collectCatalogEvidence(config = {}) {
 
 const rawKey = /\b[a-z][\w-]*(?:\.[a-z][\w-]*){1,}\b/g;
 const unresolved = /\b(?:undefined|null|\[object Object\])\b|\{[A-Za-z][\w.-]*\}/;
+const stableIdLocator = /^#[A-Za-z][\w-]*$/;
 
 export function validateCatalogMetadata(manifest) {
   const errors = [];
@@ -120,19 +121,19 @@ export function validateCatalogMetadata(manifest) {
   for (const item of checks.intentionalScrollers || []) {
     const key = `${item.screen}|${item.locator}`;
     if (!knownScreens.has(item.screen)) errors.push(`intentional scroller names unknown screen ${item.screen}`);
-    if (!item.locator?.startsWith("#") || /[\s,>]/.test(item.locator)) errors.push(`intentional scroller ${key} needs one stable ID locator`);
+    if (!stableIdLocator.test(item.locator || "")) errors.push(`intentional scroller ${key} needs one stable ID locator`);
     if (item.axis !== "x" || !item.reason || !item.owner) errors.push(`intentional scroller ${key} needs axis, reason, and owner`);
     if (seen.has(key)) errors.push(`duplicate intentional scroller ${key}`);
     seen.add(key);
   }
   for (const item of checks.nonOverlapGroups || []) {
-    if (!knownScreens.has(item.screen) || !item.locator?.startsWith("#") || !item.members || !item.reason || !item.owner) {
+    if (!knownScreens.has(item.screen) || !stableIdLocator.test(item.locator || "") || !item.members || !item.reason || !item.owner) {
       errors.push(`non-overlap group needs a known screen, stable locator, members, reason, and owner`);
     }
   }
   for (const item of checks.renderedCopyAllowances || []) {
     const key = `${item.screen}|${item.locator}|${item.text}`;
-    if (!knownScreens.has(item.screen) || !item.locator?.startsWith("#") || /[\s,>]/.test(item.locator) ||
+    if (!knownScreens.has(item.screen) || !stableIdLocator.test(item.locator || "") ||
       typeof item.text !== "string" || !item.text || !item.reason || !item.owner) {
       errors.push("rendered-copy allowance needs a known screen, stable locator, exact text, reason, and owner");
     }
