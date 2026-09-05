@@ -719,9 +719,24 @@ try {
       };
     });
     assert(scheduleComposition.segmented === "flex" && scheduleComposition.bounded,
-      "schedule days and duration use bounded segmented controls", JSON.stringify(scheduleComposition));
+      "schedule days and duration use bounded reflowing controls", JSON.stringify(scheduleComposition));
     assert(scheduleComposition.noOverlap,
       "schedule groups stay compact without overlap", JSON.stringify(scheduleComposition));
+    await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+    const enlargedSchedule = await page.evaluate(() => {
+      const controls = [...document.querySelectorAll(".entry-body--schedule .onb__seg .radio-card")];
+      const rects = controls.map((element) => element.getBoundingClientRect());
+      return {
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        clipped: controls.filter((element) => element.scrollWidth > element.clientWidth + 1).length,
+        columns: new Set(rects.map((rect) => Math.round(rect.left))).size,
+        noOverlap: rects.every((rect, index) => rects.every((other, otherIndex) => index === otherIndex ||
+          rect.right <= other.left + 1 || other.right <= rect.left + 1 || rect.bottom <= other.top + 1 || other.bottom <= rect.top + 1)),
+      };
+    });
+    assert(enlargedSchedule.overflow <= 0 && enlargedSchedule.clipped === 0 && enlargedSchedule.columns <= 2 && enlargedSchedule.noOverlap,
+      "schedule reflows to at most two columns at 200% text", JSON.stringify(enlargedSchedule));
+    await page.evaluate(() => { document.documentElement.style.fontSize = "100%"; });
     await page.click("#onbNext");
     await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
     assert(await page.locator(".entry__correct").isVisible() && !(await page.locator(".entry__correct").getAttribute("open")),
