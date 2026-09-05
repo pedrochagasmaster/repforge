@@ -1956,7 +1956,7 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .program-editor__stepper button:hover{background:var(--well)}
 .program-editor__rep-rule{height:1px;background:var(--rule);margin:0 0 18px}
 .program-editor__range{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0;padding:0;border:0}
-.program-editor__range legend{grid-column:1/-1;padding:0;margin:0 0 -4px}
+.program-editor__range legend{grid-column:1/-1;padding:0;margin:0 0 4px}
 .program-editor__range label,.program-editor__more label{display:block;color:var(--ink-soft);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
 .program-editor__range input,.program-editor__more input{display:block;width:100%;margin-top:6px;padding:11px 14px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:8px;color:var(--ink);font-size:18px;font-weight:400;letter-spacing:0;text-transform:none}
 .program-editor__range input:focus,.program-editor__more input:focus{border-color:var(--accent);outline:2px solid rgba(var(--accent-rgb),.2);outline-offset:1px}
@@ -2052,7 +2052,7 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .program-editor-installed .program-editor__stepper{width:100%;grid-template-columns:1fr 1.2fr 1fr;min-height:48px}
 .program-editor-installed .program-editor__stepper button,.program-editor-installed .program-editor__stepper output{min-height:46px}
 .program-editor-installed .program-editor__rep-rule{margin:14px 0 16px}
-.program-editor-installed .program-editor__range{row-gap:4px}
+.program-editor-installed .program-editor__range{row-gap:12px}
 .program-editor-installed .program-editor__range input{margin-top:2px;padding:10px 14px}
 .program-editor-installed .program-editor__exercise-actions{margin-top:10px}
 .program-editor-installed .program-editor__exercise-actions button{min-height:46px}
