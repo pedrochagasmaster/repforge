@@ -180,6 +180,42 @@
       }
     ]
   },
+  "catalogChecks": {
+    "version": 1,
+    "intentionalScrollers": [
+      {
+        "screen": "library/list",
+        "locator": "#libMuscleFilters",
+        "axis": "x",
+        "reason": "Muscle filters retain a partially visible final chip as a horizontal continuation cue.",
+        "owner": "plan-050"
+      },
+      {
+        "screen": "library/list",
+        "locator": "#libEquipmentFilters",
+        "axis": "x",
+        "reason": "Equipment filters retain a partially visible final chip as a horizontal continuation cue.",
+        "owner": "plan-050"
+      }
+    ],
+    "nonOverlapGroups": [
+      {
+        "screen": "library/list",
+        "locator": "#libMuscleFilters",
+        "members": ".pchip",
+        "reason": "Visible filter chips may continue off-edge but must not cover one another.",
+        "owner": "plan-050"
+      },
+      {
+        "screen": "library/list",
+        "locator": "#libEquipmentFilters",
+        "members": ".pchip",
+        "reason": "Visible filter chips may continue off-edge but must not cover one another.",
+        "owner": "plan-050"
+      }
+    ],
+    "renderedCopyAllowances": []
+  },
   "flows": [
     {
       "id": "onboarding-start",

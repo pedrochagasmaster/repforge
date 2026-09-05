@@ -390,6 +390,11 @@ node tools/capture-ui-screens.mjs --canonical               # one frame each
 node tools/capture-ui-screens.mjs --keep-going              # report, don't abort
 ```
 
+Set `CATALOG_CONTRACT=1` to run the rendered-copy, document/component-overflow,
+non-overlap, and intentional-scroller contract after each stable production
+scenario. Plan 050 enables the complete matrix after the remaining known layout
+repairs land; its focused EN/PT-BR detector test exercises the same boundary now.
+
 A filtered run merges into a copy of the committed catalog, so the folder on
 disk stays complete. Nothing replaces committed evidence until every requested
 capture succeeds. Do not hand-edit the PNGs.

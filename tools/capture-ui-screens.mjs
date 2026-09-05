@@ -32,8 +32,12 @@ import { dismissChrome, launchChromium, openPage, settle } from "./ui-screens/se
 import { APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
 import { ONBOARDING_SCENARIOS, focusOnboardingSubject, onboardingState } from "./ui-screens/screens-onboarding.mjs";
 import { buildSemanticArtifact, collectProgramEntrySemantics, normalizeSemanticRecords, validateSemanticArtifact } from "./ui-screens/semantics.mjs";
+import { collectCatalogEvidence, configForCapture, validateCatalogEvidence, validateCatalogMetadata } from "./ui-screens/catalog-contract.mjs";
 
 const MANIFEST = loadManifest();
+const CATALOG_METADATA_ERRORS = validateCatalogMetadata(MANIFEST);
+const KNOWN_KEY_NAMESPACES = [...new Set(Object.keys(JSON.parse(readFileSync(join(ROOT, "i18n-en.json"), "utf8")))
+  .flatMap((key) => key.split(".").slice(0, -1).map((_, index, parts) => parts.slice(0, index + 1).join("."))))];
 const ARTIFACT_ROOT = join(ROOT, MANIFEST.artifactRoot);
 const SEMANTIC_PATH = join(ROOT, "docs", "ui-screens", "entry-semantics.json");
 const README_PATH = join(ROOT, "docs", "ui-screens", "README.md");
@@ -57,6 +61,7 @@ const CAPTURE_ATTEMPTS = Number(process.env.CAPTURE_ATTEMPTS || 3);
  * hardware in question rather than assumed from the core count.
  */
 const CAPTURE_CONCURRENCY = Math.max(1, Number(process.env.CAPTURE_CONCURRENCY || 2));
+const CONTRACT_ENABLED = process.env.CATALOG_CONTRACT === "1";
 
 function parseArgs(argv) {
   const options = { flows: [], screens: [], canonical: false, keepGoing: false };
@@ -123,6 +128,17 @@ function writeReadme() {
     "",
     "Never hand-edit a PNG.",
     "",
+    "## Release matrix",
+    "",
+    "Coverage is risk-based rather than a full language × theme × text-size",
+    "product ([ADR 0012](../adr/0012-ui-overhaul-canonical-reconciliation.md)).",
+    "Broad normal-size coverage stays in both languages for every screen; the",
+    "demanding surfaces named in ADR 0012 additionally capture PT-BR at 200% text",
+    "(`pt-text200`, added by Plan 050). Document and component overflow assertions",
+    "run across every catalog screen — image comparison alone cannot tell a",
+    "designed scroller from a failure — and contrast is audited per rendered role",
+    "under WCAG 2.2 AA.",
+    "",
     "## Naming",
     "",
     "```",
@@ -182,6 +198,10 @@ export function replaceCatalog(stagingRoot, targetRoot, operations = {}) {
 }
 
 async function main() {
+  if (CATALOG_METADATA_ERRORS.length) {
+    console.error(`catalog contract metadata failed: ${CATALOG_METADATA_ERRORS.join("; ")}`);
+    return 1;
+  }
   const options = parseArgs(process.argv.slice(2));
   const captures = selectCaptures(options);
   const filtered = Boolean(options.flows.length || options.screens.length || options.canonical);
@@ -219,6 +239,12 @@ async function main() {
         if (!isOnboarding(capture)) await dismissChrome(opened.page);
         await SCENARIOS[key](opened.page);
         await settle(opened.page);
+        if (CONTRACT_ENABLED) {
+          const contract = configForCapture(MANIFEST, capture);
+          const evidence = await opened.page.evaluate(collectCatalogEvidence, contract);
+          const failures = validateCatalogEvidence(evidence, contract, { knownKeyNamespaces: KNOWN_KEY_NAMESPACES });
+          if (failures.length) throw new Error(`catalog contract ${key} ${variantSlug(capture)}: ${failures.join(" | ")}`);
+        }
         if (isOnboarding(capture)) {
           await focusOnboardingSubject(opened.page, key);
           const semantic = await opened.page.evaluate(collectProgramEntrySemantics);

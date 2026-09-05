@@ -8337,8 +8337,14 @@ function renderLibraryFilters(){
   const muscleRow=[chip("clear","",t("picker.filter_all"),!libFlow.muscle&&!libFlow.equipment)]
     .concat(PICKER_MUSCLE_GROUPS.map(([key])=>chip("muscle",key,t("picker.group."+key),libFlow.muscle===key)));
   const equipRow=PICKER_EQUIPMENT.map(eq=>chip("equipment",eq,t("picker.equipment."+eq),libFlow.equipment===eq));
-  el.innerHTML=`<div class="pick__filters pick__filters--row">${muscleRow.join("")}</div>`+
-    `<div class="pick__filters pick__filters--row">${equipRow.join("")}</div>`;
+  const scroller=(id,items)=>`<div id="${id}" class="pick__filters pick__filters--row" `+
+    `data-allow-horizontal-scroll="x" data-horizontal-scroll-cue="partial-last-chip" tabindex="0">${items.join("")}</div>`;
+  el.innerHTML=scroller("libMuscleFilters",muscleRow)+scroller("libEquipmentFilters",equipRow);
+  $$("#libFilters [data-allow-horizontal-scroll]").forEach(row=>row.onkeydown=(event)=>{
+    if(!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;
+    const left=event.key==="Home"?-row.scrollWidth:event.key==="End"?row.scrollWidth:event.key==="ArrowLeft"?-80:80;
+    row.scrollBy({left,behavior:"auto"});event.preventDefault();
+  });
   $$("#libFilters .pchip").forEach(b=>b.onclick=()=>{
     const kind=b.dataset.lf;
     if(kind==="clear"){libFlow.muscle=null;libFlow.equipment=null}
