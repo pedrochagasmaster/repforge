@@ -483,6 +483,20 @@
       "variants": "localized"
     },
     {
+      "id": "freeform-empty",
+      "flow": "onboarding-import",
+      "label": "Import — paste a program",
+      "scenario": "The free-form door as it opens: an empty field, and the hand-off to ChatGPT or Claude still unavailable.",
+      "variants": "localized"
+    },
+    {
+      "id": "freeform-filled",
+      "flow": "onboarding-import",
+      "label": "Import — paste ready to convert",
+      "scenario": "A pasted program with both app links live, the character counter, and the field the reply comes back into.",
+      "variants": "accessibility"
+    },
+    {
       "id": "preview",
       "flow": "onboarding-import",
       "label": "Import — review",

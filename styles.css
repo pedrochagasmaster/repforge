@@ -3131,6 +3131,24 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 }
 .entry__field input{text-transform:none;letter-spacing:normal;color:var(--ink);font-size:1rem}
 .entry__field input{font:inherit;font-weight:500;padding:12px 14px;border-radius:var(--radius);border:1px solid var(--rule);background:var(--surface);color:var(--ink)}
+
+/* Free-form import. Two long fields with a hand-off between them, so the
+   screen is read as a sequence rather than a form: paste, convert, paste back.
+   The app links are anchors — a real navigation survives a standalone install
+   — and carry their unavailable state on `is-disabled`, since an anchor has no
+   `:disabled` of its own. */
+.entry__field--area{gap:8px}
+.entry__field--area textarea{
+  font:inherit;font-weight:500;text-transform:none;letter-spacing:normal;
+  padding:12px 14px;border-radius:var(--radius);border:1px solid var(--rule);
+  background:var(--surface);color:var(--ink);font-size:1rem;line-height:1.45;
+  resize:vertical;min-height:96px;width:100%;box-sizing:border-box
+}
+.entry__freeform-apps{display:flex;flex-wrap:wrap;gap:10px;margin:4px 0 0}
+.entry__freeform-app{flex:1 1 150px;text-decoration:none;text-align:center}
+.entry__freeform-app.is-disabled{opacity:.4}
+.entry__switch{margin:16px 0 0;display:flex;justify-content:center}
+.entry-body .entry__switch .btn--ghost{color:var(--ink-soft)}
 .radio-card.is-disabled,.radio-card:disabled{
   opacity:.45;cursor:not-allowed}
 .entry__correct{margin-top:14px;padding-top:4px}
