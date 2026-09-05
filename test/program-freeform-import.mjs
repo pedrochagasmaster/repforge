@@ -65,6 +65,8 @@ async function reset(page) {
     try { window.closeOnboarding?.(); } catch {}
     try { window.closeFirstRun?.(); } catch {}
     try { await window.__repforgeStorage?.flush?.(); } catch {}
+    try { await window.__repforgeOnboarding?.clearDraft?.(); } catch {}
+    try { await window.__repforgeStorage?.flush?.(); } catch {}
     for (const key of [k, d, setup, ui]) localStorage.removeItem(key);
     localStorage.clear();
     sessionStorage.clear();
@@ -77,6 +79,9 @@ async function reset(page) {
   }, { k: KEY, d: DRAFT, setup: SETUP_DRAFT, ui: UI_KEY });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page);
+  await page.evaluate(({ setup }) => {
+    try { localStorage.removeItem(setup); } catch {}
+  }, { setup: SETUP_DRAFT });
   await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 20000 });
 }
 
@@ -84,6 +89,10 @@ async function reset(page) {
 async function openFreeform(page) {
   await page.waitForSelector("#firstRunCreate", { timeout: 20000 });
   await page.click("#firstRunCreate");
+  const restartBtn = page.locator("#entryResumeRestart");
+  if (await restartBtn.isVisible({ timeout: 500 }).catch(() => false)) {
+    await restartBtn.click();
+  }
   await page.waitForSelector("#entryOwnToggle", { timeout: 20000 });
   await page.click("#entryOwnToggle");
   const doors = await page.evaluate(() => ({
@@ -222,12 +231,19 @@ async function main() {
     await reset(page);
     await page.waitForSelector("#firstRunCreate", { timeout: 20000 });
     await page.click("#firstRunCreate");
+    const restartBtn = page.locator("#entryResumeRestart");
+    if (await restartBtn.isVisible({ timeout: 500 }).catch(() => false)) {
+      await restartBtn.click();
+    }
     await page.waitForSelector("#entryOwnToggle", { timeout: 20000 });
     await page.click("#entryOwnToggle");
     await page.click('[data-entry-route="import"]');
     await page.waitForSelector("#entryImportPick", { timeout: 20000 });
     assert(await page.locator("#entryImportPick").isVisible(),
       "the Import card opens the file door its caption describes");
+    await page.evaluate(async () => {
+      try { await window.__repforgeStorage?.flush?.(); } catch {}
+    });
 
     console.log("\nPortuguese reads the same screen");
     await reset(page);

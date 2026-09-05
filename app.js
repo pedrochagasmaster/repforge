@@ -178,7 +178,7 @@ function enqueueWrite(op){
   const result=persistTail.then(op);
   persistTail=result.then(()=>undefined,()=>undefined);
   return result}
-function flushStorage(){return persistTail}
+function flushStorage(){return Promise.all([persistTail,typeof setupDraftWriteQueue!=="undefined"?setupDraftWriteQueue:Promise.resolve()])}
 async function writeSnapshot(snapshot,io){
   if(!io||typeof io.writeLocal!=="function"||typeof io.writeIdb!=="function")
     throw new Error("writeSnapshot requires an explicit adapter");
@@ -11223,7 +11223,9 @@ window.__repforgeOnboarding={
   entry:()=>entryState,
   setupDraftKey:SETUP_DRAFT_KEY,
   services:entryServices,
-  render:renderOnboarding};
+  render:renderOnboarding,
+  flushDraft:()=>setupDraftWriteQueue,
+  clearDraft:clearSetupDraft};
 
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
