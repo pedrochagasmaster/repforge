@@ -63,6 +63,27 @@ try {
       await opened.context.close();
     }
   }
+  for (const screen of ["onboarding-build/editor-partial", "onboarding-build/editor-ready"]) {
+    const capture = { flow: "onboarding-build", screen: screen.split("/")[1], viewport: "phone-320", locale: "en", theme: "light", text: "normal", motion: "normal" };
+    const opened = await openPage(browser, manifest, capture, onboardingState(screen, manifest.locales.en.lang));
+    try {
+      await dismissChrome(opened.page);
+      await ONBOARDING_SCENARIOS[screen](opened.page);
+      await settle(opened.page);
+      const geometry = await opened.page.evaluate(() => ({
+        documentOverflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        clippedFields: [...document.querySelectorAll('[data-role="exercise-field"]')].filter((field) =>
+          field.scrollWidth > field.clientWidth + 1).map((field) => ({
+            field: field.dataset.field, client: field.clientWidth, scroll: field.scrollWidth,
+          })),
+      }));
+      assert.ok(geometry.documentOverflow <= 0 && geometry.clippedFields.length === 0,
+        `${screen} phone-320: Build editor fields reflow without page or component overflow: ${JSON.stringify(geometry)}`);
+      console.log(`Build compact geometry ${screen}: ${JSON.stringify(geometry)}`);
+    } finally {
+      await opened.context.close();
+    }
+  }
 } finally {
   await browser.close();
 }

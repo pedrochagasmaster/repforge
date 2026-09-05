@@ -1957,8 +1957,8 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .program-editor__rep-rule{height:1px;background:var(--rule);margin:0 0 18px}
 .program-editor__range{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0;padding:0;border:0}
 .program-editor__range legend{grid-column:1/-1;padding:0;margin:0 0 4px}
-.program-editor__range label,.program-editor__more label{display:block;color:var(--ink-soft);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
-.program-editor__range input,.program-editor__more input{display:block;width:100%;margin-top:6px;padding:11px 14px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:8px;color:var(--ink);font-size:18px;font-weight:400;letter-spacing:0;text-transform:none}
+.program-editor__range label,.program-editor__more label{display:block;min-width:0;color:var(--ink-soft);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.program-editor__range input,.program-editor__more input{display:block;box-sizing:border-box;width:100%;min-width:0;margin-top:6px;padding:11px 14px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:8px;color:var(--ink);font-size:18px;font-weight:400;letter-spacing:0;text-transform:none}
 .program-editor__range input:focus,.program-editor__more input:focus{border-color:var(--accent);outline:2px solid rgba(var(--accent-rgb),.2);outline-offset:1px}
 .program-editor__exercise-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px -16px 0;padding:0 16px;border-top:1px solid var(--rule)}
 .program-editor__exercise-actions button{min-height:62px;padding:8px 0;border:0;background:transparent;cursor:pointer;font-size:16px;font-weight:500}
@@ -2027,6 +2027,13 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .program-editor-onboarding .program-editor__stepper button,.program-editor-onboarding .program-editor__stepper output{min-height:56px}
 .program-editor-onboarding .program-editor__exercise-actions{margin-top:14px}
 .program-editor-onboarding .program-editor__exercise-actions button{min-height:50px}
+@media (max-width:340px){
+  /* A compact Build header keeps its editable exercise name on a complete row.
+     The summary/toggle remain below it, so an actual input value never becomes
+     a horizontally clipped control at the supported 320px phone width. */
+  .program-editor-onboarding .program-editor__exercise-head{flex-wrap:wrap}
+  .program-editor-onboarding .program-editor__exercise-name{flex:1 1 100%;min-width:0}
+}
 .program-editor-onboarding-actions{display:flex;flex-direction:column;gap:16px;margin:16px 0 12px}
 .program-editor-onboarding-actions .btn{width:100%;min-height:52px;height:52px;font-size:17px}
 .program-editor-onboarding-actions .program-editor__activate{display:flex;align-items:center;justify-content:space-between;padding-inline:18px;background:var(--cta);color:var(--cta-ink);border-color:var(--cta)}

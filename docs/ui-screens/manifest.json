@@ -209,11 +209,32 @@
         "motion": "normal"
       },
       {
+        "viewport": "phone-320",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
+        "viewport": "phone-430",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "normal"
+      },
+      {
         "viewport": "phone-390",
         "theme": "light",
         "locale": "en",
         "text": "text200",
         "motion": "normal"
+      },
+      {
+        "viewport": "phone-390",
+        "theme": "light",
+        "locale": "en",
+        "text": "normal",
+        "motion": "reduced"
       },
       {
         "viewport": "phone-390",

@@ -114,6 +114,12 @@ for (const key of demandingScreens) {
   assert.equal(screen.variants, "demandingText", `${key} uses the named demanding text matrix`);
 }
 const demandingSet = manifest.variantSets.demandingText;
+for (const priorAxis of manifest.variantSets.accessibility) {
+  assert.ok(demandingSet.some((variant) =>
+    variant.viewport === priorAxis.viewport && variant.theme === priorAxis.theme &&
+    variant.locale === priorAxis.locale && variant.text === priorAxis.text && variant.motion === priorAxis.motion),
+  `demanding text matrix retains the existing accessibility axis ${variantSlug(priorAxis)}`);
+}
 assert.ok(demandingSet.some((v) => v.locale === "en" && v.text === "text200"),
   "demanding text matrix retains English 200% coverage");
 assert.ok(demandingSet.some((v) => v.locale === "pt" && v.text === "text200"),

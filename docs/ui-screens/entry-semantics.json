@@ -4373,6 +4373,131 @@
       ]
     },
     {
+      "key": "onboarding-build/editor-empty__phone-320-light-en",
+      "flow": "onboarding-build",
+      "screen": "editor-empty",
+      "label": "Build — empty days",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Build a program"
+        },
+        {
+          "tag": "div",
+          "label": "Program editor"
+        },
+        {
+          "tag": "span",
+          "text": "Program name"
+        },
+        {
+          "tag": "input",
+          "name": "Program name",
+          "label": "Program name",
+          "value": "Manual catalog program"
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "Add an exercise to Day 1, Day 2, Day 3.",
+          "name": "Add an exercise to Day 1, Day 2, Day 3.",
+          "aria-live": "assertive",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 1"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Add an exercise to each training day."
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 2"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Day 2",
+          "label": "Expand Day 2",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 3"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Day 3",
+          "label": "Expand Day 3",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Save draft",
+          "name": "Save draft",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "describedBy": "Add an exercise to Day 1, Day 2, Day 3.",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-build/editor-empty__phone-390-dark-en",
       "flow": "onboarding-build",
       "screen": "editor-empty",
@@ -4507,6 +4632,131 @@
       "locale": "en",
       "text": "normal",
       "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Build a program"
+        },
+        {
+          "tag": "div",
+          "label": "Program editor"
+        },
+        {
+          "tag": "span",
+          "text": "Program name"
+        },
+        {
+          "tag": "input",
+          "name": "Program name",
+          "label": "Program name",
+          "value": "Manual catalog program"
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "Add an exercise to Day 1, Day 2, Day 3.",
+          "name": "Add an exercise to Day 1, Day 2, Day 3.",
+          "aria-live": "assertive",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 1"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Add an exercise to each training day."
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 2"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Day 2",
+          "label": "Expand Day 2",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 3"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Day 3",
+          "label": "Expand Day 3",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Save draft",
+          "name": "Save draft",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "describedBy": "Add an exercise to Day 1, Day 2, Day 3.",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-build/editor-empty__phone-390-light-en-reduced",
+      "flow": "onboarding-build",
+      "screen": "editor-empty",
+      "label": "Build — empty days",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
       "semantic": [
         {
           "tag": "section",
@@ -4998,6 +5248,331 @@
       ]
     },
     {
+      "key": "onboarding-build/editor-empty__phone-430-light-en",
+      "flow": "onboarding-build",
+      "screen": "editor-empty",
+      "label": "Build — empty days",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Build a program"
+        },
+        {
+          "tag": "div",
+          "label": "Program editor"
+        },
+        {
+          "tag": "span",
+          "text": "Program name"
+        },
+        {
+          "tag": "input",
+          "name": "Program name",
+          "label": "Program name",
+          "value": "Manual catalog program"
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "Add an exercise to Day 1, Day 2, Day 3.",
+          "name": "Add an exercise to Day 1, Day 2, Day 3.",
+          "aria-live": "assertive",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 1"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Add an exercise to each training day."
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 2"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Day 2",
+          "label": "Expand Day 2",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 3"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Day 3",
+          "label": "Expand Day 3",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Save draft",
+          "name": "Save draft",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "describedBy": "Add an exercise to Day 1, Day 2, Day 3.",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-build/editor-partial__phone-320-light-en",
+      "flow": "onboarding-build",
+      "screen": "editor-partial",
+      "label": "Build — partial draft",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Build a program"
+        },
+        {
+          "tag": "div",
+          "label": "Program editor"
+        },
+        {
+          "tag": "span",
+          "text": "Program name"
+        },
+        {
+          "tag": "input",
+          "name": "Program name",
+          "label": "Program name",
+          "value": "Manual catalog program"
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "Add an exercise to Day 2, Day 3.",
+          "name": "Add an exercise to Day 2, Day 3.",
+          "aria-live": "assertive",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 1"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Assisted pull-up",
+          "label": "Assisted pull-up",
+          "value": "Assisted pull-up"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Assisted pull-up",
+          "label": "Collapse Assisted pull-up",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SETS"
+        },
+        {
+          "tag": "span",
+          "text": "SETS"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
+        },
+        {
+          "tag": "span",
+          "text": "MIN"
+        },
+        {
+          "tag": "input",
+          "name": "MIN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MAX"
+        },
+        {
+          "tag": "input",
+          "name": "MAX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 2"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Day 2",
+          "label": "Expand Day 2",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 3"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Day 3",
+          "label": "Expand Day 3",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Save draft",
+          "name": "Save draft",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "describedBy": "Add an exercise to Day 2, Day 3.",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-build/editor-partial__phone-390-dark-en",
       "flow": "onboarding-build",
       "screen": "editor-partial",
@@ -5207,6 +5782,206 @@
       "locale": "en",
       "text": "normal",
       "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Build a program"
+        },
+        {
+          "tag": "div",
+          "label": "Program editor"
+        },
+        {
+          "tag": "span",
+          "text": "Program name"
+        },
+        {
+          "tag": "input",
+          "name": "Program name",
+          "label": "Program name",
+          "value": "Manual catalog program"
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "Add an exercise to Day 2, Day 3.",
+          "name": "Add an exercise to Day 2, Day 3.",
+          "aria-live": "assertive",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 1"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Assisted pull-up",
+          "label": "Assisted pull-up",
+          "value": "Assisted pull-up"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Assisted pull-up",
+          "label": "Collapse Assisted pull-up",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SETS"
+        },
+        {
+          "tag": "span",
+          "text": "SETS"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
+        },
+        {
+          "tag": "span",
+          "text": "MIN"
+        },
+        {
+          "tag": "input",
+          "name": "MIN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MAX"
+        },
+        {
+          "tag": "input",
+          "name": "MAX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 2"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Day 2",
+          "label": "Expand Day 2",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 3"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Day 3",
+          "label": "Expand Day 3",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Save draft",
+          "name": "Save draft",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "describedBy": "Add an exercise to Day 2, Day 3.",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-build/editor-partial__phone-390-light-en-reduced",
+      "flow": "onboarding-build",
+      "screen": "editor-partial",
+      "label": "Build — partial draft",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
       "semantic": [
         {
           "tag": "section",
@@ -5998,6 +6773,576 @@
       ]
     },
     {
+      "key": "onboarding-build/editor-partial__phone-430-light-en",
+      "flow": "onboarding-build",
+      "screen": "editor-partial",
+      "label": "Build — partial draft",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Build a program"
+        },
+        {
+          "tag": "div",
+          "label": "Program editor"
+        },
+        {
+          "tag": "span",
+          "text": "Program name"
+        },
+        {
+          "tag": "input",
+          "name": "Program name",
+          "label": "Program name",
+          "value": "Manual catalog program"
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "Add an exercise to Day 2, Day 3.",
+          "name": "Add an exercise to Day 2, Day 3.",
+          "aria-live": "assertive",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 1"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Assisted pull-up",
+          "label": "Assisted pull-up",
+          "value": "Assisted pull-up"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Assisted pull-up",
+          "label": "Collapse Assisted pull-up",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SETS"
+        },
+        {
+          "tag": "span",
+          "text": "SETS"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
+        },
+        {
+          "tag": "span",
+          "text": "MIN"
+        },
+        {
+          "tag": "input",
+          "name": "MIN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MAX"
+        },
+        {
+          "tag": "input",
+          "name": "MAX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 2"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Day 2",
+          "label": "Expand Day 2",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 3"
+        },
+        {
+          "tag": "span",
+          "text": "0 exercises"
+        },
+        {
+          "tag": "button",
+          "name": "Expand Day 3",
+          "label": "Expand Day 3",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Save draft",
+          "name": "Save draft",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "describedBy": "Add an exercise to Day 2, Day 3.",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-build/editor-ready__phone-320-light-en",
+      "flow": "onboarding-build",
+      "screen": "editor-ready",
+      "label": "Build — activation ready",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Build a program"
+        },
+        {
+          "tag": "div",
+          "label": "Program editor"
+        },
+        {
+          "tag": "span",
+          "text": "Program name"
+        },
+        {
+          "tag": "input",
+          "name": "Program name",
+          "label": "Program name",
+          "value": "Manual catalog program"
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Draft saved",
+          "name": "Draft saved",
+          "aria-live": "polite",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 1"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Assisted pull-up",
+          "label": "Assisted pull-up",
+          "value": "Assisted pull-up"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Assisted pull-up",
+          "label": "Collapse Assisted pull-up",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SETS"
+        },
+        {
+          "tag": "span",
+          "text": "SETS"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
+        },
+        {
+          "tag": "span",
+          "text": "MIN"
+        },
+        {
+          "tag": "input",
+          "name": "MIN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MAX"
+        },
+        {
+          "tag": "input",
+          "name": "MAX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 2"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Barbell back squat",
+          "label": "Barbell back squat",
+          "value": "Barbell back squat"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Barbell back squat",
+          "label": "Collapse Barbell back squat",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SETS"
+        },
+        {
+          "tag": "span",
+          "text": "SETS"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
+        },
+        {
+          "tag": "span",
+          "text": "MIN"
+        },
+        {
+          "tag": "input",
+          "name": "MIN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MAX"
+        },
+        {
+          "tag": "input",
+          "name": "MAX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 3"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Barbell back squat",
+          "label": "Barbell back squat",
+          "value": "Barbell back squat"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Barbell back squat",
+          "label": "Collapse Barbell back squat",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SETS"
+        },
+        {
+          "tag": "span",
+          "text": "SETS"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
+        },
+        {
+          "tag": "span",
+          "text": "MIN"
+        },
+        {
+          "tag": "input",
+          "name": "MIN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MAX"
+        },
+        {
+          "tag": "input",
+          "name": "MAX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Save draft",
+          "name": "Save draft",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-build/editor-ready__phone-390-dark-en",
       "flow": "onboarding-build",
       "screen": "editor-ready",
@@ -6377,6 +7722,376 @@
       "locale": "en",
       "text": "normal",
       "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Build a program"
+        },
+        {
+          "tag": "div",
+          "label": "Program editor"
+        },
+        {
+          "tag": "span",
+          "text": "Program name"
+        },
+        {
+          "tag": "input",
+          "name": "Program name",
+          "label": "Program name",
+          "value": "Manual catalog program"
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Draft saved",
+          "name": "Draft saved",
+          "aria-live": "polite",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 1"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Assisted pull-up",
+          "label": "Assisted pull-up",
+          "value": "Assisted pull-up"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Assisted pull-up",
+          "label": "Collapse Assisted pull-up",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SETS"
+        },
+        {
+          "tag": "span",
+          "text": "SETS"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
+        },
+        {
+          "tag": "span",
+          "text": "MIN"
+        },
+        {
+          "tag": "input",
+          "name": "MIN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MAX"
+        },
+        {
+          "tag": "input",
+          "name": "MAX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 2"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Barbell back squat",
+          "label": "Barbell back squat",
+          "value": "Barbell back squat"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Barbell back squat",
+          "label": "Collapse Barbell back squat",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SETS"
+        },
+        {
+          "tag": "span",
+          "text": "SETS"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
+        },
+        {
+          "tag": "span",
+          "text": "MIN"
+        },
+        {
+          "tag": "input",
+          "name": "MIN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MAX"
+        },
+        {
+          "tag": "input",
+          "name": "MAX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 3"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Barbell back squat",
+          "label": "Barbell back squat",
+          "value": "Barbell back squat"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Barbell back squat",
+          "label": "Collapse Barbell back squat",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SETS"
+        },
+        {
+          "tag": "span",
+          "text": "SETS"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
+        },
+        {
+          "tag": "span",
+          "text": "MIN"
+        },
+        {
+          "tag": "input",
+          "name": "MIN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MAX"
+        },
+        {
+          "tag": "input",
+          "name": "MAX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Save draft",
+          "name": "Save draft",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-build/editor-ready__phone-390-light-en-reduced",
+      "flow": "onboarding-build",
+      "screen": "editor-ready",
+      "label": "Build — activation ready",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
       "semantic": [
         {
           "tag": "section",
@@ -7843,6 +9558,376 @@
           "tag": "button",
           "text": "Usar este programa",
           "name": "Usar este programa",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-build/editor-ready__phone-430-light-en",
+      "flow": "onboarding-build",
+      "screen": "editor-ready",
+      "label": "Build — activation ready",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Build a program"
+        },
+        {
+          "tag": "div",
+          "label": "Program editor"
+        },
+        {
+          "tag": "span",
+          "text": "Program name"
+        },
+        {
+          "tag": "input",
+          "name": "Program name",
+          "label": "Program name",
+          "value": "Manual catalog program"
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Draft saved",
+          "name": "Draft saved",
+          "aria-live": "polite",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 1"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Assisted pull-up",
+          "label": "Assisted pull-up",
+          "value": "Assisted pull-up"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Assisted pull-up",
+          "label": "Collapse Assisted pull-up",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SETS"
+        },
+        {
+          "tag": "span",
+          "text": "SETS"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
+        },
+        {
+          "tag": "span",
+          "text": "MIN"
+        },
+        {
+          "tag": "input",
+          "name": "MIN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MAX"
+        },
+        {
+          "tag": "input",
+          "name": "MAX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 2"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Barbell back squat",
+          "label": "Barbell back squat",
+          "value": "Barbell back squat"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Barbell back squat",
+          "label": "Collapse Barbell back squat",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SETS"
+        },
+        {
+          "tag": "span",
+          "text": "SETS"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
+        },
+        {
+          "tag": "span",
+          "text": "MIN"
+        },
+        {
+          "tag": "input",
+          "name": "MIN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MAX"
+        },
+        {
+          "tag": "input",
+          "name": "MAX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Day name",
+          "label": "Day name",
+          "value": "Day 3"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "button",
+          "text": "⋮",
+          "name": "More",
+          "label": "More",
+          "aria-expanded": "false",
+          "type": "button"
+        },
+        {
+          "tag": "input",
+          "name": "Barbell back squat",
+          "label": "Barbell back squat",
+          "value": "Barbell back squat"
+        },
+        {
+          "tag": "span",
+          "text": "3 × 6–10"
+        },
+        {
+          "tag": "button",
+          "name": "Collapse Barbell back squat",
+          "label": "Collapse Barbell back squat",
+          "aria-expanded": "true",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "label": "SETS"
+        },
+        {
+          "tag": "span",
+          "text": "SETS"
+        },
+        {
+          "tag": "button",
+          "text": "−",
+          "name": "Decrease sets",
+          "label": "Decrease sets",
+          "type": "button"
+        },
+        {
+          "tag": "output",
+          "text": "3"
+        },
+        {
+          "tag": "button",
+          "text": "+",
+          "name": "Increase sets",
+          "label": "Increase sets",
+          "type": "button"
+        },
+        {
+          "tag": "legend",
+          "text": "REP RANGE"
+        },
+        {
+          "tag": "span",
+          "text": "MIN"
+        },
+        {
+          "tag": "input",
+          "name": "MIN",
+          "value": "6",
+          "type": "number"
+        },
+        {
+          "tag": "span",
+          "text": "MAX"
+        },
+        {
+          "tag": "input",
+          "name": "MAX",
+          "value": "10",
+          "type": "number"
+        },
+        {
+          "tag": "button",
+          "text": "Replace exercise",
+          "name": "Replace exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Remove exercise",
+          "name": "Remove exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Add exercise",
+          "name": "＋ Add exercise",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Save draft",
+          "name": "Save draft",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
           "type": "button"
         }
       ]
@@ -12332,6 +14417,813 @@
       ]
     },
     {
+      "key": "onboarding-custom/priorities__phone-320-light-en",
+      "flow": "onboarding-custom",
+      "screen": "priorities",
+      "label": "Custom 5 — muscle priorities",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Custom program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 5 of 6",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Muscle priorities",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Optional"
+        },
+        {
+          "tag": "p",
+          "text": "For each muscle, choose normal, prioritize, reduce emphasis, or ignore."
+        },
+        {
+          "tag": "p",
+          "text": "Muscle emphasis"
+        },
+        {
+          "tag": "p",
+          "text": "Choose one setting for each muscle. Leave it at normal unless you want Taurifer to change its emphasis."
+        },
+        {
+          "tag": "div",
+          "role": "group",
+          "name": "Muscle emphasis",
+          "labelledBy": "Muscle emphasis"
+        },
+        {
+          "tag": "span",
+          "text": "Chest"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "ChestNormal",
+          "labelledBy": "ChestNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Chest: Normal",
+          "label": "Chest: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Chest: Prioritize",
+          "label": "Chest: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Chest: De-emphasize",
+          "label": "Chest: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Chest: Ignore",
+          "label": "Chest: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Back"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "BackNormal",
+          "labelledBy": "BackNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Back: Normal",
+          "label": "Back: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Back: Prioritize",
+          "label": "Back: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Back: De-emphasize",
+          "label": "Back: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Back: Ignore",
+          "label": "Back: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Quads"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "QuadsNormal",
+          "labelledBy": "QuadsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quads: Normal",
+          "label": "Quads: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quads: Prioritize",
+          "label": "Quads: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quads: De-emphasize",
+          "label": "Quads: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quads: Ignore",
+          "label": "Quads: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Hamstrings"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "HamstringsNormal",
+          "labelledBy": "HamstringsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Hamstrings: Normal",
+          "label": "Hamstrings: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Hamstrings: Prioritize",
+          "label": "Hamstrings: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Hamstrings: De-emphasize",
+          "label": "Hamstrings: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Hamstrings: Ignore",
+          "label": "Hamstrings: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Glutes"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "GlutesNormal",
+          "labelledBy": "GlutesNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glutes: Normal",
+          "label": "Glutes: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glutes: Prioritize",
+          "label": "Glutes: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glutes: De-emphasize",
+          "label": "Glutes: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glutes: Ignore",
+          "label": "Glutes: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Side delts"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Side deltsNormal",
+          "labelledBy": "Side deltsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Side delts: Normal",
+          "label": "Side delts: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Side delts: Prioritize",
+          "label": "Side delts: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Side delts: De-emphasize",
+          "label": "Side delts: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Side delts: Ignore",
+          "label": "Side delts: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Biceps"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "BicepsNormal",
+          "labelledBy": "BicepsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Biceps: Normal",
+          "label": "Biceps: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Biceps: Prioritize",
+          "label": "Biceps: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Biceps: De-emphasize",
+          "label": "Biceps: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Biceps: Ignore",
+          "label": "Biceps: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Triceps"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "TricepsNormal",
+          "labelledBy": "TricepsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Triceps: Normal",
+          "label": "Triceps: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Triceps: Prioritize",
+          "label": "Triceps: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Triceps: De-emphasize",
+          "label": "Triceps: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Triceps: Ignore",
+          "label": "Triceps: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Calves"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "CalvesNormal",
+          "labelledBy": "CalvesNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Calves: Normal",
+          "label": "Calves: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Calves: Prioritize",
+          "label": "Calves: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Calves: De-emphasize",
+          "label": "Calves: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Calves: Ignore",
+          "label": "Calves: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Lats"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "LatsNormal",
+          "labelledBy": "LatsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: Normal",
+          "label": "Lats: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: Prioritize",
+          "label": "Lats: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: De-emphasize",
+          "label": "Lats: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: Ignore",
+          "label": "Lats: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "p",
+          "text": "Priority movement patterns"
+        },
+        {
+          "tag": "div",
+          "role": "group",
+          "name": "SquatHingePressVertical pressRowPulldown"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Squat",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Squat"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Hinge",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Hinge"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Row",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Row"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Pulldown",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Pulldown"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-custom/priorities__phone-390-dark-en",
       "flow": "onboarding-custom",
       "screen": "priorities",
@@ -13148,6 +16040,813 @@
       "locale": "en",
       "text": "normal",
       "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Custom program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 5 of 6",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Muscle priorities",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Optional"
+        },
+        {
+          "tag": "p",
+          "text": "For each muscle, choose normal, prioritize, reduce emphasis, or ignore."
+        },
+        {
+          "tag": "p",
+          "text": "Muscle emphasis"
+        },
+        {
+          "tag": "p",
+          "text": "Choose one setting for each muscle. Leave it at normal unless you want Taurifer to change its emphasis."
+        },
+        {
+          "tag": "div",
+          "role": "group",
+          "name": "Muscle emphasis",
+          "labelledBy": "Muscle emphasis"
+        },
+        {
+          "tag": "span",
+          "text": "Chest"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "ChestNormal",
+          "labelledBy": "ChestNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Chest: Normal",
+          "label": "Chest: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Chest: Prioritize",
+          "label": "Chest: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Chest: De-emphasize",
+          "label": "Chest: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Chest: Ignore",
+          "label": "Chest: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Back"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "BackNormal",
+          "labelledBy": "BackNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Back: Normal",
+          "label": "Back: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Back: Prioritize",
+          "label": "Back: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Back: De-emphasize",
+          "label": "Back: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Back: Ignore",
+          "label": "Back: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Quads"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "QuadsNormal",
+          "labelledBy": "QuadsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quads: Normal",
+          "label": "Quads: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quads: Prioritize",
+          "label": "Quads: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quads: De-emphasize",
+          "label": "Quads: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quads: Ignore",
+          "label": "Quads: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Hamstrings"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "HamstringsNormal",
+          "labelledBy": "HamstringsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Hamstrings: Normal",
+          "label": "Hamstrings: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Hamstrings: Prioritize",
+          "label": "Hamstrings: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Hamstrings: De-emphasize",
+          "label": "Hamstrings: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Hamstrings: Ignore",
+          "label": "Hamstrings: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Glutes"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "GlutesNormal",
+          "labelledBy": "GlutesNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glutes: Normal",
+          "label": "Glutes: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glutes: Prioritize",
+          "label": "Glutes: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glutes: De-emphasize",
+          "label": "Glutes: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glutes: Ignore",
+          "label": "Glutes: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Side delts"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Side deltsNormal",
+          "labelledBy": "Side deltsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Side delts: Normal",
+          "label": "Side delts: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Side delts: Prioritize",
+          "label": "Side delts: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Side delts: De-emphasize",
+          "label": "Side delts: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Side delts: Ignore",
+          "label": "Side delts: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Biceps"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "BicepsNormal",
+          "labelledBy": "BicepsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Biceps: Normal",
+          "label": "Biceps: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Biceps: Prioritize",
+          "label": "Biceps: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Biceps: De-emphasize",
+          "label": "Biceps: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Biceps: Ignore",
+          "label": "Biceps: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Triceps"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "TricepsNormal",
+          "labelledBy": "TricepsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Triceps: Normal",
+          "label": "Triceps: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Triceps: Prioritize",
+          "label": "Triceps: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Triceps: De-emphasize",
+          "label": "Triceps: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Triceps: Ignore",
+          "label": "Triceps: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Calves"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "CalvesNormal",
+          "labelledBy": "CalvesNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Calves: Normal",
+          "label": "Calves: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Calves: Prioritize",
+          "label": "Calves: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Calves: De-emphasize",
+          "label": "Calves: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Calves: Ignore",
+          "label": "Calves: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Lats"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "LatsNormal",
+          "labelledBy": "LatsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: Normal",
+          "label": "Lats: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: Prioritize",
+          "label": "Lats: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: De-emphasize",
+          "label": "Lats: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: Ignore",
+          "label": "Lats: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "p",
+          "text": "Priority movement patterns"
+        },
+        {
+          "tag": "div",
+          "role": "group",
+          "name": "SquatHingePressVertical pressRowPulldown"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Squat",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Squat"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Hinge",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Hinge"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Row",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Row"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Pulldown",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Pulldown"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-custom/priorities__phone-390-light-en-reduced",
+      "flow": "onboarding-custom",
+      "screen": "priorities",
+      "label": "Custom 5 — muscle priorities",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
       "semantic": [
         {
           "tag": "section",
@@ -16367,6 +20066,813 @@
       ]
     },
     {
+      "key": "onboarding-custom/priorities__phone-430-light-en",
+      "flow": "onboarding-custom",
+      "screen": "priorities",
+      "label": "Custom 5 — muscle priorities",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Custom program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 5 of 6",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Muscle priorities",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Optional"
+        },
+        {
+          "tag": "p",
+          "text": "For each muscle, choose normal, prioritize, reduce emphasis, or ignore."
+        },
+        {
+          "tag": "p",
+          "text": "Muscle emphasis"
+        },
+        {
+          "tag": "p",
+          "text": "Choose one setting for each muscle. Leave it at normal unless you want Taurifer to change its emphasis."
+        },
+        {
+          "tag": "div",
+          "role": "group",
+          "name": "Muscle emphasis",
+          "labelledBy": "Muscle emphasis"
+        },
+        {
+          "tag": "span",
+          "text": "Chest"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "ChestNormal",
+          "labelledBy": "ChestNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Chest: Normal",
+          "label": "Chest: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Chest: Prioritize",
+          "label": "Chest: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Chest: De-emphasize",
+          "label": "Chest: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Chest: Ignore",
+          "label": "Chest: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Back"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "BackNormal",
+          "labelledBy": "BackNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Back: Normal",
+          "label": "Back: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Back: Prioritize",
+          "label": "Back: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Back: De-emphasize",
+          "label": "Back: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Back: Ignore",
+          "label": "Back: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Quads"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "QuadsNormal",
+          "labelledBy": "QuadsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quads: Normal",
+          "label": "Quads: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quads: Prioritize",
+          "label": "Quads: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quads: De-emphasize",
+          "label": "Quads: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Quads: Ignore",
+          "label": "Quads: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Hamstrings"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "HamstringsNormal",
+          "labelledBy": "HamstringsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Hamstrings: Normal",
+          "label": "Hamstrings: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Hamstrings: Prioritize",
+          "label": "Hamstrings: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Hamstrings: De-emphasize",
+          "label": "Hamstrings: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Hamstrings: Ignore",
+          "label": "Hamstrings: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Glutes"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "GlutesNormal",
+          "labelledBy": "GlutesNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glutes: Normal",
+          "label": "Glutes: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glutes: Prioritize",
+          "label": "Glutes: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glutes: De-emphasize",
+          "label": "Glutes: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Glutes: Ignore",
+          "label": "Glutes: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Side delts"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Side deltsNormal",
+          "labelledBy": "Side deltsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Side delts: Normal",
+          "label": "Side delts: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Side delts: Prioritize",
+          "label": "Side delts: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Side delts: De-emphasize",
+          "label": "Side delts: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Side delts: Ignore",
+          "label": "Side delts: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Biceps"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "BicepsNormal",
+          "labelledBy": "BicepsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Biceps: Normal",
+          "label": "Biceps: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Biceps: Prioritize",
+          "label": "Biceps: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Biceps: De-emphasize",
+          "label": "Biceps: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Biceps: Ignore",
+          "label": "Biceps: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Triceps"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "TricepsNormal",
+          "labelledBy": "TricepsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Triceps: Normal",
+          "label": "Triceps: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Triceps: Prioritize",
+          "label": "Triceps: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Triceps: De-emphasize",
+          "label": "Triceps: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Triceps: Ignore",
+          "label": "Triceps: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Calves"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "CalvesNormal",
+          "labelledBy": "CalvesNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Calves: Normal",
+          "label": "Calves: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Calves: Prioritize",
+          "label": "Calves: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Calves: De-emphasize",
+          "label": "Calves: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Calves: Ignore",
+          "label": "Calves: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "span",
+          "text": "Lats"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "LatsNormal",
+          "labelledBy": "LatsNormal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: Normal",
+          "label": "Lats: Normal",
+          "aria-checked": "true",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Normal"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: Prioritize",
+          "label": "Lats: Prioritize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: De-emphasize",
+          "label": "Lats: De-emphasize",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "De-emphasize"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Lats: Ignore",
+          "label": "Lats: Ignore",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Ignore"
+        },
+        {
+          "tag": "p",
+          "text": "Priority movement patterns"
+        },
+        {
+          "tag": "div",
+          "role": "group",
+          "name": "SquatHingePressVertical pressRowPulldown"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Squat",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Squat"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Hinge",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Hinge"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Vertical press",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Vertical press"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Row",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Row"
+        },
+        {
+          "tag": "button",
+          "role": "checkbox",
+          "name": "Pulldown",
+          "aria-checked": "false",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Pulldown"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-custom/result__phone-390-dark-en",
       "flow": "onboarding-custom",
       "screen": "result",
@@ -16771,6 +21277,311 @@
       ]
     },
     {
+      "key": "onboarding-custom/schedule__phone-320-light-en",
+      "flow": "onboarding-custom",
+      "screen": "schedule",
+      "label": "Custom 3 — real week",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Custom program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 6",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Fit training into your week",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Your time limit sets how much work fits in the session."
+        },
+        {
+          "tag": "span",
+          "text": "Training days per week"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Training days per week",
+          "labelledBy": "Training days per week"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "2days",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "3days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "4days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "5days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "5"
+        },
+        {
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "6days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "6"
+        },
+        {
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "span",
+          "text": "Longest usual session"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Longest usual session",
+          "labelledBy": "Longest usual session"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "30minutes",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "30"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "45minutes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "45"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "60minutes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "60"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "75minutes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "75"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "90+minutes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "90+"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
+        },
+        {
+          "tag": "span",
+          "text": "Preferred rest between demanding sets"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Preferred rest between demanding sets",
+          "labelledBy": "Preferred rest between demanding sets"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Let Taurifer choose",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Let Taurifer choose"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "About 60 seconds",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "About 60 seconds"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "About 90 seconds",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "About 90 seconds"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "About 2 minutes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "About 2 minutes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "3 minutes or more",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3 minutes or more"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-custom/schedule__phone-390-dark-en",
       "flow": "onboarding-custom",
       "screen": "schedule",
@@ -17085,6 +21896,311 @@
       "locale": "en",
       "text": "normal",
       "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Custom program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 6",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Fit training into your week",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Your time limit sets how much work fits in the session."
+        },
+        {
+          "tag": "span",
+          "text": "Training days per week"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Training days per week",
+          "labelledBy": "Training days per week"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "2days",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "3days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "4days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "5days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "5"
+        },
+        {
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "6days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "6"
+        },
+        {
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "span",
+          "text": "Longest usual session"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Longest usual session",
+          "labelledBy": "Longest usual session"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "30minutes",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "30"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "45minutes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "45"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "60minutes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "60"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "75minutes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "75"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "90+minutes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "90+"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
+        },
+        {
+          "tag": "span",
+          "text": "Preferred rest between demanding sets"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Preferred rest between demanding sets",
+          "labelledBy": "Preferred rest between demanding sets"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Let Taurifer choose",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Let Taurifer choose"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "About 60 seconds",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "About 60 seconds"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "About 90 seconds",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "About 90 seconds"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "About 2 minutes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "About 2 minutes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "3 minutes or more",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3 minutes or more"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-custom/schedule__phone-390-light-en-reduced",
+      "flow": "onboarding-custom",
+      "screen": "schedule",
+      "label": "Custom 3 — real week",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
       "semantic": [
         {
           "tag": "section",
@@ -18296,6 +23412,445 @@
       ]
     },
     {
+      "key": "onboarding-custom/schedule__phone-430-light-en",
+      "flow": "onboarding-custom",
+      "screen": "schedule",
+      "label": "Custom 3 — real week",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Custom program"
+        },
+        {
+          "tag": "p",
+          "text": "Section 3 of 6",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "h2",
+          "text": "Fit training into your week",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Your time limit sets how much work fits in the session."
+        },
+        {
+          "tag": "span",
+          "text": "Training days per week"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Training days per week",
+          "labelledBy": "Training days per week"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "2days",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2"
+        },
+        {
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "3days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "4days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "4"
+        },
+        {
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "5days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "5"
+        },
+        {
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "6days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "6"
+        },
+        {
+          "tag": "span",
+          "text": "days"
+        },
+        {
+          "tag": "span",
+          "text": "Longest usual session"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Longest usual session",
+          "labelledBy": "Longest usual session"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "30minutes",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "30"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "45minutes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "45"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "60minutes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "60"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "75minutes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "75"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "90+minutes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "90+"
+        },
+        {
+          "tag": "span",
+          "text": "minutes"
+        },
+        {
+          "tag": "span",
+          "text": "Preferred rest between demanding sets"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "Preferred rest between demanding sets",
+          "labelledBy": "Preferred rest between demanding sets"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "Let Taurifer choose",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Let Taurifer choose"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "About 60 seconds",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "About 60 seconds"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "About 90 seconds",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "About 90 seconds"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "About 2 minutes",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "About 2 minutes"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "3 minutes or more",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3 minutes or more"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/preview__phone-320-light-en",
+      "flow": "onboarding-import",
+      "screen": "preview",
+      "label": "Import — review",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Import a program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+        },
+        {
+          "tag": "h3",
+          "text": "Imported catalog program"
+        },
+        {
+          "tag": "p",
+          "text": "Imported program"
+        },
+        {
+          "tag": "span",
+          "text": "Source"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "span",
+          "text": "3 working sets"
+        },
+        {
+          "tag": "h4",
+          "text": "Priorities"
+        },
+        {
+          "tag": "p",
+          "text": "No special muscle priority"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipment assumptions"
+        },
+        {
+          "tag": "p",
+          "text": "This program did not specify equipment."
+        },
+        {
+          "tag": "h4",
+          "text": "Progression"
+        },
+        {
+          "tag": "p",
+          "text": "The program sets each exercise's target, or you set it yourself. Taurifer does not invent load or rep suggestions."
+        },
+        {
+          "tag": "h4",
+          "text": "Adjustments"
+        },
+        {
+          "tag": "p",
+          "text": "No adjustments were needed."
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Edit before using",
+          "name": "Edit before using",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Weekly structure"
+        },
+        {
+          "tag": "summary",
+          "text": "Day 1",
+          "name": "1Day 11 exercise · 3 working sets"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise · 3 working sets"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×6–10"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-import/preview__phone-390-dark-en",
       "flow": "onboarding-import",
       "screen": "preview",
@@ -18439,6 +23994,140 @@
       "locale": "en",
       "text": "normal",
       "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Import a program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+        },
+        {
+          "tag": "h3",
+          "text": "Imported catalog program"
+        },
+        {
+          "tag": "p",
+          "text": "Imported program"
+        },
+        {
+          "tag": "span",
+          "text": "Source"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "span",
+          "text": "3 working sets"
+        },
+        {
+          "tag": "h4",
+          "text": "Priorities"
+        },
+        {
+          "tag": "p",
+          "text": "No special muscle priority"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipment assumptions"
+        },
+        {
+          "tag": "p",
+          "text": "This program did not specify equipment."
+        },
+        {
+          "tag": "h4",
+          "text": "Progression"
+        },
+        {
+          "tag": "p",
+          "text": "The program sets each exercise's target, or you set it yourself. Taurifer does not invent load or rep suggestions."
+        },
+        {
+          "tag": "h4",
+          "text": "Adjustments"
+        },
+        {
+          "tag": "p",
+          "text": "No adjustments were needed."
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Edit before using",
+          "name": "Edit before using",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Weekly structure"
+        },
+        {
+          "tag": "summary",
+          "text": "Day 1",
+          "name": "1Day 11 exercise · 3 working sets"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise · 3 working sets"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×6–10"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/preview__phone-390-light-en-reduced",
+      "flow": "onboarding-import",
+      "screen": "preview",
+      "label": "Import — review",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
       "semantic": [
         {
           "tag": "section",
@@ -18961,6 +24650,140 @@
           "text": "Voltar",
           "name": "Voltar",
           "label": "Voltar",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/preview__phone-430-light-en",
+      "flow": "onboarding-import",
+      "screen": "preview",
+      "label": "Import — review",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Import a program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+        },
+        {
+          "tag": "h3",
+          "text": "Imported catalog program"
+        },
+        {
+          "tag": "p",
+          "text": "Imported program"
+        },
+        {
+          "tag": "span",
+          "text": "Source"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "span",
+          "text": "3 working sets"
+        },
+        {
+          "tag": "h4",
+          "text": "Priorities"
+        },
+        {
+          "tag": "p",
+          "text": "No special muscle priority"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipment assumptions"
+        },
+        {
+          "tag": "p",
+          "text": "This program did not specify equipment."
+        },
+        {
+          "tag": "h4",
+          "text": "Progression"
+        },
+        {
+          "tag": "p",
+          "text": "The program sets each exercise's target, or you set it yourself. Taurifer does not invent load or rep suggestions."
+        },
+        {
+          "tag": "h4",
+          "text": "Adjustments"
+        },
+        {
+          "tag": "p",
+          "text": "No adjustments were needed."
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Edit before using",
+          "name": "Edit before using",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Weekly structure"
+        },
+        {
+          "tag": "summary",
+          "text": "Day 1",
+          "name": "1Day 11 exercise · 3 working sets"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise · 3 working sets"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×6–10"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
           "type": "button"
         }
       ]
@@ -29020,6 +34843,91 @@
       ]
     },
     {
+      "key": "onboarding-recommend/result__phone-320-light-en",
+      "flow": "onboarding-recommend",
+      "screen": "result",
+      "label": "Recommend — recommendation",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "h2",
+          "text": "Recommended program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "The same answers and rules produce the same program every time."
+        },
+        {
+          "tag": "h3",
+          "text": "Muscle + Strength"
+        },
+        {
+          "tag": "span",
+          "text": "3 days"
+        },
+        {
+          "tag": "span",
+          "text": "about 49–55 minutes"
+        },
+        {
+          "tag": "p",
+          "text": "Why it fits"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritizes Balance muscle and strength."
+        },
+        {
+          "tag": "span",
+          "text": "Fits 3 training days, each capped at 60 minutes."
+        },
+        {
+          "tag": "span",
+          "text": "Written for a full commercial gym."
+        },
+        {
+          "tag": "span",
+          "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
+        },
+        {
+          "tag": "span",
+          "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
+        },
+        {
+          "tag": "button",
+          "text": "Review this program",
+          "name": "Review this program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-recommend/result__phone-390-dark-en",
       "flow": "onboarding-recommend",
       "screen": "result",
@@ -29114,6 +35022,91 @@
       "locale": "en",
       "text": "normal",
       "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "h2",
+          "text": "Recommended program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "The same answers and rules produce the same program every time."
+        },
+        {
+          "tag": "h3",
+          "text": "Muscle + Strength"
+        },
+        {
+          "tag": "span",
+          "text": "3 days"
+        },
+        {
+          "tag": "span",
+          "text": "about 49–55 minutes"
+        },
+        {
+          "tag": "p",
+          "text": "Why it fits"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritizes Balance muscle and strength."
+        },
+        {
+          "tag": "span",
+          "text": "Fits 3 training days, each capped at 60 minutes."
+        },
+        {
+          "tag": "span",
+          "text": "Written for a full commercial gym."
+        },
+        {
+          "tag": "span",
+          "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
+        },
+        {
+          "tag": "span",
+          "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
+        },
+        {
+          "tag": "button",
+          "text": "Review this program",
+          "name": "Review this program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/result__phone-390-light-en-reduced",
+      "flow": "onboarding-recommend",
+      "screen": "result",
+      "label": "Recommend — recommendation",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
       "semantic": [
         {
           "tag": "section",
@@ -29440,6 +35433,91 @@
           "text": "Voltar",
           "name": "Voltar",
           "label": "Voltar",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/result__phone-430-light-en",
+      "flow": "onboarding-recommend",
+      "screen": "result",
+      "label": "Recommend — recommendation",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "h2",
+          "text": "Recommended program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "The same answers and rules produce the same program every time."
+        },
+        {
+          "tag": "h3",
+          "text": "Muscle + Strength"
+        },
+        {
+          "tag": "span",
+          "text": "3 days"
+        },
+        {
+          "tag": "span",
+          "text": "about 49–55 minutes"
+        },
+        {
+          "tag": "p",
+          "text": "Why it fits"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritizes Balance muscle and strength."
+        },
+        {
+          "tag": "span",
+          "text": "Fits 3 training days, each capped at 60 minutes."
+        },
+        {
+          "tag": "span",
+          "text": "Written for a full commercial gym."
+        },
+        {
+          "tag": "span",
+          "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
+        },
+        {
+          "tag": "span",
+          "text": "Progresses by Heavy set and lighter sets · Rep range · Total reps."
+        },
+        {
+          "tag": "button",
+          "text": "Review this program",
+          "name": "Review this program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
           "type": "button"
         }
       ]
@@ -30912,6 +36990,63 @@
       ]
     },
     {
+      "key": "onboarding-shared/gate__phone-320-light-en",
+      "flow": "onboarding-shared",
+      "screen": "gate",
+      "label": "Shared setup — confirmation gate",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Set up Taurifer",
+          "label": "Set up Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "p",
+          "text": "Strength isn't something you're born with."
+        },
+        {
+          "tag": "p",
+          "text": "Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it."
+        },
+        {
+          "tag": "p",
+          "text": "Your program is ready."
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Program"
+        },
+        {
+          "tag": "button",
+          "name": "Start this program Coach program · 1 day per week",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Start this program"
+        },
+        {
+          "tag": "span",
+          "text": "Coach program · 1 day per week"
+        }
+      ]
+    },
+    {
       "key": "onboarding-shared/gate__phone-390-dark-en",
       "flow": "onboarding-shared",
       "screen": "gate",
@@ -30978,6 +37113,63 @@
       "locale": "en",
       "text": "normal",
       "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Set up Taurifer",
+          "label": "Set up Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "p",
+          "text": "Strength isn't something you're born with."
+        },
+        {
+          "tag": "p",
+          "text": "Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it."
+        },
+        {
+          "tag": "p",
+          "text": "Your program is ready."
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Program"
+        },
+        {
+          "tag": "button",
+          "name": "Start this program Coach program · 1 day per week",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Start this program"
+        },
+        {
+          "tag": "span",
+          "text": "Coach program · 1 day per week"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-shared/gate__phone-390-light-en-reduced",
+      "flow": "onboarding-shared",
+      "screen": "gate",
+      "label": "Shared setup — confirmation gate",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
       "semantic": [
         {
           "tag": "div",
@@ -31148,6 +37340,63 @@
       "theme": "light",
       "locale": "pt",
       "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Set up Taurifer",
+          "label": "Set up Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "p",
+          "text": "Strength isn't something you're born with."
+        },
+        {
+          "tag": "p",
+          "text": "Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it."
+        },
+        {
+          "tag": "p",
+          "text": "Your program is ready."
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Program"
+        },
+        {
+          "tag": "p",
+          "text": "Program"
+        },
+        {
+          "tag": "button",
+          "name": "Start this program Coach program · 1 day per week",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Start this program"
+        },
+        {
+          "tag": "span",
+          "text": "Coach program · 1 day per week"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-shared/gate__phone-430-light-en",
+      "flow": "onboarding-shared",
+      "screen": "gate",
+      "label": "Shared setup — confirmation gate",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
       "motion": "normal",
       "semantic": [
         {
