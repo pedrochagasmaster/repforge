@@ -304,7 +304,7 @@ required("docs/recovery-week-policy.md", [
     "canonical preimage",
     "sorted object keys",
     "lowercase hex",
-    "be72dc9b42ca73d12b8517b9dbe3d901cd9b592fc13591e52199ebcd20a4b204",
+    "c7a4c90322522d6d990fdd7e7e51c7da0de7b349f2d3e959619b9c1d9e9feadc",
     "transition-proposal-v1.json",
   ]) {
     check(hashSection.includes(anchor), `transition hashing: missing "${anchor}"`);
@@ -417,6 +417,17 @@ try {
     const example = exampleMatch ? JSON.parse(exampleMatch[1]) : null;
     check(example?.proposalHash === proposalHashOf(proposal), "transition proposal: embedded example hash does not match the canonical preimage");
     check(
+      JSON.stringify(proposal.diff.days) === JSON.stringify(
+        (await import("./transition-mapping-oracle.mjs")).deriveDayDiff(
+          proposal.derivation.slotMapping,
+          predecessorCompilation,
+          successorCompilation,
+          proposal.diff.days,
+        ),
+      ),
+      "diff.days: fixture is not reconstructed from the canonical day mapping and compiler snapshots",
+    );
+    check(
       JSON.stringify(proposal.diff.exercises) === JSON.stringify(
         (await import("./transition-mapping-oracle.mjs")).deriveExerciseDiff(
           proposal.derivation.slotMapping,
@@ -426,6 +437,17 @@ try {
         ),
       ),
       "diff.exercises: fixture is not reconstructed from the canonical slot mapping and compiler snapshots",
+    );
+    check(
+      JSON.stringify(proposal.diff.prescriptions) === JSON.stringify(
+        (await import("./transition-mapping-oracle.mjs")).derivePrescriptionDiff(
+          proposal.derivation.slotMapping,
+          predecessorCompilation,
+          successorCompilation,
+          proposal.diff.prescriptions,
+        ),
+      ),
+      "diff.prescriptions: fixture is not reconstructed from the canonical slot mapping and compiler snapshots",
     );
   }
   // A second committed fixture exercises optional_arms on both sides. The

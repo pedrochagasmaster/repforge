@@ -6,6 +6,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { proposalHashOf } from "./canonical-proposal-hash.mjs";
 import {
+  deriveDayDiff,
+  deriveExerciseDiff,
+  derivePrescriptionDiff,
   deriveSlotMapping,
   validateSlotMapping,
   validateTransitionProposal,
@@ -107,7 +110,119 @@ enumMutation.kind = "invented_transition";
 const enumErrors = validateTransitionProposal(enumMutation, predecessorCompilation, successorCompilation);
 check(enumErrors.some((error) => error.includes("invalid kind")), `invalid transition kind was accepted: ${enumErrors.join("; ")}`);
 
-const expectedHash = "be72dc9b42ca73d12b8517b9dbe3d901cd9b592fc13591e52199ebcd20a4b204";
+const noDayDiff = clone(base);
+delete noDayDiff.diff.days;
+const noDayDiffErrors = validateTransitionProposal(noDayDiff, predecessorCompilation, successorCompilation);
+check(noDayDiffErrors.some((error) => error.includes("diff.days: missing")), `deleted diff.days was accepted: ${noDayDiffErrors.join("; ")}`);
+
+const noPrescriptionDiff = clone(base);
+delete noPrescriptionDiff.diff.prescriptions;
+const noPrescriptionDiffErrors = validateTransitionProposal(noPrescriptionDiff, predecessorCompilation, successorCompilation);
+check(noPrescriptionDiffErrors.some((error) => error.includes("diff.prescriptions: missing")), `deleted diff.prescriptions was accepted: ${noPrescriptionDiffErrors.join("; ")}`);
+
+const fabricatedReason = clone(base);
+fabricatedReason.diff.exercises[0].reason = "fabricated reason";
+const fabricatedReasonErrors = validateTransitionProposal(fabricatedReason, predecessorCompilation, successorCompilation);
+check(fabricatedReasonErrors.some((error) => error.includes("invalid reason")), `fabricated exercise reason was accepted: ${fabricatedReasonErrors.join("; ")}`);
+
+function independentDayRows(mapping, predecessor, successor) {
+  const predecessorBySlot = new Map(predecessor.days.flatMap((day, dayIndex) =>
+    day.slots.map((slot, slotIndex) => [slot.slotId, { day, dayIndex, slotIndex }])),
+  );
+  const successorBySlot = new Map(successor.days.flatMap((day, dayIndex) =>
+    day.slots.map((slot, slotIndex) => [slot.slotId, { day, dayIndex, slotIndex }])),
+  );
+  const pairedSuccessorDays = new Map();
+  const pairedPredecessorDays = new Set();
+  for (const row of mapping.slots) {
+    if (!row.predecessorSlot || !row.successorSlot) continue;
+    const predecessorSlot = predecessorBySlot.get(row.predecessorSlot);
+    const successorSlot = successorBySlot.get(row.successorSlot);
+    if (!predecessorSlot || !successorSlot) continue;
+    if (pairedSuccessorDays.has(successorSlot.day.dayId) || pairedPredecessorDays.has(predecessorSlot.day.dayId)) continue;
+    pairedSuccessorDays.set(successorSlot.day.dayId, predecessorSlot.day.dayId);
+    pairedPredecessorDays.add(predecessorSlot.day.dayId);
+  }
+  const rows = successor.days.map((day) => ({
+    predecessorDay: pairedSuccessorDays.get(day.dayId) ?? null,
+    successorDay: day.dayId,
+  }));
+  for (const day of [...predecessor.days].sort((a, b) => a.dayId.localeCompare(b.dayId))) {
+    if (!pairedPredecessorDays.has(day.dayId)) rows.push({ predecessorDay: day.dayId, successorDay: null });
+  }
+  return rows;
+}
+
+function syntheticProposal(predecessor, successor) {
+  const mapping = deriveSlotMapping(predecessor, successor);
+  return {
+    schemaVersion: 1,
+    kind: "same_family_sibling",
+    derivation: { slotMapping: mapping },
+    diff: {
+      days: deriveDayDiff(mapping, predecessor, successor),
+      exercises: deriveExerciseDiff(mapping, predecessor, successor),
+      prescriptions: derivePrescriptionDiff(mapping, predecessor, successor),
+    },
+  };
+}
+
+const matrix = compiler.reviewCompilations
+  .map((entry) => entry.blueprintId)
+  .map((blueprintId) => {
+    const match = blueprintId.match(/^(.+?)_(\d+)_v\d+$/);
+    return { blueprintId, family: match?.[1], frequency: Number(match?.[2]) };
+  })
+  .filter((entry) => entry.family && Number.isInteger(entry.frequency));
+const matrixById = new Map(compiler.reviewCompilations.map((entry) => [entry.blueprintId, entry]));
+let matrixCount = 0;
+for (const predecessorInfo of matrix) {
+  for (const successorInfo of matrix) {
+    if (predecessorInfo.family !== successorInfo.family || predecessorInfo.frequency <= successorInfo.frequency) continue;
+    const predecessor = matrixById.get(predecessorInfo.blueprintId);
+    const successor = matrixById.get(successorInfo.blueprintId);
+    const proposal = syntheticProposal(predecessor, successor);
+    const errors = validateTransitionProposal(proposal, predecessor, successor);
+    check(errors.length === 0, `${predecessorInfo.blueprintId} -> ${successorInfo.blueprintId} rejected: ${errors.join("; ")}`);
+    check(
+      JSON.stringify(proposal.derivation.slotMapping.days) === JSON.stringify(independentDayRows(proposal.derivation.slotMapping, predecessor, successor)),
+      `${predecessorInfo.blueprintId} -> ${successorInfo.blueprintId} day mapping disagrees with independent compiler enumeration`,
+    );
+    matrixCount += 1;
+  }
+}
+check(matrixCount === 40, `expected 40 same-family descending sibling combinations, checked ${matrixCount}`);
+
+const successorOnlyDayCases = [
+  ["growth_6_v1", "growth_2_v1", "growth_2_d2"],
+  ["balanced_5_v1", "balanced_4_v1", "balanced_4_d4"],
+  ["balanced_6_v1", "balanced_4_v1", "balanced_4_d4"],
+  ["strength_6_v1", "strength_4_v1", "strength_4_d4"],
+  ["strength_6_v1", "strength_5_v1", "strength_5_d4"],
+];
+for (const [predecessorId, successorId, successorDayId] of successorOnlyDayCases) {
+  const predecessor = matrixById.get(predecessorId);
+  const successor = matrixById.get(successorId);
+  const proposal = syntheticProposal(predecessor, successor);
+  check(
+    proposal.derivation.slotMapping.days.some((row) => row.predecessorDay === null && row.successorDay === successorDayId),
+    `${predecessorId} -> ${successorId} omitted successor-only day ${successorDayId}`,
+  );
+}
+
+const growthPredecessor = matrixById.get("growth_6_v1");
+const growthSuccessor = matrixById.get("growth_2_v1");
+const growthSuccessorOnly = syntheticProposal(growthPredecessor, growthSuccessor);
+growthSuccessorOnly.derivation.slotMapping.days = growthSuccessorOnly.derivation.slotMapping.days.filter(
+  (row) => row.successorDay !== "growth_2_d2",
+);
+growthSuccessorOnly.diff.days = growthSuccessorOnly.diff.days.filter(
+  (row) => row.successorDay !== "growth_2_d2",
+);
+const successorOnlyErrors = validateTransitionProposal(growthSuccessorOnly, growthPredecessor, growthSuccessor);
+check(successorOnlyErrors.some((error) => error.includes("day mapping") || error.includes("diff.days")), `successor-only day omission was accepted: ${successorOnlyErrors.join("; ")}`);
+
+const expectedHash = "c7a4c90322522d6d990fdd7e7e51c7da0de7b349f2d3e959619b9c1d9e9feadc";
 check(proposalHashOf(base) === expectedHash, "base proposal hash no longer matches the repaired fixture");
 const scalarMutation = clone(base);
 scalarMutation.predecessor.programId = "prog_local_mutated";
@@ -140,4 +255,8 @@ console.log(`pass: repaired mapping/diff accepted; ${[
   "missing removal",
   "incompatible movement",
   "contract/schema/enum/hash",
-].length} semantic negative controls rejected; optional sibling pair covered`);
+  "deleted diff.days",
+  "deleted diff.prescriptions",
+  "fabricated exercise reason",
+  "successor-only day omission",
+].length} semantic negative controls rejected; optional sibling pair and ${matrixCount} sibling combinations covered`);

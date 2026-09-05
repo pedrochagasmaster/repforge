@@ -45,7 +45,7 @@ const thisFile = import.meta.url;
 const invoked = process.argv[1] ? pathToFileURL(process.argv[1]).href : null;
 if (invoked && thisFile === invoked) {
   const fixture = JSON.parse(readFileSync(join(ROOT, "test", "fixtures", "transition-proposal-v1.json"), "utf8")).proposal;
-  const EXPECTED_FIXTURE_DIGEST = "be72dc9b42ca73d12b8517b9dbe3d901cd9b592fc13591e52199ebcd20a4b204";
+  const EXPECTED_FIXTURE_DIGEST = "c7a4c90322522d6d990fdd7e7e51c7da0de7b349f2d3e959619b9c1d9e9feadc";
   if (process.argv.includes("--check")) {
     // Zero-mutation proof: snapshot BEFORE any hashing occurs.
     const snapshotBefore = JSON.stringify(fixture);

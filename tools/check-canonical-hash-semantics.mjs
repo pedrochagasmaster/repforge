@@ -57,7 +57,7 @@ function clonePreimage(value) {
   return copy;
 }
 
-const expectedProposalHash = "be72dc9b42ca73d12b8517b9dbe3d901cd9b592fc13591e52199ebcd20a4b204";
+const expectedProposalHash = "c7a4c90322522d6d990fdd7e7e51c7da0de7b349f2d3e959619b9c1d9e9feadc";
 const expectedCloneHash = "a2989b2293c1c700a8dd9087b1ae856d5ed80c7eda8e2eefd048584c51812915";
 const proposalOracleHash = digest(proposalPreimage(proposal));
 const cloneOracleHash = digest(clonePreimage(clone));

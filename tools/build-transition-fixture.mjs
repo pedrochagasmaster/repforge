@@ -5,7 +5,12 @@ import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { proposalHashOf } from "./canonical-proposal-hash.mjs";
-import { deriveExerciseDiff, deriveSlotMapping } from "./transition-mapping-oracle.mjs";
+import {
+  deriveDayDiff,
+  deriveExerciseDiff,
+  derivePrescriptionDiff,
+  deriveSlotMapping,
+} from "./transition-mapping-oracle.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const readJson = (path) => JSON.parse(readFileSync(join(ROOT, path), "utf8"));
@@ -31,6 +36,18 @@ proposal.diff.exercises = deriveExerciseDiff(
   predecessorCompilation,
   successorCompilation,
   proposal.diff.exercises,
+);
+proposal.diff.days = deriveDayDiff(
+  proposal.derivation.slotMapping,
+  predecessorCompilation,
+  successorCompilation,
+  proposal.diff.days,
+);
+proposal.diff.prescriptions = derivePrescriptionDiff(
+  proposal.derivation.slotMapping,
+  predecessorCompilation,
+  successorCompilation,
+  proposal.diff.prescriptions,
 );
 proposal.proposalHash = undefined;
 delete proposal.proposalHash;

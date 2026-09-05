@@ -273,10 +273,55 @@
     "diff": {
       "days": [
         {
+          "predecessorDay": "growth_4_d1",
+          "successorDay": "growth_3_d1",
+          "before": {
+            "label": "Upper A",
+            "index": 0,
+            "slots": 6
+          },
+          "after": {
+            "label": "Knee / horizontal",
+            "index": 0,
+            "slots": 6
+          },
+          "reason": "mapped day"
+        },
+        {
+          "predecessorDay": "growth_4_d2",
+          "successorDay": "growth_3_d2",
+          "before": {
+            "label": "Lower A",
+            "index": 1,
+            "slots": 5
+          },
+          "after": {
+            "label": "Hip / vertical",
+            "index": 1,
+            "slots": 6
+          },
+          "reason": "mapped day"
+        },
+        {
+          "predecessorDay": "growth_4_d3",
+          "successorDay": "growth_3_d3",
+          "before": {
+            "label": "Upper B",
+            "index": 2,
+            "slots": 6
+          },
+          "after": {
+            "label": "Mixed",
+            "index": 2,
+            "slots": 6
+          },
+          "reason": "mapped day"
+        },
+        {
           "predecessorDay": "growth_4_d4",
           "successorDay": null,
           "before": {
-            "label": "Day 4",
+            "label": "Lower B",
             "index": 3,
             "slots": 5
           },
@@ -688,18 +733,804 @@
       ],
       "prescriptions": [
         {
+          "predecessorSlot": "growth_4_d1_s1",
+          "successorSlot": "growth_3_d1_s2",
+          "movement": "library:pr_mc",
+          "before": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 0
+          },
+          "after": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 1
+          },
+          "reason": "prescription changed"
+        },
+        {
+          "predecessorSlot": "growth_4_d1_s2",
+          "successorSlot": "growth_3_d1_s3",
+          "movement": "library:rw_mc",
+          "before": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 1
+          },
+          "after": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 2
+          },
+          "reason": "prescription changed"
+        },
+        {
           "predecessorSlot": "growth_4_d1_s5",
           "successorSlot": "growth_3_d1_s5",
           "movement": "library:dl_cb",
           "before": {
             "sets": 2,
+            "reps": [
+              8,
+              15
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 60,
+            "strategy": "rep_goal@1",
+            "prescriptionClass": "isolation_8_15",
             "index": 4
           },
           "after": {
             "sets": 2,
+            "reps": [
+              8,
+              15
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 60,
+            "strategy": "rep_goal@1",
+            "prescriptionClass": "isolation_8_15",
             "index": 4
           },
           "reason": "protected-prescription parity on the mapped lateral-delt slot"
+        },
+        {
+          "predecessorSlot": "growth_4_d2_s2",
+          "successorSlot": "growth_3_d2_s1",
+          "movement": "library:hg_mc",
+          "before": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 1
+          },
+          "after": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 0
+          },
+          "reason": "prescription changed"
+        },
+        {
+          "predecessorSlot": "growth_4_d1_s3",
+          "successorSlot": "growth_3_d2_s2",
+          "movement": "library:pd_bw",
+          "before": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 2
+          },
+          "after": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 1
+          },
+          "reason": "prescription changed"
+        },
+        {
+          "predecessorSlot": "growth_4_d1_s4",
+          "successorSlot": "growth_3_d2_s5",
+          "movement": "library:ip_mc",
+          "before": {
+            "sets": 3,
+            "reps": [
+              8,
+              12
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "rep_goal@1",
+            "prescriptionClass": "compound_8_12",
+            "index": 3
+          },
+          "after": {
+            "sets": 3,
+            "reps": [
+              8,
+              12
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "rep_goal@1",
+            "prescriptionClass": "compound_8_12",
+            "index": 4
+          },
+          "reason": "prescription changed"
+        },
+        {
+          "predecessorSlot": "growth_4_d2_s5",
+          "successorSlot": "growth_3_d2_s6",
+          "movement": "library:cv_mc",
+          "before": {
+            "sets": 2,
+            "reps": [
+              8,
+              15
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 60,
+            "strategy": "rep_goal@1",
+            "prescriptionClass": "isolation_8_15",
+            "index": 4
+          },
+          "after": {
+            "sets": 2,
+            "reps": [
+              8,
+              15
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 60,
+            "strategy": "rep_goal@1",
+            "prescriptionClass": "isolation_8_15",
+            "index": 5
+          },
+          "reason": "prescription changed"
+        },
+        {
+          "predecessorSlot": "growth_4_d2_s3",
+          "successorSlot": "growth_3_d3_s1",
+          "movement": "library:lg_bb",
+          "before": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 2
+          },
+          "after": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 0
+          },
+          "reason": "prescription changed"
+        },
+        {
+          "predecessorSlot": "growth_4_d3_s1",
+          "successorSlot": "growth_3_d3_s2",
+          "movement": "library:ip_mc",
+          "before": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 0
+          },
+          "after": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 1
+          },
+          "reason": "prescription changed"
+        },
+        {
+          "predecessorSlot": "growth_4_d3_s5",
+          "successorSlot": "growth_3_d3_s5",
+          "movement": "library:dl_cb",
+          "before": {
+            "sets": 2,
+            "reps": [
+              8,
+              15
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 60,
+            "strategy": "rep_goal@1",
+            "prescriptionClass": "isolation_8_15",
+            "index": 4
+          },
+          "after": {
+            "sets": 2,
+            "reps": [
+              8,
+              15
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 60,
+            "strategy": "rep_goal@1",
+            "prescriptionClass": "isolation_8_15",
+            "index": 4
+          },
+          "reason": "prescription unchanged"
+        },
+        {
+          "predecessorSlot": null,
+          "successorSlot": "growth_3_d1_s1",
+          "movement": "library:sq_lp",
+          "before": null,
+          "after": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 0
+          },
+          "reason": "added successor prescription"
+        },
+        {
+          "predecessorSlot": null,
+          "successorSlot": "growth_3_d1_s4",
+          "movement": "library:hg_mc",
+          "before": null,
+          "after": {
+            "sets": 3,
+            "reps": [
+              8,
+              12
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_8_12",
+            "index": 3
+          },
+          "reason": "added successor prescription"
+        },
+        {
+          "predecessorSlot": null,
+          "successorSlot": "growth_3_d1_s6",
+          "movement": "library:cu_cb",
+          "before": null,
+          "after": {
+            "sets": 2,
+            "reps": [
+              8,
+              15
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 60,
+            "strategy": "range@1",
+            "prescriptionClass": "isolation_8_15",
+            "index": 5
+          },
+          "reason": "added successor prescription"
+        },
+        {
+          "predecessorSlot": null,
+          "successorSlot": "growth_3_d2_s3",
+          "movement": "library:sp_mc",
+          "before": null,
+          "after": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 2
+          },
+          "reason": "added successor prescription"
+        },
+        {
+          "predecessorSlot": null,
+          "successorSlot": "growth_3_d2_s4",
+          "movement": "library:sq_lp",
+          "before": null,
+          "after": {
+            "sets": 3,
+            "reps": [
+              8,
+              12
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_8_12",
+            "index": 3
+          },
+          "reason": "added successor prescription"
+        },
+        {
+          "predecessorSlot": null,
+          "successorSlot": "growth_3_d3_s3",
+          "movement": "library:rw_mc",
+          "before": null,
+          "after": {
+            "sets": 3,
+            "reps": [
+              8,
+              12
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_8_12",
+            "index": 2
+          },
+          "reason": "added successor prescription"
+        },
+        {
+          "predecessorSlot": null,
+          "successorSlot": "growth_3_d3_s4",
+          "movement": "library:hg_mc",
+          "before": null,
+          "after": {
+            "sets": 3,
+            "reps": [
+              8,
+              12
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_8_12",
+            "index": 3
+          },
+          "reason": "added successor prescription"
+        },
+        {
+          "predecessorSlot": null,
+          "successorSlot": "growth_3_d3_s6",
+          "movement": "library:cu_cb",
+          "before": null,
+          "after": {
+            "sets": 2,
+            "reps": [
+              8,
+              15
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 60,
+            "strategy": "range@1",
+            "prescriptionClass": "isolation_8_15",
+            "index": 5
+          },
+          "reason": "added successor prescription"
+        },
+        {
+          "predecessorSlot": "growth_4_d1_s6",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "sets": 2,
+            "reps": [
+              8,
+              15
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 60,
+            "strategy": "rep_goal@1",
+            "prescriptionClass": "isolation_8_15",
+            "index": 5
+          },
+          "after": null,
+          "reason": "removed predecessor prescription"
+        },
+        {
+          "predecessorSlot": "growth_4_d2_s1",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 0
+          },
+          "after": null,
+          "reason": "removed predecessor prescription"
+        },
+        {
+          "predecessorSlot": "growth_4_d2_s4",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "sets": 3,
+            "reps": [
+              8,
+              12
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_8_12",
+            "index": 3
+          },
+          "after": null,
+          "reason": "removed predecessor prescription"
+        },
+        {
+          "predecessorSlot": "growth_4_d3_s2",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 1
+          },
+          "after": null,
+          "reason": "removed predecessor prescription"
+        },
+        {
+          "predecessorSlot": "growth_4_d3_s3",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 2
+          },
+          "after": null,
+          "reason": "removed predecessor prescription"
+        },
+        {
+          "predecessorSlot": "growth_4_d3_s4",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 3
+          },
+          "after": null,
+          "reason": "removed predecessor prescription"
+        },
+        {
+          "predecessorSlot": "growth_4_d3_s6",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "sets": 2,
+            "reps": [
+              8,
+              15
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 60,
+            "strategy": "rep_goal@1",
+            "prescriptionClass": "isolation_8_15",
+            "index": 5
+          },
+          "after": null,
+          "reason": "removed predecessor prescription"
+        },
+        {
+          "predecessorSlot": "growth_4_d4_s1",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 0
+          },
+          "after": null,
+          "reason": "removed predecessor prescription"
+        },
+        {
+          "predecessorSlot": "growth_4_d4_s2",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "sets": 3,
+            "reps": [
+              4,
+              8
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_4_8",
+            "index": 1
+          },
+          "after": null,
+          "reason": "removed predecessor prescription"
+        },
+        {
+          "predecessorSlot": "growth_4_d4_s3",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "sets": 3,
+            "reps": [
+              8,
+              12
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_8_12",
+            "index": 2
+          },
+          "after": null,
+          "reason": "removed predecessor prescription"
+        },
+        {
+          "predecessorSlot": "growth_4_d4_s4",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "sets": 3,
+            "reps": [
+              8,
+              12
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 90,
+            "strategy": "range@1",
+            "prescriptionClass": "compound_8_12",
+            "index": 3
+          },
+          "after": null,
+          "reason": "removed predecessor prescription"
+        },
+        {
+          "predecessorSlot": "growth_4_d4_s5",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "sets": 2,
+            "reps": [
+              8,
+              15
+            ],
+            "rir": [
+              1,
+              3
+            ],
+            "restSeconds": 60,
+            "strategy": "rep_goal@1",
+            "prescriptionClass": "isolation_8_15",
+            "index": 4
+          },
+          "after": null,
+          "reason": "removed predecessor prescription"
         }
       ]
     },

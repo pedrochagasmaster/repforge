@@ -158,10 +158,12 @@ node tools/check-canonical-contradictions.mjs --check
 ## transition-mapping-oracle.mjs
 
 The compiler-grounded transition oracle derives the exhaustive three-pass slot
-mapping (including optional same-template slots) and reconstructs
-`diff.exercises` from the real review compilations. The contradiction checker
-and the negative-control harness share this validator; they do not maintain
-separate expected mappings.
+mapping (including optional same-template slots), emits successor-only and
+removed day identities in canonical order, and reconstructs all three
+`diff.days`, `diff.exercises`, and `diff.prescriptions` collections from the
+real review compilations. Closed reason vocabularies reject fabricated prose.
+The contradiction checker and the negative-control harness share this
+validator; they do not maintain separate expected mappings.
 
 ## build-transition-fixture.mjs
 
@@ -176,8 +178,11 @@ node tools/check-transition-mapping-negative-controls.mjs
 ```
 
 The negative harness sends isolated pair/addition/removal ordering, earliest
-pairing, identity, movement, structure, enum, and hash mutations through the
-same oracle. It must reject each mutation and accept the repaired artifacts.
+pairing, identity, movement, structure, enum, hash, deleted-day-diff,
+deleted-prescription-diff, fabricated-reason, and successor-only-day mutations
+through the same oracle. It also validates all 40 real same-family descending
+sibling combinations and the five compiler-enumerated successor-only-day
+cases. It must reject each mutation and accept the repaired artifacts.
 
 ## canonical-hash-core.mjs
 
