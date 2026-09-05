@@ -415,8 +415,45 @@
     return canonicalJson(left) === canonicalJson(right);
   }
 
+  function siblingContractIssue(proposal, predecessor, successor) {
+    if (!isObject(proposal) || proposal.schemaVersion !== SCHEMA_VERSION ||
+        proposal.kind !== "lower_frequency_sibling" || proposal.status !== "preview" ||
+        typeof proposal.transitionId !== "string" || !proposal.transitionId ||
+        typeof proposal.createdAt !== "string" || !proposal.createdAt) {
+      return "invalid_proposal";
+    }
+    if (typeof proposal.predecessor?.programId !== "string" || !proposal.predecessor.programId ||
+        !Number.isInteger(proposal.predecessor?.durableRevision) || proposal.predecessor.durableRevision < 0 ||
+        typeof proposal.predecessor?.source !== "string" || !proposal.predecessor.source ||
+        typeof proposal.successor?.programId !== "string" || !proposal.successor.programId ||
+        typeof proposal.successor?.source !== "string" || !proposal.successor.source ||
+        proposal.successor.programId === proposal.predecessor.programId) {
+      return "successor_identity_invalid";
+    }
+    if (proposal.diagnosis?.kind !== "fewer_days" ||
+        proposal.diagnosis?.answers?.availableDays !== successor.frequency ||
+        !Array.isArray(proposal.diagnosis?.eligibleEvidenceIds) ||
+        !proposal.diagnosis.eligibleEvidenceIds.length ||
+        !Array.isArray(proposal.diagnosis?.insufficientEvidenceReasons) ||
+        proposal.diagnosis.insufficientEvidenceReasons.length) {
+      return "insufficient_transition_evidence";
+    }
+    if (proposal.derivation?.mode !== "recompilation" ||
+        proposal.derivation?.request !== "lower-frequency-sibling" ||
+        !isObject(proposal.derivation?.compilerContextVersions) ||
+        !isObject(proposal.derivation?.policyVersions) ||
+        Object.keys(proposal.derivation.policyVersions).length ||
+        predecessor.familyId !== successor.familyId || successor.frequency >= predecessor.frequency) {
+      return "invalid_sibling_derivation";
+    }
+    return null;
+  }
+
   async function createSiblingProposal(input) {
-    if (!isObject(input) || input.kind !== "lower_frequency_sibling") {
+    if (!isObject(input) || input.kind !== "lower_frequency_sibling" ||
+        !isObject(input.predecessor) || !isObject(input.successor) ||
+        !isObject(input.diagnosis) || !isObject(input.predecessorCompilerContext) ||
+        !isObject(input.successorCompilerContext) || !isObject(input.supportedVersions)) {
       return { ok: false, code: "unsupported_transition_kind" };
     }
     const predecessorCheck = validateCompilerInstance(input.predecessorInstance);
@@ -429,19 +466,6 @@
       : successorCheck;
     const predecessor = input.predecessorInstance;
     const successor = input.successorInstance;
-    if (typeof input.transitionId !== "string" || !input.transitionId ||
-        typeof input.createdAt !== "string" || !input.createdAt ||
-        typeof input.predecessor?.programId !== "string" || !input.predecessor.programId ||
-        !Number.isInteger(input.predecessor?.durableRevision) || input.predecessor.durableRevision < 0 ||
-        typeof input.successor?.programId !== "string" || !input.successor.programId ||
-        input.successor.programId === input.predecessor.programId ||
-        input.diagnosis?.kind !== "fewer_days" ||
-        input.diagnosis?.answers?.availableDays !== successor.frequency ||
-        !Array.isArray(input.diagnosis?.eligibleEvidenceIds) || !input.diagnosis.eligibleEvidenceIds.length ||
-        !Array.isArray(input.diagnosis?.insufficientEvidenceReasons) ||
-        input.diagnosis.insufficientEvidenceReasons.length) {
-      return { ok: false, code: "insufficient_transition_evidence" };
-    }
     if (!versionMatches(predecessor.provenance, input.supportedVersions) ||
         !versionMatches(successor.provenance, input.supportedVersions)) {
       return { ok: false, code: "unsupported_reconstruction" };
@@ -480,7 +504,7 @@
       diagnosis: clone(input.diagnosis),
       derivation: {
         mode: "recompilation",
-        request: "lower-frequency-sibling",
+        request: input.request,
         compilerContextVersions: {
           ...clone(successor.provenance),
           predecessorContextHash,
@@ -497,6 +521,8 @@
       progressionContract: progression.value,
       status: "preview",
     };
+    const contractIssue = siblingContractIssue(proposal, predecessor, successor);
+    if (contractIssue) return { ok: false, code: contractIssue };
     proposal.proposalHash = await hashProposal(proposal);
     return { ok: true, proposal: deepFreeze(proposal) };
   }
@@ -535,15 +561,17 @@
   }
 
   async function validateProposal(proposal, current) {
-    if (!isObject(proposal) || proposal.schemaVersion !== SCHEMA_VERSION ||
-        proposal.kind !== "lower_frequency_sibling" || proposal.status !== "preview") {
-      return { ok: false, status: "invalid", code: "invalid_proposal" };
-    }
     if (!isObject(current?.predecessor) || !isObject(current.predecessorInstance) ||
         !isObject(current.successorInstance) || !isObject(current.predecessorCompilerContext) ||
         !isObject(current.successorCompilerContext)) {
       return { ok: false, status: "invalid", code: "missing_validation_snapshot" };
     }
+    const contractIssue = siblingContractIssue(
+      proposal,
+      current.predecessorInstance,
+      current.successorInstance,
+    );
+    if (contractIssue) return { ok: false, status: "invalid", code: contractIssue };
     for (const field of ["programId", "durableRevision", "source"]) {
       if (proposal.predecessor?.[field] !== current.predecessor[field]) {
         return { ok: false, status: "stale", code: "predecessor_changed" };

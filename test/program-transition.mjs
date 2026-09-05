@@ -83,6 +83,7 @@ function proposalInput() {
       transitionId: "tr_balanced_4_to_3_contract",
       createdAt: "2026-09-05T12:00:00.000Z",
       kind: "lower_frequency_sibling",
+      request: "lower-frequency-sibling",
       predecessor: {
         programId: "program-balanced-4",
         fingerprint: predecessor.fingerprint,
@@ -399,26 +400,62 @@ test("validation rejects stale, duplicate, reordered, and unsupported reconstruc
     "a full parameter drift on an ordinary mapped strategy also fails closed",
   );
 
-  const insufficient = structuredClone(input);
-  insufficient.diagnosis.insufficientEvidenceReasons = ["schedule_constraint_unconfirmed"];
-  assert.deepEqual(
-    await Transition.createSiblingProposal(insufficient),
-    { ok: false, code: "insufficient_transition_evidence" },
-  );
+  const semanticCases = [
+    {
+      name: "insufficient evidence",
+      code: "insufficient_transition_evidence",
+      mutateInput(value) {
+        value.diagnosis.eligibleEvidenceIds = [];
+        value.diagnosis.insufficientEvidenceReasons = ["schedule_constraint_unconfirmed"];
+      },
+      mutateProposal(value) {
+        value.diagnosis.eligibleEvidenceIds = [];
+        value.diagnosis.insufficientEvidenceReasons = ["schedule_constraint_unconfirmed"];
+      },
+    },
+    {
+      name: "reused successor program identity",
+      code: "successor_identity_invalid",
+      mutateInput(value) { value.successor.programId = value.predecessor.programId; },
+      mutateProposal(value) { value.successor.programId = value.predecessor.programId; },
+    },
+    {
+      name: "wrong derivation request",
+      code: "invalid_sibling_derivation",
+      mutateInput(value) { value.request = "increase-frequency-sibling"; },
+      mutateProposal(value) { value.derivation.request = "increase-frequency-sibling"; },
+    },
+    {
+      name: "diagnosed day count does not match successor",
+      code: "insufficient_transition_evidence",
+      mutateInput(value) { value.diagnosis.answers.availableDays = 2; },
+      mutateProposal(value) { value.diagnosis.answers.availableDays = 2; },
+    },
+  ];
+  for (const semanticCase of semanticCases) {
+    const producerInput = structuredClone(input);
+    semanticCase.mutateInput(producerInput);
+    assert.deepEqual(
+      await Transition.createSiblingProposal(producerInput),
+      { ok: false, code: semanticCase.code },
+      `${semanticCase.name} is rejected by the producer`,
+    );
 
-  const sameProgramId = structuredClone(input);
-  sameProgramId.successor.programId = sameProgramId.predecessor.programId;
-  assert.deepEqual(
-    await Transition.createSiblingProposal(sameProgramId),
-    { ok: false, code: "insufficient_transition_evidence" },
-  );
-
-  const wrongDays = structuredClone(input);
-  wrongDays.diagnosis.answers.availableDays = 2;
-  assert.deepEqual(
-    await Transition.createSiblingProposal(wrongDays),
-    { ok: false, code: "insufficient_transition_evidence" },
-  );
+    const consumerProposal = structuredClone(result.proposal);
+    semanticCase.mutateProposal(consumerProposal);
+    consumerProposal.proposalHash = await Transition.hashProposal(consumerProposal);
+    assert.deepEqual(
+      await Transition.validateProposal(consumerProposal, {
+        predecessor: input.predecessor,
+        predecessorInstance: predecessor.instance,
+        successorInstance: successor.instance,
+        predecessorCompilerContext: input.predecessorCompilerContext,
+        successorCompilerContext: input.successorCompilerContext,
+      }),
+      { ok: false, status: "invalid", code: semanticCase.code },
+      `${semanticCase.name} is rejected by the consumer after a fresh hash`,
+    );
+  }
 
   const customized = structuredClone(input);
   customized.predecessorInstance.customizedFrom = "balanced_4_v1";
