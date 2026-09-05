@@ -261,7 +261,9 @@ jobs:
       - name: Focus mode
         env:
           REPFORGE_URL: http://localhost:8000/
-        run: node test/focus-mode.mjs
+        run: |
+          node test/focus-mode.mjs
+          node test/workout-draft-parity.mjs
 
       - name: Progression recommendation parity and browser surfaces
         env:
