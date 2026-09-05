@@ -1,5 +1,8 @@
 # Plan 059: Public-launch UI validation
 
+Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
+and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
+
 - **Plan number:** 059
 - **Phase:** 8 — Public-launch validation
 - **Status:** Planned; implementation has not started

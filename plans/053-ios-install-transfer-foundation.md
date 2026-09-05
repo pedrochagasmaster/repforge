@@ -1,5 +1,8 @@
 # Plan 053: Temporary iOS install-transfer foundation
 
+Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
+and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
+
 - **Plan number:** 053
 - **Phase:** 2C — State and lifecycle foundations
 - **Status:** Planned; implementation has not started

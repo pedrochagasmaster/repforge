@@ -1,5 +1,8 @@
 # Plan 054: Landing and program entry
 
+Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
+and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
+
 - **Plan number:** 054
 - **Phase:** 3 — Landing and program entry
 - **Status:** Planned; implementation has not started

@@ -1,5 +1,8 @@
 # Plan 050: UI correctness and catalog leverage
 
+Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
+and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
+
 - **Plan number:** 050
 - **Phase:** 1 — Proven defects and test leverage
 - **Status:** Planned; implementation has not started

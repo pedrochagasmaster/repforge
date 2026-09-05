@@ -1,5 +1,8 @@
 # Plan 051: Workout draft state foundation
 
+Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
+and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
+
 - **Plan number:** 051
 - **Phase:** 2A — State and lifecycle foundations
 - **Status:** Planned; implementation has not started
