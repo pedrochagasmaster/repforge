@@ -770,8 +770,277 @@
     return rows;
   }
 
-  function migrateLegacy() {
-    return migrationError("legacy-migration-pending");
+  const LEGACY_META_FIELDS = new Set([
+    "__done",
+    "__touched",
+    "__warm",
+    "__skipped",
+    "__substituted",
+    "__substitutedRef",
+    "__exnotes",
+    "__day",
+    "__date",
+    "__sessionNotes",
+    "__bodyweight",
+    "__contextTouched",
+    "__startedAt",
+    "__lastCommitAt",
+    "__selectedExercise",
+    "__selectedExerciseId",
+  ]);
+
+  function legacyObject(raw) {
+    if (typeof raw !== "string") return isPlainObject(raw) ? raw : migrationError("invalid-legacy-object");
+    try {
+      const parsed = JSON.parse(raw);
+      return isPlainObject(parsed) ? parsed : migrationError("invalid-legacy-object");
+    } catch {
+      return migrationError("invalid-legacy-json");
+    }
+  }
+
+  function legacyCollection(legacy, field, kind) {
+    if (!hasOwn(legacy, field)) return kind === "array" ? [] : Object.create(null);
+    const value = legacy[field];
+    if (kind === "array") {
+      if (!Array.isArray(value) || value.some((item) => !isText(item, { max: MAX_ID }))) {
+        return migrationError("invalid-legacy-marker", { field });
+      }
+      return value;
+    }
+    if (!isPlainObject(value)) return migrationError("invalid-legacy-marker", { field });
+    return value;
+  }
+
+  function legacyTimestamp(value, field) {
+    const number = typeof value === "number" ? value : /^\d+$/.test(String(value ?? "")) ? Number(value) : NaN;
+    if (!Number.isFinite(number) || number <= 0) return migrationError("invalid-legacy-timestamp", { field });
+    const date = new Date(number);
+    return Number.isNaN(date.getTime()) ? migrationError("invalid-legacy-timestamp", { field }) : date.toISOString();
+  }
+
+  function migrateLegacy(raw, renderedProgramSnapshot) {
+    const legacy = legacyObject(raw);
+    if (legacy?.kind === "migration-error") return legacy;
+    if (!looksLegacy(legacy)) return migrationError("not-legacy-draft");
+    if (!isPlainObject(renderedProgramSnapshot) ||
+      !isPlainObject(renderedProgramSnapshot.programContext) ||
+      !isPlainObject(renderedProgramSnapshot.sessionSelection) ||
+      !isPlainObject(renderedProgramSnapshot.valueResolutions)) {
+      return migrationError("invalid-migration-snapshot");
+    }
+
+    const programContext = renderedProgramSnapshot.programContext;
+    const sessionSelection = renderedProgramSnapshot.sessionSelection;
+    const valueResolutions = renderedProgramSnapshot.valueResolutions;
+    const substitutionResolutions = renderedProgramSnapshot.substitutionResolutions ?? Object.create(null);
+    if (!isPlainObject(substitutionResolutions)) return migrationError("invalid-substitution-resolutions");
+    if (!Array.isArray(programContext.exercises)) return migrationError("invalid-migration-snapshot");
+
+    const legacyExercises = Object.create(null);
+    const allowedFields = Object.create(null);
+    for (const source of programContext.exercises) {
+      if (!isPlainObject(source) || !isText(source.legacyExerciseId, { max: MAX_ID }) ||
+        !isSafeInteger(source.sets, 1) || !Array.isArray(source.setIds) || source.setIds.length !== source.sets ||
+        source.setIds.some((setId) => !isText(setId, { max: MAX_ID })) ||
+        hasOwn(legacyExercises, source.legacyExerciseId)) {
+        return migrationError("invalid-legacy-exercise-map");
+      }
+      if (source.legacyExerciseId !== source.exerciseInstanceId) {
+        return migrationError("legacy-exercise-identity-mismatch", { exerciseId: source.legacyExerciseId });
+      }
+      legacyExercises[source.legacyExerciseId] = source;
+      for (let ordinal = 1; ordinal <= source.setIds?.length; ordinal++) {
+        const setId = source.setIds[ordinal - 1];
+        for (const field of EDIT_FIELDS) {
+          const key = `${source.legacyExerciseId}_${ordinal}_${field}`;
+          allowedFields[key] = { exerciseInstanceId: source.exerciseInstanceId, setId, field };
+        }
+      }
+    }
+
+    for (const key of Object.keys(legacy)) {
+      if (!LEGACY_META_FIELDS.has(key) && !hasOwn(allowedFields, key)) {
+        return migrationError("unknown-legacy-field", { field: key });
+      }
+    }
+    const resolvedKeys = new Set(Object.keys(valueResolutions));
+    for (const key of Object.keys(legacy)) {
+      if (!hasOwn(allowedFields, key) && key !== "__bodyweight") continue;
+      if (editableText(legacy[key]) === undefined) return migrationError("invalid-legacy-value", { field: key });
+      if (!hasOwn(valueResolutions, key)) return migrationError("missing-value-resolution", { field: key });
+      if (editableText(valueResolutions[key]) === undefined) return migrationError("invalid-value-resolution", { field: key });
+      resolvedKeys.delete(key);
+    }
+    if (resolvedKeys.size) return migrationError("unused-value-resolution", { field: [...resolvedKeys][0] });
+
+    const done = legacyCollection(legacy, "__done", "array");
+    const touched = legacyCollection(legacy, "__touched", "array");
+    const warm = legacyCollection(legacy, "__warm", "array");
+    const skipped = legacyCollection(legacy, "__skipped", "array");
+    const substituted = legacyCollection(legacy, "__substituted", "object");
+    const substitutedRefs = legacyCollection(legacy, "__substitutedRef", "object");
+    const exerciseNotes = legacyCollection(legacy, "__exnotes", "object");
+    const collections = [done, touched, warm, skipped, substituted, substitutedRefs, exerciseNotes];
+    const invalidCollection = collections.find((value) => value?.kind === "migration-error");
+    if (invalidCollection) return invalidCollection;
+
+    const contextTouched = legacyCollection(legacy, "__contextTouched", "object");
+    if (contextTouched?.kind === "migration-error") return contextTouched;
+    for (const key of Object.keys(contextTouched)) {
+      if (!["day", "date", "sessionNotes", "bodyweight"].includes(key) || typeof contextTouched[key] !== "boolean") {
+        return migrationError("invalid-legacy-context-marker", { field: key });
+      }
+    }
+    const contextFields = {
+      day: "__day",
+      date: "__date",
+      sessionNotes: "__sessionNotes",
+      bodyweight: "__bodyweight",
+    };
+    for (const [contextField, legacyField] of Object.entries(contextFields)) {
+      if (contextTouched[contextField] && !hasOwn(legacy, legacyField)) {
+        return migrationError("missing-legacy-context-value", { field: legacyField });
+      }
+    }
+
+    const legacySetKeys = Object.create(null);
+    for (const [legacyExerciseId, source] of Object.entries(legacyExercises)) {
+      for (let ordinal = 1; ordinal <= source.setIds.length; ordinal++) {
+        legacySetKeys[`${legacyExerciseId}_${ordinal}`] = {
+          exerciseInstanceId: source.exerciseInstanceId,
+          setId: source.setIds[ordinal - 1],
+        };
+      }
+    }
+    for (const [field, values] of [["__done", done], ["__touched", touched], ["__warm", warm]]) {
+      const unknown = values.find((key) => !hasOwn(legacySetKeys, key));
+      if (unknown) return migrationError("unmapped-legacy-set", { field, setKey: unknown });
+    }
+    const exerciseMarkerMaps = [
+      ["__skipped", skipped],
+      ["__substituted", Object.keys(substituted)],
+      ["__substitutedRef", Object.keys(substitutedRefs)],
+      ["__exnotes", Object.keys(exerciseNotes)],
+    ];
+    for (const [field, ids] of exerciseMarkerMaps) {
+      const unknown = ids.find((id) => !hasOwn(legacyExercises, id));
+      if (unknown) return migrationError("unmapped-legacy-exercise", { field, exerciseId: unknown });
+    }
+
+    if (hasOwn(legacy, "__day")) {
+      if (!isText(legacy.__day, { max: 500 }) || legacy.__day !== programContext.dayLabel) {
+        return migrationError("legacy-day-mismatch");
+      }
+    }
+    for (const field of ["__date", "__sessionNotes"]) {
+      if (hasOwn(legacy, field) && !isText(legacy[field], { empty: true })) {
+        return migrationError("invalid-legacy-metadata", { field });
+      }
+    }
+
+    let startedAt = sessionSelection.startedAt;
+    if (hasOwn(legacy, "__startedAt")) {
+      startedAt = legacyTimestamp(legacy.__startedAt, "__startedAt");
+      if (startedAt?.kind === "migration-error") return startedAt;
+    }
+    let completedAt = renderedProgramSnapshot.completedAt ?? sessionSelection.updatedAt ?? sessionSelection.startedAt;
+    if (hasOwn(legacy, "__lastCommitAt")) {
+      if (!done.length) return migrationError("orphan-legacy-last-commit");
+      completedAt = legacyTimestamp(legacy.__lastCommitAt, "__lastCommitAt");
+      if (completedAt?.kind === "migration-error") return completedAt;
+    }
+    if (done.length && !isText(completedAt, { max: 100 })) return migrationError("missing-completion-timestamp");
+
+    const selectedFields = ["__selectedExercise", "__selectedExerciseId"].filter((field) => hasOwn(legacy, field));
+    if (selectedFields.length > 1) return migrationError("ambiguous-legacy-selection");
+    let selectedExerciseId = sessionSelection.selectedExerciseId;
+    if (selectedFields.length) {
+      const legacySelected = legacy[selectedFields[0]];
+      if (!isText(legacySelected, { max: MAX_ID }) || !hasOwn(legacyExercises, legacySelected)) {
+        return migrationError("unmapped-legacy-selection");
+      }
+      selectedExerciseId = legacyExercises[legacySelected].exerciseInstanceId;
+    }
+
+    const migratedSelection = {
+      ...sessionSelection,
+      scheduleDate: hasOwn(legacy, "__date") ? legacy.__date : sessionSelection.scheduleDate,
+      bodyweight: hasOwn(legacy, "__bodyweight") ? valueResolutions.__bodyweight : sessionSelection.bodyweight,
+      notes: hasOwn(legacy, "__sessionNotes") ? legacy.__sessionNotes : sessionSelection.notes,
+      selectedExerciseId,
+      startedAt,
+      updatedAt: renderedProgramSnapshot.migratedAt ?? completedAt ?? sessionSelection.updatedAt ?? startedAt,
+    };
+    const base = create(programContext, migratedSelection, renderedProgramSnapshot.previousSessionFacts);
+    if (isDomainError(base)) return migrationError("invalid-migration-snapshot", { issues: base.issues ?? [base.code] });
+    const next = jsonClone(base);
+    const doneSet = new Set(done);
+    const touchedSet = new Set(touched);
+    const warmSet = new Set(warm);
+    const skippedSet = new Set(skipped);
+
+    for (const [legacyKey, target] of Object.entries(allowedFields)) {
+      if (!hasOwn(legacy, legacyKey)) continue;
+      const value = editableText(valueResolutions[legacyKey]);
+      if (value === undefined) return migrationError("invalid-value-resolution", { field: legacyKey });
+      next.exercises[target.exerciseInstanceId].sets[target.setId].edited[target.field] = value;
+    }
+    for (const [legacySetKey, target] of Object.entries(legacySetKeys)) {
+      const set = next.exercises[target.exerciseInstanceId].sets[target.setId];
+      if (touchedSet.has(legacySetKey)) set.touched = { load: true, reps: true, effort: true };
+      if (doneSet.has(legacySetKey)) set.completion = { completedAt };
+      if (warmSet.has(legacySetKey)) set.role = "warmup";
+    }
+    for (const [legacyExerciseId, source] of Object.entries(legacyExercises)) {
+      const exercise = next.exercises[source.exerciseInstanceId];
+      if (skippedSet.has(legacyExerciseId)) exercise.status = "skipped";
+      if (hasOwn(exerciseNotes, legacyExerciseId)) {
+        if (!isText(exerciseNotes[legacyExerciseId], { empty: true })) {
+          return migrationError("invalid-legacy-exercise-note", { exerciseId: legacyExerciseId });
+        }
+        exercise.setupNotes = exerciseNotes[legacyExerciseId];
+      }
+      if (!hasOwn(substituted, legacyExerciseId)) continue;
+      const legacyName = substituted[legacyExerciseId];
+      const legacyRef = hasOwn(substitutedRefs, legacyExerciseId) ? substitutedRefs[legacyExerciseId] : null;
+      if (!isText(legacyName, { max: 500 }) || (legacyRef != null && !isText(legacyRef, { max: MAX_ID }))) {
+        return migrationError("invalid-legacy-substitution", { exerciseId: legacyExerciseId });
+      }
+      const resolution = substitutionResolutions[legacyExerciseId];
+      if (!isPlainObject(resolution) || resolution.legacyName !== legacyName ||
+        (resolution.legacyRef ?? null) !== legacyRef) {
+        return migrationError("unresolved-legacy-substitution", { exerciseId: legacyExerciseId });
+      }
+      const issues = [];
+      validateMovementSnapshot(resolution.replacement, "replacement", issues);
+      if (issues.length) return migrationError("invalid-substitution-resolution", { exerciseId: legacyExerciseId, issues });
+      exercise.substitution = {
+        original: snapshotFromExercise(exercise),
+        replacement: jsonClone(resolution.replacement),
+        selectedAt: resolution.selectedAt ?? renderedProgramSnapshot.migratedAt,
+      };
+      if (!isText(exercise.substitution.selectedAt, { max: 100 })) {
+        return migrationError("missing-substitution-timestamp", { exerciseId: legacyExerciseId });
+      }
+    }
+    for (const legacyExerciseId of Object.keys(substitutedRefs)) {
+      if (!hasOwn(substituted, legacyExerciseId)) {
+        return migrationError("orphan-legacy-substitution-ref", { exerciseId: legacyExerciseId });
+      }
+    }
+    const unusedSubstitution = Object.keys(substitutionResolutions).find((legacyExerciseId) => !hasOwn(substituted, legacyExerciseId));
+    if (unusedSubstitution) {
+      return migrationError("unused-substitution-resolution", { exerciseId: unusedSubstitution });
+    }
+    if (next.session.selectedExerciseId && next.exercises[next.session.selectedExerciseId].status === "skipped") {
+      return migrationError("selected-legacy-exercise-skipped");
+    }
+
+    const checked = validate(next);
+    return checked.ok
+      ? deepFreeze(next)
+      : migrationError("invalid-migrated-draft", { issues: checked.issues });
   }
 
   const api = Object.freeze({

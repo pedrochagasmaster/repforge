@@ -407,7 +407,7 @@ try {
   assert(false, "skip/restore and substitute/restore preserve the prior exercise subtree", error.stack);
 }
 
-assert(Draft.migrateLegacy({ __day: "Day 1" }).code === "legacy-migration-pending", "the row 2 module fails closed until the separately proven migration slice");
+assert(Draft.migrateLegacy({ __day: "Day 1" }).code === "invalid-migration-snapshot", "legacy conversion fails closed without its explicit rendered snapshot");
 
 console.log(`\n${results.passed} passed, ${results.failed} failed`);
 if (results.failed) process.exitCode = 1;
