@@ -16294,6 +16294,1050 @@
       ]
     },
     {
+      "key": "onboarding-import/freeform-empty__phone-390-dark-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-empty",
+      "label": "Import — paste a program",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste your program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program"
+        },
+        {
+          "tag": "p",
+          "text": "0 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "What you paste stays on this device until you choose an app. Taurifer does not keep it.",
+          "name": "What you paste stays on this device until you choose an app. Taurifer does not keep it."
+        },
+        {
+          "tag": "span",
+          "text": "Convert it"
+        },
+        {
+          "tag": "a",
+          "text": "Open in ChatGPT",
+          "name": "Open in ChatGPT",
+          "describedBy": "Paste your program above first.",
+          "aria-disabled": "true"
+        },
+        {
+          "tag": "a",
+          "text": "Open in Claude",
+          "name": "Open in Claude",
+          "describedBy": "Paste your program above first.",
+          "aria-disabled": "true"
+        },
+        {
+          "tag": "p",
+          "text": "Paste your program above first."
+        },
+        {
+          "tag": "button",
+          "text": "Copy the prompt",
+          "name": "Copy the prompt",
+          "disabled": true,
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "The reply"
+        },
+        {
+          "tag": "p",
+          "text": "Come back here and paste the whole reply."
+        },
+        {
+          "tag": "textarea",
+          "name": "The reply"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-empty__phone-390-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-empty",
+      "label": "Import — paste a program",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste your program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program"
+        },
+        {
+          "tag": "p",
+          "text": "0 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "What you paste stays on this device until you choose an app. Taurifer does not keep it.",
+          "name": "What you paste stays on this device until you choose an app. Taurifer does not keep it."
+        },
+        {
+          "tag": "span",
+          "text": "Convert it"
+        },
+        {
+          "tag": "a",
+          "text": "Open in ChatGPT",
+          "name": "Open in ChatGPT",
+          "describedBy": "Paste your program above first.",
+          "aria-disabled": "true"
+        },
+        {
+          "tag": "a",
+          "text": "Open in Claude",
+          "name": "Open in Claude",
+          "describedBy": "Paste your program above first.",
+          "aria-disabled": "true"
+        },
+        {
+          "tag": "p",
+          "text": "Paste your program above first."
+        },
+        {
+          "tag": "button",
+          "text": "Copy the prompt",
+          "name": "Copy the prompt",
+          "disabled": true,
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "The reply"
+        },
+        {
+          "tag": "p",
+          "text": "Come back here and paste the whole reply."
+        },
+        {
+          "tag": "textarea",
+          "name": "The reply"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-empty__phone-390-light-pt",
+      "flow": "onboarding-import",
+      "screen": "freeform-empty",
+      "label": "Import — paste a program",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um programa"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Cole o seu programa",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Cole do jeito que você tem. O Taurifer monta um pedido para o ChatGPT ou o Claude, que devolve o programa no formato que este app lê."
+        },
+        {
+          "tag": "span",
+          "text": "Seu programa"
+        },
+        {
+          "tag": "textarea",
+          "name": "Seu programa"
+        },
+        {
+          "tag": "p",
+          "text": "0 de 12.000 caracteres"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "O que você cola fica neste dispositivo até você escolher um app. O Taurifer não guarda esse texto.",
+          "name": "O que você cola fica neste dispositivo até você escolher um app. O Taurifer não guarda esse texto."
+        },
+        {
+          "tag": "span",
+          "text": "Converter"
+        },
+        {
+          "tag": "a",
+          "text": "Abrir no ChatGPT",
+          "name": "Abrir no ChatGPT",
+          "describedBy": "Cole o seu programa acima primeiro.",
+          "aria-disabled": "true"
+        },
+        {
+          "tag": "a",
+          "text": "Abrir no Claude",
+          "name": "Abrir no Claude",
+          "describedBy": "Cole o seu programa acima primeiro.",
+          "aria-disabled": "true"
+        },
+        {
+          "tag": "p",
+          "text": "Cole o seu programa acima primeiro."
+        },
+        {
+          "tag": "button",
+          "text": "Copiar o pedido",
+          "name": "Copiar o pedido",
+          "disabled": true,
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "A resposta"
+        },
+        {
+          "tag": "p",
+          "text": "Volte aqui e cole a resposta inteira."
+        },
+        {
+          "tag": "textarea",
+          "name": "A resposta"
+        },
+        {
+          "tag": "button",
+          "text": "Revisar o programa",
+          "name": "Revisar o programa",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Importar um arquivo Taurifer",
+          "name": "Importar um arquivo Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-filled__phone-320-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-filled",
+      "label": "Import — paste ready to convert",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste your program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "What you paste stays on this device until you choose an app. Taurifer does not keep it.",
+          "name": "What you paste stays on this device until you choose an app. Taurifer does not keep it."
+        },
+        {
+          "tag": "span",
+          "text": "Convert it"
+        },
+        {
+          "tag": "a",
+          "text": "Open in ChatGPT",
+          "name": "Open in ChatGPT"
+        },
+        {
+          "tag": "a",
+          "text": "Open in Claude",
+          "name": "Open in Claude"
+        },
+        {
+          "tag": "button",
+          "text": "Copy the prompt",
+          "name": "Copy the prompt",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "The reply"
+        },
+        {
+          "tag": "p",
+          "text": "Come back here and paste the whole reply."
+        },
+        {
+          "tag": "textarea",
+          "name": "The reply"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-filled__phone-390-dark-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-filled",
+      "label": "Import — paste ready to convert",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste your program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "What you paste stays on this device until you choose an app. Taurifer does not keep it.",
+          "name": "What you paste stays on this device until you choose an app. Taurifer does not keep it."
+        },
+        {
+          "tag": "span",
+          "text": "Convert it"
+        },
+        {
+          "tag": "a",
+          "text": "Open in ChatGPT",
+          "name": "Open in ChatGPT"
+        },
+        {
+          "tag": "a",
+          "text": "Open in Claude",
+          "name": "Open in Claude"
+        },
+        {
+          "tag": "button",
+          "text": "Copy the prompt",
+          "name": "Copy the prompt",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "The reply"
+        },
+        {
+          "tag": "p",
+          "text": "Come back here and paste the whole reply."
+        },
+        {
+          "tag": "textarea",
+          "name": "The reply"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-filled__phone-390-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-filled",
+      "label": "Import — paste ready to convert",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste your program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "What you paste stays on this device until you choose an app. Taurifer does not keep it.",
+          "name": "What you paste stays on this device until you choose an app. Taurifer does not keep it."
+        },
+        {
+          "tag": "span",
+          "text": "Convert it"
+        },
+        {
+          "tag": "a",
+          "text": "Open in ChatGPT",
+          "name": "Open in ChatGPT"
+        },
+        {
+          "tag": "a",
+          "text": "Open in Claude",
+          "name": "Open in Claude"
+        },
+        {
+          "tag": "button",
+          "text": "Copy the prompt",
+          "name": "Copy the prompt",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "The reply"
+        },
+        {
+          "tag": "p",
+          "text": "Come back here and paste the whole reply."
+        },
+        {
+          "tag": "textarea",
+          "name": "The reply"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-filled__phone-390-light-en-reduced",
+      "flow": "onboarding-import",
+      "screen": "freeform-filled",
+      "label": "Import — paste ready to convert",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste your program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "What you paste stays on this device until you choose an app. Taurifer does not keep it.",
+          "name": "What you paste stays on this device until you choose an app. Taurifer does not keep it."
+        },
+        {
+          "tag": "span",
+          "text": "Convert it"
+        },
+        {
+          "tag": "a",
+          "text": "Open in ChatGPT",
+          "name": "Open in ChatGPT"
+        },
+        {
+          "tag": "a",
+          "text": "Open in Claude",
+          "name": "Open in Claude"
+        },
+        {
+          "tag": "button",
+          "text": "Copy the prompt",
+          "name": "Copy the prompt",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "The reply"
+        },
+        {
+          "tag": "p",
+          "text": "Come back here and paste the whole reply."
+        },
+        {
+          "tag": "textarea",
+          "name": "The reply"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-filled__phone-390-light-en-text200",
+      "flow": "onboarding-import",
+      "screen": "freeform-filled",
+      "label": "Import — paste ready to convert",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste your program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "What you paste stays on this device until you choose an app. Taurifer does not keep it.",
+          "name": "What you paste stays on this device until you choose an app. Taurifer does not keep it."
+        },
+        {
+          "tag": "span",
+          "text": "Convert it"
+        },
+        {
+          "tag": "a",
+          "text": "Open in ChatGPT",
+          "name": "Open in ChatGPT"
+        },
+        {
+          "tag": "a",
+          "text": "Open in Claude",
+          "name": "Open in Claude"
+        },
+        {
+          "tag": "button",
+          "text": "Copy the prompt",
+          "name": "Copy the prompt",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "The reply"
+        },
+        {
+          "tag": "p",
+          "text": "Come back here and paste the whole reply."
+        },
+        {
+          "tag": "textarea",
+          "name": "The reply"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-filled__phone-390-light-pt",
+      "flow": "onboarding-import",
+      "screen": "freeform-filled",
+      "label": "Import — paste ready to convert",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um programa"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Cole o seu programa",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Cole do jeito que você tem. O Taurifer monta um pedido para o ChatGPT ou o Claude, que devolve o programa no formato que este app lê."
+        },
+        {
+          "tag": "span",
+          "text": "Seu programa"
+        },
+        {
+          "tag": "textarea",
+          "name": "Seu programa",
+          "value": "Empurrar A Supino reto 4x6-8 Desenvolvimento militar 3x8-10 Puxar A Remada curvada 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "90 de 12.000 caracteres"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "O que você cola fica neste dispositivo até você escolher um app. O Taurifer não guarda esse texto.",
+          "name": "O que você cola fica neste dispositivo até você escolher um app. O Taurifer não guarda esse texto."
+        },
+        {
+          "tag": "span",
+          "text": "Converter"
+        },
+        {
+          "tag": "a",
+          "text": "Abrir no ChatGPT",
+          "name": "Abrir no ChatGPT"
+        },
+        {
+          "tag": "a",
+          "text": "Abrir no Claude",
+          "name": "Abrir no Claude"
+        },
+        {
+          "tag": "button",
+          "text": "Copiar o pedido",
+          "name": "Copiar o pedido",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "A resposta"
+        },
+        {
+          "tag": "p",
+          "text": "Volte aqui e cole a resposta inteira."
+        },
+        {
+          "tag": "textarea",
+          "name": "A resposta"
+        },
+        {
+          "tag": "button",
+          "text": "Revisar o programa",
+          "name": "Revisar o programa",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Importar um arquivo Taurifer",
+          "name": "Importar um arquivo Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-filled__phone-430-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-filled",
+      "label": "Import — paste ready to convert",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste your program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "What you paste stays on this device until you choose an app. Taurifer does not keep it.",
+          "name": "What you paste stays on this device until you choose an app. Taurifer does not keep it."
+        },
+        {
+          "tag": "span",
+          "text": "Convert it"
+        },
+        {
+          "tag": "a",
+          "text": "Open in ChatGPT",
+          "name": "Open in ChatGPT"
+        },
+        {
+          "tag": "a",
+          "text": "Open in Claude",
+          "name": "Open in Claude"
+        },
+        {
+          "tag": "button",
+          "text": "Copy the prompt",
+          "name": "Copy the prompt",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "The reply"
+        },
+        {
+          "tag": "p",
+          "text": "Come back here and paste the whole reply."
+        },
+        {
+          "tag": "textarea",
+          "name": "The reply"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-import/preview__phone-320-light-en",
       "flow": "onboarding-import",
       "screen": "preview",
@@ -17269,6 +18313,12 @@
         },
         {
           "tag": "button",
+          "text": "Paste a program instead",
+          "name": "Paste a program instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
           "text": "Back",
           "name": "Back",
           "label": "Back",
@@ -17314,6 +18364,12 @@
         },
         {
           "tag": "button",
+          "text": "Paste a program instead",
+          "name": "Paste a program instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
           "text": "Back",
           "name": "Back",
           "label": "Back",
@@ -17355,6 +18411,12 @@
           "tag": "button",
           "text": "Escolher arquivo",
           "name": "Escolher arquivo",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Colar um programa",
+          "name": "Colar um programa",
           "type": "button"
         },
         {
@@ -30501,7 +31563,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -30510,7 +31572,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         }
       ]
     },
@@ -30593,7 +31655,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -30602,7 +31664,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         }
       ]
     },
@@ -30685,7 +31747,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -30694,7 +31756,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         }
       ]
     },
@@ -30777,7 +31839,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -30786,7 +31848,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         }
       ]
     },
@@ -30869,7 +31931,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -30878,7 +31940,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         }
       ]
     },
@@ -30961,7 +32023,7 @@
         },
         {
           "tag": "button",
-          "name": "Usar meu próprio programaComece com dias vazios ou importe um arquivo de programa Taurifer.",
+          "name": "Usar meu próprio programaComece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer.",
           "type": "button"
         },
         {
@@ -30970,7 +32032,7 @@
         },
         {
           "tag": "span",
-          "text": "Comece com dias vazios ou importe um arquivo de programa Taurifer."
+          "text": "Comece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer."
         }
       ]
     },
@@ -31053,7 +32115,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -31062,7 +32124,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         }
       ]
     },
@@ -31151,7 +32213,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -31160,7 +32222,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         }
       ]
     },
@@ -31249,7 +32311,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -31258,7 +32320,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         }
       ]
     },
@@ -31347,7 +32409,7 @@
         },
         {
           "tag": "button",
-          "name": "Usar meu próprio programaComece com dias vazios ou importe um arquivo de programa Taurifer.",
+          "name": "Usar meu próprio programaComece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer.",
           "type": "button"
         },
         {
@@ -31356,7 +32418,7 @@
         },
         {
           "tag": "span",
-          "text": "Comece com dias vazios ou importe um arquivo de programa Taurifer."
+          "text": "Comece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer."
         }
       ]
     },
@@ -31439,7 +32501,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -31448,7 +32510,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         },
         {
           "tag": "button",
@@ -31462,6 +32524,19 @@
         {
           "tag": "span",
           "text": "Start with empty training days and fill them in yourself."
+        },
+        {
+          "tag": "button",
+          "name": "Paste any programPaste a coach's message or your own notes. ChatGPT or Claude puts it in Taurifer's format.",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Paste any program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste a coach's message or your own notes. ChatGPT or Claude puts it in Taurifer's format."
         },
         {
           "tag": "button",
@@ -31557,7 +32632,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -31566,7 +32641,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         },
         {
           "tag": "button",
@@ -31580,6 +32655,19 @@
         {
           "tag": "span",
           "text": "Start with empty training days and fill them in yourself."
+        },
+        {
+          "tag": "button",
+          "name": "Paste any programPaste a coach's message or your own notes. ChatGPT or Claude puts it in Taurifer's format.",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Paste any program"
+        },
+        {
+          "tag": "span",
+          "text": "Paste a coach's message or your own notes. ChatGPT or Claude puts it in Taurifer's format."
         },
         {
           "tag": "button",
@@ -31675,7 +32763,7 @@
         },
         {
           "tag": "button",
-          "name": "Usar meu próprio programaComece com dias vazios ou importe um arquivo de programa Taurifer.",
+          "name": "Usar meu próprio programaComece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer.",
           "type": "button"
         },
         {
@@ -31684,7 +32772,7 @@
         },
         {
           "tag": "span",
-          "text": "Comece com dias vazios ou importe um arquivo de programa Taurifer."
+          "text": "Comece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer."
         },
         {
           "tag": "button",
@@ -31698,6 +32786,19 @@
         {
           "tag": "span",
           "text": "Comece com dias de treino vazios e preencha você mesmo."
+        },
+        {
+          "tag": "button",
+          "name": "Colar qualquer programaCole a mensagem do seu treinador ou as suas anotações. O ChatGPT ou o Claude devolve no formato do Taurifer.",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Colar qualquer programa"
+        },
+        {
+          "tag": "span",
+          "text": "Cole a mensagem do seu treinador ou as suas anotações. O ChatGPT ou o Claude devolve no formato do Taurifer."
         },
         {
           "tag": "button",

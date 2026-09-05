@@ -8771,7 +8771,7 @@ let pendingImportIo=null;
  * to send, in a link they tapped. The pasted text and the reply live in memory
  * for the length of the flow; only which of the two doors was last used is
  * remembered, as a device-only UI pref. Neither is persisted, exported or
- * logged. See docs/adr/0012-free-form-program-import-handoff.md.
+ * logged. See docs/adr/0014-free-form-program-import-handoff.md.
  */
 const FREEFORM_MAX_CHARS=12000;
 /* Past this the prefilled link stops being dependable across the two apps and

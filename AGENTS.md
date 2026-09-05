@@ -24,7 +24,7 @@ door was last used is remembered, in the device-only UI prefs
 string (`entry.freeform.prompt`), not assembled in code, and the reply is
 validated and reviewed exactly like a file before anything is written. It does
 not pull an LLM dependency into Free or core and does not front-run ADR 0011.
-See `docs/adr/0012-free-form-program-import-handoff.md`.
+See `docs/adr/0014-free-form-program-import-handoff.md`.
 
 ## Product strategy
 
