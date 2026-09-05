@@ -242,13 +242,123 @@ check(plan058.includes("- flat:"), "Plan 058: canonical flat elevation role miss
 check(docs.get("docs/adr/0012-ui-overhaul-canonical-reconciliation.md").includes("| flat |"), "ADR 0012: canonical flat elevation role missing");
 
 required("docs/recovery-week-policy.md", [
+  "Policy version:** 2",
+  "Status:** Approved",
   "40–60%",
   "growth_2_v1",
   "growth_3_v1",
   "protected",
   "reducible",
   "pattern-rescue",
+  "future block boundary",
 ]);
+
+// Q2 owner decisions are closed Phase 0 contracts. These anchors keep the
+// dependent plans from silently reopening the provider, cryptographic, cost,
+// disclosure, or recovery choices in prose while still leaving staging,
+// device, and landing-asset gates to their owning plans.
+{
+  const selectedTransferDocs = [
+    "plans/049-ui-overhaul-canonical-reconciliation.md",
+    "docs/adr/0013-temporary-install-transfer.md",
+    "plans/053-ios-install-transfer-foundation.md",
+  ].map((p) => [p, docs.has(p) ? docs.get(p) : read(p)]);
+  const normalize = (text) => text.replace(/\s+/g, " ").trim();
+  const transferAnchors = [
+    "Cloudflare Workers",
+    "EU-jurisdiction SQLite Durable Objects",
+    "$10 USD/month",
+    "HKDF-SHA-256",
+    "AES-256-GCM",
+    "HMAC",
+    "Cloudflare transiently sees plaintext",
+    "cannot decrypt",
+    "5/min",
+    "60/min",
+  ];
+  for (const [file, text] of selectedTransferDocs) {
+    const normalized = normalize(text);
+    for (const anchor of transferAnchors) {
+      check(normalized.includes(anchor), `${file}: settled transfer anchor missing "${anchor}"`);
+    }
+  }
+  for (const file of ["docs/adr/0013-temporary-install-transfer.md", "plans/053-ios-install-transfer-foundation.md"]) {
+    const normalized = normalize(docs.has(file) ? docs.get(file) : read(file));
+    check(normalized.includes("minute 75"), `${file}: settled transfer anchor missing "minute 75"`);
+  }
+  const recoveryDocs = [
+    "plans/049-ui-overhaul-canonical-reconciliation.md",
+    "docs/recovery-week-policy.md",
+    "plans/052-block-transition-provenance-foundation.md",
+    "plans/056-progress-and-block-lifecycle.md",
+    "docs/progression-strategy-contract.md",
+    "docs/agents/ui-overhaul-proof-checkpoints.md",
+  ].map((p) => [p, docs.has(p) ? docs.get(p) : read(p)]);
+  const recoveryAnchors = [
+    "policy version 2",
+    "knee-dominant",
+    "horizontal press",
+    "hip/hinge",
+    "No",
+    "Not sure",
+    "growth_2_v1",
+    "growth_3_v1",
+    "Better",
+    "About the same",
+    "Worse",
+  ];
+  const recoveryPolicy = normalize(docs.get("docs/recovery-week-policy.md"));
+  for (const anchor of [...recoveryAnchors, "future block boundary", "must not clamp"]) {
+    check(recoveryPolicy.toLowerCase().includes(anchor.toLowerCase()), `docs/recovery-week-policy.md: settled recovery anchor missing "${anchor}"`);
+  }
+  for (const file of [
+    "plans/049-ui-overhaul-canonical-reconciliation.md",
+    "plans/052-block-transition-provenance-foundation.md",
+    "plans/056-progress-and-block-lifecycle.md",
+  ]) {
+    const normalized = normalize(docs.has(file) ? docs.get(file) : read(file));
+    check(normalized.toLowerCase().includes("policy version 2"), `${file}: settled recovery anchor missing "policy version 2"`);
+    check(normalized.includes("knee-dominant"), `${file}: settled recovery anchor missing "knee-dominant"`);
+    check(normalized.includes("horizontal press"), `${file}: settled recovery anchor missing "horizontal press"`);
+    check(normalized.includes("hip/hinge"), `${file}: settled recovery anchor missing "hip/hinge"`);
+  }
+  for (const file of ["docs/progression-strategy-contract.md", "docs/agents/ui-overhaul-proof-checkpoints.md"]) {
+    const normalized = normalize(docs.has(file) ? docs.get(file) : read(file));
+    check(normalized.toLowerCase().includes("policy version 2"), `${file}: settled recovery anchor missing "policy version 2"`);
+  }
+  const staleClosedGatePatterns = [
+    /Candidate Rule B \(proposed for owner selection, not decided\)/i,
+    /exact allocation constants are owner-gated/i,
+    /recovery implementation waits on the exact Plan 049 owner selection/i,
+    /Provider and recovery selections remain owner gates/i,
+    /Keep recovery behind its held rule gate/i,
+  ];
+  for (const [file, text] of [...selectedTransferDocs, ...recoveryDocs]) {
+    for (const pattern of staleClosedGatePatterns) {
+      check(!pattern.test(text), `${file}: stale closed Q2 gate wording (${pattern})`);
+    }
+  }
+  // The three prohibited marketing claims may occur only as explicit negative
+  // disclosure requirements. A positive assertion in a future doc is a
+  // contradiction even if all other contract anchors remain present.
+  const disclosureDocs = [
+    "plans/049-ui-overhaul-canonical-reconciliation.md",
+    "docs/adr/0013-temporary-install-transfer.md",
+    "plans/053-ios-install-transfer-foundation.md",
+  ].map((p) => [p, docs.has(p) ? docs.get(p) : read(p)]);
+  const positiveClaim = /(?:is|uses|provides|with)\s+end[- ]to[- ]end encryption|Cloudflare never sees the data|all copies are deleted within one hour/i;
+  for (const [file, text] of disclosureDocs) {
+    const lines = text.split("\n");
+    for (const [i, line] of lines.entries()) {
+      if (!positiveClaim.test(line)) continue;
+      const window = lines.slice(Math.max(0, i - 1), i + 2).join(" ");
+      check(
+        /not|never claims|must not claim|does not claim/i.test(window),
+        `${file}:${i + 1}: prohibited positive transfer claim`,
+      );
+    }
+  }
+}
 
 // Protocol-semantics anchors: named contract points the vocabulary scan
 // cannot see (lowercase identifiers, lifecycle rules, table rows).
