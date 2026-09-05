@@ -1,224 +1,144 @@
-// Verifies approved Rule B (policy version 2) in docs/recovery-week-policy.md against the 20
-// Plan 047 review compilations in test/fixtures/program-families-v1.json:
-//   - deterministic recomputation over compiled slot statuses and sets
-//   - no optional slot retains working sets
-//   - every canonical primary pattern retains week-one work (with rescue)
-//   - 40–60% band on every fixture except the allowlisted known misses
-//     (growth_2_v1 32→12, growth_3_v1 49→17); any other miss, or drift in a
-//     listed miss, fails
-//   - synthetic unit case for the pattern-rescue path (never triggered by
-//     the fixtures)
+// Verifies the approved recovery policy (version 2) against the 20 Plan 047
+// review compilations in test/fixtures/program-families-v1.json.
+//
+// The executable inputs come from the JSON contract in
+// docs/recovery-week-policy.md. The accepted fixture table is an independent
+// expected-output oracle. Deliberate mutation controls prove that changing
+// each critical rule dimension is rejected with a semantic message.
+//
 // Usage:
 //   node tools/check-recovery-invariants.mjs [--check]
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import {
+  applyRuleB,
+  clonePolicy,
+  eligible,
+  parseExecutablePolicy,
+  validateOverlayDocumentation,
+  validatePolicyAgreement,
+} from "./recovery-policy-contract.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const FIXTURE = join(ROOT, "test", "fixtures", "program-families-v1.json");
-const POLICY = readFileSync(join(ROOT, "docs", "recovery-week-policy.md"), "utf8");
-const POLICY_NORMALIZED = POLICY.replace(/[“”]/g, '"').replace(/\s+/g, " ");
-
-const KNOWN_MISSES = new Map([
-  ["growth_2_v1", { base: 32, effective: 12 }],
-  ["growth_3_v1", { base: 49, effective: 17 }],
-]);
-
-const PRIMARY_PATTERNS = ["knee-dominant", "horizontal press", "hip/hinge"];
-
+const POLICY_PATH = join(ROOT, "docs", "recovery-week-policy.md");
+const PROVENANCE_PATH = join(ROOT, "docs", "block-transition-provenance.md");
+const PLAN_PATH = join(ROOT, "plans", "052-block-transition-provenance-foundation.md");
+const POLICY_TEXT = readFileSync(POLICY_PATH, "utf8");
 const fixture = JSON.parse(readFileSync(FIXTURE, "utf8"));
-const templates = fixture.slotContracts;
-
-function primaryPattern(templateId) {
-  const patterns = (templates[templateId] || {}).patterns || [];
-  if (!patterns.length) return null;
-  const first = patterns[0];
-  if (first === "squat") return "knee-dominant";
-  if (first === "hinge") return "hip/hinge";
-  if (first === "press" || first === "incline_press") return "horizontal press";
-  return null;
-}
-
-// Candidate Rule B over plain slot rows {templateId, status, sets}.
-// Returns {effective: number[], rescued: string[]}.
-function applyRuleB(slots) {
-  const effective = slots.map((s) => {
-    if (s.status === "optional") return 0;
-    if (s.status === "protected") return Math.ceil(s.sets / 2);
-    return Math.floor(s.sets / 2);
-  });
-  const rescued = [];
-  for (const pattern of PRIMARY_PATTERNS) {
-    const total = slots.reduce((n, s, i) => n + (primaryPattern(s.templateId) === pattern ? effective[i] : 0), 0);
-    if (total === 0) {
-      const idx = slots.findIndex((s) => primaryPattern(s.templateId) === pattern && s.sets >= 1);
-      if (idx >= 0) {
-        effective[idx] = Math.max(effective[idx], 1);
-        rescued.push(`${pattern}:${slots[idx].templateId}`);
-      }
-    }
-  }
-  return { effective, rescued };
-}
-
+const policy = parseExecutablePolicy(POLICY_TEXT);
+const provenanceText = readFileSync(PROVENANCE_PATH, "utf8");
+const planText = readFileSync(PLAN_PATH, "utf8");
 const failures = [];
-const check = (cond, message) => {
-  if (!cond) failures.push(message);
+const check = (condition, message) => {
+  if (!condition) failures.push(message);
 };
 
-// Policy v2 is closed. Keep the executable gate aligned with the authoritative
-// policy so a future edit cannot reopen the old owner decision by prose alone.
-check(POLICY.includes("**Policy version:** 2"), "policy: approved version 2 is missing");
-check(POLICY.includes("**Status:** Approved."), "policy: approved status is missing");
-for (const stale of [
-  "BLOCKED",
-  "Candidate Rule B (proposed for owner selection, not decided)",
-  "## ⛔ Open constants (owner gate)",
-  "await owner selection",
-  "until the owner selects the rule",
-]) {
-  check(!POLICY.includes(stale), `policy: stale open-decision phrase remains (${stale})`);
-}
-for (const anchor of [
-  "During this block, did recovery feel worse than usual often enough to affect your training?",
-  "The closed answers are `Yes`, `No`, and `Not sure`; only `Yes` qualifies.",
-  "no free-text response or diagnosis",
-  "Better",
-  "About the same",
-  "Worse",
-  "future block boundary",
-  "Runtime code must not clamp percentages",
-]) {
-  check(POLICY_NORMALIZED.includes(anchor), `policy: missing settled contract anchor (${anchor})`);
-}
-for (const [blueprintId, expected] of KNOWN_MISSES) {
-  check(
-    POLICY_NORMALIZED.includes(`| \`${blueprintId}\` | ${expected.base} | ${expected.effective} |`),
-    `policy: version-specific allowlist row missing for ${blueprintId}`,
-  );
-}
+failures.push(...validatePolicyAgreement({ policyText: POLICY_TEXT, fixture, policy }));
+failures.push(...validateOverlayDocumentation({ provenanceText, planText, policy }));
 
-// Eligibility is a closed local contract: at least two canonical patterns must
-// carry sufficient maintained/declined evidence, and only the Yes answer can
-// qualify. These deliberate controls keep the checker honest without
-// pretending to be the future runtime implementation.
-function eligible({ patternOutcomes, checkpointAnswer }) {
-  if (checkpointAnswer !== "Yes") return false;
-  return PRIMARY_PATTERNS.filter((pattern) =>
-    ["maintained", "declined"].includes(patternOutcomes[pattern]),
-  ).length >= 2;
-}
-check(
-  eligible({
-    patternOutcomes: {
-      "knee-dominant": "maintained",
-      "horizontal press": "declined",
-      "hip/hinge": "improved",
-    },
-    checkpointAnswer: "Yes",
-  }),
-  "eligibility: two maintained/declined patterns plus Yes must qualify",
+// Eligibility is a closed local contract. This is intentionally exercised
+// separately from the Rule B fixture loop because it is a proposal gate, not a
+// volume-allocation rule.
+const qualifyingPatterns = Object.fromEntries(
+  policy.primaryPatterns.map((pattern, index) => [pattern, index < policy.eligibility.minimumPatterns ? "maintained" : "improved"]),
 );
-for (const answer of ["No", "Not sure"]) {
+check(
+  eligible({ patternOutcomes: qualifyingPatterns, checkpointAnswer: policy.eligibility.qualifyingCheckpointAnswer }, policy),
+  "eligibility: configured qualifying outcomes plus the configured checkpoint answer must qualify",
+);
+for (const answer of policy.eligibility.checkpointAnswers.filter((answer) => answer !== policy.eligibility.qualifyingCheckpointAnswer)) {
   check(
-    !eligible({
-      patternOutcomes: {
-        "knee-dominant": "maintained",
-        "horizontal press": "declined",
-        "hip/hinge": "maintained",
-      },
-      checkpointAnswer: answer,
-    }),
+    !eligible({ patternOutcomes: qualifyingPatterns, checkpointAnswer: answer }, policy),
     `eligibility: ${answer} must not qualify`,
   );
 }
+const insufficient = Object.fromEntries(policy.primaryPatterns.map((pattern) => [pattern, "untested"]));
 check(
-  !eligible({
-    patternOutcomes: {
-      "knee-dominant": "maintained",
-      "horizontal press": "improved",
-      "hip/hinge": "untested",
-    },
-    checkpointAnswer: "Yes",
-  }),
-  "eligibility: fewer than two maintained/declined patterns must not qualify",
+  !eligible({ patternOutcomes: insufficient, checkpointAnswer: policy.eligibility.qualifyingCheckpointAnswer }, policy),
+  "eligibility: fewer than the configured qualifying patterns must not qualify",
 );
 
-const compilations = fixture.reviewCompilations;
-check(compilations.length === 20, `expected 20 review compilations, got ${compilations.length}`);
-
-const table = [];
-for (const compilation of compilations) {
-  const slots = compilation.days.flatMap((d) =>
-    d.slots.map((s) => ({ templateId: s.templateId, status: s.status, sets: s.sets })),
+// Determinism and synthetic rescue proof. The real fixtures do not trigger a
+// rescue, so the isolated case keeps that branch from becoming untested.
+const templates = fixture.slotContracts;
+for (const compilation of fixture.reviewCompilations) {
+  const slots = compilation.days.flatMap((day) =>
+    day.slots.map((slot) => ({ templateId: slot.templateId, status: slot.status, sets: slot.sets })),
   );
-  const base = slots.reduce((n, s) => n + s.sets, 0);
-  const first = applyRuleB(slots);
-  const second = applyRuleB(slots);
-  check(
-    JSON.stringify(first) === JSON.stringify(second),
-    `${compilation.blueprintId}: rule is not deterministic`,
-  );
-  const effective = first.effective.reduce((n, e) => n + e, 0);
-  const optionalsKept = slots.some((s, i) => s.status === "optional" && first.effective[i] > 0);
-  check(!optionalsKept, `${compilation.blueprintId}: optional slot retains working sets`);
-  for (const pattern of ["knee-dominant", "hip/hinge", "horizontal press"]) {
-    const total = slots.reduce(
-      (n, s, i) => n + (primaryPattern(s.templateId) === pattern ? first.effective[i] : 0),
-      0,
-    );
-    check(total >= 1, `${compilation.blueprintId}: primary pattern ${pattern} left empty`);
+  const executablePolicy = { ...policy, slotContracts: templates };
+  let first;
+  let second;
+  try {
+    first = applyRuleB(slots, executablePolicy);
+    second = applyRuleB(slots, executablePolicy);
+  } catch (error) {
+    failures.push(`${compilation.blueprintId}: deterministic Rule B execution failed (${error.message})`);
+    continue;
   }
-  const ratio = effective / base;
-  const inBand = ratio >= 0.4 && ratio <= 0.6;
-  const known = KNOWN_MISSES.get(compilation.blueprintId);
-  if (known) {
-    check(
-      base === known.base && effective === known.effective,
-      `${compilation.blueprintId}: known miss drifted (now ${base}→${effective})`,
-    );
-  } else {
-    check(inBand, `${compilation.blueprintId}: ${(ratio * 100).toFixed(1)}% outside 40–60%`);
-  }
-  table.push({ id: compilation.blueprintId, base, effective, ratio, inBand, allowedMiss: !!known });
+  check(JSON.stringify(first) === JSON.stringify(second), `${compilation.blueprintId}: Rule B is not deterministic`);
 }
 
-// Synthetic rescue path: a press-only program whose press slot is optional.
 const synthetic = [
   { templateId: "optional_arms", status: "optional", sets: 2 },
-  { templateId: "horizontal_press", status: "reducible", sets: 1 },
+  { templateId: "vertical_pull", status: "reducible", sets: 2 },
 ];
-const before = applyRuleB([{ ...synthetic[0] }, { templateId: "vertical_pull", status: "reducible", sets: 2 }]);
-check(
-  before.effective[0] === 0,
-  `synthetic: optional slot must be removed, got ${before.effective[0]}`,
-);
+const syntheticPolicy = { ...policy, slotContracts: templates };
+const optionalResult = applyRuleB(synthetic, syntheticPolicy);
+check(optionalResult.effective[0] === 0, `synthetic: optional slot must be removed, got ${optionalResult.effective[0]}`);
 const pressOnly = [
   { templateId: "optional_arms", status: "optional", sets: 2 },
   { templateId: "incline_press", status: "optional", sets: 2 },
   { templateId: "horizontal_press", status: "reducible", sets: 1 },
 ];
-const rescued = applyRuleB(pressOnly);
+const rescued = applyRuleB(pressOnly, syntheticPolicy);
 check(
-  rescued.effective[1] === 1 && rescued.rescued.includes("horizontal press:incline_press"),
-  `synthetic: pattern rescue must retain first press slot at 1 (flagged I-2 exception), got ${JSON.stringify(rescued)}`,
+  rescued.effective[1] === policy.ruleB.coverageRescue.minimumWorkingSets &&
+    rescued.rescued.includes("horizontal press:incline_press"),
+  `synthetic: pattern rescue must retain the first press slot at ${policy.ruleB.coverageRescue.minimumWorkingSets} (flagged exception), got ${JSON.stringify(rescued)}`,
 );
 
-const passCount = table.filter((r) => r.inBand).length;
-const missCount = table.filter((r) => r.allowedMiss).length;
+// Each mutation is applied only to an isolated copy of the parsed policy.
+// validatePolicyAgreement still consumes the unchanged fixture table and prose,
+// so a mutated executable rule cannot make the gate green by changing its own
+// expected values.
+const negativeControls = [
+  ["protected rounding", (candidate) => { candidate.ruleB.protected.rounding = "floor"; }, "protected rounding"],
+  ["reducible rounding", (candidate) => { candidate.ruleB.reducible.rounding = "ceil"; }, "reducible rounding"],
+  ["primary pattern order", (candidate) => { candidate.primaryPatterns.reverse(); }, "pattern order"],
+  ["primary pattern mapping", (candidate) => { candidate.patternMapping.squat = "hip/hinge"; }, "pattern mapping"],
+  ["version allowlist", (candidate) => { delete candidate.allowlistedMisses.growth_2_v1; }, "allowlist"],
+  ["checkpoint answers", (candidate) => { candidate.eligibility.checkpointAnswers = ["Yes", "No"]; }, "checkpoint answers"],
+  ["reassessment outcomes", (candidate) => { candidate.reassessment.outcomes = ["Better", "About the same"]; }, "reassessment outcomes"],
+];
+const negativeControlMessages = [];
+for (const [label, mutate, expectedNeedle] of negativeControls) {
+  const mutated = clonePolicy(policy);
+  mutate(mutated);
+  const issues = [
+    ...validatePolicyAgreement({ policyText: POLICY_TEXT, fixture, policy: mutated }),
+    ...validateOverlayDocumentation({ provenanceText, planText, policy: mutated }),
+  ];
+  const semantic = issues.find((message) => message.toLowerCase().includes(expectedNeedle));
+  check(!!semantic, `negative control ${label}: mutation was not rejected with a semantic ${expectedNeedle} message`);
+  if (semantic) negativeControlMessages.push(`${label}: ${semantic}`);
+}
+
+const passCount = fixture.reviewCompilations.length;
+const missCount = Object.keys(policy.allowlistedMisses).length;
 if (process.argv.includes("--check")) {
   if (failures.length > 0) {
-    for (const f of failures) console.error(`FAIL: ${f}`);
+    for (const failure of failures) console.error(`FAIL: ${failure}`);
     process.exit(1);
   }
-  console.log(`pass: Rule B deterministic over 20 fixtures, ${passCount}/20 in band with ${missCount} allowlisted misses, rescue path covered`);
+  console.log(`pass: executable Rule B over ${passCount} fixtures, ${missCount} allowlisted misses, rescue and eligibility paths covered`);
+  console.log(`pass: ${negativeControlMessages.length}/${negativeControls.length} critical-rule negative controls rejected semantically`);
 } else {
-  for (const r of table) {
-    const tag = r.inBand ? "" : r.allowedMiss ? " allowlisted miss" : " MISS";
-    console.log(`${r.id} ${r.base}→${r.effective} ${(r.ratio * 100).toFixed(1)}%${tag}`);
-  }
+  console.log(`policy version ${policy.policyVersion}: ${passCount} fixture rows, ${missCount} allowlisted misses`);
+  for (const message of negativeControlMessages) console.log(`negative control rejected: ${message}`);
   if (failures.length > 0) {
-    for (const f of failures) console.error(`FAIL: ${f}`);
+    for (const failure of failures) console.error(`FAIL: ${failure}`);
     process.exit(1);
   }
 }

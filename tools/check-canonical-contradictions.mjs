@@ -408,6 +408,27 @@ required("docs/recovery-week-policy.md", [
   for (const anchor of ['"slot"', '"movement"', "pattern-rescue"]) {
     check(overlaySection.includes(anchor), `transition overlay: missing "${anchor}"`);
   }
+  const overlayNormalized = overlaySection.replace(/\s+/g, " ");
+  for (const anchor of [
+    "canonical primary pattern class",
+    "or `null` for a non-primary slot",
+    "raw first-listed compiler template token",
+    "not persisted",
+    "`reassessmentOutcome`",
+    "Persisted as `null` until week one ends",
+    "`Better`, `About the same`, or `Worse`",
+  ]) {
+    check(overlayNormalized.includes(anchor), `transition overlay: missing settled recovery schema anchor "${anchor}"`);
+  }
+  for (const anchor of [
+    'reassessmentOutcome: null | "Better" | "About the same" | "Worse"',
+    "`reassessmentOutcome` is persisted as `null` until week one ends",
+    "canonical primary pattern class",
+    "raw\nfirst-listed compiler template token",
+    "no recovery extension or repeat is\nallowed in the same block",
+  ]) {
+    check(plan052.includes(anchor), `Plan 052: missing settled recovery schema anchor "${anchor}"`);
+  }
   // proposalHash must be an executable rule: preimage projection, canonical
   // JSON, set normalization, hex digest, and a verified fixture.
   const hashSection = (docs.get("docs/block-transition-provenance.md").split("Canonical array order and proposal hashing")[1] || "").split(/^## /m)[0];

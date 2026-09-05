@@ -129,15 +129,25 @@ eligibilityEvidence
 baseProgramFingerprint
 entries: [{ slot, movement, movementPattern, baseWorkingSets,
             effectiveWorkingSets, removedOptionalFirst, reason }]
-createdAt, confirmedAt, reassessmentDueAt
+createdAt, confirmedAt, reassessmentDueAt,
+reassessmentOutcome: null | "Better" | "About the same" | "Worse"
 ```
 
 `slot` is the stable program slot identity (compiler `slotId`);
 `movement` is the library/custom movement identity in `library:` form.
-Repeated movements in different slots — the fixtures contain protected and
-reducible leg-press slots for the same movement — must never share an entry.
+`movementPattern` stores the canonical primary pattern class (`knee-dominant`,
+`horizontal press`, or `hip/hinge`), or `null` for a non-primary slot. The raw
+first-listed compiler template token is an input to the policy mapping and is
+not persisted in the overlay. Repeated movements in different slots — the
+fixtures contain protected and reducible leg-press slots for the same movement — must never share an entry.
 
 It applies only to working-set volume. It retains at least one working set for each approved primary movement pattern, may cross ordinary `minSets` under this named policy, and restores base prescriptions in week two without a data migration. Plan 049 policy version 2 is the input. The canonical primary patterns are `knee-dominant`, `horizontal press`, and `hip/hinge`; `proposeRecoveryWeek` accepts only sufficient `maintained` or `declined` evidence across at least two of them plus a local checkpoint `Yes` answer to the approved recovery question. `No` and `Not sure` are ineligible. It applies Rule B unchanged, including the two version-allowlisted fixture misses, and rejects unreviewed program versions outside the 40–60% band. It does not clamp percentages or alter the canonical prescription.
+`reassessmentOutcome` is persisted as `null` until week one ends and then as
+exactly one of `Better`, `About the same`, or `Worse`. Week two always restores
+the canonical prescription; `About the same` and `Worse` route to ordinary
+Review without automatic mutation, and no recovery extension or repeat is
+allowed in the same block. A future recovery requires a future block boundary,
+fresh evidence, and a fresh `Yes` answer.
 
 ## Domain/state model
 
@@ -163,7 +173,7 @@ This foundation exposes test hooks/adapters, not final Progress UI. It must neve
 - recovery ineligible because evidence is insufficient, fewer than two
   qualifying primary patterns exist, the checkpoint answer is `No` or `Not
   sure`, or the answer is missing;
-- recovery eligible, preview, confirmed, active week one, canonical week two, and reassessment due;
+- recovery eligible, preview, confirmed, active week one, canonical week two, and reassessment due with a persisted `null`-before-reassessment or closed outcome;
 - proposal stale because program/revision/context changed;
 - commit in progress, complete with archive link, or failed without mutation.
 

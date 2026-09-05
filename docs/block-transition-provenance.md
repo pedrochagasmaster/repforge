@@ -1730,11 +1730,11 @@ disabled for ineligible evidence or an unreviewed program version outside the
 | `activePeriod` | `nextBlockWeek1` | Only valid period |
 | `eligibilityEvidence` | object | Sufficient `maintained`/`declined` evidence across at least two of `knee-dominant`, `horizontal press`, and `hip/hinge`, plus `checkpointAnswer: "Yes"` for the closed recovery question. The object has no free text or diagnosis |
 | `baseProgramFingerprint` | string | Canonical program the overlay renders against |
-| `entries` | array | Per-slot `{slot, movement, movementPattern, baseWorkingSets, effectiveWorkingSets, removedOptionalFirst, reason}`: `slot` is the stable program slot identity (compiler `slotId`), `movement` the library/custom movement ID, `movementPattern` the first-listed template pattern token (coverage is evaluated over the canonical knee-dominant, hip/hinge, and horizontal-press classes). Repeated movements in different slots — e.g. a protected and a reducible leg-press slot — must never share an entry |
+| `entries` | array | Per-slot `{slot, movement, movementPattern, baseWorkingSets, effectiveWorkingSets, removedOptionalFirst, reason}`: `slot` is the stable program slot identity (compiler `slotId`), `movement` is the library/custom movement ID, and `movementPattern` is the canonical primary pattern class (`knee-dominant`, `horizontal press`, or `hip/hinge`), or `null` for a non-primary slot. The raw first-listed compiler template token is used only as policy input and is not persisted. Repeated movements in different slots — e.g. a protected and a reducible leg-press slot — must never share an entry |
 | `createdAt` | timestamp | Proposal creation time |
 | `confirmedAt` | timestamp | Explicit user-confirmation time |
 | `reassessmentDueAt` | timestamp | Reassessment point after week one; no automatic repeat |
-| `reassessmentOutcome` | null | enum | `null` until week one ends, then one of `Better`, `About the same`, or `Worse`; `About the same` and `Worse` route to ordinary Review without automatic mutation |
+| `reassessmentOutcome` | `null` or enum | Persisted as `null` until week one ends, then exactly one of `Better`, `About the same`, or `Worse`; `About the same` and `Worse` route to ordinary Review without automatic mutation |
 
 ### Example overlay entry set (shape-exact)
 
@@ -1754,7 +1754,7 @@ disabled for ineligible evidence or an unreviewed program version outside the
   "entries": [
     { "slot": "growth_2_d1_s1", "movement": "library:sq_lp", "movementPattern": "knee-dominant", "baseWorkingSets": 3, "effectiveWorkingSets": 2, "removedOptionalFirst": false, "reason": "protected-ceil" },
     { "slot": "growth_2_d2_s4", "movement": "library:sq_lp", "movementPattern": "knee-dominant", "baseWorkingSets": 3, "effectiveWorkingSets": 1, "removedOptionalFirst": false, "reason": "reducible-floor" },
-    { "slot": "growth_2_d1_s6", "movement": "library:cu_cb", "movementPattern": "curl", "baseWorkingSets": 2, "effectiveWorkingSets": 0, "removedOptionalFirst": true, "reason": "optional-removed" }
+    { "slot": "growth_2_d1_s6", "movement": "library:cu_cb", "movementPattern": null, "baseWorkingSets": 2, "effectiveWorkingSets": 0, "removedOptionalFirst": true, "reason": "optional-removed" }
   ],
   "createdAt": "2026-10-01T09:00:00.000Z",
   "confirmedAt": "2026-10-01T09:12:00.000Z",

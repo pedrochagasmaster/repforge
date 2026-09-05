@@ -249,8 +249,9 @@ The base-versus-effective preview requires explicit confirmation, removes
 optional work first under approved Rule B, may cross ordinary `minSets`, keeps
 each primary pattern represented, and restores the canonical prescription in
 week two. After week one, record `Better`, `About the same`, or `Worse`.
-`About the same` and `Worse` route to ordinary Review with no automatic
-mutation. Recovery never extends or repeats in the same block and can be
+Plan 052 persists `reassessmentOutcome: null` until week one ends, then exactly
+one of those three closed values. `About the same` and `Worse` route to
+ordinary Review with no automatic mutation. Recovery never extends or repeats in the same block and can be
 considered again only at a future block boundary with fresh evidence and a
 fresh `Yes`. Policy version 2 is closed; future program versions outside
 40–60% remain ineligible until a version-specific owner allowlist or policy

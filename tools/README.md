@@ -114,20 +114,27 @@ node tools/check-ui-semantic-roles.mjs --check
 
 ## check-recovery-invariants.mjs
 
-Recomputes approved Rule B (policy version 2) from [`docs/recovery-week-policy.md`](../docs/recovery-week-policy.md)
-against the 20 Plan 047 review compilations in
-`test/fixtures/program-families-v1.json`: determinism, optional removal,
-primary-pattern coverage with rescue, and the 40–60% band with the two
-allowlisted known misses pinned (any other miss, or drift in a listed miss,
-fails). It also checks the exact two-pattern/Yes eligibility gate and negative
-controls for No, Not sure, and insufficient corroboration. Includes a
-synthetic unit case for the pattern-rescue path, which the fixtures never
-trigger.
+Parses the executable JSON contract in
+[`docs/recovery-week-policy.md`](../docs/recovery-week-policy.md) through
+`recovery-policy-contract.mjs`, then recomputes approved Rule B over the 20
+Plan 047 review compilations in `test/fixtures/program-families-v1.json`.
+The reviewed fixture table is an independent expected-output oracle, so a
+rounding, pattern, band, or allowlist mutation cannot update its own expected
+answer. The check covers determinism, optional removal, canonical primary-
+pattern coverage with rescue, the two-pattern/Yes eligibility gate, the
+persisted reassessment enum, and overlay representation. It also mutates
+protected rounding, reducible rounding, primary-pattern order and mapping, the
+version allowlist, checkpoint answers, and reassessment outcomes; each
+negative control must be rejected with a semantic message.
 
 ```bash
 node tools/check-recovery-invariants.mjs
 node tools/check-recovery-invariants.mjs --check
 ```
+
+`recovery-policy-contract.mjs` is a planning/test helper only. Production
+runtime code must consume the versioned policy through the future Plan 052
+domain boundary rather than importing this tool.
 
 ## check-canonical-contradictions.mjs
 

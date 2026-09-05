@@ -36,7 +36,11 @@ This phase makes Progress a two-level decision guide and evidence record, and co
   declined evidence across at least two of the canonical primary patterns
   (`knee-dominant`, `horizontal press`, and `hip/hinge`) plus the local Yes
   checkpoint, Rule B allocation, the two allowlisted misses, and the
-  week-one/reassessment lifecycle. It never silently mutates.
+  week-one/reassessment lifecycle. Plan 052's persisted `reassessmentOutcome`
+  is `null` until week one ends, then exactly one of `Better`, `About the
+  same`, or `Worse`; `About the same` and `Worse` route to ordinary Review with
+  no automatic mutation, and recovery never repeats in the same block. It
+  never silently mutates.
 - Strength defaults to current block with explicit all-history context.
 - Volume shows this week and block-to-date against matching plan periods.
 - One point is a snapshot; two points a comparison/delta; three or more a trend.

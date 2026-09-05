@@ -18,6 +18,59 @@ after 2–4 disrupted weeks for returning lifters). Recovery here is an
 evidence-triggered experiment inside normal training, and the two must never
 share a code path or a transition kind.
 
+## Executable policy contract
+
+The fenced object below is the single executable representation of policy
+version 2. The recovery checker parses it for allocation, pattern order and
+mapping, eligibility, the acceptance band, the version allowlist, and the
+reassessment enum. The fixture table below remains an independent expected
+output oracle: it proves that the parsed rule produces the reviewed totals.
+The surrounding prose is checked against this object so a prose-only or
+machine-only edit cannot silently change the contract.
+
+```json
+{
+  "kind": "taurifer-recovery-policy",
+  "policyVersion": 2,
+  "status": "Approved",
+  "primaryPatterns": ["knee-dominant", "horizontal press", "hip/hinge"],
+  "patternMapping": {
+    "squat": "knee-dominant",
+    "press": "horizontal press",
+    "incline_press": "horizontal press",
+    "hinge": "hip/hinge"
+  },
+  "eligibility": {
+    "qualifyingOutcomes": ["maintained", "declined"],
+    "minimumPatterns": 2,
+    "checkpointAnswers": ["Yes", "No", "Not sure"],
+    "qualifyingCheckpointAnswer": "Yes"
+  },
+  "ruleB": {
+    "optional": { "effectiveWorkingSets": 0, "reason": "optional-removed" },
+    "protected": { "rounding": "ceil", "divisor": 2, "reason": "protected-ceil" },
+    "reducible": { "rounding": "floor", "divisor": 2, "reason": "reducible-floor" },
+    "coverageRescue": {
+      "minimumWorkingSets": 1,
+      "selection": "first-eligible-stable-order",
+      "reason": "pattern-rescue"
+    }
+  },
+  "acceptanceBand": { "minimum": 0.4, "maximum": 0.6 },
+  "allowlistedMisses": {
+    "growth_2_v1": { "base": 32, "effective": 12 },
+    "growth_3_v1": { "base": 49, "effective": 17 }
+  },
+  "reassessment": {
+    "outcomes": ["Better", "About the same", "Worse"],
+    "unset": null,
+    "ordinaryReviewOutcomes": ["About the same", "Worse"],
+    "sameBlockRepeat": false,
+    "weekTwoCanonical": true
+  }
+}
+```
+
 ## Decided bounds (binding)
 
 - **Eligibility requires both:** sufficient observed `maintained` or `declined`
@@ -57,12 +110,15 @@ protected primary work preserved):
 3. `reducible` slots keep `floor(baseWorkingSets / 2)` (a base-1 reducible
    slot is removed; only primary patterns carry a minimum).
 4. Check coverage in the fixed pattern order `knee-dominant`, `horizontal
-   press`, `hip/hinge`, using the first-listed template pattern token:
-   `squat` maps to `knee-dominant`, `press` and `incline_press` map to
-   `horizontal press`, and `hinge` maps to `hip/hinge`. If steps 1–3 would
+   press`, `hip/hinge`, using the first-listed template pattern token only as
+   compiler input to this canonical mapping: `squat` maps to
+   `knee-dominant`, `press` maps to `horizontal press`, `incline_press` maps
+   to `horizontal press`, and `hinge` maps to `hip/hinge`. If steps 1–3 would
    leave a pattern at zero, restore one set to the first eligible slot in
    stable program order (`pattern-rescue`). This is the only exception to
-   optional removal, and the preview flags it.
+   optional removal, and the preview flags it. The overlay stores the
+   canonical primary pattern class, or `null` for a non-primary slot; it does
+   not persist the raw template token.
 5. Loads, RIR targets, strategies, exercises, frequency, schedule, and rest
    remain byte-identical to the canonical prescription.
 
