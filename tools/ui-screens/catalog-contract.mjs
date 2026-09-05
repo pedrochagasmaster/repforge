@@ -99,6 +99,9 @@ export function collectCatalogEvidence(config = {}) {
     .flatMap((element) => ["data-i18n", "data-i18n-aria", "data-i18n-placeholder", "data-i18n-title"]
       .map((attribute) => element.getAttribute(attribute)).filter(Boolean)
       .map((key) => ({ locator: stableLocator(element), key })));
+  for (const key of window.__repforgeI18nMissingRequests?.consume?.() || []) {
+    requestedI18nKeys.push({ locator: "RepForgeI18n.t()", key });
+  }
   return {
     document: { clientWidth: document.documentElement.clientWidth, scrollWidth: document.documentElement.scrollWidth },
     text, overflow, scrollers, nonOverlap, copyAllowances, requestedI18nKeys,

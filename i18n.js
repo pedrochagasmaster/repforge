@@ -1,5 +1,5 @@
 // Taurifer i18n — English / Portuguese UI strings.
-// Generated from i18n-en.json + i18n-pt.json; edit those and regenerate if needed.
+// Generated from i18n-en.json + i18n-pt.json + tools/i18n-runtime.js; edit those and regenerate.
 const EN = {
   "meta.description": "Taurifer keeps workout logs, drafts, and history on this device. Setup links share a program and selected settings.",
   "brand.home_aria": "Taurifer home",
@@ -3400,6 +3400,7 @@ const PT = {
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };
+  const missingRequests = new Set();
   let lang = "en";
 
   function detectLang() {
@@ -3426,7 +3427,10 @@ const PT = {
     const dict = STRINGS[lang] || STRINGS.en;
     let s = dict[key];
     if (s == null) s = STRINGS.en[key];
-    if (s == null) s = key;
+    if (s == null) {
+      if (typeof key === "string") missingRequests.add(key);
+      s = key;
+    }
     if (vars && typeof vars === "object") {
       s = String(s).replace(/\{(\w+)\}/g, (_, k) => (vars[k] != null ? String(vars[k]) : "{" + k + "}"));
     }
@@ -3477,5 +3481,14 @@ const PT = {
 
   const api = { STRINGS, detectLang, normalizeLang, setLang, getLang, t, tp, speechLang, applyDom };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
-  else root.RepForgeI18n = api;
+  else {
+    root.RepForgeI18n = api;
+    root.__repforgeI18nMissingRequests = Object.freeze({
+      consume() {
+        const keys = [...missingRequests];
+        missingRequests.clear();
+        return keys;
+      },
+    });
+  }
 })(typeof globalThis !== "undefined" ? globalThis : this);

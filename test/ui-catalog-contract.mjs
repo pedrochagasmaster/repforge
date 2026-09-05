@@ -61,13 +61,22 @@ try {
       `known dotted translation-key artifact is rejected: ${dottedKey.join(" | ")}`);
     console.log(`deliberate dotted-key rejection: ${dottedKey.find((failure) => failure.startsWith("raw translation key picker.equipment.band"))}`);
 
-    await en.page.evaluate(() => document.body.insertAdjacentHTML("beforeend", '<div id="catalogContractBad"><p id="catalogMissingKey" data-i18n="brandnew.missing_key">placeholder</p></div>'));
-    await en.page.evaluate(() => window.RepForgeI18n.applyDom());
+    await en.page.evaluate(() => {
+      document.body.insertAdjacentHTML("beforeend", '<div id="catalogContractBad"><p id="dynamic-missing"></p></div>');
+      document.querySelector("#dynamic-missing").textContent = window.RepForgeI18n.t("brandnew.missing_key");
+    });
+    assert.equal(await en.page.locator("#dynamic-missing").evaluate((element) =>
+      [...element.attributes].some((attribute) => attribute.name.startsWith("data-i18n"))), false,
+    "the dynamic missing-request fixture has no data-i18n attribute");
     const missingKey = validate(await en.page.evaluate(collectCatalogEvidence, en.config), en.config);
     await en.page.evaluate(() => document.querySelector("#catalogContractBad")?.remove());
     assert.ok(missingKey.some((failure) => failure.startsWith("missing requested translation key brandnew.missing_key")),
-      `missing requested key is rejected at the i18n/capture boundary: ${missingKey.join(" | ")}`);
+      `a dynamic missing request without data-i18n attributes is rejected at the i18n/capture boundary: ${missingKey.join(" | ")}`);
     console.log(`deliberate missing-request rejection: ${missingKey.find((failure) => failure.startsWith("missing requested translation key brandnew.missing_key"))}`);
+
+    const dottedUserCopy = await injectedFailures('<div id="catalogContractBad"><p id="catalogDottedUserCopy">coach.example_note</p></div>');
+    assert.deepEqual(dottedUserCopy, [],
+      "arbitrary dotted user-authored copy outside known namespaces stays allowed and prior missing requests do not leak into the next capture");
 
     const copyConfig = { ...en.config, renderedCopyAllowances: [{
       screen: "library/list", locator: "#catalogCopyAllowance", text: "day_empty:documented", reason: "Fixture proves a locator-bound exception.", owner: "plan-050",
