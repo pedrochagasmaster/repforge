@@ -234,6 +234,27 @@ async function importTo(page, step) {
   await page.waitForSelector("#onboarding.active #entryActivate", { timeout: 25000 });
 }
 
+/* The paste door of the import route. `filled` is the state a lifter is
+   actually looking at when they decide which app to hand the program to; the
+   empty state is what the door opens as. */
+async function freeformTo(page, step) {
+  await openHub(page);
+  await page.click("#entryOwnToggle");
+  await page.waitForSelector("#entryFreeformStart", { timeout: 20000 });
+  await page.click("#entryFreeformStart");
+  await page.waitForSelector("#entryFreeformIn", { timeout: 20000 });
+  if (step === "paste") return;
+  const portuguese = await page.evaluate(() => document.documentElement.lang === "pt-BR");
+  await page.fill("#entryFreeformIn", portuguese
+    ? "Empurrar A\nSupino reto 4x6-8\nDesenvolvimento militar 3x8-10\n\nPuxar A\nRemada curvada 4x6-10"
+    : "Push A\nBench press 4x6-8\nOverhead press 3x8-10\n\nPull A\nBarbell row 4x6-10");
+  await page.waitForFunction(
+    () => document.querySelector("#entryFreeformNeeds")?.hidden === true,
+    undefined,
+    { timeout: 20000 }
+  );
+}
+
 /** Land on the setup-link gate, which is the shared route's real entrance. */
 async function sharedTo(page, step) {
   const fragment = await page.evaluate(async ({ payload, ids }) => {
@@ -427,6 +448,8 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-build/editor-ready": (page) => buildTo(page, "editor-ready"),
 
   "onboarding-import/source": (page) => importTo(page, "source"),
+  "onboarding-import/freeform-empty": (page) => freeformTo(page, "paste"),
+  "onboarding-import/freeform-filled": (page) => freeformTo(page, "filled"),
   "onboarding-import/preview": (page) => importTo(page, "preview"),
 
   "onboarding-shared/gate": (page) => sharedTo(page, "gate"),

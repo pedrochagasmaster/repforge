@@ -12,9 +12,10 @@ This file is a fast orientation. The authoritative, detailed guidance lives in:
 - **`CONTEXT.md`** — the domain glossary. Use its exact terms (program, exercise template,
   capacity, session, mesocycle, …) in code and copy. Words listed under *Avoid* are wrong.
 - **`docs/adr/`** — one ADR per irreversible decision (rebrand, capacity currency, shared-setup
-  links, appearance/dark theme, product thesis, managed AI). Read the ones touching your area
-  before editing. **ADR 0011 supersedes ADR 0002 and Plan 038** — the BYOK AI coach is dead;
-  do not execute either.
+  links, appearance/dark theme, product thesis, managed AI, free-form import hand-off). Read the
+  ones touching your area before editing. **ADR 0011 supersedes ADR 0002 and Plan 038** — the
+  BYOK AI coach is dead; do not execute either. ADR 0014's paste-door hand-off is not an AI
+  integration and does not front-run ADR 0011.
 - **`docs/backlog.md`** — the repository's **only** ordered product and engineering queue,
   reconciled through Q602. Plans and specs say *how* a bounded piece of work is built; they do
   not create a second queue. If work isn't here, it isn't scheduled.

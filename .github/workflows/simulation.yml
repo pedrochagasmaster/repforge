@@ -291,6 +291,7 @@ jobs:
           node test/library-flow.mjs
           node test/performed-attribution.mjs
           node test/program-import-review.mjs
+          node test/program-freeform-import.mjs
 
       - name: Sheet swipe dismiss
         env:

@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 72 screens,
-221 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 74 screens,
+231 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -107,6 +107,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Import — source](screens/onboarding-import/source__phone-390-light-en.png) | 3 | The bounded supported-file and setup-source surface before any mutation. |
+| [Import — paste a program](screens/onboarding-import/freeform-empty__phone-390-light-en.png) | 3 | The free-form door as it opens: an empty field, and the hand-off to ChatGPT or Claude still unavailable. |
+| [Import — paste ready to convert](screens/onboarding-import/freeform-filled__phone-390-light-en.png) | 7 | A pasted program with both app links live, the character counter, and the field the reply comes back into. |
 | [Import — review](screens/onboarding-import/preview__phone-390-light-en.png) | 7 | A mapped exercise with manual progression ownership and provenance. |
 
 ### Onboarding — Shared setup link
