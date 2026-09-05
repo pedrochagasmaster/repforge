@@ -797,7 +797,7 @@ try {
       "recommendation rationale cites the chosen goal and schedule", recommendationCopy);
     assert(/about half/i.test(recommendationCopy) && /first week/i.test(recommendationCopy),
       "recommendation explains the temporary interrupted return treatment", recommendationCopy);
-    assert(/Full commercial gym/.test(recommendationCopy) && /Review this program/.test(recommendationCopy),
+    assert(/full commercial gym/i.test(recommendationCopy) && /Review this program/.test(recommendationCopy),
       "recommendation cites the environment and offers an explicit review action", recommendationCopy);
     const candidateCount = await page.locator("[data-entry-select-candidate]").count();
     assert(candidateCount === 1, "recommend shows only the primary result", String(candidateCount));
@@ -1315,7 +1315,7 @@ try {
     assert(built.cards.every((card) => card.addExercise), "every empty Build day exposes Add exercise", JSON.stringify(built.cards));
     assert(built.draftName === "Manual block", "Build draft kept the program name", built.draftName);
     assert(built.statusNode && built.saveVisible, "Build visibly identifies the editable draft and Save draft action", JSON.stringify(built));
-    assert(built.activateDisabled && /Add an exercise to/i.test(built.statusText) && built.statusAdjacent,
+    assert(built.activateDisabled && /Add an exercise to/i.test(built.statusText) && !/day_empty:|manual_d\d/.test(built.statusText) && built.statusAdjacent,
       "Build names incompleteness adjacent to its disabled activation", JSON.stringify(built));
     const buildGeometry = await page.evaluate(() => {
       const action = document.querySelector("#entryEditorActivate");

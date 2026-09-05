@@ -4414,8 +4414,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
-          "name": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "text": "Add an exercise to Day 1, Day 2, Day 3.",
+          "name": "Add an exercise to Day 1, Day 2, Day 3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -4491,7 +4491,7 @@
           "tag": "button",
           "text": "Use this program",
           "name": "Use this program",
-          "describedBy": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "describedBy": "Add an exercise to Day 1, Day 2, Day 3.",
           "disabled": true,
           "type": "button"
         }
@@ -4539,8 +4539,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
-          "name": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "text": "Add an exercise to Day 1, Day 2, Day 3.",
+          "name": "Add an exercise to Day 1, Day 2, Day 3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -4616,7 +4616,7 @@
           "tag": "button",
           "text": "Use this program",
           "name": "Use this program",
-          "describedBy": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "describedBy": "Add an exercise to Day 1, Day 2, Day 3.",
           "disabled": true,
           "type": "button"
         }
@@ -4664,8 +4664,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
-          "name": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "text": "Add an exercise to Day 1, Day 2, Day 3.",
+          "name": "Add an exercise to Day 1, Day 2, Day 3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -4741,7 +4741,7 @@
           "tag": "button",
           "text": "Use this program",
           "name": "Use this program",
-          "describedBy": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "describedBy": "Add an exercise to Day 1, Day 2, Day 3.",
           "disabled": true,
           "type": "button"
         }
@@ -4789,8 +4789,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
-          "name": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "text": "Add an exercise to Day 1, Day 2, Day 3.",
+          "name": "Add an exercise to Day 1, Day 2, Day 3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -4866,7 +4866,7 @@
           "tag": "button",
           "text": "Use this program",
           "name": "Use this program",
-          "describedBy": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "describedBy": "Add an exercise to Day 1, Day 2, Day 3.",
           "disabled": true,
           "type": "button"
         }
@@ -4914,8 +4914,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
-          "name": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "text": "Add an exercise to Day 1, Day 2, Day 3.",
+          "name": "Add an exercise to Day 1, Day 2, Day 3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -4991,7 +4991,7 @@
           "tag": "button",
           "text": "Use this program",
           "name": "Use this program",
-          "describedBy": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "describedBy": "Add an exercise to Day 1, Day 2, Day 3.",
           "disabled": true,
           "type": "button"
         }
@@ -5039,8 +5039,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Adicione um exercício a day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
-          "name": "Adicione um exercício a day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "text": "Adicione um exercício a Day 1, Day 2, Day 3.",
+          "name": "Adicione um exercício a Day 1, Day 2, Day 3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -5116,7 +5116,7 @@
           "tag": "button",
           "text": "Usar este programa",
           "name": "Usar este programa",
-          "describedBy": "Adicione um exercício a day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "describedBy": "Adicione um exercício a Day 1, Day 2, Day 3.",
           "disabled": true,
           "type": "button"
         }
@@ -5164,8 +5164,8 @@
         {
           "tag": "p",
           "role": "alert",
-          "text": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
-          "name": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "text": "Add an exercise to Day 1, Day 2, Day 3.",
+          "name": "Add an exercise to Day 1, Day 2, Day 3.",
           "aria-live": "assertive",
           "tabindex": "-1"
         },
@@ -5241,7 +5241,7 @@
           "tag": "button",
           "text": "Use this program",
           "name": "Use this program",
-          "describedBy": "Add an exercise to day_empty:manual_d1, day_empty:manual_d2, day_empty:manual_d3.",
+          "describedBy": "Add an exercise to Day 1, Day 2, Day 3.",
           "disabled": true,
           "type": "button"
         }
@@ -27345,7 +27345,7 @@
         },
         {
           "tag": "span",
-          "text": "Written for a Full commercial gym."
+          "text": "Written for a full commercial gym."
         },
         {
           "tag": "span",
@@ -27430,7 +27430,7 @@
         },
         {
           "tag": "span",
-          "text": "Written for a Full commercial gym."
+          "text": "Written for a full commercial gym."
         },
         {
           "tag": "span",
@@ -27515,7 +27515,7 @@
         },
         {
           "tag": "span",
-          "text": "Written for a Full commercial gym."
+          "text": "Written for a full commercial gym."
         },
         {
           "tag": "span",
@@ -27600,7 +27600,7 @@
         },
         {
           "tag": "span",
-          "text": "Written for a Full commercial gym."
+          "text": "Written for a full commercial gym."
         },
         {
           "tag": "span",
@@ -27685,7 +27685,7 @@
         },
         {
           "tag": "span",
-          "text": "Written for a Full commercial gym."
+          "text": "Written for a full commercial gym."
         },
         {
           "tag": "span",
@@ -27770,7 +27770,7 @@
         },
         {
           "tag": "span",
-          "text": "Escrito para um Academia comercial completa."
+          "text": "Feito para uma academia comercial completa."
         },
         {
           "tag": "span",
@@ -27855,7 +27855,7 @@
         },
         {
           "tag": "span",
-          "text": "Written for a Full commercial gym."
+          "text": "Written for a full commercial gym."
         },
         {
           "tag": "span",

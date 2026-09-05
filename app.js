@@ -6445,7 +6445,10 @@ function updateOnboardingEditorActions(){
   if(issues.length)button.setAttribute("aria-describedby","entryEditorStatus");else button.removeAttribute("aria-describedby");
   const status=$("#onbProgramEditor [data-role=\"editor-status\"]");if(!status)return;
   const progression=issues.some(issue=>issue.startsWith("progression_incompatible:"));
-  const emptyDays=issues.filter(issue=>issue.startsWith("day_empty:"));
+  const emptyDays=issues.filter(issue=>issue.startsWith("day_empty:")).map(issue=>
+    entryState.result?.preview?.programStructure?.days
+      ?.find(day=>day.dayId===issue.slice("day_empty:".length))?.label
+      ||issue.slice("day_empty:".length));
   const message=progression?editorAdapterTranslate("entry.editor.progression_invalid",undefined,"This program has an unsupported progression pairing."):
     issues.some(issue=>issue.startsWith("exercise_invalid:"))?editorAdapterTranslate("entry.editor.exercise_invalid",undefined,"Complete each exercise before continuing."):
       emptyDays.length?editorAdapterTranslate("entry.editor.empty_days",{days:emptyDays.join(", ")},"Add an exercise to each training day."):
@@ -9701,12 +9704,12 @@ function renderResultStep(){
   const goal=explanation.desiredResult?t(`entry.desired_result.${explanation.desiredResult}.label`):"";
   const days=explanation.daysPerWeek||preview.frequency||"";
   const minutes=explanation.sessionMinutes||"";
-  const environment=entryEnvironmentLabel({environment:{kind:explanation.mainConstraint}});
+  const environmentKind=explanation.mainConstraint;
   const exercisePreferences=entryExercisePreferenceLabel();
   const whyRows=[
     goal?{icon:"flex",text:t("entry.result.why_goal",{goal})}:null,
     days&&minutes?{icon:"cal",text:t("entry.result.why_schedule",{days,minutes})}:null,
-    environment?{icon:"building",text:t("entry.result.why_environment",{environment})}:null,
+    environmentKind?{icon:"building",text:t(`entry.result.why_environment.${environmentKind}`)}:null,
     entryEquipmentLabel()?{icon:"dumbbell",text:t("entry.result.why_equipment",{equipment:entryEquipmentLabel()})}:null,
     (entryPriorityLabel()!==t("entry.preview.priorities_none"))?{icon:"target",text:t("entry.result.why_priorities",{priorities:entryPriorityLabel()})}:null,
     custom&&exercisePreferences!==t("entry.preview.exercise_preferences_none")?{icon:"dumbbell",text:t("entry.result.why_exercise_preferences",{preferences:exercisePreferences})}:null,
