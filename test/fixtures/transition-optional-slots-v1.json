@@ -1,0 +1,153 @@
+{
+  "schemaVersion": 1,
+  "predecessorBlueprintId": "growth_3_v1",
+  "successorBlueprintId": "growth_2_v1",
+  "mapping": {
+    "contract": "taurifer-transition-slot-mapping",
+    "schemaVersion": 1,
+    "days": [
+      {
+        "predecessorDay": "growth_3_d1",
+        "successorDay": "growth_2_d1"
+      },
+      {
+        "predecessorDay": "growth_3_d2",
+        "successorDay": "growth_2_d2"
+      },
+      {
+        "predecessorDay": "growth_3_d3",
+        "successorDay": null
+      }
+    ],
+    "slots": [
+      {
+        "predecessorSlot": "growth_3_d1_s1",
+        "successorSlot": "growth_2_d1_s1",
+        "predecessorMovement": "library:sq_lp",
+        "successorMovement": "library:sq_lp"
+      },
+      {
+        "predecessorSlot": "growth_3_d1_s2",
+        "successorSlot": "growth_2_d1_s2",
+        "predecessorMovement": "library:pr_mc",
+        "successorMovement": "library:pr_mc"
+      },
+      {
+        "predecessorSlot": "growth_3_d1_s3",
+        "successorSlot": "growth_2_d1_s3",
+        "predecessorMovement": "library:rw_mc",
+        "successorMovement": "library:rw_mc"
+      },
+      {
+        "predecessorSlot": "growth_3_d1_s4",
+        "successorSlot": "growth_2_d1_s4",
+        "predecessorMovement": "library:hg_mc",
+        "successorMovement": "library:hg_mc"
+      },
+      {
+        "predecessorSlot": "growth_3_d1_s5",
+        "successorSlot": "growth_2_d1_s5",
+        "predecessorMovement": "library:dl_cb",
+        "successorMovement": "library:dl_cb"
+      },
+      {
+        "predecessorSlot": "growth_3_d1_s6",
+        "successorSlot": "growth_2_d1_s6",
+        "predecessorMovement": "library:cu_cb",
+        "successorMovement": "library:cu_cb"
+      },
+      {
+        "predecessorSlot": "growth_3_d2_s1",
+        "successorSlot": "growth_2_d2_s1",
+        "predecessorMovement": "library:hg_mc",
+        "successorMovement": "library:hg_mc"
+      },
+      {
+        "predecessorSlot": "growth_3_d2_s2",
+        "successorSlot": "growth_2_d2_s2",
+        "predecessorMovement": "library:pd_bw",
+        "successorMovement": "library:pd_bw"
+      },
+      {
+        "predecessorSlot": "growth_3_d2_s4",
+        "successorSlot": "growth_2_d2_s4",
+        "predecessorMovement": "library:sq_lp",
+        "successorMovement": "library:sq_lp"
+      },
+      {
+        "predecessorSlot": null,
+        "successorSlot": "growth_2_d2_s3",
+        "predecessorMovement": null,
+        "successorMovement": "library:ip_mc"
+      },
+      {
+        "predecessorSlot": null,
+        "successorSlot": "growth_2_d2_s5",
+        "predecessorMovement": null,
+        "successorMovement": "library:dl_cb"
+      },
+      {
+        "predecessorSlot": null,
+        "successorSlot": "growth_2_d2_s6",
+        "predecessorMovement": null,
+        "successorMovement": "library:cu_cb"
+      },
+      {
+        "predecessorSlot": "growth_3_d2_s3",
+        "successorSlot": null,
+        "predecessorMovement": "library:sp_mc",
+        "successorMovement": null
+      },
+      {
+        "predecessorSlot": "growth_3_d2_s5",
+        "successorSlot": null,
+        "predecessorMovement": "library:ip_mc",
+        "successorMovement": null
+      },
+      {
+        "predecessorSlot": "growth_3_d2_s6",
+        "successorSlot": null,
+        "predecessorMovement": "library:cv_mc",
+        "successorMovement": null
+      },
+      {
+        "predecessorSlot": "growth_3_d3_s1",
+        "successorSlot": null,
+        "predecessorMovement": "library:lg_bb",
+        "successorMovement": null
+      },
+      {
+        "predecessorSlot": "growth_3_d3_s2",
+        "successorSlot": null,
+        "predecessorMovement": "library:ip_mc",
+        "successorMovement": null
+      },
+      {
+        "predecessorSlot": "growth_3_d3_s3",
+        "successorSlot": null,
+        "predecessorMovement": "library:rw_mc",
+        "successorMovement": null
+      },
+      {
+        "predecessorSlot": "growth_3_d3_s4",
+        "successorSlot": null,
+        "predecessorMovement": "library:hg_mc",
+        "successorMovement": null
+      },
+      {
+        "predecessorSlot": "growth_3_d3_s5",
+        "successorSlot": null,
+        "predecessorMovement": "library:dl_cb",
+        "successorMovement": null
+      },
+      {
+        "predecessorSlot": "growth_3_d3_s6",
+        "successorSlot": null,
+        "predecessorMovement": "library:cu_cb",
+        "successorMovement": null
+      }
+    ],
+    "source": "test/fixtures/program-families-v1.json reviewCompilations (growth_3_v1 -> growth_2_v1, optional-arm sibling)",
+    "rule": "Predecessor and successor slot identities are blueprint-qualified compiler IDs and never shared across blueprints. Every diff entry names both sides explicitly: predecessorSlot/successorSlot for moved work, predecessorSlot only for removals, successorSlot only for additions. Movement identity travels inside the slot snapshots. This mapping is the executable proof that the documented slot-pairing contract compiles from real output."
+  }
+}

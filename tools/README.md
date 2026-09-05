@@ -155,6 +155,30 @@ node tools/check-canonical-contradictions.mjs
 node tools/check-canonical-contradictions.mjs --check
 ```
 
+## transition-mapping-oracle.mjs
+
+The compiler-grounded transition oracle derives the exhaustive three-pass slot
+mapping (including optional same-template slots) and reconstructs
+`diff.exercises` from the real review compilations. The contradiction checker
+and the negative-control harness share this validator; they do not maintain
+separate expected mappings.
+
+## build-transition-fixture.mjs
+
+Rebuilds `test/fixtures/transition-proposal-v1.json`, its embedded example in
+`docs/block-transition-provenance.md`, and the optional-slot sibling fixture
+from `test/fixtures/program-families-v1.json`. It preserves reviewed reasons,
+derives every identity/order/snapshot, and recomputes the proposal hash.
+
+```bash
+node tools/build-transition-fixture.mjs
+node tools/check-transition-mapping-negative-controls.mjs
+```
+
+The negative harness sends isolated pair/addition/removal ordering, earliest
+pairing, identity, movement, structure, enum, and hash mutations through the
+same oracle. It must reject each mutation and accept the repaired artifacts.
+
 ## canonical-hash-core.mjs
 
 Shared prototype-safe canonicalization for the two hash contracts: `deepClone`

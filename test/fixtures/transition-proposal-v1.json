@@ -286,22 +286,6 @@
       ],
       "exercises": [
         {
-          "predecessorSlot": "growth_4_d2_s1",
-          "successorSlot": "growth_3_d1_s1",
-          "movement": "library:sq_lp",
-          "before": {
-            "movement": "library:sq_lp",
-            "index": 0,
-            "sets": 3
-          },
-          "after": {
-            "movement": "library:sq_lp",
-            "index": 0,
-            "sets": 3
-          },
-          "reason": "protected primary retained across sibling days"
-        },
-        {
           "predecessorSlot": "growth_4_d1_s1",
           "successorSlot": "growth_3_d1_s2",
           "movement": "library:pr_mc",
@@ -318,48 +302,328 @@
           "reason": "retained; day order differs between siblings"
         },
         {
-          "predecessorSlot": "growth_4_d2_s3",
-          "successorSlot": "growth_3_d2_s4",
-          "movement": "library:sq_lp",
-          "before": {
-            "movement": "library:lg_bb",
-            "index": 2,
-            "sets": 3
-          },
-          "after": {
-            "movement": "library:sq_lp",
-            "index": 3,
-            "sets": 3
-          },
-          "reason": "same-slot movement replacement: unilateral knee slot resolves to a different movement in the 3-day blueprint"
-        },
-        {
-          "predecessorSlot": "growth_4_d3_s2",
-          "successorSlot": "growth_3_d3_s2",
-          "movement": "library:ip_mc",
+          "predecessorSlot": "growth_4_d1_s2",
+          "successorSlot": "growth_3_d1_s3",
+          "movement": "library:rw_mc",
           "before": {
             "movement": "library:rw_mc",
             "index": 1,
             "sets": 3
           },
           "after": {
-            "movement": "library:ip_mc",
+            "movement": "library:rw_mc",
+            "index": 2,
+            "sets": 3
+          },
+          "reason": "mapped same-template slot changed day or order"
+        },
+        {
+          "predecessorSlot": "growth_4_d1_s5",
+          "successorSlot": "growth_3_d1_s5",
+          "movement": "library:dl_cb",
+          "before": {
+            "movement": "library:dl_cb",
+            "index": 4,
+            "sets": 2
+          },
+          "after": {
+            "movement": "library:dl_cb",
+            "index": 4,
+            "sets": 2
+          },
+          "reason": "mapped same-template slot changed day or order"
+        },
+        {
+          "predecessorSlot": "growth_4_d2_s2",
+          "successorSlot": "growth_3_d2_s1",
+          "movement": "library:hg_mc",
+          "before": {
+            "movement": "library:hg_mc",
             "index": 1,
             "sets": 3
           },
-          "reason": "same-slot movement replacement with identical prescription"
+          "after": {
+            "movement": "library:hg_mc",
+            "index": 0,
+            "sets": 3
+          },
+          "reason": "mapped same-template slot changed day or order"
+        },
+        {
+          "predecessorSlot": "growth_4_d1_s3",
+          "successorSlot": "growth_3_d2_s2",
+          "movement": "library:pd_bw",
+          "before": {
+            "movement": "library:pd_bw",
+            "index": 2,
+            "sets": 3
+          },
+          "after": {
+            "movement": "library:pd_bw",
+            "index": 1,
+            "sets": 3
+          },
+          "reason": "mapped same-template slot changed day or order"
         },
         {
           "predecessorSlot": "growth_4_d1_s4",
-          "successorSlot": null,
-          "movement": null,
+          "successorSlot": "growth_3_d2_s5",
+          "movement": "library:ip_mc",
           "before": {
             "movement": "library:ip_mc",
             "index": 3,
             "sets": 3
           },
+          "after": {
+            "movement": "library:ip_mc",
+            "index": 4,
+            "sets": 3
+          },
+          "reason": "mapped same-template slot changed day or order"
+        },
+        {
+          "predecessorSlot": "growth_4_d2_s5",
+          "successorSlot": "growth_3_d2_s6",
+          "movement": "library:cv_mc",
+          "before": {
+            "movement": "library:cv_mc",
+            "index": 4,
+            "sets": 2
+          },
+          "after": {
+            "movement": "library:cv_mc",
+            "index": 5,
+            "sets": 2
+          },
+          "reason": "mapped same-template slot changed day or order"
+        },
+        {
+          "predecessorSlot": "growth_4_d2_s3",
+          "successorSlot": "growth_3_d3_s1",
+          "movement": "library:lg_bb",
+          "before": {
+            "movement": "library:lg_bb",
+            "index": 2,
+            "sets": 3
+          },
+          "after": {
+            "movement": "library:lg_bb",
+            "index": 0,
+            "sets": 3
+          },
+          "reason": "mapped same-template slot changed day or order"
+        },
+        {
+          "predecessorSlot": "growth_4_d3_s1",
+          "successorSlot": "growth_3_d3_s2",
+          "movement": "library:ip_mc",
+          "before": {
+            "movement": "library:ip_mc",
+            "index": 0,
+            "sets": 3
+          },
+          "after": {
+            "movement": "library:ip_mc",
+            "index": 1,
+            "sets": 3
+          },
+          "reason": "mapped same-template slot changed day or order"
+        },
+        {
+          "predecessorSlot": "growth_4_d3_s5",
+          "successorSlot": "growth_3_d3_s5",
+          "movement": "library:dl_cb",
+          "before": {
+            "movement": "library:dl_cb",
+            "index": 4,
+            "sets": 2
+          },
+          "after": {
+            "movement": "library:dl_cb",
+            "index": 4,
+            "sets": 2
+          },
+          "reason": "mapped same-template slot changed day or order"
+        },
+        {
+          "predecessorSlot": null,
+          "successorSlot": "growth_3_d1_s1",
+          "movement": "library:sq_lp",
+          "before": null,
+          "after": {
+            "movement": "library:sq_lp",
+            "index": 0,
+            "sets": 3
+          },
+          "reason": "added successor slot"
+        },
+        {
+          "predecessorSlot": null,
+          "successorSlot": "growth_3_d1_s4",
+          "movement": "library:hg_mc",
+          "before": null,
+          "after": {
+            "movement": "library:hg_mc",
+            "index": 3,
+            "sets": 3
+          },
+          "reason": "added successor slot"
+        },
+        {
+          "predecessorSlot": null,
+          "successorSlot": "growth_3_d1_s6",
+          "movement": "library:cu_cb",
+          "before": null,
+          "after": {
+            "movement": "library:cu_cb",
+            "index": 5,
+            "sets": 2
+          },
+          "reason": "added successor slot"
+        },
+        {
+          "predecessorSlot": null,
+          "successorSlot": "growth_3_d2_s3",
+          "movement": "library:sp_mc",
+          "before": null,
+          "after": {
+            "movement": "library:sp_mc",
+            "index": 2,
+            "sets": 3
+          },
+          "reason": "added successor slot"
+        },
+        {
+          "predecessorSlot": null,
+          "successorSlot": "growth_3_d2_s4",
+          "movement": "library:sq_lp",
+          "before": null,
+          "after": {
+            "movement": "library:sq_lp",
+            "index": 3,
+            "sets": 3
+          },
+          "reason": "added successor slot"
+        },
+        {
+          "predecessorSlot": null,
+          "successorSlot": "growth_3_d3_s3",
+          "movement": "library:rw_mc",
+          "before": null,
+          "after": {
+            "movement": "library:rw_mc",
+            "index": 2,
+            "sets": 3
+          },
+          "reason": "added successor slot"
+        },
+        {
+          "predecessorSlot": null,
+          "successorSlot": "growth_3_d3_s4",
+          "movement": "library:hg_mc",
+          "before": null,
+          "after": {
+            "movement": "library:hg_mc",
+            "index": 3,
+            "sets": 3
+          },
+          "reason": "added successor slot"
+        },
+        {
+          "predecessorSlot": null,
+          "successorSlot": "growth_3_d3_s6",
+          "movement": "library:cu_cb",
+          "before": null,
+          "after": {
+            "movement": "library:cu_cb",
+            "index": 5,
+            "sets": 2
+          },
+          "reason": "added successor slot"
+        },
+        {
+          "predecessorSlot": "growth_4_d1_s6",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "movement": "library:tr_cb",
+            "index": 5,
+            "sets": 2
+          },
           "after": null,
-          "reason": "slot removed with its day; coverage preserved by growth_3_d2_s5"
+          "reason": "removed predecessor slot"
+        },
+        {
+          "predecessorSlot": "growth_4_d2_s1",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "movement": "library:sq_lp",
+            "index": 0,
+            "sets": 3
+          },
+          "after": null,
+          "reason": "removed predecessor slot"
+        },
+        {
+          "predecessorSlot": "growth_4_d2_s4",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "movement": "library:hg_mc",
+            "index": 3,
+            "sets": 3
+          },
+          "after": null,
+          "reason": "removed predecessor slot"
+        },
+        {
+          "predecessorSlot": "growth_4_d3_s2",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "movement": "library:rw_mc",
+            "index": 1,
+            "sets": 3
+          },
+          "after": null,
+          "reason": "removed predecessor slot"
+        },
+        {
+          "predecessorSlot": "growth_4_d3_s3",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "movement": "library:sp_mc",
+            "index": 2,
+            "sets": 3
+          },
+          "after": null,
+          "reason": "removed predecessor slot"
+        },
+        {
+          "predecessorSlot": "growth_4_d3_s4",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "movement": "library:pd_bw",
+            "index": 3,
+            "sets": 3
+          },
+          "after": null,
+          "reason": "removed predecessor slot"
+        },
+        {
+          "predecessorSlot": "growth_4_d3_s6",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "movement": "library:cu_cb",
+            "index": 5,
+            "sets": 2
+          },
+          "after": null,
+          "reason": "removed predecessor slot"
         },
         {
           "predecessorSlot": "growth_4_d4_s1",
@@ -372,6 +636,54 @@
           },
           "after": null,
           "reason": "day removed; hinge coverage preserved by growth_3_d2_s1"
+        },
+        {
+          "predecessorSlot": "growth_4_d4_s2",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "movement": "library:sq_lp",
+            "index": 1,
+            "sets": 3
+          },
+          "after": null,
+          "reason": "removed predecessor slot"
+        },
+        {
+          "predecessorSlot": "growth_4_d4_s3",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "movement": "library:hg_mc",
+            "index": 2,
+            "sets": 3
+          },
+          "after": null,
+          "reason": "removed predecessor slot"
+        },
+        {
+          "predecessorSlot": "growth_4_d4_s4",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "movement": "library:hg_mc",
+            "index": 3,
+            "sets": 3
+          },
+          "after": null,
+          "reason": "removed predecessor slot"
+        },
+        {
+          "predecessorSlot": "growth_4_d4_s5",
+          "successorSlot": null,
+          "movement": null,
+          "before": {
+            "movement": "library:cv_mc",
+            "index": 4,
+            "sets": 2
+          },
+          "after": null,
+          "reason": "removed predecessor slot"
         }
       ],
       "prescriptions": [

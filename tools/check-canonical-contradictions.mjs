@@ -10,6 +10,7 @@
 import { existsSync, readFileSync, readdirSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
+import { validateSlotMapping, validateTransitionProposal } from "./transition-mapping-oracle.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const read = (p) => readFileSync(join(ROOT, p), "utf8");
@@ -279,7 +280,7 @@ required("docs/recovery-week-policy.md", [
     "canonical preimage",
     "sorted object keys",
     "lowercase hex",
-    "2935bf2c67fefb5e214532e789f7378509e329063efe0fc15927418882d55c0c",
+    "be72dc9b42ca73d12b8517b9dbe3d901cd9b592fc13591e52199ebcd20a4b204",
     "transition-proposal-v1.json",
   ]) {
     check(hashSection.includes(anchor), `transition hashing: missing "${anchor}"`);
@@ -372,138 +373,58 @@ for (const p of ["AGENTS.md", "README.md", "docs/adr/0007-shared-setup-links.md"
   check(!/already Now|under Now|Now-tier/.test(backlog), "backlog: stale Now-scoped claim");
 }
 
-  // The slot mapping must be an exhaustive, deterministic, compiler-grounded
-  // one-to-one pairing. Loaded from the fixture and verified against the
-  // real compiler compilations — the gate cannot pass on invented slots.
-  try {
-    const mappingDoc = JSON.parse(readFileSync(join(ROOT, "test", "fixtures", "transition-proposal-v1.json"), "utf8"));
-    const mapping = mappingDoc.proposal.derivation.slotMapping;
-    const compiler = JSON.parse(readFileSync(join(ROOT, "test", "fixtures", "program-families-v1.json"), "utf8"));
-    const slotsOf = (bp) => {
-      const c = compiler.reviewCompilations.find((x) => x.blueprintId === bp);
-      return Object.fromEntries(c.days.flatMap((d) => d.slots.map((s) => [s.slotId, s])));
-    };
-    const g4 = slotsOf("growth_4_v1");
-    const g3 = slotsOf("growth_3_v1");
-    const rows = mapping.slots;
-    const preds = rows.map((r) => r.predecessorSlot).filter(Boolean);
-    const succs = rows.map((r) => r.successorSlot).filter(Boolean);
-    check(new Set(preds).size === preds.length, "slot mapping: duplicate predecessor identity");
-    check(new Set(succs).size === succs.length, "slot mapping: duplicate successor identity");
+// The slot mapping and exercise diff are exhaustive, deterministic, and
+// compiler-grounded. The same oracle is imported by the durable negative
+// harness, so the checker cannot pass on a hand-written partial model.
+try {
+  const mappingDoc = JSON.parse(readFileSync(join(ROOT, "test/fixtures/transition-proposal-v1.json"), "utf8"));
+  const proposal = mappingDoc.proposal;
+  const compiler = JSON.parse(readFileSync(join(ROOT, "test/fixtures/program-families-v1.json"), "utf8"));
+  const compilationOf = (blueprintId) => compiler.reviewCompilations.find((entry) => entry.blueprintId === blueprintId);
+  const predecessorCompilation = compilationOf(proposal.predecessor.compilerProvenance.blueprintId);
+  const successorCompilation = compilationOf(proposal.successor.compilerProvenance.blueprintId);
+  check(!!predecessorCompilation && !!successorCompilation, "slot mapping: compiler provenance points at a missing review compilation");
+  if (predecessorCompilation && successorCompilation) {
+    for (const error of validateTransitionProposal(proposal, predecessorCompilation, successorCompilation)) check(false, error);
+    const { proposalHashOf } = await import("./canonical-proposal-hash.mjs");
+    const provenance = read("docs/block-transition-provenance.md");
+    const exampleMatch = provenance.match(/```json\n([\s\S]*?)\n```/);
+    const example = exampleMatch ? JSON.parse(exampleMatch[1]) : null;
+    check(example?.proposalHash === proposalHashOf(proposal), "transition proposal: embedded example hash does not match the canonical preimage");
     check(
-      JSON.stringify(Object.keys(g4).sort()) === JSON.stringify([...new Set(preds)].sort()),
-      "slot mapping: predecessor coverage does not match compiler output",
+      JSON.stringify(proposal.diff.exercises) === JSON.stringify(
+        (await import("./transition-mapping-oracle.mjs")).deriveExerciseDiff(
+          proposal.derivation.slotMapping,
+          predecessorCompilation,
+          successorCompilation,
+          proposal.diff.exercises,
+        ),
+      ),
+      "diff.exercises: fixture is not reconstructed from the canonical slot mapping and compiler snapshots",
     );
-    check(
-      JSON.stringify(Object.keys(g3).sort()) === JSON.stringify([...new Set(succs)].sort()),
-      "slot mapping: successor coverage does not match compiler output",
-    );
-    for (const row of rows) {
-      if (row.predecessorSlot) {
-        const s = g4[row.predecessorSlot];
-        check(!!s, `slot mapping: unknown predecessor slot "${row.predecessorSlot}"`);
-        check(
-          s && "library:" + s.libraryId === row.predecessorMovement,
-          `slot mapping: movement mismatch on predecessor "${row.predecessorSlot}"`,
-        );
-      }
-      if (row.successorSlot) {
-        const s = g3[row.successorSlot];
-        check(!!s, `slot mapping: unknown successor slot "${row.successorSlot}"`);
-        check(
-          s && "library:" + s.libraryId === row.successorMovement,
-          `slot mapping: movement mismatch on successor "${row.successorSlot}"`,
-        );
-      }
-      // Deterministic pairing: paired rows must share templateId; additions
-      // and removals have exactly one null side.
-      if (row.predecessorSlot && row.successorSlot) {
-        check(
-          g4[row.predecessorSlot].templateId === g3[row.successorSlot].templateId,
-          `slot mapping: pairing rule violation (${row.predecessorSlot} -> ${row.successorSlot})`,
-        );
-      }
-      check(
-        (row.predecessorSlot == null) !== (row.successorSlot == null) || (row.predecessorSlot && row.successorSlot),
-        "slot mapping: row is neither pair, addition, nor removal",
-      );
-    }
-    // Full ordered oracle: derive the complete expected mapping from the
-    // compiler output using the documented three-pass rule, and require the
-    // fixture array to equal it exactly (order included). This closes the
-    // partial-order hole: any reordering, wrong selection, or placement
-    // fails the deep compare, not just boundary positions.
-    // Slot IDs are `<family>_<frequency>_d<day>_s<slot>` (program-compiler.js).
-    const dayOf = (sid) => Number(sid.split("_")[2].slice(1));
-    const slotOf = (sid) => Number(sid.split("_")[3].slice(1));
-    const bySuccessorOrder = (a, b) => (dayOf(a) - dayOf(b)) || (slotOf(a) - slotOf(b));
-    const byPredecessorOrder = (a, b) => (dayOf(a) - dayOf(b)) || (slotOf(a) - slotOf(b));
-    const succSorted = Object.keys(g3).sort(bySuccessorOrder);
-    const predSorted = Object.keys(g4).sort(byPredecessorOrder);
-    const expected = [];
-    const used = new Set();
-    for (const sid of succSorted) {
-      const sTemplate = g3[sid].templateId;
-      if (sTemplate === "optional_arms") continue; // optional work is never paired
-      const sDay = dayOf(sid);
-      const candidate = predSorted.find(
-        (pid) => !used.has(pid) && g4[pid].templateId === sTemplate && dayOf(pid) <= sDay,
-      );
-      if (candidate) {
-        used.add(candidate);
-        expected.push({ predecessorSlot: candidate, successorSlot: sid });
-      }
-    }
-    for (const sid of succSorted) {
-      if (!expected.some((e) => e.successorSlot === sid)) {
-        expected.push({ predecessorSlot: null, successorSlot: sid });
-      }
-    }
-    for (const pid of predSorted) {
-      if (!used.has(pid)) expected.push({ predecessorSlot: pid, successorSlot: null });
-    }
-    // Fill movements exactly as the contract requires.
-    for (const e of expected) {
-      e.predecessorMovement = e.predecessorSlot ? "library:" + g4[e.predecessorSlot].libraryId : null;
-      e.successorMovement = e.successorSlot ? "library:" + g3[e.successorSlot].libraryId : null;
-    }
-    check(
-      JSON.stringify(rows) === JSON.stringify(expected),
-      "slot mapping: full ordered mapping does not match the documented rule applied to compiler output",
-    );
-    // Day mapping must be the earliest paired day per predecessor day.
-    const expectedDays = [];
-    const seenPairs = new Set();
-    for (const e of expected.filter((x) => x.predecessorSlot && x.successorSlot)) {
-      const pd = e.predecessorSlot.split("_").slice(0, 3).join("_");
-      const sd = e.successorSlot.split("_").slice(0, 3).join("_");
-      if (!seenPairs.has(pd)) {
-        seenPairs.add(pd);
-        expectedDays.push({ predecessorDay: pd, successorDay: sd });
-      }
-    }
-    for (const pd of predSorted.map((p) => p.split("_").slice(0, 3).join("_"))) {
-      if (!expectedDays.some((d) => d.predecessorDay === pd)) {
-        expectedDays.push({ predecessorDay: pd, successorDay: null });
-      }
-    }
-    check(
-      JSON.stringify(mapping.days) === JSON.stringify(expectedDays),
-      "slot mapping: day mapping does not match earliest-paired derivation",
-    );
-    // Provenance in the proposal must match the real compiler shape.
-    const proposal = mappingDoc.proposal;
-    const provKeys = ["familyId", "blueprintId", "blueprintVersion", "compilerVersion", "catalogueVersion", "rulesVersion", "contextVersion", "profileId", "recentConsistencyVersion"];
-    for (const side of ["predecessor", "successor"]) {
-      const prov = proposal[side].compilerProvenance;
-      for (const k of provKeys) {
-        check(prov && k in prov, `transition proposal: ${side}.compilerProvenance missing "${k}"`);
-      }
-      check(!("familyVersion" in (prov || {})), `transition proposal: ${side}.compilerProvenance carries invented familyVersion`);
-    }
-  } catch (err) {
-    failures.push(`slot mapping gate: ${err.message}`);
   }
+  // A second committed fixture exercises optional_arms on both sides. The
+  // governing first pass applies to every same-template slot; optional work
+  // is not an invented exclusion.
+  const optional = JSON.parse(readFileSync(join(ROOT, "test/fixtures/transition-optional-slots-v1.json"), "utf8"));
+  const optionalPredecessor = compilationOf(optional.predecessorBlueprintId);
+  const optionalSuccessor = compilationOf(optional.successorBlueprintId);
+  const optionalErrors = validateSlotMapping(optional.mapping, optionalPredecessor, optionalSuccessor);
+  check(optionalErrors.length === 0, optionalErrors.join("; "));
+  check(
+    optional.mapping.slots.some((row) => row.predecessorSlot && row.successorSlot &&
+      row.predecessorSlot.includes("_s6") && row.successorSlot.includes("_s6")),
+    "slot mapping: optional sibling fixture does not pair its same-template optional slot",
+  );
+  const provKeys = ["familyId", "blueprintId", "blueprintVersion", "compilerVersion", "catalogueVersion", "rulesVersion", "contextVersion", "profileId", "recentConsistencyVersion"];
+  for (const side of ["predecessor", "successor"]) {
+    const prov = proposal[side].compilerProvenance;
+    for (const key of provKeys) check(prov && key in prov, `transition proposal: ${side}.compilerProvenance missing "${key}"`);
+    check(!("familyVersion" in (prov || {})), `transition proposal: ${side}.compilerProvenance carries invented familyVersion`);
+  }
+} catch (err) {
+  failures.push(`slot mapping gate: ${err.message}`);
+}
   // Every child plan keeps its dependency, atomic, STOP, and gate sections.
 for (const n of ["050", "051", "052", "053", "054", "055", "056", "057", "058", "059"]) {
   const file = `plans/${n}-${{ "050": "ui-correctness-and-catalog-leverage", "051": "workout-draft-state-foundation", "052": "block-transition-provenance-foundation", "053": "ios-install-transfer-foundation", "054": "landing-and-program-entry", "055": "focus-only-workout", "056": "progress-and-block-lifecycle", "057": "management-surfaces", "058": "design-system-convergence", "059": "public-launch-ui-validation" }[n]}.md`;
