@@ -650,11 +650,11 @@ Depth and size are measured while parsing, never after.
   },
   "telemetryIdentity": {
     "schemaVersion": 1,
-    "installationId": "ti_9c2e",
+    "installationId": "3e1f5c8a-9d02-4b77-8a31-6e4d2c9f0ab5",
     "createdAt": "2026-08-01T10:00:00.000Z"
   },
   "integrity": {
-    "canonicalPayloadHash": "3c3aeb2da1aa5c5664fb9ef5ec64ab94571ee9ad37f73691c9c4f78341bbfb32"
+    "canonicalPayloadHash": "a2989b2293c1c700a8dd9087b1ae856d5ed80c7eda8e2eefd048584c51812915"
   }
 }
 ```

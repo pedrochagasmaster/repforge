@@ -25,7 +25,7 @@ const thisFile = import.meta.url;
 const invoked = process.argv[1] ? pathToFileURL(process.argv[1]).href : null;
 if (invoked && thisFile === invoked) {
   const envelope = JSON.parse(readFileSync(join(ROOT, "test", "fixtures", "install-transfer-clone-v1.json"), "utf8"));
-  const EXPECTED_FIXTURE_DIGEST = "3c3aeb2da1aa5c5664fb9ef5ec64ab94571ee9ad37f73691c9c4f78341bbfb32";
+  const EXPECTED_FIXTURE_DIGEST = "a2989b2293c1c700a8dd9087b1ae856d5ed80c7eda8e2eefd048584c51812915";
   if (process.argv.includes("--check")) {
     // Zero-mutation proof: snapshot BEFORE any hashing occurs.
     const snapshotBefore = JSON.stringify(envelope);

@@ -307,6 +307,7 @@ required("docs/recovery-week-policy.md", [
   try {
     const { execFileSync } = await import("node:child_process");
     execFileSync(process.execPath, ["tools/canonical-clone-hash.mjs", "--check"], { cwd: ROOT, stdio: "pipe" });
+    execFileSync(process.execPath, ["tools/check-canonical-hash-semantics.mjs"], { cwd: ROOT, stdio: "pipe" });
     // The ADR's displayed example envelope must equal the fixture and hash
     // to the digest the ADR records.
     const { clonePayloadHashOf } = await import(join(ROOT, "tools", "canonical-clone-hash.mjs"));

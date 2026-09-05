@@ -1,7 +1,7 @@
 // Generates test/fixtures/install-transfer-clone-v1.json through the real
-// runtime normalization path (normalizeLoaded), then verifies the
-// round-trip: normalizeLoaded(fixture.durableState) deep-equals
-// fixture.durableState (storage metadata excluded).
+// compiler, loader, and storage writer/reader boundary. Phase 0 proves the
+// durable-state section here. DraftV2 and transfer import remain pending under
+// Plans 051 and 053 because those consumers do not exist yet.
 import { readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -25,15 +25,66 @@ globalThis.window = {
 globalThis.document = {
   querySelector: () => null, querySelectorAll: () => [], getElementById: () => null,
   addEventListener() {}, hidden: false,
-  documentElement: { setAttribute() {}, style: {} },
+  documentElement: { setAttribute() {}, style: {}, dataset: {} },
   body: { classList: { add() {}, remove() {}, contains: () => false } },
   createElement: () => ({ style: {}, setAttribute() {}, appendChild() {}, classList: { add() {}, remove() {} }, addEventListener() {} }),
 };
-globalThis.localStorage = { getItem: () => null, setItem() {}, removeItem() {} };
+class MemoryStorage {
+  constructor() { this.values = new Map(); }
+  get length() { return this.values.size; }
+  key(index) { return [...this.values.keys()][index] ?? null; }
+  getItem(key) { return this.values.has(String(key)) ? this.values.get(String(key)) : null; }
+  setItem(key, value) { this.values.set(String(key), String(value)); }
+  removeItem(key) { this.values.delete(String(key)); }
+}
+const localStorage = new MemoryStorage();
+const idbValues = new Map();
+const idbClone = (value) => JSON.parse(JSON.stringify(value));
+globalThis.localStorage = localStorage;
 globalThis.sessionStorage = globalThis.localStorage;
 Object.defineProperty(globalThis, "navigator", { value: { language: "en", onLine: true }, configurable: true, writable: true });
 globalThis.location = { href: "http://localhost:8000/", pathname: "/", search: "", hash: "" };
-globalThis.indexedDB = { open: () => ({ set onupdate(v) {}, set onsuccess(v) {}, set onerror(v) {}, set onupgradeneeded(v) {} }) };
+globalThis.indexedDB = {
+  open() {
+    const request = {};
+    queueMicrotask(() => {
+      request.result = {
+        createObjectStore() {},
+        close() {},
+        transaction() {
+          const tx = {
+            oncomplete: null,
+            onerror: null,
+            objectStore() {
+              return {
+                get(key) {
+                  const result = { result: undefined, onsuccess: null, onerror: null };
+                  queueMicrotask(() => {
+                    result.result = idbValues.has(key) ? idbClone(idbValues.get(key)) : undefined;
+                    result.onsuccess?.();
+                  });
+                  return result;
+                },
+                put(value, key) {
+                  idbValues.set(key, idbClone(value));
+                  queueMicrotask(() => tx.oncomplete?.());
+                },
+                delete(key) {
+                  idbValues.delete(key);
+                  queueMicrotask(() => tx.oncomplete?.());
+                },
+              };
+            },
+          };
+          return tx;
+        },
+      };
+      request.onupgradeneeded?.();
+      request.onsuccess?.();
+    });
+    return request;
+  },
+};
 globalThis.requestAnimationFrame = (f) => setTimeout(f, 0);
 globalThis.CustomEvent = class CustomEvent {};
 globalThis.fetch = async () => ({ ok: false });
@@ -60,8 +111,12 @@ const compiled = Compiler.compile(context, EXERCISE_LIBRARY);
 if (compiled.kind !== "compiled") throw new Error("compiler returned " + compiled.kind);
 
 const appSrc = readFileSync(join(ROOT, "app.js"), "utf8");
-const api = new Function(appSrc + "\n;return { Program: typeof Program !== 'undefined' ? Program : null, normalizeLoaded: typeof normalizeLoaded !== 'undefined' ? normalizeLoaded : null, uid: typeof uid === 'function' ? uid : null, buildProgramMeta: typeof buildProgramMeta === 'function' ? buildProgramMeta : null, normalizeLoadedLen: 1 };").call(globalThis);
-const { Program, normalizeLoaded, uid, buildProgramMeta } = api;
+// The production file invokes boot() as its final expression. Omit only that
+// auto-start while loading the same runtime functions so this fixture can
+// drive the persistence boundary without a concurrent application boot write.
+const appRuntimeSrc = appSrc.replace(/\nboot\(\);\s*$/, "\n");
+const api = new Function(appRuntimeSrc + "\n;return { Program: typeof Program !== 'undefined' ? Program : null, normalizeLoaded: typeof normalizeLoaded !== 'undefined' ? normalizeLoaded : null, uid: typeof uid === 'function' ? uid : null, buildProgramMeta: typeof buildProgramMeta === 'function' ? buildProgramMeta : null, storageIO: typeof storageIO !== 'undefined' ? storageIO : null, readLocalStatus: typeof readLocalStatus === 'function' ? readLocalStatus : null, readIdbStatus: typeof readIdbStatus === 'function' ? readIdbStatus : null, chooseSnapshot: typeof chooseSnapshot === 'function' ? chooseSnapshot : null }; ").call(globalThis);
+const { Program, normalizeLoaded, uid, buildProgramMeta, storageIO, readLocalStatus, readIdbStatus, chooseSnapshot } = api;
 
 // Turn compiler output into raw rows the app loader accepts (as backup import does).
 const rawProgram = [];
@@ -135,7 +190,8 @@ const rawState = {
 // Normalize through the REAL loader.
 const normalized = normalizeLoaded(rawState);
 
-// The clone's durable section is the normalized snapshot. Round-trip check.
+// The clone's durable section is the normalized snapshot. First prove loader
+// idempotence, then cross the actual storage writer and reader boundary.
 const reread = normalizeLoaded(normalized);
 const stripMeta = (s) => {
   const c = JSON.parse(JSON.stringify(s));
@@ -147,15 +203,43 @@ const a = JSON.stringify(stripMeta(normalized));
 const b = JSON.stringify(stripMeta(reread));
 if (a !== b) throw new Error("round-trip mismatch");
 
-// Plan 049 proof checkpoint: prove the save/serialization/load path, not just
-// normalizeLoaded. Serialize the normalized state exactly as the app persists
-// it (storageIO.writeLocal does JSON.stringify), reload through
-// normalizeLoaded, and require equality again — the storage boundary is part
-// of the contract.
-const serialized = JSON.stringify(normalized);
-const reloaded = normalizeLoaded(JSON.parse(serialized));
+// Plan 049 proof checkpoint: use the production storageIO writer and the
+// production localStorage/IndexedDB readers. A JSON clone alone does not
+// prove that either storage boundary wrote or selected the same snapshot.
+if (!storageIO || !readLocalStatus || !readIdbStatus || !chooseSnapshot) {
+  throw new Error("production persistence API is unavailable");
+}
+const writeResult = await storageIO.writeLocal(normalized);
+if (writeResult !== undefined) throw new Error("unexpected local writer result");
+await storageIO.writeIdb(normalized);
+const localRead = readLocalStatus();
+const idbRead = await readIdbStatus();
+if (localRead.status !== "valid" || idbRead.status !== "valid") {
+  throw new Error(`storage boundary did not produce valid mirrors: local=${localRead.status} idb=${idbRead.status}`);
+}
+const chosen = chooseSnapshot(localRead, idbRead);
+if (chosen.kind !== "chosen") throw new Error(`storage boundary did not choose a mirror: ${chosen.kind}`);
+const reloaded = normalizeLoaded(chosen.snapshot);
 const c = JSON.stringify(stripMeta(reloaded));
-if (a !== c) throw new Error("save/load round-trip mismatch");
+if (a !== c) throw new Error("storage writer/reader round-trip mismatch");
+const localLogical = JSON.stringify(stripMeta(localRead.parsed));
+const idbLogical = JSON.stringify(stripMeta(idbRead.parsed));
+if (localLogical !== a || idbLogical !== a) throw new Error("storage mirror logical allowlist mismatch");
+
+// The real telemetry consumer accepts and returns only UUID-v4 identities.
+// Seed its storage with the identity that the transfer fixture carries, then
+// prove boot preserves the same identity rather than replacing it.
+const telemetryIdentity = {
+  schemaVersion: 1,
+  installationId: "3e1f5c8a-9d02-4b77-8a31-6e4d2c9f0ab5",
+  createdAt: "2026-08-01T10:00:00.000Z",
+};
+localStorage.setItem("repforge_telemetry_identity_v1", JSON.stringify(telemetryIdentity));
+const Telemetry = require2(join(ROOT, "telemetry.js"));
+const telemetryBoot = Telemetry.boot({ storage: localStorage, crypto: { randomUUID: () => "11111111-1111-4111-8111-111111111111" } });
+if (telemetryBoot.installationId !== telemetryIdentity.installationId) {
+  throw new Error("telemetry consumer rejected or replaced the transfer identity");
+}
 
 const envelope = {
   kind: "taurifer-install-transfer",
@@ -168,7 +252,7 @@ const envelope = {
   programEntryDraft: null,
   uiPreferences: { theme: "system" },
   analytics: { enabled: true },
-  telemetryIdentity: { schemaVersion: 1, installationId: "ti_9c2e", createdAt: "2026-08-01T10:00:00.000Z" },
+  telemetryIdentity,
   integrity: { canonicalPayloadHash: "PENDING" },
 };
 // Compute the canonical digest through the shared helper, then write the
