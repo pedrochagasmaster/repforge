@@ -428,12 +428,69 @@ for (const p of ["AGENTS.md", "README.md", "docs/adr/0007-shared-setup-links.md"
         "slot mapping: row is neither pair, addition, nor removal",
       );
     }
-    // Canonical order: mapped pairs first, then additions, then removals.
-    const firstAdd = rows.findIndex((r) => r.predecessorSlot == null && r.successorSlot);
-    const lastPair = rows.reduce((acc, r, i) => (r.predecessorSlot && r.successorSlot ? i : acc), -1);
-    const firstRemoval = rows.findIndex((r) => r.successorSlot == null && r.predecessorSlot);
-    check(firstAdd === -1 || firstAdd > lastPair, "slot mapping: additions appear before mapped pairs");
-    check(firstRemoval === -1 || firstRemoval > (firstAdd === -1 ? lastPair : firstAdd), "slot mapping: removals appear before pairs/additions");
+    // Full ordered oracle: derive the complete expected mapping from the
+    // compiler output using the documented three-pass rule, and require the
+    // fixture array to equal it exactly (order included). This closes the
+    // partial-order hole: any reordering, wrong selection, or placement
+    // fails the deep compare, not just boundary positions.
+    // Slot IDs are `<family>_<frequency>_d<day>_s<slot>` (program-compiler.js).
+    const dayOf = (sid) => Number(sid.split("_")[2].slice(1));
+    const slotOf = (sid) => Number(sid.split("_")[3].slice(1));
+    const bySuccessorOrder = (a, b) => (dayOf(a) - dayOf(b)) || (slotOf(a) - slotOf(b));
+    const byPredecessorOrder = (a, b) => (dayOf(a) - dayOf(b)) || (slotOf(a) - slotOf(b));
+    const succSorted = Object.keys(g3).sort(bySuccessorOrder);
+    const predSorted = Object.keys(g4).sort(byPredecessorOrder);
+    const expected = [];
+    const used = new Set();
+    for (const sid of succSorted) {
+      const sTemplate = g3[sid].templateId;
+      if (sTemplate === "optional_arms") continue; // optional work is never paired
+      const sDay = dayOf(sid);
+      const candidate = predSorted.find(
+        (pid) => !used.has(pid) && g4[pid].templateId === sTemplate && dayOf(pid) <= sDay,
+      );
+      if (candidate) {
+        used.add(candidate);
+        expected.push({ predecessorSlot: candidate, successorSlot: sid });
+      }
+    }
+    for (const sid of succSorted) {
+      if (!expected.some((e) => e.successorSlot === sid)) {
+        expected.push({ predecessorSlot: null, successorSlot: sid });
+      }
+    }
+    for (const pid of predSorted) {
+      if (!used.has(pid)) expected.push({ predecessorSlot: pid, successorSlot: null });
+    }
+    // Fill movements exactly as the contract requires.
+    for (const e of expected) {
+      e.predecessorMovement = e.predecessorSlot ? "library:" + g4[e.predecessorSlot].libraryId : null;
+      e.successorMovement = e.successorSlot ? "library:" + g3[e.successorSlot].libraryId : null;
+    }
+    check(
+      JSON.stringify(rows) === JSON.stringify(expected),
+      "slot mapping: full ordered mapping does not match the documented rule applied to compiler output",
+    );
+    // Day mapping must be the earliest paired day per predecessor day.
+    const expectedDays = [];
+    const seenPairs = new Set();
+    for (const e of expected.filter((x) => x.predecessorSlot && x.successorSlot)) {
+      const pd = e.predecessorSlot.split("_").slice(0, 3).join("_");
+      const sd = e.successorSlot.split("_").slice(0, 3).join("_");
+      if (!seenPairs.has(pd)) {
+        seenPairs.add(pd);
+        expectedDays.push({ predecessorDay: pd, successorDay: sd });
+      }
+    }
+    for (const pd of predSorted.map((p) => p.split("_").slice(0, 3).join("_"))) {
+      if (!expectedDays.some((d) => d.predecessorDay === pd)) {
+        expectedDays.push({ predecessorDay: pd, successorDay: null });
+      }
+    }
+    check(
+      JSON.stringify(mapping.days) === JSON.stringify(expectedDays),
+      "slot mapping: day mapping does not match earliest-paired derivation",
+    );
     // Provenance in the proposal must match the real compiler shape.
     const proposal = mappingDoc.proposal;
     const provKeys = ["familyId", "blueprintId", "blueprintVersion", "compilerVersion", "catalogueVersion", "rulesVersion", "contextVersion", "profileId", "recentConsistencyVersion"];
