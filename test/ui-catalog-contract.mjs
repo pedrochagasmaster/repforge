@@ -33,9 +33,7 @@ try {
   try {
     const evidence = await en.page.evaluate(collectCatalogEvidence, en.config);
     const failures = validate(evidence, en.config);
-    assert.ok(failures.some((failure) => failure.startsWith("overlap #libFilters")),
-      `actual EN library geometry is red until the sibling rails are stacked: ${failures.join(" | ")}`);
-    console.log(`production cross-rail overlap rejection: ${failures.find((failure) => failure.startsWith("overlap #libFilters"))}`);
+    assert.deepEqual(failures, [], `actual EN library frame satisfies the catalog contract: ${failures.join(" | ")}`);
     assert.equal(evidence.scrollers.length, 2, "the two documented filter rails are measured");
     assert.ok(evidence.scrollers.every((item) => item.marker === "x" && item.tabIndex === 0 && item.cue && item.hasPartialChild &&
       ["auto", "scroll", "overlay"].includes(item.overflowX) && item.touchAction !== "none"),
@@ -98,7 +96,7 @@ try {
     console.log(`deliberate below-fold rejection: ${belowFold.find((failure) => failure.startsWith("clipped button #offscreen-clipped"))}`);
 
     const overlap = await injectedFailures('<div id="catalogContractBad"></div>');
-    assert.ok(overlap.some((failure) => failure.startsWith("overlap #libFilters")), "the neutral artifact retains the known production red state");
+    assert.deepEqual(overlap, [], "a neutral isolated artifact does not create a false failure");
     await en.page.evaluate(() => {
       document.querySelector("#libMuscleFilters").insertAdjacentHTML("beforeend",
         '<button id="catalogOverlapA" class="pchip" style="position:absolute;left:0;top:0">A</button><button id="catalogOverlapB" class="pchip" style="position:absolute;left:0;top:0">B</button>');
@@ -115,8 +113,7 @@ try {
   const pt = await openLibrary("pt");
   try {
     const failures = validate(await pt.page.evaluate(collectCatalogEvidence, pt.config), pt.config);
-    assert.ok(failures.some((failure) => failure.startsWith("overlap #libFilters")),
-      `actual PT-BR library geometry is red until the sibling rails are stacked: ${failures.join(" | ")}`);
+    assert.deepEqual(failures, [], `actual PT-BR library frame satisfies the catalog contract: ${failures.join(" | ")}`);
   } finally {
     await pt.context.close();
   }
@@ -124,4 +121,4 @@ try {
   await browser.close();
 }
 
-console.log("ui catalog contract: actual EN/PT-BR cross-rail red and isolated copy, overflow, overlap escapes verified");
+console.log("ui catalog contract: actual EN/PT-BR green after cross-rail repair and isolated copy, overflow, overlap escapes verified");

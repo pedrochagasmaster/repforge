@@ -1352,6 +1352,7 @@ body.is-sheet-open{overflow:hidden}
 .libstep__bar{height:3px;border-radius:2px;background:var(--rule-strong)}
 .libstep__bar.is-done{background:var(--accent-deep)}
 #libSearch{margin:0 0 12px}
+#libFilters{display:block;overflow:visible;margin:0;padding:0}
 .pick__filters--row{margin:10px -16px 0;padding:0 16px 2px}
 .pick__list--page{max-height:none;overflow:visible;margin:12px -16px 0;padding:0 16px}
 
