@@ -332,6 +332,8 @@ required("docs/recovery-week-policy.md", [
     /recovery implementation waits on the exact Plan 049 owner selection/i,
     /Provider and recovery selections remain owner gates/i,
     /Keep recovery behind its held rule gate/i,
+    /Recovery-dependent work waits for its policy selection/i,
+    /provider\/privacy gates recorded/i,
   ];
   for (const [file, text] of [...selectedTransferDocs, ...recoveryDocs]) {
     for (const pattern of staleClosedGatePatterns) {

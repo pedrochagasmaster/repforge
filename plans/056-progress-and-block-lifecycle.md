@@ -230,7 +230,9 @@ Only approved coarse task outcomes: Progress Overview/Review/Evidence opened; ba
 
 - Fewer-days → correct lower-frequency sibling exact diff; too-long → shorter-duration sibling; unavailable → exact guided draft/no archive.
 - Permanent reduction respects protected/minimum work.
-- Recovery requires maintained/declined evidence plus corroboration, exact owner policy, preview/confirm, week-one volume only, week-two canonical restoration, reassessment.
+- Recovery requires maintained/declined evidence plus corroboration under policy
+  version 2, preview/confirm, week-one volume only, week-two canonical
+  restoration, and reassessment.
 - Stale/duplicate/two-tab/crash/backup behavior from Plan 052 through visible UI.
 
 ### UI/catalog
@@ -373,6 +375,6 @@ Push every coherent tested slice immediately and update PR status/evidence/next 
 - Active Review is read-only; end-block Review owns all confirmed actions and Program routes to it.
 - Schedule/volume/recovery proposals show exact Plan 052 diffs/provenance, preserve/archive atomically, reject stale/insufficient state, and require confirmation.
 - Strength, Volume, PRs, sparse charts, mobile rows, drill-ins, period denominators, and locale dates match actual scope.
-- Recovery uses only the owner-approved bounded policy and canonical week two.
+- Recovery uses only approved policy version 2 and canonical week two.
 - EN/PT, themes, 320/390/430, 200%, PT+200, reduced motion, AA roles, overflow, offline/SW, fault, catalog, and owner-phone evidence pass.
 - Branch/PR are pushed, current, clean, and stopped at owner review.

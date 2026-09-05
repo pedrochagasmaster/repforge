@@ -44,7 +44,8 @@ Generate a proposal, show its exact diff, confirm it, reload, and inspect the
 successor and archive. Verify total one-to-one identity coverage, matching rules,
 array order, strategy/relations, hash, stale rejection, and idempotent commit.
 Reject duplicate targets and unsupported reconstruction before expanding to
-all families. Recovery-dependent work waits for its policy selection.
+all families. Recovery-dependent work consumes policy version 2 and waits only
+for its implementation and evidence gates.
 
 ## Plan 053: installation transfer
 

@@ -345,7 +345,7 @@ The service has a creation kill switch and independent purge command. Client rol
 
 | # | Exact commit message | Contract delivered | Likely files | Prerequisite | Focused proof | Broader regression | Catalog impact | PR-body update | Rollback boundary |
 |---|---|---|---|---|---|---|---|---|---|
-| 1 | `test(install): define logical clone and transfer threat fixtures` | Exact include/exclude schema, hostile inputs, redaction assertions | new client/service tests and fixtures, transfer docs | Plan 049; Plan 051 schema known | Clone normalization/round-trip and threat checklist | Backup/shared-setup tests | None | Record provider/gates/schema | Tests/docs only |
+| 1 | `test(install): define logical clone and transfer threat fixtures` | Exact include/exclude schema, hostile inputs, redaction assertions | new client/service tests and fixtures, transfer docs | Plan 049 selected contract; Plan 051 schema known | Clone normalization/round-trip and threat checklist | Backup/shared-setup tests | None | Record selected contract/gates/schema | Tests/docs only |
 | 2 | `feat(install): add one-hour transfer service` | Create/idempotency, encrypted storage, claim binding, delete/expiry, kill switch | `services/install-transfer/**` | Commit 1 and the selected Cloudflare/EU contract | Service fake-clock/security suite | Service integration/lint only | None | Record staging endpoint, retention proof, no-secret logs | Disable create/purge service |
 | 3 | `feat(install): build and claim logical browser clones` | Client envelope/API, token cookie, setup-cookie coexistence, context detection | new `install-transfer.js`, `app.js`, `index.html`, i18n, SW/script revisions, tests | Commits 1–2; Plan 051 merged | Browser create/claim/cookie/context tests | Install/shared-setup/backup suites | Functional transfer states begin | Record cache/schema and redaction proof | Disable action; retain token parser through expiry |
 | 4 | `feat(storage): import install transfers atomically` | Import marker, complete write/read-back, boot finish/rollback, remote delete retry | persistence portions of `app.js`, client module, storage/race tests | Commit 3 | Crash at every import boundary, partial write, two-tab | Thermonuclear/draft/backup/full storage suites | Import/recovery error states | Record every fault result | Keep recovery parser; kill new claims |
@@ -362,7 +362,7 @@ For every row: mark 🟡; implement only the row; run focused proof; inspect all
 - **Branch:** `ui-overhaul/053-ios-install-transfer`
 - **Worktree:** `../repforge-ui-053-install-transfer`
 - **Base:** current `origin/main`
-- **Dependency gate:** Plan 049 approved/merged; Plan 051 merged before clone/import integration; provider/privacy gates recorded
+- **Dependency gate:** Plan 049 approved/merged with the selected provider/privacy contract; Plan 051 merged before clone/import integration; staging and physical-device evidence remain downstream
 - **Primary files:** `services/install-transfer/**`, new browser transfer module, persistence adapter, install/i18n/telemetry tests, operations/privacy docs
 - **Shared hotspots:** `app.js`, `index.html`, `telemetry.js`, `sw.js`, i18n/generated files, install/shared-setup/storage tests, catalog manifest
 - **Conflicting phases:** Plan 054 owns promotion/polish and cannot redefine transfer semantics; Plan 059 owns launch sign-off
