@@ -8789,7 +8789,7 @@ let entryImportMode=null,entryFreeformInput="",entryFreeformReply="";
 /** Which import door this device used last. A preference about this screen, so
  *  it lives with the other device-only UI prefs and never touches state. */
 function importSourceMode(){
-  if(!entryImportMode)entryImportMode=uiPrefs.importSourceMode==="freeform"?"freeform":"file";
+  if(!entryImportMode)entryImportMode=uiPrefs.importSourceMode==="file"?"file":"freeform";
   return entryImportMode}
 function setImportSourceMode(mode,{render=true}={}){
   entryImportMode=mode==="freeform"?"freeform":"file";
@@ -11254,13 +11254,12 @@ function init(){
   $("#firstRunCreate").onclick=()=>{closeFirstRun();startOnboarding("first-run")};
   // Import runs through the same review as everywhere else; the gate stays
   // standing behind it so backing out returns here rather than to an empty app.
+  // Copy and paste is the primary BYOP door, with the file door one tap away.
   $("#firstRunImport").onclick=()=>{
     closeFirstRun();
     startOnboarding("first-run",{userInitiated:true,forceFresh:true});
-    // This door opens the file picker, so it lands on the file door behind it.
-    setImportSourceMode("file",{render:false});
-    entrySelectRoute("import");
-    $("#importProgram")?.click()};
+    setImportSourceMode("freeform",{render:false});
+    entrySelectRoute("import")};
   // "Continue in browser" is an answer to the install offer, not to the program
   // question: it takes the offer off the table for a while, then hands over to
   // the same first run the app has always had.

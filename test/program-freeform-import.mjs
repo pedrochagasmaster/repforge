@@ -245,6 +245,28 @@ async function main() {
       try { await window.__repforgeStorage?.flush?.(); } catch {}
     });
 
+    console.log("\nFirst-run gate enters copy and paste as the primary BYOP door without opening file picker");
+    await reset(page);
+    await page.waitForSelector("#firstRunImport", { timeout: 20000 });
+    await page.evaluate(() => {
+      window.__filePickerClicked = false;
+      document.querySelector("#importProgram")?.addEventListener("click", () => {
+        window.__filePickerClicked = true;
+      });
+    });
+    await page.click("#firstRunImport");
+    await page.waitForSelector("#entryFreeformIn", { timeout: 20000 });
+    assert(await page.locator("#entryFreeformIn").isVisible(),
+      "first-run Import lands on the copy-and-paste door");
+    const filePickerClicked = await page.evaluate(() => window.__filePickerClicked);
+    assert(!filePickerClicked,
+      "first-run Import does not automatically open the system file picker");
+    assert(await page.locator("#entryFreeformFile").isVisible(),
+      "file import is available via switch button");
+    await page.evaluate(async () => {
+      try { await window.__repforgeStorage?.flush?.(); } catch {}
+    });
+
     console.log("\nPortuguese reads the same screen");
     await reset(page);
     await page.evaluate(() => window.RepForgeI18n.setLang("pt"));
