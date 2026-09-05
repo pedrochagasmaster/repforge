@@ -45,6 +45,12 @@ program-transition provenance, and temporary backend security have distinct
 failure and rollback boundaries. Their combined completion gate closes the
 phase.
 
+### Outside the overhaul programme
+
+| Plan | State | Meaning |
+|---|---|---|
+| [060](./060-free-form-import-grilling-reconciliation.md) | **OWNER-RATIFIED; NOT STARTED** | Reconciles two independent grilling sessions on the PR #225 free-form import hand-off into one executable contract. Amends ADR 0014 on persistence and telemetry enumerations. Independent of Plans 049–059; do not sequence it into their DAG. |
+
 ### Prior foundation and historical plans
 
 | Plan | State | Meaning |
