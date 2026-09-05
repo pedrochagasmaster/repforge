@@ -1,0 +1,792 @@
+(function (root) {
+  "use strict";
+
+  const SCHEMA_VERSION = 2;
+  const STATUS = new Set(["active", "finishing"]);
+  const SET_ROLES = new Set(["working", "warmup"]);
+  const RIR_MODES = new Set(["numeric", "effort"]);
+  const UNITS = new Set(["kg", "lb"]);
+  const EDIT_FIELDS = new Set(["load", "reps", "rir", "effort"]);
+  const EFFORT_RIR = Object.freeze({ easy: 3, hard: 1, max: 0 });
+  const DECIMAL = /^\d+(?:\.\d+)?$/;
+  const INTEGER = /^\d+$/;
+  const MAX_TEXT = 10000;
+  const MAX_ID = 240;
+
+  function hasOwn(value, key) {
+    return Object.prototype.hasOwnProperty.call(value, key);
+  }
+
+  function isPlainObject(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value)) return false;
+    const prototype = Object.getPrototypeOf(value);
+    return prototype === Object.prototype || prototype === null;
+  }
+
+  function isSafeInteger(value, min = 0) {
+    return Number.isSafeInteger(value) && value >= min;
+  }
+
+  function isText(value, { empty = false, max = MAX_TEXT } = {}) {
+    return typeof value === "string" && value.length <= max && (empty || value.length > 0);
+  }
+
+  function isOptionalText(value, max = MAX_TEXT) {
+    return value == null || isText(value, { empty: true, max });
+  }
+
+  function jsonClone(value) {
+    return JSON.parse(JSON.stringify(value));
+  }
+
+  function deepFreeze(value) {
+    if (!value || typeof value !== "object" || Object.isFrozen(value)) return value;
+    Object.freeze(value);
+    for (const child of Object.values(value)) deepFreeze(child);
+    return value;
+  }
+
+  function error(code, details) {
+    return deepFreeze({ kind: "domain-error", code, ...(details || {}) });
+  }
+
+  function migrationError(code, details) {
+    return deepFreeze({ kind: "migration-error", code, ...(details || {}) });
+  }
+
+  function isDomainError(value) {
+    return value?.kind === "domain-error";
+  }
+
+  function editableText(value) {
+    if (value == null) return null;
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
+    if (typeof value === "string" && value.length <= 64) return value;
+    return undefined;
+  }
+
+  function snapshotFromExercise(exercise) {
+    const programmed = exercise.programmed;
+    const snapshot = {
+      exerciseInstanceId: exercise.exerciseInstanceId,
+      sourceExerciseId: exercise.sourceExerciseId,
+      displayName: exercise.displayName,
+      primary: programmed.primary,
+      secondary: programmed.secondary,
+    };
+    if (exercise.libraryId) snapshot.libraryId = exercise.libraryId;
+    if (programmed.movementId) snapshot.movementId = programmed.movementId;
+    return snapshot;
+  }
+
+  function movementSnapshotMatches(left, right) {
+    const fields = [
+      "exerciseInstanceId",
+      "sourceExerciseId",
+      "libraryId",
+      "movementId",
+      "displayName",
+      "primary",
+      "secondary",
+    ];
+    return fields.every((field) => (left[field] ?? null) === (right[field] ?? null));
+  }
+
+  function validateMovementSnapshot(value, path, issues) {
+    if (!isPlainObject(value)) {
+      issues.push(`${path}:object`);
+      return;
+    }
+    for (const field of ["exerciseInstanceId", "sourceExerciseId", "displayName", "primary", "secondary"]) {
+      if (!isText(value[field], { empty: field === "primary" || field === "secondary", max: field.includes("Id") ? MAX_ID : 500 })) {
+        issues.push(`${path}.${field}`);
+      }
+    }
+    for (const field of ["libraryId", "movementId"]) {
+      if (hasOwn(value, field) && !isText(value[field], { max: MAX_ID })) issues.push(`${path}.${field}`);
+    }
+  }
+
+  function validateWriter(value, path, issues) {
+    if (!isPlainObject(value)) {
+      issues.push(`${path}:object`);
+      return;
+    }
+    for (const field of ["installationId", "tabId", "operationId"]) {
+      if (!isText(value[field], { max: MAX_ID })) issues.push(`${path}.${field}`);
+    }
+  }
+
+  function validateTouched(value, path, issues) {
+    if (!isPlainObject(value)) {
+      issues.push(`${path}:object`);
+      return;
+    }
+    for (const field of ["load", "reps", "effort"]) {
+      if (typeof value[field] !== "boolean") issues.push(`${path}.${field}`);
+    }
+  }
+
+  function validateProgrammedSet(value, path, issues) {
+    if (!isPlainObject(value)) {
+      issues.push(`${path}:object`);
+      return;
+    }
+    for (const field of ["suggestedLoad", "minReps", "maxReps", "targetRir"]) {
+      if (hasOwn(value, field) && value[field] != null &&
+        (typeof value[field] !== "number" || !Number.isFinite(value[field]) || value[field] < 0)) {
+        issues.push(`${path}.${field}`);
+      }
+    }
+  }
+
+  function validateSet(value, setId, path, issues) {
+    if (!isPlainObject(value)) {
+      issues.push(`${path}:object`);
+      return;
+    }
+    if (value.setId !== setId || !isText(value.setId, { max: MAX_ID })) issues.push(`${path}.setId`);
+    if (!isSafeInteger(value.ordinal, 1)) issues.push(`${path}.ordinal`);
+    if (!SET_ROLES.has(value.role)) issues.push(`${path}.role`);
+    validateProgrammedSet(value.programmed, `${path}.programmed`, issues);
+    if (!isPlainObject(value.edited)) issues.push(`${path}.edited:object`);
+    else {
+      for (const field of ["load", "reps", "rir", "effort"]) {
+        if (hasOwn(value.edited, field) && !isOptionalText(value.edited[field], 64)) issues.push(`${path}.edited.${field}`);
+      }
+    }
+    validateTouched(value.touched, `${path}.touched`, issues);
+    if (value.completion !== "pending") {
+      if (!isPlainObject(value.completion) || !isText(value.completion.completedAt, { max: 100 })) {
+        issues.push(`${path}.completion`);
+      }
+    }
+  }
+
+  function validateProgrammedExercise(value, path, issues) {
+    if (!isPlainObject(value)) {
+      issues.push(`${path}:object`);
+      return;
+    }
+    if (!isSafeInteger(value.order)) issues.push(`${path}.order`);
+    if (!isSafeInteger(value.sets, 1)) issues.push(`${path}.sets`);
+    for (const field of ["minReps", "maxReps"]) {
+      if (!isSafeInteger(value[field], 1)) issues.push(`${path}.${field}`);
+    }
+    if (isSafeInteger(value.minReps, 1) && isSafeInteger(value.maxReps, 1) && value.minReps > value.maxReps) {
+      issues.push(`${path}.repRange`);
+    }
+    if (hasOwn(value, "targetRir") && value.targetRir != null &&
+      (typeof value.targetRir !== "number" || !Number.isFinite(value.targetRir) || value.targetRir < 0)) {
+      issues.push(`${path}.targetRir`);
+    }
+    for (const field of ["notes", "primary", "secondary"]) {
+      if (!isText(value[field], { empty: true })) issues.push(`${path}.${field}`);
+    }
+    if (!isOptionalText(value.progressionStrategy, 240)) issues.push(`${path}.progressionStrategy`);
+    if (!isOptionalText(value.movementPattern, 240)) issues.push(`${path}.movementPattern`);
+    if (!isText(value.sourceFingerprint, { max: 1000 })) issues.push(`${path}.sourceFingerprint`);
+    for (const field of ["libraryId", "movementId"]) {
+      if (hasOwn(value, field) && value[field] != null && !isText(value[field], { max: MAX_ID })) issues.push(`${path}.${field}`);
+    }
+  }
+
+  function validateExercise(value, exerciseId, path, issues) {
+    if (!isPlainObject(value)) {
+      issues.push(`${path}:object`);
+      return;
+    }
+    if (value.exerciseInstanceId !== exerciseId || !isText(value.exerciseInstanceId, { max: MAX_ID })) issues.push(`${path}.exerciseInstanceId`);
+    if (!isText(value.sourceExerciseId, { max: MAX_ID })) issues.push(`${path}.sourceExerciseId`);
+    if (!isOptionalText(value.libraryId, MAX_ID)) issues.push(`${path}.libraryId`);
+    if (!isText(value.displayName, { max: 500 })) issues.push(`${path}.displayName`);
+    validateProgrammedExercise(value.programmed, `${path}.programmed`, issues);
+    if (value.substitution != null) {
+      if (!isPlainObject(value.substitution)) issues.push(`${path}.substitution:object`);
+      else {
+        validateMovementSnapshot(value.substitution.original, `${path}.substitution.original`, issues);
+        validateMovementSnapshot(value.substitution.replacement, `${path}.substitution.replacement`, issues);
+        if (isPlainObject(value.substitution.original) && isPlainObject(value.programmed) &&
+          !movementSnapshotMatches(value.substitution.original, snapshotFromExercise(value))) {
+          issues.push(`${path}.substitution.original:provenance`);
+        }
+        if (!isText(value.substitution.selectedAt, { max: 100 })) issues.push(`${path}.substitution.selectedAt`);
+      }
+    }
+    if (value.status !== "active" && value.status !== "skipped") issues.push(`${path}.status`);
+    if (!isText(value.setupNotes, { empty: true })) issues.push(`${path}.setupNotes`);
+    if (!Array.isArray(value.setOrder)) issues.push(`${path}.setOrder`);
+    if (!isPlainObject(value.sets)) issues.push(`${path}.sets`);
+    if (!Array.isArray(value.setOrder) || !isPlainObject(value.sets)) return;
+    const unique = new Set(value.setOrder);
+    if (unique.size !== value.setOrder.length || value.setOrder.some((id) => !isText(id, { max: MAX_ID }))) issues.push(`${path}.setOrder:identity`);
+    const keys = Object.keys(value.sets);
+    if (keys.length !== value.setOrder.length || keys.some((id) => !unique.has(id))) issues.push(`${path}.sets:coverage`);
+    value.setOrder.forEach((setId, index) => {
+      validateSet(value.sets[setId], setId, `${path}.sets.${setId}`, issues);
+      if (value.sets[setId]?.ordinal !== index + 1) issues.push(`${path}.sets.${setId}.ordinalOrder`);
+    });
+    if (value.programmed?.sets !== value.setOrder.length) issues.push(`${path}.programmed.sets:coverage`);
+  }
+
+  function structuralIssues(value) {
+    const issues = [];
+    if (!isPlainObject(value)) return ["draft:object"];
+    if (value.schemaVersion !== SCHEMA_VERSION) issues.push("schemaVersion");
+    if (!isText(value.draftId, { max: MAX_ID })) issues.push("draftId");
+    if (!isSafeInteger(value.revision)) issues.push("revision");
+    validateWriter(value.writer, "writer", issues);
+    if (!isPlainObject(value.program)) issues.push("program:object");
+    else {
+      for (const field of ["programId", "programFingerprint", "dayId", "dayLabel", "scheduleDate"]) {
+        if (!isText(value.program[field], {
+          empty: field === "scheduleDate",
+          max: field === "programFingerprint" ? 2000 : 500,
+        })) issues.push(`program.${field}`);
+      }
+      if (!isSafeInteger(value.program.durableRevision)) issues.push("program.durableRevision");
+      if (!UNITS.has(value.program.unit)) issues.push("program.unit");
+      if (!RIR_MODES.has(value.program.rirMode)) issues.push("program.rirMode");
+    }
+    if (!isPlainObject(value.session)) issues.push("session:object");
+    else {
+      for (const field of ["startedAt", "updatedAt"]) {
+        if (!isText(value.session[field], { max: 100 })) issues.push(`session.${field}`);
+      }
+      if (!isOptionalText(value.session.bodyweight, 64)) issues.push("session.bodyweight");
+      if (!isText(value.session.notes, { empty: true })) issues.push("session.notes");
+      if (!isOptionalText(value.session.selectedExerciseId, MAX_ID)) issues.push("session.selectedExerciseId");
+      if (!STATUS.has(value.session.status)) issues.push("session.status");
+    }
+    if (!Array.isArray(value.exerciseOrder)) issues.push("exerciseOrder");
+    if (!isPlainObject(value.exercises)) issues.push("exercises");
+    if (!Array.isArray(value.exerciseOrder) || !isPlainObject(value.exercises)) return issues;
+    const unique = new Set(value.exerciseOrder);
+    if (unique.size !== value.exerciseOrder.length || value.exerciseOrder.some((id) => !isText(id, { max: MAX_ID }))) issues.push("exerciseOrder:identity");
+    const keys = Object.keys(value.exercises);
+    if (keys.length !== value.exerciseOrder.length || keys.some((id) => !unique.has(id))) issues.push("exercises:coverage");
+    value.exerciseOrder.forEach((exerciseId) => {
+      validateExercise(value.exercises[exerciseId], exerciseId, `exercises.${exerciseId}`, issues);
+    });
+    if (value.session?.selectedExerciseId != null && !unique.has(value.session.selectedExerciseId)) issues.push("session.selectedExerciseId:unknown");
+    return issues;
+  }
+
+  function validate(value) {
+    const issues = structuralIssues(value);
+    return issues.length ? { ok: false, issues } : { ok: true };
+  }
+
+  function previousByExercise(previousSessionFacts) {
+    if (Array.isArray(previousSessionFacts)) {
+      return new Map(previousSessionFacts.map((item) => [item?.exerciseInstanceId, item]));
+    }
+    if (isPlainObject(previousSessionFacts)) return new Map(Object.entries(previousSessionFacts));
+    return new Map();
+  }
+
+  function create(programContext, sessionSelection, previousSessionFacts) {
+    if (!isPlainObject(programContext) || !isPlainObject(sessionSelection) || !Array.isArray(programContext.exercises)) {
+      return error("invalid-create-input");
+    }
+    const prior = previousByExercise(previousSessionFacts);
+    const exerciseOrder = [];
+    const exercises = Object.create(null);
+    for (let index = 0; index < programContext.exercises.length; index++) {
+      const source = programContext.exercises[index];
+      if (!isPlainObject(source)) return error("invalid-create-exercise", { index });
+      const exerciseInstanceId = source.exerciseInstanceId;
+      const sourceExerciseId = source.sourceExerciseId;
+      const setCount = Number(source.sets);
+      if (!isText(exerciseInstanceId, { max: MAX_ID }) || !isText(sourceExerciseId, { max: MAX_ID }) ||
+        !isSafeInteger(setCount, 1) || !Array.isArray(source.setIds) || source.setIds.length !== setCount) {
+        return error("invalid-create-exercise", { index });
+      }
+      if (hasOwn(exercises, exerciseInstanceId)) return error("duplicate-exercise-id", { exerciseInstanceId });
+      const previous = prior.get(exerciseInstanceId);
+      const previousSets = Array.isArray(previous?.sets) ? previous.sets : [];
+      const specifications = Array.isArray(source.programmedSets) ? source.programmedSets : [];
+      const setOrder = [];
+      const sets = Object.create(null);
+      for (let ordinal = 1; ordinal <= setCount; ordinal++) {
+        const setId = source.setIds[ordinal - 1];
+        if (!isText(setId, { max: MAX_ID }) || hasOwn(sets, setId)) return error("invalid-create-set-id", { exerciseInstanceId, ordinal });
+        const spec = specifications[ordinal - 1] || {};
+        const old = previousSets.find((item) => item?.ordinal === ordinal || item?.set === ordinal) || previousSets[ordinal - 1] || {};
+        const suggestedLoad = spec.suggestedLoad ?? source.suggestedLoad ?? old.load ?? null;
+        const suggestedReps = spec.suggestedReps ?? source.suggestedReps ?? old.reps ?? source.minReps;
+        const targetRir = spec.targetRir ?? source.targetRir ?? old.rir ?? null;
+        const effort = spec.suggestedEffort ?? source.suggestedEffort ?? null;
+        sets[setId] = {
+          setId,
+          ordinal,
+          role: spec.role === "warmup" ? "warmup" : "working",
+          programmed: {
+            suggestedLoad: suggestedLoad == null ? null : Number(suggestedLoad),
+            minReps: spec.minReps ?? source.minReps,
+            maxReps: spec.maxReps ?? source.maxReps,
+            targetRir: targetRir == null ? null : Number(targetRir),
+          },
+          edited: {
+            load: editableText(suggestedLoad),
+            reps: editableText(suggestedReps),
+            rir: editableText(targetRir),
+            effort: editableText(effort),
+          },
+          touched: { load: false, reps: false, effort: false },
+          completion: "pending",
+        };
+        setOrder.push(setId);
+      }
+      const programmed = {
+        order: index,
+        sets: setCount,
+        minReps: source.minReps,
+        maxReps: source.maxReps,
+        targetRir: source.targetRir ?? null,
+        notes: source.notes || "",
+        progressionStrategy: source.progressionStrategy ?? null,
+        movementPattern: source.movementPattern ?? null,
+        sourceFingerprint: source.sourceFingerprint,
+        primary: source.primary || "",
+        secondary: source.secondary || "",
+      };
+      if (source.libraryId) programmed.libraryId = source.libraryId;
+      if (source.movementId) programmed.movementId = source.movementId;
+      const exercise = {
+        exerciseInstanceId,
+        sourceExerciseId,
+        libraryId: source.libraryId ?? null,
+        displayName: source.displayName,
+        programmed,
+        substitution: null,
+        status: "active",
+        setupNotes: source.setupNotes ?? previous?.setupNotes ?? "",
+        setOrder,
+        sets,
+      };
+      exerciseOrder.push(exerciseInstanceId);
+      exercises[exerciseInstanceId] = exercise;
+    }
+    const writer = sessionSelection.writer;
+    const draft = {
+      schemaVersion: SCHEMA_VERSION,
+      draftId: sessionSelection.draftId,
+      revision: 0,
+      writer: writer && {
+        installationId: writer.installationId,
+        tabId: writer.tabId,
+        operationId: writer.operationId,
+      },
+      program: {
+        programId: programContext.programId,
+        programFingerprint: programContext.programFingerprint,
+        durableRevision: programContext.durableRevision,
+        dayId: programContext.dayId,
+        dayLabel: programContext.dayLabel,
+        scheduleDate: sessionSelection.scheduleDate ?? programContext.scheduleDate,
+        unit: programContext.unit,
+        rirMode: programContext.rirMode,
+      },
+      session: {
+        startedAt: sessionSelection.startedAt,
+        updatedAt: sessionSelection.updatedAt ?? sessionSelection.startedAt,
+        bodyweight: editableText(sessionSelection.bodyweight) ?? null,
+        notes: sessionSelection.notes ?? "",
+        selectedExerciseId: sessionSelection.selectedExerciseId ?? exerciseOrder[0] ?? null,
+        status: "active",
+      },
+      exerciseOrder,
+      exercises,
+    };
+    const checked = validate(draft);
+    return checked.ok ? deepFreeze(draft) : error("invalid-created-draft", { issues: checked.issues });
+  }
+
+  function looksLegacy(value) {
+    if (!isPlainObject(value) || hasOwn(value, "schemaVersion")) return false;
+    const keys = Object.keys(value);
+    return keys.some((key) => key.startsWith("__") || /_(?:load|reps|rir|effort)$/.test(key));
+  }
+
+  function contextMismatch(draft, context) {
+    if (!isPlainObject(context)) return null;
+    const fields = ["programId", "programFingerprint", "durableRevision", "dayId"];
+    for (const field of fields) {
+      if (hasOwn(context, field) && context[field] !== draft.program[field]) return field;
+    }
+    if (Array.isArray(context.dayIds) && !context.dayIds.includes(draft.program.dayId)) return "dayId";
+    return null;
+  }
+
+  function parse(raw, currentProgramContext) {
+    if (raw == null || raw === "") return deepFreeze({ kind: "absent" });
+    let value = raw;
+    if (typeof raw === "string") {
+      try {
+        value = JSON.parse(raw);
+      } catch {
+        return deepFreeze({ kind: "invalid", code: "invalid-json" });
+      }
+    }
+    if (looksLegacy(value)) return deepFreeze({ kind: "legacy", raw: jsonClone(value) });
+    const checked = validate(value);
+    if (!checked.ok) return deepFreeze({ kind: "invalid", code: "invalid-schema", issues: checked.issues });
+    const draft = deepFreeze(jsonClone(value));
+    const mismatch = contextMismatch(draft, currentProgramContext);
+    return mismatch
+      ? deepFreeze({ kind: "stale", reason: mismatch, draft })
+      : deepFreeze({ kind: "valid", draft });
+  }
+
+  function serialize(draft) {
+    const checked = validate(draft);
+    return checked.ok ? jsonClone(draft) : error("invalid-draft", { issues: checked.issues });
+  }
+
+  function logicalCloneSection(draft) {
+    const section = serialize(draft);
+    if (isDomainError(section)) return section;
+    delete section.writer;
+    delete section.revision;
+    delete section.program.durableRevision;
+    return section;
+  }
+
+  function targetExercise(draft, command) {
+    const exercise = hasOwn(draft.exercises, command.exerciseInstanceId)
+      ? draft.exercises[command.exerciseInstanceId]
+      : null;
+    if (!exercise) return error("unknown-exercise", { exerciseInstanceId: command.exerciseInstanceId });
+    return { exercise };
+  }
+
+  function targetSet(draft, command) {
+    const found = targetExercise(draft, command);
+    if (isDomainError(found)) return found;
+    const exercise = found.exercise;
+    const set = hasOwn(exercise.sets, command.setId) ? exercise.sets[command.setId] : null;
+    if (!set) return error("unknown-set", { exerciseInstanceId: command.exerciseInstanceId, setId: command.setId });
+    return { exercise, set };
+  }
+
+  function writerFromCommand(command) {
+    const writer = command.writer;
+    if (!isPlainObject(writer) || !isText(writer.installationId, { max: MAX_ID }) || !isText(writer.tabId, { max: MAX_ID })) return null;
+    return { installationId: writer.installationId, tabId: writer.tabId, operationId: command.operationId };
+  }
+
+  function effectiveText(set, field) {
+    const edited = set.edited[field];
+    if (edited != null) return edited;
+    if (field === "load") return editableText(set.programmed.suggestedLoad);
+    if (field === "reps") return editableText(set.programmed.minReps);
+    if (field === "rir") return editableText(set.programmed.targetRir);
+    return null;
+  }
+
+  function validDecimal(raw, { positive = false, max = Infinity } = {}) {
+    if (typeof raw !== "string" || !DECIMAL.test(raw)) return null;
+    const value = Number(raw);
+    if (!Number.isFinite(value) || (positive ? value <= 0 : value < 0) || value > max) return null;
+    return value;
+  }
+
+  function validInteger(raw, { positive = false } = {}) {
+    if (typeof raw !== "string" || !INTEGER.test(raw)) return null;
+    const value = Number(raw);
+    if (!Number.isSafeInteger(value) || (positive ? value <= 0 : value < 0)) return null;
+    return value;
+  }
+
+  function validDate(raw) {
+    if (typeof raw !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(raw)) return false;
+    const year = Number(raw.slice(0, 4));
+    const month = Number(raw.slice(5, 7));
+    const day = Number(raw.slice(8, 10));
+    const value = new Date(Date.UTC(year, month - 1, day));
+    return value.getUTCFullYear() === year && value.getUTCMonth() === month - 1 && value.getUTCDate() === day;
+  }
+
+  function setSaveIssues(draft, exercise, set) {
+    const issues = [];
+    const load = validDecimal(effectiveText(set, "load"), { positive: true, max: 1000 });
+    const reps = validInteger(effectiveText(set, "reps"), { positive: true });
+    if (load == null) issues.push({ code: "invalid-load", exerciseInstanceId: exercise.exerciseInstanceId, setId: set.setId, field: "load" });
+    if (reps == null) issues.push({ code: "invalid-reps", exerciseInstanceId: exercise.exerciseInstanceId, setId: set.setId, field: "reps" });
+    if (draft.program.rirMode === "effort") {
+      const effort = effectiveText(set, "effort");
+      if (!hasOwn(EFFORT_RIR, effort)) issues.push({ code: "invalid-effort", exerciseInstanceId: exercise.exerciseInstanceId, setId: set.setId, field: "effort" });
+    } else if (validDecimal(effectiveText(set, "rir")) == null) {
+      issues.push({ code: "invalid-rir", exerciseInstanceId: exercise.exerciseInstanceId, setId: set.setId, field: "rir" });
+    }
+    return issues;
+  }
+
+  function sessionSaveIssues(draft) {
+    const issues = [];
+    if (!validDate(draft.program.scheduleDate)) issues.push({ code: "invalid-date", field: "scheduleDate" });
+    const bodyweight = draft.session.bodyweight;
+    if (bodyweight != null && bodyweight !== "" && validDecimal(bodyweight, { positive: true }) == null) {
+      issues.push({ code: "invalid-bodyweight", field: "bodyweight" });
+    }
+    return issues;
+  }
+
+  function isCandidate(set) {
+    return set.completion !== "pending" || set.role === "warmup" || Object.values(set.touched).some(Boolean);
+  }
+
+  function validateForSave(draft) {
+    const checked = validate(draft);
+    if (!checked.ok) return [{ code: "invalid-draft", issues: checked.issues }];
+    const issues = sessionSaveIssues(draft);
+    if (draft.session.status !== "finishing") issues.push({ code: "finish-required" });
+    let candidates = 0;
+    for (const exerciseId of draft.exerciseOrder) {
+      const exercise = draft.exercises[exerciseId];
+      if (exercise.status === "skipped") continue;
+      for (const setId of exercise.setOrder) {
+        const set = exercise.sets[setId];
+        if (!isCandidate(set)) continue;
+        candidates++;
+        issues.push(...setSaveIssues(draft, exercise, set));
+      }
+    }
+    if (!candidates) issues.push({ code: "no-work" });
+    return issues;
+  }
+
+  function reduce(draft, command) {
+    const checked = validate(draft);
+    if (!checked.ok) return error("invalid-draft", { issues: checked.issues });
+    if (!isPlainObject(command) || !isText(command.type, { max: 80 }) ||
+      !isText(command.operationId, { max: MAX_ID }) || !isSafeInteger(command.expectedRevision) ||
+      !isText(command.updatedAt, { max: 100 })) return error("invalid-command");
+    if (draft.writer.operationId === command.operationId) return draft;
+    if (command.expectedRevision !== draft.revision) return error("stale-revision", { expected: command.expectedRevision, actual: draft.revision });
+    const nextWriter = writerFromCommand(command);
+    if (!nextWriter) return error("invalid-command-writer");
+    if (draft.session.status === "finishing" && command.type !== "cancelFinish") return error("finish-in-progress");
+    const next = jsonClone(draft);
+    let item;
+    switch (command.type) {
+      case "editSetField": {
+        item = targetSet(next, command);
+        if (isDomainError(item)) return item;
+        if (!EDIT_FIELDS.has(command.field)) return error("unknown-set-field", { field: command.field });
+        const value = editableText(command.value);
+        if (value === undefined) return error("invalid-set-field-value", { field: command.field });
+        item.set.edited[command.field] = value;
+        item.set.touched[command.field === "rir" || command.field === "effort" ? "effort" : command.field] = true;
+        break;
+      }
+      case "completeSet": {
+        item = targetSet(next, command);
+        if (isDomainError(item)) return item;
+        const issues = [...sessionSaveIssues(next), ...setSaveIssues(next, item.exercise, item.set)];
+        if (issues.length) return error("set-not-saveable", { issues });
+        item.set.completion = { completedAt: command.completedAt };
+        item.set.touched = { load: true, reps: true, effort: true };
+        break;
+      }
+      case "uncommitSet": {
+        item = targetSet(next, command);
+        if (isDomainError(item)) return item;
+        item.set.completion = "pending";
+        break;
+      }
+      case "markWarmup":
+      case "markWorking": {
+        item = targetSet(next, command);
+        if (isDomainError(item)) return item;
+        item.set.role = command.type === "markWarmup" ? "warmup" : "working";
+        break;
+      }
+      case "skipExercise":
+      case "restoreExercise": {
+        item = targetExercise(next, command);
+        if (isDomainError(item)) return item;
+        item.exercise.status = command.type === "skipExercise" ? "skipped" : "active";
+        if (command.type === "skipExercise" && next.session.selectedExerciseId === item.exercise.exerciseInstanceId) {
+          next.session.selectedExerciseId = next.exerciseOrder.find((id) => next.exercises[id].status === "active") ?? null;
+        }
+        break;
+      }
+      case "substituteExercise": {
+        item = targetExercise(next, command);
+        if (isDomainError(item)) return item;
+        const issues = [];
+        validateMovementSnapshot(command.replacement, "replacement", issues);
+        if (issues.length) return error("invalid-substitution", { issues });
+        if (command.replacement.exerciseInstanceId !== item.exercise.exerciseInstanceId &&
+          hasOwn(next.exercises, command.replacement.exerciseInstanceId)) {
+          return error("substitution-identity-in-use", {
+            exerciseInstanceId: command.replacement.exerciseInstanceId,
+          });
+        }
+        item.exercise.substitution = {
+          original: item.exercise.substitution?.original || snapshotFromExercise(item.exercise),
+          replacement: jsonClone(command.replacement),
+          selectedAt: command.selectedAt,
+        };
+        item.exercise.status = "active";
+        break;
+      }
+      case "restoreOriginalExercise": {
+        item = targetExercise(next, command);
+        if (isDomainError(item)) return item;
+        item.exercise.substitution = null;
+        break;
+      }
+      case "repeatPreviousSetValues": {
+        item = targetExercise(next, command);
+        if (isDomainError(item)) return item;
+        if (!Array.isArray(command.values)) return error("invalid-repeat-values");
+        for (const previous of command.values) {
+          if (!isPlainObject(previous)) return error("invalid-repeat-values");
+          if (previous.setId && !hasOwn(item.exercise.sets, previous.setId)) {
+            return error("unknown-set", {
+              exerciseInstanceId: command.exerciseInstanceId,
+              setId: previous.setId,
+            });
+          }
+          const set = previous.setId
+            ? item.exercise.sets[previous.setId]
+            : item.exercise.setOrder.find((setId) => item.exercise.sets[setId].ordinal === previous.ordinal);
+          const targetSet = typeof set === "string" && hasOwn(item.exercise.sets, set)
+            ? item.exercise.sets[set]
+            : isPlainObject(set) ? set : null;
+          if (!targetSet) continue;
+          for (const field of EDIT_FIELDS) {
+            if (!hasOwn(previous, field)) continue;
+            const value = editableText(previous[field]);
+            if (value === undefined) return error("invalid-repeat-values", { field });
+            targetSet.edited[field] = value;
+            targetSet.touched[field === "rir" || field === "effort" ? "effort" : field] = true;
+          }
+        }
+        break;
+      }
+      case "setExerciseNotes": {
+        item = targetExercise(next, command);
+        if (isDomainError(item)) return item;
+        if (!isText(command.value, { empty: true })) return error("invalid-exercise-notes");
+        item.exercise.setupNotes = command.value;
+        break;
+      }
+      case "setSessionNotes":
+        if (!isText(command.value, { empty: true })) return error("invalid-session-notes");
+        next.session.notes = command.value;
+        break;
+      case "setBodyweight": {
+        const value = editableText(command.value);
+        if (value === undefined) return error("invalid-bodyweight-text");
+        next.session.bodyweight = value;
+        break;
+      }
+      case "setSessionDate":
+        if (!isText(command.value, { empty: true, max: 64 })) return error("invalid-session-date-text");
+        next.program.scheduleDate = command.value;
+        break;
+      case "selectExercise":
+        if (!hasOwn(next.exercises, command.exerciseInstanceId)) return error("unknown-exercise", { exerciseInstanceId: command.exerciseInstanceId });
+        if (next.exercises[command.exerciseInstanceId].status !== "active") return error("exercise-skipped", { exerciseInstanceId: command.exerciseInstanceId });
+        next.session.selectedExerciseId = command.exerciseInstanceId;
+        break;
+      case "reorderExercises": {
+        if (!Array.isArray(command.exerciseOrder) || command.exerciseOrder.length !== next.exerciseOrder.length ||
+          new Set(command.exerciseOrder).size !== command.exerciseOrder.length ||
+          command.exerciseOrder.some((id) => !hasOwn(next.exercises, id))) return error("invalid-exercise-order");
+        next.exerciseOrder = command.exerciseOrder.slice();
+        break;
+      }
+      case "beginFinish":
+        next.session.status = "finishing";
+        break;
+      case "cancelFinish":
+        next.session.status = "active";
+        break;
+      default:
+        return error("unknown-command", { type: command.type });
+    }
+    next.revision++;
+    next.writer = nextWriter;
+    next.session.updatedAt = command.updatedAt;
+    const result = validate(next);
+    return result.ok ? deepFreeze(next) : error("command-produced-invalid-draft", { issues: result.issues });
+  }
+
+  function numericSetValues(draft, set) {
+    const load = validDecimal(effectiveText(set, "load"), { positive: true, max: 1000 });
+    const reps = validInteger(effectiveText(set, "reps"), { positive: true });
+    const rir = draft.program.rirMode === "effort"
+      ? EFFORT_RIR[effectiveText(set, "effort")]
+      : validDecimal(effectiveText(set, "rir"));
+    return { load, reps, rir };
+  }
+
+  function toHistoryRows(draft, completedAt) {
+    const issues = validateForSave(draft);
+    if (issues.length) return error("draft-not-saveable", { issues });
+    if (!isText(completedAt, { max: 100 })) return error("invalid-completed-at");
+    const rows = [];
+    for (const exerciseId of draft.exerciseOrder) {
+      const exercise = draft.exercises[exerciseId];
+      if (exercise.status === "skipped") continue;
+      const original = snapshotFromExercise(exercise);
+      const performed = exercise.substitution?.replacement || original;
+      for (const setId of exercise.setOrder) {
+        const set = exercise.sets[setId];
+        if (!isCandidate(set)) continue;
+        const values = numericSetValues(draft, set);
+        const row = {
+          session: draft.draftId,
+          date: draft.program.scheduleDate,
+          day: draft.program.dayLabel,
+          name: original.displayName,
+          exerciseId: exercise.exerciseInstanceId,
+          set: set.ordinal,
+          load: values.load,
+          reps: values.reps,
+          rir: values.rir,
+          notes: draft.session.notes.trim(),
+          created: completedAt,
+          primary: original.primary,
+          secondary: original.secondary,
+          performedName: performed.displayName,
+          performedPrimary: performed.primary,
+          performedSecondary: performed.secondary,
+        };
+        if (performed.libraryId) row.performedLibraryId = performed.libraryId;
+        else if (performed.movementId) row.performedMovementId = performed.movementId;
+        if (exercise.setupNotes.trim()) row.exNote = exercise.setupNotes.trim();
+        if (set.role === "warmup") row.warmup = true;
+        const bodyweight = draft.session.bodyweight;
+        if (bodyweight != null && bodyweight !== "") row.bodyweight = Number(bodyweight);
+        rows.push(row);
+      }
+    }
+    return rows;
+  }
+
+  function migrateLegacy() {
+    return migrationError("legacy-migration-pending");
+  }
+
+  const api = Object.freeze({
+    SCHEMA_VERSION,
+    create,
+    parse,
+    migrateLegacy,
+    reduce,
+    toHistoryRows,
+    validate,
+    validateForSave,
+    serialize,
+    logicalCloneSection,
+    isDomainError,
+  });
+  if (typeof module !== "undefined" && module.exports) module.exports = api;
+  else root.RepForgeWorkoutDraft = api;
+})(typeof globalThis !== "undefined" ? globalThis : this);

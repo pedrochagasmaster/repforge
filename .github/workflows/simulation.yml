@@ -133,6 +133,9 @@ jobs:
           node test/pr201-contracts.mjs
           node test/ui-screens.mjs
 
+      - name: Workout draft pure contract
+        run: node test/workout-draft.mjs
+
       - name: Start static server
         run: python3 -m http.server 8000 &
 
