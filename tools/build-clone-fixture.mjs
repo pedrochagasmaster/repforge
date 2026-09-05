@@ -240,6 +240,19 @@ const telemetryBoot = Telemetry.boot({ storage: localStorage, crypto: { randomUU
 if (telemetryBoot.installationId !== telemetryIdentity.installationId) {
   throw new Error("telemetry consumer rejected or replaced the transfer identity");
 }
+const invalidTelemetryStorage = new MemoryStorage();
+invalidTelemetryStorage.setItem("repforge_telemetry_identity_v1", JSON.stringify({
+  schemaVersion: 1,
+  installationId: "ti_9c2e",
+  createdAt: "2026-08-01T10:00:00.000Z",
+}));
+const invalidTelemetryBoot = Telemetry.boot({
+  storage: invalidTelemetryStorage,
+  crypto: { randomUUID: () => "22222222-2222-4222-8222-222222222222" },
+});
+if (invalidTelemetryBoot.installationId !== "22222222-2222-4222-8222-222222222222") {
+  throw new Error("telemetry consumer accepted the invalid legacy identity");
+}
 
 const envelope = {
   kind: "taurifer-install-transfer",
