@@ -372,7 +372,82 @@ for (const p of ["AGENTS.md", "README.md", "docs/adr/0007-shared-setup-links.md"
   check(!/already Now|under Now|Now-tier/.test(backlog), "backlog: stale Now-scoped claim");
 }
 
-// Every child plan keeps its dependency, atomic, STOP, and gate sections.
+  // The slot mapping must be an exhaustive, deterministic, compiler-grounded
+  // one-to-one pairing. Loaded from the fixture and verified against the
+  // real compiler compilations — the gate cannot pass on invented slots.
+  try {
+    const mappingDoc = JSON.parse(readFileSync(join(ROOT, "test", "fixtures", "transition-proposal-v1.json"), "utf8"));
+    const mapping = mappingDoc.proposal.derivation.slotMapping;
+    const compiler = JSON.parse(readFileSync(join(ROOT, "test", "fixtures", "program-families-v1.json"), "utf8"));
+    const slotsOf = (bp) => {
+      const c = compiler.reviewCompilations.find((x) => x.blueprintId === bp);
+      return Object.fromEntries(c.days.flatMap((d) => d.slots.map((s) => [s.slotId, s])));
+    };
+    const g4 = slotsOf("growth_4_v1");
+    const g3 = slotsOf("growth_3_v1");
+    const rows = mapping.slots;
+    const preds = rows.map((r) => r.predecessorSlot).filter(Boolean);
+    const succs = rows.map((r) => r.successorSlot).filter(Boolean);
+    check(new Set(preds).size === preds.length, "slot mapping: duplicate predecessor identity");
+    check(new Set(succs).size === succs.length, "slot mapping: duplicate successor identity");
+    check(
+      JSON.stringify(Object.keys(g4).sort()) === JSON.stringify([...new Set(preds)].sort()),
+      "slot mapping: predecessor coverage does not match compiler output",
+    );
+    check(
+      JSON.stringify(Object.keys(g3).sort()) === JSON.stringify([...new Set(succs)].sort()),
+      "slot mapping: successor coverage does not match compiler output",
+    );
+    for (const row of rows) {
+      if (row.predecessorSlot) {
+        const s = g4[row.predecessorSlot];
+        check(!!s, `slot mapping: unknown predecessor slot "${row.predecessorSlot}"`);
+        check(
+          s && "library:" + s.libraryId === row.predecessorMovement,
+          `slot mapping: movement mismatch on predecessor "${row.predecessorSlot}"`,
+        );
+      }
+      if (row.successorSlot) {
+        const s = g3[row.successorSlot];
+        check(!!s, `slot mapping: unknown successor slot "${row.successorSlot}"`);
+        check(
+          s && "library:" + s.libraryId === row.successorMovement,
+          `slot mapping: movement mismatch on successor "${row.successorSlot}"`,
+        );
+      }
+      // Deterministic pairing: paired rows must share templateId; additions
+      // and removals have exactly one null side.
+      if (row.predecessorSlot && row.successorSlot) {
+        check(
+          g4[row.predecessorSlot].templateId === g3[row.successorSlot].templateId,
+          `slot mapping: pairing rule violation (${row.predecessorSlot} -> ${row.successorSlot})`,
+        );
+      }
+      check(
+        (row.predecessorSlot == null) !== (row.successorSlot == null) || (row.predecessorSlot && row.successorSlot),
+        "slot mapping: row is neither pair, addition, nor removal",
+      );
+    }
+    // Canonical order: mapped pairs first, then additions, then removals.
+    const firstAdd = rows.findIndex((r) => r.predecessorSlot == null && r.successorSlot);
+    const lastPair = rows.reduce((acc, r, i) => (r.predecessorSlot && r.successorSlot ? i : acc), -1);
+    const firstRemoval = rows.findIndex((r) => r.successorSlot == null && r.predecessorSlot);
+    check(firstAdd === -1 || firstAdd > lastPair, "slot mapping: additions appear before mapped pairs");
+    check(firstRemoval === -1 || firstRemoval > (firstAdd === -1 ? lastPair : firstAdd), "slot mapping: removals appear before pairs/additions");
+    // Provenance in the proposal must match the real compiler shape.
+    const proposal = mappingDoc.proposal;
+    const provKeys = ["familyId", "blueprintId", "blueprintVersion", "compilerVersion", "catalogueVersion", "rulesVersion", "contextVersion", "profileId", "recentConsistencyVersion"];
+    for (const side of ["predecessor", "successor"]) {
+      const prov = proposal[side].compilerProvenance;
+      for (const k of provKeys) {
+        check(prov && k in prov, `transition proposal: ${side}.compilerProvenance missing "${k}"`);
+      }
+      check(!("familyVersion" in (prov || {})), `transition proposal: ${side}.compilerProvenance carries invented familyVersion`);
+    }
+  } catch (err) {
+    failures.push(`slot mapping gate: ${err.message}`);
+  }
+  // Every child plan keeps its dependency, atomic, STOP, and gate sections.
 for (const n of ["050", "051", "052", "053", "054", "055", "056", "057", "058", "059"]) {
   const file = `plans/${n}-${{ "050": "ui-correctness-and-catalog-leverage", "051": "workout-draft-state-foundation", "052": "block-transition-provenance-foundation", "053": "ios-install-transfer-foundation", "054": "landing-and-program-entry", "055": "focus-only-workout", "056": "progress-and-block-lifecycle", "057": "management-surfaces", "058": "design-system-convergence", "059": "public-launch-ui-validation" }[n]}.md`;
   const text = read(file);

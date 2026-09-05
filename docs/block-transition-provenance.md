@@ -207,7 +207,7 @@ transition. Array order is therefore total, not incidental:
       "contract": "taurifer-transition-slot-mapping",
       "schemaVersion": 1,
       "source": "test/fixtures/program-families-v1.json reviewCompilations (growth_4_v1 -> growth_3_v1, same family lower-frequency sibling)",
-      "rule": "Exhaustive one-to-one mapping. Pass 1 pairs same-template slots (templateId equality from the compiler slotContracts), scanning successors in (day, slot) order and taking the earliest unused same-template predecessor from a day at or before the successor's day. Pass 2 marks every unpaired successor as an addition (predecessorSlot null). Pass 3 marks every unpaired predecessor as a removal (successorSlot null). Days map by their earliest paired slots. Array order is the emitted order above: mapped pairs, additions, removals.",
+      "rule": "Predecessor and successor slot identities are blueprint-qualified compiler IDs and never shared across blueprints. Every diff entry names both sides explicitly: predecessorSlot/successorSlot for moved work, predecessorSlot only for removals, successorSlot only for additions. Movement identity travels inside the slot snapshots. This mapping is the executable proof that the documented slot-pairing contract compiles from real output.",
       "days": [
         {
           "predecessorDay": "growth_4_d1",
@@ -558,7 +558,7 @@ transition. Array order is therefore total, not incidental:
   "status": "committed",
   "confirmedAt": "2026-10-01T09:12:00.000Z",
   "archiveId": "arc_01J9Z8X7C6V5B4N3M1",
-  "proposalHash": "PENDING"
+  "proposalHash": "2935bf2c67fefb5e214532e789f7378509e329063efe0fc15927418882d55c0c"
 }
 ```
 
