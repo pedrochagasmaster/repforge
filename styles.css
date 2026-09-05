@@ -2046,6 +2046,9 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .program-editor-installed .program-editor__days{gap:10px}
 .program-editor-installed .program-editor__day-head{min-height:58px;padding:7px 16px}
 .program-editor-installed .program-editor__exercise-head{min-height:56px;padding:5px 16px}
+.program-editor-installed .program-editor__exercise-head{flex-wrap:wrap;align-items:flex-start}
+.program-editor-installed .program-editor__exercise-name{flex:1 1 calc(100% - 52px);white-space:normal;overflow-wrap:anywhere;line-height:1.25}
+.program-editor-installed .program-editor__summary{margin-left:auto;align-self:center}
 .program-editor-installed .program-editor__exercise-body{padding:12px 16px 0}
 .program-editor-installed .program-editor__sets{display:block;min-height:0}
 .program-editor-installed .program-editor__sets .program-editor__field-label{display:block;margin-bottom:8px}
@@ -2054,8 +2057,8 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .program-editor-installed .program-editor__rep-rule{margin:14px 0 16px}
 .program-editor-installed .program-editor__range{row-gap:12px}
 .program-editor-installed .program-editor__range input{margin-top:2px;padding:10px 14px}
-.program-editor-installed .program-editor__exercise-actions{margin-top:10px}
-.program-editor-installed .program-editor__exercise-actions button{min-height:46px}
+.program-editor-installed .program-editor__exercise-actions{flex-wrap:wrap;margin-top:10px}
+.program-editor-installed .program-editor__exercise-actions button{flex:1 1 8rem;min-width:0;min-height:46px;white-space:normal}
 .program-editor-installed .program-editor__add{
   min-height:44px;margin:0;padding:6px 16px;border:1px solid var(--rule-strong);border-radius:9px;
   background:var(--surface);color:var(--ink);font-size:17px
