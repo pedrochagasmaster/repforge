@@ -1,7 +1,7 @@
 # UI screen catalog
 
 Phone-frame captures of every user-visible Taurifer surface — 72 screens,
-221 frames. This folder is the visual reference for UI and Brand Designers.
+293 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -65,7 +65,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Recommend 4 — equipment correction](screens/onboarding-recommend/environment-correction__phone-390-light-en.png) | 7 | The capability correction disclosure open. |
 | [Recommend 5 — priorities](screens/onboarding-recommend/priorities__phone-390-light-en.png) | 3 | Primary priorities plus optional movement and exercise-avoidance controls. |
 | [Recommend 5 — avoidance and pain safety](screens/onboarding-recommend/avoidance-pain__phone-390-light-en.png) | 7 | One avoided exercise with the pain reason selected and its safety copy. |
-| [Recommend — recommendation](screens/onboarding-recommend/result__phone-390-light-en.png) | 7 | One named recommendation with its factual Why it fits explanation. |
+| [Recommend — recommendation](screens/onboarding-recommend/result__phone-390-light-en.png) | 8 | One named recommendation with its factual Why it fits explanation. |
 | [Recommend — review before first activation](screens/onboarding-recommend/preview-first-run__phone-390-light-en.png) | 3 | Identity, source, day summaries, assumptions, Edit before using, Use this program. |
 | [Recommend — review with a program active](screens/onboarding-recommend/preview-existing__phone-390-light-en.png) | 3 | The same review while the current program remains untouched. |
 | [Recommend — confirm replacement](screens/onboarding-recommend/replacement-confirm__phone-390-light-en.png) | 3 | The explicit archive-and-replace confirmation. History is not changed. |
@@ -77,9 +77,9 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | --- | --- | --- |
 | [Custom 1 — desired result](screens/onboarding-custom/desired-result__phone-390-light-en.png) | 4 | The custom route's own header and step count, not Recommend's. |
 | [Custom 2 — training background](screens/onboarding-custom/background__phone-390-light-en.png) | 4 | Structured-program experience and recent consistency in the custom route. |
-| [Custom 3 — real week](screens/onboarding-custom/schedule__phone-390-light-en.png) | 4 | Days per week, session ceiling and preferred rest in the custom route. |
+| [Custom 3 — real week](screens/onboarding-custom/schedule__phone-390-light-en.png) | 8 | Days per week, session ceiling and preferred rest in the custom route. |
 | [Custom 4 — environment](screens/onboarding-custom/environment__phone-390-light-en.png) | 4 | Environment shortcuts in the custom route. |
-| [Custom 5 — muscle priorities](screens/onboarding-custom/priorities__phone-390-light-en.png) | 4 | Each muscle has one accessible emphasis setting before exercise preferences. |
+| [Custom 5 — muscle priorities](screens/onboarding-custom/priorities__phone-390-light-en.png) | 8 | Each muscle has one accessible emphasis setting before exercise preferences. |
 | [Custom 6 — exercise preferences](screens/onboarding-custom/exercise-preferences__phone-390-light-en.png) | 4 | One library search offers Include or Avoid, with separate selected lists. |
 | [Custom — generated program](screens/onboarding-custom/result__phone-390-light-en.png) | 4 | The generated candidate for the chosen split. |
 | [Custom — review](screens/onboarding-custom/preview__phone-390-light-en.png) | 4 | The common review surface for a custom-generated program. |
@@ -98,22 +98,22 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Build 1 — name and days](screens/onboarding-build/setup__phone-390-light-en.png) | 3 | The build_setup step: program name and day count before the editor opens. |
-| [Build — empty days](screens/onboarding-build/editor-empty__phone-390-light-en.png) | 7 | Real empty day containers, Add exercise, Save draft, activation disabled. |
-| [Build — partial draft](screens/onboarding-build/editor-partial__phone-390-light-en.png) | 3 | One populated day and one incomplete day. Activation stays disabled. |
-| [Build — activation ready](screens/onboarding-build/editor-ready__phone-390-light-en.png) | 3 | A complete manual draft with supported progression and activation enabled. |
+| [Build — empty days](screens/onboarding-build/editor-empty__phone-390-light-en.png) | 8 | Real empty day containers, Add exercise, Save draft, activation disabled. |
+| [Build — partial draft](screens/onboarding-build/editor-partial__phone-390-light-en.png) | 8 | One populated day and one incomplete day. Activation stays disabled. |
+| [Build — activation ready](screens/onboarding-build/editor-ready__phone-390-light-en.png) | 8 | A complete manual draft with supported progression and activation enabled. |
 
 ### Onboarding — Import a program file
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Import — source](screens/onboarding-import/source__phone-390-light-en.png) | 3 | The bounded supported-file and setup-source surface before any mutation. |
-| [Import — review](screens/onboarding-import/preview__phone-390-light-en.png) | 7 | A mapped exercise with manual progression ownership and provenance. |
+| [Import — review](screens/onboarding-import/preview__phone-390-light-en.png) | 8 | A mapped exercise with manual progression ownership and provenance. |
 
 ### Onboarding — Shared setup link
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Shared setup — confirmation gate](screens/onboarding-shared/gate__phone-390-light-en.png) | 3 | The first-run gate for an incoming setup link. Nothing persists until Start. |
+| [Shared setup — confirmation gate](screens/onboarding-shared/gate__phone-390-light-en.png) | 8 | The first-run gate for an incoming setup link. Nothing persists until Start. |
 | [Shared setup — review](screens/onboarding-shared/preview__phone-390-light-en.png) | 3 | The editable preview a shared payload lands in before explicit activation. |
 
 ### Onboarding — resume and rule drift
@@ -128,76 +128,76 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Today — no program](screens/today/no-program__phone-390-light-en.png) | 3 | A fresh device after leaving setup, with no program or workout controls. |
-| [Today — ready to start](screens/today/ready__phone-390-light-en.png) | 2 | A seeded program on its next scheduled day. |
-| [Today — choose another day](screens/today/day-picker__phone-390-light-en.png) | 2 | The day picker sheet open. |
-| [Today — session complete](screens/today/done__phone-390-light-en.png) | 2 | The state after the day's session is logged. |
+| [Today — ready to start](screens/today/ready__phone-390-light-en.png) | 3 | A seeded program on its next scheduled day. |
+| [Today — choose another day](screens/today/day-picker__phone-390-light-en.png) | 3 | The day picker sheet open. |
+| [Today — session complete](screens/today/done__phone-390-light-en.png) | 3 | The state after the day's session is logged. |
 
 ### Workout logging
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Workout — list mode](screens/workout/list__phone-390-light-en.png) | 2 | The default logging surface. |
-| [Workout — focus mode](screens/workout/focus__phone-390-light-en.png) | 2 | One exercise at a time. |
-| [Workout — rest timer](screens/workout/rest-timer__phone-390-light-en.png) | 2 | The rest timer sheet. |
-| [Workout — exercise note](screens/workout/exercise-note__phone-390-light-en.png) | 2 | The per-exercise note sheet. |
-| [Workout — why this weight](screens/workout/why-this-weight__phone-390-light-en.png) | 2 | The recommendation inspector. |
+| [Workout — list mode](screens/workout/list__phone-390-light-en.png) | 3 | The default logging surface. |
+| [Workout — focus mode](screens/workout/focus__phone-390-light-en.png) | 3 | One exercise at a time. |
+| [Workout — rest timer](screens/workout/rest-timer__phone-390-light-en.png) | 3 | The rest timer sheet. |
+| [Workout — exercise note](screens/workout/exercise-note__phone-390-light-en.png) | 3 | The per-exercise note sheet. |
+| [Workout — why this weight](screens/workout/why-this-weight__phone-390-light-en.png) | 3 | The recommendation inspector. |
 
 ### Session summary
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Session summary](screens/session/summary__phone-390-light-en.png) | 2 | The summary shown after Save workout. |
+| [Session summary](screens/session/summary__phone-390-light-en.png) | 3 | The summary shown after Save workout. |
 
 ### Progress
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Progress — overview](screens/progress/overview__phone-390-light-en.png) | 2 | The Progress landing tab. |
-| [Progress — exercise chart](screens/progress/exercise-chart__phone-390-light-en.png) | 2 | A single lift's strength chart. |
-| [Progress — Strength](screens/progress/strength__phone-390-light-en.png) | 2 | The Strength sub-tab. |
-| [Progress — Volume](screens/progress/volume__phone-390-light-en.png) | 2 | The Volume sub-tab and its muscle rows. |
-| [Progress — PRs](screens/progress/prs__phone-390-light-en.png) | 2 | The personal-record list. |
-| [Progress — Review](screens/progress/review__phone-390-light-en.png) | 2 | The mesocycle review surface. |
+| [Progress — overview](screens/progress/overview__phone-390-light-en.png) | 3 | The Progress landing tab. |
+| [Progress — exercise chart](screens/progress/exercise-chart__phone-390-light-en.png) | 3 | A single lift's strength chart. |
+| [Progress — Strength](screens/progress/strength__phone-390-light-en.png) | 3 | The Strength sub-tab. |
+| [Progress — Volume](screens/progress/volume__phone-390-light-en.png) | 3 | The Volume sub-tab and its muscle rows. |
+| [Progress — PRs](screens/progress/prs__phone-390-light-en.png) | 3 | The personal-record list. |
+| [Progress — Review](screens/progress/review__phone-390-light-en.png) | 8 | The mesocycle review surface. |
 
 ### History
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [History](screens/history/list__phone-390-light-en.png) | 2 | The logged session list. |
-| [History — expanded session](screens/history/session__phone-390-light-en.png) | 2 | One session expanded in place. |
+| [History](screens/history/list__phone-390-light-en.png) | 3 | The logged session list. |
+| [History — expanded session](screens/history/session__phone-390-light-en.png) | 8 | One session expanded in place. |
 
 ### Exercise library
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Exercise library](screens/library/list__phone-390-light-en.png) | 2 | The searchable movement library. |
-| [Exercise library — preview](screens/library/exercise-preview__phone-390-light-en.png) | 2 | An illustrated movement preview. |
-| [Exercise library — detail](screens/library/exercise-detail__phone-390-light-en.png) | 2 | The full movement detail surface. |
+| [Exercise library](screens/library/list__phone-390-light-en.png) | 3 | The searchable movement library. |
+| [Exercise library — preview](screens/library/exercise-preview__phone-390-light-en.png) | 3 | An illustrated movement preview. |
+| [Exercise library — detail](screens/library/exercise-detail__phone-390-light-en.png) | 3 | The full movement detail surface. |
 
 ### Program
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Program — no program](screens/program/no-program__phone-390-light-en.png) | 3 | A fresh device's Program tab, with setup as the only action. |
-| [Program](screens/program/overview__phone-390-light-en.png) | 2 | The current program and its days. |
+| [Program](screens/program/overview__phone-390-light-en.png) | 3 | The current program and its days. |
 | [Program — editor](screens/program/progression-editor__phone-390-light-en.png) | 3 | The installed program editor, with the first day open. |
-| [Program — exercise picker](screens/program/exercise-picker__phone-390-light-en.png) | 2 | The picker sheet. |
-| [Program — custom exercise](screens/program/custom-exercise__phone-390-light-en.png) | 2 | The custom movement sheet. |
-| [Program — share setup link](screens/program/share-setup__phone-390-light-en.png) | 2 | The setup-link share sheet. |
-| [Program — text export](screens/program/text-export__phone-390-light-en.png) | 2 | The plain-text program export sheet. |
+| [Program — exercise picker](screens/program/exercise-picker__phone-390-light-en.png) | 3 | The picker sheet. |
+| [Program — custom exercise](screens/program/custom-exercise__phone-390-light-en.png) | 3 | The custom movement sheet. |
+| [Program — share setup link](screens/program/share-setup__phone-390-light-en.png) | 8 | The setup-link share sheet. |
+| [Program — text export](screens/program/text-export__phone-390-light-en.png) | 3 | The plain-text program export sheet. |
 
 ### Settings
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Settings](screens/settings/main__phone-390-light-en.png) | 2 | The settings list. |
-| [Settings — Appearance](screens/settings/appearance__phone-390-light-en.png) | 2 | The appearance/theme row. |
-| [Settings — privacy and analytics](screens/settings/privacy__phone-390-light-en.png) | 2 | The privacy and analytics section. |
+| [Settings](screens/settings/main__phone-390-light-en.png) | 3 | The settings list. |
+| [Settings — Appearance](screens/settings/appearance__phone-390-light-en.png) | 3 | The appearance/theme row. |
+| [Settings — privacy and analytics](screens/settings/privacy__phone-390-light-en.png) | 3 | The privacy and analytics section. |
 
 ### Install and tour
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Install banner](screens/install/banner__phone-390-light-en.png) | 2 | The install prompt banner. |
-| [iOS install sheet](screens/install/ios-sheet__phone-390-light-en.png) | 2 | The iOS add-to-home-screen instructions. |
-| [Feature tour](screens/install/tour__phone-390-light-en.png) | 2 | The first-session feature tour. |
+| [Install banner](screens/install/banner__phone-390-light-en.png) | 3 | The install prompt banner. |
+| [iOS install sheet](screens/install/ios-sheet__phone-390-light-en.png) | 3 | The iOS add-to-home-screen instructions. |
+| [Feature tour](screens/install/tour__phone-390-light-en.png) | 3 | The first-session feature tour. |

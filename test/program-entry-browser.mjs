@@ -719,9 +719,24 @@ try {
       };
     });
     assert(scheduleComposition.segmented === "flex" && scheduleComposition.bounded,
-      "schedule days and duration use bounded segmented controls", JSON.stringify(scheduleComposition));
+      "schedule days and duration use bounded reflowing controls", JSON.stringify(scheduleComposition));
     assert(scheduleComposition.noOverlap,
       "schedule groups stay compact without overlap", JSON.stringify(scheduleComposition));
+    await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+    const enlargedSchedule = await page.evaluate(() => {
+      const controls = [...document.querySelectorAll(".entry-body--schedule .onb__seg .radio-card")];
+      const rects = controls.map((element) => element.getBoundingClientRect());
+      return {
+        overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+        clipped: controls.filter((element) => element.scrollWidth > element.clientWidth + 1).length,
+        columns: new Set(rects.map((rect) => Math.round(rect.left))).size,
+        noOverlap: rects.every((rect, index) => rects.every((other, otherIndex) => index === otherIndex ||
+          rect.right <= other.left + 1 || other.right <= rect.left + 1 || rect.bottom <= other.top + 1 || other.bottom <= rect.top + 1)),
+      };
+    });
+    assert(enlargedSchedule.overflow <= 0 && enlargedSchedule.clipped === 0 && enlargedSchedule.columns <= 2 && enlargedSchedule.noOverlap,
+      "schedule reflows to at most two columns at 200% text", JSON.stringify(enlargedSchedule));
+    await page.evaluate(() => { document.documentElement.style.fontSize = "100%"; });
     await page.click("#onbNext");
     await page.click('[data-entry-pick="environment"][data-entry-val="commercial_gym"]');
     assert(await page.locator(".entry__correct").isVisible() && !(await page.locator(".entry__correct").getAttribute("open")),
@@ -797,7 +812,7 @@ try {
       "recommendation rationale cites the chosen goal and schedule", recommendationCopy);
     assert(/about half/i.test(recommendationCopy) && /first week/i.test(recommendationCopy),
       "recommendation explains the temporary interrupted return treatment", recommendationCopy);
-    assert(/Full commercial gym/.test(recommendationCopy) && /Review this program/.test(recommendationCopy),
+    assert(/full commercial gym/i.test(recommendationCopy) && /Review this program/.test(recommendationCopy),
       "recommendation cites the environment and offers an explicit review action", recommendationCopy);
     const candidateCount = await page.locator("[data-entry-select-candidate]").count();
     assert(candidateCount === 1, "recommend shows only the primary result", String(candidateCount));
@@ -1315,7 +1330,7 @@ try {
     assert(built.cards.every((card) => card.addExercise), "every empty Build day exposes Add exercise", JSON.stringify(built.cards));
     assert(built.draftName === "Manual block", "Build draft kept the program name", built.draftName);
     assert(built.statusNode && built.saveVisible, "Build visibly identifies the editable draft and Save draft action", JSON.stringify(built));
-    assert(built.activateDisabled && /Add an exercise to/i.test(built.statusText) && built.statusAdjacent,
+    assert(built.activateDisabled && /Add an exercise to/i.test(built.statusText) && !/day_empty:|manual_d\d/.test(built.statusText) && built.statusAdjacent,
       "Build names incompleteness adjacent to its disabled activation", JSON.stringify(built));
     const buildGeometry = await page.evaluate(() => {
       const action = document.querySelector("#entryEditorActivate");

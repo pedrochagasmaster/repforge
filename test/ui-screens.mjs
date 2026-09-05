@@ -88,6 +88,43 @@ for (const screen of manifest.screens.filter((s) => s.flow.startsWith("onboardin
   const set = manifest.variantSets[screen.variants];
   assert.ok(set.some((v) => v.locale === "pt"), `${screen.flow}/${screen.id} has a Portuguese frame`);
 }
+for (const screen of manifest.screens.filter((s) => s.variants === "standard")) {
+  const set = manifest.variantSets[screen.variants];
+  assert.ok(set.some((v) => v.locale === "pt" && v.text === "normal"),
+    `${screen.flow}/${screen.id} has PT-BR normal coverage`);
+}
+const demandingScreens = new Set([
+  "onboarding-custom/schedule",
+  "onboarding-custom/priorities",
+  "onboarding-recommend/result",
+  "onboarding-build/editor-empty",
+  "onboarding-build/editor-partial",
+  "onboarding-build/editor-ready",
+  "onboarding-import/preview",
+  "progress/review",
+  "history/session",
+  // The current app has no later Plan-057 Share-repair blocker. Cover both
+  // nearest reachable share boundaries until that isolated module exists.
+  "onboarding-shared/gate",
+  "program/share-setup",
+]);
+for (const key of demandingScreens) {
+  const screen = manifest.screens.find((item) => `${item.flow}/${item.id}` === key);
+  assert.ok(screen, `${key} is a registered demanding screen`);
+  assert.equal(screen.variants, "demandingText", `${key} uses the named demanding text matrix`);
+}
+const demandingSet = manifest.variantSets.demandingText;
+for (const priorAxis of manifest.variantSets.accessibility) {
+  assert.ok(demandingSet.some((variant) =>
+    variant.viewport === priorAxis.viewport && variant.theme === priorAxis.theme &&
+    variant.locale === priorAxis.locale && variant.text === priorAxis.text && variant.motion === priorAxis.motion),
+  `demanding text matrix retains the existing accessibility axis ${variantSlug(priorAxis)}`);
+}
+assert.ok(demandingSet.some((v) => v.locale === "en" && v.text === "text200"),
+  "demanding text matrix retains English 200% coverage");
+assert.ok(demandingSet.some((v) => v.locale === "pt" && v.text === "text200"),
+  "demanding text matrix adds PT-BR 200% coverage");
+assert.doesNotMatch(capture, /CATALOG_CONTRACT/, "capture runs the catalog contract for every manifest variant without opt-in");
 
 // --------------------------------------------------------------------- CI
 

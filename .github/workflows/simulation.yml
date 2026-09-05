@@ -198,6 +198,11 @@ jobs:
           REPFORGE_URL: http://localhost:8000/
         run: node test/program-entry-browser.mjs
 
+      - name: UI catalog correctness contract
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: node test/ui-catalog-contract.mjs
+
       - name: Persistence artifact helper self-test
         env:
           REPFORGE_URL: http://localhost:8000/
