@@ -19,6 +19,47 @@ const APPROVED_PATTERN_MAPPING = Object.freeze({
   hinge: "hip/hinge",
 });
 
+// Every parsed contract leaf must have an explicit proof classification. Exact
+// leaves are owner-approved constants. Allowlist totals are derived from the
+// independent compiler fixture oracle below. An informational leaf would be
+// named here with mode "informational"; the current policy has none.
+export const POLICY_LEAF_COVERAGE = Object.freeze([
+  { path: "kind", mode: "exact", expected: "taurifer-recovery-policy" },
+  { path: "policyVersion", mode: "exact", expected: 2 },
+  { path: "status", mode: "exact", expected: "Approved" },
+  { path: "primaryPatterns", mode: "exact", expected: APPROVED_PRIMARY_PATTERNS },
+  { path: "patternMapping.squat", mode: "exact", expected: "knee-dominant" },
+  { path: "patternMapping.press", mode: "exact", expected: "horizontal press" },
+  { path: "patternMapping.incline_press", mode: "exact", expected: "horizontal press" },
+  { path: "patternMapping.hinge", mode: "exact", expected: "hip/hinge" },
+  { path: "eligibility.qualifyingOutcomes", mode: "exact", expected: ["maintained", "declined"] },
+  { path: "eligibility.minimumPatterns", mode: "exact", expected: 2 },
+  { path: "eligibility.checkpointAnswers", mode: "exact", expected: ["Yes", "No", "Not sure"] },
+  { path: "eligibility.qualifyingCheckpointAnswer", mode: "exact", expected: "Yes" },
+  { path: "ruleB.optional.effectiveWorkingSets", mode: "exact", expected: 0 },
+  { path: "ruleB.optional.reason", mode: "exact", expected: "optional-removed" },
+  { path: "ruleB.protected.rounding", mode: "exact", expected: "ceil" },
+  { path: "ruleB.protected.divisor", mode: "exact", expected: 2 },
+  { path: "ruleB.protected.reason", mode: "exact", expected: "protected-ceil" },
+  { path: "ruleB.reducible.rounding", mode: "exact", expected: "floor" },
+  { path: "ruleB.reducible.divisor", mode: "exact", expected: 2 },
+  { path: "ruleB.reducible.reason", mode: "exact", expected: "reducible-floor" },
+  { path: "ruleB.coverageRescue.minimumWorkingSets", mode: "exact", expected: 1 },
+  { path: "ruleB.coverageRescue.selection", mode: "exact", expected: "first-eligible-stable-order" },
+  { path: "ruleB.coverageRescue.reason", mode: "exact", expected: "pattern-rescue" },
+  { path: "acceptanceBand.minimum", mode: "exact", expected: 0.4 },
+  { path: "acceptanceBand.maximum", mode: "exact", expected: 0.6 },
+  { path: "allowlistedMisses.growth_2_v1.base", mode: "fixture-derived" },
+  { path: "allowlistedMisses.growth_2_v1.effective", mode: "fixture-derived" },
+  { path: "allowlistedMisses.growth_3_v1.base", mode: "fixture-derived" },
+  { path: "allowlistedMisses.growth_3_v1.effective", mode: "fixture-derived" },
+  { path: "reassessment.outcomes", mode: "exact", expected: ["Better", "About the same", "Worse"] },
+  { path: "reassessment.unset", mode: "exact", expected: null },
+  { path: "reassessment.ordinaryReviewOutcomes", mode: "exact", expected: ["About the same", "Worse"] },
+  { path: "reassessment.sameBlockRepeat", mode: "exact", expected: false },
+  { path: "reassessment.weekTwoCanonical", mode: "exact", expected: true },
+]);
+
 export function normalizePolicyText(text) {
   return text.replace(/[“”]/g, '"').replace(/\s+/g, " ").trim();
 }
@@ -151,6 +192,57 @@ export function clonePolicy(policy) {
   return clone(policy);
 }
 
+function policyValueAtPath(policy, path) {
+  return path.split(".").reduce((value, segment) => value?.[segment], policy);
+}
+
+function policyLeafPaths(value, prefix = "") {
+  if (value === null || typeof value !== "object" || Array.isArray(value)) return [prefix];
+  return Object.entries(value).flatMap(([key, child]) => policyLeafPaths(child, prefix ? `${prefix}.${key}` : key));
+}
+
+function sameJson(left, right) {
+  return JSON.stringify(left) === JSON.stringify(right);
+}
+
+export function validatePolicyLeafCoverage(policy) {
+  const failures = [];
+  const fail = (condition, message) => {
+    if (!condition) failures.push(message);
+  };
+  const declarations = POLICY_LEAF_COVERAGE.map((entry) => entry.path);
+  const declared = new Set(declarations);
+  const actual = new Set(policyLeafPaths(policy));
+  const duplicateDeclarations = declarations.filter((path, index) => declarations.indexOf(path) !== index);
+  const missingDeclarations = [...actual].filter((path) => !declared.has(path));
+  const absentLeaves = [...declared].filter((path) => !actual.has(path));
+  fail(
+    duplicateDeclarations.length === 0,
+    `policy contract: duplicate leaf coverage declarations ${[...new Set(duplicateDeclarations)].join(", ")}`,
+  );
+  fail(
+    missingDeclarations.length === 0,
+    `policy contract: unclassified parsed policy leaves ${missingDeclarations.join(", ")}`,
+  );
+  fail(
+    absentLeaves.length === 0,
+    `policy contract: leaf coverage names absent from parsed policy ${absentLeaves.join(", ")}`,
+  );
+  for (const entry of POLICY_LEAF_COVERAGE) {
+    fail(
+      ["exact", "fixture-derived", "informational"].includes(entry.mode),
+      `policy contract: unsupported leaf coverage mode ${String(entry.mode)} for ${entry.path}`,
+    );
+    if (entry.mode === "exact") {
+      fail(
+        sameJson(policyValueAtPath(policy, entry.path), entry.expected),
+        `policy contract: ${entry.path} must equal ${JSON.stringify(entry.expected)}`,
+      );
+    }
+  }
+  return failures;
+}
+
 export function validatePolicyAgreement({ policyText, fixture, policy }) {
   const failures = [];
   const fail = (condition, message) => {
@@ -160,6 +252,8 @@ export function validatePolicyAgreement({ policyText, fixture, policy }) {
   const eligibility = policy.eligibility || {};
   const ruleB = policy.ruleB || {};
   const reassessment = policy.reassessment || {};
+
+  failures.push(...validatePolicyLeafCoverage(policy));
 
   fail(policy?.kind === "taurifer-recovery-policy", "policy contract: kind is not taurifer-recovery-policy");
   fail(policy?.policyVersion === 2, "policy contract: approved version 2 is missing");

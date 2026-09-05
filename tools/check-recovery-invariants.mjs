@@ -16,6 +16,7 @@ import {
   clonePolicy,
   eligible,
   parseExecutablePolicy,
+  POLICY_LEAF_COVERAGE,
   validateOverlayDocumentation,
   validatePolicyAgreement,
 } from "./recovery-policy-contract.mjs";
@@ -194,6 +195,116 @@ for (const [label, mutatedFixture, expectedNeedle] of fixtureIdNegativeControls)
   if (semantic) negativeControlMessages.push(`${label}: ${semantic}`);
 }
 
+function policyValueAtPath(candidate, path) {
+  return path.split(".").reduce((value, segment) => value?.[segment], candidate);
+}
+
+function mutatePolicyPath(candidate, path, mutate) {
+  const segments = path.split(".");
+  const leaf = segments.pop();
+  const parent = segments.reduce((value, segment) => value[segment], candidate);
+  parent[leaf] = mutate(parent[leaf]);
+}
+
+function scalarMutation(value) {
+  if (value === null) return "__set__";
+  if (typeof value === "boolean") return !value;
+  if (typeof value === "number") return Number.isInteger(value) ? value + 1 : value + 0.1;
+  if (typeof value === "string") return `${value}-mutated`;
+  throw new Error(`unsupported policy leaf mutation value ${String(value)}`);
+}
+
+function fixtureDerivedNeedle(path) {
+  return path.split(".")[1];
+}
+
+const policyLeafMutationControls = [];
+for (const entry of POLICY_LEAF_COVERAGE) {
+  if (entry.mode === "informational") continue;
+  const value = policyValueAtPath(policy, entry.path);
+  const expectedNeedle = entry.mode === "fixture-derived" ? fixtureDerivedNeedle(entry.path) : entry.path;
+  if (Array.isArray(value)) {
+    policyLeafMutationControls.push({
+      label: `${entry.path} order`,
+      path: entry.path,
+      mutate: (candidate) => mutatePolicyPath(candidate, entry.path, (current) => [...current].reverse()),
+      expectedNeedle,
+      kind: "order",
+    });
+    policyLeafMutationControls.push({
+      label: `${entry.path} member`,
+      path: entry.path,
+      mutate: (candidate) => mutatePolicyPath(candidate, entry.path, (current) => current.map((item, index) => (index === 0 ? "__mutated__" : item))),
+      expectedNeedle,
+      kind: "member",
+    });
+  } else {
+    policyLeafMutationControls.push({
+      label: entry.path,
+      path: entry.path,
+      mutate: (candidate) => mutatePolicyPath(candidate, entry.path, scalarMutation),
+      expectedNeedle,
+      kind: "value",
+    });
+  }
+}
+
+const policyShapeMutationControls = [
+  {
+    label: "patternMapping missing key",
+    paths: ["patternMapping.hinge"],
+    mutate: (candidate) => { delete candidate.patternMapping.hinge; },
+    expectedNeedle: "patternMapping.hinge",
+  },
+  {
+    label: "patternMapping extra key",
+    paths: ["patternMapping.vertical_pull"],
+    mutate: (candidate) => { candidate.patternMapping.vertical_pull = "hip/hinge"; },
+    expectedNeedle: "unclassified parsed policy leaves",
+  },
+  {
+    label: "allowlist missing entry",
+    paths: ["allowlistedMisses.growth_2_v1.base", "allowlistedMisses.growth_2_v1.effective"],
+    mutate: (candidate) => { delete candidate.allowlistedMisses.growth_2_v1; },
+    expectedNeedle: "allowlistedMisses.growth_2_v1",
+  },
+  {
+    label: "allowlist extra entry",
+    paths: ["allowlistedMisses.home_2_v1.base", "allowlistedMisses.home_2_v1.effective"],
+    mutate: (candidate) => { candidate.allowlistedMisses.home_2_v1 = { base: 27, effective: 15 }; },
+    expectedNeedle: "unclassified parsed policy leaves",
+  },
+];
+
+const policyMutationControls = [...policyLeafMutationControls, ...policyShapeMutationControls];
+const declaredBindingLeaves = new Set(POLICY_LEAF_COVERAGE.filter((entry) => entry.mode !== "informational").map((entry) => entry.path));
+const mutatedBindingLeaves = new Set(policyLeafMutationControls.map((control) => control.path));
+const missingMutationCoverage = [...declaredBindingLeaves].filter((path) => !mutatedBindingLeaves.has(path));
+check(
+  missingMutationCoverage.length === 0,
+  `policy mutation coverage: binding leaves lack an isolated mutation control: ${missingMutationCoverage.join(", ")}`,
+);
+for (const entry of POLICY_LEAF_COVERAGE.filter((candidate) => candidate.mode !== "informational" && Array.isArray(policyValueAtPath(policy, candidate.path)))) {
+  const arrayControls = policyLeafMutationControls.filter((control) => control.path === entry.path);
+  check(
+    arrayControls.some((control) => control.kind === "order") && arrayControls.some((control) => control.kind === "member"),
+    `policy mutation coverage: ${entry.path} needs both order and member controls`,
+  );
+}
+
+const policyMutationMessages = [];
+for (const control of policyMutationControls) {
+  const mutated = clonePolicy(policy);
+  control.mutate(mutated);
+  const issues = [
+    ...validatePolicyAgreement({ policyText: POLICY_TEXT, fixture, policy: mutated }),
+    ...validateOverlayDocumentation({ provenanceText, planText, policy: mutated }),
+  ];
+  const semantic = issues.find((message) => message.toLowerCase().includes(control.expectedNeedle.toLowerCase()));
+  check(!!semantic, `policy mutation ${control.label}: mutation was not rejected with a semantic ${control.expectedNeedle} message`);
+  if (semantic) policyMutationMessages.push(`${control.label}: ${semantic}`);
+}
+
 const passCount = fixture.reviewCompilations.length;
 const missCount = Object.keys(policy.allowlistedMisses).length;
 if (process.argv.includes("--check")) {
@@ -202,7 +313,8 @@ if (process.argv.includes("--check")) {
     process.exit(1);
   }
   console.log(`pass: executable Rule B over ${passCount} fixtures, ${missCount} allowlisted misses, rescue and eligibility paths covered`);
-  console.log(`pass: ${negativeControlMessages.length}/${negativeControls.length + evidenceNegativeControls.length + fixtureIdNegativeControls.length} critical-rule and fixture-ID negative controls rejected semantically`);
+  console.log(`pass: ${negativeControlMessages.length}/${negativeControls.length + evidenceNegativeControls.length + fixtureIdNegativeControls.length} existing critical-rule and fixture-ID negative controls rejected semantically`);
+  console.log(`pass: ${policyMutationMessages.length}/${policyMutationControls.length} parsed-policy leaf and shape mutation controls rejected semantically`);
 } else {
   console.log(`policy version ${policy.policyVersion}: ${passCount} fixture rows, ${missCount} allowlisted misses`);
   for (const message of negativeControlMessages) console.log(`negative control rejected: ${message}`);
