@@ -1,5 +1,8 @@
 # Plan 049: UI overhaul canonical reconciliation
 
+Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
+and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
+
 - **Plan number:** 049
 - **Phase:** 0 — Canonical reconciliation
 - **Status:** Implementation in owner review (PR #222)

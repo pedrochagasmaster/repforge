@@ -1,5 +1,8 @@
 # Plan 052: Block-transition provenance foundation
 
+Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
+and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
+
 - **Plan number:** 052
 - **Phase:** 2B — State and lifecycle foundations
 - **Status:** Planned; implementation has not started
