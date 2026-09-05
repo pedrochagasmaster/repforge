@@ -6,7 +6,9 @@ and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkp
 - **Plan number:** 052
 - **Phase:** 2B — State and lifecycle foundations
 - **Status:** Planned; implementation has not started
-- **Owner approval state:** Transition directions are approved; exact recovery-week allocation remains the Plan 049 owner gate
+- **Owner approval state:** Transition directions and recovery policy version 2
+  are approved. Recovery consumes the closed Rule B contract in
+  `docs/recovery-week-policy.md`.
 - **Depends on:** Plan 049 canonical transition/recovery contracts; Plan 047/048 compiler and entry foundations already on main
 - **Blocks:** Plan 056 Progress and block lifecycle
 - **Governing G decisions:** G-24, G-27, G-31–G-36, G-53–G-56, G-60–G-61, G-70, G-77
@@ -40,7 +42,8 @@ Preserve deterministic compiler/family output, stable exercise and progression i
 - No general intervention engine, automatic lifecycle optimization, arbitrary program-family search, or silent mutation.
 - No new load, RIR, frequency, or progression formula.
 - No change to setup-link identity acceptance, fuzzy matching, program-entry candidate semantics, or broad program lifecycle roadmap.
-- No implementation of recovery until the Plan 049 exact-allocation owner gate is recorded.
+- No recovery implementation may invent a policy outside the approved version
+  2 contract or clamp a program's percentage to the acceptance band.
 
 ## Current-state audit
 
@@ -77,12 +80,18 @@ schemaVersion, transitionId, kind, status
 createdAt, confirmedAt
 predecessor: { programId, fingerprint, durableRevision, source, compilerProvenance }
 diagnosis: { kind, answers, eligibleEvidenceIds, insufficientEvidenceReasons }
-derivation: { mode, request, compilerContextVersions, policyVersions }
+derivation: { mode, request, compilerContextVersions, policyVersions, slotMapping }
 successor: { programId, fingerprint, source, compilerProvenance }
 diff: { days[], exercises[], prescriptions[], recoveryWeek? }
 progressionContract: { preservedRelations[], resetRelations[], incompatibilities[] }
 archiveId, proposalHash
 ```
+
+`slotMapping` is the exhaustive deterministic predecessor/successor slot
+pairing from the Plan 049 contract
+(`docs/block-transition-provenance.md`): one-to-one coverage, the three-pass
+same-template pairing rule, and canonical array order. It is hashed proposal
+data; only its prose fields are excluded from the preimage.
 
 Store transition-in on successor metadata and transition-out/link in the outgoing archive entry. History/log rows remain immutable and continue to point to their original program/session identities. A normal backup round-trip retains both records.
 
@@ -118,12 +127,27 @@ schemaVersion, policyVersion, transitionId, blockId
 activePeriod: nextBlockWeek1
 eligibilityEvidence
 baseProgramFingerprint
-entries: [{ exerciseId, movementPattern, baseWorkingSets,
+entries: [{ slot, movement, movementPattern, baseWorkingSets,
             effectiveWorkingSets, removedOptionalFirst, reason }]
-createdAt, confirmedAt, reassessmentDueAt
+createdAt, confirmedAt, reassessmentDueAt,
+reassessmentOutcome: null | "Better" | "About the same" | "Worse"
 ```
 
-It applies only to working-set volume. It retains at least one working set for each approved primary movement pattern, may cross ordinary `minSets` under this named policy, and restores base prescriptions in week two without a data migration. Plan 049's selected deterministic allocation/rounding rule is an input; absent that version, `proposeRecoveryWeek` is disabled.
+`slot` is the stable program slot identity (compiler `slotId`);
+`movement` is the library/custom movement identity in `library:` form.
+`movementPattern` stores the canonical primary pattern class (`knee-dominant`,
+`horizontal press`, or `hip/hinge`), or `null` for a non-primary slot. The raw
+first-listed compiler template token is an input to the policy mapping and is
+not persisted in the overlay. Repeated movements in different slots — the
+fixtures contain protected and reducible leg-press slots for the same movement — must never share an entry.
+
+It applies only to working-set volume. It retains at least one working set for each approved primary movement pattern, may cross ordinary `minSets` under this named policy, and restores base prescriptions in week two without a data migration. Plan 049 policy version 2 is the input. The canonical primary patterns are `knee-dominant`, `horizontal press`, and `hip/hinge`; `proposeRecoveryWeek` accepts only sufficient `maintained` or `declined` evidence across at least two of them plus a local checkpoint `Yes` answer to the approved recovery question. `No` and `Not sure` are ineligible. It applies Rule B unchanged, including the two version-allowlisted fixture misses, and rejects unreviewed program versions outside the 40–60% band. It does not clamp percentages or alter the canonical prescription.
+`reassessmentOutcome` is persisted as `null` until week one ends and then as
+exactly one of `Better`, `About the same`, or `Worse`. Week two always restores
+the canonical prescription; `About the same` and `Worse` route to ordinary
+Review without automatic mutation, and no recovery extension or repeat is
+allowed in the same block. A future recovery requires a future block boundary,
+fresh evidence, and a fresh `Yes` answer.
 
 ## Domain/state model
 
@@ -146,8 +170,10 @@ This foundation exposes test hooks/adapters, not final Progress UI. It must neve
 - eligible sibling proposal with reconstructable exact diff;
 - no safe sibling, with exact-program guided repair candidate;
 - safe/unsafe permanent-volume proposal;
-- recovery ineligible because evidence is insufficient, no stagnation/decline, or no corroboration;
-- recovery eligible, preview, confirmed, active week one, canonical week two, and reassessment due;
+- recovery ineligible because evidence is insufficient, fewer than two
+  qualifying primary patterns exist, the checkpoint answer is `No` or `Not
+  sure`, or the answer is missing;
+- recovery eligible, preview, confirmed, active week one, canonical week two, and reassessment due with a persisted `null`-before-reassessment or closed outcome;
 - proposal stale because program/revision/context changed;
 - commit in progress, complete with archive link, or failed without mutation.
 
@@ -198,7 +224,12 @@ No event is added here. Plan 056 may use only approved coarse task outcomes afte
 - Stable diff covers every day/exercise/order/set/prescription change and no unchanged identity is lost.
 - Progression relations/strategies survive compatible transitions; incompatible/reset decisions are explicit.
 - Permanent volume protects minimum work and removes optional work first.
-- Recovery eligibility rejects insufficient/untested evidence and missing corroboration; approved policy satisfies target/retained-primary invariants and restores canonical week two.
+- Recovery eligibility rejects insufficient/untested evidence, fewer than two
+  qualifying primary patterns, `improved` outcomes, `No`/`Not sure` answers,
+  and missing checkpoint data. Approved policy satisfies target and retained-
+  primary invariants, records `Better`/`About the same`/`Worse` locally after
+  week one, restores canonical week two, and permits no same-block extension
+  or repeat.
 
 ### Adversarial/storage tests
 
@@ -219,14 +250,18 @@ Use a hidden/test-only adapter to propose and commit each transition through act
 
 ## Owner gates
 
-The exact recovery-week allocation/rounding/primary-pattern policy version from Plan 049 must be approved before the recovery slice. Sibling, permanent-volume, and provenance work may proceed independently. No agent may choose the constant to unblock itself.
+The recovery constants are closed by Plan 049 policy version 2. The recovery
+slice must preserve that version and its version-specific allowlist. Owner
+review still covers the resulting transition previews and physical UI evidence;
+no implementation may silently reinterpret the policy.
 
 ## STOP conditions
 
 - Stop if a sibling cannot be reconstructed from explicit family/compiler metadata.
 - Stop if an identity match would require fuzzy/display-name matching.
 - Stop if a volume action crosses protected/minimum work, except the separately approved recovery policy.
-- Stop recovery work without the owner-approved deterministic rule.
+- Stop recovery work if the policy version, eligibility question/answers,
+  pattern evidence, allowlist, or week-two restoration contract drifts.
 - Stop if a transition would silently change progression strategy, load/RIR/frequency, history, or active draft.
 - Stop before adding final Progress UI or a general intervention framework.
 
@@ -242,7 +277,7 @@ New schema fields are optional to older state, but rollback code must preserve u
 | 2 | `feat(program): add immutable transition proposals and diffs` | Closed kinds, proposal hash, stable exact diff, validation | new `program-transition.js`, pure tests, script/cache inventory | Commit 1 | Determinism/staleness/diff unit+property tests | Generative/compiler smoke | None | Record schema/API/version | Revert module before storage integration |
 | 3 | `feat(program): resolve safe family schedule transitions` | Lower-frequency/shorter-session recompilation and guided repair fallback | compiler/adapter/transition module, family fixtures/tests | Commit 2 | All-family matrix and unsupported-version cases | Plan 047/048 suites | None | Record supported/unavailable matrix | Revert resolver; proposals remain unused |
 | 4 | `feat(program): propose protected volume reductions` | Optional-first permanent reduction respecting constraints | transition module, compiler metadata/tests | Commit 2 | Protected/minimum property tests | Compiler/generative CI | None | Record policy version/invariants | Revert volume kind only |
-| 5 | `feat(program): model approved recovery-week overlays` | Owner-selected eligibility/allocation, provenance, week-two restoration | transition/schedule modules, fixtures/tests | Commit 2 plus owner gate | Representative families, boundary/time/reassessment tests | Compiler/progression/generative suites | None | Link owner decision and policy version | Feature-disable overlay; retain parser |
+| 5 | `feat(program): model approved recovery-week overlays` | Policy v2 eligibility/allocation, provenance, week-two restoration | transition/schedule modules, fixtures/tests | Commit 2 plus Plan 049 policy v2 | Representative families, eligibility negatives, boundary/time/reassessment tests | Compiler/progression/generative suites | None | Link policy version and exact proofs | Feature-disable overlay; retain parser |
 | 6 | `feat(program): commit transitions with atomic provenance` | Successor/archive links, idempotent CAS, backup round-trip, draft-safe commit | `app.js` storage adapter, transition module, backup/race tests | Commits 3–5 as applicable | Crash/two-tab/duplicate/stale fault matrix | Thermonuclear, backup, program-entry suites | None | Record each fault point and SHA | Roll forward parser; disable new commits if needed |
 | 7 | `test(program): prove transition recovery across upgrades` | Old/new schema, corrupt overlay, SW upgrade, guided repair no-mutation evidence | tests, `sw.js`/script revisions, docs | Commits 2–6 | Upgrade/recovery matrix | Full browser/generative regression | None | Complete handoff and recovery limits | Revert evidence/cache only with consumer disablement |
 
@@ -255,7 +290,7 @@ After each row: mark 🟡; implement only that contract; run its focused proof; 
 - **Branch:** `ui-overhaul/052-transition-provenance`
 - **Worktree:** `../repforge-ui-052-transitions`
 - **Base:** current `origin/main`
-- **Dependency gate:** Plan 049 merged; recovery slice additionally waits on its owner selection
+- **Dependency gate:** Plan 049 merged with recovery policy version 2
 - **Primary files:** new transition module, compiler/entry adapters and fixtures, `app.js` commit adapter, backup/race tests, script/cache inventory
 - **Shared hotspots:** `app.js`, `program-compiler.js`, `program-entry-adapter.js`, `sw.js`, backup/storage tests
 - **Conflicting phases:** Plan 056 consumes this and must not define a competing proposal/archive model
@@ -324,7 +359,7 @@ Fetch/inspect main, branches, worktrees, and PRs; resume existing work. Use one 
 
 ### Push, history, and handoff discipline
 
-Push each coherent tested slice immediately and update the PR row/evidence/next steps. Never amend, rebase, force-push, silently rewrite, or use a stash as handoff after publication. Do not checkpoint known-broken behavior; return to the previous pushed boundary if a slice cannot close. Do not duplicate prerequisites or copy/cherry-pick unpublished sibling work. Record owner recovery selection and all test seeds/fault points in the repository/PR. Before stopping, run `git status --short`; handoff requires clean state. Unless authorized, stop at owner review rather than merge.
+Push each coherent tested slice immediately and update the PR row/evidence/next steps. Never amend, rebase, force-push, silently rewrite, or use a stash as handoff after publication. Do not checkpoint known-broken behavior; return to the previous pushed boundary if a slice cannot close. Do not duplicate prerequisites or copy/cherry-pick unpublished sibling work. Record policy version and all test seeds/fault points in the repository/PR. Before stopping, run `git status --short`; handoff requires clean state. Unless authorized, stop at owner review rather than merge.
 
 ## Completion gate
 

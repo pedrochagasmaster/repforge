@@ -1,9 +1,15 @@
 # Plan 048: program entry and onboarding redesign
 
+> **Status note (UI overhaul, Plan 049):** this plan is implemented history;
+> its production route is the shipped entry flow (`docs/program-entry-flow.md`).
+> The sequential recommendation-result-then-preview shape is superseded by
+> G-79 (one merged recommendation/editable-preview surface, specified by Plan
+> 054); the landing, install timing, and guide ownership are superseded as
+> noted in the plan index. Do not execute this plan against current code.
+
 ## Status
 
-- **State:** READY FOR IMPLEMENTATION after Plan 047 can compile every claimed
-  route/frequency
+- **State:** IMPLEMENTED (see status note above); do not execute
 - **Priority:** P0 — fourth item in the canonical alpha queue
 - **Effort:** XL
 - **Risk:** HIGH — first-run activation, active-program replacement, import,

@@ -68,7 +68,9 @@ a setup link that repainted the recipient's app would be reading well past its
 remit. Keeping it in UI prefs means it never enters export/import, never enters
 a state proposal or the cross-tab write path, and leaves the shared-setup
 allowlist at the eight settings `docs/adr/0007-shared-setup-links.md` describes
-and `index.html` names to the lifter.
+and `index.html` names to the lifter. The one-hour install-transfer clone is
+not export/import: UI preferences travel there only under the explicit
+transfer action ([ADR 0013](0013-temporary-install-transfer.md), G-84).
 
 With nothing stored, the app defaults to `light` rather than reading the
 device: a fresh install should look the same for every lifter, not vary with

@@ -9247,6 +9247,17 @@ async function main() {
   const candidateNote = page.locator('#onbProgramEditor [data-role="exercise-field"][data-field="notes"]').first();
   await candidateNote.fill("Simulation candidate edit");
   await page.waitForFunction(() => window.__repforgeEntryState?.()?.result?.preview?.program?.[0]?.notes === "Simulation candidate edit");
+  // The durable setup draft persists asynchronously behind the storage lock;
+  // the in-memory wait above does not prove the write landed. Wait for the
+  // durable read the assert below performs, or slow runners observe a stale
+  // draft and fail without any product defect.
+  await page.waitForFunction((k) => {
+    try {
+      return JSON.parse(localStorage.getItem(k) || "{}").state?.result?.preview?.program?.[0]?.notes === "Simulation candidate edit";
+    } catch {
+      return false;
+    }
+  }, SETUP_DRAFT, { timeout: 10000 });
   const editState = await page.evaluate(() => ({
     activeRaw: localStorage.getItem("repforge_v1"),
     draft: JSON.parse(localStorage.getItem("repforge_program_setup_draft_v1") || "{}"),

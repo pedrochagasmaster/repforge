@@ -86,6 +86,183 @@ report cites each source, is marked final and owner-approved, and contains all
 prints the current screen and frame counts so the report baseline can be
 checked after the catalog changes.
 
+## check-ui-overhaul-disposition.mjs
+
+Verifies [`docs/ui-overhaul-disposition-register.md`](../docs/ui-overhaul-disposition-register.md):
+every G-01–G-88 decision and UI-01–UI-32 finding appears exactly once with a
+valid disposition, a plan-number contract owner, and named consumers on `split`
+rows. Also checks the 11 rejected-claim guardrails.
+
+```bash
+node tools/check-ui-overhaul-disposition.mjs
+node tools/check-ui-overhaul-disposition.mjs --check
+```
+
+## check-ui-semantic-roles.mjs
+
+Verifies the semantic role inventory and release matrix in
+[`docs/adr/0012-ui-overhaul-canonical-reconciliation.md`](../docs/adr/0012-ui-overhaul-canonical-reconciliation.md):
+all six role families present with at least the Plan 049 minimum counts,
+globally unique role names each with a meaning and a consuming plan, and a
+demanding-surfaces matrix whose entries name existing manifest flow/screens
+and only known variant sets.
+
+```bash
+node tools/check-ui-semantic-roles.mjs
+node tools/check-ui-semantic-roles.mjs --check
+```
+
+## check-recovery-invariants.mjs
+
+Parses the executable JSON contract in
+[`docs/recovery-week-policy.md`](../docs/recovery-week-policy.md) through
+`recovery-policy-contract.mjs`, then recomputes approved Rule B over the 20
+Plan 047 review compilations in `test/fixtures/program-families-v1.json`.
+The reviewed fixture table is an independent expected-output oracle, so a
+rounding, pattern, band, or allowlist mutation cannot update its own expected
+answer. The check covers determinism, optional removal, canonical primary-
+pattern coverage with rescue, the two-pattern/Yes eligibility gate, the
+persisted reassessment enum, and overlay representation. It also mutates
+protected rounding, reducible rounding, primary-pattern order and mapping, the
+version allowlist, checkpoint answers, and reassessment outcomes; each
+negative control must be rejected with a semantic message.
+
+```bash
+node tools/check-recovery-invariants.mjs
+node tools/check-recovery-invariants.mjs --check
+```
+
+`recovery-policy-contract.mjs` is a planning/test helper only. Production
+runtime code must consume the versioned policy through the future Plan 052
+domain boundary rather than importing this tool.
+
+## check-canonical-contradictions.mjs
+
+Phase 0 contradiction, path, and schema-consumer gate over 24 current-tense
+governing documents (frozen source-evidence reports and old plan bodies are
+out of scope by design). It fails on stale live-policy phrases (no-card
+rule, pinned cache example, stale READY states, unqualified never-uploads
+outside the wholesale/quoted carve-outs), rejected-claim reintroduction
+outside the register/sequence/audit, stale five-tab policy, and missing
+canonical anchors. Downstream vocabularies are derived from the owning plans
+at check time — Plan 052's record/overlay/kind fields, Plan 053's clone
+fields, states, and endpoint paths, Plan 058's type steps, radii, elevations,
+progress dimensions, and colors — and each extracted token must appear in the
+corresponding Phase 0 contract, so downstream edits fail here until the
+contract follows. It also asserts every child plan's dependency/atomic/STOP/
+gate sections and resolves relative doc links across the scope docs plus
+every plan file. Lifecycle rules beyond vocabulary are pinned as named
+anchors: terminal `claimed-expired` with no silent Safari resume in ADR 0013
+and Plan 053, tombstone retention through the polling margin, sealed
+inbound/outbound credential ownership, slot+movement
+overlay identity, the closed `recovery_week` enum (hyphenated code forms
+fail), deletion-only-on-verified-import wording, documented v1/v2/v3 setup
+formats, and a Next-free backlog without stale Now-scoped claims.
+
+```bash
+node tools/check-canonical-contradictions.mjs
+node tools/check-canonical-contradictions.mjs --check
+```
+
+## transition-mapping-oracle.mjs
+
+The compiler-grounded transition oracle derives the exhaustive three-pass slot
+mapping (including optional same-template slots), emits successor-only and
+removed day identities in canonical order, and reconstructs all three
+`diff.days`, `diff.exercises`, and `diff.prescriptions` collections from the
+real review compilations. Closed reason vocabularies reject fabricated prose.
+The contradiction checker and the negative-control harness share this
+validator; they do not maintain separate expected mappings.
+
+## build-transition-fixture.mjs
+
+Rebuilds `test/fixtures/transition-proposal-v1.json`, its embedded example in
+`docs/block-transition-provenance.md`, and the optional-slot sibling fixture
+from `test/fixtures/program-families-v1.json`. It preserves reviewed reasons,
+derives every identity/order/snapshot, and recomputes the proposal hash.
+
+```bash
+node tools/build-transition-fixture.mjs
+node tools/check-transition-mapping-negative-controls.mjs
+```
+
+The negative harness sends isolated pair/addition/removal ordering, earliest
+pairing, identity, movement, structure, enum, hash, deleted-day-diff,
+deleted-prescription-diff, fabricated-reason, and successor-only-day mutations
+through the same oracle. It also validates all 40 real same-family descending
+sibling combinations and the five compiler-enumerated successor-only-day
+cases. It must reject each mutation and accept the repaired artifacts.
+
+## canonical-hash-core.mjs
+
+Shared prototype-safe canonicalization for the two hash contracts: `deepClone`
+(walks own keys, rejects `__proto__`/`constructor`/`prototype`) and
+`canonicalJson` (recursively sorted keys, own enumerable properties, UTF-8,
+no whitespace). Both hash helpers import it — there is exactly one
+canonicalization implementation.
+
+## canonical-proposal-hash.mjs
+
+Computes and verifies `proposalHash` for
+[`docs/block-transition-provenance.md`](../docs/block-transition-provenance.md):
+lowercase hex SHA-256 over the proposal's canonical preimage (the proposal
+minus `proposalHash`/`status`/`confirmedAt`/`archiveId`, with set-like
+evidence arrays deduplicated and sorted, and `slotMapping` prose excluded).
+Verifies `test/fixtures/transition-proposal-v1.json`, proves frozen inputs
+are accepted without mutation, and rejects hostile keys.
+
+```bash
+node tools/canonical-proposal-hash.mjs            # print the digest
+node tools/canonical-proposal-hash.mjs --check    # verify + mutation/hostile proofs
+```
+
+## canonical-clone-hash.mjs
+
+Computes and verifies `integrity.canonicalPayloadHash` for
+[`docs/adr/0013-temporary-install-transfer.md`](../docs/adr/0013-temporary-install-transfer.md):
+lowercase hex SHA-256 over the envelope minus the hash field itself. Verifies
+`test/fixtures/install-transfer-clone-v1.json` — generated by
+`build-clone-fixture.mjs` through the real compiler and runtime normalization
+path, then checks the production localStorage/IndexedDB writer and reader
+boundary. It also runs the real telemetry consumer against the fixture's
+UUID-v4 identity. DraftV2 and transfer-import consumers remain explicitly
+pending under Plans 051 and 053.
+
+```bash
+node tools/canonical-clone-hash.mjs               # print the digest
+node tools/canonical-clone-hash.mjs --check       # verify + mutation/hostile proofs
+```
+
+## check-canonical-hash-semantics.mjs
+
+Runs an independent canonical-JSON oracle against both hash helpers. It checks
+scalar and ordered-array changes, proposal set-like normalization, lifecycle
+exclusions, the clone integrity self-field exclusion, frozen-input
+nonmutation, and rejection of `__proto__`, `constructor`, and `prototype`.
+
+```bash
+node tools/check-canonical-hash-semantics.mjs
+```
+
+## build-clone-fixture.mjs
+
+Regenerates `test/fixtures/install-transfer-clone-v1.json` through the actual
+application path: it compiles a real `growth_3_v1` program via
+`program-compiler.js`, runs the result through `app.js`'s `normalizeLoaded`,
+crosses the production `storageIO` localStorage/IndexedDB writer and
+`readLocalStatus`/`readIdbStatus`/`chooseSnapshot` reader boundary, and checks
+the logical allowlist after reload. It then boots `telemetry.js` against the
+same local storage and proves the valid UUID-v4 identity is preserved before
+filling the canonical digest through `canonical-hash-core.mjs`. DraftV2 and
+transfer import are pending under Plans 051 and 053; the ADR's displayed
+envelope is derived from the fixture, so ADR, fixture, and digest cannot drift
+apart.
+
+```bash
+node tools/build-clone-fixture.mjs
+node tools/canonical-clone-hash.mjs --check   # always verify after regenerating
+```
+
 ## build-exercises.mjs
 
 Generates `exercises.js` — the exercise library the picker and the program

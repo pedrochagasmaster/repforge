@@ -19,14 +19,16 @@ shared files, finding/decision disposition, owner gates, and public-launch
 boundary.
 
 Do not start an implementation branch until the planning PR is owner-approved.
-After approval, Plan 049 starts first. The post-Wave-3 product roadmap remains
-deferred; none of its unrelated features may be pulled into these plans.
+That approval is merged. Plan 049 implementation is in owner review (PR #222);
+Plans 050–059 start after 049 merges, in the sequence DAG's order. The
+post-Wave-3 product roadmap remains deferred; none of its unrelated features
+may be pulled into these plans.
 
 ### Owner-approved UI overhaul
 
 | Plan | Phase | State | Outcome |
 |---|---:|---|---|
-| [049](./049-ui-overhaul-canonical-reconciliation.md) | 0 | **PLANNED — START FIRST** | Reconcile canonical contracts and specify semantic roles, transition/recovery provenance, and the bounded transfer exception. |
+| [049](./049-ui-overhaul-canonical-reconciliation.md) | 0 | **IMPLEMENTATION COMPLETE — OWNER REVIEW** | Reconcile canonical contracts and specify semantic roles, transition/recovery provenance, and the bounded transfer exception. Dispositions: [`docs/ui-overhaul-disposition-register.md`](../docs/ui-overhaul-disposition-register.md). |
 | [050](./050-ui-correctness-and-catalog-leverage.md) | 1 | **PLANNED — DEPENDS ON 049** | Fix verified UI-01–UI-07 defects and UI-29's fixture; add copy/overflow/risk-matrix leverage. |
 | [051](./051-workout-draft-state-foundation.md) | 2A | **PLANNED — DEPENDS ON 049** | Replace hidden DOM ownership with versioned, crash-safe DraftV2 state. |
 | [052](./052-block-transition-provenance-foundation.md) | 2B | **PLANNED — DEPENDS ON 049** | Make block transitions reconstructable, preview-hashed, provenance-preserving, and atomic. |
@@ -48,10 +50,10 @@ phase.
 | Plan | State | Meaning |
 |---|---|---|
 | [044](./044-posthog-measurement-experiments-paywall.md) | **DEFERRED DURING UI OVERHAUL** | Historical umbrella for measurement and later commercialization sequencing. Do not resume its post-Wave-3 work through a UI-overhaul PR. |
-| [045](./045-posthog-measurement-foundation.md) | **READY — 1 OF 4** | Implements the strict PostHog boundary, pseudonymous identity, opt-out, leakage tests, and versioned alpha funnels/dashboards. |
-| [046](./046-multi-strategy-progression-engine.md) | **READY — 2 OF 4** | Extracts and evolves the shared Free engine through reviewed, versioned range, rep-goal, anchor/back-off, paired-exposure, block-modifier, and manual contracts. |
-| [047](./047-taurifer-program-families-compiler.md) | **READY — 3 OF 4** | Authors the initial original Taurifer families and compiles their 3-/5-day siblings plus reviewed 2-/6-day recipes through the shared engine. |
-| [048](./048-program-entry-onboarding-redesign.md) | **READY — 4 OF 4** | Separates Recommend, Generate custom, Browse, Build, and Import, then converges them on one resumable draft/preview/activation path. |
+| [045](./045-posthog-measurement-foundation.md) | **IMPLEMENTED** | Shipped PostHog boundary, pseudonymous identity, opt-out, leakage tests, and versioned alpha funnels/dashboards. |
+| [046](./046-multi-strategy-progression-engine.md) | **IMPLEMENTED** | Shipped shared Free engine with reviewed versioned strategies. |
+| [047](./047-taurifer-program-families-compiler.md) | **IMPLEMENTED** | Shipped compiler/catalogue are the record. Current-tense guidance stands except where G-01–G-88 supersede it (see the disposition register); Plans 052/056 own transition and recovery derivation from compiler output. |
+| [048](./048-program-entry-onboarding-redesign.md) | **IMPLEMENTED** | Shipped entry flow is the record (`docs/program-entry-flow.md`). Sequential result-then-preview is superseded by G-79; landing, install timing, and guides are specified by Plans 053–054; see the disposition register. |
 | [041](./041-prelaunch-all-findings-remediation.md) | **IMPLEMENTED; EVIDENCE PENDING** | PR #114 shipped the retained findings. Remaining work is the exact physical iOS/VoiceOver and Android/TalkBack release-evidence matrix recorded in the plan and canonical backlog. |
 | [038](./038-ai-coach.md) | **SUPERSEDED** | Historical BYOK design only. ADR 0011 governs any future managed Taurifer AI plan after paid-beta economics. |
 | [040](./040-launch-readiness-ui-ux-audit.md) | **HISTORICAL AUDIT** | Provenance for Plan 041, not an open remediation queue. |

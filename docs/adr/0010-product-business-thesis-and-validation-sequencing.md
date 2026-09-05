@@ -268,3 +268,15 @@ door, annual-only pricing, BYOP-first cohort, universal double-progression, and
   later allocation specification must still define maintenance floors,
   direct/indirect set accounting, and what compromise is offered when the
   athlete's time budget cannot support both primary targets.
+
+## Superseded in part (UI overhaul, Plan 049)
+
+The validation sequence above is current except for one priority change: the
+owner-approved UI overhaul (G-04) moves broader visual and structural polish
+ahead of the noncommercial alpha, recorded in
+[`docs/backlog.md`](../backlog.md) and mapped by the
+[implementation sequence](../ui-overhaul-implementation-sequence.md). Retained:
+the evidence-gated commercialization path, the rolling-alpha discipline,
+Pro/commerce prerequisites, and every platform/native evidence gate — none of
+which the overhaul satisfies early. Phase 8 (Plan 059) is the overhaul's only
+release-quality gate, not a launch authorization.

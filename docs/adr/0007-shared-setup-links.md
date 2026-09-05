@@ -232,6 +232,25 @@ Unchanged: the first-run hero, brand lockup, illustration, installation
 card, installation sheet, and responsive composition (ADR 0006, ADR
 0005); backup and program-import formats; storage keys and the `repforge`
 codename; service-worker scope and manifest identity. Taurifer never uploads
-ordinary workout data. The coach who sends the URL is the one who shared the
+ordinary workout data except through the one-hour install-transfer exception
+([ADR 0013](0013-temporary-install-transfer.md)) or opted-in telemetry. The coach who sends the URL is the one who shared the
 program; the temporary handoff cookie is sent to the static host as disclosed
 above.
+
+## Superseded in part (UI overhaul, Plan 049)
+
+Retained in full: the payload codec and version contracts, the
+`repforge_setup_v1` cookie specification, the no-persistence-before-
+confirmation boundary, the known-ids rule, and the size ceilings. Two scopes
+are superseded:
+
+- **Share-sheet disclosure.** The privacy/cookie paragraph leaves the Share
+  action: Share stays task-only with per-row repair (G-17, G-45; Plans 054,
+  057), and the cached in-app Privacy page becomes the canonical disclosure
+  (G-46).
+- **The broad no-backend boundary.** The one-hour encrypted install transfer
+  ([ADR 0013](0013-temporary-install-transfer.md)) is an approved exception
+  for moving an existing Safari installation into the installed PWA. It uses
+  a separate opaque token and a separate short-lived cookie — never the
+  setup proposal, never this cookie — and changes nothing about the setup
+  payload above.

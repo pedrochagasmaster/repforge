@@ -280,3 +280,13 @@ partially built next slice.
   in those surfaces.
 - No public route pointing at a placeholder or unbuilt slice.
 - No Pro, paywall, participant-only flow, or future-family teaser.
+
+## UI overhaul reconciliation (Plan 049)
+
+The route, step-ID, draft-ownership, and activation contracts above stand.
+Four refinements are specified by later overhaul plans, not here: the merged
+recommendation result and editable preview (G-79, Plan 054), the adaptive
+shared-link landing (G-37, Plan 054), the install timing and contextual-guide
+registry (G-39–G-40, G-48–G-49, Plans 053–054), and the per-row Share repair
+routing (G-45, Plan 057). Until those plans land, this document remains the
+accurate description of the shipped entry flow.

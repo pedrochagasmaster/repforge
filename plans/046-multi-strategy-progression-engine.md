@@ -1,9 +1,11 @@
 # Plan 046: versioned multi-strategy progression engine
 
+> **Status note (UI overhaul, Plan 049):** this plan is implemented history.
+> Do not execute it against current code.
+
 ## Status
 
-- **State:** READY FOR IMPLEMENTATION after Plan 045's runtime boundary is
-  merged; strategy science fixtures are the first deliverable of this plan
+- **State:** IMPLEMENTED (see status note above); do not execute
 - **Priority:** P0 — second item in the canonical alpha queue
 - **Effort:** XL
 - **Risk:** HIGH — changes the recommendation source used during every workout

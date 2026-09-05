@@ -6,7 +6,9 @@ and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkp
 - **Plan number:** 056
 - **Phase:** 5 — Progress and block lifecycle
 - **Status:** Planned; implementation has not started
-- **Owner approval state:** Flow and evidence policy are approved; recovery implementation waits on the exact Plan 049 owner selection
+- **Owner approval state:** Flow and evidence policy plus recovery policy
+  version 2 are approved; implementation must preserve the closed recovery
+  contract and still provide its required evidence
 - **Depends on:** Plan 049; Plan 050; Plan 052 transition/provenance foundation. Progress contextual cues integrate with Plan 054's registry
 - **Blocks:** Progress-owned Plan 057 integration, Plan 058 system convergence, and Plan 059 launch validation
 - **Governing G decisions:** G-11, G-24, G-27, G-29–G-36, G-38, G-49, G-53–G-56, G-60–G-61, G-69–G-70
@@ -30,7 +32,15 @@ This phase makes Progress a two-level decision guide and evidence record, and co
 - Review is read-only during an active block; at block end it exposes confirmed transition actions.
 - Diagnose schedule failure as fewer days or sessions too long, then preview a lower-frequency or shorter-session same-family sibling. Fall back to exact-program guided manual repair.
 - **Reduce training volume** is a separate explicit, protected/minimum-aware action.
-- Recovery week follows only the approved deterministic policy, requires evidence plus corroboration, and never silently mutates.
+- Recovery week follows only approved policy version 2: sufficient maintained or
+  declined evidence across at least two of the canonical primary patterns
+  (`knee-dominant`, `horizontal press`, and `hip/hinge`) plus the local Yes
+  checkpoint, Rule B allocation, the two allowlisted misses, and the
+  week-one/reassessment lifecycle. Plan 052's persisted `reassessmentOutcome`
+  is `null` until week one ends, then exactly one of `Better`, `About the
+  same`, or `Worse`; `About the same` and `Worse` route to ordinary Review with
+  no automatic mutation, and recovery never repeats in the same block. It
+  never silently mutates.
 - Strength defaults to current block with explicit all-history context.
 - Volume shows this week and block-to-date against matching plan periods.
 - One point is a snapshot; two points a comparison/delta; three or more a trend.
@@ -224,7 +234,9 @@ Only approved coarse task outcomes: Progress Overview/Review/Evidence opened; ba
 
 - Fewer-days → correct lower-frequency sibling exact diff; too-long → shorter-duration sibling; unavailable → exact guided draft/no archive.
 - Permanent reduction respects protected/minimum work.
-- Recovery requires maintained/declined evidence plus corroboration, exact owner policy, preview/confirm, week-one volume only, week-two canonical restoration, reassessment.
+- Recovery requires maintained/declined evidence plus corroboration under policy
+  version 2, preview/confirm, week-one volume only, week-two canonical
+  restoration, and reassessment.
 - Stale/duplicate/two-tab/crash/backup behavior from Plan 052 through visible UI.
 
 ### UI/catalog
@@ -243,7 +255,11 @@ Only approved coarse task outcomes: Progress Overview/Review/Evidence opened; ba
 
 ## Owner gates
 
-1. Recovery UI/implementation stops until Plan 049 records the exact deterministic allocation/rounding/primary-pattern rule.
+1. Preserve Plan 049 recovery policy version 2: its exact eligibility question
+   and answers, two-pattern evidence requirement, Rule B allocation and rescue,
+   allowlisted misses, 40–60% eligibility boundary, and Better/About the
+   same/Worse reassessment outcomes. Future out-of-band versions require a new
+   version-specific decision; runtime percentage clamping is prohibited.
 2. Owner reviews real-device interpretation of baseline/action scopes, all transition previews, and recovery wording. Plan 059 performs final physical accessibility/sign-off.
 
 ## STOP conditions
@@ -251,7 +267,9 @@ Only approved coarse task outcomes: Progress Overview/Review/Evidence opened; ba
 - Stop if a label's actual time scope/denominator cannot be reconstructed.
 - Stop if insufficient/untested evidence would be colored negative, called progress, or enable a performance transition.
 - Stop if schedule repair cannot come from Plan 052 provenance or exact guided repair.
-- Stop recovery without owner constants or if it changes load/RIR/frequency/canonical week-two prescription.
+- Stop recovery if policy version 2, its evidence/allowlist/reassessment
+  contract, or canonical week-two prescription drifts; it must not change
+  load/RIR/frequency or introduce a runtime percentage clamp.
 - Stop if transition preview and commit hashes differ or archive/history/progression identity cannot be preserved.
 - Stop before building general lifecycle/intervention infrastructure.
 
@@ -269,7 +287,7 @@ Keep parsers for new navigation prefs and transition records. The UI can tempora
 | 4 | `feat(progress): adapt Strength Volume and PR evidence` | Mobile summaries/drill-in, current-block/all-history, correct periods, sparse chart policy, locale dates | progress renderers/styles/i18n/tests | Commits 2–3 | 0/1/2/3+, denominator, geometry/a11y | Progress/progression/catalog | Evidence states added/changed | Record time-scope assertions | Revert renderers, retain model |
 | 5 | `feat(progress): unify Review and end-block lifecycle` | Active checkpoint vs end actions; obsolete competing dialogs removed | app/index/styles/i18n/tests | Commit 3 and Plan 052 | Active/final/insufficient capability matrix | Program/progress/accessibility | Review/Program states change | Record no-action active proof | Disable confirms; retain read-only Review |
 | 6 | `feat(progress): add reconstructable schedule repair` | Diagnosis, sibling exact preview, guided editor fallback/cancel/activate | app + transition/entry adapters, styles/i18n/tests | Commit 5; Plan 052 | Both diagnoses, supported/unavailable, stale/no-archive tests | Compiler/entry/storage suites | Diagnosis/preview/guided states | Record candidate provenance/diffs | Disable schedule actions; records remain |
-| 7 | `feat(progress): add protected volume and recovery actions` | Separate permanent reduction and owner-approved recovery questions/preview/week status | app/progress/schedule adapters, styles/i18n/tests | Commit 5; recovery owner gate | Constraint/eligibility/week1-week2/reassessment/stale tests | Transition/progression/storage suites | Volume/recovery states | Link owner rule and exact proofs | Disable actions/overlay; keep parsers |
+| 7 | `feat(progress): add protected volume and recovery actions` | Separate permanent reduction and policy-version-2 recovery questions/preview/week status | app/progress/schedule adapters, styles/i18n/tests | Commit 5; Plan 049 policy version 2 | Constraint/eligibility/week1-week2/reassessment/stale tests | Transition/progression/storage suites | Volume/recovery states | Link policy version and exact proofs | Disable actions/overlay; keep parsers |
 | 8 | `feat(help): attach Progress lifecycle guidance` | Interpretation/review cues through Plan 054 registry | progress UI/i18n/tests | Relevant anchors stable; Plan 054 | Complete/dismiss/replay/missing-anchor focus | Help/accessibility suites | Cue states | Record guide IDs/versions | Disable cues; no behavior loss |
 | 9 | `test(progress): prove lifecycle and catalog acceptance` | Full locales/themes/text/reduced/transition fault/catalog/owner phone evidence | tests/manifest/scenarios/PNGs/docs | Commits 3–8 | Required Progress matrix | Full browser/generative/audit checks | Exact delta recorded | Fill owner/completion/handoff evidence | Evidence rolls back with owner slices |
 
@@ -282,7 +300,7 @@ For each row: mark 🟡; implement only the row; run its focused proof; inspect 
 - **Branch:** `ui-overhaul/056-progress-lifecycle`
 - **Worktree:** `../repforge-ui-056-progress`
 - **Base:** current `origin/main`
-- **Dependency gate:** Plans 049/050/052 merged; recovery slice waits for owner rule; cue slice waits for Plan 054 registry
+- **Dependency gate:** Plans 049/050/052 merged with policy version 2; recovery slice preserves that contract; cue slice waits for Plan 054 registry
 - **Primary files:** Progress portions of `app.js`/`index.html`/`styles.css`, new progress model, transition/entry adapters, i18n, progress/catalog tests
 - **Shared hotspots:** `app.js`, `styles.css`, `index.html`, i18n/generated, SW, program compiler/entry adapter, manifest
 - **Conflicting phases:** Plan 052 owns proposal/provenance; Plan 057 consumes outcomes in summary/Today/Program; Plan 058 owns final tokens
@@ -351,7 +369,7 @@ Fetch/inspect main, branches, worktrees, PRs; resume existing work. Use one dedi
 
 ### Push, history, and handoff discipline
 
-Push every coherent tested slice immediately and update PR status/evidence/next steps. Published SHAs are stable: no amend, rebase, force-push, silent rewrite, or stash handoff. Never checkpoint known-broken or structurally unsafe transition work; return to the last pushed boundary. Do not duplicate Plan 052 or copy unpublished dependencies. Record owner recovery selection, proposal hashes/fixtures, time-scope evidence, device results, and exact next action. Run `git status --short` before stopping; handoff is clean. Do not merge without authorization; owner review requires every row and owner/device/catalog/accessibility gate complete.
+Push every coherent tested slice immediately and update PR status/evidence/next steps. Published SHAs are stable: no amend, rebase, force-push, silent rewrite, or stash handoff. Never checkpoint known-broken or structurally unsafe transition work; return to the last pushed boundary. Do not duplicate Plan 052 or copy unpublished dependencies. Record the policy version, proposal hashes/fixtures, time-scope evidence, device results, and exact next action. Run `git status --short` before stopping; handoff is clean. Do not merge without authorization; owner review requires every row and owner/device/catalog/accessibility gate complete.
 
 ## Completion gate
 
@@ -361,6 +379,6 @@ Push every coherent tested slice immediately and update PR status/evidence/next 
 - Active Review is read-only; end-block Review owns all confirmed actions and Program routes to it.
 - Schedule/volume/recovery proposals show exact Plan 052 diffs/provenance, preserve/archive atomically, reject stale/insufficient state, and require confirmation.
 - Strength, Volume, PRs, sparse charts, mobile rows, drill-ins, period denominators, and locale dates match actual scope.
-- Recovery uses only the owner-approved bounded policy and canonical week two.
+- Recovery uses only approved policy version 2 and canonical week two.
 - EN/PT, themes, 320/390/430, 200%, PT+200, reduced motion, AA roles, overflow, offline/SW, fault, catalog, and owner-phone evidence pass.
 - Branch/PR are pushed, current, clean, and stopped at owner review.

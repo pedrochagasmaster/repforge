@@ -99,30 +99,34 @@ The DAG is acyclic. Edges labelled with a slice do not prevent independent earli
 
 The hard sequence is:
 
-1. Plan 049 resolves canonical contracts, the service/provider/privacy boundary, and the recovery-week owner rule.
+1. Plan 049 resolves canonical contracts, the service/provider/privacy boundary,
+   and recovery policy version 2; staging, physical-device, and landing gates
+   remain downstream.
 2. Plans 050, 051, and 052 branch from the reconciled contract. They may develop concurrently, but shared shell/cache work merges in the order 050 → 051 → 052 unless a PR has no overlapping files.
 3. Plan 053 consumes DraftV2 and closes the install-transfer foundation. Service-only work may start earlier, but client import cannot.
 4. Plan 054 consumes the corrected catalog harness and transfer. Its landing visual slice stops for owner selection.
 5. Plan 055 consumes DraftV2 and the contextual-guide registry before removing List/tour artifacts. Core Focus work can overlap Plan 054; deletion/merge cannot bypass it.
-6. Plan 056 consumes transition provenance and the guide registry. It stops its recovery slice until the exact policy is owner-approved.
+6. Plan 056 consumes transition provenance, policy version 2, and the guide
+   registry. Its recovery slice must preserve that closed policy and stops only
+   on contract drift or missing implementation evidence.
 7. Plan 057 consumes the stabilized entry/privacy, workout, and Progress outcome contracts.
 8. Plan 058 migrates every public surface after Plans 054–057 stop changing principal structure.
 9. Plan 059 validates one immutable release-candidate SHA, then waits for physical-device and final owner sign-off.
 
-The longest likely path is 049 → 051 → 053 → 054 → 055 integration → 057 → 058 → 059. The recovery owner gate creates a second hard path: 049 → 052 → 056 → 057 → 058 → 059.
+The longest likely path is 049 → 051 → 053 → 054 → 055 integration → 057 → 058 → 059. Recovery implementation follows a second hard path: 049 → 052 → 056 → 057 → 058 → 059; policy selection is already closed in Phase 0.
 
 ## Parallelism and merge constraints
 
 | Plan | Can start immediately after planning approval? | Safe parallel work | Cannot merge before | Shared hotspots / conflict risk |
 |---|---|---|---|---|
-| 049 | Yes | None; it is the contract root | Owner architecture/recovery decisions are recorded or explicitly block only their slices | Backlog, plan index, ADRs, brand/privacy/state specs; high doc conflict |
+| 049 | Yes | None; it is the contract root | Selected transfer/recovery contracts are recorded; landing and physical-device gates remain downstream | Backlog, plan index, ADRs, brand/privacy/state specs; high doc conflict |
 | 050 | No; after 049 | 051 pure model; 052 pure model | 049 | `app.js`, CSS, i18n, catalog tools/manifest, SW; high with all UI plans |
 | 051 | No; after 049 | 050 UI checks; 052 transition model; 053 service fixtures | 049 and reconciliation with merged 050 hotspots | `app.js`, `index.html`, SW, draft/race/focus tests; very high with 055 |
-| 052 | No; after 049 | 050/051; 053 service | 049; recovery slice also owner rule | compiler/adapter, `app.js`, SW, storage/backup tests; high with 056 |
-| 053 | Service-only scaffolding after 049; client later | 050/052; service contract beside 051 | 051, provider/privacy gate, staging/device evidence | `app.js`, telemetry, i18n, SW, install/shared tests; critical with 054 |
+| 052 | No; after 049 | 050/051; 053 service | 049 policy version 2; staging/evidence still downstream | compiler/adapter, `app.js`, SW, storage/backup tests; high with 056 |
+| 053 | Service-only scaffolding after 049; client later | 050/052; service contract beside 051 | 051, selected contract, staging/device evidence | `app.js`, telemetry, i18n, SW, install/shared tests; critical with 054 |
 | 054 | Visual-direction preparation after 049/050 | 055 workout-owned and 056 Progress-owned code | 050; transfer slice 053; imagegen owner selection | shell, entry modules, i18n, SW, manifest; high |
 | 055 | Core after 051 | 054 entry and 056 Progress with file partition | 051; tour deletion after 054 registry | workout portions of app/index/CSS, i18n, SW, catalog; very high |
-| 056 | Core after 052/050 | 054 entry and 055 workout with file partition | 052; cues after 054; recovery after owner rule | Progress/Program portions, compiler adapter, i18n, SW, manifest; very high |
+| 056 | Core after 052/050 | 054 entry and 055 workout with file partition | 052 policy version 2; cues after 054 | Progress/Program portions, compiler adapter, i18n, SW, manifest; very high |
 | 057 | No | History and Share investigation/tests may be prepared, but one branch/integrator owns shared files | 054, 055, 056 | Almost every monolithic UI file; very high |
 | 058 | Inventory/checker can prepare against a pinned snapshot | Automated inventory preparation only | Principal UI plans 054–057 | Entire public CSS/markup/catalog; serialize all visual work |
 | 059 | No | Catalog, accessibility, and privacy checks can run concurrently against the same immutable SHA | 049–058 and all gates | Evidence manifest is single-writer; any source fix invalidates evidence |
@@ -173,8 +177,8 @@ Parallel plans never copy unpublished files, cherry-pick arbitrary sibling work,
 
 | Gate | First plan | Blocks | Evidence required |
 |---|---|---|---|
-| Install-transfer provider/region/key/operations ownership and privacy disclosure | 049 | Transfer implementation in 053 and established-data offer in 054 | ADR/spec names provider, residency, key/deletion/incident owner, expiry monitor, kill switch, approved copy |
-| Recovery-week deterministic allocation/rounding/primary-pattern rule | 049 | Recovery slice in 052/056 | Representative family outputs and invariant proofs; owner-selected version recorded |
+| Install-transfer provider/region/key/operations ownership and privacy disclosure | 049 | Transfer implementation in 053 and established-data offer in 054 | Closed as Cloudflare Workers + EU Durable Objects, token-derived server-side AEAD, owner controls, incident/deletion runbook, and approved copy; staging/device evidence remains |
+| Recovery-week deterministic allocation/rounding/primary-pattern rule | 049 | Recovery slice in 052/056 | Closed as policy version 2 with representative family outputs, eligibility negatives, two allowlisted misses, and reassessment outcomes |
 | Landing mini-interface direction | 054 | Production landing preview asset/markup | Three+ equal-content imagegen directions; prompt/hash; explicit owner selection |
 | Phase phone reviews | 053–057 | Respective plan completion | Recorded real-device behavior for transfer, entry, Focus, Progress, management |
 | System continuity board | 058 | Removal of compatibility aliases / Phase 7 closure | All surface groups in light/dark and compact/PT+200; owner approval |
@@ -309,7 +313,7 @@ Implementation agents stop at a gate. They do not choose for the owner, infer ap
 | G-82 | 049, 054 | Creator identity explicitly deferred; no implementation |
 | G-83 | 049, 053–057, 059 | Allowlisted privacy-preserving telemetry; owner interpretation |
 | G-84 | 049, 051, 053 | Exact logical clone and explicit exclusions |
-| G-85 | 049, 053, 059 | Immediate claim deletion and ≤60-minute expiry |
+| G-85 | 049, 053, 059 | One-hour clone lifetime: deletion on verified import (commit), never on claim; unclaimed records expire at ≤60 minutes |
 | G-86 | 049, 053, 054 | Explicit informed install-and-transfer action |
 | G-87 | 049, 053, 059 | Preserve telemetry identity; browser/standalone context |
 | G-88 | 049, 053, 054, 059 | Safari recovery snapshot and divergence warning |

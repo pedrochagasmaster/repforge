@@ -11,7 +11,8 @@ agents always load is in `AGENTS.md`.
 
 Taurifer is a local-first progressive-overload tracker for calm, focused
 training. Ordinary training data stays on this device; Taurifer never
-uploads it. A coach may choose to put a program, its settings, and the app
+uploads it except through the explicit one-hour install transfer
+([ADR 0013](adr/0013-temporary-install-transfer.md)) or opted-in telemetry. A coach may choose to put a program, its settings, and the app
 language into a URL they send themselves — never workout history. That is
 a setup link, not an account or a backend (see
 [First-run modes](#first-run-modes); [ADR 0007](adr/0007-shared-setup-links.md)).
@@ -152,6 +153,12 @@ Existing configured state — onboarded metadata, any log rows, or any
 `programHistory` — does not reopen this gate and does not apply the
 proposal.
 
+UI overhaul note: the landing composition, install timing, and tour-adjacent
+guidance above describe the shipped gate. They are superseded by
+G-09/G-18–G-21 (landing), G-39/G-48/G-72 (install promotion), and G-40
+(contextual guidance), specified by Plans 053–054. Until those plans land,
+this section remains the accurate description of the shipped behavior.
+
 **What a setup link shares.** The in-app share sheet states the exact
 claim before the coach acts; do not strengthen or soften it in other
 copy, and do not paste it into the outbound system share or the
@@ -162,10 +169,17 @@ clipboard:
 | `program.share_setup_sub` | Program, settings and app language · no workout history | Programa, ajustes e idioma do app · sem histórico de treinos |
 | `program.share_setup_body` | The link shares this program, its configuration, eight selected settings, and the app language. It does not include workout history. For iOS installation, a temporary cookie stores the compressed proposal. The static host receives that cookie with matching index.html requests for up to seven days. Compression and encoding do not encrypt the proposal. | O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. Ele não inclui o histórico de treinos. Para instalar no iOS, um cookie temporário armazena a proposta comprimida. O host estático recebe esse cookie com as requisições correspondentes de index.html por até sete dias. A compressão e a codificação não criptografam a proposta. |
 
-Outbound Share link is title plus URL only. Copy link is the URL only.
+Outbound Share link is title plus URL only. Copy link is the URL only. The
+Share sheet stays task-only: privacy and transport explanations live on the
+cached in-app Privacy page (linked from the landing page and Settings, never
+from Share), and per-row repair keeps a blocked share actionable without
+leaving the task (G-17, G-45–G-46; Plans 054, 057).
 
 The URL is a bearer capability the coach sends. Encoding is not encryption
-and not proof of identity. Taurifer never uploads ordinary workout data.
+and not proof of identity. Taurifer never uploads ordinary workout data
+except through the explicit one-hour install-transfer exception
+([ADR 0013](adr/0013-temporary-install-transfer.md)) or opted-in telemetry;
+the cached in-app Privacy page is the canonical user disclosure for both.
 The fragment is local-first and unencrypted. Workout logs, completed
 sessions, prior blocks, notification permission, and device UI
 preferences never travel with the link. A temporary `repforge_setup_v1`
@@ -257,11 +271,15 @@ Principles the tokens can't express:
 
 - One accent, used sparingly — emphasis, primary actions, small highlights.
   Never decorative washes or large orange fields.
-- Hairline rules (`--rule`) separate content; no cards, no borders-as-boxes.
-- No drop shadows on surfaces (`--shadow: none` is deliberate); `box-shadow`
-  appears only as accent focus rings and inset hairlines. No decorative
-  gradients — the two in the CSS are functional (a select chevron and a
-  sticky-nav scroll fade).
+- Page content stays flat: hairlines (`--rule`) separate content, whitespace
+  groups it. Depth is allowlisted by semantic role only — `flat`, `selected`,
+  `floating`, `modal`, and `persistent-action` as defined in
+  [ADR 0012](adr/0012-ui-overhaul-canonical-reconciliation.md). Anything outside
+  those roles stays flat, and nested-card tunnels (a card inside a card inside
+  a card) are prohibited everywhere.
+- Shadows draw only the allowed elevation roles, accent focus rings, and inset
+  hairlines. No decorative gradients — the two in the CSS are functional (a
+  select chevron and a sticky-nav scroll fade).
 - The light editorial look depends on restraint: warm paper, near-black ink,
   generous whitespace.
 

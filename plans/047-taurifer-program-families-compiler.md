@@ -1,5 +1,11 @@
 # Plan 047: Taurifer program families and deterministic compiler
 
+> **Status note (UI overhaul, Plan 049):** this plan is implemented history;
+> the shipped compiler and catalogue are the implementation record. Current-
+> tense guidance here stands except where G-01–G-88 supersede it (see the
+> disposition register); Plans 052/056 own transition and recovery derivation
+> from compiler output. Do not execute this plan against current code.
+
 > **Superseded where amended.** The implementation authority is
 > `plans/047-owner-approved-amendment.md`, with behavior defined by
 > `docs/plan-047-owner-approved-design.md` and effort progression by
@@ -9,8 +15,7 @@
 
 ## Status
 
-- **State:** READY FOR IMPLEMENTATION after Plan 046's strategy schema is
-  stable
+- **State:** IMPLEMENTED (see status note above); do not execute
 - **Priority:** P0 — third item in the canonical alpha queue
 - **Effort:** XL
 - **Risk:** HIGH — this is Taurifer's authored training product, not sample data
