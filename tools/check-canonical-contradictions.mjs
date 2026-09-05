@@ -178,6 +178,10 @@ const snakeTokens = (text) =>
   for (const path of ["/v1/transfers", "/v1/transfers/claims", "/v1/transfers/claims/commit", "/v1/transfers/status"]) {
     check(adr.includes(path), `transfer contract missing endpoint "${path}"`);
   }
+  check(
+    /new shared transfer-envelope bounds, informed by but not equal to the app's current internal/i.test(plan053),
+    "Plan 053: payload bounds must be described as new shared transfer-envelope limits",
+  );
 }
 
 {
