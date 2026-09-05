@@ -709,7 +709,7 @@ specified. Residual risk is accepted and disclosed, never defined away.
 | T-11 | Expiration backlog or purge failure | Expiry-job monitoring with deletion-latency bounds; alarm and kill switch; manual purge runbook; no new creates until retention is healthy |
 | T-12 | Encryption-key compromise or rotation gap | Managed rotation; old keys retained only through the maximum live-record window; creation disabled rather than serving undecryptable data |
 | T-13 | Sealed commit-credential loss (key wiped, profile reset) | Unrecoverable by design; 60-minute expiry plus purge backstop; local data never at risk; fresh-transfer user guidance |
-| T-14 | Status-polling oracle or unknown-outcome confusion | Status returns state plus expiry only, to the bearer holder alone; every indeterminate outcome — credential loss, poll exhaustion, service failure, or status unavailability — routes into the non-silent G-88 divergence-warning path, never a silent browser continue |
+| T-14 | Status-polling oracle or unknown-outcome confusion | Status returns state plus expiry only, to the bearer holder alone; every indeterminate outcome — Safari-outbound credential loss, poll exhaustion, service failure, or status unavailability — routes into the non-silent G-88 divergence-warning path, never a silent browser continue (installed-inbound credential loss is the separate deletion-retry fault, not an unknown outcome) |
 
 ## iOS handoff cookie
 
@@ -782,10 +782,10 @@ installed state unchanged. If the installed context already holds meaningful
 local state, stop and require explicit choice; never overwrite automatically.
 Client states: `idle`, `creating`, `ready`, `claiming`, `validating`,
 `importing`, `localCommitted`, `deletingRemote`, `complete`, `retryable`,
-`terminalUnavailable`, `unknown-outcome` (indeterminate result — Safari
-outbound credential loss, poll exhaustion, service failure, unavailable
-status, or post-purge polling; always follows the G-88 divergence-warning
-path, never silent continuation). Identical to Plan 053's client enum.
+`terminalUnavailable`, `unknown-outcome` (indeterminate result — Safari-outbound
+credential loss, poll exhaustion, service failure, unavailable status, or
+post-purge polling; always follows the G-88 divergence-warning path, never
+silent continuation). Identical to Plan 053's client enum.
 
 ### Commit credentials (crash-safe remote deletion on both sides)
 
