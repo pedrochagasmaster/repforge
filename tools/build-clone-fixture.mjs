@@ -147,6 +147,16 @@ const a = JSON.stringify(stripMeta(normalized));
 const b = JSON.stringify(stripMeta(reread));
 if (a !== b) throw new Error("round-trip mismatch");
 
+// Plan 049 proof checkpoint: prove the save/serialization/load path, not just
+// normalizeLoaded. Serialize the normalized state exactly as the app persists
+// it (storageIO.writeLocal does JSON.stringify), reload through
+// normalizeLoaded, and require equality again — the storage boundary is part
+// of the contract.
+const serialized = JSON.stringify(normalized);
+const reloaded = normalizeLoaded(JSON.parse(serialized));
+const c = JSON.stringify(stripMeta(reloaded));
+if (a !== c) throw new Error("save/load round-trip mismatch");
+
 const envelope = {
   kind: "taurifer-install-transfer",
   schemaVersion: 1,
