@@ -74,12 +74,18 @@ schemaVersion, transitionId, kind, status
 createdAt, confirmedAt
 predecessor: { programId, fingerprint, durableRevision, source, compilerProvenance }
 diagnosis: { kind, answers, eligibleEvidenceIds, insufficientEvidenceReasons }
-derivation: { mode, request, compilerContextVersions, policyVersions }
+derivation: { mode, request, compilerContextVersions, policyVersions, slotMapping }
 successor: { programId, fingerprint, source, compilerProvenance }
 diff: { days[], exercises[], prescriptions[], recoveryWeek? }
 progressionContract: { preservedRelations[], resetRelations[], incompatibilities[] }
 archiveId, proposalHash
 ```
+
+`slotMapping` is the exhaustive deterministic predecessor/successor slot
+pairing from the Plan 049 contract
+(`docs/block-transition-provenance.md`): one-to-one coverage, the three-pass
+same-template pairing rule, and canonical array order. It is hashed proposal
+data; only its prose fields are excluded from the preimage.
 
 Store transition-in on successor metadata and transition-out/link in the outgoing archive entry. History/log rows remain immutable and continue to point to their original program/session identities. A normal backup round-trip retains both records.
 

@@ -279,7 +279,7 @@ required("docs/recovery-week-policy.md", [
     "canonical preimage",
     "sorted object keys",
     "lowercase hex",
-    "9ffb1d6cc652416d1fdccc7429fea65530eb6585a69cb2467a06989331155508",
+    "2935bf2c67fefb5e214532e789f7378509e329063efe0fc15927418882d55c0c",
     "transition-proposal-v1.json",
   ]) {
     check(hashSection.includes(anchor), `transition hashing: missing "${anchor}"`);

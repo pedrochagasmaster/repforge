@@ -32,6 +32,12 @@ export function proposalHashOf(proposal) {
     const v = preimage[section]?.[field];
     if (Array.isArray(v)) preimage[section][field] = [...new Set(v)].sort();
   }
+  // slotMapping prose (source/rule) is explanatory, never contract data:
+  // strip it so rewording can never perturb a proposal digest.
+  if (preimage.derivation?.slotMapping) {
+    delete preimage.derivation.slotMapping.source;
+    delete preimage.derivation.slotMapping.rule;
+  }
   return createHash("sha256").update(canonicalJson(preimage), "utf8").digest("hex");
 }
 
@@ -39,7 +45,7 @@ const thisFile = import.meta.url;
 const invoked = process.argv[1] ? pathToFileURL(process.argv[1]).href : null;
 if (invoked && thisFile === invoked) {
   const fixture = JSON.parse(readFileSync(join(ROOT, "test", "fixtures", "transition-proposal-v1.json"), "utf8")).proposal;
-  const EXPECTED_FIXTURE_DIGEST = "9ffb1d6cc652416d1fdccc7429fea65530eb6585a69cb2467a06989331155508";
+  const EXPECTED_FIXTURE_DIGEST = "2935bf2c67fefb5e214532e789f7378509e329063efe0fc15927418882d55c0c";
   if (process.argv.includes("--check")) {
     const digest = proposalHashOf(fixture);
     if (digest !== EXPECTED_FIXTURE_DIGEST) {
