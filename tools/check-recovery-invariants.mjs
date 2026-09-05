@@ -145,6 +145,12 @@ function insertEvidenceRow(text, id, replacement) {
   return text.replace(`${row}\n`, `${row}\n${replacement}\n`);
 }
 
+function replaceEvidenceCell(text, id, from, to) {
+  const row = firstEvidenceRow(text, id);
+  if (!row.includes(from)) throw new Error(`negative-control fixture cell missing: ${id} ${from}`);
+  return text.replace(`${row}\n`, `${row.replace(from, to)}\n`);
+}
+
 const firstFixtureId = fixture.reviewCompilations[0].blueprintId;
 const secondFixtureId = fixture.reviewCompilations[1].blueprintId;
 const renamedFixtureId = firstFixtureId.replace(/_v\d+$/, "_v9");
@@ -168,6 +174,19 @@ const evidenceNegativeControls = [
   ],
 ];
 for (const [label, mutate, expectedNeedle] of evidenceNegativeControls) {
+  const issues = validatePolicyAgreement({ policyText: mutate(POLICY_TEXT), fixture, policy });
+  const semantic = issues.find((message) => message.toLowerCase().includes(expectedNeedle.toLowerCase()));
+  check(!!semantic, `negative control ${label}: mutation was not rejected with a semantic ${expectedNeedle} message`);
+  if (semantic) negativeControlMessages.push(`${label}: ${semantic}`);
+}
+
+const evidenceValueNegativeControls = [
+  ["corrupted ratio", (text) => replaceEvidenceCell(text, "growth_2_v1", "37.5%", "999%"), "documented ratio"],
+  ["invalid evidence status", (text) => replaceEvidenceCell(text, "growth_2_v1", "Miss (low)", "Unknown"), "closed vocabulary"],
+  ["in-band mismatched status", (text) => replaceEvidenceCell(text, "growth_4_v1", "Yes", "Miss (low)"), "disagrees with derived Yes"],
+  ["allowlisted-low mismatched status", (text) => replaceEvidenceCell(text, "growth_2_v1", "Miss (low)", "Yes"), "disagrees with derived Miss (low)"],
+];
+for (const [label, mutate, expectedNeedle] of evidenceValueNegativeControls) {
   const issues = validatePolicyAgreement({ policyText: mutate(POLICY_TEXT), fixture, policy });
   const semantic = issues.find((message) => message.toLowerCase().includes(expectedNeedle.toLowerCase()));
   check(!!semantic, `negative control ${label}: mutation was not rejected with a semantic ${expectedNeedle} message`);
@@ -313,7 +332,7 @@ if (process.argv.includes("--check")) {
     process.exit(1);
   }
   console.log(`pass: executable Rule B over ${passCount} fixtures, ${missCount} allowlisted misses, rescue and eligibility paths covered`);
-  console.log(`pass: ${negativeControlMessages.length}/${negativeControls.length + evidenceNegativeControls.length + fixtureIdNegativeControls.length} existing critical-rule and fixture-ID negative controls rejected semantically`);
+  console.log(`pass: ${negativeControlMessages.length}/${negativeControls.length + evidenceNegativeControls.length + evidenceValueNegativeControls.length + fixtureIdNegativeControls.length} existing critical-rule, fixture-ID, and evidence-value negative controls rejected semantically`);
   console.log(`pass: ${policyMutationMessages.length}/${policyMutationControls.length} parsed-policy leaf and shape mutation controls rejected semantically`);
 } else {
   console.log(`policy version ${policy.policyVersion}: ${passCount} fixture rows, ${missCount} allowlisted misses`);

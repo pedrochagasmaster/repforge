@@ -19,6 +19,8 @@ const APPROVED_PATTERN_MAPPING = Object.freeze({
   hinge: "hip/hinge",
 });
 
+const APPROVED_EVIDENCE_STATUSES = Object.freeze(["Yes", "Miss (low)"]);
+
 // Every parsed contract leaf must have an explicit proof classification. Exact
 // leaves are owner-approved constants. Allowlist totals are derived from the
 // independent compiler fixture oracle below. An informational leaf would be
@@ -95,7 +97,7 @@ export function parseFixtureEvidence(markdown) {
       base: Number(match[2]),
       effective: Number(match[3]),
       ratio: match[4].trim(),
-      inBand: /^yes$/i.test(match[5].trim()),
+      status: match[5].trim(),
     });
   }
   const byId = new Map();
@@ -105,6 +107,19 @@ export function parseFixtureEvidence(markdown) {
     else byId.set(row.id, row);
   }
   return { rows, byId, duplicates };
+}
+
+export function formatEvidenceRatio(base, effective) {
+  if (!Number.isFinite(base) || !Number.isFinite(effective) || base <= 0) return null;
+  return `${((effective / base) * 100).toFixed(1)}%`;
+}
+
+function derivedEvidenceStatus(base, effective, band, allowlisted) {
+  if (!Number.isFinite(base) || !Number.isFinite(effective) || base <= 0) return null;
+  const ratio = effective / base;
+  if (ratio >= band.minimum && ratio <= band.maximum) return "Yes";
+  if (ratio < band.minimum && allowlisted) return "Miss (low)";
+  return null;
 }
 
 function list(values, conjunction, wrap) {
@@ -370,8 +385,30 @@ export function validatePolicyAgreement({ policyText, fixture, policy }) {
     evidence.rows.length === fixtureIds.length,
     `fixture evidence row count: expected ${fixtureIds.length}, found ${evidence.rows.length}`,
   );
-  const documentedMisses = new Set(evidence.rows.filter((row) => !row.inBand).map((row) => row.id));
   const executableMisses = new Set(Object.keys(policy.allowlistedMisses || {}));
+  for (const row of evidence.rows) {
+    const canonicalRatio = formatEvidenceRatio(row.base, row.effective);
+    fail(
+      row.ratio === canonicalRatio,
+      `fixture evidence ${row.id}: documented ratio ${row.ratio} disagrees with canonical ${canonicalRatio || "invalid"} ratio from ${row.base}→${row.effective}`,
+    );
+    fail(
+      APPROVED_EVIDENCE_STATUSES.includes(row.status),
+      `fixture evidence ${row.id}: status ${JSON.stringify(row.status)} is outside the closed vocabulary ${APPROVED_EVIDENCE_STATUSES.join(" / ")}`,
+    );
+    const expectedStatus = derivedEvidenceStatus(row.base, row.effective, band, executableMisses.has(row.id));
+    fail(
+      expectedStatus !== null,
+      `fixture evidence ${row.id}: ratio ${row.ratio} has no supported disposition; only in-band Yes or an approved low miss may be documented`,
+    );
+    if (expectedStatus !== null) {
+      fail(
+        row.status === expectedStatus,
+        `fixture evidence ${row.id}: status ${JSON.stringify(row.status)} disagrees with derived ${expectedStatus} disposition for ${row.ratio}`,
+      );
+    }
+  }
+  const documentedMisses = new Set(evidence.rows.filter((row) => row.status === "Miss (low)").map((row) => row.id));
   fail(
     JSON.stringify([...documentedMisses].sort()) === JSON.stringify([...executableMisses].sort()),
     `allowlist: executable misses ${[...executableMisses].sort().join(", ")} disagree with accepted evidence ${[...documentedMisses].sort().join(", ")}`,
@@ -405,9 +442,16 @@ export function validatePolicyAgreement({ policyText, fixture, policy }) {
     const base = slots.reduce((sum, slot) => sum + slot.sets, 0);
     const effective = result.effective.reduce((sum, value) => sum + value, 0);
     fail(base === expected.base && effective === expected.effective, `fixture ${compilationId}: executable Rule B gives ${base}→${effective}, accepted evidence is ${expected.base}→${expected.effective}`);
-    const ratio = effective / base;
-    const inBand = ratio >= band.minimum && ratio <= band.maximum;
-    fail(inBand === expected.inBand, `fixture ${compilationId}: executable band result ${inBand ? "in band" : "outside band"} disagrees with accepted evidence (${expected.ratio})`);
+    const canonicalRatio = formatEvidenceRatio(base, effective);
+    fail(canonicalRatio === expected.ratio, `fixture ${compilationId}: executable ratio ${canonicalRatio || "invalid"} disagrees with accepted evidence ${expected.ratio}`);
+    const derivedStatus = derivedEvidenceStatus(base, effective, band, executableMisses.has(compilationId));
+    fail(
+      derivedStatus !== null,
+      `fixture ${compilationId}: executable ratio ${canonicalRatio || "invalid"} has no supported evidence disposition`,
+    );
+    if (derivedStatus !== null) {
+      fail(expected.status === derivedStatus, `fixture ${compilationId}: accepted status ${JSON.stringify(expected.status)} disagrees with executable ${derivedStatus} disposition`);
+    }
     const optionalsKept = slots.some((slot, index) => slot.status === "optional" && result.effective[index] > 0);
     fail(!optionalsKept, `fixture ${compilationId}: optional slot retains working sets`);
     for (const pattern of policy.primaryPatterns || []) {
