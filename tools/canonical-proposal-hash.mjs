@@ -47,13 +47,13 @@ if (invoked && thisFile === invoked) {
   const fixture = JSON.parse(readFileSync(join(ROOT, "test", "fixtures", "transition-proposal-v1.json"), "utf8")).proposal;
   const EXPECTED_FIXTURE_DIGEST = "2935bf2c67fefb5e214532e789f7378509e329063efe0fc15927418882d55c0c";
   if (process.argv.includes("--check")) {
+    // Zero-mutation proof: snapshot BEFORE any hashing occurs.
+    const snapshotBefore = JSON.stringify(fixture);
     const digest = proposalHashOf(fixture);
     if (digest !== EXPECTED_FIXTURE_DIGEST) {
       console.error(`FAIL: fixture digest ${digest} != documented ${EXPECTED_FIXTURE_DIGEST}`);
       process.exit(1);
     }
-    // Zero-mutation proof: snapshot BEFORE hashing (not after), then compare.
-    const snapshotBefore = JSON.stringify(fixture);
     const frozen = deepClone(fixture);
     (function deepFreeze(v) {
       if (v !== null && typeof v === "object") {
@@ -72,15 +72,20 @@ if (invoked && thisFile === invoked) {
     // produces an own property, which the helper rejects outright.
     const safe = { kind: "guided_manual_repair" };
     const safeDigest = proposalHashOf(safe);
-    const hostile = JSON.parse('{"kind":"guided_manual_repair","__proto__":{"polluted":1}}');
-    let rejected = false;
-    try {
-      proposalHashOf(hostile);
-    } catch (err) {
-      rejected = err instanceof TypeError;
+    const hostileKeys = ["__proto__", "constructor", "prototype"];
+    let rejected = 0;
+    for (const key of hostileKeys) {
+      const raw = JSON.stringify(fixture).replace(/\}\s*$/, `,"${key}":1}`);
+      try {
+        proposalHashOf(JSON.parse(raw));
+      } catch (err) {
+        if (err instanceof TypeError) rejected += 1;
+      } finally {
+        const probe = {};
+        if (probe.polluted !== undefined || probe.prototype !== undefined) rejected = -1;
+      }
     }
-    const polluted = (() => { const o = {}; return o.polluted !== undefined; })();
-    if (!rejected || polluted || proposalHashOf(safe) !== safeDigest) {
+    if (rejected !== 3 || proposalHashOf(safe) !== safeDigest) {
       console.error("FAIL: hostile-key handling");
       process.exit(1);
     }

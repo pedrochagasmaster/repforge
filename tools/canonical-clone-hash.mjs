@@ -27,13 +27,13 @@ if (invoked && thisFile === invoked) {
   const envelope = JSON.parse(readFileSync(join(ROOT, "test", "fixtures", "install-transfer-clone-v1.json"), "utf8"));
   const EXPECTED_FIXTURE_DIGEST = "3c3aeb2da1aa5c5664fb9ef5ec64ab94571ee9ad37f73691c9c4f78341bbfb32";
   if (process.argv.includes("--check")) {
+    // Zero-mutation proof: snapshot BEFORE any hashing occurs.
+    const snapshotBefore = JSON.stringify(envelope);
     const digest = clonePayloadHashOf(envelope);
     if (digest !== EXPECTED_FIXTURE_DIGEST) {
       console.error(`FAIL: fixture digest ${digest} != documented ${EXPECTED_FIXTURE_DIGEST}`);
       process.exit(1);
     }
-    // Zero-mutation proof: snapshot BEFORE hashing.
-    const snapshotBefore = JSON.stringify(envelope);
     const frozen = deepClone(envelope);
     (function deepFreeze(v) {
       if (v !== null && typeof v === "object") {
@@ -50,15 +50,20 @@ if (invoked && thisFile === invoked) {
     // Hostile-key regression.
     const safe = { kind: "taurifer-install-transfer", schemaVersion: 1 };
     const safeDigest = clonePayloadHashOf(safe);
-    const hostile = JSON.parse('{"kind":"taurifer-install-transfer","schemaVersion":1,"__proto__":{"polluted":1}}');
-    let rejected = false;
-    try {
-      clonePayloadHashOf(hostile);
-    } catch (err) {
-      rejected = err instanceof TypeError;
+    const hostileKeys = ["__proto__", "constructor", "prototype"];
+    let rejected = 0;
+    for (const key of hostileKeys) {
+      const raw = JSON.stringify(envelope).replace(/\}\s*$/, `,"${key}":1}`);
+      try {
+        clonePayloadHashOf(JSON.parse(raw));
+      } catch (err) {
+        if (err instanceof TypeError) rejected += 1;
+      } finally {
+        const probe = {};
+        if (probe.polluted !== undefined || probe.prototype !== undefined) rejected = -1;
+      }
     }
-    const polluted = (() => { const o = {}; return o.polluted !== undefined; })();
-    if (!rejected || polluted || clonePayloadHashOf(safe) !== safeDigest) {
+    if (rejected !== 3 || clonePayloadHashOf(safe) !== safeDigest) {
       console.error("FAIL: hostile-key handling");
       process.exit(1);
     }
