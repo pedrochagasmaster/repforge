@@ -2032,7 +2032,11 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .program-editor-onboarding-actions .program-editor__activate{display:flex;align-items:center;justify-content:space-between;padding-inline:18px;background:var(--cta);color:var(--cta-ink);border-color:var(--cta)}
 .program-editor-onboarding-actions .program-editor__activate::after{content:"→";font-size:27px;color:var(--accent)}
 .program-editor-onboarding-actions .program-editor__save{background:var(--surface);color:var(--ink);border:1px solid var(--rule-strong)}
-.program-editor-onboarding-actions .program-editor__activate:disabled{opacity:.5}
+/* The onboarding selector is more specific than .btn--cta. Keep the blocked
+   Build action in the same calm, legible hierarchy as every other disabled
+   primary action instead of letting the active CTA fill leak back through. */
+.program-editor-onboarding-actions .program-editor__activate:disabled{opacity:1;background:var(--rule);color:var(--ink-soft);border-color:var(--rule)}
+.program-editor-onboarding-actions .program-editor__activate:disabled::after{color:var(--ink-faint)}
 
 /* Installed Program keeps the same editor grammar while matching the compact
    phone reference: the page title carries the weight, the week context sits
