@@ -20,6 +20,43 @@ node tools/build-program-family-fixtures.mjs
 node tools/build-program-family-fixtures.mjs --check
 ```
 
+## record-verification.mjs
+
+Records one command's actual stdout, stderr, exit status, duration, Node version,
+and Git HEAD/tree/status before and after execution. Use it for focused proof
+after committing a coherent slice. Run ordinary checks before committing too.
+
+```bash
+node tools/record-verification.mjs --output /tmp/taurifer-audit-proof.json -- node tools/extract-ui-audit-findings.mjs --check
+node --test test/verification-recorder.mjs
+```
+
+Choose a fresh output path outside the worktree. Existing reports are never
+overwritten. `--timeout-ms` defaults to 1200000 and accepts 1–3600000. The
+command and each argument follow `--`; no shell interprets them. The current
+directory and environment are inherited. Set required test environment variables
+before invoking the recorder. Environment values are not captured automatically.
+Do not pass secrets or real user data in commands or test output.
+
+Exit zero means `command-passed`: the actual child exited zero and Git remained
+clean at the same commit. Dirty source is refused before execution. Nonzero exit,
+timeout, spawn failure, output above 8 MiB, or a changed source cannot pass.
+On Unix, timeout/output-limit termination kills the command's process group.
+On Windows only the immediate child is terminated. Use finite commands that clean
+up their own resources, especially browser servers.
+
+Reports are execution records, not attestations of semantic coverage, hermetic
+environments, or owner approval. Ignored files, installed dependencies, external
+services, and transient edits restored before the final Git check are outside
+the source-state check. Pin relevant environments and inspect the test assertion
+when those affect the claim. The recorder does not infer which tests to run.
+Record environment prerequisites and assertion locations in the PR's acceptance
+contract under the [evidence protocol](../docs/agents/implementation-evidence.md).
+
+Upload reports as CI artifacts or attach them to the PR. Keep their tested SHA
+even when a later documentation-only commit changes the branch head. Current-head
+claims require a new run. This tool never labels a phase complete or changes a PR.
+
 ## build-i18n.mjs
 
 Rewrites the EN and PT dictionaries inside `i18n.js` from `i18n-en.json` and
