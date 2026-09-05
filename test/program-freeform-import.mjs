@@ -62,18 +62,27 @@ const REPLY = [
 
 async function reset(page) {
   await page.evaluate(async ({ k, d, setup, ui }) => {
+    try { window.closeOnboarding?.(); } catch {}
+    try { window.closeFirstRun?.(); } catch {}
+    try { await window.__repforgeStorage?.flush?.(); } catch {}
     for (const key of [k, d, setup, ui]) localStorage.removeItem(key);
+    localStorage.clear();
+    sessionStorage.clear();
     await new Promise((res) => {
       const req = indexedDB.deleteDatabase("repforge");
-      req.onsuccess = req.onerror = req.onblocked = () => res();
+      req.onsuccess = () => res();
+      req.onerror = () => res();
+      req.onblocked = () => res();
     });
   }, { k: KEY, d: DRAFT, setup: SETUP_DRAFT, ui: UI_KEY });
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page);
+  await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 20000 });
 }
 
 /** First run → hub → "Use my own program" → the paste door. */
 async function openFreeform(page) {
+  await page.waitForSelector("#firstRunCreate", { timeout: 20000 });
   await page.click("#firstRunCreate");
   await page.waitForSelector("#entryOwnToggle", { timeout: 20000 });
   await page.click("#entryOwnToggle");
@@ -211,6 +220,7 @@ async function main() {
     assert(await page.locator("#entryFreeformIn").isVisible(), "and the paste door is one tap back");
 
     await reset(page);
+    await page.waitForSelector("#firstRunCreate", { timeout: 20000 });
     await page.click("#firstRunCreate");
     await page.waitForSelector("#entryOwnToggle", { timeout: 20000 });
     await page.click("#entryOwnToggle");
