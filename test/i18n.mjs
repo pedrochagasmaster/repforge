@@ -178,6 +178,7 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes("entry.schedule.minutes.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.schedule.minutes.")) },
   { test: (s) => s.includes("entry.schedule.rest.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.schedule.rest.")) },
   { test: (s) => s.includes("entry.environment.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.environment.") && !k.endsWith(".title") && !k.endsWith(".lede")) },
+  { test: (s) => s.includes("entry.result.why_environment.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.result.why_environment.")) },
   { test: (s) => s.includes("entry.equip.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.equip.")) },
   { test: (s) => s.includes("entry.cap.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.cap.")) },
   { test: (s) => s.includes("entry.priorities.reason.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.priorities.reason.")) },

@@ -59,16 +59,16 @@ claims require a new run. This tool never labels a phase complete or changes a P
 
 ## build-i18n.mjs
 
-Rewrites the EN and PT dictionaries inside `i18n.js` from `i18n-en.json` and
-`i18n-pt.json`, leaving the runtime below them untouched.
+Rewrites `i18n.js` from `i18n-en.json`, `i18n-pt.json`, and
+`tools/i18n-runtime.js`.
 
 ```bash
 node tools/build-i18n.mjs           # regenerate
 node tools/build-i18n.mjs --check   # fail if i18n.js has drifted
 ```
 
-Edit the two JSON catalogs, then regenerate. `test/i18n.mjs` checks key parity,
-placeholders and catalog/runtime agreement; this does the mechanical half.
+Edit the two JSON catalogs or the runtime source, then regenerate.
+`test/i18n.mjs` checks key parity, placeholders, and catalog/runtime agreement.
 
 ## extract-ui-audit-findings.mjs
 
@@ -389,6 +389,11 @@ node tools/capture-ui-screens.mjs --screen today/day-picker # one screen
 node tools/capture-ui-screens.mjs --canonical               # one frame each
 node tools/capture-ui-screens.mjs --keep-going              # report, don't abort
 ```
+
+Every capture runs the rendered-copy, document/component-overflow, non-overlap,
+and intentional-scroller contract after its stable production scenario. The
+manifest's narrow `catalogChecks` metadata documents the only intentional
+scrollers; a marker alone is never an allowance.
 
 A filtered run merges into a copy of the committed catalog, so the folder on
 disk stays complete. Nothing replaces committed evidence until every requested
