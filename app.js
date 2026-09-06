@@ -5562,12 +5562,13 @@ window.__repforgeMatchCandidates=name=>{
   const result=classifyImportRow({name},pickableExercises());
   return{status:result.status,matchId:result.match?.id||null,
     candidateIds:(result.candidates||[]).map(c=>c.entry.id)}};
+window.__repforgeFreeformClipboard=()=>importFreeformFromClipboard();
 window.__repforgeFreeform={
   parseReply:text=>parseFreeformProgramReply(text),
   readGapEnvelope:candidate=>readFreeformGapEnvelope(candidate),
   assembleDocument:(gapResult,gapAnswers)=>assembleFreeformProgramDocument(gapResult,gapAnswers)};
 window.__repforgeImportDraft=()=>importDraft&&{
-  fileName:importDraft.fileName,format:importDraft.format,
+  fileName:importDraft.fileName,format:importDraft.format,sourceType:importDraft.sourceType||null,
   counts:importCounts(importDraft),
   rows:importDraft.rows.map(r=>({name:r.raw.name,status:r.status,decision:r.decision,
     reviewed:r.reviewed,match:r.match?r.match.id:null}))};
@@ -8936,6 +8937,12 @@ let entryImportMode=null,entryFreeformInput="",entryFreeformReply="";
 let entryFreeformStage=1,entryFreeformLastProvider=null;
 let entryFreeformGapResult=null,entryFreeformGapAnswers={},entryFreeformGapErrors=new Set(),entryFreeformStatus=null;
 let entryFreeformReplyInvalidated=false,entryFreeformFailReason=null;
+/* The clipboard read is the only asynchronous step in this flow, so its result
+   can arrive after the lifter has moved on. The epoch changes whenever the
+   free-form session stops being the one the read was started for; the sequence
+   number retires an older read when a newer one starts. */
+let entryFreeformEpoch=0,entryFreeformClipboardSeq=0;
+let entryFreeformClipboardBusy=false,entryFreeformClipboardNote=null;
 const entryFreeformCopiedApps=new Set();
 
 function loadFreeformSession(){
@@ -8993,6 +9000,8 @@ function clearStagedImportSource(){
 }
 
 function resetFreeformImport(){
+  entryFreeformEpoch++;
+  entryFreeformClipboardNote=null;
   entryFreeformInput="";
   entryFreeformReply="";
   entryFreeformStage=1;
@@ -9268,6 +9277,70 @@ const FREEFORM_REPAIR_KEYS={
 };
 function freeformRepairPrompt(){
   return t(FREEFORM_REPAIR_KEYS[entryFreeformFailReason]||FREEFORM_REPAIR_KEYS.no_json)}
+/* Everything that has to still be true for a finished clipboard read to belong
+   to this interaction. Compared by value, so a reply typed while the read was in
+   flight, an edited source, a new stage, the other import door or an import
+   review opened by any other route all retire the result. */
+function freeformClipboardToken(){
+  return{seq:entryFreeformClipboardSeq,epoch:entryFreeformEpoch,mode:importSourceMode(),
+    stage:entryFreeformStage,source:entryFreeformInput,reply:entryFreeformReply}}
+function freeformClipboardCurrent(token){
+  return token.seq===entryFreeformClipboardSeq&&token.epoch===entryFreeformEpoch&&
+    token.mode===importSourceMode()&&token.stage===entryFreeformStage&&
+    token.source===entryFreeformInput&&token.reply===entryFreeformReply&&!importDraft}
+
+/* The note lives in the markup so a failed read never costs the caret: it is
+   written in place rather than through a re-render, which would drop focus off
+   the button the lifter just pressed and away from the manual field. */
+function setFreeformClipboardNote(kind){
+  entryFreeformClipboardNote=kind||null;
+  const el=$("#entryFreeformClipNote");
+  if(!el)return;
+  el.textContent=kind?t("entry.freeform.clipboard_"+kind):"";
+  el.hidden=!kind;
+  el.setAttribute("role",kind==="empty"?"status":"alert")}
+function setFreeformClipboardBusy(busy){
+  const btn=$("#entryFreeformClipboard");
+  if(!btn)return;
+  btn.disabled=!!busy;
+  btn.setAttribute("aria-busy",busy?"true":"false");
+  btn.textContent=busy?t("entry.freeform.clipboard_busy"):t("entry.freeform.clipboard_import")}
+
+/* The fast way back from the assistant. Clipboard is transport and nothing
+   more: it fills the same reply the textarea fills and presses the same review
+   action, so every reply — complete, gapped, prose-wrapped or unreadable — is
+   read by exactly the code a typed reply goes through. */
+async function importFreeformFromClipboard(){
+  if(entryFreeformClipboardBusy)return false;
+  const read=navigator.clipboard?.readText;
+  if(typeof read!=="function"){setFreeformClipboardNote("unavailable");return false}
+  // Started before any bookkeeping so the user-gesture chain that iOS Safari
+  // requires for a clipboard read is not spent on our own work first.
+  let pending;
+  try{pending=navigator.clipboard.readText()}
+  catch{setFreeformClipboardNote("failed");return false}
+  entryFreeformClipboardSeq++;
+  const token=freeformClipboardToken();
+  entryFreeformClipboardBusy=true;
+  setFreeformClipboardNote(null);
+  setFreeformClipboardBusy(true);
+  let text=null,failed=false;
+  try{text=await pending}catch{failed=true}
+  entryFreeformClipboardBusy=false;
+  const current=freeformClipboardCurrent(token);
+  setFreeformClipboardBusy(false);
+  if(!current)return false;
+  if(failed){setFreeformClipboardNote("failed");return false}
+  if(!String(text||"").trim()){setFreeformClipboardNote("empty");return false}
+  // From here it is an ordinary reply. No parsing, no recovery, no telemetry.
+  entryFreeformReply=String(text);
+  entryFreeformStatus=null;
+  entryFreeformFailReason=null;
+  setFreeformClipboardNote(null);
+  saveFreeformSession();
+  startFreeformReview();
+  return true}
+
 async function copyFreeformPrompt(){
   const program=freeformProgram();
   if(!program){toast(t("entry.freeform.needs_input"));return false}
@@ -10547,6 +10620,12 @@ function renderFreeformSourceStep(){
       unreadableNotice+
       entryGroupLab(t("entry.freeform.stage3_title"),"clipboard")+
       `<p class="entry__hint">${esc(t("entry.freeform.stage3_hint"))}</p>`+
+      // The fastest way back from the assistant, and the first thing under the
+      // heading. Manual paste stays exactly where it was, one divider below.
+      `<button type="button" class="btn btn--cta" id="entryFreeformClipboard">${esc(t("entry.freeform.clipboard_import"))}</button>`+
+      `<p class="entry__notice entry__notice--warn" id="entryFreeformClipNote" role="alert"${entryFreeformClipboardNote?"":" hidden"}>`+
+        `${esc(entryFreeformClipboardNote?t("entry.freeform.clipboard_"+entryFreeformClipboardNote):"")}</p>`+
+      `<p class="entry__divider">${esc(t("entry.freeform.clipboard_or"))}</p>`+
       `<label class="entry__field entry__field--area"><span class="visually-hidden">${esc(t("entry.freeform.stage3_title"))}</span>`+
       `<textarea id="entryFreeformOut" rows="7" spellcheck="false" autocapitalize="off" placeholder="${esc(t("entry.freeform.output_placeholder"))}">${esc(entryFreeformReply)}</textarea></label>`+
       `<button type="button" class="btn btn--cta" id="entryFreeformReview">${esc(t("entry.freeform.review"))}</button>`+
@@ -10866,6 +10945,7 @@ function wireEntryDom(){
     entryFreeformReply=freeformOut.value;
     entryFreeformStatus=null;
     entryFreeformFailReason=null;
+    if(entryFreeformClipboardNote)setFreeformClipboardNote(null);
     saveFreeformSession();
   };
   wireFreeformAppControls();
@@ -10903,6 +10983,8 @@ function wireEntryDom(){
     await copyToClipboard(freeformRepairPrompt(),
       "entry.freeform.toast_repair_copied","toast.freeform_copy_failed");
   };
+  const freeformClipboard=$("#entryFreeformClipboard");
+  if(freeformClipboard)freeformClipboard.onclick=()=>importFreeformFromClipboard();
   const freeformReview=$("#entryFreeformReview");if(freeformReview)freeformReview.onclick=()=>startFreeformReview();
   const submitGaps=$("#entryFreeformSubmitGaps");if(submitGaps)submitGaps.onclick=()=>submitFreeformGaps();
   const backToReply=$("#entryFreeformBackToReply");if(backToReply)backToReply.onclick=()=>{entryFreeformGapResult=null;entryFreeformGapErrors.clear();renderOnboarding();};

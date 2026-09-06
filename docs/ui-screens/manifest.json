@@ -507,7 +507,7 @@
       "id": "freeform-stage3",
       "flow": "onboarding-import",
       "label": "Import — paste reply",
-      "scenario": "Stage 3 with collapsed source summary, reply textarea, Review CTA, Try another assistant, and Start over.",
+      "scenario": "Stage 3 with collapsed source summary, Import from clipboard, the \"or paste\" divider, reply textarea, Review CTA, Try another assistant, and Start over.",
       "variants": "accessibility"
     },
     {

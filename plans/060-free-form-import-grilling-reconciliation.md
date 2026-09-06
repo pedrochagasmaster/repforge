@@ -14,7 +14,7 @@
 ## Problem statement
 
 PR #225 shipped a free-form paste door: paste a program, hand it to ChatGPT or
-Claude with a prefilled prompt, paste the reply back, and fall into the existing
+Claude with a prefilled prompt, bring the reply back, and fall into the existing
 import review. Two independent grilling sessions then reviewed it. They agree on
 the important things and contradict each other on four, and both rest on two
 assumptions about the code that are false.
@@ -225,7 +225,8 @@ Stages, collapsing as they complete:
    low-emphasis disclosure, *Copy the prompt*. Copying advances to stage 3 with a
    note to come back. Source collapses to a summary with *Edit*; editing it
    invalidates a reply already pasted and says so.
-3. **Paste the assistant's reply** — reply field, revealed only after a handoff,
+3. **Paste the assistant's reply** — an *Import from clipboard* action first,
+   then the reply field, revealed only after a handoff,
    *Review the program*, *Try another assistant*. On return from the app switch,
    scroll this into view and mark it; do not force focus or the keyboard.
 
