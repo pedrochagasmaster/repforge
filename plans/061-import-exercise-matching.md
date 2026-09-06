@@ -70,9 +70,12 @@ lines:
 
 Scoring reliably moves the right answer *into* the visible set and does not
 reliably move it to *first place*, because some inputs are genuinely ambiguous.
-"Hack squat" ties Barbell hack squat against Hack squat machine at 0.89 and the
-source never says which. That asymmetry is why the row shows candidates rather
-than a verdict.
+"Hack squat" tied Barbell hack squat against Hack squat machine at 0.89 and the
+source never said which. That asymmetry is why the row shows candidates rather
+than a verdict. The owner has since settled this particular line: hack squat is
+a machine movement, the barbell entry is retired, and the ambiguity is gone from
+the corpus. The asymmetry it demonstrated is not, which is why the shortlist
+stays.
 
 ## Settled decisions
 
@@ -170,8 +173,8 @@ A fixture asserting input-to-expected across both languages, wired into
   set of acceptable ids rather than freezing a guess into a test.
 
 The owner arbitrates which rows are ambiguous and what their acceptable sets
-contain. `Hack squat` is the clear case: both `sqk_bb` and `sqk_mc` are
-defensible readings of a source that never says.
+contain. One case remains open: "Agachamento no Smith, pés à frente" accepts
+either the plain Smith squat or the chair squat.
 
 ### Telemetry
 
@@ -226,12 +229,14 @@ from `sw.js`; `CLAUDE.md` is stale on this.
 1. The review screen is the trust boundary. A confident wrong answer is worse
    than an honest list of candidates.
 2. Ambiguity is disclosed, not resolved by guessing. When the source does not
-   say whether Hack squat means the barbell or the machine, neither does
-   Taurifer.
+   say which of two movements it means, neither does Taurifer. Where the owner
+   settles the question in the library itself, the ambiguity stops existing.
 3. Provenance decides match strength. A curated alias arrives confirmed; a
    score-derived guess does not.
 4. Aliases add reach, never meaning. An id keeps pointing at the movement it
-   always pointed at.
+   always pointed at. A retired movement keeps resolving through
+   `LEGACY_LIBRARY_IDS` rather than having its id reused, so a program saved
+   against it does not lose a slot.
 5. Improvement is measured before it is claimed. The corpus says whether
    matching got better; the field event says whether it got better for people
    whose programs we have never seen.

@@ -24,7 +24,6 @@ const EXERCISE_LIBRARY = [
   {id:"sqf_bb",name:"Barbell front squat",namePt:"Agachamento frontal com barra",equipment:["barbell"],primary:"Quads",secondary:"Glutes,Hamstrings,Calves",patterns:["squat"],rank:50,beginnerFriendly:true,media:"assets/exercises/sqf_bb.webp",mediaBg:"#ebdfcb",src:"exdb:0042"},
   {id:"gb_bb",name:"Barbell glute bridge",namePt:"Elevação pélvica com barra",equipment:["barbell"],primary:"Hamstrings,Glutes",secondary:"Spinal erectors",patterns:["hinge"],rank:50,beginnerFriendly:true,src:"exdb:1409"},
   {id:"gm_bb",name:"Barbell good morning",namePt:"Bom dia com barra",equipment:["barbell"],primary:"Hamstrings,Glutes",secondary:"Spinal erectors",patterns:["hinge"],rank:50,beginnerFriendly:true,src:"exdb:0044"},
-  {id:"sqk_bb",name:"Barbell hack squat",namePt:"Agachamento hack com barra",equipment:["barbell"],primary:"Quads",secondary:"Glutes,Hamstrings,Calves",patterns:["squat"],rank:50,beginnerFriendly:true,src:"exdb:0046"},
   {id:"sqh_bb",name:"Barbell high bar squat",namePt:"Agachamento barra alta",equipment:["barbell"],primary:"Quads",secondary:"Glutes,Hamstrings,Calves",patterns:["squat"],rank:50,beginnerFriendly:true,src:"exdb:1436"},
   {id:"ht_bb",name:"Barbell hip thrust",namePt:"Elevação pélvica com barra",equipment:["barbell"],primary:"Glutes",secondary:"Hamstrings",patterns:["hinge"],rank:50,beginnerFriendly:true,media:"assets/exercises/ht_bb.webp",mediaBg:"#f2e9da"},
   {id:"ip_bb",name:"Barbell incline press",namePt:"Supino inclinado com barra",equipment:["barbell"],primary:"Chest",secondary:"Front delts,Triceps",patterns:["incline_press"],rank:0,beginnerFriendly:false,media:"assets/exercises/ip_bb.webp",mediaBg:"#e7d6c2",src:"exdb:0047"},
@@ -99,6 +98,7 @@ const EXERCISE_LIBRARY = [
   {id:"absb_cb",name:"Cable side bend",namePt:"Flexão lateral de tronco na polia",equipment:["cable"],primary:"Abs",secondary:"Obliques",patterns:["abs"],rank:50,beginnerFriendly:true,src:"exdb:0222"},
   {id:"cv_cb",name:"Cable standing calf raise",namePt:"Elevação de panturrilha em pé na polia",equipment:["cable"],primary:"Calves",secondary:"",patterns:["calves"],rank:50,beginnerFriendly:true,src:"exdb:1375"},
   {id:"abst_cb",name:"Cable standing crunch",namePt:"Abdominal em pé na polia",equipment:["cable"],primary:"Abs",secondary:"Obliques",patterns:["abs"],rank:50,beginnerFriendly:true,src:"exdb:0226"},
+  {id:"ha_cb",name:"Cable standing hip abduction",namePt:"Abdução de quadril em pé na polia",equipment:["cable"],primary:"Abductors",secondary:"Glutes",patterns:["abduction"],rank:50,beginnerFriendly:true,aliases:["Abdução em pé no cabo","Abdução no cabo","Abdução em pé","Standing hip abduction"]},
   {id:"he_cb",name:"Cable standing hip extension",namePt:"Extensão de quadril em pé na polia",equipment:["cable"],primary:"Hamstrings,Glutes",secondary:"Quads",patterns:["hinge"],rank:50,beginnerFriendly:true,src:"exdb:0228"},
   {id:"rwv_cb",name:"Cable standing row (v-bar)",namePt:"Remada em pé na polia com barra V",equipment:["cable"],primary:"Mid/upper back",secondary:"Biceps",patterns:["row"],rank:50,beginnerFriendly:true,src:"exdb:0234"},
   {id:"plr_cb",name:"Cable straight arm pulldown (with rope)",namePt:"Pulldown com braços estendidos na polia com corda",equipment:["cable"],primary:"Lats",secondary:"",patterns:["pull"],rank:50,beginnerFriendly:true,src:"exdb:0237"},
@@ -285,7 +285,7 @@ const EXERCISE_LIBRARY = [
 
 /* Ids that used to name a movement Taurifer now stores under a single entry.
    Programs generated before the merge still carry them in libraryId. */
-const LEGACY_LIBRARY_IDS = {dl_mc:"lr_mc",dl_db:"lr_db",ar_mc:"cu_mc",ar_db:"cu_db"};
+const LEGACY_LIBRARY_IDS = {dl_mc:"lr_mc",dl_db:"lr_db",ar_mc:"cu_mc",ar_db:"cu_db",sqk_bb:"sqk_mc"};
 
 /* Scoped so these names stay out of the global script scope app.js shares with
    every other classic script — only the namespace below is exported. */

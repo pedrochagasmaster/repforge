@@ -1413,14 +1413,6 @@
     "_srcName": "barbell front squat"
   },
   {
-    "id": "sqk_bb",
-    "src": "exdb:0046",
-    "patterns": [
-      "squat"
-    ],
-    "_srcName": "barbell hack squat"
-  },
-  {
     "id": "lg_bb",
     "src": "exdb:0054",
     "patterns": [
@@ -2003,6 +1995,26 @@
     ],
     "_srcName": "lever seated hip adduction",
     "name": "Hip adduction machine"
+  },
+  {
+    "id": "ha_cb",
+    "patterns": [
+      "abduction"
+    ],
+    "name": "Cable standing hip abduction",
+    "namePt": "Abdução de quadril em pé na polia",
+    "equipment": [
+      "cable"
+    ],
+    "primary": "Abductors",
+    "secondary": "Glutes",
+    "beginnerFriendly": true,
+    "aliases": [
+      "Abdução em pé no cabo",
+      "Abdução no cabo",
+      "Abdução em pé",
+      "Standing hip abduction"
+    ]
   },
   {
     "id": "ab_mc",

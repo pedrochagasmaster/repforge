@@ -39,22 +39,17 @@ export const LOOSE = [
     was: "nothing proposed: contains the library name exactly but scored 2/5 = 0.40" },
   { input: "Abdução de quadril na máquina", ids: ["ab_mc"],
     was: "he_mc Machine hip extension at 0.67; the library calls it 'Cadeira abdutora'" },
+  { input: "Abdução em pé no cabo", ids: ["ha_cb"],
+    was: "no candidates at all; the library had no cable abduction" },
   { input: "RDL", ids: ["hg_bb"],
     was: "no candidates at all; needs an alias" },
   { input: "Banco Romano 45°, ênfase em glúteo", ids: ["hx_bw"],
     was: "nothing usable; topped out at 0.31 against Glute-ham raise" },
 
+  { input: "Hack squat", ids: ["sqk_mc"],
+    was: "sqk_bb won a 0.67 tie on array position; that entry is now retired" },
+
   // Owner arbitration open. Both readings are defensible and the source is silent.
-  { input: "Hack squat", ids: ["sqk_mc", "sqk_bb"], arbitration: true,
-    was: "sqk_bb won a 0.67 tie over sqk_mc on array position" },
   { input: "Agachamento no Smith, pés à frente", ids: ["sq_sm", "sqc_sm"], arbitration: true,
     was: "sqc_sm won a three-way tie at 0.50; sq_sm is the plainer reading" },
-];
-
-/* The library has one abduction entry, `ab_mc`, and it is a machine. A standing
- * cable abduction has no representation, so "Keep the name" may be the honest
- * outcome rather than any match. Left out of both tiers until the owner rules. */
-export const UNRESOLVED = [
-  { input: "Abdução em pé no cabo",
-    question: "No cable abduction exists in the library. Match ab_mc anyway, or expect no candidates?" },
 ];
