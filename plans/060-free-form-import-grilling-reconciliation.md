@@ -311,11 +311,17 @@ when the copy fails; the session survives a simulated discard and is cleared on
 each of the five exits; `notImported` renders localized prose and never JSON.
 
 Because `app.js`, `styles.css` and both catalogues change: bump `CACHE` in `sw.js`
-(`repforge-v112` → `v113`) and move the `?v=` revisions for `shared-setup.js` and
-`app.js` in both `index.html` and `sw.js`, in lockstep. Because user-visible
-surfaces change: re-run `node tools/capture-ui-screens.mjs` and commit the
-refreshed PNGs, adding the new stage and gap-resolution states to
-`docs/ui-screens/manifest.json`.
+and move every `?v=` revision that tracks it, in `index.html` and `sw.js`, in
+lockstep. Read the current number off `sw.js` rather than off `CLAUDE.md`, which
+is stale — this branch is at `repforge-v176`, so the next is `v177`, and the
+revision is carried by `program-compiler.js`, `program-entry.js`,
+`program-entry-adapter.js`, `shared-setup.js` and `app.js`. `program-editor.js`
+sits at `v168` deliberately; move it only if it changes.
+
+Because user-visible surfaces change: re-run `node tools/capture-ui-screens.mjs`
+and commit the refreshed PNGs, adding the new stage and gap-resolution states to
+`docs/ui-screens/manifest.json` with scenarios in
+`tools/ui-screens/screens-onboarding.mjs`.
 
 ## Standing principles
 
