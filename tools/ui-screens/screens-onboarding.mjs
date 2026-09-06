@@ -234,9 +234,9 @@ async function importTo(page, step) {
   await page.waitForSelector("#onboarding.active #entryActivate", { timeout: 25000 });
 }
 
-/* The paste door of the import route. `filled` is the state a lifter is
-   actually looking at when they decide which app to hand the program to; the
-   empty state is what the door opens as. */
+/* The paste door of the import route. Covers stage 1 empty and filled,
+   stage 2 assistant choice, stage 3 reply paste, gap resolution (clean and invalid),
+   and unreadable reply recovery. */
 async function freeformTo(page, step) {
   await openHub(page);
   await page.click("#entryOwnToggle");
@@ -253,6 +253,44 @@ async function freeformTo(page, step) {
     undefined,
     { timeout: 20000 }
   );
+  if (step === "filled") return;
+  await page.click("#entryFreeformContinue");
+  await page.waitForSelector("#entryFreeformCopy", { timeout: 20000 });
+  if (step === "stage2") return;
+  await page.click("#entryFreeformCopy");
+  await page.waitForSelector("#entryFreeformOut", { timeout: 20000 });
+  if (step === "stage3") return;
+  if (step === "unreadable") {
+    await page.fill("#entryFreeformOut", portuguese
+      ? "Desculpe, não consegui entender este formato de treino."
+      : "Sorry, I could not parse this workout format.");
+    await page.click("#entryFreeformReview");
+    await page.waitForSelector("#entryFreeformCopyRepair", { timeout: 20000 });
+    return;
+  }
+  const gapReply = JSON.stringify({
+    version: 3,
+    meta: { name: "Push Pull Split" },
+    exercises: [
+      { day: "Push", order: 1, name: "Bench press", sets: 4, min: 6, max: 8 },
+      { day: "Push", order: 2, name: "Cable flyes", sets: 3 },
+      { day: "Pull", order: 1, name: "Lat pulldown", min: 10, max: 12 }
+    ],
+    missing: [
+      { day: "Push", order: 2, field: "reps" },
+      { day: "Pull", order: 1, field: "sets" }
+    ],
+    notImported: ["rest_times", "rir_rpe"]
+  });
+  await page.fill("#entryFreeformOut", gapReply);
+  await page.click("#entryFreeformReview");
+  await page.waitForSelector("#entryFreeformSubmitGaps", { timeout: 20000 });
+  if (step === "gaps") return;
+  if (step === "gaps-invalid") {
+    await page.click("#entryFreeformSubmitGaps");
+    await page.waitForSelector(".entry__field-input.is-invalid", { timeout: 20000 });
+    return;
+  }
 }
 
 /** Land on the setup-link gate, which is the shared route's real entrance. */
@@ -450,6 +488,11 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-import/source": (page) => importTo(page, "source"),
   "onboarding-import/freeform-empty": (page) => freeformTo(page, "paste"),
   "onboarding-import/freeform-filled": (page) => freeformTo(page, "filled"),
+  "onboarding-import/freeform-stage2": (page) => freeformTo(page, "stage2"),
+  "onboarding-import/freeform-stage3": (page) => freeformTo(page, "stage3"),
+  "onboarding-import/freeform-gaps": (page) => freeformTo(page, "gaps"),
+  "onboarding-import/freeform-gaps-invalid": (page) => freeformTo(page, "gaps-invalid"),
+  "onboarding-import/freeform-unreadable": (page) => freeformTo(page, "unreadable"),
   "onboarding-import/preview": (page) => importTo(page, "preview"),
 
   "onboarding-shared/gate": (page) => sharedTo(page, "gate"),

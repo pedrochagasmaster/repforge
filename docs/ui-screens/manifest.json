@@ -497,6 +497,41 @@
       "variants": "accessibility"
     },
     {
+      "id": "freeform-stage2",
+      "flow": "onboarding-import",
+      "label": "Import — choose an assistant",
+      "scenario": "Stage 2 with collapsed source summary, Edit button, ChatGPT and Claude buttons, and Preview prompt disclosure.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "freeform-stage3",
+      "flow": "onboarding-import",
+      "label": "Import — paste reply",
+      "scenario": "Stage 3 with collapsed source summary, reply textarea, Review CTA, Try another assistant, and Start over.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "freeform-gaps",
+      "flow": "onboarding-import",
+      "label": "Import — resolve gaps",
+      "scenario": "Gap resolution screen with inputs for missing sets and reps, and the non-imported disclosure.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "freeform-gaps-invalid",
+      "flow": "onboarding-import",
+      "label": "Import — gap validation error",
+      "scenario": "Gap resolution screen after submitting empty inputs, highlighting invalid fields with .is-invalid and aria-invalid.",
+      "variants": "localized"
+    },
+    {
+      "id": "freeform-unreadable",
+      "flow": "onboarding-import",
+      "label": "Import — unreadable reply",
+      "scenario": "Unreadable reply recovery block with Copy repair prompt and Try another assistant actions.",
+      "variants": "localized"
+    },
+    {
       "id": "preview",
       "flow": "onboarding-import",
       "label": "Import — review",
