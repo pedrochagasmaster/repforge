@@ -1352,6 +1352,7 @@ body.is-sheet-open{overflow:hidden}
 .libstep__bar{height:3px;border-radius:2px;background:var(--rule-strong)}
 .libstep__bar.is-done{background:var(--accent-deep)}
 #libSearch{margin:0 0 12px}
+#libFilters{display:block;overflow:visible;margin:0;padding:0}
 .pick__filters--row{margin:10px -16px 0;padding:0 16px 2px}
 .pick__list--page{max-height:none;overflow:visible;margin:12px -16px 0;padding:0 16px}
 
@@ -1812,10 +1813,10 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .pmeta__row{display:flex;flex-wrap:wrap;align-items:flex-end;gap:12px}
 .pmeta__name{flex:1;min-width:min(12rem,100%);margin-top:0;font-size:.6875rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
 .pmeta__name input{margin-top:5px;font-weight:600;font-size:1rem;text-transform:none;letter-spacing:normal;padding:10px 11px;background:var(--surface)}
-.pmeta__started{flex:none;margin-top:0;font-size:.6875rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
+.pmeta__started{flex:1 1 min(100%,10rem);min-width:0;max-width:100%;margin-top:0;font-size:.6875rem;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);font-weight:600}
 /* 16px, like every other field: below that iOS zooms the page in on focus and
    leaves it there. */
-.pmeta__started input{margin-top:5px;font-size:1rem;padding:9px 11px;background:var(--surface);color-scheme:var(--scheme)}
+.pmeta__started input{box-sizing:border-box;width:100%;min-width:0;max-width:100%;margin-top:5px;font-size:1rem;padding:9px 11px;background:var(--surface);color-scheme:var(--scheme)}
 .pmeta__chips{display:flex;flex-wrap:wrap;gap:7px;align-items:center;margin-left:auto}
 .pmeta__chip{font-size:.75rem;color:var(--ink-soft);background:var(--surface);border:1px solid var(--rule);border-radius:999px;padding:6px 10px;white-space:nowrap}
 .pmeta__chip--status{color:var(--ink);border-color:var(--rule-strong);font-weight:600}
@@ -1955,9 +1956,9 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .program-editor__stepper button:hover{background:var(--well)}
 .program-editor__rep-rule{height:1px;background:var(--rule);margin:0 0 18px}
 .program-editor__range{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin:0;padding:0;border:0}
-.program-editor__range legend{grid-column:1/-1;padding:0;margin:0 0 -4px}
-.program-editor__range label,.program-editor__more label{display:block;color:var(--ink-soft);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
-.program-editor__range input,.program-editor__more input{display:block;width:100%;margin-top:6px;padding:11px 14px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:8px;color:var(--ink);font-size:18px;font-weight:400;letter-spacing:0;text-transform:none}
+.program-editor__range legend{grid-column:1/-1;padding:0;margin:0 0 4px}
+.program-editor__range label,.program-editor__more label{display:block;min-width:0;color:var(--ink-soft);font-size:12px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.program-editor__range input,.program-editor__more input{display:block;box-sizing:border-box;width:100%;min-width:0;margin-top:6px;padding:11px 14px;background:var(--surface);border:1px solid var(--rule-strong);border-radius:8px;color:var(--ink);font-size:18px;font-weight:400;letter-spacing:0;text-transform:none}
 .program-editor__range input:focus,.program-editor__more input:focus{border-color:var(--accent);outline:2px solid rgba(var(--accent-rgb),.2);outline-offset:1px}
 .program-editor__exercise-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:18px -16px 0;padding:0 16px;border-top:1px solid var(--rule)}
 .program-editor__exercise-actions button{min-height:62px;padding:8px 0;border:0;background:transparent;cursor:pointer;font-size:16px;font-weight:500}
@@ -2026,12 +2027,23 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .program-editor-onboarding .program-editor__stepper button,.program-editor-onboarding .program-editor__stepper output{min-height:56px}
 .program-editor-onboarding .program-editor__exercise-actions{margin-top:14px}
 .program-editor-onboarding .program-editor__exercise-actions button{min-height:50px}
+@media (max-width:340px){
+  /* A compact Build header keeps its editable exercise name on a complete row.
+     The summary/toggle remain below it, so an actual input value never becomes
+     a horizontally clipped control at the supported 320px phone width. */
+  .program-editor-onboarding .program-editor__exercise-head{flex-wrap:wrap}
+  .program-editor-onboarding .program-editor__exercise-name{flex:1 1 100%;min-width:0}
+}
 .program-editor-onboarding-actions{display:flex;flex-direction:column;gap:16px;margin:16px 0 12px}
 .program-editor-onboarding-actions .btn{width:100%;min-height:52px;height:52px;font-size:17px}
 .program-editor-onboarding-actions .program-editor__activate{display:flex;align-items:center;justify-content:space-between;padding-inline:18px;background:var(--cta);color:var(--cta-ink);border-color:var(--cta)}
 .program-editor-onboarding-actions .program-editor__activate::after{content:"→";font-size:27px;color:var(--accent)}
 .program-editor-onboarding-actions .program-editor__save{background:var(--surface);color:var(--ink);border:1px solid var(--rule-strong)}
-.program-editor-onboarding-actions .program-editor__activate:disabled{opacity:.5}
+/* The onboarding selector is more specific than .btn--cta. Keep the blocked
+   Build action in the same calm, legible hierarchy as every other disabled
+   primary action instead of letting the active CTA fill leak back through. */
+.program-editor-onboarding-actions .program-editor__activate:disabled{opacity:1;background:var(--rule);color:var(--ink-soft);border-color:var(--rule)}
+.program-editor-onboarding-actions .program-editor__activate:disabled::after{color:var(--ink-faint)}
 
 /* Installed Program keeps the same editor grammar while matching the compact
    phone reference: the page title carries the weight, the week context sits
@@ -2045,16 +2057,19 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .program-editor-installed .program-editor__days{gap:10px}
 .program-editor-installed .program-editor__day-head{min-height:58px;padding:7px 16px}
 .program-editor-installed .program-editor__exercise-head{min-height:56px;padding:5px 16px}
+.program-editor-installed .program-editor__exercise-head{flex-wrap:wrap;align-items:flex-start}
+.program-editor-installed .program-editor__exercise-name{flex:1 1 calc(100% - 52px);white-space:normal;overflow-wrap:anywhere;line-height:1.25}
+.program-editor-installed .program-editor__summary{margin-left:auto;align-self:center}
 .program-editor-installed .program-editor__exercise-body{padding:12px 16px 0}
 .program-editor-installed .program-editor__sets{display:block;min-height:0}
 .program-editor-installed .program-editor__sets .program-editor__field-label{display:block;margin-bottom:8px}
 .program-editor-installed .program-editor__stepper{width:100%;grid-template-columns:1fr 1.2fr 1fr;min-height:48px}
 .program-editor-installed .program-editor__stepper button,.program-editor-installed .program-editor__stepper output{min-height:46px}
 .program-editor-installed .program-editor__rep-rule{margin:14px 0 16px}
-.program-editor-installed .program-editor__range{row-gap:4px}
+.program-editor-installed .program-editor__range{row-gap:12px}
 .program-editor-installed .program-editor__range input{margin-top:2px;padding:10px 14px}
-.program-editor-installed .program-editor__exercise-actions{margin-top:10px}
-.program-editor-installed .program-editor__exercise-actions button{min-height:46px}
+.program-editor-installed .program-editor__exercise-actions{flex-wrap:wrap;margin-top:10px}
+.program-editor-installed .program-editor__exercise-actions button{flex:1 1 8rem;min-width:0;min-height:46px;white-space:normal}
 .program-editor-installed .program-editor__add{
   min-height:44px;margin:0;padding:6px 16px;border:1px solid var(--rule-strong);border-radius:9px;
   background:var(--surface);color:var(--ink);font-size:17px
@@ -2597,12 +2612,12 @@ body.is-sheet-open .installbanner{display:none}
 .edhead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px}
 .edate{display:flex;flex-direction:column;align-items:flex-end;color:var(--ink-soft);font-size:11px;gap:0;text-transform:uppercase;letter-spacing:.08em}
 .edate input{width:auto;margin-top:5px;padding:9px 11px;font-size:16px}
-.edrow{display:grid;grid-template-columns:1fr 4.2rem 3.4rem 3.4rem auto;gap:8px;align-items:center;margin-top:8px}
+.edrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,20%) minmax(0,17%) minmax(0,17%) 44px;gap:8px;align-items:center;margin-top:8px}
 .edrow--head span{text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;color:var(--ink-faint);text-align:center;font-weight:600}
 .edrow--head span:first-child{text-align:left}
 .edrow__name{font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .edrow__name small{color:var(--ink-faint)}
-.edrow__in{margin-top:0;text-align:center;font-size:16px;padding:9px 4px;background:var(--surface)}
+.edrow__in{width:100%;min-width:0;margin-top:0;text-align:center;font-size:16px;padding:9px 4px;background:var(--surface)}
 .edrow__rm{
   justify-self:end;display:inline-flex;align-items:center;justify-content:center;
   width:44px;height:44px;flex:none;padding:0;cursor:pointer;
@@ -2759,7 +2774,7 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
   .setrow input{font-size:16px;padding:12px 2px}
   .stepbtn{width:44px;min-width:44px;font-size:17px}
   .saveset,.sets__head .sets__head-save{min-width:44px;padding:0 4px}
-  .edrow{grid-template-columns:1fr 3.4rem 3rem 3rem auto;gap:6px}
+  .edrow{grid-template-columns:minmax(0,1fr) minmax(0,20%) minmax(0,17%) minmax(0,17%) 44px;gap:6px}
   .curset__val{font-size:26px}
 }
 
@@ -3262,12 +3277,12 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
    as one horizontal band where they fit; a selected numeric segment fills
    graphite with a restrained copper underline. */
 .entry-body .onb__opts.onb__seg{
-  flex-direction:row;gap:0;border:1px solid var(--rule);border-radius:12px;
+  flex-direction:row;flex-wrap:wrap;gap:0;border:1px solid var(--rule);border-radius:12px;
   background:var(--surface);overflow:hidden
 }
 .entry-body .onb__opts.onb__seg .radio-card{
-  flex:1 1 0;min-width:0;flex-direction:column;justify-content:center;text-align:center;
-  gap:2px;min-height:62px;padding:10px 6px;border:0;border-left:1px solid var(--rule);
+  flex:1 1 6rem;min-width:6rem;flex-direction:column;justify-content:center;text-align:center;
+  gap:2px;min-height:62px;padding:10px 6px;border:0;border-left:1px solid var(--rule);border-top:1px solid var(--rule);
   border-radius:0;box-shadow:none;background:transparent
 }
 .entry-body .onb__opts.onb__seg .radio-card:first-child{border-left:0}
@@ -3280,10 +3295,6 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 }
 .entry-body .onb__opts.onb__seg .radio-card.is-selected .radio-card__title,
 .entry-body .onb__opts.onb__seg .radio-card.is-selected .radio-card__cap{color:var(--cta-ink)}
-@media (max-width:360px){
-  .entry-body .onb__opts.onb__seg{flex-wrap:wrap}
-  .entry-body .onb__opts.onb__seg .radio-card{flex:1 0 33.33%;border-top:1px solid var(--rule)}
-}
 
 /* Tiles: the short-label muscle and movement checkboxes. Bounded cards in a
    responsive grid, checkbox mark trailing. */
@@ -3318,8 +3329,8 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry__muscle-row:first-child{border-top:0}
 .entry__muscle-name{display:flex;align-items:center;justify-content:space-between;gap:10px;font-size:.875rem;font-weight:600;color:var(--ink)}
 .entry__muscle-current{flex:none;padding:3px 7px;border:1px solid var(--rule-strong);border-radius:999px;font-size:.625rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink-faint)}
-.entry__muscle-states{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
-.entry__muscle-state{min-height:40px;padding:7px 4px;border:1px solid var(--rule);border-radius:8px;background:var(--well);color:var(--ink-soft);font:inherit;font-size:.6875rem;font-weight:600;line-height:1.15;text-align:center}
+.entry__muscle-states{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,9rem),1fr));gap:6px}
+.entry__muscle-state{min-height:44px;padding:7px 8px;border:1px solid var(--rule);border-radius:8px;background:var(--well);color:var(--ink-soft);font:inherit;font-size:.6875rem;font-weight:600;line-height:1.15;text-align:center;overflow-wrap:anywhere}
 .entry__muscle-state:hover{border-color:var(--rule-strong);color:var(--ink)}
 .entry__muscle-state:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .entry__muscle-state.is-selected{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--entry-tint);color:var(--accent-deep)}
@@ -3343,7 +3354,6 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry__exercise-selected{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:11px 12px;border:1px solid var(--rule);border-radius:10px;background:var(--surface);font-size:.875rem;color:var(--ink)}
 .entry__exercise-empty{padding:0 2px}
 @media (max-width:360px){
-  .entry__muscle-states{grid-template-columns:repeat(2,minmax(0,1fr))}
   .entry__exercise-result{align-items:flex-start;flex-direction:column}
   .entry__exercise-actions{width:100%}
   .entry__exercise-action{flex:1 1 0}
@@ -3358,7 +3368,7 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry-body .onb__opts--reasons .radio-card__body{flex:0 0 auto}
 .entry-body .onb__opts--reasons .radio-card__title{font-size:.8125rem}
 
-.entry-body .onb__q{margin:0 0 6px;text-wrap:balance}
+.entry-body .onb__q{margin:0 0 6px;text-wrap:balance;overflow-wrap:anywhere}
 .entry-body .onb__explain{margin:0 0 20px;font-size:.9375rem;line-height:1.45;color:var(--ink-soft)}
 .entry-body .onb__explain:last-child{margin-bottom:0}
 .entry-body .entry__hint{margin:0 0 18px}

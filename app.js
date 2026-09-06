@@ -6445,7 +6445,10 @@ function updateOnboardingEditorActions(){
   if(issues.length)button.setAttribute("aria-describedby","entryEditorStatus");else button.removeAttribute("aria-describedby");
   const status=$("#onbProgramEditor [data-role=\"editor-status\"]");if(!status)return;
   const progression=issues.some(issue=>issue.startsWith("progression_incompatible:"));
-  const emptyDays=issues.filter(issue=>issue.startsWith("day_empty:"));
+  const emptyDays=issues.filter(issue=>issue.startsWith("day_empty:")).map(issue=>
+    entryState.result?.preview?.programStructure?.days
+      ?.find(day=>day.dayId===issue.slice("day_empty:".length))?.label
+      ||issue.slice("day_empty:".length));
   const message=progression?editorAdapterTranslate("entry.editor.progression_invalid",undefined,"This program has an unsupported progression pairing."):
     issues.some(issue=>issue.startsWith("exercise_invalid:"))?editorAdapterTranslate("entry.editor.exercise_invalid",undefined,"Complete each exercise before continuing."):
       emptyDays.length?editorAdapterTranslate("entry.editor.empty_days",{days:emptyDays.join(", ")},"Add an exercise to each training day."):
@@ -8334,8 +8337,14 @@ function renderLibraryFilters(){
   const muscleRow=[chip("clear","",t("picker.filter_all"),!libFlow.muscle&&!libFlow.equipment)]
     .concat(PICKER_MUSCLE_GROUPS.map(([key])=>chip("muscle",key,t("picker.group."+key),libFlow.muscle===key)));
   const equipRow=PICKER_EQUIPMENT.map(eq=>chip("equipment",eq,t("picker.equipment."+eq),libFlow.equipment===eq));
-  el.innerHTML=`<div class="pick__filters pick__filters--row">${muscleRow.join("")}</div>`+
-    `<div class="pick__filters pick__filters--row">${equipRow.join("")}</div>`;
+  const scroller=(id,items)=>`<div id="${id}" class="pick__filters pick__filters--row" `+
+    `data-allow-horizontal-scroll="x" data-horizontal-scroll-cue="partial-last-chip" tabindex="0">${items.join("")}</div>`;
+  el.innerHTML=scroller("libMuscleFilters",muscleRow)+scroller("libEquipmentFilters",equipRow);
+  $$("#libFilters [data-allow-horizontal-scroll]").forEach(row=>row.onkeydown=(event)=>{
+    if(!["ArrowLeft","ArrowRight","Home","End"].includes(event.key))return;
+    const left=event.key==="Home"?-row.scrollWidth:event.key==="End"?row.scrollWidth:event.key==="ArrowLeft"?-80:80;
+    row.scrollBy({left,behavior:"auto"});event.preventDefault();
+  });
   $$("#libFilters .pchip").forEach(b=>b.onclick=()=>{
     const kind=b.dataset.lf;
     if(kind==="clear"){libFlow.muscle=null;libFlow.equipment=null}
@@ -9701,12 +9710,12 @@ function renderResultStep(){
   const goal=explanation.desiredResult?t(`entry.desired_result.${explanation.desiredResult}.label`):"";
   const days=explanation.daysPerWeek||preview.frequency||"";
   const minutes=explanation.sessionMinutes||"";
-  const environment=entryEnvironmentLabel({environment:{kind:explanation.mainConstraint}});
+  const environmentKind=explanation.mainConstraint;
   const exercisePreferences=entryExercisePreferenceLabel();
   const whyRows=[
     goal?{icon:"flex",text:t("entry.result.why_goal",{goal})}:null,
     days&&minutes?{icon:"cal",text:t("entry.result.why_schedule",{days,minutes})}:null,
-    environment?{icon:"building",text:t("entry.result.why_environment",{environment})}:null,
+    environmentKind?{icon:"building",text:t(`entry.result.why_environment.${environmentKind}`)}:null,
     entryEquipmentLabel()?{icon:"dumbbell",text:t("entry.result.why_equipment",{equipment:entryEquipmentLabel()})}:null,
     (entryPriorityLabel()!==t("entry.preview.priorities_none"))?{icon:"target",text:t("entry.result.why_priorities",{priorities:entryPriorityLabel()})}:null,
     custom&&exercisePreferences!==t("entry.preview.exercise_preferences_none")?{icon:"dumbbell",text:t("entry.result.why_exercise_preferences",{preferences:exercisePreferences})}:null,
