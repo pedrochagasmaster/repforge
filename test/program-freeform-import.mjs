@@ -267,6 +267,23 @@ async function main() {
       try { await window.__repforgeStorage?.flush?.(); } catch {}
     });
 
+    console.log("\nThe prompt contract: strict transcription without contradiction");
+    await reset(page);
+    await page.evaluate(() => window.RepForgeI18n.setLang("en"));
+    await openFreeform(page);
+    await page.fill("#entryFreeformIn", PASTED);
+    const enPrompt = await page.evaluate(() =>
+      decodeURIComponent((document.querySelector('[data-freeform-app="claude"]')?.href || "").split("?q=")[1] || "")
+    );
+    assert(!/closest sensible/i.test(enPrompt),
+      "prompt does not instruct the assistant to choose closest sensible numbers");
+    assert(!/choose the closest/i.test(enPrompt),
+      "prompt does not license invention of missing numbers");
+    assert(/Preserve exercise selection/i.test(enPrompt),
+      "prompt requires strict preservation of exercise names, order and days");
+    assert(/missing/i.test(enPrompt) && /notImported/i.test(enPrompt),
+      "prompt specifies missing and notImported sidecars");
+
     console.log("\nPortuguese reads the same screen");
     await reset(page);
     await page.evaluate(() => window.RepForgeI18n.setLang("pt"));
