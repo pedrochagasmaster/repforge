@@ -1715,5 +1715,9 @@
   "entry.cap.training_support": "Opções de apoio disponíveis",
   "entry.priorities.avoid_search": "Pesquisar exercícios a evitar",
   "entry.priorities.avoid_remove": "Remover",
-  "entry.confirm.replace": "Substituir o programa atual? O histórico salvo permanece. O Taurifer arquiva o programa ativo."
+  "entry.confirm.replace": "Substituir o programa atual? O histórico salvo permanece. O Taurifer arquiva o programa ativo.",
+  "entry.freeform.copy_chatgpt": "Copiar pedido para o ChatGPT",
+  "entry.freeform.copy_claude": "Copiar pedido para o Claude",
+  "entry.freeform.open_chatgpt_copied": "Abrir no ChatGPT (pedido copiado)",
+  "entry.freeform.open_claude_copied": "Abrir no Claude (pedido copiado)"
 }

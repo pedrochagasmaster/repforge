@@ -8782,10 +8782,11 @@ const freeformCountLabel=()=>t("entry.freeform.count",{
   n:entryFreeformInput.length.toLocaleString(locTag()),
   max:FREEFORM_MAX_CHARS.toLocaleString(locTag())});
 const FREEFORM_APPS={
-  chatgpt:{base:"https://chatgpt.com/",param:"q",label:"entry.freeform.open_chatgpt"},
-  claude:{base:"https://claude.ai/new",param:"q",label:"entry.freeform.open_claude"},
+  chatgpt:{base:"https://chatgpt.com/",param:"q",label:"entry.freeform.open_chatgpt",copyLabel:"entry.freeform.copy_chatgpt",copiedLabel:"entry.freeform.open_chatgpt_copied"},
+  claude:{base:"https://claude.ai/new",param:"q",label:"entry.freeform.open_claude",copyLabel:"entry.freeform.copy_claude",copiedLabel:"entry.freeform.open_claude_copied"},
 };
 let entryImportMode=null,entryFreeformInput="",entryFreeformReply="";
+const entryFreeformCopiedApps=new Set();
 /** Which import door this device used last. A preference about this screen, so
  *  it lives with the other device-only UI prefs and never touches state. */
 function importSourceMode(){
@@ -8795,7 +8796,7 @@ function setImportSourceMode(mode,{render=true}={}){
   entryImportMode=mode==="freeform"?"freeform":"file";
   setUiPref("importSourceMode",entryImportMode);
   if(render)renderOnboarding()}
-function resetFreeformImport(){entryFreeformInput="";entryFreeformReply=""}
+function resetFreeformImport(){entryFreeformInput="";entryFreeformReply="";entryFreeformCopiedApps.clear()}
 const freeformProgram=()=>String(entryFreeformInput||"").trim();
 /** The prompt is one localized string: the lifter reads what they are sending
  *  before they send it, and the translation is reviewed like any other copy. */
@@ -8856,15 +8857,14 @@ async function copyFreeformPrompt(){
   return copyToClipboard(freeformPrompt(program),
     "toast.freeform_prompt_copied","toast.freeform_copy_failed")}
 /* The link itself does the navigating — a real anchor survives a standalone
-   install where window.open does not. This only refuses an empty send, and
-   puts the prompt on the clipboard when it was too long for the link. */
+   install where window.open does not. Long prompts are copied in advance via
+   the two-tap flow, so navigation never races clipboard writes. */
 function openFreeformApp(app,event){
   const program=freeformProgram();
   if(!FREEFORM_APPS[app]||!program){
     event?.preventDefault?.();
     toast(t("entry.freeform.needs_input"));
     return false}
-  if(!freeformAppUrl(app,freeformPrompt(program)))copyFreeformPrompt();
   return true}
 /** The reply becomes an ordinary import draft: same review, same activation. */
 function startFreeformReview(){
@@ -9951,10 +9951,41 @@ function renderImportFileStep(){
     `<p class="entry__switch"><button type="button" class="btn btn--ghost" id="entryFreeformSwitch">${esc(t("entry.import_source.to_freeform"))}</button></p>`}
 function freeformAppLink(app){
   const program=freeformProgram();
-  return `<a class="btn btn--steel entry__freeform-app${program?"":" is-disabled"}" data-freeform-app="${esc(app)}"`+
-    ` href="${esc(freeformAppHref(app,program))}" target="_blank" rel="noopener noreferrer"`+
-    (program?"":` aria-disabled="true" aria-describedby="entryFreeformNeeds"`)+
-    `>${esc(t(FREEFORM_APPS[app].label))}</a>`}
+  const spec=FREEFORM_APPS[app];
+  if(!spec)return"";
+  if(!program){
+    return `<a class="btn btn--steel entry__freeform-app is-disabled" data-freeform-app="${esc(app)}"`+
+      ` href="${esc(spec.base)}" target="_blank" rel="noopener noreferrer"`+
+      ` aria-disabled="true" aria-describedby="entryFreeformNeeds"`+
+      `>${esc(t(spec.label))}</a>`}
+  const prompt=freeformPrompt(program);
+  const directUrl=freeformAppUrl(app,prompt);
+  if(directUrl){
+    return `<a class="btn btn--steel entry__freeform-app" data-freeform-app="${esc(app)}"`+
+      ` href="${esc(directUrl)}" target="_blank" rel="noopener noreferrer"`+
+      `>${esc(t(spec.label))}</a>`}
+  if(entryFreeformCopiedApps.has(app)){
+    return `<a class="btn btn--steel entry__freeform-app" data-freeform-app="${esc(app)}" data-freeform-copied="true"`+
+      ` href="${esc(spec.base)}" target="_blank" rel="noopener noreferrer"`+
+      `>${esc(t(spec.copiedLabel))}</a>`}
+  return `<button type="button" class="btn btn--steel entry__freeform-app" data-freeform-app="${esc(app)}" data-freeform-long="true"`+
+    `>${esc(t(spec.copyLabel))}</button>`}
+function wireFreeformAppControls(){
+  $$("[data-freeform-app]").forEach(el=>{
+    if(el.tagName==="BUTTON"){
+      el.onclick=async(event)=>{
+        event?.preventDefault?.();
+        const app=el.dataset.freeformApp;
+        const ok=await copyFreeformPrompt();
+        if(ok){
+          entryFreeformCopiedApps.add(app);
+          refreshFreeformControls();
+        }
+      };
+    }else{
+      el.onclick=event=>openFreeformApp(el.dataset.freeformApp,event);
+    }
+  });}
 function renderFreeformSourceStep(){
   const program=freeformProgram();
   return entryHeading(t("entry.freeform.title"))+`<p class="onb__explain">${esc(t("entry.freeform.lede"))}</p>`+
@@ -9983,13 +10014,11 @@ function refreshFreeformControls(){
   const program=freeformProgram();
   const count=$("#entryFreeformCount");
   if(count)count.textContent=freeformCountLabel();
-  for(const app of Object.keys(FREEFORM_APPS)){
-    const link=$(`[data-freeform-app="${app}"]`);
-    if(!link)continue;
-    link.href=freeformAppHref(app,program);
-    link.classList.toggle("is-disabled",!program);
-    if(program){link.removeAttribute("aria-disabled");link.removeAttribute("aria-describedby")}
-    else{link.setAttribute("aria-disabled","true");link.setAttribute("aria-describedby","entryFreeformNeeds")}}
+  const appsContainer=$(".entry__freeform-apps");
+  if(appsContainer){
+    appsContainer.innerHTML=Object.keys(FREEFORM_APPS).map(freeformAppLink).join("");
+    wireFreeformAppControls();
+  }
   const needs=$("#entryFreeformNeeds");if(needs)needs.hidden=!!program;
   const copy=$("#entryFreeformCopy");if(copy)copy.disabled=!program}
 function entryPreviewHasProgressionIssue(preview=entryState?.result?.preview){
@@ -10246,12 +10275,21 @@ function wireEntryDom(){
   const freeformIn=$("#entryFreeformIn");
   if(freeformIn)freeformIn.oninput=()=>{
     entryFreeformInput=freeformIn.value.slice(0,FREEFORM_MAX_CHARS);
+    entryFreeformCopiedApps.clear();
     refreshFreeformControls()};
   const freeformOut=$("#entryFreeformOut");
   if(freeformOut)freeformOut.oninput=()=>{entryFreeformReply=freeformOut.value};
-  $$("[data-freeform-app]").forEach(link=>{
-    link.onclick=event=>openFreeformApp(link.dataset.freeformApp,event)});
-  const freeformCopy=$("#entryFreeformCopy");if(freeformCopy)freeformCopy.onclick=()=>copyFreeformPrompt();
+  wireFreeformAppControls();
+  const freeformCopy=$("#entryFreeformCopy");
+  if(freeformCopy)freeformCopy.onclick=async()=>{
+    const ok=await copyFreeformPrompt();
+    if(ok){
+      for(const app of Object.keys(FREEFORM_APPS)){
+        entryFreeformCopiedApps.add(app);
+      }
+      refreshFreeformControls();
+    }
+  };
   const freeformReview=$("#entryFreeformReview");if(freeformReview)freeformReview.onclick=()=>startFreeformReview();
   $$("[data-entry-pick]").forEach(btn=>btn.onclick=()=>{
     const key=btn.dataset.entryPick,raw=btn.dataset.entryVal,multi=btn.dataset.entryMulti==="1";

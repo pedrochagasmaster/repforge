@@ -267,6 +267,78 @@ async function main() {
       try { await window.__repforgeStorage?.flush?.(); } catch {}
     });
 
+    console.log("\nLong-prompt path: two-tap form with clipboard confirmation");
+    await reset(page);
+    await openFreeform(page);
+    const LONG_PROGRAM = "Day 1\n" + Array.from({length: 60}, (_, i) => `Exercise ${i + 1} with a descriptive name and long notes about technique 3x10-12`).join("\n");
+    await page.fill("#entryFreeformIn", LONG_PROGRAM);
+
+    const longState = await page.evaluate(() => {
+      const btn = document.querySelector('[data-freeform-app="chatgpt"]');
+      return {
+        tagName: btn?.tagName,
+        isLong: btn?.dataset.freeformLong === "true",
+        href: btn?.getAttribute("href"),
+        text: btn?.textContent || "",
+      };
+    });
+    assert(longState.tagName === "BUTTON" && longState.isLong && !longState.href,
+      "long prompt renders as a copy button rather than a direct anchor", JSON.stringify(longState));
+
+    // Branch 1: Copy failure -> stays in Taurifer, nothing navigates
+    await page.evaluate(() => {
+      window.__originalClipboard = navigator.clipboard.writeText;
+      navigator.clipboard.writeText = () => Promise.reject(new Error("clipboard denied"));
+      document.execCommand = () => false;
+    });
+    await page.click('[data-freeform-app="chatgpt"]');
+    const failedState = await page.evaluate(() => {
+      const btn = document.querySelector('[data-freeform-app="chatgpt"]');
+      return {
+        tagName: btn?.tagName,
+        href: btn?.getAttribute("href"),
+      };
+    });
+    assert(failedState.tagName === "BUTTON" && !failedState.href,
+      "when clipboard copy fails, nothing navigates and the button stays a button");
+
+    // Branch 2: Copy success -> reveals anchor pointing to provider base URL
+    await page.evaluate(() => {
+      navigator.clipboard.writeText = () => Promise.resolve();
+    });
+    await page.click('[data-freeform-app="chatgpt"]');
+    await page.waitForFunction(() => {
+      const el = document.querySelector('[data-freeform-app="chatgpt"]');
+      return el && el.tagName === "A";
+    });
+    const copiedState = await page.evaluate(() => {
+      const a = document.querySelector('[data-freeform-app="chatgpt"]');
+      return {
+        tagName: a?.tagName,
+        isCopied: a?.dataset.freeformCopied === "true",
+        href: a?.href || "",
+        target: a?.target,
+        text: a?.textContent || "",
+      };
+    });
+    assert(copiedState.tagName === "A" && copiedState.isCopied && copiedState.href === "https://chatgpt.com/" && copiedState.target === "_blank",
+      "when copy succeeds, button is replaced by direct anchor to assistant base URL", JSON.stringify(copiedState));
+    assert(copiedState.text.includes("prompt copied") || copiedState.text.includes("copiado"),
+      "revealed anchor indicates prompt is already copied on the clipboard", copiedState.text);
+
+    // Editing input resets the copied state back to tap 1
+    await page.focus("#entryFreeformIn");
+    await page.keyboard.type(" ");
+    const invalidatedState = await page.evaluate(() => {
+      const btn = document.querySelector('[data-freeform-app="chatgpt"]');
+      return {
+        tagName: btn?.tagName,
+        isLong: btn?.dataset.freeformLong === "true",
+      };
+    });
+    assert(invalidatedState.tagName === "BUTTON" && invalidatedState.isLong,
+      "editing the prompt invalidates previous copy and restores the first tap button");
+
     console.log("\nThe prompt contract: strict transcription without contradiction");
     await reset(page);
     await page.evaluate(() => window.RepForgeI18n.setLang("en"));

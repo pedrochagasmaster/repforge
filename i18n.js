@@ -1718,6 +1718,10 @@ const EN = {
   "entry.priorities.avoid_search": "Search exercises to avoid",
   "entry.priorities.avoid_remove": "Remove",
   "entry.confirm.replace": "Replace your current program? Logged history stays. Taurifer archives the active program.",
+  "entry.freeform.copy_chatgpt": "Copy prompt for ChatGPT",
+  "entry.freeform.copy_claude": "Copy prompt for Claude",
+  "entry.freeform.open_chatgpt_copied": "Open ChatGPT (prompt copied)",
+  "entry.freeform.open_claude_copied": "Open Claude (prompt copied)",
 };
 const PT = {
   "meta.description": "O Taurifer mantém seus treinos, rascunhos e histórico neste dispositivo. Links de configuração compartilham um programa e ajustes selecionados.",
@@ -3437,6 +3441,10 @@ const PT = {
   "entry.priorities.avoid_search": "Pesquisar exercícios a evitar",
   "entry.priorities.avoid_remove": "Remover",
   "entry.confirm.replace": "Substituir o programa atual? O histórico salvo permanece. O Taurifer arquiva o programa ativo.",
+  "entry.freeform.copy_chatgpt": "Copiar pedido para o ChatGPT",
+  "entry.freeform.copy_claude": "Copiar pedido para o Claude",
+  "entry.freeform.open_chatgpt_copied": "Abrir no ChatGPT (pedido copiado)",
+  "entry.freeform.open_claude_copied": "Abrir no Claude (pedido copiado)",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

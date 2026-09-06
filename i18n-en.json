@@ -1715,5 +1715,9 @@
   "entry.cap.training_support": "Training support / spotting options",
   "entry.priorities.avoid_search": "Search exercises to avoid",
   "entry.priorities.avoid_remove": "Remove",
-  "entry.confirm.replace": "Replace your current program? Logged history stays. Taurifer archives the active program."
+  "entry.confirm.replace": "Replace your current program? Logged history stays. Taurifer archives the active program.",
+  "entry.freeform.copy_chatgpt": "Copy prompt for ChatGPT",
+  "entry.freeform.copy_claude": "Copy prompt for Claude",
+  "entry.freeform.open_chatgpt_copied": "Open ChatGPT (prompt copied)",
+  "entry.freeform.open_claude_copied": "Open Claude (prompt copied)"
 }
