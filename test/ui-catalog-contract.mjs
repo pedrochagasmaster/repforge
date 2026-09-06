@@ -56,10 +56,23 @@ try {
     assert.ok(raw.some((failure) => failure.startsWith("raw internal copy (day_empty:)")), `raw-key artifact is rejected: ${raw.join(" | ")}`);
     console.log(`deliberate raw-key rejection: ${raw.find((failure) => failure.startsWith("raw internal copy (day_empty:)"))}`);
 
+    const objectCopy = await injectedFailures('<div id="catalogContractBad"><p id="catalogObjectCopy">[object Object]</p></div>');
+    assert.ok(objectCopy.some((failure) => failure.startsWith("unresolved rendered copy: [object Object]")),
+      `an object-coercion artifact with punctuation boundaries is rejected: ${objectCopy.join(" | ")}`);
+    console.log(`deliberate object-copy rejection: ${objectCopy.find((failure) => failure.startsWith("unresolved rendered copy: [object Object]"))}`);
+
     const dottedKey = await injectedFailures('<div id="catalogContractBad"><p id="catalogDottedKey">picker.equipment.band</p></div>');
     assert.ok(dottedKey.some((failure) => failure.startsWith("raw translation key picker.equipment.band")),
       `known dotted translation-key artifact is rejected: ${dottedKey.join(" | ")}`);
     console.log(`deliberate dotted-key rejection: ${dottedKey.find((failure) => failure.startsWith("raw translation key picker.equipment.band"))}`);
+
+    const placeholderKey = await injectedFailures('<div id="catalogContractBad"><input id="catalogPlaceholderKey" placeholder="picker.equipment.band"></div>');
+    assert.ok(placeholderKey.some((failure) => failure.includes("raw translation key picker.equipment.band")),
+      `a displayed input placeholder is included in rendered-copy evidence: ${placeholderKey.join(" | ")}`);
+    const valueKey = await injectedFailures('<div id="catalogContractBad"><input id="catalogValueKey" value="picker.equipment.band" placeholder="translated placeholder"></div>');
+    assert.ok(valueKey.some((failure) => failure.includes("raw translation key picker.equipment.band")),
+      `a displayed input value takes precedence over its hidden placeholder: ${valueKey.join(" | ")}`);
+    console.log(`deliberate input-copy rejections: ${placeholderKey.find((failure) => failure.includes("raw translation key"))}; ${valueKey.find((failure) => failure.includes("raw translation key"))}`);
 
     await en.page.evaluate(() => {
       document.body.insertAdjacentHTML("beforeend", '<div id="catalogContractBad"><p id="dynamic-missing"></p></div>');
@@ -99,6 +112,15 @@ try {
     const clipped = await injectedFailures('<div id="catalogContractBad" style="position:fixed;top:100px;left:0"><button style="display:block;width:20px;padding:0;white-space:nowrap;overflow:hidden">Clipped control text</button></div>');
     assert.ok(clipped.some((failure) => failure.startsWith("clipped button")), `clipped-control artifact is rejected: ${clipped.join(" | ")}`);
     console.log(`deliberate clipped-control rejection: ${clipped.find((failure) => failure.startsWith("clipped button"))}`);
+
+    const verticallyClipped = await injectedFailures('<div id="catalogContractBad" style="position:fixed;top:160px;left:0"><button id="catalogVerticalClip" style="display:block;width:120px;max-height:44px;line-height:20px;overflow:hidden">One<br>Two<br>Three<br>Four</button></div>');
+    assert.ok(verticallyClipped.some((failure) => failure.startsWith("clipped button #catalogVerticalClip") && failure.includes("axes=y")),
+      `a vertically clipped control is rejected: ${verticallyClipped.join(" | ")}`);
+    console.log(`deliberate vertical-clipping rejection: ${verticallyClipped.find((failure) => failure.startsWith("clipped button #catalogVerticalClip"))}`);
+
+    const nativeTextarea = await injectedFailures('<div id="catalogContractBad"><textarea id="catalogNativeTextarea" style="display:block;width:120px;height:44px;overflow:auto">One\nTwo\nThree\nFour</textarea></div>');
+    assert.ok(!nativeTextarea.some((failure) => failure.includes("#catalogNativeTextarea")),
+      `native textarea scrolling remains allowed: ${nativeTextarea.join(" | ")}`);
 
     const rogueScroller = await injectedFailures('<div id="catalogContractBad"><div id="rogue" data-catalog-layout data-allow-horizontal-scroll="x" style="width:20px;overflow:hidden;white-space:nowrap">Rogue overflowing element</div></div>');
     assert.ok(rogueScroller.some((failure) => failure.startsWith("clipped div #rogue")),

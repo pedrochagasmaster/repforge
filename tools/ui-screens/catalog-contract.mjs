@@ -38,12 +38,20 @@ export function collectCatalogEvidence(config = {}) {
   const overflow = [];
   for (const element of document.querySelectorAll(layoutSelector)) {
     if (!visible(element) || element.clientWidth < 1) continue;
-    if (element.scrollWidth > element.clientWidth + 1) {
-      const style = getComputedStyle(element);
+    const style = getComputedStyle(element);
+    const overflowsX = element.scrollWidth > element.clientWidth + 1;
+    const nativeVerticalScroller = ["textarea", "select"].includes(element.tagName.toLowerCase())
+      && ["auto", "scroll", "overlay"].includes(style.overflowY);
+    const overflowsY = element.scrollHeight > element.clientHeight + 1 &&
+      ["hidden", "clip"].includes(style.overflowY) && !nativeVerticalScroller;
+    if (overflowsX || overflowsY) {
       overflow.push({
         locator: stableLocator(element), tag: element.tagName.toLowerCase(),
         clientWidth: element.clientWidth, scrollWidth: element.scrollWidth,
-        overflowX: style.overflowX, allowed: element.getAttribute("data-allow-horizontal-scroll"),
+        clientHeight: element.clientHeight, scrollHeight: element.scrollHeight,
+        axes: [overflowsX ? "x" : null, overflowsY ? "y" : null].filter(Boolean),
+        overflowX: style.overflowX, overflowY: style.overflowY,
+        allowed: element.getAttribute("data-allow-horizontal-scroll"),
         box: rect(element),
       });
     }
@@ -93,6 +101,14 @@ export function collectCatalogEvidence(config = {}) {
     const directText = [...element.childNodes].filter((node) => node.nodeType === Node.TEXT_NODE).map((node) => node.textContent || "").join("").trim();
     if (directText) text.push({ locator: stableLocator(element), text: directText });
     if (element.hasAttribute("aria-label")) text.push({ locator: stableLocator(element), text: element.getAttribute("aria-label") || "" });
+    if (element.matches("input, textarea")) {
+      const displayed = element.value || element.getAttribute("placeholder") || "";
+      if (displayed) text.push({ locator: stableLocator(element), text: displayed });
+    }
+    if (element.matches("select")) {
+      const displayed = [...element.selectedOptions].map((option) => option.textContent || "").join(" ").trim();
+      if (displayed) text.push({ locator: stableLocator(element), text: displayed });
+    }
   }
   const requestedI18nKeys = [...document.querySelectorAll("[data-i18n], [data-i18n-aria], [data-i18n-placeholder], [data-i18n-title]")]
     .filter(visible)
@@ -109,7 +125,7 @@ export function collectCatalogEvidence(config = {}) {
 }
 
 const rawKey = /\b[a-z][\w-]*(?:\.[a-z][\w-]*){1,}\b/g;
-const unresolved = /\b(?:undefined|null|\[object Object\])\b|\{[A-Za-z][\w.-]*\}/;
+const unresolved = /\b(?:undefined|null)\b|\[object Object\]|\{[A-Za-z][\w.-]*\}/;
 const stableIdLocator = /^#[A-Za-z][\w-]*$/;
 
 export function validateCatalogMetadata(manifest) {
@@ -165,7 +181,8 @@ export function validateCatalogEvidence(evidence, config, { knownKeyNamespaces =
   }
   for (const item of evidence.overflow) {
     const allowance = evidence.scrollers.find((scroller) => scroller.locator === item.locator);
-    if (!allowance) failures.push(`clipped ${item.tag} ${item.locator}: client=${item.clientWidth} scroll=${item.scrollWidth} box=${JSON.stringify(item.box)}`);
+    const unallowedAxes = item.axes.filter((axis) => axis !== "x" || !allowance);
+    if (unallowedAxes.length) failures.push(`clipped ${item.tag} ${item.locator}: axes=${unallowedAxes.join(",")} client=${item.clientWidth}x${item.clientHeight} scroll=${item.scrollWidth}x${item.scrollHeight} overflow=${item.overflowX}/${item.overflowY} box=${JSON.stringify(item.box)}`);
   }
   for (const scroller of evidence.scrollers) {
     if (scroller.missing) failures.push(`intentional scroller missing: ${scroller.locator}`);
