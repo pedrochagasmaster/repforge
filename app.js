@@ -8827,7 +8827,7 @@ const FREEFORM_SESSION_KEY="repforge_freeform_session_v1";
 let entryImportMode=null,entryFreeformInput="",entryFreeformReply="";
 let entryFreeformStage=1,entryFreeformLastProvider=null;
 let entryFreeformGapResult=null,entryFreeformGapAnswers={},entryFreeformGapErrors=new Set(),entryFreeformStatus=null;
-let entryFreeformReplyInvalidated=false;
+let entryFreeformReplyInvalidated=false,entryFreeformFailReason=null;
 const entryFreeformCopiedApps=new Set();
 
 function loadFreeformSession(){
@@ -8839,6 +8839,9 @@ function loadFreeformSession(){
     if(typeof data.reply==="string")entryFreeformReply=data.reply;
     if(Number.isInteger(data.stage)&&data.stage>=1&&data.stage<=3)entryFreeformStage=data.stage;
     if(typeof data.lastProvider==="string")entryFreeformLastProvider=data.lastProvider;
+    entryFreeformCopiedApps.clear();
+    if(Array.isArray(data.copiedApps))
+      for(const app of data.copiedApps)if(FREEFORM_APPS[app])entryFreeformCopiedApps.add(app);
     return true;
   }catch{
     return false;
@@ -8856,6 +8859,7 @@ function saveFreeformSession(){
       reply:entryFreeformReply||"",
       stage:entryFreeformStage||1,
       lastProvider:entryFreeformLastProvider||null,
+      copiedApps:[...entryFreeformCopiedApps],
     };
     sessionStorage.setItem(FREEFORM_SESSION_KEY,JSON.stringify(data));
   }catch{}
@@ -8889,6 +8893,7 @@ function resetFreeformImport(){
   entryFreeformGapAnswers={};
   entryFreeformGapErrors.clear();
   entryFreeformStatus=null;
+  entryFreeformFailReason=null;
   entryFreeformReplyInvalidated=false;
   entryFreeformCopiedApps.clear();
   clearFreeformSession();
@@ -8905,12 +8910,10 @@ function setImportSourceMode(mode,{render=true}={}){
   }
   entryImportMode=mode==="freeform"?"freeform":"file";
   setUiPref("importSourceMode",entryImportMode);
-  if(entryImportMode==="file"){
-    clearFreeformSession();
-  }else{
-    loadFreeformSession();
-  }
-  captureEvent("program_import_started",{source:entryImportMode});
+  // Clearing only the stored copy left the text in memory, so a lifter who
+  // confirmed the discard got it back by switching doors again.
+  if(entryImportMode==="file")resetFreeformImport();
+  else loadFreeformSession();
   if(render)renderOnboarding()}
 const freeformProgram=()=>String(entryFreeformInput||"").trim();
 /** The prompt is one localized string: the lifter reads what they are sending
@@ -8965,7 +8968,7 @@ function extractNotImported(obj){
 function parseRepsInput(str){
   if(typeof str!=="string"&&typeof str!=="number")return null;
   const s=String(str).trim();
-  const mRange=s.match(/^(\d+)\s*(?:[-–—xX/]|to)\s*(\d+)$/i);
+  const mRange=s.match(/^(\d+)\s*(?:[-–—/]|to)\s*(\d+)$/i);
   if(mRange){
     const min=parseInt(mRange[1],10),max=parseInt(mRange[2],10);
     if(min>=1&&min<=1000&&max>=min&&max<=1000)return{min,max};
@@ -9081,10 +9084,16 @@ function readFreeformGapEnvelope(candidate){
 
 function assembleFreeformProgramDocument(gapResult,gapAnswers){
   if(!gapResult||!gapResult.exercises||!gapAnswers)return null;
-  const rows=[];
+  const rows=[],orders=new Map();
   for(let i=0;i<gapResult.exercises.length;i++){
     const row=gapResult.exercises[i];
     const copy={...row};
+    // Order is the row's position within its day. Deriving it here rather than
+    // trusting the reply keeps a partly numbered envelope from producing two
+    // rows that claim the same slot.
+    const nextOrder=(orders.get(copy.day)||0)+1;
+    orders.set(copy.day,nextOrder);
+    copy.order=nextOrder;
     if(copy.sets===undefined){
       const val=gapAnswers[`${i}::sets`];
       const parsedSets=parseSetsInput(val);
@@ -9138,8 +9147,19 @@ function parseFreeformProgramReply(text){
   const directGap=readFreeformGapEnvelope(raw);
   if(directGap)return directGap;
 
-  return {status:"unreadable"};}
+  // Which failure it was decides which repair prompt the lifter can send back.
+  return{status:"unreadable",reason:candidates.length?"invalid_rows":"no_json"};}
 
+/* A repair prompt that names what actually broke. Missing numbers are no longer
+   a failure — they go to the gap step — so what is left is structural, and the
+   lifter should be able to paste back something more useful than "try again". */
+const FREEFORM_REPAIR_KEYS={
+  no_json:"entry.freeform.repair_no_json",
+  invalid_rows:"entry.freeform.repair_invalid_rows",
+  assemble_failed:"entry.freeform.repair_assemble_failed",
+};
+function freeformRepairPrompt(){
+  return t(FREEFORM_REPAIR_KEYS[entryFreeformFailReason]||FREEFORM_REPAIR_KEYS.no_json)}
 async function copyFreeformPrompt(){
   const program=freeformProgram();
   if(!program){toast(t("entry.freeform.needs_input"));return false}
@@ -9160,7 +9180,7 @@ function openFreeformApp(app,event){
   entryFreeformStage=3;
   entryFreeformLastProvider=app;
   saveFreeformSession();
-  renderOnboarding();
+  setTimeout(renderOnboarding,0);
   return true}
 function loadFreeformProgram(source){
   pendingImportIo=null;
@@ -9181,6 +9201,7 @@ function startFreeformReview(){
   const source=parseFreeformProgramReply(reply);
   if(!source||source.status==="unreadable"){
     entryFreeformStatus="unreadable";
+    entryFreeformFailReason=source?.reason||"no_json";
     captureEvent("program_import_parsed",{source:"freeform",outcome:"unreadable",gap_count:0});
     renderOnboarding();
     toast(t("toast.freeform_unreadable"));
@@ -9196,6 +9217,7 @@ function startFreeformReview(){
   }
   if(!source.exercises?.length){
     entryFreeformStatus="unreadable";
+    entryFreeformFailReason="invalid_rows";
     captureEvent("program_import_parsed",{source:"freeform",outcome:"unreadable",gap_count:0});
     toast(t("toast.freeform_unreadable"));
     return null;
@@ -9226,6 +9248,7 @@ function submitFreeformGaps(){
   const parsed=parseProgramSource(assembledDoc);
   if(!parsed||!parsed.exercises||!parsed.exercises.length){
     entryFreeformStatus="unreadable";
+    entryFreeformFailReason="assemble_failed";
     entryFreeformGapResult=null;
     renderOnboarding();
     toast(t("toast.freeform_unreadable"));
@@ -9252,9 +9275,9 @@ function renderFreeformGapsStep(){
     const label=isSets
       ?t("entry.freeform.gap_sets_label",{exercise:`${gap.day} · ${gap.name}`})
       :t("entry.freeform.gap_reps_label",{exercise:`${gap.day} · ${gap.name}`});
-    const placeholder=isSets?"e.g. 3":"e.g. 8-12 or 10";
+    const placeholder=isSets?t("entry.freeform.gap_sets_placeholder"):t("entry.freeform.gap_reps_placeholder");
     return `<label class="entry__field"><span>${esc(label)}</span>`+
-      `<input type="text" class="entry__field-input${hasError?" is-invalid":""}" data-gap-key="${esc(gap.key)}" value="${esc(val)}" placeholder="${esc(placeholder)}"></label>`;
+      `<input type="text" class="entry__field-input${hasError?" is-invalid":""}"${hasError?' aria-invalid="true"':""} data-gap-key="${esc(gap.key)}" value="${esc(val)}" placeholder="${esc(placeholder)}"></label>`;
   }).join("");
 
   return entryHeading(t("entry.freeform.gaps_title"))+
@@ -10696,10 +10719,12 @@ function wireEntryDom(){
   const freeformStart=$("#entryFreeformStart");
   if(freeformStart)freeformStart.onclick=()=>{
     setImportSourceMode("freeform",{render:false});
+    captureEvent("program_import_started",{source:"freeform"});
     entrySelectRoute("import")};
   const importCard=$('[data-entry-route="import"]');
   if(importCard)importCard.onclick=()=>{
     setImportSourceMode("file",{render:false});
+    captureEvent("program_import_started",{source:"file"});
     entrySelectRoute("import")};
   const freeformSwitch=$("#entryFreeformSwitch");
   if(freeformSwitch)freeformSwitch.onclick=()=>setImportSourceMode("freeform");
@@ -10732,6 +10757,7 @@ function wireEntryDom(){
   if(freeformOut)freeformOut.oninput=()=>{
     entryFreeformReply=freeformOut.value;
     entryFreeformStatus=null;
+    entryFreeformFailReason=null;
     saveFreeformSession();
   };
   wireFreeformAppControls();
@@ -10766,8 +10792,8 @@ function wireEntryDom(){
   };
   const freeformCopyRepair=$("#entryFreeformCopyRepair");
   if(freeformCopyRepair)freeformCopyRepair.onclick=async()=>{
-    const ok=await copyToClipboard(t("entry.freeform.repair_prompt"));
-    if(ok)toast(t("entry.freeform.toast_repair_copied"));
+    await copyToClipboard(freeformRepairPrompt(),
+      "entry.freeform.toast_repair_copied","toast.freeform_copy_failed");
   };
   const freeformReview=$("#entryFreeformReview");if(freeformReview)freeformReview.onclick=()=>startFreeformReview();
   const submitGaps=$("#entryFreeformSubmitGaps");if(submitGaps)submitGaps.onclick=()=>submitFreeformGaps();

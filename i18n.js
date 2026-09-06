@@ -1757,7 +1757,11 @@ const EN = {
   "entry.freeform.view_original": "View original pasted text",
   "entry.freeform.confirm_discard": "Switching to file import will discard your pasted text. Continue?",
   "entry.freeform.confirm_start_over": "Start over and discard your pasted text and reply?",
-  "entry.freeform.repair_prompt": "Please output only the valid JSON document according to the required schema, without any conversational prose, commentary, or markdown fences outside the JSON.",
+  "entry.freeform.gap_sets_placeholder": "e.g. 3",
+  "entry.freeform.gap_reps_placeholder": "e.g. 8-12 or 10",
+  "entry.freeform.repair_no_json": "Your last reply did not contain any JSON. Send it again with only the JSON document in the shape I gave you: no explanation, no code fences, and nothing before or after it.",
+  "entry.freeform.repair_invalid_rows": "I could not read your last reply as a program. Some entries were missing \"day\" or \"name\", or carried numbers outside the allowed range (sets 1-100, reps 1-1000, and \"max\" never below \"min\"). Send the whole JSON again with every entry complete. Do not invent any value the program does not state: leave the field out and name it in \"missing\" instead.",
+  "entry.freeform.repair_assemble_failed": "The program was still rejected after I filled in the missing numbers. Send the whole JSON again in exactly the shape I gave you, with one entry per exercise per training day and \"day\", \"order\" and \"name\" present on every entry.",
 };
 const PT = {
   "meta.description": "O Taurifer mantém seus treinos, rascunhos e histórico neste dispositivo. Links de configuração compartilham um programa e ajustes selecionados.",
@@ -3516,7 +3520,11 @@ const PT = {
   "entry.freeform.view_original": "Ver texto original colado",
   "entry.freeform.confirm_discard": "Mudar para a importação de ficheiro irá descartar o texto colado. Continuar?",
   "entry.freeform.confirm_start_over": "Recomeçar e descartar o texto colado e a resposta?",
-  "entry.freeform.repair_prompt": "Por favor, devolva apenas o documento JSON válido de acordo com o esquema exigido, sem texto conversacional, comentários ou blocos markdown fora do JSON.",
+  "entry.freeform.gap_sets_placeholder": "ex.: 3",
+  "entry.freeform.gap_reps_placeholder": "ex.: 8-12 ou 10",
+  "entry.freeform.repair_no_json": "A tua última resposta não continha nenhum JSON. Envia-a de novo apenas com o documento JSON no formato que te dei: sem explicação, sem blocos de código e sem nada antes ou depois.",
+  "entry.freeform.repair_invalid_rows": "Não consegui ler a tua última resposta como um programa. Algumas entradas não tinham \"day\" ou \"name\", ou traziam números fora do intervalo permitido (séries de 1 a 100, repetições de 1 a 1000 e \"max\" nunca abaixo de \"min\"). Envia o JSON completo outra vez, com todas as entradas completas. Não inventes nenhum valor que o programa não indique: deixa o campo de fora e nomeia-o em \"missing\".",
+  "entry.freeform.repair_assemble_failed": "O programa continuou a ser rejeitado depois de eu preencher os números em falta. Envia o JSON completo outra vez exatamente no formato que te dei, com uma entrada por exercício por dia de treino e com \"day\", \"order\" e \"name\" em todas as entradas.",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

@@ -1755,5 +1755,9 @@
   "entry.freeform.view_original": "View original pasted text",
   "entry.freeform.confirm_discard": "Switching to file import will discard your pasted text. Continue?",
   "entry.freeform.confirm_start_over": "Start over and discard your pasted text and reply?",
-  "entry.freeform.repair_prompt": "Please output only the valid JSON document according to the required schema, without any conversational prose, commentary, or markdown fences outside the JSON."
+  "entry.freeform.gap_sets_placeholder": "e.g. 3",
+  "entry.freeform.gap_reps_placeholder": "e.g. 8-12 or 10",
+  "entry.freeform.repair_no_json": "Your last reply did not contain any JSON. Send it again with only the JSON document in the shape I gave you: no explanation, no code fences, and nothing before or after it.",
+  "entry.freeform.repair_invalid_rows": "I could not read your last reply as a program. Some entries were missing \"day\" or \"name\", or carried numbers outside the allowed range (sets 1-100, reps 1-1000, and \"max\" never below \"min\"). Send the whole JSON again with every entry complete. Do not invent any value the program does not state: leave the field out and name it in \"missing\" instead.",
+  "entry.freeform.repair_assemble_failed": "The program was still rejected after I filled in the missing numbers. Send the whole JSON again in exactly the shape I gave you, with one entry per exercise per training day and \"day\", \"order\" and \"name\" present on every entry."
 }

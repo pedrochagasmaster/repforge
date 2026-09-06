@@ -3148,6 +3148,13 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry__freeform-app{flex:1 1 150px;text-decoration:none;text-align:center}
 .entry__freeform-app.is-disabled{opacity:.4}
 .entry__gaps-list{display:flex;flex-direction:column;gap:12px;margin:16px 0}
+/* The gap step tells the lifter which fields are highlighted, so they have to
+   actually be highlighted; aria-invalid carries the same state to a reader. */
+.entry__field-input.is-invalid{border-color:var(--danger);box-shadow:0 0 0 2px rgba(var(--danger-rgb),.25)}
+/* Coming back from the assistant marks the reply field rather than stealing
+   focus or the keyboard. */
+.entry__field--area textarea.is-returned{border-color:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.28);transition:box-shadow .25s ease,border-color .25s ease}
+@media (prefers-reduced-motion:reduce){.entry__field--area textarea.is-returned{transition:none}}
 .entry__original-text{margin:16px 0;padding:8px 12px;border:1px solid var(--rule);border-radius:var(--radius);background:var(--surface)}
 .entry__original-text summary{cursor:pointer;font-weight:600;color:var(--ink-soft);font-size:.875rem}
 .entry__original-text pre{margin:10px 0 0;font:inherit;font-family:monospace;font-size:.8125rem;white-space:pre-wrap;word-break:break-word;color:var(--ink)}

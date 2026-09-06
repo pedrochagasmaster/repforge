@@ -441,8 +441,8 @@ async function main() {
 
       // 3. Assemble document from gaps
       const gapAnswers = {
-        "Push::2::reps": "12-15",
-        "Pull::1::sets": "4"
+        "1::reps": "12-15",
+        "2::sets": "4"
       };
       const assembledDoc = freeform.assembleDocument(parsedGaps, gapAnswers);
       const reParsed = parseSource(assembledDoc);
@@ -457,7 +457,25 @@ async function main() {
       });
       const parsedInvalid = freeform.parseReply(invalidEnvelope);
 
+      // 5. Mixed explicit/omitted order where the numbered row is itself a gap.
+      const collisionEnvelope = JSON.stringify({
+        version: 3,
+        meta: { name: "Collide" },
+        exercises: [
+          { day: "Push", order: 1, name: "Bench press", min: 6, max: 8 },
+          { day: "Push", name: "Cable flyes", min: 10, max: 12 }
+        ]
+      });
+      const parsedCollision = freeform.parseReply(collisionEnvelope);
+      const collisionDoc = freeform.assembleDocument(parsedCollision,
+        { "0::sets": "5", "1::sets": "2" });
+      const collisionParsed = parseSource(collisionDoc);
+
       return {
+        collision: {
+          keys: parsedCollision?.gaps?.map(g => g.key),
+          sets: collisionParsed?.exercises?.map(e => e.sets),
+        },
         parsedComplete: {
           status: parsedComplete?.status,
           exercisesCount: parsedComplete?.exercises?.length,
@@ -503,6 +521,12 @@ async function main() {
            step3Results.assembled.reParsedRows[2].sets === 4,
       "assembled document carries lifter filled numeric values into program rows");
 
+    assert(new Set(step3Results.collision.keys).size === 2,
+      "two gaps in one day never share a key when order is partly explicit",
+      JSON.stringify(step3Results.collision.keys));
+    assert(step3Results.collision.sets[0] === 5 && step3Results.collision.sets[1] === 2,
+      "each gap answer lands on its own exercise", JSON.stringify(step3Results.collision.sets));
+
     assert(step3Results.parsedInvalid.status === "unreadable",
       "invalid non-numeric envelope yields unreadable status rather than gap result");
 
@@ -541,8 +565,8 @@ async function main() {
     });
 
     assert(gapState.inputs.length === 2, "gap UI renders inputs for each missing field", JSON.stringify(gapState.inputs));
-    assert(gapState.inputs.includes("Push::2::reps") && gapState.inputs.includes("Pull::1::sets"),
-      "gap inputs have expected keys for missing reps and sets");
+    assert(gapState.inputs.includes("1::reps") && gapState.inputs.includes("2::sets"),
+      "gap inputs are keyed by row position for missing reps and sets");
     assert(gapState.notice.includes("rest times") && gapState.notice.includes("RIR/RPE"),
       "gap screen displays non-blocking notImported disclosure", gapState.notice);
 
@@ -552,8 +576,8 @@ async function main() {
     assert(hasInvalid === 2, "empty gap inputs are marked invalid");
 
     // Filling valid inputs and submitting succeeds into Import Review
-    await page.fill("[data-gap-key=\"Push::2::reps\"]", "12-15");
-    await page.fill("[data-gap-key=\"Pull::1::sets\"]", "4");
+    await page.fill("[data-gap-key=\"1::reps\"]", "12-15");
+    await page.fill("[data-gap-key=\"2::sets\"]", "4");
     await page.click("#entryFreeformSubmitGaps");
 
     await page.waitForSelector("#importReview.active", { timeout: 10000 });

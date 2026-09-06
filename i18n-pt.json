@@ -1755,5 +1755,9 @@
   "entry.freeform.view_original": "Ver texto original colado",
   "entry.freeform.confirm_discard": "Mudar para a importação de ficheiro irá descartar o texto colado. Continuar?",
   "entry.freeform.confirm_start_over": "Recomeçar e descartar o texto colado e a resposta?",
-  "entry.freeform.repair_prompt": "Por favor, devolva apenas o documento JSON válido de acordo com o esquema exigido, sem texto conversacional, comentários ou blocos markdown fora do JSON."
+  "entry.freeform.gap_sets_placeholder": "ex.: 3",
+  "entry.freeform.gap_reps_placeholder": "ex.: 8-12 ou 10",
+  "entry.freeform.repair_no_json": "A tua última resposta não continha nenhum JSON. Envia-a de novo apenas com o documento JSON no formato que te dei: sem explicação, sem blocos de código e sem nada antes ou depois.",
+  "entry.freeform.repair_invalid_rows": "Não consegui ler a tua última resposta como um programa. Algumas entradas não tinham \"day\" ou \"name\", ou traziam números fora do intervalo permitido (séries de 1 a 100, repetições de 1 a 1000 e \"max\" nunca abaixo de \"min\"). Envia o JSON completo outra vez, com todas as entradas completas. Não inventes nenhum valor que o programa não indique: deixa o campo de fora e nomeia-o em \"missing\".",
+  "entry.freeform.repair_assemble_failed": "O programa continuou a ser rejeitado depois de eu preencher os números em falta. Envia o JSON completo outra vez exatamente no formato que te dei, com uma entrada por exercício por dia de treino e com \"day\", \"order\" e \"name\" em todas as entradas."
 }
