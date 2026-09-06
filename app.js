@@ -5558,6 +5558,10 @@ window.__repforgePickerSelection=()=>pickerState?[...pickerState.selected]:null;
 window.__repforgeDeleteCustomExercise=id=>deleteCustomExercise(id);
 window.__repforgeRowMuscles=row=>rowMuscles(row);
 window.__repforgeParseProgramSource=(text,name)=>parseProgramSource(text,name);
+window.__repforgeMatchCandidates=name=>{
+  const result=classifyImportRow({name},pickableExercises());
+  return{status:result.status,matchId:result.match?.id||null,
+    candidateIds:(result.candidates||[]).map(c=>c.entry.id)}};
 window.__repforgeFreeform={
   parseReply:text=>parseFreeformProgramReply(text),
   readGapEnvelope:candidate=>readFreeformGapEnvelope(candidate),
@@ -8138,16 +8142,64 @@ function parseProgramSource(text,fileName=""){
   const text2=parseProgramTextExport(trimmed);
   return text2?Object.assign({format:"text"},text2):null}
 
-/* How close two movement names are, 0..1, on shared words. Deliberately dumb:
-   it only has to be good enough to say "look at this one", never to decide. */
-function nameAffinity(a,b){
-  const wa=foldSearch(a).split(/[^a-z0-9]+/).filter(w=>w.length>2);
-  const wb=new Set(foldSearch(b).split(/[^a-z0-9]+/).filter(w=>w.length>2));
-  if(!wa.length||!wb.size)return 0;
-  const hits=wa.filter(w=>wb.has(w)).length;
-  return hits/Math.max(wa.length,wb.size)}
+/* Words that survive the length filter but carry no movement signal. The
+   Portuguese "com" is the expensive one: it made every barbell movement share a
+   token with "Hip thrust com barra", so thirty-six entries tied at 0.50 and
+   array order picked the winner. */
+const MATCH_STOPWORDS=new Set([
+  "com","sem","para","por","dos","das","nos","nas","que","seu","sua","pes",
+  "the","and","for","with","your","from","into"]);
+/* Equipment still informs a match; it must never decide one alone. Scored at a
+   fraction of a movement token, then used to break ties, where it is the
+   difference between "Hip thrust na maquina" reaching the machine or the bar. */
+const MATCH_EQUIPMENT=new Set([
+  "barra","halteres","haltere","maquina","polia","cabo","smith","banco",
+  "cadeira","mesa","corda","anilha","barbell","dumbbell","machine","cable",
+  "bar","bench","rope","plate"]);
+const MATCH_EQUIPMENT_TOKENS={
+  barbell:["barra","barbell"],dumbbell:["halteres","haltere","dumbbell"],
+  machine:["maquina","machine"],cable:["cabo","polia","cable"],
+  smith:["smith"],bodyweight:["corpo","bodyweight"]};
+const MATCH_EQUIPMENT_WEIGHT=0.25;
+const matchTokens=s=>foldSearch(s).split(/[^a-z0-9]+/)
+  .filter(w=>w.length>2&&!MATCH_STOPWORDS.has(w));
+const matchWeight=w=>MATCH_EQUIPMENT.has(w)?MATCH_EQUIPMENT_WEIGHT:1;
+const matchWeightSum=list=>list.reduce((sum,w)=>sum+matchWeight(w),0);
 
-const IMPORT_PROBABLE_MIN=0.5;
+/* How close two movement names are, 0..1, on shared words. Deliberately dumb:
+   it only has to be good enough to say "look at this one", never to decide.
+   Movement words carry the weight; stopwords carry none and equipment a
+   quarter, so "com barra" can no longer outvote "hip thrust". */
+function nameAffinity(a,b){
+  const wa=matchTokens(a);
+  const wb=new Set(matchTokens(b));
+  if(!wa.length||!wb.size)return 0;
+  const hits=matchWeightSum(wa.filter(w=>wb.has(w)));
+  const denom=Math.max(matchWeightSum(wa),matchWeightSum([...wb]));
+  return denom?hits/denom:0}
+
+/* A library name wholly present inside the lifter's line. "Leg press 45°, pés
+   altos e afastados" is the library's "Leg press" plus the lifter's own setup
+   notes, and diluting the score by those notes discarded an exact reading. */
+function nameContainment(input,libraryName){
+  const wb=matchTokens(libraryName);
+  if(!wb.length)return false;
+  const wa=new Set(matchTokens(input));
+  return wb.every(w=>wa.has(w))}
+
+/* Whether the lifter's line names the equipment this entry uses. */
+function matchEquipmentAgrees(input,entry){
+  const list=Array.isArray(entry?.equipment)?entry.equipment:[];
+  if(!list.length)return false;
+  const wa=new Set(matchTokens(input));
+  return list.some(kind=>(MATCH_EQUIPMENT_TOKENS[kind]||[kind]).some(tok=>wa.has(tok)))}
+
+/* The floor is a display filter and never a trust gate: buildImportDraft gives
+   probable and unmatched rows the same decision and the same unreviewed state,
+   so lowering it cannot let anything through unseen. Below it a row proposes
+   nothing rather than a guess it cannot stand behind. */
+const IMPORT_PROBABLE_MIN=0.35;
+const IMPORT_CANDIDATE_LIMIT=3;
 
 /* Classifies one imported row against the library plus the definitions that
    travelled with the file. */
@@ -8164,12 +8216,41 @@ function classifyImportRow(row,candidates){
   // lifter should still see, since the name in their file will change.
   const alias=candidates.find(e=>foldSearch(e.namePt||"")===folded);
   if(alias)return{status:IMPORT_ALIAS,match:alias};
-  let best=null,bestScore=0;
-  for(const e of candidates){
-    const score=Math.max(nameAffinity(name,e.name),nameAffinity(name,e.namePt||""));
-    if(score>bestScore){bestScore=score;best=e}}
-  if(best&&bestScore>=IMPORT_PROBABLE_MIN)return{status:IMPORT_PROBABLE,match:best,score:bestScore};
-  return{status:IMPORT_UNMATCHED,match:null}}
+  // A curated alias went through the same editorial gate as the entry it points
+  // at, so "RDL means Romanian deadlift" is settled rather than guessed, and the
+  // row arrives confirmed like any other alias hit. Aliases add ways to reach a
+  // movement; they never change which movement an id means.
+  const curated=candidates.find(e=>(e.aliases||[]).some(a=>foldSearch(a)===folded));
+  if(curated)return{status:IMPORT_ALIAS,match:curated};
+  const ranked=rankImportCandidates(name,candidates);
+  if(!ranked.length)return{status:IMPORT_UNMATCHED,match:null,candidates:[]};
+  return{status:IMPORT_PROBABLE,match:ranked[0].entry,score:ranked[0].score,candidates:ranked}}
+
+/* The ranked shortlist behind a review row. Scoring moves the right entry into
+   this list; it does not reliably move it to the front, because a line like
+   "Hack squat" never says whether the barbell or the machine is meant. So the
+   row offers the list rather than a verdict.
+
+   Order: a contained library name first, then weighted overlap, then the entry
+   whose equipment the lifter actually named, then the library's own rank, and
+   last the array position, so a tie never rests on position alone. */
+function rankImportCandidates(name,candidates,limit=IMPORT_CANDIDATE_LIMIT){
+  const scored=[];
+  for(let i=0;i<candidates.length;i++){
+    const e=candidates[i];
+    const names=[e.name,e.namePt||"",...(e.aliases||[])];
+    const score=names.reduce((best,n)=>Math.max(best,nameAffinity(name,n)),0);
+    const contained=names.some(n=>nameContainment(name,n));
+    if(!contained&&score<IMPORT_PROBABLE_MIN)continue;
+    scored.push({entry:e,score,contained,equipment:matchEquipmentAgrees(name,e),
+      rank:Number.isFinite(e.rank)?e.rank:50,order:i})}
+  scored.sort((a,b)=>
+    (b.contained?1:0)-(a.contained?1:0)||
+    b.score-a.score||
+    (b.equipment?1:0)-(a.equipment?1:0)||
+    a.rank-b.rank||
+    a.order-b.order);
+  return scored.slice(0,limit)}
 
 /* Builds the review model. Exact and alias hits arrive decided; a probable one
    arrives undecided and blocks Import until it is looked at. */
