@@ -1752,5 +1752,8 @@
   "entry.freeform.unreadable_body": "The assistant's reply could not be read as a Taurifer program. You can edit the reply, try another assistant, or copy a repair prompt.",
   "entry.freeform.copy_repair_prompt": "Copy repair prompt",
   "entry.freeform.toast_repair_copied": "Repair prompt copied to clipboard.",
-  "entry.freeform.view_original": "View original pasted text"
+  "entry.freeform.view_original": "View original pasted text",
+  "entry.freeform.confirm_discard": "Switching to file import will discard your pasted text. Continue?",
+  "entry.freeform.confirm_start_over": "Start over and discard your pasted text and reply?",
+  "entry.freeform.repair_prompt": "Please output only the valid JSON document according to the required schema, without any conversational prose, commentary, or markdown fences outside the JSON."
 }

@@ -1755,6 +1755,9 @@ const EN = {
   "entry.freeform.copy_repair_prompt": "Copy repair prompt",
   "entry.freeform.toast_repair_copied": "Repair prompt copied to clipboard.",
   "entry.freeform.view_original": "View original pasted text",
+  "entry.freeform.confirm_discard": "Switching to file import will discard your pasted text. Continue?",
+  "entry.freeform.confirm_start_over": "Start over and discard your pasted text and reply?",
+  "entry.freeform.repair_prompt": "Please output only the valid JSON document according to the required schema, without any conversational prose, commentary, or markdown fences outside the JSON.",
 };
 const PT = {
   "meta.description": "O Taurifer mantém seus treinos, rascunhos e histórico neste dispositivo. Links de configuração compartilham um programa e ajustes selecionados.",
@@ -3511,6 +3514,9 @@ const PT = {
   "entry.freeform.copy_repair_prompt": "Copiar comando de correção",
   "entry.freeform.toast_repair_copied": "Comando de correção copiado para a área de transferência.",
   "entry.freeform.view_original": "Ver texto original colado",
+  "entry.freeform.confirm_discard": "Mudar para a importação de ficheiro irá descartar o texto colado. Continuar?",
+  "entry.freeform.confirm_start_over": "Recomeçar e descartar o texto colado e a resposta?",
+  "entry.freeform.repair_prompt": "Por favor, devolva apenas o documento JSON válido de acordo com o esquema exigido, sem texto conversacional, comentários ou blocos markdown fora do JSON.",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

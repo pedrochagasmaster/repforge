@@ -8534,7 +8534,7 @@ function renderImportReview(){
   const notImportedEl=$("#importNotImported");
   if(notImportedEl){
     if(importDraft?.notImported?.length){
-      const items=importDraft.notImported.map(cat=>t(`entry.freeform.not_imported.${cat}`)).join(", ");
+      const items=importDraft.notImported.map(cat=>t(FREEFORM_NOT_IMPORTED_KEYS[cat]||"entry.freeform.not_imported.other_notes")).join(", ");
       notImportedEl.innerHTML=`<p class="entry__notice entry__notice--info" role="status">${esc(t("entry.freeform.not_imported_notice",{items}))}</p>`;
       notImportedEl.hidden=false;
     }else{
@@ -8644,6 +8644,7 @@ function openImportReview(draft){
   ensureImportEntryFlow(draft);
   draft.onboarding=true;
   importDraft=draft;
+  captureEvent("program_import_review_reached",{source:draft?.sourceType==="freeform"?"freeform":"file"});
   importReturn=document.activeElement;
   // The review renders inside the app shell, so the first-run gate steps aside
   // for it rather than covering it.
@@ -8810,19 +8811,91 @@ const FREEFORM_APPS={
   chatgpt:{base:"https://chatgpt.com/",param:"q",label:"entry.freeform.open_chatgpt",copyLabel:"entry.freeform.copy_chatgpt",copiedLabel:"entry.freeform.open_chatgpt_copied"},
   claude:{base:"https://claude.ai/new",param:"q",label:"entry.freeform.open_claude",copyLabel:"entry.freeform.copy_claude",copiedLabel:"entry.freeform.open_claude_copied"},
 };
+const FREEFORM_NOT_IMPORTED_KEYS = {
+  rest_times: "entry.freeform.not_imported.rest_times",
+  rir_rpe: "entry.freeform.not_imported.rir_rpe",
+  tempo: "entry.freeform.not_imported.tempo",
+  supersets: "entry.freeform.not_imported.supersets",
+  warmups: "entry.freeform.not_imported.warmups",
+  cardio: "entry.freeform.not_imported.cardio",
+  progression_rules: "entry.freeform.not_imported.progression_rules",
+  deload: "entry.freeform.not_imported.deload",
+  other_notes: "entry.freeform.not_imported.other_notes",
+};
+const FREEFORM_SESSION_KEY="repforge_freeform_session_v1";
 let entryImportMode=null,entryFreeformInput="",entryFreeformReply="";
+let entryFreeformStage=1,entryFreeformLastProvider=null;
 let entryFreeformGapResult=null,entryFreeformGapAnswers={},entryFreeformGapErrors=new Set(),entryFreeformStatus=null;
+let entryFreeformReplyInvalidated=false;
 const entryFreeformCopiedApps=new Set();
+
+function loadFreeformSession(){
+  try{
+    const raw=sessionStorage.getItem(FREEFORM_SESSION_KEY);
+    if(!raw)return false;
+    const data=JSON.parse(raw);
+    if(typeof data.source==="string")entryFreeformInput=data.source;
+    if(typeof data.reply==="string")entryFreeformReply=data.reply;
+    if(Number.isInteger(data.stage)&&data.stage>=1&&data.stage<=3)entryFreeformStage=data.stage;
+    if(typeof data.lastProvider==="string")entryFreeformLastProvider=data.lastProvider;
+    return true;
+  }catch{
+    return false;
+  }
+}
+
+function saveFreeformSession(){
+  try{
+    if(!entryFreeformInput&&!entryFreeformReply&&entryFreeformStage===1){
+      sessionStorage.removeItem(FREEFORM_SESSION_KEY);
+      return;
+    }
+    const data={
+      source:entryFreeformInput||"",
+      reply:entryFreeformReply||"",
+      stage:entryFreeformStage||1,
+      lastProvider:entryFreeformLastProvider||null,
+    };
+    sessionStorage.setItem(FREEFORM_SESSION_KEY,JSON.stringify(data));
+  }catch{}
+}
+
+function clearFreeformSession(){
+  try{sessionStorage.removeItem(FREEFORM_SESSION_KEY)}catch{}
+}
+
+function resetFreeformImport(){
+  entryFreeformInput="";
+  entryFreeformReply="";
+  entryFreeformStage=1;
+  entryFreeformLastProvider=null;
+  entryFreeformGapResult=null;
+  entryFreeformGapAnswers={};
+  entryFreeformGapErrors.clear();
+  entryFreeformStatus=null;
+  entryFreeformReplyInvalidated=false;
+  entryFreeformCopiedApps.clear();
+  clearFreeformSession();
+}
 /** Which import door this device used last. A preference about this screen, so
  *  it lives with the other device-only UI prefs and never touches state. */
 function importSourceMode(){
   if(!entryImportMode)entryImportMode=uiPrefs.importSourceMode==="file"?"file":"freeform";
   return entryImportMode}
 function setImportSourceMode(mode,{render=true}={}){
+  const prev=importSourceMode();
+  if(mode==="file"&&prev==="freeform"&&(entryFreeformInput.trim().length>10||entryFreeformReply.trim().length>10)){
+    if(!confirm(t("entry.freeform.confirm_discard")))return;
+  }
   entryImportMode=mode==="freeform"?"freeform":"file";
   setUiPref("importSourceMode",entryImportMode);
+  if(entryImportMode==="file"){
+    clearFreeformSession();
+  }else{
+    loadFreeformSession();
+  }
+  captureEvent("program_import_started",{source:entryImportMode});
   if(render)renderOnboarding()}
-function resetFreeformImport(){entryFreeformInput="";entryFreeformReply="";entryFreeformCopiedApps.clear()}
 const freeformProgram=()=>String(entryFreeformInput||"").trim();
 /** The prompt is one localized string: the lifter reads what they are sending
  *  before they send it, and the translation is reviewed like any other copy. */
@@ -9062,6 +9135,13 @@ function openFreeformApp(app,event){
     event?.preventDefault?.();
     toast(t("entry.freeform.needs_input"));
     return false}
+  const prompt=freeformPrompt(program);
+  const isLong=prompt.length>FREEFORM_URL_MAX;
+  captureEvent("program_import_handoff",{method:app,outcome:"opened",long_prompt:isLong});
+  entryFreeformStage=3;
+  entryFreeformLastProvider=app;
+  saveFreeformSession();
+  renderOnboarding();
   return true}
 function loadFreeformProgram(source){
   pendingImportIo=null;
@@ -9071,6 +9151,7 @@ function loadFreeformProgram(source){
   draft.originalText=entryFreeformInput;
   draft.fromFirstRun=firstRunOpen();
   draft.onboarding=draft.fromFirstRun||!!$("#onboarding")?.classList.contains("active");
+  resetFreeformImport();
   openImportReview(draft);
   return draft}
 
@@ -9081,6 +9162,7 @@ function startFreeformReview(){
   const source=parseFreeformProgramReply(reply);
   if(!source||source.status==="unreadable"){
     entryFreeformStatus="unreadable";
+    captureEvent("program_import_parsed",{source:"freeform",outcome:"unreadable",gap_count:0});
     renderOnboarding();
     toast(t("toast.freeform_unreadable"));
     return null;
@@ -9089,10 +9171,17 @@ function startFreeformReview(){
     entryFreeformGapResult=source;
     entryFreeformGapAnswers={};
     entryFreeformGapErrors.clear();
+    captureEvent("program_import_parsed",{source:"freeform",outcome:"gaps",gap_count:source.gaps.length});
     renderOnboarding();
     return null;
   }
-  if(!source.exercises?.length){toast(t("toast.freeform_unreadable"));return null}
+  if(!source.exercises?.length){
+    entryFreeformStatus="unreadable";
+    captureEvent("program_import_parsed",{source:"freeform",outcome:"unreadable",gap_count:0});
+    toast(t("toast.freeform_unreadable"));
+    return null;
+  }
+  captureEvent("program_import_parsed",{source:"freeform",outcome:"complete",gap_count:0});
   return loadFreeformProgram(source);
 }
 
@@ -9134,7 +9223,7 @@ function renderFreeformGapsStep(){
   const notImported=entryFreeformGapResult.notImported||[];
   let notImportedHtml="";
   if(notImported.length){
-    const items=notImported.map(cat=>t(`entry.freeform.not_imported.${cat}`)).join(", ");
+    const items=notImported.map(cat=>t(FREEFORM_NOT_IMPORTED_KEYS[cat]||"entry.freeform.not_imported.other_notes")).join(", ");
     notImportedHtml=`<p class="entry__notice entry__notice--info" role="status">${esc(t("entry.freeform.not_imported_notice",{items}))}</p>`;
   }
   const gapRows=gaps.map(gap=>{
@@ -10256,6 +10345,7 @@ function wireFreeformAppControls(){
         event?.preventDefault?.();
         const app=el.dataset.freeformApp;
         const ok=await copyFreeformPrompt();
+        captureEvent("program_import_handoff",{method:app,outcome:ok?"copied":"copy_failed",long_prompt:true});
         if(ok){
           entryFreeformCopiedApps.add(app);
           refreshFreeformControls();
@@ -10268,25 +10358,56 @@ function wireFreeformAppControls(){
 function renderFreeformSourceStep(){
   if(entryFreeformGapResult)return renderFreeformGapsStep();
   const program=freeformProgram();
-  return entryHeading(t("entry.freeform.title"))+`<p class="onb__explain">${esc(t("entry.freeform.lede"))}</p>`+
-    (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
-    /* Nothing typed here is captured: the two fields carry a lifter's own
-       program and, on the way back, a whole chat reply. */
-    `<div class="entry__freeform ph-no-capture">`+
+  const lineCount=entryFreeformInput?entryFreeformInput.split(/\r?\n/).filter(Boolean).length:0;
+
+  const summaryHtml=entryFreeformStage>1
+    ?`<div class="entry__freeform-summary"><span>${esc(t("entry.freeform.source_summary",{lines:lineCount}))}</span><button type="button" class="btn btn--steel btn--sm" id="entryFreeformEditSource">${esc(t("entry.freeform.edit_source"))}</button></div>`
+    :"";
+
+  let bodyHtml="";
+  if(entryFreeformStage===1){
+    bodyHtml=
       `<label class="entry__field entry__field--area"><span>${esc(t("entry.freeform.input_label"))}</span>`+
       `<textarea id="entryFreeformIn" rows="7" maxlength="${FREEFORM_MAX_CHARS}" spellcheck="false" autocapitalize="off" placeholder="${esc(t("entry.freeform.input_placeholder"))}">${esc(entryFreeformInput)}</textarea></label>`+
       `<p class="entry__hint" id="entryFreeformCount">${esc(freeformCountLabel())}</p>`+
-      `<p class="entry__explain" role="note">${esc(t("entry.freeform.privacy"))}</p>`+
-      entryGroupLab(t("entry.freeform.apps_label"),"wand")+
-      `<div class="entry__freeform-apps">${freeformAppLink("chatgpt")}${freeformAppLink("claude")}</div>`+
       `<p class="entry__hint" id="entryFreeformNeeds"${program?" hidden":""}>${esc(t("entry.freeform.needs_input"))}</p>`+
-      `<p class="entry__switch"><button type="button" class="btn btn--ghost" id="entryFreeformCopy"${program?"":" disabled"}>${esc(t("entry.freeform.copy"))}</button></p>`+
-      entryGroupLab(t("entry.freeform.output_label"),"clipboard")+
-      `<p class="entry__hint">${esc(t("entry.freeform.output_hint"))}</p>`+
-      `<label class="entry__field entry__field--area"><span class="visually-hidden">${esc(t("entry.freeform.output_label"))}</span>`+
-      `<textarea id="entryFreeformOut" rows="5" spellcheck="false" autocapitalize="off" placeholder="${esc(t("entry.freeform.output_placeholder"))}">${esc(entryFreeformReply)}</textarea></label>`+
+      `<p class="entry__explain" role="note">${esc(t("entry.freeform.privacy"))}</p>`+
+      `<button type="button" class="btn btn--cta" id="entryFreeformContinue"${program?"":" disabled"}>${esc(t("entry.freeform.continue"))}</button>`;
+  }else if(entryFreeformStage===2){
+    bodyHtml=
+      entryGroupLab(t("entry.freeform.stage2_title"),"wand")+
+      `<p class="entry__hint">${esc(t("entry.freeform.stage2_hint"))}</p>`+
+      `<div class="entry__freeform-apps">${freeformAppLink("chatgpt")}${freeformAppLink("claude")}</div>`+
+      `<details class="entry__freeform-preview"><summary>${esc(t("entry.freeform.preview_prompt"))}</summary><pre class="entry__freeform-prompt-preview">${esc(freeformPrompt(program))}</pre></details>`+
+      `<p class="entry__switch"><button type="button" class="btn btn--ghost" id="entryFreeformCopy">${esc(t("entry.freeform.copy"))}</button></p>`;
+  }else if(entryFreeformStage===3){
+    let unreadableNotice="";
+    if(entryFreeformStatus==="unreadable"){
+      unreadableNotice=
+        `<div class="entry__notice entry__notice--warn" role="alert"><strong>${esc(t("entry.freeform.unreadable_title"))}</strong>`+
+        `<p>${esc(t("entry.freeform.unreadable_body"))}</p>`+
+        `<div class="btnrow"><button type="button" class="btn btn--steel" id="entryFreeformCopyRepair">${esc(t("entry.freeform.copy_repair_prompt"))}</button>`+
+        `<button type="button" class="btn btn--ghost" id="entryFreeformTryAnother">${esc(t("entry.freeform.try_another"))}</button></div></div>`;
+    }
+    const invalidatedNotice=entryFreeformReplyInvalidated
+      ?`<p class="entry__notice entry__notice--info" role="status">${esc(t("entry.freeform.edit_source_warning"))}</p>`
+      :"";
+    bodyHtml=
+      invalidatedNotice+
+      unreadableNotice+
+      entryGroupLab(t("entry.freeform.stage3_title"),"clipboard")+
+      `<p class="entry__hint">${esc(t("entry.freeform.stage3_hint"))}</p>`+
+      `<label class="entry__field entry__field--area"><span class="visually-hidden">${esc(t("entry.freeform.stage3_title"))}</span>`+
+      `<textarea id="entryFreeformOut" rows="7" spellcheck="false" autocapitalize="off" placeholder="${esc(t("entry.freeform.output_placeholder"))}">${esc(entryFreeformReply)}</textarea></label>`+
       `<button type="button" class="btn btn--cta" id="entryFreeformReview">${esc(t("entry.freeform.review"))}</button>`+
-    `</div>`+
+      `<div class="btnrow"><button type="button" class="btn btn--steel" id="entryFreeformTryAnother">${esc(t("entry.freeform.try_another"))}</button>`+
+      `<button type="button" class="btn btn--ghost btn--destructive" id="entryFreeformStartOver">${esc(t("entry.freeform.start_over"))}</button></div>`;
+  }
+
+  return entryHeading(t("entry.freeform.title"))+`<p class="onb__explain">${esc(t("entry.freeform.lede"))}</p>`+
+    (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
+    summaryHtml+
+    `<div class="entry__freeform ph-no-capture">${bodyHtml}</div>`+
     `<p class="entry__switch"><button type="button" class="btn btn--ghost" id="entryFreeformFile">${esc(t("entry.freeform.to_file"))}</button></p>`}
 /* Typing must not cost the caret or the field: the links, the counter and the
    empty-state note are refreshed in place rather than through a re-render. */
@@ -10294,13 +10415,26 @@ function refreshFreeformControls(){
   const program=freeformProgram();
   const count=$("#entryFreeformCount");
   if(count)count.textContent=freeformCountLabel();
+  const needs=$("#entryFreeformNeeds");if(needs)needs.hidden=!!program;
+  const cont=$("#entryFreeformContinue");if(cont)cont.disabled=!program;
   const appsContainer=$(".entry__freeform-apps");
   if(appsContainer){
     appsContainer.innerHTML=Object.keys(FREEFORM_APPS).map(freeformAppLink).join("");
     wireFreeformAppControls();
   }
-  const needs=$("#entryFreeformNeeds");if(needs)needs.hidden=!!program;
-  const copy=$("#entryFreeformCopy");if(copy)copy.disabled=!program}
+  const copy=$("#entryFreeformCopy");if(copy)copy.disabled=!program;
+  saveFreeformSession();}
+
+window.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"&&entryFreeformStage===3){
+    const out=$("#entryFreeformOut");
+    if(out){
+      out.scrollIntoView?.({behavior:"smooth",block:"nearest"});
+      out.classList.add("is-returned");
+      setTimeout(()=>out.classList.remove("is-returned"),2000);
+    }
+  }
+});
 function entryPreviewHasProgressionIssue(preview=entryState?.result?.preview){
   return (Array.isArray(preview?.progressionIncompatibilities)&&preview.progressionIncompatibilities.length>0)||
     (preview?.program||[]).some(exercise=>exercise?.progressionIncompatibility)}
@@ -10557,18 +10691,64 @@ function wireEntryDom(){
     entryFreeformInput=freeformIn.value.slice(0,FREEFORM_MAX_CHARS);
     entryFreeformCopiedApps.clear();
     refreshFreeformControls()};
+  const freeformContinue=$("#entryFreeformContinue");
+  if(freeformContinue)freeformContinue.onclick=()=>{
+    if(!freeformProgram())return;
+    entryFreeformStage=2;
+    saveFreeformSession();
+    renderOnboarding();
+  };
+  const freeformEditSource=$("#entryFreeformEditSource");
+  if(freeformEditSource)freeformEditSource.onclick=()=>{
+    if(entryFreeformReply.trim().length>0){
+      entryFreeformReply="";
+      entryFreeformReplyInvalidated=true;
+      toast(t("entry.freeform.edit_source_warning"));
+    }
+    entryFreeformStage=1;
+    saveFreeformSession();
+    renderOnboarding();
+  };
   const freeformOut=$("#entryFreeformOut");
-  if(freeformOut)freeformOut.oninput=()=>{entryFreeformReply=freeformOut.value};
+  if(freeformOut)freeformOut.oninput=()=>{
+    entryFreeformReply=freeformOut.value;
+    entryFreeformStatus=null;
+    saveFreeformSession();
+  };
   wireFreeformAppControls();
   const freeformCopy=$("#entryFreeformCopy");
   if(freeformCopy)freeformCopy.onclick=async()=>{
     const ok=await copyFreeformPrompt();
+    const prompt=freeformPrompt();
+    const isLong=prompt.length>FREEFORM_URL_MAX;
+    captureEvent("program_import_handoff",{method:"copy",outcome:ok?"copied":"copy_failed",long_prompt:isLong});
     if(ok){
       for(const app of Object.keys(FREEFORM_APPS)){
         entryFreeformCopiedApps.add(app);
       }
-      refreshFreeformControls();
+      entryFreeformStage=3;
+      entryFreeformLastProvider="copy";
+      saveFreeformSession();
+      renderOnboarding();
     }
+  };
+  const freeformTryAnother=$("#entryFreeformTryAnother");
+  if(freeformTryAnother)freeformTryAnother.onclick=()=>{
+    entryFreeformStage=2;
+    entryFreeformStatus=null;
+    saveFreeformSession();
+    renderOnboarding();
+  };
+  const freeformStartOver=$("#entryFreeformStartOver");
+  if(freeformStartOver)freeformStartOver.onclick=()=>{
+    if((entryFreeformInput.trim().length>10||entryFreeformReply.trim().length>10)&&!confirm(t("entry.freeform.confirm_start_over")))return;
+    resetFreeformImport();
+    renderOnboarding();
+  };
+  const freeformCopyRepair=$("#entryFreeformCopyRepair");
+  if(freeformCopyRepair)freeformCopyRepair.onclick=async()=>{
+    const ok=await copyToClipboard(t("entry.freeform.repair_prompt"));
+    if(ok)toast(t("entry.freeform.toast_repair_copied"));
   };
   const freeformReview=$("#entryFreeformReview");if(freeformReview)freeformReview.onclick=()=>startFreeformReview();
   const submitGaps=$("#entryFreeformSubmitGaps");if(submitGaps)submitGaps.onclick=()=>submitFreeformGaps();
@@ -11020,8 +11200,14 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     telemetryRoute==="shared"?"shared_v1":
     telemetryRoute==="build"?"manual_v1":
     telemetryRoute==="browse"||telemetryRoute==="recommend"||telemetryRoute==="custom"?"taurifer_v1":"legacy_v1";
-  if(!result.alreadyCommitted)
-    captureEvent("program_activated",{route:telemetryRoute,version_category:versionCategory});
+  if(!result.alreadyCommitted){
+    const payload={route:telemetryRoute,version_category:versionCategory};
+    if(telemetryRoute==="import"){
+      payload.source=(originDraft?.sourceType==="freeform"||importDraft?.sourceType==="freeform")?"freeform":"file";
+    }
+    captureEvent("program_activated",payload);
+  }
+  clearFreeformSession();
   if(telemetryRoute==="shared")SharedSetup?.clearHandoffCookie?.();
   if(telemetryRoute==="shared")syncLang();
   resetDraftSessionState();

@@ -122,6 +122,7 @@ async function main() {
   const browser = await launchChromium();
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
+  page.on("dialog", (d) => d.accept());
   try {
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForAppBoot(page);
@@ -132,26 +133,23 @@ async function main() {
     assert(doors.freeform === 1 && doors.file === 1,
       "the two import doors are two cards on one route", JSON.stringify(doors));
 
-    const empty = await linkState(page);
-    assert(empty.disabled.every((value) => value === "true") && empty.copyDisabled === true && !empty.needsHidden,
-      "with nothing pasted, no app link and no copy is available",
-      JSON.stringify(empty.disabled));
+    const empty = await page.evaluate(() => ({
+      needsHidden: document.querySelector("#entryFreeformNeeds")?.hidden,
+      continueDisabled: document.querySelector("#entryFreeformContinue")?.disabled,
+      counter: document.querySelector("#entryFreeformCount")?.textContent || "",
+    }));
+    assert(empty.continueDisabled === true && !empty.needsHidden,
+      "with nothing pasted, continue is disabled and needs-input hint is visible",
+      JSON.stringify(empty));
 
     await page.fill("#entryFreeformIn", PASTED);
-    const filled = await linkState(page);
-    assert(filled.chatgpt.startsWith("https://chatgpt.com/?q=")
-      && filled.claude.startsWith("https://claude.ai/new?q="),
-      "each app is a prefilled link to its own composer",
-      JSON.stringify({ chatgpt: filled.chatgpt.slice(0, 40), claude: filled.claude.slice(0, 40) }));
-    const sent = decodeURIComponent(filled.chatgpt.split("?q=")[1] || "");
-    assert(sent.includes("Bench press 4x6-8") && sent.includes('"sets"') && sent.includes('"min"'),
-      "the link carries the pasted program and the format Taurifer reads",
-      sent.slice(0, 120));
-    assert(filled.target === "_blank" && /noopener/.test(filled.rel),
-      "the links leave the app deliberately and without an opener",
-      JSON.stringify({ target: filled.target, rel: filled.rel }));
-    assert(filled.needsHidden === true && filled.copyDisabled === false,
-      "pasting something is what makes the hand-off available", JSON.stringify(filled.counter));
+    const filled = await page.evaluate(() => ({
+      needsHidden: document.querySelector("#entryFreeformNeeds")?.hidden,
+      continueDisabled: document.querySelector("#entryFreeformContinue")?.disabled,
+      counter: document.querySelector("#entryFreeformCount")?.textContent || "",
+    }));
+    assert(filled.needsHidden === true && filled.continueDisabled === false,
+      "pasting something enables continue and hides needs-input hint", JSON.stringify(filled));
 
     // Typing is the whole interaction on this screen: it must not cost the
     // caret, which a full re-render of the step would.
@@ -164,19 +162,42 @@ async function main() {
     assert(focused.id === "entryFreeformIn", "typing keeps the field and the caret", JSON.stringify(focused));
     assert(/\d/.test(focused.counter), "the character counter follows the field", focused.counter);
 
+    // Advance to Stage 2: Open it in ChatGPT or Claude
+    await page.click("#entryFreeformContinue");
+    await page.waitForSelector(".entry__freeform-summary", { timeout: 20000 });
+    const stage2 = await linkState(page);
+    assert(stage2.chatgpt.startsWith("https://chatgpt.com/?q=")
+      && stage2.claude.startsWith("https://claude.ai/new?q="),
+      "each app is a prefilled link to its own composer",
+      JSON.stringify({ chatgpt: stage2.chatgpt.slice(0, 40), claude: stage2.claude.slice(0, 40) }));
+    const sent = decodeURIComponent(stage2.chatgpt.split("?q=")[1] || "");
+    assert(sent.includes("Bench press 4x6-8") && sent.includes('"sets"') && sent.includes('"min"'),
+      "the link carries the pasted program and the format Taurifer reads",
+      sent.slice(0, 120));
+    assert(stage2.target === "_blank" && /noopener/.test(stage2.rel),
+      "the links leave the app deliberately and without an opener",
+      JSON.stringify({ target: stage2.target, rel: stage2.rel }));
+
     console.log("\nNothing is sent or kept by itself");
     const stored = await page.evaluate(({ k, setup, ui }) => ({
       state: localStorage.getItem(k) || "",
       draft: localStorage.getItem(setup) || "",
       ui: localStorage.getItem(ui) || "",
+      session: sessionStorage.getItem("repforge_freeform_session_v1"),
     }), { k: KEY, setup: SETUP_DRAFT, ui: UI_KEY });
-    assert(!Object.values(stored).some((value) => value.includes("Overhead press")),
-      "the pasted program is never written to storage",
-      JSON.stringify(Object.fromEntries(Object.entries(stored).map(([k, v]) => [k, v.length]))));
+    assert(![stored.state, stored.draft].some((value) => value.includes("Overhead press")),
+      "the pasted program is never written to persistent storage",
+      JSON.stringify({ state: stored.state.length, draft: stored.draft.length }));
     assert(JSON.parse(stored.ui || "{}").importSourceMode === "freeform",
       "only which door was used is remembered, as a device UI pref", stored.ui);
+    assert(stored.session && JSON.parse(stored.session).stage === 2,
+      "tab-scoped session storage tracks active stage during the flow");
 
     console.log("\nThe reply comes back through the import review");
+    // Advance to Stage 3: Paste the assistant's reply
+    await page.click("#entryFreeformCopy");
+    await page.waitForSelector("#entryFreeformOut", { timeout: 20000 });
+    assert(await page.locator("#entryFreeformOut").isVisible(), "copying advances to stage 3");
     await page.fill("#entryFreeformOut", REPLY);
     await page.click("#entryFreeformReview");
     await page.waitForSelector("#importReview.active", { timeout: 20000 });
@@ -203,22 +224,41 @@ async function main() {
     assert(staged.program === 0,
       "a converted program is a candidate: nothing is active until it is activated",
       String(staged.program));
+    const sessionCleared = await page.evaluate(() => sessionStorage.getItem("repforge_freeform_session_v1"));
+    assert(sessionCleared === null, "session storage is cleared on transition to review");
 
     console.log("\nA reply that is not a program");
     await page.click("#onbBack");
-    await page.waitForSelector("#entryFreeformOut", { timeout: 20000 });
-    assert(await page.locator("#entryFreeformOut").isVisible(),
+    await page.waitForSelector("#entryFreeformIn", { timeout: 20000 });
+    assert(await page.locator("#entryFreeformIn").isVisible(),
       "Back from the preview returns to the door the import came through");
+    await page.fill("#entryFreeformIn", PASTED);
+    await page.click("#entryFreeformContinue");
+    await page.waitForSelector("#entryFreeformCopy", { timeout: 20000 });
+    await page.click("#entryFreeformCopy");
+    await page.waitForSelector("#entryFreeformOut", { timeout: 20000 });
     await page.fill("#entryFreeformOut", "I can't help with that, but here are some general tips!");
     await page.click("#entryFreeformReview");
     await page.waitForTimeout(400);
     const refused = await page.evaluate(() => ({
       toast: document.querySelector("#toast")?.textContent || "",
       reviewing: !!document.querySelector("#importReview.active"),
+      hasNotice: !!document.querySelector(".entry__notice--warn"),
     }));
     assert(!refused.reviewing && /program/i.test(refused.toast),
       "an unusable reply is refused with an explanation, not half-imported",
       JSON.stringify(refused));
+    assert(refused.hasNotice, "unreadable reply renders warning notice with repair and try another actions");
+
+    // Test Try another assistant returns to Stage 2
+    await page.click("#entryFreeformTryAnother");
+    await page.waitForSelector(".entry__freeform-apps", { timeout: 20000 });
+    assert(await page.locator(".entry__freeform-apps").isVisible(), "Try another assistant returns to stage 2");
+
+    // Test Edit source returns to Stage 1
+    await page.click("#entryFreeformEditSource");
+    await page.waitForSelector("#entryFreeformIn", { timeout: 20000 });
+    assert(await page.locator("#entryFreeformIn").isVisible(), "Edit source returns to stage 1");
 
     console.log("\nThe doors stay each other's neighbour");
     await page.click("#entryFreeformFile");
@@ -272,6 +312,8 @@ async function main() {
     await openFreeform(page);
     const LONG_PROGRAM = "Day 1\n" + Array.from({length: 60}, (_, i) => `Exercise ${i + 1} with a descriptive name and long notes about technique 3x10-12`).join("\n");
     await page.fill("#entryFreeformIn", LONG_PROGRAM);
+    await page.click("#entryFreeformContinue");
+    await page.waitForSelector('[data-freeform-app="chatgpt"]', { timeout: 20000 });
 
     const longState = await page.evaluate(() => {
       const btn = document.querySelector('[data-freeform-app="chatgpt"]');
@@ -326,9 +368,13 @@ async function main() {
     assert(copiedState.text.includes("prompt copied") || copiedState.text.includes("copiado"),
       "revealed anchor indicates prompt is already copied on the clipboard", copiedState.text);
 
-    // Editing input resets the copied state back to tap 1
+    // Return to Stage 1 and edit input to reset copied state
+    await page.click("#entryFreeformEditSource");
+    await page.waitForSelector("#entryFreeformIn", { timeout: 20000 });
     await page.focus("#entryFreeformIn");
     await page.keyboard.type(" ");
+    await page.click("#entryFreeformContinue");
+    await page.waitForSelector('[data-freeform-app="chatgpt"]', { timeout: 20000 });
     const invalidatedState = await page.evaluate(() => {
       const btn = document.querySelector('[data-freeform-app="chatgpt"]');
       return {
@@ -344,6 +390,8 @@ async function main() {
     await page.evaluate(() => window.RepForgeI18n.setLang("en"));
     await openFreeform(page);
     await page.fill("#entryFreeformIn", PASTED);
+    await page.click("#entryFreeformContinue");
+    await page.waitForSelector('[data-freeform-app="claude"]', { timeout: 20000 });
     const enPrompt = await page.evaluate(() =>
       decodeURIComponent((document.querySelector('[data-freeform-app="claude"]')?.href || "").split("?q=")[1] || "")
     );
@@ -462,6 +510,10 @@ async function main() {
     await reset(page);
     await openFreeform(page);
     await page.fill("#entryFreeformIn", PASTED);
+    await page.click("#entryFreeformContinue");
+    await page.waitForSelector("#entryFreeformCopy", { timeout: 20000 });
+    await page.click("#entryFreeformCopy");
+    await page.waitForSelector("#entryFreeformOut", { timeout: 20000 });
 
     const gapReply = JSON.stringify({
       version: 3,
@@ -524,6 +576,8 @@ async function main() {
     await page.evaluate(() => window.RepForgeI18n.setLang("pt"));
     await openFreeform(page);
     await page.fill("#entryFreeformIn", PASTED);
+    await page.click("#entryFreeformContinue");
+    await page.waitForSelector('[data-freeform-app="claude"]', { timeout: 20000 });
     const portuguese = await page.evaluate(() => ({
       body: document.querySelector("#onbBody")?.innerText || "",
       prompt: decodeURIComponent((document.querySelector('[data-freeform-app="claude"]')?.href || "").split("?q=")[1] || ""),

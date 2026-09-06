@@ -49,13 +49,17 @@ link they tapped, to a service they already use. That is the same class of
 deliberate share as a setup link (ADR 0007) and it is disclosed on the screen
 above the buttons rather than in a policy page.
 
-What does *not* happen: the pasted program is never persisted, never exported,
-never part of a state proposal, and never logged or sent to telemetry. It lives
-in memory for the length of the flow and is dropped when onboarding closes. The
-one thing remembered is which of the two doors was last used, as a device-only
-UI pref (`repforge_ui_v1`, key `importSourceMode`), so a draft resumed after
-the phone evicted the tab mid-hand-off comes back to the screen it left. Both
-fields carry `ph-no-capture`.
+What does *not* happen: the pasted program never enters database state, never
+leaves in an export, never enters a setup link, and never enters telemetry or
+event payloads. To protect lifters on mobile whose browser tab may be suspended
+or evicted during the handoff switch, the active source, reply, stage, and last
+provider are held in tab-scoped `sessionStorage` (`repforge_freeform_session_v1`)
+for the duration of the flow. That storage is strictly ephemeral and is cleared
+at all five flow exits: successful transition to review, explicit cancel, start
+over, switching doors to file import, and completed program activation. The
+preference for which door was used last remains in device-only UI prefs
+(`repforge_ui_v1`, key `importSourceMode`). Both input fields carry
+`ph-no-capture`.
 
 ## Why the reply is parsed defensively
 
@@ -85,8 +89,14 @@ prompt nobody reviews.
 
 - The `import` route now has two doors on one step rather than two routes. The
   free-form path ends in the same candidate, the same fingerprint and the same
-  `program_activated` route value, so nothing in the entry schema, the draft
-  envelope or the telemetry catalogue needed a new enumeration.
+  activation pipeline.
+- Four telemetry events in the closed schema-1 catalogue measure the import
+  funnel without capturing user program text or names: `program_import_started`,
+  `program_import_handoff`, `program_import_parsed`, and
+  `program_import_review_reached`, while `program_activated` records an optional
+  `source` property (`freeform` | `file`).
+- Ephemeral session recovery (`sessionStorage`) ensures lifters do not lose
+  progress when switching between apps on aggressive mobile operating systems.
 - The prefilled link is capped (`FREEFORM_URL_MAX`). A longer prompt still
   works: the link opens the app's empty composer and the prompt goes to the
   clipboard instead.

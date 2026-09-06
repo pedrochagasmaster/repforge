@@ -1752,5 +1752,8 @@
   "entry.freeform.unreadable_body": "A resposta do assistente não pôde ser lida como um programa Taurifer. Pode editar a resposta, tentar outro assistente ou copiar um comando de correção.",
   "entry.freeform.copy_repair_prompt": "Copiar comando de correção",
   "entry.freeform.toast_repair_copied": "Comando de correção copiado para a área de transferência.",
-  "entry.freeform.view_original": "Ver texto original colado"
+  "entry.freeform.view_original": "Ver texto original colado",
+  "entry.freeform.confirm_discard": "Mudar para a importação de ficheiro irá descartar o texto colado. Continuar?",
+  "entry.freeform.confirm_start_over": "Recomeçar e descartar o texto colado e a resposta?",
+  "entry.freeform.repair_prompt": "Por favor, devolva apenas o documento JSON válido de acordo com o esquema exigido, sem texto conversacional, comentários ou blocos markdown fora do JSON."
 }
