@@ -9292,11 +9292,18 @@ function freeformClipboardCurrent(token){
 /* The note lives in the markup so a failed read never costs the caret: it is
    written in place rather than through a re-render, which would drop focus off
    the button the lifter just pressed and away from the manual field. */
+const FREEFORM_CLIPBOARD_NOTE_KEYS={
+  empty:"entry.freeform.clipboard_empty",
+  failed:"entry.freeform.clipboard_failed",
+  unavailable:"entry.freeform.clipboard_unavailable",
+};
+const freeformClipboardNoteText=kind=>
+  FREEFORM_CLIPBOARD_NOTE_KEYS[kind]?t(FREEFORM_CLIPBOARD_NOTE_KEYS[kind]):"";
 function setFreeformClipboardNote(kind){
   entryFreeformClipboardNote=kind||null;
   const el=$("#entryFreeformClipNote");
   if(!el)return;
-  el.textContent=kind?t("entry.freeform.clipboard_"+kind):"";
+  el.textContent=freeformClipboardNoteText(kind);
   el.hidden=!kind;
   el.setAttribute("role",kind==="empty"?"status":"alert")}
 function setFreeformClipboardBusy(busy){
@@ -10624,7 +10631,7 @@ function renderFreeformSourceStep(){
       // heading. Manual paste stays exactly where it was, one divider below.
       `<button type="button" class="btn btn--cta" id="entryFreeformClipboard">${esc(t("entry.freeform.clipboard_import"))}</button>`+
       `<p class="entry__notice entry__notice--warn" id="entryFreeformClipNote" role="alert"${entryFreeformClipboardNote?"":" hidden"}>`+
-        `${esc(entryFreeformClipboardNote?t("entry.freeform.clipboard_"+entryFreeformClipboardNote):"")}</p>`+
+        `${esc(freeformClipboardNoteText(entryFreeformClipboardNote))}</p>`+
       `<p class="entry__divider">${esc(t("entry.freeform.clipboard_or"))}</p>`+
       `<label class="entry__field entry__field--area"><span class="visually-hidden">${esc(t("entry.freeform.stage3_title"))}</span>`+
       `<textarea id="entryFreeformOut" rows="7" spellcheck="false" autocapitalize="off" placeholder="${esc(t("entry.freeform.output_placeholder"))}">${esc(entryFreeformReply)}</textarea></label>`+
