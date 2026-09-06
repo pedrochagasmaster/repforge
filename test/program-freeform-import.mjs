@@ -458,6 +458,67 @@ async function main() {
     assert(step3Results.parsedInvalid.status === "unreadable",
       "invalid non-numeric envelope yields unreadable status rather than gap result");
 
+    console.log("\nGap resolution UI in the paste door");
+    await reset(page);
+    await openFreeform(page);
+    await page.fill("#entryFreeformIn", PASTED);
+
+    const gapReply = JSON.stringify({
+      version: 3,
+      meta: { name: "Push Pull Split" },
+      exercises: [
+        { day: "Push", order: 1, name: "Bench press", sets: 4, min: 6, max: 8 },
+        { day: "Push", order: 2, name: "Cable flyes", sets: 3 },
+        { day: "Pull", order: 1, name: "Lat pulldown", min: 10, max: 12 }
+      ],
+      missing: [
+        { day: "Push", order: 2, field: "reps" },
+        { day: "Pull", order: 1, field: "sets" }
+      ],
+      notImported: ["rest_times", "rir_rpe"]
+    });
+
+    await page.fill("#entryFreeformOut", gapReply);
+    await page.click("#entryFreeformReview");
+
+    await page.waitForSelector("#entryFreeformSubmitGaps", { timeout: 10000 });
+    const gapState = await page.evaluate(() => {
+      const inputs = [...document.querySelectorAll("[data-gap-key]")].map(i => i.dataset.gapKey);
+      const notice = document.querySelector(".entry__notice--info")?.textContent || "";
+      return { inputs, notice };
+    });
+
+    assert(gapState.inputs.length === 2, "gap UI renders inputs for each missing field", JSON.stringify(gapState.inputs));
+    assert(gapState.inputs.includes("Push::2::reps") && gapState.inputs.includes("Pull::1::sets"),
+      "gap inputs have expected keys for missing reps and sets");
+    assert(gapState.notice.includes("rest times") && gapState.notice.includes("RIR/RPE"),
+      "gap screen displays non-blocking notImported disclosure", gapState.notice);
+
+    // Submitting with empty inputs fails validation
+    await page.click("#entryFreeformSubmitGaps");
+    const hasInvalid = await page.evaluate(() => document.querySelectorAll(".is-invalid").length);
+    assert(hasInvalid === 2, "empty gap inputs are marked invalid");
+
+    // Filling valid inputs and submitting succeeds into Import Review
+    await page.fill("[data-gap-key=\"Push::2::reps\"]", "12-15");
+    await page.fill("[data-gap-key=\"Pull::1::sets\"]", "4");
+    await page.click("#entryFreeformSubmitGaps");
+
+    await page.waitForSelector("#importReview.active", { timeout: 10000 });
+    const reviewState = await page.evaluate(() => {
+      const notImported = document.querySelector("#importNotImported")?.textContent || "";
+      const originalText = document.querySelector("#importOriginalText pre")?.textContent || "";
+      const rows = document.querySelectorAll("#importRows .improw").length;
+      return { notImported, hasOriginal: originalText.length > 0, rows };
+    });
+
+    assert(reviewState.rows === 3, "import review contains all 3 exercises after gap resolution");
+    assert(reviewState.notImported.includes("rest times"),
+      "import review displays notImported disclosure");
+    assert(reviewState.hasOriginal, "import review displays original pasted text disclosure");
+
+    await page.click("#importReviewCancel");
+
     console.log("\nPortuguese reads the same screen");
     await reset(page);
     await page.evaluate(() => window.RepForgeI18n.setLang("pt"));

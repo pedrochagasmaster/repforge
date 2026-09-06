@@ -8531,6 +8531,27 @@ function renderImportReview(){
   const counts=importCounts(importDraft);
   const file=$("#importFile");
   if(file)file.textContent=t("import.file",{name:importDraft.fileName||t("import.file_fallback"),n:counts.total,exercise:tp(counts.total,"lift")});
+  const notImportedEl=$("#importNotImported");
+  if(notImportedEl){
+    if(importDraft?.notImported?.length){
+      const items=importDraft.notImported.map(cat=>t(`entry.freeform.not_imported.${cat}`)).join(", ");
+      notImportedEl.innerHTML=`<p class="entry__notice entry__notice--info" role="status">${esc(t("entry.freeform.not_imported_notice",{items}))}</p>`;
+      notImportedEl.hidden=false;
+    }else{
+      notImportedEl.innerHTML="";
+      notImportedEl.hidden=true;
+    }
+  }
+  const originalEl=$("#importOriginalText");
+  if(originalEl){
+    if(importDraft?.originalText){
+      originalEl.innerHTML=`<details class="entry__original-text"><summary>${esc(t("entry.freeform.view_original"))}</summary><pre class="entry__pre">${esc(importDraft.originalText)}</pre></details>`;
+      originalEl.hidden=false;
+    }else{
+      originalEl.innerHTML="";
+      originalEl.hidden=true;
+    }
+  }
   const countsEl=$("#importCounts");
   if(countsEl)countsEl.innerHTML=
     `<span class="impcount"><b>${counts.linked}</b>${esc(t("import.count_linked"))}</span>`+
@@ -8790,6 +8811,7 @@ const FREEFORM_APPS={
   claude:{base:"https://claude.ai/new",param:"q",label:"entry.freeform.open_claude",copyLabel:"entry.freeform.copy_claude",copiedLabel:"entry.freeform.open_claude_copied"},
 };
 let entryImportMode=null,entryFreeformInput="",entryFreeformReply="";
+let entryFreeformGapResult=null,entryFreeformGapAnswers={},entryFreeformGapErrors=new Set(),entryFreeformStatus=null;
 const entryFreeformCopiedApps=new Set();
 /** Which import door this device used last. A preference about this screen, so
  *  it lives with the other device-only UI prefs and never touches state. */
@@ -9041,18 +9063,100 @@ function openFreeformApp(app,event){
     toast(t("entry.freeform.needs_input"));
     return false}
   return true}
+function loadFreeformProgram(source){
+  pendingImportIo=null;
+  const draft=buildImportDraft(source,t("entry.freeform.source_name"));
+  draft.sourceType="freeform";
+  draft.notImported=source.notImported||[];
+  draft.originalText=entryFreeformInput;
+  draft.fromFirstRun=firstRunOpen();
+  draft.onboarding=draft.fromFirstRun||!!$("#onboarding")?.classList.contains("active");
+  openImportReview(draft);
+  return draft}
+
 /** The reply becomes an ordinary import draft: same review, same activation. */
 function startFreeformReview(){
   const reply=String(entryFreeformReply||"").trim();
   if(!reply){toast(t("toast.freeform_empty"));return null}
   const source=parseFreeformProgramReply(reply);
-  if(!source?.exercises?.length){toast(t("toast.freeform_unreadable"));return null}
-  pendingImportIo=null;
-  const draft=buildImportDraft(source,t("entry.freeform.source_name"));
-  draft.fromFirstRun=firstRunOpen();
-  draft.onboarding=draft.fromFirstRun||!!$("#onboarding")?.classList.contains("active");
-  openImportReview(draft);
-  return draft}
+  if(!source||source.status==="unreadable"){
+    entryFreeformStatus="unreadable";
+    renderOnboarding();
+    toast(t("toast.freeform_unreadable"));
+    return null;
+  }
+  if(source.status==="gaps"){
+    entryFreeformGapResult=source;
+    entryFreeformGapAnswers={};
+    entryFreeformGapErrors.clear();
+    renderOnboarding();
+    return null;
+  }
+  if(!source.exercises?.length){toast(t("toast.freeform_unreadable"));return null}
+  return loadFreeformProgram(source);
+}
+
+function submitFreeformGaps(){
+  if(!entryFreeformGapResult)return;
+  entryFreeformGapErrors.clear();
+  const gaps=entryFreeformGapResult.gaps||[];
+  for(const gap of gaps){
+    const val=entryFreeformGapAnswers[gap.key];
+    if(gap.field==="sets"){
+      if(parseSetsInput(val)===null)entryFreeformGapErrors.add(gap.key);
+    }else if(gap.field==="reps"){
+      if(parseRepsInput(val)===null)entryFreeformGapErrors.add(gap.key);
+    }
+  }
+  if(entryFreeformGapErrors.size>0){
+    renderOnboarding();
+    const firstInvalid=$(".entry__field-input.is-invalid");
+    if(firstInvalid)try{firstInvalid.focus()}catch{}
+    return;
+  }
+  const assembledDoc=assembleFreeformProgramDocument(entryFreeformGapResult,entryFreeformGapAnswers);
+  const parsed=parseProgramSource(assembledDoc);
+  if(!parsed||!parsed.exercises||!parsed.exercises.length){
+    entryFreeformStatus="unreadable";
+    entryFreeformGapResult=null;
+    renderOnboarding();
+    toast(t("toast.freeform_unreadable"));
+    return;
+  }
+  parsed.notImported=entryFreeformGapResult.notImported||[];
+  entryFreeformGapResult=null;
+  entryFreeformGapAnswers={};
+  loadFreeformProgram(parsed);
+}
+
+function renderFreeformGapsStep(){
+  const gaps=entryFreeformGapResult.gaps||[];
+  const notImported=entryFreeformGapResult.notImported||[];
+  let notImportedHtml="";
+  if(notImported.length){
+    const items=notImported.map(cat=>t(`entry.freeform.not_imported.${cat}`)).join(", ");
+    notImportedHtml=`<p class="entry__notice entry__notice--info" role="status">${esc(t("entry.freeform.not_imported_notice",{items}))}</p>`;
+  }
+  const gapRows=gaps.map(gap=>{
+    const isSets=gap.field==="sets";
+    const val=entryFreeformGapAnswers[gap.key]||"";
+    const hasError=entryFreeformGapErrors.has(gap.key);
+    const label=isSets
+      ?t("entry.freeform.gap_sets_label",{exercise:`${gap.day} · ${gap.name}`})
+      :t("entry.freeform.gap_reps_label",{exercise:`${gap.day} · ${gap.name}`});
+    const placeholder=isSets?"e.g. 3":"e.g. 8-12 or 10";
+    return `<label class="entry__field"><span>${esc(label)}</span>`+
+      `<input type="text" class="entry__field-input${hasError?" is-invalid":""}" data-gap-key="${esc(gap.key)}" value="${esc(val)}" placeholder="${esc(placeholder)}"></label>`;
+  }).join("");
+
+  return entryHeading(t("entry.freeform.gaps_title"))+
+    `<p class="onb__explain">${esc(t("entry.freeform.gaps_lede"))}</p>`+
+    notImportedHtml+
+    (entryFreeformGapErrors.size?`<p class="entry__notice entry__notice--warn" role="alert">${esc(t("entry.freeform.gap_error"))}</p>`:"")+
+    `<div class="entry__gaps-list">${gapRows}</div>`+
+    `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryFreeformSubmitGaps">${esc(t("entry.freeform.gaps_submit"))}</button>`+
+    `<button type="button" class="btn btn--steel" id="entryFreeformBackToReply">${esc(t("entry.freeform.back_to_reply"))}</button></div>`;
+}
 
 /* What the restore choice needs to state the trade honestly: what this device
    holds, what the file holds, and how much of the file is actually new. */
@@ -10162,6 +10266,7 @@ function wireFreeformAppControls(){
     }
   });}
 function renderFreeformSourceStep(){
+  if(entryFreeformGapResult)return renderFreeformGapsStep();
   const program=freeformProgram();
   return entryHeading(t("entry.freeform.title"))+`<p class="onb__explain">${esc(t("entry.freeform.lede"))}</p>`+
     (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
@@ -10466,6 +10571,14 @@ function wireEntryDom(){
     }
   };
   const freeformReview=$("#entryFreeformReview");if(freeformReview)freeformReview.onclick=()=>startFreeformReview();
+  const submitGaps=$("#entryFreeformSubmitGaps");if(submitGaps)submitGaps.onclick=()=>submitFreeformGaps();
+  const backToReply=$("#entryFreeformBackToReply");if(backToReply)backToReply.onclick=()=>{entryFreeformGapResult=null;entryFreeformGapErrors.clear();renderOnboarding();};
+  $$("[data-gap-key]").forEach(input=>{
+    input.oninput=()=>{
+      entryFreeformGapAnswers[input.dataset.gapKey]=input.value;
+      entryFreeformGapErrors.delete(input.dataset.gapKey);
+    };
+  });
   $$("[data-entry-pick]").forEach(btn=>btn.onclick=()=>{
     const key=btn.dataset.entryPick,raw=btn.dataset.entryVal,multi=btn.dataset.entryMulti==="1";
     if(key==="environment"){
