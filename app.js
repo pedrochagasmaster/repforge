@@ -5558,6 +5558,10 @@ window.__repforgePickerSelection=()=>pickerState?[...pickerState.selected]:null;
 window.__repforgeDeleteCustomExercise=id=>deleteCustomExercise(id);
 window.__repforgeRowMuscles=row=>rowMuscles(row);
 window.__repforgeParseProgramSource=(text,name)=>parseProgramSource(text,name);
+window.__repforgeFreeform={
+  parseReply:text=>parseFreeformProgramReply(text),
+  readGapEnvelope:candidate=>readFreeformGapEnvelope(candidate),
+  assembleDocument:(gapResult,gapAnswers)=>assembleFreeformProgramDocument(gapResult,gapAnswers)};
 window.__repforgeImportDraft=()=>importDraft&&{
   fileName:importDraft.fileName,format:importDraft.format,
   counts:importCounts(importDraft),
@@ -8838,18 +8842,189 @@ function freeformJsonCandidates(text){
       if(ch===open)depth++;
       else if(ch===close&&--depth===0){out.push(text.slice(i,j+1));i=j;break}}}
   return out}
-/* A reply is read as a program the same way a file is: the JSON the prompt
-   asked for, or — if the assistant answered in the readable export format
-   instead — the plain-text export parser. Nothing here trusts the reply: it
-   goes through the identical validation, and then through the review screen. */
+const FREEFORM_NOT_IMPORTED_CATEGORIES=new Set([
+  "rest_times","rir_rpe","tempo","supersets","warmups","cardio",
+  "progression_rules","deload","other_notes"]);
+
+function extractNotImported(obj){
+  if(!obj||typeof obj!=="object")return[];
+  const raw=Array.isArray(obj.notImported)?obj.notImported:[];
+  return raw.filter(item=>typeof item==="string"&&FREEFORM_NOT_IMPORTED_CATEGORIES.has(item))}
+
+function parseRepsInput(str){
+  if(typeof str!=="string"&&typeof str!=="number")return null;
+  const s=String(str).trim();
+  const mRange=s.match(/^(\d+)\s*(?:[-–—xX/]|to)\s*(\d+)$/i);
+  if(mRange){
+    const min=parseInt(mRange[1],10),max=parseInt(mRange[2],10);
+    if(min>=1&&min<=1000&&max>=min&&max<=1000)return{min,max};
+    return null}
+  const mSingle=s.match(/^(\d+)$/);
+  if(mSingle){
+    const val=parseInt(mSingle[1],10);
+    if(val>=1&&val<=1000)return{min:val,max:val}}
+  return null}
+
+function parseSetsInput(str){
+  if(typeof str!=="string"&&typeof str!=="number")return null;
+  const s=String(str).trim();
+  if(!/^\d+$/.test(s))return null;
+  const n=parseInt(s,10);
+  return(n>=1&&n<=100)?n:null}
+
+function readFreeformGapEnvelope(candidate){
+  let raw=null;
+  if(typeof candidate==="string"){
+    const trimmed=candidate.trim();
+    if(!trimmed.startsWith("{")&&!trimmed.startsWith("["))return null;
+    raw=boundedImportJson(trimmed);
+  }else if(candidate&&typeof candidate==="object"){
+    raw=candidate;
+  }
+  if(!raw||typeof raw!=="object"||Array.isArray(raw))return null;
+  const exercises=Array.isArray(raw.exercises)?raw.exercises:(Array.isArray(raw.program)?raw.program:null);
+  if(!Array.isArray(exercises)||!exercises.length||exercises.length>IMPORT_MAX_NODES)return null;
+
+  const normalized=[];
+  const orders=new Map();
+  for(let i=0;i<exercises.length;i++){
+    const row=exercises[i];
+    if(!row||typeof row!=="object"||Array.isArray(row))return null;
+    const day=typeof row.day==="string"?row.day.trim():"";
+    const name=typeof row.name==="string"?row.name.trim():"";
+    if(!day||!name)return null;
+
+    let order=row.order;
+    if(order===undefined||order===null){
+      const next=(orders.get(day)||0)+1;
+      orders.set(day,next);
+      order=next;
+    }else if(!Number.isInteger(order)||order<1||order>1000){
+      return null;
+    }
+
+    let sets=row.sets;
+    let setsValid=Number.isInteger(sets)&&sets>=1&&sets<=100;
+    if(sets!==undefined&&sets!==null&&!setsValid)return null;
+
+    let min=row.min??row.repLow;
+    let max=row.max??row.repHigh;
+    let minValid=Number.isInteger(min)&&min>=1&&min<=1000;
+    let maxValid=Number.isInteger(max)&&max>=1&&max<=1000&&(!minValid||max>=min);
+    let repsValid=minValid&&maxValid;
+    if((min!==undefined&&min!==null&&!minValid)||(max!==undefined&&max!==null&&!maxValid))return null;
+
+    normalized.push({
+      day,
+      name,
+      order,
+      sets:setsValid?sets:undefined,
+      min:repsValid?min:undefined,
+      max:repsValid?max:undefined,
+      libraryId:typeof row.libraryId==="string"?row.libraryId:undefined,
+    });
+  }
+
+  const missingSidecar=Array.isArray(raw.missing)?raw.missing:[];
+  const gaps=[];
+  for(let i=0;i<normalized.length;i++){
+    const r=normalized[i];
+    const sidecarSets=missingSidecar.some(m=>m&&m.day===r.day&&m.order===r.order&&m.field==="sets");
+    const sidecarReps=missingSidecar.some(m=>m&&m.day===r.day&&m.order===r.order&&m.field==="reps");
+
+    if(r.sets===undefined||sidecarSets){
+      gaps.push({
+        key:`${r.day}::${r.order}::sets`,
+        rowIndex:i,
+        day:r.day,
+        order:r.order,
+        name:r.name,
+        field:"sets",
+      });
+    }
+    if(r.min===undefined||r.max===undefined||sidecarReps){
+      gaps.push({
+        key:`${r.day}::${r.order}::reps`,
+        rowIndex:i,
+        day:r.day,
+        order:r.order,
+        name:r.name,
+        field:"reps",
+      });
+    }
+  }
+
+  if(!gaps.length)return null;
+
+  return{
+    status:"gaps",
+    envelope:raw,
+    exercises:normalized,
+    gaps,
+    notImported:extractNotImported(raw),
+  };
+}
+
+function assembleFreeformProgramDocument(gapResult,gapAnswers){
+  if(!gapResult||!gapResult.exercises||!gapAnswers)return null;
+  const rows=[];
+  for(let i=0;i<gapResult.exercises.length;i++){
+    const row=gapResult.exercises[i];
+    const copy={...row};
+    if(copy.sets===undefined){
+      const val=gapAnswers[`${row.day}::${row.order}::sets`];
+      const parsedSets=parseSetsInput(val);
+      if(parsedSets===null)return null;
+      copy.sets=parsedSets;
+    }
+    if(copy.min===undefined||copy.max===undefined){
+      const val=gapAnswers[`${row.day}::${row.order}::reps`];
+      const parsedReps=parseRepsInput(val);
+      if(parsedReps===null)return null;
+      copy.min=parsedReps.min;
+      copy.max=parsedReps.max;
+    }
+    rows.push(copy);
+  }
+  return JSON.stringify({
+    version:3,
+    meta:gapResult.envelope?.meta||{name:t("entry.freeform.source_name")},
+    exercises:rows,
+  });
+}
+
+/* A reply is read as a program the same way a file is:
+   1. Fast path: The JSON the prompt asked for, or plain-text export parser.
+   2. Gap path: Structured envelope with missing sidecars or absent numeric fields.
+   Nothing incomplete reaches parseProgramSource or the program model. */
 function parseFreeformProgramReply(text){
   const raw=String(text||"");
   if(!raw.trim()||importUtf8Bytes(raw)>IMPORT_MAX_BYTES)return null;
-  for(const candidate of freeformJsonCandidates(raw)){
+  const candidates=freeformJsonCandidates(raw);
+
+  for(const candidate of candidates){
     const parsed=parseProgramSource(candidate);
-    if(parsed?.exercises?.length)return parsed}
+    if(parsed?.exercises?.length){
+      let notImported=[];
+      try{notImported=extractNotImported(boundedImportJson(candidate.trim()))}catch{}
+      return Object.assign(parsed,{status:"complete",notImported});
+    }
+  }
   const direct=parseProgramSource(raw);
-  return direct?.exercises?.length?direct:null}
+  if(direct?.exercises?.length){
+    let notImported=[];
+    try{notImported=extractNotImported(boundedImportJson(raw.trim()))}catch{}
+    return Object.assign(direct,{status:"complete",notImported});
+  }
+
+  for(const candidate of candidates){
+    const gapResult=readFreeformGapEnvelope(candidate);
+    if(gapResult)return gapResult;
+  }
+  const directGap=readFreeformGapEnvelope(raw);
+  if(directGap)return directGap;
+
+  return {status:"unreadable"};}
 
 async function copyFreeformPrompt(){
   const program=freeformProgram();

@@ -356,6 +356,108 @@ async function main() {
     assert(/missing/i.test(enPrompt) && /notImported/i.test(enPrompt),
       "prompt specifies missing and notImported sidecars");
 
+    console.log("\nThe reply envelope and gap reader (Pass 1 fast path and Pass 2 gap reader)");
+    const step3Results = await page.evaluate(() => {
+      const freeform = window.__repforgeFreeform;
+      const parseSource = window.__repforgeParseProgramSource;
+
+      // 1. Fast path: complete program with notImported
+      const completeEnvelope = JSON.stringify({
+        version: 3,
+        meta: { name: "Upper Lower" },
+        exercises: [
+          { day: "Upper", order: 1, name: "Bench press", sets: 3, min: 8, max: 12 },
+          { day: "Upper", order: 2, name: "Barbell row", sets: 3, min: 8, max: 12 },
+        ],
+        missing: [],
+        notImported: ["rest_times", "tempo", "unrecognized_garbage"]
+      });
+      const parsedComplete = freeform.parseReply(completeEnvelope);
+
+      // 2. Gap path: missing reps and missing sets with missing sidecar
+      const gapEnvelope = JSON.stringify({
+        version: 3,
+        meta: { name: "Push Pull" },
+        exercises: [
+          { day: "Push", order: 1, name: "Bench press", sets: 4, min: 6, max: 8 },
+          { day: "Push", order: 2, name: "Cable flyes", sets: 3 }, // missing reps
+          { day: "Pull", order: 1, name: "Lat pulldown", min: 10, max: 12 } // missing sets
+        ],
+        missing: [
+          { day: "Push", order: 2, field: "reps" },
+          { day: "Pull", order: 1, field: "sets" }
+        ],
+        notImported: ["rir_rpe", "supersets"]
+      });
+      const parsedGaps = freeform.parseReply(gapEnvelope);
+
+      // 3. Assemble document from gaps
+      const gapAnswers = {
+        "Push::2::reps": "12-15",
+        "Pull::1::sets": "4"
+      };
+      const assembledDoc = freeform.assembleDocument(parsedGaps, gapAnswers);
+      const reParsed = parseSource(assembledDoc);
+
+      // 4. Invalid envelope: non-numeric requirement violated (empty exercise name)
+      const invalidEnvelope = JSON.stringify({
+        version: 3,
+        meta: { name: "Broken" },
+        exercises: [
+          { day: "Push", order: 1, name: "", sets: 3, min: 10, max: 10 }
+        ]
+      });
+      const parsedInvalid = freeform.parseReply(invalidEnvelope);
+
+      return {
+        parsedComplete: {
+          status: parsedComplete?.status,
+          exercisesCount: parsedComplete?.exercises?.length,
+          notImported: parsedComplete?.notImported,
+        },
+        parsedGaps: {
+          status: parsedGaps?.status,
+          gapsCount: parsedGaps?.gaps?.length,
+          gaps: parsedGaps?.gaps?.map(g => ({ key: g.key, field: g.field, day: g.day, name: g.name })),
+          notImported: parsedGaps?.notImported,
+        },
+        assembled: {
+          hasDoc: !!assembledDoc,
+          reParsedCount: reParsed?.exercises?.length,
+          reParsedFormat: reParsed?.format,
+          reParsedRows: reParsed?.exercises?.map(e => ({ name: e.name, sets: e.sets, min: e.min, max: e.max })),
+        },
+        parsedInvalid: {
+          status: parsedInvalid?.status,
+        }
+      };
+    });
+
+    assert(step3Results.parsedComplete.status === "complete" && step3Results.parsedComplete.exercisesCount === 2,
+      "fast path directly returns parsed complete program", JSON.stringify(step3Results.parsedComplete));
+    assert(step3Results.parsedComplete.notImported.includes("rest_times") &&
+           step3Results.parsedComplete.notImported.includes("tempo") &&
+           !step3Results.parsedComplete.notImported.includes("unrecognized_garbage"),
+      "fast path preserves valid notImported categories and drops unrecognized ones", JSON.stringify(step3Results.parsedComplete.notImported));
+
+    assert(step3Results.parsedGaps.status === "gaps" && step3Results.parsedGaps.gapsCount === 2,
+      "gap path returns gap status with paired gaps", JSON.stringify(step3Results.parsedGaps));
+    assert(step3Results.parsedGaps.gaps[0].field === "reps" && step3Results.parsedGaps.gaps[0].name === "Cable flyes",
+      "first gap pairs to Cable flyes missing reps");
+    assert(step3Results.parsedGaps.gaps[1].field === "sets" && step3Results.parsedGaps.gaps[1].name === "Lat pulldown",
+      "second gap pairs to Lat pulldown missing sets");
+    assert(step3Results.parsedGaps.notImported.includes("rir_rpe") && step3Results.parsedGaps.notImported.includes("supersets"),
+      "gap path preserves recognized notImported categories");
+
+    assert(step3Results.assembled.hasDoc && step3Results.assembled.reParsedCount === 3 && step3Results.assembled.reParsedFormat === "json",
+      "assembled document cleanly passes parseProgramSource", JSON.stringify(step3Results.assembled));
+    assert(step3Results.assembled.reParsedRows[1].min === 12 && step3Results.assembled.reParsedRows[1].max === 15 &&
+           step3Results.assembled.reParsedRows[2].sets === 4,
+      "assembled document carries lifter filled numeric values into program rows");
+
+    assert(step3Results.parsedInvalid.status === "unreadable",
+      "invalid non-numeric envelope yields unreadable status rather than gap result");
+
     console.log("\nPortuguese reads the same screen");
     await reset(page);
     await page.evaluate(() => window.RepForgeI18n.setLang("pt"));
