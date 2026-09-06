@@ -94,6 +94,7 @@ These are real but do not outrank the foundation above.
 
 | Status | Item | Decision needed / done condition |
 |---|---|---|
+| Later | Import exercise matching | Replace bag-of-words `nameAffinity` with stopword-aware, equipment-weighted, containment-aware scoring; offer up to three ranked candidates per review row instead of one proposal; add curated aliases through `tools/exercise-curation.json`. Gated on a two-tier fixture corpus that must pass first. Contract: [Plan 061](../plans/061-import-exercise-matching.md). Done when a real Portuguese coach program resolves without confidently wrong proposals and the corpus is green in CI. |
 | Later | Pound display and actionable increments | Design one end-to-end lb contract for stored historical values, editable targets, load steps, `minJump`, entry parsing, and “Why this weight?” copy. Never falsify history to make a target look loadable. |
 | Later | Truthful early workout finish | Let the user finish with incomplete planned work while preserving completed sets and explicitly classifying omitted work; do not pretend the whole prescription was completed. |
 | Later | PT-BR bundled/default day labels | Localize Taurifer-authored day labels or deliberately model them as user-owned data with authored PT-BR defaults. Do not mix English `Day N` into a Portuguese first-run program by accident. |
@@ -136,6 +137,7 @@ These are real but do not outrank the foundation above.
 |---|---|---|
 | Later | One draft-transaction result contract | Replace the mixture of result kinds/flags with one documented shape without weakening partial-write and compensation semantics. |
 | Later | Extract the persistence protocol | Move the dual-replica write, WAL, lock rebasing, and recovery protocol out of `app.js` behind a tested module boundary. This is a refactor, not a storage rewrite. It also unblocks the generative recommendation-determinism/provenance and backup round-trip properties, which are deliberately waiting on a clean domain seam rather than scraping `app.js`; sequence it against the overhaul's persistence-adjacent work (Plans 051–053) rather than after it. |
+| Later | Systematic exercise alias pass | Editorial pass over all 270 movements in `tools/exercise-curation.json`, adding gym vernacular, acronyms and morphological variants in EN and PT. Plan 061 aliases only what its corpus proves broken; this is the rest. Boundary: aliases add ways to reach an entry and never repoint a `libraryId` at a different movement. |
 | Later | Centralize browser-test helpers | Unify app boot, lock fixtures, state seeding, and common browser assertions without hiding test intent. |
 | Completed | History identity/search contract | Current History matching uses performed library/movement identity for aliases and preserves immutable performed labels; focused tests hold the rule. |
 | Completed | Fast-check foundation | The framework exists. The remaining work is expanding domain/state-machine coverage listed under deferred generative expansion, not choosing another property-testing library. |
