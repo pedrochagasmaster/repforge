@@ -16316,12 +16316,12 @@
         },
         {
           "tag": "h2",
-          "text": "Paste your program",
+          "text": "Paste a program from anywhere",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
         },
         {
           "tag": "span",
@@ -16337,55 +16337,19 @@
         },
         {
           "tag": "p",
-          "role": "note",
-          "text": "What you paste stays on this device until you choose an app. Taurifer does not keep it.",
-          "name": "What you paste stays on this device until you choose an app. Taurifer does not keep it."
-        },
-        {
-          "tag": "span",
-          "text": "Convert it"
-        },
-        {
-          "tag": "a",
-          "text": "Open in ChatGPT",
-          "name": "Open in ChatGPT",
-          "describedBy": "Paste your program above first.",
-          "aria-disabled": "true"
-        },
-        {
-          "tag": "a",
-          "text": "Open in Claude",
-          "name": "Open in Claude",
-          "describedBy": "Paste your program above first.",
-          "aria-disabled": "true"
-        },
-        {
-          "tag": "p",
           "text": "Paste your program above first."
         },
         {
-          "tag": "button",
-          "text": "Copy the prompt",
-          "name": "Copy the prompt",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "The reply"
-        },
-        {
           "tag": "p",
-          "text": "Come back here and paste the whole reply."
-        },
-        {
-          "tag": "textarea",
-          "name": "The reply"
+          "role": "note",
+          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
+          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
         },
         {
           "tag": "button",
-          "text": "Review the program",
-          "name": "Review the program",
+          "text": "Continue",
+          "name": "Continue",
+          "disabled": true,
           "type": "button"
         },
         {
@@ -16426,12 +16390,12 @@
         },
         {
           "tag": "h2",
-          "text": "Paste your program",
+          "text": "Paste a program from anywhere",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
         },
         {
           "tag": "span",
@@ -16447,55 +16411,19 @@
         },
         {
           "tag": "p",
-          "role": "note",
-          "text": "What you paste stays on this device until you choose an app. Taurifer does not keep it.",
-          "name": "What you paste stays on this device until you choose an app. Taurifer does not keep it."
-        },
-        {
-          "tag": "span",
-          "text": "Convert it"
-        },
-        {
-          "tag": "a",
-          "text": "Open in ChatGPT",
-          "name": "Open in ChatGPT",
-          "describedBy": "Paste your program above first.",
-          "aria-disabled": "true"
-        },
-        {
-          "tag": "a",
-          "text": "Open in Claude",
-          "name": "Open in Claude",
-          "describedBy": "Paste your program above first.",
-          "aria-disabled": "true"
-        },
-        {
-          "tag": "p",
           "text": "Paste your program above first."
         },
         {
-          "tag": "button",
-          "text": "Copy the prompt",
-          "name": "Copy the prompt",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "The reply"
-        },
-        {
           "tag": "p",
-          "text": "Come back here and paste the whole reply."
-        },
-        {
-          "tag": "textarea",
-          "name": "The reply"
+          "role": "note",
+          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
+          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
         },
         {
           "tag": "button",
-          "text": "Review the program",
-          "name": "Review the program",
+          "text": "Continue",
+          "name": "Continue",
+          "disabled": true,
           "type": "button"
         },
         {
@@ -16536,12 +16464,12 @@
         },
         {
           "tag": "h2",
-          "text": "Cole o seu programa",
+          "text": "Colar um programa de qualquer lugar",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Cole do jeito que você tem. O Taurifer monta um pedido para o ChatGPT ou o Claude, que devolve o programa no formato que este app lê."
+          "text": "Cole da forma que tiver: de um treinador, notas, folha de cálculo ou de outro local. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o programa no formato da aplicação."
         },
         {
           "tag": "span",
@@ -16557,55 +16485,19 @@
         },
         {
           "tag": "p",
-          "role": "note",
-          "text": "O que você cola fica neste dispositivo até você escolher um app. O Taurifer não guarda esse texto.",
-          "name": "O que você cola fica neste dispositivo até você escolher um app. O Taurifer não guarda esse texto."
-        },
-        {
-          "tag": "span",
-          "text": "Converter"
-        },
-        {
-          "tag": "a",
-          "text": "Abrir no ChatGPT",
-          "name": "Abrir no ChatGPT",
-          "describedBy": "Cole o seu programa acima primeiro.",
-          "aria-disabled": "true"
-        },
-        {
-          "tag": "a",
-          "text": "Abrir no Claude",
-          "name": "Abrir no Claude",
-          "describedBy": "Cole o seu programa acima primeiro.",
-          "aria-disabled": "true"
-        },
-        {
-          "tag": "p",
           "text": "Cole o seu programa acima primeiro."
         },
         {
-          "tag": "button",
-          "text": "Copiar o pedido",
-          "name": "Copiar o pedido",
-          "disabled": true,
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "A resposta"
-        },
-        {
           "tag": "p",
-          "text": "Volte aqui e cole a resposta inteira."
-        },
-        {
-          "tag": "textarea",
-          "name": "A resposta"
+          "role": "note",
+          "text": "O que colar é mantido neste separador apenas para esta importação. Nunca entra no histórico, exportações ou telemetria, e o Taurifer descarta-o quando o fluxo termina.",
+          "name": "O que colar é mantido neste separador apenas para esta importação. Nunca entra no histórico, exportações ou telemetria, e o Taurifer descarta-o quando o fluxo termina."
         },
         {
           "tag": "button",
-          "text": "Revisar o programa",
-          "name": "Revisar o programa",
+          "text": "Continuar",
+          "name": "Continuar",
+          "disabled": true,
           "type": "button"
         },
         {
@@ -16646,12 +16538,12 @@
         },
         {
           "tag": "h2",
-          "text": "Paste your program",
+          "text": "Paste a program from anywhere",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
         },
         {
           "tag": "span",
@@ -16669,45 +16561,13 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "What you paste stays on this device until you choose an app. Taurifer does not keep it.",
-          "name": "What you paste stays on this device until you choose an app. Taurifer does not keep it."
-        },
-        {
-          "tag": "span",
-          "text": "Convert it"
-        },
-        {
-          "tag": "a",
-          "text": "Open in ChatGPT",
-          "name": "Open in ChatGPT"
-        },
-        {
-          "tag": "a",
-          "text": "Open in Claude",
-          "name": "Open in Claude"
+          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
+          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
         },
         {
           "tag": "button",
-          "text": "Copy the prompt",
-          "name": "Copy the prompt",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "The reply"
-        },
-        {
-          "tag": "p",
-          "text": "Come back here and paste the whole reply."
-        },
-        {
-          "tag": "textarea",
-          "name": "The reply"
-        },
-        {
-          "tag": "button",
-          "text": "Review the program",
-          "name": "Review the program",
+          "text": "Continue",
+          "name": "Continue",
           "type": "button"
         },
         {
@@ -16748,12 +16608,12 @@
         },
         {
           "tag": "h2",
-          "text": "Paste your program",
+          "text": "Paste a program from anywhere",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
         },
         {
           "tag": "span",
@@ -16771,45 +16631,13 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "What you paste stays on this device until you choose an app. Taurifer does not keep it.",
-          "name": "What you paste stays on this device until you choose an app. Taurifer does not keep it."
-        },
-        {
-          "tag": "span",
-          "text": "Convert it"
-        },
-        {
-          "tag": "a",
-          "text": "Open in ChatGPT",
-          "name": "Open in ChatGPT"
-        },
-        {
-          "tag": "a",
-          "text": "Open in Claude",
-          "name": "Open in Claude"
+          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
+          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
         },
         {
           "tag": "button",
-          "text": "Copy the prompt",
-          "name": "Copy the prompt",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "The reply"
-        },
-        {
-          "tag": "p",
-          "text": "Come back here and paste the whole reply."
-        },
-        {
-          "tag": "textarea",
-          "name": "The reply"
-        },
-        {
-          "tag": "button",
-          "text": "Review the program",
-          "name": "Review the program",
+          "text": "Continue",
+          "name": "Continue",
           "type": "button"
         },
         {
@@ -16850,12 +16678,12 @@
         },
         {
           "tag": "h2",
-          "text": "Paste your program",
+          "text": "Paste a program from anywhere",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
         },
         {
           "tag": "span",
@@ -16873,45 +16701,13 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "What you paste stays on this device until you choose an app. Taurifer does not keep it.",
-          "name": "What you paste stays on this device until you choose an app. Taurifer does not keep it."
-        },
-        {
-          "tag": "span",
-          "text": "Convert it"
-        },
-        {
-          "tag": "a",
-          "text": "Open in ChatGPT",
-          "name": "Open in ChatGPT"
-        },
-        {
-          "tag": "a",
-          "text": "Open in Claude",
-          "name": "Open in Claude"
+          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
+          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
         },
         {
           "tag": "button",
-          "text": "Copy the prompt",
-          "name": "Copy the prompt",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "The reply"
-        },
-        {
-          "tag": "p",
-          "text": "Come back here and paste the whole reply."
-        },
-        {
-          "tag": "textarea",
-          "name": "The reply"
-        },
-        {
-          "tag": "button",
-          "text": "Review the program",
-          "name": "Review the program",
+          "text": "Continue",
+          "name": "Continue",
           "type": "button"
         },
         {
@@ -16952,12 +16748,12 @@
         },
         {
           "tag": "h2",
-          "text": "Paste your program",
+          "text": "Paste a program from anywhere",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
         },
         {
           "tag": "span",
@@ -16975,45 +16771,13 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "What you paste stays on this device until you choose an app. Taurifer does not keep it.",
-          "name": "What you paste stays on this device until you choose an app. Taurifer does not keep it."
-        },
-        {
-          "tag": "span",
-          "text": "Convert it"
-        },
-        {
-          "tag": "a",
-          "text": "Open in ChatGPT",
-          "name": "Open in ChatGPT"
-        },
-        {
-          "tag": "a",
-          "text": "Open in Claude",
-          "name": "Open in Claude"
+          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
+          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
         },
         {
           "tag": "button",
-          "text": "Copy the prompt",
-          "name": "Copy the prompt",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "The reply"
-        },
-        {
-          "tag": "p",
-          "text": "Come back here and paste the whole reply."
-        },
-        {
-          "tag": "textarea",
-          "name": "The reply"
-        },
-        {
-          "tag": "button",
-          "text": "Review the program",
-          "name": "Review the program",
+          "text": "Continue",
+          "name": "Continue",
           "type": "button"
         },
         {
@@ -17054,12 +16818,12 @@
         },
         {
           "tag": "h2",
-          "text": "Paste your program",
+          "text": "Paste a program from anywhere",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
         },
         {
           "tag": "span",
@@ -17077,45 +16841,13 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "What you paste stays on this device until you choose an app. Taurifer does not keep it.",
-          "name": "What you paste stays on this device until you choose an app. Taurifer does not keep it."
-        },
-        {
-          "tag": "span",
-          "text": "Convert it"
-        },
-        {
-          "tag": "a",
-          "text": "Open in ChatGPT",
-          "name": "Open in ChatGPT"
-        },
-        {
-          "tag": "a",
-          "text": "Open in Claude",
-          "name": "Open in Claude"
+          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
+          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
         },
         {
           "tag": "button",
-          "text": "Copy the prompt",
-          "name": "Copy the prompt",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "The reply"
-        },
-        {
-          "tag": "p",
-          "text": "Come back here and paste the whole reply."
-        },
-        {
-          "tag": "textarea",
-          "name": "The reply"
-        },
-        {
-          "tag": "button",
-          "text": "Review the program",
-          "name": "Review the program",
+          "text": "Continue",
+          "name": "Continue",
           "type": "button"
         },
         {
@@ -17156,12 +16888,12 @@
         },
         {
           "tag": "h2",
-          "text": "Cole o seu programa",
+          "text": "Colar um programa de qualquer lugar",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Cole do jeito que você tem. O Taurifer monta um pedido para o ChatGPT ou o Claude, que devolve o programa no formato que este app lê."
+          "text": "Cole da forma que tiver: de um treinador, notas, folha de cálculo ou de outro local. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o programa no formato da aplicação."
         },
         {
           "tag": "span",
@@ -17179,45 +16911,13 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "O que você cola fica neste dispositivo até você escolher um app. O Taurifer não guarda esse texto.",
-          "name": "O que você cola fica neste dispositivo até você escolher um app. O Taurifer não guarda esse texto."
-        },
-        {
-          "tag": "span",
-          "text": "Converter"
-        },
-        {
-          "tag": "a",
-          "text": "Abrir no ChatGPT",
-          "name": "Abrir no ChatGPT"
-        },
-        {
-          "tag": "a",
-          "text": "Abrir no Claude",
-          "name": "Abrir no Claude"
+          "text": "O que colar é mantido neste separador apenas para esta importação. Nunca entra no histórico, exportações ou telemetria, e o Taurifer descarta-o quando o fluxo termina.",
+          "name": "O que colar é mantido neste separador apenas para esta importação. Nunca entra no histórico, exportações ou telemetria, e o Taurifer descarta-o quando o fluxo termina."
         },
         {
           "tag": "button",
-          "text": "Copiar o pedido",
-          "name": "Copiar o pedido",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "A resposta"
-        },
-        {
-          "tag": "p",
-          "text": "Volte aqui e cole a resposta inteira."
-        },
-        {
-          "tag": "textarea",
-          "name": "A resposta"
-        },
-        {
-          "tag": "button",
-          "text": "Revisar o programa",
-          "name": "Revisar o programa",
+          "text": "Continuar",
+          "name": "Continuar",
           "type": "button"
         },
         {
@@ -17258,12 +16958,12 @@
         },
         {
           "tag": "h2",
-          "text": "Paste your program",
+          "text": "Paste a program from anywhere",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "Paste it however you have it. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
         },
         {
           "tag": "span",
@@ -17281,45 +16981,13 @@
         {
           "tag": "p",
           "role": "note",
-          "text": "What you paste stays on this device until you choose an app. Taurifer does not keep it.",
-          "name": "What you paste stays on this device until you choose an app. Taurifer does not keep it."
-        },
-        {
-          "tag": "span",
-          "text": "Convert it"
-        },
-        {
-          "tag": "a",
-          "text": "Open in ChatGPT",
-          "name": "Open in ChatGPT"
-        },
-        {
-          "tag": "a",
-          "text": "Open in Claude",
-          "name": "Open in Claude"
+          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
+          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
         },
         {
           "tag": "button",
-          "text": "Copy the prompt",
-          "name": "Copy the prompt",
-          "type": "button"
-        },
-        {
-          "tag": "span",
-          "text": "The reply"
-        },
-        {
-          "tag": "p",
-          "text": "Come back here and paste the whole reply."
-        },
-        {
-          "tag": "textarea",
-          "name": "The reply"
-        },
-        {
-          "tag": "button",
-          "text": "Review the program",
-          "name": "Review the program",
+          "text": "Continue",
+          "name": "Continue",
           "type": "button"
         },
         {
@@ -32527,12 +32195,12 @@
         },
         {
           "tag": "button",
-          "name": "Paste any programPaste a coach's message or your own notes. ChatGPT or Claude puts it in Taurifer's format.",
+          "name": "Paste from anywherePaste a coach's message or your own notes. ChatGPT or Claude puts it in Taurifer's format.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Paste any program"
+          "text": "Paste from anywhere"
         },
         {
           "tag": "span",
@@ -32658,12 +32326,12 @@
         },
         {
           "tag": "button",
-          "name": "Paste any programPaste a coach's message or your own notes. ChatGPT or Claude puts it in Taurifer's format.",
+          "name": "Paste from anywherePaste a coach's message or your own notes. ChatGPT or Claude puts it in Taurifer's format.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Paste any program"
+          "text": "Paste from anywhere"
         },
         {
           "tag": "span",
@@ -32789,12 +32457,12 @@
         },
         {
           "tag": "button",
-          "name": "Colar qualquer programaCole a mensagem do seu treinador ou as suas anotações. O ChatGPT ou o Claude devolve no formato do Taurifer.",
+          "name": "Colar de qualquer lugarCole a mensagem do seu treinador ou as suas anotações. O ChatGPT ou o Claude devolve no formato do Taurifer.",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Colar qualquer programa"
+          "text": "Colar de qualquer lugar"
         },
         {
           "tag": "span",
