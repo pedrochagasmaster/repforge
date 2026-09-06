@@ -17,10 +17,17 @@ takes a free-form program pasted as text — a coach's message, a note — and
 hands it to the lifter's own ChatGPT or Claude for conversion through a link
 they tap. This is a hand-off, not an integration: no key, no account, no
 request made by the app, and nothing leaves the device until a link is tapped.
-The pasted program and the reply live in memory for the length of the flow and
-are never persisted, exported, put in a state proposal, or logged; only which
-door was last used is remembered, in the device-only UI prefs
-(`repforge_ui_v1`, key `importSourceMode`). The prompt is a reviewed i18n
+The pasted program and the reply are never exported, put in a state proposal,
+or logged. They are held for the length of the flow in tab-scoped
+`sessionStorage` (`repforge_freeform_session_v1`, carrying source, reply, stage
+and last provider), so a phone that evicts the tab during the hand-off does not
+lose a coach's message, and they are cleared at all five exits: transition to
+review, cancel, start over, switching to the file door, and activation. Which
+door a staged import came through rides the same tab scope
+(`repforge_import_source_v1`) from the review commit to the activation a screen
+later, because `importDraft` is already null by then; it holds only
+`freeform` or `file`. Which door was last used is remembered across tabs, in the
+device-only UI prefs (`repforge_ui_v1`, key `importSourceMode`). The prompt is a reviewed i18n
 string (`entry.freeform.prompt`), not assembled in code, and the reply is
 validated and reviewed exactly like a file before anything is written. It does
 not pull an LLM dependency into Free or core and does not front-run ADR 0011.

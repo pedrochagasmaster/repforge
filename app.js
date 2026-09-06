@@ -8713,6 +8713,7 @@ async function commitImportReview(){
   const counts=importCounts(importDraft);
   if(counts.review>0){toast(t("toast.import_needs_review",{n:counts.review,exercise:tp(counts.review,"lift")}));return null}
   const draft=importDraft;
+  setStagedImportSource(draft.sourceType);
   ensureImportEntryFlow(draft);
   const preview=importCandidate(draft);
   const name=typeof draft.meta?.name==="string"?draft.meta.name.trim():"";
@@ -8863,6 +8864,21 @@ function saveFreeformSession(){
 function clearFreeformSession(){
   try{sessionStorage.removeItem(FREEFORM_SESSION_KEY)}catch{}
 }
+/* Which door a staged import came through, kept alive from the review commit to
+   the activation that happens a screen later. It cannot ride importDraft, which
+   closeImportReview nulls during the commit, nor the entry result, whose import
+   route allows only "selected". Tab-scoped like the freeform session, carries no
+   program content, and survives a reload between review and activation. */
+const IMPORT_SOURCE_KEY="repforge_import_source_v1";
+function setStagedImportSource(sourceType){
+  try{sessionStorage.setItem(IMPORT_SOURCE_KEY,sourceType==="freeform"?"freeform":"file")}catch{}
+}
+function stagedImportSource(){
+  try{return sessionStorage.getItem(IMPORT_SOURCE_KEY)==="freeform"?"freeform":"file"}catch{return"file"}
+}
+function clearStagedImportSource(){
+  try{sessionStorage.removeItem(IMPORT_SOURCE_KEY)}catch{}
+}
 
 function resetFreeformImport(){
   entryFreeformInput="";
@@ -8967,6 +8983,9 @@ function parseSetsInput(str){
   const n=parseInt(s,10);
   return(n>=1&&n<=100)?n:null}
 
+/* Gaps are keyed by row position, never by (day, order): a reply that numbers
+   some rows and omits others collides on that pair, and two rows sharing a key
+   means one entered number silently lands on a second exercise. */
 function readFreeformGapEnvelope(candidate){
   let raw=null;
   if(typeof candidate==="string"){
@@ -9029,7 +9048,7 @@ function readFreeformGapEnvelope(candidate){
 
     if(r.sets===undefined||sidecarSets){
       gaps.push({
-        key:`${r.day}::${r.order}::sets`,
+        key:`${i}::sets`,
         rowIndex:i,
         day:r.day,
         order:r.order,
@@ -9039,7 +9058,7 @@ function readFreeformGapEnvelope(candidate){
     }
     if(r.min===undefined||r.max===undefined||sidecarReps){
       gaps.push({
-        key:`${r.day}::${r.order}::reps`,
+        key:`${i}::reps`,
         rowIndex:i,
         day:r.day,
         order:r.order,
@@ -9067,13 +9086,13 @@ function assembleFreeformProgramDocument(gapResult,gapAnswers){
     const row=gapResult.exercises[i];
     const copy={...row};
     if(copy.sets===undefined){
-      const val=gapAnswers[`${row.day}::${row.order}::sets`];
+      const val=gapAnswers[`${i}::sets`];
       const parsedSets=parseSetsInput(val);
       if(parsedSets===null)return null;
       copy.sets=parsedSets;
     }
     if(copy.min===undefined||copy.max===undefined){
-      const val=gapAnswers[`${row.day}::${row.order}::reps`];
+      const val=gapAnswers[`${i}::reps`];
       const parsedReps=parseRepsInput(val);
       if(parsedReps===null)return null;
       copy.min=parsedReps.min;
@@ -11202,12 +11221,11 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     telemetryRoute==="browse"||telemetryRoute==="recommend"||telemetryRoute==="custom"?"taurifer_v1":"legacy_v1";
   if(!result.alreadyCommitted){
     const payload={route:telemetryRoute,version_category:versionCategory};
-    if(telemetryRoute==="import"){
-      payload.source=(originDraft?.sourceType==="freeform"||importDraft?.sourceType==="freeform")?"freeform":"file";
-    }
+    if(telemetryRoute==="import")payload.source=stagedImportSource();
     captureEvent("program_activated",payload);
   }
   clearFreeformSession();
+  clearStagedImportSource();
   if(telemetryRoute==="shared")SharedSetup?.clearHandoffCookie?.();
   if(telemetryRoute==="shared")syncLang();
   resetDraftSessionState();
