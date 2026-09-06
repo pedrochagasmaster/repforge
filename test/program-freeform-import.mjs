@@ -209,10 +209,16 @@ async function main() {
     assert(review.text.includes("Barbell bench press") && review.text.includes("Barbell row"),
       "the review shows the names the reply used, not the library's");
 
-    if (await page.locator("#importCommit").isDisabled()) {
+    // The row leads with its shortlist and keeps the escape hatches behind a
+    // disclosure, so resolving one means taking a candidate or opening that.
+    while (await page.locator("#importCommit").isDisabled()) {
+      const pick = page.locator('[data-imp-act="pick"]').first();
+      if (await pick.count()) { await pick.click(); continue; }
+      const more = page.locator(".improw.is-open .improw__more summary").first();
+      if (await more.count()) await more.click();
       const raw = page.locator('[data-imp-act="raw"]').first();
       if (await raw.count()) await raw.click();
-      else await page.locator('[data-imp-act="link"]').first().click();
+      else { await page.locator('[data-imp-act="link"]').first().click(); }
     }
     await page.click("#importCommit");
     await page.waitForSelector("#onboarding.active #entryActivate", { timeout: 20000 });

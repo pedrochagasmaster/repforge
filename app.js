@@ -8259,8 +8259,9 @@ function buildImportDraft(source,fileName){
     ? normalizeCustomExercises(source.customExercises).concat(pickableExercises())
     : pickableExercises();
   const rows=source.exercises.map((raw,i)=>{
-    const {status,match}=classifyImportRow(raw,candidates);
+    const {status,match,candidates:ranked}=classifyImportRow(raw,candidates);
     return{key:`imp${i}`,raw:cloneSnapshot(raw),status,match,
+      shortlist:(ranked||[]).map(c=>c.entry),
       decision:status===IMPORT_EXACT||status===IMPORT_ALIAS?"link":"raw",
       reviewed:status===IMPORT_EXACT||status===IMPORT_ALIAS}});
   return{fileName:String(fileName||""),format:source.format||"json",
@@ -8644,7 +8645,8 @@ function renderImportReview(){
     // screen exists, and a twelve-exercise split should not hide them.
     const ordered=[...importDraft.rows].sort((a,b)=>(a.reviewed?1:0)-(b.reviewed?1:0));
     rows.innerHTML=ordered.map(importRowHtml).join("");
-    $$("#importRows [data-imp-act]").forEach(b=>b.onclick=()=>importRowAction(b.dataset.impAct,b.dataset.impKey));
+    $$("#importRows [data-imp-act]").forEach(b=>
+      b.onclick=()=>importRowAction(b.dataset.impAct,b.dataset.impKey,b.dataset.impIdx));
   }
   const commit=$("#importCommit");
   if(commit){
@@ -8670,18 +8672,31 @@ function importRowHtml(row){
   // rows were matched by the importer rather than chosen by the lifter, so the
   // alternatives are noise on the screen you read before replacing a program.
   const folded=row.reviewed&&!row.expanded;
+  // Scoring puts the right movement in the shortlist far more reliably than it
+  // puts it first, and a line like "Hack squat" never says whether the barbell
+  // or the machine is meant. So an undecided row offers its candidates instead
+  // of a verdict, and the escape hatches move behind a disclosure rather than
+  // wrapping four buttons onto three lines of a phone.
+  const shortlist=(row.shortlist||[]).filter(Boolean);
+  const chips=!folded&&shortlist.length
+    ?shortlist.map((entry,i)=>
+      `<button type="button" class="improw__btn improw__btn--pick" data-imp-act="pick" data-imp-idx="${i}" data-imp-key="${esc(row.key)}">${esc(t("import.action_link",{name:libraryName(entry)}))}</button>`).join("")
+    :(!folded&&row.match&&row.decision!=="link"
+      ?`<button type="button" class="improw__btn" data-imp-act="link" data-imp-key="${esc(row.key)}">${esc(t("import.action_link",{name:libraryName(row.match)}))}</button>`:"");
+  const escapes=
+    `<button type="button" class="improw__btn" data-imp-act="choose" data-imp-key="${esc(row.key)}">${esc(t("import.action_choose"))}</button>`+
+    // Shown while a row still needs a decision even when "keep" is already
+    // the standing choice: an unmatched row has to be acknowledged, not just
+    // defaulted, or there is no way to clear it off the review list.
+    (row.decision!=="raw"||!row.reviewed
+      ?`<button type="button" class="improw__btn" data-imp-act="raw" data-imp-key="${esc(row.key)}">${esc(t("import.action_keep"))}</button>`:"")+
+    (row.decision!=="custom"
+      ?`<button type="button" class="improw__btn" data-imp-act="custom" data-imp-key="${esc(row.key)}">${esc(t("import.action_custom"))}</button>`:"");
   const acts=folded
     ?`<button type="button" class="improw__btn improw__btn--change" data-imp-act="expand" data-imp-key="${esc(row.key)}">${esc(t("import.action_change"))}</button>`
-    :(row.match&&row.decision!=="link"
-        ?`<button type="button" class="improw__btn" data-imp-act="link" data-imp-key="${esc(row.key)}">${esc(t("import.action_link",{name:libraryName(row.match)}))}</button>`:"")+
-      `<button type="button" class="improw__btn" data-imp-act="choose" data-imp-key="${esc(row.key)}">${esc(t("import.action_choose"))}</button>`+
-      // Shown while a row still needs a decision even when "keep" is already
-      // the standing choice: an unmatched row has to be acknowledged, not just
-      // defaulted, or there is no way to clear it off the review list.
-      (row.decision!=="raw"||!row.reviewed
-        ?`<button type="button" class="improw__btn" data-imp-act="raw" data-imp-key="${esc(row.key)}">${esc(t("import.action_keep"))}</button>`:"")+
-      (row.decision!=="custom"
-        ?`<button type="button" class="improw__btn" data-imp-act="custom" data-imp-key="${esc(row.key)}">${esc(t("import.action_custom"))}</button>`:"");
+    :chips+(chips
+      ?`<details class="improw__more"><summary>${esc(t("import.more_options"))}</summary><div class="improw__acts">${escapes}</div></details>`
+      :escapes);
   return `<div class="improw${row.reviewed?"":" is-open"}${folded?" is-folded":""}" data-imp-row="${esc(row.key)}">`+
     `<p class="improw__from">${esc(row.raw.name||"")}</p>`+
     `<span class="improw__arrow" aria-hidden="true">→</span>`+
@@ -8690,7 +8705,7 @@ function importRowHtml(row){
     `<div class="improw__acts">${acts}</div>`+
   `</div>`}
 
-function importRowAction(act,key){
+function importRowAction(act,key,idx){
   const row=importDraft?.rows.find(r=>r.key===key);
   if(!row)return;
   // Change only reopens the row: the decision it already carries is untouched,
@@ -8699,11 +8714,17 @@ function importRowAction(act,key){
   // controls the tap was asking for rather than dropped to the document.
   if(act==="expand"){row.expanded=true;renderImportReview();
     $(`#importRows [data-imp-row="${esc(row.key)}"] [data-imp-act]`)?.focus({preventScroll:true});return}
-  if(act==="link"&&row.match){row.decision="link";settleImportRow(row);return}
-  if(act==="raw"){row.decision="raw";settleImportRow(row);return}
+  if(act==="pick"){
+    const entry=(row.shortlist||[])[Number(idx)];
+    if(!entry)return;
+    row.match=entry;row.decision="link";
+    settleImportRow(row,Number(idx)===0?"top_candidate":"alternate");
+    return}
+  if(act==="link"&&row.match){row.decision="link";settleImportRow(row,"top_candidate");return}
+  if(act==="raw"){row.decision="raw";settleImportRow(row,"keep");return}
   if(act==="choose"){
     openExercisePicker({title:t("import.pick_title"),subtitle:row.raw.name||"",
-      onPick:entry=>{row.match=entry;row.decision="link";settleImportRow(row)}});
+      onPick:entry=>{row.match=entry;row.decision="link";settleImportRow(row,"picker")}});
     return}
   if(act==="custom"){
     // Creating the definition here rather than at commit time means the lifter
@@ -8711,9 +8732,15 @@ function importRowAction(act,key){
     openCustomExerciseSheet({entry:{name:row.raw.name||"",primary:row.raw.primary||"",secondary:row.raw.secondary||""},
       stageOnly:true,
       onSave:entry=>{row.createdCustom=entry;row.createdCustomId=entry.id;
-        row.decision="custom";settleImportRow(row)}})}}
-/** A decided row folds back down: the alternatives have done their job. */
-function settleImportRow(row){row.reviewed=true;row.expanded=false;renderImportReview()}
+        row.decision="custom";settleImportRow(row,"custom")}})}}
+/** A decided row folds back down: the alternatives have done their job.
+ *  How it was decided is the only measure of whether matching improved for
+ *  programs we have never seen. Categorical, and never the exercise name. */
+function settleImportRow(row,method){
+  if(method&&!row.reviewed)
+    captureEvent("program_import_row_resolved",
+      {method,source:importDraft?.sourceType==="freeform"?"freeform":"file"});
+  row.reviewed=true;row.expanded=false;renderImportReview()}
 
 function ensureImportEntryFlow(draft){
   if(entryState?.route==="import"&&entryState.step==="import_source")return;
