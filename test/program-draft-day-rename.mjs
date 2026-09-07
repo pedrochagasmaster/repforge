@@ -12,6 +12,7 @@ import {
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+const CHECKPOINT = "repforge_draft_v1:v2-checkpoint";
 const DB = "repforge";
 const STORE = "kv";
 const STORAGE_LOCK = "repforge:state-write";
@@ -182,7 +183,8 @@ function raceFixture() {
 
 function renameDraftRaw(raw, nextDay) {
   const draft = JSON.parse(raw);
-  draft.__day = nextDay;
+  if (draft.schemaVersion === 2) draft.program.dayLabel = nextDay;
+  else draft.__day = nextDay;
   return JSON.stringify(draft);
 }
 
@@ -190,10 +192,34 @@ function sameDraftExceptDay(beforeRaw, afterRaw, expectedDay) {
   if (beforeRaw == null || afterRaw == null) return false;
   const before = JSON.parse(beforeRaw);
   const after = JSON.parse(afterRaw);
-  const actualDay = after.__day;
-  delete before.__day;
-  delete after.__day;
+  const actualDay = after.schemaVersion === 2 ? after.program?.dayLabel : after.__day;
+  if (after.schemaVersion === 2) {
+    before.program.dayLabel = after.program.dayLabel;
+    before.program.programFingerprint = after.program.programFingerprint;
+    before.revision = after.revision;
+    before.writer = after.writer;
+    before.session.updatedAt = after.session.updatedAt;
+  } else {
+    delete before.__day;
+    delete after.__day;
+  }
   return actualDay === expectedDay && JSON.stringify(after) === JSON.stringify(before);
+}
+
+function draftDayValue(draft) { return draft?.schemaVersion === 2 ? draft.program?.dayLabel : draft?.__day; }
+function draftNotesValue(draft) { return draft?.schemaVersion === 2 ? draft.session?.notes : draft?.__sessionNotes; }
+function draftSetValue(draft, exerciseId, ordinal, field) {
+  if (draft?.schemaVersion !== 2) return draft?.[`${exerciseId}_${ordinal}_${field}`];
+  const exercise = draft.exercises?.[exerciseId];
+  const setId = exercise?.setOrder?.find((id) => exercise.sets?.[id]?.ordinal === ordinal);
+  return setId ? exercise.sets[setId].edited?.[field] : undefined;
+}
+function draftSetTouched(draft, exerciseId, ordinal, field) {
+  if (draft?.schemaVersion !== 2) return draft?.__touched?.includes(`${exerciseId}_${ordinal}`) || false;
+  const exercise = draft.exercises?.[exerciseId];
+  const setId = exercise?.setOrder?.find((id) => exercise.sets?.[id]?.ordinal === ordinal);
+  const touchedField = field === "rir" || field === "effort" ? "effort" : field;
+  return !!(setId && exercise.sets[setId].touched?.[touchedField]);
 }
 
 function renamedSnapshot(snapshot) {
@@ -314,6 +340,58 @@ async function readRuntime(page) {
   };
 }
 
+async function installConcurrentV2Draft(page, { dayLabel = "Day 1", load, notes }) {
+  return page.evaluate(({ draftKey, checkpointKey, dayLabel, load, notes, firstId, otherId }) => {
+    const model = window.RepForgeWorkoutDraft, current = model.parse(localStorage.getItem(draftKey)).draft;
+    let draft = current, exerciseId = firstId;
+    if (dayLabel !== current.program.dayLabel) {
+      const state = window.__repforgeWorkoutDraft.state(), source = state.program.find((row) => row.id === otherId);
+      exerciseId = otherId;
+      draft = model.create({
+        programId: current.program.programId, programFingerprint: current.program.programFingerprint,
+        durableRevision: current.program.durableRevision, dayId: source.dayId || dayLabel, dayLabel,
+        scheduleDate: current.program.scheduleDate, unit: current.program.unit, rirMode: current.program.rirMode,
+        exercises: [{ legacyExerciseId: source.id, exerciseInstanceId: source.id,
+          sourceExerciseId: source.slotId || source.libraryId || source.movementId || source.id,
+          libraryId: source.libraryId, movementId: source.movementId || `slot:${source.id}`,
+          displayName: source.name, sets: source.sets,
+          setIds: Array.from({ length: source.sets }, (_, index) => `set-${index + 1}`),
+          minReps: source.min, maxReps: source.max, targetRir: 1, notes: source.notes || "",
+          primary: source.primary || "", secondary: source.secondary || "",
+          progressionStrategy: "range", movementPattern: null,
+          sourceFingerprint: `concurrent:${source.id}` }],
+      }, { draftId: `concurrent-${crypto.randomUUID()}`,
+        writer: { installationId: current.writer.installationId, tabId: "concurrent-v2-tab", operationId: "create-day2" },
+        startedAt: current.session.startedAt, updatedAt: current.session.updatedAt,
+        scheduleDate: current.program.scheduleDate, selectedExerciseId: otherId, bodyweight: null, notes: "" }, {});
+      if (model.isDomainError(draft)) throw new Error(`invalid Day2 create: ${JSON.stringify(draft)}`);
+    }
+    const apply = (type, payload) => {
+      const operationId = `concurrent-${type}-${draft.revision + 1}`;
+      const next = model.reduce(draft, { type, ...payload, operationId, expectedRevision: draft.revision,
+        updatedAt: new Date(Date.parse(draft.session.updatedAt) + 1000).toISOString(),
+        writer: { installationId: draft.writer.installationId, tabId: "concurrent-v2-tab", operationId } });
+      if (model.isDomainError(next)) throw new Error(`invalid concurrent command: ${JSON.stringify(next)}`);
+      draft = next;
+    };
+    if (notes !== undefined) apply("setSessionNotes", { value: notes });
+    if (load !== undefined) {
+      const setId = draft.exercises[exerciseId].setOrder[0];
+      apply("editSetField", { exerciseInstanceId: exerciseId, setId, field: "load", value: String(load) });
+    }
+    const raw = JSON.stringify(model.serialize(draft));
+    const parsed = model.parse(raw);
+    if (parsed.kind !== "valid") throw new Error(`invalid concurrent DraftV2: ${JSON.stringify(parsed)}`);
+    localStorage.setItem(draftKey, raw);
+    localStorage.setItem(checkpointKey, JSON.stringify({
+      version: 1, kind: "committed", draftId: draft.draftId, revision: draft.revision,
+      operationId: draft.writer.operationId, programFingerprint: draft.program.programFingerprint, raw,
+    }));
+    return raw;
+  }, { draftKey: DRAFT, checkpointKey: CHECKPOINT, dayLabel, load, notes,
+    firstId: EXERCISE_ID, otherId: OTHER_EXERCISE_ID });
+}
+
 async function openProgramEditor(page) {
   await page.evaluate(() => window.__repforgeLeaveWorkout?.());
   await page.click('nav button[data-view="program"]');
@@ -431,9 +509,9 @@ async function waitForRaceDraft(page, load, timeout = 10000) {
       try {
         const candidate = JSON.parse(raw || "null");
         return (
-          candidate?.__day === "Day 1" &&
-          candidate?.[`${SET_KEY}_load`] === expectedLoad &&
-          candidate?.__touched?.includes(SET_KEY)
+          draftDayValue(candidate) === "Day 1" &&
+          draftSetValue(candidate, EXERCISE_ID, 1, "load") === expectedLoad &&
+          draftSetTouched(candidate, EXERCISE_ID, 1, "load")
         );
       } catch {
         return false;
@@ -467,9 +545,9 @@ async function runAcceptedRename(browser) {
       await dialog.dismiss();
     });
     const draftRaw = JSON.stringify(progressDraft());
-    const expectedDraftRaw = renameDraftRaw(draftRaw, "Push Day");
     await seedScenario(page, draftRaw);
     const seeded = await readRuntime(page);
+    const installedDraftRaw = seeded.draftRaw;
     const expectedRevision = (seeded.local?._storageRevision ?? 0) + 1;
 
     await openProgramEditor(page);
@@ -499,15 +577,19 @@ async function runAcceptedRename(browser) {
       }
     );
     check(
-      accepted.draftRaw === expectedDraftRaw &&
-        sameDraftExceptDay(draftRaw, accepted.draftRaw, "Push Day"),
-      "accepted rename preserves every draft field while replacing only __day",
+      sameDraftExceptDay(installedDraftRaw, accepted.draftRaw, "Push Day"),
+      "accepted rename preserves every logical draft field while replacing its day",
       {
-        before: draftRaw,
+        before: installedDraftRaw,
         after: accepted.draftRaw,
-        expected: expectedDraftRaw,
       }
     );
+    const beforeDraft=JSON.parse(installedDraftRaw),afterDraft=accepted.draft;
+    check(afterDraft?.revision===beforeDraft.revision+1&&
+      afterDraft?.program?.programFingerprint!==beforeDraft.program.programFingerprint,
+      "rename advances the aggregate once and installs the renamed program fingerprint",
+      {beforeRevision:beforeDraft.revision,afterRevision:afterDraft?.revision,
+        beforeFingerprint:beforeDraft.program.programFingerprint,afterFingerprint:afterDraft?.program?.programFingerprint});
     check(
       accepted.persistenceArtifacts.length === 0,
       "accepted rename drains its single pending journal",
@@ -526,8 +608,10 @@ async function runAcceptedRename(browser) {
     const restoredUi = await page.evaluate(
       ({ exerciseId, setKey }) => ({
         activeDay: document.querySelector("#dayTabs button.active")?.textContent ?? null,
-        draftDay: JSON.parse(localStorage.getItem("repforge_draft_v1") || "null")?.__day ?? null,
-        marker: JSON.parse(localStorage.getItem("repforge_draft_v1") || "null")?.__sessionNotes ?? null,
+        draftDay: (() => { const draft = JSON.parse(localStorage.getItem("repforge_draft_v1") || "null");
+          return draft?.schemaVersion === 2 ? draft.program?.dayLabel : draft?.__day; })(),
+        marker: (() => { const draft = JSON.parse(localStorage.getItem("repforge_draft_v1") || "null");
+          return draft?.schemaVersion === 2 ? draft.session?.notes : draft?.__sessionNotes; })(),
         exercisePresent: !!document.querySelector(`[data-ex="${exerciseId}"]`),
         load: document.querySelector(`[data-k="${setKey}_load"]`)?.value ?? null,
       }),
@@ -648,8 +732,8 @@ async function runTotalFailure(browser) {
         idbChanged: JSON.stringify(failed.idb) !== JSON.stringify(before.idb),
       }
     );
-    check(failed.draftRaw === draftRaw, "total failure leaves the exact draft unchanged", {
-      before: draftRaw,
+    check(failed.draftRaw === before.draftRaw, "total failure leaves the exact draft unchanged", {
+      before: before.draftRaw,
       after: failed.draftRaw,
     });
     check(
@@ -690,10 +774,10 @@ async function runTotalFailure(browser) {
       }
     );
     check(
-      replayed.draftRaw === draftRaw,
+      replayed.draftRaw === before.draftRaw,
       "boot preserves the exact draft for a rejected rename",
       {
-        expected: draftRaw,
+        expected: before.draftRaw,
         actual: replayed.draftRaw,
       }
     );
@@ -711,8 +795,8 @@ async function runNewerDraftRace(browser) {
   try {
     const writer = await openApp(context);
     const draftRaw = JSON.stringify(progressDraft());
-    const replacementRaw = renameDraftRaw(draftRaw, "Push Day");
     await seedScenario(writer, draftRaw);
+    const installedDraftRaw = (await readRuntime(writer)).draftRaw;
     const locker = await openApp(context);
     await holdStorageLock(locker);
     await openProgramEditor(writer);
@@ -725,27 +809,14 @@ async function runNewerDraftRace(browser) {
     check(
       blocked.pendingEntries.length === 1 &&
         pending?.effect?.kind === "replace-draft" &&
-        pending.effect.expectedRaw === draftRaw &&
-        pending.effect.replacementRaw === replacementRaw,
+        pending.effect.expectedRaw === installedDraftRaw &&
+        sameDraftExceptDay(installedDraftRaw, pending.effect.replacementRaw, "Push Day"),
       "blocked rename owns one exact compare-and-replace receipt",
       blocked.pendingEntries.map((entry) => ({ key: entry.key, effect: entry.value?.effect }))
     );
 
-    const newerDraft = progressDraft();
-    newerDraft.__day = "Day 2";
-    newerDraft.__sessionNotes = "newer-cross-tab-marker";
-    newerDraft.__touched = [`${OTHER_EXERCISE_ID}_1`];
-    delete newerDraft[`${SET_KEY}_load`];
-    delete newerDraft[`${SET_KEY}_reps`];
-    delete newerDraft[`${SET_KEY}_rir`];
-    newerDraft[`${OTHER_EXERCISE_ID}_1_load`] = "66.25";
-    newerDraft[`${OTHER_EXERCISE_ID}_1_reps`] = "11";
-    newerDraft[`${OTHER_EXERCISE_ID}_1_rir`] = "2";
-    const newerDraftRaw = JSON.stringify(newerDraft);
-    await locker.evaluate(
-      ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
-      { draftKey: DRAFT, raw: newerDraftRaw }
-    );
+    const newerDraftRaw = await installConcurrentV2Draft(locker,
+      { dayLabel: "Day 2", load: "66.25", notes: "newer-cross-tab-marker" });
 
     await releaseStorageLock(locker);
     await writer.evaluate(() => window.__repforgeStorage.flush());
@@ -802,6 +873,7 @@ async function runSameDayDraftConflict(browser) {
     const writer = await openApp(context);
     const draftRaw = JSON.stringify(progressDraft());
     await seedScenario(writer, draftRaw);
+    const installedDraftRaw = (await readRuntime(writer)).draftRaw;
     const locker = await openApp(context);
     await holdStorageLock(locker);
     await openProgramEditor(writer);
@@ -810,14 +882,8 @@ async function runSameDayDraftConflict(browser) {
     await waitForPendingStorageLock(locker);
     const blocked = await readRuntime(writer);
 
-    const newerDraft = progressDraft();
-    newerDraft.__sessionNotes = "newer-same-day-cross-tab-marker";
-    newerDraft[`${SET_KEY}_load`] = "97.5";
-    const newerDraftRaw = JSON.stringify(newerDraft);
-    await locker.evaluate(
-      ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
-      { draftKey: DRAFT, raw: newerDraftRaw }
-    );
+    const newerDraftRaw = await installConcurrentV2Draft(locker,
+      { load: "97.5", notes: "newer-same-day-cross-tab-marker" });
 
     await releaseStorageLock(locker);
     await writer.evaluate(() => window.__repforgeStorage.flush());
@@ -867,14 +933,8 @@ async function runBootSameDayDraftConflict(browser) {
     await dispatchRename(page, "Day 1", "Push Day");
     await waitForPendingStorageLock(locker);
     const retained = await readRuntime(page);
-    const newerDraft = progressDraft();
-    newerDraft.__sessionNotes = "newer-boot-same-day-marker";
-    newerDraft[`${SET_KEY}_load`] = "105";
-    const newerDraftRaw = JSON.stringify(newerDraft);
-    await locker.evaluate(
-      ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
-      { draftKey: DRAFT, raw: newerDraftRaw }
-    );
+    const newerDraftRaw = await installConcurrentV2Draft(locker,
+      { load: "105", notes: "newer-boot-same-day-marker" });
 
     check(
       retained.pendingEntries.length === 1 &&
@@ -947,8 +1007,8 @@ async function runAbsentDraftConflict(browser) {
     check(
       final.localRaw === before.localRaw &&
         JSON.stringify(final.idb) === JSON.stringify(before.idb) &&
-        final.draft?.__day === "Day 1" &&
-        final.draft?.[`${SET_KEY}_load`] === "81.25",
+        draftDayValue(final.draft) === "Day 1" &&
+        draftSetValue(final.draft, EXERCISE_ID, 1, "load") === "81.25",
       "new same-day draft aborts the queued rename and remains reachable",
       {
         localChanged: final.localRaw !== before.localRaw,
@@ -1010,8 +1070,8 @@ async function runBootAbsentDraftConflict(browser) {
     check(
       replayed.localRaw === before.localRaw &&
         JSON.stringify(replayed.idb) === JSON.stringify(before.idb) &&
-        replayed.draft?.__day === "Day 1" &&
-        replayed.draft?.[`${SET_KEY}_load`] === "83.75",
+        draftDayValue(replayed.draft) === "Day 1" &&
+        draftSetValue(replayed.draft, EXERCISE_ID, 1, "load") === "83.75",
       "boot replay aborts the rename and restores the new same-day draft",
       {
         localChanged: replayed.localRaw !== before.localRaw,
@@ -1141,6 +1201,11 @@ async function runRenameThenWorkoutRace(browser) {
       workout.evaluate(() => window.__repforgeStorage.flush()),
       renamer.evaluate(() => window.__repforgeStorage.flush()),
     ]);
+    check(workoutResult?.draftConflict === true && !workoutResult?.localOk && !workoutResult?.idbOk,
+      "rename-first ordering rejects the stale captured workout revision", workoutResult);
+    await reloadApp(workout);
+    const retriedWorkoutResult = await workout.evaluate(() => window.__repforgeSaveWorkout());
+    await workout.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(locker);
     await reloadApp(locker);
     /* The workout this scenario saves is dated now, so the adherence question is
@@ -1153,11 +1218,12 @@ async function runRenameThenWorkoutRace(browser) {
     check(
       final.local?._storageRevision === before.local._storageRevision + 2 &&
         final.idb?._storageRevision === before.local._storageRevision + 2 &&
-        workoutResult?.revision === before.local._storageRevision + 2,
+        retriedWorkoutResult?.revision === before.local._storageRevision + 2,
       "rename-first ordering advances revisions monotonically",
       {
         before: before.local._storageRevision,
         workoutResult,
+        retriedWorkoutResult,
         localRevision: final.local?._storageRevision,
         idbRevision: final.idb?._storageRevision,
       }

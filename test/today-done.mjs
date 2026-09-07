@@ -258,15 +258,16 @@ console.log("\nToday — completed session state");
 
   const opened = await page.evaluate(() => {
     document.querySelector("#logAnotherSession").click();
-    return {
-      day: document.querySelector("#woDayTitle")?.textContent?.trim(),
-      shell: !document.querySelector("#workoutShell")?.classList.contains("hidden"),
-    };
   });
+  await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+  const openedView = await page.evaluate(() => ({
+    day: document.querySelector("#woDayTitle")?.textContent?.trim(),
+    shell: !document.querySelector("#workoutShell")?.classList.contains("hidden"),
+  }));
   assert(
-    opened.shell && opened.day === "Day 2",
+    openedView.shell && openedView.day === "Day 2",
     "Log another session opens the next program day, not the one already done",
-    JSON.stringify(opened)
+    JSON.stringify(openedView)
   );
   await context.close();
 }
@@ -334,6 +335,7 @@ console.log("\nToday — completed session state");
       el.dispatchEvent(new Event("input", { bubbles: true }));
     }
   });
+  await page.evaluate(async () => window.__repforgeStorage?.flush?.());
   await page.evaluate(() => window.__repforgeLeaveWorkout?.());
   await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
 
