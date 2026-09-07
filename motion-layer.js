@@ -2,35 +2,9 @@
    Taurifer — Motion integration layer
    Runtime: vendor/motion/motion.js (pinned Motion, window.Motion)
 
-   Everything in the app that hands an interaction to Motion goes through here.
-   Nothing else in the codebase touches `window.Motion` directly, so there is
-   exactly one place that answers "what does a settle feel like in Taurifer",
-   one place that knows what reduced motion means, and one place that has to
-   survive the runtime being absent.
-
-   What belongs here, and what does not:
-
-   - Motion earns its place where an interaction has *physics*: a thumb let go
-     mid-gesture, a panel whose height nobody can know until it is measured, a
-     list whose rows swap places while an earlier swap is still settling. Those
-     need velocity transfer, retargeting and real interruption, which a CSS
-     keyframe cannot do — a keyframe restarts from zero every time it is
-     re-triggered.
-   - Dragging is @dnd-kit's, not Motion's. The program editor's reorder gesture
-     needs collision detection, a keyboard drag, live announcements and
-     auto-scroll, which is a drag-and-drop library's job; Motion only covers the
-     reorders that happen with no gesture at all.
-   - The stylesheet keeps everything else. Set completion, view navigation,
-     button presses, popovers, toasts, the install banner and the session
-     crest are CSS transitions and keyframes, tuned in `motion-polish.css`, and
-     this file must not quietly take them over. They are frequent, simple, and
-     already correct; re-implementing them in JavaScript would cost payload and
-     main-thread work and buy nothing.
-
-   The runtime is optional by construction. Every entry point returns `null` or
-   `false` when Motion is not on the page, and every caller keeps its original
-   CSS path for that case, so a stale service-worker cache degrades to the
-   behaviour shipped before Motion rather than to a broken gesture.
+   Gesture-driven movement lives here so release velocity, interruption and
+   momentum projection have one implementation. The runtime remains optional:
+   when it is absent the application keeps its existing CSS/controller paths.
    ============================================================ */
 (function (global) {
   "use strict";
@@ -40,44 +14,12 @@
   const motionValue = runtime && typeof runtime.motionValue === "function" ? runtime.motionValue : null;
   const available = !!(animate && motionValue);
 
-  /* ---- The motion vocabulary ----
-     Four settings, named for what the interface is doing rather than for the
-     numbers in them. Anything that shares a name is meant to feel the same;
-     anything that needs a different feel gets a new entry here rather than a
-     spring literal at the call site.
-
-     The three springs are written as physics — stiffness, damping, mass —
-     rather than as Motion's `visualDuration`/`bounce` shorthand, and that is
-     not a style choice. A duration-parameterised spring solves for a fixed
-     arrival time, so the release velocity a gesture hands it barely changes
-     what it does; measured, a sheet thrown at 900px/s and one let go at rest
-     travelled the same distance. Carrying that velocity is the entire reason
-     any of this is Motion rather than a CSS transition, so these are real
-     springs. Every one is damped between 0.8 and 1.0 of critical: enough to
-     read as caught rather than switched off, never enough to wobble.
-
-     Each moves a value measured in pixels, so `restDelta` and `restSpeed` sit
-     well above Motion's defaults. Settling the last hundredth of a pixel is
-     invisible, and it delays whatever waits on the animation — a tail the
-     lifter cannot see is a delay they can.
-
-     The two curves are tweens, because content measuring itself open is not a
-     thrown object and pretending otherwise would be decoration. Both stay
-     inside the 300ms ceiling the interaction discipline pass set. */
+  /* One vocabulary, named by behaviour. Physics springs carry velocity; the
+     measured disclosure curves are tweens because there is no thrown object. */
   const VOCABULARY = {
-    /* A surface the thumb just released, returning to rest. Slightly under
-       critical, so it reads as being caught rather than switched off.
-       Visually arrives in about 170ms and is finished inside 320ms. */
     gestureSettle: { type: "spring", stiffness: 600, damping: 40, mass: 1, restDelta: 0.5, restSpeed: 10 },
-    /* A surface leaving because the gesture asked it to. Critically damped: it
-       is on its way out and must not overshoot on the way. */
     gestureExit: { type: "spring", stiffness: 700, damping: 53, mass: 1, restDelta: 1, restSpeed: 40 },
-    /* Rows trading places. Firm and quick — a list being reordered has to stay
-       readable while it moves, and several rows move at once. */
     layoutShift: { type: "spring", stiffness: 600, damping: 48, mass: 1, restDelta: 0.5, restSpeed: 20 },
-    /* Content measuring itself open or shut. There is no thrown object here,
-       so there is no physics to model — a curve is the honest description.
-       Exit is shorter than entry: the system responds faster than it offers. */
     revealIn: { duration: 0.2, ease: [0.2, 0.7, 0.2, 1] },
     revealOut: { duration: 0.15, ease: [0.4, 0, 0.8, 0.2] },
   };
@@ -85,100 +27,92 @@
   const reduceQuery = typeof global.matchMedia === "function"
     ? global.matchMedia("(prefers-reduced-motion: reduce)")
     : null;
-  /* Read live rather than cached: the setting can change while the app is open,
-     and a lifter who turns it on mid-session should not have to reload. */
   const reducedMotion = () => !!reduceQuery?.matches;
-
-  /* Velocities arrive from the app's own pointer bookkeeping in px/ms, which is
-     what its thresholds are written in. Motion works in px/s. */
   const perSecond = vPerMs => (Number.isFinite(vPerMs) ? vPerMs * 1000 : 0);
+  const settled = Promise.resolve(false);
 
-  /* A layer promotion that is removed again on the way out. Motion promotes
-     automatically for the animations it drives through WAAPI, but these are
-     motion values painted by hand, so the hint is ours to manage. Leaving it
-     on permanently costs memory on exactly the cheap Android hardware this
-     app is meant to stay quick on. */
   function hint(el, value) {
     if (!el) return;
     if (value) el.style.willChange = value;
     else el.style.removeProperty("will-change");
   }
 
-  const settled = Promise.resolve(false);
+  /* Apple's exponential projection from Designing Fluid Interfaces. Pointer
+     bookkeeping in app space is px/ms, so the /1000 conversion in the original
+     px/s formula cancels out. 0.998 is the normal scroll-style deceleration. */
+  const PROJECTION_DECELERATION = 0.998;
+  function projectMomentum(position, velocityPerMs, decelerationRate = PROJECTION_DECELERATION) {
+    const positionNow = Number.isFinite(position) ? position : 0;
+    const velocity = Number.isFinite(velocityPerMs) ? velocityPerMs : 0;
+    const rate = Math.min(0.9999, Math.max(0, Number(decelerationRate) || 0));
+    if (!rate || !velocity) return positionNow;
+    return positionNow + velocity * rate / (1 - rate);
+  }
+  function nearestSnap(projected, candidates) {
+    const points = (Array.isArray(candidates) ? candidates : []).filter(point => Number.isFinite(point?.position));
+    if (!points.length) return null;
+    return points.reduce((best, point) =>
+      Math.abs(point.position - projected) < Math.abs(best.position - projected) ? point : best);
+  }
+  function rubberband(overshoot, dimension, constant = 0.55) {
+    const distance = Math.abs(Number(overshoot) || 0);
+    const size = Math.max(1, Number(dimension) || 1);
+    const resisted = distance * size * constant / (size + constant * distance);
+    return Math.sign(overshoot || 1) * resisted;
+  }
 
   /* ============================================================
-     Bottom sheets
-     ------------------------------------------------------------
-     The grab handle promises a sheet that can be pushed back down, and the
-     existing gesture already answers that promise well: it locks an axis,
-     yields to a scroller that has something to scroll, measures velocity, and
-     treats a flick as equal to a long push. None of that judgement changes.
-
-     What changes is the last 250ms. Before, release handed the sheet back to a
-     fixed 260ms CSS transition, so a sheet nudged 20px and a sheet hurled
-     halfway down arrived at the same speed. A spring seeded with the thumb's
-     own velocity carries the throw through instead.
-
-     Grabbing a sheet again while it is still settling stops the spring and
-     starts the new drag from rest, which is what the transition did too. Making
-     the second gesture continue from the sheet's current offset is possible now
-     that the position lives in a motion value, but it would move the dismiss
-     threshold as well as the animation, so it is left as a deliberate next step
-     rather than smuggled in behind this one.
+     Bottom-sheet motion handle
      ============================================================ */
-  function trackSheetGesture(sheet, scrim) {
+  function trackSheetGesture(sheet, scrim, { from = 0 } = {}) {
     if (!available || !sheet) return null;
 
-    const y = motionValue(0);
-    /* Measured once, when the thumb takes the sheet. Reading `offsetHeight` in
-       the paint would force a layout on every frame of the drag and again on
-       every frame of the spring that follows it — for a number that cannot
-       change while the sheet is being held. */
+    const origin = Math.max(0, Number(from) || 0);
+    const y = motionValue(origin);
     const height = sheet.offsetHeight || 1;
     const paint = value => {
-      sheet.style.transform = `translate3d(0,${value}px,0)`;
-      /* The scrim thins as the sheet leaves, so the page behind is already on
-         its way back before the sheet has finished going. */
-      if (scrim) scrim.style.opacity = String(Math.max(0, 1 - value / height));
+      const position = Math.max(0, value);
+      sheet.style.transform = `translate3d(0,${position}px,0)`;
+      if (scrim) scrim.style.opacity = String(Math.max(0, 1 - position / height));
     };
     const stopPaint = y.on("change", paint);
+    paint(origin);
     hint(sheet, "transform");
 
     let disposed = false;
     const handOff = () => {
-      /* Give the sheet back to the stylesheet in one tick: drop the inline
-         transform at the same moment the dragging class goes, so the CSS rule
-         resumes ownership without a frame of disagreement. */
       sheet.style.transform = "";
       if (scrim) scrim.style.opacity = "";
       hint(sheet, null);
     };
-    const dispose = () => {
+    const dispose = ({ preserve = false } = {}) => {
       if (disposed) return;
       disposed = true;
       y.stop();
       stopPaint();
-      handOff();
+      if (!preserve) handOff();
     };
 
     return {
-      /* The sheet under the thumb. Set, not animate: the thumb is the clock. */
       follow(dy) {
         if (disposed) return;
-        y.set(dy);
+        y.set(Math.max(0, origin + (Number(dy) || 0)));
       },
-      current: () => y.get(),
-      /* Changed their mind: back to rest, carrying whatever the thumb was
-         doing at the moment it let go. */
+      current: () => Math.max(0, y.get()),
+      /* Stop the old spring without clearing its presentation value. The next
+         tracker adopts that exact pixel as its origin, so re-grabbing a moving
+         sheet never jumps back to the logical rest position. */
+      takeover() {
+        const value = Math.max(0, y.get());
+        dispose({ preserve: true });
+        return value;
+      },
       settle({ velocity = 0 } = {}) {
         if (disposed) return settled;
         if (reducedMotion()) { dispose(); return settled; }
         return animate(y, 0, { ...VOCABULARY.gestureSettle, velocity: perSecond(velocity) })
           .then(() => { dispose(); return true; }, () => false);
       },
-      /* Committed: the sheet keeps going the way it was thrown and is gone.
-         The caller still runs the sheet's own dismiss, so what closes is
-         exactly what Escape and a scrim tap close. */
       dismiss({ velocity = 0 } = {}) {
         if (disposed) return settled;
         if (reducedMotion()) { dispose(); return settled; }
@@ -186,25 +120,12 @@
           .then(() => true, () => false)
           .finally(() => dispose());
       },
-      /* Torn down from underneath — Escape, a save, a tour step. */
       cancel: dispose,
     };
   }
 
   /* ============================================================
-     Focus-mode exercise deck — the abandoned swipe
-     ------------------------------------------------------------
-     One horizontal track carries the previous, current and next exercise. A
-     swipe past the commitment carries the deck one card over; a swipe short of
-     it has to come back.
-
-     Only the coming back is here. Carrying the deck across stays the 210ms CSS
-     transition it always was: the card is delivered to a fixed slot, the deck
-     is locked for the length of the slide, and a spring's tail delayed the
-     index change that waits on it. A swipe that stopped short is the opposite
-     case — the distance is whatever the thumb chose, the speed is whatever the
-     thumb had, and the two together are the difference between a half-hearted
-     push and an abandoned flick. That is a catch, and a catch is a spring.
+     Focus deck spring-back
      ============================================================ */
   function settleFocusDeck(track, { from = 0, velocity = 0 } = {}) {
     if (!available || !track) return null;
@@ -218,10 +139,6 @@
     const stopPaint = x.on("change", value => {
       track.style.transform = `translate3d(${value}px,0,0)`;
     });
-    /* The caller keeps `is-settling` on the track, because that class is also
-       how the rest of the app recognises a slide in progress. Its CSS
-       transition would smear every frame this writes, so it is switched off
-       inline for the length of the animation and handed straight back. */
     track.style.transition = "none";
     hint(track, "transform");
     return animate(x, 0, { ...VOCABULARY.gestureSettle, velocity: perSecond(velocity) })
@@ -237,22 +154,7 @@
 
   /* ============================================================
      Program editor — rows changing places without a gesture
-     ------------------------------------------------------------
-     Dragging a row belongs to @dnd-kit, which animates the drop itself. What
-     is left here is every reorder with no gesture behind it: Move up, Move
-     down, Move to another day, and Undo. Those re-render the list, so a row
-     that changed position jumps unless something covers the distance.
-
-     It used to be a CSS keyframe, which restarts from zero every time it is
-     re-triggered — so nudging a row up three times flickered on the second and
-     third taps instead of continuing. A spring per row retargets from wherever
-     the row currently is and at whatever speed it is already moving, which is
-     exactly the case a keyframe cannot express.
      ============================================================ */
-
-  /* Move every row that changed place from where it used to be to where it now
-     is. `before` maps a row id to the rectangle it occupied before the
-     re-render; rows absent from it are new and are left to the stylesheet. */
   function animateExerciseReorder(rows, before) {
     if (!available || !rows?.length || !before?.size) return false;
     if (reducedMotion()) return false;
@@ -268,9 +170,6 @@
         row.style.transform = value ? `translate3d(0,${value}px,0)` : "";
       });
       hint(row, "transform");
-      /* Motion's animation is a thenable, not a Promise: `then` chains but
-         `finally` is not on it. Settle it into a real promise first, so a
-         cancelled reorder still cleans up after itself. */
       animate(y, 0, VOCABULARY.layoutShift).then(() => true, () => false).finally(() => {
         stopPaint();
         y.stop();
@@ -282,37 +181,9 @@
   }
 
   /* ============================================================
-     Disclosure panels
-     ------------------------------------------------------------
-     Settings rows open panels whose height nobody can state in advance — the
-     progression panel is a paragraph on one strategy and a table on another,
-     and both localisations differ again. They used to swap `display:none` for
-     `display:block`, so the rest of the page jumped by however much content
-     had appeared, with nothing to connect the row that was tapped to the
-     content that arrived.
-
-     Height is a layout property and animating it is not free, so this is
-     deliberately narrow: one small subtree, a fifth of a second, and only for
-     a control that a lifter touches a handful of times in the life of the
-     install. It earns that cost because it is the one case in the app where
-     the target value has to be measured at the moment of the interaction, and
-     because toggling the row twice quickly must reverse from the height the
-     panel currently has rather than from zero.
+     Measured settings disclosures
      ============================================================ */
-  /* One token per panel, so the clean-up of an animation that a second tap
-     superseded cannot wipe the inline height the new one is still writing. */
   const disclosureRuns = new WeakMap();
-
-  /* `applyVisualState` is the caller's *visual* toggle — the class that decides
-     whether the panel is displayed. It is applied immediately and exactly once,
-     whichever branch runs, because that class is also what the next tap reads
-     to decide which way it is toggling. A disclosure whose truth lagged its
-     animation answered a second tap with the direction of the first.
-
-     Since the closed class hides the panel outright, a closing panel is kept on
-     screen for the length of its animation by `is-collapsing` — a marker that
-     exists only while the height is travelling and is never part of a resting
-     state. */
   const COLLAPSING = "is-collapsing";
 
   function animateDisclosure(panel, open, applyVisualState) {
@@ -320,8 +191,6 @@
     if (!available || !panel) { apply(); return null; }
     if (reducedMotion()) { apply(); panel.classList.remove(COLLAPSING); return settled; }
 
-    /* Measured before the class changes: whatever the panel is showing now,
-       including a height an interrupted animation was part-way through. */
     const from = panel.getBoundingClientRect().height;
     apply();
     panel.classList.toggle(COLLAPSING, !open);
@@ -343,26 +212,423 @@
       { height: [`${from}px`, `${to}px`] },
       open ? VOCABULARY.revealIn : VOCABULARY.revealOut
     ).then(() => true, () => false).finally(() => {
-      /* A run a later tap superseded must not clear the height its replacement
-         is still writing. */
       if (disclosureRuns.get(panel) !== token) return;
       disclosureRuns.delete(panel);
       panel.classList.remove(COLLAPSING);
-      /* A resting panel carries no inline geometry, so one left open looks
-         exactly like one that was never animated. */
       panel.style.height = "";
       panel.style.overflow = "";
       hint(panel, null);
     });
   }
 
+  /* ============================================================
+     Fluid controller follow-up
+
+     app.js still owns the no-runtime fallback. Once boot has bound those named
+     pointer listeners, the Motion layer replaces only the two gesture surfaces
+     that need presentation-value interruption and momentum projection. No app
+     state is duplicated: paging still commits through focusGo(), and a sheet
+     still dismisses through its existing Escape path.
+     ============================================================ */
+  const SHEET_LOCK = 8;
+  const FOCUS_LOCK = 10;
+  const FOCUS_SLIDE_MS = 210;
+  const sheetRuns = new Map();
+  let sheetGesture = null;
+  let focusGesture = null;
+  let focusSlide = null;
+
+  function visibleSheetFrom(target) {
+    const sheet = target?.closest?.(".sheet.is-open");
+    return sheet && !sheet.hidden ? sheet : null;
+  }
+  function currentScrim() {
+    const scrims = [...document.querySelectorAll("[id$='Scrim'].is-open")];
+    return scrims[scrims.length - 1] || null;
+  }
+  function sheetScrollHeld(target, sheet) {
+    for (let node = target; node instanceof Element && node !== sheet; node = node.parentElement) {
+      if (node.scrollHeight > node.clientHeight + 1 && node.scrollTop > 0) return true;
+    }
+    return false;
+  }
+  function clearSheetGesture({ clearRun = false } = {}) {
+    if (!sheetGesture) return;
+    const active = sheetGesture;
+    sheetGesture = null;
+    active.sheet.classList.remove("is-dragging");
+    active.scrim?.classList.remove("is-dragging");
+    try { active.sheet.releasePointerCapture?.(active.id); } catch {}
+    if (clearRun) {
+      active.motion?.cancel();
+      if (sheetRuns.get(active.sheet) === active.motion) sheetRuns.delete(active.sheet);
+    }
+  }
+  function sheetPointerDown(event) {
+    if (sheetGesture) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    const target = event.target instanceof Element ? event.target : null;
+    const sheet = visibleSheetFrom(target);
+    if (!target || !sheet) return;
+    if (event.pointerType === "mouse" && target.closest("input,select,textarea,[contenteditable]")) return;
+    if (sheetScrollHeld(target, sheet)) return;
+    sheetGesture = {
+      id: event.pointerId, sheet, scrim: currentScrim(), x: event.clientX, y: event.clientY,
+      anchorY: event.clientY, dy: 0, live: false, velocity: 0,
+      lastY: event.clientY, lastT: event.timeStamp || performance.now(), motion: null,
+    };
+  }
+  function sheetPointerMove(event) {
+    const gesture = sheetGesture;
+    if (!gesture || event.pointerId !== gesture.id) return;
+    if (!gesture.sheet.isConnected || gesture.sheet.hidden || !gesture.sheet.classList.contains("is-open")) {
+      clearSheetGesture({ clearRun: true }); return;
+    }
+    const dy = event.clientY - gesture.y;
+    const dx = event.clientX - gesture.x;
+    if (!gesture.live) {
+      if (dy <= -SHEET_LOCK || (Math.abs(dx) >= SHEET_LOCK && Math.abs(dx) > Math.abs(dy))) {
+        sheetGesture = null; return;
+      }
+      if (dy < SHEET_LOCK) return;
+      gesture.live = true;
+      gesture.sheet.classList.add("is-dragging");
+      gesture.scrim?.classList.add("is-dragging");
+      try { gesture.sheet.setPointerCapture?.(gesture.id); } catch {}
+      const previous = sheetRuns.get(gesture.sheet);
+      const from = previous?.takeover?.() || 0;
+      if (previous) sheetRuns.delete(gesture.sheet);
+      gesture.motion = trackSheetGesture(gesture.sheet, gesture.scrim, { from });
+      if (gesture.motion) sheetRuns.set(gesture.sheet, gesture.motion);
+      gesture.anchorY = event.clientY - SHEET_LOCK;
+    }
+    const now = event.timeStamp || performance.now();
+    const dt = now - gesture.lastT;
+    if (dt > 0) {
+      gesture.velocity = (event.clientY - gesture.lastY) / dt;
+      gesture.lastY = event.clientY;
+      gesture.lastT = now;
+    }
+    gesture.dy = Math.max(0, event.clientY - gesture.anchorY);
+    gesture.motion?.follow(gesture.dy);
+  }
+  function dismissSheetByExistingPath(sheet) {
+    sheet.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+  }
+  function sheetPointerEnd(event) {
+    const gesture = sheetGesture;
+    if (!gesture || (event?.pointerId != null && event.pointerId !== gesture.id)) return;
+    sheetGesture = null;
+    if (!gesture.live) return;
+    gesture.sheet.classList.remove("is-dragging");
+    gesture.scrim?.classList.remove("is-dragging");
+    try { gesture.sheet.releasePointerCapture?.(gesture.id); } catch {}
+    if (gesture.dy > SHEET_LOCK) global.swallowNextClick?.();
+
+    const motion = gesture.motion;
+    if (!motion || gesture.sheet.hidden || !gesture.sheet.classList.contains("is-open")) {
+      motion?.cancel();
+      if (sheetRuns.get(gesture.sheet) === motion) sheetRuns.delete(gesture.sheet);
+      return;
+    }
+    const current = motion.current();
+    const projected = projectMomentum(current, gesture.velocity);
+    /* Preserve Taurifer's established zero-velocity commitment distance while
+       replacing the binary flick rule with a continuous projected endpoint. */
+    const threshold = Math.min(160, Math.max(64, (gesture.sheet.offsetHeight || 0) * 0.32));
+    const choice = nearestSnap(projected, [
+      { position: 0, dismiss: false },
+      { position: threshold * 2, dismiss: true },
+    ]);
+    if (choice?.dismiss) {
+      motion.dismiss({ velocity: gesture.velocity });
+      dismissSheetByExistingPath(gesture.sheet);
+    } else {
+      motion.settle({ velocity: gesture.velocity }).finally(() => {
+        if (sheetRuns.get(gesture.sheet) === motion) sheetRuns.delete(gesture.sheet);
+      });
+    }
+  }
+
+  function matrixTranslateX(el) {
+    if (!el) return 0;
+    const value = getComputedStyle(el).transform;
+    if (!value || value === "none") return 0;
+    try {
+      if (typeof global.DOMMatrixReadOnly === "function") return new global.DOMMatrixReadOnly(value).m41 || 0;
+    } catch {}
+    const match = value.match(/^matrix(3d)?\(([^)]+)\)$/);
+    if (!match) return 0;
+    const numbers = match[2].split(",").map(Number);
+    return match[1] ? numbers[12] || 0 : numbers[4] || 0;
+  }
+  function focusActive() {
+    return !!document.querySelector("#workout.is-focus") && document.body.classList.contains("is-focus-wo");
+  }
+  function focusTrack() { return global.focusTrack?.() || document.querySelector("#focusTrack"); }
+  function focusCard() { return global.focusCard?.() || document.querySelector("#workout.is-focus .exercise.is-current"); }
+  function focusStep() {
+    const step = global.focusStep?.();
+    return Number.isFinite(step) && step > 0 ? step : (focusCard()?.offsetWidth || 320) + 14;
+  }
+  function focusCanGo(dir) { return !!global.focusCanGo?.(dir); }
+  function setFocusTrack(track, value) {
+    if (global.focusSetTrack) global.focusSetTrack(track, value);
+    else if (track) track.style.transform = `translate3d(${value}px,0,0)`;
+  }
+  function freezeFocusPresentation(track) {
+    const current = matrixTranslateX(track);
+    track.style.transition = "none";
+    track.classList.remove("is-settling");
+    setFocusTrack(track, current);
+    track.getBoundingClientRect();
+    track.style.removeProperty("transition");
+    hint(track, "transform");
+    return current;
+  }
+  function cleanupFocusSlide(run, { clearTransform = true } = {}) {
+    if (!run) return;
+    clearTimeout(run.timer);
+    run.track.classList.remove("is-settling");
+    run.deck?.classList.remove("is-swiping");
+    run.track.style.removeProperty("transition");
+    if (clearTransform) run.track.style.transform = "";
+    hint(run.track, null);
+    if (focusSlide === run) focusSlide = null;
+  }
+  function finishFocusSlide(run) {
+    if (!run || focusSlide !== run) return;
+    const commit = run.commitDir;
+    const queued = run.queuedDir;
+    cleanupFocusSlide(run);
+    if (commit) global.focusGo?.(commit);
+    if (commit && queued) requestAnimationFrame(() => fluidFocusAnimateTo(queued));
+  }
+  function retargetFocusSlide(run, target) {
+    const current = freezeFocusPresentation(run.track);
+    run.track.classList.add("is-settling");
+    run.deck?.classList.add("is-swiping");
+    run.track.getBoundingClientRect();
+    setFocusTrack(run.track, target);
+    clearTimeout(run.timer);
+    run.timer = setTimeout(() => finishFocusSlide(run), FOCUS_SLIDE_MS);
+    return current;
+  }
+  function fluidFocusAnimateTo(dir, { from = null } = {}) {
+    dir = Math.sign(Number(dir) || 0);
+    if (!dir || !focusActive() || !focusCanGo(dir)) return false;
+    if (reducedMotion()) {
+      if (focusSlide) cleanupFocusSlide(focusSlide);
+      return !!global.focusGo?.(dir);
+    }
+    const track = focusTrack();
+    const deck = document.querySelector("#focusDeck");
+    if (!track) return false;
+
+    if (focusSlide && focusSlide.track !== track) cleanupFocusSlide(focusSlide);
+    if (focusSlide) {
+      const run = focusSlide;
+      if (run.commitDir === dir) {
+        run.queuedDir = dir;
+        return true;
+      }
+      run.commitDir = dir;
+      run.queuedDir = 0;
+      retargetFocusSlide(run, -dir * focusStep());
+      return true;
+    }
+
+    if (from != null) {
+      track.style.transition = "none";
+      setFocusTrack(track, Number(from) || 0);
+      track.getBoundingClientRect();
+      track.style.removeProperty("transition");
+    }
+    const run = { track, deck, commitDir: dir, queuedDir: 0, timer: null };
+    focusSlide = run;
+    retargetFocusSlide(run, -dir * focusStep());
+    return true;
+  }
+  function cancelFocusSlideForDrag() {
+    const run = focusSlide;
+    if (!run) return 0;
+    const current = freezeFocusPresentation(run.track);
+    clearTimeout(run.timer);
+    run.track.classList.remove("is-settling");
+    run.deck?.classList.add("is-swiping");
+    focusSlide = null;
+    return current;
+  }
+  function focusPointerDown(event) {
+    if (!focusActive() || focusGesture) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    const target = event.target instanceof Element ? event.target : null;
+    if (!target?.closest("#focusDeck")) return;
+    if (target.closest("input,select,textarea,[contenteditable]")) return;
+    const card = focusCard(), track = focusTrack(), deck = document.querySelector("#focusDeck");
+    if (!card || !track || !deck) return;
+    const ledger = card.querySelector(".fcard__ledger");
+    focusGesture = {
+      id: event.pointerId, x: event.clientX, y: event.clientY, anchorX: event.clientX,
+      dx: 0, axis: null, card, track, deck, baseX: 0,
+      scrolls: !!ledger && ledger.scrollHeight > ledger.clientHeight + 1,
+      velocity: 0, lastX: event.clientX, lastT: event.timeStamp || performance.now(),
+    };
+  }
+  function focusPointerMove(event) {
+    const gesture = focusGesture;
+    if (!gesture || event.pointerId !== gesture.id) return;
+    if (!gesture.track.isConnected) { focusGesture = null; return; }
+    const mx = event.clientX - gesture.x;
+    const my = event.clientY - gesture.y;
+    if (!gesture.axis) {
+      if (gesture.scrolls && Math.abs(my) >= 18 && Math.abs(my) > Math.abs(mx) * 2) {
+        focusGesture = null; return;
+      }
+      if (Math.abs(mx) < FOCUS_LOCK || Math.abs(mx) <= Math.abs(my)) return;
+      gesture.axis = "x";
+      gesture.baseX = cancelFocusSlideForDrag();
+      gesture.card.classList.add("is-dragging");
+      gesture.deck.classList.add("is-swiping");
+      try { gesture.deck.setPointerCapture?.(gesture.id); } catch {}
+      gesture.anchorX = event.clientX - Math.sign(mx) * FOCUS_LOCK;
+    }
+    const now = event.timeStamp || performance.now();
+    const dt = now - gesture.lastT;
+    if (dt > 0) {
+      gesture.velocity = (event.clientX - gesture.lastX) / dt;
+      gesture.lastX = event.clientX;
+      gesture.lastT = now;
+    }
+    const raw = gesture.baseX + event.clientX - gesture.anchorX;
+    const step = focusStep();
+    if (raw > 0 && !focusCanGo(-1)) gesture.dx = rubberband(raw, step);
+    else if (raw < 0 && !focusCanGo(1)) gesture.dx = rubberband(raw, step);
+    else gesture.dx = raw;
+    setFocusTrack(gesture.track, gesture.dx);
+  }
+  function focusPointerEnd(event) {
+    const gesture = focusGesture;
+    if (!gesture || (event?.pointerId != null && event.pointerId !== gesture.id)) return;
+    focusGesture = null;
+    if (gesture.axis !== "x") return;
+    gesture.card.classList.remove("is-dragging");
+    try { gesture.deck.releasePointerCapture?.(gesture.id); } catch {}
+    if (Math.abs(gesture.dx) > 8) global.swallowNextClick?.();
+
+    const step = focusStep();
+    const projected = projectMomentum(gesture.dx, gesture.velocity);
+    const snaps = [{ position: 0, dir: 0 }];
+    if (focusCanGo(-1)) snaps.push({ position: step, dir: -1 });
+    if (focusCanGo(1)) snaps.push({ position: -step, dir: 1 });
+    const choice = nearestSnap(projected, snaps) || snaps[0];
+    if (!choice.dir) {
+      gesture.track.classList.add("is-settling");
+      const run = settleFocusDeck(gesture.track, { from: gesture.dx, velocity: gesture.velocity });
+      if (run) run.finally(() => {
+        gesture.track.classList.remove("is-settling");
+        gesture.deck.classList.remove("is-swiping");
+      });
+      else {
+        setFocusTrack(gesture.track, 0);
+        setTimeout(() => {
+          gesture.track.classList.remove("is-settling");
+          gesture.deck.classList.remove("is-swiping");
+        }, 220);
+      }
+      return;
+    }
+    fluidFocusAnimateTo(choice.dir, { from: gesture.dx });
+  }
+
+  function cancelSheetRunsThatClosed() {
+    for (const [sheet, motion] of sheetRuns) {
+      if (sheet.hidden || !sheet.classList.contains("is-open")) {
+        motion?.cancel();
+        sheetRuns.delete(sheet);
+      }
+    }
+    if (sheetGesture && (sheetGesture.sheet.hidden || !sheetGesture.sheet.classList.contains("is-open")))
+      clearSheetGesture({ clearRun: true });
+  }
+  function normalizeInstallBannerSemantics() {
+    const banner = document.getElementById("installBanner");
+    if (banner?.getAttribute("role") === "dialog") banner.setAttribute("role", "region");
+  }
+  function installFluidControllers() {
+    if (!available || global.__tauriferFluidControllersInstalled || global.__repforgeBooted !== true) return false;
+    global.__tauriferFluidControllersInstalled = true;
+
+    /* app.js intentionally exposes these classic-script function declarations.
+       Remove the fallback listeners only after boot has bound them. */
+    document.removeEventListener("pointerdown", global.sheetDragStart);
+    global.removeEventListener("pointermove", global.sheetDragMove);
+    global.removeEventListener("pointerup", global.sheetDragEnd);
+    global.removeEventListener("pointercancel", global.sheetDragEnd);
+    const workout = document.getElementById("workout");
+    workout?.removeEventListener("pointerdown", global.focusDragStart);
+    global.removeEventListener("pointermove", global.focusDragMove);
+    global.removeEventListener("pointerup", global.focusDragEnd);
+    global.removeEventListener("pointercancel", global.focusDragEnd);
+
+    document.addEventListener("pointerdown", sheetPointerDown);
+    global.addEventListener("pointermove", sheetPointerMove, { passive: true });
+    global.addEventListener("pointerup", sheetPointerEnd);
+    global.addEventListener("pointercancel", sheetPointerEnd);
+    workout?.addEventListener("pointerdown", focusPointerDown);
+    global.addEventListener("pointermove", focusPointerMove, { passive: true });
+    global.addEventListener("pointerup", focusPointerEnd);
+    global.addEventListener("pointercancel", focusPointerEnd);
+
+    /* Existing keyboard/chevron handlers resolve this global binding at call
+       time. Replace it so those inputs can reverse or queue instead of being
+       discarded during the 210ms page transition. */
+    global.focusAnimateTo = fluidFocusAnimateTo;
+    if (global.__repforgeFocus) global.__repforgeFocus.go = fluidFocusAnimateTo;
+
+    document.addEventListener("keydown", event => {
+      if (event.key !== "Escape") return;
+      if (sheetGesture) clearSheetGesture({ clearRun: true });
+      for (const [sheet, motion] of sheetRuns) {
+        if (!sheet.hidden && sheet.classList.contains("is-open")) {
+          motion?.cancel(); sheetRuns.delete(sheet);
+        }
+      }
+    }, true);
+    new MutationObserver(cancelSheetRunsThatClosed).observe(document.body, {
+      subtree: true, attributes: true, attributeFilter: ["class", "hidden"],
+    });
+    return true;
+  }
+
   global.RepForgeMotion = {
     available: () => available,
     reducedMotion,
     vocabulary: VOCABULARY,
+    projectMomentum,
+    nearestSnap,
     trackSheetGesture,
     settleFocusDeck,
     animateExerciseReorder,
     animateDisclosure,
   };
+
+  /* The banner is a non-modal region, not a dialog. The markup remains backward
+     compatible for a no-script document; the live app corrects the accessibility
+     tree as soon as its DOM exists. */
+  if (document.readyState === "loading")
+    document.addEventListener("DOMContentLoaded", normalizeInstallBannerSemantics, { once: true });
+  else normalizeInstallBannerSemantics();
+
+  /* Boot is asynchronous because storage replicas are reconciled first. Poll a
+     tiny test seam rather than guessing a timeout, then replace the named
+     fallback gesture listeners exactly once. */
+  let attempts = 0;
+  const controllerTimer = global.setInterval(() => {
+    normalizeInstallBannerSemantics();
+    if (global.__repforgeBooted === true) {
+      installFluidControllers();
+      global.clearInterval(controllerTimer);
+    } else if (++attempts > 1200) global.clearInterval(controllerTimer);
+  }, 25);
 })(typeof window !== "undefined" ? window : this);
