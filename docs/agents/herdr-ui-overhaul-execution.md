@@ -112,12 +112,14 @@ Use `--cwd` with the exact worktree, `--checkout current`, `--open none`, and
 for read-only work and `--mode build` for the sole writer.
 
 These are routing defaults, not benchmark claims or permission to override the
-owner's available quota:
+owner's available quota. For Plans 052–059, prefer Gemini 3.8 Flash High for
+most implementation and test packets. The coordinator records any departure
+and its concrete reason in the PR packet row.
 
 | Assignment | Starting choice | Escalation |
 |---|---|---|
 | Source inventory or test-result triage | Muse or GLM through opencode, model default effort | Sonnet if the report cannot resolve a concrete code question |
-| Bounded tests, UI state, or implementation with fixed interfaces | Sonnet high or Gemini Flash high | Stronger read-only contract analysis after one failed repair |
+| Bounded tests, UI state, or implementation with fixed interfaces | Gemini 3.8 Flash High through Antigravity | Sonnet High if Gemini cannot close one bounded attempt, or if the packet requires sustained cross-module reasoning identified before dispatch |
 | Storage atomicity, security, compiler identity, new checker oracle | Codex coordinator judges; external Opus high/xhigh for a bounded unresolved design question | Narrow the question before increasing effort |
 | Mechanical catalog generation and full test run | Existing scripts/processes | Diagnose the failing assertion, not a new "run everything" worker |
 
@@ -125,6 +127,13 @@ Validate slugs against the live provider cache. Antigravity effort is part of
 the model slug. T3 does not set opencode's `variant`; report default effort.
 Do not dispatch a Codex worker to save Codex quota. Do not enable paid fast mode
 as a default. A model's lower cost does not excuse changing an approved contract.
+
+The expected Gemini selection is provider `antigravity`, model
+`gemini-3.8-flash-high`. Treat those values as an expected live selection, not
+a permanent guarantee. Run the Herdr skill's provider/model validator before
+each dispatch. If the slug is unavailable or quota-blocked, record that fact
+before choosing Sonnet. Do not switch models merely because a packet returns a
+valid engineering finding; use the normal review/correction loop first.
 
 T3 handover starts one thread and one turn. Its CLI cannot append correction
 instructions or cancel a writer. For a correction, let the existing writer

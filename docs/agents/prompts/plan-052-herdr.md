@@ -48,9 +48,13 @@ Use the plan's packet order, commands, rollback and owner gates. Future tests
 are planned until implemented and executed. Publish no knowingly red commit.
 
 Validate available provider/model/effort selections through the Herdr skill.
-Start ordinary bounded implementation with Sonnet high or Gemini Flash high
-according to available quota. Use cheap read-only workers for inventories.
-Reserve a stronger read-only worker for unresolved identity/storage questions.
+Use provider `antigravity` with model `gemini-3.8-flash-high` for the majority
+of bounded implementation and test packets. This is the default, not one option
+in an equal rotation. Use cheap read-only workers for inventories. Move a packet
+to Sonnet High only after one bounded Gemini attempt cannot close it, or when
+the coordinator identifies a concrete cross-module reasoning need before
+dispatch. Reserve Opus for a narrowly stated unresolved identity, storage, or
+security question. Record every departure from Gemini and the reason in PR #228.
 Do not delegate the whole plan or let workers delegate recursively.
 
 Each handover is one self-contained packet. Watch it until settled, inspect
