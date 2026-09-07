@@ -19128,6 +19128,16 @@
           "text": "Paste the full reply here."
         },
         {
+          "tag": "button",
+          "text": "Import from clipboard",
+          "name": "Import from clipboard",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Or paste the assistant reply"
+        },
+        {
           "tag": "textarea",
           "text": "Sorry, I could not parse this workout format.",
           "name": "Paste the assistant's replySorry, I could not parse this workout format.",
@@ -19240,6 +19250,16 @@
           "text": "Paste the full reply here."
         },
         {
+          "tag": "button",
+          "text": "Import from clipboard",
+          "name": "Import from clipboard",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Or paste the assistant reply"
+        },
+        {
           "tag": "textarea",
           "text": "Sorry, I could not parse this workout format.",
           "name": "Paste the assistant's replySorry, I could not parse this workout format.",
@@ -19350,6 +19370,16 @@
         {
           "tag": "p",
           "text": "Cole a resposta completa aqui."
+        },
+        {
+          "tag": "button",
+          "text": "Importar da área de transferência",
+          "name": "Importar da área de transferência",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Ou cole a resposta do assistente"
         },
         {
           "tag": "textarea",
