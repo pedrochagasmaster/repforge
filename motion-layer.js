@@ -14,8 +14,6 @@
   const motionValue = runtime && typeof runtime.motionValue === "function" ? runtime.motionValue : null;
   const available = !!(animate && motionValue);
 
-  /* One vocabulary, named by behaviour. Physics springs carry velocity; the
-     measured disclosure curves are tweens because there is no thrown object. */
   const VOCABULARY = {
     gestureSettle: { type: "spring", stiffness: 600, damping: 40, mass: 1, restDelta: 0.5, restSpeed: 10 },
     gestureExit: { type: "spring", stiffness: 700, damping: 53, mass: 1, restDelta: 1, restSpeed: 40 },
@@ -38,8 +36,8 @@
   }
 
   /* Apple's exponential projection from Designing Fluid Interfaces. Pointer
-     bookkeeping in app space is px/ms, so the /1000 conversion in the original
-     px/s formula cancels out. 0.998 is the normal scroll-style deceleration. */
+     velocity is kept in px/ms by app.js, so the original /1000 px/s conversion
+     cancels and the projected distance is velocity * rate / (1-rate). */
   const PROJECTION_DECELERATION = 0.998;
   function projectMomentum(position, velocityPerMs, decelerationRate = PROJECTION_DECELERATION) {
     const positionNow = Number.isFinite(position) ? position : 0;
@@ -61,12 +59,8 @@
     return Math.sign(overshoot || 1) * resisted;
   }
 
-  /* ============================================================
-     Bottom-sheet motion handle
-     ============================================================ */
   function trackSheetGesture(sheet, scrim, { from = 0 } = {}) {
     if (!available || !sheet) return null;
-
     const origin = Math.max(0, Number(from) || 0);
     const y = motionValue(origin);
     const height = sheet.offsetHeight || 1;
@@ -99,9 +93,6 @@
         y.set(Math.max(0, origin + (Number(dy) || 0)));
       },
       current: () => Math.max(0, y.get()),
-      /* Stop the old spring without clearing its presentation value. The next
-         tracker adopts that exact pixel as its origin, so re-grabbing a moving
-         sheet never jumps back to the logical rest position. */
       takeover() {
         const value = Math.max(0, y.get());
         dispose({ preserve: true });
@@ -124,9 +115,6 @@
     };
   }
 
-  /* ============================================================
-     Focus deck spring-back
-     ============================================================ */
   function settleFocusDeck(track, { from = 0, velocity = 0 } = {}) {
     if (!available || !track) return null;
     if (reducedMotion()) {
@@ -152,9 +140,6 @@
       });
   }
 
-  /* ============================================================
-     Program editor — rows changing places without a gesture
-     ============================================================ */
   function animateExerciseReorder(rows, before) {
     if (!available || !rows?.length || !before?.size) return false;
     if (reducedMotion()) return false;
@@ -180,12 +165,8 @@
     return moved;
   }
 
-  /* ============================================================
-     Measured settings disclosures
-     ============================================================ */
   const disclosureRuns = new WeakMap();
   const COLLAPSING = "is-collapsing";
-
   function animateDisclosure(panel, open, applyVisualState) {
     const apply = typeof applyVisualState === "function" ? applyVisualState : () => {};
     if (!available || !panel) { apply(); return null; }
@@ -221,14 +202,9 @@
     });
   }
 
-  /* ============================================================
-     Apple accessibility preferences
-
-     These are independent signals. Reduced transparency turns the dock glass
-     into the opaque fallback material and removes blur. Increased contrast
-     strengthens the shared separator/boundary roles and makes the dock nearly
-     solid without changing Taurifer's palette or light/dark theme choice.
-     ============================================================ */
+  /* Independent accessibility signals. They are CSS media queries rather than
+     JS preferences so a system change takes effect live without another state
+     store or a reload. */
   const PREFERENCE_STYLE_ID = "taurifer-apple-accessibility";
   function installPreferenceStyles() {
     if (document.getElementById(PREFERENCE_STYLE_ID)) return;
@@ -255,15 +231,9 @@
     document.head.append(style);
   }
 
-  /* ============================================================
-     Fluid controller follow-up
-
-     app.js still owns the no-runtime fallback. Once boot has bound those named
-     pointer listeners, the Motion layer replaces only the two gesture surfaces
-     that need presentation-value interruption and momentum projection. No app
-     state is duplicated: paging still commits through focusGo(), and a sheet
-     still dismisses through its existing Escape path.
-     ============================================================ */
+  /* Once app.js has installed its fallback gesture listeners, replace only the
+     two physical surfaces that need presentation-value interruption. The app's
+     logical state functions remain authoritative. */
   const SHEET_LOCK = 8;
   const FOCUS_LOCK = 10;
   const FOCUS_SLIDE_MS = 210;
@@ -367,8 +337,6 @@
     }
     const current = motion.current();
     const projected = projectMomentum(current, gesture.velocity);
-    /* Preserve Taurifer's established zero-velocity commitment distance while
-       replacing the binary flick rule with a continuous projected endpoint. */
     const threshold = Math.min(160, Math.max(64, (gesture.sheet.offsetHeight || 0) * 0.32));
     const choice = nearestSnap(projected, [
       { position: 0, dismiss: false },
@@ -439,21 +407,20 @@
     if (commit && queued) requestAnimationFrame(() => fluidFocusAnimateTo(queued));
   }
   function retargetFocusSlide(run, target) {
-    const current = freezeFocusPresentation(run.track);
+    freezeFocusPresentation(run.track);
     run.track.classList.add("is-settling");
     run.deck?.classList.add("is-swiping");
     run.track.getBoundingClientRect();
     setFocusTrack(run.track, target);
     clearTimeout(run.timer);
     run.timer = setTimeout(() => finishFocusSlide(run), FOCUS_SLIDE_MS);
-    return current;
   }
   function fluidFocusAnimateTo(dir, { from = null } = {}) {
     dir = Math.sign(Number(dir) || 0);
-    if (!dir || !focusActive() || !focusCanGo(dir)) return false;
+    if (!dir || !focusActive()) return false;
     if (reducedMotion()) {
       if (focusSlide) cleanupFocusSlide(focusSlide);
-      return !!global.focusGo?.(dir);
+      return focusCanGo(dir) ? !!global.focusGo?.(dir) : false;
     }
     const track = focusTrack();
     const deck = document.querySelector("#focusDeck");
@@ -466,12 +433,24 @@
         run.queuedDir = dir;
         return true;
       }
+      /* An opposite input is reversal, not navigation to a logical previous
+         item. Return the live presentation to this card first, even at index 0
+         where focusCanGo(-1) is correctly false. */
+      if (run.commitDir) {
+        run.commitDir = 0;
+        run.queuedDir = 0;
+        retargetFocusSlide(run, 0);
+        return true;
+      }
+      /* The transition is already returning to this card. A valid direction
+         can reverse that return again without waiting for it to finish. */
+      if (!focusCanGo(dir)) return false;
       run.commitDir = dir;
-      run.queuedDir = 0;
       retargetFocusSlide(run, -dir * focusStep());
       return true;
     }
 
+    if (!focusCanGo(dir)) return false;
     if (from != null) {
       track.style.transition = "none";
       setFocusTrack(track, Number(from) || 0);
@@ -593,8 +572,6 @@
     if (!available || global.__tauriferFluidControllersInstalled || global.__repforgeBooted !== true) return false;
     global.__tauriferFluidControllersInstalled = true;
 
-    /* app.js intentionally exposes these classic-script function declarations.
-       Remove the fallback listeners only after boot has bound them. */
     document.removeEventListener("pointerdown", global.sheetDragStart);
     global.removeEventListener("pointermove", global.sheetDragMove);
     global.removeEventListener("pointerup", global.sheetDragEnd);
@@ -614,9 +591,6 @@
     global.addEventListener("pointerup", focusPointerEnd);
     global.addEventListener("pointercancel", focusPointerEnd);
 
-    /* Existing keyboard/chevron handlers resolve this global binding at call
-       time. Replace it so those inputs can reverse or queue instead of being
-       discarded during the 210ms page transition. */
     global.focusAnimateTo = fluidFocusAnimateTo;
     if (global.__repforgeFocus) global.__repforgeFocus.go = fluidFocusAnimateTo;
 
@@ -625,7 +599,8 @@
       if (sheetGesture) clearSheetGesture({ clearRun: true });
       for (const [sheet, motion] of sheetRuns) {
         if (!sheet.hidden && sheet.classList.contains("is-open")) {
-          motion?.cancel(); sheetRuns.delete(sheet);
+          motion?.cancel();
+          sheetRuns.delete(sheet);
         }
       }
     }, true);
@@ -649,16 +624,10 @@
 
   installPreferenceStyles();
 
-  /* The banner is a non-modal region, not a dialog. The markup remains backward
-     compatible for a no-script document; the live app corrects the accessibility
-     tree as soon as its DOM exists. */
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", normalizeInstallBannerSemantics, { once: true });
   else normalizeInstallBannerSemantics();
 
-  /* Boot is asynchronous because storage replicas are reconciled first. Poll a
-     tiny test seam rather than guessing a timeout, then replace the named
-     fallback gesture listeners exactly once. */
   let attempts = 0;
   const controllerTimer = global.setInterval(() => {
     normalizeInstallBannerSemantics();
