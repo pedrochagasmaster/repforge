@@ -250,6 +250,172 @@ async function main() {
     check(saved.raw === null && saved.checkpoint?.kind === "tombstone",
       "save removes canonical draft bytes and commits a removal tombstone", saved.checkpoint);
 
+    console.log("\n1a. Canonical unit conversion keeps numeric truth through DraftV2 and History");
+    await reset(page, { unit: "lb" });
+    await enter(page, "Day 1");
+    await switchMode(page, "#modeFull");
+    const precisionExercise = seedProgram()[0];
+    const precisionLoad = 12.5 / 2.2046226218;
+    await page.locator(`[data-k="${precisionExercise.id}_1_load"]`).fill("12.5");
+    await page.locator(`[data-k="${precisionExercise.id}_1_reps"]`).fill("8");
+    await page.locator(`[data-k="${precisionExercise.id}_1_rir"]`).fill("2");
+    await page.locator("#bodyweight").fill("12.5");
+    await page.waitForFunction(({ draft, id, expected }) => {
+      const value = JSON.parse(localStorage.getItem(draft) || "null");
+      const exercise = value?.exercises?.[id];
+      const set = exercise?.sets?.[exercise?.setOrder?.[0]];
+      return Math.abs(Number(set?.edited?.load) - expected) < Number.EPSILON &&
+        Math.abs(Number(value?.session?.bodyweight) - expected) < Number.EPSILON;
+    }, { draft: DRAFT, id: precisionExercise.id, expected: precisionLoad });
+    const preciseDraft = await page.evaluate(({ id }) => {
+      const value = window.__repforgeWorkoutDraft.current();
+      const exercise = value.exercises[id];
+      const set = exercise.sets[exercise.setOrder[0]];
+      return { load: set.edited.load, bodyweight: value.session.bodyweight };
+    }, { id: precisionExercise.id });
+    check(preciseDraft.load === String(precisionLoad) && preciseDraft.bodyweight === String(precisionLoad),
+      "12.5 lb load and bodyweight retain exact canonical kg text", { preciseDraft, expected: String(precisionLoad) });
+    const preciseBeforeReload = (await rawState(page)).raw;
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForBoot(page);
+    check((await rawState(page)).raw === preciseBeforeReload,
+      "canonical converted load and bodyweight survive reload byte-for-byte");
+    const preciseSave = await page.evaluate(async () => {
+      const result = await window.__repforgeSaveWorkout();
+      await window.__repforgeStorage.flush();
+      return result;
+    });
+    const preciseSaved = await rawState(page);
+    const preciseRow = preciseSaved.state.log.find((row) => row.exerciseId === precisionExercise.id);
+    check((preciseSave?.localOk || preciseSave?.idbOk) && preciseRow &&
+      preciseRow.load === precisionLoad && preciseRow.bodyweight === precisionLoad,
+      "History preserves converted load and bodyweight numeric truth", preciseRow);
+    await page.evaluate(() => window.__repforgeSessionSummary?.close());
+    await enter(page, "Day 1");
+    await switchMode(page, "#modeFull");
+    await page.locator(`.copylast[data-copy="${precisionExercise.id}"]`).click();
+    await page.waitForFunction(({ draft, id, expected }) => {
+      const value = JSON.parse(localStorage.getItem(draft) || "null");
+      const exercise = value?.exercises?.[id];
+      const set = exercise?.sets?.[exercise?.setOrder?.[0]];
+      return set?.edited?.load === expected;
+    }, { draft: DRAFT, id: precisionExercise.id, expected: String(precisionLoad) });
+    const repeatedPrecision = await page.evaluate((id) => {
+      const value = window.__repforgeWorkoutDraft.current();
+      const exercise = value.exercises[id];
+      return exercise.sets[exercise.setOrder[0]].edited.load;
+    }, precisionExercise.id);
+    check(repeatedPrecision === String(precisionLoad),
+      "repeat-last preserves the exact canonical kg value", { repeatedPrecision, expected: String(precisionLoad) });
+
+    console.log("\n1c. Session context intent survives clearing, reload, and mode guards");
+    await reset(page);
+    await enter(page);
+    await switchMode(page, "#modeFull");
+    await page.waitForSelector("#workout:not(.is-focus)");
+    await page.locator("#notes").fill("typed then cleared");
+    await page.locator("#notes").fill("");
+    await page.locator("#woOverflowBtn").click();
+    await page.waitForSelector("#woOverflow:not(.hidden)");
+    await page.locator("#date").fill("2026-08-21");
+    await page.locator("#woOverflowBtn").click();
+    await page.waitForSelector("#woOverflow:not(.hidden)");
+    await page.locator("#date").fill("");
+    await page.locator("#bodyweight").fill("80");
+    await page.locator("#bodyweight").fill("");
+    await page.waitForFunction(() => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      return draft?.session?.notes === "" && draft.session.bodyweight === "" && draft.program.scheduleDate === "" &&
+        draft.session.contextTouched?.date === true && draft.session.contextTouched?.sessionNotes === true &&
+        draft.session.contextTouched?.bodyweight === true;
+    });
+    const clearedContextBefore = await rawState(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForBoot(page);
+    await enter(page);
+    const clearedContextAfter = await rawState(page);
+    const reloadedContext = JSON.parse(clearedContextAfter.raw);
+    check(clearedContextAfter.raw === clearedContextBefore.raw &&
+      reloadedContext.session.contextTouched.date && reloadedContext.session.contextTouched.sessionNotes &&
+      reloadedContext.session.contextTouched.bodyweight && reloadedContext.session.notes === "" &&
+      reloadedContext.session.bodyweight === "" && reloadedContext.program.scheduleDate === "",
+    "cleared date, notes, and bodyweight intent survives reload byte-for-byte", {
+      exact: clearedContextAfter.raw === clearedContextBefore.raw,
+      contextTouched: reloadedContext.session.contextTouched,
+    });
+    await page.evaluate(() => window.__repforgeShowSettings());
+    await page.waitForSelector("#settings.active");
+    await page.locator("#rirModeRow").click();
+    await page.locator('input[name="rirMode"][value="effort"]').click();
+    await page.waitForTimeout(150);
+    const refusedContext = await rawState(page);
+    check(refusedContext.state.settings.rirMode === "numeric" && refusedContext.raw === clearedContextBefore.raw,
+      "context intent refuses RIR mode change and preserves the exact DraftV2 bytes", {
+        mode: refusedContext.state.settings.rirMode,
+        exact: refusedContext.raw === clearedContextBefore.raw,
+      });
+
+    await reset(page);
+    await enter(page, "Day 1");
+    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: true, day: "Day 2" }));
+    await page.waitForSelector("#workout.is-focus .exercise.is-current");
+    const dayIntent = await rawState(page);
+    const dayDraft = JSON.parse(dayIntent.raw);
+    check(dayDraft.program.dayLabel === "Day 2" && dayDraft.revision === 0 &&
+      dayDraft.session.contextTouched.day === true && !dayDraft.session.contextTouched.date &&
+      !dayDraft.session.contextTouched.sessionNotes && !dayDraft.session.contextTouched.bodyweight,
+      "an explicit day change creates a clean DraftV2 with only day intent");
+    const dayBeforeMode = dayIntent.raw;
+    await page.evaluate(() => window.__repforgeShowSettings());
+    await page.waitForSelector("#settings.active");
+    await page.locator("#rirModeRow").click();
+    await page.locator('input[name="rirMode"][value="effort"]').click();
+    await page.waitForTimeout(150);
+    const dayRefused = await rawState(page);
+    check(dayRefused.state.settings.rirMode === "numeric" && dayRefused.raw === dayBeforeMode,
+      "day-only intent refuses RIR mode change and preserves exact bytes");
+
+    await reset(page);
+    await enter(page);
+    await switchMode(page, "#modeFull");
+    await page.locator("#notes").fill("typed then cleared");
+    await page.locator("#notes").fill("");
+    await page.waitForFunction(() => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      const flags = draft?.session?.contextTouched;
+      return draft?.session?.notes === "" && flags?.sessionNotes === true &&
+        flags.date === false && flags.bodyweight === false;
+    });
+    const noteOnlyBefore = await rawState(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForBoot(page);
+    await enter(page);
+    const noteOnlyAfter = await rawState(page);
+    check(noteOnlyAfter.raw === noteOnlyBefore.raw &&
+      JSON.parse(noteOnlyAfter.raw).session.contextTouched.sessionNotes === true,
+      "a cleared note marker survives reload with exact DraftV2 bytes");
+    await page.evaluate(() => window.__repforgeShowSettings());
+    await page.waitForSelector("#settings.active");
+    await page.locator("#rirModeRow").click();
+    await page.locator('input[name="rirMode"][value="effort"]').click();
+    await page.waitForTimeout(150);
+    const noteOnlyRefused = await rawState(page);
+    check(noteOnlyRefused.state.settings.rirMode === "numeric" && noteOnlyRefused.raw === noteOnlyBefore.raw,
+      "a cleared-note-only draft refuses RIR mode change without changing its bytes");
+
+    await reset(page);
+    await enter(page);
+    const freshContext = await page.evaluate(() => window.__repforgeWorkoutDraft.current().session.contextTouched);
+    check(JSON.stringify(freshContext) === JSON.stringify({ day: false, date: false, sessionNotes: false, bodyweight: false }),
+      "a fresh workout remains eligible for an RIR mode change");
+    await page.evaluate(() => window.__repforgeShowSettings());
+    await page.waitForSelector("#settings.active");
+    await page.locator("#rirModeRow").click();
+    await page.locator('input[name="rirMode"][value="effort"]').check();
+    await page.waitForFunction(() => JSON.parse(localStorage.getItem("repforge_v1") || "{}").settings?.rirMode === "effort");
+    check((await rawState(page)).state.settings.rirMode === "effort",
+      "a fresh DraftV2 permits the RIR mode change");
+
     console.log("\n1a. Immediate Complete then Finish orders the acknowledged write");
     await reset(page);
     await enter(page);
@@ -562,6 +728,25 @@ async function main() {
       migratedSaved.state.log.some((candidate) => candidate.exerciseId === first.id && candidate.load === 57.5) &&
       migratedSaved.raw === null,
     "the migrated production draft saves through the same History adapter and is removed");
+
+    await reset(page, { unit: "lb" });
+    const legacyPounds = await openOldApp(context);
+    await oldAppWriteSet(legacyPounds, first.id, { load: "12.5", reps: "8", rir: "2" });
+    await legacyPounds.close();
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForBoot(page);
+    const migratedPounds = await rawState(page);
+    const migratedPoundsDraft = JSON.parse(migratedPounds.raw);
+    const migratedPoundsSet = migratedPoundsDraft.exercises[first.id].sets[migratedPoundsDraft.exercises[first.id].setOrder[0]];
+    const migratedPoundsValue = 12.5 / 2.2046226218;
+    check(migratedPoundsSet.edited.load === String(migratedPoundsValue) &&
+      Number(migratedPoundsSet.edited.load) === migratedPoundsValue &&
+      migratedPounds.checkpoint?.raw === migratedPounds.raw,
+    "actual legacy lb input migrates with exact canonical kg precision", {
+      load: migratedPoundsSet.edited.load,
+      expected: String(migratedPoundsValue),
+      checkpoint: migratedPounds.checkpoint?.kind,
+    });
 
     console.log("\n2. Save owns its captured revision and cannot clear a successor draft");
     await reset(page);

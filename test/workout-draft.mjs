@@ -132,10 +132,29 @@ assert(initial.exercises["slot-squat"].sets["squat-set-1"].edited.load === "50" 
   initial.exercises["slot-squat"].sets["squat-set-2"].edited.reps === "8", "programmed suggestions become untapped draft field text");
 assert(initial.exercises["slot-squat"].programmed.notes === "Feet shoulder width" &&
   initial.exercises["slot-squat"].setupNotes === "Previous rack setting", "programmed setup instructions stay distinct from the lifter's exercise note");
+assert(same(initial.session.contextTouched, { day: false, date: false, sessionNotes: false, bodyweight: false }),
+  "fresh creation starts with no explicit session-context intent");
+const explicitlySelectedDay = Draft.create(programContext(), {
+  ...sessionSelection(),
+  contextTouched: { day: true, date: false, sessionNotes: false, bodyweight: false },
+}, {});
+assert(!Draft.isDomainError(explicitlySelectedDay) && explicitlySelectedDay.session.contextTouched.day === true &&
+  Draft.isPristine(explicitlySelectedDay) === false,
+  "an explicit day selection survives creation and keeps the draft disposable-safe");
 
 const serialized = Draft.serialize(initial);
 const parsed = Draft.parse(JSON.stringify(serialized), programContext());
 assert(parsed.kind === "valid" && same(parsed.draft, initial), "serialize and parse round-trip the complete aggregate");
+const earlierV2 = structuredClone(serialized);
+delete earlierV2.session.contextTouched;
+const earlierParsed = Draft.parse(JSON.stringify(earlierV2), programContext());
+assert(earlierParsed.kind === "valid" && same(earlierParsed.draft.session.contextTouched,
+  { day: false, date: false, sessionNotes: false, bodyweight: false }),
+  "earlier DraftV2 without context intent gets an explicit all-false compatibility shape");
+const invalidContext = structuredClone(serialized);
+invalidContext.session.contextTouched = { day: true, date: false, sessionNotes: false, bodyweight: false, future: true };
+assert(Draft.parse(JSON.stringify(invalidContext), programContext()).kind === "invalid",
+  "DraftV2 rejects unknown context-intent fields instead of discarding them");
 assert(Draft.parse(null).kind === "absent" && Draft.parse("{").kind === "invalid", "parse distinguishes absent and invalid storage");
 assert(Draft.parse(JSON.stringify({ __day: "Day 1", slot_1_load: "50" })).kind === "legacy", "parse classifies the legacy flat shape without migrating it");
 assert(Draft.parse(JSON.stringify(serialized), { programId: "other" }).kind === "stale", "parse rejects a valid draft from a different current program as stale");
@@ -304,7 +323,15 @@ draft = apply(draft, "setBodyweight", { value: "82.5" });
 draft = apply(draft, "setSessionDate", { value: "2026-08-16" });
 draft = apply(draft, "selectExercise", { exerciseInstanceId: "slot-curl" });
 assert(draft.session.notes.includes("parity") && draft.session.bodyweight === "82.5" &&
-  draft.program.scheduleDate === "2026-08-16" && draft.session.selectedExerciseId === "slot-curl", "session and exercise metadata commands update the aggregate");
+  draft.program.scheduleDate === "2026-08-16" && draft.session.selectedExerciseId === "slot-curl" &&
+  same(draft.session.contextTouched, { day: false, date: true, sessionNotes: true, bodyweight: true }),
+  "session metadata commands retain explicit intent, including after values are later cleared");
+draft = apply(draft, "setSessionNotes", { value: "" });
+draft = apply(draft, "setBodyweight", { value: "" });
+draft = apply(draft, "setSessionDate", { value: "" });
+assert(draft.session.notes === "" && draft.session.bodyweight === "" && draft.program.scheduleDate === "" &&
+  same(draft.session.contextTouched, { day: false, date: true, sessionNotes: true, bodyweight: true }),
+  "clearing touched session values preserves their durable intent markers");
 
 const setOrderBeforeReorder = draft.exerciseOrder.map((id) =>
   [id, draft.exercises[id].setOrder.slice(), JSON.stringify(draft.exercises[id].sets), draft.exercises[id].programmed.order]);

@@ -12,6 +12,7 @@
   const INTEGER = /^\d+$/;
   const MAX_TEXT = 10000;
   const MAX_ID = 240;
+  const CONTEXT_TOUCHED_FIELDS = ["day", "date", "sessionNotes", "bodyweight"];
 
   function hasOwn(value, key) {
     return Object.prototype.hasOwnProperty.call(value, key);
@@ -115,6 +116,30 @@
     for (const field of ["installationId", "tabId", "operationId"]) {
       if (!isText(value[field], { max: MAX_ID })) issues.push(`${path}.${field}`);
     }
+  }
+
+  function emptyContextTouched() {
+    return { day: false, date: false, sessionNotes: false, bodyweight: false };
+  }
+
+  function validateContextTouched(value, path, issues) {
+    if (!isPlainObject(value)) {
+      issues.push(`${path}:object`);
+      return;
+    }
+    for (const field of CONTEXT_TOUCHED_FIELDS) {
+      if (typeof value[field] !== "boolean") issues.push(`${path}.${field}`);
+    }
+    for (const field of Object.keys(value)) {
+      if (!CONTEXT_TOUCHED_FIELDS.includes(field)) issues.push(`${path}.${field}:unknown`);
+    }
+  }
+
+  function contextTouchedForCreate(value) {
+    if (value == null) return emptyContextTouched();
+    if (!isPlainObject(value) || Object.keys(value).some((field) => !CONTEXT_TOUCHED_FIELDS.includes(field)) ||
+      CONTEXT_TOUCHED_FIELDS.some((field) => typeof value[field] !== "boolean")) return null;
+    return Object.fromEntries(CONTEXT_TOUCHED_FIELDS.map((field) => [field, value[field]]));
   }
 
   function validateTouched(value, path, issues) {
@@ -257,6 +282,7 @@
       if (!isText(value.session.notes, { empty: true })) issues.push("session.notes");
       if (!isOptionalText(value.session.selectedExerciseId, MAX_ID)) issues.push("session.selectedExerciseId");
       if (!STATUS.has(value.session.status)) issues.push("session.status");
+      validateContextTouched(value.session.contextTouched, "session.contextTouched", issues);
     }
     if (!Array.isArray(value.exerciseOrder)) issues.push("exerciseOrder");
     if (!isPlainObject(value.exercises)) issues.push("exercises");
@@ -289,6 +315,8 @@
     if (!isPlainObject(programContext) || !isPlainObject(sessionSelection) || !Array.isArray(programContext.exercises)) {
       return error("invalid-create-input");
     }
+    const contextTouched = contextTouchedForCreate(sessionSelection.contextTouched);
+    if (!contextTouched) return error("invalid-create-context-touched");
     const prior = previousByExercise(previousSessionFacts);
     const exerciseOrder = [];
     const exercises = Object.create(null);
@@ -395,6 +423,7 @@
         notes: sessionSelection.notes ?? "",
         selectedExerciseId: sessionSelection.selectedExerciseId ?? exerciseOrder[0] ?? null,
         status: "active",
+        contextTouched,
       },
       exerciseOrder,
       exercises,
@@ -430,6 +459,15 @@
       }
     }
     if (looksLegacy(value)) return deepFreeze({ kind: "legacy", raw: jsonClone(value) });
+    // DraftV2 documents written before context intent was durable have no
+    // session.contextTouched. They remain readable with an explicit all-false
+    // compatibility default; newly created and reduced documents always carry
+    // the complete validated shape.
+    if (value?.schemaVersion === SCHEMA_VERSION && isPlainObject(value.session) &&
+      !hasOwn(value.session, "contextTouched")) {
+      value = jsonClone(value);
+      value.session.contextTouched = emptyContextTouched();
+    }
     const checked = validate(value);
     if (!checked.ok) return deepFreeze({ kind: "invalid", code: "invalid-schema", issues: checked.issues });
     const draft = deepFreeze(jsonClone(value));
@@ -546,6 +584,7 @@
   function isPristine(draft) {
     if (!isPlainObject(draft) || !isPlainObject(draft.session)) return false;
     if (draft.session.status !== "active") return false;
+    if (Object.values(draft.session.contextTouched || {}).some(Boolean)) return false;
     if (draft.session.bodyweight != null && draft.session.bodyweight !== "") return false;
     if (typeof draft.session.notes === "string" && draft.session.notes.trim() !== "") return false;
     if (!Array.isArray(draft.exerciseOrder) || !isPlainObject(draft.exercises)) return false;
@@ -764,16 +803,19 @@
       case "setSessionNotes":
         if (!isText(command.value, { empty: true })) return error("invalid-session-notes");
         next.session.notes = command.value;
+        next.session.contextTouched.sessionNotes = true;
         break;
       case "setBodyweight": {
         const value = editableText(command.value);
         if (value === undefined) return error("invalid-bodyweight-text");
         next.session.bodyweight = value;
+        next.session.contextTouched.bodyweight = true;
         break;
       }
       case "setSessionDate":
         if (!isText(command.value, { empty: true, max: 64 })) return error("invalid-session-date-text");
         next.program.scheduleDate = command.value;
+        next.session.contextTouched.date = true;
         break;
       case "selectExercise":
         if (!hasOwn(next.exercises, command.exerciseInstanceId)) return error("unknown-exercise", { exerciseInstanceId: command.exerciseInstanceId });
@@ -1054,6 +1096,7 @@
       scheduleDate: hasOwn(legacy, "__date") ? legacy.__date : sessionSelection.scheduleDate,
       bodyweight: hasOwn(legacy, "__bodyweight") ? valueResolutions.__bodyweight : sessionSelection.bodyweight,
       notes: hasOwn(legacy, "__sessionNotes") ? legacy.__sessionNotes : sessionSelection.notes,
+      contextTouched: Object.fromEntries(CONTEXT_TOUCHED_FIELDS.map((field) => [field, !!contextTouched[field]])),
       selectedExerciseId,
       startedAt,
       updatedAt: renderedProgramSnapshot.migratedAt ?? completedAt ?? sessionSelection.updatedAt ?? startedAt,

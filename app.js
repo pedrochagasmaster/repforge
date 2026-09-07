@@ -1539,6 +1539,20 @@ const uid=()=>crypto?.randomUUID?.()||`id_${Date.now()}_${Math.random().toString
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
 const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
 const fmtPlain=v=>Number.isFinite(Number(v))?(Number.isInteger(Number(v))?String(Number(v)):Number(v).toFixed(2).replace(/\.?0+$/,"")):"";
+// DraftV2 stores loads and bodyweight in kilograms. Display formatting is
+// intentionally short for the UI, but a storage conversion must retain the
+// number that was actually entered: 12.5 lb is 5.669904625125443 kg, not 5.67.
+// Number#toString occasionally chooses exponent notation, which DraftV2's
+// decimal grammar rejects, so expand only that representation at the boundary.
+const canonicalNumberText=value=>{
+  const n=Number(value);if(!Number.isFinite(n))return"";
+  const raw=String(n);if(!/[eE]/.test(raw))return raw;
+  const sign=raw.startsWith("-")?"-":"",unsigned=raw.replace(/^[+-]/,"");
+  const [coefficient,exponentText]=unsigned.toLowerCase().split("e"),exponent=Number(exponentText);
+  const [whole,fraction=""]=coefficient.split("."),digits=whole+fraction,point=whole.length+exponent;
+  if(point<=0)return`${sign}0.${"0".repeat(-point)}${digits}`;
+  if(point>=digits.length)return`${sign}${digits}${"0".repeat(point-digits.length)}`;
+  return`${sign}${digits.slice(0,point)}.${digits.slice(point)}`};
 const uiLang=()=>state?.settings?.lang||(typeof I18N!=="undefined"&&I18N?.getLang?.())||"en";
 const isPt=()=>uiLang()==="pt";
 const locTag=()=>isPt()?"pt-BR":"en-US";
@@ -1808,7 +1822,7 @@ function convertDraftUnitsRaw(raw,oldUnit,newUnit){
   catch{return raw}
   if(!d||typeof d!=="object")return raw;
   let changed=false;
-  const conv=v=>fmtPlain(toDisplayUnit(fromDisplayUnit(v,oldUnit),newUnit));
+  const conv=v=>canonicalNumberText(toDisplayUnit(fromDisplayUnit(v,oldUnit),newUnit));
   for(const k of Object.keys(d)){
     if(k.startsWith("__")||!k.endsWith("_load"))continue;
     const v=d[k];if(v===""||v==null)continue;
@@ -2352,7 +2366,8 @@ function workoutDraftProjection(draft=activeWorkoutDraft){
   const out={__day:draft.program.dayLabel,__date:draft.program.scheduleDate,
     __sessionNotes:draft.session.notes,__bodyweight:displayDraftText("bodyweight",draft.session.bodyweight),
     __done:[],__touched:[],__warm:[],__skipped:[],__substituted:{},__substitutedRef:{},__exnotes:{},
-    __contextTouched:{day:true,date:true,sessionNotes:true,bodyweight:true},
+    __contextTouched:{day:!!draft.session.contextTouched?.day,date:!!draft.session.contextTouched?.date,
+      sessionNotes:!!draft.session.contextTouched?.sessionNotes,bodyweight:!!draft.session.contextTouched?.bodyweight},
     __startedAt:Date.parse(draft.session.startedAt)||0,__selectedExerciseId:draft.session.selectedExerciseId};
   for(const exId of draft.exerciseOrder){const ex=draft.exercises[exId];
     if(ex.status==="skipped")out.__skipped.push(exId);
@@ -2373,13 +2388,13 @@ function draftTargetFromKey(key){
   return null}
 function canonicalDraftField(field,value){
   const raw=String(value??"");
-  if(field==="load"){const parsed=parseLoadInput(raw);return parsed.kind==="valid"?fmtPlain(parsed.kg):raw}
+  if(field==="load"){const parsed=parseLoadInput(raw);return parsed.kind==="valid"?canonicalNumberText(parsed.kg):raw}
   if(field==="reps"){const parsed=parseRepsValue(raw);return parsed.field?raw:String(parsed.value)}
-  if(field==="rir"){const parsed=parseRirValue(raw);return parsed.field?raw:fmtPlain(parsed.value)}
+  if(field==="rir"){const parsed=parseRirValue(raw);return parsed.field?raw:canonicalNumberText(parsed.value)}
   return raw}
 function canonicalDraftBodyweight(value){const raw=String(value??"");
   if(!raw.trim())return"";const parsed=parseOptionalBodyweightDisplay(raw);
-  return parsed.field?raw:fmtPlain(fromDisplay(raw))}
+  return parsed.field?raw:canonicalNumberText(fromDisplay(raw))}
 function draftWriter(operationId){return{installationId:pendingJournalWriterId,tabId:draftTabId,operationId}}
 function migrationSubstitutionResolutions(legacy,context,migratedAt){
   const out={},subs=isPlainStateObject(legacy.__substituted)?legacy.__substituted:{},refs=isPlainStateObject(legacy.__substitutedRef)?legacy.__substitutedRef:{};
@@ -2533,12 +2548,13 @@ async function initializeWorkoutDraft({restoreDay=false}={}){
     return{status:"ready",draft:activeWorkoutDraft}}
   if(parsed.kind==="absent"){activeWorkoutDraft=null;activeWorkoutDraftRaw=null;return{status:"absent"}}
   storeDraftRecovery(read.raw,parsed.code||parsed.kind);return{status:parsed.kind,error:parsed,raw:read.raw}}
-async function createWorkoutDraft(label=day){
+async function createWorkoutDraft(label=day,{contextTouched:selectionContextTouched}={}){
   const existing=await initializeWorkoutDraft();if(existing.status==="ready")return existing;
   if(existing.status!=="absent")return existing;
   const now=new Date().toISOString(),context=workoutProgramContext(label),operationId=`create-${uid()}`;
   const draft=WorkoutDraft.create(context,{draftId:`workout-${uid()}`,writer:draftWriter(operationId),startedAt:now,updatedAt:now,
-    scheduleDate:today(),selectedExerciseId:context.exercises[0]?.exerciseInstanceId??null,bodyweight:null,notes:""},
+    scheduleDate:today(),selectedExerciseId:context.exercises[0]?.exerciseInstanceId??null,bodyweight:null,notes:"",
+    contextTouched:selectionContextTouched},
     Object.fromEntries(context.exercises.map(source=>{const ex=exercises(label).find(item=>item.id===source.exerciseInstanceId);
       return[source.exerciseInstanceId,{exerciseInstanceId:source.exerciseInstanceId,setupNotes:ex?lastExerciseNote(ex):"",sets:ex?last(ex):[]}]})));
   if(WorkoutDraft.isDomainError(draft))return{status:"create-error",error:draft};
@@ -2593,12 +2609,12 @@ function showDraftCommandRecovery(status,attempt,{pendingValue=null,focus=null,r
   draftUiRecovery={kind:draftRecoveryMessageKind(status),status,attempt,pendingValue,
     copyValue:pendingValue,copyKind:"value",focus,retry:status!=="stale",retryAction,discard:false};
   renderDraftRecovery();focusDraftRecovery()}
-function showDraftInitializationRecovery(result,{retryMode="initialize",label=day,focusMode=null}={}){
+function showDraftInitializationRecovery(result,{retryMode="initialize",label=day,focusMode=null,contextTouched=null}={}){
   const kind=draftRecoveryMessageKind(result?.status,true),raw=result?.raw??workoutDraftRecovery?.raw??null,
     parsed=WorkoutDraft?.parse(raw),identity=parsed?.kind==="valid"?
       {draftId:parsed.draft.draftId,revision:parsed.draft.revision}:null;
   draftUiRecovery={kind,status:result?.status,attempt:null,pendingValue:null,copyValue:raw,copyKind:"data",
-    focus:null,retry:true,retryMode,label,focusMode,discardIdentity:identity,discard:kind==="program"&&!!identity};
+    focus:null,retry:true,retryMode,label,focusMode,contextTouched,discardIdentity:identity,discard:kind==="program"&&!!identity};
   renderDraftRecovery();focusDraftRecovery()}
 function clearDraftUiRecovery(){draftUiRecovery=null;renderDraftRecovery()}
 async function copyDraftRecoveryValue(){const value=draftUiRecovery?.copyValue;if(value==null)return false;
@@ -2616,14 +2632,14 @@ function retryDraftRecovery(){
   if(recovery.retryAction)return Promise.resolve(recovery.retryAction()).then(result=>{
     if(result?.status==="applied"){clearDraftUiRecovery();renderWorkout()}
     else showDraftCommandRecovery(result?.status,null,recovery);return result});
-  if(!recovery.attempt){const operation=recovery.retryMode==="create"?createWorkoutDraft(recovery.label):
+  if(!recovery.attempt){const operation=recovery.retryMode==="create"?createWorkoutDraft(recovery.label,{contextTouched:recovery.contextTouched}):
       initializeWorkoutDraft({restoreDay:true});return operation.then(result=>{
     if(result.status==="ready"){hydrateDraftCollections(workoutDraftProjection(),{restoreSelection:true});clearDraftUiRecovery();
       if(!workoutActive)setWorkoutActive(true);
       if(recovery.focusMode===true)logMode="focus";else if(recovery.focusMode===false)logMode="full";
       syncLogModeControls();document.body.classList.toggle("is-focus-wo",logMode==="focus");
       renderTabs();renderWorkout();renderToday();restoreDraftFocus(recovery.focus)}
-    else showDraftInitializationRecovery(result,{retryMode:recovery.retryMode,label:recovery.label,focusMode:recovery.focusMode});return result})}
+    else showDraftInitializationRecovery(result,{retryMode:recovery.retryMode,label:recovery.label,focusMode:recovery.focusMode,contextTouched:recovery.contextTouched});return result})}
   const task=draftWriteTail.then(()=>DraftStore.compareAndSwapV2(recovery.attempt))
     .then(result=>applyDraftRetryResult(result,recovery));
   draftWriteTail=task.then(()=>undefined,()=>undefined);return task}
@@ -2671,8 +2687,11 @@ function knownExerciseIds(){return new Set((state.program||[]).map(e=>e.id))}
 function setKeyExerciseId(k){return String(k).replace(/_\d+$/,"")}
 function retainSetKeys(list,known){return (list||[]).filter(k=>known.has(setKeyExerciseId(k)))}
 function contextFlagsFromDraft(d){
-  const flags=d&&typeof d.__contextTouched==="object"&&d.__contextTouched?d.__contextTouched:{};
-  return {day:!!flags.day,date:!!flags.date,sessionNotes:!!flags.sessionNotes,bodyweight:!!flags.bodyweight}}
+  const flags=d?.schemaVersion===2
+    ?d.session?.contextTouched
+    :d&&typeof d.__contextTouched==="object"&&d.__contextTouched?d.__contextTouched:{};
+  const safe=flags&&typeof flags==="object"?flags:{};
+  return {day:!!safe.day,date:!!safe.date,sessionNotes:!!safe.sessionNotes,bodyweight:!!safe.bodyweight}}
 function hydrateDraftCollections(d,{restoreSelection=false}={}){
   const known=knownExerciseIds();
   sessionStartedAt=+d.__startedAt||0;
@@ -2746,7 +2765,8 @@ function draftHasSessionWork(d){
     return exercise.status==="skipped"||!!exercise.substitution||exercise.setupNotes!==exercise.programmed.notes||
       exercise.setOrder.some(setId=>{const set=exercise.sets[setId];return set.completion!=="pending"||set.role==="warmup"||
         set.touched.load||set.touched.reps||set.touched.effort})})||
-      d.session.notes!==""||d.session.bodyweight!=null||d.program.scheduleDate!==today();
+      d.session.notes!==""||d.session.bodyweight!=null||d.program.scheduleDate!==today()||
+      Object.values(contextFlagsFromDraft(d)).some(Boolean);
   if((d.__done||[]).length||(d.__touched||[]).length||(d.__warm||[]).length) return true;
   if((d.__skipped||[]).length) return true;
   if(d.__substituted&&typeof d.__substituted==="object"&&Object.keys(d.__substituted).length) return true;
@@ -2786,7 +2806,12 @@ async function requestWorkoutDay(nextDay){
     resetSessionContextFields()}
   day=nextDay;
   contextTouched.day=true;
-  const created=await createWorkoutDraft(nextDay);if(created.status!=="ready")return false;
+  const selectionContextTouched={day:true,date:false,sessionNotes:false,bodyweight:false};
+  const created=await createWorkoutDraft(nextDay,{contextTouched:selectionContextTouched});
+  if(created.status!=="ready"){
+    showDraftInitializationRecovery(created,{retryMode:"create",label:nextDay,contextTouched:selectionContextTouched});
+    return false;
+  }
   return true}
 function changeRirMode(newMode){
   const old=state.settings.rirMode==="effort"?"effort":"numeric";
@@ -4284,7 +4309,7 @@ function suggestionUpdatesFor(ex,draft){
     const key=`${ex.id}_${n}`,setId=stored.setOrder.find(id=>stored.sets[id]?.ordinal===n),set=setId?stored.sets[setId]:null;
     if(!set||set.role==="warmup"||set.completion!=="pending")continue;
     const sg=setSuggestion(ex,n,rec,draft,prev.find(x=>x.set===n)),fields={};
-    if(sg.load!=null&&!set.touched.load)fields.load=fmtPlain(sg.load);
+    if(sg.load!=null&&!set.touched.load)fields.load=canonicalNumberText(sg.load);
     if(sg.reps!=null&&!set.touched.reps)fields.reps=String(sg.reps);
     if(Object.keys(fields).length)updates.push({exerciseInstanceId:ex.id,setId,fields});
   }
@@ -5590,8 +5615,8 @@ function bindWorkout(){
     await inp.oninput?.()});
   $w(".copylast").forEach(b=>b.onclick=async()=>{const ex=sessionExercise(prog.find(b.dataset.copy)),prevSets=ex?last(ex):[];if(!prevSets.length)return;
     if(!activeWorkoutDraft)return;
-    const values=prevSets.map(s=>({ordinal:s.set,load:fmtPlain(s.load),reps:fmtPlain(s.reps),
-      ...(isEffortMode()?{effort:effortForRir(s.rir)}:{rir:fmtPlain(s.rir)})}));
+    const values=prevSets.map(s=>({ordinal:s.set,load:canonicalNumberText(s.load),reps:canonicalNumberText(s.reps),
+      ...(isEffortMode()?{effort:effortForRir(s.rir)}:{rir:canonicalNumberText(s.rir)})}));
     const result=await enqueueDraftCommand("repeatPreviousSetValues",{exerciseInstanceId:b.dataset.copy,values});
     if(result.status!=="applied")return;renderWorkout();toast(t("toast.filled_from_last"))});
   $w(".ex__rest").forEach(b=>b.onclick=()=>startRest());
@@ -6299,10 +6324,10 @@ async function applyParsedCommand(parsed,context){
   if(parsed.unit&&parsed.unit!==state.settings.unit)loadDisp=toDisplay(fromDisplayUnit(parsed.load,parsed.unit));
   if(!activeWorkoutDraft)return;
   const target=draftTargetFromKey(key);if(!target)return;
-  const fields=[{field:"load",value:canonicalDraftField("load",fmtPlain(loadDisp))},
+  const fields=[{field:"load",value:canonicalDraftField("load",canonicalNumberText(loadDisp))},
     {field:"reps",value:String(parsed.reps)}];
   if(isEffortMode())fields.push({field:"effort",value:parsed.effort||(parsed.rir!=null?effortForRir(parsed.rir):"hard")});
-  else fields.push({field:"rir",value:parsed.rir!=null?fmtPlain(parsed.rir):""});
+  else fields.push({field:"rir",value:parsed.rir!=null?canonicalNumberText(parsed.rir):""});
   for(const field of fields){const result=await enqueueDraftCommand("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:field.field,value:field.value});if(result.status!=="applied")return}
   renderWorkout();return{ex,set:setN}}
@@ -11691,6 +11716,10 @@ window.__repforgeWorkoutDraft={
   initialize:initializeWorkoutDraft,
   checkpoint:()=>DraftStore.readV2Checkpoint(),
   read:()=>DraftStore.readCanonicalStatus(),
+  // Browser harness seam: settle both the ordered DraftV2 write queue and any
+  // suggestion refresh that is still computing or retrying before inspecting
+  // acknowledged state. Production callers use the same drain internally.
+  flush:()=>drainDraftWork(),
   cas:({expectedRaw,expectedDraftId,expectedRevision,nextRaw,operationId})=>
     DraftStore.compareAndSwapV2({expectedRaw,expectedDraftId,expectedRevision,nextRaw,operationId}),
   stageLegacy:(transactionId,raw)=>DraftStore.writeSidecar(transactionId,raw),

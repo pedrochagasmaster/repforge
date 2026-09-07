@@ -485,6 +485,13 @@ try {
       }
     }, KEY);
     await page.click("#startWorkout");
+    await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+    await page.waitForSelector("#workout .exercise", { timeout: 5000 });
+    await page.waitForFunction(() => {
+      const draft = window.__repforgeWorkoutDraft?.current?.();
+      const checkpoint = window.__repforgeWorkoutDraft?.checkpoint?.();
+      return !!draft && checkpoint?.status === "valid" && checkpoint.value?.kind === "committed";
+    }, undefined, { timeout: 5000 });
     const existingWorkoutVisible = await page.locator("#workout .exercise").count() > 0;
     assert(existingProgram.id === "active-prog" && existingProgram.exercises > 0 && existingWorkoutVisible,
       "existing program remains usable without obsolete setup APIs", JSON.stringify({ existingProgram, existingWorkoutVisible }));

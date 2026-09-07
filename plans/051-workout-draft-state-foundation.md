@@ -81,7 +81,8 @@ writer: { installationId, tabId, operationId }
 program: { programId, programFingerprint, durableRevision, dayId, dayLabel,
            scheduleDate, unit, rirMode }
 session: { startedAt, updatedAt, bodyweight, notes, selectedExerciseId,
-           status: active|finishing }
+           status: active|finishing,
+           contextTouched: { day, date, sessionNotes, bodyweight } }
 exerciseOrder: exerciseInstanceId[]
 exercises[exerciseInstanceId]: {
   exerciseInstanceId, sourceExerciseId, libraryId?, displayName,
@@ -105,7 +106,24 @@ Use existing stable exercise IDs/instance identities; do not derive identity fro
 
 ### Commands and invariants
 
-Commands cover `editSetField`, `completeSet`, `uncommitSet`, `markWarmup`, `markWorking`, `skipExercise`, `restoreExercise`, `substituteExercise`, `restoreOriginalExercise`, `repeatPreviousSetValues`, `setExerciseNotes`, `setSessionNotes`, `setBodyweight`, `selectExercise`, `reorderExercises`, and `beginFinish`/`cancelFinish`.
+Commands cover `editSetField`, `completeSet`, `uncommitSet`, `markWarmup`, `markWorking`, `skipExercise`, `restoreExercise`, `substituteExercise`, `restoreOriginalExercise`, `repeatPreviousSetValues`, `refreshUntouchedSuggestions`, `setExerciseNotes`, `setSessionDate`, `setSessionNotes`, `setBodyweight`, `selectExercise`, `reorderExercises`, and `beginFinish`/`cancelFinish`.
+
+`contextTouched` is model-owned intent. `create()` initializes all four fields to
+`false`, unless the adapter passes an explicit selection intent such as a day
+change. `setSessionDate`, `setSessionNotes`, and `setBodyweight` set their field
+to `true` even when the new value is empty. Later commands retain the flags.
+Legacy `__contextTouched` markers migrate into this object, including markers
+whose corresponding value is empty. A DraftV2 document written before this
+field existed parses with an explicit all-false compatibility value; malformed
+or unknown fields fail validation.
+
+`refreshUntouchedSuggestions` is compiler-owned acknowledgement. It carries the
+source revision used for the computation and updates only pending fields that
+remain untouched; the reducer rejects a stale source, and the adapter recomputes
+from the latest acknowledged aggregate. An update whose values are already
+acknowledged is a no-op and does not advance the revision. The refresh lifetime
+is drained before Finish captures its snapshot, while its CAS publication stays
+on the single ordered draft-write queue.
 
 - A set has one stable identity and ordinal within its exercise. Reordering exercises never reorders sets.
 - Completion requires the same required fields as current save semantics; uncommit retains edited values.
@@ -139,6 +157,7 @@ On boot, parse in this order: valid V2; legacy V1-shaped flat object; absent; in
 
 - Legacy migration runs once using the captured program/day snapshot and the same substitution/library resolution rules current code uses.
 - Convert every flat field and marker, including values on hidden/off-screen List inputs; preserve date/bodyweight/notes/selected exercise where present.
+- Preserve all four legacy `__contextTouched` fields in `session.contextTouched`, including a `true` marker paired with an empty value. Keep explicit context intent in `isPristine()` and the program-mode guard.
 - After validation, write V2 with a migration operation ID and re-read before rendering. A repeated boot is idempotent.
 - If a legacy exercise/set cannot be mapped without guessing, retain the raw draft in a recovery slot, show a fail-closed recovery message, and do not silently clear it.
 - Keep legacy read support for one cache-upgrade window so an older controlling worker cannot destroy the draft. Remove it only in a separately proven later commit, not Plan 055.

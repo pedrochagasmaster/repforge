@@ -186,8 +186,9 @@ assert(migrated.program.dayId === "stable-day-051" && migrated.program.dayLabel 
 assert(migrated.session.startedAt === new Date(1787216400000).toISOString() &&
   migrated.session.updatedAt === "2026-08-20T10:15:00.000Z" &&
   migrated.session.bodyweight === "81.25" && migrated.session.notes === "  late session  " &&
-  migrated.session.selectedExerciseId === "legacy_press_primary",
-  "session timestamps, normalized bodyweight, exact note, and selected exercise survive");
+  migrated.session.selectedExerciseId === "legacy_press_primary" &&
+  same(migrated.session.contextTouched, { day: true, date: true, sessionNotes: true, bodyweight: true }),
+  "session timestamps, normalized bodyweight, exact note, selected exercise, and all legacy intent markers survive");
 
 const first = migrated.exercises.legacy_press_primary.sets["press-stable-set-a"];
 const second = migrated.exercises.legacy_press_primary.sets["press-stable-set-b"];
@@ -322,7 +323,7 @@ explicitBlankSnapshot.valueResolutions = resolvedValues(explicitBlankLegacy);
 const explicitBlank = Draft.migrateLegacy(explicitBlankLegacy, explicitBlankSnapshot);
 assert(!isMigrationError(explicitBlank) &&
   explicitBlank.exercises.legacy_press_primary.sets["press-stable-set-a"].edited.load === "partial." &&
-  explicitBlank.session.bodyweight === "",
+  explicitBlank.session.bodyweight === "" && explicitBlank.session.contextTouched.bodyweight === true,
   "invalid partial load text and explicitly blank bodyweight survive for correction");
 
 console.log("\nFail-closed recovery cases retain the caller's legacy bytes");

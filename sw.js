@@ -1,9 +1,9 @@
-const CACHE = "repforge-v187";
+const CACHE = "repforge-v188";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./manifest.webmanifest",
   "./telemetry.js", "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js",
-  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=187", "./program-entry.js", "./program-entry.js?v=187", "./program-entry-adapter.js", "./program-entry-adapter.js?v=187", "./program-editor.js", "./program-editor.js?v=168",
-  "./shared-setup.js", "./shared-setup.js?v=187", "./workout-draft.js", "./workout-draft.js?v=187", "./app.js", "./app.js?v=187",
+  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=188", "./program-entry.js", "./program-entry.js?v=188", "./program-entry-adapter.js", "./program-entry-adapter.js?v=188", "./program-editor.js", "./program-editor.js?v=168",
+  "./shared-setup.js", "./shared-setup.js?v=188", "./workout-draft.js", "./workout-draft.js?v=188", "./app.js", "./app.js?v=188",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
