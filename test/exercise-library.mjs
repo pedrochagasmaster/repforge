@@ -233,6 +233,7 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
   const sw = readFileSync(join(ROOT, "sw.js"), "utf8");
   const revision = sw.match(/const CACHE = "repforge-v(\d+)"/)?.[1] || "";
   const transitionAssets = [
+    "motion-layer.js",
     "program-compiler.js",
     "program-entry.js",
     "program-entry-adapter.js",
