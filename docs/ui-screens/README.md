@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 79 screens,
-258 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 80 screens,
+265 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -110,10 +110,11 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Import — paste a program](screens/onboarding-import/freeform-empty__phone-390-light-en.png) | 3 | The free-form door as it opens: an empty field, and the hand-off to ChatGPT or Claude still unavailable. |
 | [Import — paste ready to convert](screens/onboarding-import/freeform-filled__phone-390-light-en.png) | 7 | A pasted program with both app links live, the character counter, and the field the reply comes back into. |
 | [Import — choose an assistant](screens/onboarding-import/freeform-stage2__phone-390-light-en.png) | 7 | Stage 2 with collapsed source summary, Edit button, ChatGPT and Claude buttons, and Preview prompt disclosure. |
-| [Import — paste reply](screens/onboarding-import/freeform-stage3__phone-390-light-en.png) | 7 | Stage 3 with collapsed source summary, reply textarea, Review CTA, Try another assistant, and Start over. |
+| [Import — paste reply](screens/onboarding-import/freeform-stage3__phone-390-light-en.png) | 7 | Stage 3 with collapsed source summary, Import from clipboard, the "or paste" divider, reply textarea, Review CTA, Try another assistant, and Start over. |
 | [Import — resolve gaps](screens/onboarding-import/freeform-gaps__phone-390-light-en.png) | 7 | Gap resolution screen with inputs for missing sets and reps, and the non-imported disclosure. |
 | [Import — gap validation error](screens/onboarding-import/freeform-gaps-invalid__phone-390-light-en.png) | 3 | Gap resolution screen after submitting empty inputs, highlighting invalid fields with .is-invalid and aria-invalid. |
 | [Import — unreadable reply](screens/onboarding-import/freeform-unreadable__phone-390-light-en.png) | 3 | Unreadable reply recovery block with Copy repair prompt and Try another assistant actions. |
+| [Import — exercise review](screens/onboarding-import/review__phone-390-light-en.png) | 7 | Reviewing candidate matches: collapsed candidate chips, disclosure expanded, and unmatched flat escape hatches. |
 | [Import — review](screens/onboarding-import/preview__phone-390-light-en.png) | 7 | A mapped exercise with manual progression ownership and provenance. |
 
 ### Onboarding — Shared setup link

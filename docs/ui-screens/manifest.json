@@ -532,6 +532,13 @@
       "variants": "localized"
     },
     {
+      "id": "review",
+      "flow": "onboarding-import",
+      "label": "Import — exercise review",
+      "scenario": "Reviewing candidate matches: collapsed candidate chips, disclosure expanded, and unmatched flat escape hatches.",
+      "variants": "accessibility"
+    },
+    {
       "id": "preview",
       "flow": "onboarding-import",
       "label": "Import — review",

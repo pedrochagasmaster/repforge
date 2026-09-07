@@ -18438,6 +18438,16 @@
           "text": "Paste the full reply here."
         },
         {
+          "tag": "button",
+          "text": "Import from clipboard",
+          "name": "Import from clipboard",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Or paste the assistant reply"
+        },
+        {
           "tag": "textarea",
           "name": "Paste the assistant's reply"
         },
@@ -18521,6 +18531,16 @@
         {
           "tag": "p",
           "text": "Paste the full reply here."
+        },
+        {
+          "tag": "button",
+          "text": "Import from clipboard",
+          "name": "Import from clipboard",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Or paste the assistant reply"
         },
         {
           "tag": "textarea",
@@ -18608,6 +18628,16 @@
           "text": "Paste the full reply here."
         },
         {
+          "tag": "button",
+          "text": "Import from clipboard",
+          "name": "Import from clipboard",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Or paste the assistant reply"
+        },
+        {
           "tag": "textarea",
           "name": "Paste the assistant's reply"
         },
@@ -18691,6 +18721,16 @@
         {
           "tag": "p",
           "text": "Paste the full reply here."
+        },
+        {
+          "tag": "button",
+          "text": "Import from clipboard",
+          "name": "Import from clipboard",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Or paste the assistant reply"
         },
         {
           "tag": "textarea",
@@ -18778,6 +18818,16 @@
           "text": "Paste the full reply here."
         },
         {
+          "tag": "button",
+          "text": "Import from clipboard",
+          "name": "Import from clipboard",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Or paste the assistant reply"
+        },
+        {
           "tag": "textarea",
           "name": "Paste the assistant's reply"
         },
@@ -18863,6 +18913,16 @@
           "text": "Cole a resposta completa aqui."
         },
         {
+          "tag": "button",
+          "text": "Importar da área de transferência",
+          "name": "Importar da área de transferência",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Ou cole a resposta do assistente"
+        },
+        {
           "tag": "textarea",
           "name": "Colar a resposta do assistente"
         },
@@ -18946,6 +19006,16 @@
         {
           "tag": "p",
           "text": "Paste the full reply here."
+        },
+        {
+          "tag": "button",
+          "text": "Import from clipboard",
+          "name": "Import from clipboard",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Or paste the assistant reply"
         },
         {
           "tag": "textarea",
@@ -20113,7 +20183,7 @@
         },
         {
           "tag": "b",
-          "text": "Supino reto com barra"
+          "text": "Supino com barra"
         },
         {
           "tag": "button",
@@ -20254,6 +20324,1560 @@
           "text": "Back",
           "name": "Back",
           "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/review__phone-320-light-en",
+      "flow": "onboarding-import",
+      "screen": "review",
+      "label": "Import — exercise review",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Review imported program"
+        },
+        {
+          "tag": "button",
+          "text": "‹ Back",
+          "name": "‹ Back",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Import program"
+        },
+        {
+          "tag": "p",
+          "text": "catalog-program.json · 3 lifts"
+        },
+        {
+          "tag": "h2",
+          "text": "Review the exercises"
+        },
+        {
+          "tag": "p",
+          "text": "Link the names to the library or keep them as they are."
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "0linked3to review0custom",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "linked"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "to review"
+        },
+        {
+          "tag": "b",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "custom"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell bench press",
+          "name": "Use Barbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell decline bench press",
+          "name": "Use Barbell decline bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell incline press",
+          "name": "Use Barbell incline press",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Keep the name",
+          "name": "Keep the name",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell bench press",
+          "name": "Use Barbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell decline bench press",
+          "name": "Use Barbell decline bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell incline press",
+          "name": "Use Barbell incline press",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Keep the name",
+          "name": "Keep the name",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Zerbulator 9000"
+        },
+        {
+          "tag": "p",
+          "text": "Keep as imported"
+        },
+        {
+          "tag": "span",
+          "text": "No match"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Keep the name",
+          "name": "Keep the name",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Your history will not be changed."
+        },
+        {
+          "tag": "button",
+          "text": "3 still to review",
+          "name": "3 still to review",
+          "disabled": true,
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel this import",
+          "name": "Cancel this import",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/review__phone-390-dark-en",
+      "flow": "onboarding-import",
+      "screen": "review",
+      "label": "Import — exercise review",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Review imported program"
+        },
+        {
+          "tag": "button",
+          "text": "‹ Back",
+          "name": "‹ Back",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Import program"
+        },
+        {
+          "tag": "p",
+          "text": "catalog-program.json · 3 lifts"
+        },
+        {
+          "tag": "h2",
+          "text": "Review the exercises"
+        },
+        {
+          "tag": "p",
+          "text": "Link the names to the library or keep them as they are."
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "0linked3to review0custom",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "linked"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "to review"
+        },
+        {
+          "tag": "b",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "custom"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell bench press",
+          "name": "Use Barbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell decline bench press",
+          "name": "Use Barbell decline bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell incline press",
+          "name": "Use Barbell incline press",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Keep the name",
+          "name": "Keep the name",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell bench press",
+          "name": "Use Barbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell decline bench press",
+          "name": "Use Barbell decline bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell incline press",
+          "name": "Use Barbell incline press",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Keep the name",
+          "name": "Keep the name",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Zerbulator 9000"
+        },
+        {
+          "tag": "p",
+          "text": "Keep as imported"
+        },
+        {
+          "tag": "span",
+          "text": "No match"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Keep the name",
+          "name": "Keep the name",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Your history will not be changed."
+        },
+        {
+          "tag": "button",
+          "text": "3 still to review",
+          "name": "3 still to review",
+          "disabled": true,
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel this import",
+          "name": "Cancel this import",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/review__phone-390-light-en",
+      "flow": "onboarding-import",
+      "screen": "review",
+      "label": "Import — exercise review",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Review imported program"
+        },
+        {
+          "tag": "button",
+          "text": "‹ Back",
+          "name": "‹ Back",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Import program"
+        },
+        {
+          "tag": "p",
+          "text": "catalog-program.json · 3 lifts"
+        },
+        {
+          "tag": "h2",
+          "text": "Review the exercises"
+        },
+        {
+          "tag": "p",
+          "text": "Link the names to the library or keep them as they are."
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "0linked3to review0custom",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "linked"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "to review"
+        },
+        {
+          "tag": "b",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "custom"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell bench press",
+          "name": "Use Barbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell decline bench press",
+          "name": "Use Barbell decline bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell incline press",
+          "name": "Use Barbell incline press",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Keep the name",
+          "name": "Keep the name",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell bench press",
+          "name": "Use Barbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell decline bench press",
+          "name": "Use Barbell decline bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell incline press",
+          "name": "Use Barbell incline press",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Keep the name",
+          "name": "Keep the name",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Zerbulator 9000"
+        },
+        {
+          "tag": "p",
+          "text": "Keep as imported"
+        },
+        {
+          "tag": "span",
+          "text": "No match"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Keep the name",
+          "name": "Keep the name",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Your history will not be changed."
+        },
+        {
+          "tag": "button",
+          "text": "3 still to review",
+          "name": "3 still to review",
+          "disabled": true,
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel this import",
+          "name": "Cancel this import",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/review__phone-390-light-en-reduced",
+      "flow": "onboarding-import",
+      "screen": "review",
+      "label": "Import — exercise review",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Review imported program"
+        },
+        {
+          "tag": "button",
+          "text": "‹ Back",
+          "name": "‹ Back",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Import program"
+        },
+        {
+          "tag": "p",
+          "text": "catalog-program.json · 3 lifts"
+        },
+        {
+          "tag": "h2",
+          "text": "Review the exercises"
+        },
+        {
+          "tag": "p",
+          "text": "Link the names to the library or keep them as they are."
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "0linked3to review0custom",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "linked"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "to review"
+        },
+        {
+          "tag": "b",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "custom"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell bench press",
+          "name": "Use Barbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell decline bench press",
+          "name": "Use Barbell decline bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell incline press",
+          "name": "Use Barbell incline press",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Keep the name",
+          "name": "Keep the name",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell bench press",
+          "name": "Use Barbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell decline bench press",
+          "name": "Use Barbell decline bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell incline press",
+          "name": "Use Barbell incline press",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Keep the name",
+          "name": "Keep the name",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Zerbulator 9000"
+        },
+        {
+          "tag": "p",
+          "text": "Keep as imported"
+        },
+        {
+          "tag": "span",
+          "text": "No match"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Keep the name",
+          "name": "Keep the name",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Your history will not be changed."
+        },
+        {
+          "tag": "button",
+          "text": "3 still to review",
+          "name": "3 still to review",
+          "disabled": true,
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel this import",
+          "name": "Cancel this import",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/review__phone-390-light-en-text200",
+      "flow": "onboarding-import",
+      "screen": "review",
+      "label": "Import — exercise review",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Review imported program"
+        },
+        {
+          "tag": "button",
+          "text": "‹ Back",
+          "name": "‹ Back",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Import program"
+        },
+        {
+          "tag": "p",
+          "text": "catalog-program.json · 3 lifts"
+        },
+        {
+          "tag": "h2",
+          "text": "Review the exercises"
+        },
+        {
+          "tag": "p",
+          "text": "Link the names to the library or keep them as they are."
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "0linked3to review0custom",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "linked"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "to review"
+        },
+        {
+          "tag": "b",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "custom"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell bench press",
+          "name": "Use Barbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell decline bench press",
+          "name": "Use Barbell decline bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell incline press",
+          "name": "Use Barbell incline press",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Keep the name",
+          "name": "Keep the name",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell bench press",
+          "name": "Use Barbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell decline bench press",
+          "name": "Use Barbell decline bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell incline press",
+          "name": "Use Barbell incline press",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Keep the name",
+          "name": "Keep the name",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Zerbulator 9000"
+        },
+        {
+          "tag": "p",
+          "text": "Keep as imported"
+        },
+        {
+          "tag": "span",
+          "text": "No match"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Keep the name",
+          "name": "Keep the name",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Your history will not be changed."
+        },
+        {
+          "tag": "button",
+          "text": "3 still to review",
+          "name": "3 still to review",
+          "disabled": true,
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel this import",
+          "name": "Cancel this import",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/review__phone-390-light-pt",
+      "flow": "onboarding-import",
+      "screen": "review",
+      "label": "Import — exercise review",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Revisar programa importado"
+        },
+        {
+          "tag": "button",
+          "text": "‹ Voltar",
+          "name": "‹ Voltar",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Importar programa"
+        },
+        {
+          "tag": "p",
+          "text": "catalog-program.json · 3 exercícios"
+        },
+        {
+          "tag": "h2",
+          "text": "Revise os exercícios"
+        },
+        {
+          "tag": "p",
+          "text": "Vincule os nomes à biblioteca ou mantenha-os como estão."
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "0vinculados3para revisar0personalizados",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "vinculados"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "para revisar"
+        },
+        {
+          "tag": "b",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "personalizados"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "p",
+          "text": "Supino reto com barra"
+        },
+        {
+          "tag": "p",
+          "text": "Supino com barra"
+        },
+        {
+          "tag": "span",
+          "text": "Provável"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Supino com barra",
+          "name": "Usar Supino com barra",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Supino inclinado com barra",
+          "name": "Usar Supino inclinado com barra",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Supino fechado com barra",
+          "name": "Usar Supino fechado com barra",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "Mais opções",
+          "name": "Mais opções"
+        },
+        {
+          "tag": "button",
+          "text": "Escolher…",
+          "name": "Escolher…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Manter o nome",
+          "name": "Manter o nome",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Criar personalizado",
+          "name": "Criar personalizado",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Supino reto com barra"
+        },
+        {
+          "tag": "p",
+          "text": "Supino com barra"
+        },
+        {
+          "tag": "span",
+          "text": "Provável"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Supino com barra",
+          "name": "Usar Supino com barra",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Supino inclinado com barra",
+          "name": "Usar Supino inclinado com barra",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Usar Supino fechado com barra",
+          "name": "Usar Supino fechado com barra",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "Mais opções",
+          "name": "Mais opções"
+        },
+        {
+          "tag": "button",
+          "text": "Escolher…",
+          "name": "Escolher…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Manter o nome",
+          "name": "Manter o nome",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Criar personalizado",
+          "name": "Criar personalizado",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Zerbulator 9000"
+        },
+        {
+          "tag": "p",
+          "text": "Manter como importado"
+        },
+        {
+          "tag": "span",
+          "text": "Sem correspondência"
+        },
+        {
+          "tag": "button",
+          "text": "Escolher…",
+          "name": "Escolher…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Manter o nome",
+          "name": "Manter o nome",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Criar personalizado",
+          "name": "Criar personalizado",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Seu histórico não será alterado."
+        },
+        {
+          "tag": "button",
+          "text": "3 ainda por revisar",
+          "name": "3 ainda por revisar",
+          "disabled": true,
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar esta importação",
+          "name": "Cancelar esta importação",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/review__phone-430-light-en",
+      "flow": "onboarding-import",
+      "screen": "review",
+      "label": "Import — exercise review",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Review imported program"
+        },
+        {
+          "tag": "button",
+          "text": "‹ Back",
+          "name": "‹ Back",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Import program"
+        },
+        {
+          "tag": "p",
+          "text": "catalog-program.json · 3 lifts"
+        },
+        {
+          "tag": "h2",
+          "text": "Review the exercises"
+        },
+        {
+          "tag": "p",
+          "text": "Link the names to the library or keep them as they are."
+        },
+        {
+          "tag": "div",
+          "role": "status",
+          "name": "0linked3to review0custom",
+          "aria-live": "polite"
+        },
+        {
+          "tag": "span",
+          "text": "linked"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "span",
+          "text": "to review"
+        },
+        {
+          "tag": "b",
+          "text": "3"
+        },
+        {
+          "tag": "span",
+          "text": "custom"
+        },
+        {
+          "tag": "b",
+          "text": "0"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell bench press",
+          "name": "Use Barbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell decline bench press",
+          "name": "Use Barbell decline bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell incline press",
+          "name": "Use Barbell incline press",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Keep the name",
+          "name": "Keep the name",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Flat barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Likely"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell bench press",
+          "name": "Use Barbell bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell decline bench press",
+          "name": "Use Barbell decline bench press",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Use Barbell incline press",
+          "name": "Use Barbell incline press",
+          "type": "button"
+        },
+        {
+          "tag": "summary",
+          "text": "More options",
+          "name": "More options"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Keep the name",
+          "name": "Keep the name",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Zerbulator 9000"
+        },
+        {
+          "tag": "p",
+          "text": "Keep as imported"
+        },
+        {
+          "tag": "span",
+          "text": "No match"
+        },
+        {
+          "tag": "button",
+          "text": "Choose…",
+          "name": "Choose…",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Keep the name",
+          "name": "Keep the name",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Create custom",
+          "name": "Create custom",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Your history will not be changed."
+        },
+        {
+          "tag": "button",
+          "text": "3 still to review",
+          "name": "3 still to review",
+          "disabled": true,
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel this import",
+          "name": "Cancel this import",
           "type": "button"
         }
       ]

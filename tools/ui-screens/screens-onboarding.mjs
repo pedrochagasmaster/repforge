@@ -210,6 +210,40 @@ async function importTo(page, step) {
   await page.waitForSelector("#entryImportPick", { timeout: 20000 });
   if (step === "source") return;
   const portuguese = await page.evaluate(() => document.documentElement.lang === "pt-BR");
+  if (step === "review") {
+    const program = {
+      meta: { name: portuguese ? "Programa de catálogo importado" : "Imported catalog program" },
+      exercises: [
+        {
+          id: "bench1", day: portuguese ? "Dia 1" : "Day 1",
+          name: portuguese ? "Supino reto com barra" : "Flat barbell bench press",
+          sets: 3, repLow: 6, repHigh: 10, muscles: [portuguese ? "Peito" : "Chest"],
+          progression: { schemaVersion: 1, strategy: { id: "manual", version: 1, params: { authored: true } }, modifiers: [] },
+        },
+        {
+          id: "bench2", day: portuguese ? "Dia 1" : "Day 1",
+          name: portuguese ? "Supino reto com barra" : "Flat barbell bench press",
+          sets: 3, repLow: 6, repHigh: 10, muscles: [portuguese ? "Peito" : "Chest"],
+          progression: { schemaVersion: 1, strategy: { id: "manual", version: 1, params: { authored: true } }, modifiers: [] },
+        },
+        {
+          id: "zerb", day: portuguese ? "Dia 2" : "Day 2",
+          name: "Zerbulator 9000",
+          sets: 3, repLow: 10, repHigh: 15, muscles: [portuguese ? "Outro" : "Other"],
+          progression: { schemaVersion: 1, strategy: { id: "manual", version: 1, params: { authored: true } }, modifiers: [] },
+        },
+      ],
+    };
+    await page.setInputFiles("#importProgram", {
+      name: "catalog-program.json",
+      mimeType: "application/json",
+      buffer: Buffer.from(JSON.stringify(program)),
+    });
+    await page.waitForSelector("#importReview.active", { timeout: 25000 });
+    const more = page.locator(".improw:nth-child(2) details.improw__more summary");
+    if (await more.count()) await more.click();
+    return;
+  }
   const program = {
     meta: { name: portuguese ? "Programa de catálogo importado" : "Imported catalog program" },
     exercises: [{
@@ -493,6 +527,7 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-build/editor-ready": (page) => buildTo(page, "editor-ready"),
 
   "onboarding-import/source": (page) => importTo(page, "source"),
+  "onboarding-import/review": (page) => importTo(page, "review"),
   "onboarding-import/freeform-empty": (page) => freeformTo(page, "paste"),
   "onboarding-import/freeform-filled": (page) => freeformTo(page, "filled"),
   "onboarding-import/freeform-stage2": (page) => freeformTo(page, "stage2"),
