@@ -23,11 +23,13 @@ const expected = [
   "program-editor.js",
   "program-entry-adapter.js",
   "program-entry.js",
+  "program-transition.js",
   "progression-engine.js",
   "schedule.js",
   "shared-setup.js",
   "sw.js",
   "telemetry.js",
+  "workout-draft.js",
 ];
 const missing = expected.filter((file) => !files.includes(file));
 const unexpected = files.filter((file) => !expected.includes(file));

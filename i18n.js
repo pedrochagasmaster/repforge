@@ -1,5 +1,5 @@
 // Taurifer i18n — English / Portuguese UI strings.
-// Generated from i18n-en.json + i18n-pt.json; edit those and regenerate if needed.
+// Generated from i18n-en.json + i18n-pt.json + tools/i18n-runtime.js; edit those and regenerate.
 const EN = {
   "meta.description": "Taurifer keeps workout logs, drafts, and history on this device. Setup links share a program and selected settings.",
   "brand.home_aria": "Taurifer home",
@@ -791,6 +791,7 @@ const EN = {
   "picker.equipment.barbell": "Barbell",
   "picker.equipment.smith": "Smith",
   "picker.equipment.bodyweight": "Bodyweight",
+  "picker.equipment.band": "Resistance band",
   "picker.section_custom": "Your exercises",
   "picker.section_known": "You've trained these",
   "picker.section_all": "All exercises",
@@ -1064,6 +1065,24 @@ const EN = {
   "toast.storage_full": "Taurifer could not save this change. The browser may be out of storage. Export a backup now.",
   "toast.storage_degraded": "Taurifer saved to one browser store but could not update the other. Export a backup.",
   "toast.draft_conflict_retry": "A newer unfinished workout was saved in another tab. Your change wasn't applied. Review it and try again.",
+  "draft.recovery.persist.title": "This change is not saved yet",
+  "draft.recovery.persist.body": "Taurifer kept the saved workout unchanged. Retry when device storage is available.",
+  "draft.recovery.unavailable.title": "Workout storage is unavailable",
+  "draft.recovery.unavailable.body": "Taurifer could not safely lock or read this workout. Retry without closing this tab.",
+  "draft.recovery.stale.title": "A newer workout is saved",
+  "draft.recovery.stale.body": "This tab's change was not applied. Copy the pending value if you need it, then reload the latest workout.",
+  "draft.recovery.program.title": "This workout belongs to an earlier program",
+  "draft.recovery.program.body": "The saved workout does not match the current program. Its data remains on this device until you discard it.",
+  "draft.recovery.invalid.title": "This unfinished workout needs recovery",
+  "draft.recovery.invalid.body": "Taurifer kept the saved data unchanged because it could not migrate or verify it. Retry or copy the recovery data.",
+  "draft.recovery.pending": "Pending value: {value}",
+  "draft.recovery.retry": "Retry",
+  "draft.recovery.reload": "Reload latest",
+  "draft.recovery.copy_value": "Copy pending value",
+  "draft.recovery.copy_data": "Copy recovery data",
+  "draft.recovery.discard": "Discard unfinished workout",
+  "draft.recovery.copied": "Copied",
+  "draft.recovery.copy_failed": "Could not copy. Keep this tab open and try again.",
   "toast.rir_locked_draft": "Finish or discard this workout before changing effort mode.",
   "toast.set_count_locked_draft": "Finish or discard this workout before reducing sets you've started.",
   "toast.chart_missing_lift": "Log this lift to chart it.",
@@ -1277,7 +1296,7 @@ const EN = {
   "program.stat.ready": "ready",
   "program.stat.volume": "volume",
   "exercise.title": "Exercise",
-  "exercise.understand": "Understand",
+  "exercise.understand": "Understand RIR",
   "exercise.top_load": "top load",
   "exercise.progression": "Progression",
   "exercise.range_12w": "12 weeks",
@@ -1428,6 +1447,7 @@ const EN = {
   "entry.conflict.title": "Your active program changed",
   "entry.conflict.body": "Another change updated the active program while this setup was open. Review again before replacing it.",
   "entry.conflict.review": "Review again",
+  "entry.activation_conflict.title": "Your active program changed",
   "entry.hub.title": "Create a program",
   "entry.hub.lede": "Choose how to start your first program.",
   "entry.hub.group.written": "Taurifer builds the program",
@@ -1554,7 +1574,11 @@ const EN = {
   "entry.result.why": "Why it fits",
   "entry.result.why_goal": "Prioritizes {goal}.",
   "entry.result.why_schedule": "Fits {days} training days, each capped at {minutes} minutes.",
-  "entry.result.why_environment": "Written for a {environment}.",
+  "entry.result.why_environment.commercial_gym": "Written for a full commercial gym.",
+  "entry.result.why_environment.basic_gym": "Written for a small or basic gym.",
+  "entry.result.why_environment.limited_home": "Written for limited home equipment.",
+  "entry.result.why_environment.full_home": "Written for a full home gym.",
+  "entry.result.why_environment.other": "Written for your chosen setup.",
   "entry.result.why_equipment": "Uses {equipment}.",
   "entry.result.why_priorities": "Gives extra attention to {priorities}.",
   "entry.result.why_exercise_preferences": "Uses these exercise choices: {preferences}.",
@@ -1650,6 +1674,9 @@ const EN = {
   "entry.editor.save": "Save draft",
   "entry.editor.close": "Close",
   "entry.editor.saved": "Draft saved.",
+  "entry.editor.title": "Build a program",
+  "entry.editor.draft_saved": "Draft saved",
+  "reorder": "Reorder exercises",
   "entry.legacy.hint": "This draft comes from an earlier setup. Review it before continuing.",
   "entry.optional": "Optional",
   "entry.error.summary": "Complete the required answers to continue.",
@@ -2485,6 +2512,7 @@ const PT = {
   "picker.equipment.barbell": "Barra",
   "picker.equipment.smith": "Smith",
   "picker.equipment.bodyweight": "Peso corporal",
+  "picker.equipment.band": "Faixa elástica",
   "picker.section_custom": "Seus exercícios",
   "picker.section_known": "Você já treinou estes",
   "picker.section_all": "Todos os exercícios",
@@ -2758,6 +2786,24 @@ const PT = {
   "toast.storage_full": "O Taurifer não conseguiu salvar esta mudança. O armazenamento do navegador pode estar cheio. Exporte um backup agora.",
   "toast.storage_degraded": "O Taurifer salvou em uma cópia do navegador, mas não conseguiu atualizar a outra. Exporte um backup.",
   "toast.draft_conflict_retry": "Um treino inacabado mais recente foi salvo em outra aba. Sua alteração não foi aplicada. Revise o treino e tente de novo.",
+  "draft.recovery.persist.title": "Esta alteração ainda não foi salva",
+  "draft.recovery.persist.body": "O Taurifer manteve o treino salvo sem alterações. Tente novamente quando o armazenamento do dispositivo estiver disponível.",
+  "draft.recovery.unavailable.title": "O armazenamento do treino está indisponível",
+  "draft.recovery.unavailable.body": "O Taurifer não conseguiu bloquear ou ler este treino com segurança. Tente novamente sem fechar esta aba.",
+  "draft.recovery.stale.title": "Há um treino mais recente salvo",
+  "draft.recovery.stale.body": "A alteração desta aba não foi aplicada. Copie o valor pendente se precisar e carregue o treino mais recente.",
+  "draft.recovery.program.title": "Este treino pertence a um programa anterior",
+  "draft.recovery.program.body": "O treino salvo não corresponde ao programa atual. Os dados ficam neste dispositivo até você descartá-los.",
+  "draft.recovery.invalid.title": "Este treino inacabado precisa de recuperação",
+  "draft.recovery.invalid.body": "O Taurifer manteve os dados salvos sem alterações porque não conseguiu migrá-los ou verificá-los. Tente novamente ou copie os dados de recuperação.",
+  "draft.recovery.pending": "Valor pendente: {value}",
+  "draft.recovery.retry": "Tentar de novo",
+  "draft.recovery.reload": "Carregar mais recente",
+  "draft.recovery.copy_value": "Copiar valor pendente",
+  "draft.recovery.copy_data": "Copiar dados de recuperação",
+  "draft.recovery.discard": "Descartar treino inacabado",
+  "draft.recovery.copied": "Copiado",
+  "draft.recovery.copy_failed": "Não foi possível copiar. Mantenha esta aba aberta e tente novamente.",
   "toast.rir_locked_draft": "Conclua ou descarte este treino antes de mudar o modo de esforço.",
   "toast.set_count_locked_draft": "Conclua ou descarte este treino antes de reduzir séries já iniciadas.",
   "toast.chart_missing_lift": "Registre este exercício para ver o gráfico.",
@@ -2971,7 +3017,7 @@ const PT = {
   "program.stat.ready": "prontos",
   "program.stat.volume": "volume",
   "exercise.title": "Exercício",
-  "exercise.understand": "Entender",
+  "exercise.understand": "Entender RIR",
   "exercise.top_load": "maior carga",
   "exercise.progression": "Progressão",
   "exercise.range_12w": "12 semanas",
@@ -3122,6 +3168,7 @@ const PT = {
   "entry.conflict.title": "Seu programa ativo mudou",
   "entry.conflict.body": "Outra alteração atualizou o programa ativo enquanto esta configuração estava aberta. Revise de novo antes de substituí-lo.",
   "entry.conflict.review": "Revisar de novo",
+  "entry.activation_conflict.title": "Seu programa ativo mudou",
   "entry.hub.title": "Criar um programa",
   "entry.hub.lede": "Escolha como começar seu primeiro programa.",
   "entry.hub.group.written": "O Taurifer monta o programa",
@@ -3248,7 +3295,11 @@ const PT = {
   "entry.result.why": "Por que combina com você",
   "entry.result.why_goal": "Prioriza {goal}.",
   "entry.result.why_schedule": "Encaixa em {days} dias de treino, cada um limitado a {minutes} minutos.",
-  "entry.result.why_environment": "Escrito para um {environment}.",
+  "entry.result.why_environment.commercial_gym": "Feito para uma academia comercial completa.",
+  "entry.result.why_environment.basic_gym": "Feito para uma academia pequena ou básica.",
+  "entry.result.why_environment.limited_home": "Feito para equipamento limitado em casa.",
+  "entry.result.why_environment.full_home": "Feito para uma academia completa em casa.",
+  "entry.result.why_environment.other": "Feito para a configuração que você escolheu.",
   "entry.result.why_equipment": "Usa {equipment}.",
   "entry.result.why_priorities": "Dá atenção extra a {priorities}.",
   "entry.result.why_exercise_preferences": "Considera estas escolhas de exercícios: {preferences}.",
@@ -3344,6 +3395,9 @@ const PT = {
   "entry.editor.save": "Salvar rascunho",
   "entry.editor.close": "Fechar",
   "entry.editor.saved": "Rascunho salvo.",
+  "entry.editor.title": "Montar um programa",
+  "entry.editor.draft_saved": "Rascunho salvo",
+  "reorder": "Reordenar exercícios",
   "entry.legacy.hint": "Este rascunho vem de uma configuração anterior. Revise-o antes de continuar.",
   "entry.optional": "Opcional",
   "entry.error.summary": "Complete as respostas obrigatórias para continuar.",
@@ -3390,6 +3444,7 @@ const PT = {
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };
+  const missingRequests = new Set();
   let lang = "en";
 
   function detectLang() {
@@ -3416,7 +3471,10 @@ const PT = {
     const dict = STRINGS[lang] || STRINGS.en;
     let s = dict[key];
     if (s == null) s = STRINGS.en[key];
-    if (s == null) s = key;
+    if (s == null) {
+      if (typeof key === "string") missingRequests.add(key);
+      s = key;
+    }
     if (vars && typeof vars === "object") {
       s = String(s).replace(/\{(\w+)\}/g, (_, k) => (vars[k] != null ? String(vars[k]) : "{" + k + "}"));
     }
@@ -3467,5 +3525,14 @@ const PT = {
 
   const api = { STRINGS, detectLang, normalizeLang, setLang, getLang, t, tp, speechLang, applyDom };
   if (typeof module !== "undefined" && module.exports) module.exports = api;
-  else root.RepForgeI18n = api;
+  else {
+    root.RepForgeI18n = api;
+    root.__repforgeI18nMissingRequests = Object.freeze({
+      consume() {
+        const keys = [...missingRequests];
+        missingRequests.clear();
+        return keys;
+      },
+    });
+  }
 })(typeof globalThis !== "undefined" ? globalThis : this);

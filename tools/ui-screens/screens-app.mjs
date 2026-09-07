@@ -7,7 +7,7 @@
  * poisoned every frame after it.
  */
 import { catalogState, emptyEntryState, localeState } from "./fixtures.mjs";
-import { dismissChrome, sleep } from "./session.mjs";
+import { dismissChrome, LOG_DRAFT, sleep } from "./session.mjs";
 
 export function appState(key, lang) {
   if (key === "today/no-program" || key === "program/no-program") {
@@ -127,6 +127,58 @@ export const APP_SCENARIOS = {
 
   "workout/list": (page) => enterWorkout(page),
   "workout/focus": focusMode,
+  "workout/stale-draft": async (page) => {
+    await enterWorkout(page);
+    await page.evaluate(async () => {
+      const hook = window.__repforgeWorkoutDraft;
+      const draft = hook.current();
+      const exerciseInstanceId = draft.session.selectedExerciseId;
+      const setId = draft.exercises[exerciseInstanceId].setOrder[0];
+      const operationId = "catalog-stale-winner";
+      const next = window.RepForgeWorkoutDraft.reduce(draft, {
+        type: "editSetField", exerciseInstanceId, setId, field: "load", value: "75",
+        operationId, expectedRevision: draft.revision,
+        updatedAt: new Date(Date.parse(draft.session.updatedAt) + 1000).toISOString(),
+        writer: { ...draft.writer, operationId },
+      });
+      await hook.cas({
+        expectedDraftId: draft.draftId,
+        expectedRevision: draft.revision,
+        operationId,
+        nextRaw: JSON.stringify(window.RepForgeWorkoutDraft.serialize(next)),
+      });
+    });
+    const input = page.locator('#workout [data-k$="_1_load"]').first();
+    await input.fill("82.5");
+    await page.waitForFunction(() => window.__repforgeWorkoutDraft.recovery()?.kind === "stale");
+    await page.waitForFunction(() => {
+      const box = document.querySelector("#draftRecovery")?.getBoundingClientRect();
+      return box && box.top >= 0 && box.bottom <= innerHeight;
+    });
+    await sleep(page, 400);
+  },
+  "workout/persist-retry": async (page) => {
+    await enterWorkout(page);
+    await page.evaluate(() => { window.__repforgeDraftFault = "before-canonical-write"; });
+    const input = page.locator('#workout [data-k$="_1_load"]').first();
+    await input.fill("82.5");
+    await page.waitForFunction(() => window.__repforgeWorkoutDraft.recovery()?.kind === "persist");
+    await page.waitForFunction(() => {
+      const box = document.querySelector("#draftRecovery")?.getBoundingClientRect();
+      return box && box.top >= 0 && box.bottom <= innerHeight;
+    });
+    await sleep(page, 400);
+  },
+  "workout/invalid-draft": async (page) => {
+    await page.evaluate((draftKey) => localStorage.setItem(draftKey, '{"schemaVersion":2,"truncated":'), LOG_DRAFT);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await page.waitForFunction(() => window.__repforgeWorkoutDraft?.recovery()?.kind === "invalid");
+    await page.waitForFunction(() => {
+      const box = document.querySelector("#draftRecovery")?.getBoundingClientRect();
+      return box && box.top >= 0 && box.bottom <= innerHeight;
+    });
+    await sleep(page, 400);
+  },
   "workout/rest-timer": async (page) => {
     await focusMode(page);
     await logCurrentSet(page);
