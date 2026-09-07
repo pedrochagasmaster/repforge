@@ -19,8 +19,8 @@ shared files, finding/decision disposition, owner gates, and public-launch
 boundary.
 
 Do not start an implementation branch until the planning PR is owner-approved.
-That approval is merged. Plan 049 implementation is in owner review (PR #222);
-Plans 050–059 start after 049 merges, in the sequence DAG's order. The
+That approval is merged, and so are Plans 049 (PR #222) and 050 (PR #227).
+Plans 051–059 proceed in the sequence DAG's order. The
 post-Wave-3 product roadmap remains deferred; none of its unrelated features
 may be pulled into these plans.
 
@@ -28,10 +28,10 @@ may be pulled into these plans.
 
 | Plan | Phase | State | Outcome |
 |---|---:|---|---|
-| [049](./049-ui-overhaul-canonical-reconciliation.md) | 0 | **IMPLEMENTATION COMPLETE — OWNER REVIEW** | Reconcile canonical contracts and specify semantic roles, transition/recovery provenance, and the bounded transfer exception. Dispositions: [`docs/ui-overhaul-disposition-register.md`](../docs/ui-overhaul-disposition-register.md). |
-| [050](./050-ui-correctness-and-catalog-leverage.md) | 1 | **PLANNED — DEPENDS ON 049** | Fix verified UI-01–UI-07 defects and UI-29's fixture; add copy/overflow/risk-matrix leverage. |
-| [051](./051-workout-draft-state-foundation.md) | 2A | **PLANNED — DEPENDS ON 049** | Replace hidden DOM ownership with versioned, crash-safe DraftV2 state. |
-| [052](./052-block-transition-provenance-foundation.md) | 2B | **PLANNED — DEPENDS ON 049** | Make block transitions reconstructable, preview-hashed, provenance-preserving, and atomic. |
+| [049](./049-ui-overhaul-canonical-reconciliation.md) | 0 | **IMPLEMENTED** | Reconcile canonical contracts and specify semantic roles, transition/recovery provenance, and the bounded transfer exception. Dispositions: [`docs/ui-overhaul-disposition-register.md`](../docs/ui-overhaul-disposition-register.md). |
+| [050](./050-ui-correctness-and-catalog-leverage.md) | 1 | **IMPLEMENTED** | Fix verified UI-01–UI-07 defects and UI-29's fixture; add copy/overflow/risk-matrix leverage. |
+| [051](./051-workout-draft-state-foundation.md) | 2A | **IMPLEMENTATION IN PROGRESS — PR #226** | Replace hidden DOM ownership with versioned, crash-safe DraftV2 state. |
+| [052](./052-block-transition-provenance-foundation.md) | 2B | **IMPLEMENTATION IN PROGRESS — PR #228** | Make block transitions reconstructable, preview-hashed, provenance-preserving, and atomic. |
 | [053](./053-ios-install-transfer-foundation.md) | 2C | **PLANNED — DEPENDS ON 049/051** | Build the narrowly scoped one-hour encrypted iOS install transfer and recovery snapshot. |
 | [054](./054-landing-and-program-entry.md) | 3 | **PLANNED — OWNER VISUAL GATE** | Deliver the selected product-led landing, adaptive shared entry, five-job hierarchy, install policy, guides, and Privacy page. |
 | [055](./055-focus-only-workout.md) | 4 | **PLANNED — DEPENDS ON 051** | Reach capability parity in Focus, add read-only Preview/scope layers, then delete List. |
