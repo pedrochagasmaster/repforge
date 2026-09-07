@@ -300,13 +300,32 @@ async function holdStorageLock(page) {
   });
 }
 
-async function waitForPendingStorageLock(page) {
+async function settleBootStorage(page) {
+  await page.evaluate(async () => {
+    await window.__repforgeStorage?.flush?.();
+    await window.__repforgeWorkoutDraft?.flush?.();
+  });
+  await page.waitForFunction(() =>
+    Object.keys(localStorage).every((key) => !key.startsWith("repforge_pending_v1:")),
+    undefined,
+    { timeout: 10000 }
+  );
+}
+
+async function waitForQueuedReductionJournal(page) {
   await page.waitForFunction(
-    async (lockName) => {
-      const locks = await navigator.locks.query();
-      return locks.pending.some((lock) => lock.name === lockName);
-    },
-    STORAGE_LOCK,
+    (exerciseId) => Object.keys(localStorage)
+      .filter((key) => key.startsWith("repforge_pending_v1:"))
+      .some((key) => {
+        try {
+          const journal = JSON.parse(localStorage.getItem(key) || "null");
+          const exercise = journal?.proposal?.program?.find((entry) => entry?.id === exerciseId);
+          return journal?.version === 2 && exercise?.sets === 1;
+        } catch {
+          return false;
+        }
+      }),
+    EXERCISE_ID,
     { timeout: 10000 }
   );
 }
@@ -673,11 +692,14 @@ async function main() {
       await openProgramEditor(page);
       await workout.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
       await workout.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+      await settleBootStorage(page);
+      await settleBootStorage(workout);
+      await settleBootStorage(locker);
       await holdStorageLock(locker);
 
       await reduceSets(page);
       await page.click("#programEditToggle");
-      await waitForPendingStorageLock(locker);
+      await waitForQueuedReductionJournal(page);
       await workout.locator(`[data-k="${EXERCISE_ID}_2_load"]`).fill("97.5");
       await waitForDraftValue(workout, `${EXERCISE_ID}_2_load`, "97.5");
 
