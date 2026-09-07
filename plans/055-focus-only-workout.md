@@ -20,9 +20,9 @@ live SHAs, thread ID, server origin, and PID before dispatch.
 
 ## Problem statement
 
-Focus has Taurifer's strongest one-exercise/one-decision hierarchy, but it remains an optional mode propped up by hidden List markup. Important utilities are scattered across List, header overflow, per-exercise rows, and sheets. Focus also wastes vertical space and its previous-session/timer geometry can shift or compress titles. Today has no clean read-only session inspection boundary.
+Focus has Taurifer's strongest one-exercise/one-decision hierarchy, but it remains an optional mode alongside List markup. Important utilities are scattered across List, header overflow, per-exercise rows, and sheets. Focus also wastes vertical space and its previous-session/timer geometry can shift or compress titles. Today has no clean read-only session inspection boundary.
 
-Plan 051 (merged, PR #226) already made DraftV2 authoritative and removed hidden List DOM ownership — List now renders as a projection over `activeWorkoutDraft`. This phase turns Focus into the only logger, relocates every approved capability by scope, creates a read-only Today preview, and deletes List only after executable parity is complete. It reuses Plan 051's DraftV2 state and tests rather than re-proving them.
+Plan 051 (merged, PR #226) already made DraftV2 authoritative and removed hidden List DOM ownership — List now renders as a projection over `activeWorkoutDraft`. This phase turns Focus into the only logger, relocates every approved capability by scope, creates a read-only Today preview, and deletes List only after executable parity is complete. It reuses Plan 051's DraftV2 state and tests, rerunning affected consumer proof rather than rebuilding the storage engine.
 
 ## Approved direction
 
@@ -265,7 +265,7 @@ Rules for every packet in this plan:
   relocation packet, and List is deleted only after every row is green — 055-P8 proves *deletion parity*, nothing new.
 - **Reuse Plan 051, do not redo it.** Packets consume `activeWorkoutDraft` and `window.__repforgeWorkoutDraft`
   (`current`, `dispatch`, `flush`, `checkpoint`, `read`, `state`) and the existing `test/workout-draft-*.mjs` suites;
-  no packet re-proves DraftV2 crash-safety.
+  packets rerun affected DraftV2 crash/storage proof when they change its callers, without rebuilding its implementation.
 - **Anchors are concrete.** Existing: mode switch + Focus render in `app.js`, `#todayNoProgram`, session summary path
   (`buildSessionSummary`, `openSessionSummary` in `app.js`), `.focus-*` / `.deck` / `.ledger` / `.wo-rest` styles,
   `sw.js` `SHELL` six protected scripts, `test/exercise-library.mjs` revision lockstep, `test/focus-mode.mjs`,

@@ -375,8 +375,10 @@ Rules for every packet in this plan:
 - **Anchors are concrete.** Existing: `window.__repforgeWorkoutDraft` (`current`/`checkpoint`/`read`/`cas`),
   `repforge_v1`, `repforge_ui_v1`, `repforge_setup_v1` cookie, `telemetry.js` (`repforge_telemetry_identity_v1`,
   `repforge_telemetry_enabled_v1`, `installationId`), `sw.js` `CACHE = "repforge-v188"`. **NEW** (this plan):
-  `install-transfer.js`, `services/install-transfer/**`, `tools/canonical-clone-hash.mjs`,
-  `test/fixtures/install-transfer-clone-v1.json`, `repforge_install_import_v1` / `repforge_transfer_inbound_v1` markers.
+  `install-transfer.js`, `services/install-transfer/**`, and runtime handling of
+  the already-specified `repforge_install_import_v1` / `repforge_transfer_inbound_v1` markers.
+  `tools/canonical-clone-hash.mjs` and `test/fixtures/install-transfer-clone-v1.json`
+  already exist. Extend their proof rather than recreate them.
 - **One reusable contract.** The ADR 0013 payload-boundary table is expressed once as a shared limits constant consumed
   by both the browser module and the service; packets never restate made-up limit numbers or duplicate fixture data.
 - **Per-boundary oracle.** Each of create / claim / commit / status / Safari-freeze has a written actor + credential +
