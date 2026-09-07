@@ -411,7 +411,7 @@
       const next = clone(document); removeDayFromDocument(next, day);
       return stage(next, { kind: "day_remove", targetDay: day });
     };
-    const moveExercise = (id, toDay, toIndex, { announce = true } = {}) => {
+    const moveExercise = (id, toDay, toIndex, { announce = true, carry = null } = {}) => {
       const before = clone(document), exercise = before.program?.find(item => item.id === id);
       if (!exercise) return Promise.resolve({ ok: false });
       const sourceDay = exercise.day, sourceIndex = exercisesFor(before, sourceDay).findIndex(item => item.id === id);
@@ -432,7 +432,16 @@
         if (reducedMotion(adapter)) return;
         const frame = root.requestAnimationFrame || (callback => setTimeout(callback, 0));
         frame(() => {
-          for (const row of host.querySelectorAll('[data-role="exercise"][data-id]')) {
+          const rows = [...host.querySelectorAll('[data-role="exercise"][data-id]')];
+          // A spring per row, retargeted rather than restarted. Nudging a row up
+          // three times used to replay one keyframe from zero on each tap, so the
+          // second and third moves flickered; a spring picks each row up from
+          // wherever it currently is, at whatever speed it is already moving.
+          // `carry` names the row the thumb just dropped and how fast it was
+          // going, so the one row the lifter is watching keeps its momentum
+          // through the re-render instead of restarting from rest.
+          if (root.RepForgeMotion?.animateExerciseReorder(rows, beforeRects, carry)) return;
+          for (const row of rows) {
             const beforeRect = beforeRects.get(row.dataset.id);
             if (!beforeRect) continue;
             const delta = beforeRect.top - row.getBoundingClientRect().top;
@@ -709,13 +718,30 @@
       host.querySelectorAll('[data-role="undo-move"]').forEach(button => button.addEventListener("click", undoLastMove));
       host.querySelectorAll('[data-role="drag-handle"]').forEach(button => button.addEventListener("pointerdown", beginDrag));
     }
+    /* Dragging a row is unchanged where the judgement lives: the 90ms pickup
+     * that tells a drag from a tap, pointer capture, the day under the thumb,
+     * the hold that opens a collapsed day, and the drop-target maths are all
+     * exactly as they were.
+     *
+     * What Motion adds is the part with physics. The row's offset lives in a
+     * motion value, so releasing it can spring rather than snap: a drop that
+     * lands somewhere is handed straight to the reorder, which springs the row
+     * the remaining distance carrying the release velocity, and a drop that
+     * lands nowhere springs the row home instead of teleporting it. */
     function beginDrag(event) {
       if (destroyed || event.button != null && event.button !== 0) return;
       const handle = event.currentTarget, id = handle.dataset.id, row = handle.closest('[data-role="exercise"]');
       const exercise = document.program?.find(item => item.id === id); if (!exercise || !row) return;
       event.preventDefault();
       const rect = row.getBoundingClientRect();
-      drag = { id, row, pointerId: event.pointerId, startY: event.clientY, top: rect.top, day: exercise.day, started: false, pickup: setTimeout(() => { if (drag) { drag.started = true; row.classList.add("is-dragging"); } }, 90), overDay: null, hold: null };
+      const now = event.timeStamp || Date.now();
+      drag = {
+        id, row, pointerId: event.pointerId, startY: event.clientY, top: rect.top, day: exercise.day, started: false,
+        pickup: setTimeout(() => { if (drag) { drag.started = true; row.classList.add("is-dragging"); drag.motion?.pickUp(); } }, 90),
+        overDay: null, hold: null,
+        motion: root.RepForgeMotion?.trackExerciseDrag(row) || null,
+        vy: 0, lastMoveY: event.clientY, lastMoveT: now,
+      };
       try { handle.setPointerCapture(event.pointerId); } catch { /* Safari may not expose capture on buttons. */ }
       window.addEventListener("pointermove", dragMove, { passive: false });
       window.addEventListener("pointerup", endDrag, { once: true });
@@ -727,8 +753,14 @@
       if (!drag.started) return;
       const dy = event.clientY - drag.startY;
       drag.lastX = event.clientX; drag.lastY = event.clientY;
-      const lift = reducedMotion(adapter) ? "" : " scale(1.01)";
-      drag.row.style.transform = `translate3d(0,${dy}px,0)${lift}`;
+      // Speed in px/ms, so the release can tell a placed row from a thrown one.
+      const now = event.timeStamp || Date.now(), dt = now - drag.lastMoveT;
+      if (dt > 0) { drag.vy = (event.clientY - drag.lastMoveY) / dt; drag.lastMoveY = event.clientY; drag.lastMoveT = now; }
+      if (drag.motion) drag.motion.follow(dy);
+      else {
+        const lift = reducedMotion(adapter) ? "" : " scale(1.01)";
+        drag.row.style.transform = `translate3d(0,${dy}px,0)${lift}`;
+      }
       drag.row.classList.add("is-dragging");
       const target = documentElementAt(event.clientX, event.clientY), day = target?.closest?.('[data-role="day"]');
       if (!day) return;
@@ -743,18 +775,37 @@
     function finishDrag(cancelled) {
       if (!drag) return;
       const current = drag; drag = null; clearTimeout(current.pickup); if (current.hold) clearTimeout(current.hold);
-      current.row.classList.remove("is-dragging"); current.row.style.transform = "";
+      current.row.classList.remove("is-dragging");
       host.querySelectorAll(".is-drag-target-expanded").forEach(day => day.classList.remove("is-drag-target-expanded"));
-      if (cancelled || !current.started) return;
+      const dropped = !cancelled && current.started;
+      const target = dropped ? dropTarget(current) : null;
+      if (!target) {
+        // A press that never became a drag has nothing to put back.
+        if (!current.started) { current.motion?.cancel(); current.row.style.transform = ""; return; }
+        // Nothing to move to, or the gesture was abandoned: no re-render is
+        // coming, so the row itself is what has to get back to its slot.
+        if (current.motion) current.motion.returnToRest({ velocity: current.vy });
+        else current.row.style.transform = "";
+        return;
+      }
+      // The re-render is about to put the row in its new place, so hand back a
+      // row with no inline transform and let the reorder spring cover the rest
+      // of the distance with the velocity the thumb let go at.
+      if (current.motion) current.motion.release();
+      else current.row.style.transform = "";
+      moveExercise(current.id, target.day, target.index, { carry: { id: current.id, velocity: current.vy } });
+    }
+    /** Where a released row lands, or null when the drop is over nothing. */
+    function dropTarget(current) {
       const point = root.document?.elementFromPoint?.(current.lastX, current.lastY);
-      const day = point?.closest?.('[data-role="day"]'); if (!day) return;
+      const day = point?.closest?.('[data-role="day"]'); if (!day) return null;
       const targetDay = day.dataset.day, targetExercise = point.closest?.('[data-role="exercise"]');
       let targetIndex = exercisesFor(document, targetDay).length;
       if (targetExercise && targetExercise.dataset.id !== current.id) {
         const list = exercisesFor(document, targetDay), index = list.findIndex(item => item.id === targetExercise.dataset.id);
         targetIndex = index + (current.lastY > targetExercise.getBoundingClientRect().top + targetExercise.getBoundingClientRect().height / 2 ? 1 : 0);
       }
-      moveExercise(current.id, targetDay, targetIndex);
+      return { day: targetDay, index: targetIndex };
     }
     function endDrag(event) {
       if (drag && event.pointerId === drag.pointerId) { drag.lastX = event.clientX; drag.lastY = event.clientY; }
