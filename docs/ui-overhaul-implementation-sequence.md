@@ -4,7 +4,7 @@
 
 This is the execution map for the owner-approved UI/UX overhaul in `docs/ui-audit.md`. It covers Plans 049–059 and phases 0–8. It does not reopen G-01–G-88, treat the four source audits as separate queues, or resume the deferred post-Wave-3 roadmap.
 
-Planning baseline:
+Original planning baseline, retained as historical evidence:
 
 - `origin/main`: `09772f91b86549f71a5d845a7c74849569d592b6`
 - audit baseline: `fe4bf52c`
@@ -13,6 +13,55 @@ Planning baseline:
 - current planning-time service-worker/script revision: `v175` (implementation always reads the live revision)
 
 Phase 2 is deliberately split into three plans. Workout draft state, block-transition provenance, and temporary install transfer have different data-loss/security boundaries, test harnesses, deployment surfaces, and rollback paths. They can make useful progress independently, then close one Phase 2 gate together.
+
+## Resume after Plans 050 and 051
+
+Revalidated on 2026-09-07 at main
+`c3491c5e1eb6a10975c27ceacf3259e8afd3dd74`:
+
+- Plans 049, 050, and 051 are merged in PRs #222, #227, and #226.
+- The current catalog contains 75 screens and 317 frames, verified with
+  `node tools/check-ui-screens.mjs`. The original 72/221 count above is historical.
+- Plan 052 is active in PR #228 at `d1a84ea0`. Its first proposal work is
+  published; its PR's older main/dependency statements need refreshing on resume.
+- DraftV2 is shipped in `workout-draft.js` and the `app.js` storage adapter.
+  The draft checkpoint, recovery retention, ordered queue, and CAS behavior are
+  existing contracts, not new designs for Plans 052, 053, or 055.
+- The live cache is `repforge-v188` at this SHA. Read `sw.js` at implementation
+  time; six protected script query revisions now include `workout-draft.js`.
+- Open PRs #225, #230, #231, and #232 are not merged prerequisites. Inspect them
+  for conflict risk; do not import their product or dependency choices into this
+  program without authorization.
+
+Use the [Herdr execution procedure](agents/herdr-ui-overhaul-execution.md)
+before dispatching work. Each plan supplies bounded packets mapped to its atomic
+rows. The [execution lessons](agents/ui-overhaul-execution-retrospective.md)
+explain the source evidence; the [Plan 052 prompt](agents/prompts/plan-052-herdr.md)
+resumes the existing branch. These additions change delivery mechanics, not the
+approved phase order or product gates.
+
+The first implementation action is to inspect PR #228 and merge current main
+explicitly in its clean dedicated worktree. Reprove its published proposal and
+the affected DraftV2 integration boundary before expanding. Do not rewrite its
+history or wait for already-merged Plans 050 and 051.
+
+### Current parallel work
+
+| Work | Can start now? | Isolation and merge constraint |
+|---|---|---|
+| 052 published-contract review and next packet | Yes | Resume #228; one writer; merge main before storage integration |
+| 053 service contract and fake-clock tests | Yes | Separate worktree; service-only files; client/storage changes serialize with 052 |
+| 054 landing visual proposals and route characterization | Yes | Preserve owner selection gate; established-data install flow waits for 053 |
+| 055 capability characterization | Yes | Reuse 051 proof; UI changes still follow the plan's phase and guide-registry gates |
+| 056 evidence fixtures/model preparation | Independent preparation only | Transition consumer waits for 052; no competing proposal implementation |
+| 057–058 source inventory | Read-only preparation | Public mutations wait for their existing predecessor gates |
+| 059 launch acceptance | No | All implementation and required owner gates must close first |
+
+Parallel worktrees isolate files, not CPU, ports, provider quota, or mutable
+contracts. Assign a distinct server and artifact directory per plan. Serialize
+heavy captures and browser runs when they contend. Within a plan, prefer one
+writer plus a bounded read-only oracle review. Across plans, the integrator
+merges main and reruns affected proof at every shared-file boundary.
 
 ## Repository reconstruction evidence
 
@@ -143,14 +192,14 @@ Parallel plans never copy unpublished files, cherry-pick arbitrary sibling work,
 | `app.js` entry/install region | 054 | 053 primitive first; 057 Settings links | 053 → 054 → 057 |
 | `app.js` Progress/block region | 052 domain/commit boundary, 056 UI | 057 summary/Program consumers, 058 annotations | 052 → 056 → 057 → 058 |
 | `app.js` History/Share/Summary/Today/Program/Settings | 057 | 058 presentation annotations | Wait for 054–056, then 057 → 058 |
-| `workout-draft.js` (new) | 051 | 053 logical clone, 055 UI | Consumers do not add fields; schema changes return to 051 contract |
+| `workout-draft.js` (shipped) | 051 | 052 draft-safe transition, 053 logical clone, 055 UI | Reuse the acknowledged aggregate and existing checkpoint/CAS adapter; schema changes need explicit contract review |
 | `program-transition.js` (new) | 052 | 056 | 056 renders/commits proposals only; it does not modify derivation |
 | `progress-model.js` (new) | 056 | 057 summary/Today, 059 tests | Outcome/scope changes remain owned by 056 |
 | `install-transfer.js` / `services/install-transfer/**` | 053 | 054 promotion, 059 validation | 054 never changes claim/import semantics; service isolated from root deps |
 | `program-compiler.js` | 052 for transition resolver | 054 reads candidate facts; 056 invokes resolver | No UI plan edits compiler output to fabricate a fit |
 | `program-entry.js`, `program-entry-adapter.js`, `program-editor.js` | 054 for entry UX | 052/056 transition adapter boundary; 057 repair routes | Compiler/provenance first, entry UI second, guided/repair consumers last |
 | `shared-setup.js` | Existing ADR 0007 contract; 057 owns blocker reporting | 053 cookie coexistence; 054 adaptive landing | 053 does not change setup payload; 054 keeps no-persist; 057 adds exact repair |
-| `index.html` | Surface plan for its region | 050 fixes → 054 entry → 055 workout → 056 Progress → 057 management → 058 roles | Merge/rebase main at every phase; no long-lived duplicate shell |
+| `index.html` | Surface plan for its region | 050 fixes → 054 entry → 055 workout → 056 Progress → 057 management → 058 roles | Explicitly merge main at every phase; never rebase published branches; no long-lived duplicate shell |
 | `styles.css` | 049 roles, 058 final system | 050 defects → 054 entry → 055 workout → 056 Progress → 057 management | Feature plans consume named roles; 058 performs final whole-file migration |
 | `i18n-en.json`, `i18n-pt.json`, generated `i18n.js` | Each surface plan owns its keys; build tool owns output | 050 → 051 (draft recovery keys) → 054 → 055 → 056 → 057; 058 only approved redundant labels | Always merge sources, regenerate once, never hand-merge generated output |
 | `telemetry.js` / schema | 049 policy; 053 identity/transfer | 054–057 coarse task events; 059 freezes | Each event enters allowlist before merge; 059 rejects unapproved fields |
