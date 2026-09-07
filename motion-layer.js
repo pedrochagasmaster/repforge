@@ -222,6 +222,40 @@
   }
 
   /* ============================================================
+     Apple accessibility preferences
+
+     These are independent signals. Reduced transparency turns the dock glass
+     into the opaque fallback material and removes blur. Increased contrast
+     strengthens the shared separator/boundary roles and makes the dock nearly
+     solid without changing Taurifer's palette or light/dark theme choice.
+     ============================================================ */
+  const PREFERENCE_STYLE_ID = "taurifer-apple-accessibility";
+  function installPreferenceStyles() {
+    if (document.getElementById(PREFERENCE_STYLE_ID)) return;
+    const style = document.createElement("style");
+    style.id = PREFERENCE_STYLE_ID;
+    style.textContent = `
+@media (prefers-reduced-transparency: reduce) {
+  nav {
+    --dock-glass: var(--dock-glass-opaque);
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+@media (prefers-contrast: more) {
+  :root {
+    --rule: var(--ink-faint);
+    --rule-strong: var(--ink-soft);
+    --dock-edge: var(--ink-soft);
+    --dock-glass: var(--dock-glass-opaque);
+  }
+  nav { border-color: var(--dock-edge); }
+  nav button { color: var(--ink); }
+}`;
+    document.head.append(style);
+  }
+
+  /* ============================================================
      Fluid controller follow-up
 
      app.js still owns the no-runtime fallback. Once boot has bound those named
@@ -612,6 +646,8 @@
     animateExerciseReorder,
     animateDisclosure,
   };
+
+  installPreferenceStyles();
 
   /* The banner is a non-modal region, not a dialog. The markup remains backward
      compatible for a no-script document; the live app corrects the accessibility
