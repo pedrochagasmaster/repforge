@@ -1,6 +1,6 @@
 const CACHE = "repforge-v186";
 const ASSETS = [
-  "./", "./index.html", "./styles.css", "./manifest.webmanifest",
+  "./", "./index.html", "./styles.css", "./styles-base.css", "./manifest.webmanifest",
   "./telemetry.js", "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js",
   "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=186", "./program-entry.js", "./program-entry.js?v=186", "./program-entry-adapter.js", "./program-entry-adapter.js?v=186", "./program-editor.js", "./program-editor.js?v=168",
   "./shared-setup.js", "./shared-setup.js?v=186", "./app.js", "./app.js?v=186",
@@ -50,7 +50,7 @@ self.addEventListener("activate", event => {
   );
 });
 
-const SHELL = new Set(["/", "/index.html", "/app.js", "/styles.css", "/i18n.js", "/exercises.js", "/shared-setup.js", "/program-compiler.js", "/program-entry.js", "/program-entry-adapter.js", "/program-editor.js", "/telemetry.js", "/posthog-init.js", "/posthog-config.js", "/manifest.webmanifest"]);
+const SHELL = new Set(["/", "/index.html", "/app.js", "/styles.css", "/styles-base.css", "/i18n.js", "/exercises.js", "/shared-setup.js", "/program-compiler.js", "/program-entry.js", "/program-entry-adapter.js", "/program-editor.js", "/telemetry.js", "/posthog-init.js", "/posthog-config.js", "/manifest.webmanifest"]);
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
 function shellPathname(pathname) {
   if (!SCOPE_PATH) return pathname;
