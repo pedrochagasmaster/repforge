@@ -192,7 +192,7 @@ Parallel plans never copy unpublished files, cherry-pick arbitrary sibling work,
 | `app.js` entry/install region | 054 | 053 primitive first; 057 Settings links | 053 → 054 → 057 |
 | `app.js` Progress/block region | 052 domain/commit boundary, 056 UI | 057 summary/Program consumers, 058 annotations | 052 → 056 → 057 → 058 |
 | `app.js` History/Share/Summary/Today/Program/Settings | 057 | 058 presentation annotations | Wait for 054–056, then 057 → 058 |
-| `workout-draft.js` (shipped) | 051 | 052 draft-safe transition, 053 logical clone, 055 UI | Reuse the acknowledged aggregate and existing checkpoint/CAS adapter; schema changes need explicit contract review |
+| `workout-draft.js` (shipped) | 051 | 052 draft-safe transition, 053 logical clone, 055 UI | Reuse the acknowledged aggregate and existing checkpoint/CAS adapter; consumers do not add fields independently. Required schema changes return to the 051 contract for explicit review |
 | `program-transition.js` (new) | 052 | 056 | 056 renders/commits proposals only; it does not modify derivation |
 | `progress-model.js` (new) | 056 | 057 summary/Today, 059 tests | Outcome/scope changes remain owned by 056 |
 | `install-transfer.js` / `services/install-transfer/**` | 053 | 054 promotion, 059 validation | 054 never changes claim/import semantics; service isolated from root deps |
