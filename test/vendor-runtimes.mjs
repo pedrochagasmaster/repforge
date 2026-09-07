@@ -240,8 +240,12 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
   assert(/data-role="move-to-day"/.test(editor) && /data-role="move-up"/.test(editor) &&
          /data-role="move-down"/.test(editor) && /data-role="drag-handle"/.test(editor),
     "the explicit Move up / Move down / Move to another day controls remain");
-  assert(/if \(destroyed \|\| !Dnd\) return;/.test(editor) && /teardownSorting\(\)/.test(editor),
+  assert(/if \(destroyed\) return;/.test(editor) && /if \(!Dnd\) \{/.test(editor) &&
+         /teardownSorting\(\)/.test(editor),
     "the editor still mounts, and still disposes cleanly, without the drag library");
+  assert(/root\.RepForgeDndRuntime/.test(editor) &&
+         /runtime\.load\(\)\.then\(\(\) => \{ if \(!destroyed && !sorting\) mountSorting\(\); \}/.test(editor),
+    "and an editor rendered before the deferred runtime lands mounts its sortables when it arrives");
   assert(/moveExercise\(id, day, index/.test(editor) &&
          (editor.match(/moveExercise\(/g) || []).length >= 4,
     "every reorder path — drag, keyboard drag and the Move controls — goes through one transaction");

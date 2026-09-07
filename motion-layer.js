@@ -335,8 +335,14 @@
       if (sheetRuns.get(gesture.sheet) === motion) sheetRuns.delete(gesture.sheet);
       return;
     }
+    // `pointercancel` is the browser taking the gesture away — a native scroll
+    // or pan claimed it — not the lifter letting go. Nothing was committed, so
+    // the sheet goes back to rest, and the velocity it had when it was taken is
+    // not evidence of intent: projecting it can throw a 40px push past the
+    // commitment distance and dismiss a sheet nobody released.
+    const released = event?.type !== "pointercancel";
     const current = motion.current();
-    const projected = projectMomentum(current, gesture.velocity);
+    const projected = released ? projectMomentum(current, gesture.velocity) : 0;
     const threshold = Math.min(160, Math.max(64, (gesture.sheet.offsetHeight || 0) * 0.32));
     const choice = nearestSnap(projected, [
       { position: 0, dismiss: false },
@@ -346,7 +352,7 @@
       motion.dismiss({ velocity: gesture.velocity });
       dismissSheetByExistingPath(gesture.sheet);
     } else {
-      motion.settle({ velocity: gesture.velocity }).finally(() => {
+      motion.settle({ velocity: released ? gesture.velocity : 0 }).finally(() => {
         if (sheetRuns.get(gesture.sheet) === motion) sheetRuns.delete(gesture.sheet);
       });
     }
@@ -529,15 +535,18 @@
     try { gesture.deck.releasePointerCapture?.(gesture.id); } catch {}
     if (Math.abs(gesture.dx) > 8) global.swallowNextClick?.();
 
+    // A cancelled pointer is not a release: the card returns to the one it was
+    // on rather than advancing on momentum the lifter never committed.
+    const released = event?.type !== "pointercancel";
     const step = focusStep();
-    const projected = projectMomentum(gesture.dx, gesture.velocity);
+    const projected = released ? projectMomentum(gesture.dx, gesture.velocity) : 0;
     const snaps = [{ position: 0, dir: 0 }];
     if (focusCanGo(-1)) snaps.push({ position: step, dir: -1 });
     if (focusCanGo(1)) snaps.push({ position: -step, dir: 1 });
     const choice = nearestSnap(projected, snaps) || snaps[0];
     if (!choice.dir) {
       gesture.track.classList.add("is-settling");
-      const run = settleFocusDeck(gesture.track, { from: gesture.dx, velocity: gesture.velocity });
+      const run = settleFocusDeck(gesture.track, { from: gesture.dx, velocity: released ? gesture.velocity : 0 });
       if (run) run.finally(() => {
         gesture.track.classList.remove("is-settling");
         gesture.deck.classList.remove("is-swiping");

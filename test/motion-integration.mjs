@@ -301,13 +301,19 @@ async function run() {
   {
     const rail3 = await page.locator("#programTextSheet .sheet__head").boundingBox();
     const x3 = Math.round(rail3.x + rail3.width / 2), y3 = Math.round(rail3.y + rail3.height / 2);
-    // The same shape sheet-swipe-dismiss.mjs uses for "a short push springs
-    // back": slow enough that the projected endpoint stays inside the
-    // commitment distance, so this asserts the handoff and not the threshold.
+    // A push, pulled back and held still before release: the last samples are a
+    // zero and an upward delta, so the release velocity cannot read as a flick
+    // whatever the machine did to the samples in between. The threshold itself
+    // is sheet-swipe-dismiss.mjs's subject; this phase is about the handoff and
+    // must not depend on timing to stay on one side of it.
+    //
+    // A slow drag this long is also what turned up the pointercancel bug the
+    // layer now handles — the browser claims the gesture for a native pan and
+    // the release path ran anyway, projecting a stale velocity into a dismissal
+    // nobody asked for. Leaving the gesture at this length keeps that covered.
     await page.mouse.move(x3, y3);
     await page.mouse.down();
-    for (const dy of [20, 44, 46]) { await page.mouse.move(x3, y3 + dy); await page.waitForTimeout(40); }
-    await page.waitForTimeout(180);
+    for (const dy of [20, 40, 52, 40, 40, 40]) { await page.mouse.move(x3, y3 + dy); await page.waitForTimeout(40); }
     await page.mouse.up();
     await page.waitForTimeout(500);
   }
@@ -321,6 +327,45 @@ async function run() {
   });
   assert(stillOpen.open && !stillOpen.hidden,
     "and that short push left the sheet open", JSON.stringify(stillOpen));
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(320);
+
+  // A gesture the browser takes away is not a gesture the lifter finished. When
+  // a native pan claims the pointer mid-swipe, `pointercancel` arrives instead
+  // of `pointerup` — with whatever velocity the last sample happened to hold.
+  // Projecting that is how a sheet dismisses itself out from under someone who
+  // never let go, so the cancel path returns it to rest instead.
+  phase("a cancelled pointer abandons the swipe rather than committing it");
+  await page.click("#exportProgramText");
+  await page.waitForSelector("#programTextSheet.is-open", { timeout: 5000 });
+  await page.waitForTimeout(340);
+  {
+    const rail4 = await page.locator("#programTextSheet .sheet__head").boundingBox();
+    const x4 = Math.round(rail4.x + rail4.width / 2), y4 = Math.round(rail4.y + rail4.height / 2);
+    // The cancel has to carry the live gesture's own pointerId, the way the
+    // browser's would, or the handler is right to ignore it.
+    await page.evaluate(() => {
+      window.__pid = null;
+      window.addEventListener("pointermove", e => { window.__pid = e.pointerId; }, { capture: true, passive: true });
+    });
+    await page.mouse.move(x4, y4);
+    await page.mouse.down();
+    // Fast and far enough that a release here would unambiguously dismiss.
+    for (const dy of [20, 70, 130]) { await page.mouse.move(x4, y4 + dy); await page.waitForTimeout(16); }
+    await page.evaluate(() =>
+      window.dispatchEvent(new PointerEvent("pointercancel", { pointerId: window.__pid ?? 1, bubbles: true })));
+    await page.waitForTimeout(500);
+    await page.mouse.up();
+  }
+  const cancelled = await page.evaluate(() => {
+    const el = document.querySelector("#programTextSheet");
+    return { open: el.classList.contains("is-open"), hidden: el.hidden === true, inline: el.style.transform };
+  });
+  assert(cancelled.open && !cancelled.hidden,
+    "a throw the browser cancels leaves the sheet open", JSON.stringify(cancelled));
+  assert(!cancelled.inline,
+    "and it comes back to rest rather than staying where the thumb was",
+    JSON.stringify(cancelled));
   await page.keyboard.press("Escape");
   await page.waitForTimeout(320);
 

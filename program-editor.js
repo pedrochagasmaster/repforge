@@ -791,7 +791,18 @@
     function mountSorting() {
       teardownSorting();
       const Dnd = root.DndKit;
-      if (destroyed || !Dnd) return;
+      if (destroyed) return;
+      // The heavy @dnd-kit bundle is deferred past the document bootstrap, so
+      // an editor rendered during boot can arrive before it. Ask the bootstrap
+      // for it and mount against the rows that exist when it lands; the Move
+      // controls carry reordering in the meantime, and on the far side of the
+      // window `available()` is already true and nothing is scheduled.
+      if (!Dnd) {
+        const runtime = root.RepForgeDndRuntime;
+        if (runtime && !runtime.available())
+          runtime.load().then(() => { if (!destroyed && !sorting) mountSorting(); }, () => {});
+        return;
+      }
       const reduced = reducedMotion(adapter);
       // Reduced motion is a different interaction, not a faster one: the row
       // still follows the thumb, but nothing slides into place behind it and
