@@ -213,6 +213,11 @@ async function main() {
     await chooseSubstitute(page, first.id, "Lat pulldown");
     await page.locator(`.exercise[data-ex="${third.id}"] [data-skip="${third.id}"]`).click();
     await page.locator(`.exercise[data-ex="${first.id}"] [data-save="${first.id}_1"]`).click();
+    await page.waitForFunction(({ id }) => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      const exercise = draft?.exercises?.[id];
+      return exercise && exercise.sets[exercise.setOrder[0]].completion !== "pending";
+    }, { id: first.id });
     assert(
       (await page.locator(`.exercise[data-ex="${first.id}"] [data-save="${first.id}_1"]`).getAttribute("aria-pressed")) === "true",
       "List completion commits the programmed set",
@@ -239,14 +244,36 @@ async function main() {
     );
 
     await page.locator("#workout .exercise.is-current .ledger__row[data-editn]").click();
+    await page.waitForFunction(({ id }) => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      const exercise = draft?.exercises?.[id];
+      return window.__repforgeFocus.editing()?.exId === id &&
+        exercise?.sets?.[exercise.setOrder[0]]?.completion === "pending";
+    }, { id: first.id });
     await fillVisible(page, "#workout .exercise.is-current .focus-well [data-k$='_load']", 55);
+    await page.waitForFunction(({ id }) => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      const exercise = draft?.exercises?.[id];
+      return exercise?.sets?.[exercise.setOrder[0]]?.edited?.load === "55";
+    }, { id: first.id });
     await page.locator("#workout .exercise.is-current .focus-well .saveset").click();
+    await page.waitForFunction(({ id }) => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      const exercise = draft?.exercises?.[id];
+      return window.__repforgeFocus.editing() === null &&
+        exercise?.sets?.[exercise.setOrder[0]]?.completion !== "pending";
+    }, { id: first.id });
     const corrected = await page.locator("#workout .exercise.is-current .ledger__row[data-editn] .ledger__load").textContent();
     assert(corrected?.trim() === "55", "Focus correction updates the committed set in place", corrected || "missing row");
 
     await switchMode(page, "#modeFull");
     await page.waitForSelector("#workout:not(.is-focus)", { timeout: 5000 });
     await page.locator(`.exercise[data-ex="${first.id}"] [data-save="${first.id}_1"]`).click();
+    await page.waitForFunction(({ id }) => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      const exercise = draft?.exercises?.[id];
+      return exercise && exercise.sets[exercise.setOrder[0]].completion === "pending";
+    }, { id: first.id });
     assert(
       (await page.locator(`.exercise[data-ex="${first.id}"] [data-save="${first.id}_1"]`).getAttribute("aria-pressed")) === "false",
       "List uncommit retains corrected values while returning the set to pending",
@@ -267,6 +294,11 @@ async function main() {
       JSON.stringify(pendingAgain),
     );
     await page.locator("#workout .exercise.is-current .focus-well .saveset").click();
+    await page.waitForFunction(({ id }) => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      const exercise = draft?.exercises?.[id];
+      return exercise && exercise.sets[exercise.setOrder[0]].completion !== "pending";
+    }, { id: first.id });
 
     console.log("\nPersistence: reload the same aggregate and save its current history meaning");
     const rawBeforeReload = await page.evaluate((key) => localStorage.getItem(key), DRAFT_KEY);
@@ -403,6 +435,50 @@ async function main() {
       await page.locator("#sessionSummary:not(.hidden)").count(),
       "the characterized save still opens the production session summary",
     );
+
+    console.log("\nAd hoc substitution: performed identity changes without losing slot muscle provenance");
+    await page.evaluate(() => window.closeSessionSummary?.());
+    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false, day: "Day 1" }));
+    await page.waitForSelector("#workoutShell:not(.hidden) #workout:not(.is-focus)", { timeout: 5000 });
+    const adHocResult = await page.evaluate(async ({ exerciseId, primary, secondary }) => {
+      return window.__repforgeWorkoutDraft.dispatch("substituteExercise", {
+        exerciseInstanceId: exerciseId,
+        replacement: {
+          exerciseInstanceId: `replacement:${exerciseId}`,
+          sourceExerciseId: "adhoc:tempo-pause-press",
+          movementId: "adhoc:tempo-pause-press",
+          displayName: "Tempo pause press",
+          primary,
+          secondary,
+        },
+        selectedAt: new Date().toISOString(),
+      });
+    }, { exerciseId: first.id, primary: first.primary, secondary: first.secondary });
+    assert(adHocResult?.status === "applied", "the production draft adapter accepts an ad hoc substitution", JSON.stringify(adHocResult));
+    await fillVisible(page, `#workout [data-k="${first.id}_1_load"]`, 61);
+    await fillVisible(page, `#workout [data-k="${first.id}_1_reps"]`, 6);
+    await fillVisible(page, `#workout [data-k="${first.id}_1_rir"]`, 1);
+    await page.locator(`.exercise[data-ex="${first.id}"] [data-save="${first.id}_1"]`).click();
+    const sessionsBeforeAdHoc = new Set((await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).log, STATE_KEY))
+      .map((row) => row.session));
+    const adHocSave = await page.evaluate(async () => {
+      const result = await window.__repforgeSaveWorkout();
+      await window.__repforgeStorage.flush();
+      return result;
+    });
+    const adHocRows = await page.evaluate(({ key, knownSessions }) => {
+      const log = JSON.parse(localStorage.getItem(key)).log;
+      const session = [...new Set(log.map((row) => row.session))].find((id) => !knownSessions.includes(id));
+      return log.filter((row) => row.session === session);
+    }, { key: STATE_KEY, knownSessions: [...sessionsBeforeAdHoc] });
+    const adHocRow = adHocRows[0];
+    assert(adHocSave?.localOk || adHocSave?.idbOk, "the ad hoc workout saves through the production transaction", JSON.stringify(adHocSave));
+    assert(adHocRows.length === 1 && adHocRow.exerciseId === first.id && adHocRow.name === first.name &&
+      adHocRow.primary === first.primary && adHocRow.secondary === first.secondary &&
+      adHocRow.performedName === "Tempo pause press" && adHocRow.performedMovementId === "adhoc:tempo-pause-press" &&
+      adHocRow.performedPrimary === first.primary && adHocRow.performedSecondary === first.secondary,
+    "ad hoc History preserves the programmed slot and original muscle meaning while recording performed identity",
+    JSON.stringify(adHocRows));
     assert(errors.length === 0, "the parity journey emits no page or console errors", errors.join(" | "));
   } finally {
     await context.close();

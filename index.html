@@ -109,6 +109,17 @@
       </div>
 
       <div id="sessionBanner" class="sessionbanner hidden" role="status"></div>
+      <div id="draftRecovery" class="draft-recovery hidden" role="alert" aria-live="assertive" tabindex="-1">
+        <p id="draftRecoveryTitle" class="draft-recovery__title"></p>
+        <p id="draftRecoveryBody" class="draft-recovery__body"></p>
+        <p id="draftRecoveryPending" class="draft-recovery__pending hidden"></p>
+        <div class="draft-recovery__actions">
+          <button type="button" id="draftRecoveryRetry" class="btn btn--steel hidden"></button>
+          <button type="button" id="draftRecoveryReload" class="btn btn--steel hidden"></button>
+          <button type="button" id="draftRecoveryCopy" class="btn btn--steel hidden"></button>
+          <button type="button" id="draftRecoveryDiscard" class="btn btn--danger hidden"></button>
+        </div>
+      </div>
       <div id="unfinishedBanner" class="hidden" role="status" hidden>
         <p class="sessionbanner__title" data-i18n="log.unfinished.title">Unfinished session</p>
         <p class="sessionbanner__body" data-i18n="log.unfinished.body">You have unsaved sets. Open Today and tap Finish workout.</p>
@@ -935,11 +946,12 @@
   <script src="i18n.js"></script>
   <script src="exercises.js"></script>
   <script src="progression-engine.js"></script>
-  <script src="program-compiler.js?v=186"></script>
-  <script src="program-entry.js?v=186"></script>
-  <script src="program-entry-adapter.js?v=186"></script>
+  <script src="program-compiler.js?v=187"></script>
+  <script src="program-entry.js?v=187"></script>
+  <script src="program-entry-adapter.js?v=187"></script>
   <script src="program-editor.js?v=168"></script>
-  <script src="shared-setup.js?v=186"></script>
-  <script src="app.js?v=186"></script>
+  <script src="shared-setup.js?v=187"></script>
+  <script src="workout-draft.js?v=187"></script>
+  <script src="app.js?v=187"></script>
 </body>
 </html>

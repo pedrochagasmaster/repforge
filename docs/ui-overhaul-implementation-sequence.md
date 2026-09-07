@@ -152,9 +152,9 @@ Parallel plans never copy unpublished files, cherry-pick arbitrary sibling work,
 | `shared-setup.js` | Existing ADR 0007 contract; 057 owns blocker reporting | 053 cookie coexistence; 054 adaptive landing | 053 does not change setup payload; 054 keeps no-persist; 057 adds exact repair |
 | `index.html` | Surface plan for its region | 050 fixes → 054 entry → 055 workout → 056 Progress → 057 management → 058 roles | Merge/rebase main at every phase; no long-lived duplicate shell |
 | `styles.css` | 049 roles, 058 final system | 050 defects → 054 entry → 055 workout → 056 Progress → 057 management | Feature plans consume named roles; 058 performs final whole-file migration |
-| `i18n-en.json`, `i18n-pt.json`, generated `i18n.js` | Each surface plan owns its keys; build tool owns output | 050 → 054 → 055 → 056 → 057; 058 only approved redundant labels | Always merge sources, regenerate once, never hand-merge generated output |
+| `i18n-en.json`, `i18n-pt.json`, generated `i18n.js` | Each surface plan owns its keys; build tool owns output | 050 → 051 (draft recovery keys) → 054 → 055 → 056 → 057; 058 only approved redundant labels | Always merge sources, regenerate once, never hand-merge generated output |
 | `telemetry.js` / schema | 049 policy; 053 identity/transfer | 054–057 coarse task events; 059 freezes | Each event enters allowlist before merge; 059 rejects unapproved fields |
-| `sw.js` and five protected script query revisions | Current merging plan | Every cached-file plan | Read live cache; one increment per merged coherent shell; all lockstep tests pass |
+| `sw.js` and six protected script query revisions | Current merging plan | Every cached-file plan | Read live cache; one increment per merged coherent shell; all lockstep tests pass |
 | `docs/ui-screens/manifest.json`, scenarios, PNGs | 050 harness/matrix | 053–057 state owners; 058 full migration; 059 final evidence | Each owner regenerates full catalog after merging main; never hand-edit PNGs |
 | `test/**` shared browser helpers | 050 validation primitives | State/surface owners, then 059 | Preserve generic helpers; feature-specific facts live with owning suite |
 | `assets/exercises/**`, exercise generator/curation | No overhaul plan | 059 verifies only | Closed licensed set; no additions/recolors/placeholders |

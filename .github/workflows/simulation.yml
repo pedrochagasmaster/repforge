@@ -98,6 +98,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
@@ -274,6 +276,8 @@ jobs:
         run: |
           node test/focus-mode.mjs
           node test/workout-draft-parity.mjs
+          node test/workout-draft-storage.mjs
+          node test/workout-draft-sw-upgrade.mjs
 
       - name: Progression recommendation parity and browser surfaces
         env:
