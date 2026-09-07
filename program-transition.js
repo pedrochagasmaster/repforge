@@ -415,6 +415,19 @@
     return canonicalJson(left) === canonicalJson(right);
   }
 
+  function siblingPresenceIssue(target) {
+    if (!isObject(target)) return null;
+    if (target.diff?.recoveryWeek !== undefined || (isObject(target.diff) && own(target.diff, "recoveryWeek")) ||
+        target.recoveryWeek !== undefined || own(target, "recoveryWeek")) {
+      return "forbidden_recovery_week";
+    }
+    if (target.confirmedAt !== undefined || own(target, "confirmedAt") ||
+        target.archiveId !== undefined || own(target, "archiveId")) {
+      return "forbidden_lifecycle_field";
+    }
+    return null;
+  }
+
   function siblingContractIssue(proposal, predecessor, successor) {
     if (!isObject(proposal) || proposal.schemaVersion !== SCHEMA_VERSION ||
         proposal.kind !== "lower_frequency_sibling" || proposal.status !== "preview" ||
@@ -422,6 +435,8 @@
         typeof proposal.createdAt !== "string" || !proposal.createdAt) {
       return "invalid_proposal";
     }
+    const presenceIssue = siblingPresenceIssue(proposal);
+    if (presenceIssue) return presenceIssue;
     if (typeof proposal.predecessor?.programId !== "string" || !proposal.predecessor.programId ||
         !Number.isInteger(proposal.predecessor?.durableRevision) || proposal.predecessor.durableRevision < 0 ||
         typeof proposal.predecessor?.source !== "string" || !proposal.predecessor.source ||
@@ -456,6 +471,8 @@
         !isObject(input.successorCompilerContext) || !isObject(input.supportedVersions)) {
       return { ok: false, code: "unsupported_transition_kind" };
     }
+    const presenceIssue = siblingPresenceIssue(input);
+    if (presenceIssue) return { ok: false, code: presenceIssue };
     const predecessorCheck = validateCompilerInstance(input.predecessorInstance);
     if (!predecessorCheck.ok) return predecessorCheck.code === "customized_compiler_snapshot"
       ? { ok: false, code: "unsupported_reconstruction" }
@@ -550,6 +567,7 @@
   function diffIssue(diff, predecessor, successor, mapping) {
     if (!isObject(diff) || !Array.isArray(diff.days) || !Array.isArray(diff.exercises) ||
         !Array.isArray(diff.prescriptions)) return "invalid_diff";
+    if (diff.recoveryWeek !== undefined || own(diff, "recoveryWeek")) return "forbidden_recovery_week";
     const expected = buildExactDiff(predecessor, successor, mapping);
     const pairs = (entries) => entries.map(({ predecessorSlot, successorSlot }) => ({ predecessorSlot, successorSlot }));
     if (!sameCanonical(pairs(diff.exercises), pairs(expected.exercises))) return "diff_exercise_order";

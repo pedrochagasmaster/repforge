@@ -431,6 +431,37 @@ test("validation rejects stale, duplicate, reordered, and unsupported reconstruc
       mutateInput(value) { value.diagnosis.answers.availableDays = 2; },
       mutateProposal(value) { value.diagnosis.answers.availableDays = 2; },
     },
+    {
+      name: "forbidden sibling recovery week",
+      code: "forbidden_recovery_week",
+      mutateInput(value) {
+        value.recoveryWeek = { policyVersion: 999 };
+        value.diff = { recoveryWeek: { policyVersion: 999 } };
+      },
+      mutateProposal(value) {
+        value.diff.recoveryWeek = { policyVersion: 999 };
+      },
+    },
+    {
+      name: "forbidden confirmedAt in preview",
+      code: "forbidden_lifecycle_field",
+      mutateInput(value) {
+        value.confirmedAt = "2026-09-05T12:05:00.000Z";
+      },
+      mutateProposal(value) {
+        value.confirmedAt = "2026-09-05T12:05:00.000Z";
+      },
+    },
+    {
+      name: "forbidden archiveId in preview",
+      code: "forbidden_lifecycle_field",
+      mutateInput(value) {
+        value.archiveId = "archive-balanced-4";
+      },
+      mutateProposal(value) {
+        value.archiveId = "archive-balanced-4";
+      },
+    },
   ];
   for (const semanticCase of semanticCases) {
     const producerInput = structuredClone(input);
