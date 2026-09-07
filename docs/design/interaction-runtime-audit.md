@@ -5,6 +5,13 @@ what each interaction was decided to be. It sits on top of the motion discipline
 pass (PR #231), which narrowed motion in the high-frequency training loop; that
 work is the baseline here, not something to be revisited.
 
+> **Partly superseded.** `interaction-runtime-audit-apple-followup.md` records a
+> later pass that changed three of the decisions below: the focus deck's drag and
+> its carry to the next card are now driven by the Motion layer with momentum
+> projection and retargeting rather than left to app.js and CSS, and the sheet
+> re-grab listed under Known residuals is implemented. Read that note alongside
+> the rows marked here, which describe the state before it.
+
 Three questions were asked of every interaction, in this order:
 
 1. **Does it deserve motion at all?** Emil Kowalski's `emil-design-eng`
@@ -154,13 +161,9 @@ on an animation to say what happened.
 
 ## Known residuals
 
-- **Re-grabbing a sheet mid-settle starts from rest.** The spring is stopped so
-  the thumb has sole ownership of the transform — before this PR two writers
-  would have fought — but the second gesture does not continue from the sheet's
-  current offset. That is now possible, since the position lives in a motion
-  value, and it would be a real improvement; it also moves the dismiss threshold,
-  which is gesture semantics rather than animation, so it is left as its own
-  change.
+- ~~**Re-grabbing a sheet mid-settle starts from rest.**~~ Implemented by the
+  Apple follow-up: `takeover()` stops the spring without clearing its
+  presentation value, and the next tracker adopts that pixel as its origin.
 ## How the Motion guidance was obtained
 
 `motion.dev` is unreachable from this environment (blocked by the egress

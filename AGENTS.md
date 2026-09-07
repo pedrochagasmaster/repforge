@@ -44,6 +44,17 @@ it, so hand-editing vendored code fails the build.
 Application code never touches `window.Motion`. Everything animated through
 Motion goes via `motion-layer.js`, which owns the motion vocabulary, the single
 reduced-motion decision, and the fallback for a runtime that failed to load.
+
+`motion-layer.js` also owns the bottom-sheet and Focus-deck *gesture
+controllers* at runtime. `app.js` still declares its own pointer handlers and
+binds them at boot — that is the no-runtime fallback — and the layer then
+removes those listeners by function reference and installs its own, so the
+handoff depends on `sheetDragStart`, `sheetDragMove`, `sheetDragEnd`,
+`focusDragStart`, `focusDragMove` and `focusDragEnd` staying reachable as
+globals and staying bound without `capture`. Renaming one, or binding it inside
+a module scope, would make the removal a silent no-op and run both controllers
+over the same surface. `test/motion-integration.mjs` guards that: after boot,
+`app.js` must never reach `RepForgeMotion.trackSheetGesture`.
 @dnd-kit is reached only from `program-editor.js`. Both runtimes are optional by
 construction: without Motion every caller keeps its stylesheet path; without
 @dnd-kit the editor still mounts and reordering stays reachable through each

@@ -270,6 +270,60 @@ async function run() {
   await page.keyboard.press("Escape");
   await page.waitForTimeout(320);
 
+  // ---- the gesture handoff ------------------------------------------------------
+  // The layer takes the sheet and focus-deck gestures over from app.js at boot by
+  // removing app.js's own pointer listeners by function reference. If that removal
+  // ever silently fails — a rename, a capture flag, a load-order change — both
+  // controllers drive the same surface at once and nothing else would notice,
+  // because both move it the same way. Counting app.js's entry into the layer is
+  // what makes that failure visible: after the handoff it must never be reached.
+  phase("app.js's own gesture path is retired once the layer takes over");
+  const handoff = await page.evaluate(() => ({
+    installed: window.__tauriferFluidControllersInstalled === true,
+    replaced: typeof window.focusAnimateTo === "function",
+  }));
+  assert(handoff.installed, "the fluid controllers report themselves installed", JSON.stringify(handoff));
+  assert(handoff.replaced, "and focusAnimateTo is the layer's, so chevrons and keys share one path");
+
+  await page.evaluate(() => {
+    window.__appTrackCalls = 0;
+    const real = window.RepForgeMotion.trackSheetGesture;
+    // Only app.js reaches the gesture tracker through this property; the layer
+    // holds its own closure reference, so a call here is app.js's alone.
+    window.RepForgeMotion.trackSheetGesture = (...args) => {
+      window.__appTrackCalls++;
+      return real(...args);
+    };
+  });
+  await page.click("#exportProgramText");
+  await page.waitForSelector("#programTextSheet.is-open", { timeout: 5000 });
+  await page.waitForTimeout(340);
+  {
+    const rail3 = await page.locator("#programTextSheet .sheet__head").boundingBox();
+    const x3 = Math.round(rail3.x + rail3.width / 2), y3 = Math.round(rail3.y + rail3.height / 2);
+    // The same shape sheet-swipe-dismiss.mjs uses for "a short push springs
+    // back": slow enough that the projected endpoint stays inside the
+    // commitment distance, so this asserts the handoff and not the threshold.
+    await page.mouse.move(x3, y3);
+    await page.mouse.down();
+    for (const dy of [20, 44, 46]) { await page.mouse.move(x3, y3 + dy); await page.waitForTimeout(40); }
+    await page.waitForTimeout(180);
+    await page.mouse.up();
+    await page.waitForTimeout(500);
+  }
+  const doubled = await page.evaluate(() => window.__appTrackCalls);
+  assert(doubled === 0,
+    "a sheet drag runs through one controller, not two",
+    `app.js entered the tracker ${doubled} time(s)`);
+  const stillOpen = await page.evaluate(() => {
+    const el = document.querySelector("#programTextSheet");
+    return { open: el.classList.contains("is-open"), hidden: el.hidden === true };
+  });
+  assert(stillOpen.open && !stillOpen.hidden,
+    "and that short push left the sheet open", JSON.stringify(stillOpen));
+  await page.keyboard.press("Escape");
+  await page.waitForTimeout(320);
+
   assert(errors.length === 0, "no page errors in the animated run", errors.join(" | "));
   await context.close();
 

@@ -273,9 +273,15 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
      in docs/design/interaction-runtime-audit.md. */
   for (const id of ["whySheet", "exNoteSheet", "dayPickSheet", "programTextSheet", "shareSetupSheet",
                     "exPickSheet", "exCustomSheet", "restSheet", "iosInstallSheet",
-                    "sessionSummary", "firstRun", "tour", "installBanner", "glossary"]) {
+                    "sessionSummary", "firstRun", "tour", "glossary"]) {
     assert(divDialog(id), `#${id} deliberately keeps its hand-rolled dialog behaviour`);
   }
+  /* The banner keeps role="dialog" in the markup so a no-script document still
+     announces something, and the Motion layer corrects it to a region once the
+     DOM exists. Asserting only the markup here would read as a decision to keep
+     announcing a non-modal banner as a dialog, which is no longer what happens. */
+  assert(divDialog("installBanner") && /banner\.setAttribute\("role", "region"\)/.test(layer),
+    "the install banner ships as a dialog for a no-script document and is corrected to a region at runtime");
   assert(/hideModalElement[\s\S]{0,400}el\.tagName==="DIALOG"/.test(app) &&
          /if\(el\.tagName==="DIALOG"\)\{if\(typeof el\.showModal==="function"/.test(app),
     "one modal lifecycle covers both kinds, so focus return and inertness are unchanged");
