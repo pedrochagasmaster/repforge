@@ -2,6 +2,10 @@
 
 Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
 and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
+External Herdr workers additionally follow the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md)
+and the [Herdr worker packets](#herdr-worker-packets) section below. The coordinator fills every packet field and the
+live SHAs, thread ID, server origin, and PID in the shared packet template before dispatch; SHAs and revision numbers in
+this plan are historical anchors.
 
 - **Plan number:** 053
 - **Phase:** 2C — State and lifecycle foundations
@@ -62,7 +66,8 @@ Preserve ordinary static/offline/local-first Taurifer, user ownership/export, se
 - The historical `repforge_setup_v1` cookie carries only an encoded setup proposal into iOS installation and is sent with the static HTML request. It remains distinct.
 - Current install detection/promotion and iOS instructions live in `app.js`/`index.html`; dismissal lives in UI prefs and uses a seven-day cadence.
 - Durable state writes already use Web Locks, revisioned pending entries, IndexedDB/localStorage reconciliation, and draft-transaction sidecars. The import must reuse those concepts instead of writing keys independently.
-- Service worker cache is currently `repforge-v175`; implementation re-reads and advances the live value.
+- The active draft is DraftV2 (Plan 051, merged). The clone's `workoutDraft` section is the **acknowledged** DraftV2 logical value read through `window.__repforgeWorkoutDraft` (`current`/`checkpoint`/`read`), never the raw flat `repforge_draft_v1` string. Transient checkpoint bytes, the write-ahead journal, cross-tab locks, and the `repforge_draft_v1:recovery` buffer are excluded; the atomic local import recreates a valid destination checkpoint through the approved local-import boundary. If the source cannot produce an acknowledged clone, the transfer fails safely under the approved contract rather than shipping a partial or stale draft.
+- Service worker cache is `repforge-v188` on main `c3491c5e`, with `?v=188` script revisions; implementation re-reads and advances the live value rather than trusting a documented number.
 
 ## Architecture
 
@@ -354,6 +359,53 @@ The service has a creation kill switch and independent purge command. Client rol
 | 7 | `test(install): prove transfer expiry recovery and device handoff` | Complete adversarial/upgrade/catalog/staging/physical-iOS evidence and runbook | tests, catalog manifest/scenarios/PNGs, operations/privacy docs | Commits 2–6 | Required matrix and staging purge rehearsal | Full browser/catalog/audit checks | All listed new states captured | Fill physical/device and completion evidence | Evidence reverts separately; client/service stays killed if unsafe |
 
 For every row: mark 🟡; implement only the row; run focused proof; inspect all changes and secret/log output; remove unrelated edits; commit; push immediately; update the PR immediately; proceed only from a clean reconstructable remote boundary.
+
+## Herdr worker packets
+
+The atomic commit sequence above is the delivery contract. Each row is dispatched as one or more self-contained packets
+per the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md); the coordinator fills every template
+field before dispatch. No worker is asked to design the transfer protocol — the Cloudflare Workers / EU Durable Object /
+token-derived-key / operations / disclosure contract is closed by Plan 049 and ADR 0013 and **is not reopened by any
+packet**. Staging-service and physical-iOS owners remain named humans; those packets record evidence, they do not
+simulate it.
+
+Rules for every packet in this plan:
+
+- **Tests land before or with production.** PLANNED assertion files are written with independent expected values first.
+- **Anchors are concrete.** Existing: `window.__repforgeWorkoutDraft` (`current`/`checkpoint`/`read`/`cas`),
+  `repforge_v1`, `repforge_ui_v1`, `repforge_setup_v1` cookie, `telemetry.js` (`repforge_telemetry_identity_v1`,
+  `repforge_telemetry_enabled_v1`, `installationId`), `sw.js` `CACHE = "repforge-v188"`. **NEW** (this plan):
+  `install-transfer.js`, `services/install-transfer/**`, `tools/canonical-clone-hash.mjs`,
+  `test/fixtures/install-transfer-clone-v1.json`, `repforge_install_import_v1` / `repforge_transfer_inbound_v1` markers.
+- **One reusable contract.** The ADR 0013 payload-boundary table is expressed once as a shared limits constant consumed
+  by both the browser module and the service; packets never restate made-up limit numbers or duplicate fixture data.
+- **Per-boundary oracle.** Each of create / claim / commit / status / Safari-freeze has a written actor + credential +
+  fault expectation table (053-P0) before its service or client packet is dispatched.
+- **Every packet carries a deliberate failing case** and a STOP boundary; the coordinator reproduces the risky
+  assertion (and inspects logs for secret leakage) before the next packet of that row.
+
+### Row → packet map
+
+| Packet | Maps rows | Bounded objective · mode | Existing anchors (main unless NEW) | Proof-first: PLANNED assertion + independent oracle + deliberate failure | Commands: baseline now → planned | STOP · reviewer gate |
+|---|---|---|---|---|---|---|
+| 053-P0 | 1 | Per-boundary actor/credential/fault oracle table for create, claim, commit, status, and Safari freeze · **plan (read-only)** | Plan 049 endpoint contract, ADR 0013 boundary table, `docs/adr/0013-temporary-install-transfer.md` | Table listing, per boundary: which actor holds which sealed credential, the expected terminal state on loss, and the observable a test will assert. Failure enumerated per boundary (lost create response, unbound claim, commit-never-arrives, unavailable status, credential unseal failure) | baseline: `node --check app.js` → planned: consumed as the oracle by 053-P2/P3/P4/P5 assertion files | STOP if a boundary has no single owning actor or an ambiguous terminal state · reviewer: coordinator signs the table into PR before 053-P2 |
+| 053-P1a | 1 | Logical clone V1 schema + normalization fixture: acknowledged DraftV2 section, `repforge_v1`/`repforge_ui_v1` normalized values, consent + identity; volatile fields stripped · **build** | `window.__repforgeWorkoutDraft`, `telemetry.js` keys; NEW `tools/canonical-clone-hash.mjs`, `test/fixtures/install-transfer-clone-v1.json` | NEW `tools/canonical-clone-hash.mjs --check`: `integrity.canonicalPayloadHash` recomputed independently over the sorted-key preimage equals the fixture value. Failure: a fixture carrying `_storageDraftTransaction`, a WAL entry, a lock ID, or the raw flat `repforge_draft_v1` string fails normalization; a source with no acknowledged checkpoint yields "cannot clone", not a stale draft | baseline: `node test/shared-setup-unit.mjs` → planned: `node tools/canonical-clone-hash.mjs --check` | STOP if any volatile marker survives normalization or a raw storage dump is uploaded · reviewer: reproduces one stripped-field case and the no-checkpoint failure |
+| 053-P1b | 1 | Shared transfer-limits constant + threat/redaction checklist fixtures (hostile inputs, log-field assertions) · **build** | ADR 0013 boundary table; NEW shared limits module under `services/install-transfer/` re-exported to `install-transfer.js` | NEW `test/install-transfer-limits.mjs`: the browser validator and the service validator import the same constant and reject the same over-limit fixture with the same code. Failure: the two validators disagree on one bound | baseline: `node test/shared-setup-flow.mjs` → planned: `node test/install-transfer-limits.mjs` | STOP if a limit is duplicated as a literal in two places · reviewer: reproduces the disagreement fixture turning green |
+| 053-P2a | 2 | Service create + idempotency + encrypted-at-rest storage + independent 60-minute expiry (fake clock) · **build** | NEW `services/install-transfer/**`; closed Cloudflare/EU contract | NEW `services/install-transfer/test/**`: a retried create with the same idempotency key returns `{duplicate:true, expiresAt}` and no token; ciphertext is gone at/before `serverNow + 60min`. Failure: a second live record for one key; AEAD tamper accepted | baseline: `node --check sw.js` → planned: service suite `node --test services/install-transfer/` (NEW) | STOP if the provider/EU/key-disposal/operations/disclosure contract would drift · reviewer: reproduces the fake-clock expiry and the AEAD-tamper rejection |
+| 053-P2b | 2 | Claim bind/retry + competing/duplicate claim + commit-verified delete + payload-free tombstone + kill switch · **build** | NEW `services/install-transfer/**`; 053-P0 oracle | extend the service suite: the bound `claimId` retries; every other claim gets the generic unavailable shape; delete happens only after verified commit, never on claim. Failure: delete on claim alone; a second claimant succeeds | baseline: `node --check sw.js` → planned: service suite (NEW) | STOP if interrupted claims cannot retry without admitting a second claimant · reviewer: reproduces the competing-claim and commit-verified-delete cases |
+| 053-P3 | 3 | Browser envelope build + API calls + dedicated handoff-token cookie (distinct key, never `repforge_setup_v1`) + setup-cookie coexistence + browser/standalone context detection · **build** | `index.html` install surfaces, `repforge_setup_v1` cookie (kept distinct), Plan 051 DraftV2 (merged); NEW `install-transfer.js` | NEW `test/install-transfer-client.mjs`: envelope is built from parsed state (never a storage dump); token never enters fragment/history/DOM/telemetry; a setup proposal and a transfer token coexist and disambiguate deterministically. Failure: token written to `location.hash`; the setup cookie overloaded | baseline: `node test/install-modes.mjs` → planned: `node test/install-transfer-client.mjs` | STOP if the token reaches a URL, log, or the setup cookie · reviewer: reproduces the coexistence case and a redaction assertion |
+| 053-P4 | 4 | Atomic local import: `repforge_install_import_v1` marker through the existing durable write path, complete write/read-back, boot finish-or-rollback, valid destination DraftV2 checkpoint recreated, remote delete retried from the sealed inbound marker · **build** | `window.__repforgeWorkoutDraft.cas`, `_storageDraftTransaction`, boot replay, `test/thermonuclear-races.mjs`, `test/workout-draft-storage.mjs`; NEW markers | NEW `test/install-transfer-import.mjs`: crash at every numbered import step leaves either the complete incoming state or the complete previous snapshot — never mixed; a populated destination stops and asks. Failure: a partial write is exposed; an active source draft is silently dropped | baseline: `node test/thermonuclear-races.mjs && node test/workout-draft-storage.mjs` → planned: `node test/install-transfer-import.mjs` | STOP if import can overwrite meaningful destination state or expose a partial clone · reviewer: reproduces two crash-boundary recoveries |
+| 053-P5 | 5 | Safari recovery-snapshot state machine: freeze after success, `claimed-expired`/`expired`/`unknown-outcome` handling, explicit `Resume in browser` divergence confirmation · **build** | 053-P0 oracle; `install-transfer.js`; UI prefs freeze marker (NEW) | extend `test/install-transfer-client.mjs`: an indeterminate outcome always routes through the divergence warning, never silent resume; `expired`-never-claimed clears the outbound marker and resumes normally. Failure: plain dismissal removes the freeze | baseline: `node test/install-modes.mjs` → planned: `node test/install-transfer-client.mjs` | STOP if any indeterminate path allows silent parallel use · reviewer: reproduces the `unknown-outcome` and the divergence-confirm cases |
+| 053-P6 | 6 | `late_install_transfer` emitted only after verified local import, under the preserved identity and transferred consent; browser vs standalone distinguished · **build** | `telemetry.js` `installationId`, `repforge_telemetry_identity_v1`, `repforge_telemetry_enabled_v1`; `test/telemetry-leakage.mjs`, `test/telemetry-unit.mjs` | NEW `test/install-transfer-telemetry.mjs`: the event fires exactly once, carries no token/claim-ID/size/program identity, and is silent when consent is off; `installationId` is preserved, not regenerated. Failure: event emitted on claim (before commit); a second identity minted | baseline: `node test/telemetry-leakage.mjs && node test/telemetry-unit.mjs` → planned: `node test/install-transfer-telemetry.mjs` | STOP if a second identity is created before event init or a sensitive property appears · reviewer: reproduces the consent-off silence |
+| 053-P7 | 7 | Adversarial/upgrade/catalog evidence + staging integration + physical-iOS handoff evidence + purge/kill-switch runbook rehearsal · **build + human evidence** | `test/sw-upgrade.mjs`, catalog manifest/scenarios; approved staging service; physical iOS owner | catalog frames for every new transfer state via `node tools/capture-ui-screens.mjs --flow install` (PLANNED scenarios); SW old/new update during handoff cannot execute an incompatible import schema. Failure recorded, not hidden: staging purge rehearsal that leaves a live record past deadline | baseline: `node test/sw-upgrade.mjs` → planned: `node tools/capture-ui-screens.mjs --flow install` + staging runbook log | STOP if physical-iOS evidence is claimed from emulation, or drift from the closed contract is found · reviewer + owner: device evidence and runbook proof signed into the PR |
+
+### Reuse and ordering notes
+
+- 053-P0's oracle is authored once and referenced by every downstream assertion file; do not re-derive fault
+  expectations per packet.
+- Service-only packets (053-P1b, 053-P2a, 053-P2b) may run before Plan 051-dependent client work, but 053-P3/P4 wait
+  for the DraftV2 clone section to be pinned.
+- The physical-device gate in 053-P7 is repeated by Plan 059 for launch sign-off; passing it here does not close 059.
 
 ## Implementation-agent operating protocol
 
