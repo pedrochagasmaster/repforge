@@ -225,10 +225,17 @@ async function importTo(page, step) {
     buffer: Buffer.from(JSON.stringify(program)),
   });
   await page.waitForSelector("#importReview.active", { timeout: 25000 });
-  if (await page.locator("#importCommit").isDisabled()) {
+  // A row that needs a decision leads with its ranked candidates and keeps the
+  // escape hatches behind a disclosure, so take a candidate when one is offered
+  // and open the disclosure when none is.
+  while (await page.locator("#importCommit").isDisabled()) {
+    const pick = page.locator('[data-imp-act="pick"]').first();
+    if (await pick.count()) { await pick.click(); continue; }
+    const more = page.locator(".improw.is-open .improw__more summary").first();
+    if (await more.count()) await more.click();
     const raw = page.locator('[data-imp-act="raw"]').first();
-    if (await raw.count()) await raw.click();
-    else await page.locator('[data-imp-act="link"]').first().click();
+    if (await raw.count()) { await raw.click(); continue; }
+    await page.locator('[data-imp-act="link"]').first().click();
   }
   await page.click("#importCommit");
   await page.waitForSelector("#onboarding.active #entryActivate", { timeout: 25000 });
