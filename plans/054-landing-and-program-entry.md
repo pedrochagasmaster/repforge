@@ -2,12 +2,18 @@
 
 Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
 and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
+External Herdr workers additionally follow the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md)
+and the [Herdr worker packets](#herdr-worker-packets) section below. The coordinator fills every packet field and the
+live SHAs, thread ID, server origin, and PID before dispatch.
 
 - **Plan number:** 054
 - **Phase:** 3 — Landing and program entry
 - **Status:** Planned; implementation has not started
 - **Owner approval state:** Product flow is approved; landing mini-interface direction requires owner selection before visual implementation
-- **Depends on:** Plan 049; Plan 050; Plan 053 for the established-data iOS transfer slice (and transitively Plan 051)
+- **Depends on:** Plan 049; Plan 050; Plan 053 for the established-data iOS transfer slice (and transitively Plan 051).
+  Plans 049/050/051 are merged on main `c3491c5e`; Plan 052 is in progress (PR #228); Plan 053 is not started. Plan 050
+  (PR #227) already ships the enlarged-text expert-control geometry and the copy/overflow leverage — packets consume
+  those components and do not re-fix them.
 - **Blocks:** Relevant Plan 057 Settings/Privacy integration, Plan 058 full-system migration, and Plan 059 launch validation
 - **Governing G decisions:** G-09–G-10, G-17–G-21, G-25–G-26, G-37, G-39–G-40, G-46–G-52, G-62, G-69, G-72–G-73, G-79, G-81–G-82
 - **Governing UI findings:** UI-14 (Privacy-page ownership), UI-15, UI-16, UI-17, UI-19, UI-32
@@ -262,6 +268,48 @@ Route/entry changes retain the old activation adapter until new journeys pass. A
 | 10 | `test(entry): regenerate and prove landing-entry evidence` | Complete catalog, cross-locale/theme/text/reduced/device evidence | manifest/scenarios/PNGs/docs | Commits 3–9 | Capture/check/compare/overflow/key tests | Full browser + generative suite | Exact delta recorded | Fill owner/device/completion evidence | Evidence rolls back with owning slices |
 
 Each row is marked 🟡 before work, implemented alone, narrowly proved, fully diff-reviewed, committed, pushed, and reflected in the PR immediately. Do not accumulate completed local slices.
+
+## Herdr worker packets
+
+The atomic commit sequence above is the delivery contract. Each row is dispatched as one or more self-contained packets
+per the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md); the coordinator fills every template
+field before dispatch. Rows 4–9 are split so one worker owns one entry surface (chooser, recommendation/result, expert
+controls + Browse, install policy, guides, Privacy) rather than the whole phase.
+
+Rules for every packet in this plan:
+
+- **Tests before visual rendering.** The five entry routes' no-persistence storage-diff assertions (054-P1) land and
+  pass before any landing markup or catalog capture. A packet's PLANNED assertion file is written first.
+- **Anchors are concrete.** Existing: `program-entry.js` (route/state authority), `program-entry-adapter.js`
+  (`ProgramEntryAdapter.compile()` → `alternative: null`), `program-compiler.js`, `program-editor.js`,
+  `hasProgramContent()` (`app.js:9600`), `hasActiveProgram()` (`app.js:9594`), `#todayNoProgram` / `#programNoProgram`,
+  `repforge_ui_v1` prefs, `repforge_setup_v1` cookie, `RepForgeSharedSetup.validate`, `startTour` / tour state in
+  `app.js`; tests `test/program-entry.mjs`, `test/program-entry-browser.mjs`, `test/program-entry-production-adapter.mjs`,
+  `test/shared-setup-flow.mjs`, `test/onboarding-cancel.mjs`, `test/install-modes.mjs`, `test/ui-catalog-contract.mjs`.
+  **NEW** (this plan): `uiPrefs.entryLandingSeen` and install-milestone / guide-registry keys in `repforge_ui_v1`, the
+  cached Privacy page route, the contextual-guide registry, `test/entry-landing.mjs`, `test/entry-install-policy.mjs`,
+  `test/entry-guides.mjs`, `test/entry-privacy.mjs`.
+- **Plan 050 is baseline.** The enlarged-text expert-control components and copy/overflow leverage are already on main;
+  054-P6 reflows within them and reuses the Plan 050 clipping/overflow contract — it does not add a second detector.
+- **The imagegen owner gate is mandatory.** 054-P2's worker produces preview-only directions and stops; it never
+  selects one, and no other packet's worker selects one. Only the owner-selected direction becomes production markup.
+- **Every packet carries a deliberate failing case** and a STOP boundary; the coordinator reproduces the risky
+  assertion before the next surface packet.
+
+### Row → packet map
+
+| Packet | Maps rows | Bounded objective · mode | Existing anchors (main unless NEW) | Proof-first: PLANNED assertion + independent oracle + deliberate failure | Commands: baseline now → planned | STOP · reviewer gate |
+|---|---|---|---|---|---|---|
+| 054-P1 | 1 | Characterize the five entry routes, candidate/shared no-persistence, abandoned/no-program return, and the install/tour baseline · **build (tests only)** | `program-entry.js`, `RepForgeSharedSetup.validate`, `hasProgramContent()`, `repforge_setup_v1`; `test/program-entry.mjs`, `test/shared-setup-flow.mjs`, `test/onboarding-cancel.mjs` | NEW `test/entry-landing.mjs`: after loading a valid `#setup=` payload and before "Start this program", a full storage diff shows zero new/changed keys (oracle = pre-load snapshot). Failure: a route writes a `repforge_program_setup_draft_v1` field, or activates on an onboarded/history device | baseline: `node test/program-entry.mjs && node test/shared-setup-flow.mjs` → planned: `node test/entry-landing.mjs` | STOP if any characterized route already persists before confirmation — record it, do not "fix forward" here · reviewer: reproduces the zero-diff assertion |
+| 054-P2 | 2 | Produce ≥3 preview-only imagegen directions of the program → logged set → next target loop, equal copy/size, labelled A/B/C, prompts + version + hash recorded · **plan/design — hard owner STOP** | `imagegen` skill; current `styles.css` tokens, Plex Sans/Mono roles, compact mobile components | No test. Deliverable is the three artifacts + a note stating what layout (not product meaning) differs. Failure the coordinator checks for: an added dashboard/streak/fake-AI/unlicensed-art motif; unequal content between directions | baseline: `node --check app.js` → planned: none (design artifact); catalog reference capture deferred to 054-P3 after selection | STOP — mark the row ⛔ until the owner selects one direction and the selection + hash are recorded in the PR and a design note · reviewer + owner: only the selected direction may enter production markup |
+| 054-P3 | 3 | Route the one-time generic landing and the adaptive shared landing; early CTAs; Privacy link; return to no-program Today/Program · **build** | `hasProgramContent()`, `#todayNoProgram` / `#programNoProgram`; NEW `uiPrefs.entryLandingSeen` | extend `test/entry-landing.mjs`: `entryLandingSeen` is written only after the generic landing renders, is absent from export and the setup-link allowlist, and a second no-program visit shows Today/Program (not the landing). Failure: `entryLandingSeen` serialized into a backup or a state proposal | baseline: `node test/onboarding-cancel.mjs` → planned: `node test/entry-landing.mjs` | STOP if the shared route persists a proposal field or `entryLandingSeen` leaves device-local prefs · reviewer: reproduces the one-shot behavior and the export exclusion |
+| 054-P4 | 4 | Five-job chooser hierarchy: one primary Recommend card, Custom as generated alternative, Browse separate, Build+Import grouped, no route lost · **build** | `program-entry.js` routes; `test/program-entry-browser.mjs` | extend `test/program-entry-browser.mjs` (or NEW `test/entry-chooser.mjs`): each of the five jobs is reachable by keyboard and pointer and lands on its existing route/adapter. Failure: a job only reachable through a collapsed group with no keyboard path | baseline: `node test/program-entry-browser.mjs` → planned: `node test/entry-chooser.mjs` | STOP if any of the five jobs loses an activation path · reviewer: reproduces all five keyboard journeys |
+| 054-P5 | 5 | Merge recommendation result and editable preview into one `ProgramCandidate` view model; genuine optional `alternative`; rationale codes; explicit activation · **build** | `ProgramEntryAdapter.compile()` (`alternative: null`), `program-editor.js`, existing atomic replacement commit; `test/program-entry-production-adapter.mjs` | extend `test/program-entry-production-adapter.mjs`: `alternative` is non-null only when the compiler returns a compatible candidate with a reason; edits stay candidate-scoped; activation calls the existing replacement transaction once. Failure: an `alternative` synthesized by ±1 set / day mutation | baseline: `node test/program-entry-production-adapter.mjs` → planned: same file, new cases | STOP if a close alternative is not compiler-backed, or an edit escapes candidate scope · reviewer: reproduces primary-only and genuine-alternative cases |
+| 054-P6 | 6 | Reflow expert controls into labelled muscle 2×2 groups (all choices visible) and add scan-first Browse summary facts from canonical curation/compiler · **build** | Plan 050 enlarged-text components (merged), `tools/exercise-curation.json`, `program-compiler.js`; `test/accessibility.mjs` | NEW `test/entry-expert-controls.mjs`: every advanced choice is in the DOM at 320px / 200% (oracle = the choice list in `program-entry.js`); each Browse fact traces to a curation/compiler field or shows an honest unavailable label. Failure: a Browse fact inferred from a program name; an expert option removed to shorten the page | baseline: `node test/accessibility.mjs --touch-targets-320` → planned: `node test/entry-expert-controls.mjs` | STOP if an expert option is hidden for length, or a Browse fact is guessed · reviewer: reproduces the 200% visibility and one fact-source trace |
+| 054-P7 | 7 | Pure install-policy state machine over context/capability/display-mode/milestones/prefs, plus the Plan 053 transfer route and Settings always-on action · **build** | `beforeinstallprompt` input, `repforge_ui_v1` install dismissal, Plan 053 transfer (gated); `test/install-modes.mjs` | NEW `test/entry-install-policy.mjs`: fake-clock — first Chromium offer only after a value milestone, re-offer after the third saved workout then monthly, Settings ignores cooldown, never loops per launch. Failure: iOS established-data transfer offered before Plan 053's owner gate is closed | baseline: `node test/install-modes.mjs` → planned: `node test/entry-install-policy.mjs` | STOP if promotion blocks browser use or loops, or established-data iOS promotion runs before Plan 053 is safe · reviewer: reproduces the fake-clock cadence |
+| 054-P8 | 8 | Replace the global modal tour with a versioned contextual-guide registry (unseen/shown/dismissed/completed/replay); wire entry/install/Privacy anchors; remove obsolete tour code · **build** | `startTour` / tour state in `app.js`, tour-driving test cases; NEW guide registry in `repforge_ui_v1` | NEW `test/entry-guides.mjs`: performing an anchored action completes its cue; dismiss suppresses it; Settings replay clears only presentation state; a missing anchor defers with no floating overlay. Failure: the obsolete List/Focus tour route still reachable | baseline: `node test/program-entry.mjs` → planned: `node test/entry-guides.mjs` | STOP if a cue floats without an action, or the global tour can be restored (Plan 055 removes List-specific copy) · reviewer: reproduces complete/dismiss/replay/deferred |
+| 054-P9 | 9 | Cached in-app Privacy page (versioned static HTML + i18n + SW shell), linked from landing and Settings; remove disclosure prose from Share · **build** | service-worker shell / `sw.js` `ASSETS`, i18n catalogs; `test/shared-setup-flow.mjs` | NEW `test/entry-privacy.mjs`: the Privacy route renders offline from cache, is linked from landing and Settings, and Share contains only task status/actions. Failure: Privacy route blank offline; Share still shows the cookie/transport essay | baseline: `node test/i18n.mjs && node tools/build-i18n.mjs --check` → planned: `node test/entry-privacy.mjs` | STOP if Share keeps privacy prose or the page is not in the SW shell (final Share convergence is Plan 057) · reviewer: reproduces the offline render and the Share audit |
+| 054-P10 | 10 | Regenerate the entry/landing catalog and prove cross-locale/theme/text/reduced/device evidence · **build** | `test/ui-catalog-contract.mjs`, manifest flows `onboarding-start`, `onboarding-shared`, `onboarding-recommend`, `onboarding-custom`, `onboarding-browse`, `onboarding-build`, `onboarding-import`, `install` | regenerate with `node tools/capture-ui-screens.mjs --flow onboarding-start --flow onboarding-shared` (etc.); manifest/checker fails if a new state lacks its role-required variants. Failure: a landing state captured in the wrong route (semantic-fact mismatch) | baseline: `node test/ui-catalog-contract.mjs` → planned: `node tools/capture-ui-screens.mjs --flow onboarding-start` then `node tools/check-ui-screens.mjs` | STOP if the selected imagegen reference hash does not match the shipped component · reviewer + owner: real-device EN/PT review recorded (Plan 059 repeats launch acceptance) |
 
 ## Implementation-agent operating protocol
 
