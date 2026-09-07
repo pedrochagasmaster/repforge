@@ -2284,12 +2284,19 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
 .glossary__body{margin:0;font-size:13px;line-height:1.45;color:var(--ink-soft)}
 
 /* Block review — full-screen sheet */
+/* A native <dialog>, like the storage-recovery and leave-editor dialogs. The
+   browser gives it the top layer, the focus trap and the Escape default; the
+   resets below undo the UA sizing so it still fills the screen exactly as it
+   did as a positioned div. The backdrop stays transparent because this panel
+   is opaque and full-bleed — there is nothing behind it to dim. */
 .blockreview{
-  position:fixed;inset:0;z-index:70;max-width:none;margin:0;
-  background:var(--bg);border:0;border-radius:0;
+  position:fixed;inset:0;z-index:70;margin:0;
+  width:auto;height:auto;max-width:none;max-height:none;
+  background:var(--bg);border:0;border-radius:0;color:var(--ink);
   padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
   overflow:auto;
 }
+.blockreview::backdrop{background:transparent}
 .blockreview__title{font-size:17px;font-weight:600;margin:0;text-transform:none;letter-spacing:0;color:var(--ink);text-align:center}
 .blockreview__body{margin:0 0 14px;font-size:14px;line-height:1.5;color:var(--ink-soft)}
 .blockreview__body p{margin:0 0 8px}
@@ -2429,11 +2436,17 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
   .sumsheet.is-played .sum-crest__mark::before{content:none}
 }
 
+/* The restore-backup and end-block panels: native <dialog> elements sharing the
+   shape of the storage-recovery dialog above them. Their backdrop is left
+   transparent on purpose — these two have never dimmed the page behind them,
+   and giving them a scrim would be a design change rather than a consequence of
+   moving to the element that already models a modal. */
 .importchoice{
   position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:70;width:min(92%,360px);margin:0;
-  background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);
+  background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);color:var(--ink);
   padding:20px 18px 16px;box-shadow:0 16px 40px rgba(0,0,0,.12);
 }
+.importchoice::backdrop{background:transparent}
 .importchoice__title{font-weight:650;font-size:18px;margin:0 0 8px;text-transform:none;letter-spacing:0}
 .importchoice__body{margin:0 0 14px;font-size:14px;line-height:1.45;color:var(--ink-soft);white-space:pre-line}
 

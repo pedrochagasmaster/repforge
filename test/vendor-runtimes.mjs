@@ -222,16 +222,19 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
   assert(/Accessibility\.configure\(\{[\s\S]{0,220}announcements: dragAnnouncements\(\)/.test(editor) &&
          /screenReaderInstructions: \{ draggable: label\("dragInstructions"\) \}/.test(editor),
     "and it is the copy handed to the library, replacing its defaults");
-  assert(/delay: \{ value: 90, tolerance: 10 \}/.test(editor),
-    "the 90ms that tells a drag from a tap survived the migration");
+  assert(/PointerActivationConstraints\.Delay\(\{ value: 90, tolerance: 10 \}\)/.test(editor) &&
+         /event\.pointerType === "mouse"/.test(editor),
+    "the 90ms that tells a thumb-drag from a tap survived, and a mouse on the handle is exempt");
   assert(/setTimeout\(\(\) => \{[\s\S]{0,200}is-drag-target-expanded[\s\S]{0,40}\}, 450\)/.test(editor),
     "so did the 450ms hold that opens a collapsed day");
   assert(/const glide = reduced \? null : \{ duration: 200/.test(editor) &&
          /dropAnimation: glide/.test(editor) && /keyboardTransition: glide/.test(editor) &&
          /transition: glide/.test(editor),
     "reduced motion turns off the drop, keyboard and reorder animations rather than shortening them");
-  assert(/feedback: "move"/.test(editor),
-    "the row itself travels, rather than a clone floating over a ghost of it");
+  assert(!/feedback: "move"/.test(editor) &&
+         /\.program-editor__exercise\[data-dnd-dragging\]/.test(readStyles()) &&
+         /\.program-editor__exercise\[data-dnd-placeholder\]/.test(readStyles()),
+    "the library's own feedback is used, and the stylesheet gives the carried row and its gap the old drag's language");
   assert(!/\.setPointerCapture\(|\.elementFromPoint\?\.\(|function beginDrag/.test(editor),
     "the hand-rolled pointer drag it replaced is gone, not left alongside it");
   assert(/data-role="move-to-day"/.test(editor) && /data-role="move-up"/.test(editor) &&
@@ -242,6 +245,37 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
   assert(/moveExercise\(id, day, index/.test(editor) &&
          (editor.match(/moveExercise\(/g) || []).length >= 4,
     "every reorder path — drag, keyboard drag and the Move controls — goes through one transaction");
+}
+
+/* ---- Modal surfaces are the platform's where the platform models them ---- */
+{
+  const dialog = id => new RegExp(`<dialog id="${id}"[^>]*>`).test(index);
+  const divDialog = id => new RegExp(`<div id="${id}"[^>]*role="dialog"`).test(index);
+  for (const id of ["blockReview", "importChoice", "endBlockConfirm", "storageRecovery", "programEditorLeave"]) {
+    assert(dialog(id), `#${id} is a native <dialog>`);
+  }
+  assert(!/<dialog[^>]*\bclass="[^"]*\bhidden\b/.test(index),
+    "no dialog is hidden by a class the UA's own display rule would fight");
+  for (const id of ["blockReview", "importChoice", "endBlockConfirm"]) {
+    assert(!new RegExp(`<dialog id="${id}"[^>]*(aria-modal=|role="dialog")`).test(index),
+      `#${id} does not restate the role or modality showModal already implies`);
+  }
+  assert(/\.blockreview::backdrop\{background:transparent\}/.test(readStyles()) &&
+         /\.importchoice::backdrop\{background:transparent\}/.test(readStyles()),
+    "their backdrops are transparent, so moving element did not add a scrim these panels never had");
+  assert(/\.blockreview\{[\s\S]*?max-width:none;max-height:none/.test(readStyles()),
+    "the full-bleed panel undoes the UA dialog sizing so it still fills the screen");
+  /* The surfaces deliberately left alone. Each is listed so a later reader can
+     see the exclusion was a decision rather than an oversight; the reasons are
+     in docs/design/interaction-runtime-audit.md. */
+  for (const id of ["whySheet", "exNoteSheet", "dayPickSheet", "programTextSheet", "shareSetupSheet",
+                    "exPickSheet", "exCustomSheet", "restSheet", "iosInstallSheet",
+                    "sessionSummary", "firstRun", "tour", "installBanner", "glossary"]) {
+    assert(divDialog(id), `#${id} deliberately keeps its hand-rolled dialog behaviour`);
+  }
+  assert(/hideModalElement[\s\S]{0,400}el\.tagName==="DIALOG"/.test(app) &&
+         /if\(el\.tagName==="DIALOG"\)\{if\(typeof el\.showModal==="function"/.test(app),
+    "one modal lifecycle covers both kinds, so focus return and inertness are unchanged");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

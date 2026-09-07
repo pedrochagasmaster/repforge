@@ -1,4 +1,4 @@
-name: Motion contract
+name: Interaction runtime contract
 
 on:
   pull_request:
@@ -6,7 +6,7 @@ on:
     branches: [main]
 
 jobs:
-  motion-contract:
+  interaction-runtime:
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -18,8 +18,13 @@ jobs:
         with:
           node-version: "22"
 
-      - name: Verify motion interaction contract
+      - name: Verify motion discipline contract
         run: node test/motion-polish.mjs
 
-      - name: Verify offline stylesheet contract
+      - name: Verify vendored runtimes, the Motion layer and the dialog surfaces
+        run: |
+          node tools/build-vendor-runtimes.mjs --check
+          node test/vendor-runtimes.mjs
+
+      - name: Verify offline shell contract
         run: node test/exercise-library.mjs

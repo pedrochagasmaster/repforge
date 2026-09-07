@@ -822,7 +822,7 @@ async function main() {
       programHistory: [],
     });
     const dialogState = () => page.evaluate(() => ({
-      open: !document.querySelector("#importChoice").classList.contains("hidden"),
+      open: !!document.querySelector("#importChoice").open,
       body: document.querySelector("#importChoiceBody")?.textContent || "",
       programOnly: !document.querySelector("#importProgramOnly").classList.contains("hidden"),
       reviewing: document.body.classList.contains("is-import"),

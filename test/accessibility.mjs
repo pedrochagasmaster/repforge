@@ -519,11 +519,11 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   const wrap = await tabWrap(page, "#endBlockConfirm");
   assert(wrap.forward.inside && wrap.back.inside, "Review Block Confirm: Tab wraps inside", JSON.stringify(wrap));
   await page.keyboard.press("Escape");
-  await page.waitForFunction(() => document.querySelector("#endBlockConfirm")?.classList.contains("hidden"));
+  await page.waitForFunction(() => !document.querySelector("#endBlockConfirm")?.open);
   await page.waitForFunction(() => document.activeElement?.id === "reviewBlockLink");
   info = await modalInfo(page, "#endBlockConfirm");
   const afterEsc = await page.evaluate(() => ({
-    hidden: document.querySelector("#endBlockConfirm")?.classList.contains("hidden"),
+    hidden: !document.querySelector("#endBlockConfirm")?.open,
     active: document.activeElement?.id,
     leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id),
   }));
@@ -540,17 +540,17 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   await page.locator("#reviewBlockLink").click();
   await page.locator("#endBlockGo").click();
   const review = await modalInfo(page, "#blockReview");
-  const confirmGone = await page.evaluate(() => document.querySelector("#endBlockConfirm")?.classList.contains("hidden"));
+  const confirmGone = await page.evaluate(() => !document.querySelector("#endBlockConfirm")?.open);
   assert(review.open && review.active === "blockReviewClose", "Block Review: initial focus is #blockReviewClose after handoff", JSON.stringify(review));
   assert(confirmGone, "Block Review: End Block Confirm is hidden after handoff");
   assert(!review.liveKids.includes("endBlockConfirm") || document.querySelector("#endBlockConfirm")?.inert, "Block Review: confirm dialog is not left interactive", JSON.stringify(review.liveKids));
   const wrap = await tabWrap(page, "#blockReview");
   assert(wrap.forward.inside && wrap.back.inside, "Block Review: Tab wraps inside", JSON.stringify(wrap));
   await page.keyboard.press("Escape");
-  await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
+  await page.waitForFunction(() => !document.querySelector("#blockReview")?.open);
   await page.waitForFunction(() => document.activeElement?.id === "reviewBlockLink");
   const after = await page.evaluate(() => ({
-    hidden: document.querySelector("#blockReview")?.classList.contains("hidden"),
+    hidden: !document.querySelector("#blockReview")?.open,
     active: document.activeElement?.id,
     leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
   }));
@@ -580,7 +580,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   assert(wrap.forward.inside && wrap.back.inside, "Import Choice: Tab wraps inside", JSON.stringify(wrap));
   const outside = await page.evaluate(() => {
     document.querySelector("nav")?.dispatchEvent(new MouseEvent("click", { bubbles: true }));
-    return !document.querySelector("#importChoice")?.classList.contains("hidden");
+    return !!document.querySelector("#importChoice")?.open;
   });
   assert(outside, "Import Choice: outside click does nothing");
   const toastWatch = await page.evaluate(async () => {
@@ -610,14 +610,14 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
       role: live.getAttribute("role"),
       live: live.getAttribute("aria-live"),
       operable: operable.map((el) => el.id || el.tagName),
-      importOpen: !document.querySelector("#importChoice")?.classList.contains("hidden"),
+      importOpen: !!document.querySelector("#importChoice")?.open,
     };
   });
   assert(toastWatch.role === "alert" && toastWatch.live === "assertive", "both-store failure while Import Choice is open uses assertive alert", JSON.stringify(toastWatch));
   assert(toastWatch.operable.length === 0, "#announcementHost contains no operable background content", JSON.stringify(toastWatch.operable));
   assert(toastWatch.importOpen, "Import Choice stays open during the assertive announcement");
   await page.keyboard.press("Escape");
-  await page.waitForFunction(() => document.querySelector("#importChoice")?.classList.contains("hidden"));
+  await page.waitForFunction(() => !document.querySelector("#importChoice")?.open);
   const after = await page.evaluate(() => {
     const el = document.activeElement;
     const trigger = !!(
@@ -626,7 +626,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
       el?.closest?.("#dataImportRow, #dataImportPanel, label.file")
     );
     return {
-      hidden: document.querySelector("#importChoice")?.classList.contains("hidden"),
+      hidden: !document.querySelector("#importChoice")?.open,
       active: el?.id,
       trigger,
     };
@@ -1154,7 +1154,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   await page.locator("#endBlockCancel").click();
   const leaked = await page.evaluate(() => ({
     inert: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
-    confirm: document.querySelector("#endBlockConfirm")?.classList.contains("hidden"),
+    confirm: !document.querySelector("#endBlockConfirm")?.open,
   }));
   assert(leaked.confirm && leaked.inert.length === 0, "two consecutive modals do not leak inertness/listeners", JSON.stringify(leaked));
   await context.close();

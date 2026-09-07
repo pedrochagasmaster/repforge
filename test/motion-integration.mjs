@@ -2,8 +2,8 @@
 /**
  * Motion integration — the behaviour only a real browser can answer for.
  *
- * `test/motion-runtime.mjs` proves the runtime is pinned, vendored, precached
- * and reached through one layer. This suite proves the runtime actually runs,
+ * `test/vendor-runtimes.mjs` proves the runtimes are pinned, vendored,
+ * precached and reached through one layer. This suite proves the runtime actually runs,
  * that what it drives is interruptible, and that the state of the interface is
  * never a function of whether an animation finished.
  *
