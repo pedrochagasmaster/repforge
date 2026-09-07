@@ -20,12 +20,39 @@ A setup link is a coach-created URL fragment (`index.html#setup=v1.<base64url-gz
 
 - The application has no dependencies to install and no application build/lint/test tooling. Do not look for a root `package.json`, an application test runner, or a bundler — none exist.
 - Browser suites are separate: they use pinned test-only npm dependencies under `test/` (Playwright, fast-check). In a fresh checkout run `(cd test && npm ci && npx playwright install chromium --with-deps)` before a browser gate. Do not add root or application dependencies, and do not use npm to run the app.
+- Regenerating a vendored runtime needs `(cd tools/vendor-runtimes && npm ci)` first. Those are build-time dependencies for `tools/build-vendor-runtimes.mjs` only — the app ships the committed bundles and still resolves nothing at runtime. Verifying them (`--check`) needs neither network nor `node_modules`.
 - Generative property suite (`test/generative/`, fast-check, pure Node — no browser or server): run `node test/generative/run.mjs` (profiles `smoke` default, `ci`, `deep`, `campaign`; `--seed`/`--filter` for replay). It tests `shared-setup.js`/`exercises.js` through `generative/adapters/domain-adapter.mjs` and must not scrape app.js internals; see `test/generative/README.md` for the invariant catalogue and the Phase 2+ state-machine roadmap.
 - Run the app in development by serving the repo root over HTTP (a static server is required because of the service worker and `fetch` of `manifest`/assets). The README documents `python3 -m http.server 8000`, then open `http://localhost:8000/`. Python 3 is available on the VM. Browser gates boot-check via `waitForAppBoot` in `test/browser.mjs`: if a stale server rooted elsewhere holds the port, they fail within seconds naming the cause — kill the stale listener before blaming a test.
-- Service worker caching gotcha: `sw.js` uses a `repforge-vNN` cache name (the prefix is a codename and does not follow the brand). Read the live `CACHE` revision in `sw.js` — never rely on a documented number — and treat `ASSETS` and `SHELL` in that file as the canonical cache inventory. Bump `CACHE` when a cached file changes. Move the matching `?v=NN` revisions for `program-compiler.js`, `program-entry.js`, `program-entry-adapter.js`, `shared-setup.js`, and `app.js` in both `index.html` and `ASSETS`; `test/exercise-library.mjs` holds the cache and those five script revisions in lockstep. These revisions stop an older controlling worker from combining schema-incompatible program-entry files or serving a v1-only shared-setup script on the first updated navigation. After editing cached files, a normal reload may serve stale copies. Hard-reload (or unregister the service worker / clear site data via DevTools → Application) to see changes.
+- Service worker caching gotcha: `sw.js` uses a `repforge-vNN` cache name (the prefix is a codename and does not follow the brand). Read the live `CACHE` revision in `sw.js` — never rely on a documented number — and treat `ASSETS` and `SHELL` in that file as the canonical cache inventory. Bump `CACHE` when a cached file changes. Move the matching `?v=NN` revisions for `motion-layer.js`, `program-compiler.js`, `program-editor.js`, `program-entry.js`, `program-entry-adapter.js`, `shared-setup.js`, and `app.js` in both `index.html` and `ASSETS`; `test/exercise-library.mjs` holds the cache and those script revisions in lockstep. The two vendored runtimes under `vendor/` are precached unrevisioned — their content hash is what pins them, and it is checked separately. These revisions stop an older controlling worker from combining schema-incompatible program-entry files or serving a v1-only shared-setup script on the first updated navigation. After editing cached files, a normal reload may serve stale copies. Hard-reload (or unregister the service worker / clear site data via DevTools → Application) to see changes.
 - To reset state for a clean test, clear site storage or use **Settings → Delete workout history**.
 - Core flow to smoke-test: on the **Log** tab fill a set's kg/reps/RIR and click **Save workout**, then confirm the session summary opens over the app, and that the **Stats** and **History** tabs populate with the saved session once it is dismissed.
 - **UI screen catalog (keep in sync):** `docs/ui-screens/screens/` is the phone-frame reference for UI and Brand Designers, covering every primary surface plus every onboarding state route by route. It is **mobile only** — the manifest rejects a desktop viewport. Whenever a change alters a user-visible surface — layout, palette, copy on screen, sheets, onboarding, install UI, or a new view — regenerate with `node tools/capture-ui-screens.mjs` (app served on `REPFORGE_URL`, pinned Chromium under `test/`) and commit the updated PNGs with the UI change. Screens, variants and paths are declared once in `docs/ui-screens/manifest.json`; a new screen needs a manifest entry and a scenario in `tools/ui-screens/screens-*.mjs`. CI fails on drift (`tools/check-ui-screens.mjs` + `tools/compare-ui-screens.mjs` over the whole catalog), so a stale catalog blocks the build rather than passing quietly. Do not hand-edit the PNGs. The folder README lists every screen; `tools/README.md` documents the tooling.
+
+### Vendored runtimes
+
+The app loads exactly two third-party runtimes, and neither is a dependency in
+the package-manager sense: `vendor/motion/motion.js` (Motion, animation and
+gesture physics) and `vendor/dnd-kit/dnd-kit.js` (@dnd-kit/dom, the program
+editor's reordering). Both are bundled offline from `tools/vendor-runtimes/`
+by `node tools/build-vendor-runtimes.mjs`, tree-shaken to the exports named in
+that directory's entry files, committed, pinned by version and content hash
+beside each bundle, and precached by the service worker. The browser resolves no
+package and reaches no CDN, so the app behaves identically offline. `--check`
+re-hashes the committed bundles with no network and no `node_modules`; CI runs
+it, so hand-editing vendored code fails the build.
+
+Application code never touches `window.Motion`. Everything animated through
+Motion goes via `motion-layer.js`, which owns the motion vocabulary, the single
+reduced-motion decision, and the fallback for a runtime that failed to load.
+@dnd-kit is reached only from `program-editor.js`. Both runtimes are optional by
+construction: without Motion every caller keeps its stylesheet path; without
+@dnd-kit the editor still mounts and reordering stays reachable through each
+row's Move controls. What is animated where, and why each interaction was or was
+not migrated, is recorded in `docs/design/interaction-runtime-audit.md` — read it
+before adding, removing or re-tuning motion.
+
+Widening either entry file grows a payload every lifter downloads before their
+first set. Do it deliberately, and record why in the audit.
 
 ### Generated files
 
