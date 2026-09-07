@@ -308,6 +308,12 @@ Rules for every packet in this plan:
 
 ### Row → packet map
 
+P4a–P4d are groups, not single worker assignments. Dispatch one named surface
+per turn, such as History alone, then Share alone. Record suffixes in the PR
+and use the original atomic message with that surface suffix. A worker owns
+only that surface's selectors, renderer regions, and catalog states. Shared
+token changes return to P2/P3 review rather than occurring inside a migration.
+
 | Packet | Maps rows | Bounded objective · mode | Existing anchors (main unless NEW) | Proof-first: PLANNED assertion + independent oracle + deliberate failure | Commands: baseline now → planned | STOP · reviewer gate |
 |---|---|---|---|---|---|---|
 | 058-P1 | 1, 8 (negatives) | Re-runnable role inventory + `check-ui-system.mjs` + rendered-role AA negative cases (seeded bad artifacts the checker must reject) · **build (tests/metadata only)** | live manifest; `styles.css` literals; NEW `tools/ui-role-inventory.json`, `tools/check-ui-system.mjs`, `test/ui-system.mjs` | NEW `test/ui-system.mjs`: every live manifest state maps to a semantic role; a seeded literal `font-size`/radius/shadow/color outside token defs fails; a seeded 3.9:1 body-text role fails the AA check (oracle = WCAG 2.2 thresholds, not a snapshot). Failure: the checker infers a role for an ambiguous selector instead of failing loudly | baseline: `node test/ui-catalog-contract.mjs` → planned: `node tools/check-ui-system.mjs && node test/ui-system.mjs` | STOP if a visible component has no inventory role or the checker guesses · reviewer: reproduces one seeded-literal and one seeded-contrast rejection |
