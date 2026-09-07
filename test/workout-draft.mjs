@@ -163,10 +163,71 @@ assert(forgedParsed.kind === "invalid" && forgedParsed.issues.some((issue) => is
   "parse rejects a substitution whose original snapshot does not match its owning exercise", JSON.stringify(forgedParsed));
 
 const clone = Draft.logicalCloneSection(initial);
+const expectedClone = structuredClone(initial);
+delete expectedClone.writer;
+delete expectedClone.revision;
+delete expectedClone.program.durableRevision;
 assert(!hasOwn(clone, "writer") && !hasOwn(clone, "revision") && !hasOwn(clone.program, "durableRevision") &&
   hasOwn(initial, "writer") && initial.revision === 0 && initial.program.durableRevision === 17 &&
-  same(clone.exercises, initial.exercises), "logical clone strips writer and operational revisions without mutating logical state");
+  same(clone, expectedClone), "logical clone preserves every logical field and strips only operational revisions without mutating state");
 function hasOwn(value, key) { return Object.prototype.hasOwnProperty.call(value, key); }
+
+console.log("\nSuggestion ownership and revision guard");
+const suggestionBaseline = fresh();
+const suggestionBytes = JSON.stringify(suggestionBaseline);
+const refreshValues = {
+  sourceRevision: suggestionBaseline.revision,
+  updates: [{
+    exerciseInstanceId: "slot-squat",
+    setId: "squat-set-2",
+    fields: { load: "112.5", reps: "9" },
+  }],
+};
+const refreshedSuggestion = command(suggestionBaseline, "refreshUntouchedSuggestions", refreshValues).result;
+assert(!Draft.isDomainError(refreshedSuggestion) &&
+  refreshedSuggestion.exercises["slot-squat"].sets["squat-set-2"].edited.load === "112.5" &&
+  refreshedSuggestion.exercises["slot-squat"].sets["squat-set-2"].edited.reps === "9" &&
+  !refreshedSuggestion.exercises["slot-squat"].sets["squat-set-2"].touched.load,
+"refreshUntouchedSuggestions records compiler values as pending suggestion-owned fields");
+assert(JSON.stringify(suggestionBaseline) === suggestionBytes,
+  "refreshUntouchedSuggestions never mutates its input aggregate");
+const staleSuggestion = command(suggestionBaseline, "refreshUntouchedSuggestions", {
+  ...refreshValues,
+  sourceRevision: suggestionBaseline.revision + 1,
+}).result;
+assert(staleSuggestion.code === "stale-suggestion",
+  "refreshUntouchedSuggestions rejects a computation from another source revision", JSON.stringify(staleSuggestion));
+for (const [field, value] of [["load", "garbage"], ["reps", "4.5"], ["rir", "not-a-number"], ["effort", "medium"]]) {
+  const invalidSuggestion = command(suggestionBaseline, "refreshUntouchedSuggestions", {
+    sourceRevision: suggestionBaseline.revision,
+    updates: [{ exerciseInstanceId: "slot-squat", setId: "squat-set-2", fields: { [field]: value } }],
+  }).result;
+  assert(Draft.isDomainError(invalidSuggestion) && invalidSuggestion.code === "invalid-suggestion-value",
+    `refreshUntouchedSuggestions rejects invalid derived ${field} values`, JSON.stringify(invalidSuggestion));
+}
+let ownershipDraft = apply(suggestionBaseline, "editSetField", {
+  exerciseInstanceId: "slot-squat", setId: "squat-set-2", field: "load", value: "1",
+});
+ownershipDraft = apply(ownershipDraft, "repeatPreviousSetValues", {
+  exerciseInstanceId: "slot-curl", values: [{ ordinal: 1, load: "1", reps: "8", rir: "1" }],
+});
+ownershipDraft = apply(ownershipDraft, "markWarmup", { exerciseInstanceId: "slot-squat", setId: "squat-set-1" });
+ownershipDraft = apply(ownershipDraft, "skipExercise", { exerciseInstanceId: "slot-curl" });
+const ownedBeforeRefresh = JSON.stringify(ownershipDraft);
+const ownedRefresh = command(ownershipDraft, "refreshUntouchedSuggestions", {
+  sourceRevision: ownershipDraft.revision,
+  updates: [
+    { exerciseInstanceId: "slot-squat", setId: "squat-set-1", fields: { load: "112.5", reps: "9" } },
+    { exerciseInstanceId: "slot-squat", setId: "squat-set-2", fields: { load: "112.5", reps: "9" } },
+    { exerciseInstanceId: "slot-curl", setId: "curl-set-1", fields: { load: "99", reps: "9" } },
+  ],
+}).result;
+assert(!Draft.isDomainError(ownedRefresh) &&
+  ownedRefresh.exercises["slot-squat"].sets["squat-set-2"].edited.load === "1" &&
+  ownedRefresh.exercises["slot-squat"].sets["squat-set-1"].role === "warmup" &&
+  ownedRefresh.exercises["slot-curl"].sets["curl-set-1"].edited.load === "1" &&
+  JSON.stringify(ownershipDraft) === ownedBeforeRefresh,
+  "refreshUntouchedSuggestions preserves explicit, warmup, and skipped ownership");
 
 console.log("\nClosed command transitions and correction semantics");
 let draft = initial;
@@ -408,6 +469,21 @@ try {
 }
 
 assert(Draft.migrateLegacy({ __day: "Day 1" }).code === "invalid-migration-snapshot", "legacy conversion fails closed without its explicit rendered snapshot");
+
+console.log("DraftV2 pristine detection");
+assert(Draft.isPristine(initial) === true, "a fresh draft with history-derived notes and untouched suggestions is pristine");
+assert(Draft.isPristine(apply(fresh(), "selectExercise", { exerciseInstanceId: "slot-curl" })) === true, "navigation selection is not lifter input");
+assert(Draft.isPristine(apply(fresh(), "refreshUntouchedSuggestions", { sourceRevision: 0, updates: [
+  { exerciseInstanceId: "slot-squat", setId: "squat-set-1", fields: { load: "55" } },
+] })) === true, "untouched suggestion refresh keeps the draft pristine");
+assert(Draft.isPristine(apply(fresh(), "editSetField", { exerciseInstanceId: "slot-squat", setId: "squat-set-1", field: "load", value: "55" })) === false, "editing a set value ends pristine state");
+assert(Draft.isPristine(apply(fresh(), "completeSet", { exerciseInstanceId: "slot-squat", setId: "squat-set-1", completedAt: "2026-08-15T10:05:00.000Z" })) === false, "completing a set ends pristine state");
+assert(Draft.isPristine(apply(fresh(), "skipExercise", { exerciseInstanceId: "slot-curl" })) === false, "skipping an exercise ends pristine state");
+assert(Draft.isPristine(apply(fresh(), "setSessionNotes", { value: "tired" })) === false, "session notes end pristine state");
+assert(Draft.isPristine(apply(fresh(), "setBodyweight", { value: "80" })) === false, "bodyweight ends pristine state");
+assert(Draft.isPristine(apply(fresh(), "beginFinish", {})) === false, "starting the finish flow ends pristine state");
+assert(Draft.isPristine(apply(apply(fresh(), "beginFinish", {}), "cancelFinish", {})) === true, "cancelling the finish flow restores pristine state");
+assert(Draft.isPristine(null) === false && Draft.isPristine({}) === false, "pristine rejects non-aggregates closed");
 
 console.log(`\n${results.passed} passed, ${results.failed} failed`);
 if (results.failed) process.exitCode = 1;

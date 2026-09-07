@@ -537,6 +537,32 @@
     return set.completion !== "pending" || set.role === "warmup" || Object.values(set.touched).some(Boolean);
   }
 
+  // A pristine draft holds no lifter input: untouched suggestions, navigation
+  // state, and derived values recompute, so replacing it loses nothing.
+  // Programmed warmup structure alone is not input; completing or editing any
+  // set, skipping, substituting, annotating, or starting the finish flow is.
+  // History-derived exercise notes and the schedule date need caller seeds to
+  // judge, so the adapter refines this predicate before disposing a draft.
+  function isPristine(draft) {
+    if (!isPlainObject(draft) || !isPlainObject(draft.session)) return false;
+    if (draft.session.status !== "active") return false;
+    if (draft.session.bodyweight != null && draft.session.bodyweight !== "") return false;
+    if (typeof draft.session.notes === "string" && draft.session.notes.trim() !== "") return false;
+    if (!Array.isArray(draft.exerciseOrder) || !isPlainObject(draft.exercises)) return false;
+    for (const exerciseId of draft.exerciseOrder) {
+      const exercise = draft.exercises[exerciseId];
+      if (!isPlainObject(exercise)) return false;
+      if (exercise.status === "skipped" || exercise.substitution != null) return false;
+      if (!Array.isArray(exercise.setOrder) || !isPlainObject(exercise.sets)) return false;
+      for (const setId of exercise.setOrder) {
+        const set = exercise.sets[setId];
+        if (!isPlainObject(set)) return false;
+        if (set.completion !== "pending" || Object.values(set.touched || {}).some(Boolean)) return false;
+      }
+    }
+    return true;
+  }
+
   function validateForSave(draft) {
     const checked = validate(draft);
     if (!checked.ok) return [{ code: "invalid-draft", issues: checked.issues }];
@@ -579,6 +605,66 @@
         if (value === undefined) return error("invalid-set-field-value", { field: command.field });
         item.set.edited[command.field] = value;
         item.set.touched[command.field === "rir" || command.field === "effort" ? "effort" : command.field] = true;
+        break;
+      }
+      case "refreshUntouchedSuggestions": {
+        if (!isSafeInteger(command.sourceRevision) || command.sourceRevision !== draft.revision) {
+          return error("stale-suggestion", {
+            sourceRevision: command.sourceRevision,
+            actualRevision: draft.revision,
+          });
+        }
+        if (!Array.isArray(command.updates)) return error("invalid-suggestion-updates");
+        const seen = new Set();
+        for (const update of command.updates) {
+          if (!isPlainObject(update) || !isText(update.exerciseInstanceId, { max: MAX_ID }) ||
+            !isText(update.setId, { max: MAX_ID }) || !isPlainObject(update.fields)) {
+            return error("invalid-suggestion-update");
+          }
+          const identity = `${update.exerciseInstanceId}\u0000${update.setId}`;
+          if (seen.has(identity)) return error("duplicate-suggestion-update", {
+            exerciseInstanceId: update.exerciseInstanceId,
+            setId: update.setId,
+          });
+          seen.add(identity);
+          if (!Object.keys(update.fields).some((field) => EDIT_FIELDS.has(field))) {
+            return error("empty-suggestion-update", {
+              exerciseInstanceId: update.exerciseInstanceId,
+              setId: update.setId,
+            });
+          }
+          for (const [field, value] of Object.entries(update.fields)) {
+            const text = editableText(value);
+            const valid = field === "load"
+              ? validDecimal(text, { positive: true, max: 1000 }) != null
+              : field === "reps"
+                ? validInteger(text, { positive: true }) != null
+                : field === "rir"
+                  ? validDecimal(text) != null
+                  : field === "effort" && hasOwn(EFFORT_RIR, text);
+            if (!EDIT_FIELDS.has(field) || !valid) {
+              return error("invalid-suggestion-value", { field });
+            }
+          }
+          const found = targetSet(next, update);
+          if (isDomainError(found)) return found;
+        }
+        let changed = false;
+        for (const update of command.updates) {
+          const found = targetSet(next, update);
+          if (isDomainError(found)) return found;
+          const { exercise, set } = found;
+          if (exercise.status === "skipped" || set.role === "warmup" || set.completion !== "pending") continue;
+          for (const [field, rawValue] of Object.entries(update.fields)) {
+            const owner = field === "rir" || field === "effort" ? "effort" : field;
+            if (set.touched[owner]) continue;
+            const value = editableText(rawValue);
+            if (set.edited[field] === value) continue;
+            set.edited[field] = value;
+            changed = true;
+          }
+        }
+        if (!changed) return draft;
         break;
       }
       case "completeSet": {
@@ -1052,6 +1138,7 @@
     toHistoryRows,
     validate,
     validateForSave,
+    isPristine,
     serialize,
     logicalCloneSection,
     isDomainError,
