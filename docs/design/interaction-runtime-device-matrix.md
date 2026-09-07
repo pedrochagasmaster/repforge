@@ -26,8 +26,9 @@ Run on C2 and C3, then repeat the accessibility-observable parts on C5/C6.
 5. Reverse direction after re-grab and release: the new gesture must own the surface immediately.
 6. Scroll the sheet body away from the top and drag vertically inside the scroller: scrolling must win; the sheet must not steal the gesture.
 7. Dismiss by scrim/Escape-equivalent path after a partial gesture: no inline transform, stuck scrim opacity or body lock may remain.
+8. Provoke a `pointercancel` mid-swipe — take a call, switch apps, trigger the browser's own edge/pull-to-refresh pan, or start a second touch — and return. The sheet must be back at rest and open: the gesture was taken away, not finished. Real hardware produces these constantly and a desktop browser almost never does, which is why this cell exists.
 
-Pass condition: direct 1:1 tracking, no visible discontinuity on handoff/re-grab, no input lock, and no accidental dismissal while an inner scroller still has content above it.
+Pass condition: direct 1:1 tracking, no visible discontinuity on handoff/re-grab, no input lock, no accidental dismissal while an inner scroller still has content above it, and nothing committed from a gesture the system cancelled.
 
 ## Gate B — Focus deck
 
@@ -40,8 +41,9 @@ Run on C2 and C3.
 5. Re-grab the moving card mid-carry and reverse it.
 6. Pull beyond the first and last card: edge resistance must remain continuous rather than hard-stop.
 7. Repeat while a long Focus ledger can scroll vertically; vertical intent must still win when clear.
+8. Interrupt a carry the same way Gate A step 8 interrupts a swipe: the deck must return to the card it was on rather than advance on momentum the system cancelled.
 
-Pass condition: no discarded navigation, no position jump when interrupted, no accidental horizontal capture of a clearly vertical scroll, and no visible oscillation/wobble beyond the intended settle.
+Pass condition: no discarded navigation, no position jump when interrupted, no accidental horizontal capture of a clearly vertical scroll, no card advanced by a cancelled gesture, and no visible oscillation/wobble beyond the intended settle.
 
 ## Gate C — program-editor drag and auto-scroll
 
