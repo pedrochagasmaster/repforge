@@ -4,6 +4,8 @@
   "esbuild": "0.25.10",
   "globalName": "DndKit",
   "entry": "tools/vendor-runtimes/dnd-kit.entry.mjs",
-  "bytes": 106742,
-  "sha256": "d20513b65118a55d9fe0a857b1ca5d0ed32b8f1d6e5343caec0d07c1d28f6695"
+  "bytes": 1300,
+  "sha256": "aecc91e0413cfeee682b911a432b722877c637e026bb1cd6d90b181ecc9b9687",
+  "kind": "bootstrap",
+  "runtime": "vendor/dnd-kit/dnd-kit.runtime.js"
 }

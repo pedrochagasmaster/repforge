@@ -21,10 +21,11 @@ jobs:
       - name: Verify motion discipline contract
         run: node test/motion-polish.mjs
 
-      - name: Verify vendored runtimes, the Motion layer and Apple follow-up
+      - name: Verify vendored runtimes, payload budget, the Motion layer and Apple follow-up
         run: |
           node tools/build-vendor-runtimes.mjs --check
           node test/vendor-runtimes.mjs
+          node test/runtime-budget.mjs
           node test/apple-design-followup.mjs
 
       - name: Verify offline shell contract

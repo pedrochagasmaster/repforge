@@ -9,6 +9,8 @@ This note records the implemented follow-up to the Apple Design audit of PR #232
 - **Momentum projection:** sheet dismissal and Focus paging choose their resting state from Apple's exponential projected endpoint (`decelerationRate = 0.998`) and then hand the measured release velocity into the existing spring.
 - **Accessibility preferences:** `prefers-reduced-transparency: reduce` replaces dock glass with its opaque material and removes blur; `prefers-contrast: more` strengthens the existing rule/dock-edge roles and makes the dock near-solid. These remain independent of Reduced Motion and of the light/dark theme.
 - **Install banner semantics:** the non-modal install banner is exposed as a `region`, not a `dialog`, in the live accessibility tree.
+- **Runtime launch cost:** Motion remains launch-ready because it owns sheet/focus interruption immediately after boot. The larger dnd-kit bundle is split into a tiny synchronous bootstrap plus a deferred heavy runtime. Both remain generated, pinned and precached; the heavy runtime is served cache-first from the service-worker shell. `test/runtime-budget.mjs` guards both the loading topology and gzip budgets.
+- **Physical-device validation gate:** `interaction-runtime-device-matrix.md` turns the remaining feel/ergonomics questions into explicit C2/C3/C5/C6 hardware checks using the repository's existing manual-matrix taxonomy. PR #232 remains draft until those cells are recorded.
 
 ## Explicitly unchanged
 
@@ -16,4 +18,6 @@ The existing page-zoom policy is not changed by this follow-up, per owner direct
 
 ## Verification
 
-`test/apple-design-followup.mjs` mechanically guards the projection model, sheet presentation-value takeover, Focus retargeting, the two additional accessibility media queries, install-banner semantics, and the deliberate non-change to the zoom policy. The existing interaction-runtime contract remains the architecture gate around the Motion layer.
+`test/apple-design-followup.mjs` mechanically guards the projection model, sheet presentation-value takeover, Focus retargeting, the two additional accessibility media queries, install-banner semantics, and the deliberate non-change to the zoom policy. `test/runtime-budget.mjs` guards the runtime split, offline availability and payload ceilings. The existing interaction-runtime contract remains the architecture gate around Motion, dnd-kit and native dialog usage.
+
+Physical-device checks are intentionally not represented as automated success: their evidence belongs in `interaction-runtime-device-matrix.md`, because CI cannot validate touch feel, one-handed edge ergonomics, or real VoiceOver/TalkBack pacing.
