@@ -1,20 +1,22 @@
 #!/usr/bin/env node
-/* Contracts for the vendored Motion runtime and its integration layer.
+/* Contracts for the two vendored runtimes the app ships — Motion and @dnd-kit
+ * — and for the boundaries the application keeps around them.
  *
- * Pure Node, no browser, no network — this is the gate that has to keep working
+ * Pure Node, no browser, no network. This is the gate that has to keep working
  * in the cheapest CI job there is, because everything it protects is the kind
  * of thing that breaks silently:
  *
- *   - a runtime fetched from a CDN instead of vendored (the app stops animating
+ *   - a runtime fetched from a CDN instead of vendored (the app stops working
  *     offline, and starts leaking a request to a third party);
- *   - an unpinned or hand-edited bundle (the gesture feel changes with no diff
+ *   - an unpinned or hand-edited bundle (a gesture changes feel with no diff
  *     anybody reviewed);
- *   - a runtime that is loaded but not precached, or precached but loaded after
- *     the modules that use it;
- *   - the integration layer growing a second opinion about reduced motion, or
+ *   - a runtime loaded but not precached, or precached but loaded after the
+ *     modules that use it;
+ *   - an integration layer growing a second opinion about reduced motion, or
  *     app code reaching past it into `window.Motion`;
+ *   - a drag library announcing in English to a Portuguese install;
  *   - the interaction discipline pass from the motion-polish work being undone
- *     from JavaScript instead of from CSS, which its own gate cannot see.
+ *     from JavaScript instead of from CSS, where its own gate cannot see it.
  */
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
@@ -27,6 +29,8 @@ const read = file => readFileSync(join(ROOT, file), "utf8");
 
 const runtime = read("vendor/motion/motion.js");
 const pin = JSON.parse(read("vendor/motion/motion.pin.json"));
+const dnd = read("vendor/dnd-kit/dnd-kit.js");
+const dndPin = JSON.parse(read("vendor/dnd-kit/dnd-kit.pin.json"));
 const layer = read("motion-layer.js");
 const app = read("app.js");
 const editor = read("program-editor.js");
@@ -42,35 +46,39 @@ function assert(condition, name, detail = "") {
   else { failed++; console.log(`  ✗ ${name}`); if (detail) console.log(`    ${detail}`); }
 }
 
-console.log("motion runtime");
+console.log("vendored runtimes");
 
-/* ---- The runtime is ours, pinned, and offline ---- */
-assert(pin.motion === "13.2.0" && /^\d+\.\d+\.\d+$/.test(pin.esbuild),
-  "the runtime is pinned to exact motion and bundler versions",
-  `motion@${pin.motion} esbuild@${pin.esbuild}`);
-assert(createHash("sha256").update(runtime, "utf8").digest("hex") === pin.sha256,
-  "the committed bundle still hashes to its pin");
-assert(runtime.startsWith(`/* Motion ${pin.motion} —`),
-  "the bundle names the Motion version it was built from");
+/* ---- Both runtimes are ours, pinned, and offline ---- */
+for (const [label, bundle, meta, file] of [
+  ["Motion", runtime, pin, "vendor/motion/motion.js"],
+  ["@dnd-kit", dnd, dndPin, "vendor/dnd-kit/dnd-kit.js"],
+]) {
+  assert(/^\d+\.\d+\.\d+$/.test(meta.version) && /^\d+\.\d+\.\d+$/.test(meta.esbuild),
+    `${label} is pinned to exact package and bundler versions`,
+    `${meta.package}@${meta.version} esbuild@${meta.esbuild}`);
+  assert(createHash("sha256").update(bundle, "utf8").digest("hex") === meta.sha256,
+    `the committed ${label} bundle still hashes to its pin`);
+  assert(bundle.startsWith(`/* ${meta.package} ${meta.version} —`),
+    `the ${label} bundle names the version it was built from`);
+  let parses = true;
+  try { execFileSync(process.execPath, ["--check", join(ROOT, file)], { stdio: "pipe" }); }
+  catch { parses = false; }
+  assert(parses, `the vendored ${label} bundle is syntactically valid browser JavaScript`);
+}
 {
   /* The same offline check CI runs, exercised here so one command covers it. */
   let checked = true;
-  try { execFileSync(process.execPath, [join(ROOT, "tools/build-motion-runtime.mjs"), "--check"], { stdio: "pipe" }); }
+  try { execFileSync(process.execPath, [join(ROOT, "tools/build-vendor-runtimes.mjs"), "--check"], { stdio: "pipe" }); }
   catch { checked = false; }
-  assert(checked, "tools/build-motion-runtime.mjs --check agrees with the committed bundle");
-}
-{
-  let parses = true;
-  try { execFileSync(process.execPath, ["--check", join(ROOT, "vendor/motion/motion.js")], { stdio: "pipe" }); }
-  catch { parses = false; }
-  assert(parses, "the vendored bundle is syntactically valid browser JavaScript");
+  assert(checked, "tools/build-vendor-runtimes.mjs --check agrees with both committed bundles");
 }
 assert(!/https?:\/\/(cdn|unpkg|esm|jsdelivr)/i.test(index) && !/import\(["']https?:/.test(layer),
-  "nothing loads Motion from a CDN");
+  "nothing loads a runtime from a CDN");
 assert(!/\bfetch\s*\(|\bimport\s*\(/.test(layer),
   "the integration layer resolves no module and issues no request at runtime");
-assert(notice.includes("Motion animation runtime") && notice.includes("Copyright (c) 2018 Framer B.V."),
-  "the vendored runtime carries its MIT attribution");
+assert(notice.includes("Motion animation runtime") && notice.includes("Copyright (c) 2018 Framer B.V.") &&
+       notice.includes("Drag and drop") && notice.includes("@dnd-kit/dom"),
+  "both vendored runtimes carry their MIT attribution");
 
 /* ---- Offline shell ---- */
 {
@@ -151,13 +159,11 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
     "the layer asks the reduced-motion question exactly once");
   assert(/const reducedMotion = \(\) =>/.test(layer),
     "reduced motion is read live, so turning it on mid-session takes effect");
-  for (const entry of ["settle(", "dismiss(", "settleFocusDeck(", "returnToRest(", "animateExerciseReorder(", "animateDisclosure("]) {
+  for (const entry of ["settle(", "dismiss(", "settleFocusDeck(", "animateExerciseReorder(", "animateDisclosure("]) {
     const body = layer.slice(layer.indexOf(`  ${entry}`) >= 0 ? layer.indexOf(`  ${entry}`) : layer.indexOf(entry));
     assert(/reducedMotion\(\)/.test(body.slice(0, 900)),
       `${entry.replace("(", "")} has a reduced-motion alternate, not a slower animation`);
   }
-  assert(/pickUp\(\) \{[\s\S]{0,160}reducedMotion\(\)/.test(layer),
-    "picking a row up under reduced motion leaves it flat");
 }
 
 /* ---- The discipline pass is not undone from JavaScript ---- */
@@ -172,8 +178,8 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
 
 /* ---- Interruptibility and clean-up ---- */
 {
-  assert(/disposeD?|let disposed = false/.test(layer) && (layer.match(/disposed = true/g) || []).length >= 2,
-    "gesture handles can only be disposed once");
+  assert(/let disposed = false/.test(layer) && /if \(disposed\) return;\n      disposed = true;/.test(layer),
+    "the sheet gesture handle can only be disposed once");
   assert(/disclosureRuns/.test(layer) && /disclosureRuns\.get\(panel\) !== token/.test(layer),
     "a superseded disclosure animation cannot clear the height its replacement is writing");
   assert(/const COLLAPSING = "is-collapsing"/.test(layer) &&
@@ -195,11 +201,47 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
     "the focus deck snap-back falls back to its stylesheet transition without the runtime");
   assert(/function focusAnimateTo\(dir\)\{/.test(app) && /setTimeout\(\(\)=>\{\n?\s*focusFlinging=false/.test(app),
     "carrying the deck to the next card is deliberately left as a plain CSS transition");
-  assert(/if \(root\.RepForgeMotion\?\.animateExerciseReorder\(rows, beforeRects, carry\)\) return;/.test(editor) &&
+  assert(/if \(root\.RepForgeMotion\?\.animateExerciseReorder\(rows, beforeRects\)\) return;/.test(editor) &&
          /program-editor-flip-y/.test(editor),
     "the editor reorder falls back to its FLIP keyframe without the runtime");
+  assert(/settle = true/.test(editor) && /moveExercise\(id, day, index, \{ settle: false \}\)/.test(editor),
+    "a drag the drag library already animated is not animated a second time");
   assert(/if\(window\.RepForgeMotion\)window\.RepForgeMotion\.animateDisclosure\(panel,on,show\);\n  else show\(\)/.test(app),
     "a disclosure opens either way, and its class is toggled exactly once");
+}
+
+/* ---- The drag library is configured, not merely dropped in ---- */
+{
+  const en = JSON.parse(read("i18n-en.json"));
+  const pt = JSON.parse(read("i18n-pt.json"));
+  const keys = ["program.editor.drag.instructions", "program.editor.drag.picked_up",
+    "program.editor.drag.over", "program.editor.drag.dropped", "program.editor.drag.cancelled"];
+  assert(keys.every(key => en[key] && pt[key] && en[key] !== pt[key]),
+    "the drag's screen-reader copy is translated, not left in the library's English",
+    keys.filter(key => !pt[key]).join(", "));
+  assert(/Accessibility\.configure\(\{[\s\S]{0,220}announcements: dragAnnouncements\(\)/.test(editor) &&
+         /screenReaderInstructions: \{ draggable: label\("dragInstructions"\) \}/.test(editor),
+    "and it is the copy handed to the library, replacing its defaults");
+  assert(/delay: \{ value: 90, tolerance: 10 \}/.test(editor),
+    "the 90ms that tells a drag from a tap survived the migration");
+  assert(/setTimeout\(\(\) => \{[\s\S]{0,200}is-drag-target-expanded[\s\S]{0,40}\}, 450\)/.test(editor),
+    "so did the 450ms hold that opens a collapsed day");
+  assert(/const glide = reduced \? null : \{ duration: 200/.test(editor) &&
+         /dropAnimation: glide/.test(editor) && /keyboardTransition: glide/.test(editor) &&
+         /transition: glide/.test(editor),
+    "reduced motion turns off the drop, keyboard and reorder animations rather than shortening them");
+  assert(/feedback: "move"/.test(editor),
+    "the row itself travels, rather than a clone floating over a ghost of it");
+  assert(!/\.setPointerCapture\(|\.elementFromPoint\?\.\(|function beginDrag/.test(editor),
+    "the hand-rolled pointer drag it replaced is gone, not left alongside it");
+  assert(/data-role="move-to-day"/.test(editor) && /data-role="move-up"/.test(editor) &&
+         /data-role="move-down"/.test(editor) && /data-role="drag-handle"/.test(editor),
+    "the explicit Move up / Move down / Move to another day controls remain");
+  assert(/if \(destroyed \|\| !Dnd\) return;/.test(editor) && /teardownSorting\(\)/.test(editor),
+    "the editor still mounts, and still disposes cleanly, without the drag library");
+  assert(/moveExercise\(id, day, index/.test(editor) &&
+         (editor.match(/moveExercise\(/g) || []).length >= 4,
+    "every reorder path — drag, keyboard drag and the Move controls — goes through one transaction");
 }
 
 console.log(`\n${passed} passed, ${failed} failed`);

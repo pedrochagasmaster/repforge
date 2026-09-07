@@ -235,6 +235,7 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
   const transitionAssets = [
     "motion-layer.js",
     "program-compiler.js",
+    "program-editor.js",
     "program-entry.js",
     "program-entry-adapter.js",
     "shared-setup.js",

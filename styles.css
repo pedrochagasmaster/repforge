@@ -1983,7 +1983,15 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .program-editor__menu button:hover{background:var(--well)}
 .program-editor__menu [data-role="move-days"]{display:flex;flex-direction:column;background:var(--well)}
 .program-editor__menu [data-role="move-days"] button{padding-left:24px}
-.program-editor__exercise.is-dragging{position:relative;z-index:4;transform-origin:center;border-left:2px solid var(--accent);transition:none;opacity:.98}
+/* The row under the thumb. The drag library lifts a copy of the row and leaves
+   a placeholder in the gap it came from, marking each with its own attribute;
+   both keep the language the hand-rolled drag used — an accent edge on the row
+   being carried, a quiet gap where it was. Neither attribute exists in a
+   resting state, so neither appears in the screen catalog. */
+.program-editor__exercise.is-dragging,
+.program-editor__exercise[data-dnd-dragging]{position:relative;z-index:4;transform-origin:center;border-left:2px solid var(--accent);transition:none;opacity:.98}
+.program-editor__exercise[data-dnd-dragging]{box-shadow:0 12px 28px rgba(0,0,0,.16)}
+.program-editor__exercise[data-dnd-placeholder]{opacity:.35}
 .program-editor__day.is-drag-target-expanded .program-editor__day-body{display:block}
 .program-editor__day.is-drag-target-expanded .program-editor__day-toggle .icon-mask{transform:rotate(180deg)}
 .program-editor__exercise.is-reordered{animation:program-editor-flip .18s cubic-bezier(.2,.7,.2,1) both}
@@ -1991,7 +1999,8 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 @keyframes program-editor-flip{from{transform:translateY(var(--program-editor-flip-y,0))}to{transform:translateY(0)}}
 @keyframes program-editor-drop{from{transform:translateY(-2px)}to{transform:translateY(0)}}
 @media (prefers-reduced-motion:reduce){
-  .program-editor__exercise.is-dragging{transform:none}
+  .program-editor__exercise.is-dragging,
+  .program-editor__exercise[data-dnd-dragging]{transform:none;box-shadow:none}
   .program-editor__exercise.is-reordered{animation:none}
   .program-editor__exercise.is-settling{animation:none}
 }

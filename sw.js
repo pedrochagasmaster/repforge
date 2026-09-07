@@ -1,10 +1,10 @@
-const CACHE = "repforge-v188";
+const CACHE = "repforge-v189";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
-  "./vendor/motion/motion.js", "./motion-layer.js", "./motion-layer.js?v=188",
+  "./vendor/motion/motion.js", "./vendor/dnd-kit/dnd-kit.js", "./motion-layer.js", "./motion-layer.js?v=189",
   "./telemetry.js", "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js",
-  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=188", "./program-entry.js", "./program-entry.js?v=188", "./program-entry-adapter.js", "./program-entry-adapter.js?v=188", "./program-editor.js", "./program-editor.js?v=168",
-  "./shared-setup.js", "./shared-setup.js?v=188", "./app.js", "./app.js?v=188",
+  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=189", "./program-entry.js", "./program-entry.js?v=189", "./program-entry-adapter.js", "./program-entry-adapter.js?v=189", "./program-editor.js", "./program-editor.js?v=189",
+  "./shared-setup.js", "./shared-setup.js?v=189", "./app.js", "./app.js?v=189",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
@@ -51,7 +51,7 @@ self.addEventListener("activate", event => {
   );
 });
 
-const SHELL = new Set(["/", "/index.html", "/app.js", "/styles.css", "/motion-polish.css", "/motion-layer.js", "/vendor/motion/motion.js", "/i18n.js", "/exercises.js", "/shared-setup.js", "/program-compiler.js", "/program-entry.js", "/program-entry-adapter.js", "/program-editor.js", "/telemetry.js", "/posthog-init.js", "/posthog-config.js", "/manifest.webmanifest"]);
+const SHELL = new Set(["/", "/index.html", "/app.js", "/styles.css", "/motion-polish.css", "/motion-layer.js", "/vendor/motion/motion.js", "/vendor/dnd-kit/dnd-kit.js", "/i18n.js", "/exercises.js", "/shared-setup.js", "/program-compiler.js", "/program-entry.js", "/program-entry-adapter.js", "/program-editor.js", "/telemetry.js", "/posthog-init.js", "/posthog-config.js", "/manifest.webmanifest"]);
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
 function shellPathname(pathname) {
   if (!SCOPE_PATH) return pathname;

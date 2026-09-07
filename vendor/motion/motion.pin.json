@@ -1,8 +1,9 @@
 {
-  "motion": "13.2.0",
+  "package": "motion",
+  "version": "13.2.0",
   "esbuild": "0.25.10",
   "globalName": "Motion",
-  "entry": "tools/motion-runtime/entry.mjs",
-  "bytes": 64764,
-  "sha256": "6022c2a9fa383dcb69be69328bd75fde0ab312e70281007706e2402ac4e27b9f"
+  "entry": "tools/vendor-runtimes/motion.entry.mjs",
+  "bytes": 64780,
+  "sha256": "eb51796ff920e57ef0de55e67f2c22f4cc913996ac7cc3518c64b10d634e4959"
 }

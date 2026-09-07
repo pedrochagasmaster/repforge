@@ -11,11 +11,15 @@
    What belongs here, and what does not:
 
    - Motion earns its place where an interaction has *physics*: a thumb let go
-     mid-gesture, a row that must keep travelling the way it was thrown, a
-     panel whose height nobody can know until it is measured, a list whose rows
-     swap places while an earlier swap is still settling. Those need velocity
-     transfer, retargeting and real interruption, which a CSS keyframe cannot
-     do — a keyframe restarts from zero every time it is re-triggered.
+     mid-gesture, a panel whose height nobody can know until it is measured, a
+     list whose rows swap places while an earlier swap is still settling. Those
+     need velocity transfer, retargeting and real interruption, which a CSS
+     keyframe cannot do — a keyframe restarts from zero every time it is
+     re-triggered.
+   - Dragging is @dnd-kit's, not Motion's. The program editor's reorder gesture
+     needs collision detection, a keyboard drag, live announcements and
+     auto-scroll, which is a drag-and-drop library's job; Motion only covers the
+     reorders that happen with no gesture at all.
    - The stylesheet keeps everything else. Set completion, view navigation,
      button presses, popovers, toasts, the install banner and the session
      crest are CSS transitions and keyframes, tuned in `motion-polish.css`, and
@@ -223,94 +227,24 @@
   }
 
   /* ============================================================
-     Program editor — dragging and reordering exercises
+     Program editor — rows changing places without a gesture
      ------------------------------------------------------------
-     The editor's pointer handling is kept as it is: the pickup delay that
-     tells a drag from a tap, pointer capture, the day the row is hovering
-     over, the hold that expands a collapsed day, and the drop-target maths all
-     stay exactly where they were. Only the parts with physics move to Motion.
+     Dragging a row belongs to @dnd-kit, which animates the drop itself. What
+     is left here is every reorder with no gesture behind it: Move up, Move
+     down, Move to another day, and Undo. Those re-render the list, so a row
+     that changed position jumps unless something covers the distance.
 
-     Two things were visibly wrong before:
-
-     - Releasing a dragged row set `transform = ""`, so the row teleported from
-       under the thumb back to its old slot, and only then did a keyframe play
-       it towards its new one. The row never travelled the distance the lifter
-       had just dragged it.
-     - The reorder used a CSS keyframe. Nudging a row up three times in a row
-       restarted that keyframe from zero each time, so the second and third
-       moves flickered instead of continuing.
-
-     A spring per row fixes both: the drop starts where the thumb left the row
-     and carries its velocity into the slot, and a row already in flight
-     retargets from its current position and speed instead of restarting.
+     It used to be a CSS keyframe, which restarts from zero every time it is
+     re-triggered — so nudging a row up three times flickered on the second and
+     third taps instead of continuing. A spring per row retargets from wherever
+     the row currently is and at whatever speed it is already moving, which is
+     exactly the case a keyframe cannot express.
      ============================================================ */
-  function trackExerciseDrag(row) {
-    if (!available || !row) return null;
-
-    const y = motionValue(0);
-    const lift = motionValue(0);
-    let disposed = false;
-
-    const paint = () => {
-      const scale = 1 + lift.get() * 0.01;
-      row.style.transform = `translate3d(0,${y.get()}px,0) scale(${scale})`;
-    };
-    const stopY = y.on("change", paint);
-    const stopLift = lift.on("change", paint);
-    hint(row, "transform");
-
-    const clear = () => {
-      row.style.transform = "";
-      hint(row, null);
-    };
-    const dispose = () => {
-      if (disposed) return;
-      disposed = true;
-      y.stop(); lift.stop();
-      stopY(); stopLift();
-      clear();
-    };
-
-    return {
-      /* Picked up. The row swells a hair so it reads as being held above the
-         list; reduced motion keeps the row flat and lets the border do it. */
-      pickUp() {
-        if (disposed || reducedMotion()) return;
-        animate(lift, 1, VOCABULARY.layoutShift);
-      },
-      follow(dy) {
-        if (disposed) return;
-        y.set(dy);
-      },
-      offset: () => y.get(),
-      /* Dropped, and the list is about to re-render the row into its new
-         place. Hand back a resting row immediately so the re-render is not
-         fighting an inline transform — the spring that closes the remaining
-         distance belongs to the reorder below, which knows where the row
-         actually landed. */
-      release: dispose,
-      /* Dropped somewhere that is not a move: no re-render is coming, so this
-         row springs home itself rather than snapping. */
-      returnToRest({ velocity = 0 } = {}) {
-        if (disposed) return settled;
-        if (reducedMotion()) { dispose(); return settled; }
-        animate(lift, 0, VOCABULARY.gestureSettle);
-        return animate(y, 0, { ...VOCABULARY.gestureSettle, velocity: perSecond(velocity) })
-          .then(() => true, () => false)
-          .finally(() => dispose());
-      },
-      cancel: dispose,
-    };
-  }
 
   /* Move every row that changed place from where it used to be to where it now
      is. `before` maps a row id to the rectangle it occupied before the
-     re-render; rows absent from it are new and are left to the stylesheet.
-
-     `carry` names the one row the thumb was holding and how fast it was
-     moving, so the row the lifter is watching keeps its momentum through the
-     re-render instead of restarting from rest with its neighbours. */
-  function animateExerciseReorder(rows, before, carry = null) {
+     re-render; rows absent from it are new and are left to the stylesheet. */
+  function animateExerciseReorder(rows, before) {
     if (!available || !rows?.length || !before?.size) return false;
     if (reducedMotion()) return false;
     let moved = false;
@@ -320,16 +254,15 @@
       const delta = previous.top - row.getBoundingClientRect().top;
       if (Math.abs(delta) < 1) continue;
       moved = true;
-      const carried = carry && carry.id === row.dataset.id;
       const y = motionValue(delta);
       const stopPaint = y.on("change", value => {
         row.style.transform = value ? `translate3d(0,${value}px,0)` : "";
       });
       hint(row, "transform");
-      animate(y, 0, {
-        ...VOCABULARY.layoutShift,
-        velocity: carried ? perSecond(carry.velocity) : 0,
-      }).finally(() => {
+      /* Motion's animation is a thenable, not a Promise: `then` chains but
+         `finally` is not on it. Settle it into a real promise first, so a
+         cancelled reorder still cleans up after itself. */
+      animate(y, 0, VOCABULARY.layoutShift).then(() => true, () => false).finally(() => {
         stopPaint();
         y.stop();
         row.style.transform = "";
@@ -420,7 +353,6 @@
     vocabulary: VOCABULARY,
     trackSheetGesture,
     settleFocusDeck,
-    trackExerciseDrag,
     animateExerciseReorder,
     animateDisclosure,
   };

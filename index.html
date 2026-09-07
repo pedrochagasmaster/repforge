@@ -936,17 +936,19 @@
   <script src="i18n.js"></script>
   <script src="exercises.js"></script>
   <script src="progression-engine.js"></script>
-  <!-- The Motion runtime is vendored and precached, never fetched from a CDN:
-       the app has to animate identically on a plane. It is loaded before the
-       modules that use it and is optional by construction — every caller keeps
-       a stylesheet-only path for the case where this file is missing. -->
+  <!-- Both third-party runtimes are vendored and precached, never fetched from
+       a CDN: the app has to behave identically on a plane. They load before the
+       modules that use them, and both are optional by construction — without
+       Motion every caller keeps a stylesheet-only path, and without @dnd-kit
+       reordering stays reachable through each row's Move controls. -->
   <script src="vendor/motion/motion.js"></script>
-  <script src="motion-layer.js?v=188"></script>
-  <script src="program-compiler.js?v=188"></script>
-  <script src="program-entry.js?v=188"></script>
-  <script src="program-entry-adapter.js?v=188"></script>
-  <script src="program-editor.js?v=168"></script>
-  <script src="shared-setup.js?v=188"></script>
-  <script src="app.js?v=188"></script>
+  <script src="vendor/dnd-kit/dnd-kit.js"></script>
+  <script src="motion-layer.js?v=189"></script>
+  <script src="program-compiler.js?v=189"></script>
+  <script src="program-entry.js?v=189"></script>
+  <script src="program-entry-adapter.js?v=189"></script>
+  <script src="program-editor.js?v=189"></script>
+  <script src="shared-setup.js?v=189"></script>
+  <script src="app.js?v=189"></script>
 </body>
 </html>
