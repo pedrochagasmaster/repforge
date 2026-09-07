@@ -226,6 +226,37 @@ async function run() {
   assert(torn.hidden && !torn.inline && !torn.willChange && !torn.locked,
     "the sheet is closed, untransformed and the page is released",
     JSON.stringify(torn));
+  // Grabbing a sheet again while it is still springing back: the spring has to
+  // let go of the transform, or the sheet fights the thumb and lands wherever
+  // the loser finished.
+  await page.click("#exportProgramText");
+  await page.waitForSelector("#programTextSheet.is-open", { timeout: 5000 });
+  await page.waitForTimeout(340);
+  {
+    const rail2 = await page.locator("#programTextSheet .sheet__head").boundingBox();
+    const x2 = Math.round(rail2.x + rail2.width / 2), y2 = Math.round(rail2.y + rail2.height / 2);
+    // A short push, released — the sheet starts springing home.
+    await page.mouse.move(x2, y2);
+    await page.mouse.down();
+    for (const dy of [20, 44, 50]) { await page.mouse.move(x2, y2 + dy); await page.waitForTimeout(40); }
+    await page.waitForTimeout(140);
+    await page.mouse.up();
+    // Re-grab 40ms in, while that spring is mid-flight, and push it out.
+    await page.waitForTimeout(40);
+    await page.mouse.move(x2, y2);
+    await page.mouse.down();
+    for (const dy of [30, 90, 170, 240]) { await page.mouse.move(x2, y2 + dy); await page.waitForTimeout(24); }
+    await page.mouse.up();
+    await page.waitForTimeout(700);
+  }
+  const regrabbed = await page.evaluate(() => {
+    const el = document.querySelector("#programTextSheet");
+    return { hidden: el.hidden === true, inline: el.style.transform };
+  });
+  assert(regrabbed.hidden && !regrabbed.inline,
+    "a sheet re-grabbed mid-spring follows the second gesture, not the first",
+    JSON.stringify(regrabbed));
+
   // …and reopening it starts from rest, not from where the thumb was.
   await page.click("#exportProgramText");
   await page.waitForSelector("#programTextSheet.is-open", { timeout: 5000 });

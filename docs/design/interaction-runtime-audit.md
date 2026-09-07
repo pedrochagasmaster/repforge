@@ -151,6 +151,35 @@ animations are switched off rather than shortened. In every case the state
 change and the information it carries are identical — nothing in the app depends
 on an animation to say what happened.
 
+## Known residuals
+
+- **Re-grabbing a sheet mid-settle starts from rest.** The spring is stopped so
+  the thumb has sole ownership of the transform — before this PR two writers
+  would have fought — but the second gesture does not continue from the sheet's
+  current offset. That is now possible, since the position lives in a motion
+  value, and it would be a real improvement; it also moves the dismiss threshold,
+  which is gesture semantics rather than animation, so it is left as its own
+  change.
+- **The two centred dialogs have no backdrop tint**, while the two native dialogs
+  that predate this PR do. Preserving the existing look was the instruction, so
+  the inconsistency is recorded rather than resolved.
+
+## How the Motion guidance was obtained
+
+`motion.dev` is unreachable from this environment (blocked by the egress
+policy), so the official **Motion AI Kit** was taken from its published package,
+`motion-ai@14.1.0` — the same skills the kit installs: the animation
+best-practices set including the vanilla-JS rules, the CSS spring/bounce
+guidance, and the MotionScore audit procedure. The API surface was checked
+against the pinned `motion@13.2.0` package's own types and dist rather than from
+memory.
+
+Two things the kit gates behind Motion+ were not available and are not
+guessed at: the MotionScore methodology resource and a runtime `npx motionscore`
+audit both need the Motion+ MCP server, which is not connected here. No
+MotionScore grade is claimed anywhere in this PR. The timings quoted above are
+measured in `test/motion-integration.mjs` against the real runtime.
+
 ## What is not covered by an automated test
 
 Contract tests cover the pins, the offline shell, the load order, the layer

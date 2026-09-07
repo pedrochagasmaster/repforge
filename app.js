@@ -4078,9 +4078,13 @@ function sheetDragMove(e){
     sheetDrag.live=true;
     rec.el.classList.add("is-dragging");
     rec.scrim?.classList.add("is-dragging");
+    // A sheet grabbed again while it is still springing back has a spring
+    // painting its transform. Stop that one first: two writers on the same
+    // property means whichever finishes last wins, and the loser is the thumb.
+    if(rec.motion){rec.motion.cancel();rec.motion=null}
     sheetDrag.motion=window.RepForgeMotion?.trackSheetGesture(rec.el,rec.scrim)||null;
-    // The sheet can be torn down mid-gesture — Escape, a save, a tour step — and
-    // whatever cleans it up has to be able to stop the animation too.
+    // The sheet can also be torn down mid-gesture — Escape, a save, a tour step
+    // — and whatever cleans it up has to be able to stop the animation too.
     rec.motion=sheetDrag.motion;
     // Anchor where the drag was recognised, so the sheet doesn't jump by the slop.
     sheetDrag.y=e.clientY-SHEET_DRAG_LOCK}
@@ -4144,15 +4148,15 @@ const FOCUS_GAP=14;
 const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 /** Carry the deck one card over, animating the track exactly as a fling does,
  *  then re-render at the new index with the track back at rest. Chevrons, the
- *  Next exercise button, the arrow keys and a completed swipe all land here. */
-/* Carrying the deck to the neighbouring card stays a plain 210ms transition,
- * deliberately. A spring was tried here and taken back out: the card is being
- * delivered to a fixed slot, the deck is locked for the length of the slide so
- * there is nothing to interrupt, and the spring's tail pushed the index change
- * — which has to wait for the slide to finish — from 210ms out past 300ms.
- * Motion is worth its cost where a gesture is still live; here it only cost
- * responsiveness. The snap-back below is the half of this that is a real catch,
- * and that half does use a spring. */
+ *  Next exercise button, the arrow keys and a completed swipe all land here.
+ *
+ *  This stays a plain 210ms transition, deliberately. A spring was tried and
+ *  taken back out: the card is delivered to a fixed slot, the deck is locked for
+ *  the length of the slide so there is nothing to interrupt, and the spring's
+ *  tail pushed the index change — which waits on the slide — from 210ms out past
+ *  300ms. Motion earns its cost where a gesture is still live; here it only cost
+ *  responsiveness. `focusSettle` below is the half of this that is a real catch,
+ *  and that half does use a spring. */
 function focusAnimateTo(dir){
   if(focusFlinging||!focusCanGo(dir))return false;
   const track=focusTrack(),deck=$("#focusDeck");

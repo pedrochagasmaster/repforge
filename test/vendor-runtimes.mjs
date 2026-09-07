@@ -189,8 +189,8 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
     "the class a disclosure toggle reads is updated at the tap, so a second tap reverses it");
   const hints = (layer.match(/hint\([a-zA-Z]+, null\)/g) || []).length;
   assert(hints >= 5, "every layer promotion is removed again when the animation ends", String(hints));
-  assert(/rec\.motion/.test(app) && /rec\.motion\.cancel\(\)/.test(app),
-    "a sheet torn down mid-gesture stops its animation instead of reopening part-way down");
+  assert(/rec\.motion/.test(app) && (app.match(/rec\.motion\.cancel\(\)/g) || []).length >= 2,
+    "a sheet torn down mid-gesture — or grabbed again mid-spring — stops the animation that was painting it");
 }
 
 /* ---- Every caller keeps a path for a runtime that is not there ---- */

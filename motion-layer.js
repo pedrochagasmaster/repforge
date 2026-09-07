@@ -116,21 +116,30 @@
 
      What changes is the last 250ms. Before, release handed the sheet back to a
      fixed 260ms CSS transition, so a sheet nudged 20px and a sheet hurled
-     halfway down arrived at the same speed, and re-grabbing one mid-flight
-     restarted the gesture from a standstill. A spring seeded with the thumb's
-     own velocity carries the throw through, and because the position lives in
-     a motion value, a new grab reads where the sheet actually is.
+     halfway down arrived at the same speed. A spring seeded with the thumb's
+     own velocity carries the throw through instead.
+
+     Grabbing a sheet again while it is still settling stops the spring and
+     starts the new drag from rest, which is what the transition did too. Making
+     the second gesture continue from the sheet's current offset is possible now
+     that the position lives in a motion value, but it would move the dismiss
+     threshold as well as the animation, so it is left as a deliberate next step
+     rather than smuggled in behind this one.
      ============================================================ */
   function trackSheetGesture(sheet, scrim) {
     if (!available || !sheet) return null;
 
     const y = motionValue(0);
-    const height = () => sheet.offsetHeight || 1;
+    /* Measured once, when the thumb takes the sheet. Reading `offsetHeight` in
+       the paint would force a layout on every frame of the drag and again on
+       every frame of the spring that follows it — for a number that cannot
+       change while the sheet is being held. */
+    const height = sheet.offsetHeight || 1;
     const paint = value => {
       sheet.style.transform = `translate3d(0,${value}px,0)`;
       /* The scrim thins as the sheet leaves, so the page behind is already on
          its way back before the sheet has finished going. */
-      if (scrim) scrim.style.opacity = String(Math.max(0, 1 - value / height()));
+      if (scrim) scrim.style.opacity = String(Math.max(0, 1 - value / height));
     };
     const stopPaint = y.on("change", paint);
     hint(sheet, "transform");
@@ -173,7 +182,7 @@
       dismiss({ velocity = 0 } = {}) {
         if (disposed) return settled;
         if (reducedMotion()) { dispose(); return settled; }
-        return animate(y, height(), { ...VOCABULARY.gestureExit, velocity: perSecond(velocity) })
+        return animate(y, height, { ...VOCABULARY.gestureExit, velocity: perSecond(velocity) })
           .then(() => true, () => false)
           .finally(() => dispose());
       },
