@@ -4145,27 +4145,27 @@ const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").
 /** Carry the deck one card over, animating the track exactly as a fling does,
  *  then re-render at the new index with the track back at rest. Chevrons, the
  *  Next exercise button, the arrow keys and a completed swipe all land here. */
-function focusAnimateTo(dir,{from=0,velocity=0}={}){
+/* Carrying the deck to the neighbouring card stays a plain 210ms transition,
+ * deliberately. A spring was tried here and taken back out: the card is being
+ * delivered to a fixed slot, the deck is locked for the length of the slide so
+ * there is nothing to interrupt, and the spring's tail pushed the index change
+ * — which has to wait for the slide to finish — from 210ms out past 300ms.
+ * Motion is worth its cost where a gesture is still live; here it only cost
+ * responsiveness. The snap-back below is the half of this that is a real catch,
+ * and that half does use a spring. */
+function focusAnimateTo(dir){
   if(focusFlinging||!focusCanGo(dir))return false;
   const track=focusTrack(),deck=$("#focusDeck");
   if(!track||reducedMotion())return focusGo(dir);
   focusFlinging=true;
   deck?.classList.add("is-swiping");
-  const land=()=>{
+  track.classList.add("is-settling");
+  focusSetTrack(track,-dir*focusStep());
+  setTimeout(()=>{
     focusFlinging=false;
     track.classList.remove("is-settling");
     deck?.classList.remove("is-swiping");
-    focusGo(dir)};
-  // A thrown card keeps the speed it was thrown at, and the deck knows it has
-  // arrived because the animation says so rather than because a timer that was
-  // set to match the stylesheet happened to fire. `is-swiping` already keeps
-  // the neighbouring slots visible, so the settling transition stays off and
-  // does not fight the frame-by-frame placement.
-  const run=window.RepForgeMotion?.settleFocusDeck(track,{from,to:-dir*focusStep(),velocity});
-  if(run){run.then(land);return true}
-  track.classList.add("is-settling");
-  focusSetTrack(track,-dir*focusStep());
-  setTimeout(land,FOCUS_SLIDE_MS);
+    focusGo(dir)},FOCUS_SLIDE_MS);
   return true}
 const FOCUS_SLIDE_MS=210;
 /** One place that writes the track's transform, so drag, fling and reset agree. */
@@ -4218,9 +4218,9 @@ function focusSettle(track,card,deck,{from=0,velocity=0}={}){
   // A swipe that stopped short is caught rather than switched off: the track
   // springs home from wherever the thumb left it, carrying its velocity, so a
   // half-hearted push and an abandoned flick read as different gestures.
-  const run=window.RepForgeMotion?.settleFocusDeck(track,{from,to:0,velocity});
-  if(run){run.then(done);return}
   track?.classList.add("is-settling");
+  const run=window.RepForgeMotion?.settleFocusDeck(track,{from,velocity});
+  if(run){run.then(done);return}
   focusSetTrack(track,0);
   setTimeout(done,220)}
 function focusDragEnd(e){
@@ -4236,7 +4236,7 @@ function focusDragEnd(e){
   const past=Math.abs(dx)>=Math.min(110,Math.max(56,width*.2))||flick;
   if(!past||!focusCanGo(dir)){focusSettle(track,card,deck,{from:dx,velocity:vx});return}
   card.classList.remove("is-dragging");
-  focusAnimateTo(dir,{from:dx,velocity:vx})}
+  focusAnimateTo(dir)}
 function enterWorkout(opts={}){if(opts.day&&!requestWorkoutDay(opts.day))return false;
   workoutLeft=false;setWorkoutActive(true);
   // Focus layout matches mock 01; List remains the default for broad editing/tests.

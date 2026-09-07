@@ -42,20 +42,35 @@
      anything that needs a different feel gets a new entry here rather than a
      spring literal at the call site.
 
-     Durations are Motion's `visualDuration`: the time the movement *looks*
-     like it takes, with the spring's tail settling after. Every one of them
-     lands inside the 300ms the interaction discipline pass set for ordinary
-     UI, and the bounce stays low — this is a training log, not a toy. */
+     The three springs are written as physics — stiffness, damping, mass —
+     rather than as Motion's `visualDuration`/`bounce` shorthand, and that is
+     not a style choice. A duration-parameterised spring solves for a fixed
+     arrival time, so the release velocity a gesture hands it barely changes
+     what it does; measured, a sheet thrown at 900px/s and one let go at rest
+     travelled the same distance. Carrying that velocity is the entire reason
+     any of this is Motion rather than a CSS transition, so these are real
+     springs. Every one is damped between 0.8 and 1.0 of critical: enough to
+     read as caught rather than switched off, never enough to wobble.
+
+     Each moves a value measured in pixels, so `restDelta` and `restSpeed` sit
+     well above Motion's defaults. Settling the last hundredth of a pixel is
+     invisible, and it delays whatever waits on the animation — a tail the
+     lifter cannot see is a delay they can.
+
+     The two curves are tweens, because content measuring itself open is not a
+     thrown object and pretending otherwise would be decoration. Both stay
+     inside the 300ms ceiling the interaction discipline pass set. */
   const VOCABULARY = {
-    /* A surface the thumb just released, returning to rest. A trace of bounce
-       reads as the surface being caught rather than switched off. */
-    gestureSettle: { type: "spring", visualDuration: 0.26, bounce: 0.12 },
-    /* A surface leaving because the gesture asked it to. It is on its way out,
-       so it must not overshoot on the way. */
-    gestureExit: { type: "spring", visualDuration: 0.2, bounce: 0 },
-    /* Rows trading places. Firm and quick: a list being reordered has to stay
+    /* A surface the thumb just released, returning to rest. Slightly under
+       critical, so it reads as being caught rather than switched off.
+       Visually arrives in about 170ms and is finished inside 320ms. */
+    gestureSettle: { type: "spring", stiffness: 600, damping: 40, mass: 1, restDelta: 0.5, restSpeed: 10 },
+    /* A surface leaving because the gesture asked it to. Critically damped: it
+       is on its way out and must not overshoot on the way. */
+    gestureExit: { type: "spring", stiffness: 700, damping: 53, mass: 1, restDelta: 1, restSpeed: 40 },
+    /* Rows trading places. Firm and quick — a list being reordered has to stay
        readable while it moves, and several rows move at once. */
-    layoutShift: { type: "spring", visualDuration: 0.22, bounce: 0.06 },
+    layoutShift: { type: "spring", stiffness: 600, damping: 48, mass: 1, restDelta: 0.5, restSpeed: 20 },
     /* Content measuring itself open or shut. There is no thrown object here,
        so there is no physics to model — a curve is the honest description.
        Exit is shorter than entry: the system responds faster than it offers. */
@@ -164,22 +179,25 @@
   }
 
   /* ============================================================
-     Focus-mode exercise deck
+     Focus-mode exercise deck — the abandoned swipe
      ------------------------------------------------------------
      One horizontal track carries the previous, current and next exercise. A
-     swipe moves the track; releasing either snaps it back or carries it one
-     card over and re-renders at the new index.
+     swipe past the commitment carries the deck one card over; a swipe short of
+     it has to come back.
 
-     Both endings used to be a 210ms CSS transition finished by a matching
-     `setTimeout`, which meant two clocks that could disagree and a fling that
-     travelled at exactly the speed of a reluctant nudge. Motion replaces both
-     with one spring that starts at the thumb's velocity and one promise that
-     resolves when the movement is actually over.
+     Only the coming back is here. Carrying the deck across stays the 210ms CSS
+     transition it always was: the card is delivered to a fixed slot, the deck
+     is locked for the length of the slide, and a spring's tail delayed the
+     index change that waits on it. A swipe that stopped short is the opposite
+     case — the distance is whatever the thumb chose, the speed is whatever the
+     thumb had, and the two together are the difference between a half-hearted
+     push and an abandoned flick. That is a catch, and a catch is a spring.
      ============================================================ */
-  function settleFocusDeck(track, { from = 0, to = 0, velocity = 0 } = {}) {
+  function settleFocusDeck(track, { from = 0, velocity = 0 } = {}) {
     if (!available || !track) return null;
     if (reducedMotion()) {
-      track.style.transform = to ? `translate3d(${to}px,0,0)` : "";
+      track.style.transform = "";
+      track.style.removeProperty("transition");
       hint(track, null);
       return settled;
     }
@@ -187,15 +205,19 @@
     const stopPaint = x.on("change", value => {
       track.style.transform = `translate3d(${value}px,0,0)`;
     });
+    /* The caller keeps `is-settling` on the track, because that class is also
+       how the rest of the app recognises a slide in progress. Its CSS
+       transition would smear every frame this writes, so it is switched off
+       inline for the length of the animation and handed straight back. */
+    track.style.transition = "none";
     hint(track, "transform");
-    /* Snapping back to rest is a catch; carrying on to the next card is a
-       delivery, and a card that overshoots its slot reads as a bug. */
-    const settings = to === 0 ? VOCABULARY.gestureSettle : VOCABULARY.gestureExit;
-    return animate(x, to, { ...settings, velocity: perSecond(velocity) })
+    return animate(x, 0, { ...VOCABULARY.gestureSettle, velocity: perSecond(velocity) })
       .then(() => true, () => false)
       .finally(() => {
         stopPaint();
         x.stop();
+        track.style.removeProperty("transition");
+        track.style.transform = "";
         hint(track, null);
       });
   }
@@ -339,25 +361,34 @@
      superseded cannot wipe the inline height the new one is still writing. */
   const disclosureRuns = new WeakMap();
 
-  /* `applyVisualState` is the caller's *visual* toggle only — the class that
-     decides whether the panel is displayed. Semantics (`aria-expanded`,
-     `aria-hidden`, the chevron) must already have been applied by the caller
-     before this runs, so a screen reader hears the new state at the moment of
-     the tap rather than 150ms later. The visual toggle is invoked exactly once
-     whichever branch runs, including when Motion is absent, so the panel's
-     resting state never depends on whether the animation happened. */
+  /* `applyVisualState` is the caller's *visual* toggle — the class that decides
+     whether the panel is displayed. It is applied immediately and exactly once,
+     whichever branch runs, because that class is also what the next tap reads
+     to decide which way it is toggling. A disclosure whose truth lagged its
+     animation answered a second tap with the direction of the first.
+
+     Since the closed class hides the panel outright, a closing panel is kept on
+     screen for the length of its animation by `is-collapsing` — a marker that
+     exists only while the height is travelling and is never part of a resting
+     state. */
+  const COLLAPSING = "is-collapsing";
+
   function animateDisclosure(panel, open, applyVisualState) {
     const apply = typeof applyVisualState === "function" ? applyVisualState : () => {};
     if (!available || !panel) { apply(); return null; }
-    if (reducedMotion()) { apply(); return settled; }
+    if (reducedMotion()) { apply(); panel.classList.remove(COLLAPSING); return settled; }
 
+    /* Measured before the class changes: whatever the panel is showing now,
+       including a height an interrupted animation was part-way through. */
     const from = panel.getBoundingClientRect().height;
-    /* Opening: show the panel first so it can be measured. Closing: keep it
-       shown until the height reaches zero, then apply. */
-    if (open) apply();
+    apply();
+    panel.classList.toggle(COLLAPSING, !open);
+    panel.style.height = "";
     const to = open ? panel.getBoundingClientRect().height : 0;
     if (Math.abs(to - from) < 1) {
-      if (!open) apply();
+      panel.classList.remove(COLLAPSING);
+      panel.style.overflow = "";
+      hint(panel, null);
       return settled;
     }
 
@@ -370,10 +401,12 @@
       { height: [`${from}px`, `${to}px`] },
       open ? VOCABULARY.revealIn : VOCABULARY.revealOut
     ).then(() => true, () => false).finally(() => {
+      /* A run a later tap superseded must not clear the height its replacement
+         is still writing. */
       if (disclosureRuns.get(panel) !== token) return;
       disclosureRuns.delete(panel);
-      if (!open) apply();
-      /* Settled state carries no inline geometry, so a panel left open looks
+      panel.classList.remove(COLLAPSING);
+      /* A resting panel carries no inline geometry, so one left open looks
          exactly like one that was never animated. */
       panel.style.height = "";
       panel.style.overflow = "";

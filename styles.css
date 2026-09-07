@@ -2957,6 +2957,10 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
    column, and the rule that closes it is the next row's. */
 .settings-panel{display:none;padding:4px var(--settings-inset) 14px;background:transparent}
 .settings-panel.is-open{display:block}
+/* A panel that has just been closed stays on screen while its height travels
+   to zero, and only then goes. The marker exists for the length of that
+   animation and never appears in a resting state. */
+.settings-panel.is-collapsing{display:block}
 .settings-group > .field,.settings-group > .lede,.settings-group > .rirmode{margin-left:var(--settings-inset);margin-right:var(--settings-inset)}
 .settings-group .notifytypes .field--check{margin-left:calc(var(--settings-inset) * -1);margin-right:calc(var(--settings-inset) * -1);padding:2px var(--settings-inset)}
 .settings-group > .lede{padding-bottom:10px}
