@@ -96,9 +96,10 @@ stays reachable through the Move controls.
 | Interaction | Current implementation | Decision | Technique | Reason |
 | --- | --- | --- | --- | --- |
 | Settings disclosures (rest, RIR mode, progression, notifications, backup, import) | `display:none` ↔ `display:block` | **Motion** | Measured height, 200ms in / 150ms out | The one place in the app where the target value cannot be known until the interaction happens. Rare enough to afford animating a layout property, and toggling twice quickly now reverses from the current height |
-| Block review panel | `div[role="dialog"]`, class-toggled | **Native `<dialog>`** | `showModal()` | The platform gives the top layer, the focus trap, inertness and Escape; the app's own focus lifecycle is kept on top of it, exactly as the two dialogs that were already native |
-| Restore-backup chooser | `div[role="dialog"]`, class-toggled | **Native `<dialog>`** | `showModal()` | Same |
-| End-training-block confirm | `div[role="dialog"]`, class-toggled | **Native `<dialog>`** | `showModal()` | Same |
+| Block review panel | `div[role="dialog"]`, class-toggled | **Native `<dialog>`** | `showModal()`, `::backdrop` | The platform gives the top layer, the focus trap, inertness and Escape; the app's own focus lifecycle is kept on top of it, exactly as the two dialogs that were already native |
+| Restore-backup chooser | `div[role="dialog"]`, class-toggled | **Native `<dialog>`** | Same | Same |
+| End-training-block confirm | `div[role="dialog"]`, class-toggled | **Native `<dialog>`** | Same | Same |
+| The scrim behind those three | none — they were the only modals that did not dim the page | **Native `<dialog>`** | `::backdrop` on the shared `--scrim` token | A div has no backdrop to draw, which is the only reason these three were the exception. Moving to the element that has one made the app's modals agree; the sheets, the storage-recovery dialog and the leave-editor dialog were all already drawing it |
 | The nine bottom sheets | `div[role="dialog"]` + a separate scrim element | **Unchanged** | — | Not an appropriate substitute: the top layer would break the sheet/scrim pair, the `--kb` and `--vvh` sizing that keeps a sheet above the software keyboard, and the swipe gesture that dismisses it |
 | Session summary | `div[role="dialog"]`, full-bleed | **Unchanged** | — | A staged celebratory screen whose `is-played` choreography and `delayHide` `transitionend` contract would all need re-verifying, for no behaviour a lifter would notice |
 | First-run gate | `div[role="dialog"]`, full-screen | **Unchanged** | — | A boot gate rather than a dialog over content; its class semantics are what the install-mode matrix is written against |
@@ -160,10 +161,6 @@ on an animation to say what happened.
   value, and it would be a real improvement; it also moves the dismiss threshold,
   which is gesture semantics rather than animation, so it is left as its own
   change.
-- **The two centred dialogs have no backdrop tint**, while the two native dialogs
-  that predate this PR do. Preserving the existing look was the instruction, so
-  the inconsistency is recorded rather than resolved.
-
 ## How the Motion guidance was obtained
 
 `motion.dev` is unreachable from this environment (blocked by the egress

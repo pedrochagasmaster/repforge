@@ -518,6 +518,18 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   assert(info.inertIds.includes("main") || info.inertIds.length > 0, "Review Block Confirm: background is inert", JSON.stringify(info.inertIds));
   const wrap = await tabWrap(page, "#endBlockConfirm");
   assert(wrap.forward.inside && wrap.back.inside, "Review Block Confirm: Tab wraps inside", JSON.stringify(wrap));
+  // A modal dims what it is covering. This one only could once it became a
+  // native <dialog>: a div has no backdrop to paint.
+  const scrim = await page.evaluate(() => {
+    // The token is authored text and the backdrop is a computed colour, so they
+    // are compared as numbers rather than as strings.
+    const parse = (value) => (String(value).match(/[\d.]+/g) || []).map(Number);
+    const backdrop = getComputedStyle(document.querySelector("#endBlockConfirm"), "::backdrop").backgroundColor;
+    const token = getComputedStyle(document.documentElement).getPropertyValue("--scrim");
+    return { backdrop, token: token.trim(), same: JSON.stringify(parse(backdrop)) === JSON.stringify(parse(token)) };
+  });
+  assert(scrim.same && /^rgba\(/.test(scrim.backdrop),
+    "Review Block Confirm: the backdrop paints the app's own scrim token", JSON.stringify(scrim));
   await page.keyboard.press("Escape");
   await page.waitForFunction(() => !document.querySelector("#endBlockConfirm")?.open);
   await page.waitForFunction(() => document.activeElement?.id === "reviewBlockLink");

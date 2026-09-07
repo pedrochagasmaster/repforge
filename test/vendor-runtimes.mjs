@@ -260,9 +260,12 @@ assert(notice.includes("Motion animation runtime") && notice.includes("Copyright
     assert(!new RegExp(`<dialog id="${id}"[^>]*(aria-modal=|role="dialog")`).test(index),
       `#${id} does not restate the role or modality showModal already implies`);
   }
-  assert(/\.blockreview::backdrop\{background:transparent\}/.test(readStyles()) &&
-         /\.importchoice::backdrop\{background:transparent\}/.test(readStyles()),
-    "their backdrops are transparent, so moving element did not add a scrim these panels never had");
+  /* Every modal in the app dims what is behind it, and these three were the
+     exception only because a div has no backdrop to draw. */
+  assert(/\.blockreview::backdrop\{background:var\(--scrim\)\}/.test(readStyles()) &&
+         /\.importchoice::backdrop\{background:var\(--scrim\)\}/.test(readStyles()) &&
+         /\.storage-recovery::backdrop\{background:var\(--scrim\)\}/.test(readStyles()),
+    "every native dialog draws the same scrim, from the same token");
   assert(/\.blockreview\{[\s\S]*?max-width:none;max-height:none/.test(readStyles()),
     "the full-bleed panel undoes the UA dialog sizing so it still fills the screen");
   /* The surfaces deliberately left alone. Each is listed so a later reader can
