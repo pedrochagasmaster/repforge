@@ -3,8 +3,9 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 
 const root = resolve(import.meta.dirname, "..");
-const motion = readFileSync(resolve(root, "styles.css"), "utf8");
-const base = readFileSync(resolve(root, "styles-base.css"), "utf8");
+const motion = readFileSync(resolve(root, "motion-polish.css"), "utf8");
+const base = readFileSync(resolve(root, "styles.css"), "utf8");
+const index = readFileSync(resolve(root, "index.html"), "utf8");
 const sw = readFileSync(resolve(root, "sw.js"), "utf8");
 
 let passed = 0;
@@ -16,12 +17,13 @@ function assert(condition, name, detail = "") {
 
 console.log("motion polish");
 
-assert(motion.startsWith('@import url("./styles-base.css");'),
-  "motion layer imports the preserved production stylesheet first");
+assert(index.includes('<link rel="stylesheet" href="styles.css">') &&
+       index.includes('<link rel="stylesheet" href="motion-polish.css">'),
+  "motion layer loads after the canonical production stylesheet");
 assert(base.includes(".ledger__row.is-fresh") && base.includes(".sumsheet.is-played"),
-  "preserved base stylesheet still owns the underlying production surfaces");
-assert(sw.includes('"./styles-base.css"'),
-  "the preserved base stylesheet is precached for offline launch");
+  "canonical stylesheet still owns the underlying production surfaces");
+assert(sw.includes('"./motion-polish.css"'),
+  "motion stylesheet is precached for offline launch");
 
 assert(/\.view\{[\s\S]*?animation-duration:\.14s/.test(motion),
   "high-frequency view navigation settles in 140ms");
