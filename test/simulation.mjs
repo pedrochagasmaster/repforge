@@ -1378,6 +1378,7 @@ async function main() {
       }, actionMeta?.id || "");
     } else {
       await page.waitForFunction(() => document.querySelector("#log")?.classList.contains("active"), null, { timeout: 5000 });
+      if (actionMeta?.id) await page.waitForSelector(`#workout [data-ex="${actionMeta.id}"]`, { timeout: 5000 });
       actionNavOk = await page.evaluate(
         ({ id, day }) => {
           const tab = document.querySelector("#dayTabs button.active");
@@ -10065,6 +10066,7 @@ async function main() {
     const landLog = async (id, day) => {
       await page.click(`#attention [data-attn="${id}"]`);
       await page.waitForFunction(() => document.querySelector("#log")?.classList.contains("active"), null, { timeout: 5000 });
+      await page.waitForSelector(`#workout [data-ex="${id}"]`, { timeout: 5000 });
       return page.evaluate(
         ({ id, day }) => {
           const card = document.querySelector(`#workout [data-ex="${id}"]`);
