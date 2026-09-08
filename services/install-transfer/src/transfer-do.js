@@ -508,6 +508,20 @@ export class TransferDurableObject extends DurableObject {
     return { kind: "status", state: record.state, expiresAt: record.expires_at };
   }
 
+  // The authenticated operations runbook invokes this RPC with a routed
+  // object stub. It never enumerates objects or accepts a bearer in a URL.
+  async purgeDue({ now = Date.now() } = {}) {
+    requireNow(now);
+    try {
+      const record = await this._expireIfDue(now);
+      if (!record) return { purged: true };
+      return { purged: false, state: record.state };
+    } catch (error) {
+      if (error instanceof RecordIntegrityError) return { purged: false, state: "unavailable" };
+      throw error;
+    }
+  }
+
   async alarm() {
     const now = Date.now();
     try {

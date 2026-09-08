@@ -1,7 +1,10 @@
 import { routeFromToken, routeNameForIdempotencyKey } from "./routing.js";
+import { serviceHealth } from "./operations.js";
+import { RateLimitDurableObject } from "./rate-limit-do.js";
 import { TransferDurableObject } from "./transfer-do.js";
 
 export { TransferDurableObject };
+export { RateLimitDurableObject };
 export { routeFromToken, routeNameForIdempotencyKey };
 
 const noStoreHeaders = {
@@ -14,10 +17,16 @@ function json(value, status = 200) {
 }
 
 export default {
-  async fetch(request) {
+  async fetch(request, env) {
     const url = new URL(request.url);
     if (request.method === "GET" && url.pathname === "/health") {
-      return json({ ok: true, service: "install-transfer-foundation" });
+      const health = serviceHealth(env);
+      return json({
+        ok: true,
+        service: "install-transfer-foundation",
+        createsEnabled: health.createsEnabled,
+        operationalHealth: health.operationalHealth,
+      });
     }
 
     // The shared envelope parser and transport CORS contract are intentionally

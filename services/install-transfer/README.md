@@ -47,6 +47,11 @@ Claim and commit transitions use conditional SQLite updates keyed by the
 expected state, token digest, and expiry. The local Workers runtime tests
 exercise concurrent creates, first-claim binding, same-claim retries, and
 idempotent concurrent commits, as well as metadata and AAD tamper rejection.
+The authenticated operations runbook can invoke `purgeDue({now})` on a routed
+object stub as a manual backstop; it never lists objects or accepts a bearer in
+a URL. Creates remain disabled unless configuration, deletion, alarm,
+watchdog, key, and log health are explicitly healthy and the operator enables
+them; the kill switch forces them off.
 
 The HTTP transport deliberately returns unavailable for transfer paths until
 the corrected shared envelope module is accepted. Raw request-byte parsing,

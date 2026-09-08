@@ -178,4 +178,20 @@ describe("SQLite Durable Object encrypted record foundation", () => {
     ]);
     expect((await rows(stub))[0]).toMatchObject({ state: "deleted", envelope_ciphertext: null, claim_digest: null });
   });
+
+  it("keeps the manual purge backstop payload-free and bounded by the tombstone deadline", async () => {
+    const key = "manual-purge-key";
+    const stub = await objectFor(key);
+    await stub.createRecord({
+      idempotencyKey: key,
+      envelopeJson: JSON.stringify({ logical: "purge-me" }),
+      now: baseNow,
+      requestedExpiry: baseNow + 10,
+    });
+
+    await expect(stub.purgeDue({ now: baseNow + 10 })).resolves.toEqual({ purged: false, state: "expired" });
+    expect((await rows(stub))[0]).toMatchObject({ state: "expired", envelope_ciphertext: null, envelope_aad: null, claim_digest: null });
+    await expect(stub.purgeDue({ now: baseNow + 15 * 60_000 + 10 })).resolves.toEqual({ purged: true });
+    expect(await rows(stub)).toHaveLength(0);
+  });
 });

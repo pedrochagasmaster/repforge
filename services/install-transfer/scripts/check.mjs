@@ -20,8 +20,12 @@ const bindings = config.durable_objects?.bindings ?? [];
 if (!bindings.some((binding) => binding.name === "TRANSFER_OBJECTS" && binding.class_name === "TransferDurableObject")) {
   throw new Error("TRANSFER_OBJECTS binding is missing");
 }
-if (!config.migrations?.some((migration) => migration.new_sqlite_classes?.includes("TransferDurableObject"))) {
-  throw new Error("SQLite Durable Object migration is missing");
+if (!bindings.some((binding) => binding.name === "RATE_LIMIT_BUCKETS" && binding.class_name === "RateLimitDurableObject")) {
+  throw new Error("RATE_LIMIT_BUCKETS binding is missing");
+}
+const sqliteClasses = config.migrations?.flatMap((migration) => migration.new_sqlite_classes ?? []) ?? [];
+for (const className of ["TransferDurableObject", "RateLimitDurableObject"]) {
+  if (!sqliteClasses.includes(className)) throw new Error(`${className} SQLite migration is missing`);
 }
 
 console.log(`checked ${sourceFiles.length} service source files and Wrangler configuration`);

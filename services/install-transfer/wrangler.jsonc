@@ -8,13 +8,17 @@
       {
         "name": "TRANSFER_OBJECTS",
         "class_name": "TransferDurableObject"
+      },
+      {
+        "name": "RATE_LIMIT_BUCKETS",
+        "class_name": "RateLimitDurableObject"
       }
     ]
   },
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["TransferDurableObject"]
+      "new_sqlite_classes": ["TransferDurableObject", "RateLimitDurableObject"]
     }
   ]
 }
