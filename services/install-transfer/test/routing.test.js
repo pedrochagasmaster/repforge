@@ -71,6 +71,19 @@ describe("opaque transfer routing", () => {
     await expect(verifyToken(token, new Map([["k1", new Uint8Array(32).fill(0x99)]]))).rejects.toThrow("invalid transfer token");
   });
 
+  it("accepts a retained previous MAC key only when its public key id selects it", async () => {
+    const previous = new Uint8Array(32).fill(0x55);
+    const { token } = await mintToken({
+      idempotencyKey: "rotated-key",
+      routingSecret,
+      tokenMacSecret: previous,
+      keyId: "k0",
+      randomSource: sourceWith(0x45),
+    });
+    await expect(verifyToken(token, new Map([["k1", tokenMacSecret], ["k0", previous]]))).resolves.toMatchObject({ keyId: "k0" });
+    await expect(verifyToken(token, new Map([["k1", tokenMacSecret]]))).rejects.toThrow("invalid transfer token");
+  });
+
   it("stores only keyed digests for idempotency and token lookup", async () => {
     const { token } = await mintToken({
       idempotencyKey: "idem-3",
