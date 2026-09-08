@@ -124,6 +124,9 @@ describe("HTTP transfer adapter", () => {
     expect(duplicate.status).toBe(200);
     expect(await responseJson(duplicate)).toMatchObject({ duplicate: true });
 
+    // A deletion-health incident disables only new creates; recovery of this
+    // already-created transfer remains available.
+    await euStub(env.TRANSFER_HEALTH, "global").markDeletionUnhealthy({ now: Date.now() });
     const claimId = "A".repeat(22);
     const claim = await worker.fetch(post("/v1/transfers/claims", { token: created.token, claimId }), env);
     expect(claim.status).toBe(200);
