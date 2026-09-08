@@ -1428,3 +1428,180 @@ test("deliberate mutation and omission controls fail on skipped family or freque
   assert.equal(tamperedLowerValidation.status, "invalid");
   assert.equal(tamperedLowerValidation.code, "invalid_sibling_derivation");
 });
+
+test("balanced 6->5 records exact authored RIR/set changes yet keeps only truly unchanged relations preserved", async () => {
+  const sourceCtx = stableFamilyContext("balanced", 6, 90);
+  const sourceInst = Compiler.compile(sourceCtx, EXERCISE_LIBRARY);
+  assert.equal(sourceInst.kind, "compiled");
+
+  const result = await Transition.proposeSibling({
+    compiler: Compiler,
+    catalogue: EXERCISE_LIBRARY,
+    transitionId: "tr_balanced_6_to_5_p3b",
+    createdAt: "2026-10-02T10:00:00.000Z",
+    kind: "lower_frequency_sibling",
+    predecessor: {
+      programId: "prog_balanced_6",
+      durableRevision: 1,
+      source: "Recommend",
+      compilerProvenance: sourceInst.provenance,
+    },
+    predecessorInstance: sourceInst,
+    predecessorCompilerContext: sourceCtx,
+    targetConstraint: { availableDays: 5 },
+    successorProgramId: "prog_balanced_5",
+    diagnosis: {
+      kind: "fewer_days",
+      answers: { availableDays: 5 },
+      eligibleEvidenceIds: ["ev-balanced-6-5"],
+      insufficientEvidenceReasons: [],
+    },
+  });
+  assert.equal(result.ok, true, result.code);
+
+  // The authored sibling change is exact in diff.prescriptions: 11 mapped rows
+  // move target RIR [0,2] -> [1,3]; seven of them also move sets 2 -> 3, four
+  // stay at 2 sets. Nothing is silently relabelled invariant.
+  const changed = result.proposal.diff.prescriptions.filter(
+    (row) => row.before && row.after && JSON.stringify(row.before) !== JSON.stringify(row.after),
+  );
+  assert.equal(changed.length, 11);
+  assert(
+    changed.every((row) =>
+      JSON.stringify(row.before.rir) === "[0,2]" && JSON.stringify(row.after.rir) === "[1,3]"),
+    "every changed mapped prescription moves target RIR [0,2] -> [1,3]",
+  );
+  assert.equal(changed.filter((row) => row.before.sets === 2 && row.after.sets === 3).length, 7);
+  assert.equal(changed.filter((row) => row.before.sets === 2 && row.after.sets === 2).length, 4);
+  assert(changed.every((row) => row.reason === "prescription changed"));
+
+  // The paired-exposure relation endpoints are carried over byte-for-byte in
+  // this pair, so both relations are preserved and nothing is reset. A changed
+  // authored prescription on a non-relational slot never resets a relation.
+  assert.deepEqual(result.proposal.progressionContract, {
+    preservedRelations: [
+      "paired_exposure@1:balanced_6_knee->balanced_5_knee",
+      "paired_exposure@1:balanced_6_press->balanced_5_press",
+    ],
+    resetRelations: [],
+    incompatibilities: [],
+  });
+
+  // One truly unchanged preserved relation, proven at the endpoint progression
+  // objects themselves rather than through a filtered comparison.
+  const predSlots = new Map(sourceInst.days.flatMap((d) => d.slots).map((s) => [s.slotId, s]));
+  const succSlots = new Map(result.successorInstance.days.flatMap((d) => d.slots).map((s) => [s.slotId, s]));
+  const predKnee = sourceInst.relations.find((r) => r.id === "balanced_6_knee");
+  const succKnee = result.successorInstance.relations.find((r) => r.id === "balanced_5_knee");
+  assert.deepEqual(
+    predSlots.get(predKnee.heavySlotId).prescription.progression,
+    succSlots.get(succKnee.heavySlotId).prescription.progression,
+  );
+  assert.deepEqual(
+    predSlots.get(predKnee.volumeSlotId).prescription.progression,
+    succSlots.get(succKnee.volumeSlotId).prescription.progression,
+  );
+
+  assert.deepEqual(
+    await Transition.validateProposal(result.proposal, {
+      predecessor: { programId: "prog_balanced_6", durableRevision: 1, source: "Recommend" },
+      predecessorInstance: sourceInst,
+      successorInstance: result.successorInstance,
+      predecessorCompilerContext: sourceCtx,
+      successorCompilerContext: result.successorCompilerContext,
+    }),
+    { ok: true, status: "preview" },
+  );
+});
+
+test("shorter-session balanced 6d @ 30m resets relations whose endpoint progression the compiler re-derived", async () => {
+  const sourceCtx = stableFamilyContext("balanced", 6, 90);
+  const sourceInst = Compiler.compile(sourceCtx, EXERCISE_LIBRARY);
+
+  const result = await Transition.proposeSibling({
+    compiler: Compiler,
+    catalogue: EXERCISE_LIBRARY,
+    transitionId: "tr_balanced_6_30m_p3b",
+    createdAt: "2026-10-02T11:00:00.000Z",
+    kind: "shorter_session_sibling",
+    predecessor: {
+      programId: "prog_balanced_6_90m",
+      durableRevision: 1,
+      source: "Recommend",
+      compilerProvenance: sourceInst.provenance,
+    },
+    predecessorInstance: sourceInst,
+    predecessorCompilerContext: sourceCtx,
+    targetConstraint: { sessionMinutes: 30 },
+    successorProgramId: "prog_balanced_6_30m",
+    diagnosis: {
+      kind: "sessions_too_long",
+      answers: { sessionMinutes: 30 },
+      eligibleEvidenceIds: ["ev-balanced-6-30"],
+      insufficientEvidenceReasons: [],
+    },
+  });
+  assert.equal(result.ok, true, result.code);
+
+  // Both paired-exposure relations map uniquely onto the exact same endpoint
+  // slots, but the compiler re-derived the volume endpoint target parameters to
+  // fit 30 minutes. That is an explicit reset with a stable parameter-change
+  // reason, never a preserved relation.
+  assert.deepEqual(result.proposal.progressionContract, {
+    preservedRelations: [],
+    resetRelations: [
+      "paired_exposure@1:balanced_6_knee->balanced_6_knee:endpoint_progression_changed",
+      "paired_exposure@1:balanced_6_press->balanced_6_press:endpoint_progression_changed",
+    ],
+    incompatibilities: [],
+  });
+
+  // The reset is real and specific: the volume endpoint progression object
+  // changed while its strategy identity did not, so the sibling stays supported.
+  const predSlots = new Map(sourceInst.days.flatMap((d) => d.slots).map((s) => [s.slotId, s]));
+  const succSlots = new Map(result.successorInstance.days.flatMap((d) => d.slots).map((s) => [s.slotId, s]));
+  const predKnee = sourceInst.relations.find((r) => r.id === "balanced_6_knee");
+  const succKnee = result.successorInstance.relations.find((r) => r.id === "balanced_6_knee");
+  assert.notDeepEqual(
+    predSlots.get(predKnee.volumeSlotId).prescription.progression,
+    succSlots.get(succKnee.volumeSlotId).prescription.progression,
+  );
+  assert.equal(
+    predSlots.get(predKnee.volumeSlotId).prescription.progression.strategy.id,
+    succSlots.get(succKnee.volumeSlotId).prescription.progression.strategy.id,
+  );
+  assert.deepEqual(
+    predSlots.get(predKnee.heavySlotId).prescription.progression,
+    succSlots.get(succKnee.heavySlotId).prescription.progression,
+  );
+
+  const validationContext = {
+    predecessor: { programId: "prog_balanced_6_90m", durableRevision: 1, source: "Recommend" },
+    predecessorInstance: sourceInst,
+    successorInstance: result.successorInstance,
+    predecessorCompilerContext: sourceCtx,
+    successorCompilerContext: result.successorCompilerContext,
+  };
+  assert.deepEqual(
+    await Transition.validateProposal(result.proposal, validationContext),
+    { ok: true, status: "preview" },
+  );
+
+  // Failure injection: freshly rehash a proposal that relabels a changed
+  // relation as preserved. validateProposal recomputes the relation contract
+  // from the live compiler instances and rejects it semantically, ahead of the
+  // proposal-hash check.
+  const tampered = structuredClone(result.proposal);
+  tampered.progressionContract = {
+    preservedRelations: ["paired_exposure@1:balanced_6_knee->balanced_6_knee"],
+    resetRelations: ["paired_exposure@1:balanced_6_press->balanced_6_press:endpoint_progression_changed"],
+    incompatibilities: [],
+  };
+  tampered.proposalHash = await Transition.hashProposal(tampered);
+  assert.equal(await Transition.hashProposal(tampered), tampered.proposalHash,
+    "the tampered proposal is internally hash-consistent");
+  const rejected = await Transition.validateProposal(tampered, validationContext);
+  assert.equal(rejected.ok, false);
+  assert.equal(rejected.status, "invalid");
+  assert.equal(rejected.code, "progression_contract_mismatch");
+});

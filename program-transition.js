@@ -338,23 +338,30 @@
     };
   }
 
-  
-  function progressionStrategyInvariant(progression) {
+  // Parameters the program compiler re-derives per blueprint when it fits a
+  // valid authored sibling: RIR bounds, working-set and back-off-set counts, and
+  // the rep-goal target. Two progressions that are equal once these are removed
+  // share the same strategy identity, schema, modifiers, and structural params,
+  // and differ only by that compiler-authored, target/set-dependent
+  // re-derivation. Equal keys mean "this authored sibling is reconstructable" —
+  // they do NOT assert the RIR or set counts are unchanged.
+  const COMPILER_AUTHORED_TARGET_PARAMS = new Set([
+    "workingSets", "targetRirMin", "targetRirMax", "repGoal", "backoffSets",
+  ]);
+
+  function progressionCompatibilityKey(progression) {
     if (!progression || typeof progression !== "object") return null;
     const { schemaVersion, modifiers, strategy } = progression;
     if (!strategy || typeof strategy !== "object") return null;
     const { id, version, params } = strategy;
-    const filteredParams = {};
+    const structuralParams = {};
     if (params && typeof params === "object") {
       for (const [key, value] of Object.entries(params)) {
-        if (key === "workingSets" || key === "targetRirMin" || key === "targetRirMax" ||
-            key === "repGoal" || key === "backoffSets") {
-          continue;
-        }
-        filteredParams[key] = value;
+        if (COMPILER_AUTHORED_TARGET_PARAMS.has(key)) continue;
+        structuralParams[key] = value;
       }
     }
-    return { schemaVersion, modifiers, id, version, params: filteredParams };
+    return { schemaVersion, modifiers, id, version, params: structuralParams };
   }
 
   function relationContract(predecessor, successor, mapping) {
@@ -365,7 +372,7 @@
     for (const pair of mapping.slots.filter((entry) => entry.predecessorSlot && entry.successorSlot)) {
       const before = predecessorSlots.get(pair.predecessorSlot);
       const after = successorSlots.get(pair.successorSlot);
-      if (!sameCanonical(progressionStrategyInvariant(before.prescription.progression), progressionStrategyInvariant(after.prescription.progression))) {
+      if (!sameCanonical(progressionCompatibilityKey(before.prescription.progression), progressionCompatibilityKey(after.prescription.progression))) {
         return { ok: false, code: "progression_parameters_changed" };
       }
     }
@@ -396,18 +403,29 @@
       }
       const successorRelation = candidates[0];
       const successorEndpoints = relationEndpointProgressions(successor, successorRelation);
-      if (!sameCanonical(progressionStrategyInvariant(predecessorEndpoints.heavy), progressionStrategyInvariant(successorEndpoints.heavy)) ||
-          !sameCanonical(progressionStrategyInvariant(predecessorEndpoints.volume), progressionStrategyInvariant(successorEndpoints.volume))) {
+      if (!sameCanonical(progressionCompatibilityKey(predecessorEndpoints.heavy), progressionCompatibilityKey(successorEndpoints.heavy)) ||
+          !sameCanonical(progressionCompatibilityKey(predecessorEndpoints.volume), progressionCompatibilityKey(successorEndpoints.volume))) {
         return { ok: false, code: "progression_parameters_changed" };
       }
       usedSuccessors.add(successorRelation.id);
       const identity = `${predecessorRelation.type}@${predecessorRelation.version}:` +
         `${predecessorRelation.id}->${successorRelation.id}`;
-      if (mappingByPredecessor.get(predecessorRelation.heavySlotId) === successorRelation.heavySlotId &&
-          mappingByPredecessor.get(predecessorRelation.volumeSlotId) === successorRelation.volumeSlotId) {
-        preservedRelations.push(identity);
-      } else {
+      const endpointMappingExact =
+        mappingByPredecessor.get(predecessorRelation.heavySlotId) === successorRelation.heavySlotId &&
+        mappingByPredecessor.get(predecessorRelation.volumeSlotId) === successorRelation.volumeSlotId;
+      // Preservation carries the relation and both endpoint progression objects
+      // over byte-for-byte. A compatible-but-re-derived endpoint (changed RIR,
+      // working sets, back-off sets, or rep goal) is an explicit reset with a
+      // stable reason, never preserved. Rebound endpoints stay a separate reason.
+      const endpointProgressionUnchanged =
+        sameCanonical(predecessorEndpoints.heavy, successorEndpoints.heavy) &&
+        sameCanonical(predecessorEndpoints.volume, successorEndpoints.volume);
+      if (!endpointMappingExact) {
         resetRelations.push(`${identity}:endpoints_rebound`);
+      } else if (!endpointProgressionUnchanged) {
+        resetRelations.push(`${identity}:endpoint_progression_changed`);
+      } else {
+        preservedRelations.push(identity);
       }
     }
     if (usedSuccessors.size !== successorRelations.length) {
