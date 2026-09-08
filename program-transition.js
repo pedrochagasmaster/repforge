@@ -464,6 +464,9 @@
     if (!RECONSTRUCTABLE_SOURCES.has(proposal.predecessor.source)) {
       return "unsupported_source";
     }
+    if (proposal.successor.source !== proposal.predecessor.source) {
+      return "source_provenance_mismatch";
+    }
     if (proposal.kind === "lower_frequency_sibling") {
       if (!isObject(proposal.diagnosis) ||
           proposal.diagnosis.kind !== "fewer_days" ||

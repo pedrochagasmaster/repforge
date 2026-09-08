@@ -688,3 +688,209 @@ test("freshly rehashed tampered shorter_session proposals are semantically rejec
   assert.equal(v6.status, "invalid");
   assert.equal(v6.code, "forbidden_recovery_week");
 });
+
+test("sibling source provenance is strictly preserved at producer and consumer boundaries", async () => {
+  const predecessor = compilePredecessor(4, 90);
+
+  // 1. Valid lower-frequency proposal baseline with source: "Recommend"
+  const validLower = await Transition.proposeSibling({
+    kind: "lower_frequency_sibling",
+    predecessor: {
+      programId: "prog_balanced_4",
+      durableRevision: 12,
+      source: "Recommend",
+      compilerProvenance: predecessor.instance.provenance,
+    },
+    successorProgramId: "prog_balanced_3",
+    predecessorInstance: predecessor.instance,
+    compilerContext: predecessor.compilerContext,
+    targetConstraint: { frequency: 3 },
+    diagnosis: {
+      kind: "fewer_days",
+      answers: { availableDays: 3 },
+      eligibleEvidenceIds: ["sessions-14d-6-of-3"],
+      insufficientEvidenceReasons: [],
+    },
+    transitionId: "tr_p3a_source_prov_lower",
+    createdAt: "2026-10-02T10:00:00.000Z",
+    services: { Compiler, catalogue: EXERCISE_LIBRARY },
+  });
+  assert.equal(validLower.ok, true);
+
+  const lowerValidationContext = {
+    predecessor: {
+      programId: "prog_balanced_4",
+      durableRevision: 12,
+      source: "Recommend",
+    },
+    predecessorInstance: predecessor.instance,
+    successorInstance: validLower.successorInstance,
+    predecessorCompilerContext: predecessor.compilerContext,
+    successorCompilerContext: validLower.successorCompilerContext,
+  };
+
+  // Confirm baseline validates
+  const baselineValidation = await Transition.validateProposal(validLower.proposal, lowerValidationContext);
+  assert.deepEqual(baselineValidation, { ok: true, status: "preview" });
+
+  // 2. Consumer boundary: freshly rehashed successor source mutations rejected by validateProposal
+  // 2a. Successor source changed from "Recommend" to "Import" and freshly rehashed (Finding J52-07 reproduction)
+  const tamperedImport = structuredClone(validLower.proposal);
+  tamperedImport.successor.source = "Import";
+  tamperedImport.proposalHash = await Transition.hashProposal(tamperedImport);
+  const vImport = await Transition.validateProposal(tamperedImport, lowerValidationContext);
+  assert.equal(vImport.ok, false);
+  assert.equal(vImport.status, "invalid");
+  assert.equal(vImport.code, "source_provenance_mismatch");
+
+  // 2b. Successor source changed from "Recommend" to allowlisted "Browse" (allowlisted source drift) and freshly rehashed
+  const tamperedBrowse = structuredClone(validLower.proposal);
+  tamperedBrowse.successor.source = "Browse";
+  tamperedBrowse.proposalHash = await Transition.hashProposal(tamperedBrowse);
+  const vBrowse = await Transition.validateProposal(tamperedBrowse, lowerValidationContext);
+  assert.equal(vBrowse.ok, false);
+  assert.equal(vBrowse.status, "invalid");
+  assert.equal(vBrowse.code, "source_provenance_mismatch");
+
+  // 2c. Successor source changed from "Recommend" to lowercase "recommend" (case drift) and freshly rehashed
+  const tamperedLowerRecommend = structuredClone(validLower.proposal);
+  tamperedLowerRecommend.successor.source = "recommend";
+  tamperedLowerRecommend.proposalHash = await Transition.hashProposal(tamperedLowerRecommend);
+  const vLowerRec = await Transition.validateProposal(tamperedLowerRecommend, lowerValidationContext);
+  assert.equal(vLowerRec.ok, false);
+  assert.equal(vLowerRec.status, "invalid");
+  assert.equal(vLowerRec.code, "source_provenance_mismatch");
+
+  // 2d. Successor source changed from "Recommend" to arbitrary string and freshly rehashed
+  const tamperedArbitrary = structuredClone(validLower.proposal);
+  tamperedArbitrary.successor.source = "ArbitraryRoute";
+  tamperedArbitrary.proposalHash = await Transition.hashProposal(tamperedArbitrary);
+  const vArbitrary = await Transition.validateProposal(tamperedArbitrary, lowerValidationContext);
+  assert.equal(vArbitrary.ok, false);
+  assert.equal(vArbitrary.status, "invalid");
+  assert.equal(vArbitrary.code, "source_provenance_mismatch");
+
+  // 3. Consumer boundary with different allowlisted predecessor source: "Browse"
+  const validBrowseLower = await Transition.proposeSibling({
+    kind: "lower_frequency_sibling",
+    predecessor: {
+      programId: "prog_balanced_4_browse",
+      durableRevision: 8,
+      source: "Browse",
+      compilerProvenance: predecessor.instance.provenance,
+    },
+    successorProgramId: "prog_balanced_3_browse",
+    predecessorInstance: predecessor.instance,
+    compilerContext: predecessor.compilerContext,
+    targetConstraint: { frequency: 3 },
+    diagnosis: {
+      kind: "fewer_days",
+      answers: { availableDays: 3 },
+      eligibleEvidenceIds: ["sessions-14d-6-of-3"],
+      insufficientEvidenceReasons: [],
+    },
+    transitionId: "tr_p3a_source_browse_lower",
+    createdAt: "2026-10-02T10:00:00.000Z",
+    services: { Compiler, catalogue: EXERCISE_LIBRARY },
+  });
+  assert.equal(validBrowseLower.ok, true);
+
+  const browseValidationContext = {
+    predecessor: {
+      programId: "prog_balanced_4_browse",
+      durableRevision: 8,
+      source: "Browse",
+    },
+    predecessorInstance: predecessor.instance,
+    successorInstance: validBrowseLower.successorInstance,
+    predecessorCompilerContext: predecessor.compilerContext,
+    successorCompilerContext: validBrowseLower.successorCompilerContext,
+  };
+
+  const browseBaselineValidation = await Transition.validateProposal(validBrowseLower.proposal, browseValidationContext);
+  assert.deepEqual(browseBaselineValidation, { ok: true, status: "preview" });
+
+  // 3a. Successor source changed from "Browse" to allowlisted "Recommend" and freshly rehashed
+  const browseTamperedRecommend = structuredClone(validBrowseLower.proposal);
+  browseTamperedRecommend.successor.source = "Recommend";
+  browseTamperedRecommend.proposalHash = await Transition.hashProposal(browseTamperedRecommend);
+  const vBrowseTamperedRec = await Transition.validateProposal(browseTamperedRecommend, browseValidationContext);
+  assert.equal(vBrowseTamperedRec.ok, false);
+  assert.equal(vBrowseTamperedRec.status, "invalid");
+  assert.equal(vBrowseTamperedRec.code, "source_provenance_mismatch");
+
+  // 3b. Successor source changed from "Browse" to "Import" and freshly rehashed
+  const browseTamperedImport = structuredClone(validBrowseLower.proposal);
+  browseTamperedImport.successor.source = "Import";
+  browseTamperedImport.proposalHash = await Transition.hashProposal(browseTamperedImport);
+  const vBrowseTamperedImport = await Transition.validateProposal(browseTamperedImport, browseValidationContext);
+  assert.equal(vBrowseTamperedImport.ok, false);
+  assert.equal(vBrowseTamperedImport.status, "invalid");
+  assert.equal(vBrowseTamperedImport.code, "source_provenance_mismatch");
+
+  // 4. Producer boundary: direct createSiblingProposal input checks
+  const targetContext = { ...structuredClone(predecessor.compilerContext), frequency: 3 };
+  delete targetContext.splitId;
+  const successorInstance = Compiler.compile(targetContext, EXERCISE_LIBRARY);
+
+  function baseDirectInput(predecessorSource, successorSource) {
+    return {
+      transitionId: "tr_direct_source_test",
+      createdAt: "2026-10-02T10:00:00.000Z",
+      kind: "lower_frequency_sibling",
+      request: "lower-frequency-sibling",
+      predecessor: {
+        programId: "prog_balanced_4",
+        durableRevision: 12,
+        source: predecessorSource,
+        compilerProvenance: predecessor.instance.provenance,
+      },
+      successor: {
+        programId: "prog_balanced_3",
+        source: successorSource,
+        compilerProvenance: successorInstance.provenance,
+      },
+      predecessorInstance: predecessor.instance,
+      successorInstance,
+      predecessorCompilerContext: predecessor.compilerContext,
+      successorCompilerContext: targetContext,
+      supportedVersions: Compiler.VERSIONS,
+      diagnosis: {
+        kind: "fewer_days",
+        answers: { availableDays: 3 },
+        eligibleEvidenceIds: ["sessions-14d-6-of-3"],
+        insufficientEvidenceReasons: [],
+      },
+    };
+  }
+
+  // 4a. Direct input with predecessor "Recommend" and successor "Import"
+  const directImport = await Transition.createSiblingProposal(baseDirectInput("Recommend", "Import"));
+  assert.equal(directImport.ok, false);
+  assert.equal(directImport.code, "source_provenance_mismatch");
+
+  // 4b. Direct input with predecessor "Recommend" and successor "Browse"
+  const directBrowse = await Transition.createSiblingProposal(baseDirectInput("Recommend", "Browse"));
+  assert.equal(directBrowse.ok, false);
+  assert.equal(directBrowse.code, "source_provenance_mismatch");
+
+  // 4c. Direct input with predecessor "Recommend" and successor "recommend"
+  const directLowerRec = await Transition.createSiblingProposal(baseDirectInput("Recommend", "recommend"));
+  assert.equal(directLowerRec.ok, false);
+  assert.equal(directLowerRec.code, "source_provenance_mismatch");
+
+  // 4d. Direct input with predecessor "Recommend" and successor arbitrary
+  const directArbitrary = await Transition.createSiblingProposal(baseDirectInput("Recommend", "ArbitraryRoute"));
+  assert.equal(directArbitrary.ok, false);
+  assert.equal(directArbitrary.code, "source_provenance_mismatch");
+
+  // 4e. Direct input with predecessor "Browse" and successor "Recommend"
+  const directBrowseToRec = await Transition.createSiblingProposal(baseDirectInput("Browse", "Recommend"));
+  assert.equal(directBrowseToRec.ok, false);
+  assert.equal(directBrowseToRec.code, "source_provenance_mismatch");
+
+  // 4f. Direct input with predecessor "Browse" and successor "Import"
+  const directBrowseToImport = await Transition.createSiblingProposal(baseDirectInput("Browse", "Import"));
+  assert.equal(directBrowseToImport.ok, false);
+  assert.equal(directBrowseToImport.code, "source_provenance_mismatch");
+});
