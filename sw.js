@@ -1,9 +1,10 @@
-const CACHE = "repforge-v202";
+const CACHE = "repforge-v203";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
+  "./vendor/motion/motion.js", "./vendor/dnd-kit/dnd-kit.js", "./vendor/dnd-kit/dnd-kit.runtime.js", "./motion-layer.js", "./motion-layer.js?v=203",
   "./telemetry.js", "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js",
-  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=202", "./program-entry.js", "./program-entry.js?v=202", "./program-entry-adapter.js", "./program-entry-adapter.js?v=202", "./program-editor.js", "./program-editor.js?v=168",
-  "./shared-setup.js", "./shared-setup.js?v=202", "./workout-draft.js", "./workout-draft.js?v=202", "./program-transition.js", "./program-transition.js?v=202", "./app.js", "./app.js?v=202",
+  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=203", "./program-entry.js", "./program-entry.js?v=203", "./program-entry-adapter.js", "./program-entry-adapter.js?v=203", "./program-editor.js", "./program-editor.js?v=203",
+  "./shared-setup.js", "./shared-setup.js?v=203", "./workout-draft.js", "./workout-draft.js?v=203", "./program-transition.js", "./program-transition.js?v=203", "./app.js", "./app.js?v=203",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
@@ -50,7 +51,7 @@ self.addEventListener("activate", event => {
   );
 });
 
-const SHELL = new Set(["/", "/index.html", "/app.js", "/workout-draft.js", "/program-transition.js", "/styles.css", "/motion-polish.css", "/i18n.js", "/exercises.js", "/shared-setup.js", "/program-compiler.js", "/program-entry.js", "/program-entry-adapter.js", "/program-editor.js", "/telemetry.js", "/posthog-init.js", "/posthog-config.js", "/manifest.webmanifest"]);
+const SHELL = new Set(["/", "/index.html", "/app.js", "/workout-draft.js", "/program-transition.js", "/styles.css", "/motion-polish.css", "/motion-layer.js", "/vendor/motion/motion.js", "/vendor/dnd-kit/dnd-kit.js", "/vendor/dnd-kit/dnd-kit.runtime.js", "/i18n.js", "/exercises.js", "/shared-setup.js", "/program-compiler.js", "/program-entry.js", "/program-entry-adapter.js", "/program-editor.js", "/telemetry.js", "/posthog-init.js", "/posthog-config.js", "/manifest.webmanifest"]);
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
 function shellPathname(pathname) {
   if (!SCOPE_PATH) return pathname;
@@ -61,6 +62,21 @@ self.addEventListener("fetch", event => {
   if (event.request.method !== "GET") return;
   const url = new URL(event.request.url);
   const path = shellPathname(url.pathname);
+  if (IMMUTABLE_RUNTIMES.has(path)) {
+    event.respondWith((async () => {
+      const cached = await caches.match(event.request);
+      if (cached) return cached;
+      try {
+        const response = await fetch(event.request);
+        const cache = await caches.open(CACHE);
+        await cache.put(event.request, response.clone());
+        return response;
+      } catch {
+        return new Response("", { status: 503, statusText: "Runtime unavailable" });
+      }
+    })());
+    return;
+  }
   const isShell = event.request.mode === "navigate" ||
     SHELL.has(path) || SHELL.has(path.replace(/\/$/, "/index.html"));
   if (isShell) {

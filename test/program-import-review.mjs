@@ -362,7 +362,8 @@ async function main() {
       const rows = [...document.querySelectorAll("#importRows .improw")];
       for (const row of rows) {
         const from = row.querySelector(".improw__from")?.textContent?.trim();
-        if (from === "Lat pulldown machine thing") row.querySelector('[data-imp-act="link"]')?.click();
+        if (from === "Lat pulldown machine thing")
+          row.querySelector('[data-imp-act="pick"][data-imp-idx="0"], [data-imp-act="link"]')?.click();
       }
     });
     await settle(page, 200);
@@ -598,7 +599,9 @@ async function main() {
       const acted = await page.evaluate(() => {
         const row = [...document.querySelectorAll("#importRows .improw")].find((r) => r.classList.contains("is-open"));
         if (!row) return false;
-        (row.querySelector('[data-imp-act="link"]') || row.querySelector('[data-imp-act="raw"]'))?.click();
+        (row.querySelector('[data-imp-act="pick"][data-imp-idx="0"]') ||
+          row.querySelector('[data-imp-act="link"]') ||
+          row.querySelector('[data-imp-act="raw"]'))?.click();
         return true;
       });
       if (!acted) break;
@@ -822,7 +825,7 @@ async function main() {
       programHistory: [],
     });
     const dialogState = () => page.evaluate(() => ({
-      open: !document.querySelector("#importChoice").classList.contains("hidden"),
+      open: !!document.querySelector("#importChoice").open,
       body: document.querySelector("#importChoiceBody")?.textContent || "",
       programOnly: !document.querySelector("#importProgramOnly").classList.contains("hidden"),
       reviewing: document.body.classList.contains("is-import"),

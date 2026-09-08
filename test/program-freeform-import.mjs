@@ -104,6 +104,8 @@ async function openFreeform(page) {
   return doors;
 }
 
+const settle = (page, ms = 350) => page.waitForTimeout(ms);
+
 const linkState = (page) => page.evaluate(() => {
   const link = (app) => document.querySelector(`[data-freeform-app="${app}"]`);
   return {
@@ -209,10 +211,16 @@ async function main() {
     assert(review.text.includes("Barbell bench press") && review.text.includes("Barbell row"),
       "the review shows the names the reply used, not the library's");
 
-    if (await page.locator("#importCommit").isDisabled()) {
+    // The row leads with its shortlist and keeps the escape hatches behind a
+    // disclosure, so resolving one means taking a candidate or opening that.
+    while (await page.locator("#importCommit").isDisabled()) {
+      const pick = page.locator('[data-imp-act="pick"]').first();
+      if (await pick.count()) { await pick.click(); continue; }
+      const more = page.locator(".improw.is-open .improw__more summary").first();
+      if (await more.count()) await more.click();
       const raw = page.locator('[data-imp-act="raw"]').first();
       if (await raw.count()) await raw.click();
-      else await page.locator('[data-imp-act="link"]').first().click();
+      else { await page.locator('[data-imp-act="link"]').first().click(); }
     }
     await page.click("#importCommit");
     await page.waitForSelector("#onboarding.active #entryActivate", { timeout: 20000 });
@@ -610,6 +618,280 @@ async function main() {
       "the screen is translated rather than rendering raw keys");
     assert(/JSON/.test(portuguese.prompt) && /programa/i.test(portuguese.prompt),
       "the prompt is written in the reader's language", portuguese.prompt.slice(0, 90));
+
+    /* ---------- Import from clipboard ----------
+       Clipboard is transport only: it fills the same reply the textarea fills
+       and presses the same review action, so these checks are about the seam
+       and the failure states, never about parsing. */
+    console.log("\nImport from clipboard");
+
+    // One stub for the whole section. It counts reads so "did rendering touch
+    // the clipboard?" is answerable, and lets each case choose the outcome.
+    const installClipboard = (page) => page.evaluate(() => {
+      window.__clipReads = 0;
+      window.__clipMode = { kind: "text", value: "" };
+      Object.defineProperty(navigator, "clipboard", {
+        configurable: true,
+        value: {
+          readText: () => {
+            window.__clipReads++;
+            const m = window.__clipMode;
+            if (m.kind === "reject") return Promise.reject(new Error("denied"));
+            if (m.kind === "hang") return new Promise((res) => { window.__clipRelease = res; });
+            return Promise.resolve(m.value);
+          },
+        },
+      });
+    });
+    const setClip = (page, kind, value) =>
+      page.evaluate(({ kind, value }) => { window.__clipMode = { kind, value }; }, { kind, value });
+    const clipReads = (page) => page.evaluate(() => window.__clipReads);
+    const toStage3 = async (page) => {
+      await reset(page);
+      await openFreeform(page);
+      await installClipboard(page);
+      await page.fill("#entryFreeformIn", PASTED);
+      await page.click("#entryFreeformContinue");
+      await page.waitForSelector("#entryFreeformCopy", { timeout: 20000 });
+      await page.click("#entryFreeformCopy");
+      await page.waitForSelector("#entryFreeformOut", { timeout: 20000 });
+    };
+
+    const COMPLETE = JSON.stringify({
+      version: 3, meta: { name: "Clipboard Split" },
+      exercises: [
+        { day: "Push", order: 1, name: "Bench press", sets: 4, min: 6, max: 8 },
+        { day: "Pull", order: 1, name: "Lat pulldown", sets: 3, min: 8, max: 12 },
+      ],
+    });
+    const GAPPED = JSON.stringify({
+      version: 3, meta: { name: "Gapped" },
+      exercises: [
+        { day: "Push", order: 1, name: "Bench press", sets: 4, min: 6, max: 8 },
+        { day: "Push", order: 2, name: "Cable flyes", sets: 3 },
+      ],
+      missing: [{ day: "Push", order: 2, field: "reps" }],
+      notImported: ["rest_times", "rir_rpe"],
+    });
+
+    await toStage3(page);
+    const stage3 = await page.evaluate(() => {
+      const btn = document.querySelector("#entryFreeformClipboard");
+      return {
+        exists: !!btn,
+        tag: btn?.tagName, type: btn?.getAttribute("type"),
+        name: btn?.textContent?.trim() || "",
+        hasTextarea: !!document.querySelector("#entryFreeformOut"),
+        noteHidden: document.querySelector("#entryFreeformClipNote")?.hidden,
+      };
+    });
+    assert(stage3.exists && stage3.tag === "BUTTON" && stage3.type === "button" && stage3.name.length > 0,
+      "stage 3 offers Import from clipboard as a real button with a name", JSON.stringify(stage3));
+    assert(stage3.hasTextarea, "manual paste stays available beside it");
+    assert(stage3.noteHidden === true, "no clipboard message shows before the lifter asks");
+    assert(await clipReads(page) === 0, "rendering stage 3 never reads the clipboard");
+
+    await page.evaluate(() => document.dispatchEvent(new Event("visibilitychange")));
+    await settle(page, 120);
+    assert(await clipReads(page) === 0, "returning to the tab never reads the clipboard");
+
+    // A complete reply travels the ordinary route into the shared review.
+    await setClip(page, "text", COMPLETE);
+    await page.click("#entryFreeformClipboard");
+    await page.waitForSelector("#importReview.active", { timeout: 20000 });
+    const afterComplete = await page.evaluate(() => ({
+      reads: window.__clipReads,
+      source: window.__repforgeImportDraft()?.rows?.length ?? 0,
+      session: sessionStorage.getItem("repforge_freeform_session_v1"),
+      sourceType: window.__repforgeImportDraft()?.sourceType ?? null,
+      shortlist: [...document.querySelectorAll('[data-imp-act="pick"]')].length,
+    }));
+    assert(afterComplete.reads === 1, "one tap reads the clipboard exactly once", String(afterComplete.reads));
+    assert(afterComplete.source === 2, "the clipboard reply becomes ordinary import rows", String(afterComplete.source));
+    assert(afterComplete.session === null, "reaching review clears the tab-scoped free-form session");
+    assert(afterComplete.sourceType === "freeform",
+      "the clipboard draft carries sourceType freeform, never clipboard", String(afterComplete.sourceType));
+    assert(afterComplete.shortlist > 0, "the stacked ranked shortlist renders for a clipboard import");
+
+    // The value the stacked PR reads at activation is written when review
+    // commits, so drive the rows through and check it there.
+    for (let guard = 0; guard < 12; guard++) {
+      const acted = await page.evaluate(() => {
+        const row = [...document.querySelectorAll("#importRows .improw")].find((r) => r.classList.contains("is-open"));
+        if (!row) return false;
+        (row.querySelector('[data-imp-act="pick"][data-imp-idx="0"]') ||
+          row.querySelector('[data-imp-act="raw"]'))?.click();
+        return true;
+      });
+      if (!acted) break;
+      await settle(page, 120);
+    }
+    await page.click("#importCommit");
+    await settle(page, 400);
+    const stagedSource = await page.evaluate(() => sessionStorage.getItem("repforge_import_source_v1"));
+    assert(stagedSource === "freeform",
+      "the staged import source the stacked PR reads stays freeform", String(stagedSource));
+
+    // A gapped reply reaches the existing gap step, disclosure and all.
+    await toStage3(page);
+    await setClip(page, "text", GAPPED);
+    await page.click("#entryFreeformClipboard");
+    await page.waitForSelector("#entryFreeformSubmitGaps", { timeout: 20000 });
+    const gapText = await page.evaluate(() => document.querySelector(".entry__notice--info")?.textContent || "");
+    assert(gapText.length > 0, "a gapped clipboard reply reaches the existing gap step with its disclosure", gapText);
+
+    // Unreadable text is just another reply.
+    await toStage3(page);
+    await setClip(page, "text", "sorry, I cannot help with that");
+    await page.click("#entryFreeformClipboard");
+    await settle(page, 300);
+    const unreadable = await page.evaluate(() => ({
+      recovery: !!document.querySelector("#entryFreeformCopyRepair"),
+      stillStage3: !!document.querySelector("#entryFreeformOut"),
+    }));
+    assert(unreadable.recovery && unreadable.stillStage3,
+      "unreadable clipboard text lands in the existing repair state");
+
+    // Empty clipboard must not submit and must not erase a typed reply.
+    await toStage3(page);
+    await page.fill("#entryFreeformOut", "half typed reply");
+    await setClip(page, "text", "   \n  ");
+    await page.click("#entryFreeformClipboard");
+    await settle(page, 300);
+    const clipEmpty = await page.evaluate(() => ({
+      reply: document.querySelector("#entryFreeformOut")?.value || "",
+      note: document.querySelector("#entryFreeformClipNote")?.hidden === false,
+      review: !!document.querySelector("#importReview.active"),
+    }));
+    assert(clipEmpty.reply === "half typed reply", "an empty clipboard never overwrites a typed reply", clipEmpty.reply);
+    assert(clipEmpty.note, "an empty clipboard explains itself");
+    assert(!clipEmpty.review, "an empty clipboard does not enter review");
+
+    // A rejected read is a browser capability state, not a broken import.
+    await toStage3(page);
+    await page.fill("#entryFreeformOut", "typed before the denial");
+    await setClip(page, "reject");
+    await page.click("#entryFreeformClipboard");
+    await settle(page, 300);
+    const denied = await page.evaluate(() => ({
+      reply: document.querySelector("#entryFreeformOut")?.value || "",
+      note: document.querySelector("#entryFreeformClipNote")?.textContent || "",
+      source: document.querySelector("#entryFreeformIn")?.value ?? null,
+      usable: document.querySelector("#entryFreeformOut")?.disabled === false,
+      busy: document.querySelector("#entryFreeformClipboard")?.getAttribute("aria-busy"),
+      focusedTag: document.activeElement?.tagName,
+    }));
+    assert(denied.reply === "typed before the denial", "a denied read preserves the typed reply", denied.reply);
+    assert(denied.note.length > 0 && !/denied/i.test(denied.note),
+      "a denied read explains itself without leaking the exception", denied.note);
+    assert(denied.usable, "the manual field stays usable after a denial");
+    assert(denied.busy === "false", "the button recovers from a rejected read");
+    assert(denied.focusedTag !== "TEXTAREA", "a failed read does not force the keyboard open");
+
+    // No Clipboard API at all.
+    await reset(page);
+    await openFreeform(page);
+    await page.evaluate(() => {
+      Object.defineProperty(navigator, "clipboard", { configurable: true, value: undefined });
+    });
+    await page.fill("#entryFreeformIn", PASTED);
+    await page.click("#entryFreeformContinue");
+    await page.waitForSelector("#entryFreeformCopy", { timeout: 20000 });
+    await page.click("#entryFreeformCopy");
+    await page.waitForSelector("#entryFreeformOut", { timeout: 20000 });
+    await page.click("#entryFreeformClipboard");
+    await settle(page, 200);
+    const missing = await page.evaluate(() => ({
+      note: document.querySelector("#entryFreeformClipNote")?.hidden === false,
+      textarea: !!document.querySelector("#entryFreeformOut"),
+    }));
+    assert(missing.note && missing.textarea,
+      "a browser without the Clipboard API falls back to manual paste with an explanation");
+
+    // Manual paste is untouched.
+    await toStage3(page);
+    await page.fill("#entryFreeformOut", COMPLETE);
+    await page.click("#entryFreeformReview");
+    await page.waitForSelector("#importReview.active", { timeout: 20000 });
+    assert(await clipReads(page) === 0, "manual paste still works and never touches the clipboard");
+
+    // Two rapid taps must produce one read and one transition.
+    await toStage3(page);
+    await setClip(page, "hang");
+    await page.click("#entryFreeformClipboard");
+    await page.evaluate(() => document.querySelector("#entryFreeformClipboard")?.click());
+    await settle(page, 120);
+    const busy = await page.evaluate(() => ({
+      reads: window.__clipReads,
+      disabled: document.querySelector("#entryFreeformClipboard")?.disabled,
+      busy: document.querySelector("#entryFreeformClipboard")?.getAttribute("aria-busy"),
+    }));
+    assert(busy.reads === 1, "a double tap starts one clipboard read", String(busy.reads));
+    assert(busy.disabled === true && busy.busy === "true", "the button reads as busy while the read is pending");
+    await page.evaluate((v) => window.__clipRelease(v), COMPLETE);
+    await page.waitForSelector("#importReview.active", { timeout: 20000 });
+    const once = await page.evaluate(() => window.__repforgeImportDraft()?.rows?.length ?? 0);
+    assert(once === 2, "one clipboard interaction reaches review once", String(once));
+
+    // Stale results: a reply typed while the read was pending wins.
+    await toStage3(page);
+    await setClip(page, "hang");
+    await page.click("#entryFreeformClipboard");
+    await settle(page, 80);
+    await page.evaluate(() => {
+      const out = document.querySelector("#entryFreeformOut");
+      out.value = "typed after the read began";
+      out.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+    await page.evaluate((v) => window.__clipRelease(v), COMPLETE);
+    await settle(page, 300);
+    const stale = await page.evaluate(() => ({
+      reply: document.querySelector("#entryFreeformOut")?.value || "",
+      review: !!document.querySelector("#importReview.active"),
+    }));
+    assert(stale.reply === "typed after the read began" && !stale.review,
+      "a stale clipboard result never overwrites a reply typed while it was pending", JSON.stringify(stale));
+
+    // Stale results: Start over retires the pending read.
+    await toStage3(page);
+    await setClip(page, "hang");
+    await page.click("#entryFreeformClipboard");
+    await settle(page, 80);
+    await page.click("#entryFreeformStartOver");
+    await settle(page, 150);
+    await page.evaluate((v) => window.__clipRelease(v), COMPLETE);
+    await settle(page, 300);
+    const afterStartOver = await page.evaluate(() => ({
+      review: !!document.querySelector("#importReview.active"),
+      onStage1: !!document.querySelector("#entryFreeformIn"),
+    }));
+    assert(!afterStartOver.review && afterStartOver.onStage1,
+      "a stale clipboard result cannot act after Start over", JSON.stringify(afterStartOver));
+
+    // Stale results: switching to the file door retires the pending read.
+    await toStage3(page);
+    await setClip(page, "hang");
+    await page.click("#entryFreeformClipboard");
+    await settle(page, 80);
+    await page.click("#entryFreeformFile");
+    await settle(page, 150);
+    await page.evaluate((v) => window.__clipRelease(v), COMPLETE);
+    await settle(page, 300);
+    const afterDoor = await page.evaluate(() => ({
+      review: !!document.querySelector("#importReview.active"),
+      onFileDoor: !!document.querySelector("#entryFreeformSwitch"),
+    }));
+    assert(!afterDoor.review && afterDoor.onFileDoor,
+      "a stale clipboard result cannot act after switching to file import", JSON.stringify(afterDoor));
+
+    // Portuguese copy exists for every clipboard string.
+    const ptClipboard = await page.evaluate(() => {
+      const keys = ["clipboard_import", "clipboard_busy", "clipboard_or",
+        "clipboard_empty", "clipboard_failed", "clipboard_unavailable"];
+      return keys.map((k) => window.RepForgeI18n.t("entry.freeform." + k, {}, "pt"));
+    });
+    assert(ptClipboard.every((v) => v && !/^entry\.freeform\./.test(v)),
+      "every clipboard string is translated for Portuguese", JSON.stringify(ptClipboard));
   } finally {
     await context.close();
     await browser.close();

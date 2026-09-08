@@ -1,0 +1,12 @@
+{
+  "name": "taurifer-vendor-runtimes-build",
+  "private": true,
+  "version": "1.0.0",
+  "description": "Offline generator dependencies for vendor/. Tooling only \u2014 the application itself ships the committed bundles and has no package manager.",
+  "type": "module",
+  "dependencies": {
+    "@dnd-kit/dom": "0.5.0",
+    "esbuild": "0.25.10",
+    "motion": "13.2.0"
+  }
+}

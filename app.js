@@ -1432,8 +1432,11 @@ function detachModalListeners(rec){
 function hideModalElement(rec){
   if(!rec?.el)return;
   // A sheet closed out from under a live drag (Escape, a save, a tour step) still
-  // carries the thumb's inline transform, and would reopen part-way down.
-  if(sheetDrag?.rec===rec){sheetDrag=null;sheetDragRelease(rec)}
+  // carries the thumb's inline transform — or a spring still settling it — and
+  // would reopen part-way down.
+  const wasDragged=sheetDrag?.rec===rec;
+  if(wasDragged)sheetDrag=null;
+  if(wasDragged||rec.motion)sheetDragRelease(rec);
   const el=rec.el;
   if(el.tagName==="DIALOG"){if(typeof el.close==="function"&&el.open)el.close()}
   else{el.classList.add("hidden");el.hidden=true}
@@ -1533,14 +1536,21 @@ function closeModal(el){
       onEnd=e=>{if(e.target===rec.el)finish()};
       rec.el.addEventListener("transitionend",onEnd)}
     else finish()})}
+/* Settings disclosures open panels whose height is content — a strategy
+ * explainer here, a table there, and different again in Portuguese. The state
+ * change is applied to the accessibility tree immediately; only the geometry is
+ * animated, and only when Motion is there to measure it. Without the runtime,
+ * or under reduced motion, the panel swaps display exactly as it always did. */
 function setDisclosure(button,panel,open){
   if(!button||!panel)return;
   const on=!!open;
   button.setAttribute("aria-expanded",on?"true":"false");
   if(panel.id)button.setAttribute("aria-controls",panel.id);
-  panel.classList.toggle("is-open",on);
   panel.setAttribute("aria-hidden",on?"false":"true");
-  const chev=button.querySelector(".chevron");if(chev)chev.classList.toggle("is-up",on)}
+  const chev=button.querySelector(".chevron");if(chev)chev.classList.toggle("is-up",on);
+  const show=()=>panel.classList.toggle("is-open",on);
+  if(window.RepForgeMotion)window.RepForgeMotion.animateDisclosure(panel,on,show);
+  else show()}
 function syncLogModeControls(){
   const list=logMode==="full",full=$("#modeFull"),focus=$("#modeFocus");
   if(full){full.classList.toggle("active",list);full.setAttribute("aria-pressed",list?"true":"false")}
@@ -4875,35 +4885,62 @@ function sheetDragMove(e){
     sheetDrag.live=true;
     rec.el.classList.add("is-dragging");
     rec.scrim?.classList.add("is-dragging");
+    // A sheet grabbed again while it is still springing back has a spring
+    // painting its transform. Stop that one first: two writers on the same
+    // property means whichever finishes last wins, and the loser is the thumb.
+    if(rec.motion){rec.motion.cancel();rec.motion=null}
+    sheetDrag.motion=window.RepForgeMotion?.trackSheetGesture(rec.el,rec.scrim)||null;
+    // The sheet can also be torn down mid-gesture — Escape, a save, a tour step
+    // — and whatever cleans it up has to be able to stop the animation too.
+    rec.motion=sheetDrag.motion;
     // Anchor where the drag was recognised, so the sheet doesn't jump by the slop.
     sheetDrag.y=e.clientY-SHEET_DRAG_LOCK}
   const now=e.timeStamp||performance.now(),dt=now-sheetDrag.lastT;
   if(dt>0){sheetDrag.vy=(e.clientY-sheetDrag.lastY)/dt;sheetDrag.lastY=e.clientY;sheetDrag.lastT=now}
   sheetDrag.dy=Math.max(0,e.clientY-sheetDrag.y);
-  rec.el.style.transform=`translate3d(0,${sheetDrag.dy}px,0)`;
-  // The scrim thins as the sheet leaves, so the page behind is already coming back.
-  if(rec.scrim)rec.scrim.style.opacity=String(Math.max(0,1-sheetDrag.dy/(rec.el.offsetHeight||1)))}
+  // Motion holds the sheet's position in a value it can spring from later, so
+  // the release carries the thumb's velocity. Without the runtime the sheet is
+  // placed the same way it always was and the stylesheet finishes the gesture.
+  if(sheetDrag.motion)sheetDrag.motion.follow(sheetDrag.dy);
+  else{
+    rec.el.style.transform=`translate3d(0,${sheetDrag.dy}px,0)`;
+    // The scrim thins as the sheet leaves, so the page behind is already coming back.
+    if(rec.scrim)rec.scrim.style.opacity=String(Math.max(0,1-sheetDrag.dy/(rec.el.offsetHeight||1)))}}
 /** Hand the sheet back to the stylesheet. Dropping the inline transform in the
  *  same tick as the class restores the transition from wherever the thumb left
  *  it, so the sheet either springs back or carries on down — never cuts. */
 function sheetDragRelease(rec){
   rec.el.classList.remove("is-dragging");
+  if(rec.motion){rec.motion.cancel();rec.motion=null}
   rec.el.style.transform="";
   rec.scrim?.classList.remove("is-dragging");
   if(rec.scrim)rec.scrim.style.opacity=""}
 function sheetDragEnd(e){
   if(!sheetDrag||(e&&e.pointerId!=null&&e.pointerId!==sheetDrag.id))return;
-  const{rec,dy,vy,live}=sheetDrag;sheetDrag=null;
+  const{rec,dy,vy,live,motion}=sheetDrag;sheetDrag=null;
   if(!live)return;
   // The drag ends over whatever the thumb started on, so a button under it must
   // not also fire.
   if(dy>SHEET_DRAG_LOCK)swallowNextClick();
-  sheetDragRelease(rec);
-  if(activeModal!==rec||rec.closing)return;
   // A deliberate throw counts as much as a long push (0.5px/ms is a flick), and
   // anything short of either is the lifter changing their mind.
   const flick=vy>=.5&&dy>=32;
-  if(flick||dy>=Math.min(160,Math.max(64,(rec.el.offsetHeight||0)*.32)))rec.onEscape()}
+  const dismiss=flick||dy>=Math.min(160,Math.max(64,(rec.el.offsetHeight||0)*.32));
+  const gone=activeModal!==rec||rec.closing;
+  if(!motion){
+    // No runtime: the stylesheet finishes the gesture exactly as it did before.
+    sheetDragRelease(rec);
+    if(!gone&&dismiss)rec.onEscape();
+    return}
+  rec.el.classList.remove("is-dragging");
+  rec.scrim?.classList.remove("is-dragging");
+  if(gone){sheetDragRelease(rec);return}
+  // The sheet keeps the speed it was let go at: a flick carries it the rest of
+  // the way out, a change of mind is caught and put back. Either way `onEscape`
+  // is the sheet's own dismiss, so a swipe can never close something a tap
+  // could not.
+  if(dismiss){motion.dismiss({velocity:vy});rec.onEscape()}
+  else motion.settle({velocity:vy}).finally(()=>{if(rec.motion===motion)rec.motion=null})}
 function focusGo(dir){
   const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0,next=at+dir;
   if(next<0||next>=fl.length)return false;
@@ -4920,7 +4957,15 @@ const FOCUS_GAP=14;
 const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 /** Carry the deck one card over, animating the track exactly as a fling does,
  *  then re-render at the new index with the track back at rest. Chevrons, the
- *  Next exercise button, the arrow keys and a completed swipe all land here. */
+ *  Next exercise button, the arrow keys and a completed swipe all land here.
+ *
+ *  This stays a plain 210ms transition, deliberately. A spring was tried and
+ *  taken back out: the card is delivered to a fixed slot, the deck is locked for
+ *  the length of the slide so there is nothing to interrupt, and the spring's
+ *  tail pushed the index change — which waits on the slide — from 210ms out past
+ *  300ms. Motion earns its cost where a gesture is still live; here it only cost
+ *  responsiveness. `focusSettle` below is the half of this that is a real catch,
+ *  and that half does use a spring. */
 function focusAnimateTo(dir){
   if(focusFlinging||!focusCanGo(dir))return false;
   const track=focusTrack(),deck=$("#focusDeck");
@@ -4980,11 +5025,17 @@ function swallowNextClick(){
   const stop=ev=>{ev.stopPropagation();ev.preventDefault()};
   document.addEventListener("click",stop,{capture:true,once:true});
   setTimeout(()=>document.removeEventListener("click",stop,{capture:true}),350)}
-function focusSettle(track,card,deck){
+function focusSettle(track,card,deck,{from=0,velocity=0}={}){
   card?.classList.remove("is-dragging");
+  const done=()=>{track?.classList.remove("is-settling");deck?.classList.remove("is-swiping")};
+  // A swipe that stopped short is caught rather than switched off: the track
+  // springs home from wherever the thumb left it, carrying its velocity, so a
+  // half-hearted push and an abandoned flick read as different gestures.
   track?.classList.add("is-settling");
+  const run=window.RepForgeMotion?.settleFocusDeck(track,{from,velocity});
+  if(run){run.then(done);return}
   focusSetTrack(track,0);
-  setTimeout(()=>{track?.classList.remove("is-settling");deck?.classList.remove("is-swiping")},220)}
+  setTimeout(done,220)}
 function focusDragEnd(e){
   if(!focusDrag||(e&&e.pointerId!=null&&e.pointerId!==focusDrag.id))return;
   const{card,track,dx,axis,vx}=focusDrag;focusDrag=null;
@@ -4996,7 +5047,7 @@ function focusDragEnd(e){
   // it was thrown (0.4px/ms is roughly a deliberate flick).
   const flick=Math.abs(vx)>=.4&&Math.sign(vx)===Math.sign(dx)&&Math.abs(dx)>=28;
   const past=Math.abs(dx)>=Math.min(110,Math.max(56,width*.2))||flick;
-  if(!past||!focusCanGo(dir)){focusSettle(track,card,deck);return}
+  if(!past||!focusCanGo(dir)){focusSettle(track,card,deck,{from:dx,velocity:vx});return}
   card.classList.remove("is-dragging");
   focusAnimateTo(dir)}
 async function enterWorkout(opts={}){if(opts.day&&!await requestWorkoutDay(opts.day))return false;
@@ -6327,12 +6378,17 @@ window.__repforgePickerSelection=()=>pickerState?[...pickerState.selected]:null;
 window.__repforgeDeleteCustomExercise=id=>deleteCustomExercise(id);
 window.__repforgeRowMuscles=row=>rowMuscles(row);
 window.__repforgeParseProgramSource=(text,name)=>parseProgramSource(text,name);
+window.__repforgeMatchCandidates=name=>{
+  const result=classifyImportRow({name},pickableExercises());
+  return{status:result.status,matchId:result.match?.id||null,
+    candidateIds:(result.candidates||[]).map(c=>c.entry.id)}};
+window.__repforgeFreeformClipboard=()=>importFreeformFromClipboard();
 window.__repforgeFreeform={
   parseReply:text=>parseFreeformProgramReply(text),
   readGapEnvelope:candidate=>readFreeformGapEnvelope(candidate),
   assembleDocument:(gapResult,gapAnswers)=>assembleFreeformProgramDocument(gapResult,gapAnswers)};
 window.__repforgeImportDraft=()=>importDraft&&{
-  fileName:importDraft.fileName,format:importDraft.format,
+  fileName:importDraft.fileName,format:importDraft.format,sourceType:importDraft.sourceType||null,
   counts:importCounts(importDraft),
   rows:importDraft.rows.map(r=>({name:r.raw.name,status:r.status,decision:r.decision,
     reviewed:r.reviewed,match:r.match?r.match.id:null}))};
@@ -9393,16 +9449,64 @@ function parseProgramSource(text,fileName=""){
   const text2=parseProgramTextExport(trimmed);
   return text2?Object.assign({format:"text"},text2):null}
 
-/* How close two movement names are, 0..1, on shared words. Deliberately dumb:
-   it only has to be good enough to say "look at this one", never to decide. */
-function nameAffinity(a,b){
-  const wa=foldSearch(a).split(/[^a-z0-9]+/).filter(w=>w.length>2);
-  const wb=new Set(foldSearch(b).split(/[^a-z0-9]+/).filter(w=>w.length>2));
-  if(!wa.length||!wb.size)return 0;
-  const hits=wa.filter(w=>wb.has(w)).length;
-  return hits/Math.max(wa.length,wb.size)}
+/* Words that survive the length filter but carry no movement signal. The
+   Portuguese "com" is the expensive one: it made every barbell movement share a
+   token with "Hip thrust com barra", so thirty-six entries tied at 0.50 and
+   array order picked the winner. */
+const MATCH_STOPWORDS=new Set([
+  "com","sem","para","por","dos","das","nos","nas","que","seu","sua","pes",
+  "the","and","for","with","your","from","into"]);
+/* Equipment still informs a match; it must never decide one alone. Scored at a
+   fraction of a movement token, then used to break ties, where it is the
+   difference between "Hip thrust na maquina" reaching the machine or the bar. */
+const MATCH_EQUIPMENT=new Set([
+  "barra","halteres","haltere","maquina","polia","cabo","smith","banco",
+  "cadeira","mesa","corda","anilha","barbell","dumbbell","machine","cable",
+  "bar","bench","rope","plate"]);
+const MATCH_EQUIPMENT_TOKENS={
+  barbell:["barra","barbell"],dumbbell:["halteres","haltere","dumbbell"],
+  machine:["maquina","machine"],cable:["cabo","polia","cable"],
+  smith:["smith"],bodyweight:["corpo","bodyweight"]};
+const MATCH_EQUIPMENT_WEIGHT=0.25;
+const matchTokens=s=>foldSearch(s).split(/[^a-z0-9]+/)
+  .filter(w=>w.length>2&&!MATCH_STOPWORDS.has(w));
+const matchWeight=w=>MATCH_EQUIPMENT.has(w)?MATCH_EQUIPMENT_WEIGHT:1;
+const matchWeightSum=list=>list.reduce((sum,w)=>sum+matchWeight(w),0);
 
-const IMPORT_PROBABLE_MIN=0.5;
+/* How close two movement names are, 0..1, on shared words. Deliberately dumb:
+   it only has to be good enough to say "look at this one", never to decide.
+   Movement words carry the weight; stopwords carry none and equipment a
+   quarter, so "com barra" can no longer outvote "hip thrust". */
+function nameAffinity(a,b){
+  const wa=matchTokens(a);
+  const wb=new Set(matchTokens(b));
+  if(!wa.length||!wb.size)return 0;
+  const hits=matchWeightSum(wa.filter(w=>wb.has(w)));
+  const denom=Math.max(matchWeightSum(wa),matchWeightSum([...wb]));
+  return denom?hits/denom:0}
+
+/* A library name wholly present inside the lifter's line. "Leg press 45°, pés
+   altos e afastados" is the library's "Leg press" plus the lifter's own setup
+   notes, and diluting the score by those notes discarded an exact reading. */
+function nameContainment(input,libraryName){
+  const wb=matchTokens(libraryName);
+  if(!wb.length)return false;
+  const wa=new Set(matchTokens(input));
+  return wb.every(w=>wa.has(w))}
+
+/* Whether the lifter's line names the equipment this entry uses. */
+function matchEquipmentAgrees(input,entry){
+  const list=Array.isArray(entry?.equipment)?entry.equipment:[];
+  if(!list.length)return false;
+  const wa=new Set(matchTokens(input));
+  return list.some(kind=>(MATCH_EQUIPMENT_TOKENS[kind]||[kind]).some(tok=>wa.has(tok)))}
+
+/* The floor is a display filter and never a trust gate: buildImportDraft gives
+   probable and unmatched rows the same decision and the same unreviewed state,
+   so lowering it cannot let anything through unseen. Below it a row proposes
+   nothing rather than a guess it cannot stand behind. */
+const IMPORT_PROBABLE_MIN=0.35;
+const IMPORT_CANDIDATE_LIMIT=3;
 
 /* Classifies one imported row against the library plus the definitions that
    travelled with the file. */
@@ -9419,12 +9523,41 @@ function classifyImportRow(row,candidates){
   // lifter should still see, since the name in their file will change.
   const alias=candidates.find(e=>foldSearch(e.namePt||"")===folded);
   if(alias)return{status:IMPORT_ALIAS,match:alias};
-  let best=null,bestScore=0;
-  for(const e of candidates){
-    const score=Math.max(nameAffinity(name,e.name),nameAffinity(name,e.namePt||""));
-    if(score>bestScore){bestScore=score;best=e}}
-  if(best&&bestScore>=IMPORT_PROBABLE_MIN)return{status:IMPORT_PROBABLE,match:best,score:bestScore};
-  return{status:IMPORT_UNMATCHED,match:null}}
+  // A curated alias went through the same editorial gate as the entry it points
+  // at, so "RDL means Romanian deadlift" is settled rather than guessed, and the
+  // row arrives confirmed like any other alias hit. Aliases add ways to reach a
+  // movement; they never change which movement an id means.
+  const curated=candidates.find(e=>(e.aliases||[]).some(a=>foldSearch(a)===folded));
+  if(curated)return{status:IMPORT_ALIAS,match:curated};
+  const ranked=rankImportCandidates(name,candidates);
+  if(!ranked.length)return{status:IMPORT_UNMATCHED,match:null,candidates:[]};
+  return{status:IMPORT_PROBABLE,match:ranked[0].entry,score:ranked[0].score,candidates:ranked}}
+
+/* The ranked shortlist behind a review row. Scoring moves the right entry into
+   this list; it does not reliably move it to the front, because a line like
+   "Hack squat" never says whether the barbell or the machine is meant. So the
+   row offers the list rather than a verdict.
+
+   Order: a contained library name first, then weighted overlap, then the entry
+   whose equipment the lifter actually named, then the library's own rank, and
+   last the array position, so a tie never rests on position alone. */
+function rankImportCandidates(name,candidates,limit=IMPORT_CANDIDATE_LIMIT){
+  const scored=[];
+  for(let i=0;i<candidates.length;i++){
+    const e=candidates[i];
+    const names=[e.name,e.namePt||"",...(e.aliases||[])];
+    const score=names.reduce((best,n)=>Math.max(best,nameAffinity(name,n)),0);
+    const contained=names.some(n=>nameContainment(name,n));
+    if(!contained&&score<IMPORT_PROBABLE_MIN)continue;
+    scored.push({entry:e,score,contained,equipment:matchEquipmentAgrees(name,e),
+      rank:Number.isFinite(e.rank)?e.rank:50,order:i})}
+  scored.sort((a,b)=>
+    (b.contained?1:0)-(a.contained?1:0)||
+    b.score-a.score||
+    (b.equipment?1:0)-(a.equipment?1:0)||
+    a.rank-b.rank||
+    a.order-b.order);
+  return scored.slice(0,limit)}
 
 /* Builds the review model. Exact and alias hits arrive decided; a probable one
    arrives undecided and blocks Import until it is looked at. */
@@ -9433,8 +9566,9 @@ function buildImportDraft(source,fileName){
     ? normalizeCustomExercises(source.customExercises).concat(pickableExercises())
     : pickableExercises();
   const rows=source.exercises.map((raw,i)=>{
-    const {status,match}=classifyImportRow(raw,candidates);
+    const {status,match,candidates:ranked}=classifyImportRow(raw,candidates);
     return{key:`imp${i}`,raw:cloneSnapshot(raw),status,match,
+      shortlist:(ranked||[]).map(c=>c.entry),
       decision:status===IMPORT_EXACT||status===IMPORT_ALIAS?"link":"raw",
       reviewed:status===IMPORT_EXACT||status===IMPORT_ALIAS}});
   return{fileName:String(fileName||""),format:source.format||"json",
@@ -9824,7 +9958,8 @@ function renderImportReview(){
     // screen exists, and a twelve-exercise split should not hide them.
     const ordered=[...importDraft.rows].sort((a,b)=>(a.reviewed?1:0)-(b.reviewed?1:0));
     rows.innerHTML=ordered.map(importRowHtml).join("");
-    $$("#importRows [data-imp-act]").forEach(b=>b.onclick=()=>importRowAction(b.dataset.impAct,b.dataset.impKey));
+    $$("#importRows [data-imp-act]").forEach(b=>
+      b.onclick=()=>importRowAction(b.dataset.impAct,b.dataset.impKey,b.dataset.impIdx));
   }
   const commit=$("#importCommit");
   if(commit){
@@ -9850,18 +9985,31 @@ function importRowHtml(row){
   // rows were matched by the importer rather than chosen by the lifter, so the
   // alternatives are noise on the screen you read before replacing a program.
   const folded=row.reviewed&&!row.expanded;
+  // Scoring puts the right movement in the shortlist far more reliably than it
+  // puts it first, and a line like "Hack squat" never says whether the barbell
+  // or the machine is meant. So an undecided row offers its candidates instead
+  // of a verdict, and the escape hatches move behind a disclosure rather than
+  // wrapping four buttons onto three lines of a phone.
+  const shortlist=(row.shortlist||[]).filter(Boolean);
+  const chips=!folded&&shortlist.length
+    ?shortlist.map((entry,i)=>
+      `<button type="button" class="improw__btn improw__btn--pick" data-imp-act="pick" data-imp-idx="${i}" data-imp-key="${esc(row.key)}">${esc(t("import.action_link",{name:libraryName(entry)}))}</button>`).join("")
+    :(!folded&&row.match&&row.decision!=="link"
+      ?`<button type="button" class="improw__btn" data-imp-act="link" data-imp-key="${esc(row.key)}">${esc(t("import.action_link",{name:libraryName(row.match)}))}</button>`:"");
+  const escapes=
+    `<button type="button" class="improw__btn" data-imp-act="choose" data-imp-key="${esc(row.key)}">${esc(t("import.action_choose"))}</button>`+
+    // Shown while a row still needs a decision even when "keep" is already
+    // the standing choice: an unmatched row has to be acknowledged, not just
+    // defaulted, or there is no way to clear it off the review list.
+    (row.decision!=="raw"||!row.reviewed
+      ?`<button type="button" class="improw__btn" data-imp-act="raw" data-imp-key="${esc(row.key)}">${esc(t("import.action_keep"))}</button>`:"")+
+    (row.decision!=="custom"
+      ?`<button type="button" class="improw__btn" data-imp-act="custom" data-imp-key="${esc(row.key)}">${esc(t("import.action_custom"))}</button>`:"");
   const acts=folded
     ?`<button type="button" class="improw__btn improw__btn--change" data-imp-act="expand" data-imp-key="${esc(row.key)}">${esc(t("import.action_change"))}</button>`
-    :(row.match&&row.decision!=="link"
-        ?`<button type="button" class="improw__btn" data-imp-act="link" data-imp-key="${esc(row.key)}">${esc(t("import.action_link",{name:libraryName(row.match)}))}</button>`:"")+
-      `<button type="button" class="improw__btn" data-imp-act="choose" data-imp-key="${esc(row.key)}">${esc(t("import.action_choose"))}</button>`+
-      // Shown while a row still needs a decision even when "keep" is already
-      // the standing choice: an unmatched row has to be acknowledged, not just
-      // defaulted, or there is no way to clear it off the review list.
-      (row.decision!=="raw"||!row.reviewed
-        ?`<button type="button" class="improw__btn" data-imp-act="raw" data-imp-key="${esc(row.key)}">${esc(t("import.action_keep"))}</button>`:"")+
-      (row.decision!=="custom"
-        ?`<button type="button" class="improw__btn" data-imp-act="custom" data-imp-key="${esc(row.key)}">${esc(t("import.action_custom"))}</button>`:"");
+    :chips+(chips
+      ?`<details class="improw__more"><summary>${esc(t("import.more_options"))}</summary><div class="improw__acts">${escapes}</div></details>`
+      :escapes);
   return `<div class="improw${row.reviewed?"":" is-open"}${folded?" is-folded":""}" data-imp-row="${esc(row.key)}">`+
     `<p class="improw__from">${esc(row.raw.name||"")}</p>`+
     `<span class="improw__arrow" aria-hidden="true">→</span>`+
@@ -9870,7 +10018,7 @@ function importRowHtml(row){
     `<div class="improw__acts">${acts}</div>`+
   `</div>`}
 
-function importRowAction(act,key){
+function importRowAction(act,key,idx){
   const row=importDraft?.rows.find(r=>r.key===key);
   if(!row)return;
   // Change only reopens the row: the decision it already carries is untouched,
@@ -9879,11 +10027,17 @@ function importRowAction(act,key){
   // controls the tap was asking for rather than dropped to the document.
   if(act==="expand"){row.expanded=true;renderImportReview();
     $(`#importRows [data-imp-row="${esc(row.key)}"] [data-imp-act]`)?.focus({preventScroll:true});return}
-  if(act==="link"&&row.match){row.decision="link";settleImportRow(row);return}
-  if(act==="raw"){row.decision="raw";settleImportRow(row);return}
+  if(act==="pick"){
+    const entry=(row.shortlist||[])[Number(idx)];
+    if(!entry)return;
+    row.match=entry;row.decision="link";
+    settleImportRow(row,Number(idx)===0?"top_candidate":"alternate");
+    return}
+  if(act==="link"&&row.match){row.decision="link";settleImportRow(row,"top_candidate");return}
+  if(act==="raw"){row.decision="raw";settleImportRow(row,"keep");return}
   if(act==="choose"){
     openExercisePicker({title:t("import.pick_title"),subtitle:row.raw.name||"",
-      onPick:entry=>{row.match=entry;row.decision="link";settleImportRow(row)}});
+      onPick:entry=>{row.match=entry;row.decision="link";settleImportRow(row,"picker")}});
     return}
   if(act==="custom"){
     // Creating the definition here rather than at commit time means the lifter
@@ -9891,9 +10045,15 @@ function importRowAction(act,key){
     openCustomExerciseSheet({entry:{name:row.raw.name||"",primary:row.raw.primary||"",secondary:row.raw.secondary||""},
       stageOnly:true,
       onSave:entry=>{row.createdCustom=entry;row.createdCustomId=entry.id;
-        row.decision="custom";settleImportRow(row)}})}}
-/** A decided row folds back down: the alternatives have done their job. */
-function settleImportRow(row){row.reviewed=true;row.expanded=false;renderImportReview()}
+        row.decision="custom";settleImportRow(row,"custom")}})}}
+/** A decided row folds back down: the alternatives have done their job.
+ *  How it was decided is the only measure of whether matching improved for
+ *  programs we have never seen. Categorical, and never the exercise name. */
+function settleImportRow(row,method){
+  if(method&&!row.reviewed)
+    captureEvent("program_import_row_resolved",
+      {method,source:importDraft?.sourceType==="freeform"?"freeform":"file"});
+  row.reviewed=true;row.expanded=false;renderImportReview()}
 
 function ensureImportEntryFlow(draft){
   if(entryState?.route==="import"&&entryState.step==="import_source")return;
@@ -10089,6 +10249,12 @@ let entryImportMode=null,entryFreeformInput="",entryFreeformReply="";
 let entryFreeformStage=1,entryFreeformLastProvider=null;
 let entryFreeformGapResult=null,entryFreeformGapAnswers={},entryFreeformGapErrors=new Set(),entryFreeformStatus=null;
 let entryFreeformReplyInvalidated=false,entryFreeformFailReason=null;
+/* The clipboard read is the only asynchronous step in this flow, so its result
+   can arrive after the lifter has moved on. The epoch changes whenever the
+   free-form session stops being the one the read was started for; the sequence
+   number retires an older read when a newer one starts. */
+let entryFreeformEpoch=0,entryFreeformClipboardSeq=0;
+let entryFreeformClipboardBusy=false,entryFreeformClipboardNote=null;
 const entryFreeformCopiedApps=new Set();
 
 function loadFreeformSession(){
@@ -10146,6 +10312,8 @@ function clearStagedImportSource(){
 }
 
 function resetFreeformImport(){
+  entryFreeformEpoch++;
+  entryFreeformClipboardNote=null;
   entryFreeformInput="";
   entryFreeformReply="";
   entryFreeformStage=1;
@@ -10421,6 +10589,77 @@ const FREEFORM_REPAIR_KEYS={
 };
 function freeformRepairPrompt(){
   return t(FREEFORM_REPAIR_KEYS[entryFreeformFailReason]||FREEFORM_REPAIR_KEYS.no_json)}
+/* Everything that has to still be true for a finished clipboard read to belong
+   to this interaction. Compared by value, so a reply typed while the read was in
+   flight, an edited source, a new stage, the other import door or an import
+   review opened by any other route all retire the result. */
+function freeformClipboardToken(){
+  return{seq:entryFreeformClipboardSeq,epoch:entryFreeformEpoch,mode:importSourceMode(),
+    stage:entryFreeformStage,source:entryFreeformInput,reply:entryFreeformReply}}
+function freeformClipboardCurrent(token){
+  return token.seq===entryFreeformClipboardSeq&&token.epoch===entryFreeformEpoch&&
+    token.mode===importSourceMode()&&token.stage===entryFreeformStage&&
+    token.source===entryFreeformInput&&token.reply===entryFreeformReply&&!importDraft}
+
+/* The note lives in the markup so a failed read never costs the caret: it is
+   written in place rather than through a re-render, which would drop focus off
+   the button the lifter just pressed and away from the manual field. */
+const FREEFORM_CLIPBOARD_NOTE_KEYS={
+  empty:"entry.freeform.clipboard_empty",
+  failed:"entry.freeform.clipboard_failed",
+  unavailable:"entry.freeform.clipboard_unavailable",
+};
+const freeformClipboardNoteText=kind=>
+  FREEFORM_CLIPBOARD_NOTE_KEYS[kind]?t(FREEFORM_CLIPBOARD_NOTE_KEYS[kind]):"";
+function setFreeformClipboardNote(kind){
+  entryFreeformClipboardNote=kind||null;
+  const el=$("#entryFreeformClipNote");
+  if(!el)return;
+  el.textContent=freeformClipboardNoteText(kind);
+  el.hidden=!kind;
+  el.setAttribute("role",kind==="empty"?"status":"alert")}
+function setFreeformClipboardBusy(busy){
+  const btn=$("#entryFreeformClipboard");
+  if(!btn)return;
+  btn.disabled=!!busy;
+  btn.setAttribute("aria-busy",busy?"true":"false");
+  btn.textContent=busy?t("entry.freeform.clipboard_busy"):t("entry.freeform.clipboard_import")}
+
+/* The fast way back from the assistant. Clipboard is transport and nothing
+   more: it fills the same reply the textarea fills and presses the same review
+   action, so every reply — complete, gapped, prose-wrapped or unreadable — is
+   read by exactly the code a typed reply goes through. */
+async function importFreeformFromClipboard(){
+  if(entryFreeformClipboardBusy)return false;
+  const read=navigator.clipboard?.readText;
+  if(typeof read!=="function"){setFreeformClipboardNote("unavailable");return false}
+  // Started before any bookkeeping so the user-gesture chain that iOS Safari
+  // requires for a clipboard read is not spent on our own work first.
+  let pending;
+  try{pending=navigator.clipboard.readText()}
+  catch{setFreeformClipboardNote("failed");return false}
+  entryFreeformClipboardSeq++;
+  const token=freeformClipboardToken();
+  entryFreeformClipboardBusy=true;
+  setFreeformClipboardNote(null);
+  setFreeformClipboardBusy(true);
+  let text=null,failed=false;
+  try{text=await pending}catch{failed=true}
+  entryFreeformClipboardBusy=false;
+  const current=freeformClipboardCurrent(token);
+  setFreeformClipboardBusy(false);
+  if(!current)return false;
+  if(failed){setFreeformClipboardNote("failed");return false}
+  if(!String(text||"").trim()){setFreeformClipboardNote("empty");return false}
+  // From here it is an ordinary reply. No parsing, no recovery, no telemetry.
+  entryFreeformReply=String(text);
+  entryFreeformStatus=null;
+  entryFreeformFailReason=null;
+  setFreeformClipboardNote(null);
+  saveFreeformSession();
+  startFreeformReview();
+  return true}
+
 async function copyFreeformPrompt(){
   const program=freeformProgram();
   if(!program){toast(t("entry.freeform.needs_input"));return false}
@@ -11739,6 +11978,12 @@ function renderFreeformSourceStep(){
       unreadableNotice+
       entryGroupLab(t("entry.freeform.stage3_title"),"clipboard")+
       `<p class="entry__hint">${esc(t("entry.freeform.stage3_hint"))}</p>`+
+      // The fastest way back from the assistant, and the first thing under the
+      // heading. Manual paste stays exactly where it was, one divider below.
+      `<button type="button" class="btn btn--cta" id="entryFreeformClipboard">${esc(t("entry.freeform.clipboard_import"))}</button>`+
+      `<p class="entry__notice entry__notice--warn" id="entryFreeformClipNote" role="alert"${entryFreeformClipboardNote?"":" hidden"}>`+
+        `${esc(freeformClipboardNoteText(entryFreeformClipboardNote))}</p>`+
+      `<p class="entry__divider">${esc(t("entry.freeform.clipboard_or"))}</p>`+
       `<label class="entry__field entry__field--area"><span class="visually-hidden">${esc(t("entry.freeform.stage3_title"))}</span>`+
       `<textarea id="entryFreeformOut" rows="7" spellcheck="false" autocapitalize="off" placeholder="${esc(t("entry.freeform.output_placeholder"))}">${esc(entryFreeformReply)}</textarea></label>`+
       `<button type="button" class="btn btn--cta" id="entryFreeformReview">${esc(t("entry.freeform.review"))}</button>`+
@@ -12058,6 +12303,7 @@ function wireEntryDom(){
     entryFreeformReply=freeformOut.value;
     entryFreeformStatus=null;
     entryFreeformFailReason=null;
+    if(entryFreeformClipboardNote)setFreeformClipboardNote(null);
     saveFreeformSession();
   };
   wireFreeformAppControls();
@@ -12095,6 +12341,8 @@ function wireEntryDom(){
     await copyToClipboard(freeformRepairPrompt(),
       "entry.freeform.toast_repair_copied","toast.freeform_copy_failed");
   };
+  const freeformClipboard=$("#entryFreeformClipboard");
+  if(freeformClipboard)freeformClipboard.onclick=()=>importFreeformFromClipboard();
   const freeformReview=$("#entryFreeformReview");if(freeformReview)freeformReview.onclick=()=>startFreeformReview();
   const submitGaps=$("#entryFreeformSubmitGaps");if(submitGaps)submitGaps.onclick=()=>submitFreeformGaps();
   const backToReply=$("#entryFreeformBackToReply");if(backToReply)backToReply.onclick=()=>{entryFreeformGapResult=null;entryFreeformGapErrors.clear();renderOnboarding();};

@@ -647,6 +647,24 @@ for (const item of curation) {
       : beginnerFriendly(equipment, name)
   };
   if (notes) entry.notes = notes;
+  /* Extra ways a lifter's own words reach this movement: gym vernacular ("hack"),
+     acronyms ("RDL"), equipment nicknames ("banco romano") and the morphological
+     variants a bag-of-words matcher cannot bridge ("abducao" against the
+     library's "abdutora"). Curated, so an alias hit is as reviewed as the entry
+     itself. Aliases never repoint an id at a different movement. */
+  if (Array.isArray(item.aliases) && item.aliases.length) {
+    const seen = new Set();
+    const list = [];
+    for (const raw of item.aliases) {
+      const alias = String(raw || "").trim();
+      if (!alias) { problems.push(`${item.id}: empty alias`); continue; }
+      const key = alias.toLowerCase();
+      if (seen.has(key)) { problems.push(`${item.id}: duplicate alias "${alias}"`); continue; }
+      seen.add(key);
+      list.push(alias);
+    }
+    if (list.length) entry.aliases = list;
+  }
   if (item.src) entry.src = item.src;
   entries.push(entry);
 }
@@ -691,6 +709,7 @@ const line = e => {
   ];
   if (e.media) parts.push(`media:${JSON.stringify(e.media)}`);
   if (e.mediaBg) parts.push(`mediaBg:${JSON.stringify(e.mediaBg)}`);
+  if (e.aliases) parts.push(`aliases:${JSON.stringify(e.aliases)}`);
   if (e.notes) parts.push(`notes:${JSON.stringify(e.notes)}`);
   if (e.src) parts.push(`src:${JSON.stringify(e.src)}`);
   return "  {" + parts.join(",") + "}";

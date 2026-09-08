@@ -1983,7 +1983,15 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 .program-editor__menu button:hover{background:var(--well)}
 .program-editor__menu [data-role="move-days"]{display:flex;flex-direction:column;background:var(--well)}
 .program-editor__menu [data-role="move-days"] button{padding-left:24px}
-.program-editor__exercise.is-dragging{position:relative;z-index:4;transform-origin:center;border-left:2px solid var(--accent);transition:none;opacity:.98}
+/* The row under the thumb. The drag library lifts a copy of the row and leaves
+   a placeholder in the gap it came from, marking each with its own attribute;
+   both keep the language the hand-rolled drag used — an accent edge on the row
+   being carried, a quiet gap where it was. Neither attribute exists in a
+   resting state, so neither appears in the screen catalog. */
+.program-editor__exercise.is-dragging,
+.program-editor__exercise[data-dnd-dragging]{position:relative;z-index:4;transform-origin:center;border-left:2px solid var(--accent);transition:none;opacity:.98}
+.program-editor__exercise[data-dnd-dragging]{box-shadow:0 12px 28px rgba(0,0,0,.16)}
+.program-editor__exercise[data-dnd-placeholder]{opacity:.35}
 .program-editor__day.is-drag-target-expanded .program-editor__day-body{display:block}
 .program-editor__day.is-drag-target-expanded .program-editor__day-toggle .icon-mask{transform:rotate(180deg)}
 .program-editor__exercise.is-reordered{animation:program-editor-flip .18s cubic-bezier(.2,.7,.2,1) both}
@@ -1991,7 +1999,8 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 @keyframes program-editor-flip{from{transform:translateY(var(--program-editor-flip-y,0))}to{transform:translateY(0)}}
 @keyframes program-editor-drop{from{transform:translateY(-2px)}to{transform:translateY(0)}}
 @media (prefers-reduced-motion:reduce){
-  .program-editor__exercise.is-dragging{transform:none}
+  .program-editor__exercise.is-dragging,
+  .program-editor__exercise[data-dnd-dragging]{transform:none;box-shadow:none}
   .program-editor__exercise.is-reordered{animation:none}
   .program-editor__exercise.is-settling{animation:none}
 }
@@ -2275,12 +2284,20 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
 .glossary__body{margin:0;font-size:13px;line-height:1.45;color:var(--ink-soft)}
 
 /* Block review — full-screen sheet */
+/* A native <dialog>, like the storage-recovery and leave-editor dialogs. The
+   browser gives it the top layer, the focus trap and the Escape default; the
+   resets below undo the UA sizing so it still fills the screen exactly as it
+   did as a positioned div. The scrim behind it is invisible today — this panel
+   is opaque and covers the viewport — but it is set for the same reason the
+   others are, so the dialogs agree if this one ever stops being full-bleed. */
 .blockreview{
-  position:fixed;inset:0;z-index:70;max-width:none;margin:0;
-  background:var(--bg);border:0;border-radius:0;
+  position:fixed;inset:0;z-index:70;margin:0;
+  width:auto;height:auto;max-width:none;max-height:none;
+  background:var(--bg);border:0;border-radius:0;color:var(--ink);
   padding:calc(12px + env(safe-area-inset-top)) max(16px,env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) max(16px,env(safe-area-inset-left));
   overflow:auto;
 }
+.blockreview::backdrop{background:var(--scrim)}
 .blockreview__title{font-size:17px;font-weight:600;margin:0;text-transform:none;letter-spacing:0;color:var(--ink);text-align:center}
 .blockreview__body{margin:0 0 14px;font-size:14px;line-height:1.5;color:var(--ink-soft)}
 .blockreview__body p{margin:0 0 8px}
@@ -2420,11 +2437,17 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
   .sumsheet.is-played .sum-crest__mark::before{content:none}
 }
 
+/* The restore-backup and end-block panels: native <dialog> elements sharing the
+   shape of the storage-recovery dialog above them, scrim included. Neither
+   dimmed the page before, which left them the only modals in the app that did
+   not; the element they now use is what makes a backdrop available, and every
+   other dialog already draws one. */
 .importchoice{
   position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);z-index:70;width:min(92%,360px);margin:0;
-  background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);
+  background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);color:var(--ink);
   padding:20px 18px 16px;box-shadow:0 16px 40px rgba(0,0,0,.12);
 }
+.importchoice::backdrop{background:var(--scrim)}
 .importchoice__title{font-weight:650;font-size:18px;margin:0 0 8px;text-transform:none;letter-spacing:0}
 .importchoice__body{margin:0 0 14px;font-size:14px;line-height:1.45;color:var(--ink-soft);white-space:pre-line}
 
@@ -2964,6 +2987,10 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
    column, and the rule that closes it is the next row's. */
 .settings-panel{display:none;padding:4px var(--settings-inset) 14px;background:transparent}
 .settings-panel.is-open{display:block}
+/* A panel that has just been closed stays on screen while its height travels
+   to zero, and only then goes. The marker exists for the length of that
+   animation and never appears in a resting state. */
+.settings-panel.is-collapsing{display:block}
 .settings-group > .field,.settings-group > .lede,.settings-group > .rirmode{margin-left:var(--settings-inset);margin-right:var(--settings-inset)}
 .settings-group .notifytypes .field--check{margin-left:calc(var(--settings-inset) * -1);margin-right:calc(var(--settings-inset) * -1);padding:2px var(--settings-inset)}
 .settings-group > .lede{padding-bottom:10px}
@@ -3169,6 +3196,17 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry__freeform-apps{display:flex;flex-wrap:wrap;gap:10px;margin:4px 0 0}
 .entry__freeform-app{flex:1 1 150px;text-decoration:none;text-align:center}
 .entry__freeform-app.is-disabled{opacity:.4}
+/* The escape hatches sit behind one line so three candidates and a way out fit
+   a 390px row without wrapping into a wall of buttons. */
+.improw__more{grid-column:1/-1;flex:1 0 100%;width:100%;min-width:0;margin:6px 0 0}
+.improw__more summary{cursor:pointer;color:var(--ink-soft);font-size:.8125rem;font-weight:600;padding:4px 0}
+.improw__more .improw__acts{margin-top:6px}
+.improw__btn--pick{font-weight:600}
+/* A quiet "or" between the clipboard route and the manual one. Both are real
+   paths, so the divider separates them rather than demoting either. */
+.entry__divider{display:flex;align-items:center;gap:12px;margin:18px 0 12px;
+  color:var(--ink-soft);font-size:.8125rem;text-align:center}
+.entry__divider::before,.entry__divider::after{content:"";flex:1 1 auto;height:1px;background:var(--rule)}
 .entry__gaps-list{display:flex;flex-direction:column;gap:12px;margin:16px 0}
 /* The gap step tells the lifter which fields are highlighted, so they have to
    actually be highlighted; aria-invalid carries the same state to a reader. */

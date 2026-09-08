@@ -574,15 +574,15 @@
     <p class="glossary__term"></p>
     <p class="glossary__body"></p>
   </div>
-  <div id="blockReview" class="blockreview hidden" role="dialog" aria-modal="true" data-i18n-aria="dialog.block_review.aria" aria-label="Block review">
+  <dialog id="blockReview" class="blockreview" data-i18n-aria="dialog.block_review.aria" aria-label="Block review">
     <div class="blockreview__head">
       <button type="button" class="back-link" id="blockReviewClose" data-i18n="dialog.block_review.close">Close</button>
       <div class="blockreview__head-title" data-i18n="dialog.block_review.title">Block review</div>
       <div></div>
     </div>
     <div id="blockReviewBody" class="blockreview__body"></div>
-  </div>
-  <div id="importChoice" class="importchoice hidden" role="dialog" aria-modal="true" data-i18n-aria="dialog.import.aria" aria-label="Import backup">
+  </dialog>
+  <dialog id="importChoice" class="importchoice" data-i18n-aria="dialog.import.aria" aria-label="Import backup">
     <p class="importchoice__title" data-i18n="dialog.import.title">Import backup</p>
     <p class="importchoice__body" id="importChoiceBody"></p>
     <div class="btnrow">
@@ -591,15 +591,15 @@
       <button type="button" id="importProgramOnly" class="btn btn--steel hidden" data-i18n="dialog.import.program_only">Program only</button>
       <button type="button" id="importCancel" class="btn btn--steel" data-i18n="dialog.import.cancel">Cancel</button>
     </div>
-  </div>
-  <div id="endBlockConfirm" class="importchoice hidden" role="dialog" aria-modal="true" data-i18n-aria="dialog.end_block.aria" aria-label="End training block">
+  </dialog>
+  <dialog id="endBlockConfirm" class="importchoice" data-i18n-aria="dialog.end_block.aria" aria-label="End training block">
     <p class="importchoice__title" data-i18n="dialog.end_block.title">End this training block?</p>
     <p class="importchoice__body" data-i18n="dialog.end_block.body">You'll review this block's progress and pick how to start the next one. Nothing is deleted.</p>
     <div class="btnrow">
       <button type="button" id="endBlockGo" class="btn btn--cta" data-i18n="dialog.end_block.review">Review block</button>
       <button type="button" id="endBlockCancel" class="btn btn--steel" data-i18n="dialog.cancel">Cancel</button>
     </div>
-  </div>
+  </dialog>
   <div id="tour" class="tour hidden" role="dialog" aria-modal="true" data-i18n-aria="tour.aria" aria-label="App tour">
     <div class="tour__card">
       <div class="tour__head">
@@ -949,13 +949,21 @@
   <script src="i18n.js"></script>
   <script src="exercises.js"></script>
   <script src="progression-engine.js"></script>
-  <script src="program-compiler.js?v=202"></script>
-  <script src="program-entry.js?v=202"></script>
-  <script src="program-entry-adapter.js?v=202"></script>
-  <script src="program-editor.js?v=168"></script>
-  <script src="shared-setup.js?v=202"></script>
-  <script src="workout-draft.js?v=202"></script>
-  <script src="program-transition.js?v=202"></script>
-  <script src="app.js?v=202"></script>
+  <!-- Both third-party runtimes are vendored and precached, never fetched from
+       a CDN: the app has to behave identically on a plane. They load before the
+       modules that use them, and both are optional by construction — without
+       Motion every caller keeps a stylesheet-only path, and without @dnd-kit
+       reordering stays reachable through each row's Move controls. -->
+  <script src="vendor/motion/motion.js"></script>
+  <script src="vendor/dnd-kit/dnd-kit.js"></script>
+  <script src="motion-layer.js?v=203"></script>
+  <script src="program-compiler.js?v=203"></script>
+  <script src="program-entry.js?v=203"></script>
+  <script src="program-entry-adapter.js?v=203"></script>
+  <script src="program-editor.js?v=203"></script>
+  <script src="shared-setup.js?v=203"></script>
+  <script src="workout-draft.js?v=203"></script>
+  <script src="program-transition.js?v=203"></script>
+  <script src="app.js?v=203"></script>
 </body>
 </html>
