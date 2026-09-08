@@ -85,4 +85,31 @@ describe("short-lived HMAC-keyed rate buckets", () => {
     expect(Number.isSafeInteger(failed.alarm)).toBe(true);
     await expect(stub.consume({ now: now + 120_002, limit: 5 })).resolves.toMatchObject({ allowed: true });
   });
+
+  it("recovers when deleteAll succeeds before its acknowledgement is lost", async () => {
+    const name = await rateBucketName({ scope: "status", identity: "198.51.100.22", pepper });
+    const stub = euStub(env.RATE_LIMIT_BUCKETS, name, { allowLocalFallback: true });
+    const now = Date.now();
+    await stub.consume({ now, limit: 5 });
+    const failed = await runInDurableObject(stub, async (instance, state) => {
+      const original = state.storage.deleteAll.bind(state.storage);
+      let loseAcknowledgement = true;
+      state.storage.deleteAll = async () => {
+        await original();
+        if (loseAcknowledgement) {
+          loseAcknowledgement = false;
+          throw new Error("injected lost deleteAll acknowledgement");
+        }
+      };
+      const originalNow = Date.now;
+      Date.now = () => now + 120_001;
+      try {
+        return instance.alarm();
+      } finally {
+        Date.now = originalNow;
+      }
+    });
+    expect(failed).toEqual({ ok: false, code: "storage-disposal" });
+    await expect(stub.consume({ now: now + 120_002, limit: 5 })).resolves.toMatchObject({ allowed: true });
+  });
 });

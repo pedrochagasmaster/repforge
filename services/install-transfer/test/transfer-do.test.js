@@ -33,6 +33,15 @@ async function storageSummary(stub) {
 }
 
 describe("SQLite Durable Object encrypted record foundation", () => {
+  it("disposes an empty object on purge, including after a cold rescan", async () => {
+    const stub = await objectFor("empty-purge-object");
+    await expect(stub.purgeDue({ now: baseNow })).resolves.toEqual({ purged: true });
+    expect(await storageSummary(stub)).toEqual({ alarm: null, tables: [] });
+    await evictDurableObject(stub);
+    await expect(stub.purgeDue({ now: baseNow + 1 })).resolves.toEqual({ purged: true });
+    expect(await storageSummary(stub)).toEqual({ alarm: null, tables: [] });
+  });
+
   it("deduplicates lost create responses and never stores a bearer or plaintext envelope", async () => {
     const stub = await objectFor("lost-response-key");
     const first = await stub.createRecord({
@@ -258,6 +267,70 @@ describe("SQLite Durable Object encrypted record foundation", () => {
     await expect(stub.purgeDue({ now: baseNow + 15 * 60_000 + 11 })).resolves.toEqual({ purged: true });
     expect(await storageSummary(stub)).toEqual({ alarm: null, tables: [] });
     expect(created.kind).toBe("created");
+  });
+
+  it("recovers when deleteAll succeeds before its acknowledgement is lost", async () => {
+    const key = "ambiguous-disposal-key";
+    const stub = await objectFor(key);
+    await stub.createRecord({
+      idempotencyKey: key,
+      envelopeJson: JSON.stringify({ logical: "ambiguous-disposal" }),
+      now: baseNow,
+      requestedExpiry: baseNow + 10,
+    });
+    await stub.purgeDue({ now: baseNow + 10 });
+    const deadline = baseNow + 15 * 60_000 + 10;
+    const failed = await runInDurableObject(stub, async (instance, state) => {
+      const original = state.storage.deleteAll.bind(state.storage);
+      let loseAcknowledgement = true;
+      state.storage.deleteAll = async () => {
+        await original();
+        if (loseAcknowledgement) {
+          loseAcknowledgement = false;
+          throw new Error("injected lost deleteAll acknowledgement");
+        }
+      };
+      return instance.purgeDue({ now: deadline });
+    });
+    expect(failed).toEqual({ purged: false, state: "unavailable" });
+    await expect(stub.purgeDue({ now: deadline + 1 })).resolves.toEqual({ purged: true });
+    expect(await storageSummary(stub)).toEqual({ alarm: null, tables: [] });
+  });
+
+  it("deletes the alarm before deleteAll and performs no post-disposal alarm write", async () => {
+    const key = "disposal-write-order-key";
+    const stub = await objectFor(key);
+    const created = await stub.createRecord({
+      idempotencyKey: key,
+      envelopeJson: JSON.stringify({ logical: "write-order" }),
+      now: baseNow,
+      requestedExpiry: baseNow + 10,
+    });
+    await stub.statusRecord({ token: created.token, now: baseNow + 10 });
+    const deadline = baseNow + 15 * 60_000 + 10;
+    const observed = await runInDurableObject(stub, async (instance, state) => {
+      const events = [];
+      const originalDeleteAlarm = state.storage.deleteAlarm.bind(state.storage);
+      const originalDeleteAll = state.storage.deleteAll.bind(state.storage);
+      state.storage.deleteAlarm = async () => {
+        events.push("deleteAlarm");
+        return originalDeleteAlarm();
+      };
+      state.storage.deleteAll = async () => {
+        events.push("deleteAll");
+        return originalDeleteAll();
+      };
+      const originalNow = Date.now;
+      Date.now = () => deadline;
+      try {
+        return { result: await instance.alarm(), events };
+      } finally {
+        Date.now = originalNow;
+      }
+    });
+    expect(observed.result).toBeUndefined();
+    expect(observed.events).toEqual(["deleteAlarm", "deleteAll"]);
+    expect(await storageSummary(stub)).toEqual({ alarm: null, tables: [] });
   });
 
   it("quarantines corrupt metadata on the real alarm path and reports deletion health failure", async () => {
