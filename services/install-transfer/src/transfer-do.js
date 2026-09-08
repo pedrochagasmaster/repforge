@@ -24,7 +24,7 @@ const CREATE_SCHEMA = `
   CREATE TABLE IF NOT EXISTS ${TABLE} (
     singleton INTEGER PRIMARY KEY CHECK (singleton = 1),
     state TEXT NOT NULL,
-    idempotency_digest TEXT NOT NULL,
+    idempotency_digest TEXT,
     token_digest TEXT NOT NULL,
     envelope_ciphertext TEXT,
     envelope_salt TEXT,
@@ -33,7 +33,7 @@ const CREATE_SCHEMA = `
     claim_digest TEXT,
     expires_at INTEGER NOT NULL,
     tombstone_until INTEGER NOT NULL,
-    created_at INTEGER NOT NULL,
+    created_at INTEGER,
     claimed_at INTEGER
   )
 `;
@@ -125,7 +125,8 @@ export class TransferDurableObject extends DurableObject {
     this.ctx.storage.sql.exec(
       `UPDATE ${TABLE}
        SET state = ?, envelope_ciphertext = NULL, envelope_salt = NULL,
-           envelope_nonce = NULL, envelope_aad = NULL, claim_digest = NULL
+           envelope_nonce = NULL, envelope_aad = NULL, claim_digest = NULL,
+           idempotency_digest = NULL, created_at = NULL, claimed_at = NULL
        WHERE singleton = 1`,
       state,
     );
@@ -172,8 +173,8 @@ export class TransferDurableObject extends DurableObject {
     const idempotencyDigest = await digestIdempotencyKey(idempotencyKey, digestKey);
     let existing = await this._expireIfDue(now);
     if (existing) {
-      if (existing.idempotency_digest !== idempotencyDigest) return { kind: "collision" };
       if (existing.state === TRANSFER_STATES.AVAILABLE || existing.state === TRANSFER_STATES.CLAIMING) {
+        if (existing.idempotency_digest !== idempotencyDigest) return { kind: "collision" };
         return { kind: "duplicate", expiresAt: existing.expires_at };
       }
       return { kind: "terminal", state: existing.state, expiresAt: existing.expires_at };
@@ -196,8 +197,8 @@ export class TransferDurableObject extends DurableObject {
     // Re-read before inserting so one route never creates competing records.
     existing = await this._expireIfDue(now);
     if (existing) {
-      if (existing.idempotency_digest !== idempotencyDigest) return { kind: "collision" };
       if (existing.state === TRANSFER_STATES.AVAILABLE || existing.state === TRANSFER_STATES.CLAIMING) {
+        if (existing.idempotency_digest !== idempotencyDigest) return { kind: "collision" };
         return { kind: "duplicate", expiresAt: existing.expires_at };
       }
       return { kind: "terminal", state: existing.state, expiresAt: existing.expires_at };

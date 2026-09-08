@@ -61,6 +61,9 @@ describe("SQLite Durable Object encrypted record foundation", () => {
     const stored = await rows(stub);
     expect(stored[0].state).toBe("deleted");
     expect(stored[0].claim_digest).toBeNull();
+    expect(stored[0].idempotency_digest).toBeNull();
+    expect(stored[0].created_at).toBeNull();
+    expect(stored[0].claimed_at).toBeNull();
     expect(stored[0].envelope_ciphertext).toBeNull();
     expect(stored[0].envelope_salt).toBeNull();
     expect(stored[0].envelope_nonce).toBeNull();
