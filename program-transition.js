@@ -1207,6 +1207,7 @@
     }
     if (!isObject(proposal.diagnosis) ||
         proposal.diagnosis.kind !== "reduce_training_volume" ||
+        !isObject(proposal.diagnosis.answers) ||
         !Array.isArray(proposal.diagnosis.eligibleEvidenceIds) ||
         !proposal.diagnosis.eligibleEvidenceIds.length ||
         !proposal.diagnosis.eligibleEvidenceIds.every((id) => typeof id === "string" && id.trim().length > 0) ||
@@ -1287,6 +1288,9 @@
     }
     if (diagnosis.kind !== "reduce_training_volume") {
       return invalid("unsupported_diagnosis_kind");
+    }
+    if (!isObject(diagnosis.answers)) {
+      return invalid("insufficient_transition_evidence");
     }
     if (!Array.isArray(diagnosis.eligibleEvidenceIds) ||
         diagnosis.eligibleEvidenceIds.length === 0 ||

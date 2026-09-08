@@ -43,6 +43,7 @@ const homeContext = (frequency, extra = {}) => ({
 function validDiagnosis() {
   return {
     kind: "reduce_training_volume",
+    answers: {},
     eligibleEvidenceIds: ["systemic_fatigue_elevated", "recovery_score_depressed"],
     insufficientEvidenceReasons: [],
   };
@@ -767,6 +768,65 @@ test("validateProposal recompute rejects a freshly rehashed unrelated-field muta
   assert.equal(val.status, "invalid");
   assert.notEqual(val.code, "proposal_hash_mismatch");
   assert.equal(val.code, "successor_identity_mismatch");
+});
+
+test("volume diagnosis requires answers to be a plain object: missing, null, and array are rejected at creation", async () => {
+  const pred = Compiler.compile(gymContext("growth", 3), EXERCISE_LIBRARY);
+
+  for (const [label, answers] of [
+    ["missing", undefined],
+    ["null", null],
+    ["array", []],
+    ["string", "recovered"],
+  ]) {
+    const diagnosis = validDiagnosis();
+    if (answers === undefined) delete diagnosis.answers;
+    else diagnosis.answers = answers;
+
+    const r = await Transition.proposeVolumeReduction(volInput(pred, {
+      transitionId: `tr_answers_${label}`,
+      diagnosis,
+    }));
+    assert.equal(r.ok, false, `answers=${label} accepted at creation`);
+    assert.equal(r.status, "unavailable");
+    assert.equal(r.unavailable, true);
+    assert.equal(r.code, "insufficient_transition_evidence");
+  }
+
+  // Sanity: the valid empty `answers: {}` object still produces a proposal.
+  const ok = await Transition.proposeVolumeReduction(volInput(pred, { transitionId: "tr_answers_ok" }));
+  assert.equal(ok.ok, true, ok.code);
+});
+
+test("validateProposal rejects a freshly rehashed proposal whose diagnosis.answers is missing/null/array — semantically, before the hash check", async () => {
+  const pred = Compiler.compile(gymContext("growth", 3), EXERCISE_LIBRARY);
+  const input = volInput(pred, { transitionId: "tr_answers_semantic" });
+  const result = await Transition.proposeVolumeReduction(input);
+  assert.equal(result.ok, true, result.code);
+
+  for (const [label, mutate] of [
+    ["removed", (p) => { delete p.diagnosis.answers; }],
+    ["array", (p) => { p.diagnosis.answers = []; }],
+    ["null", (p) => { p.diagnosis.answers = null; }],
+  ]) {
+    const tamperedProposal = clone(result.proposal);
+    mutate(tamperedProposal);
+
+    // Honest rehash: the preimage moved with the mutation, so a digest check
+    // alone would pass. Only the semantic contract catches the bad answers.
+    tamperedProposal.proposalHash = await Transition.hashProposal(tamperedProposal);
+
+    const val = await Transition.validateProposal(tamperedProposal, {
+      predecessor: input.predecessor,
+      predecessorInstance: pred,
+      successorInstance: result.successorInstance,
+      supportedVersions: Compiler.VERSIONS,
+    });
+    assert.equal(val.ok, false, `answers=${label} accepted by validateProposal`);
+    assert.equal(val.status, "invalid");
+    assert.notEqual(val.code, "proposal_hash_mismatch");
+    assert.equal(val.code, "insufficient_transition_evidence");
+  }
 });
 
 test("validateProposal requires derivation.policyVersions to equal exactly { volumeReduction: 1 }", async () => {
