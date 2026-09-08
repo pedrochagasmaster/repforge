@@ -238,6 +238,7 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
     "program-entry-adapter.js",
     "shared-setup.js",
     "workout-draft.js",
+    "program-transition.js",
     "app.js",
   ];
   const missingRevision = transitionAssets.filter(file => !index.includes(`src="${file}?v=${revision}"`));

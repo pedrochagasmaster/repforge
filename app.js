@@ -45,6 +45,16 @@ function isBoundedProgressionValue(value,depth=0,state={nodes:0}){
   if(!isPlainStateObject(value)||Object.keys(value).length>PROGRESSION_VALUE_LIMITS.keys)return false;
   return Object.keys(value).every(key=>isBoundedProgressionValue(value[key],depth+1,state));
 }
+const TRANSITION_VALUE_LIMITS=Object.freeze({depth:32,nodes:10000,keys:128,arrayItems:256,stringLength:10000});
+function isBoundedTransitionValue(value,depth=0,state={nodes:0}){
+  if(++state.nodes>TRANSITION_VALUE_LIMITS.nodes||depth>TRANSITION_VALUE_LIMITS.depth)return false;
+  if(typeof value==="string")return value.length<=TRANSITION_VALUE_LIMITS.stringLength;
+  if(value===null||typeof value==="boolean")return true;
+  if(typeof value==="number")return Number.isFinite(value);
+  if(Array.isArray(value))return value.length<=TRANSITION_VALUE_LIMITS.arrayItems&&value.every(item=>isBoundedTransitionValue(item,depth+1,state));
+  if(!isPlainStateObject(value)||Object.keys(value).length>TRANSITION_VALUE_LIMITS.keys)return false;
+  return Object.keys(value).every(key=>isBoundedTransitionValue(value[key],depth+1,state));
+}
 function isSafeProgressionFields(value){
   if(!isPlainStateObject(value))return false;
   if(Object.prototype.hasOwnProperty.call(value,"progressionType")&&
@@ -2979,10 +2989,34 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
   if(m.programStructure!=null&&!isBoundedProgressionValue(m.programStructure))throw new TypeError("programStructure: structure exceeds safety bounds");
   const programStructure=m.programStructure&&typeof m.programStructure==="object"?cloneSnapshot(m.programStructure):base.programStructure;
   const entrySource=normalizeProgramEntrySource(m.entrySource);
-  return{id:typeof m.id==="string"&&m.id?m.id:base.id,name:typeof m.name==="string"?m.name.trim():"",started,
+  let compilerContext=null;
+  if(m.compilerContext!=null){
+    if(!isBoundedProgressionValue(m.compilerContext))throw new TypeError("compilerContext: structure exceeds safety bounds");
+    if(typeof m.compilerContext!=="object"||Array.isArray(m.compilerContext))throw new TypeError("compilerContext: expected object");
+    const check=typeof ProgramCompiler?.validateContext==="function"
+      ?ProgramCompiler.validateContext(m.compilerContext)
+      :({ok:typeof m.compilerContext.schemaVersion==="number"&&m.compilerContext.schemaVersion>=1});
+    if(check.ok)compilerContext=cloneSnapshot(m.compilerContext);
+  }
+  let transitionIn=null;
+  if(m.transitionIn!=null){
+    if(!isBoundedTransitionValue(m.transitionIn))throw new TypeError("transitionIn: structure exceeds safety bounds");
+    if(typeof m.transitionIn!=="object"||Array.isArray(m.transitionIn))throw new TypeError("transitionIn: expected object");
+    const t=m.transitionIn;
+    if(t.schemaVersion===1&&typeof t.transitionId==="string"&&t.transitionId.trim()&&
+       typeof t.proposalHash==="string"&&t.proposalHash.trim()&&t.status==="committed"&&
+       typeof t.confirmedAt==="string"&&t.confirmedAt.trim()&&typeof t.archiveId==="string"&&t.archiveId.trim()&&
+       typeof t.successor==="object"&&t.successor!==null&&typeof t.predecessor==="object"&&t.predecessor!==null){
+      transitionIn=cloneSnapshot(t);
+    }
+  }
+  const metaObj={id:typeof m.id==="string"&&m.id?m.id:base.id,name:typeof m.name==="string"?m.name.trim():"",started,
     created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
-    progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId,programStructure,entrySource}}
+    progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId,programStructure,entrySource};
+  if(compilerContext!=null)metaObj.compilerContext=compilerContext;
+  if(transitionIn!=null)metaObj.transitionIn=transitionIn;
+  return metaObj;}
 
 function withExplicitProgramStructure(program,meta){
   if(!ProgramCompiler?.migrateLegacyStructure)return{program,meta};
@@ -3029,6 +3063,20 @@ function normalizeProgramHistory(history,lookup){
       normalized.program=structured.program;
       if(normalized.meta)normalized.meta=structured.meta;
       else normalized.programMeta=structured.meta}
+    if(entry.transitionOut!=null){
+      if(!isBoundedTransitionValue(entry.transitionOut))throw new TypeError("transitionOut: structure exceeds safety bounds");
+      if(typeof entry.transitionOut==="object"&&!Array.isArray(entry.transitionOut)){
+        const t=entry.transitionOut;
+        if(t.schemaVersion===1&&typeof t.transitionId==="string"&&t.transitionId.trim()&&
+           typeof t.proposalHash==="string"&&t.proposalHash.trim()&&
+           typeof t.successorProgramId==="string"&&t.successorProgramId.trim()){
+          normalized.transitionOut=cloneSnapshot(t);
+        }
+      }
+    }
+    if(typeof entry.archiveId==="string"&&entry.archiveId.trim()){
+      normalized.archiveId=entry.archiveId.trim();
+    }
     return normalized})}
 function normalizeLoaded(s,options={}){
   if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program:[],log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
@@ -3356,11 +3404,15 @@ function archiveCapturedProgram(proposal,cap){
   if(!cap?.oldProgramId)return proposal;
   const history=Array.isArray(proposal.programHistory)?proposal.programHistory:[];
   if(history.some(h=>h.id===cap.oldProgramId)){proposal.programHistory=history;return proposal}
-  history.push({id:cap.oldProgramId,meta:cloneSnapshot(cap.oldMeta),program:cloneSnapshot(cap.oldProgram),
-    completedAt:new Date().toISOString(),review:cloneSnapshot(cap.review)});
+  const entry={id:cap.oldProgramId,meta:cloneSnapshot(cap.oldMeta),program:cloneSnapshot(cap.oldProgram),
+    completedAt:new Date().toISOString(),review:cloneSnapshot(cap.review)};
+  if(cap.transitionOut)entry.transitionOut=cloneSnapshot(cap.transitionOut);
+  if(cap.archiveId)entry.archiveId=cap.archiveId;
+  history.push(entry);
   proposal.programHistory=history;return proposal}
 async function commitProgramReplacement(proposal,io=storageIO,{capture=captureProgramReplacement(state),
-  effect=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false}={}){
+  effect=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false,preflight=null,
+  expectedProgramId=undefined,expectedProgramFingerprint=undefined,expectedStorageRevision=undefined}={}){
   requireAdapter(io,"commitProgramReplacement");
   if(capture)archiveCapturedProgram(proposal,capture);
   // A first-run shared proposal is deliberately rebased onto the newest
@@ -3374,8 +3426,10 @@ async function commitProgramReplacement(proposal,io=storageIO,{capture=capturePr
     :capture
     ?{expectedProgramId:capture.oldProgramId,expectedProgramFingerprint:capture.programFingerprint,
       expectedStorageRevision:capture.storageRevision}
-    :programTransitionPrecondition(state);
-  return commitProposedState(proposal,io,{...transition,effect,expectedSetupDraftRaw,replace,expectedFirstRunEmpty})}
+    :{expectedProgramId:expectedProgramId!==undefined?expectedProgramId:(state?.programMeta?.id||null),
+      expectedProgramFingerprint:expectedProgramFingerprint!==undefined?expectedProgramFingerprint:draftProgramFingerprint(state),
+      expectedStorageRevision:expectedStorageRevision!==undefined?expectedStorageRevision:readRevision(state)};
+  return commitProposedState(proposal,io,{...transition,effect,expectedSetupDraftRaw,replace,expectedFirstRunEmpty,preflight})}
 function blockToast(strategy){
   const msg={repeat:"toast.new_block_same",repeat_swaps:"toast.new_block_swaps",
     increase_volume:"toast.new_block_volume_increased",reduce_volume:"toast.new_block_volume_reduced",onboarding:"toast.new_block_started"};
@@ -3653,6 +3707,7 @@ async function deleteTrainingLog(io=storageIO,{discardDraftRaw=readDraftRaw()}={
   if(result.localOk||result.idbOk){
     resetDraftSessionState();render();toast(t("toast.log_deleted"))}
   return result}
+try{Object.defineProperty(window,"state",{get(){return state},configurable:true})}catch{}
 window.__repforgeStorage={
   flush:flushStorage,
   chooseSnapshot,
@@ -6299,6 +6354,241 @@ window.__repforgeEntryState=()=>cloneSnapshot(entryState);
 window.__repforgeActivateEntryPreview=opts=>activateEntryPreview(opts);
 window.__repforgeOnboardingOrigin=()=>onboardingOrigin;
 window.__repforgePendingBlock=()=>pendingBlockTransition;
+const repforgeProgramTransitionAdapter = {
+  async proposeSibling(input = {}) {
+    const Transition = typeof RepForgeProgramTransition !== "undefined"
+      ? RepForgeProgramTransition
+      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
+    if (!Transition) {
+      return { ok: false, status: "unavailable", code: "transition_domain_unavailable", unavailable: true };
+    }
+    const Compiler = typeof ProgramCompiler !== "undefined"
+      ? ProgramCompiler
+      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
+    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
+      ? EXERCISE_LIBRARY
+      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
+
+    const liveMeta = state?.programMeta;
+    if (!liveMeta?.compilerContext) {
+      return { ok: false, status: "unavailable", code: "compiler_context_unavailable", unavailable: true };
+    }
+    const predContext = liveMeta.compilerContext;
+    const rawRoute = liveMeta.entrySource?.route || "recommend";
+    const source = rawRoute.charAt(0).toUpperCase() + rawRoute.slice(1).toLowerCase();
+
+    const diagnosis = input.diagnosis;
+    const kind = (diagnosis?.kind === "sessions_too_long")
+      ? "shorter_session_sibling"
+      : "lower_frequency_sibling";
+
+    const targetConstraint = input.targetConstraint !== undefined
+      ? input.targetConstraint
+      : (kind === "lower_frequency_sibling" ? { frequency: diagnosis?.answers?.availableDays } : null);
+
+    const fullInput = {
+      kind,
+      targetConstraint,
+      diagnosis,
+      transitionId: input.transitionId,
+      successorProgramId: input.successorProgramId,
+      createdAt: input.createdAt || new Date().toISOString(),
+      catalogue,
+      Compiler,
+      compilerContext: predContext,
+      predecessor: {
+        programId: liveMeta.id,
+        durableRevision: readRevision(state),
+        source,
+        compilerProvenance: liveMeta.programStructure?.provenance,
+      },
+    };
+
+    return await Transition.proposeSibling(fullInput);
+  },
+
+  async confirmTransition({
+    proposal,
+    transitionId,
+    successorProgramId,
+    confirmedAt = new Date().toISOString(),
+    proposalHash,
+    acknowledgedDraftRaw,
+    archiveId,
+  } = {}) {
+    const Transition = typeof RepForgeProgramTransition !== "undefined"
+      ? RepForgeProgramTransition
+      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
+    if (!Transition) {
+      return { ok: false, status: "unavailable", code: "transition_domain_unavailable", committed: false };
+    }
+    const Compiler = typeof ProgramCompiler !== "undefined"
+      ? ProgramCompiler
+      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
+    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
+      ? EXERCISE_LIBRARY
+      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
+
+    const targetTransitionId = transitionId || proposal?.transitionId;
+    const targetHash = proposalHash || proposal?.proposalHash;
+    const effSuccessorId = successorProgramId || proposal?.successor?.programId;
+
+    if (state.programMeta?.transitionIn?.transitionId === targetTransitionId &&
+        state.programMeta?.transitionIn?.proposalHash === targetHash) {
+      return { committed: true, alreadyCommitted: true, revision: readRevision(state), localOk: true, idbOk: true, kind: "committed" };
+    }
+
+    const currentDraftRaw = readDraftRaw();
+    if (acknowledgedDraftRaw !== undefined && acknowledgedDraftRaw !== currentDraftRaw) {
+      return { revision: readRevision(state), localOk: false, idbOk: false, draftConflict: true, conflict: true, code: "draft_mismatch", committed: false };
+    }
+
+    const acknowledgedDraft = acknowledgedDraftRaw !== undefined ? acknowledgedDraftRaw : currentDraftRaw;
+    const effect = draftPreservationEffect(acknowledgedDraft);
+    const baseProposal = cloneSnapshot(state);
+
+    const preflight = async ({ head, proposal: workingProposal }) => {
+      if (head.programMeta?.transitionIn?.transitionId === targetTransitionId &&
+          head.programMeta?.transitionIn?.proposalHash === targetHash) {
+        return {
+          reject: true,
+          result: { committed: true, alreadyCommitted: true, revision: readRevision(head), localOk: true, idbOk: true, kind: "committed" }
+        };
+      }
+
+      const expectedPredId = proposal?.predecessor?.programId;
+      if (!expectedPredId || head.programMeta?.id !== expectedPredId) {
+        return { reject: true, result: { stale: true, code: "stale_proposal", message: "predecessor programId changed" } };
+      }
+      if (proposal?.predecessor?.durableRevision !== undefined && proposal.predecessor.durableRevision !== readRevision(head)) {
+        return { reject: true, result: { stale: true, staleRevision: true, code: "stale_proposal", message: "storage revision changed" } };
+      }
+
+      const predContext = head.programMeta?.compilerContext;
+      if (!predContext) {
+        return { reject: true, result: { invalid: true, code: "missing_compiler_context" } };
+      }
+      const predInstance = Compiler.compile(predContext, catalogue);
+      if (!predInstance || predInstance.kind !== "compiled") {
+        return { reject: true, result: { invalid: true, code: "predecessor_reconstruction_failed" } };
+      }
+      const predFingerprint = await Transition.fingerprintCompilerInstance(predInstance);
+      if (proposal?.predecessor?.fingerprint && proposal.predecessor.fingerprint !== predFingerprint) {
+        return { reject: true, result: { stale: true, code: "predecessor_fingerprint_changed" } };
+      }
+
+      let succContext;
+      if (proposal?.kind === "lower_frequency_sibling") {
+        const targetFreq = proposal?.targetConstraint?.frequency ?? proposal?.diagnosis?.answers?.availableDays;
+        succContext = { ...cloneSnapshot(predContext), frequency: targetFreq };
+        delete succContext.splitId;
+      } else if (proposal?.kind === "shorter_session_sibling") {
+        const targetMins = proposal?.targetConstraint?.sessionMinutes ?? proposal?.diagnosis?.answers?.sessionMinutes;
+        succContext = { ...cloneSnapshot(predContext), sessionMinutes: targetMins };
+      } else {
+        return { reject: true, result: { invalid: true, code: "unsupported_transition_kind" } };
+      }
+
+      const checkedSuccContext = Compiler.validateContext(succContext);
+      if (!checkedSuccContext.ok) {
+        return { reject: true, result: { invalid: true, code: "invalid_successor_context", issues: checkedSuccContext.issues } };
+      }
+      const succInstance = Compiler.compile(succContext, catalogue);
+      if (!succInstance || succInstance.kind !== "compiled") {
+        return { reject: true, result: { invalid: true, code: "successor_compilation_failed" } };
+      }
+
+      const rawPredRoute = head.programMeta?.entrySource?.route || "recommend";
+      const predSource = rawPredRoute.charAt(0).toUpperCase() + rawPredRoute.slice(1).toLowerCase();
+      const validation = await Transition.validateProposal(proposal, {
+        predecessor: {
+          programId: head.programMeta.id,
+          durableRevision: readRevision(head),
+          source: predSource,
+        },
+        predecessorInstance: predInstance,
+        successorInstance: succInstance,
+        predecessorCompilerContext: predContext,
+        successorCompilerContext: succContext,
+      });
+      if (!validation.ok) {
+        return { reject: true, result: { invalid: true, code: validation.code || "invalid_proposal", issues: validation.issues } };
+      }
+
+      const effArchiveId = archiveId || head.programMeta.id;
+      const committedRecord = Transition.commitRecord(proposal, {
+        confirmedAt,
+        archiveId: effArchiveId,
+      });
+
+      const successorMeta = {
+        ...cloneSnapshot(head.programMeta),
+        id: effSuccessorId,
+        daysPerWeek: succInstance.frequency,
+        sessionLength: String(succContext.sessionMinutes),
+        programStructure: cloneSnapshot(succInstance.programStructure),
+        progressionRelations: (succInstance.relations || []).filter(r => r.state === "attached").map(r => ({
+          schemaVersion: 1,
+          id: r.id,
+          type: "paired_exposure",
+          version: 1,
+          movementId: `library:${r.movementId}`,
+          members: [
+            { exerciseId: r.heavySlotId, role: "heavy" },
+            { exerciseId: r.volumeSlotId, role: "volume" },
+          ],
+        })),
+        compilerContext: cloneSnapshot(succContext),
+        entrySource: {
+          route: head.programMeta.entrySource?.route || "recommend",
+          fingerprint: await Transition.fingerprintCompilerInstance(succInstance),
+        },
+        transitionIn: committedRecord,
+        updated: confirmedAt,
+      };
+
+      const archiveEntry = {
+        id: head.programMeta.id,
+        archiveId: effArchiveId,
+        meta: cloneSnapshot(head.programMeta),
+        program: cloneSnapshot(head.program),
+        completedAt: confirmedAt,
+        review: null,
+        transitionOut: {
+          schemaVersion: 1,
+          transitionId: committedRecord.transitionId,
+          proposalHash: committedRecord.proposalHash,
+          successorProgramId: committedRecord.successor.programId,
+        },
+      };
+
+      const history = Array.isArray(head.programHistory) ? head.programHistory.slice() : [];
+      history.push(archiveEntry);
+
+      workingProposal.program = cloneSnapshot(succInstance.program);
+      workingProposal.programMeta = successorMeta;
+      workingProposal.programHistory = history;
+
+      return { proposal: workingProposal };
+    };
+
+    const res = await commitProgramReplacement(baseProposal, storageIO, {
+      capture: null,
+      effect,
+      preflight,
+      expectedProgramId: proposal?.predecessor?.programId,
+      expectedStorageRevision: proposal?.predecessor?.durableRevision,
+    });
+
+    if (res.localOk || res.idbOk) {
+      return { ...res, committed: true };
+    }
+    return { ...res, committed: false };
+  },
+};
+if (typeof window !== "undefined") {
+  window.__repforgeProgramTransition = repforgeProgramTransitionAdapter;
+}
 window.__repforgeParseCommand=parseSetCommand;
 window.__repforgeNormalizeCommand=normalizeCommandText;
 window.__repforgeParseDec=parseDec;
@@ -11153,6 +11443,9 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
   baseProposal.programMeta.progressionModifiers=cloneSnapshot(preview?.progressionModifiers||[]);
   baseProposal.programMeta.progressionIncompatibilities=cloneSnapshot(preview?.progressionIncompatibilities||[]);
   baseProposal.programMeta.programStructure=programStructure?cloneSnapshot(programStructure):null;
+  const compilerContext=(route==="recommend"||route==="custom"||route==="browse")
+    ?(entryState.result?.compilerContext||null):null;
+  if(compilerContext)baseProposal.programMeta.compilerContext=cloneSnapshot(compilerContext);
   const telemetryRoute=route==="recommend"||route==="custom"||route==="browse"||route==="build"||route==="import"||route==="shared"?route:"custom";
   const result=await finalizeProgramSetup({
     exercises,
@@ -11166,6 +11459,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     entryTelemetry:entryState.result?.telemetry||null,
     entrySource:{route,fingerprint:entryState.result?.fingerprint},
     programStructure,
+    compilerContext,
     expectedSetupDraftRaw:activationDraftHandle?.raw??null,
     replace:route==="shared",
     expectedFirstRunEmpty:route==="shared"});
@@ -11187,7 +11481,7 @@ function telemetryGeneratedProgram(goal){
   if(goal==="strength_hypertrophy")return{goal:"balanced",family:"legacy"};
   if(goal==="hypertrophy")return{goal:"muscle_growth",family:"legacy"};
   return null}
-async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,entrySource=null,programStructure=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false}={}){
+async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,entrySource=null,programStructure=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false,compilerContext=null}={}){
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
   const blockCap=originEff==="block"?pendingBlockTransition:null;
@@ -11208,6 +11502,18 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     ?cloneSnapshot(baseProposal.programMeta.progressionIncompatibilities):[];
   meta.programStructure=programStructure?cloneSnapshot(programStructure):
     (baseProposal?.programMeta?.programStructure?cloneSnapshot(baseProposal.programMeta.programStructure):null);
+  const routeEff=entrySource?.route||telemetryRoute;
+  if(routeEff==="recommend"||routeEff==="custom"||routeEff==="browse"){
+    const rawContext=compilerContext||baseProposal?.programMeta?.compilerContext;
+    if(rawContext){
+      if(typeof ProgramCompiler?.validateContext==="function"){
+        const checked=ProgramCompiler.validateContext(rawContext);
+        if(checked.ok)meta.compilerContext=cloneSnapshot(rawContext);
+      }else if(rawContext&&typeof rawContext==="object"){
+        meta.compilerContext=cloneSnapshot(rawContext);
+      }
+    }
+  }
   proposal.programMeta=meta;
   // The setup draft lives outside the mirrored state stores. Keep an exact,
   // storage-only receipt in the successor so a crash after the program commit

@@ -681,7 +681,7 @@
       return { ok: false, status: "unavailable", code: "unsupported_transition_kind", unavailable: true };
     }
 
-    const context = input.compilerContext || input.predecessorCompilerContext;
+    const context = input.compilerContext || input.predecessorCompilerContext || input.predecessor?.compilerContext;
     if (!isObject(context)) {
       return { ok: false, status: "unavailable", code: "missing_compiler_context", unavailable: true };
     }
@@ -978,6 +978,39 @@
     return { ok: true, status: "preview" };
   }
 
+  function commitRecord(proposal, confirmedAtOrOptions, optionalArchiveId) {
+    if (!isObject(proposal)) throw new TypeError("proposal: expected object");
+    if (typeof proposal.proposalHash !== "string" || !proposal.proposalHash) {
+      throw new TypeError("proposal.proposalHash: expected non-empty string");
+    }
+    let confirmedAt = confirmedAtOrOptions;
+    let archiveId = optionalArchiveId;
+    if (isObject(confirmedAtOrOptions)) {
+      confirmedAt = confirmedAtOrOptions.confirmedAt;
+      archiveId = confirmedAtOrOptions.archiveId !== undefined ? confirmedAtOrOptions.archiveId : optionalArchiveId;
+    }
+    if (typeof confirmedAt !== "string" || !confirmedAt) {
+      confirmedAt = new Date().toISOString();
+    }
+    if (archiveId === undefined || archiveId === null) {
+      archiveId = typeof proposal.archiveId === "string" && proposal.archiveId
+        ? proposal.archiveId
+        : (typeof proposal.predecessor?.programId === "string" && proposal.predecessor.programId
+            ? proposal.predecessor.programId
+            : `arc_${proposal.transitionId || "0"}`);
+    }
+    if (typeof archiveId !== "string" || !archiveId) {
+      throw new TypeError("archiveId: expected non-empty string");
+    }
+
+    const record = clone(proposal);
+    record.status = "committed";
+    record.confirmedAt = confirmedAt;
+    record.archiveId = archiveId;
+
+    return deepFreeze(record);
+  }
+
   const api = Object.freeze({
     SCHEMA_VERSION,
     SLOT_MAPPING_SCHEMA_VERSION,
@@ -990,6 +1023,7 @@
     createSiblingProposal,
     proposeSibling,
     validateProposal,
+    commitRecord,
   });
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;
