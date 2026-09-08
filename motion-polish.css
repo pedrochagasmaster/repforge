@@ -1,0 +1,276 @@
+/* ============================================================
+   Taurifer — motion discipline pass
+   Reference: Emil Kowalski's emil-design-eng skill.
+
+   This layer narrows motion in the high-frequency training loop, preserves
+   expressive beats for rarer milestones, and prevents pointer-only hover
+   treatments from becoming sticky touch states.
+   ============================================================ */
+
+/* ---- Frequent navigation and press feedback ---- */
+.view{
+  animation-duration:.14s;
+  animation-timing-function:cubic-bezier(.2,.7,.2,1);
+}
+.btn{transition-duration:.1s,.18s,.18s,.18s}
+.btn:active{transform:translateY(1px) scale(.975)}
+nav button:active{transform:scale(.975)}
+.curset__val--word[data-effspin]:active{transform:scale(.97)}
+
+/* ---- Set completion: acknowledgement, not ceremony ----
+   A lifter can trigger this dozens of times in one session. Keep the state
+   change legible, but finish the whole beat inside ~160ms and never grow an
+   element from a tiny scale. Exercise completion remains the larger beat. */
+.ledger__row.is-fresh{
+  animation:taurifer-setland-row .16s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes taurifer-setland-row{
+  from{opacity:.68;transform:translateY(4px)}
+  to{opacity:1;transform:none}
+}
+.ledger__row.is-fresh .ledger__check{
+  animation:taurifer-setland-check .16s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes taurifer-setland-check{
+  0%{opacity:.7;transform:scale(.96);background-color:var(--accent)}
+  100%{opacity:1;transform:scale(1);background-color:var(--ink)}
+}
+.ledger__tick.is-fresh{
+  animation:taurifer-setland-tick .15s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes taurifer-setland-tick{
+  from{opacity:.72;transform:scale(.96)}
+  to{opacity:1;transform:scale(1)}
+}
+.focus-ex__setof.is-fresh b{
+  animation:taurifer-setland-count .14s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes taurifer-setland-count{
+  from{opacity:.72;transform:translateY(-3px)}
+  to{opacity:1;transform:none}
+}
+.focus-well.is-fresh .focus-cue,
+.focus-well.is-fresh .curset{
+  animation:taurifer-setland-arm .14s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes taurifer-setland-arm{
+  from{opacity:.72;transform:translateY(3px)}
+  to{opacity:1;transform:none}
+}
+.focus-well.is-fresh.is-done .focus-done__mark{
+  animation:taurifer-exercise-done .28s cubic-bezier(.2,.85,.25,1) both;
+}
+.focus-well.is-fresh.is-done .focus-done__text{
+  animation:taurifer-setland-arm .18s .04s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes taurifer-exercise-done{
+  0%{opacity:.55;transform:scale(.92)}
+  65%{opacity:1;transform:scale(1.04)}
+  100%{opacity:1;transform:scale(1)}
+}
+
+/* ---- Effort explainer: emerge from the value without growing from nothing ---- */
+.effortpop{
+  transform:translateY(6px) scale(.96);
+  transform-origin:50% 100%;
+}
+.effortpop.is-open{
+  animation:taurifer-effort-in .18s cubic-bezier(.2,.8,.2,1) both;
+}
+.effortpop.is-closing{
+  animation:taurifer-effort-out .13s cubic-bezier(.4,0,.8,.2) both;
+}
+@keyframes taurifer-effort-in{
+  0%{opacity:0;transform:translateY(6px) scale(.96);filter:blur(1px)}
+  100%{opacity:1;transform:none;filter:blur(0)}
+}
+@keyframes taurifer-effort-out{
+  from{opacity:1;transform:none}
+  to{opacity:0;transform:translateY(4px) scale(.97)}
+}
+.effortpop.is-open .effortpop__arrow{
+  animation:taurifer-effort-arrow .16s .02s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes taurifer-effort-arrow{
+  from{opacity:0;transform:rotate(45deg) scale(.9)}
+  to{opacity:1;transform:rotate(45deg) scale(1)}
+}
+.effortpop.is-bump .effortpop__hint{
+  animation:taurifer-effort-swap .18s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes taurifer-effort-swap{
+  0%{opacity:.45;transform:translateX(-50%) translateY(-3px) scale(.98)}
+  60%{opacity:1;transform:translateX(-50%) scale(1.02)}
+  100%{opacity:1;transform:translateX(-50%) scale(1)}
+}
+
+/* ---- Transient runtime UI: interruptible state transitions ----
+   Keep these nodes mounted while hidden so both entry and exit can transition.
+   Visibility changes after the exit; pointer input is disabled immediately. */
+.toast{
+  animation:none;
+  opacity:1;
+  visibility:visible;
+  transition:opacity .16s cubic-bezier(.2,.7,.2,1),
+             transform .16s cubic-bezier(.2,.7,.2,1),
+             visibility 0s linear 0s;
+}
+.toast.hidden{
+  display:block!important;
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transform:translateX(-50%) translateY(8px);
+  transition:opacity .13s cubic-bezier(.4,0,.8,.2),
+             transform .13s cubic-bezier(.4,0,.8,.2),
+             visibility 0s linear .13s;
+}
+.tour{
+  opacity:1;
+  visibility:visible;
+  transform:translateY(0);
+  transition:opacity .16s cubic-bezier(.2,.7,.2,1),
+             transform .16s cubic-bezier(.2,.7,.2,1),
+             visibility 0s linear 0s;
+}
+.tour__card{animation:none}
+.tour.hidden{
+  display:flex!important;
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transform:translateY(8px);
+  transition:opacity .13s cubic-bezier(.4,0,.8,.2),
+             transform .13s cubic-bezier(.4,0,.8,.2),
+             visibility 0s linear .13s;
+}
+.installbanner{
+  animation:none;
+  opacity:1;
+  visibility:visible;
+  transition:opacity .16s cubic-bezier(.2,.7,.2,1),
+             transform .16s cubic-bezier(.2,.7,.2,1),
+             visibility 0s linear 0s;
+}
+.installbanner.hidden{
+  display:grid!important;
+  opacity:0;
+  visibility:hidden;
+  pointer-events:none;
+  transform:translateX(-50%) translateY(8px);
+  transition:opacity .13s cubic-bezier(.4,0,.8,.2),
+             transform .13s cubic-bezier(.4,0,.8,.2),
+             visibility 0s linear .13s;
+}
+@starting-style{
+  .toast:not(.hidden){opacity:0;transform:translateX(-50%) translateY(8px)}
+  .tour:not(.hidden){opacity:0;transform:translateY(8px)}
+  .installbanner:not(.hidden){opacity:0;transform:translateX(-50%) translateY(8px)}
+}
+
+/* ---- Toggle: transform-only tactile stretch ---- */
+.toggle::after{
+  width:27px;
+  transform-origin:right center;
+  transition:transform .24s cubic-bezier(.32,.72,0,1);
+}
+.toggle:active::after{
+  width:27px;
+  transform:scaleX(1.12);
+  transform-origin:right center;
+}
+.toggle[aria-checked="true"]::after,
+.toggle[aria-pressed="true"]::after,
+.toggle.is-on::after{
+  transform:translateX(20px);
+  transform-origin:left center;
+}
+.toggle[aria-checked="true"]:active::after,
+.toggle[aria-pressed="true"]:active::after,
+.toggle.is-on:active::after{
+  width:27px;
+  transform:translateX(20px) scaleX(1.12);
+  transform-origin:left center;
+}
+
+/* ---- Session completion: keep the milestone, reduce the launch scale ---- */
+.sumsheet.is-played .sum-crest__mark{
+  animation:taurifer-sum-strike .34s cubic-bezier(.2,.85,.25,1) both;
+}
+.sumsheet.is-played .sum-crest__mark::before{
+  animation:sum-ring .65s .06s cubic-bezier(.2,.7,.2,1) both;
+}
+@keyframes taurifer-sum-strike{
+  0%{opacity:.45;transform:scale(.92)}
+  60%{opacity:1;transform:scale(1.035)}
+  100%{opacity:1;transform:scale(1)}
+}
+/* The existing 55ms reading-order stagger remains intentionally unchanged. */
+
+/* ---- Hover belongs to devices that can actually hover ----
+   The base sheet keeps its fine-pointer hover language. On coarse/no-hover
+   pointers, restore each affected control to its resting state so taps do not
+   leave behind a sticky desktop affordance. */
+@media (hover:none), (pointer:coarse){
+  .icon-btn:hover{color:var(--ink-soft)}
+  .icon-btn--profile:hover{color:var(--ink-faint)}
+  .focus-well .btn--cta.saveset:hover{color:var(--cta-ink);border-color:transparent}
+  .effort__btn:not(.active):hover{color:var(--ink-soft);background:transparent}
+  .setrow:not(.is-next):not(.is-done) .saveset:hover::after{background:var(--ink-faint)}
+  .saveset:hover{color:var(--ink-soft);border-color:var(--rule)}
+  .stepbtn:hover{color:var(--ink-soft)}
+  .curset__steps .stepbtn:hover{color:var(--ink);background:transparent}
+  .copylast:hover{color:var(--ink-soft);border-color:var(--rule)}
+  .pday__head .iconbtn--del:hover{border-color:var(--rule)}
+  .iconbtn:hover:not(:disabled){color:var(--ink-soft);border-color:var(--rule)}
+  .iconbtn--del:hover:not(:disabled){color:var(--danger);border-color:var(--rule);background:var(--surface)}
+  .program-editor__day-menu-panel button:hover,
+  .program-editor__stepper button:hover,
+  .program-editor__menu button:hover{background:transparent}
+  .program-editor__add:hover,
+  .program-editor__add-day:hover,
+  .program-editor-installed .program-editor__add:hover{background:var(--surface)}
+  .exercise:not(.is-skipped) .ex__topend .ex__skip:hover{color:var(--ink-soft)}
+  .blockprompt__dismiss:hover,
+  .fatigue__dismiss:hover{color:var(--ink-soft)}
+  .term:hover{text-decoration-color:var(--ink-faint);color:inherit}
+  .attn__chip:hover{color:var(--ink)}
+  .ex__namebtn:hover{color:inherit}
+  .settings-btn:hover{color:var(--ink-faint);border-color:var(--rule-strong)}
+  .entry-card:not(.entry-card--primary):hover{border-color:var(--rule)}
+  .entry-card--primary:hover{border-color:var(--accent)}
+  .entry-body .entry-card:hover{background:transparent}
+  .entry-body .entry-card[data-entry-route="recommend"]:hover{background:var(--entry-tint)}
+  .entry-body .radio-card:not(.is-selected):hover{border-color:var(--rule)}
+  .entry-body .radio-card.is-selected:hover{border-color:var(--accent)}
+  .entry__muscle-state:not(.is-selected):hover{border-color:var(--rule);color:var(--ink-soft)}
+  .entry__muscle-state.is-selected:hover{border-color:var(--accent);color:var(--accent-deep)}
+  .entry__exercise-action:hover{background:var(--entry-tint);color:var(--accent-deep)}
+  .entry__exercise-action--avoid:hover{background:var(--surface);color:var(--ink-soft)}
+  .entry-prog:hover{background:transparent}
+  .entry__remove:hover{text-decoration:none}
+}
+
+/* Reduced motion is a semantic alternate state, not a slower animation. */
+@media (prefers-reduced-motion:reduce){
+  .view,
+  .ledger__row.is-fresh,
+  .ledger__row.is-fresh .ledger__check,
+  .ledger__tick.is-fresh,
+  .focus-ex__setof.is-fresh b,
+  .focus-well.is-fresh .focus-cue,
+  .focus-well.is-fresh .curset,
+  .focus-well.is-fresh.is-done .focus-done__mark,
+  .focus-well.is-fresh.is-done .focus-done__text,
+  .effortpop.is-open,
+  .effortpop.is-closing,
+  .effortpop.is-open .effortpop__arrow,
+  .effortpop.is-bump .effortpop__hint,
+  .sumsheet.is-played .sum-crest__mark,
+  .sumsheet.is-played .sum-crest__mark::before{animation:none}
+  .toast,.tour,.installbanner,.toggle::after{transition:none}
+  .toggle:active::after{transform:none}
+  .toggle[aria-checked="true"]:active::after,
+  .toggle[aria-pressed="true"]:active::after,
+  .toggle.is-on:active::after{transform:translateX(20px)}
+}
