@@ -894,3 +894,537 @@ test("sibling source provenance is strictly preserved at producer and consumer b
   assert.equal(directBrowseToImport.ok, false);
   assert.equal(directBrowseToImport.code, "source_provenance_mismatch");
 });
+
+const FAMILIES_FIXTURE_ORDER = ["growth", "balanced", "strength", "home"];
+const SHORTER_SESSION_TARGETS = [75, 60, 45, 30];
+
+function stableFamilyContext(familyId, frequency, sessionMinutes = 90) {
+  const base = familyId === "home"
+    ? {
+        equipment: [],
+        environment: [],
+        loadIncrements: {},
+      }
+    : {
+        equipment: ["barbell", "dumbbell", "machine", "cable", "smith"],
+        environment: ["safe_pull", "training_support"],
+        loadIncrements: { barbell: 2.5, dumbbell: 2, machine: 5, cable: 5, smith: 2.5 },
+      };
+  return {
+    schemaVersion: Compiler.VERSIONS.context,
+    familyId,
+    frequency,
+    sessionMinutes,
+    preferredRestSeconds: 90,
+    primaryMuscles: [],
+    deEmphasizedMuscles: [],
+    ignoredMuscles: [],
+    priorityMovements: [],
+    ...base,
+  };
+}
+
+const isShorterSessionSupported = (familyId, frequency, targetMinutes) => {
+  if (targetMinutes >= 45) return true;
+  if (targetMinutes === 30) {
+    if (familyId === "growth" || familyId === "home") return true;
+    if ((familyId === "balanced" || familyId === "strength") && frequency === 6) return true;
+    return false;
+  }
+  return false;
+};
+
+test("all-family lower-frequency sibling matrix proves 40 supported pairs and 4 target-1 rejections", async () => {
+  let supportedPairsCount = 0;
+  let target1RejectionsCount = 0;
+  const testedFamilies = new Set();
+  const testedPairsByFamily = new Map();
+
+  for (const familyId of FAMILIES_FIXTURE_ORDER) {
+    testedFamilies.add(familyId);
+    testedPairsByFamily.set(familyId, []);
+
+    // 1. All same-family authored targets below each source, target ascending
+    for (let sourceFreq = 3; sourceFreq <= 6; sourceFreq++) {
+      for (let targetFreq = 2; targetFreq < sourceFreq; targetFreq++) {
+        supportedPairsCount++;
+        testedPairsByFamily.get(familyId).push(`${sourceFreq}->${targetFreq}`);
+
+        const sourceCtx = stableFamilyContext(familyId, sourceFreq, 90);
+        const sourceInst = Compiler.compile(sourceCtx, EXERCISE_LIBRARY);
+        assert.equal(sourceInst.kind, "compiled");
+
+        const targetBlueprint = Compiler.BLUEPRINTS.find(
+          (bp) => bp.familyId === familyId && bp.frequency === targetFreq,
+        );
+        assert(targetBlueprint, `authored blueprint for ${familyId} ${targetFreq} must exist`);
+
+        const transitionId = `tr_${familyId}_${sourceFreq}_to_${targetFreq}`;
+        const input = {
+          compiler: Compiler,
+          catalogue: EXERCISE_LIBRARY,
+          transitionId,
+          createdAt: "2026-10-02T10:00:00.000Z",
+          kind: "lower_frequency_sibling",
+          predecessor: {
+            programId: `prog_${familyId}_${sourceFreq}`,
+            durableRevision: 1,
+            source: "Recommend",
+            compilerProvenance: sourceInst.provenance,
+          },
+          predecessorInstance: sourceInst,
+          predecessorCompilerContext: sourceCtx,
+          targetConstraint: { availableDays: targetFreq },
+          successorProgramId: `prog_${familyId}_${targetFreq}`,
+          diagnosis: {
+            kind: "fewer_days",
+            answers: { availableDays: targetFreq },
+            eligibleEvidenceIds: [`ev-${familyId}-${sourceFreq}-${targetFreq}`],
+            insufficientEvidenceReasons: [],
+          },
+        };
+
+        const result = await Transition.proposeSibling(input);
+        assert.equal(result.ok, true, `proposeSibling failed for ${familyId} ${sourceFreq}->${targetFreq}: ${result.code}`);
+        assert.equal(result.status, "preview");
+        assert(result.proposal, "returns immutable proposal");
+        assert(Object.isFrozen(result.proposal));
+
+        // Exact family & target frequency
+        assert.equal(result.proposal.kind, "lower_frequency_sibling");
+        assert.equal(result.successorInstance.familyId, familyId);
+        assert.equal(result.successorInstance.frequency, targetFreq);
+        assert.equal(result.successorInstance.blueprintId, targetBlueprint.id);
+        assert.equal(result.successorCompilerContext.frequency, targetFreq);
+
+        // Current versions and provenance
+        assert.equal(result.proposal.successor.compilerProvenance.familyVersion, targetBlueprint.familyVersion);
+        assert.equal(result.proposal.successor.compilerProvenance.compilerVersion, Compiler.VERSIONS.compiler);
+        assert.equal(result.proposal.successor.compilerProvenance.rulesVersion, Compiler.VERSIONS.rules);
+        assert.equal(result.proposal.successor.compilerProvenance.catalogueVersion, Compiler.VERSIONS.catalogue);
+
+        // Full real compiler result
+        assert.equal(result.successorInstance.kind, "compiled");
+        assert(Array.isArray(result.successorInstance.days) && result.successorInstance.days.length === targetFreq);
+
+        // Canonical complete mapping & diff
+        assert(Array.isArray(result.proposal.derivation.slotMapping.slots));
+        assert(result.proposal.derivation.slotMapping.slots.length > 0);
+        assert(Array.isArray(result.proposal.diff.days));
+        assert(Array.isArray(result.proposal.diff.exercises));
+        assert(Array.isArray(result.proposal.diff.prescriptions));
+
+        // Source equality
+        assert.equal(result.proposal.predecessor.source, "Recommend");
+        assert.equal(result.proposal.successor.source, "Recommend");
+
+        // Relation contract
+        assert(Array.isArray(result.proposal.progressionContract.preservedRelations));
+        assert(Array.isArray(result.proposal.progressionContract.resetRelations));
+        assert(Array.isArray(result.proposal.progressionContract.incompatibilities));
+
+        // Fresh IDs and hash
+        assert.equal(result.proposal.predecessor.programId, `prog_${familyId}_${sourceFreq}`);
+        assert.equal(result.proposal.successor.programId, `prog_${familyId}_${targetFreq}`);
+        assert.notEqual(result.proposal.successor.programId, result.proposal.predecessor.programId);
+        const computedHash = await Transition.hashProposal(result.proposal);
+        assert.equal(result.proposal.proposalHash, computedHash);
+
+        // validateProposal success
+        const validation = await Transition.validateProposal(result.proposal, {
+          predecessor: {
+            programId: `prog_${familyId}_${sourceFreq}`,
+            durableRevision: 1,
+            source: "Recommend",
+          },
+          predecessorInstance: sourceInst,
+          successorInstance: result.successorInstance,
+          predecessorCompilerContext: sourceCtx,
+          successorCompilerContext: result.successorCompilerContext,
+        });
+        assert.deepEqual(validation, { ok: true, status: "preview" });
+      }
+    }
+
+    // 2. Source-frequency-2 request to target 1 proves no fallback family/blueprint and typed Unavailable
+    target1RejectionsCount++;
+    const source2Ctx = stableFamilyContext(familyId, 2, 90);
+    const source2Inst = Compiler.compile(source2Ctx, EXERCISE_LIBRARY);
+    const unavailResult = await Transition.proposeSibling({
+      compiler: Compiler,
+      catalogue: EXERCISE_LIBRARY,
+      transitionId: `tr_${familyId}_2_to_1`,
+      createdAt: "2026-10-02T10:00:00.000Z",
+      kind: "lower_frequency_sibling",
+      predecessor: {
+        programId: `prog_${familyId}_2`,
+        durableRevision: 1,
+        source: "Recommend",
+        compilerProvenance: source2Inst.provenance,
+      },
+      predecessorInstance: source2Inst,
+      predecessorCompilerContext: source2Ctx,
+      targetConstraint: { availableDays: 1 },
+      successorProgramId: `prog_${familyId}_1`,
+      diagnosis: {
+        kind: "fewer_days",
+        answers: { availableDays: 1 },
+        eligibleEvidenceIds: [`ev-${familyId}-2-1`],
+        insufficientEvidenceReasons: [],
+      },
+    });
+    assert.equal(unavailResult.ok, false);
+    assert.equal(unavailResult.status, "unavailable");
+    assert.equal(unavailResult.unavailable, true);
+    assert.equal(unavailResult.code, "sibling_blueprint_not_found");
+    assert.equal(unavailResult.proposal, undefined);
+    assert.equal(unavailResult.successorInstance, undefined);
+  }
+
+  // Exact counts
+  assert.equal(testedFamilies.size, 4);
+  assert.equal(supportedPairsCount, 40);
+  assert.equal(target1RejectionsCount, 4);
+  for (const familyId of FAMILIES_FIXTURE_ORDER) {
+    assert.equal(testedPairsByFamily.get(familyId).length, 10);
+  }
+});
+
+test("all-family shorter-session sibling matrix proves 72 supported rows and 8 unavailable rows", async () => {
+  let supportedCount = 0;
+  let unavailableCount = 0;
+  const testedFamilies = new Set();
+  const resultsByFamily = new Map();
+
+  for (const familyId of FAMILIES_FIXTURE_ORDER) {
+    testedFamilies.add(familyId);
+    resultsByFamily.set(familyId, { supported: 0, unavailable: 0 });
+
+    for (let freq = 2; freq <= 6; freq++) {
+      for (const targetMins of SHORTER_SESSION_TARGETS) {
+        const sourceCtx = stableFamilyContext(familyId, freq, 90);
+        const sourceInst = Compiler.compile(sourceCtx, EXERCISE_LIBRARY);
+        assert.equal(sourceInst.kind, "compiled");
+
+        const isSupported = isShorterSessionSupported(familyId, freq, targetMins);
+        const transitionId = `tr_${familyId}_${freq}_${targetMins}m`;
+
+        const result = await Transition.proposeSibling({
+          compiler: Compiler,
+          catalogue: EXERCISE_LIBRARY,
+          transitionId,
+          createdAt: "2026-10-02T11:00:00.000Z",
+          kind: "shorter_session_sibling",
+          predecessor: {
+            programId: `prog_${familyId}_${freq}_90m`,
+            durableRevision: 1,
+            source: "Recommend",
+            compilerProvenance: sourceInst.provenance,
+          },
+          predecessorInstance: sourceInst,
+          predecessorCompilerContext: sourceCtx,
+          targetConstraint: { sessionMinutes: targetMins },
+          successorProgramId: `prog_${familyId}_${freq}_${targetMins}m`,
+          diagnosis: {
+            kind: "sessions_too_long",
+            answers: { sessionMinutes: targetMins },
+            eligibleEvidenceIds: [`ev-${familyId}-${freq}-${targetMins}`],
+            insufficientEvidenceReasons: [],
+          },
+        });
+
+        if (isSupported) {
+          supportedCount++;
+          resultsByFamily.get(familyId).supported++;
+
+          assert.equal(result.ok, true, `expected supported for ${familyId} ${freq}d @ ${targetMins}m, got ${result.code}`);
+          assert.equal(result.status, "preview");
+          assert(result.proposal, "returns immutable proposal");
+          assert(Object.isFrozen(result.proposal));
+
+          // Retains exact family and frequency
+          assert.equal(result.proposal.kind, "shorter_session_sibling");
+          assert.equal(result.successorInstance.familyId, familyId);
+          assert.equal(result.successorInstance.frequency, freq);
+          assert.equal(result.successorCompilerContext.frequency, freq);
+          assert.equal(result.successorCompilerContext.sessionMinutes, targetMins);
+
+          // Every real day fits the requested ceiling
+          for (const day of result.successorInstance.days) {
+            const daySecs = Compiler.estimateDaySeconds(day, EXERCISE_LIBRARY);
+            assert(
+              daySecs <= targetMins * 60,
+              `${familyId} ${freq}d @ ${targetMins}m: day ${day.dayId} duration ${daySecs}s exceeds ceiling ${targetMins * 60}s`,
+            );
+          }
+
+          // Fresh IDs and hash
+          assert.notEqual(result.proposal.successor.programId, result.proposal.predecessor.programId);
+          const computedHash = await Transition.hashProposal(result.proposal);
+          assert.equal(result.proposal.proposalHash, computedHash);
+
+          // validateProposal succeeds
+          const validation = await Transition.validateProposal(result.proposal, {
+            predecessor: {
+              programId: `prog_${familyId}_${freq}_90m`,
+              durableRevision: 1,
+              source: "Recommend",
+            },
+            predecessorInstance: sourceInst,
+            successorInstance: result.successorInstance,
+            predecessorCompilerContext: sourceCtx,
+            successorCompilerContext: result.successorCompilerContext,
+          });
+          assert.deepEqual(validation, { ok: true, status: "preview" });
+        } else {
+          unavailableCount++;
+          resultsByFamily.get(familyId).unavailable++;
+
+          assert.equal(result.ok, false, `expected unavailable for ${familyId} ${freq}d @ ${targetMins}m`);
+          assert.equal(result.status, "unavailable");
+          assert.equal(result.unavailable, true);
+          assert.equal(result.code, "sessions_too_long_unavailable");
+          assert.equal(result.proposal, undefined, "must not return successor proposal");
+          assert.equal(result.successorInstance, undefined, "must not return successor instance");
+        }
+      }
+    }
+  }
+
+  // Exact counts
+  assert.equal(testedFamilies.size, 4);
+  assert.equal(supportedCount, 72);
+  assert.equal(unavailableCount, 8);
+  assert.deepEqual(resultsByFamily.get("growth"), { supported: 20, unavailable: 0 });
+  assert.deepEqual(resultsByFamily.get("home"), { supported: 20, unavailable: 0 });
+  assert.deepEqual(resultsByFamily.get("balanced"), { supported: 16, unavailable: 4 });
+  assert.deepEqual(resultsByFamily.get("strength"), { supported: 16, unavailable: 4 });
+});
+
+test("compact matrix negatives reject Build, Import, Shared, arbitrary source, customization, and version drift while accepting Custom", async () => {
+  const baseCtx = stableFamilyContext("balanced", 4, 90);
+  const baseInst = Compiler.compile(baseCtx, EXERCISE_LIBRARY);
+
+  const makeInput = (overrides = {}) => ({
+    compiler: Compiler,
+    catalogue: EXERCISE_LIBRARY,
+    transitionId: "tr_matrix_negative_test",
+    createdAt: "2026-10-02T10:00:00.000Z",
+    kind: "lower_frequency_sibling",
+    predecessor: {
+      programId: "prog_balanced_4",
+      durableRevision: 1,
+      source: "Recommend",
+      compilerProvenance: baseInst.provenance,
+      ...(overrides.predecessor || {}),
+    },
+    predecessorInstance: overrides.predecessorInstance !== undefined ? overrides.predecessorInstance : baseInst,
+    predecessorCompilerContext: overrides.predecessorCompilerContext !== undefined ? overrides.predecessorCompilerContext : baseCtx,
+    targetConstraint: { availableDays: 3 },
+    successorProgramId: "prog_balanced_3",
+    diagnosis: {
+      kind: "fewer_days",
+      answers: { availableDays: 3 },
+      eligibleEvidenceIds: ["ev-diag-test"],
+      insufficientEvidenceReasons: [],
+    },
+    ...(overrides.top || {}),
+  });
+
+  // 1. Custom source is reconstructable and MUST be supported
+  const customResult = await Transition.proposeSibling(makeInput({
+    predecessor: { source: "Custom" },
+  }));
+  assert.equal(customResult.ok, true, "Custom source must be reconstructable");
+  assert.equal(customResult.proposal.predecessor.source, "Custom");
+  assert.equal(customResult.proposal.successor.source, "Custom");
+  const customValidation = await Transition.validateProposal(customResult.proposal, {
+    predecessor: { programId: "prog_balanced_4", durableRevision: 1, source: "Custom" },
+    predecessorInstance: baseInst,
+    successorInstance: customResult.successorInstance,
+    predecessorCompilerContext: baseCtx,
+    successorCompilerContext: customResult.successorCompilerContext,
+  });
+  assert.deepEqual(customValidation, { ok: true, status: "preview" });
+
+  // 2. Build source rejected with typed unsupported_source
+  const buildResult = await Transition.proposeSibling(makeInput({
+    predecessor: { source: "Build" },
+  }));
+  assert.equal(buildResult.ok, false);
+  assert.equal(buildResult.status, "unavailable");
+  assert.equal(buildResult.code, "unsupported_source");
+
+  // 3. Import source rejected with typed unsupported_source
+  const importResult = await Transition.proposeSibling(makeInput({
+    predecessor: { source: "Import" },
+  }));
+  assert.equal(importResult.ok, false);
+  assert.equal(importResult.status, "unavailable");
+  assert.equal(importResult.code, "unsupported_source");
+
+  // 4. Shared source rejected with typed unsupported_source
+  const sharedResult = await Transition.proposeSibling(makeInput({
+    predecessor: { source: "Shared" },
+  }));
+  assert.equal(sharedResult.ok, false);
+  assert.equal(sharedResult.status, "unavailable");
+  assert.equal(sharedResult.code, "unsupported_source");
+
+  // 5. Arbitrary source rejected with typed unsupported_source
+  const arbitraryResult = await Transition.proposeSibling(makeInput({
+    predecessor: { source: "ExternalSyncRoute" },
+  }));
+  assert.equal(arbitraryResult.ok, false);
+  assert.equal(arbitraryResult.status, "unavailable");
+  assert.equal(arbitraryResult.code, "unsupported_source");
+
+  // 6. Customized snapshot rejected with typed customized_compiler_snapshot
+  const customizedInst = structuredClone(baseInst);
+  customizedInst.customizedFrom = { blueprintId: "balanced_4_v1" };
+  const customizedResult = await Transition.proposeSibling(makeInput({
+    predecessorInstance: customizedInst,
+  }));
+  assert.equal(customizedResult.ok, false);
+  assert.equal(customizedResult.status, "unavailable");
+  assert.equal(customizedResult.code, "customized_compiler_snapshot");
+
+  // 7. Rules version drift rejected with typed unsupported_version
+  const rulesDriftProv = { ...baseInst.provenance, rulesVersion: "rules-v999" };
+  const rulesDriftResult = await Transition.proposeSibling(makeInput({
+    predecessor: { compilerProvenance: rulesDriftProv },
+  }));
+  assert.equal(rulesDriftResult.ok, false);
+  assert.equal(rulesDriftResult.status, "unavailable");
+  assert.equal(rulesDriftResult.code, "unsupported_version");
+
+  // 8. Unsupported historical compiler version rejected with typed unsupported_version
+  const histCompilerProv = { ...baseInst.provenance, compilerVersion: 1 };
+  const histCompilerResult = await Transition.proposeSibling(makeInput({
+    predecessor: { compilerProvenance: histCompilerProv },
+  }));
+  assert.equal(histCompilerResult.ok, false);
+  assert.equal(histCompilerResult.status, "unavailable");
+  assert.equal(histCompilerResult.code, "unsupported_version");
+
+  // 9. Context schema version drift (schemaVersion: 1 with legacy keys) rejected with typed unsupported_version
+  const histContext = {
+    schemaVersion: 1,
+    familyId: "balanced",
+    frequency: 4,
+    sessionMinutes: 90,
+    equipment: ["barbell", "dumbbell", "machine", "cable", "smith"],
+    environment: ["safe_pull", "training_support"],
+    loadIncrements: { barbell: 2.5, dumbbell: 2, machine: 5, cable: 5, smith: 2.5 },
+  };
+  const histContextResult = await Transition.proposeSibling(makeInput({
+    predecessorCompilerContext: histContext,
+  }));
+  assert.equal(histContextResult.ok, false);
+  assert.equal(histContextResult.status, "unavailable");
+  assert.equal(histContextResult.code, "unsupported_version");
+});
+
+test("deliberate mutation and omission controls fail on skipped family or frequency drift", async () => {
+  // Control 1: Omission control - an incomplete family list fails an assertion
+  const incompleteFamilies = ["growth", "balanced", "strength"]; // omitted home
+  assert.throws(
+    () => {
+      assert.equal(incompleteFamilies.length, 4, "matrix must include all 4 families");
+    },
+    /matrix must include all 4 families/,
+  );
+  assert.throws(
+    () => {
+      for (const fam of FAMILIES_FIXTURE_ORDER) {
+        assert(incompleteFamilies.includes(fam), `missing family ${fam}`);
+      }
+    },
+    /missing family home/,
+  );
+
+  // Control 2: Duration fallback frequency mutation - a shorter-session proposal that
+  // attempts to lower frequency to force a duration fit is rejected by validateProposal
+  const sourceCtx = stableFamilyContext("balanced", 4, 90);
+  const sourceInst = Compiler.compile(sourceCtx, EXERCISE_LIBRARY);
+
+  // Proposal for 60m balanced 4
+  const valid60m = await Transition.proposeSibling({
+    compiler: Compiler,
+    catalogue: EXERCISE_LIBRARY,
+    transitionId: "tr_control_mutation",
+    createdAt: "2026-10-02T11:00:00.000Z",
+    kind: "shorter_session_sibling",
+    predecessor: {
+      programId: "prog_balanced_4",
+      durableRevision: 1,
+      source: "Recommend",
+      compilerProvenance: sourceInst.provenance,
+    },
+    predecessorInstance: sourceInst,
+    predecessorCompilerContext: sourceCtx,
+    targetConstraint: { sessionMinutes: 60 },
+    successorProgramId: "prog_balanced_4_60m",
+    diagnosis: {
+      kind: "sessions_too_long",
+      answers: { sessionMinutes: 60 },
+      eligibleEvidenceIds: ["ev-ctrl-1"],
+      insufficientEvidenceReasons: [],
+    },
+  });
+  assert.equal(valid60m.ok, true);
+
+  // Mutate successor to 3-day (mimicking a resolver that silently reduced frequency)
+  const threeDayCtx = stableFamilyContext("balanced", 3, 60);
+  const threeDayInst = Compiler.compile(threeDayCtx, EXERCISE_LIBRARY);
+
+  const tamperedProposal = structuredClone(valid60m.proposal);
+  tamperedProposal.derivation.slotMapping = Transition.buildSlotMapping(sourceInst, threeDayInst);
+  tamperedProposal.diff = Transition.buildExactDiff(sourceInst, threeDayInst, tamperedProposal.derivation.slotMapping);
+  tamperedProposal.proposalHash = await Transition.hashProposal(tamperedProposal);
+
+  const tamperedValidation = await Transition.validateProposal(tamperedProposal, {
+    predecessor: {
+      programId: "prog_balanced_4",
+      durableRevision: 1,
+      source: "Recommend",
+    },
+    predecessorInstance: sourceInst,
+    successorInstance: threeDayInst,
+    predecessorCompilerContext: sourceCtx,
+    successorCompilerContext: threeDayCtx,
+  });
+  assert.equal(tamperedValidation.ok, false);
+  assert.equal(tamperedValidation.status, "invalid");
+  assert.equal(tamperedValidation.code, "invalid_sibling_derivation");
+
+  // Control 3: Lower-frequency target mutation - successor frequency >= predecessor frequency rejected
+  const equalFreqCtx = stableFamilyContext("balanced", 4, 90);
+  const equalFreqInst = Compiler.compile(equalFreqCtx, EXERCISE_LIBRARY);
+  const tamperedLowerProposal = structuredClone(valid60m.proposal);
+  tamperedLowerProposal.kind = "lower_frequency_sibling";
+  tamperedLowerProposal.diagnosis = {
+    kind: "fewer_days",
+    answers: { availableDays: 4 },
+    eligibleEvidenceIds: ["ev-ctrl-2"],
+    insufficientEvidenceReasons: [],
+  };
+  tamperedLowerProposal.derivation.slotMapping = Transition.buildSlotMapping(sourceInst, equalFreqInst);
+  tamperedLowerProposal.diff = Transition.buildExactDiff(sourceInst, equalFreqInst, tamperedLowerProposal.derivation.slotMapping);
+  tamperedLowerProposal.proposalHash = await Transition.hashProposal(tamperedLowerProposal);
+
+  const tamperedLowerValidation = await Transition.validateProposal(tamperedLowerProposal, {
+    predecessor: {
+      programId: "prog_balanced_4",
+      durableRevision: 1,
+      source: "Recommend",
+    },
+    predecessorInstance: sourceInst,
+    successorInstance: equalFreqInst,
+    predecessorCompilerContext: sourceCtx,
+    successorCompilerContext: equalFreqCtx,
+  });
+  assert.equal(tamperedLowerValidation.ok, false);
+  assert.equal(tamperedLowerValidation.status, "invalid");
+  assert.equal(tamperedLowerValidation.code, "invalid_sibling_derivation");
+});

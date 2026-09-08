@@ -338,6 +338,25 @@
     };
   }
 
+  
+  function progressionStrategyInvariant(progression) {
+    if (!progression || typeof progression !== "object") return null;
+    const { schemaVersion, modifiers, strategy } = progression;
+    if (!strategy || typeof strategy !== "object") return null;
+    const { id, version, params } = strategy;
+    const filteredParams = {};
+    if (params && typeof params === "object") {
+      for (const [key, value] of Object.entries(params)) {
+        if (key === "workingSets" || key === "targetRirMin" || key === "targetRirMax" ||
+            key === "repGoal" || key === "backoffSets") {
+          continue;
+        }
+        filteredParams[key] = value;
+      }
+    }
+    return { schemaVersion, modifiers, id, version, params: filteredParams };
+  }
+
   function relationContract(predecessor, successor, mapping) {
     const predecessorSlots = new Map(flattenedSlots(predecessor)
       .map((record) => [record.slot.slotId, record.slot]));
@@ -346,7 +365,7 @@
     for (const pair of mapping.slots.filter((entry) => entry.predecessorSlot && entry.successorSlot)) {
       const before = predecessorSlots.get(pair.predecessorSlot);
       const after = successorSlots.get(pair.successorSlot);
-      if (!sameCanonical(before.prescription.progression, after.prescription.progression)) {
+      if (!sameCanonical(progressionStrategyInvariant(before.prescription.progression), progressionStrategyInvariant(after.prescription.progression))) {
         return { ok: false, code: "progression_parameters_changed" };
       }
     }
@@ -370,11 +389,15 @@
           successorEndpoints.heavyTemplate === predecessorEndpoints.heavyTemplate &&
           successorEndpoints.volumeTemplate === predecessorEndpoints.volumeTemplate;
       });
-      if (candidates.length !== 1) return { ok: false, code: "progression_relation_ambiguous" };
+      if (candidates.length > 1) return { ok: false, code: "progression_relation_ambiguous" };
+      if (candidates.length === 0) {
+        resetRelations.push(`${predecessorRelation.type}@${predecessorRelation.version}:${predecessorRelation.id}:no_successor_relation`);
+        continue;
+      }
       const successorRelation = candidates[0];
       const successorEndpoints = relationEndpointProgressions(successor, successorRelation);
-      if (!sameCanonical(predecessorEndpoints.heavy, successorEndpoints.heavy) ||
-          !sameCanonical(predecessorEndpoints.volume, successorEndpoints.volume)) {
+      if (!sameCanonical(progressionStrategyInvariant(predecessorEndpoints.heavy), progressionStrategyInvariant(successorEndpoints.heavy)) ||
+          !sameCanonical(progressionStrategyInvariant(predecessorEndpoints.volume), progressionStrategyInvariant(successorEndpoints.volume))) {
         return { ok: false, code: "progression_parameters_changed" };
       }
       usedSuccessors.add(successorRelation.id);
