@@ -19,6 +19,8 @@ const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const textEncoder = new TextEncoder();
 const require = createRequire(import.meta.url);
 const contract = require(join(ROOT, "install-transfer-contract.js"));
+const WorkoutDraft = require(join(ROOT, "workout-draft.js"));
+const ProgramEntry = require(join(ROOT, "program-entry.js"));
 
 const browserContext = vm.createContext({
   TextEncoder,
@@ -131,15 +133,9 @@ function walk(value, path = "$", depth = 0, result = {
 
   const dangerous = new Set(["__proto__", "constructor", "prototype"]);
   const volatile = new Set([
-    "_storageRevision",
-    "_storageFollowUp",
-    "_storageDraftTransaction",
-    "_storageSetupActivation",
     "cookies",
     "cookie",
     "locks",
-    "pending",
-    "closing",
     "tabId",
     "writerId",
     "operationId",
@@ -152,7 +148,10 @@ function walk(value, path = "$", depth = 0, result = {
   for (const key of keys) {
     const childPath = `${path}.${key}`;
     if (dangerous.has(key)) result.dangerousPaths.push(childPath);
-    if (volatile.has(key) || /^repforge_(?:pending|draft_v1:(?:pending|closing|recovery))/.test(key)) {
+    const durableSidecar = path === "$.durableState" &&
+      (key === "_storageRevision" || key === "_storageFollowUp" || key === "_storageDraftTransaction" ||
+        key === "_storageSetupActivation" || /^repforge_(?:pending|draft_v1:(?:pending|closing|recovery))/.test(key));
+    if (volatile.has(key) || durableSidecar || (key === "logicalStateDigest" && path === "$")) {
       result.volatilePaths.push(childPath);
     }
     walk(value[key], childPath, depth + 1, result);
@@ -208,9 +207,114 @@ function maxContainerDepth(value, depth = 0) {
   return children.length ? Math.max(depth, ...children.map(child => maxContainerDepth(child, depth + 1))) : depth;
 }
 
+function producerDraft() {
+  const timestamp = "2026-09-08T18:00:00.000Z";
+  const programContext = {
+    programId: "program-1",
+    programFingerprint: "program-fingerprint-1",
+    durableRevision: 7,
+    dayId: "day-1",
+    dayLabel: "Day 1",
+    scheduleDate: "2026-09-08",
+    unit: "kg",
+    rirMode: "numeric",
+    exercises: [{
+      exerciseInstanceId: "exercise-1",
+      sourceExerciseId: "library:leg_press",
+      sets: 1,
+      setIds: ["set-1"],
+      programmedSets: [{ suggestedLoad: 100, minReps: 8, maxReps: 12, targetRir: 2 }],
+      minReps: 8,
+      maxReps: 12,
+      targetRir: 2,
+      notes: "",
+      progressionStrategy: null,
+      movementPattern: null,
+      sourceFingerprint: "source-fingerprint-1",
+      primary: "Quads",
+      secondary: "Glutes",
+      displayName: "Leg press",
+      libraryId: "sq_lp",
+      setupNotes: "",
+    }],
+  };
+  const sessionSelection = {
+    draftId: "draft-1",
+    startedAt: timestamp,
+    updatedAt: timestamp,
+    bodyweight: null,
+    notes: "",
+    selectedExerciseId: "exercise-1",
+    scheduleDate: "2026-09-08",
+    contextTouched: { day: false, date: false, sessionNotes: false, bodyweight: false },
+    writer: { installationId: "installation-1", tabId: "tab-1", operationId: "operation-1" },
+  };
+  const created = WorkoutDraft.create(programContext, sessionSelection);
+  assert.equal(created.kind, undefined, "WorkoutDraft.create returns a producer draft");
+  const logical = WorkoutDraft.logicalCloneSection(created);
+  assert.equal(logical.kind, undefined, "WorkoutDraft.logicalCloneSection returns the logical section");
+  return logical;
+}
+
+function producerEntryDraft() {
+  const timestamp = "2026-09-08T18:00:00.000Z";
+  const versions = {
+    compiler: "compiler-1",
+    family: "family-1",
+    blueprint: "blueprint-1",
+    catalogue: "catalogue-1",
+    rules: "rules-1",
+    context: "context-1",
+    progression: "progression-1",
+    recentConsistency: "consistency-1",
+    simpleStart: "simple-start-1",
+  };
+  const initial = ProgramEntry.createState({ draftId: "entry-1", now: timestamp, versions });
+  const routed = ProgramEntry.selectRoute(initial, "build");
+  const withResult = ProgramEntry.setResult(routed, {
+    fingerprint: "candidate-fingerprint",
+    preview: {},
+    selected: { id: "candidate-1" },
+  });
+  const normalized = ProgramEntry.normalizeSetupDraft(withResult);
+  assert.equal(normalized.ok, true, "ProgramEntry normalizes the producer candidate");
+  return normalized.value;
+}
+
+function producerProgrammingContext() {
+  const normalized = ProgramEntry.normalizeProgrammingContext({
+    schemaVersion: 1,
+    desiredResult: "muscle_growth",
+    structuredExperience: "6_to_24m",
+    recentConsistency: "most",
+    availability: { daysPerWeek: 3, sessionMinutes: 60, preferredRestSeconds: 120 },
+    environment: { kind: "commercial_gym", equipment: ["barbell"] },
+    primaryMuscles: ["chest"],
+    deEmphasizedMuscles: [],
+    ignoredMuscles: [],
+    priorityMovements: ["press"],
+    exerciseConstraints: [],
+    reviewedAt: "2026-09-08T18:00:00.000Z",
+  });
+  assert.equal(normalized.ok, true, "ProgramEntry normalizes the producer programming context");
+  return normalized.value;
+}
+
+async function withCanonicalPayloadHash(envelope) {
+  const preimage = structuredClone(envelope);
+  delete preimage.integrity.canonicalPayloadHash;
+  const digest = await webcrypto.subtle.digest("SHA-256", textEncoder.encode(contract.canonicalJson(preimage)));
+  let hash = "";
+  for (const byte of new Uint8Array(digest)) hash += byte.toString(16).padStart(2, "0");
+  const output = structuredClone(envelope);
+  output.integrity.canonicalPayloadHash = hash;
+  return output;
+}
+
 const matrix = readJson("test/fixtures/install-transfer-threats/boundary-matrix.json");
 const hostile = readJson("test/fixtures/install-transfer-threats/hostile-inputs.json");
 const redaction = readJson("test/fixtures/install-transfer-threats/redaction-cases.json");
+const producerCases = readJson("test/fixtures/install-transfer-threats/producer-boundary-cases.json");
 const existingClone = readJson("test/fixtures/install-transfer-clone-v1.json");
 const existingKeys = [
   "analytics",
@@ -325,6 +429,7 @@ assert.equal(contract.measureUtf8Bytes(Uint8Array.of(0x7b, 0x7d)), 2, "module by
 assert.equal(contract.measureUtf8Bytes(Uint8Array.of(0x7b, 0x7d).buffer), 2, "module ArrayBuffer measurement keeps raw bytes");
 assert.equal(contract.measureUtf8Bytes("😀"), 4, "module string measurement uses UTF-8 bytes");
 assert.throws(() => contract.measureUtf8Bytes(42), TypeError, "module byte measurement rejects coercion");
+assert.throws(() => contract.measureUtf8Bytes({ [Symbol.toStringTag]: "Uint8Array", byteLength: 2 }), TypeError, "module byte measurement rejects spoofed typed arrays");
 assert.equal(contract.measureChars("😀"), 1, "module character measurement counts Unicode scalars");
 assert.throws(() => contract.measureChars(42), TypeError, "module character measurement rejects coercion");
 assert.throws(() => contract.measureChars("\ud800"), TypeError, "module character measurement rejects lone surrogates");
@@ -449,7 +554,7 @@ const escapedSurrogate = hostile.cases.find(testCase => testCase.id === "escaped
 const escapedValue = JSON.parse(escapedSurrogate.raw).value;
 assert.equal(escapedValue.length, 1, "escaped lone surrogate remains a single UTF-16 code unit after JSON parsing");
 assert.throws(() => chars(escapedValue), RangeError, "escaped lone surrogate fails Unicode-scalar measurement");
-for (const id of ["unknown-top-level-schema-version", "unknown-top-level-schema-version-zero", "unknown-workout-draft-version", "unknown-required-section-version"]) {
+for (const id of ["unknown-top-level-schema-version", "unknown-top-level-schema-version-zero", "unknown-workout-draft-version", "unknown-required-section-version", "unknown-programming-context-version", "unknown-draft-nested-version", "unknown-entry-preview-version"]) {
   const testCase = hostile.cases.find(candidate => candidate.id === id);
   assert.equal(testCase.expected, "reject-without-local-mutation", `${id} fails closed without local mutation`);
 }
@@ -490,6 +595,9 @@ assert.equal(contract.validateEnvelope(unknownSection).code, contract.ERROR_CODE
 const digestOnWire = structuredClone(existingClone);
 digestOnWire.logicalStateDigest = "source-local-only";
 assert.equal(contract.validateEnvelope(digestOnWire).code, contract.ERROR_CODES.FORBIDDEN_FIELD);
+const digestInIntegrity = structuredClone(existingClone);
+digestInIntegrity.integrity.logicalStateDigest = "source-local-only";
+assert.equal(contract.validateEnvelope(digestInIntegrity).code, contract.ERROR_CODES.FORBIDDEN_FIELD);
 for (const volatileKey of [
   "_storageRevision",
   "_storageFollowUp",
@@ -498,8 +606,6 @@ for (const volatileKey of [
   "cookies",
   "cookie",
   "locks",
-  "pending",
-  "closing",
   "tabId",
   "writerId",
   "operationId",
@@ -510,13 +616,22 @@ for (const volatileKey of [
   "analyticsSessionId",
   "posthogSessionId",
   "posthog_session_id",
-  "sessionId",
   "repforge_pending_v1:fixture",
   "repforge_draft_v1:pending:fixture",
 ]) {
   const candidate = structuredClone(existingClone);
   candidate.durableState[volatileKey] = true;
   assert.equal(contract.validateEnvelope(candidate).code, contract.ERROR_CODES.FORBIDDEN_FIELD, `${volatileKey} is excluded from the wire clone`);
+}
+for (const logicalKey of ["pending", "closing", "sessionId", "logicalStateDigest"]) {
+  const candidate = structuredClone(existingClone);
+  candidate.durableState[logicalKey] = logicalKey === "logicalStateDigest" ? "source-local-logical-field" : "logical-value";
+  assertResultShape(contract.validateEnvelope(candidate), true, `${logicalKey} remains available to logical state`);
+}
+for (const sidecarKey of ["repforge_pending_v1:fixture", "_storageDraftTransaction"]) {
+  const candidate = structuredClone(existingClone);
+  candidate.durableState[sidecarKey] = true;
+  assert.equal(contract.validateEnvelope(candidate).code, contract.ERROR_CODES.FORBIDDEN_FIELD, `${sidecarKey} sidecar is excluded from the wire clone`);
 }
 const writerInDraft = structuredClone(existingClone);
 writerInDraft.workoutDraft = { schemaVersion: 2, draftId: "d", program: {}, session: {}, exerciseOrder: [], exercises: {}, writer: {} };
@@ -551,6 +666,88 @@ tamperedEnvelope.durableState.settings.lang = "pt";
 const tamperedIntegrity = await contract.validateEnvelopeIntegrity(tamperedEnvelope, webcrypto);
 assertResultShape(tamperedIntegrity, false, "tampered envelope integrity");
 assert.equal(tamperedIntegrity.code, contract.ERROR_CODES.INTEGRITY_MISMATCH);
+
+console.log("  actual P1a-shaped envelope and producer modules prove both consumers");
+assert.equal(producerCases.status, "independent-wave-a-design");
+assert.equal(producerCases.producerSources.workoutDraft.includes("logicalCloneSection"), true);
+assert.equal(producerCases.producerSources.programEntryDraft.includes("normalizeSetupDraft"), true);
+assert.equal(new Set(producerCases.negativeCases.map(testCase => testCase.id)).size, producerCases.negativeCases.length, "producer boundary case IDs are unique");
+for (const testCase of producerCases.negativeCases) {
+  assert.equal(typeof testCase.path, "string", `${testCase.id} records a concrete path`);
+  assert.equal(typeof testCase.expected, "string", `${testCase.id} records an expected outcome`);
+}
+const producerDraftValue = producerDraft();
+const producerCandidateValue = producerEntryDraft();
+const producerContextValue = producerProgrammingContext();
+const producerEnvelopeBase = structuredClone(existingClone);
+producerEnvelopeBase.workoutDraft = producerDraftValue;
+producerEnvelopeBase.programEntryDraft = producerCandidateValue;
+producerEnvelopeBase.uiPreferences = {
+  importSourceMode: "freeform",
+  installBannerDismissedAt: "2026-09-08T18:00:00.000Z",
+};
+producerEnvelopeBase.durableState.programmingContext = producerContextValue;
+const producerEnvelope = await withCanonicalPayloadHash(producerEnvelopeBase);
+const producerValidation = contract.validateEnvelope(producerEnvelope);
+assertResultShape(producerValidation, true, "producer-shaped envelope");
+const producerIntegrity = await contract.validateEnvelopeIntegrity(producerEnvelope, webcrypto);
+assertResultShape(producerIntegrity, true, "producer-shaped envelope integrity");
+const browserProducerEnvelope = browserValue(JSON.stringify(producerEnvelope));
+const browserProducerValidation = browserContract.validateEnvelope(browserProducerEnvelope);
+assert.equal(jsonResult(browserProducerValidation), jsonResult(producerValidation), "producer envelope Node/browser parity");
+const browserProducerIntegrity = await browserContract.validateEnvelopeIntegrity(browserProducerEnvelope, webcrypto);
+assert.equal(jsonResult(browserProducerIntegrity), jsonResult(producerIntegrity), "producer integrity Node/browser parity");
+for (const preferenceCase of producerCases.uiPreferences) {
+  const candidate = structuredClone(producerEnvelope);
+  candidate.uiPreferences = preferenceCase.value;
+  const result = contract.validateEnvelope(candidate);
+  if (preferenceCase.expected === "accept") assertResultShape(result, true, preferenceCase.id);
+  else assertResultShape(result, false, preferenceCase.id);
+}
+const emptyEntryState = ProgramEntry.createState({
+  draftId: "entry-empty-1",
+  now: "2026-09-08T18:00:00.000Z",
+  versions: {
+    compiler: "compiler-1", family: "family-1", blueprint: "blueprint-1", catalogue: "catalogue-1",
+    rules: "rules-1", context: "context-1", progression: "progression-1", recentConsistency: "consistency-1", simpleStart: "simple-start-1",
+  },
+});
+const emptyEntry = ProgramEntry.normalizeSetupDraft(emptyEntryState);
+assert.equal(emptyEntry.ok, true, "real producer candidate with null result normalizes");
+const nullResultEnvelope = structuredClone(producerEnvelope);
+nullResultEnvelope.programEntryDraft = emptyEntry.value;
+assertResultShape(contract.validateEnvelope(nullResultEnvelope), true, "candidate null result is an explicit valid state");
+
+const nullLogRow = structuredClone(producerEnvelope);
+nullLogRow.durableState.log[0] = null;
+assertResultShape(contract.validateEnvelope(nullLogRow), false, "null durable log row");
+const nullDraftExercise = structuredClone(producerEnvelope);
+nullDraftExercise.workoutDraft.exercises["exercise-1"] = null;
+assertResultShape(contract.validateEnvelope(nullDraftExercise), false, "null DraftV2 exercise row");
+const unsupportedContext = structuredClone(producerEnvelope);
+unsupportedContext.durableState.programmingContext.schemaVersion = 2;
+assert.equal(contract.validateEnvelope(unsupportedContext).code, contract.ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION);
+const unsupportedDraftNested = structuredClone(producerEnvelope);
+unsupportedDraftNested.workoutDraft.program.schemaVersion = 99;
+assert.equal(contract.validateEnvelope(unsupportedDraftNested).code, contract.ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION);
+const unsupportedCandidateNested = structuredClone(producerEnvelope);
+unsupportedCandidateNested.programEntryDraft.result.preview.programStructure = { schemaVersion: 2 };
+assert.equal(contract.validateEnvelope(unsupportedCandidateNested).code, contract.ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION);
+const longDraftIdentity = structuredClone(producerEnvelope);
+longDraftIdentity.workoutDraft.exerciseOrder[0] = "x".repeat(257);
+assert.equal(contract.validateEnvelope(longDraftIdentity).code, contract.ERROR_CODES.IDENTIFIER_TOO_LONG);
+const longFreeText = structuredClone(producerEnvelope);
+longFreeText.durableState.programMeta.name = "A".repeat(257);
+assertResultShape(contract.validateEnvelope(longFreeText), true, "free text is not capped by identifier limit");
+const logicalSession = structuredClone(producerEnvelope);
+logicalSession.durableState.log[0].sessionId = "logical-session-1";
+assertResultShape(contract.validateEnvelope(logicalSession), true, "logical session identity is retained");
+const providerSession = structuredClone(producerEnvelope);
+providerSession.durableState.log[0].posthogSessionId = "provider-session-canary";
+assert.equal(contract.validateEnvelope(providerSession).code, contract.ERROR_CODES.FORBIDDEN_FIELD);
+const timestampCanary = structuredClone(producerEnvelope);
+timestampCanary.createdAt = "2026-09-08 18:00:00Z";
+assertResultShape(contract.validateEnvelope(timestampCanary), false, "strict UTC envelope timestamp");
 
 console.log("  redaction cases cover service, static-host, response, telemetry, and errors");
 const requiredForbiddenFields = new Set(["token", "claimId", "ciphertext", "envelope", "body", "payload", "fullUrl", "cookie"]);
@@ -599,19 +796,19 @@ for (const [field, limit, code] of [
   ["customExercises", 1_000, contract.ERROR_CODES.CUSTOM_EXERCISES_TOO_LARGE],
 ]) {
   const atLimit = structuredClone(existingClone);
-  atLimit.durableState[field] = Array.from({ length: limit }, () => null);
+  atLimit.durableState[field] = Array.from({ length: limit }, () => ({}));
   assertResultShape(contract.validateEnvelope(atLimit), true, `${field} at named limit`);
   const candidate = structuredClone(existingClone);
-  candidate.durableState[field] = Array.from({ length: limit + 1 }, () => null);
+  candidate.durableState[field] = Array.from({ length: limit + 1 }, () => ({}));
   const result = contract.validateEnvelope(candidate);
   assertResultShape(result, false, `${field} over named limit`);
   assert.equal(result.code, code, `${field} uses its named limit code`);
 }
 const overGenericLog = structuredClone(existingClone);
 const atGenericLog = structuredClone(existingClone);
-atGenericLog.durableState.log = Array.from({ length: 10_000 }, () => null);
+atGenericLog.durableState.log = Array.from({ length: 10_000 }, () => ({}));
 assertResultShape(contract.validateEnvelope(atGenericLog), true, "generic 10,000 log bound");
-overGenericLog.durableState.log = Array.from({ length: 10_001 }, () => null);
+overGenericLog.durableState.log = Array.from({ length: 10_001 }, () => ({}));
 assert.equal(contract.validateEnvelope(overGenericLog).code, contract.ERROR_CODES.ARRAY_TOO_LARGE, "generic 10,001 log bound wins over named 200,000 bound");
 const exactSerializedLogRow = structuredClone(existingClone);
 exactSerializedLogRow.durableState.log = [JSON.parse(serializedLogRowAtChars(8_000))];
@@ -655,6 +852,21 @@ for (const testCase of redaction.cases) {
 const invalidDiagnostic = contract.redactDiagnostic({ message: "fixture canary" }, "unknown-channel");
 assertResultShape(invalidDiagnostic, false, "unknown diagnostic channel");
 assert.equal(invalidDiagnostic.code, contract.ERROR_CODES.INVALID_DIAGNOSTIC);
+const getterDiagnostic = {};
+Object.defineProperty(getterDiagnostic, "operation", {
+  enumerable: true,
+  get() { throw new Error("diagnostic getter must not run"); },
+});
+const getterResult = contract.redactDiagnostic(getterDiagnostic, "service-structured-log");
+assertResultShape(getterResult, false, producerCases.diagnostics.getter);
+assert.equal(getterResult.code, contract.ERROR_CODES.INVALID_DIAGNOSTIC);
+const unavailableDiagnostic = contract.redactDiagnostic({ state: "unavailable" }, "client-response-observable");
+assertResultShape(unavailableDiagnostic, true, "unavailable response redaction");
+assert.deepEqual(unavailableDiagnostic.value, producerCases.diagnostics.unavailable, "unavailable response omits expiry");
+const invalidExpiryDiagnostic = contract.redactDiagnostic({ state: "deleted", expiresAt: "expiry-canary" }, "client-response-observable");
+assertResultShape(invalidExpiryDiagnostic, false, producerCases.diagnostics.invalidExpiry);
+const unavailableExpiryCanary = contract.redactDiagnostic({ state: "unavailable", expiresAt: "expiry-canary" }, "client-response-observable");
+assertResultShape(unavailableExpiryCanary, false, "unavailable response rejects arbitrary expiry canary");
 
 console.log("  service parity remains pending until the real service consumer exists");
 console.log("pass: independent boundary matrix, hostile cases, redaction fixtures, Node/browser contract parity, and existing-clone characterization");

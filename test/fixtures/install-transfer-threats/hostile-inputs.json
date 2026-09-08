@@ -233,6 +233,27 @@
       "expectedCode": "unsupported-program-entry-draft-version"
     },
     {
+      "id": "unknown-programming-context-version",
+      "kind": "nested-version",
+      "path": "durableState.programmingContext.schemaVersion",
+      "expected": "reject-without-local-mutation",
+      "expectedCode": "unsupported-schema-version"
+    },
+    {
+      "id": "unknown-draft-nested-version",
+      "kind": "nested-version",
+      "path": "workoutDraft.program.schemaVersion",
+      "expected": "reject-without-local-mutation",
+      "expectedCode": "unsupported-schema-version"
+    },
+    {
+      "id": "unknown-entry-preview-version",
+      "kind": "nested-version",
+      "path": "programEntryDraft.result.preview.programStructure.schemaVersion",
+      "expected": "reject-without-local-mutation",
+      "expectedCode": "unsupported-schema-version"
+    },
+    {
       "id": "unknown-optional-section",
       "kind": "envelope-section",
       "path": "futureSection",

@@ -1,0 +1,34 @@
+{
+  "fixture": "install-transfer-producer-boundary-cases",
+  "fixtureVersion": 1,
+  "authority": "docs/adr/0013-temporary-install-transfer.md",
+  "status": "independent-wave-a-design",
+  "producerSources": {
+    "durableState": "test/fixtures/install-transfer-clone-v1.json (P1a-observed normalized state)",
+    "workoutDraft": "workout-draft.js logicalCloneSection(create(...))",
+    "programEntryDraft": "program-entry.js normalizeSetupDraft(setResult(selectRoute(createState(...))))"
+  },
+  "uiPreferences": [
+    { "id": "empty-normalized-prefs", "value": {}, "expected": "accept" },
+    { "id": "full-observed-prefs-without-theme", "value": { "importSourceMode": "freeform", "installBannerDismissedAt": "2026-09-08T18:00:00.000Z" }, "expected": "accept" },
+    { "id": "theme-enum", "value": { "theme": "dark", "importSourceMode": "file" }, "expected": "accept" },
+    { "id": "theme-canary", "value": { "theme": "rainbow" }, "expected": "reject" }
+  ],
+  "negativeCases": [
+    { "id": "null-durable-log-row", "path": "durableState.log[0]", "expected": "reject" },
+    { "id": "null-draft-exercise", "path": "workoutDraft.exercises[exercise-1]", "expected": "reject" },
+    { "id": "null-entry-result", "path": "programEntryDraft.result", "expected": "accept-null-only" },
+    { "id": "unsupported-programming-context-version", "path": "durableState.programmingContext.schemaVersion", "expected": "reject" },
+    { "id": "unsupported-draft-nested-version", "path": "workoutDraft.program.schemaVersion", "expected": "reject" },
+    { "id": "unsupported-candidate-preview-version", "path": "programEntryDraft.result.preview.programStructure.schemaVersion", "expected": "reject" },
+    { "id": "identifier-overflow", "path": "workoutDraft.exerciseOrder[0]", "expected": "reject" },
+    { "id": "free-text-over-identifier-size", "path": "durableState.programMeta.name", "expected": "accept-unless-string-bound" },
+    { "id": "logical-session-id", "path": "durableState.log[0].sessionId", "expected": "accept" },
+    { "id": "provider-session-id", "path": "durableState.log[0].posthogSessionId", "expected": "reject" }
+  ],
+  "diagnostics": {
+    "getter": "reject-without-invoking-getter",
+    "unavailable": { "state": "unavailable" },
+    "invalidExpiry": "reject"
+  }
+}

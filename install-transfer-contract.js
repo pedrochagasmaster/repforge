@@ -70,15 +70,9 @@
 
   const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
   const VOLATILE_KEYS = new Set([
-    "_storageRevision",
-    "_storageFollowUp",
-    "_storageDraftTransaction",
-    "_storageSetupActivation",
     "cookies",
     "cookie",
     "locks",
-    "pending",
-    "closing",
     "tabId",
     "writerId",
     "operationId",
@@ -89,8 +83,6 @@
     "analyticsSessionId",
     "posthogSessionId",
     "posthog_session_id",
-    "sessionId",
-    "logicalStateDigest",
   ]);
 
   const TOP_LEVEL_KEYS = Object.freeze([
@@ -116,7 +108,6 @@
     "exercises",
   ]);
   const SOURCE_KEYS = Object.freeze(["context", "logicalInstallationId"]);
-  const UI_PREFERENCE_KEYS = Object.freeze(["theme"]);
   const ANALYTICS_KEYS = Object.freeze(["enabled"]);
   const TELEMETRY_KEYS = Object.freeze(["schemaVersion", "installationId", "createdAt"]);
 
@@ -163,8 +154,41 @@
     return DANGEROUS_KEYS.has(key);
   }
 
-  function isVolatileKey(key) {
-    return VOLATILE_KEYS.has(key) || /^repforge_(?:pending|draft_v1:(?:pending|closing|recovery))/.test(key);
+  function isVolatileKey(key, path) {
+    if (VOLATILE_KEYS.has(key)) return true;
+    if (key === "logicalStateDigest") return path.length === 1 ||
+      (path.length === 2 && path[0] === "integrity");
+    if (key === "_storageRevision" || key === "_storageFollowUp" ||
+      key === "_storageDraftTransaction" || key === "_storageSetupActivation") {
+      return path.length === 2 && path[0] === "durableState";
+    }
+    if (/^repforge_(?:pending|draft_v1:(?:pending|closing|recovery))/.test(key)) {
+      return path.length === 2 && path[0] === "durableState";
+    }
+    return false;
+  }
+
+  function isIdentifierPath(path) {
+    const key = path[path.length - 1];
+    if (typeof key === "number") {
+      const parent = path[path.length - 2];
+      return parent === "exerciseOrder" || parent === "setOrder" || parent === "ids";
+    }
+    if (typeof key !== "string") return false;
+    return key === "id" || key === "draftId" || key === "programId" || key === "dayId" ||
+      key === "exerciseInstanceId" || key === "sourceExerciseId" || key === "setId" ||
+      key === "libraryId" || key === "movementId" || key === "slotId" ||
+      key === "logicalInstallationId" || key === "installationId" || key === "programFingerprint" ||
+      key === "fingerprint" || key === "answersFingerprint" || key === "sessionId" ||
+      key === "logicalSessionId" || key.endsWith("Id") || key.endsWith("ID") || key.endsWith("Fingerprint");
+  }
+
+  const UTC_ISO_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+
+  function isUtcIsoTimestamp(value) {
+    if (typeof value !== "string" || !UTC_ISO_RE.test(value)) return false;
+    const parsed = new Date(value);
+    return !Number.isNaN(parsed.valueOf()) && parsed.toISOString() === value;
   }
 
   function isArrayIndexKey(key, length) {
@@ -228,8 +252,29 @@
   }
 
   function asBytes(value) {
-    if (byteTag(value) === "[object Uint8Array]") return value;
-    if (byteTag(value) === "[object ArrayBuffer]") return new Uint8Array(value);
+    const tag = byteTag(value);
+    if (tag === "[object Uint8Array]") {
+      try {
+        const Constructor = root && root.Uint8Array;
+        const getter = Constructor && Object.getOwnPropertyDescriptor(Constructor.prototype, "byteLength")?.get;
+        if (typeof getter === "function") getter.call(value);
+        else if (typeof ArrayBuffer === "function" && !ArrayBuffer.isView(value)) return null;
+        return value;
+      } catch {
+        return null;
+      }
+    }
+    if (tag === "[object ArrayBuffer]") {
+      try {
+        const Constructor = root && root.ArrayBuffer;
+        const getter = Constructor && Object.getOwnPropertyDescriptor(Constructor.prototype, "byteLength")?.get;
+        if (typeof getter !== "function") return null;
+        getter.call(value);
+        return new Uint8Array(value);
+      } catch {
+        return null;
+      }
+    }
     return null;
   }
 
@@ -482,11 +527,14 @@
   function inspectJson(value, options = {}) {
     const bounded = options.bounded !== false;
     const active = new Set();
-    function visit(node, depth) {
+    function visit(node, depth, path) {
       if (node === null) return null;
       if (typeof node === "string") {
         try {
           const length = scalarCount(node);
+          if (bounded && isIdentifierPath(path) && length > LIMITS.identifierChars) {
+            return ERROR_CODES.IDENTIFIER_TOO_LONG;
+          }
           if (bounded && length > LIMITS.stringChars) return ERROR_CODES.STRING_TOO_LONG;
         } catch {
           return ERROR_CODES.INVALID_STRING;
@@ -510,7 +558,7 @@
               result = ERROR_CODES.INVALID_INPUT;
               break;
             }
-            result = visit(descriptor.value, depth + 1);
+            result = visit(descriptor.value, depth + 1, path.concat(index));
             if (result) break;
           }
         }
@@ -522,6 +570,7 @@
         if (bounded && keys.length > LIMITS.objectKeys) result = ERROR_CODES.OBJECT_TOO_WIDE;
         for (const key of keys) {
           if (result) break;
+          const childPath = path.concat(key);
           const descriptor = Object.getOwnPropertyDescriptor(node, key);
           if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value")) {
             result = ERROR_CODES.INVALID_INPUT;
@@ -531,7 +580,7 @@
             result = ERROR_CODES.DANGEROUS_KEY;
             break;
           }
-          if (isVolatileKey(key)) {
+          if (isVolatileKey(key, childPath)) {
             result = ERROR_CODES.FORBIDDEN_FIELD;
             break;
           }
@@ -544,13 +593,13 @@
             result = ERROR_CODES.INVALID_STRING;
             break;
           }
-          result = visit(descriptor.value, depth + 1);
+          result = visit(descriptor.value, depth + 1, childPath);
         }
       }
       active.delete(node);
       return result;
     }
-    return visit(value, 0);
+    return visit(value, 0, []);
   }
 
   function cloneJson(value) {
@@ -652,6 +701,144 @@
     }
   }
 
+  function requiredObject(value, fields) {
+    return isPlainObject(value) && fields.every(field => hasOwn(value, field));
+  }
+
+  function validateTimestampFields(value) {
+    let invalid = false;
+    const active = new Set();
+    function visit(node) {
+      if (invalid || node === null || typeof node !== "object") return;
+      if (active.has(node)) {
+        invalid = true;
+        return;
+      }
+      active.add(node);
+      if (Array.isArray(node)) {
+        for (const item of node) visit(item);
+      } else {
+        for (const key of Object.keys(node)) {
+          const child = node[key];
+          if (["createdAt", "updatedAt", "reviewedAt", "selectedAt", "created", "updated", "startedAt", "completedAt"].includes(key)) {
+            if (child === null && key === "completedAt") continue;
+            if (!isUtcIsoTimestamp(child)) {
+              invalid = true;
+              break;
+            }
+          }
+          visit(child);
+          if (invalid) break;
+        }
+      }
+      active.delete(node);
+    }
+    visit(value);
+    return invalid;
+  }
+
+  function nestedVersionError(value) {
+    let invalid = false;
+    const active = new Set();
+    function visit(node, rootNode) {
+      if (invalid || node === null || typeof node !== "object") return;
+      if (active.has(node)) {
+        invalid = true;
+        return;
+      }
+      active.add(node);
+      if (Array.isArray(node)) {
+        for (const item of node) visit(item, false);
+      } else {
+        for (const key of Object.keys(node)) {
+          const child = node[key];
+          if (!rootNode && key === "schemaVersion" && child !== 1) {
+            invalid = true;
+            break;
+          }
+          visit(child, false);
+          if (invalid) break;
+        }
+      }
+      active.delete(node);
+    }
+    visit(value, true);
+    return invalid;
+  }
+
+  function validateProgrammingContext(value) {
+    if (!isPlainObject(value)) return ERROR_CODES.INVALID_ENVELOPE;
+    const keys = exactKeys(value, [
+      "schemaVersion", "desiredResult", "structuredExperience", "recentConsistency", "availability",
+      "environment", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "priorityMovements",
+      "exerciseConstraints", "reviewedAt",
+    ]);
+    if (keys) return keys === ERROR_CODES.UNKNOWN_SECTION ? keys : ERROR_CODES.INVALID_ENVELOPE;
+    if (value.schemaVersion !== 1) return ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION;
+    if (!validString(value.desiredResult, true) || !validString(value.structuredExperience, true) ||
+      !validString(value.recentConsistency, true) || !isUtcIsoTimestamp(value.reviewedAt)) {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    if (!isPlainObject(value.availability) || exactKeys(value.availability, ["daysPerWeek", "sessionMinutes", "preferredRestSeconds"]) ||
+      !Number.isInteger(value.availability.daysPerWeek) || value.availability.daysPerWeek < 2 ||
+      !Number.isInteger(value.availability.sessionMinutes) || value.availability.sessionMinutes < 1 ||
+      (value.availability.preferredRestSeconds !== null &&
+        (!Number.isInteger(value.availability.preferredRestSeconds) || value.availability.preferredRestSeconds < 0))) {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    if (!isPlainObject(value.environment) || Object.keys(value.environment).some(key => !["kind", "capabilities", "equipment"].includes(key)) ||
+      !validString(value.environment.kind, true)) return ERROR_CODES.INVALID_ENVELOPE;
+    for (const field of ["capabilities", "equipment"]) {
+      if (hasOwn(value.environment, field) && (!Array.isArray(value.environment[field]) ||
+        value.environment[field].some(item => !validIdentifier(item, true)))) return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    for (const field of ["primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "priorityMovements"]) {
+      if (!Array.isArray(value[field]) || value[field].some(item => !validIdentifier(item, true))) return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    if (!Array.isArray(value.exerciseConstraints) || value.exerciseConstraints.some(item =>
+      !isPlainObject(item) || exactKeys(item, ["exerciseId", "reason"]) ||
+      !validIdentifier(item.exerciseId, true) || !validString(item.reason, true))) {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    return null;
+  }
+
+  function validateDraftSet(value, setId) {
+    if (!isPlainObject(value) || value.setId !== setId || !validIdentifier(setId, true) ||
+      !Number.isSafeInteger(value.ordinal) || value.ordinal < 1 || !["working", "warmup"].includes(value.role) ||
+      !isPlainObject(value.programmed) || !isPlainObject(value.edited) || !isPlainObject(value.touched)) return false;
+    for (const field of ["load", "reps", "rir", "effort"]) {
+      if (hasOwn(value.edited, field) && value.edited[field] !== null && !validString(value.edited[field])) return false;
+    }
+    for (const field of ["load", "reps", "effort"]) if (typeof value.touched[field] !== "boolean") return false;
+    if (hasOwn(value.touched, "rir") && typeof value.touched.rir !== "boolean") return false;
+    if (value.completion !== "pending" &&
+      (!isPlainObject(value.completion) || !isUtcIsoTimestamp(value.completion.completedAt))) return false;
+    return true;
+  }
+
+  function validateDraftExercise(value, exerciseId) {
+    if (!isPlainObject(value) || value.exerciseInstanceId !== exerciseId || !validIdentifier(value.exerciseInstanceId, true) ||
+      !validIdentifier(value.sourceExerciseId, true) || ![null, undefined].includes(value.libraryId) && !validIdentifier(value.libraryId, true) ||
+      !validString(value.displayName, true) || !isPlainObject(value.programmed) ||
+      ![null, undefined].includes(value.substitution) && !isPlainObject(value.substitution) ||
+      !["active", "skipped"].includes(value.status) || !validString(value.setupNotes) ||
+      !Array.isArray(value.setOrder) || !isPlainObject(value.sets)) return false;
+    const programmed = value.programmed;
+    for (const field of ["order", "sets", "minReps", "maxReps"]) {
+      if (!Number.isSafeInteger(programmed[field]) || programmed[field] < (field === "order" ? 0 : 1)) return false;
+    }
+    if (programmed.minReps > programmed.maxReps || !validString(programmed.notes) ||
+      !validString(programmed.primary) || !validString(programmed.secondary) ||
+      !validIdentifier(programmed.sourceFingerprint, true) || programmed.sets !== value.setOrder.length) return false;
+    const ids = value.setOrder;
+    const unique = new Set(ids);
+    if (unique.size !== ids.length || ids.some(id => !validIdentifier(id, true))) return false;
+    const setKeys = Object.keys(value.sets);
+    if (setKeys.length !== ids.length || setKeys.some(id => !unique.has(id))) return false;
+    return ids.every(id => validateDraftSet(value.sets[id], id));
+  }
+
   function validateWorkoutDraft(value) {
     if (value === null) return null;
     if (!isPlainObject(value)) return ERROR_CODES.INVALID_ENVELOPE;
@@ -660,13 +847,36 @@
         ? ERROR_CODES.UNSUPPORTED_WORKOUT_DRAFT_VERSION
         : ERROR_CODES.INVALID_SCHEMA_VERSION;
     }
+    if (nestedVersionError(value)) return ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION;
     if (hasOwn(value, "writer") || hasOwn(value, "revision")) return ERROR_CODES.FORBIDDEN_FIELD;
     const keys = exactKeys(value, DRAFT_KEYS);
     if (keys) return keys;
     if (!validIdentifier(value.draftId, true) || !isPlainObject(value.program) || !isPlainObject(value.session) ||
       !Array.isArray(value.exerciseOrder) || !isPlainObject(value.exercises)) return ERROR_CODES.INVALID_ENVELOPE;
     if (hasOwn(value.program, "durableRevision")) return ERROR_CODES.FORBIDDEN_FIELD;
-    return null;
+    for (const field of ["programId", "programFingerprint", "dayId"]) {
+      if (!validIdentifier(value.program[field], true)) return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    if (!validString(value.program.dayLabel, true) || !validString(value.program.scheduleDate) ||
+      !["kg", "lb"].includes(value.program.unit) || !["numeric", "effort"].includes(value.program.rirMode)) {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    if (!isUtcIsoTimestamp(value.session.startedAt) || !isUtcIsoTimestamp(value.session.updatedAt) ||
+      (value.session.bodyweight !== null && !validString(value.session.bodyweight)) || !validString(value.session.notes) ||
+      (value.session.selectedExerciseId !== null && !validIdentifier(value.session.selectedExerciseId, true)) ||
+      !["active", "finishing"].includes(value.session.status) || !requiredObject(value.session.contextTouched, ["day", "date", "sessionNotes", "bodyweight"])) {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    if (Object.keys(value.session.contextTouched).some(key => !["day", "date", "sessionNotes", "bodyweight"].includes(key)) ||
+      Object.values(value.session.contextTouched).some(item => typeof item !== "boolean")) return ERROR_CODES.INVALID_ENVELOPE;
+    const ids = value.exerciseOrder;
+    const unique = new Set(ids);
+    if (unique.size !== ids.length || ids.some(id => !validIdentifier(id, true))) return ERROR_CODES.INVALID_ENVELOPE;
+    const exerciseKeys = Object.keys(value.exercises);
+    if (exerciseKeys.length !== ids.length || exerciseKeys.some(id => !unique.has(id))) return ERROR_CODES.INVALID_ENVELOPE;
+    if (value.session.selectedExerciseId !== null && !unique.has(value.session.selectedExerciseId)) return ERROR_CODES.INVALID_ENVELOPE;
+    if (!ids.every(id => validateDraftExercise(value.exercises[id], id))) return ERROR_CODES.INVALID_ENVELOPE;
+    return validateTimestampFields(value) ? ERROR_CODES.INVALID_ENVELOPE : null;
   }
 
   function validateProgramEntryDraft(value) {
@@ -678,6 +888,119 @@
         : ERROR_CODES.INVALID_SCHEMA_VERSION;
     }
     if (hasOwn(value, "ownerId") || hasOwn(value, "revision") || hasOwn(value, "state")) return ERROR_CODES.FORBIDDEN_FIELD;
+    if (nestedVersionError(value)) return ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION;
+    const keys = exactKeys(value, [
+      "schemaVersion", "draftId", "route", "step", "answers", "legacyHints", "result", "versions",
+      "activeProgramRevisionAtStart", "createdAt", "updatedAt",
+    ]);
+    if (keys) return keys;
+    const routes = new Set(["recommend", "custom", "browse", "build", "import", "shared"]);
+    const routeSteps = {
+      recommend: new Set(["desired_result", "background", "schedule", "environment", "priorities", "result", "preview"]),
+      custom: new Set(["desired_result", "background", "schedule", "environment", "priorities", "exercise_preferences", "custom_shape", "result", "preview"]),
+      browse: new Set(["schedule", "environment", "catalogue", "preview"]),
+      build: new Set(["build_setup", "editor"]),
+      import: new Set(["import_source", "preview"]),
+      shared: new Set(["shared_review", "preview"]),
+    };
+    if (!validIdentifier(value.draftId, true) ||
+      (value.route !== null && !routes.has(value.route)) || !validString(value.step, true) ||
+      (value.route === null && value.step !== "entry") ||
+      (value.route !== null && value.step !== "entry" && value.step !== "activation_conflict" && !routeSteps[value.route]?.has(value.step)) ||
+      !isPlainObject(value.answers) || !isPlainObject(value.legacyHints) ||
+      (value.result !== null && !isPlainObject(value.result)) || !isPlainObject(value.versions) ||
+      !Number.isSafeInteger(value.activeProgramRevisionAtStart) || value.activeProgramRevisionAtStart < 0 ||
+      !isUtcIsoTimestamp(value.createdAt) || !isUtcIsoTimestamp(value.updatedAt)) return ERROR_CODES.INVALID_ENVELOPE;
+    const versionKeys = new Set([
+      "compiler", "family", "blueprint", "catalogue", "rules", "context", "progression", "recentConsistency", "simpleStart",
+    ]);
+    if (Object.keys(value.versions).some(key => !versionKeys.has(key) ||
+      !validString(value.versions[key], true) || !/^[a-z0-9][a-z0-9_.:-]*$/.test(value.versions[key]))) {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    for (const key of ["compiler", "family", "blueprint", "catalogue", "rules", "context", "progression"]) {
+      if (!hasOwn(value.versions, key)) return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    if (value.result !== null) {
+      const result = value.result;
+      if (value.route === null) return ERROR_CODES.INVALID_ENVELOPE;
+      if (result.schemaVersion !== 1 || result.route !== value.route || !validIdentifier(result.fingerprint, true) ||
+        !validIdentifier(result.answersFingerprint, true) || !isPlainObject(result.preview) || nestedVersionError(result)) {
+        return result.schemaVersion !== 1 ? ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION : ERROR_CODES.INVALID_ENVELOPE;
+      }
+      const commonResultKeys = new Set(["schemaVersion", "route", "fingerprint", "answersFingerprint", "name", "namePt", "source", "id", "preview"]);
+      const routeResultKeys = {
+        recommend: new Set(["selected", "candidates", "alternative", "diagnostics", "explanation", "telemetry", "serviceVersion"]),
+        custom: new Set(["selected", "candidates", "alternative", "diagnostics", "explanation", "telemetry", "serviceVersion"]),
+        browse: new Set(["selected", "telemetry"]),
+        build: new Set(["selected"]),
+        import: new Set(["selected"]),
+        shared: new Set(["selected", "telemetry"]),
+      };
+      const allowedResultKeys = new Set([...commonResultKeys, ...(routeResultKeys[value.route] || [])]);
+      if (Object.keys(result).some(key => !allowedResultKeys.has(key))) return ERROR_CODES.UNKNOWN_SECTION;
+      for (const key of ["name", "namePt"]) if (hasOwn(result, key) && !validString(result[key])) return ERROR_CODES.INVALID_ENVELOPE;
+      for (const key of ["source", "id", "serviceVersion"]) {
+        if (hasOwn(result, key) && !validIdentifier(result[key], true)) return ERROR_CODES.INVALID_ENVELOPE;
+      }
+      if (hasOwn(result, "selected") && (!isPlainObject(result.selected) || !validIdentifier(result.selected.id, true))) return ERROR_CODES.INVALID_ENVELOPE;
+      if (hasOwn(result, "alternative") && result.alternative !== null && (!isPlainObject(result.alternative) || !validIdentifier(result.alternative.id, true))) return ERROR_CODES.INVALID_ENVELOPE;
+      if (hasOwn(result, "candidates") && (!Array.isArray(result.candidates) || result.candidates.some(item => !isPlainObject(item) || !validIdentifier(item.id, true)))) return ERROR_CODES.INVALID_ENVELOPE;
+      const previewKeys = new Set([
+        "source", "format", "family", "familyId", "frequency", "blueprintId", "program", "programStructure",
+        "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "limitations", "reductions",
+        "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises", "sharedMeta", "sharedSettings", "sharedImport",
+      ]);
+      if (Object.keys(result.preview).some(key => !previewKeys.has(key))) return ERROR_CODES.UNKNOWN_SECTION;
+      for (const key of ["diagnostics", "explanation"]) {
+        if (hasOwn(result, key) && !isPlainObject(result[key]) && !Array.isArray(result[key])) return ERROR_CODES.INVALID_ENVELOPE;
+      }
+      if (hasOwn(result, "telemetry") && !isPlainObject(result.telemetry)) return ERROR_CODES.INVALID_ENVELOPE;
+      for (const key of ["program", "days", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "customExercises"]) {
+        if (hasOwn(result.preview, key) && !Array.isArray(result.preview[key])) return ERROR_CODES.INVALID_ENVELOPE;
+        if (hasOwn(result.preview, key) && result.preview[key].some(item => !isPlainObject(item))) return ERROR_CODES.INVALID_ENVELOPE;
+      }
+      if (hasOwn(result.preview, "programStructure") && !isPlainObject(result.preview.programStructure)) return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    return validateTimestampFields(value) ? ERROR_CODES.INVALID_ENVELOPE : null;
+  }
+
+  function validateDurableState(value) {
+    if (!isPlainObject(value) || !requiredObject(value, ["settings", "programMeta", "program", "log", "programHistory", "customExercises"])) {
+      return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    if (!isPlainObject(value.settings) || !isPlainObject(value.programMeta)) return ERROR_CODES.INVALID_ENVELOPE;
+    if (hasOwn(value, "programmingContext")) {
+      const contextError = validateProgrammingContext(value.programmingContext);
+      if (contextError) return contextError;
+    }
+    const collectionChecks = [
+      ["log", LIMITS.logRows, ERROR_CODES.LOG_ROW_TOO_LARGE],
+      ["program", LIMITS.programRows, ERROR_CODES.PROGRAM_TOO_LARGE],
+      ["programHistory", LIMITS.programHistoryEntries, ERROR_CODES.PROGRAM_HISTORY_TOO_LARGE],
+      ["customExercises", LIMITS.customExercises, ERROR_CODES.CUSTOM_EXERCISES_TOO_LARGE],
+    ];
+    for (const [field, limit, code] of collectionChecks) {
+      const collection = value[field];
+      if (!Array.isArray(collection)) return ERROR_CODES.INVALID_ENVELOPE;
+      if (collection.length > limit) return code;
+      if (collection.some(row => !isPlainObject(row))) return ERROR_CODES.INVALID_ENVELOPE;
+    }
+    if (nestedVersionError(value)) return ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION;
+    if (validateTimestampFields(value)) return ERROR_CODES.INVALID_ENVELOPE;
+    for (const row of value.log) {
+      let rowJson;
+      try {
+        rowJson = canonicalJson(row);
+      } catch {
+        return ERROR_CODES.INVALID_ENVELOPE;
+      }
+      try {
+        if (scalarCount(rowJson) > LIMITS.serializedLogRowChars) return ERROR_CODES.LOG_ROW_TOO_LARGE;
+      } catch {
+        return ERROR_CODES.INVALID_ENVELOPE;
+      }
+    }
     return null;
   }
 
@@ -699,54 +1022,31 @@
       return fail(ERROR_CODES.INVALID_SCHEMA_VERSION);
     }
     if (value.schemaVersion !== 1) return fail(ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION);
-    if (!validString(value.createdAt, true)) return fail(ERROR_CODES.INVALID_ENVELOPE);
+    if (!isUtcIsoTimestamp(value.createdAt)) return fail(ERROR_CODES.INVALID_ENVELOPE);
     if (!isPlainObject(value.source) || exactKeys(value.source, SOURCE_KEYS) || value.source.context !== "browser" ||
       !validIdentifier(value.source.logicalInstallationId, true)) return fail(ERROR_CODES.INVALID_ENVELOPE);
     if (!Number.isSafeInteger(value.sourceRevision) || value.sourceRevision < 0) return fail(ERROR_CODES.INVALID_ENVELOPE);
-    if (!isPlainObject(value.durableState)) return fail(ERROR_CODES.INVALID_ENVELOPE);
+    const durableError = validateDurableState(value.durableState);
+    if (durableError) return fail(durableError);
     let sectionError = validateWorkoutDraft(value.workoutDraft);
     if (sectionError) return fail(sectionError);
     sectionError = validateProgramEntryDraft(value.programEntryDraft);
     if (sectionError) return fail(sectionError);
-    if (!isPlainObject(value.uiPreferences) || exactKeys(value.uiPreferences, UI_PREFERENCE_KEYS) ||
-      !["system", "light", "dark"].includes(value.uiPreferences.theme)) return fail(ERROR_CODES.INVALID_ENVELOPE);
+    if (!isPlainObject(value.uiPreferences) ||
+      (hasOwn(value.uiPreferences, "theme") && !["system", "light", "dark"].includes(value.uiPreferences.theme)) ||
+      (hasOwn(value.uiPreferences, "installBannerDismissedAt") && !isUtcIsoTimestamp(value.uiPreferences.installBannerDismissedAt)) ||
+      validateTimestampFields(value.uiPreferences)) {
+      return fail(ERROR_CODES.INVALID_ENVELOPE);
+    }
     if (!isPlainObject(value.analytics) || exactKeys(value.analytics, ANALYTICS_KEYS) ||
       typeof value.analytics.enabled !== "boolean") return fail(ERROR_CODES.INVALID_ENVELOPE);
     if (!isPlainObject(value.telemetryIdentity) || exactKeys(value.telemetryIdentity, TELEMETRY_KEYS) ||
       value.telemetryIdentity.schemaVersion !== 1 || !validIdentifier(value.telemetryIdentity.installationId, true) ||
-      !validString(value.telemetryIdentity.createdAt, true)) return fail(ERROR_CODES.INVALID_ENVELOPE);
+      !isUtcIsoTimestamp(value.telemetryIdentity.createdAt)) return fail(ERROR_CODES.INVALID_ENVELOPE);
     if (!isPlainObject(value.integrity) || Object.keys(value.integrity).length !== 1 ||
       !validString(value.integrity.canonicalPayloadHash, true) ||
       !/^[0-9a-f]{64}$/.test(value.integrity.canonicalPayloadHash)) return fail(ERROR_CODES.INVALID_ENVELOPE);
 
-    const durable = value.durableState;
-    const collectionChecks = [
-      ["log", LIMITS.logRows, ERROR_CODES.LOG_ROW_TOO_LARGE],
-      ["program", LIMITS.programRows, ERROR_CODES.PROGRAM_TOO_LARGE],
-      ["programHistory", LIMITS.programHistoryEntries, ERROR_CODES.PROGRAM_HISTORY_TOO_LARGE],
-      ["customExercises", LIMITS.customExercises, ERROR_CODES.CUSTOM_EXERCISES_TOO_LARGE],
-    ];
-    for (const [field, limit, code] of collectionChecks) {
-      if (hasOwn(durable, field)) {
-        if (!Array.isArray(durable[field])) return fail(ERROR_CODES.INVALID_ENVELOPE);
-        if (durable[field].length > limit) return fail(code);
-      }
-    }
-    if (Array.isArray(durable.log)) {
-      for (const row of durable.log) {
-        let rowJson;
-        try {
-          rowJson = canonicalJson(row);
-        } catch {
-          return fail(ERROR_CODES.INVALID_ENVELOPE);
-        }
-        try {
-          if (scalarCount(rowJson) > LIMITS.serializedLogRowChars) return fail(ERROR_CODES.LOG_ROW_TOO_LARGE);
-        } catch {
-          return fail(ERROR_CODES.INVALID_ENVELOPE);
-        }
-      }
-    }
     return ok(cloneJson(value));
   }
 
@@ -796,28 +1096,54 @@
     return ok({ token: value.token });
   }
 
+  function readDiagnosticData(value) {
+    try {
+      if (!isPlainObject(value)) return null;
+      const output = {};
+      for (const key of Object.getOwnPropertyNames(value)) {
+        const descriptor = Object.getOwnPropertyDescriptor(value, key);
+        if (!descriptor || !Object.prototype.hasOwnProperty.call(descriptor, "value")) return null;
+        Object.defineProperty(output, key, {
+          value: descriptor.value,
+          enumerable: true,
+          writable: true,
+          configurable: true,
+        });
+      }
+      return output;
+    } catch {
+      return null;
+    }
+  }
+
   function redactDiagnostic(value, channel) {
-    if (!isPlainObject(value) || !Object.values(DIAGNOSTIC_CHANNELS).includes(channel)) return fail(ERROR_CODES.INVALID_DIAGNOSTIC);
+    const input = readDiagnosticData(value);
+    if (!input || !Object.values(DIAGNOSTIC_CHANNELS).includes(channel)) return fail(ERROR_CODES.INVALID_DIAGNOSTIC);
     if (channel === DIAGNOSTIC_CHANNELS.SERVICE) {
-      if (value.operation === "create" && value.method === "POST" && value.path === ENDPOINTS.create) {
+      if (input.operation === "create" && input.method === "POST" && input.path === ENDPOINTS.create) {
         return ok({ operation: "create", method: "POST", path: ENDPOINTS.create });
       }
-      if (value.operation === "claim") return ok({ operation: "claim" });
-      if (value.operation === "commit") return ok({ operation: "commit" });
-      if (value.operation === "status") return ok({ operation: "status" });
+      if (input.operation === "claim") return ok({ operation: "claim" });
+      if (input.operation === "commit") return ok({ operation: "commit" });
+      if (input.operation === "status") return ok({ operation: "status" });
       return fail(ERROR_CODES.INVALID_DIAGNOSTIC);
     }
     if (channel === DIAGNOSTIC_CHANNELS.STATIC_HOST) {
-      return value.method === "GET" && value.path === "/index.html"
+      return input.method === "GET" && input.path === "/index.html"
         ? ok({ method: "GET", path: "/index.html" })
         : fail(ERROR_CODES.INVALID_DIAGNOSTIC);
     }
     if (channel === DIAGNOSTIC_CHANNELS.RESPONSE) {
-      if (!STATUS_STATES.has(value.state) || !validString(value.expiresAt, true)) return fail(ERROR_CODES.INVALID_DIAGNOSTIC);
-      return ok({ state: value.state, expiresAt: value.expiresAt });
+      if (!STATUS_STATES.has(input.state)) return fail(ERROR_CODES.INVALID_DIAGNOSTIC);
+      if (input.state === "unavailable") {
+        if (hasOwn(input, "expiresAt") && !isUtcIsoTimestamp(input.expiresAt)) return fail(ERROR_CODES.INVALID_DIAGNOSTIC);
+        return ok({ state: "unavailable" });
+      }
+      if (!isUtcIsoTimestamp(input.expiresAt)) return fail(ERROR_CODES.INVALID_DIAGNOSTIC);
+      return ok({ state: input.state, expiresAt: input.expiresAt });
     }
     if (channel === DIAGNOSTIC_CHANNELS.TELEMETRY) {
-      return value.event === "late_install_transfer" && value.source_context === "browser" && value.destination_context === "standalone"
+      return input.event === "late_install_transfer" && input.source_context === "browser" && input.destination_context === "standalone"
         ? ok({ event: "late_install_transfer", source_context: "browser", destination_context: "standalone" })
         : fail(ERROR_CODES.INVALID_DIAGNOSTIC);
     }

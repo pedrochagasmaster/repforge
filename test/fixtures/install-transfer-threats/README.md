@@ -82,10 +82,29 @@ returns a fixed error code.
 
 `redactDiagnostic` accepts a closed channel enum and emits only the fixed,
 allowlisted diagnostic fields for that channel. It never forwards arbitrary
-messages or request data.
+messages or request data. It reads only own data properties, rejects accessors,
+requires strict millisecond UTC timestamps for status expiry, and emits exactly
+`{"state":"unavailable"}` for an unavailable response.
+
+The envelope keeps the producer's normalized logical shapes. `durableState`
+requires `settings` and `programMeta` objects plus `program`, `log`,
+`programHistory`, and `customExercises` arrays of record objects; additive
+logical fields remain available under the shared bounds. `uiPreferences` is a
+full normalized object: `{}` and an absent `theme` are valid, while `theme` is
+checked when present. DraftV2 checks its required nested containers and
+exercise/set identity coverage after removing writer, revision, and durable
+revision metadata. The program-entry section accepts the normalized schema-1
+state and its normalized result/preview shape without replacing the app's full
+domain validators. Provider session IDs and transfer sidecars are excluded by
+name and path; ordinary logical session identity and colliding logical keys
+remain valid.
 
 The browser receives it as the classic global
 `RepForgeInstallTransferContract`; Node and the future service consume the same
 object through CommonJS. The coordinator has pinned the exact return/error
-shapes and the `durableState.log` traversal rule. Service parity is a P2
-consumer proof and is not claimed by this pure test.
+shapes and the `durableState.log` traversal rule. The focused test derives a
+DraftV2 logical section, a programming-entry candidate, and a programming
+context through the real `workout-draft.js` and `program-entry.js` producers,
+then validates the complete P1a-shaped envelope through both the CommonJS and
+isolated classic-browser consumers. Service parity is a P2 consumer proof and
+is not claimed by this pure test.
