@@ -6700,7 +6700,7 @@ const repforgeProgramTransitionAdapter = {
 
     const res = await commitProgramReplacement(baseProposal, storageIO, { capture, effect, preflight });
 
-    if (res.localOk && res.idbOk) {
+    if (res.localOk || res.idbOk) {
       return { ok: true, committed: true, ...res };
     }
     return { ok: false, committed: false, ...res };

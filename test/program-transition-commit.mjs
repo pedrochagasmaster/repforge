@@ -100,6 +100,7 @@ async function readReplicas(page) {
     compilerContext: s.programMeta?.compilerContext ?? null,
     historyLen: Array.isArray(s.programHistory) ? s.programHistory.length : 0,
     programHistory: s.programHistory ?? [],
+    storageDraftTransaction: s._storageDraftTransaction ?? null,
     log: s.log ?? [],
   });
   return { local: semantic(local), idb: semantic(idb), rawLocal: localRaw };
@@ -1157,8 +1158,14 @@ async function main() {
     const resA = await pageA.evaluate(() => window.__raceConfirmResult);
     const resB = await pageB.evaluate(() => window.__raceConfirmResult);
 
-    const writer1 = resA?.alreadyCommitted ? resB : resA;
-    const follower1 = resA?.alreadyCommitted ? resA : resB;
+    const aIdem1 = resA?.alreadyCommitted === true;
+    const bIdem1 = resB?.alreadyCommitted === true;
+    check(aIdem1 !== bIdem1,
+      "exactly one duplicate-race result reports alreadyCommitted: true and exactly one does not",
+      { aAlready: resA?.alreadyCommitted, bAlready: resB?.alreadyCommitted });
+
+    const writer1 = aIdem1 ? resB : resA;
+    const follower1 = aIdem1 ? resA : resB;
 
     check(writer1?.ok === true && writer1?.committed === true && writer1?.localOk === true && writer1?.idbOk === true,
       "writer tab committed successfully under lock", writer1);
@@ -1189,6 +1196,14 @@ async function main() {
     check(isDeepStrictEqual(replicas1.local.log, env1.logSentinel) && isDeepStrictEqual(replicas1.idb.log, env1.logSentinel),
       "log sentinel survives exact duplicate race in both replicas");
 
+    check(isDeepStrictEqual(replicas1.local.transitionIn, replicas1.idb.transitionIn),
+      "transitionIn deep-equal across replicas after exact duplicate race");
+    check(isDeepStrictEqual(replicas1.local.programHistory, replicas1.idb.programHistory),
+      "programHistory deep-equal across replicas after exact duplicate race");
+    check(replicas1.local.storageDraftTransaction == null && replicas1.idb.storageDraftTransaction == null,
+      "no _storageDraftTransaction marker in either parsed replica after exact duplicate race",
+      { local: replicas1.local.storageDraftTransaction, idb: replicas1.idb.storageDraftTransaction });
+
     const postDraftRaw1 = await pageA.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
     const postCheckpointRaw1 = await pageA.evaluate((k) => localStorage.getItem(k), CHECKPOINT_KEY);
     check(postDraftRaw1 === env1.preDraftRaw, "DraftV2 raw byte-identical after exact duplicate race");
@@ -1196,7 +1211,7 @@ async function main() {
 
     const lingering1 = await pageA.evaluate(() => Object.keys(localStorage).filter((k) =>
       k.startsWith("repforge_pending_v1") || k.startsWith("repforge_draft_v1:closing") ||
-      k.startsWith("repforge_draft_v1:pending") || k.includes("_storageDraftTransaction")
+      k.startsWith("repforge_draft_v1:pending")
     ));
     check(lingering1.length === 0, "zero pending journal, DraftV2 sidecar, or closing artifacts after duplicate race", lingering1);
 
@@ -1310,6 +1325,14 @@ async function main() {
     check(isDeepStrictEqual(replicas2.local.log, env2.logSentinel) && isDeepStrictEqual(replicas2.idb.log, env2.logSentinel),
       "log sentinel survives competing race in both replicas");
 
+    check(isDeepStrictEqual(replicas2.local.transitionIn, replicas2.idb.transitionIn),
+      "transitionIn deep-equal across replicas after competing race");
+    check(isDeepStrictEqual(replicas2.local.programHistory, replicas2.idb.programHistory),
+      "programHistory deep-equal across replicas after competing race");
+    check(replicas2.local.storageDraftTransaction == null && replicas2.idb.storageDraftTransaction == null,
+      "no _storageDraftTransaction marker in either parsed replica after competing race",
+      { local: replicas2.local.storageDraftTransaction, idb: replicas2.idb.storageDraftTransaction });
+
     const postDraftRaw2 = await pageA2.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
     const postCheckpointRaw2 = await pageA2.evaluate((k) => localStorage.getItem(k), CHECKPOINT_KEY);
     check(postDraftRaw2 === env2.preDraftRaw, "DraftV2 raw byte-identical after competing race");
@@ -1317,7 +1340,7 @@ async function main() {
 
     const lingering2 = await pageA2.evaluate(() => Object.keys(localStorage).filter((k) =>
       k.startsWith("repforge_pending_v1") || k.startsWith("repforge_draft_v1:closing") ||
-      k.startsWith("repforge_draft_v1:pending") || k.includes("_storageDraftTransaction")
+      k.startsWith("repforge_draft_v1:pending")
     ));
     check(lingering2.length === 0, "zero pending journal, DraftV2 sidecar, or closing artifacts after competing race", lingering2);
 
@@ -1419,8 +1442,17 @@ async function main() {
       "zero archive created in either replica after fingerprint mismatch rejection");
     check(after3.local.transitionIn == null && after3.idb.transitionIn == null,
       "zero transitionIn created in either replica after fingerprint mismatch rejection");
+    check(after3.local.storageDraftTransaction == null && after3.idb.storageDraftTransaction == null,
+      "no _storageDraftTransaction marker in either parsed replica after fingerprint mismatch rejection",
+      { local: after3.local.storageDraftTransaction, idb: after3.idb.storageDraftTransaction });
     check(isDeepStrictEqual(after3.local.log, env3.logSentinel) && isDeepStrictEqual(after3.idb.log, env3.logSentinel),
       "log sentinel intact in both replicas after fingerprint mismatch rejection");
+
+    const lingering3 = await page3.evaluate(() => Object.keys(localStorage).filter((k) =>
+      k.startsWith("repforge_pending_v1") || k.startsWith("repforge_draft_v1:closing") ||
+      k.startsWith("repforge_draft_v1:pending")
+    ));
+    check(lingering3.length === 0, "zero pending journal, DraftV2 sidecar, or closing persistence artifacts after fingerprint mismatch rejection", lingering3);
 
     const draft3RawAfter = await page3.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
     const draft3CheckpointAfter = await page3.evaluate((k) => localStorage.getItem(k), CHECKPOINT_KEY);
