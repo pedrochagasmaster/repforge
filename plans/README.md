@@ -50,6 +50,12 @@ Implementation PRs stop at **OWNER REVIEW** after their engineering gates pass.
 Only an explicit owner instruction authorizes merge. A merged predecessor does
 not grant merge authority for the next plan.
 
+### Outside the overhaul programme
+
+| Plan | State | Meaning |
+|---|---|---|
+| [060](./060-free-form-import-grilling-reconciliation.md) | **OWNER-RATIFIED; NOT STARTED** | Reconciles two independent grilling sessions on the PR #225 free-form import hand-off into one executable contract. Amends ADR 0014 on persistence and telemetry enumerations. Independent of Plans 049–059; do not sequence it into their DAG. |
+
 ### Prior foundation and historical plans
 
 | Plan | State | Meaning |

@@ -11,7 +11,7 @@ explicit app-version range, and the recorded project timezone.
 | Title | Insight | Query / formula | Breakdown | Alert |
 |---|---|---|---|---|
 | Production boots by release | Trends | Unique installations performing `app_boot` per day | `app_version` | Silence rule in operations doc |
-| Accepted product events | Trends | Event count for the 20 schema-1 product event names | event name | Investigate unexpected zeros after eligible traffic |
+| Accepted product events | Trends | Event count for the 24 schema-1 product event names | event name | Investigate unexpected zeros after eligible traffic |
 | Duplicate expectation audit | Trends/table | Event count and unique installations for each event; compare with its declared duplicate policy | event name | Manual zero-tolerance review for impossible multiplicity |
 | Preview exclusion | Trends | Count where `release_channel != production` inside a copied production filter set | release channel | Threshold 1 included event |
 | Version/schema completeness | Trends | Product events missing schema/app/channel, plus wrong schema | missing field / value | Threshold 1 event |
@@ -19,6 +19,15 @@ explicit app-version range, and the recorded project timezone.
 ## Dashboard: Entry and activation
 
 1. **Program activation — 7 days**: Funnel, unique installations,
+   `program_path_selected` → route-specific completion → `program_activated`.
+   Conversion window seven days. Break down by `route` from selection and
+   activation. Show total path selectors as denominator.
+2. **Free-form import funnel**: Funnel, unique installations,
+   `program_import_started` → `program_import_handoff` → `program_import_parsed` →
+   `program_import_review_reached` → `program_activated`. Break down handoffs by
+   `method` and `outcome`, and parse results by `outcome` (`complete`, `gaps`,
+   `unreadable`).
+3. **Generator completion**: Funnel, unique installations,
    `program_path_selected` → route-specific completion → `program_activated`.
    Conversion window seven days. Break down by `route` from selection and
    activation. Show total path selectors as denominator.
