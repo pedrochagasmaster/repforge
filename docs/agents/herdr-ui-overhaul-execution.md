@@ -6,6 +6,12 @@ atomic commits, dependencies, rollback, and owner gates. The
 This document explains how to execute those contracts with external workers.
 It does not authorize a new feature, weaker test, or additional owner gate.
 
+Plan 053 is the owner-authorized transport/model exception: use its
+[native Luna worker protocol](../../plans/053-ios-install-transfer-foundation.md#native-luna-worker-protocol)
+instead of this document's Herdr dispatch and model routing. Its separate-writer
+worktrees and integration ownership govern concurrency. Other plans retain
+the defaults here.
+
 ## Establish one writer and an accurate starting point
 
 1. Fetch main and inspect the plan's branch, worktree, PR, dirty files, and active
