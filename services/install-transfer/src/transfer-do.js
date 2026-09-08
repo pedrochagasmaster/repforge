@@ -33,11 +33,19 @@ import { euStub } from "./namespaces.js";
 const TABLE = "transfer_record";
 const ACTIVE_STATES = new Set([TRANSFER_STATES.AVAILABLE, TRANSFER_STATES.CLAIMING]);
 const CORRUPT_RECORD_RETRY_MS = 60_000;
+const DISPOSAL_RETRY_MS = 60_000;
 
 class RecordIntegrityError extends Error {
   constructor() {
     super("transfer record integrity check failed");
     this.name = "RecordIntegrityError";
+  }
+}
+
+class StorageDisposalError extends Error {
+  constructor(cause) {
+    super("transfer storage disposal failed", { cause });
+    this.name = "StorageDisposalError";
   }
 }
 
@@ -104,12 +112,22 @@ export class TransferDurableObject extends DurableObject {
     this.ctx = ctx;
     this.env = env;
     this.transferId = ctx.id.toString();
-    ctx.blockConcurrencyWhile(async () => {
-      ctx.storage.sql.exec(CREATE_SCHEMA);
-      const columns = new Set(ctx.storage.sql.exec(`PRAGMA table_info(${TABLE})`).toArray().map((column) => column.name));
-      if (!columns.has("record_version")) ctx.storage.sql.exec(`ALTER TABLE ${TABLE} ADD COLUMN record_version INTEGER`);
-      if (!columns.has("transfer_id")) ctx.storage.sql.exec(`ALTER TABLE ${TABLE} ADD COLUMN transfer_id TEXT`);
-    });
+    // Keep final deleteAll() as the last storage operation for a disposed
+    // object. A constructor-time CREATE TABLE would immediately recreate
+    // storage on the next read, even though the transfer was fully purged.
+    this.schemaReady = false;
+    this.storageDisposed = false;
+    this.disposalPromise = null;
+  }
+
+  _ensureSchema() {
+    if (this.schemaReady) return;
+    this.ctx.storage.sql.exec(CREATE_SCHEMA);
+    const columns = new Set(this.ctx.storage.sql.exec(`PRAGMA table_info(${TABLE})`).toArray().map((column) => column.name));
+    if (!columns.has("record_version")) this.ctx.storage.sql.exec(`ALTER TABLE ${TABLE} ADD COLUMN record_version INTEGER`);
+    if (!columns.has("transfer_id")) this.ctx.storage.sql.exec(`ALTER TABLE ${TABLE} ADD COLUMN transfer_id TEXT`);
+    this.schemaReady = true;
+    this.storageDisposed = false;
   }
 
   _read() {
@@ -269,19 +287,6 @@ export class TransferDurableObject extends DurableObject {
     };
   }
 
-  _deleteTombstone(record, now) {
-    return this._execWrite(
-      `DELETE FROM ${TABLE}
-       WHERE singleton = 1 AND state = ? AND token_digest = ?
-         AND expires_at = ? AND tombstone_until = ? AND tombstone_until <= ?`,
-      record.state,
-      record.token_digest,
-      record.expires_at,
-      record.tombstone_until,
-      now,
-    ) === 1;
-  }
-
   async _schedule(record, now) {
     try {
       const alarmAt = nextAlarmAt(lifetimeRecord(record), now);
@@ -314,6 +319,38 @@ export class TransferDurableObject extends DurableObject {
     }
   }
 
+  async _disposeStorage() {
+    if (this.storageDisposed) return;
+    if (this.disposalPromise) return this.disposalPromise;
+    this.disposalPromise = (async () => {
+      try {
+        // Alarms are Durable Object storage too. Delete the alarm before the
+        // final deleteAll so a successful purge leaves no storage behind.
+        await this.ctx.storage.deleteAlarm();
+        await this.ctx.storage.deleteAll();
+        this.schemaReady = false;
+        this.storageDisposed = true;
+      } catch (error) {
+        // A failed disposal keeps the record in the object and disables
+        // creates through the health latch. Retry through a bounded alarm;
+        // never report a failed or uncertain deletion as complete.
+        this.storageDisposed = false;
+        this.schemaReady = true;
+        await this._markDeletionUnhealthy();
+        try {
+          await this.ctx.storage.setAlarm(new Date(Date.now() + DISPOSAL_RETRY_MS));
+        } catch {
+          // The provider enumeration backstop can invoke purge again if the
+          // retry alarm itself cannot be restored.
+        }
+        throw new StorageDisposalError(error);
+      } finally {
+        this.disposalPromise = null;
+      }
+    })();
+    return this.disposalPromise;
+  }
+
   async _quarantineCorruptRecord() {
     // No record timestamp is trusted on this path. Delete by the singleton
     // key, then re-arm a short bounded alarm to verify the object stays empty.
@@ -337,6 +374,11 @@ export class TransferDurableObject extends DurableObject {
   }
 
   async _expireIfDue(now) {
+    if (this.disposalPromise) {
+      try { await this.disposalPromise; } catch { /* retry against retained storage */ }
+    }
+    if (this.storageDisposed) return null;
+    this._ensureSchema();
     for (;;) {
       const record = this._read();
       if (!record) return null;
@@ -350,17 +392,8 @@ export class TransferDurableObject extends DurableObject {
       }
       if (isTerminal(record.state)) {
         if (now < record.tombstone_until) return record;
-        if (this._deleteTombstone(record, now)) {
-          try {
-            await this.ctx.storage.deleteAlarm();
-          } catch {
-            await this._markDeletionUnhealthy();
-          }
-          return null;
-        }
-        // A concurrent transition or purge won the conditional delete. Read
-        // the winner before exposing a stale terminal record.
-        continue;
+        await this._disposeStorage();
+        return null;
       }
       const nextState = transitionForTime(lifetimeRecord(record), now);
       if (nextState === null) return record;
@@ -374,13 +407,17 @@ export class TransferDurableObject extends DurableObject {
   async createRecord({ idempotencyKey, envelopeJson, now = Date.now(), requestedExpiry }) {
     requireNow(now);
     if (typeof envelopeJson !== "string" || envelopeJson.length === 0) throw new TypeError("envelopeJson must be a non-empty JSON string");
+    if (this.disposalPromise) {
+      try { await this.disposalPromise; } catch { /* retry against retained storage */ }
+    }
+    this._ensureSchema();
     const digestKey = keyFromEnv(this.env, "TRANSFER_DIGEST_KEY_B64");
     const idempotencyDigest = await digestIdempotencyKey(idempotencyKey, digestKey);
     let existing;
     try {
       existing = await this._expireIfDue(now);
     } catch (error) {
-      if (error instanceof RecordIntegrityError) return publicUnavailable();
+      if (error instanceof RecordIntegrityError || error instanceof StorageDisposalError) return publicUnavailable();
       throw error;
     }
     if (existing) {
@@ -414,7 +451,7 @@ export class TransferDurableObject extends DurableObject {
     try {
       existing = await this._expireIfDue(now);
     } catch (error) {
-      if (error instanceof RecordIntegrityError) return publicUnavailable();
+      if (error instanceof RecordIntegrityError || error instanceof StorageDisposalError) return publicUnavailable();
       throw error;
     }
     if (existing) {
@@ -441,6 +478,13 @@ export class TransferDurableObject extends DurableObject {
       created_at: now,
       claimed_at: null,
     };
+    // The first expiry check may have completed final deleteAll() for an old
+    // tombstone. Recreate the schema lazily immediately before the conditional
+    // insert so a same-route retry can safely start a fresh transfer.
+    if (this.disposalPromise) {
+      try { await this.disposalPromise; } catch { /* retained storage is retried below */ }
+    }
+    this._ensureSchema();
     if (!this._insertIfEmpty(record)) {
       // The conditional INSERT is the serialization point. A same-key
       // retry observes the already committed row and never creates a second
@@ -448,7 +492,7 @@ export class TransferDurableObject extends DurableObject {
       try {
         existing = await this._expireIfDue(now);
       } catch (error) {
-        if (error instanceof RecordIntegrityError) return publicUnavailable();
+        if (error instanceof RecordIntegrityError || error instanceof StorageDisposalError) return publicUnavailable();
         throw error;
       }
       if (existing?.state === TRANSFER_STATES.AVAILABLE || existing?.state === TRANSFER_STATES.CLAIMING) {
@@ -491,7 +535,7 @@ export class TransferDurableObject extends DurableObject {
     try {
       record = await this._expireIfDue(now);
     } catch (error) {
-      if (error instanceof RecordIntegrityError) return publicUnavailable();
+      if (error instanceof RecordIntegrityError || error instanceof StorageDisposalError) return publicUnavailable();
       throw error;
     }
     if (!record || record.token_digest !== tokenDigest || parsed.route.length !== 32) return publicUnavailable();
@@ -503,7 +547,7 @@ export class TransferDurableObject extends DurableObject {
         try {
           record = await this._expireIfDue(now);
         } catch (error) {
-          if (error instanceof RecordIntegrityError) return publicUnavailable();
+          if (error instanceof RecordIntegrityError || error instanceof StorageDisposalError) return publicUnavailable();
           throw error;
         }
         if (!record || record.token_digest !== tokenDigest) return publicUnavailable();
@@ -546,7 +590,7 @@ export class TransferDurableObject extends DurableObject {
     try {
       record = await this._expireIfDue(now);
     } catch (error) {
-      if (error instanceof RecordIntegrityError) return publicUnavailable();
+      if (error instanceof RecordIntegrityError || error instanceof StorageDisposalError) return publicUnavailable();
       throw error;
     }
     if (!record || record.token_digest !== tokenDigest) return publicUnavailable();
@@ -557,7 +601,7 @@ export class TransferDurableObject extends DurableObject {
       try {
         record = await this._expireIfDue(now);
       } catch (error) {
-        if (error instanceof RecordIntegrityError) return publicUnavailable();
+        if (error instanceof RecordIntegrityError || error instanceof StorageDisposalError) return publicUnavailable();
         throw error;
       }
       if (record?.state === TRANSFER_STATES.DELETED && record.token_digest === tokenDigest) {
@@ -582,7 +626,7 @@ export class TransferDurableObject extends DurableObject {
     try {
       record = await this._expireIfDue(now);
     } catch (error) {
-      if (error instanceof RecordIntegrityError) return publicUnavailable();
+      if (error instanceof RecordIntegrityError || error instanceof StorageDisposalError) return publicUnavailable();
       throw error;
     }
     if (!record || record.token_digest !== tokenDigest) return publicUnavailable();
@@ -598,12 +642,13 @@ export class TransferDurableObject extends DurableObject {
       if (!record) return { purged: true };
       return { purged: false, state: record.state, expiresAt: record.expires_at, tombstoneUntil: record.tombstone_until };
     } catch (error) {
-      if (error instanceof RecordIntegrityError) return { purged: false, state: "unavailable" };
+      if (error instanceof RecordIntegrityError || error instanceof StorageDisposalError) return { purged: false, state: "unavailable" };
       throw error;
     }
   }
 
   async alarm() {
+    if (this.storageDisposed) return { ok: true, code: "already-purged" };
     const now = Date.now();
     try {
       const record = await this._expireIfDue(now);
@@ -617,6 +662,7 @@ export class TransferDurableObject extends DurableObject {
       }
     } catch (error) {
       if (error instanceof RecordIntegrityError) return { ok: false, code: "record-integrity" };
+      if (error instanceof StorageDisposalError) return { ok: false, code: "storage-disposal" };
       throw error;
     }
   }

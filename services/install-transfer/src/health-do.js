@@ -301,45 +301,54 @@ export class TransferHealthDurableObject extends DurableObject {
     safeTime(observedAt, "observedAt");
     safeTime(now, "now");
     if (healthy) {
-      const row = this._read();
-      // A positive check cannot clear an incident. It refreshes only an
-      // already acknowledged generation, using the actual check time.
-      if (row?.deletion_healthy !== 1 || row.ack_generation !== row.incident_generation) return this.snapshot({ now });
-      const defaults = defaultEvidence("deletion", observedAt);
+      this.ctx.storage.transactionSync(() => {
+        const row = this._read();
+        // A positive check cannot clear an incident. It refreshes only an
+        // already acknowledged generation, using the actual check time.
+        if (row?.deletion_healthy !== 1 || row.ack_generation !== row.incident_generation) return;
+        const defaults = defaultEvidence("deletion", observedAt);
+        const write = this._writeEvidence({
+          kind: "deletion",
+          actor: actor ?? "watchdog",
+          operationId: operationId ?? defaults.operationId,
+          checkVersion: checkVersion ?? defaults.checkVersion,
+          result,
+          evidenceRef: evidenceRef ?? defaults.evidenceRef,
+          observedAt,
+          now,
+          maxAge: HEALTH_SIGNAL_MAX_AGE_MS,
+        });
+        if (!write.replayed) {
+          const changed = this._execWrite(`UPDATE ${TABLE} SET deletion_at = ? WHERE singleton = 1`, observedAt);
+          if (changed !== 1) throw new Error("deletion health row update failed");
+        }
+      });
+      return this.snapshot({ now });
+    }
+    assertObservedAt(observedAt, now, HEALTH_SIGNAL_MAX_AGE_MS);
+    const defaults = defaultEvidence("deletion", observedAt);
+    this.ctx.storage.transactionSync(() => {
       const write = this._writeEvidence({
         kind: "deletion",
-        actor: actor ?? "watchdog",
+        actor: actor ?? defaults.actor,
         operationId: operationId ?? defaults.operationId,
         checkVersion: checkVersion ?? defaults.checkVersion,
-        result,
+        result: "fail",
         evidenceRef: evidenceRef ?? defaults.evidenceRef,
         observedAt,
         now,
         maxAge: HEALTH_SIGNAL_MAX_AGE_MS,
       });
-      if (!write.replayed) this._execWrite(`UPDATE ${TABLE} SET deletion_at = ? WHERE singleton = 1`, observedAt);
-      return this.snapshot({ now });
-    }
-    assertObservedAt(observedAt, now, HEALTH_SIGNAL_MAX_AGE_MS);
-    const defaults = defaultEvidence("deletion", observedAt);
-    this._writeEvidence({
-      kind: "deletion",
-      actor: actor ?? defaults.actor,
-      operationId: operationId ?? defaults.operationId,
-      checkVersion: checkVersion ?? defaults.checkVersion,
-      result: "fail",
-      evidenceRef: evidenceRef ?? defaults.evidenceRef,
-      observedAt,
-      now,
-      maxAge: HEALTH_SIGNAL_MAX_AGE_MS,
+      if (write.replayed) return;
+      const changed = this._execWrite(
+        `UPDATE ${TABLE}
+         SET deletion_at = ?, deletion_healthy = 0,
+             incident_generation = incident_generation + 1
+         WHERE singleton = 1`,
+        observedAt,
+      );
+      if (changed !== 1) throw new Error("deletion health row update failed");
     });
-    this._execWrite(
-      `UPDATE ${TABLE}
-       SET deletion_at = ?, deletion_healthy = 0,
-           incident_generation = incident_generation + 1
-       WHERE singleton = 1`,
-      observedAt,
-    );
     return this.snapshot({ now });
   }
 

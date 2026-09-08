@@ -3,6 +3,7 @@ import { DurableObject } from "cloudflare:workers";
 const TABLE = "rate_bucket";
 const WINDOW_MS = 60_000;
 const RETENTION_MS = 120_000;
+const DISPOSAL_RETRY_MS = 60_000;
 
 const CREATE_SCHEMA = `
   CREATE TABLE IF NOT EXISTS ${TABLE} (
@@ -16,9 +17,44 @@ export class RateLimitDurableObject extends DurableObject {
   constructor(ctx, env) {
     super(ctx, env);
     this.ctx = ctx;
-    ctx.blockConcurrencyWhile(async () => {
-      ctx.storage.sql.exec(CREATE_SCHEMA);
-    });
+    this.schemaReady = false;
+    this.storageDisposed = false;
+    this.cleanupFailed = false;
+    this.disposalPromise = null;
+  }
+
+  _ensureSchema() {
+    if (this.schemaReady) return;
+    this.ctx.storage.sql.exec(CREATE_SCHEMA);
+    this.schemaReady = true;
+    this.storageDisposed = false;
+  }
+
+  async _disposeStorage() {
+    if (this.storageDisposed) return;
+    if (this.disposalPromise) return this.disposalPromise;
+    this.disposalPromise = (async () => {
+      try {
+        await this.ctx.storage.deleteAlarm();
+        await this.ctx.storage.deleteAll();
+        this.schemaReady = false;
+        this.storageDisposed = true;
+        this.cleanupFailed = false;
+      } catch (error) {
+        this.storageDisposed = false;
+        this.schemaReady = true;
+        this.cleanupFailed = true;
+        try {
+          await this.ctx.storage.setAlarm(new Date(Date.now() + DISPOSAL_RETRY_MS));
+        } catch {
+          // The next consume attempt remains fail-closed and retries cleanup.
+        }
+        throw error;
+      } finally {
+        this.disposalPromise = null;
+      }
+    })();
+    return this.disposalPromise;
   }
 
   _read() {
@@ -37,6 +73,17 @@ export class RateLimitDurableObject extends DurableObject {
 
   async consume({ now = Date.now(), limit }) {
     if (!Number.isSafeInteger(now) || !Number.isSafeInteger(limit) || limit < 1) throw new TypeError("invalid rate request");
+    if (this.disposalPromise) {
+      try { await this.disposalPromise; } catch { /* cleanupFailed below retries */ }
+    }
+    if (this.cleanupFailed) {
+      try {
+        await this._disposeStorage();
+      } catch (error) {
+        throw new Error("rate bucket cleanup unavailable", { cause: error });
+      }
+    }
+    this._ensureSchema();
     let row = this._read();
     if (!row || now >= row.window_started + WINDOW_MS) {
       this.ctx.storage.sql.exec(`DELETE FROM ${TABLE} WHERE singleton = 1`);
@@ -60,13 +107,22 @@ export class RateLimitDurableObject extends DurableObject {
   }
 
   async alarm() {
+    if (this.storageDisposed) return { ok: true, code: "already-purged" };
+    if (this.disposalPromise) {
+      try { await this.disposalPromise; } catch { return { ok: false, code: "storage-disposal" }; }
+    }
+    this._ensureSchema();
     const now = Date.now();
     const row = this._read();
     if (!row || now >= row.window_started + RETENTION_MS) {
-      this.ctx.storage.sql.exec(`DELETE FROM ${TABLE} WHERE singleton = 1`);
-      await this.ctx.storage.deleteAlarm();
-      return;
+      try {
+        await this._disposeStorage();
+        return { ok: true, purged: true };
+      } catch {
+        return { ok: false, code: "storage-disposal" };
+      }
     }
     await this.ctx.storage.setAlarm(new Date(row.window_started + RETENTION_MS));
+    return { ok: true, purged: false };
   }
 }

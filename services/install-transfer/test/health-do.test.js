@@ -160,4 +160,49 @@ describe("fresh create health lease", () => {
       now: at + 2,
     })).resolves.toMatchObject({ deletionHealthy: true });
   });
+
+  it("rolls back failure evidence when the incident row update fails", async () => {
+    const stub = await healthStub();
+    const at = Date.now();
+    await stub.markDeletionUnhealthy({
+      observedAt: at,
+      now: at,
+      operationId: "delete-failure-baseline",
+    });
+    const before = await runInDurableObject(stub, (_instance, state) => ({
+      row: state.storage.sql.exec("SELECT deletion_at, incident_generation FROM transfer_health WHERE singleton = 1").toArray()[0],
+      evidence: state.storage.sql.exec("SELECT operation_id, result FROM transfer_health_evidence WHERE kind = 'deletion'").toArray()[0],
+    }));
+    const result = await runInDurableObject(stub, async (instance) => {
+      const original = instance._execWrite;
+      instance._execWrite = function patched(sql, ...args) {
+        if (sql.includes("SET deletion_at")) throw new Error("injected incident row update failure");
+        return original.call(this, sql, ...args);
+      };
+      try {
+        await instance.recordDeletionHealth({
+          healthy: false,
+          observedAt: at + 1,
+          now: at + 1,
+          operationId: "delete-failure-injected",
+        });
+        return { ok: true };
+      } catch {
+        instance._execWrite = original;
+        return { ok: false };
+      }
+    });
+    expect(result).toEqual({ ok: false });
+    const after = await runInDurableObject(stub, (_instance, state) => ({
+      row: state.storage.sql.exec("SELECT deletion_at, incident_generation FROM transfer_health WHERE singleton = 1").toArray()[0],
+      evidence: state.storage.sql.exec("SELECT operation_id, result FROM transfer_health_evidence WHERE kind = 'deletion'").toArray()[0],
+    }));
+    expect(after).toEqual(before);
+    await expect(stub.recordDeletionHealth({
+      healthy: true,
+      observedAt: at + 2,
+      now: at + 2,
+      operationId: "delete-positive-after-failure",
+    })).resolves.toMatchObject({ deletionHealthy: false });
+  });
 });

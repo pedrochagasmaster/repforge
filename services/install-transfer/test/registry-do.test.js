@@ -3,7 +3,7 @@ import { reset, runInDurableObject } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import { LIVE_WINDOW_MS, TOMBSTONE_MARGIN_MS } from "../src/lifetime.js";
 import { euStub } from "../src/namespaces.js";
-import { REGISTRY_FAILURE_GRACE_MS, REGISTRY_RETRY_MS } from "../src/registry-do.js";
+import { REGISTRY_RETRY_MS } from "../src/registry-do.js";
 import { routeNameForIdempotencyKey } from "../src/routing.js";
 
 const routingKey = new Uint8Array(32).fill(1);
@@ -107,12 +107,12 @@ describe("bounded transfer route registry", () => {
 
     const deadline = now + LIVE_WINDOW_MS + TOMBSTONE_MARGIN_MS;
     await expect(registryStub.purgeDue({ now: deadline, limit: 1 })).resolves.toMatchObject({ examined: 1, failed: 1 });
-    expect(await rows()).toMatchObject([{ route_name: route, purge_state: "deadline-failed" }]);
+    expect(await rows()).toHaveLength(0);
 
-    // The transfer object quarantined the corrupt row. A manual retry after
-    // the 75-minute deadline can now observe the empty object and remove the
-    // bounded registry row.
-    await expect(registryStub.purgeDue({ now: deadline + REGISTRY_RETRY_MS, limit: 1 })).resolves.toMatchObject({ examined: 1, purged: 1 });
+    // The transfer object quarantined the corrupt row. At the hard 75-minute
+    // deadline the registry route is dropped; provider enumeration is the
+    // independent recovery path after that point.
+    await expect(registryStub.purgeDue({ now: deadline + REGISTRY_RETRY_MS, limit: 1 })).resolves.toMatchObject({ examined: 0, purged: 0 });
     expect(await rows()).toHaveLength(0);
 
     const second = await transferFor("registry-finite-failure");
@@ -128,7 +128,7 @@ describe("bounded transfer route registry", () => {
       state.storage.sql.exec("UPDATE transfer_record SET envelope_aad = ? WHERE singleton = 1", "corrupt");
     });
     await registryStub.purgeDue({ now: deadline, limit: 1 });
-    await expect(registryStub.purgeDue({ now: deadline + REGISTRY_FAILURE_GRACE_MS + 1, limit: 1 })).resolves.toMatchObject({ examined: 1, failed: 1 });
+    await expect(registryStub.purgeDue({ now: deadline, limit: 1 })).resolves.toMatchObject({ examined: 0, failed: 0 });
     expect(await rows()).toHaveLength(0);
   });
 

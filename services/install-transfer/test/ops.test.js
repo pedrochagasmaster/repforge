@@ -92,6 +92,33 @@ describe("authenticated operations boundary", () => {
     expect(await json(response)).toEqual({ state: "unavailable" });
   });
 
+  it("maps EU namespace construction failures to a generic unavailable response", async () => {
+    const brokenHealth = new Proxy(env, {
+      get(target, property, receiver) {
+        if (property === "TRANSFER_HEALTH") return { jurisdiction: () => { throw new Error("EU routing unavailable"); } };
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const healthResponse = await worker.fetch(request("/_ops/health", "GET", undefined, "watchdog"), brokenHealth);
+    expect(healthResponse.status).toBe(503);
+    expect(await json(healthResponse)).toEqual({ state: "unavailable" });
+
+    const brokenRegistry = new Proxy(env, {
+      get(target, property, receiver) {
+        if (property === "TRANSFER_REGISTRY") return { jurisdiction: () => { throw new Error("EU routing unavailable"); } };
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const purgeResponse = await worker.fetch(request("/_ops/purge-due", "POST", {
+      operationId: "ops-purge-jurisdiction-20260908",
+      checkVersion: "purge-test-v1",
+      evidenceRef: "fixture-jurisdiction",
+      limit: 1,
+    }, "purge"), brokenRegistry);
+    expect(purgeResponse.status).toBe(503);
+    expect(await json(purgeResponse)).toEqual({ state: "unavailable" });
+  });
+
   it("rejects future and stale actual observations instead of laundering receipt time", async () => {
     const future = await worker.fetch(request("/_ops/heartbeat", "POST", evidence("alarm", Date.now() + 61_000), "watchdog"), env);
     expect(future.status).toBe(503);

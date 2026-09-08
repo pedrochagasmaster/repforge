@@ -13,7 +13,23 @@ async function objectFor(key) {
 }
 
 async function rows(stub) {
-  return runInDurableObject(stub, (_instance, state) => state.storage.sql.exec("SELECT * FROM transfer_record").toArray());
+  return runInDurableObject(stub, (_instance, state) => {
+    try {
+      return state.storage.sql.exec("SELECT * FROM transfer_record").toArray();
+    } catch (error) {
+      if (String(error).includes("no such table")) return [];
+      throw error;
+    }
+  });
+}
+
+async function storageSummary(stub) {
+  return runInDurableObject(stub, async (_instance, state) => ({
+    alarm: (await state.storage.getAlarm()) ?? null,
+    tables: state.storage.sql.exec(
+      "SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'transfer_record'",
+    ).toArray(),
+  }));
 }
 
 describe("SQLite Durable Object encrypted record foundation", () => {
@@ -98,6 +114,16 @@ describe("SQLite Durable Object encrypted record foundation", () => {
 
     await expect(claimedStub.statusRecord({ token: claimed.token, now: baseNow + 15 * 60_000 + 10 })).resolves.toEqual({ kind: "unavailable" });
     expect(await rows(claimedStub)).toHaveLength(0);
+    expect(await storageSummary(claimedStub)).toEqual({ alarm: null, tables: [] });
+    await evictDurableObject(claimedStub);
+    await expect(claimedStub.statusRecord({ token: claimed.token, now: baseNow + 15 * 60_000 + 11 })).resolves.toEqual({ kind: "unavailable" });
+    const recreated = await claimedStub.createRecord({
+      idempotencyKey: "expiry-claimed-recreated",
+      envelopeJson: JSON.stringify({ logical: "recreated" }),
+      now: baseNow + 15 * 60_000 + 12,
+      requestedExpiry: baseNow + 15 * 60_000 + 22,
+    });
+    expect(recreated.kind).toBe("created");
   });
 
   it("fails closed when any authenticated record metadata or AAD is tampered", async () => {
@@ -194,6 +220,44 @@ describe("SQLite Durable Object encrypted record foundation", () => {
     expect((await rows(stub))[0]).toMatchObject({ state: "expired", envelope_ciphertext: null, envelope_aad: null, claim_digest: null });
     await expect(stub.purgeDue({ now: baseNow + 15 * 60_000 + 10 })).resolves.toEqual({ purged: true });
     expect(await rows(stub)).toHaveLength(0);
+    expect(await storageSummary(stub)).toEqual({ alarm: null, tables: [] });
+    await expect(stub.createRecord({
+      idempotencyKey: "manual-purge-warm-retry",
+      envelopeJson: JSON.stringify({ logical: "fresh-after-disposal" }),
+      now: baseNow + 15 * 60_000 + 11,
+      requestedExpiry: baseNow + 15 * 60_000 + 21,
+    })).resolves.toMatchObject({ kind: "created" });
+  });
+
+  it("fails closed on disposal failure and recovers on the bounded retry", async () => {
+    const key = "disposal-failure-key";
+    const stub = await objectFor(key);
+    const created = await stub.createRecord({
+      idempotencyKey: key,
+      envelopeJson: JSON.stringify({ logical: "retry-disposal" }),
+      now: baseNow,
+      requestedExpiry: baseNow + 10,
+    });
+    await stub.purgeDue({ now: baseNow + 10 });
+    const failed = await runInDurableObject(stub, async (instance, state) => {
+      const original = state.storage.deleteAll.bind(state.storage);
+      let fail = true;
+      state.storage.deleteAll = async () => {
+        if (fail) {
+          fail = false;
+          throw new Error("injected deleteAll failure");
+        }
+        return original();
+      };
+      const result = await instance.purgeDue({ now: baseNow + 15 * 60_000 + 10 });
+      return { result, alarm: await state.storage.getAlarm() };
+    });
+    expect(failed.result).toEqual({ purged: false, state: "unavailable" });
+    expect(Number.isSafeInteger(failed.alarm)).toBe(true);
+    expect(await rows(stub)).toHaveLength(1);
+    await expect(stub.purgeDue({ now: baseNow + 15 * 60_000 + 11 })).resolves.toEqual({ purged: true });
+    expect(await storageSummary(stub)).toEqual({ alarm: null, tables: [] });
+    expect(created.kind).toBe("created");
   });
 
   it("quarantines corrupt metadata on the real alarm path and reports deletion health failure", async () => {
