@@ -422,11 +422,14 @@ test("negative injections: inherited/prototype properties on outcomes do not qua
 
   const evidence = { outcomesByPattern: outcomes, checkpointAnswer: "Yes" };
   const result = evaluateRecoveryEligibility(evidence, APPROVED_POLICY_V2);
+  // Under the resolved raw-evidence own-data model a consumed nested record
+  // must use Object.prototype or null; a prototype-backed outcomes map is
+  // structurally invalid evidence, not merely insufficient.
   assert.deepEqual(result, {
     ok: false,
     status: "ineligible",
     ineligible: true,
-    code: "insufficient_qualifying_patterns",
+    code: "invalid_evidence",
   });
 });
 
@@ -1637,14 +1640,15 @@ test("own-record boundary: inherited evidence checkpoint or outcomesByPattern is
     INVALID_EVIDENCE,
   );
 
-  // checkpointAnswer reached only through the evidence prototype must not pass
-  // the "Yes" gate.
+  // checkpointAnswer reached only through the evidence prototype is a custom-
+  // prototype evidence carrier; the resolved own-data model rejects it
+  // structurally as invalid_evidence before the "Yes" gate is reached.
   const inheritedCheckpoint = evaluateRecoveryEligibility(
     inherit({ checkpointAnswer: "Yes" }, { outcomesByPattern: { ...outcomes } }),
     APPROVED_POLICY_V2,
   );
   assert.equal(inheritedCheckpoint.ok, false);
-  assert.equal(inheritedCheckpoint.code, "checkpoint_not_yes");
+  assert.equal(inheritedCheckpoint.code, "invalid_evidence");
 
   // Control: fully own evidence still qualifies; a nested inherited outcome row
   // is ignored (not a bypass), matching the existing prototype-outcomes test.
@@ -1652,6 +1656,153 @@ test("own-record boundary: inherited evidence checkpoint or outcomesByPattern is
     { outcomesByPattern: { ...outcomes }, checkpointAnswer: "Yes" },
     APPROVED_POLICY_V2,
   ).ok, true);
+});
+
+test("raw-evidence own-data boundary: the five reproduced carriers reject as invalid_evidence with no getter execution", () => {
+  const outcomes = { "knee-dominant": "maintained", "horizontal press": "declined" };
+  let getterReads = 0;
+
+  const customEvidenceProto = Object.assign(Object.create({ freeText: "inherited" }), {
+    outcomesByPattern: { ...outcomes }, checkpointAnswer: "Yes",
+  });
+  const customOutcomesProto = {
+    outcomesByPattern: Object.assign(Object.create({ "hip/hinge": "declined" }), outcomes),
+    checkpointAnswer: "Yes",
+  };
+  const inheritedQuestion = Object.assign(Object.create({ question: "not canonical" }), {
+    outcomesByPattern: { ...outcomes }, checkpointAnswer: "Yes",
+  });
+  const nonEnumerableCheckpoint = { outcomesByPattern: { ...outcomes } };
+  Object.defineProperty(nonEnumerableCheckpoint, "checkpointAnswer", {
+    enumerable: false, configurable: true, writable: true, value: "Yes",
+  });
+  const accessorCheckpoint = { outcomesByPattern: { ...outcomes } };
+  Object.defineProperty(accessorCheckpoint, "checkpointAnswer", {
+    enumerable: true, configurable: true,
+    get() { getterReads += 1; return "Yes"; },
+  });
+
+  for (const [label, evidence] of [
+    ["custom evidence prototype", customEvidenceProto],
+    ["custom nested outcomes prototype", customOutcomesProto],
+    ["inherited noncanonical question", inheritedQuestion],
+    ["non-enumerable checkpointAnswer", nonEnumerableCheckpoint],
+    ["accessor checkpointAnswer", accessorCheckpoint],
+  ]) {
+    assert.deepEqual(
+      evaluateRecoveryEligibility(evidence, APPROVED_POLICY_V2),
+      INVALID_EVIDENCE,
+      `${label} must reject as invalid_evidence`,
+    );
+  }
+  assert.equal(getterReads, 0, "validation must never invoke a getter while rejecting it");
+});
+
+test("raw-evidence own-data boundary: accessor, symbol, and non-enumerable fields on nested outcomes reject", () => {
+  let getterReads = 0;
+
+  const accessorOutcomes = { "knee-dominant": "maintained" };
+  Object.defineProperty(accessorOutcomes, "horizontal press", {
+    enumerable: true, configurable: true,
+    get() { getterReads += 1; return "declined"; },
+  });
+  const symbolOutcomes = { "knee-dominant": "maintained", "horizontal press": "declined" };
+  symbolOutcomes[Symbol("injected")] = "improved";
+  const nonEnumerableOutcomes = { "knee-dominant": "maintained" };
+  Object.defineProperty(nonEnumerableOutcomes, "horizontal press", {
+    enumerable: false, configurable: true, writable: true, value: "declined",
+  });
+
+  for (const [label, outcomes] of [
+    ["accessor nested outcome", accessorOutcomes],
+    ["symbol-keyed nested outcome", symbolOutcomes],
+    ["non-enumerable nested outcome", nonEnumerableOutcomes],
+  ]) {
+    assert.deepEqual(
+      evaluateRecoveryEligibility({ outcomesByPattern: outcomes, checkpointAnswer: "Yes" }, APPROVED_POLICY_V2),
+      INVALID_EVIDENCE,
+      `${label} must reject as invalid_evidence`,
+    );
+  }
+  assert.equal(getterReads, 0, "validation must never invoke a getter while rejecting it");
+});
+
+test("raw-evidence own-data boundary: extra named, accessor, symbol, and sparse ordered arrays reject", () => {
+  let getterReads = 0;
+
+  const outcomes = { "knee-dominant": "maintained", "horizontal press": "declined" };
+  const extraNamed = ["knee-dominant", "horizontal press"];
+  extraNamed.injected = "hip/hinge";
+  const accessorIndexed = new Array(2);
+  Object.defineProperty(accessorIndexed, 0, {
+    enumerable: true, configurable: true,
+    get() { getterReads += 1; return "knee-dominant"; },
+  });
+  Object.defineProperty(accessorIndexed, 1, {
+    enumerable: true, configurable: true,
+    get() { getterReads += 1; return "horizontal press"; },
+  });
+  const symbolTagged = ["knee-dominant", "horizontal press"];
+  symbolTagged[Symbol("tag")] = "hip/hinge";
+  const sparse = new Array(3);
+  sparse[0] = "knee-dominant";
+  sparse[2] = "hip/hinge";
+
+  for (const [label, qualifyingPatterns] of [
+    ["extra named property on ordered array", extraNamed],
+    ["accessor index on ordered array", accessorIndexed],
+    ["symbol property on ordered array", symbolTagged],
+    ["sparse ordered array", sparse],
+  ]) {
+    assert.deepEqual(
+      evaluateRecoveryEligibility(
+        { outcomesByPattern: { ...outcomes }, checkpointAnswer: "Yes", qualifyingPatterns },
+        APPROVED_POLICY_V2,
+      ),
+      INVALID_EVIDENCE,
+      `${label} must reject as invalid_evidence`,
+    );
+  }
+
+  const accessorPatterns = new Array(3);
+  Object.defineProperty(accessorPatterns, 0, {
+    enumerable: true, configurable: true,
+    get() { getterReads += 1; return "knee-dominant"; },
+  });
+  const policyWithAccessorPatterns = clone(APPROVED_POLICY_V2);
+  policyWithAccessorPatterns.primaryPatterns = accessorPatterns;
+  assert.deepEqual(
+    evaluateRecoveryEligibility(freshEvidence(), policyWithAccessorPatterns),
+    INELIGIBLE_POLICY,
+    "accessor index on a policy ordered array must reject as policy_invalid",
+  );
+  const symbolPatterns = clone(APPROVED_POLICY_V2);
+  symbolPatterns.primaryPatterns = Object.assign(["knee-dominant", "horizontal press", "hip/hinge"]);
+  symbolPatterns.primaryPatterns[Symbol("tag")] = "injected";
+  assert.deepEqual(evaluateRecoveryEligibility(freshEvidence(), symbolPatterns), INELIGIBLE_POLICY);
+
+  assert.equal(getterReads, 0, "validation must never invoke a getter while rejecting it");
+});
+
+test("raw-evidence own-data boundary: ordinary JSON and null-prototype evidence still qualify", () => {
+  const outcomes = { "knee-dominant": "maintained", "horizontal press": "declined" };
+
+  const jsonResult = evaluateRecoveryEligibility(
+    { outcomesByPattern: { ...outcomes }, checkpointAnswer: "Yes" },
+    APPROVED_POLICY_V2,
+  );
+  assert.equal(jsonResult.ok, true);
+  assert.equal(jsonResult.status, "eligible");
+  assert.deepEqual(jsonResult.eligibilityEvidence.qualifyingPatterns, ["knee-dominant", "horizontal press"]);
+
+  const nullProtoEvidence = Object.assign(Object.create(null), {
+    outcomesByPattern: Object.assign(Object.create(null), outcomes),
+    checkpointAnswer: "Yes",
+  });
+  const nullProtoResult = evaluateRecoveryEligibility(nullProtoEvidence, APPROVED_POLICY_V2);
+  assert.equal(nullProtoResult.ok, true);
+  assert.equal(nullProtoResult.status, "eligible");
+  assert.deepEqual(nullProtoResult.eligibilityEvidence.qualifyingPatterns, ["knee-dominant", "horizontal press"]);
 });
 
 test("own-record boundary: a forged fake_v1 out-of-band instance cannot mint a preview via an inherited allowlist", async () => {

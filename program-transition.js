@@ -41,25 +41,54 @@
   // predecessor, overlay, entries, and ordered enums that must each be an
   // own-data JSON shape: a required field or an allowlist key can never be
   // satisfied through the prototype chain, and a sparse or prototype-backed
-  // array can never line up against an ordered enum. These helpers are used
-  // only by the recovery boundary; other transition kinds keep their existing
-  // validation unchanged.
+  // array can never line up against an ordered enum. A consumed record must
+  // use Object.prototype or null and carry only enumerable own string-keyed
+  // data properties — accessors, symbols, non-enumerable application fields,
+  // and dangerous keys reject structurally, without ever invoking a getter —
+  // and every nested value obeys the same rule. A consumed array must be a
+  // dense normal Array holding only its intrinsic length plus enumerable own
+  // data index properties. These helpers are used only by the recovery
+  // boundary; other transition kinds keep their existing validation unchanged.
   const OBJECT_PROTO = Object.prototype;
   const ARRAY_PROTO = Array.prototype;
+
+  function isOwnDataProperty(value, key) {
+    const desc = Object.getOwnPropertyDescriptor(value, key);
+    if (!desc || desc.enumerable !== true) return false;
+    return !("get" in desc || "set" in desc);
+  }
 
   function isOwnRecord(value) {
     if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
     const proto = Object.getPrototypeOf(value);
     if (proto !== OBJECT_PROTO && proto !== null) return false;
-    return Object.keys(value).every((key) => !DANGEROUS_KEYS.has(key));
+    if (Object.getOwnPropertySymbols(value).length !== 0) return false;
+    const names = Object.getOwnPropertyNames(value);
+    for (const key of names) {
+      if (DANGEROUS_KEYS.has(key)) return false;
+      if (!isOwnDataProperty(value, key)) return false;
+    }
+    return true;
   }
 
   function isOwnArray(value) {
     if (!Array.isArray(value) || Object.getPrototypeOf(value) !== ARRAY_PROTO) return false;
-    for (let index = 0; index < value.length; index += 1) {
-      if (!own(value, index)) return false;
+    if (Object.getOwnPropertySymbols(value).length !== 0) return false;
+    const length = value.length;
+    if (!Number.isSafeInteger(length) || length < 0) return false;
+    let indexCount = 0;
+    for (const key of Object.getOwnPropertyNames(value)) {
+      if (key === "length") {
+        const desc = Object.getOwnPropertyDescriptor(value, key);
+        if (!desc || "get" in desc || "set" in desc) return false;
+        continue;
+      }
+      if (!/^(0|[1-9][0-9]*)$/.test(key)) return false;
+      if (Number(key) >= length) return false;
+      if (!isOwnDataProperty(value, key)) return false;
+      indexCount += 1;
     }
-    return true;
+    return indexCount === length;
   }
 
   function isOwnJsonTree(value) {
@@ -1960,6 +1989,19 @@
         status: "ineligible",
         ineligible: true,
         code: "policy_invalid",
+      });
+    }
+
+    // Raw evidence is JSON data, so the whole tree must be own-data before any
+    // evidence field is read: prototype carriers, accessors, symbol keys,
+    // non-enumerable fields, and malformed nested records or arrays reject
+    // structurally, without invoking any getter.
+    if (!isOwnJsonTree(evidence)) {
+      return Object.freeze({
+        ok: false,
+        status: "ineligible",
+        ineligible: true,
+        code: "invalid_evidence",
       });
     }
 
