@@ -8,8 +8,13 @@ const sourceFiles = readdirSync(sourceDir)
   .filter((file) => file.endsWith(".js"))
   .sort()
   .map((file) => join(sourceDir, file));
+const scriptsDir = join(root, "scripts");
+const scriptFiles = readdirSync(scriptsDir)
+  .filter((file) => file.endsWith(".mjs"))
+  .sort()
+  .map((file) => join(scriptsDir, file));
 
-for (const file of sourceFiles) {
+for (const file of [...sourceFiles, ...scriptFiles]) {
   const result = spawnSync(process.execPath, ["--check", file], { stdio: "inherit" });
   if (result.status !== 0) process.exit(result.status ?? 1);
 }
@@ -34,4 +39,4 @@ for (const className of ["TransferDurableObject", "RateLimitDurableObject", "Tra
   if (!sqliteClasses.includes(className)) throw new Error(`${className} SQLite migration is missing`);
 }
 
-console.log(`checked ${sourceFiles.length} service source files and Wrangler configuration`);
+console.log(`checked ${sourceFiles.length} service source files, ${scriptFiles.length} scripts, and Wrangler configuration`);

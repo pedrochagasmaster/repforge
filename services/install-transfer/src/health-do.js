@@ -196,22 +196,9 @@ export class TransferHealthDurableObject extends DurableObject {
     return this._writeRows(this.ctx.storage.sql.exec(sql, ...args));
   }
 
-  _writeEvidence({ kind, actor, operationId, checkVersion, result, evidenceRef, observedAt, now, maxAge }) {
-    assertEvidenceInput({ kind, actor, operationId, checkVersion, result, evidenceRef });
-    assertObservedAt(observedAt, now, maxAge);
-    const existing = this._readEvidence(kind);
-    if (existing?.operation_id === operationId) {
-      if (existing.actor !== actor || existing.check_version !== checkVersion || existing.result !== result
-        || existing.evidence_ref !== evidenceRef || existing.observed_at !== observedAt) {
-        throw new Error("operation ID replay does not match prior evidence");
-      }
-      return { replayed: true, existing };
-    }
-    if (Number.isSafeInteger(existing?.observed_at) && observedAt < existing.observed_at) {
-      throw new RangeError("observation is older than the latest evidence");
-    }
+  _insertEvidence({ kind, actor, operationId, checkVersion, result, evidenceRef, observedAt, now, maxAge }) {
     const expiresAt = evidenceExpiry(observedAt, now, maxAge);
-    this._execWrite(
+    return this._execWrite(
       `INSERT INTO ${EVIDENCE_TABLE} (kind, actor, operation_id, check_version, result, observed_at, expires_at, evidence_ref)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT(kind) DO UPDATE SET
@@ -231,6 +218,23 @@ export class TransferHealthDurableObject extends DurableObject {
       expiresAt,
       evidenceRef,
     );
+  }
+
+  _writeEvidence({ kind, actor, operationId, checkVersion, result, evidenceRef, observedAt, now, maxAge }) {
+    assertEvidenceInput({ kind, actor, operationId, checkVersion, result, evidenceRef });
+    assertObservedAt(observedAt, now, maxAge);
+    const existing = this._readEvidence(kind);
+    if (existing?.operation_id === operationId) {
+      if (existing.actor !== actor || existing.check_version !== checkVersion || existing.result !== result
+        || existing.evidence_ref !== evidenceRef || existing.observed_at !== observedAt) {
+        throw new Error("operation ID replay does not match prior evidence");
+      }
+      return { replayed: true, existing };
+    }
+    if (Number.isSafeInteger(existing?.observed_at) && observedAt < existing.observed_at) {
+      throw new RangeError("observation is older than the latest evidence");
+    }
+    this._insertEvidence({ kind, actor, operationId, checkVersion, result, evidenceRef, observedAt, now, maxAge });
     return { replayed: false, existing: null };
   }
 
@@ -366,32 +370,42 @@ export class TransferHealthDurableObject extends DurableObject {
       evidenceRef,
     });
     assertObservedAt(observedAt, now, HEALTH_SIGNAL_MAX_AGE_MS);
-    const existing = this._readEvidence("deletion");
-    const row = this._read();
-    if (existing?.operation_id === resolvedOperationId && row?.deletion_healthy === 1 && row.ack_generation === generation) {
-      return this.snapshot({ now });
-    }
-    const changed = this._execWrite(
-      `UPDATE ${TABLE}
-       SET deletion_at = ?, deletion_healthy = 1, ack_generation = ?
-       WHERE singleton = 1 AND incident_generation = ?
-         AND ack_generation < ? AND deletion_healthy = 0`,
-      observedAt,
-      generation,
-      generation,
-      generation,
-    );
-    if (changed !== 1) throw new Error("deletion acknowledgement is stale or already used");
-    this._writeEvidence({
-      kind: "deletion",
-      actor: "operator",
-      operationId: resolvedOperationId,
-      checkVersion,
-      result: "pass",
-      evidenceRef,
-      observedAt,
-      now,
-      maxAge: HEALTH_SIGNAL_MAX_AGE_MS,
+    this.ctx.storage.transactionSync(() => {
+      const existing = this._readEvidence("deletion");
+      const row = this._read();
+      if (existing?.operation_id === resolvedOperationId) {
+        if (existing.actor !== "operator" || existing.check_version !== checkVersion
+          || existing.result !== "pass" || existing.evidence_ref !== evidenceRef
+          || existing.observed_at !== observedAt) {
+          throw new Error("operation ID replay does not match prior acknowledgement");
+        }
+        if (row?.deletion_healthy === 1 && row.ack_generation === generation) {
+          return;
+        }
+        throw new Error("deletion acknowledgement is stale or incomplete");
+      }
+      const changed = this._execWrite(
+        `UPDATE ${TABLE}
+         SET deletion_at = ?, deletion_healthy = 1, ack_generation = ?
+         WHERE singleton = 1 AND incident_generation = ?
+           AND ack_generation < ? AND deletion_healthy = 0`,
+        observedAt,
+        generation,
+        generation,
+        generation,
+      );
+      if (changed !== 1) throw new Error("deletion acknowledgement is stale or already used");
+      this._insertEvidence({
+        kind: "deletion",
+        actor: "operator",
+        operationId: resolvedOperationId,
+        checkVersion,
+        result: "pass",
+        evidenceRef,
+        observedAt,
+        now,
+        maxAge: HEALTH_SIGNAL_MAX_AGE_MS,
+      });
     });
     return this.snapshot({ now });
   }

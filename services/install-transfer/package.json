@@ -3,7 +3,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "vitest run",
+    "test": "vitest run && node test/health-producer.integration.mjs",
     "test:watch": "vitest",
     "dev": "wrangler dev",
     "check": "node scripts/check.mjs",

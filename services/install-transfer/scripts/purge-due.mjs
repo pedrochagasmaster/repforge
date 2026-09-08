@@ -28,8 +28,9 @@ function requiredUrl() {
   if (typeof value !== "string" || value.length === 0) throw new Error("TRANSFER_SERVICE_URL is required");
   let parsed;
   try { parsed = new URL(value); } catch { throw new Error("TRANSFER_SERVICE_URL is invalid"); }
-  if (parsed.search || parsed.hash || !((parsed.protocol === "https:") || (parsed.protocol === "http:" && parsed.hostname === "localhost"))) {
-    throw new Error("TRANSFER_SERVICE_URL must be an HTTPS origin or localhost URL without query or fragment");
+  if (parsed.username || parsed.password || parsed.pathname !== "/" || parsed.search || parsed.hash
+    || !((parsed.protocol === "https:") || (parsed.protocol === "http:" && parsed.hostname === "localhost"))) {
+    throw new Error("TRANSFER_SERVICE_URL must be an HTTPS origin or localhost origin without credentials, path, query, or fragment");
   }
   return parsed.origin;
 }
@@ -57,6 +58,7 @@ async function post(origin, operatorSecret, value) {
         "Content-Type": "application/json",
       },
       body: JSON.stringify(value),
+      redirect: "error",
       signal: AbortSignal.timeout(10_000),
     });
     if (!response.ok) throw new Error(`operator request rejected (${response.status})`);

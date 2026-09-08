@@ -29,12 +29,12 @@ async function json(response) {
   return response.json();
 }
 
-function evidence(kind, observedAt = Date.now()) {
+function evidence(kind, observedAt = Date.now(), result = "pass") {
   return {
     kind,
     operationId: `ops-${kind}-operation-20260908`,
     checkVersion: "cf-test-v1",
-    result: "pass",
+    result,
     observedAt,
     evidenceRef: `fixture-${kind}`,
   };
@@ -78,6 +78,18 @@ describe("authenticated operations boundary", () => {
       "leaseFresh",
       "ok",
     ]);
+  });
+
+  it("reports operator dependency failure as unavailable instead of rate limiting", async () => {
+    const brokenEnv = new Proxy(env, {
+      get(target, property, receiver) {
+        if (property === "TRANSFER_HEALTH") return undefined;
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const response = await worker.fetch(request("/_ops/health", "GET", undefined, "watchdog"), brokenEnv);
+    expect(response.status).toBe(503);
+    expect(await json(response)).toEqual({ state: "unavailable" });
   });
 
   it("rejects future and stale actual observations instead of laundering receipt time", async () => {
@@ -124,6 +136,26 @@ describe("authenticated operations boundary", () => {
     expect(retry.status).toBe(200);
   });
 
+  it("purges only fixed-namespace object IDs and returns counts without identifiers", async () => {
+    const objectId = env.TRANSFER_OBJECTS.idFromName("ops-object-purge-empty").toString();
+    const body = {
+      operationId: "ops-purge-objects-20260908",
+      objectIds: [objectId],
+    };
+    const wrongRole = await worker.fetch(request("/_ops/purge-objects", "POST", body, "watchdog"), env);
+    expect(wrongRole.status).toBe(404);
+    const response = await worker.fetch(request("/_ops/purge-objects", "POST", body, "purge"), env);
+    expect(response.status).toBe(200);
+    const value = await json(response);
+    expect(value).toEqual({ examined: 1, purged: 1, deferred: 0, failed: 0 });
+    expect(JSON.stringify(value)).not.toContain(objectId);
+    const duplicate = await worker.fetch(request("/_ops/purge-objects", "POST", {
+      ...body,
+      objectIds: [objectId, objectId],
+    }, "purge"), env);
+    expect(duplicate.status).toBe(404);
+  });
+
   it("latches later service deletion failures after a healthy acknowledgement", async () => {
     await makeFreshEvidence();
     const current = await worker.fetch(request("/_ops/health", "GET", undefined, "watchdog"), env);
@@ -136,7 +168,8 @@ describe("authenticated operations boundary", () => {
       observedAt: Date.now(),
       evidenceRef: "fixture-ack-latch",
     }, "ack"), env);
-    await euStub(env.TRANSFER_HEALTH, "global", { allowLocalFallback: true }).markDeletionUnhealthy({ now: Date.now() });
+    const failed = await worker.fetch(request("/_ops/heartbeat", "POST", evidence("deletion", Date.now(), "fail"), "watchdog"), env);
+    expect(failed.status).toBe(200);
     const positive = await worker.fetch(request("/_ops/heartbeat", "POST", evidence("deletion", Date.now()), "watchdog"), env);
     expect(positive.status).toBe(200);
     const health = await worker.fetch(request("/_ops/health", "GET", undefined, "watchdog"), env);
