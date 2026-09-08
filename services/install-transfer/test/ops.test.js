@@ -117,6 +117,20 @@ describe("authenticated operations boundary", () => {
     }, "purge"), brokenRegistry);
     expect(purgeResponse.status).toBe(503);
     expect(await json(purgeResponse)).toEqual({ state: "unavailable" });
+
+    const objectId = env.TRANSFER_OBJECTS.idFromName("ops-jurisdiction-failure").toString();
+    const brokenObjects = new Proxy(env, {
+      get(target, property, receiver) {
+        if (property === "TRANSFER_OBJECTS") return { jurisdiction: () => { throw new Error("EU routing unavailable"); } };
+        return Reflect.get(target, property, receiver);
+      },
+    });
+    const objectResponse = await worker.fetch(request("/_ops/purge-objects", "POST", {
+      operationId: "ops-purge-objects-jurisdiction-20260908",
+      objectIds: [objectId],
+    }, "purge"), brokenObjects);
+    expect(objectResponse.status).toBe(503);
+    expect(await json(objectResponse)).toEqual({ state: "unavailable" });
   });
 
   it("rejects future and stale actual observations instead of laundering receipt time", async () => {
