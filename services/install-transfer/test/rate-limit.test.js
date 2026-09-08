@@ -18,7 +18,7 @@ describe("short-lived HMAC-keyed rate buckets", () => {
 
   it("allows exactly the configured window quota and resets after one minute", async () => {
     const name = await rateBucketName({ scope: "create", identity: "198.51.100.8", pepper });
-    const stub = euStub(env.RATE_LIMIT_BUCKETS, name);
+    const stub = euStub(env.RATE_LIMIT_BUCKETS, name, { allowLocalFallback: true });
     const now = Date.now();
     const results = [];
     for (let index = 0; index < rateLimitForScope("create") + 1; index += 1) {

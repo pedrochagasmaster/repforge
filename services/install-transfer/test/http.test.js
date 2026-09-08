@@ -1,8 +1,11 @@
 import { env } from "cloudflare:workers";
+import { listDurableObjectIds, reset } from "cloudflare:test";
 import { beforeEach, describe, expect, it } from "vitest";
 import contract from "../../../install-transfer-contract.js";
 import worker from "../src/index.js";
+import { base64UrlDecode, base64UrlEncode } from "../src/crypto.js";
 import { euStub } from "../src/namespaces.js";
+import { mintToken } from "../src/routing.js";
 
 const origin = "https://taurifer.example";
 let envelope;
@@ -44,12 +47,19 @@ async function makeEnvelope() {
 
 async function makeHealthFresh() {
   const now = Date.now();
-  const stub = euStub(env.TRANSFER_HEALTH, "global");
+  const stub = euStub(env.TRANSFER_HEALTH, "global", { allowLocalFallback: true });
+  await stub.markDeletionUnhealthy({ now });
   for (const kind of ["alarm", "watchdog", "log", "key"]) {
     await stub.recordHeartbeat({ kind, observedAt: now, now });
   }
   await stub.recordDeletionHealth({ healthy: true, observedAt: now, now });
   await stub.recordBilling({ monthlyCostCents: 1, observedAt: now, now });
+  const snapshot = await stub.snapshot({ now });
+  await stub.acknowledgeDeletion({
+    generation: snapshot.incidentGeneration,
+    proofNonce: "B".repeat(32),
+    now,
+  });
 }
 
 function post(path, body, extraHeaders = {}) {
@@ -67,24 +77,35 @@ function post(path, body, extraHeaders = {}) {
   });
 }
 
+async function testToken(idempotencyKey) {
+  const { token } = await mintToken({
+    idempotencyKey,
+    routingSecret: base64UrlDecode(env.TRANSFER_ROUTING_KEY_B64),
+    tokenMacSecret: base64UrlDecode(env.TRANSFER_TOKEN_MAC_KEY_B64),
+    keyId: env.TRANSFER_TOKEN_MAC_KEY_ID,
+    randomSource(bytes) {
+      bytes.fill(0x5a);
+      return bytes;
+    },
+  });
+  return token;
+}
+
 async function responseJson(response) {
   return response.json();
 }
 
 describe("HTTP transfer adapter", () => {
   beforeEach(async () => {
+    await reset();
     envelope = await makeEnvelope();
     await makeHealthFresh();
   });
 
   it("requires the exact configured origin and answers the browser preflight", async () => {
     const health = await worker.fetch(new Request("https://transfer.example/health", { method: "GET" }), env);
-    expect(health.status).toBe(200);
-    expect(await responseJson(health)).toMatchObject({
-      ok: true,
-      createsEnabled: true,
-      operationalHealth: true,
-    });
+    expect(health.status).toBe(404);
+    expect(await responseJson(health)).toEqual({ state: "unavailable" });
 
     const preflight = await worker.fetch(new Request("https://transfer.example/v1/transfers", {
       method: "OPTIONS",
@@ -102,7 +123,7 @@ describe("HTTP transfer adapter", () => {
     expect(wrongOrigin.status).toBe(404);
     expect(await responseJson(wrongOrigin)).toEqual({ state: "unavailable" });
 
-    await euStub(env.TRANSFER_HEALTH, "global").markDeletionUnhealthy({ now: Date.now() });
+    await euStub(env.TRANSFER_HEALTH, "global", { allowLocalFallback: true }).markDeletionUnhealthy({ now: Date.now() });
     const disabled = await worker.fetch(post("/v1/transfers", {
       envelope,
       idempotencyKey: "health-disabled-create",
@@ -126,7 +147,7 @@ describe("HTTP transfer adapter", () => {
 
     // A deletion-health incident disables only new creates; recovery of this
     // already-created transfer remains available.
-    await euStub(env.TRANSFER_HEALTH, "global").markDeletionUnhealthy({ now: Date.now() });
+    await euStub(env.TRANSFER_HEALTH, "global", { allowLocalFallback: true }).markDeletionUnhealthy({ now: Date.now() });
     const claimId = "A".repeat(22);
     const claim = await worker.fetch(post("/v1/transfers/claims", { token: created.token, claimId }), env);
     expect(claim.status).toBe(200);
@@ -146,5 +167,50 @@ describe("HTTP transfer adapter", () => {
     expect(status.status).toBe(200);
     expect(await responseJson(status)).toMatchObject({ state: "deleted" });
     expect(status.url).not.toContain(created.token);
+  });
+
+  it("verifies a bearer MAC before allocating either a rate bucket or transfer object", async () => {
+    const token = await testToken("mac-admission-only");
+    const parts = token.split(".");
+    const mac = base64UrlDecode(parts[4]);
+    mac[0] ^= 1;
+    parts[4] = base64UrlEncode(mac);
+    const tampered = parts.join(".");
+    const beforeObjects = await listDurableObjectIds(env.TRANSFER_OBJECTS);
+    const beforeRates = await listDurableObjectIds(env.RATE_LIMIT_BUCKETS);
+    const response = await worker.fetch(post("/v1/transfers/claims", {
+      token: tampered,
+      claimId: "C".repeat(22),
+    }), env);
+    expect(response.status).toBe(404);
+    expect(await listDurableObjectIds(env.TRANSFER_OBJECTS)).toHaveLength(beforeObjects.length);
+    expect(await listDurableObjectIds(env.RATE_LIMIT_BUCKETS)).toHaveLength(beforeRates.length);
+  });
+
+  it("admits the source IP before parsing a malformed create body", async () => {
+    const beforeRates = await listDurableObjectIds(env.RATE_LIMIT_BUCKETS);
+    const request = new Request("https://transfer.example/v1/transfers", {
+      method: "POST",
+      headers: {
+        Origin: origin,
+        Accept: "application/json",
+        "Content-Type": "application/json",
+      },
+      body: "{",
+    });
+    const response = await worker.fetch(request, env);
+    expect(response.status).toBe(429);
+    expect(await listDurableObjectIds(env.RATE_LIMIT_BUCKETS)).toHaveLength(beforeRates.length);
+  });
+
+  it("maps a missing internal binding to the generic unavailable response", async () => {
+    const brokenEnv = Object.create(env);
+    brokenEnv.TRANSFER_REGISTRY = undefined;
+    const response = await worker.fetch(post("/v1/transfers", {
+      envelope,
+      idempotencyKey: "missing-registry-binding",
+    }), brokenEnv);
+    expect(response.status).toBe(503);
+    expect(await responseJson(response)).toEqual({ state: "unavailable" });
   });
 });

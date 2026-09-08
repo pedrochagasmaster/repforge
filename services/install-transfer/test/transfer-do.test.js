@@ -9,7 +9,7 @@ const routingKey = new Uint8Array(32).fill(1);
 const baseNow = Date.now();
 
 async function objectFor(key) {
-  return euStub(env.TRANSFER_OBJECTS, await routeNameForIdempotencyKey(key, routingKey));
+  return euStub(env.TRANSFER_OBJECTS, await routeNameForIdempotencyKey(key, routingKey), { allowLocalFallback: true });
 }
 
 async function rows(stub) {
@@ -190,7 +190,7 @@ describe("SQLite Durable Object encrypted record foundation", () => {
       requestedExpiry: baseNow + 10,
     });
 
-    await expect(stub.purgeDue({ now: baseNow + 10 })).resolves.toEqual({ purged: false, state: "expired" });
+    await expect(stub.purgeDue({ now: baseNow + 10 })).resolves.toMatchObject({ purged: false, state: "expired" });
     expect((await rows(stub))[0]).toMatchObject({ state: "expired", envelope_ciphertext: null, envelope_aad: null, claim_digest: null });
     await expect(stub.purgeDue({ now: baseNow + 15 * 60_000 + 10 })).resolves.toEqual({ purged: true });
     expect(await rows(stub)).toHaveLength(0);
@@ -220,7 +220,7 @@ describe("SQLite Durable Object encrypted record foundation", () => {
       await instance.alarm();
     });
     expect(await rows(stub)).toHaveLength(0);
-    await expect(euStub(env.TRANSFER_HEALTH, "global").snapshot({ now: Date.now() })).resolves.toMatchObject({
+    await expect(euStub(env.TRANSFER_HEALTH, "global", { allowLocalFallback: true }).snapshot({ now: Date.now() })).resolves.toMatchObject({
       deletionHealthy: false,
       createsEnabled: false,
     });

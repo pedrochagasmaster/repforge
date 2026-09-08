@@ -16,13 +16,17 @@
       {
         "name": "TRANSFER_HEALTH",
         "class_name": "TransferHealthDurableObject"
+      },
+      {
+        "name": "TRANSFER_REGISTRY",
+        "class_name": "TransferRouteRegistryDurableObject"
       }
     ]
   },
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["TransferDurableObject", "RateLimitDurableObject", "TransferHealthDurableObject"]
+      "new_sqlite_classes": ["TransferDurableObject", "RateLimitDurableObject", "TransferHealthDurableObject", "TransferRouteRegistryDurableObject"]
     }
   ]
 }

@@ -299,7 +299,9 @@ export class TransferDurableObject extends DurableObject {
   async _markDeletionUnhealthy() {
     let healthStub = null;
     try {
-      healthStub = this.env.TRANSFER_HEALTH ? euStub(this.env.TRANSFER_HEALTH, "global") : null;
+      healthStub = this.env.TRANSFER_HEALTH
+        ? euStub(this.env.TRANSFER_HEALTH, "global", { allowLocalFallback: this.env.TRANSFER_LOCAL_TEST_EU === "true" })
+        : null;
     } catch {
       return;
     }
@@ -594,7 +596,7 @@ export class TransferDurableObject extends DurableObject {
     try {
       const record = await this._expireIfDue(now);
       if (!record) return { purged: true };
-      return { purged: false, state: record.state };
+      return { purged: false, state: record.state, expiresAt: record.expires_at, tombstoneUntil: record.tombstone_until };
     } catch (error) {
       if (error instanceof RecordIntegrityError) return { purged: false, state: "unavailable" };
       throw error;

@@ -7,7 +7,10 @@
     "test:watch": "vitest",
     "dev": "wrangler dev",
     "check": "node scripts/check.mjs",
-    "deploy:dry": "wrangler deploy --dry-run"
+    "deploy:dry": "wrangler deploy --dry-run",
+    "ops:health": "node scripts/health-producer.mjs",
+    "ops:purge": "node scripts/purge-due.mjs",
+    "ops:ack": "node scripts/deletion-ack.mjs"
   },
   "devDependencies": {
     "@cloudflare/vitest-plugin": "^1.0.0",

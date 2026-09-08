@@ -47,14 +47,21 @@ Claim and commit transitions use conditional SQLite updates keyed by the
 expected state, token digest, and expiry. The local Workers runtime tests
 exercise concurrent creates, first-claim binding, same-claim retries, and
 idempotent concurrent commits, as well as metadata and AAD tamper rejection.
-The authenticated operations runbook can invoke `purgeDue({now})` on a routed
-object stub as a manual backstop; it never lists objects or accepts a bearer in
-a URL. A corrupt active record is deleted by its singleton key, its object
-re-arms a short bounded alarm, and the global health object disables new
-creates. Creates remain disabled unless configuration, deletion, alarm,
-watchdog, key, log, billing, and fresh health-lease evidence are all healthy
-and the operator enables them; the kill switch forces them off. Claims, status,
-commit, and purge do not use this create gate.
+expected state, token digest, and expiry. The local Workers runtime tests
+exercise concurrent creates, first-claim binding, same-claim retries, and
+idempotent concurrent commits, as well as metadata and AAD tamper rejection.
+The registry enumerates only bounded route metadata for its own purge job; the
+authenticated `POST /_ops/purge-due` route invokes that job without a bearer,
+claim ID, or clone field. `GET /_ops/health` is private to the watchdog and
+acknowledgement roles. The other private routes are `POST /_ops/heartbeat`,
+`/_ops/billing`, and `/_ops/deletion-ack`; each has a separate bearer secret,
+bounded JSON, and fixed-window operator rate limit. A corrupt active record is
+deleted by its singleton key, its object re-arms a short bounded alarm, and the
+global health object disables new creates. Creates remain disabled unless
+configuration, deletion, alarm, watchdog, key, log, billing, and fresh
+health-lease evidence are all healthy and the operator enables them; the kill
+switch forces them off. Claims, status, commit, and purge do not use this
+create gate.
 
 The Worker consumes the accepted root `install-transfer-contract.js` module for
 bounded raw parsing, endpoint validation, envelope integrity, and redaction
@@ -69,10 +76,13 @@ with 429, and disabled creation returns it with 503.
 monthly cost observation. Alarm, watchdog, log, key, and deletion evidence
 expires after five minutes. Billing evidence expires after 24 hours, and a
 monthly observation at or above 1,000 cents disables new creates. The service
-does not treat static `*_HEALTH=healthy` variables as a lease. An owner
-controlled watchdog or control-plane job must call the health object's RPC
-methods with fresh evidence and must re-enable deletion health only after the
-runbook has proved the purge path. No public heartbeat route is provided.
+does not treat static `*_HEALTH=healthy` variables as a lease. The checked-in
+`ops:health` producer validates a bounded provider-observation document and
+submits fresh evidence; its billing section is an explicit current owner
+receipt because no Cloudflare billing API is claimed here. The standalone
+`provider-watchdog-probe.mjs` adapter is syntax-checked but is not yet wired
+into that producer, so it supplies no production watchdog proof. No public
+health or heartbeat route is provided.
 
 The provider alarm is a deletion backstop, not proof of the live 60-minute
 guarantee by itself. Cloudflare documents at-least-once alarm execution and

@@ -61,7 +61,7 @@ export async function operationalServiceHealth(env, { now = Date.now() } = {}) {
   let evidence = null;
   try {
     if (env.TRANSFER_HEALTH) {
-      evidence = await euStub(env.TRANSFER_HEALTH, "global").snapshot({ now });
+      evidence = await euStub(env.TRANSFER_HEALTH, "global", { allowLocalFallback: env.TRANSFER_LOCAL_TEST_EU === "true" }).snapshot({ now });
     }
   } catch {
     evidence = null;

@@ -50,16 +50,19 @@ export async function readBoundedRequestBytes(request, maxBytes) {
   if (!request.body) return new Uint8Array(0);
 
   const reader = request.body.getReader();
-  const chunks = [];
   let total = 0;
+  const bytes = new Uint8Array(declaredLength === null ? maxBytes : declaredLength);
   try {
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
       if (!(value instanceof Uint8Array)) throw new TypeError("request body chunks must be Uint8Array");
+      if (value.byteLength === 0) continue;
+      if (total > maxBytes - value.byteLength || total > bytes.byteLength - value.byteLength) {
+        throw new TransportError(TRANSPORT_ERROR_CODES.BODY_TOO_LARGE);
+      }
+      bytes.set(value, total);
       total += value.byteLength;
-      if (total > maxBytes) throw new TransportError(TRANSPORT_ERROR_CODES.BODY_TOO_LARGE);
-      chunks.push(value);
     }
   } catch (error) {
     try {
@@ -70,13 +73,7 @@ export async function readBoundedRequestBytes(request, maxBytes) {
     throw error;
   }
   if (declaredLength !== null && declaredLength !== total) throw new TransportError(TRANSPORT_ERROR_CODES.BODY_TOO_LARGE);
-  const bytes = new Uint8Array(total);
-  let offset = 0;
-  for (const chunk of chunks) {
-    bytes.set(chunk, offset);
-    offset += chunk.byteLength;
-  }
-  return bytes;
+  return total === bytes.byteLength ? bytes : bytes.slice(0, total);
 }
 
 export function decodeJsonSyntax(rawBytes) {

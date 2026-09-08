@@ -2,11 +2,13 @@ import contract from "../../../install-transfer-contract.js";
 import { base64UrlDecode } from "./crypto.js";
 import { operationalServiceHealth } from "./operations.js";
 import { rateBucketName, rateLimitForScope } from "./rate-limit.js";
-import { routeFromToken, routeNameForIdempotencyKey } from "./routing.js";
+import { routeFromToken, routeNameForIdempotencyKey, verifyToken } from "./routing.js";
 import { RateLimitDurableObject } from "./rate-limit-do.js";
 import { TransferDurableObject } from "./transfer-do.js";
 import { TransferHealthDurableObject } from "./health-do.js";
+import { TransferRouteRegistryDurableObject } from "./registry-do.js";
 import { euStub } from "./namespaces.js";
+import { handleOperations } from "./ops.js";
 import {
   TRANSPORT_ERROR_CODES,
   TransportError,
@@ -14,7 +16,12 @@ import {
   readBoundedRequestBytes,
 } from "./transport.js";
 
-export { TransferDurableObject, RateLimitDurableObject, TransferHealthDurableObject };
+export {
+  TransferDurableObject,
+  RateLimitDurableObject,
+  TransferHealthDurableObject,
+  TransferRouteRegistryDurableObject,
+};
 export { routeFromToken, routeNameForIdempotencyKey };
 
 const ENDPOINTS = contract.ENDPOINTS;
@@ -72,6 +79,27 @@ function configKey(env, name) {
   return decoded;
 }
 
+function euOptions(env) {
+  return { allowLocalFallback: env.TRANSFER_LOCAL_TEST_EU === "true" };
+}
+
+function tokenMacKeys(env) {
+  const activeId = env.TRANSFER_TOKEN_MAC_KEY_ID;
+  if (typeof activeId !== "string" || !/^[A-Za-z0-9_-]{1,16}$/u.test(activeId)) throw new Error("configuration unavailable");
+  const keys = new Map([[activeId, configKey(env, "TRANSFER_TOKEN_MAC_KEY_B64")]]);
+  if (env.TRANSFER_TOKEN_MAC_PREVIOUS_KEY_ID || env.TRANSFER_TOKEN_MAC_PREVIOUS_KEY_B64) {
+    const previousId = env.TRANSFER_TOKEN_MAC_PREVIOUS_KEY_ID;
+    if (typeof previousId !== "string" || !/^[A-Za-z0-9_-]{1,16}$/u.test(previousId)) throw new Error("configuration unavailable");
+    keys.set(previousId, configKey(env, "TRANSFER_TOKEN_MAC_PREVIOUS_KEY_B64"));
+  }
+  return keys;
+}
+
+async function verifiedRouteFromToken(env, token) {
+  await verifyToken(token, tokenMacKeys(env));
+  return routeFromToken(token);
+}
+
 async function parseRequest(request, endpoint) {
   assertJsonRequest(request);
   const maxBytes = endpoint === ENDPOINTS.create
@@ -91,7 +119,7 @@ async function parseRequest(request, endpoint) {
 async function consumeRate(env, scope, identity) {
   const pepper = configKey(env, "TRANSFER_RATE_PEPPER_B64");
   const name = await rateBucketName({ scope, identity, pepper });
-  const stub = env.RATE_LIMIT_BUCKETS ? euStub(env.RATE_LIMIT_BUCKETS, name) : null;
+  const stub = env.RATE_LIMIT_BUCKETS ? euStub(env.RATE_LIMIT_BUCKETS, name, euOptions(env)) : null;
   if (!stub) return { allowed: false };
   return stub.consume({ limit: rateLimitForScope(scope) });
 }
@@ -103,11 +131,19 @@ function sourceIp(request) {
   return typeof headerIp === "string" && headerIp.length > 0 ? headerIp : null;
 }
 
-function transferStub(env, token) {
-  const route = routeFromToken(token);
-  const stub = env.TRANSFER_OBJECTS ? euStub(env.TRANSFER_OBJECTS, route) : null;
-  if (!stub) throw new Error("transfer binding unavailable");
+function registryStub(env) {
+  const stub = env.TRANSFER_REGISTRY ? euStub(env.TRANSFER_REGISTRY, "global", euOptions(env)) : null;
+  if (!stub) throw new Error("registry binding unavailable");
   return stub;
+}
+
+async function markDeletionUnhealthy(env, code) {
+  try {
+    const stub = env.TRANSFER_HEALTH ? euStub(env.TRANSFER_HEALTH, "global", euOptions(env)) : null;
+    if (stub?.markDeletionUnhealthy) await stub.markDeletionUnhealthy({ code });
+  } catch {
+    // The create gate remains closed when the health object cannot be reached.
+  }
 }
 
 async function handleCreate(request, env, headers) {
@@ -115,12 +151,6 @@ async function handleCreate(request, env, headers) {
   if (!health.createsEnabled) return unavailable(503, headers);
   const ip = sourceIp(request);
   if (!ip) return unavailable(429, headers);
-  let body;
-  try {
-    body = await parseRequest(request, ENDPOINTS.create);
-  } catch {
-    return unavailable(404, headers);
-  }
   let rate;
   try {
     rate = await consumeRate(env, "create", ip);
@@ -128,21 +158,58 @@ async function handleCreate(request, env, headers) {
     return unavailable(429, headers);
   }
   if (!rate?.allowed) return unavailable(429, headers);
+  let body;
+  try {
+    body = await parseRequest(request, ENDPOINTS.create);
+  } catch {
+    return unavailable(404, headers);
+  }
   try {
     const routingKey = configKey(env, "TRANSFER_ROUTING_KEY_B64");
-    const stub = env.TRANSFER_OBJECTS
-      ? euStub(env.TRANSFER_OBJECTS, await routeNameForIdempotencyKey(body.idempotencyKey, routingKey))
-      : null;
-    if (!stub) return unavailable(500, headers);
+    const routeName = await routeNameForIdempotencyKey(body.idempotencyKey, routingKey);
+    let registry;
+    try {
+      registry = registryStub(env);
+    } catch {
+      await markDeletionUnhealthy(env, "registry-binding");
+      return unavailable(503, headers);
+    }
+    const reservationNow = Date.now();
+    let reservation;
+    try {
+      reservation = await registry.reserveRoute({ routeName, now: reservationNow });
+    } catch {
+      await markDeletionUnhealthy(env, "registry-reservation");
+      return unavailable(503, headers);
+    }
+    const stub = env.TRANSFER_OBJECTS ? euStub(env.TRANSFER_OBJECTS, routeName, euOptions(env)) : null;
+    if (!stub) {
+      await markDeletionUnhealthy(env, "transfer-binding");
+      return unavailable(503, headers);
+    }
     const result = await stub.createRecord({
       idempotencyKey: body.idempotencyKey,
       envelopeJson: contract.canonicalJson(body.envelope),
+      requestedExpiry: reservation.maxTransferExpiresAt,
     });
+    if (["created", "duplicate", "terminal"].includes(result.kind) && Number.isSafeInteger(result.expiresAt)) {
+      try {
+        await registry.setLifetime({
+          routeName,
+          expiresAt: result.expiresAt,
+          state: result.kind === "terminal" ? result.state : "available",
+          now: Date.now(),
+        });
+      } catch {
+        await markDeletionUnhealthy(env, "registry-lifetime");
+        return unavailable(503, headers);
+      }
+    }
     if (result.kind === "created") return json({ token: result.token, expiresAt: expiresAtIso(result.expiresAt) }, 201, headers);
     if (result.kind === "duplicate") return json({ duplicate: true, expiresAt: expiresAtIso(result.expiresAt) }, 200, headers);
     return unavailable(404, headers);
   } catch {
-    return unavailable(500, headers);
+    return unavailable(503, headers);
   }
 }
 
@@ -153,17 +220,20 @@ async function handleTokenEndpoint(request, env, endpoint, headers) {
   } catch {
     return unavailable(404, headers);
   }
-  let stub;
+  let route;
   try {
-    stub = transferStub(env, body.token);
+    route = await verifiedRouteFromToken(env, body.token);
   } catch {
     return unavailable(404, headers);
   }
+  let stub;
   try {
     const rate = await consumeRate(env, "transfer", body.token);
     if (!rate?.allowed) return unavailable(429, headers);
+    stub = env.TRANSFER_OBJECTS ? euStub(env.TRANSFER_OBJECTS, route, euOptions(env)) : null;
+    if (!stub) return unavailable(503, headers);
   } catch {
-    return unavailable(429, headers);
+    return unavailable(503, headers);
   }
   try {
     if (endpoint === ENDPOINTS.claims) {
@@ -182,23 +252,15 @@ async function handleTokenEndpoint(request, env, endpoint, headers) {
     if (result.kind !== "status") return unavailable(404, headers);
     return json({ state: result.state, expiresAt: expiresAtIso(result.expiresAt) }, 200, headers);
   } catch {
-    return unavailable(500, headers);
+    return unavailable(503, headers);
   }
 }
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (request.method === "GET" && url.pathname === "/health") {
-      const health = await operationalServiceHealth(env);
-      return json({
-        ok: true,
-        service: "install-transfer-foundation",
-        createsEnabled: health.createsEnabled,
-        operationalHealth: health.operationalHealth,
-      });
-    }
-
+    const operationsResponse = await handleOperations(request, env);
+    if (operationsResponse) return operationsResponse;
     const endpoint = url.pathname;
     if (![ENDPOINTS.create, ENDPOINTS.claims, ENDPOINTS.commit, ENDPOINTS.status].includes(endpoint) || url.search || url.hash) {
       return unavailable(404);

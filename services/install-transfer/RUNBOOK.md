@@ -31,33 +31,39 @@ The staging deployment needs these non-secret settings and bindings:
   `TRANSFER_DELETION_HEALTH` — static configuration checks that must all be
   `healthy`, in addition to the fresh health-object evidence;
 - `TRANSFER_OBJECTS`, `RATE_LIMIT_BUCKETS`, and `TRANSFER_HEALTH` — bindings
-  for the three SQLite Durable Object classes;
+  for the SQLite Durable Object classes, plus `TRANSFER_REGISTRY` for bounded
+  route reservation and purge enumeration;
 - `TRANSFER_ROUTING_KEY_B64`, `TRANSFER_TOKEN_MAC_KEY_B64`,
   `TRANSFER_TOKEN_MAC_KEY_ID`, `TRANSFER_DIGEST_KEY_B64`, and
   `TRANSFER_RATE_PEPPER_B64` — secret names only. Values stay in the provider
   secret store and must never be printed or placed in logs.
+- `TRANSFER_WATCHDOG_SECRET`, `TRANSFER_BILLING_SECRET`,
+  `TRANSFER_PURGE_SECRET`, and `TRANSFER_ACK_SECRET` — separate private ops
+  credentials. Values stay in the provider secret store.
 
 All three namespaces must be accessed through the EU subnamespace. The Worker
 calls `namespace.jurisdiction("eu")`; the current local workerd limitation is
 documented in the README and is not staging evidence.
 
-The global health object is the create admission lease. An owner-controlled
-watchdog or control-plane job must call `recordHeartbeat` for `alarm`,
-`watchdog`, `log`, and `key`, `recordDeletionHealth({healthy:true})` only after
-the deletion checks pass, and `recordBilling({monthlyCostCents})` with a fresh
-monthly observation. The heartbeat lease is five minutes; billing evidence is
-24 hours. A monthly observation of 1,000 cents or more fails new creates, even
-though claims, status, commit, and purge remain available during the approved
-small overrun. Static healthy labels without those fresh RPC observations do
-not enable creates.
+The global health object is the create admission lease. The scheduled
+`npm run ops:health` producer validates a bounded provider observation and
+posts the five health checks to `/_ops/heartbeat` and the current owner billing
+receipt to `/_ops/billing`. A billing API integration is not claimed. The
+standalone `scripts/provider-watchdog-probe.mjs` is not wired into that
+producer yet, so staging must keep creates disabled until an independent
+watchdog adapter is integrated and reviewed. The heartbeat lease is five
+minutes; billing evidence is 24 hours. A monthly observation of 1,000 cents or
+more fails new creates, even though claims, status, commit, and purge remain
+available during the approved small overrun. Static healthy labels without
+those fresh observations do not enable creates.
 
 For a deletion incident, call `markDeletionUnhealthy` and set the kill switch
-before investigating. Route the affected object from the deterministic
-idempotency-key route held by the owner-side operation marker, then invoke
-`purgeDue` through the authenticated control plane. Never put a bearer or claim
-ID in a URL, command history, or log. After a purge check and a clean redaction
-review, record fresh deletion health and all other signals before manually
-re-enabling creates.
+before investigating. Run `npm run ops:purge` with a bounded operation ID and
+evidence reference; the registry enumerates due route metadata and invokes the
+routed Durable Objects without requiring a user bearer or clone data. Use
+`npm run ops:ack` only after the current incident generation, purge result, and
+redaction review are checked and the explicit confirmation variable is set.
+Never put a bearer or claim ID in a URL, command history, or log.
 
 The provider deadline gate is still open until staging evidence shows:
 
@@ -72,8 +78,7 @@ The provider deadline gate is still open until staging evidence shows:
 6. the provider account's actual EU Durable Object placement and billing
    observation.
 
-Until those checks are recorded by the owner, `/health` may report liveness but
-the create endpoint must stay at the generic 503 unavailable response. This
-local branch has no staging credentials and makes no deployment or live-SLA
-claim.
-
+Until those checks are recorded by the owner, there is no public health route
+and the create endpoint must stay at the generic 503 unavailable response.
+This local branch has no staging credentials and makes no deployment or live-
+SLA claim.

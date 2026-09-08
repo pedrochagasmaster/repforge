@@ -26,8 +26,11 @@ if (!bindings.some((binding) => binding.name === "RATE_LIMIT_BUCKETS" && binding
 if (!bindings.some((binding) => binding.name === "TRANSFER_HEALTH" && binding.class_name === "TransferHealthDurableObject")) {
   throw new Error("TRANSFER_HEALTH binding is missing");
 }
+if (!bindings.some((binding) => binding.name === "TRANSFER_REGISTRY" && binding.class_name === "TransferRouteRegistryDurableObject")) {
+  throw new Error("TRANSFER_REGISTRY binding is missing");
+}
 const sqliteClasses = config.migrations?.flatMap((migration) => migration.new_sqlite_classes ?? []) ?? [];
-for (const className of ["TransferDurableObject", "RateLimitDurableObject", "TransferHealthDurableObject"]) {
+for (const className of ["TransferDurableObject", "RateLimitDurableObject", "TransferHealthDurableObject", "TransferRouteRegistryDurableObject"]) {
   if (!sqliteClasses.includes(className)) throw new Error(`${className} SQLite migration is missing`);
 }
 
