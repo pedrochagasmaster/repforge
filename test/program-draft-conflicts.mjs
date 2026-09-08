@@ -4,6 +4,7 @@
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
+import { execFileSync } from "node:child_process";
 import {
   clearPersistenceArtifacts,
   inventoryPersistenceArtifacts,
@@ -31,10 +32,14 @@ async function reviewAndStageImport(page) {
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+const DRAFT_CHECKPOINT = `${DRAFT}:v2-checkpoint`;
+const DRAFT_RECOVERY = `${DRAFT}:recovery`;
 const DRAFT_PENDING_PREFIX = `${DRAFT}:pending:`;
 const DB = "repforge";
 const STORE = "kv";
 const STORAGE_LOCK = "repforge:state-write";
+const OLD_APP_SHA = "3fbae92fcee58c0d72539b9f4e2c270a9d60dbd4";
+const OLD_APP = execFileSync("git", ["show", `${OLD_APP_SHA}:app.js`], { encoding: "utf8" });
 const failures = [];
 let passed = 0;
 
@@ -199,6 +204,22 @@ async function openApp(context) {
   return page;
 }
 
+async function openOldPopup(context, opener, name) {
+  const handler = (route) => {
+    if (route.request().frame().page() === opener) return route.continue();
+    return route.fulfill({ status: 200, contentType: "text/javascript", body: OLD_APP });
+  };
+  await context.route(/\/app\.js(?:\?|$)/, handler);
+  const popup = context.waitForEvent("page");
+  await opener.evaluate(({ url, name }) => {
+    window.__draftConflictStaleTab = window.open(url, name);
+  }, { url: BASE, name });
+  const page = await popup;
+  await waitForApp(page);
+  await context.unroute(/\/app\.js(?:\?|$)/, handler);
+  return page;
+}
+
 async function seedScenario(page, draftRaw, state = fixture()) {
   await page.evaluate(() => window.__repforgeStorage.flush());
   await clearPersistenceArtifacts(page);
@@ -232,14 +253,17 @@ async function seedScenario(page, draftRaw, state = fixture()) {
   );
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
+  return (await readRuntime(page)).draftRaw;
 }
 
 async function readRuntime(page) {
   const runtime = await page.evaluate(
-    async ({ key, draftKey, dbName, storeName }) => {
+    async ({ key, draftKey, checkpointKey, recoveryKey, dbName, storeName }) => {
       const localRaw = localStorage.getItem(key);
       const local = localRaw == null ? null : JSON.parse(localRaw);
       const draftRaw = localStorage.getItem(draftKey);
+      const checkpointRaw = localStorage.getItem(checkpointKey);
+      const recoveryRaw = localStorage.getItem(recoveryKey);
       const db = await new Promise((resolve, reject) => {
         const request = indexedDB.open(dbName, 1);
         request.onupgradeneeded = () => request.result.createObjectStore(storeName);
@@ -252,11 +276,13 @@ async function readRuntime(page) {
         request.onerror = () => reject(request.error);
       });
       db.close();
-      return { localRaw, local, idb, draftRaw };
+      return { localRaw, local, idb, draftRaw, checkpointRaw, recoveryRaw };
     },
     {
       key: KEY,
       draftKey: DRAFT,
+      checkpointKey: DRAFT_CHECKPOINT,
+      recoveryKey: DRAFT_RECOVERY,
       dbName: DB,
       storeName: STORE,
     }
@@ -307,6 +333,86 @@ async function waitForPendingStorageLock(page) {
   );
 }
 
+async function waitForPendingStorageLocks(page, count) {
+  await page.waitForFunction(
+    async ({ lockName, count }) => {
+      const locks = await navigator.locks.query();
+      return locks.pending.filter((lock) => lock.name === lockName).length >= count;
+    },
+    { lockName: STORAGE_LOCK, count },
+    { timeout: 10000 }
+  );
+}
+
+async function queueNewerDraftLoad(page, load) {
+  await page.evaluate((value) => {
+    const hook = window.__repforgeWorkoutDraft;
+    const target = hook.target("draft-conflict-press_1_load");
+    window.__draftConflictNewerDraft = hook.dispatch("editSetField", {
+      exerciseInstanceId: target.exerciseInstanceId,
+      setId: target.setId,
+      field: "load",
+      value,
+    });
+  }, String(load));
+}
+
+async function finishNewerDraftLoad(page) {
+  const result = await page.evaluate(() => window.__draftConflictNewerDraft);
+  if (result?.status !== "applied") throw new Error(`newer DraftV2 write did not apply: ${JSON.stringify(result)}`);
+  return result.raw;
+}
+
+async function nextDraftRaw(page, load, operationId = `fixture-${Date.now()}`) {
+  return page.evaluate(({ load, operationId }) => {
+    const raw = localStorage.getItem("repforge_draft_v1");
+    const parsed = window.RepForgeWorkoutDraft.parse(raw);
+    if (parsed.kind !== "valid") throw new Error(`expected DraftV2, got ${parsed.kind}`);
+    const draft = parsed.draft;
+    const exerciseInstanceId = draft.exerciseOrder[0];
+    const setId = draft.exercises[exerciseInstanceId].setOrder[0];
+    const next = window.RepForgeWorkoutDraft.reduce(draft, {
+      type: "editSetField", exerciseInstanceId, setId, field: "load", value: String(load),
+      expectedRevision: draft.revision, operationId,
+      updatedAt: new Date(Date.parse(draft.session.updatedAt) + 1000).toISOString(),
+      writer: { ...draft.writer, tabId: "conflict-fixture", operationId },
+    });
+    if (window.RepForgeWorkoutDraft.isDomainError(next)) throw new Error(next.code);
+    return JSON.stringify(window.RepForgeWorkoutDraft.serialize(next));
+  }, { load: String(load), operationId });
+}
+
+async function installAcknowledgedDraft(page, raw, operationId = `fixture-${Date.now()}`) {
+  await page.evaluate(({ draftKey, checkpointKey, raw, operationId }) => {
+    const parsed = window.RepForgeWorkoutDraft.parse(raw);
+    if (parsed.kind !== "valid") throw new Error(`expected DraftV2, got ${parsed.kind}`);
+    const draft = parsed.draft;
+    localStorage.setItem(draftKey, raw);
+    localStorage.setItem(checkpointKey, JSON.stringify({
+      version: 1, kind: "committed", draftId: draft.draftId, revision: draft.revision,
+      operationId, programFingerprint: draft.program.programFingerprint, raw,
+    }));
+  }, { draftKey: DRAFT, checkpointKey: DRAFT_CHECKPOINT, raw, operationId });
+}
+
+function acknowledgedCheckpointRaw(raw, operationId) {
+  const draft = JSON.parse(raw);
+  return JSON.stringify({
+    version: 1, kind: "committed", draftId: draft.draftId, revision: draft.revision,
+    operationId, programFingerprint: draft.program.programFingerprint, raw,
+  });
+}
+
+function storedDraftLoad(raw, exerciseId = "draft-conflict-press") {
+  if (raw == null) return null;
+  const value = JSON.parse(raw);
+  if (value?.schemaVersion === 2) {
+    const exercise = value.exercises?.[exerciseId];
+    return exercise?.sets?.[exercise?.setOrder?.[0]]?.edited?.load ?? null;
+  }
+  return value?.[`${exerciseId}_1_load`] ?? null;
+}
+
 async function waitForNoPendingStorageLock(page) {
   await page.waitForFunction(
     async (lockName) => {
@@ -337,22 +443,19 @@ async function runTemplateConflict(browser) {
   });
   try {
     const writer = await openApp(context);
-    const confirmedDraftRaw = JSON.stringify(draft("confirmed-template-draft", "82.5"));
-    await seedScenario(writer, confirmedDraftRaw);
+    const confirmedDraftRaw = await seedScenario(writer, JSON.stringify(draft("confirmed-template-draft", "82.5")));
     const locker = await openApp(context);
     const before = await readRuntime(writer);
     await holdStorageLock(locker);
+    await queueNewerDraftLoad(writer, "97.5");
+    await waitForPendingStorageLocks(locker, 1);
     await writer.evaluate(() => {
       window.__draftConflictResult = window.__testFinalizeCurrentProgram();
     });
-    await waitForPendingStorageLock(locker);
+    await waitForPendingStorageLocks(locker, 2);
     const blocked = await readRuntime(writer);
-    const newerDraftRaw = JSON.stringify(draft("newer-template-draft", "97.5"));
-    await locker.evaluate(
-      ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
-      { draftKey: DRAFT, raw: newerDraftRaw }
-    );
     await releaseStorageLock(locker);
+    const newerDraftRaw = await finishNewerDraftLoad(writer);
     const result = await writer.evaluate(() => window.__draftConflictResult);
     await writer.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(writer);
@@ -403,11 +506,12 @@ async function runFinalizeConflict(browser) {
   });
   try {
     const writer = await openApp(context);
-    const confirmedDraftRaw = JSON.stringify(draft("confirmed-finalize-draft", "85"));
-    await seedScenario(writer, confirmedDraftRaw);
+    const confirmedDraftRaw = await seedScenario(writer, JSON.stringify(draft("confirmed-finalize-draft", "85")));
     const locker = await openApp(context);
     const before = await readRuntime(writer);
     await holdStorageLock(locker);
+    await queueNewerDraftLoad(writer, "100");
+    await waitForPendingStorageLocks(locker, 1);
     await writer.evaluate(
       ({ exercises, confirmedDraftRaw }) => {
         window.__draftConflictResult = window.__repforgeFinalizeProgramSetup({
@@ -422,14 +526,10 @@ async function runFinalizeConflict(browser) {
       },
       { exercises: fixture().program, confirmedDraftRaw }
     );
-    await waitForPendingStorageLock(locker);
+    await waitForPendingStorageLocks(locker, 2);
     const blocked = await readRuntime(writer);
-    const newerDraftRaw = JSON.stringify(draft("newer-finalize-draft", "100"));
-    await locker.evaluate(
-      ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
-      { draftKey: DRAFT, raw: newerDraftRaw }
-    );
     await releaseStorageLock(locker);
+    const newerDraftRaw = await finishNewerDraftLoad(writer);
     const result = await writer.evaluate(() => window.__draftConflictResult);
     await writer.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(writer);
@@ -478,8 +578,7 @@ async function runSaveProgramConflict(browser) {
   });
   try {
     const writer = await openApp(context);
-    const confirmedDraftRaw = JSON.stringify(draft("confirmed-save-program-draft", "87.5"));
-    await seedScenario(writer, confirmedDraftRaw);
+    const confirmedDraftRaw = await seedScenario(writer, JSON.stringify(draft("confirmed-save-program-draft", "87.5")));
     const locker = await openApp(context);
     await openProgramEditor(writer);
     // Replacing the touched exercise is the visible equivalent of replacing
@@ -492,17 +591,15 @@ async function runSaveProgramConflict(browser) {
     await writer.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     const before = await readRuntime(writer);
     await holdStorageLock(locker);
+    await queueNewerDraftLoad(writer, "102.5");
+    await waitForPendingStorageLocks(locker, 1);
     await writer.click("#programEditToggle");
     await writer.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
     await writer.click("#programEditorApply");
-    await waitForPendingStorageLock(locker);
+    await waitForPendingStorageLocks(locker, 2);
     const blocked = await readRuntime(writer);
-    const newerDraftRaw = JSON.stringify(draft("newer-save-program-draft", "102.5"));
-    await locker.evaluate(
-      ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
-      { draftKey: DRAFT, raw: newerDraftRaw }
-    );
     await releaseStorageLock(locker);
+    const newerDraftRaw = await finishNewerDraftLoad(writer);
     await writer.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(writer);
 
@@ -543,8 +640,7 @@ async function runNormalProgramImportConflict(browser) {
   });
   try {
     const writer = await openApp(context);
-    const confirmedDraftRaw = JSON.stringify(draft("confirmed-import-draft", "90"));
-    await seedScenario(writer, confirmedDraftRaw);
+    const confirmedDraftRaw = await seedScenario(writer, JSON.stringify(draft("confirmed-import-draft", "90")));
     const locker = await openApp(context);
     await openProgramEditor(writer);
     const before = await readRuntime(writer);
@@ -558,15 +654,13 @@ async function runNormalProgramImportConflict(browser) {
     });
     await reviewAndStageImport(writer);
     await holdStorageLock(locker);
+    await queueNewerDraftLoad(writer, "105");
+    await waitForPendingStorageLocks(locker, 1);
     await writer.evaluate(() => document.querySelector("#entryActivate")?.click());
-    await waitForPendingStorageLock(locker);
+    await waitForPendingStorageLocks(locker, 2);
     const blocked = await readRuntime(writer);
-    const newerDraftRaw = JSON.stringify(draft("newer-import-draft", "105"));
-    await locker.evaluate(
-      ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
-      { draftKey: DRAFT, raw: newerDraftRaw }
-    );
     await releaseStorageLock(locker);
+    const newerDraftRaw = await finishNewerDraftLoad(writer);
     await writer.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(writer);
 
@@ -607,8 +701,7 @@ async function runOnboardingProgramImportConflict(browser) {
   });
   try {
     const writer = await openApp(context);
-    const confirmedDraftRaw = JSON.stringify(draft("confirmed-onboarding-import-draft", "91.25"));
-    await seedScenario(writer, confirmedDraftRaw);
+    const confirmedDraftRaw = await seedScenario(writer, JSON.stringify(draft("confirmed-onboarding-import-draft", "91.25")));
     const locker = await openApp(context);
     await writer.evaluate(() => window.startOnboarding("settings"));
     await writer.waitForSelector("#onboarding.active", { timeout: 5000 });
@@ -623,15 +716,13 @@ async function runOnboardingProgramImportConflict(browser) {
     });
     await reviewAndStageImport(writer);
     await holdStorageLock(locker);
+    await queueNewerDraftLoad(writer, "106.25");
+    await waitForPendingStorageLocks(locker, 1);
     await writer.evaluate(() => document.querySelector("#entryActivate")?.click());
-    await waitForPendingStorageLock(locker);
+    await waitForPendingStorageLocks(locker, 2);
     const blocked = await readRuntime(writer);
-    const newerDraftRaw = JSON.stringify(draft("newer-onboarding-import-draft", "106.25"));
-    await locker.evaluate(
-      ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
-      { draftKey: DRAFT, raw: newerDraftRaw }
-    );
     await releaseStorageLock(locker);
+    const newerDraftRaw = await finishNewerDraftLoad(writer);
     await writer.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(writer);
     const onboardingActive = await writer.locator("#onboarding").evaluate((element) =>
@@ -677,25 +768,22 @@ async function runDeleteExerciseConflict(browser) {
   });
   try {
     const writer = await openApp(context);
-    const confirmedDraftRaw = JSON.stringify(draft("confirmed-delete-exercise-draft", "92.5"));
-    await seedScenario(writer, confirmedDraftRaw);
+    const confirmedDraftRaw = await seedScenario(writer, JSON.stringify(draft("confirmed-delete-exercise-draft", "92.5")));
     const locker = await openApp(context);
     await openProgramEditor(writer);
     const before = await readRuntime(writer);
     writer.on("dialog", (dialog) => dialog.accept());
     await holdStorageLock(locker);
+    await queueNewerDraftLoad(writer, "107.5");
+    await waitForPendingStorageLocks(locker, 1);
     await writer.click('#programEditor [data-role="remove-exercise"][data-id="draft-conflict-press"]');
     await writer.click("#programEditToggle");
     await writer.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
     await writer.click("#programEditorApply");
-    await waitForPendingStorageLock(locker);
+    await waitForPendingStorageLocks(locker, 2);
     const blocked = await readRuntime(writer);
-    const newerDraftRaw = JSON.stringify(draft("newer-delete-exercise-draft", "107.5"));
-    await locker.evaluate(
-      ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
-      { draftKey: DRAFT, raw: newerDraftRaw }
-    );
     await releaseStorageLock(locker);
+    const newerDraftRaw = await finishNewerDraftLoad(writer);
     await writer.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(writer);
 
@@ -736,26 +824,23 @@ async function runDeleteDayConflict(browser) {
   });
   try {
     const writer = await openApp(context);
-    const confirmedDraftRaw = JSON.stringify(draft("confirmed-delete-day-draft", "95"));
-    await seedScenario(writer, confirmedDraftRaw);
+    const confirmedDraftRaw = await seedScenario(writer, JSON.stringify(draft("confirmed-delete-day-draft", "95")));
     const locker = await openApp(context);
     await openProgramEditor(writer);
     const before = await readRuntime(writer);
     writer.on("dialog", (dialog) => dialog.accept());
     await holdStorageLock(locker);
+    await queueNewerDraftLoad(writer, "110");
+    await waitForPendingStorageLocks(locker, 1);
     await writer.click('#programEditor [data-role="day-menu"][data-day="Day 1"]');
     await writer.click('#programEditor [data-role="remove-day"][data-day="Day 1"]');
     await writer.click("#programEditToggle");
     await writer.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
     await writer.click("#programEditorApply");
-    await waitForPendingStorageLock(locker);
+    await waitForPendingStorageLocks(locker, 2);
     const blocked = await readRuntime(writer);
-    const newerDraftRaw = JSON.stringify(draft("newer-delete-day-draft", "110"));
-    await locker.evaluate(
-      ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
-      { draftKey: DRAFT, raw: newerDraftRaw }
-    );
     await releaseStorageLock(locker);
+    const newerDraftRaw = await finishNewerDraftLoad(writer);
     await writer.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(writer);
 
@@ -796,8 +881,7 @@ async function runBackupReplaceConflict(browser) {
   });
   try {
     const writer = await openApp(context);
-    const confirmedDraftRaw = JSON.stringify(draft("confirmed-backup-replace-draft", "97.5"));
-    await seedScenario(writer, confirmedDraftRaw);
+    const confirmedDraftRaw = await seedScenario(writer, JSON.stringify(draft("confirmed-backup-replace-draft", "97.5")));
     const locker = await openApp(context);
     const incoming = fixture();
     incoming.programMeta.name = "Incoming full backup";
@@ -810,15 +894,13 @@ async function runBackupReplaceConflict(browser) {
     await writer.waitForSelector("#importChoice:not(.hidden)", { timeout: 5000 });
     const before = await readRuntime(writer);
     await holdStorageLock(locker);
+    await queueNewerDraftLoad(writer, "112.5");
+    await waitForPendingStorageLocks(locker, 1);
     await writer.click("#importReplace");
-    await waitForPendingStorageLock(locker);
+    await waitForPendingStorageLocks(locker, 2);
     const blocked = await readRuntime(writer);
-    const newerDraftRaw = JSON.stringify(draft("newer-backup-replace-draft", "112.5"));
-    await locker.evaluate(
-      ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
-      { draftKey: DRAFT, raw: newerDraftRaw }
-    );
     await releaseStorageLock(locker);
+    const newerDraftRaw = await finishNewerDraftLoad(writer);
     await writer.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(writer);
 
@@ -881,22 +963,19 @@ async function runDeleteLogConflict(browser) {
         secondary: "Triceps",
       },
     ];
-    const confirmedDraftRaw = JSON.stringify(draft("confirmed-delete-log-draft", "98.75"));
-    await seedScenario(writer, confirmedDraftRaw, state);
+    const confirmedDraftRaw = await seedScenario(writer, JSON.stringify(draft("confirmed-delete-log-draft", "98.75")), state);
     const locker = await openApp(context);
     await writer.evaluate(() => window.__repforgeShowSettings());
     const before = await readRuntime(writer);
     writer.on("dialog", (dialog) => dialog.accept());
     await holdStorageLock(locker);
+    await queueNewerDraftLoad(writer, "113.75");
+    await waitForPendingStorageLocks(locker, 1);
     await writer.click("#reset");
-    await waitForPendingStorageLock(locker);
+    await waitForPendingStorageLocks(locker, 2);
     const blocked = await readRuntime(writer);
-    const newerDraftRaw = JSON.stringify(draft("newer-delete-log-draft", "113.75"));
-    await locker.evaluate(
-      ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
-      { draftKey: DRAFT, raw: newerDraftRaw }
-    );
     await releaseStorageLock(locker);
+    const newerDraftRaw = await finishNewerDraftLoad(writer);
     await writer.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(writer);
 
@@ -937,8 +1016,7 @@ async function runIndependentlyRemovedDraft(browser) {
   });
   try {
     const writer = await openApp(context);
-    const confirmedDraftRaw = JSON.stringify(draft("independently-removed-draft", "100"));
-    await seedScenario(writer, confirmedDraftRaw);
+    const confirmedDraftRaw = await seedScenario(writer, JSON.stringify(draft("independently-removed-draft", "100")));
     const locker = await openApp(context);
     const before = await readRuntime(writer);
     await holdStorageLock(locker);
@@ -986,21 +1064,17 @@ async function runBootDestructiveConflict(browser) {
   });
   try {
     const page = await openApp(context);
-    const confirmedDraftRaw = JSON.stringify(draft("retained-destructive-draft", "101.25"));
-    await seedScenario(page, confirmedDraftRaw);
+    const confirmedDraftRaw = await seedScenario(page, JSON.stringify(draft("retained-destructive-draft", "101.25")));
     const locker = await openApp(context);
     const before = await readRuntime(page);
+    const newerDraftRaw = await nextDraftRaw(page, "116.25", "boot-destructive-newer");
     await holdStorageLock(locker);
     await page.evaluate(() => {
       window.__bootDestructivePending = window.__testFinalizeCurrentProgram();
     });
     await waitForPendingStorageLock(locker);
     const retained = await readRuntime(page);
-    const newerDraftRaw = JSON.stringify(draft("newer-boot-destructive-draft", "116.25"));
-    await locker.evaluate(
-      ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
-      { draftKey: DRAFT, raw: newerDraftRaw }
-    );
+    await installAcknowledgedDraft(locker, newerDraftRaw, "boot-destructive-newer");
 
     check(
       retained.pendingEntries.length === 1 &&
@@ -1052,16 +1126,17 @@ async function runDraftCreatedAfterConfirmation(browser) {
     const before = await readRuntime(writer);
     await holdStorageLock(locker);
     await writer.evaluate(() => {
+      window.__draftConflictCreatedDraft = window.__repforgeEnterWorkout({ focus: false, day: "Day 1" })
+        .then(() => window.__repforgeWorkoutDraft.raw());
+    });
+    await waitForPendingStorageLocks(locker, 1);
+    await writer.evaluate(() => {
       window.__draftConflictResult = window.__testFinalizeCurrentProgram();
     });
-    await waitForPendingStorageLock(locker);
+    await waitForPendingStorageLocks(locker, 2);
     const blocked = await readRuntime(writer);
-    const newerDraftRaw = JSON.stringify(draft("created-after-confirmation", "120"));
-    await locker.evaluate(
-      ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
-      { draftKey: DRAFT, raw: newerDraftRaw }
-    );
     await releaseStorageLock(locker);
+    const newerDraftRaw = await writer.evaluate(() => window.__draftConflictCreatedDraft);
     const result = await writer.evaluate(() => window.__draftConflictResult);
     await writer.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(writer);
@@ -1105,12 +1180,12 @@ async function runLocalReplicaWriteRace(browser) {
   });
   try {
     const page = await openApp(context);
-    const confirmedDraftRaw = JSON.stringify(draft("confirmed-local-write-race", "102.5"));
-    const newerDraftRaw = JSON.stringify(draft("newer-local-write-race", "122.5"));
-    await seedScenario(page, confirmedDraftRaw);
+    const confirmedDraftRaw = await seedScenario(page, JSON.stringify(draft("confirmed-local-write-race", "102.5")));
+    const newerDraftRaw = await nextDraftRaw(page, "122.5", "local-write-race");
+    const newerCheckpointRaw = acknowledgedCheckpointRaw(newerDraftRaw, "local-write-race");
     const before = await readRuntime(page);
     const result = await page.evaluate(
-      async ({ key, draftKey, newerDraftRaw }) => {
+      async ({ key, draftKey, checkpointKey, newerDraftRaw, newerCheckpointRaw }) => {
         const originalSetItem = Storage.prototype.setItem;
         let injected = false;
         Storage.prototype.setItem = function (candidate, value) {
@@ -1118,6 +1193,7 @@ async function runLocalReplicaWriteRace(browser) {
           if (!injected && candidate === key) {
             injected = true;
             originalSetItem.call(this, draftKey, newerDraftRaw);
+            originalSetItem.call(this, checkpointKey, newerCheckpointRaw);
           }
           return written;
         };
@@ -1127,7 +1203,7 @@ async function runLocalReplicaWriteRace(browser) {
           Storage.prototype.setItem = originalSetItem;
         }
       },
-      { key: KEY, draftKey: DRAFT, newerDraftRaw }
+      { key: KEY, draftKey: DRAFT, checkpointKey: DRAFT_CHECKPOINT, newerDraftRaw, newerCheckpointRaw }
     );
     await page.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(page);
@@ -1168,9 +1244,9 @@ async function runBootReplayLocalReplicaWriteRace(browser) {
   });
   try {
     const page = await openApp(context);
-    const confirmedDraftRaw = JSON.stringify(draft("confirmed-boot-write-race", "103.75"));
-    const newerDraftRaw = JSON.stringify(draft("newer-boot-write-race", "123.75"));
-    await seedScenario(page, confirmedDraftRaw);
+    const confirmedDraftRaw = await seedScenario(page, JSON.stringify(draft("confirmed-boot-write-race", "103.75")));
+    const newerDraftRaw = await nextDraftRaw(page, "123.75", "boot-write-race");
+    const newerCheckpointRaw = acknowledgedCheckpointRaw(newerDraftRaw, "boot-write-race");
     const locker = await openApp(context);
     const before = await readRuntime(page);
     await holdStorageLock(locker);
@@ -1189,7 +1265,7 @@ async function runBootReplayLocalReplicaWriteRace(browser) {
     await page.close();
     await waitForNoPendingStorageLock(locker);
     await context.addInitScript(
-      ({ key, draftKey, newerDraftRaw }) => {
+      ({ key, draftKey, checkpointKey, newerDraftRaw, newerCheckpointRaw }) => {
         const originalSetItem = Storage.prototype.setItem;
         let injected = false;
         Storage.prototype.setItem = function (candidate, value) {
@@ -1197,11 +1273,12 @@ async function runBootReplayLocalReplicaWriteRace(browser) {
           if (!injected && candidate === key) {
             injected = true;
             originalSetItem.call(this, draftKey, newerDraftRaw);
+            originalSetItem.call(this, checkpointKey, newerCheckpointRaw);
           }
           return written;
         };
       },
-      { key: KEY, draftKey: DRAFT, newerDraftRaw }
+      { key: KEY, draftKey: DRAFT, checkpointKey: DRAFT_CHECKPOINT, newerDraftRaw, newerCheckpointRaw }
     );
     await releaseStorageLock(locker);
     const recovered = await openApp(context);
@@ -1248,12 +1325,13 @@ async function runOneStoreReplicaWriteRaces(browser) {
     });
     try {
       const page = await openApp(context);
-      const confirmedDraftRaw = JSON.stringify(draft(`confirmed-${outcome.label}-race`, "105"));
-      const newerDraftRaw = JSON.stringify(draft(`newer-${outcome.label}-race`, "125"));
-      await seedScenario(page, confirmedDraftRaw);
+      const confirmedDraftRaw = await seedScenario(page, JSON.stringify(draft(`confirmed-${outcome.label}-race`, "105")));
+      const operationId = `one-store-${outcome.label}`;
+      const newerDraftRaw = await nextDraftRaw(page, "125", operationId);
+      const newerCheckpointRaw = acknowledgedCheckpointRaw(newerDraftRaw, operationId);
       const before = await readRuntime(page);
       const result = await page.evaluate(
-        async ({ key, draftKey, newerDraftRaw, localOk, idbOk }) => {
+        async ({ key, draftKey, checkpointKey, newerDraftRaw, newerCheckpointRaw, localOk, idbOk }) => {
           const originalSetItem = Storage.prototype.setItem;
           const originalPut = IDBObjectStore.prototype.put;
           let injected = false;
@@ -1264,6 +1342,7 @@ async function runOneStoreReplicaWriteRaces(browser) {
             if (!injected) {
               injected = true;
               originalSetItem.call(this, draftKey, newerDraftRaw);
+              originalSetItem.call(this, checkpointKey, newerCheckpointRaw);
             }
             return written;
           };
@@ -1274,6 +1353,7 @@ async function runOneStoreReplicaWriteRaces(browser) {
             if (!injected) {
               injected = true;
               originalSetItem.call(localStorage, draftKey, newerDraftRaw);
+              originalSetItem.call(localStorage, checkpointKey, newerCheckpointRaw);
             }
             return request;
           };
@@ -1284,7 +1364,8 @@ async function runOneStoreReplicaWriteRaces(browser) {
             IDBObjectStore.prototype.put = originalPut;
           }
         },
-        { key: KEY, draftKey: DRAFT, newerDraftRaw, localOk: outcome.localOk, idbOk: outcome.idbOk }
+        { key: KEY, draftKey: DRAFT, checkpointKey: DRAFT_CHECKPOINT, newerDraftRaw, newerCheckpointRaw,
+          localOk: outcome.localOk, idbOk: outcome.idbOk }
       );
       await page.evaluate(() => window.__repforgeStorage.flush());
       const compensated = await readRuntime(page);
@@ -1360,15 +1441,18 @@ async function runCrossStoreCompensationRecovery(browser) {
     });
     try {
       const page = await openApp(context);
-      const confirmedDraftRaw = JSON.stringify(draft(`confirmed-${outcome.label}`, "105.5"));
-      const newerDraftRaw = JSON.stringify(draft(`newer-${outcome.label}`, "125.5"));
-      await seedScenario(page, confirmedDraftRaw);
+      const confirmedDraftRaw = await seedScenario(page, JSON.stringify(draft(`confirmed-${outcome.label}`, "105.5")));
+      const operationId = `cross-store-${outcome.label}`;
+      const newerDraftRaw = await nextDraftRaw(page, "125.5", operationId);
+      const newerCheckpointRaw = acknowledgedCheckpointRaw(newerDraftRaw, operationId);
       const before = await readRuntime(page);
       const result = await page.evaluate(
         async ({
           key,
           draftKey,
+          checkpointKey,
           newerDraftRaw,
+          newerCheckpointRaw,
           initialLocalOk,
           initialIdbOk,
           rollbackLocalOk,
@@ -1388,6 +1472,7 @@ async function runCrossStoreCompensationRecovery(browser) {
             if (!injected && localWrites === 1) {
               injected = true;
               originalSetItem.call(this, draftKey, newerDraftRaw);
+              originalSetItem.call(this, checkpointKey, newerCheckpointRaw);
             }
             return written;
           };
@@ -1400,6 +1485,7 @@ async function runCrossStoreCompensationRecovery(browser) {
             if (!injected && idbWrites === 1) {
               injected = true;
               originalSetItem.call(localStorage, draftKey, newerDraftRaw);
+              originalSetItem.call(localStorage, checkpointKey, newerCheckpointRaw);
             }
             return request;
           };
@@ -1414,7 +1500,9 @@ async function runCrossStoreCompensationRecovery(browser) {
         {
           key: KEY,
           draftKey: DRAFT,
+          checkpointKey: DRAFT_CHECKPOINT,
           newerDraftRaw,
+          newerCheckpointRaw,
           initialLocalOk: outcome.initialLocalOk,
           initialIdbOk: outcome.initialIdbOk,
           rollbackLocalOk: outcome.rollbackLocalOk,
@@ -1486,19 +1574,22 @@ async function runEffectApplicationRace(browser) {
   });
   try {
     const page = await openApp(context);
-    const confirmedDraftRaw = JSON.stringify(draft("confirmed-effect-race", "106.25"));
-    const newerDraftRaw = JSON.stringify(draft("newer-effect-race", "126.25"));
-    await seedScenario(page, confirmedDraftRaw);
+    const confirmedDraftRaw = await seedScenario(page, JSON.stringify(draft("confirmed-effect-race", "106.25")));
+    const newerDraftRaw = await nextDraftRaw(page, "126.25", "effect-race");
+    const newerCheckpointRaw = acknowledgedCheckpointRaw(newerDraftRaw, "effect-race");
     const before = await readRuntime(page);
     const observed = await page.evaluate(
-      async ({ draftKey, newerDraftRaw }) => {
+      async ({ draftKey, checkpointKey, newerDraftRaw, newerCheckpointRaw }) => {
         const originalGetItem = Storage.prototype.getItem;
         const originalSetItem = Storage.prototype.setItem;
         let draftReads = 0;
         Storage.prototype.getItem = function (candidate) {
           if (candidate === draftKey) {
             draftReads++;
-            if (draftReads === 4) originalSetItem.call(this, draftKey, newerDraftRaw);
+            if (draftReads === 4) {
+              originalSetItem.call(this, draftKey, newerDraftRaw);
+              originalSetItem.call(this, checkpointKey, newerCheckpointRaw);
+            }
           }
           return originalGetItem.apply(this, arguments);
         };
@@ -1509,7 +1600,7 @@ async function runEffectApplicationRace(browser) {
           Storage.prototype.getItem = originalGetItem;
         }
       },
-      { draftKey: DRAFT, newerDraftRaw }
+      { draftKey: DRAFT, checkpointKey: DRAFT_CHECKPOINT, newerDraftRaw, newerCheckpointRaw }
     );
     await page.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(page);
@@ -1546,16 +1637,17 @@ async function runPreparedTransactionUnloadRecovery(browser) {
   });
   try {
     const writer = await openApp(context);
-    const confirmedDraftRaw = JSON.stringify(draft("confirmed-interrupted-transaction", "107.5"));
-    const newerDraftRaw = JSON.stringify(draft("newer-interrupted-transaction", "127.5"));
-    await seedScenario(writer, confirmedDraftRaw);
+    const confirmedDraftRaw = await seedScenario(writer, JSON.stringify(draft("confirmed-interrupted-transaction", "107.5")));
+    const newerDraftRaw = await nextDraftRaw(writer, "127.5", "interrupted-transaction");
+    const newerCheckpointRaw = acknowledgedCheckpointRaw(newerDraftRaw, "interrupted-transaction");
     const before = await readRuntime(writer);
     await writer.evaluate(
-      ({ key, draftKey, newerDraftRaw }) => {
+      ({ key, draftKey, checkpointKey, newerDraftRaw, newerCheckpointRaw }) => {
         const io = {
           async writeLocal(snapshot) {
             localStorage.setItem(key, JSON.stringify(snapshot));
             localStorage.setItem(draftKey, newerDraftRaw);
+            localStorage.setItem(checkpointKey, newerCheckpointRaw);
           },
           async writeIdb() {
             await new Promise(() => {});
@@ -1563,7 +1655,7 @@ async function runPreparedTransactionUnloadRecovery(browser) {
         };
         window.__interruptedDraftTransaction = window.__testFinalizeCurrentProgram(io);
       },
-      { key: KEY, draftKey: DRAFT, newerDraftRaw }
+      { key: KEY, draftKey: DRAFT, checkpointKey: DRAFT_CHECKPOINT, newerDraftRaw, newerCheckpointRaw }
     );
     await writer.waitForFunction(
       ({ key, marker }) => {
@@ -1616,19 +1708,19 @@ async function runPreparedTransactionUnloadRecovery(browser) {
 }
 
 async function runSuccessfulClearPublicationRace(browser) {
-  console.log("\n18. A draft published immediately after successful removal is compensated");
+  console.log("\n18. An uncoordinated candidate published inside successful removal is quarantined");
   const context = await browser.newContext({
     viewport: { width: 390, height: 844 },
     serviceWorkers: "block",
   });
   try {
     const page = await openApp(context);
-    const confirmedDraftRaw = JSON.stringify(draft("confirmed-successful-clear-race", "108.75"));
-    const newerDraftRaw = JSON.stringify(draft("newer-successful-clear-race", "128.75"));
-    await seedScenario(page, confirmedDraftRaw);
+    const confirmedDraftRaw = await seedScenario(page, JSON.stringify(draft("confirmed-successful-clear-race", "108.75")));
+    const newerDraftRaw = await nextDraftRaw(page, "128.75", "successful-clear-race");
+    const newerCheckpointRaw = acknowledgedCheckpointRaw(newerDraftRaw, "successful-clear-race");
     const before = await readRuntime(page);
     const observed = await page.evaluate(
-      async ({ key, draftKey, newerDraftRaw }) => {
+      async ({ key, draftKey, checkpointKey, newerDraftRaw, newerCheckpointRaw }) => {
         const originalRemoveItem = Storage.prototype.removeItem;
         const originalSetItem = Storage.prototype.setItem;
         let injected = false;
@@ -1641,6 +1733,7 @@ async function runSuccessfulClearPublicationRace(browser) {
             const provisional = JSON.parse(localStorage.getItem(key) || "null");
             markerPresent = provisional?._storageDraftTransaction?.version === 1;
             originalSetItem.call(this, draftKey, newerDraftRaw);
+            originalSetItem.call(this, checkpointKey, newerCheckpointRaw);
             draftRawAfterRemoval = localStorage.getItem(draftKey);
           }
           return removed;
@@ -1652,28 +1745,33 @@ async function runSuccessfulClearPublicationRace(browser) {
           Storage.prototype.removeItem = originalRemoveItem;
         }
       },
-      { key: KEY, draftKey: DRAFT, newerDraftRaw }
+      { key: KEY, draftKey: DRAFT, checkpointKey: DRAFT_CHECKPOINT, newerDraftRaw, newerCheckpointRaw }
     );
     await page.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(page);
+    const recovery = final.recoveryRaw == null ? null : JSON.parse(final.recoveryRaw);
 
     check(
       observed.injected && observed.markerPresent && observed.draftRawAfterRemoval === newerDraftRaw,
-      "precondition: newer draft is published while the destructive transaction is provisional",
+      "precondition: the fault bypasses the shared-lock adapter while the destructive transaction is provisional",
       observed
     );
-    check(observed.result?.draftConflict === true, "successful-clear publication is rejected as draftConflict", observed.result);
+    check(observed.result?.draftConflict === true, "the uncoordinated publication is rejected as draftConflict", observed.result);
     check(
-      domainSnapshot(final.local) === domainSnapshot(before.local) &&
+        domainSnapshot(final.local) === domainSnapshot(before.local) &&
         domainSnapshot(final.idb) === domainSnapshot(before.idb) &&
-        final.draftRaw === newerDraftRaw &&
+        final.draftRaw === confirmedDraftRaw &&
+        recovery?.raw === newerDraftRaw &&
         final.persistenceArtifacts.length === 0,
-      "successful-clear publication durably restores both replicas and preserves the newer draft",
+      "compensation restores the acknowledged draft and quarantines the uncoordinated candidate",
       {
         beforeName: before.local?.programMeta?.name,
         localName: final.local?.programMeta?.name,
         idbName: final.idb?.programMeta?.name,
-        newerDraftPreserved: final.draftRaw === newerDraftRaw,
+        acknowledgedDraftRestored: final.draftRaw === confirmedDraftRaw,
+        candidateRecovered: recovery?.raw === newerDraftRaw,
+        finalLoad: storedDraftLoad(final.draftRaw),
+        expectedLoad: storedDraftLoad(newerDraftRaw),
         pendingCount: final.pendingEntries.length,
         pendingDraftCount: final.draftPendingEntries.length,
         artifacts: final.persistenceArtifacts,
@@ -1692,15 +1790,11 @@ async function runStaleTabSaveDuringSuccessfulClear(browser) {
   });
   try {
     const writer = await openApp(context);
-    const confirmedDraftRaw = JSON.stringify(draft("confirmed-stale-tab-save", "110"));
-    await seedScenario(writer, confirmedDraftRaw);
+    const confirmedDraftRaw = await seedScenario(writer, JSON.stringify(draft("confirmed-stale-tab-save", "110")));
     const before = await readRuntime(writer);
-    const popup = context.waitForEvent("page");
-    await writer.evaluate((url) => {
-      window.__draftConflictStaleTab = window.open(url, "draft-conflict-stale-tab");
-    }, BASE);
-    const stale = await popup;
-    await waitForApp(stale);
+    const stale = await openOldPopup(context, writer, "draft-conflict-stale-tab");
+    await stale.evaluate(() => window.__repforgeEnterWorkout({ focus: false, day: "Day 1" }));
+    await stale.waitForSelector('#workout:not(.is-focus) [data-k="draft-conflict-press_1_load"]');
     await stale.evaluate((draftPendingPrefix) => {
       const originalSetItem = Storage.prototype.setItem;
       window.__draftConflictQueuedSidecarKeys = new Set();
@@ -1754,7 +1848,9 @@ async function runStaleTabSaveDuringSuccessfulClear(browser) {
     );
     await writer.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(writer);
-    const finalDraft = final.draftRaw == null ? null : JSON.parse(final.draftRaw);
+    const finalLoad = storedDraftLoad(final.draftRaw);
+    const recovery = final.recoveryRaw == null ? null : JSON.parse(final.recoveryRaw);
+    const recoveredStaleLoad = storedDraftLoad(recovery?.raw);
 
     check(
       observed.saveDispatched &&
@@ -1772,14 +1868,17 @@ async function runStaleTabSaveDuringSuccessfulClear(browser) {
     check(
       domainSnapshot(final.local) === domainSnapshot(before.local) &&
         domainSnapshot(final.idb) === domainSnapshot(before.idb) &&
-        finalDraft?.["draft-conflict-press_1_load"] === "131.25" &&
+        final.draftRaw === confirmedDraftRaw &&
+        recoveredStaleLoad === "131.25" &&
         final.persistenceArtifacts.length === 0,
-      "stale-tab save is retained exactly while both durable replicas return to the old program",
+      "stale-tab save is retained in recovery while the acknowledged draft and program are restored",
       {
         beforeName: before.local?.programMeta?.name,
         localName: final.local?.programMeta?.name,
         idbName: final.idb?.programMeta?.name,
-        staleLoad: finalDraft?.["draft-conflict-press_1_load"],
+        acknowledgedLoad: finalLoad,
+        recoveredStaleLoad,
+        recoveryReason: recovery?.reason,
         pendingCount: final.pendingEntries.length,
         pendingDraftCount: final.draftPendingEntries.length,
         artifacts: final.persistenceArtifacts,
@@ -1798,15 +1897,11 @@ async function runQueuedStaleTabUnloadRecovery(browser) {
   });
   try {
     const writer = await openApp(context);
-    const confirmedDraftRaw = JSON.stringify(draft("confirmed-queued-unload", "112.5"));
-    await seedScenario(writer, confirmedDraftRaw);
+    const confirmedDraftRaw = await seedScenario(writer, JSON.stringify(draft("confirmed-queued-unload", "112.5")));
     const before = await readRuntime(writer);
-    const popup = context.waitForEvent("page");
-    await writer.evaluate((url) => {
-      window.__draftConflictStaleTab = window.open(url, "draft-conflict-unload-stale-tab");
-    }, BASE);
-    const stale = await popup;
-    await waitForApp(stale);
+    const stale = await openOldPopup(context, writer, "draft-conflict-unload-stale-tab");
+    await stale.evaluate(() => window.__repforgeEnterWorkout({ focus: false, day: "Day 1" }));
+    await stale.waitForSelector('#workout:not(.is-focus) [data-k="draft-conflict-press_1_load"]');
 
     const result = await writer.evaluate(
       async ({ key, draftKey, staleLoad }) => {
@@ -1877,20 +1972,24 @@ async function runQueuedStaleTabUnloadRecovery(browser) {
     await writer.close();
     const recovered = await openApp(context);
     const final = await readRuntime(recovered);
-    const finalDraft = final.draftRaw == null ? null : JSON.parse(final.draftRaw);
+    const finalLoad = storedDraftLoad(final.draftRaw);
+    const recovery = final.recoveryRaw == null ? null : JSON.parse(final.recoveryRaw);
+    const recoveredStaleLoad = storedDraftLoad(recovery?.raw);
     const toastText = await recovered.locator("#toast").innerText();
     check(
       domainSnapshot(final.local) === domainSnapshot(before.local) &&
         domainSnapshot(final.idb) === domainSnapshot(before.idb) &&
         final.local?._storageRevision === final.idb?._storageRevision &&
-        finalDraft?.["draft-conflict-press_1_load"] === "133.75" &&
+        final.draftRaw === confirmedDraftRaw && recoveredStaleLoad === "133.75" &&
         final.persistenceArtifacts.length === 0,
-      "boot durably compensates and republishes the queued stale-tab draft without loss",
+      "boot durably compensates, restores the acknowledged draft, and retains the stale-tab write in recovery",
       {
         beforeName: before.local?.programMeta?.name,
         localName: final.local?.programMeta?.name,
         idbName: final.idb?.programMeta?.name,
-        staleLoad: finalDraft?.["draft-conflict-press_1_load"],
+        activeLoad: finalLoad,
+        recoveredStaleLoad,
+        recoveryReason: recovery?.reason,
         pendingCount: final.pendingEntries.length,
         pendingDraftCount: final.draftPendingEntries.length,
         artifacts: final.persistenceArtifacts,

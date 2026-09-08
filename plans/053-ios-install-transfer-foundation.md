@@ -2,6 +2,12 @@
 
 Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
 and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
+Plan 053 uses native **Luna, Max reasoning, Fast service** subagents under the
+[native worker protocol](#native-luna-worker-protocol) below. This owner instruction
+supersedes the Herdr/Gemini routing for this plan only. The
+[worker packets](#worker-packets) retain their acceptance requirements. Fill
+live SHAs, worker IDs, worktrees, server origins, and PIDs before dispatch;
+documented revisions are historical anchors.
 
 - **Plan number:** 053
 - **Phase:** 2C — State and lifecycle foundations
@@ -55,14 +61,15 @@ Preserve ordinary static/offline/local-first Taurifer, user ownership/export, se
 
 - The app is a dependency-free static PWA. Root production has no package manager or backend.
 - Durable state lives in localStorage `repforge_v1` and IndexedDB `repforge/kv`; write-ahead and transaction keys preserve crash safety.
-- The active draft uses `repforge_draft_v1`; Plan 051 replaces its flat unversioned shape with DraftV2.
+- The active draft uses `repforge_draft_v1`; merged Plan 051 replaced its flat unversioned shape with DraftV2.
 - UI prefs use `repforge_ui_v1`; theme is intentionally device-only in ordinary export/setup sharing.
 - Consent and stable identity are separate keys in `telemetry.js`: `repforge_telemetry_enabled_v1` and `repforge_telemetry_identity_v1`.
 - Candidate entry work uses `repforge_program_setup_draft_v1`; Phase 049 decides its exact-clone treatment without changing its activation boundary.
 - The historical `repforge_setup_v1` cookie carries only an encoded setup proposal into iOS installation and is sent with the static HTML request. It remains distinct.
 - Current install detection/promotion and iOS instructions live in `app.js`/`index.html`; dismissal lives in UI prefs and uses a seven-day cadence.
 - Durable state writes already use Web Locks, revisioned pending entries, IndexedDB/localStorage reconciliation, and draft-transaction sidecars. The import must reuse those concepts instead of writing keys independently.
-- Service worker cache is currently `repforge-v175`; implementation re-reads and advances the live value.
+- The active draft is DraftV2 (Plan 051, merged). The clone's `workoutDraft` section is the **acknowledged** DraftV2 logical value read through `window.__repforgeWorkoutDraft` (`current`/`checkpoint`/`read`), never the raw flat `repforge_draft_v1` string. Transient checkpoint bytes, the write-ahead journal, cross-tab locks, and the `repforge_draft_v1:recovery` buffer are excluded; the atomic local import recreates a valid destination checkpoint through the approved local-import boundary. If the source cannot produce an acknowledged clone, the transfer fails safely under the approved contract rather than shipping a partial or stale draft.
+- Service worker cache is `repforge-v188` on main `c3491c5e`, with `?v=188` script revisions; implementation re-reads and advances the live value rather than trusting a documented number.
 
 ## Architecture
 
@@ -355,7 +362,147 @@ The service has a creation kill switch and independent purge command. Client rol
 
 For every row: mark 🟡; implement only the row; run focused proof; inspect all changes and secret/log output; remove unrelated edits; commit; push immediately; update the PR immediately; proceed only from a clean reconstructable remote boundary.
 
+## Worker packets
+
+The atomic commit sequence above is the delivery contract. Each row is dispatched as one or more self-contained packets
+under the native worker protocol below; the coordinator fills every packet
+field before dispatch. No worker is asked to design the transfer protocol — the Cloudflare Workers / EU Durable Object /
+token-derived-key / operations / disclosure contract is closed by Plan 049 and ADR 0013 and **is not reopened by any
+packet**. Staging-service and physical-iOS owners remain named humans; those packets record evidence, they do not
+simulate it.
+
+Rules for every packet in this plan:
+
+- **Tests land before or with production.** PLANNED assertion files are written with independent expected values first.
+- **Anchors are concrete.** Existing: `window.__repforgeWorkoutDraft` (`current`/`checkpoint`/`read`/`cas`),
+  `repforge_v1`, `repforge_ui_v1`, `repforge_setup_v1` cookie, `telemetry.js` (`repforge_telemetry_identity_v1`,
+  `repforge_telemetry_enabled_v1`, `installationId`), `sw.js` `CACHE = "repforge-v188"`. **NEW** (this plan):
+  `install-transfer.js`, `services/install-transfer/**`, and runtime handling of
+  the already-specified `repforge_install_import_v1` / `repforge_transfer_inbound_v1` markers.
+  `tools/canonical-clone-hash.mjs` and `test/fixtures/install-transfer-clone-v1.json`
+  already exist. Extend their proof rather than recreate them.
+- **One reusable contract.** The ADR 0013 payload-boundary table is expressed once as a shared limits constant consumed
+  by both the browser module and the service; packets never restate made-up limit numbers or duplicate fixture data.
+- **Per-boundary oracle.** Each of create / claim / commit / status / Safari-freeze has a written actor + credential +
+  fault expectation table (053-P0) before its service or client packet is dispatched.
+- **Every packet carries a deliberate failing case** and a STOP boundary; the coordinator reproduces the risky
+  assertion (and inspects logs for secret leakage) before the next packet of that row.
+
+### Row → packet map
+
+| Packet | Maps rows | Bounded objective · mode | Existing anchors (main unless NEW) | Proof-first: PLANNED assertion + independent oracle + deliberate failure | Commands: baseline now → planned | STOP · reviewer gate |
+|---|---|---|---|---|---|---|
+| 053-P0 | 1 | Per-boundary actor/credential/fault oracle table for create, claim, commit, status, and Safari freeze · **plan (read-only)** | Plan 049 endpoint contract, ADR 0013 boundary table, `docs/adr/0013-temporary-install-transfer.md` | Table listing, per boundary: which actor holds which sealed credential, the expected terminal state on loss, and the observable a test will assert. Failure enumerated per boundary (lost create response, unbound claim, commit-never-arrives, unavailable status, credential unseal failure) | baseline: `node --check app.js` → planned: consumed as the oracle by 053-P2/P3/P4/P5 assertion files | STOP if a boundary has no single owning actor or an ambiguous terminal state · reviewer: coordinator signs the table into PR before 053-P2 |
+| 053-P1a | 1 | Logical clone V1 schema + normalization fixture: acknowledged DraftV2 section, `repforge_v1`/`repforge_ui_v1` normalized values, consent + identity; volatile fields stripped · **build** | `window.__repforgeWorkoutDraft`, `telemetry.js` keys; existing `tools/canonical-clone-hash.mjs`, `test/fixtures/install-transfer-clone-v1.json`; NEW `test/install-transfer-clone.mjs` | existing `tools/canonical-clone-hash.mjs --check` plus NEW `test/install-transfer-clone.mjs`: `integrity.canonicalPayloadHash` recomputed independently over the sorted-key preimage equals the fixture value. Failure: a fixture carrying `_storageDraftTransaction`, a WAL entry, a lock ID, or the raw flat `repforge_draft_v1` string fails normalization; an untrustworthy active draft yields a recoverable failure; confirmed absence yields `workoutDraft: null` | baseline: `node test/shared-setup-unit.mjs` → planned: `node test/install-transfer-clone.mjs` plus existing hash check | STOP if any volatile marker survives normalization or a raw storage dump is uploaded · reviewer: reproduces one stripped-field case and the untrustworthy-active-draft failure and valid no-draft case |
+| 053-P1b | 1 | Shared transfer-limits constant + threat/redaction checklist fixtures (hostile inputs, log-field assertions) · **build** | ADR 0013 boundary table; NEW static-compatible limits module with Node and browser consumers; coordinator pins its file and loading contract before dispatch | NEW `test/install-transfer-limits.mjs`: the browser validator and the service validator import the same constant and reject the same over-limit fixture with the same code. Failure: the two validators disagree on one bound | baseline: `node test/shared-setup-flow.mjs` → planned: `node test/install-transfer-limits.mjs` | STOP if a limit is duplicated as a literal in two places · reviewer: reproduces the disagreement fixture turning green |
+| 053-P2a | 2 | Service create + idempotency + encrypted-at-rest storage + independent 60-minute expiry (fake clock) · **build** | NEW `services/install-transfer/**`; closed Cloudflare/EU contract | NEW `services/install-transfer/test/**`: a retried create with the same idempotency key returns `{duplicate:true, expiresAt}` and no token; ciphertext is gone at/before `serverNow + 60min`. Failure: a second live record for one key; AEAD tamper accepted | baseline: `node --check sw.js` → planned: service suite `node --test services/install-transfer/test/contract.mjs` (NEW) | STOP if the provider/EU/key-disposal/operations/disclosure contract would drift · reviewer: reproduces the fake-clock expiry and the AEAD-tamper rejection |
+| 053-P2b | 2 | Claim bind/retry + competing/duplicate claim + commit-verified delete + payload-free tombstone + kill switch · **build** | NEW `services/install-transfer/**`; 053-P0 oracle | extend the service suite: the bound `claimId` retries; every other claim gets the generic unavailable shape; delete happens only after verified commit, never on claim. Failure: delete on claim alone; a second claimant succeeds | baseline: `node --check sw.js` → planned: service suite (NEW) | STOP if interrupted claims cannot retry without admitting a second claimant · reviewer: reproduces the competing-claim and commit-verified-delete cases |
+| 053-P3 | 3 | Browser envelope build + API calls + dedicated handoff-token cookie (distinct key, never `repforge_setup_v1`) + setup-cookie coexistence + browser/standalone context detection · **build** | `index.html` install surfaces, `repforge_setup_v1` cookie (kept distinct), Plan 051 DraftV2 (merged); NEW `install-transfer.js` | NEW `test/install-transfer-client.mjs`: envelope is built from parsed state (never a storage dump); token never enters fragment/history/DOM/telemetry; a setup proposal and a transfer token coexist and disambiguate deterministically. Failure: token written to `location.hash`; the setup cookie overloaded | baseline: `node test/install-modes.mjs` → planned: `node test/install-transfer-client.mjs` | STOP if the token reaches a URL, log, or the setup cookie · reviewer: reproduces the coexistence case and a redaction assertion |
+| 053-P4 | 4 | Atomic local import: `repforge_install_import_v1` marker through the existing durable write path, complete write/read-back, boot finish-or-rollback, valid destination DraftV2 checkpoint recreated, remote delete retried from the sealed inbound marker · **build** | `window.__repforgeWorkoutDraft.cas`, `_storageDraftTransaction`, boot replay, `test/thermonuclear-races.mjs`, `test/workout-draft-storage.mjs`; NEW markers | NEW `test/install-transfer-import.mjs`: crash at every numbered import step leaves either the complete incoming state or the complete previous snapshot — never mixed; a populated destination stops and asks. Failure: a partial write is exposed; an active source draft is silently dropped | baseline: `node test/thermonuclear-races.mjs && node test/workout-draft-storage.mjs` → planned: `node test/install-transfer-import.mjs` | STOP if import can overwrite meaningful destination state or expose a partial clone · reviewer: reproduces two crash-boundary recoveries |
+| 053-P5 | 5 | Safari recovery-snapshot state machine: freeze after success, `claimed-expired`/`expired`/`unknown-outcome` handling, explicit `Resume in browser` divergence confirmation · **build** | 053-P0 oracle; `install-transfer.js`; ADR 0013 outbound marker and recovery-snapshot state; no competing freeze marker | extend `test/install-transfer-client.mjs`: an indeterminate outcome always routes through the divergence warning, never silent resume; `expired`-never-claimed clears the outbound marker and resumes normally. Failure: plain dismissal removes the freeze | baseline: `node test/install-modes.mjs` → planned: `node test/install-transfer-client.mjs` | STOP if any indeterminate path allows silent parallel use · reviewer: reproduces the `unknown-outcome` and the divergence-confirm cases |
+| 053-P6 | 6 | `late_install_transfer` emitted only after verified local import, under the preserved identity and transferred consent; browser vs standalone distinguished · **build** | `telemetry.js` `installationId`, `repforge_telemetry_identity_v1`, `repforge_telemetry_enabled_v1`; `test/telemetry-leakage.mjs`, `test/telemetry-unit.mjs` | NEW `test/install-transfer-telemetry.mjs`: the event fires exactly once, carries no token/claim-ID/size/program identity, and is silent when consent is off; `installationId` is preserved, not regenerated. Failure: event emitted on claim (before commit); a second identity minted | baseline: `node test/telemetry-leakage.mjs && node test/telemetry-unit.mjs` → planned: `node test/install-transfer-telemetry.mjs` | STOP if a second identity is created before event init or a sensitive property appears · reviewer: reproduces the consent-off silence |
+| 053-P7 | 7 | Adversarial/upgrade/catalog evidence + staging integration + physical-iOS handoff evidence + purge/kill-switch runbook rehearsal · **build + human evidence** | `test/sw-upgrade.mjs`, catalog manifest/scenarios; approved staging service; physical iOS owner | catalog frames for every new transfer state via `node tools/capture-ui-screens.mjs --flow install` (PLANNED scenarios); SW old/new update during handoff cannot execute an incompatible import schema. Failure recorded, not hidden: staging purge rehearsal that leaves a live record past deadline | baseline: `node test/sw-upgrade.mjs` → planned: `node tools/capture-ui-screens.mjs --flow install` + staging runbook log | STOP if physical-iOS evidence is claimed from emulation, or drift from the closed contract is found · reviewer + owner: device evidence and runbook proof signed into the PR |
+
+### Reuse and ordering notes
+
+- 053-P0's oracle is authored once and referenced by every downstream assertion file; do not re-derive fault
+  expectations per packet.
+- Service-only packets (053-P1b, 053-P2a, 053-P2b) and isolated client work may run now. Pin the acknowledged DraftV2 clone section before its consumers; serialize P3 app wiring/P4 storage integration after Plan 052 merges as specified below.
+- The physical-device gate in 053-P7 is repeated by Plan 059 for launch sign-off; passing it here does not close 059.
+
 ## Implementation-agent operating protocol
+
+### Native Luna worker protocol
+
+Use the checked-in [starting prompt](../docs/agents/prompts/plan-053-luna.md).
+The coordinator owns decomposition, contract review, integration decisions,
+PR handoff, and final judgment. Every delegated worker, including reviewers
+and the integrator, uses native Luna with Max reasoning and Fast service.
+Do not dispatch Herdr/T3 workers or substitute Gemini, Sonnet, Sol, or Opus.
+
+Select the actual available Luna model identifier, expected `gpt-5.6-luna`,
+and reasoning effort `max`. Verify Fast independently from model/effort.
+If the spawn API has no service-tier field, use a supported session setting
+only when it demonstrably applies to children. Never invent a `fast` argument
+or infer Fast from a model name. Record effective settings in the PR. If any
+requested setting cannot be selected or verified, continue coordinator setup
+and read-only preparation, report the exact limitation, and obtain direction
+before dispatching workers with different or unverified settings.
+
+Use explicit bounded briefs rather than inheriting the entire conversation.
+Each brief includes packet ID, source/head SHA, owned paths and symbols,
+approved input/output contract, cases and expected results, test commands,
+fault/async completion barriers, commit message, dependencies, rollback,
+and the required final report. Existing tests/checkers remain authoritative;
+new tests are planned until implemented. Apply the evidence protocol and
+the Plan 053 checkpoint throughout.
+
+Use all available worker slots for independent ready packets; reserve a slot
+for the coordinator. On a four-agent limit this means three concurrent workers.
+Do not create idle agents for work whose prerequisite is unresolved. After
+one same-contract correction fails, reconstruct its state table and oracle
+before dispatching another repair; all replacement workers remain Luna.
+
+### Parallel work and ownership
+
+An independent writer receives a dedicated branch and worktree based on the
+last accepted integration SHA. Use branches
+`ui-overhaul/053-worker-<packet>` and sibling directories
+`../repforge-ui-053-<packet>`. Never allow two writers in one checkout, even
+when their files differ. Read-only reviewers examine a pinned commit in a
+separate detached worktree if the author's checkout will continue changing.
+
+The integration branch remains `ui-overhaul/053-ios-install-transfer`.
+One designated Luna integrator owns its checkout while integration is active.
+It merges only complete, reviewed, published worker branches from this plan,
+one at a time. Other workers keep their own checkouts. After integration,
+rerun affected producer/consumer proof before publishing the integrated slice.
+The coordinator checks the evidence and maintains the main draft PR. Worker
+SHAs and their dependencies must be linked from that PR as soon as pushed.
+This topology explicitly permits merge commits from registered Plan 053 worker
+branches; it does not permit copying or cherry-picking unpublished Plan 052 work.
+
+The coordinator pins exact new module paths and loading interfaces before the
+first parallel implementation wave. The following are ownership boundaries,
+not permission to invent additional production layers:
+
+| Wave | Concurrent assignments | Ownership and opening gate |
+|---|---|---|
+| A: characterize | P0 actor/credential/fault oracle; P1a existing clone/DraftV2 characterization; P1b limits and independent invalid-input test design | Separate test/doc paths assigned before launch. Coordinator reconciles one endpoint/clone/limits contract. Preserve passing baseline tests; new red tests stay local until a coherent slice passes |
+| B: build isolated consumers | Service owner P2a then P2b; browser owner isolated P3 transport/cookie state; independent test owner adversarial cases | Starts after A's shared contract is accepted and committed. Service owner writes `services/install-transfer/**`; browser owner writes `install-transfer.js` and its own tests. Independent test owner writes separately named fault tests only. Shared limits/clone fixtures have one designated owner. Browser uses an injected test transport with exact approved response shapes; actual service integration remains required |
+| C: integrate storage | Sole integrator P3 app wiring then P4 atomic import; service owner runs staging/expiry/runbook work; reviewer expands pure/network fault coverage | P2 and isolated P3 proof accepted. Integrator alone edits `app.js`, `index.html`, `sw.js`, generated i18n, catalog manifest/artifacts and shared browser helpers. P4a: complete import/read-back; P4b: crash/replay/stale-tab proof. Before P4a publication, existing failure guarantees must already hold |
+| D: complete UI and telemetry | Integrator P5 recovery-snapshot UI; separate P6 telemetry owner; read-only security reviewer | P4 commit accepted. Telemetry owner edits `telemetry.js` and separate telemetry tests; integrator owns app call sites and merges the reviewed result before cross-context proof. No concurrent edits to `install-transfer.js` |
+| E: acceptance | Service security/expiry checks; browser/storage/upgrade checks; privacy and documentation review | Same immutable integrated candidate, isolated browser contexts/artifact directories. One catalog writer. Serialize resource-heavy browser/capture runs if they contend. Owner supplies physical-iOS evidence |
+
+P2a/P2b share one service state machine and run serially under its owner.
+P3/P4/P5 share client/import state and integrate in that order. Pure tests,
+service checks, independent assertions, and read-only review overlap these
+serial boundaries. Packet completion follows actual dependencies; the original
+atomic rows remain the completion checklist even when their subcommits overlap.
+
+### Integration with the active Plan 052
+
+Plans 049 and 051 are merged. Plan 052 is active in PR #228 at the time of
+this amendment. Recheck its current status before every shared-storage slice.
+Waves A/B and isolated service work can proceed while 052 is active.
+Serialize P3 app wiring and P4 storage changes behind Plan 052's merge to main,
+then explicitly merge main into the 053 integration branch and revalidate the
+clone against the resulting transition/archive/recovery metadata and DraftV2
+adapter. Do not freeze a stale clone schema or omit the new durable fields.
+This is shared-file integration ordering, not a prerequisite for isolated
+service or client-domain work. Continue ready independent packets while waiting.
+
+Assign a distinct verified server origin and external artifact directory per
+browser worker. Register PIDs; never terminate another plan's listener.
+Do not overlap complete captures into the same catalog. Use focused proof
+during a packet, affected suites at integration, and all required final gates
+on the clean candidate. Record CI run retries and exact Git SHAs truthfully.
+
+Native follow-up messages may continue a worker's bounded task. Avoid
+status-only interruptions; wait for progress or a completed packet while
+performing independent coordination/review. Before replacement, establish that
+the prior writer has stopped and inspect its uncommitted work. Preserve existing
+stable-history, push-after-slice, no-broken-handoff, and owner-review rules.
 
 ### Branch/worktree contract
 
@@ -366,8 +513,8 @@ For every row: mark 🟡; implement only the row; run focused proof; inspect all
 - **Primary files:** `services/install-transfer/**`, new browser transfer module, persistence adapter, install/i18n/telemetry tests, operations/privacy docs
 - **Shared hotspots:** `app.js`, `index.html`, `telemetry.js`, `sw.js`, i18n/generated files, install/shared-setup/storage tests, catalog manifest
 - **Conflicting phases:** Plan 054 owns promotion/polish and cannot redefine transfer semantics; Plan 059 owns launch sign-off
-- **Safe parallelism:** service-only commits may proceed while Plan 051 finishes after schema fixtures are pinned; client/storage integration waits. Plan 052 is independent except shared `app.js`/SW merges
-- **Integration order:** 049 → 051 → 053 → transfer slice of 054 → 059
+- **Safe parallelism:** isolated service/client/test packets proceed under Waves A/B; Plan 052 owns active shared storage changes, so P3 app wiring/P4 import integration waits for its merge. Plans 049/051 are already merged.
+- **Integration order:** 049/051 → isolated 053 work; 052 merge → 053 app/storage integration → transfer slice of 054 → 059
 
 Fetch/inspect main, branches, worktrees, and PRs; resume existing work. Use the dedicated worktree and keep coordination main clean. Never copy uncommitted files or delete another worktree/branch. Push `chore(plan-053): start implementation`, open a draft PR, and complete its body before substantive work. Target main. When dependencies merge, fetch, explicitly merge `origin/main`, resolve deliberately, rerun all affected security/storage tests, push, and update the PR. Published branches are never rebased.
 

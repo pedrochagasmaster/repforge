@@ -654,6 +654,27 @@
       "variants": "standard"
     },
     {
+      "id": "stale-draft",
+      "flow": "workout",
+      "label": "Workout — stale draft recovery",
+      "scenario": "A conflicting tab won while this tab retains a pending field value and offers Reload latest or Copy value.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "persist-retry",
+      "flow": "workout",
+      "label": "Workout — draft persistence retry",
+      "scenario": "A field write was interrupted; the exact pending value remains visible beside Retry and Copy value actions.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "invalid-draft",
+      "flow": "workout",
+      "label": "Workout — invalid draft recovery",
+      "scenario": "An unreadable local draft remains untouched and offers a non-destructive copy action.",
+      "variants": "demandingText"
+    },
+    {
       "id": "rest-timer",
       "flow": "workout",
       "label": "Workout — rest timer",

@@ -201,6 +201,23 @@ function programSets(snapshot) {
   return snapshot?.program?.find((exercise) => exercise.id === EXERCISE_ID)?.sets ?? null;
 }
 
+function draftSet(draft, ordinal) {
+  if (draft?.schemaVersion !== 2) return {
+    load: draft?.[`${EXERCISE_ID}_${ordinal}_load`],
+    reps: draft?.[`${EXERCISE_ID}_${ordinal}_reps`],
+    rir: draft?.[`${EXERCISE_ID}_${ordinal}_rir`],
+    touched: draft?.__touched?.includes(`${EXERCISE_ID}_${ordinal}`) || false,
+    done: draft?.__done?.includes(`${EXERCISE_ID}_${ordinal}`) || false,
+    warmup: draft?.__warm?.includes(`${EXERCISE_ID}_${ordinal}`) || false,
+  };
+  const exercise = draft.exercises?.[EXERCISE_ID];
+  const setId = exercise?.setOrder?.find((id) => exercise.sets?.[id]?.ordinal === ordinal);
+  const set = setId ? exercise.sets[setId] : null;
+  return { load: set?.edited?.load, reps: set?.edited?.reps, rir: set?.edited?.rir,
+    touched: !!set && Object.values(set.touched).some(Boolean),
+    done: !!set && set.completion !== "pending", warmup: set?.role === "warmup" };
+}
+
 function setsValue(page) {
   return page.locator(`#programEditor [data-role="sets-value"]`).first();
 }
@@ -213,13 +230,20 @@ async function reduceSets(page) {
 }
 
 async function fillSet(page, set, load, reps, rir) {
-  await page.locator(`[data-k="${EXERCISE_ID}_${set}_load"]`).fill(String(load));
-  await page.locator(`[data-k="${EXERCISE_ID}_${set}_reps"]`).fill(String(reps));
-  await page.locator(`[data-k="${EXERCISE_ID}_${set}_rir"]`).fill(String(rir));
+  for (const [field, value] of [["load", load], ["reps", reps], ["rir", rir]]) {
+    const key = `${EXERCISE_ID}_${set}_${field}`;
+    await page.locator(`[data-k="${key}"]`).fill(String(value));
+    await page.waitForFunction(({ key, field, value }) => {
+      const hook = window.__repforgeWorkoutDraft;
+      const draft = hook.current(), target = hook.target(key);
+      return target && draft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId]?.edited?.[field] === value;
+    }, { key, field, value: String(value) });
+  }
 }
 
 async function waitForDraftValue(page, loadKey, expected, timeout = 5000) {
   const deadline = Date.now() + timeout;
+  let observed=[];
   while (Date.now() < deadline) {
     const [canonicalRaw, artifacts] = await Promise.all([
       page.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT),
@@ -229,9 +253,13 @@ async function waitForDraftValue(page, loadKey, expected, timeout = 5000) {
       canonicalRaw,
       ...artifacts.draftSidecarEntries.map((entry) => entry.value?.raw ?? null),
     ];
+    observed=raws.map((raw)=>{try{const draft=JSON.parse(raw||"null");return{schemaVersion:draft?.schemaVersion,
+      value:draftSet(draft,Number(loadKey.match(/_(\d+)_load$/)?.[1])).load}}catch{return{invalid:true}}});
     const found = raws.some((raw) => {
       try {
-        return JSON.parse(raw || "null")?.[loadKey] === expected;
+        const draft = JSON.parse(raw || "null");
+        const ordinal = Number(loadKey.match(/_(\d+)_load$/)?.[1]);
+        return draftSet(draft, ordinal).load === expected;
       } catch {
         return false;
       }
@@ -239,7 +267,7 @@ async function waitForDraftValue(page, loadKey, expected, timeout = 5000) {
     if (found) return;
     await page.waitForTimeout(25);
   }
-  throw new Error(`timed out waiting for draft value ${loadKey}=${expected}`);
+  throw new Error(`timed out waiting for draft value ${loadKey}=${expected}; observed=${JSON.stringify(observed)}`);
 }
 
 async function openProgramEditor(page) {
@@ -272,13 +300,32 @@ async function holdStorageLock(page) {
   });
 }
 
-async function waitForPendingStorageLock(page) {
+async function settleBootStorage(page) {
+  await page.evaluate(async () => {
+    await window.__repforgeStorage?.flush?.();
+    await window.__repforgeWorkoutDraft?.flush?.();
+  });
+  await page.waitForFunction(() =>
+    Object.keys(localStorage).every((key) => !key.startsWith("repforge_pending_v1:")),
+    undefined,
+    { timeout: 10000 }
+  );
+}
+
+async function waitForQueuedReductionJournal(page) {
   await page.waitForFunction(
-    async (lockName) => {
-      const locks = await navigator.locks.query();
-      return locks.pending.some((lock) => lock.name === lockName);
-    },
-    STORAGE_LOCK,
+    (exerciseId) => Object.keys(localStorage)
+      .filter((key) => key.startsWith("repforge_pending_v1:"))
+      .some((key) => {
+        try {
+          const journal = JSON.parse(localStorage.getItem(key) || "null");
+          const exercise = journal?.proposal?.program?.find((entry) => entry?.id === exerciseId);
+          return journal?.version === 2 && exercise?.sets === 1;
+        } catch {
+          return false;
+        }
+      }),
+    EXERCISE_ID,
     { timeout: 10000 }
   );
 }
@@ -320,13 +367,10 @@ async function main() {
 
     const drafted = await readRuntime(page);
     const setKeys = [`${EXERCISE_ID}_1`, `${EXERCISE_ID}_2`];
-    const completeDraft = setKeys.every(
-      (setKey) =>
-        drafted.draft?.[`${setKey}_load`] &&
-        drafted.draft?.[`${setKey}_reps`] &&
-        drafted.draft?.[`${setKey}_rir`] != null &&
-        drafted.draft?.__touched?.includes(setKey)
-    );
+    const completeDraft = setKeys.every((_, index) => {
+      const set = draftSet(drafted.draft, index + 1);
+      return set.load && set.reps && set.rir != null && set.touched;
+    });
     check(completeDraft, "precondition: draft contains touched sets 1 and 2", {
       draft: drafted.draft,
     });
@@ -445,12 +489,9 @@ async function main() {
     const allowedDraft = await readRuntime(page);
     const allowedSet1Key = `${EXERCISE_ID}_1`;
     const allowedSet2Key = `${EXERCISE_ID}_2`;
-    const removedSetHasNoProgress =
-      allowedDraft.draft?.__touched?.includes(allowedSet1Key) &&
-      !allowedDraft.draft?.__done?.includes(allowedSet2Key) &&
-      !allowedDraft.draft?.__touched?.includes(allowedSet2Key) &&
-      !allowedDraft.draft?.__warm?.includes(allowedSet2Key) &&
-      !(Number(allowedDraft.draft?.[`${allowedSet2Key}_load`]) > 0);
+    const retainedSet=draftSet(allowedDraft.draft,1),removedSet=draftSet(allowedDraft.draft,2);
+    const removedSetHasNoProgress = retainedSet.touched && !removedSet.done && !removedSet.touched &&
+      !removedSet.warmup && !(Number(removedSet.load) > 0);
     check(removedSetHasNoProgress, "precondition: only retained set 1 has draft progress", {
       draft: allowedDraft.draft,
     });
@@ -651,12 +692,15 @@ async function main() {
       await openProgramEditor(page);
       await workout.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
       await workout.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+      await settleBootStorage(page);
+      await settleBootStorage(workout);
+      await settleBootStorage(locker);
       await holdStorageLock(locker);
 
       await reduceSets(page);
       await page.click("#programEditToggle");
-      await waitForPendingStorageLock(locker);
-      await fillSet(workout, 2, 97.5, 7, 1);
+      await waitForQueuedReductionJournal(page);
+      await workout.locator(`[data-k="${EXERCISE_ID}_2_load"]`).fill("97.5");
       await waitForDraftValue(workout, `${EXERCISE_ID}_2_load`, "97.5");
 
       await releaseStorageLock(locker);
@@ -669,14 +713,14 @@ async function main() {
       check(
         programSets(raced.local) === 2 &&
           programSets(raced.idb) === 2 &&
-          raced.draft?.[`${EXERCISE_ID}_2_load`] === "97.5" &&
+          draftSet(raced.draft,2).load === "97.5" &&
           raced.persistenceArtifacts.length === 0 &&
           (await page.locator(`[data-k="${EXERCISE_ID}_2_load"]`).count()) === 1,
         "queued set reduction aborts when set progress is published before its lock",
         {
           localSets: programSets(raced.local),
           idbSets: programSets(raced.idb),
-          draftSet2: raced.draft?.[`${EXERCISE_ID}_2_load`],
+          draftSet2: draftSet(raced.draft,2).load,
           artifacts: raced.persistenceArtifacts,
         }
       );

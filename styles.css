@@ -2738,6 +2738,13 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .sessionbanner__close{position:absolute;top:0;right:0;width:44px;height:44px;margin:0;padding:0;border:0;background:transparent;color:inherit;font:inherit;line-height:1;cursor:pointer;opacity:.7}
 .sessionbanner__title{font-weight:700;margin:0 0 .25rem}
 .sessionbanner__body{margin:0;font-size:.9rem;color:var(--ink-soft)}
+.draft-recovery{margin:0 0 14px;padding:12px 14px;border-left:3px solid var(--danger);background:var(--well);color:var(--ink)}
+.draft-recovery.hidden{display:none}
+.draft-recovery__title{margin:0 0 4px;font-weight:700}
+.draft-recovery__body,.draft-recovery__pending{margin:0;font-size:.875rem;line-height:1.45;color:var(--ink-soft)}
+.draft-recovery__pending{margin-top:8px;padding:8px;border:1px solid var(--rule);border-radius:8px;overflow-wrap:anywhere;color:var(--ink)}
+.draft-recovery__actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.draft-recovery__actions .btn{width:auto;min-height:44px;padding:8px 12px;flex:1 1 auto}
 .notifytypes{display:grid;gap:0;margin:2px 0 4px}
 #unfinishedBanner{margin:0 0 .75rem;padding:.75rem 0;border:0;border-bottom:1px solid var(--rule);border-radius:0}
 #unfinishedBanner.hidden{display:none}

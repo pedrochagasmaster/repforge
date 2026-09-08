@@ -6,6 +6,7 @@
  * These assertions lock down the safe invariants at the transaction boundary.
  */
 import { launchChromium } from "./browser.mjs";
+import { execFileSync } from "node:child_process";
 import {
   clearPersistenceArtifacts,
   inventoryPersistenceArtifacts,
@@ -14,6 +15,8 @@ import {
 const BASE = process.env.REPFORGE_URL || "http://127.0.0.1:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
+const DRAFT_CHECKPOINT = `${DRAFT}:v2-checkpoint`;
+const DRAFT_RECOVERY = `${DRAFT}:recovery`;
 const PENDING = "repforge_pending_v1";
 const PENDING_PREFIX = `${PENDING}:`;
 const DRAFT_PENDING_PREFIX = `${DRAFT}:pending:`;
@@ -21,6 +24,8 @@ const DRAFT_CLOSE_PREFIX = `${DRAFT}:closing:`;
 const DB = "repforge";
 const STORE = "kv";
 const STORAGE_LOCK = "repforge:state-write";
+const OLD_APP_SHA = "3fbae92fcee58c0d72539b9f4e2c270a9d60dbd4";
+const OLD_APP = execFileSync("git", ["show", `${OLD_APP_SHA}:app.js`], { encoding: "utf8" });
 const EXERCISE_ID = "adversarial-press";
 const OTHER_EXERCISE_ID = "adversarial-row";
 const SET_KEY = `${EXERCISE_ID}_1`;
@@ -186,7 +191,12 @@ function replacementState(base, {
 
 function rawDraftLoad(raw) {
   try {
-    return JSON.parse(raw || "null")?.[`${SET_KEY}_load`] ?? null;
+    const draft = JSON.parse(raw || "null");
+    if (Object.prototype.hasOwnProperty.call(draft || {}, `${SET_KEY}_load`)) return draft[`${SET_KEY}_load`];
+    if (draft?.schemaVersion !== 2) return null;
+    const exercise = draft.exercises?.[EXERCISE_ID];
+    const setId = exercise?.setOrder?.find((id) => exercise.sets?.[id]?.ordinal === 1);
+    return setId ? exercise.sets[setId]?.edited?.load ?? null : null;
   } catch {
     return null;
   }
@@ -218,11 +228,7 @@ async function waitForDraftPendingValue(page, loadKey, expected, timeout = 10000
   while (Date.now() < deadline) {
     const artifacts = await inventoryPersistenceArtifacts(page);
     const found = artifacts.draftSidecarEntries.some((entry) => {
-      try {
-        return JSON.parse(entry.value?.raw || "null")?.[loadKey] === expected;
-      } catch {
-        return false;
-      }
+      return loadKey === `${SET_KEY}_load` && rawDraftLoad(entry.value?.raw) === expected;
     });
     if (found) return;
     await page.waitForTimeout(25);
@@ -290,6 +296,19 @@ async function openPopup(context, owner, name) {
   return page;
 }
 
+async function openOldPopup(context, owner, name) {
+  const handler = (route) => {
+    if (route.request().frame().page() === owner) return route.continue();
+    return route.fulfill({ status: 200, contentType: "text/javascript", body: OLD_APP });
+  };
+  await context.route(/\/app\.js(?:\?|$)/, handler);
+  const page = await openPopup(context, owner, name);
+  await context.unroute(/\/app\.js(?:\?|$)/, handler);
+  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false, day: "Day 1" }));
+  await page.waitForSelector(`[data-k="${SET_KEY}_load"]`);
+  return page;
+}
+
 async function writeReplicas(page, state) {
   await page.evaluate(
     async ({ key, dbName, storeName, state }) => {
@@ -353,11 +372,12 @@ async function seedScenario(page, { state = fixture(), draftRaw = null } = {}) {
   );
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
+  return (await readRuntime(page)).draftRaw;
 }
 
 async function readRuntime(page) {
   const runtime = await page.evaluate(
-    async ({ key, draftKey, dbName, storeName }) => {
+    async ({ key, draftKey, checkpointKey, recoveryKey, dbName, storeName }) => {
       const parse = (raw) => {
         if (raw == null) return null;
         try {
@@ -368,6 +388,8 @@ async function readRuntime(page) {
       };
       const localRaw = localStorage.getItem(key);
       const draftRaw = localStorage.getItem(draftKey);
+      const checkpointRaw = localStorage.getItem(checkpointKey);
+      const recoveryRaw = localStorage.getItem(recoveryKey);
       const db = await new Promise((resolve, reject) => {
         const request = indexedDB.open(dbName, 1);
         request.onupgradeneeded = () => {
@@ -390,12 +412,18 @@ async function readRuntime(page) {
         idb,
         draftRaw,
         draft: parse(draftRaw),
+        checkpointRaw,
+        checkpoint: parse(checkpointRaw),
+        recoveryRaw,
+        recovery: parse(recoveryRaw),
         recoveryOpen: !!document.querySelector("#storageRecovery")?.open,
       };
     },
     {
       key: KEY,
       draftKey: DRAFT,
+      checkpointKey: DRAFT_CHECKPOINT,
+      recoveryKey: DRAFT_RECOVERY,
       dbName: DB,
       storeName: STORE,
     }
@@ -446,15 +474,42 @@ async function waitForPendingStorageLock(page) {
   );
 }
 
+async function queueDraftLoad(page, load) {
+  return page.evaluate((value) => {
+    const hook = window.__repforgeWorkoutDraft;
+    const target = hook.target(`${hook.current().session.selectedExerciseId}_1_load`);
+    return hook.dispatch("editSetField", {
+      exerciseInstanceId: target.exerciseInstanceId,
+      setId: target.setId,
+      field: "load",
+      value: String(value),
+    });
+  }, String(load));
+}
+
+async function nextDraftRaw(page, load, operationId = `adversarial-${Date.now()}`) {
+  return page.evaluate(({ load, operationId }) => {
+    const hook = window.__repforgeWorkoutDraft, draft = hook.current();
+    const target = hook.target(`${draft.session.selectedExerciseId}_1_load`);
+    const next = window.RepForgeWorkoutDraft.reduce(draft, {
+      type: "editSetField", exerciseInstanceId: target.exerciseInstanceId, setId: target.setId,
+      field: "load", value: String(load), expectedRevision: draft.revision, operationId,
+      updatedAt: new Date(Date.parse(draft.session.updatedAt) + 1000).toISOString(),
+      writer: { ...draft.writer, operationId },
+    });
+    return JSON.stringify(window.RepForgeWorkoutDraft.serialize(next));
+  }, { load: String(load), operationId });
+}
+
 async function runFinalCheckOrphan(browser) {
   console.log("\n1a. Queued stale-tab draft lands after final settlement check");
   const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
   try {
     const writer = await openApp(context);
-    const originalDraftRaw = JSON.stringify(workoutDraft("final-check-original", "90"));
-    await seedScenario(writer, { draftRaw: originalDraftRaw });
+    let originalDraftRaw = JSON.stringify(workoutDraft("final-check-original", "90"));
+    originalDraftRaw = await seedScenario(writer, { draftRaw: originalDraftRaw });
     const before = await readRuntime(writer);
-    const stale = await openPopup(context, writer, "adversarial-final-check-stale");
+    const stale = await openOldPopup(context, writer, "adversarial-final-check-stale");
     await stale.evaluate((draftPendingPrefix) => {
       const originalSetItem = Storage.prototype.setItem;
       window.__adversarialStagedRaw = null;
@@ -543,15 +598,18 @@ async function runFinalCheckOrphan(browser) {
       observed.result?.draftConflict === true &&
         final.local?.programMeta?.id === before.local?.programMeta?.id &&
         final.idb?.programMeta?.id === before.idb?.programMeta?.id &&
-        final.draftRaw === observed.stagedRaw &&
+        final.draftRaw === originalDraftRaw &&
+        final.recovery?.raw === observed.stagedRaw &&
         final.persistenceArtifacts.length === 0,
-      "final settlement rejects the program change and republishes a draft queued before journal deletion",
+      "final settlement rejects the program change, restores the acknowledged draft, and retains the queued stale bytes",
       {
         result: observed.result,
         expectedProgramId: before.local?.programMeta?.id,
         localProgramId: final.local?.programMeta?.id,
         idbProgramId: final.idb?.programMeta?.id,
-        canonicalMatchesStaged: final.draftRaw === observed.stagedRaw,
+        acknowledgedDraftRestored: final.draftRaw === originalDraftRaw,
+        staleWriteRecovered: final.recovery?.raw === observed.stagedRaw,
+        finalLoad: rawDraftLoad(final.draftRaw),
         stateJournals: final.pendingEntries.length,
         sidecars: final.draftPendingEntries.length,
         artifacts: final.persistenceArtifacts,
@@ -569,10 +627,10 @@ async function runPostGuardReleaseDraft(browser) {
   const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
   try {
     const writer = await openApp(context);
-    const originalDraftRaw = JSON.stringify(workoutDraft("post-guard-original", "91.25"));
-    await seedScenario(writer, { draftRaw: originalDraftRaw });
+    let originalDraftRaw = JSON.stringify(workoutDraft("post-guard-original", "91.25"));
+    originalDraftRaw = await seedScenario(writer, { draftRaw: originalDraftRaw });
     const before = await readRuntime(writer);
-    const stale = await openPopup(context, writer, "adversarial-post-guard-stale");
+    const stale = await openOldPopup(context, writer, "adversarial-post-guard-stale");
     await stale.evaluate((draftPendingPrefix) => {
       const originalSetItem = Storage.prototype.setItem;
       window.__adversarialStagedRaw = null;
@@ -658,10 +716,10 @@ async function runPostGuardReleaseDraft(browser) {
         final.local?.programMeta?.id === before.local?.programMeta?.id &&
         final.idb?.programMeta?.id === before.idb?.programMeta?.id &&
         observed.publishedRaw === null &&
-        final.draftRaw === observed.stagedRaw &&
-        rawDraftLoad(final.draftRaw) === "132.5" &&
+        final.draftRaw === originalDraftRaw &&
+        final.recovery?.raw === observed.stagedRaw &&
         final.persistenceArtifacts.length === 0,
-      "post-guard stale save rejects the replacement and preserves its exact draft",
+      "post-guard stale save rejects the replacement, restores the acknowledged draft, and retains stale bytes",
       {
         result: observed.result,
         expectedProgramId: before.local?.programMeta?.id,
@@ -670,6 +728,7 @@ async function runPostGuardReleaseDraft(browser) {
         stagedLoad: rawDraftLoad(observed.stagedRaw),
         staleCanonicalDraft: observed.publishedRaw,
         finalLoad: rawDraftLoad(final.draftRaw),
+        staleWriteRecovered: final.recovery?.raw === observed.stagedRaw,
         artifacts: final.persistenceArtifacts,
       }
     );
@@ -679,163 +738,82 @@ async function runPostGuardReleaseDraft(browser) {
 }
 
 async function runUnloadSafeDraftWal(browser) {
-  console.log("\n1d. App draft writes recover from interruption after their WAL sidecar");
+  console.log("\n1d. Interrupted DraftV2 publication rolls back to the acknowledged checkpoint");
   const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
   try {
     const page = await openApp(context);
     await seedScenario(page, { draftRaw: null });
     await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
-
-    const observed = await page.evaluate(
-      ({ draftKey, draftPendingPrefix, loadKey, load }) => {
-        const originalSetItem = Storage.prototype.setItem;
-        let canonicalAttempts = 0;
-        let stagedRaw = null;
-        Storage.prototype.setItem = function (candidate, value) {
-          if (candidate === draftKey) {
-            canonicalAttempts++;
-            throw new DOMException("audit: interrupt canonical draft publication", "QuotaExceededError");
-          }
-          const written = originalSetItem.apply(this, arguments);
-          if (typeof candidate === "string" && candidate.startsWith(draftPendingPrefix)) {
-            stagedRaw = JSON.parse(value)?.raw ?? null;
-          }
-          return written;
-        };
-        try {
-          const input = document.querySelector(`[data-k="${loadKey}"]`);
-          input.value = load;
-          input.dispatchEvent(new Event("input", { bubbles: true }));
-          return {
-            canonicalAttempts,
-            stagedRaw,
-            canonicalRaw: localStorage.getItem(draftKey),
-          };
-        } finally {
-          Storage.prototype.setItem = originalSetItem;
-        }
-      },
-      {
-        draftKey: DRAFT,
-        draftPendingPrefix: DRAFT_PENDING_PREFIX,
-        loadKey: `${SET_KEY}_load`,
-        load: "134.75",
-      }
-    );
-    const interrupted = await readRuntime(page);
-
-    check(
-      observed.canonicalAttempts > 0 &&
-        observed.canonicalRaw === null &&
-        rawDraftLoad(observed.stagedRaw) === "134.75" &&
-        interrupted.draftPendingEntries.length === 1,
-      "precondition: interrupted write leaves exact draft bytes in the synchronous WAL",
-      {
-        canonicalAttempts: observed.canonicalAttempts,
-        canonicalRaw: observed.canonicalRaw,
-        stagedLoad: rawDraftLoad(observed.stagedRaw),
-        sidecars: interrupted.draftPendingEntries.length,
-      }
-    );
-
+    const before = await readRuntime(page);
+    const observed = await page.evaluate(async (load) => {
+      window.__repforgeDraftFault = "before-canonical-write";
+      const hook = window.__repforgeWorkoutDraft;
+      const target = hook.target(`${hook.current().session.selectedExerciseId}_1_load`);
+      const result = await hook.dispatch("editSetField", {
+        exerciseInstanceId: target.exerciseInstanceId, setId: target.setId, field: "load", value: load,
+      });
+      return { result, checkpoint: hook.checkpoint(), canonicalRaw: hook.read().raw };
+    }, "134.75");
+    check(observed.result?.status === "fault-before-canonical" &&
+      observed.checkpoint?.value?.kind === "pending" &&
+      rawDraftLoad(observed.checkpoint.value.raw) === "134.75" &&
+      observed.canonicalRaw === before.draftRaw,
+    "precondition: interrupted write retains candidate and prior acknowledged bytes in the checkpoint WAL", {
+      result: observed.result, checkpointKind: observed.checkpoint?.value?.kind,
+      candidateLoad: rawDraftLoad(observed.checkpoint?.value?.raw), canonicalUnchanged: observed.canonicalRaw === before.draftRaw,
+    });
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
     const recovered = await readRuntime(page);
-    check(
-      recovered.draftRaw === observed.stagedRaw &&
-        rawDraftLoad(recovered.draftRaw) === "134.75" &&
-        recovered.persistenceArtifacts.length === 0,
-      "boot promotes the exact WAL draft and drains its sidecar",
-      {
-        recoveredLoad: rawDraftLoad(recovered.draftRaw),
-        exact: recovered.draftRaw === observed.stagedRaw,
-        artifacts: recovered.persistenceArtifacts,
-      }
-    );
-  } finally {
-    await context.close();
-  }
+    check(recovered.draftRaw === before.draftRaw && recovered.checkpoint?.kind === "committed" &&
+      recovered.checkpoint?.raw === before.draftRaw && recovered.persistenceArtifacts.length === 0,
+    "boot rolls the unacknowledged candidate back to the previous committed V2", {
+      recoveredLoad: rawDraftLoad(recovered.draftRaw), exactPrior: recovered.draftRaw === before.draftRaw,
+      checkpointKind: recovered.checkpoint?.kind, artifacts: recovered.persistenceArtifacts,
+    });
+  } finally { await context.close(); }
 }
 
 async function runSameRawDraftWalAcceptance(browser) {
-  console.log("\n1e. A same-raw draft WAL does not reject its owning destructive receipt");
+  console.log("\n1e. An exact DraftV2 operation retry settles its checkpoint before a destructive receipt");
   const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
   try {
     const page = await openApp(context);
     await seedScenario(page, { draftRaw: null });
     await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
-
-    const staged = await page.evaluate(
-      ({ draftKey, draftPendingPrefix, loadKey, load }) => {
-        const originalSetItem = Storage.prototype.setItem;
-        let canonicalAttempts = 0;
-        let stagedRaw = null;
-        Storage.prototype.setItem = function (candidate, value) {
-          if (candidate === draftKey) {
-            canonicalAttempts++;
-            throw new DOMException("audit: retain same-raw draft WAL", "QuotaExceededError");
-          }
-          const written = originalSetItem.apply(this, arguments);
-          if (typeof candidate === "string" && candidate.startsWith(draftPendingPrefix)) {
-            stagedRaw = JSON.parse(value)?.raw ?? null;
-          }
-          return written;
-        };
-        try {
-          const input = document.querySelector(`[data-k="${loadKey}"]`);
-          input.value = load;
-          input.dispatchEvent(new Event("input", { bubbles: true }));
-          return { canonicalAttempts, stagedRaw, canonicalRaw: localStorage.getItem(draftKey) };
-        } finally {
-          Storage.prototype.setItem = originalSetItem;
-        }
-      },
-      {
-        draftKey: DRAFT,
-        draftPendingPrefix: DRAFT_PENDING_PREFIX,
-        loadKey: `${SET_KEY}_load`,
-        load: "136.25",
-      }
-    );
-    const before = await readRuntime(page);
+    const staged = await page.evaluate(async () => {
+      const hook = window.__repforgeWorkoutDraft, draft = hook.current();
+      const target = hook.target(`${draft.session.selectedExerciseId}_1_load`);
+      const operationId = "same-raw-checkpoint-retry";
+      const next = window.RepForgeWorkoutDraft.reduce(draft, {
+        type: "editSetField", exerciseInstanceId: target.exerciseInstanceId, setId: target.setId,
+        field: "load", value: "136.25", expectedRevision: draft.revision, operationId,
+        updatedAt: new Date(Date.parse(draft.session.updatedAt) + 1000).toISOString(),
+        writer: { ...draft.writer, operationId },
+      });
+      const request = { expectedDraftId: draft.draftId, expectedRevision: draft.revision,
+        nextRaw: JSON.stringify(window.RepForgeWorkoutDraft.serialize(next)), operationId };
+      window.__repforgeDraftFault = "after-canonical-write";
+      const first = await hook.cas(request);
+      const retry = await hook.cas(request);
+      return { first, retry, raw: hook.read().raw, checkpoint: hook.checkpoint() };
+    });
+    check(staged.first?.status === "fault-after-canonical" && staged.retry?.status === "applied" &&
+      staged.retry?.idempotent === true && rawDraftLoad(staged.raw) === "136.25" &&
+      staged.checkpoint?.value?.kind === "committed",
+    "the original operation token settles the same candidate exactly once", staged);
     const result = await page.evaluate(() => window.__testFinalizeCurrentProgram());
     await page.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(page);
-
-    check(
-      staged.canonicalAttempts > 0 &&
-        staged.canonicalRaw === null &&
-        rawDraftLoad(staged.stagedRaw) === "136.25" &&
-        latestDraftPendingRaw(before) === staged.stagedRaw,
-      "precondition: expectedRaw exists only in one same-context draft-write WAL",
-      {
-        canonicalAttempts: staged.canonicalAttempts,
-        canonicalRaw: staged.canonicalRaw,
-        stagedLoad: rawDraftLoad(staged.stagedRaw),
-        sidecars: before.draftPendingEntries.length,
-      }
-    );
-    check(
-      (result?.localOk || result?.idbOk) &&
-        result?.draftConflict !== true &&
-        final.local?.programMeta?.name === "Beginner program" &&
-        final.idb?.programMeta?.name === "Beginner program" &&
-        final.draftRaw === null &&
-        final.persistenceArtifacts.length === 0,
-      "same-raw WAL is consumed by the accepted receipt without a false conflict",
-      {
-        result,
-        local: programSummary(final.local),
-        idb: programSummary(final.idb),
-        draftRaw: final.draftRaw,
-        artifacts: final.persistenceArtifacts,
-      }
-    );
-  } finally {
-    await context.close();
-  }
+    check((result?.localOk || result?.idbOk) && result?.draftConflict !== true &&
+      final.local?.programMeta?.name === "Beginner program" && final.idb?.programMeta?.name === "Beginner program" &&
+      final.draftRaw === null && final.persistenceArtifacts.length === 0,
+    "the settled exact checkpoint is consumed by its destructive receipt without a false conflict", {
+      result, local: programSummary(final.local), idb: programSummary(final.idb), artifacts: final.persistenceArtifacts,
+    });
+  } finally { await context.close(); }
 }
 
 async function runDuplicateCleanupOrphan(browser) {
@@ -844,10 +822,10 @@ async function runDuplicateCleanupOrphan(browser) {
   try {
     const writer = await openApp(context);
     const originalState = fixture({ revision: 30 });
-    const originalDraftRaw = JSON.stringify(workoutDraft("duplicate-cleanup-original", "93.75"));
-    await seedScenario(writer, { state: originalState, draftRaw: originalDraftRaw });
+    let originalDraftRaw = JSON.stringify(workoutDraft("duplicate-cleanup-original", "93.75"));
+    originalDraftRaw = await seedScenario(writer, { state: originalState, draftRaw: originalDraftRaw });
     const seeded = await readRuntime(writer);
-    const stale = await openApp(context);
+    const stale = await openOldPopup(context, writer, "adversarial-duplicate-stale");
     const locker = await openApp(context);
     await holdStorageLock(locker);
     await writer.evaluate((oldProgramId) => {
@@ -934,8 +912,8 @@ async function runFinalMarkerFailure(browser) {
   try {
     const page = await openApp(context);
     const originalState = fixture({ revision: 50 });
-    const draftRaw = JSON.stringify(workoutDraft("marker-removal-total-failure", "96.25"));
-    await seedScenario(page, { state: originalState, draftRaw });
+    let draftRaw = JSON.stringify(workoutDraft("marker-removal-total-failure", "96.25"));
+    draftRaw = await seedScenario(page, { state: originalState, draftRaw });
     const before = await readRuntime(page);
 
     const observed = await page.evaluate(
@@ -1040,10 +1018,10 @@ async function runLateSidecarFailedCompensation(browser) {
   const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
   try {
     const writer = await openApp(context);
-    const originalDraftRaw = JSON.stringify(workoutDraft("late-sidecar-original", "96.75"));
-    await seedScenario(writer, { state: fixture({ revision: 55 }), draftRaw: originalDraftRaw });
+    let originalDraftRaw = JSON.stringify(workoutDraft("late-sidecar-original", "96.75"));
+    originalDraftRaw = await seedScenario(writer, { state: fixture({ revision: 55 }), draftRaw: originalDraftRaw });
     const before = await readRuntime(writer);
-    const stale = await openPopup(context, writer, "adversarial-late-sidecar-stale");
+    const stale = await openOldPopup(context, writer, "adversarial-late-sidecar-stale");
     await stale.evaluate((draftPendingPrefix) => {
       const originalSetItem = Storage.prototype.setItem;
       window.__adversarialStagedRaw = null;
@@ -1159,7 +1137,8 @@ async function runLateSidecarFailedCompensation(browser) {
     check(
       recovered.local?.programMeta?.id === before.local?.programMeta?.id &&
         recovered.idb?.programMeta?.id === before.idb?.programMeta?.id &&
-        recovered.draftRaw === observed.stagedRaw &&
+        recovered.draftRaw === originalDraftRaw &&
+        recovered.recovery?.raw === observed.stagedRaw &&
         recovered.persistenceArtifacts.length === 0 &&
         /retry|try again/i.test(toastText),
       "boot accepts the retained rollback, heals both replicas, and drains cleanup artifacts",
@@ -1167,7 +1146,12 @@ async function runLateSidecarFailedCompensation(browser) {
         beforeProgramId: before.local?.programMeta?.id,
         local: programSummary(recovered.local),
         idb: programSummary(recovered.idb),
-        draftMatches: recovered.draftRaw === observed.stagedRaw,
+        acknowledgedDraftRestored: recovered.draftRaw === originalDraftRaw,
+        acknowledgedLoad: rawDraftLoad(originalDraftRaw),
+        activeLoad: rawDraftLoad(recovered.draftRaw),
+        checkpointLoad: rawDraftLoad(recovered.checkpoint?.raw),
+        checkpointKind: recovered.checkpoint?.kind,
+        staleWriteRecovered: recovered.recovery?.raw === observed.stagedRaw,
         artifacts: recovered.persistenceArtifacts,
         toastText,
       }
@@ -1183,8 +1167,8 @@ async function runDeferredBlockFinalization(browser) {
   try {
     const page = await openApp(context);
     const originalState = fixture({ revision: 60 });
-    const draftRaw = JSON.stringify(workoutDraft("deferred-block-finalization", "97.5"));
-    await seedScenario(page, { state: originalState, draftRaw });
+    let draftRaw = JSON.stringify(workoutDraft("deferred-block-finalization", "97.5"));
+    draftRaw = await seedScenario(page, { state: originalState, draftRaw });
 
     const observed = await page.evaluate(
       async ({ key, expectedProgramId }) => {
@@ -1284,14 +1268,14 @@ async function runOversizedRequiredEffects(browser) {
     const afterFinish = await readRuntime(page);
     check(
       draftRaw.length > 1_000_000 &&
-        finishResult?.effectInvalid === true &&
+        finishResult?.reason === "missing-active-draft" &&
         !finishResult.localOk &&
         !finishResult.idbOk &&
         afterFinish.local?.log?.length === 0 &&
         afterFinish.idb?.log?.length === 0 &&
         afterFinish.draftRaw === draftRaw &&
         afterFinish.persistenceArtifacts.length === 0,
-      "Finish fails closed before writing state when its required draft effect is oversized",
+      "Finish fails closed before writing state when recovery cannot activate an oversized draft",
       {
         draftLength: draftRaw.length,
         finishResult,
@@ -1360,8 +1344,8 @@ async function runMalformedBootEffect(browser) {
   try {
     const page = await openApp(context);
     const originalState = fixture({ revision: 80 });
-    const draftRaw = JSON.stringify(workoutDraft("malformed-boot-required-effect", "102.5"));
-    await seedScenario(page, { state: originalState, draftRaw });
+    let draftRaw = JSON.stringify(workoutDraft("malformed-boot-required-effect", "102.5"));
+    draftRaw = await seedScenario(page, { state: originalState, draftRaw });
     const proposal = replacementState(originalState, {
       revision: 80,
       programId: "malformed-effect-proposal",
@@ -1434,8 +1418,8 @@ async function runDirectDraftOwnerRace(browser) {
   try {
     const writer = await openApp(context);
     const originalState = fixture({ revision: 90 });
-    const canonicalDraftRaw = JSON.stringify(workoutDraft("direct-owner-canonical", "106.25"));
-    await seedScenario(writer, { state: originalState, draftRaw: canonicalDraftRaw });
+    let canonicalDraftRaw = JSON.stringify(workoutDraft("direct-owner-canonical", "106.25"));
+    canonicalDraftRaw = await seedScenario(writer, { state: originalState, draftRaw: canonicalDraftRaw });
     const stale = await openApp(context);
     const locker = await openApp(context);
     await holdStorageLock(locker);
@@ -1509,13 +1493,17 @@ async function runDirectDraftOwnerRace(browser) {
         final.local?.programMeta?.id === originalState.programMeta.id &&
         final.idb?.programMeta?.id === originalState.programMeta.id &&
         final.draftRaw === stagedRaw &&
+        final.checkpoint?.kind === "committed" &&
+        final.checkpoint?.raw === stagedRaw &&
         final.persistenceArtifacts.length === 0,
-      "transaction rejection promotes the newer staged draft while retaining the old program",
+      "transaction rejection acknowledges the newer V2 sidecar while retaining the old program",
       {
         transactionResult,
         local: programSummary(final.local),
         idb: programSummary(final.idb),
         finalCanonicalLoad: rawDraftLoad(final.draftRaw),
+        checkpointLoad: rawDraftLoad(final.checkpoint?.raw),
+        checkpointKind: final.checkpoint?.kind,
         lostLoad: rawDraftLoad(stagedRaw),
         stateJournals: final.pendingEntries.length,
         sidecars: final.draftPendingEntries.length,
@@ -1533,9 +1521,9 @@ async function runStoredCloseMarkerFailure(browser) {
   try {
     const page = await openApp(context);
     const previous = fixture({ revision: 100 });
-    const expectedDraftRaw = JSON.stringify(workoutDraft("stored-close-marker-expected", "108.75"));
-    const concurrentDraftRaw = JSON.stringify(workoutDraft("stored-close-marker-concurrent", "166.25"));
-    await seedScenario(page, { state: previous, draftRaw: expectedDraftRaw });
+    let expectedDraftRaw = JSON.stringify(workoutDraft("stored-close-marker-expected", "108.75"));
+    expectedDraftRaw = await seedScenario(page, { state: previous, draftRaw: expectedDraftRaw });
+    const concurrentDraftRaw = await nextDraftRaw(page, "166.25", "stored-close-marker-concurrent");
 
     const transactionId = "audit-stored-close-marker-failure";
     const prepared = replacementState(previous, {
@@ -1669,8 +1657,8 @@ async function runSettingsUnitDraftFailure(browser) {
   try {
     const page = await openApp(context);
     const originalState = fixture({ revision: 110 });
-    const originalDraftRaw = JSON.stringify(workoutDraft("settings-unit-publication-failure", "100"));
-    await seedScenario(page, { state: originalState, draftRaw: originalDraftRaw });
+    let originalDraftRaw = JSON.stringify(workoutDraft("settings-unit-publication-failure", "100"));
+    originalDraftRaw = await seedScenario(page, { state: originalState, draftRaw: originalDraftRaw });
     const before = await readRuntime(page);
 
     const observed = await page.evaluate(
@@ -1760,9 +1748,8 @@ async function runSettingsUnitDraftConflict(browser) {
   try {
     const writer = await openApp(context);
     const originalState = fixture({ revision: 120 });
-    const originalDraftRaw = JSON.stringify(workoutDraft("settings-unit-conflict-original", "100"));
-    const newerDraftRaw = JSON.stringify(workoutDraft("settings-unit-conflict-newer", "145"));
-    await seedScenario(writer, { state: originalState, draftRaw: originalDraftRaw });
+    let originalDraftRaw = JSON.stringify(workoutDraft("settings-unit-conflict-original", "100"));
+    originalDraftRaw = await seedScenario(writer, { state: originalState, draftRaw: originalDraftRaw });
     const locker = await openApp(context);
     await holdStorageLock(locker);
 
@@ -1773,10 +1760,8 @@ async function runSettingsUnitDraftConflict(browser) {
       window.__settingsUnitConflictResult = unit.onchange();
     });
     await waitForPendingStorageLock(locker);
-    await locker.evaluate(
-      ({ draftKey, raw }) => localStorage.setItem(draftKey, raw),
-      { draftKey: DRAFT, raw: newerDraftRaw }
-    );
+    const newerWrite = await queueDraftLoad(writer, "145");
+    const newerDraftRaw = newerWrite.raw;
     await releaseStorageLock(locker);
     const result = await writer.evaluate(() => window.__settingsUnitConflictResult);
     await writer.evaluate(() => window.__repforgeStorage.flush());
