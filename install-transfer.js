@@ -175,7 +175,7 @@
     const declared = response.headers?.get?.("content-length");
     if (declared !== null && declared !== undefined && /^\d+$/.test(String(declared)) && Number(declared) > maxBytes) throw codedError("response-too-large");
     const reader = response.body.getReader();
-    const chunks = [];
+    const bytes = new Uint8Array(maxBytes);
     let total = 0;
     try {
       while (true) {
@@ -184,19 +184,13 @@
         if (!(next.value instanceof Uint8Array)) throw codedError("invalid-response-body");
         total += next.value.byteLength;
         if (total > maxBytes) throw codedError("response-too-large");
-        chunks.push(next.value);
+        bytes.set(next.value, total - next.value.byteLength);
       }
     } catch (error) {
       await reader.cancel().catch(() => {});
       throw error;
     }
-    const bytes = new Uint8Array(total);
-    let offset = 0;
-    for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.byteLength;
-    }
-    return bytes;
+    return total === bytes.byteLength ? bytes : bytes.slice(0, total);
   }
 
   async function sha256Hex(value, contract, crypto) {
