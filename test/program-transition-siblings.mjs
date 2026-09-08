@@ -1760,3 +1760,100 @@ test("pure transition API creates guided manual repair only from typed unavailab
   assert.equal(notUnavail.status, "unavailable");
   assert.equal(notUnavail.code, "sibling_unavailable_required");
 });
+
+test("guided manual repair copies referenced custom definitions and rejects a missing definition", async () => {
+  const pred = compilePredecessor(4, 90);
+  const diag30m = {
+    kind: "sessions_too_long",
+    answers: { sessionMinutes: 30 },
+    eligibleEvidenceIds: ["ev-session-30"],
+    insufficientEvidenceReasons: [],
+  };
+  const unavailResult = await Transition.proposeSibling({
+    kind: "shorter_session_sibling",
+    predecessor: {
+      programId: "prog_balanced_4",
+      durableRevision: 3,
+      source: "Recommend",
+      compilerProvenance: pred.instance.provenance,
+    },
+    predecessorInstance: pred.instance,
+    compilerContext: pred.compilerContext,
+    targetConstraint: { sessionMinutes: 30 },
+    successorProgramId: "prog_balanced_4_30m",
+    diagnosis: diag30m,
+    transitionId: "tr_unavailable_30m_custom",
+    createdAt: "2026-10-02T12:00:00.000Z",
+    services: { Compiler, catalogue: EXERCISE_LIBRARY },
+  });
+  assert.equal(unavailResult.ok, false);
+  assert.equal(unavailResult.unavailable, true);
+
+  // Active snapshot whose first slot references a custom movement.
+  const customId = "custom:iso-row-1";
+  const customDef = {
+    id: customId,
+    name: "Bench-supported DB row",
+    equipment: "dumbbell",
+    primary: ["upper-back"],
+    secondary: ["biceps"],
+    custom: true,
+    created: "2026-09-01T00:00:00.000Z",
+  };
+  const programRows = pred.instance.program.map((p, idx) =>
+    idx === 0 ? { ...p, libraryId: customId } : { ...p });
+  const baseSnapshot = {
+    _storageRevision: 3,
+    revision: 3,
+    program: programRows,
+    programMeta: {
+      id: "prog_balanced_4",
+      name: "Balanced 4-Day",
+      programStructure: pred.instance.programStructure,
+      progressionRelations: pred.instance.relations,
+      progressionModifiers: [],
+      progressionIncompatibilities: [],
+    },
+    customExercises: [customDef],
+  };
+
+  // Definition present -> candidate carries a byte-equal copy, filtered to the
+  // referenced id only.
+  const withCustom = Transition.createGuidedManualRepair({
+    unavailable: unavailResult,
+    diagnosis: diag30m,
+    activeProgram: baseSnapshot,
+    durableRevision: 3,
+  });
+  assert.equal(withCustom.ok, true);
+  assert.deepEqual(withCustom.program, programRows);
+  assert.deepEqual(withCustom.customExercises, [customDef]);
+  assert.equal(Object.isFrozen(withCustom.customExercises), true);
+  assert.equal(Object.isFrozen(withCustom.customExercises[0]), true);
+
+  // An unrelated extra definition in the pool is filtered out.
+  const withExtra = Transition.createGuidedManualRepair({
+    unavailable: unavailResult,
+    diagnosis: diag30m,
+    activeProgram: {
+      ...baseSnapshot,
+      customExercises: [customDef, { ...customDef, id: "custom:unused-1", name: "Unused" }],
+    },
+    durableRevision: 3,
+  });
+  assert.equal(withExtra.ok, true);
+  assert.deepEqual(withExtra.customExercises, [customDef]);
+
+  // Definition missing -> typed rejection, no broken candidate produced.
+  const missing = Transition.createGuidedManualRepair({
+    unavailable: unavailResult,
+    diagnosis: diag30m,
+    activeProgram: { ...baseSnapshot, customExercises: [] },
+    durableRevision: 3,
+  });
+  assert.equal(missing.ok, false);
+  assert.equal(missing.status, "unavailable");
+  assert.equal(missing.code, "missing_referenced_custom_definition");
+  assert.equal(missing.program, undefined);
+  assert.equal(missing.candidate, undefined);
+});

@@ -1157,6 +1157,20 @@
       .filter((def) => isObject(def) && (referencedCustomIds.has(def.id) || referencedCustomIds.has(def.libraryId)))
       .map(clone);
 
+    // Every custom movement the copied program references must resolve to a
+    // real definition. A missing one would stage a broken candidate, so fail
+    // typed instead of silently dropping the reference.
+    const resolvedCustomIds = new Set();
+    for (const def of referencedCustomExercises) {
+      if (typeof def.id === "string") resolvedCustomIds.add(def.id);
+      if (typeof def.libraryId === "string") resolvedCustomIds.add(def.libraryId);
+    }
+    for (const referencedId of referencedCustomIds) {
+      if (!resolvedCustomIds.has(referencedId)) {
+        return invalid("missing_referenced_custom_definition");
+      }
+    }
+
     const candidate = {
       program: clone(activeProgram.program),
       programStructure: programStructure ? clone(programStructure) : null,

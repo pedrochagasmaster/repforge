@@ -16,12 +16,18 @@
  *     no transition-in/archive, exact DraftV2 bytes.
  *  5. Injected write failure and concurrent draft conflict return typed failure/conflict
  *     and preserve storage/newer draft.
- *  6. Edits candidate through real candidate editor commit seam (createOnboardingProgramEditorAdapter.commit)
+ *  6. Staged and reload-resumed candidate program/structure/progression relations,
+ *     modifiers, incompatibilities, and referenced custom definitions deep-equal the
+ *     active predecessor snapshot.
+ *  7. Edits candidate through real candidate editor commit seam (createOnboardingProgramEditorAdapter.commit)
  *     and asserts active state remains completely unchanged.
- *  7. Stale revision advance rejects stale via activationReadiness/CAS and creates no archive/successor.
- *  8. Production activation via __repforgeActivateEntryPreview, reloads, asserts exactly one
- *     ordinary predecessor archive, edited build candidate active with entrySource.route === "build",
- *     no transition record invented, setup draft consumed.
+ *  8. After a benign durable commit, activating the still-pinned draft rejects stale via
+ *     activationReadiness/CAS and creates zero archive/successor/transition-in.
+ *  9. Explicit review: the stale draft is discarded and a fresh candidate is staged,
+ *     pinned by production code to the then-live revision (never edited by the test).
+ *     It is edited through the candidate editor and activated via __repforgeActivateEntryPreview,
+ *     creating exactly one ordinary predecessor archive (transitionOut null), no transition-in,
+ *     entrySource.route === "build", setup draft consumed, log sentinel preserved.
  */
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { spawn } from "node:child_process";
@@ -196,8 +202,8 @@ async function run() {
 
   const browser = await launchChromium();
   const page = await browser.newPage();
-    page.on("dialog", (d) => d.accept().catch(() => {}));
-    
+  page.on("dialog", (d) => d.accept().catch(() => {}));
+
   try {
     // Navigate and initialize clean state
     await page.goto(BASE);
@@ -336,6 +342,34 @@ async function run() {
     check(baselineDraftRaw === draftV2Sentinel, "baseline DraftV2 sentinel raw exact match");
     check(baselineCheckpointRaw === checkpointSentinel, "baseline checkpoint sentinel raw exact match");
 
+    // Full predecessor program shape — the guided candidate must be a byte-for-byte
+    // copy of every one of these, not just the same number of rows.
+    const predecessorSnapshot = await page.evaluate(() => {
+      const s = window.__repforgeWorkoutDraft.state();
+      return {
+        program: s.program,
+        programStructure: s.programMeta?.programStructure ?? null,
+        progressionRelations: s.programMeta?.progressionRelations ?? [],
+        progressionModifiers: s.programMeta?.progressionModifiers ?? [],
+        progressionIncompatibilities: s.programMeta?.progressionIncompatibilities ?? [],
+        customExercises: s.customExercises ?? [],
+      };
+    });
+    const assertCandidateMatchesPredecessor = (preview, label) => {
+      check(isDeepStrictEqual(preview?.program, predecessorSnapshot.program),
+        `${label}: candidate program deep-equals predecessor snapshot`);
+      check(isDeepStrictEqual(preview?.programStructure, predecessorSnapshot.programStructure),
+        `${label}: candidate programStructure deep-equals predecessor snapshot`);
+      check(isDeepStrictEqual(preview?.progressionRelations, predecessorSnapshot.progressionRelations),
+        `${label}: candidate progressionRelations deep-equals predecessor snapshot`);
+      check(isDeepStrictEqual(preview?.progressionModifiers, predecessorSnapshot.progressionModifiers),
+        `${label}: candidate progressionModifiers deep-equals predecessor snapshot`);
+      check(isDeepStrictEqual(preview?.progressionIncompatibilities, predecessorSnapshot.progressionIncompatibilities),
+        `${label}: candidate progressionIncompatibilities deep-equals predecessor snapshot`);
+      check(isDeepStrictEqual(preview?.customExercises, predecessorSnapshot.customExercises),
+        `${label}: candidate referenced custom definitions deep-equal predecessor snapshot`);
+    };
+
     // Step 2: Representative real resolver Unavailable
     console.log("\n2. Representative resolver Unavailable: shorter session 30m on balanced 4d");
     const diag30m = {
@@ -466,6 +500,7 @@ async function run() {
     check(stagedDraft?.state?.result?.diagnostics?.sessionMinutes === 30, "diagnostics instruction sessionMinutes is 30");
     check(stagedDraft?.state?.result?.diagnostics?.daysPerWeek === undefined, "diagnostics instruction daysPerWeek is omitted for session constraint");
     check(Array.isArray(stagedDraft?.state?.result?.preview?.program) && stagedDraft.state.result.preview.program.length > 0, "preview holds candidate program");
+    assertCandidateMatchesPredecessor(stagedDraft?.state?.result?.preview, "staged");
 
     // Step 6: Reload page and verify resumed candidate and instruction
     console.log("\n6. Reload page: verify resumed draft, candidate, and instruction");
@@ -478,26 +513,27 @@ async function run() {
     check(resumedState?.result?.diagnostics?.mainConstraint === "sessions_too_long", "resumed diagnostics mainConstraint preserved");
     check(resumedState?.result?.diagnostics?.sessionMinutes === 30, "resumed diagnostics sessionMinutes preserved");
     check(resumedState?.result?.preview?.program?.length === baselineLive.programLength, "resumed preview program length matches candidate");
+    assertCandidateMatchesPredecessor(resumedState?.result?.preview, "resumed");
 
     // Active state still completely unchanged
     const afterReloadLive = await readLiveState(page);
-        check(isDeepStrictEqual(afterReloadLive, baselineLive), "live active state completely unchanged after reload");
+    check(isDeepStrictEqual(afterReloadLive, baselineLive), "live active state completely unchanged after reload");
 
-    // Step 7: Edit candidate through the real candidate editor commit seam
+    // Step 7: Edit candidate through the real candidate editor commit seam and
+    // prove it changes only the setup draft, never the active program.
     console.log("\n7. Edit candidate through real editor commit seam; assert active state untouched");
-    const editCommitResult = await page.evaluate(async () => {
+    const staleEditCommitResult = await page.evaluate(async () => {
       const adapter = window.__repforgeCreateOnboardingProgramEditorAdapter();
       const doc = adapter.read().document;
-      // Change sets on first exercise from original sets (e.g. 3) to 2
       const origSets = doc.program[0].sets;
       doc.program[0].sets = origSets > 1 ? origSets - 1 : 1;
-      doc.program[0].notes = "Edited in candidate editor for guided repair";
+      doc.program[0].notes = "Edited in candidate editor before review";
       const res = await adapter.commit({ nextDocument: doc });
       return { ...res, newSets: doc.program[0].sets };
     });
-    check(editCommitResult?.ok === true, "candidate editor commit succeeded", editCommitResult);
-    check(editCommitResult?.setupDraft === true, "commit confirmed setupDraft: true");
-    check(editCommitResult?.staged === true, "commit confirmed staged: true");
+    check(staleEditCommitResult?.ok === true, "candidate editor commit succeeded", staleEditCommitResult);
+    check(staleEditCommitResult?.setupDraft === true, "commit confirmed setupDraft: true");
+    check(staleEditCommitResult?.staged === true, "commit confirmed staged: true");
 
     // Assert active program is STILL UNCHANGED
     const afterEditLive = await readLiveState(page);
@@ -508,7 +544,9 @@ async function run() {
     check(afterEditLive.historyLen === 0, "no archive created by candidate edit");
 
     // Step 8: Advance active durable revision before activation -> stale rejection
-    console.log("\n8. Advance active durable revision -> activationReadiness/CAS rejects stale");
+    // with zero archive/successor. Plan 052 requires regeneration only after
+    // explicit review; the stale preview is never revived in place.
+    console.log("\n8. Advance active durable revision -> activationReadiness/CAS rejects stale, zero archive");
     const revisionBeforeBenign = await page.evaluate(() => window.__repforgeWorkoutDraft.state()?._storageRevision);
     await page.evaluate(async () => {
       const s = window.__repforgeWorkoutDraft.state();
@@ -519,46 +557,95 @@ async function run() {
     const revisionAfterBenign = await page.evaluate(() => window.__repforgeWorkoutDraft.state()?._storageRevision);
     check(revisionAfterBenign === revisionBeforeBenign + 1, "active durable revision advanced by benign commit");
 
-    // Attempt activation while draft has stale activeProgramRevisionAtStart
+    const baselineLiveAtR1 = await readLiveState(page);
+    const baselineReplicasAtR1 = await readReplicas(page);
+
+    // Attempt activation while the staged draft still pins the pre-commit revision.
     const staleActivationResult = await page.evaluate(async () => {
       const res = await window.__repforgeActivateEntryPreview();
-      const entryState = window.__repforgeEntryState();
-      return { res, step: entryState?.step };
+      const es = window.__repforgeEntryState();
+      return { res, step: es?.step };
     });
     check(staleActivationResult?.step === "activation_conflict", "stale draft activation transitioned to activation_conflict step");
 
-    // Assert stale activation created NO successor and NO archive
     const afterStaleLive = await readLiveState(page);
+    const afterStaleReplicas = await readReplicas(page);
     check(afterStaleLive.programId === baselineLive.programId, "active programId still predecessor after stale activation rejection");
-    check(afterStaleLive.historyLen === 0, "no archive created after stale activation rejection");
+    check(afterStaleLive.historyLen === 0, "zero archive created after stale activation rejection (live)");
+    check(afterStaleLive.transitionIn === null, "zero transition-in after stale activation rejection (live)");
+    check(afterStaleReplicas.idb.historyLen === 0, "zero archive after stale activation rejection (IndexedDB)");
+    check(isDeepStrictEqual(afterStaleLive, baselineLiveAtR1), "live active state unchanged by stale activation rejection");
+    const afterStaleDraftRaw = await page.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
+    check(afterStaleDraftRaw === draftV2Sentinel, "DraftV2 raw unchanged after stale activation rejection");
 
-    // Step 9: Re-align pinned revision to current live revision and activate cleanly
-    console.log("\n9. Production activation: align pinned revision, activate, reload");
-    await page.evaluate(async () => {
-      const s = window.__repforgeEntryState();
-      s.activeProgramRevisionAtStart = window.__repforgeWorkoutDraft.state()._storageRevision;
-      s.step = "editor";
-      await window.__repforgePersistSetupDraft(s);
+    // Step 9: Explicit review — discard the stale draft, then stage a fresh guided
+    // candidate whose pinned revision is set by production code to the then-live
+    // revision. The test never edits activeProgramRevisionAtStart itself.
+    console.log("\n9. Explicit review: discard stale draft, stage fresh at live revision, edit, activate, reload");
+    await page.evaluate((k) => localStorage.removeItem(k), SETUP_DRAFT_KEY);
+    await page.reload();
+    await waitForAppBoot(page, { base: BASE });
+
+    const liveRevisionForFresh = await page.evaluate(() => window.__repforgeWorkoutDraft.state()._storageRevision);
+    const freshStage = await page.evaluate(async ({ diagnosis, unavailable }) => {
+      return await window.__repforgeStageGuidedManualRepair({ diagnosis, unavailable });
+    }, { diagnosis: diag30m, unavailable: unavailResult });
+    console.log("DEBUG freshStage:", JSON.stringify(freshStage));
+    check(freshStage?.ok === true && freshStage?.staged === true, "fresh guided repair staged after explicit discard");
+
+    const freshDraft = await page.evaluate((k) => {
+      const raw = localStorage.getItem(k);
+      return raw ? JSON.parse(raw) : null;
+    }, SETUP_DRAFT_KEY);
+    check(freshDraft?.state?.activeProgramRevisionAtStart === liveRevisionForFresh,
+      "fresh staged draft pinned by production code to the then-live durable revision");
+    check(liveRevisionForFresh === revisionAfterBenign, "the then-live revision is the advanced revision R+1");
+    assertCandidateMatchesPredecessor(freshDraft?.state?.result?.preview, "fresh-staged");
+
+    // Fresh staging still mutated nothing durable.
+    const afterFreshStageLive = await readLiveState(page);
+    check(isDeepStrictEqual(afterFreshStageLive, baselineLiveAtR1), "live active state unchanged by fresh staging");
+    check(afterFreshStageLive.historyLen === 0, "no archive created by fresh staging");
+
+    // Reload so the fresh candidate resumes through the real draft parser.
+    await page.reload();
+    await waitForAppBoot(page, { base: BASE });
+    const resumedFresh = await page.evaluate(() => window.__repforgeEntryState?.());
+    check(resumedFresh?.route === "build" && resumedFresh?.step === "editor", "fresh candidate resumed at build/editor after reload");
+    assertCandidateMatchesPredecessor(resumedFresh?.result?.preview, "fresh-resumed");
+
+    // Edit the fresh candidate through the real candidate editor commit seam.
+    const editCommitResult = await page.evaluate(async () => {
+      const adapter = window.__repforgeCreateOnboardingProgramEditorAdapter();
+      const doc = adapter.read().document;
+      const origSets = doc.program[0].sets;
+      doc.program[0].sets = origSets > 1 ? origSets - 1 : 1;
+      doc.program[0].notes = "Edited in candidate editor for guided repair";
+      const res = await adapter.commit({ nextDocument: doc });
+      return { ...res, newSets: doc.program[0].sets };
     });
+    check(editCommitResult?.ok === true, "fresh candidate editor commit succeeded", editCommitResult);
+    check(editCommitResult?.setupDraft === true, "fresh commit confirmed setupDraft: true");
+    check(editCommitResult?.staged === true, "fresh commit confirmed staged: true");
 
+    const afterFreshEditLive = await readLiveState(page);
+    check(isDeepStrictEqual(afterFreshEditLive, baselineLiveAtR1), "live active program untouched after fresh candidate edit");
+    check(afterFreshEditLive.historyLen === 0, "no archive created by fresh candidate edit");
+
+    // Activate through the existing editor and activateEntryPreview transaction.
     const activateResult = await page.evaluate(async () => {
       try {
-        const stateBefore = window.__repforgeEntryState();
-        const liveRev = window.__repforgeWorkoutDraft.state()._storageRevision;
-        const entryAPI = window.RepForgeProgramEntry;
-        const readiness = entryAPI.activationReadiness(stateBefore, {
-          liveActiveProgramRevision: liveRev,
-          currentVersions: stateBefore.versions,
-          pinnedVersionsExecutable: false,
-        });
         const res = await window.__repforgeActivateEntryPreview({ skipReplaceConfirm: true });
-        const stateAfter = window.__repforgeEntryState();
-        return { readiness, res, step: stateAfter?.step, notice: window.__repforgeEntryUiNotice?.() };
+        const es = window.__repforgeEntryState();
+        return { res, step: es?.step, notice: window.__repforgeEntryUiNotice?.() };
       } catch (err) {
         return { error: err.message, stack: err.stack };
       }
     });
-        // Reload page to observe persisted post-activation state
+    console.log("DEBUG activateResult:", JSON.stringify(activateResult));
+    check(!activateResult?.error, "activation did not throw", activateResult);
+
+    // Reload page to observe persisted post-activation state
     await page.reload();
     await waitForAppBoot(page, { base: BASE });
 
@@ -592,8 +679,6 @@ async function run() {
 
     // 6. Nonempty log sentinel preserved
     check(postActivationLive.logLen === 1 && postActivationLive.logSentinels[0] === "sess_sentinel_p3b", "nonempty log sentinel preserved through activation");
-
-
   } finally {
     await browser.close();
     if (serverProcess && !serverProcess.killed) {

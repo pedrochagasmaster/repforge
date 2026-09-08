@@ -6659,47 +6659,45 @@ const repforgeProgramTransitionAdapter = {
       return { ok: false, status: "unavailable", code: "program_entry_unavailable", unavailable: true };
     }
 
-    const targetIO = io || params.io || storageIO;
-    let guidedResult = params.result || (params.kind === "guided_manual_repair" ? params : null);
-    if (!guidedResult) {
-      let unavailable = params.unavailable || (params.siblingResult?.ok === false ? params.siblingResult : null);
-      const diagnosis = params.diagnosis;
-      if (!unavailable && diagnosis && typeof this.proposeSibling === "function") {
-        const targetConstraint = diagnosis.targetConstraint || (
-          diagnosis.kind === "sessions_too_long"
-            ? { sessionMinutes: diagnosis.answers?.sessionMinutes ?? diagnosis.sessionMinutes }
-            : { frequency: diagnosis.answers?.availableDays ?? diagnosis.answers?.daysPerWeek ?? diagnosis.daysPerWeek }
-        );
-        const siblingRes = await this.proposeSibling({
-          diagnosis,
-          targetConstraint,
-          transitionId: uid(),
-          successorProgramId: uid(),
-        });
-        if (siblingRes?.ok === false) {
-          unavailable = siblingRes;
-        }
-      }
+    // The injected IO is honoured only so a deliberate setup-draft write
+    // failure can be proven; lock ownership stays on the production path.
+    const targetIO = io || storageIO;
 
-      const activeProgram = params.activeProgram || state;
-      const durableRevision = Number.isInteger(params.durableRevision)
-        ? params.durableRevision
-        : (Number.isInteger(params.activeProgramRevision) ? params.activeProgramRevision : readRevision(state));
-      const versions = params.versions || entryVersions();
-
-      const created = Transition.createGuidedManualRepair({
-        unavailable,
+    // The production boundary derives the guided candidate strictly from the
+    // live active program and the live durable revision after a genuine typed
+    // sibling Unavailable. It accepts no caller-supplied guided result, active
+    // snapshot, or durable revision — only the typed Unavailable and its
+    // diagnosis. createGuidedManualRepair still fails typed on any stale or
+    // mismatched input and mutates nothing.
+    let unavailable = params.unavailable || (params.siblingResult?.ok === false ? params.siblingResult : null);
+    const diagnosis = params.diagnosis;
+    if (!unavailable && diagnosis && typeof this.proposeSibling === "function") {
+      const targetConstraint = diagnosis.targetConstraint || (
+        diagnosis.kind === "sessions_too_long"
+          ? { sessionMinutes: diagnosis.answers?.sessionMinutes ?? diagnosis.sessionMinutes }
+          : { frequency: diagnosis.answers?.availableDays ?? diagnosis.answers?.daysPerWeek ?? diagnosis.daysPerWeek }
+      );
+      const siblingRes = await this.proposeSibling({
         diagnosis,
-        activeProgram,
-        durableRevision,
-        versions,
-        customExercises: params.customExercises || customExercises(),
+        targetConstraint,
+        transitionId: uid(),
+        successorProgramId: uid(),
       });
-      if (!created.ok) return created;
-      guidedResult = created;
+      if (siblingRes?.ok === false) unavailable = siblingRes;
     }
 
-    const diagnosis = guidedResult.diagnosis;
+    const liveRevision = readRevision(state);
+    const created = Transition.createGuidedManualRepair({
+      unavailable,
+      diagnosis,
+      activeProgram: state,
+      durableRevision: liveRevision,
+      versions: entryVersions(),
+      customExercises: customExercises(),
+    });
+    if (!created.ok) return created;
+    const guidedResult = created;
+
     const diagKind = diagnosis?.kind;
     if (diagKind !== "fewer_days" && diagKind !== "sessions_too_long") {
       return { ok: false, status: "unavailable", code: "diagnosis_invalid", unavailable: true, invalid: true };
@@ -6770,9 +6768,11 @@ const repforgeProgramTransitionAdapter = {
       preview,
     };
 
-    const durableRevision = Number.isInteger(params.durableRevision)
-      ? params.durableRevision
-      : (Number.isInteger(guidedResult.durableRevision) ? guidedResult.durableRevision : readRevision(state));
+    // Pin the staged draft to the same live durable revision the candidate was
+    // derived from. Activation re-checks it via activationReadiness/CAS.
+    const draftRevision = Number.isInteger(guidedResult.durableRevision)
+      ? guidedResult.durableRevision
+      : liveRevision;
 
     const answers = {
       programName: name,
@@ -6784,7 +6784,7 @@ const repforgeProgramTransitionAdapter = {
 
     let draftState = ProgramEntry.createState({
       draftId: uid(),
-      activeProgramRevisionAtStart: durableRevision,
+      activeProgramRevisionAtStart: draftRevision,
       now: entryNow(),
       versions: entryVersions(),
     });
@@ -10326,11 +10326,30 @@ function startOnboarding(origin,opts={}){
   if(opts.userInitiated===false)return;
   // Opening the hub is not choosing a route; telemetry waits for a route pick.
 }
+// A persisted setup draft is auto-resumed on boot only when it is a normalized
+// guided manual-repair build/editor draft: route "build", step "editor", a valid
+// preview program, and an approved diagnostics.mainConstraint fact. Ordinary
+// saved setup drafts on an onboarded device are left untouched, and first-run
+// behavior is unchanged.
+function isGuidedRepairSetupDraft(envelope){
+  const st=envelope?.state;
+  if(!st||st.route!=="build"||st.step!=="editor")return false;
+  const result=st.result;
+  if(!result||result.route!=="build")return false;
+  const preview=result.preview;
+  if(!preview||!Array.isArray(preview.program)||preview.program.length===0)return false;
+  const main=result.diagnostics?.mainConstraint;
+  return main==="fewer_days"||main==="sessions_too_long";
+}
 function maybeShowOnboarding(){
-  const hasDraft=readSetupDraftRecord().raw!==null;
-  if((!state.programMeta?.onboarded&&state.log.length===0)||hasDraft){
-    startOnboarding(hasDraft?"settings":"first-run",{userInitiated:false});
-    if(hasDraft&&entryState?.step==="editor"&&entryState?.result?.preview)openEntryDraftEditor();
+  if(!state.programMeta?.onboarded&&state.log.length===0){
+    startOnboarding("first-run",{userInitiated:false});
+    return;
+  }
+  const record=readSetupDraftRecord();
+  if(record.ok&&record.envelope&&isGuidedRepairSetupDraft(record.envelope)){
+    startOnboarding("settings",{userInitiated:false});
+    if(entryState?.step==="editor"&&entryState?.result?.preview)openEntryDraftEditor();
   }
 }
 function cancelOnboarding(){
