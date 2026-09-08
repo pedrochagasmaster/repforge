@@ -52,6 +52,7 @@ self.addEventListener("activate", event => {
 });
 
 const SHELL = new Set(["/", "/index.html", "/app.js", "/workout-draft.js", "/program-transition.js", "/styles.css", "/motion-polish.css", "/motion-layer.js", "/vendor/motion/motion.js", "/vendor/dnd-kit/dnd-kit.js", "/vendor/dnd-kit/dnd-kit.runtime.js", "/i18n.js", "/exercises.js", "/shared-setup.js", "/program-compiler.js", "/program-entry.js", "/program-entry-adapter.js", "/program-editor.js", "/telemetry.js", "/posthog-init.js", "/posthog-config.js", "/manifest.webmanifest"]);
+const IMMUTABLE_RUNTIMES = new Set(["/vendor/motion/motion.js", "/vendor/dnd-kit/dnd-kit.runtime.js"]);
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
 function shellPathname(pathname) {
   if (!SCOPE_PATH) return pathname;
