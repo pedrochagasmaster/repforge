@@ -1988,3 +1988,708 @@ test("consistent valid canonical createdAt rehash control still validates", asyn
   assert.equal(val.ok, true);
   assert.equal(val.status, "preview");
 });
+
+// ============================================================================
+// 052-P5c: Pure Recovery Lifecycle, Sealing, Validation, Repeat Refusal,
+//          Calendar Projection, and Once-Only Reassessment
+// ============================================================================
+
+test("seam presence: commitRecord kind-aware, validateRecoveryRecord, reassessRecoveryRecord, projectRecoveryProgram", () => {
+  assert.equal(typeof Transition.commitRecord, "function");
+  assert.equal(typeof Transition.validateRecoveryRecord, "function");
+  assert.equal(typeof Transition.reassessRecoveryRecord, "function");
+  assert.equal(typeof Transition.projectRecoveryProgram, "function");
+});
+
+test("pure sealing: recovery_week seal yields deep-frozen committed record with canonical timestamps, null archiveId, no successor", async () => {
+  const { proposal } = await createBaseRecoveryFixture();
+  const confirmedAt = "2026-10-01T10:00:00.000Z";
+  const reassessmentDueAt = "2026-10-08T10:00:00.000Z";
+  const options = { confirmedAt, reassessmentDueAt, archiveId: null };
+
+  const record = Transition.commitRecord(proposal, options);
+
+  assert.equal(record.status, "committed");
+  assert.equal(record.kind, "recovery_week");
+  assert.equal(record.confirmedAt, confirmedAt);
+  assert.equal(record.archiveId, null);
+  assert.equal(record.successor, undefined);
+  assert.equal(record.proposalHash, proposal.proposalHash, "preview proposalHash must be preserved exactly");
+
+  const overlay = record.diff.recoveryWeek;
+  assert.equal(overlay.confirmedAt, confirmedAt);
+  assert.equal(overlay.reassessmentDueAt, reassessmentDueAt);
+  assert.equal(overlay.reassessmentOutcome, null);
+
+  assert.ok(Object.isFrozen(record));
+  assert.ok(Object.isFrozen(record.diff));
+  assert.ok(Object.isFrozen(overlay));
+
+  // Input proposal and options must not be mutated
+  assert.equal(proposal.status, "preview");
+  assert.equal(proposal.confirmedAt, undefined);
+  assert.equal(options.archiveId, null);
+});
+
+test("pure sealing: replacement-kind sealing remains byte-identical", async () => {
+  const replacementProposal = {
+    schemaVersion: 1,
+    transitionId: "tr_replace_001",
+    kind: "sibling_frequency",
+    status: "preview",
+    proposalHash: "hash_replace_001",
+  };
+  const confirmedAt = "2026-10-01T10:00:00.000Z";
+  const archiveId = "arc_replace_001";
+  const record = Transition.commitRecord(replacementProposal, { confirmedAt, archiveId });
+  assert.equal(record.status, "committed");
+  assert.equal(record.confirmedAt, confirmedAt);
+  assert.equal(record.archiveId, archiveId);
+  assert.ok(Object.isFrozen(record));
+});
+
+test("pure sealing negative controls: non-null archiveId, non-canonical, or reversed timestamps throw TypeError", async () => {
+  const { proposal } = await createBaseRecoveryFixture();
+  const validConfirmed = "2026-10-01T10:00:00.000Z";
+  const validDue = "2026-10-08T10:00:00.000Z";
+
+  // non-null archiveId
+  assert.throws(() => {
+    Transition.commitRecord(proposal, { confirmedAt: validConfirmed, reassessmentDueAt: validDue, archiveId: "arc_forged" });
+  }, TypeError);
+
+  // missing / non-canonical confirmedAt
+  assert.throws(() => {
+    Transition.commitRecord(proposal, { confirmedAt: "not-a-date", reassessmentDueAt: validDue, archiveId: null });
+  }, TypeError);
+
+  // missing / non-canonical reassessmentDueAt
+  assert.throws(() => {
+    Transition.commitRecord(proposal, { confirmedAt: validConfirmed, reassessmentDueAt: "2026-10-08", archiveId: null });
+  }, TypeError);
+
+  // reassessmentDueAt not later than confirmedAt
+  assert.throws(() => {
+    Transition.commitRecord(proposal, { confirmedAt: validDue, reassessmentDueAt: validConfirmed, archiveId: null });
+  }, TypeError);
+
+  assert.throws(() => {
+    Transition.commitRecord(proposal, { confirmedAt: validConfirmed, reassessmentDueAt: validConfirmed, archiveId: null });
+  }, TypeError);
+});
+
+test("committed-record validation: valid sealed record validates successfully by projecting back to preview", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const confirmedAt = "2026-10-01T10:00:00.000Z";
+  const reassessmentDueAt = "2026-10-08T10:00:00.000Z";
+  const record = Transition.commitRecord(proposal, { confirmedAt, reassessmentDueAt, archiveId: null });
+
+  const val = await Transition.validateRecoveryRecord(record, validationContext);
+  assert.equal(val.ok, true);
+  assert.equal(val.status, "committed");
+
+  // validateProposal also dispatches committed records
+  const valGeneral = await Transition.validateProposal(record, validationContext);
+  assert.equal(valGeneral.ok, true);
+  assert.equal(valGeneral.status, "committed");
+});
+
+test("proposal identity: proposalHash equals preview hash after seal and after reassessment", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const record = Transition.commitRecord(proposal, {
+    confirmedAt: "2026-10-01T10:00:00.000Z",
+    reassessmentDueAt: "2026-10-08T10:00:00.000Z",
+    archiveId: null,
+  });
+  assert.equal(record.proposalHash, proposal.proposalHash);
+
+  const reassessResult = Transition.reassessRecoveryRecord(record, "Better", {
+    blockId: record.diff.recoveryWeek.blockId,
+    elapsedWeek: 2,
+  });
+  assert.equal(reassessResult.ok, true);
+  assert.equal(reassessResult.record.proposalHash, proposal.proposalHash);
+
+  // Validating reassessed record still validates against preview hash
+  const val = await Transition.validateRecoveryRecord(reassessResult.record, validationContext);
+  assert.equal(val.ok, true);
+  assert.equal(val.status, "committed");
+});
+
+test("proposalPreimage contract: hashProposal(committedRecord) differs from preview hash; validator projects back to preview", async () => {
+  const { proposal } = await createBaseRecoveryFixture();
+  const record = Transition.commitRecord(proposal, {
+    confirmedAt: "2026-10-01T10:00:00.000Z",
+    reassessmentDueAt: "2026-10-08T10:00:00.000Z",
+    archiveId: null,
+  });
+
+  // Hashing the committed record directly produces a DIFFERENT hash because of nested lifecycle fields
+  const directHash = await Transition.hashProposal(record);
+  assert.notEqual(directHash, proposal.proposalHash, "direct hash of committed record must differ from preview hash due to nested lifecycle fields");
+});
+
+test("committed-record validation: rejects malformed envelopes, non-null archive, successor, timestamp mismatch/order, unknown schema/policy, invalid outcome", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const baseRecord = Transition.commitRecord(proposal, {
+    confirmedAt: "2026-10-01T10:00:00.000Z",
+    reassessmentDueAt: "2026-10-08T10:00:00.000Z",
+    archiveId: null,
+  });
+
+  // 1. non-null archiveId
+  {
+    const tampered = JSON.parse(JSON.stringify(baseRecord));
+    tampered.archiveId = "arc_injected";
+    const res = await Transition.validateRecoveryRecord(tampered, validationContext);
+    assert.equal(res.ok, false);
+    assert.equal(res.code, "invalid_archive_id");
+  }
+
+  // 2. forbidden successor
+  {
+    const tampered = JSON.parse(JSON.stringify(baseRecord));
+    tampered.successor = { programId: "p_next" };
+    const res = await Transition.validateRecoveryRecord(tampered, validationContext);
+    assert.equal(res.ok, false);
+    assert.equal(res.code, "forbidden_successor");
+  }
+
+  // 3. top-level and overlay confirmedAt mismatch
+  {
+    const tampered = JSON.parse(JSON.stringify(baseRecord));
+    tampered.diff.recoveryWeek.confirmedAt = "2026-10-01T10:05:00.000Z";
+    const res = await Transition.validateRecoveryRecord(tampered, validationContext);
+    assert.equal(res.ok, false);
+    assert.equal(res.code, "lifecycle_timestamp_mismatch");
+  }
+
+  // 4. reassessmentDueAt not later than confirmedAt
+  {
+    const tampered = JSON.parse(JSON.stringify(baseRecord));
+    tampered.diff.recoveryWeek.reassessmentDueAt = "2026-10-01T09:00:00.000Z";
+    const res = await Transition.validateRecoveryRecord(tampered, validationContext);
+    assert.equal(res.ok, false);
+    assert.equal(res.code, "lifecycle_timestamp_order");
+  }
+
+  // 5. invalid reassessment outcome
+  {
+    const tampered = JSON.parse(JSON.stringify(baseRecord));
+    tampered.diff.recoveryWeek.reassessmentOutcome = "CompletelyHealed";
+    const res = await Transition.validateRecoveryRecord(tampered, validationContext);
+    assert.equal(res.ok, false);
+    assert.equal(res.code, "recovery_reassessment_invalid");
+  }
+
+  // 6. unknown policy version
+  {
+    const tampered = JSON.parse(JSON.stringify(baseRecord));
+    tampered.diff.recoveryWeek.policyVersion = 999;
+    const res = await Transition.validateRecoveryRecord(tampered, validationContext);
+    assert.equal(res.ok, false);
+    assert.equal(res.code, "unsupported_policy_version");
+  }
+
+  // 7. semantic forgery of entries in committed record rejected before hash gate
+  {
+    const tampered = JSON.parse(JSON.stringify(baseRecord));
+    tampered.diff.recoveryWeek.entries[0].effectiveWorkingSets += 1;
+    const res = await Transition.validateRecoveryRecord(tampered, validationContext);
+    assert.equal(res.ok, false);
+    assert.equal(res.code, "recovery_effective_sets_mismatch");
+  }
+
+  // 8. stale predecessor rejected with predecessor_changed
+  {
+    const staleContext = {
+      ...validationContext,
+      predecessor: { ...validationContext.predecessor, durableRevision: 99 },
+    };
+    const res = await Transition.validateRecoveryRecord(baseRecord, staleContext);
+    assert.equal(res.ok, false);
+    assert.equal(res.status, "stale");
+    assert.equal(res.code, "predecessor_changed");
+  }
+});
+
+test("closed committed-record validation: own-data boundary rejects accessors with getterReads 0", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const record = Transition.commitRecord(proposal, {
+    confirmedAt: "2026-10-01T10:00:00.000Z",
+    reassessmentDueAt: "2026-10-08T10:00:00.000Z",
+    archiveId: null,
+  });
+
+  let getterReads = 0;
+  const carrier = Object.create(null);
+  for (const [key, value] of Object.entries(record)) {
+    if (key === "confirmedAt") {
+      Object.defineProperty(carrier, key, {
+        enumerable: true,
+        get() {
+          getterReads += 1;
+          return "2026-10-01T10:00:00.000Z";
+        },
+      });
+    } else {
+      carrier[key] = value;
+    }
+  }
+
+  const val = await Transition.validateRecoveryRecord(carrier, validationContext);
+  assert.equal(val.ok, false);
+  assert.equal(val.code, "invalid_record");
+  assert.equal(getterReads, 0, "must execute 0 getters on rejected accessor carrier");
+});
+
+test("repeat refusal: same-target-block committed record (active or reassessed) refuses proposal creation with recovery_same_block_repeat", async () => {
+  const { proposal, input } = await createBaseRecoveryFixture();
+  const activeRecord = Transition.commitRecord(proposal, {
+    confirmedAt: "2026-10-01T10:00:00.000Z",
+    reassessmentDueAt: "2026-10-08T10:00:00.000Z",
+    archiveId: null,
+  });
+
+  const reassessedResult = Transition.reassessRecoveryRecord(activeRecord, "Better", {
+    blockId: activeRecord.diff.recoveryWeek.blockId,
+    elapsedWeek: 2,
+  });
+  assert.equal(reassessedResult.ok, true);
+  const reassessedRecord = reassessedResult.record;
+
+  // 1. Active record in existingRecoveryRecords -> proposal creation refused
+  const resActive = await Transition.proposeRecoveryWeek({
+    ...input,
+    existingRecoveryRecords: [activeRecord],
+  });
+  assert.equal(resActive.ok, false);
+  assert.equal(resActive.status, "ineligible");
+  assert.equal(resActive.ineligible, true);
+  assert.equal(resActive.code, "recovery_same_block_repeat");
+
+  // 2. Reassessed record in existingRecoveryRecords -> proposal creation refused
+  const resReassessed = await Transition.proposeRecoveryWeek({
+    ...input,
+    existingRecoveryRecords: [reassessedRecord],
+  });
+  assert.equal(resReassessed.ok, false);
+  assert.equal(resReassessed.status, "ineligible");
+  assert.equal(resReassessed.ineligible, true);
+  assert.equal(resReassessed.code, "recovery_same_block_repeat");
+});
+
+test("repeat refusal: same-target-block committed record refuses lock-held validation with recovery_same_block_repeat", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const priorRecord = Transition.commitRecord(proposal, {
+    confirmedAt: "2026-10-01T10:00:00.000Z",
+    reassessmentDueAt: "2026-10-08T10:00:00.000Z",
+    archiveId: null,
+  });
+
+  // Proposal validation with prior record for same block
+  const valProposal = await Transition.validateProposal(proposal, {
+    ...validationContext,
+    existingRecoveryRecords: [priorRecord],
+  });
+  assert.equal(valProposal.ok, false);
+  assert.equal(valProposal.status, "ineligible");
+  assert.equal(valProposal.ineligible, true);
+  assert.equal(valProposal.code, "recovery_same_block_repeat");
+
+  // Committed record validation with a distinct prior record for same block
+  const distinctPrior = JSON.parse(JSON.stringify(priorRecord));
+  distinctPrior.transitionId = "tr_distinct_prior";
+  const valRecord = await Transition.validateRecoveryRecord(priorRecord, {
+    ...validationContext,
+    existingRecoveryRecords: [distinctPrior],
+  });
+  assert.equal(valRecord.ok, false);
+  assert.equal(valRecord.status, "ineligible");
+  assert.equal(valRecord.ineligible, true);
+  assert.equal(valRecord.code, "recovery_same_block_repeat");
+});
+
+test("repeat refusal control: different target block with fresh evidence succeeds", async () => {
+  const { proposal, input, validationContext } = await createBaseRecoveryFixture();
+  const priorOtherBlockRecord = Transition.commitRecord(proposal, {
+    confirmedAt: "2026-10-01T10:00:00.000Z",
+    reassessmentDueAt: "2026-10-08T10:00:00.000Z",
+    archiveId: null,
+  });
+  const clonedOther = JSON.parse(JSON.stringify(priorOtherBlockRecord));
+  clonedOther.diff.recoveryWeek.blockId = "block_different_previous";
+  clonedOther.transitionId = "tr_other_block";
+
+  // Proposal creation with prior record from different block succeeds
+  const res = await Transition.proposeRecoveryWeek({
+    ...input,
+    existingRecoveryRecords: [clonedOther],
+  });
+  assert.equal(res.ok, true);
+  assert.equal(res.status, "preview");
+
+  // Validation with prior record from different block succeeds
+  const val = await Transition.validateProposal(proposal, {
+    ...validationContext,
+    existingRecoveryRecords: [clonedOther],
+  });
+  assert.equal(val.ok, true);
+  assert.equal(val.status, "preview");
+});
+
+test("repeat refusal: own-data boundary rejects accessor existingRecoveryRecords with getterReads 0", async () => {
+  const { input } = await createBaseRecoveryFixture();
+  let getterReads = 0;
+  const badRecords = [];
+  Object.defineProperty(badRecords, 0, {
+    enumerable: true,
+    get() {
+      getterReads += 1;
+      return {};
+    },
+  });
+
+  const res = await Transition.proposeRecoveryWeek({
+    ...input,
+    existingRecoveryRecords: badRecords,
+  });
+  assert.equal(res.ok, false);
+  assert.equal(getterReads, 0, "must execute 0 getters on rejected accessor existingRecoveryRecords");
+});
+
+// Independent calendar helper matching mesocycleLifecycle week derivation
+function deriveElapsedWeekFromDates(startedDateStr, currentDateStr) {
+  const start = new Date(`${startedDateStr}T12:00:00`);
+  const now = new Date(`${currentDateStr}T12:00:00`);
+  const days = Math.floor((now - start) / 86400000);
+  return days < 0 ? 1 : Math.floor(days / 7) + 1;
+}
+
+test("pure projection: independent calendar derives day 6 -> week 1 and day 7 -> week 2", () => {
+  const start = "2026-10-01";
+  const day6 = "2026-10-07"; // 6 days later
+  const day7 = "2026-10-08"; // 7 days later
+  assert.equal(deriveElapsedWeekFromDates(start, day6), 1, "day 6 must be week 1");
+  assert.equal(deriveElapsedWeekFromDates(start, day7), 2, "day 7 must be week 2");
+});
+
+test("pure projection: day 6 (elapsedWeek: 1) applies Rule B effective sets and removes zero-set entries", async () => {
+  const instance = Compiler.compile(gymContext("growth", 2), EXERCISE_LIBRARY);
+  const input = validRecoveryInput({ predecessorInstance: instance });
+  const propRes = await proposeRecoveryWeek(input);
+  assert.equal(propRes.ok, true);
+  const proposal = propRes.proposal;
+  const canonicalProgramRows = instance.program;
+  const record = Transition.commitRecord(proposal, {
+    confirmedAt: "2026-10-01T10:00:00.000Z",
+    reassessmentDueAt: "2026-10-08T10:00:00.000Z",
+    archiveId: null,
+  });
+
+  const blockId = record.diff.recoveryWeek.blockId;
+  const baseProgramFingerprint = record.diff.recoveryWeek.baseProgramFingerprint;
+  const elapsedWeek = deriveElapsedWeekFromDates("2026-10-01", "2026-10-07"); // day 6 -> 1
+
+  const res = Transition.projectRecoveryProgram(canonicalProgramRows, record, {
+    blockId,
+    elapsedWeek,
+    baseProgramFingerprint,
+  });
+  assert.equal(res.ok, true);
+  assert.equal(res.active, true);
+  assert.equal(res.status, "active");
+
+  const projectedRows = res.rows;
+
+  // Build map of expected effective sets
+  const entryMap = new Map(record.diff.recoveryWeek.entries.map((e) => [e.slot, e.effectiveWorkingSets]));
+  const zeroSlots = new Set(
+    record.diff.recoveryWeek.entries.filter((e) => e.effectiveWorkingSets === 0).map((e) => e.slot)
+  );
+
+  // Every zero-set slot must be removed
+  for (const row of projectedRows) {
+    assert.equal(zeroSlots.has(row.slotId), false, `zero-set slot ${row.slotId} must be removed`);
+    if (entryMap.has(row.slotId)) {
+      assert.equal(row.sets, entryMap.get(row.slotId), `slot ${row.slotId} sets must match effectiveWorkingSets`);
+    }
+  }
+  assert.ok(projectedRows.length < canonicalProgramRows.length, "projected rows must remove zero-set entries");
+
+  // Inputs are never mutated
+  assert.ok(canonicalProgramRows.length > projectedRows.length);
+  assert.ok(record.diff.recoveryWeek.entries.length > 0);
+});
+
+test("pure projection: day 7 (elapsedWeek: 2) restores canonical program rows exactly (deepEqual), restoring zero-removed slots", async () => {
+  const instance = Compiler.compile(gymContext("growth", 2), EXERCISE_LIBRARY);
+  const input = validRecoveryInput({ predecessorInstance: instance });
+  const propRes = await proposeRecoveryWeek(input);
+  assert.equal(propRes.ok, true);
+  const proposal = propRes.proposal;
+  const canonicalProgramRows = instance.program;
+  const record = Transition.commitRecord(proposal, {
+    confirmedAt: "2026-10-01T10:00:00.000Z",
+    reassessmentDueAt: "2026-10-08T10:00:00.000Z",
+    archiveId: null,
+  });
+
+  const blockId = record.diff.recoveryWeek.blockId;
+  const baseProgramFingerprint = record.diff.recoveryWeek.baseProgramFingerprint;
+  const elapsedWeek = deriveElapsedWeekFromDates("2026-10-01", "2026-10-08"); // day 7 -> 2
+
+  const res = Transition.projectRecoveryProgram(canonicalProgramRows, record, {
+    blockId,
+    elapsedWeek,
+    baseProgramFingerprint,
+  });
+  assert.equal(res.ok, true);
+  assert.equal(res.active, false);
+  assert.equal(res.status, "inactive");
+
+  // Day 7 rows deep-equal canonicalProgramRows exactly!
+  assert.deepEqual(res.rows, canonicalProgramRows);
+
+  // Also verify projectRecoveryRows helper returns deep-equal rows
+  const directRows = Transition.projectRecoveryRows(canonicalProgramRows, record, {
+    blockId,
+    elapsedWeek,
+    baseProgramFingerprint,
+  });
+  assert.deepEqual(directRows, canonicalProgramRows);
+});
+
+test("pure projection controls: wrong block, absent record, week 3 return canonical rows clone", async () => {
+  const { proposal, instance } = await createBaseRecoveryFixture();
+  const canonicalProgramRows = instance.program;
+  const record = Transition.commitRecord(proposal, {
+    confirmedAt: "2026-10-01T10:00:00.000Z",
+    reassessmentDueAt: "2026-10-08T10:00:00.000Z",
+    archiveId: null,
+  });
+  const blockId = record.diff.recoveryWeek.blockId;
+  const baseProgramFingerprint = record.diff.recoveryWeek.baseProgramFingerprint;
+
+  // 1. Absent record (null)
+  const absentRes = Transition.projectRecoveryProgram(canonicalProgramRows, null, {
+    blockId,
+    elapsedWeek: 1,
+    baseProgramFingerprint,
+  });
+  assert.equal(absentRes.ok, true);
+  assert.equal(absentRes.active, false);
+  assert.deepEqual(absentRes.rows, canonicalProgramRows);
+
+  // 2. Wrong block
+  const wrongBlockRes = Transition.projectRecoveryProgram(canonicalProgramRows, record, {
+    blockId: "other_block_id",
+    elapsedWeek: 1,
+    baseProgramFingerprint,
+  });
+  assert.equal(wrongBlockRes.ok, true);
+  assert.equal(wrongBlockRes.active, false);
+  assert.deepEqual(wrongBlockRes.rows, canonicalProgramRows);
+
+  // 3. Week 3
+  const week3Res = Transition.projectRecoveryProgram(canonicalProgramRows, record, {
+    blockId,
+    elapsedWeek: 3,
+    baseProgramFingerprint,
+  });
+  assert.equal(week3Res.ok, true);
+  assert.equal(week3Res.active, false);
+  assert.deepEqual(week3Res.rows, canonicalProgramRows);
+
+  // 4. Reassessed record (outcome !== null) at week 1 returns canonical rows
+  const reassessed = JSON.parse(JSON.stringify(record));
+  reassessed.diff.recoveryWeek.reassessmentOutcome = "Better";
+  const reassessedRes = Transition.projectRecoveryProgram(canonicalProgramRows, reassessed, {
+    blockId,
+    elapsedWeek: 1,
+    baseProgramFingerprint,
+  });
+  assert.equal(reassessedRes.ok, true);
+  assert.equal(reassessedRes.active, false);
+  assert.deepEqual(reassessedRes.rows, canonicalProgramRows);
+});
+
+test("pure projection failure injection: wrong fingerprint, malformed record, accessors fail closed to canonical rows", async () => {
+  const { proposal, instance } = await createBaseRecoveryFixture();
+  const canonicalProgramRows = instance.program;
+  const record = Transition.commitRecord(proposal, {
+    confirmedAt: "2026-10-01T10:00:00.000Z",
+    reassessmentDueAt: "2026-10-08T10:00:00.000Z",
+    archiveId: null,
+  });
+  const blockId = record.diff.recoveryWeek.blockId;
+
+  // 1. Wrong baseProgramFingerprint
+  const wrongFpRes = Transition.projectRecoveryProgram(canonicalProgramRows, record, {
+    blockId,
+    elapsedWeek: 1,
+    baseProgramFingerprint: "wrong_fingerprint",
+  });
+  assert.equal(wrongFpRes.ok, false);
+  assert.equal(wrongFpRes.code, "base_fingerprint_mismatch");
+  assert.deepEqual(wrongFpRes.rows, canonicalProgramRows);
+
+  // 2. Malformed record (status not committed)
+  const malformed = JSON.parse(JSON.stringify(record));
+  malformed.status = "preview";
+  const malformedRes = Transition.projectRecoveryProgram(canonicalProgramRows, malformed, {
+    blockId,
+    elapsedWeek: 1,
+    baseProgramFingerprint: record.diff.recoveryWeek.baseProgramFingerprint,
+  });
+  assert.equal(malformedRes.ok, false);
+  assert.equal(malformedRes.code, "recovery_record_invalid");
+  assert.deepEqual(malformedRes.rows, canonicalProgramRows);
+
+  // 3. Accessor carrier with getterReads 0
+  let getterReads = 0;
+  const carrier = Object.create(null);
+  for (const [key, value] of Object.entries(record)) {
+    if (key === "diff") {
+      Object.defineProperty(carrier, key, {
+        enumerable: true,
+        get() {
+          getterReads += 1;
+          return record.diff;
+        },
+      });
+    } else {
+      carrier[key] = value;
+    }
+  }
+  const carrierRes = Transition.projectRecoveryProgram(canonicalProgramRows, carrier, {
+    blockId,
+    elapsedWeek: 1,
+    baseProgramFingerprint: record.diff.recoveryWeek.baseProgramFingerprint,
+  });
+  assert.equal(carrierRes.ok, false);
+  assert.equal(carrierRes.code, "recovery_record_invalid");
+  assert.equal(getterReads, 0, "must execute 0 getters on rejected projection record");
+  assert.deepEqual(carrierRes.rows, canonicalProgramRows);
+});
+
+test("once-only reassessment: accepts exactly Better, About the same, Worse only after week one (elapsedWeek >= 2)", async () => {
+  const { proposal } = await createBaseRecoveryFixture();
+  const record = Transition.commitRecord(proposal, {
+    confirmedAt: "2026-10-01T10:00:00.000Z",
+    reassessmentDueAt: "2026-10-08T10:00:00.000Z",
+    archiveId: null,
+  });
+  const blockId = record.diff.recoveryWeek.blockId;
+
+  for (const outcome of ["Better", "About the same", "Worse"]) {
+    const res = Transition.reassessRecoveryRecord(record, outcome, { blockId, elapsedWeek: 2 });
+    assert.equal(res.ok, true);
+    assert.equal(res.status, "committed");
+    assert.equal(res.record.diff.recoveryWeek.reassessmentOutcome, outcome);
+    assert.equal(res.record.proposalHash, record.proposalHash);
+    assert.ok(Object.isFrozen(res.record));
+
+    // All other fields byte-identical
+    const expected = JSON.parse(JSON.stringify(record));
+    expected.diff.recoveryWeek.reassessmentOutcome = outcome;
+    assert.deepEqual(res.record, expected);
+  }
+});
+
+test("once-only reassessment: premature (elapsedWeek: 1) rejects with recovery_reassessment_not_due", async () => {
+  const { proposal } = await createBaseRecoveryFixture();
+  const record = Transition.commitRecord(proposal, {
+    confirmedAt: "2026-10-01T10:00:00.000Z",
+    reassessmentDueAt: "2026-10-08T10:00:00.000Z",
+    archiveId: null,
+  });
+  const blockId = record.diff.recoveryWeek.blockId;
+
+  const res = Transition.reassessRecoveryRecord(record, "Better", { blockId, elapsedWeek: 1 });
+  assert.equal(res.ok, false);
+  assert.equal(res.status, "invalid");
+  assert.equal(res.code, "recovery_reassessment_not_due");
+});
+
+test("once-only reassessment: second write rejects with recovery_reassessment_closed", async () => {
+  const { proposal } = await createBaseRecoveryFixture();
+  const record = Transition.commitRecord(proposal, {
+    confirmedAt: "2026-10-01T10:00:00.000Z",
+    reassessmentDueAt: "2026-10-08T10:00:00.000Z",
+    archiveId: null,
+  });
+  const blockId = record.diff.recoveryWeek.blockId;
+
+  const first = Transition.reassessRecoveryRecord(record, "Better", { blockId, elapsedWeek: 2 });
+  assert.equal(first.ok, true);
+
+  const second = Transition.reassessRecoveryRecord(first.record, "Worse", { blockId, elapsedWeek: 2 });
+  assert.equal(second.ok, false);
+  assert.equal(second.status, "invalid");
+  assert.equal(second.code, "recovery_reassessment_closed");
+});
+
+test("once-only reassessment: invalid outcome, wrong block, malformed record, accessors (getterReads 0) reject with recovery_reassessment_invalid", async () => {
+  const { proposal } = await createBaseRecoveryFixture();
+  const record = Transition.commitRecord(proposal, {
+    confirmedAt: "2026-10-01T10:00:00.000Z",
+    reassessmentDueAt: "2026-10-08T10:00:00.000Z",
+    archiveId: null,
+  });
+  const blockId = record.diff.recoveryWeek.blockId;
+
+  // 1. Invalid outcome string
+  const resBadOutcome = Transition.reassessRecoveryRecord(record, "CompletelyHealed", { blockId, elapsedWeek: 2 });
+  assert.equal(resBadOutcome.ok, false);
+  assert.equal(resBadOutcome.code, "recovery_reassessment_invalid");
+
+  // 2. Null outcome
+  const resNullOutcome = Transition.reassessRecoveryRecord(record, null, { blockId, elapsedWeek: 2 });
+  assert.equal(resNullOutcome.ok, false);
+  assert.equal(resNullOutcome.code, "recovery_reassessment_invalid");
+
+  // 3. Wrong block
+  const resWrongBlock = Transition.reassessRecoveryRecord(record, "Better", { blockId: "other_block", elapsedWeek: 2 });
+  assert.equal(resWrongBlock.ok, false);
+  assert.equal(resWrongBlock.code, "recovery_reassessment_invalid");
+
+  // 4. Accessor record with getterReads 0
+  let getterReads = 0;
+  const carrier = Object.create(null);
+  for (const [key, value] of Object.entries(record)) {
+    if (key === "diff") {
+      Object.defineProperty(carrier, key, {
+        enumerable: true,
+        get() {
+          getterReads += 1;
+          return record.diff;
+        },
+      });
+    } else {
+      carrier[key] = value;
+    }
+  }
+  const resCarrier = Transition.reassessRecoveryRecord(carrier, "Better", { blockId, elapsedWeek: 2 });
+  assert.equal(resCarrier.ok, false);
+  assert.equal(resCarrier.code, "recovery_reassessment_invalid");
+  assert.equal(getterReads, 0, "must execute 0 getters on rejected reassessment record");
+});
+
+test("re-entry separation: weekPrescriptions neither consumed nor emitted, Policy v2 values and allowlist untouched", async () => {
+  const { proposal } = await createBaseRecoveryFixture();
+  assert.equal(proposal.weekPrescriptions, undefined);
+  assert.equal(proposal.diff.recoveryWeek.weekPrescriptions, undefined);
+
+  const record = Transition.commitRecord(proposal, {
+    confirmedAt: "2026-10-01T10:00:00.000Z",
+    reassessmentDueAt: "2026-10-08T10:00:00.000Z",
+    archiveId: null,
+  });
+  assert.equal(record.weekPrescriptions, undefined);
+  assert.equal(record.diff.recoveryWeek.weekPrescriptions, undefined);
+
+  // Policy v2 allowlist check
+  assert.deepEqual(APPROVED_POLICY_V2.primaryPatterns, ["knee-dominant", "horizontal press", "hip/hinge"]);
+  assert.equal(Transition.RECOVERY_POLICY_VERSION, 2);
+});

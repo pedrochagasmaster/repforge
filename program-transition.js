@@ -1627,6 +1627,9 @@
       return { ok: false, status: "invalid", code: "invalid_proposal" };
     }
     if (proposal.kind === "recovery_week") {
+      if (proposal.status === "committed") {
+        return validateRecoveryRecord(proposal, current);
+      }
       return validateRecoveryProposal(proposal, current);
     }
     if (proposal.kind === "reduce_training_volume") {
@@ -1728,11 +1731,40 @@
      guards in this file raise. */
   function commitRecord(proposal, options) {
     if (!isObject(proposal)) throw new TypeError("proposal: expected object");
-    if (proposal.status !== "preview") throw new TypeError("proposal.status: expected preview replacement proposal");
+    if (proposal.status !== "preview") throw new TypeError("proposal.status: expected preview proposal");
     if (typeof proposal.proposalHash !== "string" || !proposal.proposalHash) {
       throw new TypeError("proposal.proposalHash: expected non-empty string");
     }
-    if (!isObject(options)) throw new TypeError("options: expected { confirmedAt, archiveId }");
+    if (!isObject(options)) throw new TypeError("options: expected object");
+
+    if (proposal.kind === "recovery_week") {
+      const { confirmedAt, reassessmentDueAt, archiveId } = options;
+      if (archiveId !== null) {
+        throw new TypeError("archiveId: expected null for recovery_week");
+      }
+      if (!isCanonicalInstant(confirmedAt)) {
+        throw new TypeError("confirmedAt: expected canonical ISO-8601 UTC millisecond instant");
+      }
+      if (!isCanonicalInstant(reassessmentDueAt)) {
+        throw new TypeError("reassessmentDueAt: expected canonical ISO-8601 UTC millisecond instant");
+      }
+      if (Date.parse(reassessmentDueAt) <= Date.parse(confirmedAt)) {
+        throw new TypeError("reassessmentDueAt: expected timestamp strictly after confirmedAt");
+      }
+
+      const record = clone(proposal);
+      record.status = "committed";
+      record.confirmedAt = confirmedAt;
+      record.archiveId = null;
+      if (isObject(record.diff) && isObject(record.diff.recoveryWeek)) {
+        record.diff.recoveryWeek.confirmedAt = confirmedAt;
+        record.diff.recoveryWeek.reassessmentDueAt = reassessmentDueAt;
+        record.diff.recoveryWeek.reassessmentOutcome = null;
+      }
+
+      return deepFreeze(record);
+    }
+
     const { confirmedAt, archiveId } = options;
     if (typeof confirmedAt !== "string" || !confirmedAt) {
       throw new TypeError("confirmedAt: expected non-empty string");
@@ -2255,6 +2287,24 @@
       return invalid("invalid_proposal");
     }
 
+    if (input.existingRecoveryRecords !== undefined) {
+      if (!isOwnArray(input.existingRecoveryRecords)) {
+        return invalid("invalid_proposal");
+      }
+      for (const prior of input.existingRecoveryRecords) {
+        if (!isOwnRecord(prior)) return invalid("invalid_proposal");
+        const priorBlockId = prior.diff?.recoveryWeek?.blockId || prior.blockId;
+        if (priorBlockId === blockId) {
+          return Object.freeze({
+            ok: false,
+            status: "ineligible",
+            ineligible: true,
+            code: "recovery_same_block_repeat",
+          });
+        }
+      }
+    }
+
     // Creation requires the caller to pin the compiler context explicitly and
     // exactly; an inferred or coerced version table never mints a proposal.
     const supportedVersions = input.supportedVersions;
@@ -2415,6 +2465,24 @@
     const overlay = proposal.diff.recoveryWeek;
     if (overlay.confirmedAt !== undefined || overlay.reassessmentDueAt !== undefined) {
       return { ok: false, status: "invalid", code: "forbidden_lifecycle_field" };
+    }
+
+    if (current?.existingRecoveryRecords !== undefined) {
+      if (!isOwnArray(current.existingRecoveryRecords)) {
+        return { ok: false, status: "invalid", code: "invalid_options" };
+      }
+      for (const prior of current.existingRecoveryRecords) {
+        if (!isOwnRecord(prior)) return { ok: false, status: "invalid", code: "invalid_options" };
+        const priorBlockId = prior.diff?.recoveryWeek?.blockId || prior.blockId;
+        if (priorBlockId === overlay.blockId) {
+          return Object.freeze({
+            ok: false,
+            status: "ineligible",
+            ineligible: true,
+            code: "recovery_same_block_repeat",
+          });
+        }
+      }
     }
     if (overlay.policyVersion !== RECOVERY_POLICY_VERSION) {
       return { ok: false, status: "invalid", code: "unsupported_policy_version" };
@@ -2587,6 +2655,296 @@
   }
 
 
+
+  async function validateRecoveryRecord(record, current) {
+    if (!isObject(record)) {
+      return { ok: false, status: "invalid", code: "invalid_record" };
+    }
+    if (!isOwnJsonTree(record)) {
+      return { ok: false, status: "invalid", code: "invalid_record" };
+    }
+
+    if (record.kind !== "recovery_week") {
+      return { ok: false, status: "invalid", code: "unsupported_transition_kind" };
+    }
+    if (record.status !== "committed") {
+      return { ok: false, status: "invalid", code: "invalid_record_status" };
+    }
+    if (record.archiveId !== null) {
+      return { ok: false, status: "invalid", code: "invalid_archive_id" };
+    }
+    if (record.successor !== undefined) {
+      return { ok: false, status: "invalid", code: "forbidden_successor" };
+    }
+    if (record.schemaVersion !== SCHEMA_VERSION ||
+        typeof record.transitionId !== "string" || !record.transitionId.trim() ||
+        !isCanonicalInstant(record.createdAt)) {
+      return { ok: false, status: "invalid", code: "invalid_record" };
+    }
+    if (!isCanonicalInstant(record.confirmedAt)) {
+      return { ok: false, status: "invalid", code: "invalid_lifecycle_timestamp" };
+    }
+    if (Date.parse(record.confirmedAt) < Date.parse(record.createdAt)) {
+      return { ok: false, status: "invalid", code: "lifecycle_timestamp_order" };
+    }
+
+    const COMMITTED_RECORD_KEYS = [
+      "schemaVersion",
+      "transitionId",
+      "kind",
+      "createdAt",
+      "status",
+      "predecessor",
+      "diagnosis",
+      "derivation",
+      "diff",
+      "progressionContract",
+      "archiveId",
+      "confirmedAt",
+      "proposalHash",
+    ];
+    if (Object.keys(record).some((key) => !COMMITTED_RECORD_KEYS.includes(key))) {
+      return { ok: false, status: "invalid", code: "invalid_record" };
+    }
+
+    if (!isObject(record.diff) || !isObject(record.diff.recoveryWeek)) {
+      return { ok: false, status: "invalid", code: "missing_recovery_overlay" };
+    }
+    if (!exactKeys(record.diff, ["days", "exercises", "prescriptions", "recoveryWeek"])) {
+      return { ok: false, status: "invalid", code: "invalid_recovery_diff" };
+    }
+
+    const overlay = record.diff.recoveryWeek;
+    if (overlay.policyVersion !== RECOVERY_POLICY_VERSION) {
+      return { ok: false, status: "invalid", code: "unsupported_policy_version" };
+    }
+    const COMMITTED_OVERLAY_KEYS = [
+      "schemaVersion",
+      "policyVersion",
+      "transitionId",
+      "blockId",
+      "activePeriod",
+      "eligibilityEvidence",
+      "baseProgramFingerprint",
+      "entries",
+      "createdAt",
+      "confirmedAt",
+      "reassessmentDueAt",
+      "reassessmentOutcome",
+    ];
+    if (overlay.schemaVersion !== 1 ||
+        !exactKeys(overlay, COMMITTED_OVERLAY_KEYS) ||
+        overlay.activePeriod !== "nextBlockWeek1" ||
+        overlay.transitionId !== record.transitionId ||
+        typeof overlay.blockId !== "string" || !overlay.blockId.trim() ||
+        overlay.createdAt !== record.createdAt) {
+      return { ok: false, status: "invalid", code: "invalid_recovery_overlay" };
+    }
+
+    if (overlay.confirmedAt !== record.confirmedAt) {
+      return { ok: false, status: "invalid", code: "lifecycle_timestamp_mismatch" };
+    }
+    if (!isCanonicalInstant(overlay.reassessmentDueAt)) {
+      return { ok: false, status: "invalid", code: "invalid_lifecycle_timestamp" };
+    }
+    if (Date.parse(overlay.reassessmentDueAt) <= Date.parse(overlay.confirmedAt)) {
+      return { ok: false, status: "invalid", code: "lifecycle_timestamp_order" };
+    }
+
+    const VALID_OUTCOMES = [null, "Better", "About the same", "Worse"];
+    if (!VALID_OUTCOMES.includes(overlay.reassessmentOutcome)) {
+      return { ok: false, status: "invalid", code: "recovery_reassessment_invalid" };
+    }
+
+    if (current?.existingRecoveryRecords !== undefined) {
+      if (!isOwnArray(current.existingRecoveryRecords)) {
+        return { ok: false, status: "invalid", code: "invalid_options" };
+      }
+      for (const prior of current.existingRecoveryRecords) {
+        if (!isOwnRecord(prior)) return { ok: false, status: "invalid", code: "invalid_options" };
+        const priorBlockId = prior.diff?.recoveryWeek?.blockId || prior.blockId;
+        const priorTransitionId = prior.transitionId || prior.diff?.recoveryWeek?.transitionId;
+        if (priorTransitionId !== record.transitionId && priorBlockId === overlay.blockId) {
+          return Object.freeze({
+            ok: false,
+            status: "ineligible",
+            ineligible: true,
+            code: "recovery_same_block_repeat",
+          });
+        }
+      }
+    }
+
+    const preview = clone(record);
+    preview.status = "preview";
+    delete preview.confirmedAt;
+    delete preview.archiveId;
+    delete preview.diff.recoveryWeek.confirmedAt;
+    delete preview.diff.recoveryWeek.reassessmentDueAt;
+    preview.diff.recoveryWeek.reassessmentOutcome = null;
+
+    const proposalVal = await validateRecoveryProposal(preview, current);
+    if (!proposalVal.ok) {
+      return proposalVal;
+    }
+
+    return Object.freeze({ ok: true, status: "committed" });
+  }
+
+  function reassessRecoveryRecord(record, outcomeOrOptions, maybeContext) {
+    let outcome;
+    let context;
+    if (isObject(outcomeOrOptions) && typeof outcomeOrOptions.outcome === "string") {
+      outcome = outcomeOrOptions.outcome;
+      context = outcomeOrOptions;
+    } else {
+      outcome = outcomeOrOptions;
+      context = maybeContext || {};
+    }
+
+    if (!isObject(record) || !isOwnJsonTree(record)) {
+      return Object.freeze({ ok: false, status: "invalid", code: "recovery_reassessment_invalid" });
+    }
+    if (!isObject(context) || !isOwnJsonTree(context)) {
+      return Object.freeze({ ok: false, status: "invalid", code: "recovery_reassessment_invalid" });
+    }
+
+    if (record.kind !== "recovery_week" || record.status !== "committed") {
+      return Object.freeze({ ok: false, status: "invalid", code: "recovery_reassessment_invalid" });
+    }
+
+    const overlay = record.diff?.recoveryWeek;
+    if (!isObject(overlay)) {
+      return Object.freeze({ ok: false, status: "invalid", code: "recovery_reassessment_invalid" });
+    }
+
+    const VALID_OUTCOMES = ["Better", "About the same", "Worse"];
+    if (typeof outcome !== "string" || !VALID_OUTCOMES.includes(outcome)) {
+      return Object.freeze({ ok: false, status: "invalid", code: "recovery_reassessment_invalid" });
+    }
+
+    if (overlay.reassessmentOutcome !== null) {
+      return Object.freeze({ ok: false, status: "invalid", code: "recovery_reassessment_closed" });
+    }
+
+    if (context.blockId !== undefined && context.blockId !== overlay.blockId) {
+      return Object.freeze({ ok: false, status: "invalid", code: "recovery_reassessment_invalid" });
+    }
+
+    if (context.elapsedWeek !== undefined) {
+      if (!Number.isInteger(context.elapsedWeek) || context.elapsedWeek < 2) {
+        return Object.freeze({ ok: false, status: "invalid", code: "recovery_reassessment_not_due" });
+      }
+    }
+
+    const updated = clone(record);
+    updated.diff.recoveryWeek.reassessmentOutcome = outcome;
+    deepFreeze(updated);
+
+    return Object.freeze({
+      ok: true,
+      status: "committed",
+      record: updated,
+    });
+  }
+
+  function projectRecoveryProgram(canonicalProgramRows, committedRecoveryRecord, context) {
+    const canonicalClone = Array.isArray(canonicalProgramRows) ? clone(canonicalProgramRows) : [];
+
+    const makeResult = (ok, status, active, code, rows) => {
+      const resultRows = Array.isArray(rows) ? rows : clone(canonicalClone);
+      Object.defineProperty(resultRows, "ok", { value: ok, enumerable: false, configurable: true });
+      Object.defineProperty(resultRows, "status", { value: status, enumerable: false, configurable: true });
+      Object.defineProperty(resultRows, "active", { value: active, enumerable: false, configurable: true });
+      if (code) {
+        Object.defineProperty(resultRows, "code", { value: code, enumerable: false, configurable: true });
+      }
+      Object.defineProperty(resultRows, "rows", { value: resultRows, enumerable: false, configurable: true });
+      return Object.freeze({
+        ok,
+        status,
+        active,
+        code: code || null,
+        rows: resultRows,
+      });
+    };
+
+    if (!Array.isArray(canonicalProgramRows)) {
+      return makeResult(false, "invalid", false, "invalid_program_rows", []);
+    }
+
+    if (!isObject(context)) {
+      return makeResult(false, "invalid", false, "invalid_context", canonicalClone);
+    }
+    const { blockId, elapsedWeek, baseProgramFingerprint } = context;
+
+    if (committedRecoveryRecord === null || committedRecoveryRecord === undefined) {
+      return makeResult(true, "inactive", false, null, canonicalClone);
+    }
+
+    if (!isObject(committedRecoveryRecord) || !isOwnJsonTree(committedRecoveryRecord)) {
+      return makeResult(false, "invalid", false, "recovery_record_invalid", canonicalClone);
+    }
+    if (committedRecoveryRecord.kind !== "recovery_week" || committedRecoveryRecord.status !== "committed") {
+      return makeResult(false, "invalid", false, "recovery_record_invalid", canonicalClone);
+    }
+    if (committedRecoveryRecord.archiveId !== null || committedRecoveryRecord.successor !== undefined) {
+      return makeResult(false, "invalid", false, "recovery_record_invalid", canonicalClone);
+    }
+
+    const overlay = committedRecoveryRecord.diff?.recoveryWeek;
+    if (!isObject(overlay) || overlay.schemaVersion !== 1 || overlay.policyVersion !== RECOVERY_POLICY_VERSION) {
+      return makeResult(false, "invalid", false, "recovery_record_invalid", canonicalClone);
+    }
+    if (overlay.activePeriod !== "nextBlockWeek1" || !Array.isArray(overlay.entries)) {
+      return makeResult(false, "invalid", false, "recovery_record_invalid", canonicalClone);
+    }
+
+    if (typeof baseProgramFingerprint === "string" && overlay.baseProgramFingerprint !== baseProgramFingerprint) {
+      return makeResult(false, "invalid", false, "base_fingerprint_mismatch", canonicalClone);
+    }
+
+    if (typeof blockId === "string" && overlay.blockId !== blockId) {
+      return makeResult(true, "inactive", false, null, canonicalClone);
+    }
+
+    if (overlay.reassessmentOutcome !== null) {
+      return makeResult(true, "inactive", false, null, canonicalClone);
+    }
+
+    if (!Number.isInteger(elapsedWeek) || elapsedWeek !== 1) {
+      return makeResult(true, "inactive", false, null, canonicalClone);
+    }
+
+    const entryBySlot = new Map();
+    for (const entry of overlay.entries) {
+      if (!isObject(entry) || typeof entry.slot !== "string" || !Number.isInteger(entry.effectiveWorkingSets) || entry.effectiveWorkingSets < 0) {
+        return makeResult(false, "invalid", false, "invalid_recovery_entries", canonicalClone);
+      }
+      entryBySlot.set(entry.slot, entry.effectiveWorkingSets);
+    }
+
+    const projected = [];
+    for (const row of canonicalProgramRows) {
+      const slotId = typeof row.slotId === "string" ? row.slotId : (typeof row.id === "string" ? row.id : null);
+      if (slotId && entryBySlot.has(slotId)) {
+        const effectiveSets = entryBySlot.get(slotId);
+        if (effectiveSets === 0) {
+          continue;
+        }
+        projected.push({ ...clone(row), sets: effectiveSets });
+      } else {
+        projected.push(clone(row));
+      }
+    }
+
+    return makeResult(true, "active", true, null, projected);
+  }
+
+  function projectRecoveryRows(canonicalProgramRows, committedRecoveryRecord, context) {
+    return projectRecoveryProgram(canonicalProgramRows, committedRecoveryRecord, context).rows;
+  }
+
   const api = Object.freeze({
     SCHEMA_VERSION,
     SLOT_MAPPING_SCHEMA_VERSION,
@@ -2603,7 +2961,17 @@
     proposeVolumeReduction,
     createVolumeReductionProposal: proposeVolumeReduction,
     validateProposal,
+    validateRecoveryProposal,
+    validateRecoveryRecord,
+    validateCommittedRecoveryRecord: validateRecoveryRecord,
+    validateCommittedRecord: validateRecoveryRecord,
     commitRecord,
+    sealRecoveryRecord: commitRecord,
+    reassessRecoveryRecord,
+    reassessRecoveryWeek: reassessRecoveryRecord,
+    projectRecoveryProgram,
+    projectRecoveryRows,
+    projectRecoveryLifecycle: projectRecoveryProgram,
     createGuidedManualRepair,
     createGuidedManualRepairCandidate: createGuidedManualRepair,
     evaluateRecoveryEligibility,
