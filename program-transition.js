@@ -1891,8 +1891,13 @@
     for (const pattern of approvedPolicy.primaryPatterns) {
       if (own(evidence.outcomesByPattern, pattern)) {
         const outcome = evidence.outcomesByPattern[pattern];
-        normalizedOutcomes[pattern] = outcome;
         if (approvedPolicy.eligibility.qualifyingOutcomes.includes(outcome)) {
+          // The evidence snapshot names only the qualifying patterns and the
+          // maintained/declined observation supporting each one, in fixed policy
+          // order (docs/recovery-week-policy.md). A non-qualifying third
+          // known-pattern outcome (improved/insufficient/untested) is evaluated
+          // for the gate but is never persisted as eligibility evidence.
+          normalizedOutcomes[pattern] = outcome;
           qualifyingPatterns.push(pattern);
         }
       }

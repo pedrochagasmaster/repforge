@@ -133,9 +133,74 @@ test("truth table: all 8 3-of-3 maintained/declined combinations qualify with 3 
   assert.equal(tested, 8, "must cover all 8 3-of-3 combinations");
 });
 
-test("mixed qualifying outcomes: 2 qualifying patterns plus non-qualifying third pattern still qualify", () => {
+test("mixed qualifying outcomes: a non-qualifying third pattern is gated but omitted from returned evidence", () => {
+  // docs/recovery-week-policy.md: "The evidence snapshot names the qualifying
+  // patterns and the maintained or declined observations that support each one."
+  // A third known primary pattern whose outcome is improved/insufficient/untested
+  // may be considered for the two-pattern gate, but it enabled nothing and must
+  // never be persisted into eligibilityEvidence.outcomesByPattern.
   const nonQualifying = ["improved", "insufficient", "untested"];
-  for (const nq of nonQualifying) {
+
+  // The non-qualifying outcome is placed at each of the three policy patterns in
+  // turn, so the omission holds regardless of position and the returned keys
+  // stay in fixed policy order (knee-dominant, horizontal press, hip/hinge).
+  const placements = [
+    {
+      label: "trailing pattern hip/hinge is non-qualifying",
+      qualifying: { "knee-dominant": "maintained", "horizontal press": "declined" },
+      nonQualifyingPattern: "hip/hinge",
+      expectedQualifyingPatterns: ["knee-dominant", "horizontal press"],
+    },
+    {
+      label: "middle pattern horizontal press is non-qualifying",
+      qualifying: { "knee-dominant": "maintained", "hip/hinge": "declined" },
+      nonQualifyingPattern: "horizontal press",
+      expectedQualifyingPatterns: ["knee-dominant", "hip/hinge"],
+    },
+    {
+      label: "leading pattern knee-dominant is non-qualifying",
+      qualifying: { "horizontal press": "maintained", "hip/hinge": "declined" },
+      nonQualifyingPattern: "knee-dominant",
+      expectedQualifyingPatterns: ["horizontal press", "hip/hinge"],
+    },
+  ];
+
+  for (const placement of placements) {
+    for (const nq of nonQualifying) {
+      const evidence = {
+        outcomesByPattern: {
+          ...placement.qualifying,
+          [placement.nonQualifyingPattern]: nq,
+        },
+        checkpointAnswer: "Yes",
+      };
+      const result = evaluateRecoveryEligibility(evidence, APPROVED_POLICY_V2);
+      assert.equal(result.ok, true, `${placement.label} with ${nq} must still qualify`);
+      assert.equal(result.status, "eligible");
+      assert.equal(result.eligible, true);
+
+      const { outcomesByPattern, qualifyingPatterns } = result.eligibilityEvidence;
+
+      // The non-qualifying outcome is omitted from returned evidence.
+      assert.equal(
+        Object.prototype.hasOwnProperty.call(outcomesByPattern, placement.nonQualifyingPattern),
+        false,
+        `${placement.label}: ${nq} must not be persisted as eligibility evidence`,
+      );
+
+      // outcomesByPattern is exactly the qualifying patterns with their
+      // supporting maintained/declined observations, in fixed policy order.
+      assert.deepEqual(outcomesByPattern, placement.qualifying);
+      assert.deepEqual(qualifyingPatterns, placement.expectedQualifyingPatterns);
+
+      // Its key list is exactly equal to qualifyingPatterns (members and order).
+      assert.deepEqual(Object.keys(outcomesByPattern), qualifyingPatterns);
+    }
+  }
+});
+
+test("mixed qualifying outcomes: improved/insufficient/untested are individually omitted from evidence", () => {
+  for (const nq of ["improved", "insufficient", "untested"]) {
     const evidence = {
       outcomesByPattern: {
         "knee-dominant": "maintained",
@@ -145,14 +210,25 @@ test("mixed qualifying outcomes: 2 qualifying patterns plus non-qualifying third
       checkpointAnswer: "Yes",
     };
     const result = evaluateRecoveryEligibility(evidence, APPROVED_POLICY_V2);
-    assert.equal(result.ok, true, `mixed with ${nq} must qualify`);
+    assert.equal(result.ok, true, `mixed with ${nq} must qualify on the two supporting patterns`);
     assert.equal(result.status, "eligible");
-    assert.deepEqual(result.eligibilityEvidence.qualifyingPatterns, ["knee-dominant", "horizontal press"]);
+    assert.equal(
+      "hip/hinge" in result.eligibilityEvidence.outcomesByPattern,
+      false,
+      `${nq} outcome for hip/hinge must be absent from returned evidence`,
+    );
     assert.deepEqual(result.eligibilityEvidence.outcomesByPattern, {
       "knee-dominant": "maintained",
       "horizontal press": "declined",
-      "hip/hinge": nq,
     });
+    assert.deepEqual(result.eligibilityEvidence.qualifyingPatterns, [
+      "knee-dominant",
+      "horizontal press",
+    ]);
+    assert.deepEqual(
+      Object.keys(result.eligibilityEvidence.outcomesByPattern),
+      result.eligibilityEvidence.qualifyingPatterns,
+    );
   }
 });
 
