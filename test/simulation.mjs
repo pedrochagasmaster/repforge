@@ -2242,7 +2242,7 @@ async function main() {
     const cancelPath = join(tmpDir, "cancel-test.json");
     writeFileSync(cancelPath, JSON.stringify(cancelPayload));
     await page.setInputFiles("#importJson", cancelPath);
-    await page.waitForSelector("#importChoice:not(.hidden)");
+    await page.waitForSelector("#importChoice[open]");
     await page.click("#importCancel");
     const afterCancel = await getState(page);
     assert(
@@ -2253,7 +2253,7 @@ async function main() {
       "Settings → Import backup → Cancel → settings and log unchanged"
     );
     assert(
-      (await page.locator("#importChoice").getAttribute("class")).includes("hidden"),
+      await page.locator("#importChoice").evaluate((dialog) => !dialog.open),
       "Import choice dialog closes on cancel",
       "importChoice still visible",
       "Import → Cancel → dialog hidden"
@@ -2266,7 +2266,7 @@ async function main() {
     writeFileSync(jsonPath, JSON.stringify(exported, null, 2));
 
     await page.setInputFiles("#importJson", jsonPath);
-    await page.waitForSelector("#importChoice:not(.hidden)");
+    await page.waitForSelector("#importChoice[open]");
     await page.click("#importReplace");
     await page.waitForTimeout(200);
 
@@ -2295,7 +2295,7 @@ async function main() {
     );
     const beforeMerge = (await getState(page)).log.length;
     await page.setInputFiles("#importJson", join(tmpDir, "merge.json"));
-    await page.waitForSelector("#importChoice:not(.hidden)");
+    await page.waitForSelector("#importChoice[open]");
     await page.click("#importMerge");
     await page.waitForTimeout(200);
     const afterMerge = await getState(page);
@@ -2315,7 +2315,7 @@ async function main() {
       JSON.stringify({ program: exported.program, log: exported.log.slice(0, 6) })
     );
     await page.setInputFiles("#importJson", noSettingsPath);
-    await page.waitForSelector("#importChoice:not(.hidden)");
+    await page.waitForSelector("#importChoice[open]");
     await page.click("#importReplace");
     await page.waitForTimeout(200);
     state = await getState(page);
@@ -2986,7 +2986,7 @@ async function main() {
   await page.waitForTimeout(200);
   const malformedProgramImport = await page.evaluate(() => ({
     toast: document.querySelector("#toast")?.textContent || "",
-    chooserOpen: !document.querySelector("#importChoice")?.classList.contains("hidden"),
+    chooserOpen: !!document.querySelector("#importChoice")?.open,
     programIsArray: Array.isArray(JSON.parse(localStorage.getItem("repforge_v1") || "null")?.program),
   }));
   assert(
@@ -6971,9 +6971,9 @@ async function main() {
       await nav(page, "program");
       await applyProgramEditor(page);
       await page.click("#reviewBlockLink");
-      await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
+      await page.waitForSelector("#endBlockConfirm[open]", { timeout: 5000 });
       await page.click("#endBlockGo");
-      await page.waitForSelector("#blockReview:not(.hidden)", { timeout: 5000 });
+      await page.waitForSelector("#blockReview[open]", { timeout: 5000 });
     };
     const heroOf = async () => (await page.locator("#blockReview .blockreview__hero").textContent())?.trim() || "";
     const panelOf = async () => (await page.locator("#blockReview").textContent()) || "";
@@ -6994,7 +6994,7 @@ async function main() {
       "#blockReview body at active week 8 of 6"
     );
     await page.click("#blockDecideLater");
-    await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
+    await page.waitForFunction(() => !document.querySelector("#blockReview")?.open);
     const afterLater = (await getState(page)).programMeta.mesocycleStatus;
     assert(
       afterLater === "active",
@@ -7022,7 +7022,7 @@ async function main() {
       "lang=pt → #blockReview body at active week 8 of 6"
     );
     await page.click("#blockDecideLater");
-    await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
+    await page.waitForFunction(() => !document.querySelector("#blockReview")?.open);
     await persistState(page, { ...(await getState(page)), settings: { ...(await getState(page)).settings, lang: "en" } });
     await reloadApp(page);
 
@@ -7077,7 +7077,7 @@ async function main() {
       "#blockReview body when stored-completed"
     );
     await page.click("#blockReviewClose");
-    await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
+    await page.waitForFunction(() => !document.querySelector("#blockReview")?.open);
 
     await persistState(page, { ...(await getState(page)), settings: { ...(await getState(page)).settings, lang: "pt" } });
     await reloadApp(page);
@@ -7097,7 +7097,7 @@ async function main() {
       "lang=pt → #blockReview body when stored-completed"
     );
     await page.click("#blockReviewClose");
-    await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
+    await page.waitForFunction(() => !document.querySelector("#blockReview")?.open);
     await persistState(page, f8Restore);
     await reloadApp(page);
   }
@@ -7206,25 +7206,25 @@ async function main() {
   await nav(page, "program");
   await applyProgramEditor(page);
   await page.click("#reviewBlockLink");
-  await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
+  await page.waitForSelector("#endBlockConfirm[open]", { timeout: 5000 });
   assert(
-    await page.evaluate(() => document.querySelector("#blockReview")?.classList.contains("hidden")),
+    await page.evaluate(() => !document.querySelector("#blockReview")?.open),
     "P8: confirm open — block review stays hidden",
-    `blockReview hidden=${await page.evaluate(() => document.querySelector("#blockReview")?.classList.contains("hidden"))}`,
+    `blockReview hidden=${await page.evaluate(() => !document.querySelector("#blockReview")?.open)}`,
     "End block → #endBlockConfirm visible, #blockReview still hidden"
   );
   await page.click("#endBlockCancel");
-  await page.waitForFunction(() => document.querySelector("#endBlockConfirm")?.classList.contains("hidden"));
+  await page.waitForFunction(() => !document.querySelector("#endBlockConfirm")?.open);
   assert(
-    await page.evaluate(() => document.querySelector("#blockReview")?.classList.contains("hidden")),
+    await page.evaluate(() => !document.querySelector("#blockReview")?.open),
     "P8: cancel confirm — block review stays hidden",
-    `blockReview hidden=${await page.evaluate(() => document.querySelector("#blockReview")?.classList.contains("hidden"))}`,
+    `blockReview hidden=${await page.evaluate(() => !document.querySelector("#blockReview")?.open)}`,
     "Cancel #endBlockConfirm → overlay hides, review not opened"
   );
   await page.click("#reviewBlockLink");
-  await page.waitForSelector("#endBlockConfirm:not(.hidden)", { timeout: 5000 });
+  await page.waitForSelector("#endBlockConfirm[open]", { timeout: 5000 });
   await page.click("#endBlockGo");
-  await page.waitForSelector("#blockReview:not(.hidden)", { timeout: 5000 });
+  await page.waitForSelector("#blockReview[open]", { timeout: 5000 });
   const REC_STRATEGY = {
     repeat_or_progress: "repeat",
     repeat_with_small_swaps: "repeat_swaps",
@@ -7270,7 +7270,7 @@ async function main() {
     "End block → panel body includes mapped recommendation line"
   );
   await page.click("#blockReviewClose");
-  await page.waitForFunction(() => document.querySelector("#blockReview")?.classList.contains("hidden"));
+  await page.waitForFunction(() => !document.querySelector("#blockReview")?.open);
 
   beginPhase("Phase: P9 next-block flow");
   await page.evaluate(() => window.__repforgeStorage.flush());

@@ -53,12 +53,15 @@ depend on them. Full inventory in `AGENTS.md` and `docs/brand-guide.md`.
 | `sw.js` | Service worker; `repforge-vNN` cache name (`repforge-v112` today; `?v=112` revisions), atomic `addAll` precache |
 | `manifest.webmanifest`, `icons/`, `fonts/`, `assets/` | PWA manifest, icons, Plex woff2, brand + 96 licensed exercise `.webp` illustrations |
 | `posthog-init.js` | Reads `window.__POSTHOG_CONFIG__` and loads the PostHog SDK via the managed reverse proxy; no-ops when unconfigured |
+| `motion-layer.js` | The only caller of Motion: the motion vocabulary, sheet/deck gesture physics, editor reorder FLIP, disclosure heights, one reduced-motion decision |
+| `vendor/motion/`, `vendor/dnd-kit/` | **Generated** pinned browser bundles of Motion and @dnd-kit/dom — never hand-edit; regenerate with `tools/build-vendor-runtimes.mjs` |
 
 ### Tooling and tests
 
 | Path | Role |
 | --- | --- |
-| `tools/*.mjs` | Offline generators (never run in the browser): `build-i18n.mjs`, `build-exercises.mjs`, `capture-ui-screens.mjs`, `sample-media-bg.mjs`, `build-brand-mark.mjs`. See `tools/README.md`. |
+| `tools/*.mjs` | Offline generators (never run in the browser): `build-i18n.mjs`, `build-exercises.mjs`, `build-vendor-runtimes.mjs`, `capture-ui-screens.mjs`, `sample-media-bg.mjs`, `build-brand-mark.mjs`. See `tools/README.md`. |
+| `tools/vendor-runtimes/` | Pinned build-time deps and entry files for the vendored runtimes; tooling only, never shipped |
 | `tools/exercise-curation.json` | The reviewed allowlist feeding `build-exercises.mjs` |
 | `scripts/generate-posthog-config.mjs` | Cloudflare Pages build step: writes `posthog-config.js` and injects its `<script>` tag into `index.html` |
 | `test/*.mjs` | Playwright browser suites + pure-Node unit suites; pinned deps under `test/` only |
@@ -132,6 +135,7 @@ test/generative/*/*.mjs`.
 
 ## Conventions and rituals
 
+- **Vendored runtimes** — Motion and @dnd-kit ship as committed, pinned, tree-shaken bundles under `vendor/`; no CDN, no runtime resolution, precached with the shell. Application code reaches Motion only through `motion-layer.js`. `docs/design/interaction-runtime-audit.md` records what is animated where and why — read it before adding or re-tuning motion.
 - **Generated files** — `i18n.js` and `exercises.js` are committed but generated. Edit the
   source (`i18n-*.json`, `tools/exercise-curation.json`) and re-run the tool; `--check` flags
   drift. Library `id`s are stored in saved programs as `libraryId` — **never repoint an id at a

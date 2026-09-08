@@ -5,6 +5,32 @@ part of serving the app — Taurifer stays build-free. These scripts produce
 committed files, the same way `i18n.js` is produced from `i18n-en.json` and
 `i18n-pt.json`.
 
+## build-vendor-runtimes.mjs
+
+Regenerates the two third-party runtimes the app ships from `vendor/`: Motion
+and @dnd-kit/dom. Each is bundled with the pinned esbuild from the entry file
+that names the exports the app is allowed to use, so everything else in the
+package is tree-shaken away. The bundle and a pin recording the package version,
+the bundler version, the byte length and a sha256 are committed beside each
+other, and the service worker precaches the bundles with the rest of the shell.
+The browser resolves no package and reaches no CDN.
+
+```bash
+(cd tools/vendor-runtimes && npm ci)      # build-time only; the app ships no deps
+node tools/build-vendor-runtimes.mjs      # all runtimes
+node tools/build-vendor-runtimes.mjs motion
+node tools/build-vendor-runtimes.mjs --check
+```
+
+`--check` is offline: it re-hashes the committed bundles against their pins with
+no network and no `node_modules`, which is what CI runs. It fails the moment
+vendored code is hand-edited or a pin drifts from `package.json`.
+
+Upgrading a runtime means editing `tools/vendor-runtimes/package.json`, running
+`npm install` there, re-running this tool, and re-reading
+`docs/design/interaction-runtime-audit.md` — a new runtime can change how a
+gesture feels with no application diff at all.
+
 ## build-program-family-fixtures.mjs
 
 Generates the reviewed Plan 047 resolution fixture from `program-compiler.js`.

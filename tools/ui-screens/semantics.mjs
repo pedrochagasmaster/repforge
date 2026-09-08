@@ -77,6 +77,7 @@ export function collectProgramEntrySemantics() {
     document.querySelector("#onboarding"),
     document.querySelector("#firstRun"),
     document.querySelector("#program"),
+    document.querySelector("#importReview"),
   ].find(isVisible);
   if (!root) return [];
   const text = (element) => normalise(element.textContent);
