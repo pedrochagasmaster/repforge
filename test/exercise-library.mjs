@@ -239,6 +239,7 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
     "program-entry.js",
     "program-entry-adapter.js",
     "shared-setup.js",
+    "workout-draft.js",
     "app.js",
   ];
   const missingRevision = transitionAssets.filter(file => !index.includes(`src="${file}?v=${revision}"`));
@@ -255,6 +256,12 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
     "the program-entry state machine is loaded and precached");
   assert(index.includes(`src="program-entry-adapter.js?v=${revision}"`) && sw.includes('"./program-entry-adapter.js"'),
     "the program-entry adapter is loaded and precached");
+  assert(index.includes(`src="workout-draft.js?v=${revision}"`) && sw.includes('"./workout-draft.js"'),
+    "the workout draft domain is loaded and precached");
+  assert(index.indexOf(`src="workout-draft.js?v=${revision}"`) < index.indexOf(`src="app.js?v=${revision}"`),
+    "the workout draft domain loads before its production adapter");
+  assert(/SHELL = new Set\([^\n]+"\/workout-draft\.js"/.test(sw),
+    "the workout draft domain is part of the offline shell");
   assert(index.indexOf(`src="program-entry.js?v=${revision}"`) < index.indexOf(`src="program-entry-adapter.js?v=${revision}"`),
     "the dependency-free state machine loads before its production adapter");
   assert(/SHELL = new Set\([^\n]+"\/program-compiler\.js"/.test(sw),

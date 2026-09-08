@@ -4,6 +4,14 @@ This is the manual gate for the interaction-runtime work in PR #232. It reuses t
 
 The automated browser suites prove state, accessibility semantics, interruption contracts, runtime pins, offline behavior, and source-level motion rules. They cannot prove how a spring feels under real touch input, whether one-handed drag auto-scroll engages at a comfortable distance on a physical phone, or whether VoiceOver/TalkBack announcement pacing is usable. Those three residuals must be checked on hardware before this PR is moved out of draft.
 
+## Owner disposition for merge
+
+On 2026-09-08, the owner explicitly directed that PR #232 be merged with the
+physical-device rows below still blank. This is acceptance of the residual
+gesture-feel and assistive-technology pacing risk, not evidence that C2, C3, C5,
+or C6 passed. Keep the matrix available for later validation and do not cite
+this merge decision as physical-device proof in Plan 059.
+
 ## Required cells
 
 | Cell | Device surface | Locale / unit | Required assistive-tech pass |

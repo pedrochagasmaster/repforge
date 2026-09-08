@@ -2761,6 +2761,13 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .sessionbanner__close{position:absolute;top:0;right:0;width:44px;height:44px;margin:0;padding:0;border:0;background:transparent;color:inherit;font:inherit;line-height:1;cursor:pointer;opacity:.7}
 .sessionbanner__title{font-weight:700;margin:0 0 .25rem}
 .sessionbanner__body{margin:0;font-size:.9rem;color:var(--ink-soft)}
+.draft-recovery{margin:0 0 14px;padding:12px 14px;border-left:3px solid var(--danger);background:var(--well);color:var(--ink)}
+.draft-recovery.hidden{display:none}
+.draft-recovery__title{margin:0 0 4px;font-weight:700}
+.draft-recovery__body,.draft-recovery__pending{margin:0;font-size:.875rem;line-height:1.45;color:var(--ink-soft)}
+.draft-recovery__pending{margin-top:8px;padding:8px;border:1px solid var(--rule);border-radius:8px;overflow-wrap:anywhere;color:var(--ink)}
+.draft-recovery__actions{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.draft-recovery__actions .btn{width:auto;min-height:44px;padding:8px 12px;flex:1 1 auto}
 .notifytypes{display:grid;gap:0;margin:2px 0 4px}
 #unfinishedBanner{margin:0 0 .75rem;padding:.75rem 0;border:0;border-bottom:1px solid var(--rule);border-radius:0}
 #unfinishedBanner.hidden{display:none}
@@ -3173,6 +3180,39 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 }
 .entry__field input{text-transform:none;letter-spacing:normal;color:var(--ink);font-size:1rem}
 .entry__field input{font:inherit;font-weight:500;padding:12px 14px;border-radius:var(--radius);border:1px solid var(--rule);background:var(--surface);color:var(--ink)}
+
+/* Free-form import. Two long fields with a hand-off between them, so the
+   screen is read as a sequence rather than a form: paste, convert, paste back.
+   The app links are anchors — a real navigation survives a standalone install
+   — and carry their unavailable state on `is-disabled`, since an anchor has no
+   `:disabled` of its own. */
+.entry__field--area{gap:8px}
+.entry__field--area textarea{
+  font:inherit;font-weight:500;text-transform:none;letter-spacing:normal;
+  padding:12px 14px;border-radius:var(--radius);border:1px solid var(--rule);
+  background:var(--surface);color:var(--ink);font-size:1rem;line-height:1.45;
+  resize:vertical;min-height:96px;width:100%;box-sizing:border-box
+}
+.entry__freeform-apps{display:flex;flex-wrap:wrap;gap:10px;margin:4px 0 0}
+.entry__freeform-app{flex:1 1 150px;text-decoration:none;text-align:center}
+.entry__freeform-app.is-disabled{opacity:.4}
+.entry__gaps-list{display:flex;flex-direction:column;gap:12px;margin:16px 0}
+/* The gap step tells the lifter which fields are highlighted, so they have to
+   actually be highlighted; aria-invalid carries the same state to a reader. */
+.entry__field-input.is-invalid{border-color:var(--danger);box-shadow:0 0 0 2px rgba(var(--danger-rgb),.25)}
+/* Coming back from the assistant marks the reply field rather than stealing
+   focus or the keyboard. */
+.entry__field--area textarea.is-returned{border-color:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.28);transition:box-shadow .25s ease,border-color .25s ease}
+@media (prefers-reduced-motion:reduce){.entry__field--area textarea.is-returned{transition:none}}
+.entry__original-text{margin:16px 0;padding:8px 12px;border:1px solid var(--rule);border-radius:var(--radius);background:var(--surface)}
+.entry__original-text summary{cursor:pointer;font-weight:600;color:var(--ink-soft);font-size:.875rem}
+.entry__original-text pre{margin:10px 0 0;font:inherit;font-family:monospace;font-size:.8125rem;white-space:pre-wrap;word-break:break-word;color:var(--ink)}
+.entry__freeform-summary{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1px solid var(--rule);border-radius:var(--radius);background:var(--surface);margin-bottom:16px;font-size:.875rem;color:var(--ink-soft)}
+.entry__freeform-preview{margin:12px 0;font-size:.8125rem}
+.entry__freeform-preview summary{cursor:pointer;color:var(--ink-soft);font-weight:600}
+.entry__freeform-prompt-preview{margin:8px 0 0;padding:10px;background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);font-family:monospace;font-size:.75rem;white-space:pre-wrap;max-height:160px;overflow-y:auto}
+.entry__switch{margin:16px 0 0;display:flex;justify-content:center}
+.entry-body .entry__switch .btn--ghost{color:var(--ink-soft)}
 .radio-card.is-disabled,.radio-card:disabled{
   opacity:.45;cursor:not-allowed}
 .entry__correct{margin-top:14px;padding-top:4px}

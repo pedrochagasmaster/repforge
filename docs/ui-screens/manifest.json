@@ -577,6 +577,55 @@
       "variants": "localized"
     },
     {
+      "id": "freeform-empty",
+      "flow": "onboarding-import",
+      "label": "Import — paste a program",
+      "scenario": "The free-form door as it opens: an empty field, and the hand-off to ChatGPT or Claude still unavailable.",
+      "variants": "localized"
+    },
+    {
+      "id": "freeform-filled",
+      "flow": "onboarding-import",
+      "label": "Import — paste ready to convert",
+      "scenario": "A pasted program with both app links live, the character counter, and the field the reply comes back into.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "freeform-stage2",
+      "flow": "onboarding-import",
+      "label": "Import — choose an assistant",
+      "scenario": "Stage 2 with collapsed source summary, Edit button, ChatGPT and Claude buttons, and Preview prompt disclosure.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "freeform-stage3",
+      "flow": "onboarding-import",
+      "label": "Import — paste reply",
+      "scenario": "Stage 3 with collapsed source summary, reply textarea, Review CTA, Try another assistant, and Start over.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "freeform-gaps",
+      "flow": "onboarding-import",
+      "label": "Import — resolve gaps",
+      "scenario": "Gap resolution screen with inputs for missing sets and reps, and the non-imported disclosure.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "freeform-gaps-invalid",
+      "flow": "onboarding-import",
+      "label": "Import — gap validation error",
+      "scenario": "Gap resolution screen after submitting empty inputs, highlighting invalid fields with .is-invalid and aria-invalid.",
+      "variants": "localized"
+    },
+    {
+      "id": "freeform-unreadable",
+      "flow": "onboarding-import",
+      "label": "Import — unreadable reply",
+      "scenario": "Unreadable reply recovery block with Copy repair prompt and Try another assistant actions.",
+      "variants": "localized"
+    },
+    {
       "id": "preview",
       "flow": "onboarding-import",
       "label": "Import — review",
@@ -652,6 +701,27 @@
       "label": "Workout — focus mode",
       "scenario": "One exercise at a time.",
       "variants": "standard"
+    },
+    {
+      "id": "stale-draft",
+      "flow": "workout",
+      "label": "Workout — stale draft recovery",
+      "scenario": "A conflicting tab won while this tab retains a pending field value and offers Reload latest or Copy value.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "persist-retry",
+      "flow": "workout",
+      "label": "Workout — draft persistence retry",
+      "scenario": "A field write was interrupted; the exact pending value remains visible beside Retry and Copy value actions.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "invalid-draft",
+      "flow": "workout",
+      "label": "Workout — invalid draft recovery",
+      "scenario": "An unreadable local draft remains untouched and offers a non-destructive copy action.",
+      "variants": "demandingText"
     },
     {
       "id": "rest-timer",

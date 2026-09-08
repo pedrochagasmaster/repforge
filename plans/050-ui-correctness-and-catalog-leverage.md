@@ -5,7 +5,7 @@ and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkp
 
 - **Plan number:** 050
 - **Phase:** 1 — Proven defects and test leverage
-- **Status:** Planned; implementation has not started
+- **Status:** Implemented; merged to `main` as `3fbae92f` (PR #227)
 - **Owner approval state:** Approved in `docs/ui-audit.md`; no product choice remains
 - **Depends on:** Plan 049 decision register and preliminary semantic control roles
 - **Blocks:** Plan 054 and final Plan 059 validation; supplies overflow gates to every UI plan

@@ -210,18 +210,26 @@ async function main() {
     );
     const afterConfirm = await contextSnapshot(page);
     const confirmedDraft = JSON.parse(afterConfirm.draftRaw || "{}");
+    const confirmedContext = confirmedDraft.schemaVersion === 2
+      ? {
+          __day: confirmedDraft.program?.dayLabel,
+          __date: confirmedDraft.program?.scheduleDate,
+          __sessionNotes: confirmedDraft.session?.notes,
+          __bodyweight: confirmedDraft.session?.bodyweight,
+        }
+      : confirmedDraft;
     check(
       afterConfirm.date === freshDate && afterConfirm.notes === "" && afterConfirm.bodyweight === "",
       "Confirmed discard resets date, note, and bodyweight before the new day draft",
       { freshDate, afterConfirm }
     );
     check(
-      confirmedDraft.__day === "Day 2" &&
-        confirmedDraft.__date !== OLD_DATE &&
-        confirmedDraft.__sessionNotes !== OLD_NOTE &&
-        confirmedDraft.__bodyweight !== OLD_BODYWEIGHT,
+      confirmedContext.__day === "Day 2" &&
+        confirmedContext.__date !== OLD_DATE &&
+        confirmedContext.__sessionNotes !== OLD_NOTE &&
+        confirmedContext.__bodyweight !== OLD_BODYWEIGHT,
       "Confirmed discard removes Day-1 session context from draft storage",
-      confirmedDraft
+      { confirmedDraft, confirmedContext }
     );
 
     await fillSet(page, DAY_2_EXERCISE, 77);

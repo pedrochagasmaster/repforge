@@ -170,6 +170,11 @@ async function persistState(page, state) {
 
 /** Shift every logged row back `days` days, so today reads as untrained. */
 async function backdateLog(page, days) {
+  // This helper is used only to establish a clean Today fixture. Remove the
+  // active draft and all V2 sidecars before rewriting durable history, so a
+  // reload cannot reopen a stale workout shell over the Today dashboard.
+  await clearDraftFixture(page);
+  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
   const state = await getState(page);
   const shift = (iso) => {
     const d = new Date(`${iso}T12:00:00`);
@@ -366,7 +371,12 @@ async function getProgramExercises(page, day) {
 async function clearState(page) {
   await page.evaluate(async ({ k, d, setup }) => {
     localStorage.removeItem(k);
-    localStorage.removeItem(d);
+    // Clean-fixture reset: a canonical remove alone leaves the V2 checkpoint,
+    // recovery copy, tombstone and transaction sidecars behind. Those belong
+    // to the same draft namespace and must not leak into the next program.
+    for (const key of Object.keys(localStorage)) {
+      if (key === d || key.startsWith(`${d}:`)) localStorage.removeItem(key);
+    }
     localStorage.removeItem(setup);
     await new Promise((res) => {
       const req = indexedDB.deleteDatabase("repforge");
@@ -375,6 +385,46 @@ async function clearState(page) {
       req.onblocked = () => res();
     });
   }, { k: KEY, d: DRAFT, setup: SETUP_DRAFT });
+}
+
+async function clearDraftFixture(page) {
+  await page.evaluate((d) => {
+    // Clean scenario boundary. Fault, race and legacy scenarios seed their
+    // own raw/sidecar state explicitly and do not call this helper.
+    for (const key of Object.keys(localStorage)) {
+      if (key === d || key.startsWith(`${d}:`)) localStorage.removeItem(key);
+    }
+  }, DRAFT);
+}
+
+async function flushDraftWork(page) {
+  await page.evaluate(async () => {
+    if (typeof window.__repforgeWorkoutDraft?.flush !== "function") {
+      throw new Error("DraftV2 flush hook is unavailable");
+    }
+    await window.__repforgeWorkoutDraft.flush();
+  });
+}
+
+async function waitForSetDone(page, exerciseId, ordinal = 1) {
+  await flushDraftWork(page);
+  await page.waitForFunction(({ exerciseId: id, ordinal: setOrdinal }) => {
+    const draft = window.__repforgeWorkoutDraft?.current?.();
+    const exercise = draft?.exercises?.[id];
+    const set = exercise && Object.values(exercise.sets || {}).find((candidate) => candidate.ordinal === setOrdinal);
+    return set?.completion !== "pending" &&
+      document.querySelector(`[data-set="${id}_${setOrdinal}"]`)?.classList.contains("is-done");
+  }, { exerciseId, ordinal }, { timeout: 5000 });
+}
+
+async function readDraftRaw(page) {
+  await flushDraftWork(page);
+  return page.evaluate(() => window.__repforgeWorkoutDraft?.read?.().raw ?? null);
+}
+
+async function readDraft(page) {
+  await flushDraftWork(page);
+  return page.evaluate(() => window.__repforgeWorkoutDraft?.current?.() ?? null);
 }
 
 async function nav(page, view) {
@@ -401,9 +451,17 @@ async function nav(page, view) {
   }
   if (view === "log") {
     // Ensure workout shell is available for set logging assertions (List mode).
-    const dash = page.locator("#todayDash:not(.hidden)");
-    if (await dash.count()) {
-      await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+    const shell = page.locator("#workoutShell:not(.hidden)");
+    if (!(await shell.count())) {
+      const entered = await page.evaluate(async () => window.__repforgeEnterWorkout?.({ focus: false }));
+      if (entered === false) {
+        console.log("    Log navigation diagnostic", await page.evaluate(() => ({
+          draft: window.__repforgeWorkoutDraft?.read?.(),
+          checkpoint: window.__repforgeWorkoutDraft?.checkpoint?.(),
+          recovery: window.__repforgeWorkoutDraft?.recovery?.(),
+          day: document.querySelector("#dayTabs button.active")?.dataset.day,
+        })));
+      }
       await page.waitForSelector("#workoutShell:not(.hidden), #workout", { timeout: 5000 });
     }
   }
@@ -432,10 +490,10 @@ async function revealProgramExerciseDetails(page, id) {
 }
 
 async function selectDay(page, dayName) {
-  await page.evaluate((d) => {
+  await page.evaluate(async (d) => {
     // Day tabs live in the workout shell; ensure it is open in List mode
     // so notes/bodyweight/day chrome stay interactive for harness checks.
-    if (typeof window.__repforgeEnterWorkout === "function") window.__repforgeEnterWorkout({ day: d, focus: false });
+    if (typeof window.__repforgeEnterWorkout === "function") await window.__repforgeEnterWorkout({ day: d, focus: false });
     else {
       const b = document.querySelector(`#dayTabs button[data-day="${CSS.escape(d)}"]`);
       if (b) b.click();
@@ -498,6 +556,49 @@ async function fillExerciseSets(page, exId, sets, load, reps, rir) {
     },
     { exId, sets, load, reps, rir }
   );
+  await page.waitForFunction(
+    ({ d, id, n, expected }) => {
+      try {
+        const draft = JSON.parse(localStorage.getItem(d) || "null");
+        const exercise = draft?.schemaVersion === 2 ? draft.exercises?.[id] : null;
+        const setId = exercise?.setOrder?.[n - 1];
+        const edited = exercise?.sets?.[setId]?.edited;
+        return edited?.load === expected.load && edited?.reps === expected.reps &&
+          (edited?.rir != null || edited?.effort != null);
+      } catch {
+        return false;
+      }
+    },
+    {
+      d: DRAFT,
+      id: exId,
+      n: sets,
+      expected: { load: String(load), reps: String(reps), rir: String(rir) },
+    },
+    { timeout: 5000 }
+  );
+}
+
+async function waitForDraftSetCompletion(page, exId, ordinal = 1) {
+  await page.waitForFunction(
+    ({ d, id, n }) => {
+      try {
+        const draft = JSON.parse(localStorage.getItem(d) || "null");
+        const exercise = draft?.schemaVersion === 2 ? draft.exercises?.[id] : null;
+        const setId = exercise?.setOrder?.[n - 1];
+        return exercise?.sets?.[setId]?.completion !== "pending";
+      } catch {
+        return false;
+      }
+    },
+    { d: DRAFT, id: exId, n: ordinal },
+    { timeout: 5000 }
+  );
+}
+
+async function commitDraftSet(page, selector, exId, ordinal = 1) {
+  await page.click(selector);
+  await waitForDraftSetCompletion(page, exId, ordinal);
 }
 
 /**
@@ -731,10 +832,8 @@ async function logJson(page) {
 }
 
 async function resetWorkoutDraft(page) {
-  await page.evaluate((d) => {
-    localStorage.removeItem(d);
-    window.__repforgeEnterWorkout?.({ focus: false });
-  }, DRAFT);
+  await clearDraftFixture(page);
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
 }
 
 async function setLangUnit(page, lang, unit) {
@@ -876,6 +975,10 @@ async function cardInfoById(page, exId) {
 /** Inject log rows for one exercise, reload, return recommendation card for that exercise. */
 async function scenarioRecommendation(page, { day, exId, rows, settingsPatch } = {}) {
   const state = await getState(page);
+  // Every recommendation case owns its draft lifecycle. A prior scenario can
+  // leave an active DraftV2 with touched suggestions; reloading that draft
+  // would make this history-only fixture depend on the previous case.
+  await clearDraftFixture(page);
   const merged = {
     ...state,
     settings: { ...state.settings, ...(settingsPatch || {}) },
@@ -1055,6 +1158,14 @@ async function main() {
   await fillExerciseSets(page, d1Exs[0].id, d1Exs[0].sets, 100, 8, 1);
   await page.fill(`[data-k="${d1Exs[0].id}_1_load"]`, "0");
   await page.fill(`[data-k="${d1Exs[0].id}_1_reps"]`, "0");
+  await page.waitForFunction(({ d, id }) => {
+    try {
+      const draft = JSON.parse(localStorage.getItem(d) || "null");
+      return draft?.schemaVersion === 2 && draft.exercises?.[id]?.sets?.["set-1"]?.edited?.load === "0";
+    } catch {
+      return false;
+    }
+  }, { d: DRAFT, id: d1Exs[0].id }, { timeout: 5000 });
   const logLenBeforeZero = (await getState(page)).log.length;
   const draftBeforeZero = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
   await hideToast(page);
@@ -1267,6 +1378,7 @@ async function main() {
       }, actionMeta?.id || "");
     } else {
       await page.waitForFunction(() => document.querySelector("#log")?.classList.contains("active"), null, { timeout: 5000 });
+      if (actionMeta?.id) await page.waitForSelector(`#workout [data-ex="${actionMeta.id}"]`, { timeout: 5000 });
       actionNavOk = await page.evaluate(
         ({ id, day }) => {
           const tab = document.querySelector("#dayTabs button.active");
@@ -1385,8 +1497,15 @@ async function main() {
   await page.fill(`[data-k="${draftEx.id}_1_load"]`, draftLoad);
   await page.fill(`[data-k="${draftEx.id}_1_reps"]`, "7");
   await page.waitForFunction(
-    ({ d, load }) => localStorage.getItem(d)?.includes(load),
-    { d: DRAFT, load: draftLoad },
+    ({ d, id, load }) => {
+      try {
+        const draft = JSON.parse(localStorage.getItem(d) || "null");
+        return draft?.schemaVersion === 2 && draft.exercises?.[id]?.sets?.["set-1"]?.edited?.load === load;
+      } catch {
+        return false;
+      }
+    },
+    { d: DRAFT, id: draftEx.id, load: draftLoad },
     { timeout: 5000 }
   );
 
@@ -1413,11 +1532,27 @@ async function main() {
   // Saving clears draft
   await saveWorkout(page);
   const draftAfterSave = await page.evaluate((d) => localStorage.getItem(d), DRAFT);
+  const freshDraftAfterSave = await page.evaluate((d) => {
+    try {
+      const draft = JSON.parse(localStorage.getItem(d) || "null");
+      if (draft?.schemaVersion !== 2 || draft.session?.status !== "active") return false;
+      return draft.exerciseOrder.every((id) => {
+        const exercise = draft.exercises?.[id];
+        return exercise?.status === "active" && exercise.setOrder.every((setId) => {
+          const set = exercise.sets?.[setId];
+          return set?.completion === "pending" &&
+            !set.touched?.load && !set.touched?.reps && !set.touched?.effort;
+        });
+      });
+    } catch {
+      return false;
+    }
+  }, DRAFT);
   assert(
-    !draftAfterSave || draftAfterSave === "{}",
-    "Draft cleared after save",
-    `Draft still present: ${draftAfterSave?.slice(0, 80)}`,
-    "Log tab → fill draft → Save workout → draft key should be empty"
+    !draftAfterSave || draftAfterSave === "{}" || freshDraftAfterSave,
+    "Finish replaces the saved draft with a fresh empty session draft",
+    `Draft after save: ${draftAfterSave?.slice(0, 80)}`,
+    "Log tab → fill draft → Save workout → only a fresh untouched DraftV2 may remain"
   );
 
   // ── Phase 3: Switch days & verify tabs ───────────────────────────
@@ -1446,6 +1581,11 @@ async function main() {
   // ── Phase 4: Program editing — rename, add, remove, reorder ──────
   beginPhase("Phase 4: Program editing");
 
+  // Selecting a day records explicit session intent in DraftV2. End that
+  // independent logging fixture before changing the durable program so the
+  // editor does not correctly surface a stale-program recovery state.
+  await clearDraftFixture(page);
+  await reloadApp(page);
   await nav(page, "program");
 
   // Rename Day 1
@@ -1627,6 +1767,10 @@ async function main() {
   // ── Phase: Program metadata ──────────────────────────────────────
   beginPhase("Phase: program metadata");
 
+  // The preceding log navigation selected Day 2 and created an intent-bearing
+  // draft. Clear that independent session before editing durable metadata.
+  await clearDraftFixture(page);
+  await reloadApp(page);
   await nav(page, "program");
   state = await getState(page);
   assert(
@@ -2253,7 +2397,7 @@ async function main() {
   const wEx = wMeta[0];
   await fillExerciseSets(page, wEx.id, wEx.sets, 100, 6, 2);
   await page.click(`[data-warm="${wEx.id}_1"]`);
-  await page.fill(`[data-k="${wEx.id}_1_load"]`, "20");
+  await fillExerciseSets(page, wEx.id, 1, 20, 6, 2);
   await saveWorkout(page);
   const wState = await getState(page);
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -2412,14 +2556,20 @@ async function main() {
   const stateBeforeImport = await getState(page);
   const metaBeforeImport = stateBeforeImport.programMeta;
   const programBeforeImport = stateBeforeImport.program;
-  const importDraft = await page.evaluate((k) => {
-    const raw = JSON.stringify({
-      __sessionNotes: "unfinished before program import",
-      __contextTouched: { sessionNotes: true },
+  const importDraft = await page.evaluate(async () => {
+    const entered = await window.__repforgeEnterWorkout?.({ focus: false });
+    if (entered !== true) throw new Error("Could not open a workout to seed the import draft");
+    const result = await window.__repforgeWorkoutDraft?.dispatch("setSessionNotes", {
+      value: "unfinished before program import",
     });
-    localStorage.setItem(k, raw);
+    if (result?.status !== "applied") {
+      throw new Error(`Could not acknowledge import draft command: ${result?.status || "missing"}`);
+    }
+    await window.__repforgeStorage?.flush?.();
+    const raw = localStorage.getItem("repforge_draft_v1");
+    if (!raw) throw new Error("Import draft command produced no canonical draft");
     return raw;
-  }, DRAFT);
+  });
   await page.setInputFiles("#importProgram", progPath);
   await page.waitForSelector("#importReview.active", { timeout: 5000 });
   const stagedProgram = (await getState(page)).program;
@@ -2430,11 +2580,22 @@ async function main() {
     "Import program JSON → review screen"
   );
   await reviewAndCommitImport(page);
-  await page.waitForFunction(
-    ({ k, name }) => JSON.parse(localStorage.getItem(k) || "{}").program?.some((x) => x.name === name),
-    { k: KEY, name: "IMPORTED_RENAME" },
-    { timeout: 5000 }
-  );
+  try {
+    await page.waitForFunction(
+      ({ k, name }) => JSON.parse(localStorage.getItem(k) || "{}").program?.some((x) => x.name === name),
+      { k: KEY, name: "IMPORTED_RENAME" },
+      { timeout: 5000 }
+    );
+  } catch (error) {
+    console.log("    Program import diagnostic", await page.evaluate(() => ({
+      activeView: [...document.querySelectorAll(".view")].find((el) => el.classList.contains("active"))?.id,
+      entryStep: document.querySelector("#onboarding")?.dataset.step,
+      entryText: document.querySelector("#onboarding")?.innerText?.slice(0, 800),
+      state: JSON.parse(localStorage.getItem("repforge_v1") || "{}"),
+      draft: localStorage.getItem("repforge_draft_v1"),
+    })));
+    throw error;
+  }
   const stAfter = await getState(page);
   assert(
     stAfter.program.some((x) => x.name === "IMPORTED_RENAME"),
@@ -2977,7 +3138,7 @@ async function main() {
     await page.fill(`[data-k="${dynEx.id}_1_load"]`, "110");
     await page.fill(`[data-k="${dynEx.id}_1_reps"]`, String(max));
     await page.fill(`[data-k="${dynEx.id}_1_rir"]`, "3");
-    await page.click(`.saveset[data-save="${dynEx.id}_1"]`);
+    await commitDraftSet(page, `.saveset[data-save="${dynEx.id}_1"]`, dynEx.id, 1);
     await page.waitForTimeout(120);
     const dynUpLoad2 = +(await page.inputValue(`[data-k="${dynEx.id}_2_load"]`));
     const dynUpReps2 = +(await page.inputValue(`[data-k="${dynEx.id}_2_reps"]`));
@@ -3028,7 +3189,7 @@ async function main() {
       ...beforePortuguese,
       settings: { ...beforePortuguese.settings, lang: "pt" },
     });
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, "Day 1");
@@ -3036,7 +3197,7 @@ async function main() {
     await page.fill(`[data-k="${dynEx.id}_1_load"]`, "110");
     await page.fill(`[data-k="${dynEx.id}_1_reps"]`, String(Math.max(1, min - 2)));
     await page.fill(`[data-k="${dynEx.id}_1_rir"]`, "0");
-    await page.click(`.saveset[data-save="${dynEx.id}_1"]`);
+    await commitDraftSet(page, `.saveset[data-save="${dynEx.id}_1"]`, dynEx.id, 1);
     await page.waitForTimeout(120);
     const dynDownLoad2 = +(await page.inputValue(`[data-k="${dynEx.id}_2_load"]`));
     const dynDownNote = await page
@@ -3078,7 +3239,7 @@ async function main() {
       settings: { ...beforeFalling.settings, lang: "en" },
       log: fallingLog,
     });
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, "Day 1");
@@ -3119,7 +3280,7 @@ async function main() {
       programMeta: { ...beforeBestSetTrend.programMeta, started: dISO(28) },
       log: bestSetRisingLog,
     });
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     const bestSetTrend = await page.evaluate((id) => {
       const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
@@ -3158,7 +3319,7 @@ async function main() {
         programMeta: { ...partialHistoryState.programMeta, started: dISO(28) },
         log: dynLog.filter((row) => row.set <= 2),
       });
-      await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+      await clearDraftFixture(page);
       await reloadApp(page);
       await nav(page, "log");
       await selectDay(page, "Day 1");
@@ -3179,7 +3340,7 @@ async function main() {
       programMeta: { ...beforeOutOfOrder.programMeta, started: dISO(28) },
       log: dynLog,
     });
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, "Day 1");
@@ -3187,7 +3348,7 @@ async function main() {
     await page.fill(`[data-k="${dynEx.id}_2_load"]`, "110");
     await page.fill(`[data-k="${dynEx.id}_2_reps"]`, String(max));
     await page.fill(`[data-k="${dynEx.id}_2_rir"]`, "3");
-    await page.click(`.saveset[data-save="${dynEx.id}_2"]`);
+    await commitDraftSet(page, `.saveset[data-save="${dynEx.id}_2"]`, dynEx.id, 2);
     await page.waitForTimeout(120);
     const preservedSet1 = +(await page.inputValue(`[data-k="${dynEx.id}_1_load"]`));
     const adjustedSet3 = +(await page.inputValue(`[data-k="${dynEx.id}_3_load"]`));
@@ -3379,7 +3540,7 @@ async function main() {
       ...lightState,
       log: capRows(lightEx, capDay, "2025-04-02", 10, 8, 1, "light"),
     });
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, capDay);
@@ -3402,7 +3563,7 @@ async function main() {
         ...capRows(dropEx, capDay, "2025-04-15", 100, 7, 1, "d2"),
       ],
     });
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, capDay);
@@ -3411,7 +3572,7 @@ async function main() {
       await page.fill(`[data-k="${dropEx.id}_${n}_load"]`, "100");
       await page.fill(`[data-k="${dropEx.id}_${n}_reps"]`, String(reps));
       await page.fill(`[data-k="${dropEx.id}_${n}_rir"]`, "1");
-      await page.click(`.saveset[data-save="${dropEx.id}_${n}"]`);
+      await commitDraftSet(page, `.saveset[data-save="${dropEx.id}_${n}"]`, dropEx.id, n);
       await page.waitForTimeout(120);
     }
     const dropSet3 = +(await page.inputValue(`[data-k="${dropEx.id}_3_reps"]`));
@@ -3445,14 +3606,14 @@ async function main() {
         ...capRows(steadyEx, capDay, "2025-04-29", 100, 7, 2, "s2"),
       ],
     });
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, capDay);
     await page.fill(`[data-k="${steadyEx.id}_1_load"]`, "100");
     await page.fill(`[data-k="${steadyEx.id}_1_reps"]`, "8");
     await page.fill(`[data-k="${steadyEx.id}_1_rir"]`, "1");
-    await page.click(`.saveset[data-save="${steadyEx.id}_1"]`);
+    await commitDraftSet(page, `.saveset[data-save="${steadyEx.id}_1"]`, steadyEx.id, 1);
     await page.waitForTimeout(150);
     const steadySet2 = +(await page.inputValue(`[data-k="${steadyEx.id}_2_reps"]`));
     const steadyNote = await page
@@ -3494,7 +3655,7 @@ async function main() {
         ...capRows(exOther, capDay, "2025-05-08", 100, 8, 2, "t2"),
       ],
     });
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     const freshness = await page.evaluate((ids) => {
       const C = window.__repforgeCapacity;
@@ -3559,7 +3720,7 @@ async function main() {
       await page.fill(`[data-k="${exGrind.id}_${n}_load"]`, "100");
       await page.fill(`[data-k="${exGrind.id}_${n}_reps"]`, "4");
       await page.fill(`[data-k="${exGrind.id}_${n}_rir"]`, "0");
-      await page.click(`.saveset[data-save="${exGrind.id}_${n}"]`);
+      await commitDraftSet(page, `.saveset[data-save="${exGrind.id}_${n}"]`, exGrind.id, n);
       await page.waitForTimeout(120);
     }
     await reloadApp(page);
@@ -3774,7 +3935,7 @@ async function main() {
       program: f1State.program.map((e) => (patchedIds.has(e.id) ? { ...e, sets: 2, min: 6, max: 8 } : e)),
       log: f1Log,
     });
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
 
     for (const c of f1Cases) {
@@ -3800,7 +3961,7 @@ async function main() {
 
       await nav(page, "log");
       await selectDay(page, "Day 1");
-      await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+      await clearDraftFixture(page);
       const logReps = +(await page.inputValue(`[data-k="${c.ex.id}_1_reps"]`));
       assert(
         logReps === c.firstReps,
@@ -3828,7 +3989,7 @@ async function main() {
       await page.click("#exBack");
       await page.waitForSelector("#log.view.active", { timeout: 5000 });
 
-      await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+      await clearDraftFixture(page);
       await page.evaluate(({ id, day }) => {
         window.__repforgeEnterWorkout?.({ focus: true, day });
         const fl = window.__repforgeFocus?.list?.() || [];
@@ -3857,7 +4018,7 @@ async function main() {
     const holdEx = f1Cases.find((c) => c.key === "hold").ex;
     await nav(page, "log");
     await selectDay(page, "Day 1");
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await nav(page, "log");
@@ -3865,7 +4026,7 @@ async function main() {
     await page.fill(`[data-k="${holdEx.id}_1_load"]`, "53.75");
     await page.fill(`[data-k="${holdEx.id}_1_reps"]`, "7");
     await page.fill(`[data-k="${holdEx.id}_1_rir"]`, "1");
-    await page.click(`.saveset[data-save="${holdEx.id}_1"]`);
+    await commitDraftSet(page, `.saveset[data-save="${holdEx.id}_1"]`, holdEx.id, 1);
     await page.waitForTimeout(120);
     const echoed = +(await page.inputValue(`[data-k="${holdEx.id}_2_load"]`));
     assert(
@@ -3877,7 +4038,7 @@ async function main() {
 
     const lbState = await getState(page);
     await persistState(page, { ...lbState, settings: { ...lbState.settings, unit: "lb" } });
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     const lbLoad = await page.evaluate((id) => {
       const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
@@ -3912,7 +4073,7 @@ async function main() {
       settings: { ...kg1State.settings, minJump: 2.5, unit: "kg", lang: "en", rirMode: "numeric" },
       log: kg1Log,
     });
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
 
     for (const c of f1Cases) {
@@ -3938,7 +4099,7 @@ async function main() {
 
       await nav(page, "log");
       await selectDay(page, "Day 1");
-      await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+      await clearDraftFixture(page);
       const logReps1 = +(await page.inputValue(`[data-k="${c.ex.id}_1_reps"]`));
       assert(
         logReps1 === c.firstReps,
@@ -3947,7 +4108,7 @@ async function main() {
         `Log → 1 kg ${c.key} set 1 reps`
       );
 
-      await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+      await clearDraftFixture(page);
       await page.evaluate(({ id, day }) => {
         window.__repforgeEnterWorkout?.({ focus: true, day });
         const fl = window.__repforgeFocus?.list?.() || [];
@@ -3976,7 +4137,7 @@ async function main() {
     const hold1 = f1Cases.find((c) => c.key === "hold").ex;
     await nav(page, "log");
     await selectDay(page, "Day 1");
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await nav(page, "log");
@@ -3984,7 +4145,7 @@ async function main() {
     await page.fill(`[data-k="${hold1.id}_1_load"]`, "1");
     await page.fill(`[data-k="${hold1.id}_1_reps"]`, "7");
     await page.fill(`[data-k="${hold1.id}_1_rir"]`, "1");
-    await page.click(`.saveset[data-save="${hold1.id}_1"]`);
+      await commitDraftSet(page, `.saveset[data-save="${hold1.id}_1"]`, hold1.id, 1);
     await page.waitForTimeout(120);
     const echoed1 = +(await page.inputValue(`[data-k="${hold1.id}_2_load"]`));
     assert(
@@ -4009,7 +4170,7 @@ async function main() {
       settings: { ...gridState.settings, minJump: 2.5, unit: "kg", lang: "en", rirMode: "numeric" },
       log: gridRows(gridHold, "2025-05-15", "hold"),
     });
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     const gridRec = await recOf(gridHold.id);
     assert(
@@ -4027,7 +4188,7 @@ async function main() {
       `reps=${gridLogReps}`,
       "Log → on-grid hold set 1 reps"
     );
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await page.evaluate(({ id, day }) => {
       window.__repforgeEnterWorkout?.({ focus: true, day });
       const fl = window.__repforgeFocus?.list?.() || [];
@@ -4060,7 +4221,7 @@ async function main() {
       settings: { ...driftState.settings, minJump: driftInc, unit: "kg", lang: "en", rirMode: "numeric" },
       log: driftRows(gridHold, "2025-05-15", "hold"),
     });
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     const driftRec = await recOf(gridHold.id);
     assert(
@@ -4078,7 +4239,7 @@ async function main() {
       `reps=${driftLogReps}`,
       "Log → 0.1 kg grid hold set 1 reps"
     );
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await page.evaluate(({ id, day }) => {
       window.__repforgeEnterWorkout?.({ focus: true, day });
       const fl = window.__repforgeFocus?.list?.() || [];
@@ -4142,7 +4303,7 @@ async function main() {
   );
 
   await page.fill(`[data-k="${ex0}_1_load"]`, "100");
-  await page.click(`.saveset[data-save="${ex0}_1"]`);
+  await commitDraftSet(page, `.saveset[data-save="${ex0}_1"]`, ex0, 1);
   await page.waitForTimeout(80);
   assert(
     (await page.getAttribute(`.setrow[data-set="${ex0}_1"]`, "class")).includes("is-done"),
@@ -4272,6 +4433,7 @@ async function main() {
 
   // Copy last refills from previous session
   await page.click(`.copylast[data-copy="${exX}"]`);
+  await flushDraftWork(page);
   assert(
     (await page.inputValue(`[data-k="${exX}_1_load"]`)) === "100",
     "Copy last refills from previous session",
@@ -4337,6 +4499,12 @@ async function main() {
 
   // Fatigue trim skips exactly the flagged (backing-off/stalled) lifts
   await page.click("#fatigue .fatigue__trim");
+  await flushDraftWork(page);
+  await page.waitForFunction(
+    () => document.querySelectorAll("#workout .exercise.is-skipped").length >= 2,
+    undefined,
+    { timeout: 5000 }
+  );
   const hiddenAfterTrim = await page.locator("#workout .exercise.is-skipped").count();
   assert(
     hiddenAfterTrim >= 2,
@@ -4351,6 +4519,12 @@ async function main() {
     "After trim → skip bar shows N hidden today"
   );
   await page.click(".skipbar__show");
+  await flushDraftWork(page);
+  await page.waitForFunction(
+    () => document.querySelectorAll("#workout .exercise.is-skipped").length === 0,
+    undefined,
+    { timeout: 5000 }
+  );
   assert(
     (await page.locator("#workout .exercise.is-skipped").count()) === 0,
     "Show all restores trimmed exercises",
@@ -4375,7 +4549,43 @@ async function main() {
   );
   // Everything logged so far carries today's date, so Today is in its
   // completed-session state: a recap, and no session on offer.
-  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
+  await flushStorage(page);
+  await page.waitForFunction(
+    ({ k }) => {
+      try {
+        const value = JSON.parse(localStorage.getItem(k) || "{}");
+        const iso = new Date();
+        const today = `${iso.getFullYear()}-${String(iso.getMonth() + 1).padStart(2, "0")}-${String(iso.getDate()).padStart(2, "0")}`;
+        return (value.log || []).some((row) => String(row.date) === today && row.session);
+      } catch {
+        return false;
+      }
+    },
+    { k: KEY },
+    { timeout: 5000 }
+  );
+  const clearedInspectionDraft = await page.evaluate(async () => {
+    const draft = window.__repforgeWorkoutDraft?.current?.();
+    const touched = draft
+      ? Object.values(draft.exercises || {}).some((exercise) =>
+          (exercise.setOrder || []).some((setId) => {
+            const set = exercise.sets?.[setId];
+            return set?.completion !== "pending" || set?.role === "warmup" ||
+              set?.touched?.load || set?.touched?.reps || set?.touched?.effort;
+          }))
+      : false;
+    if (touched) return { ok: false, reason: "inspection draft contains set work" };
+    const removed = await window.__repforgeWorkoutDraft?.clear?.();
+    window.__repforgeLeaveWorkout?.();
+    return { ok: removed === true, reason: removed === true ? "cleared" : "clear refused" };
+  });
+  if (!clearedInspectionDraft.ok) {
+    throw new Error(`Today fixture could not clear inspection draft: ${clearedInspectionDraft.reason}`);
+  }
+  // The save has crossed both durable replicas above, but Today reads the
+  // in-memory state held by the booted page. Reload once at this scenario
+  // boundary so the recap assertion observes the acknowledged durable log.
+  await reloadApp(page);
   await page.waitForSelector("#todayDash:not(.hidden)", { timeout: 5000 });
   const doneState = await page.evaluate(() => ({
     recap: !!document.querySelector(".today-done"),
@@ -4613,7 +4823,7 @@ async function main() {
       program: whyState.program.map((e) => (whyPatch.has(e.id) ? { ...e, ...whyPatch.get(e.id) } : e)),
       log: whyLog,
     });
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
 
     /** Read the engine's own result for a lift — never hard-code a target. */
@@ -4712,7 +4922,7 @@ async function main() {
 
     // 6. Portuguese renders the affordance and the rule in real Portuguese.
     await persistState(page, { ...(await getState(page)), settings: { ...(await getState(page)).settings, lang: "pt" } });
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, "Day 1");
@@ -4731,7 +4941,7 @@ async function main() {
       ...(await getState(page)),
       settings: { ...(await getState(page)).settings, lang: "en", rirMode: "effort" },
     });
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, "Day 1");
@@ -4749,7 +4959,7 @@ async function main() {
       ...(await getState(page)),
       settings: { ...(await getState(page)).settings, lang: "en", rirMode: "numeric" },
     });
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, "Day 1");
@@ -4820,7 +5030,7 @@ async function main() {
     await page.click("#exBack");
     await page.waitForSelector("#log.view.active", { timeout: 5000 });
     // Hand the next phase a clean draft: the swap above lives in the draft only.
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     await nav(page, "log");
   }
@@ -5026,6 +5236,11 @@ async function main() {
   await page.waitForTimeout(80);
 
   beginPhase("Phase: effort RIR mode");
+  // Changing the mode is a draft-schema boundary. Start this fixture with no
+  // active DraftV2 so the new draft records rirMode="effort" rather than
+  // carrying a numeric draft created by the preceding phases.
+  await clearDraftFixture(page);
+  await reloadApp(page);
   await nav(page, "settings");
   await page.evaluate(() => document.querySelector("#rirModePanel")?.classList.add("is-open"));
   await page.waitForSelector("#rirModePanel.is-open", { timeout: 3000 });
@@ -5055,6 +5270,7 @@ async function main() {
   await page.fill(`[data-k="${effEx.id}_1_load"]`, "90");
   await page.fill(`[data-k="${effEx.id}_1_reps"]`, "6");
   await page.click(`.effort__btn[data-eff="${effEx.id}_1"][data-e="easy"]`);
+  await flushDraftWork(page);
   let effortSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
   await saveWorkout(page);
   let effortState = await getState(page);
@@ -5072,6 +5288,7 @@ async function main() {
   await page.fill(`[data-k="${effEx.id}_1_load"]`, "92");
   await page.fill(`[data-k="${effEx.id}_1_reps"]`, "5");
   await page.click(`.effort__btn[data-eff="${effEx.id}_1"][data-e="hard"]`);
+  await flushDraftWork(page);
   effortSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
   await saveWorkout(page);
   effortState = await getState(page);
@@ -5089,6 +5306,7 @@ async function main() {
   await page.fill(`[data-k="${effEx.id}_1_load"]`, "95");
   await page.fill(`[data-k="${effEx.id}_1_reps"]`, "4");
   await page.click(`.effort__btn[data-eff="${effEx.id}_1"][data-e="max"]`);
+  await flushDraftWork(page);
   effortSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
   await saveWorkout(page);
   effortState = await getState(page);
@@ -5162,21 +5380,24 @@ async function main() {
     effEx.id
   );
   await page.keyboard.press("ArrowRight");
-  await page.waitForTimeout(120);
+  await flushDraftWork(page);
   const afterArrow = await page.evaluate(
-    ({ exId, d }) => {
+    (exId) => {
       const btns = [
         ...document.querySelectorAll(`.setrow[data-set="${exId}_1"] .effort__btn`),
       ];
       const checked = btns.find((b) => b.getAttribute("aria-checked") === "true");
+      const draft = window.__repforgeWorkoutDraft?.current?.();
+      const exercise = draft?.exercises?.[exId];
+      const setId = exercise?.setOrder?.find((id) => exercise.sets[id]?.ordinal === 1);
       return {
         checked: checked?.dataset.e,
         focused: document.activeElement === checked,
-        draft: JSON.parse(localStorage.getItem(d) || "{}")[`${exId}_1_effort`],
+        draft: setId ? exercise.sets[setId]?.edited?.effort : undefined,
         suggested: checked?.closest(".effort")?.classList.contains("effort--suggested"),
       };
     },
-    { exId: effEx.id, d: DRAFT }
+    effEx.id
   );
   assert(
     afterArrow.checked && afterArrow.checked !== beforeArrow && afterArrow.focused &&
@@ -5187,14 +5408,19 @@ async function main() {
   );
   // Copy carries the effort of the last session, not just its numbers.
   await page.click(`.copylast[data-copy="${effEx.id}"]`);
-  await page.waitForTimeout(160);
+  await flushDraftWork(page);
   const copied = await page.evaluate(
-    ({ exId, d }) => ({
+    (exId) => {
+      const draft = window.__repforgeWorkoutDraft?.current?.();
+      const exercise = draft?.exercises?.[exId];
+      const setId = exercise?.setOrder?.find((id) => exercise.sets[id]?.ordinal === 1);
+      return {
       checked: document.querySelector(`.setrow[data-set="${exId}_1"] .effort__btn[aria-checked="true"]`)
         ?.dataset.e,
-      draft: JSON.parse(localStorage.getItem(d) || "{}")[`${exId}_1_effort`],
-    }),
-    { exId: effEx.id, d: DRAFT }
+      draft: setId ? exercise.sets[setId]?.edited?.effort : undefined,
+      };
+    },
+    effEx.id
   );
   assert(
     copied.checked === "max" && copied.draft === "max",
@@ -5850,12 +6076,9 @@ async function main() {
         }).length,
       };
     });
-  // Drop the harness's own prefills so the card behaves like a fresh session.
-  await page.evaluate((d) => {
-    const draft = JSON.parse(localStorage.getItem(d) || "{}");
-    draft.__touched = [];
-    localStorage.setItem(d, JSON.stringify(draft));
-  }, DRAFT);
+  // Clean-fixture reset: drop the harness's prefills and every V2 sidecar so
+  // the card behaves like a fresh session.
+  await clearDraftFixture(page);
   await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: true }));
   await page.waitForTimeout(260);
   const fitBefore = await fitMetrics();
@@ -5906,7 +6129,7 @@ async function main() {
 
   // Focus carries List's per-exercise controls: last session's numbers and skip.
   // A fresh card for an exercise with history: last session is what it leads on.
-  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await clearDraftFixture(page);
   await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: true }));
   await page.waitForTimeout(300);
   const lastSession = await page.evaluate(() => {
@@ -6039,7 +6262,7 @@ async function main() {
   await clickLogMode(page, "full");
 
   beginPhase("Phase: workout entry CTA + transition");
-  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await clearDraftFixture(page);
   await reloadApp(page);
   // The Start/Continue CTA only exists on a day with no session saved yet, and
   // the phases above have been logging against today.
@@ -6089,17 +6312,18 @@ async function main() {
   );
   await page.click("#startWorkout");
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+  await flushDraftWork(page);
+  const resumedCtaDraft = await readDraft(page);
   assert(
     (await getState(page)) &&
-      (await page.evaluate((k) => {
-        const d = JSON.parse(localStorage.getItem(k) || "{}");
-        return Object.keys(d).some((x) => /_load$/.test(x) && +d[x] === 80);
-      }, DRAFT)),
+      resumedCtaDraft?.draftId &&
+      resumedCtaDraft.exerciseOrder.some((id) =>
+        Object.values(resumedCtaDraft.exercises[id]?.sets || {}).some((set) => set.edited?.load === "80")),
     "Continue workout resumes the in-progress draft",
     "draft load 80 missing after resume",
     "Today → Continue workout → previously entered sets are still there"
   );
-  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await clearDraftFixture(page);
   await reloadApp(page);
   await nav(page, "log");
   await selectDay(page, "Day 1");
@@ -7657,7 +7881,7 @@ async function main() {
   assert(!pNoReps.ok && pNoReps.error === "Could not find reps.", "parse: load only", JSON.stringify(pNoReps));
 
   beginPhase("Phase: spoken set apply");
-  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await clearDraftFixture(page);
   await reloadApp(page);
   await nav(page, "log");
   await selectDay(page, "Day 1");
@@ -8076,13 +8300,15 @@ async function main() {
   await page.click(`[data-exnote-toggle="${noteEx.id}"]`);
   await page.fill(`[data-exnote="${noteEx.id}"]`, NOTE_TEXT);
   await page.waitForTimeout(120);
-  const noteDraft = await page.evaluate((k) => {
+  await flushDraftWork(page);
+  const noteDraft = await page.evaluate(() => {
     try {
-      return JSON.parse(localStorage.getItem(k) || "{}").__exnotes || {};
+      const draft = window.__repforgeWorkoutDraft?.current?.();
+      return Object.fromEntries((draft?.exerciseOrder || []).map((id) => [id, draft.exercises[id]?.setupNotes || ""]));
     } catch {
       return {};
     }
-  }, DRAFT);
+  });
   assert(
     noteDraft[noteEx.id] === NOTE_TEXT,
     "Exercise note is kept in the draft",
@@ -8171,7 +8397,7 @@ async function main() {
   );
 
   beginPhase("Phase: complete workout draft persistence (UX-01, UX-19)");
-  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await clearDraftFixture(page);
   await reloadApp(page);
   await nav(page, "log");
   await selectDay(page, "Day 1");
@@ -8238,7 +8464,7 @@ async function main() {
     "Log → swap → search a name the library lacks → + Create custom exercise → Save"
   );
   await page.waitForTimeout(80);
-  const draftBeforeLeave = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+  await flushDraftWork(page);
   await page.evaluate(() => window.__repforgeLeaveWorkout?.());
   await reloadApp(page);
   await page.waitForSelector("#workoutShell:not(.hidden), #workout .exercise", { timeout: 5000 });
@@ -8248,19 +8474,20 @@ async function main() {
     await page.click("#startWorkout");
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
   }
-  const resumed = await page.evaluate(({ a, skip, b, k }) => {
-    const d = JSON.parse(localStorage.getItem(k) || "{}");
+  const resumed = await page.evaluate(({ a, skip, b }) => {
+    const d = window.__repforgeWorkoutDraft?.current?.();
+    const skipped = d?.exercises?.[skip];
     return {
       load: document.querySelector(`[data-k="${a}_1_load"]`)?.value,
       note: document.querySelector("#notes")?.value,
       bw: document.querySelector("#bodyweight")?.value,
       date: document.querySelector("#date")?.value,
-      skipped: d.__skipped?.includes(skip) || document.querySelector(`.exercise[data-ex="${skip}"]`)?.classList.contains("is-skipped"),
-      subA: d.__substituted?.[a],
-      subB: d.__substituted?.[b],
-      day: d.__day,
+      skipped: skipped?.status === "skipped" || document.querySelector(`.exercise[data-ex="${skip}"]`)?.classList.contains("is-skipped"),
+      subA: d?.exercises?.[a]?.substitution?.replacement?.displayName,
+      subB: d?.exercises?.[b]?.substitution?.replacement?.displayName,
+      day: d?.program?.dayLabel,
     };
-  }, { a: draftExA.id, skip: draftExSkip.id, b: draftExB.id, k: DRAFT });
+  }, { a: draftExA.id, skip: draftExSkip.id, b: draftExB.id });
   assert(
     resumed.load === "77" && resumed.note === sessionNote && resumed.bw === "82.5" && resumed.date === nonToday,
     "Resumed list draft keeps set, note, bodyweight, and date",
@@ -8274,6 +8501,7 @@ async function main() {
     "Skip + sub + reload + Continue"
   );
 
+  const draftBeforeFinish = await readDraft(page);
   const beforeFinish = new Set((await getState(page)).log.map((r) => r.session));
   await saveWorkout(page);
   const afterFinish = await getState(page);
@@ -8293,22 +8521,23 @@ async function main() {
     "Resume substituted draft → Finish"
   );
 
-  const afterFinishDraft = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
   await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  await flushDraftWork(page);
+  const afterFinishDraft = await readDraft(page);
   const fresh = await page.evaluate(({ a, b, skip }) => ({
     subA: document.querySelector(`.subst__pick[data-sub="${a}"]`)?.value || "",
     skipped: document.querySelector(`.exercise[data-ex="${skip}"]`)?.classList.contains("is-skipped"),
     note: document.querySelector("#notes")?.value,
     date: document.querySelector("#date")?.value,
-    draft: localStorage.getItem("repforge_draft_v1"),
   }), { a: draftExA.id, b: draftExB.id, skip: draftExSkip.id });
   assert(
-    !afterFinishDraft && !fresh.skipped && !fresh.subA && !fresh.note && fresh.date === (await page.evaluate(() => {
+    afterFinishDraft?.draftId && afterFinishDraft.draftId !== draftBeforeFinish?.draftId &&
+      afterFinishDraft.revision === 0 && !fresh.skipped && !fresh.subA && !fresh.note && fresh.date === (await page.evaluate(() => {
       const d = new Date();
       return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
     })),
     "Accepted finish clears substitution/date/note context for the next workout",
-    JSON.stringify(fresh),
+    JSON.stringify({ fresh, oldDraftId: draftBeforeFinish?.draftId, newDraftId: afterFinishDraft?.draftId }),
     "Finish → stay on Log → next workout is clean"
   );
 
@@ -8323,13 +8552,14 @@ async function main() {
     }, mode);
   }
   async function rirState() {
+    await flushDraftWork(page);
     return page.evaluate((k) => ({
       mode: JSON.parse(localStorage.getItem(k) || "{}")?.settings?.rirMode,
       radio: document.querySelector('input[name="rirMode"]:checked')?.value,
-      draft: localStorage.getItem("repforge_draft_v1"),
+      draft: window.__repforgeWorkoutDraft?.read?.().raw ?? null,
     }), KEY);
   }
-  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await clearDraftFixture(page);
   await reloadApp(page);
   await clickRir("effort");
   let rs = await rirState();
@@ -8358,10 +8588,10 @@ async function main() {
     ["cleared-context", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate(() => { const el = document.querySelector("#notes"); el.value = "x"; el.dispatchEvent(new Event("input", { bubbles: true })); el.value = ""; el.dispatchEvent(new Event("input", { bubbles: true })); }); }],
   ];
   for (const [name, setup] of rirCases) {
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     await setup();
-    const raw = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    const raw = await readDraftRaw(page);
     await clickRir("effort");
     rs = await rirState();
     assert(
@@ -8372,19 +8602,19 @@ async function main() {
     );
   }
 
-  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await clearDraftFixture(page);
   await reloadApp(page);
   await nav(page, "log");
   await selectDay(page, "Day 1");
   await selectDay(page, otherDay);
-  const dayOnlyRaw = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+  const dayOnlyRaw = await readDraftRaw(page);
   dialogMode = "dismiss";
   await page.click('#dayTabs button[data-day="Day 1"]');
   dialogMode = "accept";
-  const dayAfterCancel = await page.evaluate((k) => ({
-    raw: localStorage.getItem(k),
+  const dayAfterCancel = await page.evaluate(() => ({
+    raw: window.__repforgeWorkoutDraft?.read?.().raw ?? null,
     active: document.querySelector("#dayTabs button.active")?.dataset.day,
-  }), DRAFT);
+  }));
   assert(
     dayAfterCancel.active === otherDay && dayAfterCancel.raw === dayOnlyRaw,
     "Day-only progress asks before switching and Cancel preserves the exact draft/day",
@@ -8393,20 +8623,26 @@ async function main() {
   );
   await page.click('#dayTabs button[data-day="Day 1"]');
   await page.waitForFunction(() => document.querySelector("#dayTabs button.active")?.dataset.day === "Day 1");
-  const dayAfterConfirm = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "{}"), DRAFT);
+  const dayAfterConfirm = await readDraft(page);
   assert(
-    dayAfterConfirm.__day === "Day 1" && dayAfterConfirm.__contextTouched?.day === true,
+    dayAfterConfirm?.program?.dayLabel === "Day 1",
     "Confirming a day-only transition discards the old context and saves the new day",
     JSON.stringify(dayAfterConfirm),
     `${otherDay} day-only draft → Day 1 → Confirm`
   );
 
-  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await clearDraftFixture(page);
   await reloadApp(page);
   await nav(page, "log");
   await selectDay(page, "Day 1");
-  await page.click(`.ex__skip[data-skip="${draftExSkip.id}"]`);
-  await reloadApp(page);
+      await page.click(`.ex__skip[data-skip="${draftExSkip.id}"]`);
+      await flushDraftWork(page);
+      await page.waitForFunction((id) => {
+        const draft = window.__repforgeWorkoutDraft?.current?.();
+        return draft?.exercises?.[id]?.status === "skipped" &&
+          document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-skipped");
+      }, draftExSkip.id, { timeout: 5000 });
+      await reloadApp(page);
   await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
   assert(
     await page.evaluate((id) => document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-skipped"), draftExSkip.id),
@@ -8414,7 +8650,15 @@ async function main() {
     "skip class missing",
     "Skip → reload"
   );
-  if (await page.locator(".skipbar__show").count()) await page.click(".skipbar__show");
+  if (await page.locator(".skipbar__show").count()) {
+    await page.click(".skipbar__show");
+    await flushDraftWork(page);
+    await page.waitForFunction((id) => {
+      const draft = window.__repforgeWorkoutDraft?.current?.();
+      return draft?.exercises?.[id]?.status !== "skipped" &&
+        !document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-skipped");
+    }, draftExSkip.id, { timeout: 5000 });
+  }
   await reloadApp(page);
   await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
   assert(
@@ -8425,21 +8669,22 @@ async function main() {
   );
 
   if (otherDay) {
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, "Day 1");
     await fillExerciseSets(page, draftExA.id, 1, 55, 5, 1);
-    const rawDay = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    const rawDay = await readDraftRaw(page);
     const currentDay = await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day);
     dialogMode = "dismiss";
     await page.click(`#dayTabs button[data-day="${otherDay}"]`);
     await page.waitForTimeout(80);
     dialogMode = "accept";
-    const cancelled = await page.evaluate((k) => ({
-      draft: localStorage.getItem(k),
+    await flushDraftWork(page);
+    const cancelled = await page.evaluate(() => ({
+      draft: window.__repforgeWorkoutDraft?.read?.().raw ?? null,
       day: document.querySelector("#dayTabs button.active")?.dataset.day,
-    }), DRAFT);
+    }));
     assert(
       cancelled.draft === rawDay && cancelled.day === currentDay,
       "Day-tab Cancel keeps the raw draft and current day",
@@ -8449,26 +8694,28 @@ async function main() {
     dialogMode = "accept";
     await page.click(`#dayTabs button[data-day="${otherDay}"]`);
     await page.waitForFunction((d) => document.querySelector("#dayTabs button.active")?.dataset.day === d, otherDay, { timeout: 5000 });
-    const confirmed = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "{}"), DRAFT);
+    const confirmed = await readDraft(page);
     await reloadApp(page);
     const after = await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day);
     assert(
-      confirmed.__day === otherDay && !Object.keys(confirmed).some((k) => /_load$/.test(k) && +confirmed[k] === 55) && after === otherDay,
+        confirmed?.program?.dayLabel === otherDay &&
+        confirmed?.exerciseOrder?.every((id) => Object.values(confirmed.exercises[id]?.sets || {}).every((set) => set.edited.load !== "55")) &&
+        after === otherDay,
       "Day-tab Confirm clears the old draft, selects the new day, and survives reload",
       JSON.stringify({ confirmed, after }),
       "Fill Day 1 → other day tab → Confirm → reload"
     );
 
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, "Day 1");
     await fillExerciseSets(page, draftExA.id, 1, 56, 5, 1);
-    const rawUp = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    const rawUp = await readDraftRaw(page);
     await page.evaluate(() => window.__repforgeLeaveWorkout?.());
     dialogMode = "dismiss";
     await page.click("#upNextBtn");
-    const upCancel = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    const upCancel = await readDraftRaw(page);
     assert(upCancel === rawUp, "Up next Cancel preserves the raw draft", "draft changed", "Up next → Cancel");
     dialogMode = "accept";
     await page.click("#upNextBtn");
@@ -8480,16 +8727,16 @@ async function main() {
       "Up next → Confirm"
     );
 
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, "Day 1");
     await fillExerciseSets(page, draftExA.id, 1, 57, 5, 1);
-    const rawEnter = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    const rawEnter = await readDraftRaw(page);
     dialogMode = "dismiss";
     await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d, focus: false }), otherDay);
     assert(
-      (await page.evaluate((k) => localStorage.getItem(k), DRAFT)) === rawEnter,
+      (await readDraftRaw(page)) === rawEnter,
       "enterWorkout({day}) Cancel preserves the raw draft",
       "draft changed",
       "enterWorkout other day → Cancel"
@@ -8505,16 +8752,16 @@ async function main() {
 
     const otherEx = await page.evaluate((d) => (JSON.parse(localStorage.getItem("repforge_v1") || "{}").program || []).find((e) => e.day === d)?.id, otherDay);
     if (otherEx) {
-      await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+      await clearDraftFixture(page);
       await reloadApp(page);
       await nav(page, "log");
       await selectDay(page, "Day 1");
       await fillExerciseSets(page, draftExA.id, 1, 58, 5, 1);
-      const rawGo = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+      const rawGo = await readDraftRaw(page);
       dialogMode = "dismiss";
       await page.evaluate((id) => window.__repforgeGoToLogExercise(id), otherEx);
       assert(
-        (await page.evaluate((k) => localStorage.getItem(k), DRAFT)) === rawGo,
+        (await readDraftRaw(page)) === rawGo,
         "Deep-link Cancel preserves the raw draft",
         "draft changed",
         "goToLogExercise → Cancel"
@@ -8530,7 +8777,7 @@ async function main() {
     }
   }
 
-  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await clearDraftFixture(page);
   await reloadApp(page);
   await nav(page, "log");
   await selectDay(page, "Day 1");
@@ -8560,12 +8807,12 @@ async function main() {
 
   const adapterOutcomes = [[true, true], [true, false], [false, true], [false, false]];
   for (const [localOk, idbOk] of adapterOutcomes) {
-    await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await clearDraftFixture(page);
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, "Day 1");
     await fillExerciseSets(page, draftExA.id, 1, 61, 5, 1);
-    const raw = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+    const raw = await readDraftRaw(page);
     const beforeLen = (await getState(page)).log.length;
     const result = await page.evaluate(async ({ localOk, idbOk }) => {
       const io = {
@@ -8595,7 +8842,7 @@ async function main() {
     if (localOk || idbOk) {
       await reloadApp(page);
       const afterLen = (await getState(page)).log.length;
-      const draftNow = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+      const draftNow = await readDraftRaw(page);
       assert(
         afterLen > beforeLen && !draftNow && result.localOk === localOk && result.idbOk === idbOk,
         `Finish (${localOk},${idbOk}) commits one session and clears the draft`,
@@ -8604,7 +8851,7 @@ async function main() {
       );
     } else {
       const afterLen = (await getState(page)).log.length;
-      const draftNow = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+      const draftNow = await readDraftRaw(page);
       assert(
         afterLen === beforeLen && draftNow === raw,
         "Finish total failure keeps zero new rows and the exact draft",
@@ -8617,11 +8864,14 @@ async function main() {
     }
   }
 
-  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await clearDraftFixture(page);
   await reloadApp(page);
   await nav(page, "log");
   await selectDay(page, "Day 1");
   const legacyEx = (await getExerciseMeta(page, "Day 1"))[0];
+  // Explicit legacy-fixture case: clear V2 sidecars first, then install the
+  // flat payload whose migration and Finish behavior this assertion covers.
+  await clearDraftFixture(page);
   await page.evaluate(({ id, k }) => {
     const d = {};
     d[`${id}_1_load`] = "66";
@@ -8644,8 +8894,11 @@ async function main() {
   );
 
   beginPhase("Phase: atomic set validation and rest seconds (UX-03, UX-10)");
-  await page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+  await clearDraftFixture(page);
   await reloadApp(page);
+  // This phase exercises numeric RIR inputs. Clear and reload before changing
+  // mode so a previous phase's draft cannot correctly refuse the transition.
+  await clickRir("numeric");
   await nav(page, "log");
   await selectDay(page, "Day 1");
   const valMeta = await getExerciseMeta(page, "Day 1");
@@ -8663,7 +8916,7 @@ async function main() {
     await fillValidCandidate();
     await mutate();
     const logBefore = JSON.stringify((await getState(page)).log);
-    const draftBefore = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+  const draftBefore = await readDraftRaw(page);
     await stopRestIfRunning(page);
     await saveWorkout(page, { expectNewRows: false });
     assert(
@@ -8673,7 +8926,7 @@ async function main() {
       `Fill a valid set → ${name} → Finish workout`
     );
     assert(
-      (await page.evaluate((k) => localStorage.getItem(k), DRAFT)) === draftBefore,
+    (await readDraftRaw(page)) === draftBefore,
       `${name} keeps the exact draft`,
       "draft string changed",
       `Fill a valid set → ${name} → Finish workout`
@@ -8702,7 +8955,7 @@ async function main() {
   await fillValidCandidate();
   await setWorkoutField(page, `[data-k="${valKey}_load"]`, "-9");
   const surviveLog = JSON.stringify((await getState(page)).log);
-  const surviveDraft = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+  const surviveDraft = await readDraftRaw(page);
   await stopRestIfRunning(page);
   await saveWorkout(page, { expectNewRows: false });
   await saveSettingsAndFlush(page);
@@ -8713,11 +8966,11 @@ async function main() {
     "log drifted after unrelated Settings save",
     "Invalid Finish → Settings save → flush → reload"
   );
-  const surviveDraftAfter = await page.evaluate((k) => localStorage.getItem(k), DRAFT);
+  const surviveDraftAfter = await readDraft(page);
   assert(
-    !!surviveDraftAfter && JSON.parse(surviveDraftAfter)[`${valKey}_load`] === "-9",
+    surviveDraftAfter?.exercises?.[valEx.id]?.sets?.[surviveDraftAfter.exercises[valEx.id].setOrder[0]]?.edited?.load === "-9",
     "Failed Finish draft survives Settings save, flush, and reload",
-    `draft=${surviveDraftAfter}`,
+    `draft=${JSON.stringify(surviveDraftAfter)}`,
     "Invalid Finish → Settings save → flush → reload → draft still has -9 load"
   );
   void surviveDraft;
@@ -8733,7 +8986,12 @@ async function main() {
   await page.waitForTimeout(80);
   const restHiddenAfter = await page.evaluate(() => document.querySelector("#restBar")?.classList.contains("hidden") !== false);
   const doneAfter = await page.evaluate((k) => document.querySelector(`[data-set="${k}"]`)?.classList.contains("is-done"), valKey);
-  const draftDone = await page.evaluate((k) => JSON.parse(localStorage.getItem(k) || "{}").__done || [], DRAFT);
+  const draftForDone = await readDraft(page);
+  const draftDone = draftForDone?.exerciseOrder.flatMap((id) =>
+    Object.values(draftForDone.exercises[id]?.sets || {})
+      .filter((set) => set.completion !== "pending")
+      .map((set) => `${id}_${set.ordinal}`)
+  ) || [];
   assert(
     restHiddenAfter && restHiddenBefore && doneAfter === doneBefore && !draftDone.includes(valKey),
     "Failed Save set does not commit, start rest, or arm unfinished",
@@ -9110,6 +9368,9 @@ async function main() {
   const adapterOutcomes4 = [[true, true], [true, false], [false, true], [false, false]];
   for (const [localOk, idbOk] of adapterOutcomes4) {
     const beforeTpl = await getState(page);
+    // Explicit legacy-fixture case for the transition transaction. The raw
+    // flat value is intentional; its V2 sidecars are not.
+    await clearDraftFixture(page);
     const draftRaw = await page.evaluate((k) => {
       const raw = JSON.stringify({
         __sessionNotes: "template transition draft",
@@ -9179,6 +9440,8 @@ async function main() {
     }
   }
 
+  // Explicit legacy-fixture case for the rejected settings transition.
+  await clearDraftFixture(page);
   const setupDraftRaw = await page.evaluate((k) => {
     const raw = JSON.stringify({
       __sessionNotes: "settings onboarding transition draft",
@@ -9425,7 +9688,9 @@ async function main() {
   );
 
   const stateBeforeDelete = await getState(page);
-  await page.evaluate((d) => localStorage.setItem(d, JSON.stringify({ note: "keep-me-not" })), DRAFT);
+  // Explicit invalid/legacy fixture: deletion must remove this raw value too.
+  await clearDraftFixture(page);
+    await page.evaluate((d) => localStorage.setItem(d, JSON.stringify({ note: "keep-me-not" })), DRAFT);
   await nav(page, "settings");
   const progLen = stateBeforeDelete.program.length;
   const settingsUnit = stateBeforeDelete.settings.unit;
@@ -9693,12 +9958,32 @@ async function main() {
       ...mkRows({ id: "ex-fatigue", name: "Coach Fatigue", day: "Day 1", date: dates.lastWeek, session: "s-fat-prev", load: 80, reps: 8, rir: 0, primary: "Calves" }),
       ...mkRows({ id: "ex-fatigue", name: "Coach Fatigue", day: "Day 1", date: dates.thisWeek, session: "s-fat-cur", load: 80, reps: 7, rir: 0, primary: "Calves" }),
     ];
+    // The coaching fixture replaces the durable program and log. Drop any
+    // active draft from the preceding tour so its old program fingerprint
+    // cannot correctly block this independent dataset.
+    await clearDraftFixture(page);
     const prior = await getState(page);
+    const coachProgramMeta = {
+      ...(prior.programMeta || {}),
+      id: "coach-fixture",
+      name: "Coach fixture",
+      onboarded: true,
+      programStructure: {
+        schemaVersion: 1,
+        days: [
+          { dayId: "coach_d1", label: "Day 1", order: 1 },
+          { dayId: "coach_d2", label: "Day 2", order: 2 },
+        ],
+        provenance: { source: "manual_build" },
+        weekPrescriptions: [],
+        customizedFrom: null,
+      },
+    };
     await persistState(page, {
       ...prior,
       program,
       log,
-      programMeta: { ...(prior.programMeta || {}), onboarded: true, name: "Coach fixture" },
+      programMeta: coachProgramMeta,
     });
     await reloadApp(page);
     await nav(page, "stats");
@@ -9781,6 +10066,7 @@ async function main() {
     const landLog = async (id, day) => {
       await page.click(`#attention [data-attn="${id}"]`);
       await page.waitForFunction(() => document.querySelector("#log")?.classList.contains("active"), null, { timeout: 5000 });
+      await page.waitForSelector(`#workout [data-ex="${id}"]`, { timeout: 5000 });
       return page.evaluate(
         ({ id, day }) => {
           const card = document.querySelector(`#workout [data-ex="${id}"]`);
@@ -9832,12 +10118,49 @@ async function main() {
     const seedState = await getState(page);
     if (!seedState) throw new Error("PWA phase needs canonical state from the main simulation page");
     await persistState(pwaPage, seedState);
-    const draftRaw = await page.evaluate((d) => localStorage.getItem(d), DRAFT);
-    if (draftRaw) {
-      await pwaPage.evaluate(({ d, raw }) => localStorage.setItem(d, raw), { d: DRAFT, raw: draftRaw });
-    }
     await pwaPage.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(pwaPage);
+    // Seed the installed origin through the same production entry path as a
+    // lifter. Copying only the canonical bytes would omit the acknowledged
+    // V2 checkpoint and correctly trigger recovery on the first offline nav.
+    const seedWorkoutDay = String(seedState.program?.[0]?.day || "");
+    if (!seedWorkoutDay) throw new Error("PWA production draft seed has no program day");
+    const enteredPwa = await pwaPage.evaluate(async (day) => window.__repforgeEnterWorkout?.({ day, focus: false }), seedWorkoutDay);
+    if (enteredPwa === false) throw new Error("PWA production draft entry was refused");
+    await pwaPage.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+    try {
+      await pwaPage.waitForSelector('#workout input[data-k$="_load"]', { timeout: 10000 });
+    } catch (error) {
+      const diagnostic = await pwaPage.evaluate(() => ({
+        body: document.body.className,
+        shell: document.querySelector("#workoutShell")?.className || "",
+        activeViews: [...document.querySelectorAll(".view.active")].map((el) => el.id),
+        days: [...document.querySelectorAll("#dayTabs button")].map((el) => ({ day: el.dataset.day, active: el.classList.contains("active") })),
+        workout: {
+          htmlLength: document.querySelector("#workout")?.innerHTML.length || 0,
+          exercises: [...document.querySelectorAll("#workout .exercise")].map((el) => ({ id: el.dataset.ex, className: el.className })),
+          inputs: [...document.querySelectorAll("#workout input[data-k]")].map((el) => el.dataset.k),
+        },
+        draft: window.__repforgeWorkoutDraft?.current?.() || null,
+        read: window.__repforgeWorkoutDraft?.read?.() || null,
+        checkpoint: window.__repforgeWorkoutDraft?.checkpoint?.() || null,
+        recovery: window.__repforgeWorkoutDraft?.recovery?.() || null,
+        state: (() => {
+          try { return JSON.parse(localStorage.getItem("repforge_v1") || "null"); } catch { return null; }
+        })(),
+      }));
+      throw new Error(`${error.message}; PWA entry diagnostic=${JSON.stringify(diagnostic)}`);
+    }
+    const pwaLoad = pwaPage.locator('#workout input[data-k$="_load"]').first();
+    await pwaLoad.fill("73.5");
+    await pwaPage.evaluate(async () => window.__repforgeWorkoutDraft?.flush?.());
+    const pwaDraftProof = await pwaPage.evaluate(() => ({
+      raw: window.__repforgeWorkoutDraft?.read?.().raw,
+      checkpoint: window.__repforgeWorkoutDraft?.checkpoint?.(),
+    }));
+    if (!pwaDraftProof.raw || pwaDraftProof.checkpoint?.status !== "valid") {
+      throw new Error(`PWA production draft seed lacked acknowledged checkpoint: ${JSON.stringify(pwaDraftProof)}`);
+    }
     await pwaPage.waitForFunction(
       async ({ cacheName, shell }) => {
         if (!("serviceWorker" in navigator)) return false;
@@ -10140,6 +10463,7 @@ async function main() {
         await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
         await hideToast(page);
         await page.click(`.saveset[data-save="${setKey}"]`);
+        await waitForSetDone(page, exId);
         const doneOk = (await page.getAttribute(`.setrow[data-set="${setKey}"]`, "class") || "").includes("is-done");
         const beforePerLen = ((await getState(page)).log || []).length;
         await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
@@ -10208,6 +10532,7 @@ async function main() {
         await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
         await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
         await page.click(`.saveset[data-save="${setKey}"]`);
+        await waitForSetDone(page, exId);
         const beforeAtomic = await logJson(page);
         await fillNamed(page, `[data-k="${exId}_2_load"]`, "1e5");
         await fillNamed(page, `[data-k="${exId}_2_reps"]`, "5");
@@ -10228,6 +10553,7 @@ async function main() {
         await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
         await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
         await page.click(`.saveset[data-save="${setKey}"]`);
+        await waitForSetDone(page, exId);
         await fillNamed(page, `[data-k="${exId}_2_load"]`, "");
         await hideToast(page);
         const beforeEmpty = await logJson(page);
@@ -10247,6 +10573,7 @@ async function main() {
         await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
         await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
         await page.click(`.saveset[data-save="${setKey}"]`);
+        await waitForSetDone(page, exId);
         await page.click(`[data-warm="${exId}_2"]`);
         await fillNamed(page, `[data-k="${exId}_2_load"]`, "abc");
         await hideToast(page);
@@ -10267,6 +10594,7 @@ async function main() {
         await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
         await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
         await page.click(`.saveset[data-save="${setKey}"]`);
+        await waitForSetDone(page, exId);
         const beforeBlank = ((await getState(page)).log || []).length;
         await hideToast(page);
         await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());

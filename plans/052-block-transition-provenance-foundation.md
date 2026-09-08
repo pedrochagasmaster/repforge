@@ -2,10 +2,16 @@
 
 Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
 and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
+External Herdr workers additionally follow the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md)
+and the [Herdr worker packets](#herdr-worker-packets) section below. The coordinator completes every packet field and
+fills live SHAs, thread ID, server origin, and PID into the shared packet template before dispatch; the SHAs, branch
+names, and revision numbers written in this plan are historical anchors, not current run state.
 
 - **Plan number:** 052
 - **Phase:** 2B — State and lifecycle foundations
-- **Status:** Planned; implementation has not started
+- **Status:** Implementation in progress — PR #228 (branch `ui-overhaul/052-transition-provenance`, head
+  `d1a84ea098bdba6a16f99a0a80e39e9fcae780f1`); atomic rows 1–2 published. Resume that branch and PR; do not restart the
+  transition module or open a second kickoff PR. Revalidate this dated fact before resuming.
 - **Owner approval state:** Transition directions and recovery policy version 2
   are approved. Recovery consumes the closed Rule B contract in
   `docs/recovery-week-policy.md`.
@@ -283,13 +289,92 @@ New schema fields are optional to older state, but rollback code must preserve u
 
 After each row: mark 🟡; implement only that contract; run its focused proof; inspect the complete diff; remove unrelated changes; commit; push immediately; update the PR; proceed only from a reconstructable remote boundary.
 
+## Herdr worker packets
+
+The atomic commit sequence above is the delivery contract and does not change. Each row is dispatched to a less capable
+external worker as one or more **self-contained packets** built with the
+[Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md). The coordinator fills every field of that
+procedure's packet template — base/head SHA, resume facts, read/write/forbidden paths, oracle, proof-first assertion
+locations, focused commands, STOP, reviewer gate — before dispatch. No packet asks a worker to design a phase.
+
+Rules for every packet in this plan:
+
+- **Tests land before or with production.** A packet's PLANNED assertion file is written with its independent expected
+  values before the implementation edit; a test-only commit is used whenever it can pass alone.
+- **Anchors are concrete.** Each packet names the existing producer, consumer, and test file it builds on. Paths that do
+  not exist yet are marked **NEW** (created by this plan) or **PR228-only** (published on
+  `ui-overhaul/052-transition-provenance`, absent from main `c3491c5e`). Do not present a NEW or PR228-only command as
+  runnable on main.
+- **The oracle is independent.** Expected pairing, order, allocation, and eligibility values come from
+  `docs/block-transition-provenance.md` and `docs/recovery-week-policy.md`, never from the module under test.
+- **Every packet carries a deliberate failing case** and stops at its STOP boundary. The coordinator reproduces the
+  risky assertion before the next packet of that row is dispatched.
+
+### PR #228 is in progress — resume, do not restart
+
+Rows 1–2 are already published on branch `ui-overhaul/052-transition-provenance` (PR #228), head
+`d1a84ea098bdba6a16f99a0a80e39e9fcae780f1`, four commits:
+`chore(plan-052): start implementation` → `test(program): characterize replacement and compiler provenance` (row 1)
+→ `feat(program): add immutable transition proposals and diffs` (row 2)
+→ `fix(program): validate complete sibling proposal contract` (row 2 follow-up).
+They add `program-transition.js`, `test/program-transition.mjs`, and `test/program-transition-compiler-provenance.mjs`
+(all **PR228-only**). `program-transition.js` exposes `RepForgeProgramTransition` with `SCHEMA_VERSION`,
+`SLOT_MAPPING_SCHEMA_VERSION`, `canonicalProposalJson`, `hashProposal`, `fingerprintCompilerInstance`,
+`fingerprintCompilerContext`, `buildSlotMapping`, `buildExactDiff`, `createSiblingProposal`, and `validateProposal`.
+
+Do not open a second PR, recreate the module, or introduce new `rawDraft` replacement semantics. Storage packets use the
+current DraftV2 `flush`/`checkpoint`/`read` authority on `window.__repforgeWorkoutDraft` and the existing
+`commitProgramReplacement()` / `commitProposedState()` transaction contract. Extend its adapter only where
+transition metadata requires it, preserving its existing draft guarantees. At implementation resume, explicitly
+merge current `origin/main` into the clean existing branch, then reprove rows 1–2. This planning revision itself
+does not modify PR #228.
+
+### Row → packet map
+
+P6 is a group. Dispatch P6a for one sibling commit/reload/archive path first,
+P6b for stale/duplicate/two-tab outcomes, and P6c for crash/replay/draft faults.
+P7 separates backup/corrupt-overlay parsing from service-worker upgrade proof.
+Give each subpacket its own exact files and assertions before dispatch. The
+first P6a commit must preserve existing failure guarantees even before broader
+fault coverage expands; a knowingly unsafe transaction is not a checkpoint.
+
+For P0, reproduce freshly rehashed semantic violations as well as stale/hash
+failures. For P3b, derive expected siblings from authored program-family data
+and `test/fixtures/program-families-v1.json`, not exercise curation data.
+For P4, reducible slots may decrease down to their minimum; being a slot with
+a `minSets` field does not make every set protected. For P6, rejection or a
+pre-commit crash leaves zero new archives. Only a successful/recovered commit
+has exactly one linked archive. Recovery overlays retain their distinct
+no-successor/no-archive contract.
+
+| Packet | Maps rows | Bounded objective · mode | Existing anchors (main unless noted) | Proof-first: PLANNED assertion + independent oracle + deliberate failure | Commands: baseline now → planned | STOP · reviewer gate |
+|---|---|---|---|---|---|---|
+| 052-P0 | 1–2 | Review and resume published rows 1–2: determinism, staleness rejection, exact-diff completeness, proposal-hash sensitivity, and the "complete sibling proposal contract" fix · **plan (read-only)** | PR228-only `program-transition.js`, `test/program-transition.mjs`, `test/program-transition-compiler-provenance.mjs` at `d1a84ea0` | No new assertion; coordinator re-reads both suites and reproduces one staleness rejection and one hash-mismatch rejection from `validateProposal` | baseline: `node --check program-transition.js` on the branch → planned: `node test/program-transition.mjs && node test/program-transition-compiler-provenance.mjs` (branch only, not main) | STOP if a row-1/2 acceptance item is unproven — reduce it to its failing case rather than patch around it · reviewer: coordinator records technical agreement in PR #228 before 052-P3a dispatch |
+| 052-P3a | 3 | `proposeSibling(kind, predecessor, compilerContext, targetConstraint)` — lower-frequency and shorter-session resolution over authored family metadata; returns `Proposal \| Unavailable` · **build** | producer `program-compiler.js` (schema v2, 20 authored siblings), `ProgramEntryAdapter.compile()` in `program-entry-adapter.js` (`alternative: null`); tests `test/program-family-fixtures.mjs`, `test/program-compiler-runtime.mjs` | NEW `test/program-transition-siblings.mjs`: for one real family pair, the resolved sibling's supported day count / duration target equals the value in `test/program-family-fixtures.mjs` (oracle = family fixture, not resolver output). Failure: a shorter-session request that only a lower-frequency sibling satisfies must return `Unavailable` | baseline: `node test/program-family-fixtures.mjs` → planned: `node test/program-transition-siblings.mjs` | STOP if a sibling would need fuzzy or display-name matching, or post-compile day/set editing · reviewer: reproduces one resolved pair and one `Unavailable` |
+| 052-P3b | 3 | All-family supported/unavailable matrix plus `guided_manual_repair` exact-copy fallback through the existing candidate-draft path · **build** | consumer `commitProposedState()` (`app.js:3638`), `program-editor.js`; `test/fixtures/program-families-v1.json`, `tools/build-program-family-fixtures.mjs` | extend `test/program-transition-siblings.mjs`: every authored family classified against a list independently derived from authored family metadata. Failure: custom or imported program, rules drift, and unsupported historical compiler version each return `Unavailable`, never a silent recompile | baseline: `node tools/build-program-family-fixtures.mjs --check` → planned: `node test/program-transition-siblings.mjs` | STOP if guided repair archives or mutates the program before explicit activation · reviewer: full matrix plus a no-mutation trace |
+| 052-P4 | 4 | `proposeVolumeReduction(predecessor, policyVersion)` — optional-before-protected classification, per-exercise set diff, `Unavailable` when no safe cut exists · **build** | replaces the `successorProgramList()` ±1 shortcut (`app.js:3334`; do not reuse it); compiler protected / `minSets` metadata | NEW `test/program-transition-volume.mjs`: property test — protected work is retained and reducible slots never cross `minSets`, optional work is removed first; expected classification from compiler metadata. Failure: a cut crossing `minSets` is rejected with a reason code | baseline: `node test/generative/run.mjs --profile ci` → planned: `node test/program-transition-volume.mjs` | STOP if any cut crosses protected/minimum work (recovery, 052-P5, is the only exception) · reviewer: reproduces the rejected cut |
+| 052-P5a | 5 | `proposeRecoveryWeek(...)` eligibility gate — `maintained`/`declined` across two of `knee-dominant`/`horizontal press`/`hip/hinge` plus a local `Yes` checkpoint; otherwise `Ineligible` · **build** | `docs/recovery-week-policy.md` (Rule B, closed); evidence shape from `buildBlockReview()` (`app.js:3220`) and `blockSnapshot()` (`app.js:3254`) | NEW `test/program-transition-recovery.mjs`: eligibility truth table transcribed from the policy doc, independent of the function. Failure: one qualifying pattern; an `improved` outcome; a `No`/`Not sure`/missing checkpoint — each returns `Ineligible` | baseline: `node test/program-entry-rules-recovery.mjs` → planned: `node test/program-transition-recovery.mjs` | STOP if the eligibility question, its answers, or the pattern set drift from policy version 2 · reviewer: reproduces two `Ineligible` reasons and one eligible result |
+| 052-P5b | 5 | Rule B allocation — `removedOptionalFirst`, one working set retained per approved primary pattern, named-policy `minSets` crossing allowed, two version-allowlisted misses, reject versions outside the 40–60% band, no percentage clamp; overlay schema per this plan · **build** | `docs/recovery-week-policy.md`; overlay field list in this plan; slot identity from compiler `slotId` | extend `test/program-transition-recovery.mjs`: per-slot `effectiveWorkingSets` equals the policy doc's worked example; a movement in two slots gets two entries. Failure: a program version outside the band is accepted; a clamped percentage; one shared entry for a duplicated movement | baseline: `node test/progression-fixtures.mjs` → planned: `node test/program-transition-recovery.mjs` | STOP on any clamp or band reinterpretation · reviewer: reproduces the two allowlisted-miss fixtures |
+| 052-P5c | 5 | Recovery lifecycle — week-one active marker, canonical week-two restoration with no migration, `reassessmentOutcome` `null` → `Better`/`About the same`/`Worse`, no same-block extension or repeat · **build** | this plan's overlay; `mesocycleLifecycle()` (`app.js:3168`) week/block semantics (period is derived, not a client timeout) | extend `test/program-transition-recovery.mjs`: the week-two prescription equals the pre-recovery canonical prescription exactly; a second recovery in the same block is refused. Failure: week two still reduced; an extension is allowed | baseline: `node test/schedule.mjs` → planned: `node test/program-transition-recovery.mjs` | STOP if week two does not restore canonical work · reviewer: reproduces the week-1 → week-2 boundary |
+| 052-P6 | 6 | Atomic commit through storage — re-read predecessor identity/revision/fingerprint under the existing program lock, reject a stale proposal by hash, call `commitProgramReplacement()`, write the TransitionRecord (transition-in on successor meta, transition-out/link on the archive entry), idempotent by `transitionId`/`proposalHash`, draft-safe via `_storageDraftTransaction` · **build** | `commitProgramReplacement()` (`app.js:3362`), `captureProgramReplacement()`, `commitProposedState()` (`app.js:3638`), the `window.__repforgeDraftFault` seam (`app.js:510`); tests `test/thermonuclear-races.mjs`, `test/persistence.mjs`, `test/persistence-race.mjs` | NEW `test/program-transition-commit.mjs`: fault list enumerated up front — crash at the archive / successor / draft boundary, two-tab confirm, duplicate confirm, stale hash; after rejection/pre-commit failure, zero new archives; after successful or recovered commit, exactly one linked archive and successor, never mixed. Failure: a duplicate confirm creates a second archive entry | baseline: `node test/thermonuclear-races.mjs` → planned: `node test/program-transition-commit.mjs` | STOP if any boundary yields partial state or a second successor · reviewer: reproduces the archive-crash and duplicate-confirm cases before 052-P7 |
+| 052-P7 | 7 | Recovery across upgrades — old/new schema parse, corrupt overlay → canonical prescription plus a recoverable warning, service-worker/script-revision lockstep bump, backup round-trip retains both records, guided-repair no-mutation evidence · **build** | `sw.js` `CACHE = "repforge-v188"` and `?v=188` in `index.html` / `sw.js` `ASSETS`, held in lockstep by `test/exercise-library.mjs`; `test/sw-upgrade.mjs`, backup suites | extend `test/program-transition-commit.mjs` and NEW `test/program-transition-sw-upgrade.mjs`: after a revision bump an old worker cannot execute the new record schema; a corrupt overlay renders the canonical prescription with a warning, never a guessed reduction | baseline: `node test/exercise-library.mjs && node test/sw-upgrade.mjs` → planned: `node test/program-transition-sw-upgrade.mjs` | STOP if rollback code would strip an unknown transition/recovery section · reviewer: reproduces the corrupt-overlay fallback |
+
+### Early vertical slice (optional reorder, scope unchanged)
+
+If safely separable, the coordinator may dispatch a thin **one-real-sibling-pair** slice — compile a sibling via
+`program-compiler.js` and the entry adapter, call `createSiblingProposal`, commit through the 052-P6 storage adapter,
+reload, and inspect the successor and the archive — as a first `052-P3a` + `052-P6` proof before the full all-family
+matrix (052-P3b) and the full fault matrix. This changes dispatch order only: every acceptance item in original rows 3
+and 6 is still closed before the completion gate, and the final Progress UI stays in Plan 056. This exists to stop a
+large row-6 surprise after weeks of pure-model tests.
+
 ## Implementation-agent operating protocol
 
 ### Branch/worktree contract
 
-- **Branch:** `ui-overhaul/052-transition-provenance`
+- **Branch:** `ui-overhaul/052-transition-provenance` (exists; PR #228 head `d1a84ea0`, rows 1–2 published)
 - **Worktree:** `../repforge-ui-052-transitions`
-- **Base:** current `origin/main`
+- **Base:** current `origin/main` (`c3491c5e`, Plans 049/050/051 merged); merge it into the branch before 052-P6/P7
 - **Dependency gate:** Plan 049 merged with recovery policy version 2
 - **Primary files:** new transition module, compiler/entry adapters and fixtures, `app.js` commit adapter, backup/race tests, script/cache inventory
 - **Shared hotspots:** `app.js`, `program-compiler.js`, `program-entry-adapter.js`, `sw.js`, backup/storage tests
@@ -297,7 +382,7 @@ After each row: mark 🟡; implement only that contract; run its focused proof; 
 - **Safe parallelism:** Plan 051 workout state and Plan 050 UI fixes; serialize `app.js`, cache, and generated fixture merges
 - **Integration order:** 049 → 052 → 056; Plan 052 should merge before Progress UI starts its transition-action slice
 
-Fetch/inspect main, branches, worktrees, and PRs; resume existing work. Use one dedicated worktree, keep coordination checkout clean, never copy uncommitted files or delete others' work. Push `chore(plan-052): start implementation`, open a draft PR, and populate it before substantive code. Target main. When prerequisites merge, fetch and explicitly merge `origin/main`, resolve deliberately, rerun affected verification, push, and update the PR. Never rebase published history.
+Fetch/inspect main, branches, worktrees, and PRs; resume existing work. Use one dedicated worktree, keep coordination checkout clean, never copy uncommitted files or delete others' work. PR #228 and its `chore(plan-052): start implementation` commit already exist — resume that PR; do not re-run the kickoff. Target main. When prerequisites merge, fetch and explicitly merge `origin/main`, resolve deliberately, rerun affected verification, push, and update the PR. Never rebase published history.
 
 ### Required implementation PR body
 

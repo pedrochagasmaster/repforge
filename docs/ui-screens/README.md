@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 72 screens,
-293 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 82 screens,
+354 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -107,6 +107,13 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Import — source](screens/onboarding-import/source__phone-390-light-en.png) | 3 | The bounded supported-file and setup-source surface before any mutation. |
+| [Import — paste a program](screens/onboarding-import/freeform-empty__phone-390-light-en.png) | 3 | The free-form door as it opens: an empty field, and the hand-off to ChatGPT or Claude still unavailable. |
+| [Import — paste ready to convert](screens/onboarding-import/freeform-filled__phone-390-light-en.png) | 7 | A pasted program with both app links live, the character counter, and the field the reply comes back into. |
+| [Import — choose an assistant](screens/onboarding-import/freeform-stage2__phone-390-light-en.png) | 7 | Stage 2 with collapsed source summary, Edit button, ChatGPT and Claude buttons, and Preview prompt disclosure. |
+| [Import — paste reply](screens/onboarding-import/freeform-stage3__phone-390-light-en.png) | 7 | Stage 3 with collapsed source summary, reply textarea, Review CTA, Try another assistant, and Start over. |
+| [Import — resolve gaps](screens/onboarding-import/freeform-gaps__phone-390-light-en.png) | 7 | Gap resolution screen with inputs for missing sets and reps, and the non-imported disclosure. |
+| [Import — gap validation error](screens/onboarding-import/freeform-gaps-invalid__phone-390-light-en.png) | 3 | Gap resolution screen after submitting empty inputs, highlighting invalid fields with .is-invalid and aria-invalid. |
+| [Import — unreadable reply](screens/onboarding-import/freeform-unreadable__phone-390-light-en.png) | 3 | Unreadable reply recovery block with Copy repair prompt and Try another assistant actions. |
 | [Import — review](screens/onboarding-import/preview__phone-390-light-en.png) | 8 | A mapped exercise with manual progression ownership and provenance. |
 
 ### Onboarding — Shared setup link
@@ -138,6 +145,9 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | --- | --- | --- |
 | [Workout — list mode](screens/workout/list__phone-390-light-en.png) | 3 | The default logging surface. |
 | [Workout — focus mode](screens/workout/focus__phone-390-light-en.png) | 3 | One exercise at a time. |
+| [Workout — stale draft recovery](screens/workout/stale-draft__phone-390-light-en.png) | 8 | A conflicting tab won while this tab retains a pending field value and offers Reload latest or Copy value. |
+| [Workout — draft persistence retry](screens/workout/persist-retry__phone-390-light-en.png) | 8 | A field write was interrupted; the exact pending value remains visible beside Retry and Copy value actions. |
+| [Workout — invalid draft recovery](screens/workout/invalid-draft__phone-390-light-en.png) | 8 | An unreadable local draft remains untouched and offers a non-destructive copy action. |
 | [Workout — rest timer](screens/workout/rest-timer__phone-390-light-en.png) | 3 | The rest timer sheet. |
 | [Workout — exercise note](screens/workout/exercise-note__phone-390-light-en.png) | 3 | The per-exercise note sheet. |
 | [Workout — why this weight](screens/workout/why-this-weight__phone-390-light-en.png) | 3 | The recommendation inspector. |

@@ -1,5 +1,7 @@
 const KEY="repforge_v1",DRAFT="repforge_draft_v1",PENDING="repforge_pending_v1",NOTIFY_META="repforge_notify_v1";
+const WorkoutDraft=window.RepForgeWorkoutDraft;
 const PENDING_PREFIX=`${PENDING}:`,DRAFT_PENDING_PREFIX=`${DRAFT}:pending:`,DRAFT_CLOSE_PREFIX=`${DRAFT}:closing:`;
+const DRAFT_V2_CHECKPOINT=`${DRAFT}:v2-checkpoint`;
 const DRAFT_WRITE_TRANSACTION="draft-write";
 const DB="repforge",STORE="kv";
 function loadNotifyMeta(){
@@ -178,7 +180,7 @@ function enqueueWrite(op){
   const result=persistTail.then(op);
   persistTail=result.then(()=>undefined,()=>undefined);
   return result}
-function flushStorage(){return persistTail}
+function flushStorage(){return Promise.all([persistTail,typeof setupDraftWriteQueue!=="undefined"?setupDraftWriteQueue:Promise.resolve()])}
 async function writeSnapshot(snapshot,io){
   if(!io||typeof io.writeLocal!=="function"||typeof io.writeIdb!=="function")
     throw new Error("writeSnapshot requires an explicit adapter");
@@ -360,18 +362,36 @@ function pendingJournalEffectState(effect){
   const outcome=normalizeDraftEffectOutcome(effect),receipt=outcome.effect;
   if(outcome.status!==DRAFT_EFFECT_VALID)return{receipt:null,status:outcome.status};
   try{
-    const currentRaw=DraftStore.readCanonicalRaw();
-    if(currentRaw===receipt.expectedRaw)return{receipt,currentRaw,status:"exact"};
-    if(currentRaw==null)return{receipt,currentRaw,status:"missing"};
+    const read=DraftStore.readCanonicalStatus();
+    if(read.status!=="ok")return{receipt,currentRaw:null,status:"read-failed"};
+    const currentRaw=read.raw,checkpoint=DraftStore.readV2Checkpoint();
+    if(checkpoint.status==="invalid"||checkpoint.status==="read-failed")
+      return{receipt,currentRaw:null,status:"read-failed"};
+    // A pre-V2 tab can still replace the canonical localStorage key after the
+    // versioned tab has closed, or remove it after a V2 write. The checkpoint
+    // is the acknowledged aggregate even when the canonical bytes happen to
+    // equal an older receipt. Canonical equality alone cannot authorize a
+    // destructive state transaction.
+    let authoritativeRaw=currentRaw;
+    if(checkpoint.status==="valid"){
+      if(checkpoint.value.kind==="committed")authoritativeRaw=checkpoint.value.raw;
+      else if(checkpoint.value.kind==="tombstone")authoritativeRaw=null;
+      else return{receipt,currentRaw:null,status:"read-failed"};
+      if(currentRaw!==authoritativeRaw&&currentRaw!=null)
+        storeDraftRecovery(currentRaw,"canonical-overwrite-before-state-transaction")}
+    if(authoritativeRaw===receipt.expectedRaw)
+      return{receipt,currentRaw:authoritativeRaw,status:"exact",overwrittenRaw:currentRaw!==authoritativeRaw?currentRaw:undefined};
+    if(authoritativeRaw==null)return{receipt,currentRaw:authoritativeRaw,status:"missing"};
     if(receipt.precondition===DRAFT_PRECONDITION_ABORT_CHANGED)
-      return{receipt,currentRaw,status:"conflict"};
+      return{receipt,currentRaw:authoritativeRaw,status:"conflict"};
     if(receipt.precondition===DRAFT_PRECONDITION_ABORT_SAME_DAY){
       try{
-        const current=JSON.parse(currentRaw);
-        if(current&&typeof current==="object"&&!Array.isArray(current)&&current.__day===receipt.conflictDay)
-          return{receipt,currentRaw,status:"conflict"}}
+        const authoritative=JSON.parse(authoritativeRaw);
+        if(authoritative&&typeof authoritative==="object"&&!Array.isArray(authoritative)&&
+          (authoritative.__day===receipt.conflictDay||authoritative.schemaVersion===2&&authoritative.program?.dayLabel===receipt.conflictDay))
+          return{receipt,currentRaw:authoritativeRaw,status:"conflict"}}
       catch{}}
-    return{receipt,currentRaw,status:"mismatch"}}
+    return{receipt,currentRaw:authoritativeRaw,status:"mismatch"}}
   catch{
     return{receipt,currentRaw:null,status:receipt.precondition===DRAFT_PRECONDITION_MATCH_ONLY?"mismatch":"conflict"}}}
 function applyPendingJournalEffect(effect){
@@ -379,22 +399,27 @@ function applyPendingJournalEffect(effect){
   if(checked.status===DRAFT_EFFECT_NONE)return{status:DRAFT_EFFECT_NONE,receipt:null};
   if(!receipt)return{status:DRAFT_EFFECT_INVALID,receipt:null};
   if(checked.status!=="exact")return{status:"no-effect",receipt,reason:checked.status};
-  return DraftStore.publishCanonical(receipt.kind==="clear-draft"?null:receipt.replacementRaw)
-    ?{status:"applied",receipt}:{status:"failed",receipt}}
+  const nextRaw=receipt.kind==="clear-draft"?null:receipt.replacementRaw;
+  const prepared=prepareV2CheckpointEffect(checked.currentRaw,nextRaw,`transaction-${pendingJournalUuid()}`);
+  if(!prepared.ok)return{status:"failed",receipt,reason:prepared.reason};
+  if(!DraftStore.publishCanonical(nextRaw))return{status:"failed",receipt};
+  if(!commitV2CheckpointEffect(prepared,nextRaw))return{status:"failed",receipt,reason:"checkpoint-commit"};
+  return{status:"applied",receipt}}
 function pendingDraftPostEffectAccepted(effect){
   const outcome=normalizeDraftEffectOutcome(effect),receipt=outcome.effect;
   if(outcome.status===DRAFT_EFFECT_NONE)return true;
   if(outcome.status!==DRAFT_EFFECT_VALID)return false;
   if(!draftEffectRequiresCoordination(outcome))return true;
   try{
-    const currentRaw=DraftStore.readCanonicalRaw();
+    const read=DraftStore.readCanonicalStatus();if(read.status!=="ok")return false;
+    const currentRaw=read.raw;
     if(receipt.kind==="clear-draft"){
       if(currentRaw==null)return true;
       const after=pendingJournalEffectState(receipt);
       return receipt.precondition===DRAFT_PRECONDITION_ABORT_SAME_DAY&&after.status==="mismatch"}
     if(currentRaw===receipt.replacementRaw)return true;
     const after=pendingJournalEffectState(receipt);
-    return after.status!=="conflict"&&after.status!=="exact"}
+    return after.status==="missing"||after.status==="mismatch"}
   catch{return false}}
 function pendingDraftRelatedState(effect,transactionId,contextFingerprint=null){
   const pending=DraftStore.related(transactionId,contextFingerprint);
@@ -431,7 +456,7 @@ function draftPreservationEffect(expectedRaw){
   if(expectedRaw==null)return destructiveDraftClearEffect(null);
   return draftEffectOutcome({required:true,kind:"replace-draft",expectedRaw,replacementRaw:expectedRaw,
     precondition:DRAFT_PRECONDITION_ABORT_CHANGED})}
-function draftDayReplacementEffect(oldDay,newDay){
+function draftDayReplacementEffect(oldDay,newDay,nextProgramSnapshot=null){
   try{
     const expectedRaw=DraftStore.readRaw();
     if(expectedRaw==null)return draftEffectOutcome({required:true,kind:"clear-draft",expectedRaw:null,
@@ -439,8 +464,16 @@ function draftDayReplacementEffect(oldDay,newDay){
     let replacementRaw=expectedRaw;
     try{
       const draft=JSON.parse(expectedRaw);
-      if(draft&&typeof draft==="object"&&!Array.isArray(draft)&&draft.__day===oldDay){
-        draft.__day=newDay;replacementRaw=JSON.stringify(draft)}}
+      if(draft&&typeof draft==="object"&&!Array.isArray(draft)){
+        if(draft.schemaVersion===2&&draft.program?.dayLabel===oldDay&&nextProgramSnapshot){
+          const operationId=`day-rename-${uid()}`;
+          draft.program.dayLabel=newDay;
+          draft.program.programFingerprint=workoutProgramFingerprint(nextProgramSnapshot);
+          draft.revision+=1;draft.session.updatedAt=new Date().toISOString();draft.writer=draftWriter(operationId);
+          const checked=WorkoutDraft?.parse(draft);
+          if(checked?.kind!=="valid")return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"v2-day-replacement"};
+          replacementRaw=JSON.stringify(WorkoutDraft.serialize(checked.draft))}
+        else if(draft.__day===oldDay){draft.__day=newDay;replacementRaw=JSON.stringify(draft)}}}
     catch{}
     return draftEffectOutcome({required:true,kind:"replace-draft",expectedRaw,replacementRaw,
       precondition:DRAFT_PRECONDITION_ABORT_SAME_DAY,conflictDay:oldDay})}
@@ -464,6 +497,18 @@ function pendingJournalOrder(){
 function draftProgramFingerprint(snapshot){
   return JSON.stringify(canonicalize({programMetaId:snapshot?.programMeta?.id||null,
     program:Array.isArray(snapshot?.program)?snapshot.program:[]}))}
+/* DraftV2 bounds its stored fingerprint. Hash the complete canonical program
+   instead of truncating it: length plus four independent FNV-1a passes make
+   every source byte participate while keeping the adapter value fixed-size. */
+function workoutProgramFingerprint(snapshot){
+  const source=draftProgramFingerprint(snapshot),seeds=[0x811c9dc5,0x9e3779b9,0x85ebca6b,0xc2b2ae35];
+  const hashes=seeds.map(seed=>{let hash=seed;
+    for(let i=0;i<source.length;i++){hash^=source.charCodeAt(i);hash=Math.imul(hash,0x01000193)}
+    return(hash>>>0).toString(16).padStart(8,"0")});
+  return`program-v1:${source.length}:${hashes.join("")}`}
+function workoutDraftFault(point){
+  if(window.__repforgeDraftFault!==point)return false;
+  window.__repforgeDraftFault=null;return true}
 function draftContextFingerprint(snapshot){
   return JSON.stringify(canonicalize({programMetaId:snapshot?.programMeta?.id||null,
     program:Array.isArray(snapshot?.program)?snapshot.program:[],
@@ -476,6 +521,132 @@ const DraftStore={
   readCanonicalRaw(){
     try{return localStorage.getItem(DRAFT)}
     catch{return null}},
+  readCanonicalStatus(){
+    try{return{status:"ok",raw:localStorage.getItem(DRAFT)}}
+    catch(error){return{status:"read-failed",error}}},
+  readV2Checkpoint(){
+    try{const raw=localStorage.getItem(DRAFT_V2_CHECKPOINT);if(raw==null)return{status:"absent",raw:null};
+      const value=JSON.parse(raw);
+      if(!isPlainStateObject(value)||value.version!==1||!["pending","pending-removal","committed","tombstone"].includes(value.kind)||
+        typeof value.draftId!=="string"||!value.draftId||value.draftId.length>240||
+        !Number.isSafeInteger(value.revision)||value.revision<0||
+        typeof value.operationId!=="string"||!value.operationId||value.operationId.length>240||
+        typeof value.programFingerprint!=="string"||!value.programFingerprint||value.programFingerprint.length>2000||
+        (value.kind!=="tombstone"&&(typeof value.raw!=="string"||value.raw.length>PENDING_EFFECT_MAX_RAW)))
+        return{status:"invalid",raw};
+      const validRecord=record=>{const parsed=WorkoutDraft?.parse(record?.raw);
+        return isPlainStateObject(record)&&typeof record.draftId==="string"&&Number.isSafeInteger(record.revision)&&
+          typeof record.operationId==="string"&&typeof record.programFingerprint==="string"&&parsed?.kind==="valid"&&
+          parsed.draft.draftId===record.draftId&&parsed.draft.revision===record.revision};
+      if(value.kind!=="tombstone"&&!validRecord(value))return{status:"invalid",raw};
+      if(value.kind==="pending"&&
+        (!(value.baseRaw===null||typeof value.baseRaw==="string"&&value.baseRaw.length<=PENDING_EFFECT_MAX_RAW)||
+          value.previous!=null&&!validRecord(value.previous)))
+        return{status:"invalid",raw};
+      if(value.kind==="pending-removal"&&value.baseRaw!==value.raw)return{status:"invalid",raw};
+      return{status:"valid",raw,value}}
+    catch(error){return{status:"read-failed",raw:null,error}}},
+  writeV2Checkpoint(value){
+    try{localStorage.setItem(DRAFT_V2_CHECKPOINT,JSON.stringify(value));return true}
+    catch{return false}},
+  v2Tombstone(draft,operationId){return{version:1,kind:"tombstone",draftId:draft.draftId,
+    revision:draft.revision,operationId,programFingerprint:draft.program.programFingerprint}},
+  async compareAndSwapV2({expectedRaw,expectedDraftId,expectedRevision,nextRaw,operationId}){
+    if(!navigator.locks?.request)return{status:"lock-unavailable"};
+    if(typeof nextRaw!=="string"||nextRaw.length>PENDING_EFFECT_MAX_RAW)
+      return{status:"invalid-next"};
+    const candidate=WorkoutDraft?.parse(nextRaw);if(candidate?.kind!=="valid")return{status:"invalid-next"};
+    // A state transaction has already published its exact draft precondition
+    // before waiting for the shared lock. Preserve a newer workout command in
+    // that transaction's ordered sidecar so its lock-held preflight sees the
+    // conflict and the workout survives when the transaction closes.
+    const stageFor=target=>{const currentRaw=this.readRaw(),current=WorkoutDraft?.parse(currentRaw);
+      if(expectedRaw!==undefined?currentRaw!==expectedRaw:
+        current?.kind!=="valid"||current.draft.draftId!==expectedDraftId||current.draft.revision!==expectedRevision)
+        return{status:"stale",raw:currentRaw,draft:current?.draft};
+      if(!this.stage(target,nextRaw))return{status:"stage-failed"};
+      return{status:"applied",raw:nextRaw,draft:candidate.draft,staged:true}};
+    const target=this.writeTarget();
+    if(target)return stageFor(target);
+    return navigator.locks.request(STORAGE_LOCK,async()=>{
+      const queuedTarget=this.writeTarget();if(queuedTarget)return stageFor(queuedTarget);
+      const read=this.readCanonicalStatus();
+      if(read.status!=="ok")return read;
+      if(expectedRaw!==undefined){
+        if(read.raw!==expectedRaw)return{status:"stale",raw:read.raw}}
+      else{
+        const live=WorkoutDraft?.parse(read.raw);
+        if(live?.kind!=="valid")return{status:live?.kind==="absent"?"missing":"invalid-live",raw:read.raw};
+        if(live.draft.writer.operationId!==operationId&&
+          (live.draft.draftId!==expectedDraftId||live.draft.revision!==expectedRevision))
+          return{status:"stale",raw:read.raw,draft:live.draft}}
+      const next=candidate;
+      const priorCheckpoint=this.readV2Checkpoint();
+      if(priorCheckpoint.status!=="valid"&&priorCheckpoint.status!=="absent")return{status:"checkpoint-unreadable"};
+      const liveParsed=WorkoutDraft?.parse(read.raw);
+      if(priorCheckpoint.value?.kind==="pending"&&priorCheckpoint.value.operationId===operationId){
+        if(priorCheckpoint.value.raw!==nextRaw)return{status:"operation-conflict",raw:read.raw};
+        if(read.raw===priorCheckpoint.value.raw){
+          if(!this.writeV2Checkpoint(v2CheckpointRecord(next.draft,nextRaw,operationId)))
+            return{status:"checkpoint-commit-failed",raw:read.raw,draft:next.draft};
+          return{status:"applied",raw:read.raw,draft:next.draft,idempotent:true}}
+        if(read.raw===priorCheckpoint.value.baseRaw){
+          if(!this.publishCanonical(nextRaw))return{status:"write-failed"};
+          const verify=this.readCanonicalStatus();
+          if(verify.status!=="ok")return verify;
+          if(verify.raw!==nextRaw)return{status:"readback-mismatch",raw:verify.raw};
+          if(!this.writeV2Checkpoint(v2CheckpointRecord(next.draft,nextRaw,operationId)))
+            return{status:"checkpoint-commit-failed",raw:verify.raw,draft:next.draft};
+          return{status:"applied",raw:verify.raw,draft:next.draft,idempotent:true}}
+        return{status:"checkpoint-conflict",raw:read.raw}}
+      if(liveParsed?.kind==="valid"){
+        if(priorCheckpoint.value?.kind!=="committed"||priorCheckpoint.value.raw!==read.raw)
+          return{status:priorCheckpoint.status==="absent"?"checkpoint-missing":"checkpoint-conflict",raw:read.raw};}
+      if(liveParsed?.kind==="valid"&&liveParsed.draft.writer.operationId===operationId)
+        return nextRaw===read.raw?{status:"applied",raw:read.raw,draft:liveParsed.draft,idempotent:true}:
+          {status:"operation-conflict",raw:read.raw};
+      else if(liveParsed?.kind==="legacy"&&priorCheckpoint.status!=="absent")
+        return{status:"checkpoint-conflict",raw:read.raw};
+      else if(liveParsed?.kind==="absent"&&priorCheckpoint.status==="valid"&&priorCheckpoint.value.kind!=="tombstone")
+        return{status:"checkpoint-conflict",raw:read.raw};
+      const previous=liveParsed?.kind==="valid"?v2CheckpointRecord(liveParsed.draft,read.raw):null;
+      const checkpoint={version:1,kind:"pending",draftId:next.draft.draftId,revision:next.draft.revision,
+        operationId,programFingerprint:next.draft.program.programFingerprint,raw:nextRaw,baseRaw:read.raw,previous};
+      if(!this.writeV2Checkpoint(checkpoint))return{status:"checkpoint-failed"};
+      if(workoutDraftFault("before-canonical-write"))return{status:"fault-before-canonical"};
+      if(!this.publishCanonical(nextRaw))return{status:"write-failed"};
+      const verify=this.readCanonicalStatus();
+      if(verify.status!=="ok")return verify;
+      if(verify.raw!==nextRaw)return{status:"readback-mismatch",raw:verify.raw};
+      const parsed=WorkoutDraft?.parse(verify.raw);
+      if(parsed?.kind!=="valid")return{status:"invalid-readback",raw:verify.raw};
+      if(workoutDraftFault("after-canonical-write"))return{status:"fault-after-canonical",raw:verify.raw,draft:parsed.draft};
+      if(!this.writeV2Checkpoint(v2CheckpointRecord(parsed.draft,verify.raw,operationId)))
+        return{status:"checkpoint-commit-failed",raw:verify.raw,draft:parsed.draft};
+      return{status:"applied",raw:verify.raw,draft:parsed.draft}
+    })},
+  async removeV2({expectedDraftId,expectedRevision,operationId}){
+    if(!navigator.locks?.request)return{status:"lock-unavailable"};
+    return navigator.locks.request(STORAGE_LOCK,async()=>{
+      if(this.writeTarget())return{status:"transaction-active"};
+      const read=this.readCanonicalStatus();if(read.status!=="ok")return read;
+      const live=WorkoutDraft?.parse(read.raw);
+      if(live?.kind!=="valid")return{status:live?.kind==="absent"?"missing":"invalid-live",raw:read.raw};
+      if(live.draft.draftId!==expectedDraftId||live.draft.revision!==expectedRevision)
+        return{status:"stale",raw:read.raw,draft:live.draft};
+      const checkpoint=this.readV2Checkpoint();
+      if(checkpoint.status!=="valid"||checkpoint.value.kind!=="committed"||checkpoint.value.raw!==read.raw)
+        return{status:checkpoint.status==="absent"?"checkpoint-missing":"checkpoint-conflict",raw:read.raw};
+      const prepared=prepareV2CheckpointEffect(read.raw,null,operationId);
+      if(!prepared.ok)return{status:prepared.reason};
+      if(workoutDraftFault("before-canonical-remove"))return{status:"fault-before-canonical"};
+      if(!this.publishCanonical(null))return{status:"write-failed"};
+      const verify=this.readCanonicalStatus();if(verify.status!=="ok")return verify;
+      if(verify.raw!==null)return{status:"readback-mismatch",raw:verify.raw};
+      if(workoutDraftFault("after-canonical-remove"))return{status:"fault-after-canonical"};
+      if(!commitV2CheckpointEffect(prepared,null))return{status:"checkpoint-commit-failed"};
+      return{status:"applied",raw:null,draft:live.draft}
+    })},
   publishCanonical(raw){
     if(raw!==null&&typeof raw!=="string")return false;
     try{
@@ -554,9 +725,11 @@ const DraftStore={
     const local=readLocalStatus();
     const transaction=local.status==="valid"?pendingDraftTransaction(local.parsed):null;
     if(transaction)return{id:transaction.id};
-    const next=readPendingJournal().entries.find(record=>
-      record.journal.effectOutcome.status===DRAFT_EFFECT_VALID&&
-      draftEffectRequiresCoordination(record.journal.effectOutcome));
+    // Any durable-state journal can reach a lock-held preflight that depends
+    // on workout progress (for example, reducing a set count that was safe
+    // when clicked). Stage draft writes behind the oldest journal so that
+    // preflight sees and either rejects or reconciles them before state lands.
+    const next=readPendingJournal().entries[0];
     return next?{id:next.journal.id}:null},
   writeSidecar(transactionId,raw){
     if(typeof transactionId!=="string"||!transactionId||
@@ -604,8 +777,11 @@ const DraftStore={
     if(!pending.entries.length&&!pending.invalid.length)
       return{settled:true,hadWrites:false,raw:undefined};
     const latest=pending.entries.at(-1);
-    if(latest&&!this.publishCanonical(latest.value.raw))
-      return{settled:false,hadWrites:true,raw:latest.value.raw};
+    if(latest){
+      if(!this.publishCanonical(latest.value.raw))return{settled:false,hadWrites:true,raw:latest.value.raw};
+      const parsed=WorkoutDraft?.parse(latest.value.raw);
+      if(parsed?.kind==="valid"&&!this.writeV2Checkpoint(v2CheckpointRecord(parsed.draft,latest.value.raw)))
+        return{settled:false,hadWrites:true,raw:latest.value.raw}}
     for(const entry of pending.entries)this.clearSidecar(entry);
     for(const invalid of pending.invalid){
       try{if(localStorage.getItem(invalid.key)===invalid.raw)localStorage.removeItem(invalid.key)}
@@ -615,18 +791,72 @@ const DraftStore={
       hadWrites:true,raw:latest?.value.raw}},
   restoreEffect(transactionId,effect,contextFingerprint=null){
     const promoted=this.promote(transactionId,contextFingerprint);
-    if(!promoted.settled||promoted.hadWrites)return promoted;
+    if(!promoted.settled)return promoted;
     const outcome=normalizeDraftEffectOutcome(effect);
     if(outcome.status!==DRAFT_EFFECT_VALID)return promoted;
     const receipt=outcome.effect;
     const appliedRaw=receipt.kind==="clear-draft"?null:receipt.replacementRaw;
-    if(this.readCanonicalRaw()!==appliedRaw)return promoted;
-    return{settled:this.publishCanonical(receipt.expectedRaw),hadWrites:false,raw:receipt.expectedRaw}},
+    const current=this.readCanonicalStatus();
+    if(current.status!=="ok")return{settled:false,hadWrites:false,raw:receipt.expectedRaw};
+    const checkpoint=this.readV2Checkpoint();
+    const currentDraft=WorkoutDraft?.parse(current.raw),expectedDraft=WorkoutDraft?.parse(receipt.expectedRaw);
+    const acknowledgedSuccessor=checkpoint.status==="valid"&&checkpoint.value.kind==="committed"&&
+      checkpoint.value.raw===current.raw&&currentDraft?.kind==="valid"&&
+      (expectedDraft?.kind!=="valid"||currentDraft.draft.draftId!==expectedDraft.draft.draftId||
+        currentDraft.draft.revision>expectedDraft.draft.revision);
+    // A sidecar produced by the V2 adapter is a real acknowledged successor.
+    // A legacy tab can only preserve the same nested V2 revision while adding
+    // flat fields, or publish an unsupported flat draft. Keep the successor;
+    // roll the legacy bytes into recovery below.
+    if(acknowledgedSuccessor)return promoted;
+    const writeAfterRemoval=checkpoint.status==="valid"&&checkpoint.value.kind==="tombstone"&&current.raw!=null;
+    if((promoted.hadWrites||writeAfterRemoval)&&current.raw!==receipt.expectedRaw){
+      if(current.raw!=null)storeDraftRecovery(current.raw,"draft-write-during-rollback");
+      const prepared=prepareV2CheckpointEffect(current.raw,receipt.expectedRaw,`rollback-${transactionId}`);
+      if(!prepared.ok||!this.publishCanonical(receipt.expectedRaw)||
+        !commitV2CheckpointEffect(prepared,receipt.expectedRaw))
+        return{settled:false,hadWrites:true,raw:receipt.expectedRaw};
+      return{settled:true,hadWrites:true,raw:receipt.expectedRaw}}
+    if(current.raw!==appliedRaw){
+      if(current.raw===receipt.expectedRaw){
+        const expected=WorkoutDraft?.parse(receipt.expectedRaw);
+        if(expected?.kind==="valid"&&!this.writeV2Checkpoint(v2CheckpointRecord(
+          expected.draft,receipt.expectedRaw,`rollback-${transactionId}`)))
+          return{settled:false,hadWrites:false,raw:receipt.expectedRaw}}
+      return promoted}
+    const prepared=prepareV2CheckpointEffect(appliedRaw,receipt.expectedRaw,`rollback-${transactionId}`);
+    if(!prepared.ok)return{settled:false,hadWrites:false,raw:receipt.expectedRaw};
+    const published=this.publishCanonical(receipt.expectedRaw);
+    return{settled:published&&commitV2CheckpointEffect(prepared,receipt.expectedRaw),hadWrites:false,raw:receipt.expectedRaw}},
   endClose(transactionId,contextFingerprint=null){
     try{localStorage.removeItem(DRAFT_CLOSE_PREFIX+transactionId)}
     catch{return{settled:false,hadWrites:false}}
     return this.promote(transactionId,contextFingerprint)}
 };
+function v2CheckpointRecord(draft,raw,operationId=draft.writer.operationId){
+  return{version:1,kind:"committed",draftId:draft.draftId,revision:draft.revision,operationId,
+    programFingerprint:draft.program.programFingerprint,raw}}
+function prepareV2CheckpointEffect(currentRaw,nextRaw,operationId,{previous:previousOverride}={}){
+  const current=WorkoutDraft?.parse(currentRaw),next=WorkoutDraft?.parse(nextRaw),checkpoint=DraftStore.readV2Checkpoint();
+  if(checkpoint.status==="invalid"||checkpoint.status==="read-failed")return{ok:false,reason:"checkpoint-unreadable"};
+  if(nextRaw===currentRaw)return{ok:true,kind:"none"};
+  if(current?.kind==="valid"&&nextRaw===null){
+    const pending={...v2CheckpointRecord(current.draft,currentRaw,operationId),kind:"pending-removal",baseRaw:currentRaw};
+    return DraftStore.writeV2Checkpoint(pending)?{ok:true,kind:"pending-removal",value:pending}:{ok:false,reason:"checkpoint-write"}}
+  if(next?.kind!=="valid")return current?.kind==="valid"?{ok:false,reason:"v2-replacement-invalid"}:{ok:true,kind:"none"};
+  const previous=previousOverride!==undefined?previousOverride:
+    current?.kind==="valid"?v2CheckpointRecord(current.draft,currentRaw):null;
+  const pending={...v2CheckpointRecord(next.draft,nextRaw,operationId),kind:"pending",baseRaw:currentRaw,previous};
+  return DraftStore.writeV2Checkpoint(pending)?{ok:true,kind:"pending",value:pending}:{ok:false,reason:"checkpoint-write"}}
+function commitV2CheckpointEffect(prepared,nextRaw){
+  if(prepared.kind==="none")return true;
+  if(prepared.kind==="pending-removal"){
+    if(nextRaw!==null)return false;
+    const removed=WorkoutDraft?.parse(prepared.value.raw);
+    return removed?.kind==="valid"&&DraftStore.writeV2Checkpoint(
+      DraftStore.v2Tombstone(removed.draft,prepared.value.operationId))}
+  const next=WorkoutDraft?.parse(nextRaw);
+  return next?.kind==="valid"&&DraftStore.writeV2Checkpoint(v2CheckpointRecord(next.draft,nextRaw,prepared.value.operationId))}
 function pendingJournalKeys(){
   const keys=[];
   try{for(let i=0;i<localStorage.length;i++){
@@ -886,6 +1116,9 @@ async function settleAppliedDraftTransaction(prepared,finalized,effect,checked,i
   const transaction=pendingDraftTransaction(prepared),transactionId=transaction?.id||null;
   const contextFingerprint=transaction?draftContextFingerprint(transaction.previous):null;
   const applied=applyPendingJournalEffect(effect);
+  if(applied.status==="failed"){
+    const compensation=await compensatePendingDraftTransaction(prepared,io,transactionId,effect);
+    return Object.assign({accepted:false,rejected:true},compensation)}
   if(!pendingDraftEffectAccepted(effect,checked,transactionId,contextFingerprint)){
     const compensation=await compensatePendingDraftTransaction(prepared,io,transactionId,effect);
     return Object.assign({accepted:false,rejected:true},compensation)}
@@ -1316,6 +1549,20 @@ const uid=()=>crypto?.randomUUID?.()||`id_${Date.now()}_${Math.random().toString
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
 const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
 const fmtPlain=v=>Number.isFinite(Number(v))?(Number.isInteger(Number(v))?String(Number(v)):Number(v).toFixed(2).replace(/\.?0+$/,"")):"";
+// DraftV2 stores loads and bodyweight in kilograms. Display formatting is
+// intentionally short for the UI, but a storage conversion must retain the
+// number that was actually entered: 12.5 lb is 5.669904625125443 kg, not 5.67.
+// Number#toString occasionally chooses exponent notation, which DraftV2's
+// decimal grammar rejects, so expand only that representation at the boundary.
+const canonicalNumberText=value=>{
+  const n=Number(value);if(!Number.isFinite(n))return"";
+  const raw=String(n);if(!/[eE]/.test(raw))return raw;
+  const sign=raw.startsWith("-")?"-":"",unsigned=raw.replace(/^[+-]/,"");
+  const [coefficient,exponentText]=unsigned.toLowerCase().split("e"),exponent=Number(exponentText);
+  const [whole,fraction=""]=coefficient.split("."),digits=whole+fraction,point=whole.length+exponent;
+  if(point<=0)return`${sign}0.${"0".repeat(-point)}${digits}`;
+  if(point>=digits.length)return`${sign}${digits}${"0".repeat(point-digits.length)}`;
+  return`${sign}${digits.slice(0,point)}.${digits.slice(point)}`};
 const uiLang=()=>state?.settings?.lang||(typeof I18N!=="undefined"&&I18N?.getLang?.())||"en";
 const isPt=()=>uiLang()==="pt";
 const locTag=()=>isPt()?"pt-BR":"en-US";
@@ -1558,11 +1805,26 @@ function resetDraftSessionState(){
   const el=$("#unfinishedBanner");
   if(el){el.classList.add("hidden");el.hidden=true}
   delete document.body.dataset.unfinishedPrompt;
+  activeWorkoutDraft=null;activeWorkoutDraftRaw=null;
+  clearDraftUiRecovery();
 }
-function clearDraft(){
-  DraftStore.remove();
-  resetDraftSessionState()}
-const loadDraft=()=>{try{return JSON.parse(DraftStore.readRaw()||"{}")}catch{clearDraft();return{}}};
+async function clearDraft(){
+  if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed"){
+    renderDraftRecovery();focusDraftRecovery();return false}
+  if(activeWorkoutDraft){
+    const removed=await DraftStore.removeV2({expectedDraftId:activeWorkoutDraft.draftId,
+      expectedRevision:activeWorkoutDraft.revision,operationId:`clear-${uid()}`});
+    if(removed.status!=="applied"){
+      showDraftCommandRecovery(removed.status,null,{focus:draftFocusIdentity(),retryAction:clearDraft});
+      return false}}
+  else{
+    const read=DraftStore.readCanonicalStatus();if(read.status!=="ok")return false;
+    const parsed=WorkoutDraft?.parse(read.raw);
+    if(parsed?.kind==="valid")return false;
+    if(!DraftStore.remove())return false}
+  resetDraftSessionState();return true}
+const loadDraft=()=>{if(activeWorkoutDraft)return workoutDraftProjection();
+  try{return JSON.parse(DraftStore.readRaw()||"{}")}catch{return{}}};
 function convertDraftUnitsRaw(raw,oldUnit,newUnit){
   if(raw==null||oldUnit===newUnit)return raw;
   let d;
@@ -1570,7 +1832,7 @@ function convertDraftUnitsRaw(raw,oldUnit,newUnit){
   catch{return raw}
   if(!d||typeof d!=="object")return raw;
   let changed=false;
-  const conv=v=>fmtPlain(toDisplayUnit(fromDisplayUnit(v,oldUnit),newUnit));
+  const conv=v=>canonicalNumberText(toDisplayUnit(fromDisplayUnit(v,oldUnit),newUnit));
   for(const k of Object.keys(d)){
     if(k.startsWith("__")||!k.endsWith("_load"))continue;
     const v=d[k];if(v===""||v==null)continue;
@@ -1585,6 +1847,15 @@ function convertDraftUnitsRaw(raw,oldUnit,newUnit){
 function draftUnitConversionEffect(expectedRaw,oldUnit,newUnit){
   if(oldUnit===newUnit)return null;
   if(expectedRaw==null)return destructiveDraftClearEffect(null);
+  const parsed=WorkoutDraft?.parse(expectedRaw);
+  if(parsed?.kind==="valid"){
+    const draft=JSON.parse(expectedRaw),operationId=`unit-${uid()}`;
+    draft.program.unit=newUnit;draft.revision+=1;draft.session.updatedAt=new Date().toISOString();draft.writer=draftWriter(operationId);
+    const checked=WorkoutDraft.parse(draft);
+    if(checked.kind!=="valid")return{status:DRAFT_EFFECT_INVALID,effect:null,reason:"v2-unit-replacement"};
+    return draftEffectOutcome({required:true,kind:"replace-draft",expectedRaw,
+      replacementRaw:JSON.stringify(WorkoutDraft.serialize(checked.draft)),
+      precondition:DRAFT_PRECONDITION_ABORT_CHANGED})}
   return draftEffectOutcome({required:true,kind:"replace-draft",expectedRaw,
     replacementRaw:convertDraftUnitsRaw(expectedRaw,oldUnit,newUnit),
     precondition:DRAFT_PRECONDITION_ABORT_CHANGED})}
@@ -2045,19 +2316,401 @@ const committed=new Set();
 const touched=new Set();
 const warmups=new Set();
 let contextTouched={day:false,date:false,sessionNotes:false,bodyweight:false};
+const DRAFT_RECOVERY=`${DRAFT}:recovery`,draftTabId=pendingJournalUuid();
+let activeWorkoutDraft=null,activeWorkoutDraftRaw=null,workoutDraftRecovery=null;
+let draftUiRecovery=null;
+let draftWriteTail=Promise.resolve();
+let draftRefreshTail=Promise.resolve();
+async function drainDraftWork(){
+  for(;;){
+    const writes=draftWriteTail,refreshes=draftRefreshTail;
+    await writes;await refreshes;
+    if(writes===draftWriteTail&&refreshes===draftRefreshTail)return;
+  }}
+function trackDraftRefresh(factory){
+  const operation=draftRefreshTail.then(factory);
+  draftRefreshTail=operation.then(()=>undefined,()=>undefined);
+  return operation}
+function reserveDraftRefresh(){
+  let release,settled=false;
+  const gate=new Promise(resolve=>{release=resolve});
+  const operation=draftRefreshTail.then(()=>gate).then(factory=>factory());
+  draftRefreshTail=operation.then(()=>undefined,()=>undefined);
+  return{
+    start(factory){if(!settled){settled=true;release(factory)}return operation},
+    cancel(){if(!settled){settled=true;release(()=>Promise.resolve({status:"unchanged"}))}}
+  }}
+function workoutDayId(label){
+  const structured=state.programMeta?.programStructure?.days;
+  const matched=Array.isArray(structured)?structured.find(item=>String(item?.label||item?.dayId||"")===label):null;
+  return String(matched?.dayId||exercises(label)[0]?.dayId||label)}
+function workoutProgramContext(label=day){
+  const slots=exercises(label),empty={};
+  return{
+    programId:String(state.programMeta?.id||"local-program"),
+    programFingerprint:workoutProgramFingerprint(state),
+    durableRevision:readRevision(state),
+    dayId:workoutDayId(label),dayLabel:label,scheduleDate:today(),
+    unit:state.settings.unit==="lb"?"lb":"kg",rirMode:isEffortMode()?"effort":"numeric",
+    exercises:slots.map((ex,index)=>{const rec=recommendation(ex),prev=last(ex);
+      const programmedSets=Array.from({length:ex.sets},(_,i)=>{const n=i+1,old=prev.find(row=>row.set===n),sg=setSuggestion(ex,n,rec,empty,old);
+        return{suggestedLoad:sg.load??null,suggestedReps:sg.reps??ex.min,targetRir:old?.rir??1,
+          suggestedEffort:effortForRir(old?.rir??1),minReps:ex.min,maxReps:ex.max}});
+      return{legacyExerciseId:ex.id,exerciseInstanceId:ex.id,
+        sourceExerciseId:String(ex.slotId||ex.libraryId||ex.movementId||ex.id),
+        libraryId:ex.libraryId, movementId:ex.movementId,displayName:ex.name,sets:ex.sets,
+        setIds:Array.from({length:ex.sets},(_,i)=>`set-${i+1}`),minReps:ex.min,maxReps:ex.max,
+        targetRir:1,notes:ex.notes||"",primary:ex.primary||"",secondary:ex.secondary||"",
+        progressionStrategy:strategyIdFor(ex),movementPattern:ex.loadingMode||null,
+        sourceFingerprint:workoutProgramFingerprint({programMeta:{id:ex.id},program:[ex]}),programmedSets,index}})}
+}
+function workoutParseContext(label=day){const context=workoutProgramContext(label);
+  return{programId:context.programId,programFingerprint:context.programFingerprint,dayId:context.dayId}}
+function displayDraftText(field,value){
+  if(value==null)return value;
+  if(field!=="load"&&field!=="bodyweight")return value;
+  if(!/^\d+(?:\.\d+)?$/.test(String(value))||!(+value>0))return value;
+  return fmtPlain(toDisplay(+value))}
+function workoutDraftProjection(draft=activeWorkoutDraft){
+  if(!draft)return{};
+  const out={__day:draft.program.dayLabel,__date:draft.program.scheduleDate,
+    __sessionNotes:draft.session.notes,__bodyweight:displayDraftText("bodyweight",draft.session.bodyweight),
+    __done:[],__touched:[],__warm:[],__skipped:[],__substituted:{},__substitutedRef:{},__exnotes:{},
+    __contextTouched:{day:!!draft.session.contextTouched?.day,date:!!draft.session.contextTouched?.date,
+      sessionNotes:!!draft.session.contextTouched?.sessionNotes,bodyweight:!!draft.session.contextTouched?.bodyweight},
+    __startedAt:Date.parse(draft.session.startedAt)||0,__selectedExerciseId:draft.session.selectedExerciseId};
+  for(const exId of draft.exerciseOrder){const ex=draft.exercises[exId];
+    if(ex.status==="skipped")out.__skipped.push(exId);
+    if(ex.substitution){out.__substituted[exId]=ex.substitution.replacement.displayName;
+      if(ex.substitution.replacement.libraryId)out.__substitutedRef[exId]=ex.substitution.replacement.libraryId}
+    out.__exnotes[exId]=ex.setupNotes;
+    for(const setId of ex.setOrder){const set=ex.sets[setId],key=`${exId}_${set.ordinal}`;
+      for(const field of ["load","reps","rir","effort"]){const value=set.edited[field];
+        if(value!=null)out[`${key}_${field}`]=displayDraftText(field,value)}
+      if(set.completion!=="pending"){out.__done.push(key);out.__lastCommitAt=Math.max(out.__lastCommitAt||0,Date.parse(set.completion.completedAt)||0)}
+      if(set.touched.load||set.touched.reps||set.touched.effort)out.__touched.push(key);
+      if(set.role==="warmup")out.__warm.push(key)}}
+  return out}
+function draftTargetFromKey(key){
+  for(const exId of activeWorkoutDraft?.exerciseOrder||[]){const match=String(key).match(new RegExp(`^${exId.replace(/[.*+?^${}()|[\]\\]/g,"\\$&")}_(\\d+)(?:_(load|reps|rir|effort))?$`));
+    if(!match)continue;const ex=activeWorkoutDraft.exercises[exId],ordinal=+match[1],setId=ex.setOrder.find(id=>ex.sets[id].ordinal===ordinal);
+    if(setId)return{exerciseInstanceId:exId,setId,field:match[2],ordinal}}
+  return null}
+function canonicalDraftField(field,value){
+  const raw=String(value??"");
+  if(field==="load"){const parsed=parseLoadInput(raw);return parsed.kind==="valid"?canonicalNumberText(parsed.kg):raw}
+  if(field==="reps"){const parsed=parseRepsValue(raw);return parsed.field?raw:String(parsed.value)}
+  if(field==="rir"){const parsed=parseRirValue(raw);return parsed.field?raw:canonicalNumberText(parsed.value)}
+  return raw}
+function canonicalDraftBodyweight(value){const raw=String(value??"");
+  if(!raw.trim())return"";const parsed=parseOptionalBodyweightDisplay(raw);
+  return parsed.field?raw:canonicalNumberText(fromDisplay(raw))}
+function draftWriter(operationId){return{installationId:pendingJournalWriterId,tabId:draftTabId,operationId}}
+function migrationSubstitutionResolutions(legacy,context,migratedAt){
+  const out={},subs=isPlainStateObject(legacy.__substituted)?legacy.__substituted:{},refs=isPlainStateObject(legacy.__substitutedRef)?legacy.__substitutedRef:{};
+  const byName=new Map();for(const entry of pickableExercises())for(const label of[entry.name,entry.namePt,libraryName(entry)]){
+    const token=movementToken(label);if(!token)continue;if(!byName.has(token))byName.set(token,entry);else if(byName.get(token)?.id!==entry.id)byName.set(token,null)}
+  for(const [exId,rawName]of Object.entries(subs)){const name=String(rawName||"").trim(),ref=refs[exId]??null;
+    const entry=ref?libraryEntry(ref):byName.get(movementToken(name));
+    const replacement=entry?{exerciseInstanceId:`replacement:${entry.id}`,sourceExerciseId:entry.id,libraryId:entry.id,
+      displayName:name||libraryName(entry),primary:entry.primary||"",secondary:entry.secondary||""}
+      :{exerciseInstanceId:`replacement:${exId}`,sourceExerciseId:`adhoc:${movementToken(name)}`,
+        movementId:`adhoc:${movementToken(name)}`,displayName:name,primary:"",secondary:""};
+    out[exId]={legacyName:rawName,legacyRef:ref,replacement,selectedAt:migratedAt}}
+  return out}
+function workoutMigrationSnapshot(legacy,label){
+  const now=new Date().toISOString(),context=workoutProgramContext(label),values={};
+  for(const key of Object.keys(legacy)){
+    if(/_load$/.test(key))values[key]=canonicalDraftField("load",legacy[key]);
+    else if(/_reps$/.test(key))values[key]=canonicalDraftField("reps",legacy[key]);
+    else if(/_rir$/.test(key))values[key]=canonicalDraftField("rir",legacy[key]);
+    else if(/_effort$/.test(key))values[key]=String(legacy[key]??"");
+    else if(key==="__bodyweight")values[key]=canonicalDraftBodyweight(legacy[key])}
+  return{programContext:context,sessionSelection:{draftId:`workout-${uid()}`,writer:draftWriter(`migrate-${uid()}`),
+    startedAt:now,updatedAt:now,scheduleDate:today(),selectedExerciseId:context.exercises[0]?.exerciseInstanceId??null,
+    bodyweight:null,notes:""},previousSessionFacts:Object.fromEntries(context.exercises.map(source=>{const ex=exercises(label).find(item=>item.id===source.exerciseInstanceId);
+      return[source.exerciseInstanceId,{exerciseInstanceId:source.exerciseInstanceId,setupNotes:ex?lastExerciseNote(ex):"",sets:ex?last(ex):[]}]})),
+    valueResolutions:values,substitutionResolutions:migrationSubstitutionResolutions(legacy,context,now),migratedAt:now,completedAt:now}}
+function storeDraftRecovery(raw,reason){workoutDraftRecovery={raw,reason};
+  try{localStorage.setItem(DRAFT_RECOVERY,JSON.stringify({version:1,reason,raw}))}catch{}}
+async function reconcileV2Checkpoint(read,label){
+  const checkpoint=DraftStore.readV2Checkpoint();
+  if(checkpoint.status==="invalid"||checkpoint.status==="read-failed"){
+    if(read.raw!=null)storeDraftRecovery(read.raw,"v2-checkpoint-unreadable");
+    return{status:"checkpoint-unreadable",raw:read.raw}}
+  const canonical=WorkoutDraft.parse(read.raw);
+  if(checkpoint.status==="absent"){
+    if(canonical.kind==="valid"){
+      storeDraftRecovery(read.raw,"v2-checkpoint-missing");
+      return{status:"checkpoint-missing",raw:read.raw}}
+    return read}
+  const value=checkpoint.value;
+  const underCheckpointLock=async operation=>{
+    if(!navigator.locks?.request)return{status:"lock-unavailable",raw:read.raw};
+    return navigator.locks.request(STORAGE_LOCK,async()=>{
+      const current=DraftStore.readCanonicalStatus(),currentCheckpoint=DraftStore.readV2Checkpoint();
+      if(current.status!=="ok")return current;
+      if(current.raw!==read.raw||currentCheckpoint.raw!==checkpoint.raw)return{status:"stale-recovery",raw:current.raw};
+      return operation(current)})};
+  const clearProtected=async(reason,draft)=>{
+    if(read.raw!=null)storeDraftRecovery(read.raw,reason);
+    return underCheckpointLock(current=>{
+      const tombstone=DraftStore.v2Tombstone(draft,`remove-${uid()}`);
+      if(!DraftStore.writeV2Checkpoint(tombstone)||!DraftStore.publishCanonical(null))
+        return{status:"recovery-write-failed",raw:current.raw};
+      return{status:"ok",raw:null}})};
+  if(value.kind==="tombstone"){
+    if(read.raw==null)return read;
+    const markerDraft={draftId:value.draftId,revision:value.revision,
+      program:{programFingerprint:value.programFingerprint}};
+    return clearProtected("canonical-after-v2-removal",markerDraft)}
+  if(state.log.some(row=>row?.session===value.draftId)){
+    const savedDraft=WorkoutDraft.parse(value.raw)?.draft;
+    if(!savedDraft)return{status:"checkpoint-unreadable",raw:read.raw};
+    return clearProtected("canonical-after-saved-v2",savedDraft)}
+  if(value.kind==="pending-removal"&&read.raw===value.raw){
+    return underCheckpointLock(()=>DraftStore.writeV2Checkpoint(v2CheckpointRecord(
+      WorkoutDraft.parse(value.raw).draft,value.raw,value.operationId))?read:
+      {status:"checkpoint-rollback-failed",raw:read.raw})}
+  if(value.kind==="pending-removal"&&read.raw==null){
+    return underCheckpointLock(()=>DraftStore.writeV2Checkpoint(DraftStore.v2Tombstone(
+      WorkoutDraft.parse(value.raw).draft,value.operationId))?read:
+      {status:"checkpoint-commit-failed",raw:read.raw})}
+  const protectedValue=value.kind==="committed"||value.kind==="pending-removal"?value:value.previous;
+  const protectedParsed=protectedValue?WorkoutDraft.parse(protectedValue.raw):null;
+  if(protectedValue&&protectedParsed?.kind!=="valid")return{status:"checkpoint-unreadable",raw:read.raw};
+  if(value.kind==="pending"&&read.raw===value.raw){
+    return underCheckpointLock(()=>DraftStore.writeV2Checkpoint(v2CheckpointRecord(
+      WorkoutDraft.parse(value.raw).draft,value.raw,value.operationId))?read:{status:"checkpoint-commit-failed",raw:read.raw})}
+  if(value.kind==="pending"&&read.raw===value.baseRaw){
+    if(value.previous&&read.raw===value.previous.raw){
+      return underCheckpointLock(()=>DraftStore.writeV2Checkpoint({...value.previous,kind:"committed"})
+        ?read:{status:"checkpoint-rollback-failed",raw:read.raw})}
+    if(!value.previous)return underCheckpointLock(current=>{
+      const prepared=prepareV2CheckpointEffect(current.raw,value.raw,value.operationId,{previous:null});
+      if(!prepared.ok||!DraftStore.publishCanonical(value.raw)||!commitV2CheckpointEffect(prepared,value.raw))
+        return{status:"recovery-write-failed",raw:current.raw};
+      return{status:"ok",raw:value.raw}})}
+  if(!protectedValue){
+    storeDraftRecovery(read.raw,"orphaned-v2-pending");
+    return{status:"checkpoint-conflict",raw:read.raw}}
+  const protectedDraft=WorkoutDraft.parse(protectedValue.raw,
+    workoutParseContext(protectedParsed.draft.program.dayLabel||label));
+  if(protectedDraft.kind!=="valid"){
+    storeDraftRecovery(read.raw,protectedDraft.kind==="stale"?`stale-${protectedDraft.reason}`:protectedDraft.code);
+    return{status:protectedDraft.kind,error:protectedDraft,raw:read.raw}}
+  if(read.raw!==protectedValue.raw)storeDraftRecovery(read.raw,"superseded-v2-canonical");
+  return underCheckpointLock(current=>{
+    const operationId=`recover-${uid()}`;
+    const prepared=prepareV2CheckpointEffect(current.raw,protectedValue.raw,operationId,{previous:protectedValue});
+    if(!prepared.ok||!DraftStore.publishCanonical(protectedValue.raw)||
+      !commitV2CheckpointEffect(prepared,protectedValue.raw))return{status:"recovery-write-failed",raw:current.raw};
+    return{status:"ok",raw:protectedValue.raw}})}
+async function initializeWorkoutDraft({restoreDay=false}={}){
+  if(!WorkoutDraft)return{status:"module-unavailable"};
+  let read=DraftStore.readCanonicalStatus();if(read.status!=="ok")return read;
+  const initial=WorkoutDraft.parse(read.raw),checkpointLabel=initial.kind==="valid"?initial.draft.program.dayLabel:day;
+  if(initial.kind==="valid"){
+    // A pristine draft holds no lifter input, so a changed program replaces it
+    // silently the way a day switch replaces an untouched draft. This runs
+    // before checkpoint reconciliation because reconciling a stale program
+    // binding already reports recovery; anything the lifter typed, or a lost
+    // removal race, keeps the explicit recovery surface below.
+    const early=WorkoutDraft.parse(read.raw,workoutParseContext(initial.draft.program.dayLabel));
+    if(early.kind==="stale"&&isDisposableDraft(early.draft)){
+      const dropped=await DraftStore.removeV2({expectedDraftId:early.draft.draftId,
+        expectedRevision:early.draft.revision,operationId:`stale-pristine-${uid()}`});
+      if(dropped.status==="applied"){activeWorkoutDraft=null;activeWorkoutDraftRaw=null;return{status:"absent"}}}}
+  read=await reconcileV2Checkpoint(read,checkpointLabel);
+  if(read.status!=="ok")return read;
+  let parsed=WorkoutDraft.parse(read.raw);
+  if(parsed.kind==="legacy"){
+    const legacy=parsed.raw,label=restoreDay&&typeof legacy.__day==="string"&&days().includes(legacy.__day)?legacy.__day:day;
+    if(restoreDay)day=label;
+    const migrated=WorkoutDraft.migrateLegacy(legacy,workoutMigrationSnapshot(legacy,label));
+    if(migrated?.kind==="migration-error"){storeDraftRecovery(read.raw,migrated.code);return{status:"migration-error",error:migrated,raw:read.raw}}
+    const nextRaw=JSON.stringify(WorkoutDraft.serialize(migrated));
+    const installed=await DraftStore.compareAndSwapV2({expectedRaw:read.raw,nextRaw,operationId:migrated.writer.operationId});
+    if(installed.status!=="applied")return installed;
+    parsed={kind:"valid",draft:installed.draft};activeWorkoutDraftRaw=installed.raw;read={status:"ok",raw:installed.raw}}
+  if(parsed.kind==="valid"){
+    const context=workoutParseContext(parsed.draft.program.dayLabel);
+    let checked=WorkoutDraft.parse(read.raw,context);
+    if(checked.kind==="stale"&&checked.reason==="durableRevision"){
+      // Settings, history, and other non-program writes advance the aggregate
+      // revision without changing the program that this draft belongs to.
+      // Rebind that bookkeeping boundary in memory; the fingerprint and day
+      // checks still reject a genuinely changed program.
+      const programContext={...context};delete programContext.durableRevision;
+      const rebound=WorkoutDraft.parse(read.raw,programContext);
+      if(rebound.kind==="valid")checked=rebound}
+    if(checked.kind==="stale"&&isDisposableDraft(checked.draft)){
+      // A pristine draft holds no lifter input, so a changed program replaces
+      // it silently the way a day switch replaces an untouched draft. Anything
+      // the lifter typed keeps the explicit recovery surface below; a lost
+      // removal race falls through to it as well.
+      const dropped=await DraftStore.removeV2({expectedDraftId:checked.draft.draftId,
+        expectedRevision:checked.draft.revision,operationId:`stale-pristine-${uid()}`});
+      if(dropped.status==="applied"){activeWorkoutDraft=null;activeWorkoutDraftRaw=null;return{status:"absent"}}}
+    if(checked.kind!=="valid"){storeDraftRecovery(read.raw,checked.kind==="stale"?`stale-${checked.reason}`:checked.code);return{status:checked.kind,error:checked,raw:read.raw}}
+    activeWorkoutDraft=checked.draft;activeWorkoutDraftRaw=read.raw;
+    if(restoreDay&&days().includes(activeWorkoutDraft.program.dayLabel))day=activeWorkoutDraft.program.dayLabel;
+    return{status:"ready",draft:activeWorkoutDraft}}
+  if(parsed.kind==="absent"){activeWorkoutDraft=null;activeWorkoutDraftRaw=null;return{status:"absent"}}
+  storeDraftRecovery(read.raw,parsed.code||parsed.kind);return{status:parsed.kind,error:parsed,raw:read.raw}}
+async function createWorkoutDraft(label=day,{contextTouched:selectionContextTouched}={}){
+  const existing=await initializeWorkoutDraft();if(existing.status==="ready")return existing;
+  if(existing.status!=="absent")return existing;
+  const now=new Date().toISOString(),context=workoutProgramContext(label),operationId=`create-${uid()}`;
+  const draft=WorkoutDraft.create(context,{draftId:`workout-${uid()}`,writer:draftWriter(operationId),startedAt:now,updatedAt:now,
+    scheduleDate:today(),selectedExerciseId:context.exercises[0]?.exerciseInstanceId??null,bodyweight:null,notes:"",
+    contextTouched:selectionContextTouched},
+    Object.fromEntries(context.exercises.map(source=>{const ex=exercises(label).find(item=>item.id===source.exerciseInstanceId);
+      return[source.exerciseInstanceId,{exerciseInstanceId:source.exerciseInstanceId,setupNotes:ex?lastExerciseNote(ex):"",sets:ex?last(ex):[]}]})));
+  if(WorkoutDraft.isDomainError(draft))return{status:"create-error",error:draft};
+  const nextRaw=JSON.stringify(WorkoutDraft.serialize(draft));
+  const installed=await DraftStore.compareAndSwapV2({expectedRaw:null,nextRaw,operationId});
+  if(installed.status==="applied"){activeWorkoutDraft=installed.draft;activeWorkoutDraftRaw=installed.raw;return{status:"ready",draft:installed.draft}}
+  return installed}
+function draftFocusIdentity(payload={}){
+  const el=document.activeElement;
+  if(el instanceof HTMLElement){
+    const attribute=["k","effspin","exnote"].find(name=>el.dataset?.[name]!=null);
+    if(attribute)return{attribute,value:el.dataset[attribute],start:el.selectionStart??null,end:el.selectionEnd??null};
+    if(el.id)return{id:el.id,start:el.selectionStart??null,end:el.selectionEnd??null}}
+  if(payload.exerciseInstanceId&&payload.setId&&payload.field){
+    const exercise=activeWorkoutDraft?.exercises?.[payload.exerciseInstanceId],set=exercise?.sets?.[payload.setId];
+    if(set)return{attribute:"k",value:`${payload.exerciseInstanceId}_${set.ordinal}_${payload.field}`}}
+  return null}
+function restoreDraftFocus(identity){
+  if(!identity)return;
+  requestAnimationFrame(()=>{let el=identity.id?document.getElementById(identity.id):null;
+    if(!el&&identity.attribute)el=$$(`#workout [data-${identity.attribute}]`).find(item=>item.dataset?.[identity.attribute]===identity.value);
+    if(!(el instanceof HTMLElement))return;
+    try{el.focus();if(identity.start!=null&&typeof el.setSelectionRange==="function")el.setSelectionRange(identity.start,identity.end??identity.start)}catch{}})}
+function draftRecoveryMessageKind(status,initialization=false){
+  if(status==="stale")return initialization?"program":"stale";
+  if(status==="lock-unavailable"||status==="read-failed"||status==="checkpoint-unreadable"||
+    status==="checkpoint-missing"||status==="checkpoint-conflict")return"unavailable";
+  if(initialization||status==="invalid"||status==="migration-error"||status==="legacy"||
+    String(status||"").includes("recovery"))return"invalid";
+  return"persist"}
+function renderDraftRecovery(){
+  const root=$("#draftRecovery");if(!root)return;
+  if(!draftUiRecovery){root.classList.add("hidden");return}
+  const kind=draftUiRecovery.kind,title=$("#draftRecoveryTitle"),body=$("#draftRecoveryBody"),pending=$("#draftRecoveryPending");
+  root.classList.remove("hidden");
+  if(title)title.textContent=t(`draft.recovery.${kind}.title`);
+  if(body)body.textContent=t(`draft.recovery.${kind}.body`);
+  const pendingValue=draftUiRecovery.pendingValue;
+  if(pending){pending.classList.toggle("hidden",pendingValue==null);pending.textContent=pendingValue==null?"":
+    t("draft.recovery.pending",{value:pendingValue===""?'""':pendingValue})}
+  const configure=(id,show,key,handler)=>{const button=$(id);if(!button)return;button.classList.toggle("hidden",!show);
+    button.textContent=show?t(key):"";button.onclick=show?handler:null};
+  configure("#draftRecoveryRetry",!!draftUiRecovery.retry,"draft.recovery.retry",retryDraftRecovery);
+  configure("#draftRecoveryReload",kind==="stale","draft.recovery.reload",reloadLatestWorkoutDraft);
+  configure("#draftRecoveryCopy",draftUiRecovery.copyValue!=null,
+    draftUiRecovery.copyKind==="data"?"draft.recovery.copy_data":"draft.recovery.copy_value",copyDraftRecoveryValue);
+  configure("#draftRecoveryDiscard",!!draftUiRecovery.discard,"draft.recovery.discard",discardRecoveredWorkoutDraft)}
+function focusDraftRecovery(){
+  const root=$("#draftRecovery");if(!root)return;
+  root.scrollIntoView({block:"start"});root.focus({preventScroll:true})}
+function showDraftCommandRecovery(status,attempt,{pendingValue=null,focus=null,retryAction=null}={}){
+  draftUiRecovery={kind:draftRecoveryMessageKind(status),status,attempt,pendingValue,
+    copyValue:pendingValue,copyKind:"value",focus,retry:status!=="stale",retryAction,discard:false};
+  renderDraftRecovery();focusDraftRecovery()}
+function showDraftInitializationRecovery(result,{retryMode="initialize",label=day,focusMode=null,contextTouched=null}={}){
+  const kind=draftRecoveryMessageKind(result?.status,true),raw=result?.raw??workoutDraftRecovery?.raw??null,
+    parsed=WorkoutDraft?.parse(raw),identity=parsed?.kind==="valid"?
+      {draftId:parsed.draft.draftId,revision:parsed.draft.revision}:null;
+  draftUiRecovery={kind,status:result?.status,attempt:null,pendingValue:null,copyValue:raw,copyKind:"data",
+    focus:null,retry:true,retryMode,label,focusMode,contextTouched,discardIdentity:identity,discard:kind==="program"&&!!identity};
+  renderDraftRecovery();focusDraftRecovery()}
+function clearDraftUiRecovery(){draftUiRecovery=null;renderDraftRecovery()}
+async function copyDraftRecoveryValue(){const value=draftUiRecovery?.copyValue;if(value==null)return false;
+  try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(String(value));toast(t("draft.recovery.copied"));return true}}catch{}
+  try{const ta=document.createElement("textarea");ta.value=String(value);ta.setAttribute("readonly","");
+    ta.style.cssText="position:fixed;top:0;left:0;opacity:0";document.body.append(ta);ta.select();
+    const copied=document.execCommand("copy");ta.remove();if(copied){toast(t("draft.recovery.copied"));return true}}catch{}
+  toast(t("draft.recovery.copy_failed"),{assertive:true});return false}
+async function applyDraftRetryResult(result,recovery){
+  if(result.status==="applied"){activeWorkoutDraft=result.draft;activeWorkoutDraftRaw=result.raw;
+    hydrateDraftCollections(workoutDraftProjection());clearDraftUiRecovery();renderWorkout();restoreDraftFocus(recovery.focus);return result}
+  showDraftCommandRecovery(result.status,recovery.attempt,recovery);return result}
+function retryDraftRecovery(){
+  const recovery=draftUiRecovery;if(!recovery)return Promise.resolve({status:"missing"});
+  if(recovery.retryAction)return Promise.resolve(recovery.retryAction()).then(result=>{
+    if(result?.status==="applied"){clearDraftUiRecovery();renderWorkout()}
+    else showDraftCommandRecovery(result?.status,null,recovery);return result});
+  if(!recovery.attempt){const operation=recovery.retryMode==="create"?createWorkoutDraft(recovery.label,{contextTouched:recovery.contextTouched}):
+      initializeWorkoutDraft({restoreDay:true});return operation.then(result=>{
+    if(result.status==="ready"){hydrateDraftCollections(workoutDraftProjection(),{restoreSelection:true});clearDraftUiRecovery();
+      if(!workoutActive)setWorkoutActive(true);
+      if(recovery.focusMode===true)logMode="focus";else if(recovery.focusMode===false)logMode="full";
+      syncLogModeControls();document.body.classList.toggle("is-focus-wo",logMode==="focus");
+      renderTabs();renderWorkout();renderToday();restoreDraftFocus(recovery.focus)}
+    else showDraftInitializationRecovery(result,{retryMode:recovery.retryMode,label:recovery.label,focusMode:recovery.focusMode,contextTouched:recovery.contextTouched});return result})}
+  const task=draftWriteTail.then(()=>DraftStore.compareAndSwapV2(recovery.attempt))
+    .then(result=>applyDraftRetryResult(result,recovery));
+  draftWriteTail=task.then(()=>undefined,()=>undefined);return task}
+async function reloadLatestWorkoutDraft(){
+  const recovery=draftUiRecovery,loaded=await initializeWorkoutDraft({restoreDay:true});
+  if(loaded.status!=="ready"){showDraftInitializationRecovery(loaded);return loaded}
+  hydrateDraftCollections(workoutDraftProjection(),{restoreSelection:true});clearDraftUiRecovery();renderTabs();renderWorkout();renderToday();
+  restoreDraftFocus(recovery?.focus);return loaded}
+async function discardRecoveredWorkoutDraft(){
+  const captured=draftUiRecovery?.discardIdentity;
+  if(!captured)return false;
+  if(!confirm(t("confirm.discard_draft")))return false;
+  const removed=await DraftStore.removeV2({expectedDraftId:captured.draftId,expectedRevision:captured.revision,
+    operationId:`discard-${uid()}`});
+  if(removed.status!=="applied"){showDraftInitializationRecovery(removed);return false}
+  resetDraftSessionState();clearDraftUiRecovery();renderToday();return true}
+function enqueueDraftCommand(type,payload={},ui={}){
+  const operationId=`draft-${uid()}`;
+  const focus=draftFocusIdentity(payload),pendingValue=Object.prototype.hasOwnProperty.call(ui,"pendingValue")?
+    String(ui.pendingValue??""):Object.prototype.hasOwnProperty.call(payload,"value")?String(payload.value??""):null;
+  const task=draftWriteTail.then(async()=>{
+    if(!activeWorkoutDraft)return{status:"missing"};
+    if((draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed")&&!draftUiRecovery.allowRetry){
+      renderWorkout();restoreDraftFocus(focus);return{status:"recovery-pending"}}
+    if(type==="refreshUntouchedSuggestions"&&window.__repforgeDraftFault==="stale-suggestion-loop")
+      return{status:"domain-error",error:{kind:"domain-error",code:"stale-suggestion"}};
+    const now=new Date().toISOString(),command={type,...payload,operationId,expectedRevision:activeWorkoutDraft.revision,
+      updatedAt:now,writer:draftWriter(operationId)};
+    if(type==="completeSet"&&!command.completedAt)command.completedAt=now;
+    const next=WorkoutDraft.reduce(activeWorkoutDraft,command);
+    if(WorkoutDraft.isDomainError(next))return{status:"domain-error",error:next};
+    if(type==="refreshUntouchedSuggestions"&&next===activeWorkoutDraft)
+      return{status:"applied",draft:activeWorkoutDraft,raw:activeWorkoutDraftRaw,noOp:true};
+    const nextRaw=JSON.stringify(WorkoutDraft.serialize(next));
+    const attempt={expectedDraftId:activeWorkoutDraft.draftId,expectedRevision:activeWorkoutDraft.revision,nextRaw,operationId};
+    const written=await DraftStore.compareAndSwapV2(attempt);
+    if(written.status==="applied"){activeWorkoutDraft=written.draft;activeWorkoutDraftRaw=written.raw;
+      hydrateDraftCollections(workoutDraftProjection());clearDraftUiRecovery()}
+    else showDraftCommandRecovery(written.status,attempt,{pendingValue,focus});
+    return written});
+  const settled=task.then(()=>undefined,()=>undefined);
+  draftWriteTail=settled;
+  return task}
 function knownExerciseIds(){return new Set((state.program||[]).map(e=>e.id))}
 function setKeyExerciseId(k){return String(k).replace(/_\d+$/,"")}
 function retainSetKeys(list,known){return (list||[]).filter(k=>known.has(setKeyExerciseId(k)))}
 function contextFlagsFromDraft(d){
-  const flags=d&&typeof d.__contextTouched==="object"&&d.__contextTouched?d.__contextTouched:{};
-  return {day:!!flags.day,date:!!flags.date,sessionNotes:!!flags.sessionNotes,bodyweight:!!flags.bodyweight}}
-function hydrateDraftCollections(d){
+  const flags=d?.schemaVersion===2
+    ?d.session?.contextTouched
+    :d&&typeof d.__contextTouched==="object"&&d.__contextTouched?d.__contextTouched:{};
+  const safe=flags&&typeof flags==="object"?flags:{};
+  return {day:!!safe.day,date:!!safe.date,sessionNotes:!!safe.sessionNotes,bodyweight:!!safe.bodyweight}}
+function hydrateDraftCollections(d,{restoreSelection=false}={}){
   const known=knownExerciseIds();
   sessionStartedAt=+d.__startedAt||0;
   committed.clear();retainSetKeys(d.__done,known).forEach(k=>committed.add(k));
   touched.clear();retainSetKeys(d.__touched,known).forEach(k=>touched.add(k));
   warmups.clear();retainSetKeys(d.__warm,known).forEach(k=>warmups.add(k));
   skipped.clear();(d.__skipped||[]).forEach(id=>{if(known.has(id))skipped.add(id)});
+  if(restoreSelection){const selectedIndex=focusList().findIndex(ex=>ex.id===d.__selectedExerciseId);
+    if(selectedIndex>=0)focusIndex=selectedIndex}
   substituted.clear();substitutedRef.clear();
   const subs=d.__substituted&&typeof d.__substituted==="object"?d.__substituted:{};
   const refs=d.__substitutedRef&&typeof d.__substitutedRef==="object"?d.__substitutedRef:{};
@@ -2079,9 +2732,9 @@ function hydrateDraftCollections(d){
   for(const [id,name] of substituted){
     if(substitutedRef.has(id))continue;
     const ref=byName.get(movementToken(name));if(ref)substitutedRef.set(id,ref)}}
-function hydrateWorkoutDraft({restoreDay=false}={}){
+function hydrateWorkoutDraft({restoreDay=false,restoreSelection=restoreDay}={}){
   const d=loadDraft();
-  hydrateDraftCollections(d);
+  hydrateDraftCollections(d,{restoreSelection});
   contextTouched=contextFlagsFromDraft(d);
   if(restoreDay&&typeof d.__day==="string"&&days().includes(d.__day)) day=d.__day;
   return d}
@@ -2098,8 +2751,32 @@ function resetSessionContextFields(){
   if(dateEl)dateEl.value=today();
   if(bwEl)bwEl.value=lastBodyweight();
 }
+function isDisposableDraft(draft){
+  // A stale draft may skip the explicit recovery surface only when replacing
+  // it provably loses no lifter input. The domain predicate covers
+  // self-contained input; the schedule date, exercise order, and
+  // per-exercise notes need current program and history seeds to judge, so
+  // they are compared here against their creation values. Any doubt keeps
+  // the recovery prompt.
+  try{
+    if(!WorkoutDraft?.isPristine(draft))return false;
+    if(String(draft.program.scheduleDate||"")!==String(draft.session.startedAt||"").slice(0,10))return false;
+    if(!draft.exerciseOrder.every((id,index)=>draft.exercises?.[id]?.programmed?.order===index))return false;
+    const rows=exercises(draft.program.dayLabel);
+    return draft.exerciseOrder.every(id=>{
+      const current=rows.find(item=>item.id===id);
+      const seed=current?lastExerciseNote(current):"";
+      return String(draft.exercises[id]?.setupNotes??"")===String(seed??"")});
+  }catch{return false}}
 function draftHasSessionWork(d){
   d=d||loadDraft();
+  if(d?.schemaVersion===2)return d.exerciseOrder.some(exerciseId=>{
+    const exercise=d.exercises[exerciseId];
+    return exercise.status==="skipped"||!!exercise.substitution||exercise.setupNotes!==exercise.programmed.notes||
+      exercise.setOrder.some(setId=>{const set=exercise.sets[setId];return set.completion!=="pending"||set.role==="warmup"||
+        set.touched.load||set.touched.reps||set.touched.effort})})||
+      d.session.notes!==""||d.session.bodyweight!=null||d.program.scheduleDate!==today()||
+      Object.values(contextFlagsFromDraft(d)).some(Boolean);
   if((d.__done||[]).length||(d.__touched||[]).length||(d.__warm||[]).length) return true;
   if((d.__skipped||[]).length) return true;
   if(d.__substituted&&typeof d.__substituted==="object"&&Object.keys(d.__substituted).length) return true;
@@ -2111,21 +2788,40 @@ function draftHasSessionWork(d){
 function draftHasProgressInRemovedSets(exerciseId,nextSets,currentSets,d){
   if(nextSets>=currentSets)return false;
   d=d||loadDraft();
+  if(d?.schemaVersion===2){
+    const exercise=d.exercises?.[exerciseId];
+    if(!exercise)return false;
+    return exercise.setOrder.some(setId=>{
+      const set=exercise.sets[setId];
+      return set.ordinal>nextSets&&(set.completion!=="pending"||set.role==="warmup"||
+        set.touched.load||set.touched.reps||set.touched.effort||parseDec(set.edited.load)>0)})}
   const marked=new Set(["__done","__touched","__warm"].flatMap(k=>Array.isArray(d[k])?d[k]:[]));
   for(let n=nextSets+1;n<=currentSets;n++){
     const key=`${exerciseId}_${n}`;
     if(marked.has(key)||parseDec(d[`${key}_load`])>0)return true}
   return false}
-function requestWorkoutDay(nextDay){
+async function requestWorkoutDay(nextDay){
   if(!nextDay||nextDay===day) return true;
-  if(draftHasProgress()){
+  const hasProgress=draftHasProgress();
+  if(hasProgress){
     if(!confirm(t("confirm.discard_draft"))){
       return false}
-    clearDraft();
+    if(!await clearDraft())return false;
+    resetSessionContextFields()}
+  else if(activeWorkoutDraft?.program?.dayLabel&&activeWorkoutDraft.program.dayLabel!==nextDay){
+    // A pristine draft is still scoped to its day. Drop that empty context
+    // before creating the requested day's DraftV2 record so initialization
+    // cannot reuse a valid but different-day canonical draft.
+    if(!await clearDraft())return false;
     resetSessionContextFields()}
   day=nextDay;
   contextTouched.day=true;
-  saveDraft({fromDom:false});
+  const selectionContextTouched={day:true,date:false,sessionNotes:false,bodyweight:false};
+  const created=await createWorkoutDraft(nextDay,{contextTouched:selectionContextTouched});
+  if(created.status!=="ready"){
+    showDraftInitializationRecovery(created,{retryMode:"create",label:nextDay,contextTouched:selectionContextTouched});
+    return false;
+  }
   return true}
 function changeRirMode(newMode){
   const old=state.settings.rirMode==="effort"?"effort":"numeric";
@@ -2136,25 +2832,38 @@ function changeRirMode(newMode){
     toast(t("toast.rir_locked_draft"));
     return false}
   return true}
-function applySkipToggle(id){
-  if(skipped.has(id)) skipped.delete(id);
-  else{skipped.add(id);substituted.delete(id);substitutedRef.delete(id)}
+async function applySkipToggle(id){
+  if(!activeWorkoutDraft)return false;
+  const result=await enqueueDraftCommand(skipped.has(id)?"restoreExercise":"skipExercise",{exerciseInstanceId:id});
+  if(result.status!=="applied")return false;
   if(logMode==="focus"){const fl=focusList();focusIndex=Math.min(focusIndex,Math.max(0,fl.length-1))}
-  saveDraft();renderWorkout()}
-function applyShowAll(){skipped.clear();saveDraft();renderWorkout()}
-function applyPredefinedSub(id,name,libraryRef=null){
+  renderWorkout();return true}
+async function applyShowAll(){
+  if(!activeWorkoutDraft)return false;
+  for(const id of [...skipped]){const result=await enqueueDraftCommand("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return false}
+  renderWorkout();return true}
+function replacementSnapshot(id,name,libraryRef){
+  const entry=libraryRef?libraryEntry(libraryRef):null,token=movementToken(name),original=activeWorkoutDraft?.exercises?.[id],slot=prog.find(id);
+  if(entry)return{exerciseInstanceId:`replacement:${entry.id}`,sourceExerciseId:entry.id,libraryId:entry.id,
+    displayName:name||libraryName(entry),primary:entry.primary||"",secondary:entry.secondary||""};
+  return{exerciseInstanceId:`replacement:${id}`,sourceExerciseId:`adhoc:${token}`,movementId:`adhoc:${token}`,
+    displayName:name,primary:original?.programmed?.primary||slot?.primary||"",
+    secondary:original?.programmed?.secondary||slot?.secondary||""}}
+async function applyPredefinedSub(id,name,libraryRef=null){
   const n=String(name||"").trim().slice(0,80);
-  if(!n){substituted.delete(id);substitutedRef.delete(id)}
-  else{substituted.set(id,n);skipped.delete(id);
-    if(libraryRef)substitutedRef.set(id,libraryRef);else substitutedRef.delete(id)}
-  saveDraft();renderWorkout()}
-function applyCustomSub(id,raw,libraryRef=null){
+  if(!activeWorkoutDraft)return false;
+  const type=!n?"restoreOriginalExercise":"substituteExercise";
+  const payload={exerciseInstanceId:id};if(n){payload.replacement=replacementSnapshot(id,n,libraryRef);payload.selectedAt=new Date().toISOString()}
+  const result=await enqueueDraftCommand(type,payload);if(result.status!=="applied")return false;
+  renderWorkout();return true}
+async function applyCustomSub(id,raw,libraryRef=null){
   const name=String(raw||"").trim().slice(0,80);
   const progName=prog.find(id)?.name;
-  if(!name||name===progName){substituted.delete(id);substitutedRef.delete(id)}
-  else{substituted.set(id,name);skipped.delete(id);
-    if(libraryRef)substitutedRef.set(id,libraryRef);else substitutedRef.delete(id)}
-  saveDraft();renderWorkout()}
+  if(!activeWorkoutDraft)return false;
+  const restore=!name||name===progName,type=restore?"restoreOriginalExercise":"substituteExercise";
+  const payload={exerciseInstanceId:id};if(!restore){payload.replacement=replacementSnapshot(id,name,libraryRef);payload.selectedAt=new Date().toISOString()}
+  const result=await enqueueDraftCommand(type,payload);if(result.status!=="applied")return false;
+  renderWorkout();return true}
 function sessionExercise(ex){
   if(!ex||!substituted.has(ex.id))return ex;
   const name=substituted.get(ex.id),ref=substitutedRef.get(ex.id),entry=ref?libraryEntry(ref):null;
@@ -2172,10 +2881,12 @@ function openSubstitutePicker(id){
       if(self&&entry.id===self.id)applyPredefinedSub(id,"");
       else applyCustomSub(id,libraryName(entry),entry.id)}})}
 function fatigueFlagged(){return exercises().filter(e=>{const r=recommendation(sessionExercise(e));return r.status==="reduce"||r.stalled})}
-function applyFatigueTrim(){
-  skipped.clear();
-  for(const e of fatigueFlagged())skipped.add(e.id);
-  saveDraft();renderWorkout();toast(t("toast.trimmed_priority"))}
+async function applyFatigueTrim(){
+  const flagged=new Set(fatigueFlagged().map(e=>e.id));
+  if(!activeWorkoutDraft)return;
+  for(const id of [...skipped])if(!flagged.has(id)){const result=await enqueueDraftCommand("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
+  for(const id of flagged)if(!skipped.has(id)){const result=await enqueueDraftCommand("skipExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
+  renderWorkout();toast(t("toast.trimmed_priority"))}
 let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
 let focusDrag=null,focusFlinging=false;
 /** Focus mode — the set being re-opened for edit: {exId,n,snap}. `snap` is the
@@ -3147,9 +3858,9 @@ function setWorkoutOverflow(open){const menu=$("#woOverflow");if(!menu)return;
 function closeWorkoutOverflow(){setWorkoutOverflow(false)}
 function toggleWorkoutOverflow(){setWorkoutOverflow($("#woOverflow")?.classList.contains("hidden"))}
 function setLogMode(m){logMode=m;syncLogModeControls();document.body.classList.toggle("is-focus-wo",m==="focus");focusIndex=0;focusEdit=null;closeWorkoutOverflow();renderWorkout()}
-function goToLogExercise(exId){
+async function goToLogExercise(exId){
   const ex=prog.find(exId);if(!ex)return;
-  if(!requestWorkoutDay(ex.day))return;
+  if(!await requestWorkoutDay(ex.day))return;
   if(logMode==="focus"){
     const fl=focusList(),idx=fl.findIndex(e=>e.id===exId);
     focusIndex=idx>=0?idx:0;
@@ -3158,7 +3869,7 @@ function goToLogExercise(exId){
   if(logBtn){$$("nav button").forEach(x=>{const on=x===logBtn;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")})}
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="log"));
   document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-library","is-preview","is-import");
-  enterWorkout({});
+  await enterWorkout({});
   const art=$(`#workout [data-ex="${exId}"]`);if(art){collapsed.delete(exId);art.classList.remove("is-collapsed");art.scrollIntoView({behavior:"smooth",block:"center"})}}
 function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
   $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
@@ -3593,24 +4304,64 @@ function explainRecommendation(ex){
   const note=inSessionNote(ex,loadDraft());
   if(note)rows.push({label:t("why.session"),text:note});
   return rows}
-// Re-apply suggestions to one lift's still-untouched sets, in place.
-function applySuggestions(ex,draft){const rec=recommendation(ex),prev=last(ex);
+function applyAcknowledgedSuggestions(ex,draft){
   for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
-    if(committed.has(key)||touched.has(key)||warmups.has(key))continue;
-    const old=prev.find(x=>x.set===n),sg=setSuggestion(ex,n,rec,draft,old);
-    if(sg.load!=null){const li=$(`[data-k="${key}_load"]`);if(li)li.value=fmtLoadPlain(sg.load)}
-    if(sg.reps!=null){const ri=$(`[data-k="${key}_reps"]`);if(ri)ri.value=sg.reps}}}
+    const stored=activeWorkoutDraft?.exercises?.[ex.id],setId=stored?.setOrder?.find(id=>stored.sets[id]?.ordinal===n),set=setId?stored.sets[setId]:null;
+    if(committed.has(key)||warmups.has(key)||!set||set.completion!=="pending")continue;
+    if(!set.touched.load&&Object.prototype.hasOwnProperty.call(draft,`${key}_load`)){const li=$(`[data-k="${key}_load"]`);if(li)li.value=draft[`${key}_load`]??""}
+    if(!set.touched.reps&&Object.prototype.hasOwnProperty.call(draft,`${key}_reps`)){const ri=$(`[data-k="${key}_reps"]`);if(ri)ri.value=draft[`${key}_reps`]??""}}}
 const hasCommittedSets=ex=>{for(let n=1;n<=ex.sets;n++)if(committed.has(`${ex.id}_${n}`))return true;return false};
-// After a set is committed, re-apply suggestions to still-untouched later sets.
-function refreshSuggestions(exId){let ex=prog.find(exId);if(!ex)return;ex=sessionExercise(ex);
-  const draft=loadDraft();
-  applySuggestions(ex,draft);updateInSessionNote(exId);
-  // Session freshness reads the lifts already finished today, so this commit can also
-  // move the opening ghosts of lifts on this day that have not been started yet.
-  // saveDraft() snapshots every input, so an unrefreshed ghost would freeze as drafted.
+function suggestionUpdatesFor(ex,draft){
+  const stored=activeWorkoutDraft?.exercises?.[ex.id];
+  if(!stored||stored.status==="skipped")return[];
+  const rec=recommendation(ex),prev=last(ex),updates=[];
+  for(let n=1;n<=ex.sets;n++){
+    const key=`${ex.id}_${n}`,setId=stored.setOrder.find(id=>stored.sets[id]?.ordinal===n),set=setId?stored.sets[setId]:null;
+    if(!set||set.role==="warmup"||set.completion!=="pending")continue;
+    const sg=setSuggestion(ex,n,rec,draft,prev.find(x=>x.set===n)),fields={};
+    if(sg.load!=null&&!set.touched.load)fields.load=canonicalNumberText(sg.load);
+    if(sg.reps!=null&&!set.touched.reps)fields.reps=String(sg.reps);
+    if(Object.keys(fields).length)updates.push({exerciseInstanceId:ex.id,setId,fields});
+  }
+  return updates}
+async function persistUntouchedSuggestions(exId){
+  if(!activeWorkoutDraft)return{status:"missing"};
+  for(let attempt=0;attempt<2;attempt++){
+    const sourceRevision=activeWorkoutDraft.revision,draft=workoutDraftProjection(),ex=prog.find(exId);
+    if(!ex)return{status:"missing"};
+    const targets=[ex,...exercises(ex.day).filter(o=>o.id!==ex.id&&!hasCommittedSets(o))];
+    const updates=targets.flatMap(o=>suggestionUpdatesFor(sessionExercise(o),draft));
+    if(!updates.length)return{status:"unchanged"};
+    const result=await enqueueDraftCommand("refreshUntouchedSuggestions",{sourceRevision,updates});
+    if(result.status==="applied")return result;
+    if(result.status==="domain-error"&&result.error?.code==="stale-suggestion")continue;
+    return result}
+  const retryAction=async()=>{
+    const prior=draftUiRecovery;
+    if(prior)prior.allowRetry=true;
+    try{
+      const retry=await persistUntouchedSuggestions(exId);
+      return retry.status==="unchanged"?{status:"applied",noOp:true}:retry}
+    finally{if(draftUiRecovery===prior)draftUiRecovery.allowRetry=false}};
+  draftUiRecovery={kind:"persist",status:"refresh-failed",attempt:null,pendingValue:null,
+    copyValue:null,copyKind:"value",focus:draftFocusIdentity(),retry:true,retryAction,discard:false,allowRetry:false};
+  renderDraftRecovery();focusDraftRecovery();
+  return{status:"refresh-failed"}}
+// After a set is committed, acknowledge the compiler's values in DraftV2 before
+// painting them. The DOM-only projection remains a fast follow-up for committed
+// edits where a full workout render would steal focus.
+async function runRefreshSuggestions(exId){
+  if(typeof window.__repforgeBeforeSuggestionRefresh==="function"){
+    const hook=window.__repforgeBeforeSuggestionRefresh;delete window.__repforgeBeforeSuggestionRefresh;
+    await hook({exId})}
+  const result=await persistUntouchedSuggestions(exId);
+  if(result.status!=="applied"&&result.status!=="unchanged")return result;
+  const ex=prog.find(exId);if(!ex)return result;const draft=workoutDraftProjection();
+  applyAcknowledgedSuggestions(sessionExercise(ex),draft);updateInSessionNote(exId);
   for(const o of exercises(ex.day)){if(o.id===ex.id||hasCommittedSets(o))continue;
-    applySuggestions(sessionExercise(o),draft);updateInSessionNote(o.id)}
-  saveDraft()}
+    applyAcknowledgedSuggestions(sessionExercise(o),draft);updateInSessionNote(o.id)}
+  return result}
+function refreshSuggestions(exId){return trackDraftRefresh(()=>runRefreshSuggestions(exId))}
 function updateInSessionNote(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
   const ex=sessionExercise(prog.find(exId));if(!ex)return;const text=inSessionNote(ex,loadDraft());
   let el=art.querySelector(".insession");
@@ -3877,8 +4628,8 @@ function updateSessionBanner(){
     `<button type="button" class="sessionbanner__close" aria-label="${esc(t("session_banner.dismiss_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--close" aria-hidden="true"></span></button>`;
   el.onclick=null;
   el.querySelector(".sessionbanner__close").onclick=e=>{e.stopPropagation();dismissForToday()};
-  el.querySelector(".sessionbanner__act").onclick=()=>{
-    if(!enterWorkout({day:due.day}))return;
+  el.querySelector(".sessionbanner__act").onclick=async()=>{
+    if(!await enterWorkout({day:due.day}))return;
     dismissForToday();
     toast(t("toast.day_ready",{day:dayLabel(due.day)}));
   };
@@ -3906,12 +4657,12 @@ function updateFocusChrome(){document.body.classList.toggle("is-focus-wo",workou
 /* ---- Exercise note sheet ---- */
 let exNoteFor=null,exNoteReturn=null;
 function openExNoteSheet(exId){
-  const ex=prog.find(exId);if(!ex)return;
+  const ex=prog.find(exId);if(!ex||!activeWorkoutDraft)return;
   const sheet=$("#exNoteSheet"),scrim=$("#exNoteScrim"),ta=$("#exNoteText");
   if(!sheet||!ta)return;
   exNoteFor=exId;exNoteReturn=document.activeElement;
   $("#exNoteFor").textContent=substituted.get(exId)||ex.name;
-  ta.value=$(`[data-exnote="${exId}"]`)?.value??(loadDraft().__exnotes?.[exId]??lastExerciseNote(ex));
+  ta.value=String(activeWorkoutDraft.exercises?.[exId]?.setupNotes??"");
   document.body.classList.add("is-sheet-open");
   openModal(sheet,{
     initialFocus:ta,
@@ -3930,7 +4681,9 @@ function closeExNoteSheet(){
   return closeModal(sheet)}
 async function saveExNoteSheet(){
   const id=exNoteFor,val=$("#exNoteText")?.value??"";
-  if(id){const ta=$(`[data-exnote="${id}"]`);if(ta)ta.value=val;saveDraft()}
+  if(id){const ta=$(`[data-exnote="${id}"]`);if(ta)ta.value=val;
+    if(!activeWorkoutDraft)return;
+    await enqueueDraftCommand("setExerciseNotes",{exerciseInstanceId:id,value:val})}
   await closeExNoteSheet();
   if(id){
     renderWorkout();
@@ -4002,9 +4755,9 @@ function closeDayPickSheet(){
 async function confirmPickerDay(){
   const next=dayPickSelected;
   if(!next||!days().includes(next))return;
-  if(!requestWorkoutDay(next))return;
+  if(!await requestWorkoutDay(next))return;
   await closeDayPickSheet();
-  enterWorkout({day:next,focus:true});
+  await enterWorkout({day:next,focus:true});
   toast(t("toast.day_ready",{day:dayLabel(next)}))}
 /** Keep the sheet above the software keyboard rather than behind it, and inside
  *  the band the keyboard leaves visible so its header stays on screen. */
@@ -4137,7 +4890,9 @@ function sheetDragEnd(e){
 function focusGo(dir){
   const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0,next=at+dir;
   if(next<0||next>=fl.length)return false;
-  focusIndex=next;focusEdit=null;renderWorkout();window.scrollTo({top:0});return true}
+  focusIndex=next;focusEdit=null;
+  if(activeWorkoutDraft&&fl[next])void enqueueDraftCommand("selectExercise",{exerciseInstanceId:fl[next].id});
+  renderWorkout();window.scrollTo({top:0});return true}
 function focusCanGo(dir){const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0;
   return at+dir>=0&&at+dir<fl.length}
 function focusCard(){return $("#workout.is-focus .exercise.is-current")}
@@ -4241,7 +4996,11 @@ function focusDragEnd(e){
   if(!past||!focusCanGo(dir)){focusSettle(track,card,deck,{from:dx,velocity:vx});return}
   card.classList.remove("is-dragging");
   focusAnimateTo(dir)}
-function enterWorkout(opts={}){if(opts.day&&!requestWorkoutDay(opts.day))return false;
+async function enterWorkout(opts={}){if(opts.day&&!await requestWorkoutDay(opts.day))return false;
+  const prepared=await createWorkoutDraft(day);
+  if(prepared.status!=="ready"){
+    showDraftInitializationRecovery(prepared,{retryMode:"create",label:day,focusMode:opts.focus});return false}
+  clearDraftUiRecovery();
   workoutLeft=false;setWorkoutActive(true);
   // Focus layout matches mock 01; List remains the default for broad editing/tests.
   if(opts.focus===true)logMode="focus";
@@ -4420,7 +5179,7 @@ function render(){applyI18n();
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(dayLabel(d))}</button>`).join("");
-  $$("#dayTabs button").forEach(b=>b.onclick=()=>{if(!requestWorkoutDay(b.dataset.day))return;renderTabs();renderWorkout();renderToday()})}
+  $$("#dayTabs button").forEach(b=>b.onclick=async()=>{if(!await requestWorkoutDay(b.dataset.day))return;renderTabs();renderWorkout();renderToday()})}
 
 function setFieldVals(ex,n,r,draft,prev){
   const old=prev.find(x=>x.set===n),draftKg=draft[`${ex.id}_${n}_load`],sg=setSuggestion(ex,n,r,draft,old);
@@ -4464,6 +5223,8 @@ const dead=()=>` tabindex="-1"`;
 /** Set numbers already committed on this exercise, in order. */
 function focusDoneSets(ex){const out=[];
   for(let n=1;n<=ex.sets;n++)if(committed.has(`${ex.id}_${n}`))out.push(n);
+  if(focusEdit?.exId===ex.id&&!out.includes(focusEdit.n))out.push(focusEdit.n);
+  out.sort((a,b)=>a-b);
   return out}
 /** The set the well is working on: the one being edited, else the first unlogged. */
 function focusActiveSet(ex){
@@ -4662,12 +5423,6 @@ function focusCardHtml(ex,r,draft,prev,opts){
       `${peek?dead():` data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name}))}"`}>`+
       `<span class="icon-mask icon-mask--sm icon-mask--skip" aria-hidden="true"></span></button>`:"")+
     `</div>`;
-  // Every set that is not in the well still needs a field to hold its value:
-  // the draft is read back off the DOM. Inert keeps them out of the tab order.
-  const carriers=peek?"":`<div class="focus-inputs" inert aria-hidden="true">`+
-    Array.from({length:ex.sets},(_,i)=>i+1).filter(m=>m!==n)
-      .map(m=>setRowHtml(ex,m,r,draft,prev,0)).join("")+
-    `<textarea class="exnote__input" id="exnote_${esc(ex.id)}" data-exnote="${esc(ex.id)}" tabindex="-1">${esc(noteVal)}</textarea></div>`;
   return `<article class="exercise exercise--focus is-${r.status}${peek?" is-peek":" is-current"}"`+
     (peek?` aria-hidden="true" inert data-peek="${esc(ex.id)}"`:` data-ex="${esc(ex.id)}"`)+`>`+
     `<div class="fcard__head"><div class="focus-ex__eyebrow">`+
@@ -4679,8 +5434,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
       `${peek?dead():` data-why="${esc(ex.id)}" aria-label="${esc(t("why.open_aria",{name}))}"`}>${esc(t("why.open"))}</button>`:"")+
     `</div>${tools}</div></div>`+
     `<div class="fcard__ledger">${focusLedgerHtml(ex,r,draft,prev,{effortMode,peek})}</div>`+
-    focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek})+
-    carriers+`</article>`}
+    focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek})+`</article>`}
 
 /** The deck: the live card plus an inert copy of each neighbour, parked off
  *  screen in its own slot. Dragging — or tapping through — moves all three
@@ -4818,10 +5572,10 @@ function sizeFocusCard(card){
 function updateNextMarker(art){if(!art)return;let found=false;
   art.querySelectorAll(".setrow").forEach(r=>{const on=!found&&!r.classList.contains("is-done");if(on)found=true;
     r.classList.toggle("is-next",on)})}
-function refreshAfterCommittedEdit(row){
-  if(!row?.dataset.set||!committed.has(row.dataset.set))return;
+async function refreshAfterCommittedEdit(row){
+  if(!row?.dataset.set||!committed.has(row.dataset.set))return{status:"unchanged"};
   const exId=row.closest(".exercise")?.dataset.ex;
-  if(exId)refreshSuggestions(exId)}
+  return exId?refreshSuggestions(exId):{status:"unchanged"}}
 
 function updateExerciseDeltaPreview(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
   const ex=sessionExercise(prog.find(exId));if(!ex)return;const text=deltaPreviewFor(ex,loadDraft()),el=art.querySelector(".delta-prev");
@@ -4836,45 +5590,6 @@ function lastExerciseNote(ex){const match=matchLift(ex);
   if(!rows.length)return"";
   const latest=rows.sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.created).localeCompare(String(b.created))).at(-1);
   return String(latest.exNote).trim()}
-function currentExerciseNote(exId){const el=$(`[data-exnote="${exId}"]`);
-  if(el)return el.value.trim();
-  const d=loadDraft().__exnotes||{};return String(d[exId]??"").trim()}
-
-function saveDraft(opts){
-  const fromDom=opts?.fromDom!==false;
-  const prev=loadDraft(),d={...prev};
-  const inputs=fromDom?$$("#workout input[data-k]"):[];
-  if(inputs.length){
-    for(const k of Object.keys(d)){
-      if(k.startsWith("__"))continue;
-      if(/_(load|reps|rir|effort)$/.test(k)) delete d[k]}
-    inputs.forEach(x=>{if(x.dataset.k)d[x.dataset.k]=x.value});
-    $$("#workout .effort__btn.active").forEach(b=>d[`${b.dataset.eff}_effort`]=b.dataset.e);
-    $$("#workout [data-effspin]").forEach(e=>d[`${e.dataset.effspin}_effort`]=e.dataset.e);
-    const notes={};$$("#workout [data-exnote]").forEach(t=>notes[t.dataset.exnote]=t.value);
-    if(Object.keys(notes).length)d.__exnotes=notes;
-    else if(prev.__exnotes)d.__exnotes=prev.__exnotes}
-  d.__done=[...committed];d.__touched=[...touched];d.__warm=[...warmups];
-  d.__skipped=[...skipped];d.__substituted=Object.fromEntries(substituted);
-  d.__substitutedRef=Object.fromEntries(substitutedRef);
-  if(lastCommitAt&&committed.size)d.__lastCommitAt=lastCommitAt;
-  else delete d.__lastCommitAt;
-  if(sessionStartedAt&&committed.size)d.__startedAt=sessionStartedAt;
-  else delete d.__startedAt;
-  const hasWork=committed.size||touched.size||warmups.size||skipped.size||substituted.size
-    ||contextTouched.day||contextTouched.date||contextTouched.sessionNotes||contextTouched.bodyweight
-    ||d.__done.length||d.__touched.length||d.__warm.length||d.__skipped.length||Object.keys(d.__substituted).length;
-  if(hasWork) d.__day=day;
-  const dateEl=$("#date"),notesEl=$("#notes"),bwEl=$("#bodyweight");
-  if(contextTouched.date||Object.prototype.hasOwnProperty.call(d,"__date")||(hasWork&&(committed.size||touched.size||warmups.size||skipped.size||substituted.size))){
-    if(dateEl) d.__date=dateEl.value}
-  if(contextTouched.sessionNotes||Object.prototype.hasOwnProperty.call(d,"__sessionNotes")){
-    if(notesEl) d.__sessionNotes=notesEl.value}
-  if(contextTouched.bodyweight||Object.prototype.hasOwnProperty.call(d,"__bodyweight")){
-    if(bwEl) d.__bodyweight=bwEl.value}
-  d.__contextTouched={day:!!contextTouched.day,date:!!contextTouched.date,sessionNotes:!!contextTouched.sessionNotes,bodyweight:!!contextTouched.bodyweight};
-  DraftStore.write(JSON.stringify(d))}
-
 function clearFieldInvalid(root){
   (root||document).querySelectorAll("[aria-invalid='true']").forEach(el=>el.removeAttribute("aria-invalid"))}
 function applyFieldError(res){
@@ -4883,75 +5598,62 @@ function applyFieldError(res){
   if(el){el.setAttribute("aria-invalid","true");try{el.focus()}catch{}}
   toast(t(res.error?.key||"validation.load"));
   return true}
-function workoutCandidateKeys(){
-  const keys=[];
-  for(const ex of exercises()){if(skipped.has(ex.id))continue;
-    for(let n=1;n<=ex.sets;n++){const key=`${ex.id}_${n}`;
-      if(committed.has(key)||touched.has(key)||warmups.has(key))keys.push(key)}}
-  return keys}
-function readSetCandidate(key){
-  const loadEl=$(`[data-k="${key}_load"]`),repsEl=$(`[data-k="${key}_reps"]`),rirEl=$(`[data-k="${key}_rir"]`);
-  const loadP=parseLoadDisplay(loadEl?.value);if(loadP.field)return{ok:false,error:loadP,el:loadEl};
-  const repsP=parseRepsValue(repsEl?.value);if(repsP.field)return{ok:false,error:repsP,el:repsEl};
-  let rir;
-  if(isEffortMode()){
-    const draft=loadDraft();
-    const eff=draft[`${key}_effort`]||$(`.effort__btn.active[data-eff="${key}"]`)?.dataset.e||$(`[data-effspin="${key}"]`)?.dataset.e||"hard";
-    const ep=parseEffortValue(eff);
-    if(ep.field)return{ok:false,error:ep,el:$(`.effort__btn[data-eff="${key}"]`)||$(`[data-effspin="${key}"]`)};
-    rir=EFFORT_RIR[ep.value]}
-  else{const rirP=parseRirValue(rirEl?.value);if(rirP.field)return{ok:false,error:rirP,el:rirEl};rir=rirP.value}
-  return{ok:true,values:{load:loadP.value,reps:repsP.value,rir}}}
-function firstWorkoutValidationError(keys){
-  clearFieldInvalid(document);
-  const dateEl=$("#date"),dateP=parseCalendarDate(dateEl?.value);
-  if(dateP.field)return{ok:false,error:dateP,el:dateEl};
-  for(const key of keys){const r=readSetCandidate(key);if(!r.ok)return r}
-  const bwEl=$("#bodyweight"),bwP=parseOptionalBodyweightDisplay(bwEl?.value);
-  if(bwP.field)return{ok:false,error:bwP,el:bwEl};
-  return{ok:true,values:{date:dateP.value,bodyweight:bwP.value===0?0:fromDisplay(bwEl.value)}}}
-
+function applyDraftIssue(issues){
+  const issue=(issues||[]).find(item=>item?.field||String(item?.code||"").startsWith("invalid-"));
+  if(!issue)return false;
+  const field=issue.field==="scheduleDate"?"date":issue.field;
+  let el=field==="date"?$("#date"):field==="bodyweight"?$("#bodyweight"):null;
+  let loadErrorKey="validation.load";
+  if(!el&&issue.exerciseInstanceId&&issue.setId){const exercise=activeWorkoutDraft?.exercises?.[issue.exerciseInstanceId],
+      set=exercise?.sets?.[issue.setId],key=set?`${issue.exerciseInstanceId}_${set.ordinal}_${field}`:null;
+    if(key)el=$(`#workout [data-k="${key}"]`)||$(`#workout [data-effspin="${issue.exerciseInstanceId}_${set.ordinal}"]`)}
+  if(field==="load"&&issue.exerciseInstanceId&&issue.setId){
+    const set=activeWorkoutDraft?.exercises?.[issue.exerciseInstanceId]?.sets?.[issue.setId];
+    const raw=set?.edited?.load??set?.programmed?.suggestedLoad??"";
+    loadErrorKey=parseLoadInput(raw).kind==="empty"?"toast.enter_weight_before_save_set":"toast.invalid_weight"}
+  const key=field==="reps"?"validation.reps":field==="rir"?"validation.rir":field==="effort"?"validation.effort":
+    field==="date"?"validation.date":field==="bodyweight"?"validation.bodyweight":loadErrorKey;
+  return applyFieldError({ok:false,error:{key},el})}
 /** Controls of the live workout. The deck also holds a full copy of each
  *  neighbouring card, so every focus control exists three times over; only the
  *  live one takes a handler. */
 const $w=sel=>$$(`#workout ${sel}`).filter(el=>!el.closest(".is-peek"));
 function bindWorkout(){
-  $w("input").forEach(i=>{i.oninput=()=>{const row=i.closest(".setrow, .curset");
-    if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
-    saveDraft();updateSaveMeta();
-    const m=i.dataset.k?.match(/^(.+)_\d+_/);if(m)updateExerciseDeltaPreview(m[1]);
-    refreshAfterCommittedEdit(row)};
+  $w("input").forEach(i=>{i.oninput=async()=>{const row=i.closest(".setrow, .curset"),target=draftTargetFromKey(i.dataset.k);
+    if(!activeWorkoutDraft||!target?.field)return;
+    row?.classList.remove("is-suggested");
+    const result=await enqueueDraftCommand("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
+      setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},{pendingValue:i.value});
+    if(result.status!=="applied")return;
+    updateSaveMeta();updateExerciseDeltaPreview(target.exerciseInstanceId);await refreshAfterCommittedEdit(row)};
   i.onfocus=()=>i.select()});
   $w(".term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $w("[data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)});
-  $w(".saveset").forEach(b=>b.onclick=()=>{const key=b.dataset.save;
-    if(applyFieldError(firstWorkoutValidationError([key])))return;
-    const row=b.closest(".setrow, .curset");
-    // Saving an edit updates the set that is already there; it never toggles it
-    // off, and it never re-arms the rest clock for a set that finished long ago.
+  $w(".saveset").forEach(b=>b.onclick=async()=>{const key=b.dataset.save,target=draftTargetFromKey(key);
+    if(!activeWorkoutDraft||!target)return;
+    const set=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId];
     const editing=!!(focusEdit&&`${focusEdit.exId}_${focusEdit.n}`===key);
-    if(editing){touched.add(key)}
-    else if(committed.has(key)){committed.delete(key)}
-    else{committed.add(key);touched.add(key)}
-    if(row){row.classList.toggle("is-done",committed.has(key));row.classList.remove("is-suggested");
-      if(row.classList.contains("setrow"))b.setAttribute("aria-pressed",committed.has(key)?"true":"false");
-      updateNextMarker(row.closest(".exercise"))}
-    if(committed.has(key)&&!editing){lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt}
-    if(editing)focusEdit=null;
-    saveDraft();updateSaveMeta();
-    const exId=b.closest(".exercise")?.dataset.ex;if(exId)refreshSuggestions(exId);
-    // A set landing is the one beat of Focus worth marking. The exercise id can
-    // hold underscores, so the set number comes off the end of the key by
-    // length rather than by splitting it.
-    if(logMode==="focus"&&exId&&committed.has(key)&&!editing)
-      focusLogged={exId,n:+key.slice(exId.length+1)};
-    if(committed.has(key)&&!editing){startRest();armUnfinishedWatch()}
-    if(editing)toast(t("toast.set_updated"));
-    if(logMode==="focus")renderWorkout();
-    else updateFocusChrome()});
-  $w("[data-warm]").forEach(b=>b.onclick=()=>{const key=b.dataset.warm;
-    warmups.has(key)?warmups.delete(key):warmups.add(key);saveDraft();renderWorkout()});
-  $w(".stepbtn").forEach(b=>b.onclick=()=>{if(!b.dataset.step)return;
+    const type=set.completion==="pending"?"completeSet":"uncommitSet";
+    const refreshReservation=type==="completeSet"?reserveDraftRefresh():null;
+    let refreshStarted=false;
+    try{
+      const result=await enqueueDraftCommand(type,{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId});
+      if(result.status==="domain-error"){applyDraftIssue(result.error?.issues);return}
+      if(result.status!=="applied")return;
+      const nowDone=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].completion!=="pending";
+      if(editing&&nowDone){focusEdit=null;toast(t("toast.set_updated"))}
+      if(nowDone&&!editing){lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;startRest();armUnfinishedWatch()}
+      if(logMode==="focus"&&nowDone&&!editing)focusLogged={exId:target.exerciseInstanceId,n:target.ordinal};
+      if(nowDone&&refreshReservation){refreshStarted=true;const refreshed=await refreshReservation.start(()=>runRefreshSuggestions(target.exerciseInstanceId));
+        if(refreshed.status!=="applied"&&refreshed.status!=="unchanged")return}
+      renderWorkout()
+    }finally{if(refreshReservation&&!refreshStarted)refreshReservation.cancel()}});
+  $w("[data-warm]").forEach(b=>b.onclick=async()=>{const key=b.dataset.warm,target=draftTargetFromKey(key);
+    if(!activeWorkoutDraft||!target)return;
+    const result=await enqueueDraftCommand(warmups.has(key)?"markWorking":"markWarmup",
+      {exerciseInstanceId:target.exerciseInstanceId,setId:target.setId});if(result.status!=="applied")return;
+    renderWorkout()});
+  $w(".stepbtn").forEach(b=>b.onclick=async()=>{if(!b.dataset.step)return;
     const inp=$(`[data-k="${b.dataset.step}"]`);if(!inp)return;
     const key=b.dataset.step||"",dir=+b.dataset.dir||0;
     if(/_reps$|_rir$/.test(key)){
@@ -4961,25 +5663,24 @@ function bindWorkout(){
         nextKg=Math.max(0,Math.round((curKg+incKg*dir)/incKg)*incKg);
       inp.value=fmtPlain(toDisplay(nextKg));
     }
-    const row=inp.closest(".setrow, .curset");
-    if(row&&row.dataset.set){touched.add(row.dataset.set);row.classList.remove("is-suggested")}
-    saveDraft();updateSaveMeta();refreshAfterCommittedEdit(row)});
-  $w(".copylast").forEach(b=>b.onclick=()=>{const ex=sessionExercise(prog.find(b.dataset.copy)),prevSets=ex?last(ex):[];if(!prevSets.length)return;
-    for(const s of prevSets){const key=`${b.dataset.copy}_${s.set}`;touched.add(key);
-      for(const f of ["load","reps"]){const inp=$(`[data-k="${key}_${f}"]`);if(inp)inp.value=f==="load"?fmtPlain(toDisplay(s.load)):fmtPlain(s[f])}
-      // The pickers carry the copied effort: saveDraft reads the DOM back, so
-      // writing the draft alone would be overwritten by the stale selection.
-      if(isEffortMode())setEffortPick(key,effortForRir(s.rir));
-      else{const inp=$(`[data-k="${key}_rir"]`);if(inp)inp.value=fmtPlain(s.rir)}}
-    saveDraft();renderWorkout();toast(t("toast.filled_from_last"))});
+    await inp.oninput?.()});
+  $w(".copylast").forEach(b=>b.onclick=async()=>{const ex=sessionExercise(prog.find(b.dataset.copy)),prevSets=ex?last(ex):[];if(!prevSets.length)return;
+    if(!activeWorkoutDraft)return;
+    const values=prevSets.map(s=>({ordinal:s.set,load:canonicalNumberText(s.load),reps:canonicalNumberText(s.reps),
+      ...(isEffortMode()?{effort:effortForRir(s.rir)}:{rir:canonicalNumberText(s.rir)})}));
+    const result=await enqueueDraftCommand("repeatPreviousSetValues",{exerciseInstanceId:b.dataset.copy,values});
+    if(result.status!=="applied")return;renderWorkout();toast(t("toast.filled_from_last"))});
   $w(".ex__rest").forEach(b=>b.onclick=()=>startRest());
   $w(".ex__skip").forEach(b=>b.onclick=()=>applySkipToggle(b.dataset.skip));
   $w(".subst__pick").forEach(b=>b.onclick=()=>openSubstitutePicker(b.dataset.sub));
   $w(".effort__btn").forEach(b=>{
-    b.onclick=()=>{const key=b.dataset.eff;
-      setEffortPick(key,b.dataset.e);touched.add(key);
+    b.onclick=async()=>{const key=b.dataset.eff,target=draftTargetFromKey(key);
+      if(!activeWorkoutDraft||!target)return;
+      setEffortPick(key,b.dataset.e);
       const row=b.closest(".setrow, .curset");if(row)row.classList.remove("is-suggested");
-      saveDraft();updateSaveMeta();refreshAfterCommittedEdit(row)};
+      const result=await enqueueDraftCommand("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
+        setId:target.setId,field:"effort",value:b.dataset.e});if(result.status!=="applied")return;
+      updateSaveMeta();refreshAfterCommittedEdit(row)};
     // Arrow keys walk the picker like the single-choice control it is.
     b.onkeydown=e=>{const step=e.key==="ArrowRight"||e.key==="ArrowDown"?1:e.key==="ArrowLeft"||e.key==="ArrowUp"?-1:0;
       const jump=e.key==="Home"?0:e.key==="End"?EFFORT_STEPS.length-1:null;
@@ -4989,13 +5690,16 @@ function bindWorkout(){
       const next=jump!=null?jump:(i+step+EFFORT_STEPS.length)%EFFORT_STEPS.length;
       b.closest(".effort")?.querySelectorAll(".effort__btn")[next]?.click();
       b.closest(".effort")?.querySelectorAll(".effort__btn")[next]?.focus()}});
-  const stepEffort=(key,dir)=>{
+  const stepEffort=async(key,dir)=>{
     const el=$(`[data-effspin="${key}"]`);if(!el)return;
     const i=Math.max(0,EFFORT_STEPS.indexOf(el.dataset.e));
     const next=EFFORT_STEPS[Math.min(EFFORT_STEPS.length-1,Math.max(0,i+dir))];
     if(next===el.dataset.e)return;
-    setEffortPick(key,next);touched.add(key);
-    saveDraft();updateSaveMeta();refreshAfterCommittedEdit(el.closest(".curset"))};
+    const target=draftTargetFromKey(key);if(!activeWorkoutDraft||!target)return;
+    setEffortPick(key,next);
+    const result=await enqueueDraftCommand("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
+      setId:target.setId,field:"effort",value:next});if(result.status!=="applied")return;
+    updateSaveMeta();refreshAfterCommittedEdit(el.closest(".curset"))};
   $w("[data-effstep]").forEach(b=>b.onclick=()=>stepEffort(b.dataset.effstep,+b.dataset.dir||0));
   $w("[data-effspin]").forEach(el=>{
     // Tapping the word asks what it means; the ± buttons beside it change it.
@@ -5014,7 +5718,10 @@ function bindWorkout(){
     const open=ta.classList.toggle("hidden")===false;b.setAttribute("aria-expanded",open?"true":"false");
     wrap.classList.toggle("is-open",open);
     if(open){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)}});
-  $w(".exnote__input").forEach(t=>{t.oninput=()=>{saveDraft();
+  $w(".exnote__input").forEach(t=>{t.oninput=async()=>{
+    if(!activeWorkoutDraft)return;
+    const result=await enqueueDraftCommand("setExerciseNotes",{exerciseInstanceId:t.dataset.exnote,value:t.value},{pendingValue:t.value});
+    if(result.status!=="applied")return;
     const prev=t.closest(".exnote")?.querySelector(".exnote__preview");
     if(prev)prev.textContent=t.value.trim()||t("log.note.empty");
     t.closest(".exnote")?.classList.toggle("has-note",!!t.value.trim())}});
@@ -5035,18 +5742,23 @@ function bindWorkout(){
     const f=$w("[data-ffinish]")[0];if(f)f.onclick=()=>$("#logForm").requestSubmit();
     $w("[data-fnext]").forEach(b=>b.onclick=()=>focusAnimateTo(1));
     // Tap a logged row to reopen that set in the well, with a way back out.
-    $w("[data-editn]").forEach(b=>b.onclick=()=>{
-      const exId=b.dataset.editex,n=+b.dataset.editn,key=`${exId}_${n}`,d=loadDraft();
-      focusEdit={exId,n,snap:{load:d[`${key}_load`],reps:d[`${key}_reps`],rir:d[`${key}_rir`],effort:d[`${key}_effort`]}};
+    $w("[data-editn]").forEach(b=>b.onclick=async()=>{
+      const exId=b.dataset.editex,n=+b.dataset.editn,key=`${exId}_${n}`,d=loadDraft(),target=draftTargetFromKey(key);
+      if(!activeWorkoutDraft||!target)return;
+      focusEdit={exId,n,snap:{load:d[`${key}_load`],reps:d[`${key}_reps`],rir:d[`${key}_rir`],effort:d[`${key}_effort`],
+        completedAt:activeWorkoutDraft.exercises[exId].sets[target.setId].completion?.completedAt}};
+      const result=await enqueueDraftCommand("uncommitSet",{exerciseInstanceId:exId,setId:target.setId});
+      if(result.status!=="applied"){focusEdit=null;return}
       renderWorkout()});
-    $w("[data-fcancel]").forEach(b=>b.onclick=()=>{
+    $w("[data-fcancel]").forEach(b=>b.onclick=async()=>{
       if(!focusEdit)return;
-      const{exId,n,snap}=focusEdit,key=`${exId}_${n}`;
-      for(const f2 of ["load","reps","rir"]){
-        if(snap[f2]==null)continue;
-        const inp=$(`[data-k="${key}_${f2}"]`);if(inp)inp.value=snap[f2]}
-      if(snap.effort)setEffortPick(key,snap.effort);
-      focusEdit=null;saveDraft();renderWorkout()});
+      const{exId,n,snap}=focusEdit,key=`${exId}_${n}`,target=draftTargetFromKey(key);
+      if(!activeWorkoutDraft||!target)return;
+      for(const field of["load","reps","rir","effort"]){
+        if(snap[field]==null)continue;const result=await enqueueDraftCommand("editSetField",{exerciseInstanceId:exId,
+          setId:target.setId,field,value:snap[field]});if(result.status!=="applied")return}
+      const restored=await enqueueDraftCommand("completeSet",{exerciseInstanceId:exId,setId:target.setId,completedAt:snap.completedAt||new Date().toISOString()});
+      if(restored.status!=="applied")return;focusEdit=null;renderWorkout()});
     $w("[data-fold]").forEach(b=>b.onclick=()=>{
       const id=b.dataset.fold;
       focusUnfolded.has(id)?focusUnfolded.delete(id):focusUnfolded.add(id);
@@ -5156,66 +5868,69 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
 
 function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
   const done=[...committed].length;
-  const entered=$$("#workout input").filter(i=>i.dataset.k&&i.dataset.k.endsWith("_load")&&parseDec(i.value)>0).length;
+  const entered=activeWorkoutDraft?activeWorkoutDraft.exerciseOrder.reduce((count,exId)=>{
+    const exercise=activeWorkoutDraft.exercises[exId];return count+exercise.setOrder.filter(setId=>{
+      const set=exercise.sets[setId],value=set.edited.load;
+      return set.touched.load&&typeof value==="string"&&value.trim()!==""}).length},0):
+    $$("#workout input").filter(i=>i.dataset.k&&i.dataset.k.endsWith("_load")&&parseDec(i.value)>0).length;
   $("#saveMeta").textContent=done?t("log.save_meta.done",{day:dayLabel(day),done,planned}):(entered?t("log.save_meta.entered",{day:dayLabel(day),entered,planned}):t("log.save_meta.planned",{day:dayLabel(day),planned}));}
 
-async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(saving)return;
-  const keys=workoutCandidateKeys(),check=firstWorkoutValidationError(keys);
-  if(applyFieldError(check))return;
-  if(!keys.length){toast(t("toast.enter_weight_before_save"));return}
-  const form=$("#logForm"),formWasInert=!!form?.inert,formBusy=form?.getAttribute("aria-busy")??null;
-  saving=true;
-  if(form){form.inert=true;form.setAttribute("aria-busy","true")}
-  try{const date=check.values.date,bw=check.values.bodyweight,session=`${date}_${day}_${uid()}`,notes=$("#notes").value.trim(),created=new Date().toISOString(),rows=[];
-  for(const ex of exercises()){if(skipped.has(ex.id))continue;
-    const performed=sessionExercise(ex),exNote=currentExerciseNote(ex.id);
-    for(let n=1;n<=ex.sets;n++){
-    const key=`${ex.id}_${n}`;
-    if(!(committed.has(key)||touched.has(key)||warmups.has(key)))continue;
-    const got=readSetCandidate(key);if(!got.ok){applyFieldError(got);return}
-    const{load,reps,rir}=got.values;
-    const row={session,date,day,name:ex.name,exerciseId:ex.id,set:n,load,reps,rir,notes,created,
-      primary:ex.primary,secondary:ex.secondary,performedName:performed.name,
-      performedPrimary:performed.primary||"",performedSecondary:performed.secondary||""};
-    if(performed.libraryId)row.performedLibraryId=performed.libraryId;
-    else if(performed.movementId)row.performedMovementId=performed.movementId;
-    if(exNote)row.exNote=exNote;
-    if(warmups.has(key))row.warmup=true;
-    if(bw>0)row.bodyweight=bw;
-    rows.push(row)}}
-  if(!rows.length){toast(t("toast.enter_weight_before_save"));return}
-  // The log as it stood before this session: what every record below is judged
-  // against. Copied, because committing replaces the live snapshot.
-  const prevLog=state.log.slice(),startedAt=sessionStartedAt;
-  const rawDraft=DraftStore.readRaw();
-  const proposal=cloneSnapshot(state);
-  proposal.log=proposal.log.concat(cloneSnapshot(rows));
-  const effect=consumedDraftClearEffect(rawDraft);
+async function saveWorkoutV2(io){
+  await drainDraftWork();
+  if(!activeWorkoutDraft)return null;
+  if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed")return{localOk:false,idbOk:false,reason:"recovery-pending"};
+  const capturedDraft=activeWorkoutDraft,capturedRaw=activeWorkoutDraftRaw,operationId=`finish-${uid()}`,now=new Date().toISOString();
+  const finishing=WorkoutDraft.reduce(capturedDraft,{type:"beginFinish",operationId,
+    expectedRevision:capturedDraft.revision,updatedAt:now,writer:draftWriter(operationId)});
+  if(WorkoutDraft.isDomainError(finishing))return{localOk:false,idbOk:false,validation:true,issues:finishing.issues||[]};
+  const issues=WorkoutDraft.validateForSave(finishing);
+  if(issues.length){
+    if(!applyDraftIssue(issues))toast(t(issues.some(issue=>issue.code==="no-work")?"toast.enter_weight_before_save":"validation.load"));
+    return{localOk:false,idbOk:false,validation:true,issues}}
+  const created=new Date().toISOString(),rows=WorkoutDraft.toHistoryRows(finishing,created);
+  if(WorkoutDraft.isDomainError(rows))return{localOk:false,idbOk:false,validation:true,issues:rows.issues};
+  const session=capturedDraft.draftId,date=capturedDraft.program.scheduleDate,
+    savedDay=capturedDraft.program.dayLabel,startedAt=Date.parse(capturedDraft.session.startedAt)||0,
+    prevLog=state.log.slice(),rawDraft=capturedRaw,savedDraft=capturedDraft;
+  const proposal=cloneSnapshot(state);proposal.log=proposal.log.concat(cloneSnapshot(rows));
+  // DraftV2 save owns an exact aggregate revision. A second tab that changes
+  // that revision before the durable log transaction wins keeps the draft and
+  // rejects these rows instead of letting an old finish consume newer work.
+  const effect=destructiveDraftClearEffect(rawDraft);
+  if(typeof window.__repforgeDraftBeforeSaveCommit==="function")
+    await window.__repforgeDraftBeforeSaveCommit({session,draftId:savedDraft.draftId,revision:savedDraft.revision});
   const result=await commitProposedState(proposal,io||storageIO,{effect,reconcileSessionIds:[session]});
-  if(!(result.localOk||result.idbOk))return result;
+  if(!(result.localOk||result.idbOk)){
+    const kind=result.draftConflict?"stale":"persist";
+    draftUiRecovery={kind,status:result.draftConflict?"stale":"save-failed",attempt:null,pendingValue:null,
+      copyValue:capturedRaw,copyKind:"data",focus:draftFocusIdentity(),retry:!result.draftConflict,
+      retryAction:result.draftConflict?null:()=>saveWorkoutV2(io),discard:false};
+    renderDraftRecovery();focusDraftRecovery();
+    return result}
+  // The captured draft is no longer active once its durable rows and tombstone
+  // commit. Clear the in-memory identity before any post-commit observer can
+  // open a successor workout; otherwise initialize() would keep returning the
+  // just-saved aggregate and an overlapping successor could reuse its identity.
+  resetDraftSessionState();resetSessionContextFields();stopRest();
+  if(typeof window.__repforgeDraftAfterSaveCommit==="function")
+    await window.__repforgeDraftAfterSaveCommit({session,draftId:savedDraft.draftId});
   if(!prevLog.some(isWork)&&rows.some(isWork))captureEvent("first_set_logged",{});
   captureEvent("session_completed",{
     set_count:window.RepForgeTelemetry?.bucketCount(rows.filter(isWork).length,"sets"),
     exercise_count:window.RepForgeTelemetry?.bucketCount(new Set(rows.filter(isWork).map(row=>row.exerciseId)).size,"exercises"),
     duration:window.RepForgeTelemetry?.bucketDuration(startedAt?Math.max(0,(Date.now()-startedAt)/60000):0)});
-  resetDraftSessionState();
-  resetSessionContextFields();
-  // Nothing left to rest for. Left running, the clock would count down behind
-  // the summary and ring for a set that is never coming.
-  stopRest();
   const btn=$(".btn--save");if(btn){btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped")}
-  const summary=buildSessionSummary({rows,prevLog,session,date,day,startedAt});
-  render();
-  // The summary is the receipt. The toast only stands in for it when the screen
-  // cannot open — another dialog already holds the app, or the host is stripped.
-  if(!openSessionSummary(summary)){
-    const deltaTxt=formatDeltaCounts(summary.delta,{sep:", "});
-    let msg=t("toast.workout_forged",{n:rows.length,sets:tp(rows.length,"set")});
-    if(summary.prs.length)msg+=` ${t("toast.workout_pr",{items:summary.prs.map(p=>`${p.name} ${fmtLoad(p.load)} ${unitLabel()}`).join(", ")})}`;
-    if(deltaTxt)msg+=` ${deltaTxt}.`;
-    toast(msg)}
-  return result}finally{
+  const summary=buildSessionSummary({rows,prevLog,session,date,day:savedDay,startedAt});render();
+  if(!openSessionSummary(summary))toast(t("toast.workout_forged",{n:rows.length,sets:tp(rows.length,"set")}));
+  return result}
+
+async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(saving)return;
+  const form=$("#logForm"),formWasInert=!!form?.inert,formBusy=form?.getAttribute("aria-busy")??null;
+  if(!activeWorkoutDraft){showDraftInitializationRecovery({status:"invalid",raw:DraftStore.readRaw()});return{localOk:false,idbOk:false,reason:"missing-active-draft"}}
+  saving=true;if(form){form.inert=true;form.setAttribute("aria-busy","true")}
+  try{return await saveWorkoutV2(io)}finally{
     if(form){form.inert=formWasInert;if(formBusy==null)form.removeAttribute("aria-busy");else form.setAttribute("aria-busy",formBusy)}
+    if(form&&!form.inert){const invalid=form.querySelector("[aria-invalid='true']");if(invalid){try{invalid.focus()}catch{}}}
     saving=false}}
 
 /** Records worth a line of their own before the rest become a count. */
@@ -5609,6 +6324,10 @@ window.__repforgePickerSelection=()=>pickerState?[...pickerState.selected]:null;
 window.__repforgeDeleteCustomExercise=id=>deleteCustomExercise(id);
 window.__repforgeRowMuscles=row=>rowMuscles(row);
 window.__repforgeParseProgramSource=(text,name)=>parseProgramSource(text,name);
+window.__repforgeFreeform={
+  parseReply:text=>parseFreeformProgramReply(text),
+  readGapEnvelope:candidate=>readFreeformGapEnvelope(candidate),
+  assembleDocument:(gapResult,gapAnswers)=>assembleFreeformProgramDocument(gapResult,gapAnswers)};
 window.__repforgeImportDraft=()=>importDraft&&{
   fileName:importDraft.fileName,format:importDraft.format,
   counts:importCounts(importDraft),
@@ -5647,7 +6366,7 @@ function resolveExerciseFromCommand(parsed,currentExercises){
     return hit.length===1?hit[0]:null}
   if(logMode==="focus"){const fl=focusList();return fl[Math.min(focusIndex,Math.max(0,fl.length-1))]||null}
   return currentExercises[0]||null}
-function applyParsedCommand(parsed,context){
+async function applyParsedCommand(parsed,context){
   const d=context?.day??day,exs=exercises(d).filter(e=>!skipped.has(e.id)),ex=resolveExerciseFromCommand(parsed,exs);
   if(!ex)return;
   const pick=n=>{if(n<1||n>ex.sets)return null;const k=`${ex.id}_${n}`;return committed.has(k)?null:n};
@@ -5658,23 +6377,23 @@ function applyParsedCommand(parsed,context){
   const key=`${ex.id}_${setN}`;
   let loadDisp=parsed.load;
   if(parsed.unit&&parsed.unit!==state.settings.unit)loadDisp=toDisplay(fromDisplayUnit(parsed.load,parsed.unit));
-  const loadInp=$(`[data-k="${key}_load"]`);if(loadInp)loadInp.value=fmt(loadDisp);
-  const repsInp=$(`[data-k="${key}_reps"]`);if(repsInp)repsInp.value=fmt(parsed.reps);
-  if(isEffortMode()){
-    let eff=parsed.effort;
-    if(!eff&&parsed.rir!=null)eff=effortForRir(parsed.rir);
-    setEffortPick(key,eff||"hard")}
-  else{const rirInp=$(`[data-k="${key}_rir"]`);if(rirInp)rirInp.value=parsed.rir!=null?fmt(parsed.rir):""}
-  touched.add(key);const row=$(`[data-set="${key}"]`);if(row)row.classList.remove("is-suggested");
-  saveDraft();updateSaveMeta();return{ex,set:setN}}
+  if(!activeWorkoutDraft)return;
+  const target=draftTargetFromKey(key);if(!target)return;
+  const fields=[{field:"load",value:canonicalDraftField("load",canonicalNumberText(loadDisp))},
+    {field:"reps",value:String(parsed.reps)}];
+  if(isEffortMode())fields.push({field:"effort",value:parsed.effort||(parsed.rir!=null?effortForRir(parsed.rir):"hard")});
+  else fields.push({field:"rir",value:parsed.rir!=null?canonicalNumberText(parsed.rir):""});
+  for(const field of fields){const result=await enqueueDraftCommand("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
+      setId:target.setId,field:field.field,value:field.value});if(result.status!=="applied")return}
+  renderWorkout();return{ex,set:setN}}
 /** Fill the next open set from a spoken set, e.g. "80 x 8 @1". Returns true when applied. */
-function applyCommandText(text){
+async function applyCommandText(text){
   const v=String(text||"").trim();if(!v)return false;
   const parsed=parseSetCommand(v);
   if(!parsed.ok){toast(parsed.error);return false}
   const exs=exercises().filter(e=>!skipped.has(e.id)),ex=resolveExerciseFromCommand(parsed,exs);
   if(!ex){toast(t("command.error.no_exercise_match"));return false}
-  const r=applyParsedCommand(parsed,{day,logMode});
+  const r=await applyParsedCommand(parsed,{day,logMode});
   if(!r)return false;
   const rirBit=parsed.rir!=null?` @${fmt(parsed.rir)}`:parsed.effort?` ${effortLabel(parsed.effort)}`:"";
   toast(t("toast.command_applied",{load:fmt(parsed.load),reps:parsed.reps,rir:rirBit}));
@@ -6254,6 +6973,11 @@ function editorDocumentExercises(document,day){
   return(document?.program||[]).filter(exercise=>exercise?.day===day)
     .sort((a,b)=>(Number(a?.order)||0)-(Number(b?.order)||0)||String(a?.id||"").localeCompare(String(b?.id||"")))}
 function editorDraftExerciseIds(draft){
+  if(draft?.schemaVersion===2)return new Set((draft.exerciseOrder||[]).filter(id=>{
+    const exercise=draft.exercises?.[id];
+    return exercise&&(exercise.status==="skipped"||exercise.substitution||exercise.setOrder.some(setId=>{
+      const set=exercise.sets[setId];
+      return set&&(set.completion!=="pending"||set.role==="warmup"||set.touched.load||set.touched.reps||set.touched.effort)}) )}));
   const ids=new Set(),addKey=key=>{
     const id=setKeyExerciseId(key);if(id&&id!==String(key))ids.add(id)};
   for(const key of ["__done","__touched","__warm"]){if(Array.isArray(draft?.[key]))draft[key].forEach(addKey)}
@@ -6361,22 +7085,30 @@ function editorRebaseDocument(session,head){
   return{document:rebased,conflict:false}}
 function installedEditorImpact(document,base=state,edits=[]){
   const current=editorDocumentFromSnapshot(base),next=editorDocumentFromSnapshot(document);
-  const active=draftHasProgress();
-  if(!active)return{active:false,incompatible:false,harmless:true,effect:null};
+  const active=draftHasProgress(),draftRaw=readDraftRaw();
+  if(!active){
+    const parsed=WorkoutDraft?.parse(draftRaw);
+    // An untouched DraftV2 still carries the old program fingerprint. Clear
+    // that disposable context with the program transaction so the next Log
+    // entry creates a draft for the updated program instead of surfacing a
+    // stale recovery state.
+    const effect=parsed?.kind==="valid"?destructiveDraftClearEffect(draftRaw):null;
+    return{active:false,incompatible:false,harmless:true,effect}}
   let draft={};try{const parsed=JSON.parse(readDraftRaw()||"{}");if(isPlainStateObject(parsed))draft=parsed}catch{}
-  const referenced=editorDraftExerciseIds(draft),currentById=new Map((current.program||[]).map(item=>[item.id,item]));
+  const referenced=editorDraftExerciseIds(draft),draftDayLabel=draft?.schemaVersion===2?draft.program?.dayLabel:draft.__day;
+  const currentById=new Map((current.program||[]).map(item=>[item.id,item]));
   let incompatible=false,effect=null;
   for(const edit of edits||[]){
     if(edit?.kind==="exercise_remove"||edit?.kind==="exercise_replace"||edit?.kind==="exercise_move"){
       if(referenced.has(String(edit.targetId)))incompatible=true;
     }else if(edit?.kind==="day_remove"){
-      if(draft.__day===edit.targetDay)incompatible=true;
+      if(draftDayLabel===edit.targetDay)incompatible=true;
     }else if(edit?.kind==="prescription"&&edit.field==="sets"&&Number(edit.after)<Number(edit.before)&&referenced.has(String(edit.targetId))){
       const before=currentById.get(edit.targetId);
       if(before&&draftHasProgressInRemovedSets(edit.targetId,Number(edit.after),Number(before.sets),draft))incompatible=true;
-    }else if(edit?.kind==="day_name"&&draft.__day===edit.before&&editorDocumentDays(next).includes(String(edit.after))){
+    }else if(edit?.kind==="day_name"&&draftDayLabel===edit.before&&editorDocumentDays(next).includes(String(edit.after))){
       // Preserve a workout's selected day when a user simply renames that day.
-      effect=draftDayReplacementEffect(edit.before,edit.after);
+      effect=draftDayReplacementEffect(edit.before,edit.after,next);
       if(effect.status!==DRAFT_EFFECT_VALID)incompatible=true;
     }
   }
@@ -6388,7 +7120,7 @@ function installedEditorImpact(document,base=state,edits=[]){
       if(!after||before?.day!==after.day||before?.libraryId!==after.libraryId||before?.movementId!==after.movementId){incompatible=true;break}
       if(before&&Number(after.sets)<Number(before.sets)&&draftHasProgressInRemovedSets(id,Number(after.sets),Number(before.sets),draft)){incompatible=true;break}
     }
-    if(draft.__day&&!editorDocumentDays(next).includes(draft.__day))incompatible=true;
+    if(draftDayLabel&&!editorDocumentDays(next).includes(draftDayLabel))incompatible=true;
   }
   return{active:true,incompatible,harmless:!incompatible,effect:incompatible?null:effect}
 }
@@ -6417,9 +7149,9 @@ function createInstalledProgramEditorAdapter(){
         return{ok:false,workoutConflict:true,impact};
       const proposal=editorSnapshotFromDocument(document,head);
       const rename=edits.find(edit=>edit?.kind==="day_name"&&edit.before!==undefined&&edit.after!==undefined);
-      const renameEffect=rename?draftDayReplacementEffect(String(rename.before),String(rename.after)):null;
+      const renameEffect=rename?draftDayReplacementEffect(String(rename.before),String(rename.after),proposal):null;
       const effect=impact.active&&impact.incompatible||intent.kind==="apply_discard_workout"&&readDraftRaw()!=null
-        ?destructiveDraftClearEffect(readDraftRaw()):renameEffect?.status==="valid"?renameEffect:impact.effect;
+        ?destructiveDraftClearEffect(readDraftRaw()):impact.effect||renameEffect;
       const dayRenames=edits.filter(edit=>edit?.kind==="day_name"&&edit.before!==undefined&&edit.after!==undefined)
         .map(edit=>({from:String(edit.before),to:String(edit.after)}));
       const result=await commitProposedState(proposal,storageIO,{effect,dayRenames,
@@ -6445,7 +7177,9 @@ function createInstalledProgramEditorAdapter(){
           const lockedProposal=editorSnapshotFromDocument(document,lockedHead);
           return{proposal:lockedProposal};
         }});
-      if(result.localOk||result.idbOk){installedEditorSession=null;return{...result,ok:true,document,token:installedEditorToken(state)}}
+      if(result.localOk||result.idbOk){
+        if(effect?.status==="valid"&&effect.effect?.kind==="clear-draft")resetDraftSessionState();
+        installedEditorSession=null;return{...result,ok:true,document,token:installedEditorToken(state)}}
       return{...result,ok:false,conflict:!!(result.conflict||result.staleRevision)};
     },
     chooseExercise:editorChooseExercise,
@@ -7126,7 +7860,7 @@ function bindEditor(){
         inp.value=dayLabel(old);toast(programEditorProgram().days().includes(next)?t("toast.day_name_exists"):t("toast.day_rename_failed"));return}
       proposal.program=nextProgram.toJSON();
       syncProgramStructureFromProgram(proposal,nextProgram);
-      const effect=draftDayReplacementEffect(old,next);
+      const effect=draftDayReplacementEffect(old,next,proposal);
       const result=await commitProgramEditorProposal(proposal,storageIO,{effect,dayRenames:[{from:old,to:next}]});
       if(!(result.localOk||result.idbOk)){inp.value=dayLabel(old);return}
       renameCollapsedDay(old,next);
@@ -8008,17 +8742,19 @@ async function deleteCustomExerciseSheet(){
 
 /** Clipboard first; the hidden-textarea path covers browsers that refuse the
  *  async clipboard, and only a genuine failure of both surfaces a toast. */
-async function copyProgramText(){
-  const text=$("#programTextOut")?.textContent||programText();
+async function copyToClipboard(text,okKey,failKey){
   try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(text);
-    toast(t("toast.program_text_copied"));return true}}catch{}
+    toast(t(okKey));return true}}catch{}
   try{const ta=document.createElement("textarea");
     ta.value=text;ta.setAttribute("readonly","");
     ta.style.cssText="position:fixed;top:0;left:0;opacity:0";
     document.body.append(ta);ta.select();
     const ok=document.execCommand("copy");ta.remove();
-    if(ok){toast(t("toast.program_text_copied"));return true}}catch{}
-  toast(t("toast.program_text_copy_failed"));return false}
+    if(ok){toast(t(okKey));return true}}catch{}
+  toast(t(failKey));return false}
+async function copyProgramText(){
+  return copyToClipboard($("#programTextOut")?.textContent||programText(),
+    "toast.program_text_copied","toast.program_text_copy_failed")}
 function shareProgramText(){
   return shareOrDownload($("#programTextOut")?.textContent||programText(),programTextName(),"text/plain")}
 /* An imported split arrives as names. Matching them to the library is what
@@ -8585,6 +9321,27 @@ function renderImportReview(){
   const counts=importCounts(importDraft);
   const file=$("#importFile");
   if(file)file.textContent=t("import.file",{name:importDraft.fileName||t("import.file_fallback"),n:counts.total,exercise:tp(counts.total,"lift")});
+  const notImportedEl=$("#importNotImported");
+  if(notImportedEl){
+    if(importDraft?.notImported?.length){
+      const items=importDraft.notImported.map(cat=>t(FREEFORM_NOT_IMPORTED_KEYS[cat]||"entry.freeform.not_imported.other_notes")).join(", ");
+      notImportedEl.innerHTML=`<p class="entry__notice entry__notice--info" role="status">${esc(t("entry.freeform.not_imported_notice",{items}))}</p>`;
+      notImportedEl.hidden=false;
+    }else{
+      notImportedEl.innerHTML="";
+      notImportedEl.hidden=true;
+    }
+  }
+  const originalEl=$("#importOriginalText");
+  if(originalEl){
+    if(importDraft?.originalText){
+      originalEl.innerHTML=`<details class="entry__original-text"><summary>${esc(t("entry.freeform.view_original"))}</summary><pre class="entry__pre">${esc(importDraft.originalText)}</pre></details>`;
+      originalEl.hidden=false;
+    }else{
+      originalEl.innerHTML="";
+      originalEl.hidden=true;
+    }
+  }
   const countsEl=$("#importCounts");
   if(countsEl)countsEl.innerHTML=
     `<span class="impcount"><b>${counts.linked}</b>${esc(t("import.count_linked"))}</span>`+
@@ -8677,6 +9434,7 @@ function openImportReview(draft){
   ensureImportEntryFlow(draft);
   draft.onboarding=true;
   importDraft=draft;
+  captureEvent("program_import_review_reached",{source:draft?.sourceType==="freeform"?"freeform":"file"});
   importReturn=document.activeElement;
   // The review renders inside the app shell, so the first-run gate steps aside
   // for it rather than covering it.
@@ -8745,6 +9503,7 @@ async function commitImportReview(){
   const counts=importCounts(importDraft);
   if(counts.review>0){toast(t("toast.import_needs_review",{n:counts.review,exercise:tp(counts.review,"lift")}));return null}
   const draft=importDraft;
+  setStagedImportSource(draft.sourceType);
   ensureImportEntryFlow(draft);
   const preview=importCandidate(draft);
   const name=typeof draft.meta?.name==="string"?draft.meta.name.trim():"";
@@ -8815,6 +9574,511 @@ async function importProgramFile(e,io){const f=e.target.files?.[0];if(!f)return;
   }catch{toast(t("toast.program_import_invalid"))}
   e.target.value=""}
 let pendingImportIo=null;
+/* ---- Free-form program import ----
+ * A program a lifter already owns often exists only as a coach's message, a
+ * spreadsheet dump or a note to self. Retyping it into the editor is where
+ * setup gets abandoned, and Taurifer has no model of its own to read it with.
+ * So the conversion is handed to an assistant the lifter already has on their
+ * phone, deliberately and by hand: Taurifer writes the prompt around what was
+ * pasted, the lifter taps ChatGPT or Claude, and the reply comes back through
+ * the same import review a file goes through.
+ *
+ * This is not an integration. There is no key, no account and no request from
+ * this app: the only thing that leaves the device is the text the lifter chose
+ * to send, in a link they tapped. The pasted text and the reply live in memory
+ * for the length of the flow; only which of the two doors was last used is
+ * remembered, as a device-only UI pref. Neither is persisted, exported or
+ * logged. See docs/adr/0014-free-form-program-import-handoff.md.
+ */
+const FREEFORM_MAX_CHARS=12000;
+/* Past this the prefilled link stops being dependable across the two apps and
+   their mobile shells, so the prompt travels on the clipboard instead. */
+const FREEFORM_URL_MAX=6000;
+const FREEFORM_JSON_CANDIDATES=8;
+const freeformCountLabel=()=>t("entry.freeform.count",{
+  n:entryFreeformInput.length.toLocaleString(locTag()),
+  max:FREEFORM_MAX_CHARS.toLocaleString(locTag())});
+const FREEFORM_APPS={
+  chatgpt:{base:"https://chatgpt.com/",param:"q",label:"entry.freeform.open_chatgpt",copyLabel:"entry.freeform.copy_chatgpt",copiedLabel:"entry.freeform.open_chatgpt_copied"},
+  claude:{base:"https://claude.ai/new",param:"q",label:"entry.freeform.open_claude",copyLabel:"entry.freeform.copy_claude",copiedLabel:"entry.freeform.open_claude_copied"},
+};
+const FREEFORM_NOT_IMPORTED_KEYS = {
+  rest_times: "entry.freeform.not_imported.rest_times",
+  rir_rpe: "entry.freeform.not_imported.rir_rpe",
+  tempo: "entry.freeform.not_imported.tempo",
+  supersets: "entry.freeform.not_imported.supersets",
+  warmups: "entry.freeform.not_imported.warmups",
+  cardio: "entry.freeform.not_imported.cardio",
+  progression_rules: "entry.freeform.not_imported.progression_rules",
+  deload: "entry.freeform.not_imported.deload",
+  other_notes: "entry.freeform.not_imported.other_notes",
+};
+const FREEFORM_SESSION_KEY="repforge_freeform_session_v1";
+let entryImportMode=null,entryFreeformInput="",entryFreeformReply="";
+let entryFreeformStage=1,entryFreeformLastProvider=null;
+let entryFreeformGapResult=null,entryFreeformGapAnswers={},entryFreeformGapErrors=new Set(),entryFreeformStatus=null;
+let entryFreeformReplyInvalidated=false,entryFreeformFailReason=null;
+const entryFreeformCopiedApps=new Set();
+
+function loadFreeformSession(){
+  try{
+    const raw=sessionStorage.getItem(FREEFORM_SESSION_KEY);
+    if(!raw)return false;
+    const data=JSON.parse(raw);
+    if(typeof data.source==="string")entryFreeformInput=data.source;
+    if(typeof data.reply==="string")entryFreeformReply=data.reply;
+    if(Number.isInteger(data.stage)&&data.stage>=1&&data.stage<=3)entryFreeformStage=data.stage;
+    if(typeof data.lastProvider==="string")entryFreeformLastProvider=data.lastProvider;
+    entryFreeformCopiedApps.clear();
+    if(Array.isArray(data.copiedApps))
+      for(const app of data.copiedApps)if(FREEFORM_APPS[app])entryFreeformCopiedApps.add(app);
+    return true;
+  }catch{
+    return false;
+  }
+}
+
+function saveFreeformSession(){
+  try{
+    if(!entryFreeformInput&&!entryFreeformReply&&entryFreeformStage===1){
+      sessionStorage.removeItem(FREEFORM_SESSION_KEY);
+      return;
+    }
+    const data={
+      source:entryFreeformInput||"",
+      reply:entryFreeformReply||"",
+      stage:entryFreeformStage||1,
+      lastProvider:entryFreeformLastProvider||null,
+      copiedApps:[...entryFreeformCopiedApps],
+    };
+    sessionStorage.setItem(FREEFORM_SESSION_KEY,JSON.stringify(data));
+  }catch{}
+}
+
+function clearFreeformSession(){
+  try{sessionStorage.removeItem(FREEFORM_SESSION_KEY)}catch{}
+}
+/* Which door a staged import came through, kept alive from the review commit to
+   the activation that happens a screen later. It cannot ride importDraft, which
+   closeImportReview nulls during the commit, nor the entry result, whose import
+   route allows only "selected". Tab-scoped like the freeform session, carries no
+   program content, and survives a reload between review and activation. */
+const IMPORT_SOURCE_KEY="repforge_import_source_v1";
+function setStagedImportSource(sourceType){
+  try{sessionStorage.setItem(IMPORT_SOURCE_KEY,sourceType==="freeform"?"freeform":"file")}catch{}
+}
+function stagedImportSource(){
+  try{return sessionStorage.getItem(IMPORT_SOURCE_KEY)==="freeform"?"freeform":"file"}catch{return"file"}
+}
+function clearStagedImportSource(){
+  try{sessionStorage.removeItem(IMPORT_SOURCE_KEY)}catch{}
+}
+
+function resetFreeformImport(){
+  entryFreeformInput="";
+  entryFreeformReply="";
+  entryFreeformStage=1;
+  entryFreeformLastProvider=null;
+  entryFreeformGapResult=null;
+  entryFreeformGapAnswers={};
+  entryFreeformGapErrors.clear();
+  entryFreeformStatus=null;
+  entryFreeformFailReason=null;
+  entryFreeformReplyInvalidated=false;
+  entryFreeformCopiedApps.clear();
+  clearFreeformSession();
+}
+/** Which import door this device used last. A preference about this screen, so
+ *  it lives with the other device-only UI prefs and never touches state. */
+function importSourceMode(){
+  if(!entryImportMode)entryImportMode=uiPrefs.importSourceMode==="file"?"file":"freeform";
+  return entryImportMode}
+function setImportSourceMode(mode,{render=true}={}){
+  const prev=importSourceMode();
+  if(mode==="file"&&prev==="freeform"&&(entryFreeformInput.trim().length>10||entryFreeformReply.trim().length>10)){
+    if(!confirm(t("entry.freeform.confirm_discard")))return;
+  }
+  entryImportMode=mode==="freeform"?"freeform":"file";
+  setUiPref("importSourceMode",entryImportMode);
+  // Clearing only the stored copy left the text in memory, so a lifter who
+  // confirmed the discard got it back by switching doors again.
+  if(entryImportMode==="file")resetFreeformImport();
+  else loadFreeformSession();
+  if(render)renderOnboarding()}
+const freeformProgram=()=>String(entryFreeformInput||"").trim();
+/** The prompt is one localized string: the lifter reads what they are sending
+ *  before they send it, and the translation is reviewed like any other copy. */
+function freeformPrompt(program=freeformProgram()){
+  return t("entry.freeform.prompt",{program})}
+/** The prefilled link, or null when the prompt is too long to travel in a URL. */
+function freeformAppUrl(app,prompt){
+  const spec=FREEFORM_APPS[app];
+  if(!spec||!prompt)return null;
+  const url=`${spec.base}?${spec.param}=${encodeURIComponent(prompt)}`;
+  return url.length<=FREEFORM_URL_MAX?url:null}
+function freeformAppHref(app,program=freeformProgram()){
+  const spec=FREEFORM_APPS[app];
+  if(!spec)return"";
+  return(program&&freeformAppUrl(app,freeformPrompt(program)))||spec.base}
+
+/* Candidate JSON values inside a chat reply, so "Here you go:" and a fenced
+   block cost nobody an import. Fenced blocks first, then every balanced
+   top-level object or array, bounded like any other import. */
+function freeformJsonCandidates(text){
+  const out=[];
+  const fence=/```(?:json)?\s*([\s\S]*?)```/gi;
+  for(let match;(match=fence.exec(text))!==null;){
+    const body=match[1].trim();
+    if(body)out.push(body)}
+  const closers={"{":"}","[":"]"};
+  for(let i=0;i<text.length&&out.length<FREEFORM_JSON_CANDIDATES;i++){
+    const open=text[i],close=closers[open];
+    if(!close)continue;
+    let depth=0,inString=false,escaped=false;
+    for(let j=i;j<text.length;j++){
+      const ch=text[j];
+      if(inString){
+        if(escaped)escaped=false;
+        else if(ch==="\\")escaped=true;
+        else if(ch==='"')inString=false;
+        continue}
+      if(ch==='"'){inString=true;continue}
+      if(ch===open)depth++;
+      else if(ch===close&&--depth===0){out.push(text.slice(i,j+1));i=j;break}}}
+  return out}
+const FREEFORM_NOT_IMPORTED_CATEGORIES=new Set([
+  "rest_times","rir_rpe","tempo","supersets","warmups","cardio",
+  "progression_rules","deload","other_notes"]);
+
+function extractNotImported(obj){
+  if(!obj||typeof obj!=="object")return[];
+  const raw=Array.isArray(obj.notImported)?obj.notImported:[];
+  return raw.filter(item=>typeof item==="string"&&FREEFORM_NOT_IMPORTED_CATEGORIES.has(item))}
+
+function parseRepsInput(str){
+  if(typeof str!=="string"&&typeof str!=="number")return null;
+  const s=String(str).trim();
+  const mRange=s.match(/^(\d+)\s*(?:[-–—/]|to)\s*(\d+)$/i);
+  if(mRange){
+    const min=parseInt(mRange[1],10),max=parseInt(mRange[2],10);
+    if(min>=1&&min<=1000&&max>=min&&max<=1000)return{min,max};
+    return null}
+  const mSingle=s.match(/^(\d+)$/);
+  if(mSingle){
+    const val=parseInt(mSingle[1],10);
+    if(val>=1&&val<=1000)return{min:val,max:val}}
+  return null}
+
+function parseSetsInput(str){
+  if(typeof str!=="string"&&typeof str!=="number")return null;
+  const s=String(str).trim();
+  if(!/^\d+$/.test(s))return null;
+  const n=parseInt(s,10);
+  return(n>=1&&n<=100)?n:null}
+
+/* Gaps are keyed by row position, never by (day, order): a reply that numbers
+   some rows and omits others collides on that pair, and two rows sharing a key
+   means one entered number silently lands on a second exercise. */
+function readFreeformGapEnvelope(candidate){
+  let raw=null;
+  if(typeof candidate==="string"){
+    const trimmed=candidate.trim();
+    if(!trimmed.startsWith("{")&&!trimmed.startsWith("["))return null;
+    raw=boundedImportJson(trimmed);
+  }else if(candidate&&typeof candidate==="object"){
+    raw=candidate;
+  }
+  if(!raw||typeof raw!=="object"||Array.isArray(raw))return null;
+  const exercises=Array.isArray(raw.exercises)?raw.exercises:(Array.isArray(raw.program)?raw.program:null);
+  if(!Array.isArray(exercises)||!exercises.length||exercises.length>IMPORT_MAX_NODES)return null;
+
+  const normalized=[];
+  const orders=new Map();
+  for(let i=0;i<exercises.length;i++){
+    const row=exercises[i];
+    if(!row||typeof row!=="object"||Array.isArray(row))return null;
+    const day=typeof row.day==="string"?row.day.trim():"";
+    const name=typeof row.name==="string"?row.name.trim():"";
+    if(!day||!name)return null;
+
+    let order=row.order;
+    if(order===undefined||order===null){
+      const next=(orders.get(day)||0)+1;
+      orders.set(day,next);
+      order=next;
+    }else if(!Number.isInteger(order)||order<1||order>1000){
+      return null;
+    }
+
+    let sets=row.sets;
+    let setsValid=Number.isInteger(sets)&&sets>=1&&sets<=100;
+    if(sets!==undefined&&sets!==null&&!setsValid)return null;
+
+    let min=row.min??row.repLow;
+    let max=row.max??row.repHigh;
+    let minValid=Number.isInteger(min)&&min>=1&&min<=1000;
+    let maxValid=Number.isInteger(max)&&max>=1&&max<=1000&&(!minValid||max>=min);
+    let repsValid=minValid&&maxValid;
+    if((min!==undefined&&min!==null&&!minValid)||(max!==undefined&&max!==null&&!maxValid))return null;
+
+    normalized.push({
+      day,
+      name,
+      order,
+      sets:setsValid?sets:undefined,
+      min:repsValid?min:undefined,
+      max:repsValid?max:undefined,
+      libraryId:typeof row.libraryId==="string"?row.libraryId:undefined,
+    });
+  }
+
+  const missingSidecar=Array.isArray(raw.missing)?raw.missing:[];
+  const gaps=[];
+  for(let i=0;i<normalized.length;i++){
+    const r=normalized[i];
+    const sidecarSets=missingSidecar.some(m=>m&&m.day===r.day&&m.order===r.order&&m.field==="sets");
+    const sidecarReps=missingSidecar.some(m=>m&&m.day===r.day&&m.order===r.order&&m.field==="reps");
+
+    if(r.sets===undefined||sidecarSets){
+      gaps.push({
+        key:`${i}::sets`,
+        rowIndex:i,
+        day:r.day,
+        order:r.order,
+        name:r.name,
+        field:"sets",
+      });
+    }
+    if(r.min===undefined||r.max===undefined||sidecarReps){
+      gaps.push({
+        key:`${i}::reps`,
+        rowIndex:i,
+        day:r.day,
+        order:r.order,
+        name:r.name,
+        field:"reps",
+      });
+    }
+  }
+
+  if(!gaps.length)return null;
+
+  return{
+    status:"gaps",
+    envelope:raw,
+    exercises:normalized,
+    gaps,
+    notImported:extractNotImported(raw),
+  };
+}
+
+function assembleFreeformProgramDocument(gapResult,gapAnswers){
+  if(!gapResult||!gapResult.exercises||!gapAnswers)return null;
+  const rows=[],orders=new Map();
+  for(let i=0;i<gapResult.exercises.length;i++){
+    const row=gapResult.exercises[i];
+    const copy={...row};
+    // Order is the row's position within its day. Deriving it here rather than
+    // trusting the reply keeps a partly numbered envelope from producing two
+    // rows that claim the same slot.
+    const nextOrder=(orders.get(copy.day)||0)+1;
+    orders.set(copy.day,nextOrder);
+    copy.order=nextOrder;
+    if(copy.sets===undefined){
+      const val=gapAnswers[`${i}::sets`];
+      const parsedSets=parseSetsInput(val);
+      if(parsedSets===null)return null;
+      copy.sets=parsedSets;
+    }
+    if(copy.min===undefined||copy.max===undefined){
+      const val=gapAnswers[`${i}::reps`];
+      const parsedReps=parseRepsInput(val);
+      if(parsedReps===null)return null;
+      copy.min=parsedReps.min;
+      copy.max=parsedReps.max;
+    }
+    rows.push(copy);
+  }
+  return JSON.stringify({
+    version:3,
+    meta:gapResult.envelope?.meta||{name:t("entry.freeform.source_name")},
+    exercises:rows,
+  });
+}
+
+/* A reply is read as a program the same way a file is:
+   1. Fast path: The JSON the prompt asked for, or plain-text export parser.
+   2. Gap path: Structured envelope with missing sidecars or absent numeric fields.
+   Nothing incomplete reaches parseProgramSource or the program model. */
+function parseFreeformProgramReply(text){
+  const raw=String(text||"");
+  if(!raw.trim()||importUtf8Bytes(raw)>IMPORT_MAX_BYTES)return null;
+  const candidates=freeformJsonCandidates(raw);
+
+  for(const candidate of candidates){
+    const parsed=parseProgramSource(candidate);
+    if(parsed?.exercises?.length){
+      let notImported=[];
+      try{notImported=extractNotImported(boundedImportJson(candidate.trim()))}catch{}
+      return Object.assign(parsed,{status:"complete",notImported});
+    }
+  }
+  const direct=parseProgramSource(raw);
+  if(direct?.exercises?.length){
+    let notImported=[];
+    try{notImported=extractNotImported(boundedImportJson(raw.trim()))}catch{}
+    return Object.assign(direct,{status:"complete",notImported});
+  }
+
+  for(const candidate of candidates){
+    const gapResult=readFreeformGapEnvelope(candidate);
+    if(gapResult)return gapResult;
+  }
+  const directGap=readFreeformGapEnvelope(raw);
+  if(directGap)return directGap;
+
+  // Which failure it was decides which repair prompt the lifter can send back.
+  return{status:"unreadable",reason:candidates.length?"invalid_rows":"no_json"};}
+
+/* A repair prompt that names what actually broke. Missing numbers are no longer
+   a failure — they go to the gap step — so what is left is structural, and the
+   lifter should be able to paste back something more useful than "try again". */
+const FREEFORM_REPAIR_KEYS={
+  no_json:"entry.freeform.repair_no_json",
+  invalid_rows:"entry.freeform.repair_invalid_rows",
+  assemble_failed:"entry.freeform.repair_assemble_failed",
+};
+function freeformRepairPrompt(){
+  return t(FREEFORM_REPAIR_KEYS[entryFreeformFailReason]||FREEFORM_REPAIR_KEYS.no_json)}
+async function copyFreeformPrompt(){
+  const program=freeformProgram();
+  if(!program){toast(t("entry.freeform.needs_input"));return false}
+  return copyToClipboard(freeformPrompt(program),
+    "toast.freeform_prompt_copied","toast.freeform_copy_failed")}
+/* The link itself does the navigating — a real anchor survives a standalone
+   install where window.open does not. Long prompts are copied in advance via
+   the two-tap flow, so navigation never races clipboard writes. */
+function openFreeformApp(app,event){
+  const program=freeformProgram();
+  if(!FREEFORM_APPS[app]||!program){
+    event?.preventDefault?.();
+    toast(t("entry.freeform.needs_input"));
+    return false}
+  const prompt=freeformPrompt(program);
+  const isLong=prompt.length>FREEFORM_URL_MAX;
+  captureEvent("program_import_handoff",{method:app,outcome:"opened",long_prompt:isLong});
+  entryFreeformStage=3;
+  entryFreeformLastProvider=app;
+  saveFreeformSession();
+  setTimeout(renderOnboarding,0);
+  return true}
+function loadFreeformProgram(source){
+  pendingImportIo=null;
+  const draft=buildImportDraft(source,t("entry.freeform.source_name"));
+  draft.sourceType="freeform";
+  draft.notImported=source.notImported||[];
+  draft.originalText=entryFreeformInput;
+  draft.fromFirstRun=firstRunOpen();
+  draft.onboarding=draft.fromFirstRun||!!$("#onboarding")?.classList.contains("active");
+  resetFreeformImport();
+  openImportReview(draft);
+  return draft}
+
+/** The reply becomes an ordinary import draft: same review, same activation. */
+function startFreeformReview(){
+  const reply=String(entryFreeformReply||"").trim();
+  if(!reply){toast(t("toast.freeform_empty"));return null}
+  const source=parseFreeformProgramReply(reply);
+  if(!source||source.status==="unreadable"){
+    entryFreeformStatus="unreadable";
+    entryFreeformFailReason=source?.reason||"no_json";
+    captureEvent("program_import_parsed",{source:"freeform",outcome:"unreadable",gap_count:0});
+    renderOnboarding();
+    toast(t("toast.freeform_unreadable"));
+    return null;
+  }
+  if(source.status==="gaps"){
+    entryFreeformGapResult=source;
+    entryFreeformGapAnswers={};
+    entryFreeformGapErrors.clear();
+    captureEvent("program_import_parsed",{source:"freeform",outcome:"gaps",gap_count:source.gaps.length});
+    renderOnboarding();
+    return null;
+  }
+  if(!source.exercises?.length){
+    entryFreeformStatus="unreadable";
+    entryFreeformFailReason="invalid_rows";
+    captureEvent("program_import_parsed",{source:"freeform",outcome:"unreadable",gap_count:0});
+    toast(t("toast.freeform_unreadable"));
+    return null;
+  }
+  captureEvent("program_import_parsed",{source:"freeform",outcome:"complete",gap_count:0});
+  return loadFreeformProgram(source);
+}
+
+function submitFreeformGaps(){
+  if(!entryFreeformGapResult)return;
+  entryFreeformGapErrors.clear();
+  const gaps=entryFreeformGapResult.gaps||[];
+  for(const gap of gaps){
+    const val=entryFreeformGapAnswers[gap.key];
+    if(gap.field==="sets"){
+      if(parseSetsInput(val)===null)entryFreeformGapErrors.add(gap.key);
+    }else if(gap.field==="reps"){
+      if(parseRepsInput(val)===null)entryFreeformGapErrors.add(gap.key);
+    }
+  }
+  if(entryFreeformGapErrors.size>0){
+    renderOnboarding();
+    const firstInvalid=$(".entry__field-input.is-invalid");
+    if(firstInvalid)try{firstInvalid.focus()}catch{}
+    return;
+  }
+  const assembledDoc=assembleFreeformProgramDocument(entryFreeformGapResult,entryFreeformGapAnswers);
+  const parsed=parseProgramSource(assembledDoc);
+  if(!parsed||!parsed.exercises||!parsed.exercises.length){
+    entryFreeformStatus="unreadable";
+    entryFreeformFailReason="assemble_failed";
+    entryFreeformGapResult=null;
+    renderOnboarding();
+    toast(t("toast.freeform_unreadable"));
+    return;
+  }
+  parsed.notImported=entryFreeformGapResult.notImported||[];
+  entryFreeformGapResult=null;
+  entryFreeformGapAnswers={};
+  loadFreeformProgram(parsed);
+}
+
+function renderFreeformGapsStep(){
+  const gaps=entryFreeformGapResult.gaps||[];
+  const notImported=entryFreeformGapResult.notImported||[];
+  let notImportedHtml="";
+  if(notImported.length){
+    const items=notImported.map(cat=>t(FREEFORM_NOT_IMPORTED_KEYS[cat]||"entry.freeform.not_imported.other_notes")).join(", ");
+    notImportedHtml=`<p class="entry__notice entry__notice--info" role="status">${esc(t("entry.freeform.not_imported_notice",{items}))}</p>`;
+  }
+  const gapRows=gaps.map(gap=>{
+    const isSets=gap.field==="sets";
+    const val=entryFreeformGapAnswers[gap.key]||"";
+    const hasError=entryFreeformGapErrors.has(gap.key);
+    const label=isSets
+      ?t("entry.freeform.gap_sets_label",{exercise:`${gap.day} · ${gap.name}`})
+      :t("entry.freeform.gap_reps_label",{exercise:`${gap.day} · ${gap.name}`});
+    const placeholder=isSets?t("entry.freeform.gap_sets_placeholder"):t("entry.freeform.gap_reps_placeholder");
+    return `<label class="entry__field"><span>${esc(label)}</span>`+
+      `<input type="text" class="entry__field-input${hasError?" is-invalid":""}"${hasError?' aria-invalid="true"':""} data-gap-key="${esc(gap.key)}" value="${esc(val)}" placeholder="${esc(placeholder)}"></label>`;
+  }).join("");
+
+  return entryHeading(t("entry.freeform.gaps_title"))+
+    `<p class="onb__explain">${esc(t("entry.freeform.gaps_lede"))}</p>`+
+    notImportedHtml+
+    (entryFreeformGapErrors.size?`<p class="entry__notice entry__notice--warn" role="alert">${esc(t("entry.freeform.gap_error"))}</p>`:"")+
+    `<div class="entry__gaps-list">${gapRows}</div>`+
+    `<div class="btnrow"><button type="button" class="btn btn--cta" id="entryFreeformSubmitGaps">${esc(t("entry.freeform.gaps_submit"))}</button>`+
+    `<button type="button" class="btn btn--steel" id="entryFreeformBackToReply">${esc(t("entry.freeform.back_to_reply"))}</button></div>`;
+}
+
 /* What the restore choice needs to state the trade honestly: what this device
    holds, what the file holds, and how much of the file is actually new. */
 function importChoiceContext(s,opener,io){
@@ -9075,6 +10339,8 @@ function disarmEntryHistory(){
     if(history.state?.[ENTRY_HISTORY_STATE_KEY])
       history.replaceState(entryHistoryState(false),"",location.href)}catch{}}
 function closeOnboarding(){
+  // The pasted program and the reply belong to the flow that asked for them.
+  resetFreeformImport();
   onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;setupEditorOpen=false;
   $("#onboarding")?.classList.remove("program-editor-onboarding");
   $("#onboarding").classList.remove("active");$("#onboarding").classList.add("hidden");document.body.classList.remove("is-onboarding","is-entry-editor","is-settings");
@@ -9233,6 +10499,10 @@ function renderEntryHub(){
       `<button type="button" class="entry-card entry-card--secondary" id="entryOwnToggle" aria-pressed="${entryOwnOpen?"true":"false"}"><span class="entry-card__icon icon-mask icon-mask--sheet" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.own.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.own.cap"))}</span></span><span class="entry-card__go chevron${entryOwnOpen?" is-down":""}" aria-hidden="true"></span></button>`+
       (entryOwnOpen?`<div class="entry__own">`+
         `<button type="button" class="entry-card entry-card--secondary entry-card--nested" data-entry-route="build"><span class="entry-card__icon icon-mask icon-mask--pencil" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.build.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.build.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+        /* The free-form door is the same import route by its other side, so it
+           carries an id rather than a second `data-entry-route="import"`: one
+           route, one selector, two ways in. */
+        `<button type="button" class="entry-card entry-card--secondary entry-card--nested" id="entryFreeformStart"><span class="entry-card__icon icon-mask icon-mask--clipboard" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.freeform.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.freeform.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
         `<button type="button" class="entry-card entry-card--secondary entry-card--nested" data-entry-route="import"><span class="entry-card__icon icon-mask icon-mask--download" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.import.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.import.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
       `</div>`:"")+
     `</div>`}
@@ -9869,10 +11139,134 @@ function renderBuildSetupStep(){
     `<input id="entryProgramName" type="text" maxlength="80" value="${esc(name)}" placeholder="${esc(t("entry.build_setup.name_placeholder"))}"></label>`+
     `<p class="entry__group-lab">${esc(t("entry.build_setup.days"))}</p><div class="onb__opts onb__grid" role="radiogroup">`+
     [2,3,4,5,6].map(n=>entryOpt("daysPerWeek",n,t("entry.catalogue.days_badge",{days:n}),"")).join("")+`</div>`}
+/* One route, two doors. A Taurifer file is one shape of "I already have a
+   program"; a coach's message pasted as text is the other, and the lifter
+   arriving with the second should not have to recognise the first. */
 function renderImportSourceStep(){
+  return importSourceMode()==="freeform"?renderFreeformSourceStep():renderImportFileStep()}
+function renderImportFileStep(){
   return entryHeading(t("entry.import_source.title"))+`<p class="onb__explain">${esc(t("entry.import_source.lede"))}</p>`+
     (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
-    `<button type="button" class="btn btn--cta" id="entryImportPick">${esc(t("entry.import_source.pick"))}</button>`}
+    `<button type="button" class="btn btn--cta" id="entryImportPick">${esc(t("entry.import_source.pick"))}</button>`+
+    `<p class="entry__switch"><button type="button" class="btn btn--ghost" id="entryFreeformSwitch">${esc(t("entry.import_source.to_freeform"))}</button></p>`}
+function freeformAppLink(app){
+  const program=freeformProgram();
+  const spec=FREEFORM_APPS[app];
+  if(!spec)return"";
+  if(!program){
+    return `<a class="btn btn--steel entry__freeform-app is-disabled" data-freeform-app="${esc(app)}"`+
+      ` href="${esc(spec.base)}" target="_blank" rel="noopener noreferrer"`+
+      ` aria-disabled="true" aria-describedby="entryFreeformNeeds"`+
+      `>${esc(t(spec.label))}</a>`}
+  const prompt=freeformPrompt(program);
+  const directUrl=freeformAppUrl(app,prompt);
+  if(directUrl){
+    return `<a class="btn btn--steel entry__freeform-app" data-freeform-app="${esc(app)}"`+
+      ` href="${esc(directUrl)}" target="_blank" rel="noopener noreferrer"`+
+      `>${esc(t(spec.label))}</a>`}
+  if(entryFreeformCopiedApps.has(app)){
+    return `<a class="btn btn--steel entry__freeform-app" data-freeform-app="${esc(app)}" data-freeform-copied="true"`+
+      ` href="${esc(spec.base)}" target="_blank" rel="noopener noreferrer"`+
+      `>${esc(t(spec.copiedLabel))}</a>`}
+  return `<button type="button" class="btn btn--steel entry__freeform-app" data-freeform-app="${esc(app)}" data-freeform-long="true"`+
+    `>${esc(t(spec.copyLabel))}</button>`}
+function wireFreeformAppControls(){
+  $$("[data-freeform-app]").forEach(el=>{
+    if(el.tagName==="BUTTON"){
+      el.onclick=async(event)=>{
+        event?.preventDefault?.();
+        const app=el.dataset.freeformApp;
+        const ok=await copyFreeformPrompt();
+        captureEvent("program_import_handoff",{method:app,outcome:ok?"copied":"copy_failed",long_prompt:true});
+        if(ok){
+          entryFreeformCopiedApps.add(app);
+          refreshFreeformControls();
+        }
+      };
+    }else{
+      el.onclick=event=>openFreeformApp(el.dataset.freeformApp,event);
+    }
+  });}
+function renderFreeformSourceStep(){
+  if(entryFreeformGapResult)return renderFreeformGapsStep();
+  const program=freeformProgram();
+  const lineCount=entryFreeformInput?entryFreeformInput.split(/\r?\n/).filter(Boolean).length:0;
+
+  const summaryHtml=entryFreeformStage>1
+    ?`<div class="entry__freeform-summary"><span>${esc(t("entry.freeform.source_summary",{lines:lineCount}))}</span><button type="button" class="btn btn--steel btn--sm" id="entryFreeformEditSource">${esc(t("entry.freeform.edit_source"))}</button></div>`
+    :"";
+
+  let bodyHtml="";
+  if(entryFreeformStage===1){
+    bodyHtml=
+      `<label class="entry__field entry__field--area"><span>${esc(t("entry.freeform.input_label"))}</span>`+
+      `<textarea id="entryFreeformIn" rows="7" maxlength="${FREEFORM_MAX_CHARS}" spellcheck="false" autocapitalize="off" placeholder="${esc(t("entry.freeform.input_placeholder"))}">${esc(entryFreeformInput)}</textarea></label>`+
+      `<p class="entry__hint" id="entryFreeformCount">${esc(freeformCountLabel())}</p>`+
+      `<p class="entry__hint" id="entryFreeformNeeds"${program?" hidden":""}>${esc(t("entry.freeform.needs_input"))}</p>`+
+      `<p class="entry__explain" role="note">${esc(t("entry.freeform.privacy"))}</p>`+
+      `<button type="button" class="btn btn--cta" id="entryFreeformContinue"${program?"":" disabled"}>${esc(t("entry.freeform.continue"))}</button>`;
+  }else if(entryFreeformStage===2){
+    bodyHtml=
+      entryGroupLab(t("entry.freeform.stage2_title"),"wand")+
+      `<p class="entry__hint">${esc(t("entry.freeform.stage2_hint"))}</p>`+
+      `<div class="entry__freeform-apps">${freeformAppLink("chatgpt")}${freeformAppLink("claude")}</div>`+
+      `<details class="entry__freeform-preview"><summary>${esc(t("entry.freeform.preview_prompt"))}</summary><pre class="entry__freeform-prompt-preview">${esc(freeformPrompt(program))}</pre></details>`+
+      `<p class="entry__switch"><button type="button" class="btn btn--ghost" id="entryFreeformCopy">${esc(t("entry.freeform.copy"))}</button></p>`;
+  }else if(entryFreeformStage===3){
+    let unreadableNotice="";
+    if(entryFreeformStatus==="unreadable"){
+      unreadableNotice=
+        `<div class="entry__notice entry__notice--warn" role="alert"><strong>${esc(t("entry.freeform.unreadable_title"))}</strong>`+
+        `<p>${esc(t("entry.freeform.unreadable_body"))}</p>`+
+        `<div class="btnrow"><button type="button" class="btn btn--steel" id="entryFreeformCopyRepair">${esc(t("entry.freeform.copy_repair_prompt"))}</button>`+
+        `<button type="button" class="btn btn--ghost" id="entryFreeformTryAnother">${esc(t("entry.freeform.try_another"))}</button></div></div>`;
+    }
+    const invalidatedNotice=entryFreeformReplyInvalidated
+      ?`<p class="entry__notice entry__notice--info" role="status">${esc(t("entry.freeform.edit_source_warning"))}</p>`
+      :"";
+    bodyHtml=
+      invalidatedNotice+
+      unreadableNotice+
+      entryGroupLab(t("entry.freeform.stage3_title"),"clipboard")+
+      `<p class="entry__hint">${esc(t("entry.freeform.stage3_hint"))}</p>`+
+      `<label class="entry__field entry__field--area"><span class="visually-hidden">${esc(t("entry.freeform.stage3_title"))}</span>`+
+      `<textarea id="entryFreeformOut" rows="7" spellcheck="false" autocapitalize="off" placeholder="${esc(t("entry.freeform.output_placeholder"))}">${esc(entryFreeformReply)}</textarea></label>`+
+      `<button type="button" class="btn btn--cta" id="entryFreeformReview">${esc(t("entry.freeform.review"))}</button>`+
+      `<div class="btnrow"><button type="button" class="btn btn--steel" id="entryFreeformTryAnother">${esc(t("entry.freeform.try_another"))}</button>`+
+      `<button type="button" class="btn btn--ghost btn--destructive" id="entryFreeformStartOver">${esc(t("entry.freeform.start_over"))}</button></div>`;
+  }
+
+  return entryHeading(t("entry.freeform.title"))+`<p class="onb__explain">${esc(t("entry.freeform.lede"))}</p>`+
+    (hasActiveProgram()?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
+    summaryHtml+
+    `<div class="entry__freeform ph-no-capture">${bodyHtml}</div>`+
+    `<p class="entry__switch"><button type="button" class="btn btn--ghost" id="entryFreeformFile">${esc(t("entry.freeform.to_file"))}</button></p>`}
+/* Typing must not cost the caret or the field: the links, the counter and the
+   empty-state note are refreshed in place rather than through a re-render. */
+function refreshFreeformControls(){
+  const program=freeformProgram();
+  const count=$("#entryFreeformCount");
+  if(count)count.textContent=freeformCountLabel();
+  const needs=$("#entryFreeformNeeds");if(needs)needs.hidden=!!program;
+  const cont=$("#entryFreeformContinue");if(cont)cont.disabled=!program;
+  const appsContainer=$(".entry__freeform-apps");
+  if(appsContainer){
+    appsContainer.innerHTML=Object.keys(FREEFORM_APPS).map(freeformAppLink).join("");
+    wireFreeformAppControls();
+  }
+  const copy=$("#entryFreeformCopy");if(copy)copy.disabled=!program;
+  saveFreeformSession();}
+
+window.addEventListener("visibilitychange",()=>{
+  if(document.visibilityState==="visible"&&entryFreeformStage===3){
+    const out=$("#entryFreeformOut");
+    if(out){
+      out.scrollIntoView?.({behavior:"smooth",block:"nearest"});
+      out.classList.add("is-returned");
+      setTimeout(()=>out.classList.remove("is-returned"),2000);
+    }
+  }
+});
 function entryPreviewHasProgressionIssue(preview=entryState?.result?.preview){
   return (Array.isArray(preview?.progressionIncompatibilities)&&preview.progressionIncompatibilities.length>0)||
     (preview?.program||[]).some(exercise=>exercise?.progressionIncompatibility)}
@@ -10109,6 +11503,97 @@ function renderOnboarding(){
 function wireEntryDom(){
   $$("[data-entry-route]").forEach(btn=>btn.onclick=()=>entrySelectRoute(btn.dataset.entryRoute));
   const own=$("#entryOwnToggle");if(own)own.onclick=()=>{entryOwnOpen=!entryOwnOpen;renderOnboarding()};
+  /* Both hub cards enter the same route and each names its own door, so the
+     card the lifter read is the screen they land on. The remembered mode is
+     for a resumed draft, which arrives at the step without a card. */
+  const freeformStart=$("#entryFreeformStart");
+  if(freeformStart)freeformStart.onclick=()=>{
+    setImportSourceMode("freeform",{render:false});
+    captureEvent("program_import_started",{source:"freeform"});
+    entrySelectRoute("import")};
+  const importCard=$('[data-entry-route="import"]');
+  if(importCard)importCard.onclick=()=>{
+    setImportSourceMode("file",{render:false});
+    captureEvent("program_import_started",{source:"file"});
+    entrySelectRoute("import")};
+  const freeformSwitch=$("#entryFreeformSwitch");
+  if(freeformSwitch)freeformSwitch.onclick=()=>setImportSourceMode("freeform");
+  const freeformFile=$("#entryFreeformFile");
+  if(freeformFile)freeformFile.onclick=()=>setImportSourceMode("file");
+  const freeformIn=$("#entryFreeformIn");
+  if(freeformIn)freeformIn.oninput=()=>{
+    entryFreeformInput=freeformIn.value.slice(0,FREEFORM_MAX_CHARS);
+    entryFreeformCopiedApps.clear();
+    refreshFreeformControls()};
+  const freeformContinue=$("#entryFreeformContinue");
+  if(freeformContinue)freeformContinue.onclick=()=>{
+    if(!freeformProgram())return;
+    entryFreeformStage=2;
+    saveFreeformSession();
+    renderOnboarding();
+  };
+  const freeformEditSource=$("#entryFreeformEditSource");
+  if(freeformEditSource)freeformEditSource.onclick=()=>{
+    if(entryFreeformReply.trim().length>0){
+      entryFreeformReply="";
+      entryFreeformReplyInvalidated=true;
+      toast(t("entry.freeform.edit_source_warning"));
+    }
+    entryFreeformStage=1;
+    saveFreeformSession();
+    renderOnboarding();
+  };
+  const freeformOut=$("#entryFreeformOut");
+  if(freeformOut)freeformOut.oninput=()=>{
+    entryFreeformReply=freeformOut.value;
+    entryFreeformStatus=null;
+    entryFreeformFailReason=null;
+    saveFreeformSession();
+  };
+  wireFreeformAppControls();
+  const freeformCopy=$("#entryFreeformCopy");
+  if(freeformCopy)freeformCopy.onclick=async()=>{
+    const ok=await copyFreeformPrompt();
+    const prompt=freeformPrompt();
+    const isLong=prompt.length>FREEFORM_URL_MAX;
+    captureEvent("program_import_handoff",{method:"copy",outcome:ok?"copied":"copy_failed",long_prompt:isLong});
+    if(ok){
+      for(const app of Object.keys(FREEFORM_APPS)){
+        entryFreeformCopiedApps.add(app);
+      }
+      entryFreeformStage=3;
+      entryFreeformLastProvider="copy";
+      saveFreeformSession();
+      renderOnboarding();
+    }
+  };
+  const freeformTryAnother=$("#entryFreeformTryAnother");
+  if(freeformTryAnother)freeformTryAnother.onclick=()=>{
+    entryFreeformStage=2;
+    entryFreeformStatus=null;
+    saveFreeformSession();
+    renderOnboarding();
+  };
+  const freeformStartOver=$("#entryFreeformStartOver");
+  if(freeformStartOver)freeformStartOver.onclick=()=>{
+    if((entryFreeformInput.trim().length>10||entryFreeformReply.trim().length>10)&&!confirm(t("entry.freeform.confirm_start_over")))return;
+    resetFreeformImport();
+    renderOnboarding();
+  };
+  const freeformCopyRepair=$("#entryFreeformCopyRepair");
+  if(freeformCopyRepair)freeformCopyRepair.onclick=async()=>{
+    await copyToClipboard(freeformRepairPrompt(),
+      "entry.freeform.toast_repair_copied","toast.freeform_copy_failed");
+  };
+  const freeformReview=$("#entryFreeformReview");if(freeformReview)freeformReview.onclick=()=>startFreeformReview();
+  const submitGaps=$("#entryFreeformSubmitGaps");if(submitGaps)submitGaps.onclick=()=>submitFreeformGaps();
+  const backToReply=$("#entryFreeformBackToReply");if(backToReply)backToReply.onclick=()=>{entryFreeformGapResult=null;entryFreeformGapErrors.clear();renderOnboarding();};
+  $$("[data-gap-key]").forEach(input=>{
+    input.oninput=()=>{
+      entryFreeformGapAnswers[input.dataset.gapKey]=input.value;
+      entryFreeformGapErrors.delete(input.dataset.gapKey);
+    };
+  });
   $$("[data-entry-pick]").forEach(btn=>btn.onclick=()=>{
     const key=btn.dataset.entryPick,raw=btn.dataset.entryVal,multi=btn.dataset.entryMulti==="1";
     if(key==="environment"){
@@ -10550,8 +12035,13 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     telemetryRoute==="shared"?"shared_v1":
     telemetryRoute==="build"?"manual_v1":
     telemetryRoute==="browse"||telemetryRoute==="recommend"||telemetryRoute==="custom"?"taurifer_v1":"legacy_v1";
-  if(!result.alreadyCommitted)
-    captureEvent("program_activated",{route:telemetryRoute,version_category:versionCategory});
+  if(!result.alreadyCommitted){
+    const payload={route:telemetryRoute,version_category:versionCategory};
+    if(telemetryRoute==="import")payload.source=stagedImportSource();
+    captureEvent("program_activated",payload);
+  }
+  clearFreeformSession();
+  clearStagedImportSource();
   if(telemetryRoute==="shared")SharedSetup?.clearHandoffCookie?.();
   if(telemetryRoute==="shared")syncLang();
   resetDraftSessionState();
@@ -11028,6 +12518,34 @@ function navTo(view){
 window.__repforgeEnterWorkout=enterWorkout;
 window.__repforgeGoToLogExercise=goToLogExercise;
 window.__repforgeSaveWorkout=(io)=>saveWorkout({preventDefault(){}},io);
+window.__repforgeWorkoutDraft={
+  current:()=>activeWorkoutDraft,
+  raw:()=>activeWorkoutDraftRaw,
+  projection:()=>workoutDraftProjection(),
+  target:draftTargetFromKey,
+  dispatch:(type,payload)=>enqueueDraftCommand(type,payload),
+  initialize:initializeWorkoutDraft,
+  checkpoint:()=>DraftStore.readV2Checkpoint(),
+  read:()=>DraftStore.readCanonicalStatus(),
+  // Browser harness seam: settle both the ordered DraftV2 write queue and any
+  // suggestion refresh that is still computing or retrying before inspecting
+  // acknowledged state. Production callers use the same drain internally.
+  flush:()=>drainDraftWork(),
+  cas:({expectedRaw,expectedDraftId,expectedRevision,nextRaw,operationId})=>
+    DraftStore.compareAndSwapV2({expectedRaw,expectedDraftId,expectedRevision,nextRaw,operationId}),
+  stageLegacy:(transactionId,raw)=>DraftStore.writeSidecar(transactionId,raw),
+  promote:(transactionId=null,contextFingerprint=draftContextFingerprint(state))=>DraftStore.promote(transactionId,contextFingerprint),
+  reconcile:async()=>{const read=DraftStore.readCanonicalStatus();return read.status==="ok"?reconcileV2Checkpoint(read,day):read},
+  clear:clearDraft,
+  recovery:()=>draftUiRecovery,
+  retryRecovery:retryDraftRecovery,
+  reloadRecovery:reloadLatestWorkoutDraft,
+  discardRecovery:discardRecoveredWorkoutDraft,
+  effect:{preserve:draftPreservationEffect,clear:destructiveDraftClearEffect,rename:draftDayReplacementEffect},
+  inspectEffect:effect=>pendingJournalEffectState(effect),
+  commitEffect:(proposal,effect,io=storageIO)=>commitProposedState(proposal,io,{effect}),
+  state:()=>cloneSnapshot(state),
+};
 // Test seam for the Focus deck, alongside the other __repforge* harness hooks.
 window.__repforgeFocus={
   go:focusAnimateTo,list:focusList,at:()=>focusIndex,editing:()=>focusEdit,
@@ -11079,7 +12597,9 @@ window.__repforgeOnboarding={
   entry:()=>entryState,
   setupDraftKey:SETUP_DRAFT_KEY,
   services:entryServices,
-  render:renderOnboarding};
+  render:renderOnboarding,
+  flushDraft:()=>setupDraftWriteQueue,
+  clearDraft:clearSetupDraft};
 
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
@@ -11108,11 +12628,12 @@ function init(){
   $("#firstRunCreate").onclick=()=>{closeFirstRun();startOnboarding("first-run")};
   // Import runs through the same review as everywhere else; the gate stays
   // standing behind it so backing out returns here rather than to an empty app.
+  // Copy and paste is the primary BYOP door, with the file door one tap away.
   $("#firstRunImport").onclick=()=>{
     closeFirstRun();
     startOnboarding("first-run",{userInitiated:true,forceFresh:true});
-    entrySelectRoute("import");
-    $("#importProgram")?.click()};
+    setImportSourceMode("freeform",{render:false});
+    entrySelectRoute("import")};
   // "Continue in browser" is an answer to the install offer, not to the program
   // question: it takes the offer off the table for a while, then hands over to
   // the same first run the app has always had.
@@ -11267,9 +12788,12 @@ function init(){
     if(el&&el.closest("input,select,textarea,[contenteditable]"))return;
     if(e.key==="ArrowRight")focusAnimateTo(1);
     else if(e.key==="ArrowLeft")focusAnimateTo(-1)});
-  const woDate=$("#date");if(woDate)woDate.addEventListener("change",()=>{contextTouched.date=true;saveDraft();closeWorkoutOverflow()});
-  const woNotes=$("#notes");if(woNotes)woNotes.addEventListener("input",()=>{contextTouched.sessionNotes=true;saveDraft()});
-  const woBw=$("#bodyweight");if(woBw)woBw.addEventListener("input",()=>{contextTouched.bodyweight=true;saveDraft()});
+  const woDate=$("#date");if(woDate)woDate.addEventListener("change",async()=>{contextTouched.date=true;
+    if(activeWorkoutDraft)await enqueueDraftCommand("setSessionDate",{value:woDate.value},{pendingValue:woDate.value});closeWorkoutOverflow()});
+  const woNotes=$("#notes");if(woNotes)woNotes.addEventListener("input",async()=>{contextTouched.sessionNotes=true;
+    if(activeWorkoutDraft)await enqueueDraftCommand("setSessionNotes",{value:woNotes.value},{pendingValue:woNotes.value})});
+  const woBw=$("#bodyweight");if(woBw)woBw.addEventListener("input",async()=>{contextTouched.bodyweight=true;
+    if(activeWorkoutDraft)await enqueueDraftCommand("setBodyweight",{value:canonicalDraftBodyweight(woBw.value)},{pendingValue:woBw.value})});
   const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=async()=>{
     if(setupEditorOpen){requestEntryCancel();return}
     if(programEditMode){requestInstalledDone();return}
@@ -11708,9 +13232,11 @@ async function boot(){
   await applyBootDecision(decision);
   await recoverCommittedSetupDraft();
   await prepareSharedSetup(sharedCandidate);
-  hydrateWorkoutDraft({restoreDay:true});
+  const draftBoot=await initializeWorkoutDraft({restoreDay:true});
+  if(draftBoot.status==="ready")hydrateWorkoutDraft({restoreDay:true});
   resumeProgramEditFollowUp();
   init();
+  if(draftBoot.status!=="ready"&&draftBoot.status!=="absent")showDraftInitializationRecovery(draftBoot);
   captureEvent("app_boot",{first_run:firstRunPending(),language:I18N?.getLang?.()==="pt"?"pt":"en",platform_class:telemetryPlatformClass()});
   if(sharedSetupDraft.status==="existing")toast(t("setup.shared.existing"),{assertive:true});
   if(decision.draftConflict)toast(t("toast.draft_conflict_retry"),{assertive:true})}

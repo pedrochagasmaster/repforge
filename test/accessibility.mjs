@@ -56,6 +56,7 @@ async function clearState(page) {
     async ({ k, d }) => {
       localStorage.removeItem(k);
       localStorage.removeItem(d);
+      localStorage.removeItem(`${d}:v2-checkpoint`);
       await new Promise((res) => {
         const req = indexedDB.deleteDatabase("repforge");
         req.onsuccess = () => res();
@@ -960,6 +961,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     }));
     await page.locator(".sessionbanner__act").focus();
     await page.keyboard.press("Enter");
+    await page.waitForSelector("#workoutShell:not(.hidden)");
     const afterEnter = await page.evaluate(() => ({
       hidden: document.querySelector("#sessionBanner")?.classList.contains("hidden"),
       activeDay: document.querySelector('#dayTabs button[aria-selected="true"]')?.dataset?.day,
@@ -977,6 +979,8 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     await page.evaluate(
       async ({ k, blob }) => {
         localStorage.setItem(k, JSON.stringify(blob));
+        localStorage.removeItem("repforge_draft_v1");
+        localStorage.removeItem("repforge_draft_v1:v2-checkpoint");
         localStorage.removeItem("repforge_notify_v1");
       },
       { k: KEY, blob: state }
@@ -986,6 +990,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     await page.waitForSelector("#sessionBanner:not(.hidden) .sessionbanner__act", { timeout: 8000 });
     await page.locator(".sessionbanner__act").focus();
     await page.keyboard.press(" ");
+    await page.waitForSelector("#workoutShell:not(.hidden)");
     const afterSpace = await page.evaluate(() => ({
       hidden: document.querySelector("#sessionBanner")?.classList.contains("hidden"),
       activeDay: document.querySelector('#dayTabs button[aria-selected="true"]')?.dataset?.day,
@@ -2112,7 +2117,10 @@ async function runDimmedStateAccessibility(browser) {
       ],
     });
     blob.settings.lang = lang;
-    await page.evaluate((draftKey) => localStorage.removeItem(draftKey), DRAFT);
+    await page.evaluate((draftKey) => {
+      localStorage.removeItem(draftKey);
+      localStorage.removeItem(`${draftKey}:v2-checkpoint`);
+    }, DRAFT);
     await persistState(page, blob);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);

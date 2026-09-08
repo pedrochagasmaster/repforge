@@ -112,7 +112,12 @@ const three = (load, reps, rir) => [[load, reps, rir], [load, reps, rir], [load,
 async function seed(page, blob) {
   await page.evaluate(async ({ k, d }) => {
     localStorage.removeItem(k);
-    localStorage.removeItem(d);
+    // Draft V2 keeps its checkpoint, recovery, and transaction sidecars under
+    // namespaced keys. Clear the whole namespace so each strategy fixture
+    // starts without a receipt from the preceding browser journey.
+    for (const key of Object.keys(localStorage)) {
+      if (key === d || key.startsWith(`${d}:`)) localStorage.removeItem(key);
+    }
     await new Promise((res) => {
       const req = indexedDB.deleteDatabase("repforge");
       req.onsuccess = () => res();

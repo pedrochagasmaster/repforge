@@ -5,7 +5,7 @@ and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkp
 
 - **Plan number:** 051
 - **Phase:** 2A — State and lifecycle foundations
-- **Status:** Planned; implementation has not started
+- **Status:** Implementation candidate in progress; owner review pending
 - **Owner approval state:** Focus-only direction and state-ownership requirement are approved
 - **Depends on:** Plan 049 state contract; may develop beside Plan 050 but merges after any shared cache/index changes are reconciled
 - **Blocks:** Plan 055 Focus-only workout and Plan 053 logical-clone implementation
@@ -81,7 +81,8 @@ writer: { installationId, tabId, operationId }
 program: { programId, programFingerprint, durableRevision, dayId, dayLabel,
            scheduleDate, unit, rirMode }
 session: { startedAt, updatedAt, bodyweight, notes, selectedExerciseId,
-           status: active|finishing }
+           status: active|finishing,
+           contextTouched: { day, date, sessionNotes, bodyweight } }
 exerciseOrder: exerciseInstanceId[]
 exercises[exerciseInstanceId]: {
   exerciseInstanceId, sourceExerciseId, libraryId?, displayName,
@@ -105,7 +106,24 @@ Use existing stable exercise IDs/instance identities; do not derive identity fro
 
 ### Commands and invariants
 
-Commands cover `editSetField`, `completeSet`, `uncommitSet`, `markWarmup`, `markWorking`, `skipExercise`, `restoreExercise`, `substituteExercise`, `restoreOriginalExercise`, `repeatPreviousSetValues`, `setExerciseNotes`, `setSessionNotes`, `setBodyweight`, `selectExercise`, `reorderExercises`, and `beginFinish`/`cancelFinish`.
+Commands cover `editSetField`, `completeSet`, `uncommitSet`, `markWarmup`, `markWorking`, `skipExercise`, `restoreExercise`, `substituteExercise`, `restoreOriginalExercise`, `repeatPreviousSetValues`, `refreshUntouchedSuggestions`, `setExerciseNotes`, `setSessionDate`, `setSessionNotes`, `setBodyweight`, `selectExercise`, `reorderExercises`, and `beginFinish`/`cancelFinish`.
+
+`contextTouched` is model-owned intent. `create()` initializes all four fields to
+`false`, unless the adapter passes an explicit selection intent such as a day
+change. `setSessionDate`, `setSessionNotes`, and `setBodyweight` set their field
+to `true` even when the new value is empty. Later commands retain the flags.
+Legacy `__contextTouched` markers migrate into this object, including markers
+whose corresponding value is empty. A DraftV2 document written before this
+field existed parses with an explicit all-false compatibility value; malformed
+or unknown fields fail validation.
+
+`refreshUntouchedSuggestions` is compiler-owned acknowledgement. It carries the
+source revision used for the computation and updates only pending fields that
+remain untouched; the reducer rejects a stale source, and the adapter recomputes
+from the latest acknowledged aggregate. An update whose values are already
+acknowledged is a no-op and does not advance the revision. The refresh lifetime
+is drained before Finish captures its snapshot, while its CAS publication stays
+on the single ordered draft-write queue.
 
 - A set has one stable identity and ordinal within its exercise. Reordering exercises never reorders sets.
 - Completion requires the same required fields as current save semantics; uncommit retains edited values.
@@ -139,10 +157,30 @@ On boot, parse in this order: valid V2; legacy V1-shaped flat object; absent; in
 
 - Legacy migration runs once using the captured program/day snapshot and the same substitution/library resolution rules current code uses.
 - Convert every flat field and marker, including values on hidden/off-screen List inputs; preserve date/bodyweight/notes/selected exercise where present.
+- Preserve all four legacy `__contextTouched` fields in `session.contextTouched`, including a `true` marker paired with an empty value. Keep explicit context intent in `isPristine()` and the program-mode guard.
 - After validation, write V2 with a migration operation ID and re-read before rendering. A repeated boot is idempotent.
 - If a legacy exercise/set cannot be mapped without guessing, retain the raw draft in a recovery slot, show a fail-closed recovery message, and do not silently clear it.
 - Keep legacy read support for one cache-upgrade window so an older controlling worker cannot destroy the draft. Remove it only in a separately proven later commit, not Plan 055.
 - Backup round-trip must preserve ordinary durable state and history; active drafts remain outside standard backups unless Phase 049's canonical backup contract is explicitly changed. The install-transfer logical clone does include V2.
+
+### Implemented storage and rollback boundary
+
+The production adapter keeps the historical `repforge_draft_v1` localStorage key
+and stores the acknowledged DraftV2 publication in the sidecar
+`repforge_draft_v1:v2-checkpoint`. A checkpoint is one of `pending`,
+`pending-removal`, `committed`, or `tombstone`; it carries the draft identity,
+revision, operation token, program fingerprint, and exact canonical bytes when
+the state is present. `repforge_draft_v1:recovery` retains raw canonical bytes
+when a canonical read, checkpoint read, or read-back cannot establish an
+acknowledged winner. During boot replay and destructive program transactions,
+the checkpoint is consulted before canonical-byte equality: an acknowledged
+newer V2 aggregate wins over an old-worker flat overwrite or absence, while a
+same-revision hybrid is retained as recovery evidence and the acknowledged
+receipt is restored. A committed tombstone protects a successful removal from
+late legacy writers; a pending checkpoint rolls back to its prior committed
+aggregate after an interrupted publication. The legacy parser remains a
+read-only upgrade path for one cache window and never clears an unmappable or
+invalid draft.
 
 ## UX state specification
 
@@ -243,6 +281,17 @@ None. The state contract is an implementation prerequisite, not a new product ch
 ## Rollback
 
 Keep the legacy parser and dual renderer through this phase. The final activation commit can switch reads/writes back to legacy only if no V2-only user operation has shipped; once V2 ships, rollback code must continue to read V2 and render/recover it. Never deploy an older app that treats V2 as invalid and clears it. Each persistence/schema commit includes forward-compatible read behavior and cache rollback notes.
+
+The activation slice is rolled back as a coherent shell: `workout-draft.js`,
+the V2 adapter, its six lockstep script revisions, and the checkpoint/recovery
+read path move together. An older controlling worker may still write the flat
+canonical key, but the next V2 boot reads the checkpoint first, preserves the
+acknowledged aggregate, and records the overwritten bytes in recovery. A
+candidate left in `pending` or `pending-removal` is either completed from its
+exact operation token or reverted to the prior acknowledged aggregate; a
+committed tombstone remains the removal authority. These are the rollback facts
+used by `test/workout-draft-storage.mjs`, the adversarial transaction suite,
+and `test/workout-draft-sw-upgrade.mjs`.
 
 ## Atomic commit sequence
 

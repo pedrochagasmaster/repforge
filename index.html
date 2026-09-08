@@ -110,6 +110,17 @@
       </div>
 
       <div id="sessionBanner" class="sessionbanner hidden" role="status"></div>
+      <div id="draftRecovery" class="draft-recovery hidden" role="alert" aria-live="assertive" tabindex="-1">
+        <p id="draftRecoveryTitle" class="draft-recovery__title"></p>
+        <p id="draftRecoveryBody" class="draft-recovery__body"></p>
+        <p id="draftRecoveryPending" class="draft-recovery__pending hidden"></p>
+        <div class="draft-recovery__actions">
+          <button type="button" id="draftRecoveryRetry" class="btn btn--steel hidden"></button>
+          <button type="button" id="draftRecoveryReload" class="btn btn--steel hidden"></button>
+          <button type="button" id="draftRecoveryCopy" class="btn btn--steel hidden"></button>
+          <button type="button" id="draftRecoveryDiscard" class="btn btn--danger hidden"></button>
+        </div>
+      </div>
       <div id="unfinishedBanner" class="hidden" role="status" hidden>
         <p class="sessionbanner__title" data-i18n="log.unfinished.title">Unfinished session</p>
         <p class="sessionbanner__body" data-i18n="log.unfinished.body">You have unsaved sets. Open Today and tap Finish workout.</p>
@@ -350,10 +361,12 @@
       </div>
       <div class="impreview">
         <p class="impreview__file" id="importFile"></p>
+        <div id="importNotImported"></div>
         <h2 class="impreview__head" data-i18n="import.heading">Review the exercises</h2>
         <p class="lede" data-i18n="import.lede">Link the names to the library or keep them as they are.</p>
         <div class="impcounts" id="importCounts" role="status" aria-live="polite"></div>
         <div id="importRows"></div>
+        <div id="importOriginalText"></div>
         <p class="impreview__safe" id="importSafe" data-i18n="import.safe">Your history will not be changed.</p>
         <button type="button" class="btn btn--cta" id="importCommit" data-i18n="import.commit">Import program</button>
         <button type="button" class="text-link text-link--center" id="importReviewCancel" data-i18n="import.cancel">Cancel this import</button>
@@ -943,12 +956,13 @@
        reordering stays reachable through each row's Move controls. -->
   <script src="vendor/motion/motion.js"></script>
   <script src="vendor/dnd-kit/dnd-kit.js"></script>
-  <script src="motion-layer.js?v=189"></script>
-  <script src="program-compiler.js?v=189"></script>
-  <script src="program-entry.js?v=189"></script>
-  <script src="program-entry-adapter.js?v=189"></script>
-  <script src="program-editor.js?v=189"></script>
-  <script src="shared-setup.js?v=189"></script>
-  <script src="app.js?v=189"></script>
+  <script src="motion-layer.js?v=192"></script>
+  <script src="program-compiler.js?v=192"></script>
+  <script src="program-entry.js?v=192"></script>
+  <script src="program-entry-adapter.js?v=192"></script>
+  <script src="program-editor.js?v=192"></script>
+  <script src="shared-setup.js?v=192"></script>
+  <script src="workout-draft.js?v=192"></script>
+  <script src="app.js?v=192"></script>
 </body>
 </html>

@@ -1,10 +1,10 @@
-const CACHE = "repforge-v189";
+const CACHE = "repforge-v192";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
-  "./vendor/motion/motion.js", "./vendor/dnd-kit/dnd-kit.js", "./vendor/dnd-kit/dnd-kit.runtime.js", "./motion-layer.js", "./motion-layer.js?v=189",
+  "./vendor/motion/motion.js", "./vendor/dnd-kit/dnd-kit.js", "./vendor/dnd-kit/dnd-kit.runtime.js", "./motion-layer.js", "./motion-layer.js?v=192",
   "./telemetry.js", "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js",
-  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=189", "./program-entry.js", "./program-entry.js?v=189", "./program-entry-adapter.js", "./program-entry-adapter.js?v=189", "./program-editor.js", "./program-editor.js?v=189",
-  "./shared-setup.js", "./shared-setup.js?v=189", "./app.js", "./app.js?v=189",
+  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=192", "./program-entry.js", "./program-entry.js?v=192", "./program-entry-adapter.js", "./program-entry-adapter.js?v=192", "./program-editor.js", "./program-editor.js?v=192",
+  "./shared-setup.js", "./shared-setup.js?v=192", "./workout-draft.js", "./workout-draft.js?v=192", "./app.js", "./app.js?v=192",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
@@ -51,7 +51,7 @@ self.addEventListener("activate", event => {
   );
 });
 
-const SHELL = new Set(["/", "/index.html", "/app.js", "/styles.css", "/motion-polish.css", "/motion-layer.js", "/vendor/motion/motion.js", "/vendor/dnd-kit/dnd-kit.js", "/vendor/dnd-kit/dnd-kit.runtime.js", "/i18n.js", "/exercises.js", "/shared-setup.js", "/program-compiler.js", "/program-entry.js", "/program-entry-adapter.js", "/program-editor.js", "/telemetry.js", "/posthog-init.js", "/posthog-config.js", "/manifest.webmanifest"]);
+const SHELL = new Set(["/", "/index.html", "/app.js", "/workout-draft.js", "/styles.css", "/motion-polish.css", "/motion-layer.js", "/vendor/motion/motion.js", "/vendor/dnd-kit/dnd-kit.js", "/vendor/dnd-kit/dnd-kit.runtime.js", "/i18n.js", "/exercises.js", "/shared-setup.js", "/program-compiler.js", "/program-entry.js", "/program-entry-adapter.js", "/program-editor.js", "/telemetry.js", "/posthog-init.js", "/posthog-config.js", "/manifest.webmanifest"]);
 const IMMUTABLE_RUNTIMES = new Set(["/vendor/motion/motion.js", "/vendor/dnd-kit/dnd-kit.runtime.js"]);
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
 function shellPathname(pathname) {

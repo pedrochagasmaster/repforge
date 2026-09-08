@@ -98,6 +98,8 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v5
@@ -135,6 +137,11 @@ jobs:
           node test/program-compiler-plan048-preferences.mjs
           node test/pr201-contracts.mjs
           node test/ui-screens.mjs
+
+      - name: Workout draft pure contract
+        run: |
+          node test/workout-draft.mjs
+          node test/workout-draft-migration.mjs
 
       - name: Start static server
         run: python3 -m http.server 8000 &
@@ -269,7 +276,11 @@ jobs:
       - name: Focus mode
         env:
           REPFORGE_URL: http://localhost:8000/
-        run: node test/focus-mode.mjs
+        run: |
+          node test/focus-mode.mjs
+          node test/workout-draft-parity.mjs
+          node test/workout-draft-storage.mjs
+          node test/workout-draft-sw-upgrade.mjs
 
       - name: Progression recommendation parity and browser surfaces
         env:
@@ -300,6 +311,7 @@ jobs:
           node test/library-flow.mjs
           node test/performed-attribution.mjs
           node test/program-import-review.mjs
+          node test/program-freeform-import.mjs
 
       - name: Sheet swipe dismiss
         env:
