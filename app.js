@@ -6364,11 +6364,22 @@ function transitionContractSource(route) {
 // Exact, read-only classification of a stored transition-in against a proposal.
 // "match" -> already committed (return success, no mutation); "conflict" -> the
 // stored record is partial or disagrees (typed invalid, never success);
-// "absent" -> no transition-in yet, proceed to the transaction.
+// "absent" -> no transition-in and no archive collision, proceed to the
+// transaction.
 function classifyCommittedTransition(snapshot, proposal, archiveId) {
   const meta = snapshot && snapshot.programMeta;
   const tin = meta && meta.transitionIn;
-  if (!isPlainStateObject(tin)) return "absent";
+  const history = Array.isArray(snapshot.programHistory) ? snapshot.programHistory : [];
+  // Every stored history row that touches this archive identity by primary id
+  // OR by explicit archiveId link occupies the slot. This OR is collision
+  // detection only: it forces "conflict", it never green-lights "match". A bare
+  // occupant with no transition-in is a collision, not a clean "absent" slot,
+  // because archiveCapturedProgram() would then either skip the linked archive
+  // (id already present) or push a second archive for the same identity.
+  const occupants = history.filter(h => h?.id === archiveId || h?.archiveId === archiveId);
+  if (!isPlainStateObject(tin)) {
+    return occupants.length === 0 ? "absent" : "conflict";
+  }
   const agree =
     meta.id === proposal?.successor?.programId &&
     tin.status === "committed" &&
@@ -6378,14 +6389,19 @@ function classifyCommittedTransition(snapshot, proposal, archiveId) {
     tin.successor?.programId === proposal?.successor?.programId &&
     tin.predecessor?.programId === proposal?.predecessor?.programId;
   if (!agree) return "conflict";
-  const history = Array.isArray(snapshot.programHistory) ? snapshot.programHistory : [];
-  const links = history.filter(h =>
-    (h?.id === archiveId || h?.archiveId === archiveId) &&
-    h?.transitionOut?.transitionId === proposal.transitionId &&
-    h?.transitionOut?.proposalHash === proposal.proposalHash &&
-    h?.transitionOut?.successorProgramId === proposal.successor.programId);
-  if (links.length !== 1) return "conflict";
-  return "match";
+  // Exactly one history row may exist for this archive identity, and it must
+  // carry BOTH identity fields bound to archiveId plus the exact transition-out
+  // link. A partial identity (only id, or only archiveId) or a divergent link
+  // is a conflicting record, never an already-committed one.
+  if (occupants.length !== 1) return "conflict";
+  const link = occupants[0];
+  const exact =
+    link.id === archiveId &&
+    link.archiveId === archiveId &&
+    link.transitionOut?.transitionId === proposal.transitionId &&
+    link.transitionOut?.proposalHash === proposal.proposalHash &&
+    link.transitionOut?.successorProgramId === proposal.successor.programId;
+  return exact ? "match" : "conflict";
 }
 const repforgeProgramTransitionAdapter = {
   async proposeSibling(input = {}) {

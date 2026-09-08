@@ -126,6 +126,87 @@ async function confirmTransition(page, args) {
   return page.evaluate(async (a) => window.__repforgeProgramTransition.confirmTransition(a), args);
 }
 
+// Standalone activation of a real balanced 4-day/90-minute Recommend program.
+// The preserved happy path (Step 1) keeps its own inline activation unchanged;
+// this duplicate exists only for the isolated fresh-context case (Step 10),
+// which needs its own predecessor whose id collides with a bare archive row.
+async function activateBalancedRecommendPredecessor(page) {
+  return page.evaluate(async () => {
+    if (!window.RepForgeProgramEntryAdapter || !window.RepForgeProgramCompiler) {
+      return { ok: false, error: "compiler or entry adapter unavailable in window" };
+    }
+    const services = window.RepForgeProgramEntryAdapter.createProductionServices({
+      Compiler: window.RepForgeProgramCompiler,
+      catalogue: window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY,
+    });
+    const compiled = services.compile({
+      mode: "recommend",
+      answers: {
+        desiredResult: "balanced", structuredExperience: "6_to_24m", recentConsistency: "most",
+        daysPerWeek: 4, sessionMinutes: 90, preferredRestSeconds: 90,
+        environment: { kind: "commercial_gym" },
+        primaryMuscles: [], deEmphasizedMuscles: [], ignoredMuscles: [],
+        priorityMovements: [], mustHaveExercises: [], exerciseConstraints: [],
+      },
+      versions: services.currentVersions(),
+    });
+    if (!compiled.ok) return { ok: false, error: "compilation failed", issues: compiled.issues };
+    const baseProposal = window.__repforgeWorkoutDraft.state();
+    baseProposal.programMeta = baseProposal.programMeta || {};
+    baseProposal.programMeta.progressionRelations = JSON.parse(JSON.stringify(compiled.preview.progressionRelations || []));
+    baseProposal.programMeta.progressionModifiers = [];
+    baseProposal.programMeta.progressionIncompatibilities = [];
+    baseProposal.programMeta.programStructure = JSON.parse(JSON.stringify(compiled.preview.programStructure));
+    baseProposal.programMeta.compilerContext = JSON.parse(JSON.stringify(compiled.compilerContext));
+    await window.__repforgeFinalizeProgramSetup({
+      exercises: compiled.preview.program, name: compiled.name || "Balanced 4-Day",
+      answers: { goal: "strength_hypertrophy", daysPerWeek: 4 },
+      destination: "log", origin: "first-run", draftConfirmed: true, telemetryRoute: "recommend",
+      entryTelemetry: compiled.telemetry,
+      entrySource: { route: "recommend", fingerprint: compiled.fingerprint },
+      programStructure: compiled.preview.programStructure, compilerContext: compiled.compilerContext,
+      baseProposal,
+    });
+    await window.__repforgeStorage.flush();
+    return { ok: true };
+  });
+}
+
+async function proposeLowerFrequencySibling(page, overrides = {}) {
+  return page.evaluate(async (args) => window.__repforgeProgramTransition.proposeSibling(args), {
+    targetConstraint: { frequency: 3 },
+    diagnosis: {
+      kind: "fewer_days", answers: { availableDays: 3 },
+      eligibleEvidenceIds: ["sessions-14d-6-of-3"], insufficientEvidenceReasons: [],
+    },
+    transitionId: "tr_p6a_link_case",
+    successorProgramId: "prog_p6a_link_succ",
+    createdAt: "2026-10-02T14:00:00.000Z",
+    ...overrides,
+  });
+}
+
+// Overwrite the single stored archive row's identity fields through the real
+// proposed-state commit seam, then reload. Returns whether the commit landed so
+// the caller can assert the injection actually took before probing idempotency.
+async function injectArchiveIdentity(page, patch) {
+  const res = await page.evaluate(async (p) => {
+    const s = window.__repforgeWorkoutDraft.state();
+    const hist = Array.isArray(s.programHistory) ? s.programHistory : [];
+    if (!hist.length) return { ok: false, error: "no archive row to mutate" };
+    if (Object.prototype.hasOwnProperty.call(p, "id")) hist[0].id = p.id;
+    if (Object.prototype.hasOwnProperty.call(p, "archiveId")) hist[0].archiveId = p.archiveId;
+    const r = await window.__repforgeCommitProposedState(s);
+    await window.__repforgeStorage.flush();
+    return { ok: r.localOk || r.idbOk, r };
+  }, patch);
+  if (res.ok) {
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+  }
+  return res;
+}
+
 async function main() {
   console.log("052-P6a: program transition commit vertical slice");
   await assertServingApp(BASE);
@@ -673,6 +754,243 @@ async function main() {
       "the log sentinel identity and content survive success + reload + retry in every store");
     const retryDraftRaw = await page.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
     check(retryDraftRaw === preDraftRaw, "DraftV2 raw unchanged after idempotent retry");
+
+    // -------------------------------------------------------------------------
+    // Step 8: Partial archive identity — the history row's primary id still
+    // matches archiveId, but its explicit archiveId link diverges. A retry must
+    // never report already-committed and must mutate nothing durable.
+    // (Hostile: on an OR-based identity match this reports alreadyCommitted.)
+    // -------------------------------------------------------------------------
+    console.log("\n8. Partial archive identity (matching id, divergent archiveId link) is never already-committed");
+    const beforeStep8 = await readReplicas(page);
+    const step8DraftRaw = await page.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
+    const step8CheckpointRaw = await page.evaluate((k) => localStorage.getItem(k), CHECKPOINT_KEY);
+
+    const inj8 = await injectArchiveIdentity(page, { archiveId: "p6a-divergent-archive-link" });
+    check(inj8.ok, "divergent-archiveId injection committed through the proposed-state seam", inj8);
+    const replicas8 = await readReplicas(page);
+    check(replicas8.local.programHistory.length === 1 && replicas8.idb.programHistory.length === 1,
+      "still exactly one archive row after the divergent-archiveId injection");
+    check(replicas8.local.programHistory[0].id === predecessorProgramId &&
+          replicas8.local.programHistory[0].archiveId === "p6a-divergent-archive-link" &&
+          replicas8.idb.programHistory[0].id === predecessorProgramId &&
+          replicas8.idb.programHistory[0].archiveId === "p6a-divergent-archive-link",
+      "injection landed in both replicas: archive id preserved, archiveId link diverged",
+      { local: replicas8.local.programHistory[0], idb: replicas8.idb.programHistory[0] });
+
+    const revBeforeRetry8 = replicas8.local.revision;
+    const retry8 = await confirmTransition(page, {
+      proposal: freshProposal,
+      transitionId: freshProposal.transitionId,
+      successorProgramId: freshProposal.successor.programId,
+      confirmedAt,
+      proposalHash: freshProposal.proposalHash,
+      acknowledgedDraftRaw: preDraftRaw,
+    });
+    check(retry8?.alreadyCommitted !== true, "divergent-archiveId retry does NOT report alreadyCommitted", retry8);
+    check(retry8?.committed !== true, "divergent-archiveId retry is not committed", retry8);
+    check(retry8?.invalid === true && retry8?.code === "conflicting_transition_record",
+      "divergent-archiveId retry returns typed conflicting_transition_record", retry8);
+    await page.evaluate(() => window.__repforgeStorage.flush());
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    const afterStep8 = await readReplicas(page);
+    const liveAfterStep8 = await page.evaluate(() => {
+      const s = window.__repforgeWorkoutDraft.state();
+      return { programId: s.programMeta?.id, historyLen: (s.programHistory || []).length };
+    });
+    check(afterStep8.local.revision === revBeforeRetry8 && afterStep8.idb.revision === revBeforeRetry8,
+      "divergent-archiveId retry advanced no durable revision in either replica",
+      { before: revBeforeRetry8, local: afterStep8.local.revision, idb: afterStep8.idb.revision });
+    check(afterStep8.local.programId === successorProgramId && afterStep8.idb.programId === successorProgramId &&
+          liveAfterStep8.programId === successorProgramId,
+      "active successor programId unchanged by the divergent-archiveId retry");
+    check(afterStep8.local.programHistory.length === 1 && afterStep8.idb.programHistory.length === 1 &&
+          liveAfterStep8.historyLen === 1,
+      "no second archive row created by the divergent-archiveId retry");
+    check(isDeepStrictEqual(afterStep8.local.transitionIn, beforeStep8.local.transitionIn) &&
+          isDeepStrictEqual(afterStep8.idb.transitionIn, beforeStep8.idb.transitionIn),
+      "transitionIn record unchanged by the divergent-archiveId retry");
+    check(isDeepStrictEqual(afterStep8.local.log, logSentinel) && isDeepStrictEqual(afterStep8.idb.log, logSentinel),
+      "log sentinel intact after the divergent-archiveId retry");
+    check(await page.evaluate((k) => localStorage.getItem(k), DRAFT_KEY) === step8DraftRaw,
+      "DraftV2 raw byte-identical after the divergent-archiveId retry");
+    check(await page.evaluate((k) => localStorage.getItem(k), CHECKPOINT_KEY) === step8CheckpointRaw,
+      "DraftV2 checkpoint byte-identical after the divergent-archiveId retry");
+
+    // -------------------------------------------------------------------------
+    // Step 9: Partial archive identity — the history row's archiveId link is
+    // restored to archiveId, but its primary id diverges. Same guarantee.
+    // (Hostile: on an OR-based identity match this reports alreadyCommitted.)
+    // -------------------------------------------------------------------------
+    console.log("\n9. Partial archive identity (matching archiveId link, divergent id) is never already-committed");
+    const beforeStep9 = await readReplicas(page);
+    const step9DraftRaw = await page.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
+    const step9CheckpointRaw = await page.evaluate((k) => localStorage.getItem(k), CHECKPOINT_KEY);
+
+    const inj9 = await injectArchiveIdentity(page, { id: "p6a-divergent-history-id", archiveId: predecessorProgramId });
+    check(inj9.ok, "divergent-id injection committed through the proposed-state seam", inj9);
+    const replicas9 = await readReplicas(page);
+    check(replicas9.local.programHistory[0].archiveId === predecessorProgramId &&
+          replicas9.local.programHistory[0].id === "p6a-divergent-history-id" &&
+          replicas9.idb.programHistory[0].archiveId === predecessorProgramId &&
+          replicas9.idb.programHistory[0].id === "p6a-divergent-history-id",
+      "injection landed in both replicas: archiveId link restored, archive id diverged",
+      { local: replicas9.local.programHistory[0], idb: replicas9.idb.programHistory[0] });
+
+    const revBeforeRetry9 = replicas9.local.revision;
+    const retry9 = await confirmTransition(page, {
+      proposal: freshProposal,
+      transitionId: freshProposal.transitionId,
+      successorProgramId: freshProposal.successor.programId,
+      confirmedAt,
+      proposalHash: freshProposal.proposalHash,
+      acknowledgedDraftRaw: preDraftRaw,
+    });
+    check(retry9?.alreadyCommitted !== true, "divergent-id retry does NOT report alreadyCommitted", retry9);
+    check(retry9?.committed !== true, "divergent-id retry is not committed", retry9);
+    check(retry9?.invalid === true && retry9?.code === "conflicting_transition_record",
+      "divergent-id retry returns typed conflicting_transition_record", retry9);
+    await page.evaluate(() => window.__repforgeStorage.flush());
+
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    const afterStep9 = await readReplicas(page);
+    check(afterStep9.local.revision === revBeforeRetry9 && afterStep9.idb.revision === revBeforeRetry9,
+      "divergent-id retry advanced no durable revision in either replica");
+    check(afterStep9.local.programId === successorProgramId && afterStep9.idb.programId === successorProgramId,
+      "active successor programId unchanged by the divergent-id retry");
+    check(afterStep9.local.programHistory.length === 1 && afterStep9.idb.programHistory.length === 1,
+      "no second archive row created by the divergent-id retry");
+    check(isDeepStrictEqual(afterStep9.local.transitionIn, beforeStep9.local.transitionIn) &&
+          isDeepStrictEqual(afterStep9.idb.transitionIn, beforeStep9.idb.transitionIn),
+      "transitionIn record unchanged by the divergent-id retry");
+    check(isDeepStrictEqual(afterStep9.local.log, logSentinel) && isDeepStrictEqual(afterStep9.idb.log, logSentinel),
+      "log sentinel intact after the divergent-id retry");
+    check(await page.evaluate((k) => localStorage.getItem(k), DRAFT_KEY) === step9DraftRaw,
+      "DraftV2 raw byte-identical after the divergent-id retry");
+    check(await page.evaluate((k) => localStorage.getItem(k), CHECKPOINT_KEY) === step9CheckpointRaw,
+      "DraftV2 checkpoint byte-identical after the divergent-id retry");
+
+    // -------------------------------------------------------------------------
+    // Step 10: Occupied intended archive identity with NO transition-in must be
+    // a conflict, not a clean "absent" slot. Confirmation must reject before any
+    // durable mutation — no successor, no revision bump, no linked archive, no
+    // DraftV2 change — in an isolated fresh context.
+    // (Hostile: an "absent" classification lets archiveCapturedProgram skip the
+    //  linked archive and still commit a mixed successor with no transition-out.)
+    // -------------------------------------------------------------------------
+    console.log("\n10. Occupied archive identity without transition-in is rejected before any durable mutation");
+    const ctx2 = await browser.newContext();
+    const page2 = await ctx2.newPage();
+    page2.on("dialog", (d) => d.dismiss().catch(() => {}));
+    await page2.goto(BASE);
+    await waitForAppBoot(page2, { base: BASE });
+    await clearStorage(page2);
+    await page2.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page2, { base: BASE });
+
+    const act2 = await activateBalancedRecommendPredecessor(page2);
+    check(act2.ok, "isolated predecessor compiled and activated", act2.issues || act2.error);
+    if (!act2.ok) throw new Error(`Step 10 activation failed: ${JSON.stringify(act2)}`);
+    await page2.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page2, { base: BASE });
+
+    const pred2Id = await page2.evaluate(() => window.__repforgeWorkoutDraft.state()?.programMeta?.id);
+    check(typeof pred2Id === "string" && pred2Id.length > 0, "isolated predecessor has a durable program id");
+
+    const draft2 = await page2.evaluate(async () => {
+      const dayLabel = (window.__repforgeWorkoutDraft.state()?.program || [])[0]?.day || "Day 1";
+      await window.__repforgeEnterWorkout({ day: dayLabel, focus: false });
+      const hook = window.__repforgeWorkoutDraft;
+      const d = hook.current();
+      const exId = Object.keys(d.exercises)[0];
+      const setId = Object.keys(d.exercises[exId].sets || {})[0];
+      await hook.dispatch("editSetField", { exerciseInstanceId: exId, setId, field: "reps", value: "9" });
+      await hook.dispatch("setSessionNotes", { value: "Draft before occupied-archive rejection" });
+      await hook.flush();
+      return { raw: localStorage.getItem("repforge_draft_v1"), checkpoint: localStorage.getItem("repforge_draft_v1:v2-checkpoint") };
+    });
+    check(typeof draft2.raw === "string" && draft2.raw.length > 0, "isolated DraftV2 populated");
+
+    // Inject a bare archive row that occupies the intended archive identity
+    // (id === predecessor program id) with NO transition-in on programMeta.
+    const occ = await page2.evaluate(async (predId) => {
+      const s = window.__repforgeWorkoutDraft.state();
+      s.programHistory = [{ id: predId, meta: {}, program: [], completedAt: "2026-01-01T00:00:00.000Z", review: null }];
+      const r = await window.__repforgeCommitProposedState(s);
+      await window.__repforgeStorage.flush();
+      return { ok: r.localOk || r.idbOk, r };
+    }, pred2Id);
+    check(occ.ok, "bare occupying archive row committed", occ.r);
+    await page2.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page2, { base: BASE });
+
+    const preConfirm2 = await page2.evaluate(() => {
+      const s = window.__repforgeWorkoutDraft.state();
+      return {
+        transitionIn: s.programMeta?.transitionIn ?? null,
+        historyLen: (s.programHistory || []).length,
+        row0: (s.programHistory || []).map(h => ({ id: h.id, archiveId: h.archiveId ?? null, hasOut: !!h.transitionOut }))[0] ?? null,
+      };
+    });
+    check(preConfirm2.transitionIn == null, "isolated predecessor has no transition-in before confirm");
+    check(preConfirm2.historyLen === 1 && preConfirm2.row0?.id === pred2Id && preConfirm2.row0?.hasOut === false,
+      "the occupying archive row is present with no transition-out link", preConfirm2.row0);
+
+    const propose2 = await proposeLowerFrequencySibling(page2);
+    check(propose2?.ok === true, "isolated sibling proposal succeeds", propose2?.code);
+    if (!propose2?.ok) throw new Error(`Step 10 proposal failed: ${JSON.stringify(propose2)}`);
+    const proposal2 = propose2.proposal;
+    check(proposal2.predecessor.programId === pred2Id, "isolated proposal predecessor is the occupied program id");
+
+    const draft2Raw = await page2.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
+    const draft2Checkpoint = await page2.evaluate((k) => localStorage.getItem(k), CHECKPOINT_KEY);
+    const before2 = await readReplicas(page2);
+
+    const occResult = await page2.evaluate(async (a) => window.__repforgeProgramTransition.confirmTransition(a), {
+      proposal: proposal2,
+      transitionId: proposal2.transitionId,
+      successorProgramId: proposal2.successor.programId,
+      confirmedAt: "2026-10-02T15:00:00.000Z",
+      proposalHash: proposal2.proposalHash,
+      acknowledgedDraftRaw: draft2Raw,
+    });
+    check(occResult?.committed !== true, "occupied-archive confirm is NOT committed", occResult);
+    check(occResult?.localOk === false && occResult?.idbOk === false, "occupied-archive confirm wrote neither replica", occResult);
+    check(occResult?.invalid === true && occResult?.code === "conflicting_transition_record",
+      "occupied-archive confirm returns typed conflicting_transition_record", occResult);
+    await page2.evaluate(() => window.__repforgeStorage.flush());
+
+    await page2.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page2, { base: BASE });
+    const after2 = await readReplicas(page2);
+    const liveAfter2 = await page2.evaluate(() => {
+      const s = window.__repforgeWorkoutDraft.state();
+      return {
+        programId: s.programMeta?.id, daysPerWeek: s.programMeta?.daysPerWeek,
+        transitionIn: s.programMeta?.transitionIn ?? null, historyLen: (s.programHistory || []).length,
+      };
+    });
+    check(liveAfter2.programId === pred2Id && after2.local.programId === pred2Id && after2.idb.programId === pred2Id,
+      "no successor was produced: active program is still the predecessor in both replicas", liveAfter2);
+    check(liveAfter2.daysPerWeek === 4, "predecessor schedule unchanged (still 4 days)");
+    check(after2.local.revision === before2.local.revision && after2.idb.revision === before2.idb.revision,
+      "occupied-archive rejection advanced no durable revision in either replica",
+      { before: before2.local.revision, local: after2.local.revision, idb: after2.idb.revision });
+    check(after2.local.programHistory.length === 1 && after2.idb.programHistory.length === 1 && liveAfter2.historyLen === 1,
+      "no linked archive was added: history still holds exactly the bare occupying row");
+    check(after2.local.programHistory[0].transitionOut == null && after2.idb.programHistory[0].transitionOut == null,
+      "the occupying archive row gained no transition-out link");
+    check(liveAfter2.transitionIn == null && after2.local.transitionIn == null && after2.idb.transitionIn == null,
+      "no transition-in record was written to either replica");
+    const draft2RawAfter = await page2.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
+    const draft2CheckpointAfter = await page2.evaluate((k) => localStorage.getItem(k), CHECKPOINT_KEY);
+    check(draft2RawAfter === draft2Raw && draft2CheckpointAfter === draft2Checkpoint,
+      "DraftV2 raw and checkpoint byte-identical after the occupied-archive rejection");
+
+    await ctx2.close();
 
     await context.close();
   } finally {
