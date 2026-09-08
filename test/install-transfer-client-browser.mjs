@@ -4,8 +4,8 @@
  *
  * This suite deliberately loads only the exported install-transfer client and
  * uses the existing app shell as an origin for real IndexedDB and cookie
- * behavior. It does not load the unpublished shared transfer contract, so it
- * proves vault/cookie behavior while keeping client status parity pending.
+ * behavior. Shared-contract parity is covered by the separate Node/browser
+ * consumer suite; this boundary proof stays focused on the browser vault.
  */
 import assert from "node:assert/strict";
 import { mkdir, writeFile } from "node:fs/promises";
@@ -411,7 +411,7 @@ async function main() {
     await context.clearCookies().catch(() => {});
     await browser.close();
   }
-  await writeReport({ result: "passed", limitations: ["shared contract parity and client status recovery remain pending reviewed module integration", "fault probes use an explicit local contract double; no service HTTP proof"] });
+  await writeReport({ result: "passed", limitations: ["client status recovery is covered by the injected transport suites; no service HTTP proof", "fault probes use an explicit local contract double"] });
   console.log(`install-transfer browser client: ${checks.length} assertions passed`);
 }
 

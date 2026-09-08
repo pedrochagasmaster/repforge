@@ -10,6 +10,7 @@
   const COOKIE_NAME = "repforge_transfer_v1";
   const COOKIE_MAX_AGE = 3600;
   const COOKIE_VERSION = "v1";
+  const UTC_MILLISECONDS_ISO = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
   const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
   const ENDPOINTS = Object.freeze({
     create: "/v1/transfers",
@@ -41,7 +42,14 @@
     [ENDPOINTS.commit]: SMALL_RESPONSE_MAX_BYTES,
     [ENDPOINTS.status]: SMALL_RESPONSE_MAX_BYTES,
   });
-  const OPERATION_NAMES = Object.freeze({ create: "install-transfer:create", claim: "install-transfer:claim" });
+  const TRANSFER_LOCK_NAME = "install-transfer";
+  const OPERATION_NAMES = Object.freeze({
+    context: TRANSFER_LOCK_NAME,
+    create: TRANSFER_LOCK_NAME,
+    claim: TRANSFER_LOCK_NAME,
+    commit: TRANSFER_LOCK_NAME,
+    status: TRANSFER_LOCK_NAME,
+  });
 
   function failure(code, state) {
     const result = { ok: false, code };
@@ -78,6 +86,12 @@
       if (scalars > max) return false;
     }
     return true;
+  }
+
+  function strictUtcMilliseconds(value) {
+    if (typeof value !== "string" || !UTC_MILLISECONDS_ISO.test(value)) return false;
+    const parsed = new Date(value);
+    return !Number.isNaN(parsed.valueOf()) && parsed.toISOString() === value;
   }
 
   function jsonClone(value, seen = new Set()) {
@@ -220,7 +234,7 @@
     try { return success({ value: jsonClone(logical) }); } catch { return failure("untrusted-workout-draft"); }
   }
 
-  async function normalizedProducer(producer, code, { dropKeys = [] } = {}) {
+  async function normalizedProducer(producer, code, { stripKeys = [], stripPrefixes = [] } = {}) {
     if (producer === null || producer === undefined) return success({ value: null });
     let value;
     try {
@@ -232,7 +246,10 @@
     try {
       if (typeof value !== "object" || Array.isArray(value) || value.kind === "error" || value.ok === false) return failure(`${code}-invalid`);
       const cloned = jsonClone(value);
-      for (const key of dropKeys) delete cloned[key];
+      for (const key of stripKeys) delete cloned[key];
+      for (const key of Object.keys(cloned)) {
+        if (stripPrefixes.some((prefix) => key.startsWith(prefix))) delete cloned[key];
+      }
       return success({ value: cloned });
     } catch { return failure(`${code}-invalid`); }
   }
@@ -261,13 +278,14 @@
     const workout = await acknowledgedDraftSection(sections.workoutDraft);
     if (!workout.ok) return workout;
     const durableState = await normalizedProducer(sections.durableState, "durable-state", {
-      dropKeys: ["_storageRevision", "_storageFollowUp", "_storageDraftTransaction", "_storageSetupActivation", "pending", "closing"],
+      stripKeys: ["_storageRevision", "_storageFollowUp", "_storageDraftTransaction", "_storageSetupActivation"],
+      stripPrefixes: ["repforge_pending_v1:", "repforge_draft_v1:pending:", "repforge_draft_v1:closing:", "repforge_draft_v1:recovery"],
     });
     if (!durableState.ok || durableState.value === null) return durableState.ok ? failure("durable-state-invalid") : durableState;
     const candidate = await candidateSection(sections.programEntryDraft);
     if (!candidate.ok) return candidate;
     const uiPreferences = await normalizedProducer(sections.uiPreferences, "ui-preferences", {
-      dropKeys: ["repforge_freeform_session_v1", "repforge_import_source_v1", "freeform", "reply", "stage", "lastProvider"],
+      stripKeys: ["repforge_freeform_session_v1", "repforge_import_source_v1"],
     });
     if (!uiPreferences.ok || uiPreferences.value === null) return uiPreferences.ok ? failure("ui-preferences-invalid") : uiPreferences;
     const analytics = await normalizedProducer(sections.analytics, "analytics");
@@ -366,7 +384,7 @@
   }
 
   function cookieValue(value) {
-    if (!value || !validTransferToken(value.token) || typeof value.expiresAt !== "string" || !Number.isFinite(Date.parse(value.expiresAt))) return null;
+    if (!value || !validTransferToken(value.token) || !strictUtcMilliseconds(value.expiresAt)) return null;
     return `${COOKIE_VERSION}.${encodeBytes(textBytes(JSON.stringify({ token: value.token, expiresAt: value.expiresAt })))}`;
   }
 
@@ -394,14 +412,14 @@
     const encoded = cookieValue(value);
     const at = typeof now === "function" ? now() : now;
     const nowMs = typeof at === "number" ? at : Date.parse(at);
-    const expiryMs = Date.parse(value?.expiresAt || "");
+    const expiryMs = strictUtcMilliseconds(value?.expiresAt) ? Date.parse(value.expiresAt) : NaN;
     if (!document || !encoded || !Number.isFinite(nowMs) || !Number.isFinite(expiryMs)) return false;
     const maxAge = Math.min(COOKIE_MAX_AGE, Math.ceil((expiryMs - nowMs) / 1000));
     if (maxAge <= 0) return false;
     const secure = localHost(hostname(location)) ? "" : "; Secure";
     try {
       document.cookie = `${COOKIE_NAME}=${encoded}; Path=${cookiePath(location)}; Max-Age=${maxAge}; SameSite=Lax${secure}`;
-      return true;
+      return readCookie(document, COOKIE_NAME) === encoded;
     } catch { return false; }
   }
 
@@ -414,7 +432,7 @@
     const secure = localHost(hostname(location)) ? "" : "; Secure";
     try {
       document.cookie = `${COOKIE_NAME}=; Path=${cookiePath(location)}; Max-Age=0; SameSite=Lax${secure}`;
-      return true;
+      return readCookie(document, COOKIE_NAME) === null;
     } catch { return false; }
   }
 
@@ -573,6 +591,10 @@
       return result;
     };
     const unavailable = (code, state = "retryable") => stateResult(failure(code, state));
+    const pendingStatus = (remoteState, expiresAt) => {
+      recoveryState = "awaitingClaimOutcome";
+      return stateResult({ ok: false, state: "retryable", code: "transfer-pending", remoteState, expiresAt });
+    };
     const timestampNow = () => {
       try {
         const value = now();
@@ -616,7 +638,7 @@
       catch { return unavailable("marker-read-failed", "unknown-outcome"); }
       if (existing != null && (typeof existing !== "object" || Array.isArray(existing))) return unavailable("marker-invalid", "unknown-outcome");
       if (existing?.phase === "awaiting-claim") {
-        if (!existing.sealedCredentials || !Number.isFinite(Date.parse(existing.expiresAt))) return unavailable("credential-unavailable", "unknown-outcome");
+        if (!existing.sealedCredentials || !strictUtcMilliseconds(existing.expiresAt)) return unavailable("credential-unavailable", "unknown-outcome");
         let pair;
         try { pair = await credentials.unseal("browser-outbound", existing.sealedCredentials); }
         catch { return unavailable("credential-unavailable", "unknown-outcome"); }
@@ -632,34 +654,36 @@
       if (existing && existing.phase !== "creating") return unavailable("marker-invalid", "unknown-outcome");
       if (existing && !validString(existing.idempotencyKey, { max: IDENTIFIER_MAX_CHARS })) return unavailable("marker-invalid", "unknown-outcome");
 
-      // Capture the normalized producer sections exactly once. The same
-      // snapshot is hashed locally and uploaded; a failed capture stops before
-      // the marker/network boundary rather than sending a partial clone.
-      const logical = await captureLogicalSnapshot(sections);
-      if (!logical.ok) return stateResult(failure(logical.code, "retryable"));
-      const createdAt = timestampNow();
-      if (typeof createdAt !== "string") return stateResult(failure("source-time-unavailable", "retryable"));
-      const built = await buildEnvelope({ sections, source, contract, crypto, createdAt, logicalSnapshot: logical.value });
-      if (!built.ok) return stateResult(failure(built.code, "retryable"));
-      const digestBefore = await logicalStateDigest(sections, contract, crypto, logical.value);
-      if (!digestBefore.ok) return stateResult(failure(digestBefore.code, "retryable"));
-
       let idempotencyKey;
       try { idempotencyKey = existing?.idempotencyKey || idFor(crypto); }
       catch { return unavailable("idempotency-unavailable"); }
-      const marker = {
+      const createdAt = timestampNow();
+      if (typeof createdAt !== "string") return unavailable("source-time-unavailable", "unknown-outcome");
+      const marker = existing ? { ...existing, phase: "creating", idempotencyKey } : {
         version: 1,
         idempotencyKey,
-        createdAt: typeof existing?.createdAt === "string" ? existing.createdAt : createdAt,
-        sourceRevision: Number.isSafeInteger(existing?.sourceRevision) ? existing.sourceRevision : source.sourceRevision,
-        mutatedAfterCreation: existing?.mutatedAfterCreation === true,
+        createdAt,
+        mutatedAfterCreation: false,
         phase: "creating",
       };
+      if (!existing && Number.isSafeInteger(source?.sourceRevision) && source.sourceRevision >= 0) marker.sourceRevision = source.sourceRevision;
       if (!existing) {
         try { await outbound.write(marker); }
         catch { return unavailable("marker-write-failed", "unknown-outcome"); }
       }
       currentState = "creating";
+
+      // Capture the normalized producer sections exactly once. The same
+      // snapshot is hashed locally and uploaded. A local capture, build, or
+      // digest failure keeps the creating marker and its idempotency key in an
+      // unknown outcome, because the remote write may already be possible.
+      const logical = await captureLogicalSnapshot(sections);
+      if (!logical.ok) return unavailable("create-unknown-outcome", "unknown-outcome");
+      const built = await buildEnvelope({ sections, source, contract, crypto, createdAt, logicalSnapshot: logical.value });
+      if (!built.ok) return unavailable("create-unknown-outcome", "unknown-outcome");
+      const digestBefore = await logicalStateDigest(sections, contract, crypto, logical.value);
+      if (!digestBefore.ok) return unavailable("create-unknown-outcome", "unknown-outcome");
+
       const reply = await request(ENDPOINTS.create, { idempotencyKey, envelope: built.value });
       if (!reply.ok) {
         if (reply.code === "network-failure") return unavailable("create-unknown-outcome", "unknown-outcome");
@@ -672,10 +696,12 @@
         return unavailable("service-unavailable", "terminalUnavailable");
       }
       if (reply.status === 200) {
-        if (!exactKeys(reply.body, ["duplicate", "expiresAt"]) || reply.body.duplicate !== true || !Number.isFinite(Date.parse(reply.body.expiresAt))) return unavailable("create-unknown-outcome", "unknown-outcome");
+        if (!exactKeys(reply.body, ["duplicate", "expiresAt"]) || reply.body.duplicate !== true || !strictUtcMilliseconds(reply.body.expiresAt)) return unavailable("create-unknown-outcome", "unknown-outcome");
+        try { await outbound.write({ ...marker, expiresAt: reply.body.expiresAt }); }
+        catch { return unavailable("create-unknown-outcome", "unknown-outcome"); }
         return unavailable("create-duplicate-no-token", "unknown-outcome");
       }
-      if (reply.status !== 201 || !exactKeys(reply.body, ["token", "expiresAt"]) || !validTransferToken(reply.body.token) || !Number.isFinite(Date.parse(reply.body.expiresAt))) {
+      if (reply.status !== 201 || !exactKeys(reply.body, ["token", "expiresAt"]) || !validTransferToken(reply.body.token) || !strictUtcMilliseconds(reply.body.expiresAt)) {
         return unavailable("create-unknown-outcome", "unknown-outcome");
       }
       let sealed;
@@ -702,17 +728,18 @@
       }
       const cookieNow = timestampNow();
       if (!cookieNow || !writeTransferCookie({ token: reply.body.token, expiresAt: reply.body.expiresAt }, { document, location, now: cookieNow })) return unavailable("create-unknown-outcome", "unknown-outcome");
-      let stale = false;
+      let stale = true;
       if (typeof sourceAfter === "function") {
+        stale = false;
         try {
           const after = await sourceAfter();
           const digestAfter = await logicalStateDigest(after, contract, crypto);
           stale = !digestAfter.ok || digestAfter.value !== digestBefore.value;
         } catch { stale = true; }
-        if (stale) {
-          try { await outbound.write({ ...readyMarker, mutatedAfterCreation: true }); }
-          catch { return unavailable("create-unknown-outcome", "unknown-outcome"); }
-        }
+      }
+      if (stale) {
+        try { await outbound.write({ ...readyMarker, mutatedAfterCreation: true }); }
+        catch { return unavailable("create-unknown-outcome", "unknown-outcome"); }
       }
       return stateResult(success({ state: "ready", expiresAt: reply.body.expiresAt, stale }));
     }
@@ -764,10 +791,18 @@
       const reply = await request(ENDPOINTS.claim, { token: pair.token, claimId: pair.claimId }, "/envelope");
       const knownFailure = responseFailure(reply, "invalid-response", "claim-unknown-outcome");
       if (knownFailure) return stateResult(knownFailure.state === "terminalUnavailable" ? knownFailure : unavailable(knownFailure.code, "unknown-outcome"));
-      if (!reply.ok || reply.status !== 200 || !exactKeys(reply.body, ["envelope", "expiresAt"]) || !Number.isFinite(Date.parse(reply.body.expiresAt))) return stateResult(unavailable("claim-unknown-outcome", "unknown-outcome"));
+      if (!reply.ok || reply.status !== 200 || !exactKeys(reply.body, ["envelope", "expiresAt"]) || !strictUtcMilliseconds(reply.body.expiresAt)) return stateResult(unavailable("claim-unknown-outcome", "unknown-outcome"));
       let checked;
       try { checked = await contract.validateEnvelopeIntegrity(reply.body.envelope, crypto); } catch { checked = failure("integrity-validation-failed"); }
       if (!checked?.ok) return stateResult(unavailable("claim-unknown-outcome", "unknown-outcome"));
+      let latest;
+      try { latest = await inbound.read(); }
+      catch { return stateResult(unavailable("claim-state-changed", "unknown-outcome")); }
+      const credentialFields = ["version", "algorithm", "context", "keyId", "iv", "ciphertext"];
+      const sameClaimCredentials = credentialFields.every((field) => latest?.sealedCredentials?.[field] === marker.sealedCredentials?.[field]);
+      if (latest?.phase !== "claiming" || !sameClaimCredentials) {
+        return stateResult(unavailable("claim-state-changed", "unknown-outcome"));
+      }
       try { await inbound.write({ version: 1, phase: "claimed", sealedCredentials: marker.sealedCredentials, expiresAt: reply.body.expiresAt }); }
       catch { return stateResult(unavailable("marker-write-failed", "unknown-outcome")); }
       return stateResult(success({ state: "validating", envelope: checked.value || reply.body.envelope, expiresAt: reply.body.expiresAt }));
@@ -797,7 +832,7 @@
       const reply = await request(ENDPOINTS.commit, { token: pair.token, claimId: pair.claimId });
       const knownFailure = responseFailure(reply, "invalid-response", "commit-unknown-outcome");
       if (knownFailure) return stateResult(knownFailure.state === "terminalUnavailable" ? knownFailure : unavailable(knownFailure.code, "unknown-outcome"));
-      if (!reply.ok || reply.status !== 200 || !exactKeys(reply.body, ["state", "expiresAt"]) || reply.body.state !== "deleted" || !Number.isFinite(Date.parse(reply.body.expiresAt))) return stateResult(unavailable("commit-unknown-outcome", "unknown-outcome"));
+      if (!reply.ok || reply.status !== 200 || !exactKeys(reply.body, ["state", "expiresAt"]) || reply.body.state !== "deleted" || !strictUtcMilliseconds(reply.body.expiresAt)) return stateResult(unavailable("commit-unknown-outcome", "unknown-outcome"));
       try { await inbound.write({ ...marker, phase: "cleanup-pending", remoteState: "deleted", expiresAt: reply.body.expiresAt }); }
       catch { return unavailable("marker-write-failed", "unknown-outcome"); }
       try { await credentials.forget("standalone-inbound", marker.sealedCredentials); }
@@ -807,7 +842,7 @@
       return stateResult(success({ state: "complete", expiresAt: reply.body.expiresAt }));
     }
     async function commit() {
-      return withOperationLock("install-transfer:commit", commitLocked);
+      return withOperationLock(OPERATION_NAMES.commit, commitLocked);
     }
     async function tokenDigestFor(pair, marker) {
       if (validString(marker?.tokenDigest, { max: IDENTIFIER_MAX_CHARS })) return success({ value: marker.tokenDigest });
@@ -856,7 +891,8 @@
       if (!reply.ok && reply.code === "network-failure") return stateResult(unavailable("status-unavailable", "unknown-outcome"));
       if (!reply.ok) return stateResult(unavailable("status-unavailable", "unknown-outcome"));
       if (reply.status === 404 && exactKeys(reply.body, ["state"]) && reply.body.state === "unavailable") return stateResult(unavailable("status-unavailable", "unknown-outcome"));
-      if (reply.status !== 200 || !exactKeys(reply.body, ["state", "expiresAt"]) || !REMOTE_STATES.has(reply.body.state) || !Number.isFinite(Date.parse(reply.body.expiresAt))) return stateResult(unavailable("invalid-response", "unknown-outcome"));
+      if (reply.status !== 200 || !exactKeys(reply.body, ["state", "expiresAt"]) || !REMOTE_STATES.has(reply.body.state) || !strictUtcMilliseconds(reply.body.expiresAt)) return stateResult(unavailable("invalid-response", "unknown-outcome"));
+      if (["available", "claiming"].includes(reply.body.state)) return pendingStatus(reply.body.state, reply.body.expiresAt);
       if (reply.body.state === "deleted") {
         const digest = await tokenDigestFor(pair, marker);
         if (!digest.ok) return unavailable("status-unknown-outcome", "unknown-outcome");
@@ -892,7 +928,7 @@
       return stateResult(unavailable(reply.body.state === "claimed-expired" ? "claimed-expired" : "status-unavailable", "unknown-outcome"));
     }
     async function status() {
-      return withOperationLock("install-transfer:status", statusLocked);
+      return withOperationLock(OPERATION_NAMES.status, statusLocked);
     }
     return Object.freeze({
       create,

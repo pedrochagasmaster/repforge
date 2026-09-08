@@ -89,8 +89,8 @@ const LIMITS = {
   },
 };
 
-// This is a test-only injected contract. It intentionally reports parity as
-// pending until P1b publishes the reviewed shared module and loading SHA.
+// This local double remains intentionally narrow; the accepted shared-module
+// parity proof lives in install-transfer-client-contract.mjs.
 function makeContract({ calls = [] } = {}) {
   return {
     LIMITS,
@@ -177,7 +177,7 @@ function markerStore(initial = null) {
   };
 }
 
-function cookieDocument(initial = "") {
+function cookieDocument(initial = "", { silent = false } = {}) {
   let cookie = initial;
   const writes = [];
   return {
@@ -185,6 +185,7 @@ function cookieDocument(initial = "") {
     get cookie() { return cookie; },
     set cookie(value) {
       writes.push(String(value));
+      if (silent) return;
       const [pair, ...attributes] = String(value).split(";");
       const [name, rawValue = ""] = pair.split("=");
       const path = attributes.find((entry) => /^\s*Path=/i.test(entry))?.split("=")[1] || "/";
@@ -222,6 +223,38 @@ function operationLock() {
       const next = tail.then(() => work());
       tail = next.catch(() => {});
       return next;
+    },
+  };
+}
+
+// A small Web Locks-shaped adapter. Queues are keyed by the requested name;
+// this deliberately does not hide a missing cross-method lock behind one
+// process-wide promise.
+function navigatorLocksDouble() {
+  const queues = new Map();
+  const calls = [];
+  const starts = [];
+  const navigator = {
+    locks: {
+      request(name, options, callback) {
+        if (options?.mode !== "exclusive") throw new Error("exclusive-lock-required");
+        const previous = queues.get(name) || Promise.resolve();
+        const next = previous.then(() => {
+          starts.push(name);
+          return callback({ name, mode: options.mode });
+        });
+        queues.set(name, next.catch(() => {}));
+        return next;
+      },
+    },
+  };
+  return {
+    navigator,
+    calls,
+    starts,
+    withLock(name, work) {
+      calls.push(name);
+      return navigator.locks.request(name, { mode: "exclusive" }, work);
     },
   };
 }
@@ -378,20 +411,40 @@ async function main() {
     check(calls.some(([name]) => name === "validateEnvelopeIntegrity"), "shared integrity boundary was not invoked");
   });
 
-  await test("requires normalized producers and strips transfer-volatile durable fields", async () => {
+  await test("requires normalized producers and strips only path-specific sidecars", async () => {
     const source = makeSource();
     source.durableState = normalizedProducer({
       settings: { unit: "kg" },
       program: [{ id: "exercise-1" }],
       _storageRevision: 88,
       _storageDraftTransaction: { secret: "must-not-cross" },
-      pending: { operationId: "tab-only" },
+      _storageSetupActivation: { secret: "must-not-cross" },
+      "repforge_pending_v1:legacy": { secret: "must-not-cross" },
+      "repforge_draft_v1:pending:writer": { secret: "must-not-cross" },
+      "repforge_draft_v1:closing:writer": { secret: "must-not-cross" },
+      "repforge_draft_v1:recovery": { secret: "must-not-cross" },
+      pending: { logical: "retain" },
+      closing: { logical: "retain" },
       approvedFutureField: { retained: true },
+    });
+    source.uiPreferences = normalizedProducer({
+      theme: "dark",
+      importSourceMode: "freeform",
+      freeform: { logical: "retain" },
+      reply: "retain",
+      stage: "review",
+      lastProvider: "claude",
+      repforge_freeform_session_v1: { source: "sidecar" },
+      repforge_import_source_v1: "freeform",
     });
     const built = await Transfer.buildEnvelope({ sections: source, source: sourceDescriptor(source), contract: makeContract(), crypto: webcrypto, createdAt: "2026-09-08T19:00:00.000Z" });
     check(built.ok, "normalized producer envelope failed");
-    check(!Object.hasOwn(built.value.durableState, "_storageRevision") && !Object.hasOwn(built.value.durableState, "_storageDraftTransaction") && !Object.hasOwn(built.value.durableState, "pending"), "durable volatile fields crossed the producer boundary");
+    check(!Object.hasOwn(built.value.durableState, "_storageRevision") && !Object.hasOwn(built.value.durableState, "_storageDraftTransaction") && !Object.hasOwn(built.value.durableState, "_storageSetupActivation") &&
+      !Object.keys(built.value.durableState).some((key) => key.startsWith("repforge_pending_v1:") || key.startsWith("repforge_draft_v1:pending:") || key.startsWith("repforge_draft_v1:closing:") || key.startsWith("repforge_draft_v1:recovery")), "durable storage sidecars crossed the producer boundary");
+    check(built.value.durableState.pending?.logical === "retain" && built.value.durableState.closing?.logical === "retain", "logical pending/closing fields were discarded");
     check(built.value.durableState.approvedFutureField?.retained === true, "approved additive durable field was discarded");
+    check(built.value.uiPreferences.theme === "dark" && built.value.uiPreferences.importSourceMode === "freeform" && built.value.uiPreferences.freeform?.logical === "retain" && built.value.uiPreferences.reply === "retain" && built.value.uiPreferences.stage === "review" && built.value.uiPreferences.lastProvider === "claude", "logical UI preference fields were discarded");
+    check(!Object.hasOwn(built.value.uiPreferences, "repforge_freeform_session_v1") && !Object.hasOwn(built.value.uiPreferences, "repforge_import_source_v1"), "session storage sidecars crossed the producer boundary");
     const raw = { ...source, durableState: source.durableState.logicalCloneSection() };
     const rejected = await Transfer.captureLogicalSnapshot(raw);
     check(!rejected.ok && rejected.code === "durable-state-producer-unavailable", "raw durable storage was accepted without an adapter");
@@ -412,7 +465,7 @@ async function main() {
     check(Object.values(counts).every((count) => count === 1), `producer snapshot was captured more than once: ${JSON.stringify(counts)}`);
   });
 
-  await test("fails before POST when a normalized producer cannot be trusted", async () => {
+  await test("freezes the creating identity when a normalized producer cannot be trusted", async () => {
     const transport = transportSequence([response(201, { token: tokenFixture("T"), expiresAt: "2026-09-08T20:00:00.000Z" })]);
     const outbound = markerStore();
     const source = makeSource();
@@ -420,8 +473,8 @@ async function main() {
     const testVault = Transfer.createCredentialVault({ crypto: webcrypto, keyStore: memoryKeyStore() });
     const client = makeClient({ transport, outbound, vault: testVault });
     const result = await client.create({ sections: source, source: sourceDescriptor(source), consent: { enabled: true }, hasMeaningfulData: true });
-    check(!result.ok && result.code === "ui-preferences-producer-unavailable", "untrusted producer did not fail closed");
-    check(transport.requests.length === 0 && outbound.writes.length === 0, "producer failure touched marker or network");
+    check(!result.ok && result.state === FAULT_EXPECTATIONS.createFailureBoundary.captureFailure.state && result.code === FAULT_EXPECTATIONS.createFailureBoundary.captureFailure.code, "untrusted producer did not freeze the creating identity");
+    check(transport.requests.length === 0 && outbound.peek()?.phase === "creating" && validMarkerId(outbound.peek()?.idempotencyKey), "producer failure did not retain the creating marker");
   });
 
   await test("flushes acknowledged DraftV2 before building and accepts absent/tombstone null", async () => {
@@ -529,6 +582,7 @@ async function main() {
     const second = await client.create({ sections: retrySource, source: sourceDescriptor(retrySource), consent: { enabled: true }, hasMeaningfulData: true });
     check(!second.ok && second.state === "unknown-outcome" && !Object.hasOwn(second, "token"), "same-key duplicate recovered or exposed a token");
     check(transport.requests[0].body.idempotencyKey === transport.requests[1].body.idempotencyKey, "create retry minted a second idempotency key");
+    check(outbound.peek()?.phase === "creating" && outbound.peek()?.expiresAt === "2026-09-08T20:00:00.000Z", "duplicate response did not persist the server expiry on the indeterminate marker");
     check(!document.cookie.includes("repforge_transfer_v1="), "lost create wrote a transfer cookie without a bearer");
   });
 
@@ -541,6 +595,7 @@ async function main() {
     const source = makeSource();
     const result = await client.create({ sections: source, source: sourceDescriptor(source), consent: { enabled: true }, hasMeaningfulData: true });
     check(result.ok && result.state === "ready" && result.expiresAt === "2026-09-08T20:00:00.000Z", "successful create did not become ready");
+    check(result.stale === true && outbound.peek()?.mutatedAfterCreation === true, "missing source observer was treated as proof of a fresh source");
     check(client.recoveryState() === "awaitingClaimOutcome", "ready create did not retain an awaiting-claim recovery state");
     check(!Object.hasOwn(result, "token"), "create result exposed the bearer");
     check(outbound.peek()?.phase === "awaiting-claim" && !JSON.stringify(outbound.peek()).includes(token), "outbound marker contains plaintext token");
@@ -568,6 +623,28 @@ async function main() {
 
   await test("sealing or token hashing failure after create freezes without a new key", async () => {
     const source = makeSource();
+    const buildOutbound = markerStore();
+    const buildClient = makeClient({
+      transport: transportSequence([response(201, { token: tokenFixture("Q"), expiresAt: "2026-09-08T20:00:00.000Z" })]),
+      outbound: buildOutbound,
+      vault,
+      crypto: cryptoWithDigestFailure(0),
+    });
+    const buildResult = await buildClient.create({ sections: source, source: sourceDescriptor(source), consent: { enabled: true }, hasMeaningfulData: true });
+    check(buildResult.state === FAULT_EXPECTATIONS.createFailureBoundary.buildFailure.state && buildResult.code === FAULT_EXPECTATIONS.createFailureBoundary.buildFailure.code, "build failure was retryable instead of frozen");
+    check(buildOutbound.peek()?.phase === "creating" && validMarkerId(buildOutbound.peek()?.idempotencyKey), "build failure lost idempotency identity");
+
+    const digestOutbound = markerStore();
+    const digestClient = makeClient({
+      transport: transportSequence([response(201, { token: tokenFixture("R"), expiresAt: "2026-09-08T20:00:00.000Z" })]),
+      outbound: digestOutbound,
+      vault,
+      crypto: cryptoWithDigestFailure(1),
+    });
+    const digestResult = await digestClient.create({ sections: makeSource(), source: sourceDescriptor(source), consent: { enabled: true }, hasMeaningfulData: true });
+    check(digestResult.state === FAULT_EXPECTATIONS.createFailureBoundary.digestFailure.state && digestResult.code === FAULT_EXPECTATIONS.createFailureBoundary.digestFailure.code, "logical digest failure was retryable instead of frozen");
+    check(digestOutbound.peek()?.phase === "creating" && validMarkerId(digestOutbound.peek()?.idempotencyKey), "logical digest failure lost idempotency identity");
+
     const sealOutbound = markerStore();
     const sealTransport = transportSequence([response(201, { token: tokenFixture("N"), expiresAt: "2026-09-08T20:00:00.000Z" })]);
     const sealFailure = { seal: async () => { throw new Error("seal-fault"); }, unseal: async () => { throw new Error("missing"); }, forget: async () => {} };
@@ -605,6 +682,74 @@ async function main() {
     check(transport.requests.length === 0 && outbound.writes.length === 0, "missing lock touched network or marker storage");
   });
 
+  await test("one navigator lock key serializes create and status across method boundaries", async () => {
+    const lock = navigatorLocksDouble();
+    const outbound = markerStore();
+    const sharedVault = Transfer.createCredentialVault({ crypto: webcrypto, keyStore: memoryKeyStore() });
+    let releaseCreate;
+    const createGate = new Promise((resolve) => { releaseCreate = resolve; });
+    let createStarted;
+    const createStartedPromise = new Promise((resolve) => { createStarted = resolve; });
+    const transport = {
+      requests: [],
+      async request(request) {
+        this.requests.push(clone(request));
+        if (request.path === EXPECTATIONS.endpoints.create) {
+          createStarted();
+          await createGate;
+          throw new Error("create-response-lost");
+        }
+        throw new Error("status-should-not-post");
+      },
+    };
+    const source = makeSource();
+    const creator = makeClient({ transport, outbound, vault: sharedVault, operationLock: lock });
+    const observer = makeClient({ transport, outbound, vault: sharedVault, operationLock: lock });
+    const createPromise = creator.create({ sections: source, source: sourceDescriptor(source), consent: { enabled: true }, hasMeaningfulData: true });
+    await createStartedPromise;
+    const statusPromise = observer.status();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    check(lock.starts.length === 1, "status entered a separate keyed lock while create was paused");
+    releaseCreate();
+    const [createResult, statusResult] = await Promise.all([createPromise, statusPromise]);
+    check(createResult.state === "unknown-outcome" && statusResult.state === "unknown-outcome", "cross-method barrier did not preserve indeterminate state");
+    check(new Set(lock.calls).size === 1 && lock.calls[0] === FAULT_EXPECTATIONS.operationLock.contextName, "create/status used separate operation lock names");
+  });
+
+  await test("one navigator lock key serializes claim and commit across method boundaries", async () => {
+    const lock = navigatorLocksDouble();
+    const token = tokenFixture("C");
+    const claimId = "D".repeat(22);
+    const keyStore = memoryKeyStore();
+    const sharedVault = Transfer.createCredentialVault({ crypto: webcrypto, keyStore });
+    const sealed = await sharedVault.seal("standalone-inbound", { token, claimId });
+    const inbound = markerStore({ version: 1, phase: "claiming", sealedCredentials: sealed, expiresAt: "2026-09-08T20:00:00.000Z" });
+    let releaseClaim;
+    const claimGate = new Promise((resolve) => { releaseClaim = resolve; });
+    let claimStarted;
+    const claimStartedPromise = new Promise((resolve) => { claimStarted = resolve; });
+    const transport = {
+      requests: [],
+      async request(request) {
+        this.requests.push(clone(request));
+        claimStarted();
+        await claimGate;
+        throw new Error("claim-response-lost");
+      },
+    };
+    const claimant = makeClient({ transport, inbound, context: "standalone", vault: sharedVault, operationLock: lock });
+    const committer = makeClient({ transport, inbound, context: "standalone", vault: sharedVault, operationLock: lock });
+    const claimPromise = claimant.claim();
+    await claimStartedPromise;
+    const commitPromise = committer.commit();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    check(lock.starts.length === 1, "commit entered a separate keyed lock while claim was paused");
+    releaseClaim();
+    const [claimResult, commitResult] = await Promise.all([claimPromise, commitPromise]);
+    check(claimResult.state === "unknown-outcome" && commitResult.code === "local-import-required", "claim/commit barrier changed the recovery phase");
+    check(new Set(lock.calls).size === 1 && lock.calls[0] === FAULT_EXPECTATIONS.operationLock.contextName, "claim/commit used separate operation lock names");
+  });
+
   await test("cookie parser uses the exact index path and preserves setup-cookie coexistence", () => {
     const document = cookieDocument("repforge_setup_v1=v1.setup-canary");
     const location = { href: "https://pedrochagasmaster.github.io/repforge/" };
@@ -620,6 +765,103 @@ async function main() {
     const local = cookieDocument();
     Transfer.writeTransferCookie({ token: tokenFixture("E"), expiresAt: "2026-09-08T20:00:00.000Z" }, { document: local, location: { href: "http://localhost:8055/" }, now: "2026-09-08T19:00:00.000Z" });
     check(local.writes[0].includes("Path=/index.html") && !/;\s*Secure(?:;|$)/i.test(local.writes[0]), "localhost cookie path/security drifted");
+
+    const silentWrite = cookieDocument("repforge_setup_v1=v1.setup-canary", { silent: true });
+    check(Transfer.writeTransferCookie({ token: tokenD, expiresAt: "2026-09-08T20:00:00.000Z" }, { document: silentWrite, location, now: "2026-09-08T19:00:00.000Z" }) === false, "silently rejected cookie write was reported as successful");
+    check(Transfer.readTransferCookie({ document: silentWrite }) === null && silentWrite.cookie.includes("repforge_setup_v1=v1.setup-canary"), "silent cookie write changed neither transfer nor setup state");
+    const seeded = cookieDocument();
+    check(Transfer.writeTransferCookie({ token: tokenD, expiresAt: "2026-09-08T20:00:00.000Z" }, { document: seeded, location, now: "2026-09-08T19:00:00.000Z" }), "failed to seed a cookie for the clear probe");
+    const silentClear = cookieDocument(seeded.cookie, { silent: true });
+    check(Transfer.clearTransferCookie({ document: silentClear, location }) === false, "silently rejected cookie clear was reported as successful");
+    check(Transfer.readTransferCookie({ document: silentClear })?.token === tokenD, "silent cookie clear lost the recoverable cookie value");
+  });
+
+  await test("freezes create when cookie persistence cannot be confirmed", async () => {
+    const token = tokenFixture("J");
+    const outbound = markerStore();
+    const document = cookieDocument("repforge_setup_v1=v1.setup-canary", { silent: true });
+    const transport = transportSequence([response(201, { token, expiresAt: "2026-09-08T20:00:00.000Z" })]);
+    const client = makeClient({ transport, outbound, document, vault: Transfer.createCredentialVault({ crypto: webcrypto, keyStore: memoryKeyStore() }) });
+    const source = makeSource();
+    const first = await client.create({ sections: source, source: sourceDescriptor(source), consent: { enabled: true }, hasMeaningfulData: true });
+    const marker = outbound.peek();
+    check(first.state === FAULT_EXPECTATIONS.cookieBoundary.createUnconfirmedState && first.code === FAULT_EXPECTATIONS.cookieBoundary.createUnconfirmedCode, "unconfirmed cookie persistence did not freeze create");
+    check(marker?.phase === "awaiting-claim" && validMarkerId(marker.idempotencyKey) && !Object.hasOwn(first, "token"), "cookie failure discarded or exposed the original transfer identity");
+    const key = marker.idempotencyKey;
+    const retrySource = makeSource();
+    const second = await client.create({ sections: retrySource, source: sourceDescriptor(retrySource), consent: { enabled: true }, hasMeaningfulData: true });
+    check(second.state === "unknown-outcome" && outbound.peek()?.idempotencyKey === key && transport.requests.length === 1, "cookie failure minted a new identity or retried before confirmation");
+    check(document.cookie.includes("repforge_setup_v1=v1.setup-canary") && !document.cookie.includes("repforge_transfer_v1="), "cookie failure disturbed setup-cookie coexistence");
+  });
+
+  await test("requires millisecond UTC expiry on cookies and every protocol response", async () => {
+    const invalidExpiry = "2026-09-08T20:00:00Z";
+    const invalidCookie = cookieDocument();
+    check(Transfer.writeTransferCookie({ token: tokenFixture("V"), expiresAt: invalidExpiry }, { document: invalidCookie, location: { href: "https://pedrochagasmaster.github.io/repforge/" }, now: "2026-09-08T19:00:00.000Z" }) === false, "cookie accepted a non-millisecond expiry");
+    check(Transfer.readTransferCookie({ document: invalidCookie }) === null, "invalid cookie expiry remained readable");
+
+    const createOutbound = markerStore();
+    const createClient = makeClient({
+      transport: transportSequence([response(201, { token: tokenFixture("V"), expiresAt: invalidExpiry })]),
+      outbound: createOutbound,
+      vault,
+    });
+    const createSource = makeSource();
+    const createResult = await createClient.create({ sections: createSource, source: sourceDescriptor(createSource), consent: { enabled: true }, hasMeaningfulData: true });
+    check(createResult.state === "unknown-outcome" && createResult.code === "create-unknown-outcome", "create accepted a non-millisecond expiry");
+    check(createOutbound.peek()?.phase === "creating", "invalid create expiry changed the marker phase");
+
+    const duplicateOutbound = markerStore();
+    const duplicateClient = makeClient({
+      transport: transportSequence([response(200, { duplicate: true, expiresAt: invalidExpiry })]),
+      outbound: duplicateOutbound,
+      vault,
+    });
+    const duplicateSource = makeSource();
+    const duplicateResult = await duplicateClient.create({ sections: duplicateSource, source: sourceDescriptor(duplicateSource), consent: { enabled: true }, hasMeaningfulData: true });
+    check(duplicateResult.state === "unknown-outcome" && duplicateResult.code === "create-unknown-outcome", "duplicate accepted a non-millisecond expiry");
+    check(duplicateOutbound.peek()?.phase === "creating" && !Object.hasOwn(duplicateOutbound.peek(), "expiresAt"), "invalid duplicate expiry changed the indeterminate marker");
+
+    const claimSource = makeSource();
+    const claimEnvelope = await Transfer.buildEnvelope({ sections: claimSource, source: sourceDescriptor(claimSource), contract: makeContract(), crypto: webcrypto, createdAt: "2026-09-08T19:00:00.000Z" });
+    const claimDocument = cookieDocument();
+    Transfer.writeTransferCookie({ token: tokenFixture("W"), expiresAt: "2026-09-08T20:00:00.000Z" }, { document: claimDocument, location: { href: "https://pedrochagasmaster.github.io/repforge/index.html" }, now: "2026-09-08T19:00:00.000Z" });
+    const claimInbound = markerStore();
+    const claimClient = makeClient({
+      transport: transportSequence([response(200, { envelope: claimEnvelope.value, expiresAt: invalidExpiry })]),
+      inbound: claimInbound,
+      document: claimDocument,
+      context: "standalone",
+      vault,
+    });
+    const claimResult = await claimClient.claim();
+    check(claimResult.state === "unknown-outcome" && claimResult.code === "claim-unknown-outcome", "claim accepted a non-millisecond expiry");
+    check(claimInbound.peek()?.phase === "claiming", "invalid claim expiry changed the marker phase");
+
+    const commitToken = tokenFixture("X");
+    const commitSealed = await vault.seal("standalone-inbound", { token: commitToken, claimId: "C".repeat(22) });
+    const commitInbound = markerStore({ version: 1, phase: "local-committed", sealedCredentials: commitSealed, expiresAt: "2026-09-08T20:00:00.000Z" });
+    const commitClient = makeClient({
+      transport: transportSequence([response(200, { state: "deleted", expiresAt: invalidExpiry })]),
+      inbound: commitInbound,
+      context: "standalone",
+      vault,
+    });
+    const commitResult = await commitClient.commit();
+    check(commitResult.state === "unknown-outcome" && commitResult.code === "commit-unknown-outcome", "commit accepted a non-millisecond expiry");
+    check(commitInbound.peek()?.phase === "local-committed", "invalid commit expiry changed the marker phase");
+
+    const statusToken = tokenFixture("Y");
+    const statusSealed = await vault.seal("browser-outbound", { token: statusToken });
+    const statusOutbound = markerStore({ version: 1, phase: "awaiting-claim", sealedCredentials: statusSealed, expiresAt: "2026-09-08T20:00:00.000Z" });
+    const statusClient = makeClient({
+      transport: transportSequence([response(200, { state: "deleted", expiresAt: invalidExpiry })]),
+      outbound: statusOutbound,
+      vault,
+    });
+    const statusResult = await statusClient.status();
+    check(statusResult.state === "unknown-outcome" && statusResult.code === "invalid-response", "status accepted a non-millisecond expiry");
+    check(statusOutbound.peek()?.phase === "awaiting-claim", "invalid status expiry changed the marker phase");
   });
 
   await test("fetch transport enforces body-only no-store/no-redirect requests", async () => {
@@ -679,6 +921,39 @@ async function main() {
     check(transport.requests[0].maxResponseBytes === FAULT_EXPECTATIONS.responseBounds.claimResponseBytes, "claim response used the small endpoint cap");
     check(inbound.peek()?.phase === "claimed", "claim marker did not advance after the bound response");
     check(!document.cookie.includes("repforge_transfer_v1="), "installed claim did not consume the transfer cookie");
+  });
+
+  await test("a late paused claim cannot downgrade local commit, cleanup, or cleared state", async () => {
+    const source = makeSource();
+    const built = await Transfer.buildEnvelope({ sections: source, source: { context: "browser", logicalInstallationId: "li_claim_state", sourceRevision: 42 }, contract: makeContract(), crypto: webcrypto, createdAt: "2026-09-08T19:00:00.000Z" });
+    for (const [phase, seed] of [["local-committed", "L"], ["cleanup-pending", "M"], ["cleared", "N"]]) {
+      const token = tokenFixture(seed);
+      const claimId = `${seed}`.repeat(22);
+      const sharedVault = Transfer.createCredentialVault({ crypto: webcrypto, keyStore: memoryKeyStore() });
+      const sealed = await sharedVault.seal("standalone-inbound", { token, claimId });
+      const original = { version: 1, phase: "claiming", sealedCredentials: sealed, expiresAt: "2026-09-08T20:00:00.000Z" };
+      const inbound = markerStore(original);
+      let release;
+      const gate = new Promise((resolve) => { release = resolve; });
+      let requestStarted;
+      const requestStartedPromise = new Promise((resolve) => { requestStarted = resolve; });
+      const transport = {
+        async request() {
+          requestStarted();
+          await gate;
+          return response(200, { envelope: built.value, expiresAt: "2026-09-08T20:00:00.000Z" });
+        },
+      };
+      const client = makeClient({ transport, inbound, context: "standalone", vault: sharedVault, operationLock: operationLock() });
+      const claimPromise = client.claim();
+      await requestStartedPromise;
+      if (phase === "cleared") await inbound.clear();
+      else await inbound.write({ ...original, phase, ...(phase === "cleanup-pending" ? { remoteState: "deleted" } : {}) });
+      release();
+      const result = await claimPromise;
+      check(result.state === FAULT_EXPECTATIONS.claimStateRace.state && result.code === FAULT_EXPECTATIONS.claimStateRace.code, `${phase} state was overwritten by a late claim response`);
+      check(phase === "cleared" ? inbound.peek() === null : inbound.peek()?.phase === phase, `${phase} marker did not remain authoritative`);
+    }
   });
 
   await test("serializes concurrent creates around one marker and idempotency key", async () => {
@@ -800,6 +1075,41 @@ async function main() {
     const unavailable = makeClient({ transport: unavailableTransport, outbound: markerStore({ version: 1, phase: "awaiting-claim", sealedCredentials: unavailableSealed, expiresAt: "2026-09-08T20:00:00.000Z" }), vault }).status();
     const uncertain = await unavailable;
     check(!uncertain.ok && uncertain.state === "unknown-outcome" && uncertain.code === "status-unavailable", "unavailable status silently resumed");
+  });
+
+  await test("available and claiming status stay known pending without a divergence warning", async () => {
+    for (const remoteState of FAULT_EXPECTATIONS.remoteStatus.knownPendingStates) {
+      const token = tokenFixture(remoteState === "available" ? "A" : "B");
+      const sealed = await vault.seal("browser-outbound", { token });
+      const outbound = markerStore({ version: 1, phase: "awaiting-claim", sealedCredentials: sealed, expiresAt: "2026-09-08T20:00:00.000Z" });
+      const client = makeClient({
+        transport: transportSequence([response(200, { state: remoteState, expiresAt: "2026-09-08T20:00:00.000Z" })]),
+        outbound,
+        vault,
+      });
+      const result = await client.status();
+      check(!result.ok && result.state === FAULT_EXPECTATIONS.remoteStatus.pendingState && result.code === FAULT_EXPECTATIONS.remoteStatus.pendingCode, `${remoteState} status was treated as an indeterminate failure`);
+      check(result.remoteState === remoteState && result.expiresAt === "2026-09-08T20:00:00.000Z", `${remoteState} status lost its approved pending metadata`);
+      check(client.recoveryState() === FAULT_EXPECTATIONS.remoteStatus.pendingRecoveryState, `${remoteState} status entered the divergence warning state`);
+      check(outbound.peek()?.phase === "awaiting-claim" && outbound.peek()?.sealedCredentials, `${remoteState} status mutated recoverable credentials`);
+    }
+  });
+
+  await test("unavailable and terminal remote states stay frozen indeterminate", async () => {
+    for (const remoteState of FAULT_EXPECTATIONS.remoteStatus.indeterminateStates) {
+      const token = tokenFixture(remoteState === "unavailable" ? "U" : remoteState === "exhausted" ? "E" : remoteState === "purged" ? "P" : "K");
+      const sealed = await vault.seal("browser-outbound", { token });
+      const initial = { version: 1, phase: "awaiting-claim", sealedCredentials: sealed, expiresAt: "2026-09-08T20:00:00.000Z" };
+      const outbound = markerStore(initial);
+      const client = makeClient({
+        transport: transportSequence([response(200, { state: remoteState, expiresAt: "2026-09-08T20:00:00.000Z" })]),
+        outbound,
+        vault,
+      });
+      const result = await client.status();
+      check(!result.ok && result.state === "unknown-outcome", `${remoteState} status did not freeze the recovery outcome`);
+      check(outbound.peek()?.phase === initial.phase && outbound.peek()?.sealedCredentials?.keyId === sealed.keyId, `${remoteState} status mutated the recoverable marker`);
+    }
   });
 
   await test("credential deletion failure keeps a recoverable cleanup marker", async () => {

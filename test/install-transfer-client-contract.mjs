@@ -357,7 +357,7 @@ async function main() {
     assert.equal(JSON.stringify(outbound.peek()).includes(token), false, "create marker omits plaintext bearer");
     assert.equal(document.cookie.includes("repforge_setup_v1=v1.setup-canary"), true, "setup cookie coexists");
     assert.equal(document.cookie.includes(token), false, "transfer cookie does not expose plaintext bearer");
-    assert.deepEqual(lock.calls, ["install-transfer:create"], "create uses its named operation lock");
+    assert.deepEqual(lock.calls, [Transfer.OPERATION_NAMES.create], "create uses the shared transfer lock");
   });
 
   await test("standalone claim validates the full response with the shared envelope parser", async () => {
@@ -385,7 +385,7 @@ async function main() {
     assert.equal(document.cookie.includes(Transfer.COOKIE_NAME), false, "claim clears the transfer cookie");
     assert.equal(claimInbound.peek()?.phase, "claimed", "claim marker records claimed");
     assert.equal(JSON.stringify(claimInbound.peek()).includes(token), false, "claim marker omits plaintext bearer");
-    assert.deepEqual(lock.calls, ["install-transfer:claim"], "claim uses its named operation lock");
+    assert.deepEqual(lock.calls, [Transfer.OPERATION_NAMES.claim], "claim uses the shared transfer lock");
   });
 
   await test("standalone commit uses its own exact transport boundary", async () => {
@@ -407,7 +407,7 @@ async function main() {
     assert.deepEqual(Object.keys(request.body).sort(), ["claimId", "token"], "commit body shape is exact");
     assert.equal(inbound.peek(), null, "commit clears the inbound marker after credential deletion");
     assert.equal(keyStore.records.size, 0, "commit forgets the nonextractable credential key");
-    assert.deepEqual(lock.calls, ["install-transfer:commit"], "commit uses its named operation lock");
+    assert.deepEqual(lock.calls, [Transfer.OPERATION_NAMES.commit], "commit uses the shared transfer lock");
   });
 
   await test("browser status preserves a digest-only recovery snapshot after remote deletion", async () => {
@@ -441,7 +441,7 @@ async function main() {
     assert.equal(JSON.stringify(marker).includes(token), false, "recovery marker omits plaintext bearer");
     assert.equal(document.cookie.includes(Transfer.COOKIE_NAME), false, "status clears the transfer cookie");
     assert.equal(keyStore.records.size, 0, "status forgets the credential key");
-    assert.deepEqual(lock.calls, ["install-transfer:status"], "status uses its named operation lock");
+    assert.deepEqual(lock.calls, [Transfer.OPERATION_NAMES.status], "status uses the shared transfer lock");
   });
 
   await test("possibly successful malformed create freezes the same idempotency marker", async () => {
