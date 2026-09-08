@@ -490,6 +490,34 @@ assert.equal(contract.validateEnvelope(unknownSection).code, contract.ERROR_CODE
 const digestOnWire = structuredClone(existingClone);
 digestOnWire.logicalStateDigest = "source-local-only";
 assert.equal(contract.validateEnvelope(digestOnWire).code, contract.ERROR_CODES.FORBIDDEN_FIELD);
+for (const volatileKey of [
+  "_storageRevision",
+  "_storageFollowUp",
+  "_storageDraftTransaction",
+  "_storageSetupActivation",
+  "cookies",
+  "cookie",
+  "locks",
+  "pending",
+  "closing",
+  "tabId",
+  "writerId",
+  "operationId",
+  "notificationPermission",
+  "permission",
+  "providerSessionId",
+  "providerAnalyticsSessionId",
+  "analyticsSessionId",
+  "posthogSessionId",
+  "posthog_session_id",
+  "sessionId",
+  "repforge_pending_v1:fixture",
+  "repforge_draft_v1:pending:fixture",
+]) {
+  const candidate = structuredClone(existingClone);
+  candidate.durableState[volatileKey] = true;
+  assert.equal(contract.validateEnvelope(candidate).code, contract.ERROR_CODES.FORBIDDEN_FIELD, `${volatileKey} is excluded from the wire clone`);
+}
 const writerInDraft = structuredClone(existingClone);
 writerInDraft.workoutDraft = { schemaVersion: 2, draftId: "d", program: {}, session: {}, exerciseOrder: [], exercises: {}, writer: {} };
 assert.equal(contract.validateEnvelope(writerInDraft).code, contract.ERROR_CODES.FORBIDDEN_FIELD);

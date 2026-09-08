@@ -85,6 +85,11 @@
     "notificationPermission",
     "permission",
     "providerSessionId",
+    "providerAnalyticsSessionId",
+    "analyticsSessionId",
+    "posthogSessionId",
+    "posthog_session_id",
+    "sessionId",
     "logicalStateDigest",
   ]);
 
@@ -175,6 +180,11 @@
       return names.every(name => name === "length" || isArrayIndexKey(name, value.length));
     }
     return names.length === Object.keys(value).length;
+  }
+
+  function hasDenseArrayIndices(value) {
+    const keys = Object.keys(value);
+    return keys.length === value.length && keys.every(key => isArrayIndexKey(key, value.length));
   }
 
   function scalarCount(value) {
@@ -491,11 +501,8 @@
       active.add(node);
       let result = null;
       if (Array.isArray(node)) {
-        if (!hasOnlyJsonOwnProperties(node)) result = ERROR_CODES.INVALID_INPUT;
-        for (let index = 0; !result && index < node.length; index += 1) {
-          if (!hasOwn(node, String(index))) result = ERROR_CODES.INVALID_INPUT;
-        }
         if (bounded && node.length > LIMITS.arrayItems) result = ERROR_CODES.ARRAY_TOO_LARGE;
+        if (!result && (!hasOnlyJsonOwnProperties(node) || !hasDenseArrayIndices(node))) result = ERROR_CODES.INVALID_INPUT;
         if (!result) {
           for (let index = 0; index < node.length; index += 1) {
             const descriptor = Object.getOwnPropertyDescriptor(node, String(index));
@@ -581,9 +588,7 @@
       if (typeof node !== "object" || active.has(node)) throw new TypeError("canonical JSON rejects non-JSON values");
       if (Array.isArray(node)) {
         if (!hasOnlyJsonOwnProperties(node)) throw new TypeError("canonical JSON rejects non-JSON arrays");
-        for (let index = 0; index < node.length; index += 1) {
-          if (!hasOwn(node, String(index))) throw new TypeError("canonical JSON rejects sparse arrays");
-        }
+        if (!hasDenseArrayIndices(node)) throw new TypeError("canonical JSON rejects sparse arrays");
         active.add(node);
         const values = [];
         for (let index = 0; index < node.length; index += 1) {
