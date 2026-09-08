@@ -23717,6 +23717,3033 @@
       ]
     },
     {
+      "key": "onboarding-import/freeform-empty__phone-390-dark-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-empty",
+      "label": "Import — paste a program",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program"
+        },
+        {
+          "tag": "p",
+          "text": "0 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "text": "Paste your program above first."
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
+          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "disabled": true,
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-empty__phone-390-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-empty",
+      "label": "Import — paste a program",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program"
+        },
+        {
+          "tag": "p",
+          "text": "0 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "text": "Paste your program above first."
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
+          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "disabled": true,
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-empty__phone-390-light-pt",
+      "flow": "onboarding-import",
+      "screen": "freeform-empty",
+      "label": "Import — paste a program",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um programa"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Colar um programa de qualquer lugar",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Cole da forma que tiver: de um treinador, notas, folha de cálculo ou de outro local. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o programa no formato da aplicação."
+        },
+        {
+          "tag": "span",
+          "text": "Seu programa"
+        },
+        {
+          "tag": "textarea",
+          "name": "Seu programa"
+        },
+        {
+          "tag": "p",
+          "text": "0 de 12.000 caracteres"
+        },
+        {
+          "tag": "p",
+          "text": "Cole o seu programa acima primeiro."
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "O que colar é mantido neste separador apenas para esta importação. Nunca entra no histórico, exportações ou telemetria, e o Taurifer descarta-o quando o fluxo termina.",
+          "name": "O que colar é mantido neste separador apenas para esta importação. Nunca entra no histórico, exportações ou telemetria, e o Taurifer descarta-o quando o fluxo termina."
+        },
+        {
+          "tag": "button",
+          "text": "Continuar",
+          "name": "Continuar",
+          "disabled": true,
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Importar um arquivo Taurifer",
+          "name": "Importar um arquivo Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-filled__phone-320-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-filled",
+      "label": "Import — paste ready to convert",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
+          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-filled__phone-390-dark-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-filled",
+      "label": "Import — paste ready to convert",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
+          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-filled__phone-390-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-filled",
+      "label": "Import — paste ready to convert",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
+          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-filled__phone-390-light-en-reduced",
+      "flow": "onboarding-import",
+      "screen": "freeform-filled",
+      "label": "Import — paste ready to convert",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
+          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-filled__phone-390-light-en-text200",
+      "flow": "onboarding-import",
+      "screen": "freeform-filled",
+      "label": "Import — paste ready to convert",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
+          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-filled__phone-390-light-pt",
+      "flow": "onboarding-import",
+      "screen": "freeform-filled",
+      "label": "Import — paste ready to convert",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um programa"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Colar um programa de qualquer lugar",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Cole da forma que tiver: de um treinador, notas, folha de cálculo ou de outro local. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o programa no formato da aplicação."
+        },
+        {
+          "tag": "span",
+          "text": "Seu programa"
+        },
+        {
+          "tag": "textarea",
+          "name": "Seu programa",
+          "value": "Empurrar A Supino reto 4x6-8 Desenvolvimento militar 3x8-10 Puxar A Remada curvada 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "90 de 12.000 caracteres"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "O que colar é mantido neste separador apenas para esta importação. Nunca entra no histórico, exportações ou telemetria, e o Taurifer descarta-o quando o fluxo termina.",
+          "name": "O que colar é mantido neste separador apenas para esta importação. Nunca entra no histórico, exportações ou telemetria, e o Taurifer descarta-o quando o fluxo termina."
+        },
+        {
+          "tag": "button",
+          "text": "Continuar",
+          "name": "Continuar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Importar um arquivo Taurifer",
+          "name": "Importar um arquivo Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-filled__phone-430-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-filled",
+      "label": "Import — paste ready to convert",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "Your program"
+        },
+        {
+          "tag": "textarea",
+          "name": "Your program",
+          "value": "Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "p",
+          "text": "73 of 12,000 characters"
+        },
+        {
+          "tag": "p",
+          "role": "note",
+          "text": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends.",
+          "name": "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."
+        },
+        {
+          "tag": "button",
+          "text": "Continue",
+          "name": "Continue",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-gaps__phone-320-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-gaps",
+      "label": "Import — resolve gaps",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Fill in missing details",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "The assistant returned the program structure, but some sets or rep ranges were not specified. Enter them below to continue."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps.",
+          "name": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps."
+        },
+        {
+          "tag": "span",
+          "text": "Push · Cable flyes reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Push · Cable flyes reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Pull · Lat pulldown sets"
+        },
+        {
+          "tag": "input",
+          "name": "Pull · Lat pulldown sets",
+          "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back to reply",
+          "name": "Back to reply",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-gaps__phone-390-dark-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-gaps",
+      "label": "Import — resolve gaps",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Fill in missing details",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "The assistant returned the program structure, but some sets or rep ranges were not specified. Enter them below to continue."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps.",
+          "name": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps."
+        },
+        {
+          "tag": "span",
+          "text": "Push · Cable flyes reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Push · Cable flyes reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Pull · Lat pulldown sets"
+        },
+        {
+          "tag": "input",
+          "name": "Pull · Lat pulldown sets",
+          "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back to reply",
+          "name": "Back to reply",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-gaps__phone-390-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-gaps",
+      "label": "Import — resolve gaps",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Fill in missing details",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "The assistant returned the program structure, but some sets or rep ranges were not specified. Enter them below to continue."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps.",
+          "name": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps."
+        },
+        {
+          "tag": "span",
+          "text": "Push · Cable flyes reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Push · Cable flyes reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Pull · Lat pulldown sets"
+        },
+        {
+          "tag": "input",
+          "name": "Pull · Lat pulldown sets",
+          "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back to reply",
+          "name": "Back to reply",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-gaps__phone-390-light-en-reduced",
+      "flow": "onboarding-import",
+      "screen": "freeform-gaps",
+      "label": "Import — resolve gaps",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Fill in missing details",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "The assistant returned the program structure, but some sets or rep ranges were not specified. Enter them below to continue."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps.",
+          "name": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps."
+        },
+        {
+          "tag": "span",
+          "text": "Push · Cable flyes reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Push · Cable flyes reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Pull · Lat pulldown sets"
+        },
+        {
+          "tag": "input",
+          "name": "Pull · Lat pulldown sets",
+          "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back to reply",
+          "name": "Back to reply",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-gaps__phone-390-light-en-text200",
+      "flow": "onboarding-import",
+      "screen": "freeform-gaps",
+      "label": "Import — resolve gaps",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Fill in missing details",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "The assistant returned the program structure, but some sets or rep ranges were not specified. Enter them below to continue."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps.",
+          "name": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps."
+        },
+        {
+          "tag": "span",
+          "text": "Push · Cable flyes reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Push · Cable flyes reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Pull · Lat pulldown sets"
+        },
+        {
+          "tag": "input",
+          "name": "Pull · Lat pulldown sets",
+          "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back to reply",
+          "name": "Back to reply",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-gaps__phone-390-light-pt",
+      "flow": "onboarding-import",
+      "screen": "freeform-gaps",
+      "label": "Import — resolve gaps",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um programa"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Completar detalhes em falta",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "O assistente devolveu a estrutura do programa, mas faltam algumas séries ou repetições. Preencha abaixo para continuar."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Não importado: tempos de descanso, metas de RIR/RPE. O Taurifer regista séries de trabalho e repetições.",
+          "name": "Não importado: tempos de descanso, metas de RIR/RPE. O Taurifer regista séries de trabalho e repetições."
+        },
+        {
+          "tag": "span",
+          "text": "Repetições de Push · Cable flyes (ex: 8-12 ou 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Repetições de Push · Cable flyes (ex: 8-12 ou 10)",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Séries de Pull · Lat pulldown"
+        },
+        {
+          "tag": "input",
+          "name": "Séries de Pull · Lat pulldown",
+          "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "Rever o programa",
+          "name": "Rever o programa",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar à resposta",
+          "name": "Voltar à resposta",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-gaps__phone-430-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-gaps",
+      "label": "Import — resolve gaps",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Fill in missing details",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "The assistant returned the program structure, but some sets or rep ranges were not specified. Enter them below to continue."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps.",
+          "name": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps."
+        },
+        {
+          "tag": "span",
+          "text": "Push · Cable flyes reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Push · Cable flyes reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Pull · Lat pulldown sets"
+        },
+        {
+          "tag": "input",
+          "name": "Pull · Lat pulldown sets",
+          "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back to reply",
+          "name": "Back to reply",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-gaps-invalid__phone-390-dark-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-gaps-invalid",
+      "label": "Import — gap validation error",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Fill in missing details",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "The assistant returned the program structure, but some sets or rep ranges were not specified. Enter them below to continue."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps.",
+          "name": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps."
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "Please enter valid numbers for the highlighted fields.",
+          "name": "Please enter valid numbers for the highlighted fields."
+        },
+        {
+          "tag": "span",
+          "text": "Push · Cable flyes reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Push · Cable flyes reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Pull · Lat pulldown sets"
+        },
+        {
+          "tag": "input",
+          "name": "Pull · Lat pulldown sets",
+          "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back to reply",
+          "name": "Back to reply",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-gaps-invalid__phone-390-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-gaps-invalid",
+      "label": "Import — gap validation error",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Fill in missing details",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "The assistant returned the program structure, but some sets or rep ranges were not specified. Enter them below to continue."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps.",
+          "name": "Not imported: rest times, RIR/RPE targets. Taurifer tracks working sets and reps."
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "Please enter valid numbers for the highlighted fields.",
+          "name": "Please enter valid numbers for the highlighted fields."
+        },
+        {
+          "tag": "span",
+          "text": "Push · Cable flyes reps (e.g. 8-12 or 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Push · Cable flyes reps (e.g. 8-12 or 10)",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Pull · Lat pulldown sets"
+        },
+        {
+          "tag": "input",
+          "name": "Pull · Lat pulldown sets",
+          "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back to reply",
+          "name": "Back to reply",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-gaps-invalid__phone-390-light-pt",
+      "flow": "onboarding-import",
+      "screen": "freeform-gaps-invalid",
+      "label": "Import — gap validation error",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um programa"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Completar detalhes em falta",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "O assistente devolveu a estrutura do programa, mas faltam algumas séries ou repetições. Preencha abaixo para continuar."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Não importado: tempos de descanso, metas de RIR/RPE. O Taurifer regista séries de trabalho e repetições.",
+          "name": "Não importado: tempos de descanso, metas de RIR/RPE. O Taurifer regista séries de trabalho e repetições."
+        },
+        {
+          "tag": "p",
+          "role": "alert",
+          "text": "Introduza valores válidos para os campos assinalados.",
+          "name": "Introduza valores válidos para os campos assinalados."
+        },
+        {
+          "tag": "span",
+          "text": "Repetições de Push · Cable flyes (ex: 8-12 ou 10)"
+        },
+        {
+          "tag": "input",
+          "name": "Repetições de Push · Cable flyes (ex: 8-12 ou 10)",
+          "type": "text"
+        },
+        {
+          "tag": "span",
+          "text": "Séries de Pull · Lat pulldown"
+        },
+        {
+          "tag": "input",
+          "name": "Séries de Pull · Lat pulldown",
+          "type": "text"
+        },
+        {
+          "tag": "button",
+          "text": "Rever o programa",
+          "name": "Rever o programa",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar à resposta",
+          "name": "Voltar à resposta",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-stage2__phone-320-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-stage2",
+      "label": "Import — choose an assistant",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "5 lines pasted"
+        },
+        {
+          "tag": "button",
+          "text": "Edit",
+          "name": "Edit",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Open it in ChatGPT or Claude"
+        },
+        {
+          "tag": "p",
+          "text": "Send the prompt to your assistant, then come back here to paste the reply."
+        },
+        {
+          "tag": "a",
+          "text": "Open in ChatGPT",
+          "name": "Open in ChatGPT"
+        },
+        {
+          "tag": "a",
+          "text": "Open in Claude",
+          "name": "Open in Claude"
+        },
+        {
+          "tag": "summary",
+          "text": "Preview prompt",
+          "name": "Preview prompt"
+        },
+        {
+          "tag": "pre",
+          "text": "Rewrite this training program as JSON for the Taurifer app. Reply with the JSON and nothing else: no explanation, no code fences. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "button",
+          "text": "Copy the prompt",
+          "name": "Copy the prompt",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-stage2__phone-390-dark-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-stage2",
+      "label": "Import — choose an assistant",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "5 lines pasted"
+        },
+        {
+          "tag": "button",
+          "text": "Edit",
+          "name": "Edit",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Open it in ChatGPT or Claude"
+        },
+        {
+          "tag": "p",
+          "text": "Send the prompt to your assistant, then come back here to paste the reply."
+        },
+        {
+          "tag": "a",
+          "text": "Open in ChatGPT",
+          "name": "Open in ChatGPT"
+        },
+        {
+          "tag": "a",
+          "text": "Open in Claude",
+          "name": "Open in Claude"
+        },
+        {
+          "tag": "summary",
+          "text": "Preview prompt",
+          "name": "Preview prompt"
+        },
+        {
+          "tag": "pre",
+          "text": "Rewrite this training program as JSON for the Taurifer app. Reply with the JSON and nothing else: no explanation, no code fences. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "button",
+          "text": "Copy the prompt",
+          "name": "Copy the prompt",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-stage2__phone-390-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-stage2",
+      "label": "Import — choose an assistant",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "5 lines pasted"
+        },
+        {
+          "tag": "button",
+          "text": "Edit",
+          "name": "Edit",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Open it in ChatGPT or Claude"
+        },
+        {
+          "tag": "p",
+          "text": "Send the prompt to your assistant, then come back here to paste the reply."
+        },
+        {
+          "tag": "a",
+          "text": "Open in ChatGPT",
+          "name": "Open in ChatGPT"
+        },
+        {
+          "tag": "a",
+          "text": "Open in Claude",
+          "name": "Open in Claude"
+        },
+        {
+          "tag": "summary",
+          "text": "Preview prompt",
+          "name": "Preview prompt"
+        },
+        {
+          "tag": "pre",
+          "text": "Rewrite this training program as JSON for the Taurifer app. Reply with the JSON and nothing else: no explanation, no code fences. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "button",
+          "text": "Copy the prompt",
+          "name": "Copy the prompt",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-stage2__phone-390-light-en-reduced",
+      "flow": "onboarding-import",
+      "screen": "freeform-stage2",
+      "label": "Import — choose an assistant",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "5 lines pasted"
+        },
+        {
+          "tag": "button",
+          "text": "Edit",
+          "name": "Edit",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Open it in ChatGPT or Claude"
+        },
+        {
+          "tag": "p",
+          "text": "Send the prompt to your assistant, then come back here to paste the reply."
+        },
+        {
+          "tag": "a",
+          "text": "Open in ChatGPT",
+          "name": "Open in ChatGPT"
+        },
+        {
+          "tag": "a",
+          "text": "Open in Claude",
+          "name": "Open in Claude"
+        },
+        {
+          "tag": "summary",
+          "text": "Preview prompt",
+          "name": "Preview prompt"
+        },
+        {
+          "tag": "pre",
+          "text": "Rewrite this training program as JSON for the Taurifer app. Reply with the JSON and nothing else: no explanation, no code fences. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "button",
+          "text": "Copy the prompt",
+          "name": "Copy the prompt",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-stage2__phone-390-light-en-text200",
+      "flow": "onboarding-import",
+      "screen": "freeform-stage2",
+      "label": "Import — choose an assistant",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "5 lines pasted"
+        },
+        {
+          "tag": "button",
+          "text": "Edit",
+          "name": "Edit",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Open it in ChatGPT or Claude"
+        },
+        {
+          "tag": "p",
+          "text": "Send the prompt to your assistant, then come back here to paste the reply."
+        },
+        {
+          "tag": "a",
+          "text": "Open in ChatGPT",
+          "name": "Open in ChatGPT"
+        },
+        {
+          "tag": "a",
+          "text": "Open in Claude",
+          "name": "Open in Claude"
+        },
+        {
+          "tag": "summary",
+          "text": "Preview prompt",
+          "name": "Preview prompt"
+        },
+        {
+          "tag": "pre",
+          "text": "Rewrite this training program as JSON for the Taurifer app. Reply with the JSON and nothing else: no explanation, no code fences. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "button",
+          "text": "Copy the prompt",
+          "name": "Copy the prompt",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-stage2__phone-390-light-pt",
+      "flow": "onboarding-import",
+      "screen": "freeform-stage2",
+      "label": "Import — choose an assistant",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um programa"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Colar um programa de qualquer lugar",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Cole da forma que tiver: de um treinador, notas, folha de cálculo ou de outro local. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o programa no formato da aplicação."
+        },
+        {
+          "tag": "span",
+          "text": "5 linhas coladas"
+        },
+        {
+          "tag": "button",
+          "text": "Editar",
+          "name": "Editar",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Abrir no ChatGPT ou Claude"
+        },
+        {
+          "tag": "p",
+          "text": "Envie o comando ao assistente e volte aqui para colar a resposta."
+        },
+        {
+          "tag": "a",
+          "text": "Abrir no ChatGPT",
+          "name": "Abrir no ChatGPT"
+        },
+        {
+          "tag": "a",
+          "text": "Abrir no Claude",
+          "name": "Abrir no Claude"
+        },
+        {
+          "tag": "summary",
+          "text": "Pré-visualizar comando",
+          "name": "Pré-visualizar comando"
+        },
+        {
+          "tag": "pre",
+          "text": "Reescreva este programa de treino como JSON para o app Taurifer. Responda apenas com o JSON: sem explicação e sem blocos de código. Use exatamente este formato: {\"version\":3,\"meta\":{\"name\":\"Nome do programa\"},\"exercises\":[{\"day\":\"Nome do dia\",\"order\":1,\"name\":\"Nome do exercício\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Regras: - Preserve a seleção de exercícios, ordem, agrupamento por dia e nomes exatamente como estão no texto de origem, no mesmo idioma. - Uma entrada por exercício de cada dia de treino. Repita \"day\" em todos os exercícios do dia e numere \"order\" a partir de 1 dentro de cada dia. - \"sets\" é o número de séries de trabalho, um inteiro de 1 a 100. - \"min\" e \"max\" são a faixa de repetições em números inteiros. Se houver só um número, use-o nos dois limites. - Nunca substitua um exercício, nunca redesenhe e nunca invente dias, exercícios, contagem de séries ou repetições. - Se um valor obrigatório estiver ausente, omita o campo e aponte-o em \"missing\": [{\"day\":\"Nome do dia\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Não adivinhe e não faça perguntas; retorne a estrutura. - Aponte tudo o que a fonte continha e este formato não suporta em \"notImported\", usando apenas estas categorias: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Deixe de fora aquecimentos, cardio e tudo que não for série de trabalho. O programa: Empurrar A Supino reto 4x6-8 Desenvolvimento militar 3x8-10 Puxar A Remada curvada 4x6-10"
+        },
+        {
+          "tag": "button",
+          "text": "Copiar o pedido",
+          "name": "Copiar o pedido",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Importar um arquivo Taurifer",
+          "name": "Importar um arquivo Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-stage2__phone-430-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-stage2",
+      "label": "Import — choose an assistant",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "5 lines pasted"
+        },
+        {
+          "tag": "button",
+          "text": "Edit",
+          "name": "Edit",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Open it in ChatGPT or Claude"
+        },
+        {
+          "tag": "p",
+          "text": "Send the prompt to your assistant, then come back here to paste the reply."
+        },
+        {
+          "tag": "a",
+          "text": "Open in ChatGPT",
+          "name": "Open in ChatGPT"
+        },
+        {
+          "tag": "a",
+          "text": "Open in Claude",
+          "name": "Open in Claude"
+        },
+        {
+          "tag": "summary",
+          "text": "Preview prompt",
+          "name": "Preview prompt"
+        },
+        {
+          "tag": "pre",
+          "text": "Rewrite this training program as JSON for the Taurifer app. Reply with the JSON and nothing else: no explanation, no code fences. Use exactly this shape: {\"version\":3,\"meta\":{\"name\":\"Program name\"},\"exercises\":[{\"day\":\"Day label\",\"order\":1,\"name\":\"Exercise name\",\"sets\":3,\"min\":6,\"max\":10}],\"missing\":[],\"notImported\":[]} Rules: - Preserve exercise selection, order, day grouping and names exactly as the source writes them, in the source's language. - One entry per exercise per training day. Repeat \"day\" on every exercise in that day, and number \"order\" from 1 within each day. - \"sets\" is the number of working sets, a whole number from 1 to 100. - \"min\" and \"max\" are the rep range as whole numbers. Where the source gives one rep number, use it for both bounds. - Never substitute an exercise, never redesign, never invent a day, an exercise, a set count or a rep range. - Where a required value is genuinely absent, omit the field and name it in \"missing\": [{\"day\":\"Day label\",\"order\":1,\"field\":\"sets\"|\"reps\"}]. Do not guess it, and do not ask a question; return the structure. - Name anything the source carried that this shape cannot hold in \"notImported\", using only these categories: \"rest_times\", \"rir_rpe\", \"tempo\", \"supersets\", \"warmups\", \"cardio\", \"progression_rules\", \"deload\", \"other_notes\". - Leave out warm-ups, cardio and anything that is not a working exercise. The program: Push A Bench press 4x6-8 Overhead press 3x8-10 Pull A Barbell row 4x6-10"
+        },
+        {
+          "tag": "button",
+          "text": "Copy the prompt",
+          "name": "Copy the prompt",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-stage3__phone-320-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-stage3",
+      "label": "Import — paste reply",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "5 lines pasted"
+        },
+        {
+          "tag": "button",
+          "text": "Edit",
+          "name": "Edit",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Paste the assistant's reply"
+        },
+        {
+          "tag": "p",
+          "text": "Paste the full reply here."
+        },
+        {
+          "tag": "textarea",
+          "name": "Paste the assistant's reply"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Try another assistant",
+          "name": "Try another assistant",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-stage3__phone-390-dark-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-stage3",
+      "label": "Import — paste reply",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "5 lines pasted"
+        },
+        {
+          "tag": "button",
+          "text": "Edit",
+          "name": "Edit",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Paste the assistant's reply"
+        },
+        {
+          "tag": "p",
+          "text": "Paste the full reply here."
+        },
+        {
+          "tag": "textarea",
+          "name": "Paste the assistant's reply"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Try another assistant",
+          "name": "Try another assistant",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-stage3__phone-390-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-stage3",
+      "label": "Import — paste reply",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "5 lines pasted"
+        },
+        {
+          "tag": "button",
+          "text": "Edit",
+          "name": "Edit",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Paste the assistant's reply"
+        },
+        {
+          "tag": "p",
+          "text": "Paste the full reply here."
+        },
+        {
+          "tag": "textarea",
+          "name": "Paste the assistant's reply"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Try another assistant",
+          "name": "Try another assistant",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-stage3__phone-390-light-en-reduced",
+      "flow": "onboarding-import",
+      "screen": "freeform-stage3",
+      "label": "Import — paste reply",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "5 lines pasted"
+        },
+        {
+          "tag": "button",
+          "text": "Edit",
+          "name": "Edit",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Paste the assistant's reply"
+        },
+        {
+          "tag": "p",
+          "text": "Paste the full reply here."
+        },
+        {
+          "tag": "textarea",
+          "name": "Paste the assistant's reply"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Try another assistant",
+          "name": "Try another assistant",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-stage3__phone-390-light-en-text200",
+      "flow": "onboarding-import",
+      "screen": "freeform-stage3",
+      "label": "Import — paste reply",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "5 lines pasted"
+        },
+        {
+          "tag": "button",
+          "text": "Edit",
+          "name": "Edit",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Paste the assistant's reply"
+        },
+        {
+          "tag": "p",
+          "text": "Paste the full reply here."
+        },
+        {
+          "tag": "textarea",
+          "name": "Paste the assistant's reply"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Try another assistant",
+          "name": "Try another assistant",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-stage3__phone-390-light-pt",
+      "flow": "onboarding-import",
+      "screen": "freeform-stage3",
+      "label": "Import — paste reply",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um programa"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Colar um programa de qualquer lugar",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Cole da forma que tiver: de um treinador, notas, folha de cálculo ou de outro local. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o programa no formato da aplicação."
+        },
+        {
+          "tag": "span",
+          "text": "5 linhas coladas"
+        },
+        {
+          "tag": "button",
+          "text": "Editar",
+          "name": "Editar",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Colar a resposta do assistente"
+        },
+        {
+          "tag": "p",
+          "text": "Cole a resposta completa aqui."
+        },
+        {
+          "tag": "textarea",
+          "name": "Colar a resposta do assistente"
+        },
+        {
+          "tag": "button",
+          "text": "Rever o programa",
+          "name": "Rever o programa",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Tentar outro assistente",
+          "name": "Tentar outro assistente",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Recomeçar",
+          "name": "Recomeçar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Importar um arquivo Taurifer",
+          "name": "Importar um arquivo Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-stage3__phone-430-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-stage3",
+      "label": "Import — paste reply",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "5 lines pasted"
+        },
+        {
+          "tag": "button",
+          "text": "Edit",
+          "name": "Edit",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Paste the assistant's reply"
+        },
+        {
+          "tag": "p",
+          "text": "Paste the full reply here."
+        },
+        {
+          "tag": "textarea",
+          "name": "Paste the assistant's reply"
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Try another assistant",
+          "name": "Try another assistant",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-unreadable__phone-390-dark-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-unreadable",
+      "label": "Import — unreadable reply",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "5 lines pasted"
+        },
+        {
+          "tag": "button",
+          "text": "Edit",
+          "name": "Edit",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "alert",
+          "name": "Could not read programThe assistant's reply could not be read as a Taurifer program. You can edit the reply, try another assistant, or copy a repair prompt.Copy repair promptTry another assistant"
+        },
+        {
+          "tag": "strong",
+          "text": "Could not read program"
+        },
+        {
+          "tag": "p",
+          "text": "The assistant's reply could not be read as a Taurifer program. You can edit the reply, try another assistant, or copy a repair prompt."
+        },
+        {
+          "tag": "button",
+          "text": "Copy repair prompt",
+          "name": "Copy repair prompt",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Try another assistant",
+          "name": "Try another assistant",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Paste the assistant's reply"
+        },
+        {
+          "tag": "p",
+          "text": "Paste the full reply here."
+        },
+        {
+          "tag": "textarea",
+          "text": "Sorry, I could not parse this workout format.",
+          "name": "Paste the assistant's replySorry, I could not parse this workout format.",
+          "value": "Sorry, I could not parse this workout format."
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Try another assistant",
+          "name": "Try another assistant",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-unreadable__phone-390-light-en",
+      "flow": "onboarding-import",
+      "screen": "freeform-unreadable",
+      "label": "Import — unreadable reply",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Paste a program from anywhere",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Paste it however you have it: from a coach, notes app, spreadsheet or anywhere else. Taurifer wraps it in a prompt for ChatGPT or Claude, which sends the program back in the format this app reads."
+        },
+        {
+          "tag": "span",
+          "text": "5 lines pasted"
+        },
+        {
+          "tag": "button",
+          "text": "Edit",
+          "name": "Edit",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "alert",
+          "name": "Could not read programThe assistant's reply could not be read as a Taurifer program. You can edit the reply, try another assistant, or copy a repair prompt.Copy repair promptTry another assistant"
+        },
+        {
+          "tag": "strong",
+          "text": "Could not read program"
+        },
+        {
+          "tag": "p",
+          "text": "The assistant's reply could not be read as a Taurifer program. You can edit the reply, try another assistant, or copy a repair prompt."
+        },
+        {
+          "tag": "button",
+          "text": "Copy repair prompt",
+          "name": "Copy repair prompt",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Try another assistant",
+          "name": "Try another assistant",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Paste the assistant's reply"
+        },
+        {
+          "tag": "p",
+          "text": "Paste the full reply here."
+        },
+        {
+          "tag": "textarea",
+          "text": "Sorry, I could not parse this workout format.",
+          "name": "Paste the assistant's replySorry, I could not parse this workout format.",
+          "value": "Sorry, I could not parse this workout format."
+        },
+        {
+          "tag": "button",
+          "text": "Review the program",
+          "name": "Review the program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Try another assistant",
+          "name": "Try another assistant",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Import a Taurifer file instead",
+          "name": "Import a Taurifer file instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-import/freeform-unreadable__phone-390-light-pt",
+      "flow": "onboarding-import",
+      "screen": "freeform-unreadable",
+      "label": "Import — unreadable reply",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um programa"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Colar um programa de qualquer lugar",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Cole da forma que tiver: de um treinador, notas, folha de cálculo ou de outro local. O Taurifer cria um comando para o ChatGPT ou Claude, que devolve o programa no formato da aplicação."
+        },
+        {
+          "tag": "span",
+          "text": "5 linhas coladas"
+        },
+        {
+          "tag": "button",
+          "text": "Editar",
+          "name": "Editar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "role": "alert",
+          "name": "Não foi possível ler o programaA resposta do assistente não pôde ser lida como um programa Taurifer. Pode editar a resposta, tentar outro assistente ou copiar um comando de correção.Copiar comando de correçãoTentar outro assistente"
+        },
+        {
+          "tag": "strong",
+          "text": "Não foi possível ler o programa"
+        },
+        {
+          "tag": "p",
+          "text": "A resposta do assistente não pôde ser lida como um programa Taurifer. Pode editar a resposta, tentar outro assistente ou copiar um comando de correção."
+        },
+        {
+          "tag": "button",
+          "text": "Copiar comando de correção",
+          "name": "Copiar comando de correção",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Tentar outro assistente",
+          "name": "Tentar outro assistente",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Colar a resposta do assistente"
+        },
+        {
+          "tag": "p",
+          "text": "Cole a resposta completa aqui."
+        },
+        {
+          "tag": "textarea",
+          "text": "Desculpe, não consegui entender este formato de treino.",
+          "name": "Colar a resposta do assistenteDesculpe, não consegui entender este formato de treino.",
+          "value": "Desculpe, não consegui entender este formato de treino."
+        },
+        {
+          "tag": "button",
+          "text": "Rever o programa",
+          "name": "Rever o programa",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Tentar outro assistente",
+          "name": "Tentar outro assistente",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Recomeçar",
+          "name": "Recomeçar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Importar um arquivo Taurifer",
+          "name": "Importar um arquivo Taurifer",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-import/preview__phone-320-light-en",
       "flow": "onboarding-import",
       "screen": "preview",
@@ -24826,6 +27853,12 @@
         },
         {
           "tag": "button",
+          "text": "Paste a program instead",
+          "name": "Paste a program instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
           "text": "Back",
           "name": "Back",
           "label": "Back",
@@ -24871,6 +27904,12 @@
         },
         {
           "tag": "button",
+          "text": "Paste a program instead",
+          "name": "Paste a program instead",
+          "type": "button"
+        },
+        {
+          "tag": "button",
           "text": "Back",
           "name": "Back",
           "label": "Back",
@@ -24912,6 +27951,12 @@
           "tag": "button",
           "text": "Escolher arquivo",
           "name": "Escolher arquivo",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Colar um programa",
+          "name": "Colar um programa",
           "type": "button"
         },
         {
@@ -38428,7 +41473,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -38437,7 +41482,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         }
       ]
     },
@@ -38520,7 +41565,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -38529,7 +41574,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         }
       ]
     },
@@ -38612,7 +41657,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -38621,7 +41666,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         }
       ]
     },
@@ -38704,7 +41749,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -38713,7 +41758,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         }
       ]
     },
@@ -38796,7 +41841,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -38805,7 +41850,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         }
       ]
     },
@@ -38888,7 +41933,7 @@
         },
         {
           "tag": "button",
-          "name": "Usar meu próprio programaComece com dias vazios ou importe um arquivo de programa Taurifer.",
+          "name": "Usar meu próprio programaComece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer.",
           "type": "button"
         },
         {
@@ -38897,7 +41942,7 @@
         },
         {
           "tag": "span",
-          "text": "Comece com dias vazios ou importe um arquivo de programa Taurifer."
+          "text": "Comece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer."
         }
       ]
     },
@@ -38980,7 +42025,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -38989,7 +42034,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         }
       ]
     },
@@ -39078,7 +42123,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -39087,7 +42132,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         }
       ]
     },
@@ -39176,7 +42221,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -39185,7 +42230,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         }
       ]
     },
@@ -39274,7 +42319,7 @@
         },
         {
           "tag": "button",
-          "name": "Usar meu próprio programaComece com dias vazios ou importe um arquivo de programa Taurifer.",
+          "name": "Usar meu próprio programaComece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer.",
           "type": "button"
         },
         {
@@ -39283,7 +42328,7 @@
         },
         {
           "tag": "span",
-          "text": "Comece com dias vazios ou importe um arquivo de programa Taurifer."
+          "text": "Comece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer."
         }
       ]
     },
@@ -39366,7 +42411,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -39375,7 +42420,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         },
         {
           "tag": "button",
@@ -39389,6 +42434,19 @@
         {
           "tag": "span",
           "text": "Start with empty training days and fill them in yourself."
+        },
+        {
+          "tag": "button",
+          "name": "Paste from anywherePaste a coach's message or your own notes. ChatGPT or Claude puts it in Taurifer's format.",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Paste from anywhere"
+        },
+        {
+          "tag": "span",
+          "text": "Paste a coach's message or your own notes. ChatGPT or Claude puts it in Taurifer's format."
         },
         {
           "tag": "button",
@@ -39484,7 +42542,7 @@
         },
         {
           "tag": "button",
-          "name": "Use my own programStart with empty days or import a Taurifer program file.",
+          "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
           "type": "button"
         },
         {
@@ -39493,7 +42551,7 @@
         },
         {
           "tag": "span",
-          "text": "Start with empty days or import a Taurifer program file."
+          "text": "Start with empty days, paste any program, or import a Taurifer file."
         },
         {
           "tag": "button",
@@ -39507,6 +42565,19 @@
         {
           "tag": "span",
           "text": "Start with empty training days and fill them in yourself."
+        },
+        {
+          "tag": "button",
+          "name": "Paste from anywherePaste a coach's message or your own notes. ChatGPT or Claude puts it in Taurifer's format.",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Paste from anywhere"
+        },
+        {
+          "tag": "span",
+          "text": "Paste a coach's message or your own notes. ChatGPT or Claude puts it in Taurifer's format."
         },
         {
           "tag": "button",
@@ -39602,7 +42673,7 @@
         },
         {
           "tag": "button",
-          "name": "Usar meu próprio programaComece com dias vazios ou importe um arquivo de programa Taurifer.",
+          "name": "Usar meu próprio programaComece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer.",
           "type": "button"
         },
         {
@@ -39611,7 +42682,7 @@
         },
         {
           "tag": "span",
-          "text": "Comece com dias vazios ou importe um arquivo de programa Taurifer."
+          "text": "Comece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer."
         },
         {
           "tag": "button",
@@ -39625,6 +42696,19 @@
         {
           "tag": "span",
           "text": "Comece com dias de treino vazios e preencha você mesmo."
+        },
+        {
+          "tag": "button",
+          "name": "Colar de qualquer lugarCole a mensagem do seu treinador ou as suas anotações. O ChatGPT ou o Claude devolve no formato do Taurifer.",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Colar de qualquer lugar"
+        },
+        {
+          "tag": "span",
+          "text": "Cole a mensagem do seu treinador ou as suas anotações. O ChatGPT ou o Claude devolve no formato do Taurifer."
         },
         {
           "tag": "button",

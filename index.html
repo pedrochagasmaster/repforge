@@ -38,6 +38,7 @@
   <link rel="apple-touch-startup-image" href="icons/splash-1668x2224.png" media="screen and (device-width: 834px) and (device-height: 1112px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="apple-touch-startup-image" href="icons/splash-1536x2048.png" media="screen and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 2) and (orientation: portrait)">
   <link rel="stylesheet" href="styles.css">
+  <link rel="stylesheet" href="motion-polish.css">
   <!-- app.js owns the Appearance setting, but it is the last script on the page
        and a dark install would spend that whole load painted cream. This replays
        the resolved theme onto <html> before the first paint and does nothing
@@ -360,10 +361,12 @@
       </div>
       <div class="impreview">
         <p class="impreview__file" id="importFile"></p>
+        <div id="importNotImported"></div>
         <h2 class="impreview__head" data-i18n="import.heading">Review the exercises</h2>
         <p class="lede" data-i18n="import.lede">Link the names to the library or keep them as they are.</p>
         <div class="impcounts" id="importCounts" role="status" aria-live="polite"></div>
         <div id="importRows"></div>
+        <div id="importOriginalText"></div>
         <p class="impreview__safe" id="importSafe" data-i18n="import.safe">Your history will not be changed.</p>
         <button type="button" class="btn btn--cta" id="importCommit" data-i18n="import.commit">Import program</button>
         <button type="button" class="text-link text-link--center" id="importReviewCancel" data-i18n="import.cancel">Cancel this import</button>
@@ -946,12 +949,12 @@
   <script src="i18n.js"></script>
   <script src="exercises.js"></script>
   <script src="progression-engine.js"></script>
-  <script src="program-compiler.js?v=188"></script>
-  <script src="program-entry.js?v=188"></script>
-  <script src="program-entry-adapter.js?v=188"></script>
+  <script src="program-compiler.js?v=191"></script>
+  <script src="program-entry.js?v=191"></script>
+  <script src="program-entry-adapter.js?v=191"></script>
   <script src="program-editor.js?v=168"></script>
-  <script src="shared-setup.js?v=188"></script>
-  <script src="workout-draft.js?v=188"></script>
-  <script src="app.js?v=188"></script>
+  <script src="shared-setup.js?v=191"></script>
+  <script src="workout-draft.js?v=191"></script>
+  <script src="app.js?v=191"></script>
 </body>
 </html>
