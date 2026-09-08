@@ -26,6 +26,7 @@ const TELEMETRY_ENABLED_KEY = "repforge_telemetry_enabled_v1";
 const TELEMETRY_IDENTITY_KEY = "repforge_telemetry_identity_v1";
 const DRAFT_KEY = "repforge_draft_v1";
 const CHECKPOINT_KEY = `${DRAFT_KEY}:v2-checkpoint`;
+const TEST_STARTED_AT = new Date().toISOString();
 const EXPECTATIONS = JSON.parse(readFileSync(join(ROOT, "test/fixtures/install-transfer-characterization/expectations.json"), "utf8"));
 const CANONICAL_FIXTURE = JSON.parse(readFileSync(join(ROOT, "test/fixtures/install-transfer-clone-v1.json"), "utf8"));
 
@@ -46,12 +47,28 @@ function assert(condition, name, detail = "") {
   }
 }
 
+function safeFailure(error) {
+  const name = typeof error?.name === "string" && error.name ? error.name : "Error";
+  const message = typeof error?.message === "string" ? error.message.replace(/\s+/g, " ").trim() : "";
+  // Browser-library errors can echo an evaluate argument. Keep ordinary short
+  // messages useful while refusing JSON-like data in the persisted report.
+  if (!message || /[\[{]/.test(message)) return name;
+  return `${name}: ${message.slice(0, 240)}`;
+}
+
 function clone(value) {
   return value == null ? value : JSON.parse(JSON.stringify(value));
 }
 
 function same(left, right) {
   return JSON.stringify(left) === JSON.stringify(right);
+}
+
+function trustedDraftAbsence(observation) {
+  const emptyRead = observation.current === null && observation.read?.status === "ok" && observation.read.raw === null;
+  const checkpoint = observation.checkpoint;
+  const acknowledgedRemoval = checkpoint?.status === "valid" && checkpoint.value?.kind === "tombstone";
+  return emptyRead && (checkpoint?.status === "absent" || acknowledgedRemoval);
 }
 
 // Independent oracle. This serializer is intentionally separate from the
@@ -77,7 +94,7 @@ function deepFreeze(value) {
 function validateCanonicalHashContract() {
   const expected = CANONICAL_FIXTURE.integrity.canonicalPayloadHash;
   const independent = independentCloneHash(CANONICAL_FIXTURE);
-  assert(independent === expected, "canonical fixture matches independent sorted-key SHA-256", `${independent} != ${expected}`);
+  assert(independent === expected, "canonical fixture matches independent sorted-key SHA-256");
   assert(clonePayloadHashOf(CANONICAL_FIXTURE) === independent, "existing canonical hash helper agrees with independent oracle");
 
   const scalar = clone(CANONICAL_FIXTURE);
@@ -207,14 +224,15 @@ async function enterAndEditDraft(page) {
   const entered = await page.evaluate(async () => window.__repforgeEnterWorkout({ focus: false }));
   if (!entered) {
     const diagnostic = await page.evaluate(() => ({
-      body: document.body.className,
-      shell: document.querySelector("#workoutShell")?.className || null,
-      current: window.__repforgeWorkoutDraft?.current?.() || null,
-      read: window.__repforgeWorkoutDraft?.read?.() || null,
-      checkpoint: window.__repforgeWorkoutDraft?.checkpoint?.() || null,
-      recovery: window.__repforgeWorkoutDraft?.recovery?.() || null,
+      bodyClassCount: document.body.classList.length,
+      shellHidden: document.querySelector("#workoutShell")?.classList.contains("hidden") ?? null,
+      currentPresent: window.__repforgeWorkoutDraft?.current?.() != null,
+      readStatus: window.__repforgeWorkoutDraft?.read?.()?.status || "missing",
+      readHasRaw: window.__repforgeWorkoutDraft?.read?.()?.raw != null,
+      checkpointStatus: window.__repforgeWorkoutDraft?.checkpoint?.()?.status || "missing",
+      recoveryPresent: window.__repforgeWorkoutDraft?.recovery?.() != null,
     }));
-    throw new Error(`real enterWorkout failed: ${JSON.stringify(diagnostic).slice(0, 3000)}`);
+    throw new Error(`real enterWorkout failed (${JSON.stringify(diagnostic)})`);
   }
   // setWorkoutActive adds a short enter animation whose first frame is
   // intentionally hidden to the browser. The state change is the contract;
@@ -265,14 +283,14 @@ async function runBrowserCharacterization() {
     await waitForAppBoot(page, { base: BASE });
 
     const normalized = await appState(page);
-    assert(normalized?.programMeta?.id === EXPECTATIONS.durableState.programMetaId, "live app producer exposes normalized durable program state", normalized?.programMeta?.id);
+    assert(normalized?.programMeta?.id === EXPECTATIONS.durableState.programMetaId, "live app producer exposes normalized durable program state");
     assert(normalized?.programMeta?.name === EXPECTATIONS.durableState.programMetaName, "live normalized producer retains the program identity");
     assert(Array.isArray(normalized?.log) && normalized.log.some((row) => row.session === EXPECTATIONS.durableState.logSession), "live normalized producer retains workout log rows");
     assert(Array.isArray(normalized?.programHistory) && normalized.programHistory.length >= EXPECTATIONS.durableState.minimumHistoryEntries, "live normalized producer retains program history");
     assert(Array.isArray(normalized?.customExercises) && normalized.customExercises.some((entry) => entry.id === EXPECTATIONS.durableState.customExerciseId), "live normalized producer retains custom definitions");
 
     const backup = await downloadBackup(page);
-    assert(EXPECTATIONS.volatileDurableKeys.every((key) => !(key in backup)), "production backup producer excludes volatile durable metadata", JSON.stringify(Object.keys(backup)));
+    assert(EXPECTATIONS.volatileDurableKeys.every((key) => !(key in backup)), "production backup producer excludes volatile durable metadata");
     assert(!("workoutDraft" in backup) && !JSON.stringify(backup).includes("journal-only") && !JSON.stringify(backup).includes("recovery-only"), "production backup excludes active draft and volatile sidecars");
     assert(backup.programMeta?.id === EXPECTATIONS.durableState.programMetaId && backup.programMeta?.name === EXPECTATIONS.durableState.programMetaName, "normalized backup retains program metadata");
     assert(backup.log?.some((row) => row.session === EXPECTATIONS.durableState.logSession), "normalized backup retains log data");
@@ -308,13 +326,14 @@ async function runBrowserCharacterization() {
     assert((afterWorkoutSave?.log?.length || 0) > logBeforeSave, "real Finish workout persists a new log row");
     assert(!!savedRow, "real saved workout retains edited load and reps");
     const afterWorkoutSaveDraft = await draftObservation(page);
-    assert(afterWorkoutSaveDraft.current === null && afterWorkoutSaveDraft.read.status === "ok" && afterWorkoutSaveDraft.read.raw === null, "real saved workout removes the active draft from the live read path");
+    assert(trustedDraftAbsence(afterWorkoutSaveDraft), "real saved workout leaves a trusted empty draft read");
+    assert(afterWorkoutSaveDraft.checkpoint.status === "valid" && afterWorkoutSaveDraft.checkpoint.value.kind === "tombstone", "real saved workout leaves an acknowledged tombstone checkpoint");
 
     await removeDraftArtifacts(page);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
     const absent = await draftObservation(page);
-    assert(absent.current === null, "confirmed draft absence returns current() === null");
+    assert(trustedDraftAbsence(absent), "confirmed draft absence is trusted with an absent checkpoint");
     assert(absent.read.status === "ok" && absent.read.raw === null, "confirmed draft absence is an acknowledged empty canonical read");
     assert(absent.checkpoint.status === "absent", "confirmed draft absence has no V2 checkpoint");
 
@@ -366,7 +385,7 @@ async function main() {
 try {
   await main();
 } catch (error) {
-  failure = String(error?.stack || error);
+  failure = safeFailure(error);
   console.error(`FAIL: ${failure}`);
 } finally {
   mkdirSync(ARTIFACT_DIR, { recursive: true });
@@ -377,7 +396,7 @@ try {
     serverPid: process.env.REPFORGE_SERVER_PID ? Number(process.env.REPFORGE_SERVER_PID) : null,
     base: BASE,
     head,
-    startedAt: new Date(Date.now() - 1).toISOString(),
+    startedAt: TEST_STARTED_AT,
     finishedAt: new Date().toISOString(),
     passed: results.passed,
     failed: results.failed,
