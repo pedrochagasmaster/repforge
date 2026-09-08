@@ -12,6 +12,15 @@
     ["progressionContract", "incompatibilities"],
   ];
 
+  const RECONSTRUCTABLE_SOURCES = new Set([
+    "Recommend",
+    "Custom",
+    "Browse",
+    "recommend",
+    "custom",
+    "browse",
+  ]);
+
   const own = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
   const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
 
@@ -452,13 +461,18 @@
         proposal.successor.programId === proposal.predecessor.programId) {
       return "successor_identity_invalid";
     }
+    if (!RECONSTRUCTABLE_SOURCES.has(proposal.predecessor.source)) {
+      return "unsupported_source";
+    }
     if (proposal.kind === "lower_frequency_sibling") {
-      if (proposal.diagnosis?.kind !== "fewer_days" ||
-          proposal.diagnosis?.answers?.availableDays !== successor.frequency ||
-          !Array.isArray(proposal.diagnosis?.eligibleEvidenceIds) ||
+      if (!isObject(proposal.diagnosis) ||
+          proposal.diagnosis.kind !== "fewer_days" ||
+          proposal.diagnosis.answers?.availableDays !== successor.frequency ||
+          !Array.isArray(proposal.diagnosis.eligibleEvidenceIds) ||
           !proposal.diagnosis.eligibleEvidenceIds.length ||
-          !Array.isArray(proposal.diagnosis?.insufficientEvidenceReasons) ||
-          proposal.diagnosis.insufficientEvidenceReasons.length) {
+          !proposal.diagnosis.eligibleEvidenceIds.every((id) => typeof id === "string" && id.trim().length > 0) ||
+          !Array.isArray(proposal.diagnosis.insufficientEvidenceReasons) ||
+          proposal.diagnosis.insufficientEvidenceReasons.length > 0) {
         return "insufficient_transition_evidence";
       }
       if (proposal.derivation?.mode !== "recompilation" ||
@@ -470,13 +484,15 @@
         return "invalid_sibling_derivation";
       }
     } else if (proposal.kind === "shorter_session_sibling") {
-      if (proposal.diagnosis?.kind !== "sessions_too_long" ||
-          !Number.isFinite(proposal.diagnosis?.answers?.sessionMinutes) ||
-          proposal.diagnosis?.answers?.sessionMinutes <= 0 ||
-          !Array.isArray(proposal.diagnosis?.eligibleEvidenceIds) ||
+      if (!isObject(proposal.diagnosis) ||
+          proposal.diagnosis.kind !== "sessions_too_long" ||
+          !Number.isFinite(proposal.diagnosis.answers?.sessionMinutes) ||
+          proposal.diagnosis.answers.sessionMinutes <= 0 ||
+          !Array.isArray(proposal.diagnosis.eligibleEvidenceIds) ||
           !proposal.diagnosis.eligibleEvidenceIds.length ||
-          !Array.isArray(proposal.diagnosis?.insufficientEvidenceReasons) ||
-          proposal.diagnosis.insufficientEvidenceReasons.length) {
+          !proposal.diagnosis.eligibleEvidenceIds.every((id) => typeof id === "string" && id.trim().length > 0) ||
+          !Array.isArray(proposal.diagnosis.insufficientEvidenceReasons) ||
+          proposal.diagnosis.insufficientEvidenceReasons.length > 0) {
         return "insufficient_transition_evidence";
       }
       if (proposal.derivation?.mode !== "recompilation" ||
@@ -523,6 +539,9 @@
     }
 
     if (input.kind === "lower_frequency_sibling") {
+      if (input.diagnosis?.answers?.availableDays !== successor.frequency) {
+        return { ok: false, code: "insufficient_transition_evidence" };
+      }
       if (predecessor.familyId !== successor.familyId || successor.frequency >= predecessor.frequency ||
           input.successorCompilerContext?.frequency !== successor.frequency ||
           input.predecessorCompilerContext?.frequency !== predecessor.frequency ||
@@ -532,13 +551,15 @@
         return { ok: false, code: "unsupported_reconstruction" };
       }
     } else if (input.kind === "shorter_session_sibling") {
+      if (input.diagnosis?.answers?.sessionMinutes !== input.successorCompilerContext.sessionMinutes) {
+        return { ok: false, code: "insufficient_transition_evidence" };
+      }
       if (predecessor.familyId !== successor.familyId || successor.frequency !== predecessor.frequency ||
           input.successorCompilerContext?.frequency !== predecessor.frequency ||
           input.predecessorCompilerContext?.frequency !== predecessor.frequency ||
           !Number.isFinite(input.successorCompilerContext?.sessionMinutes) ||
           !Number.isFinite(input.predecessorCompilerContext?.sessionMinutes) ||
           input.successorCompilerContext.sessionMinutes >= input.predecessorCompilerContext.sessionMinutes ||
-          input.diagnosis?.answers?.sessionMinutes !== input.successorCompilerContext.sessionMinutes ||
           !sameCanonical(contextExceptDuration(input.predecessorCompilerContext),
             contextExceptDuration(input.successorCompilerContext))) {
         return { ok: false, code: "unsupported_reconstruction" };
@@ -666,8 +687,32 @@
     if (!isObject(predecessor)) {
       return { ok: false, status: "unavailable", code: "missing_predecessor", unavailable: true };
     }
-    if (predecessor.source === "Import" || predecessor.source === "legacy_migration" || predecessor.source === "Build") {
+    if (typeof predecessor.source !== "string" || !RECONSTRUCTABLE_SOURCES.has(predecessor.source)) {
       return { ok: false, status: "unavailable", code: "unsupported_source", unavailable: true };
+    }
+
+    const successorProgramId = input.successorProgramId || input.successor?.programId;
+    if (typeof successorProgramId !== "string" || !successorProgramId.trim() || successorProgramId === predecessor.programId) {
+      return { ok: false, status: "unavailable", code: "successor_identity_invalid", unavailable: true };
+    }
+
+    const transitionId = input.transitionId;
+    const createdAt = input.createdAt;
+    if (typeof transitionId !== "string" || !transitionId.trim() ||
+        typeof createdAt !== "string" || !createdAt.trim()) {
+      return { ok: false, status: "unavailable", code: "invalid_proposal", unavailable: true };
+    }
+
+    const diagnosis = input.diagnosis;
+    if (!isObject(diagnosis)) {
+      return { ok: false, status: "unavailable", code: "insufficient_transition_evidence", unavailable: true };
+    }
+    if (!Array.isArray(diagnosis.eligibleEvidenceIds) ||
+        diagnosis.eligibleEvidenceIds.length === 0 ||
+        !diagnosis.eligibleEvidenceIds.every((id) => typeof id === "string" && id.trim().length > 0) ||
+        !Array.isArray(diagnosis.insufficientEvidenceReasons) ||
+        diagnosis.insufficientEvidenceReasons.length > 0) {
+      return { ok: false, status: "unavailable", code: "insufficient_transition_evidence", unavailable: true };
     }
 
     if (input.predecessorInstance?.customizedFrom || predecessor.customizedFrom) {
@@ -712,16 +757,24 @@
     let targetFrequency = predecessorInstance.frequency;
     let targetMinutes = predecessorContext.sessionMinutes;
     let successorContext;
-    let diagnosis;
 
     if (kind === "lower_frequency_sibling") {
-      const rawFreq = isObject(input.targetConstraint)
-        ? (input.targetConstraint.frequency ?? input.targetConstraint.availableDays)
-        : (typeof input.targetConstraint === "number" ? input.targetConstraint : input.diagnosis?.answers?.availableDays);
-      targetFrequency = Number(rawFreq);
-      if (!Number.isInteger(targetFrequency) || targetFrequency <= 0 || targetFrequency >= predecessorInstance.frequency) {
-        return { ok: false, status: "unavailable", code: "invalid_target_constraint", unavailable: true };
+      if (diagnosis.kind !== "fewer_days") {
+        return { ok: false, status: "unavailable", code: "insufficient_transition_evidence", unavailable: true };
       }
+      const diagnosisFreq = diagnosis.answers?.availableDays;
+      if (!Number.isInteger(diagnosisFreq) || diagnosisFreq <= 0 || diagnosisFreq >= predecessorInstance.frequency) {
+        return { ok: false, status: "unavailable", code: "insufficient_transition_evidence", unavailable: true };
+      }
+      if (input.targetConstraint !== undefined && input.targetConstraint !== null) {
+        const rawConstraint = isObject(input.targetConstraint)
+          ? (input.targetConstraint.frequency ?? input.targetConstraint.availableDays)
+          : (typeof input.targetConstraint === "number" ? input.targetConstraint : null);
+        if (rawConstraint === null || rawConstraint === undefined || Number(rawConstraint) !== diagnosisFreq) {
+          return { ok: false, status: "unavailable", code: "insufficient_transition_evidence", unavailable: true };
+        }
+      }
+      targetFrequency = diagnosisFreq;
 
       // Resolver must select authored BLUEPRINTS by family/frequency metadata, never string concatenation/name matching
       const siblingBlueprint = Array.isArray(Compiler.BLUEPRINTS)
@@ -736,23 +789,23 @@
         frequency: targetFrequency,
       };
       delete successorContext.splitId;
-
-      diagnosis = input.diagnosis ? clone(input.diagnosis) : {
-        kind: "fewer_days",
-        answers: { availableDays: targetFrequency },
-        eligibleEvidenceIds: Array.isArray(input.eligibleEvidenceIds) && input.eligibleEvidenceIds.length
-          ? input.eligibleEvidenceIds
-          : [`schedule-${predecessorInstance.frequency}-to-${targetFrequency}`],
-        insufficientEvidenceReasons: [],
-      };
     } else if (kind === "shorter_session_sibling") {
-      const rawMins = isObject(input.targetConstraint)
-        ? input.targetConstraint.sessionMinutes
-        : (typeof input.targetConstraint === "number" ? input.targetConstraint : input.diagnosis?.answers?.sessionMinutes);
-      targetMinutes = Number(rawMins);
-      if (!Number.isFinite(targetMinutes) || targetMinutes <= 0 || targetMinutes >= predecessorContext.sessionMinutes) {
-        return { ok: false, status: "unavailable", code: "invalid_target_constraint", unavailable: true };
+      if (diagnosis.kind !== "sessions_too_long") {
+        return { ok: false, status: "unavailable", code: "insufficient_transition_evidence", unavailable: true };
       }
+      const diagnosisMins = diagnosis.answers?.sessionMinutes;
+      if (!Number.isFinite(diagnosisMins) || diagnosisMins <= 0 || diagnosisMins >= predecessorContext.sessionMinutes) {
+        return { ok: false, status: "unavailable", code: "insufficient_transition_evidence", unavailable: true };
+      }
+      if (input.targetConstraint !== undefined && input.targetConstraint !== null) {
+        const rawConstraint = isObject(input.targetConstraint)
+          ? input.targetConstraint.sessionMinutes
+          : (typeof input.targetConstraint === "number" ? input.targetConstraint : null);
+        if (rawConstraint === null || rawConstraint === undefined || Number(rawConstraint) !== diagnosisMins) {
+          return { ok: false, status: "unavailable", code: "insufficient_transition_evidence", unavailable: true };
+        }
+      }
+      targetMinutes = diagnosisMins;
 
       // Sibling blueprint keeps family and frequency
       const siblingBlueprint = Array.isArray(Compiler.BLUEPRINTS)
@@ -766,15 +819,6 @@
         ...clone(predecessorContext),
         frequency: targetFrequency,
         sessionMinutes: targetMinutes,
-      };
-
-      diagnosis = input.diagnosis ? clone(input.diagnosis) : {
-        kind: "sessions_too_long",
-        answers: { sessionMinutes: targetMinutes },
-        eligibleEvidenceIds: Array.isArray(input.eligibleEvidenceIds) && input.eligibleEvidenceIds.length
-          ? input.eligibleEvidenceIds
-          : [`sessions-too-long-${targetMinutes}`],
-        insufficientEvidenceReasons: [],
       };
     }
 
@@ -805,8 +849,8 @@
     }
 
     const proposalInput = {
-      transitionId: input.transitionId || `tr_${predecessor.programId}_sibling_${Date.now()}`,
-      createdAt: input.createdAt || new Date().toISOString(),
+      transitionId,
+      createdAt,
       kind,
       request: kind === "lower_frequency_sibling" ? "lower-frequency-sibling" : "shorter-session-sibling",
       predecessor: {
@@ -816,7 +860,7 @@
         compilerProvenance: predecessorInstance.provenance,
       },
       successor: {
-        programId: input.successor?.programId || input.successorProgramId || `prog_${successorInstance.blueprintId}_${targetMinutes || targetFrequency}`,
+        programId: successorProgramId,
         source: predecessor.source,
         compilerProvenance: successorInstance.provenance,
       },
@@ -825,7 +869,7 @@
       predecessorCompilerContext: predecessorContext,
       successorCompilerContext: successorContext,
       supportedVersions: Compiler.VERSIONS,
-      diagnosis,
+      diagnosis: clone(diagnosis),
     };
 
     const proposalResult = await createSiblingProposal(proposalInput);
@@ -880,14 +924,18 @@
     }
 
     if (proposal.kind === "shorter_session_sibling") {
-      if (current.successorCompilerContext?.sessionMinutes !== proposal.diagnosis?.answers?.sessionMinutes ||
-          current.successorCompilerContext?.sessionMinutes >= current.predecessorCompilerContext?.sessionMinutes ||
+      if (current.successorCompilerContext?.sessionMinutes !== proposal.diagnosis?.answers?.sessionMinutes) {
+        return { ok: false, status: "invalid", code: "insufficient_transition_evidence" };
+      }
+      if (current.successorCompilerContext?.sessionMinutes >= current.predecessorCompilerContext?.sessionMinutes ||
           current.successorInstance.frequency !== current.predecessorInstance.frequency) {
         return { ok: false, status: "invalid", code: "invalid_sibling_derivation" };
       }
     } else if (proposal.kind === "lower_frequency_sibling") {
-      if (current.successorCompilerContext?.frequency !== proposal.diagnosis?.answers?.availableDays ||
-          current.successorInstance.frequency >= current.predecessorInstance.frequency) {
+      if (current.successorCompilerContext?.frequency !== proposal.diagnosis?.answers?.availableDays) {
+        return { ok: false, status: "invalid", code: "insufficient_transition_evidence" };
+      }
+      if (current.successorInstance.frequency >= current.predecessorInstance.frequency) {
         return { ok: false, status: "invalid", code: "invalid_sibling_derivation" };
       }
     }
