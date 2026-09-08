@@ -1,0 +1,282 @@
+{
+  "fixture": "install-transfer-hostile-inputs",
+  "fixtureVersion": 1,
+  "authority": "docs/adr/0013-temporary-install-transfer.md",
+  "status": "independent-wave-a-design",
+  "boundaryProbes": [
+    {
+      "id": "create-body-at-limit",
+      "limitId": "request-body-create-bytes",
+      "construction": "raw-json-ascii-bytes",
+      "target": 2000000,
+      "expectedAtTarget": "accept",
+      "expectedAtTargetPlusOne": "reject",
+      "proposedCode": "body-too-large"
+    },
+    {
+      "id": "small-endpoint-body-at-limit",
+      "limitId": "request-body-small-endpoint-bytes",
+      "construction": "raw-json-ascii-bytes",
+      "target": 4096,
+      "expectedAtTarget": "accept",
+      "expectedAtTargetPlusOne": "reject",
+      "proposedCode": "body-too-large"
+    },
+    {
+      "id": "envelope-at-limit",
+      "limitId": "envelope-total-json-bytes",
+      "construction": "serialized-envelope-utf8-bytes",
+      "target": 2000000,
+      "expectedAtTarget": "accept",
+      "expectedAtTargetPlusOne": "reject",
+      "proposedCode": "envelope-too-large"
+    },
+    {
+      "id": "depth-at-limit",
+      "limitId": "nesting-depth",
+      "construction": "nested-objects-root-depth-zero",
+      "target": 64,
+      "expectedAtTarget": "accept",
+      "expectedAtTargetPlusOne": "reject-during-parse",
+      "proposedCode": "depth-too-large"
+    },
+    {
+      "id": "object-keys-at-limit",
+      "limitId": "object-keys-per-object",
+      "construction": "object-with-own-keys",
+      "target": 256,
+      "expectedAtTarget": "accept",
+      "expectedAtTargetPlusOne": "reject",
+      "proposedCode": "object-too-wide"
+    },
+    {
+      "id": "array-items-at-limit",
+      "limitId": "array-items-per-array",
+      "construction": "ordinary-array",
+      "target": 10000,
+      "expectedAtTarget": "accept",
+      "expectedAtTargetPlusOne": "reject",
+      "proposedCode": "array-too-large"
+    },
+    {
+      "id": "string-value-at-limit",
+      "limitId": "string-value-length",
+      "construction": "unicode-scalar-repeat",
+      "sample": "😀",
+      "target": 8000,
+      "expectedAtTarget": "accept",
+      "expectedAtTargetPlusOne": "reject",
+      "proposedCode": "string-too-long"
+    },
+    {
+      "id": "identifier-at-limit",
+      "limitId": "identifier-key-length",
+      "construction": "unicode-scalar-key",
+      "sample": "😀",
+      "target": 256,
+      "expectedAtTarget": "accept",
+      "expectedAtTargetPlusOne": "reject",
+      "proposedCode": "identifier-too-long"
+    },
+    {
+      "id": "log-rows-at-generic-array-limit",
+      "limitId": "durable-state-log-rows",
+      "construction": "durableState.log-rows",
+      "target": 10000,
+      "expectedAtTarget": "accept-under-both-bounds",
+      "expectedAtTargetPlusOne": "unresolved-generic-array-interaction",
+      "proposedCode": "log-too-large"
+    },
+    {
+      "id": "log-rows-at-specialized-limit",
+      "limitId": "durable-state-log-rows",
+      "construction": "durableState.log-rows",
+      "target": 200000,
+      "expectedAtTarget": "unresolved-generic-array-interaction",
+      "expectedAtTargetPlusOne": "reject",
+      "proposedCode": "log-too-large"
+    },
+    {
+      "id": "program-rows-at-limit",
+      "limitId": "durable-state-program-rows",
+      "construction": "durableState.program-rows",
+      "target": 2000,
+      "expectedAtTarget": "accept",
+      "expectedAtTargetPlusOne": "reject",
+      "proposedCode": "program-too-large"
+    },
+    {
+      "id": "program-history-at-limit",
+      "limitId": "durable-state-program-history-entries",
+      "construction": "durableState.programHistory-entries",
+      "target": 2000,
+      "expectedAtTarget": "accept",
+      "expectedAtTargetPlusOne": "reject",
+      "proposedCode": "program-history-too-large"
+    },
+    {
+      "id": "custom-exercises-at-limit",
+      "limitId": "durable-state-custom-exercises",
+      "construction": "durableState.customExercises-entries",
+      "target": 1000,
+      "expectedAtTarget": "accept",
+      "expectedAtTargetPlusOne": "reject",
+      "proposedCode": "custom-exercises-too-large"
+    },
+    {
+      "id": "serialized-log-row-at-limit",
+      "limitId": "serialized-log-row-size",
+      "construction": "json-stringified-row-unicode-scalars",
+      "target": 8000,
+      "expectedAtTarget": "accept",
+      "expectedAtTargetPlusOne": "reject",
+      "proposedCode": "log-row-too-large"
+    },
+    {
+      "id": "claims-per-token-at-limit",
+      "limitId": "claims-per-token",
+      "construction": "server-claim-state",
+      "target": 1,
+      "expectedAtTarget": "accept",
+      "expectedAtTargetPlusOne": "reject",
+      "proposedCode": "claim-unavailable"
+    },
+    {
+      "id": "claim-id-at-minimum",
+      "limitId": "claim-id-length",
+      "construction": "base64url-random-id",
+      "target": 22,
+      "entropyBits": 128,
+      "expectedAtTarget": "accept-if-random",
+      "expectedAtTargetPlusOne": "accept-if-random",
+      "proposedCode": "claim-id-invalid"
+    },
+    {
+      "id": "claim-id-at-maximum",
+      "limitId": "claim-id-length",
+      "construction": "base64url-random-id",
+      "target": 43,
+      "entropyBits": 256,
+      "expectedAtTarget": "accept-if-random",
+      "expectedAtTargetPlusOne": "reject",
+      "proposedCode": "claim-id-invalid"
+    },
+    {
+      "id": "create-rate-at-limit",
+      "limitId": "create-rate-per-ip",
+      "construction": "hmac-ip-rate-bucket",
+      "target": 5,
+      "expectedAtTarget": "accept",
+      "expectedAtTargetPlusOne": "reject",
+      "proposedCode": "rate-limited"
+    },
+    {
+      "id": "claim-commit-status-rate-at-limit",
+      "limitId": "claim-commit-status-rate-per-token",
+      "construction": "token-rate-bucket",
+      "target": 60,
+      "expectedAtTarget": "accept",
+      "expectedAtTargetPlusOne": "reject",
+      "proposedCode": "rate-limited"
+    }
+  ],
+  "cases": [
+    {
+      "id": "malformed-json",
+      "kind": "raw-json",
+      "raw": "{\"kind\":\"taurifer-install-transfer\",",
+      "expected": "reject-before-validation",
+      "proposedCode": "invalid-json"
+    },
+    {
+      "id": "scalar-root",
+      "kind": "parsed-value",
+      "value": "taurifer-install-transfer",
+      "expected": "reject",
+      "proposedCode": "invalid-envelope"
+    },
+    {
+      "id": "unknown-top-level-schema-version",
+      "kind": "envelope",
+      "override": { "schemaVersion": 2 },
+      "expected": "reject-without-local-mutation",
+      "proposedCode": "unsupported-schema-version"
+    },
+    {
+      "id": "unknown-top-level-schema-version-zero",
+      "kind": "envelope",
+      "override": { "schemaVersion": 0 },
+      "expected": "reject-without-local-mutation",
+      "proposedCode": "unsupported-schema-version"
+    },
+    {
+      "id": "top-level-schema-version-string",
+      "kind": "envelope",
+      "override": { "schemaVersion": "1" },
+      "expected": "reject-without-local-mutation",
+      "proposedCode": "invalid-schema-version"
+    },
+    {
+      "id": "unknown-workout-draft-version",
+      "kind": "envelope-section",
+      "path": "workoutDraft.schemaVersion",
+      "override": { "workoutDraft": { "schemaVersion": 2 } },
+      "expected": "reject-without-local-mutation",
+      "proposedCode": "unsupported-workout-draft-version"
+    },
+    {
+      "id": "unknown-required-section-version",
+      "kind": "envelope-section",
+      "path": "programEntryDraft.schemaVersion",
+      "override": { "programEntryDraft": { "schemaVersion": 2 } },
+      "expected": "reject-without-local-mutation",
+      "proposedCode": "unsupported-program-entry-draft-version"
+    },
+    {
+      "id": "unknown-optional-section",
+      "kind": "envelope-section",
+      "path": "futureSection",
+      "override": { "futureSection": { "schemaVersion": 99 } },
+      "expected": "contract-pin-required",
+      "proposedCode": "unknown-section"
+    },
+    {
+      "id": "dangerous-key-root-proto",
+      "kind": "raw-json",
+      "raw": "{\"__proto__\":{\"polluted\":true}}",
+      "dangerousKey": "__proto__",
+      "expected": "reject-without-prototype-pollution",
+      "proposedCode": "dangerous-key"
+    },
+    {
+      "id": "dangerous-key-nested-constructor",
+      "kind": "raw-json",
+      "raw": "{\"durableState\":{\"constructor\":{\"polluted\":true}}}",
+      "dangerousKey": "constructor",
+      "expected": "reject-without-prototype-pollution",
+      "proposedCode": "dangerous-key"
+    },
+    {
+      "id": "dangerous-key-array-prototype",
+      "kind": "raw-json",
+      "raw": "{\"durableState\":{\"program\":[{\"prototype\":{\"polluted\":true}}]}}",
+      "dangerousKey": "prototype",
+      "expected": "reject-without-prototype-pollution",
+      "proposedCode": "dangerous-key"
+    },
+    {
+      "id": "duplicate-key",
+      "kind": "raw-json",
+      "raw": "{\"kind\":\"taurifer-install-transfer\",\"kind\":\"other\"}",
+      "expected": "contract-pin-required",
+      "proposedCode": "duplicate-key"
+    },
+    {
+      "id": "invalid-utf8-bytes",
+      "kind": "raw-bytes",
+      "bytes": [123, 34, 107, 34, 58, 194, 125],
+      "expected": "reject-before-json-parse",
+      "proposedCode": "invalid-utf8"
+    }
+  ]
+}
