@@ -2,6 +2,9 @@
 
 Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
 and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
+External Herdr workers additionally follow the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md)
+and the [Herdr worker packets](#herdr-worker-packets) section below. The coordinator fills every packet field and the
+live SHAs, thread ID, server origin, and PID before dispatch.
 
 - **Plan number:** 058
 - **Phase:** 7 — System convergence
@@ -54,7 +57,7 @@ Preserve Taurifer's warm paper/ink/burnt-orange identity, token-only dark swap, 
 - Current controls include base `.btn` variants, multiple steppers, radio cards, segmented controls/tabs, links/rows, icon buttons, switches, disclosure chevrons, and separate Skip treatments.
 - Progress encodings appear in Today block/week, Focus exercise/set, entry steps, Review, and old tour. Their values are different dimensions and cannot be merged by appearance alone.
 - Light `--accent` is approximately 3.57:1 on `--bg`, while `--accent-deep` is suitable for more small-text roles; this is not evidence to remove decorative accent. Some control boundaries rely on light `--rule` alone and require role-specific evaluation.
-- The 72-state/221-frame baseline will have changed in Plans 050/053–057. Plan 058 must inventory the live manifest rather than use those old counts.
+- The 72-state/221-frame audit baseline already changed: main `c3491c5e` is 75 screens / 317 frames after Plans 050/051, and Plans 053–057 will change it further. Plan 058 must inventory the live manifest at its dispatch base SHA rather than use any documented count.
 
 ## Architecture
 
@@ -162,7 +165,7 @@ No product state changes. Role inventory is versioned test metadata. Semantic an
 - Replace literals only when their semantic role is known. Unknown literals become inventory findings, not mechanically mapped guesses.
 - Convert component classes in coherent surface slices; keep old/new selectors temporarily only within one atomic commit, not as a long-lived dual system.
 - No user-data migration. Existing theme preference remains unchanged and excluded from backup/setup sharing.
-- CSS/index changes require current service-worker cache bump; script query revisions change only when one of the five protected scripts changes.
+- CSS/index changes require current service-worker cache bump; script query revisions change only when one of the six protected scripts (`program-compiler.js`, `program-entry.js`, `program-entry-adapter.js`, `shared-setup.js`, `workout-draft.js`, `app.js`) changes.
 
 ## UX state specification
 
@@ -275,6 +278,54 @@ Compatibility tokens/aliases remain until every surface and catalog gate is gree
 | 10 | `test(ui-system): regenerate the complete converged catalog` | Full catalog and responsive/theme/text/reduced/installed evidence | manifest/scenarios/PNGs/docs/SW inventory | Commits 2–9 | Capture/check/compare/role/overflow | Full regression/audit extraction | Entire live catalog reviewed | Fill owner/completion/handoff | Evidence/cache revert as one boundary |
 
 For every row: mark 🟡; implement only the row; run focused proof; inspect the complete diff and every affected frame; remove unrelated changes; commit; push immediately; update PR; proceed only from a clean truthful remote boundary.
+
+## Herdr worker packets
+
+The atomic commit sequence above is the delivery contract. Each row is dispatched as one or more self-contained packets
+per the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md); the coordinator fills every template
+field before dispatch. Surface migration is dispatched **one bounded surface / state family per worker against frozen
+roles** — no worker is handed "migrate the styles".
+
+Rules for every packet in this plan:
+
+- **Inventory and rendered-role AA negatives come first.** 058-P1 delivers the re-runnable role inventory *and* the
+  rendered-role WCAG 2.2 AA negative cases (seeded failures that must be rejected) before any token or surface change,
+  so the AA contract is not a late row-8 surprise. Row 8's remaining work is enforcement breadth (058-P5), not the
+  first proof.
+- **Roles are frozen before migration.** 058-P2/P3 land the token scales and control/progress semantics with
+  compatibility aliases; the per-surface packets (058-P4a…P4d) then migrate consumers without changing the DOM/state/
+  interaction contract owned by Plans 054–057.
+- **Anchors are concrete.** Existing: `styles.css` root tokens (`--accent:#E04E14`, `--accent-deep:#B8410E`,
+  `--radius:14px`, `--shadow:none`, `--rule`) and the `:root[data-theme="dark"]` swap; `tools/check-ui-screens.mjs`,
+  `tools/compare-ui-screens.mjs`, `test/ui-catalog-contract.mjs`, `test/appearance.mjs`, `test/accessibility.mjs`.
+  **NEW** (this plan): `tools/ui-role-inventory.json`, `tools/check-ui-system.mjs`, `test/ui-system.mjs`, semantic
+  `data-elevation` / `data-control-role` / `data-progress-dimension` annotations.
+- **Palette and licensed art are preserved.** No packet globally replaces orange, recolors the sampled `mediaBg`
+  paper, or fills an empty media tile; contrast is measured per rendered role against the effective composited
+  background, not against one token.
+- **Every packet carries a deliberate failing case** and a STOP boundary; the coordinator reviews the changed-frame
+  inventory before the next surface packet.
+
+### Row → packet map
+
+P4a–P4d are groups, not single worker assignments. Dispatch one named surface
+per turn, such as History alone, then Share alone. Record suffixes in the PR
+and use the original atomic message with that surface suffix. A worker owns
+only that surface's selectors, renderer regions, and catalog states. Shared
+token changes return to P2/P3 review rather than occurring inside a migration.
+
+| Packet | Maps rows | Bounded objective · mode | Existing anchors (main unless NEW) | Proof-first: PLANNED assertion + independent oracle + deliberate failure | Commands: baseline now → planned | STOP · reviewer gate |
+|---|---|---|---|---|---|---|
+| 058-P1 | 1, 8 (negatives) | Re-runnable role inventory + `check-ui-system.mjs` + rendered-role AA negative cases (seeded bad artifacts the checker must reject) · **build (tests/metadata only)** | live manifest; `styles.css` literals; NEW `tools/ui-role-inventory.json`, `tools/check-ui-system.mjs`, `test/ui-system.mjs` | NEW `test/ui-system.mjs`: every live manifest state maps to a semantic role; a seeded literal `font-size`/radius/shadow/color outside token defs fails; a seeded 3.9:1 body-text role fails the AA check (oracle = WCAG 2.2 thresholds, not a snapshot). Failure: the checker infers a role for an ambiguous selector instead of failing loudly | baseline: `node test/ui-catalog-contract.mjs` → planned: `node tools/check-ui-system.mjs && node test/ui-system.mjs` | STOP if a visible component has no inventory role or the checker guesses · reviewer: reproduces one seeded-literal and one seeded-contrast rejection |
+| 058-P2 | 2 | Define semantic type / radius / elevation token scales plus old-token aliases (`--radius`, `--r`); no intended consumer change · **build** | `styles.css` root; `test/appearance.mjs` | extend `test/ui-system.mjs`: each named token exists with its specified value in both themes; aliases resolve to the new tokens. Failure: an alias points at the wrong scale step | baseline: `node test/appearance.mjs` → planned: `node test/ui-system.mjs` | STOP if a token encodes a fixed height that clips scaled text · reviewer: token value/theme table |
+| 058-P3 | 3 | Converge control states and progress dimensions: shared primary/secondary/quiet/destructive/disclosure/selection/disabled/icon semantics; `data-progress-dimension` on every progress element · **build** | `.btn` variants, steppers, radio cards, segmented/tabs, chevrons, Skip treatments in `styles.css`/renderers | extend `test/ui-system.mjs`: equivalent controls share states/tokens; a progress element without a `block` / `week` / `exercise-set` / `task` dimension fails; duplicate same-dimension bars on one surface consolidate only after an accessible-text comparison. Failure: two unlike semantics aliased because their silhouette matches | baseline: `node test/accessibility.mjs` → planned: `node test/ui-system.mjs` | STOP if a contextual variant loses shared target-size/focus/disabled semantics · reviewer: reproduces the dimension check and one variant rationale |
+| 058-P4a | 4 | Migrate landing + program-entry surfaces to frozen roles, no motif drift · **build (one surface family)** | Plan 054 entry/landing markup (merged); owner-selected reference | per-surface: `node tools/capture-ui-screens.mjs --flow onboarding-start --flow onboarding-recommend`; semantic tree/focus/geometry unchanged vs Plan 054 contract. Failure: a CSS refactor reorders focus or hides a control | baseline: `node tools/compare-ui-screens.mjs` → planned: `node tools/capture-ui-screens.mjs --flow onboarding-start` + `node tools/check-ui-system.mjs` | STOP if the surface's Plan 054 DOM/state contract changes · reviewer: changed-frame inventory for entry only |
+| 058-P4b | 5 | Migrate Today / Focus / summary surfaces · **build (one surface family)** | Plan 055 workout markup (merged); `.focus-*` styles | `node tools/capture-ui-screens.mjs --flow today --flow workout --flow session`; core loop semantic/state facts unchanged; Mono assigned by value not ancestry. Failure: Focus hierarchy flattened | baseline: `node tools/compare-ui-screens.mjs` → planned: `node tools/capture-ui-screens.mjs --flow workout` + `node tools/check-ui-system.mjs` | STOP if a workout/summary interaction contract shifts · reviewer: protected-strength parity note |
+| 058-P4c | 6 | Migrate Progress surfaces · **build (one surface family)** | Plan 056 Progress markup (merged) | `node tools/capture-ui-screens.mjs --flow progress`; outcome/action/evidence roles and chart contrast pass in both themes. Failure: improved/declined distinguished by color only | baseline: `node tools/compare-ui-screens.mjs` → planned: `node tools/capture-ui-screens.mjs --flow progress` + `node tools/check-ui-system.mjs` | STOP if a role needs a hierarchy change — hand it back to Plan 056 · reviewer: every outcome/state frame |
+| 058-P4d | 7 | Migrate management + library surfaces (History/Share/Program/Settings/timer/library/install/help) · **build (one surface family)** | Plan 057 markup (merged); library styles | `node tools/capture-ui-screens.mjs --flow history --flow program --flow settings --flow library --flow install`; no nested-card tunnel; Replace/Remove keep rendered-role distinction. Failure: a card-within-card tunnel introduced | baseline: `node tools/compare-ui-screens.mjs` → planned: `node tools/capture-ui-screens.mjs --flow history` + `node tools/check-ui-system.mjs` | STOP if an elevated descendant lacks a `selected`/overlay rationale · reviewer: closes the inventory exceptions for these surfaces |
+| 058-P5 | 8 | Enforce rendered-role WCAG 2.2 AA across the whole live catalog (effective foreground/background, focus, boundary, state) · **build** | `test/ui-system.mjs`, catalog metadata | every role/state in EN/PT and light/dark computes its effective contrast and passes the applicable threshold; decorative separators marked non-required. Failure: a contrast case that cannot resolve its effective background is reported "unsupported" and blocks, not passed | baseline: `node test/accessibility.mjs` → planned: `node test/ui-system.mjs` (full catalog) | STOP if contrast cannot be measured against the effective rendered background · reviewer: measured matrix |
+| 058-P6 | 9 | Remove compatibility literals/aliases and dead selectors; no one-off component or tunnel remains · **build** | `styles.css`, checker allowlist; owner board approval | zero-debt inventory + source scan; every remaining exception has selector/role/reason/owner. Failure: a consumer still on an old alias after removal | baseline: `node test/generative/run.mjs --profile ci` → planned: `node tools/check-ui-system.mjs` (zero debt) | STOP before removal until the owner visual board is approved · reviewer: final exception list |
+| 058-P7 | 10 | Regenerate the complete converged catalog and prove responsive/theme/text/reduced/installed evidence · **build + owner board** | catalog manifest/scenarios/PNGs; `tools/check-ui-screens.mjs`, `tools/compare-ui-screens.mjs` | full regen + `node tools/check-ui-screens.mjs`; record live before/after screen/frame counts and the exact changed-frame inventory. Failure: a changed frame with no documented role/intent | baseline: `node tools/check-ui-screens.mjs && node tools/compare-ui-screens.mjs` → planned: `node tools/capture-ui-screens.mjs` (full) then both checkers | STOP if any live public surface is unmigrated/unreviewed · reviewer + owner: board approval recorded (Plan 059 does physical sign-off) |
 
 ## Implementation-agent operating protocol
 

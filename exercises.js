@@ -5,7 +5,7 @@
    (MIT). That project's exercise media is licensed separately and is not used
    here. See NOTICE.md.
 
-   270 movements. Equipment, muscle tokens and movement patterns are
+   271 movements. Equipment, muscle tokens and movement patterns are
    Taurifer's own vocabulary — the audit groups hard sets by the exact muscle
    strings below, so they are a contract, not free text. */
 (function(){
@@ -24,6 +24,7 @@ const EXERCISE_LIBRARY = [
   {id:"sqf_bb",name:"Barbell front squat",namePt:"Agachamento frontal com barra",equipment:["barbell"],primary:"Quads",secondary:"Glutes,Hamstrings,Calves",patterns:["squat"],rank:50,beginnerFriendly:true,media:"assets/exercises/sqf_bb.webp",mediaBg:"#ebdfcb",src:"exdb:0042"},
   {id:"gb_bb",name:"Barbell glute bridge",namePt:"Elevação pélvica com barra",equipment:["barbell"],primary:"Hamstrings,Glutes",secondary:"Spinal erectors",patterns:["hinge"],rank:50,beginnerFriendly:true,src:"exdb:1409"},
   {id:"gm_bb",name:"Barbell good morning",namePt:"Bom dia com barra",equipment:["barbell"],primary:"Hamstrings,Glutes",secondary:"Spinal erectors",patterns:["hinge"],rank:50,beginnerFriendly:true,src:"exdb:0044"},
+  {id:"sqk_bb",name:"Barbell hack squat",namePt:"Agachamento hack com barra",equipment:["barbell"],primary:"Quads",secondary:"Glutes,Hamstrings,Calves",patterns:["squat"],rank:50,beginnerFriendly:true,src:"exdb:0046"},
   {id:"sqh_bb",name:"Barbell high bar squat",namePt:"Agachamento barra alta",equipment:["barbell"],primary:"Quads",secondary:"Glutes,Hamstrings,Calves",patterns:["squat"],rank:50,beginnerFriendly:true,src:"exdb:1436"},
   {id:"ht_bb",name:"Barbell hip thrust",namePt:"Elevação pélvica com barra",equipment:["barbell"],primary:"Glutes",secondary:"Hamstrings",patterns:["hinge"],rank:50,beginnerFriendly:true,media:"assets/exercises/ht_bb.webp",mediaBg:"#f2e9da"},
   {id:"ip_bb",name:"Barbell incline press",namePt:"Supino inclinado com barra",equipment:["barbell"],primary:"Chest",secondary:"Front delts,Triceps",patterns:["incline_press"],rank:0,beginnerFriendly:false,media:"assets/exercises/ip_bb.webp",mediaBg:"#e7d6c2",src:"exdb:0047"},
@@ -285,7 +286,7 @@ const EXERCISE_LIBRARY = [
 
 /* Ids that used to name a movement Taurifer now stores under a single entry.
    Programs generated before the merge still carry them in libraryId. */
-const LEGACY_LIBRARY_IDS = {dl_mc:"lr_mc",dl_db:"lr_db",ar_mc:"cu_mc",ar_db:"cu_db",sqk_bb:"sqk_mc"};
+const LEGACY_LIBRARY_IDS = {dl_mc:"lr_mc",dl_db:"lr_db",ar_mc:"cu_mc",ar_db:"cu_db"};
 
 /* Scoped so these names stay out of the global script scope app.js shares with
    every other classic script — only the namespace below is exported. */

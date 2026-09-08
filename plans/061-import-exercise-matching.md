@@ -72,10 +72,10 @@ Scoring reliably moves the right answer *into* the visible set and does not
 reliably move it to *first place*, because some inputs are genuinely ambiguous.
 "Hack squat" tied Barbell hack squat against Hack squat machine at 0.89 and the
 source never said which. That asymmetry is why the row shows candidates rather
-than a verdict. The owner has since settled this particular line: hack squat is
-a machine movement, the barbell entry is retired, and the ambiguity is gone from
-the corpus. The asymmetry it demonstrated is not, which is why the shortlist
-stays.
+than a verdict. The owner has since settled the unqualified phrase "Hack squat"
+as the machine movement, so its curated alias resolves that input. The
+historical barbell movement and its `sqk_bb` identity remain available and
+unchanged. The broader asymmetry remains, which is why the shortlist stays.
 
 ## Settled decisions
 
@@ -234,9 +234,9 @@ from `sw.js`; `CLAUDE.md` is stale on this.
 3. Provenance decides match strength. A curated alias arrives confirmed; a
    score-derived guess does not.
 4. Aliases add reach, never meaning. An id keeps pointing at the movement it
-   always pointed at. A retired movement keeps resolving through
-   `LEGACY_LIBRARY_IDS` rather than having its id reused, so a program saved
-   against it does not lose a slot.
+   always pointed at. The unqualified "Hack squat" alias reaches the machine;
+   `sqk_bb` continues to mean Barbell hack squat, so an existing program does
+   not silently change movements or equipment.
 5. Improvement is measured before it is claimed. The corpus says whether
    matching got better; the field event says whether it got better for people
    whose programs we have never seen.

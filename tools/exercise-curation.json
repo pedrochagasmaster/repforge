@@ -1413,6 +1413,14 @@
     "_srcName": "barbell front squat"
   },
   {
+    "id": "sqk_bb",
+    "src": "exdb:0046",
+    "patterns": [
+      "squat"
+    ],
+    "_srcName": "barbell hack squat"
+  },
+  {
     "id": "lg_bb",
     "src": "exdb:0054",
     "patterns": [

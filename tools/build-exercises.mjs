@@ -733,7 +733,7 @@ ${entries.map(line).join(",\n")}
 
 /* Ids that used to name a movement Taurifer now stores under a single entry.
    Programs generated before the merge still carry them in libraryId. */
-const LEGACY_LIBRARY_IDS = {dl_mc:"lr_mc",dl_db:"lr_db",ar_mc:"cu_mc",ar_db:"cu_db",sqk_bb:"sqk_mc"};
+const LEGACY_LIBRARY_IDS = {dl_mc:"lr_mc",dl_db:"lr_db",ar_mc:"cu_mc",ar_db:"cu_db"};
 
 /* Scoped so these names stay out of the global script scope app.js shares with
    every other classic script — only the namespace below is exported. */

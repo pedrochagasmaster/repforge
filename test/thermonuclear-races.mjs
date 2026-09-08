@@ -1122,6 +1122,16 @@ async function scenarioInPageFinishPreservesNewerDraft(browser) {
     const finishResult = await writer.evaluate(() => window.__auditInPageFinish);
     await writer.evaluate(() => window.__repforgeStorage.flush());
     const final = await readBoth(writer);
+    const recoveryRaw = await writer.evaluate(
+      (recoveryKey) => {
+        try {
+          return JSON.parse(localStorage.getItem(recoveryKey) || "null")?.raw ?? null;
+        } catch {
+          return null;
+        }
+      },
+      `${DRAFT}:recovery`
+    );
     const ui = await writer.evaluate(() => ({
       formReady:
         !document.querySelector("#logForm")?.inert &&
@@ -1141,31 +1151,45 @@ async function scenarioInPageFinishPreservesNewerDraft(browser) {
       { finishResult, replicas: summary(final), artifacts: final.persistenceArtifacts }
     );
     check(
-      final.draftRaw === newerDraftRaw,
-      "accepted in-page Finish compare-and-clears without deleting newer draft bytes",
+      final.draftRaw === null && recoveryRaw === newerDraftRaw,
+      "accepted in-page Finish keeps the acknowledged checkpoint and stores newer legacy bytes only in recovery",
       {
         capturedMatches: final.draftRaw === capturedDraftRaw,
         newerMatches: final.draftRaw === newerDraftRaw,
+        canonicalAbsent: final.draftRaw === null,
+        recoveryMatches: recoveryRaw === newerDraftRaw,
       }
     );
     check(
       ui.formReady &&
         ui.set1Suggested === true &&
         ui.set1Done === false &&
-        ui.set2Suggested === false &&
-        ui.set2Load === "42.5",
-      "the finishing tab resets stale collections and renders the preserved newer draft",
-      ui
+        ui.set2Suggested === true &&
+        ui.set2Load === "82.5" &&
+        (await writer.evaluate(() => window.__repforgeWorkoutDraft.raw())) === null,
+      "the finishing tab resets stale collections without adopting unacknowledged legacy fields",
+      { ...ui, activeDraftRaw: await writer.evaluate(() => window.__repforgeWorkoutDraft.raw()) }
     );
 
     const fresh = await openApp(context);
     const afterFreshBoot = await readBoth(fresh);
+    const recoveryAfterFreshBoot = await fresh.evaluate(
+      (recoveryKey) => {
+        try {
+          return JSON.parse(localStorage.getItem(recoveryKey) || "null")?.raw ?? null;
+        } catch {
+          return null;
+        }
+      },
+      `${DRAFT}:recovery`
+    );
     check(
-      afterFreshBoot.draftRaw === newerDraftRaw &&
+      afterFreshBoot.draftRaw === null &&
+        recoveryAfterFreshBoot === newerDraftRaw &&
         (afterFreshBoot.local?.log?.length ?? 0) === 1 &&
         (afterFreshBoot.idb?.log?.length ?? 0) === 1,
-      "a fresh boot retains the newer draft beside the accepted session",
-      { replicas: summary(afterFreshBoot), draftMatches: afterFreshBoot.draftRaw === newerDraftRaw }
+      "a fresh boot retains only the recovery copy beside the accepted session",
+      { replicas: summary(afterFreshBoot), recoveryMatches: recoveryAfterFreshBoot === newerDraftRaw }
     );
   } finally {
     await context.close();

@@ -1,9 +1,9 @@
-const CACHE = "repforge-v177";
+const CACHE = "repforge-v192";
 const ASSETS = [
-  "./", "./index.html", "./styles.css", "./manifest.webmanifest",
+  "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
   "./telemetry.js", "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js",
-  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=177", "./program-entry.js", "./program-entry.js?v=177", "./program-entry-adapter.js", "./program-entry-adapter.js?v=177", "./program-editor.js", "./program-editor.js?v=168",
-  "./shared-setup.js", "./shared-setup.js?v=177", "./app.js", "./app.js?v=177",
+  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=192", "./program-entry.js", "./program-entry.js?v=192", "./program-entry-adapter.js", "./program-entry-adapter.js?v=192", "./program-editor.js", "./program-editor.js?v=168",
+  "./shared-setup.js", "./shared-setup.js?v=192", "./workout-draft.js", "./workout-draft.js?v=192", "./app.js", "./app.js?v=192",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
@@ -50,7 +50,7 @@ self.addEventListener("activate", event => {
   );
 });
 
-const SHELL = new Set(["/", "/index.html", "/app.js", "/styles.css", "/i18n.js", "/exercises.js", "/shared-setup.js", "/program-compiler.js", "/program-entry.js", "/program-entry-adapter.js", "/program-editor.js", "/telemetry.js", "/posthog-init.js", "/posthog-config.js", "/manifest.webmanifest"]);
+const SHELL = new Set(["/", "/index.html", "/app.js", "/workout-draft.js", "/styles.css", "/motion-polish.css", "/i18n.js", "/exercises.js", "/shared-setup.js", "/program-compiler.js", "/program-entry.js", "/program-entry-adapter.js", "/program-editor.js", "/telemetry.js", "/posthog-init.js", "/posthog-config.js", "/manifest.webmanifest"]);
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
 function shellPathname(pathname) {
   if (!SCOPE_PATH) return pathname;

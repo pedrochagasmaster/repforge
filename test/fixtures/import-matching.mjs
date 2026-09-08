@@ -7,7 +7,7 @@
  *     change that reshuffles them fails loudly rather than quietly.
  *   loose  — the expected id must appear in the ranked candidates the review
  *     row shows. `ids` lists every acceptable answer: a source that never says
- *     whether "Hack squat" means the barbell or the machine should not have a
+ *     whether a phrase identifies one movement or several should not have a
  *     guess frozen into a test (Q16).
  *
  * Seeded from a real four-day Portuguese coach program. Owner arbitration is
@@ -47,7 +47,7 @@ export const LOOSE = [
     was: "nothing usable; topped out at 0.31 against Glute-ham raise" },
 
   { input: "Hack squat", ids: ["sqk_mc"],
-    was: "sqk_bb won a 0.67 tie on array position; that entry is now retired" },
+    was: "sqk_bb won a 0.67 tie on array position; the curated unqualified alias now identifies the machine without repointing sqk_bb" },
 
   // Owner arbitration open. Both readings are defensible and the source is silent.
   { input: "Agachamento no Smith, pés à frente", ids: ["sq_sm", "sqc_sm"], arbitration: true,
