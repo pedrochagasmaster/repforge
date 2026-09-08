@@ -1,9 +1,9 @@
-const CACHE = "repforge-v196";
+const CACHE = "repforge-v197";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./manifest.webmanifest",
   "./telemetry.js", "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js",
-  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=196", "./program-entry.js", "./program-entry.js?v=196", "./program-entry-adapter.js", "./program-entry-adapter.js?v=196", "./program-editor.js", "./program-editor.js?v=168",
-  "./shared-setup.js", "./shared-setup.js?v=196", "./workout-draft.js", "./workout-draft.js?v=196", "./program-transition.js", "./program-transition.js?v=196", "./app.js", "./app.js?v=196",
+  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=197", "./program-entry.js", "./program-entry.js?v=197", "./program-entry-adapter.js", "./program-entry-adapter.js?v=197", "./program-editor.js", "./program-editor.js?v=168",
+  "./shared-setup.js", "./shared-setup.js?v=197", "./workout-draft.js", "./workout-draft.js?v=197", "./program-transition.js", "./program-transition.js?v=197", "./app.js", "./app.js?v=197",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",

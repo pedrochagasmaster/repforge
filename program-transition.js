@@ -27,6 +27,14 @@
 
   const own = (value, key) => Object.prototype.hasOwnProperty.call(value, key);
   const isObject = (value) => value !== null && typeof value === "object" && !Array.isArray(value);
+  const exactKeys = (value, keys) => isObject(value) &&
+    Object.keys(value).length === keys.length &&
+    keys.every((key) => own(value, key));
+  const exactOrderedArray = (value, expected) => Array.isArray(value) &&
+    value.length === expected.length &&
+    expected.every((entry, index) => value[index] === entry);
+  const noUnsafeKeys = (value) => isObject(value) &&
+    Object.keys(value).every((key) => !DANGEROUS_KEYS.has(key));
 
   function assertSafeJson(value, path = "$") {
     if (value === null || typeof value === "string" || typeof value === "boolean") return;
@@ -456,6 +464,23 @@
     ];
     return pairs.every(([field, supported]) =>
       String(provenance?.[field]) === String(supportedVersions?.[supported]));
+  }
+
+  // Recovery proposals pin the exact consumed compiler context: every supported
+  // key must be an own property and every value must match without string
+  // coercion, so an inferred or loosened version table cannot mint a proposal.
+  function exactVersionMatches(provenance, supportedVersions) {
+    const pairs = [
+      ["blueprintVersion", "blueprint"],
+      ["compilerVersion", "compiler"],
+      ["catalogueVersion", "catalogue"],
+      ["rulesVersion", "rules"],
+      ["contextVersion", "context"],
+      ["recentConsistencyVersion", "recentConsistency"],
+    ];
+    if (!isObject(supportedVersions) || !isObject(provenance)) return false;
+    return pairs.every(([field, supported]) =>
+      own(supportedVersions, supported) && provenance[field] === supportedVersions[supported]);
   }
 
   function contextExceptFrequency(context) {
@@ -1804,66 +1829,65 @@
      contract in docs/recovery-week-policy.md, evaluates the evidence, and
      returns either an immutable eligible result with normalized evidence or a
      typed ineligible result. Never emits a proposal, hash, overlay, or allocation. */
+  // Consumed policy-v2 validator: every set P5b actually reads is closed to its
+  // documented own-key set and exact value or ordered array. Extra mapping or
+  // allowlist entries would reinterpret the fixed policy and are rejected as
+  // policy_invalid. Unlisted top-level policy extensions stay tolerated.
   function isApprovedRecoveryPolicy(policy) {
     if (!isObject(policy)) return false;
     if (policy.kind !== "taurifer-recovery-policy") return false;
     if (policy.policyVersion !== RECOVERY_POLICY_VERSION) return false;
     if (policy.status !== "Approved") return false;
-    if (!Array.isArray(policy.primaryPatterns) || policy.primaryPatterns.length !== 3) return false;
-    if (policy.primaryPatterns[0] !== "knee-dominant" ||
-        policy.primaryPatterns[1] !== "horizontal press" ||
-        policy.primaryPatterns[2] !== "hip/hinge") return false;
-    if (!isObject(policy.eligibility)) return false;
-    if (policy.eligibility.minimumPatterns !== 2) return false;
-    if (policy.eligibility.qualifyingCheckpointAnswer !== "Yes") return false;
-    if (!Array.isArray(policy.eligibility.qualifyingOutcomes) ||
-        policy.eligibility.qualifyingOutcomes.length !== 2 ||
-        !policy.eligibility.qualifyingOutcomes.includes("maintained") ||
-        !policy.eligibility.qualifyingOutcomes.includes("declined")) return false;
-    if (!Array.isArray(policy.eligibility.checkpointAnswers) ||
-        policy.eligibility.checkpointAnswers.length !== 3 ||
-        !policy.eligibility.checkpointAnswers.includes("Yes") ||
-        !policy.eligibility.checkpointAnswers.includes("No") ||
-        !policy.eligibility.checkpointAnswers.includes("Not sure")) return false;
-    if (policy.eligibility.question !== undefined &&
-        policy.eligibility.question !== RECOVERY_CHECKPOINT_QUESTION) return false;
-    if (!isObject(policy.patternMapping)) return false;
-    if (policy.patternMapping.squat !== "knee-dominant" ||
+    if (!noUnsafeKeys(policy)) return false;
+    if (!exactOrderedArray(policy.primaryPatterns, ["knee-dominant", "horizontal press", "hip/hinge"])) return false;
+    if (!exactKeys(policy.patternMapping, ["squat", "press", "incline_press", "hinge"]) ||
+        policy.patternMapping.squat !== "knee-dominant" ||
         policy.patternMapping.press !== "horizontal press" ||
         policy.patternMapping.incline_press !== "horizontal press" ||
         policy.patternMapping.hinge !== "hip/hinge") return false;
-    if (!isObject(policy.ruleB)) return false;
-    if (!isObject(policy.ruleB.optional) ||
+    if (!isObject(policy.eligibility)) return false;
+    const eligibilityKeys = ["qualifyingOutcomes", "minimumPatterns", "checkpointAnswers", "qualifyingCheckpointAnswer"];
+    if (!exactKeys(policy.eligibility, eligibilityKeys)) {
+      if (!exactKeys(policy.eligibility, [...eligibilityKeys, "question"]) ||
+          policy.eligibility.question !== RECOVERY_CHECKPOINT_QUESTION) return false;
+    }
+    if (!exactOrderedArray(policy.eligibility.qualifyingOutcomes, ["maintained", "declined"])) return false;
+    if (policy.eligibility.minimumPatterns !== 2) return false;
+    if (!exactOrderedArray(policy.eligibility.checkpointAnswers, ["Yes", "No", "Not sure"])) return false;
+    if (policy.eligibility.qualifyingCheckpointAnswer !== "Yes") return false;
+    if (!isObject(policy.ruleB) ||
+        !exactKeys(policy.ruleB, ["optional", "protected", "reducible", "coverageRescue"])) return false;
+    if (!exactKeys(policy.ruleB.optional, ["effectiveWorkingSets", "reason"]) ||
         policy.ruleB.optional.effectiveWorkingSets !== 0 ||
         policy.ruleB.optional.reason !== "optional-removed") return false;
-    if (!isObject(policy.ruleB.protected) ||
+    if (!exactKeys(policy.ruleB.protected, ["rounding", "divisor", "reason"]) ||
         policy.ruleB.protected.rounding !== "ceil" ||
         policy.ruleB.protected.divisor !== 2 ||
         policy.ruleB.protected.reason !== "protected-ceil") return false;
-    if (!isObject(policy.ruleB.reducible) ||
+    if (!exactKeys(policy.ruleB.reducible, ["rounding", "divisor", "reason"]) ||
         policy.ruleB.reducible.rounding !== "floor" ||
         policy.ruleB.reducible.divisor !== 2 ||
         policy.ruleB.reducible.reason !== "reducible-floor") return false;
-    if (!isObject(policy.ruleB.coverageRescue) ||
+    if (!exactKeys(policy.ruleB.coverageRescue, ["minimumWorkingSets", "selection", "reason"]) ||
         policy.ruleB.coverageRescue.minimumWorkingSets !== 1 ||
         policy.ruleB.coverageRescue.selection !== "first-eligible-stable-order" ||
         policy.ruleB.coverageRescue.reason !== "pattern-rescue") return false;
-    if (!isObject(policy.acceptanceBand) ||
+    if (!exactKeys(policy.acceptanceBand, ["minimum", "maximum"]) ||
         policy.acceptanceBand.minimum !== 0.4 ||
         policy.acceptanceBand.maximum !== 0.6) return false;
-    if (!isObject(policy.allowlistedMisses) ||
-        !isObject(policy.allowlistedMisses.growth_2_v1) ||
+    if (!exactKeys(policy.allowlistedMisses, ["growth_2_v1", "growth_3_v1"])) return false;
+    if (!exactKeys(policy.allowlistedMisses.growth_2_v1, ["base", "effective"]) ||
         policy.allowlistedMisses.growth_2_v1.base !== 32 ||
-        policy.allowlistedMisses.growth_2_v1.effective !== 12 ||
-        !isObject(policy.allowlistedMisses.growth_3_v1) ||
+        policy.allowlistedMisses.growth_2_v1.effective !== 12) return false;
+    if (!exactKeys(policy.allowlistedMisses.growth_3_v1, ["base", "effective"]) ||
         policy.allowlistedMisses.growth_3_v1.base !== 49 ||
         policy.allowlistedMisses.growth_3_v1.effective !== 17) return false;
-    if (!isObject(policy.reassessment) ||
-        !Array.isArray(policy.reassessment.outcomes) ||
-        policy.reassessment.unset !== null ||
-        !Array.isArray(policy.reassessment.ordinaryReviewOutcomes) ||
-        policy.reassessment.sameBlockRepeat !== false ||
-        policy.reassessment.weekTwoCanonical !== true) return false;
+    if (!exactKeys(policy.reassessment, ["outcomes", "unset", "ordinaryReviewOutcomes", "sameBlockRepeat", "weekTwoCanonical"])) return false;
+    if (!exactOrderedArray(policy.reassessment.outcomes, ["Better", "About the same", "Worse"])) return false;
+    if (policy.reassessment.unset !== null) return false;
+    if (!exactOrderedArray(policy.reassessment.ordinaryReviewOutcomes, ["About the same", "Worse"])) return false;
+    if (policy.reassessment.sameBlockRepeat !== false) return false;
+    if (policy.reassessment.weekTwoCanonical !== true) return false;
     return true;
   }
 
@@ -1886,7 +1910,18 @@
       });
     }
 
-    if (evidence.question !== undefined && evidence.question !== RECOVERY_CHECKPOINT_QUESTION) {
+    // The evidence object is presence-governed: outcomesByPattern plus the
+    // closed checkpoint answer, with the optional canonical question text and
+    // the stored qualifyingPatterns list (always recomputed here, never
+    // trusted). Free text, diagnosis, or any other key never satisfies
+    // eligibility.
+    const evidenceKeys = Object.keys(evidence);
+    const knownEvidenceKeys = evidenceKeys.every((key) =>
+      key === "outcomesByPattern" || key === "checkpointAnswer" ||
+      key === "qualifyingPatterns" || key === "question");
+    const questionOk = !evidenceKeys.includes("question") ||
+      evidence.question === RECOVERY_CHECKPOINT_QUESTION;
+    if (!knownEvidenceKeys || !questionOk || evidenceKeys.length > 4) {
       return Object.freeze({
         ok: false,
         status: "ineligible",
@@ -1970,7 +2005,17 @@
     const entries = slots.map((slot) => {
       const rawPattern = slot.contract?.patterns?.[0];
       const movementPattern = approvedPolicy.patternMapping[rawPattern] || null;
-      const baseWorkingSets = slot.prescription?.sets ?? 0;
+      const baseWorkingSets = slot.prescription?.sets;
+      if (slot.status !== "optional" && slot.status !== "protected" && slot.status !== "reducible") {
+        return { ok: false, code: "recovery_slot_status_invalid" };
+      }
+      if (!Number.isInteger(baseWorkingSets) || baseWorkingSets < 1) {
+        return { ok: false, code: "recovery_base_sets_invalid" };
+      }
+      const movement = movementId(slot);
+      if (movement === null) {
+        return { ok: false, code: "recovery_movement_missing" };
+      }
       let effectiveWorkingSets = 0;
       let reason = "";
       const isOptional = slot.status === "optional";
@@ -1984,7 +2029,6 @@
         effectiveWorkingSets = Math.floor(baseWorkingSets / approvedPolicy.ruleB.reducible.divisor);
         reason = approvedPolicy.ruleB.reducible.reason;
       }
-      const movement = movementId(slot);
       return {
         slot: slot.slotId,
         movement,
@@ -1995,6 +2039,8 @@
         reason,
       };
     });
+    const failedEntry = entries.find((entry) => entry.ok === false);
+    if (failedEntry) return failedEntry;
 
     for (const pattern of approvedPolicy.primaryPatterns) {
       let patternTotal = 0;
@@ -2005,10 +2051,11 @@
       }
       if (patternTotal === 0) {
         const target = entries.find((e) => e.movementPattern === pattern && e.baseWorkingSets >= 1);
-        if (target) {
-          target.effectiveWorkingSets = approvedPolicy.ruleB.coverageRescue.minimumWorkingSets;
-          target.reason = approvedPolicy.ruleB.coverageRescue.reason;
+        if (!target) {
+          return { ok: false, code: "recovery_pattern_uncovered" };
         }
+        target.effectiveWorkingSets = approvedPolicy.ruleB.coverageRescue.minimumWorkingSets;
+        target.reason = approvedPolicy.ruleB.coverageRescue.reason;
       }
     }
 
@@ -2096,8 +2143,10 @@
       return invalid("invalid_proposal");
     }
 
-    const supportedVersions = input.supportedVersions || input.Compiler?.VERSIONS || input.compiler?.VERSIONS;
-    if (supportedVersions && !versionMatches(predecessorInstance.provenance, supportedVersions)) {
+    // Creation requires the caller to pin the compiler context explicitly and
+    // exactly; an inferred or coerced version table never mints a proposal.
+    const supportedVersions = input.supportedVersions;
+    if (!exactVersionMatches(predecessorInstance.provenance, supportedVersions)) {
       return invalid("unsupported_compiler_version");
     }
 
@@ -2195,6 +2244,11 @@
     if (proposal.status !== "preview") {
       return { ok: false, status: "invalid", code: "invalid_proposal_status" };
     }
+    if (proposal.schemaVersion !== SCHEMA_VERSION ||
+        typeof proposal.transitionId !== "string" || !proposal.transitionId.trim() ||
+        typeof proposal.createdAt !== "string" || !proposal.createdAt.trim()) {
+      return { ok: false, status: "invalid", code: "invalid_proposal" };
+    }
     if (proposal.successor !== undefined) {
       return { ok: false, status: "invalid", code: "forbidden_successor" };
     }
@@ -2203,6 +2257,9 @@
     }
     if (!isObject(proposal.diff) || !isObject(proposal.diff.recoveryWeek)) {
       return { ok: false, status: "invalid", code: "missing_recovery_overlay" };
+    }
+    if (!exactKeys(proposal.diff, ["days", "exercises", "prescriptions", "recoveryWeek"])) {
+      return { ok: false, status: "invalid", code: "invalid_recovery_diff" };
     }
     if (!Array.isArray(proposal.diff.days) || proposal.diff.days.length !== 0 ||
         !Array.isArray(proposal.diff.exercises) || proposal.diff.exercises.length !== 0 ||
@@ -2217,7 +2274,24 @@
     if (overlay.policyVersion !== RECOVERY_POLICY_VERSION) {
       return { ok: false, status: "invalid", code: "unsupported_policy_version" };
     }
-    if (overlay.schemaVersion !== 1 || overlay.activePeriod !== "nextBlockWeek1" || overlay.transitionId !== proposal.transitionId) {
+    if (overlay.schemaVersion !== 1 ||
+        !exactKeys(overlay, [
+          "schemaVersion",
+          "policyVersion",
+          "transitionId",
+          "blockId",
+          "activePeriod",
+          "eligibilityEvidence",
+          "baseProgramFingerprint",
+          "entries",
+          "createdAt",
+          "reassessmentOutcome",
+        ]) ||
+        overlay.activePeriod !== "nextBlockWeek1" ||
+        overlay.transitionId !== proposal.transitionId ||
+        typeof overlay.blockId !== "string" || !overlay.blockId.trim() ||
+        overlay.createdAt !== proposal.createdAt ||
+        overlay.reassessmentOutcome !== null) {
       return { ok: false, status: "invalid", code: "invalid_recovery_overlay" };
     }
 
@@ -2239,17 +2313,17 @@
     if (!predecessorCheck.ok) {
       return { ok: false, status: "invalid", code: predecessorCheck.code };
     }
+    if (typeof proposal.predecessor.programId !== "string" || !proposal.predecessor.programId.trim() ||
+        !Number.isInteger(proposal.predecessor.durableRevision) || proposal.predecessor.durableRevision < 0 ||
+        typeof proposal.predecessor.source !== "string" || !RECONSTRUCTABLE_SOURCES.has(proposal.predecessor.source)) {
+      return { ok: false, status: "invalid", code: "unsupported_source" };
+    }
     if (!sameCanonical(proposal.predecessor?.compilerProvenance, current.predecessorInstance.provenance)) {
       return { ok: false, status: "invalid", code: "predecessor_provenance_mismatch" };
     }
 
-    if (current.supportedVersions && !versionMatches(current.predecessorInstance.provenance, current.supportedVersions)) {
+    if (!exactVersionMatches(current.predecessorInstance.provenance, current.supportedVersions)) {
       return { ok: false, status: "invalid", code: "unsupported_compiler_version" };
-    }
-
-    const expectedHash = await hashProposal(proposal);
-    if (proposal.proposalHash !== expectedHash) {
-      return { ok: false, status: "invalid", code: "proposal_hash_mismatch" };
     }
 
     if (overlay.baseProgramFingerprint !== liveFingerprint) {
@@ -2265,8 +2339,40 @@
     if (!eligibility.ok) {
       return { ok: false, status: "invalid", code: "ineligible_recovery_evidence" };
     }
-    if (!sameCanonical(proposal.diagnosis?.eligibleEvidenceIds, eligibility.eligibilityEvidence.qualifyingPatterns)) {
+    if (!sameCanonical(overlay.eligibilityEvidence, eligibility.eligibilityEvidence)) {
+      return { ok: false, status: "invalid", code: "recovery_evidence_mismatch" };
+    }
+
+    const expectedDiagnosis = {
+      kind: "recovery_week",
+      answers: {
+        checkpointAnswer: eligibility.eligibilityEvidence.checkpointAnswer,
+      },
+      eligibleEvidenceIds: eligibility.eligibilityEvidence.qualifyingPatterns,
+      insufficientEvidenceReasons: [],
+    };
+    if (!sameCanonical(proposal.diagnosis, expectedDiagnosis)) {
       return { ok: false, status: "invalid", code: "recovery_diagnosis_mismatch" };
+    }
+
+    if (!isObject(proposal.derivation) ||
+        !exactKeys(proposal.derivation, ["mode", "request", "compilerContextVersions", "policyVersions", "slotMapping"]) ||
+        proposal.derivation.mode !== "overlay" ||
+        proposal.derivation.request !== "recovery-week" ||
+        !exactKeys(proposal.derivation.policyVersions, ["recoveryWeek"]) ||
+        proposal.derivation.policyVersions.recoveryWeek !== RECOVERY_POLICY_VERSION ||
+        !sameCanonical(proposal.derivation.compilerContextVersions, current.predecessorInstance.provenance)) {
+      return { ok: false, status: "invalid", code: "recovery_derivation_mismatch" };
+    }
+
+    const expectedSlotMapping = buildSlotMapping(current.predecessorInstance, current.predecessorInstance);
+    if (!sameCanonical(proposal.derivation.slotMapping, expectedSlotMapping)) {
+      return { ok: false, status: "invalid", code: "invalid_slot_mapping" };
+    }
+
+    const expectedProgression = relationContract(current.predecessorInstance, current.predecessorInstance, expectedSlotMapping);
+    if (!sameCanonical(proposal.progressionContract, expectedProgression.value)) {
+      return { ok: false, status: "invalid", code: "progression_contract_mismatch" };
     }
 
     const expected = deriveRecoveryWeek(current.predecessorInstance, approvedPolicy);
@@ -2286,6 +2392,10 @@
 
     const seenSlots = new Set();
     for (const entry of overlay.entries) {
+      if (!isObject(entry) ||
+          !exactKeys(entry, ["slot", "movement", "movementPattern", "baseWorkingSets", "effectiveWorkingSets", "removedOptionalFirst", "reason"])) {
+        return { ok: false, status: "invalid", code: "invalid_recovery_entries" };
+      }
       if (seenSlots.has(entry.slot)) {
         return { ok: false, status: "invalid", code: "duplicate_recovery_slot" };
       }
@@ -2322,14 +2432,9 @@
       }
     }
 
-    const expectedSlotMapping = buildSlotMapping(current.predecessorInstance, current.predecessorInstance);
-    if (!sameCanonical(proposal.derivation?.slotMapping, expectedSlotMapping)) {
-      return { ok: false, status: "invalid", code: "invalid_slot_mapping" };
-    }
-
-    const expectedProgression = relationContract(current.predecessorInstance, current.predecessorInstance, expectedSlotMapping);
-    if (!sameCanonical(proposal.progressionContract, expectedProgression.value)) {
-      return { ok: false, status: "invalid", code: "progression_contract_mismatch" };
+    const expectedHash = await hashProposal(proposal);
+    if (proposal.proposalHash !== expectedHash) {
+      return { ok: false, status: "invalid", code: "proposal_hash_mismatch" };
     }
 
     return { ok: true, status: "preview" };

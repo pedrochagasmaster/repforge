@@ -1201,13 +1201,311 @@ test("stale predecessor proof: durableRevision or fingerprint change yields pred
   assert.equal(val.code, "predecessor_changed");
 });
 
-test("unhashed tamper proof: unhashed mutation yields proposal_hash_mismatch", async () => {
+test("unhashed tamper proof: semantically valid mutation still reaches the final hash gate", async () => {
   const { proposal, validationContext } = await createBaseRecoveryFixture();
   const tampered = JSON.parse(JSON.stringify(proposal));
-  tampered.diff.recoveryWeek.entries[0].effectiveWorkingSets += 1;
+  // A consistent creation-time shift on the caller-owned identity fields is
+  // semantically valid (nothing reconstructs them), so only the immutable
+  // proposal hash can reject it. This proves the digest gate is still enforced
+  // after every semantic, stale, and reconstruction check.
+  tampered.createdAt = "2026-10-02T09:00:00.000Z";
+  tampered.diff.recoveryWeek.createdAt = tampered.createdAt;
 
   const val = await Transition.validateProposal(tampered, validationContext);
   assert.equal(val.ok, false);
   assert.equal(val.status, "invalid");
   assert.equal(val.code, "proposal_hash_mismatch");
+});
+
+test("rehashed consistent creation-time shift is a new valid proposal, not a hash bypass", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const regenerated = JSON.parse(JSON.stringify(proposal));
+  regenerated.createdAt = "2026-10-02T09:00:00.000Z";
+  regenerated.diff.recoveryWeek.createdAt = regenerated.createdAt;
+  regenerated.proposalHash = await Transition.hashProposal(regenerated);
+
+  const val = await Transition.validateProposal(regenerated, validationContext);
+  assert.equal(val.ok, true);
+  assert.equal(val.status, "preview");
+});
+
+test("semantic rejection precedes hash rejection for every freshly rehashed closed-field mutation", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+
+  const mutations = [
+    // Parent envelope
+    ["missing schemaVersion", (p) => { delete p.schemaVersion; }, "invalid_proposal"],
+    ["wrong schemaVersion", (p) => { p.schemaVersion = 2; }, "invalid_proposal"],
+    ["missing transitionId", (p) => { delete p.transitionId; }, "invalid_proposal"],
+    ["empty transitionId", (p) => { p.transitionId = "   "; }, "invalid_proposal"],
+    ["missing createdAt", (p) => { delete p.createdAt; }, "invalid_proposal"],
+    ["empty createdAt", (p) => { p.createdAt = ""; }, "invalid_proposal"],
+    // Diagnosis exactly derived from normalized P5a evidence
+    ["missing diagnosis", (p) => { delete p.diagnosis; }, "recovery_diagnosis_mismatch"],
+    ["missing diagnosis.kind", (p) => { delete p.diagnosis.kind; }, "recovery_diagnosis_mismatch"],
+    ["wrong diagnosis.kind", (p) => { p.diagnosis.kind = "reduce_training_volume"; }, "recovery_diagnosis_mismatch"],
+    ["missing diagnosis.answers", (p) => { delete p.diagnosis.answers; }, "recovery_diagnosis_mismatch"],
+    ["missing checkpoint answer", (p) => { delete p.diagnosis.answers.checkpointAnswer; }, "recovery_diagnosis_mismatch"],
+    ["wrong checkpoint answer", (p) => { p.diagnosis.answers.checkpointAnswer = "Not sure"; }, "recovery_diagnosis_mismatch"],
+    ["extra diagnosis answers key", (p) => { p.diagnosis.answers.notes = "invented"; }, "recovery_diagnosis_mismatch"],
+    ["missing eligibleEvidenceIds", (p) => { delete p.diagnosis.eligibleEvidenceIds; }, "recovery_diagnosis_mismatch"],
+    ["wrong eligibleEvidenceIds", (p) => { p.diagnosis.eligibleEvidenceIds = ["hip/hinge", "knee-dominant"]; }, "recovery_diagnosis_mismatch"],
+    ["nonempty insufficient reasons", (p) => { p.diagnosis.insufficientEvidenceReasons = ["untested"]; }, "recovery_diagnosis_mismatch"],
+    ["extra diagnosis key", (p) => { p.diagnosis.confidence = "high"; }, "recovery_diagnosis_mismatch"],
+    // Derivation exactly overlay/recovery-week with live provenance and policy 2
+    ["missing derivation", (p) => { delete p.derivation; }, "recovery_derivation_mismatch"],
+    ["wrong derivation.mode", (p) => { p.derivation.mode = "recompilation"; }, "recovery_derivation_mismatch"],
+    ["wrong derivation.request", (p) => { p.derivation.request = "reduce-training-volume"; }, "recovery_derivation_mismatch"],
+    ["missing policyVersions", (p) => { delete p.derivation.policyVersions; }, "recovery_derivation_mismatch"],
+    ["drifted policyVersions value", (p) => { p.derivation.policyVersions.recoveryWeek = 999; }, "recovery_derivation_mismatch"],
+    ["extra policyVersions key", (p) => { p.derivation.policyVersions.volumeReduction = 1; }, "recovery_derivation_mismatch"],
+    ["drifted compilerContextVersions", (p) => { p.derivation.compilerContextVersions.compilerVersion = 99; }, "recovery_derivation_mismatch"],
+    ["missing slotMapping", (p) => { delete p.derivation.slotMapping; }, "recovery_derivation_mismatch"],
+    ["extra derivation key", (p) => { p.derivation.note = "extra"; }, "recovery_derivation_mismatch"],
+    // Diff
+    ["missing diff.recoveryWeek", (p) => { delete p.diff.recoveryWeek; }, "missing_recovery_overlay"],
+    ["extra diff key", (p) => { p.diff.recoveryWeekPreview = true; }, "invalid_recovery_diff"],
+    ["nonempty diff.days", (p) => { p.diff.days = ["growth_4_d1"]; }, "invalid_recovery_diff"],
+    ["nonempty diff.exercises", (p) => { p.diff.exercises = ["growth_4_d1_s1"]; }, "invalid_recovery_diff"],
+    // Overlay envelope
+    ["wrong overlay schemaVersion", (p) => { p.diff.recoveryWeek.schemaVersion = 2; }, "invalid_recovery_overlay"],
+    ["wrong activePeriod", (p) => { p.diff.recoveryWeek.activePeriod = "thisBlockWeek1"; }, "invalid_recovery_overlay"],
+    ["overlay transitionId mismatch", (p) => { p.diff.recoveryWeek.transitionId = "tr_other"; }, "invalid_recovery_overlay"],
+    ["missing overlay blockId", (p) => { delete p.diff.recoveryWeek.blockId; }, "invalid_recovery_overlay"],
+    ["empty overlay blockId", (p) => { p.diff.recoveryWeek.blockId = ""; }, "invalid_recovery_overlay"],
+    ["overlay createdAt mismatch", (p) => { p.diff.recoveryWeek.createdAt = "2099-01-01T00:00:00.000Z"; }, "invalid_recovery_overlay"],
+    ["preview reassessed Better", (p) => { p.diff.recoveryWeek.reassessmentOutcome = "Better"; }, "invalid_recovery_overlay"],
+    ["missing reassessmentOutcome", (p) => { delete p.diff.recoveryWeek.reassessmentOutcome; }, "invalid_recovery_overlay"],
+    ["extra overlay key", (p) => { p.diff.recoveryWeek.note = "extra"; }, "invalid_recovery_overlay"],
+    ["wrong overlay policyVersion", (p) => { p.diff.recoveryWeek.policyVersion = 1; }, "unsupported_policy_version"],
+    ["missing overlay policyVersion", (p) => { delete p.diff.recoveryWeek.policyVersion; }, "unsupported_policy_version"],
+    ["wrong baseProgramFingerprint", (p) => { p.diff.recoveryWeek.baseProgramFingerprint = "program-sha256:deadbeef"; }, "base_fingerprint_mismatch"],
+    ["missing baseProgramFingerprint", (p) => { delete p.diff.recoveryWeek.baseProgramFingerprint; }, "invalid_recovery_overlay"],    // Stored eligibility evidence must canonical-equal the evaluator normalization
+    ["forged qualifyingPatterns", (p) => { p.diff.recoveryWeek.eligibilityEvidence.qualifyingPatterns = ["hip/hinge"]; }, "recovery_evidence_mismatch"],
+    ["missing qualifyingPatterns", (p) => { delete p.diff.recoveryWeek.eligibilityEvidence.qualifyingPatterns; }, "recovery_evidence_mismatch"],
+    ["extra non-qualifying outcome row", (p) => { p.diff.recoveryWeek.eligibilityEvidence.outcomesByPattern["hip/hinge"] = "improved"; }, "recovery_evidence_mismatch"],
+    ["extra unknown outcomesByPattern row", (p) => { p.diff.recoveryWeek.eligibilityEvidence.outcomesByPattern["vertical pull"] = "maintained"; }, "ineligible_recovery_evidence"],
+    ["free text on stored evidence", (p) => { p.diff.recoveryWeek.eligibilityEvidence.freeText = "invented"; }, "ineligible_recovery_evidence"],
+    ["stored checkpoint No", (p) => { p.diff.recoveryWeek.eligibilityEvidence.checkpointAnswer = "No"; }, "ineligible_recovery_evidence"],
+    ["missing stored checkpointAnswer", (p) => { delete p.diff.recoveryWeek.eligibilityEvidence.checkpointAnswer; }, "ineligible_recovery_evidence"],
+    ["drifted stored outcome", (p) => { p.diff.recoveryWeek.eligibilityEvidence.outcomesByPattern["knee-dominant"] = "improved"; }, "ineligible_recovery_evidence"],
+    ["extra qualifying outcome row", (p) => { p.diff.recoveryWeek.eligibilityEvidence.outcomesByPattern["hip/hinge"] = "maintained"; }, "recovery_evidence_mismatch"],
+    // Entries
+    ["missing entries", (p) => { delete p.diff.recoveryWeek.entries; }, "invalid_recovery_overlay"],
+    ["entry missing key", (p) => { delete p.diff.recoveryWeek.entries[0].movement; }, "invalid_recovery_entries"],
+    ["entry extra key", (p) => { p.diff.recoveryWeek.entries[0].note = "x"; }, "invalid_recovery_entries"],
+    ["wrong base working sets", (p) => { p.diff.recoveryWeek.entries[0].baseWorkingSets += 1; }, "recovery_base_sets_mismatch"],
+  ];
+
+  let checked = 0;
+  for (const [label, mutate, expectedCode] of mutations) {
+    checked++;
+    const tampered = JSON.parse(JSON.stringify(proposal));
+    mutate(tampered);
+    tampered.proposalHash = await Transition.hashProposal(tampered);
+
+    const val = await Transition.validateProposal(tampered, validationContext);
+    assert.equal(val.ok, false, `${label} must be rejected`);
+    assert.equal(val.status, "invalid", `${label} must be invalid, not stale`);
+    assert.equal(val.code, expectedCode, `${label} must return its stable semantic code`);
+  }
+  assert.equal(checked, mutations.length);
+  assert.ok(checked >= 55, "mutation table must cover the whole closed recovery-preview schema");
+});
+
+test("policy closure: extra mapping keys, fake allowlist entries, and drifted enums yield policy_invalid", () => {
+  const validEvidence = {
+    outcomesByPattern: {
+      "knee-dominant": "maintained",
+      "horizontal press": "declined",
+    },
+    checkpointAnswer: "Yes",
+  };
+
+  const closedPolicyMutations = [
+    ["extra patternMapping token", (p) => { p.patternMapping.unapproved = "knee-dominant"; }],
+    ["fake allowlistedMisses entry", (p) => { p.allowlistedMisses.fake_v1 = { base: 100, effective: 1 }; }],
+    ["allowlistedMisses entry extra key", (p) => { p.allowlistedMisses.growth_2_v1.note = 1; }],
+    ["reordered checkpointAnswers", (p) => { p.eligibility.checkpointAnswers = ["No", "Yes", "Not sure"]; }],
+    ["reordered reassessment outcomes", (p) => { p.reassessment.outcomes = ["Worse", "Better", "About the same"]; }],
+    ["drifted ordinaryReviewOutcomes", (p) => { p.reassessment.ordinaryReviewOutcomes = ["Better", "Worse"]; }],
+    ["ruleB optional extra key", (p) => { p.ruleB.optional.minimum = 1; }],
+    ["ruleB extra branch", (p) => { p.ruleB.hidden = { effectiveWorkingSets: 0, reason: "hidden" }; }],
+    ["acceptanceBand extra key", (p) => { p.acceptanceBand.target = 0.5; }],
+    ["eligibility extra unknown key", (p) => { p.eligibility.freeText = "invented"; }],
+    ["wrong protected divisor", (p) => { p.ruleB.protected.divisor = 3; }],
+    ["wrong coverageRescue selection", (p) => { p.ruleB.coverageRescue.selection = "last-eligible"; }],
+    ["allowlist totals drifted", (p) => { p.allowlistedMisses.growth_3_v1.effective = 18; }],
+  ];
+
+  for (const [label, mutate] of closedPolicyMutations) {
+    const policy = clone(APPROVED_POLICY_V2);
+    mutate(policy);
+    const result = evaluateRecoveryEligibility(validEvidence, policy);
+    assert.deepEqual(result, {
+      ok: false,
+      status: "ineligible",
+      ineligible: true,
+      code: "policy_invalid",
+    }, `${label} must be rejected as policy_invalid`);
+  }
+});
+
+test("raw input evidence closure: unknown keys are invalid_evidence and canonical question text stays tolerated", () => {
+  const baseOutcomes = {
+    "knee-dominant": "maintained",
+    "horizontal press": "declined",
+  };
+
+  const withFreeText = evaluateRecoveryEligibility(
+    { outcomesByPattern: baseOutcomes, checkpointAnswer: "Yes", freeText: "invented" },
+    APPROVED_POLICY_V2,
+  );
+  assert.deepEqual(withFreeText, {
+    ok: false,
+    status: "ineligible",
+    ineligible: true,
+    code: "invalid_evidence",
+  });
+
+  const withQuestion = evaluateRecoveryEligibility(
+    {
+      outcomesByPattern: baseOutcomes,
+      checkpointAnswer: "Yes",
+      question: "During this block, did recovery feel worse than usual often enough to affect your training?",
+    },
+    APPROVED_POLICY_V2,
+  );
+  assert.equal(withQuestion.ok, true);
+  assert.deepEqual(Object.keys(withQuestion.eligibilityEvidence), [
+    "outcomesByPattern",
+    "qualifyingPatterns",
+    "checkpointAnswer",
+  ]);
+});
+
+test("proposal creation requires explicit exact supported compiler versions", async () => {
+  const instance = Compiler.compile(gymContext("growth", 4), EXERCISE_LIBRARY);
+  const baseInput = validRecoveryInput({ predecessorInstance: instance });
+  delete baseInput.supportedVersions;
+  const withoutVersions = await proposeRecoveryWeek(baseInput);
+  assert.deepEqual(withoutVersions, {
+    ok: false,
+    status: "unavailable",
+    unavailable: true,
+    code: "unsupported_compiler_version",
+  });
+
+  const coerced = clone(Compiler.VERSIONS);
+  coerced.compiler = "2";
+  const coercedResult = await proposeRecoveryWeek(
+    validRecoveryInput({ predecessorInstance: instance, supportedVersions: coerced }),
+  );
+  assert.equal(coercedResult.ok, false);
+  assert.equal(coercedResult.code, "unsupported_compiler_version");
+
+  const drifted = clone(Compiler.VERSIONS);
+  drifted.compiler = 3;
+  const driftedResult = await proposeRecoveryWeek(
+    validRecoveryInput({ predecessorInstance: instance, supportedVersions: drifted }),
+  );
+  assert.equal(driftedResult.ok, false);
+  assert.equal(driftedResult.code, "unsupported_compiler_version");
+});
+
+test("allocation rejects compiler-valid snapshots with unsupported status, bad base sets, missing movement, or uncovered pattern", async () => {
+  const evidence = {
+    outcomesByPattern: {
+      "knee-dominant": "maintained",
+      "horizontal press": "declined",
+    },
+    checkpointAnswer: "Yes",
+  };
+  const propose = (synthetic) => proposeRecoveryWeek(validRecoveryInput({
+    predecessorInstance: synthetic,
+    evidence: clone(evidence),
+  }));
+
+  const base = Compiler.compile(gymContext("growth", 4), EXERCISE_LIBRARY);
+
+  const badStatus = JSON.parse(JSON.stringify(base));
+  for (const day of badStatus.days) {
+    for (const slot of day.slots) {
+      slot.status = "mystery";
+      const programSlot = badStatus.program.find((e) => e.slotId === slot.slotId);
+      if (programSlot) programSlot.priority = "mystery";
+    }
+  }
+  const statusResult = await propose(badStatus);
+  assert.equal(statusResult.ok, false);
+  assert.equal(statusResult.code, "recovery_slot_status_invalid");
+
+  const badSets = JSON.parse(JSON.stringify(base));
+  for (const day of badSets.days) {
+    for (const slot of day.slots) {
+      slot.prescription.sets = 0;
+      // The program row mirrors prescription.sets, so zeroing both sides
+      // stays compiler-valid and reaches Rule B allocation.
+      const programSlot = badSets.program.find((e) => e.slotId === slot.slotId);
+      if (programSlot) programSlot.sets = 0;
+    }
+  }
+  const setsResult = await propose(badSets);
+  assert.equal(setsResult.ok, false);
+  assert.equal(setsResult.code, "recovery_base_sets_invalid");
+
+  const noMovement = JSON.parse(JSON.stringify(base));
+  for (const day of noMovement.days) {
+    for (const slot of day.slots) {
+      if (slot.exercise) slot.exercise.id = "";
+      const programSlot = noMovement.program.find((e) => e.slotId === slot.slotId);
+      if (programSlot) {
+        programSlot.libraryId = "";
+        programSlot.movementId = null;
+      }
+    }
+  }
+  const movementResult = await propose(noMovement);
+  assert.equal(movementResult.ok, false);
+  assert.equal(movementResult.code, "recovery_movement_missing");
+
+  const uncovered = JSON.parse(JSON.stringify(base));
+  let flipped = 0;
+  for (const day of uncovered.days) {
+    for (const slot of day.slots) {
+      if (slot.contract?.patterns?.[0] === "squat") {
+        slot.contract.patterns[0] = "unknown_template";
+        flipped++;
+      }
+    }
+  }
+  assert.ok(flipped >= 2, "at least two knee-dominant slots must be detached from their pattern");
+  const uncoveredResult = await propose(uncovered);
+  assert.equal(uncoveredResult.ok, false);
+  assert.equal(uncoveredResult.code, "recovery_pattern_uncovered");
+
+  // The shared allocation guard also fails validation: with the live
+  // snapshot's fingerprint swapped in (so staleness passes), the validator
+  // reaches deriveRecoveryWeek against the uncovered snapshot and fails on the
+  // pattern guard before comparing any entry.
+  const forged = JSON.parse(JSON.stringify((await proposeRecoveryWeek(validRecoveryInput({
+    predecessorInstance: base,
+    evidence: clone(evidence),
+  }))).proposal));
+  const uncoveredFingerprint = await Transition.fingerprintCompilerInstance(uncovered);
+  forged.predecessor.fingerprint = uncoveredFingerprint;
+  forged.diff.recoveryWeek.baseProgramFingerprint = uncoveredFingerprint;
+  forged.proposalHash = await Transition.hashProposal(forged);
+  const forgedValidation = await Transition.validateProposal(forged, {
+    predecessor: {
+      programId: "prog_recovery_test_4",
+      durableRevision: 1,
+      source: "Recommend",
+    },
+    predecessorInstance: uncovered,
+    approvedPolicy: APPROVED_POLICY_V2,
+    supportedVersions: Compiler.VERSIONS,
+  });
+  assert.equal(forgedValidation.ok, false);
+  assert.equal(forgedValidation.code, "recovery_pattern_uncovered");
 });
