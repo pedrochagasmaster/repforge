@@ -54,6 +54,45 @@ function getAuthoredMinSets(classId) {
   return pc.sets[0];
 }
 
+// Independent pre-call oracle: apply the documented policy (optional removed,
+// reducible above floor cut to its authored minSets, protected/other unchanged)
+// to the predecessor's own slots and sum the shipped compiler exposure semantics
+// — every slot adds its working-set count to each primary muscle (direct) and
+// each secondary muscle (indirect). Never reads program-transition.js output.
+function expectedReducedSets(slot) {
+  if (slot.status === "optional") return null;
+  let sets = slot.prescription.sets;
+  if (slot.status !== "protected" && slot.reducible === true) {
+    const floor = getAuthoredMinSets(slot.prescription.classId);
+    if (sets > floor) sets = floor;
+  }
+  return sets;
+}
+
+function expectedReducedExposure(pred) {
+  const direct = {};
+  const indirect = {};
+  for (const day of pred.days) {
+    for (const slot of day.slots) {
+      const sets = expectedReducedSets(slot);
+      if (sets === null) continue;
+      for (const muscle of slot.exercise.primaryMuscles) {
+        direct[muscle] = (direct[muscle] || 0) + sets;
+      }
+      for (const muscle of slot.exercise.secondaryMuscles) {
+        indirect[muscle] = (indirect[muscle] || 0) + sets;
+      }
+    }
+  }
+  return { direct, indirect };
+}
+
+const PRESERVED_ROW_FIELDS = [
+  "id", "name", "libraryId", "movementId", "min", "max", "primary", "secondary",
+  "notes", "alternates", "targetRirStart", "targetRirEnd", "minSets", "maxSets",
+  "priority", "loadingMode", "loadIncrement",
+];
+
 test("volume policy v1 on all 20 authored compilations: deterministic classification, optional removal, protected retention, reducible floor", async () => {
   for (const familyId of Compiler.FAMILY_IDS) {
     for (const frequency of Compiler.FREQUENCIES) {
@@ -476,4 +515,287 @@ test("typed Unavailable: customized or malformed predecessor snapshot", async ()
   assert.equal(result.status, "unavailable");
   assert.equal(result.unavailable, true);
   assert.equal(result.code, "customized_compiler_snapshot");
+});
+
+function volInput(pred, extra = {}) {
+  return {
+    predecessorInstance: pred,
+    predecessor: { programId: "prog_p4", durableRevision: 3, source: "Recommend" },
+    transitionId: "tr_p4",
+    successorProgramId: "prog_p4_reduced",
+    createdAt: "2026-10-03T10:00:00.000Z",
+    diagnosis: validDiagnosis(),
+    supportedVersions: Compiler.VERSIONS,
+    policyVersion: 1,
+    ...extra,
+  };
+}
+
+test("successor directIndirectExposure is recomputed from successor slots, never carried from predecessor", async () => {
+  for (const familyId of Compiler.FAMILY_IDS) {
+    for (const frequency of Compiler.FREQUENCIES) {
+      const ctx = familyId === "home" ? homeContext(frequency) : gymContext(familyId, frequency);
+      const pred = Compiler.compile(ctx, EXERCISE_LIBRARY);
+      assert.equal(pred.kind, "compiled");
+
+      const expectedExposure = expectedReducedExposure(pred);
+
+      const result = await Transition.proposeVolumeReduction(volInput(pred, {
+        transitionId: `tr_expo_${familyId}_${frequency}`,
+        successorProgramId: `prog_expo_${familyId}_${frequency}`,
+      }));
+      assert.equal(result.ok, true, `failed ${familyId}_${frequency}: ${result.code}`);
+      const succ = result.successorInstance;
+
+      assert.deepEqual(
+        succ.directIndirectExposure,
+        expectedExposure,
+        `successor exposure != independent oracle for ${familyId}_${frequency}`
+      );
+
+      // Any predecessor muscle whose total dropped proves totals were not carried.
+      const droppedAMuscle = Object.keys(pred.directIndirectExposure.direct).some(
+        (m) => (expectedExposure.direct[m] || 0) < pred.directIndirectExposure.direct[m]
+      ) || Object.keys(pred.directIndirectExposure.indirect).some(
+        (m) => (expectedExposure.indirect[m] || 0) < pred.directIndirectExposure.indirect[m]
+      );
+      if (droppedAMuscle) {
+        assert.notDeepEqual(
+          succ.directIndirectExposure,
+          pred.directIndirectExposure,
+          `successor still carries predecessor exposure for ${familyId}_${frequency}`
+        );
+      }
+    }
+  }
+});
+
+test("growth_3 exact recomputed direct/indirect exposure totals", async () => {
+  const pred = Compiler.compile(gymContext("growth", 3), EXERCISE_LIBRARY);
+  const result = await Transition.proposeVolumeReduction(volInput(pred));
+  assert.equal(result.ok, true, result.code);
+
+  assert.deepEqual(result.successorInstance.directIndirectExposure, {
+    direct: { quads: 7, chest: 6, back: 4, hamstrings: 7, glutes: 7, side_delts: 2, lats: 2, front_delts: 2 },
+    indirect: { glutes: 7, hamstrings: 7, calves: 7, triceps: 8, front_delts: 6, biceps: 6, forearms: 6, spinal_erectors: 7, traps: 2 },
+  });
+  assert.notDeepEqual(
+    result.successorInstance.directIndirectExposure,
+    pred.directIndirectExposure
+  );
+});
+
+test("projection by preservation: successor program rows and programStructure keep unrelated/forward-compatible fields", async () => {
+  for (const familyId of Compiler.FAMILY_IDS) {
+    for (const frequency of Compiler.FREQUENCIES) {
+      const ctx = familyId === "home" ? homeContext(frequency) : gymContext(familyId, frequency);
+      const pred = Compiler.compile(ctx, EXERCISE_LIBRARY);
+      const predRowsBySlotId = new Map(pred.program.map((r) => [r.slotId, r]));
+
+      const result = await Transition.proposeVolumeReduction(volInput(pred, {
+        transitionId: `tr_pres_${familyId}_${frequency}`,
+        successorProgramId: `prog_pres_${familyId}_${frequency}`,
+      }));
+      assert.equal(result.ok, true, `failed ${familyId}_${frequency}: ${result.code}`);
+      const succ = result.successorInstance;
+
+      for (const row of succ.program) {
+        const predRow = predRowsBySlotId.get(row.slotId);
+        assert(predRow, `successor row ${row.slotId} has no predecessor row`);
+        for (const field of PRESERVED_ROW_FIELDS) {
+          assert.deepEqual(
+            row[field],
+            predRow[field],
+            `row ${row.slotId} field ${field} not preserved in ${familyId}_${frequency}`
+          );
+        }
+      }
+
+      // programStructure: only provenance + weekPrescriptions move.
+      assert.equal(succ.programStructure.schemaVersion, pred.programStructure.schemaVersion);
+      assert.deepEqual(succ.programStructure.days, pred.programStructure.days);
+      assert.deepEqual(succ.programStructure.customizedFrom, pred.programStructure.customizedFrom);
+      assert.deepEqual(succ.programStructure.provenance, succ.provenance);
+      assert.deepEqual(succ.programStructure.weekPrescriptions, succ.weeks);
+    }
+  }
+});
+
+test("projection by preservation: unknown safe fields survive on rows and programStructure", async () => {
+  const pred = Compiler.compile(gymContext("growth", 3), EXERCISE_LIBRARY);
+  const protectedRow = pred.program.find((r) => r.priority === "protected");
+  assert(protectedRow);
+  pred.program.find((r) => r.slotId === protectedRow.slotId).futureRowField = "keep-me";
+  pred.programStructure.futureSection = { experimental: 7 };
+
+  const result = await Transition.proposeVolumeReduction(volInput(pred, {
+    transitionId: "tr_unknown_fields",
+    successorProgramId: "prog_unknown_fields",
+  }));
+  assert.equal(result.ok, true, result.code);
+
+  const succRow = result.successorInstance.program.find((r) => r.slotId === protectedRow.slotId);
+  assert.equal(succRow.futureRowField, "keep-me");
+  assert.deepEqual(result.successorInstance.programStructure.futureSection, { experimental: 7 });
+});
+
+test("explicit integer policyVersion 1 is required", async () => {
+  const pred = Compiler.compile(gymContext("growth", 3), EXERCISE_LIBRARY);
+  const { policyVersion, ...missing } = volInput(pred);
+  void policyVersion;
+
+  const noVersion = await Transition.proposeVolumeReduction(missing);
+  assert.equal(noVersion.ok, false);
+  assert.equal(noVersion.code, "unsupported_policy_version");
+
+  for (const bad of ["1", 1.5, 0, 2, null, true]) {
+    const r = await Transition.proposeVolumeReduction(volInput(pred, { policyVersion: bad }));
+    assert.equal(r.ok, false, `policyVersion ${JSON.stringify(bad)} accepted`);
+    assert.equal(r.code, "unsupported_policy_version");
+  }
+});
+
+test("typed volume_metadata_invalid: missing or out-of-range projected minSets", async () => {
+  const base = Compiler.compile(gymContext("growth", 3), EXERCISE_LIBRARY);
+
+  const missing = clone(base);
+  delete missing.program[0].minSets;
+  const rMissing = await Transition.proposeVolumeReduction(volInput(missing, { transitionId: "tr_meta_missing" }));
+  assert.equal(rMissing.ok, false);
+  assert.equal(rMissing.code, "volume_metadata_invalid");
+
+  const zero = clone(base);
+  zero.program[0].minSets = 0;
+  const rZero = await Transition.proposeVolumeReduction(volInput(zero, { transitionId: "tr_meta_zero" }));
+  assert.equal(rZero.ok, false);
+  assert.equal(rZero.code, "volume_metadata_invalid");
+
+  const tooHigh = clone(base);
+  tooHigh.program[0].minSets = base.program[0].sets + 3;
+  const rHigh = await Transition.proposeVolumeReduction(volInput(tooHigh, { transitionId: "tr_meta_high" }));
+  assert.equal(rHigh.ok, false);
+  assert.equal(rHigh.code, "volume_metadata_invalid");
+
+  const nonInteger = clone(base);
+  nonInteger.program[0].minSets = 1.5;
+  const rFrac = await Transition.proposeVolumeReduction(volInput(nonInteger, { transitionId: "tr_meta_frac" }));
+  assert.equal(rFrac.ok, false);
+  assert.equal(rFrac.code, "volume_metadata_invalid");
+});
+
+test("typed noncanonical_reentry_prescription: missing or duplicated changed-slot week coverage", async () => {
+  const base = Compiler.compile(gymContext("growth", 3), EXERCISE_LIBRARY);
+  const changed = base.days
+    .flatMap((d) => d.slots)
+    .find((s) => s.status !== "protected" && s.status !== "optional" && s.reducible === true);
+  assert(changed, "expected a reducible-above-floor slot");
+
+  const missing = clone(base);
+  for (const weeks of [missing.weeks, missing.programStructure.weekPrescriptions]) {
+    for (const day of weeks[0].days) {
+      const i = day.slots.findIndex((s) => s.slotId === changed.slotId);
+      if (i >= 0) day.slots.splice(i, 1);
+    }
+  }
+  const rMissing = await Transition.proposeVolumeReduction(volInput(missing, { transitionId: "tr_week_missing" }));
+  assert.equal(rMissing.ok, false);
+  assert.equal(rMissing.code, "noncanonical_reentry_prescription");
+
+  const duplicated = clone(base);
+  for (const weeks of [duplicated.weeks, duplicated.programStructure.weekPrescriptions]) {
+    for (const day of weeks[0].days) {
+      const entry = day.slots.find((s) => s.slotId === changed.slotId);
+      if (entry) day.slots.push(clone(entry));
+    }
+  }
+  const rDup = await Transition.proposeVolumeReduction(volInput(duplicated, { transitionId: "tr_week_dup" }));
+  assert.equal(rDup.ok, false);
+  assert.equal(rDup.code, "noncanonical_reentry_prescription");
+});
+
+test("validateProposal recompute rejects a freshly rehashed stale exposure before the hash check", async () => {
+  const pred = Compiler.compile(gymContext("growth", 3), EXERCISE_LIBRARY);
+  const input = volInput(pred, { transitionId: "tr_stale_expo" });
+  const result = await Transition.proposeVolumeReduction(input);
+  assert.equal(result.ok, true, result.code);
+
+  const tamperedProposal = clone(result.proposal);
+  const tamperedSucc = clone(result.successorInstance);
+  // Re-plant the predecessor totals onto the successor snapshot.
+  tamperedSucc.directIndirectExposure = clone(pred.directIndirectExposure);
+  assert.notDeepEqual(tamperedSucc.directIndirectExposure, result.successorInstance.directIndirectExposure);
+
+  // Fresh, honest hash: the proposal preimage is untouched, so a digest check
+  // alone would pass. Only a recompute catches the stale exposure object.
+  tamperedProposal.proposalHash = await Transition.hashProposal(tamperedProposal);
+  assert.equal(tamperedProposal.proposalHash, result.proposal.proposalHash);
+
+  const val = await Transition.validateProposal(tamperedProposal, {
+    predecessor: input.predecessor,
+    predecessorInstance: pred,
+    successorInstance: tamperedSucc,
+    supportedVersions: Compiler.VERSIONS,
+  });
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "invalid");
+  assert.equal(val.code, "volume_exposure_stale");
+});
+
+test("validateProposal recompute rejects a freshly rehashed unrelated-field mutation before the hash check", async () => {
+  const pred = Compiler.compile(gymContext("growth", 3), EXERCISE_LIBRARY);
+  const input = volInput(pred, { transitionId: "tr_unrelated_mut" });
+  const result = await Transition.proposeVolumeReduction(input);
+  assert.equal(result.ok, true, result.code);
+
+  const tamperedProposal = clone(result.proposal);
+  const tamperedSucc = clone(result.successorInstance);
+  // Mutate a field the policy must preserve verbatim (notes on a protected row).
+  const target = tamperedSucc.program.find((r) => r.priority === "protected");
+  assert(target);
+  target.notes = "tampered-note";
+
+  tamperedProposal.proposalHash = await Transition.hashProposal(tamperedProposal);
+  assert.equal(tamperedProposal.proposalHash, result.proposal.proposalHash);
+
+  const val = await Transition.validateProposal(tamperedProposal, {
+    predecessor: input.predecessor,
+    predecessorInstance: pred,
+    successorInstance: tamperedSucc,
+    supportedVersions: Compiler.VERSIONS,
+  });
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "invalid");
+  assert.notEqual(val.code, "proposal_hash_mismatch");
+  assert.equal(val.code, "successor_identity_mismatch");
+});
+
+test("validateProposal requires derivation.policyVersions to equal exactly { volumeReduction: 1 }", async () => {
+  const pred = Compiler.compile(gymContext("growth", 3), EXERCISE_LIBRARY);
+  const input = volInput(pred, { transitionId: "tr_policy_keys" });
+  const result = await Transition.proposeVolumeReduction(input);
+  assert.equal(result.ok, true, result.code);
+
+  const withExtraKey = clone(result.proposal);
+  withExtraKey.derivation.policyVersions.recoveryWeek = 2;
+  withExtraKey.proposalHash = await Transition.hashProposal(withExtraKey);
+  const valExtra = await Transition.validateProposal(withExtraKey, {
+    predecessor: input.predecessor,
+    predecessorInstance: pred,
+    successorInstance: result.successorInstance,
+    supportedVersions: Compiler.VERSIONS,
+  });
+  assert.equal(valExtra.ok, false);
+  assert.equal(valExtra.code, "unsupported_policy_version");
+
+  const wrongContext = clone(result.proposal);
+  wrongContext.derivation.compilerContextVersions = { ...wrongContext.derivation.compilerContextVersions, rulesVersion: "999" };
+  wrongContext.proposalHash = await Transition.hashProposal(wrongContext);
+  const valCtx = await Transition.validateProposal(wrongContext, {
+    predecessor: input.predecessor,
+    predecessorInstance: pred,
+    successorInstance: result.successorInstance,
+    supportedVersions: Compiler.VERSIONS,
+  });
+  assert.equal(valCtx.ok, false);
+  assert.equal(valCtx.code, "compiler_context_versions_mismatch");
 });

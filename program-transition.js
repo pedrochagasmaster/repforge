@@ -936,20 +936,64 @@
   }
 
 
-  const PRESCRIPTION_CLASS_RULES = Object.freeze({
-    heavy_3_6: Object.freeze({ sets: [2, 3] }),
-    compound_4_8: Object.freeze({ sets: [2, 3] }),
-    compound_8_12: Object.freeze({ sets: [2, 3] }),
-    isolation_8_15: Object.freeze({ sets: [1, 3] }),
-  });
-
-  function slotMinSets(slot, program) {
-    if (Array.isArray(program)) {
-      const match = program.find((p) => p.slotId === slot.slotId);
-      if (match && typeof match.minSets === "number") return match.minSets;
+  // Volume reduction consumes the compiler's own pinned projection metadata; it
+  // never re-derives prescription-class floors. Every resolved predecessor slot
+  // must have a matching projected `program` row (by stable slotId) whose
+  // integer `minSets` is a sane floor (>= 1 and <= the canonical working-set
+  // count) and whose identity fields agree with the slot. Anything missing,
+  // non-integer, out of range, or mismatched is typed `volume_metadata_invalid`
+  // rather than a guessed fallback.
+  function resolveVolumeMetadata(instance) {
+    const program = instance && instance.program;
+    if (!Array.isArray(program)) return { ok: false, code: "volume_metadata_invalid" };
+    const rowsBySlotId = new Map();
+    for (const row of program) {
+      if (!isObject(row) || typeof row.slotId !== "string" || !row.slotId ||
+          rowsBySlotId.has(row.slotId)) {
+        return { ok: false, code: "volume_metadata_invalid" };
+      }
+      rowsBySlotId.set(row.slotId, row);
     }
-    const classId = slot?.prescription?.classId;
-    return PRESCRIPTION_CLASS_RULES[classId]?.sets?.[0] ?? 2;
+    const floors = new Map();
+    for (const { slot, day } of flattenedSlots(instance)) {
+      const row = rowsBySlotId.get(slot.slotId);
+      if (!row) return { ok: false, code: "volume_metadata_invalid" };
+      const canonicalSets = slot.prescription?.sets;
+      if (!Number.isInteger(canonicalSets) || canonicalSets < 1) {
+        return { ok: false, code: "volume_metadata_invalid" };
+      }
+      if (!Number.isInteger(row.minSets) || row.minSets < 1 || row.minSets > canonicalSets) {
+        return { ok: false, code: "volume_metadata_invalid" };
+      }
+      if (row.dayId !== day.dayId || row.libraryId !== slot.exercise?.id ||
+          row.movementId !== movementId(slot) || row.priority !== slot.status) {
+        return { ok: false, code: "volume_metadata_invalid" };
+      }
+      floors.set(slot.slotId, row.minSets);
+    }
+    return { ok: true, floors, rowsBySlotId };
+  }
+
+  // Shipped compiler exposure semantics (program-compiler.js `exposureFor`):
+  // every resolved slot adds its canonical working-set count to each of its
+  // primary muscles (direct) and secondary muscles (indirect). Recomputed from
+  // the successor's own slots so a reduction never republishes predecessor
+  // totals.
+  function exposureFromSlots(days) {
+    const direct = {};
+    const indirect = {};
+    for (const dayRecord of days) {
+      for (const resolved of dayRecord.slots) {
+        const sets = resolved.prescription.sets;
+        for (const muscle of resolved.exercise.primaryMuscles || []) {
+          direct[muscle] = (direct[muscle] || 0) + sets;
+        }
+        for (const muscle of resolved.exercise.secondaryMuscles || []) {
+          indirect[muscle] = (indirect[muscle] || 0) + sets;
+        }
+      }
+    }
+    return { direct, indirect };
   }
 
   function updateProgressionShape(resolved) {
@@ -971,86 +1015,89 @@
     if (strategy.id === "anchor_backoff") strategy.params.backoffSets = Math.max(1, prescription.sets - 1);
   }
 
-  function projectProgram(instance) {
+  // Projection by preservation: each retained successor slot keeps its exact
+  // predecessor `program` row and only its placement (`order`, `dayId`, `day`)
+  // and set-dependent fields (`sets`, `progression`) are updated from the
+  // transformed resolved slot. minSets/maxSets, notes, alternates, loading/RIR,
+  // and any unknown forward-compatible fields are carried through untouched.
+  // Optional rows are simply absent because their slots are gone.
+  function projectByPreservation(instance, rowsBySlotId) {
     const exercises = [];
     for (const dayRecord of instance.days) {
       dayRecord.slots.forEach((resolved, index) => {
+        const base = clone(rowsBySlotId.get(resolved.slotId));
         const progression = clone(resolved.prescription.progression);
         const strategy = progression?.strategy?.id;
-        const sets = strategy === "anchor_backoff" ? 1 + progression.strategy.params.backoffSets : resolved.prescription.sets;
-        exercises.push({
-          id: resolved.slotId,
-          slotId: resolved.slotId,
-          dayId: dayRecord.dayId,
-          day: dayRecord.label,
-          order: index + 1,
-          name: resolved.exercise.name,
-          libraryId: resolved.exercise.id,
-          movementId: movementId(resolved),
-          sets,
-          min: resolved.prescription.repMin,
-          max: resolved.prescription.repMax,
-          primary: Array.isArray(resolved.exercise.primaryMuscles)
-            ? resolved.exercise.primaryMuscles.join(",")
-            : (resolved.exercise.primary || ""),
-          secondary: Array.isArray(resolved.exercise.secondaryMuscles)
-            ? resolved.exercise.secondaryMuscles.join(",")
-            : (resolved.exercise.secondary || ""),
-          notes: "",
-          alternates: [],
-          targetRirStart: resolved.prescription.targetRirMax,
-          targetRirEnd: resolved.prescription.targetRirMin,
-          minSets: PRESCRIPTION_CLASS_RULES[resolved.prescription.classId]?.sets?.[0] ?? 2,
-          maxSets: PRESCRIPTION_CLASS_RULES[resolved.prescription.classId]?.sets?.[1] ?? 3,
-          priority: resolved.status,
-          loadingMode: resolved.exercise.loading,
-          loadIncrement: resolved.exercise.loadIncrement,
-          progression,
-        });
+        base.order = index + 1;
+        base.dayId = dayRecord.dayId;
+        base.day = dayRecord.label;
+        base.sets = strategy === "anchor_backoff"
+          ? 1 + progression.strategy.params.backoffSets
+          : resolved.prescription.sets;
+        base.progression = progression;
+        exercises.push(base);
       });
     }
     return exercises;
   }
 
-  function deriveVolumeReduction(predecessorInstance, policyVersion = 1) {
+  function deriveVolumeReduction(predecessorInstance, policyVersion) {
     if (policyVersion !== 1 || !Number.isInteger(policyVersion)) {
       return { ok: false, code: "unsupported_policy_version" };
     }
     const predCheck = validateCompilerInstance(predecessorInstance);
     if (!predCheck.ok) return predCheck;
 
+    const metadata = resolveVolumeMetadata(predecessorInstance);
+    if (!metadata.ok) return metadata;
+    const { floors, rowsBySlotId } = metadata;
+
     let optionalCount = 0;
     let reducibleAboveFloorCount = 0;
     const changedSlotIds = new Set();
+    const canonicalSetsById = new Map();
 
     for (const { slot } of flattenedSlots(predecessorInstance)) {
+      canonicalSetsById.set(slot.slotId, slot.prescription.sets);
       if (slot.status === "optional") {
         optionalCount++;
         changedSlotIds.add(slot.slotId);
       } else if (slot.status === "protected") {
         // Retained byte-equivalent
       } else if (slot.reducible === true) {
-        const minSets = slotMinSets(slot, predecessorInstance.program);
-        if (slot.prescription?.sets > minSets) {
+        if (slot.prescription.sets > floors.get(slot.slotId)) {
           reducibleAboveFloorCount++;
           changedSlotIds.add(slot.slotId);
         }
       }
     }
 
-    if (Array.isArray(predecessorInstance.weeks)) {
-      for (const week of predecessorInstance.weeks) {
-        if (!Array.isArray(week?.days)) continue;
-        for (const day of week.days) {
-          if (!Array.isArray(day?.slots)) continue;
-          for (const weekSlot of day.slots) {
-            if (changedSlotIds.has(weekSlot.slotId)) {
-              const orig = flattenedSlots(predecessorInstance).find((e) => e.slot.slotId === weekSlot.slotId);
-              if (orig && weekSlot.sets !== orig.slot.prescription?.sets) {
-                return { ok: false, code: "noncanonical_reentry_prescription" };
-              }
+    // Every slot that will change must appear exactly once in every predecessor
+    // week, carrying its canonical predecessor set count. Missing, duplicated,
+    // or non-canonical coverage is a typed Unavailable, never a guessed rewrite.
+    if (!Array.isArray(predecessorInstance.weeks)) {
+      return { ok: false, code: "volume_metadata_invalid" };
+    }
+    for (const week of predecessorInstance.weeks) {
+      if (!isObject(week) || !Array.isArray(week.days)) {
+        return { ok: false, code: "volume_metadata_invalid" };
+      }
+      for (const changedId of changedSlotIds) {
+        let seen = 0;
+        let weekSets = null;
+        for (const weekDay of week.days) {
+          if (!isObject(weekDay) || !Array.isArray(weekDay.slots)) {
+            return { ok: false, code: "volume_metadata_invalid" };
+          }
+          for (const weekSlot of weekDay.slots) {
+            if (weekSlot && weekSlot.slotId === changedId) {
+              seen += 1;
+              weekSets = weekSlot.sets;
             }
           }
+        }
+        if (seen !== 1 || weekSets !== canonicalSetsById.get(changedId)) {
+          return { ok: false, code: "noncanonical_reentry_prescription" };
         }
       }
     }
@@ -1072,8 +1119,8 @@
           continue;
         }
         if (slot.reducible === true) {
-          const minSets = slotMinSets(slot, predecessorInstance.program);
-          if (slot.prescription?.sets > minSets) {
+          const minSets = floors.get(slot.slotId);
+          if (slot.prescription.sets > minSets) {
             slot.prescription.sets = minSets;
             updateProgressionShape(slot);
           }
@@ -1088,6 +1135,8 @@
     const remainingSlotIds = new Set(flattenedSlots(successor).map((e) => e.slot.slotId));
     const successorSlotsById = new Map(flattenedSlots(successor).map((e) => [e.slot.slotId, e.slot]));
 
+    // Remove optional entries and set retained reduced entries consistently in
+    // every week; unrelated slots keep their canonical count.
     for (const week of successor.weeks) {
       for (const day of week.days) {
         day.slots = day.slots.filter((s) => remainingSlotIds.has(s.slotId));
@@ -1104,15 +1153,16 @@
       (rel) => remainingSlotIds.has(rel.heavySlotId) && remainingSlotIds.has(rel.volumeSlotId)
     );
 
-    successor.program = projectProgram(successor);
+    // Projection by preservation, exposure recomputed from successor slots.
+    successor.program = projectByPreservation(successor, rowsBySlotId);
+    successor.directIndirectExposure = exposureFromSlots(successor.days);
 
-    successor.programStructure = {
-      schemaVersion: 1,
-      days: clone(predecessorInstance.programStructure.days),
-      provenance: clone(successor.provenance),
-      weekPrescriptions: clone(successor.weeks),
-      customizedFrom: null,
-    };
+    // Clone the predecessor structure; only provenance and week prescriptions
+    // move. schemaVersion, day metadata, customizedFrom, and any unrelated safe
+    // fields are retained.
+    successor.programStructure = clone(predecessorInstance.programStructure);
+    successor.programStructure.provenance = clone(successor.provenance);
+    successor.programStructure.weekPrescriptions = clone(successor.weeks);
 
     const succCheck = validateCompilerInstance(successor);
     if (!succCheck.ok) return succCheck;
@@ -1168,8 +1218,13 @@
         proposal.derivation?.request !== "reduce-training-volume" ||
         !isObject(proposal.derivation?.compilerContextVersions) ||
         !isObject(proposal.derivation?.policyVersions) ||
+        Object.keys(proposal.derivation.policyVersions).length !== 1 ||
         proposal.derivation.policyVersions.volumeReduction !== 1) {
       return "unsupported_policy_version";
+    }
+    if (!isObject(predecessor) || !isObject(predecessor.provenance) ||
+        !sameCanonical(proposal.derivation.compilerContextVersions, predecessor.provenance)) {
+      return "compiler_context_versions_mismatch";
     }
     return null;
   }
@@ -1185,10 +1240,10 @@
 
     if (!isObject(input)) return invalid("invalid_proposal");
 
-    const policyVersion = input.policyVersion !== undefined ? input.policyVersion : 1;
-    if (policyVersion !== 1 || !Number.isInteger(policyVersion)) {
+    if (!Number.isInteger(input.policyVersion) || input.policyVersion !== 1) {
       return invalid("unsupported_policy_version");
     }
+    const policyVersion = input.policyVersion;
 
     const predecessorInstance = input.predecessorInstance ||
       (input.predecessor?.kind === "compiled" ? input.predecessor : input.predecessor?.instance);
@@ -1330,6 +1385,10 @@
     const predecessorCheck = validateCompilerInstance(current.predecessorInstance);
     if (!predecessorCheck.ok) return { ok: false, status: "invalid", code: predecessorCheck.code };
 
+    const volumeMetadata = resolveVolumeMetadata(current.predecessorInstance);
+    if (!volumeMetadata.ok) return { ok: false, status: "invalid", code: volumeMetadata.code };
+    const floorFor = (slotId) => volumeMetadata.floors.get(slotId);
+
     if (!sameCanonical(proposal.predecessor?.compilerProvenance, current.predecessorInstance.provenance)) {
       return { ok: false, status: "invalid", code: "predecessor_provenance_mismatch" };
     }
@@ -1349,8 +1408,8 @@
           }
         }
         if (ex.after && predSlot) {
-          const minSets = slotMinSets(predSlot, current.predecessorInstance.program);
-          if (ex.after.sets < minSets) {
+          const minSets = floorFor(predSlot.slotId);
+          if (Number.isInteger(minSets) && ex.after.sets < minSets) {
             return { ok: false, status: "invalid", code: "below_floor_cut" };
           }
         }
@@ -1380,8 +1439,8 @@
       }
 
       for (const { slot: succSlot } of flattenedSlots(current.successorInstance)) {
-        const minSets = slotMinSets(succSlot, current.predecessorInstance.program);
-        if (succSlot.prescription?.sets < minSets) {
+        const minSets = floorFor(succSlot.slotId);
+        if (Number.isInteger(minSets) && succSlot.prescription?.sets < minSets) {
           return { ok: false, status: "invalid", code: "below_floor_cut" };
         }
       }
@@ -1406,6 +1465,13 @@
 
       const succCheck = validateCompilerInstance(current.successorInstance);
       if (!succCheck.ok) return { ok: false, status: "invalid", code: succCheck.code };
+
+      // Recompute the successor's direct/indirect exposure from its own slots and
+      // reject a stale or tampered exposure object before any hash comparison.
+      const expectedExposure = exposureFromSlots(current.successorInstance.days);
+      if (!sameCanonical(current.successorInstance.directIndirectExposure, expectedExposure)) {
+        return { ok: false, status: "invalid", code: "volume_exposure_stale" };
+      }
     }
 
     const derivation = deriveVolumeReduction(current.predecessorInstance, 1);
