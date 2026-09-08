@@ -17,6 +17,7 @@ const expected = [
   "app.js",
   "exercises.js",
   "i18n.js",
+  "motion-layer.js",
   "notify.js",
   "posthog-init.js",
   "program-compiler.js",

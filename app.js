@@ -1422,8 +1422,11 @@ function detachModalListeners(rec){
 function hideModalElement(rec){
   if(!rec?.el)return;
   // A sheet closed out from under a live drag (Escape, a save, a tour step) still
-  // carries the thumb's inline transform, and would reopen part-way down.
-  if(sheetDrag?.rec===rec){sheetDrag=null;sheetDragRelease(rec)}
+  // carries the thumb's inline transform — or a spring still settling it — and
+  // would reopen part-way down.
+  const wasDragged=sheetDrag?.rec===rec;
+  if(wasDragged)sheetDrag=null;
+  if(wasDragged||rec.motion)sheetDragRelease(rec);
   const el=rec.el;
   if(el.tagName==="DIALOG"){if(typeof el.close==="function"&&el.open)el.close()}
   else{el.classList.add("hidden");el.hidden=true}
@@ -1523,14 +1526,21 @@ function closeModal(el){
       onEnd=e=>{if(e.target===rec.el)finish()};
       rec.el.addEventListener("transitionend",onEnd)}
     else finish()})}
+/* Settings disclosures open panels whose height is content — a strategy
+ * explainer here, a table there, and different again in Portuguese. The state
+ * change is applied to the accessibility tree immediately; only the geometry is
+ * animated, and only when Motion is there to measure it. Without the runtime,
+ * or under reduced motion, the panel swaps display exactly as it always did. */
 function setDisclosure(button,panel,open){
   if(!button||!panel)return;
   const on=!!open;
   button.setAttribute("aria-expanded",on?"true":"false");
   if(panel.id)button.setAttribute("aria-controls",panel.id);
-  panel.classList.toggle("is-open",on);
   panel.setAttribute("aria-hidden",on?"false":"true");
-  const chev=button.querySelector(".chevron");if(chev)chev.classList.toggle("is-up",on)}
+  const chev=button.querySelector(".chevron");if(chev)chev.classList.toggle("is-up",on);
+  const show=()=>panel.classList.toggle("is-open",on);
+  if(window.RepForgeMotion)window.RepForgeMotion.animateDisclosure(panel,on,show);
+  else show()}
 function syncLogModeControls(){
   const list=logMode==="full",full=$("#modeFull"),focus=$("#modeFocus");
   if(full){full.classList.toggle("active",list);full.setAttribute("aria-pressed",list?"true":"false")}
@@ -4821,35 +4831,62 @@ function sheetDragMove(e){
     sheetDrag.live=true;
     rec.el.classList.add("is-dragging");
     rec.scrim?.classList.add("is-dragging");
+    // A sheet grabbed again while it is still springing back has a spring
+    // painting its transform. Stop that one first: two writers on the same
+    // property means whichever finishes last wins, and the loser is the thumb.
+    if(rec.motion){rec.motion.cancel();rec.motion=null}
+    sheetDrag.motion=window.RepForgeMotion?.trackSheetGesture(rec.el,rec.scrim)||null;
+    // The sheet can also be torn down mid-gesture — Escape, a save, a tour step
+    // — and whatever cleans it up has to be able to stop the animation too.
+    rec.motion=sheetDrag.motion;
     // Anchor where the drag was recognised, so the sheet doesn't jump by the slop.
     sheetDrag.y=e.clientY-SHEET_DRAG_LOCK}
   const now=e.timeStamp||performance.now(),dt=now-sheetDrag.lastT;
   if(dt>0){sheetDrag.vy=(e.clientY-sheetDrag.lastY)/dt;sheetDrag.lastY=e.clientY;sheetDrag.lastT=now}
   sheetDrag.dy=Math.max(0,e.clientY-sheetDrag.y);
-  rec.el.style.transform=`translate3d(0,${sheetDrag.dy}px,0)`;
-  // The scrim thins as the sheet leaves, so the page behind is already coming back.
-  if(rec.scrim)rec.scrim.style.opacity=String(Math.max(0,1-sheetDrag.dy/(rec.el.offsetHeight||1)))}
+  // Motion holds the sheet's position in a value it can spring from later, so
+  // the release carries the thumb's velocity. Without the runtime the sheet is
+  // placed the same way it always was and the stylesheet finishes the gesture.
+  if(sheetDrag.motion)sheetDrag.motion.follow(sheetDrag.dy);
+  else{
+    rec.el.style.transform=`translate3d(0,${sheetDrag.dy}px,0)`;
+    // The scrim thins as the sheet leaves, so the page behind is already coming back.
+    if(rec.scrim)rec.scrim.style.opacity=String(Math.max(0,1-sheetDrag.dy/(rec.el.offsetHeight||1)))}}
 /** Hand the sheet back to the stylesheet. Dropping the inline transform in the
  *  same tick as the class restores the transition from wherever the thumb left
  *  it, so the sheet either springs back or carries on down — never cuts. */
 function sheetDragRelease(rec){
   rec.el.classList.remove("is-dragging");
+  if(rec.motion){rec.motion.cancel();rec.motion=null}
   rec.el.style.transform="";
   rec.scrim?.classList.remove("is-dragging");
   if(rec.scrim)rec.scrim.style.opacity=""}
 function sheetDragEnd(e){
   if(!sheetDrag||(e&&e.pointerId!=null&&e.pointerId!==sheetDrag.id))return;
-  const{rec,dy,vy,live}=sheetDrag;sheetDrag=null;
+  const{rec,dy,vy,live,motion}=sheetDrag;sheetDrag=null;
   if(!live)return;
   // The drag ends over whatever the thumb started on, so a button under it must
   // not also fire.
   if(dy>SHEET_DRAG_LOCK)swallowNextClick();
-  sheetDragRelease(rec);
-  if(activeModal!==rec||rec.closing)return;
   // A deliberate throw counts as much as a long push (0.5px/ms is a flick), and
   // anything short of either is the lifter changing their mind.
   const flick=vy>=.5&&dy>=32;
-  if(flick||dy>=Math.min(160,Math.max(64,(rec.el.offsetHeight||0)*.32)))rec.onEscape()}
+  const dismiss=flick||dy>=Math.min(160,Math.max(64,(rec.el.offsetHeight||0)*.32));
+  const gone=activeModal!==rec||rec.closing;
+  if(!motion){
+    // No runtime: the stylesheet finishes the gesture exactly as it did before.
+    sheetDragRelease(rec);
+    if(!gone&&dismiss)rec.onEscape();
+    return}
+  rec.el.classList.remove("is-dragging");
+  rec.scrim?.classList.remove("is-dragging");
+  if(gone){sheetDragRelease(rec);return}
+  // The sheet keeps the speed it was let go at: a flick carries it the rest of
+  // the way out, a change of mind is caught and put back. Either way `onEscape`
+  // is the sheet's own dismiss, so a swipe can never close something a tap
+  // could not.
+  if(dismiss){motion.dismiss({velocity:vy});rec.onEscape()}
+  else motion.settle({velocity:vy}).finally(()=>{if(rec.motion===motion)rec.motion=null})}
 function focusGo(dir){
   const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0,next=at+dir;
   if(next<0||next>=fl.length)return false;
@@ -4866,7 +4903,15 @@ const FOCUS_GAP=14;
 const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
 /** Carry the deck one card over, animating the track exactly as a fling does,
  *  then re-render at the new index with the track back at rest. Chevrons, the
- *  Next exercise button, the arrow keys and a completed swipe all land here. */
+ *  Next exercise button, the arrow keys and a completed swipe all land here.
+ *
+ *  This stays a plain 210ms transition, deliberately. A spring was tried and
+ *  taken back out: the card is delivered to a fixed slot, the deck is locked for
+ *  the length of the slide so there is nothing to interrupt, and the spring's
+ *  tail pushed the index change — which waits on the slide — from 210ms out past
+ *  300ms. Motion earns its cost where a gesture is still live; here it only cost
+ *  responsiveness. `focusSettle` below is the half of this that is a real catch,
+ *  and that half does use a spring. */
 function focusAnimateTo(dir){
   if(focusFlinging||!focusCanGo(dir))return false;
   const track=focusTrack(),deck=$("#focusDeck");
@@ -4926,11 +4971,17 @@ function swallowNextClick(){
   const stop=ev=>{ev.stopPropagation();ev.preventDefault()};
   document.addEventListener("click",stop,{capture:true,once:true});
   setTimeout(()=>document.removeEventListener("click",stop,{capture:true}),350)}
-function focusSettle(track,card,deck){
+function focusSettle(track,card,deck,{from=0,velocity=0}={}){
   card?.classList.remove("is-dragging");
+  const done=()=>{track?.classList.remove("is-settling");deck?.classList.remove("is-swiping")};
+  // A swipe that stopped short is caught rather than switched off: the track
+  // springs home from wherever the thumb left it, carrying its velocity, so a
+  // half-hearted push and an abandoned flick read as different gestures.
   track?.classList.add("is-settling");
+  const run=window.RepForgeMotion?.settleFocusDeck(track,{from,velocity});
+  if(run){run.then(done);return}
   focusSetTrack(track,0);
-  setTimeout(()=>{track?.classList.remove("is-settling");deck?.classList.remove("is-swiping")},220)}
+  setTimeout(done,220)}
 function focusDragEnd(e){
   if(!focusDrag||(e&&e.pointerId!=null&&e.pointerId!==focusDrag.id))return;
   const{card,track,dx,axis,vx}=focusDrag;focusDrag=null;
@@ -4942,7 +4993,7 @@ function focusDragEnd(e){
   // it was thrown (0.4px/ms is roughly a deliberate flick).
   const flick=Math.abs(vx)>=.4&&Math.sign(vx)===Math.sign(dx)&&Math.abs(dx)>=28;
   const past=Math.abs(dx)>=Math.min(110,Math.max(56,width*.2))||flick;
-  if(!past||!focusCanGo(dir)){focusSettle(track,card,deck);return}
+  if(!past||!focusCanGo(dir)){focusSettle(track,card,deck,{from:dx,velocity:vx});return}
   card.classList.remove("is-dragging");
   focusAnimateTo(dir)}
 async function enterWorkout(opts={}){if(opts.day&&!await requestWorkoutDay(opts.day))return false;

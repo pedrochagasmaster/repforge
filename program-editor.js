@@ -42,6 +42,11 @@
     moveUp: "Move up",
     moveDown: "Move down",
     moveOther: "Move to another day",
+    dragInstructions: "Press space bar or enter to start reordering this exercise. Use the arrow keys to move it, space bar or enter to drop it, and escape to cancel.",
+    dragPickedUp: ({ name, index, count, day }) => `Picked up ${name}, position ${index} of ${count} in ${day}.`,
+    dragOver: ({ name, index, count, day }) => `${name} is now at position ${index} of ${count} in ${day}.`,
+    dragDropped: ({ name, index, count, day }) => `Dropped ${name} at position ${index} of ${count} in ${day}.`,
+    dragCancelled: ({ name }) => `Reordering cancelled. ${name} stayed where it was.`,
     moved: "Exercise moved",
     undo: "Undo",
     invalid: "Fix the highlighted values before continuing.",
@@ -61,6 +66,9 @@
     secondary: "program.editor.secondary", alternates: "program.editor.alternates", chooseAlternates: "program.editor.choose_alternates",
     move: "program.editor.move", moveUp: "program.editor.move_up", moveDown: "program.editor.move_down",
     moveOther: "program.editor.move_other", moved: "program.editor.moved", undo: "program.editor.undo",
+    dragInstructions: "program.editor.drag.instructions", dragPickedUp: "program.editor.drag.picked_up",
+    dragOver: "program.editor.drag.over", dragDropped: "program.editor.drag.dropped",
+    dragCancelled: "program.editor.drag.cancelled",
     invalid: "program.editor.invalid", saved: "program.editor.draft_saved", emptyDays: "program.editor.empty_days",
     more: "program.editor.more", close: "dialog.close",
   });
@@ -296,7 +304,6 @@
     let collapsedDays = new Set();
     let collapsedDaysInitialized = false;
     let destroyed = false;
-    let drag = null;
     let undoMove = null;
     let reorderMode = false;
     let settleMoveId = null;
@@ -317,6 +324,10 @@
       status.innerHTML = message
         ? `${esc(message)}${undo ? ` <button type="button" class="program-editor__undo" data-role="undo-move">${esc(label("undo"))}</button>` : ""}`
         : "";
+      // The status line is written outside the render, so the undo it offers has
+      // to be wired here. Waiting for the next render to bind it left the
+      // control live only if something else happened to redraw the editor.
+      status.querySelector('[data-role="undo-move"]')?.addEventListener("click", undoLastMove);
       status.hidden = !message;
       if (statusTimer) clearTimeout(statusTimer);
       if (message && !undo) statusTimer = setTimeout(() => { if (status.isConnected) status.hidden = true; }, 2600);
@@ -411,7 +422,7 @@
       const next = clone(document); removeDayFromDocument(next, day);
       return stage(next, { kind: "day_remove", targetDay: day });
     };
-    const moveExercise = (id, toDay, toIndex, { announce = true } = {}) => {
+    const moveExercise = (id, toDay, toIndex, { announce = true, settle = true } = {}) => {
       const before = clone(document), exercise = before.program?.find(item => item.id === id);
       if (!exercise) return Promise.resolve({ ok: false });
       const sourceDay = exercise.day, sourceIndex = exercisesFor(before, sourceDay).findIndex(item => item.id === id);
@@ -429,10 +440,19 @@
         }
         if (settleTimer) clearTimeout(settleTimer);
         settleTimer = setTimeout(() => { settleMoveId = null; }, 220);
-        if (reducedMotion(adapter)) return;
+        // A drag has already been animated by the drag library, row for row.
+        // Only a move with no gesture behind it — Move up, Move down, Move to
+        // another day, Undo — has a jump left to cover.
+        if (!settle || reducedMotion(adapter)) return;
         const frame = root.requestAnimationFrame || (callback => setTimeout(callback, 0));
         frame(() => {
-          for (const row of host.querySelectorAll('[data-role="exercise"][data-id]')) {
+          const rows = [...host.querySelectorAll('[data-role="exercise"][data-id]')];
+          // A spring per row, retargeted rather than restarted. Nudging a row up
+          // three times used to replay one keyframe from zero on each tap, so the
+          // second and third moves flickered; a spring picks each row up from
+          // wherever it currently is, at whatever speed it is already moving.
+          if (root.RepForgeMotion?.animateExerciseReorder(rows, beforeRects)) return;
+          for (const row of rows) {
             const beforeRect = beforeRects.get(row.dataset.id);
             if (!beforeRect) continue;
             const delta = beforeRect.top - row.getBoundingClientRect().top;
@@ -707,67 +727,213 @@
         moveExercise(button.dataset.id, button.dataset.day, target);
       }));
       host.querySelectorAll('[data-role="undo-move"]').forEach(button => button.addEventListener("click", undoLastMove));
-      host.querySelectorAll('[data-role="drag-handle"]').forEach(button => button.addEventListener("pointerdown", beginDrag));
+      // Every render replaces the rows, so the sortables are rebuilt against
+      // the DOM that now exists rather than patched.
+      mountSorting();
     }
-    function beginDrag(event) {
-      if (destroyed || event.button != null && event.button !== 0) return;
-      const handle = event.currentTarget, id = handle.dataset.id, row = handle.closest('[data-role="exercise"]');
-      const exercise = document.program?.find(item => item.id === id); if (!exercise || !row) return;
-      event.preventDefault();
-      const rect = row.getBoundingClientRect();
-      drag = { id, row, pointerId: event.pointerId, startY: event.clientY, top: rect.top, day: exercise.day, started: false, pickup: setTimeout(() => { if (drag) { drag.started = true; row.classList.add("is-dragging"); } }, 90), overDay: null, hold: null };
-      try { handle.setPointerCapture(event.pointerId); } catch { /* Safari may not expose capture on buttons. */ }
-      window.addEventListener("pointermove", dragMove, { passive: false });
-      window.addEventListener("pointerup", endDrag, { once: true });
-      window.addEventListener("pointercancel", cancelDrag, { once: true });
+    /* ============================================================
+       Reordering — @dnd-kit/dom
+       ------------------------------------------------------------
+       The editor used to carry its own pointer-drag: a pickup timer, manual
+       pointer capture, `elementFromPoint` on every move to find the row and day
+       under the thumb, and hand-computed drop indices. It worked, but it was a
+       drag-and-drop library written by hand, and the parts it did not have were
+       the expensive ones — a keyboard drag, live-region announcements, and
+       auto-scrolling a long day list while dragging near its edge.
+
+       @dnd-kit/dom owns all of that now. What the editor keeps is what is
+       actually about programs rather than about dragging: the 90ms pickup that
+       tells a drag from a tap, the 450ms hold that opens a collapsed day, and
+       the single `moveExercise` call that every path — drag, keyboard drag,
+       Move up, Move down, Move to another day — goes through, so one document
+       transaction, one announcement and one undo cover them all.
+
+       The library is optional in the same sense the rest of the app's runtimes
+       are: if it is missing, the handle simply does not drag, and every reorder
+       remains reachable through the explicit Move controls in each row's menu,
+       which are also the keyboard path this editor shipped with.
+       ============================================================ */
+    let sorting = null;
+
+    /** Screen-reader copy for the drag, in the lifter's language.
+     *  dnd-kit ships English defaults; a Portuguese install must not hear them. */
+    function dragAnnouncements() {
+      const place = operation => {
+        const source = operation?.source;
+        const sortable = source?.sortable || source;
+        const day = String(sortable?.group ?? "");
+        const name = document.program?.find(item => item.id === source?.id)?.name || "";
+        return { name, day: titleForDay(day), index: (sortable?.index ?? 0) + 1, count: exercisesFor(document, day).length };
+      };
+      const say = (key, operation) => label(key, place(operation));
+      return {
+        dragstart: ({ operation }) => say("dragPickedUp", operation),
+        dragover: ({ operation }) => say("dragOver", operation),
+        dragend: ({ operation, canceled }) =>
+          canceled ? label("dragCancelled", { name: place(operation).name }) : say("dragDropped", operation),
+      };
     }
-    function dragMove(event) {
-      if (!drag || event.pointerId !== drag.pointerId) return;
-      event.preventDefault();
-      if (!drag.started) return;
-      const dy = event.clientY - drag.startY;
-      drag.lastX = event.clientX; drag.lastY = event.clientY;
-      const lift = reducedMotion(adapter) ? "" : " scale(1.01)";
-      drag.row.style.transform = `translate3d(0,${dy}px,0)${lift}`;
-      drag.row.classList.add("is-dragging");
-      const target = documentElementAt(event.clientX, event.clientY), day = target?.closest?.('[data-role="day"]');
-      if (!day) return;
-      const targetDay = day.dataset.day;
-      if (targetDay !== drag.overDay) {
-        if (drag.hold) clearTimeout(drag.hold);
-        drag.overDay = targetDay;
-        drag.hold = setTimeout(() => day.classList.add("is-drag-target-expanded"), 450);
+    /** The day's display title, so an announcement names what the lifter sees. */
+    function titleForDay(day) {
+      const index = labels(document).indexOf(day);
+      return index >= 0 ? titleFor(day, index) : day;
+    }
+
+    function teardownSorting() {
+      const current = sorting;
+      sorting = null;
+      if (!current) return;
+      clearTimeout(current.expandTimer);
+      for (const sortable of current.sortables) { try { sortable.destroy(); } catch { /* already gone */ } }
+      try { current.manager.destroy(); } catch { /* already gone */ }
+    }
+
+    function mountSorting() {
+      teardownSorting();
+      const Dnd = root.DndKit;
+      if (destroyed) return;
+      // The heavy @dnd-kit bundle is deferred past the document bootstrap, so
+      // an editor rendered during boot can arrive before it. Ask the bootstrap
+      // for it and mount against the rows that exist when it lands; the Move
+      // controls carry reordering in the meantime, and on the far side of the
+      // window `available()` is already true and nothing is scheduled.
+      if (!Dnd) {
+        const runtime = root.RepForgeDndRuntime;
+        if (runtime && !runtime.available())
+          runtime.load().then(() => { if (!destroyed && !sorting) mountSorting(); }, () => {});
+        return;
       }
-    }
-    function documentElementAt(x, y) { try { return root.document?.elementFromPoint?.(x, y) || null; } catch { return null; } }
-    function finishDrag(cancelled) {
-      if (!drag) return;
-      const current = drag; drag = null; clearTimeout(current.pickup); if (current.hold) clearTimeout(current.hold);
-      current.row.classList.remove("is-dragging"); current.row.style.transform = "";
-      host.querySelectorAll(".is-drag-target-expanded").forEach(day => day.classList.remove("is-drag-target-expanded"));
-      if (cancelled || !current.started) return;
-      const point = root.document?.elementFromPoint?.(current.lastX, current.lastY);
-      const day = point?.closest?.('[data-role="day"]'); if (!day) return;
-      const targetDay = day.dataset.day, targetExercise = point.closest?.('[data-role="exercise"]');
-      let targetIndex = exercisesFor(document, targetDay).length;
-      if (targetExercise && targetExercise.dataset.id !== current.id) {
-        const list = exercisesFor(document, targetDay), index = list.findIndex(item => item.id === targetExercise.dataset.id);
-        targetIndex = index + (current.lastY > targetExercise.getBoundingClientRect().top + targetExercise.getBoundingClientRect().height / 2 ? 1 : 0);
+      const reduced = reducedMotion(adapter);
+      // Reduced motion is a different interaction, not a faster one: the row
+      // still follows the thumb, but nothing slides into place behind it and
+      // nothing animates on the drop.
+      const glide = reduced ? null : { duration: 200, easing: "cubic-bezier(.2,.7,.2,1)" };
+      const manager = new Dnd.DragDropManager({
+        plugins: defaults => defaults.map(plugin =>
+          plugin === Dnd.Accessibility
+            ? Dnd.Accessibility.configure({
+                announcements: dragAnnouncements(),
+                screenReaderInstructions: { draggable: label("dragInstructions") },
+              })
+            : plugin === Dnd.Feedback
+              ? Dnd.Feedback.configure({
+                  // The library's own feedback: a copy of the row is carried,
+                  // and a placeholder holds the gap it came from. `feedback:
+                  // "move"` looked closer to the old hand-rolled drag, but it
+                  // takes the row out of the layout the sortable collision
+                  // detection measures against, and no drop target is ever
+                  // found. The stylesheet gives the copy and the gap the same
+                  // language the old drag had instead.
+                  dropAnimation: glide,
+                  keyboardTransition: glide,
+                })
+              : plugin),
+        sensors: defaults => defaults.map(sensor =>
+          sensor === Dnd.PointerSensor
+            ? Dnd.PointerSensor.configure({
+                // A thumb on the handle waits out the same 90ms this editor has
+                // always used to tell a drag from a tap, and gives the gesture
+                // back if it travels more than 10px inside it — which is how a
+                // page scroll that started on the handle escapes.
+                //
+                // A mouse on the handle does not wait at all. The library's own
+                // default makes the same distinction, and it matters: with a
+                // delay, a tolerance that cancels on movement would throw away
+                // exactly the fast, deliberate drags a mouse is good at.
+                activationConstraints: (event, source) =>
+                  event.pointerType === "mouse" &&
+                  (source.handle === event.target || source.handle?.contains(event.target))
+                    ? undefined
+                    : [new Dnd.PointerActivationConstraints.Delay({ value: 90, tolerance: 10 })],
+              })
+            : sensor),
+      });
+
+      const sortables = [];
+      for (const section of host.querySelectorAll('[data-role="day"]')) {
+        const day = section.dataset.day;
+        // The day itself accepts a drop, at lower priority than the rows inside
+        // it, so an empty day and a collapsed one are both reachable.
+        sortables.push(new Dnd.Droppable({
+          id: `day:${day}`, type: "day", accept: ["exercise"],
+          element: section, data: { day },
+          collisionPriority: Dnd.CollisionPriority.Low,
+        }, manager));
+        [...section.querySelectorAll('[data-role="exercise"][data-id]')].forEach((row, index) => {
+          const handle = row.querySelector('[data-role="drag-handle"]');
+          if (!handle) return;
+          sortables.push(new Dnd.Sortable({
+            id: row.dataset.id, index, group: day,
+            type: "exercise", accept: ["exercise"],
+            element: row, handle, data: { day },
+            transition: glide,
+          }, manager));
+        });
       }
-      moveExercise(current.id, targetDay, targetIndex);
+
+      sorting = { manager, sortables, expandTimer: null, overDay: null };
+
+      // Holding a row over another day opens it, exactly as before. The library
+      // reports what is under the pointer; the timing is the editor's.
+      manager.monitor.addEventListener("dragover", event => {
+        if (!sorting) return;
+        const over = dayOf(event.operation?.target);
+        if (over === sorting.overDay) return;
+        clearTimeout(sorting.expandTimer);
+        sorting.overDay = over;
+        if (!over) return;
+        sorting.expandTimer = setTimeout(() => {
+          host.querySelector(`[data-role="day"][data-day="${cssEscape(over)}"]`)
+            ?.classList.add("is-drag-target-expanded");
+        }, 450);
+      });
+
+      manager.monitor.addEventListener("dragend", event => {
+        if (sorting) { clearTimeout(sorting.expandTimer); sorting.overDay = null; }
+        host.querySelectorAll(".is-drag-target-expanded").forEach(section => section.classList.remove("is-drag-target-expanded"));
+        if (event.canceled || destroyed) return;
+        const source = event.operation?.source;
+        const sortable = source?.sortable || source;
+        const id = source?.id;
+        if (!id || !document.program?.some(item => item.id === id)) return;
+        // Released between two rows, the sortable already knows its new day and
+        // place. Released on a day itself — an empty one, or a collapsed one the
+        // hold above just opened — it goes to that day's end, which is where
+        // letting go over open space has always put it.
+        const target = event.operation?.target;
+        const onDay = dayOf(target);
+        const droppedOnDay = target?.type === "day" && !!onDay;
+        const day = droppedOnDay ? onDay : (sortable?.group != null ? String(sortable.group) : onDay);
+        if (!day) return;
+        const index = droppedOnDay || typeof sortable?.index !== "number"
+          ? exercisesFor(document, day).filter(item => item.id !== id).length
+          : sortable.index;
+        const from = document.program.find(item => item.id === id);
+        // dnd-kit has already put the row where it belongs. Re-running the same
+        // position through the document would be a no-op transaction and an
+        // announcement for a move that did not happen.
+        if (from && from.day === day && exercisesFor(document, day).findIndex(item => item.id === id) === index) {
+          scheduleRender();
+          return;
+        }
+        // The library animated the drop, so the re-render must not animate it
+        // a second time from where the row already is.
+        moveExercise(id, day, index, { settle: false });
+      });
     }
-    function endDrag(event) {
-      if (drag && event.pointerId === drag.pointerId) { drag.lastX = event.clientX; drag.lastY = event.clientY; }
-      window.removeEventListener("pointermove", dragMove);
-      finishDrag(false);
-      window.removeEventListener("pointercancel", cancelDrag);
+    /** The day a drop target belongs to, whether it is a row or the day itself. */
+    function dayOf(target) {
+      if (!target) return null;
+      const data = target.data;
+      if (data && typeof data.day === "string") return data.day;
+      const element = target.element;
+      return element?.closest?.('[data-role="day"]')?.dataset.day || null;
     }
-    function cancelDrag() { window.removeEventListener("pointermove", dragMove); finishDrag(true); }
 
     render();
     return {
       refresh,
-      dispose() { destroyed = true; if (drag) cancelDrag(); if (statusTimer) clearTimeout(statusTimer); host.classList.remove("program-editor-host"); host.dataset.editorMounted = "false"; host.replaceChildren(); },
+      dispose() { destroyed = true; teardownSorting(); if (statusTimer) clearTimeout(statusTimer); host.classList.remove("program-editor-host"); host.dataset.editorMounted = "false"; host.replaceChildren(); },
       getDocument: () => clone(document),
       getToken: () => clone(token),
       isDirty: () => edits.length > 0 || changed(),
