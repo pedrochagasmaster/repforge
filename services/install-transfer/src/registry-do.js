@@ -5,6 +5,7 @@ import { LIVE_WINDOW_MS, TOMBSTONE_MARGIN_MS, tombstoneUntil, TRANSFER_STATES } 
 export const REGISTRY_BATCH_LIMIT = 100;
 export const REGISTRY_RETRY_MS = 60_000;
 export const REGISTRY_RESERVATION_MS = LIVE_WINDOW_MS + TOMBSTONE_MARGIN_MS;
+export const REGISTRY_FAILURE_GRACE_MS = TOMBSTONE_MARGIN_MS;
 
 const TABLE = "transfer_route_registry";
 const ROUTE_RE = /^transfer-v1-[A-Za-z0-9_-]{43}$/u;
@@ -46,6 +47,10 @@ function purgeState(value) {
 
 function minDeadline(now, deadline) {
   return Math.min(now + REGISTRY_RETRY_MS, deadline);
+}
+
+function failureDeadline(tombstoneUntil) {
+  return tombstoneUntil + REGISTRY_FAILURE_GRACE_MS;
 }
 
 export class TransferRouteRegistryDurableObject extends DurableObject {
@@ -187,9 +192,18 @@ export class TransferRouteRegistryDurableObject extends DurableObject {
     this._execWrite(`UPDATE ${TABLE} SET next_due_at = ? WHERE route_name = ?`, nextDueAt, route);
   }
 
-  async _markDeadlineFailure(route) {
+  async _markDeadlineFailure(route, now) {
+    const entry = this._read(route);
+    if (!entry) return;
+    const deadline = failureDeadline(entry.tombstone_until);
+    if (now >= deadline) {
+      await this._removeRoute(route);
+      await this._markPurgeUnhealthy();
+      return;
+    }
     this._execWrite(
-      `UPDATE ${TABLE} SET purge_state = 'deadline-failed', next_due_at = NULL WHERE route_name = ?`,
+      `UPDATE ${TABLE} SET purge_state = 'deadline-failed', next_due_at = ? WHERE route_name = ?`,
+      minDeadline(now, deadline),
       route,
     );
     await this._markPurgeUnhealthy();
@@ -202,6 +216,12 @@ export class TransferRouteRegistryDurableObject extends DurableObject {
     let purged = 0;
     let failed = 0;
     for (const entry of due) {
+      if (entry.purge_state === "deadline-failed" && now >= failureDeadline(entry.tombstone_until)) {
+        await this._removeRoute(entry.route_name);
+        failed += 1;
+        await this._markPurgeUnhealthy();
+        continue;
+      }
       let result;
       try {
         const transfer = this.env.TRANSFER_OBJECTS
@@ -212,7 +232,7 @@ export class TransferRouteRegistryDurableObject extends DurableObject {
       } catch {
         failed += 1;
         if (now >= entry.tombstone_until) {
-          await this._markDeadlineFailure(entry.route_name);
+          await this._markDeadlineFailure(entry.route_name, now);
         } else {
           try { await this._advanceRoute(entry.route_name, minDeadline(now, entry.tombstone_until)); } catch { /* health remains latched */ }
         }
@@ -225,7 +245,7 @@ export class TransferRouteRegistryDurableObject extends DurableObject {
       }
       if (now >= entry.tombstone_until) {
         failed += 1;
-        await this._markDeadlineFailure(entry.route_name);
+        await this._markDeadlineFailure(entry.route_name, now);
         continue;
       }
       let nextDueAt = minDeadline(now, entry.tombstone_until);
@@ -257,11 +277,11 @@ export class TransferRouteRegistryDurableObject extends DurableObject {
       await this.purgeDue({ now: Date.now(), limit: REGISTRY_BATCH_LIMIT });
     } catch {
       await this._markPurgeUnhealthy();
-      // Per-route retries are bounded by the 75-minute row deadline. A
-      // registry-wide storage failure has no trustworthy route deadline, so
-      // it is left to the authenticated purge runbook rather than retried
-      // forever by an alarm.
-      try { await this.ctx.storage.deleteAlarm(); } catch { /* health remains latched */ }
+      // Keep retrying the registry alarm after a transient storage/provider
+      // failure. Per-route cleanup remains bounded by the original 75-minute
+      // tombstone plus the finite failure grace window; the owner gate still
+      // requires provider evidence for an outage outside this local proof.
+      try { await this.ctx.storage.setAlarm(new Date(Date.now() + REGISTRY_RETRY_MS)); } catch { /* health remains latched */ }
     }
   }
 }

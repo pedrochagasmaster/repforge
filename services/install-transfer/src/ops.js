@@ -1,6 +1,6 @@
-import { constantTimeEqual, utf8 } from "./crypto.js";
+import { base64UrlEncode, constantTimeEqual, utf8 } from "./crypto.js";
 import { BILLING_EVIDENCE_MAX_AGE_MS, HEALTH_CLOCK_SKEW_MS, HEALTH_SIGNAL_MAX_AGE_MS } from "./health-do.js";
-import { euStub } from "./namespaces.js";
+import { euNamespace, euStub } from "./namespaces.js";
 import { assertJsonRequest, decodeJsonSyntax, readBoundedRequestBytes } from "./transport.js";
 import { REGISTRY_BATCH_LIMIT } from "./registry-do.js";
 
@@ -10,6 +10,7 @@ const HEARTBEAT_PATH = `${OPS_PREFIX}heartbeat`;
 const BILLING_PATH = `${OPS_PREFIX}billing`;
 const DELETION_ACK_PATH = `${OPS_PREFIX}deletion-ack`;
 const PURGE_PATH = `${OPS_PREFIX}purge-due`;
+const PURGE_OBJECTS_PATH = `${OPS_PREFIX}purge-objects`;
 const BODY_LIMIT = 4_096;
 const AUTH_HEADER_LIMIT = 512;
 const SECRET_LIMIT = 256;
@@ -26,6 +27,8 @@ const ROLE_SECRETS = Object.freeze({
   purge: "TRANSFER_PURGE_SECRET",
   ack: "TRANSFER_ACK_SECRET",
 });
+const OBJECT_ID_RE = /^[0-9a-f]{64}$/u;
+const PURGE_OBJECT_LIMIT = 32;
 
 const noStoreHeaders = {
   "Cache-Control": "no-store",
@@ -112,16 +115,18 @@ function registryStub(env) {
 
 async function consumeRoleRate(env, role) {
   const stub = healthStub(env);
-  if (!stub) return false;
+  if (!stub) return { allowed: false, unavailable: true };
   try {
-    return (await stub.consumeOperatorRate({ role, limit: ROLE_LIMITS[role], now: Date.now() }))?.allowed === true;
+    return { allowed: (await stub.consumeOperatorRate({ role, limit: ROLE_LIMITS[role], now: Date.now() }))?.allowed === true, unavailable: false };
   } catch {
-    return false;
+    return { allowed: false, unavailable: true };
   }
 }
 
 async function handleHealthGet(env, role) {
-  if (!(await consumeRoleRate(env, role))) return unavailable(429);
+  const rate = await consumeRoleRate(env, role);
+  if (rate.unavailable) return unavailable(503);
+  if (!rate.allowed) return unavailable(429);
   const stub = healthStub(env);
   if (!stub) return unavailable(503);
   try {
@@ -141,7 +146,9 @@ async function handleHealthGet(env, role) {
 }
 
 async function handleHeartbeat(request, env) {
-  if (!(await consumeRoleRate(env, "watchdog"))) return unavailable(429);
+  const rate = await consumeRoleRate(env, "watchdog");
+  if (rate.unavailable) return unavailable(503);
+  if (!rate.allowed) return unavailable(429);
   let value;
   try { value = await boundedBody(request); } catch { return unavailable(); }
   if (!exactKeys(value, ["kind", "operationId", "checkVersion", "result", "observedAt", "evidenceRef"])
@@ -150,7 +157,8 @@ async function handleHeartbeat(request, env) {
     || !VERSION_RE.test(value.checkVersion)
     || !RESULT_RE.test(value.result)
     || !safeInteger(value.observedAt)
-    || !EVIDENCE_REF_RE.test(value.evidenceRef)) return unavailable();
+    || !EVIDENCE_REF_RE.test(value.evidenceRef)
+    || (value.kind === "deletion" ? !["pass", "fail"].includes(value.result) : value.result !== "pass")) return unavailable();
   const now = Date.now();
   if (!observationInWindow(value.observedAt, now, HEALTH_SIGNAL_MAX_AGE_MS)) return unavailable(503);
   const stub = healthStub(env);
@@ -166,7 +174,7 @@ async function handleHeartbeat(request, env) {
       now,
     };
     if (value.kind === "deletion") {
-      await stub.recordDeletionHealth({ healthy: true, ...metadata });
+      await stub.recordDeletionHealth({ healthy: value.result === "pass", ...metadata });
     } else {
       await stub.recordHeartbeat({ kind: value.kind, ...metadata });
     }
@@ -177,7 +185,9 @@ async function handleHeartbeat(request, env) {
 }
 
 async function handleBilling(request, env) {
-  if (!(await consumeRoleRate(env, "billing"))) return unavailable(429);
+  const rate = await consumeRoleRate(env, "billing");
+  if (rate.unavailable) return unavailable(503);
+  if (!rate.allowed) return unavailable(429);
   let value;
   try { value = await boundedBody(request); } catch { return unavailable(); }
   if (!exactKeys(value, ["operationId", "checkVersion", "monthlyCostCents", "result", "observedAt", "evidenceRef"])
@@ -200,7 +210,9 @@ async function handleBilling(request, env) {
 }
 
 async function handleDeletionAck(request, env) {
-  if (!(await consumeRoleRate(env, "ack"))) return unavailable(429);
+  const rate = await consumeRoleRate(env, "ack");
+  if (rate.unavailable) return unavailable(503);
+  if (!rate.allowed) return unavailable(429);
   let value;
   try { value = await boundedBody(request); } catch { return unavailable(); }
   if (!exactKeys(value, ["operationId", "generation", "checkVersion", "proofNonce", "observedAt", "evidenceRef"])
@@ -223,7 +235,9 @@ async function handleDeletionAck(request, env) {
 }
 
 async function handlePurge(request, env) {
-  if (!(await consumeRoleRate(env, "purge"))) return unavailable(429);
+  const rate = await consumeRoleRate(env, "purge");
+  if (rate.unavailable) return unavailable(503);
+  if (!rate.allowed) return unavailable(429);
   let value;
   try { value = await boundedBody(request); } catch { return unavailable(); }
   if (!exactKeys(value, ["operationId", "checkVersion", "evidenceRef", "limit"])
@@ -261,9 +275,92 @@ async function handlePurge(request, env) {
   }
 }
 
+async function objectBatchEvidenceRef(operationId, objectIds) {
+  const digest = await crypto.subtle.digest(
+    "SHA-256",
+    utf8(`${operationId}\n${objectIds.join("\n")}`),
+  );
+  return `objects-${base64UrlEncode(new Uint8Array(digest))}`.slice(0, 128);
+}
+
+async function handlePurgeObjects(request, env) {
+  const rate = await consumeRoleRate(env, "purge");
+  if (rate.unavailable) return unavailable(503);
+  if (!rate.allowed) return unavailable(429);
+  let value;
+  try { value = await boundedBody(request); } catch { return unavailable(); }
+  if (!exactKeys(value, ["operationId", "objectIds"])
+    || !OPERATION_ID_RE.test(value.operationId)
+    || !Array.isArray(value.objectIds)
+    || value.objectIds.length < 1
+    || value.objectIds.length > PURGE_OBJECT_LIMIT
+    || value.objectIds.some((id) => typeof id !== "string" || !OBJECT_ID_RE.test(id))) {
+    return unavailable();
+  }
+  const uniqueIds = new Set(value.objectIds);
+  if (uniqueIds.size !== value.objectIds.length) return unavailable();
+  const namespace = env.TRANSFER_OBJECTS
+    ? (() => {
+      try {
+        return euNamespace(env.TRANSFER_OBJECTS, { allowLocalFallback: env.TRANSFER_LOCAL_TEST_EU === "true" });
+      } catch {
+        return null;
+      }
+    })()
+    : null;
+  const health = healthStub(env);
+  if (!namespace || !health || typeof namespace.idFromString !== "function" || typeof namespace.get !== "function") {
+    return unavailable(503);
+  }
+  const now = Date.now();
+  const evidenceRef = await objectBatchEvidenceRef(value.operationId, value.objectIds);
+  let examined = 0;
+  let purged = 0;
+  let deferred = 0;
+  let failed = 0;
+  for (const id of value.objectIds) {
+    examined += 1;
+    try {
+      const objectId = namespace.idFromString(id);
+      const result = await namespace.get(objectId).purgeDue({ now });
+      if (result?.purged === true) purged += 1;
+      else if (result?.purged === false && typeof result.state === "string" && result.state !== "unavailable") deferred += 1;
+      else failed += 1;
+    } catch {
+      failed += 1;
+    }
+  }
+  try {
+    if (failed > 0) {
+      await health.recordDeletionHealth({
+        healthy: false,
+        actor: "purge",
+        operationId: value.operationId,
+        checkVersion: "provider-enumeration-v1",
+        result: "fail",
+        evidenceRef,
+        observedAt: now,
+        now,
+      });
+    } else {
+      await health.recordControlEvidence({
+        operationId: value.operationId,
+        checkVersion: "provider-enumeration-v1",
+        result: "accepted",
+        evidenceRef,
+        observedAt: now,
+        now,
+      });
+    }
+  } catch {
+    return unavailable(503);
+  }
+  return json({ examined, purged, deferred, failed });
+}
+
 export async function handleOperations(request, env) {
   const url = new URL(request.url);
-  if (![HEALTH_PATH, HEARTBEAT_PATH, BILLING_PATH, DELETION_ACK_PATH, PURGE_PATH].includes(url.pathname) || url.search || url.hash) return null;
+  if (![HEALTH_PATH, HEARTBEAT_PATH, BILLING_PATH, DELETION_ACK_PATH, PURGE_PATH, PURGE_OBJECTS_PATH].includes(url.pathname) || url.search || url.hash) return null;
   if (url.pathname === HEALTH_PATH) {
     if (request.method !== "GET") return unavailable();
     const role = await authorizedHealth(request, env);
@@ -271,11 +368,12 @@ export async function handleOperations(request, env) {
   }
   const role = url.pathname === HEARTBEAT_PATH ? "watchdog"
     : url.pathname === BILLING_PATH ? "billing"
-      : url.pathname === PURGE_PATH ? "purge" : "ack";
+      : url.pathname === PURGE_PATH || url.pathname === PURGE_OBJECTS_PATH ? "purge" : "ack";
   if (!(await authorizedRole(request, env, role))) return unavailable();
   if (request.method !== "POST") return unavailable();
   if (url.pathname === HEARTBEAT_PATH) return handleHeartbeat(request, env);
   if (url.pathname === BILLING_PATH) return handleBilling(request, env);
   if (url.pathname === DELETION_ACK_PATH) return handleDeletionAck(request, env);
+  if (url.pathname === PURGE_OBJECTS_PATH) return handlePurgeObjects(request, env);
   return handlePurge(request, env);
 }

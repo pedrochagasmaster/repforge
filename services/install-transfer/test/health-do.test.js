@@ -123,4 +123,41 @@ describe("fresh create health lease", () => {
       now: at + 7,
     });
   });
+
+  it("rolls back the acknowledgement state when evidence persistence fails", async () => {
+    const stub = await healthStub();
+    const at = Date.now();
+    await stub.markDeletionUnhealthy({ observedAt: at, now: at });
+    const incident = await stub.snapshot({ now: at });
+    const result = await runInDurableObject(stub, async (instance) => {
+      const original = instance._insertEvidence;
+      instance._insertEvidence = () => { throw new Error("injected evidence write failure"); };
+      try {
+        await instance.acknowledgeDeletion({
+          generation: incident.incidentGeneration,
+          proofNonce: "R".repeat(32),
+          operationId: "ack-write-failure-20260908",
+          observedAt: at + 1,
+          now: at + 1,
+        });
+        return { ok: true };
+      } catch {
+        instance._insertEvidence = original;
+        return { ok: false };
+      }
+    });
+    expect(result).toEqual({ ok: false });
+    await expect(stub.snapshot({ now: at + 1 })).resolves.toMatchObject({
+      deletionHealthy: false,
+      ackGeneration: 0,
+      incidentGeneration: incident.incidentGeneration,
+    });
+    await expect(stub.acknowledgeDeletion({
+      generation: incident.incidentGeneration,
+      proofNonce: "S".repeat(32),
+      operationId: "ack-write-recovery-20260908",
+      observedAt: at + 2,
+      now: at + 2,
+    })).resolves.toMatchObject({ deletionHealthy: true });
+  });
 });

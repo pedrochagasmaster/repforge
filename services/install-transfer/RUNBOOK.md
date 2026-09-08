@@ -40,30 +40,51 @@ The staging deployment needs these non-secret settings and bindings:
 - `TRANSFER_WATCHDOG_SECRET`, `TRANSFER_BILLING_SECRET`,
   `TRANSFER_PURGE_SECRET`, and `TRANSFER_ACK_SECRET` — separate private ops
   credentials. Values stay in the provider secret store.
+- `TRANSFER_CF_API_TOKEN` — a scoped token that can enumerate only the fixed
+  Durable Object namespace. Keep it in the scheduler's secret store and never
+  print it.
+- `TRANSFER_CF_ACCOUNT_ID` and `TRANSFER_DO_NAMESPACE_ID` — the fixed account
+  and transfer namespace used by the provider enumeration. The scheduler
+  rejects other namespaces and limits each page to 10–32 objects and each
+  complete pass to at most 288 objects (nine 32-ID purge batches plus the
+  registry purge within the private purge-role rate window).
 
 All three namespaces must be accessed through the EU subnamespace. The Worker
 calls `namespace.jurisdiction("eu")`; the current local workerd limitation is
 documented in the README and is not staging evidence.
 
 The global health object is the create admission lease. The scheduled
-`npm run ops:health` producer validates a bounded provider observation and
-posts the five health checks to `/_ops/heartbeat` and the current owner billing
-receipt to `/_ops/billing`. A billing API integration is not claimed. The
-standalone `scripts/provider-watchdog-probe.mjs` is not wired into that
-producer yet, so staging must keep creates disabled until an independent
-watchdog adapter is integrated and reviewed. The heartbeat lease is five
-minutes; billing evidence is 24 hours. A monthly observation of 1,000 cents or
-more fails new creates, even though claims, status, commit, and purge remain
-available during the approved small overrun. Static healthy labels without
-those fresh observations do not enable creates.
+`npm run ops:health` producer first runs the bounded registry purge, then calls
+Cloudflare's documented Durable Object namespace enumeration endpoint and
+sends each in-memory page to the private `/_ops/purge-objects` route. It also
+runs `scripts/provider-watchdog-probe.mjs` against the configured bounded
+watchdog receipt, then posts the five health checks to `/_ops/heartbeat` and the
+current owner billing receipt to `/_ops/billing`. A billing API integration is
+not claimed. The producer fails closed on provider errors, ambiguous
+pagination, repeated IDs/cursors, a partial purge, stale/future receipts, or
+the configured work limit; it does not submit positive health after such a
+failure. The heartbeat lease is five minutes; billing evidence is 24 hours. A
+monthly observation of 1,000 cents or more fails new creates, even though
+claims, status, commit, and purge remain available during the approved small
+overrun. Static healthy labels without those fresh observations do not enable
+creates.
+
+The enumeration contract is Cloudflare's [Durable Object namespace objects
+API](https://developers.cloudflare.com/api/resources/durable_objects/subresources/namespaces/subresources/objects/methods/list/).
+The scheduler uses the configured account and namespace only, keeps cursors in
+memory for one pass, and does not retain or log provider object IDs.
 
 For a deletion incident, call `markDeletionUnhealthy` and set the kill switch
 before investigating. Run `npm run ops:purge` with a bounded operation ID and
 evidence reference; the registry enumerates due route metadata and invokes the
-routed Durable Objects without requiring a user bearer or clone data. Use
-`npm run ops:ack` only after the current incident generation, purge result, and
-redaction review are checked and the explicit confirmation variable is set.
-Never put a bearer or claim ID in a URL, command history, or log.
+routed Durable Objects without requiring a user bearer or clone data. The
+scheduled provider pass is the recovery backstop after the finite registry
+retention window: it enumerates the fixed namespace and submits validated IDs
+to `/_ops/purge-objects`, whose response contains counts only. Use
+`npm run ops:ack` only after the current incident generation, both purge
+results, and redaction review are checked and the explicit confirmation
+variable is set. Never put a bearer, claim ID, object ID, or provider cursor in
+a URL, command history, or log.
 
 The provider deadline gate is still open until staging evidence shows:
 
