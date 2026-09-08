@@ -1,0 +1,33 @@
+{
+  "credentialDatabase": {
+    "name": "repforge_transfer_credentials_v1",
+    "store": "keys",
+    "keyNamePrefix": "browser-outbound:"
+  },
+  "vault": {
+    "sealedVersion": 1,
+    "algorithm": "AES-GCM",
+    "keyLength": 256,
+    "ivBytes": 12,
+    "keyUsages": ["decrypt", "encrypt"],
+    "nonExtractable": true,
+    "rawRecordIsCryptoKey": true,
+    "reloadUnseals": true,
+    "plaintextTokenAbsentFromSealedAndRawRecord": true,
+    "exportKeyRejected": true
+  },
+  "cookies": {
+    "transferName": "repforge_transfer_v1",
+    "setupName": "repforge_setup_v1",
+    "path": "/index.html",
+    "sameSite": "Lax",
+    "secureOnLocalhost": false,
+    "coexist": true,
+    "rawTokenAbsentFromCookieValue": true
+  },
+  "keyLoss": {
+    "externalKeyLossRemovesRawRecord": true,
+    "unsealRejects": true,
+    "clientStatusOutcome": "deferred-until-reviewed-shared-contract"
+  }
+}
