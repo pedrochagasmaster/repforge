@@ -10327,13 +10327,15 @@ function startOnboarding(origin,opts={}){
   // Opening the hub is not choosing a route; telemetry waits for a route pick.
 }
 // A persisted setup draft is auto-resumed on boot only when it is a normalized
-// guided manual-repair build/editor draft: route "build", step "editor", a valid
-// preview program, and the exact diagnosis target stageGuidedManualRepair writes
-// — an integer diagnostics.daysPerWeek in the approved 2..6 range for fewer_days,
-// or a positive integer diagnostics.sessionMinutes for sessions_too_long. A
-// main-constraint token on its own, or an out-of-range / missing / non-integer
-// target, does not qualify: ordinary saved setup drafts on an onboarded device
-// are left untouched, and first-run behavior is unchanged.
+// guided manual-repair build/editor draft: route "build", step "editor", a
+// non-empty preview program, and the exact diagnosis instruction
+// stageGuidedManualRepair writes — an integer diagnostics.daysPerWeek in 1..7
+// for fewer_days (createGuidedManualRepair's target range; the ordinary build
+// answers.daysPerWeek editor seed keeps its own 2..6 constraint), or a positive
+// integer diagnostics.sessionMinutes for sessions_too_long. A main-constraint
+// token alone, or a missing / non-integer / out-of-range target, does not
+// qualify: ordinary saved setup drafts on an onboarded device are left
+// untouched, and first-run behavior is unchanged.
 function isGuidedRepairSetupDraft(envelope){
   const st=envelope?.state;
   if(!st||st.route!=="build"||st.step!=="editor")return false;
@@ -10345,7 +10347,7 @@ function isGuidedRepairSetupDraft(envelope){
   const main=diagnostics?.mainConstraint;
   if(main==="fewer_days"){
     const days=diagnostics.daysPerWeek;
-    return Number.isInteger(days)&&days>=2&&days<=6;
+    return Number.isInteger(days)&&days>=1&&days<=7;
   }
   if(main==="sessions_too_long"){
     const minutes=diagnostics.sessionMinutes;

@@ -11,7 +11,11 @@
  *  2. Real active compiled program, nonempty log sentinel, active DraftV2/checkpoint,
  *     and both durable replicas (localStorage and IndexedDB).
  *  3. Derives guided fallback from representative real resolver Unavailable (shorter session
- *     30m on balanced 4d).
+ *     30m on balanced 4d), and from a real target-1 lower-frequency Unavailable
+ *     (sibling_blueprint_not_found; no authored family has a frequency-1 blueprint):
+ *     the staged/resumed guided instruction keeps diagnostics.mainConstraint "fewer_days"
+ *     and diagnostics.daysPerWeek === 1, auto-resumes on reload, mutates nothing durable,
+ *     and is torn down through the shipped cancel/discard owner action.
  *  4. Asserts unchanged semantic active state/revision/history/log in live clone/local/IDB,
  *     no transition-in/archive, exact DraftV2 bytes.
  *  5. Injected write failure and concurrent draft conflict return typed failure/conflict
@@ -392,6 +396,118 @@ async function run() {
     check(unavailResult?.status === "unavailable", "resolver returned status: unavailable");
     check(unavailResult?.unavailable === true, "resolver returned unavailable: true");
 
+    // Step 2b: A real lower-frequency target-1 sibling Unavailable stages a guided
+    // repair whose transition instruction keeps daysPerWeek === 1, and the
+    // build/editor setup draft auto-resumes on reload. No authored family carries
+    // a frequency-1 blueprint, so the real resolver returns sibling_blueprint_not_found
+    // for the active authored (balanced/4) predecessor; createGuidedManualRepair
+    // still validates the diagnosis target over 1..7, and result.diagnostics.daysPerWeek
+    // is the independent transition instruction — the ordinary build
+    // answers.daysPerWeek seed keeps its own 2..6 editor constraint. This probe
+    // mutates nothing durable and never activates; it owns its setup draft and
+    // discards it through the shipped cancel/discard owner action so the baseline
+    // and the discard-CAS proof (Step 9) below are untouched.
+    console.log("\n2b. Real target-1 fewer_days sibling Unavailable stages + auto-resumes guided repair (daysPerWeek === 1)");
+    const diagFewerDays1 = {
+      kind: "fewer_days",
+      answers: { availableDays: 1 },
+      eligibleEvidenceIds: ["ev_fewer_days_1_p3b"],
+      insufficientEvidenceReasons: [],
+    };
+    const target1Unavail = await page.evaluate(async (diagnosis) => {
+      const tr = window.__repforgeProgramTransition;
+      return await tr.proposeSibling({
+        diagnosis,
+        targetConstraint: { frequency: 1 },
+        transitionId: "tr_p3b_fewer_days_1",
+        successorProgramId: "prog_p3b_fewer_days_1",
+      });
+    }, diagFewerDays1);
+    check(target1Unavail?.ok === false, "target-1 resolver returned ok: false", target1Unavail);
+    check(target1Unavail?.status === "unavailable", "target-1 resolver returned status: unavailable");
+    check(target1Unavail?.unavailable === true, "target-1 resolver returned unavailable: true");
+    check(target1Unavail?.code === "sibling_blueprint_not_found", "target-1 resolver returned code: sibling_blueprint_not_found", target1Unavail);
+
+    const target1Stage = await page.evaluate(async ({ diagnosis, unavailable }) => {
+      return await window.__repforgeStageGuidedManualRepair({ diagnosis, unavailable });
+    }, { diagnosis: diagFewerDays1, unavailable: target1Unavail });
+    console.log("DEBUG target1Stage:", JSON.stringify(target1Stage));
+    check(target1Stage?.ok === true, "target-1 guided repair staged successfully", target1Stage);
+    check(target1Stage?.staged === true, "target-1 guided repair reports staged: true");
+    check(target1Stage?.kind === "guided_manual_repair", "target-1 guided repair reports kind: guided_manual_repair");
+
+    // No active program / history / DraftV2 mutation before any activation.
+    const afterT1StageReplicas = await readReplicas(page);
+    const afterT1StageLive = await readLiveState(page);
+    check(isDeepStrictEqual(afterT1StageReplicas.local, baselineReplicas.local), "localStorage replica unchanged by target-1 staging");
+    check(isDeepStrictEqual(afterT1StageReplicas.idb, baselineReplicas.idb), "IndexedDB replica unchanged by target-1 staging");
+    check(isDeepStrictEqual(afterT1StageLive, baselineLive), "live active state unchanged by target-1 staging");
+    check(afterT1StageLive.historyLen === 0, "no archive created by target-1 staging");
+    check(afterT1StageLive.transitionIn === null, "no transition-in created by target-1 staging");
+    const afterT1StageDraftRaw = await page.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
+    const afterT1StageCheckpointRaw = await page.evaluate((k) => localStorage.getItem(k), CHECKPOINT_KEY);
+    check(afterT1StageDraftRaw === draftV2Sentinel, "DraftV2 raw unchanged by target-1 staging");
+    check(afterT1StageCheckpointRaw === checkpointSentinel, "checkpoint raw unchanged by target-1 staging");
+
+    // Staged instruction: mainConstraint fewer_days, diagnostic daysPerWeek === 1;
+    // the ordinary build answers.daysPerWeek seed stays in its own 2..6 range.
+    const t1StagedDraft = await page.evaluate((k) => {
+      const raw = localStorage.getItem(k);
+      return raw ? JSON.parse(raw) : null;
+    }, SETUP_DRAFT_KEY);
+    check(t1StagedDraft?.state?.route === "build", "target-1 staged draft route is build");
+    check(t1StagedDraft?.state?.step === "editor", "target-1 staged draft step is editor");
+    check(t1StagedDraft?.state?.result?.route === "build", "target-1 staged draft result.route is build");
+    check(t1StagedDraft?.state?.result?.diagnostics?.mainConstraint === "fewer_days", "target-1 diagnostics instruction mainConstraint is fewer_days");
+    check(t1StagedDraft?.state?.result?.diagnostics?.daysPerWeek === 1, "target-1 diagnostics instruction daysPerWeek is 1");
+    check(t1StagedDraft?.state?.result?.diagnostics?.sessionMinutes === undefined, "target-1 diagnostics instruction sessionMinutes omitted for frequency constraint");
+    check(t1StagedDraft?.state?.answers?.daysPerWeek !== 1, "ordinary build answers.daysPerWeek seed is not the target-1 instruction", t1StagedDraft?.state?.answers?.daysPerWeek);
+    assertCandidateMatchesPredecessor(t1StagedDraft?.state?.result?.preview, "target-1 staged");
+
+    // Reload: the guided build/editor draft auto-resumes through maybeShowOnboarding
+    // / isGuidedRepairSetupDraft with the diagnostic target preserved at 1.
+    await page.reload();
+    await waitForAppBoot(page, { base: BASE });
+    check(
+      await page.evaluate(() => document.querySelector("#onboarding")?.classList.contains("active") === true),
+      "target-1 guided draft auto-opened onboarding on reload"
+    );
+    const t1Resumed = await page.evaluate(() => window.__repforgeEntryState?.());
+    check(t1Resumed?.route === "build", "target-1 resumed draft route is build");
+    check(t1Resumed?.step === "editor", "target-1 resumed draft step is editor");
+    check(t1Resumed?.result?.diagnostics?.mainConstraint === "fewer_days", "target-1 resumed diagnostics mainConstraint preserved");
+    check(t1Resumed?.result?.diagnostics?.daysPerWeek === 1, "target-1 resumed diagnostics daysPerWeek preserved at 1");
+    assertCandidateMatchesPredecessor(t1Resumed?.result?.preview, "target-1 resumed");
+    const afterT1ResumeLive = await readLiveState(page);
+    check(isDeepStrictEqual(afterT1ResumeLive, baselineLive), "live active state unchanged after target-1 reload/resume");
+
+    // Discard this probe's own setup draft through the shipped owner action so the
+    // baseline and the accepted discard-CAS proof (Step 9) are not weakened.
+    await page.click("#onbCancel");
+    await page.waitForSelector("#entryCancelDiscard", { timeout: 10000 });
+    await page.click("#entryCancelDiscard");
+    await page.waitForFunction(
+      () => !document.querySelector("#onboarding")?.classList.contains("active"),
+      undefined,
+      { timeout: 10000 }
+    );
+    await page.waitForFunction((k) => localStorage.getItem(k) === null, SETUP_DRAFT_KEY, { timeout: 10000 });
+    check((await page.evaluate((k) => localStorage.getItem(k), SETUP_DRAFT_KEY)) === null,
+      "target-1 probe setup draft discarded through discardEntryDraftAndCancel() -> clearSetupDraft() CAS");
+    check(!(await page.evaluate(() => document.body.classList.contains("is-onboarding"))),
+      "onboarding closed after the target-1 probe discard");
+
+    // Reload back to the pristine baseline so the remaining steps run unchanged.
+    await page.reload();
+    await waitForAppBoot(page, { base: BASE });
+    const afterT1DiscardLive = await readLiveState(page);
+    const afterT1DiscardReplicas = await readReplicas(page);
+    check(isDeepStrictEqual(afterT1DiscardLive, baselineLive), "live active state restored to baseline after target-1 probe teardown");
+    check(isDeepStrictEqual(afterT1DiscardReplicas.local, baselineReplicas.local), "localStorage replica at baseline after target-1 probe teardown");
+    check(isDeepStrictEqual(afterT1DiscardReplicas.idb, baselineReplicas.idb), "IndexedDB replica at baseline after target-1 probe teardown");
+    const afterT1DiscardDraftRaw = await page.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
+    check(afterT1DiscardDraftRaw === draftV2Sentinel, "DraftV2 raw at baseline after target-1 probe teardown");
+
     // Step 3: Failure injection: storage write failure during staging
     console.log("\n3. Injected write failure during staging returns typed error without state mutation");
     const writeFailResult = await page.evaluate(async ({ diagnosis, unavailable }) => {
@@ -717,8 +833,9 @@ async function run() {
     // a main-constraint token but no valid diagnosis target must NOT auto-resume
     // on reload. isGuidedRepairSetupDraft requires the exact target fact
     // stageGuidedManualRepair writes: an integer diagnostics.daysPerWeek in the
-    // approved [2,6] range for fewer_days, or a positive integer
-    // diagnostics.sessionMinutes for sessions_too_long. This is an isolated
+    // approved 1..7 range for fewer_days, or a positive integer
+    // diagnostics.sessionMinutes for sessions_too_long. A missing target, or one
+    // below (0) or above (8) the range, does not qualify. This is an isolated
     // malformed-input boundary built through production setup-draft helpers; it
     // does not disturb the discard/CAS lifecycle proof above.
     console.log("\n10. Malformed guided draft (main-constraint token, no valid target) does not auto-resume on reload");
@@ -727,7 +844,10 @@ async function run() {
 
     const malformedProbes = [
       { label: "sessions_too_long, no sessionMinutes target", diagnostics: { mainConstraint: "sessions_too_long" } },
-      { label: "fewer_days, daysPerWeek target out of approved [2,6] range", diagnostics: { mainConstraint: "fewer_days", daysPerWeek: 9 } },
+      { label: "sessions_too_long, non-positive sessionMinutes target (0)", diagnostics: { mainConstraint: "sessions_too_long", sessionMinutes: 0 } },
+      { label: "fewer_days, no daysPerWeek target", diagnostics: { mainConstraint: "fewer_days" } },
+      { label: "fewer_days, daysPerWeek target 0 (below approved 1..7 range)", diagnostics: { mainConstraint: "fewer_days", daysPerWeek: 0 } },
+      { label: "fewer_days, daysPerWeek target 8 (above approved 1..7 range)", diagnostics: { mainConstraint: "fewer_days", daysPerWeek: 8 } },
     ];
     for (const probe of malformedProbes) {
       const persisted = await page.evaluate(async ({ diagnostics, preview, versions }) => {
