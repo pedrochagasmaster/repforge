@@ -11,7 +11,7 @@
       "target": 2000000,
       "expectedAtTarget": "size-gate-accepted",
       "expectedAtTargetPlusOne": "reject-body-too-large",
-      "proposedCode": "body-too-large"
+      "expectedCode": "body-too-large"
     },
     {
       "id": "small-endpoint-body-at-limit",
@@ -20,7 +20,7 @@
       "target": 4096,
       "expectedAtTarget": "size-gate-accepted",
       "expectedAtTargetPlusOne": "reject-body-too-large",
-      "proposedCode": "body-too-large"
+      "expectedCode": "body-too-large"
     },
     {
       "id": "envelope-at-limit",
@@ -29,7 +29,7 @@
       "target": 2000000,
       "expectedAtTarget": "size-gate-accepted",
       "expectedAtTargetPlusOne": "reject-envelope-too-large",
-      "proposedCode": "envelope-too-large"
+      "expectedCode": "envelope-too-large"
     },
     {
       "id": "depth-at-limit",
@@ -38,7 +38,7 @@
       "target": 64,
       "expectedAtTarget": "parse-gate-accepted",
       "expectedAtTargetPlusOne": "reject-depth-too-large-during-parse",
-      "proposedCode": "depth-too-large"
+      "expectedCode": "depth-too-large"
     },
     {
       "id": "object-keys-at-limit",
@@ -47,7 +47,7 @@
       "target": 256,
       "expectedAtTarget": "parse-gate-accepted",
       "expectedAtTargetPlusOne": "reject-object-too-wide",
-      "proposedCode": "object-too-wide"
+      "expectedCode": "object-too-wide"
     },
     {
       "id": "array-items-at-limit",
@@ -56,7 +56,7 @@
       "target": 10000,
       "expectedAtTarget": "parse-gate-accepted",
       "expectedAtTargetPlusOne": "reject-array-too-large",
-      "proposedCode": "array-too-large"
+      "expectedCode": "array-too-large"
     },
     {
       "id": "string-value-at-limit",
@@ -66,7 +66,7 @@
       "target": 8000,
       "expectedAtTarget": "parse-gate-accepted",
       "expectedAtTargetPlusOne": "reject-string-too-long",
-      "proposedCode": "string-too-long"
+      "expectedCode": "string-too-long"
     },
     {
       "id": "identifier-at-limit",
@@ -76,7 +76,7 @@
       "target": 256,
       "expectedAtTarget": "parse-gate-accepted",
       "expectedAtTargetPlusOne": "reject-identifier-too-long",
-      "proposedCode": "identifier-too-long"
+      "expectedCode": "identifier-too-long"
     },
     {
       "id": "log-rows-at-generic-array-limit",
@@ -85,7 +85,7 @@
       "target": 10000,
       "expectedAtTarget": "parse-gate-accepted",
       "expectedAtTargetPlusOne": "reject-array-too-large",
-      "proposedCode": "array-too-large"
+      "expectedCode": "array-too-large"
     },
     {
       "id": "log-rows-at-specialized-limit",
@@ -94,7 +94,7 @@
       "target": 200000,
       "expectedAtTarget": "reject-array-too-large",
       "expectedAtTargetPlusOne": "reject-array-too-large",
-      "proposedCode": "array-too-large"
+      "expectedCode": "array-too-large"
     },
     {
       "id": "program-rows-at-limit",
@@ -103,7 +103,7 @@
       "target": 2000,
       "expectedAtTarget": "parse-gate-accepted",
       "expectedAtTargetPlusOne": "reject-program-too-large",
-      "proposedCode": "program-too-large"
+      "expectedCode": "program-too-large"
     },
     {
       "id": "program-history-at-limit",
@@ -112,7 +112,7 @@
       "target": 2000,
       "expectedAtTarget": "parse-gate-accepted",
       "expectedAtTargetPlusOne": "reject-program-history-too-large",
-      "proposedCode": "program-history-too-large"
+      "expectedCode": "program-history-too-large"
     },
     {
       "id": "custom-exercises-at-limit",
@@ -121,7 +121,7 @@
       "target": 1000,
       "expectedAtTarget": "parse-gate-accepted",
       "expectedAtTargetPlusOne": "reject-custom-exercises-too-large",
-      "proposedCode": "custom-exercises-too-large"
+      "expectedCode": "custom-exercises-too-large"
     },
     {
       "id": "serialized-log-row-at-limit",
@@ -130,7 +130,7 @@
       "target": 8000,
       "expectedAtTarget": "parse-gate-accepted",
       "expectedAtTargetPlusOne": "reject-log-row-too-large",
-      "proposedCode": "log-row-too-large"
+      "expectedCode": "log-row-too-large"
     },
     {
       "id": "claims-per-token-at-limit",
@@ -139,7 +139,7 @@
       "target": 1,
       "expectedAtTarget": "accept",
       "expectedAtTargetPlusOne": "reject",
-      "proposedCode": "claim-unavailable"
+      "expectedCode": "claim-unavailable"
     },
     {
       "id": "claim-id-at-minimum",
@@ -149,7 +149,7 @@
       "entropyBits": 128,
       "expectedAtTarget": "accept-if-random",
       "expectedAtTargetPlusOne": "accept-if-random",
-      "proposedCode": "claim-id-invalid"
+      "expectedCode": "claim-id-invalid"
     },
     {
       "id": "claim-id-at-maximum",
@@ -159,7 +159,7 @@
       "entropyBits": 256,
       "expectedAtTarget": "accept-if-random",
       "expectedAtTargetPlusOne": "reject",
-      "proposedCode": "claim-id-invalid"
+      "expectedCode": "claim-id-invalid"
     },
     {
       "id": "create-rate-at-limit",
@@ -168,7 +168,7 @@
       "target": 5,
       "expectedAtTarget": "accept",
       "expectedAtTargetPlusOne": "reject",
-      "proposedCode": "rate-limited"
+      "expectedCode": "rate-limited"
     },
     {
       "id": "claim-commit-status-rate-at-limit",
@@ -177,7 +177,7 @@
       "target": 60,
       "expectedAtTarget": "accept",
       "expectedAtTargetPlusOne": "reject",
-      "proposedCode": "rate-limited"
+      "expectedCode": "rate-limited"
     }
   ],
   "cases": [
@@ -186,35 +186,35 @@
       "kind": "raw-json",
       "raw": "{\"kind\":\"taurifer-install-transfer\",",
       "expected": "reject-before-validation",
-      "proposedCode": "invalid-json"
+      "expectedCode": "invalid-json"
     },
     {
       "id": "scalar-root",
       "kind": "parsed-value",
       "value": "taurifer-install-transfer",
       "expected": "reject",
-      "proposedCode": "invalid-envelope"
+      "expectedCode": "invalid-envelope"
     },
     {
       "id": "unknown-top-level-schema-version",
       "kind": "envelope",
       "override": { "schemaVersion": 2 },
       "expected": "reject-without-local-mutation",
-      "proposedCode": "unsupported-schema-version"
+      "expectedCode": "unsupported-schema-version"
     },
     {
       "id": "unknown-top-level-schema-version-zero",
       "kind": "envelope",
       "override": { "schemaVersion": 0 },
       "expected": "reject-without-local-mutation",
-      "proposedCode": "unsupported-schema-version"
+      "expectedCode": "unsupported-schema-version"
     },
     {
       "id": "top-level-schema-version-string",
       "kind": "envelope",
       "override": { "schemaVersion": "1" },
       "expected": "reject-without-local-mutation",
-      "proposedCode": "invalid-schema-version"
+      "expectedCode": "invalid-schema-version"
     },
     {
       "id": "unknown-workout-draft-version",
@@ -222,7 +222,7 @@
       "path": "workoutDraft.schemaVersion",
       "override": { "workoutDraft": { "schemaVersion": 2 } },
       "expected": "reject-without-local-mutation",
-      "proposedCode": "unsupported-workout-draft-version"
+      "expectedCode": "unsupported-workout-draft-version"
     },
     {
       "id": "unknown-required-section-version",
@@ -230,7 +230,28 @@
       "path": "programEntryDraft.schemaVersion",
       "override": { "programEntryDraft": { "schemaVersion": 2 } },
       "expected": "reject-without-local-mutation",
-      "proposedCode": "unsupported-program-entry-draft-version"
+      "expectedCode": "unsupported-program-entry-draft-version"
+    },
+    {
+      "id": "unknown-programming-context-version",
+      "kind": "nested-version",
+      "path": "durableState.programmingContext.schemaVersion",
+      "expected": "reject-without-local-mutation",
+      "expectedCode": "unsupported-schema-version"
+    },
+    {
+      "id": "unknown-draft-nested-version",
+      "kind": "nested-version",
+      "path": "workoutDraft.program.schemaVersion",
+      "expected": "reject-without-local-mutation",
+      "expectedCode": "unsupported-schema-version"
+    },
+    {
+      "id": "unknown-entry-preview-version",
+      "kind": "nested-version",
+      "path": "programEntryDraft.result.preview.programStructure.schemaVersion",
+      "expected": "reject-without-local-mutation",
+      "expectedCode": "unsupported-schema-version"
     },
     {
       "id": "unknown-optional-section",
@@ -238,7 +259,7 @@
       "path": "futureSection",
       "override": { "futureSection": { "schemaVersion": 99 } },
       "expected": "reject-without-local-mutation",
-      "proposedCode": "unknown-section"
+      "expectedCode": "unknown-section"
     },
     {
       "id": "dangerous-key-root-proto",
@@ -246,7 +267,7 @@
       "raw": "{\"__proto__\":{\"polluted\":true}}",
       "dangerousKey": "__proto__",
       "expected": "reject-without-prototype-pollution",
-      "proposedCode": "dangerous-key"
+      "expectedCode": "dangerous-key"
     },
     {
       "id": "dangerous-key-nested-constructor",
@@ -254,7 +275,7 @@
       "raw": "{\"durableState\":{\"constructor\":{\"polluted\":true}}}",
       "dangerousKey": "constructor",
       "expected": "reject-without-prototype-pollution",
-      "proposedCode": "dangerous-key"
+      "expectedCode": "dangerous-key"
     },
     {
       "id": "dangerous-key-array-prototype",
@@ -262,21 +283,21 @@
       "raw": "{\"durableState\":{\"program\":[{\"prototype\":{\"polluted\":true}}]}}",
       "dangerousKey": "prototype",
       "expected": "reject-without-prototype-pollution",
-      "proposedCode": "dangerous-key"
+      "expectedCode": "dangerous-key"
     },
     {
       "id": "duplicate-key",
       "kind": "raw-json",
       "raw": "{\"kind\":\"taurifer-install-transfer\",\"kind\":\"other\"}",
       "expected": "reject-without-local-mutation",
-      "proposedCode": "duplicate-key"
+      "expectedCode": "duplicate-key"
     },
     {
       "id": "escaped-unpaired-high-surrogate",
       "kind": "raw-json",
       "raw": "{\"value\":\"\\ud800\"}",
       "expected": "reject-without-local-mutation",
-      "proposedCode": "invalid-string"
+      "expectedCode": "invalid-string"
     },
     {
       "id": "invalid-utf8-bytes",
@@ -284,7 +305,7 @@
       "bytes": [123, 34, 107, 34, 58, 194, 125],
       "parseOrder": ["byte-length", "fatal-utf8-decode", "bounded-json-parse"],
       "expected": "reject-before-json-parse",
-      "proposedCode": "invalid-utf8"
+      "expectedCode": "invalid-utf8"
     },
     {
       "id": "raw-byte-empty-object",
@@ -292,7 +313,7 @@
       "bytes": [123, 125],
       "expected": "size-gate-accepted",
       "byteLength": 2,
-      "proposedCode": "none"
+      "expectedCode": "none"
     }
   ]
 }
