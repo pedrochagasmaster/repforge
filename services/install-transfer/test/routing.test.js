@@ -66,6 +66,7 @@ describe("opaque transfer routing", () => {
     const tampered = `${token.slice(0, -1)}${token.endsWith("A") ? "B" : "A"}`;
     expect(parsed.route).toHaveLength(32);
     expect(() => parseToken("plain-base64url-token")).toThrow();
+    expect(() => parseToken(token.replace(/\.([^.]*)$/, ".$1A"))).toThrow();
     await expect(verifyToken(tampered, new Map([["k1", tokenMacSecret]]))).rejects.toThrow("invalid transfer token");
     await expect(verifyToken(token, new Map([["k1", new Uint8Array(32).fill(0x99)]]))).rejects.toThrow("invalid transfer token");
   });

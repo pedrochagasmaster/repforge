@@ -64,6 +64,9 @@ export function parseToken(token) {
   if (route.length !== ROUTE_BYTES || random.length !== TOKEN_RANDOM_BYTES || mac.length !== TOKEN_MAC_BYTES) {
     throw new TypeError("invalid transfer token");
   }
+  if (base64UrlEncode(route) !== routePart || base64UrlEncode(random) !== randomPart || base64UrlEncode(mac) !== macPart) {
+    throw new TypeError("invalid transfer token");
+  }
   return { version, keyId, route, random, mac, routePart, randomPart, macPart };
 }
 
