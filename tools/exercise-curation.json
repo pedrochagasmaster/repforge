@@ -1491,7 +1491,13 @@
     "patterns": [
       "squat"
     ],
-    "_srcName": "dumbbell single leg split squat"
+    "_srcName": "dumbbell single leg split squat",
+    "aliases": [
+      "Búlgaro",
+      "Agachamento búlgaro",
+      "Bulgarian split squat",
+      "Afundo búlgaro"
+    ]
   },
   {
     "id": "su_db",
@@ -1541,7 +1547,12 @@
       "squat"
     ],
     "_srcName": "sled 45в° leg press",
-    "name": "Leg press"
+    "name": "Leg press",
+    "aliases": [
+      "Leg press 45",
+      "Leg press 45 graus",
+      "Leg 45"
+    ]
   },
   {
     "id": "sqk_mc",
@@ -1550,7 +1561,12 @@
       "squat"
     ],
     "_srcName": "sled hack squat",
-    "name": "Hack squat machine"
+    "name": "Hack squat machine",
+    "aliases": [
+      "Hack",
+      "Hack squat",
+      "Agachamento hack"
+    ]
   },
   {
     "id": "lp1_mc",
@@ -1621,7 +1637,13 @@
     ],
     "_srcName": "barbell romanian deadlift",
     "name": "Barbell Romanian deadlift",
-    "beginnerFriendly": false
+    "beginnerFriendly": false,
+    "aliases": [
+      "RDL",
+      "Romanian deadlift",
+      "Levantamento terra romeno",
+      "Stiff"
+    ]
   },
   {
     "id": "sldl_bb",
@@ -1841,7 +1863,13 @@
     "patterns": [
       "hinge"
     ],
-    "_srcName": "hyperextension"
+    "_srcName": "hyperextension",
+    "aliases": [
+      "Banco romano",
+      "Back extension",
+      "Extensão lombar",
+      "Cadeira romana"
+    ]
   },
   {
     "id": "cv_mc",
@@ -1977,13 +2005,39 @@
     "name": "Hip adduction machine"
   },
   {
+    "id": "ha_cb",
+    "patterns": [
+      "abduction"
+    ],
+    "name": "Cable standing hip abduction",
+    "namePt": "Abdução de quadril em pé na polia",
+    "equipment": [
+      "cable"
+    ],
+    "primary": "Abductors",
+    "secondary": "Glutes",
+    "beginnerFriendly": true,
+    "aliases": [
+      "Abdução em pé no cabo",
+      "Abdução no cabo",
+      "Abdução em pé",
+      "Standing hip abduction"
+    ]
+  },
+  {
     "id": "ab_mc",
     "src": "exdb:0597",
     "patterns": [
       "abduction"
     ],
     "_srcName": "lever seated hip abduction",
-    "name": "Hip abduction machine"
+    "name": "Hip abduction machine",
+    "aliases": [
+      "Abdução de quadril",
+      "Abdução na máquina",
+      "Abdutora",
+      "Hip abduction"
+    ]
   },
   {
     "id": "ad_cb",

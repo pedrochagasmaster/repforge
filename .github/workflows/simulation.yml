@@ -114,6 +114,9 @@ jobs:
           npm ci
           npx playwright install chromium --with-deps
 
+      - name: Vendored runtime pins
+        run: node tools/build-vendor-runtimes.mjs --check
+
       - name: Syntax check runtime and test JS
         run: |
           node tools/check-production-syntax.mjs
@@ -293,6 +296,7 @@ jobs:
         run: |
           node test/program-editor-text-fields.mjs
           node test/program-editor-drag-selection.mjs
+          node test/program-editor-sorting.mjs
 
       - name: Plain-text program export
         env:
@@ -308,11 +312,19 @@ jobs:
           node test/performed-attribution.mjs
           node test/program-import-review.mjs
           node test/program-freeform-import.mjs
+          node test/import-matching.mjs
 
       - name: Sheet swipe dismiss
         env:
           REPFORGE_URL: http://localhost:8000/
         run: node test/sheet-swipe-dismiss.mjs
+
+      - name: Interaction runtimes
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: |
+          node test/vendor-runtimes.mjs
+          node test/motion-integration.mjs
 
       - name: Session summary
         env:

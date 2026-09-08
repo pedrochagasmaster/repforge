@@ -891,7 +891,7 @@ async function runBackupReplaceConflict(browser) {
       mimeType: "application/json",
       buffer: Buffer.from(JSON.stringify(incoming)),
     });
-    await writer.waitForSelector("#importChoice:not(.hidden)", { timeout: 5000 });
+    await writer.waitForSelector("#importChoice[open]", { timeout: 5000 });
     const before = await readRuntime(writer);
     await holdStorageLock(locker);
     await queueNewerDraftLoad(writer, "112.5");
@@ -929,7 +929,7 @@ async function runBackupReplaceConflict(browser) {
       final.persistenceArtifacts
     );
     check(
-      await writer.locator("#importChoice").evaluate((dialog) => !dialog.classList.contains("hidden")),
+      await writer.locator("#importChoice").evaluate((dialog) => dialog.open),
       "full-backup Replace conflict leaves the chooser open for retry"
     );
   } finally {

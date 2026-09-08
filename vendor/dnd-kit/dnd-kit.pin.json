@@ -1,0 +1,11 @@
+{
+  "package": "@dnd-kit/dom",
+  "version": "0.5.0",
+  "esbuild": "0.25.10",
+  "globalName": "DndKit",
+  "entry": "tools/vendor-runtimes/dnd-kit.entry.mjs",
+  "bytes": 1300,
+  "sha256": "aecc91e0413cfeee682b911a432b722877c637e026bb1cd6d90b181ecc9b9687",
+  "kind": "bootstrap",
+  "runtime": "vendor/dnd-kit/dnd-kit.runtime.js"
+}
