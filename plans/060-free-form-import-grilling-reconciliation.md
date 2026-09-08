@@ -2,7 +2,7 @@
 
 - **Plan number:** 060
 - **Phase:** Not part of the UI overhaul programme (049–059); an amendment to shipped work
-- **Status:** Owner-ratified direction; implementation has not started
+- **Status:** Implemented across PRs #225 and #230
 - **Owner approval state:** The four scope forks in *Ratified forks* are answered and final. Everything under *Resolved conflicts* is a reconciliation call made against the code and is open to reversal on review
 - **Depends on:** ADR 0014 (needs the amendment in *ADR 0014 changes*); PR #225 as the base implementation
 - **Blocks:** Nothing

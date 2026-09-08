@@ -94,7 +94,7 @@ These are real but do not outrank the foundation above.
 
 | Status | Item | Decision needed / done condition |
 |---|---|---|
-| Later | Import exercise matching | Replace bag-of-words `nameAffinity` with stopword-aware, equipment-weighted, containment-aware scoring; offer up to three ranked candidates per review row instead of one proposal; add curated aliases through `tools/exercise-curation.json`. Gated on a two-tier fixture corpus that must pass first. Contract: [Plan 061](../plans/061-import-exercise-matching.md). Done when a real Portuguese coach program resolves without confidently wrong proposals and the corpus is green in CI. |
+| Completed | Import exercise matching | Implemented by [Plan 061](../plans/061-import-exercise-matching.md) in PR #230: stopword/equipment/containment scoring, up to three ranked candidates per review row, fixture-gated aliases, and identity-preserving regressions for historical movement IDs. |
 | Later | Pound display and actionable increments | Design one end-to-end lb contract for stored historical values, editable targets, load steps, `minJump`, entry parsing, and “Why this weight?” copy. Never falsify history to make a target look loadable. |
 | Later | Truthful early workout finish | Let the user finish with incomplete planned work while preserving completed sets and explicitly classifying omitted work; do not pretend the whole prescription was completed. |
 | Later | PT-BR bundled/default day labels | Localize Taurifer-authored day labels or deliberately model them as user-owned data with authored PT-BR defaults. Do not mix English `Day N` into a Portuguese first-run program by accident. |

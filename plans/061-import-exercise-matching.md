@@ -2,7 +2,7 @@
 
 - **Plan number:** 061
 - **Phase:** Not part of the UI overhaul programme (049–059)
-- **Status:** Owner-ratified direction; implementation has not started
+- **Status:** Implemented in PR #230
 - **Owner approval state:** All seventeen decisions below were settled in a grilling session and are final. Reopen one only with new evidence, not with a new preference
 - **Depends on:** Nothing. Deliberately independent of PR #225, which ships the paste door
 - **Blocks:** Nothing
