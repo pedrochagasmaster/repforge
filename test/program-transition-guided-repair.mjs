@@ -578,14 +578,47 @@ async function run() {
     const afterStaleDraftRaw = await page.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
     check(afterStaleDraftRaw === draftV2Sentinel, "DraftV2 raw unchanged after stale activation rejection");
 
-    // Step 9: Explicit review — discard the stale draft, then stage a fresh guided
-    // candidate whose pinned revision is set by production code to the then-live
-    // revision. The test never edits activeProgramRevisionAtStart itself.
-    console.log("\n9. Explicit review: discard stale draft, stage fresh at live revision, edit, activate, reload");
-    await page.evaluate((k) => localStorage.removeItem(k), SETUP_DRAFT_KEY);
-    await page.reload();
-    await waitForAppBoot(page, { base: BASE });
+    // Step 9: Explicit review — discard the stale draft through the shipped owner
+    // action, then stage a fresh guided candidate whose pinned revision is set by
+    // production code to the then-live revision. The test never edits
+    // activeProgramRevisionAtStart itself, and never raw-deletes the setup draft
+    // at this boundary.
+    console.log("\n9. Explicit review: discard stale draft through the real UI, stage fresh at live revision, edit, activate, reload");
 
+    // #onbCancel -> requestEntryCancel() -> cancel-confirm surface ->
+    // #entryCancelDiscard -> discardEntryDraftAndCancel() -> queued/locked
+    // clearSetupDraft() -> removeObservedSetupDraft(entryDraftHandle): the
+    // observed-handle compare-and-swap runs under withStorageLock(storageIO).
+    check(
+      await page.evaluate(() => document.querySelector("#onboarding")?.classList.contains("active") === true),
+      "onboarding surface is open on the stale draft before explicit discard"
+    );
+    const setupDraftRawBeforeDiscard = await page.evaluate((k) => localStorage.getItem(k), SETUP_DRAFT_KEY);
+    check(typeof setupDraftRawBeforeDiscard === "string" && setupDraftRawBeforeDiscard.length > 0,
+      "stale setup draft record present in localStorage before explicit discard");
+
+    await page.click("#onbCancel");
+    await page.waitForSelector("#entryCancelDiscard", { timeout: 10000 });
+    await page.click("#entryCancelDiscard");
+    await page.waitForFunction(
+      () => !document.querySelector("#onboarding")?.classList.contains("active"),
+      undefined,
+      { timeout: 10000 }
+    );
+    await page.waitForFunction(
+      (k) => localStorage.getItem(k) === null,
+      SETUP_DRAFT_KEY,
+      { timeout: 10000 }
+    );
+    check(!(await page.evaluate(() => document.body.classList.contains("is-onboarding"))),
+      "onboarding closed after the explicit discard action");
+    check((await page.evaluate((k) => localStorage.getItem(k), SETUP_DRAFT_KEY)) === null,
+      "observed setup draft absent after discardEntryDraftAndCancel() -> clearSetupDraft() CAS");
+    check((await page.evaluate(() => window.__repforgeOnboardingOrigin?.() ?? null)) === null,
+      "onboarding origin released by cancelOnboarding() after the explicit discard action");
+
+    // Fresh staging goes straight through the production adapter — no reload and
+    // no raw storage priming, because the discard already removed the record.
     const liveRevisionForFresh = await page.evaluate(() => window.__repforgeWorkoutDraft.state()._storageRevision);
     const freshStage = await page.evaluate(async ({ diagnosis, unavailable }) => {
       return await window.__repforgeStageGuidedManualRepair({ diagnosis, unavailable });
@@ -679,6 +712,68 @@ async function run() {
 
     // 6. Nonempty log sentinel preserved
     check(postActivationLive.logLen === 1 && postActivationLive.logSentinels[0] === "sess_sentinel_p3b", "nonempty log sentinel preserved through activation");
+
+    // Step 10: predicate gap — a normalized build/editor setup draft that carries
+    // a main-constraint token but no valid diagnosis target must NOT auto-resume
+    // on reload. isGuidedRepairSetupDraft requires the exact target fact
+    // stageGuidedManualRepair writes: an integer diagnostics.daysPerWeek in the
+    // approved [2,6] range for fewer_days, or a positive integer
+    // diagnostics.sessionMinutes for sessions_too_long. This is an isolated
+    // malformed-input boundary built through production setup-draft helpers; it
+    // does not disturb the discard/CAS lifecycle proof above.
+    console.log("\n10. Malformed guided draft (main-constraint token, no valid target) does not auto-resume on reload");
+    check(postActivationLive.entrySource?.route === "build" && postActivationLive.historyLen === 1,
+      "device is onboarded with an active program before the malformed-draft probe");
+
+    const malformedProbes = [
+      { label: "sessions_too_long, no sessionMinutes target", diagnostics: { mainConstraint: "sessions_too_long" } },
+      { label: "fewer_days, daysPerWeek target out of approved [2,6] range", diagnostics: { mainConstraint: "fewer_days", daysPerWeek: 9 } },
+    ];
+    for (const probe of malformedProbes) {
+      const persisted = await page.evaluate(async ({ diagnostics, preview, versions }) => {
+        // Clear any prior probe fixture so this isolated malformed-input draft is
+        // written fresh through the production persist path. This is teardown of
+        // the test's own probe bytes, not the guided-repair discard boundary.
+        localStorage.removeItem("repforge_program_setup_draft_v1");
+        const Entry = window.RepForgeProgramEntry;
+        let draft = Entry.createState({
+          draftId: "malformed_guided_probe",
+          activeProgramRevisionAtStart: window.__repforgeWorkoutDraft.state()._storageRevision,
+          now: new Date().toISOString(),
+          versions,
+        });
+        draft = Entry.selectRoute(draft, "build");
+        draft = Entry.setAnswers(draft, { programName: "Malformed Guided Probe", daysPerWeek: 4 });
+        draft = Entry.setResult(draft, {
+          schemaVersion: Entry.SCHEMA_VERSION,
+          route: "build",
+          fingerprint: "malformed_guided_probe_fp",
+          name: "Malformed Guided Probe",
+          selected: { id: "manual_build", source: "manual_build" },
+          diagnostics,
+          preview,
+        });
+        draft = { ...draft, step: "editor" };
+        const res = await window.__repforgePersistSetupDraft(draft);
+        return { ok: res?.ok === true, invalid: !!res?.invalid, raw: localStorage.getItem("repforge_program_setup_draft_v1") };
+      }, { diagnostics: probe.diagnostics, preview: freshDraft.state.result.preview, versions: freshDraft.state.versions });
+      check(persisted.ok, `${probe.label}: persisted as a normalized build/editor setup draft`, persisted);
+      const rawBefore = persisted.raw;
+
+      await page.reload();
+      await waitForAppBoot(page, { base: BASE });
+
+      check(!(await page.evaluate(() => document.body.classList.contains("is-onboarding"))),
+        `${probe.label}: onboarding surface did NOT auto-open on reload`);
+      const resumedProbe = await page.evaluate(() => window.__repforgeEntryState?.());
+      check(!resumedProbe || resumedProbe.step !== "editor",
+        `${probe.label}: no build/editor entry state auto-resumed`);
+      check((await page.evaluate((k) => localStorage.getItem(k), SETUP_DRAFT_KEY)) === rawBefore,
+        `${probe.label}: ordinary saved setup draft left byte-for-byte untouched on reload`);
+      const probeLive = await readLiveState(page);
+      check(isDeepStrictEqual(probeLive, postActivationLive),
+        `${probe.label}: live active program unchanged by the reload probe`);
+    }
   } finally {
     await browser.close();
     if (serverProcess && !serverProcess.killed) {

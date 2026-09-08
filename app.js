@@ -10328,9 +10328,12 @@ function startOnboarding(origin,opts={}){
 }
 // A persisted setup draft is auto-resumed on boot only when it is a normalized
 // guided manual-repair build/editor draft: route "build", step "editor", a valid
-// preview program, and an approved diagnostics.mainConstraint fact. Ordinary
-// saved setup drafts on an onboarded device are left untouched, and first-run
-// behavior is unchanged.
+// preview program, and the exact diagnosis target stageGuidedManualRepair writes
+// — an integer diagnostics.daysPerWeek in the approved 2..6 range for fewer_days,
+// or a positive integer diagnostics.sessionMinutes for sessions_too_long. A
+// main-constraint token on its own, or an out-of-range / missing / non-integer
+// target, does not qualify: ordinary saved setup drafts on an onboarded device
+// are left untouched, and first-run behavior is unchanged.
 function isGuidedRepairSetupDraft(envelope){
   const st=envelope?.state;
   if(!st||st.route!=="build"||st.step!=="editor")return false;
@@ -10338,8 +10341,17 @@ function isGuidedRepairSetupDraft(envelope){
   if(!result||result.route!=="build")return false;
   const preview=result.preview;
   if(!preview||!Array.isArray(preview.program)||preview.program.length===0)return false;
-  const main=result.diagnostics?.mainConstraint;
-  return main==="fewer_days"||main==="sessions_too_long";
+  const diagnostics=result.diagnostics;
+  const main=diagnostics?.mainConstraint;
+  if(main==="fewer_days"){
+    const days=diagnostics.daysPerWeek;
+    return Number.isInteger(days)&&days>=2&&days<=6;
+  }
+  if(main==="sessions_too_long"){
+    const minutes=diagnostics.sessionMinutes;
+    return Number.isInteger(minutes)&&minutes>0;
+  }
+  return false;
 }
 function maybeShowOnboarding(){
   if(!state.programMeta?.onboarded&&state.log.length===0){
