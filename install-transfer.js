@@ -438,7 +438,7 @@
 
   function consumeTransferCookie(adapters = {}) {
     const value = readTransferCookie(adapters);
-    if (value) clearTransferCookie(adapters);
+    if (!value || !clearTransferCookie(adapters)) return null;
     return value;
   }
 
@@ -757,6 +757,9 @@
       let marker;
       try { marker = await inbound.read(); }
       catch { return unavailable("marker-read-failed", "unknown-outcome"); }
+      if (["local-committed", "cleanup-pending", "cleared"].includes(marker?.phase)) {
+        return stateResult(unavailable("claim-state-changed", "unknown-outcome"));
+      }
       let pair;
       if (marker?.sealedCredentials) {
         if (!["staged", "claiming", "claimed"].includes(marker.phase)) return stateResult(unavailable("marker-invalid", "unknown-outcome"));
@@ -800,11 +803,13 @@
       catch { return stateResult(unavailable("claim-state-changed", "unknown-outcome")); }
       const credentialFields = ["version", "algorithm", "context", "keyId", "iv", "ciphertext"];
       const sameClaimCredentials = credentialFields.every((field) => latest?.sealedCredentials?.[field] === marker.sealedCredentials?.[field]);
-      if (latest?.phase !== "claiming" || !sameClaimCredentials) {
+      if (!["claiming", "claimed"].includes(latest?.phase) || !sameClaimCredentials) {
         return stateResult(unavailable("claim-state-changed", "unknown-outcome"));
       }
-      try { await inbound.write({ version: 1, phase: "claimed", sealedCredentials: marker.sealedCredentials, expiresAt: reply.body.expiresAt }); }
-      catch { return stateResult(unavailable("marker-write-failed", "unknown-outcome")); }
+      if (latest.phase === "claiming") {
+        try { await inbound.write({ ...latest, phase: "claimed", sealedCredentials: marker.sealedCredentials, expiresAt: reply.body.expiresAt }); }
+        catch { return stateResult(unavailable("marker-write-failed", "unknown-outcome")); }
+      }
       return stateResult(success({ state: "validating", envelope: checked.value || reply.body.envelope, expiresAt: reply.body.expiresAt }));
     }
     async function claim() {

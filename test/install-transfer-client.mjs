@@ -774,6 +774,23 @@ async function main() {
     const silentClear = cookieDocument(seeded.cookie, { silent: true });
     check(Transfer.clearTransferCookie({ document: silentClear, location }) === false, "silently rejected cookie clear was reported as successful");
     check(Transfer.readTransferCookie({ document: silentClear })?.token === tokenD, "silent cookie clear lost the recoverable cookie value");
+    check(Transfer.consumeTransferCookie({ document: silentClear, location }) === null, "consume returned a bearer after silent cookie deletion failure");
+    check(Transfer.readTransferCookie({ document: silentClear })?.token === tokenD, "consume lost the bearer after silent cookie deletion failure");
+  });
+
+  await test("terminal inbound markers block cookie fallback before claim", async () => {
+    for (const phase of FAULT_EXPECTATIONS.claimStateRace.protectedPhases) {
+      const token = tokenFixture(phase === "local-committed" ? "L" : phase === "cleanup-pending" ? "M" : "N");
+      const document = cookieDocument();
+      check(Transfer.writeTransferCookie({ token, expiresAt: "2026-09-08T20:00:00.000Z" }, { document, location: { href: "https://pedrochagasmaster.github.io/repforge/index.html" }, now: "2026-09-08T19:00:00.000Z" }), `${phase} cookie seed failed`);
+      const inbound = markerStore({ version: 1, phase });
+      const transport = transportSequence([response(200, { state: "unreachable", expiresAt: "2026-09-08T20:00:00.000Z" })]);
+      const client = makeClient({ context: "standalone", transport, inbound, document, vault });
+      const result = await client.claim();
+      check(result.state === FAULT_EXPECTATIONS.claimStateRace.state && result.code === FAULT_EXPECTATIONS.claimStateRace.code, `${phase} marker did not stop claim fallback`);
+      check(inbound.peek()?.phase === phase && Transfer.readTransferCookie({ document })?.token === token, `${phase} marker or cookie was mutated`);
+      check(transport.requests.length === 0, `${phase} marker allowed a claim POST`);
+    }
   });
 
   await test("freezes create when cookie persistence cannot be confirmed", async () => {
@@ -921,6 +938,12 @@ async function main() {
     check(transport.requests[0].maxResponseBytes === FAULT_EXPECTATIONS.responseBounds.claimResponseBytes, "claim response used the small endpoint cap");
     check(inbound.peek()?.phase === "claimed", "claim marker did not advance after the bound response");
     check(!document.cookie.includes("repforge_transfer_v1="), "installed claim did not consume the transfer cookie");
+
+    const claimedTransport = transportSequence([response(200, { envelope: built.value, expiresAt: "2026-09-08T20:30:00.000Z" })]);
+    const claimedClient = makeClient({ transport: claimedTransport, inbound, document, context: "standalone", vault });
+    const claimedRetry = await claimedClient.claim();
+    check(claimedRetry.ok && claimedRetry.state === "validating", "retry from a claimed marker rejected a valid same-credential response");
+    check(inbound.peek()?.phase === "claimed", "claimed retry downgraded or discarded the monotonic marker");
   });
 
   await test("a late paused claim cannot downgrade local commit, cleanup, or cleared state", async () => {
