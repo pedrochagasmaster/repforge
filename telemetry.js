@@ -21,6 +21,7 @@
 
   const values = (...allowed) => Object.freeze({ kind: "enum", allowed: Object.freeze(allowed) });
   const boolean = Object.freeze({ kind: "boolean" });
+  const integer = Object.freeze({ kind: "integer" });
   const optional = validator => Object.freeze({ ...validator, optional: true });
 
   /* How often analysis may legitimately see one event for one subject.
@@ -63,7 +64,11 @@
     generator_started: event({ mode: values("baseline") }, "Working baseline generator started", "once_per_setup_flow"),
     generator_completed: event({ goal: values("muscle_growth", "balanced", "strength"), frequency: values("2", "3", "4", "5", "6"), family: values("legacy", "growth", "balanced", "strength", "home", "foundation") }, "Generator produced a reviewable program", "once_per_setup_flow"),
     template_selected: event({ family: values("growth_v1", "balanced_v1", "strength_v1", "home_v1") }, "Executable Taurifer template selected", "once_per_setup_flow"),
-    program_activated: event({ route: values("recommend", "custom", "browse", "build", "import", "shared"), version_category: values("legacy_v1", "taurifer_v1", "manual_v1", "import_v1", "shared_v1") }, "Program activation committed", "once_per_setup_flow"),
+    program_import_started: event({ source: values("freeform", "file") }, "Program import started", "repeatable"),
+    program_import_handoff: event({ method: values("chatgpt", "claude", "copy"), outcome: values("opened", "copied", "copy_failed"), long_prompt: boolean }, "Freeform program import handoff to assistant", "repeatable"),
+    program_import_parsed: event({ source: values("freeform"), outcome: values("complete", "gaps", "unreadable"), gap_count: integer }, "Freeform program reply parsed", "repeatable"),
+    program_import_review_reached: event({ source: values("freeform", "file") }, "Import review screen reached", "repeatable"),
+    program_activated: event({ route: values("recommend", "custom", "browse", "build", "import", "shared"), version_category: values("legacy_v1", "taurifer_v1", "manual_v1", "import_v1", "shared_v1"), source: optional(values("freeform", "file")) }, "Program activation committed", "once_per_setup_flow"),
     first_set_logged: event({}, "First working set committed", "milestone"),
     set_saved: event({ vs_suggestion: values("matched", "raised", "lowered", "no_suggestion") }, "Working set committed relative to its suggestion", "repeatable"),
     recommendation_explained: event({ surface: values("workout", "focus", "exercise") }, "Recommendation explanation opened", "repeatable"),
@@ -203,6 +208,7 @@
   function validProperty(value, validator) {
     if (value === undefined) return !!validator.optional;
     if (validator.kind === "boolean") return typeof value === "boolean";
+    if (validator.kind === "integer") return Number.isInteger(value) && value >= 0;
     return validator.kind === "enum" && typeof value === "string" && validator.allowed.includes(value);
   }
 

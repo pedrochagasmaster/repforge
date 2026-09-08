@@ -962,7 +962,7 @@ export async function runSharedSetupFlow(browser) {
     const rendered = await page.evaluate(() => ({
       preview: window.__repforgeEntryState?.()?.result?.preview || null,
       timing: window.RepForgeProgramCompiler?.RULES?.time || null,
-      review: document.querySelector(".entry__review-grid")?.textContent || "",
+      review: document.querySelector(".entry__rows")?.textContent || "",
       days: [...document.querySelectorAll(".onb__day")].map((day) => day.textContent || ""),
     }));
     const estimates = rendered.preview?.days?.map((day) => ({ dayId: day.dayId, estimateMinutes: day.estimateMinutes })) || [];

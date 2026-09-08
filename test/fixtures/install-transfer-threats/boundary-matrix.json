@@ -1,0 +1,221 @@
+{
+  "contract": "taurifer-install-transfer",
+  "schemaVersion": 1,
+  "matrixVersion": 1,
+  "authority": "docs/adr/0013-temporary-install-transfer.md",
+  "status": "independent-wave-a-design",
+  "measurement": {
+    "utf8Bytes": {
+      "unit": "utf8-bytes",
+      "algorithm": "TextEncoder().encode(raw).byteLength",
+      "scope": "Raw request bytes, before JSON parsing or allocation. Count every byte, including JSON whitespace and delimiters.",
+      "normalization": "none",
+      "rejectBeforeParse": true
+    },
+    "chars": {
+      "unit": "unicode-scalar-values",
+      "algorithm": "Count Unicode scalar values after rejecting every lone UTF-16 surrogate",
+      "scope": "String values, identifier/key values, and serialized log-row JSON.",
+      "normalization": "none",
+      "notUtf8Bytes": true,
+      "notUtf16CodeUnits": true,
+      "rejectUnpairedSurrogates": true
+    },
+    "depth": {
+      "unit": "container-levels",
+      "rootDepth": 0,
+      "algorithm": "Increment the parser depth when descending into an object or array; reject as soon as the observed stack depth exceeds the limit.",
+      "scope": "Streaming/raw parsing, before materializing an unbounded object graph.",
+      "rejectDuringParse": true
+    }
+  },
+  "inputContracts": {
+    "measureUtf8Bytes": {
+      "acceptedTypes": ["string", "Uint8Array", "ArrayBuffer"],
+      "coercion": "none"
+    },
+    "measureChars": {
+      "acceptedTypes": ["string"],
+      "coercion": "none"
+    },
+    "parseBoundedJson": {
+      "acceptedTypes": ["Uint8Array", "ArrayBuffer"],
+      "coercion": "none",
+      "order": ["byte-length", "fatal-utf8-decode", "bounded-json-parse"]
+    }
+  },
+  "limits": [
+    {
+      "id": "request-body-create-bytes",
+      "adrBoundary": "Request body (create)",
+      "scope": "POST /v1/transfers raw body",
+      "measurement": "utf8-bytes",
+      "max": 2000000,
+      "inclusive": true,
+      "failureClass": "body-too-large"
+    },
+    {
+      "id": "request-body-small-endpoint-bytes",
+      "adrBoundary": "Request body (claim/commit/status)",
+      "scope": "POST /v1/transfers/claims, /claims/commit, or /status raw body",
+      "measurement": "utf8-bytes",
+      "max": 4096,
+      "inclusive": true,
+      "failureClass": "body-too-large"
+    },
+    {
+      "id": "envelope-total-json-bytes",
+      "adrBoundary": "Envelope total JSON size",
+      "scope": "Serialized logical clone envelope",
+      "measurement": "utf8-bytes",
+      "max": 2000000,
+      "inclusive": true,
+      "failureClass": "envelope-too-large"
+    },
+    {
+      "id": "nesting-depth",
+      "adrBoundary": "Nesting depth",
+      "scope": "Every parsed object/array path",
+      "measurement": "container-levels",
+      "max": 64,
+      "inclusive": true,
+      "failureClass": "depth-too-large"
+    },
+    {
+      "id": "object-keys-per-object",
+      "adrBoundary": "Object keys per object",
+      "scope": "Every parsed object, including nested objects",
+      "measurement": "own-key-count",
+      "max": 256,
+      "inclusive": true,
+      "failureClass": "object-too-wide"
+    },
+    {
+      "id": "array-items-per-array",
+      "adrBoundary": "Array items per array",
+      "scope": "Every ordinary parsed array, including nested arrays",
+      "measurement": "item-count",
+      "max": 10000,
+      "inclusive": true,
+      "failureClass": "array-too-large"
+    },
+    {
+      "id": "string-value-length",
+      "adrBoundary": "String value length",
+      "scope": "Every parsed string value",
+      "measurement": "unicode-scalar-values",
+      "max": 8000,
+      "inclusive": true,
+      "failureClass": "string-too-long"
+    },
+    {
+      "id": "identifier-key-length",
+      "adrBoundary": "Identifier/key length",
+      "scope": "Identifiers and object-key names",
+      "measurement": "unicode-scalar-values",
+      "max": 256,
+      "inclusive": true,
+      "failureClass": "identifier-too-long"
+    },
+    {
+      "id": "durable-state-log-rows",
+      "adrBoundary": "durableState.log rows",
+      "scope": "Named semantic log collection",
+      "measurement": "row-count",
+      "max": 200000,
+      "inclusive": true,
+      "failureClass": "log-too-large"
+    },
+    {
+      "id": "durable-state-program-rows",
+      "adrBoundary": "durableState.program rows",
+      "scope": "Named semantic program collection",
+      "measurement": "row-count",
+      "max": 2000,
+      "inclusive": true,
+      "failureClass": "program-too-large"
+    },
+    {
+      "id": "durable-state-program-history-entries",
+      "adrBoundary": "durableState.programHistory entries",
+      "scope": "Named semantic program-history collection",
+      "measurement": "entry-count",
+      "max": 2000,
+      "inclusive": true,
+      "failureClass": "program-history-too-large"
+    },
+    {
+      "id": "durable-state-custom-exercises",
+      "adrBoundary": "durableState.customExercises",
+      "scope": "Named semantic custom-exercise collection",
+      "measurement": "entry-count",
+      "max": 1000,
+      "inclusive": true,
+      "failureClass": "custom-exercises-too-large"
+    },
+    {
+      "id": "serialized-log-row-size",
+      "adrBoundary": "Serialized log row size",
+      "scope": "Each JSON-serialized durableState.log row",
+      "measurement": "unicode-scalar-values",
+      "max": 8000,
+      "inclusive": true,
+      "failureClass": "log-row-too-large"
+    },
+    {
+      "id": "claims-per-token",
+      "adrBoundary": "Claims per token",
+      "scope": "Server transfer state machine",
+      "measurement": "claim-count",
+      "max": 1,
+      "inclusive": true,
+      "failureClass": "claim-unavailable"
+    },
+    {
+      "id": "claim-id-length",
+      "adrBoundary": "Claim ID length",
+      "scope": "claimId in claim and commit request bodies",
+      "measurement": "base64url-chars-and-entropy-bits",
+      "min": 22,
+      "max": 43,
+      "entropyBitsMin": 128,
+      "entropyBitsMax": 256,
+      "inclusive": true,
+      "failureClass": "claim-id-invalid"
+    },
+    {
+      "id": "create-rate-per-ip",
+      "adrBoundary": "Create rate",
+      "scope": "HMAC(IP)-keyed rate bucket",
+      "measurement": "requests-per-minute",
+      "max": 5,
+      "inclusive": true,
+      "failureClass": "rate-limited"
+    },
+    {
+      "id": "claim-commit-status-rate-per-token",
+      "adrBoundary": "Claim/commit/status rate",
+      "scope": "Token-keyed rate bucket across claim, commit, and status",
+      "measurement": "requests-per-minute",
+      "max": 60,
+      "inclusive": true,
+      "failureClass": "rate-limited"
+    }
+  ],
+  "conjunctionRules": [
+    "Every applicable bound is conjunctive: a payload must satisfy request-body, envelope, depth, key, array, string, semantic-collection, and row-size limits together.",
+    "The generic 10,000-item array rule applies to every array, including durableState.log and arrays nested inside semantic collection entries; specialized collection limits never waive the generic array or nested limits.",
+    "The durableState.log 200,000-row limit is a redundant semantic upper bound. Because the current envelope represents log as a plain JSON array, 10,001 rows fail array-too-large; no exception or segmentation is introduced."
+  ],
+  "depthConvention": {
+    "acceptedExample": "A root object at depth 0 containing 64 nested containers reaches depth 64 and is accepted.",
+    "rejectedExample": "A root object at depth 0 containing 65 nested containers reaches depth 65 and is rejected while parsing.",
+    "note": "The coordinator must preserve this root-depth convention in the shared parser interface; counting root as 1 would be an observable contract change."
+  },
+  "resultContract": {
+    "success": { "allowedKeys": ["ok", "value"] },
+    "failure": { "allowedKeys": ["ok", "code"] },
+    "failureCode": "fixed-code-enum",
+    "forbiddenFailureKeys": ["value", "path", "payload", "input", "message", "details"]
+  }
+}
