@@ -5,8 +5,10 @@ import { createRequire } from "node:module";
 
 const require = createRequire(import.meta.url);
 const Transition = require("../program-transition.js");
+const Compiler = require("../program-compiler.js");
+const { EXERCISE_LIBRARY } = require("../exercises.js");
 
-const { evaluateRecoveryEligibility } = Transition;
+const { evaluateRecoveryEligibility, proposeRecoveryWeek } = Transition;
 
 // Canonical approved policy version 2 literal, defined independently of implementation exports.
 const APPROVED_POLICY_V2 = Object.freeze({
@@ -530,4 +532,682 @@ test("negative injections: drifted question/answers/patterns/qualifying outcomes
   };
   const result = evaluateRecoveryEligibility(driftedEvidenceQuestion, APPROVED_POLICY_V2);
   assert.deepEqual(result, { ok: false, status: "ineligible", ineligible: true, code: "invalid_evidence" });
+});
+
+// ============================================================================
+// Packet 052-P5b: Rule B recovery preview implementation tests
+// ============================================================================
+
+const FIXTURE_EVIDENCE_TABLE = {
+  growth_2_v1: { base: 32, effective: 12, ratio: "37.5%", status: "Miss (low)" },
+  growth_3_v1: { base: 49, effective: 17, ratio: "34.7%", status: "Miss (low)" },
+  growth_4_v1: { base: 60, effective: 26, ratio: "43.3%", status: "Yes" },
+  growth_5_v1: { base: 74, effective: 30, ratio: "40.5%", status: "Yes" },
+  growth_6_v1: { base: 46, effective: 23, ratio: "50.0%", status: "Yes" },
+  balanced_2_v1: { base: 29, effective: 13, ratio: "44.8%", status: "Yes" },
+  balanced_3_v1: { base: 43, effective: 20, ratio: "46.5%", status: "Yes" },
+  balanced_4_v1: { base: 45, effective: 22, ratio: "48.9%", status: "Yes" },
+  balanced_5_v1: { base: 60, effective: 28, ratio: "46.7%", status: "Yes" },
+  balanced_6_v1: { base: 50, effective: 27, ratio: "54.0%", status: "Yes" },
+  strength_2_v1: { base: 28, effective: 13, ratio: "46.4%", status: "Yes" },
+  strength_3_v1: { base: 42, effective: 18, ratio: "42.9%", status: "Yes" },
+  strength_4_v1: { base: 45, effective: 21, ratio: "46.7%", status: "Yes" },
+  strength_5_v1: { base: 61, effective: 26, ratio: "42.6%", status: "Yes" },
+  strength_6_v1: { base: 53, effective: 27, ratio: "50.9%", status: "Yes" },
+  home_2_v1: { base: 27, effective: 15, ratio: "55.6%", status: "Yes" },
+  home_3_v1: { base: 34, effective: 20, ratio: "58.8%", status: "Yes" },
+  home_4_v1: { base: 39, effective: 20, ratio: "51.3%", status: "Yes" },
+  home_5_v1: { base: 31, effective: 16, ratio: "51.6%", status: "Yes" },
+  home_6_v1: { base: 32, effective: 16, ratio: "50.0%", status: "Yes" },
+};
+
+const gymContext = (familyId, frequency, extra = {}) => ({
+  schemaVersion: 1,
+  familyId,
+  frequency,
+  sessionMinutes: 90,
+  equipment: ["barbell", "dumbbell", "machine", "cable", "smith"],
+  environment: ["safe_pull", "training_support"],
+  loadIncrements: { barbell: 2.5, dumbbell: 2, machine: 5, cable: 5, smith: 2.5 },
+  ...extra,
+});
+
+const homeContext = (frequency, extra = {}) => ({
+  schemaVersion: 1,
+  familyId: "home",
+  frequency,
+  sessionMinutes: 90,
+  equipment: [],
+  environment: [],
+  loadIncrements: {},
+  ...extra,
+});
+
+function independentRuleB(instance) {
+  const patternMapping = {
+    squat: "knee-dominant",
+    press: "horizontal press",
+    incline_press: "horizontal press",
+    hinge: "hip/hinge",
+  };
+  const primaryPatterns = ["knee-dominant", "horizontal press", "hip/hinge"];
+  const slots = instance.days.flatMap((d) => d.slots);
+  const entries = slots.map((slot) => {
+    const rawPattern = slot.contract?.patterns?.[0];
+    const movementPattern = patternMapping[rawPattern] || null;
+    const baseWorkingSets = slot.prescription.sets;
+    let effectiveWorkingSets = 0;
+    let reason = "";
+    const isOptional = slot.status === "optional";
+    if (isOptional) {
+      effectiveWorkingSets = 0;
+      reason = "optional-removed";
+    } else if (slot.status === "protected") {
+      effectiveWorkingSets = Math.ceil(baseWorkingSets / 2);
+      reason = "protected-ceil";
+    } else if (slot.status === "reducible") {
+      effectiveWorkingSets = Math.floor(baseWorkingSets / 2);
+      reason = "reducible-floor";
+    }
+    const movement = slot.exercise.id.startsWith("custom:") || slot.exercise.id.startsWith("library:")
+      ? slot.exercise.id
+      : "library:" + slot.exercise.id;
+    return {
+      slot: slot.slotId,
+      movement,
+      movementPattern,
+      baseWorkingSets,
+      effectiveWorkingSets,
+      removedOptionalFirst: isOptional,
+      reason,
+    };
+  });
+
+  for (const pattern of primaryPatterns) {
+    const patternTotal = entries.reduce(
+      (sum, e) => sum + (e.movementPattern === pattern ? e.effectiveWorkingSets : 0),
+      0
+    );
+    if (patternTotal === 0) {
+      const target = entries.find((e) => e.movementPattern === pattern && e.baseWorkingSets >= 1);
+      if (target) {
+        target.effectiveWorkingSets = 1;
+        target.reason = "pattern-rescue";
+      }
+    }
+  }
+
+  const baseTotal = entries.reduce((sum, e) => sum + e.baseWorkingSets, 0);
+  const effectiveTotal = entries.reduce((sum, e) => sum + e.effectiveWorkingSets, 0);
+  const ratio = effectiveTotal / baseTotal;
+  return { entries, baseTotal, effectiveTotal, ratio };
+}
+
+function validRecoveryInput(overrides = {}) {
+  const predecessorInstance = overrides.predecessorInstance || Compiler.compile(gymContext("growth", 4), EXERCISE_LIBRARY);
+  return {
+    predecessorInstance,
+    predecessor: {
+      programId: "prog_recovery_test_4",
+      durableRevision: 1,
+      source: "Recommend",
+    },
+    approvedPolicy: clone(APPROVED_POLICY_V2),
+    evidence: {
+      outcomesByPattern: {
+        "knee-dominant": "maintained",
+        "horizontal press": "declined",
+      },
+      checkpointAnswer: "Yes",
+    },
+    transitionId: "tr_recov_001",
+    blockId: "block_local_b1",
+    createdAt: "2026-10-01T09:00:00.000Z",
+    supportedVersions: Compiler.VERSIONS,
+    ...overrides,
+  };
+}
+
+test("seam presence: proposeRecoveryWeek is exported as function", () => {
+  assert.equal(typeof proposeRecoveryWeek, "function", "proposeRecoveryWeek must be exported");
+  assert.equal(typeof Transition.proposeRecoveryWeek, "function", "Transition.proposeRecoveryWeek must be exported");
+});
+
+test("Rule B independent oracle across all 20 real compilations", async () => {
+  let checkedCompilations = 0;
+  for (const familyId of Compiler.FAMILY_IDS) {
+    for (const frequency of Compiler.FREQUENCIES) {
+      checkedCompilations++;
+      const context = familyId === "home" ? homeContext(frequency) : gymContext(familyId, frequency);
+      const instance = Compiler.compile(context, EXERCISE_LIBRARY);
+      assert.equal(instance.kind, "compiled");
+      const blueprintId = `${familyId}_${frequency}_v1`;
+      const expectedFixture = FIXTURE_EVIDENCE_TABLE[blueprintId];
+      assert.ok(expectedFixture, `missing fixture table entry for ${blueprintId}`);
+
+      const oracle = independentRuleB(instance);
+      assert.equal(oracle.baseTotal, expectedFixture.base, `${blueprintId} oracle base total matches fixture`);
+      assert.equal(oracle.effectiveTotal, expectedFixture.effective, `${blueprintId} oracle effective total matches fixture`);
+
+      const input = validRecoveryInput({
+        predecessorInstance: instance,
+        predecessor: {
+          programId: `prog_${blueprintId}`,
+          durableRevision: 1,
+          source: "Recommend",
+        },
+        transitionId: `tr_${blueprintId}`,
+      });
+
+      const result = await proposeRecoveryWeek(input);
+      assert.equal(result.ok, true, `proposeRecoveryWeek failed for ${blueprintId}: ${result.code}`);
+      assert.equal(result.status, "preview");
+      const proposal = result.proposal;
+      assert.ok(proposal);
+
+      // Schema and field presence rules
+      assert.equal(proposal.schemaVersion, 1);
+      assert.equal(proposal.transitionId, `tr_${blueprintId}`);
+      assert.equal(proposal.kind, "recovery_week");
+      assert.equal(proposal.status, "preview");
+      assert.equal(proposal.createdAt, input.createdAt);
+      assert.equal(proposal.successor, undefined, "successor must be absent for recovery_week");
+      assert.equal(proposal.confirmedAt, undefined, "confirmedAt must be absent in preview");
+      assert.equal(proposal.archiveId, undefined, "archiveId must be absent in preview");
+
+      // Predecessor fields
+      assert.equal(proposal.predecessor.programId, input.predecessor.programId);
+      assert.equal(proposal.predecessor.durableRevision, 1);
+      assert.equal(proposal.predecessor.source, "Recommend");
+      assert.deepEqual(proposal.predecessor.compilerProvenance, instance.provenance);
+      assert.equal(typeof proposal.predecessor.fingerprint, "string");
+
+      // Diagnosis fields
+      assert.deepEqual(proposal.diagnosis, {
+        kind: "recovery_week",
+        answers: { checkpointAnswer: "Yes" },
+        eligibleEvidenceIds: ["knee-dominant", "horizontal press"],
+        insufficientEvidenceReasons: [],
+      });
+
+      // Derivation fields
+      assert.equal(proposal.derivation.mode, "overlay");
+      assert.equal(proposal.derivation.request, "recovery-week");
+      assert.deepEqual(proposal.derivation.compilerContextVersions, instance.provenance);
+      assert.deepEqual(proposal.derivation.policyVersions, { recoveryWeek: 2 });
+      assert.ok(proposal.derivation.slotMapping, "slot mapping required");
+      assert.equal(proposal.derivation.slotMapping.contract, "taurifer-transition-slot-mapping");
+      for (const pair of proposal.derivation.slotMapping.slots) {
+        assert.equal(pair.predecessorSlot, pair.successorSlot);
+        assert.equal(pair.predecessorMovement, pair.successorMovement);
+      }
+
+      // Diff fields
+      assert.ok(proposal.diff, "diff required");
+      assert.deepEqual(proposal.diff.days, []);
+      assert.deepEqual(proposal.diff.exercises, []);
+      assert.deepEqual(proposal.diff.prescriptions, []);
+      assert.ok(proposal.diff.recoveryWeek, "diff.recoveryWeek required");
+
+      // Overlay fields
+      const overlay = proposal.diff.recoveryWeek;
+      assert.equal(overlay.schemaVersion, 1);
+      assert.equal(overlay.policyVersion, 2);
+      assert.equal(overlay.transitionId, proposal.transitionId);
+      assert.equal(overlay.blockId, input.blockId);
+      assert.equal(overlay.activePeriod, "nextBlockWeek1");
+      assert.deepEqual(overlay.eligibilityEvidence, {
+        outcomesByPattern: {
+          "knee-dominant": "maintained",
+          "horizontal press": "declined",
+        },
+        qualifyingPatterns: ["knee-dominant", "horizontal press"],
+        checkpointAnswer: "Yes",
+      });
+      assert.equal(overlay.baseProgramFingerprint, proposal.predecessor.fingerprint);
+      assert.equal(overlay.createdAt, input.createdAt);
+      assert.equal(overlay.reassessmentOutcome, null);
+      assert.equal(overlay.confirmedAt, undefined, "overlay confirmedAt must be absent in preview");
+      assert.equal(overlay.reassessmentDueAt, undefined, "overlay reassessmentDueAt must be absent in preview");
+
+      // Entries comparison against independent Rule B oracle
+      assert.equal(overlay.entries.length, oracle.entries.length, `${blueprintId} entry count`);
+      for (let i = 0; i < oracle.entries.length; i++) {
+        const actual = overlay.entries[i];
+        const expected = oracle.entries[i];
+        assert.equal(actual.slot, expected.slot, `${blueprintId} entry ${i} slotId`);
+        assert.equal(actual.movement, expected.movement, `${blueprintId} entry ${i} movement`);
+        assert.equal(actual.movementPattern, expected.movementPattern, `${blueprintId} entry ${i} movementPattern`);
+        assert.equal(actual.baseWorkingSets, expected.baseWorkingSets, `${blueprintId} entry ${i} baseWorkingSets`);
+        assert.equal(actual.effectiveWorkingSets, expected.effectiveWorkingSets, `${blueprintId} entry ${i} effectiveWorkingSets`);
+        assert.equal(actual.removedOptionalFirst, expected.removedOptionalFirst, `${blueprintId} entry ${i} removedOptionalFirst`);
+        assert.equal(actual.reason, expected.reason, `${blueprintId} entry ${i} reason`);
+      }
+
+      // Band & Allowlist check
+      const totalBase = overlay.entries.reduce((sum, e) => sum + e.baseWorkingSets, 0);
+      const totalEffective = overlay.entries.reduce((sum, e) => sum + e.effectiveWorkingSets, 0);
+      assert.equal(totalBase, expectedFixture.base, `${blueprintId} base sets`);
+      assert.equal(totalEffective, expectedFixture.effective, `${blueprintId} effective sets`);
+      const ratio = totalEffective / totalBase;
+      if (blueprintId === "growth_2_v1") {
+        assert.equal(totalBase, 32);
+        assert.equal(totalEffective, 12);
+        assert.ok(ratio < 0.4, "growth_2_v1 must be below 40%");
+      } else if (blueprintId === "growth_3_v1") {
+        assert.equal(totalBase, 49);
+        assert.equal(totalEffective, 17);
+        assert.ok(ratio < 0.4, "growth_3_v1 must be below 40%");
+      } else {
+        assert.ok(ratio >= 0.4 && ratio <= 0.6, `${blueprintId} ratio ${ratio} must be within 40-60% band`);
+      }
+
+      // Proposal validation
+      const validation = await Transition.validateProposal(proposal, {
+        predecessor: input.predecessor,
+        predecessorInstance: instance,
+        approvedPolicy: APPROVED_POLICY_V2,
+        supportedVersions: Compiler.VERSIONS,
+      });
+      assert.equal(validation.ok, true, `${blueprintId} validateProposal failed: ${validation.code}`);
+      assert.equal(validation.status, "preview");
+    }
+  }
+  assert.equal(checkedCompilations, 20, "must check all 20 compilations");
+});
+
+test("repeated library:sq_lp has distinct protected/reducible slot entries in growth_2_v1", async () => {
+  const instance = Compiler.compile(gymContext("growth", 2), EXERCISE_LIBRARY);
+  const input = validRecoveryInput({ predecessorInstance: instance });
+  const result = await proposeRecoveryWeek(input);
+  assert.equal(result.ok, true);
+
+  const legPressEntries = result.proposal.diff.recoveryWeek.entries.filter(
+    (e) => e.movement === "library:sq_lp"
+  );
+  assert.equal(legPressEntries.length, 2, "must have exactly 2 entries for repeated library:sq_lp");
+
+  const [entry1, entry2] = legPressEntries;
+  assert.notEqual(entry1.slot, entry2.slot, "slot identities must be distinct");
+  assert.equal(entry1.slot, "growth_2_d1_s1");
+  assert.equal(entry1.baseWorkingSets, 3);
+  assert.equal(entry1.effectiveWorkingSets, 2);
+  assert.equal(entry1.removedOptionalFirst, false);
+  assert.equal(entry1.reason, "protected-ceil");
+  assert.equal(entry1.movementPattern, "knee-dominant");
+
+  assert.equal(entry2.slot, "growth_2_d2_s4");
+  assert.equal(entry2.baseWorkingSets, 3);
+  assert.equal(entry2.effectiveWorkingSets, 1);
+  assert.equal(entry2.removedOptionalFirst, false);
+  assert.equal(entry2.reason, "reducible-floor");
+  assert.equal(entry2.movementPattern, null);
+});
+
+test("synthetic compiler instance for coverage rescue restores first eligible optional primary slot to 1 set", async () => {
+  const base = Compiler.compile(gymContext("growth", 6), EXERCISE_LIBRARY);
+  const synthetic = JSON.parse(JSON.stringify(base));
+  let modified = 0;
+  for (const day of synthetic.days) {
+    for (const slot of day.slots) {
+      if (slot.contract?.patterns?.[0] === "squat") {
+        slot.status = "optional";
+        slot.protected = false;
+        slot.reducible = false;
+        const p = synthetic.program.find((e) => e.slotId === slot.slotId);
+        if (p) p.priority = "optional";
+        modified++;
+      }
+    }
+  }
+  assert.ok(modified >= 2, "modified at least 2 knee-dominant slots");
+
+  const input = validRecoveryInput({ predecessorInstance: synthetic });
+  const result = await proposeRecoveryWeek(input);
+  assert.equal(result.ok, true);
+
+  const kneeEntries = result.proposal.diff.recoveryWeek.entries.filter(
+    (e) => e.movementPattern === "knee-dominant"
+  );
+  assert.ok(kneeEntries.length >= 2);
+  const rescuedEntry = kneeEntries[0];
+  assert.equal(rescuedEntry.effectiveWorkingSets, 1, "rescued slot must have 1 working set");
+  assert.equal(rescuedEntry.removedOptionalFirst, true, "removedOptionalFirst must be true since it was optional");
+  assert.equal(rescuedEntry.reason, "pattern-rescue", "reason must be pattern-rescue");
+
+  for (let i = 1; i < kneeEntries.length; i++) {
+    assert.equal(kneeEntries[i].effectiveWorkingSets, 0);
+    assert.equal(kneeEntries[i].removedOptionalFirst, true);
+    assert.equal(kneeEntries[i].reason, "optional-removed");
+  }
+});
+
+test("immutability and deep freeze on proposal and overlay", async () => {
+  const instance = Compiler.compile(gymContext("growth", 4), EXERCISE_LIBRARY);
+  const input = validRecoveryInput({ predecessorInstance: instance });
+  const inputSnapshot = JSON.parse(JSON.stringify(input));
+
+  const result = await proposeRecoveryWeek(input);
+  assert.equal(result.ok, true);
+  assert.ok(Object.isFrozen(result), "result must be frozen");
+  assert.ok(Object.isFrozen(result.proposal), "proposal must be frozen");
+  assert.ok(Object.isFrozen(result.proposal.diff.recoveryWeek), "overlay must be frozen");
+  assert.ok(Object.isFrozen(result.proposal.diff.recoveryWeek.entries), "entries must be frozen");
+  for (const entry of result.proposal.diff.recoveryWeek.entries) {
+    assert.ok(Object.isFrozen(entry), "entry must be frozen");
+  }
+  assert.deepEqual(input, inputSnapshot, "input must not be mutated");
+
+  const frozenInput = deepFreeze(JSON.parse(JSON.stringify(input)));
+  const frozenResult = await proposeRecoveryWeek(frozenInput);
+  assert.equal(frozenResult.ok, true);
+});
+
+// --- Semantic negative tests with freshly recomputed hash ---
+
+async function createBaseRecoveryFixture() {
+  const instance = Compiler.compile(gymContext("growth", 4), EXERCISE_LIBRARY);
+  const input = validRecoveryInput({ predecessorInstance: instance });
+  const result = await proposeRecoveryWeek(input);
+  assert.equal(result.ok, true);
+  return {
+    proposal: JSON.parse(JSON.stringify(result.proposal)),
+    input,
+    instance,
+    validationContext: {
+      predecessor: input.predecessor,
+      predecessorInstance: instance,
+      approvedPolicy: APPROVED_POLICY_V2,
+      supportedVersions: Compiler.VERSIONS,
+    },
+  };
+}
+
+test("semantic rejection before hash check: wrong policy version", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const tampered = JSON.parse(JSON.stringify(proposal));
+  tampered.diff.recoveryWeek.policyVersion = 1;
+  tampered.proposalHash = await Transition.hashProposal(tampered);
+
+  const val = await Transition.validateProposal(tampered, validationContext);
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "invalid");
+  assert.equal(val.code, "unsupported_policy_version");
+});
+
+test("semantic rejection before hash check: forged or ineligible evidence", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const tampered = JSON.parse(JSON.stringify(proposal));
+  tampered.diff.recoveryWeek.eligibilityEvidence.checkpointAnswer = "No";
+  tampered.proposalHash = await Transition.hashProposal(tampered);
+
+  const val = await Transition.validateProposal(tampered, validationContext);
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "invalid");
+  assert.equal(val.code, "ineligible_recovery_evidence");
+});
+
+test("semantic rejection before hash check: missing entry", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const tampered = JSON.parse(JSON.stringify(proposal));
+  tampered.diff.recoveryWeek.entries.pop();
+  tampered.proposalHash = await Transition.hashProposal(tampered);
+
+  const val = await Transition.validateProposal(tampered, validationContext);
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "invalid");
+  assert.equal(val.code, "missing_recovery_slot");
+});
+
+test("semantic rejection before hash check: extra entry", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const tampered = JSON.parse(JSON.stringify(proposal));
+  tampered.diff.recoveryWeek.entries.push(JSON.parse(JSON.stringify(tampered.diff.recoveryWeek.entries[0])));
+  tampered.proposalHash = await Transition.hashProposal(tampered);
+
+  const val = await Transition.validateProposal(tampered, validationContext);
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "invalid");
+  assert.equal(val.code, "extra_recovery_slot");
+});
+
+test("semantic rejection before hash check: duplicate entry", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const tampered = JSON.parse(JSON.stringify(proposal));
+  tampered.diff.recoveryWeek.entries[1] = JSON.parse(JSON.stringify(tampered.diff.recoveryWeek.entries[0]));
+  tampered.proposalHash = await Transition.hashProposal(tampered);
+
+  const val = await Transition.validateProposal(tampered, validationContext);
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "invalid");
+  assert.equal(val.code, "duplicate_recovery_slot");
+});
+
+test("semantic rejection before hash check: reordered entry", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const tampered = JSON.parse(JSON.stringify(proposal));
+  const temp = tampered.diff.recoveryWeek.entries[0];
+  tampered.diff.recoveryWeek.entries[0] = tampered.diff.recoveryWeek.entries[1];
+  tampered.diff.recoveryWeek.entries[1] = temp;
+  tampered.proposalHash = await Transition.hashProposal(tampered);
+
+  const val = await Transition.validateProposal(tampered, validationContext);
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "invalid");
+  assert.equal(val.code, "recovery_slot_order");
+});
+
+test("semantic rejection before hash check: changed effective sets", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const tampered = JSON.parse(JSON.stringify(proposal));
+  tampered.diff.recoveryWeek.entries[0].effectiveWorkingSets += 1;
+  tampered.proposalHash = await Transition.hashProposal(tampered);
+
+  const val = await Transition.validateProposal(tampered, validationContext);
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "invalid");
+  assert.equal(val.code, "recovery_effective_sets_mismatch");
+});
+
+test("semantic rejection before hash check: wrong reason", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const tampered = JSON.parse(JSON.stringify(proposal));
+  tampered.diff.recoveryWeek.entries[0].reason = "pattern-rescue";
+  tampered.proposalHash = await Transition.hashProposal(tampered);
+
+  const val = await Transition.validateProposal(tampered, validationContext);
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "invalid");
+  assert.equal(val.code, "recovery_reason_mismatch");
+});
+
+test("semantic rejection before hash check: wrong optional flag", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const tampered = JSON.parse(JSON.stringify(proposal));
+  tampered.diff.recoveryWeek.entries[0].removedOptionalFirst = !tampered.diff.recoveryWeek.entries[0].removedOptionalFirst;
+  tampered.proposalHash = await Transition.hashProposal(tampered);
+
+  const val = await Transition.validateProposal(tampered, validationContext);
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "invalid");
+  assert.equal(val.code, "recovery_optional_flag_mismatch");
+});
+
+test("semantic rejection before hash check: raw or unknown movementPattern", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const tamperedRaw = JSON.parse(JSON.stringify(proposal));
+  tamperedRaw.diff.recoveryWeek.entries[0].movementPattern = "squat";
+  tamperedRaw.proposalHash = await Transition.hashProposal(tamperedRaw);
+  const valRaw = await Transition.validateProposal(tamperedRaw, validationContext);
+  assert.equal(valRaw.ok, false);
+  assert.equal(valRaw.status, "invalid");
+  assert.equal(valRaw.code, "recovery_pattern_mismatch");
+
+  const tamperedUnknown = JSON.parse(JSON.stringify(proposal));
+  tamperedUnknown.diff.recoveryWeek.entries[0].movementPattern = "unknown_pattern";
+  tamperedUnknown.proposalHash = await Transition.hashProposal(tamperedUnknown);
+  const valUnknown = await Transition.validateProposal(tamperedUnknown, validationContext);
+  assert.equal(valUnknown.ok, false);
+  assert.equal(valUnknown.status, "invalid");
+  assert.equal(valUnknown.code, "recovery_pattern_mismatch");
+});
+
+test("semantic rejection before hash check: movement mismatch", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const tampered = JSON.parse(JSON.stringify(proposal));
+  tampered.diff.recoveryWeek.entries[0].movement = "library:wrong_movement";
+  tampered.proposalHash = await Transition.hashProposal(tampered);
+
+  const val = await Transition.validateProposal(tampered, validationContext);
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "invalid");
+  assert.equal(val.code, "recovery_movement_mismatch");
+});
+
+test("semantic rejection before hash check: slot mismatch", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const tampered = JSON.parse(JSON.stringify(proposal));
+  tampered.diff.recoveryWeek.entries[0].slot = "wrong_slot_id";
+  tampered.proposalHash = await Transition.hashProposal(tampered);
+
+  const val = await Transition.validateProposal(tampered, validationContext);
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "invalid");
+  assert.equal(val.code, "recovery_slot_mismatch");
+});
+
+test("semantic rejection before hash check: base fingerprint mismatch", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const tampered = JSON.parse(JSON.stringify(proposal));
+  tampered.diff.recoveryWeek.baseProgramFingerprint = "program-sha256:0000000000000000000000000000000000000000000000000000000000000000";
+  tampered.proposalHash = await Transition.hashProposal(tampered);
+
+  const val = await Transition.validateProposal(tampered, validationContext);
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "invalid");
+  assert.equal(val.code, "base_fingerprint_mismatch");
+});
+
+test("semantic rejection before hash check: non-allowlisted out-of-band version", async () => {
+  const g2Context = gymContext("growth", 2);
+  const g2Instance = Compiler.compile(g2Context, EXERCISE_LIBRARY);
+  const { proposal } = await proposeRecoveryWeek(validRecoveryInput({ predecessorInstance: g2Instance }));
+
+  const nonAllowlistedInstance = JSON.parse(JSON.stringify(g2Instance));
+  nonAllowlistedInstance.blueprintId = "growth_2_custom_v1";
+  nonAllowlistedInstance.provenance.blueprintId = "growth_2_custom_v1";
+  nonAllowlistedInstance.programStructure.provenance.blueprintId = "growth_2_custom_v1";
+
+  const tampered = JSON.parse(JSON.stringify(proposal));
+  tampered.predecessor.compilerProvenance.blueprintId = "growth_2_custom_v1";
+  tampered.derivation.compilerContextVersions.blueprintId = "growth_2_custom_v1";
+  const newFp = await Transition.fingerprintCompilerInstance(nonAllowlistedInstance);
+  tampered.predecessor.fingerprint = newFp;
+  tampered.diff.recoveryWeek.baseProgramFingerprint = newFp;
+  tampered.proposalHash = await Transition.hashProposal(tampered);
+
+  const val = await Transition.validateProposal(tampered, {
+    predecessor: {
+      programId: "prog_recovery_test_4",
+      durableRevision: 1,
+      source: "Recommend",
+    },
+    predecessorInstance: nonAllowlistedInstance,
+    approvedPolicy: APPROVED_POLICY_V2,
+    supportedVersions: Compiler.VERSIONS,
+  });
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "invalid");
+  assert.equal(val.code, "recovery_volume_out_of_band");
+});
+
+test("semantic rejection before hash check: clamped output", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const tampered = JSON.parse(JSON.stringify(proposal));
+  tampered.diff.recoveryWeek.entries[0].effectiveWorkingSets = 99;
+  tampered.proposalHash = await Transition.hashProposal(tampered);
+
+  const val = await Transition.validateProposal(tampered, validationContext);
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "invalid");
+  assert.equal(val.code, "recovery_effective_sets_mismatch");
+});
+
+test("semantic rejection before hash check: forbidden successor", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const tampered = JSON.parse(JSON.stringify(proposal));
+  tampered.successor = {
+    programId: "prog_forbidden_succ",
+    source: "Recommend",
+  };
+  tampered.proposalHash = await Transition.hashProposal(tampered);
+
+  const val = await Transition.validateProposal(tampered, validationContext);
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "invalid");
+  assert.equal(val.code, "forbidden_successor");
+});
+
+test("semantic rejection before hash check: forbidden parent confirmedAt or archiveId", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const tamperedConfirmed = JSON.parse(JSON.stringify(proposal));
+  tamperedConfirmed.confirmedAt = "2026-10-01T10:00:00.000Z";
+  tamperedConfirmed.proposalHash = await Transition.hashProposal(tamperedConfirmed);
+  const valConfirmed = await Transition.validateProposal(tamperedConfirmed, validationContext);
+  assert.equal(valConfirmed.ok, false);
+  assert.equal(valConfirmed.status, "invalid");
+  assert.equal(valConfirmed.code, "forbidden_lifecycle_field");
+
+  const tamperedArchive = JSON.parse(JSON.stringify(proposal));
+  tamperedArchive.archiveId = "arc_forbidden_01";
+  tamperedArchive.proposalHash = await Transition.hashProposal(tamperedArchive);
+  const valArchive = await Transition.validateProposal(tamperedArchive, validationContext);
+  assert.equal(valArchive.ok, false);
+  assert.equal(valArchive.status, "invalid");
+  assert.equal(valArchive.code, "forbidden_lifecycle_field");
+});
+
+test("semantic rejection before hash check: forbidden overlay confirmedAt or reassessmentDueAt", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const tamperedConfirmed = JSON.parse(JSON.stringify(proposal));
+  tamperedConfirmed.diff.recoveryWeek.confirmedAt = "2026-10-01T10:00:00.000Z";
+  tamperedConfirmed.proposalHash = await Transition.hashProposal(tamperedConfirmed);
+  const valConfirmed = await Transition.validateProposal(tamperedConfirmed, validationContext);
+  assert.equal(valConfirmed.ok, false);
+  assert.equal(valConfirmed.status, "invalid");
+  assert.equal(valConfirmed.code, "forbidden_lifecycle_field");
+
+  const tamperedDue = JSON.parse(JSON.stringify(proposal));
+  tamperedDue.diff.recoveryWeek.reassessmentDueAt = "2026-10-08T10:00:00.000Z";
+  tamperedDue.proposalHash = await Transition.hashProposal(tamperedDue);
+  const valDue = await Transition.validateProposal(tamperedDue, validationContext);
+  assert.equal(valDue.ok, false);
+  assert.equal(valDue.status, "invalid");
+  assert.equal(valDue.code, "forbidden_lifecycle_field");
+});
+
+test("stale predecessor proof: durableRevision or fingerprint change yields predecessor_changed", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const staleContext = {
+    ...validationContext,
+    predecessor: {
+      ...validationContext.predecessor,
+      durableRevision: 2,
+    },
+  };
+  const val = await Transition.validateProposal(proposal, staleContext);
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "stale");
+  assert.equal(val.code, "predecessor_changed");
+});
+
+test("unhashed tamper proof: unhashed mutation yields proposal_hash_mismatch", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const tampered = JSON.parse(JSON.stringify(proposal));
+  tampered.diff.recoveryWeek.entries[0].effectiveWorkingSets += 1;
+
+  const val = await Transition.validateProposal(tampered, validationContext);
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "invalid");
+  assert.equal(val.code, "proposal_hash_mismatch");
 });

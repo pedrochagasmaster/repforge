@@ -1527,6 +1527,9 @@
     if (!isObject(proposal)) {
       return { ok: false, status: "invalid", code: "invalid_proposal" };
     }
+    if (proposal.kind === "recovery_week") {
+      return validateRecoveryProposal(proposal, current);
+    }
     if (proposal.kind === "reduce_training_volume") {
       return validateVolumeProposal(proposal, current);
     }
@@ -1824,6 +1827,43 @@
         !policy.eligibility.checkpointAnswers.includes("Not sure")) return false;
     if (policy.eligibility.question !== undefined &&
         policy.eligibility.question !== RECOVERY_CHECKPOINT_QUESTION) return false;
+    if (!isObject(policy.patternMapping)) return false;
+    if (policy.patternMapping.squat !== "knee-dominant" ||
+        policy.patternMapping.press !== "horizontal press" ||
+        policy.patternMapping.incline_press !== "horizontal press" ||
+        policy.patternMapping.hinge !== "hip/hinge") return false;
+    if (!isObject(policy.ruleB)) return false;
+    if (!isObject(policy.ruleB.optional) ||
+        policy.ruleB.optional.effectiveWorkingSets !== 0 ||
+        policy.ruleB.optional.reason !== "optional-removed") return false;
+    if (!isObject(policy.ruleB.protected) ||
+        policy.ruleB.protected.rounding !== "ceil" ||
+        policy.ruleB.protected.divisor !== 2 ||
+        policy.ruleB.protected.reason !== "protected-ceil") return false;
+    if (!isObject(policy.ruleB.reducible) ||
+        policy.ruleB.reducible.rounding !== "floor" ||
+        policy.ruleB.reducible.divisor !== 2 ||
+        policy.ruleB.reducible.reason !== "reducible-floor") return false;
+    if (!isObject(policy.ruleB.coverageRescue) ||
+        policy.ruleB.coverageRescue.minimumWorkingSets !== 1 ||
+        policy.ruleB.coverageRescue.selection !== "first-eligible-stable-order" ||
+        policy.ruleB.coverageRescue.reason !== "pattern-rescue") return false;
+    if (!isObject(policy.acceptanceBand) ||
+        policy.acceptanceBand.minimum !== 0.4 ||
+        policy.acceptanceBand.maximum !== 0.6) return false;
+    if (!isObject(policy.allowlistedMisses) ||
+        !isObject(policy.allowlistedMisses.growth_2_v1) ||
+        policy.allowlistedMisses.growth_2_v1.base !== 32 ||
+        policy.allowlistedMisses.growth_2_v1.effective !== 12 ||
+        !isObject(policy.allowlistedMisses.growth_3_v1) ||
+        policy.allowlistedMisses.growth_3_v1.base !== 49 ||
+        policy.allowlistedMisses.growth_3_v1.effective !== 17) return false;
+    if (!isObject(policy.reassessment) ||
+        !Array.isArray(policy.reassessment.outcomes) ||
+        policy.reassessment.unset !== null ||
+        !Array.isArray(policy.reassessment.ordinaryReviewOutcomes) ||
+        policy.reassessment.sameBlockRepeat !== false ||
+        policy.reassessment.weekTwoCanonical !== true) return false;
     return true;
   }
 
@@ -1925,6 +1965,377 @@
     });
   }
 
+  function deriveRecoveryWeek(predecessorInstance, approvedPolicy) {
+    const slots = flattenedSlots(predecessorInstance).map((r) => r.slot);
+    const entries = slots.map((slot) => {
+      const rawPattern = slot.contract?.patterns?.[0];
+      const movementPattern = approvedPolicy.patternMapping[rawPattern] || null;
+      const baseWorkingSets = slot.prescription?.sets ?? 0;
+      let effectiveWorkingSets = 0;
+      let reason = "";
+      const isOptional = slot.status === "optional";
+      if (isOptional) {
+        effectiveWorkingSets = 0;
+        reason = approvedPolicy.ruleB.optional.reason;
+      } else if (slot.status === "protected") {
+        effectiveWorkingSets = Math.ceil(baseWorkingSets / approvedPolicy.ruleB.protected.divisor);
+        reason = approvedPolicy.ruleB.protected.reason;
+      } else if (slot.status === "reducible") {
+        effectiveWorkingSets = Math.floor(baseWorkingSets / approvedPolicy.ruleB.reducible.divisor);
+        reason = approvedPolicy.ruleB.reducible.reason;
+      }
+      const movement = movementId(slot);
+      return {
+        slot: slot.slotId,
+        movement,
+        movementPattern,
+        baseWorkingSets,
+        effectiveWorkingSets,
+        removedOptionalFirst: isOptional,
+        reason,
+      };
+    });
+
+    for (const pattern of approvedPolicy.primaryPatterns) {
+      let patternTotal = 0;
+      for (const entry of entries) {
+        if (entry.movementPattern === pattern) {
+          patternTotal += entry.effectiveWorkingSets;
+        }
+      }
+      if (patternTotal === 0) {
+        const target = entries.find((e) => e.movementPattern === pattern && e.baseWorkingSets >= 1);
+        if (target) {
+          target.effectiveWorkingSets = approvedPolicy.ruleB.coverageRescue.minimumWorkingSets;
+          target.reason = approvedPolicy.ruleB.coverageRescue.reason;
+        }
+      }
+    }
+
+    let baseTotal = 0;
+    let effectiveTotal = 0;
+    for (const entry of entries) {
+      baseTotal += entry.baseWorkingSets;
+      effectiveTotal += entry.effectiveWorkingSets;
+    }
+    const ratio = baseTotal > 0 ? effectiveTotal / baseTotal : 0;
+    const inBand = ratio >= approvedPolicy.acceptanceBand.minimum && ratio <= approvedPolicy.acceptanceBand.maximum;
+    if (!inBand) {
+      const bpId = predecessorInstance.blueprintId || predecessorInstance.provenance?.blueprintId;
+      const allowlisted = approvedPolicy.allowlistedMisses?.[bpId];
+      if (!allowlisted || allowlisted.base !== baseTotal || allowlisted.effective !== effectiveTotal) {
+        return {
+          ok: false,
+          status: "ineligible",
+          ineligible: true,
+          code: "recovery_volume_out_of_band",
+        };
+      }
+    }
+
+    return {
+      ok: true,
+      entries,
+      baseTotal,
+      effectiveTotal,
+      ratio,
+    };
+  }
+
+  async function proposeRecoveryWeek(input) {
+    const invalid = (code) =>
+      Object.freeze({
+        ok: false,
+        status: "unavailable",
+        unavailable: true,
+        code,
+      });
+
+    if (!isObject(input)) return invalid("invalid_proposal");
+
+    const approvedPolicy = input.approvedPolicy;
+    if (!isApprovedRecoveryPolicy(approvedPolicy)) {
+      return Object.freeze({
+        ok: false,
+        status: "ineligible",
+        ineligible: true,
+        code: "policy_invalid",
+      });
+    }
+
+    const predecessorInstance = input.predecessorInstance ||
+      (input.predecessor?.kind === "compiled" ? input.predecessor : input.predecessor?.instance);
+    if (!isObject(predecessorInstance)) {
+      return invalid("missing_predecessor");
+    }
+    const predCheck = validateCompilerInstance(predecessorInstance);
+    if (!predCheck.ok) {
+      return invalid(predCheck.code === "customized_compiler_snapshot" ? "customized_compiler_snapshot" : predCheck.code);
+    }
+
+    const predecessor = isObject(input.predecessor) && input.predecessor.kind !== "compiled"
+      ? input.predecessor
+      : {
+          programId: input.predecessorProgramId || input.programId,
+          durableRevision: input.durableRevision,
+          source: input.source,
+        };
+
+    if (typeof predecessor.programId !== "string" || !predecessor.programId.trim() ||
+        !Number.isInteger(predecessor.durableRevision) || predecessor.durableRevision < 0 ||
+        typeof predecessor.source !== "string" || !RECONSTRUCTABLE_SOURCES.has(predecessor.source)) {
+      return invalid("unsupported_source");
+    }
+
+    const transitionId = input.transitionId;
+    const blockId = input.blockId;
+    const createdAt = input.createdAt;
+    if (typeof transitionId !== "string" || !transitionId.trim() ||
+        typeof blockId !== "string" || !blockId.trim() ||
+        typeof createdAt !== "string" || !createdAt.trim()) {
+      return invalid("invalid_proposal");
+    }
+
+    const supportedVersions = input.supportedVersions || input.Compiler?.VERSIONS || input.compiler?.VERSIONS;
+    if (supportedVersions && !versionMatches(predecessorInstance.provenance, supportedVersions)) {
+      return invalid("unsupported_compiler_version");
+    }
+
+    const eligibilityResult = evaluateRecoveryEligibility(input.evidence, approvedPolicy);
+    if (!eligibilityResult.ok) {
+      return eligibilityResult;
+    }
+
+    const derivation = deriveRecoveryWeek(predecessorInstance, approvedPolicy);
+    if (!derivation.ok) {
+      return Object.freeze({
+        ok: false,
+        status: "ineligible",
+        ineligible: true,
+        code: derivation.code,
+      });
+    }
+
+    const predecessorFingerprint = await fingerprintCompilerInstance(predecessorInstance);
+    const slotMapping = buildSlotMapping(predecessorInstance, predecessorInstance);
+    const progression = relationContract(predecessorInstance, predecessorInstance, slotMapping);
+    if (!progression.ok) {
+      return invalid(progression.code);
+    }
+
+    const overlay = {
+      schemaVersion: 1,
+      policyVersion: approvedPolicy.policyVersion,
+      transitionId,
+      blockId,
+      activePeriod: "nextBlockWeek1",
+      eligibilityEvidence: clone(eligibilityResult.eligibilityEvidence),
+      baseProgramFingerprint: predecessorFingerprint,
+      entries: clone(derivation.entries),
+      createdAt,
+      reassessmentOutcome: null,
+    };
+
+    const diff = {
+      days: [],
+      exercises: [],
+      prescriptions: [],
+      recoveryWeek: overlay,
+    };
+
+    const proposal = {
+      schemaVersion: SCHEMA_VERSION,
+      transitionId,
+      kind: "recovery_week",
+      createdAt,
+      status: "preview",
+      predecessor: {
+        programId: predecessor.programId,
+        fingerprint: predecessorFingerprint,
+        durableRevision: predecessor.durableRevision,
+        source: predecessor.source,
+        compilerProvenance: clone(predecessorInstance.provenance),
+      },
+      diagnosis: {
+        kind: "recovery_week",
+        answers: { checkpointAnswer: "Yes" },
+        eligibleEvidenceIds: clone(eligibilityResult.eligibilityEvidence.qualifyingPatterns),
+        insufficientEvidenceReasons: [],
+      },
+      derivation: {
+        mode: "overlay",
+        request: "recovery-week",
+        compilerContextVersions: clone(predecessorInstance.provenance),
+        policyVersions: {
+          recoveryWeek: approvedPolicy.policyVersion,
+        },
+        slotMapping,
+      },
+      diff,
+      progressionContract: progression.value,
+    };
+
+    proposal.proposalHash = await hashProposal(proposal);
+
+    return deepFreeze({
+      ok: true,
+      status: "preview",
+      proposal,
+      overlay,
+    });
+  }
+
+  async function validateRecoveryProposal(proposal, current) {
+    if (!isObject(proposal)) {
+      return { ok: false, status: "invalid", code: "invalid_proposal" };
+    }
+    if (proposal.kind !== "recovery_week") {
+      return { ok: false, status: "invalid", code: "unsupported_transition_kind" };
+    }
+    if (proposal.status !== "preview") {
+      return { ok: false, status: "invalid", code: "invalid_proposal_status" };
+    }
+    if (proposal.successor !== undefined) {
+      return { ok: false, status: "invalid", code: "forbidden_successor" };
+    }
+    if (proposal.confirmedAt !== undefined || proposal.archiveId !== undefined) {
+      return { ok: false, status: "invalid", code: "forbidden_lifecycle_field" };
+    }
+    if (!isObject(proposal.diff) || !isObject(proposal.diff.recoveryWeek)) {
+      return { ok: false, status: "invalid", code: "missing_recovery_overlay" };
+    }
+    if (!Array.isArray(proposal.diff.days) || proposal.diff.days.length !== 0 ||
+        !Array.isArray(proposal.diff.exercises) || proposal.diff.exercises.length !== 0 ||
+        !Array.isArray(proposal.diff.prescriptions) || proposal.diff.prescriptions.length !== 0) {
+      return { ok: false, status: "invalid", code: "invalid_recovery_diff" };
+    }
+
+    const overlay = proposal.diff.recoveryWeek;
+    if (overlay.confirmedAt !== undefined || overlay.reassessmentDueAt !== undefined) {
+      return { ok: false, status: "invalid", code: "forbidden_lifecycle_field" };
+    }
+    if (overlay.policyVersion !== RECOVERY_POLICY_VERSION) {
+      return { ok: false, status: "invalid", code: "unsupported_policy_version" };
+    }
+    if (overlay.schemaVersion !== 1 || overlay.activePeriod !== "nextBlockWeek1" || overlay.transitionId !== proposal.transitionId) {
+      return { ok: false, status: "invalid", code: "invalid_recovery_overlay" };
+    }
+
+    if (!isObject(current?.predecessor) || !isObject(current.predecessorInstance)) {
+      return { ok: false, status: "invalid", code: "missing_validation_snapshot" };
+    }
+
+    for (const field of ["programId", "durableRevision", "source"]) {
+      if (proposal.predecessor?.[field] !== current.predecessor[field]) {
+        return { ok: false, status: "stale", code: "predecessor_changed" };
+      }
+    }
+    const liveFingerprint = await fingerprintCompilerInstance(current.predecessorInstance);
+    if (proposal.predecessor?.fingerprint !== liveFingerprint) {
+      return { ok: false, status: "stale", code: "predecessor_changed" };
+    }
+
+    const predecessorCheck = validateCompilerInstance(current.predecessorInstance);
+    if (!predecessorCheck.ok) {
+      return { ok: false, status: "invalid", code: predecessorCheck.code };
+    }
+    if (!sameCanonical(proposal.predecessor?.compilerProvenance, current.predecessorInstance.provenance)) {
+      return { ok: false, status: "invalid", code: "predecessor_provenance_mismatch" };
+    }
+
+    if (current.supportedVersions && !versionMatches(current.predecessorInstance.provenance, current.supportedVersions)) {
+      return { ok: false, status: "invalid", code: "unsupported_compiler_version" };
+    }
+
+    const expectedHash = await hashProposal(proposal);
+    if (proposal.proposalHash !== expectedHash) {
+      return { ok: false, status: "invalid", code: "proposal_hash_mismatch" };
+    }
+
+    if (overlay.baseProgramFingerprint !== liveFingerprint) {
+      return { ok: false, status: "invalid", code: "base_fingerprint_mismatch" };
+    }
+
+    const approvedPolicy = current.approvedPolicy;
+    if (!isApprovedRecoveryPolicy(approvedPolicy)) {
+      return { ok: false, status: "invalid", code: "policy_invalid" };
+    }
+
+    const eligibility = evaluateRecoveryEligibility(overlay.eligibilityEvidence, approvedPolicy);
+    if (!eligibility.ok) {
+      return { ok: false, status: "invalid", code: "ineligible_recovery_evidence" };
+    }
+    if (!sameCanonical(proposal.diagnosis?.eligibleEvidenceIds, eligibility.eligibilityEvidence.qualifyingPatterns)) {
+      return { ok: false, status: "invalid", code: "recovery_diagnosis_mismatch" };
+    }
+
+    const expected = deriveRecoveryWeek(current.predecessorInstance, approvedPolicy);
+    if (!expected.ok) {
+      return { ok: false, status: "invalid", code: expected.code };
+    }
+
+    if (!Array.isArray(overlay.entries)) {
+      return { ok: false, status: "invalid", code: "invalid_recovery_entries" };
+    }
+    if (overlay.entries.length < expected.entries.length) {
+      return { ok: false, status: "invalid", code: "missing_recovery_slot" };
+    }
+    if (overlay.entries.length > expected.entries.length) {
+      return { ok: false, status: "invalid", code: "extra_recovery_slot" };
+    }
+
+    const seenSlots = new Set();
+    for (const entry of overlay.entries) {
+      if (seenSlots.has(entry.slot)) {
+        return { ok: false, status: "invalid", code: "duplicate_recovery_slot" };
+      }
+      seenSlots.add(entry.slot);
+    }
+
+    const expectedSlotIds = expected.entries.map((e) => e.slot);
+    for (let i = 0; i < expected.entries.length; i++) {
+      const actual = overlay.entries[i];
+      const exp = expected.entries[i];
+      if (actual.slot !== exp.slot) {
+        if (expectedSlotIds.includes(actual.slot)) {
+          return { ok: false, status: "invalid", code: "recovery_slot_order" };
+        }
+        return { ok: false, status: "invalid", code: "recovery_slot_mismatch" };
+      }
+      if (actual.movement !== exp.movement) {
+        return { ok: false, status: "invalid", code: "recovery_movement_mismatch" };
+      }
+      if (actual.movementPattern !== exp.movementPattern) {
+        return { ok: false, status: "invalid", code: "recovery_pattern_mismatch" };
+      }
+      if (actual.baseWorkingSets !== exp.baseWorkingSets) {
+        return { ok: false, status: "invalid", code: "recovery_base_sets_mismatch" };
+      }
+      if (actual.effectiveWorkingSets !== exp.effectiveWorkingSets) {
+        return { ok: false, status: "invalid", code: "recovery_effective_sets_mismatch" };
+      }
+      if (actual.removedOptionalFirst !== exp.removedOptionalFirst) {
+        return { ok: false, status: "invalid", code: "recovery_optional_flag_mismatch" };
+      }
+      if (actual.reason !== exp.reason) {
+        return { ok: false, status: "invalid", code: "recovery_reason_mismatch" };
+      }
+    }
+
+    const expectedSlotMapping = buildSlotMapping(current.predecessorInstance, current.predecessorInstance);
+    if (!sameCanonical(proposal.derivation?.slotMapping, expectedSlotMapping)) {
+      return { ok: false, status: "invalid", code: "invalid_slot_mapping" };
+    }
+
+    const expectedProgression = relationContract(current.predecessorInstance, current.predecessorInstance, expectedSlotMapping);
+    if (!sameCanonical(proposal.progressionContract, expectedProgression.value)) {
+      return { ok: false, status: "invalid", code: "progression_contract_mismatch" };
+    }
+
+    return { ok: true, status: "preview" };
+  }
+
+
   const api = Object.freeze({
     SCHEMA_VERSION,
     SLOT_MAPPING_SCHEMA_VERSION,
@@ -1945,6 +2356,8 @@
     createGuidedManualRepair,
     createGuidedManualRepairCandidate: createGuidedManualRepair,
     evaluateRecoveryEligibility,
+    proposeRecoveryWeek,
+    createRecoveryWeekProposal: proposeRecoveryWeek,
   });
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;
