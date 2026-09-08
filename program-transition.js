@@ -140,6 +140,74 @@
     return value;
   }
 
+  // --- Validated recovery-lifecycle capability -----------------------------
+  // A raw, mutable, cloned, or hand-built recovery proposal/record is a
+  // distinct runtime state from a value this module produced or accepted. Only
+  // the latter may seal, reassess, or drive an active projection. The proof is
+  // this module-private WeakSet: it holds only deep-frozen objects that
+  // `proposeRecoveryWeek` created, `commitRecord` sealed, `reassessRecoveryRecord`
+  // reassessed, or a validator accepted as a deep-frozen clone. It is never
+  // serialized, never a caller-visible flag or token, reads no clock and no
+  // randomness, and cannot be forged from outside this closure. A reload
+  // revalidates the parsed record and uses the validator-returned frozen clone.
+  const recoveryCapabilities = new WeakSet();
+  const isRecoveryCapability = (value) =>
+    value !== null && typeof value === "object" && recoveryCapabilities.has(value);
+  function acceptRecoveryCapability(value) {
+    deepFreeze(value);
+    recoveryCapabilities.add(value);
+    return value;
+  }
+
+  // Shared prior-record scan for the same-target-block repeat rule. Every
+  // prior must be a closed committed recovery record — own-data JSON tree with
+  // `kind:"recovery_week"`, `status:"committed"`, `archiveId:null`, no
+  // successor, a non-empty top-level `transitionId` and `proposalHash`, the
+  // own-data nested overlay (`diff.recoveryWeek`), a nested `transitionId`
+  // exactly equal to the top-level one, and a non-empty nested `blockId` —
+  // before it counts as repeat history. Any other shape is rejected
+  // structurally *before* a single nested property is read, so a hostile
+  // accessor carrier executes zero getters and malformed, preview,
+  // other-kind, or nested-identity-mismatch priors never produce
+  // `recovery_same_block_repeat`. Only `prior.diff.recoveryWeek.blockId` and
+  // `prior.transitionId`/`prior.proposalHash` are read — there is no
+  // unsupported top-level `prior.blockId` fallback. `selfIdentity`, when
+  // given, exempts only the exact `{transitionId, proposalHash}` pair so a
+  // record already stored under its own id and hash re-validates idempotently;
+  // the same id with a different hash is a structural collision.
+  function sameBlockRepeatScan(list, targetBlockId, selfIdentity) {
+    if (list === undefined) return { ok: true };
+    if (!isOwnArray(list)) return { ok: false, reason: "invalid_options" };
+    for (const prior of list) {
+      if (!isOwnRecord(prior) ||
+          !isOwnJsonTree(prior) ||
+          prior.kind !== "recovery_week" ||
+          prior.status !== "committed" ||
+          prior.archiveId !== null ||
+          prior.successor !== undefined ||
+          typeof prior.transitionId !== "string" || !prior.transitionId.trim() ||
+          typeof prior.proposalHash !== "string" || !prior.proposalHash.trim() ||
+          !isOwnRecord(prior.diff) ||
+          !isOwnRecord(prior.diff.recoveryWeek) ||
+          prior.diff.recoveryWeek.transitionId !== prior.transitionId ||
+          typeof prior.diff.recoveryWeek.blockId !== "string" || !prior.diff.recoveryWeek.blockId.trim()) {
+        return { ok: false, reason: "invalid_options" };
+      }
+      if (selfIdentity !== undefined) {
+        if (prior.transitionId === selfIdentity.transitionId) {
+          if (prior.proposalHash !== selfIdentity.proposalHash) {
+            return { ok: false, reason: "invalid_options" };
+          }
+          continue;
+        }
+      }
+      if (prior.diff.recoveryWeek.blockId === targetBlockId) {
+        return { ok: false, reason: "recovery_same_block_repeat" };
+      }
+    }
+    return { ok: true };
+  }
+
   function canonicalJson(value) {
     if (value === null || typeof value !== "object") return JSON.stringify(value);
     if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
@@ -1738,6 +1806,19 @@
     if (!isObject(options)) throw new TypeError("options: expected object");
 
     if (proposal.kind === "recovery_week") {
+      // Recovery sealing is gated on the validated-proposal capability: a raw,
+      // cloned, stripped, or semantically forged preview is not in the set and
+      // throws here, so no committed record is produced from it.
+      if (!isRecoveryCapability(proposal)) {
+        throw new TypeError("proposal: expected a validated recovery-week proposal capability");
+      }
+      if (proposal.successor !== undefined) {
+        throw new TypeError("proposal.successor: forbidden for recovery_week");
+      }
+      if (!isObject(proposal.diff) || !isObject(proposal.diff.recoveryWeek) ||
+          !Array.isArray(proposal.diff.recoveryWeek.entries) || proposal.diff.recoveryWeek.entries.length === 0) {
+        throw new TypeError("proposal.diff.recoveryWeek: expected a complete recovery overlay");
+      }
       const { confirmedAt, reassessmentDueAt, archiveId } = options;
       if (archiveId !== null) {
         throw new TypeError("archiveId: expected null for recovery_week");
@@ -1748,6 +1829,9 @@
       if (!isCanonicalInstant(reassessmentDueAt)) {
         throw new TypeError("reassessmentDueAt: expected canonical ISO-8601 UTC millisecond instant");
       }
+      if (!isCanonicalInstant(proposal.createdAt) || Date.parse(confirmedAt) < Date.parse(proposal.createdAt)) {
+        throw new TypeError("confirmedAt: expected an instant at or after proposal.createdAt");
+      }
       if (Date.parse(reassessmentDueAt) <= Date.parse(confirmedAt)) {
         throw new TypeError("reassessmentDueAt: expected timestamp strictly after confirmedAt");
       }
@@ -1756,13 +1840,11 @@
       record.status = "committed";
       record.confirmedAt = confirmedAt;
       record.archiveId = null;
-      if (isObject(record.diff) && isObject(record.diff.recoveryWeek)) {
-        record.diff.recoveryWeek.confirmedAt = confirmedAt;
-        record.diff.recoveryWeek.reassessmentDueAt = reassessmentDueAt;
-        record.diff.recoveryWeek.reassessmentOutcome = null;
-      }
+      record.diff.recoveryWeek.confirmedAt = confirmedAt;
+      record.diff.recoveryWeek.reassessmentDueAt = reassessmentDueAt;
+      record.diff.recoveryWeek.reassessmentOutcome = null;
 
-      return deepFreeze(record);
+      return acceptRecoveryCapability(record);
     }
 
     const { confirmedAt, archiveId } = options;
@@ -2287,14 +2369,10 @@
       return invalid("invalid_proposal");
     }
 
-    if (input.existingRecoveryRecords !== undefined) {
-      if (!isOwnArray(input.existingRecoveryRecords)) {
-        return invalid("invalid_proposal");
-      }
-      for (const prior of input.existingRecoveryRecords) {
-        if (!isOwnRecord(prior)) return invalid("invalid_proposal");
-        const priorBlockId = prior.diff?.recoveryWeek?.blockId || prior.blockId;
-        if (priorBlockId === blockId) {
+    {
+      const repeat = sameBlockRepeatScan(input.existingRecoveryRecords, blockId);
+      if (!repeat.ok) {
+        if (repeat.reason === "recovery_same_block_repeat") {
           return Object.freeze({
             ok: false,
             status: "ineligible",
@@ -2302,6 +2380,7 @@
             code: "recovery_same_block_repeat",
           });
         }
+        return invalid("invalid_proposal");
       }
     }
 
@@ -2387,6 +2466,7 @@
     };
 
     proposal.proposalHash = await hashProposal(proposal);
+    acceptRecoveryCapability(proposal);
 
     return deepFreeze({
       ok: true,
@@ -2467,14 +2547,10 @@
       return { ok: false, status: "invalid", code: "forbidden_lifecycle_field" };
     }
 
-    if (current?.existingRecoveryRecords !== undefined) {
-      if (!isOwnArray(current.existingRecoveryRecords)) {
-        return { ok: false, status: "invalid", code: "invalid_options" };
-      }
-      for (const prior of current.existingRecoveryRecords) {
-        if (!isOwnRecord(prior)) return { ok: false, status: "invalid", code: "invalid_options" };
-        const priorBlockId = prior.diff?.recoveryWeek?.blockId || prior.blockId;
-        if (priorBlockId === overlay.blockId) {
+    {
+      const repeat = sameBlockRepeatScan(current?.existingRecoveryRecords, overlay.blockId);
+      if (!repeat.ok) {
+        if (repeat.reason === "recovery_same_block_repeat") {
           return Object.freeze({
             ok: false,
             status: "ineligible",
@@ -2482,6 +2558,7 @@
             code: "recovery_same_block_repeat",
           });
         }
+        return { ok: false, status: "invalid", code: "invalid_options" };
       }
     }
     if (overlay.policyVersion !== RECOVERY_POLICY_VERSION) {
@@ -2651,7 +2728,10 @@
       return { ok: false, status: "invalid", code: "proposal_hash_mismatch" };
     }
 
-    return { ok: true, status: "preview" };
+    // Success returns the accepted proposal as a deep-frozen clone: reload and
+    // lock-held consumers seal from this value, never from a mutable caller
+    // object.
+    return { ok: true, status: "preview", proposal: acceptRecoveryCapability(clone(proposal)) };
   }
 
 
@@ -2756,15 +2836,19 @@
       return { ok: false, status: "invalid", code: "recovery_reassessment_invalid" };
     }
 
-    if (current?.existingRecoveryRecords !== undefined) {
-      if (!isOwnArray(current.existingRecoveryRecords)) {
-        return { ok: false, status: "invalid", code: "invalid_options" };
-      }
-      for (const prior of current.existingRecoveryRecords) {
-        if (!isOwnRecord(prior)) return { ok: false, status: "invalid", code: "invalid_options" };
-        const priorBlockId = prior.diff?.recoveryWeek?.blockId || prior.blockId;
-        const priorTransitionId = prior.transitionId || prior.diff?.recoveryWeek?.transitionId;
-        if (priorTransitionId !== record.transitionId && priorBlockId === overlay.blockId) {
+    {
+      // This record's own stored copy is exempt only on the exact
+      // `{transitionId, proposalHash}` identity pair so a reload / lock-held
+      // re-read validates idempotently; the same id with a different hash is a
+      // structural collision, and a different committed transition in the
+      // same target block still refuses.
+      const repeat = sameBlockRepeatScan(
+        current?.existingRecoveryRecords,
+        overlay.blockId,
+        { transitionId: record.transitionId, proposalHash: record.proposalHash },
+      );
+      if (!repeat.ok) {
+        if (repeat.reason === "recovery_same_block_repeat") {
           return Object.freeze({
             ok: false,
             status: "ineligible",
@@ -2772,6 +2856,7 @@
             code: "recovery_same_block_repeat",
           });
         }
+        return { ok: false, status: "invalid", code: "invalid_options" };
       }
     }
 
@@ -2783,166 +2868,178 @@
     delete preview.diff.recoveryWeek.reassessmentDueAt;
     preview.diff.recoveryWeek.reassessmentOutcome = null;
 
-    const proposalVal = await validateRecoveryProposal(preview, current);
+    // The reconstructed preview owns the semantic/hash/stale boundary. The
+    // same-block repeat rule was already resolved above with this record's
+    // own-id exemption, so the delegated call must not re-run it against this
+    // record's own stored copy.
+    let innerCurrent = current;
+    if (isObject(current)) {
+      innerCurrent = { ...current };
+      delete innerCurrent.existingRecoveryRecords;
+    }
+
+    const proposalVal = await validateRecoveryProposal(preview, innerCurrent);
     if (!proposalVal.ok) {
       return proposalVal;
     }
 
-    return Object.freeze({ ok: true, status: "committed" });
+    // Success returns the accepted committed record as a deep-frozen clone;
+    // reload consumers project from this value only.
+    return Object.freeze({ ok: true, status: "committed", record: acceptRecoveryCapability(clone(record)) });
   }
 
-  function reassessRecoveryRecord(record, outcomeOrOptions, maybeContext) {
-    let outcome;
-    let context;
-    if (isObject(outcomeOrOptions) && typeof outcomeOrOptions.outcome === "string") {
-      outcome = outcomeOrOptions.outcome;
-      context = outcomeOrOptions;
-    } else {
-      outcome = outcomeOrOptions;
-      context = maybeContext || {};
-    }
-
-    if (!isObject(record) || !isOwnJsonTree(record)) {
-      return Object.freeze({ ok: false, status: "invalid", code: "recovery_reassessment_invalid" });
-    }
-    if (!isObject(context) || !isOwnJsonTree(context)) {
-      return Object.freeze({ ok: false, status: "invalid", code: "recovery_reassessment_invalid" });
-    }
-
-    if (record.kind !== "recovery_week" || record.status !== "committed") {
-      return Object.freeze({ ok: false, status: "invalid", code: "recovery_reassessment_invalid" });
-    }
-
-    const overlay = record.diff?.recoveryWeek;
-    if (!isObject(overlay)) {
-      return Object.freeze({ ok: false, status: "invalid", code: "recovery_reassessment_invalid" });
-    }
-
+  // One signature only: (record, outcome, context). `record` is a validated
+  // committed-record capability; `outcome` is one of the three closed strings;
+  // `context` is an exact own-data `{ blockId, elapsedWeek }`. There is no
+  // options-object form and no opt-in guard: a missing/wrong block is
+  // `recovery_reassessment_invalid`, a missing/non-integer/week-one
+  // `elapsedWeek` is `recovery_reassessment_not_due`, a second write is
+  // `recovery_reassessment_closed`. Success changes only `reassessmentOutcome`,
+  // preserves `proposalHash`, and returns a new validated deep-frozen record;
+  // week two stays canonical.
+  function reassessRecoveryRecord(record, outcome, context) {
+    const bad = (code) => Object.freeze({ ok: false, status: "invalid", code });
     const VALID_OUTCOMES = ["Better", "About the same", "Worse"];
+
+    if (!isRecoveryCapability(record) ||
+        record.kind !== "recovery_week" || record.status !== "committed" ||
+        !isObject(record.diff) || !isObject(record.diff.recoveryWeek)) {
+      return bad("recovery_reassessment_invalid");
+    }
+    const overlay = record.diff.recoveryWeek;
+
     if (typeof outcome !== "string" || !VALID_OUTCOMES.includes(outcome)) {
-      return Object.freeze({ ok: false, status: "invalid", code: "recovery_reassessment_invalid" });
+      return bad("recovery_reassessment_invalid");
     }
-
     if (overlay.reassessmentOutcome !== null) {
-      return Object.freeze({ ok: false, status: "invalid", code: "recovery_reassessment_closed" });
+      return bad("recovery_reassessment_closed");
     }
 
-    if (context.blockId !== undefined && context.blockId !== overlay.blockId) {
-      return Object.freeze({ ok: false, status: "invalid", code: "recovery_reassessment_invalid" });
+    if (!isOwnRecord(context)) return bad("recovery_reassessment_invalid");
+    if (Object.keys(context).some((key) => key !== "blockId" && key !== "elapsedWeek")) {
+      return bad("recovery_reassessment_invalid");
     }
-
-    if (context.elapsedWeek !== undefined) {
-      if (!Number.isInteger(context.elapsedWeek) || context.elapsedWeek < 2) {
-        return Object.freeze({ ok: false, status: "invalid", code: "recovery_reassessment_not_due" });
-      }
+    if (typeof context.blockId !== "string" || context.blockId !== overlay.blockId) {
+      return bad("recovery_reassessment_invalid");
+    }
+    if (!Number.isInteger(context.elapsedWeek) || context.elapsedWeek < 2) {
+      return bad("recovery_reassessment_not_due");
     }
 
     const updated = clone(record);
     updated.diff.recoveryWeek.reassessmentOutcome = outcome;
-    deepFreeze(updated);
+    acceptRecoveryCapability(updated);
 
-    return Object.freeze({
-      ok: true,
-      status: "committed",
-      record: updated,
-    });
+    return Object.freeze({ ok: true, status: "committed", record: updated });
   }
 
-  function projectRecoveryProgram(canonicalProgramRows, committedRecoveryRecord, context) {
-    const canonicalClone = Array.isArray(canonicalProgramRows) ? clone(canonicalProgramRows) : [];
+  // Synchronous, one return shape only: a plain, deeply frozen
+  // `{ ok, status, active, code, rows }`, where `rows` is an ordinary
+  // enumerable deeply frozen JSON array with no metadata properties, cycle,
+  // alias, or self-reference. `validatedRecord` must be a validated
+  // recovery-lifecycle capability (or null); a raw, cloned, tampered, or
+  // hand-built record fails closed to a canonical-rows clone. Context is exact
+  // and mandatory. Rule B applies only when the record's target block matches,
+  // it is not yet reassessed, and `elapsedWeek === 1`; every other case
+  // returns a canonical-rows clone.
+  function projectRecoveryProgram(canonicalProgramRows, validatedRecord, context) {
+    const canonicalRows = Array.isArray(canonicalProgramRows) ? canonicalProgramRows : null;
+    const canonicalClone = () => deepFreeze(clone(canonicalRows || []));
+    const result = (ok, status, active, code, rows) =>
+      deepFreeze({ ok, status, active, code: code || null, rows });
+    const closed = (ok, status, code) => result(ok, status, false, code, canonicalClone());
 
-    const makeResult = (ok, status, active, code, rows) => {
-      const resultRows = Array.isArray(rows) ? rows : clone(canonicalClone);
-      Object.defineProperty(resultRows, "ok", { value: ok, enumerable: false, configurable: true });
-      Object.defineProperty(resultRows, "status", { value: status, enumerable: false, configurable: true });
-      Object.defineProperty(resultRows, "active", { value: active, enumerable: false, configurable: true });
-      if (code) {
-        Object.defineProperty(resultRows, "code", { value: code, enumerable: false, configurable: true });
-      }
-      Object.defineProperty(resultRows, "rows", { value: resultRows, enumerable: false, configurable: true });
-      return Object.freeze({
-        ok,
-        status,
-        active,
-        code: code || null,
-        rows: resultRows,
-      });
-    };
+    if (!canonicalRows) return result(false, "invalid", false, "invalid_program_rows", deepFreeze([]));
 
-    if (!Array.isArray(canonicalProgramRows)) {
-      return makeResult(false, "invalid", false, "invalid_program_rows", []);
-    }
-
-    if (!isObject(context)) {
-      return makeResult(false, "invalid", false, "invalid_context", canonicalClone);
-    }
-    const { blockId, elapsedWeek, baseProgramFingerprint } = context;
-
-    if (committedRecoveryRecord === null || committedRecoveryRecord === undefined) {
-      return makeResult(true, "inactive", false, null, canonicalClone);
+    // Context is exact and mandatory.
+    if (!isOwnRecord(context) ||
+        !exactKeys(context, ["blockId", "elapsedWeek", "baseProgramFingerprint"]) ||
+        typeof context.blockId !== "string" || !context.blockId.trim() ||
+        typeof context.baseProgramFingerprint !== "string" || !context.baseProgramFingerprint.trim() ||
+        !Number.isInteger(context.elapsedWeek) || context.elapsedWeek < 1) {
+      return closed(false, "invalid", "invalid_context");
     }
 
-    if (!isObject(committedRecoveryRecord) || !isOwnJsonTree(committedRecoveryRecord)) {
-      return makeResult(false, "invalid", false, "recovery_record_invalid", canonicalClone);
+    if (validatedRecord === null || validatedRecord === undefined) {
+      return closed(true, "inactive", null);
     }
-    if (committedRecoveryRecord.kind !== "recovery_week" || committedRecoveryRecord.status !== "committed") {
-      return makeResult(false, "invalid", false, "recovery_record_invalid", canonicalClone);
-    }
-    if (committedRecoveryRecord.archiveId !== null || committedRecoveryRecord.successor !== undefined) {
-      return makeResult(false, "invalid", false, "recovery_record_invalid", canonicalClone);
-    }
-
-    const overlay = committedRecoveryRecord.diff?.recoveryWeek;
-    if (!isObject(overlay) || overlay.schemaVersion !== 1 || overlay.policyVersion !== RECOVERY_POLICY_VERSION) {
-      return makeResult(false, "invalid", false, "recovery_record_invalid", canonicalClone);
-    }
-    if (overlay.activePeriod !== "nextBlockWeek1" || !Array.isArray(overlay.entries)) {
-      return makeResult(false, "invalid", false, "recovery_record_invalid", canonicalClone);
+    // Only a validator/seal/reassess capability may reduce volume.
+    if (!isRecoveryCapability(validatedRecord) ||
+        validatedRecord.kind !== "recovery_week" ||
+        validatedRecord.status !== "committed" ||
+        validatedRecord.archiveId !== null ||
+        validatedRecord.successor !== undefined ||
+        !isObject(validatedRecord.diff) ||
+        !isObject(validatedRecord.diff.recoveryWeek)) {
+      return closed(false, "invalid", "recovery_record_invalid");
     }
 
-    if (typeof baseProgramFingerprint === "string" && overlay.baseProgramFingerprint !== baseProgramFingerprint) {
-      return makeResult(false, "invalid", false, "base_fingerprint_mismatch", canonicalClone);
+    const overlay = validatedRecord.diff.recoveryWeek;
+    if (overlay.schemaVersion !== 1 ||
+        overlay.policyVersion !== RECOVERY_POLICY_VERSION ||
+        overlay.activePeriod !== "nextBlockWeek1" ||
+        !Array.isArray(overlay.entries) || overlay.entries.length === 0) {
+      return closed(false, "invalid", "recovery_record_invalid");
     }
 
-    if (typeof blockId === "string" && overlay.blockId !== blockId) {
-      return makeResult(true, "inactive", false, null, canonicalClone);
+    if (overlay.baseProgramFingerprint !== context.baseProgramFingerprint) {
+      return closed(false, "invalid", "base_fingerprint_mismatch");
     }
+    if (overlay.blockId !== context.blockId) return closed(true, "inactive", null);
+    if (overlay.reassessmentOutcome !== null) return closed(true, "inactive", null);
+    if (context.elapsedWeek >= 2) return closed(true, "inactive", null);
 
-    if (overlay.reassessmentOutcome !== null) {
-      return makeResult(true, "inactive", false, null, canonicalClone);
-    }
-
-    if (!Number.isInteger(elapsedWeek) || elapsedWeek !== 1) {
-      return makeResult(true, "inactive", false, null, canonicalClone);
+    // elapsedWeek === 1, matching block, not yet reassessed: apply Rule B.
+    const canonicalBySlot = new Map();
+    for (const row of canonicalRows) {
+      if (!isObject(row)) return closed(false, "invalid", "invalid_program_rows");
+      const slotId = typeof row.slotId === "string" && row.slotId
+        ? row.slotId
+        : (typeof row.id === "string" && row.id ? row.id : null);
+      if (!slotId || canonicalBySlot.has(slotId)) return closed(false, "invalid", "invalid_program_rows");
+      canonicalBySlot.set(slotId, row);
     }
 
     const entryBySlot = new Map();
     for (const entry of overlay.entries) {
-      if (!isObject(entry) || typeof entry.slot !== "string" || !Number.isInteger(entry.effectiveWorkingSets) || entry.effectiveWorkingSets < 0) {
-        return makeResult(false, "invalid", false, "invalid_recovery_entries", canonicalClone);
+      if (!isObject(entry) ||
+          typeof entry.slot !== "string" || !entry.slot ||
+          entryBySlot.has(entry.slot) ||
+          typeof entry.movement !== "string" || !entry.movement ||
+          !Number.isInteger(entry.baseWorkingSets) || entry.baseWorkingSets < 1 ||
+          !Number.isInteger(entry.effectiveWorkingSets) || entry.effectiveWorkingSets < 0 ||
+          entry.effectiveWorkingSets > entry.baseWorkingSets) {
+        return closed(false, "invalid", "invalid_recovery_entries");
       }
-      entryBySlot.set(entry.slot, entry.effectiveWorkingSets);
+      entryBySlot.set(entry.slot, entry);
+    }
+
+    // Exact one-to-one slot coverage of the canonical rows, with matching base
+    // sets and movement identity; no unmatched slot on either side.
+    if (entryBySlot.size !== canonicalBySlot.size) {
+      return closed(false, "invalid", "recovery_slot_coverage");
+    }
+    for (const [slot, entry] of entryBySlot) {
+      const row = canonicalBySlot.get(slot);
+      if (!row) return closed(false, "invalid", "recovery_slot_coverage");
+      if ((typeof row.movementId === "string" ? row.movementId : null) !== entry.movement) {
+        return closed(false, "invalid", "recovery_movement_mismatch");
+      }
+      if (!Number.isInteger(row.sets) || row.sets !== entry.baseWorkingSets) {
+        return closed(false, "invalid", "recovery_base_sets_mismatch");
+      }
     }
 
     const projected = [];
-    for (const row of canonicalProgramRows) {
-      const slotId = typeof row.slotId === "string" ? row.slotId : (typeof row.id === "string" ? row.id : null);
-      if (slotId && entryBySlot.has(slotId)) {
-        const effectiveSets = entryBySlot.get(slotId);
-        if (effectiveSets === 0) {
-          continue;
-        }
-        projected.push({ ...clone(row), sets: effectiveSets });
-      } else {
-        projected.push(clone(row));
-      }
+    for (const row of canonicalRows) {
+      const slotId = typeof row.slotId === "string" && row.slotId ? row.slotId : row.id;
+      const entry = entryBySlot.get(slotId);
+      if (!entry) { projected.push(clone(row)); continue; }
+      if (entry.effectiveWorkingSets === 0) continue;            // zero sets -> remove the slot
+      projected.push({ ...clone(row), sets: entry.effectiveWorkingSets }); // positive -> change only `sets`
     }
 
-    return makeResult(true, "active", true, null, projected);
-  }
-
-  function projectRecoveryRows(canonicalProgramRows, committedRecoveryRecord, context) {
-    return projectRecoveryProgram(canonicalProgramRows, committedRecoveryRecord, context).rows;
+    return result(true, "active", true, null, deepFreeze(projected));
   }
 
   const api = Object.freeze({
@@ -2963,15 +3060,9 @@
     validateProposal,
     validateRecoveryProposal,
     validateRecoveryRecord,
-    validateCommittedRecoveryRecord: validateRecoveryRecord,
-    validateCommittedRecord: validateRecoveryRecord,
     commitRecord,
-    sealRecoveryRecord: commitRecord,
     reassessRecoveryRecord,
-    reassessRecoveryWeek: reassessRecoveryRecord,
     projectRecoveryProgram,
-    projectRecoveryRows,
-    projectRecoveryLifecycle: projectRecoveryProgram,
     createGuidedManualRepair,
     createGuidedManualRepairCandidate: createGuidedManualRepair,
     evaluateRecoveryEligibility,
