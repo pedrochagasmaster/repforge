@@ -1,0 +1,63 @@
+{
+  "kind": "taurifer-install-transfer",
+  "schemaVersion": 1,
+  "cookieName": "repforge_transfer_v1",
+  "cookieMaxAgeSeconds": 3600,
+  "cookiePathProduction": "/repforge/index.html",
+  "cookiePathLocal": "/index.html",
+  "cookieSameSite": "Lax",
+  "endpoints": {
+    "create": "/v1/transfers",
+    "claim": "/v1/transfers/claims",
+    "commit": "/v1/transfers/claims/commit",
+    "status": "/v1/transfers/status"
+  },
+  "clientStates": [
+    "idle",
+    "creating",
+    "ready",
+    "claiming",
+    "validating",
+    "importing",
+    "localCommitted",
+    "deletingRemote",
+    "complete",
+    "retryable",
+    "terminalUnavailable",
+    "unknown-outcome"
+  ],
+  "recoveryStates": [
+    "none",
+    "awaitingClaimOutcome",
+    "confirmed",
+    "resumeWarning",
+    "resumedDiverged"
+  ],
+  "draftLogicalKeys": [
+    "schemaVersion",
+    "draftId",
+    "program",
+    "session",
+    "exerciseOrder",
+    "exercises"
+  ],
+  "candidateLogicalKeys": [
+    "schemaVersion",
+    "draftId",
+    "route",
+    "step",
+    "answers",
+    "legacyHints",
+    "result",
+    "versions",
+    "activeProgramRevisionAtStart",
+    "createdAt",
+    "updatedAt"
+  ],
+  "credential": {
+    "algorithm": "AES-GCM",
+    "keyLength": 256,
+    "ivBytes": 12,
+    "nonExtractable": true
+  }
+}

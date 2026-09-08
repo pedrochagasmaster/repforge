@@ -437,6 +437,25 @@ async function dispatchRename(page, oldDay, nextDay) {
   );
 }
 
+async function waitForPendingRenameJournal(page, oldDay, nextDay) {
+  await page.waitForFunction(
+    ({ prefix, oldDay, nextDay }) => {
+      for (let index = 0; index < localStorage.length; index++) {
+        const key = localStorage.key(index);
+        if (!key?.startsWith(prefix)) continue;
+        let value;
+        try { value = JSON.parse(localStorage.getItem(key)); } catch { continue; }
+        if (value?.dayRenames?.some((rename) =>
+          rename?.from === oldDay && rename?.to === nextDay
+        )) return true;
+      }
+      return false;
+    },
+    { prefix: "repforge_pending_v1:", oldDay, nextDay },
+    { timeout: 10000 }
+  );
+}
+
 async function holdStorageLock(page) {
   await page.evaluate((lockName) => {
     let release;
@@ -1110,6 +1129,15 @@ async function runWorkoutThenRenameRace(browser) {
     });
     await waitForPendingStorageLocks(locker, 1);
     await dispatchRename(renamer, "Day 1", "Push Day");
+    await waitForPendingRenameJournal(renamer, "Day 1", "Push Day");
+    const renameJournal = (await readRuntime(renamer)).pendingEntries.find((entry) =>
+      entry.value?.dayRenames?.some((rename) => rename?.from === "Day 1" && rename?.to === "Push Day")
+    );
+    check(
+      renameJournal?.value?.effect?.precondition === "abort-same-day",
+      "workout-first rename queues its same-day draft precondition",
+      renameJournal?.value
+    );
     await waitForPendingStorageLocks(locker, 2);
     await releaseStorageLock(locker);
     const workoutResult = await workout.evaluate(() => window.__renameRaceWorkoutResult);

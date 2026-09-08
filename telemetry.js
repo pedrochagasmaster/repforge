@@ -67,6 +67,7 @@
     program_import_started: event({ source: values("freeform", "file") }, "Program import started", "repeatable"),
     program_import_handoff: event({ method: values("chatgpt", "claude", "copy"), outcome: values("opened", "copied", "copy_failed"), long_prompt: boolean }, "Freeform program import handoff to assistant", "repeatable"),
     program_import_parsed: event({ source: values("freeform"), outcome: values("complete", "gaps", "unreadable"), gap_count: integer }, "Freeform program reply parsed", "repeatable"),
+    program_import_row_resolved: event({ method: values("top_candidate", "alternate", "keep", "custom", "picker"), source: values("freeform", "file") }, "Import review row resolved by the lifter", "repeatable"),
     program_import_review_reached: event({ source: values("freeform", "file") }, "Import review screen reached", "repeatable"),
     program_activated: event({ route: values("recommend", "custom", "browse", "build", "import", "shared"), version_category: values("legacy_v1", "taurifer_v1", "manual_v1", "import_v1", "shared_v1"), source: optional(values("freeform", "file")) }, "Program activation committed", "once_per_setup_flow"),
     first_set_logged: event({}, "First working set committed", "milestone"),

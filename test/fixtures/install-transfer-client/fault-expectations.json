@@ -1,0 +1,90 @@
+{
+  "operationLock": {
+    "adapterMethod": "withLock",
+    "contextName": "install-transfer",
+    "createName": "install-transfer",
+    "claimName": "install-transfer",
+    "commitName": "install-transfer",
+    "statusName": "install-transfer",
+    "missingLockCode": "operation-lock-unavailable",
+    "sameCreateIdempotencyKey": true,
+    "sameClaimId": true,
+    "crossMethodSerializes": true
+  },
+  "createFailureBoundary": {
+    "malformed201": { "state": "unknown-outcome", "code": "create-unknown-outcome" },
+    "sealFailure": { "state": "unknown-outcome", "code": "create-unknown-outcome" },
+    "hashFailure": { "state": "unknown-outcome", "code": "create-unknown-outcome" },
+    "captureFailure": { "state": "unknown-outcome", "code": "create-unknown-outcome" },
+    "buildFailure": { "state": "unknown-outcome", "code": "create-unknown-outcome" },
+    "digestFailure": { "state": "unknown-outcome", "code": "create-unknown-outcome" },
+    "unexpectedResponse": { "state": "unknown-outcome", "code": "create-unknown-outcome" },
+    "serviceUnavailablePreservesCreatingMarker": true,
+    "duplicatePreservesServerExpiry": true,
+    "missingSourceObserverIsConservative": true
+  },
+  "remoteStatus": {
+    "knownPendingStates": ["available", "claiming"],
+    "pendingState": "retryable",
+    "pendingCode": "transfer-pending",
+    "pendingRecoveryState": "awaitingClaimOutcome",
+    "indeterminateStates": ["unavailable", "claimed-expired", "purged", "key-loss"]
+  },
+  "claimStateRace": {
+    "protectedPhases": ["local-committed", "cleanup-pending", "cleared"],
+    "code": "claim-state-changed",
+    "state": "unknown-outcome",
+    "mustNotWriteClaimed": true,
+    "terminalMarkerGuardBeforeCookieFallback": true,
+    "retryPhases": ["claiming", "claimed"],
+    "retryPreservesClaimedPhase": true,
+    "malformedMarkerState": "unknown-outcome",
+    "malformedMarkerCode": "marker-invalid",
+    "sealedCredentialStructureCheckedBeforeUnseal": true
+  },
+  "expiresAt": {
+    "strictUtcMilliseconds": true,
+    "invalidCode": "create-unknown-outcome"
+  },
+  "cookieBoundary": {
+    "writeReadbackRequired": true,
+    "clearReadbackRequired": true,
+    "createUnconfirmedState": "unknown-outcome",
+    "createUnconfirmedCode": "create-unknown-outcome",
+    "setupCookiePreserved": true
+  },
+  "responseBounds": {
+    "smallBytes": 4096,
+    "envelopeBytes": 2000000,
+    "claimWrapperHeadroomBytes": 4096,
+    "claimResponseBytes": 2004096,
+    "overflowCode": "response-too-large",
+    "malformedStreamCode": "invalid-response-body",
+    "manyZeroChunks": 20000,
+    "manyTinyChunks": 4096,
+    "exactBoundaryAccepted": true
+  },
+  "indexedDb": {
+    "writeAndDeleteAwaitTransactionComplete": true,
+    "abortCodeIsFailure": true,
+    "createDoesNotPostBeforeCredentialWriteAck": true
+  },
+  "cleanup": {
+    "deletedMarkerPhase": "confirmed",
+    "deletedSnapshotFields": ["tokenDigest", "confirmedAt", "expiresAt"],
+    "deletedMarkerHasNoSealedCredentials": true,
+    "credentialDeleteFailureState": "unknown-outcome",
+    "credentialDeleteFailureCode": "credential-delete-failed",
+    "credentialDeleteFailureKeepsRetryMarker": true,
+    "expiredClearsOnlyAfterCredentialDelete": true
+  },
+  "tokenGrammar": {
+    "status": "confirmed-p0-service-format",
+    "version": "v1",
+    "keyIdMaxChars": 16,
+    "segmentBytes": 32,
+    "segmentChars": 43,
+    "clientChecksStructureOnly": true,
+    "clientMustNotVerifyMacOrEntropy": true
+  }
+}
