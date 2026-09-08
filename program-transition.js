@@ -4,6 +4,9 @@
   const SCHEMA_VERSION = 1;
   const SLOT_MAPPING_SCHEMA_VERSION = 1;
   const VOLUME_REDUCTION_POLICY_VERSION = 1;
+  const RECOVERY_POLICY_VERSION = 2;
+  const RECOVERY_CHECKPOINT_QUESTION =
+    "During this block, did recovery feel worse than usual often enough to affect your training?";
   const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
   const SET_LIKE_PATHS = [
     ["diagnosis", "eligibleEvidenceIds"],
@@ -1793,10 +1796,135 @@
     return deepFreeze(result);
   }
 
+  /* Pure recovery week eligibility preflight for future proposeRecoveryWeek.
+     Validates the passed approved policy object against the closed version 2
+     contract in docs/recovery-week-policy.md, evaluates the evidence, and
+     returns either an immutable eligible result with normalized evidence or a
+     typed ineligible result. Never emits a proposal, hash, overlay, or allocation. */
+  function isApprovedRecoveryPolicy(policy) {
+    if (!isObject(policy)) return false;
+    if (policy.kind !== "taurifer-recovery-policy") return false;
+    if (policy.policyVersion !== RECOVERY_POLICY_VERSION) return false;
+    if (policy.status !== "Approved") return false;
+    if (!Array.isArray(policy.primaryPatterns) || policy.primaryPatterns.length !== 3) return false;
+    if (policy.primaryPatterns[0] !== "knee-dominant" ||
+        policy.primaryPatterns[1] !== "horizontal press" ||
+        policy.primaryPatterns[2] !== "hip/hinge") return false;
+    if (!isObject(policy.eligibility)) return false;
+    if (policy.eligibility.minimumPatterns !== 2) return false;
+    if (policy.eligibility.qualifyingCheckpointAnswer !== "Yes") return false;
+    if (!Array.isArray(policy.eligibility.qualifyingOutcomes) ||
+        policy.eligibility.qualifyingOutcomes.length !== 2 ||
+        !policy.eligibility.qualifyingOutcomes.includes("maintained") ||
+        !policy.eligibility.qualifyingOutcomes.includes("declined")) return false;
+    if (!Array.isArray(policy.eligibility.checkpointAnswers) ||
+        policy.eligibility.checkpointAnswers.length !== 3 ||
+        !policy.eligibility.checkpointAnswers.includes("Yes") ||
+        !policy.eligibility.checkpointAnswers.includes("No") ||
+        !policy.eligibility.checkpointAnswers.includes("Not sure")) return false;
+    if (policy.eligibility.question !== undefined &&
+        policy.eligibility.question !== RECOVERY_CHECKPOINT_QUESTION) return false;
+    return true;
+  }
+
+  function evaluateRecoveryEligibility(evidence, approvedPolicy) {
+    if (!isApprovedRecoveryPolicy(approvedPolicy)) {
+      return Object.freeze({
+        ok: false,
+        status: "ineligible",
+        ineligible: true,
+        code: "policy_invalid",
+      });
+    }
+
+    if (!isObject(evidence) || !isObject(evidence.outcomesByPattern)) {
+      return Object.freeze({
+        ok: false,
+        status: "ineligible",
+        ineligible: true,
+        code: "invalid_evidence",
+      });
+    }
+
+    if (evidence.question !== undefined && evidence.question !== RECOVERY_CHECKPOINT_QUESTION) {
+      return Object.freeze({
+        ok: false,
+        status: "ineligible",
+        ineligible: true,
+        code: "invalid_evidence",
+      });
+    }
+
+    const keys = Object.keys(evidence.outcomesByPattern);
+    for (const key of keys) {
+      if (DANGEROUS_KEYS.has(key) || !approvedPolicy.primaryPatterns.includes(key)) {
+        return Object.freeze({
+          ok: false,
+          status: "ineligible",
+          ineligible: true,
+          code: "invalid_evidence",
+        });
+      }
+      const val = evidence.outcomesByPattern[key];
+      if (typeof val !== "string") {
+        return Object.freeze({
+          ok: false,
+          status: "ineligible",
+          ineligible: true,
+          code: "invalid_evidence",
+        });
+      }
+    }
+
+    if (evidence.checkpointAnswer !== "Yes") {
+      return Object.freeze({
+        ok: false,
+        status: "ineligible",
+        ineligible: true,
+        code: "checkpoint_not_yes",
+      });
+    }
+
+    const qualifyingPatterns = [];
+    const normalizedOutcomes = {};
+
+    for (const pattern of approvedPolicy.primaryPatterns) {
+      if (own(evidence.outcomesByPattern, pattern)) {
+        const outcome = evidence.outcomesByPattern[pattern];
+        normalizedOutcomes[pattern] = outcome;
+        if (approvedPolicy.eligibility.qualifyingOutcomes.includes(outcome)) {
+          qualifyingPatterns.push(pattern);
+        }
+      }
+    }
+
+    if (qualifyingPatterns.length < approvedPolicy.eligibility.minimumPatterns) {
+      return Object.freeze({
+        ok: false,
+        status: "ineligible",
+        ineligible: true,
+        code: "insufficient_qualifying_patterns",
+      });
+    }
+
+    return deepFreeze({
+      ok: true,
+      status: "eligible",
+      eligible: true,
+      policyVersion: approvedPolicy.policyVersion,
+      eligibilityEvidence: {
+        outcomesByPattern: normalizedOutcomes,
+        qualifyingPatterns,
+        checkpointAnswer: "Yes",
+      },
+    });
+  }
+
   const api = Object.freeze({
     SCHEMA_VERSION,
     SLOT_MAPPING_SCHEMA_VERSION,
     VOLUME_REDUCTION_POLICY_VERSION,
+    RECOVERY_POLICY_VERSION,
     canonicalProposalJson,
     hashProposal,
     fingerprintCompilerInstance,
@@ -1811,6 +1939,7 @@
     commitRecord,
     createGuidedManualRepair,
     createGuidedManualRepairCandidate: createGuidedManualRepair,
+    evaluateRecoveryEligibility,
   });
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;
