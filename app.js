@@ -3707,7 +3707,6 @@ async function deleteTrainingLog(io=storageIO,{discardDraftRaw=readDraftRaw()}={
   if(result.localOk||result.idbOk){
     resetDraftSessionState();render();toast(t("toast.log_deleted"))}
   return result}
-try{Object.defineProperty(window,"state",{get(){return state},configurable:true})}catch{}
 window.__repforgeStorage={
   flush:flushStorage,
   chooseSnapshot,
@@ -6354,6 +6353,40 @@ window.__repforgeEntryState=()=>cloneSnapshot(entryState);
 window.__repforgeActivateEntryPreview=opts=>activateEntryPreview(opts);
 window.__repforgeOnboardingOrigin=()=>onboardingOrigin;
 window.__repforgePendingBlock=()=>pendingBlockTransition;
+// Durable program-entry routes whose compiler context can be re-derived and
+// therefore support an in-place sibling transition. Build / Import / Shared and
+// a missing route carry no reconstructable provenance and stay typed Unavailable.
+const TRANSITION_SOURCE_ROUTES = ["recommend", "custom", "browse"];
+// One route spelling conversion to the transition contract (Recommend/Custom/Browse).
+function transitionContractSource(route) {
+  return route.charAt(0).toUpperCase() + route.slice(1);
+}
+// Exact, read-only classification of a stored transition-in against a proposal.
+// "match" -> already committed (return success, no mutation); "conflict" -> the
+// stored record is partial or disagrees (typed invalid, never success);
+// "absent" -> no transition-in yet, proceed to the transaction.
+function classifyCommittedTransition(snapshot, proposal, archiveId) {
+  const meta = snapshot && snapshot.programMeta;
+  const tin = meta && meta.transitionIn;
+  if (!isPlainStateObject(tin)) return "absent";
+  const agree =
+    meta.id === proposal?.successor?.programId &&
+    tin.status === "committed" &&
+    tin.transitionId === proposal?.transitionId &&
+    tin.proposalHash === proposal?.proposalHash &&
+    tin.archiveId === archiveId &&
+    tin.successor?.programId === proposal?.successor?.programId &&
+    tin.predecessor?.programId === proposal?.predecessor?.programId;
+  if (!agree) return "conflict";
+  const history = Array.isArray(snapshot.programHistory) ? snapshot.programHistory : [];
+  const links = history.filter(h =>
+    (h?.id === archiveId || h?.archiveId === archiveId) &&
+    h?.transitionOut?.transitionId === proposal.transitionId &&
+    h?.transitionOut?.proposalHash === proposal.proposalHash &&
+    h?.transitionOut?.successorProgramId === proposal.successor.programId);
+  if (links.length !== 1) return "conflict";
+  return "match";
+}
 const repforgeProgramTransitionAdapter = {
   async proposeSibling(input = {}) {
     const Transition = typeof RepForgeProgramTransition !== "undefined"
@@ -6373,9 +6406,16 @@ const repforgeProgramTransitionAdapter = {
     if (!liveMeta?.compilerContext) {
       return { ok: false, status: "unavailable", code: "compiler_context_unavailable", unavailable: true };
     }
+    // Durable source is required, never invented. A normalized entrySource always
+    // carries both a route and a fingerprint; anything outside the reconstructable
+    // set is typed Unavailable rather than defaulted to Recommend.
+    const entrySource = liveMeta.entrySource;
+    if (!entrySource || !TRANSITION_SOURCE_ROUTES.includes(entrySource.route) ||
+        typeof entrySource.fingerprint !== "string" || !entrySource.fingerprint) {
+      return { ok: false, status: "unavailable", code: "transition_source_unavailable", unavailable: true };
+    }
     const predContext = liveMeta.compilerContext;
-    const rawRoute = liveMeta.entrySource?.route || "recommend";
-    const source = rawRoute.charAt(0).toUpperCase() + rawRoute.slice(1).toLowerCase();
+    const source = transitionContractSource(entrySource.route);
 
     const diagnosis = input.diagnosis;
     const kind = (diagnosis?.kind === "sessions_too_long")
@@ -6407,20 +6447,12 @@ const repforgeProgramTransitionAdapter = {
     return await Transition.proposeSibling(fullInput);
   },
 
-  async confirmTransition({
-    proposal,
-    transitionId,
-    successorProgramId,
-    confirmedAt = new Date().toISOString(),
-    proposalHash,
-    acknowledgedDraftRaw,
-    archiveId,
-  } = {}) {
+  async confirmTransition(params = {}) {
     const Transition = typeof RepForgeProgramTransition !== "undefined"
       ? RepForgeProgramTransition
       : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
     if (!Transition) {
-      return { ok: false, status: "unavailable", code: "transition_domain_unavailable", committed: false };
+      return { ok: false, status: "unavailable", code: "transition_domain_unavailable", committed: false, localOk: false, idbOk: false };
     }
     const Compiler = typeof ProgramCompiler !== "undefined"
       ? ProgramCompiler
@@ -6429,82 +6461,121 @@ const repforgeProgramTransitionAdapter = {
       ? EXERCISE_LIBRARY
       : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
 
-    const targetTransitionId = transitionId || proposal?.transitionId;
-    const targetHash = proposalHash || proposal?.proposalHash;
-    const effSuccessorId = successorProgramId || proposal?.successor?.programId;
+    const { proposal, proposalHash, transitionId, successorProgramId, confirmedAt } = params;
+    const hasAck = Object.prototype.hasOwnProperty.call(params, "acknowledgedDraftRaw");
+    const acknowledgedDraftRaw = params.acknowledgedDraftRaw;
+    const invalid = (code) => ({
+      ok: false, committed: false, invalid: true, code,
+      localOk: false, idbOk: false, revision: readRevision(state),
+    });
 
-    if (state.programMeta?.transitionIn?.transitionId === targetTransitionId &&
-        state.programMeta?.transitionIn?.proposalHash === targetHash) {
-      return { committed: true, alreadyCommitted: true, revision: readRevision(state), localOk: true, idbOk: true, kind: "committed" };
+    // ---------------------------------------------------------------------
+    // The proposal is the authority. Every supplied identity must equal the
+    // proposal field byte-for-byte before idempotency or any transaction, and
+    // there is no public archiveId input — its identity is the predecessor.
+    // ---------------------------------------------------------------------
+    if (!isPlainStateObject(proposal)) return invalid("proposal_missing");
+    if (proposal.status !== "preview") return invalid("proposal_not_preview");
+    if (typeof proposal.proposalHash !== "string" || !proposal.proposalHash) return invalid("proposal_hash_absent");
+    if (typeof proposalHash !== "string" || proposalHash !== proposal.proposalHash) return invalid("proposal_hash_mismatch");
+    if (typeof transitionId !== "string" || transitionId !== proposal.transitionId) return invalid("transition_id_mismatch");
+    if (typeof successorProgramId !== "string" || successorProgramId !== proposal?.successor?.programId) return invalid("successor_id_mismatch");
+    if (typeof confirmedAt !== "string" || !confirmedAt) return invalid("confirmed_at_missing");
+    if (!hasAck || !(acknowledgedDraftRaw === null || typeof acknowledgedDraftRaw === "string")) return invalid("acknowledged_draft_missing");
+    const predecessorProgramId = proposal?.predecessor?.programId;
+    if (typeof predecessorProgramId !== "string" || !predecessorProgramId) return invalid("predecessor_id_absent");
+    if (!Number.isInteger(proposal?.predecessor?.durableRevision)) return invalid("predecessor_revision_absent");
+
+    // Archive identity is deterministic: the predecessor program id.
+    const archiveId = predecessorProgramId;
+
+    // ---- Exact, read-only idempotency — only after the full pin contract ----
+    const preIdem = classifyCommittedTransition(state, proposal, archiveId);
+    if (preIdem === "match") {
+      return { ok: true, committed: true, alreadyCommitted: true, revision: readRevision(state), localOk: true, idbOk: true, kind: "committed" };
     }
+    if (preIdem === "conflict") return invalid("conflicting_transition_record");
 
+    // Fast typed draft-acknowledgement result; the preservation effect re-guards
+    // this atomically under the lock.
     const currentDraftRaw = readDraftRaw();
-    if (acknowledgedDraftRaw !== undefined && acknowledgedDraftRaw !== currentDraftRaw) {
-      return { revision: readRevision(state), localOk: false, idbOk: false, draftConflict: true, conflict: true, code: "draft_mismatch", committed: false };
+    if (acknowledgedDraftRaw !== currentDraftRaw) {
+      return { ok: false, committed: false, draftConflict: true, conflict: true, code: "draft_mismatch", localOk: false, idbOk: false, revision: readRevision(state) };
     }
 
-    const acknowledgedDraft = acknowledgedDraftRaw !== undefined ? acknowledgedDraftRaw : currentDraftRaw;
-    const effect = draftPreservationEffect(acknowledgedDraft);
+    // ---- Existing program-replacement capture/archive transaction owns it ----
+    const capture = captureProgramReplacement(state);
+    if (!capture || capture.oldProgramId !== predecessorProgramId) return invalid("predecessor_unavailable");
+    // The capture stands in for "the predecessor exactly as the proposal saw it".
+    // Pin its revision to the proposal's durableRevision so a real intervening
+    // durable commit fails the lock-held precondition and leaves the prepared
+    // archive non-durable.
+    capture.storageRevision = proposal.predecessor.durableRevision;
+    capture.archiveId = archiveId;
+    capture.transitionOut = {
+      schemaVersion: 1,
+      transitionId: proposal.transitionId,
+      proposalHash: proposal.proposalHash,
+      successorProgramId: proposal.successor.programId,
+    };
+
+    const effect = draftPreservationEffect(acknowledgedDraftRaw);
     const baseProposal = cloneSnapshot(state);
 
-    const preflight = async ({ head, proposal: workingProposal }) => {
-      if (head.programMeta?.transitionIn?.transitionId === targetTransitionId &&
-          head.programMeta?.transitionIn?.proposalHash === targetHash) {
-        return {
-          reject: true,
-          result: { committed: true, alreadyCommitted: true, revision: readRevision(head), localOk: true, idbOk: true, kind: "committed" }
-        };
+    const preflight = async ({ head, proposal: draftProposal }) => {
+      // Read-only idempotency re-check under the lock.
+      const lockedIdem = classifyCommittedTransition(head, proposal, archiveId);
+      if (lockedIdem === "match") {
+        return { reject: true, result: { ok: true, committed: true, alreadyCommitted: true, revision: readRevision(head), localOk: true, idbOk: true, kind: "committed" } };
       }
-
-      const expectedPredId = proposal?.predecessor?.programId;
-      if (!expectedPredId || head.programMeta?.id !== expectedPredId) {
-        return { reject: true, result: { stale: true, code: "stale_proposal", message: "predecessor programId changed" } };
+      if (lockedIdem === "conflict") {
+        return { reject: true, result: { invalid: true, code: "conflicting_transition_record", localOk: false, idbOk: false } };
       }
-      if (proposal?.predecessor?.durableRevision !== undefined && proposal.predecessor.durableRevision !== readRevision(head)) {
-        return { reject: true, result: { stale: true, staleRevision: true, code: "stale_proposal", message: "storage revision changed" } };
+      // Exact predecessor preconditions.
+      if (head.programMeta?.id !== predecessorProgramId) {
+        return { reject: true, result: { stale: true, code: "predecessor_changed", localOk: false, idbOk: false } };
       }
-
+      if (readRevision(head) !== proposal.predecessor.durableRevision) {
+        return { reject: true, result: { stale: true, staleRevision: true, code: "stale_proposal", localOk: false, idbOk: false } };
+      }
+      const route = head.programMeta?.entrySource?.route;
+      if (!route || !TRANSITION_SOURCE_ROUTES.includes(route)) {
+        return { reject: true, result: { invalid: true, code: "transition_source_unavailable", localOk: false, idbOk: false } };
+      }
       const predContext = head.programMeta?.compilerContext;
       if (!predContext) {
-        return { reject: true, result: { invalid: true, code: "missing_compiler_context" } };
+        return { reject: true, result: { invalid: true, code: "missing_compiler_context", localOk: false, idbOk: false } };
       }
       const predInstance = Compiler.compile(predContext, catalogue);
       if (!predInstance || predInstance.kind !== "compiled") {
-        return { reject: true, result: { invalid: true, code: "predecessor_reconstruction_failed" } };
-      }
-      const predFingerprint = await Transition.fingerprintCompilerInstance(predInstance);
-      if (proposal?.predecessor?.fingerprint && proposal.predecessor.fingerprint !== predFingerprint) {
-        return { reject: true, result: { stale: true, code: "predecessor_fingerprint_changed" } };
+        return { reject: true, result: { invalid: true, code: "predecessor_reconstruction_failed", localOk: false, idbOk: false } };
       }
 
       let succContext;
-      if (proposal?.kind === "lower_frequency_sibling") {
-        const targetFreq = proposal?.targetConstraint?.frequency ?? proposal?.diagnosis?.answers?.availableDays;
-        succContext = { ...cloneSnapshot(predContext), frequency: targetFreq };
+      if (proposal.kind === "lower_frequency_sibling") {
+        succContext = { ...cloneSnapshot(predContext), frequency: proposal.diagnosis?.answers?.availableDays };
         delete succContext.splitId;
-      } else if (proposal?.kind === "shorter_session_sibling") {
-        const targetMins = proposal?.targetConstraint?.sessionMinutes ?? proposal?.diagnosis?.answers?.sessionMinutes;
-        succContext = { ...cloneSnapshot(predContext), sessionMinutes: targetMins };
+      } else if (proposal.kind === "shorter_session_sibling") {
+        succContext = { ...cloneSnapshot(predContext), sessionMinutes: proposal.diagnosis?.answers?.sessionMinutes };
       } else {
-        return { reject: true, result: { invalid: true, code: "unsupported_transition_kind" } };
+        return { reject: true, result: { invalid: true, code: "unsupported_transition_kind", localOk: false, idbOk: false } };
       }
 
       const checkedSuccContext = Compiler.validateContext(succContext);
       if (!checkedSuccContext.ok) {
-        return { reject: true, result: { invalid: true, code: "invalid_successor_context", issues: checkedSuccContext.issues } };
+        return { reject: true, result: { invalid: true, code: "invalid_successor_context", localOk: false, idbOk: false } };
       }
       const succInstance = Compiler.compile(succContext, catalogue);
       if (!succInstance || succInstance.kind !== "compiled") {
-        return { reject: true, result: { invalid: true, code: "successor_compilation_failed" } };
+        return { reject: true, result: { invalid: true, code: "successor_compilation_failed", localOk: false, idbOk: false } };
       }
 
-      const rawPredRoute = head.programMeta?.entrySource?.route || "recommend";
-      const predSource = rawPredRoute.charAt(0).toUpperCase() + rawPredRoute.slice(1).toLowerCase();
+      // Semantic validation runs here, lock-held. No archive is pushed in preflight.
       const validation = await Transition.validateProposal(proposal, {
         predecessor: {
           programId: head.programMeta.id,
           durableRevision: readRevision(head),
-          source: predSource,
+          source: transitionContractSource(route),
         },
         predecessorInstance: predInstance,
         successorInstance: succInstance,
@@ -6512,18 +6583,16 @@ const repforgeProgramTransitionAdapter = {
         successorCompilerContext: succContext,
       });
       if (!validation.ok) {
-        return { reject: true, result: { invalid: true, code: validation.code || "invalid_proposal", issues: validation.issues } };
+        const typed = validation.status === "stale" ? { stale: true } : { invalid: true };
+        return { reject: true, result: { ...typed, code: validation.code || "invalid_proposal", localOk: false, idbOk: false } };
       }
 
-      const effArchiveId = archiveId || head.programMeta.id;
-      const committedRecord = Transition.commitRecord(proposal, {
-        confirmedAt,
-        archiveId: effArchiveId,
-      });
+      // Pure sealing with explicit, non-environment values.
+      const committedRecord = Transition.commitRecord(proposal, { confirmedAt, archiveId });
 
       const successorMeta = {
         ...cloneSnapshot(head.programMeta),
-        id: effSuccessorId,
+        id: proposal.successor.programId,
         daysPerWeek: succInstance.frequency,
         sessionLength: String(succContext.sessionMinutes),
         programStructure: cloneSnapshot(succInstance.programStructure),
@@ -6539,51 +6608,26 @@ const repforgeProgramTransitionAdapter = {
           ],
         })),
         compilerContext: cloneSnapshot(succContext),
-        entrySource: {
-          route: head.programMeta.entrySource?.route || "recommend",
-          fingerprint: await Transition.fingerprintCompilerInstance(succInstance),
-        },
+        // The successor carries the predecessor's exact entrySource object. Its
+        // compiler fingerprint/provenance already live on the transition-in record.
+        entrySource: cloneSnapshot(head.programMeta.entrySource),
         transitionIn: committedRecord,
         updated: confirmedAt,
       };
 
-      const archiveEntry = {
-        id: head.programMeta.id,
-        archiveId: effArchiveId,
-        meta: cloneSnapshot(head.programMeta),
-        program: cloneSnapshot(head.program),
-        completedAt: confirmedAt,
-        review: null,
-        transitionOut: {
-          schemaVersion: 1,
-          transitionId: committedRecord.transitionId,
-          proposalHash: committedRecord.proposalHash,
-          successorProgramId: committedRecord.successor.programId,
-        },
-      };
-
-      const history = Array.isArray(head.programHistory) ? head.programHistory.slice() : [];
-      history.push(archiveEntry);
-
-      workingProposal.program = cloneSnapshot(succInstance.program);
-      workingProposal.programMeta = successorMeta;
-      workingProposal.programHistory = history;
-
-      return { proposal: workingProposal };
+      draftProposal.program = cloneSnapshot(succInstance.program);
+      draftProposal.programMeta = successorMeta;
+      // draftProposal.programHistory already carries the single archive entry that
+      // archiveCapturedProgram(capture) pushed before the lock — leave it untouched.
+      return { proposal: draftProposal };
     };
 
-    const res = await commitProgramReplacement(baseProposal, storageIO, {
-      capture: null,
-      effect,
-      preflight,
-      expectedProgramId: proposal?.predecessor?.programId,
-      expectedStorageRevision: proposal?.predecessor?.durableRevision,
-    });
+    const res = await commitProgramReplacement(baseProposal, storageIO, { capture, effect, preflight });
 
     if (res.localOk || res.idbOk) {
-      return { ...res, committed: true };
+      return { ok: true, committed: true, ...res };
     }
-    return { ...res, committed: false };
+    return { ok: false, committed: false, ...res };
   },
 };
 if (typeof window !== "undefined") {

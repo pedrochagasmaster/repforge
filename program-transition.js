@@ -978,26 +978,22 @@
     return { ok: true, status: "preview" };
   }
 
-  function commitRecord(proposal, confirmedAtOrOptions, optionalArchiveId) {
+  /* Pure sealing. The only inputs are a preview replacement proposal and two
+     non-empty explicit strings supplied by the lock-held production path. There
+     is deliberately no clock, no randomness, no proposal-derived archive id and
+     no `arc_*` synthesis in this module: a missing or malformed value is a
+     programming error at the call site, raised the same way the other structural
+     guards in this file raise. */
+  function commitRecord(proposal, options) {
     if (!isObject(proposal)) throw new TypeError("proposal: expected object");
+    if (proposal.status !== "preview") throw new TypeError("proposal.status: expected preview replacement proposal");
     if (typeof proposal.proposalHash !== "string" || !proposal.proposalHash) {
       throw new TypeError("proposal.proposalHash: expected non-empty string");
     }
-    let confirmedAt = confirmedAtOrOptions;
-    let archiveId = optionalArchiveId;
-    if (isObject(confirmedAtOrOptions)) {
-      confirmedAt = confirmedAtOrOptions.confirmedAt;
-      archiveId = confirmedAtOrOptions.archiveId !== undefined ? confirmedAtOrOptions.archiveId : optionalArchiveId;
-    }
+    if (!isObject(options)) throw new TypeError("options: expected { confirmedAt, archiveId }");
+    const { confirmedAt, archiveId } = options;
     if (typeof confirmedAt !== "string" || !confirmedAt) {
-      confirmedAt = new Date().toISOString();
-    }
-    if (archiveId === undefined || archiveId === null) {
-      archiveId = typeof proposal.archiveId === "string" && proposal.archiveId
-        ? proposal.archiveId
-        : (typeof proposal.predecessor?.programId === "string" && proposal.predecessor.programId
-            ? proposal.predecessor.programId
-            : `arc_${proposal.transitionId || "0"}`);
+      throw new TypeError("confirmedAt: expected non-empty string");
     }
     if (typeof archiveId !== "string" || !archiveId) {
       throw new TypeError("archiveId: expected non-empty string");

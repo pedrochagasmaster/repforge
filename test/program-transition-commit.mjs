@@ -4,6 +4,22 @@
  * Commit transitions with atomic provenance and draft preservation.
  *
  * Runs end-to-end against a live Taurifer server at REPFORGE_URL.
+ *
+ * State-model contract this test pins (see 052-P6a-state-model-correction):
+ *  - the preview proposal is the sole authority for every commit identity;
+ *  - the pure transition module seals with explicit values only (no clock /
+ *    random / identity fallback);
+ *  - durable entrySource provenance is required, never invented;
+ *  - the existing program-replacement capture/archive transaction creates the
+ *    one linked archive;
+ *  - a real intervening durable commit is what proves stale rejection, verified
+ *    in BOTH durable replicas plus a committed nonempty log sentinel and the
+ *    exact DraftV2 raw / checkpoint;
+ *  - mismatched external pins and freshly rehashed semantic invalidity mutate
+ *    neither replica.
+ *
+ * The oracle is the clone-returning window.__repforgeWorkoutDraft.state(); the
+ * live mutable production state is never exposed to the test.
  */
 import { launchChromium, waitForAppBoot, assertServingApp } from "./browser.mjs";
 import { createRequire } from "node:module";
@@ -38,6 +54,10 @@ function check(condition, message, detail) {
   }
 }
 
+function isPlainObject(v) {
+  return v !== null && typeof v === "object" && !Array.isArray(v);
+}
+
 async function readIdbState(page) {
   return page.evaluate(async ({ dbName, storeName, key }) => {
     return new Promise((resolve, reject) => {
@@ -65,6 +85,26 @@ async function readIdbState(page) {
   }, { dbName: DB_NAME, storeName: "kv", key: KEY });
 }
 
+// Parse both durable replicas and return the semantic fields the state model
+// pins. Byte equality is only ever used for the DraftV2 raw / checkpoint oracle.
+async function readReplicas(page) {
+  const localRaw = await page.evaluate((k) => localStorage.getItem(k), KEY);
+  const idb = await readIdbState(page);
+  const local = JSON.parse(localRaw || "null");
+  const semantic = (s) => s && ({
+    programId: s.programMeta?.id ?? null,
+    revision: s._storageRevision ?? null,
+    daysPerWeek: s.programMeta?.daysPerWeek ?? null,
+    transitionIn: s.programMeta?.transitionIn ?? null,
+    entrySource: s.programMeta?.entrySource ?? null,
+    compilerContext: s.programMeta?.compilerContext ?? null,
+    historyLen: Array.isArray(s.programHistory) ? s.programHistory.length : 0,
+    programHistory: s.programHistory ?? [],
+    log: s.log ?? [],
+  });
+  return { local: semantic(local), idb: semantic(idb), rawLocal: localRaw };
+}
+
 async function clearStorage(page) {
   await page.evaluate(async ({ key, draftKey, checkpointKey, dbName }) => {
     localStorage.removeItem(key);
@@ -80,6 +120,10 @@ async function clearStorage(page) {
       req.onblocked = () => resolve();
     });
   }, { key: KEY, draftKey: DRAFT_KEY, checkpointKey: CHECKPOINT_KEY, dbName: DB_NAME });
+}
+
+async function confirmTransition(page, args) {
+  return page.evaluate(async (a) => window.__repforgeProgramTransition.confirmTransition(a), args);
 }
 
 async function main() {
@@ -132,7 +176,7 @@ async function main() {
       });
       if (!compiled.ok) return { ok: false, error: "compilation failed", issues: compiled.issues };
 
-      const baseProposal = JSON.parse(JSON.stringify(window.state || {}));
+      const baseProposal = window.__repforgeWorkoutDraft.state();
       baseProposal.programMeta = baseProposal.programMeta || {};
       baseProposal.programMeta.progressionRelations = JSON.parse(JSON.stringify(compiled.preview.progressionRelations || []));
       baseProposal.programMeta.progressionModifiers = [];
@@ -155,7 +199,7 @@ async function main() {
         baseProposal,
       });
       await window.__repforgeStorage.flush();
-      return { ok: true, finalized, compiled };
+      return { ok: true, finalized };
     });
 
     check(activationResult.ok, "predecessor compiled and activated through production finalization seam", activationResult.issues || activationResult.error);
@@ -163,44 +207,88 @@ async function main() {
       throw new Error(`Step 1 failed: ${activationResult.error}`);
     }
 
-    // Verify persisted state before reload
-    const predecessorMetaBeforeReload = await page.evaluate(() => window.state?.programMeta);
+    const predecessorMetaBeforeReload = await page.evaluate(() => window.__repforgeWorkoutDraft.state()?.programMeta);
     check(predecessorMetaBeforeReload?.onboarded === true, "predecessor is onboarded");
     check(predecessorMetaBeforeReload?.daysPerWeek === 4, "predecessor has 4 days per week");
     check(predecessorMetaBeforeReload?.compilerContext?.frequency === 4, "predecessor holds compilerContext with frequency 4");
     check(predecessorMetaBeforeReload?.compilerContext?.sessionMinutes === 90, "predecessor holds compilerContext with 90 minutes");
     check(predecessorMetaBeforeReload?.programStructure?.provenance?.blueprintId === "balanced_4_v1", "predecessor blueprint is balanced_4_v1");
+    check(predecessorMetaBeforeReload?.entrySource?.route === "recommend" && typeof predecessorMetaBeforeReload?.entrySource?.fingerprint === "string",
+      "predecessor carries a durable recommend entrySource with a fingerprint");
 
-    // Reload page and check that compiler context and program survived reload
+    // -------------------------------------------------------------------------
+    // Step 1b: Commit one schema-valid nonempty log row through the production
+    // proposed-state seam, using a real compiled exercise / slot identity. This
+    // is the sentinel: history identity must be provably unchanged on stale
+    // rejection and provably identical on success/reload/retry.
+    // -------------------------------------------------------------------------
+    console.log("\n1b. Commit a real nonempty log sentinel row");
+    const logSeed = await page.evaluate(async () => {
+      const s = window.__repforgeWorkoutDraft.state();
+      const row0 = (s.program || [])[0];
+      if (!row0) return { ok: false, error: "no compiled program rows" };
+      const sessionId = "p6a-sentinel-session";
+      const entry = {
+        session: sessionId,
+        date: "2026-10-01",
+        day: row0.day,
+        exerciseId: row0.id,
+        performedName: row0.name,
+        performedLibraryId: typeof row0.libraryId === "string" ? row0.libraryId : null,
+        performedMovementId: typeof row0.movementId === "string" ? row0.movementId : null,
+        set: 1,
+        load: 60,
+        reps: 8,
+        rir: 2,
+        created: "2026-10-01T09:00:00.000Z",
+      };
+      s.log = [...(s.log || []), entry];
+      const res = await window.__repforgeCommitProposedState(s);
+      await window.__repforgeStorage.flush();
+      return { ok: res.localOk || res.idbOk, res, entry, sessionId };
+    });
+    check(logSeed.ok, "log sentinel row committed through __repforgeCommitProposedState", logSeed.res);
+    if (!logSeed.ok) throw new Error(`Step 1b failed: ${JSON.stringify(logSeed)}`);
+
+    // Reload; capture the exact semantic log array and durable identity.
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
 
-    const predecessorHead = await page.evaluate(() => ({
-      state: window.state,
-      storageRevision: window.state?._storageRevision,
-      meta: window.state?.programMeta,
-      programLength: (window.state?.program || []).length,
-      programStructure: window.state?.programMeta?.programStructure,
-      relations: window.state?.programMeta?.progressionRelations,
-      compilerContext: window.state?.programMeta?.compilerContext,
-    }));
-
+    const predecessorHead = await page.evaluate(() => {
+      const s = window.__repforgeWorkoutDraft.state();
+      return {
+        storageRevision: s?._storageRevision,
+        meta: s?.programMeta,
+        programLength: (s?.program || []).length,
+        compilerContext: s?.programMeta?.compilerContext,
+        log: s?.log || [],
+      };
+    });
     check(predecessorHead.meta?.onboarded === true, "predecessor survived reload onboarded");
     check(predecessorHead.programLength > 0, "predecessor has program rows", predecessorHead.programLength);
     check(predecessorHead.compilerContext?.frequency === 4, "durable compiler context frequency matches 4", predecessorHead.compilerContext);
     check(predecessorHead.compilerContext?.sessionMinutes === 90, "durable compiler context sessionMinutes matches 90");
-    check(predecessorHead.programStructure?.provenance?.familyId === "balanced", "durable structure provenance family is balanced");
+    check(predecessorHead.meta?.programStructure?.provenance?.familyId === "balanced", "durable structure provenance family is balanced");
     check(predecessorHead.meta?.entrySource?.route === "recommend", "durable entrySource route is recommend");
+    check(predecessorHead.log.length === 1 && predecessorHead.log[0].session === logSeed.sessionId, "durable log holds exactly the sentinel session");
 
     const predecessorProgramId = predecessorHead.meta?.id;
     const predecessorRevision = predecessorHead.storageRevision;
+    const predecessorEntrySource = predecessorHead.meta?.entrySource;
+    const logSentinel = predecessorHead.log;
+
+    const replicasAtPredecessor = await readReplicas(page);
+    check(replicasAtPredecessor.local.programId === predecessorProgramId && replicasAtPredecessor.idb.programId === predecessorProgramId,
+      "both replicas hold the predecessor programId before any transition");
+    check(isDeepStrictEqual(replicasAtPredecessor.local.log, logSentinel) && isDeepStrictEqual(replicasAtPredecessor.idb.log, logSentinel),
+      "both replicas hold the exact log sentinel before any transition");
 
     // -------------------------------------------------------------------------
-    // Step 2: Populate active workout draft state via RepForgeWorkoutDraft on Day 1
+    // Step 2: Populate active workout draft state via RepForgeWorkoutDraft
     // -------------------------------------------------------------------------
     console.log("\n2. Populate active workout draft with edits, notes, and checkpoint");
-    const draftSetup = await page.evaluate(async (dayArg) => {
-      const dayLabel = dayArg || (window.state?.program || [])[0]?.day || "Day 1";
+    const draftSetup = await page.evaluate(async () => {
+      const dayLabel = (window.__repforgeWorkoutDraft.state()?.program || [])[0]?.day || "Day 1";
       if (!window.__repforgeWorkoutDraft || typeof window.__repforgeEnterWorkout !== "function") {
         return { ok: false, error: "workout draft or enter workout unavailable" };
       }
@@ -216,16 +304,18 @@ async function main() {
       if (!setIds.length) return { ok: false, error: "no sets in exercise" };
       const set0Id = setIds[0];
 
-      // Dirty edits
       await hook.dispatch("editSetField", { exerciseInstanceId: ex0Id, setId: set0Id, field: "reps", value: "11" });
       await hook.dispatch("editSetField", { exerciseInstanceId: ex0Id, setId: set0Id, field: "load", value: "72.5" });
       await hook.dispatch("completeSet", { exerciseInstanceId: ex0Id, setId: set0Id, completedAt: new Date().toISOString() });
       await hook.dispatch("setSessionNotes", { value: "Draft session notes before sibling transition" });
       await hook.flush();
 
-      const raw = localStorage.getItem("repforge_draft_v1");
-      const checkpointRaw = localStorage.getItem("repforge_draft_v1:v2-checkpoint");
-      return { ok: true, raw, checkpointRaw, draft: hook.current() };
+      return {
+        ok: true,
+        raw: localStorage.getItem("repforge_draft_v1"),
+        checkpointRaw: localStorage.getItem("repforge_draft_v1:v2-checkpoint"),
+        draft: hook.current(),
+      };
     });
 
     check(draftSetup.ok, "workout draft populated and flushed", draftSetup.error);
@@ -237,17 +327,16 @@ async function main() {
     check(typeof preCheckpointRaw === "string" && preCheckpointRaw.length > 0, "repforge_draft_v1:v2-checkpoint has raw string in storage");
     check(draftSetup.draft.program?.programId === predecessorProgramId, "draft is bound to predecessor programId");
 
+    const revisionAtProposal = await page.evaluate(() => window.__repforgeWorkoutDraft.state()?._storageRevision);
+
     // -------------------------------------------------------------------------
     // Step 3: Propose sibling transition through production transition adapter
     // -------------------------------------------------------------------------
     console.log("\n3. Propose sibling transition through production transition adapter");
-    const transitionHookAvailable = await page.evaluate(() => {
-      return typeof window.__repforgeProgramTransition === "object" && window.__repforgeProgramTransition !== null;
-    });
+    const transitionHookAvailable = await page.evaluate(() =>
+      typeof window.__repforgeProgramTransition === "object" && window.__repforgeProgramTransition !== null);
     check(transitionHookAvailable, "window.__repforgeProgramTransition is defined");
-    if (!transitionHookAvailable) {
-      throw new Error("window.__repforgeProgramTransition unavailable; production transition adapter not implemented");
-    }
+    if (!transitionHookAvailable) throw new Error("production transition adapter not implemented");
 
     const diagnosisInput = {
       kind: "fewer_days",
@@ -259,15 +348,15 @@ async function main() {
     const successorProgramId = "prog_balanced_3_p6a_succ";
     const proposalCreatedAt = "2026-10-02T14:00:00.000Z";
 
-    const proposalResult = await page.evaluate(async (args) => {
-      return window.__repforgeProgramTransition.proposeSibling(args);
-    }, {
+    const proposeArgs = {
       targetConstraint: { frequency: 3 },
       diagnosis: diagnosisInput,
       transitionId,
       successorProgramId,
       createdAt: proposalCreatedAt,
-    });
+    };
+    const proposalResult = await page.evaluate(async (args) =>
+      window.__repforgeProgramTransition.proposeSibling(args), proposeArgs);
 
     check(proposalResult?.ok === true, "proposeSibling succeeds", proposalResult?.code || proposalResult?.error);
     if (!proposalResult?.ok) throw new Error(`Step 3 failed: ${JSON.stringify(proposalResult)}`);
@@ -276,210 +365,314 @@ async function main() {
     check(proposalResult.status === "preview", "proposal status is preview");
     check(proposal.kind === "lower_frequency_sibling", "proposal kind is lower_frequency_sibling");
     check(proposal.predecessor?.programId === predecessorProgramId, "proposal predecessor programId matches head");
+    check(proposal.predecessor?.durableRevision === revisionAtProposal, "proposal pins the durable revision it was built at");
     check(proposal.successor?.programId === successorProgramId, "proposal successor programId matches requested");
     check(Array.isArray(proposal.diff?.exercises) && proposal.diff.exercises.length === 24, "proposal has 24 exercise diff rows");
     check(typeof proposal.proposalHash === "string" && proposal.proposalHash.length === 64, "proposal carries 64-char proposalHash");
     check(proposalResult.successorCompilerContext?.frequency === 3, "successor compiler context frequency is 3");
     check(proposalResult.successorCompilerContext?.sessionMinutes === 90, "successor compiler context retains 90 min session");
 
-    // Verify hash matches independent Transition domain calculation
     const expectedHash = await Transition.hashProposal(proposal);
     check(proposal.proposalHash === expectedHash, "proposalHash matches independent hashProposal calculation");
 
     // -------------------------------------------------------------------------
-    // Step 4: Failure injections before commit
+    // Step 4: Real stale rejection — a separate benign durable commit advances
+    // the durable revision AFTER the proposal was built. The old proposal must
+    // be rejected without touching either replica, the archive, or the draft.
     // -------------------------------------------------------------------------
-    console.log("\n4. Failure injections (stale revision, rehashed semantic-invalid, draft mismatch)");
+    console.log("\n4. Real intervening durable commit → stale rejection in both replicas");
+    const benignCommit = await page.evaluate(async () => {
+      const s = window.__repforgeWorkoutDraft.state();
+      const before = s.settings?.restSec ?? 90;
+      s.settings = { ...(s.settings || {}), restSec: before + 5 };
+      const res = await window.__repforgeCommitProposedState(s);
+      await window.__repforgeStorage.flush();
+      return { ok: res.localOk || res.idbOk, res, restSec: before + 5 };
+    });
+    check(benignCommit.ok, "benign settings commit advanced durable state", benignCommit.res);
+    const revisionAfterBenign = await page.evaluate(() => window.__repforgeWorkoutDraft.state()?._storageRevision);
+    check(revisionAfterBenign === revisionAtProposal + 1, "benign commit advanced the durable revision by exactly one",
+      { revisionAtProposal, revisionAfterBenign });
 
-    // 4a. Stale confirmation attempt (mismatched durable revision)
-    const staleProposal = structuredClone(proposal);
-    staleProposal.predecessor.durableRevision = 99999;
-    const staleHash = await Transition.hashProposal(staleProposal);
-    staleProposal.proposalHash = staleHash;
-
-    const staleResult = await page.evaluate(async (args) => {
-      return window.__repforgeProgramTransition.confirmTransition(args);
-    }, {
-      proposal: staleProposal,
-      transitionId: staleProposal.transitionId,
-      successorProgramId: staleProposal.successor.programId,
+    const staleResult = await confirmTransition(page, {
+      proposal,
+      transitionId: proposal.transitionId,
+      successorProgramId: proposal.successor.programId,
       confirmedAt: "2026-10-02T14:05:00.000Z",
-      proposalHash: staleHash,
+      proposalHash: proposal.proposalHash,
       acknowledgedDraftRaw: preDraftRaw,
     });
-
     check(staleResult?.localOk === false && staleResult?.idbOk === false, "stale confirmation rejected");
-    check(staleResult?.staleRevision === true || staleResult?.stale === true || staleResult?.code === "stale_proposal", "stale confirmation returns typed stale result");
+    check(staleResult?.committed === false, "stale confirmation is not committed");
+    check(staleResult?.staleRevision === true || staleResult?.stale === true || staleResult?.code === "stale_proposal",
+      "stale confirmation returns a typed stale result", staleResult);
 
-    const stateAfterStale = await page.evaluate(() => ({
-      id: window.state?.programMeta?.id,
-      rev: window.state?._storageRevision,
-      historyLen: (window.state?.programHistory || []).length,
-    }));
-    check(stateAfterStale.id === predecessorProgramId, "stale rejection produced zero mutation on active program");
-    check(stateAfterStale.rev === predecessorRevision, "stale rejection produced zero storage revision bump");
-    check(stateAfterStale.historyLen === 0, "stale rejection created zero archives");
+    const afterStale = await readReplicas(page);
+    const liveAfterStale = await page.evaluate(() => {
+      const s = window.__repforgeWorkoutDraft.state();
+      return { programId: s.programMeta?.id, rev: s._storageRevision, transitionIn: s.programMeta?.transitionIn ?? null,
+        historyLen: (s.programHistory || []).length, log: s.log || [] };
+    });
+    check(liveAfterStale.rev <= revisionAfterBenign, "transition attempt did not advance the durable revision beyond R+1",
+      { rev: liveAfterStale.rev, ceiling: revisionAfterBenign });
+    check(afterStale.local.programId === predecessorProgramId && afterStale.idb.programId === predecessorProgramId,
+      "both replicas still hold the predecessor programId after stale rejection");
+    check(afterStale.local.transitionIn == null && afterStale.idb.transitionIn == null,
+      "neither replica gained a transition-in record after stale rejection");
+    check(afterStale.local.historyLen === 0 && afterStale.idb.historyLen === 0,
+      "neither replica gained an archive after stale rejection");
+    check(isDeepStrictEqual(afterStale.local.log, logSentinel) && isDeepStrictEqual(afterStale.idb.log, logSentinel),
+      "both replicas retain the exact log sentinel after stale rejection");
+    const draftAfterStale = await page.evaluate((keys) => ({
+      raw: localStorage.getItem(keys.d), checkpoint: localStorage.getItem(keys.c),
+    }), { d: DRAFT_KEY, c: CHECKPOINT_KEY });
+    check(draftAfterStale.raw === preDraftRaw, "DraftV2 raw unchanged after stale rejection");
+    check(draftAfterStale.checkpoint === preCheckpointRaw, "DraftV2 checkpoint unchanged after stale rejection");
 
-    // 4b. Freshly rehashed semantic-invalid proposal (tampered diff prescription)
-    const invalidProposal = structuredClone(proposal);
-    invalidProposal.diff.prescriptions[0].after.sets = 999; // invalid prescription sets
+    // -------------------------------------------------------------------------
+    // Step 4b: Re-propose from the current durable revision (R+1) for the
+    // negative-pin and success paths.
+    // -------------------------------------------------------------------------
+    console.log("\n4b. Re-propose from the advanced durable revision");
+    const reproposeResult = await page.evaluate(async (args) =>
+      window.__repforgeProgramTransition.proposeSibling(args), proposeArgs);
+    check(reproposeResult?.ok === true, "re-proposal from R+1 succeeds", reproposeResult?.code);
+    if (!reproposeResult?.ok) throw new Error(`Step 4b failed: ${JSON.stringify(reproposeResult)}`);
+    const freshProposal = reproposeResult.proposal;
+    check(freshProposal.predecessor.durableRevision === revisionAfterBenign, "fresh proposal pins R+1");
+    const freshDraftRaw = await page.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
+
+    // -------------------------------------------------------------------------
+    // Step 4c: Negative pin proof — every mismatched external pin, a missing
+    // confirmedAt, an early-idempotency-shaped bogus proposal, and a freshly
+    // rehashed semantic-invalid preflight case. Each is typed invalid with zero
+    // revision / archive / successor / draft mutation in BOTH replicas.
+    // -------------------------------------------------------------------------
+    console.log("\n4c. Negative pin proof (zero mutation in both replicas)");
+    const negativeCases = [
+      {
+        name: "mismatched external proposalHash",
+        args: { proposal: freshProposal, transitionId: freshProposal.transitionId,
+          successorProgramId: freshProposal.successor.programId, confirmedAt: "2026-10-02T14:06:00.000Z",
+          proposalHash: "0".repeat(64), acknowledgedDraftRaw: freshDraftRaw },
+        expect: (r) => r.invalid === true && r.code === "proposal_hash_mismatch",
+      },
+      {
+        name: "mismatched external transitionId",
+        args: { proposal: freshProposal, transitionId: "tr_not_the_proposal",
+          successorProgramId: freshProposal.successor.programId, confirmedAt: "2026-10-02T14:06:00.000Z",
+          proposalHash: freshProposal.proposalHash, acknowledgedDraftRaw: freshDraftRaw },
+        expect: (r) => r.invalid === true && r.code === "transition_id_mismatch",
+      },
+      {
+        name: "mismatched external successorProgramId",
+        args: { proposal: freshProposal, transitionId: freshProposal.transitionId,
+          successorProgramId: "prog_attacker_choice", confirmedAt: "2026-10-02T14:06:00.000Z",
+          proposalHash: freshProposal.proposalHash, acknowledgedDraftRaw: freshDraftRaw },
+        expect: (r) => r.invalid === true && r.code === "successor_id_mismatch",
+      },
+      {
+        name: "missing confirmedAt",
+        args: { proposal: freshProposal, transitionId: freshProposal.transitionId,
+          successorProgramId: freshProposal.successor.programId,
+          proposalHash: freshProposal.proposalHash, acknowledgedDraftRaw: freshDraftRaw },
+        expect: (r) => r.invalid === true && r.code === "confirmed_at_missing",
+      },
+      {
+        name: "early-idempotency-shaped bogus proposal (caller strings only)",
+        args: { proposal: { nonsense: true }, transitionId: freshProposal.transitionId,
+          successorProgramId: freshProposal.successor.programId, confirmedAt: "2026-10-02T14:06:00.000Z",
+          proposalHash: freshProposal.proposalHash, acknowledgedDraftRaw: freshDraftRaw },
+        expect: (r) => r.invalid === true && (r.code === "proposal_not_preview" || r.code === "proposal_missing"),
+      },
+      {
+        name: "missing acknowledgedDraftRaw key",
+        args: { proposal: freshProposal, transitionId: freshProposal.transitionId,
+          successorProgramId: freshProposal.successor.programId, confirmedAt: "2026-10-02T14:06:00.000Z",
+          proposalHash: freshProposal.proposalHash },
+        expect: (r) => r.invalid === true && r.code === "acknowledged_draft_missing",
+      },
+    ];
+
+    const replicasBeforeNegatives = await readReplicas(page);
+    for (const nc of negativeCases) {
+      const r = await confirmTransition(page, nc.args);
+      check(nc.expect(r), `negative pin rejected: ${nc.name}`, r);
+      check(r.localOk === false && r.idbOk === false && r.committed === false, `negative pin left nothing committed: ${nc.name}`, r);
+    }
+
+    // Freshly rehashed semantic-invalid proposal (tampered diff, valid hash).
+    const invalidProposal = await page.evaluate((p) => {
+      const cloned = JSON.parse(JSON.stringify(p));
+      cloned.diff.prescriptions[0].after.sets = 999;
+      return cloned;
+    }, freshProposal);
     const invalidHash = await Transition.hashProposal(invalidProposal);
     invalidProposal.proposalHash = invalidHash;
-
-    const invalidResult = await page.evaluate(async (args) => {
-      return window.__repforgeProgramTransition.confirmTransition(args);
-    }, {
+    const invalidResult = await confirmTransition(page, {
       proposal: invalidProposal,
       transitionId: invalidProposal.transitionId,
       successorProgramId: invalidProposal.successor.programId,
-      confirmedAt: "2026-10-02T14:05:00.000Z",
+      confirmedAt: "2026-10-02T14:06:30.000Z",
       proposalHash: invalidHash,
-      acknowledgedDraftRaw: preDraftRaw,
+      acknowledgedDraftRaw: freshDraftRaw,
     });
+    check(invalidResult?.localOk === false && invalidResult?.idbOk === false && invalidResult?.committed === false,
+      "freshly rehashed semantic-invalid proposal rejected in lock-held preflight", invalidResult);
+    check(invalidResult?.invalid === true || String(invalidResult?.code || "").includes("mismatch"),
+      "semantic-invalid proposal returns a typed invalid result", invalidResult);
 
-    check(invalidResult?.localOk === false && invalidResult?.idbOk === false, "rehashed invalid proposal rejected in preflight");
-    check(invalidResult?.invalid === true || invalidResult?.code?.includes("invalid"), "rehashed invalid proposal returns typed invalid result");
-
-    const stateAfterInvalid = await page.evaluate(() => ({
-      id: window.state?.programMeta?.id,
-      rev: window.state?._storageRevision,
-      historyLen: (window.state?.programHistory || []).length,
-    }));
-    check(stateAfterInvalid.id === predecessorProgramId, "invalid proposal produced zero mutation on active program");
-    check(stateAfterInvalid.historyLen === 0, "invalid proposal created zero archives");
-
-    // 4c. Acknowledged draft raw mismatch
-    const draftMismatchResult = await page.evaluate(async (args) => {
-      return window.__repforgeProgramTransition.confirmTransition(args);
-    }, {
-      proposal,
-      transitionId: proposal.transitionId,
-      successorProgramId: proposal.successor.programId,
-      confirmedAt: "2026-10-02T14:05:00.000Z",
-      proposalHash: proposal.proposalHash,
+    // Draft-mismatch is still a typed conflict.
+    const draftMismatchResult = await confirmTransition(page, {
+      proposal: freshProposal,
+      transitionId: freshProposal.transitionId,
+      successorProgramId: freshProposal.successor.programId,
+      confirmedAt: "2026-10-02T14:07:00.000Z",
+      proposalHash: freshProposal.proposalHash,
       acknowledgedDraftRaw: JSON.stringify({ mismatched: true }),
     });
-
     check(draftMismatchResult?.localOk === false && draftMismatchResult?.idbOk === false, "draft mismatch rejected");
     check(draftMismatchResult?.draftConflict === true || draftMismatchResult?.conflict === true, "draft mismatch returns draftConflict");
 
+    const replicasAfterNegatives = await readReplicas(page);
+    check(replicasAfterNegatives.local.revision === replicasBeforeNegatives.local.revision &&
+          replicasAfterNegatives.idb.revision === replicasBeforeNegatives.idb.revision,
+      "no negative case advanced the durable revision in either replica",
+      { before: replicasBeforeNegatives.local.revision, afterLocal: replicasAfterNegatives.local.revision, afterIdb: replicasAfterNegatives.idb.revision });
+    check(replicasAfterNegatives.local.programId === predecessorProgramId && replicasAfterNegatives.idb.programId === predecessorProgramId,
+      "both replicas still hold the predecessor programId after every negative case");
+    check(replicasAfterNegatives.local.transitionIn == null && replicasAfterNegatives.idb.transitionIn == null,
+      "neither replica gained a transition-in after any negative case");
+    check(replicasAfterNegatives.local.historyLen === 0 && replicasAfterNegatives.idb.historyLen === 0,
+      "neither replica gained an archive after any negative case");
+    check(isDeepStrictEqual(replicasAfterNegatives.local.log, logSentinel) && isDeepStrictEqual(replicasAfterNegatives.idb.log, logSentinel),
+      "both replicas retain the exact log sentinel after every negative case");
+    const draftAfterNegatives = await page.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
+    check(draftAfterNegatives === freshDraftRaw, "DraftV2 raw unchanged across every negative case");
+
     // -------------------------------------------------------------------------
-    // Step 5: Confirm valid transition via production adapter
+    // Step 5: Confirm the valid transition via production adapter
     // -------------------------------------------------------------------------
     console.log("\n5. Confirm valid transition through production adapter");
     const confirmedAt = "2026-10-02T14:10:00.000Z";
-    const commitResult = await page.evaluate(async (args) => {
-      return window.__repforgeProgramTransition.confirmTransition(args);
-    }, {
-      proposal,
-      transitionId: proposal.transitionId,
-      successorProgramId: proposal.successor.programId,
+    const commitResult = await confirmTransition(page, {
+      proposal: freshProposal,
+      transitionId: freshProposal.transitionId,
+      successorProgramId: freshProposal.successor.programId,
       confirmedAt,
-      proposalHash: proposal.proposalHash,
-      acknowledgedDraftRaw: preDraftRaw,
+      proposalHash: freshProposal.proposalHash,
+      acknowledgedDraftRaw: freshDraftRaw,
     });
-
-    check(commitResult?.localOk === true || commitResult?.idbOk === true, "confirmTransition successfully commits");
+    check(commitResult?.localOk === true || commitResult?.idbOk === true, "confirmTransition successfully commits", commitResult);
     check(commitResult?.committed === true, "confirmTransition returns committed: true");
-
     await page.evaluate(() => window.__repforgeStorage.flush());
 
     // -------------------------------------------------------------------------
-    // Step 6: Reload page and assert durable state, archive, and draft preservation
+    // Step 6: Reload and assert durable state, the single linked archive, the
+    // log sentinel identity, and exact DraftV2 preservation in both replicas.
     // -------------------------------------------------------------------------
-    console.log("\n6. Reload and assert durable state, archive, and DraftV2 exact preservation");
+    console.log("\n6. Reload and assert durable successor state, archive, log identity, DraftV2");
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
 
-    const postState = await page.evaluate(() => window.state);
-    const postLocalStorageRaw = await page.evaluate((k) => localStorage.getItem(k), KEY);
-    const postIdbState = await readIdbState(page);
+    const postLive = await page.evaluate(() => window.__repforgeWorkoutDraft.state());
+    const replicas = await readReplicas(page);
 
-    check(postState?.programMeta?.id === successorProgramId, "active program is the successor programId");
-    check(postState?.programMeta?.daysPerWeek === 3, "successor daysPerWeek is 3");
-    check(postState?.programMeta?.compilerContext?.frequency === 3, "successor compilerContext frequency is 3");
-    check(postState?.programMeta?.compilerContext?.sessionMinutes === 90, "successor compilerContext sessionMinutes is 90");
-    check(postState?.programMeta?.programStructure?.provenance?.blueprintId === "balanced_3_v1", "successor blueprint is balanced_3_v1");
+    check(postLive?.programMeta?.id === successorProgramId, "active program is the successor programId");
+    check(postLive?.programMeta?.daysPerWeek === 3, "successor daysPerWeek is 3");
+    check(postLive?.programMeta?.compilerContext?.frequency === 3, "successor compilerContext frequency is 3");
+    check(postLive?.programMeta?.compilerContext?.sessionMinutes === 90, "successor compilerContext sessionMinutes is 90");
+    check(postLive?.programMeta?.programStructure?.provenance?.blueprintId === "balanced_3_v1", "successor blueprint is balanced_3_v1");
 
-    // Transition-in record on successor
-    const transitionIn = postState?.programMeta?.transitionIn;
+    // Successor carries the predecessor's EXACT entrySource object (J52-10).
+    check(isDeepStrictEqual(postLive?.programMeta?.entrySource, predecessorEntrySource),
+      "successor entrySource is the predecessor's exact object (no invented fingerprint)", {
+        successor: postLive?.programMeta?.entrySource, predecessor: predecessorEntrySource,
+      });
+
+    const transitionIn = postLive?.programMeta?.transitionIn;
     check(isPlainObject(transitionIn), "successor programMeta carries transitionIn object");
     check(transitionIn?.status === "committed", "transitionIn status is committed");
-    check(transitionIn?.confirmedAt === confirmedAt, "transitionIn confirmedAt matches");
-    check(transitionIn?.proposalHash === proposal.proposalHash, "transitionIn proposalHash matches proposal");
+    check(transitionIn?.confirmedAt === confirmedAt, "transitionIn confirmedAt matches the supplied value");
+    check(transitionIn?.proposalHash === freshProposal.proposalHash, "transitionIn proposalHash matches proposal");
     check(transitionIn?.transitionId === transitionId, "transitionIn transitionId matches");
     check(transitionIn?.successor?.programId === successorProgramId, "transitionIn successor programId matches");
     check(transitionIn?.predecessor?.programId === predecessorProgramId, "transitionIn predecessor programId matches");
+    check(transitionIn?.archiveId === predecessorProgramId, "transitionIn archiveId is the predecessor programId (deterministic, not caller-chosen)");
 
-    // Program history archive entry
-    const history = postState?.programHistory || [];
+    const history = postLive?.programHistory || [];
     check(history.length === 1, "exactly one archive entry exists in programHistory", history.length);
     const archive = history[0];
-    check(archive?.id === predecessorProgramId || archive?.archiveId === predecessorProgramId, "archive links to predecessor program");
+    check(archive?.id === predecessorProgramId && archive?.archiveId === predecessorProgramId, "archive links to predecessor program");
     check(archive?.transitionOut?.schemaVersion === 1, "archive transitionOut has schemaVersion 1");
     check(archive?.transitionOut?.transitionId === transitionId, "archive transitionOut transitionId matches");
-    check(archive?.transitionOut?.proposalHash === proposal.proposalHash, "archive transitionOut proposalHash matches");
+    check(archive?.transitionOut?.proposalHash === freshProposal.proposalHash, "archive transitionOut proposalHash matches");
     check(archive?.transitionOut?.successorProgramId === successorProgramId, "archive transitionOut successorProgramId matches");
+    check(isDeepStrictEqual(archive?.program, undefined) === false, "archive retains the predecessor program definition");
 
-    // Replicas match
-    const parsedLocal = JSON.parse(postLocalStorageRaw || "{}");
-    check(parsedLocal.programMeta?.id === successorProgramId, "localStorage replica has successor programId");
-    check(postIdbState?.programMeta?.id === successorProgramId, "IndexedDB replica has successor programId");
-    check(parsedLocal._storageRevision === postIdbState?._storageRevision, "localStorage and IndexedDB revisions match", {
-      local: parsedLocal._storageRevision,
-      idb: postIdbState?._storageRevision,
-    });
-    check(isDeepStrictEqual(parsedLocal.programMeta?.transitionIn, postIdbState?.programMeta?.transitionIn), "transitionIn matches across localStorage and IndexedDB");
-    check(isDeepStrictEqual(parsedLocal.programHistory, postIdbState?.programHistory), "programHistory matches across localStorage and IndexedDB");
+    // Both replicas agree on the semantic transition fields and revision.
+    check(replicas.local.programId === successorProgramId, "localStorage replica has successor programId");
+    check(replicas.idb.programId === successorProgramId, "IndexedDB replica has successor programId");
+    check(replicas.local.revision === replicas.idb.revision, "localStorage and IndexedDB revisions match",
+      { local: replicas.local.revision, idb: replicas.idb.revision });
+    check(isDeepStrictEqual(replicas.local.transitionIn, replicas.idb.transitionIn), "transitionIn matches across replicas");
+    check(isDeepStrictEqual(replicas.local.programHistory, replicas.idb.programHistory), "programHistory matches across replicas");
 
-    // Exact DraftV2 preservation
+    // The log sentinel identity and content survive the transition in every store.
+    const liveLog = postLive?.log || [];
+    check(liveLog.length === 1 && liveLog[0].session === logSeed.sessionId, "live clone retains exactly the sentinel session");
+    check(isDeepStrictEqual(liveLog, logSentinel), "live clone log row is byte-identical in content to the pre-transition sentinel");
+    check(isDeepStrictEqual(replicas.local.log, logSentinel), "localStorage replica retains the exact log sentinel");
+    check(isDeepStrictEqual(replicas.idb.log, logSentinel), "IndexedDB replica retains the exact log sentinel");
+    check(liveLog[0].exerciseId === logSentinel[0].exerciseId && liveLog[0].day === logSentinel[0].day,
+      "sentinel exercise / slot identity preserved");
+
+    // Exact DraftV2 preservation.
     const postDraftRaw = await page.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
     const postCheckpointRaw = await page.evaluate((k) => localStorage.getItem(k), CHECKPOINT_KEY);
     check(postDraftRaw === preDraftRaw, "DraftV2 raw in localStorage is byte-for-byte identical to pre-transition");
     check(postCheckpointRaw === preCheckpointRaw, "DraftV2 checkpoint raw in localStorage is byte-for-byte identical to pre-transition");
 
     const parsedDraft = WorkoutDraft.parse(postDraftRaw);
-    check(parsedDraft?.kind === "valid" && parsedDraft?.draft?.program?.programId === predecessorProgramId, "workout draft remains bound to predecessor programId", {
-      kind: parsedDraft?.kind,
-      draftProgramId: parsedDraft?.draft?.program?.programId,
-      predecessorProgramId,
-    });
-    check(parsedDraft?.draft?.session?.notes === "Draft session notes before sibling transition", "draft notes preserved", {
-      notes: parsedDraft?.draft?.session?.notes,
-    });
+    check(parsedDraft?.kind === "valid" && parsedDraft?.draft?.program?.programId === predecessorProgramId,
+      "workout draft remains bound to predecessor programId", {
+        kind: parsedDraft?.kind, draftProgramId: parsedDraft?.draft?.program?.programId, predecessorProgramId,
+      });
+    check(parsedDraft?.draft?.session?.notes === "Draft session notes before sibling transition", "draft notes preserved");
 
     // -------------------------------------------------------------------------
     // Step 7: Idempotent retry
     // -------------------------------------------------------------------------
-    console.log("\n7. Idempotent retry returns already-committed result without second archive");
-    const revisionBeforeRetry = postState._storageRevision;
-    const retryResult = await page.evaluate(async (args) => {
-      return window.__repforgeProgramTransition.confirmTransition(args);
-    }, {
-      proposal,
-      transitionId: proposal.transitionId,
-      successorProgramId: proposal.successor.programId,
+    console.log("\n7. Idempotent retry returns already-committed without a second archive");
+    const revisionBeforeRetry = replicas.local.revision;
+    const retryResult = await confirmTransition(page, {
+      proposal: freshProposal,
+      transitionId: freshProposal.transitionId,
+      successorProgramId: freshProposal.successor.programId,
       confirmedAt,
-      proposalHash: proposal.proposalHash,
+      proposalHash: freshProposal.proposalHash,
       acknowledgedDraftRaw: preDraftRaw,
     });
-
-    check(retryResult?.alreadyCommitted === true, "idempotent retry reports alreadyCommitted: true");
+    check(retryResult?.alreadyCommitted === true, "idempotent retry reports alreadyCommitted: true", retryResult);
     check(retryResult?.committed === true, "idempotent retry reports committed: true");
-
     await page.evaluate(() => window.__repforgeStorage.flush());
 
-    const stateAfterRetry = await page.evaluate(() => ({
-      rev: window.state?._storageRevision,
-      historyLen: (window.state?.programHistory || []).length,
-      programId: window.state?.programMeta?.id,
-      draftRaw: localStorage.getItem("repforge_draft_v1"),
-    }));
-
-    check(stateAfterRetry.rev === revisionBeforeRetry, "idempotent retry does not increment storage revision");
-    check(stateAfterRetry.historyLen === 1, "idempotent retry does not create a second archive entry");
-    check(stateAfterRetry.programId === successorProgramId, "active program remains successor");
-    check(stateAfterRetry.draftRaw === preDraftRaw, "DraftV2 raw unchanged after idempotent retry");
+    const afterRetry = await readReplicas(page);
+    const liveAfterRetry = await page.evaluate(() => {
+      const s = window.__repforgeWorkoutDraft.state();
+      return { rev: s._storageRevision, historyLen: (s.programHistory || []).length, programId: s.programMeta?.id, log: s.log || [] };
+    });
+    check(afterRetry.local.revision === revisionBeforeRetry && afterRetry.idb.revision === revisionBeforeRetry,
+      "idempotent retry did not increment the durable revision in either replica");
+    check(liveAfterRetry.historyLen === 1 && afterRetry.local.historyLen === 1 && afterRetry.idb.historyLen === 1,
+      "idempotent retry did not create a second archive entry");
+    check(liveAfterRetry.programId === successorProgramId, "active program remains the successor after retry");
+    check(isDeepStrictEqual(liveAfterRetry.log, logSentinel) &&
+          isDeepStrictEqual(afterRetry.local.log, logSentinel) &&
+          isDeepStrictEqual(afterRetry.idb.log, logSentinel),
+      "the log sentinel identity and content survive success + reload + retry in every store");
+    const retryDraftRaw = await page.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
+    check(retryDraftRaw === preDraftRaw, "DraftV2 raw unchanged after idempotent retry");
 
     await context.close();
   } finally {
@@ -487,13 +680,7 @@ async function main() {
   }
 
   console.log(`\nResults: ${passed} passed, ${failures.length} failed`);
-  if (failures.length > 0) {
-    process.exit(1);
-  }
-}
-
-function isPlainObject(v) {
-  return v !== null && typeof v === "object" && !Array.isArray(v);
+  if (failures.length > 0) process.exit(1);
 }
 
 main().catch((err) => {
