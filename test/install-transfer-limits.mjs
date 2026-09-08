@@ -697,6 +697,25 @@ const browserProducerValidation = browserContract.validateEnvelope(browserProduc
 assert.equal(jsonResult(browserProducerValidation), jsonResult(producerValidation), "producer envelope Node/browser parity");
 const browserProducerIntegrity = await browserContract.validateEnvelopeIntegrity(browserProducerEnvelope, webcrypto);
 assert.equal(jsonResult(browserProducerIntegrity), jsonResult(producerIntegrity), "producer integrity Node/browser parity");
+const legacyLogicalDatesBase = structuredClone(producerEnvelope);
+legacyLogicalDatesBase.durableState.programMeta.created = "2026-09-07";
+legacyLogicalDatesBase.durableState.customExercises[0].created = "2026-09-10";
+legacyLogicalDatesBase.workoutDraft.session.startedAt = "2026-09-08";
+legacyLogicalDatesBase.workoutDraft.session.updatedAt = "2026-09-08";
+const legacyLogicalDates = await withCanonicalPayloadHash(legacyLogicalDatesBase);
+const legacyLogicalDatesValidation = contract.validateEnvelope(legacyLogicalDates);
+assertResultShape(legacyLogicalDatesValidation, true, "producer legacy logical date strings");
+const legacyLogicalDatesIntegrity = await contract.validateEnvelopeIntegrity(legacyLogicalDates, webcrypto);
+assertResultShape(legacyLogicalDatesIntegrity, true, "producer legacy logical date integrity");
+const browserLegacyLogicalDates = browserValue(JSON.stringify(legacyLogicalDates));
+assert.equal(jsonResult(browserContract.validateEnvelope(browserLegacyLogicalDates)), jsonResult(legacyLogicalDatesValidation), "legacy logical date Node/browser parity");
+assert.equal(jsonResult(await browserContract.validateEnvelopeIntegrity(browserLegacyLogicalDates, webcrypto)), jsonResult(legacyLogicalDatesIntegrity), "legacy logical date integrity Node/browser parity");
+const additiveSettingsVersion = structuredClone(producerEnvelope);
+additiveSettingsVersion.durableState.settings.schemaVersion = 99;
+assertResultShape(contract.validateEnvelope(additiveSettingsVersion), true, "additive logical settings schemaVersion");
+const opaqueCandidateVersion = structuredClone(producerEnvelope);
+opaqueCandidateVersion.programEntryDraft.versions.context = "999";
+assertResultShape(contract.validateEnvelope(opaqueCandidateVersion), true, "opaque candidate context version pin");
 for (const preferenceCase of producerCases.uiPreferences) {
   const candidate = structuredClone(producerEnvelope);
   candidate.uiPreferences = preferenceCase.value;
@@ -733,6 +752,9 @@ assert.equal(contract.validateEnvelope(unsupportedDraftNested).code, contract.ER
 const unsupportedCandidateNested = structuredClone(producerEnvelope);
 unsupportedCandidateNested.programEntryDraft.result.preview.programStructure = { schemaVersion: 2 };
 assert.equal(contract.validateEnvelope(unsupportedCandidateNested).code, contract.ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION);
+const unsupportedDurableStructure = structuredClone(producerEnvelope);
+unsupportedDurableStructure.durableState.programMeta.programStructure.schemaVersion = 99;
+assert.equal(contract.validateEnvelope(unsupportedDurableStructure).code, contract.ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION);
 const longDraftIdentity = structuredClone(producerEnvelope);
 longDraftIdentity.workoutDraft.exerciseOrder[0] = "x".repeat(257);
 assert.equal(contract.validateEnvelope(longDraftIdentity).code, contract.ERROR_CODES.IDENTIFIER_TOO_LONG);
@@ -748,6 +770,16 @@ assert.equal(contract.validateEnvelope(providerSession).code, contract.ERROR_COD
 const timestampCanary = structuredClone(producerEnvelope);
 timestampCanary.createdAt = "2026-09-08 18:00:00Z";
 assertResultShape(contract.validateEnvelope(timestampCanary), false, "strict UTC envelope timestamp");
+for (const [path, mutate] of [
+  ["durableState.programmingContext.reviewedAt", value => { value.durableState.programmingContext.reviewedAt = "2026-09-08"; }],
+  ["programEntryDraft.createdAt", value => { value.programEntryDraft.createdAt = "2026-09-08"; }],
+  ["telemetryIdentity.createdAt", value => { value.telemetryIdentity.createdAt = "2026-09-08"; }],
+  ["uiPreferences.installBannerDismissedAt", value => { value.uiPreferences.installBannerDismissedAt = "2026-09-08"; }],
+]) {
+  const candidate = structuredClone(producerEnvelope);
+  mutate(candidate);
+  assertResultShape(contract.validateEnvelope(candidate), false, `strict UTC protocol timestamp ${path}`);
+}
 
 console.log("  redaction cases cover service, static-host, response, telemetry, and errors");
 const requiredForbiddenFields = new Set(["token", "claimId", "ciphertext", "envelope", "body", "payload", "fullUrl", "cookie"]);

@@ -705,65 +705,32 @@
     return isPlainObject(value) && fields.every(field => hasOwn(value, field));
   }
 
-  function validateTimestampFields(value) {
-    let invalid = false;
-    const active = new Set();
-    function visit(node) {
-      if (invalid || node === null || typeof node !== "object") return;
-      if (active.has(node)) {
-        invalid = true;
-        return;
-      }
-      active.add(node);
-      if (Array.isArray(node)) {
-        for (const item of node) visit(item);
-      } else {
-        for (const key of Object.keys(node)) {
-          const child = node[key];
-          if (["createdAt", "updatedAt", "reviewedAt", "selectedAt", "created", "updated", "startedAt", "completedAt"].includes(key)) {
-            if (child === null && key === "completedAt") continue;
-            if (!isUtcIsoTimestamp(child)) {
-              invalid = true;
-              break;
-            }
-          }
-          visit(child);
-          if (invalid) break;
-        }
-      }
-      active.delete(node);
+  function schemaVersionErrorAt(value, path) {
+    let node = value;
+    for (const key of path) {
+      if (!isPlainObject(node) || !hasOwn(node, key)) return null;
+      node = node[key];
     }
-    visit(value);
-    return invalid;
+    return node === 1 ? null : ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION;
   }
 
-  function nestedVersionError(value) {
-    let invalid = false;
-    const active = new Set();
-    function visit(node, rootNode) {
-      if (invalid || node === null || typeof node !== "object") return;
-      if (active.has(node)) {
-        invalid = true;
-        return;
-      }
-      active.add(node);
-      if (Array.isArray(node)) {
-        for (const item of node) visit(item, false);
-      } else {
-        for (const key of Object.keys(node)) {
-          const child = node[key];
-          if (!rootNode && key === "schemaVersion" && child !== 1) {
-            invalid = true;
-            break;
-          }
-          visit(child, false);
-          if (invalid) break;
-        }
-      }
-      active.delete(node);
+  // These are the versioned producer sections whose version fields carry
+  // reconstruction meaning at this boundary. Additive logical objects may
+  // carry their own schemaVersion fields without being treated as wire
+  // protocol versions (for example durableState.settings).
+  function previewSchemaVersionError(value) {
+    let error = schemaVersionErrorAt(value, ["programStructure", "schemaVersion"]);
+    if (error) return error;
+    const rows = [];
+    if (Array.isArray(value?.program)) rows.push(...value.program);
+    if (Array.isArray(value?.days)) {
+      for (const day of value.days) if (Array.isArray(day?.exercises)) rows.push(...day.exercises);
     }
-    visit(value, true);
-    return invalid;
+    for (const row of rows) {
+      error = schemaVersionErrorAt(row, ["progression", "schemaVersion"]);
+      if (error) return error;
+    }
+    return null;
   }
 
   function validateProgrammingContext(value) {
@@ -813,7 +780,7 @@
     for (const field of ["load", "reps", "effort"]) if (typeof value.touched[field] !== "boolean") return false;
     if (hasOwn(value.touched, "rir") && typeof value.touched.rir !== "boolean") return false;
     if (value.completion !== "pending" &&
-      (!isPlainObject(value.completion) || !isUtcIsoTimestamp(value.completion.completedAt))) return false;
+      (!isPlainObject(value.completion) || !validString(value.completion.completedAt, true))) return false;
     return true;
   }
 
@@ -847,7 +814,8 @@
         ? ERROR_CODES.UNSUPPORTED_WORKOUT_DRAFT_VERSION
         : ERROR_CODES.INVALID_SCHEMA_VERSION;
     }
-    if (nestedVersionError(value)) return ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION;
+    const programVersionError = schemaVersionErrorAt(value, ["program", "schemaVersion"]);
+    if (programVersionError) return programVersionError;
     if (hasOwn(value, "writer") || hasOwn(value, "revision")) return ERROR_CODES.FORBIDDEN_FIELD;
     const keys = exactKeys(value, DRAFT_KEYS);
     if (keys) return keys;
@@ -861,7 +829,7 @@
       !["kg", "lb"].includes(value.program.unit) || !["numeric", "effort"].includes(value.program.rirMode)) {
       return ERROR_CODES.INVALID_ENVELOPE;
     }
-    if (!isUtcIsoTimestamp(value.session.startedAt) || !isUtcIsoTimestamp(value.session.updatedAt) ||
+    if (!validString(value.session.startedAt, true) || !validString(value.session.updatedAt, true) ||
       (value.session.bodyweight !== null && !validString(value.session.bodyweight)) || !validString(value.session.notes) ||
       (value.session.selectedExerciseId !== null && !validIdentifier(value.session.selectedExerciseId, true)) ||
       !["active", "finishing"].includes(value.session.status) || !requiredObject(value.session.contextTouched, ["day", "date", "sessionNotes", "bodyweight"])) {
@@ -876,7 +844,7 @@
     if (exerciseKeys.length !== ids.length || exerciseKeys.some(id => !unique.has(id))) return ERROR_CODES.INVALID_ENVELOPE;
     if (value.session.selectedExerciseId !== null && !unique.has(value.session.selectedExerciseId)) return ERROR_CODES.INVALID_ENVELOPE;
     if (!ids.every(id => validateDraftExercise(value.exercises[id], id))) return ERROR_CODES.INVALID_ENVELOPE;
-    return validateTimestampFields(value) ? ERROR_CODES.INVALID_ENVELOPE : null;
+    return null;
   }
 
   function validateProgramEntryDraft(value) {
@@ -888,7 +856,6 @@
         : ERROR_CODES.INVALID_SCHEMA_VERSION;
     }
     if (hasOwn(value, "ownerId") || hasOwn(value, "revision") || hasOwn(value, "state")) return ERROR_CODES.FORBIDDEN_FIELD;
-    if (nestedVersionError(value)) return ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION;
     const keys = exactKeys(value, [
       "schemaVersion", "draftId", "route", "step", "answers", "legacyHints", "result", "versions",
       "activeProgramRevisionAtStart", "createdAt", "updatedAt",
@@ -925,9 +892,11 @@
       const result = value.result;
       if (value.route === null) return ERROR_CODES.INVALID_ENVELOPE;
       if (result.schemaVersion !== 1 || result.route !== value.route || !validIdentifier(result.fingerprint, true) ||
-        !validIdentifier(result.answersFingerprint, true) || !isPlainObject(result.preview) || nestedVersionError(result)) {
+        !validIdentifier(result.answersFingerprint, true) || !isPlainObject(result.preview)) {
         return result.schemaVersion !== 1 ? ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION : ERROR_CODES.INVALID_ENVELOPE;
       }
+      const previewVersionError = previewSchemaVersionError(result.preview);
+      if (previewVersionError) return previewVersionError;
       const commonResultKeys = new Set(["schemaVersion", "route", "fingerprint", "answersFingerprint", "name", "namePt", "source", "id", "preview"]);
       const routeResultKeys = {
         recommend: new Set(["selected", "candidates", "alternative", "diagnostics", "explanation", "telemetry", "serviceVersion"]),
@@ -962,7 +931,7 @@
       }
       if (hasOwn(result.preview, "programStructure") && !isPlainObject(result.preview.programStructure)) return ERROR_CODES.INVALID_ENVELOPE;
     }
-    return validateTimestampFields(value) ? ERROR_CODES.INVALID_ENVELOPE : null;
+    return null;
   }
 
   function validateDurableState(value) {
@@ -974,6 +943,8 @@
       const contextError = validateProgrammingContext(value.programmingContext);
       if (contextError) return contextError;
     }
+    const programStructureVersionError = schemaVersionErrorAt(value, ["programMeta", "programStructure", "schemaVersion"]);
+    if (programStructureVersionError) return programStructureVersionError;
     const collectionChecks = [
       ["log", LIMITS.logRows, ERROR_CODES.LOG_ROW_TOO_LARGE],
       ["program", LIMITS.programRows, ERROR_CODES.PROGRAM_TOO_LARGE],
@@ -986,8 +957,6 @@
       if (collection.length > limit) return code;
       if (collection.some(row => !isPlainObject(row))) return ERROR_CODES.INVALID_ENVELOPE;
     }
-    if (nestedVersionError(value)) return ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION;
-    if (validateTimestampFields(value)) return ERROR_CODES.INVALID_ENVELOPE;
     for (const row of value.log) {
       let rowJson;
       try {
@@ -1034,8 +1003,7 @@
     if (sectionError) return fail(sectionError);
     if (!isPlainObject(value.uiPreferences) ||
       (hasOwn(value.uiPreferences, "theme") && !["system", "light", "dark"].includes(value.uiPreferences.theme)) ||
-      (hasOwn(value.uiPreferences, "installBannerDismissedAt") && !isUtcIsoTimestamp(value.uiPreferences.installBannerDismissedAt)) ||
-      validateTimestampFields(value.uiPreferences)) {
+      (hasOwn(value.uiPreferences, "installBannerDismissedAt") && !isUtcIsoTimestamp(value.uiPreferences.installBannerDismissedAt))) {
       return fail(ERROR_CODES.INVALID_ENVELOPE);
     }
     if (!isPlainObject(value.analytics) || exactKeys(value.analytics, ANALYTICS_KEYS) ||
