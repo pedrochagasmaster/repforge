@@ -102,15 +102,21 @@ async function boundedBody(request) {
 }
 
 function healthStub(env) {
-  return env.TRANSFER_HEALTH
-    ? euStub(env.TRANSFER_HEALTH, "global", { allowLocalFallback: env.TRANSFER_LOCAL_TEST_EU === "true" })
-    : null;
+  if (!env.TRANSFER_HEALTH) return null;
+  try {
+    return euStub(env.TRANSFER_HEALTH, "global", { allowLocalFallback: env.TRANSFER_LOCAL_TEST_EU === "true" });
+  } catch {
+    return null;
+  }
 }
 
 function registryStub(env) {
-  return env.TRANSFER_REGISTRY
-    ? euStub(env.TRANSFER_REGISTRY, "global", { allowLocalFallback: env.TRANSFER_LOCAL_TEST_EU === "true" })
-    : null;
+  if (!env.TRANSFER_REGISTRY) return null;
+  try {
+    return euStub(env.TRANSFER_REGISTRY, "global", { allowLocalFallback: env.TRANSFER_LOCAL_TEST_EU === "true" });
+  } catch {
+    return null;
+  }
 }
 
 async function consumeRoleRate(env, role) {
