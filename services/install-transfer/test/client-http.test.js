@@ -16,6 +16,14 @@ const origin = "https://taurifer.example";
 const location = { href: "https://pedrochagasmaster.github.io/repforge/index.html" };
 const now = "2026-09-08T19:00:00.000Z";
 
+const HASH_PROBE = Object.freeze({
+  "10": "ten",
+  "2": "two",
+  unicode: "Músculo 🐂",
+  array: ["first", "二", { "10": "nested-ten", "2": "nested-two" }],
+});
+const HASH_PROBE_DIGEST = "7929b1ea074b14054d61117434692a4b3f94fd4e19b454a5bc58a898cfda3d55";
+
 // These are the independent fault oracles for this boundary. The client is
 // allowed to expose only the closed result codes below; service responses and
 // clone data stay inside the test's assertions and are never logged.
@@ -30,6 +38,32 @@ const EXPECTED_FAULTS = Object.freeze({
 
 function clone(value) {
   return value == null ? value : structuredClone(value);
+}
+
+// This serializer is deliberately local to the HTTP proof. It is an
+// independent oracle for the six-section digest: the client and Worker use
+// the published contract serializer, while this test sorts object keys and
+// preserves array order itself before hashing with Node's crypto.
+function independentCanonicalJson(value, active = new Set()) {
+  if (value === null) return "null";
+  if (typeof value === "string") return JSON.stringify(value);
+  if (typeof value === "boolean") return value ? "true" : "false";
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new TypeError("independent oracle rejects non-finite numbers");
+    return JSON.stringify(value);
+  }
+  if (typeof value !== "object" || active.has(value)) throw new TypeError("independent oracle rejects non-JSON values");
+  active.add(value);
+  let result;
+  if (Array.isArray(value)) {
+    if (Object.keys(value).length !== value.length) throw new TypeError("independent oracle rejects sparse arrays");
+    result = `[${value.map((entry) => independentCanonicalJson(entry, active)).join(",")}]`;
+  } else {
+    const parts = Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${independentCanonicalJson(value[key], active)}`);
+    result = `{${parts.join(",")}}`;
+  }
+  active.delete(value);
+  return result;
 }
 
 function markerStore(initial = null) {
@@ -209,11 +243,11 @@ function expectedCloneHash(sections) {
     analytics: sections.analytics,
     telemetryIdentity: sections.telemetryIdentity,
   };
-  return createHash("sha256").update(contract.canonicalJson(ordered)).digest("hex");
+  return createHash("sha256").update(independentCanonicalJson(ordered)).digest("hex");
 }
 
 function sectionHash(value) {
-  return createHash("sha256").update(contract.canonicalJson(value)).digest("hex");
+  return createHash("sha256").update(independentCanonicalJson(value)).digest("hex");
 }
 
 async function refreshHealth() {
@@ -283,6 +317,23 @@ describe("real client to local HTTP Worker transfer boundary", () => {
   beforeEach(async () => {
     await reset();
     await refreshHealth();
+  });
+
+  it("keeps the clone hash oracle independent across key order, Unicode, and array order", () => {
+    const reordered = {
+      array: ["first", "二", { "2": "nested-two", "10": "nested-ten" }],
+      unicode: "Músculo 🐂",
+      "2": "two",
+      "10": "ten",
+    };
+    expect(independentCanonicalJson(reordered)).toBe(independentCanonicalJson(HASH_PROBE));
+    expect(sectionHash(HASH_PROBE)).toBe(HASH_PROBE_DIGEST);
+    const numericMutation = { ...reordered, "2": "changed" };
+    expect(sectionHash(numericMutation)).not.toBe(HASH_PROBE_DIGEST);
+    const unicodeMutation = { ...reordered, unicode: "Músculo 🐂!" };
+    expect(sectionHash(unicodeMutation)).not.toBe(HASH_PROBE_DIGEST);
+    const arrayMutation = { ...reordered, array: [...reordered.array].reverse() };
+    expect(sectionHash(arrayMutation)).not.toBe(HASH_PROBE_DIGEST);
   });
 
   it("uses actual normalized producers and preserves an independently hashed six-section clone", async () => {
