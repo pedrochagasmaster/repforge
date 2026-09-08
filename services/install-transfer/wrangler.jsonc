@@ -12,13 +12,17 @@
       {
         "name": "RATE_LIMIT_BUCKETS",
         "class_name": "RateLimitDurableObject"
+      },
+      {
+        "name": "TRANSFER_HEALTH",
+        "class_name": "TransferHealthDurableObject"
       }
     ]
   },
   "migrations": [
     {
       "tag": "v1",
-      "new_sqlite_classes": ["TransferDurableObject", "RateLimitDurableObject"]
+      "new_sqlite_classes": ["TransferDurableObject", "RateLimitDurableObject", "TransferHealthDurableObject"]
     }
   ]
 }

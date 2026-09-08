@@ -2,13 +2,14 @@ import { env } from "cloudflare:workers";
 import { evictDurableObject, runInDurableObject } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { base64UrlEncode } from "../src/crypto.js";
+import { euStub } from "../src/namespaces.js";
 import { routeNameForIdempotencyKey } from "../src/routing.js";
 
 const routingKey = new Uint8Array(32).fill(1);
 const baseNow = Date.now();
 
 async function objectFor(key) {
-  return env.TRANSFER_OBJECTS.getByName(await routeNameForIdempotencyKey(key, routingKey));
+  return euStub(env.TRANSFER_OBJECTS, await routeNameForIdempotencyKey(key, routingKey));
 }
 
 async function rows(stub) {
@@ -193,5 +194,35 @@ describe("SQLite Durable Object encrypted record foundation", () => {
     expect((await rows(stub))[0]).toMatchObject({ state: "expired", envelope_ciphertext: null, envelope_aad: null, claim_digest: null });
     await expect(stub.purgeDue({ now: baseNow + 15 * 60_000 + 10 })).resolves.toEqual({ purged: true });
     expect(await rows(stub)).toHaveLength(0);
+  });
+
+  it("quarantines corrupt metadata on the real alarm path and reports deletion health failure", async () => {
+    const key = "alarm-corrupt-record-key";
+    const stub = await objectFor(key);
+    const created = await stub.createRecord({
+      idempotencyKey: key,
+      envelopeJson: JSON.stringify({ logical: "alarm-corruption" }),
+      now: baseNow,
+      requestedExpiry: baseNow + 10,
+    });
+    expect(created.kind).toBe("created");
+    await runInDurableObject(stub, (_instance, state) => {
+      // The expiry is intentionally impossible for the authenticated record;
+      // the alarm must not trust it to schedule another unbounded purge.
+      state.storage.sql.exec(
+        "UPDATE transfer_record SET expires_at = ?, tombstone_until = ? WHERE singleton = 1",
+        Number.MAX_SAFE_INTEGER,
+        Number.MAX_SAFE_INTEGER,
+      );
+    });
+
+    await runInDurableObject(stub, async (instance) => {
+      await instance.alarm();
+    });
+    expect(await rows(stub)).toHaveLength(0);
+    await expect(euStub(env.TRANSFER_HEALTH, "global").snapshot({ now: Date.now() })).resolves.toMatchObject({
+      deletionHealthy: false,
+      createsEnabled: false,
+    });
   });
 });

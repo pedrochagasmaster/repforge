@@ -1,4 +1,5 @@
 import { base64UrlDecode } from "./crypto.js";
+import { euStub } from "./namespaces.js";
 
 const HEALTHY = "healthy";
 const REQUIRED_HEALTH_FLAGS = Object.freeze([
@@ -40,18 +41,45 @@ export function serviceHealth(env) {
   );
   const operationalHealth = REQUIRED_HEALTH_FLAGS.every((name) => env[name] === HEALTHY);
   const killSwitch = env.TRANSFER_KILL_SWITCH === "true";
-  const createsEnabled = configurationReady
-    && operationalHealth
-    && env.TRANSFER_CREATES_ENABLED === "true"
-    && !killSwitch;
   return {
     configurationReady,
     operationalHealth,
-    createsEnabled,
+    // Static environment labels are only one input. A fresh lease from the
+    // owner-controlled health object is also required before a create can be
+    // admitted; this value deliberately remains false in the sync helper.
+    createsEnabled: false,
     killSwitch,
   };
 }
 
 export function createsAreEnabled(env) {
   return serviceHealth(env).createsEnabled;
+}
+
+export async function operationalServiceHealth(env, { now = Date.now() } = {}) {
+  const staticHealth = serviceHealth(env);
+  let evidence = null;
+  try {
+    if (env.TRANSFER_HEALTH) {
+      evidence = await euStub(env.TRANSFER_HEALTH, "global").snapshot({ now });
+    }
+  } catch {
+    evidence = null;
+  }
+  const leaseHealthy = evidence?.leaseFresh === true;
+  const deletionHealthy = evidence?.deletionHealthy === true;
+  const billingHealthy = evidence?.billingHealthy === true;
+  const operationalHealth = staticHealth.operationalHealth && leaseHealthy && deletionHealthy && billingHealthy;
+  const staticCreatesEnabled = staticHealth.configurationReady
+    && staticHealth.operationalHealth
+    && env.TRANSFER_CREATES_ENABLED === "true"
+    && !staticHealth.killSwitch;
+  return {
+    ...staticHealth,
+    operationalHealth,
+    leaseHealthy,
+    deletionHealthy,
+    billingHealthy,
+    createsEnabled: staticCreatesEnabled && evidence?.createsEnabled === true,
+  };
 }

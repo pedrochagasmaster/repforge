@@ -2,6 +2,7 @@ import { env } from "cloudflare:workers";
 import { runInDurableObject } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
 import { rateBucketName, rateLimitForScope } from "../src/rate-limit.js";
+import { euStub } from "../src/namespaces.js";
 
 const pepper = new Uint8Array(32).fill(5);
 
@@ -17,7 +18,7 @@ describe("short-lived HMAC-keyed rate buckets", () => {
 
   it("allows exactly the configured window quota and resets after one minute", async () => {
     const name = await rateBucketName({ scope: "create", identity: "198.51.100.8", pepper });
-    const stub = env.RATE_LIMIT_BUCKETS.getByName(name);
+    const stub = euStub(env.RATE_LIMIT_BUCKETS, name);
     const now = Date.now();
     const results = [];
     for (let index = 0; index < rateLimitForScope("create") + 1; index += 1) {

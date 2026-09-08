@@ -1,8 +1,8 @@
-# Install-transfer service foundation
+# Install-transfer service
 
-This directory is the isolated Plan 053 P2a foundation. It has its own
-Wrangler configuration and test dependencies; the root static app does not
-depend on it yet.
+This directory is the isolated Plan 053 service. It has its own Wrangler
+configuration, lockfile, and test dependencies; the root static app does not
+depend on it.
 
 The bearer format is:
 
@@ -49,18 +49,42 @@ exercise concurrent creates, first-claim binding, same-claim retries, and
 idempotent concurrent commits, as well as metadata and AAD tamper rejection.
 The authenticated operations runbook can invoke `purgeDue({now})` on a routed
 object stub as a manual backstop; it never lists objects or accepts a bearer in
-a URL. Creates remain disabled unless configuration, deletion, alarm,
-watchdog, key, and log health are explicitly healthy and the operator enables
-them; the kill switch forces them off.
+a URL. A corrupt active record is deleted by its singleton key, its object
+re-arms a short bounded alarm, and the global health object disables new
+creates. Creates remain disabled unless configuration, deletion, alarm,
+watchdog, key, log, billing, and fresh health-lease evidence are all healthy
+and the operator enables them; the kill switch forces them off. Claims, status,
+commit, and purge do not use this create gate.
 
-The HTTP transport deliberately returns unavailable for transfer paths until
-the corrected shared envelope module is accepted. Raw request-byte parsing,
-endpoint validation, strict CORS/origin handling, rate limits, and the full
-create/claim/commit/status response adapter belong to the next slice and must
-use that accepted module instead of duplicating its validators here.
+The Worker consumes the accepted root `install-transfer-contract.js` module for
+bounded raw parsing, endpoint validation, envelope integrity, and redaction
+rules. It exposes `POST /v1/transfers`, `/v1/transfers/claims`,
+`/v1/transfers/claims/commit`, and `/v1/transfers/status` with exact-origin
+CORS and no-store responses. The bearer is always in a bounded JSON body; it
+never appears in a URL. Invalid and unavailable transfer outcomes have the
+constant `{state:"unavailable"}` body; rate limiting returns the same body
+with 429, and disabled creation returns it with 503.
+
+`TransferHealthDurableObject` stores only non-sensitive health timestamps and a
+monthly cost observation. Alarm, watchdog, log, key, and deletion evidence
+expires after five minutes. Billing evidence expires after 24 hours, and a
+monthly observation at or above 1,000 cents disables new creates. The service
+does not treat static `*_HEALTH=healthy` variables as a lease. An owner
+controlled watchdog or control-plane job must call the health object's RPC
+methods with fresh evidence and must re-enable deletion health only after the
+runbook has proved the purge path. No public heartbeat route is provided.
 
 The provider alarm is a deletion backstop, not proof of the live 60-minute
 guarantee by itself. Cloudflare documents at-least-once alarm execution and
 possible delay; staging needs the independent watchdog, purge health checks,
 manual purge path, and create kill switch required by ADR 0013 before any live
-guarantee can be claimed.
+guarantee can be claimed. See [RUNBOOK.md](RUNBOOK.md) for the staging
+prerequisites and the unclaimed provider-deadline gate.
+
+Production uses the Cloudflare Durable Object `jurisdiction("eu")`
+subnamespace for transfer, rate, and health objects. The local workerd used by
+the test plugin currently exposes that API but raises
+`Jurisdiction restrictions are not implemented in workerd.`; the narrow
+fallback in `namespaces.js` keeps SQLite tests runnable. Local tests therefore
+prove storage and transitions, not EU placement. The staging proof must use a
+real EU-restricted namespace.

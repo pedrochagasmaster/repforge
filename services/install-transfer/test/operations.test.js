@@ -34,7 +34,7 @@ describe("create safety gate", () => {
   });
 
   it("requires every health flag and the explicit operator enablement", () => {
-    expect(serviceHealth(healthyEnv())).toMatchObject({ configurationReady: true, operationalHealth: true, createsEnabled: true });
+    expect(serviceHealth(healthyEnv())).toMatchObject({ configurationReady: true, operationalHealth: true, createsEnabled: false });
     expect(serviceHealth(healthyEnv({ TRANSFER_DELETION_HEALTH: "unknown" })).createsEnabled).toBe(false);
     expect(serviceHealth(healthyEnv({ TRANSFER_KILL_SWITCH: "true" }))).toMatchObject({ killSwitch: true, createsEnabled: false });
     expect(serviceHealth(healthyEnv({ TRANSFER_CREATES_ENABLED: "false" })).createsEnabled).toBe(false);

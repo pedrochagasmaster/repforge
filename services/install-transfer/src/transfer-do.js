@@ -28,9 +28,11 @@ import {
   TRANSFER_STATES,
   transitionForTime,
 } from "./lifetime.js";
+import { euStub } from "./namespaces.js";
 
 const TABLE = "transfer_record";
 const ACTIVE_STATES = new Set([TRANSFER_STATES.AVAILABLE, TRANSFER_STATES.CLAIMING]);
+const CORRUPT_RECORD_RETRY_MS = 60_000;
 
 class RecordIntegrityError extends Error {
   constructor() {
@@ -192,13 +194,15 @@ export class TransferDurableObject extends DurableObject {
     else this._assertTerminalRecord(record);
   }
 
-  _insert(record) {
-    this.ctx.storage.sql.exec(
+  _insertIfEmpty(record) {
+    return this._execWrite(
       `INSERT INTO ${TABLE} (
         singleton, state, record_version, transfer_id, idempotency_digest, token_digest,
         envelope_ciphertext, envelope_salt, envelope_nonce, envelope_aad,
         claim_digest, expires_at, tombstone_until, created_at, claimed_at
-      ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      )
+      SELECT 1, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?
+      WHERE NOT EXISTS (SELECT 1 FROM ${TABLE} WHERE singleton = 1)`,
       record.state,
       record.record_version,
       record.transfer_id,
@@ -213,7 +217,7 @@ export class TransferDurableObject extends DurableObject {
       record.tombstone_until,
       record.created_at,
       record.claimed_at,
-    );
+    ) === 1;
   }
 
   _setClaim(record, claimDigest, now) {
@@ -279,23 +283,77 @@ export class TransferDurableObject extends DurableObject {
   }
 
   async _schedule(record, now) {
-    const alarmAt = nextAlarmAt(lifetimeRecord(record), now);
-    if (alarmAt === null) {
-      await this.ctx.storage.deleteAlarm();
+    try {
+      const alarmAt = nextAlarmAt(lifetimeRecord(record), now);
+      if (alarmAt === null) {
+        await this.ctx.storage.deleteAlarm();
+        return;
+      }
+      await this.ctx.storage.setAlarm(new Date(alarmAt));
+    } catch (error) {
+      await this._markDeletionUnhealthy();
+      throw error;
+    }
+  }
+
+  async _markDeletionUnhealthy() {
+    let healthStub = null;
+    try {
+      healthStub = this.env.TRANSFER_HEALTH ? euStub(this.env.TRANSFER_HEALTH, "global") : null;
+    } catch {
       return;
     }
-    await this.ctx.storage.setAlarm(new Date(alarmAt));
+    if (healthStub?.markDeletionUnhealthy) {
+      try {
+        await healthStub.markDeletionUnhealthy({ code: "record-integrity" });
+      } catch {
+        // Ciphertext disposal remains the local invariant if health reporting is unavailable.
+      }
+    }
+  }
+
+  async _quarantineCorruptRecord() {
+    // No record timestamp is trusted on this path. Delete by the singleton
+    // key, then re-arm a short bounded alarm to verify the object stays empty.
+    try {
+      this._execWrite(`DELETE FROM ${TABLE} WHERE singleton = 1`);
+    } catch {
+      // Keep retrying through the bounded alarm, but never let a storage error
+      // make the record appear healthy to the create gate.
+    }
+    try {
+      await this.ctx.storage.deleteAlarm();
+    } catch {
+      // Re-arming below is the recovery attempt; health remains failed.
+    }
+    try {
+      await this.ctx.storage.setAlarm(new Date(Date.now() + CORRUPT_RECORD_RETRY_MS));
+    } catch {
+      // The health object still disables new creates.
+    }
+    await this._markDeletionUnhealthy();
   }
 
   async _expireIfDue(now) {
     for (;;) {
       const record = this._read();
       if (!record) return null;
-      this._assertRecord(record);
+      try {
+        this._assertRecord(record);
+      } catch (error) {
+        if (error instanceof RecordIntegrityError) {
+          await this._quarantineCorruptRecord();
+        }
+        throw error;
+      }
       if (isTerminal(record.state)) {
         if (now < record.tombstone_until) return record;
         if (this._deleteTombstone(record, now)) {
-          await this.ctx.storage.deleteAlarm();
+          try {
+            await this.ctx.storage.deleteAlarm();
+          } catch {
+            await this._markDeletionUnhealthy();
+          }
           return null;
         }
         // A concurrent transition or purge won the conditional delete. Read
@@ -381,15 +439,36 @@ export class TransferDurableObject extends DurableObject {
       created_at: now,
       claimed_at: null,
     };
-    this._insert(record);
+    if (!this._insertIfEmpty(record)) {
+      // The conditional INSERT is the serialization point. A same-key
+      // retry observes the already committed row and never creates a second
+      // bearer, even when both requests finished crypto concurrently.
+      try {
+        existing = await this._expireIfDue(now);
+      } catch (error) {
+        if (error instanceof RecordIntegrityError) return publicUnavailable();
+        throw error;
+      }
+      if (existing?.state === TRANSFER_STATES.AVAILABLE || existing?.state === TRANSFER_STATES.CLAIMING) {
+        if (existing.idempotency_digest === idempotencyDigest) return { kind: "duplicate", expiresAt: existing.expires_at };
+        return { kind: "collision" };
+      }
+      if (existing) return { kind: "terminal", state: existing.state, expiresAt: existing.expires_at };
+      return publicUnavailable();
+    }
     try {
       await this._schedule(record, now);
     } catch (error) {
-      this._execWrite(
-        `DELETE FROM ${TABLE} WHERE singleton = 1 AND state = ? AND token_digest = ?`,
-        TRANSFER_STATES.AVAILABLE,
-        tokenDigest,
-      );
+      try {
+        this._execWrite(
+          `DELETE FROM ${TABLE} WHERE singleton = 1 AND state = ? AND token_digest = ?`,
+          TRANSFER_STATES.AVAILABLE,
+          tokenDigest,
+        );
+      } catch {
+        // The health kill below handles an uncertain deletion as well.
+      }
+      await this._markDeletionUnhealthy();
       throw new Error("expiry alarm unavailable", { cause: error });
     }
     return { kind: "created", token, expiresAt };
@@ -527,8 +606,16 @@ export class TransferDurableObject extends DurableObject {
     try {
       const record = await this._expireIfDue(now);
       if (record) await this._schedule(record, now);
+      else {
+        try {
+          await this.ctx.storage.deleteAlarm();
+        } catch {
+          await this._markDeletionUnhealthy();
+        }
+      }
     } catch (error) {
-      if (!(error instanceof RecordIntegrityError)) throw error;
+      if (error instanceof RecordIntegrityError) return { ok: false, code: "record-integrity" };
+      throw error;
     }
   }
 }
