@@ -2,23 +2,77 @@
 /**
  * Plan 053 Wave A / P1b independent install-transfer boundary oracle.
  *
- * This slice intentionally does not import install-transfer-contract.js: the
- * contract is pinned, but the browser/service validators are not implemented
- * yet. It
- * validates the independent boundary/threat/redaction fixtures and safely
- * characterizes the existing logical-clone fixture. Validator parity is
- * reported as planned until real producers and consumers exist.
+ * The boundary/threat/redaction fixtures remain the independent oracle. This
+ * test also exercises the dependency-free contract through CommonJS and an
+ * isolated classic-browser VM. The service consumer is not present here, so
+ * no service parity claim is made.
  */
 import assert from "node:assert/strict";
-import { existsSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { webcrypto } from "node:crypto";
+import vm from "node:vm";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const textEncoder = new TextEncoder();
+const require = createRequire(import.meta.url);
+const contract = require(join(ROOT, "install-transfer-contract.js"));
+
+const browserContext = vm.createContext({
+  TextEncoder,
+  TextDecoder,
+  crypto: webcrypto,
+});
+vm.runInContext(readFileSync(join(ROOT, "install-transfer-contract.js"), "utf8"), browserContext, {
+  filename: "install-transfer-contract.js",
+});
+const browserContract = browserContext.RepForgeInstallTransferContract;
 
 function readJson(relativePath) {
   return JSON.parse(readFileSync(join(ROOT, relativePath), "utf8"));
+}
+
+function browserValue(jsonText) {
+  return vm.runInContext(`JSON.parse(${JSON.stringify(jsonText)})`, browserContext);
+}
+
+function jsonResult(value) {
+  return JSON.stringify(value);
+}
+
+function assertResultShape(result, expectedOk, label) {
+  assert.equal(result.ok, expectedOk, `${label} result status`);
+  assert.deepEqual(Object.keys(result).sort(), expectedOk ? ["ok", "value"] : ["code", "ok"], `${label} result keys`);
+  if (!expectedOk) {
+    for (const forbidden of ["path", "payload", "input", "message", "details"]) {
+      assert.equal(Object.hasOwn(result, forbidden), false, `${label} failure omits ${forbidden}`);
+    }
+  }
+}
+
+function assertParserParity(raw, endpoint, expectedCode = null, label = "parser case") {
+  const bytes = raw instanceof Uint8Array ? raw : textEncoder.encode(raw);
+  const nodeResult = contract.parseBoundedJson(bytes, endpoint);
+  const browserResult = browserContract.parseBoundedJson(bytes, endpoint);
+  assert.equal(jsonResult(browserResult), jsonResult(nodeResult), `${label} Node/browser result parity`);
+  if (expectedCode === null) {
+    assertResultShape(nodeResult, true, label);
+    assert.equal(contract.canonicalJson(nodeResult.value), contract.canonicalJson(browserResult.value), `${label} canonical value parity`);
+  } else {
+    assertResultShape(nodeResult, false, label);
+    assert.equal(nodeResult.code, expectedCode, `${label} error code`);
+  }
+  return nodeResult;
+}
+
+function assertValidatorParity(nodeValue, browserValueInput, name) {
+  const nodeResult = nodeValue();
+  const browserResult = browserValueInput();
+  assert.equal(jsonResult(browserResult), jsonResult(nodeResult), `${name} Node/browser result parity`);
+  assertResultShape(nodeResult, nodeResult.ok, name);
+  return nodeResult;
 }
 
 function utf8Bytes(value) {
@@ -158,6 +212,20 @@ const matrix = readJson("test/fixtures/install-transfer-threats/boundary-matrix.
 const hostile = readJson("test/fixtures/install-transfer-threats/hostile-inputs.json");
 const redaction = readJson("test/fixtures/install-transfer-threats/redaction-cases.json");
 const existingClone = readJson("test/fixtures/install-transfer-clone-v1.json");
+const existingKeys = [
+  "analytics",
+  "createdAt",
+  "durableState",
+  "integrity",
+  "kind",
+  "programEntryDraft",
+  "schemaVersion",
+  "source",
+  "sourceRevision",
+  "telemetryIdentity",
+  "uiPreferences",
+  "workoutDraft",
+];
 
 console.log("Plan 053 install-transfer limits/threat fixtures");
 
@@ -252,6 +320,30 @@ assert.throws(() => chars(42), TypeError, "character measurement rejects implici
 assert.throws(() => chars("\ud800"), RangeError, "lone high surrogates are rejected");
 assert.throws(() => chars("\udfff"), RangeError, "lone low surrogates are rejected");
 
+console.log("  implemented measurement and canonical serializer are strict and shared");
+assert.equal(contract.measureUtf8Bytes(Uint8Array.of(0x7b, 0x7d)), 2, "module byte measurement keeps raw bytes");
+assert.equal(contract.measureUtf8Bytes(Uint8Array.of(0x7b, 0x7d).buffer), 2, "module ArrayBuffer measurement keeps raw bytes");
+assert.equal(contract.measureUtf8Bytes("😀"), 4, "module string measurement uses UTF-8 bytes");
+assert.throws(() => contract.measureUtf8Bytes(42), TypeError, "module byte measurement rejects coercion");
+assert.equal(contract.measureChars("😀"), 1, "module character measurement counts Unicode scalars");
+assert.throws(() => contract.measureChars(42), TypeError, "module character measurement rejects coercion");
+assert.throws(() => contract.measureChars("\ud800"), TypeError, "module character measurement rejects lone surrogates");
+assert.equal(browserContract.measureUtf8Bytes(Uint8Array.of(0x7b, 0x7d)), 2, "browser byte measurement keeps raw bytes");
+assert.equal(browserContract.measureChars("😀"), 1, "browser character measurement counts Unicode scalars");
+assert.equal(
+  contract.canonicalJson({ "2": "two", "10": "ten", a: "a" }),
+  '{"10":"ten","2":"two","a":"a"}',
+  "canonical JSON sorts numeric-looking keys lexicographically rather than through JSON.stringify object ordering",
+);
+assert.equal(
+  browserContract.canonicalJson(browserValue('{"2":"two","10":"ten","a":"a"}')),
+  contract.canonicalJson({ "2": "two", "10": "ten", a: "a" }),
+  "browser canonical JSON follows the Node serializer",
+);
+assert.throws(() => contract.canonicalJson({ value: Infinity }), TypeError, "canonical JSON rejects non-finite numbers");
+assert.throws(() => contract.canonicalJson({ value: "\ud800" }), TypeError, "canonical JSON rejects lone surrogates");
+assert.equal(contract.canonicalJson({ a: 1, b: [true, null, "x"] }), '{"a":1,"b":[true,null,"x"]}');
+
 console.log("  parser depth and generic shape probes are independently constructible");
 assert.equal(maxContainerDepth(nestedContainers(64)), 64, "depth-at-limit fixture follows root-depth-zero convention");
 assert.equal(maxContainerDepth(nestedContainers(65)), 65, "depth-over-limit fixture is one level deeper");
@@ -268,6 +360,43 @@ assert.equal(chars(serializedLogRowAtChars(8001)), 8001, "serialized log row can
 assert.equal(chars("A".repeat(22)), 22, "claim IDs include the 22-character lower edge");
 assert.equal(chars("A".repeat(43)), 43, "claim IDs include the 43-character upper edge");
 
+console.log("  bounded parser enforces raw-byte order and every generic limit");
+const createAtBodyLimit = assertParserParity(asciiJsonAtBytes(2_000_000), contract.ENDPOINTS.create, contract.ERROR_CODES.STRING_TOO_LONG, "create body at byte limit");
+assert.notEqual(createAtBodyLimit.code, contract.ERROR_CODES.BODY_TOO_LARGE, "create body at limit passes the byte gate even when synthetic content hits a nested bound");
+assertParserParity(asciiJsonAtBytes(2_000_001), contract.ENDPOINTS.create, contract.ERROR_CODES.BODY_TOO_LARGE, "create body over byte limit");
+assertParserParity(asciiJsonAtBytes(4_096), contract.ENDPOINTS.status, null, "small endpoint body at byte limit");
+assertParserParity(asciiJsonAtBytes(4_097), contract.ENDPOINTS.status, contract.ERROR_CODES.BODY_TOO_LARGE, "small endpoint body over byte limit");
+const envelopeAtBodyLimit = assertParserParity(asciiJsonAtBytes(2_000_000), contract.ENDPOINTS.envelope, contract.ERROR_CODES.STRING_TOO_LONG, "envelope at byte limit");
+assert.notEqual(envelopeAtBodyLimit.code, contract.ERROR_CODES.ENVELOPE_TOO_LARGE, "envelope at limit passes the byte gate");
+assertParserParity(asciiJsonAtBytes(2_000_001), contract.ENDPOINTS.envelope, contract.ERROR_CODES.ENVELOPE_TOO_LARGE, "envelope over byte limit");
+assertParserParity(JSON.stringify(nestedContainers(64)), contract.ENDPOINTS.envelope, null, "depth at 64");
+assertParserParity(JSON.stringify(nestedContainers(65)), contract.ENDPOINTS.envelope, contract.ERROR_CODES.DEPTH_TOO_LARGE, "depth at 65");
+assertParserParity(JSON.stringify(keysAtLimit), contract.ENDPOINTS.envelope, null, "object keys at 256");
+assertParserParity(JSON.stringify(keysOverLimit), contract.ENDPOINTS.envelope, contract.ERROR_CODES.OBJECT_TOO_WIDE, "object keys at 257");
+assertParserParity(JSON.stringify(Array.from({ length: 10_000 }, () => 0)), contract.ENDPOINTS.envelope, null, "array items at 10,000");
+assertParserParity(JSON.stringify(Array.from({ length: 10_001 }, () => 0)), contract.ENDPOINTS.envelope, contract.ERROR_CODES.ARRAY_TOO_LARGE, "array items at 10,001");
+assertParserParity(JSON.stringify({ value: "A".repeat(8_000) }), contract.ENDPOINTS.envelope, null, "string scalars at 8,000");
+assertParserParity(JSON.stringify({ value: "A".repeat(8_001) }), contract.ENDPOINTS.envelope, contract.ERROR_CODES.STRING_TOO_LONG, "string scalars at 8,001");
+assertParserParity(JSON.stringify({ ["A".repeat(256)]: 1 }), contract.ENDPOINTS.envelope, null, "identifier key at 256");
+assertParserParity(JSON.stringify({ ["A".repeat(257)]: 1 }), contract.ENDPOINTS.envelope, contract.ERROR_CODES.IDENTIFIER_TOO_LONG, "identifier key at 257");
+assertParserParity(JSON.stringify({ durableState: { log: Array.from({ length: 10_000 }, () => null) } }), contract.ENDPOINTS.envelope, null, "generic log array at 10,000");
+assertParserParity(JSON.stringify({ durableState: { log: Array.from({ length: 10_001 }, () => null) } }), contract.ENDPOINTS.envelope, contract.ERROR_CODES.ARRAY_TOO_LARGE, "generic log array at 10,001");
+assertParserParity('{"a":1,"\\u0061":2}', contract.ENDPOINTS.envelope, contract.ERROR_CODES.DUPLICATE_KEY, "escaped duplicate key");
+assertParserParity('{"\\u005f\\u005fproto__":1}', contract.ENDPOINTS.envelope, contract.ERROR_CODES.DANGEROUS_KEY, "escaped dangerous key");
+assertParserParity("{}{}", contract.ENDPOINTS.envelope, contract.ERROR_CODES.INVALID_JSON, "trailing JSON data");
+assertParserParity("[1,]", contract.ENDPOINTS.envelope, contract.ERROR_CODES.INVALID_JSON, "trailing comma");
+assertParserParity("1e400", contract.ENDPOINTS.envelope, contract.ERROR_CODES.INVALID_JSON, "non-finite JSON number");
+assertParserParity(JSON.stringify({ value: "\ud800" }), contract.ENDPOINTS.envelope, contract.ERROR_CODES.INVALID_STRING, "escaped unpaired surrogate");
+const invalidUtf8Bytes = Uint8Array.from([0x7b, 0x22, 0x6b, 0x22, 0x3a, 0xc2, 0x7d]);
+assertParserParity(invalidUtf8Bytes, contract.ENDPOINTS.envelope, contract.ERROR_CODES.INVALID_UTF8, "raw invalid UTF-8");
+const rawByteObject = Uint8Array.of(0x7b, 0x7d);
+assertParserParity(rawByteObject, contract.ENDPOINTS.envelope, null, "raw byte empty object");
+for (const endpoint of Object.values(contract.ENDPOINTS)) {
+  assert.equal(contract.parseBoundedJson("{}", endpoint).ok, false, `${endpoint} rejects non-byte input without coercion`);
+  assert.equal(contract.parseBoundedJson("{}", endpoint).code, contract.ERROR_CODES.INVALID_INPUT);
+}
+assert.equal(contract.parseBoundedJson(new Uint8Array(), "/unknown").code, contract.ERROR_CODES.INVALID_ENDPOINT);
+
 console.log("  every boundary has an exact/over-limit probe");
 const probesByLimit = new Map();
 for (const probe of hostile.boundaryProbes) {
@@ -283,7 +412,7 @@ for (const probe of hostile.boundaryProbes) {
     "reject-array-too-large",
   ].includes(probe.expectedAtTarget), `${probe.id} records an exact-target outcome`);
   assert.equal(typeof probe.expectedAtTargetPlusOne, "string", `${probe.id} records a +1 outcome`);
-  assert.equal(typeof probe.proposedCode, "string", `${probe.id} records a future stable-code proposal`);
+  assert.equal(typeof probe.expectedCode, "string", `${probe.id} records a expected stable error code`);
   if (!probesByLimit.has(probe.limitId)) probesByLimit.set(probe.limitId, []);
   probesByLimit.get(probe.limitId).push(probe);
 }
@@ -300,7 +429,7 @@ for (const testCase of hostile.cases) {
   assert.equal(typeof testCase.id, "string");
   assert.equal(typeof testCase.kind, "string");
   assert.equal(typeof testCase.expected, "string");
-  assert.equal(typeof testCase.proposedCode, "string");
+  assert.equal(typeof testCase.expectedCode, "string");
 }
 const dangerousCases = hostile.cases.filter(testCase => testCase.dangerousKey);
 assert.deepEqual(new Set(dangerousCases.map(testCase => testCase.dangerousKey)), new Set(["__proto__", "constructor", "prototype"]));
@@ -325,11 +454,75 @@ for (const id of ["unknown-top-level-schema-version", "unknown-top-level-schema-
   assert.equal(testCase.expected, "reject-without-local-mutation", `${id} fails closed without local mutation`);
 }
 assert.equal(hostile.cases.find(testCase => testCase.id === "unknown-optional-section").expected, "reject-without-local-mutation");
-assert.equal(hostile.cases.find(testCase => testCase.id === "unknown-optional-section").proposedCode, "unknown-section");
+assert.equal(hostile.cases.find(testCase => testCase.id === "unknown-optional-section").expectedCode, "unknown-section");
 const duplicateKey = hostile.cases.find(testCase => testCase.id === "duplicate-key");
 assert.equal(duplicateKey.expected, "reject-without-local-mutation");
-assert.equal(duplicateKey.proposedCode, "duplicate-key");
+assert.equal(duplicateKey.expectedCode, "duplicate-key");
 assert.equal([...duplicateKey.raw.matchAll(/"kind"/g)].length, 2, "duplicate-key fixture contains both repeated names");
+
+console.log("  implemented parser and envelope validator reject hostile fixture cases without leaking input");
+const parsedMalformed = contract.parseBoundedJson(textEncoder.encode(malformed.raw), contract.ENDPOINTS.envelope);
+assertResultShape(parsedMalformed, false, "malformed JSON");
+assert.equal(parsedMalformed.code, contract.ERROR_CODES.INVALID_JSON);
+const parsedScalar = contract.parseBoundedJson(textEncoder.encode("null"), contract.ENDPOINTS.envelope);
+assertResultShape(parsedScalar, true, "scalar JSON parse");
+assert.equal(contract.validateEnvelope(parsedScalar.value).code, contract.ERROR_CODES.INVALID_ENVELOPE, "scalar root fails envelope shape");
+for (const [schemaValue, expectedCode, label] of [
+  [2, contract.ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION, "unknown top-level schema version"],
+  [0, contract.ERROR_CODES.UNSUPPORTED_SCHEMA_VERSION, "zero top-level schema version"],
+  ["1", contract.ERROR_CODES.INVALID_SCHEMA_VERSION, "string top-level schema version"],
+]) {
+  const candidate = structuredClone(existingClone);
+  candidate.schemaVersion = schemaValue;
+  const result = contract.validateEnvelope(candidate);
+  assertResultShape(result, false, label);
+  assert.equal(result.code, expectedCode, `${label} stable code`);
+}
+const unknownWorkout = structuredClone(existingClone);
+unknownWorkout.workoutDraft = { schemaVersion: 3 };
+assert.equal(contract.validateEnvelope(unknownWorkout).code, contract.ERROR_CODES.UNSUPPORTED_WORKOUT_DRAFT_VERSION);
+const unknownEntry = structuredClone(existingClone);
+unknownEntry.programEntryDraft = { schemaVersion: 2 };
+assert.equal(contract.validateEnvelope(unknownEntry).code, contract.ERROR_CODES.UNSUPPORTED_PROGRAM_ENTRY_DRAFT_VERSION);
+const unknownSection = structuredClone(existingClone);
+unknownSection.futureSection = { schemaVersion: 1 };
+assert.equal(contract.validateEnvelope(unknownSection).code, contract.ERROR_CODES.UNKNOWN_SECTION);
+const digestOnWire = structuredClone(existingClone);
+digestOnWire.logicalStateDigest = "source-local-only";
+assert.equal(contract.validateEnvelope(digestOnWire).code, contract.ERROR_CODES.FORBIDDEN_FIELD);
+const writerInDraft = structuredClone(existingClone);
+writerInDraft.workoutDraft = { schemaVersion: 2, draftId: "d", program: {}, session: {}, exerciseOrder: [], exercises: {}, writer: {} };
+assert.equal(contract.validateEnvelope(writerInDraft).code, contract.ERROR_CODES.FORBIDDEN_FIELD);
+const revisionInDraft = structuredClone(existingClone);
+revisionInDraft.workoutDraft = { schemaVersion: 2, draftId: "d", program: { durableRevision: 1 }, session: {}, exerciseOrder: [], exercises: {} };
+assert.equal(contract.validateEnvelope(revisionInDraft).code, contract.ERROR_CODES.FORBIDDEN_FIELD);
+const wrapperEntry = structuredClone(existingClone);
+wrapperEntry.programEntryDraft = { schemaVersion: 1, ownerId: null, state: {} };
+assert.equal(contract.validateEnvelope(wrapperEntry).code, contract.ERROR_CODES.FORBIDDEN_FIELD);
+for (const testCase of dangerousCases) {
+  const result = contract.parseBoundedJson(textEncoder.encode(testCase.raw), contract.ENDPOINTS.envelope);
+  assertResultShape(result, false, testCase.id);
+  assert.equal(result.code, contract.ERROR_CODES.DANGEROUS_KEY, `${testCase.id} stable code`);
+}
+assert.equal(contract.parseBoundedJson(textEncoder.encode(duplicateKey.raw), contract.ENDPOINTS.envelope).code, contract.ERROR_CODES.DUPLICATE_KEY);
+assert.equal(contract.parseBoundedJson(textEncoder.encode(escapedSurrogate.raw), contract.ENDPOINTS.envelope).code, contract.ERROR_CODES.INVALID_STRING);
+assert.equal(contract.parseBoundedJson(Uint8Array.from(invalidUtf8.bytes), contract.ENDPOINTS.envelope).code, contract.ERROR_CODES.INVALID_UTF8);
+const validEnvelope = contract.validateEnvelope(existingClone);
+assertResultShape(validEnvelope, true, "existing envelope");
+assert.deepEqual(sortedKeys(validEnvelope.value), existingKeys, "valid envelope output preserves all twelve top-level fields");
+assert.notStrictEqual(validEnvelope.value, existingClone, "valid envelope output is a separate value");
+const integrityResult = await contract.validateEnvelopeIntegrity(existingClone, webcrypto);
+assertResultShape(integrityResult, true, "existing envelope integrity");
+const browserEnvelope = browserValue(JSON.stringify(existingClone));
+const browserEnvelopeResult = browserContract.validateEnvelope(browserEnvelope);
+assert.equal(jsonResult(browserEnvelopeResult), jsonResult(validEnvelope), "browser and Node envelope validation agree");
+const browserIntegrityResult = await browserContract.validateEnvelopeIntegrity(browserEnvelope, webcrypto);
+assert.equal(jsonResult(browserIntegrityResult), jsonResult(integrityResult), "browser and Node integrity validation agree");
+const tamperedEnvelope = structuredClone(existingClone);
+tamperedEnvelope.durableState.settings.lang = "pt";
+const tamperedIntegrity = await contract.validateEnvelopeIntegrity(tamperedEnvelope, webcrypto);
+assertResultShape(tamperedIntegrity, false, "tampered envelope integrity");
+assert.equal(tamperedIntegrity.code, contract.ERROR_CODES.INTEGRITY_MISMATCH);
 
 console.log("  redaction cases cover service, static-host, response, telemetry, and errors");
 const requiredForbiddenFields = new Set(["token", "claimId", "ciphertext", "envelope", "body", "payload", "fullUrl", "cookie"]);
@@ -350,21 +543,7 @@ assert.ok(redaction.cases.some(testCase => testCase.channel === "client-response
 assert.ok(redaction.cases.some(testCase => testCase.channel === "telemetry"));
 assert.ok(redaction.cases.some(testCase => testCase.channel === "error-tracking"));
 
-console.log("  existing clone fixture is characterized without calling a future validator");
-const existingKeys = [
-  "analytics",
-  "createdAt",
-  "durableState",
-  "integrity",
-  "kind",
-  "programEntryDraft",
-  "schemaVersion",
-  "source",
-  "sourceRevision",
-  "telemetryIdentity",
-  "uiPreferences",
-  "workoutDraft",
-];
+console.log("  existing clone fixture remains independently characterized before validator parity checks");
 assert.deepEqual(sortedKeys(existingClone), existingKeys, "existing clone fixture has the complete V1 top-level shape");
 assert.equal(existingClone.kind, "taurifer-install-transfer");
 assert.equal(existingClone.schemaVersion, 1);
@@ -385,7 +564,69 @@ assert.ok(existingClone.durableState.customExercises.length <= 1000);
 assert.equal(chars(existingClone.integrity.canonicalPayloadHash), 64, "existing fixture carries a lowercase SHA-256-sized hash");
 assert.match(existingClone.integrity.canonicalPayloadHash, /^[0-9a-f]{64}$/, "existing fixture hash shape is safe");
 
-const contractModule = join(ROOT, "install-transfer-contract.js");
-console.log(`  planned (not run): browser/service parity against ${contractModule} (${existsSync(contractModule) ? "module present; parity intentionally deferred" : "production module not present yet"})`);
-console.log("  planned (not run): real log/trace adapter redaction and parser allocation-failure assertions");
-console.log("pass: independent boundary matrix, hostile cases, redaction fixtures, and existing-clone characterization");
+console.log("  in-memory envelope bounds, endpoint requests, and diagnostic redaction use the same fixed contract");
+for (const [field, limit, code] of [
+  ["program", 2_000, contract.ERROR_CODES.PROGRAM_TOO_LARGE],
+  ["programHistory", 2_000, contract.ERROR_CODES.PROGRAM_HISTORY_TOO_LARGE],
+  ["customExercises", 1_000, contract.ERROR_CODES.CUSTOM_EXERCISES_TOO_LARGE],
+]) {
+  const atLimit = structuredClone(existingClone);
+  atLimit.durableState[field] = Array.from({ length: limit }, () => null);
+  assertResultShape(contract.validateEnvelope(atLimit), true, `${field} at named limit`);
+  const candidate = structuredClone(existingClone);
+  candidate.durableState[field] = Array.from({ length: limit + 1 }, () => null);
+  const result = contract.validateEnvelope(candidate);
+  assertResultShape(result, false, `${field} over named limit`);
+  assert.equal(result.code, code, `${field} uses its named limit code`);
+}
+const overGenericLog = structuredClone(existingClone);
+const atGenericLog = structuredClone(existingClone);
+atGenericLog.durableState.log = Array.from({ length: 10_000 }, () => null);
+assertResultShape(contract.validateEnvelope(atGenericLog), true, "generic 10,000 log bound");
+overGenericLog.durableState.log = Array.from({ length: 10_001 }, () => null);
+assert.equal(contract.validateEnvelope(overGenericLog).code, contract.ERROR_CODES.ARRAY_TOO_LARGE, "generic 10,001 log bound wins over named 200,000 bound");
+const exactSerializedLogRow = structuredClone(existingClone);
+exactSerializedLogRow.durableState.log = [JSON.parse(serializedLogRowAtChars(8_000))];
+assertResultShape(contract.validateEnvelope(exactSerializedLogRow), true, "serialized log row at 8,000 characters");
+const overSerializedLogRow = structuredClone(existingClone);
+overSerializedLogRow.durableState.log = [{ notes: "A".repeat(8_000) }];
+assert.equal(contract.validateEnvelope(overSerializedLogRow).code, contract.ERROR_CODES.LOG_ROW_TOO_LARGE, "serialized log row bound applies after generic value checks");
+assertParserParity(JSON.stringify({ durableState: { log: Array.from({ length: 200_000 }, () => null) } }), contract.ENDPOINTS.envelope, contract.ERROR_CODES.ARRAY_TOO_LARGE, "specialized 200,000 log probe remains conjunctive");
+
+const createRequest = contract.validateRequest({ envelope: existingClone, idempotencyKey: "idempotency-key" }, contract.ENDPOINTS.create);
+assertResultShape(createRequest, true, "create request");
+assert.deepEqual(sortedKeys(createRequest.value), ["envelope", "idempotencyKey"]);
+const claimIdAtMin = "A".repeat(22);
+const claimIdAtMax = "A".repeat(43);
+assertResultShape(contract.validateClaimId(claimIdAtMin), true, "claim ID at minimum");
+assertResultShape(contract.validateClaimId(claimIdAtMax), true, "claim ID at maximum");
+for (const invalidClaimId of ["A".repeat(21), "A".repeat(44), "not valid+", "\ud800"]) {
+  const result = contract.validateClaimId(invalidClaimId);
+  assertResultShape(result, false, "invalid claim ID");
+  assert.equal(result.code, contract.ERROR_CODES.CLAIM_ID_INVALID);
+}
+for (const endpoint of [contract.ENDPOINTS.claims, contract.ENDPOINTS.commit]) {
+  const result = contract.validateRequest({ token: "opaque-token", claimId: claimIdAtMin }, endpoint);
+  assertResultShape(result, true, `${endpoint} request`);
+}
+assertResultShape(contract.validateRequest({ token: "opaque-token" }, contract.ENDPOINTS.status), true, "status request");
+assert.equal(contract.validateRequest({ token: "opaque-token" }, "/unknown").code, contract.ERROR_CODES.INVALID_ENDPOINT);
+assert.equal(contract.validateRequest({ token: "opaque-token", extra: true }, contract.ENDPOINTS.status).code, contract.ERROR_CODES.UNKNOWN_SECTION);
+const browserRequest = browserContract.validateRequest(browserValue(JSON.stringify({ envelope: existingClone, idempotencyKey: "idempotency-key" })), contract.ENDPOINTS.create);
+assert.equal(jsonResult(browserRequest), jsonResult(createRequest), "browser and Node request validation agree");
+
+for (const testCase of redaction.cases) {
+  const result = contract.redactDiagnostic(testCase.input, testCase.channel);
+  assertResultShape(result, true, `${testCase.id} redaction`);
+  assert.deepEqual(result.value, testCase.allowedShape, `${testCase.id} emits only its allowlisted shape`);
+  const serialized = JSON.stringify(result.value);
+  for (const canary of testCase.mustNotContain) assert.equal(serialized.includes(canary), false, `${testCase.id} output omits its canaries`);
+  const browserResult = browserContract.redactDiagnostic(browserValue(JSON.stringify(testCase.input)), testCase.channel);
+  assert.equal(jsonResult(browserResult), jsonResult(result), `${testCase.id} browser/Node redaction parity`);
+}
+const invalidDiagnostic = contract.redactDiagnostic({ message: "fixture canary" }, "unknown-channel");
+assertResultShape(invalidDiagnostic, false, "unknown diagnostic channel");
+assert.equal(invalidDiagnostic.code, contract.ERROR_CODES.INVALID_DIAGNOSTIC);
+
+console.log("  service parity remains pending until the real service consumer exists");
+console.log("pass: independent boundary matrix, hostile cases, redaction fixtures, Node/browser contract parity, and existing-clone characterization");

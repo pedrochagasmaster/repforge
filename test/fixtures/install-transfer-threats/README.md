@@ -2,8 +2,9 @@
 
 These fixtures are the independent Wave A P1b oracle for Plan 053. They pin the
 ADR 0013 boundary rows, measurement units, parser timing, hostile inputs, and
-redaction obligations before the browser or service validators exist. The
-fixtures intentionally do not import or execute a production transfer module.
+redaction obligations. The fixture files remain independent of the production
+module; `test/install-transfer-limits.mjs` runs the module separately against
+these expectations.
 
 `boundary-matrix.json` repeats every ADR 0013 payload/rate row with an explicit
 measurement. Request and envelope limits count UTF-8 bytes with
@@ -27,27 +28,43 @@ envelope or endpoint request.
 `hostile-inputs.json` contains exact-limit/over-limit probes, malformed JSON,
 unknown required/optional versions, duplicate JSON keys, an escaped lone
 surrogate, and prototype-pollution keys. `redaction-cases.json` uses inert fixture canaries;
-they are not credentials or clone data. Future parity tests must inspect the
-actual service/browser validators and adapters, assert stable error codes, and
-never print these canaries. Until those validators and the loading interface
-are pinned, parity is explicitly planned rather than reported as passing.
+they are not credentials or clone data. The focused test asserts stable error
+codes and never prints these canaries. It proves parity between the CommonJS
+consumer and an isolated classic-browser global loaded from the same source;
+the real service consumer remains a P2 boundary.
 
-The proposed dependency-free `install-transfer-contract.js` interface is:
+The dependency-free `install-transfer-contract.js` interface is:
 
 ```text
 RepForgeInstallTransferContract = {
   LIMITS,
   ERROR_CODES,
+  ENDPOINTS,
   canonicalJson(value),
   measureUtf8Bytes(input),
   measureChars(string),
   parseBoundedJson(rawBytes, endpoint),
   validateEnvelope(value),
+  validateEnvelopeIntegrity(value, crypto),
   validateRequest(value, endpoint),
   validateClaimId(value),
   redactDiagnostic(value, channel)
 }
 ```
+
+`ENDPOINTS` is closed to these URL pathnames:
+
+```text
+create: "/v1/transfers"
+claims: "/v1/transfers/claims"
+commit: "/v1/transfers/claims/commit"
+status: "/v1/transfers/status"
+envelope: "/envelope"
+```
+
+`/envelope` is a local parser selector with the 2,000,000-byte envelope bound;
+it is not a remote service endpoint. The other four selectors use their exact
+ADR 0013 body limits. Unknown endpoint names fail closed.
 
 `measureUtf8Bytes` accepts a string, `Uint8Array`, or `ArrayBuffer` with
 explicit type checks and never stringifies byte input. `measureChars` accepts a
@@ -55,10 +72,20 @@ string only. `parseBoundedJson` accepts `Uint8Array` or `ArrayBuffer` only,
 checks byte length before fatal UTF-8 decoding and bounded parsing, and returns
 either `{ok: true, value}` or `{ok: false, code}`. Failure objects contain only
 the fixed code; they never include values, paths, payloads, input, messages, or
-details.
+details. Every exported validator uses those exact result shapes. The
+`validateEnvelopeIntegrity` result is asynchronous: it validates the envelope
+structure first, then hashes the canonical JSON preimage formed by removing
+only `integrity.canonicalPayloadHash` and compares the lowercase SHA-256
+digest. It does not normalize domain state or accept a wire
+`logicalStateDigest` field. A missing or unusable WebCrypto implementation
+returns a fixed error code.
+
+`redactDiagnostic` accepts a closed channel enum and emits only the fixed,
+allowlisted diagnostic fields for that channel. It never forwards arbitrary
+messages or request data.
 
 The browser receives it as the classic global
-`RepForgeInstallTransferContract`; the service consumes the same object through
-CommonJS. The coordinator has pinned the exact return/error shapes and the
-`durableState.log` traversal rule; production parity remains pending until the
-module exists.
+`RepForgeInstallTransferContract`; Node and the future service consume the same
+object through CommonJS. The coordinator has pinned the exact return/error
+shapes and the `durableState.log` traversal rule. Service parity is a P2
+consumer proof and is not claimed by this pure test.
