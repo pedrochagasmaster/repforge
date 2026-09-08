@@ -3,6 +3,7 @@
 
   const SCHEMA_VERSION = 1;
   const SLOT_MAPPING_SCHEMA_VERSION = 1;
+  const VOLUME_REDUCTION_POLICY_VERSION = 1;
   const DANGEROUS_KEYS = new Set(["__proto__", "constructor", "prototype"]);
   const SET_LIKE_PATHS = [
     ["diagnosis", "eligibleEvidenceIds"],
@@ -934,7 +935,532 @@
     };
   }
 
+
+  const PRESCRIPTION_CLASS_RULES = Object.freeze({
+    heavy_3_6: Object.freeze({ sets: [2, 3] }),
+    compound_4_8: Object.freeze({ sets: [2, 3] }),
+    compound_8_12: Object.freeze({ sets: [2, 3] }),
+    isolation_8_15: Object.freeze({ sets: [1, 3] }),
+  });
+
+  function slotMinSets(slot, program) {
+    if (Array.isArray(program)) {
+      const match = program.find((p) => p.slotId === slot.slotId);
+      if (match && typeof match.minSets === "number") return match.minSets;
+    }
+    const classId = slot?.prescription?.classId;
+    return PRESCRIPTION_CLASS_RULES[classId]?.sets?.[0] ?? 2;
+  }
+
+  function updateProgressionShape(resolved) {
+    const prescription = resolved?.prescription;
+    const strategy = prescription?.progression?.strategy;
+    if (!strategy) return;
+    if (strategy.id === "range") {
+      strategy.params.workingSets = prescription.sets;
+      strategy.params.targetRirMin = prescription.targetRirMin;
+      strategy.params.targetRirMax = prescription.targetRirMax;
+    }
+    if (strategy.id === "rep_goal") {
+      strategy.params.workingSets = prescription.sets;
+      strategy.params.repGoal = prescription.sets * Math.round((prescription.repMin + prescription.repMax) / 2);
+      strategy.params.targetRirMin = prescription.targetRirMin;
+      strategy.params.targetRirMax = prescription.targetRirMax;
+    }
+    if (strategy.id === "effort_target") strategy.params.workingSets = prescription.sets;
+    if (strategy.id === "anchor_backoff") strategy.params.backoffSets = Math.max(1, prescription.sets - 1);
+  }
+
+  function projectProgram(instance) {
+    const exercises = [];
+    for (const dayRecord of instance.days) {
+      dayRecord.slots.forEach((resolved, index) => {
+        const progression = clone(resolved.prescription.progression);
+        const strategy = progression?.strategy?.id;
+        const sets = strategy === "anchor_backoff" ? 1 + progression.strategy.params.backoffSets : resolved.prescription.sets;
+        exercises.push({
+          id: resolved.slotId,
+          slotId: resolved.slotId,
+          dayId: dayRecord.dayId,
+          day: dayRecord.label,
+          order: index + 1,
+          name: resolved.exercise.name,
+          libraryId: resolved.exercise.id,
+          movementId: movementId(resolved),
+          sets,
+          min: resolved.prescription.repMin,
+          max: resolved.prescription.repMax,
+          primary: Array.isArray(resolved.exercise.primaryMuscles)
+            ? resolved.exercise.primaryMuscles.join(",")
+            : (resolved.exercise.primary || ""),
+          secondary: Array.isArray(resolved.exercise.secondaryMuscles)
+            ? resolved.exercise.secondaryMuscles.join(",")
+            : (resolved.exercise.secondary || ""),
+          notes: "",
+          alternates: [],
+          targetRirStart: resolved.prescription.targetRirMax,
+          targetRirEnd: resolved.prescription.targetRirMin,
+          minSets: PRESCRIPTION_CLASS_RULES[resolved.prescription.classId]?.sets?.[0] ?? 2,
+          maxSets: PRESCRIPTION_CLASS_RULES[resolved.prescription.classId]?.sets?.[1] ?? 3,
+          priority: resolved.status,
+          loadingMode: resolved.exercise.loading,
+          loadIncrement: resolved.exercise.loadIncrement,
+          progression,
+        });
+      });
+    }
+    return exercises;
+  }
+
+  function deriveVolumeReduction(predecessorInstance, policyVersion = 1) {
+    if (policyVersion !== 1 || !Number.isInteger(policyVersion)) {
+      return { ok: false, code: "unsupported_policy_version" };
+    }
+    const predCheck = validateCompilerInstance(predecessorInstance);
+    if (!predCheck.ok) return predCheck;
+
+    let optionalCount = 0;
+    let reducibleAboveFloorCount = 0;
+    const changedSlotIds = new Set();
+
+    for (const { slot } of flattenedSlots(predecessorInstance)) {
+      if (slot.status === "optional") {
+        optionalCount++;
+        changedSlotIds.add(slot.slotId);
+      } else if (slot.status === "protected") {
+        // Retained byte-equivalent
+      } else if (slot.reducible === true) {
+        const minSets = slotMinSets(slot, predecessorInstance.program);
+        if (slot.prescription?.sets > minSets) {
+          reducibleAboveFloorCount++;
+          changedSlotIds.add(slot.slotId);
+        }
+      }
+    }
+
+    if (Array.isArray(predecessorInstance.weeks)) {
+      for (const week of predecessorInstance.weeks) {
+        if (!Array.isArray(week?.days)) continue;
+        for (const day of week.days) {
+          if (!Array.isArray(day?.slots)) continue;
+          for (const weekSlot of day.slots) {
+            if (changedSlotIds.has(weekSlot.slotId)) {
+              const orig = flattenedSlots(predecessorInstance).find((e) => e.slot.slotId === weekSlot.slotId);
+              if (orig && weekSlot.sets !== orig.slot.prescription?.sets) {
+                return { ok: false, code: "noncanonical_reentry_prescription" };
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (optionalCount === 0 && reducibleAboveFloorCount === 0) {
+      return { ok: false, code: "no_safe_volume_reduction" };
+    }
+
+    const successor = clone(predecessorInstance);
+
+    for (const day of successor.days) {
+      const newSlots = [];
+      for (const slot of day.slots) {
+        if (slot.status === "optional") {
+          continue;
+        }
+        if (slot.status === "protected") {
+          newSlots.push(slot);
+          continue;
+        }
+        if (slot.reducible === true) {
+          const minSets = slotMinSets(slot, predecessorInstance.program);
+          if (slot.prescription?.sets > minSets) {
+            slot.prescription.sets = minSets;
+            updateProgressionShape(slot);
+          }
+          newSlots.push(slot);
+          continue;
+        }
+        newSlots.push(slot);
+      }
+      day.slots = newSlots;
+    }
+
+    const remainingSlotIds = new Set(flattenedSlots(successor).map((e) => e.slot.slotId));
+    const successorSlotsById = new Map(flattenedSlots(successor).map((e) => [e.slot.slotId, e.slot]));
+
+    for (const week of successor.weeks) {
+      for (const day of week.days) {
+        day.slots = day.slots.filter((s) => remainingSlotIds.has(s.slotId));
+        for (const weekSlot of day.slots) {
+          const succSlot = successorSlotsById.get(weekSlot.slotId);
+          if (succSlot) {
+            weekSlot.sets = succSlot.prescription.sets;
+          }
+        }
+      }
+    }
+
+    successor.relations = successor.relations.filter(
+      (rel) => remainingSlotIds.has(rel.heavySlotId) && remainingSlotIds.has(rel.volumeSlotId)
+    );
+
+    successor.program = projectProgram(successor);
+
+    successor.programStructure = {
+      schemaVersion: 1,
+      days: clone(predecessorInstance.programStructure.days),
+      provenance: clone(successor.provenance),
+      weekPrescriptions: clone(successor.weeks),
+      customizedFrom: null,
+    };
+
+    const succCheck = validateCompilerInstance(successor);
+    if (!succCheck.ok) return succCheck;
+
+    const mapping = buildSlotMapping(predecessorInstance, successor);
+    const progression = relationContract(predecessorInstance, successor, mapping);
+    if (!progression.ok) return progression;
+    const diff = buildExactDiff(predecessorInstance, successor, mapping);
+
+    return {
+      ok: true,
+      successorInstance: successor,
+      mapping,
+      diff,
+      progression,
+    };
+  }
+
+  function volumeContractIssue(proposal, predecessor, successor) {
+    if (!isObject(proposal) || proposal.schemaVersion !== SCHEMA_VERSION ||
+        proposal.kind !== "reduce_training_volume" ||
+        proposal.status !== "preview" ||
+        typeof proposal.transitionId !== "string" || !proposal.transitionId ||
+        typeof proposal.createdAt !== "string" || !proposal.createdAt) {
+      return "invalid_proposal";
+    }
+    const presenceIssue = siblingPresenceIssue(proposal);
+    if (presenceIssue) return presenceIssue;
+    if (typeof proposal.predecessor?.programId !== "string" || !proposal.predecessor.programId ||
+        !Number.isInteger(proposal.predecessor?.durableRevision) || proposal.predecessor.durableRevision < 0 ||
+        typeof proposal.predecessor?.source !== "string" || !proposal.predecessor.source ||
+        typeof proposal.successor?.programId !== "string" || !proposal.successor.programId ||
+        typeof proposal.successor?.source !== "string" || !proposal.successor.source ||
+        proposal.successor.programId === proposal.predecessor.programId) {
+      return "successor_identity_invalid";
+    }
+    if (!RECONSTRUCTABLE_SOURCES.has(proposal.predecessor.source)) {
+      return "unsupported_source";
+    }
+    if (proposal.successor.source !== proposal.predecessor.source) {
+      return "source_provenance_mismatch";
+    }
+    if (!isObject(proposal.diagnosis) ||
+        proposal.diagnosis.kind !== "reduce_training_volume" ||
+        !Array.isArray(proposal.diagnosis.eligibleEvidenceIds) ||
+        !proposal.diagnosis.eligibleEvidenceIds.length ||
+        !proposal.diagnosis.eligibleEvidenceIds.every((id) => typeof id === "string" && id.trim().length > 0) ||
+        !Array.isArray(proposal.diagnosis.insufficientEvidenceReasons) ||
+        proposal.diagnosis.insufficientEvidenceReasons.length > 0) {
+      return "insufficient_transition_evidence";
+    }
+    if (proposal.derivation?.mode !== "reduction" ||
+        proposal.derivation?.request !== "reduce-training-volume" ||
+        !isObject(proposal.derivation?.compilerContextVersions) ||
+        !isObject(proposal.derivation?.policyVersions) ||
+        proposal.derivation.policyVersions.volumeReduction !== 1) {
+      return "unsupported_policy_version";
+    }
+    return null;
+  }
+
+  async function proposeVolumeReduction(input) {
+    const invalid = (code) =>
+      Object.freeze({
+        ok: false,
+        status: "unavailable",
+        unavailable: true,
+        code,
+      });
+
+    if (!isObject(input)) return invalid("invalid_proposal");
+
+    const policyVersion = input.policyVersion !== undefined ? input.policyVersion : 1;
+    if (policyVersion !== 1 || !Number.isInteger(policyVersion)) {
+      return invalid("unsupported_policy_version");
+    }
+
+    const predecessorInstance = input.predecessorInstance ||
+      (input.predecessor?.kind === "compiled" ? input.predecessor : input.predecessor?.instance);
+    if (!isObject(predecessorInstance)) {
+      return invalid("missing_predecessor");
+    }
+    const predCheck = validateCompilerInstance(predecessorInstance);
+    if (!predCheck.ok) {
+      return invalid(predCheck.code === "customized_compiler_snapshot" ? "customized_compiler_snapshot" : predCheck.code);
+    }
+
+    const predecessor = isObject(input.predecessor) && input.predecessor.kind !== "compiled"
+      ? input.predecessor
+      : {
+          programId: input.predecessorProgramId || input.programId,
+          durableRevision: input.durableRevision,
+          source: input.source,
+        };
+
+    if (typeof predecessor.programId !== "string" || !predecessor.programId.trim() ||
+        !Number.isInteger(predecessor.durableRevision) || predecessor.durableRevision < 0 ||
+        typeof predecessor.source !== "string" || !RECONSTRUCTABLE_SOURCES.has(predecessor.source)) {
+      return invalid("unsupported_source");
+    }
+
+    const successorProgramId = input.successorProgramId || input.successor?.programId;
+    if (typeof successorProgramId !== "string" || !successorProgramId.trim() || successorProgramId === predecessor.programId) {
+      return invalid("successor_identity_invalid");
+    }
+
+    const transitionId = input.transitionId;
+    const createdAt = input.createdAt;
+    if (typeof transitionId !== "string" || !transitionId.trim() ||
+        typeof createdAt !== "string" || !createdAt.trim()) {
+      return invalid("invalid_proposal");
+    }
+
+    const diagnosis = input.diagnosis;
+    if (!isObject(diagnosis)) {
+      return invalid("insufficient_transition_evidence");
+    }
+    if (diagnosis.kind !== "reduce_training_volume") {
+      return invalid("unsupported_diagnosis_kind");
+    }
+    if (!Array.isArray(diagnosis.eligibleEvidenceIds) ||
+        diagnosis.eligibleEvidenceIds.length === 0 ||
+        !diagnosis.eligibleEvidenceIds.every((id) => typeof id === "string" && id.trim().length > 0) ||
+        !Array.isArray(diagnosis.insufficientEvidenceReasons) ||
+        diagnosis.insufficientEvidenceReasons.length > 0) {
+      return invalid("insufficient_transition_evidence");
+    }
+
+    const supportedVersions = input.supportedVersions || input.Compiler?.VERSIONS || input.compiler?.VERSIONS;
+    if (!supportedVersions || !versionMatches(predecessorInstance.provenance, supportedVersions)) {
+      return invalid("unsupported_compiler_version");
+    }
+
+    const derivation = deriveVolumeReduction(predecessorInstance, policyVersion);
+    if (!derivation.ok) {
+      return invalid(derivation.code);
+    }
+
+    const successorInstance = derivation.successorInstance;
+    const mapping = derivation.mapping;
+    const diff = derivation.diff;
+    const progression = derivation.progression;
+
+    const predecessorFingerprint = await fingerprintCompilerInstance(predecessorInstance);
+    const successorFingerprint = await fingerprintCompilerInstance(successorInstance);
+
+    const proposal = {
+      schemaVersion: SCHEMA_VERSION,
+      transitionId,
+      kind: "reduce_training_volume",
+      createdAt,
+      predecessor: {
+        programId: predecessor.programId,
+        fingerprint: predecessorFingerprint,
+        durableRevision: predecessor.durableRevision,
+        source: predecessor.source,
+        compilerProvenance: clone(predecessorInstance.provenance),
+      },
+      diagnosis: clone(diagnosis),
+      derivation: {
+        mode: "reduction",
+        request: "reduce-training-volume",
+        compilerContextVersions: {
+          ...clone(successorInstance.provenance),
+        },
+        policyVersions: {
+          volumeReduction: 1,
+        },
+        slotMapping: mapping,
+      },
+      successor: {
+        programId: successorProgramId,
+        source: predecessor.source,
+        compilerProvenance: clone(successorInstance.provenance),
+        fingerprint: successorFingerprint,
+      },
+      diff,
+      progressionContract: progression.value,
+      status: "preview",
+    };
+
+    const contractIssue = volumeContractIssue(proposal, predecessorInstance, successorInstance);
+    if (contractIssue) return invalid(contractIssue);
+
+    proposal.proposalHash = await hashProposal(proposal);
+
+    return Object.freeze({
+      ok: true,
+      status: "preview",
+      proposal: deepFreeze(proposal),
+      successorInstance: deepFreeze(successorInstance),
+    });
+  }
+
+  async function validateVolumeProposal(proposal, current) {
+    if (!isObject(current?.predecessor) || !isObject(current.predecessorInstance)) {
+      return { ok: false, status: "invalid", code: "missing_validation_snapshot" };
+    }
+    const contractIssue = volumeContractIssue(
+      proposal,
+      current.predecessorInstance,
+      current.successorInstance,
+    );
+    if (contractIssue) return { ok: false, status: "invalid", code: contractIssue };
+
+    for (const field of ["programId", "durableRevision", "source"]) {
+      if (proposal.predecessor?.[field] !== current.predecessor[field]) {
+        return { ok: false, status: "stale", code: "predecessor_changed" };
+      }
+    }
+    const liveFingerprint = await fingerprintCompilerInstance(current.predecessorInstance);
+    if (proposal.predecessor?.fingerprint !== liveFingerprint) {
+      return { ok: false, status: "stale", code: "predecessor_changed" };
+    }
+    const predecessorCheck = validateCompilerInstance(current.predecessorInstance);
+    if (!predecessorCheck.ok) return { ok: false, status: "invalid", code: predecessorCheck.code };
+
+    if (!sameCanonical(proposal.predecessor?.compilerProvenance, current.predecessorInstance.provenance)) {
+      return { ok: false, status: "invalid", code: "predecessor_provenance_mismatch" };
+    }
+
+    if (current.supportedVersions && !versionMatches(current.predecessorInstance.provenance, current.supportedVersions)) {
+      return { ok: false, status: "invalid", code: "unsupported_compiler_version" };
+    }
+
+    // 1. Semantic checks on proposal.diff
+    if (proposal.diff?.exercises) {
+      const predSlotsMap = new Map(flattenedSlots(current.predecessorInstance).map((r) => [r.slot.slotId, r.slot]));
+      for (const ex of proposal.diff.exercises) {
+        const predSlot = predSlotsMap.get(ex.predecessorSlot);
+        if (predSlot && predSlot.status === "protected") {
+          if (ex.reason !== "mapped same-template slot" || !ex.after || ex.before?.sets !== ex.after?.sets) {
+            return { ok: false, status: "invalid", code: "protected_slot_mutated" };
+          }
+        }
+        if (ex.after && predSlot) {
+          const minSets = slotMinSets(predSlot, current.predecessorInstance.program);
+          if (ex.after.sets < minSets) {
+            return { ok: false, status: "invalid", code: "below_floor_cut" };
+          }
+        }
+      }
+
+      const anyCutInDiff = proposal.diff.exercises.some((e) => e.before && e.after && e.after.sets < e.before.sets);
+      if (anyCutInDiff) {
+        for (const ex of proposal.diff.exercises) {
+          const predSlot = predSlotsMap.get(ex.predecessorSlot);
+          if (predSlot && predSlot.status === "optional" && ex.after !== null) {
+            return { ok: false, status: "invalid", code: "optional_slot_retained" };
+          }
+        }
+      }
+    }
+
+    // 2. Semantic checks on current.successorInstance if provided
+    if (current.successorInstance) {
+      const succSlotsMap = new Map(flattenedSlots(current.successorInstance).map((r) => [r.slot.slotId, r.slot]));
+      for (const { slot: predSlot } of flattenedSlots(current.predecessorInstance)) {
+        if (predSlot.status === "protected") {
+          const succSlot = succSlotsMap.get(predSlot.slotId);
+          if (!succSlot || succSlot.prescription?.sets !== predSlot.prescription?.sets || !sameCanonical(succSlot, predSlot)) {
+            return { ok: false, status: "invalid", code: "protected_slot_mutated" };
+          }
+        }
+      }
+
+      for (const { slot: succSlot } of flattenedSlots(current.successorInstance)) {
+        const minSets = slotMinSets(succSlot, current.predecessorInstance.program);
+        if (succSlot.prescription?.sets < minSets) {
+          return { ok: false, status: "invalid", code: "below_floor_cut" };
+        }
+      }
+
+      let anyReducibleCut = false;
+      for (const { slot: predSlot } of flattenedSlots(current.predecessorInstance)) {
+        if (predSlot.reducible) {
+          const succSlot = succSlotsMap.get(predSlot.slotId);
+          if (succSlot && succSlot.prescription?.sets < predSlot.prescription?.sets) {
+            anyReducibleCut = true;
+            break;
+          }
+        }
+      }
+      if (anyReducibleCut) {
+        for (const { slot: succSlot } of flattenedSlots(current.successorInstance)) {
+          if (succSlot.status === "optional") {
+            return { ok: false, status: "invalid", code: "optional_slot_retained" };
+          }
+        }
+      }
+
+      const succCheck = validateCompilerInstance(current.successorInstance);
+      if (!succCheck.ok) return { ok: false, status: "invalid", code: succCheck.code };
+    }
+
+    const derivation = deriveVolumeReduction(current.predecessorInstance, 1);
+    if (!derivation.ok) {
+      return { ok: false, status: "invalid", code: derivation.code };
+    }
+    const expectedSuccessor = derivation.successorInstance;
+    const expectedMapping = derivation.mapping;
+    const expectedProgression = derivation.progression;
+
+    if (current.successorInstance && !sameCanonical(current.successorInstance, expectedSuccessor)) {
+      return { ok: false, status: "invalid", code: "successor_identity_mismatch" };
+    }
+
+    const exactDiffIssue = diffIssue(
+      proposal.diff,
+      current.predecessorInstance,
+      expectedSuccessor,
+      expectedMapping,
+    );
+    if (exactDiffIssue) return { ok: false, status: "invalid", code: exactDiffIssue };
+
+    const mappingIssue = mappingCoverageIssue(
+      proposal.derivation?.slotMapping,
+      current.predecessorInstance,
+      expectedSuccessor,
+    );
+    if (mappingIssue) return { ok: false, status: "invalid", code: mappingIssue };
+
+    if (!sameCanonical(proposal.progressionContract, expectedProgression.value)) {
+      return { ok: false, status: "invalid", code: "progression_contract_mismatch" };
+    }
+
+    if (!sameCanonical(proposal.successor?.compilerProvenance, expectedSuccessor.provenance) ||
+        proposal.successor?.fingerprint !== await fingerprintCompilerInstance(expectedSuccessor)) {
+      return { ok: false, status: "invalid", code: "successor_identity_mismatch" };
+    }
+
+    if (proposal.proposalHash !== await hashProposal(proposal)) {
+      return { ok: false, status: "invalid", code: "proposal_hash_mismatch" };
+    }
+
+    return { ok: true, status: "preview" };
+  }
   async function validateProposal(proposal, current) {
+    if (!isObject(proposal)) {
+      return { ok: false, status: "invalid", code: "invalid_proposal" };
+    }
+    if (proposal.kind === "reduce_training_volume") {
+      return validateVolumeProposal(proposal, current);
+    }
+    if (proposal.kind !== "lower_frequency_sibling" && proposal.kind !== "shorter_session_sibling") {
+      return { ok: false, status: "invalid", code: "unsupported_transition_kind" };
+    }
+
     if (!isObject(current?.predecessor) || !isObject(current.predecessorInstance) ||
         !isObject(current.successorInstance) || !isObject(current.predecessorCompilerContext) ||
         !isObject(current.successorCompilerContext)) {
@@ -1200,6 +1726,7 @@
   const api = Object.freeze({
     SCHEMA_VERSION,
     SLOT_MAPPING_SCHEMA_VERSION,
+    VOLUME_REDUCTION_POLICY_VERSION,
     canonicalProposalJson,
     hashProposal,
     fingerprintCompilerInstance,
@@ -1208,6 +1735,8 @@
     buildExactDiff,
     createSiblingProposal,
     proposeSibling,
+    proposeVolumeReduction,
+    createVolumeReductionProposal: proposeVolumeReduction,
     validateProposal,
     commitRecord,
     createGuidedManualRepair,
