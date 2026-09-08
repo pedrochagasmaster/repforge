@@ -1509,3 +1509,331 @@ test("allocation rejects compiler-valid snapshots with unsupported status, bad b
   assert.equal(forgedValidation.ok, false);
   assert.equal(forgedValidation.code, "recovery_pattern_uncovered");
 });
+
+// ===================================================================
+// 052-P5b own-record boundary correction (second repair cycle)
+//
+// Every recovery policy / evidence / proposal / predecessor / overlay /
+// entry / ordered enum consumed at this boundary must be an own-data JSON
+// shape. A required field or an allowlist key can never be satisfied
+// through the prototype chain, a sparse or prototype-backed array can never
+// line up against an ordered enum, and `createdAt` must be a canonical
+// ISO-8601 UTC millisecond instant validated semantically before the
+// terminal proposal-hash comparison. These tests fail on the
+// pre-correction program-transition.js and pass after it.
+// ===================================================================
+
+const inherit = (protoProps, ownProps) => Object.assign(Object.create(protoProps), ownProps);
+
+const VALID_EVIDENCE = Object.freeze({
+  outcomesByPattern: Object.freeze({ "knee-dominant": "maintained", "horizontal press": "declined" }),
+  checkpointAnswer: "Yes",
+});
+const INELIGIBLE_POLICY = { ok: false, status: "ineligible", ineligible: true, code: "policy_invalid" };
+const INVALID_EVIDENCE = { ok: false, status: "ineligible", ineligible: true, code: "invalid_evidence" };
+
+const freshEvidence = () => ({
+  outcomesByPattern: { "knee-dominant": "maintained", "horizontal press": "declined" },
+  checkpointAnswer: "Yes",
+});
+
+test("own-record boundary: inherited or sparse policy fields never satisfy the approved policy", () => {
+  const cases = [
+    ["inherited top-level kind", (p) => {
+      const carrier = inherit({ kind: "taurifer-recovery-policy" }, { ...p });
+      delete carrier.kind;
+      return carrier;
+    }],
+    ["inherited top-level policyVersion", (p) => {
+      const carrier = inherit({ policyVersion: 2 }, { ...p });
+      delete carrier.policyVersion;
+      return carrier;
+    }],
+    ["inherited top-level status", (p) => {
+      const carrier = inherit({ status: "Approved" }, { ...p });
+      delete carrier.status;
+      return carrier;
+    }],
+    ["prototype-carrier patternMapping", (p) => {
+      p.patternMapping = inherit(
+        { squat: "knee-dominant" },
+        { press: "horizontal press", incline_press: "horizontal press", hinge: "hip/hinge" },
+      );
+      return p;
+    }],
+    ["prototype-carrier eligibility", (p) => {
+      p.eligibility = inherit({ minimumPatterns: 2 }, {
+        qualifyingOutcomes: ["maintained", "declined"],
+        checkpointAnswers: ["Yes", "No", "Not sure"],
+        qualifyingCheckpointAnswer: "Yes",
+      });
+      return p;
+    }],
+    ["prototype-carrier ruleB", (p) => {
+      p.ruleB = inherit({ optional: { effectiveWorkingSets: 0, reason: "optional-removed" } }, {
+        protected: { rounding: "ceil", divisor: 2, reason: "protected-ceil" },
+        reducible: { rounding: "floor", divisor: 2, reason: "reducible-floor" },
+        coverageRescue: { minimumWorkingSets: 1, selection: "first-eligible-stable-order", reason: "pattern-rescue" },
+      });
+      return p;
+    }],
+    ["prototype-carrier reassessment", (p) => {
+      p.reassessment = inherit({ weekTwoCanonical: true }, {
+        outcomes: ["Better", "About the same", "Worse"],
+        unset: null,
+        ordinaryReviewOutcomes: ["About the same", "Worse"],
+        sameBlockRepeat: false,
+      });
+      return p;
+    }],
+    ["inherited fake_v1 allowlist membership", (p) => {
+      p.allowlistedMisses = inherit(
+        { fake_v1: { base: 32, effective: 12 } },
+        { growth_2_v1: { base: 32, effective: 12 }, growth_3_v1: { base: 49, effective: 17 } },
+      );
+      return p;
+    }],
+    ["sparse ordered primaryPatterns", (p) => {
+      const sparse = ["knee-dominant"];
+      sparse[2] = "hip/hinge";
+      p.primaryPatterns = sparse;
+      return p;
+    }],
+    ["sparse ordered checkpointAnswers", (p) => {
+      const sparse = ["Yes"];
+      sparse[2] = "Not sure";
+      p.eligibility.checkpointAnswers = sparse;
+      return p;
+    }],
+    ["dangerous own key on policy", (p) => {
+      Object.defineProperty(p, "constructor", { enumerable: true, configurable: true, writable: true, value: 1 });
+      return p;
+    }],
+    ["extra own top-level key", (p) => { p.injected = true; return p; }],
+  ];
+  for (const [label, mutate] of cases) {
+    const policy = mutate(clone(APPROVED_POLICY_V2));
+    assert.deepEqual(
+      evaluateRecoveryEligibility(freshEvidence(), policy),
+      INELIGIBLE_POLICY,
+      `${label} must be rejected as policy_invalid`,
+    );
+  }
+});
+
+test("own-record boundary: null / array / plain-object policy controls", () => {
+  assert.deepEqual(evaluateRecoveryEligibility(freshEvidence(), null), INELIGIBLE_POLICY);
+  assert.deepEqual(evaluateRecoveryEligibility(freshEvidence(), []), INELIGIBLE_POLICY);
+  assert.equal(evaluateRecoveryEligibility(freshEvidence(), clone(APPROVED_POLICY_V2)).ok, true);
+});
+
+test("own-record boundary: inherited evidence checkpoint or outcomesByPattern is rejected", () => {
+  const outcomes = { "knee-dominant": "maintained", "horizontal press": "declined" };
+
+  // outcomesByPattern reached only through the evidence prototype: nothing own
+  // supports eligibility.
+  assert.deepEqual(
+    evaluateRecoveryEligibility(inherit({ outcomesByPattern: outcomes }, { checkpointAnswer: "Yes" }), APPROVED_POLICY_V2),
+    INVALID_EVIDENCE,
+  );
+
+  // checkpointAnswer reached only through the evidence prototype must not pass
+  // the "Yes" gate.
+  const inheritedCheckpoint = evaluateRecoveryEligibility(
+    inherit({ checkpointAnswer: "Yes" }, { outcomesByPattern: { ...outcomes } }),
+    APPROVED_POLICY_V2,
+  );
+  assert.equal(inheritedCheckpoint.ok, false);
+  assert.equal(inheritedCheckpoint.code, "checkpoint_not_yes");
+
+  // Control: fully own evidence still qualifies; a nested inherited outcome row
+  // is ignored (not a bypass), matching the existing prototype-outcomes test.
+  assert.equal(evaluateRecoveryEligibility(
+    { outcomesByPattern: { ...outcomes }, checkpointAnswer: "Yes" },
+    APPROVED_POLICY_V2,
+  ).ok, true);
+});
+
+test("own-record boundary: a forged fake_v1 out-of-band instance cannot mint a preview via an inherited allowlist", async () => {
+  const inheritedAllow = clone(APPROVED_POLICY_V2);
+  inheritedAllow.allowlistedMisses = inherit(
+    { fake_v1: { base: 32, effective: 12 } },
+    { growth_2_v1: { base: 32, effective: 12 }, growth_3_v1: { base: 49, effective: 17 } },
+  );
+
+  assert.deepEqual(evaluateRecoveryEligibility(freshEvidence(), inheritedAllow), INELIGIBLE_POLICY);
+
+  const pred = Compiler.compile(gymContext("growth", 2), EXERCISE_LIBRARY);
+  pred.blueprintId = "fake_v1";
+  pred.provenance.blueprintId = "fake_v1";
+  pred.programStructure.provenance.blueprintId = "fake_v1";
+
+  const out = await proposeRecoveryWeek({
+    predecessorInstance: pred,
+    predecessor: { programId: "p", durableRevision: 1, source: "Recommend" },
+    approvedPolicy: inheritedAllow,
+    evidence: freshEvidence(),
+    transitionId: "t",
+    blockId: "b",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    supportedVersions: Compiler.VERSIONS,
+  });
+  assert.equal(out.ok, false, "forged fake_v1 instance must never mint a preview");
+  assert.notEqual(out.status, "preview");
+  assert.ok(
+    out.code === "policy_invalid" || out.code === "recovery_volume_out_of_band",
+    `expected policy_invalid or recovery_volume_out_of_band, got ${out.code}`,
+  );
+
+  // Defence in depth: a plain-object allowlist that simply adds fake_v1 is still
+  // rejected as policy_invalid.
+  const plainExtra = clone(APPROVED_POLICY_V2);
+  plainExtra.allowlistedMisses.fake_v1 = { base: 32, effective: 12 };
+  assert.deepEqual(evaluateRecoveryEligibility(freshEvidence(), plainExtra), INELIGIBLE_POLICY);
+});
+
+test("validateRecoveryProposal: extra proposal or predecessor keys fail semantically before the hash gate", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const cases = [
+    ["extra top-level proposal key", (p) => { p.note = "x"; }],
+    ["predecessor.confirmedAt", (p) => { p.predecessor.confirmedAt = "2026-10-01T09:00:00.000Z"; }],
+    ["predecessor.archiveId", (p) => { p.predecessor.archiveId = "arc_x"; }],
+    ["extra predecessor key", (p) => { p.predecessor.extra = 1; }],
+    ["prototype-carrier diagnosis", (p) => {
+      p.diagnosis = Object.assign(Object.create({ kind: "recovery_week" }), {
+        answers: { checkpointAnswer: "Yes" },
+        eligibleEvidenceIds: [...p.diagnosis.eligibleEvidenceIds],
+        insufficientEvidenceReasons: [],
+      });
+    }],
+    ["sparse entries array", (p) => { p.diff.recoveryWeek.entries.length += 1; }],
+  ];
+  for (const [label, mutate] of cases) {
+    const tampered = JSON.parse(JSON.stringify(proposal));
+    mutate(tampered);
+    tampered.proposalHash = await Transition.hashProposal(tampered);
+    const val = await Transition.validateProposal(tampered, validationContext);
+    assert.equal(val.ok, false, `${label} must be rejected`);
+    assert.equal(val.status, "invalid", `${label} must be invalid, not stale`);
+    assert.equal(val.code, "invalid_proposal", `${label} must return invalid_proposal before the hash gate`);
+  }
+});
+
+test("validateRecoveryProposal: createdAt must be a canonical ISO-8601 UTC millisecond instant", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const bad = [
+    "TBD",
+    "2026-10-01",
+    "2026-10-01T09:00:00Z",
+    "2026-10-01T09:00:00.000+00:00",
+    "2026-10-01T09:00:00.0Z",
+    "2026-13-01T09:00:00.000Z",
+    "2026-10-01T09:00:00.000z",
+  ];
+  for (const value of bad) {
+    const tampered = JSON.parse(JSON.stringify(proposal));
+    tampered.createdAt = value;
+    tampered.diff.recoveryWeek.createdAt = value;
+    tampered.proposalHash = await Transition.hashProposal(tampered);
+    const val = await Transition.validateProposal(tampered, validationContext);
+    assert.equal(val.ok, false, `${value} must be rejected`);
+    assert.equal(val.status, "invalid");
+    assert.equal(val.code, "invalid_proposal", `${value} must fail as invalid_proposal`);
+  }
+  // Overlay copy alone non-canonical (parent still canonical) → overlay code.
+  const overlayOnly = JSON.parse(JSON.stringify(proposal));
+  overlayOnly.diff.recoveryWeek.createdAt = "TBD";
+  overlayOnly.proposalHash = await Transition.hashProposal(overlayOnly);
+  const overlayVal = await Transition.validateProposal(overlayOnly, validationContext);
+  assert.equal(overlayVal.ok, false);
+  assert.equal(overlayVal.code, "invalid_recovery_overlay");
+
+  // Canonical control: a consistent canonical shift + rehash is a new valid proposal.
+  const good = JSON.parse(JSON.stringify(proposal));
+  good.createdAt = "2027-03-04T05:06:07.000Z";
+  good.diff.recoveryWeek.createdAt = good.createdAt;
+  good.proposalHash = await Transition.hashProposal(good);
+  const okVal = await Transition.validateProposal(good, validationContext);
+  assert.equal(okVal.ok, true);
+  assert.equal(okVal.status, "preview");
+});
+
+test("proposeRecoveryWeek rejects a non-canonical createdAt at creation", async () => {
+  const instance = Compiler.compile(gymContext("growth", 4), EXERCISE_LIBRARY);
+  for (const value of ["TBD", "2026-10-01", "2026-10-01T09:00:00Z", ""]) {
+    const result = await proposeRecoveryWeek(validRecoveryInput({ predecessorInstance: instance, createdAt: value }));
+    assert.equal(result.ok, false, `${JSON.stringify(value)} must not create a proposal`);
+    assert.equal(result.code, "invalid_proposal");
+  }
+});
+
+test("pattern-rescue proposal round-trips through validateProposal and rejects a forged rescue reason", async () => {
+  const base = Compiler.compile(gymContext("growth", 6), EXERCISE_LIBRARY);
+  const synthetic = JSON.parse(JSON.stringify(base));
+  let modified = 0;
+  for (const day of synthetic.days) {
+    for (const slot of day.slots) {
+      if (slot.contract?.patterns?.[0] === "squat") {
+        slot.status = "optional";
+        slot.protected = false;
+        slot.reducible = false;
+        const p = synthetic.program.find((e) => e.slotId === slot.slotId);
+        if (p) p.priority = "optional";
+        modified++;
+      }
+    }
+  }
+  assert.ok(modified >= 2);
+
+  const input = validRecoveryInput({ predecessorInstance: synthetic });
+  const made = await proposeRecoveryWeek(input);
+  assert.equal(made.ok, true, `synthetic rescue proposal must be created: ${made.code}`);
+  const proposal = JSON.parse(JSON.stringify(made.proposal));
+
+  const context = {
+    predecessor: input.predecessor,
+    predecessorInstance: synthetic,
+    approvedPolicy: APPROVED_POLICY_V2,
+    supportedVersions: Compiler.VERSIONS,
+  };
+  const rescueIndex = proposal.diff.recoveryWeek.entries.findIndex((e) => e.reason === "pattern-rescue");
+  assert.ok(rescueIndex >= 0, "synthetic fixture must exercise the rescue path");
+
+  const okVal = await Transition.validateProposal(proposal, context);
+  assert.equal(okVal.ok, true, `rescue proposal must validate: ${okVal.code}`);
+  assert.equal(okVal.status, "preview");
+
+  const forged = JSON.parse(JSON.stringify(proposal));
+  forged.diff.recoveryWeek.entries[rescueIndex].reason = "optional-removed";
+  forged.proposalHash = await Transition.hashProposal(forged);
+  const forgedVal = await Transition.validateProposal(forged, context);
+  assert.equal(forgedVal.ok, false);
+  assert.equal(forgedVal.status, "invalid");
+  assert.equal(forgedVal.code, "recovery_reason_mismatch");
+});
+
+test("combined stale predecessor and freshly rehashed semantic forgery resolves to stale precedence", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const tampered = JSON.parse(JSON.stringify(proposal));
+  tampered.diagnosis.kind = "reduce_training_volume";
+  tampered.proposalHash = await Transition.hashProposal(tampered);
+  const staleContext = {
+    ...validationContext,
+    predecessor: { ...validationContext.predecessor, durableRevision: 99 },
+  };
+  const val = await Transition.validateProposal(tampered, staleContext);
+  assert.equal(val.ok, false);
+  assert.equal(val.status, "stale");
+  assert.equal(val.code, "predecessor_changed");
+});
+
+test("consistent valid canonical createdAt rehash control still validates", async () => {
+  const { proposal, validationContext } = await createBaseRecoveryFixture();
+  const shifted = JSON.parse(JSON.stringify(proposal));
+  shifted.createdAt = "2026-12-31T23:59:59.000Z";
+  shifted.diff.recoveryWeek.createdAt = shifted.createdAt;
+  shifted.proposalHash = await Transition.hashProposal(shifted);
+  const val = await Transition.validateProposal(shifted, validationContext);
+  assert.equal(val.ok, true);
+  assert.equal(val.status, "preview");
+});

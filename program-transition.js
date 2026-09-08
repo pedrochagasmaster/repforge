@@ -36,6 +36,51 @@
   const noUnsafeKeys = (value) => isObject(value) &&
     Object.keys(value).every((key) => !DANGEROUS_KEYS.has(key));
 
+  // --- Recovery-boundary own-data discipline --------------------------------
+  // The recovery-week preview consumes a policy, evidence, proposal,
+  // predecessor, overlay, entries, and ordered enums that must each be an
+  // own-data JSON shape: a required field or an allowlist key can never be
+  // satisfied through the prototype chain, and a sparse or prototype-backed
+  // array can never line up against an ordered enum. These helpers are used
+  // only by the recovery boundary; other transition kinds keep their existing
+  // validation unchanged.
+  const OBJECT_PROTO = Object.prototype;
+  const ARRAY_PROTO = Array.prototype;
+
+  function isOwnRecord(value) {
+    if (value === null || typeof value !== "object" || Array.isArray(value)) return false;
+    const proto = Object.getPrototypeOf(value);
+    if (proto !== OBJECT_PROTO && proto !== null) return false;
+    return Object.keys(value).every((key) => !DANGEROUS_KEYS.has(key));
+  }
+
+  function isOwnArray(value) {
+    if (!Array.isArray(value) || Object.getPrototypeOf(value) !== ARRAY_PROTO) return false;
+    for (let index = 0; index < value.length; index += 1) {
+      if (!own(value, index)) return false;
+    }
+    return true;
+  }
+
+  function isOwnJsonTree(value) {
+    if (value === null || typeof value === "string" || typeof value === "boolean") return true;
+    if (typeof value === "number") return Number.isFinite(value);
+    if (Array.isArray(value)) return isOwnArray(value) && value.every(isOwnJsonTree);
+    if (!isOwnRecord(value)) return false;
+    return Object.keys(value).every((key) => isOwnJsonTree(value[key]));
+  }
+
+  // Canonical ISO-8601 UTC instant with milliseconds, e.g. 2026-10-01T09:00:00.000Z.
+  // Rejects placeholders, partial dates, offsets, and noncanonical normalized
+  // spellings. Reads no clock.
+  const CANONICAL_INSTANT_RE = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+  function isCanonicalInstant(value) {
+    if (typeof value !== "string" || !CANONICAL_INSTANT_RE.test(value)) return false;
+    const parsed = Date.parse(value);
+    if (Number.isNaN(parsed)) return false;
+    return new Date(parsed).toISOString() === value;
+  }
+
   function assertSafeJson(value, path = "$") {
     if (value === null || typeof value === "string" || typeof value === "boolean") return;
     if (typeof value === "number") {
@@ -1829,12 +1874,29 @@
      contract in docs/recovery-week-policy.md, evaluates the evidence, and
      returns either an immutable eligible result with normalized evidence or a
      typed ineligible result. Never emits a proposal, hash, overlay, or allocation. */
-  // Consumed policy-v2 validator: every set P5b actually reads is closed to its
-  // documented own-key set and exact value or ordered array. Extra mapping or
-  // allowlist entries would reinterpret the fixed policy and are rejected as
-  // policy_invalid. Unlisted top-level policy extensions stay tolerated.
+  // Consumed policy-v2 validator: the whole policy must be an own-data JSON tree
+  // and every set P5b reads is closed to its documented own-key set and exact
+  // value or ordered array, including the top-level key set. Extra top-level,
+  // mapping, or allowlist entries would reinterpret the fixed policy and are
+  // rejected as policy_invalid.
   function isApprovedRecoveryPolicy(policy) {
     if (!isObject(policy)) return false;
+    // The whole consumed policy must be own-data: no leaf, ordered enum, or
+    // nested record may resolve through a prototype carrier, and the top-level
+    // key set is closed to exactly the executable Policy v2 shape.
+    if (!isOwnJsonTree(policy)) return false;
+    if (!exactKeys(policy, [
+      "kind",
+      "policyVersion",
+      "status",
+      "primaryPatterns",
+      "patternMapping",
+      "eligibility",
+      "ruleB",
+      "acceptanceBand",
+      "allowlistedMisses",
+      "reassessment",
+    ])) return false;
     if (policy.kind !== "taurifer-recovery-policy") return false;
     if (policy.policyVersion !== RECOVERY_POLICY_VERSION) return false;
     if (policy.status !== "Approved") return false;
@@ -1901,7 +1963,7 @@
       });
     }
 
-    if (!isObject(evidence) || !isObject(evidence.outcomesByPattern)) {
+    if (!isObject(evidence) || !own(evidence, "outcomesByPattern") || !isObject(evidence.outcomesByPattern)) {
       return Object.freeze({
         ok: false,
         status: "ineligible",
@@ -1951,7 +2013,10 @@
       }
     }
 
-    if (evidence.checkpointAnswer !== "Yes") {
+    // The closed checkpoint answer must be an own property; an answer reached
+    // only through the evidence prototype never passes the "Yes" gate.
+    const checkpointAnswer = own(evidence, "checkpointAnswer") ? evidence.checkpointAnswer : undefined;
+    if (checkpointAnswer !== "Yes") {
       return Object.freeze({
         ok: false,
         status: "ineligible",
@@ -2069,8 +2134,13 @@
     const inBand = ratio >= approvedPolicy.acceptanceBand.minimum && ratio <= approvedPolicy.acceptanceBand.maximum;
     if (!inBand) {
       const bpId = predecessorInstance.blueprintId || predecessorInstance.provenance?.blueprintId;
-      const allowlisted = approvedPolicy.allowlistedMisses?.[bpId];
-      if (!allowlisted || allowlisted.base !== baseTotal || allowlisted.effective !== effectiveTotal) {
+      // The fixed allowlist is indexed only after proving the blueprint ID is an
+      // own approved key; a prototype-carried entry never authorizes an
+      // out-of-band version.
+      const misses = approvedPolicy.allowlistedMisses;
+      const allowlisted = (isOwnRecord(misses) && typeof bpId === "string" &&
+        !DANGEROUS_KEYS.has(bpId) && own(misses, bpId)) ? misses[bpId] : null;
+      if (!isOwnRecord(allowlisted) || allowlisted.base !== baseTotal || allowlisted.effective !== effectiveTotal) {
         return {
           ok: false,
           status: "ineligible",
@@ -2139,7 +2209,7 @@
     const createdAt = input.createdAt;
     if (typeof transitionId !== "string" || !transitionId.trim() ||
         typeof blockId !== "string" || !blockId.trim() ||
-        typeof createdAt !== "string" || !createdAt.trim()) {
+        !isCanonicalInstant(createdAt)) {
       return invalid("invalid_proposal");
     }
 
@@ -2244,9 +2314,15 @@
     if (proposal.status !== "preview") {
       return { ok: false, status: "invalid", code: "invalid_proposal_status" };
     }
+    // Every recovery-preview record consumed here must be an own-data JSON tree:
+    // no required field, ordered enum, or nested record may resolve through a
+    // prototype, and no array may be sparse or prototype-backed.
+    if (!isOwnJsonTree(proposal)) {
+      return { ok: false, status: "invalid", code: "invalid_proposal" };
+    }
     if (proposal.schemaVersion !== SCHEMA_VERSION ||
         typeof proposal.transitionId !== "string" || !proposal.transitionId.trim() ||
-        typeof proposal.createdAt !== "string" || !proposal.createdAt.trim()) {
+        !isCanonicalInstant(proposal.createdAt)) {
       return { ok: false, status: "invalid", code: "invalid_proposal" };
     }
     if (proposal.successor !== undefined) {
@@ -2254,6 +2330,33 @@
     }
     if (proposal.confirmedAt !== undefined || proposal.archiveId !== undefined) {
       return { ok: false, status: "invalid", code: "forbidden_lifecycle_field" };
+    }
+    // The preview proposal and its predecessor are key-closed to exactly their
+    // documented fields. An undocumented key (a freshly rehashed `note`, or a
+    // `predecessor.confirmedAt` / `predecessor.archiveId` lifecycle field that
+    // only exists after commit) fails here, before the terminal proposal-hash
+    // comparison; a missing documented section still routes to its specific
+    // downstream code.
+    const PROPOSAL_KEYS = [
+      "schemaVersion",
+      "transitionId",
+      "kind",
+      "createdAt",
+      "status",
+      "predecessor",
+      "diagnosis",
+      "derivation",
+      "diff",
+      "progressionContract",
+      "proposalHash",
+    ];
+    if (Object.keys(proposal).some((key) => !PROPOSAL_KEYS.includes(key))) {
+      return { ok: false, status: "invalid", code: "invalid_proposal" };
+    }
+    const PREDECESSOR_KEYS = ["programId", "fingerprint", "durableRevision", "source", "compilerProvenance"];
+    if (!isOwnRecord(proposal.predecessor) ||
+        Object.keys(proposal.predecessor).some((key) => !PREDECESSOR_KEYS.includes(key))) {
+      return { ok: false, status: "invalid", code: "invalid_proposal" };
     }
     if (!isObject(proposal.diff) || !isObject(proposal.diff.recoveryWeek)) {
       return { ok: false, status: "invalid", code: "missing_recovery_overlay" };
@@ -2290,6 +2393,7 @@
         overlay.activePeriod !== "nextBlockWeek1" ||
         overlay.transitionId !== proposal.transitionId ||
         typeof overlay.blockId !== "string" || !overlay.blockId.trim() ||
+        !isCanonicalInstant(overlay.createdAt) ||
         overlay.createdAt !== proposal.createdAt ||
         overlay.reassessmentOutcome !== null) {
       return { ok: false, status: "invalid", code: "invalid_recovery_overlay" };
