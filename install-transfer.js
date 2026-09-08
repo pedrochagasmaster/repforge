@@ -143,6 +143,19 @@
     } catch { return false; }
   }
 
+  function validSealedCredential(value, context) {
+    if (!value || typeof value !== "object" || Array.isArray(value) || !exactKeys(value, ["version", "algorithm", "context", "keyId", "iv", "ciphertext"])) return false;
+    if (value.version !== 1 || value.algorithm !== "AES-GCM" || value.context !== context ||
+      !validString(value.keyId, { max: IDENTIFIER_MAX_CHARS }) ||
+      !validString(value.iv, { max: CREDENTIAL_MAX_CHARS }) ||
+      !validString(value.ciphertext, { max: CREDENTIAL_MAX_CHARS })) return false;
+    try {
+      const iv = decodeBytes(value.iv);
+      const ciphertext = decodeBytes(value.ciphertext);
+      return iv.byteLength === 12 && ciphertext.byteLength >= 16 && encodeBytes(iv) === value.iv && encodeBytes(ciphertext) === value.ciphertext;
+    } catch { return false; }
+  }
+
   function textBytes(value) {
     return new TextEncoder().encode(value);
   }
@@ -757,12 +770,20 @@
       let marker;
       try { marker = await inbound.read(); }
       catch { return unavailable("marker-read-failed", "unknown-outcome"); }
+      if (marker !== null && marker !== undefined && (typeof marker !== "object" || Array.isArray(marker))) {
+        return stateResult(unavailable("marker-invalid", "unknown-outcome"));
+      }
+      const markerPresent = marker !== null && marker !== undefined;
       if (["local-committed", "cleanup-pending", "cleared"].includes(marker?.phase)) {
         return stateResult(unavailable("claim-state-changed", "unknown-outcome"));
       }
+      if (markerPresent && !Object.hasOwn(marker, "sealedCredentials")) {
+        return stateResult(unavailable("marker-invalid", "unknown-outcome"));
+      }
       let pair;
-      if (marker?.sealedCredentials) {
+      if (markerPresent) {
         if (!["staged", "claiming", "claimed"].includes(marker.phase)) return stateResult(unavailable("marker-invalid", "unknown-outcome"));
+        if (!validSealedCredential(marker.sealedCredentials, "standalone-inbound")) return stateResult(unavailable("marker-invalid", "unknown-outcome"));
         try { pair = await credentials.unseal("standalone-inbound", marker.sealedCredentials); } catch { return stateResult(unavailable("credential-unavailable", "terminalUnavailable")); }
       } else {
         const cookie = readTransferCookie({ document });

@@ -793,6 +793,55 @@ async function main() {
     }
   });
 
+  await test("every non-null malformed inbound marker fails closed before cookie fallback", async () => {
+    const rows = [
+      ["empty-object", {}],
+      ["claimed-without-credentials", { version: 1, phase: "claimed" }],
+      ["claiming-without-credentials", { version: 1, phase: "claiming" }],
+      ["staged-without-credentials", { version: 1, phase: "staged" }],
+      ["unknown-phase", { version: 1, phase: "future" }],
+      ["null-credentials", { version: 1, phase: "claiming", sealedCredentials: null }],
+      ["malformed-credentials", { version: 1, phase: "claiming", sealedCredentials: { version: 1, algorithm: "AES-GCM", context: "standalone-inbound" } }],
+      ["array", []],
+    ];
+    for (const [index, [label, marker]] of rows.entries()) {
+      const token = tokenFixture(String.fromCharCode(65 + index));
+      const document = cookieDocument();
+      check(Transfer.writeTransferCookie({ token, expiresAt: "2026-09-08T20:00:00.000Z" }, { document, location: { href: "https://pedrochagasmaster.github.io/repforge/index.html" }, now: "2026-09-08T19:00:00.000Z" }), `${label} cookie seed failed`);
+      const inbound = markerStore(marker);
+      const before = JSON.stringify(inbound.peek());
+      let sealCalled = false;
+      let unsealCalled = false;
+      const credentials = {
+        async seal() { sealCalled = true; throw new Error("unexpected-seal"); },
+        async unseal() { unsealCalled = true; throw new Error("unexpected-unseal"); },
+        async forget() {},
+      };
+      const transport = transportSequence([response(200, { state: "unreachable", expiresAt: "2026-09-08T20:00:00.000Z" })]);
+      const client = makeClient({ context: "standalone", transport, inbound, document, credentials });
+      const result = await client.claim();
+      check(result.state === FAULT_EXPECTATIONS.claimStateRace.malformedMarkerState && result.code === FAULT_EXPECTATIONS.claimStateRace.malformedMarkerCode, `${label} marker was not rejected with a closed failure`);
+      check(JSON.stringify(inbound.peek()) === before && Transfer.readTransferCookie({ document })?.token === token, `${label} marker or cookie was mutated`);
+      check(!sealCalled && !unsealCalled && transport.requests.length === 0, `${label} crossed credential or network boundaries`);
+    }
+  });
+
+  await test("cookie bootstrap remains available only for truly absent markers", async () => {
+    const source = makeSource();
+    const built = await Transfer.buildEnvelope({ sections: source, source: sourceDescriptor(source), contract: makeContract(), crypto: webcrypto, createdAt: "2026-09-08T19:00:00.000Z" });
+    for (const absent of [null, undefined]) {
+      const token = tokenFixture(absent === null ? "Q" : "R");
+      const document = cookieDocument();
+      check(Transfer.writeTransferCookie({ token, expiresAt: "2026-09-08T20:00:00.000Z" }, { document, location: { href: "https://pedrochagasmaster.github.io/repforge/index.html" }, now: "2026-09-08T19:00:00.000Z" }), "absent-marker cookie seed failed");
+      const inbound = markerStore(absent);
+      const transport = transportSequence([response(200, { envelope: built.value, expiresAt: "2026-09-08T20:00:00.000Z" })]);
+      const client = makeClient({ context: "standalone", transport, inbound, document, vault });
+      const result = await client.claim();
+      check(result.ok && result.state === "validating" && transport.requests.length === 1, `${absent === null ? "null" : "undefined"} marker did not bootstrap from the cookie`);
+      check(inbound.peek()?.phase === "claimed" && !document.cookie.includes("repforge_transfer_v1="), `${absent === null ? "null" : "undefined"} marker bootstrap did not complete normally`);
+    }
+  });
+
   await test("freezes create when cookie persistence cannot be confirmed", async () => {
     const token = tokenFixture("J");
     const outbound = markerStore();

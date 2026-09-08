@@ -37,7 +37,10 @@
     "mustNotWriteClaimed": true,
     "terminalMarkerGuardBeforeCookieFallback": true,
     "retryPhases": ["claiming", "claimed"],
-    "retryPreservesClaimedPhase": true
+    "retryPreservesClaimedPhase": true,
+    "malformedMarkerState": "unknown-outcome",
+    "malformedMarkerCode": "marker-invalid",
+    "sealedCredentialStructureCheckedBeforeUnseal": true
   },
   "expiresAt": {
     "strictUtcMilliseconds": true,
