@@ -58,7 +58,11 @@
     "envelopeBytes": 2000000,
     "claimWrapperHeadroomBytes": 4096,
     "claimResponseBytes": 2004096,
-    "overflowCode": "response-too-large"
+    "overflowCode": "response-too-large",
+    "malformedStreamCode": "invalid-response-body",
+    "manyZeroChunks": 20000,
+    "manyTinyChunks": 4096,
+    "exactBoundaryAccepted": true
   },
   "indexedDb": {
     "writeAndDeleteAwaitTransactionComplete": true,

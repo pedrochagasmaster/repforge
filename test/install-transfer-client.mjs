@@ -968,6 +968,79 @@ async function main() {
     check(cancelled, "oversized response stream was not cancelled at the byte boundary");
   });
 
+  await test("bounded response accumulation accepts many zero/tiny chunks at the exact limit", async () => {
+    const limit = FAULT_EXPECTATIONS.responseBounds.smallBytes;
+    let zeroChunks = FAULT_EXPECTATIONS.responseBounds.manyZeroChunks;
+    let tinyChunks = 0;
+    const exact = new ReadableStream({
+      pull(controller) {
+        if (zeroChunks > 0) {
+          zeroChunks -= 1;
+          controller.enqueue(new Uint8Array(0));
+          return;
+        }
+        if (tinyChunks < FAULT_EXPECTATIONS.responseBounds.manyTinyChunks) {
+          controller.enqueue(new Uint8Array([tinyChunks & 0xff]));
+          tinyChunks += 1;
+          return;
+        }
+        controller.close();
+      },
+    });
+    const transport = Transfer.createFetchTransport({
+      fetch: async () => ({ status: 200, body: exact }),
+      baseUrl: "https://transfer.example/",
+    });
+    const reply = await transport.request({ path: EXPECTATIONS.endpoints.status, body: { token: tokenFixture("Z") } });
+    check(FAULT_EXPECTATIONS.responseBounds.exactBoundaryAccepted && reply.bytes.byteLength === limit, "exact bounded response was not accepted after zero/tiny chunking");
+  });
+
+  await test("bounded response accumulation cancels tiny-chunk overflow and malformed streams", async () => {
+    const limit = FAULT_EXPECTATIONS.responseBounds.smallBytes;
+    let zeroChunks = FAULT_EXPECTATIONS.responseBounds.manyZeroChunks;
+    let tinyChunks = 0;
+    let overflowCancelled = false;
+    const overflow = new ReadableStream({
+      pull(controller) {
+        if (zeroChunks > 0) {
+          zeroChunks -= 1;
+          controller.enqueue(new Uint8Array(0));
+          return;
+        }
+        if (tinyChunks <= limit) {
+          controller.enqueue(new Uint8Array([tinyChunks & 0xff]));
+          tinyChunks += 1;
+          return;
+        }
+      },
+      cancel() { overflowCancelled = true; },
+    });
+    const overflowTransport = Transfer.createFetchTransport({
+      fetch: async () => ({ status: 200, body: overflow }),
+      baseUrl: "https://transfer.example/",
+    });
+    await assert.rejects(
+      () => overflowTransport.request({ path: EXPECTATIONS.endpoints.status, body: { token: tokenFixture("Y") } }),
+      (error) => error?.code === FAULT_EXPECTATIONS.responseBounds.overflowCode,
+    );
+    check(overflowCancelled, "tiny-chunk overflow stream was not cancelled");
+
+    let malformedCancelled = false;
+    const malformed = new ReadableStream({
+      pull(controller) { controller.enqueue(new ArrayBuffer(1)); },
+      cancel() { malformedCancelled = true; },
+    });
+    const malformedTransport = Transfer.createFetchTransport({
+      fetch: async () => ({ status: 200, body: malformed }),
+      baseUrl: "https://transfer.example/",
+    });
+    await assert.rejects(
+      () => malformedTransport.request({ path: EXPECTATIONS.endpoints.status, body: { token: tokenFixture("X") } }),
+      (error) => error?.code === FAULT_EXPECTATIONS.responseBounds.malformedStreamCode,
+    );
+    check(malformedCancelled, "malformed response stream was not cancelled");
+  });
+
   await test("claim retries the same sealed claim and validates the returned envelope", async () => {
     const source = makeSource();
     const built = await Transfer.buildEnvelope({ sections: source, source: { context: "browser", logicalInstallationId: "li_claim", sourceRevision: 42 }, contract: makeContract(), crypto: webcrypto, createdAt: "2026-09-08T19:00:00.000Z" });
