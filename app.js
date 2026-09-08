@@ -1274,27 +1274,8 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
         effect:frozenEffectOutcome,discard:true});
       return{revision:readRevision(head),localOk:true,idbOk:true,alreadyCommitted:true,
         pendingJournalCleanup:discarded.settled!==true}}
-    if(expectedStorageRevision!==undefined&&readRevision(head)!==expectedStorageRevision){
-      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
-        effect:frozenEffectOutcome,discard:true});
-      return{revision:readRevision(head),localOk:false,idbOk:false,
-        conflict:true,staleRevision:true}}
-    if(expectedProgramId&&head?.programMeta?.id!==expectedProgramId){
-      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
-        effect:frozenEffectOutcome,discard:true});
-      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
-    if(expectedProgramFingerprint&&draftProgramFingerprint(head)!==expectedProgramFingerprint){
-      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
-        effect:frozenEffectOutcome,discard:true});
-      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
-    if(expectedFirstRunEmpty&&(head?.programMeta?.onboarded||head?.log?.length||head?.programHistory?.length)){
-      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
-        effect:frozenEffectOutcome,discard:true});
-      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true,ineligible:true}}
-    // Some editor guards depend on a second tab's draft, which can be written
-    // while this operation waits for the cross-tab lock. Let the caller inspect
-    // that state after the lock is acquired but before the journal is armed or
-    // either durable replica is touched.
+    // On freshly reread lock-held head, exact-match idempotency and custom
+    // preflight guards are evaluated before generic predecessor revision/ID/fingerprint rejection.
     if(typeof preflight==="function"){
       const checked=await preflight({head:cloneSnapshot(head),proposal:cloneSnapshot(workingProposal)});
       if(checked?.proposal){
@@ -1315,6 +1296,23 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
         await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
           effect:frozenEffectOutcome,discard:true});
         return Object.assign({revision:readRevision(head),localOk:false,idbOk:false},checked.result||{conflict:true})}}
+    if(expectedStorageRevision!==undefined&&readRevision(head)!==expectedStorageRevision){
+      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(head),localOk:false,idbOk:false,
+        conflict:true,staleRevision:true}}
+    if(expectedProgramId&&head?.programMeta?.id!==expectedProgramId){
+      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
+    if(expectedProgramFingerprint&&draftProgramFingerprint(head)!==expectedProgramFingerprint){
+      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
+    if(expectedFirstRunEmpty&&(head?.programMeta?.onboarded||head?.log?.length||head?.programHistory?.length)){
+      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true,ineligible:true}}
     if(pendingRecord&&draftEffectRequiresCoordination(frozenEffectOutcome)){
       const armed=armPendingJournalRollback(pendingRecord,head);
       if(!armed){
@@ -6702,7 +6700,7 @@ const repforgeProgramTransitionAdapter = {
 
     const res = await commitProgramReplacement(baseProposal, storageIO, { capture, effect, preflight });
 
-    if (res.localOk || res.idbOk) {
+    if (res.localOk && res.idbOk) {
       return { ok: true, committed: true, ...res };
     }
     return { ok: false, committed: false, ...res };

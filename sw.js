@@ -1,10 +1,10 @@
-const CACHE = "repforge-v203";
+const CACHE = "repforge-v204";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
-  "./vendor/motion/motion.js", "./vendor/dnd-kit/dnd-kit.js", "./vendor/dnd-kit/dnd-kit.runtime.js", "./motion-layer.js", "./motion-layer.js?v=203",
+  "./vendor/motion/motion.js", "./vendor/dnd-kit/dnd-kit.js", "./vendor/dnd-kit/dnd-kit.runtime.js", "./motion-layer.js", "./motion-layer.js?v=204",
   "./telemetry.js", "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js",
-  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=203", "./program-entry.js", "./program-entry.js?v=203", "./program-entry-adapter.js", "./program-entry-adapter.js?v=203", "./program-editor.js", "./program-editor.js?v=203",
-  "./shared-setup.js", "./shared-setup.js?v=203", "./workout-draft.js", "./workout-draft.js?v=203", "./program-transition.js", "./program-transition.js?v=203", "./app.js", "./app.js?v=203",
+  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=204", "./program-entry.js", "./program-entry.js?v=204", "./program-entry-adapter.js", "./program-entry-adapter.js?v=204", "./program-editor.js", "./program-editor.js?v=204",
+  "./shared-setup.js", "./shared-setup.js?v=204", "./workout-draft.js", "./workout-draft.js?v=204", "./program-transition.js", "./program-transition.js?v=204", "./app.js", "./app.js?v=204",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",

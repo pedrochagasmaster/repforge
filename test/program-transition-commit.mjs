@@ -207,6 +207,111 @@ async function injectArchiveIdentity(page, patch) {
   return res;
 }
 
+
+const STORAGE_LOCK = "repforge:state-write";
+
+async function holdStorageLock(page) {
+  await page.evaluate((lockName) => {
+    let release;
+    const gate = new Promise((resolve) => {
+      release = resolve;
+    });
+    window.__auditReleaseStorageLock = release;
+    window.__auditStorageLockHeld = false;
+    window.__auditStorageLockDone = navigator.locks.request(lockName, async () => {
+      window.__auditStorageLockHeld = true;
+      await gate;
+    });
+  }, STORAGE_LOCK);
+  await page.waitForFunction(() => window.__auditStorageLockHeld === true, { timeout: 10000 });
+}
+
+async function waitForPendingStorageLocks(page, count) {
+  await page.waitForFunction(
+    async ({ lockName, count }) => {
+      const state = await navigator.locks.query();
+      return state.pending.filter((lock) => lock.name === lockName).length >= count;
+    },
+    { lockName: STORAGE_LOCK, count },
+    { timeout: 10000 }
+  );
+}
+
+async function releaseStorageLock(page) {
+  await page.evaluate(async () => {
+    window.__auditReleaseStorageLock();
+    await window.__auditStorageLockDone;
+  });
+}
+
+async function setupPredecessorWithSentinelAndDraft(page, tag = "p6b") {
+  const act = await activateBalancedRecommendPredecessor(page);
+  if (!act.ok) throw new Error(`Activation failed in setupPredecessor: ${JSON.stringify(act)}`);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+
+  const logSeed = await page.evaluate(async (t) => {
+    const s = window.__repforgeWorkoutDraft.state();
+    const row0 = (s.program || [])[0];
+    if (!row0) return { ok: false, error: "no compiled program rows" };
+    const sessionId = `p6b-sentinel-${t}`;
+    const entry = {
+      session: sessionId,
+      date: "2026-10-01",
+      day: row0.day,
+      exerciseId: row0.id,
+      performedName: row0.name,
+      performedLibraryId: typeof row0.libraryId === "string" ? row0.libraryId : null,
+      performedMovementId: typeof row0.movementId === "string" ? row0.movementId : null,
+      set: 1,
+      load: 60,
+      reps: 8,
+      rir: 2,
+      created: "2026-10-01T09:00:00.000Z",
+    };
+    s.log = [...(s.log || []), entry];
+    const res = await window.__repforgeCommitProposedState(s);
+    await window.__repforgeStorage.flush();
+    return { ok: res.localOk && res.idbOk, res, entry, sessionId };
+  }, tag);
+  if (!logSeed.ok) throw new Error(`Log seed failed: ${JSON.stringify(logSeed)}`);
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+
+  const draftSetup = await page.evaluate(async () => {
+    const dayLabel = (window.__repforgeWorkoutDraft.state()?.program || [])[0]?.day || "Day 1";
+    await window.__repforgeEnterWorkout({ day: dayLabel, focus: false });
+    const hook = window.__repforgeWorkoutDraft;
+    const draft = hook.current();
+    const exIds = Object.keys(draft.exercises || {});
+    const ex0Id = exIds[0];
+    const setIds = Object.keys(draft.exercises[ex0Id].sets || {});
+    const set0Id = setIds[0];
+    await hook.dispatch("editSetField", { exerciseInstanceId: ex0Id, setId: set0Id, field: "reps", value: "11" });
+    await hook.dispatch("editSetField", { exerciseInstanceId: ex0Id, setId: set0Id, field: "load", value: "72.5" });
+    await hook.dispatch("completeSet", { exerciseInstanceId: ex0Id, setId: set0Id, completedAt: new Date().toISOString() });
+    await hook.dispatch("setSessionNotes", { value: "Draft session notes before race transition" });
+    await hook.flush();
+    return {
+      ok: true,
+      raw: localStorage.getItem("repforge_draft_v1"),
+      checkpointRaw: localStorage.getItem("repforge_draft_v1:v2-checkpoint"),
+    };
+  });
+  if (!draftSetup.ok) throw new Error(`Draft setup failed: ${JSON.stringify(draftSetup)}`);
+
+  const s = await page.evaluate(() => window.__repforgeWorkoutDraft.state());
+  return {
+    predecessorProgramId: s.programMeta?.id,
+    predecessorRevision: s._storageRevision,
+    predecessorEntrySource: s.programMeta?.entrySource,
+    logSentinel: s.log || [],
+    preDraftRaw: draftSetup.raw,
+    preCheckpointRaw: draftSetup.checkpointRaw,
+  };
+}
+
 async function main() {
   console.log("052-P6a: program transition commit vertical slice");
   await assertServingApp(BASE);
@@ -644,7 +749,7 @@ async function main() {
       proposalHash: freshProposal.proposalHash,
       acknowledgedDraftRaw: freshDraftRaw,
     });
-    check(commitResult?.localOk === true || commitResult?.idbOk === true, "confirmTransition successfully commits", commitResult);
+    check(commitResult?.localOk === true && commitResult?.idbOk === true, "confirmTransition successfully commits", commitResult);
     check(commitResult?.committed === true, "confirmTransition returns committed: true");
     await page.evaluate(() => window.__repforgeStorage.flush());
 
@@ -991,6 +1096,338 @@ async function main() {
       "DraftV2 raw and checkpoint byte-identical after the occupied-archive rejection");
 
     await ctx2.close();
+
+    // -------------------------------------------------------------------------
+    // Step 11: Exact duplicate race — two tabs concurrently confirm identical
+    // proposal under repforge:state-write. Exactly one performs the write; the
+    // second returns ok:true, committed:true, alreadyCommitted:true.
+    // -------------------------------------------------------------------------
+    console.log("\n11. Exact duplicate race converges as alreadyCommitted");
+    const raceCtx1 = await browser.newContext();
+    const pageA = await raceCtx1.newPage();
+    const pageB = await raceCtx1.newPage();
+    const locker1 = await raceCtx1.newPage();
+    for (const p of [pageA, pageB, locker1]) {
+      p.on("dialog", (d) => d.dismiss().catch(() => {}));
+      await p.goto(BASE);
+      await waitForAppBoot(p, { base: BASE });
+    }
+    await clearStorage(pageA);
+    for (const p of [pageA, pageB, locker1]) {
+      await p.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(p, { base: BASE });
+    }
+
+    const env1 = await setupPredecessorWithSentinelAndDraft(pageA, "race1");
+    const propRes1 = await proposeLowerFrequencySibling(pageA, {
+      transitionId: "tr_p6b_dup_race",
+      successorProgramId: "prog_p6b_dup_succ",
+      createdAt: "2026-10-02T14:00:00.000Z",
+    });
+    check(propRes1?.ok === true, "proposal for exact duplicate race created", propRes1?.code);
+    const proposal1 = propRes1.proposal;
+
+    for (const p of [pageB, locker1]) {
+      await p.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(p, { base: BASE });
+    }
+
+    const confirmArgs1 = {
+      proposal: proposal1,
+      transitionId: proposal1.transitionId,
+      successorProgramId: proposal1.successor.programId,
+      confirmedAt: "2026-10-02T14:10:00.000Z",
+      proposalHash: proposal1.proposalHash,
+      acknowledgedDraftRaw: env1.preDraftRaw,
+    };
+
+    await holdStorageLock(locker1);
+    await pageA.evaluate((args) => {
+      window.__raceConfirmResult = window.__repforgeProgramTransition.confirmTransition(args);
+    }, confirmArgs1);
+    await waitForPendingStorageLocks(locker1, 1);
+
+    await pageB.evaluate((args) => {
+      window.__raceConfirmResult = window.__repforgeProgramTransition.confirmTransition(args);
+    }, confirmArgs1);
+    await waitForPendingStorageLocks(locker1, 2);
+
+    await releaseStorageLock(locker1);
+
+    const resA = await pageA.evaluate(() => window.__raceConfirmResult);
+    const resB = await pageB.evaluate(() => window.__raceConfirmResult);
+
+    const writer1 = resA?.alreadyCommitted ? resB : resA;
+    const follower1 = resA?.alreadyCommitted ? resA : resB;
+
+    check(writer1?.ok === true && writer1?.committed === true && writer1?.localOk === true && writer1?.idbOk === true,
+      "writer tab committed successfully under lock", writer1);
+    check(follower1?.ok === true && follower1?.committed === true && follower1?.alreadyCommitted === true,
+      "follower tab converged as alreadyCommitted: true under lock", follower1);
+
+    const replicas1 = await readReplicas(pageA);
+    check(replicas1.local.programId === proposal1.successor.programId && replicas1.idb.programId === proposal1.successor.programId,
+      "both replicas hold successor programId after exact duplicate race");
+    check(replicas1.local.revision === env1.predecessorRevision + 1 && replicas1.idb.revision === env1.predecessorRevision + 1,
+      "revision advanced by exactly 1 to R+1 in both replicas after exact duplicate race",
+      { expected: env1.predecessorRevision + 1, local: replicas1.local.revision, idb: replicas1.idb.revision });
+    check(replicas1.local.historyLen === 1 && replicas1.idb.historyLen === 1,
+      "exactly one archive entry exists in both replicas after exact duplicate race");
+
+    check(replicas1.local.transitionIn?.status === "committed" &&
+          replicas1.local.transitionIn?.transitionId === proposal1.transitionId &&
+          replicas1.local.transitionIn?.proposalHash === proposal1.proposalHash &&
+          replicas1.local.transitionIn?.archiveId === proposal1.predecessor.programId,
+      "successor transitionIn identity exact after duplicate race");
+    check(replicas1.local.programHistory[0]?.id === proposal1.predecessor.programId &&
+          replicas1.local.programHistory[0]?.archiveId === proposal1.predecessor.programId &&
+          replicas1.local.programHistory[0]?.transitionOut?.transitionId === proposal1.transitionId &&
+          replicas1.local.programHistory[0]?.transitionOut?.proposalHash === proposal1.proposalHash &&
+          replicas1.local.programHistory[0]?.transitionOut?.successorProgramId === proposal1.successor.programId,
+      "archive transitionOut identity and links exact after duplicate race");
+
+    check(isDeepStrictEqual(replicas1.local.log, env1.logSentinel) && isDeepStrictEqual(replicas1.idb.log, env1.logSentinel),
+      "log sentinel survives exact duplicate race in both replicas");
+
+    const postDraftRaw1 = await pageA.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
+    const postCheckpointRaw1 = await pageA.evaluate((k) => localStorage.getItem(k), CHECKPOINT_KEY);
+    check(postDraftRaw1 === env1.preDraftRaw, "DraftV2 raw byte-identical after exact duplicate race");
+    check(postCheckpointRaw1 === env1.preCheckpointRaw, "DraftV2 checkpoint byte-identical after exact duplicate race");
+
+    const lingering1 = await pageA.evaluate(() => Object.keys(localStorage).filter((k) =>
+      k.startsWith("repforge_pending_v1") || k.startsWith("repforge_draft_v1:closing") ||
+      k.startsWith("repforge_draft_v1:pending") || k.includes("_storageDraftTransaction")
+    ));
+    check(lingering1.length === 0, "zero pending journal, DraftV2 sidecar, or closing artifacts after duplicate race", lingering1);
+
+    await raceCtx1.close();
+
+    // -------------------------------------------------------------------------
+    // Step 12: Competing proposal race — two valid proposals share predecessor
+    // but differ in transition/successor identity (frequency vs session length).
+    // First waiter commits; second waiter returns typed non-commit outcome.
+    // -------------------------------------------------------------------------
+    console.log("\n12. Competing proposal race (first commits, second returns typed non-commit)");
+    const raceCtx2 = await browser.newContext();
+    const pageA2 = await raceCtx2.newPage();
+    const pageB2 = await raceCtx2.newPage();
+    const locker2 = await raceCtx2.newPage();
+    for (const p of [pageA2, pageB2, locker2]) {
+      p.on("dialog", (d) => d.dismiss().catch(() => {}));
+      await p.goto(BASE);
+      await waitForAppBoot(p, { base: BASE });
+    }
+    await clearStorage(pageA2);
+    for (const p of [pageA2, pageB2, locker2]) {
+      await p.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(p, { base: BASE });
+    }
+
+    const env2 = await setupPredecessorWithSentinelAndDraft(pageA2, "race2");
+
+    const propResA2 = await pageA2.evaluate(async () => window.__repforgeProgramTransition.proposeSibling({
+      targetConstraint: { frequency: 3 },
+      diagnosis: { kind: "fewer_days", answers: { availableDays: 3 }, eligibleEvidenceIds: ["sessions-14d-6-of-3"], insufficientEvidenceReasons: [] },
+      transitionId: "tr_p6b_compete_freq",
+      successorProgramId: "prog_p6b_compete_freq",
+      createdAt: "2026-10-02T14:00:00.000Z",
+    }));
+    check(propResA2?.ok === true, "competing proposal A (fewer_days) created", propResA2?.code);
+    const proposalA2 = propResA2.proposal;
+
+    const propResB2 = await pageA2.evaluate(async () => window.__repforgeProgramTransition.proposeSibling({
+      targetConstraint: { sessionMinutes: 60 },
+      diagnosis: { kind: "sessions_too_long", answers: { sessionMinutes: 60 }, eligibleEvidenceIds: ["session-time-avg-105-of-90"], insufficientEvidenceReasons: [] },
+      transitionId: "tr_p6b_compete_time",
+      successorProgramId: "prog_p6b_compete_time",
+      createdAt: "2026-10-02T14:00:00.000Z",
+    }));
+    check(propResB2?.ok === true, "competing proposal B (shorter_session) created", propResB2?.code);
+    const proposalB2 = propResB2.proposal;
+
+    check(proposalA2.predecessor.programId === env2.predecessorProgramId && proposalB2.predecessor.programId === env2.predecessorProgramId,
+      "both competing proposals pin the predecessor programId");
+    check(proposalA2.predecessor.durableRevision === env2.predecessorRevision && proposalB2.predecessor.durableRevision === env2.predecessorRevision,
+      "both competing proposals pin the predecessor durableRevision");
+    check(proposalA2.transitionId !== proposalB2.transitionId && proposalA2.successor.programId !== proposalB2.successor.programId,
+      "competing proposals have distinct transition and successor identities");
+
+    for (const p of [pageB2, locker2]) {
+      await p.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(p, { base: BASE });
+    }
+
+    const confirmArgsA2 = {
+      proposal: proposalA2,
+      transitionId: proposalA2.transitionId,
+      successorProgramId: proposalA2.successor.programId,
+      confirmedAt: "2026-10-02T14:10:00.000Z",
+      proposalHash: proposalA2.proposalHash,
+      acknowledgedDraftRaw: env2.preDraftRaw,
+    };
+    const confirmArgsB2 = {
+      proposal: proposalB2,
+      transitionId: proposalB2.transitionId,
+      successorProgramId: proposalB2.successor.programId,
+      confirmedAt: "2026-10-02T14:10:00.000Z",
+      proposalHash: proposalB2.proposalHash,
+      acknowledgedDraftRaw: env2.preDraftRaw,
+    };
+
+    await holdStorageLock(locker2);
+    await pageA2.evaluate((args) => {
+      window.__raceConfirmResult = window.__repforgeProgramTransition.confirmTransition(args);
+    }, confirmArgsA2);
+    await waitForPendingStorageLocks(locker2, 1);
+
+    await pageB2.evaluate((args) => {
+      window.__raceConfirmResult = window.__repforgeProgramTransition.confirmTransition(args);
+    }, confirmArgsB2);
+    await waitForPendingStorageLocks(locker2, 2);
+
+    await releaseStorageLock(locker2);
+
+    const resA2 = await pageA2.evaluate(() => window.__raceConfirmResult);
+    const resB2 = await pageB2.evaluate(() => window.__raceConfirmResult);
+
+    check(resA2?.ok === true && resA2?.committed === true && resA2?.localOk === true && resA2?.idbOk === true,
+      "first waiter (Tab A) commits successfully under lock", resA2);
+    check(resB2?.ok === false && resB2?.committed === false,
+      "second waiter (Tab B) is rejected and not committed", resB2);
+    check(resB2?.localOk === false && resB2?.idbOk === false,
+      "second waiter wrote neither replica", resB2);
+    const isB2Typed = resB2?.duplicate === true || resB2?.conflict === true || resB2?.stale === true || resB2?.invalid === true;
+    check(isB2Typed, "second waiter returns a typed outcome from closed vocabulary", resB2);
+
+    const replicas2 = await readReplicas(pageA2);
+    check(replicas2.local.programId === proposalA2.successor.programId && replicas2.idb.programId === proposalA2.successor.programId,
+      "winner successor retained in both replicas");
+    check(replicas2.local.revision === env2.predecessorRevision + 1 && replicas2.idb.revision === env2.predecessorRevision + 1,
+      "revision advanced by exactly 1 to R+1 in both replicas after competing race",
+      { expected: env2.predecessorRevision + 1, local: replicas2.local.revision, idb: replicas2.idb.revision });
+    check(replicas2.local.historyLen === 1 && replicas2.idb.historyLen === 1,
+      "exactly one archive entry exists in both replicas after competing race");
+    check(isDeepStrictEqual(replicas2.local.log, env2.logSentinel) && isDeepStrictEqual(replicas2.idb.log, env2.logSentinel),
+      "log sentinel survives competing race in both replicas");
+
+    const postDraftRaw2 = await pageA2.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
+    const postCheckpointRaw2 = await pageA2.evaluate((k) => localStorage.getItem(k), CHECKPOINT_KEY);
+    check(postDraftRaw2 === env2.preDraftRaw, "DraftV2 raw byte-identical after competing race");
+    check(postCheckpointRaw2 === env2.preCheckpointRaw, "DraftV2 checkpoint byte-identical after competing race");
+
+    const lingering2 = await pageA2.evaluate(() => Object.keys(localStorage).filter((k) =>
+      k.startsWith("repforge_pending_v1") || k.startsWith("repforge_draft_v1:closing") ||
+      k.startsWith("repforge_draft_v1:pending") || k.includes("_storageDraftTransaction")
+    ));
+    check(lingering2.length === 0, "zero pending journal, DraftV2 sidecar, or closing artifacts after competing race", lingering2);
+
+    await raceCtx2.close();
+
+    // -------------------------------------------------------------------------
+    // Step 13: Fingerprint pin — fresh fixture, inject predecessor program
+    // fingerprint mismatch while proposal ID/revision remain pinned. Real
+    // lock-held reread yields typed non-commit, zero archive/successor in both.
+    // -------------------------------------------------------------------------
+    console.log("\n13. Fingerprint pin rejection (zero archive/successor in both replicas)");
+    const ctx3 = await browser.newContext();
+    const page3 = await ctx3.newPage();
+    page3.on("dialog", (d) => d.dismiss().catch(() => {}));
+    await page3.goto(BASE);
+    await waitForAppBoot(page3, { base: BASE });
+    await clearStorage(page3);
+    await page3.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page3, { base: BASE });
+
+    const env3 = await setupPredecessorWithSentinelAndDraft(page3, "fp3");
+    const propRes3 = await proposeLowerFrequencySibling(page3, {
+      transitionId: "tr_p6b_fp_pin",
+      successorProgramId: "prog_p6b_fp_succ",
+      createdAt: "2026-10-02T14:00:00.000Z",
+    });
+    check(propRes3?.ok === true, "proposal for fingerprint pin created", propRes3?.code);
+    const proposal3 = propRes3.proposal;
+    const predId3 = proposal3.predecessor.programId;
+    const predRev3 = proposal3.predecessor.durableRevision;
+
+    // Inject predecessor program fingerprint mismatch into both replicas
+    // while keeping proposal ID and durableRevision pinned.
+    const injFp = await page3.evaluate(async ({ key, predId, predRev, dbName }) => {
+      const raw = localStorage.getItem(key);
+      const parsed = JSON.parse(raw);
+      if (!parsed || parsed.programMeta?.id !== predId) return { ok: false, error: "pred mismatch" };
+      if (Array.isArray(parsed.program) && parsed.program.length > 0) {
+        parsed.program[0].sets = 17;
+        parsed.program[0].name = String(parsed.program[0].name) + " Injected Mismatch";
+      }
+      if (parsed.programMeta?.compilerContext?.answers) {
+        parsed.programMeta.compilerContext.answers.structuredExperience = "0_to_6m";
+      }
+      parsed._storageRevision = predRev;
+      parsed.programMeta.id = predId;
+      localStorage.setItem(key, JSON.stringify(parsed));
+      await new Promise((resolve, reject) => {
+        const req = indexedDB.open(dbName);
+        req.onsuccess = () => {
+          const db = req.result;
+          const tx = db.transaction("kv", "readwrite");
+          const store = tx.objectStore("kv");
+          store.put(parsed, key);
+          tx.oncomplete = () => { db.close(); resolve(); };
+          tx.onerror = () => { db.close(); reject(tx.error); };
+        };
+        req.onerror = () => reject(req.error);
+      });
+      return { ok: true };
+    }, { key: KEY, predId: predId3, predRev: predRev3, dbName: DB_NAME });
+    check(injFp.ok, "fingerprint mismatch injected into both replicas");
+
+    await page3.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page3, { base: BASE });
+
+    const rereadBefore3 = await readReplicas(page3);
+    check(rereadBefore3.local.programId === predId3 && rereadBefore3.idb.programId === predId3,
+      "predecessor ID remains pinned after reload before confirm");
+    check(rereadBefore3.local.revision === predRev3 && rereadBefore3.idb.revision === predRev3,
+      "predecessor revision remains pinned after reload before confirm");
+
+    const confirmArgs3 = {
+      proposal: proposal3,
+      transitionId: proposal3.transitionId,
+      successorProgramId: proposal3.successor.programId,
+      confirmedAt: "2026-10-02T14:10:00.000Z",
+      proposalHash: proposal3.proposalHash,
+      acknowledgedDraftRaw: env3.preDraftRaw,
+    };
+    const fpResult = await confirmTransition(page3, confirmArgs3);
+    check(fpResult?.ok === false && fpResult?.committed === false,
+      "fingerprint mismatch rejected without commit", fpResult);
+    check(fpResult?.localOk === false && fpResult?.idbOk === false,
+      "fingerprint mismatch wrote neither replica", fpResult);
+    const isFpTyped = fpResult?.invalid === true || fpResult?.stale === true || fpResult?.duplicate === true || fpResult?.conflict === true;
+    check(isFpTyped, "fingerprint mismatch returns typed outcome", fpResult);
+
+    await page3.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page3, { base: BASE });
+
+    const after3 = await readReplicas(page3);
+    check(after3.local.programId === predId3 && after3.idb.programId === predId3,
+      "active program is still the predecessor in both replicas");
+    check(after3.local.revision === predRev3 && after3.idb.revision === predRev3,
+      "revision unchanged in both replicas after fingerprint mismatch rejection",
+      { expected: predRev3, local: after3.local.revision, idb: after3.idb.revision });
+    check(after3.local.historyLen === 0 && after3.idb.historyLen === 0,
+      "zero archive created in either replica after fingerprint mismatch rejection");
+    check(after3.local.transitionIn == null && after3.idb.transitionIn == null,
+      "zero transitionIn created in either replica after fingerprint mismatch rejection");
+    check(isDeepStrictEqual(after3.local.log, env3.logSentinel) && isDeepStrictEqual(after3.idb.log, env3.logSentinel),
+      "log sentinel intact in both replicas after fingerprint mismatch rejection");
+
+    const draft3RawAfter = await page3.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
+    const draft3CheckpointAfter = await page3.evaluate((k) => localStorage.getItem(k), CHECKPOINT_KEY);
+    check(draft3RawAfter === env3.preDraftRaw && draft3CheckpointAfter === env3.preCheckpointRaw,
+      "DraftV2 raw and checkpoint byte-identical after fingerprint mismatch rejection");
+
+    await ctx3.close();
 
     await context.close();
   } finally {
