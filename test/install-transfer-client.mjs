@@ -2,11 +2,12 @@
 /**
  * Plan 053 P3 isolated browser-client contract tests.
  *
- * The shared install-transfer contract is deliberately injected. P1b owns
- * that module and this suite must not copy or claim parity with an unpublished
- * implementation. These tests prove the client boundary, transport policy,
- * cookie separation, retry credentials, and clone producer seam against an
- * explicitly named local contract double.
+ * This remains the client fault-policy suite with an explicitly named local
+ * contract double. It must not duplicate or claim parity with the shared
+ * module; the actual shared-module parity proof lives in
+ * install-transfer-client-contract.mjs. These tests prove the client
+ * boundary, transport policy, cookie separation, retry credentials, and clone
+ * producer seam against the intentionally narrow double.
  */
 import assert from "node:assert/strict";
 import { createHash, webcrypto } from "node:crypto";
@@ -330,7 +331,7 @@ function cryptoWithDigestFailure(after = 0) {
 }
 
 async function main() {
-  console.log("Plan 053 P3 install-transfer client (injected contract; parity pending P1b publication)");
+  console.log("Plan 053 P3 install-transfer client (local fault-policy contract double)");
 
   await test("published state and endpoint fixtures are explicit", () => {
     check(EXPECTATIONS.kind === "taurifer-install-transfer", "unexpected envelope kind");
@@ -494,7 +495,7 @@ async function main() {
     await assert.rejects(() => vault.unseal("browser-outbound", sealed));
   });
 
-  await test("does not create before analytics consent", async () => {
+  await test("does not create before explicit transfer consent", async () => {
     const transport = transportSequence([response(201, { token: tokenFixture("A"), expiresAt: "2026-09-08T20:00:00.000Z" })]);
     const outbound = markerStore();
     const client = makeClient({ transport, outbound, vault });
