@@ -48,13 +48,22 @@ const SHIPPED_IDS = [
   "pr_mc", "ip_db", "ip_mc", "ip_bb", "sp_bb", "sp_mc", "sp_db", "rw_bb", "rw_mc",
   "rw_cb", "pd_mc", "pd_bw", "pl_cb", "pl_mc", "dl_mc", "dl_db", "dl_cb", "lr_db",
   "lr_mc", "rd_mc", "rd_db", "ci_mc", "ci_cb", "ar_mc", "ar_db", "cu_mc", "cu_db",
-  "cu_cb", "tr_cb", "tr_mc", "lc_mc", "le_mc", "cv_mc", "ad_mc"
+  "cu_cb", "tr_cb", "tr_mc", "lc_mc", "le_mc", "cv_mc", "ad_mc", "sqk_bb"
 ];
 
 console.log(`exercise library — ${EXERCISE_LIBRARY.length} movements`);
 
 assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
   `${EXERCISE_LIBRARY.length} entries`);
+
+{
+  const historical = EXERCISE_LIBRARY.find(e => e.id === "sqk_bb");
+  assert(historical?.name === "Barbell hack squat" &&
+    historical?.equipment?.includes("barbell") &&
+    !Object.hasOwn(LEGACY_LIBRARY_IDS, "sqk_bb"),
+  "historical barbell hack squat identity is not repointed",
+  historical ? `${historical.name}; ${historical.equipment.join(",")}; alias=${LEGACY_LIBRARY_IDS.sqk_bb || "none"}` : "missing sqk_bb");
+}
 
 {
   const seen = new Map();

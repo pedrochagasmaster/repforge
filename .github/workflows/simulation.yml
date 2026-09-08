@@ -312,6 +312,7 @@ jobs:
           node test/performed-attribution.mjs
           node test/program-import-review.mjs
           node test/program-freeform-import.mjs
+          node test/import-matching.mjs
 
       - name: Sheet swipe dismiss
         env:

@@ -3196,6 +3196,17 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry__freeform-apps{display:flex;flex-wrap:wrap;gap:10px;margin:4px 0 0}
 .entry__freeform-app{flex:1 1 150px;text-decoration:none;text-align:center}
 .entry__freeform-app.is-disabled{opacity:.4}
+/* The escape hatches sit behind one line so three candidates and a way out fit
+   a 390px row without wrapping into a wall of buttons. */
+.improw__more{grid-column:1/-1;flex:1 0 100%;width:100%;min-width:0;margin:6px 0 0}
+.improw__more summary{cursor:pointer;color:var(--ink-soft);font-size:.8125rem;font-weight:600;padding:4px 0}
+.improw__more .improw__acts{margin-top:6px}
+.improw__btn--pick{font-weight:600}
+/* A quiet "or" between the clipboard route and the manual one. Both are real
+   paths, so the divider separates them rather than demoting either. */
+.entry__divider{display:flex;align-items:center;gap:12px;margin:18px 0 12px;
+  color:var(--ink-soft);font-size:.8125rem;text-align:center}
+.entry__divider::before,.entry__divider::after{content:"";flex:1 1 auto;height:1px;background:var(--rule)}
 .entry__gaps-list{display:flex;flex-direction:column;gap:12px;margin:16px 0}
 /* The gap step tells the lifter which fields are highlighted, so they have to
    actually be highlighted; aria-invalid carries the same state to a reader. */
