@@ -723,6 +723,41 @@ for (const preferenceCase of producerCases.uiPreferences) {
   if (preferenceCase.expected === "accept") assertResultShape(result, true, preferenceCase.id);
   else assertResultShape(result, false, preferenceCase.id);
 }
+for (const [name, preference] of [
+  ["arbitrary-pref-date", { installBannerDismissedAt: "2026-09-08" }],
+  ["arbitrary-pref-string", { coachLabel: "not-a-date" }],
+  ["arbitrary-pref-number", { reminderMinutes: 30 }],
+]) {
+  const preferenceEnvelope = structuredClone(producerEnvelope);
+  preferenceEnvelope.uiPreferences = preference;
+  const recomputedPreferenceEnvelope = await withCanonicalPayloadHash(preferenceEnvelope);
+  const preferenceValidation = contract.validateEnvelope(recomputedPreferenceEnvelope);
+  assertResultShape(preferenceValidation, true, `${name} recomputed hash validation`);
+  const preferenceIntegrity = await contract.validateEnvelopeIntegrity(recomputedPreferenceEnvelope, webcrypto);
+  assertResultShape(preferenceIntegrity, true, `${name} recomputed hash integrity`);
+  assert.deepEqual(preferenceValidation.value.uiPreferences, preference, `${name} preserves preference value`);
+  assert.deepEqual(preferenceIntegrity.value.uiPreferences, preference, `${name} integrity preserves preference value`);
+}
+for (const createdAt of ["2026-08-01", "2026-08-01T10:00:00-05:00"]) {
+  const identityEnvelope = structuredClone(producerEnvelope);
+  identityEnvelope.telemetryIdentity.createdAt = createdAt;
+  const recomputedIdentityEnvelope = await withCanonicalPayloadHash(identityEnvelope);
+  const identityValidation = contract.validateEnvelope(recomputedIdentityEnvelope);
+  assertResultShape(identityValidation, true, `telemetry identity ${createdAt} recomputed hash validation`);
+  const identityIntegrity = await contract.validateEnvelopeIntegrity(recomputedIdentityEnvelope, webcrypto);
+  assertResultShape(identityIntegrity, true, `telemetry identity ${createdAt} recomputed hash integrity`);
+  assert.equal(identityValidation.value.telemetryIdentity.createdAt, createdAt, `telemetry identity ${createdAt} preserves source value`);
+  assert.equal(identityIntegrity.value.telemetryIdentity.createdAt, createdAt, `telemetry identity ${createdAt} integrity preserves source value`);
+}
+const invalidIdentityEnvelopeBase = structuredClone(producerEnvelope);
+invalidIdentityEnvelopeBase.telemetryIdentity.createdAt = "not-a-date";
+const invalidIdentityEnvelope = await withCanonicalPayloadHash(invalidIdentityEnvelopeBase);
+const invalidIdentityValidation = contract.validateEnvelope(invalidIdentityEnvelope);
+assertResultShape(invalidIdentityValidation, false, "invalid telemetry identity recomputed hash validation");
+assert.equal(invalidIdentityValidation.code, contract.ERROR_CODES.INVALID_ENVELOPE);
+const invalidIdentityIntegrity = await contract.validateEnvelopeIntegrity(invalidIdentityEnvelope, webcrypto);
+assertResultShape(invalidIdentityIntegrity, false, "invalid telemetry identity recomputed hash integrity");
+assert.equal(invalidIdentityIntegrity.code, contract.ERROR_CODES.INVALID_ENVELOPE);
 const emptyEntryState = ProgramEntry.createState({
   draftId: "entry-empty-1",
   now: "2026-09-08T18:00:00.000Z",
@@ -773,8 +808,6 @@ assertResultShape(contract.validateEnvelope(timestampCanary), false, "strict UTC
 for (const [path, mutate] of [
   ["durableState.programmingContext.reviewedAt", value => { value.durableState.programmingContext.reviewedAt = "2026-09-08"; }],
   ["programEntryDraft.createdAt", value => { value.programEntryDraft.createdAt = "2026-09-08"; }],
-  ["telemetryIdentity.createdAt", value => { value.telemetryIdentity.createdAt = "2026-09-08"; }],
-  ["uiPreferences.installBannerDismissedAt", value => { value.uiPreferences.installBannerDismissedAt = "2026-09-08"; }],
 ]) {
   const candidate = structuredClone(producerEnvelope);
   mutate(candidate);

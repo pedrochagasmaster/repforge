@@ -1002,15 +1002,16 @@
     sectionError = validateProgramEntryDraft(value.programEntryDraft);
     if (sectionError) return fail(sectionError);
     if (!isPlainObject(value.uiPreferences) ||
-      (hasOwn(value.uiPreferences, "theme") && !["system", "light", "dark"].includes(value.uiPreferences.theme)) ||
-      (hasOwn(value.uiPreferences, "installBannerDismissedAt") && !isUtcIsoTimestamp(value.uiPreferences.installBannerDismissedAt))) {
+      (hasOwn(value.uiPreferences, "theme") && !["system", "light", "dark"].includes(value.uiPreferences.theme))) {
       return fail(ERROR_CODES.INVALID_ENVELOPE);
     }
     if (!isPlainObject(value.analytics) || exactKeys(value.analytics, ANALYTICS_KEYS) ||
       typeof value.analytics.enabled !== "boolean") return fail(ERROR_CODES.INVALID_ENVELOPE);
     if (!isPlainObject(value.telemetryIdentity) || exactKeys(value.telemetryIdentity, TELEMETRY_KEYS) ||
       value.telemetryIdentity.schemaVersion !== 1 || !validIdentifier(value.telemetryIdentity.installationId, true) ||
-      !isUtcIsoTimestamp(value.telemetryIdentity.createdAt)) return fail(ERROR_CODES.INVALID_ENVELOPE);
+      typeof value.telemetryIdentity.createdAt !== "string" || !Number.isFinite(Date.parse(value.telemetryIdentity.createdAt))) {
+      return fail(ERROR_CODES.INVALID_ENVELOPE);
+    }
     if (!isPlainObject(value.integrity) || Object.keys(value.integrity).length !== 1 ||
       !validString(value.integrity.canonicalPayloadHash, true) ||
       !/^[0-9a-f]{64}$/.test(value.integrity.canonicalPayloadHash)) return fail(ERROR_CODES.INVALID_ENVELOPE);
