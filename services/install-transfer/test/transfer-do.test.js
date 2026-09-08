@@ -1,6 +1,7 @@
 import { env } from "cloudflare:workers";
 import { evictDurableObject, runInDurableObject } from "cloudflare:test";
 import { describe, expect, it } from "vitest";
+import { base64UrlEncode } from "../src/crypto.js";
 import { routeNameForIdempotencyKey } from "../src/routing.js";
 
 const routingKey = new Uint8Array(32).fill(1);
@@ -96,5 +97,85 @@ describe("SQLite Durable Object encrypted record foundation", () => {
 
     await expect(claimedStub.statusRecord({ token: claimed.token, now: baseNow + 15 * 60_000 + 10 })).resolves.toEqual({ kind: "unavailable" });
     expect(await rows(claimedStub)).toHaveLength(0);
+  });
+
+  it("fails closed when any authenticated record metadata or AAD is tampered", async () => {
+    const mutations = [
+      {
+        name: "expiry",
+        sql: "UPDATE transfer_record SET expires_at = ?, tombstone_until = ?, created_at = ? WHERE singleton = 1",
+        values: [baseNow + 60 * 60_000, baseNow + 60 * 60_000 + 15 * 60_000, baseNow + 1],
+      },
+      {
+        name: "creation",
+        sql: "UPDATE transfer_record SET created_at = ? WHERE singleton = 1",
+        values: [baseNow + 1],
+      },
+      {
+        name: "schema",
+        sql: "UPDATE transfer_record SET record_version = ? WHERE singleton = 1",
+        values: [2],
+      },
+      {
+        name: "route",
+        sql: "UPDATE transfer_record SET transfer_id = ? WHERE singleton = 1",
+        values: ["wrong-transfer-route"],
+      },
+      {
+        name: "aad",
+        sql: "UPDATE transfer_record SET envelope_aad = ? WHERE singleton = 1",
+        values: [base64UrlEncode(new TextEncoder().encode("tampered-aad"))],
+      },
+    ];
+
+    for (const mutation of mutations) {
+      const key = `metadata-tamper-${mutation.name}`;
+      const stub = await objectFor(key);
+      const created = await stub.createRecord({
+        idempotencyKey: key,
+        envelopeJson: JSON.stringify({ logical: "must-not-decrypt" }),
+        now: baseNow,
+        requestedExpiry: baseNow + 10,
+      });
+      expect(created.kind).toBe("created");
+      await runInDurableObject(stub, (_instance, state) => {
+        state.storage.sql.exec(mutation.sql, ...mutation.values);
+      });
+
+      await expect(stub.claimRecord({ token: created.token, claimId: `claim-${mutation.name}`, now: baseNow + 20 })).resolves.toEqual({ kind: "unavailable" });
+      await expect(stub.statusRecord({ token: created.token, now: baseNow + 20 })).resolves.toEqual({ kind: "unavailable" });
+    }
+  });
+
+  it("uses conditional transitions under concurrent create, claim, and commit calls", async () => {
+    const key = "concurrent-transition-key";
+    const stub = await objectFor(key);
+    const creates = await Promise.all(Array.from({ length: 8 }, () => stub.createRecord({
+      idempotencyKey: key,
+      envelopeJson: JSON.stringify({ logical: "one-record" }),
+      now: baseNow,
+      requestedExpiry: baseNow + 60_000,
+    })));
+    expect(creates.filter((result) => result.kind === "created")).toHaveLength(1);
+    expect(creates.filter((result) => result.kind === "duplicate")).toHaveLength(7);
+    const created = creates.find((result) => result.kind === "created");
+
+    const claims = await Promise.all([
+      stub.claimRecord({ token: created.token, claimId: "claim-a", now: baseNow + 1 }),
+      stub.claimRecord({ token: created.token, claimId: "claim-b", now: baseNow + 1 }),
+    ]);
+    expect(claims.filter((result) => result.kind === "claimed")).toHaveLength(1);
+    expect(claims.filter((result) => result.kind === "unavailable")).toHaveLength(1);
+    const winnerClaimId = claims[0].kind === "claimed" ? "claim-a" : "claim-b";
+
+    const commits = await Promise.all([
+      stub.commitRecord({ token: created.token, claimId: winnerClaimId, now: baseNow + 2 }),
+      stub.commitRecord({ token: created.token, claimId: winnerClaimId, now: baseNow + 2 }),
+    ]);
+    expect(commits).toEqual([
+      { kind: "deleted", state: "deleted", expiresAt: baseNow + 60_000 },
+      { kind: "deleted", state: "deleted", expiresAt: baseNow + 60_000 },
+    ]);
+    expect((await rows(stub))[0]).toMatchObject({ state: "deleted", envelope_ciphertext: null, claim_digest: null });
   });
 });

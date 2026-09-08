@@ -1,6 +1,7 @@
 const encoder = new TextEncoder();
 
 export const AEAD_PROTOCOL = "taurifer/install-transfer/aead/v1";
+export const RECORD_SCHEMA_VERSION = 1;
 export const AEAD_SALT_BYTES = 16;
 export const AEAD_NONCE_BYTES = 12;
 export const AEAD_TAG_BITS = 128;
@@ -17,6 +18,29 @@ export function utf8(value) {
     throw new TypeError("value must be a string");
   }
   return encoder.encode(value);
+}
+
+// The metadata is authenticated as part of the encrypted record. Keep the
+// object construction and property order here so every reader derives the
+// exact same bytes before attempting decryption.
+export function recordAssociatedData({
+  schemaVersion = RECORD_SCHEMA_VERSION,
+  transferId,
+  createdAt,
+  expiresAt,
+}) {
+  if (!Number.isSafeInteger(schemaVersion)) throw new TypeError("schemaVersion must be a safe integer");
+  if (typeof transferId !== "string" || transferId.length === 0) throw new TypeError("transferId must be non-empty");
+  if (!Number.isSafeInteger(createdAt) || !Number.isSafeInteger(expiresAt)) {
+    throw new TypeError("createdAt and expiresAt must be safe integers");
+  }
+  return utf8(JSON.stringify({
+    protocol: AEAD_PROTOCOL,
+    schemaVersion,
+    transferId,
+    createdAt,
+    expiresAt,
+  }));
 }
 
 export function wipeBytes(value) {
