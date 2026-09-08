@@ -323,10 +323,12 @@ export class TransferDurableObject extends DurableObject {
     if (this.storageDisposed) return;
     if (this.disposalPromise) return this.disposalPromise;
     this.disposalPromise = (async () => {
+      let deleteAllStarted = false;
       try {
         // Alarms are Durable Object storage too. Delete the alarm before the
         // final deleteAll so a successful purge leaves no storage behind.
         await this.ctx.storage.deleteAlarm();
+        deleteAllStarted = true;
         await this.ctx.storage.deleteAll();
         this.schemaReady = false;
         this.storageDisposed = true;
@@ -335,7 +337,10 @@ export class TransferDurableObject extends DurableObject {
         // creates through the health latch. Retry through a bounded alarm;
         // never report a failed or uncertain deletion as complete.
         this.storageDisposed = false;
-        this.schemaReady = true;
+        // A rejected deleteAll may have removed storage before the rejection
+        // reached JavaScript. Force the next operation to probe/rebuild the
+        // schema instead of querying a table that may no longer exist.
+        this.schemaReady = !deleteAllStarted;
         await this._markDeletionUnhealthy();
         try {
           await this.ctx.storage.setAlarm(new Date(Date.now() + DISPOSAL_RETRY_MS));
@@ -373,7 +378,7 @@ export class TransferDurableObject extends DurableObject {
     await this._markDeletionUnhealthy();
   }
 
-  async _expireIfDue(now) {
+  async _expireIfDue(now, { disposeEmpty = false } = {}) {
     if (this.disposalPromise) {
       try { await this.disposalPromise; } catch { /* retry against retained storage */ }
     }
@@ -381,7 +386,10 @@ export class TransferDurableObject extends DurableObject {
     this._ensureSchema();
     for (;;) {
       const record = this._read();
-      if (!record) return null;
+      if (!record) {
+        if (disposeEmpty) await this._disposeStorage();
+        return null;
+      }
       try {
         this._assertRecord(record);
       } catch (error) {
@@ -638,7 +646,7 @@ export class TransferDurableObject extends DurableObject {
   async purgeDue({ now = Date.now() } = {}) {
     requireNow(now);
     try {
-      const record = await this._expireIfDue(now);
+      const record = await this._expireIfDue(now, { disposeEmpty: true });
       if (!record) return { purged: true };
       return { purged: false, state: record.state, expiresAt: record.expires_at, tombstoneUntil: record.tombstone_until };
     } catch (error) {
@@ -651,15 +659,8 @@ export class TransferDurableObject extends DurableObject {
     if (this.storageDisposed) return { ok: true, code: "already-purged" };
     const now = Date.now();
     try {
-      const record = await this._expireIfDue(now);
+      const record = await this._expireIfDue(now, { disposeEmpty: true });
       if (record) await this._schedule(record, now);
-      else {
-        try {
-          await this.ctx.storage.deleteAlarm();
-        } catch {
-          await this._markDeletionUnhealthy();
-        }
-      }
     } catch (error) {
       if (error instanceof RecordIntegrityError) return { ok: false, code: "record-integrity" };
       if (error instanceof StorageDisposalError) return { ok: false, code: "storage-disposal" };

@@ -34,15 +34,19 @@ export class RateLimitDurableObject extends DurableObject {
     if (this.storageDisposed) return;
     if (this.disposalPromise) return this.disposalPromise;
     this.disposalPromise = (async () => {
+      let deleteAllStarted = false;
       try {
         await this.ctx.storage.deleteAlarm();
+        deleteAllStarted = true;
         await this.ctx.storage.deleteAll();
         this.schemaReady = false;
         this.storageDisposed = true;
         this.cleanupFailed = false;
       } catch (error) {
         this.storageDisposed = false;
-        this.schemaReady = true;
+        // A rejected deleteAll may have completed before its acknowledgement
+        // was lost. Rebuild lazily rather than querying a missing table.
+        this.schemaReady = !deleteAllStarted;
         this.cleanupFailed = true;
         try {
           await this.ctx.storage.setAlarm(new Date(Date.now() + DISPOSAL_RETRY_MS));
