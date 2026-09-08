@@ -945,6 +945,9 @@ try {
     await page.evaluate(({ k, blob }) => localStorage.setItem(k, JSON.stringify(blob)), { k: KEY, blob: marked });
     await idbPut(page, JSON.parse(JSON.stringify(marked)));
     await reloadForApp(page);
+    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: true, day: "Day 1" }));
+    const activeDraftRaw = await page.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT);
+    assert(JSON.parse(activeDraftRaw || "null")?.schemaVersion === 2, "Backup proof starts with a real active DraftV2");
     const [download] = await Promise.all([
       page.waitForEvent("download"),
       page.evaluate(() => document.querySelector("#exportJson")?.click()),
@@ -952,6 +955,10 @@ try {
     const exported = JSON.parse(readFileSync(await download.path(), "utf8"));
     assert(!("_storageRevision" in exported), "Backup omits _storageRevision", JSON.stringify(Object.keys(exported)));
     assert(!("_storageFollowUp" in exported), "Backup omits the follow-up marker", JSON.stringify(exported));
+    assert(!("workoutDraft" in exported) && !JSON.stringify(exported).includes(activeDraftRaw),
+      "Ordinary backup excludes the active workout draft");
+    assert(await page.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT) === activeDraftRaw,
+      "Export leaves the active DraftV2 byte-exact on this device");
     assert(exported.programMeta?.name === "Marked" && Array.isArray(exported.log), "Backup still has domain data at the root");
     await context.close();
   }
@@ -1355,12 +1362,19 @@ try {
       "Sparse legacy entities retain supported default normalization",
       JSON.stringify(both.local)
     );
+    const migratedSparseRaw = await page.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT);
+    const migratedSparse = JSON.parse(migratedSparseRaw || "null");
+    const migratedSparseExercise = migratedSparse?.exercises?.[sparseExerciseId];
+    const migratedSparseSet = migratedSparseExercise?.sets?.[migratedSparseExercise?.setOrder?.[0]];
     assert(
       both.local?.program?.[0]?.id === sparseExerciseId &&
         both.idb?.program?.[0]?.id === sparseExerciseId &&
-        (await page.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT)) ===
-          sparseDraftRaw,
-      "Sparse imported exercise identity and its draft keys survive reload",
+        migratedSparse?.schemaVersion === 2 &&
+        migratedSparseExercise?.exerciseInstanceId === sparseExerciseId &&
+        migratedSparseSet?.edited?.load === "42.5" &&
+        migratedSparseSet?.edited?.reps === "9" &&
+        migratedSparseSet?.edited?.rir === "2",
+      "Sparse imported exercise identity and its legacy draft values migrate without repointing",
       JSON.stringify({
         before: sparseExerciseId,
         localAfter: both.local?.program?.[0]?.id,

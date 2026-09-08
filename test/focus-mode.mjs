@@ -84,7 +84,7 @@ async function boot(page, { lang = "en", rirMode = "numeric", size } = {}) {
   await settle(page);
   await page.evaluate((d) => {
     if (window.stopRest) window.stopRest();
-    localStorage.removeItem(d);
+    for (const key of Object.keys(localStorage)) if (key === d || key.startsWith(`${d}:`)) localStorage.removeItem(key);
   }, DRAFT);
   // Focus mode is a view of a program, and a device that has not been through
   // onboarding holds none — so this walk installs one before it starts.
@@ -103,8 +103,8 @@ async function reload(page) {
 }
 
 async function enterFocus(page, index = 0) {
-  await page.evaluate((i) => {
-    window.__repforgeEnterWorkout({ focus: true });
+  await page.evaluate(async (i) => {
+    await window.__repforgeEnterWorkout({ focus: true });
     window.__repforgeFocus.to(i);
   }, index);
   await page.waitForSelector("#workout.is-focus .exercise.is-current", { state: "attached", timeout: 5000 });
@@ -127,6 +127,14 @@ async function seedPrev(page, i, sets) {
       exerciseId: ex.id, set: n + 1, load: row.load, reps: row.reps, rir: row.rir,
       notes: "", created: date + "T12:00:00.000Z", primary: ex.primary, secondary: ex.secondary,
     })));`);
+  // Previous-session facts are captured when DraftV2 is created. Each catalog
+  // state represents a fresh workout, so retire the preceding state's draft
+  // before creating this returning-exercise snapshot.
+  await page.evaluate((draftKey) => {
+    for (const key of Object.keys(localStorage)) {
+      if (key === draftKey || key.startsWith(`${draftKey}:`)) localStorage.removeItem(key);
+    }
+  }, DRAFT);
   await reload(page);
 }
 
@@ -427,7 +435,11 @@ async function main() {
   // ---- 06 — editing a logged set --------------------------------------------
   phase("State 06: editing a previously logged set");
   await logSets(page, 1);
-  const beforeEdit = await page.evaluate((d) => JSON.parse(localStorage.getItem(d) || "{}").__done.length, DRAFT);
+  const beforeEdit = await page.evaluate(() => {
+    const draft = window.__repforgeWorkoutDraft.current();
+    return draft.exerciseOrder.reduce((count, exerciseId) => count + draft.exercises[exerciseId].setOrder
+      .filter((setId) => draft.exercises[exerciseId].sets[setId].completion !== "pending").length, 0);
+  });
   await page.locator(".ledger__row[data-editn]").nth(1).click();
   await page.waitForTimeout(200);
   st = await cardState(page);
@@ -440,13 +452,15 @@ async function main() {
   await page.locator("#workout .exercise.is-current .focus-well .curset__val[data-k$='_reps']").first().fill("9");
   await page.locator("#workout .exercise.is-current .focus-well .saveset").click();
   await page.waitForTimeout(250);
-  const afterEdit = await page.evaluate((d) => {
-    const draft = JSON.parse(localStorage.getItem(d) || "{}");
+  const afterEdit = await page.evaluate(() => {
+    const draft = window.__repforgeWorkoutDraft.current();
     const rows = [...document.querySelectorAll(".ledger__row[data-editn]")].map((r) =>
       [...r.querySelectorAll("span")].map((s) => s.textContent.trim())
     );
-    return { done: draft.__done.length, rows };
-  }, DRAFT);
+    const done = draft.exerciseOrder.reduce((count, exerciseId) => count + draft.exercises[exerciseId].setOrder
+      .filter((setId) => draft.exercises[exerciseId].sets[setId].completion !== "pending").length, 0);
+    return { done, rows };
+  });
   assert(afterEdit.done === beforeEdit,
     "saving an edit updates the record instead of adding one",
     `${beforeEdit} -> ${afterEdit.done}`);
@@ -534,11 +548,12 @@ async function main() {
     const s = document.querySelector("#exNoteSheet");
     return !s || s.hidden || s.classList.contains("hidden");
   }, { timeout: 2000 });
-  const noteSaved = await page.evaluate((d) => ({
-    draft: JSON.parse(localStorage.getItem(d) || "{}").__exnotes || {},
+  const noteSaved = await page.evaluate(() => ({
+    draft: Object.fromEntries(Object.entries(window.__repforgeWorkoutDraft.current()?.exercises || {})
+      .map(([id, exercise]) => [id, exercise.setupNotes])),
     marked: !!document.querySelector("#workout .exercise.is-current .focus-tool.has-note"),
     closed: document.querySelector("#exNoteSheet").hidden,
-  }), DRAFT);
+  }));
   assert(Object.values(noteSaved.draft).includes("Seat 4, feet high.") && noteSaved.closed,
     "saving the sheet writes the note into the session draft", JSON.stringify(noteSaved));
   assert(noteSaved.marked, "the card's note tool shows the exercise now has one");
@@ -680,11 +695,12 @@ async function main() {
   await page.click("#workout .exercise.is-current .focus-well [data-effstep][data-dir='-1']");
   await page.locator("#workout .exercise.is-current .focus-well .saveset").click();
   await page.waitForTimeout(250);
-  const savedEffort = await page.evaluate((d) => {
-    const draft = JSON.parse(localStorage.getItem(d) || "{}");
-    const key = Object.keys(draft).find((k) => k.endsWith("_1_effort"));
-    return { effort: draft[key], rows: document.querySelectorAll(".ledger__row[data-editn]").length };
-  }, DRAFT);
+  const savedEffort = await page.evaluate(() => {
+    const draft = window.__repforgeWorkoutDraft.current();
+    const exercise = draft.exercises[draft.session.selectedExerciseId];
+    return { effort: exercise.sets[exercise.setOrder[0]].edited.effort,
+      rows: document.querySelectorAll(".ledger__row[data-editn]").length };
+  });
   assert(savedEffort.effort && savedEffort.rows === 4,
     "saving an effort edit updates the set in place", JSON.stringify(savedEffort));
 
@@ -936,7 +952,7 @@ async function main() {
       small,
       deckNamed: !!document.querySelector("#focusDeck")?.getAttribute("aria-label"),
       inputsLabelled: [...card.querySelectorAll(".focus-well input")].every((i) => !!i.getAttribute("aria-label")),
-      carriersInert: [...card.querySelectorAll(".focus-inputs")].every((c) => c.hasAttribute("inert")),
+      carriersAbsent: card.querySelectorAll(".focus-inputs").length === 0,
       done: segs[0] ? colour(segs[0]) : "",
       current: segs[1] ? colour(segs[1]) : "",
       upcoming: segs[2] ? colour(segs[2]) : "",
@@ -944,8 +960,8 @@ async function main() {
   });
   assert(a11y.unnamed === 0, "every visible control has an accessible name", JSON.stringify(a11y));
   assert(a11y.small.length === 0, "every control is at least 44×44", JSON.stringify(a11y.small));
-  assert(a11y.deckNamed && a11y.inputsLabelled && a11y.carriersInert,
-    "the deck is named, the fields are labelled and the hidden carriers are inert",
+  assert(a11y.deckNamed && a11y.inputsLabelled && a11y.carriersAbsent,
+    "the deck is named, the fields are labelled and hidden carriers are absent",
     JSON.stringify(a11y));
   assert(a11y.done !== a11y.current && a11y.current !== a11y.upcoming &&
     /27, 26, 23|rgb\(27/.test(a11y.done) && /224, 78, 20/.test(a11y.current),
@@ -1182,7 +1198,9 @@ async function main() {
       s.program = (s.program || []).map((e) => e.id === exId ? { ...e, sets: 2, min: 6, max: 8 } : e);
       s.log = ${JSON.stringify(rows)};
     `);
-    await f1Page.evaluate((d) => localStorage.removeItem(d), DRAFT);
+    await f1Page.evaluate((d) => {
+      for (const key of Object.keys(localStorage)) if (key === d || key.startsWith(`${d}:`)) localStorage.removeItem(key);
+    }, DRAFT);
     await reload(f1Page);
     await enterFocus(f1Page, 0);
     const rec = await f1Page.evaluate((id) => {

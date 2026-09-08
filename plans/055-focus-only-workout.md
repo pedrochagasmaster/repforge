@@ -2,6 +2,9 @@
 
 Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
 and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
+External Herdr workers additionally follow the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md)
+and the [Herdr worker packets](#herdr-worker-packets) section below. The coordinator fills every packet field and the
+live SHAs, thread ID, server origin, and PID before dispatch.
 
 - **Plan number:** 055
 - **Phase:** 4 — Focus-only workout
@@ -17,9 +20,9 @@ and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkp
 
 ## Problem statement
 
-Focus has Taurifer's strongest one-exercise/one-decision hierarchy, but it remains an optional mode propped up by hidden List markup. Important utilities are scattered across List, header overflow, per-exercise rows, and sheets. Focus also wastes vertical space and its previous-session/timer geometry can shift or compress titles. Today has no clean read-only session inspection boundary.
+Focus has Taurifer's strongest one-exercise/one-decision hierarchy, but it remains an optional mode alongside List markup. Important utilities are scattered across List, header overflow, per-exercise rows, and sheets. Focus also wastes vertical space and its previous-session/timer geometry can shift or compress titles. Today has no clean read-only session inspection boundary.
 
-After Plan 051 makes DraftV2 authoritative, this phase turns Focus into the only logger, relocates every approved capability by scope, creates a read-only Today preview, and deletes List only after executable parity is complete.
+Plan 051 (merged, PR #226) already made DraftV2 authoritative and removed hidden List DOM ownership — List now renders as a projection over `activeWorkoutDraft`. This phase turns Focus into the only logger, relocates every approved capability by scope, creates a read-only Today preview, and deletes List only after executable parity is complete. It reuses Plan 051's DraftV2 state and tests, rerunning affected consumer proof rather than rebuilding the storage engine.
 
 ## Approved direction
 
@@ -47,12 +50,12 @@ Preserve the Today → workout → save → centered summary loop, Focus's one-e
 ## Current-state audit
 
 - `index.html` contains one workout surface with List markup, Focus header/card/navigation, rest UI, overflow controls, notes/why/substitution sheets, and save actions.
-- `app.js` switches modes, renders Focus from the selected List exercise, scrapes List inputs for draft/save, and keeps state in DOM plus Maps/Sets. Plan 051 replaces that ownership.
+- `app.js` switches modes and renders Focus from the selected List exercise. Plan 051 (merged) already replaced DOM/Map/Set draft ownership with DraftV2: `activeWorkoutDraft` plus commands through `window.__repforgeWorkoutDraft` (`current`, `projection`, `dispatch`, `flush`, `checkpoint`, `read`, `state`). This plan removes the mode branching itself, not the storage engine.
 - Focus already supports previous-session context, `Why this weight?`, input/edit/commit/uncommit, swipe/arrow exercise navigation, rest control, substitutions, notes, and save; some controls remain discoverable only through List/header overflow.
 - The global app dock is hidden in Focus via body state, but exit semantics and draft preservation need one explicit action.
 - Today's start action can create the workout state. The new Preview action must be observational and storage-silent.
 - `styles.css` contains separate List (`.ex`, set row/table, floating rest) and Focus (`.focus-*`, `.deck`, `.ledger`, `.wo-rest`) systems, plus fixed/min-height/absolute-position rules causing whitespace and timer/title pressure.
-- `test/focus-mode.mjs` currently reports 116 passing cases on baseline main. `test/simulation.mjs` and the tour tests intentionally toggle both modes and sometimes query hidden inputs.
+- `test/focus-mode.mjs` reported 116 passing cases at the planning baseline; treat that as a historical figure and re-measure on the dispatch base SHA. `test/simulation.mjs` and the tour tests intentionally toggle both modes and sometimes query hidden inputs.
 - Catalog states include `workout/list`, `workout/focus`, rest timer, exercise note, and why; the global `install/tour` depicts List/Focus switching.
 
 ## Capability parity table
@@ -248,6 +251,46 @@ Before List deletion, the single DraftV2 renderer can fall back to the prior pro
 | 8 | `test(workout): prove Focus-only release evidence` | Full catalog, SW upgrade, reduced motion, accessibility and real-phone evidence | tests/catalog PNGs/docs/SW inventory | Commits 2–7 | Critical-flow matrix | Full regression + audit checks | Exact delta recorded | Fill owner/device/completion evidence | Evidence reverts with owning slices |
 
 For every row: mark 🟡; implement only that slice; run focused verification; inspect the complete diff; eliminate unrelated edits; commit; push immediately; update the PR; continue only from a truthful remote checkpoint.
+
+## Herdr worker packets
+
+The atomic commit sequence above is the delivery contract. Each row is dispatched as one or more self-contained packets
+per the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md); the coordinator fills every template
+field before dispatch. Row 3 is split so the Session sheet and the Exercise-actions sheet are separate worker
+boundaries, and navigation/reorder/leave is its own boundary.
+
+Rules for every packet in this plan:
+
+- **Proactive parity first.** 055-P1 converts the whole capability table into visible-control test cases before any
+  relocation packet, and List is deleted only after every row is green — 055-P8 proves *deletion parity*, nothing new.
+- **Reuse Plan 051, do not redo it.** Packets consume `activeWorkoutDraft` and `window.__repforgeWorkoutDraft`
+  (`current`, `dispatch`, `flush`, `checkpoint`, `read`, `state`) and the existing `test/workout-draft-*.mjs` suites;
+  packets rerun affected DraftV2 crash/storage proof when they change its callers, without rebuilding its implementation.
+- **Anchors are concrete.** Existing: mode switch + Focus render in `app.js`, `#todayNoProgram`, session summary path
+  (`buildSessionSummary`, `openSessionSummary` in `app.js`), `.focus-*` / `.deck` / `.ledger` / `.wo-rest` styles,
+  `sw.js` `SHELL` six protected scripts, `test/exercise-library.mjs` revision lockstep, `test/focus-mode.mjs`,
+  `test/workout-draft-parity.mjs`, `test/workout-draft-storage.mjs`, `test/ui-catalog-contract.mjs`. **NEW** (this
+  plan): DraftV2 session-order state (if 051 did not include it), `test/focus-only-parity.mjs`,
+  `test/today-preview.mjs`, `test/focus-session-sheet.mjs`, `test/focus-exercise-actions.mjs`,
+  `test/focus-navigation.mjs`.
+- **Plan 054 guide registry stays intact.** 055-P8 removes only List-specific guide copy, after Plan 054's registry is
+  merged; it never restores the global tour.
+- **Every packet carries a deliberate failing case** and a STOP boundary; the coordinator reproduces the risky
+  assertion before the next relocation packet.
+
+### Row → packet map
+
+| Packet | Maps rows | Bounded objective · mode | Existing anchors (main unless NEW) | Proof-first: PLANNED assertion + independent oracle + deliberate failure | Commands: baseline now → planned | STOP · reviewer gate |
+|---|---|---|---|---|---|---|
+| 055-P1 | 1 | Convert the capability parity table into executable visible-control cases with a destination per row; record baseline gaps · **build (tests only)** | parity table in this plan; `window.__repforgeWorkoutDraft.state`/`projection`; `test/focus-mode.mjs`, `test/workout-draft-parity.mjs` | NEW `test/focus-only-parity.mjs`: each capability is exercised through a visible control and asserted against DraftV2 projection (oracle = the table's "Required proof" column), with no hidden `data-k` input query. Failure: a row that only passes by reading a hidden List input | baseline: `node test/focus-mode.mjs && node test/workout-draft-parity.mjs` → planned: `node test/focus-only-parity.mjs` | STOP if a parity row has no visible-control path or no owner scope · reviewer: reproduces the no-hidden-input run and the gap list |
+| 055-P2 | 2 | Today read-only session Preview: planned-session view model, distinct Start boundary, storage-silent · **build** | Today start action + `renderTodayNoProgram` in `app.js`; `window.__repforgeWorkoutDraft.current` | NEW `test/today-preview.mjs`: opening and closing Preview produces zero change to draft, log, durable revision, timers, and start telemetry (oracle = pre-open snapshot). Failure: Preview calls DraftV2 `create()`, writes a timestamp, or emits a workout-start event | baseline: `node test/today-done.mjs` → planned: `node test/today-preview.mjs` | STOP if Preview writes any draft/session/start state · reviewer: reproduces the zero-write diff |
+| 055-P3 | 3 | Session sheet: date, bodyweight, session notes, overview, early finish — each action a DraftV2 command; stale revision rejected · **build** | `activeWorkoutDraft` metadata; existing bodyweight/date/notes handling in `app.js`; `test/workout-draft-storage.mjs` | NEW `test/focus-session-sheet.mjs`: each field round-trips through reload via a DraftV2 command; early finish requires an explicit confirm from a fresh revision. Failure: early finish acts on a stale draft revision | baseline: `node test/workout-draft-storage.mjs` → planned: `node test/focus-session-sheet.mjs` | STOP if a sheet action mutates state without a DraftV2 command or from a stale revision · reviewer: reproduces the stale-revision rejection |
+| 055-P4 | 3 | Exercise-actions sheet: substitution, warm-up management, programmed/setup notes, skip/restore, repeat-last · **build** | existing substitution/warm-up/notes controls in `app.js`; `library:` / `custom:` exercise identity | NEW `test/focus-exercise-actions.mjs`: substitution replaces by explicit current exercise ID with provenance retained; repeat-last copies eligible fields without auto-completing and handles no-history honestly. Failure: substitution resolved by display-name/fuzzy match | baseline: `node test/focus-mode.mjs` → planned: `node test/focus-exercise-actions.mjs` | STOP if any action uses fuzzy identity or auto-completes a set · reviewer: reproduces the explicit-ID substitution and repeat-last-no-history cases |
+| 055-P5 | 4 | Arbitrary navigation, session-scoped reorder (DraftV2 state, not Program mutation), and explicit safe Leave/Resume · **build** | Focus arrows/swipe in `app.js`; `activeWorkoutDraft` order; `test/workout-draft-parity.mjs`, `test/persistence-race.mjs` | NEW `test/focus-navigation.mjs`: reorder changes only this session's draft order; set order/ordinal/identity preserved; future Program order unchanged; Leave flushes pending field state, waits for verified persistence, and resumes at the exact exercise/set. Failure: reorder changes Program order; Leave loses an unpersisted edit | baseline: `node test/workout-draft-parity.mjs` → planned: `node test/focus-navigation.mjs` | STOP if reorder touches Program order or set ordinals, or Leave can drop an edit · reviewer: reproduces the reorder invariant and a Leave-persist-failure retry |
+| 055-P6 | 5 | Tighten Focus/timer geometry: remove wasted space, define the previous-session band minimum, stabilize title/timer · **build** | `.focus-*` / `.wo-rest` styles in `styles.css`; Plan 050 overflow harness; `test/accessibility.mjs` | extend the Plan 050 overflow/clipping contract (reused, not duplicated): bounding boxes for title, timer chip, and previous-session band are stable across 320/390/430, EN/PT, 200%, PT+200. Failure: the title shifts when the timer runs at PT+200 | baseline: `node test/accessibility.mjs --touch-targets-320` → planned: same suite + catalog capture `node tools/capture-ui-screens.mjs --flow workout` | STOP if any variant clips a control or shifts the title/timer · reviewer: reproduces the PT+200 timer-running frame |
+| 055-P7 | 6 | Make Focus the sole workout route: remove mode branching/toggle/preference/event paths; active sessions always Focus · **build** | mode switch in `app.js`; obsolete List/Focus preference key; `test/simulation.mjs`, `test/session-summary.mjs` | extend `test/focus-only-parity.mjs`: a complete capability journey runs with no mode route present; existing active drafts resume into Focus with no mode prompt. Failure: a code path or test still selects a List route | baseline: `node test/session-summary.mjs` → planned: `node test/focus-only-parity.mjs` | STOP before this row unless every 055-P1 parity row is green · reviewer: reproduces the full journey and the mode-route-absence check |
+| 055-P8 | 7 | Remove obsolete List markup/styles/translations/tests/catalog scenario and List-tour references; replace List-based behavior tests with visible Focus/Session/Exercise proof; SW + six script revisions in lockstep · **build** | `sw.js` `SHELL` (`program-compiler.js`, `program-entry.js`, `program-entry-adapter.js`, `shared-setup.js`, `workout-draft.js`, `app.js`), `test/exercise-library.mjs` lockstep, catalog `workout/list`; Plan 054 guide registry (merged) | source/test grep proves no `workout/list` route, markup selector, hidden `data-k` owner, or List-tour step remains (excluding historical docs); each removed behavior test has a named visible replacement. Failure: a live selector still references List | baseline: `node test/exercise-library.mjs && node test/ui-catalog-contract.mjs` → planned: same, plus the grep audit script (NEW) | STOP if any parity row still queries hidden markup, or the guide registry is not merged · reviewer: reproduces the selector audit and one replacement test |
+| 055-P9 | 8 | Focus-only release evidence: full catalog regen, SW upgrade mid-draft, reduced motion, accessibility, real-phone owner review · **build + human evidence** | `test/sw-upgrade.mjs`, `test/workout-draft-sw-upgrade.mjs`, catalog manifest; physical-phone owner | regenerate `node tools/capture-ui-screens.mjs --flow workout --flow session --flow today`; critical-flow matrix at EN/PT, light/dark, 320/390/430, 200%, PT+200, reduced motion. Failure recorded, not hidden: a service-worker update mid-draft that loses the resume point | baseline: `node test/workout-draft-sw-upgrade.mjs && node test/sw-upgrade.mjs` → planned: `node tools/capture-ui-screens.mjs --flow workout` then `node tools/check-ui-screens.mjs` | STOP if real-phone one-handed review is claimed from emulation · reviewer + owner: device review and full regression/catalog evidence signed into the PR (Plan 059 repeats launch sign-off) |
 
 ## Implementation-agent operating protocol
 

@@ -2,6 +2,9 @@
 
 Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
 and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
+External Herdr workers additionally follow the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md)
+and the [Herdr worker packets](#herdr-worker-packets) section below. The coordinator fills every packet field and the
+live SHAs, thread ID, server origin, and PID before dispatch.
 
 - **Plan number:** 059
 - **Phase:** 8 — Public-launch validation
@@ -45,14 +48,14 @@ Acceptance explicitly protects Taurifer's identity/palette, token-swap themes, S
 
 ## Current-state audit
 
-- Audit baseline: `fe4bf52c`, 72 manifest screens, 221 PNG frames. Planning baseline main: `09772f91b86549f71a5d845a7c74849569d592b6`, still 72/221 with no post-audit UI drift.
+- Audit baseline (historical): `fe4bf52c`, 72 manifest screens, 221 PNG frames. Current main `c3491c5e` is **75 screens / 317 frames** with Plans 049/050/051 merged; Plans 052–058 change it further. The candidate SHA and its live counts are pinned by 059-P1, not by any figure in this plan.
 - Baseline manifest distribution: 31 `standard`, 26 `localized`, 7 `accessibility`, 8 `customAccessibility`; English 200% exists only in selected states and PT-BR + 200% does not.
 - `tools/check-ui-screens.mjs` verifies manifest/registration/dimensions. `tools/compare-ui-screens.mjs` enforces image drift. `test/ui-screens.mjs` checks coverage/mobile semantics. Plan 050 extends this with overflow/key/matrix gates; Plan 058 adds role/contrast inventory.
 - `body` already reserves dock/safe-area space, so apparent screenshot overlap is not a defect until real scroll-end reachability fails.
 - Browser boot tests use `window.__repforgeBooted`; no-program devices correctly never create a day tab.
-- Existing browser suites are strong and baseline runs passed for Focus (116), History (40), program entry (287), install modes (348), accessibility (171), and session summary (45). Several tests will be replaced because they encode old List/tour/first-run behavior.
+- Existing browser suites are strong; the planning-baseline counts (Focus 116, History 40, program entry 287, install modes 348, accessibility 171, session summary 45) are historical — 059-P1 re-measures them on the candidate SHA. Several tests will be replaced because they encode old List/tour/first-run behavior.
 - Plan 041's implemented accessibility hardening still lacks complete physical-device evidence; this phase absorbs the outstanding launch evidence rather than claiming it from automation.
-- The service-worker shell and five protected script query revisions must remain in lockstep at the live revision, not the planning baseline's v175.
+- The service-worker shell and the **six** protected script query revisions (`program-compiler.js`, `program-entry.js`, `program-entry-adapter.js`, `shared-setup.js`, `workout-draft.js`, `app.js`) must remain in lockstep at the live revision (`repforge-v188` / `?v=188` on `c3491c5e`), not any documented number.
 
 ## Architecture
 
@@ -262,6 +265,47 @@ Phase 059 is a release hold: a failed candidate is not promoted. Test/evidence c
 | 7 | `chore(launch): present UI overhaul for owner sign-off` | Clean remote boundary with no open threads/STOP conditions; no merge | PR body/evidence only | Commit 6 | `git status --short`, remote SHA and owner gate audit | Latest full regression references same SHA | Final artifacts linked | Complete Handoff and exact release action | Withdraw candidate; do not rewrite history |
 
 For every row: mark 🟡; execute only that slice; run focused proof; inspect all changes/artifacts; eliminate unrelated data; commit; push immediately; update the PR immediately. A failed row remains ⛔ with exact next steps rather than a local workaround.
+
+## Herdr worker packets
+
+The atomic commit sequence above is the delivery contract. Each row is dispatched as one or more self-contained packets
+per the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md); the coordinator fills every template
+field before dispatch. This phase is an evidence hold, not a build — packets add tooling and record results, and any
+product failure is routed back to its owning plan on a fresh commit.
+
+Rules for every packet in this plan:
+
+- **Manifest and immutable candidate first.** 059-P1 pins the candidate SHA and the SHA-bound evidence manifest, and
+  **predeclares** every automation helper the later packets need (scroll-clearance driver, semantic-evidence recorder,
+  telemetry payload test) as PLANNED manifest rows with an owning packet — no helper appears without a prior
+  declaration.
+- **Physical-device evidence is human-only.** 059-P5's iOS Safari/PWA/VoiceOver and Android Chrome/PWA/TalkBack rows
+  are never satisfied by a simulator, emulator, screenshot, or automated accessibility tree; the owner records them
+  against the exact candidate SHA and mode.
+- **Route product bugs out.** A failed acceptance row is assigned to the plan/module that owns the contract and fixed
+  in that plan's PR or a narrowly named fix PR; 059 may only correct its own tooling/fixtures/metadata and must not
+  weaken a threshold or allowlist to pass.
+- **Receipt edits do not re-run everything.** A docs-only manifest receipt update does not trigger a full suite; but
+  the final candidate must still pass the complete same-candidate gates in 059-P6/P7 before sign-off.
+- **Anchors are concrete.** Existing: `tools/check-ui-screens.mjs`, `tools/compare-ui-screens.mjs`,
+  `tools/capture-ui-screens.mjs` (`--flow`/`--screen`/`--canonical`), `test/ui-screens.mjs`,
+  `test/ui-catalog-contract.mjs`, `test/accessibility.mjs` (`--touch-targets-320`), `test/telemetry-leakage.mjs`,
+  `test/generative/run.mjs --profile ci`, `window.__repforgeBooted`, `sw.js` `ASSETS`/`SHELL`. **NEW** (this plan):
+  the release evidence manifest + checker, the scroll-clearance driver, the semantic-evidence recorder, the telemetry
+  allowlist schema + payload test.
+- **Every packet carries a deliberate failing case** and a STOP boundary.
+
+### Row → packet map
+
+| Packet | Maps rows | Bounded objective · mode | Existing anchors (main unless NEW) | Proof-first: PLANNED assertion + independent oracle + deliberate failure | Commands: baseline now → planned | STOP · reviewer gate |
+|---|---|---|---|---|---|---|
+| 059-P1 | 1 | Pin the candidate SHA; build the SHA-bound evidence manifest + checker with UI-01–UI-32 / G-01–G-88 rows, closed result states, and predeclared PLANNED automation helpers · **build (tooling only)** | governing docs; NEW release evidence manifest + checker | seed a duplicate, a missing, and a stale-SHA row and prove the checker rejects each; no row is `pass` without a named artifact/command/observation (oracle = the manifest schema). Failure: evidence recorded against two SHAs with no invalidation | baseline: `git diff --check` → planned: `node tools/check-release-evidence.mjs` (NEW) | STOP if a helper is used before it is declared, or a `pass` lacks an artifact · reviewer: coordinator records candidate SHA + open rows in the PR |
+| 059-P2 | 2 | Final catalog + scroll-clearance matrix: live risk variants, semantic facts, per-state overflow, and a real scroll-end driver for every long surface in compact/standard, browser/installed · **build** | `tools/capture-ui-screens.mjs`, `tools/check-ui-screens.mjs`, `tools/compare-ui-screens.mjs`, `test/ui-screens.mjs`; NEW scroll-clearance driver (declared in 059-P1) | driver enters each long route with deterministic fixtures, scrolls to `scrollTop` max, and asserts the final content + final focusable action clear the persistent dock + safe-area inset and are not clipped by an inner scroller. Failure: occlusion inferred from a screenshot instead of a driven scroll-end | baseline: `node tools/check-ui-screens.mjs && node tools/compare-ui-screens.mjs` → planned: `node tools/capture-ui-screens.mjs` (full) + `node test/scroll-clearance.mjs` (NEW) | STOP if a screen lacks a role-required variant or a driver cannot reach true scroll end · reviewer: reproduces one long-surface clearance |
+| 059-P3 | 3 | Browser accessibility acceptance: focus order/restoration, announcements, selected/disabled/validation states, keyboard, targets, scaling, safe areas, reduced motion, dialog containment · **build** | `test/accessibility.mjs`, critical-flow suites, `window.__repforgeBooted` | one named journey per requirement (focus restoration after Share repair, History edit/cancel, transition preview, etc.); each asserts a semantic-tree fact, not a pixel. Failure: a threshold weakened so a failing journey "passes" | baseline: `node test/accessibility.mjs --touch-targets-320` → planned: `node test/launch-accessibility.mjs` (NEW) | STOP if any critical action is not operable without sight in-browser (physical AT is 059-P5) · reviewer: reproduces two per-requirement journeys |
+| 059-P4 | 4 | Freeze the launch telemetry allowlist: one schema doc + executable payload test over already-approved events; actual network/log inspection · **build** | `test/telemetry-leakage.mjs`, `telemetry.js` (`installationId`, consent keys); NEW allowlist schema + payload test | allowed events/properties pass; a forbidden property (program/exercise ID, loads/reps, notes, dates, token, exact size) fails; consent-off emits nothing (oracle = the allowlist doc). Failure: an unapproved event slips through | baseline: `node test/telemetry-leakage.mjs` → planned: `node test/launch-telemetry.mjs` (NEW) | STOP if inspection reveals sensitive content or a non-allowlisted event · reviewer: reproduces the consent-off silence and one forbidden-property rejection |
+| 059-P5 | 5 | Record physical iOS Safari/PWA/VoiceOver and Android Chrome/PWA/TalkBack critical journeys + safe-area/scroll evidence against the deployed candidate · **human evidence only** | deployed RC; owner devices; SHA-bound evidence rows | owner checklist with device/OS/app-display-mode/date/result/limitations per journey; automation in 059-P2/P3 is re-run immediately before the device session. Failure: a row marked `pass` from a simulator or automated tree alone | baseline: `node test/generative/run.mjs --profile ci` (pre-device automation gate) → planned: SHA-bound device evidence file (NEW) | STOP if physical evidence is claimed from emulation, or the candidate SHA changed after a device run without invalidation · reviewer + owner: signed device evidence |
+| 059-P6 | 6 | Reconcile shipped UI, catalog, audit, source inventory, backlog, ADRs, plans, brand guide, telemetry schema, tests, SW/cache inventory, and privacy claims to one candidate · **build (docs + consistency checks)** | `sw.js` `ASSETS`/`SHELL`, governing docs; evidence manifest | consistency/path/cache/disposition checks pass; every UI-01–UI-32 and G-01–G-88 row has a current SHA-bound disposition; a docs-only receipt edit does not trigger a full suite, but a source fix invalidates and re-runs affected + broad evidence. Failure: a stale cache revision or an embedded example that drifted from its fixture | baseline: `node tools/build-i18n.mjs --check` → planned: `node tools/check-release-evidence.mjs --reconcile` (NEW) | STOP on any cross-document/cache/schema drift — route product drift to the owning plan · reviewer: full command list run against the same candidate |
+| 059-P7 | 7 | Present the candidate for owner sign-off: clean remote boundary, no open threads or STOP conditions, no merge · **plan** | PR body/evidence; remote SHA | `git status --short` clean; remote head == candidate SHA; every owner gate audited; latest full regression references the same SHA. Failure: presenting with an open ⛔ row or a regression run on a different SHA | baseline: `node test/generative/run.mjs --profile ci` → planned: same, referenced by SHA in the manifest | STOP before any merge/release without explicit owner authorization · reviewer + owner: owner signs the evidence manifest |
 
 ## Implementation-agent operating protocol
 
