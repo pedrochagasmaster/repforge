@@ -601,7 +601,7 @@
       "id": "freeform-stage3",
       "flow": "onboarding-import",
       "label": "Import — paste reply",
-      "scenario": "Stage 3 with collapsed source summary, reply textarea, Review CTA, Try another assistant, and Start over.",
+      "scenario": "Stage 3 with collapsed source summary, Import from clipboard, the \"or paste\" divider, reply textarea, Review CTA, Try another assistant, and Start over.",
       "variants": "accessibility"
     },
     {
@@ -624,6 +624,13 @@
       "label": "Import — unreadable reply",
       "scenario": "Unreadable reply recovery block with Copy repair prompt and Try another assistant actions.",
       "variants": "localized"
+    },
+    {
+      "id": "review",
+      "flow": "onboarding-import",
+      "label": "Import — exercise review",
+      "scenario": "Reviewing candidate matches: collapsed candidate chips, disclosure expanded, and unmatched flat escape hatches.",
+      "variants": "accessibility"
     },
     {
       "id": "preview",

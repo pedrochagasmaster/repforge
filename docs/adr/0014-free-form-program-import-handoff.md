@@ -19,8 +19,11 @@ So the conversion is handed to the assistant the lifter already has open on the
 same phone. The paste door writes a prompt around what they pasted — the shape
 of the import JSON, the rules that keep it honest, and their program — and
 offers ChatGPT or Claude as ordinary links. They tap one, the app opens with
-the prompt already in the composer, they copy the reply, they come back and
-paste it. From there it is the existing import: the same parser, the same
+the prompt already in the composer, they copy the reply, and they come back.
+Back in Taurifer they either import from the clipboard in one tap or paste the
+reply by hand; the clipboard is read only when they ask for it, and never on a
+return, a render or a timer. From there it is the existing import: the same
+parser, the same
 row-by-row review, the same explicit activation. Nothing about the program's
 handling is special because a model touched it.
 
