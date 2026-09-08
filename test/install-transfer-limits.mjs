@@ -3,7 +3,8 @@
  * Plan 053 Wave A / P1b independent install-transfer boundary oracle.
  *
  * This slice intentionally does not import install-transfer-contract.js: the
- * browser/service loading interface and validators are not pinned yet. It
+ * contract is pinned, but the browser/service validators are not implemented
+ * yet. It
  * validates the independent boundary/threat/redaction fixtures and safely
  * characterizes the existing logical-clone fixture. Validator parity is
  * reported as planned until real producers and consumers exist.
@@ -21,11 +22,26 @@ function readJson(relativePath) {
 }
 
 function utf8Bytes(value) {
-  return textEncoder.encode(String(value)).byteLength;
+  if (typeof value === "string") return textEncoder.encode(value).byteLength;
+  if (value instanceof Uint8Array || value instanceof ArrayBuffer) return value.byteLength;
+  throw new TypeError("utf8 byte measurement accepts only string, Uint8Array, or ArrayBuffer");
 }
 
 function chars(value) {
-  return Array.from(String(value)).length;
+  if (typeof value !== "string") throw new TypeError("character measurement accepts only strings");
+  let count = 0;
+  for (let index = 0; index < value.length; index += 1) {
+    const codeUnit = value.charCodeAt(index);
+    if (codeUnit >= 0xd800 && codeUnit <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (!Number.isInteger(next) || next < 0xdc00 || next > 0xdfff) throw new RangeError("unpaired high surrogate");
+      index += 1;
+    } else if (codeUnit >= 0xdc00 && codeUnit <= 0xdfff) {
+      throw new RangeError("unpaired low surrogate");
+    }
+    count += 1;
+  }
+  return count;
 }
 
 function hasOwnKey(value, key) {
@@ -195,17 +211,36 @@ assert.deepEqual(matrix.measurement.utf8Bytes, {
 }, "request/envelope measurement is raw UTF-8 bytes");
 assert.deepEqual(matrix.measurement.chars, {
   unit: "unicode-scalar-values",
-  algorithm: "Array.from(value).length",
+  algorithm: "Count Unicode scalar values after rejecting every lone UTF-16 surrogate",
   scope: "String values, identifier/key values, and serialized log-row JSON.",
   normalization: "none",
   notUtf8Bytes: true,
   notUtf16CodeUnits: true,
+  rejectUnpairedSurrogates: true,
 }, "character measurement is explicit and Unicode-safe");
 assert.equal(matrix.measurement.depth.rootDepth, 0);
 assert.equal(matrix.measurement.depth.rejectDuringParse, true);
+assert.deepEqual(matrix.inputContracts, {
+  measureUtf8Bytes: { acceptedTypes: ["string", "Uint8Array", "ArrayBuffer"], coercion: "none" },
+  measureChars: { acceptedTypes: ["string"], coercion: "none" },
+  parseBoundedJson: {
+    acceptedTypes: ["Uint8Array", "ArrayBuffer"],
+    coercion: "none",
+    order: ["byte-length", "fatal-utf8-decode", "bounded-json-parse"],
+  },
+}, "byte/parser input types and parse order are pinned");
+assert.deepEqual(matrix.resultContract, {
+  success: { allowedKeys: ["ok", "value"] },
+  failure: { allowedKeys: ["ok", "code"] },
+  failureCode: "fixed-code-enum",
+  forbiddenFailureKeys: ["value", "path", "payload", "input", "message", "details"],
+}, "validator result shape is fixed and redaction-safe");
 
 console.log("  UTF-8 byte and Unicode-scalar cases distinguish units");
 assert.equal(utf8Bytes("😀"), 4, "astral sample uses four UTF-8 bytes");
+assert.equal(utf8Bytes(Uint8Array.of(0x7b, 0x7d)), 2, "Uint8Array.of(0x7b, 0x7d) is 2 bytes, never 7 from String()");
+assert.equal(utf8Bytes(Uint8Array.of(0x7b, 0x7d).buffer), 2, "ArrayBuffer input counts its byteLength");
+assert.throws(() => utf8Bytes(42), TypeError, "byte measurement rejects implicit coercion");
 assert.equal(chars("😀"), 1, "astral sample counts as one character");
 assert.equal("😀".length, 2, "test demonstrates why UTF-16 length is not the contract");
 const eightThousandAstrals = "😀".repeat(8000);
@@ -213,6 +248,9 @@ assert.equal(chars(eightThousandAstrals), 8000, "8,000 astral characters are at 
 assert.equal(utf8Bytes(eightThousandAstrals), 32000, "character-limit sample remains byte-distinct");
 assert.equal(chars(`${eightThousandAstrals}a`), 8001, "one Unicode scalar over the string limit is visible");
 assert.equal(chars("e\u0301"), 2, "combining marks are counted without normalization");
+assert.throws(() => chars(42), TypeError, "character measurement rejects implicit coercion");
+assert.throws(() => chars("\ud800"), RangeError, "lone high surrogates are rejected");
+assert.throws(() => chars("\udfff"), RangeError, "lone low surrogates are rejected");
 
 console.log("  parser depth and generic shape probes are independently constructible");
 assert.equal(maxContainerDepth(nestedContainers(64)), 64, "depth-at-limit fixture follows root-depth-zero convention");
@@ -236,17 +274,23 @@ for (const probe of hostile.boundaryProbes) {
   assert.equal(typeof probe.id, "string");
   assert.ok(expectedRows.has(probe.limitId), `${probe.id} references an ADR row`);
   assert.equal(typeof probe.target, "number", `${probe.id} records an exact target`);
-  assert.ok(["accept", "accept-if-random", "accept-under-both-bounds", "unresolved-generic-array-interaction"].includes(probe.expectedAtTarget), `${probe.id} records an exact-target outcome`);
+  assert.ok([
+    "accept",
+    "accept-if-random",
+    "parse-gate-accepted",
+    "protocol-gate-accepted",
+    "size-gate-accepted",
+    "reject-array-too-large",
+  ].includes(probe.expectedAtTarget), `${probe.id} records an exact-target outcome`);
   assert.equal(typeof probe.expectedAtTargetPlusOne, "string", `${probe.id} records a +1 outcome`);
   assert.equal(typeof probe.proposedCode, "string", `${probe.id} records a future stable-code proposal`);
   if (!probesByLimit.has(probe.limitId)) probesByLimit.set(probe.limitId, []);
   probesByLimit.get(probe.limitId).push(probe);
 }
 for (const id of expectedRows.keys()) assert.ok(probesByLimit.has(id), `boundary ${id} has a probe`);
-assert.ok(
-  hostile.boundaryProbes.some(probe => probe.id === "log-rows-at-specialized-limit" && probe.expectedAtTarget === "unresolved-generic-array-interaction"),
-  "the 200,000-row log conflict stays unresolved instead of silently weakening the generic array limit",
-);
+assert.equal(hostile.boundaryProbes.find(probe => probe.id === "log-rows-at-generic-array-limit").expectedAtTargetPlusOne, "reject-array-too-large");
+assert.equal(hostile.boundaryProbes.find(probe => probe.id === "log-rows-at-specialized-limit").expectedAtTarget, "reject-array-too-large");
+assert.equal(hostile.boundaryProbes.find(probe => probe.id === "log-rows-at-specialized-limit").expectedAtTargetPlusOne, "reject-array-too-large");
 
 console.log("  hostile parser/version/key cases are explicit");
 assert.ok(hostile.cases.length >= 10);
@@ -268,13 +312,24 @@ for (const testCase of dangerousCases) {
 const malformed = hostile.cases.find(testCase => testCase.id === "malformed-json");
 assert.throws(() => JSON.parse(malformed.raw), SyntaxError, "malformed JSON is rejected before validation");
 const invalidUtf8 = hostile.cases.find(testCase => testCase.id === "invalid-utf8-bytes");
+assert.deepEqual(invalidUtf8.parseOrder, ["byte-length", "fatal-utf8-decode", "bounded-json-parse"], "raw-byte parsing checks size before fatal UTF-8 decoding and bounded parsing");
 assert.throws(() => new TextDecoder("utf-8", { fatal: true }).decode(Uint8Array.from(invalidUtf8.bytes)), TypeError, "invalid UTF-8 is rejected before JSON parsing");
+const rawByteEmptyObject = hostile.cases.find(testCase => testCase.id === "raw-byte-empty-object");
+assert.equal(utf8Bytes(Uint8Array.from(rawByteEmptyObject.bytes)), rawByteEmptyObject.byteLength, "raw-byte fixture keeps Uint8Array byte length exact");
+const escapedSurrogate = hostile.cases.find(testCase => testCase.id === "escaped-unpaired-high-surrogate");
+const escapedValue = JSON.parse(escapedSurrogate.raw).value;
+assert.equal(escapedValue.length, 1, "escaped lone surrogate remains a single UTF-16 code unit after JSON parsing");
+assert.throws(() => chars(escapedValue), RangeError, "escaped lone surrogate fails Unicode-scalar measurement");
 for (const id of ["unknown-top-level-schema-version", "unknown-top-level-schema-version-zero", "unknown-workout-draft-version", "unknown-required-section-version"]) {
   const testCase = hostile.cases.find(candidate => candidate.id === id);
   assert.equal(testCase.expected, "reject-without-local-mutation", `${id} fails closed without local mutation`);
 }
-assert.equal(hostile.cases.find(testCase => testCase.id === "unknown-optional-section").expected, "contract-pin-required");
-assert.equal(hostile.cases.find(testCase => testCase.id === "duplicate-key").expected, "contract-pin-required");
+assert.equal(hostile.cases.find(testCase => testCase.id === "unknown-optional-section").expected, "reject-without-local-mutation");
+assert.equal(hostile.cases.find(testCase => testCase.id === "unknown-optional-section").proposedCode, "unknown-section");
+const duplicateKey = hostile.cases.find(testCase => testCase.id === "duplicate-key");
+assert.equal(duplicateKey.expected, "reject-without-local-mutation");
+assert.equal(duplicateKey.proposedCode, "duplicate-key");
+assert.equal([...duplicateKey.raw.matchAll(/"kind"/g)].length, 2, "duplicate-key fixture contains both repeated names");
 
 console.log("  redaction cases cover service, static-host, response, telemetry, and errors");
 const requiredForbiddenFields = new Set(["token", "claimId", "ciphertext", "envelope", "body", "payload", "fullUrl", "cookie"]);
@@ -331,6 +386,6 @@ assert.equal(chars(existingClone.integrity.canonicalPayloadHash), 64, "existing 
 assert.match(existingClone.integrity.canonicalPayloadHash, /^[0-9a-f]{64}$/, "existing fixture hash shape is safe");
 
 const contractModule = join(ROOT, "install-transfer-contract.js");
-console.log(`  planned (not run): browser/service parity against ${contractModule} (${existsSync(contractModule) ? "module present but interface is not pinned; no import performed" : "production module not present yet"})`);
+console.log(`  planned (not run): browser/service parity against ${contractModule} (${existsSync(contractModule) ? "module present; parity intentionally deferred" : "production module not present yet"})`);
 console.log("  planned (not run): real log/trace adapter redaction and parser allocation-failure assertions");
 console.log("pass: independent boundary matrix, hostile cases, redaction fixtures, and existing-clone characterization");

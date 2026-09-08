@@ -9,8 +9,8 @@
       "limitId": "request-body-create-bytes",
       "construction": "raw-json-ascii-bytes",
       "target": 2000000,
-      "expectedAtTarget": "accept",
-      "expectedAtTargetPlusOne": "reject",
+      "expectedAtTarget": "size-gate-accepted",
+      "expectedAtTargetPlusOne": "reject-body-too-large",
       "proposedCode": "body-too-large"
     },
     {
@@ -18,8 +18,8 @@
       "limitId": "request-body-small-endpoint-bytes",
       "construction": "raw-json-ascii-bytes",
       "target": 4096,
-      "expectedAtTarget": "accept",
-      "expectedAtTargetPlusOne": "reject",
+      "expectedAtTarget": "size-gate-accepted",
+      "expectedAtTargetPlusOne": "reject-body-too-large",
       "proposedCode": "body-too-large"
     },
     {
@@ -27,8 +27,8 @@
       "limitId": "envelope-total-json-bytes",
       "construction": "serialized-envelope-utf8-bytes",
       "target": 2000000,
-      "expectedAtTarget": "accept",
-      "expectedAtTargetPlusOne": "reject",
+      "expectedAtTarget": "size-gate-accepted",
+      "expectedAtTargetPlusOne": "reject-envelope-too-large",
       "proposedCode": "envelope-too-large"
     },
     {
@@ -36,8 +36,8 @@
       "limitId": "nesting-depth",
       "construction": "nested-objects-root-depth-zero",
       "target": 64,
-      "expectedAtTarget": "accept",
-      "expectedAtTargetPlusOne": "reject-during-parse",
+      "expectedAtTarget": "parse-gate-accepted",
+      "expectedAtTargetPlusOne": "reject-depth-too-large-during-parse",
       "proposedCode": "depth-too-large"
     },
     {
@@ -45,8 +45,8 @@
       "limitId": "object-keys-per-object",
       "construction": "object-with-own-keys",
       "target": 256,
-      "expectedAtTarget": "accept",
-      "expectedAtTargetPlusOne": "reject",
+      "expectedAtTarget": "parse-gate-accepted",
+      "expectedAtTargetPlusOne": "reject-object-too-wide",
       "proposedCode": "object-too-wide"
     },
     {
@@ -54,8 +54,8 @@
       "limitId": "array-items-per-array",
       "construction": "ordinary-array",
       "target": 10000,
-      "expectedAtTarget": "accept",
-      "expectedAtTargetPlusOne": "reject",
+      "expectedAtTarget": "parse-gate-accepted",
+      "expectedAtTargetPlusOne": "reject-array-too-large",
       "proposedCode": "array-too-large"
     },
     {
@@ -64,8 +64,8 @@
       "construction": "unicode-scalar-repeat",
       "sample": "😀",
       "target": 8000,
-      "expectedAtTarget": "accept",
-      "expectedAtTargetPlusOne": "reject",
+      "expectedAtTarget": "parse-gate-accepted",
+      "expectedAtTargetPlusOne": "reject-string-too-long",
       "proposedCode": "string-too-long"
     },
     {
@@ -74,8 +74,8 @@
       "construction": "unicode-scalar-key",
       "sample": "😀",
       "target": 256,
-      "expectedAtTarget": "accept",
-      "expectedAtTargetPlusOne": "reject",
+      "expectedAtTarget": "parse-gate-accepted",
+      "expectedAtTargetPlusOne": "reject-identifier-too-long",
       "proposedCode": "identifier-too-long"
     },
     {
@@ -83,26 +83,26 @@
       "limitId": "durable-state-log-rows",
       "construction": "durableState.log-rows",
       "target": 10000,
-      "expectedAtTarget": "accept-under-both-bounds",
-      "expectedAtTargetPlusOne": "unresolved-generic-array-interaction",
-      "proposedCode": "log-too-large"
+      "expectedAtTarget": "parse-gate-accepted",
+      "expectedAtTargetPlusOne": "reject-array-too-large",
+      "proposedCode": "array-too-large"
     },
     {
       "id": "log-rows-at-specialized-limit",
       "limitId": "durable-state-log-rows",
       "construction": "durableState.log-rows",
       "target": 200000,
-      "expectedAtTarget": "unresolved-generic-array-interaction",
-      "expectedAtTargetPlusOne": "reject",
-      "proposedCode": "log-too-large"
+      "expectedAtTarget": "reject-array-too-large",
+      "expectedAtTargetPlusOne": "reject-array-too-large",
+      "proposedCode": "array-too-large"
     },
     {
       "id": "program-rows-at-limit",
       "limitId": "durable-state-program-rows",
       "construction": "durableState.program-rows",
       "target": 2000,
-      "expectedAtTarget": "accept",
-      "expectedAtTargetPlusOne": "reject",
+      "expectedAtTarget": "parse-gate-accepted",
+      "expectedAtTargetPlusOne": "reject-program-too-large",
       "proposedCode": "program-too-large"
     },
     {
@@ -110,8 +110,8 @@
       "limitId": "durable-state-program-history-entries",
       "construction": "durableState.programHistory-entries",
       "target": 2000,
-      "expectedAtTarget": "accept",
-      "expectedAtTargetPlusOne": "reject",
+      "expectedAtTarget": "parse-gate-accepted",
+      "expectedAtTargetPlusOne": "reject-program-history-too-large",
       "proposedCode": "program-history-too-large"
     },
     {
@@ -119,8 +119,8 @@
       "limitId": "durable-state-custom-exercises",
       "construction": "durableState.customExercises-entries",
       "target": 1000,
-      "expectedAtTarget": "accept",
-      "expectedAtTargetPlusOne": "reject",
+      "expectedAtTarget": "parse-gate-accepted",
+      "expectedAtTargetPlusOne": "reject-custom-exercises-too-large",
       "proposedCode": "custom-exercises-too-large"
     },
     {
@@ -128,8 +128,8 @@
       "limitId": "serialized-log-row-size",
       "construction": "json-stringified-row-unicode-scalars",
       "target": 8000,
-      "expectedAtTarget": "accept",
-      "expectedAtTargetPlusOne": "reject",
+      "expectedAtTarget": "parse-gate-accepted",
+      "expectedAtTargetPlusOne": "reject-log-row-too-large",
       "proposedCode": "log-row-too-large"
     },
     {
@@ -237,7 +237,7 @@
       "kind": "envelope-section",
       "path": "futureSection",
       "override": { "futureSection": { "schemaVersion": 99 } },
-      "expected": "contract-pin-required",
+      "expected": "reject-without-local-mutation",
       "proposedCode": "unknown-section"
     },
     {
@@ -268,15 +268,31 @@
       "id": "duplicate-key",
       "kind": "raw-json",
       "raw": "{\"kind\":\"taurifer-install-transfer\",\"kind\":\"other\"}",
-      "expected": "contract-pin-required",
+      "expected": "reject-without-local-mutation",
       "proposedCode": "duplicate-key"
+    },
+    {
+      "id": "escaped-unpaired-high-surrogate",
+      "kind": "raw-json",
+      "raw": "{\"value\":\"\\ud800\"}",
+      "expected": "reject-without-local-mutation",
+      "proposedCode": "invalid-string"
     },
     {
       "id": "invalid-utf8-bytes",
       "kind": "raw-bytes",
       "bytes": [123, 34, 107, 34, 58, 194, 125],
+      "parseOrder": ["byte-length", "fatal-utf8-decode", "bounded-json-parse"],
       "expected": "reject-before-json-parse",
       "proposedCode": "invalid-utf8"
+    },
+    {
+      "id": "raw-byte-empty-object",
+      "kind": "raw-bytes",
+      "bytes": [123, 125],
+      "expected": "size-gate-accepted",
+      "byteLength": 2,
+      "proposedCode": "none"
     }
   ]
 }

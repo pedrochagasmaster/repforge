@@ -14,11 +14,12 @@
     },
     "chars": {
       "unit": "unicode-scalar-values",
-      "algorithm": "Array.from(value).length",
+      "algorithm": "Count Unicode scalar values after rejecting every lone UTF-16 surrogate",
       "scope": "String values, identifier/key values, and serialized log-row JSON.",
       "normalization": "none",
       "notUtf8Bytes": true,
-      "notUtf16CodeUnits": true
+      "notUtf16CodeUnits": true,
+      "rejectUnpairedSurrogates": true
     },
     "depth": {
       "unit": "container-levels",
@@ -26,6 +27,21 @@
       "algorithm": "Increment the parser depth when descending into an object or array; reject as soon as the observed stack depth exceeds the limit.",
       "scope": "Streaming/raw parsing, before materializing an unbounded object graph.",
       "rejectDuringParse": true
+    }
+  },
+  "inputContracts": {
+    "measureUtf8Bytes": {
+      "acceptedTypes": ["string", "Uint8Array", "ArrayBuffer"],
+      "coercion": "none"
+    },
+    "measureChars": {
+      "acceptedTypes": ["string"],
+      "coercion": "none"
+    },
+    "parseBoundedJson": {
+      "acceptedTypes": ["Uint8Array", "ArrayBuffer"],
+      "coercion": "none",
+      "order": ["byte-length", "fatal-utf8-decode", "bounded-json-parse"]
     }
   },
   "limits": [
@@ -188,13 +204,18 @@
   ],
   "conjunctionRules": [
     "Every applicable bound is conjunctive: a payload must satisfy request-body, envelope, depth, key, array, string, semantic-collection, and row-size limits together.",
-    "The generic 10,000-item array rule applies to ordinary arrays and to arrays nested inside semantic collection entries; specialized collection limits do not waive nested limits.",
-    "The ADR names durableState.log as a 200,000-row semantic collection while also naming a 10,000-item generic array limit. The existing envelope represents log as a plain JSON array and the ADR does not define an exception or chunked representation. A 200,000-row plain array therefore cannot be declared valid by this fixture until the coordinator pins the traversal/representation rule; do not silently weaken either limit.",
-    "A specialized collection case at or below 10,000 rows can be evaluated under both bounds. A case above 10,000 and at or below 200,000 remains an explicit unresolved contract case, not a passing parity assertion."
+    "The generic 10,000-item array rule applies to every array, including durableState.log and arrays nested inside semantic collection entries; specialized collection limits never waive the generic array or nested limits.",
+    "The durableState.log 200,000-row limit is a redundant semantic upper bound. Because the current envelope represents log as a plain JSON array, 10,001 rows fail array-too-large; no exception or segmentation is introduced."
   ],
   "depthConvention": {
     "acceptedExample": "A root object at depth 0 containing 64 nested containers reaches depth 64 and is accepted.",
     "rejectedExample": "A root object at depth 0 containing 65 nested containers reaches depth 65 and is rejected while parsing.",
     "note": "The coordinator must preserve this root-depth convention in the shared parser interface; counting root as 1 would be an observable contract change."
+  },
+  "resultContract": {
+    "success": { "allowedKeys": ["ok", "value"] },
+    "failure": { "allowedKeys": ["ok", "code"] },
+    "failureCode": "fixed-code-enum",
+    "forbiddenFailureKeys": ["value", "path", "payload", "input", "message", "details"]
   }
 }
