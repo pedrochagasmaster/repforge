@@ -1,0 +1,47 @@
+{
+  "operationLock": {
+    "adapterMethod": "withLock",
+    "createName": "install-transfer:create",
+    "claimName": "install-transfer:claim",
+    "missingLockCode": "operation-lock-unavailable",
+    "sameCreateIdempotencyKey": true,
+    "sameClaimId": true
+  },
+  "createFailureBoundary": {
+    "malformed201": { "state": "unknown-outcome", "code": "create-unknown-outcome" },
+    "sealFailure": { "state": "unknown-outcome", "code": "create-unknown-outcome" },
+    "hashFailure": { "state": "unknown-outcome", "code": "create-unknown-outcome" },
+    "unexpectedResponse": { "state": "unknown-outcome", "code": "create-unknown-outcome" },
+    "serviceUnavailablePreservesCreatingMarker": true
+  },
+  "responseBounds": {
+    "smallBytes": 4096,
+    "envelopeBytes": 2000000,
+    "claimWrapperHeadroomBytes": 4096,
+    "claimResponseBytes": 2004096,
+    "overflowCode": "response-too-large"
+  },
+  "indexedDb": {
+    "writeAndDeleteAwaitTransactionComplete": true,
+    "abortCodeIsFailure": true,
+    "createDoesNotPostBeforeCredentialWriteAck": true
+  },
+  "cleanup": {
+    "deletedMarkerPhase": "confirmed",
+    "deletedSnapshotFields": ["tokenDigest", "confirmedAt", "expiresAt"],
+    "deletedMarkerHasNoSealedCredentials": true,
+    "credentialDeleteFailureState": "unknown-outcome",
+    "credentialDeleteFailureCode": "credential-delete-failed",
+    "credentialDeleteFailureKeepsRetryMarker": true,
+    "expiredClearsOnlyAfterCredentialDelete": true
+  },
+  "tokenGrammar": {
+    "status": "confirmed-p0-service-format",
+    "version": "v1",
+    "keyIdMaxChars": 16,
+    "segmentBytes": 32,
+    "segmentChars": 43,
+    "clientChecksStructureOnly": true,
+    "clientMustNotVerifyMacOrEntropy": true
+  }
+}

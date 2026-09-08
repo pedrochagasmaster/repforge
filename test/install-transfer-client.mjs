@@ -20,6 +20,7 @@ const require = createRequire(import.meta.url);
 const Transfer = require("../install-transfer.js");
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const EXPECTATIONS = JSON.parse(readFileSync(join(ROOT, "test/fixtures/install-transfer-client/expectations.json"), "utf8"));
+const FAULT_EXPECTATIONS = JSON.parse(readFileSync(join(ROOT, "test/fixtures/install-transfer-client/fault-expectations.json"), "utf8"));
 
 const results = { passed: 0, failed: 0 };
 const textEncoder = new TextEncoder();
@@ -62,9 +63,19 @@ function base64url(bytes) {
   return Buffer.from(bytes).toString("base64").replace(/=/g, "").replace(/\+/g, "-").replace(/\//g, "_");
 }
 
+function tokenFixture(seed = "A") {
+  const start = seed.charCodeAt(0);
+  const segment = (offset) => base64url(Uint8Array.from({ length: 32 }, (_, index) => (start + offset + index) % 256));
+  return `v1.k1.${segment(0)}.${segment(1)}.${segment(2)}`;
+}
+
 function exactKeys(value, keys) {
   return value && typeof value === "object" && !Array.isArray(value) &&
     JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...keys].sort());
+}
+
+function validMarkerId(value) {
+  return typeof value === "string" && value.length > 0 && value.length <= 256;
 }
 
 const LIMITS = {
@@ -73,7 +84,7 @@ const LIMITS = {
     [EXPECTATIONS.endpoints.claim]: 4_096,
     [EXPECTATIONS.endpoints.commit]: 4_096,
     [EXPECTATIONS.endpoints.status]: 4_096,
-    "/envelope": 2_000_000,
+    "/envelope": FAULT_EXPECTATIONS.responseBounds.claimResponseBytes,
   },
 };
 
@@ -200,6 +211,28 @@ function memoryKeyStore() {
   };
 }
 
+function operationLock() {
+  let tail = Promise.resolve();
+  const calls = [];
+  return {
+    calls,
+    withLock(name, work) {
+      calls.push(name);
+      const next = tail.then(() => work());
+      tail = next.catch(() => {});
+      return next;
+    },
+  };
+}
+
+function normalizedProducer(value) {
+  return { logicalCloneSection: () => clone(value) };
+}
+
+function countedProducer(value, counts, name) {
+  return { logicalCloneSection: () => { counts[name] = (counts[name] || 0) + 1; return clone(value); } };
+}
+
 function makeSource() {
   const logicalDraft = {
     schemaVersion: 2,
@@ -229,9 +262,9 @@ function makeSource() {
     logicalCloneSection: () => clone(logicalDraft),
   };
   return {
-    durableState: { settings: { unit: "kg" }, programMeta: { id: "pm_seed01" }, program: [{ id: "exercise-1" }], log: [] },
+    durableState: normalizedProducer({ settings: { unit: "kg" }, programMeta: { id: "pm_seed01" }, program: [{ id: "exercise-1" }], log: [] }),
     workoutDraft: draft,
-    programEntryDraft: {
+    programEntryDraft: normalizedProducer({
       schemaVersion: 1,
       draftId: "entry-seed-01",
       revision: 3,
@@ -250,10 +283,10 @@ function makeSource() {
         createdAt: "2026-09-08T17:00:00.000Z",
         updatedAt: "2026-09-08T17:30:00.000Z",
       },
-    },
-    uiPreferences: { theme: "dark", importSourceMode: "manual" },
-    analytics: { enabled: true },
-    telemetryIdentity: { schemaVersion: 1, installationId: "3e1f5c8a-9d02-4b77-8a31-6e4d2c9f0ab5", createdAt: "2026-08-01T10:00:00.000Z" },
+    }),
+    uiPreferences: normalizedProducer({ theme: "dark", importSourceMode: "manual" }),
+    analytics: normalizedProducer({ enabled: true }),
+    telemetryIdentity: normalizedProducer({ schemaVersion: 1, installationId: "3e1f5c8a-9d02-4b77-8a31-6e4d2c9f0ab5", createdAt: "2026-08-01T10:00:00.000Z" }),
     sourceRevision: 42,
     logicalDraft,
   };
@@ -262,22 +295,38 @@ function makeSource() {
 function sourceDescriptor(source) {
   return {
     context: "browser",
-    logicalInstallationId: source.telemetryIdentity.installationId,
+    logicalInstallationId: source.telemetryIdentity.logicalCloneSection().installationId,
     sourceRevision: source.sourceRevision,
   };
 }
 
-function makeClient({ transport, contract = makeContract(), context = "browser", document = cookieDocument(), outbound = markerStore(), inbound = markerStore(), vault, now = "2026-09-08T19:00:00.000Z" } = {}) {
+function makeClient({ transport, contract = makeContract(), crypto = webcrypto, context = "browser", document = cookieDocument(), outbound = markerStore(), inbound = markerStore(), vault, credentials = vault, operationLock: lock = operationLock(), now = "2026-09-08T19:00:00.000Z" } = {}) {
   return Transfer.createClient({
     contract,
-    crypto: webcrypto,
+    crypto,
     transport,
     context,
     now: () => now,
     document,
     location: { href: context === "browser" ? "https://pedrochagasmaster.github.io/repforge/index.html" : "https://pedrochagasmaster.github.io/repforge/index.html" },
-    storage: { outbound, inbound, credentials: vault },
+    storage: { outbound, inbound, credentials, operationLock: lock },
   });
+}
+
+function cryptoWithDigestFailure(after = 0) {
+  let calls = 0;
+  const subtle = new Proxy(webcrypto.subtle, {
+    get(target, property) {
+      if (property === "digest") return async (...args) => {
+        calls += 1;
+        if (calls > after) throw new Error("digest-fault");
+        return target.digest.apply(target, args);
+      };
+      const value = target[property];
+      return typeof value === "function" ? value.bind(target) : value;
+    },
+  });
+  return { getRandomValues: webcrypto.getRandomValues.bind(webcrypto), subtle };
 }
 
 async function main() {
@@ -288,6 +337,14 @@ async function main() {
     check(EXPECTATIONS.schemaVersion === 1, "unexpected envelope version");
     check(Object.values(EXPECTATIONS.endpoints).every((path) => path.startsWith("/v1/transfers")), "endpoint path escaped the approved prefix");
     check(new Set(EXPECTATIONS.clientStates).size === EXPECTATIONS.clientStates.length, "client state enum repeats a value");
+  });
+
+  await test("validates the pinned bearer structure without pretending to verify its MAC", () => {
+    const token = tokenFixture("Q");
+    check(Transfer.validateTransferToken(token), "canonical service bearer shape was rejected");
+    check(!Transfer.validateTransferToken("Q".repeat(43)), "legacy unconstrained bearer shape was accepted");
+    check(!Transfer.validateTransferToken(token.replace("k1", "key-id-that-is-too-long")), "oversized bearer key id was accepted");
+    check(!Transfer.validateTransferToken(token.replace(/\.[^.]+$/, "." + "A".repeat(42))), "non-32-byte bearer segment was accepted");
   });
 
   await test("exports the same API through a classic browser global", () => {
@@ -302,7 +359,7 @@ async function main() {
     const calls = [];
     const built = await Transfer.buildEnvelope({
       sections: source,
-      source: { context: "browser", logicalInstallationId: source.telemetryIdentity.installationId, sourceRevision: source.sourceRevision },
+      source: sourceDescriptor(source),
       createdAt: "2026-09-08T19:00:00.000Z",
       contract: makeContract({ calls }),
       crypto: webcrypto,
@@ -318,6 +375,52 @@ async function main() {
     check(!Object.hasOwn(built.value.programEntryDraft, "revision") && !Object.hasOwn(built.value.programEntryDraft, "ownerId"), "candidate persistence wrapper crossed the clone boundary");
     check(built.value.programEntryDraft.futureRequiredField?.preserved === true, "unknown candidate state was silently discarded");
     check(calls.some(([name]) => name === "validateEnvelopeIntegrity"), "shared integrity boundary was not invoked");
+  });
+
+  await test("requires normalized producers and strips transfer-volatile durable fields", async () => {
+    const source = makeSource();
+    source.durableState = normalizedProducer({
+      settings: { unit: "kg" },
+      program: [{ id: "exercise-1" }],
+      _storageRevision: 88,
+      _storageDraftTransaction: { secret: "must-not-cross" },
+      pending: { operationId: "tab-only" },
+      approvedFutureField: { retained: true },
+    });
+    const built = await Transfer.buildEnvelope({ sections: source, source: sourceDescriptor(source), contract: makeContract(), crypto: webcrypto, createdAt: "2026-09-08T19:00:00.000Z" });
+    check(built.ok, "normalized producer envelope failed");
+    check(!Object.hasOwn(built.value.durableState, "_storageRevision") && !Object.hasOwn(built.value.durableState, "_storageDraftTransaction") && !Object.hasOwn(built.value.durableState, "pending"), "durable volatile fields crossed the producer boundary");
+    check(built.value.durableState.approvedFutureField?.retained === true, "approved additive durable field was discarded");
+    const raw = { ...source, durableState: source.durableState.logicalCloneSection() };
+    const rejected = await Transfer.captureLogicalSnapshot(raw);
+    check(!rejected.ok && rejected.code === "durable-state-producer-unavailable", "raw durable storage was accepted without an adapter");
+  });
+
+  await test("captures one normalized logical snapshot for upload and digest", async () => {
+    const counts = {};
+    const source = makeSource();
+    const descriptor = sourceDescriptor(source);
+    for (const name of ["durableState", "programEntryDraft", "uiPreferences", "analytics", "telemetryIdentity"]) {
+      source[name] = countedProducer(source[name].logicalCloneSection(), counts, name);
+    }
+    const transport = transportSequence([response(201, { token: tokenFixture("S"), expiresAt: "2026-09-08T20:00:00.000Z" })]);
+    const testVault = Transfer.createCredentialVault({ crypto: webcrypto, keyStore: memoryKeyStore() });
+    const client = makeClient({ transport, outbound: markerStore(), vault: testVault });
+    const result = await client.create({ sections: source, source: descriptor, consent: { enabled: true }, hasMeaningfulData: true });
+    check(result.ok && result.state === "ready", "single-snapshot create did not complete");
+    check(Object.values(counts).every((count) => count === 1), `producer snapshot was captured more than once: ${JSON.stringify(counts)}`);
+  });
+
+  await test("fails before POST when a normalized producer cannot be trusted", async () => {
+    const transport = transportSequence([response(201, { token: tokenFixture("T"), expiresAt: "2026-09-08T20:00:00.000Z" })]);
+    const outbound = markerStore();
+    const source = makeSource();
+    source.uiPreferences = { theme: "dark" };
+    const testVault = Transfer.createCredentialVault({ crypto: webcrypto, keyStore: memoryKeyStore() });
+    const client = makeClient({ transport, outbound, vault: testVault });
+    const result = await client.create({ sections: source, source: sourceDescriptor(source), consent: { enabled: true }, hasMeaningfulData: true });
+    check(!result.ok && result.code === "ui-preferences-producer-unavailable", "untrusted producer did not fail closed");
+    check(transport.requests.length === 0 && outbound.writes.length === 0, "producer failure touched marker or network");
   });
 
   await test("flushes acknowledged DraftV2 before building and accepts absent/tombstone null", async () => {
@@ -359,8 +462,9 @@ async function main() {
     const source = makeSource();
     const contract = makeContract();
     const first = await Transfer.logicalStateDigest(source, contract, webcrypto);
-    const changed = { ...source, durableState: clone(source.durableState) };
-    changed.durableState.program.push({ id: "exercise-2" });
+    const changedDurable = clone(source.durableState.logicalCloneSection());
+    changedDurable.program.push({ id: "exercise-2" });
+    const changed = { ...source, durableState: normalizedProducer(changedDurable) };
     const second = await Transfer.logicalStateDigest(changed, contract, webcrypto);
     check(first.ok && second.ok && first.value !== second.value, "logical digest ignored a logical section change");
     const built = await Transfer.buildEnvelope({ sections: source, source: { context: "browser", logicalInstallationId: "li_digest", sourceRevision: 1 }, contract, crypto: webcrypto, createdAt: "2026-09-08T19:00:00.000Z" });
@@ -378,19 +482,20 @@ async function main() {
   const vault = Transfer.createCredentialVault({ crypto: webcrypto, keyStore: vaultStore });
 
   await test("seals credentials with nonextractable AES-GCM keys in the injected context store", async () => {
-    const sealed = await vault.seal("browser-outbound", { token: "T".repeat(43), claimId: "C".repeat(22) });
+    const token = tokenFixture("T");
+    const sealed = await vault.seal("browser-outbound", { token, claimId: "C".repeat(22) });
     check(sealed.version === 1 && sealed.algorithm === "AES-GCM", "sealed credential metadata is not versioned AES-GCM");
-    check(!JSON.stringify(sealed).includes("T".repeat(43)), "plaintext token crossed the sealed credential boundary");
+    check(!JSON.stringify(sealed).includes(token), "plaintext token crossed the sealed credential boundary");
     const key = [...vaultStore.records.values()][0];
     check(key.extractable === false, "credential key is extractable");
     await assert.rejects(() => webcrypto.subtle.exportKey("raw", key));
-    assert.deepEqual(await vault.unseal("browser-outbound", sealed), { token: "T".repeat(43), claimId: "C".repeat(22) });
+    assert.deepEqual(await vault.unseal("browser-outbound", sealed), { token, claimId: "C".repeat(22) });
     await vault.forget("browser-outbound", sealed);
     await assert.rejects(() => vault.unseal("browser-outbound", sealed));
   });
 
   await test("does not create before analytics consent", async () => {
-    const transport = transportSequence([response(201, { token: "A".repeat(43), expiresAt: "2026-09-08T20:00:00.000Z" })]);
+    const transport = transportSequence([response(201, { token: tokenFixture("A"), expiresAt: "2026-09-08T20:00:00.000Z" })]);
     const outbound = markerStore();
     const client = makeClient({ transport, outbound, vault });
     const source = makeSource();
@@ -400,7 +505,7 @@ async function main() {
   });
 
   await test("does not create for an empty first-run source", async () => {
-    const transport = transportSequence([response(201, { token: "Z".repeat(43), expiresAt: "2026-09-08T20:00:00.000Z" })]);
+    const transport = transportSequence([response(201, { token: tokenFixture("Z"), expiresAt: "2026-09-08T20:00:00.000Z" })]);
     const outbound = markerStore();
     const client = makeClient({ transport, outbound, vault });
     const source = makeSource();
@@ -427,7 +532,7 @@ async function main() {
   });
 
   await test("successful create stores only sealed credentials and writes the dedicated cookie", async () => {
-    const token = "B".repeat(43);
+    const token = tokenFixture("B");
     const transport = transportSequence([response(201, { token, expiresAt: "2026-09-08T20:00:00.000Z" })]);
     const outbound = markerStore();
     const document = cookieDocument("repforge_setup_v1=v1.setup-canary");
@@ -443,27 +548,88 @@ async function main() {
     check(!transport.requests[0].path.includes("?"), "create token or envelope reached a URL query");
   });
 
+  await test("freezes the original idempotency marker for every possibly-successful malformed create", async () => {
+    const cases = [
+      ["malformed201", response(201, { token: tokenFixture("M"), expiresAt: "2026-09-08T20:00:00.000Z", extra: true })],
+      ["unexpectedResponse", response(202, { accepted: true })],
+    ];
+    for (const [name, reply] of cases) {
+      const outbound = markerStore();
+      const transport = transportSequence([reply]);
+      const source = makeSource();
+      const client = makeClient({ transport, outbound, vault });
+      const result = await client.create({ sections: source, source: sourceDescriptor(source), consent: { enabled: true }, hasMeaningfulData: true });
+      check(result.state === FAULT_EXPECTATIONS.createFailureBoundary[name].state && result.code === FAULT_EXPECTATIONS.createFailureBoundary[name].code, `${name} did not freeze as unknown outcome`);
+      check(outbound.peek()?.phase === "creating" && validMarkerId(outbound.peek()?.idempotencyKey), `${name} discarded the creating marker identity`);
+      check(outbound.writes.every((entry) => entry !== null), `${name} cleared a possibly-successful marker`);
+    }
+  });
+
+  await test("sealing or token hashing failure after create freezes without a new key", async () => {
+    const source = makeSource();
+    const sealOutbound = markerStore();
+    const sealTransport = transportSequence([response(201, { token: tokenFixture("N"), expiresAt: "2026-09-08T20:00:00.000Z" })]);
+    const sealFailure = { seal: async () => { throw new Error("seal-fault"); }, unseal: async () => { throw new Error("missing"); }, forget: async () => {} };
+    const sealClient = makeClient({ transport: sealTransport, outbound: sealOutbound, credentials: sealFailure, vault: sealFailure });
+    const sealResult = await sealClient.create({ sections: source, source: sourceDescriptor(source), consent: { enabled: true }, hasMeaningfulData: true });
+    check(sealResult.state === "unknown-outcome" && sealResult.code === "create-unknown-outcome", "seal failure was retryable instead of frozen");
+    check(sealOutbound.peek()?.phase === "creating", "seal failure lost idempotency identity");
+
+    const hashOutbound = markerStore();
+    const hashTransport = transportSequence([response(201, { token: tokenFixture("O"), expiresAt: "2026-09-08T20:00:00.000Z" })]);
+    const hashSource = makeSource();
+    const hashClient = makeClient({ transport: hashTransport, outbound: hashOutbound, vault, crypto: cryptoWithDigestFailure(2) });
+    const hashResult = await hashClient.create({ sections: hashSource, source: sourceDescriptor(hashSource), consent: { enabled: true }, hasMeaningfulData: true });
+    check(hashResult.state === "unknown-outcome" && hashResult.code === "create-unknown-outcome", "hash failure was retryable instead of frozen");
+    check(hashOutbound.peek()?.phase === "creating", "hash failure lost idempotency identity");
+  });
+
+  await test("service-unavailable create responses preserve the creating marker", async () => {
+    const outbound = markerStore();
+    const transport = transportSequence([response(503, { state: "unavailable" })]);
+    const source = makeSource();
+    const client = makeClient({ transport, outbound, vault });
+    const result = await client.create({ sections: source, source: sourceDescriptor(source), consent: { enabled: true }, hasMeaningfulData: true });
+    check(result.state === "terminalUnavailable" && result.code === "service-unavailable", "service outage did not use the terminal unavailable result");
+    check(outbound.peek()?.phase === "creating" && outbound.writes.every((entry) => entry !== null), "service outage cleared the retry identity");
+  });
+
+  await test("missing transfer-operation lock fails before marker or POST", async () => {
+    const outbound = markerStore();
+    const transport = transportSequence([response(201, { token: tokenFixture("P"), expiresAt: "2026-09-08T20:00:00.000Z" })]);
+    const source = makeSource();
+    const client = makeClient({ transport, outbound, vault, operationLock: null });
+    const result = await client.create({ sections: source, source: sourceDescriptor(source), consent: { enabled: true }, hasMeaningfulData: true });
+    check(result.code === FAULT_EXPECTATIONS.operationLock.missingLockCode && result.state === "retryable", "missing lock did not fail closed");
+    check(transport.requests.length === 0 && outbound.writes.length === 0, "missing lock touched network or marker storage");
+  });
+
   await test("cookie parser uses the exact index path and preserves setup-cookie coexistence", () => {
     const document = cookieDocument("repforge_setup_v1=v1.setup-canary");
     const location = { href: "https://pedrochagasmaster.github.io/repforge/" };
-    const wrote = Transfer.writeTransferCookie({ token: "D".repeat(43), expiresAt: "2026-09-08T20:00:00.000Z" }, { document, location, now: "2026-09-08T19:00:00.000Z" });
+    const tokenD = tokenFixture("D");
+    const wrote = Transfer.writeTransferCookie({ token: tokenD, expiresAt: "2026-09-08T20:00:00.000Z" }, { document, location, now: "2026-09-08T19:00:00.000Z" });
     check(wrote === true, "transfer cookie write failed");
     const last = document.writes.at(-1);
     check(last.includes("repforge_transfer_v1=") && last.includes("Path=/repforge/index.html") && last.includes("Max-Age=3600") && /SameSite=Lax/.test(last) && /Secure/.test(last), "production cookie attributes drifted");
-    check(Transfer.readTransferCookie({ document })?.token === "D".repeat(43), "transfer cookie did not parse");
+    check(Transfer.readTransferCookie({ document })?.token === tokenD, "transfer cookie did not parse");
     check(document.cookie.includes("repforge_setup_v1=v1.setup-canary"), "transfer cookie write overwrote setup cookie");
     Transfer.clearTransferCookie({ document, location });
     check(document.cookie.includes("repforge_setup_v1=v1.setup-canary") && !document.cookie.includes("repforge_transfer_v1="), "transfer cookie clear touched setup cookie");
     const local = cookieDocument();
-    Transfer.writeTransferCookie({ token: "E".repeat(43), expiresAt: "2026-09-08T20:00:00.000Z" }, { document: local, location: { href: "http://localhost:8055/" }, now: "2026-09-08T19:00:00.000Z" });
+    Transfer.writeTransferCookie({ token: tokenFixture("E"), expiresAt: "2026-09-08T20:00:00.000Z" }, { document: local, location: { href: "http://localhost:8055/" }, now: "2026-09-08T19:00:00.000Z" });
     check(local.writes[0].includes("Path=/index.html") && !/;\s*Secure(?:;|$)/i.test(local.writes[0]), "localhost cookie path/security drifted");
   });
 
   await test("fetch transport enforces body-only no-store/no-redirect requests", async () => {
     const calls = [];
+    const body = new ReadableStream({ start(controller) {
+      controller.enqueue(textEncoder.encode(JSON.stringify({ state: "deleted", expiresAt: "2026-09-08T20:00:00.000Z" })));
+      controller.close();
+    } });
     const fetch = async (url, options) => {
       calls.push({ url: String(url), options });
-      return { status: 200, arrayBuffer: async () => textEncoder.encode(JSON.stringify({ state: "deleted", expiresAt: "2026-09-08T20:00:00.000Z" })).buffer };
+      return { status: 200, body };
     };
     const transport = Transfer.createFetchTransport({ fetch, baseUrl: "https://transfer.example/" });
     const reply = await transport.request({ path: EXPECTATIONS.endpoints.status, body: { token: "F".repeat(43) } });
@@ -474,10 +640,29 @@ async function main() {
     check(!calls[0].url.includes("F".repeat(43)), "transport put token in the URL");
   });
 
+  await test("bounds streamed responses before materializing their bytes", async () => {
+    let cancelled = false;
+    const oversized = new ReadableStream({
+      pull(controller) {
+        controller.enqueue(new Uint8Array(FAULT_EXPECTATIONS.responseBounds.smallBytes + 1));
+      },
+      cancel() { cancelled = true; },
+    });
+    const transport = Transfer.createFetchTransport({
+      fetch: async () => ({ status: 200, body: oversized }),
+      baseUrl: "https://transfer.example/",
+    });
+    await assert.rejects(
+      () => transport.request({ path: EXPECTATIONS.endpoints.status, body: { token: tokenFixture("F") } }),
+      (error) => error?.code === FAULT_EXPECTATIONS.responseBounds.overflowCode,
+    );
+    check(cancelled, "oversized response stream was not cancelled at the byte boundary");
+  });
+
   await test("claim retries the same sealed claim and validates the returned envelope", async () => {
     const source = makeSource();
     const built = await Transfer.buildEnvelope({ sections: source, source: { context: "browser", logicalInstallationId: "li_claim", sourceRevision: 42 }, contract: makeContract(), crypto: webcrypto, createdAt: "2026-09-08T19:00:00.000Z" });
-    const token = "G".repeat(43);
+    const token = tokenFixture("G");
     const transport = transportSequence([new Error("claim response lost"), response(200, { envelope: built.value, expiresAt: "2026-09-08T20:00:00.000Z" })]);
     const inbound = markerStore();
     const document = cookieDocument();
@@ -490,21 +675,103 @@ async function main() {
     check(second.ok && second.state === "validating" && second.envelope.kind === EXPECTATIONS.kind, "same-claim retry did not return the validated envelope");
     check(transport.requests[0].body.claimId === transport.requests[1].body.claimId, "claim retry minted a second claim ID");
     check(transport.requests[0].body.token === token && transport.requests[1].body.token === token, "claim body lost the bearer required by the service");
+    check(transport.requests[0].maxResponseBytes === FAULT_EXPECTATIONS.responseBounds.claimResponseBytes, "claim response used the small endpoint cap");
     check(inbound.peek()?.phase === "claimed", "claim marker did not advance after the bound response");
     check(!document.cookie.includes("repforge_transfer_v1="), "installed claim did not consume the transfer cookie");
   });
 
+  await test("serializes concurrent creates around one marker and idempotency key", async () => {
+    const lock = operationLock();
+    const outbound = markerStore();
+    const sharedVault = Transfer.createCredentialVault({ crypto: webcrypto, keyStore: memoryKeyStore() });
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    let calls = 0;
+    const requests = [];
+    const transport = {
+      requests,
+      async request(request) {
+        requests.push(clone(request));
+        calls += 1;
+        if (calls === 1) { await gate; throw new Error("create-response-lost"); }
+        return response(200, { duplicate: true, expiresAt: "2026-09-08T20:00:00.000Z" });
+      },
+    };
+    const sourceA = makeSource();
+    const sourceB = makeSource();
+    const first = makeClient({ transport, outbound, vault: sharedVault, operationLock: lock });
+    const second = makeClient({ transport, outbound, vault: sharedVault, operationLock: lock });
+    const firstPromise = first.create({ sections: sourceA, source: sourceDescriptor(sourceA), consent: { enabled: true }, hasMeaningfulData: true });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const secondPromise = second.create({ sections: sourceB, source: sourceDescriptor(sourceB), consent: { enabled: true }, hasMeaningfulData: true });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    release();
+    const [firstResult, secondResult] = await Promise.all([firstPromise, secondPromise]);
+    check(firstResult.state === "unknown-outcome" && secondResult.state === "unknown-outcome", "concurrent create did not freeze both uncertain outcomes");
+    check(requests.length === 2 && requests[0].body.idempotencyKey === requests[1].body.idempotencyKey, "concurrent create minted competing idempotency keys");
+    check(outbound.peek()?.phase === "creating" && lock.calls.filter((name) => name === FAULT_EXPECTATIONS.operationLock.createName).length === 2, "create arbitration did not retain one creating marker");
+  });
+
+  await test("serializes concurrent claims around one sealed claim identity", async () => {
+    const source = makeSource();
+    const built = await Transfer.buildEnvelope({ sections: source, source: { context: "browser", logicalInstallationId: "li_claim_race", sourceRevision: 42 }, contract: makeContract(), crypto: webcrypto, createdAt: "2026-09-08T19:00:00.000Z" });
+    const lock = operationLock();
+    const inbound = markerStore();
+    const sharedVault = Transfer.createCredentialVault({ crypto: webcrypto, keyStore: memoryKeyStore() });
+    const document = cookieDocument();
+    const token = tokenFixture("R");
+    Transfer.writeTransferCookie({ token, expiresAt: "2026-09-08T20:00:00.000Z" }, { document, location: { href: "https://pedrochagasmaster.github.io/repforge/index.html" }, now: "2026-09-08T19:00:00.000Z" });
+    let release;
+    const gate = new Promise((resolve) => { release = resolve; });
+    let calls = 0;
+    const requests = [];
+    const transport = {
+      requests,
+      async request(request) {
+        requests.push(clone(request));
+        calls += 1;
+        if (calls === 1) { await gate; throw new Error("claim-response-lost"); }
+        return response(200, { envelope: built.value, expiresAt: "2026-09-08T20:00:00.000Z" });
+      },
+    };
+    const first = makeClient({ transport, inbound, document, context: "standalone", vault: sharedVault, operationLock: lock });
+    const second = makeClient({ transport, inbound, document, context: "standalone", vault: sharedVault, operationLock: lock });
+    const firstPromise = first.claim();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    const secondPromise = second.claim();
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    release();
+    const [firstResult, secondResult] = await Promise.all([firstPromise, secondPromise]);
+    check(firstResult.state === "unknown-outcome" && secondResult.ok && secondResult.state === "validating", "concurrent claim did not preserve retry semantics");
+    check(requests.length === 2 && requests[0].body.claimId === requests[1].body.claimId, "concurrent claim minted competing claim IDs");
+    check(inbound.peek()?.phase === "claimed" && !document.cookie.includes("repforge_transfer_v1="), "claim race left an unsafe marker or cookie");
+  });
+
+  await test("awaiting-claim create restores a missing cookie from sealed credentials", async () => {
+    const token = tokenFixture("W");
+    const sealed = await vault.seal("browser-outbound", { token });
+    const outbound = markerStore({ version: 1, phase: "awaiting-claim", sealedCredentials: sealed, expiresAt: "2026-09-08T20:00:00.000Z" });
+    const document = cookieDocument();
+    const transport = transportSequence([]);
+    const source = makeSource();
+    const client = makeClient({ transport, outbound, document, vault });
+    const result = await client.create({ sections: source, source: sourceDescriptor(source), consent: { enabled: true }, hasMeaningfulData: true });
+    check(result.ok && result.state === "ready", "awaiting-claim retry did not resume ready state");
+    check(Transfer.readTransferCookie({ document })?.token === token, "awaiting-claim retry did not restore the transfer cookie");
+    check(transport.requests.length === 0, "awaiting-claim retry posted a second create");
+  });
+
   await test("rejects extra response fields and preserves closed failure shapes", async () => {
-    const transport = transportSequence([response(201, { token: "H".repeat(43), expiresAt: "2026-09-08T20:00:00.000Z", clone: "forbidden" })]);
+    const transport = transportSequence([response(201, { token: tokenFixture("H"), expiresAt: "2026-09-08T20:00:00.000Z", clone: "forbidden" })]);
     const client = makeClient({ transport, vault });
     const source = makeSource();
     const result = await client.create({ sections: source, source: sourceDescriptor(source), consent: { enabled: true }, hasMeaningfulData: true });
-    check(!result.ok && result.state === "retryable" && result.code === "invalid-response", "extra response field was accepted");
+    check(!result.ok && result.state === "unknown-outcome" && result.code === "create-unknown-outcome", "extra response field was accepted");
     check(!Object.hasOwn(result, "token") && !Object.hasOwn(result, "body") && !Object.hasOwn(result, "message"), "failure result carried user values");
   });
 
   await test("commit clears only sealed inbound credentials after verified deletion", async () => {
-    const token = "I".repeat(43);
+    const token = tokenFixture("I");
     const claimId = "J".repeat(22);
     const sealed = await vault.seal("standalone-inbound", { token, claimId });
     const inbound = markerStore({ version: 1, phase: "local-committed", sealedCredentials: sealed, expiresAt: "2026-09-08T20:00:00.000Z" });
@@ -517,7 +784,7 @@ async function main() {
   });
 
   await test("status reports only approved state and expiry and treats unavailable as indeterminate", async () => {
-    const token = "K".repeat(43);
+    const token = tokenFixture("K");
     const sealed = await vault.seal("browser-outbound", { token });
     const outbound = markerStore({ version: 1, phase: "awaiting-claim", sealedCredentials: sealed, expiresAt: "2026-09-08T20:00:00.000Z" });
     const transport = transportSequence([response(200, { state: "deleted", expiresAt: "2026-09-08T20:00:00.000Z" })]);
@@ -526,16 +793,61 @@ async function main() {
     check(result.ok && result.state === "confirmed" && result.remoteState === "deleted", "deleted status did not confirm recovery");
     check(client.recoveryState() === "confirmed", "deleted status did not confirm the browser recovery state");
     check(exactKeys(result, ["ok", "state", "remoteState", "expiresAt"]), "status result disclosed an unapproved field");
+    check(outbound.peek()?.phase === FAULT_EXPECTATIONS.cleanup.deletedMarkerPhase && !outbound.peek()?.sealedCredentials && outbound.peek()?.recoverySnapshot?.tokenDigest && outbound.peek()?.recoverySnapshot?.confirmedAt, "deleted cleanup retained a bearer or omitted its recovery snapshot");
+    const unavailableSealed = await vault.seal("browser-outbound", { token });
     const unavailableTransport = transportSequence([response(404, { state: "unavailable" })]);
-    const unavailable = makeClient({ transport: unavailableTransport, outbound: markerStore({ version: 1, phase: "awaiting-claim", sealedCredentials: sealed, expiresAt: "2026-09-08T20:00:00.000Z" }), vault }).status();
+    const unavailable = makeClient({ transport: unavailableTransport, outbound: markerStore({ version: 1, phase: "awaiting-claim", sealedCredentials: unavailableSealed, expiresAt: "2026-09-08T20:00:00.000Z" }), vault }).status();
     const uncertain = await unavailable;
     check(!uncertain.ok && uncertain.state === "unknown-outcome" && uncertain.code === "status-unavailable", "unavailable status silently resumed");
+  });
+
+  await test("credential deletion failure keeps a recoverable cleanup marker", async () => {
+    const token = tokenFixture("X");
+    const sealed = await vault.seal("browser-outbound", { token });
+    const outbound = markerStore({ version: 1, phase: "awaiting-claim", sealedCredentials: sealed, expiresAt: "2026-09-08T20:00:00.000Z" });
+    let deleteFailures = 1;
+    const flakyCredentials = {
+      seal: (...args) => vault.seal(...args),
+      unseal: (...args) => vault.unseal(...args),
+      async forget(...args) {
+        if (deleteFailures > 0) { deleteFailures -= 1; throw new Error("credential-delete-fault"); }
+        return vault.forget(...args);
+      },
+    };
+    const transport = transportSequence([response(200, { state: "deleted", expiresAt: "2026-09-08T20:00:00.000Z" })]);
+    const client = makeClient({ transport, outbound, credentials: flakyCredentials, vault: flakyCredentials });
+    const first = await client.status();
+    check(first.state === FAULT_EXPECTATIONS.cleanup.credentialDeleteFailureState && first.code === FAULT_EXPECTATIONS.cleanup.credentialDeleteFailureCode, "credential deletion failure reported cleanup complete");
+    check(outbound.peek()?.phase === "cleanup-pending" && outbound.peek()?.sealedCredentials, "credential deletion failure lost the retry marker");
+    const second = await client.status();
+    check(second.ok && second.state === "confirmed" && !outbound.peek()?.sealedCredentials, "cleanup retry did not finish without a bearer marker");
+    check(transport.requests.length === 1, "cleanup retry made a second remote status request");
+  });
+
+  await test("commit credential deletion failure does not report complete", async () => {
+    const token = tokenFixture("Y");
+    const claimId = "Z".repeat(22);
+    const sealed = await vault.seal("standalone-inbound", { token, claimId });
+    const inbound = markerStore({ version: 1, phase: "local-committed", sealedCredentials: sealed, expiresAt: "2026-09-08T20:00:00.000Z" });
+    let failures = 1;
+    const flakyCredentials = {
+      seal: (...args) => vault.seal(...args),
+      unseal: (...args) => vault.unseal(...args),
+      async forget(...args) { if (failures-- > 0) throw new Error("credential-delete-fault"); return vault.forget(...args); },
+    };
+    const transport = transportSequence([response(200, { state: "deleted", expiresAt: "2026-09-08T20:00:00.000Z" })]);
+    const client = makeClient({ transport, inbound, context: "standalone", credentials: flakyCredentials, vault: flakyCredentials });
+    const first = await client.commit();
+    check(first.state === "unknown-outcome" && inbound.peek()?.phase === "cleanup-pending", "commit deletion failure cleared its retry marker");
+    const second = await client.commit();
+    check(second.ok && second.state === "complete" && inbound.peek() === null, "commit cleanup retry did not complete safely");
+    check(transport.requests.length === 1, "commit cleanup retry repeated remote deletion");
   });
 
   await test("lost browser outbound credentials stay indeterminate", async () => {
     const lostStore = memoryKeyStore();
     const lostVault = Transfer.createCredentialVault({ crypto: webcrypto, keyStore: lostStore });
-    const sealed = await lostVault.seal("browser-outbound", { token: "L".repeat(43) });
+    const sealed = await lostVault.seal("browser-outbound", { token: tokenFixture("L") });
     await lostVault.forget("browser-outbound", sealed);
     const client = makeClient({ outbound: markerStore({ version: 1, phase: "awaiting-claim", sealedCredentials: sealed }), vault: lostVault, transport: transportSequence([]) });
     const result = await client.status();

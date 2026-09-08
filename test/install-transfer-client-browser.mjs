@@ -19,7 +19,9 @@ const BASE = process.env.REPFORGE_URL || "http://127.0.0.1:8055/";
 const ORIGIN = new URL(BASE);
 const INDEX_URL = new URL("index.html?install-transfer-client-browser=1", ORIGIN).href;
 const EXPECTATIONS = JSON.parse(readFileSync(join(ROOT, "test/fixtures/install-transfer-client/browser-expectations.json"), "utf8"));
+const FAULT_EXPECTATIONS = JSON.parse(readFileSync(join(ROOT, "test/fixtures/install-transfer-client/fault-expectations.json"), "utf8"));
 const ARTIFACT_DIR = process.env.REPFORGE_ARTIFACT_DIR || "/tmp/plan053-p3";
+const COOKIE_TOKEN = "v1.k1.AQIDBAUGBwgJCgsMDQ4PEBESExQVFhcYGRobHB0eHyA.AgMEBQYHCAkKCwwNDg8QERITFBUWFxgZGhscHR4fICE.AwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8gISI";
 const startedAt = new Date().toISOString();
 const reportPath = join(ARTIFACT_DIR, "install-transfer-client-browser.json");
 
@@ -150,7 +152,7 @@ async function main() {
         transferPresent: rawCookie.includes("repforge_transfer_v1="),
         rawTokenPresent: rawCookie.includes(token),
       };
-    }, { token: "browser-cookie-token-" + "y".repeat(32) });
+    }, { token: COOKIE_TOKEN });
     check(cookieResult.wrote, "browser transfer cookie write succeeds");
     check(cookieResult.parsedMatches, "browser transfer cookie round-trips through the exported parser");
     check(cookieResult.setupPresent && cookieResult.transferPresent, "setup and transfer cookies coexist");
@@ -162,7 +164,7 @@ async function main() {
     check(Boolean(setupCookie && transferCookie), "browser context retains both cookie objects");
     check(transferCookie?.path === EXPECTATIONS.cookies.path && transferCookie?.sameSite === EXPECTATIONS.cookies.sameSite, "transfer cookie has the exact path and SameSite policy");
     check(transferCookie?.secure === EXPECTATIONS.cookies.secureOnLocalhost, "localhost transfer cookie omits Secure");
-    check(!transferCookie?.value.includes("browser-cookie-token-"), "encoded cookie value does not expose the raw token");
+    check(!transferCookie?.value.includes(COOKIE_TOKEN), "encoded cookie value does not expose the raw token");
 
     await page.reload({ waitUntil: "domcontentloaded" });
     await page.addScriptTag({ url: moduleUrl() });
@@ -178,6 +180,198 @@ async function main() {
     }, { token, sealed, expected: EXPECTATIONS });
     check(afterReload.sameCredential, "credential decrypts after a real page reload");
     check(afterReload.dbName === EXPECTATIONS.credentialDatabase.name, "reload uses the context-owned credential database");
+
+    const producerBoundary = await page.evaluate(() => {
+      const hook = window.__repforgeWorkoutDraft;
+      const producer = window.RepForgeWorkoutDraft;
+      const hookMethods = ["flush", "current", "checkpoint", "read"].every((name) => typeof hook?.[name] === "function");
+      const moduleReady = typeof producer?.logicalCloneSection === "function";
+      let current = null;
+      let normalized = null;
+      let failed = false;
+      try {
+        current = hookMethods ? hook.current() : null;
+        if (current !== null && current !== undefined && moduleReady) normalized = producer.logicalCloneSection(current);
+      } catch {
+        failed = true;
+      }
+      const normalizedObject = normalized !== null && typeof normalized === "object" && !Array.isArray(normalized) && normalized.kind !== "error" && normalized.ok !== false;
+      return {
+        hookMethods,
+        hookHasLogicalClone: typeof hook?.logicalCloneSection === "function",
+        moduleReady,
+        currentAbsent: current === null || current === undefined,
+        normalizedObject,
+        normalizedStripsVolatile: normalizedObject && !Object.hasOwn(normalized, "writer") && !Object.hasOwn(normalized, "revision") && !Object.hasOwn(normalized.program || {}, "durableRevision"),
+        failed,
+      };
+    });
+    check(producerBoundary.hookMethods && producerBoundary.moduleReady && !producerBoundary.failed, "real app draft producer does not expose the acknowledged hook and logical normalizer seam");
+    check(producerBoundary.currentAbsent || (producerBoundary.normalizedObject && producerBoundary.normalizedStripsVolatile), "real app draft producer normalization retained volatile storage metadata");
+    check(!producerBoundary.hookHasLogicalClone, "clone client does not silently treat the raw app draft hook as its logical producer");
+
+    const abortProbe = await page.evaluate(async ({ expected }) => {
+      const transfer = window.RepForgeInstallTransfer;
+      const vault = transfer.createCredentialVault({ crypto: globalThis.crypto });
+      const originalTransaction = IDBDatabase.prototype.transaction;
+      let abortScheduled = false;
+      IDBDatabase.prototype.transaction = function (...args) {
+        const transaction = originalTransaction.apply(this, args);
+        if (!abortScheduled && args[1] === "readwrite") {
+          abortScheduled = true;
+          queueMicrotask(() => { try { transaction.abort(); } catch {} });
+        }
+        return transaction;
+      };
+      let rejected = false;
+      try { await vault.seal("browser-abort", { token: "browser-abort-token" }); }
+      catch { rejected = true; }
+      finally { IDBDatabase.prototype.transaction = originalTransaction; }
+      const database = await new Promise((resolve, reject) => {
+        const request = indexedDB.open(expected.credentialDatabase.name);
+        request.onerror = () => reject(request.error || new Error("credential-db-open-failed"));
+        request.onsuccess = () => resolve(request.result);
+      });
+      const keys = await new Promise((resolve, reject) => {
+        const transaction = database.transaction(expected.credentialDatabase.store, "readonly");
+        const request = transaction.objectStore(expected.credentialDatabase.store).getAllKeys();
+        request.onerror = () => reject(request.error || new Error("credential-key-list-failed"));
+        request.onsuccess = () => resolve(request.result);
+      });
+      database.close();
+      return { rejected, abortScheduled, contextRecords: keys.filter((key) => String(key).startsWith("browser-abort:")).length };
+    }, { expected: EXPECTATIONS });
+    check(abortProbe.abortScheduled && abortProbe.rejected, "real IndexedDB transaction abort did not reject the vault write");
+    check(abortProbe.contextRecords === 0, "aborted credential write left a persisted key");
+
+    const faultProbes = await page.evaluate(async ({ token, expected }) => {
+      const transfer = window.RepForgeInstallTransfer;
+      const contract = {
+        canonicalJson: (value) => JSON.stringify(value),
+        validateEnvelope: (value) => ({ ok: true, value }),
+        validateEnvelopeIntegrity: async (value) => ({ ok: true, value }),
+        validateRequest: (value) => ({ ok: true, value }),
+        validateClaimId: (value) => ({ ok: true, value }),
+        parseBoundedJson: (bytes) => {
+          try {
+            const raw = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
+            return { ok: true, value: JSON.parse(new TextDecoder().decode(raw)) };
+          } catch { return { ok: false, code: "invalid-json" }; }
+        },
+      };
+      const markerStore = (initial = null) => {
+        let value = initial;
+        return {
+          async read() { return value ? structuredClone(value) : value; },
+          async write(next) { value = next ? structuredClone(next) : next; },
+          async clear() { value = null; },
+          peek() { return value ? structuredClone(value) : value; },
+        };
+      };
+      const lock = () => {
+        let tail = Promise.resolve();
+        return { withLock(_name, work) { const next = tail.then(work); tail = next.catch(() => {}); return next; } };
+      };
+      const bytes = (body) => new TextEncoder().encode(JSON.stringify(body));
+      const location = { href: "http://127.0.0.1:8055/index.html" };
+      const expiry = "2099-01-01T00:00:00.000Z";
+
+      const abortInbound = markerStore();
+      let abortPosts = 0;
+      const abortTransport = { async request() { abortPosts += 1; return { status: 500, bytes: bytes({}) }; } };
+      const abortClient = transfer.createClient({ contract, crypto: globalThis.crypto, context: "standalone", document, location, transport: abortTransport, storage: { inbound: abortInbound, credentials: transfer.createCredentialVault({ crypto: globalThis.crypto }), operationLock: lock() } });
+      transfer.writeTransferCookie({ token, expiresAt: expiry }, { document, location });
+      const originalTransaction = IDBDatabase.prototype.transaction;
+      let abortScheduled = false;
+      IDBDatabase.prototype.transaction = function (...args) {
+        const transaction = originalTransaction.apply(this, args);
+        if (!abortScheduled && args[1] === "readwrite") {
+          abortScheduled = true;
+          queueMicrotask(() => { try { transaction.abort(); } catch {} });
+        }
+        return transaction;
+      };
+      const abortResult = await abortClient.claim();
+      IDBDatabase.prototype.transaction = originalTransaction;
+      transfer.clearTransferCookie({ document, location });
+
+      const raceInbound = markerStore();
+      const raceLock = lock();
+      const raceVault = transfer.createCredentialVault({ crypto: globalThis.crypto });
+      let release;
+      const gate = new Promise((resolve) => { release = resolve; });
+      let raceCalls = 0;
+      const raceRequests = [];
+      const raceTransport = {
+        async request(request) {
+          raceRequests.push({ claimId: request.body.claimId });
+          raceCalls += 1;
+          if (raceCalls === 1) { await gate; throw new Error("claim-response-lost"); }
+          return { status: 200, bytes: bytes({ envelope: {}, expiresAt: expiry }) };
+        },
+      };
+      transfer.writeTransferCookie({ token, expiresAt: expiry }, { document, location });
+      const raceClientA = transfer.createClient({ contract, crypto: globalThis.crypto, context: "standalone", document, location, transport: raceTransport, storage: { inbound: raceInbound, credentials: raceVault, operationLock: raceLock } });
+      const raceClientB = transfer.createClient({ contract, crypto: globalThis.crypto, context: "standalone", document, location, transport: raceTransport, storage: { inbound: raceInbound, credentials: raceVault, operationLock: raceLock } });
+      const raceFirst = raceClientA.claim();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      const raceSecond = raceClientB.claim();
+      await new Promise((resolve) => setTimeout(resolve, 0));
+      release();
+      const raceResults = await Promise.all([raceFirst, raceSecond]);
+      const raceMarker = raceInbound.peek();
+      if (raceMarker?.sealedCredentials) await raceVault.forget("standalone-inbound", raceMarker.sealedCredentials).catch(() => {});
+      transfer.clearTransferCookie({ document, location });
+
+      const cleanupVault = transfer.createCredentialVault({ crypto: globalThis.crypto });
+      const cleanupSealed = await cleanupVault.seal("browser-outbound", { token });
+      const cleanupOutbound = markerStore({ version: 1, phase: "awaiting-claim", sealedCredentials: cleanupSealed, expiresAt: expiry });
+      let deleteFailures = 1;
+      const cleanupCredentials = {
+        seal: (...args) => cleanupVault.seal(...args),
+        unseal: (...args) => cleanupVault.unseal(...args),
+        async forget(...args) {
+          if (deleteFailures > 0) { deleteFailures -= 1; throw new Error("credential-delete-fault"); }
+          return cleanupVault.forget(...args);
+        },
+      };
+      let statusCalls = 0;
+      const cleanupClient = transfer.createClient({
+        contract,
+        crypto: globalThis.crypto,
+        context: "browser",
+        document,
+        location,
+        transport: { async request() { statusCalls += 1; return { status: 200, bytes: bytes({ state: "deleted", expiresAt: expiry }) }; } },
+        storage: { outbound: cleanupOutbound, credentials: cleanupCredentials, operationLock: lock() },
+      });
+      transfer.writeTransferCookie({ token, expiresAt: expiry }, { document, location });
+      const cleanupFirst = await cleanupClient.status();
+      const pending = cleanupOutbound.peek();
+      const cleanupSecond = await cleanupClient.status();
+      const confirmed = cleanupOutbound.peek();
+      transfer.clearTransferCookie({ document, location });
+      return {
+        abort: { scheduled: abortScheduled, rejected: !abortResult.ok, posts: abortPosts, markerWritten: Boolean(abortInbound.peek()) },
+        race: {
+          firstUnknown: raceResults[0]?.state === "unknown-outcome",
+          secondValidating: raceResults[1]?.ok === true && raceResults[1]?.state === "validating",
+          oneClaimId: raceRequests.length === 2 && raceRequests[0].claimId === raceRequests[1].claimId,
+          markerClaimed: raceMarker?.phase === "claimed",
+        },
+        cleanup: {
+          firstUnknown: cleanupFirst?.state === expected.cleanup.credentialDeleteFailureState && cleanupFirst?.code === expected.cleanup.credentialDeleteFailureCode,
+          pending: pending?.phase === "cleanup-pending" && Boolean(pending.sealedCredentials),
+          secondConfirmed: cleanupSecond?.ok === true && cleanupSecond?.state === "confirmed",
+          noSealedFinal: confirmed?.phase === "confirmed" && !confirmed.sealedCredentials,
+          oneStatusRequest: statusCalls === 1,
+        },
+      };
+    }, { token: COOKIE_TOKEN, expected: FAULT_EXPECTATIONS });
+    check(faultProbes.abort.scheduled && faultProbes.abort.rejected && faultProbes.abort.posts === 0 && !faultProbes.abort.markerWritten, "aborted inbound credential seal posted or left a marker before transaction acknowledgement");
+    check(faultProbes.race.firstUnknown && faultProbes.race.secondValidating && faultProbes.race.oneClaimId && faultProbes.race.markerClaimed, "real-browser claim race lost its single claim identity");
+    check(faultProbes.cleanup.firstUnknown && faultProbes.cleanup.pending, "real-browser cleanup reported success after credential deletion failure");
+    check(faultProbes.cleanup.secondConfirmed && faultProbes.cleanup.noSealedFinal && faultProbes.cleanup.oneStatusRequest, "real-browser cleanup retry did not leave a digest-only recovery snapshot");
 
     const keyLoss = await page.evaluate(async ({ sealed, expected }) => {
       const transfer = window.RepForgeInstallTransfer;
@@ -217,7 +411,7 @@ async function main() {
     await context.clearCookies().catch(() => {});
     await browser.close();
   }
-  await writeReport({ result: "passed", limitations: ["shared contract parity and client status recovery remain pending reviewed module integration"] });
+  await writeReport({ result: "passed", limitations: ["shared contract parity and client status recovery remain pending reviewed module integration", "fault probes use an explicit local contract double; no service HTTP proof"] });
   console.log(`install-transfer browser client: ${checks.length} assertions passed`);
 }
 
