@@ -106,7 +106,6 @@ it never uploads `localStorage`/IndexedDB wholesale.
 | `telemetryIdentity.installationId` | string | Stable pseudonymous identity (preserved, not rotated) |
 | `telemetryIdentity.createdAt` | timestamp | Identity creation time |
 | `integrity.canonicalPayloadHash` | string | Lowercase hex SHA-256 over the envelope's canonical preimage — the whole envelope with `integrity.canonicalPayloadHash` itself removed (self-field exclusion), serialized as canonical JSON (recursively sorted object keys, UTF-8, no insignificant whitespace) and covering every other field including array order. Validated in memory before any local write; a mismatch stops the import |
-| `integrity.logicalStateDigest` | string | Separate lowercase hex SHA-256 for stale-source detection. Its ordered preimage contains `durableState`, `workoutDraft`, `programEntryDraft`, `uiPreferences`, `analytics`, and `telemetryIdentity`, in that order, with recursively sorted object keys and preserved array order. It excludes only envelope creation metadata (`kind`, `schemaVersion`, `createdAt`, `source`, and `sourceRevision`) and the integrity fields; no logical section may be omitted |
 
 Normalization removes `_storageRevision`, `_storageFollowUp`,
 `_storageDraftTransaction`, `_storageSetupActivation`, pending/closing sidecar
@@ -114,10 +113,18 @@ data, tab/writer/operation IDs, cookies, notification/permission runtime data,
 and provider analytics session IDs. Parsing applies explicit field/size/depth
 limits (below) and rejects unknown required versions.
 
-`logicalStateDigest` is compared before and after creation to mark a captured
-clone stale when the Safari source changes. `canonicalPayloadHash` still covers
-the complete envelope, including `logicalStateDigest`; the two digests answer
-different questions and must not be substituted for one another.
+`logicalStateDigest` is a source-local comparison value. The browser derives it
+from an ordered projection of every logical section, in this order:
+`durableState`, `workoutDraft`, `programEntryDraft`, `uiPreferences`,
+`analytics`, and `telemetryIdentity`. Object keys are sorted recursively, while
+array order is preserved. The projection excludes envelope creation metadata
+(`kind`, `schemaVersion`, `createdAt`, `source`, and `sourceRevision`) and is
+never serialized into the transfer envelope, its integrity object, backup data,
+or the remote record. No logical section may be omitted. The source compares
+this digest before and after creation to mark the captured clone stale. The
+envelope's only integrity field is `canonicalPayloadHash`, which remains the
+import hash. These values answer different questions and must not be
+substituted for one another.
 
 ### Payload boundaries (exact)
 
@@ -905,26 +912,25 @@ createdAt, expectedLocalRevision
 1. Before app initialization exposes mutable UI, read the handoff token,
    stage the `repforge_transfer_inbound_v1` marker with the sealed token and
    a stable client-generated claim ID, then claim.
-2. Validate all envelope sections, `canonicalPayloadHash`, and
-   `logicalStateDigest` in memory.
+2. Validate all envelope sections and `canonicalPayloadHash` in memory.
 3. Acquire the cross-tab state/draft/import lock; freeze other tabs via
    BroadcastChannel/storage signaling.
 4. Stage the marker with complete previous and incoming snapshots.
 5. Write normalized durable state through the existing mirror/WAL path,
    write or remove DraftV2 and the candidate draft, then
    preferences/consent/identity.
-6. Re-read and validate every section, identity, and both hashes; set marker
+6. Re-read and validate every section, identity, and `canonicalPayloadHash`; set marker
    `local-committed`.
 7. Release into installed boot, call remote commit/delete, then clear the
    marker after confirmed or retryable deletion bookkeeping.
 
 The service cannot prove that the browser completed local read-back. The real
 client call boundary proves the ordering: the installed client sends commit
-only after the storage adapter has re-read every section and validated both
-hashes. A remote commit never authorizes a local rollback.
+only after the storage adapter has re-read every section and validated the
+canonical hash. A remote commit never authorizes a local rollback.
 
 On boot, an incomplete marker either finishes the entire incoming import if
-the committed sections and both hashes prove safe, or restores the entire previous
+the committed sections and canonical hash prove safe, or restores the entire previous
 snapshot. Mixed state is never exposed. Failure before local commit leaves current
 installed state unchanged. If the installed context already holds meaningful
 local state, stop and require explicit choice; never overwrite automatically.
