@@ -2,10 +2,12 @@
 
 Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
 and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
-External Herdr workers additionally follow the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md)
-and the [Herdr worker packets](#herdr-worker-packets) section below. The coordinator fills every packet field and the
-live SHAs, thread ID, server origin, and PID in the shared packet template before dispatch; SHAs and revision numbers in
-this plan are historical anchors.
+Plan 053 uses native **Luna, Max reasoning, Fast service** subagents under the
+[native worker protocol](#native-luna-worker-protocol) below. This owner instruction
+supersedes the Herdr/Gemini routing for this plan only. The
+[worker packets](#worker-packets) retain their acceptance requirements. Fill
+live SHAs, worker IDs, worktrees, server origins, and PIDs before dispatch;
+documented revisions are historical anchors.
 
 - **Plan number:** 053
 - **Phase:** 2C — State and lifecycle foundations
@@ -59,7 +61,7 @@ Preserve ordinary static/offline/local-first Taurifer, user ownership/export, se
 
 - The app is a dependency-free static PWA. Root production has no package manager or backend.
 - Durable state lives in localStorage `repforge_v1` and IndexedDB `repforge/kv`; write-ahead and transaction keys preserve crash safety.
-- The active draft uses `repforge_draft_v1`; Plan 051 replaces its flat unversioned shape with DraftV2.
+- The active draft uses `repforge_draft_v1`; merged Plan 051 replaced its flat unversioned shape with DraftV2.
 - UI prefs use `repforge_ui_v1`; theme is intentionally device-only in ordinary export/setup sharing.
 - Consent and stable identity are separate keys in `telemetry.js`: `repforge_telemetry_enabled_v1` and `repforge_telemetry_identity_v1`.
 - Candidate entry work uses `repforge_program_setup_draft_v1`; Phase 049 decides its exact-clone treatment without changing its activation boundary.
@@ -360,10 +362,10 @@ The service has a creation kill switch and independent purge command. Client rol
 
 For every row: mark 🟡; implement only the row; run focused proof; inspect all changes and secret/log output; remove unrelated edits; commit; push immediately; update the PR immediately; proceed only from a clean reconstructable remote boundary.
 
-## Herdr worker packets
+## Worker packets
 
 The atomic commit sequence above is the delivery contract. Each row is dispatched as one or more self-contained packets
-per the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md); the coordinator fills every template
+under the native worker protocol below; the coordinator fills every packet
 field before dispatch. No worker is asked to design the transfer protocol — the Cloudflare Workers / EU Durable Object /
 token-derived-key / operations / disclosure contract is closed by Plan 049 and ADR 0013 and **is not reopened by any
 packet**. Staging-service and physical-iOS owners remain named humans; those packets record evidence, they do not
@@ -405,11 +407,102 @@ Rules for every packet in this plan:
 
 - 053-P0's oracle is authored once and referenced by every downstream assertion file; do not re-derive fault
   expectations per packet.
-- Service-only packets (053-P1b, 053-P2a, 053-P2b) may run before Plan 051-dependent client work, but 053-P3/P4 wait
-  for the DraftV2 clone section to be pinned.
+- Service-only packets (053-P1b, 053-P2a, 053-P2b) and isolated client work may run now. Pin the acknowledged DraftV2 clone section before its consumers; serialize P3 app wiring/P4 storage integration after Plan 052 merges as specified below.
 - The physical-device gate in 053-P7 is repeated by Plan 059 for launch sign-off; passing it here does not close 059.
 
 ## Implementation-agent operating protocol
+
+### Native Luna worker protocol
+
+Use the checked-in [starting prompt](../docs/agents/prompts/plan-053-luna.md).
+The coordinator owns decomposition, contract review, integration decisions,
+PR handoff, and final judgment. Every delegated worker, including reviewers
+and the integrator, uses native Luna with Max reasoning and Fast service.
+Do not dispatch Herdr/T3 workers or substitute Gemini, Sonnet, Sol, or Opus.
+
+Select the actual available Luna model identifier, expected `gpt-5.6-luna`,
+and reasoning effort `max`. Verify Fast independently from model/effort.
+If the spawn API has no service-tier field, use a supported session setting
+only when it demonstrably applies to children. Never invent a `fast` argument
+or infer Fast from a model name. Record effective settings in the PR. If any
+requested setting cannot be selected or verified, continue coordinator setup
+and read-only preparation, report the exact limitation, and obtain direction
+before dispatching workers with different or unverified settings.
+
+Use explicit bounded briefs rather than inheriting the entire conversation.
+Each brief includes packet ID, source/head SHA, owned paths and symbols,
+approved input/output contract, cases and expected results, test commands,
+fault/async completion barriers, commit message, dependencies, rollback,
+and the required final report. Existing tests/checkers remain authoritative;
+new tests are planned until implemented. Apply the evidence protocol and
+the Plan 053 checkpoint throughout.
+
+Use all available worker slots for independent ready packets; reserve a slot
+for the coordinator. On a four-agent limit this means three concurrent workers.
+Do not create idle agents for work whose prerequisite is unresolved. After
+one same-contract correction fails, reconstruct its state table and oracle
+before dispatching another repair; all replacement workers remain Luna.
+
+### Parallel work and ownership
+
+An independent writer receives a dedicated branch and worktree based on the
+last accepted integration SHA. Use branches
+`ui-overhaul/053-worker-<packet>` and sibling directories
+`../repforge-ui-053-<packet>`. Never allow two writers in one checkout, even
+when their files differ. Read-only reviewers examine a pinned commit in a
+separate detached worktree if the author's checkout will continue changing.
+
+The integration branch remains `ui-overhaul/053-ios-install-transfer`.
+One designated Luna integrator owns its checkout while integration is active.
+It merges only complete, reviewed, published worker branches from this plan,
+one at a time. Other workers keep their own checkouts. After integration,
+rerun affected producer/consumer proof before publishing the integrated slice.
+The coordinator checks the evidence and maintains the main draft PR. Worker
+SHAs and their dependencies must be linked from that PR as soon as pushed.
+This topology explicitly permits merge commits from registered Plan 053 worker
+branches; it does not permit copying or cherry-picking unpublished Plan 052 work.
+
+The coordinator pins exact new module paths and loading interfaces before the
+first parallel implementation wave. The following are ownership boundaries,
+not permission to invent additional production layers:
+
+| Wave | Concurrent assignments | Ownership and opening gate |
+|---|---|---|
+| A: characterize | P0 actor/credential/fault oracle; P1a existing clone/DraftV2 characterization; P1b limits and independent invalid-input test design | Separate test/doc paths assigned before launch. Coordinator reconciles one endpoint/clone/limits contract. Preserve passing baseline tests; new red tests stay local until a coherent slice passes |
+| B: build isolated consumers | Service owner P2a then P2b; browser owner isolated P3 transport/cookie state; independent test owner adversarial cases | Starts after A's shared contract is accepted and committed. Service owner writes `services/install-transfer/**`; browser owner writes `install-transfer.js` and its own tests. Independent test owner writes separately named fault tests only. Shared limits/clone fixtures have one designated owner. Browser uses an injected test transport with exact approved response shapes; actual service integration remains required |
+| C: integrate storage | Sole integrator P3 app wiring then P4 atomic import; service owner runs staging/expiry/runbook work; reviewer expands pure/network fault coverage | P2 and isolated P3 proof accepted. Integrator alone edits `app.js`, `index.html`, `sw.js`, generated i18n, catalog manifest/artifacts and shared browser helpers. P4a: complete import/read-back; P4b: crash/replay/stale-tab proof. Before P4a publication, existing failure guarantees must already hold |
+| D: complete UI and telemetry | Integrator P5 recovery-snapshot UI; separate P6 telemetry owner; read-only security reviewer | P4 commit accepted. Telemetry owner edits `telemetry.js` and separate telemetry tests; integrator owns app call sites and merges the reviewed result before cross-context proof. No concurrent edits to `install-transfer.js` |
+| E: acceptance | Service security/expiry checks; browser/storage/upgrade checks; privacy and documentation review | Same immutable integrated candidate, isolated browser contexts/artifact directories. One catalog writer. Serialize resource-heavy browser/capture runs if they contend. Owner supplies physical-iOS evidence |
+
+P2a/P2b share one service state machine and run serially under its owner.
+P3/P4/P5 share client/import state and integrate in that order. Pure tests,
+service checks, independent assertions, and read-only review overlap these
+serial boundaries. Packet completion follows actual dependencies; the original
+atomic rows remain the completion checklist even when their subcommits overlap.
+
+### Integration with the active Plan 052
+
+Plans 049 and 051 are merged. Plan 052 is active in PR #228 at the time of
+this amendment. Recheck its current status before every shared-storage slice.
+Waves A/B and isolated service work can proceed while 052 is active.
+Serialize P3 app wiring and P4 storage changes behind Plan 052's merge to main,
+then explicitly merge main into the 053 integration branch and revalidate the
+clone against the resulting transition/archive/recovery metadata and DraftV2
+adapter. Do not freeze a stale clone schema or omit the new durable fields.
+This is shared-file integration ordering, not a prerequisite for isolated
+service or client-domain work. Continue ready independent packets while waiting.
+
+Assign a distinct verified server origin and external artifact directory per
+browser worker. Register PIDs; never terminate another plan's listener.
+Do not overlap complete captures into the same catalog. Use focused proof
+during a packet, affected suites at integration, and all required final gates
+on the clean candidate. Record CI run retries and exact Git SHAs truthfully.
+
+Native follow-up messages may continue a worker's bounded task. Avoid
+status-only interruptions; wait for progress or a completed packet while
+performing independent coordination/review. Before replacement, establish that
+the prior writer has stopped and inspect its uncommitted work. Preserve existing
+stable-history, push-after-slice, no-broken-handoff, and owner-review rules.
 
 ### Branch/worktree contract
 
@@ -420,8 +513,8 @@ Rules for every packet in this plan:
 - **Primary files:** `services/install-transfer/**`, new browser transfer module, persistence adapter, install/i18n/telemetry tests, operations/privacy docs
 - **Shared hotspots:** `app.js`, `index.html`, `telemetry.js`, `sw.js`, i18n/generated files, install/shared-setup/storage tests, catalog manifest
 - **Conflicting phases:** Plan 054 owns promotion/polish and cannot redefine transfer semantics; Plan 059 owns launch sign-off
-- **Safe parallelism:** service-only commits may proceed while Plan 051 finishes after schema fixtures are pinned; client/storage integration waits. Plan 052 is independent except shared `app.js`/SW merges
-- **Integration order:** 049 → 051 → 053 → transfer slice of 054 → 059
+- **Safe parallelism:** isolated service/client/test packets proceed under Waves A/B; Plan 052 owns active shared storage changes, so P3 app wiring/P4 import integration waits for its merge. Plans 049/051 are already merged.
+- **Integration order:** 049/051 → isolated 053 work; 052 merge → 053 app/storage integration → transfer slice of 054 → 059
 
 Fetch/inspect main, branches, worktrees, and PRs; resume existing work. Use the dedicated worktree and keep coordination main clean. Never copy uncommitted files or delete another worktree/branch. Push `chore(plan-053): start implementation`, open a draft PR, and complete its body before substantive work. Target main. When dependencies merge, fetch, explicitly merge `origin/main`, resolve deliberately, rerun all affected security/storage tests, push, and update the PR. Published branches are never rebased.
 
