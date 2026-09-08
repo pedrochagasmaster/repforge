@@ -662,3 +662,38 @@ test("draft schema rejects nested prototype pollution in result and legacyHints"
   assert.throws(() => Entry.setResult(base, pollutedResult), /Invalid program-entry result/);
   assert.equal({}.polluted, undefined);
 });
+test("build-route setup draft normalizes and preserves diagnostics facts", () => {
+  let state = fresh();
+  state = Entry.selectRoute(state, "build");
+  state = Entry.setAnswers(state, { programName: "Guided repair", daysPerWeek: 3 });
+  state = Entry.setResult(state, {
+    fingerprint: "fp_build_repair",
+    selected: { id: "manual_build", source: "manual_build" },
+    diagnostics: { mainConstraint: "fewer_days", daysPerWeek: 3 },
+    preview: {
+      source: "build",
+      program: [
+        { id: "row_1", day: "Day 1", dayId: "d1", order: 1, name: "Squat", sets: 3, min: 5, max: 8 },
+      ],
+      days: [
+        { dayId: "d1", label: "Day 1", order: 1, exercises: [{ id: "row_1", day: "Day 1", dayId: "d1", order: 1, name: "Squat", sets: 3, min: 5, max: 8 }] },
+      ],
+    },
+  });
+  state.step = "editor";
+  const normalized = Entry.normalizeSetupDraft(state);
+  assert.equal(normalized.ok, true, JSON.stringify(normalized.issues));
+  assert.equal(normalized.value.result.diagnostics.mainConstraint, "fewer_days");
+  assert.equal(normalized.value.result.diagnostics.daysPerWeek, 3);
+  assert.equal(normalized.value.result.diagnostics.sessionMinutes, undefined);
+
+  let stateMins = Entry.setResult(state, {
+    ...state.result,
+    diagnostics: { mainConstraint: "sessions_too_long", sessionMinutes: 45 },
+  });
+  const normalizedMins = Entry.normalizeSetupDraft(stateMins);
+  assert.equal(normalizedMins.ok, true, JSON.stringify(normalizedMins.issues));
+  assert.equal(normalizedMins.value.result.diagnostics.mainConstraint, "sessions_too_long");
+  assert.equal(normalizedMins.value.result.diagnostics.sessionMinutes, 45);
+  assert.equal(normalizedMins.value.result.diagnostics.daysPerWeek, undefined);
+});

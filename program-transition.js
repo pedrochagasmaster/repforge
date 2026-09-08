@@ -1048,6 +1048,141 @@
     return deepFreeze(record);
   }
 
+
+  function createGuidedManualRepair(options = {}) {
+    const invalid = (code) =>
+      Object.freeze({
+        ok: false,
+        status: "unavailable",
+        unavailable: true,
+        invalid: true,
+        code,
+      });
+
+    if (!isObject(options)) return invalid("invalid_options");
+
+    // 1. Typed sibling Unavailable check
+    const unavailable = options.unavailable || (options.siblingResult?.ok === false ? options.siblingResult : null);
+    if (!isObject(unavailable) || unavailable.ok !== false ||
+        (unavailable.status !== "unavailable" && unavailable.unavailable !== true)) {
+      return invalid("sibling_unavailable_required");
+    }
+
+    // 2. Valid diagnosis check: kind MUST be "fewer_days" or "sessions_too_long"
+    const diagnosis = options.diagnosis;
+    if (!isObject(diagnosis)) return invalid("diagnosis_required");
+    const kind = diagnosis.kind;
+    if (kind !== "fewer_days" && kind !== "sessions_too_long") {
+      return invalid("unsupported_diagnosis_kind");
+    }
+
+    // Target constraint / integer target check
+    let targetDays = null;
+    let targetMinutes = null;
+    if (kind === "fewer_days") {
+      targetDays = diagnosis.answers?.availableDays ?? diagnosis.answers?.daysPerWeek ??
+        diagnosis.targetConstraint?.frequency ?? diagnosis.daysPerWeek;
+      if (!Number.isInteger(targetDays) || targetDays < 1 || targetDays > 7) {
+        return invalid("invalid_diagnosis_target");
+      }
+    } else if (kind === "sessions_too_long") {
+      targetMinutes = diagnosis.answers?.sessionMinutes ??
+        diagnosis.targetConstraint?.sessionMinutes ?? diagnosis.sessionMinutes;
+      if (!Number.isInteger(targetMinutes) || targetMinutes <= 0) {
+        return invalid("invalid_diagnosis_target");
+      }
+    }
+
+    // Optional evidence checks: if provided, must be valid
+    if (diagnosis.eligibleEvidenceIds !== undefined) {
+      if (!Array.isArray(diagnosis.eligibleEvidenceIds) ||
+          diagnosis.eligibleEvidenceIds.length === 0 ||
+          !diagnosis.eligibleEvidenceIds.every((id) => typeof id === "string" && id.trim().length > 0)) {
+        return invalid("insufficient_transition_evidence");
+      }
+    }
+    if (diagnosis.insufficientEvidenceReasons !== undefined) {
+      if (!Array.isArray(diagnosis.insufficientEvidenceReasons) ||
+          diagnosis.insufficientEvidenceReasons.length > 0) {
+        return invalid("insufficient_transition_evidence");
+      }
+    }
+
+    // 3. Active program snapshot check
+    const activeProgram = options.activeProgram || options.snapshot;
+    if (!isObject(activeProgram)) return invalid("missing_active_program");
+    if (!Array.isArray(activeProgram.program) || activeProgram.program.length === 0) {
+      return invalid("malformed_active_program");
+    }
+    for (const row of activeProgram.program) {
+      if (!isObject(row) || (!row.id && !row.slotId) || (!row.day && !row.dayId) ||
+          typeof row.name !== "string" || !row.name) {
+        return invalid("malformed_active_program");
+      }
+    }
+
+    // 4. Durable revision check
+    const durableRevision = options.durableRevision !== undefined
+      ? options.durableRevision
+      : options.activeProgramRevision;
+    if (!Number.isInteger(durableRevision) || durableRevision < 0) {
+      return invalid("missing_active_revision");
+    }
+    const snapshotRevision = Number.isInteger(activeProgram._storageRevision)
+      ? activeProgram._storageRevision
+      : (Number.isInteger(activeProgram.revision)
+        ? activeProgram.revision
+        : (Number.isInteger(activeProgram._rev) ? activeProgram._rev : null));
+    if (snapshotRevision !== null && snapshotRevision !== durableRevision) {
+      return invalid("active_revision_mismatch");
+    }
+
+    // 5. Structure, progression, custom definitions
+    const meta = activeProgram.programMeta || {};
+    const programStructure = meta.programStructure || activeProgram.programStructure || null;
+    const progressionRelations = meta.progressionRelations || activeProgram.progressionRelations || [];
+    const progressionModifiers = meta.progressionModifiers || activeProgram.progressionModifiers || [];
+    const progressionIncompatibilities = meta.progressionIncompatibilities || activeProgram.progressionIncompatibilities || [];
+
+    // Referenced custom definitions
+    const referencedCustomIds = new Set(
+      activeProgram.program
+        .map((r) => r.libraryId)
+        .filter((id) => typeof id === "string" && (id.startsWith("custom:") || id.startsWith("custom_")))
+    );
+    const customPool = Array.isArray(activeProgram.customExercises)
+      ? activeProgram.customExercises
+      : (Array.isArray(options.customExercises) ? options.customExercises : []);
+    const referencedCustomExercises = customPool
+      .filter((def) => isObject(def) && (referencedCustomIds.has(def.id) || referencedCustomIds.has(def.libraryId)))
+      .map(clone);
+
+    const candidate = {
+      program: clone(activeProgram.program),
+      programStructure: programStructure ? clone(programStructure) : null,
+      progressionRelations: clone(progressionRelations),
+      progressionModifiers: clone(progressionModifiers),
+      progressionIncompatibilities: clone(progressionIncompatibilities),
+      customExercises: referencedCustomExercises,
+    };
+
+    const result = {
+      ok: true,
+      kind: "guided_manual_repair",
+      diagnosis: clone(diagnosis),
+      candidate,
+      program: candidate.program,
+      programStructure: candidate.programStructure,
+      progressionRelations: candidate.progressionRelations,
+      progressionModifiers: candidate.progressionModifiers,
+      progressionIncompatibilities: candidate.progressionIncompatibilities,
+      customExercises: candidate.customExercises,
+      durableRevision,
+    };
+
+    return deepFreeze(result);
+  }
+
   const api = Object.freeze({
     SCHEMA_VERSION,
     SLOT_MAPPING_SCHEMA_VERSION,
@@ -1061,6 +1196,8 @@
     proposeSibling,
     validateProposal,
     commitRecord,
+    createGuidedManualRepair,
+    createGuidedManualRepairCandidate: createGuidedManualRepair,
   });
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;

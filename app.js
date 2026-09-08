@@ -6351,6 +6351,8 @@ window.__repforgeCommitProposedState=proposal=>commitProposedState(proposal,stor
 window.__repforgePersistSetupDraft=next=>persistSetupDraft(next);
 window.__repforgeEntryState=()=>cloneSnapshot(entryState);
 window.__repforgeActivateEntryPreview=opts=>activateEntryPreview(opts);
+window.__repforgeCreateOnboardingProgramEditorAdapter=()=>createOnboardingProgramEditorAdapter();
+window.__repforgeStageGuidedManualRepair=(params,io)=>repforgeProgramTransitionAdapter.stageGuidedManualRepair(params,io);
 window.__repforgeOnboardingOrigin=()=>onboardingOrigin;
 window.__repforgePendingBlock=()=>pendingBlockTransition;
 // Durable program-entry routes whose compiler context can be re-derived and
@@ -6644,6 +6646,176 @@ const repforgeProgramTransitionAdapter = {
       return { ok: true, committed: true, ...res };
     }
     return { ok: false, committed: false, ...res };
+  },
+
+  async stageGuidedManualRepair(params = {}, io = storageIO) {
+    const Transition = typeof RepForgeProgramTransition !== "undefined"
+      ? RepForgeProgramTransition
+      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
+    if (!Transition) {
+      return { ok: false, status: "unavailable", code: "transition_domain_unavailable", unavailable: true };
+    }
+    if (!ProgramEntry) {
+      return { ok: false, status: "unavailable", code: "program_entry_unavailable", unavailable: true };
+    }
+
+    const targetIO = io || params.io || storageIO;
+    let guidedResult = params.result || (params.kind === "guided_manual_repair" ? params : null);
+    if (!guidedResult) {
+      let unavailable = params.unavailable || (params.siblingResult?.ok === false ? params.siblingResult : null);
+      const diagnosis = params.diagnosis;
+      if (!unavailable && diagnosis && typeof this.proposeSibling === "function") {
+        const targetConstraint = diagnosis.targetConstraint || (
+          diagnosis.kind === "sessions_too_long"
+            ? { sessionMinutes: diagnosis.answers?.sessionMinutes ?? diagnosis.sessionMinutes }
+            : { frequency: diagnosis.answers?.availableDays ?? diagnosis.answers?.daysPerWeek ?? diagnosis.daysPerWeek }
+        );
+        const siblingRes = await this.proposeSibling({
+          diagnosis,
+          targetConstraint,
+          transitionId: uid(),
+          successorProgramId: uid(),
+        });
+        if (siblingRes?.ok === false) {
+          unavailable = siblingRes;
+        }
+      }
+
+      const activeProgram = params.activeProgram || state;
+      const durableRevision = Number.isInteger(params.durableRevision)
+        ? params.durableRevision
+        : (Number.isInteger(params.activeProgramRevision) ? params.activeProgramRevision : readRevision(state));
+      const versions = params.versions || entryVersions();
+
+      const created = Transition.createGuidedManualRepair({
+        unavailable,
+        diagnosis,
+        activeProgram,
+        durableRevision,
+        versions,
+        customExercises: params.customExercises || customExercises(),
+      });
+      if (!created.ok) return created;
+      guidedResult = created;
+    }
+
+    const diagnosis = guidedResult.diagnosis;
+    const diagKind = diagnosis?.kind;
+    if (diagKind !== "fewer_days" && diagKind !== "sessions_too_long") {
+      return { ok: false, status: "unavailable", code: "diagnosis_invalid", unavailable: true, invalid: true };
+    }
+
+    const targetDays = diagnosis?.answers?.availableDays ?? diagnosis?.answers?.daysPerWeek ?? diagnosis?.targetConstraint?.frequency ?? diagnosis?.daysPerWeek;
+    const targetMins = diagnosis?.answers?.sessionMinutes ?? diagnosis?.targetConstraint?.sessionMinutes ?? diagnosis?.sessionMinutes;
+
+    const diagnosticsFacts = {
+      mainConstraint: diagKind,
+    };
+    if (diagKind === "fewer_days") {
+      if (!Number.isInteger(targetDays)) {
+        return { ok: false, status: "unavailable", code: "invalid_diagnosis_target", unavailable: true, invalid: true };
+      }
+      diagnosticsFacts.daysPerWeek = targetDays;
+    } else if (diagKind === "sessions_too_long") {
+      if (!Number.isInteger(targetMins)) {
+        return { ok: false, status: "unavailable", code: "invalid_diagnosis_target", unavailable: true, invalid: true };
+      }
+      diagnosticsFacts.sessionMinutes = targetMins;
+    }
+
+    const candidate = guidedResult.candidate || guidedResult;
+    const model = makeProgram(candidate.program, snapshotLookup(candidate.customExercises), state?.programMeta);
+    const structure = candidate.programStructure ? cloneSnapshot(candidate.programStructure) : null;
+    const structureDays = structure?.days || [];
+    const previewDays = structureDays.length
+      ? structureDays.map((item) => ({
+          dayId: item.dayId,
+          label: item.label,
+          ...(item.displayNameKey ? { displayNameKey: item.displayNameKey } : {}),
+          ...(item.nameOverride ? { nameOverride: item.nameOverride } : {}),
+          ...(item.order !== undefined ? { order: item.order } : {}),
+          exercises: model.forDay(item.label || item.dayId).map((e) => cloneSnapshot(e)),
+        }))
+      : model.days().map((label, idx) => ({
+          dayId: label,
+          label,
+          order: idx + 1,
+          exercises: model.forDay(label).map((e) => cloneSnapshot(e)),
+        }));
+
+    const preview = {
+      source: "build",
+      program: cloneSnapshot(candidate.program),
+      programStructure: structure,
+      progressionRelations: cloneSnapshot(candidate.progressionRelations || []),
+      progressionModifiers: cloneSnapshot(candidate.progressionModifiers || []),
+      progressionIncompatibilities: cloneSnapshot(candidate.progressionIncompatibilities || []),
+      days: previewDays,
+      customExercises: cloneSnapshot(candidate.customExercises || []),
+    };
+
+    const name = state?.programMeta?.name || "RepForge Program";
+    const fingerprint = entryCandidateFingerprint("build", name, preview);
+
+    const result = {
+      schemaVersion: ProgramEntry.SCHEMA_VERSION,
+      route: "build",
+      fingerprint,
+      name,
+      selected: {
+        id: "manual_build",
+        source: "manual_build",
+      },
+      diagnostics: diagnosticsFacts,
+      preview,
+    };
+
+    const durableRevision = Number.isInteger(params.durableRevision)
+      ? params.durableRevision
+      : (Number.isInteger(guidedResult.durableRevision) ? guidedResult.durableRevision : readRevision(state));
+
+    const answers = {
+      programName: name,
+      daysPerWeek: previewDays.length,
+    };
+    if (diagKind === "fewer_days" && Number.isInteger(targetDays) && targetDays >= 2 && targetDays <= 6) {
+      answers.daysPerWeek = targetDays;
+    }
+
+    let draftState = ProgramEntry.createState({
+      draftId: uid(),
+      activeProgramRevisionAtStart: durableRevision,
+      now: entryNow(),
+      versions: entryVersions(),
+    });
+    draftState = ProgramEntry.selectRoute(draftState, "build");
+    draftState = ProgramEntry.setAnswers(draftState, answers);
+    draftState = ProgramEntry.setResult(draftState, result);
+    draftState = { ...draftState, step: "editor" };
+
+    const saveResult = await persistSetupDraft(draftState, targetIO);
+    if (!saveResult?.ok) {
+      return {
+        ok: false,
+        staged: false,
+        conflict: !!saveResult?.conflict,
+        writeFailed: !!saveResult?.writeFailed,
+        invalid: !!saveResult?.invalid,
+        code: saveResult?.conflict ? "save_conflict" : (saveResult?.writeFailed ? "save_failed" : "draft_invalid"),
+      };
+    }
+
+    if (params.openEditor !== false) {
+      openEntryDraftEditor();
+    }
+
+    return {
+      ok: true,
+      staged: true,
+      kind: "guided_manual_repair",
+      envelope: saveResult.envelope,
+      draftState: entryState,
+    };
   },
 };
 if (typeof window !== "undefined") {
@@ -10154,7 +10326,13 @@ function startOnboarding(origin,opts={}){
   if(opts.userInitiated===false)return;
   // Opening the hub is not choosing a route; telemetry waits for a route pick.
 }
-function maybeShowOnboarding(){if(!state.programMeta?.onboarded&&state.log.length===0)startOnboarding("first-run",{userInitiated:false})}
+function maybeShowOnboarding(){
+  const hasDraft=readSetupDraftRecord().raw!==null;
+  if((!state.programMeta?.onboarded&&state.log.length===0)||hasDraft){
+    startOnboarding(hasDraft?"settings":"first-run",{userInitiated:false});
+    if(hasDraft&&entryState?.step==="editor"&&entryState?.result?.preview)openEntryDraftEditor();
+  }
+}
 function cancelOnboarding(){
   if(onboardingOrigin==="block")pendingBlockTransition=null;
   onboardingOrigin=null;closeOnboarding()}

@@ -1605,3 +1605,158 @@ test("shorter-session balanced 6d @ 30m resets relations whose endpoint progress
   assert.equal(rejected.status, "invalid");
   assert.equal(rejected.code, "progression_contract_mismatch");
 });
+
+test("pure transition API creates guided manual repair only from typed unavailable, valid diagnosis, and valid active program", async () => {
+  // 1. Real resolver Unavailable: balanced 4d @ 30m (shorter session cannot fit)
+  const pred = compilePredecessor(4, 90);
+  const diag30m = {
+    kind: "sessions_too_long",
+    answers: { sessionMinutes: 30 },
+    eligibleEvidenceIds: ["ev-session-30"],
+    insufficientEvidenceReasons: [],
+  };
+  const unavailResult = await Transition.proposeSibling({
+    kind: "shorter_session_sibling",
+    predecessor: {
+      programId: "prog_balanced_4",
+      durableRevision: 3,
+      source: "Recommend",
+      compilerProvenance: pred.instance.provenance,
+    },
+    predecessorInstance: pred.instance,
+    compilerContext: pred.compilerContext,
+    targetConstraint: { sessionMinutes: 30 },
+    successorProgramId: "prog_balanced_4_30m",
+    diagnosis: diag30m,
+    transitionId: "tr_unavailable_30m",
+    createdAt: "2026-10-02T12:00:00.000Z",
+    services: { Compiler, catalogue: EXERCISE_LIBRARY },
+  });
+  assert.equal(unavailResult.ok, false);
+  assert.equal(unavailResult.status, "unavailable");
+  assert.equal(unavailResult.unavailable, true);
+
+  // Build a valid active program snapshot
+  const activeSnapshot = {
+    _storageRevision: 3,
+    revision: 3,
+    program: pred.instance.program.map((p) => ({ ...p })),
+    programMeta: {
+      id: "prog_balanced_4",
+      name: "Balanced 4-Day",
+      programStructure: pred.instance.programStructure,
+      progressionRelations: pred.instance.relations,
+      progressionModifiers: [],
+      progressionIncompatibilities: [],
+    },
+    customExercises: [],
+  };
+
+  // 2. Pure guided result production
+  const guided = Transition.createGuidedManualRepair({
+    unavailable: unavailResult,
+    diagnosis: diag30m,
+    activeProgram: activeSnapshot,
+    durableRevision: 3,
+  });
+
+  assert.equal(guided.ok, true);
+  assert.equal(guided.kind, "guided_manual_repair");
+  assert.equal(Object.isFrozen(guided), true);
+  assert.equal(Object.isFrozen(guided.program), true);
+  assert.equal(Object.isFrozen(guided.programStructure), true);
+  assert.equal(Object.isFrozen(guided.diagnosis), true);
+
+  // Exact diagnosis preserved
+  assert.deepEqual(guided.diagnosis, diag30m);
+
+  // Byte-equivalent copied program and relations
+  assert.deepEqual(guided.program, activeSnapshot.program);
+  assert.deepEqual(guided.programStructure, activeSnapshot.programMeta.programStructure);
+  assert.deepEqual(guided.progressionRelations, activeSnapshot.programMeta.progressionRelations);
+  assert.deepEqual(guided.progressionModifiers, []);
+  assert.deepEqual(guided.progressionIncompatibilities, []);
+  assert.deepEqual(guided.customExercises, []);
+
+  // No successor identity, archive ID, confirmation lifecycle, or transition record
+  assert.equal(guided.successorProgramId, undefined);
+  assert.equal(guided.successor, undefined);
+  assert.equal(guided.archiveId, undefined);
+  assert.equal(guided.confirmedAt, undefined);
+  assert.equal(guided.status, undefined);
+  assert.equal(guided.transitionIn, undefined);
+  assert.equal(guided.transitionOut, undefined);
+  assert.equal(guided.proposalHash, undefined);
+
+  // 3. Pure negatives
+  // A. Missing / not an object diagnosis
+  const noDiag = Transition.createGuidedManualRepair({
+    unavailable: unavailResult,
+    diagnosis: null,
+    activeProgram: activeSnapshot,
+    durableRevision: 3,
+  });
+  assert.equal(noDiag.ok, false);
+  assert.equal(noDiag.status, "unavailable");
+  assert.equal(noDiag.unavailable, true);
+  assert.equal(noDiag.invalid, true);
+
+  // B. 3rd diagnosis kind (e.g. reduce_training_volume, recovery_week)
+  for (const thirdKind of ["reduce_training_volume", "recovery_week", "unknown_kind"]) {
+    const thirdDiag = Transition.createGuidedManualRepair({
+      unavailable: unavailResult,
+      diagnosis: { kind: thirdKind, answers: { availableDays: 3 } },
+      activeProgram: activeSnapshot,
+      durableRevision: 3,
+    });
+    assert.equal(thirdDiag.ok, false);
+    assert.equal(thirdDiag.status, "unavailable");
+    assert.equal(thirdDiag.unavailable, true);
+    assert.equal(thirdDiag.invalid, true);
+    assert.equal(thirdDiag.code, "unsupported_diagnosis_kind");
+  }
+
+  // C. Missing active program
+  const noActive = Transition.createGuidedManualRepair({
+    unavailable: unavailResult,
+    diagnosis: diag30m,
+    activeProgram: null,
+    durableRevision: 3,
+  });
+  assert.equal(noActive.ok, false);
+  assert.equal(noActive.status, "unavailable");
+  assert.equal(noActive.invalid, true);
+
+  // D. Malformed active program (empty array)
+  const emptyProg = Transition.createGuidedManualRepair({
+    unavailable: unavailResult,
+    diagnosis: diag30m,
+    activeProgram: { ...activeSnapshot, program: [] },
+    durableRevision: 3,
+  });
+  assert.equal(emptyProg.ok, false);
+  assert.equal(emptyProg.status, "unavailable");
+  assert.equal(emptyProg.code, "malformed_active_program");
+
+  // E. Mismatched active revision
+  const revMismatch = Transition.createGuidedManualRepair({
+    unavailable: unavailResult,
+    diagnosis: diag30m,
+    activeProgram: activeSnapshot,
+    durableRevision: 99,
+  });
+  assert.equal(revMismatch.ok, false);
+  assert.equal(revMismatch.status, "unavailable");
+  assert.equal(revMismatch.code, "active_revision_mismatch");
+
+  // F. Non-unavailable input rejected
+  const notUnavail = Transition.createGuidedManualRepair({
+    unavailable: { ok: true, status: "preview" },
+    diagnosis: diag30m,
+    activeProgram: activeSnapshot,
+    durableRevision: 3,
+  });
+  assert.equal(notUnavail.ok, false);
+  assert.equal(notUnavail.status, "unavailable");
+  assert.equal(notUnavail.code, "sibling_unavailable_required");
+});
