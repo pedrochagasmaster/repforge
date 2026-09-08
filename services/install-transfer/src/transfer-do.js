@@ -323,12 +323,10 @@ export class TransferDurableObject extends DurableObject {
     if (this.storageDisposed) return;
     if (this.disposalPromise) return this.disposalPromise;
     this.disposalPromise = (async () => {
-      let deleteAllStarted = false;
       try {
         // Alarms are Durable Object storage too. Delete the alarm before the
         // final deleteAll so a successful purge leaves no storage behind.
         await this.ctx.storage.deleteAlarm();
-        deleteAllStarted = true;
         await this.ctx.storage.deleteAll();
         this.schemaReady = false;
         this.storageDisposed = true;
@@ -337,10 +335,10 @@ export class TransferDurableObject extends DurableObject {
         // creates through the health latch. Retry through a bounded alarm;
         // never report a failed or uncertain deletion as complete.
         this.storageDisposed = false;
-        // A rejected deleteAll may have removed storage before the rejection
-        // reached JavaScript. Force the next operation to probe/rebuild the
-        // schema instead of querying a table that may no longer exist.
-        this.schemaReady = !deleteAllStarted;
+        // Any disposal failure leaves the storage phase uncertain. Force the
+        // next operation to probe/rebuild the schema instead of querying a
+        // table that may no longer exist after an acknowledged deleteAll.
+        this.schemaReady = false;
         await this._markDeletionUnhealthy();
         try {
           await this.ctx.storage.setAlarm(new Date(Date.now() + DISPOSAL_RETRY_MS));

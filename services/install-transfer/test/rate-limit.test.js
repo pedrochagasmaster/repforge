@@ -112,4 +112,46 @@ describe("short-lived HMAC-keyed rate buckets", () => {
     expect(failed).toEqual({ ok: false, code: "storage-disposal" });
     await expect(stub.consume({ now: now + 120_002, limit: 5 })).resolves.toMatchObject({ allowed: true });
   });
+
+  it("survives chained deleteAll and deleteAlarm failures without a missing-table alarm", async () => {
+    const name = await rateBucketName({ scope: "create", identity: "198.51.100.23", pepper });
+    const stub = euStub(env.RATE_LIMIT_BUCKETS, name, { allowLocalFallback: true });
+    const now = Date.now();
+    await stub.consume({ now, limit: 5 });
+    const result = await runInDurableObject(stub, async (instance, state) => {
+      const originalDeleteAlarm = state.storage.deleteAlarm.bind(state.storage);
+      const originalDeleteAll = state.storage.deleteAll.bind(state.storage);
+      let deleteAlarmCalls = 0;
+      let deleteAllCalls = 0;
+      state.storage.deleteAlarm = async () => {
+        deleteAlarmCalls += 1;
+        if (deleteAlarmCalls === 2) throw new Error("injected retry deleteAlarm failure");
+        return originalDeleteAlarm();
+      };
+      state.storage.deleteAll = async () => {
+        deleteAllCalls += 1;
+        const value = await originalDeleteAll();
+        if (deleteAllCalls === 1) throw new Error("injected lost deleteAll acknowledgement");
+        return value;
+      };
+      const originalNow = Date.now;
+      Date.now = () => now + 120_001;
+      try {
+        const first = await instance.alarm();
+        let second = null;
+        try {
+          await instance.consume({ now: now + 120_002, limit: 5 });
+        } catch (error) {
+          second = error instanceof Error ? error.message : String(error);
+        }
+        const third = await instance.alarm();
+        return { first, second, third };
+      } finally {
+        Date.now = originalNow;
+      }
+    });
+    expect(result.first).toEqual({ ok: false, code: "storage-disposal" });
+    expect(result.second).toBe("rate bucket cleanup unavailable");
+    expect(result.third).toEqual({ ok: true, purged: true });
+  });
 });
