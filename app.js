@@ -1059,6 +1059,45 @@ function pendingJournalSuccessorMatches(record,head){
       dayRenames:journal.dayRenames,expectedFirstRunEmpty:journal.expectedFirstRunEmpty,
       sharedRebaseSeed:journal.id});
   return readRevision(candidate)===readRevision(head)&&storageSnapshotsEqual(candidate,head)}
+function transitionJournalAttempt(proposal,base){
+  if(!proposal||!isPlainStateObject(proposal))return false;
+  const propTin=proposal.programMeta?.transitionIn;
+  const baseTin=base?.programMeta?.transitionIn;
+  const hasNewTin=propTin!=null&&(!baseTin||propTin.transitionId!==baseTin.transitionId);
+  const baseHistory=Array.isArray(base?.programHistory)?base.programHistory:[];
+  const baseTransArchives=new Set(baseHistory.filter(h=>h&&h.transitionOut!=null));
+  const propHistory=Array.isArray(proposal.programHistory)?proposal.programHistory:[];
+  const hasNewTout=propHistory.some(h=>
+    h&&h.transitionOut!=null&&!baseTransArchives.has(h)&&
+    !baseHistory.some(bh=>bh?.id===h.id&&bh?.transitionOut?.transitionId===h.transitionOut?.transitionId));
+  return hasNewTin||hasNewTout}
+function isCoherentTransitionProposal(proposal){
+  if(!proposal||!isPlainStateObject(proposal))return false;
+  const meta=proposal.programMeta;
+  const tin=meta?.transitionIn;
+  if(!isPlainStateObject(tin)||tin.status!=="committed")return false;
+  if(typeof tin.transitionId!=="string"||!tin.transitionId)return false;
+  if(typeof tin.proposalHash!=="string"||!tin.proposalHash)return false;
+  if(typeof tin.archiveId!=="string"||!tin.archiveId)return false;
+  const succId=tin.successor?.programId;
+  const predId=tin.predecessor?.programId;
+  if(typeof succId!=="string"||!succId)return false;
+  if(typeof predId!=="string"||!predId)return false;
+  if(meta.id!==succId)return false;
+  if(tin.archiveId!==predId)return false;
+  const history=Array.isArray(proposal.programHistory)?proposal.programHistory:[];
+  const occupants=history.filter(h=>h&&(h.id===tin.archiveId||h.archiveId===tin.archiveId));
+  if(occupants.length!==1)return false;
+  const arc=occupants[0];
+  if(arc.id!==tin.archiveId||arc.archiveId!==tin.archiveId)return false;
+  const tout=arc.transitionOut;
+  if(!isPlainStateObject(tout))return false;
+  if(tout.transitionId!==tin.transitionId)return false;
+  if(tout.proposalHash!==tin.proposalHash)return false;
+  if(tout.successorProgramId!==succId)return false;
+  const allWithTransId=history.filter(h=>h?.transitionOut?.transitionId===tin.transitionId);
+  if(allWithTransId.length!==1)return false;
+  return true}
 function preparePendingDraftTransaction(snapshot,previous,effect,id){
   const prepared=cloneSnapshot(snapshot),outcome=normalizeDraftEffectOutcome(effect),receipt=outcome.effect;
   if(outcome.status!==DRAFT_EFFECT_VALID||!draftEffectRequiresCoordination(outcome))return prepared;
@@ -13851,6 +13890,12 @@ async function resolveBootReplicas(candidate=null){
         head=execution.snapshot;
         if(execution.kind!=="committed")draftConflict=true;
         replayed=true;
+        continue}
+      if(transitionJournalAttempt(journal.proposal,journal.base)&&!isCoherentTransitionProposal(journal.proposal)){
+        const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+          effect:journal.effectOutcome,discard:true});
+        if(!discarded.settled)
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
         continue}
       if(journal.expectedProgramId&&head?.programMeta?.id!==journal.expectedProgramId){
         const discarded=await executeDraftTransaction({record,transactionId:journal.id,
