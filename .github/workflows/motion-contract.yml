@@ -1,0 +1,25 @@
+name: Motion contract
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  motion-contract:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Verify motion interaction contract
+        run: node test/motion-polish.mjs
+
+      - name: Verify offline stylesheet contract
+        run: node test/exercise-library.mjs
