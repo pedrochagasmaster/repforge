@@ -18,6 +18,7 @@ const expected = [
   "exercises.js",
   "i18n.js",
   "install-transfer-contract.js",
+  "install-transfer.js",
   "motion-layer.js",
   "notify.js",
   "posthog-init.js",
