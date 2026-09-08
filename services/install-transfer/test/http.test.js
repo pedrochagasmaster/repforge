@@ -101,6 +101,14 @@ describe("HTTP transfer adapter", () => {
     const wrongOrigin = await worker.fetch(post("/v1/transfers", {}, { Origin: "https://evil.example" }), env);
     expect(wrongOrigin.status).toBe(404);
     expect(await responseJson(wrongOrigin)).toEqual({ state: "unavailable" });
+
+    await euStub(env.TRANSFER_HEALTH, "global").markDeletionUnhealthy({ now: Date.now() });
+    const disabled = await worker.fetch(post("/v1/transfers", {
+      envelope,
+      idempotencyKey: "health-disabled-create",
+    }), env);
+    expect(disabled.status).toBe(503);
+    expect(await responseJson(disabled)).toEqual({ state: "unavailable" });
   });
 
   it("routes create, duplicate, claim, commit, and status without putting the token in a URL", async () => {
