@@ -25,8 +25,8 @@
   const RECOVERY_STATES = Object.freeze(["none", "awaitingClaimOutcome", "confirmed", "resumeWarning", "resumedDiverged"]);
   const REMOTE_STATES = new Set(["available", "claiming", "deleted", "expired", "claimed-expired"]);
   const BASE64URL = /^[A-Za-z0-9_-]+$/;
-  const IDEMPOTENCY_RE = /^[A-Za-z0-9_-]{22,256}$/;
-  const TOKEN_RE = /^[A-Za-z0-9_-]{43,256}$/;
+  const IDENTIFIER_MAX_CHARS = 256;
+  const CREDENTIAL_MAX_CHARS = 8_000;
 
   function failure(code, state) {
     const result = { ok: false, code };
@@ -47,6 +47,22 @@
     const actual = Object.keys(value).sort();
     const expected = [...keys].sort();
     return actual.length === expected.length && actual.every((key, index) => key === expected[index]);
+  }
+
+  function validString(value, { max = CREDENTIAL_MAX_CHARS, nonEmpty = true } = {}) {
+    if (typeof value !== "string" || nonEmpty && value.length === 0) return false;
+    let scalars = 0;
+    for (let index = 0; index < value.length; index += 1) {
+      const unit = value.charCodeAt(index);
+      if (unit >= 0xd800 && unit <= 0xdbff) {
+        const next = value.charCodeAt(index + 1);
+        if (next < 0xdc00 || next > 0xdfff) return false;
+        index += 1;
+      } else if (unit >= 0xdc00 && unit <= 0xdfff) return false;
+      scalars += 1;
+      if (scalars > max) return false;
+    }
+    return true;
   }
 
   function jsonClone(value, seen = new Set()) {
@@ -256,7 +272,7 @@
   }
 
   function cookieValue(value) {
-    if (!value || typeof value.token !== "string" || !TOKEN_RE.test(value.token) || typeof value.expiresAt !== "string" || !Number.isFinite(Date.parse(value.expiresAt))) return null;
+    if (!value || !validString(value.token) || typeof value.expiresAt !== "string" || !Number.isFinite(Date.parse(value.expiresAt))) return null;
     return `${COOKIE_VERSION}.${encodeBytes(textBytes(JSON.stringify({ token: value.token, expiresAt: value.expiresAt })))}`;
   }
 
@@ -269,13 +285,15 @@
   }
 
   function readCookie(document, name) {
-    if (typeof document?.cookie !== "string") return null;
-    for (const part of document.cookie.split(";")) {
-      const separator = part.indexOf("=");
-      if (separator < 0) continue;
-      if (part.slice(0, separator).trim() === name) return part.slice(separator + 1).trim();
-    }
-    return null;
+    try {
+      if (typeof document?.cookie !== "string") return null;
+      for (const part of document.cookie.split(";")) {
+        const separator = part.indexOf("=");
+        if (separator < 0) continue;
+        if (part.slice(0, separator).trim() === name) return part.slice(separator + 1).trim();
+      }
+      return null;
+    } catch { return null; }
   }
 
   function writeTransferCookie(value, { document = root.document, location = root.location, now = Date.now() } = {}) {
@@ -287,8 +305,10 @@
     const maxAge = Math.min(COOKIE_MAX_AGE, Math.ceil((expiryMs - nowMs) / 1000));
     if (maxAge <= 0) return false;
     const secure = localHost(hostname(location)) ? "" : "; Secure";
-    document.cookie = `${COOKIE_NAME}=${encoded}; Path=${cookiePath(location)}; Max-Age=${maxAge}; SameSite=Lax${secure}`;
-    return true;
+    try {
+      document.cookie = `${COOKIE_NAME}=${encoded}; Path=${cookiePath(location)}; Max-Age=${maxAge}; SameSite=Lax${secure}`;
+      return true;
+    } catch { return false; }
   }
 
   function readTransferCookie({ document = root.document } = {}) {
@@ -298,8 +318,10 @@
   function clearTransferCookie({ document = root.document, location = root.location } = {}) {
     if (!document) return false;
     const secure = localHost(hostname(location)) ? "" : "; Secure";
-    document.cookie = `${COOKIE_NAME}=; Path=${cookiePath(location)}; Max-Age=0; SameSite=Lax${secure}`;
-    return true;
+    try {
+      document.cookie = `${COOKIE_NAME}=; Path=${cookiePath(location)}; Max-Age=0; SameSite=Lax${secure}`;
+      return true;
+    } catch { return false; }
   }
 
   function consumeTransferCookie(adapters = {}) {
@@ -464,7 +486,7 @@
         return stateResult(success({ state: "ready", expiresAt: existing.expiresAt, stale: existing.mutatedAfterCreation === true }));
       }
       if (existing?.phase === "confirmed") return unavailable("transfer-already-complete", "terminalUnavailable");
-      if (existing && !IDEMPOTENCY_RE.test(existing.idempotencyKey || "")) return unavailable("marker-invalid", "unknown-outcome");
+      if (existing && !validString(existing.idempotencyKey, { max: IDENTIFIER_MAX_CHARS })) return unavailable("marker-invalid", "unknown-outcome");
       let idempotencyKey;
       try { idempotencyKey = existing?.idempotencyKey || idFor(crypto); }
       catch { return unavailable("idempotency-unavailable"); }
@@ -496,7 +518,7 @@
         if (!exactKeys(reply.body, ["duplicate", "expiresAt"]) || reply.body.duplicate !== true || !Number.isFinite(Date.parse(reply.body.expiresAt))) return stateResult(unavailable("invalid-response"));
         return stateResult(unavailable("create-duplicate-no-token", "unknown-outcome"));
       }
-      if (!exactKeys(reply.body, ["token", "expiresAt"]) || !TOKEN_RE.test(reply.body.token) || !Number.isFinite(Date.parse(reply.body.expiresAt))) return stateResult(unavailable("invalid-response"));
+      if (!exactKeys(reply.body, ["token", "expiresAt"]) || !validString(reply.body.token) || !Number.isFinite(Date.parse(reply.body.expiresAt))) return stateResult(unavailable("invalid-response"));
       let sealed;
       try { sealed = await credentials.seal("browser-outbound", { token: reply.body.token }); }
       catch { return stateResult(unavailable("credential-seal-failed")); }
