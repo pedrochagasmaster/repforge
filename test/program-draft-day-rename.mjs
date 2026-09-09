@@ -1103,15 +1103,36 @@ async function runWorkoutThenRenameRace(browser) {
     const locker = await openApp(context);
     await openProgramEditor(renamer);
     await fillRaceWorkout(workout, 107.5);
+    // Complete fixture input/suggestion writes before imposing the two-transaction race.
+    await workout.evaluate(() => window.__repforgeWorkoutDraft.flush());
     const before = await readRuntime(workout);
     await holdStorageLock(locker);
+    // This scenario orders two durable transactions. Hold the save's later UI
+    // work so it cannot create a third, successor draft while rename is queued.
+    // Successor-draft races are covered separately in workout-draft-storage.mjs.
     await workout.evaluate(() => {
+      const afterSave = new Promise((resolve) => { window.__renameRaceResumeAfterSave = resolve; });
+      window.__repforgeDraftAfterSaveCommit = async () => {
+        delete window.__repforgeDraftAfterSaveCommit;
+        window.__renameRaceSaveCommitted = true;
+        await afterSave;
+      };
       window.__renameRaceWorkoutResult = window.__repforgeSaveWorkout();
     });
     await waitForPendingStorageLocks(locker, 1);
     await dispatchRename(renamer, "Day 1", "Push Day");
     await waitForPendingStorageLocks(locker, 2);
     await releaseStorageLock(locker);
+    await workout.waitForFunction(() => window.__renameRaceSaveCommitted === true, undefined, { timeout: 10000 });
+    // Done dispatches an asynchronous editor commit without returning its promise.
+    // flush() only snapshots the current persistence tail; the editor can enqueue
+    // its rename later. Wait for the real successful-commit UI before reading it.
+    await renamer.waitForFunction(
+      () => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
+      undefined,
+      { timeout: 10000 }
+    );
+    await workout.evaluate(() => window.__renameRaceResumeAfterSave());
     const workoutResult = await workout.evaluate(() => window.__renameRaceWorkoutResult);
     await Promise.all([
       workout.evaluate(() => window.__repforgeStorage.flush()),
@@ -1187,6 +1208,8 @@ async function runRenameThenWorkoutRace(browser) {
     const locker = await openApp(context);
     await openProgramEditor(renamer);
     await fillRaceWorkout(workout, 110);
+    // Complete fixture input/suggestion writes before imposing the two-transaction race.
+    await workout.evaluate(() => window.__repforgeWorkoutDraft.flush());
     const before = await readRuntime(workout);
     await holdStorageLock(locker);
     await dispatchRename(renamer, "Day 1", "Push Day");
@@ -1197,6 +1220,14 @@ async function runRenameThenWorkoutRace(browser) {
     await waitForPendingStorageLocks(locker, 2);
     await releaseStorageLock(locker);
     const workoutResult = await workout.evaluate(() => window.__renameRaceWorkoutResult);
+    // Done dispatches an asynchronous editor commit without returning its promise.
+    // flush() only snapshots the current persistence tail; the editor can enqueue
+    // its rename later. Wait for the real successful-commit UI before reading it.
+    await renamer.waitForFunction(
+      () => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
+      undefined,
+      { timeout: 10000 }
+    );
     await Promise.all([
       workout.evaluate(() => window.__repforgeStorage.flush()),
       renamer.evaluate(() => window.__repforgeStorage.flush()),
