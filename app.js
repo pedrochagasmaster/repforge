@@ -3591,8 +3591,15 @@ function successorProgramList(strategy,list){
   const src=cloneSnapshot(list||[]);
   if(strategy==="repeat_swaps")return src.map(e=>e.alternates?.length?{...e,name:e.alternates[0]}:e);
   if(strategy==="increase_volume")return src.map(e=>({...e,sets:Math.min((e.sets||2)+1,e.maxSets||6)}));
-  if(strategy==="reduce_volume")return src.map(e=>({...e,sets:Math.max((e.sets||2)-1,1)}));
   return src}
+// Historical snapshots can predate compiler provenance. They remain readable
+// and keep their established draft-safe rollover behavior, but this path never
+// claims a Plan-052 transition record. Any compiler-backed program is routed
+// through proposeVolumeReduction/confirmTransition above instead.
+function legacyBlockSuccessorProgramList(strategy,list){
+  const src=cloneSnapshot(list||[]);
+  if(strategy==="reduce_volume")return src.map(e=>({...e,sets:Math.max((e.sets||2)-1,1)}));
+  return successorProgramList(strategy,src)}
 function capturePendingBlock(strategy,review){
   return{...captureProgramReplacement(state,review||blockReviewCurrent),strategy}}
 function hasArchivableProgram(snapshot){
@@ -3665,7 +3672,26 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
     startOnboarding("block");
     return Promise.resolve(blockTransitionResult("deferred"))}
   const task=(async()=>{
-    const nextProgram=new Program(successorProgramList(strategy,cap.oldProgram)).toJSON();
+    if(strategy==="reduce_volume"&&cap.oldMeta?.compilerContext){
+      const diagnosis={kind:"reduce_training_volume",answers:{},
+        eligibleEvidenceIds:["explicit_volume_reduction"],insufficientEvidenceReasons:[]};
+      const proposed=await repforgeProgramTransitionAdapter.proposeVolumeReduction({
+        diagnosis,transitionId:uid(),successorProgramId:uid(),createdAt:new Date().toISOString(),policyVersion:1});
+      if(!proposed?.ok)
+        return blockTransitionResult("failed",{invalid:true,code:proposed?.code||"volume_reduction_unavailable"});
+      const acknowledgedDraftRaw=readDraftRaw();
+      const persisted=await repforgeProgramTransitionAdapter.confirmTransition({
+        proposal:proposed.proposal,transitionId:proposed.proposal.transitionId,
+        successorProgramId:proposed.proposal.successor.programId,
+        confirmedAt:new Date().toISOString(),proposalHash:proposed.proposal.proposalHash,
+        acknowledgedDraftRaw});
+      const kind=persisted.localOk||persisted.idbOk?"committed":
+        persisted.alreadyCommitted||persisted.staleRevision||persisted.stale?"duplicate":"failed";
+      const result=blockTransitionResult(kind,persisted);
+      if(result.committed){
+        pendingBlockTransition=null;day=days()[0]||"Day 1";closeBlockReview();blockToast(strategy);render()}
+      return result}
+    const nextProgram=new Program(legacyBlockSuccessorProgramList(strategy,cap.oldProgram)).toJSON();
     let effect=null;
     if(strategy==="reduce_volume"){
       const draftRaw=readDraftRaw();
@@ -6734,6 +6760,52 @@ const repforgeProgramTransitionAdapter = {
     return await Transition.proposeSibling(fullInput);
   },
 
+  async proposeVolumeReduction(input = {}) {
+    const Transition = typeof RepForgeProgramTransition !== "undefined"
+      ? RepForgeProgramTransition
+      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
+    if (!Transition) {
+      return { ok: false, status: "unavailable", code: "transition_domain_unavailable", unavailable: true };
+    }
+    const Compiler = typeof ProgramCompiler !== "undefined"
+      ? ProgramCompiler
+      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
+    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
+      ? EXERCISE_LIBRARY
+      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
+
+    const liveMeta = state?.programMeta;
+    if (!liveMeta?.compilerContext) {
+      return { ok: false, status: "unavailable", code: "compiler_context_unavailable", unavailable: true };
+    }
+    const entrySource = liveMeta.entrySource;
+    if (!entrySource || !TRANSITION_SOURCE_ROUTES.includes(entrySource.route) ||
+        typeof entrySource.fingerprint !== "string" || !entrySource.fingerprint) {
+      return { ok: false, status: "unavailable", code: "transition_source_unavailable", unavailable: true };
+    }
+    const predecessorInstance = Compiler.compile(liveMeta.compilerContext, catalogue);
+    if (!predecessorInstance || predecessorInstance.kind !== "compiled") {
+      return { ok: false, status: "unavailable", code: "predecessor_reconstruction_failed", unavailable: true };
+    }
+    const diagnosis = input.diagnosis;
+    return await Transition.proposeVolumeReduction({
+      predecessorInstance,
+      predecessor: {
+        programId: liveMeta.id,
+        durableRevision: readRevision(state),
+        source: transitionContractSource(entrySource.route),
+      },
+      transitionId: input.transitionId,
+      successorProgramId: input.successorProgramId,
+      createdAt: input.createdAt || new Date().toISOString(),
+      diagnosis,
+      policyVersion: input.policyVersion === undefined
+        ? Transition.VOLUME_REDUCTION_POLICY_VERSION
+        : input.policyVersion,
+      supportedVersions: Compiler.VERSIONS,
+    });
+  },
+
   async confirmTransition(params = {}) {
     const Transition = typeof RepForgeProgramTransition !== "undefined"
       ? RepForgeProgramTransition
@@ -6790,6 +6862,31 @@ const repforgeProgramTransitionAdapter = {
       return { ok: false, committed: false, draftConflict: true, conflict: true, code: "draft_mismatch", localOk: false, idbOk: false, revision: readRevision(state) };
     }
 
+    // Permanent volume reduction cannot strand completed or edited sets in
+    // slots the proposal removes or reduces. Keep the existing DraftV2 guard
+    // at the production confirmation boundary, before the replacement journal
+    // is armed, so an unsafe proposal has zero durable side effects.
+    if (proposal.kind === "reduce_training_volume") {
+      let draft = {};
+      try {
+        const parsed = JSON.parse(acknowledgedDraftRaw || "{}");
+        if (isPlainStateObject(parsed)) draft = parsed;
+      } catch {}
+      const currentBySlot = new Map((state.program || []).map((row) => [row.slotId || row.id, row]));
+      const blocked = (proposal.diff?.exercises || []).some((change) => {
+        const current = currentBySlot.get(change.predecessorSlot);
+        if (!current) return false;
+        const beforeSets = Number(change.before?.sets ?? current.sets);
+        const afterSets = change.after === null ? 0 : Number(change.after?.sets ?? beforeSets);
+        return Number.isFinite(beforeSets) && Number.isFinite(afterSets) &&
+          draftHasProgressInRemovedSets(current.id || current.slotId, afterSets, beforeSets, draft);
+      });
+      if (blocked) {
+        return { ok: false, committed: false, draftConflict: true, conflict: true,
+          code: "draft_conflict", localOk: false, idbOk: false, revision: readRevision(state) };
+      }
+    }
+
     // ---- Existing program-replacement capture/archive transaction owns it ----
     const capture = captureProgramReplacement(state);
     if (!capture || capture.oldProgramId !== predecessorProgramId) return invalid("predecessor_unavailable");
@@ -6839,20 +6936,43 @@ const repforgeProgramTransitionAdapter = {
       }
 
       let succContext;
+      let succInstance;
       if (proposal.kind === "lower_frequency_sibling") {
         succContext = { ...cloneSnapshot(predContext), frequency: proposal.diagnosis?.answers?.availableDays };
         delete succContext.splitId;
       } else if (proposal.kind === "shorter_session_sibling") {
         succContext = { ...cloneSnapshot(predContext), sessionMinutes: proposal.diagnosis?.answers?.sessionMinutes };
+      } else if (proposal.kind === "reduce_training_volume") {
+        const derived = await Transition.proposeVolumeReduction({
+          predecessorInstance: predInstance,
+          predecessor: {
+            programId: head.programMeta.id,
+            durableRevision: readRevision(head),
+            source: transitionContractSource(route),
+          },
+          transitionId: proposal.transitionId,
+          successorProgramId: proposal.successor?.programId,
+          createdAt: proposal.createdAt,
+          diagnosis: proposal.diagnosis,
+          policyVersion: proposal.derivation?.policyVersions?.volumeReduction,
+          supportedVersions: Compiler.VERSIONS,
+        });
+        if (!derived.ok) {
+          return { reject: true, result: { invalid: true, code: derived.code || "invalid_volume_proposal", localOk: false, idbOk: false } };
+        }
+        succInstance = derived.successorInstance;
+        succContext = cloneSnapshot(predContext);
       } else {
         return { reject: true, result: { invalid: true, code: "unsupported_transition_kind", localOk: false, idbOk: false } };
       }
 
-      const checkedSuccContext = Compiler.validateContext(succContext);
-      if (!checkedSuccContext.ok) {
-        return { reject: true, result: { invalid: true, code: "invalid_successor_context", localOk: false, idbOk: false } };
+      if (!succInstance) {
+        const checkedSuccContext = Compiler.validateContext(succContext);
+        if (!checkedSuccContext.ok) {
+          return { reject: true, result: { invalid: true, code: "invalid_successor_context", localOk: false, idbOk: false } };
+        }
+        succInstance = Compiler.compile(succContext, catalogue);
       }
-      const succInstance = Compiler.compile(succContext, catalogue);
       if (!succInstance || succInstance.kind !== "compiled") {
         return { reject: true, result: { invalid: true, code: "successor_compilation_failed", localOk: false, idbOk: false } };
       }

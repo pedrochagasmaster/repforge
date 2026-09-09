@@ -53,6 +53,7 @@ export const SUITES = {
     s("test/persistence-race.mjs"),
     s("test/thermonuclear-races.mjs"),
     s("test/program-transition-commit.mjs"),
+    s("test/program-transition-volume-commit.mjs"),
     s("test/program-transition-crash-replay.mjs"),
     s("test/program-transition-guided-repair.mjs"),
     s("test/recover-gate.mjs"),
