@@ -10,7 +10,7 @@
  */
 import { pathToFileURL } from "url";
 import { gzipSync } from "zlib";
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import {
   BUILT_IN_IDS,
   CURRENT_SETTINGS_DEFAULTS,
@@ -368,7 +368,9 @@ export async function openAppPage(browser, {
   await page.addInitScript(INSTALL_EVENT);
   const url = `${APP_INDEX}${search}${hash}`;
   await page.goto(url, { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.readyState === "complete", null, { timeout: 15000 }).catch(() => {});
+  await waitForAppBoot(page, { timeout: 15000, base: BASE });
+  const booted = await page.evaluate(() => window.__repforgeBooted === true);
+  if (!booted) throw new Error("openAppPage returned before the app boot contract was satisfied");
   return { context, page, errors };
 }
 
