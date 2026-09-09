@@ -545,7 +545,27 @@ async function mutateLegacyPendingProvenance(page, kind) {
       else delete next.proposalHash;
       return next;
     };
-    if (kind.startsWith("tin-")) {
+    if (kind === "link-tin-successor" || kind === "link-tin-archive") {
+      const baseTin = journal.base?.programMeta?.transitionIn;
+      if (!baseTin) throw new Error("legacy journal has no inherited transitionIn");
+      const mutated = kind === "link-tin-successor"
+        ? { ...baseTin, successor: { ...baseTin.successor, programId: "prog_p6c_link_wrong_successor" } }
+        : { ...baseTin, archiveId: "prog_p6c_link_wrong_archive" };
+      journal.base.programMeta.transitionIn = mutated;
+      const legacyArchive = (journal.proposal?.programHistory || [])
+        .find((row) => row?.id === journal.base.programMeta.id);
+      if (!legacyArchive?.meta) throw new Error("legacy journal has no captured base meta");
+      legacyArchive.meta.transitionIn = mutated;
+    } else if (kind === "link-tout-successor") {
+      const baseRow = (journal.base?.programHistory || []).find((row) => row?.transitionOut);
+      if (!baseRow) throw new Error("legacy journal has no inherited transitionOut");
+      const mutated = { ...baseRow.transitionOut, successorProgramId: "prog_p6c_link_wrong_successor" };
+      baseRow.transitionOut = mutated;
+      const proposalRow = (journal.proposal?.programHistory || [])
+        .find((row) => row?.id === baseRow.id);
+      if (!proposalRow) throw new Error(`legacy journal lost inherited row ${baseRow.id}`);
+      proposalRow.transitionOut = mutated;
+    } else if (kind.startsWith("tin-")) {
       const baseTin = journal.base?.programMeta?.transitionIn;
       if (!baseTin) throw new Error("legacy journal has no inherited transitionIn");
       const mutated = mutate(baseTin);
@@ -2097,6 +2117,9 @@ async function main() {
         { name: "malformed inherited transitionIn v1", kind: "tin-malformed-v1" },
         { name: "unknown inherited transitionOut schema 2", kind: "tout-schema2" },
         { name: "malformed inherited transitionOut v1", kind: "tout-malformed-v1" },
+        { name: "active transitionIn successor link mismatch", kind: "link-tin-successor" },
+        { name: "active transitionIn archive link mismatch", kind: "link-tin-archive" },
+        { name: "inherited transitionOut successor link mismatch", kind: "link-tout-successor" },
       ]) {
         const env = await newBootedContext(browser);
         const { locker, survivor, context } = env;

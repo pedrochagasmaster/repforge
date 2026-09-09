@@ -1084,10 +1084,50 @@ function extractTransitionOutMap(snapshot){
   return{map,invalid}}
 function classifyInheritedProvenance(snapshot){
   const meta=isPlainStateObject(snapshot?.programMeta)?snapshot.programMeta:null;
+  const history=Array.isArray(snapshot?.programHistory)?snapshot.programHistory:[];
   const transitionIn=classifyInheritedTransitionValue(meta?.transitionIn,isCoherentV1TransitionIn);
   const transitionOut=extractTransitionOutMap(snapshot);
-  return{ok:transitionIn!=="unknown-or-malformed"&&!transitionOut.invalid,
-    transitionIn,transitionOut:transitionOut.map}}
+  if(transitionIn==="unknown-or-malformed"||transitionOut.invalid)
+    return{ok:false,transitionIn,transitionOut:transitionOut.map};
+  const records=[];
+  if(meta?.transitionIn!=null)records.push({holderId:meta.id,value:meta.transitionIn});
+  for(const row of history){
+    if(!isPlainStateObject(row))return{ok:false,transitionIn,transitionOut:transitionOut.map};
+    if(row.meta==null)continue;
+    if(!isPlainStateObject(row.meta))return{ok:false,transitionIn,transitionOut:transitionOut.map};
+    const status=classifyInheritedTransitionValue(row.meta.transitionIn,isCoherentV1TransitionIn);
+    if(status==="unknown-or-malformed")return{ok:false,transitionIn,transitionOut:transitionOut.map};
+    if(status==="supported-v1")records.push({holderId:row.id,value:row.meta.transitionIn});
+  }
+  const archivesById=new Map();
+  for(const row of history){
+    if(row.transitionOut==null)continue;
+    const id=typeof row.id==="string"&&row.id.trim()?row.id.trim():null;
+    const archiveId=typeof row.archiveId==="string"&&row.archiveId.trim()?row.archiveId.trim():null;
+    if(!id||!archiveId||id!==archiveId||archivesById.has(id))
+      return{ok:false,transitionIn,transitionOut:transitionOut.map};
+    archivesById.set(id,row);
+  }
+  for(const record of records){
+    const tin=record.value;
+    if(typeof record.holderId!=="string"||!record.holderId.trim()||
+      tin.successor.programId!==record.holderId||tin.archiveId!==tin.predecessor.programId)
+      return{ok:false,transitionIn,transitionOut:transitionOut.map};
+    const archive=archivesById.get(tin.archiveId);
+    if(!archive||archive.id!==tin.archiveId||archive.archiveId!==tin.archiveId)return{
+      ok:false,transitionIn,transitionOut:transitionOut.map};
+    const tout=archive.transitionOut;
+    if(tout.transitionId!==tin.transitionId||tout.proposalHash!==tin.proposalHash||
+      tout.successorProgramId!==tin.successor.programId)
+      return{ok:false,transitionIn,transitionOut:transitionOut.map};
+  }
+  for(const [archiveId,tout] of transitionOut.map.entries()){
+    const linked=records.filter(({value:tin})=>tin.archiveId===archiveId&&
+      tin.transitionId===tout.transitionId&&tin.proposalHash===tout.proposalHash&&
+      tin.successor.programId===tout.successorProgramId);
+    if(linked.length!==1)return{ok:false,transitionIn,transitionOut:transitionOut.map};
+  }
+  return{ok:true,transitionIn,transitionOut:transitionOut.map}}
 function transitionJournalAttempt(proposal,base){
   if(!proposal||!isPlainStateObject(proposal))return false;
   const propProvenance=classifyInheritedProvenance(proposal);
