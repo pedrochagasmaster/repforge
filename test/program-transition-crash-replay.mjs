@@ -420,8 +420,14 @@ async function crashGenericWhileQueued({ locker, survivor, context }, spec) {
       } else if (poisonSpec.kind === "tout-duplicate") {
         const row = clone.programHistory.find((h) => h?.transitionOut);
         clone.programHistory.push(JSON.parse(JSON.stringify(row)));
+      } else if (poisonSpec.kind === "tout-removed") {
+        const row = clone.programHistory.find((h) => h?.transitionOut);
+        if (row) delete row.transitionOut;
       } else if (poisonSpec.kind === "control-settings") {
         clone.settings = { ...clone.settings, restSec: 135 };
+      } else if (poisonSpec.kind === "control-reordered-archives") {
+        clone.settings = { ...clone.settings, restSec: 140 };
+        clone.programHistory = [...(clone.programHistory || [])].reverse();
       } else {
         throw new Error(`unknown poison spec: ${poisonSpec.kind}`);
       }
@@ -1218,6 +1224,32 @@ async function main() {
               negArtifacts.sidecar.length === 0,
           `malformed journal rejection left zero artifacts: ${negative.name}`, negArtifacts);
       }
+
+      // Post-discard representative real retry: discarding the malformed journal
+      // left the predecessor state completely healthy and capable of committing
+      // the real valid transition.
+      const validRetry = await confirmTransition(survivor, {
+        proposal,
+        transitionId: proposal.transitionId,
+        successorProgramId: proposal.successor.programId,
+        confirmedAt: "2026-10-03T14:15:00.000Z",
+        proposalHash: proposal.proposalHash,
+        acknowledgedDraftRaw: setup.preDraftRaw,
+      });
+      check(validRetry?.ok === true && validRetry?.committed === true &&
+            validRetry?.localOk === true && validRetry?.idbOk === true,
+        "representative valid retry commits cleanly after malformed journal discard", validRetry);
+      await survivor.evaluate(() => window.__repforgeStorage.flush());
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+      const afterValidRetry = await readReplicas(survivor);
+      check(afterValidRetry.local.programId === proposal.successor.programId &&
+            afterValidRetry.local.revision === revisionR + 1,
+        "state advanced to successor at R+1 after representative valid retry");
+      check(afterValidRetry.local.programHistory.length === 1 &&
+            afterValidRetry.local.transitionIn?.status === "committed",
+        "archive and transitionIn created cleanly after representative valid retry");
+
       await context.close();
     }
 
@@ -1280,6 +1312,7 @@ async function main() {
         { name: "mutated inherited transitionIn.proposalHash with the same transitionId/archiveId", kind: "tin-proposalHash" },
         { name: "mutated inherited transitionOut.proposalHash with the same transitionId", kind: "tout-proposalHash" },
         { name: "mutated inherited transitionOut successor link with the same transitionId", kind: "tout-successorLink" },
+        { name: "removed inherited transitionOut record", kind: "tout-removed" },
         { name: "duplicate inherited transitionOut archive with the same IDs", kind: "tout-duplicate" },
         { name: "changed inherited transitionIn.confirmedAt with every ID retained", kind: "tin-confirmedAt-ids-retained" },
       ];
@@ -1372,6 +1405,244 @@ async function main() {
       check(controlArtifacts.pending.length === 0 && controlArtifacts.closing.length === 0 &&
             controlArtifacts.sidecar.length === 0,
         "control: the replay consumed every journal, sidecar, and closing artifact", controlArtifacts);
+
+      // Control 2: an ordinary settings journal whose inherited transition
+      // archives are reordered but value-identical does not trigger attempt guard.
+      const reorderJournal = await crashGenericWhileQueued(
+        { locker, survivor, context }, { kind: "control-reordered-archives" });
+      check(reorderJournal.key.startsWith(PENDING_PREFIX),
+        "control 2: the reordered-archive settings journal is armed");
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+
+      const afterReorder = await readReplicas(survivor);
+      for (const side of ["local", "idb"]) {
+        check(afterReorder[side].settings?.restSec === 140,
+          `control 2: order-independent settings change applied in ${side}`, afterReorder[side].settings?.restSec);
+      }
+
+      await context.close();
+    }
+
+    // =========================================================================
+    // Case 8: Chained B->C replacement crash and replay.
+    // 1. Pre-lock crash during B->C: an incomplete armed journal (carrying
+    //    predecessor B and a new uncommitted archive) is discarded at boot,
+    //    leaving coherent B with its complete inherited A->B provenance intact.
+    //    A real confirm retry then commits coherent C.
+    // 2. Prepared state before final state on B->C: an interrupted confirm
+    //    replays to completion at boot, advancing to R+2 with both A->B and
+    //    B->C transition records durable in both replicas.
+    // =========================================================================
+    console.log("\n8. Chained B->C replacement crash discard and prepared replay");
+    {
+      const env = await newBootedContext(browser);
+      const { locker, writer, survivor, context } = env;
+      const setup = await setupPredecessorWithSentinelAndDraft(survivor, "chain_crash");
+      const revA = setup.predecessorRevision;
+
+      // Commit transition 1: A -> B
+      const propAB = await page_or_null(survivor, {
+        transitionId: "tr_p6c_chain_ab_crash",
+        successorProgramId: "prog_p6c_chain_b_crash",
+        createdAt: "2026-10-03T16:00:00.000Z",
+      });
+      check(propAB?.ok === true, "first sibling proposal A->B created", propAB?.code);
+      const proposalAB = propAB.proposal;
+      const confirmArgsAB = {
+        proposal: proposalAB,
+        transitionId: proposalAB.transitionId,
+        successorProgramId: proposalAB.successor.programId,
+        confirmedAt: "2026-10-03T16:10:00.000Z",
+        proposalHash: proposalAB.proposalHash,
+        acknowledgedDraftRaw: setup.preDraftRaw,
+      };
+      const committedAB = await confirmTransition(survivor, confirmArgsAB);
+      check(committedAB?.ok === true && committedAB?.committed === true &&
+            committedAB?.localOk === true && committedAB?.idbOk === true,
+        "transition A->B committed cleanly before chained crash tests", committedAB);
+      await survivor.evaluate(() => window.__repforgeStorage.flush());
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+
+      const stateB = await readReplicas(survivor);
+      check(stateB.local.programId === "prog_p6c_chain_b_crash" &&
+            stateB.local.revision === revA + 1,
+        "program B is active at revision R+1");
+      const originalTinB = JSON.parse(JSON.stringify(stateB.local.transitionIn));
+      const originalHistB = JSON.parse(JSON.stringify(stateB.local.programHistory));
+
+      // Propose transition 2: B -> C (shorter session)
+      const propBC = await survivor.evaluate(async () => window.__repforgeProgramTransition.proposeSibling({
+        targetConstraint: { sessionMinutes: 60 },
+        diagnosis: {
+          kind: "sessions_too_long", answers: { sessionMinutes: 60 },
+          eligibleEvidenceIds: ["session-time-avg-105-of-90"], insufficientEvidenceReasons: [],
+        },
+        transitionId: "tr_p6c_chain_bc_crash",
+        successorProgramId: "prog_p6c_chain_c_crash",
+        createdAt: "2026-10-03T17:00:00.000Z",
+      }));
+      check(propBC?.ok === true, "second sibling proposal B->C created", propBC?.code);
+      const proposalBC = propBC.proposal;
+
+      // Part 1: Pre-lock crash during B->C
+      await bootOthers([locker, writer]);
+      const confirmArgsBC = {
+        proposal: proposalBC,
+        transitionId: proposalBC.transitionId,
+        successorProgramId: proposalBC.successor.programId,
+        confirmedAt: "2026-10-03T17:10:00.000Z",
+        proposalHash: proposalBC.proposalHash,
+        acknowledgedDraftRaw: setup.preDraftRaw,
+      };
+
+      const journal = await crashWhileQueued(env, confirmArgsBC, setup);
+      check(journal.key.startsWith(PENDING_PREFIX), "chained B->C journal was armed while queued");
+
+      // Reload survivor: boot must discard the incomplete pre-lock journal
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+
+      const afterDiscardB = await readReplicas(survivor);
+      for (const side of ["local", "idb"]) {
+        check(afterDiscardB[side].programId === "prog_p6c_chain_b_crash",
+          `boot left predecessor B active in ${side} after pre-lock crash`);
+        check(afterDiscardB[side].revision === revA + 1,
+          `boot advanced no revision in ${side} after pre-lock crash`);
+        check(isDeepStrictEqual(afterDiscardB[side].transitionIn, originalTinB),
+          `inherited A->B transitionIn intact in ${side} after pre-lock crash`);
+        check(isDeepStrictEqual(afterDiscardB[side].programHistory, originalHistB),
+          `inherited archive intact in ${side} after pre-lock crash`);
+        check(isDeepStrictEqual(afterDiscardB[side].log, setup.logSentinel),
+          `log sentinel intact in ${side} after pre-lock crash`);
+      }
+      const draftAfterDiscard = await readDraftBytes(survivor);
+      check(draftAfterDiscard.raw === setup.preDraftRaw && draftAfterDiscard.checkpoint === setup.preCheckpointRaw,
+        "DraftV2 raw and checkpoint bytes unchanged after pre-lock crash discard");
+      const discardArtifacts = await artifactKeys(survivor);
+      check(discardArtifacts.pending.length === 0 && discardArtifacts.closing.length === 0 &&
+            discardArtifacts.sidecar.length === 0,
+        "pre-lock crash discard cleared every pending, sidecar, and closing artifact", discardArtifacts);
+
+      // Part 2: Real retry of B->C commits coherently
+      const retryBC = await confirmTransition(survivor, confirmArgsBC);
+      check(retryBC?.ok === true && retryBC?.committed === true &&
+            retryBC?.localOk === true && retryBC?.idbOk === true,
+        "retry of B->C commits cleanly after pre-lock crash discard", retryBC);
+
+      await survivor.evaluate(() => window.__repforgeStorage.flush());
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+
+      const afterRetryC = await readReplicas(survivor);
+      for (const side of ["local", "idb"]) {
+        check(afterRetryC[side].programId === "prog_p6c_chain_c_crash",
+          `successor C active in ${side} after retry`);
+        check(afterRetryC[side].revision === revA + 2,
+          `revision advanced to R+2 in ${side} after chained retry`);
+        check(afterRetryC[side].programHistory.length === 2,
+          `exactly two archives in ${side} after chained retry`);
+      }
+
+      await context.close();
+    }
+
+    // Part 3: Prepared state before final state on B->C
+    {
+      const context = await browser.newContext();
+      const survivor = await context.newPage();
+      survivor.on("dialog", (d) => d.dismiss().catch(() => {}));
+      await survivor.goto(BASE);
+      await waitForAppBoot(survivor, { base: BASE });
+      await clearStorage(survivor);
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+
+      const setup = await setupPredecessorWithSentinelAndDraft(survivor, "chain_prep");
+      const revA = setup.predecessorRevision;
+
+      // Commit A -> B
+      const propAB = await page_or_null(survivor, {
+        transitionId: "tr_p6c_prep_ab",
+        successorProgramId: "prog_p6c_prep_b",
+        createdAt: "2026-10-03T18:00:00.000Z",
+      });
+      check(propAB?.ok === true, "prepared-case A->B proposal created");
+      const confirmAB = await confirmTransition(survivor, {
+        proposal: propAB.proposal,
+        transitionId: propAB.proposal.transitionId,
+        successorProgramId: propAB.proposal.successor.programId,
+        confirmedAt: "2026-10-03T18:10:00.000Z",
+        proposalHash: propAB.proposal.proposalHash,
+        acknowledgedDraftRaw: setup.preDraftRaw,
+      });
+      check(confirmAB?.committed === true, "A->B committed");
+      await survivor.evaluate(() => window.__repforgeStorage.flush());
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+
+      // Propose B -> C
+      const propBC = await survivor.evaluate(async () => window.__repforgeProgramTransition.proposeSibling({
+        targetConstraint: { sessionMinutes: 60 },
+        diagnosis: {
+          kind: "sessions_too_long", answers: { sessionMinutes: 60 },
+          eligibleEvidenceIds: ["session-time-avg-105-of-90"], insufficientEvidenceReasons: [],
+        },
+        transitionId: "tr_p6c_prep_bc",
+        successorProgramId: "prog_p6c_prep_c",
+        createdAt: "2026-10-03T19:00:00.000Z",
+      }));
+      check(propBC?.ok === true, "prepared-case B->C proposal created");
+      const proposalBC = propBC.proposal;
+
+      // Inject write failure on final write of B->C
+      await injectWriteFailureAfterFirst(survivor);
+      const interrupted = await confirmTransition(survivor, {
+        proposal: proposalBC,
+        transitionId: proposalBC.transitionId,
+        successorProgramId: proposalBC.successor.programId,
+        confirmedAt: "2026-10-03T19:10:00.000Z",
+        proposalHash: proposalBC.proposalHash,
+        acknowledgedDraftRaw: setup.preDraftRaw,
+      });
+      await survivor.evaluate(() => window.__p6cRestoreWriteSeam());
+      await survivor.evaluate(() => window.__repforgeStorage.flush());
+      check(interrupted?.deferred === true && interrupted?.finalizationPending === true,
+        "interrupted B->C confirm reports deferred finalization", interrupted);
+
+      // Reload survivor: boot replays the prepared transaction to completion
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+
+      const finalReplicas = await readReplicas(survivor);
+      for (const side of ["local", "idb"]) {
+        check(finalReplicas[side].programId === "prog_p6c_prep_c",
+          `prepared B->C replay finished successor C in ${side}`);
+        check(finalReplicas[side].revision === revA + 2,
+          `prepared B->C replay advanced to R+2 in ${side}`);
+        check(finalReplicas[side].programHistory.length === 2,
+          `prepared B->C replay retained both archives in ${side}`);
+        check(finalReplicas[side].storageDraftTransaction == null,
+          `no _storageDraftTransaction marker in ${side} after boot recovery`);
+      }
+      const prepArtifacts = await artifactKeys(survivor);
+      check(prepArtifacts.pending.length === 0 && prepArtifacts.closing.length === 0 &&
+            prepArtifacts.sidecar.length === 0,
+        "prepared B->C replay cleaned up all artifacts", prepArtifacts);
+
+      // Duplicate retry of B->C reports alreadyCommitted
+      const dupRetry = await confirmTransition(survivor, {
+        proposal: proposalBC,
+        transitionId: proposalBC.transitionId,
+        successorProgramId: proposalBC.successor.programId,
+        confirmedAt: "2026-10-03T19:10:00.000Z",
+        proposalHash: proposalBC.proposalHash,
+        acknowledgedDraftRaw: setup.preDraftRaw,
+      });
+      check(dupRetry?.alreadyCommitted === true && dupRetry?.committed === true,
+        "duplicate retry after prepared B->C replay reports alreadyCommitted", dupRetry);
+
       await context.close();
     }
 

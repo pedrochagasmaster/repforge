@@ -1065,24 +1065,32 @@ function pendingJournalSuccessorMatches(record,head){
 function transitionRecordEqual(a,b){
   if(a==null||b==null)return a==b;
   return storageSnapshotsEqual(a,b)}
-function transitionOutArchiveRows(snapshot){
+function extractTransitionOutMap(snapshot){
   const history=Array.isArray(snapshot?.programHistory)?snapshot.programHistory:[];
-  return history.filter(h=>h&&h.transitionOut!=null)}
-function stateCarriesTransitionMetadata(snapshot){
-  return snapshot?.programMeta?.transitionIn!=null||transitionOutArchiveRows(snapshot).length>0}
+  const map=new Map();
+  let invalid=false;
+  for(const h of history){
+    if(!h||h.transitionOut==null)continue;
+    const aid=typeof h.archiveId==="string"&&h.archiveId.trim()?h.archiveId.trim():null;
+    const hid=typeof h.id==="string"&&h.id.trim()?h.id.trim():null;
+    if(!aid||!hid||aid!==hid||!isBoundedTransitionValue(h.transitionOut)||map.has(aid)){
+      invalid=true;break}
+    map.set(aid,h.transitionOut)}
+  return{map,invalid}}
 function transitionJournalAttempt(proposal,base){
   if(!proposal||!isPlainStateObject(proposal))return false;
   const propTin=proposal.programMeta?.transitionIn;
   const baseTin=base?.programMeta?.transitionIn;
   if(propTin!=null&&!isBoundedTransitionValue(propTin))return true;
   if(!transitionRecordEqual(propTin,baseTin))return true;
-  const propRows=transitionOutArchiveRows(proposal);
-  const baseRows=transitionOutArchiveRows(base);
-  if(propRows.length!==baseRows.length)return true;
-  for(let i=0;i<propRows.length;i++){
-    const p=propRows[i],b=baseRows[i];
-    if(!isBoundedTransitionValue(p.transitionOut)||!isBoundedTransitionValue(b.transitionOut))return true;
-    if(!storageSnapshotsEqual(p,b))return true}
+  const propMap=extractTransitionOutMap(proposal);
+  const baseMap=extractTransitionOutMap(base);
+  if(propMap.invalid||baseMap.invalid)return true;
+  if(propMap.map.size!==baseMap.map.size)return true;
+  for(const [key,propTout] of propMap.map.entries()){
+    if(!baseMap.map.has(key))return true;
+    const baseTout=baseMap.map.get(key);
+    if(!transitionRecordEqual(propTout,baseTout))return true}
   return false}
 function isCoherentV1TransitionIn(tin){
   return isPlainStateObject(tin)&&isBoundedTransitionValue(tin)&&
@@ -1101,29 +1109,49 @@ function isCoherentV1TransitionOut(tout){
     typeof tout.proposalHash==="string"&&tout.proposalHash.trim()!==""&&
     typeof tout.successorProgramId==="string"&&tout.successorProgramId.trim()!==""}
 function isCoherentTransitionProposal(proposal,base){
-  if(!isCoherentV1TransitionIn(proposal?.programMeta?.transitionIn))return false;
-  const tin=proposal.programMeta.transitionIn;
+  if(!proposal||!isPlainStateObject(proposal))return false;
+  const tin=proposal.programMeta?.transitionIn;
+  if(!isCoherentV1TransitionIn(tin))return false;
   const succId=tin.successor.programId,predId=tin.predecessor.programId;
   if(proposal.programMeta.id!==succId)return false;
   if(tin.archiveId!==predId)return false;
-  const history=Array.isArray(proposal.programHistory)?proposal.programHistory:[];
-  const occupants=history.filter(h=>h&&(h.id===tin.archiveId||h.archiveId===tin.archiveId));
-  if(occupants.length!==1)return false;
-  const arc=occupants[0];
-  if(arc.id!==tin.archiveId||arc.archiveId!==tin.archiveId)return false;
-  if(!isCoherentV1TransitionOut(arc.transitionOut))return false;
-  const tout=arc.transitionOut;
+  const propHist=Array.isArray(proposal.programHistory)?proposal.programHistory:[];
+  const newOccupants=propHist.filter(h=>h&&(h.id===predId||h.archiveId===predId));
+  if(newOccupants.length!==1)return false;
+  const newArc=newOccupants[0];
+  if(newArc.id!==predId||newArc.archiveId!==predId)return false;
+  if(!isCoherentV1TransitionOut(newArc.transitionOut))return false;
+  const tout=newArc.transitionOut;
   if(tout.transitionId!==tin.transitionId||tout.proposalHash!==tin.proposalHash||
     tout.successorProgramId!==succId)return false;
-  const allWithTransId=history.filter(h=>h?.transitionOut?.transitionId===tin.transitionId);
+  const allWithTransId=propHist.filter(h=>h?.transitionOut?.transitionId===tin.transitionId);
   if(allWithTransId.length!==1)return false;
-  /* A replayed replacement commit always bases on the transition-free
-     predecessor: classifyCommittedTransition grants "absent" only there. A
-     journal whose base already carries transition metadata can only be a
-     mutation of inherited provenance, never a coherent replacement. */
-  if(base&&isPlainStateObject(base)){
-    if(stateCarriesTransitionMetadata(base))return false;
-    if(base.programMeta?.id!==predId)return false}
+
+  if(base!=null){
+    if(!isPlainStateObject(base))return false;
+    if(base.programMeta?.id!==predId)return false;
+    const baseHist=Array.isArray(base.programHistory)?base.programHistory:[];
+    if(propHist.length!==baseHist.length+1)return false;
+    if(baseHist.some(h=>h&&(h.id===predId||h.archiveId===predId)))return false;
+
+    // Inherited transitionIn provenance captured in new archive
+    const baseTin=base.programMeta?.transitionIn;
+    if(baseTin!=null){
+      if(!transitionRecordEqual(newArc.meta?.transitionIn,baseTin))return false;
+    }else{
+      if(newArc.meta?.transitionIn!=null)return false;
+    }
+
+    // Every inherited base archive must be retained value-identically
+    for(const b of baseHist){
+      if(!b||typeof b.id!=="string"||!b.id||b.id!==b.archiveId)return false;
+      const matching=propHist.filter(p=>p!==newArc&&p?.id===b.id);
+      if(matching.length!==1)return false;
+      const p=matching[0];
+      if(p.archiveId!==b.archiveId)return false;
+      if(!transitionRecordEqual(p.transitionOut,b.transitionOut))return false;
+    }
+  }
   return true}
 function preparePendingDraftTransaction(snapshot,previous,effect,id){
   const prepared=cloneSnapshot(snapshot),outcome=normalizeDraftEffectOutcome(effect),receipt=outcome.effect;
@@ -1367,7 +1395,7 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
         effect:frozenEffectOutcome,discard:true});
       return{revision:readRevision(head),localOk:false,idbOk:false,
         conflict:true,staleRevision:true}}
-    if(expectedProgramId&&head?.programMeta?.id!==expectedProgramId){
+        if(expectedProgramId&&head?.programMeta?.id!==expectedProgramId){
       await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
         effect:frozenEffectOutcome,discard:true});
       return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
@@ -6493,41 +6521,52 @@ function transitionContractSource(route) {
 // "absent" -> no transition-in and no archive collision, proceed to the
 // transaction.
 function classifyCommittedTransition(snapshot, proposal, archiveId) {
-  const meta = snapshot && snapshot.programMeta;
-  const tin = meta && meta.transitionIn;
-  const history = Array.isArray(snapshot.programHistory) ? snapshot.programHistory : [];
-  // Every stored history row that touches this archive identity by primary id
-  // OR by explicit archiveId link occupies the slot. This OR is collision
-  // detection only: it forces "conflict", it never green-lights "match". A bare
-  // occupant with no transition-in is a collision, not a clean "absent" slot,
-  // because archiveCapturedProgram() would then either skip the linked archive
-  // (id already present) or push a second archive for the same identity.
-  const occupants = history.filter(h => h?.id === archiveId || h?.archiveId === archiveId);
-  if (!isPlainStateObject(tin)) {
+  const succId = proposal?.successor?.programId;
+  const predId = proposal?.predecessor?.programId;
+  const transId = proposal?.transitionId;
+  const propHash = proposal?.proposalHash;
+  if (typeof succId !== "string" || !succId.trim() ||
+      typeof predId !== "string" || !predId.trim() ||
+      typeof transId !== "string" || !transId.trim() ||
+      typeof propHash !== "string" || !propHash.trim() ||
+      typeof archiveId !== "string" || !archiveId.trim() ||
+      archiveId !== predId) {
+    return "conflict";
+  }
+
+  const activeId = snapshot?.programMeta?.id;
+  const history = Array.isArray(snapshot?.programHistory) ? snapshot.programHistory : [];
+  const occupants = history.filter(h => h && (h.id === archiveId || h.archiveId === archiveId));
+
+  if (activeId === succId) {
+    const tin = snapshot?.programMeta?.transitionIn;
+    if (!isPlainStateObject(tin)) return "conflict";
+    const agree =
+      tin.status === "committed" &&
+      tin.transitionId === transId &&
+      tin.proposalHash === propHash &&
+      tin.archiveId === archiveId &&
+      tin.successor?.programId === succId &&
+      tin.predecessor?.programId === predId;
+    if (!agree) return "conflict";
+    if (occupants.length !== 1) return "conflict";
+    const link = occupants[0];
+    const exact =
+      link.id === archiveId &&
+      link.archiveId === archiveId &&
+      link.transitionOut?.transitionId === transId &&
+      link.transitionOut?.proposalHash === propHash &&
+      link.transitionOut?.successorProgramId === succId;
+    return exact ? "match" : "conflict";
+  }
+
+  if (activeId === predId) {
+    if (snapshot?.programMeta?.transitionIn?.transitionId === transId) return "conflict";
+    if (history.some(h => h?.transitionOut?.transitionId === transId)) return "conflict";
     return occupants.length === 0 ? "absent" : "conflict";
   }
-  const agree =
-    meta.id === proposal?.successor?.programId &&
-    tin.status === "committed" &&
-    tin.transitionId === proposal?.transitionId &&
-    tin.proposalHash === proposal?.proposalHash &&
-    tin.archiveId === archiveId &&
-    tin.successor?.programId === proposal?.successor?.programId &&
-    tin.predecessor?.programId === proposal?.predecessor?.programId;
-  if (!agree) return "conflict";
-  // Exactly one history row may exist for this archive identity, and it must
-  // carry BOTH identity fields bound to archiveId plus the exact transition-out
-  // link. A partial identity (only id, or only archiveId) or a divergent link
-  // is a conflicting record, never an already-committed one.
-  if (occupants.length !== 1) return "conflict";
-  const link = occupants[0];
-  const exact =
-    link.id === archiveId &&
-    link.archiveId === archiveId &&
-    link.transitionOut?.transitionId === proposal.transitionId &&
-    link.transitionOut?.proposalHash === proposal.proposalHash &&
-    link.transitionOut?.successorProgramId === proposal.successor.programId;
-  return exact ? "match" : "conflict";
+
+  return "conflict";
 }
 const repforgeProgramTransitionAdapter = {
   async proposeSibling(input = {}) {
@@ -6757,7 +6796,7 @@ const repforgeProgramTransitionAdapter = {
         updated: confirmedAt,
       };
 
-      draftProposal.program = cloneSnapshot(succInstance.program);
+      draftProposal.program = new Program(succInstance.program, snapshotLookup(draftProposal.customExercises)).toJSON();
       draftProposal.programMeta = successorMeta;
       // draftProposal.programHistory already carries the single archive entry that
       // archiveCapturedProgram(capture) pushed before the lock — leave it untouched.

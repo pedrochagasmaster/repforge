@@ -1461,6 +1461,234 @@ async function main() {
 
     await ctx3.close();
 
+    // -------------------------------------------------------------------------
+    // Step 14: Chained transition A -> B -> C and idempotent retry under lock
+    // Real compiler pair, complete proposal mapping, verifies exact two
+    // revisions, two archives, both links, no identity loss, negative archive
+    // collision at B's identity, and duplicate B->C retry as alreadyCommitted.
+    // -------------------------------------------------------------------------
+    console.log("\n14. Chained transition A -> B -> C and idempotent retry");
+    const ctx14 = await browser.newContext();
+    const page14 = await ctx14.newPage();
+    page14.on("dialog", (d) => d.dismiss().catch(() => {}));
+    await page14.goto(BASE);
+    await waitForAppBoot(page14, { base: BASE });
+    await clearStorage(page14);
+    await page14.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page14, { base: BASE });
+
+    const env14 = await setupPredecessorWithSentinelAndDraft(page14, "chain14");
+    const predAId = env14.predecessorProgramId;
+    const revA = env14.predecessorRevision;
+
+    // Transition 1: A -> B (lower frequency: 4 -> 3)
+    const propResAB = await proposeLowerFrequencySibling(page14, {
+      transitionId: "tr_p6c_chain_ab",
+      successorProgramId: "prog_p6c_chain_b",
+      createdAt: "2026-10-03T10:00:00.000Z",
+    });
+    check(propResAB?.ok === true, "proposal A->B created", propResAB?.code);
+    const proposalAB = propResAB.proposal;
+
+    const confirmArgsAB = {
+      proposal: proposalAB,
+      transitionId: proposalAB.transitionId,
+      successorProgramId: proposalAB.successor.programId,
+      confirmedAt: "2026-10-03T10:10:00.000Z",
+      proposalHash: proposalAB.proposalHash,
+      acknowledgedDraftRaw: env14.preDraftRaw,
+    };
+    const confirmAB = await confirmTransition(page14, confirmArgsAB);
+    check(confirmAB?.ok === true && confirmAB?.committed === true && confirmAB?.localOk === true && confirmAB?.idbOk === true,
+      "transition A->B committed successfully", confirmAB);
+
+    await page14.evaluate(() => window.__repforgeStorage.flush());
+    await page14.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page14, { base: BASE });
+
+    const replicasB = await readReplicas(page14);
+    check(replicasB.local.programId === "prog_p6c_chain_b" && replicasB.idb.programId === "prog_p6c_chain_b",
+      "both replicas hold program B after A->B");
+    check(replicasB.local.revision === revA + 1 && replicasB.idb.revision === revA + 1,
+      "revision advanced by 1 to R+1 after A->B");
+    check(replicasB.local.historyLen === 1 && replicasB.idb.historyLen === 1,
+      "exactly 1 archive entry exists after A->B");
+
+    // Negative collision at B's new archive identity:
+    // If an occupant exists for B's archive identity, confirmTransition must fail typed
+    // conflicting_transition_record before committing any mutation.
+    const collRes = await page14.evaluate(async (preDraftRaw) => {
+      const s = window.__repforgeWorkoutDraft.state();
+      const origHist = s.programHistory || [];
+      s.programHistory = [...origHist, {
+        id: "prog_p6c_chain_b",
+        archiveId: "prog_p6c_chain_b",
+      }];
+      await window.__repforgeCommitProposedState(s);
+      await window.__repforgeStorage.flush();
+
+      // Propose B->C on this state
+      const pRes = await window.__repforgeProgramTransition.proposeSibling({
+        targetConstraint: { sessionMinutes: 60 },
+        diagnosis: {
+          kind: "sessions_too_long", answers: { sessionMinutes: 60 },
+          eligibleEvidenceIds: ["session-time-avg-105-of-90"], insufficientEvidenceReasons: [],
+        },
+        transitionId: "tr_p6c_chain_coll",
+        successorProgramId: "prog_p6c_chain_c_coll",
+        createdAt: "2026-10-03T11:00:00.000Z",
+      });
+      const res = await window.__repforgeProgramTransition.confirmTransition({
+        proposal: pRes.proposal,
+        transitionId: pRes.proposal.transitionId,
+        successorProgramId: pRes.proposal.successor.programId,
+        confirmedAt: "2026-10-03T11:10:00.000Z",
+        proposalHash: pRes.proposal.proposalHash,
+        acknowledgedDraftRaw: preDraftRaw,
+      });
+
+      // Restore clean history on B
+      s.programHistory = origHist;
+      await window.__repforgeCommitProposedState(s);
+      await window.__repforgeStorage.flush();
+      return res;
+    }, env14.preDraftRaw);
+
+    check(collRes?.ok === false && collRes?.committed === false,
+      "negative collision at B archive identity rejected without commit", collRes);
+    check(collRes?.invalid === true && collRes?.code === "conflicting_transition_record",
+      "negative collision at B archive identity returns typed conflicting_transition_record", collRes);
+
+    await page14.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page14, { base: BASE });
+
+    // Valid Transition 2 Proposal: B -> C (shorter session: 90 -> 60)
+    const curReplicasB = await readReplicas(page14);
+    const revB = curReplicasB.local.revision;
+
+    const propResBC = await page14.evaluate(async () => window.__repforgeProgramTransition.proposeSibling({
+      targetConstraint: { sessionMinutes: 60 },
+      diagnosis: {
+        kind: "sessions_too_long", answers: { sessionMinutes: 60 },
+        eligibleEvidenceIds: ["session-time-avg-105-of-90"], insufficientEvidenceReasons: [],
+      },
+      transitionId: "tr_p6c_chain_bc",
+      successorProgramId: "prog_p6c_chain_c",
+      createdAt: "2026-10-03T11:00:00.000Z",
+    }));
+    check(propResBC?.ok === true, "proposal B->C created with real compiler pair", propResBC?.code);
+    const proposalBC = propResBC.proposal;
+    check(proposalBC.predecessor.programId === "prog_p6c_chain_b",
+      "proposal B->C correctly identifies B as predecessor");
+    check(proposalBC.predecessor.durableRevision === revB,
+      "proposal B->C pins predecessor revision R+1");
+
+    const confirmArgsBC = {
+      proposal: proposalBC,
+      transitionId: proposalBC.transitionId,
+      successorProgramId: proposalBC.successor.programId,
+      confirmedAt: "2026-10-03T11:10:00.000Z",
+      proposalHash: proposalBC.proposalHash,
+      acknowledgedDraftRaw: env14.preDraftRaw,
+    };
+
+    // Valid confirm B -> C
+    const confirmBC = await confirmTransition(page14, confirmArgsBC);
+    check(confirmBC?.ok === true && confirmBC?.committed === true && confirmBC?.localOk === true && confirmBC?.idbOk === true,
+      "chained transition B->C committed successfully", confirmBC);
+
+    await page14.evaluate(() => window.__repforgeStorage.flush());
+    await page14.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page14, { base: BASE });
+
+    // Assert durable state after B -> C
+    const replicasC = await readReplicas(page14);
+    check(replicasC.local.programId === "prog_p6c_chain_c" && replicasC.idb.programId === "prog_p6c_chain_c",
+      "both replicas hold successor C after B->C");
+    check(replicasC.local.revision === revB + 1 && replicasC.idb.revision === revB + 1,
+      "revision advanced exactly twice to R+2 in both replicas after chained transitions",
+      { expected: revB + 1, local: replicasC.local.revision, idb: replicasC.idb.revision });
+    check(replicasC.local.historyLen === 2 && replicasC.idb.historyLen === 2,
+      "exactly two archive entries exist in both replicas after B->C");
+
+    // Successor C transitionIn identity and links
+    check(replicasC.local.transitionIn?.status === "committed" &&
+          replicasC.local.transitionIn?.transitionId === proposalBC.transitionId &&
+          replicasC.local.transitionIn?.proposalHash === proposalBC.proposalHash &&
+          replicasC.local.transitionIn?.archiveId === "prog_p6c_chain_b" &&
+          replicasC.local.transitionIn?.successor?.programId === "prog_p6c_chain_c" &&
+          replicasC.local.transitionIn?.predecessor?.programId === "prog_p6c_chain_b",
+      "successor C transitionIn identity and links exact");
+
+    // Find archive B and archive A
+    const histLocal = replicasC.local.programHistory || [];
+    const arcB = histLocal.find((h) => h?.id === "prog_p6c_chain_b");
+    const arcA = histLocal.find((h) => h?.id === predAId);
+
+    check(arcB != null && arcB.archiveId === "prog_p6c_chain_b" &&
+          arcB.transitionOut?.transitionId === proposalBC.transitionId &&
+          arcB.transitionOut?.proposalHash === proposalBC.proposalHash &&
+          arcB.transitionOut?.successorProgramId === "prog_p6c_chain_c",
+      "archive B carries exact B->C transitionOut link and matching archiveId");
+    check(arcB?.meta?.transitionIn?.transitionId === proposalAB.transitionId &&
+          arcB?.meta?.transitionIn?.archiveId === predAId,
+      "archive B retains inherited A->B transitionIn provenance value-identically");
+
+    check(arcA != null && arcA.archiveId === predAId &&
+          arcA.transitionOut?.transitionId === proposalAB.transitionId &&
+          arcA.transitionOut?.proposalHash === proposalAB.proposalHash &&
+          arcA.transitionOut?.successorProgramId === "prog_p6c_chain_b",
+      "archive A carries exact A->B transitionOut link and matching archiveId");
+
+    check(isDeepStrictEqual(replicasC.local.transitionIn, replicasC.idb.transitionIn),
+      "transitionIn deep-equal across replicas after chained B->C");
+    check(isDeepStrictEqual(replicasC.local.programHistory, replicasC.idb.programHistory),
+      "programHistory deep-equal across replicas after chained B->C");
+    check(replicasC.local.storageDraftTransaction == null && replicasC.idb.storageDraftTransaction == null,
+      "no _storageDraftTransaction marker in either replica after chained B->C");
+
+    // Live clone agrees
+    const liveC = await page14.evaluate(() => {
+      const s = window.__repforgeWorkoutDraft.state();
+      return {
+        programId: s.programMeta?.id,
+        historyLen: (s.programHistory || []).length,
+        tin: s.programMeta?.transitionIn,
+      };
+    });
+    check(liveC.programId === "prog_p6c_chain_c" && liveC.historyLen === 2 &&
+          liveC.tin?.transitionId === proposalBC.transitionId,
+      "live clone agrees with durable state on programId, history length, and transitionIn");
+
+    // Log and DraftV2 preserved
+    check(isDeepStrictEqual(replicasC.local.log, env14.logSentinel) &&
+          isDeepStrictEqual(replicasC.idb.log, env14.logSentinel),
+      "log sentinel intact in both replicas after chained B->C");
+    const postDraftRaw14 = await page14.evaluate((k) => localStorage.getItem(k), DRAFT_KEY);
+    const postCheckpointRaw14 = await page14.evaluate((k) => localStorage.getItem(k), CHECKPOINT_KEY);
+    check(postDraftRaw14 === env14.preDraftRaw && postCheckpointRaw14 === env14.preCheckpointRaw,
+      "DraftV2 raw and checkpoint byte-identical after chained B->C");
+
+    // Zero lingering persistence artifacts
+    const lingering14 = await page14.evaluate(() => Object.keys(localStorage).filter((k) =>
+      k.startsWith("repforge_pending_v1") || k.startsWith("repforge_draft_v1:closing") ||
+      k.startsWith("repforge_draft_v1:pending")
+    ));
+    check(lingering14.length === 0, "zero pending journal, DraftV2 sidecar, or closing artifacts after chained B->C", lingering14);
+
+    // Idempotent duplicate retry of B->C
+    const retryBC = await confirmTransition(page14, confirmArgsBC);
+    check(retryBC?.ok === true && retryBC?.committed === true && retryBC?.alreadyCommitted === true,
+      "duplicate B->C retry returns alreadyCommitted: true", retryBC);
+
+    const afterRetry14 = await readReplicas(page14);
+    check(afterRetry14.local.revision === revB + 1 && afterRetry14.idb.revision === revB + 1,
+      "duplicate B->C retry advanced no revision in either replica");
+    check(afterRetry14.local.historyLen === 2 && afterRetry14.idb.historyLen === 2,
+      "duplicate B->C retry created no extra archive");
+
+    await ctx14.close();
+
     await context.close();
   } finally {
     await browser.close();
