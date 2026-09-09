@@ -148,6 +148,52 @@ function classifyRecoveryCarrier(value){
   return{kind:"known",valid,malformed,conflicts,
     needsEvidence:malformed.length>0||conflicts.length>0};
 }
+function recoveryCarrierConflictGroups(records){
+  const targets=new Map();
+  for(const record of records){
+    const target=record.diff.recoveryWeek.blockId;
+    if(!targets.has(target))targets.set(target,[]);
+    targets.get(target).push(record)}
+  return[...targets].filter(([,group])=>group.length>1)
+    .map(([targetBlockId,group])=>({targetBlockId,records:group}))
+}
+async function validateRecoveryCarrierRecord(snapshot,record){
+  const Transition=typeof RepForgeProgramTransition!=="undefined"?RepForgeProgramTransition:null;
+  const Compiler=typeof ProgramCompiler!=="undefined"?ProgramCompiler:null;
+  const catalogue=typeof EXERCISE_LIBRARY!=="undefined"?EXERCISE_LIBRARY:null;
+  if(!Transition||typeof Transition.validateRecoveryRecord!=="function"||
+    typeof Transition.approvedRecoveryPolicy!=="function"||!Compiler||
+    !Compiler.VERSIONS||typeof Compiler.VERSIONS!=="object")return{kind:"unavailable"};
+  const instance=recoveryCompilerInstance(snapshot,Compiler,catalogue);
+  if(!instance)return{kind:"unavailable"};
+  let validation;
+  try{
+    validation=await Transition.validateRecoveryRecord(record,{
+      predecessor:cloneSnapshot(record.predecessor),
+      predecessorInstance:instance,
+      approvedPolicy:Transition.approvedRecoveryPolicy(),
+      supportedVersions:Compiler.VERSIONS,
+      // Validate each candidate independently. The candidate itself is the
+      // only repeat context, so two independently valid records can become a
+      // deterministic target conflict after validation.
+      existingRecoveryRecords:[record],
+    });
+  }catch{return{kind:"unavailable"}}
+  if(validation?.ok===true&&validation.record)return{kind:"valid"};
+  if(!validation||typeof validation!=="object")return{kind:"unavailable"};
+  return{kind:"malformed"};
+}
+async function classifyRecoveryCarrierSemantics(snapshot,classification){
+  const valid=[],malformed=[...classification.malformed];
+  for(const record of classification.valid){
+    const result=await validateRecoveryCarrierRecord(snapshot,record);
+    if(result.kind==="unavailable")return{kind:"unavailable"};
+    if(result.kind==="valid")valid.push(record);
+    else malformed.push(record)}
+  const conflicts=recoveryCarrierConflictGroups(valid);
+  return{kind:"known",valid,malformed,conflicts,
+    needsEvidence:malformed.length>0||conflicts.length>0};
+}
 function isValidStateWithoutRecoveryCarrier(value){
   if(!isPlainStateObject(value)||!Object.prototype.hasOwnProperty.call(value,"recoveryTransitions"))return false;
   const copy=cloneSnapshot(value);delete copy.recoveryTransitions;
@@ -173,7 +219,8 @@ function sourceReplicaForCarrierDecision(decision,localRead,idbRead){
   const idbClass=idbRead?.recoveryCarrierClassification;
   const equal=localRead?.status==="valid"&&idbRead?.status==="valid"&&
     snapshotsEqual(localRead.parsed,idbRead.parsed);
-  if(equal&&localClass?.needsEvidence&&idbClass?.needsEvidence)return"both";
+  if(equal&&localClass?.kind==="known"&&idbClass?.kind==="known"&&
+    (localClass.valid.length+localClass.malformed.length)>0)return"both";
   return recoverySourceReplica(decision?.source);
 }
 async function recoverySha256(raw){
@@ -191,8 +238,13 @@ function mergeRecoveryQuarantine(list,entry){
   return true;
 }
 async function normalizeRecoveryCarrierSnapshot(snapshot,sourceReplica,{priorQuarantine=[]}={}){
-  const classification=classifyRecoveryCarrier(snapshot?.recoveryTransitions);
+  let classification=classifyRecoveryCarrier(snapshot?.recoveryTransitions);
   if(classification.kind!=="known")return{kind:classification.kind,snapshot};
+  let semantic;
+  try{semantic=await classifyRecoveryCarrierSemantics(snapshot,classification)}
+  catch{return{kind:"full-recovery",snapshot}}
+  if(semantic.kind!=="known")return{kind:"full-recovery",snapshot};
+  classification=semantic;
   const carrier=snapshot.recoveryTransitions;
   const normalized={schemaVersion:1,records:classification.valid.map(cloneSnapshot),quarantine:[]};
   for(const entry of carrier.quarantine)
@@ -203,7 +255,8 @@ async function normalizeRecoveryCarrierSnapshot(snapshot,sourceReplica,{priorQua
   const addEvidence=async(raw,reason)=>{
     if(typeof raw!=="string"||raw.length>TRANSITION_VALUE_LIMITS.stringLength)
       return{kind:"full-recovery"};
-    const digest=await recoverySha256(raw);
+    let digest;
+    try{digest=await recoverySha256(raw)}catch{return{kind:"full-recovery"}}
     const entry={schemaVersion:1,digest,raw,sourceReplica,detectedAt:detectedAt(),reason};
     mergeRecoveryQuarantine(normalized.quarantine,entry);
     if(!isBoundedTransitionValue(normalized))return{kind:"full-recovery"};
@@ -478,9 +531,12 @@ async function refreshPersistenceHead(){
     return{head:cloneSnapshot(persistHead),conflict:true,draftTransaction:true};
   const current=cloneSnapshot(persistHead);
   let disk=cloneSnapshot(decision.snapshot);
-  const normalized=await normalizeRecoveryCarrierSnapshot(
+  let normalized;
+  try{normalized=await normalizeRecoveryCarrierSnapshot(
     disk,sourceReplicaForCarrierDecision(decision,local,idb),{
-      priorQuarantine:current?.recoveryTransitions?.quarantine||[]});
+      priorQuarantine:current?.recoveryTransitions?.quarantine||[]})}
+  catch{return{head:current,conflict:true,recovery:true}}
+  if(normalized.kind==="full-recovery")return{head:current,conflict:true,recovery:true};
   if(normalized.kind==="known")disk=normalized.snapshot;
   const diskRev=readRevision(disk),currentRev=readRevision(current);
   if(diskRev>currentRev)return{head:disk};
@@ -14842,7 +14898,9 @@ async function resolveBootReplicas(candidate=null){
         heal:candidate.source==="local"?"idb":"local"}}
     if(decision.kind==="chosen"){
       const sourceReplica=sourceReplicaForCarrierDecision(decision,local,idb);
-      const normalized=await normalizeRecoveryCarrierSnapshot(decision.snapshot,sourceReplica);
+      let normalized;
+      try{normalized=await normalizeRecoveryCarrierSnapshot(decision.snapshot,sourceReplica)}
+      catch{normalized={kind:"full-recovery"}};
       if(normalized.kind==="full-recovery")
         return{kind:"unresolved",reason:"no-valid",
           local:{...local,status:"invalid"},idb:{...idb,status:"invalid"}};
