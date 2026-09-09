@@ -2433,7 +2433,10 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
       },
       { lang, unit }
     );
-    await page.click("#startWorkout").catch(() => {});
+    if (!(await page.locator("#workoutShell").isVisible())) {
+      await page.click("#startWorkout");
+      await page.waitForSelector("#workoutShell:not(.hidden)");
+    }
     const info = await page.evaluate((expected) => {
       const lbl = document.querySelector("#bodyweightLabel");
       const span = lbl?.querySelector("span");

@@ -18,7 +18,15 @@ function repoPath(path, cwd = ROOT) { return relative(cwd, resolve(cwd, path)).r
 
 export function resolveAffectedBase(cwd = ROOT, requested) {
   if (requested) {
-    try { return git(["rev-parse", "--verify", requested], cwd).trim(); } catch { return null; }
+    // A branch/ref means "changes made by this branch", so use its fork point.
+    // This keeps long-lived worktrees from retesting unrelated commits that
+    // landed on main after the branch began. A detached commit still resolves
+    // to the same value when it is already an ancestor of HEAD.
+    try { return git(["merge-base", "HEAD", requested], cwd).trim(); }
+    catch {
+      try { return git(["rev-parse", "--verify", requested], cwd).trim(); }
+      catch { return null; }
+    }
   }
   for (const ref of ["origin/main", "main"]) {
     try { return git(["merge-base", "HEAD", ref], cwd).trim(); } catch {}

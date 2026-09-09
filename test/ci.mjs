@@ -73,7 +73,7 @@ test("git selection includes working-tree and untracked changes, and visual diff
   writeFileSync(join(cwd, "runtime.js"), "changed\n");
   writeFileSync(join(cwd, "untracked.mjs"), "export {};\n");
   assert.deepEqual(changedFiles(base, { cwd }).sort(), ["note with spaces.md", "runtime.js"]);
-  assert.deepEqual(changedFilesForTests({ cwd, base }).files.sort(), ["runtime.js", "untracked.mjs"]);
+  assert.deepEqual(changedFilesForTests({ cwd, base }).files.sort(), ["note with spaces.md", "runtime.js", "untracked.mjs"]);
   assert.equal(changedFiles("0".repeat(40), { cwd }), null);
   assert.equal(changedFilesForTests({ cwd, base: "does-not-exist" }).files, null);
 });

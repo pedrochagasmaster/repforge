@@ -21,6 +21,12 @@ node tools/run-tests.mjs entry --suite program-editor-sorting
 node tools/run-tests.mjs all --list
 ```
 
+### Agent/local feedback loop
+
+`node tools/run-tests.mjs affected --base origin/main` is the default implementation check. It compares the selected base with HEAD **and the current working tree**, includes untracked files, follows static test/tool imports, and applies a small reviewed production-domain map. Unknown executable inputs fail safe to the full inventory. It is a developer-feedback selector, not a replacement for required CI regression.
+
+The runner is quiet by default: one timing/result line per suite, with a bounded excerpt only on failure. Full output is always retained under `.ci-results/`. Add `--verbose` to stream child output. After a failure, rerun one exact suite with `<lane> --suite <stem>`; after a coherent integration packet rerun the affected set/lane; reserve local `all` for plan-required checkpoints and final regression when it is actually required. If affected browser checks are selected and localhost:8000 is unreachable, the runner starts and cleans up a temporary analytics-disabled preview.
+
 The fast lane needs npm dependencies, but not an installed browser or server.
 The inventory checks every tracked or unignored test script: runnable suites
 must be scheduled; imported helpers and manual screenshot utilities have explicit
