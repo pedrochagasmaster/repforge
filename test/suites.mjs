@@ -47,6 +47,7 @@ export const SUITES = {
     s("test/ci-browser.mjs"),
     s("test/program-entry-conflict-runtime.mjs"),
     s("test/sw-upgrade.mjs"),
+    s("test/program-transition-sw-upgrade.mjs"),
     s("test/program-entry-rules-runtime.mjs"),
     s("test/persistence-artifacts.mjs", ["--self-test"]),
     s("test/persistence.mjs"),

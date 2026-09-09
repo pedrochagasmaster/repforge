@@ -65,12 +65,16 @@ function isSafeProgressionFields(value){
 function isSafeProgressionMeta(value){
   if(value==null)return true;
   if(!isPlainStateObject(value))return false;
+  if(Object.prototype.hasOwnProperty.call(value,"transitionIn")&&value.transitionIn!=null&&
+    !isCoherentV1TransitionIn(value.transitionIn))return false;
   for(const key of ["progressionRelations","progressionModifiers","progressionIncompatibilities"])
     if(Object.prototype.hasOwnProperty.call(value,key)&&
       (!Array.isArray(value[key])||!isBoundedProgressionValue(value[key])))return false;
   return true}
 function isSafeProgramHistoryEntry(entry){
   if(!isPlainStateObject(entry))return false;
+  if(Object.prototype.hasOwnProperty.call(entry,"transitionOut")&&entry.transitionOut!=null&&
+    !isCoherentV1TransitionOut(entry.transitionOut))return false;
   if(Object.prototype.hasOwnProperty.call(entry,"meta")&&!isSafeProgressionMeta(entry.meta))return false;
   if(!Object.prototype.hasOwnProperty.call(entry,"program"))return true;
   return Array.isArray(entry.program)&&entry.program.every(isSafeProgressionFields)}
