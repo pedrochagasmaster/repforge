@@ -111,6 +111,10 @@ async function readDraftBytes(page) {
   return page.evaluate(({ draft, checkpoint }) => ({
     raw: localStorage.getItem(draft),
     checkpoint: localStorage.getItem(checkpoint),
+    artifacts: Object.fromEntries(Array.from({ length: localStorage.length }, (_, index) => localStorage.key(index))
+      .filter((key) => key?.startsWith(`${draft}:`))
+      .sort()
+      .map((key) => [key, localStorage.getItem(key)])),
   }), { draft: DRAFT_KEY, checkpoint: DRAFT_CHECKPOINT_KEY });
 }
 
@@ -692,6 +696,169 @@ async function runLiveDraftGuard(browser) {
   }
 }
 
+async function runDeferredOnboardingGuard(browser, edited) {
+  console.log(`\n6${edited ? "b" : "a"}. Deferred onboarding refuses a newly present ${edited ? "edited" : "pristine"} DraftV2`);
+  const { context, page } = await openFresh(browser);
+  try {
+    await activateRealProgram(page, `Deferred ${edited ? "edited" : "pristine"} guard oracle`);
+    const deferred = await page.evaluate(() => window.__repforgeCommitNextBlock("onboarding"));
+    check(deferred?.deferred === true && deferred?.committed !== true,
+      "an onboarding block start with no draft defers to the entry flow", deferred);
+    // The deferred entry surface is not the draft boundary. Hide it while
+    // creating the exact V2 value that must be refused at final activation.
+    await page.evaluate(() => window.closeOnboarding?.());
+    await startWorkout(page);
+    if (edited) {
+      const edit = await page.evaluate(async () => {
+        const draft = window.__repforgeWorkoutDraft.current();
+        const exerciseId = draft?.exerciseOrder?.[0];
+        const setId = draft?.exercises?.[exerciseId]?.setOrder?.[0];
+        if (!exerciseId || !setId) return { status: "missing-set" };
+        const result = await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+          exerciseInstanceId: exerciseId,
+          setId,
+          field: "load",
+          value: "72.5",
+        });
+        await window.__repforgeWorkoutDraft.flush();
+        return result;
+      });
+      check(edit?.status === "applied", "the deferred edited case has an acknowledged V2 edit", edit);
+    }
+    await flush(page);
+    const beforeState = await readReplicas(page);
+    const beforeDraft = await readDraftBytes(page);
+    const beforeCheckpointKind = JSON.parse(beforeDraft.checkpoint || "null")?.kind;
+    const result = await page.evaluate(async () => {
+      const current = window.__repforgeWorkoutDraft.state();
+      return window.__repforgeFinalizeProgramSetup({
+        exercises: current.program,
+        name: current.programMeta?.name || "Deferred guard",
+        answers: { goal: "strength_hypertrophy", daysPerWeek: 4 },
+        destination: "log",
+        origin: "block",
+        draftConfirmed: true,
+        telemetryRoute: "custom",
+        entrySource: { route: "custom" },
+        baseProposal: current,
+        programStructure: current.programMeta?.programStructure || null,
+      });
+    });
+    await flush(page);
+    const afterState = await readReplicas(page);
+    const afterDraft = await readDraftBytes(page);
+    check(result?.committed !== true && result?.localOk === false && result?.idbOk === false &&
+      result?.code === "live_draft_blocks_next_block",
+      "deferred onboarding refuses at the later activation boundary before a commit", result);
+    check(afterState.localRaw === beforeState.localRaw && afterState.idbRaw === beforeState.idbRaw,
+      "deferred onboarding refusal performs zero durable state writes");
+    check(afterState.local?._storageRevision === beforeState.local?._storageRevision &&
+      afterState.idb?._storageRevision === beforeState.idb?._storageRevision &&
+      afterState.local?.programMeta?.id === beforeState.local?.programMeta?.id &&
+      afterState.local?.programMeta?.blockId === beforeState.local?.programMeta?.blockId,
+      "deferred onboarding refusal preserves program identity, block identity, and revision");
+    check(afterDraft.raw === beforeDraft.raw && afterDraft.checkpoint === beforeDraft.checkpoint &&
+      sameValue(afterDraft.artifacts, beforeDraft.artifacts),
+      "deferred onboarding refusal preserves exact canonical, pending, and checkpoint bytes", {
+        raw: afterDraft.raw === beforeDraft.raw,
+        checkpoint: afterDraft.checkpoint === beforeDraft.checkpoint,
+        artifacts: sameValue(afterDraft.artifacts, beforeDraft.artifacts),
+      });
+    check(beforeCheckpointKind !== "tombstone" && JSON.parse(afterDraft.checkpoint || "null")?.kind !== "tombstone",
+      "deferred onboarding refusal never creates a DraftV2 tombstone", {
+        before: beforeCheckpointKind,
+        after: JSON.parse(afterDraft.checkpoint || "null")?.kind,
+      });
+  } finally {
+    await context.close();
+  }
+}
+
+async function runCheckpointAuthorityGuard(browser) {
+  console.log("\n7. A committed checkpoint remains authoritative after a legacy canonical overwrite");
+  const { context, page } = await openFresh(browser);
+  try {
+    await activateRealProgram(page, "Checkpoint authority guard oracle");
+    await startWorkout(page);
+    await flush(page);
+    const acknowledged = await readDraftBytes(page);
+    const acknowledgedCheckpoint = JSON.parse(acknowledged.checkpoint || "null");
+    check(acknowledgedCheckpoint?.kind === "committed" && typeof acknowledgedCheckpoint?.raw === "string",
+      "the authority case starts from a committed DraftV2 checkpoint", acknowledgedCheckpoint?.kind);
+    const legacyRaw = JSON.stringify({ __day: "Day 1", __touched: [] });
+    await page.evaluate(({ key, raw }) => localStorage.setItem(key, raw), { key: DRAFT_KEY, raw: legacyRaw });
+    const beforeState = await readReplicas(page);
+    const beforeDraft = await readDraftBytes(page);
+    check(beforeDraft.raw === legacyRaw && beforeDraft.checkpoint === acknowledged.checkpoint,
+      "a legacy writer can be represented without changing the acknowledged checkpoint bytes");
+    const result = await page.evaluate(() => window.__repforgeCommitNextBlock("repeat"));
+    await flush(page);
+    const afterState = await readReplicas(page);
+    const afterDraft = await readDraftBytes(page);
+    check(result?.committed !== true && result?.localOk === false && result?.idbOk === false &&
+      result?.code === "live_draft_blocks_next_block",
+      "a checkpoint-acknowledged DraftV2 blocks repeat after canonical legacy overwrite", result);
+    check(afterState.localRaw === beforeState.localRaw && afterState.idbRaw === beforeState.idbRaw &&
+      afterState.local?._storageRevision === beforeState.local?._storageRevision &&
+      afterState.idb?._storageRevision === beforeState.idb?._storageRevision,
+      "checkpoint-authority refusal preserves both replicas and their revision");
+    check(afterDraft.raw === beforeDraft.raw && afterDraft.raw === legacyRaw &&
+      afterDraft.checkpoint === beforeDraft.checkpoint &&
+      afterDraft.checkpoint === acknowledged.checkpoint &&
+      sameValue(afterDraft.artifacts, beforeDraft.artifacts),
+      "checkpoint-authority refusal preserves legacy canonical and acknowledged V2 checkpoint bytes", {
+        canonical: afterDraft.raw === legacyRaw,
+        checkpoint: afterDraft.checkpoint === acknowledged.checkpoint,
+        artifacts: sameValue(afterDraft.artifacts, beforeDraft.artifacts),
+      });
+    check(JSON.parse(afterDraft.checkpoint || "null")?.kind !== "tombstone",
+      "checkpoint-authority refusal does not create a tombstone");
+  } finally {
+    await context.close();
+  }
+}
+
+async function runBlockGuardNegativeControls(browser) {
+  console.log("\n8. No-V2, legacy-only, and tombstone controls still permit ordinary starts");
+  const cases = [
+    { label: "no V2", prepare: async () => {} },
+    { label: "legacy-only", prepare: async (page) => {
+      await page.evaluate((key) => localStorage.setItem(key, JSON.stringify({ __day: "Day 1" })), DRAFT_KEY);
+    } },
+    { label: "tombstone", prepare: async (page) => {
+      await startWorkout(page);
+      const cleared = await page.evaluate(() => window.__repforgeWorkoutDraft.clear());
+      if (!cleared) throw new Error("failed to create the tombstone control");
+      await flush(page);
+      const checkpoint = await page.evaluate(() => window.__repforgeWorkoutDraft.checkpoint());
+      check(checkpoint?.status === "valid" && checkpoint.value?.kind === "tombstone",
+        "tombstone control has an acknowledged removal marker", checkpoint);
+    } },
+  ];
+  for (const control of cases) {
+    const { context, page } = await openFresh(browser);
+    try {
+      await activateRealProgram(page, `${control.label} control`);
+      await control.prepare(page);
+      await flush(page);
+      const before = await readReplicas(page);
+      const result = await page.evaluate(() => window.__repforgeCommitNextBlock("repeat"));
+      await page.waitForFunction((revision) =>
+        JSON.parse(localStorage.getItem("repforge_v1") || "null")?._storageRevision === revision + 1,
+      before.local?._storageRevision, { timeout: 10000 });
+      await flush(page);
+      const after = await readReplicas(page);
+      check(result?.committed === true,
+        `${control.label} does not trigger the live DraftV2 block-start guard`, result);
+      check(after.local?._storageRevision === before.local?._storageRevision + 1 &&
+        after.idb?._storageRevision === before.idb?._storageRevision + 1,
+        `${control.label} ordinary start advances both replicas exactly once`);
+    } finally {
+      await context.close();
+    }
+  }
+}
+
 async function main() {
   console.log(`052 R5 block identity oracle against ${BASE}`);
   await assertServingApp(BASE);
@@ -702,6 +869,10 @@ async function main() {
     await runLegacyBoot(browser);
     await runBackupBoundaries(browser);
     await runLiveDraftGuard(browser);
+    await runDeferredOnboardingGuard(browser, false);
+    await runDeferredOnboardingGuard(browser, true);
+    await runCheckpointAuthorityGuard(browser);
+    await runBlockGuardNegativeControls(browser);
   } finally {
     await browser.close();
   }
