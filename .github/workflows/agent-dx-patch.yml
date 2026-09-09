@@ -1,0 +1,95 @@
+# Temporary focused patch/validation bridge for PR codex/agent-test-dx; removed before merge.
+name: Agent DX focused validation
+on: pull_request
+permissions:
+  contents: read
+jobs:
+  validate:
+    if: github.event.pull_request.head.repo.full_name == 'pedrochagasmaster/repforge' && github.event.pull_request.head.ref == 'codex/agent-test-dx'
+    permissions:
+      contents: write
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: test/package-lock.json
+      - name: Apply exact reviewed large-file edits
+        run: |
+          python3 - <<'PY'
+          import pathlib, subprocess
+          # Remove three swallowed 30s waits: enter the workout once, then mutate language/unit in place.
+          path=pathlib.Path('test/accessibility.mjs')
+          text=path.read_text()
+          before='    await page.click("#startWorkout").catch(() => {});\n'
+          after='    if (!(await page.locator("#workoutShell").isVisible())) {\n      await page.click("#startWorkout");\n      await page.waitForSelector("#workoutShell:not(.hidden)");\n    }\n'
+          assert text.count(before)==1
+          path.write_text(text.replace(before,after))
+          subprocess.run(['node','--check',str(path)],check=True)
+
+          # Put the low-token workflow where root-guidance readers see it.
+          path=pathlib.Path('AGENTS.md'); text=path.read_text()
+          anchor='- Browser suites are separate: they use pinned test-only npm dependencies under `test/` (Playwright, fast-check). In a fresh checkout run `(cd test && npm ci && npx playwright install chromium --with-deps)` before a browser gate. Do not add root or application dependencies, and do not use npm to run the app.\n'
+          addition=anchor+'- **Agent test loop:** during implementation run `node tools/run-tests.mjs affected --base origin/main` first. It is quiet by default, includes working-tree changes, and retains full logs under `.ci-results/`; use `--verbose` only when the bounded failure excerpt is insufficient. Rerun an exact failing suite while correcting it; do not repeatedly run `all` or a whole browser lane after every edit. Use broader affected regression after a coherent packet and the plan-required/full CI gate on the final clean candidate. See `docs/ci.md` and `test/AGENTS.md`.\n'
+          assert text.count(anchor)==1
+          path.write_text(text.replace(anchor,addition))
+
+          path=pathlib.Path('docs/ci.md'); text=path.read_text()
+          anchor='node tools/run-tests.mjs all --list\n```\n'
+          addition=anchor+'\n### Agent/local feedback loop\n\n`node tools/run-tests.mjs affected --base origin/main` is the default implementation check. It compares the selected base with HEAD **and the current working tree**, includes untracked files, follows static test/tool imports, and applies a small reviewed production-domain map. Unknown executable inputs fail safe to the full inventory. It is a developer-feedback selector, not a replacement for required CI regression.\n\nThe runner is quiet by default: one timing/result line per suite, with a bounded excerpt only on failure. Full output is always retained under `.ci-results/`. Add `--verbose` to stream child output. After a failure, rerun one exact suite with `<lane> --suite <stem>`; after a coherent integration packet rerun the affected set/lane; reserve local `all` for plan-required checkpoints and final regression when it is actually required. If affected browser checks are selected and localhost:8000 is unreachable, the runner starts and cleans up a temporary analytics-disabled preview.\n'
+          assert text.count(anchor)==1
+          path.write_text(text.replace(anchor,addition))
+
+          path=pathlib.Path('docs/agents/implementation-evidence.md'); text=path.read_text()
+          anchor='Run narrow checks during implementation. After committing a coherent slice,\nrecord its focused proof with `tools/record-verification.mjs` as documented in\n[tools](../../tools/README.md#record-verificationmjs). Keep reports outside the\nworktree and attach them to CI or the PR. The recorder captures command output,\nexit status, and Git state before and after execution. Its successful result\nmeans **command passed on an unchanged clean commit**, not **phase complete**.\n'
+          addition=anchor+'\nFor ordinary coding loops, use `node tools/run-tests.mjs affected --base origin/main` before choosing a broader gate. The runner is intentionally quiet; retained `.ci-results/` logs and failure artifacts are the evidence source, not thousands of passing terminal lines. Correct an exact failing suite first, then widen after the packet is coherent. Do not spend agent time/tokens repeatedly running full regression after each edit; full gates belong at the plan-defined checkpoint/final clean candidate.\n'
+          assert text.count(anchor)==1
+          path.write_text(text.replace(anchor,addition))
+          PY
+      - name: Prove runner and selection contracts
+        run: |
+          npm ci --prefix test
+          node --test test/ci.mjs
+          node tools/run-tests.mjs --check
+          node tools/run-tests.mjs affected --base origin/main --list
+      - name: Install browser for the known timeout regression
+        working-directory: test
+        run: npx playwright install --with-deps --only-shell chromium
+      - name: Prove accessibility suite without swallowed 30s waits
+        env:
+          REPFORGE_URL: http://localhost:8000/
+        run: |
+          node scripts/generate-posthog-config.mjs
+          mkdir -p .ci-results/focused
+          python3 -m http.server 8000 >.ci-results/focused/server.log 2>&1 &
+          for i in $(seq 1 30); do curl -sf http://localhost:8000/ >/dev/null && break; sleep 1; done
+          /usr/bin/time -f 'ACCESSIBILITY_ELAPSED=%e' -o .ci-results/focused/timing.txt node tools/run-tests.mjs workout --suite accessibility
+          cat .ci-results/focused/timing.txt
+      - name: Publish tested files as unattached blobs
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          python3 - <<'PY'
+          import hashlib,json,os,pathlib,urllib.request
+          for name in ['test/accessibility.mjs','AGENTS.md','docs/ci.md','docs/agents/implementation-evidence.md']:
+            data=pathlib.Path(name).read_bytes()
+            sha=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
+            req=urllib.request.Request('https://api.github.com/repos/pedrochagasmaster/repforge/git/blobs',data=json.dumps({'content':data.decode(),'encoding':'utf-8'}).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json'},method='POST')
+            with urllib.request.urlopen(req,timeout=30) as response: result=json.load(response)
+            assert result['sha']==sha,result
+            print(f'VERIFIED_BLOB {name} {sha}')
+          PY
+      - name: Retain focused timing and logs
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: agent-dx-focused-${{ github.sha }}
+          path: .ci-results/
+          include-hidden-files: true
+          retention-days: 7

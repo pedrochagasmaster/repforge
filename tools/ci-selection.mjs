@@ -1,10 +1,14 @@
 #!/usr/bin/env node
-/** Conservative selection: known prose is free; shared or unknown inputs capture everything. */
+/** Conservative visual selection: only inputs that can alter rendered evidence trigger capture. */
 import { execFileSync } from "node:child_process";
 import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
+
+const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans)\/.+\.md$/;
+const NON_RENDERING_TEST = /^test\/(?!browser\.mjs$|fixtures\/shared-setup\.mjs$).+\.(?:mjs|js)$/;
+const NON_RENDERING_TOOL = /^tools\/(?:run-tests|test-selection|ci-selection|check-test-syntax)\.mjs$/;
 
 export function selectVisuals(files, manifest, { force = false } = {}) {
   const full = (reason) => ({ mode: "full", screens: [], reason });
@@ -13,14 +17,14 @@ export function selectVisuals(files, manifest, { force = false } = {}) {
   const known = new Set(manifest.screens.map((screen) => `${screen.flow}/${screen.id}`));
   const screens = new Set();
   for (const file of files) {
-    if (/^(README|AGENTS|CLAUDE|CONTEXT)\.md$/.test(file) || /^(docs|plans)\/.+\.md$/.test(file)) continue;
+    if (PROSE.test(file) || NON_RENDERING_TEST.test(file) || NON_RENDERING_TOOL.test(file)) continue;
     const match = file.match(/^docs\/ui-screens\/screens\/([^/]+)\/([^/]+)__[^/]+\.png$/);
     if (match && known.has(`${match[1]}/${match[2]}`)) { screens.add(`${match[1]}/${match[2]}`); continue; }
-    return full(`Shared, executable, structural, or unknown input: ${file}`);
+    return full(`Rendered, capture-harness, structural, or unknown input: ${file}`);
   }
   return screens.size
     ? { mode: "screens", screens: [...screens].sort(), reason: "Baseline-only change: recapture every variant of each affected screen." }
-    : { mode: "none", screens: [], reason: "Only allowlisted prose changed; no rendered input changed." };
+    : { mode: "none", screens: [], reason: "No changed file can alter rendered catalog evidence." };
 }
 
 export function changedFiles(base, { cwd = ROOT } = {}) {

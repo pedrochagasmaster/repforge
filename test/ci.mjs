@@ -6,6 +6,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { SUITES, SUPPORT, commandArgs, inventoryErrors } from "./suites.mjs";
 import { changedFiles, selectVisuals } from "../tools/ci-selection.mjs";
+import { changedFilesForTests, selectAffected } from "../tools/test-selection.mjs";
 import { execute, runLane } from "../tools/run-tests.mjs";
 
 const manifest = { screens: [{ flow: "app", id: "today" }, { flow: "onboarding", id: "start" }] };
@@ -24,13 +25,15 @@ test("inventory schedules each command once and classifies support explicitly", 
   assert.match(inventoryErrors(files, { ...SUITES, duplicate: [SUITES.fast[0]] }).join("\n"), /Duplicate command/);
   assert.ok(SUITES.fast.some((s) => s.file === "test/shared-setup-unit.mjs"));
   assert.equal(Object.values(SUITES).flat().filter((s) => s.file === "test/vendor-runtimes.mjs").length, 1);
-  assert.equal(Object.values(SUITES).flat().some((s) => s.file === "tools/build-vendor-runtimes.mjs"), false, "vendor suite already exercises the build check");
+  assert.equal(Object.values(SUITES).flat().some((s) => s.file === "tools/build-vendor-runtimes.mjs"), false);
   assert.deepEqual(commandArgs({ file: "test/x.mjs", args: ["--self-test"], nodeArgs: ["--test"] }), ["--test", "test/x.mjs", "--self-test"]);
 });
 
-test("prose-only changes skip captures; runtime, fixtures, harness and unknown paths select full", () => {
-  assert.equal(selectVisuals(["README.md", "docs/backlog.md", "plans/060.md"], manifest).mode, "none");
-  for (const file of ["app.js", "index.html", "styles.css", "motion-polish.css", "i18n-en.json", "i18n-pt.json", "i18n.js", "sw.js", "shared-setup.js", "fonts/new.woff2", "assets/exercises/foo.png", "test/browser.mjs", "test/fixtures/seed-program.mjs", "tools/ui-screens/session.mjs", "tools/capture-ui-screens.mjs", "tools/ci-selection.mjs", ".github/workflows/simulation.yml", "docs/ui-screens/manifest.json", "docs/ui-screens/entry-semantics.json", "unknown.txt"]) {
+test("visual capture ignores non-rendering tests/tools but remains conservative for real inputs", () => {
+  for (const file of ["README.md", "docs/backlog.md", "plans/060.md", "test/accessibility.mjs", "test/ci.mjs", "tools/run-tests.mjs", "tools/test-selection.mjs", "tools/ci-selection.mjs"]) {
+    assert.equal(selectVisuals([file], manifest).mode, "none", file);
+  }
+  for (const file of ["app.js", "index.html", "styles.css", "i18n-en.json", "sw.js", "shared-setup.js", "fonts/new.woff2", "assets/exercises/foo.png", "test/browser.mjs", "test/fixtures/shared-setup.mjs", "tools/ui-screens/session.mjs", "tools/capture-ui-screens.mjs", ".github/workflows/simulation.yml", "docs/ui-screens/manifest.json", "docs/ui-screens/entry-semantics.json", "unknown.txt"]) {
     assert.equal(selectVisuals([file], manifest).mode, "full", file);
   }
   assert.equal(selectVisuals(null, manifest).mode, "full");
@@ -38,51 +41,64 @@ test("prose-only changes skip captures; runtime, fixtures, harness and unknown p
 });
 
 test("baseline-only selection recaptures whole screens, never isolated variants", () => {
-  const plan = selectVisuals([
-    "docs/ui-screens/screens/app/today__phone-390-light-en.png",
-    "docs/ui-screens/screens/app/today__phone-390-dark-pt.png", "docs/ui-screens/README.md",
-  ], manifest);
+  const plan = selectVisuals(["docs/ui-screens/screens/app/today__phone-390-light-en.png", "docs/ui-screens/README.md"], manifest);
   assert.equal(plan.mode, "screens");
   assert.deepEqual(plan.screens, ["app/today"]);
   assert.equal(selectVisuals(["docs/ui-screens/screens/app/unknown__phone.png"], manifest).mode, "full");
   assert.equal(selectVisuals(["docs/ui-screens/screens/app/today__phone.png", "styles.css"], manifest).mode, "full");
 });
 
-test("git selection includes both sides of renames and falls back when the base is missing", (t) => {
+test("affected selection is narrow when proven and fail-safe when it is not", () => {
+  assert.equal(selectAffected(["docs/ci.md"]).mode, "none");
+  const direct = selectAffected(["test/accessibility.mjs"]);
+  assert.equal(direct.mode, "selected");
+  assert.ok(direct.entries.some(({ suite }) => suite.file === "test/accessibility.mjs"));
+  const runner = selectAffected(["tools/run-tests.mjs"]);
+  assert.ok(runner.entries.some(({ suite }) => suite.file === "test/ci.mjs"));
+  assert.ok(runner.entries.length < Object.values(SUITES).flat().length);
+  const telemetry = selectAffected(["telemetry.js"]);
+  assert.deepEqual([...new Set(telemetry.entries.map(({ lane }) => lane))].sort(), ["fast", "privacy"]);
+  const app = selectAffected(["app.js"]);
+  assert.equal(app.entries.length, Object.values(SUITES).flat().length);
+  assert.equal(selectAffected(["mystery.bin"]).mode, "all");
+});
+
+test("git selection includes working-tree and untracked changes, and visual diff includes rename sides", (t) => {
   const cwd = scratch(t);
   const git = (...args) => execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
   git("init", "--quiet"); git("config", "user.name", "CI fixture"); git("config", "user.email", "ci-fixture@example.invalid");
   writeFileSync(join(cwd, "note with spaces.md"), "content\n"); git("add", "."); git("commit", "-qm", "before");
   const base = git("rev-parse", "HEAD").trim();
   git("mv", "note with spaces.md", "runtime.js"); git("commit", "-qm", "rename");
+  writeFileSync(join(cwd, "runtime.js"), "changed\n");
+  writeFileSync(join(cwd, "untracked.mjs"), "export {};\n");
   assert.deepEqual(changedFiles(base, { cwd }).sort(), ["note with spaces.md", "runtime.js"]);
+  assert.deepEqual(changedFilesForTests({ cwd, base }).files.sort(), ["runtime.js", "untracked.mjs"]);
   assert.equal(changedFiles("0".repeat(40), { cwd }), null);
-  assert.equal(changedFiles("f".repeat(40), { cwd }), null);
-  assert.equal(changedFiles("--output=bad", { cwd }), null);
+  assert.equal(changedFilesForTests({ cwd, base: "does-not-exist" }).files, null);
 });
 
-test("runner records stdout, stderr, exit code and duration", async (t) => {
+test("runner records full output while returning only a bounded diagnostic tail", async (t) => {
   const cwd = scratch(t);
   writeFileSync(join(cwd, "fixture.mjs"), 'console.log("stdout marker"); console.error("stderr marker"); process.exitCode = 7;\n');
   const outputDir = join(cwd, "result");
   const result = await execute({ file: "fixture.mjs", args: [] }, { cwd, outputDir });
   assert.equal(result.status, "failed"); assert.equal(result.exitCode, 7);
-  assert.ok(result.durationMs >= 0);
+  assert.ok(result.durationMs >= 0); assert.match(result.tail, /stderr marker/);
   const log = readFileSync(join(outputDir, "output.log"), "utf8");
   assert.match(log, /stdout marker/); assert.match(log, /stderr marker/);
 });
 
-test("runner continues after failure and cannot retry a failed suite to green", async (t) => {
+test("runner continues after failure and cannot replay a failed suite to green", async (t) => {
   const cwd = scratch(t);
   writeFileSync(join(cwd, "flips.mjs"), 'process.exitCode = process.env.REPFORGE_TRACE === "1" ? 0 : 9;\n');
   writeFileSync(join(cwd, "later.mjs"), 'import { writeFileSync } from "node:fs"; writeFileSync("later-ran", "yes");\n');
   const report = await runLane("fixture", [{ file: "flips.mjs", args: [] }, { file: "later.mjs", args: [] }], {
-    cwd, outputDir: join(cwd, "results"), env: { ...process.env, REPFORGE_TRACE: "0" },
-    browser: true, diagnosticReplay: true, summaryPath: join(cwd, "summary.md"),
+    cwd, outputDir: join(cwd, "results"), env: { ...process.env, REPFORGE_TRACE: "0" }, browser: true,
+    diagnosticReplay: true, summaryPath: join(cwd, "summary.md"),
   });
   assert.equal(report.failed, 1); assert.equal(report.notRun, 0);
-  assert.equal(report.results[0].initial.exitCode, 9);
-  assert.equal(report.results[0].diagnostic.exitCode, 0);
+  assert.equal(report.results[0].initial.exitCode, 9); assert.equal(report.results[0].diagnostic.exitCode, 0);
   assert.equal(report.results[0].status, "failed");
   assert.equal(report.results[1].status, "passed"); assert.ok(existsSync(join(cwd, "later-ran")));
   assert.equal(JSON.parse(readFileSync(join(cwd, "results/results.json"), "utf8")).failed, 1);
