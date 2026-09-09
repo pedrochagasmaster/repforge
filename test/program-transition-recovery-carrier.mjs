@@ -18,9 +18,20 @@
  *
  * Deliberately not covered here: corruption/quarantine, full backup, import,
  * clone, and old-service-worker upgrade boundaries (those belong to P7).
+ *
+ * Ownership: this file owns the P6 recovery-carrier browser acceptance slice;
+ * production owns the existing transition/storage seams it exercises.
+ * Independent oracle: policy parsing plus the fixed balanced_4_v1 fixture
+ * supply expected evidence and per-slot counts; stored proposal/record data
+ * is never used to manufacture an expected result.
+ * Failure cases: the accepted pre-P6 head must fail only at the missing
+ * recovery proposal seam. Completion barrier: the same file must turn green
+ * with no edits to production, shared test registration, or cache inventory.
  */
 import { launchChromium, waitForAppBoot, assertServingApp } from "./browser.mjs";
+import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
+import { applyRuleB, parseExecutablePolicy } from "../tools/recovery-policy-contract.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://127.0.0.1:8052/";
 const KEY = "repforge_v1";
@@ -29,50 +40,35 @@ const CHECKPOINT_KEY = "repforge_draft_v1:v2-checkpoint";
 const DB_NAME = "repforge";
 const STORE_NAME = "kv";
 
-// Canonical policy v2 fixture, kept independent from RepForgeProgramTransition
-// exports. The pure suite owns the exhaustive truth table; this oracle only
-// needs one qualifying source block to exercise the storage carrier.
-const APPROVED_POLICY_V2 = {
-  kind: "taurifer-recovery-policy",
-  policyVersion: 2,
-  status: "Approved",
-  primaryPatterns: ["knee-dominant", "horizontal press", "hip/hinge"],
-  patternMapping: {
-    squat: "knee-dominant",
-    press: "horizontal press",
-    incline_press: "horizontal press",
-    hinge: "hip/hinge",
-  },
-  eligibility: {
-    qualifyingOutcomes: ["maintained", "declined"],
-    minimumPatterns: 2,
-    checkpointAnswers: ["Yes", "No", "Not sure"],
-    qualifyingCheckpointAnswer: "Yes",
-    question: "During this block, did recovery feel worse than usual often enough to affect your training?",
-  },
-  ruleB: {
-    optional: { effectiveWorkingSets: 0, reason: "optional-removed" },
-    protected: { rounding: "ceil", divisor: 2, reason: "protected-ceil" },
-    reducible: { rounding: "floor", divisor: 2, reason: "reducible-floor" },
-    coverageRescue: {
-      minimumWorkingSets: 1,
-      selection: "first-eligible-stable-order",
-      reason: "pattern-rescue",
-    },
-  },
-  acceptanceBand: { minimum: 0.4, maximum: 0.6 },
-  allowlistedMisses: {
-    growth_2_v1: { base: 32, effective: 12 },
-    growth_3_v1: { base: 49, effective: 17 },
-  },
-  reassessment: {
-    outcomes: ["Better", "About the same", "Worse"],
-    unset: null,
-    ordinaryReviewOutcomes: ["About the same", "Worse"],
-    sameBlockRepeat: false,
-    weekTwoCanonical: true,
-  },
-};
+// Reuse the authoritative executable policy parser and the reviewed compiler
+// fixture rather than copying the normative policy object into this oracle.
+const APPROVED_POLICY_V2 = parseExecutablePolicy(
+  readFileSync(new URL("../docs/recovery-week-policy.md", import.meta.url), "utf8"),
+);
+const PROGRAM_FAMILY_FIXTURE = JSON.parse(
+  readFileSync(new URL("./fixtures/program-families-v1.json", import.meta.url), "utf8"),
+);
+const BALANCED_4_FIXTURE = PROGRAM_FAMILY_FIXTURE.reviewCompilations.find(
+  (compilation) => compilation.blueprintId === "balanced_4_v1",
+);
+if (!BALANCED_4_FIXTURE) throw new Error("balanced_4_v1 fixture is required by the recovery carrier oracle");
+const BALANCED_4_FIXTURE_SLOTS = BALANCED_4_FIXTURE.days.flatMap((day) => day.slots);
+const BALANCED_4_RULE_B = applyRuleB(
+  BALANCED_4_FIXTURE_SLOTS.map((slot) => ({
+    templateId: slot.templateId,
+    status: slot.status,
+    sets: slot.sets,
+  })),
+  { ...APPROVED_POLICY_V2, slotContracts: PROGRAM_FAMILY_FIXTURE.slotContracts },
+);
+const INDEPENDENT_CANONICAL_COUNTS = new Map(
+  BALANCED_4_FIXTURE_SLOTS.map((slot) => [slot.slotId, slot.sets]),
+);
+const INDEPENDENT_WEEK_ONE_COUNTS = new Map(
+  BALANCED_4_FIXTURE_SLOTS.map((slot, index) => [slot.slotId, BALANCED_4_RULE_B.effective[index]]),
+);
+const INDEPENDENT_WEEK_ONE_TOTAL = [...INDEPENDENT_WEEK_ONE_COUNTS.values()].reduce((sum, sets) => sum + sets, 0);
+const INDEPENDENT_CANONICAL_TOTAL = [...INDEPENDENT_CANONICAL_COUNTS.values()].reduce((sum, sets) => sum + sets, 0);
 
 const EVIDENCE = {
   outcomesByPattern: {
@@ -167,11 +163,13 @@ async function readIdbState(page) {
 
 async function readReplicas(page) {
   const localRaw = await page.evaluate((key) => localStorage.getItem(key), KEY);
+  const local = JSON.parse(localRaw || "null");
   const idb = await readIdbState(page);
   return {
-    local: JSON.parse(localRaw || "null"),
+    localRaw,
+    local,
     idb,
-    localEvidence: stateEvidence(JSON.parse(localRaw || "null")),
+    localEvidence: stateEvidence(local),
     idbEvidence: stateEvidence(idb),
   };
 }
@@ -316,6 +314,23 @@ async function proposeRecovery(page, args) {
     const result = await adapter.proposeRecoveryWeek(input);
     const proposal = result?.proposal;
     const overlay = proposal?.diff?.recoveryWeek || result?.overlay;
+    const beforeMutation = proposal ? JSON.stringify(proposal) : null;
+    try {
+      if (proposal?.predecessor) proposal.predecessor.blockId = "oracle-mutation";
+      if (overlay?.eligibilityEvidence) {
+        overlay.eligibilityEvidence.sourceBlockId = "oracle-mutation";
+        if (overlay.eligibilityEvidence.outcomesByPattern) {
+          overlay.eligibilityEvidence.outcomesByPattern["knee-dominant"] = "oracle-mutation";
+        }
+      }
+      if (proposal?.derivation) proposal.derivation.mode = "oracle-mutation";
+      if (proposal?.derivation?.slotMapping?.slots?.[0]) {
+        proposal.derivation.slotMapping.slots[0].predecessorSlot = "oracle-mutation";
+      }
+      if (overlay?.entries?.[0]) overlay.entries[0].effectiveWorkingSets += 1;
+    } catch {
+      // A strict deep-freeze may throw; the JSON equality below is the oracle.
+    }
     return {
       ...result,
       // Playwright serializes the returned proposal, so carry the browser-side
@@ -325,8 +340,15 @@ async function proposeRecovery(page, args) {
         proposal: Object.isFrozen(proposal),
         predecessor: Object.isFrozen(proposal?.predecessor),
         overlay: Object.isFrozen(overlay),
+        evidence: Object.isFrozen(overlay?.eligibilityEvidence),
+        evidenceOutcomes: Object.isFrozen(overlay?.eligibilityEvidence?.outcomesByPattern),
+        derivation: Object.isFrozen(proposal?.derivation),
+        slotMapping: Object.isFrozen(proposal?.derivation?.slotMapping),
+        slotMappingEntry: Object.isFrozen(proposal?.derivation?.slotMapping?.slots?.[0]),
         entries: Object.isFrozen(overlay?.entries),
+        firstEntry: Object.isFrozen(overlay?.entries?.[0]),
       },
+      _oracleMutationUnchanged: beforeMutation === (proposal ? JSON.stringify(proposal) : null),
     };
   }, args);
 }
@@ -355,11 +377,6 @@ function proposalOverlay(proposal) {
   return proposal?.diff?.recoveryWeek || proposal?.overlay || null;
 }
 
-function proposalSourceBlockId(proposal) {
-  return proposal?.predecessor?.blockId ??
-    proposal?.diff?.recoveryWeek?.eligibilityEvidence?.sourceBlockId ?? null;
-}
-
 function proposalTargetBlockId(proposal) {
   return proposal?.diff?.recoveryWeek?.blockId ?? null;
 }
@@ -370,57 +387,121 @@ function recordWithOutcome(record, outcome) {
   return next;
 }
 
-function projectedSetCounts(state, draft, record) {
-  const canonical = new Map((state?.program || []).map((row) => [String(row.slotId || row.id), row]));
-  const entries = new Map((record?.diff?.recoveryWeek?.entries || []).map((entry) => [String(entry.slot), entry]));
+function fixtureWeekOneSetCounts(draft) {
   const seen = new Set();
   const mismatches = [];
   for (const exerciseId of draft?.exerciseOrder || []) {
     const exercise = draft.exercises?.[exerciseId];
     const slot = String(exercise?.sourceExerciseId || "");
-    const row = canonical.get(slot);
-    const entry = entries.get(slot);
-    if (!row || !entry) {
+    const expected = INDEPENDENT_WEEK_ONE_COUNTS.get(slot);
+    if (expected === undefined) {
       mismatches.push({ exerciseId, slot, reason: "unmatched-slot" });
       continue;
     }
     seen.add(slot);
-    if (exercise.programmed?.sets !== entry.effectiveWorkingSets) {
-      mismatches.push({ slot, actual: exercise.programmed?.sets, expected: entry.effectiveWorkingSets });
+    if (exercise.programmed?.sets !== expected) {
+      mismatches.push({ slot, actual: exercise.programmed?.sets, expected });
     }
   }
-  for (const [slot, entry] of entries) {
-    if (entry.effectiveWorkingSets > 0 && !seen.has(slot)) {
+  for (const [slot, expected] of INDEPENDENT_WEEK_ONE_COUNTS) {
+    if (expected > 0 && !seen.has(slot)) {
       mismatches.push({ slot, reason: "missing-positive-slot" });
     }
-    if (entry.effectiveWorkingSets === 0 && seen.has(slot)) {
+    if (expected === 0 && seen.has(slot)) {
       mismatches.push({ slot, reason: "zero-slot-rendered" });
     }
   }
-  return { canonical, entries, mismatches };
+  return { mismatches };
 }
 
-function canonicalSetCounts(state, draft) {
-  const canonical = new Map((state?.program || []).map((row) => [String(row.slotId || row.id), row]));
+function fixtureCanonicalSetCounts(draft) {
   const mismatches = [];
   const seen = new Set();
   for (const exerciseId of draft?.exerciseOrder || []) {
     const exercise = draft.exercises?.[exerciseId];
     const slot = String(exercise?.sourceExerciseId || "");
-    const row = canonical.get(slot);
-    if (!row) {
+    const expected = INDEPENDENT_CANONICAL_COUNTS.get(slot);
+    if (expected === undefined) {
       mismatches.push({ exerciseId, slot, reason: "unmatched-slot" });
       continue;
     }
     seen.add(slot);
-    if (exercise.programmed?.sets !== row.sets) {
-      mismatches.push({ slot, actual: exercise.programmed?.sets, expected: row.sets });
+    if (exercise.programmed?.sets !== expected) {
+      mismatches.push({ slot, actual: exercise.programmed?.sets, expected });
     }
   }
-  if (seen.size !== canonical.size) {
-    mismatches.push({ reason: "canonical-slot-coverage", seen: seen.size, expected: canonical.size });
+  if (seen.size !== INDEPENDENT_CANONICAL_COUNTS.size) {
+    mismatches.push({ reason: "canonical-slot-coverage", seen: seen.size, expected: INDEPENDENT_CANONICAL_COUNTS.size });
   }
-  return { canonical, mismatches };
+  return { mismatches };
+}
+
+function stateWithoutRecoveryCommitDelta(snapshot) {
+  const copy = clone(snapshot);
+  delete copy._storageRevision;
+  delete copy.recoveryTransitions;
+  if (copy.programMeta) delete copy.programMeta.blockId;
+  return copy;
+}
+
+function exactRecoveryCommitDelta(before, after, targetBlockId) {
+  return JSON.stringify(before?.program) === JSON.stringify(after?.program) &&
+    JSON.stringify(before?.programHistory || []) === JSON.stringify(after?.programHistory || []) &&
+    isDeepStrictEqual(stateWithoutRecoveryCommitDelta(before), stateWithoutRecoveryCommitDelta(after)) &&
+    after?._storageRevision === before?._storageRevision + 1 &&
+    after?.programMeta?.blockId === targetBlockId;
+}
+
+function fixtureProgramCoverage(program) {
+  const rows = new Map((program || []).map((row) => [String(row.slotId || row.id), row]));
+  const mismatches = [];
+  for (const [slot, expectedSets] of INDEPENDENT_CANONICAL_COUNTS) {
+    const row = rows.get(slot);
+    if (!row) mismatches.push({ slot, reason: "missing-source-slot" });
+    else if (row.sets !== expectedSets) mismatches.push({ slot, actual: row.sets, expected: expectedSets });
+  }
+  if (rows.size !== INDEPENDENT_CANONICAL_COUNTS.size) {
+    mismatches.push({ reason: "source-slot-coverage", actual: rows.size, expected: INDEPENDENT_CANONICAL_COUNTS.size });
+  }
+  return { mismatches };
+}
+
+async function sealDuplicateTargetRecord(page, args) {
+  return page.evaluate(async (input) => {
+    const Transition = window.RepForgeProgramTransition;
+    const Compiler = window.RepForgeProgramCompiler;
+    const catalogue = window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY;
+    const snapshot = window.__repforgeWorkoutDraft?.state?.();
+    const context = snapshot?.programMeta?.compilerContext;
+    const sourceBlockId = snapshot?.programMeta?.blockId;
+    if (!Transition || !Compiler || !context || !sourceBlockId) {
+      return { ok: false, code: "duplicate_fixture_compiler_unavailable" };
+    }
+    const instance = Compiler.compile(context, catalogue);
+    const result = await Transition.proposeRecoveryWeek({
+      predecessorInstance: instance,
+      predecessor: {
+        programId: snapshot.programMeta.id,
+        blockId: sourceBlockId,
+        durableRevision: snapshot._storageRevision,
+        source: "Recommend",
+      },
+      approvedPolicy: input.approvedPolicy,
+      evidence: { ...input.evidence, sourceBlockId },
+      transitionId: input.transitionId,
+      blockId: input.targetBlockId,
+      createdAt: input.createdAt,
+      supportedVersions: Compiler.VERSIONS,
+      existingRecoveryRecords: [],
+    });
+    if (!result?.ok) return { ok: false, code: result?.code || "duplicate_fixture_proposal_failed", result };
+    const record = Transition.commitRecord(result.proposal, {
+      confirmedAt: input.confirmedAt,
+      reassessmentDueAt: input.reassessmentDueAt,
+      archiveId: null,
+    });
+    return { ok: true, sourceBlockId, proposal: result.proposal, record };
+  }, args);
 }
 
 async function main() {
@@ -457,18 +538,23 @@ async function main() {
     check(sourceBlockId !== sourceProgramId, "source blockId is distinct from programId", { sourceBlockId, sourceProgramId });
     check(Number.isInteger(sourceRevision), "source has an integer durable revision", sourceRevision);
     check(before?.programMeta?.entrySource?.route === "recommend", "source carries reconstructable Recommend provenance");
+    const sourceFixtureCoverage = fixtureProgramCoverage(before?.program);
+    check(sourceFixtureCoverage.mismatches.length === 0,
+      "source program exactly covers the fixed balanced_4_v1 fixture slots", sourceFixtureCoverage.mismatches);
+    check(INDEPENDENT_CANONICAL_TOTAL === 45 && INDEPENDENT_WEEK_ONE_TOTAL === 22,
+      "independent fixture oracle pins balanced_4_v1 canonical and Rule-B totals",
+      { canonical: INDEPENDENT_CANONICAL_TOTAL, weekOne: INDEPENDENT_WEEK_ONE_TOTAL });
 
     console.log("\n2. Propose an immutable recovery overlay through the existing transition adapter");
-    const transitionId = "tr_recovery_carrier_happy_path";
-    const proposalResult = await proposeRecovery(page, {
+    const sourceBeforeProposal = await readReplicas(page);
+    const proposalTransitionId = "tr_recovery_carrier_stale_source";
+    let proposalResult = await proposeRecovery(page, {
       evidence: { ...EVIDENCE },
       approvedPolicy: clone(APPROVED_POLICY_V2),
-      transitionId,
+      transitionId: proposalTransitionId,
       createdAt: CREATED_AT,
     });
-    const proposal = proposalResult?.proposal || null;
-    const overlay = proposalOverlay(proposal);
-    const proposalBeforeMutation = clone(proposal);
+    let proposal = proposalResult?.proposal || null;
     check(proposalResult?.ok === true, "recovery proposal is eligible and returned by production adapter", proposalResult);
     if (!proposal) {
       // Keep the run a clean, intentional red oracle on the pre-P6 production
@@ -480,16 +566,32 @@ async function main() {
       reportResult();
       return;
     }
+    let overlay = proposalOverlay(proposal);
+    let proposalBeforeMutation = clone(proposal);
+    const afterProposal = await readReplicas(page);
+    check(afterProposal.localRaw === sourceBeforeProposal.localRaw,
+      "proposal creation causes no localStorage durable change");
+    check(isDeepStrictEqual(afterProposal.idb, sourceBeforeProposal.idb),
+      "proposal creation causes no IndexedDB durable change");
+    check(carrierOf(afterProposal.local) == null && carrierOf(afterProposal.idb) == null,
+      "proposal creation appends no recovery carrier and allocates no durable target");
+    check(afterProposal.localEvidence.blockId === sourceBlockId && afterProposal.idbEvidence.blockId === sourceBlockId,
+      "proposal creation leaves both live source block IDs unchanged");
     check(proposal.status === "preview" && proposal.kind === "recovery_week", "proposal is a recovery_week preview");
     check(proposal.predecessor?.programId === sourceProgramId, "proposal predecessor binds the live programId");
     check(proposal.predecessor?.durableRevision === sourceRevision, "proposal pins the live durable revision");
-    check(proposalSourceBlockId(proposal) === sourceBlockId, "predecessor.blockId binds the live source block");
+    check(proposal.predecessor?.blockId === sourceBlockId, "proposal.predecessor.blockId binds the live source block directly");
+    check(proposal.predecessor?.fingerprint === overlay?.baseProgramFingerprint,
+      "proposal predecessor fingerprint is the overlay's canonical source fingerprint");
     check(overlay?.eligibilityEvidence?.sourceBlockId === sourceBlockId, "eligibility evidence carries the same sourceBlockId");
-    check(proposalSourceBlockId(proposal) === overlay?.eligibilityEvidence?.sourceBlockId, "predecessor.blockId equals evidence.sourceBlockId");
+    check(proposal.predecessor?.blockId === overlay?.eligibilityEvidence?.sourceBlockId, "predecessor.blockId equals evidence.sourceBlockId");
     check(typeof proposalTargetBlockId(proposal) === "string" && proposalTargetBlockId(proposal) !== sourceBlockId,
       "immutable proposal allocates a distinct target blockId", { sourceBlockId, targetBlockId: proposalTargetBlockId(proposal) });
     check(overlay?.activePeriod === "nextBlockWeek1", "overlay activePeriod is nextBlockWeek1");
     check(overlay?.reassessmentOutcome === null, "proposal hashes the null reassessment outcome");
+    check(isDeepStrictEqual(overlay?.eligibilityEvidence?.outcomesByPattern, EVIDENCE.outcomesByPattern) &&
+      Array.isArray(overlay?.eligibilityEvidence?.qualifyingPatterns),
+    "proposal preserves the qualifying outcome evidence without target substitution", overlay?.eligibilityEvidence);
     check(overlay?.eligibilityEvidence?.checkpointAnswer === "Yes", "proposal retains the approved checkpoint answer");
     check(isObject(proposal.diff) && proposal.successor === undefined, "recovery proposal has no successor replacement");
     check(proposal.archiveId === undefined, "recovery preview has no archiveId");
@@ -497,11 +599,106 @@ async function main() {
     check(proposalResult?._oracleFrozen?.proposal === true &&
       proposalResult?._oracleFrozen?.predecessor === true &&
       proposalResult?._oracleFrozen?.overlay === true &&
-      proposalResult?._oracleFrozen?.entries === true,
-    "production proposal and recovery entries are deeply immutable", proposalResult?._oracleFrozen);
+      proposalResult?._oracleFrozen?.evidence === true &&
+      proposalResult?._oracleFrozen?.evidenceOutcomes === true &&
+      proposalResult?._oracleFrozen?.derivation === true &&
+      proposalResult?._oracleFrozen?.slotMapping === true &&
+      proposalResult?._oracleFrozen?.slotMappingEntry === true &&
+      proposalResult?._oracleFrozen?.entries === true &&
+      proposalResult?._oracleFrozen?.firstEntry === true &&
+      proposalResult?._oracleMutationUnchanged === true,
+    "production proposal, evidence, derivation, and entries are deeply immutable", {
+      frozen: proposalResult?._oracleFrozen,
+      mutationUnchanged: proposalResult?._oracleMutationUnchanged,
+    });
     check(isDeepStrictEqual(proposal, proposalBeforeMutation), "proposal snapshot is immutable to the test caller");
 
-    console.log("\n3. Active DraftV2 refuses recovery before any durable write");
+    console.log("\n3. Intervening revision/source change rejects the stale proposal byte-for-byte");
+    const staleBefore = await readReplicas(page);
+    const originalEntrySource = clone(before?.programMeta?.entrySource);
+    const intervening = await page.evaluate(async ({ blockId, entrySource }) => {
+      const s = window.__repforgeWorkoutDraft.state();
+      s.programMeta = {
+        ...s.programMeta,
+        blockId: `${blockId}-intervened`,
+        entrySource: { ...entrySource, fingerprint: `intervened-${entrySource.fingerprint}` },
+      };
+      const result = await window.__repforgeCommitProposedState(s);
+      await window.__repforgeStorage.flush();
+      return { ok: result?.localOk || result?.idbOk, result };
+    }, { blockId: sourceBlockId, entrySource: originalEntrySource });
+    check(intervening.ok, "intervening durable source/revision mutation committed", intervening);
+    const staleHead = await readReplicas(page);
+    check(staleHead.localEvidence.revision === staleBefore.localEvidence.revision + 1 &&
+      staleHead.idbEvidence.revision === staleBefore.idbEvidence.revision + 1,
+      "intervening source mutation advances both revisions exactly once");
+    check(staleHead.localEvidence.blockId !== sourceBlockId && staleHead.local?.programMeta?.entrySource?.fingerprint !== originalEntrySource.fingerprint,
+      "intervening mutation changes the live source block and entry fingerprint");
+    const staleResult = await confirmRecovery(page, {
+      proposal,
+      transitionId: proposal.transitionId,
+      proposalHash: proposal.proposalHash,
+      confirmedAt: CONFIRMED_AT,
+      reassessmentDueAt: REASSESSMENT_DUE_AT,
+      acknowledgedDraftRaw: null,
+    });
+    check(staleResult?.committed !== true && staleResult?.localOk !== true && staleResult?.idbOk !== true,
+      "stale recovery proposal is rejected", staleResult);
+    check(staleResult?.stale === true || staleResult?.staleRevision === true ||
+      ["stale_proposal", "predecessor_changed", "transition_source_changed"].includes(staleResult?.code),
+      "stale recovery proposal returns a typed stale result", staleResult);
+    const afterStale = await readReplicas(page);
+    check(afterStale.localRaw === staleHead.localRaw,
+      "stale confirmation leaves localStorage byte-identical");
+    check(isDeepStrictEqual(afterStale.idb, staleHead.idb),
+      "stale confirmation leaves IndexedDB byte-identical");
+    check(JSON.stringify(afterStale.local?.program) === JSON.stringify(staleHead.local?.program) &&
+      JSON.stringify(afterStale.local?.programHistory || []) === JSON.stringify(staleHead.local?.programHistory || []),
+      "stale confirmation preserves program and history bytes");
+
+    const restored = await page.evaluate(async ({ blockId, entrySource }) => {
+      const s = window.__repforgeWorkoutDraft.state();
+      s.programMeta = { ...s.programMeta, blockId, entrySource };
+      const result = await window.__repforgeCommitProposedState(s);
+      await window.__repforgeStorage.flush();
+      return { ok: result?.localOk || result?.idbOk, result };
+    }, { blockId: sourceBlockId, entrySource: originalEntrySource });
+    check(restored.ok, "source identity fixture restored through the existing state seam", restored);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    const sourceBeforeCommit = await readReplicas(page);
+    const restoredState = await currentState(page);
+    check(restoredState?.programMeta?.blockId === sourceBlockId &&
+      isDeepStrictEqual(restoredState?.programMeta?.entrySource, originalEntrySource),
+      "restored source identity is exact before the successful proposal");
+
+    console.log("\n4. Active DraftV2 refuses recovery before any durable write");
+    proposalResult = await proposeRecovery(page, {
+      evidence: { ...EVIDENCE },
+      approvedPolicy: clone(APPROVED_POLICY_V2),
+      transitionId: "tr_recovery_carrier_happy_path",
+      createdAt: CREATED_AT,
+    });
+    proposal = proposalResult?.proposal || null;
+    overlay = proposalOverlay(proposal);
+    proposalBeforeMutation = clone(proposal);
+    check(proposalResult?.ok === true, "fresh recovery proposal is eligible after explicit stale regeneration", proposalResult);
+    if (!proposal) {
+      check(false, "fresh recovery proposal seam remains available after stale rejection", proposalResult);
+      reportResult();
+      return;
+    }
+    check(proposal.predecessor?.blockId === sourceBlockId, "fresh proposal predecessor.blockId binds source directly");
+    check(overlay?.eligibilityEvidence?.sourceBlockId === sourceBlockId, "fresh proposal evidence sourceBlockId binds source directly");
+    check(proposal.predecessor?.blockId === overlay?.eligibilityEvidence?.sourceBlockId,
+      "fresh proposal source bindings are equal without fallback");
+    const afterFreshProposal = await readReplicas(page);
+    check(afterFreshProposal.localRaw === sourceBeforeCommit.localRaw && isDeepStrictEqual(afterFreshProposal.idb, sourceBeforeCommit.idb),
+      "fresh proposal creation also causes zero durable change");
+    const commitSourceRevision = sourceBeforeCommit.localEvidence.revision;
+    const targetBlockId = proposalTargetBlockId(proposal);
+    check(typeof targetBlockId === "string" && targetBlockId !== sourceBlockId, "fresh proposal target is distinct from source");
+
     const draftSetup = await openDraftWithEdit(page);
     check(draftSetup.ok, "active DraftV2 has an edited set and checkpoint", draftSetup);
     const guardedBefore = await readReplicas(page);
@@ -522,15 +719,17 @@ async function main() {
     const guardedDraftAfter = await draftBytes(page);
     check(isDeepStrictEqual(guardedAfter.localEvidence, guardedBefore.localEvidence), "DraftV2 refusal leaves local durable state unchanged");
     check(isDeepStrictEqual(guardedAfter.idbEvidence, guardedBefore.idbEvidence), "DraftV2 refusal leaves IndexedDB durable state unchanged");
+    check(guardedAfter.localRaw === guardedBefore.localRaw && isDeepStrictEqual(guardedAfter.idb, guardedBefore.idb),
+      "DraftV2 refusal leaves both durable replica values byte/structure-identical");
     check(guardedDraftAfter.raw === guardedDraft.raw && guardedDraftAfter.checkpoint === guardedDraft.checkpoint,
       "DraftV2 raw and checkpoint remain byte-identical after refusal");
 
     await clearDraft(page);
     const proposalAtCommit = await currentState(page);
-    check(proposalAtCommit?._storageRevision === sourceRevision, "clearing the draft does not advance the program revision");
+    check(proposalAtCommit?._storageRevision === commitSourceRevision, "clearing the draft does not advance the program revision");
 
-    console.log("\n4. Atomic recovery block-start commit writes one mirrored carrier record");
-    const commitBefore = await readReplicas(page);
+    console.log("\n5. Atomic recovery block-start commit writes one mirrored carrier record");
+    const commitBefore = sourceBeforeCommit;
     const committed = await confirmRecovery(page, {
       proposal,
       transitionId: proposal.transitionId,
@@ -545,6 +744,16 @@ async function main() {
     const committedState = commitAfter.local;
     const committedRecords = carrierRecords(committedState);
     const committedRecord = committedRecords[0];
+    check(exactRecoveryCommitDelta(commitBefore.local, commitAfter.local, targetBlockId),
+      "local recovery commit changes only R+1, target metadata, and one carrier record");
+    check(exactRecoveryCommitDelta(commitBefore.idb, commitAfter.idb, targetBlockId),
+      "IndexedDB recovery commit changes only R+1, target metadata, and one carrier record");
+    check(JSON.stringify(commitAfter.local?.program) === JSON.stringify(commitBefore.local?.program) &&
+      JSON.stringify(commitAfter.idb?.program) === JSON.stringify(commitBefore.idb?.program),
+      "recovery commit preserves exact canonical program bytes in both replicas");
+    check(JSON.stringify(commitAfter.local?.programHistory || []) === JSON.stringify(commitBefore.local?.programHistory || []) &&
+      JSON.stringify(commitAfter.idb?.programHistory || []) === JSON.stringify(commitBefore.idb?.programHistory || []),
+      "recovery commit preserves exact programHistory bytes in both replicas");
     check(commitAfter.localEvidence.revision === commitBefore.localEvidence.revision + 1,
       "atomic recovery start increments local revision exactly once", { before: commitBefore.localEvidence.revision, after: commitAfter.localEvidence.revision });
     check(commitAfter.idbEvidence.revision === commitBefore.idbEvidence.revision + 1,
@@ -574,7 +783,7 @@ async function main() {
     check(committedRecord?.proposalHash === proposal.proposalHash, "committed record preserves the proposalHash");
     check(isDeepStrictEqual(proposal, proposalBeforeMutation), "commit does not mutate the immutable proposal object");
 
-    console.log("\n5. Reload/second boot is carrier-idempotent");
+    console.log("\n6. Reload/second boot is carrier-idempotent");
     const revisionAfterCommit = commitAfter.localEvidence.revision;
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
@@ -589,7 +798,7 @@ async function main() {
     check(afterReload.localEvidence.blockId === proposalTargetBlockId(proposal) && afterReload.idbEvidence.blockId === proposalTargetBlockId(proposal),
       "second boot retains the target block identity");
 
-    console.log("\n6. Week-one projection is reduced and week two is canonical with null reassessment");
+    console.log("\n7. Week-one projection is reduced and week two is canonical with null reassessment");
     const weekOneEntered = await page.evaluate(async () => {
       const s = window.__repforgeWorkoutDraft.state();
       const day = s?.program?.[0]?.day;
@@ -597,13 +806,91 @@ async function main() {
     });
     check(weekOneEntered === true, "week-one workout opens through the production draft seam");
     const weekOneDraft = await page.evaluate(() => window.__repforgeWorkoutDraft.current());
-    const weekOneProjection = projectedSetCounts(afterReload.local, weekOneDraft, committedRecord);
-    const effectiveTotal = [...weekOneProjection.entries.values()].reduce((sum, entry) => sum + entry.effectiveWorkingSets, 0);
-    const baseTotal = [...weekOneProjection.entries.values()].reduce((sum, entry) => sum + entry.baseWorkingSets, 0);
+    const weekOneProjection = fixtureWeekOneSetCounts(weekOneDraft);
     check(weekOneProjection.mismatches.length === 0, "week-one draft uses every Rule-B effective set count", weekOneProjection.mismatches);
-    check(effectiveTotal < baseTotal, "week-one projection is reduced relative to canonical working-set volume", { effectiveTotal, baseTotal });
+    check(INDEPENDENT_WEEK_ONE_TOTAL < INDEPENDENT_CANONICAL_TOTAL,
+      "independent Rule-B week-one projection is reduced relative to canonical volume",
+      { effectiveTotal: INDEPENDENT_WEEK_ONE_TOTAL, baseTotal: INDEPENDENT_CANONICAL_TOTAL });
     check(weekOneDraft?.program?.blockId === proposalTargetBlockId(proposal), "week-one DraftV2 carries the target blockId");
+    const afterWeekOneOpen = await readReplicas(page);
+    check(JSON.stringify(afterWeekOneOpen.local?.program) === JSON.stringify(commitBefore.local?.program) &&
+      JSON.stringify(afterWeekOneOpen.idb?.program) === JSON.stringify(commitBefore.idb?.program),
+      "week-one projection never mutates canonical program bytes");
     await clearDraft(page);
+
+    console.log("\n8. Two individually valid records targeting one block apply neither");
+    const duplicateContext = await browser.newContext();
+    const duplicatePage = await duplicateContext.newPage();
+    duplicatePage.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
+    await duplicatePage.goto(BASE);
+    await waitForAppBoot(duplicatePage, { base: BASE });
+    await clearStorage(duplicatePage);
+    await duplicatePage.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(duplicatePage, { base: BASE });
+    const duplicateActivation = await activateBalancedRecommendPredecessor(duplicatePage);
+    check(duplicateActivation.ok, "duplicate-target source block activated in an isolated browser context", duplicateActivation);
+    const duplicateProgramAligned = await duplicatePage.evaluate(async (programId) => {
+      const s = window.__repforgeWorkoutDraft.state();
+      s.programMeta = { ...s.programMeta, id: programId };
+      const result = await window.__repforgeCommitProposedState(s);
+      await window.__repforgeStorage.flush();
+      return { ok: result?.localOk || result?.idbOk, result };
+    }, sourceProgramId);
+    check(duplicateProgramAligned.ok,
+      "duplicate-target fixture aligns both valid records to the same current program identity", duplicateProgramAligned);
+    const recordBResult = await sealDuplicateTargetRecord(duplicatePage, {
+      targetBlockId,
+      transitionId: "tr_recovery_duplicate_target_b",
+      createdAt: "2026-10-01T09:01:00.000Z",
+      confirmedAt: "2026-10-01T09:13:00.000Z",
+      reassessmentDueAt: REASSESSMENT_DUE_AT,
+      approvedPolicy: clone(APPROVED_POLICY_V2),
+      evidence: { ...EVIDENCE },
+    });
+    const recordB = recordBResult?.record;
+    check(recordBResult?.ok === true, "second duplicate-target proposal seals independently", recordBResult);
+    check(recordB?.status === "committed" && recordB?.kind === "recovery_week", "second duplicate-target record is sealed");
+    check(recordB?.diff?.recoveryWeek?.blockId === targetBlockId && recordB?.diff?.recoveryWeek?.blockId !== recordB?.predecessor?.blockId,
+      "second sealed record has a valid distinct source and the shared target");
+    check(recordB?.predecessor?.programId === committedRecord?.predecessor?.programId,
+      "both duplicate-target records bind the same program while retaining distinct source blocks");
+    check(recordB?.transitionId !== committedRecord?.transitionId && recordB?.proposalHash !== committedRecord?.proposalHash,
+      "duplicate-target records have distinct transition and proposal identities");
+    check(committedRecord?.diff?.recoveryWeek?.blockId === recordB?.diff?.recoveryWeek?.blockId &&
+      committedRecord?.diff?.recoveryWeek?.blockId !== committedRecord?.predecessor?.blockId,
+      "both individually valid sealed records target the same block without source=target invalidity");
+    check(committedRecord?.predecessor?.blockId !== recordB?.predecessor?.blockId,
+      "duplicate-target records carry distinct source block identities");
+    const duplicateSeed = await duplicatePage.evaluate(async ({ target, first, second }) => {
+      const s = window.__repforgeWorkoutDraft.state();
+      s.programMeta = { ...s.programMeta, blockId: target };
+      s.recoveryTransitions = { schemaVersion: 1, records: [first, second], quarantine: [] };
+      const result = await window.__repforgeCommitProposedState(s);
+      await window.__repforgeStorage.flush();
+      return { ok: result?.localOk || result?.idbOk, result };
+    }, { target: targetBlockId, first: committedRecord, second: recordB });
+    check(duplicateSeed.ok, "duplicate-target carrier fixture committed through the existing state seam", duplicateSeed);
+    await duplicatePage.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(duplicatePage, { base: BASE });
+    const duplicateAfterSeed = await readReplicas(duplicatePage);
+    const duplicateRecords = carrierRecords(duplicateAfterSeed.local);
+    check(duplicateRecords.length === 2 && carrierRecords(duplicateAfterSeed.idb).length === 2,
+      "both valid duplicate-target records remain in both carrier replicas");
+    check(duplicateRecords.every((record) => record.status === "committed" &&
+      record.diff?.recoveryWeek?.blockId === targetBlockId &&
+      record.diff?.recoveryWeek?.blockId !== record.predecessor?.blockId),
+      "duplicate carrier records remain individually valid target/source pairs");
+    const duplicateEntered = await duplicatePage.evaluate(async () => {
+      const s = window.__repforgeWorkoutDraft.state();
+      const day = s?.program?.[0]?.day;
+      return day ? window.__repforgeEnterWorkout({ day, focus: false }) : false;
+    });
+    check(duplicateEntered === true, "duplicate-target fixture opens a week-one workout");
+    const duplicateDraft = await duplicatePage.evaluate(() => window.__repforgeWorkoutDraft.current());
+    const duplicateProjection = fixtureCanonicalSetCounts(duplicateDraft);
+    check(duplicateProjection.mismatches.length === 0,
+      "duplicate-target conflict applies neither recovery record and renders canonical counts", duplicateProjection.mismatches);
+    await duplicateContext.close();
 
     const movedToWeekTwo = await page.evaluate(async () => {
       const s = window.__repforgeWorkoutDraft.state();
@@ -626,30 +913,48 @@ async function main() {
     });
     check(weekTwoEntered === true, "week-two workout opens through the production draft seam");
     const weekTwoDraft = await page.evaluate(() => window.__repforgeWorkoutDraft.current());
-    const weekTwoCanonical = canonicalSetCounts(weekTwoState, weekTwoDraft);
+    const weekTwoCanonical = fixtureCanonicalSetCounts(weekTwoDraft);
     check(weekTwoCanonical.mismatches.length === 0, "week two restores the canonical prescription even while unanswered", weekTwoCanonical.mismatches);
     check(carrierRecords(weekTwoState)[0]?.diff?.recoveryWeek?.reassessmentOutcome === null,
       "week two remains canonical with a persisted null reassessmentOutcome");
+    check(JSON.stringify(weekTwoState?.program) === JSON.stringify(commitBefore.local?.program),
+      "week-two baseline is the independent canonical fixture, not a mutated post-commit program");
     await clearDraft(page);
 
-    console.log("\n7. One outcome-only reassessment CAS preserves the original proposal hash");
+    console.log("\n9. Two browser contexts race one outcome-only reassessment CAS");
     const reassessmentDraft = await openDraftWithEdit(page, "draft must survive reassessment");
     check(reassessmentDraft.ok, "a live DraftV2 is available while reassessment is submitted", reassessmentDraft);
     const reassessBefore = await readReplicas(page);
     const reassessRecordBefore = carrierRecords(reassessBefore.local)[0];
     const reassessDraftBefore = await draftBytes(page);
     const expectedRevision = reassessBefore.localEvidence.revision;
-    const reassessResult = await reassessRecovery(page, {
+    const reassessArgs = {
       expectedRevision,
-      blockId: proposalTargetBlockId(proposal),
+      blockId: targetBlockId,
       transitionId: proposal.transitionId,
       proposalHash: proposal.proposalHash,
       acknowledgedRecord: reassessRecordBefore,
       outcome: "About the same",
-    });
-    check(reassessResult?.committed === true && (reassessResult?.localOk || reassessResult?.idbOk),
-      "reassessment CAS commits one outcome through the production storage seam", reassessResult);
+    };
+    const reassessmentPageB = await context.newPage();
+    reassessmentPageB.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
+    await reassessmentPageB.goto(BASE);
+    await waitForAppBoot(reassessmentPageB, { base: BASE });
+    const [reassessResultA, reassessResultB] = await Promise.all([
+      reassessRecovery(page, reassessArgs),
+      reassessRecovery(reassessmentPageB, reassessArgs),
+    ]);
+    const reassessmentResults = [reassessResultA, reassessResultB];
+    const winners = reassessmentResults.filter((result) => result?.committed === true && (result?.localOk || result?.idbOk));
+    const losers = reassessmentResults.filter((result) => !result?.committed || (!result?.localOk && !result?.idbOk));
+    check(winners.length === 1 && losers.length === 1,
+      "concurrent reassessment has exactly one winner and one loser", reassessmentResults);
+    check(losers.length === 1 &&
+      (losers[0]?.code === "recovery_reassessment_closed" || losers[0]?.code === "stale" || losers[0]?.stale === true),
+      "concurrent reassessment loser is stale or recovery_reassessment_closed", reassessmentResults);
     await flush(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
     const reassessAfter = await readReplicas(page);
     const reassessRecordAfter = carrierRecords(reassessAfter.local)[0];
     check(reassessAfter.localEvidence.revision === expectedRevision + 1 && reassessAfter.idbEvidence.revision === expectedRevision + 1,
@@ -667,55 +972,9 @@ async function main() {
     const reassessDraftAfter = await draftBytes(page);
     check(reassessDraftAfter.raw === reassessDraftBefore.raw && reassessDraftAfter.checkpoint === reassessDraftBefore.checkpoint,
       "reassessment leaves the acknowledged DraftV2 raw/checkpoint untouched");
-
-    console.log("\n8. Losing reassessment and duplicate target apply no state change");
-    const loserBefore = await readReplicas(page);
-    const loser = await reassessRecovery(page, {
-      expectedRevision,
-      blockId: proposalTargetBlockId(proposal),
-      transitionId: proposal.transitionId,
-      proposalHash: proposal.proposalHash,
-      acknowledgedRecord: reassessRecordBefore,
-      outcome: "Worse",
-    });
-    check(loser?.committed !== true && loser?.localOk !== true && loser?.idbOk !== true,
-      "stale/losing reassessment is not committed", loser);
-    check(loser?.code === "recovery_reassessment_closed" || loser?.code === "stale" || loser?.stale === true,
-      "losing reassessment returns recovery_reassessment_closed or stale", loser);
-    const loserAfter = await readReplicas(page);
-    check(isDeepStrictEqual(loserAfter.localEvidence, loserBefore.localEvidence) &&
-      isDeepStrictEqual(loserAfter.idbEvidence, loserBefore.idbEvidence),
-      "losing reassessment changes neither durable replica");
-
-    const duplicateTargetProposal = clone(proposal);
-    duplicateTargetProposal.transitionId = `${proposal.transitionId}_duplicate_target`;
-    duplicateTargetProposal.predecessor.durableRevision = loserBefore.localEvidence.revision;
-    duplicateTargetProposal.predecessor.blockId = proposalTargetBlockId(proposal);
-    duplicateTargetProposal.diff.recoveryWeek.transitionId = duplicateTargetProposal.transitionId;
-    duplicateTargetProposal.diff.recoveryWeek.eligibilityEvidence.sourceBlockId = proposalTargetBlockId(proposal);
-    duplicateTargetProposal.diff.recoveryWeek.blockId = proposalTargetBlockId(proposal);
-    duplicateTargetProposal.proposalHash = await page.evaluate(async (candidate) =>
-      window.RepForgeProgramTransition.hashProposal(candidate), duplicateTargetProposal);
-    const duplicateBefore = await readReplicas(page);
-    const duplicateResult = await confirmRecovery(page, {
-      proposal: duplicateTargetProposal,
-      transitionId: duplicateTargetProposal.transitionId,
-      proposalHash: duplicateTargetProposal.proposalHash,
-      confirmedAt: "2026-10-01T09:13:00.000Z",
-      reassessmentDueAt: REASSESSMENT_DUE_AT,
-      acknowledgedDraftRaw: reassessDraftAfter.raw,
-    });
-    check(duplicateResult?.committed !== true && duplicateResult?.localOk !== true && duplicateResult?.idbOk !== true,
-      "duplicate-target recovery confirmation is rejected", duplicateResult);
-    check(duplicateResult?.code === "recovery_same_block_repeat" || duplicateResult?.code === "recovery_target_conflict" || duplicateResult?.stale === true,
-      "duplicate-target attempt returns a typed refusal", duplicateResult);
-    const duplicateAfter = await readReplicas(page);
-    check(isDeepStrictEqual(duplicateAfter.localEvidence, duplicateBefore.localEvidence) &&
-      isDeepStrictEqual(duplicateAfter.idbEvidence, duplicateBefore.idbEvidence),
-      "duplicate-target attempt applies neither replica");
     await clearDraft(page);
 
-    console.log("\n9. Legacy current block is recovery-ineligible");
+    console.log("\n10. Legacy current block is recovery-ineligible");
     const legacyContext = await browser.newContext();
     const legacyPage = await legacyContext.newPage();
     legacyPage.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
@@ -737,6 +996,11 @@ async function main() {
     await legacyPage.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(legacyPage, { base: BASE });
     const legacyBefore = await readReplicas(legacyPage);
+    check(legacyBefore.local?.programMeta?.blockId == null && legacyBefore.idb?.programMeta?.blockId == null,
+      "legacy control has no current blockId in either replica", {
+        local: legacyBefore.local?.programMeta?.blockId,
+        idb: legacyBefore.idb?.programMeta?.blockId,
+      });
     const legacyResult = await proposeRecovery(legacyPage, {
       evidence: { ...EVIDENCE, sourceBlockId: null },
       approvedPolicy: clone(APPROVED_POLICY_V2),
@@ -744,8 +1008,8 @@ async function main() {
       createdAt: CREATED_AT,
     });
     check(legacyResult?.ok !== true, "legacy current block is refused before recovery proposal");
-    check(legacyResult?.code === "legacy_block_ineligible" || legacyResult?.code === "source_block_unavailable" || legacyResult?.code === "transition_source_unavailable",
-      "legacy refusal is a typed source-block eligibility result", legacyResult);
+    check(legacyResult?.code === "legacy_block_ineligible",
+      "legacy refusal is specifically legacy_block_ineligible", legacyResult);
     const legacyAfter = await readReplicas(legacyPage);
     check(isDeepStrictEqual(legacyAfter.localEvidence, legacyBefore.localEvidence) &&
       isDeepStrictEqual(legacyAfter.idbEvidence, legacyBefore.idbEvidence),
