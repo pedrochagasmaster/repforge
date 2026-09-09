@@ -20,7 +20,7 @@ jobs:
           node-version: '22'
           cache: npm
           cache-dependency-path: test/package-lock.json
-      - name: Apply exact reviewed synchronization fix
+      - name: Apply exact reviewed transaction-boundary fix
         run: |
           python3 - <<'PY'
           import hashlib,pathlib,subprocess
@@ -29,16 +29,25 @@ jobs:
           def blob(data):
               return hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
           assert blob(original)=='f1e8475ee1bb4288e17bb9a25b068c32fc136368'
-          before='    const workoutResult = await workout.evaluate(() => window.__renameRaceWorkoutResult);\n'
-          after=before+'    // Done dispatches an asynchronous editor commit without returning its promise.\n    // flush() only snapshots the current persistence tail; the editor can enqueue\n    // its rename later. Wait for the real successful-commit UI before reading it.\n    await renamer.waitForFunction(\n      () => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),\n      undefined,\n      { timeout: 10000 }\n    );\n'
           text=original.decode()
-          assert text.count(before)==2
-          text=text.replace(before,after)
+          def replace(before,after,count=1,limit=-1):
+              global text
+              assert text.count(before)==count,before
+              text=text.replace(before,after,limit)
+          before='    const workoutResult = await workout.evaluate(() => window.__renameRaceWorkoutResult);\n'
+          replace(before,before+'    // Done dispatches an asynchronous editor commit without returning its promise.\n    // flush() only snapshots the current persistence tail; the editor can enqueue\n    // its rename later. Wait for the real successful-commit UI before reading it.\n    await renamer.waitForFunction(\n      () => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),\n      undefined,\n      { timeout: 10000 }\n    );\n',2)
           for value in ['107.5','110']:
               before=f'    await fillRaceWorkout(workout, {value});\n'
-              assert text.count(before)==1
-              text=text.replace(before,before+'    // Complete fixture input/suggestion writes before imposing the two-transaction race.\n    await workout.evaluate(() => window.__repforgeWorkoutDraft.flush());\n')
-          assert blob(text.encode())=='3715e6119ac92a9fee0ea8f926346a2ce435ad45'
+              replace(before,before+'    // Complete fixture input/suggestion writes before imposing the two-transaction race.\n    await workout.evaluate(() => window.__repforgeWorkoutDraft.flush());\n')
+          before='    await workout.evaluate(() => {\n      window.__renameRaceWorkoutResult = window.__repforgeSaveWorkout();\n    });\n'
+          after='    // This scenario orders two durable transactions. Hold the save\'s later UI\n    // work so it cannot create a third, successor draft while rename is queued.\n    // Successor-draft races are covered separately in workout-draft-storage.mjs.\n    await workout.evaluate(() => {\n      const afterSave = new Promise((resolve) => { window.__renameRaceResumeAfterSave = resolve; });\n      window.__repforgeDraftAfterSaveCommit = async () => {\n        delete window.__repforgeDraftAfterSaveCommit;\n        window.__renameRaceSaveCommitted = true;\n        await afterSave;\n      };\n      window.__renameRaceWorkoutResult = window.__repforgeSaveWorkout();\n    });\n'
+          replace(before,after,2,1)
+          before='    const workoutResult = await workout.evaluate(() => window.__renameRaceWorkoutResult);\n    // Done dispatches an asynchronous editor commit without returning its promise.\n'
+          after='    await workout.waitForFunction(() => window.__renameRaceSaveCommitted === true, undefined, { timeout: 10000 });\n    // Done dispatches an asynchronous editor commit without returning its promise.\n'
+          replace(before,after,2,1)
+          before='    await Promise.all([\n      workout.evaluate(() => window.__repforgeStorage.flush()),\n      renamer.evaluate(() => window.__repforgeStorage.flush()),\n    ]);\n'
+          replace(before,'    await workout.evaluate(() => window.__renameRaceResumeAfterSave());\n    const workoutResult = await workout.evaluate(() => window.__renameRaceWorkoutResult);\n'+before,2,1)
+          assert blob(text.encode())=='9de7965315811c35512c928ca74f3a4fdcad6717'
           path.write_text(text)
           subprocess.run(['node','--check',str(path)],check=True)
           PY
@@ -73,7 +82,7 @@ jobs:
           import hashlib,json,os,pathlib,urllib.request
           data=pathlib.Path('test/program-draft-day-rename.mjs').read_bytes()
           sha=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
-          assert sha=='3715e6119ac92a9fee0ea8f926346a2ce435ad45'
+          assert sha=='9de7965315811c35512c928ca74f3a4fdcad6717'
           req=urllib.request.Request('https://api.github.com/repos/pedrochagasmaster/repforge/git/blobs',
               data=json.dumps({'content':data.decode(),'encoding':'utf-8'}).encode(),
               headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json'},method='POST')
