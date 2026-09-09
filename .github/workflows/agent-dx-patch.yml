@@ -15,6 +15,7 @@ jobs:
         with:
           ref: ${{ github.event.pull_request.head.sha }}
           persist-credentials: false
+          fetch-depth: 0
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
@@ -24,6 +25,14 @@ jobs:
         run: |
           python3 - <<'PY'
           import pathlib, subprocess
+          # A --no-renames diff deliberately contains both old and new paths.
+          path=pathlib.Path('test/ci.mjs'); text=path.read_text()
+          before='  assert.deepEqual(changedFilesForTests({ cwd, base }).files.sort(), ["runtime.js", "untracked.mjs"]);\n'
+          after='  assert.deepEqual(changedFilesForTests({ cwd, base }).files.sort(), ["note with spaces.md", "runtime.js", "untracked.mjs"]);\n'
+          assert text.count(before)==1
+          path.write_text(text.replace(before,after))
+          subprocess.run(['node','--check',str(path)],check=True)
+
           # Remove three swallowed 30s waits: enter the workout once, then mutate language/unit in place.
           path=pathlib.Path('test/accessibility.mjs')
           text=path.read_text()
@@ -77,7 +86,7 @@ jobs:
         run: |
           python3 - <<'PY'
           import hashlib,json,os,pathlib,urllib.request
-          for name in ['test/accessibility.mjs','AGENTS.md','docs/ci.md','docs/agents/implementation-evidence.md']:
+          for name in ['test/ci.mjs','test/accessibility.mjs','AGENTS.md','docs/ci.md','docs/agents/implementation-evidence.md']:
             data=pathlib.Path(name).read_bytes()
             sha=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
             req=urllib.request.Request('https://api.github.com/repos/pedrochagasmaster/repforge/git/blobs',data=json.dumps({'content':data.decode(),'encoding':'utf-8'}).encode(),headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json'},method='POST')
