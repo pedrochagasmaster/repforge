@@ -24,26 +24,92 @@ share a code path or a transition kind.
 The mirrored durable aggregate carries recovery at the optional, versioned,
 top-level `recoveryTransitions` section defined in
 `docs/block-transition-provenance.md`. Its `records` member contains committed
-`recovery_week` records and retains membership. A record's
-`reassessmentOutcome` may move once from `null` to `Better`, `About the same`,
-or `Worse` after week one. Its `quarantine` member retains malformed
-known-schema recovery values as entries with the exact shape
-`{ schemaVersion: 1, digest, raw, firstSeenAt, lastSeenAt, occurrences }`.
-The presence of an entry is the persistent warning state. The user can
-explicitly export or discard quarantine, and full workout-history deletion
-also deletes it. The loader never prunes it automatically.
+`recovery_week` records and retains valid membership. Two valid records for one
+target block remain in `records`; the loader applies neither and quarantines a
+conflict bundle. Its `quarantine` member uses this exact v1 shape:
+
+```text
+{ schemaVersion: 1,
+  digest: lowercase 64-hex SHA-256 string,
+  raw: JSON.stringify(bounded parsed own-data value before normalization),
+  sourceReplica: "localStorage" | "indexedDB" | "both",
+  detectedAt: canonical ISO-8601 timestamp string,
+  reason: "known-schema-malformed-recovery" | "duplicate-target-conflict" }
+```
+
+The digest is the lowercase 64-hex SHA-256 digest of UTF-8 `raw`. A digest
+found in both replicas has one entry with `sourceReplica: "both"`.
+Redetection never changes `raw`, `digest`, `reason`, or `detectedAt`, and the
+first quarantine write sets `detectedAt`. The presence of an entry is the
+persistent warning state. The user can explicitly export or discard
+quarantine, and full workout-history deletion also deletes it. The loader
+never prunes it automatically.
+
+Committed record membership is append-only. The sole post-commit record
+mutation is one reassessment transition from `reassessmentOutcome: null` to a
+single closed outcome; it is not a proposal edit and does not change any other
+record field.
+
+The carrier classification is closed. An absent section is legacy/canonical.
+A supported v1 carrier with valid record, overlay, policy, and quarantine
+shapes is used normally. An unknown top-level, record, or overlay schema, or
+an unknown required policy version, preserves both replicas untouched and
+opens full storage recovery. A supported known version with a malformed but
+bounded candidate omits that candidate from normalized records, renders the
+canonical prescription, shows a persistent warning, and quarantines its raw
+value. A malformed quarantine container, or any over-bound candidate or
+aggregate, preserves both replicas untouched and opens full storage recovery.
+Duplicate valid targets follow the conflict rule above.
+
+`raw` is the JSON string of the bounded parsed own-data value before
+normalization. Apply `TRANSITION_VALUE_LIMITS` to each raw candidate and to
+the complete carrier. The limits are depth 32, 10,000 nodes, 128 object keys,
+256 array items, and 10,000 characters per string. For a duplicate target,
+sort the original records by `proposalHash`, then `transitionId`, and use
+`JSON.stringify({ targetBlockId, records })` for the conflict raw bundle. Do
+not truncate or prune when a bound would be exceeded.
 
 `programMeta.id` is the program identity. `programMeta.blockId` is a separate
 opaque identity for each modern block. A recovery proposal allocates its
 target `blockId` in the immutable proposal and persists that ID only in the
-atomic block-start confirmation. Recovery keeps the program, creates no
-successor or archive, and cannot share a confirmation with a replacement.
+atomic block-start confirmation. In every modern recovery proposal and record,
+`predecessor.blockId` is required and equals
+`diff.recoveryWeek.eligibilityEvidence.sourceBlockId`. It equals the live
+`programMeta.blockId` at proposal creation and lock-held confirmation. The
+target overlay `blockId` differs from the source. The same atomic revision
+changes `programMeta.blockId` to the target. Recovery keeps the program,
+creates no successor or archive, and cannot share a confirmation with a
+replacement.
 
 The eligibility evidence stores `sourceBlockId`. It equals the block reviewed
 for every qualifying outcome and the checkpoint answer, and it differs from
-the target `blockId`. A legacy current block has no inferred ID and is
-recovery-ineligible. The first modern block establishes the identity needed
-for a later recovery boundary.
+the target `blockId`. It also equals `predecessor.blockId` and the live source
+`programMeta.blockId` at both proposal and confirmation. A legacy current
+block has no inferred ID and is recovery-ineligible. The first modern block
+establishes the identity needed for a later recovery boundary.
+
+### Proposal hash and reassessment CAS
+
+The recovery `proposalHash` is the immutable confirmation commitment to the
+null-outcome proposal. Its canonical preimage includes
+`reassessmentOutcome: null`, and any edit before confirmation requires a new
+proposal and hash. After commit, reassessment reconstructs and validates that
+original null-outcome preimage against the stored `proposalHash`, then changes
+only `reassessmentOutcome`. It never recomputes or replaces `proposalHash`.
+This is the sole post-commit field exception.
+
+The reassessment writer holds the cross-tab state/program lock and checks all
+of these preconditions atomically: the expected durable revision is current;
+the live `programMeta.blockId` equals the target overlay block; the supplied
+`transitionId` and `proposalHash` identify exactly one validated committed
+record; that record's outcome is `null`; and the record equals the acknowledged
+prior value while its reconstructed null-outcome preimage validates the stored
+hash. Success replaces only that record's outcome and increments the
+whole-state durable revision once through the localStorage/IndexedDB journal
+protocol. It does not mutate the program, block identity, archive, or draft.
+A concurrent loser returns `recovery_reassessment_closed` when the outcome is
+already closed or `stale` when the revision or acknowledged record no longer
+matches; it never overwrites or unions records.
 
 New DraftV2 values carry `program.blockId`, and newly saved workout rows carry
 their immutable historical `blockId`. Legacy rows stay absent. A live DraftV2
@@ -150,6 +216,9 @@ machine-only edit cannot silently change the contract.
   the same`, or `Worse`. Week two always renders the canonical prescription.
   The policy never extends or repeats recovery in the same block. `About the
   same` and `Worse` route to ordinary Review with no automatic mutation.
+  The result is the sole post-commit field mutation: reassessment validates the
+  original null-outcome preimage against the unchanged `proposalHash` and
+  changes only `reassessmentOutcome` through the atomic CAS above.
   Another recovery can be considered only at a future block boundary from
   fresh evidence and a fresh `Yes` answer.
 - **Provenance:** every confirmed recovery writes a `recovery_week`
