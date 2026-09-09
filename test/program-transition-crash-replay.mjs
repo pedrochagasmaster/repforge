@@ -48,7 +48,9 @@
  * semantically. No sleeps, no List DOM, no raw whole-state equality.
  */
 import { launchChromium, waitForAppBoot, assertServingApp } from "./browser.mjs";
+import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
+import { parseExecutablePolicy } from "../tools/recovery-policy-contract.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://127.0.0.1:8658/";
 const KEY = "repforge_v1";
@@ -60,6 +62,25 @@ const STORAGE_LOCK = "repforge:state-write";
 const PENDING_PREFIX = "repforge_pending_v1:";
 const DRAFT_CLOSE_PREFIX = "repforge_draft_v1:closing:";
 const DRAFT_PENDING_PREFIX = "repforge_draft_v1:pending:";
+
+// R5b2 recovery-crash oracle inputs. The carrier/recovery happy-path suite owns
+// the complete policy projection. This file deliberately consumes only the
+// reviewed policy parser and a fixed eligible evidence tuple; all crash
+// expectations below come from captured pre-commit bytes and the transition
+// contract, never from a production normalizer.
+const RECOVERY_POLICY_V2 = parseExecutablePolicy(
+  readFileSync(new URL("../docs/recovery-week-policy.md", import.meta.url), "utf8"),
+);
+const RECOVERY_EVIDENCE = Object.freeze({
+  outcomesByPattern: {
+    "knee-dominant": "maintained",
+    "horizontal press": "declined",
+  },
+  checkpointAnswer: "Yes",
+});
+const RECOVERY_CREATED_AT = "2026-10-05T09:00:00.000Z";
+const RECOVERY_CONFIRMED_AT = "2026-10-05T09:10:00.000Z";
+const RECOVERY_DUE_AT = "2026-10-12T09:10:00.000Z";
 
 const failures = [];
 let passed = 0;
@@ -126,12 +147,30 @@ async function readReplicaBytes(page) {
   return { local, idb: idb == null ? null : JSON.stringify(idb) };
 }
 
+async function readFullReplicas(page) {
+  const bytes = await readReplicaBytes(page);
+  return {
+    ...bytes,
+    local: bytes.local == null ? null : JSON.parse(bytes.local),
+    idb: bytes.idb == null ? null : JSON.parse(bytes.idb),
+  };
+}
+
 async function readDraftBytes(page) {
   return page.evaluate((keys) => ({
     raw: localStorage.getItem(keys.d),
     checkpoint: localStorage.getItem(keys.c),
     recovery: localStorage.getItem(keys.r),
   }), { d: DRAFT_KEY, c: CHECKPOINT_KEY, r: RECOVERY_KEY });
+}
+
+async function readDraftAndSidecars(page) {
+  const bytes = await readDraftBytes(page);
+  const sidecars = await page.evaluate((prefix) => Object.keys(localStorage)
+    .filter((key) => key.startsWith(prefix))
+    .sort()
+    .map((key) => ({ key, raw: localStorage.getItem(key) })), DRAFT_PENDING_PREFIX);
+  return { ...bytes, sidecars };
 }
 
 async function artifactKeys(page) {
@@ -180,8 +219,273 @@ async function clearStorage(page) {
   }, { key: KEY, draftKey: DRAFT_KEY, checkpointKey: CHECKPOINT_KEY, dbName: DB_NAME });
 }
 
+async function clearLiveDraft(page) {
+  await page.evaluate(async () => {
+    await window.__repforgeWorkoutDraft?.clear?.();
+    await window.__repforgeWorkoutDraft?.flush?.();
+    window.__repforgeLeaveWorkout?.();
+  });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+}
+
 async function confirmTransition(page, args) {
   return page.evaluate((a) => window.__repforgeProgramTransition.confirmTransition(a), args);
+}
+
+async function reassessRecovery(page, args) {
+  return page.evaluate((a) => window.__repforgeProgramTransition.reassessRecovery(a), args);
+}
+
+async function proposeRecoveryCrashOracle(page, transitionId, createdAt = RECOVERY_CREATED_AT) {
+  return page.evaluate(async ({ transitionId, createdAt, evidence, approvedPolicy }) => {
+    const adapter = window.__repforgeProgramTransition;
+    if (typeof adapter?.proposeRecoveryWeek !== "function") {
+      return { ok: false, status: "unavailable", code: "recovery_proposal_seam_missing", missing: true };
+    }
+    return adapter.proposeRecoveryWeek({
+      evidence,
+      approvedPolicy,
+      transitionId,
+      createdAt,
+    });
+  }, {
+    transitionId,
+    createdAt,
+    evidence: JSON.parse(JSON.stringify(RECOVERY_EVIDENCE)),
+    approvedPolicy: JSON.parse(JSON.stringify(RECOVERY_POLICY_V2)),
+  });
+}
+
+async function proposeAndSealRecoveryCrashOracle(page, transitionId, createdAt = RECOVERY_CREATED_AT, confirmedAt = RECOVERY_CONFIRMED_AT) {
+  return page.evaluate(async ({ transitionId, createdAt, confirmedAt, reassessmentDueAt, evidence, approvedPolicy }) => {
+    const adapter = window.__repforgeProgramTransition;
+    if (typeof adapter?.proposeRecoveryWeek !== "function") {
+      return { ok: false, status: "unavailable", code: "recovery_proposal_seam_missing", missing: true };
+    }
+    const proposed = await adapter.proposeRecoveryWeek({
+      evidence,
+      approvedPolicy,
+      transitionId,
+      createdAt,
+    });
+    if (!proposed?.ok) return proposed;
+    try {
+      const record = window.RepForgeProgramTransition.commitRecord(proposed.proposal, {
+        confirmedAt,
+        reassessmentDueAt,
+        archiveId: null,
+      });
+      return { ok: true, record, proposal: proposed.proposal };
+    } catch (error) {
+      return { ok: false, error: String(error?.message || error) };
+    }
+  }, {
+    transitionId,
+    createdAt,
+    confirmedAt,
+    reassessmentDueAt: RECOVERY_DUE_AT,
+    evidence: JSON.parse(JSON.stringify(RECOVERY_EVIDENCE)),
+    approvedPolicy: JSON.parse(JSON.stringify(RECOVERY_POLICY_V2)),
+  });
+}
+
+async function validateRecoveryRecordAgainstLive(page, record) {
+  return page.evaluate(async ({ candidate, approvedPolicy }) => {
+    const Transition = window.RepForgeProgramTransition;
+    const Compiler = window.RepForgeProgramCompiler;
+    const catalogue = window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY;
+    const snapshot = window.__repforgeWorkoutDraft?.state?.();
+    if (!Transition || !Compiler || !snapshot?.programMeta?.compilerContext) {
+      return { ok: false, code: "record-validation_seam_missing" };
+    }
+    let predecessorInstance;
+    try {
+      predecessorInstance = Compiler.compile(snapshot.programMeta.compilerContext, catalogue);
+    } catch (error) {
+      return { ok: false, code: "record-validation_compile_failed", error: String(error?.message || error) };
+    }
+    const validation = await Transition.validateRecoveryRecord(candidate, {
+      predecessor: candidate?.predecessor,
+      predecessorInstance,
+      approvedPolicy,
+      supportedVersions: Compiler.VERSIONS,
+      existingRecoveryRecords: [],
+    });
+    return { ok: validation?.ok === true, code: validation?.code, status: validation?.status };
+  }, { candidate: JSON.parse(JSON.stringify(record)), approvedPolicy: JSON.parse(JSON.stringify(RECOVERY_POLICY_V2)) });
+}
+
+function recoveryConfirmArgs(proposal, confirmedAt = RECOVERY_CONFIRMED_AT) {
+  return {
+    proposal,
+    transitionId: proposal.transitionId,
+    proposalHash: proposal.proposalHash,
+    confirmedAt,
+    reassessmentDueAt: RECOVERY_DUE_AT,
+    acknowledgedDraftRaw: null,
+  };
+}
+
+function carrierRecords(snapshot) {
+  return Array.isArray(snapshot?.recoveryTransitions?.records)
+    ? snapshot.recoveryTransitions.records
+    : [];
+}
+
+function committedRecoveryRecord(proposal, confirmedAt = RECOVERY_CONFIRMED_AT, reassessmentDueAt = RECOVERY_DUE_AT) {
+  const record = JSON.parse(JSON.stringify(proposal));
+  record.status = "committed";
+  record.confirmedAt = confirmedAt;
+  record.archiveId = null;
+  record.diff.recoveryWeek.confirmedAt = confirmedAt;
+  record.diff.recoveryWeek.reassessmentDueAt = reassessmentDueAt;
+  record.diff.recoveryWeek.reassessmentOutcome = null;
+  return record;
+}
+
+function expectedRecoverySuccess(source, proposal, confirmedAt = RECOVERY_CONFIRMED_AT) {
+  const expected = JSON.parse(JSON.stringify(source));
+  expected._storageRevision = source._storageRevision + 1;
+  expected.programMeta = {
+    ...expected.programMeta,
+    blockId: proposal.diff.recoveryWeek.blockId,
+  };
+  const priorCarrier = source.recoveryTransitions && typeof source.recoveryTransitions === "object"
+    ? JSON.parse(JSON.stringify(source.recoveryTransitions))
+    : { schemaVersion: 1, records: [], quarantine: [] };
+  expected.recoveryTransitions = {
+    ...priorCarrier,
+    records: [...(Array.isArray(priorCarrier.records) ? priorCarrier.records : []),
+      committedRecoveryRecord(proposal, confirmedAt)],
+  };
+  return expected;
+}
+
+function exactRecoverySuccess(source, actual, proposal, confirmedAt = RECOVERY_CONFIRMED_AT) {
+  return isDeepStrictEqual(actual, expectedRecoverySuccess(source, proposal, confirmedAt));
+}
+
+function exactSourceState(source, actual) {
+  return isDeepStrictEqual(source, actual);
+}
+
+function recoveryHasNoArtifacts(artifacts) {
+  return artifacts.pending.length === 0 && artifacts.closing.length === 0 && artifacts.sidecar.length === 0;
+}
+
+function recoveryRecordWithOutcome(record, outcome) {
+  const next = JSON.parse(JSON.stringify(record));
+  if (next?.diff?.recoveryWeek) next.diff.recoveryWeek.reassessmentOutcome = outcome;
+  return next;
+}
+
+function exactSourceOrRecovery(source, actual, proposal) {
+  return exactSourceState(source, actual) || exactRecoverySuccess(source, actual, proposal);
+}
+
+async function assertRecoverySecondBoot(page, baseline, label) {
+  const before = baseline || await readFullReplicas(page);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  const after = await readFullReplicas(page);
+  check(before.local && before.idb && after.local && after.idb &&
+    before.local._storageRevision === after.local._storageRevision &&
+    before.idb._storageRevision === after.idb._storageRevision &&
+    isDeepStrictEqual(before.local, after.local) && isDeepStrictEqual(before.idb, after.idb),
+  `${label}: second boot adds no revision or state mutation`, { before, after });
+  check(carrierRecords(after.local).length === carrierRecords(before.local).length &&
+    carrierRecords(after.idb).length === carrierRecords(before.idb).length &&
+    after.local.programHistory?.length === before.local.programHistory?.length &&
+    after.idb.programHistory?.length === before.idb.programHistory?.length,
+  `${label}: second boot adds no recovery record or archive`);
+  const artifacts = await artifactKeys(page);
+  check(recoveryHasNoArtifacts(artifacts), `${label}: second boot leaves no pending/sidecar/closing artifact`, artifacts);
+  return after;
+}
+
+async function enterRecoveryDraft(page, note = "newer acknowledged draft") {
+  return page.evaluate(async (sessionNote) => {
+    const dayLabel = window.__repforgeWorkoutDraft.state()?.program?.[0]?.day || "Day 1";
+    const entered = await window.__repforgeEnterWorkout({ day: dayLabel, focus: false });
+    if (!entered) return { ok: false, error: "draft entry failed" };
+    const hook = window.__repforgeWorkoutDraft;
+    const draft = hook.current();
+    const exerciseId = Object.keys(draft?.exercises || {})[0];
+    const setId = exerciseId ? Object.keys(draft.exercises[exerciseId]?.sets || {})[0] : null;
+    if (!exerciseId || !setId) return { ok: false, error: "draft has no first set" };
+    await hook.dispatch("editSetField", { exerciseInstanceId: exerciseId, setId, field: "reps", value: "12" });
+    await hook.dispatch("setSessionNotes", { value: sessionNote });
+    await hook.flush();
+    return {
+      ok: true,
+      raw: localStorage.getItem("repforge_draft_v1"),
+      checkpoint: localStorage.getItem("repforge_draft_v1:v2-checkpoint"),
+      recovery: localStorage.getItem("repforge_draft_v1:recovery"),
+    };
+  }, note);
+}
+
+async function setupRecoverySource(page, tag) {
+  const setup = await setupPredecessorWithSentinelAndDraft(page, tag);
+  await clearLiveDraft(page);
+  const replicas = await readFullReplicas(page);
+  const drafts = await readDraftBytes(page);
+  return { setup, replicas, drafts };
+}
+
+async function crashRecoveryWhileQueued({ locker, writer, survivor }, confirmArgs) {
+  await holdStorageLock(locker);
+  await writer.evaluate((args) => {
+    window.__p6cRecoveryConfirmResult = window.__repforgeProgramTransition.confirmTransition(args);
+  }, confirmArgs);
+  await waitForPendingStorageLocks(locker, 1);
+  await survivor.waitForFunction((prefix) =>
+    Object.keys(localStorage).some((key) => key.startsWith(prefix)), PENDING_PREFIX, { timeout: 10000 });
+  const journal = await readJournal(survivor);
+  if (!journal) throw new Error("recovery journal was not armed while queued");
+  const parsed = JSON.parse(journal.raw);
+  if (parsed?.id == null) throw new Error("recovery journal has no id");
+  await writer.close();
+  await releaseStorageLock(locker);
+  await locker.waitForFunction(async (lockName) => {
+    const locks = await navigator.locks.query();
+    return !locks.pending.some((lock) => lock.name === lockName);
+  }, STORAGE_LOCK, { timeout: 10000 });
+  return journal;
+}
+
+async function injectFirstReplicaFailure(page, side) {
+  await page.evaluate(({ key, side }) => {
+    const originalSetItem = Storage.prototype.setItem;
+    const originalPut = IDBObjectStore.prototype.put;
+    const stats = { side, writes: 0, faults: 0 };
+    if (side === "local") {
+      Storage.prototype.setItem = function (candidate) {
+        if (candidate === key) {
+          stats.writes++;
+          stats.faults++;
+          throw new Error("audit: recovery local write interrupted");
+        }
+        return originalSetItem.apply(this, arguments);
+      };
+    } else {
+      IDBObjectStore.prototype.put = function (_value, candidate) {
+        if (candidate === key) {
+          stats.writes++;
+          stats.faults++;
+          throw new Error("audit: recovery IndexedDB write interrupted");
+        }
+        return originalPut.apply(this, arguments);
+      };
+    }
+    window.__p6cRestoreReplicaFailure = () => {
+      Storage.prototype.setItem = originalSetItem;
+      IDBObjectStore.prototype.put = originalPut;
+      return { ...stats };
+    };
+    window.__p6cReplicaFailureStats = stats;
+  }, { key: KEY, side });
 }
 
 async function activateBalancedRecommendPredecessor(page) {
@@ -619,24 +923,33 @@ async function injectWriteFailureAfterFirst(page) {
   await page.evaluate((key) => {
     const originalSetItem = Storage.prototype.setItem;
     const originalPut = IDBObjectStore.prototype.put;
-    let localWrites = 0;
-    let idbWrites = 0;
+    const stats = { localWrites: 0, idbWrites: 0, localFaults: 0, idbFaults: 0 };
     Storage.prototype.setItem = function (candidate) {
-      if (candidate === key && ++localWrites > 1) {
-        throw new Error("audit: defer final durable state");
+      if (candidate === key) {
+        stats.localWrites++;
+        if (stats.localWrites > 1) {
+          stats.localFaults++;
+          throw new Error("audit: defer final durable state");
+        }
       }
       return originalSetItem.apply(this, arguments);
     };
     IDBObjectStore.prototype.put = function (_value, candidate) {
-      if (candidate === key && ++idbWrites > 1) {
-        throw new Error("audit: defer final durable state");
+      if (candidate === key) {
+        stats.idbWrites++;
+        if (stats.idbWrites > 1) {
+          stats.idbFaults++;
+          throw new Error("audit: defer final durable state");
+        }
       }
       return originalPut.apply(this, arguments);
     };
     window.__p6cRestoreWriteSeam = () => {
       Storage.prototype.setItem = originalSetItem;
       IDBObjectStore.prototype.put = originalPut;
+      return { ...stats };
     };
+    window.__p6cWriteFaultStats = stats;
   }, KEY);
 }
 
@@ -660,17 +973,22 @@ async function injectIdbState(page, value) {
 async function injectCleanupFailure(page) {
   await page.evaluate(() => {
     const originalRemoveItem = Storage.prototype.removeItem;
+    const stats = { attempts: 0, faults: 0 };
     Storage.prototype.removeItem = function (key) {
       if (typeof key === "string" &&
           (key.startsWith("repforge_pending_v1") || key.startsWith("repforge_draft_v1:closing") ||
            key.startsWith("repforge_draft_v1:pending"))) {
+        stats.attempts++;
+        stats.faults++;
         throw new Error("audit: cleanup interrupted");
       }
       return originalRemoveItem.apply(this, arguments);
     };
     window.__p6cRestoreCleanupSeam = () => {
       Storage.prototype.removeItem = originalRemoveItem;
+      return { ...stats };
     };
+    window.__p6cCleanupFaultStats = stats;
   });
 }
 
@@ -871,7 +1189,9 @@ async function main() {
 
       await injectWriteFailureAfterFirst(survivor);
       const interrupted = await confirmTransition(survivor, args);
-      await survivor.evaluate(() => window.__p6cRestoreWriteSeam());
+      const writeFaults = await survivor.evaluate(() => window.__p6cRestoreWriteSeam?.() || null);
+      check(writeFaults?.localFaults > 0 && writeFaults?.idbFaults > 0,
+        "prepared replacement fault injection hit both durable write seams", writeFaults);
       await survivor.evaluate(() => window.__repforgeStorage.flush());
       check(interrupted?.deferred === true && interrupted?.finalizationPending === true,
         "interrupted confirm reports the truthful deferred finalization, not a settled commit", interrupted);
@@ -982,7 +1302,8 @@ async function main() {
 
       await injectCleanupFailure(survivor);
       const committed = await confirmTransition(survivor, args);
-      await survivor.evaluate(() => window.__p6cRestoreCleanupSeam());
+      const cleanupFaults = await survivor.evaluate(() => window.__p6cRestoreCleanupSeam?.() || null);
+      check(cleanupFaults?.faults > 0, "finalized replacement cleanup fault injection hit", cleanupFaults);
       await survivor.evaluate(() => window.__repforgeStorage.flush());
       check(committed?.localOk === true && committed?.idbOk === true,
         "transition finalized in both replicas despite the interrupted cleanup", committed);
@@ -1768,7 +2089,9 @@ async function main() {
         proposalHash: proposalBC.proposalHash,
         acknowledgedDraftRaw: setup.preDraftRaw,
       });
-      await survivor.evaluate(() => window.__p6cRestoreWriteSeam());
+      const writeFaults = await survivor.evaluate(() => window.__p6cRestoreWriteSeam?.() || null);
+      check(writeFaults?.localFaults > 0 && writeFaults?.idbFaults > 0,
+        "prepared chained replacement fault injection hit both durable write seams", writeFaults);
       await survivor.evaluate(() => window.__repforgeStorage.flush());
       check(interrupted?.deferred === true && interrupted?.finalizationPending === true,
         "interrupted B->C confirm reports deferred finalization", interrupted);
@@ -2267,8 +2590,15 @@ async function main() {
           proposalHash: proposal.proposalHash,
           acknowledgedDraftRaw: setup.preDraftRaw,
         });
-        await survivor.evaluate(() => { if (window.__p6cRestoreWriteSeam) window.__p6cRestoreWriteSeam(); });
-        await survivor.evaluate(() => { if (window.__p6cRestoreCleanupSeam) window.__p6cRestoreCleanupSeam(); });
+        const writeFaults = await survivor.evaluate(() => window.__p6cRestoreWriteSeam?.() || null);
+        const cleanupFaults = await survivor.evaluate(() => window.__p6cRestoreCleanupSeam?.() || null);
+        if (variant.fault === "write") {
+          check(writeFaults?.localFaults > 0 && writeFaults?.idbFaults > 0,
+            `9e (${variant.name}): write fault injection hit both durable write seams`, writeFaults);
+        } else {
+          check(cleanupFaults?.faults > 0,
+            `9e (${variant.name}): cleanup fault injection hit`, cleanupFaults);
+        }
         await survivor.evaluate(() => window.__repforgeStorage.flush());
         if (variant.fault === "write") {
           check(res?.deferred === true && res?.finalizationPending === true,
@@ -2314,6 +2644,609 @@ async function main() {
           `9e (${variant.name}): recovery cleared every pending, sidecar, and closing artifact`, artifacts);
         await context.close();
       }
+    }
+
+    // =========================================================================
+    // R5b2 recovery carrier crash matrix, case 1: a recovery confirmation arms
+    // only an intent journal before the state lock. Killing that queued writer
+    // must discard the intent rather than making a block start from an
+    // unfinalized request. The expected source bytes are captured before the
+    // journal and are the oracle for both mirrors.
+    // =========================================================================
+    console.log("\n10. Recovery pre-lock crash discards the queued intent");
+    {
+      const env = await newBootedContext(browser);
+      const { locker, writer, survivor, context } = env;
+      const source = await setupRecoverySource(survivor, "recovery-prelock");
+      const sourceLocal = source.replicas.local;
+      const sourceIdb = source.replicas.idb;
+      const sourceRevision = sourceLocal?._storageRevision;
+      const proposalResult = await proposeRecoveryCrashOracle(survivor, "tr_p6c_recovery_prelock");
+      check(proposalResult?.ok === true, "recovery pre-lock proposal created through the production adapter", proposalResult);
+      const proposal = proposalResult?.proposal;
+      if (!proposal) {
+        check(proposalResult?.missing !== true, "recovery pre-lock proposal seam exists", proposalResult);
+        await context.close();
+      } else {
+      const confirmArgs = recoveryConfirmArgs(proposal);
+      await bootOthers([locker, writer]);
+
+      const journal = await crashRecoveryWhileQueued(env, confirmArgs);
+      check(journal.key.startsWith(PENDING_PREFIX), "recovery pre-lock crash armed a production pending journal", journal.key);
+      const armed = JSON.parse(journal.raw);
+      check(armed.base?.programMeta?.blockId === sourceLocal?.programMeta?.blockId,
+        "recovery journal pins the source block before lock acquisition", armed.base?.programMeta?.blockId);
+      check(armed.proposal?.programMeta?.blockId === proposal?.diff?.recoveryWeek?.blockId &&
+        carrierRecords(armed.proposal).length === 1,
+      "recovery journal carries the full target intent without making it durable", {
+        target: armed.proposal?.programMeta?.blockId,
+        records: carrierRecords(armed.proposal).length,
+      });
+      const beforeReload = await readFullReplicas(survivor);
+      check(exactSourceState(sourceLocal, beforeReload.local) && exactSourceState(sourceIdb, beforeReload.idb),
+        "both durable replicas remain exact source bytes while the writer was queued");
+
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+      const after = await readFullReplicas(survivor);
+      check(exactSourceState(sourceLocal, after.local) && exactSourceState(sourceIdb, after.idb),
+        "boot discards the pre-lock recovery intent without changing either replica");
+      check(after.local?._storageRevision === sourceRevision && after.idb?._storageRevision === sourceRevision,
+        "pre-lock recovery discard advances no durable revision", after);
+      check(carrierRecords(after.local).length === 0 && carrierRecords(after.idb).length === 0,
+        "pre-lock recovery discard creates zero carrier records");
+      check(after.local?.programMeta?.blockId === sourceLocal?.programMeta?.blockId &&
+        after.idb?.programMeta?.blockId === sourceIdb?.programMeta?.blockId,
+      "pre-lock recovery discard leaves the source block active");
+      check(after.local?.programHistory?.length === sourceLocal?.programHistory?.length &&
+        after.idb?.programHistory?.length === sourceIdb?.programHistory?.length,
+      "pre-lock recovery discard creates zero archives");
+      check(isDeepStrictEqual(after.local?.program, sourceLocal?.program) &&
+        isDeepStrictEqual(after.idb?.program, sourceIdb?.program),
+      "pre-lock recovery discard leaves canonical program bytes unchanged");
+      const drafts = await readDraftBytes(survivor);
+      check(drafts.raw === source.drafts.raw && drafts.checkpoint === source.drafts.checkpoint &&
+        drafts.recovery === source.drafts.recovery,
+      "pre-lock recovery discard leaves DraftV2 bytes unchanged", drafts);
+      const artifacts = await artifactKeys(survivor);
+      check(recoveryHasNoArtifacts(artifacts), "pre-lock recovery discard drains pending, sidecar, and closing artifacts", artifacts);
+
+      const secondBefore = await readFullReplicas(survivor);
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+      const secondAfter = await readFullReplicas(survivor);
+      check(exactSourceState(secondBefore.local, secondAfter.local) && exactSourceState(secondBefore.idb, secondAfter.idb),
+        "second boot after pre-lock recovery discard is idempotent");
+      await context.close();
+      }
+    }
+
+    // =========================================================================
+    // R5b2 case 2: a queued recovery journal is stale after another writer
+    // advances the source. Boot must drain it without replaying or unioning its
+    // carrier, and must preserve the intervening state exactly.
+    // =========================================================================
+    console.log("\n11. Stale queued recovery journal drains without replay");
+    recoveryStale: {
+      const env = await newBootedContext(browser);
+      const { locker, writer, survivor, context } = env;
+      const source = await setupRecoverySource(survivor, "recovery-stale");
+      const proposalResult = await proposeRecoveryCrashOracle(survivor, "tr_p6c_recovery_stale");
+      check(proposalResult?.ok === true, "stale recovery proposal created", proposalResult);
+      const proposal = proposalResult?.proposal;
+      if (!proposal) {
+        check(proposalResult?.missing !== true, "stale recovery proposal seam exists", proposalResult);
+        await context.close();
+        break recoveryStale;
+      }
+      await bootOthers([locker, writer]);
+      const journal = await crashRecoveryWhileQueued(env, recoveryConfirmArgs(proposal));
+      check(journal.key.startsWith(PENDING_PREFIX), "stale recovery journal was armed before the writer died");
+
+      const intervening = await survivor.evaluate(async () => {
+        const next = JSON.parse(JSON.stringify(window.__repforgeWorkoutDraft.state()));
+        next.settings = { ...next.settings, restSec: Number(next.settings?.restSec || 120) + 15 };
+        const result = await window.__repforgeCommitProposedState(next);
+        await window.__repforgeStorage.flush();
+        return { ok: result?.localOk || result?.idbOk, result };
+      });
+      check(intervening.ok === true, "an independent writer advanced the queued recovery source", intervening);
+      const interveningReplicas = await readFullReplicas(survivor);
+      check(interveningReplicas.local?._storageRevision === source.replicas.local?._storageRevision + 1 &&
+        interveningReplicas.idb?._storageRevision === source.replicas.idb?._storageRevision + 1,
+      "the intervening writer advanced both replicas exactly once");
+      check(interveningReplicas.local?.settings?.restSec !== source.replicas.local?.settings?.restSec &&
+        interveningReplicas.idb?.settings?.restSec !== source.replicas.idb?.settings?.restSec,
+      "the intervening writer has an independent durable value");
+
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+      const after = await readFullReplicas(survivor);
+      check(isDeepStrictEqual(after.local, interveningReplicas.local) &&
+        isDeepStrictEqual(after.idb, interveningReplicas.idb),
+      "boot rejects the stale recovery journal and preserves the intervening bytes", { after, interveningReplicas });
+      check(carrierRecords(after.local).length === 0 && carrierRecords(after.idb).length === 0 &&
+        after.local?.programMeta?.blockId === source.replicas.local?.programMeta?.blockId &&
+        after.idb?.programMeta?.blockId === source.replicas.idb?.programMeta?.blockId &&
+        after.local?.programHistory?.length === source.replicas.local?.programHistory?.length &&
+        after.idb?.programHistory?.length === source.replicas.idb?.programHistory?.length,
+      "stale recovery adds zero carrier records, block starts, or archives");
+      const staleDraft = await readDraftBytes(survivor);
+      check(staleDraft.raw === source.drafts.raw && staleDraft.checkpoint === source.drafts.checkpoint &&
+        staleDraft.recovery === source.drafts.recovery,
+      "stale recovery leaves DraftV2 unchanged", staleDraft);
+      check(recoveryHasNoArtifacts(await artifactKeys(survivor)), "stale recovery drains its journal artifacts");
+      await assertRecoverySecondBoot(survivor, after, "stale recovery");
+      await context.close();
+    }
+
+    // =========================================================================
+    // R5b2 case 3: a recovery successor is fully prepared, then the writer
+    // dies before finalization. Recovery must converge both mirrors to the
+    // captured successor exactly once, with no replacement/archive semantics.
+    // =========================================================================
+    console.log("\n12. Prepared recovery successor replays exactly once");
+    recoveryPrepared: {
+      const context = await browser.newContext();
+      const survivor = await context.newPage();
+      survivor.on("dialog", (d) => d.dismiss().catch(() => {}));
+      await survivor.goto(BASE);
+      await waitForAppBoot(survivor, { base: BASE });
+      await clearStorage(survivor);
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+      const source = await setupRecoverySource(survivor, "recovery-prepared");
+      const proposalResult = await proposeRecoveryCrashOracle(survivor, "tr_p6c_recovery_prepared");
+      check(proposalResult?.ok === true, "prepared recovery proposal created", proposalResult);
+      const proposal = proposalResult?.proposal;
+      if (!proposal) {
+        check(proposalResult?.missing !== true, "prepared recovery proposal seam exists", proposalResult);
+        await context.close();
+        break recoveryPrepared;
+      }
+      await injectWriteFailureAfterFirst(survivor);
+      const interrupted = await confirmTransition(survivor, recoveryConfirmArgs(proposal));
+      const writeFaults = await survivor.evaluate(() => window.__p6cRestoreWriteSeam?.() || null);
+      check(writeFaults?.localFaults > 0 && writeFaults?.idbFaults > 0,
+        "prepared recovery fault injection hit both required durable write seams", writeFaults);
+      await survivor.evaluate(() => window.__repforgeStorage.flush());
+      check(interrupted?.deferred === true && interrupted?.finalizationPending === true,
+        "prepared recovery write seam reports deferred finalization", interrupted);
+      const prepared = await readFullReplicas(survivor);
+      check(exactRecoverySuccess(source.replicas.local, prepared.local, proposal) &&
+        exactRecoverySuccess(source.replicas.idb, prepared.idb, proposal),
+      "prepared recovery contains exactly one R+1 carrier target in both replicas");
+      check(prepared.local?.programMeta?.transitionIn == null && prepared.idb?.programMeta?.transitionIn == null &&
+        prepared.local?.programHistory?.length === source.replicas.local?.programHistory?.length &&
+        prepared.idb?.programHistory?.length === source.replicas.idb?.programHistory?.length,
+      "prepared recovery creates no successor or archive");
+      const preparedDraft = await readDraftBytes(survivor);
+      check(preparedDraft.raw === source.drafts.raw && preparedDraft.checkpoint === source.drafts.checkpoint &&
+        preparedDraft.recovery === source.drafts.recovery,
+      "prepared recovery leaves DraftV2 unchanged", preparedDraft);
+      check(await readJournal(survivor) != null, "prepared recovery retains its journal until boot finalization");
+
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+      const recovered = await readFullReplicas(survivor);
+      check(exactRecoverySuccess(source.replicas.local, recovered.local, proposal) &&
+        exactRecoverySuccess(source.replicas.idb, recovered.idb, proposal),
+      "boot converges the prepared recovery to one exact R+1 record in both replicas");
+      check(recoveryHasNoArtifacts(await artifactKeys(survivor)), "prepared recovery boot clears every artifact");
+      await assertRecoverySecondBoot(survivor, recovered, "prepared recovery");
+      const retry = await confirmTransition(survivor, recoveryConfirmArgs(proposal));
+      check(retry?.alreadyCommitted === true && retry?.committed === true,
+        "prepared recovery retry is alreadyCommitted", retry);
+      const afterRetry = await readFullReplicas(survivor);
+      check(isDeepStrictEqual(afterRetry.local, recovered.local) && isDeepStrictEqual(afterRetry.idb, recovered.idb),
+        "prepared recovery retry adds no revision, record, or archive");
+      await context.close();
+    }
+
+    // =========================================================================
+    // R5b2 case 4: the final state is durable but artifact cleanup fails. A
+    // second boot only clears owned artifacts; it never creates another
+    // revision, carrier record, or archive.
+    // =========================================================================
+    console.log("\n13. Final recovery state survives cleanup interruption idempotently");
+    recoveryCleanup: {
+      const context = await browser.newContext();
+      const survivor = await context.newPage();
+      survivor.on("dialog", (d) => d.dismiss().catch(() => {}));
+      await survivor.goto(BASE);
+      await waitForAppBoot(survivor, { base: BASE });
+      await clearStorage(survivor);
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+      const source = await setupRecoverySource(survivor, "recovery-cleanup");
+      const proposalResult = await proposeRecoveryCrashOracle(survivor, "tr_p6c_recovery_cleanup");
+      check(proposalResult?.ok === true, "cleanup recovery proposal created", proposalResult);
+      const proposal = proposalResult?.proposal;
+      if (!proposal) {
+        check(proposalResult?.missing !== true, "cleanup recovery proposal seam exists", proposalResult);
+        await context.close();
+        break recoveryCleanup;
+      }
+      await injectCleanupFailure(survivor);
+      const committed = await confirmTransition(survivor, recoveryConfirmArgs(proposal));
+      const cleanupFaults = await survivor.evaluate(() => window.__p6cRestoreCleanupSeam?.() || null);
+      check(cleanupFaults?.faults > 0, "cleanup recovery fault injection hit", cleanupFaults);
+      await survivor.evaluate(() => window.__repforgeStorage.flush());
+      check(committed?.localOk === true && committed?.idbOk === true || committed?.deferred === true,
+        "cleanup interruption leaves the recovery state durable", committed);
+      const sealed = await readFullReplicas(survivor);
+      check(exactRecoverySuccess(source.replicas.local, sealed.local, proposal) &&
+        exactRecoverySuccess(source.replicas.idb, sealed.idb, proposal),
+      "sealed recovery is exact in both replicas before cleanup replay");
+      check(await readJournal(survivor) != null, "cleanup interruption retains the recovery journal");
+      const sealedDraft = await readDraftBytes(survivor);
+      check(sealedDraft.raw === source.drafts.raw && sealedDraft.checkpoint === source.drafts.checkpoint &&
+        sealedDraft.recovery === source.drafts.recovery,
+      "cleanup interruption leaves DraftV2 unchanged", sealedDraft);
+
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+      const cleaned = await readFullReplicas(survivor);
+      check(exactRecoverySuccess(source.replicas.local, cleaned.local, proposal) &&
+        exactRecoverySuccess(source.replicas.idb, cleaned.idb, proposal),
+      "cleanup boot preserves the exact sealed successor");
+      check(recoveryHasNoArtifacts(await artifactKeys(survivor)), "cleanup boot clears all recovery artifacts");
+      await assertRecoverySecondBoot(survivor, cleaned, "cleanup recovery");
+      const retry = await confirmTransition(survivor, recoveryConfirmArgs(proposal));
+      check(retry?.alreadyCommitted === true && retry?.committed === true,
+        "cleanup recovery retry is alreadyCommitted", retry);
+      const afterRetry = await readFullReplicas(survivor);
+      check(isDeepStrictEqual(afterRetry.local, cleaned.local) && isDeepStrictEqual(afterRetry.idb, cleaned.idb),
+        "cleanup recovery retry adds no revision, record, or archive");
+      await context.close();
+    }
+
+    // =========================================================================
+    // R5b2 case 5: each durable replica is independently interrupted. Boot
+    // heals the missing mirror from the winning full snapshot; it must never
+    // array-union carrier records from different replicas.
+    // =========================================================================
+    console.log("\n14. Local-only and IndexedDB-only recovery successors heal exactly");
+    for (const damaged of ["local", "idb"]) {
+      const context = await browser.newContext();
+      const survivor = await context.newPage();
+      survivor.on("dialog", (d) => d.dismiss().catch(() => {}));
+      await survivor.goto(BASE);
+      await waitForAppBoot(survivor, { base: BASE });
+      await clearStorage(survivor);
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+      const source = await setupRecoverySource(survivor, `recovery-partial-${damaged}`);
+      const proposalResult = await proposeRecoveryCrashOracle(survivor, `tr_p6c_recovery_partial_${damaged}`);
+      check(proposalResult?.ok === true, `${damaged}-only recovery proposal created`, proposalResult);
+      const proposal = proposalResult?.proposal;
+      if (!proposal) {
+        check(proposalResult?.missing !== true, `${damaged}-only recovery proposal seam exists`, proposalResult);
+        await context.close();
+        continue;
+      }
+      const alternateRecordResult = await proposeAndSealRecoveryCrashOracle(
+        survivor,
+        `tr_p6c_recovery_partial_alternate_${damaged}`,
+        "2026-10-05T09:01:00.000Z",
+      );
+      check(alternateRecordResult?.ok === true,
+        `${damaged}-only alternate carrier was proposed and sealed through production seams`, alternateRecordResult);
+      const alternateRecord = alternateRecordResult?.record;
+      if (alternateRecord) {
+        const alternateValidation = await validateRecoveryRecordAgainstLive(survivor, alternateRecord);
+        check(alternateValidation.ok === true,
+          `${damaged}-only alternate carrier passes the authoritative recovery validator`, alternateValidation);
+      }
+      if (!alternateRecord) {
+        await context.close();
+        continue;
+      }
+      const committed = await confirmTransition(survivor, recoveryConfirmArgs(proposal));
+      await survivor.evaluate(() => window.__repforgeStorage.flush());
+      check(committed?.committed === true, `${damaged}-only recovery target committed before damage`, committed);
+      const target = await readFullReplicas(survivor);
+      check(exactRecoverySuccess(source.replicas.local, target.local, proposal) &&
+        exactRecoverySuccess(source.replicas.idb, target.idb, proposal),
+      `${damaged}-only recovery has one exact target before replica damage`);
+
+      const successorLocal = JSON.parse(JSON.stringify(target.local));
+      const successorIdb = JSON.parse(JSON.stringify(target.idb));
+      const sourceLocalCandidate = JSON.parse(JSON.stringify(source.replicas.local));
+      const sourceIdbCandidate = JSON.parse(JSON.stringify(source.replicas.idb));
+      successorLocal.settings = { ...(successorLocal.settings || {}), restSec: 181 };
+      successorIdb.settings = { ...(successorIdb.settings || {}), restSec: 181 };
+      const alternateCarrier = {
+        schemaVersion: 1,
+        records: [JSON.parse(JSON.stringify(alternateRecord))],
+        quarantine: [],
+      };
+      sourceLocalCandidate.recoveryTransitions = JSON.parse(JSON.stringify(alternateCarrier));
+      sourceIdbCandidate.recoveryTransitions = JSON.parse(JSON.stringify(alternateCarrier));
+      sourceLocalCandidate.settings = { ...(sourceLocalCandidate.settings || {}), restSec: 271 };
+      sourceIdbCandidate.settings = { ...(sourceIdbCandidate.settings || {}), restSec: 271 };
+      const localCandidate = damaged === "local" ? successorLocal : sourceLocalCandidate;
+      const idbCandidate = damaged === "local" ? sourceIdbCandidate : successorIdb;
+      const expectedWinner = damaged === "local" ? successorLocal : successorIdb;
+
+      if (damaged === "local") {
+        await survivor.evaluate((raw) => localStorage.setItem("repforge_v1", raw), JSON.stringify(localCandidate));
+        await injectIdbState(survivor, idbCandidate);
+      } else {
+        await survivor.evaluate((raw) => localStorage.setItem("repforge_v1", raw), JSON.stringify(localCandidate));
+        await injectIdbState(survivor, idbCandidate);
+      }
+      const mixed = await readFullReplicas(survivor);
+      check(isDeepStrictEqual(mixed.local, localCandidate) && isDeepStrictEqual(mixed.idb, idbCandidate) &&
+        mixed.local?.settings?.restSec !== mixed.idb?.settings?.restSec &&
+        carrierRecords(mixed.local).length === 1 && carrierRecords(mixed.idb).length === 1,
+      `${damaged}-only fixture seeds two distinguishable complete carriers and whole-state candidates`, { mixed, localCandidate, idbCandidate });
+
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+      const healed = await readFullReplicas(survivor);
+      check(isDeepStrictEqual(healed.local, expectedWinner) && isDeepStrictEqual(healed.idb, expectedWinner),
+        `${damaged}-only boot chooses one exact higher-revision whole-state winner`, { healed, expectedWinner });
+      check(carrierRecords(healed.local).length === 1 && carrierRecords(healed.idb).length === 1 &&
+        isDeepStrictEqual(carrierRecords(healed.local)[0], committedRecoveryRecord(proposal)) &&
+        isDeepStrictEqual(carrierRecords(healed.idb)[0], committedRecoveryRecord(proposal)),
+      `${damaged}-only boot keeps exactly one exact mirrored recovery record`);
+      check(recoveryHasNoArtifacts(await artifactKeys(survivor)), `${damaged}-only boot clears all artifacts`);
+      await assertRecoverySecondBoot(survivor, healed, `${damaged}-only recovery`);
+      await context.close();
+    }
+
+    // =========================================================================
+    // R5b2 case 6: a newer DraftV2 acknowledgement appears while recovery is
+    // queued. The boot guard must preserve that exact draft and reject the
+    // unsafe block start.
+    // =========================================================================
+    console.log("\n15. Newer acknowledged DraftV2 blocks queued recovery replay");
+    recoveryDraftGuard: {
+      const env = await newBootedContext(browser);
+      const { locker, writer, survivor, context } = env;
+      const source = await setupRecoverySource(survivor, "recovery-draft-guard");
+      const proposalResult = await proposeRecoveryCrashOracle(survivor, "tr_p6c_recovery_draft_guard");
+      check(proposalResult?.ok === true, "draft-guard recovery proposal created", proposalResult);
+      const proposal = proposalResult?.proposal;
+      if (!proposal) {
+        check(proposalResult?.missing !== true, "draft-guard recovery proposal seam exists", proposalResult);
+        await context.close();
+        break recoveryDraftGuard;
+      }
+      await bootOthers([locker, writer]);
+      await holdStorageLock(locker);
+      await writer.evaluate((args) => {
+        window.__p6cRecoveryConfirmResult = window.__repforgeProgramTransition.confirmTransition(args);
+      }, recoveryConfirmArgs(proposal));
+      await waitForPendingStorageLocks(locker, 1);
+      await survivor.waitForFunction((prefix) => Object.keys(localStorage).some((key) => key.startsWith(prefix)),
+        PENDING_PREFIX, { timeout: 10000 });
+      const journal = await readJournal(survivor);
+      check(journal != null, "draft-guard recovery journal is armed before the newer draft");
+      const newerDraft = await enterRecoveryDraft(survivor);
+      check(newerDraft.ok === true, "newer DraftV2 is acknowledged while recovery is queued", newerDraft);
+      const newerDraftBytes = await readDraftAndSidecars(survivor);
+      let queuedDraftRaw = null;
+      try {
+        const sidecar = newerDraftBytes.sidecars.at(-1);
+        queuedDraftRaw = sidecar ? JSON.parse(sidecar.raw)?.raw || null : null;
+      } catch {}
+      const newerDraftRaw = newerDraftBytes.raw || queuedDraftRaw;
+      check(typeof newerDraftRaw === "string", "newer DraftV2 has an acknowledged canonical or queued raw value",
+        { raw: newerDraftBytes.raw, sidecars: newerDraftBytes.sidecars.map((entry) => entry.key) });
+      const beforeReload = await readFullReplicas(survivor);
+      check(exactSourceState(source.replicas.local, beforeReload.local) && exactSourceState(source.replicas.idb, beforeReload.idb),
+        "newer DraftV2 does not mutate the durable program before boot");
+      await writer.close();
+      await releaseStorageLock(locker);
+      await locker.waitForFunction(async (lockName) => {
+        const locks = await navigator.locks.query();
+        return !locks.pending.some((lock) => lock.name === lockName);
+      }, STORAGE_LOCK, { timeout: 10000 });
+
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+      const after = await readFullReplicas(survivor);
+      check(exactSourceState(source.replicas.local, after.local) && exactSourceState(source.replicas.idb, after.idb),
+        "newer DraftV2 causes queued recovery to leave both durable replicas exact source");
+      check(carrierRecords(after.local).length === 0 && carrierRecords(after.idb).length === 0 &&
+        after.local?.programMeta?.blockId === source.replicas.local?.programMeta?.blockId &&
+        after.idb?.programMeta?.blockId === source.replicas.idb?.programMeta?.blockId,
+      "newer DraftV2 prevents the unsafe recovery record and block start");
+      const draftAfter = await readDraftBytes(survivor);
+      const checkpointAfter = draftAfter.checkpoint ? JSON.parse(draftAfter.checkpoint) : null;
+      check(draftAfter.raw === newerDraftRaw && checkpointAfter?.kind === "committed" &&
+        checkpointAfter?.raw === newerDraftRaw && draftAfter.recovery === newerDraftBytes.recovery,
+      "newer acknowledged DraftV2 bytes survive recovery discard", {
+        rawEqual: draftAfter.raw === newerDraftRaw,
+        checkpointKind: checkpointAfter?.kind,
+        checkpointRawEqual: checkpointAfter?.raw === newerDraftRaw,
+        recoveryEqual: draftAfter.recovery === newerDraftBytes.recovery,
+        expectedRawLength: newerDraftRaw?.length,
+        actualRawLength: draftAfter.raw?.length,
+        expectedCheckpoint: newerDraftBytes.checkpoint,
+        sidecarsBeforeBoot: newerDraftBytes.sidecars,
+      });
+      check(recoveryHasNoArtifacts(await artifactKeys(survivor)), "newer DraftV2 recovery discard clears artifacts");
+      await assertRecoverySecondBoot(survivor, after, "newer DraftV2 recovery guard");
+      await context.close();
+    }
+
+    // =========================================================================
+    // R5b2 case 7: one durable mirror write fails. The faulted operation may
+    // leave either the exact source or exact sealed successor, but never a
+    // mixed state; boot and an exact retry converge idempotently.
+    // =========================================================================
+    console.log("\n16. Single-mirror durable failure never leaves mixed recovery state");
+    for (const failedSide of ["local", "idb"]) {
+      const context = await browser.newContext();
+      const survivor = await context.newPage();
+      survivor.on("dialog", (d) => d.dismiss().catch(() => {}));
+      await survivor.goto(BASE);
+      await waitForAppBoot(survivor, { base: BASE });
+      await clearStorage(survivor);
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+      const source = await setupRecoverySource(survivor, `recovery-write-failure-${failedSide}`);
+      const proposalResult = await proposeRecoveryCrashOracle(survivor, `tr_p6c_recovery_write_failure_${failedSide}`);
+      check(proposalResult?.ok === true, `${failedSide}-failure recovery proposal created`, proposalResult);
+      const proposal = proposalResult?.proposal;
+      if (!proposal) {
+        check(proposalResult?.missing !== true, `${failedSide}-failure recovery proposal seam exists`, proposalResult);
+        await context.close();
+        continue;
+      }
+      await injectFirstReplicaFailure(survivor, failedSide);
+      const result = await confirmTransition(survivor, recoveryConfirmArgs(proposal));
+      const replicaFaults = await survivor.evaluate(() => window.__p6cRestoreReplicaFailure?.() || null);
+      check(replicaFaults?.side === failedSide && replicaFaults?.writes === 1 && replicaFaults?.faults === 1,
+        `${failedSide}-failure fault injection hit exactly one requested durable write`, replicaFaults);
+      await survivor.evaluate(() => window.__repforgeStorage.flush());
+      const faulted = await readFullReplicas(survivor);
+      check(exactSourceOrRecovery(source.replicas.local, faulted.local, proposal) &&
+        exactSourceOrRecovery(source.replicas.idb, faulted.idb, proposal),
+      `${failedSide}-failure leaves each replica as a complete source or sealed successor`, { result, faulted });
+
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+      const booted = await readFullReplicas(survivor);
+      const bootedSource = exactSourceState(source.replicas.local, booted.local) &&
+        exactSourceState(source.replicas.idb, booted.idb);
+      const bootedSuccess = exactRecoverySuccess(source.replicas.local, booted.local, proposal) &&
+        exactRecoverySuccess(source.replicas.idb, booted.idb, proposal);
+      check(bootedSource || bootedSuccess,
+        `${failedSide}-failure boot converges to one exact source or one exact sealed successor`, booted);
+      const retry = await confirmTransition(survivor, recoveryConfirmArgs(proposal));
+      check(retry?.committed === true && (retry?.alreadyCommitted === true || bootedSource),
+        `${failedSide}-failure retry is idempotent or completes the exact source`, retry);
+      await survivor.evaluate(() => window.__repforgeStorage.flush());
+      const afterRetry = await readFullReplicas(survivor);
+      check(exactRecoverySuccess(source.replicas.local, afterRetry.local, proposal) &&
+        exactRecoverySuccess(source.replicas.idb, afterRetry.idb, proposal),
+      `${failedSide}-failure retry converges both replicas to exactly one R+1 record`);
+      check(recoveryHasNoArtifacts(await artifactKeys(survivor)), `${failedSide}-failure retry clears artifacts`);
+      await assertRecoverySecondBoot(survivor, afterRetry, `${failedSide}-failure recovery`);
+      await context.close();
+    }
+
+    // =========================================================================
+    // R5b2 case 8: reassessment is outcome-only. Write and cleanup crashes
+    // replay one carrier update at R+1, preserving the original hash, program,
+    // block, history, log, and DraftV2 bytes.
+    // =========================================================================
+    console.log("\n17. Outcome-only reassessment replays without touching program state");
+    for (const fault of ["write", "cleanup"]) {
+      const context = await browser.newContext();
+      const survivor = await context.newPage();
+      survivor.on("dialog", (d) => d.dismiss().catch(() => {}));
+      await survivor.goto(BASE);
+      await waitForAppBoot(survivor, { base: BASE });
+      await clearStorage(survivor);
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+      const source = await setupRecoverySource(survivor, `recovery-reassess-${fault}`);
+      const proposalResult = await proposeRecoveryCrashOracle(survivor, `tr_p6c_recovery_reassess_${fault}`);
+      check(proposalResult?.ok === true, `${fault} reassessment proposal created`, proposalResult);
+      const proposal = proposalResult?.proposal;
+      if (!proposal) {
+        check(proposalResult?.missing !== true, `${fault} reassessment proposal seam exists`, proposalResult);
+        await context.close();
+        continue;
+      }
+      const committed = await confirmTransition(survivor, recoveryConfirmArgs(proposal));
+      await survivor.evaluate(() => window.__repforgeStorage.flush());
+      check(committed?.committed === true, `${fault} reassessment has a committed recovery carrier`, committed);
+      const moved = await survivor.evaluate(async () => {
+        const next = JSON.parse(JSON.stringify(window.__repforgeWorkoutDraft.state()));
+        next.programMeta = {
+          ...next.programMeta,
+          started: new Date(Date.now() - 8 * 86400000).toISOString().slice(0, 10),
+        };
+        const result = await window.__repforgeCommitProposedState(next);
+        await window.__repforgeStorage.flush();
+        return { ok: result?.localOk || result?.idbOk, result };
+      });
+      check(moved.ok === true, `${fault} reassessment week-boundary fixture committed`, moved);
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+      const liveDraft = await enterRecoveryDraft(survivor, `live acknowledged reassessment ${fault}`);
+      check(liveDraft.ok === true && typeof liveDraft.raw === "string" && typeof liveDraft.checkpoint === "string",
+        `${fault} reassessment seeds a live acknowledged DraftV2`, liveDraft);
+      await survivor.evaluate(({ key, raw }) => localStorage.setItem(key, raw), {
+        key: RECOVERY_KEY,
+        raw: source.setup.preDraftRaw,
+      });
+      const seededDraft = await readDraftBytes(survivor);
+      const seededCheckpoint = seededDraft.checkpoint ? JSON.parse(seededDraft.checkpoint) : null;
+      check(seededDraft.raw === liveDraft.raw && seededCheckpoint?.kind === "committed" &&
+        seededCheckpoint?.raw === liveDraft.raw && seededDraft.recovery === source.setup.preDraftRaw,
+      `${fault} reassessment seeds acknowledged DraftV2 checkpoint and recovery bytes`, seededDraft);
+      const before = await readFullReplicas(survivor);
+      const beforeDraft = seededDraft;
+      const beforeRecord = carrierRecords(before.local)[0];
+      check(beforeRecord?.proposalHash === proposal.proposalHash && beforeRecord?.diff?.recoveryWeek?.reassessmentOutcome === null,
+        `${fault} reassessment starts from one open carrier with the original hash`, beforeRecord);
+      const reassessArgs = {
+        expectedRevision: before.local?._storageRevision,
+        blockId: proposal.diff.recoveryWeek.blockId,
+        transitionId: proposal.transitionId,
+        proposalHash: proposal.proposalHash,
+        acknowledgedRecord: beforeRecord,
+        outcome: "Worse",
+      };
+      if (fault === "write") await injectWriteFailureAfterFirst(survivor);
+      else await injectCleanupFailure(survivor);
+      const interrupted = await reassessRecovery(survivor, reassessArgs);
+      if (fault === "write") {
+        const writeFaults = await survivor.evaluate(() => window.__p6cRestoreWriteSeam?.() || null);
+        check(writeFaults?.localFaults > 0 && writeFaults?.idbFaults > 0,
+          "outcome-only reassessment fault injection hit both required durable write seams", writeFaults);
+      } else {
+        const cleanupFaults = await survivor.evaluate(() => window.__p6cRestoreCleanupSeam?.() || null);
+        check(cleanupFaults?.faults > 0, "outcome-only reassessment cleanup fault injection hit", cleanupFaults);
+      }
+      await survivor.evaluate(() => window.__repforgeStorage.flush());
+      if (fault === "write") {
+        check(interrupted?.deferred === true && interrupted?.finalizationPending === true,
+          "outcome-only reassessment write seam reports deferred finalization", interrupted);
+      } else {
+        check(interrupted?.committed === true || interrupted?.deferred === true || interrupted?.finalizationPending === true,
+          `${fault} reassessment interruption is reported through the production seam`, interrupted);
+      }
+      check(await readJournal(survivor) != null, `${fault} reassessment retains its journal until boot replay`);
+
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+      const after = await readFullReplicas(survivor);
+      const expectedLocal = JSON.parse(JSON.stringify(before.local));
+      expectedLocal._storageRevision = before.local._storageRevision + 1;
+      expectedLocal.recoveryTransitions.records[0] = recoveryRecordWithOutcome(beforeRecord, "Worse");
+      const expectedIdb = JSON.parse(JSON.stringify(before.idb));
+      expectedIdb._storageRevision = before.idb._storageRevision + 1;
+      expectedIdb.recoveryTransitions.records[0] = recoveryRecordWithOutcome(beforeRecord, "Worse");
+      check(isDeepStrictEqual(after.local, expectedLocal) && isDeepStrictEqual(after.idb, expectedIdb),
+        `${fault} reassessment boot commits exactly one outcome-only R+1 closure`, { expectedLocal, expectedIdb, after });
+      check(after.local?.programMeta?.blockId === before.local?.programMeta?.blockId &&
+        after.idb?.programMeta?.blockId === before.idb?.programMeta?.blockId &&
+        isDeepStrictEqual(after.local?.program, before.local?.program) &&
+        isDeepStrictEqual(after.idb?.program, before.idb?.program) &&
+        isDeepStrictEqual(after.local?.programHistory, before.local?.programHistory) &&
+        isDeepStrictEqual(after.idb?.programHistory, before.idb?.programHistory) &&
+        isDeepStrictEqual(after.local?.log, before.local?.log) &&
+        isDeepStrictEqual(after.idb?.log, before.idb?.log),
+      `${fault} reassessment leaves program, block, archive, and history/log unchanged`);
+      check(carrierRecords(after.local).length === 1 && carrierRecords(after.idb).length === 1 &&
+        carrierRecords(after.local)[0]?.proposalHash === proposal.proposalHash &&
+        carrierRecords(after.idb)[0]?.proposalHash === proposal.proposalHash,
+      `${fault} reassessment preserves the original proposal hash with one record`);
+      const afterDraft = await readDraftBytes(survivor);
+      check(afterDraft.raw === beforeDraft.raw && afterDraft.checkpoint === beforeDraft.checkpoint &&
+        afterDraft.recovery === beforeDraft.recovery,
+      `${fault} reassessment leaves DraftV2 bytes unchanged`, afterDraft);
+      check(recoveryHasNoArtifacts(await artifactKeys(survivor)), `${fault} reassessment boot clears artifacts`);
+      await assertRecoverySecondBoot(survivor, after, `${fault} reassessment`);
+      await context.close();
     }
 
   } finally {
