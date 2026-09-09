@@ -67,6 +67,20 @@ const INDEPENDENT_CANONICAL_COUNTS = new Map(
 const INDEPENDENT_WEEK_ONE_COUNTS = new Map(
   BALANCED_4_FIXTURE_SLOTS.map((slot, index) => [slot.slotId, BALANCED_4_RULE_B.effective[index]]),
 );
+const INDEPENDENT_DAY_EXPECTATIONS = new Map(
+  BALANCED_4_FIXTURE.days.map((day) => {
+    const canonicalCounts = new Map(day.slots.map((slot) => [slot.slotId, slot.sets]));
+    const weekOneCounts = new Map(day.slots.map((slot) => [slot.slotId, INDEPENDENT_WEEK_ONE_COUNTS.get(slot.slotId)]));
+    return [day.dayId, {
+      dayId: day.dayId,
+      label: day.label,
+      canonicalCounts,
+      weekOneCounts,
+      canonicalSlotIds: [...canonicalCounts.keys()],
+      weekOneSlotIds: [...weekOneCounts].filter(([, sets]) => sets > 0).map(([slotId]) => slotId),
+    }];
+  }),
+);
 const INDEPENDENT_WEEK_ONE_TOTAL = [...INDEPENDENT_WEEK_ONE_COUNTS.values()].reduce((sum, sets) => sum + sets, 0);
 const INDEPENDENT_CANONICAL_TOTAL = [...INDEPENDENT_CANONICAL_COUNTS.values()].reduce((sum, sets) => sum + sets, 0);
 
@@ -387,53 +401,53 @@ function recordWithOutcome(record, outcome) {
   return next;
 }
 
-function fixtureWeekOneSetCounts(draft) {
-  const seen = new Set();
+function fixtureProjectionSetCounts(draft, projection) {
+  const selectedDayId = draft?.program?.dayId ?? null;
+  const expectedDay = INDEPENDENT_DAY_EXPECTATIONS.get(selectedDayId);
+  const expectedCounts = expectedDay?.[projection === "weekOne" ? "weekOneCounts" : "canonicalCounts"] || new Map();
+  const expectedSlotIds = expectedDay?.[projection === "weekOne" ? "weekOneSlotIds" : "canonicalSlotIds"] || [];
+  const actualSlotIds = [];
   const mismatches = [];
+  if (!expectedDay) mismatches.push({ dayId: selectedDayId, reason: "unmatched-selected-day" });
   for (const exerciseId of draft?.exerciseOrder || []) {
     const exercise = draft.exercises?.[exerciseId];
     const slot = String(exercise?.sourceExerciseId || "");
-    const expected = INDEPENDENT_WEEK_ONE_COUNTS.get(slot);
+    actualSlotIds.push(slot);
+    const expected = expectedCounts.get(slot);
     if (expected === undefined) {
       mismatches.push({ exerciseId, slot, reason: "unmatched-slot" });
       continue;
     }
-    seen.add(slot);
     if (exercise.programmed?.sets !== expected) {
       mismatches.push({ slot, actual: exercise.programmed?.sets, expected });
     }
   }
-  for (const [slot, expected] of INDEPENDENT_WEEK_ONE_COUNTS) {
-    if (expected > 0 && !seen.has(slot)) {
-      mismatches.push({ slot, reason: "missing-positive-slot" });
-    }
-    if (expected === 0 && seen.has(slot)) {
-      mismatches.push({ slot, reason: "zero-slot-rendered" });
-    }
+  const expectedSet = new Set(expectedSlotIds);
+  const actualSet = new Set(actualSlotIds);
+  for (const slot of expectedSet) {
+    if (!actualSet.has(slot)) mismatches.push({ slot, reason: "missing-selected-day-slot" });
   }
-  return { mismatches };
+  for (const slot of actualSet) {
+    if (!expectedSet.has(slot)) mismatches.push({ slot, reason: "extra-selected-day-slot" });
+  }
+  if (actualSlotIds.length !== actualSet.size) mismatches.push({ reason: "duplicate-selected-day-slot" });
+  return {
+    selectedDayId,
+    expectedSlotIds,
+    actualSlotIds,
+    expectedSlotSetNonempty: expectedSlotIds.length > 0,
+    slotSetEqual: expectedSlotIds.length === actualSlotIds.length &&
+      expectedSlotIds.every((slot, index) => slot === actualSlotIds[index]),
+    mismatches,
+  };
+}
+
+function fixtureWeekOneSetCounts(draft) {
+  return fixtureProjectionSetCounts(draft, "weekOne");
 }
 
 function fixtureCanonicalSetCounts(draft) {
-  const mismatches = [];
-  const seen = new Set();
-  for (const exerciseId of draft?.exerciseOrder || []) {
-    const exercise = draft.exercises?.[exerciseId];
-    const slot = String(exercise?.sourceExerciseId || "");
-    const expected = INDEPENDENT_CANONICAL_COUNTS.get(slot);
-    if (expected === undefined) {
-      mismatches.push({ exerciseId, slot, reason: "unmatched-slot" });
-      continue;
-    }
-    seen.add(slot);
-    if (exercise.programmed?.sets !== expected) {
-      mismatches.push({ slot, actual: exercise.programmed?.sets, expected });
-    }
-  }
-  if (seen.size !== INDEPENDENT_CANONICAL_COUNTS.size) {
-    mismatches.push({ reason: "canonical-slot-coverage", seen: seen.size, expected: INDEPENDENT_CANONICAL_COUNTS.size });
-  }
-  return { mismatches };
+  return fixtureProjectionSetCounts(draft, "canonical");
 }
 
 function stateWithoutRecoveryCommitDelta(snapshot) {
@@ -807,6 +821,10 @@ async function main() {
     check(weekOneEntered === true, "week-one workout opens through the production draft seam");
     const weekOneDraft = await page.evaluate(() => window.__repforgeWorkoutDraft.current());
     const weekOneProjection = fixtureWeekOneSetCounts(weekOneDraft);
+    check(weekOneProjection.expectedSlotSetNonempty,
+      "independent Rule-B expectation for the selected week-one day is nonempty", weekOneProjection);
+    check(weekOneProjection.slotSetEqual,
+      "week-one DraftV2 slot identities exactly match the selected fixture day subset", weekOneProjection);
     check(weekOneProjection.mismatches.length === 0, "week-one draft uses every Rule-B effective set count", weekOneProjection.mismatches);
     check(INDEPENDENT_WEEK_ONE_TOTAL < INDEPENDENT_CANONICAL_TOTAL,
       "independent Rule-B week-one projection is reduced relative to canonical volume",
@@ -888,6 +906,10 @@ async function main() {
     check(duplicateEntered === true, "duplicate-target fixture opens a week-one workout");
     const duplicateDraft = await duplicatePage.evaluate(() => window.__repforgeWorkoutDraft.current());
     const duplicateProjection = fixtureCanonicalSetCounts(duplicateDraft);
+    check(duplicateProjection.expectedSlotSetNonempty,
+      "independent canonical expectation for the selected duplicate-target day is nonempty", duplicateProjection);
+    check(duplicateProjection.slotSetEqual,
+      "duplicate-target DraftV2 slot identities exactly match the selected fixture day", duplicateProjection);
     check(duplicateProjection.mismatches.length === 0,
       "duplicate-target conflict applies neither recovery record and renders canonical counts", duplicateProjection.mismatches);
     await duplicateContext.close();
@@ -914,6 +936,10 @@ async function main() {
     check(weekTwoEntered === true, "week-two workout opens through the production draft seam");
     const weekTwoDraft = await page.evaluate(() => window.__repforgeWorkoutDraft.current());
     const weekTwoCanonical = fixtureCanonicalSetCounts(weekTwoDraft);
+    check(weekTwoCanonical.expectedSlotSetNonempty,
+      "independent canonical expectation for the selected week-two day is nonempty", weekTwoCanonical);
+    check(weekTwoCanonical.slotSetEqual,
+      "week-two DraftV2 slot identities exactly match the selected fixture day", weekTwoCanonical);
     check(weekTwoCanonical.mismatches.length === 0, "week two restores the canonical prescription even while unanswered", weekTwoCanonical.mismatches);
     check(carrierRecords(weekTwoState)[0]?.diff?.recoveryWeek?.reassessmentOutcome === null,
       "week two remains canonical with a persisted null reassessmentOutcome");
