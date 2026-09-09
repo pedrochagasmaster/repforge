@@ -240,7 +240,7 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
   // must also precache those exact URLs for the next offline launch.
   const index = readFileSync(join(ROOT, "index.html"), "utf8");
   const sw = readFileSync(join(ROOT, "sw.js"), "utf8");
-  const expectedRevision = "211";
+  const expectedRevision = "212";
   const revision = sw.match(/const CACHE = "repforge-v(\d+)"/)?.[1] || "";
   const transitionAssets = [
     "motion-layer.js",

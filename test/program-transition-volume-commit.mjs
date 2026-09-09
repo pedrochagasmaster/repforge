@@ -318,6 +318,185 @@ async function main() {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
 
+    // F1: a shared-import-equivalent snapshot keeps compiler structure
+    // provenance but intentionally has no reconstructable context or source.
+    // It must not fall through to the historical +/-1 block path.
+    const f1Draft = await initializeDraft(page);
+    check(f1Draft.ok, "F1 DraftV2 initialized before provenance-only refusal", f1Draft);
+    const f1Compiled = Compiler.compile(
+      (await page.evaluate(() => window.__repforgeWorkoutDraft.state())).programMeta.compilerContext,
+      EXERCISE_LIBRARY,
+    );
+    const f1Protected = (f1Compiled?.program || [])
+      .filter((row) => row.priority === "protected")
+      .map((row) => ({ id: row.id, sets: row.sets }));
+    check(f1Protected.length > 0 && f1Protected.every((row) => row.sets === 3),
+      "F1 fixture has protected three-set rows", f1Protected);
+    const f1Stripped = await page.evaluate(async () => {
+      const snapshot = window.__repforgeWorkoutDraft.state();
+      delete snapshot.programMeta.compilerContext;
+      delete snapshot.programMeta.entrySource;
+      const result = await window.__repforgeCommitProposedState(snapshot);
+      await window.__repforgeStorage.flush();
+      return result;
+    });
+    check(f1Stripped.localOk === true && f1Stripped.idbOk === true,
+      "F1 provenance-only shared-import-equivalent state is durably staged", f1Stripped);
+    const f1BeforeRefusal = await readReplicas(page);
+    const f1DraftBeforeRefusal = await readDraft(page);
+    const f1Result = await page.evaluate(() => window.__repforgeCommitNextBlock("reduce_volume"));
+    check(f1Result?.committed === false && f1Result?.localOk === false && f1Result?.idbOk === false &&
+          typeof f1Result?.code === "string",
+      "F1 compiler provenance without context/source is typed unavailable", f1Result);
+    const f1AfterRefusal = await readReplicas(page);
+    const f1DraftAfterRefusal = await readDraft(page);
+    check(isDeepStrictEqual(f1AfterRefusal.local, f1BeforeRefusal.local) &&
+          isDeepStrictEqual(f1AfterRefusal.idb, f1BeforeRefusal.idb) &&
+          f1AfterRefusal.local.history.length === f1BeforeRefusal.local.history.length &&
+          f1AfterRefusal.local.revision === f1BeforeRefusal.local.revision,
+      "F1 refusal leaves both replicas, revision, and archive unchanged", {
+        before: f1BeforeRefusal, after: f1AfterRefusal,
+      });
+    check(f1DraftAfterRefusal.raw === f1DraftBeforeRefusal.raw &&
+          f1DraftAfterRefusal.checkpoint === f1DraftBeforeRefusal.checkpoint,
+      "F1 refusal leaves DraftV2 raw/checkpoint unchanged", {
+        before: f1DraftBeforeRefusal, after: f1DraftAfterRefusal,
+      });
+    const f1ProtectedAfter = f1AfterRefusal.local.program
+      .filter((row) => f1Protected.some((expected) => expected.id === row.id))
+      .map((row) => ({ id: row.id, sets: row.sets }));
+    check(isDeepStrictEqual(f1ProtectedAfter, f1Protected),
+      "F1 refusal leaves protected three-set rows unchanged", {
+        expected: f1Protected, actual: f1ProtectedAfter,
+      });
+
+    // A context without a compiler structure receipt is hostile mixed metadata,
+    // not enough evidence to claim a compiler-backed proposal. The historical
+    // block fallback remains covered by the dedicated legacy consumer suite;
+    // this direct adapter boundary must fail closed without writing.
+    await clearStorage(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    const mixedActivated = await activateBalancedRecommendPredecessor(page);
+    check(mixedActivated.ok, "mixed-metadata compiler predecessor reactivated", mixedActivated);
+    if (!mixedActivated.ok) throw new Error(`mixed activation failed: ${JSON.stringify(mixedActivated)}`);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    const mixedStage = await page.evaluate(async () => {
+      const snapshot = window.__repforgeWorkoutDraft.state();
+      delete snapshot.programMeta.programStructure;
+      const result = await window.__repforgeCommitProposedState(snapshot);
+      await window.__repforgeStorage.flush();
+      const current = window.__repforgeWorkoutDraft.state();
+      return { result, hasContext: !!current.programMeta?.compilerContext,
+        provenance: current.programMeta?.programStructure?.provenance || null };
+    });
+    check(mixedStage.result?.localOk === true && mixedStage.result?.idbOk === true && mixedStage.hasContext,
+      "mixed metadata retains context while losing compiler provenance", mixedStage);
+    const mixedBeforeProbe = await readReplicas(page);
+    const mixedResult = await propose(page, {
+      diagnosis: {
+        kind: "reduce_training_volume", answers: {},
+        eligibleEvidenceIds: ["packet-v-mixed-metadata"], insufficientEvidenceReasons: [],
+      },
+      transitionId: "tr_packet_v_mixed_metadata",
+      successorProgramId: "prog_packet_v_mixed_metadata_succ",
+      createdAt: "2026-10-05T08:57:00.000Z",
+      policyVersion: 1,
+    });
+    check(mixedResult?.ok === false && mixedResult.code === "compiler_provenance_absent",
+      "mixed context without provenance is refused as compiler-unavailable", mixedResult);
+    const mixedAfterProbe = await readReplicas(page);
+    check(isDeepStrictEqual(mixedAfterProbe.local, mixedBeforeProbe.local) &&
+          isDeepStrictEqual(mixedAfterProbe.idb, mixedBeforeProbe.idb),
+      "mixed metadata refusal writes neither replica", {
+        before: mixedBeforeProbe, after: mixedAfterProbe,
+      });
+
+    // F2: create a valid proposal, then persist a note edit outside the
+    // compiler snapshot. Rehashing only the durable revision must not let the
+    // confirmation claim the compiler fingerprint for the edited predecessor.
+    await clearStorage(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    const f2Activated = await activateBalancedRecommendPredecessor(page);
+    check(f2Activated.ok, "F2 compiler-backed predecessor reactivated", f2Activated);
+    if (!f2Activated.ok) throw new Error(`F2 activation failed: ${JSON.stringify(f2Activated)}`);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    const f2DraftSetup = await initializeDraft(page);
+    check(f2DraftSetup.ok, "F2 DraftV2 initialized before live edit", f2DraftSetup);
+    const f2DraftBefore = await readDraft(page);
+    const f2ProposalResult = await propose(page, {
+      diagnosis: {
+        kind: "reduce_training_volume",
+        answers: {},
+        eligibleEvidenceIds: ["packet-v-f2-volume"],
+        insufficientEvidenceReasons: [],
+      },
+      transitionId: "tr_packet_v_f2_lockheld",
+      successorProgramId: "prog_packet_v_f2_lockheld_succ",
+      createdAt: "2026-10-05T08:58:00.000Z",
+      policyVersion: 1,
+    });
+    check(f2ProposalResult?.ok === true, "F2 baseline proposal is valid before the live edit", f2ProposalResult);
+    if (!f2ProposalResult?.ok) throw new Error(`F2 proposal unavailable: ${JSON.stringify(f2ProposalResult)}`);
+    const f2Proposal = f2ProposalResult.proposal;
+    const f2Edit = await page.evaluate(async () => {
+      const snapshot = window.__repforgeWorkoutDraft.state();
+      const first = snapshot.program?.[0];
+      first.notes = `${first.notes || ""} F2 live note edit`;
+      const result = await window.__repforgeCommitProposedState(snapshot);
+      await window.__repforgeStorage.flush();
+      return { result, editedId: first.id, editedNotes: first.notes };
+    });
+    check(f2Edit.result?.localOk === true && f2Edit.result?.idbOk === true,
+      "F2 live note edit commits through the real state boundary", f2Edit);
+    const f2AfterEdit = await readReplicas(page);
+    const f2FreshProposal = await propose(page, {
+      diagnosis: {
+        kind: "reduce_training_volume",
+        answers: {},
+        eligibleEvidenceIds: ["packet-v-f2-fresh"],
+        insufficientEvidenceReasons: [],
+      },
+      transitionId: "tr_packet_v_f2_fresh",
+      successorProgramId: "prog_packet_v_f2_fresh_succ",
+      createdAt: "2026-10-05T08:58:30.000Z",
+      policyVersion: 1,
+    });
+    check(f2FreshProposal?.ok === false && typeof f2FreshProposal?.code === "string",
+      "F2 fresh proposal refuses a live program that diverges from compiler output", f2FreshProposal);
+    const f2BeforeConfirm = await readReplicas(page);
+    const f2Rehashed = JSON.parse(JSON.stringify(f2Proposal));
+    f2Rehashed.predecessor.durableRevision = f2AfterEdit.local.revision;
+    f2Rehashed.proposalHash = await Transition.hashProposal(f2Rehashed);
+    const f2Confirm = await confirm(page, transitionArgs(f2Rehashed, f2DraftBefore.raw, "2026-10-05T08:59:00.000Z"));
+    check(f2Confirm?.committed === false && f2Confirm?.localOk === false && f2Confirm?.idbOk === false &&
+          typeof f2Confirm?.code === "string",
+      "F2 lock-held confirmation refuses the rehashed edited predecessor", f2Confirm);
+    const f2AfterConfirm = await readReplicas(page);
+    const f2DraftAfter = await readDraft(page);
+    check(isDeepStrictEqual(f2AfterConfirm.local, f2BeforeConfirm.local) &&
+          isDeepStrictEqual(f2AfterConfirm.idb, f2BeforeConfirm.idb) &&
+          f2AfterConfirm.local.history.length === f2BeforeConfirm.local.history.length &&
+          f2AfterConfirm.local.revision === f2BeforeConfirm.local.revision &&
+          f2AfterConfirm.local.program.find((row) => row.id === f2Edit.editedId)?.notes === f2Edit.editedNotes,
+      "F2 refusal preserves the live edit and writes no revision/archive", {
+        before: f2BeforeConfirm, after: f2AfterConfirm,
+      });
+    check(f2DraftAfter.raw === f2DraftBefore.raw && f2DraftAfter.checkpoint === f2DraftBefore.checkpoint,
+      "F2 refusal preserves DraftV2 raw/checkpoint", { before: f2DraftBefore, after: f2DraftAfter });
+
+    await clearStorage(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    const directActivated = await activateBalancedRecommendPredecessor(page);
+    check(directActivated.ok, "fresh compiler-backed predecessor reactivated for direct block proof", directActivated);
+    if (!directActivated.ok) throw new Error(`direct activation failed: ${JSON.stringify(directActivated)}`);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+
     // The user-facing block action must take the same compiler-backed path as
     // the explicit adapter seam. This is the production boundary that used to
     // apply the forbidden blanket +/-1 shortcut.

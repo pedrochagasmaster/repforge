@@ -3672,7 +3672,8 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
     startOnboarding("block");
     return Promise.resolve(blockTransitionResult("deferred"))}
   const task=(async()=>{
-    if(strategy==="reduce_volume"&&cap.oldMeta?.compilerContext){
+    const compilerProvenance = classifyCompilerTransitionProvenance(cap.oldMeta);
+    if(strategy==="reduce_volume"&&compilerProvenance==="present"){
       const diagnosis={kind:"reduce_training_volume",answers:{},
         eligibleEvidenceIds:["explicit_volume_reduction"],insufficientEvidenceReasons:[]};
       const proposed=await repforgeProgramTransitionAdapter.proposeVolumeReduction({
@@ -3691,6 +3692,8 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
       if(result.committed){
         pendingBlockTransition=null;day=days()[0]||"Day 1";closeBlockReview();blockToast(strategy);render()}
       return result}
+    if(strategy==="reduce_volume"&&compilerProvenance==="invalid")
+      return blockTransitionResult("failed",{invalid:true,code:"compiler_provenance_unavailable"});
     const nextProgram=new Program(legacyBlockSuccessorProgramList(strategy,cap.oldProgram)).toJSON();
     let effect=null;
     if(strategy==="reduce_volume"){
@@ -6647,6 +6650,47 @@ const TRANSITION_SOURCE_ROUTES = ["recommend", "custom", "browse"];
 function transitionContractSource(route) {
   return route.charAt(0).toUpperCase() + route.slice(1);
 }
+const COMPILER_PROVENANCE_FIELDS = [
+  "familyId", "blueprintId", "blueprintVersion", "compilerVersion", "catalogueVersion",
+  "rulesVersion", "contextVersion", "profileId", "recentConsistencyVersion",
+];
+/* Compiler context is not provenance. A context can be absent from a shared
+   import even while its released programStructure still carries the complete
+   compiler receipt; conversely, a stale context must not turn a historical
+   program into a compiler-backed transition. The structure receipt is the
+   independent discriminator for the two paths. */
+function classifyCompilerTransitionProvenance(meta) {
+  const provenance = meta?.programStructure?.provenance;
+  if (provenance == null) return "absent";
+  if (!isPlainStateObject(provenance)) return "invalid";
+  if (provenance.source === "legacy_migration" || provenance.source === "manual_build") return "absent";
+  const strings = ["familyId", "blueprintId", "profileId"];
+  if (!strings.every(key => typeof provenance[key] === "string" && provenance[key].trim())) return "invalid";
+  if (!COMPILER_PROVENANCE_FIELDS.every(key => Object.prototype.hasOwnProperty.call(provenance, key))) return "invalid";
+  if (!["blueprintVersion", "compilerVersion", "catalogueVersion", "rulesVersion", "contextVersion", "recentConsistencyVersion"]
+    .every(key => Number.isSafeInteger(provenance[key]) && provenance[key] >= 1)) return "invalid";
+  return "present";
+}
+function canonicalTransitionProgram(program, customExercises) {
+  const rows = new Program(program, snapshotLookup(customExercises)).toJSON();
+  return rows.map(row => {
+    const canonical = cloneSnapshot(row);
+    // Compiler pattern labels are derived display data. Linked durable rows
+    // resolve those labels from the catalogue; identity and every authored
+    // field (including notes, sets, progression, and slot placement) remain.
+    delete canonical.primary;
+    delete canonical.secondary;
+    return canonical;
+  });
+}
+function compilerProgramMatchesLive(liveProgram, compilerProgram, customExercises) {
+  try {
+    return JSON.stringify(canonicalize(canonicalTransitionProgram(liveProgram, customExercises))) ===
+      JSON.stringify(canonicalize(canonicalTransitionProgram(compilerProgram, customExercises)));
+  } catch {
+    return false;
+  }
+}
 // Exact, read-only classification of a stored transition-in against a proposal.
 // "match" -> already committed (return success, no mutation); "conflict" -> the
 // stored record is partial or disagrees (typed invalid, never success);
@@ -6775,6 +6819,11 @@ const repforgeProgramTransitionAdapter = {
       : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
 
     const liveMeta = state?.programMeta;
+    const compilerProvenance = classifyCompilerTransitionProvenance(liveMeta);
+    if (compilerProvenance !== "present") {
+      return { ok: false, status: "unavailable", code: compilerProvenance === "invalid"
+        ? "compiler_provenance_unavailable" : "compiler_provenance_absent", unavailable: true };
+    }
     if (!liveMeta?.compilerContext) {
       return { ok: false, status: "unavailable", code: "compiler_context_unavailable", unavailable: true };
     }
@@ -6786,6 +6835,9 @@ const repforgeProgramTransitionAdapter = {
     const predecessorInstance = Compiler.compile(liveMeta.compilerContext, catalogue);
     if (!predecessorInstance || predecessorInstance.kind !== "compiled") {
       return { ok: false, status: "unavailable", code: "predecessor_reconstruction_failed", unavailable: true };
+    }
+    if (!compilerProgramMatchesLive(state.program, predecessorInstance.program, state.customExercises)) {
+      return { ok: false, status: "unavailable", code: "live_program_mismatch", unavailable: true };
     }
     const diagnosis = input.diagnosis;
     return await Transition.proposeVolumeReduction({
@@ -6926,6 +6978,12 @@ const repforgeProgramTransitionAdapter = {
       if (!route || !TRANSITION_SOURCE_ROUTES.includes(route)) {
         return { reject: true, result: { invalid: true, code: "transition_source_unavailable", localOk: false, idbOk: false } };
       }
+      const compilerProvenance = classifyCompilerTransitionProvenance(head.programMeta);
+      if (compilerProvenance !== "present") {
+        return { reject: true, result: { invalid: true,
+          code: compilerProvenance === "invalid" ? "compiler_provenance_unavailable" : "compiler_provenance_absent",
+          localOk: false, idbOk: false } };
+      }
       const predContext = head.programMeta?.compilerContext;
       if (!predContext) {
         return { reject: true, result: { invalid: true, code: "missing_compiler_context", localOk: false, idbOk: false } };
@@ -6933,6 +6991,9 @@ const repforgeProgramTransitionAdapter = {
       const predInstance = Compiler.compile(predContext, catalogue);
       if (!predInstance || predInstance.kind !== "compiled") {
         return { reject: true, result: { invalid: true, code: "predecessor_reconstruction_failed", localOk: false, idbOk: false } };
+      }
+      if (!compilerProgramMatchesLive(head.program, predInstance.program, head.customExercises)) {
+        return { reject: true, result: { invalid: true, code: "live_program_mismatch", localOk: false, idbOk: false } };
       }
 
       let succContext;
