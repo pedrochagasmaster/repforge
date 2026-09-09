@@ -51,6 +51,7 @@ jobs:
           node test/posthog-adapter.mjs
           node test/posthog-config.mjs
           node test/telemetry-call-sites.mjs
+          node --test test/posthog-measurement.mjs
 
       - name: Runtime event meaning
         env:
