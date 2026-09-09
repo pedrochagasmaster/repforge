@@ -1,9 +1,9 @@
 /**
- * Plan 052-P6c correction 1: coherent transition journal before boot replay.
+ * Plan 052-P6c corrections 1+2: coherent transition journal before boot replay.
  *
- * Root defect (reproduced on clean da81494a): commitProgramReplacement()
- * archives the predecessor (with its transition-out link) before
- * writePendingJournal() runs, while the successor program and its
+ * Correction 1 root defect (reproduced on clean da81494a):
+ * commitProgramReplacement() archives the predecessor (with its transition-out
+ * link) before writePendingJournal() runs, while the successor program and its
  * transition-in record join the proposal only inside the lock-held preflight.
  * A writer that dies while queued on repforge:state-write leaves a journal
  * whose proposal carries the outgoing archive but no successor and no
@@ -12,14 +12,36 @@
  * — a mixed state every later confirmation can only reject as
  * conflicting_transition_record.
  *
- * Resolved invariant pinned here: a transition replacement journal is
- * replayable only as one fully coherent pair — the active program is the
- * named successor carrying the exact committed transition-in, and exactly one
- * predecessor archive carries the matching transition-out; every
- * transitionId/proposalHash/predecessor/successor/archive identity agrees.
- * An incomplete outgoing transition journal is discarded: predecessor,
- * revision, log, and DraftV2 stay untouched with zero new archives. Generic
- * non-transition journal replay is unchanged.
+ * Correction 2 (this suite, reproduced on clean c5b0f0f4): classification and
+ * the coherence gate were ID-shaped, not value-shaped. A generic journal based
+ * on an already-transitioned state could mutate inherited transitionIn or
+ * transitionOut values while retaining their IDs and boot would replay it,
+ * advancing the revision and persisting poisoned provenance that makes the
+ * exact retry conflict forever. A replacement journal carrying an unknown
+ * schemaVersion (or a record field normalization would drop, such as a
+ * missing/empty confirmedAt) passed the gate, was replayed, and was then
+ * silently stripped by normalization, leaving a mixed/bare archive state.
+ *
+ * Resolved invariants pinned here:
+ * - Inherited transition metadata is compared by bounded semantic/value
+ *   equality against the journal base: any addition, removal, duplication, or
+ *   changed field is a transition attempt even when every ID is unchanged.
+ * - A replacement journal replays only when the complete stored transition
+ *   pair matches the supported v1 record shape — schemaVersion exactly 1 on
+ *   both records, committed status, nonempty confirmedAt and every required
+ *   identity/hash/program/archive field — and the active meta is the exact
+ *   successor, exactly one predecessor archive is the exact archive, and
+ *   every link agrees.
+ * - Every invalid journal is discarded at boot: base revision, settings,
+ *   program, meta, and history stay semantically unchanged in both replicas,
+ *   no successor or extra archive becomes durable, journal/sidecar/closing
+ *   artifacts clear, and the exact retry remains possible.
+ * - Control: an ordinary settings/log journal whose inherited transition
+ *   records are value-identical still replays and advances exactly once.
+ * - The correction-1 invariant stands: an incomplete outgoing transition
+ *   journal is discarded with predecessor, revision, log, and DraftV2
+ *   untouched and zero new archives. Generic non-transition journal replay
+ *   outside this boundary is unchanged.
  *
  * The oracle reads localStorage, IndexedDB and the live clone separately.
  * DraftV2 raw/checkpoint bytes are exact; durable state is compared
@@ -92,6 +114,7 @@ async function readReplicas(page) {
     transitionIn: s.programMeta?.transitionIn ?? null,
     programHistory: s.programHistory ?? [],
     storageDraftTransaction: s._storageDraftTransaction ?? null,
+    settings: s.settings ?? null,
     log: s.log ?? [],
   });
   return { local: semantic(local), idb: semantic(idb) };
@@ -363,6 +386,64 @@ async function crashWhileQueued({ locker, writer, survivor }, confirmArgs, setup
   return journal;
 }
 
+// Same reproduction for the generic proposed-state write path: the journal is
+// armed synchronously before the state-write lock, so a writer killed while
+// queued leaves a journal whose proposal is an arbitrary state mutation
+// against the transitioned base. This is the correction-2 poison vehicle.
+// Each call boots a fresh writer page and destroys it queued, so the helper
+// can be reused for several journals against the same committed state.
+async function crashGenericWhileQueued({ locker, survivor, context }, spec) {
+  const writer = await context.newPage();
+  writer.on("dialog", (d) => d.dismiss().catch(() => {}));
+  await writer.goto(BASE);
+  await waitForAppBoot(writer, { base: BASE });
+  await holdStorageLock(locker);
+  await writer.evaluate((poisonSpec) => {
+    window.__p6cGenericResult = window.__repforgeCommitProposedState((() => {
+      const clone = JSON.parse(JSON.stringify(window.__repforgeWorkoutDraft.state()));
+      if (poisonSpec.kind === "tin-proposalHash") {
+        clone.programMeta.transitionIn = {
+          ...clone.programMeta.transitionIn,
+          proposalHash: "a".repeat(64),
+        };
+      } else if (poisonSpec.kind === "tin-confirmedAt-ids-retained") {
+        clone.programMeta.transitionIn = {
+          ...clone.programMeta.transitionIn,
+          confirmedAt: "2026-10-04T00:00:00.000Z",
+        };
+      } else if (poisonSpec.kind === "tout-proposalHash") {
+        const row = clone.programHistory.find((h) => h?.transitionOut);
+        row.transitionOut = { ...row.transitionOut, proposalHash: "b".repeat(64) };
+      } else if (poisonSpec.kind === "tout-successorLink") {
+        const row = clone.programHistory.find((h) => h?.transitionOut);
+        row.transitionOut = { ...row.transitionOut, successorProgramId: "prog_p6c_poisoned_succ" };
+      } else if (poisonSpec.kind === "tout-duplicate") {
+        const row = clone.programHistory.find((h) => h?.transitionOut);
+        clone.programHistory.push(JSON.parse(JSON.stringify(row)));
+      } else if (poisonSpec.kind === "control-settings") {
+        clone.settings = { ...clone.settings, restSec: 135 };
+      } else {
+        throw new Error(`unknown poison spec: ${poisonSpec.kind}`);
+      }
+      return clone;
+    })());
+  }, spec);
+  await waitForPendingStorageLocks(locker, 1);
+  await survivor.waitForFunction((prefix) =>
+    Object.keys(localStorage).some((k) => k.startsWith(prefix)), PENDING_PREFIX, { timeout: 10000 });
+  const journal = await readJournal(survivor);
+  if (!journal) throw new Error("generic journal was not armed while queued");
+  const parsed = JSON.parse(journal.raw);
+  if (parsed?.id == null) throw new Error("armed generic journal has no id");
+  await writer.close();
+  await releaseStorageLock(locker);
+  await locker.waitForFunction(async (lockName) => {
+    const locks = await navigator.locks.query();
+    return !locks.pending.some((l) => l.name === lockName);
+  }, STORAGE_LOCK, { timeout: 10000 });
+  return journal;
+}
+
 // Production write-fault injection: the shipped transaction must fail on the
 // requested write ordinal of the durable key in both mirrors, so the prepared
 // state is left durable by the real code path, never a synthetic copy.
@@ -466,7 +547,7 @@ function assertTransitionLinks(replicas, proposal, label) {
 }
 
 async function main() {
-  console.log("052-P6c correction 1: coherent transition journal before boot replay");
+  console.log("052-P6c corrections 1+2: inherited transition value integrity and v1 fail-closed boundary");
   await assertServingApp(BASE);
 
   const browser = await launchChromium();
@@ -1064,6 +1145,46 @@ async function main() {
             j.proposal.programHistory.push(JSON.parse(JSON.stringify(j.proposal.programHistory[0])));
           },
         },
+        {
+          name: "replacement transitionIn with schemaVersion 2",
+          mutate: (j) => {
+            j.proposal.programMeta.transitionIn = { ...committedRecord, schemaVersion: 2 };
+            j.proposal.programMeta.id = proposal.successor.programId;
+          },
+        },
+        {
+          name: "replacement transitionOut with schemaVersion 2",
+          mutate: (j) => {
+            j.proposal.programMeta.transitionIn = committedRecord;
+            j.proposal.programMeta.id = proposal.successor.programId;
+            for (const row of j.proposal.programHistory) {
+              if (row?.transitionOut) row.transitionOut = { ...row.transitionOut, schemaVersion: 2 };
+            }
+          },
+        },
+        {
+          name: "committed transitionIn without confirmedAt (normalization would drop)",
+          mutate: (j) => {
+            const record = { ...committedRecord };
+            delete record.confirmedAt;
+            j.proposal.programMeta.transitionIn = record;
+            j.proposal.programMeta.id = proposal.successor.programId;
+          },
+        },
+        {
+          name: "committed transitionIn with empty confirmedAt (normalization would drop)",
+          mutate: (j) => {
+            j.proposal.programMeta.transitionIn = { ...committedRecord, confirmedAt: "" };
+            j.proposal.programMeta.id = proposal.successor.programId;
+          },
+        },
+        {
+          name: "committed transitionIn with whitespace confirmedAt (normalization would drop)",
+          mutate: (j) => {
+            j.proposal.programMeta.transitionIn = { ...committedRecord, confirmedAt: "   " };
+            j.proposal.programMeta.id = proposal.successor.programId;
+          },
+        },
       ];
 
       for (const negative of negatives) {
@@ -1081,7 +1202,8 @@ async function main() {
         check(after.local.revision === revisionR && after.idb.revision === revisionR,
           `malformed journal rejection advanced no revision: ${negative.name}`,
           { expected: revisionR, local: after.local.revision, idb: after.idb.revision });
-        check(after.local.programHistory.length === 0 && after.idb.programHistory.length === 0,
+        check(isDeepStrictEqual(after.local.programHistory, []) &&
+              isDeepStrictEqual(after.idb.programHistory, []),
           `malformed journal rejection created zero archives: ${negative.name}`);
         check(after.local.transitionIn == null && after.idb.transitionIn == null,
           `malformed journal rejection wrote no transitionIn: ${negative.name}`);
@@ -1096,6 +1218,160 @@ async function main() {
               negArtifacts.sidecar.length === 0,
           `malformed journal rejection left zero artifacts: ${negative.name}`, negArtifacts);
       }
+      await context.close();
+    }
+
+    // =========================================================================
+    // Case 7 (correction 2): inherited transition value integrity on an
+    // already-transitioned state. A generic journal whose proposal changes
+    // inherited transitionIn/transitionOut values while retaining their IDs is
+    // a transition attempt and must fail closed: discarded at boot with the
+    // committed provenance intact in both replicas and the exact retry still
+    // idempotent. The control arms a value-identical settings journal, which
+    // must still replay and advance exactly once.
+    // =========================================================================
+    console.log("\n7. Inherited transition metadata is compared by value, not identity");
+    {
+      const env = await newBootedContext(browser);
+      const { locker, survivor, context } = env;
+      const setup = await setupPredecessorWithSentinelAndDraft(survivor, "poison");
+      const revisionR = setup.predecessorRevision;
+      const propose = await page_or_null(survivor, {
+        transitionId: "tr_p6c_inherited",
+        successorProgramId: "prog_p6c_inherited_succ",
+        createdAt: "2026-10-03T15:00:00.000Z",
+      });
+      check(propose?.ok === true, "inherited-case sibling proposal created", propose?.code);
+      const proposal = propose.proposal;
+      const confirmArgs = {
+        proposal,
+        transitionId: proposal.transitionId,
+        successorProgramId: proposal.successor.programId,
+        confirmedAt: "2026-10-03T15:10:00.000Z",
+        proposalHash: proposal.proposalHash,
+        acknowledgedDraftRaw: setup.preDraftRaw,
+      };
+      const committed = await confirmTransition(survivor, confirmArgs);
+      check(committed?.ok === true && committed?.committed === true &&
+            committed?.localOk === true && committed?.idbOk === true,
+        "the transition committed cleanly before the inherited-value cases", committed);
+      await survivor.evaluate(() => window.__repforgeStorage.flush());
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+
+      // The committed provenance every poison case must leave untouched.
+      const committedState = await readReplicas(survivor);
+      const revisionT = committedState.local.revision;
+      check(revisionT === revisionR + 1 && committedState.idb.revision === revisionR + 1,
+        "the committed transition sits at R+1 in both replicas");
+      const originalTin = JSON.parse(JSON.stringify(committedState.local.transitionIn));
+      const originalHistory = JSON.parse(JSON.stringify(committedState.local.programHistory));
+      check(originalTin?.transitionId === proposal.transitionId &&
+            originalTin?.proposalHash === proposal.proposalHash,
+        "the committed transitionIn record is captured for the value oracle", originalTin);
+      check(originalHistory.length === 1 && originalHistory[0]?.transitionOut?.schemaVersion === 1,
+        "the committed transitionOut archive is captured for the value oracle");
+
+      // The lock-holder page must be live on the shared origin before the
+      // first journal is armed; it only holds the state-write lock.
+      await bootOthers([locker]);
+
+      const poisonCases = [
+        { name: "mutated inherited transitionIn.proposalHash with the same transitionId/archiveId", kind: "tin-proposalHash" },
+        { name: "mutated inherited transitionOut.proposalHash with the same transitionId", kind: "tout-proposalHash" },
+        { name: "mutated inherited transitionOut successor link with the same transitionId", kind: "tout-successorLink" },
+        { name: "duplicate inherited transitionOut archive with the same IDs", kind: "tout-duplicate" },
+        { name: "changed inherited transitionIn.confirmedAt with every ID retained", kind: "tin-confirmedAt-ids-retained" },
+      ];
+      for (const poison of poisonCases) {
+        const journal = await crashGenericWhileQueued(
+          { locker, survivor, context }, { kind: poison.kind });
+        check(journal.key.startsWith(PENDING_PREFIX),
+          `${poison.name}: the generic journal is armed against the transitioned base`);
+        const armed = JSON.parse(journal.raw);
+        check(armed.base?.programMeta?.transitionIn?.transitionId === proposal.transitionId,
+          `${poison.name}: the journal base is the already-transitioned state`);
+        check(armed.proposal?.programMeta?.transitionIn?.transitionId === proposal.transitionId ||
+              poison.kind.startsWith("tout"),
+          `${poison.name}: the poisoned proposal retains the inherited transitionId`);
+
+        await survivor.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(survivor, { base: BASE });
+
+        const after = await readReplicas(survivor);
+        for (const side of ["local", "idb"]) {
+          check(after[side].programId === proposal.successor.programId,
+            `${poison.name}: the committed successor stays active in ${side}`, after[side].programId);
+          check(after[side].revision === revisionT,
+            `${poison.name}: boot advanced no durable revision in ${side}`,
+            { expected: revisionT, actual: after[side].revision });
+          check(isDeepStrictEqual(after[side].transitionIn, originalTin),
+            `${poison.name}: the committed transitionIn is value-intact in ${side}`);
+          check(isDeepStrictEqual(after[side].programHistory, originalHistory),
+            `${poison.name}: exactly the committed archive remains in ${side}`);
+          check(isDeepStrictEqual(after[side].log, setup.logSentinel),
+            `${poison.name}: the log sentinel is unchanged in ${side}`);
+        }
+        const draftAfter = await readDraftBytes(survivor);
+        check(draftAfter.raw === setup.preDraftRaw && draftAfter.checkpoint === setup.preCheckpointRaw,
+          `${poison.name}: DraftV2 raw and checkpoint bytes are unchanged`);
+        const artifacts = await artifactKeys(survivor);
+        check(artifacts.pending.length === 0 && artifacts.closing.length === 0 && artifacts.sidecar.length === 0,
+          `${poison.name}: every journal, sidecar, and closing artifact cleared`, artifacts);
+
+        // The exact retry must remain possible: the original committed proposal
+        // is still idempotent, never a conflict.
+        const retry = await confirmTransition(survivor, confirmArgs);
+        check(retry?.alreadyCommitted === true && retry?.committed === true,
+          `${poison.name}: the exact retry returns alreadyCommitted`, retry);
+        const afterRetry = await readReplicas(survivor);
+        check(afterRetry.local.revision === revisionT && afterRetry.idb.revision === revisionT,
+          `${poison.name}: the exact retry advanced no revision in either replica`);
+        check(isDeepStrictEqual(afterRetry.local.programHistory, originalHistory) &&
+              isDeepStrictEqual(afterRetry.idb.programHistory, originalHistory),
+          `${poison.name}: the exact retry created no second archive`);
+      }
+
+      // Control: an ordinary settings journal whose inherited transition
+      // records are value-identical replays normally and advances once.
+      const controlJournal = await crashGenericWhileQueued(
+        { locker, survivor, context }, { kind: "control-settings" });
+      check(controlJournal.key.startsWith(PENDING_PREFIX),
+        "control: the value-identical settings journal is armed");
+      const armedControl = JSON.parse(controlJournal.raw);
+      check(armedControl.base?.programMeta?.transitionIn?.transitionId === proposal.transitionId &&
+            isDeepStrictEqual(armedControl.base?.programMeta?.transitionIn, armedControl.proposal?.programMeta?.transitionIn) &&
+            isDeepStrictEqual(
+              (armedControl.base?.programHistory || []).filter((h) => h?.transitionOut),
+              (armedControl.proposal?.programHistory || []).filter((h) => h?.transitionOut)),
+        "control: the armed journal's inherited transition records are value-identical to its base");
+
+      await survivor.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(survivor, { base: BASE });
+
+      const afterControl = await readReplicas(survivor);
+      for (const side of ["local", "idb"]) {
+        check(afterControl[side].revision === revisionT + 1,
+          `control: the ordinary settings journal replayed and advanced exactly once in ${side}`,
+          { expected: revisionT + 1, actual: afterControl[side].revision });
+        check(afterControl[side].settings?.restSec === 135,
+          `control: the settings change is durable in ${side}`, afterControl[side].settings?.restSec);
+        check(afterControl[side].programId === proposal.successor.programId,
+          `control: the successor stays active in ${side}`);
+        check(isDeepStrictEqual(afterControl[side].transitionIn, originalTin),
+          `control: the committed transitionIn is value-intact in ${side}`);
+        check(isDeepStrictEqual(afterControl[side].programHistory, originalHistory),
+          `control: exactly the committed archive remains in ${side}`);
+        check(isDeepStrictEqual(afterControl[side].log, setup.logSentinel),
+          `control: the log sentinel is unchanged in ${side}`);
+      }
+      const controlDraft = await readDraftBytes(survivor);
+      check(controlDraft.raw === setup.preDraftRaw && controlDraft.checkpoint === setup.preCheckpointRaw,
+        "control: DraftV2 raw and checkpoint bytes are unchanged");
+      const controlArtifacts = await artifactKeys(survivor);
+      check(controlArtifacts.pending.length === 0 && controlArtifacts.closing.length === 0 &&
+            controlArtifacts.sidecar.length === 0,
+        "control: the replay consumed every journal, sidecar, and closing artifact", controlArtifacts);
       await context.close();
     }
 

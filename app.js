@@ -1059,44 +1059,71 @@ function pendingJournalSuccessorMatches(record,head){
       dayRenames:journal.dayRenames,expectedFirstRunEmpty:journal.expectedFirstRunEmpty,
       sharedRebaseSeed:journal.id});
   return readRevision(candidate)===readRevision(head)&&storageSnapshotsEqual(candidate,head)}
+/* Bounded semantic/value equality for inherited transition values: absent on
+   both sides is equal; anything present compares canonical parsed values, so
+   a changed field is a difference even when every ID is retained. */
+function transitionRecordEqual(a,b){
+  if(a==null||b==null)return a==b;
+  return storageSnapshotsEqual(a,b)}
+function transitionOutArchiveRows(snapshot){
+  const history=Array.isArray(snapshot?.programHistory)?snapshot.programHistory:[];
+  return history.filter(h=>h&&h.transitionOut!=null)}
+function stateCarriesTransitionMetadata(snapshot){
+  return snapshot?.programMeta?.transitionIn!=null||transitionOutArchiveRows(snapshot).length>0}
 function transitionJournalAttempt(proposal,base){
   if(!proposal||!isPlainStateObject(proposal))return false;
   const propTin=proposal.programMeta?.transitionIn;
   const baseTin=base?.programMeta?.transitionIn;
-  const hasNewTin=propTin!=null&&(!baseTin||propTin.transitionId!==baseTin.transitionId);
-  const baseHistory=Array.isArray(base?.programHistory)?base.programHistory:[];
-  const baseTransArchives=new Set(baseHistory.filter(h=>h&&h.transitionOut!=null));
-  const propHistory=Array.isArray(proposal.programHistory)?proposal.programHistory:[];
-  const hasNewTout=propHistory.some(h=>
-    h&&h.transitionOut!=null&&!baseTransArchives.has(h)&&
-    !baseHistory.some(bh=>bh?.id===h.id&&bh?.transitionOut?.transitionId===h.transitionOut?.transitionId));
-  return hasNewTin||hasNewTout}
-function isCoherentTransitionProposal(proposal){
-  if(!proposal||!isPlainStateObject(proposal))return false;
-  const meta=proposal.programMeta;
-  const tin=meta?.transitionIn;
-  if(!isPlainStateObject(tin)||tin.status!=="committed")return false;
-  if(typeof tin.transitionId!=="string"||!tin.transitionId)return false;
-  if(typeof tin.proposalHash!=="string"||!tin.proposalHash)return false;
-  if(typeof tin.archiveId!=="string"||!tin.archiveId)return false;
-  const succId=tin.successor?.programId;
-  const predId=tin.predecessor?.programId;
-  if(typeof succId!=="string"||!succId)return false;
-  if(typeof predId!=="string"||!predId)return false;
-  if(meta.id!==succId)return false;
+  if(propTin!=null&&!isBoundedTransitionValue(propTin))return true;
+  if(!transitionRecordEqual(propTin,baseTin))return true;
+  const propRows=transitionOutArchiveRows(proposal);
+  const baseRows=transitionOutArchiveRows(base);
+  if(propRows.length!==baseRows.length)return true;
+  for(let i=0;i<propRows.length;i++){
+    const p=propRows[i],b=baseRows[i];
+    if(!isBoundedTransitionValue(p.transitionOut)||!isBoundedTransitionValue(b.transitionOut))return true;
+    if(!storageSnapshotsEqual(p,b))return true}
+  return false}
+function isCoherentV1TransitionIn(tin){
+  return isPlainStateObject(tin)&&isBoundedTransitionValue(tin)&&
+    tin.schemaVersion===1&&tin.status==="committed"&&
+    typeof tin.transitionId==="string"&&tin.transitionId.trim()!==""&&
+    typeof tin.proposalHash==="string"&&tin.proposalHash.trim()!==""&&
+    typeof tin.archiveId==="string"&&tin.archiveId.trim()!==""&&
+    typeof tin.confirmedAt==="string"&&tin.confirmedAt.trim()!==""&&
+    isPlainStateObject(tin.successor)&&isPlainStateObject(tin.predecessor)&&
+    typeof tin.successor.programId==="string"&&tin.successor.programId.trim()!==""&&
+    typeof tin.predecessor.programId==="string"&&tin.predecessor.programId.trim()!==""}
+function isCoherentV1TransitionOut(tout){
+  return isPlainStateObject(tout)&&isBoundedTransitionValue(tout)&&
+    tout.schemaVersion===1&&
+    typeof tout.transitionId==="string"&&tout.transitionId.trim()!==""&&
+    typeof tout.proposalHash==="string"&&tout.proposalHash.trim()!==""&&
+    typeof tout.successorProgramId==="string"&&tout.successorProgramId.trim()!==""}
+function isCoherentTransitionProposal(proposal,base){
+  if(!isCoherentV1TransitionIn(proposal?.programMeta?.transitionIn))return false;
+  const tin=proposal.programMeta.transitionIn;
+  const succId=tin.successor.programId,predId=tin.predecessor.programId;
+  if(proposal.programMeta.id!==succId)return false;
   if(tin.archiveId!==predId)return false;
   const history=Array.isArray(proposal.programHistory)?proposal.programHistory:[];
   const occupants=history.filter(h=>h&&(h.id===tin.archiveId||h.archiveId===tin.archiveId));
   if(occupants.length!==1)return false;
   const arc=occupants[0];
   if(arc.id!==tin.archiveId||arc.archiveId!==tin.archiveId)return false;
+  if(!isCoherentV1TransitionOut(arc.transitionOut))return false;
   const tout=arc.transitionOut;
-  if(!isPlainStateObject(tout))return false;
-  if(tout.transitionId!==tin.transitionId)return false;
-  if(tout.proposalHash!==tin.proposalHash)return false;
-  if(tout.successorProgramId!==succId)return false;
+  if(tout.transitionId!==tin.transitionId||tout.proposalHash!==tin.proposalHash||
+    tout.successorProgramId!==succId)return false;
   const allWithTransId=history.filter(h=>h?.transitionOut?.transitionId===tin.transitionId);
   if(allWithTransId.length!==1)return false;
+  /* A replayed replacement commit always bases on the transition-free
+     predecessor: classifyCommittedTransition grants "absent" only there. A
+     journal whose base already carries transition metadata can only be a
+     mutation of inherited provenance, never a coherent replacement. */
+  if(base&&isPlainStateObject(base)){
+    if(stateCarriesTransitionMetadata(base))return false;
+    if(base.programMeta?.id!==predId)return false}
   return true}
 function preparePendingDraftTransaction(snapshot,previous,effect,id){
   const prepared=cloneSnapshot(snapshot),outcome=normalizeDraftEffectOutcome(effect),receipt=outcome.effect;
@@ -13891,7 +13918,8 @@ async function resolveBootReplicas(candidate=null){
         if(execution.kind!=="committed")draftConflict=true;
         replayed=true;
         continue}
-      if(transitionJournalAttempt(journal.proposal,journal.base)&&!isCoherentTransitionProposal(journal.proposal)){
+      if(transitionJournalAttempt(journal.proposal,journal.base)&&
+        !isCoherentTransitionProposal(journal.proposal,journal.base)){
         const discarded=await executeDraftTransaction({record,transactionId:journal.id,
           effect:journal.effectOutcome,discard:true});
         if(!discarded.settled)
