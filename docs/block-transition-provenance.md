@@ -12,9 +12,50 @@
 
 Every structural program change writes one immutable transition record
 atomically with the outgoing archive and — except for the recovery overlay,
-which changes no program — the successor activation. Preview and commit carry
-the same immutable proposal hash; a stale proposal is rejected and
+which changes no program — the successor activation. Recovery writes its
+record in the top-level mirrored carrier described below. Preview and commit
+carry the same immutable proposal hash; a stale proposal is rejected and
 regenerated, never silently rebased.
+
+## Mirrored aggregate recovery carrier
+
+Recovery records do not live on `programMeta.transitionIn`, an outgoing
+archive entry, or a successor program. The mirrored durable state aggregate
+has one optional, versioned, top-level carrier:
+
+```text
+recoveryTransitions: {
+  schemaVersion: 1,
+  records: RecoveryTransitionRecord[],
+  quarantine: RecoveryQuarantineEntry[]
+}
+```
+
+`records` contains committed `recovery_week` transition records. Membership is
+append-only. A committed record may change only its
+`diff.recoveryWeek.reassessmentOutcome`, once, from `null` to one approved
+outcome after week one. `quarantine` retains malformed known-schema recovery
+records or sections. Each entry has the exact shape
+`{ schemaVersion: 1, digest, raw, firstSeenAt, lastSeenAt, occurrences }`.
+`digest` is computed from the raw value, and `raw` is retained in bounded form.
+The digest deduplicates repeated copies without discarding the original value.
+The presence of a quarantine entry is the persistent warning state. Quarantine
+membership is retained. The user may explicitly export or discard it, and
+deleting all workout history also deletes it. There is no automatic age, count,
+or size pruning.
+
+The raw value and the carrier must satisfy the existing
+`TRANSITION_VALUE_LIMITS` bounds: depth 32, 10,000 nodes, 128 object keys, 256
+array items, and 10,000 characters per string. If adding a quarantine entry
+would exceed those bounds, the loader does not truncate or prune it. It leaves
+both replicas untouched and enters full storage recovery instead.
+
+The localStorage and IndexedDB copies reconcile by whole-state durable
+revision. Recovery arrays are never unioned across replicas. A known-schema
+malformed record falls back to the canonical prescription, shows a persistent
+warning, and enters bounded digest-deduplicated quarantine only when the
+validated carrier remains within the bounds above. An unknown recovery schema
+leaves both replicas untouched and enters full storage recovery.
 
 ## Closed transition kinds
 
@@ -43,6 +84,7 @@ fields stay valid and read as `legacy/no transition record`.
 | `createdAt` | timestamp | Proposal creation time |
 | `confirmedAt` | timestamp | Explicit user-confirmation time |
 | `predecessor.programId` | string | Outgoing program identity |
+| `predecessor.blockId` | string, modern only | Opaque source block identity; absent on legacy records and never inferred |
 | `predecessor.fingerprint` | string | Stable fingerprint of the outgoing program |
 | `predecessor.durableRevision` | integer | Durable revision the proposal was built against |
 | `predecessor.source` | string | Source route (Recommend, Custom, Browse, Build, Import, Shared) |
@@ -56,6 +98,7 @@ fields stay valid and read as `legacy/no transition record`.
 | `derivation.compilerContextVersions` | object | Versioned compiler context carried forward |
 | `derivation.policyVersions` | object | Reduction/recovery policy versions consumed |
 | `successor.programId` | string | Incoming program identity (fresh local id); absent for `recovery_week` overlays, which change no program |
+| `successor.blockId` | string | Fresh opaque block identity for a replacement successor; absent for `recovery_week` records, whose target is `diff.recoveryWeek.blockId` |
 | `successor.fingerprint` | string | Stable fingerprint of the incoming program; absent for overlays |
 | `successor.source` | string | Source provenance of the incoming program |
 | `successor.compilerProvenance` | object | Compiler provenance of the incoming program |
@@ -79,6 +122,7 @@ defaults:
 | `confirmedAt` | Absent | Required | Required on confirmation | Required on confirmation |
 | `archiveId` | Absent | Required (committed) | Null — overlays archive nothing; evidence lives in `diagnosis` and the overlay | Null — nothing is replaced |
 | `successor.*` | Present as proposal | Required | Absent — no successor program exists | `successor.programId` equals predecessor; no new program is minted |
+| `successor.blockId` | Present for a replacement proposal | Required for a committed replacement | Absent — the recovery target is the overlay `blockId` | Absent |
 | `diff.recoveryWeek` | Absent unless proposed | Absent | Required | Absent |
 | `diff` arrays | Proposed entries | Committed entries | Overlay-only changes live in the overlay; arrays may be empty | Empty arrays |
 
@@ -87,8 +131,55 @@ status; no failure-reason field is invented. A `stale` proposal is never
 edited in place — regeneration mints a new proposal with a new hash.
 
 Store transition-in on successor metadata and the transition-out link in the
-outgoing archive entry. History and log rows stay immutable and keep pointing
-at their original program/session identities. Backup round-trips both records.
+outgoing archive entry for replacement kinds only. Recovery writes neither
+link. History and log rows stay immutable and keep pointing at their original
+program/session identities. Full backup replacement and the Plan 053 install
+transfer round-trip the recovery carrier, block identities, reassessment
+outcomes, and quarantine. Program JSON, shared setup, and free-form import do
+not carry those fields; activation mints a fresh block instead. Backup Merge
+imports workout sessions only, preserving each session's historical
+`blockId`, and never imports active recovery or quarantine state.
+
+### Block identity and recovery lifecycle
+
+`programMeta.id` identifies a program. `programMeta.blockId` identifies the
+modern block using that program. They are opaque, distinct values. Every new
+modern block receives a new `blockId`; a structural replacement allocates the
+successor ID in the immutable proposal and writes it only with the atomic
+replacement confirmation.
+
+Recovery allocates its target `blockId` in the immutable proposal and writes it
+only with the atomic block-start confirmation. Recovery keeps the current
+program and creates no successor program or outgoing archive. A recovery
+confirmation cannot be combined with a replacement action in one revision.
+
+New DraftV2 values carry `program.blockId`, and every newly written workout
+row carries its immutable `blockId`. Legacy rows remain without that field;
+the loader never infers one. A legacy current block is recovery-ineligible.
+The first modern block establishes the identity needed for a later boundary.
+
+Eligibility evidence carries `sourceBlockId`, the reviewed source block. It
+must equal the source block used for every qualifying outcome and checkpoint,
+and it must differ from the overlay's target `blockId`. This evidence object is
+the single source-block carrier. It cannot be replaced by the target ID.
+
+A live DraftV2 blocks the next-block confirmation. If a draft crosses into
+week two, its captured prescription remains the draft's prescription; the
+schedule renderer does not rewrite it to the week-two canonical values.
+
+During active recovery week one, the recovery confirmation path refuses edits
+to the prescription fingerprint. The following current-schema fields are
+prescription-affecting: program row `id`, `slotId`, `dayId`, `order`,
+`libraryId`, `movementId`, `sets`, `min`, `max`, `primary`, `secondary`,
+`alternates`, `targetRirStart`, `targetRirEnd`, `minSets`, `maxSets`,
+`priority`, `loadingMode`, `loadIncrement`, `progression`,
+`progressionIncompatibility`, `rest`, `rir`, `tempo`, and `progressionType`,
+plus the program structure's day order, week prescriptions, compiler context,
+progression relations, modifiers, and incompatibilities. The program ID and
+block ID are identities, not prescription inputs. Program and exercise
+display names, day labels, and authored `notes` remain editable and are
+excluded from this fingerprint. A material edit is refused; cosmetic edits do
+not change recovery evidence or the canonical schedule.
 
 ### Canonical array order and proposal hashing
 
@@ -160,7 +251,13 @@ transition. Array order is therefore total, not incidental:
   example record below embeds the same fixture with its lifecycle fields and
   this digest filled in.
 
-### Example record: `lower_frequency_sibling` (shape-exact)
+### Example record: `lower_frequency_sibling` (frozen hash fixture)
+
+The replacement record below is the frozen Plan 049 hash fixture. It is a
+legacy/no-block identity example kept unchanged so the canonical proposal hash
+and its independent oracle remain stable. A modern committed replacement adds
+the `predecessor.blockId` and `successor.blockId` fields listed above; the
+fixture is not a modern storage snapshot.
 
 ```json
 {
@@ -1720,6 +1817,10 @@ overlay linked from `diff.recoveryWeek` that Week two ignores. Allocation
 follows policy version 2 in `docs/recovery-week-policy.md`. The proposal is
 disabled for ineligible evidence or an unreviewed program version outside the
 40–60% band. The implementation never clamps a percentage or changes Rule B.
+Week two is canonical even when reassessment has not been answered. A missing
+answer remains `null`; it does not extend or repeat recovery. When a later
+block starts, this record becomes inactive and a new record must use fresh
+evidence and a fresh source/target block pair.
 
 | Field | Type | Meaning |
 |---|---|---|
@@ -1728,7 +1829,7 @@ disabled for ineligible evidence or an unreviewed program version outside the
 | `transitionId` | string | Parent transition record (`kind: recovery_week`) |
 | `blockId` | string | Target block identity |
 | `activePeriod` | `nextBlockWeek1` | Only valid period |
-| `eligibilityEvidence` | object | Sufficient `maintained`/`declined` evidence across at least two of `knee-dominant`, `horizontal press`, and `hip/hinge`, plus `checkpointAnswer: "Yes"` for the closed recovery question. The object has no free text or diagnosis |
+| `eligibilityEvidence` | object | Contains `sourceBlockId`, sufficient `maintained`/`declined` evidence across at least two of `knee-dominant`, `horizontal press`, and `hip/hinge`, and `checkpointAnswer: "Yes"` for the closed recovery question. `sourceBlockId` is the reviewed block, differs from the target `blockId`, and binds every qualifying observation and the checkpoint. The object has no free text or diagnosis |
 | `baseProgramFingerprint` | string | Canonical program the overlay renders against |
 | `entries` | array | Per-slot `{slot, movement, movementPattern, baseWorkingSets, effectiveWorkingSets, removedOptionalFirst, reason}`: `slot` is the stable program slot identity (compiler `slotId`), `movement` is the library/custom movement ID, and `movementPattern` is the canonical primary pattern class (`knee-dominant`, `horizontal press`, or `hip/hinge`), or `null` for a non-primary slot. The raw first-listed compiler template token is used only as policy input and is not persisted. Repeated movements in different slots — e.g. a protected and a reducible leg-press slot — must never share an entry |
 | `createdAt` | timestamp | Proposal creation time |
@@ -1746,6 +1847,7 @@ disabled for ineligible evidence or an unreviewed program version outside the
   "blockId": "block_local_k2",
   "activePeriod": "nextBlockWeek1",
   "eligibilityEvidence": {
+    "sourceBlockId": "block_local_k1",
     "outcomesByPattern": { "knee-dominant": "maintained", "horizontal press": "declined" },
     "qualifyingPatterns": ["horizontal press", "knee-dominant"],
     "checkpointAnswer": "Yes"
@@ -1777,10 +1879,14 @@ and the stable first-slot coverage rescue.
    the proposal's revision and the hashes match. Otherwise the proposal is
    `stale`: rejected and regenerated after explicit user review, never
    silently rebased.
-4. The commit writes the transition record, the outgoing archive, and (except
-   overlays) the successor activation through the existing compare-and-swap
-   and program-draft transaction boundary (`commitProgramReplacement()` with
-   the `_storageDraftTransaction` protocol). Boot observes all or nothing.
+4. A replacement commit writes the transition record, outgoing archive, and
+   successor activation through the existing compare-and-swap and program-
+   draft transaction boundary (`commitProgramReplacement()` with the
+   `_storageDraftTransaction` protocol). A recovery commit writes the
+   top-level `recoveryTransitions` record, overlay, and target `blockId` in
+   the atomic block-start confirmation, with no successor or archive. A live
+   DraftV2 blocks that confirmation. Boot observes all or nothing, and the two
+   commit kinds cannot be combined.
 
 ## Kind-specific rules
 
@@ -1805,8 +1911,12 @@ and the stable first-slot coverage rescue.
 |---|---|
 | Preview open while another tab replaces the program | Commit rejects the stale proposal hash; status becomes `stale`; user reviews a regenerated proposal |
 | Crash between archive write and successor activation | Boot completes the atomic transaction or restores the pre-commit state; partial visibility is prohibited |
-| Unknown `schemaVersion` on read | Fail closed; existing program and history untouched |
+| Unknown `schemaVersion` on read | Fail closed; replicas remain untouched and the device enters full storage recovery |
 | `kind` is `recovery_week` without policy version 2 or with ineligible evidence | Refuse the proposal; do not invent constants |
 | Confirmation hash differs from preview hash | Reject; preview and commit must be the same immutable proposal |
-| Duplicate confirmation | Idempotent on transition ID plus proposal hash; exactly one archive entry |
-| Corrupt or unknown recovery overlay | Render the canonical prescription with an explicit recoverable warning; retain raw evidence |
+| Duplicate confirmation | Idempotent on transition ID plus proposal hash; replacement kinds produce exactly one archive entry, while recovery produces one committed carrier record and no archive |
+| Two valid recovery records target one `blockId` | Apply neither; render the canonical prescription, warn persistently, and quarantine the bounded raw records by digest |
+| Known-schema malformed recovery record or overlay | Render the canonical prescription, warn persistently, and retain the bounded raw value in digest-deduplicated quarantine |
+| Corrupt or unknown recovery overlay | For a bounded known schema, render the canonical prescription with an explicit recoverable warning and retain raw evidence; an unknown schema leaves replicas untouched and enters full storage recovery |
+| Recovery carrier or quarantine exceeds an existing transition safety bound | Do not truncate or prune; leave both replicas untouched and enter full storage recovery |
+| Live DraftV2 at block start | Refuse recovery confirmation; a draft that crosses into week two retains its captured prescription |

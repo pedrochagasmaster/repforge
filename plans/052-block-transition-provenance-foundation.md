@@ -36,7 +36,7 @@ Plan 056 cannot safely expose structural actions until this phase makes each pro
 - If safe recompilation is unavailable, preserve the exact program and enter a guided editor with the diagnosed constraint highlighted.
 - Permanent volume reduction is a separate explicit action and respects protected/minimum work.
 - Recovery is an eligible, confirmed, volume-only first week of the next normal block; week two restores the canonical prescription.
-- Every structural proposal previews the exact diff, preserves provenance, archives atomically, and cannot activate from insufficient evidence.
+- Every proposal previews the exact diff and preserves provenance. Replacement proposals archive atomically; recovery proposals commit the top-level carrier without a successor or archive. Neither can activate from insufficient evidence.
 
 ## Preserved strengths
 
@@ -84,10 +84,10 @@ The Phase 049 schema becomes a concrete versioned document with these minimum fi
 ```text
 schemaVersion, transitionId, kind, status
 createdAt, confirmedAt
-predecessor: { programId, fingerprint, durableRevision, source, compilerProvenance }
+predecessor: { programId, blockId?, fingerprint, durableRevision, source, compilerProvenance }
 diagnosis: { kind, answers, eligibleEvidenceIds, insufficientEvidenceReasons }
 derivation: { mode, request, compilerContextVersions, policyVersions, slotMapping }
-successor: { programId, fingerprint, source, compilerProvenance }
+successor: { programId, blockId, fingerprint, source, compilerProvenance }
 diff: { days[], exercises[], prescriptions[], recoveryWeek? }
 progressionContract: { preservedRelations[], resetRelations[], incompatibilities[] }
 archiveId, proposalHash
@@ -99,7 +99,66 @@ pairing from the Plan 049 contract
 same-template pairing rule, and canonical array order. It is hashed proposal
 data; only its prose fields are excluded from the preimage.
 
-Store transition-in on successor metadata and transition-out/link in the outgoing archive entry. History/log rows remain immutable and continue to point to their original program/session identities. A normal backup round-trip retains both records.
+Store transition-in on successor metadata and transition-out/link in the outgoing archive entry for replacement kinds. History/log rows remain immutable and continue to point to their original program/session identities. Recovery has no successor or archive; its committed record lives in the top-level `recoveryTransitions` carrier described below. A full backup round-trip retains the carrier and both records.
+
+### Recovery carrier, block identity, and storage boundaries
+
+The mirrored state aggregate has one optional, versioned, top-level recovery
+section:
+
+```text
+recoveryTransitions: {
+  schemaVersion: 1,
+  records: committed recovery_week TransitionRecord[],
+  quarantine: { schemaVersion: 1, digest, raw, firstSeenAt,
+               lastSeenAt, occurrences }[]
+}
+```
+
+Committed membership is retained. Only
+`diff.recoveryWeek.reassessmentOutcome` may move once from `null` to `Better`,
+`About the same`, or `Worse` after week one. Quarantine has no automatic
+pruning. Explicit export or discard, and full workout-history deletion, are
+the only removal paths. A known-schema malformed value uses the canonical
+prescription, raises a persistent warning, and enters quarantine. A duplicate
+valid target record applies neither. Unknown schemas leave both local replicas
+untouched and enter full storage recovery. Mirror reconciliation uses the
+whole-state durable revision and never unions recovery arrays. The carrier and
+each raw quarantine entry obey the existing `TRANSITION_VALUE_LIMITS` of depth
+32, 10,000 nodes, 128 keys, 256 array items, and 10,000 characters per string.
+Over-bound input is not truncated or pruned; it enters full storage recovery.
+
+`programMeta.id` remains the program identity. The opaque
+`programMeta.blockId` is a separate identity, and every modern block gets a
+new one. A replacement proposal allocates its successor `blockId` in the
+immutable proposal and persists it only with atomic activation. A recovery
+proposal allocates its target `blockId` in the immutable proposal and persists
+it only in the atomic block-start confirmation. Recovery keeps the program,
+creates no successor or archive, and cannot be combined with replacement.
+
+New DraftV2 values carry `program.blockId`; new saved workout rows carry an
+immutable `blockId`. Legacy rows remain absent and are never inferred. A
+legacy current block is recovery-ineligible. Its first modern block establishes
+the identity needed for the following boundary. Eligibility evidence stores
+`sourceBlockId`, which equals the reviewed source block, differs from the
+target block ID, and binds every qualifying outcome and checkpoint answer.
+
+A live DraftV2 blocks the next-block confirmation. A draft that crosses into
+week two keeps its captured prescription. During active recovery week one,
+material prescription edits are refused. The fingerprint covers current
+program-row identity, slot/day identity and order, movement IDs, sets and rep
+bounds, pattern/loading metadata, RIR targets, set bounds, priorities, load
+increments, progression envelopes and incompatibilities, plus program
+structure, week prescriptions, compiler context, progression relations,
+modifiers, and incompatibilities. Program identity and block identity are not
+prescription inputs. Program/exercise display names, day labels, and authored
+`notes` remain editable and are excluded from the fingerprint.
+
+Full backup replacement and the Plan 053 install-transfer clone preserve block
+identity, the recovery carrier, reassessment, and quarantine. Program JSON,
+shared setup, and free-form import exclude those fields and mint a fresh block
+on activation. Backup Merge imports workout sessions only, preserving each
+historical row's `blockId`; it never imports active recovery or quarantine.
 
 ### Same-family sibling resolution
 
@@ -131,7 +190,8 @@ Represent recovery as an overlay linked from the transition record:
 ```text
 schemaVersion, policyVersion, transitionId, blockId
 activePeriod: nextBlockWeek1
-eligibilityEvidence
+eligibilityEvidence: { sourceBlockId, outcomesByPattern,
+                      qualifyingPatterns, checkpointAnswer }
 baseProgramFingerprint
 entries: [{ slot, movement, movementPattern, baseWorkingSets,
             effectiveWorkingSets, removedOptionalFirst, reason }]
@@ -155,6 +215,16 @@ Review without automatic mutation, and no recovery extension or repeat is
 allowed in the same block. A future recovery requires a future block boundary,
 fresh evidence, and a fresh `Yes` answer.
 
+Week two is canonical even when no reassessment answer exists. The persisted
+answer remains `null`, and the old record becomes inactive when the next block
+starts. The active-week-one guard refuses material prescription edits. Program
+and exercise display names, day labels, and authored `notes` remain editable
+and are excluded from the prescription fingerprint; all structural, movement,
+set, rep, loading, RIR, progression, relation, modifier, incompatibility,
+program-structure, week-prescription, and compiler-context fields remain in
+that fingerprint. A live DraftV2 blocks block-start confirmation, and a draft
+that crosses into week two keeps its captured prescription.
+
 ## Domain/state model
 
 Transition kinds are closed: `same_family_sibling`, `lower_frequency_sibling`, `shorter_session_sibling`, `guided_manual_repair`, `reduce_training_volume`, `recovery_week`, and any already approved no-structure action such as repeat/continue. UI action vocabulary (`progress`, `repeat`, `review`) is presentation; observed outcomes (`improved`, `maintained`, `declined`) are evidence. `insufficient` is not an outcome and cannot satisfy eligibility.
@@ -164,8 +234,9 @@ Proposal status is `preview`, `stale`, `confirmed`, `committed`, or `failed-befo
 ## Migrations
 
 - Add optional transition fields to program metadata/archive schema with backward-compatible parsing. Historical programs without them remain valid and are labeled `legacy/no transition record`, not reconstructed speculatively.
-- Add the versioned recovery overlay section; absence means canonical schedule.
-- Extend backup/export/import validation and shared-setup boundaries deliberately. Active transition history/provenance belongs to device durable state and backup; setup proposals carry only the active program's safe compiler provenance, not private outcome/readiness evidence or archive history.
+- Add the versioned top-level `recoveryTransitions` carrier; absence means no committed recovery record and canonical schedule.
+- Extend backup/export/import validation and shared-setup boundaries deliberately. Full backup replacement and Plan 053 clone preserve program/block identity, recovery records, reassessment, and quarantine. Program JSON, shared setup, and free-form import exclude them and mint a fresh block on activation. Backup Merge imports workout sessions only, with their historical `blockId`, and never imports active recovery or quarantine.
+- Recovery and replacement are separate atomic actions. Unknown carrier schemas and over-bound quarantine enter full storage recovery; known malformed records use canonical prescription plus persistent warning and bounded digest-deduplicated quarantine. Recovery collections reconcile by whole-state revision, never array union.
 - Preserve existing re-entry `weekPrescriptions` exactly.
 - Any generated/compiler fixture updates come from the authoritative builder; do not hand-edit generated artifacts.
 
@@ -178,7 +249,8 @@ This foundation exposes test hooks/adapters, not final Progress UI. It must neve
 - safe/unsafe permanent-volume proposal;
 - recovery ineligible because evidence is insufficient, fewer than two
   qualifying primary patterns exist, the checkpoint answer is `No` or `Not
-  sure`, or the answer is missing;
+  sure`, the answer is missing, or the current block is legacy without a
+  `blockId`;
 - recovery eligible, preview, confirmed, active week one, canonical week two, and reassessment due with a persisted `null`-before-reassessment or closed outcome;
 - proposal stale because program/revision/context changed;
 - commit in progress, complete with archive link, or failed without mutation.
@@ -209,8 +281,10 @@ Diagnosis, proposal, preview data, and commit remain offline. The compiler and t
 - Stale preview: reject under lock, mutate nothing, regenerate only after explicit user review.
 - Crash before durable transaction: predecessor remains active.
 - Crash during archive/successor/draft transaction: existing boot replay completes one coherent outcome; add faults proving archive, successor, and draft agree.
-- Duplicate confirm: transition ID/proposal hash makes commit idempotent; exactly one archive entry.
-- Recovery overlay corrupt/unknown: do not guess reduced volume; render canonical prescription with an explicit recoverable warning and retain raw evidence for support/export.
+- Duplicate confirm: transition ID/proposal hash makes replacement commit idempotent with exactly one archive; a recovery duplicate target applies neither and enters persistent warning/quarantine handling.
+- Recovery overlay known-schema malformed: do not guess reduced volume; render canonical prescription with an explicit persistent warning and retain bounded raw evidence in digest-deduplicated quarantine for export/discard. Unknown schema or over-bound data leaves replicas untouched and enters full storage recovery.
+- Recovery block start with a live DraftV2: refuse confirmation. A draft crossing into week two keeps its captured prescription.
+- Mirror conflict: reconcile the whole state by durable revision; never union recovery arrays.
 - Week boundary/reload/time-zone change: derive period from existing block/week semantics, not a client timeout.
 
 ## Privacy
@@ -234,18 +308,26 @@ No event is added here. Plan 056 may use only approved coarse task outcomes afte
   qualifying primary patterns, `improved` outcomes, `No`/`Not sure` answers,
   and missing checkpoint data. Approved policy satisfies target and retained-
   primary invariants, records `Better`/`About the same`/`Worse` locally after
-  week one, restores canonical week two, and permits no same-block extension
-  or repeat.
+  week one, keeps an unanswered result `null`, restores canonical week two,
+  and permits no same-block extension or repeat.
+- Recovery rejects a legacy current block, binds evidence to a distinct
+  `sourceBlockId`, mints a distinct target `blockId`, refuses material
+  week-one prescription edits, and leaves cosmetic names/notes outside the
+  fingerprint. A live DraftV2 blocks block start and preserves its captured
+  prescription across the week-two boundary.
 
 ### Adversarial/storage tests
 
-- Stale proposal, two tabs confirming, duplicate confirm, crash at every archive/successor/draft boundary, retry, old archive schema, backup round-trip, and service-worker upgrade.
+- Stale proposal, two tabs confirming, duplicate target records, crash at every archive/successor/draft boundary, retry, old archive schema, backup/Plan 053 clone round-trip, import transport exclusions, and service-worker upgrade.
+- Known malformed and over-bound quarantine, unknown-schema full recovery,
+  whole-state mirror reconciliation without array union, explicit quarantine
+  export/discard, and full-history deletion.
 - Guided repair never modifies/archive current program before explicit activation.
 - Transition proposal hash changes if any predecessor/context/diff fact changes.
 
 ### Production-backed proof
 
-Use a hidden/test-only adapter to propose and commit each transition through actual storage. Verify current program, outgoing archive, active draft disposition, history identity, transition-in/out links, reload, and backup restore. Do not expose final Progress controls in this phase.
+Use a hidden/test-only adapter to propose and commit each transition through actual storage. Verify current program, block identity, outgoing archive where applicable, top-level recovery carrier, active draft disposition, history identity, transition-in/out links, source/target block binding, reload, backup replacement, Plan 053 clone, and import boundaries. Do not expose final Progress controls in this phase.
 
 ## Screen catalog changes
 
@@ -259,7 +341,13 @@ Use a hidden/test-only adapter to propose and commit each transition through act
 The recovery constants are closed by Plan 049 policy version 2. The recovery
 slice must preserve that version and its version-specific allowlist. Owner
 review still covers the resulting transition previews and physical UI evidence;
-no implementation may silently reinterpret the policy.
+no implementation may silently reinterpret the policy. The 2026-09-09 owner
+decision also closes the top-level `recoveryTransitions` carrier, opaque
+program/block identity, immutable proposal allocation, `sourceBlockId`
+binding, live-draft guard, active-week-one fingerprint guard, canonical week
+two, malformed/unknown-schema recovery, quarantine retention, whole-state
+mirror reconciliation, and the backup/clone/import boundaries above. These
+are contract inputs for production storage work, not optional design notes.
 
 ## STOP conditions
 
@@ -284,8 +372,8 @@ New schema fields are optional to older state, but rollback code must preserve u
 | 3 | `feat(program): resolve safe family schedule transitions` | Lower-frequency/shorter-session recompilation and guided repair fallback | compiler/adapter/transition module, family fixtures/tests | Commit 2 | All-family matrix and unsupported-version cases | Plan 047/048 suites | None | Record supported/unavailable matrix | Revert resolver; proposals remain unused |
 | 4 | `feat(program): propose protected volume reductions` | Optional-first permanent reduction respecting constraints | transition module, compiler metadata/tests | Commit 2 | Protected/minimum property tests | Compiler/generative CI | None | Record policy version/invariants | Revert volume kind only |
 | 5 | `feat(program): model approved recovery-week overlays` | Policy v2 eligibility/allocation, provenance, week-two restoration | transition/schedule modules, fixtures/tests | Commit 2 plus Plan 049 policy v2 | Representative families, eligibility negatives, boundary/time/reassessment tests | Compiler/progression/generative suites | None | Link policy version and exact proofs | Feature-disable overlay; retain parser |
-| 6 | `feat(program): commit transitions with atomic provenance` | Successor/archive links, idempotent CAS, backup round-trip, draft-safe commit | `app.js` storage adapter, transition module, backup/race tests | Commits 3–5 as applicable | Crash/two-tab/duplicate/stale fault matrix | Thermonuclear, backup, program-entry suites | None | Record each fault point and SHA | Roll forward parser; disable new commits if needed |
-| 7 | `test(program): prove transition recovery across upgrades` | Old/new schema, corrupt overlay, SW upgrade, guided repair no-mutation evidence | tests, `sw.js`/script revisions, docs | Commits 2–6 | Upgrade/recovery matrix | Full browser/generative regression | None | Complete handoff and recovery limits | Revert evidence/cache only with consumer disablement |
+| 6 | `feat(program): commit transitions with atomic provenance` | Replacement successor/archive links plus recovery carrier/block IDs, idempotent CAS, backup/clone boundaries, draft-safe commit | `app.js` storage adapter, transition module, backup/race tests | Commits 3–5 as applicable | Crash/two-tab/duplicate/stale/draft/carrier fault matrix | Thermonuclear, backup, program-entry suites | None | Record each fault point and SHA | Roll forward parser; disable new commits if needed |
+| 7 | `test(program): prove transition recovery across upgrades` | Old/new carrier schema, corrupt/over-bound quarantine fallback, unknown-schema full recovery, SW upgrade, guided repair no-mutation evidence | tests, `sw.js`/script revisions, docs | Commits 2–6 | Upgrade/recovery/import/transport matrix | Full browser/generative regression | None | Complete handoff and recovery limits | Revert evidence/cache only with consumer disablement |
 
 After each row: mark 🟡; implement only that contract; run its focused proof; inspect the complete diff; remove unrelated changes; commit; push immediately; update the PR; proceed only from a reconstructable remote boundary.
 
@@ -355,9 +443,9 @@ no-successor/no-archive contract.
 | 052-P4 | 4 | `proposeVolumeReduction(predecessor, policyVersion)` — optional-before-protected classification, per-exercise set diff, `Unavailable` when no safe cut exists · **build** | replaces the `successorProgramList()` ±1 shortcut (`app.js:3334`; do not reuse it); compiler protected / `minSets` metadata | NEW `test/program-transition-volume.mjs`: property test — protected work is retained and reducible slots never cross `minSets`, optional work is removed first; expected classification from compiler metadata. Failure: a cut crossing `minSets` is rejected with a reason code | baseline: `node test/generative/run.mjs --profile ci` → planned: `node test/program-transition-volume.mjs` | STOP if any cut crosses protected/minimum work (recovery, 052-P5, is the only exception) · reviewer: reproduces the rejected cut |
 | 052-P5a | 5 | `proposeRecoveryWeek(...)` eligibility gate — `maintained`/`declined` across two of `knee-dominant`/`horizontal press`/`hip/hinge` plus a local `Yes` checkpoint; otherwise `Ineligible` · **build** | `docs/recovery-week-policy.md` (Rule B, closed); evidence shape from `buildBlockReview()` (`app.js:3220`) and `blockSnapshot()` (`app.js:3254`) | NEW `test/program-transition-recovery.mjs`: eligibility truth table transcribed from the policy doc, independent of the function. Failure: one qualifying pattern; an `improved` outcome; a `No`/`Not sure`/missing checkpoint — each returns `Ineligible` | baseline: `node test/program-entry-rules-recovery.mjs` → planned: `node test/program-transition-recovery.mjs` | STOP if the eligibility question, its answers, or the pattern set drift from policy version 2 · reviewer: reproduces two `Ineligible` reasons and one eligible result |
 | 052-P5b | 5 | Rule B allocation — `removedOptionalFirst`, one working set retained per approved primary pattern, named-policy `minSets` crossing allowed, two version-allowlisted misses, reject versions outside the 40–60% band, no percentage clamp; overlay schema per this plan · **build** | `docs/recovery-week-policy.md`; overlay field list in this plan; slot identity from compiler `slotId` | extend `test/program-transition-recovery.mjs`: per-slot `effectiveWorkingSets` equals the policy doc's worked example; a movement in two slots gets two entries. Failure: a program version outside the band is accepted; a clamped percentage; one shared entry for a duplicated movement | baseline: `node test/progression-fixtures.mjs` → planned: `node test/program-transition-recovery.mjs` | STOP on any clamp or band reinterpretation · reviewer: reproduces the two allowlisted-miss fixtures |
-| 052-P5c | 5 | Recovery lifecycle — week-one active marker, canonical week-two restoration with no migration, `reassessmentOutcome` `null` → `Better`/`About the same`/`Worse`, no same-block extension or repeat · **build** | this plan's overlay; `mesocycleLifecycle()` (`app.js:3168`) week/block semantics (period is derived, not a client timeout) | extend `test/program-transition-recovery.mjs`: the week-two prescription equals the pre-recovery canonical prescription exactly; a second recovery in the same block is refused. Failure: week two still reduced; an extension is allowed | baseline: `node test/schedule.mjs` → planned: `node test/program-transition-recovery.mjs` | STOP if week two does not restore canonical work · reviewer: reproduces the week-1 → week-2 boundary |
-| 052-P6 | 6 | Atomic commit through storage — re-read predecessor identity/revision/fingerprint under the existing program lock, reject a stale proposal by hash, call `commitProgramReplacement()`, write the TransitionRecord (transition-in on successor meta, transition-out/link on the archive entry), idempotent by `transitionId`/`proposalHash`, draft-safe via `_storageDraftTransaction` · **build** | `commitProgramReplacement()` (`app.js:3362`), `captureProgramReplacement()`, `commitProposedState()` (`app.js:3638`), the `window.__repforgeDraftFault` seam (`app.js:510`); tests `test/thermonuclear-races.mjs`, `test/persistence.mjs`, `test/persistence-race.mjs` | NEW `test/program-transition-commit.mjs`: fault list enumerated up front — crash at the archive / successor / draft boundary, two-tab confirm, duplicate confirm, stale hash; after rejection/pre-commit failure, zero new archives; after successful or recovered commit, exactly one linked archive and successor, never mixed. Failure: a duplicate confirm creates a second archive entry | baseline: `node test/thermonuclear-races.mjs` → planned: `node test/program-transition-commit.mjs` | STOP if any boundary yields partial state or a second successor · reviewer: reproduces the archive-crash and duplicate-confirm cases before 052-P7 |
-| 052-P7 | 7 | Recovery across upgrades — old/new schema parse, corrupt overlay → canonical prescription plus a recoverable warning, service-worker/script-revision lockstep bump, backup round-trip retains both records, guided-repair no-mutation evidence · **build** | `sw.js` `CACHE = "repforge-v188"` and `?v=188` in `index.html` / `sw.js` `ASSETS`, held in lockstep by `test/exercise-library.mjs`; `test/sw-upgrade.mjs`, backup suites | extend `test/program-transition-commit.mjs` and NEW `test/program-transition-sw-upgrade.mjs`: after a revision bump an old worker cannot execute the new record schema; a corrupt overlay renders the canonical prescription with a warning, never a guessed reduction | baseline: `node test/exercise-library.mjs && node test/sw-upgrade.mjs` → planned: `node test/program-transition-sw-upgrade.mjs` | STOP if rollback code would strip an unknown transition/recovery section · reviewer: reproduces the corrupt-overlay fallback |
+| 052-P5c | 5 | Recovery lifecycle — week-one active marker, canonical week-two restoration with no migration, `reassessmentOutcome` `null` → `Better`/`About the same`/`Worse`, no same-block extension or repeat, distinct source/target block IDs, and live-draft/prescription-edit guards · **build** | this plan's overlay; `mesocycleLifecycle()` (`app.js:3168`) week/block semantics (period is derived, not a client timeout) | extend `test/program-transition-recovery.mjs`: the week-two prescription equals the pre-recovery canonical prescription exactly even without reassessment; a second recovery in the same block, legacy source block, live DraftV2, or material week-one edit is refused. Failure: week two still reduced; an extension is allowed; source and target IDs match | baseline: `node test/schedule.mjs` → planned: `node test/program-transition-recovery.mjs` | STOP if week two does not restore canonical work or evidence can bind to the target · reviewer: reproduces the week-1 → week-2 boundary and draft guard |
+| 052-P6 | 6 | Atomic commit through storage — re-read predecessor identity/revision/fingerprint under the existing program lock, allocate target `blockId` in the immutable proposal, reject a stale proposal by hash, commit replacement or top-level recovery carrier atomically, preserve DraftV2 safety, and keep recovery mutually exclusive with replacement · **build** | `commitProgramReplacement()` (`app.js:3362`), `captureProgramReplacement()`, `commitProposedState()` (`app.js:3638`), the `window.__repforgeDraftFault` seam (`app.js:510`); tests `test/thermonuclear-races.mjs`, `test/persistence.mjs`, `test/persistence-race.mjs` | NEW `test/program-transition-commit.mjs`: fault list enumerated up front — crash at the archive / successor / draft / recovery-carrier boundary, two-tab confirm, duplicate target, stale hash, mirror divergence, and live draft; after rejection/pre-commit failure, zero new archives or recovery records; after successful or recovered commit, exactly one linked replacement or one recovery record, never mixed. Failure: duplicate target applies neither or confirmation writes an ID from outside the proposal | baseline: `node test/thermonuclear-races.mjs` → planned: `node test/program-transition-commit.mjs` | STOP if any boundary yields partial state, a second successor/recovery record, array union, or inferred legacy ID · reviewer: reproduces archive-crash, recovery-carrier, and duplicate-target cases before 052-P7 |
+| 052-P7 | 7 | Recovery across upgrades — old/new carrier schema parse, corrupt known overlay → canonical prescription plus persistent warning/quarantine, unknown/over-bound data → untouched replicas and full storage recovery, service-worker/script-revision lockstep bump, backup/Plan 053 clone round-trip, import exclusions, and guided-repair no-mutation evidence · **build** | `sw.js` `CACHE = "repforge-v188"` and `?v=188` in `index.html` / `sw.js` `ASSETS`, held in lockstep by `test/exercise-library.mjs`; `test/sw-upgrade.mjs`, backup suites | extend `test/program-transition-commit.mjs` and NEW `test/program-transition-sw-upgrade.mjs`: after a revision bump an old worker cannot execute the new carrier schema; a corrupt overlay renders the canonical prescription with a persistent warning and bounded quarantine, never a guessed reduction; unknown/over-bound data leaves replicas untouched | baseline: `node test/exercise-library.mjs && node test/sw-upgrade.mjs` → planned: `node test/program-transition-sw-upgrade.mjs` | STOP if rollback code would strip an unknown recovery section, union replicas, prune quarantine, or import recovery through a setup/program/free-form door · reviewer: reproduces the corrupt-overlay fallback and full-recovery boundary |
 
 ### Early vertical slice (optional reorder, scope unchanged)
 
@@ -448,12 +536,12 @@ Push each coherent tested slice immediately and update the PR row/evidence/next 
 
 ## Completion gate
 
-- Transition and recovery primitives are durable, versioned, reconstructable, stale-safe, and recoverable.
+- Transition and recovery primitives are durable, versioned, reconstructable, stale-safe, and recoverable. Recovery uses the top-level mirrored carrier with retained committed membership and bounded digest-deduplicated quarantine.
 - Each sibling proposal comes from explicit compiler provenance or falls back to exact-program guided repair.
 - Permanent volume reduction respects protected/minimum work.
-- Recovery runs only under the approved deterministic contract, eligible evidence, corroboration, preview, and confirmation; week two restores canonical work.
-- Every committed structural transition has exact diff, source/version provenance, one atomic archive, preserved history/identity/strategy contracts, and idempotent retry.
+- Recovery runs only under the approved deterministic contract, eligible evidence bound to a distinct `sourceBlockId`, preview, and atomic block-start confirmation with a distinct target `blockId`; week two restores canonical work even when reassessment is `null`.
+- Every committed structural replacement has exact diff, source/version provenance, one atomic archive, preserved history/identity/strategy contracts, and idempotent retry. Recovery preserves the program, has no successor/archive, and cannot combine with replacement.
 - Insufficient evidence can never create a proposal.
-- Crash, duplicate, stale, two-tab, backup, upgrade, and corruption tests pass.
+- Crash, duplicate-target, stale, two-tab, backup, clone, upgrade, import-boundary, mirror-reconciliation, quarantine, and corruption tests pass.
 - No final Progress UI/general lifecycle architecture was added.
 - Branch/PR are pushed, current, clean, and stopped at owner review.

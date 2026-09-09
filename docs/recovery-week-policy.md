@@ -9,14 +9,72 @@
 Recovery is a distinct, versioned schedule policy for week one of the next
 normal block. It does not mutate progression-engine arithmetic, the canonical
 compiled program, loads, RIR, frequency, or exercise identities. Week two
-automatically renders the canonical prescription. In transition terms it is an
-overlay linked from a `recovery_week` record (`docs/block-transition-provenance.md`),
-never a successor-program replacement.
+always renders the canonical prescription, whether reassessment has been
+answered or remains `null`. In transition terms it is an overlay linked from
+a `recovery_week` record (`docs/block-transition-provenance.md`), never a
+successor-program replacement.
 
 This is not the Plan 047 interrupted-treatment re-entry week (a reduced week
 after 2–4 disrupted weeks for returning lifters). Recovery here is an
 evidence-triggered experiment inside normal training, and the two must never
 share a code path or a transition kind.
+
+## Durable carrier and block identity
+
+The mirrored durable aggregate carries recovery at the optional, versioned,
+top-level `recoveryTransitions` section defined in
+`docs/block-transition-provenance.md`. Its `records` member contains committed
+`recovery_week` records and retains membership. A record's
+`reassessmentOutcome` may move once from `null` to `Better`, `About the same`,
+or `Worse` after week one. Its `quarantine` member retains malformed
+known-schema recovery values as entries with the exact shape
+`{ schemaVersion: 1, digest, raw, firstSeenAt, lastSeenAt, occurrences }`.
+The presence of an entry is the persistent warning state. The user can
+explicitly export or discard quarantine, and full workout-history deletion
+also deletes it. The loader never prunes it automatically.
+
+`programMeta.id` is the program identity. `programMeta.blockId` is a separate
+opaque identity for each modern block. A recovery proposal allocates its
+target `blockId` in the immutable proposal and persists that ID only in the
+atomic block-start confirmation. Recovery keeps the program, creates no
+successor or archive, and cannot share a confirmation with a replacement.
+
+The eligibility evidence stores `sourceBlockId`. It equals the block reviewed
+for every qualifying outcome and the checkpoint answer, and it differs from
+the target `blockId`. A legacy current block has no inferred ID and is
+recovery-ineligible. The first modern block establishes the identity needed
+for a later recovery boundary.
+
+New DraftV2 values carry `program.blockId`, and newly saved workout rows carry
+their immutable historical `blockId`. Legacy rows stay absent. A live DraftV2
+blocks block-start confirmation; if that draft crosses into week two, its
+captured prescription stays unchanged.
+
+During active recovery week one, edits to the prescription fingerprint are
+refused. The fingerprint includes current program-row identity, slot/day
+identity and order, movement IDs, sets and rep bounds, pattern and loading
+metadata, RIR targets, set bounds, priorities, load increments, progression
+envelopes and incompatibilities, plus program structure, week prescriptions,
+compiler context, progression relations, modifiers, and incompatibilities.
+Program identity and block identity are not prescription inputs. Program and
+exercise display names, day labels, and authored `notes` remain editable and
+are excluded from the fingerprint.
+
+The two local replicas reconcile by whole-state durable revision. Recovery
+arrays are never unioned. Two valid records for one target block apply
+neither. A bounded known-schema malformed value falls back to canonical
+training, raises a persistent warning, and enters quarantine. An unknown
+schema, or a carrier that exceeds the existing transition safety bounds,
+leaves replicas untouched and enters full storage recovery. The bounds are
+depth 32, 10,000 nodes, 128 object keys, 256 array items, and 10,000
+characters per string. No value is truncated to fit.
+
+Full backup replacement and the Plan 053 install-transfer clone preserve
+program/block identity, recovery records, reassessment, and quarantine.
+Program JSON, shared setup, and free-form import exclude those fields and mint
+a fresh block on activation. Backup Merge imports workout sessions only and
+preserves each incoming row's historical `blockId`; it never imports active
+recovery or quarantine.
 
 ## Executable policy contract
 
@@ -95,8 +153,10 @@ machine-only edit cannot silently change the contract.
   Another recovery can be considered only at a future block boundary from
   fresh evidence and a fresh `Yes` answer.
 - **Provenance:** every confirmed recovery writes a `recovery_week`
-  transition record with the overlay and evidence snapshot. No agent may
-  invent load, RIR, frequency, or duration formulas outside this approved
+  transition record in the mirrored `recoveryTransitions.records` carrier
+  with the overlay and evidence snapshot. The evidence includes
+  `sourceBlockId`, which differs from the target overlay `blockId`. No agent
+  may invent load, RIR, frequency, or duration formulas outside this approved
   contract.
 
 ## Approved Rule B
@@ -190,9 +250,12 @@ change Rule B to force a version into the band.
   patterns is ineligible.
 - The checkpoint stores only the closed answer enum. It does not store free
   text, a diagnosis, or a clinical interpretation.
-- The post-week-one result is local evidence for ordinary Review. It never
-  changes the canonical program and never starts another recovery overlay in
-  the same block.
+- The post-week-one result is local evidence for ordinary Review. If no answer
+  is recorded, the persisted value remains `null`; week two is still
+  canonical. The result never changes the canonical program and never starts
+  another recovery overlay in the same block. At the next block boundary the
+  old record is inactive, and a new record needs a new source block and fresh
+  evidence.
 - A future program version that falls outside 40–60% is ineligible until an
   owner-reviewed, version-specific allowlist entry or a policy change records
   how that version is handled. The current allowlist contains only
