@@ -863,6 +863,59 @@ const DraftStore={
     catch{return{settled:false,hadWrites:false}}
     return this.promote(transactionId,contextFingerprint)}
 };
+function parsedAcknowledgedDraftV2(raw,source){
+  const parsed=WorkoutDraft?.parse(raw);
+  return parsed?.kind==="valid"?{status:"live",raw,draft:parsed.draft,source}:null}
+/*
+ * This is deliberately a read-only boundary. A block start may not trigger
+ * boot reconciliation, checkpoint repair, recovery retention, or any other
+ * draft mutation while deciding whether it is safe to cross the boundary.
+ * The committed checkpoint is the acknowledged aggregate; a valid queued V2
+ * sidecar is also live because it is the next ordered draft publication.
+ */
+function readLiveAcknowledgedDraftV2(){
+  const canonical=DraftStore.readCanonicalStatus();
+  if(canonical.status!=="ok")return{status:"unavailable",reason:"canonical-read"};
+  const checkpoint=DraftStore.readV2Checkpoint();
+  if(checkpoint.status==="invalid"||checkpoint.status==="read-failed")
+    return{status:"unavailable",reason:"checkpoint-read"};
+  const context=draftContextFingerprint(state);
+  const queued=DraftStore.pending().entries.filter(entry=>entry.value.programFingerprint===context).at(-1);
+  const queuedDraft=queued?parsedAcknowledgedDraftV2(queued.value.raw,"pending"):null;
+  if(queuedDraft)return queuedDraft;
+  if(checkpoint.status==="valid"){
+    const value=checkpoint.value;
+    if(value.kind==="tombstone")return{status:"none"};
+    if(value.kind==="committed"){
+      const committed=parsedAcknowledgedDraftV2(value.raw,"checkpoint");
+      return committed||{status:"unavailable",reason:"committed-draft"};
+    }
+    if(value.kind==="pending"){
+      // Before canonical publication, retain the acknowledged predecessor when
+      // present; with no predecessor the candidate itself is the in-flight
+      // V2 value and must still block a destructive block start.
+      const protectedRaw=canonical.raw===value.baseRaw&&value.previous?.raw||value.raw;
+      const pendingDraft=parsedAcknowledgedDraftV2(protectedRaw,"checkpoint-pending");
+      return pendingDraft||{status:"unavailable",reason:"pending-draft"};
+    }
+    if(value.kind==="pending-removal"){
+      // The removal is not acknowledged until the tombstone is committed. If
+      // canonical bytes have been overwritten in the meantime, the protected
+      // V2 value remains the authoritative live draft until reconciliation.
+      const pendingRemoval=parsedAcknowledgedDraftV2(value.raw,"checkpoint-pending-removal");
+      return pendingRemoval||{status:"unavailable",reason:"pending-removal"};
+    }
+    return{status:"unavailable",reason:"checkpoint-kind"};
+  }
+  const canonicalDraft=parsedAcknowledgedDraftV2(canonical.raw,"canonical");
+  return canonicalDraft||{status:"none"};
+}
+function blockStartDraftGuard(){
+  const live=readLiveAcknowledgedDraftV2();
+  if(live.status==="live")return{draftConflict:true,code:"live_draft_blocks_next_block"};
+  if(live.status==="unavailable")return{draftConflict:true,code:"draft_state_unavailable"};
+  return null;
+}
 function v2CheckpointRecord(draft,raw,operationId=draft.writer.operationId){
   return{version:1,kind:"committed",draftId:draft.draftId,revision:draft.revision,operationId,
     programFingerprint:draft.program.programFingerprint,raw}}
@@ -3713,9 +3766,8 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
   // An acknowledged DraftV2 owns a captured prescription and block identity.
   // Refuse before capture, journaling, or any storage boundary so the exact
   // draft/checkpoint bytes remain untouched for the lifter to finish or clear.
-  if(WorkoutDraft?.parse(readDraftRaw())?.kind==="valid")
-    return Promise.resolve(blockTransitionResult("failed",{
-      draftConflict:true,code:"live_draft_blocks_next_block"}));
+  const draftGuard=blockStartDraftGuard();
+  if(draftGuard)return Promise.resolve(blockTransitionResult("failed",draftGuard));
   if(blockCommitInFlight?.oldProgramId===oldId)return blockCommitInFlight.promise;
   if(liveId!==oldId)return Promise.resolve(blockTransitionResult("duplicate"));
   const cap=pendingBlockTransition&&pendingBlockTransition.oldProgramId===liveId
@@ -13242,6 +13294,10 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
   const blockCap=originEff==="block"?pendingBlockTransition:null;
+  if(originEff==="block"){
+    const draftGuard=blockStartDraftGuard();
+    if(draftGuard)return blockTransitionResult("failed",draftGuard);
+  }
   const replacementCapture=blockCap||captureProgramReplacement(state);
   const draftActive=draftHasProgress();
   const confirmedDraftRaw=discardDraftRaw===undefined?readDraftRaw():discardDraftRaw;
