@@ -20,7 +20,6 @@ export const SUITES = {
     s("test/workout-draft.mjs"),
     s("test/workout-draft-migration.mjs"),
     s("test/schedule.mjs"),
-    s("test/i18n.mjs"),
     s("test/exercise-library.mjs"),
     s("test/progression-fixtures.mjs"),
     s("test/progression-engine.mjs"),
@@ -84,6 +83,7 @@ export const SUITES = {
     s("test/shared-setup-flow.mjs"),
   ],
   workout: [
+    s("test/i18n.mjs"),
     s("test/notifications.mjs"),
     s("test/appearance.mjs"),
     s("test/accessibility.mjs"),

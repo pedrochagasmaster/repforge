@@ -1,0 +1,20 @@
+# Temporary read-only review artifact; removed before the final PR revision.
+name: CI review snapshot
+on: pull_request
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - name: Package tracked review sources only
+        run: git ls-files -z '*.mjs' '*.js' '*.json' '*.html' '*.md' '*.yml' | tar --null -T - -czf review-source.tar.gz
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ci-review-source
+          path: review-source.tar.gz
+          retention-days: 1
