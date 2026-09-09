@@ -28,7 +28,8 @@
  *     byte and open the existing full Storage Recovery boundary.
  *
  * Correction checkpoint coverage: R5B1-DUP-001, R5B1-Q-002,
- * R5B1-DEDUPE-003, R5B1-UNKNOWN-004, R5B1-SOURCE-005, and R5B1-INDEP-006.
+ * R5B1-DEDUPE-003, R5B1-UNKNOWN-004, R5B1-SOURCE-005, R5B1-INDEP-006,
+ * R5B1-CLASSIFIER-007, R5B1-REVISION-008, and R5B1-DIGEST-009.
  *
  * Intended failure cases on the published R5a head:
  *   - bounded known-schema malformed candidates are routed to full storage
@@ -39,7 +40,11 @@
  *   - the carrier classification does not preserve exact replica equality or
  *     full-recovery bytes for unknown required policy data;
  *   - the existing full-recovery cases and replica no-union boundary must stay
- *     green while the R5b1 behavior is added.
+ *     green while the R5b1 behavior is added;
+ *   - a bounded semantic corruption that the authoritative transition validator
+ *     rejects is still omitted/quarantined at the public boot boundary; and
+ *   - known-malformed normalization advances both durable revisions exactly
+ *     once, then leaves the full normalized state unchanged on second boot.
  *
  * Completion barrier: this file turns green at the R5b1 implementation head
  * without production, shared suite/catalog, docs, cache, or generated edits.
@@ -510,6 +515,25 @@ async function waitForReadyOrRecovery(page) {
   }));
 }
 
+async function observeReadyOrRecovery(page, timeout = 5000) {
+  let timedOut = false;
+  try {
+    await page.waitForFunction(
+      () => window.__repforgeBooted === true || document.querySelector("#storageRecovery")?.open === true,
+      { timeout },
+    );
+  } catch {
+    timedOut = true;
+  }
+  return {
+    ...await page.evaluate(() => ({
+      booted: window.__repforgeBooted === true,
+      recoveryOpen: document.querySelector("#storageRecovery")?.open === true,
+    })),
+    timedOut,
+  };
+}
+
 async function storageRecoveryState(page) {
   return page.evaluate(() => ({
     booted: window.__repforgeBooted === true,
@@ -546,6 +570,8 @@ async function malformedCarrierScenario(browser, base, validRecord) {
   const malformedRaw = JSON.stringify(malformed);
   const carrier = { schemaVersion: 1, records: [malformed], quarantine: [] };
   const seeded = incrementedState(stateWithCarrier(base, carrier, recordTarget(validRecord)));
+  const seedRevision = stateRevision(seeded);
+  const expectedNormalizationRevision = seedRevision + 1;
   await seedReplicas(page, seeded, seeded);
   await page.reload({ waitUntil: "domcontentloaded" });
   const mode = await waitForReadyOrRecovery(page);
@@ -578,7 +604,20 @@ async function malformedCarrierScenario(browser, base, validRecord) {
       "malformed normalized carrier is mirrored without recursive record union");
     check(isDeepStrictEqual(after.local, after.idb),
       "malformed normalized localStorage and IndexedDB snapshots are exactly equal");
+    check(after.local?._storageRevision === expectedNormalizationRevision &&
+      after.idb?._storageRevision === expectedNormalizationRevision,
+    "known-malformed normalization advances both durable revisions exactly once", {
+      seedRevision,
+      expectedNormalizationRevision,
+      localRevision: after.local?._storageRevision,
+      idbRevision: after.idb?._storageRevision,
+    });
+    check(isDeepStrictEqual(after.local?.programHistory, seeded.programHistory) &&
+      isDeepStrictEqual(after.idb?.programHistory, seeded.programHistory) &&
+      after.local?.programMeta?.transitionIn == null && after.idb?.programMeta?.transitionIn == null,
+    "known-malformed normalization creates no archive or replacement transition");
     const firstDetectedAt = entry?.detectedAt;
+    const firstNormalized = clone(after.local);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
     const reloaded = await readReplicas(page);
@@ -589,6 +628,15 @@ async function malformedCarrierScenario(browser, base, validRecord) {
     "first quarantine raw/digest/reason/detectedAt is stable across reload");
     check(isDeepStrictEqual(reloaded.local?.recoveryTransitions, reloaded.idb?.recoveryTransitions),
       "reloaded malformed quarantine remains exactly mirrored in both replicas");
+    check(reloaded.local?._storageRevision === expectedNormalizationRevision &&
+      reloaded.idb?._storageRevision === expectedNormalizationRevision &&
+      isDeepStrictEqual(reloaded.local, firstNormalized) &&
+      isDeepStrictEqual(reloaded.idb, firstNormalized),
+    "second boot performs zero durable writes and retains the exact normalized state", {
+      expectedNormalizationRevision,
+      localRevision: reloaded.local?._storageRevision,
+      idbRevision: reloaded.idb?._storageRevision,
+    });
   } else {
     check(false, "malformed candidate is not misclassified as unknown/full-recovery data");
     check(false, "malformed candidate normalizes to zero valid records and one quarantine entry");
@@ -596,6 +644,133 @@ async function malformedCarrierScenario(browser, base, validRecord) {
   }
   await context.close();
   return { malformed, malformedRaw, expectedDigest };
+}
+
+async function semanticMalformedCarrierScenario(browser, base, validRecord) {
+  console.log("\n3b. Bounded semantic corruption is quarantined instead of silently retained");
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  page.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
+  await page.goto(BASE);
+  await waitForAppBoot(page, { base: BASE });
+  await seedReplicas(page, base, base);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+
+  const malformed = clone(validRecord);
+  malformed.diff.recoveryWeek.baseProgramFingerprint = 123;
+  const validation = await validateRecordAgainstLive(page, malformed);
+  check(validation.ok === false && validation.code === "base_fingerprint_mismatch",
+    "authoritative Transition.validateRecoveryRecord rejects the bounded semantic corruption",
+    validation, "harness");
+  if (validation.ok || validation.code !== "base_fingerprint_mismatch") {
+    throw new Error("HARNESS FAILURE: semantic corruption was not independently rejected by the authoritative validator");
+  }
+
+  const malformedRaw = JSON.stringify(malformed);
+  const expectedDigest = sha256Utf8(malformedRaw);
+  const carrier = { schemaVersion: 1, records: [malformed], quarantine: [] };
+  const seeded = incrementedState(stateWithCarrier(base, carrier, recordTarget(validRecord)));
+  await seedReplicas(page, seeded, seeded);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  const mode = await waitForReadyOrRecovery(page);
+  const after = await readReplicas(page);
+  check(mode.booted === true, "semantic malformed carrier boots without full recovery", mode);
+  check(mode.recoveryOpen === false, "semantic malformed carrier does not open full Storage Recovery", mode);
+  if (mode.booted) {
+    const state = after.local;
+    const quarantine = carrierOf(state)?.quarantine || [];
+    const entry = quarantine[0];
+    check(recordsOf(state).length === 0 && recordsOf(after.idb).length === 0,
+      "semantic malformed record is omitted from both normalized replicas", {
+        localRecords: recordsOf(state).length,
+        idbRecords: recordsOf(after.idb).length,
+      });
+    check(quarantine.length === 1,
+      "semantic malformed candidate creates exactly one quarantine v1 warning entry", quarantine);
+    check(exactQuarantineEntry(entry, {
+      schemaVersion: 1,
+      digest: expectedDigest,
+      raw: malformedRaw,
+      sourceReplica: "both",
+      detectedAt: entry?.detectedAt,
+      reason: "known-schema-malformed-recovery",
+    }) && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(entry?.detectedAt || ""),
+    "semantic malformed quarantine preserves exact raw/digest/source/reason and canonical time", entry);
+    const warning = await storageRecoveryState(page);
+    check(quarantine.length === 1 && warning.booted === true && warning.open === false,
+      "semantic malformed quarantine remains the persistent warning while boot stays available", warning);
+    const projection = await observeProjection(page);
+    check(projectionMatches(projection, EXPECTED_CANONICAL),
+      "semantic malformed record falls back to the independent canonical prescription", projection);
+    check(isDeepStrictEqual(after.local, after.idb),
+      "semantic malformed normalization mirrors exact localStorage and IndexedDB snapshots");
+  } else {
+    check(false, "semantic malformed candidate is not misclassified as full-recovery data");
+    check(false, "semantic malformed candidate normalizes to zero valid records and one quarantine warning");
+    check(false, "semantic malformed candidate exposes the canonical prescription");
+  }
+  await context.close();
+}
+
+async function digestFailureScenario(browser, base, validRecord) {
+  console.log("\n3c. Recovery digest failure fails closed into untouched full storage recovery");
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  const pageErrors = [];
+  page.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
+  page.on("pageerror", (error) => pageErrors.push(String(error?.message || error)));
+  await page.goto(BASE);
+  await waitForAppBoot(page, { base: BASE });
+
+  const malformed = clone(validRecord);
+  malformed.diff.recoveryWeek.entries = [];
+  const malformedRaw = JSON.stringify(malformed);
+  const carrier = { schemaVersion: 1, records: [malformed], quarantine: [] };
+  const seeded = incrementedState(stateWithCarrier(base, carrier, recordTarget(validRecord)));
+  const localRaw = JSON.stringify(seeded);
+  const seedRevision = stateRevision(seeded);
+  await seedReplicas(page, seeded, seeded, localRaw);
+  await page.addInitScript((targetRaw) => {
+    const target = new TextEncoder().encode(targetRaw);
+    const originalDigest = crypto.subtle.digest.bind(crypto.subtle);
+    const sameBytes = (left, right) => left.length === right.length && left.every((value, index) => value === right[index]);
+    window.__repforgeRecoveryDigestRejectionHits = 0;
+    Object.defineProperty(crypto.subtle, "digest", {
+      configurable: true,
+      value: async (algorithm, data) => {
+        const bytes = new Uint8Array(data);
+        if ((algorithm === "SHA-256" || algorithm?.name === "SHA-256") && sameBytes(bytes, target)) {
+          window.__repforgeRecoveryDigestRejectionHits += 1;
+          throw new Error("injected recovery digest failure");
+        }
+        return originalDigest(algorithm, data);
+      },
+    });
+  }, malformedRaw);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  const mode = await observeReadyOrRecovery(page);
+  const digestHits = await page.evaluate(() => window.__repforgeRecoveryDigestRejectionHits || 0);
+  check(digestHits > 0,
+    "digest-failure harness actually rejects the known-malformed candidate digest",
+    { digestHits, malformedRawLength: malformedRaw.length }, "harness");
+  if (digestHits < 1) {
+    throw new Error("HARNESS FAILURE: injected recovery digest rejection did not fire");
+  }
+  const after = await readReplicas(page);
+  check(mode.booted === false && mode.recoveryOpen === true && pageErrors.length === 0,
+    "digest failure opens full Storage Recovery without an uncaught page error or unusable boot",
+    { mode, pageErrors });
+  check(after.localRaw === localRaw && isDeepStrictEqual(after.idb, seeded) &&
+    after.local?._storageRevision === seedRevision && after.idb?._storageRevision === seedRevision,
+  "digest failure preserves both replica bytes and performs zero durable writes", {
+    localRawExact: after.localRaw === localRaw,
+    idbExact: isDeepStrictEqual(after.idb, seeded),
+    seedRevision,
+    localRevision: after.local?._storageRevision,
+    idbRevision: after.idb?._storageRevision,
+  });
+  await context.close();
 }
 
 async function repeatDetectionScenario(browser, base, validRecord, malformedRaw, expectedDigest) {
@@ -940,6 +1115,8 @@ async function main() {
     "valid v1 carrier membership survives reload without pruning");
 
     const malformedResult = await malformedCarrierScenario(browser, base, firstRecord);
+    await semanticMalformedCarrierScenario(browser, base, firstRecord);
+    await digestFailureScenario(browser, base, firstRecord);
     await repeatDetectionScenario(browser, base, firstRecord, malformedResult.malformedRaw, malformedResult.expectedDigest);
     await sourceAttributionScenario(browser, base, firstRecord, "localStorage");
     await sourceAttributionScenario(browser, base, firstRecord, "indexedDB");
