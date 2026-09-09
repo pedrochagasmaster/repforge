@@ -615,6 +615,10 @@
     }
     async function request(path, body, parseEndpoint = path) {
       if (!requireContract(contract) || !transport?.request) return failure("contract-unavailable");
+      const claimResponse = parseEndpoint === "/envelope";
+      const claimResponseLimit = Number.isSafeInteger(contract.LIMITS?.claimResponseBytes)
+        ? contract.LIMITS.claimResponseBytes
+        : CLAIM_RESPONSE_MAX_BYTES;
       let validated;
       try { validated = contract.validateRequest(body, path); } catch { return failure("invalid-request"); }
       if (!validated?.ok) return failure(validated?.code || "invalid-request");
@@ -625,10 +629,10 @@
           endpoint: path,
           body: jsonClone(body),
           headers: { "Cache-Control": "no-store" },
-          maxResponseBytes: parseEndpoint === "/envelope" ? CLAIM_RESPONSE_MAX_BYTES : SMALL_RESPONSE_MAX_BYTES,
+          maxResponseBytes: claimResponse ? claimResponseLimit : SMALL_RESPONSE_MAX_BYTES,
         });
         if (!reply || !Number.isInteger(reply.status) || !(reply.bytes instanceof Uint8Array || reply.bytes instanceof ArrayBuffer)) return failure("invalid-response");
-        const parsed = contract.parseBoundedJson(reply.bytes, parseEndpoint);
+        const parsed = contract.parseBoundedJson(reply.bytes, parseEndpoint, claimResponse ? "claim-response" : "request");
         if (!parsed?.ok) return failure(parsed.code || "invalid-response");
         return success({ status: reply.status, body: parsed.value });
       } catch (error) { return failure(error?.code === "response-too-large" ? "response-too-large" : "network-failure"); }

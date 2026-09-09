@@ -474,6 +474,20 @@ assertParserParity(asciiJsonAtBytes(4_097), contract.ENDPOINTS.status, contract.
 const envelopeAtBodyLimit = assertParserParity(asciiJsonAtBytes(2_000_000), contract.ENDPOINTS.envelope, contract.ERROR_CODES.STRING_TOO_LONG, "envelope at byte limit");
 assert.notEqual(envelopeAtBodyLimit.code, contract.ERROR_CODES.ENVELOPE_TOO_LARGE, "envelope at limit passes the byte gate");
 assertParserParity(asciiJsonAtBytes(2_000_001), contract.ENDPOINTS.envelope, contract.ERROR_CODES.ENVELOPE_TOO_LARGE, "envelope over byte limit");
+assert.equal(
+  contract.LIMITS.claimResponseBytes,
+  contract.LIMITS.envelopeBytes + contract.LIMITS.requestBodySmallEndpointBytes,
+  "claim response bound is the logical envelope plus the approved small wrapper headroom",
+);
+assert.equal(
+  contract.parseBoundedJson(
+    new Uint8Array(contract.LIMITS.claimResponseBytes + 1),
+    contract.ENDPOINTS.envelope,
+    "claim-response",
+  ).code,
+  contract.ERROR_CODES.RESPONSE_TOO_LARGE,
+  "claim response rejects one byte over its bounded wrapper",
+);
 assertParserParity(JSON.stringify(nestedContainers(64)), contract.ENDPOINTS.envelope, null, "depth at 64");
 assertParserParity(JSON.stringify(nestedContainers(65)), contract.ENDPOINTS.envelope, contract.ERROR_CODES.DEPTH_TOO_LARGE, "depth at 65");
 assertParserParity(JSON.stringify(keysAtLimit), contract.ENDPOINTS.envelope, null, "object keys at 256");

@@ -8,6 +8,7 @@
  * explicitly pending boundary.
  */
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { dirname, join } from "node:path";
@@ -31,6 +32,53 @@ const results = { passed: 0, failed: 0 };
 
 function clone(value) {
   return value == null ? value : structuredClone(value);
+}
+
+function independentCanonicalJson(value, active = new Set()) {
+  if (value === null) return "null";
+  if (typeof value === "string" || typeof value === "boolean") return JSON.stringify(value);
+  if (typeof value === "number") {
+    if (!Number.isFinite(value)) throw new TypeError("independent canonical JSON rejects non-finite numbers");
+    return JSON.stringify(value);
+  }
+  if (typeof value !== "object" || active.has(value)) throw new TypeError("independent canonical JSON rejects non-JSON values");
+  active.add(value);
+  let result;
+  if (Array.isArray(value)) {
+    result = `[${value.map((entry) => independentCanonicalJson(entry, active)).join(",")}]`;
+  } else {
+    result = `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${independentCanonicalJson(value[key], active)}`).join(",")}}`;
+  }
+  active.delete(value);
+  return result;
+}
+
+function independentEnvelopeHash(value) {
+  const preimage = clone(value);
+  delete preimage.integrity.canonicalPayloadHash;
+  return createHash("sha256").update(independentCanonicalJson(preimage), "utf8").digest("hex");
+}
+
+function envelopeAtBoundaryBytes(paddingLength) {
+  const value = clone(canonicalFixture);
+  value.durableState.programHistory = Array.from({ length: 2_000 }, (_, index) => ({
+    id: `boundary-${index}`,
+    padding: "p".repeat(959),
+  }));
+  value.durableState.settings.boundaryPadding = "x".repeat(paddingLength);
+  value.integrity.canonicalPayloadHash = "0".repeat(64);
+  value.integrity.canonicalPayloadHash = independentEnvelopeHash(value);
+  return value;
+}
+
+function exactMaximumEnvelope() {
+  const value = envelopeAtBoundaryBytes(1_787);
+  assert.equal(
+    new TextEncoder().encode(independentCanonicalJson(value)).byteLength,
+    Contract.LIMITS.envelopeBytes,
+    "independent maximum envelope fixture is exactly at the logical limit",
+  );
+  return value;
 }
 
 function check(condition, message) {
@@ -379,7 +427,11 @@ async function main() {
     assertRequest(request, Contract.ENDPOINTS.claims, Transfer.RESPONSE_LIMITS[Transfer.ENDPOINTS.claim]);
     assert.deepEqual(Object.keys(request.body).sort(), ["claimId", "token"], "claim body shape is exact");
     assert.equal(Contract.validateClaimId(request.body.claimId).ok, true, "claim ID is in the shared range");
-    const parsed = Contract.parseBoundedJson(response(200, { envelope: builtEnvelope, expiresAt: EXPIRES }).bytes, Contract.ENDPOINTS.envelope);
+    const parsed = Contract.parseBoundedJson(
+      response(200, { envelope: builtEnvelope, expiresAt: EXPIRES }).bytes,
+      Contract.ENDPOINTS.envelope,
+      "claim-response",
+    );
     assert.equal(parsed.ok, true, "approved claim bytes pass the shared envelope parser");
     assert.equal((await Contract.validateEnvelopeIntegrity(parsed.value.envelope, webcrypto)).ok, true, "approved claim envelope passes shared integrity");
     assert.equal(document.cookie.includes(Transfer.COOKIE_NAME), false, "claim clears the transfer cookie");
@@ -479,9 +531,44 @@ async function main() {
     assertFailureShape(envelopeOver, Contract.ERROR_CODES.ENVELOPE_TOO_LARGE, "envelope over-limit bytes");
     const approvedBytes = textEncoder.encode(JSON.stringify({ envelope: builtEnvelope, expiresAt: EXPIRES }));
     assert.equal(Contract.measureUtf8Bytes(approvedBytes) <= Contract.LIMITS.envelopeBytes, true, "approved claim response is within envelope bound");
+    assert.equal(Transfer.RESPONSE_LIMITS[Transfer.ENDPOINTS.claim], Contract.LIMITS.claimResponseBytes, "client claim transport consumes the shared claim-response bound");
     assert.equal(Transfer.RESPONSE_LIMITS[Transfer.ENDPOINTS.claim], Contract.LIMITS.envelopeBytes + Contract.LIMITS.requestBodySmallEndpointBytes, "claim response leaves only approved wrapper headroom");
     const request = Contract.validateRequest({ envelope: builtEnvelope, idempotencyKey: "idempotency-key" }, Contract.ENDPOINTS.create);
     assert.equal(request.ok, true, "canonical fixture-sized create request passes the shared request limit");
+  });
+
+  await test("near-maximum logical envelope fits the claim wrapper and claim-response +1 is rejected", async () => {
+    const envelope = envelopeAtBoundaryBytes(1_736);
+    const envelopeBytes = new TextEncoder().encode(independentCanonicalJson(envelope)).byteLength;
+    assert.equal(envelopeBytes, Contract.LIMITS.envelopeBytes - 51, "regression envelope leaves only the request wrapper headroom");
+    const create = Contract.validateRequest({ envelope, idempotencyKey: "a" }, Contract.ENDPOINTS.create);
+    assert.equal(create.ok, true, "valid near-maximum envelope and short idempotency key fit the create request bound");
+    const integrity = await Contract.validateEnvelopeIntegrity(envelope, webcrypto);
+    assert.equal(integrity.ok, true, "independently hashed near-maximum envelope is valid");
+    const body = { envelope, expiresAt: EXPIRES };
+    const bytes = textEncoder.encode(JSON.stringify(body));
+    assert.ok(bytes.byteLength > Contract.LIMITS.envelopeBytes, "claim response includes wrapper bytes");
+    assert.ok(bytes.byteLength <= Contract.LIMITS.claimResponseBytes, "claim wrapper remains within its approved bound");
+    assertFailureShape(
+      Contract.parseBoundedJson(bytes, Contract.ENDPOINTS.envelope),
+      Contract.ERROR_CODES.ENVELOPE_TOO_LARGE,
+      "logical envelope parser keeps its 2,000,000-byte bound",
+    );
+    const parsed = Contract.parseBoundedJson(bytes, Contract.ENDPOINTS.envelope, "claim-response");
+    assert.equal(parsed.ok, true, "claim-response parser accepts the maximum logical envelope plus wrapper");
+    assert.deepEqual(parsed.value, body, "claim-response parser preserves the complete response body");
+    const over = new Uint8Array(Contract.LIMITS.claimResponseBytes + 1);
+    assertFailureShape(
+      Contract.parseBoundedJson(over, Contract.ENDPOINTS.envelope, "claim-response"),
+      Contract.ERROR_CODES.RESPONSE_TOO_LARGE,
+      "claim-response parser rejects one byte over its wrapper bound",
+    );
+    const maximum = exactMaximumEnvelope();
+    assert.equal(
+      (await Contract.validateEnvelopeIntegrity(maximum, webcrypto)).ok,
+      true,
+      "independently hashed maximum logical envelope remains valid",
+    );
   });
 
   console.log(`  ${results.passed} passed, ${results.failed} failed`);

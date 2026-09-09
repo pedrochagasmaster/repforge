@@ -38,6 +38,15 @@ function json(value, status = 200, extraHeaders = {}) {
   });
 }
 
+function boundedJson(value, status, extraHeaders, maxBytes) {
+  const body = JSON.stringify(value);
+  if (contract.measureUtf8Bytes(body) > maxBytes) return unavailable(503, extraHeaders);
+  return new Response(body, {
+    status,
+    headers: { ...noStoreHeaders, ...extraHeaders },
+  });
+}
+
 function unavailable(status = 404, headers = {}) {
   return json({ state: "unavailable" }, status, headers);
 }
@@ -241,7 +250,12 @@ async function handleTokenEndpoint(request, env, endpoint, headers) {
       if (result.kind !== "claimed") return unavailable(404, headers);
       let envelope;
       try { envelope = JSON.parse(result.envelopeJson); } catch { return unavailable(500, headers); }
-      return json({ envelope, expiresAt: expiresAtIso(result.expiresAt) }, 200, headers);
+      return boundedJson(
+        { envelope, expiresAt: expiresAtIso(result.expiresAt) },
+        200,
+        headers,
+        contract.LIMITS.claimResponseBytes,
+      );
     }
     if (endpoint === ENDPOINTS.commit) {
       const result = await stub.commitRecord({ token: body.token, claimId: body.claimId });

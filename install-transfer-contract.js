@@ -13,6 +13,9 @@
     requestBodyCreateBytes: 2_000_000,
     requestBodySmallEndpointBytes: 4_096,
     envelopeBytes: 2_000_000,
+    // A claim response carries one complete logical envelope plus the small
+    // response wrapper. The logical envelope limit remains 2,000,000 bytes.
+    claimResponseBytes: 2_004_096,
     depth: 64,
     objectKeys: 256,
     arrayItems: 10_000,
@@ -37,6 +40,7 @@
     INVALID_ENDPOINT: "invalid-endpoint",
     BODY_TOO_LARGE: "body-too-large",
     ENVELOPE_TOO_LARGE: "envelope-too-large",
+    RESPONSE_TOO_LARGE: "response-too-large",
     INVALID_UTF8: "invalid-utf8",
     INVALID_JSON: "invalid-json",
     INVALID_ENVELOPE: "invalid-envelope",
@@ -501,15 +505,18 @@
     }
   }
 
-  function parseBoundedJson(rawBytes, endpoint) {
+  function parseBoundedJson(rawBytes, endpoint, mode = "request") {
     if (!Object.values(ENDPOINTS).includes(endpoint)) return fail(ERROR_CODES.INVALID_ENDPOINT);
     const bytes = asBytes(rawBytes);
     if (!bytes) return fail(ERROR_CODES.INVALID_INPUT);
-    const limit = endpoint === ENDPOINTS.envelope || endpoint === ENDPOINTS.create
-      ? LIMITS.envelopeBytes
-      : LIMITS.requestBodySmallEndpointBytes;
+    const claimResponse = endpoint === ENDPOINTS.envelope && mode === "claim-response";
+    let limit = LIMITS.requestBodySmallEndpointBytes;
+    if (claimResponse) limit = LIMITS.claimResponseBytes;
+    else if (endpoint === ENDPOINTS.envelope || endpoint === ENDPOINTS.create) limit = LIMITS.envelopeBytes;
     if (bytes.byteLength > limit) {
-      return fail(endpoint === ENDPOINTS.envelope ? ERROR_CODES.ENVELOPE_TOO_LARGE : ERROR_CODES.BODY_TOO_LARGE);
+      return fail(claimResponse
+        ? ERROR_CODES.RESPONSE_TOO_LARGE
+        : endpoint === ENDPOINTS.envelope ? ERROR_CODES.ENVELOPE_TOO_LARGE : ERROR_CODES.BODY_TOO_LARGE);
     }
     let source;
     try {
