@@ -15,12 +15,26 @@
  *   - test/fixtures/program-families-v1.json plus the executable policy parser
  *     independently supply canonical and Rule-B per-slot prescriptions;
  *   - Node crypto independently computes every expected SHA-256 digest.
+ *   - a bounded known-schema malformed candidate is omitted while the
+ *     canonical projection remains, and its exact v1 quarantine entry is
+ *     persisted, deduplicated by digest+reason, and source-attributed;
+ *   - two independently valid, same-target records remain retained but apply
+ *     neither, with one independently sorted/hash-computed conflict bundle;
+ *   - unknown required policy versions, unknown schemas, over-bound values,
+ *     and malformed quarantine containers preserve both replicas byte-for-
+ *     byte and open the existing full Storage Recovery boundary.
+ *
+ * Correction checkpoint coverage: R5B1-DUP-001, R5B1-Q-002,
+ * R5B1-DEDUPE-003, R5B1-UNKNOWN-004, R5B1-SOURCE-005, and R5B1-INDEP-006.
  *
  * Intended failure cases on the published R5a head:
  *   - bounded known-schema malformed candidates are routed to full storage
  *     recovery instead of normalized/quarantined;
- *   - persistent quarantine warning/deduplication/source widening is absent;
- *   - duplicate-target conflict evidence is not quarantined;
+ *   - persistent quarantine warning/deduplication/source attribution is
+ *     absent;
+ *   - duplicate-target conflict evidence is not quarantined or retained;
+ *   - the carrier classification does not preserve exact replica equality or
+ *     full-recovery bytes for unknown required policy data;
  *   - the existing full-recovery cases and replica no-union boundary must stay
  *     green while the R5b1 behavior is added.
  *
@@ -83,6 +97,7 @@ const EXPECTED_WEEK_ONE = new Map(
 );
 
 const results = { passed: 0, failed: 0, harnessFailed: 0, failures: [] };
+const QUARANTINE_V1_KEYS = ["schemaVersion", "digest", "raw", "sourceReplica", "detectedAt", "reason"];
 
 function check(condition, message, detail, classification = "product") {
   if (condition) {
@@ -150,14 +165,24 @@ function recordTarget(record) {
 }
 
 function sortedConflictRecords(records) {
-  return [...records].sort((a, b) =>
-    String(a?.proposalHash || "").localeCompare(String(b?.proposalHash || "")) ||
-    String(a?.transitionId || "").localeCompare(String(b?.transitionId || ""))
-  );
+  const compare = (left, right) => left < right ? -1 : left > right ? 1 : 0;
+  return [...records].sort((a, b) => {
+    const proposalOrder = compare(String(a?.proposalHash || ""), String(b?.proposalHash || ""));
+    return proposalOrder || compare(String(a?.transitionId || ""), String(b?.transitionId || ""));
+  });
 }
 
 function expectedConflictRaw(targetBlockId, records) {
   return JSON.stringify({ targetBlockId, records: sortedConflictRecords(records) });
+}
+
+function exactQuarantineKeys(value) {
+  return value && typeof value === "object" && !Array.isArray(value) &&
+    JSON.stringify(Object.keys(value).sort()) === JSON.stringify([...QUARANTINE_V1_KEYS].sort());
+}
+
+function exactQuarantineEntry(value, expected) {
+  return exactQuarantineKeys(value) && QUARANTINE_V1_KEYS.every((key) => value[key] === expected[key]);
 }
 
 async function idbRead(page) {
@@ -297,6 +322,7 @@ async function buildValidRecord(page, {
   createdAt = CREATED_AT,
   confirmedAt = CONFIRMED_AT,
   reassessmentDueAt = REASSESSMENT_DUE_AT,
+  approvedPolicy = APPROVED_POLICY_V2,
 } = {}) {
   return page.evaluate(async (input) => {
     const Transition = window.RepForgeProgramTransition;
@@ -318,7 +344,7 @@ async function buildValidRecord(page, {
         source: "Recommend",
         compilerProvenance: snapshot.programMeta.programStructure?.provenance,
       },
-      approvedPolicy: Transition.approvedRecoveryPolicy(),
+      approvedPolicy: input.approvedPolicy,
       evidence: {
         sourceBlockId,
         outcomesByPattern: { "knee-dominant": "maintained", "horizontal press": "declined" },
@@ -341,7 +367,59 @@ async function buildValidRecord(page, {
     } catch (error) {
       return { ok: false, code: "valid-record_commit_failed", error: String(error?.message || error) };
     }
-  }, { transitionId, targetBlockId, createdAt, confirmedAt, reassessmentDueAt });
+  }, { transitionId, targetBlockId, createdAt, confirmedAt, reassessmentDueAt, approvedPolicy: clone(approvedPolicy) });
+}
+
+async function alignProgramIdentity(page, programId) {
+  return page.evaluate(async (nextProgramId) => {
+    const hook = window.__repforgeWorkoutDraft;
+    if (!hook || typeof window.__repforgeCommitProposedState !== "function" ||
+      !window.__repforgeStorage?.flush) {
+      return { ok: false, code: "program-identity-alignment_seam_missing" };
+    }
+    const snapshot = hook.state();
+    const proposal = { ...snapshot, programMeta: { ...snapshot.programMeta, id: nextProgramId } };
+    const result = await window.__repforgeCommitProposedState(proposal);
+    await window.__repforgeStorage.flush();
+    return {
+      ok: result?.localOk || result?.idbOk,
+      liveProgramId: window.__repforgeWorkoutDraft.state()?.programMeta?.id,
+      result,
+    };
+  }, programId);
+}
+
+async function validateRecordAgainstLive(page, record, approvedPolicy = APPROVED_POLICY_V2) {
+  return page.evaluate(async ({ record: candidate, approvedPolicy: policy }) => {
+    const Transition = window.RepForgeProgramTransition;
+    const Compiler = window.RepForgeProgramCompiler;
+    const catalogue = window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY;
+    const snapshot = window.__repforgeWorkoutDraft?.state?.();
+    if (!Transition || !Compiler || !snapshot?.programMeta?.compilerContext) {
+      return { ok: false, code: "record-validation_seam_missing" };
+    }
+    let predecessorInstance;
+    try {
+      predecessorInstance = Compiler.compile(snapshot.programMeta.compilerContext, catalogue);
+    } catch (error) {
+      return { ok: false, code: "record-validation_compile_failed", error: String(error?.message || error) };
+    }
+    const validation = await Transition.validateRecoveryRecord(candidate, {
+      predecessor: candidate?.predecessor,
+      predecessorInstance,
+      approvedPolicy: policy,
+      supportedVersions: Compiler.VERSIONS,
+      existingRecoveryRecords: [],
+    });
+    return {
+      ok: validation?.ok === true,
+      code: validation?.code,
+      liveProgramId: snapshot.programMeta.id,
+      predecessorProgramId: candidate?.predecessor?.programId,
+      sourceBlockId: candidate?.predecessor?.blockId,
+      targetBlockId: candidate?.diff?.recoveryWeek?.blockId,
+    };
+  }, { record: clone(record), approvedPolicy: clone(approvedPolicy) });
 }
 
 async function observeProjection(page) {
@@ -456,6 +534,8 @@ async function malformedCarrierScenario(browser, base, validRecord) {
     const entry = quarantine[0];
     check(entry?.schemaVersion === 1 && entry?.raw === malformedRaw && entry?.digest === expectedDigest,
       "malformed quarantine preserves parsed-own-data raw and Node SHA-256 digest", entry);
+    check(exactQuarantineKeys(entry),
+      "malformed quarantine closes exactly over the published v1 keys", entry);
     check(entry?.sourceReplica === "both" && entry?.reason === "known-schema-malformed-recovery",
       "malformed quarantine records exact both-replica source and reason", entry);
     check(typeof entry?.detectedAt === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(entry.detectedAt),
@@ -468,6 +548,8 @@ async function malformedCarrierScenario(browser, base, validRecord) {
       "persistent malformed-data warning is observable at the reviewed storage boundary", warning);
     check(isDeepStrictEqual(after.idb?.recoveryTransitions, state?.recoveryTransitions),
       "malformed normalized carrier is mirrored without recursive record union");
+    check(isDeepStrictEqual(after.local, after.idb),
+      "malformed normalized localStorage and IndexedDB snapshots are exactly equal");
     const firstDetectedAt = entry?.detectedAt;
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
@@ -477,6 +559,8 @@ async function malformedCarrierScenario(browser, base, validRecord) {
       reloadedEntry?.raw === malformedRaw && reloadedEntry?.digest === expectedDigest &&
       reloadedEntry?.reason === "known-schema-malformed-recovery" && reloadedEntry?.detectedAt === firstDetectedAt,
     "first quarantine raw/digest/reason/detectedAt is stable across reload");
+    check(isDeepStrictEqual(reloaded.local?.recoveryTransitions, reloaded.idb?.recoveryTransitions),
+      "reloaded malformed quarantine remains exactly mirrored in both replicas");
   } else {
     check(false, "malformed candidate is not misclassified as unknown/full-recovery data");
     check(false, "malformed candidate normalizes to zero valid records and one quarantine entry");
@@ -487,7 +571,7 @@ async function malformedCarrierScenario(browser, base, validRecord) {
 }
 
 async function repeatDetectionScenario(browser, base, validRecord, malformedRaw, expectedDigest) {
-  console.log("\n4. Repeat detection dedupes by digest/reason and never auto-prunes");
+  console.log("\n4. Repeat detection matrix dedupes by digest/reason and never auto-prunes");
   const context = await browser.newContext();
   const page = await context.newPage();
   page.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
@@ -496,7 +580,24 @@ async function repeatDetectionScenario(browser, base, validRecord, malformedRaw,
   const malformed = clone(validRecord);
   malformed.diff.recoveryWeek.entries = [];
   const first = quarantineEntry(malformedRaw, "localStorage", MALFORMED_DETECTED_AT);
-  const carrier = { schemaVersion: 1, records: [malformed], quarantine: [first] };
+  const sameDigestSameReason = quarantineEntry(
+    malformedRaw,
+    "indexedDB",
+    "2026-10-02T09:30:00.000Z",
+  );
+  const sameDigestDifferentReason = quarantineEntry(
+    malformedRaw,
+    "both",
+    "2026-10-03T09:30:00.000Z",
+    "duplicate-target-conflict",
+  );
+  const distinctRaw = JSON.stringify({ schemaVersion: 1, marker: "r5b1-distinct-quarantine" });
+  const distinctDigest = quarantineEntry(distinctRaw, "both", "2026-10-04T09:30:00.000Z");
+  const carrier = {
+    schemaVersion: 1,
+    records: [malformed],
+    quarantine: [first, sameDigestSameReason, sameDigestDifferentReason, distinctDigest],
+  };
   const seeded = incrementedState(stateWithCarrier(base, carrier, recordTarget(validRecord)));
   await seedReplicas(page, seeded, seeded);
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -504,13 +605,23 @@ async function repeatDetectionScenario(browser, base, validRecord, malformedRaw,
   const firstAfter = await readReplicas(page);
   check(mode.booted === true, "repeat-detection fixture boots instead of full recovery", mode);
   if (mode.booted) {
-    const firstEntry = firstAfter.local?.recoveryTransitions?.quarantine?.[0];
-    check(firstAfter.local?.recoveryTransitions?.quarantine?.length === 1,
-      "repeat detection keeps exactly one digest/reason quarantine entry", firstAfter.local?.recoveryTransitions?.quarantine);
-    check(firstEntry?.raw === malformedRaw && firstEntry?.digest === expectedDigest &&
-      firstEntry?.reason === first.reason && firstEntry?.detectedAt === MALFORMED_DETECTED_AT,
-    "repeat detection preserves first raw/digest/reason/detectedAt", firstEntry);
-    check(firstEntry?.sourceReplica === "both", "repeat detection only widens sourceReplica to both", firstEntry);
+    const quarantine = firstAfter.local?.recoveryTransitions?.quarantine || [];
+    const expectedFirst = { ...first, sourceReplica: "both" };
+    const expectedDifferentReason = { ...sameDigestDifferentReason, sourceReplica: "both" };
+    const expectedDistinctDigest = { ...distinctDigest, sourceReplica: "both" };
+    check(quarantine.length === 3,
+      "same digest/reason dedupes while same digest/different reason and distinct digests remain", quarantine);
+    const firstEntry = quarantine.find((entry) => entry?.digest === expectedDigest && entry?.reason === first.reason);
+    const differentReasonEntry = quarantine.find((entry) => entry?.digest === expectedDigest && entry?.reason === "duplicate-target-conflict");
+    const distinctEntry = quarantine.find((entry) => entry?.digest === distinctDigest.digest);
+    check(exactQuarantineEntry(firstEntry, expectedFirst),
+      "redetection changes only sourceReplica and preserves first raw/digest/reason/detectedAt", firstEntry);
+    check(exactQuarantineEntry(differentReasonEntry, expectedDifferentReason),
+      "same digest with a different reason remains a distinct exact v1 entry", differentReasonEntry);
+    check(exactQuarantineEntry(distinctEntry, expectedDistinctDigest),
+      "a distinct digest remains retained as an exact v1 entry", distinctEntry);
+    check(isDeepStrictEqual(firstAfter.local, firstAfter.idb),
+      "deduplicated quarantine matrix is exactly equal in localStorage and IndexedDB");
     const persisted = clone(firstAfter.local);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
@@ -519,9 +630,61 @@ async function repeatDetectionScenario(browser, base, validRecord, malformedRaw,
       "reload never auto-prunes or rewrites quarantine membership");
     check(isDeepStrictEqual(secondAfter.idb?.recoveryTransitions?.quarantine, persisted.recoveryTransitions?.quarantine),
       "reload retains the deduplicated quarantine in IndexedDB");
+    check(isDeepStrictEqual(secondAfter.local, secondAfter.idb),
+      "reloaded deduplicated localStorage and IndexedDB snapshots remain exactly equal");
   } else {
-    check(false, "repeat detection preserves one first-seen quarantine entry and widens sourceReplica only");
-    check(false, "reload retains quarantine without auto-pruning");
+    check(false, "repeat detection matrix preserves its exact dedupe/reason/digest membership");
+    check(false, "repeat detection matrix retains quarantine without auto-pruning");
+  }
+  await context.close();
+}
+
+async function sourceAttributionScenario(browser, base, validRecord, sourceReplica) {
+  const label = `malformed candidate source attribution (${sourceReplica})`;
+  const context = await browser.newContext();
+  const page = await context.newPage();
+  page.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
+  await page.goto(BASE);
+  await waitForAppBoot(page, { base: BASE });
+  const malformed = clone(validRecord);
+  malformed.diff.recoveryWeek.entries = [];
+  const malformedRaw = JSON.stringify(malformed);
+  const carrier = { schemaVersion: 1, records: [malformed], quarantine: [] };
+  const targetBlockId = recordTarget(validRecord);
+  const canonical = stateWithCarrier(base, undefined, targetBlockId);
+  const malformedState = incrementedState(stateWithCarrier(base, carrier, targetBlockId));
+  const localValue = sourceReplica === "localStorage" ? malformedState :
+    sourceReplica === "indexedDB" ? canonical : malformedState;
+  const idbValue = sourceReplica === "indexedDB" ? malformedState :
+    sourceReplica === "localStorage" ? canonical : malformedState;
+  await seedReplicas(page, localValue, idbValue, JSON.stringify(localValue));
+  await page.reload({ waitUntil: "domcontentloaded" });
+  const mode = await waitForReadyOrRecovery(page);
+  const after = await readReplicas(page);
+  const expectedDigest = sha256Utf8(malformedRaw);
+  check(mode.booted === true, `${label} boots without full recovery`, mode);
+  check(mode.recoveryOpen === false, `${label} does not open full Storage Recovery`, mode);
+  if (mode.booted) {
+    const normalized = carrierOf(after.local);
+    const entry = normalized?.quarantine?.find((candidate) => candidate?.digest === expectedDigest);
+    check(recordsOf(after.local).length === 0 && recordsOf(after.idb).length === 0,
+      `${label} omits the malformed record from both normalized replicas`);
+    check(normalized?.quarantine?.length === 1,
+      `${label} creates one bounded quarantine entry`, normalized?.quarantine);
+    check(exactQuarantineEntry(entry, {
+      schemaVersion: 1,
+      digest: expectedDigest,
+      raw: malformedRaw,
+      sourceReplica,
+      detectedAt: entry?.detectedAt,
+      reason: "known-schema-malformed-recovery",
+    }) && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(entry?.detectedAt || ""),
+    `${label} records exact raw/digest/reason and isolated sourceReplica`, entry);
+    check(isDeepStrictEqual(after.local, after.idb),
+      `${label} heals to exactly equal localStorage and IndexedDB snapshots`);
+    const projection = await observeProjection(page);
+    check(projectionMatches(projection, EXPECTED_CANONICAL),
+      `${label} falls back to the independent canonical prescription`, projection);
   }
   await context.close();
 }
@@ -558,6 +721,28 @@ async function duplicateTargetScenario(browser, base, firstRecord, secondRecord)
       const entry = quarantine[0];
       check(entry?.reason === "duplicate-target-conflict" && entry?.raw === expectedRaw && entry?.digest === expectedDigest,
         `duplicate permutation ${outcomes.length + 1} uses independent sorted conflict raw/digest`, entry);
+      check(exactQuarantineKeys(entry) && entry?.schemaVersion === 1 && entry?.sourceReplica === "both" &&
+        typeof entry?.detectedAt === "string" && /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/.test(entry.detectedAt),
+        `duplicate permutation ${outcomes.length + 1} closes the exact v1 conflict quarantine key set`, entry);
+      check(isDeepStrictEqual(after.local, after.idb),
+        `duplicate permutation ${outcomes.length + 1} mirrors exact localStorage and IndexedDB snapshots`);
+      const beforeReload = clone(after.local);
+      const firstDetectedAt = entry?.detectedAt;
+      await page.reload({ waitUntil: "domcontentloaded" });
+      const reloadedMode = await waitForReadyOrRecovery(page);
+      const reloaded = await readReplicas(page);
+      const reloadedEntry = carrierOf(reloaded.local)?.quarantine?.[0];
+      check(reloadedMode.booted === true && reloadedMode.recoveryOpen === false,
+        `duplicate permutation ${outcomes.length + 1} reload remains booted without recovery`, reloadedMode);
+      check(isDeepStrictEqual(reloaded.local, beforeReload) && isDeepStrictEqual(reloaded.idb, beforeReload),
+        `duplicate permutation ${outcomes.length + 1} reload retains both records and exact quarantine without auto-pruning`);
+      check(recordsOf(reloaded.local).length === 2 && recordsOf(reloaded.idb).length === 2 &&
+        reloadedEntry?.detectedAt === firstDetectedAt && reloadedEntry?.raw === expectedRaw &&
+        reloadedEntry?.digest === expectedDigest && reloadedEntry?.reason === "duplicate-target-conflict",
+        `duplicate permutation ${outcomes.length + 1} reload retains the conflict entry first-seen fields`);
+      const reloadedProjection = await observeProjection(page);
+      check(projectionMatches(reloadedProjection, EXPECTED_CANONICAL),
+        `duplicate permutation ${outcomes.length + 1} reload still applies neither record`, reloadedProjection);
       outcomes.push({ raw: entry?.raw, digest: entry?.digest });
     } else {
       check(false, `duplicate permutation ${outcomes.length + 1} retains both valid records and quarantines one conflict bundle`);
@@ -618,21 +803,47 @@ async function main() {
     check(firstRecordResult.ok, "production transition seam creates an individually valid v1 record", firstRecordResult, "harness");
     if (!firstRecordResult.ok) throw new Error("HARNESS FAILURE: could not create valid recovery record");
     const firstRecord = firstRecordResult.record;
+    const firstValidation = await validateRecordAgainstLive(page, firstRecord);
+    check(firstValidation.ok && firstValidation.predecessorProgramId === firstValidation.liveProgramId,
+      "first conflict fixture record validates independently against its live program identity", firstValidation, "harness");
+    if (!firstValidation.ok || firstValidation.predecessorProgramId !== firstValidation.liveProgramId) {
+      throw new Error("HARNESS FAILURE: first conflict fixture record did not validate against its live program");
+    }
     const duplicateSource = await openCleanPage(browser);
     const duplicateActivation = await activateBalancedPredecessor(duplicateSource.page);
     check(duplicateActivation.ok, "distinct production source block activated for duplicate-target record", duplicateActivation, "harness");
     if (!duplicateActivation.ok) throw new Error("HARNESS FAILURE: could not establish duplicate-target source block");
     await duplicateSource.page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(duplicateSource.page, { base: BASE });
+    const identityAlignment = await alignProgramIdentity(duplicateSource.page, firstRecord.predecessor.programId);
+    check(identityAlignment.ok && identityAlignment.liveProgramId === firstRecord.predecessor.programId,
+      "second conflict fixture aligns to the seeded live program identity before sealing", identityAlignment, "harness");
+    if (!identityAlignment.ok || identityAlignment.liveProgramId !== firstRecord.predecessor.programId) {
+      throw new Error("HARNESS FAILURE: could not align second conflict fixture program identity");
+    }
     const secondRecordResult = await buildValidRecord(duplicateSource.page, {
       transitionId: "tr_r5b1_duplicate_target",
       targetBlockId: recordTarget(firstRecord),
     });
-    await duplicateSource.context.close();
     check(secondRecordResult.ok, "production transition seam creates the second individually valid target record", secondRecordResult, "harness");
     if (!secondRecordResult.ok) throw new Error("HARNESS FAILURE: could not create duplicate-target record");
-    check(firstRecord.predecessor?.blockId !== secondRecordResult.record?.predecessor?.blockId,
-      "duplicate-target records retain distinct source block identities");
+    const secondRecord = secondRecordResult.record;
+    const secondValidation = await validateRecordAgainstLive(duplicateSource.page, secondRecord);
+    check(secondValidation.ok && secondValidation.predecessorProgramId === secondValidation.liveProgramId &&
+      secondValidation.predecessorProgramId === firstRecord.predecessor.programId,
+      "second conflict fixture record validates independently with the aligned live program identity", secondValidation, "harness");
+    if (!secondValidation.ok || secondValidation.predecessorProgramId !== secondValidation.liveProgramId ||
+      secondValidation.predecessorProgramId !== firstRecord.predecessor.programId) {
+      throw new Error("HARNESS FAILURE: second conflict fixture record did not validate against the aligned live program");
+    }
+    check(firstRecord.predecessor?.blockId !== secondRecord?.predecessor?.blockId,
+      "duplicate-target records retain distinct source block identities", undefined, "harness");
+    check(firstRecord.transitionId !== secondRecord.transitionId && firstRecord.proposalHash !== secondRecord.proposalHash,
+      "duplicate-target records retain distinct transition and proposal identities", undefined, "harness");
+    check(recordTarget(firstRecord) === recordTarget(secondRecord) && recordTarget(firstRecord) !== firstRecord.predecessor?.blockId &&
+      recordTarget(secondRecord) !== secondRecord.predecessor?.blockId,
+      "duplicate-target records retain one shared target distinct from each valid source", undefined, "harness");
+    await duplicateSource.context.close();
     const validCarrier = { schemaVersion: 1, records: [firstRecord], quarantine: [] };
     const validSeed = incrementedState(stateWithCarrier(base, validCarrier, recordTarget(firstRecord)));
     await seedReplicas(page, validSeed, validSeed);
@@ -656,7 +867,10 @@ async function main() {
 
     const malformedResult = await malformedCarrierScenario(browser, base, firstRecord);
     await repeatDetectionScenario(browser, base, firstRecord, malformedResult.malformedRaw, malformedResult.expectedDigest);
-    await duplicateTargetScenario(browser, base, firstRecord, secondRecordResult.record);
+    await sourceAttributionScenario(browser, base, firstRecord, "localStorage");
+    await sourceAttributionScenario(browser, base, firstRecord, "indexedDB");
+    await sourceAttributionScenario(browser, base, firstRecord, "both");
+    await duplicateTargetScenario(browser, base, firstRecord, secondRecord);
 
     console.log("\n6. Unknown, over-bound, and malformed-quarantine inputs enter exact full storage recovery");
     const unknownTopLevel = { schemaVersion: 2, records: [], quarantine: [] };
@@ -667,6 +881,13 @@ async function main() {
     const unknownOverlay = clone(firstRecord);
     unknownOverlay.diff.recoveryWeek.schemaVersion = 2;
     await fullRecoveryScenario(browser, base, "unknown overlay schema", { schemaVersion: 1, records: [unknownOverlay], quarantine: [] });
+    const unknownRequiredPolicy = clone(firstRecord);
+    unknownRequiredPolicy.diff.recoveryWeek.policyVersion = 99;
+    await fullRecoveryScenario(browser, base, "unknown required recoveryWeek.policyVersion", {
+      schemaVersion: 1,
+      records: [unknownRequiredPolicy],
+      quarantine: [],
+    });
     const overBoundCandidate = { schemaVersion: 1, records: [{ schemaVersion: 1, rawCandidate: "x".repeat(10001) }], quarantine: [] };
     await fullRecoveryScenario(browser, base, "over-bound candidate", overBoundCandidate);
     const boundedEntry = quarantineEntry("", "localStorage", MALFORMED_DETECTED_AT);
