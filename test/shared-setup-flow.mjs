@@ -10,7 +10,7 @@
  */
 import { pathToFileURL } from "url";
 import { gzipSync } from "zlib";
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import {
   BUILT_IN_IDS,
   CURRENT_SETTINGS_DEFAULTS,
@@ -368,7 +368,9 @@ export async function openAppPage(browser, {
   await page.addInitScript(INSTALL_EVENT);
   const url = `${APP_INDEX}${search}${hash}`;
   await page.goto(url, { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.readyState === "complete", null, { timeout: 15000 }).catch(() => {});
+  await waitForAppBoot(page, { timeout: 15000, base: BASE });
+  const booted = await page.evaluate(() => window.__repforgeBooted === true);
+  if (!booted) throw new Error("openAppPage returned before the app boot contract was satisfied");
   return { context, page, errors };
 }
 
@@ -431,7 +433,7 @@ async function clickSharedStart(page, { activate = true } = {}) {
   await page.waitForSelector("#entryActivate", { timeout: 10000 });
   if (activate) {
     await page.click("#entryActivate");
-    await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), null, { timeout: 10000 }).catch(() => {});
+    await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), null, { timeout: 10000 });
   }
   return true;
 }
@@ -962,7 +964,7 @@ export async function runSharedSetupFlow(browser) {
     const rendered = await page.evaluate(() => ({
       preview: window.__repforgeEntryState?.()?.result?.preview || null,
       timing: window.RepForgeProgramCompiler?.RULES?.time || null,
-      review: document.querySelector(".entry__review-grid")?.textContent || "",
+      review: document.querySelector("#onbBody")?.innerText || "",
       days: [...document.querySelectorAll(".onb__day")].map((day) => day.textContent || ""),
     }));
     const estimates = rendered.preview?.days?.map((day) => ({ dayId: day.dayId, estimateMinutes: day.estimateMinutes })) || [];
@@ -983,7 +985,7 @@ export async function runSharedSetupFlow(browser) {
       rendered.review,
     );
     assert(
-      rendered.days.every((day) => /about \d+ minutes|cerca de \d+ minutos/.test(day)),
+      rendered.days.length === expected.length && rendered.days.every((day) => /about \d+ minutes|cerca de \d+ minutos/.test(day)),
       "shared preview renders each factual duration beside its day",
       JSON.stringify(rendered.days),
     );
@@ -2336,11 +2338,13 @@ export async function runSharedSetupFlow(browser) {
       assert(ready.status === "ready", `${label}: tab A holds a ready proposal`, JSON.stringify(ready));
       await commitConcurrentHead(page, spec);
       const before = await readBothReplicas(page);
-      if (!(await clickSharedStart(page).catch(() => false))) {
+      if (!(await clickSharedStart(page, { activate: false }))) {
         await context.close();
         continue;
       }
-      await page.waitForTimeout(500);
+      await page.click("#entryActivate");
+      await page.locator("#entryDurableConflictReview, #entryConflictReview").first()
+        .waitFor({ state: "visible", timeout: 10000 });
       const after = await readBothReplicas(page);
       assert(
         after.local?.programMeta?.name !== "Força compartilhada" && after.idb?.programMeta?.name !== "Força compartilhada",

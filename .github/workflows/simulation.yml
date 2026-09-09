@@ -4,349 +4,230 @@ on:
   push:
     branches: [main]
   pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
 
 concurrency:
   group: simulation-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
-  telemetry-privacy:
+  # Preserve the existing check name while running its contracts only once.
+  interaction-runtime:
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+    timeout-minutes: 15
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: test/package-lock.json
+      - run: npm ci --prefix test
+      - name: Reconcile the executable inventory
+        run: node tools/run-tests.mjs --check
+      - name: Fast contracts (no browser installation)
+        run: node tools/run-tests.mjs fast
+      - name: Upload contract results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: contracts-${{ github.sha }}
+          path: .ci-results/
+          include-hidden-files: true
+          retention-days: 7
 
-      - name: Install pinned test-only browser harness
+  browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        lane: [state, entry, workout]
+    env:
+      REPFORGE_URL: http://localhost:8000/
+      REPFORGE_DIAGNOSTIC_REPLAY: "1"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: test/package-lock.json
+      - name: Install the pinned headless browser only
         working-directory: test
         run: |
           npm ci
-          npx playwright install chromium --with-deps
-
-      - name: Start static server
-        run: python3 -m http.server 8000 &
-
-      - name: Wait for server
+          npx playwright install --with-deps --only-shell chromium
+      - name: Serve an analytics-disabled preview
         run: |
+          node scripts/generate-posthog-config.mjs
+          mkdir -p .ci-results
+          python3 -m http.server 8000 >.ci-results/server.log 2>&1 &
           for i in $(seq 1 30); do
-            if curl -sf http://localhost:8000/ >/dev/null; then
-              exit 0
-            fi
+            if curl -sf http://localhost:8000/ >/dev/null; then exit 0; fi
             sleep 1
           done
           exit 1
+      - name: Run ${{ matrix.lane }} suites
+        run: node tools/run-tests.mjs "${{ matrix.lane }}"
+      - name: Upload timings, failure logs and diagnostic traces
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browser-${{ matrix.lane }}-${{ github.sha }}
+          path: .ci-results/
+          include-hidden-files: true
+          retention-days: 7
 
-      - name: Telemetry contracts
+  telemetry-privacy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      REPFORGE_URL: http://localhost:8000/
+      REPFORGE_DIAGNOSTIC_REPLAY: "1"
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: test/package-lock.json
+      - name: Install the pinned headless browser only
+        working-directory: test
         run: |
-          node test/telemetry-fixtures.mjs
-          node test/telemetry-unit.mjs
-          node test/posthog-adapter.mjs
-          node test/posthog-config.mjs
-          node test/telemetry-call-sites.mjs
-
-      - name: Runtime event meaning
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/telemetry-runtime.mjs
-
-      - name: Hostile-sentinel leakage and failure modes
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/telemetry-leakage.mjs
-
-      - name: Regenerate UI evidence
-        env:
-          REPFORGE_URL: http://localhost:8000/
+          npm ci
+          npx playwright install --with-deps --only-shell chromium
+      - name: Serve an analytics-disabled preview
         run: |
-          # Copy the committed catalog somewhere immutable, regenerate it from
-          # the app, then diff the two. The whole catalog is compared, not one
-          # subtree: a screen that drifts must fail the build, not sit stale in
-          # docs/ while CI stays green.
+          node scripts/generate-posthog-config.mjs
+          mkdir -p .ci-results
+          python3 -m http.server 8000 >.ci-results/server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Runtime event meaning and hostile-sentinel leakage
+        run: node tools/run-tests.mjs privacy
+      - name: Upload privacy results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: privacy-${{ github.sha }}
+          path: .ci-results/
+          include-hidden-files: true
+          retention-days: 7
+
+  visual-evidence:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    env:
+      REPFORGE_URL: http://localhost:8000/
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+          fetch-depth: 2
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Select visual scope before installing a browser
+        id: scope
+        env:
+          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: node tools/ci-selection.mjs
+      - name: Install capture dependencies only when needed
+        if: steps.scope.outputs.mode != 'none'
+        working-directory: test
+        run: |
+          npm ci
+          npx playwright install --with-deps --only-shell chromium
+      - name: Serve an analytics-disabled preview
+        if: steps.scope.outputs.mode != 'none'
+        run: |
+          node scripts/generate-posthog-config.mjs
+          python3 -m http.server 8000 >.ci-results/server.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8000/ >/dev/null; then exit 0; fi
+            sleep 1
+          done
+          exit 1
+      - name: Regenerate and compare visual and semantic evidence
+        if: steps.scope.outputs.mode != 'none'
+        shell: bash
+        run: |
+          set -euo pipefail
           baseline="$(mktemp -d)"
           cp -a docs/ui-screens/screens "$baseline/"
           cp -a docs/ui-screens/entry-semantics.json "$baseline/"
           chmod -R a-w "$baseline"
           cleanup() {
+            status=$?
+            if [ "$status" -ne 0 ]; then
+              cp -a "$baseline" .ci-results/visual-baseline || true
+            fi
             chmod -R u+w -- "$baseline" 2>/dev/null || true
             rm -rf -- "$baseline"
+            exit "$status"
           }
           trap cleanup EXIT
-          node tools/capture-ui-screens.mjs
-          node tools/check-ui-screens.mjs
-          node tools/compare-ui-screens.mjs --baseline "$baseline/screens" --baseline-semantic "$baseline/entry-semantics.json"
-
-      - name: Upload UI evidence
+          mapfile -d '' -t capture_args < <(node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const plan = JSON.parse(readFileSync(".ci-results/visual-plan.json", "utf8"));
+            for (const key of plan.screens) process.stdout.write("--screen\0" + key + "\0");
+          ')
+          echo 'Capture started; catalog is not fresh until capture exits successfully.' >.ci-results/visual-status.txt
+          node tools/capture-ui-screens.mjs "${capture_args[@]}" 2>&1 | tee .ci-results/capture.log
+          echo 'Capture succeeded; checking registration and comparing pixels and semantics.' >.ci-results/visual-status.txt
+          node tools/check-ui-screens.mjs 2>&1 | tee .ci-results/catalog.log
+          node tools/compare-ui-screens.mjs --baseline "$baseline/screens" --baseline-semantic "$baseline/entry-semantics.json" 2>&1 | tee .ci-results/compare.log
+          echo 'Capture, registration, perceptual comparison and semantics passed.' >.ci-results/visual-status.txt
+      - name: Upload selection and visual logs even on failure
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: ui-screens-${{ github.sha }}
+          name: visual-results-${{ github.sha }}
+          path: .ci-results/
+          include-hidden-files: true
+          retention-days: 7
+      - name: Upload current catalog for a failed visual run
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: visual-current-${{ github.sha }}
           path: docs/ui-screens/
-          if-no-files-found: error
-          retention-days: 14
+          retention-days: 7
 
-  simulation:
+  # Compatibility alias: the recorder's rejection tests are in the fast lane.
+  verification-evidence:
+    if: always()
+    needs: interaction-runtime
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-
+    timeout-minutes: 2
     steps:
-      - name: Checkout
-        uses: actions/checkout@v5
-        with:
-          fetch-depth: 0
+      - env:
+          RESULT: ${{ needs.interaction-runtime.result }}
+        run: test "$RESULT" = success
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v5
-        with:
-          node-version: "22"
-          cache: npm
-          cache-dependency-path: test/package-lock.json
-
-      - name: Install pinned test-only browser harness
-        working-directory: test
+  # Keep the old required check name; a failed, cancelled or missing lane fails it.
+  simulation:
+    if: always()
+    needs: [interaction-runtime, browser, telemetry-privacy, visual-evidence, verification-evidence]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require every lane to succeed
+        env:
+          RESULTS: ${{ toJSON(needs) }}
         run: |
-          npm ci
-          npx playwright install chromium --with-deps
-
-      - name: Vendored runtime pins
-        run: node tools/build-vendor-runtimes.mjs --check
-
-      - name: Syntax check runtime and test JS
-        run: |
-          node tools/check-production-syntax.mjs
-          for f in test/*.mjs test/generative/*/*.mjs tools/*.mjs tools/ui-screens/*.mjs; do
-            node --check "$f" || exit 1
-          done
-
-      - name: Generative properties (fast-check)
-        run: node test/generative/run.mjs --profile ci
-
-      - name: Generate analytics-disabled preview config
-        run: node scripts/generate-posthog-config.mjs
-
-      - name: Plan 048 pure contracts
-        run: |
-          node test/program-entry.mjs
-          node test/program-entry-production-adapter.mjs
-          node test/program-compiler-plan048-preferences.mjs
-          node test/pr201-contracts.mjs
-          node test/ui-screens.mjs
-
-      - name: Workout draft pure contract
-        run: |
-          node test/workout-draft.mjs
-          node test/workout-draft-migration.mjs
-
-      - name: Start static server
-        run: python3 -m http.server 8000 &
-
-      - name: Wait for server
-        run: |
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8000/ >/dev/null; then
-              echo "Server ready"
-              exit 0
-            fi
-            sleep 1
-          done
-          echo "Server did not start in time"
-          exit 1
-
-      - name: Schedule tests
-        run: node test/schedule.mjs
-
-      - name: Production-backed entry properties
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/generative-entry-runtime.mjs
-
-      - name: Two-page active-program conflict UX
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/program-entry-conflict-runtime.mjs
-
-      - name: Installed service-worker upgrade
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/sw-upgrade.mjs
-
-      - name: Resume rules-version drift
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/program-entry-rules-runtime.mjs
-
-      - name: i18n parity
-        run: node test/i18n.mjs
-
-      - name: Exercise library integrity
-        run: node test/exercise-library.mjs
-
-      - name: Progression contracts and 52-week strategy simulations
-        run: |
-          node test/progression-fixtures.mjs
-          node test/progression-engine.mjs
-          node test/progression-range-simulation.mjs
-          node test/progression-strategies-simulation.mjs
-
-      - name: Program-family compiler contracts
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: |
-          node tools/build-program-family-fixtures.mjs --check
-          node test/program-family-fixtures.mjs
-          node test/program-compiler-persistence.mjs
-          node test/program-compiler-runtime.mjs
-
-      - name: Plan 048 production browser entry
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/program-entry-browser.mjs
-
-      - name: UI catalog correctness contract
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/ui-catalog-contract.mjs
-
-      - name: Persistence artifact helper self-test
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/persistence-artifacts.mjs --self-test
-
-      - name: Persistence
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: |
-          node test/persistence.mjs
-          node test/persistence-race.mjs
-          node test/thermonuclear-races.mjs
-
-      - name: Notifications
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/notifications.mjs
-
-      - name: Appearance and dark theme
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/appearance.mjs
-
-      - name: Recovery gate
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/recover-gate.mjs
-
-      - name: Install modes and first-run gate
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/install-modes.mjs
-
-      - name: Accessibility
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: |
-          node test/accessibility.mjs
-          node test/accessibility.mjs --touch-targets-320
-
-      - name: History
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/history.mjs
-
-      - name: Today completed-session state
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/today-done.mjs
-
-      - name: Today day picker
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/today-day-picker.mjs
-
-      - name: Backing out of onboarding
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/onboarding-cancel.mjs
-
-      - name: Focus mode
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: |
-          node test/focus-mode.mjs
-          node test/workout-draft-parity.mjs
-          node test/workout-draft-storage.mjs
-          node test/workout-draft-sw-upgrade.mjs
-
-      - name: Progression recommendation parity and browser surfaces
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: |
-          node test/recommendation-parity.mjs
-          node test/progression-strategies-ui.mjs
-          node test/progression-strategies-offline.mjs
-
-      - name: Program editor interactions
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: |
-          node test/program-editor-text-fields.mjs
-          node test/program-editor-drag-selection.mjs
-          node test/program-editor-sorting.mjs
-
-      - name: Plain-text program export
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/program-text-export.mjs
-
-      - name: Exercise library focused flows
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: |
-          node test/exercise-picker.mjs
-          node test/library-flow.mjs
-          node test/performed-attribution.mjs
-          node test/program-import-review.mjs
-          node test/program-freeform-import.mjs
-          node test/import-matching.mjs
-
-      - name: Sheet swipe dismiss
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/sheet-swipe-dismiss.mjs
-
-      - name: Interaction runtimes
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: |
-          node test/vendor-runtimes.mjs
-          node test/motion-integration.mjs
-
-      - name: Session summary
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: node test/session-summary.mjs
-
-      - name: Workout draft guards
-        env:
-          REPFORGE_URL: http://localhost:8000/
-        run: |
-          node test/adversarial-draft-transactions.mjs
-          node test/program-draft-conflicts.mjs
-          node test/program-draft-set-reduction.mjs
-          node test/program-draft-day-rename.mjs
-          node test/workout-day-context-discard.mjs
-
-      - name: Manual-matrix helper
-        run: node test/manual-matrix.mjs --self-test
-
-      - name: Full 52-week profiled simulation
-        env:
-          REPFORGE_URL: http://localhost:8000/
-          REPFORGE_SIM_WEEKS: "52"
-          REPFORGE_PROFILE: "1"
-        run: node test/simulation.mjs
+          node -e 'const needs=JSON.parse(process.env.RESULTS); for(const [name,job] of Object.entries(needs)){console.log(`${name}: ${job.result}`); if(job.result!=="success")process.exitCode=1;}'
