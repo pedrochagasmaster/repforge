@@ -63,6 +63,8 @@ const CREATED_AT = "2026-10-01T09:00:00.000Z";
 const CONFIRMED_AT = "2026-10-01T09:12:00.000Z";
 const REASSESSMENT_DUE_AT = "2026-10-08T09:12:00.000Z";
 const MALFORMED_DETECTED_AT = "2026-10-01T09:30:00.000Z";
+const EXPECTED_BOUNDED_CONFLICT_RAW_LENGTH = 9949;
+const EXPECTED_OVER_BOUND_CONFLICT_RAW_LENGTH = 16033;
 
 const APPROVED_POLICY_V2 = parseExecutablePolicy(
   readFileSync(new URL("../docs/recovery-week-policy.md", import.meta.url), "utf8"),
@@ -809,6 +811,9 @@ async function overBoundDuplicateScenario(browser, base, firstRecord, secondReco
   const targetBlockId = recordTarget(firstRecord);
   const raw = expectedConflictRaw(targetBlockId, [firstRecord, secondRecord]);
   console.log(`  measured over-bound duplicate conflict raw length: ${raw.length}`);
+  check(raw.length === EXPECTED_OVER_BOUND_CONFLICT_RAW_LENGTH,
+    "real normalized duplicate conflict raw length remains pinned at 16,033 characters",
+    { rawLength: raw.length, expected: EXPECTED_OVER_BOUND_CONFLICT_RAW_LENGTH }, "harness");
   check(raw.length > 10000,
     "real normalized duplicate conflict raw independently exceeds the 10,000-character bound",
     { rawLength: raw.length, limit: 10000 }, "harness");
@@ -1029,6 +1034,9 @@ async function main() {
     }
     const boundedConflictRaw = expectedConflictRaw("t", boundedDuplicateRecords);
     console.log(`  measured bounded duplicate conflict raw length: ${boundedConflictRaw.length}`);
+    check(boundedConflictRaw.length === EXPECTED_BOUNDED_CONFLICT_RAW_LENGTH,
+      "independently valid bounded duplicate conflict raw length remains pinned at 9,949 characters",
+      { rawLength: boundedConflictRaw.length, expected: EXPECTED_BOUNDED_CONFLICT_RAW_LENGTH }, "harness");
     check(boundedConflictRaw.length <= 10000,
       "independently valid bounded duplicate conflict raw stays within the 10,000-character bound",
       { rawLength: boundedConflictRaw.length, limit: 10000 }, "harness");
