@@ -133,13 +133,13 @@ Billing remains an explicit current owner receipt because no Cloudflare billing
 API is claimed here. The integration test exercises the scheduler's real HTTP
 requests and child probe. No public health or heartbeat route is provided.
 
-The local scheduler integration covers a full two-page pass and a full-page
-response with no cursor. A temporary, non-committed mock-provider probe at this
-head also rejected repeated cursors and repeated object IDs: each run exited
-non-zero, submitted zero positive heartbeats, and submitted exactly one failed
-deletion heartbeat. The probe printed no bearer or operator secret. These
-negative results establish the fail-closed behavior of the scheduler; they do
-not prove a real Cloudflare API, watchdog, or deletion deadline.
+The source scheduler has fail-closed guards for repeated cursors and repeated
+object IDs. The committed health-producer integration currently proves a
+complete two-page pass and rejects a full page that ends without a cursor.
+Deterministic committed coverage for repeated cursors/object IDs, or an
+authenticated staging artifact exercising those cases, remains open; neither
+the current integration nor this packet closes that gate. No ephemeral probe
+output is treated as durable evidence.
 
 The provider alarm is a deletion backstop, not proof of the live 60-minute
 guarantee by itself. Cloudflare documents at-least-once alarm execution and

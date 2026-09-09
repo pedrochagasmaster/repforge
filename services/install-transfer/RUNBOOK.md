@@ -42,13 +42,12 @@ Observed at the accepted head:
 | `node test/install-transfer-limits.mjs` (repo root) | Independent boundary, hostile-input, redaction, and Node/browser parity checks passed | Service parity; the test intentionally records that limitation |
 | `node test/install-transfer-client-contract.mjs` (repo root) | 9 passed, including the S53-01 claim-response boundary and `+1` rejection | App/storage import, real iOS, or staging |
 
-The health-producer integration is part of `npm test`; it covers a complete
-mock-provider pass and a full page that ends without a cursor. A temporary,
-non-committed mock-provider probe additionally rejected a repeated cursor and
-repeated object ID. Each negative run exited non-zero, submitted zero positive
-heartbeats, and submitted exactly one failed deletion heartbeat. It printed no
-bearer or operator secret. These are local fail-closed results, not Cloudflare
-evidence.
+The health-producer integration is part of `npm test`; it currently proves a
+complete mock-provider pass and rejects a full page that ends without a cursor.
+The source scheduler also contains fail-closed guards for repeated cursors and
+repeated object IDs, but deterministic committed coverage for those cases or
+an authenticated staging artifact remains open. No ephemeral probe output is
+treated as durable evidence.
 
 The staging deployment needs these non-secret settings and bindings:
 
@@ -118,15 +117,17 @@ authenticated provider gate has passed.
 | Failed deletion health | The incident stays latched and creates remain disabled until current-generation acknowledgement; recovery routes remain available | `health-do.test.js` — `keeps a deletion incident latched...`; `ops.test.js` — `latches later service deletion failures...` |
 | Billing at or above 1,000 cents, or stale billing evidence | New creates are disabled; billing threshold is not a hard cap and does not remove recovery paths | `health-do.test.js` threshold/age assertions; `observation.test.js` |
 | Kill switch or invalid/missing static health/configuration | New creates are disabled and the public transfer response is generic `503 {"state":"unavailable"}` | `operations.test.js`; `http.test.js` — `requires the exact configured origin...` |
-| Full page without cursor, repeated cursor, or repeated object ID | Scheduler exits non-zero, sends no positive health, and reports one failed deletion heartbeat | `health-producer.integration.mjs` plus the temporary mock-provider probe described above |
+| Full page without cursor | Committed scheduler integration rejects the ambiguous page before positive health is posted | `health-producer.integration.mjs` |
+| Repeated cursor or repeated object ID | Source guards fail closed; deterministic committed coverage or an authenticated staging artifact remains open | `scripts/health-producer.mjs`; no accepted repeated-pagination artifact yet |
 | Missed alarm, corrupt metadata, or disposal acknowledgement failure | Local alarm/purge path quarantines or retries and latches deletion health; it never treats a failed disposal as success | `transfer-do.test.js` — alarm corruption, disposal failure, ambiguous disposal; `registry-do.test.js` |
 | Tampered ciphertext/AAD or invalid bearer | Decryption/authentication fails closed; HTTP uses the generic `404 {"state":"unavailable"}` and MAC rejection allocates no rate/object state | `crypto.test.js`, `routing.test.js`, `transfer-do.test.js`, `http.test.js` |
 | Creates disabled while an existing transfer is recoverable | Create is generic `503`, while claim/status/commit and private purge remain reachable for recovery | `http.test.js` — `routes create, duplicate, claim, commit, and status...`; `ops.test.js` purge assertions |
 | Bearer, claim ID, clone, ciphertext, cookie, or full URL in observable output | Redaction output contains only its allowlisted shape; transport uses request bodies and no token URL; stored records omit plaintext | `node test/install-transfer-limits.mjs`; `node test/install-transfer-client-contract.mjs`; `client-http.test.js`, `crypto.test.js`, `transfer-do.test.js` |
 
 The leakage row is a local canary result, not a provider-log review. The
-redaction fixture covers six channels (service request, claim request,
-static-host cookie, status response, telemetry, and error/trace); the local
+redaction fixture has six cases across five unique channel values:
+`service-structured-log`, `static-host-access-log`,
+`client-response-observable`, `telemetry`, and `error-tracking`. The local
 service/client tests add storage, URL, cookie, and marker assertions without
 printing the canaries.
 
