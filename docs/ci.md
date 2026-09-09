@@ -35,7 +35,7 @@ its self-test rejects orphaned modules.
 | `interaction-runtime` | Fast contracts, syntax, generative properties, recorder self-tests and catalog integrity. The historical check name is preserved. |
 | `browser (state)` | Persistence, recovery, draft transactions, cross-tab races and worker upgrades. |
 | `browser (entry)` | Program compilation, import/share, onboarding, editor and entry UI. |
-| `browser (workout)` | Workout interaction, accessibility, progression, history and the complete 52-week simulation. |
+| `browser (workout)` | Browser i18n, workout interaction, accessibility, progression, history and the complete 52-week simulation. |
 | `telemetry-privacy` | Runtime event meaning and hostile-sentinel leakage, not screenshots. Pure telemetry contracts are in the fast job. |
 | `visual-evidence` | Selected capture, registration, perceptual and semantic comparison. |
 | `verification-evidence` | Compatibility alias for the fast job, not a second recorder execution. |
@@ -100,7 +100,10 @@ The shared launcher writes page screenshots, bounded console/page-error records
 and traces before context/browser closure on a trace run. Abrupt process exits
 or killed browsers may prevent a complete trace; the original logs and result
 remain. Fixtures are synthetic. Do not point diagnostic runs at a real user's
-workout database or production telemetry configuration.
+workout database or production telemetry configuration. The privacy fixture
+intercepts `posthog-config.js` as well as its fake SDK, so a generated local
+preview config cannot overwrite the fixture or redirect its requests. Its SDK
+failure case also proves that a load was actually attempted.
 
 On visual failure, retain the immutable baseline and current catalog alongside
 capture/comparison logs. `visual-status.txt` distinguishes a successful fresh
@@ -129,6 +132,11 @@ flow tests, program day-name unit/browser tests, entry fixture-service and
 rules-recovery tests, and the existing Plan 050 focused UI/fixture tests. Entry
 accessibility is imported and executed by `accessibility.mjs`, not run twice.
 No historical scenario is deleted merely because a focused suite overlaps it.
+The restored shared-link suite reads visible preview content instead of the
+removed review-grid layout selector. Expected concurrent-head rejections wait
+for the conflict notice, not five swallowed ten-second success timeouts; their
+no-partial-write and replica-equality assertions still run. Unexpected activation
+timeouts now fail, and duration checks also require the expected day count.
 
 Motion vocabulary values and live reduced-motion/disposal behavior are read from
 the actual exported layer in a small VM fixture instead of relying on declaration
