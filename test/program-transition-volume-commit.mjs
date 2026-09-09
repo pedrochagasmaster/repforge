@@ -501,6 +501,7 @@ async function main() {
     // the explicit adapter seam. This is the production boundary that used to
     // apply the forbidden blanket +/-1 shortcut.
     const directBefore = await page.evaluate(() => window.__repforgeWorkoutDraft.state());
+    const directSourceBlockId = directBefore.programMeta?.blockId;
     const directCompiled = Compiler.compile(directBefore.programMeta.compilerContext, EXERCISE_LIBRARY);
     const directExpected = await Transition.proposeVolumeReduction({
       predecessorInstance: directCompiled,
@@ -534,6 +535,14 @@ async function main() {
     check(directAfter.local.programMeta?.transitionIn?.kind === "reduce_training_volume" &&
           directAfter.local.history.length === 1 && directAfter.idb.history.length === 1,
       "direct block commit writes one volume transition archive", directAfter);
+    check(typeof directAfter.local.programMeta?.blockId === "string" &&
+          directAfter.local.programMeta.blockId !== directSourceBlockId &&
+          directAfter.local.programMeta.blockId === directAfter.idb.programMeta?.blockId,
+      "direct volume block commit mints one fresh block identity in both replicas", {
+        source: directSourceBlockId,
+        local: directAfter.local.programMeta?.blockId,
+        idb: directAfter.idb.programMeta?.blockId,
+      });
 
     // The rest of this suite exercises the explicit preview/confirmation path
     // with a touched DraftV2 and retry/fault oracles from a fresh predecessor.
@@ -669,6 +678,14 @@ async function main() {
     check(recovered.local.programMeta?.id === freshProposal.successor.programId &&
           recovered.idb.programMeta?.id === freshProposal.successor.programId,
       "fault retry/replay leaves the compiler-derived successor active in both replicas");
+    check(typeof recovered.local.programMeta?.blockId === "string" &&
+          recovered.local.programMeta.blockId !== before.programMeta?.blockId &&
+          recovered.local.programMeta.blockId === recovered.idb.programMeta?.blockId,
+      "replayed volume confirmation reuses one fresh successor block identity", {
+        source: before.programMeta?.blockId,
+        local: recovered.local.programMeta?.blockId,
+        idb: recovered.idb.programMeta?.blockId,
+      });
     check(recovered.local.revision === revisionR1 + 1 && recovered.idb.revision === revisionR1 + 1,
       "successful/recovered volume commit advances exactly once to R+2", recovered);
     check(durableProgramMatches(fresh.successorInstance.program, recovered.local.program) &&

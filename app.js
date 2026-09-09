@@ -36,6 +36,9 @@ function isPlainStateObject(value){
   const proto=Object.getPrototypeOf(value);
   return proto===Object.prototype||proto===null}
 const PROGRESSION_VALUE_LIMITS=Object.freeze({depth:32,nodes:1000,keys:128,arrayItems:128,stringLength:4000});
+function isValidBlockId(value,programId=null){
+  return typeof value==="string"&&value.trim().length>0&&value.length<=240&&
+    (programId==null||value!==programId)}
 function isBoundedProgressionValue(value,depth=0,state={nodes:0}){
   if(++state.nodes>PROGRESSION_VALUE_LIMITS.nodes||depth>PROGRESSION_VALUE_LIMITS.depth)return false;
   if(typeof value==="string")return value.length<=PROGRESSION_VALUE_LIMITS.stringLength;
@@ -65,6 +68,8 @@ function isSafeProgressionFields(value){
 function isSafeProgressionMeta(value){
   if(value==null)return true;
   if(!isPlainStateObject(value))return false;
+  if(Object.prototype.hasOwnProperty.call(value,"blockId")&&
+    !isValidBlockId(value.blockId,value.id))return false;
   if(Object.prototype.hasOwnProperty.call(value,"transitionIn")&&value.transitionIn!=null&&
     !isCoherentV1TransitionIn(value.transitionIn))return false;
   for(const key of ["progressionRelations","progressionModifiers","progressionIncompatibilities"])
@@ -80,6 +85,7 @@ function isSafeProgramHistoryEntry(entry){
   return Array.isArray(entry.program)&&entry.program.every(isSafeProgressionFields)}
 function isSafeLogRow(entry){
   if(!isPlainStateObject(entry))return false;
+  if(Object.prototype.hasOwnProperty.call(entry,"blockId")&&!isValidBlockId(entry.blockId))return false;
   for(const key of ["performedName","performedLibraryId","performedMovementId","performedPrimary","performedSecondary"])
     if(Object.prototype.hasOwnProperty.call(entry,key)&&entry[key]!=null&&typeof entry[key]!=="string")
       return false;
@@ -509,8 +515,11 @@ function pendingJournalOrder(){
   pendingJournalClock=at;
   return{at,writer:pendingJournalWriterId,seq:++pendingJournalSeq}}
 function draftProgramFingerprint(snapshot){
-  return JSON.stringify(canonicalize({programMetaId:snapshot?.programMeta?.id||null,
-    program:Array.isArray(snapshot?.program)?snapshot.program:[]}))}
+  const value={programMetaId:snapshot?.programMeta?.id||null,
+    program:Array.isArray(snapshot?.program)?snapshot.program:[]};
+  if(Object.prototype.hasOwnProperty.call(snapshot?.programMeta||{},"blockId"))
+    value.programMetaBlockId=snapshot.programMeta.blockId;
+  return JSON.stringify(canonicalize(value))}
 /* DraftV2 bounds its stored fingerprint. Hash the complete canonical program
    instead of truncating it: length plus four independent FNV-1a passes make
    every source byte participate while keeping the adapter value fixed-size. */
@@ -524,12 +533,19 @@ function workoutDraftFault(point){
   if(window.__repforgeDraftFault!==point)return false;
   window.__repforgeDraftFault=null;return true}
 function draftContextFingerprint(snapshot){
-  return JSON.stringify(canonicalize({programMetaId:snapshot?.programMeta?.id||null,
+  const value={programMetaId:snapshot?.programMeta?.id||null,
     program:Array.isArray(snapshot?.program)?snapshot.program:[],
-    unit:snapshot?.settings?.unit||"kg",rirMode:snapshot?.settings?.rirMode||"numeric"}))}
+    unit:snapshot?.settings?.unit||"kg",rirMode:snapshot?.settings?.rirMode||"numeric"};
+  if(Object.prototype.hasOwnProperty.call(snapshot?.programMeta||{},"blockId"))
+    value.programMetaBlockId=snapshot.programMeta.blockId;
+  return JSON.stringify(canonicalize(value))}
+function snapshotBlockId(snapshot){
+  const meta=snapshot?.programMeta;
+  return Object.prototype.hasOwnProperty.call(meta||{},"blockId")?meta.blockId:null}
 function programTransitionPrecondition(snapshot=state){
   return{expectedProgramId:snapshot?.programMeta?.id||null,
     expectedProgramFingerprint:draftProgramFingerprint(snapshot),
+    expectedBlockId:snapshotBlockId(snapshot),
     expectedStorageRevision:readRevision(snapshot)}}
 const DraftStore={
   readCanonicalRaw(){
@@ -892,6 +908,10 @@ function decodePendingJournal(key,raw){
     const expectedProgramFingerprint=typeof journal.expectedProgramFingerprint==="string"&&
       journal.expectedProgramFingerprint.length<=PENDING_EFFECT_MAX_RAW?journal.expectedProgramFingerprint:null;
     if(journal.expectedProgramFingerprint!=null&&!expectedProgramFingerprint)return null;
+    const expectedBlockId=Object.prototype.hasOwnProperty.call(journal,"expectedBlockId")
+      ?(journal.expectedBlockId===null?null:isValidBlockId(journal.expectedBlockId)?journal.expectedBlockId:null)
+      :undefined;
+    if(Object.prototype.hasOwnProperty.call(journal,"expectedBlockId")&&expectedBlockId===null&&journal.expectedBlockId!==null)return null;
     const expectedStorageRevision=Object.prototype.hasOwnProperty.call(journal,"expectedStorageRevision")
       ?journal.expectedStorageRevision:null;
     if(expectedStorageRevision!==null&&(!Number.isInteger(expectedStorageRevision)||expectedStorageRevision<0))return null;
@@ -911,7 +931,7 @@ function decodePendingJournal(key,raw){
       id:journal.id,base:unversionedSnapshot(journal.base),liveBase:unversionedSnapshot(journal.liveBase),
       proposal:unversionedSnapshot(journal.proposal),replace:!!journal.replace,
       expectedProgramId:typeof journal.expectedProgramId==="string"&&journal.expectedProgramId?journal.expectedProgramId:null,
-      expectedProgramFingerprint,expectedStorageRevision,
+      expectedProgramFingerprint,expectedBlockId,expectedStorageRevision,
       expectedFirstRunEmpty:journal.expectedFirstRunEmpty===true,reconcileSessionIds,dayRenames,
       effectOutcome,effect:effectOutcome.effect,rollback}}}
   catch{return null}}
@@ -947,12 +967,13 @@ function normalizeJournalDayRenames(value){
     renames.push({from:entry.from,to:entry.to})}
   return renames}
 function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgramId=null,
-  expectedProgramFingerprint=null,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
+  expectedProgramFingerprint=null,expectedBlockId=undefined,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
   reconcileSessionIds=[],dayRenames=[],effectOutcome=null}={}){
   const id=pendingJournalUuid(),key=PENDING_PREFIX+id;
   const journal={version:2,id,order:pendingJournalOrder(),base:unversionedSnapshot(base),liveBase:unversionedSnapshot(liveBase),
     proposal:unversionedSnapshot(proposal),replace:!!replace,expectedProgramId:expectedProgramId||null};
   if(expectedProgramFingerprint)journal.expectedProgramFingerprint=expectedProgramFingerprint;
+  if(expectedBlockId!==undefined)journal.expectedBlockId=expectedBlockId;
   if(Number.isInteger(expectedStorageRevision)&&expectedStorageRevision>=0)
     journal.expectedStorageRevision=expectedStorageRevision;
   if(expectedFirstRunEmpty)journal.expectedFirstRunEmpty=true;
@@ -1424,7 +1445,7 @@ async function executeDraftTransaction({record=null,transactionId=record?.journa
   return{kind:"committed",accepted:true,rejected:false,settled:true,
     snapshot,result:settlement.result||result,closed}}
 function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null,
-  expectedProgramFingerprint=null,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
+  expectedProgramFingerprint=null,expectedBlockId=undefined,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
   expectedSetupDraftRaw=undefined,
   reconcileSessionIds=[],dayRenames=[],effect=null,preflight=null}={}){
   requireAdapter(io,"enqueueStateChange");
@@ -1443,6 +1464,7 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
   let pendingRecord=io===storageIO
     ?writePendingJournal(frozenBase,frozenLiveBase,frozenProposal,
       {replace,expectedProgramId,expectedProgramFingerprint,
+        expectedBlockId,
         expectedStorageRevision,
         expectedFirstRunEmpty,
         reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
@@ -1513,6 +1535,10 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
       await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
         effect:frozenEffectOutcome,discard:true});
       return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
+    if(expectedBlockId!==undefined&&snapshotBlockId(head)!==expectedBlockId){
+      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true,staleBlock:true}}
     if(expectedFirstRunEmpty&&(head?.programMeta?.onboarded||head?.log?.length||head?.programHistory?.length)){
       await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
         effect:frozenEffectOutcome,discard:true});
@@ -1758,6 +1784,10 @@ function syncLogModeControls(){
   if(full){full.classList.toggle("active",list);full.setAttribute("aria-pressed",list?"true":"false")}
   if(focus){focus.classList.toggle("active",!list);focus.setAttribute("aria-pressed",list?"false":"true")}}
 const uid=()=>crypto?.randomUUID?.()||`id_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+/* Block identity is allocated only at a real activation/block-start boundary.
+   Normalisation, boot, replay, and staged proposals must preserve absence or
+   the already-captured candidate instead of calling this allocator. */
+const allocateBlockId=()=>`block_${uid()}`;
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
 const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
 const fmtPlain=v=>Number.isFinite(Number(v))?(Number.isInteger(Number(v))?String(Number(v)):Number(v).toFixed(2).replace(/\.?0+$/,"")):"";
@@ -2558,7 +2588,7 @@ function workoutDayId(label){
   return String(matched?.dayId||exercises(label)[0]?.dayId||label)}
 function workoutProgramContext(label=day){
   const slots=exercises(label),empty={};
-  return{
+  const context={
     programId:String(state.programMeta?.id||"local-program"),
     programFingerprint:workoutProgramFingerprint(state),
     durableRevision:readRevision(state),
@@ -2574,10 +2604,15 @@ function workoutProgramContext(label=day){
         setIds:Array.from({length:ex.sets},(_,i)=>`set-${i+1}`),minReps:ex.min,maxReps:ex.max,
         targetRir:1,notes:ex.notes||"",primary:ex.primary||"",secondary:ex.secondary||"",
         progressionStrategy:strategyIdFor(ex),movementPattern:ex.loadingMode||null,
-        sourceFingerprint:workoutProgramFingerprint({programMeta:{id:ex.id},program:[ex]}),programmedSets,index}})}
+        sourceFingerprint:workoutProgramFingerprint({programMeta:{id:ex.id},program:[ex]}),programmedSets,index}})
+  };
+  if(Object.prototype.hasOwnProperty.call(state.programMeta||{},"blockId"))context.blockId=state.programMeta.blockId;
+  return context
 }
 function workoutParseContext(label=day){const context=workoutProgramContext(label);
-  return{programId:context.programId,programFingerprint:context.programFingerprint,dayId:context.dayId}}
+  const parsed={programId:context.programId,programFingerprint:context.programFingerprint,dayId:context.dayId};
+  if(Object.prototype.hasOwnProperty.call(context,"blockId"))parsed.blockId=context.blockId;
+  return parsed}
 function displayDraftText(field,value){
   if(value==null)return value;
   if(field!=="load"&&field!=="bodyweight")return value;
@@ -3177,6 +3212,8 @@ function buildProgramMeta({name, answers, entrySource}={}){
     blockPromptDismissedId:null,entrySource:normalizeProgramEntrySource(entrySource)}}
 function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date().toISOString(),base=defaultProgramMeta(log);
   if(!m||typeof m!=="object")return base;
+  if(Object.prototype.hasOwnProperty.call(m,"blockId")&&!isValidBlockId(m.blockId,m.id))
+    throw new TypeError("blockId: expected bounded opaque identity");
   const started=typeof m.started==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(m.started)?m.started:(m.started===null?null:base.started);
   const goal=typeof m.goal==="string"?m.goal.trim()||null:m.goal===null?null:base.goal;
   const experience=typeof m.experience==="string"?m.experience.trim()||null:m.experience===null?null:base.experience;
@@ -3222,10 +3259,12 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
       transitionIn=cloneSnapshot(t);
     }
   }
-  const metaObj={id:typeof m.id==="string"&&m.id?m.id:base.id,name:typeof m.name==="string"?m.name.trim():"",started,
+  const normalizedId=typeof m.id==="string"&&m.id?m.id:base.id;
+  const metaObj={id:normalizedId,name:typeof m.name==="string"?m.name.trim():"",started,
     created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
     progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId,programStructure,entrySource};
+  if(Object.prototype.hasOwnProperty.call(m,"blockId"))metaObj.blockId=m.blockId;
   if(compilerContext!=null)metaObj.compilerContext=compilerContext;
   if(transitionIn!=null)metaObj.transitionIn=transitionIn;
   return metaObj;}
@@ -3616,7 +3655,7 @@ function captureProgramReplacement(snapshot=state,review=null){
   const meta=snapshot?.programMeta;
   const program=Array.isArray(snapshot?.program)?snapshot.program:[];
   if(!hasArchivableProgram(snapshot))return null;
-  return{oldProgramId:meta.id,oldMeta:cloneSnapshot(meta),oldProgram:cloneSnapshot(program),
+  return{oldProgramId:meta.id,oldBlockId:snapshotBlockId(snapshot),oldMeta:cloneSnapshot(meta),oldProgram:cloneSnapshot(program),
     programFingerprint:draftProgramFingerprint(snapshot),storageRevision:readRevision(snapshot),
     review:review?cloneSnapshot(review):null}}
 function archiveCapturedProgram(proposal,cap){
@@ -3631,8 +3670,13 @@ function archiveCapturedProgram(proposal,cap){
   proposal.programHistory=history;return proposal}
 async function commitProgramReplacement(proposal,io=storageIO,{capture=captureProgramReplacement(state),
   effect=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false,preflight=null,
-  expectedProgramId=undefined,expectedProgramFingerprint=undefined,expectedStorageRevision=undefined}={}){
+  expectedProgramId=undefined,expectedProgramFingerprint=undefined,expectedBlockId=undefined,
+  expectedStorageRevision=undefined}={}){
   requireAdapter(io,"commitProgramReplacement");
+  const predecessorId=capture?.oldProgramId??state?.programMeta?.id;
+  if(proposal?.programMeta&&proposal.programMeta.id!==predecessorId&&
+    !Object.prototype.hasOwnProperty.call(proposal.programMeta,"blockId"))
+    proposal.programMeta.blockId=allocateBlockId();
   if(capture)archiveCapturedProgram(proposal,capture);
   // A first-run shared proposal is deliberately rebased onto the newest
   // eligible head. Its eligibility guard replaces the ordinary active-program
@@ -3641,12 +3685,13 @@ async function commitProgramReplacement(proposal,io=storageIO,{capture=capturePr
   // converge.
   const transition=replace&&expectedFirstRunEmpty
     ?{expectedProgramId:state?.programMeta?.id||null,
-      expectedProgramFingerprint:draftProgramFingerprint(state)}
+      expectedProgramFingerprint:draftProgramFingerprint(state),expectedBlockId:snapshotBlockId(state)}
     :capture
     ?{expectedProgramId:capture.oldProgramId,expectedProgramFingerprint:capture.programFingerprint,
-      expectedStorageRevision:capture.storageRevision}
+      expectedBlockId:capture.oldBlockId,expectedStorageRevision:capture.storageRevision}
     :{expectedProgramId:expectedProgramId!==undefined?expectedProgramId:(state?.programMeta?.id||null),
       expectedProgramFingerprint:expectedProgramFingerprint!==undefined?expectedProgramFingerprint:draftProgramFingerprint(state),
+      expectedBlockId:expectedBlockId!==undefined?expectedBlockId:snapshotBlockId(state),
       expectedStorageRevision:expectedStorageRevision!==undefined?expectedStorageRevision:readRevision(state)};
   return commitProposedState(proposal,io,{...transition,effect,expectedSetupDraftRaw,replace,expectedFirstRunEmpty,preflight})}
 function blockToast(strategy){
@@ -3665,11 +3710,17 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
   const liveId=state.programMeta?.id;
   const oldId=expectedOldId||liveId;
   if(!liveId||!oldId)return Promise.resolve(blockTransitionResult("failed"));
+  // An acknowledged DraftV2 owns a captured prescription and block identity.
+  // Refuse before capture, journaling, or any storage boundary so the exact
+  // draft/checkpoint bytes remain untouched for the lifter to finish or clear.
+  if(WorkoutDraft?.parse(readDraftRaw())?.kind==="valid")
+    return Promise.resolve(blockTransitionResult("failed",{
+      draftConflict:true,code:"live_draft_blocks_next_block"}));
   if(blockCommitInFlight?.oldProgramId===oldId)return blockCommitInFlight.promise;
   if(liveId!==oldId)return Promise.resolve(blockTransitionResult("duplicate"));
   const cap=pendingBlockTransition&&pendingBlockTransition.oldProgramId===liveId
     ?pendingBlockTransition:capturePendingBlock(strategy,blockReviewCurrent);
-  if(state.programMeta.id!==cap.oldProgramId)return Promise.resolve(blockTransitionResult("duplicate"));
+  if(!cap||state.programMeta.id!==cap.oldProgramId)return Promise.resolve(blockTransitionResult("duplicate"));
   if(strategy==="onboarding"){
     pendingBlockTransition=cap;
     closeBlockReview();
@@ -3715,9 +3766,26 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
         return blockTransitionResult("failed",{draftConflict:true})}}
     const proposal=cloneSnapshot(state);
     const nextMeta=buildProgramMeta({name:cap.oldMeta?.name,answers:cap.oldMeta||{}});
+    const literalRepeat=strategy==="repeat";
+    if(literalRepeat){
+      nextMeta.id=cap.oldMeta.id;
+      // A literal repeat keeps the program identity and prescription model;
+      // carry compiler/progression provenance into the fresh block while the
+      // activation fields above still describe the new block boundary.
+      for(const key of ["progressionRelations","progressionModifiers","progressionIncompatibilities",
+        "programStructure","compilerContext","entrySource"]){
+        if(Object.prototype.hasOwnProperty.call(cap.oldMeta||{},key))
+          nextMeta[key]=cloneSnapshot(cap.oldMeta[key]);
+      }
+    }
+    nextMeta.blockId=allocateBlockId();
     proposal.programMeta=nextMeta;
     proposal.program=nextProgram;
-    const persisted=await commitProgramReplacement(proposal,io,{capture:cap,effect});
+    const persisted=await commitProgramReplacement(proposal,io,literalRepeat
+      ?{capture:null,effect,expectedProgramId:cap.oldProgramId,
+        expectedProgramFingerprint:cap.programFingerprint,expectedBlockId:cap.oldBlockId,
+        expectedStorageRevision:cap.storageRevision}
+      :{capture:cap,effect});
     const kind=persisted.localOk||persisted.idbOk?"committed":
       persisted.duplicate||persisted.staleRevision?"duplicate":"failed";
     const result=blockTransitionResult(kind,persisted);
@@ -6184,7 +6252,11 @@ async function saveWorkoutV2(io){
   const effect=destructiveDraftClearEffect(rawDraft);
   if(typeof window.__repforgeDraftBeforeSaveCommit==="function")
     await window.__repforgeDraftBeforeSaveCommit({session,draftId:savedDraft.draftId,revision:savedDraft.revision});
-  const result=await commitProposedState(proposal,io||storageIO,{effect,reconcileSessionIds:[session]});
+  const expectedBlockId=Object.prototype.hasOwnProperty.call(savedDraft.program||{},"blockId")
+    ?savedDraft.program.blockId:null;
+  const result=await commitProposedState(proposal,io||storageIO,
+    {effect,reconcileSessionIds:[session],expectedProgramId:savedDraft.program.programId,
+      expectedBlockId});
   if(!(result.localOk||result.idbOk)){
     const kind=result.draftConflict?"stale":"persist";
     draftUiRecovery={kind,status:result.draftConflict?"stale":"save-failed",attempt:null,pendingValue:null,
@@ -7065,6 +7137,11 @@ const repforgeProgramTransitionAdapter = {
       const successorMeta = {
         ...cloneSnapshot(head.programMeta),
         id: proposal.successor.programId,
+        // A compiler-backed transition is a real replacement block. Allocate
+        // its target identity only after the lock-held proposal validation;
+        // the resulting proposal/journal carries this candidate through
+        // replay, while the durable write remains the single confirmation.
+        blockId: allocateBlockId(),
         daysPerWeek: succInstance.frequency,
         sessionLength: String(succContext.sessionMinutes),
         programStructure: cloneSnapshot(succInstance.programStructure),
@@ -7882,8 +7959,9 @@ function editorChooseExercise(request){
     openExercisePicker(options)})}
 function installedEditorDocument(){return editorDocumentFromSnapshot(state)}
 function installedEditorToken(snapshot=state){return{revision:readRevision(snapshot),programId:snapshot?.programMeta?.id||null,
-  fingerprint:draftProgramFingerprint(snapshot)}}
-function editorTokenEqual(a,b){return Number(a?.revision)===Number(b?.revision)&&a?.programId===b?.programId&&a?.fingerprint===b?.fingerprint}
+  blockId:snapshotBlockId(snapshot),fingerprint:draftProgramFingerprint(snapshot)}}
+function editorTokenEqual(a,b){return Number(a?.revision)===Number(b?.revision)&&a?.programId===b?.programId&&
+  a?.blockId===b?.blockId&&a?.fingerprint===b?.fingerprint}
 function editorDocumentDays(document){
   const labels=[];
   for(const entry of document?.programMeta?.programStructure?.days||[]){
@@ -8062,6 +8140,8 @@ function createInstalledProgramEditorAdapter(){
       if(refreshed.conflict)return{ok:false,conflict:true,editorConflict:true};
       const head=refreshed.head||state,headToken=installedEditorToken(head);
       let document=cloneSnapshot(nextDocument),edits=session.edits||intent?.edits||[];
+      if(expectedToken?.blockId!==headToken.blockId)
+        return{ok:false,conflict:true,editorConflict:true,staleBlock:true};
       if(!editorTokenEqual(expectedToken,headToken)){
         const rebased=editorRebaseDocument({edits},head);if(rebased.conflict)return{ok:false,conflict:true,editorConflict:true};
         document=rebased.document}
@@ -8076,8 +8156,11 @@ function createInstalledProgramEditorAdapter(){
       const dayRenames=edits.filter(edit=>edit?.kind==="day_name"&&edit.before!==undefined&&edit.after!==undefined)
         .map(edit=>({from:String(edit.before),to:String(edit.after)}));
       const result=await commitProposedState(proposal,storageIO,{effect,dayRenames,
+        expectedProgramId:headToken.programId,expectedBlockId:headToken.blockId,
         preflight:({head:lockedHead})=>{
           const lockedToken=installedEditorToken(lockedHead);
+          if(headToken.blockId!==lockedToken.blockId)
+            return{reject:true,result:{ok:false,conflict:true,editorConflict:true,staleBlock:true}};
           if(!editorTokenEqual(headToken,lockedToken)){
             const rebased=editorRebaseDocument({edits},lockedHead);
             if(rebased.conflict)
@@ -9190,7 +9273,13 @@ function buildSharedSetupPayload(){
     settings:sharedSettings(state.settings)}}
 function exportProgram(){
   const exercises=prog.toJSON();
-  const payload={version:3,meta:state.programMeta,exercises,
+  const meta=cloneSnapshot(state.programMeta||{});
+  // A program file is a portable template, not an active block/recovery
+  // carrier. Identity and lifecycle provenance stay in full backups only;
+  // activation will mint a fresh local block at the durable boundary.
+  for(const key of ["blockId","transitionIn","recoveryTransitions","recoveryQuarantine","recoveryLifecycle"])
+    delete meta[key];
+  const payload={version:3,meta,exercises,
     customExercises:referencedCustomExercises(exercises)};
   const slug=fileSlug(state.programMeta?.name);
   download(JSON.stringify(payload,null,2),`taurifer_program_${slug?`${slug}_`:""}${today()}.json`,"application/json")}
@@ -13163,6 +13252,10 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     if(!blockCap)return blockTransitionResult("failed");
     if(proposal.programMeta?.id!==blockCap.oldProgramId)return blockTransitionResult("duplicate")}
   const meta=buildProgramMeta({name,answers:answers||{},entrySource});
+  // This is the durable activation boundary. Staged program/import/shared
+  // values remain blockless; the candidate is captured once in this proposal
+  // and replay thereafter reads the journaled value.
+  meta.blockId=allocateBlockId();
   proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
   meta.progressionRelations=normalizeProgressionRelations(baseProposal?.programMeta?.progressionRelations,proposal.program);
   meta.progressionModifiers=normalizeProgressionModifiers(baseProposal?.programMeta?.progressionModifiers);
@@ -14264,6 +14357,12 @@ async function resolveBootReplicas(candidate=null){
         continue}
       if(journal.expectedProgramFingerprint&&
         draftProgramFingerprint(head)!==journal.expectedProgramFingerprint){
+        const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+          effect:journal.effectOutcome,discard:true});
+        if(!discarded.settled)
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+        continue}
+      if(journal.expectedBlockId!==undefined&&snapshotBlockId(head)!==journal.expectedBlockId){
         const discarded=await executeDraftTransaction({record,transactionId:journal.id,
           effect:journal.effectOutcome,discard:true});
         if(!discarded.settled)

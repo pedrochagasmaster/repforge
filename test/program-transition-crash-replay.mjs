@@ -481,7 +481,7 @@ async function crashGenericWhileQueued({ locker, survivor, context }, spec) {
 }
 
 // Correction-4 red vehicle: the real legacy program-replacement writer.
-// commitNextBlock("repeat") builds its proposal, archives the predecessor
+// commitNextBlock("increase_volume") builds its proposal, archives the predecessor
 // (with the predecessor's full old meta, including transitionIn, and no
 // transitionOut/archiveId), strips the active transitionIn by starting a
 // fresh block meta, and arms the production journal before the state-write
@@ -490,7 +490,7 @@ async function crashLegacyReplacementWhileQueued({ locker, writer, survivor }) {
   await bootOthers([writer]);
   await holdStorageLock(locker);
   await writer.evaluate(() => {
-    window.__p6cLegacyResult = window.__repforgeCommitNextBlock("repeat");
+    window.__p6cLegacyResult = window.__repforgeCommitNextBlock("increase_volume");
   });
   await waitForPendingStorageLocks(locker, 1);
   await survivor.waitForFunction((prefix) =>
@@ -1813,7 +1813,7 @@ async function main() {
     // coherently at boot, while arbitrary transitionIn stripping stays guarded.
     //
     // 9a. A real A->B compiler-backed transition commits; a real
-    //     commitNextBlock("repeat") then arms the production legacy
+    //     commitNextBlock("increase_volume") then arms the production legacy
     //     replacement journal while queued and its writer dies. The journal
     //     removes active B's transitionIn, keeps A's transitionOut, and adds
     //     exactly one legacy archive for B with B's full old meta. Boot must
@@ -1869,6 +1869,20 @@ async function main() {
               historyB[0]?.archiveId === proposalAB.predecessor.programId,
           "9a: B carries the committed A->B transitionIn and the A archive with its transitionOut");
 
+        // An explicit legacy replacement is a block start. The current owner
+        // contract refuses it while a valid DraftV2 is live, so this replay
+        // vehicle intentionally removes the completed draft before arming the
+        // queued replacement journal. The replacement/replay assertions below
+        // therefore prove the no-draft path rather than preserving a draft
+        // through a block start.
+        await survivor.evaluate(() => {
+          localStorage.removeItem("repforge_draft_v1");
+          localStorage.removeItem("repforge_draft_v1:v2-checkpoint");
+          localStorage.removeItem("repforge_draft_v1:recovery");
+        });
+        const noLiveDraft = await readDraftBytes(survivor);
+        check(noLiveDraft.raw == null && noLiveDraft.checkpoint == null,
+          "9a: the explicit legacy block-start replay has no live DraftV2");
         await bootOthers([locker]);
 
         const journal = await crashLegacyReplacementWhileQueued(env);
@@ -1954,8 +1968,8 @@ async function main() {
             `9a: log sentinel unchanged in ${side}`);
         }
         const legacyDraft = await readDraftBytes(survivor);
-        check(legacyDraft.raw === setup.preDraftRaw && legacyDraft.checkpoint === setup.preCheckpointRaw,
-          "9a: DraftV2 raw and checkpoint bytes unchanged by the legacy replay");
+        check(legacyDraft.raw == null && legacyDraft.checkpoint == null,
+          "9a: the no-draft legacy replay leaves DraftV2 absent");
         const legacyArtifacts = await artifactKeys(survivor);
         check(legacyArtifacts.pending.length === 0 && legacyArtifacts.closing.length === 0 &&
               legacyArtifacts.sidecar.length === 0,
@@ -2149,6 +2163,14 @@ async function main() {
 
         const before = await readReplicas(survivor);
         const beforeBytes = await readReplicaBytes(survivor);
+        // The queued legacy replacement is an explicit block start. Remove
+        // the completed DraftV2 before arming it so the owner guard is not
+        // accidentally exercised instead of the provenance poison vehicle.
+        await survivor.evaluate(() => {
+          localStorage.removeItem("repforge_draft_v1");
+          localStorage.removeItem("repforge_draft_v1:v2-checkpoint");
+          localStorage.removeItem("repforge_draft_v1:recovery");
+        });
         const beforeDraft = await readDraftBytes(survivor);
         check(before.local.programId === proposal.successor.programId &&
               before.local.revision === before.idb.revision,

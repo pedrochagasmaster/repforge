@@ -58,6 +58,7 @@ export const SUITES = {
     s("test/program-transition-crash-replay.mjs"),
     s("test/program-transition-backup.mjs"),
     s("test/program-transition-guided-repair.mjs"),
+    s("test/program-block-identity.mjs"),
     s("test/recover-gate.mjs"),
     s("test/workout-draft-storage.mjs"),
     s("test/workout-draft-sw-upgrade.mjs"),
