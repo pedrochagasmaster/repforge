@@ -3,3 +3,4 @@ node_modules/
 tools/motion-runtime/node_modules/
 .env
 posthog-config.js
+.ci-results/

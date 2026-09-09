@@ -1,37 +1,33 @@
-/**
- * One place that opens Chromium for the test scripts.
- *
- * CI runs `npx playwright install chromium`, so the bundled download is there
- * and this resolves to it. Sandboxes that ship a pre-installed browser under
- * PLAYWRIGHT_BROWSERS_PATH can point REPFORGE_CHROME at it instead of
- * re-downloading one.
- */
+/** Shared Chromium launcher. Normal runs do not record traces. */
 import { chromium } from "playwright";
 import { existsSync } from "fs";
+import { instrumentBrowser } from "./browser-artifacts.mjs";
 
-export function launchChromium(opts = {}) {
+export async function launchChromium(opts = {}) {
   const exe = process.env.REPFORGE_CHROME;
-  return chromium.launch({
+  const browser = await chromium.launch({
     headless: true,
     ...(exe && existsSync(exe) ? { executablePath: exe } : {}),
     ...opts,
   });
+  if (process.env.REPFORGE_TRACE === "1" && process.env.REPFORGE_ARTIFACT_DIR) {
+    instrumentBrowser(browser, process.env.REPFORGE_ARTIFACT_DIR);
+  }
+  return browser;
 }
 
 const servedAppCache = new Map();
 
-/**
- * Fail in seconds — with the likely fix in the message — when REPFORGE_URL
- * is not serving this repository's app, instead of burning a browser-gate
- * timeout on an opaque waitForFunction. The classic failure is a stale
- * `python3 -m http.server` from another directory still holding the port
- * and answering every request with a 404 page.
- */
+/** Fail quickly when the URL is unreachable or a stale server serves another app. */
 export async function assertServingApp(base = process.env.REPFORGE_URL || "http://localhost:8000/") {
-  if (servedAppCache.has(base)) return servedAppCache.get(base);
+  if (servedAppCache.has(base)) {
+    const cached = servedAppCache.get(base);
+    if (cached instanceof Error) throw cached;
+    return;
+  }
   let result;
   try {
-    const response = await fetch(base);
+    const response = await fetch(base, { signal: AbortSignal.timeout(5000) });
     const html = await response.text();
     if (!response.ok) {
       result = new Error(
@@ -54,14 +50,7 @@ export async function assertServingApp(base = process.env.REPFORGE_URL || "http:
   if (result instanceof Error) throw result;
 }
 
-/**
- * Wait for the app to reach its interactive boot state, with a diagnosis on
- * failure. The storage test export is assigned while app.js is still
- * parsing; `__repforgeBooted` is set at the end of init(), after async replica
- * recovery, any first-run persistence and the first render, so it means the
- * whole pipeline finished. Day tabs used to stand in for it, which a device
- * with no onboarded program never grows.
- */
+/** Wait for interactive boot, not day tabs (an un-onboarded device has none). */
 export async function waitForAppBoot(page, { timeout = 15000, base } = {}) {
   await assertServingApp(base);
   try {
@@ -78,7 +67,7 @@ export async function waitForAppBoot(page, { timeout = 15000, base } = {}) {
     try {
       observed = JSON.stringify(
         await page.evaluate(() => ({
-          url: location.href,
+          url: location.origin + location.pathname,
           readyState: document.readyState,
           storageHook: typeof window.__repforgeStorage?.flush === "function",
           booted: window.__repforgeBooted === true,
