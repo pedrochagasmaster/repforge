@@ -1065,31 +1065,41 @@ function pendingJournalSuccessorMatches(record,head){
 function transitionRecordEqual(a,b){
   if(a==null||b==null)return a==b;
   return storageSnapshotsEqual(a,b)}
+function classifyInheritedTransitionValue(value,validator){
+  if(value==null)return "absent";
+  return validator(value)?"supported-v1":"unknown-or-malformed"}
 function extractTransitionOutMap(snapshot){
   const history=Array.isArray(snapshot?.programHistory)?snapshot.programHistory:[];
   const map=new Map();
   let invalid=false;
   for(const h of history){
-    if(!h||h.transitionOut==null)continue;
+    if(!isPlainStateObject(h)){invalid=true;break}
+    const toutStatus=classifyInheritedTransitionValue(h.transitionOut,isCoherentV1TransitionOut);
+    if(toutStatus==="absent")continue;
     const aid=typeof h.archiveId==="string"&&h.archiveId.trim()?h.archiveId.trim():null;
     const hid=typeof h.id==="string"&&h.id.trim()?h.id.trim():null;
-    if(!aid||!hid||aid!==hid||!isBoundedTransitionValue(h.transitionOut)||map.has(aid)){
+    if(toutStatus!=="supported-v1"||!aid||!hid||aid!==hid||map.has(aid)){
       invalid=true;break}
     map.set(aid,h.transitionOut)}
   return{map,invalid}}
+function classifyInheritedProvenance(snapshot){
+  const meta=isPlainStateObject(snapshot?.programMeta)?snapshot.programMeta:null;
+  const transitionIn=classifyInheritedTransitionValue(meta?.transitionIn,isCoherentV1TransitionIn);
+  const transitionOut=extractTransitionOutMap(snapshot);
+  return{ok:transitionIn!=="unknown-or-malformed"&&!transitionOut.invalid,
+    transitionIn,transitionOut:transitionOut.map}}
 function transitionJournalAttempt(proposal,base){
   if(!proposal||!isPlainStateObject(proposal))return false;
-  const propTin=proposal.programMeta?.transitionIn;
-  const baseTin=base?.programMeta?.transitionIn;
-  if(propTin!=null&&!isBoundedTransitionValue(propTin))return true;
+  const propProvenance=classifyInheritedProvenance(proposal);
+  const baseProvenance=classifyInheritedProvenance(base);
+  if(!propProvenance.ok||!baseProvenance.ok)return true;
+  const propTin=isPlainStateObject(proposal.programMeta)?proposal.programMeta.transitionIn:null;
+  const baseTin=isPlainStateObject(base?.programMeta)?base.programMeta.transitionIn:null;
   if(!transitionRecordEqual(propTin,baseTin))return true;
-  const propMap=extractTransitionOutMap(proposal);
-  const baseMap=extractTransitionOutMap(base);
-  if(propMap.invalid||baseMap.invalid)return true;
-  if(propMap.map.size!==baseMap.map.size)return true;
-  for(const [key,propTout] of propMap.map.entries()){
-    if(!baseMap.map.has(key))return true;
-    const baseTout=baseMap.map.get(key);
+  if(propProvenance.transitionOut.size!==baseProvenance.transitionOut.size)return true;
+  for(const [key,propTout] of propProvenance.transitionOut.entries()){
+    if(!baseProvenance.transitionOut.has(key))return true;
+    const baseTout=baseProvenance.transitionOut.get(key);
     if(!transitionRecordEqual(propTout,baseTout))return true}
   return false}
 function programHistoryUniqueIds(history){
@@ -1112,16 +1122,18 @@ function isCoherentLegacyReplacement(proposal,base){
   if(!proposal||!isPlainStateObject(proposal)||!base||!isPlainStateObject(base))return false;
   const propMeta=proposal.programMeta,baseMeta=base.programMeta;
   if(!isPlainStateObject(propMeta)||!isPlainStateObject(baseMeta))return false;
+  const propProvenance=classifyInheritedProvenance(proposal);
+  const baseProvenance=classifyInheritedProvenance(base);
+  if(!propProvenance.ok||!baseProvenance.ok)return false;
   const succId=propMeta.id;
   if(typeof succId!=="string"||!succId.trim()||succId===baseMeta.id)return false;
   if(propMeta.transitionIn!=null)return false;
-  const propMap=extractTransitionOutMap(proposal);
-  const baseMap=extractTransitionOutMap(base);
-  if(propMap.invalid||baseMap.invalid)return false;
-  if(propMap.map.size!==baseMap.map.size)return false;
-  for(const [key,propTout] of propMap.map.entries()){
-    if(!baseMap.map.has(key))return false;
-    if(!transitionRecordEqual(propTout,baseMap.map.get(key)))return false}
+  const propMap=propProvenance.transitionOut;
+  const baseMap=baseProvenance.transitionOut;
+  if(propMap.size!==baseMap.size)return false;
+  for(const [key,propTout] of propMap.entries()){
+    if(!baseMap.has(key))return false;
+    if(!transitionRecordEqual(propTout,baseMap.get(key)))return false}
   const propHist=Array.isArray(proposal.programHistory)?proposal.programHistory:[];
   const baseHist=Array.isArray(base.programHistory)?base.programHistory:[];
   if(propHist.length!==baseHist.length+1)return false;
@@ -1160,6 +1172,8 @@ function isCoherentV1TransitionOut(tout){
     typeof tout.successorProgramId==="string"&&tout.successorProgramId.trim()!==""}
 function isCoherentTransitionProposal(proposal,base){
   if(!proposal||!isPlainStateObject(proposal))return false;
+  const propProvenance=classifyInheritedProvenance(proposal);
+  if(!propProvenance.ok)return false;
   const tin=proposal.programMeta?.transitionIn;
   if(!isCoherentV1TransitionIn(tin))return false;
   const succId=tin.successor.programId,predId=tin.predecessor.programId;
@@ -1179,6 +1193,8 @@ function isCoherentTransitionProposal(proposal,base){
 
   if(base!=null){
     if(!isPlainStateObject(base))return false;
+    const baseProvenance=classifyInheritedProvenance(base);
+    if(!baseProvenance.ok)return false;
     if(base.programMeta?.id!==predId)return false;
     const baseHist=Array.isArray(base.programHistory)?base.programHistory:[];
     if(propHist.length!==baseHist.length+1)return false;

@@ -120,6 +120,12 @@ async function readReplicas(page) {
   return { local: semantic(local), idb: semantic(idb) };
 }
 
+async function readReplicaBytes(page) {
+  const local = await page.evaluate((k) => localStorage.getItem(k), KEY);
+  const idb = await readIdbState(page);
+  return { local, idb: idb == null ? null : JSON.stringify(idb) };
+}
+
 async function readDraftBytes(page) {
   return page.evaluate((keys) => ({
     raw: localStorage.getItem(keys.d),
@@ -525,6 +531,65 @@ async function addLegacyHistoryRow(page, tag) {
   const state = await page.evaluate(() => window.__repforgeWorkoutDraft.state());
   return { rowId: res.rowId, revision: state._storageRevision,
     legacyRow: JSON.parse(JSON.stringify((state.programHistory || []).find((h) => h?.id === res.rowId))) };
+}
+
+async function mutateLegacyPendingProvenance(page, kind) {
+  const journal = await readJournal(page);
+  if (!journal) throw new Error(`cannot mutate missing journal for ${kind}`);
+  await page.evaluate(({ key, kind }) => {
+    const journal = JSON.parse(localStorage.getItem(key));
+    const mutate = (value) => {
+      const next = { ...value };
+      if (kind.endsWith("schema2")) next.schemaVersion = 2;
+      else if (kind.startsWith("tin-")) delete next.confirmedAt;
+      else delete next.proposalHash;
+      return next;
+    };
+    if (kind.startsWith("tin-")) {
+      const baseTin = journal.base?.programMeta?.transitionIn;
+      if (!baseTin) throw new Error("legacy journal has no inherited transitionIn");
+      const mutated = mutate(baseTin);
+      journal.base.programMeta.transitionIn = mutated;
+      const legacyArchive = (journal.proposal?.programHistory || [])
+        .find((row) => row?.id === journal.base.programMeta.id);
+      if (!legacyArchive?.meta) throw new Error("legacy journal has no captured base meta");
+      legacyArchive.meta.transitionIn = mutated;
+    } else {
+      const baseRows = (journal.base?.programHistory || []).filter((row) => row?.transitionOut);
+      if (!baseRows.length) throw new Error("legacy journal has no inherited transitionOut");
+      for (const baseRow of baseRows) {
+        const mutated = mutate(baseRow.transitionOut);
+        baseRow.transitionOut = mutated;
+        const proposalRow = (journal.proposal?.programHistory || [])
+          .find((row) => row?.id === baseRow.id);
+        if (!proposalRow) throw new Error(`legacy journal lost inherited row ${baseRow.id}`);
+        proposalRow.transitionOut = mutated;
+      }
+    }
+    localStorage.setItem(key, JSON.stringify(journal));
+  }, { key: journal.key, kind });
+}
+
+async function installBootWriteSpy(page) {
+  await page.addInitScript(() => {
+    window.__p6cProvenanceBootWrites = [];
+    const originalSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key, value) {
+      if (key === "repforge_v1") {
+        try { window.__p6cProvenanceBootWrites.push({ side: "local", raw: value }); } catch {}
+      }
+      return originalSetItem.apply(this, arguments);
+    };
+    const originalPut = IDBObjectStore.prototype.put;
+    IDBObjectStore.prototype.put = function (value, key) {
+      if (key === "repforge_v1") {
+        try {
+          window.__p6cProvenanceBootWrites.push({ side: "idb", raw: JSON.stringify(value) });
+        } catch {}
+      }
+      return originalPut.apply(this, arguments);
+    };
+  });
 }
 
 // Production write-fault injection: the shipped transaction must fail on the
@@ -2022,7 +2087,102 @@ async function main() {
         await context.close();
       }
 
-      // ---- 9d: a legacy history row survives a real Plan-052 transition's recovery ----
+      // ---- 9d: unknown/malformed inherited provenance is fail-closed ----
+      // The pending journal remains a real commitNextBlock("repeat") output;
+      // only the serialized inherited record is poisoned after the writer is
+      // gone. A structurally matching copy must not turn unknown provenance
+      // into a durable archive or successor revision.
+      for (const provenancePoison of [
+        { name: "unknown inherited transitionIn schema 2", kind: "tin-schema2" },
+        { name: "malformed inherited transitionIn v1", kind: "tin-malformed-v1" },
+        { name: "unknown inherited transitionOut schema 2", kind: "tout-schema2" },
+        { name: "malformed inherited transitionOut v1", kind: "tout-malformed-v1" },
+      ]) {
+        const env = await newBootedContext(browser);
+        const { locker, survivor, context } = env;
+        const tag = provenancePoison.kind.replace(/[^a-z0-9]+/g, "_");
+        const setup = await setupPredecessorWithSentinelAndDraft(survivor, `unknown_${tag}`);
+        const propose = await page_or_null(survivor, {
+          transitionId: `tr_p6c_unknown_${tag}`,
+          successorProgramId: `prog_p6c_unknown_${tag}_b`,
+          createdAt: "2026-10-05T00:00:00.000Z",
+        });
+        check(propose?.ok === true, `${provenancePoison.name}: A->B proposal created`, propose?.code);
+        const proposal = propose.proposal;
+        const confirmArgs = {
+          proposal,
+          transitionId: proposal.transitionId,
+          successorProgramId: proposal.successor.programId,
+          confirmedAt: "2026-10-05T00:10:00.000Z",
+          proposalHash: proposal.proposalHash,
+          acknowledgedDraftRaw: setup.preDraftRaw,
+        };
+        const committed = await confirmTransition(survivor, confirmArgs);
+        check(committed?.committed === true,
+          `${provenancePoison.name}: A->B transition committed before poisoning`, committed);
+        await survivor.evaluate(() => window.__repforgeStorage.flush());
+        await survivor.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(survivor, { base: BASE });
+
+        const before = await readReplicas(survivor);
+        const beforeBytes = await readReplicaBytes(survivor);
+        const beforeDraft = await readDraftBytes(survivor);
+        check(before.local.programId === proposal.successor.programId &&
+              before.local.revision === before.idb.revision,
+          `${provenancePoison.name}: B is the shared durable base before the queued replacement`, before);
+
+        await bootOthers([locker]);
+        const journal = await crashLegacyReplacementWhileQueued(env);
+        const armed = JSON.parse(journal.raw);
+        check(armed.base?.programMeta?.id === proposal.successor.programId &&
+              armed.proposal?.programMeta?.transitionIn == null,
+          `${provenancePoison.name}: real legacy replacement journal is armed`, armed);
+        await mutateLegacyPendingProvenance(survivor, provenancePoison.kind);
+        await installBootWriteSpy(survivor);
+
+        await survivor.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(survivor, { base: BASE });
+        const after = await readReplicas(survivor);
+        const afterBytes = await readReplicaBytes(survivor);
+        const afterDraft = await readDraftBytes(survivor);
+        const bootWrites = await survivor.evaluate(() => window.__p6cProvenanceBootWrites || []);
+        for (const side of ["local", "idb"]) {
+          check(isDeepStrictEqual(after[side], before[side]),
+            `${provenancePoison.name}: boot discarded the journal and preserved ${side} state`,
+            { before: before[side], after: after[side] });
+        }
+        check(afterBytes.local === beforeBytes.local && afterBytes.idb === beforeBytes.idb,
+          `${provenancePoison.name}: both durable replica bytes remain unchanged`);
+        check(bootWrites.length === 0,
+          `${provenancePoison.name}: discard performed zero durable writes`, bootWrites);
+        check(afterDraft.raw === beforeDraft.raw && afterDraft.checkpoint === beforeDraft.checkpoint &&
+              afterDraft.recovery === beforeDraft.recovery,
+          `${provenancePoison.name}: DraftV2 and recovery bytes remain unchanged`, afterDraft);
+        check(after.local.storageDraftTransaction == null && after.idb.storageDraftTransaction == null,
+          `${provenancePoison.name}: no transaction marker was introduced or retained`);
+        const artifacts = await artifactKeys(survivor);
+        check(artifacts.pending.length === 0 && artifacts.closing.length === 0 && artifacts.sidecar.length === 0,
+          `${provenancePoison.name}: pending, closing, and sidecar artifacts cleared`, artifacts);
+
+        await survivor.evaluate(() => { window.__p6cProvenanceBootWrites = []; });
+        await survivor.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(survivor, { base: BASE });
+        const secondBoot = await readReplicas(survivor);
+        const secondBytes = await readReplicaBytes(survivor);
+        const secondBootWrites = await survivor.evaluate(() => window.__p6cProvenanceBootWrites || []);
+        check(secondBootWrites.length === 0,
+          `${provenancePoison.name}: second boot performed zero durable writes`, secondBootWrites);
+        check(isDeepStrictEqual(secondBoot, after) &&
+              secondBytes.local === afterBytes.local && secondBytes.idb === afterBytes.idb,
+          `${provenancePoison.name}: second boot is idempotent with no revision/archive`, secondBoot);
+
+        const retry = await confirmTransition(survivor, confirmArgs);
+        check(retry?.alreadyCommitted === true && retry?.committed === true,
+          `${provenancePoison.name}: exact original transition retry remains alreadyCommitted`, retry);
+        await context.close();
+      }
+
+      // ---- 9e: a legacy history row survives a real Plan-052 transition's recovery ----
       for (const variant of [
         { name: "prepared", fault: "write" },
         { name: "final", fault: "cleanup" },
@@ -2042,14 +2202,14 @@ async function main() {
         const legacyRow = seed.legacyRow;
         check(legacyRow?.id === seed.rowId && !Object.prototype.hasOwnProperty.call(legacyRow, "archiveId") &&
               !Object.prototype.hasOwnProperty.call(legacyRow, "transitionOut"),
-          `9d (${variant.name}): the seeded legacy row has a primary id and no archiveId/transitionOut`, legacyRow);
+          `9e (${variant.name}): the seeded legacy row has a primary id and no archiveId/transitionOut`, legacyRow);
 
         const propose = await page_or_null(survivor, {
           transitionId: `tr_p6c_legacy_row_${variant.name}`,
           successorProgramId: `prog_p6c_legacy_row_${variant.name}_b`,
           createdAt: "2026-10-04T00:00:00.000Z",
         });
-        check(propose?.ok === true, `9d (${variant.name}): sibling proposal created over the legacy-row base`, propose?.code);
+        check(propose?.ok === true, `9e (${variant.name}): sibling proposal created over the legacy-row base`, propose?.code);
         const proposal = propose.proposal;
 
         if (variant.fault === "write") await injectWriteFailureAfterFirst(survivor);
@@ -2067,10 +2227,10 @@ async function main() {
         await survivor.evaluate(() => window.__repforgeStorage.flush());
         if (variant.fault === "write") {
           check(res?.deferred === true && res?.finalizationPending === true,
-            `9d (${variant.name}): the interrupted confirm reports deferred finalization`, res);
+            `9e (${variant.name}): the interrupted confirm reports deferred finalization`, res);
         } else {
           check(res?.localOk === true && res?.idbOk === true,
-            `9d (${variant.name}): the finalized commit landed in both replicas despite the interrupted cleanup`, res);
+            `9e (${variant.name}): the finalized commit landed in both replicas despite the interrupted cleanup`, res);
         }
 
         await survivor.reload({ waitUntil: "domcontentloaded" });
@@ -2080,11 +2240,11 @@ async function main() {
         for (const side of ["local", "idb"]) {
           check(recovered[side].programId === proposal.successor.programId &&
                 recovered[side].revision === revisionSeed + 1,
-            `9d (${variant.name}): recovery finished the same successor at R+1 in ${side}`, recovered[side]);
+            `9e (${variant.name}): recovery finished the same successor at R+1 in ${side}`, recovered[side]);
           check(recovered[side].programHistory.length === 2,
-            `9d (${variant.name}): exactly two history rows in ${side}`, recovered[side].programHistory.length);
+            `9e (${variant.name}): exactly two history rows in ${side}`, recovered[side].programHistory.length);
           check(isDeepStrictEqual(recovered[side].programHistory.find((h) => h?.id === seed.rowId), legacyRow),
-            `9d (${variant.name}): the legacy row is retained value-identically in ${side} with no invented fields`);
+            `9e (${variant.name}): the legacy row is retained value-identically in ${side} with no invented fields`);
           const newArc = recovered[side].programHistory.find((h) => h?.id === proposal.predecessor.programId);
           check(newArc?.id === proposal.predecessor.programId &&
                 newArc?.archiveId === proposal.predecessor.programId &&
@@ -2092,21 +2252,21 @@ async function main() {
                 newArc?.transitionOut?.transitionId === proposal.transitionId &&
                 newArc?.transitionOut?.proposalHash === proposal.proposalHash &&
                 newArc?.transitionOut?.successorProgramId === proposal.successor.programId,
-            `9d (${variant.name}): the new transition archive is exact in ${side}`, newArc);
+            `9e (${variant.name}): the new transition archive is exact in ${side}`, newArc);
           check(recovered[side].transitionIn?.transitionId === proposal.transitionId &&
                 recovered[side].transitionIn?.archiveId === proposal.predecessor.programId,
-            `9d (${variant.name}): the successor transitionIn is exact in ${side}`);
+            `9e (${variant.name}): the successor transitionIn is exact in ${side}`);
           check(recovered[side].storageDraftTransaction == null,
-            `9d (${variant.name}): no parsed transaction marker remains in ${side}`);
+            `9e (${variant.name}): no parsed transaction marker remains in ${side}`);
           check(isDeepStrictEqual(recovered[side].log, setup.logSentinel),
-            `9d (${variant.name}): log sentinel unchanged in ${side}`);
+            `9e (${variant.name}): log sentinel unchanged in ${side}`);
         }
         const draftAfter = await readDraftBytes(survivor);
         check(draftAfter.raw === setup.preDraftRaw && draftAfter.checkpoint === setup.preCheckpointRaw,
-          `9d (${variant.name}): DraftV2 bytes unchanged through recovery`);
+          `9e (${variant.name}): DraftV2 bytes unchanged through recovery`);
         const artifacts = await artifactKeys(survivor);
         check(artifacts.pending.length === 0 && artifacts.closing.length === 0 && artifacts.sidecar.length === 0,
-          `9d (${variant.name}): recovery cleared every pending, sidecar, and closing artifact`, artifacts);
+          `9e (${variant.name}): recovery cleared every pending, sidecar, and closing artifact`, artifacts);
         await context.close();
       }
     }
