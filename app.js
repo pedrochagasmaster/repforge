@@ -60,23 +60,32 @@ function isBoundedTransitionValue(value,depth=0,state={nodes:0}){
 }
 const RECOVERY_HASH_RE=/^[0-9a-f]{64}$/;
 const RECOVERY_CARRIER_INSTANT_RE=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const RECOVERY_CARRIER_KEYS=["schemaVersion","records","quarantine"];
+const RECOVERY_RECORD_KEYS=["schemaVersion","transitionId","kind","createdAt","status","predecessor","diagnosis","derivation","diff","progressionContract","archiveId","confirmedAt","proposalHash"];
+const RECOVERY_OVERLAY_KEYS=["schemaVersion","policyVersion","transitionId","blockId","activePeriod","eligibilityEvidence","baseProgramFingerprint","entries","createdAt","confirmedAt","reassessmentDueAt","reassessmentOutcome"];
+const RECOVERY_DIFF_KEYS=["days","exercises","prescriptions","recoveryWeek"];
+const RECOVERY_QUARANTINE_REASONS=["known-schema-malformed-recovery","duplicate-target-conflict"];
+const RECOVERY_REPLICA_SOURCES=["localStorage","indexedDB","both"];
+function recoveryCodeUnitCompare(left,right){return left<right?-1:left>right?1:0}
+function exactRecoveryKeys(value,keys){
+  return isPlainStateObject(value)&&Object.keys(value).length===keys.length&&
+    keys.every(key=>Object.prototype.hasOwnProperty.call(value,key))}
 function isRecoveryCarrierQuarantineEntry(value){
   if(!isPlainStateObject(value)||!isBoundedTransitionValue(value))return false;
   const keys=["schemaVersion","digest","raw","sourceReplica","detectedAt","reason"];
   if(Object.keys(value).length!==keys.length||!keys.every(key=>Object.prototype.hasOwnProperty.call(value,key)))return false;
   return value.schemaVersion===1&&RECOVERY_HASH_RE.test(value.digest)&&
     typeof value.raw==="string"&&value.raw.length<=TRANSITION_VALUE_LIMITS.stringLength&&
-    ["localStorage","indexedDB","both"].includes(value.sourceReplica)&&
+    RECOVERY_REPLICA_SOURCES.includes(value.sourceReplica)&&
     RECOVERY_CARRIER_INSTANT_RE.test(value.detectedAt)&&
-    ["known-schema-malformed-recovery","duplicate-target-conflict"].includes(value.reason);
+    RECOVERY_QUARANTINE_REASONS.includes(value.reason);
 }
 function isRecoveryCarrierRecord(value){
   if(!isPlainStateObject(value)||!isBoundedTransitionValue(value))return false;
-  const recordKeys=["schemaVersion","transitionId","kind","createdAt","status","predecessor","diagnosis","derivation","diff","progressionContract","archiveId","confirmedAt","proposalHash"];
-  if(Object.keys(value).length!==recordKeys.length||!recordKeys.every(key=>Object.prototype.hasOwnProperty.call(value,key)))return false;
+  if(!exactRecoveryKeys(value,RECOVERY_RECORD_KEYS))return false;
   const predecessor=value.predecessor,overlay=value.diff?.recoveryWeek,evidence=overlay?.eligibilityEvidence;
-  const overlayKeys=["schemaVersion","policyVersion","transitionId","blockId","activePeriod","eligibilityEvidence","baseProgramFingerprint","entries","createdAt","confirmedAt","reassessmentDueAt","reassessmentOutcome"];
-  const diffKeys=["days","exercises","prescriptions","recoveryWeek"];
+  const overlayKeys=RECOVERY_OVERLAY_KEYS;
+  const diffKeys=RECOVERY_DIFF_KEYS;
   if(value.schemaVersion!==1||value.kind!=="recovery_week"||value.status!=="committed"||
     typeof value.transitionId!=="string"||!value.transitionId.trim()||
     !RECOVERY_CARRIER_INSTANT_RE.test(value.createdAt)||!RECOVERY_CARRIER_INSTANT_RE.test(value.confirmedAt)||
@@ -97,11 +106,123 @@ function isRecoveryCarrierRecord(value){
 }
 function isValidRecoveryTransitions(value){
   if(!isPlainStateObject(value)||!isBoundedTransitionValue(value)||value.schemaVersion!==1)return false;
-  const keys=["schemaVersion","records","quarantine"];
-  if(Object.keys(value).length!==keys.length||!keys.every(key=>Object.prototype.hasOwnProperty.call(value,key)))return false;
+  const keys=RECOVERY_CARRIER_KEYS;
+  if(!exactRecoveryKeys(value,keys))return false;
   return Array.isArray(value.records)&&value.records.length<=TRANSITION_VALUE_LIMITS.arrayItems&&
     value.records.every(isRecoveryCarrierRecord)&&Array.isArray(value.quarantine)&&
     value.quarantine.length<=TRANSITION_VALUE_LIMITS.arrayItems&&value.quarantine.every(isRecoveryCarrierQuarantineEntry);
+}
+/* Carrier classification is deliberately narrower than normalization. The
+   supported envelope is closed: an unknown key/version is storage recovery,
+   while a known envelope whose semantic record is malformed can fall back to
+   the canonical program and leave bounded evidence. */
+function classifyRecoveryRecordEnvelope(value){
+  if(!isPlainStateObject(value)||!isBoundedTransitionValue(value)||
+    !exactRecoveryKeys(value,RECOVERY_RECORD_KEYS)||value.schemaVersion!==1)return"unknown";
+  const diff=value.diff,overlay=diff?.recoveryWeek;
+  if(!isPlainStateObject(diff)||!exactRecoveryKeys(diff,RECOVERY_DIFF_KEYS)||
+    !isPlainStateObject(overlay)||!exactRecoveryKeys(overlay,RECOVERY_OVERLAY_KEYS)||
+    overlay.schemaVersion!==1||overlay.policyVersion!==2)return"unknown";
+  return isRecoveryCarrierRecord(value)?"valid":"malformed";
+}
+function classifyRecoveryCarrier(value){
+  if(value===undefined)return{kind:"absent",malformed:[],valid:[],needsEvidence:false};
+  if(!isPlainStateObject(value)||!isBoundedTransitionValue(value)||
+    !exactRecoveryKeys(value,RECOVERY_CARRIER_KEYS)||value.schemaVersion!==1||
+    !Array.isArray(value.records)||value.records.length>TRANSITION_VALUE_LIMITS.arrayItems||
+    !Array.isArray(value.quarantine)||value.quarantine.length>TRANSITION_VALUE_LIMITS.arrayItems||
+    !value.quarantine.every(isRecoveryCarrierQuarantineEntry))return{kind:"unknown"};
+  const valid=[],malformed=[];
+  for(const record of value.records){
+    const status=classifyRecoveryRecordEnvelope(record);
+    if(status==="unknown")return{kind:"unknown"};
+    if(status==="valid")valid.push(record);
+    else malformed.push(record)}
+  const targets=new Map();
+  for(const record of valid){
+    const target=record.diff.recoveryWeek.blockId;
+    if(!targets.has(target))targets.set(target,[]);
+    targets.get(target).push(record)}
+  const conflicts=[...targets].filter(([,records])=>records.length>1)
+    .map(([targetBlockId,records])=>({targetBlockId,records}));
+  return{kind:"known",valid,malformed,conflicts,
+    needsEvidence:malformed.length>0||conflicts.length>0};
+}
+function isValidStateWithoutRecoveryCarrier(value){
+  if(!isPlainStateObject(value)||!Object.prototype.hasOwnProperty.call(value,"recoveryTransitions"))return false;
+  const copy=cloneSnapshot(value);delete copy.recoveryTransitions;
+  return isValidStateShape(copy)}
+function carrierReadStatus(parsed,raw){
+  const classification=classifyRecoveryCarrier(parsed?.recoveryTransitions);
+  if(classification.kind==="known"&&
+    (isValidStateShape(parsed)||isValidStateWithoutRecoveryCarrier(parsed)))
+    return{status:"valid",raw,parsed,recoveryCarrierClassification:classification};
+  return null;
+}
+function recoverySourceReplica(source){
+  return source==="local"?"localStorage":source==="idb"?"indexedDB":"both";
+}
+function mergeRecoverySource(existing,incoming){
+  if(existing===incoming)return existing;
+  if(existing==="both"||incoming==="both")return"both";
+  return"both";
+}
+function quarantineEntryKey(entry){return`${entry.digest}\u0000${entry.reason}`}
+function sourceReplicaForCarrierDecision(decision,localRead,idbRead){
+  const localClass=localRead?.recoveryCarrierClassification;
+  const idbClass=idbRead?.recoveryCarrierClassification;
+  const equal=localRead?.status==="valid"&&idbRead?.status==="valid"&&
+    snapshotsEqual(localRead.parsed,idbRead.parsed);
+  if(equal&&localClass?.needsEvidence&&idbClass?.needsEvidence)return"both";
+  return recoverySourceReplica(decision?.source);
+}
+async function recoverySha256(raw){
+  if(typeof TextEncoder!=="function"||!globalThis.crypto?.subtle)throw new Error("SHA-256 unavailable");
+  const bytes=new TextEncoder().encode(raw);
+  const digest=await globalThis.crypto.subtle.digest("SHA-256",bytes);
+  return Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,"0")).join("");
+}
+function mergeRecoveryQuarantine(list,entry){
+  const key=quarantineEntryKey(entry),index=list.findIndex(candidate=>quarantineEntryKey(candidate)===key);
+  if(index<0){list.push(entry);return true}
+  const previous=list[index],source=mergeRecoverySource(previous.sourceReplica,entry.sourceReplica);
+  if(source===previous.sourceReplica)return false;
+  list[index]={...previous,sourceReplica:source};
+  return true;
+}
+async function normalizeRecoveryCarrierSnapshot(snapshot,sourceReplica,{priorQuarantine=[]}={}){
+  const classification=classifyRecoveryCarrier(snapshot?.recoveryTransitions);
+  if(classification.kind!=="known")return{kind:classification.kind,snapshot};
+  const carrier=snapshot.recoveryTransitions;
+  const normalized={schemaVersion:1,records:classification.valid.map(cloneSnapshot),quarantine:[]};
+  for(const entry of carrier.quarantine)
+    mergeRecoveryQuarantine(normalized.quarantine,cloneSnapshot(entry));
+  for(const entry of priorQuarantine)
+    mergeRecoveryQuarantine(normalized.quarantine,cloneSnapshot(entry));
+  const detectedAt=()=>new Date().toISOString();
+  const addEvidence=async(raw,reason)=>{
+    if(typeof raw!=="string"||raw.length>TRANSITION_VALUE_LIMITS.stringLength)
+      return{kind:"full-recovery"};
+    const digest=await recoverySha256(raw);
+    const entry={schemaVersion:1,digest,raw,sourceReplica,detectedAt:detectedAt(),reason};
+    mergeRecoveryQuarantine(normalized.quarantine,entry);
+    if(!isBoundedTransitionValue(normalized))return{kind:"full-recovery"};
+    return{kind:"ok"};
+  };
+  for(const malformed of classification.malformed){
+    const result=await addEvidence(JSON.stringify(malformed),"known-schema-malformed-recovery");
+    if(result.kind!=="ok")return{kind:result.kind,snapshot};
+  }
+  for(const conflict of classification.conflicts){
+    const records=[...conflict.records].sort((left,right)=>
+      recoveryCodeUnitCompare(String(left.proposalHash||""),String(right.proposalHash||""))||
+      recoveryCodeUnitCompare(String(left.transitionId||""),String(right.transitionId||"")));
+    const result=await addEvidence(JSON.stringify({targetBlockId:conflict.targetBlockId,records}),"duplicate-target-conflict");
+    if(result.kind!=="ok")return{kind:result.kind,snapshot};
+  }
+  if(!isBoundedTransitionValue(normalized))return{kind:"full-recovery",snapshot};
+  const next=cloneSnapshot(snapshot);next.recoveryTransitions=normalized;
+  return{kind:"known",snapshot:next,changed:!storageSnapshotsEqual(next,snapshot)};
 }
 function isSafeProgressionFields(value){
   if(!isPlainStateObject(value))return false;
@@ -190,14 +311,20 @@ function readLocalStatus(){
   try{const raw=localStorage.getItem(KEY);
     if(raw==null)return{status:"absent",raw:null,parsed:null};
     try{const parsed=JSON.parse(raw);
-      if(isValidStateShape(parsed))return{status:"valid",raw,parsed};
+      if(isValidStateShape(parsed))return{status:"valid",raw,parsed,
+        recoveryCarrierClassification:classifyRecoveryCarrier(parsed?.recoveryTransitions)};
+      const carrier=carrierReadStatus(parsed,raw);
+      if(carrier)return carrier;
       return{status:"invalid",raw,parsed}}
     catch{return{status:"invalid",raw,parsed:null}}}
   catch(e){return{status:"failed",raw:null,parsed:null,error:e}}}
 async function readIdbStatus(){
   try{const parsed=await idbGet(KEY);
     if(parsed==null)return{status:"absent",raw:null,parsed:null};
-    if(isValidStateShape(parsed))return{status:"valid",raw:parsed,parsed};
+    if(isValidStateShape(parsed))return{status:"valid",raw:parsed,parsed,
+      recoveryCarrierClassification:classifyRecoveryCarrier(parsed?.recoveryTransitions)};
+    const carrier=carrierReadStatus(parsed,parsed);
+    if(carrier)return carrier;
     return{status:"invalid",raw:parsed,parsed}}
   catch(e){return{status:"failed",raw:null,parsed:null,error:e}}}
 function chooseSnapshot(localRead,idbRead){
@@ -349,7 +476,12 @@ async function refreshPersistenceHead(){
   if(decision.kind!=="chosen")return{head:cloneSnapshot(persistHead),conflict:true};
   if(pendingDraftTransaction(decision.snapshot))
     return{head:cloneSnapshot(persistHead),conflict:true,draftTransaction:true};
-  const disk=cloneSnapshot(decision.snapshot),current=cloneSnapshot(persistHead);
+  const current=cloneSnapshot(persistHead);
+  let disk=cloneSnapshot(decision.snapshot);
+  const normalized=await normalizeRecoveryCarrierSnapshot(
+    disk,sourceReplicaForCarrierDecision(decision,local,idb),{
+      priorQuarantine:current?.recoveryTransitions?.quarantine||[]});
+  if(normalized.kind==="known")disk=normalized.snapshot;
   const diskRev=readRevision(disk),currentRev=readRevision(current);
   if(diskRev>currentRev)return{head:disk};
   if(diskRev<currentRev||storageSnapshotsEqual(disk,current))return{head:current};
@@ -14708,6 +14840,15 @@ async function resolveBootReplicas(candidate=null){
       if(!recoveryChoiceMatches(candidate,decision))return decision;
       decision={kind:"chosen",snapshot:cloneSnapshot(candidate.snapshot),source:candidate.source,
         heal:candidate.source==="local"?"idb":"local"}}
+    if(decision.kind==="chosen"){
+      const sourceReplica=sourceReplicaForCarrierDecision(decision,local,idb);
+      const normalized=await normalizeRecoveryCarrierSnapshot(decision.snapshot,sourceReplica);
+      if(normalized.kind==="full-recovery")
+        return{kind:"unresolved",reason:"no-valid",
+          local:{...local,status:"invalid"},idb:{...idb,status:"invalid"}};
+      if(normalized.kind==="known"){
+        decision.snapshot=normalized.snapshot;
+        decision.recoveryChanged=!!normalized.changed}}
     let head=decision.kind==="first-run"?null:cloneSnapshot(decision.snapshot),replayed=false,draftConflict=false;
     const storedTransaction=head&&pendingDraftTransaction(head);
     if(storedTransaction){
@@ -14832,8 +14973,10 @@ async function resolveBootReplicas(candidate=null){
       head=execution.snapshot;
       if(execution.kind!=="committed")draftConflict=true;
       replayed=true}
-    if(replayed)return{kind:"chosen",snapshot:head,source:"pending",draftConflict};
-    if(decision.kind==="chosen"&&decision.heal)await writeSnapshot(cloneSnapshot(decision.snapshot),storageIO);
+    if(replayed)return{kind:"chosen",snapshot:head,source:"pending",draftConflict,
+      recoveryChanged:!!decision.recoveryChanged};
+    if(decision.kind==="chosen"&&decision.heal&&!decision.recoveryChanged)
+      await writeSnapshot(cloneSnapshot(decision.snapshot),storageIO);
     return Object.assign({},decision,{draftConflict})})}
 async function applyBootDecision(decision){
   if(decision.kind==="first-run")state=normalizeLoaded(null);
@@ -14848,7 +14991,7 @@ async function applyBootDecision(decision){
   const migrated=migrateLog();
   const metaDrift=decision.snapshot&&canonicalPayload({programMeta:decision.snapshot.programMeta})!==canonicalPayload({programMeta:state.programMeta});
   const revisionless=decision.snapshot&&!Object.prototype.hasOwnProperty.call(decision.snapshot,STORAGE_REV);
-  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift)await persist();
+  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift||decision.recoveryChanged)await persist();
   if(I18N)I18N.setLang(resolveLang())}
 window.__repforgeSharedSetup={
   get status(){return sharedSetupDraft.status},

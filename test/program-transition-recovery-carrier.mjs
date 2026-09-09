@@ -430,6 +430,17 @@ function proposalTargetBlockId(proposal) {
   return proposal?.diff?.recoveryWeek?.blockId ?? null;
 }
 
+function codeUnitCompare(left, right) {
+  return left < right ? -1 : left > right ? 1 : 0;
+}
+
+function duplicateConflictRaw(targetBlockId, records) {
+  const sorted = [...records].sort((left, right) =>
+    codeUnitCompare(String(left?.proposalHash || ""), String(right?.proposalHash || "")) ||
+    codeUnitCompare(String(left?.transitionId || ""), String(right?.transitionId || "")));
+  return JSON.stringify({ targetBlockId, records: sorted });
+}
+
 function recordWithOutcome(record, outcome) {
   const next = clone(record);
   if (next?.diff?.recoveryWeek) next.diff.recoveryWeek.reassessmentOutcome = outcome;
@@ -943,39 +954,44 @@ async function main() {
       return { ok: result?.localOk || result?.idbOk, result };
     }, { target: targetBlockId, first: committedRecord, second: recordB });
     check(duplicateSeed.ok, "duplicate-target carrier fixture committed through the existing state seam", duplicateSeed);
+    const duplicateConflictRawValue = duplicateConflictRaw(targetBlockId, [committedRecord, recordB]);
+    check(duplicateConflictRawValue === duplicateConflictRaw(targetBlockId, [recordB, committedRecord]),
+      "balanced duplicate-target conflict raw is independent of record arrival order",
+      { rawLength: duplicateConflictRawValue.length });
+    check(duplicateConflictRawValue.length > 10000,
+      "balanced duplicate-target conflict is over the bounded quarantine string limit",
+      { rawLength: duplicateConflictRawValue.length, limit: 10000 });
+    const duplicateBeforeRecovery = await readReplicas(duplicatePage);
     await duplicatePage.reload({ waitUntil: "domcontentloaded" });
-    await waitForAppBoot(duplicatePage, { base: BASE });
-    const duplicateAfterSeed = await readReplicas(duplicatePage);
-    const duplicateRecords = carrierRecords(duplicateAfterSeed.local);
-    check(duplicateRecords.length === 2 && carrierRecords(duplicateAfterSeed.idb).length === 2,
-      "both valid duplicate-target records remain in both carrier replicas");
-    check(duplicateRecords.every((record) => record.status === "committed" &&
-      record.diff?.recoveryWeek?.blockId === targetBlockId &&
+    await duplicatePage.waitForFunction(
+      () => document.querySelector("#storageRecovery")?.open === true,
+      undefined,
+      { timeout: 15000 },
+    );
+    const duplicateAfterRecovery = await readReplicas(duplicatePage);
+    const duplicateRecoveryMode = await duplicatePage.evaluate(() => ({
+      booted: window.__repforgeBooted === true,
+      recoveryOpen: document.querySelector("#storageRecovery")?.open === true,
+    }));
+    check(duplicateRecoveryMode.booted === false && duplicateRecoveryMode.recoveryOpen === true,
+      "over-bound duplicate-target conflict enters full Storage Recovery before boot", duplicateRecoveryMode);
+    check(duplicateAfterRecovery.localRaw === duplicateBeforeRecovery.localRaw,
+      "over-bound duplicate-target conflict preserves localStorage bytes before choice");
+    check(isDeepStrictEqual(duplicateAfterRecovery.idb, duplicateBeforeRecovery.idb),
+      "over-bound duplicate-target conflict preserves IndexedDB object before choice");
+    check(duplicateAfterRecovery.local?._storageRevision === duplicateBeforeRecovery.local?._storageRevision &&
+      duplicateAfterRecovery.idb?._storageRevision === duplicateBeforeRecovery.idb?._storageRevision,
+      "over-bound duplicate-target conflict performs no durable revision before choice");
+    check(carrierRecords(duplicateAfterRecovery.local).length === 2 &&
+      carrierRecords(duplicateAfterRecovery.idb).length === 2,
+      "over-bound duplicate-target conflict retains the original valid records untouched");
+    check(carrierOf(duplicateAfterRecovery.local)?.quarantine?.length === 0 &&
+      carrierOf(duplicateAfterRecovery.idb)?.quarantine?.length === 0,
+      "over-bound duplicate-target conflict adds no quarantine evidence before choice");
+    check(carrierRecords(duplicateAfterRecovery.local).every((record) =>
+      record.status === "committed" && record.diff?.recoveryWeek?.blockId === targetBlockId &&
       record.diff?.recoveryWeek?.blockId !== record.predecessor?.blockId),
-      "duplicate carrier records remain individually valid target/source pairs");
-    const duplicateDayRequest = await locateFixedFixtureDay(duplicatePage, FIXED_FIXTURE_DAY_ID);
-    check(duplicateDayRequest?.ok === true,
-      "duplicate-target fixture precondition maps a known fixed-day slot to its live day label",
-      duplicateDayRequest);
-    check(duplicateDayRequest?.expectedFixtureDayId === FIXED_FIXTURE_DAY_ID,
-      "duplicate-target request retains the fixed expected day identity", duplicateDayRequest);
-    const duplicateEntered = duplicateDayRequest?.ok
-      ? await duplicatePage.evaluate((requestedDayLabel) =>
-        window.__repforgeEnterWorkout({ day: requestedDayLabel, focus: false }),
-      duplicateDayRequest.requestedDayLabel)
-      : false;
-    check(duplicateEntered === true, "duplicate-target fixture opens a week-one workout");
-    const duplicateDraft = await duplicatePage.evaluate(() => window.__repforgeWorkoutDraft.current());
-    check(duplicateDraft?.program?.dayId === FIXED_FIXTURE_DAY_ID,
-      "duplicate-target DraftV2 program.dayId equals the fixed expected fixture day",
-      { requestedDayLabel: duplicateDayRequest?.requestedDayLabel, expectedFixtureDayId: FIXED_FIXTURE_DAY_ID, actualDayId: duplicateDraft?.program?.dayId });
-    const duplicateProjection = fixtureCanonicalSetCounts(duplicateDraft, FIXED_FIXTURE_DAY_ID);
-    check(duplicateProjection.expectedSlotSetNonempty,
-      "independent canonical expectation for the selected duplicate-target day is nonempty", duplicateProjection);
-    check(duplicateProjection.slotSetEqual,
-      "duplicate-target DraftV2 slot identities exactly match the selected fixture day", duplicateProjection);
-    check(duplicateProjection.mismatches.length === 0,
-      "duplicate-target conflict applies neither recovery record and renders canonical counts", duplicateProjection.mismatches);
+      "over-bound duplicate-target conflict preserves each valid source/target binding");
     await duplicateContext.close();
 
     const movedToWeekTwo = await page.evaluate(async () => {
@@ -998,9 +1014,9 @@ async function main() {
       weekTwoDayRequest);
     check(weekTwoDayRequest?.expectedFixtureDayId === FIXED_FIXTURE_DAY_ID,
       "week-two request retains the fixed expected day identity", weekTwoDayRequest);
-    check([sourceFixtureDayRequest, weekOneDayRequest, duplicateDayRequest, weekTwoDayRequest]
+    check([sourceFixtureDayRequest, weekOneDayRequest, weekTwoDayRequest]
       .every((request) => request?.expectedFixtureDayId === FIXED_FIXTURE_DAY_ID),
-    "all recovery scenarios retain the same fixed fixture day identity");
+    "all booted recovery scenarios retain the same fixed fixture day identity");
     const weekTwoEntered = weekTwoDayRequest?.ok
       ? await page.evaluate((requestedDayLabel) =>
         window.__repforgeEnterWorkout({ day: requestedDayLabel, focus: false }),
