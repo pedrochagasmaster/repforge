@@ -1197,6 +1197,8 @@ function decodePendingJournal(key,raw){
       !Number.isSafeInteger(order?.seq)))return null;
     const effectOutcome=legacy?{status:DRAFT_EFFECT_NONE,effect:null}:
       draftEffectOutcome(Object.prototype.hasOwnProperty.call(journal,"effect")?journal.effect:null);
+    if(journal.recoveryTransaction!=null&&typeof journal.recoveryTransaction!=="boolean")return null;
+    const recoveryTransaction=journal.recoveryTransaction===true;
     const expectedProgramFingerprint=typeof journal.expectedProgramFingerprint==="string"&&
       journal.expectedProgramFingerprint.length<=PENDING_EFFECT_MAX_RAW?journal.expectedProgramFingerprint:null;
     if(journal.expectedProgramFingerprint!=null&&!expectedProgramFingerprint)return null;
@@ -1225,7 +1227,7 @@ function decodePendingJournal(key,raw){
       expectedProgramId:typeof journal.expectedProgramId==="string"&&journal.expectedProgramId?journal.expectedProgramId:null,
       expectedProgramFingerprint,expectedBlockId,expectedStorageRevision,
       expectedFirstRunEmpty:journal.expectedFirstRunEmpty===true,reconcileSessionIds,dayRenames,
-      effectOutcome,effect:effectOutcome.effect,rollback}}}
+      effectOutcome,effect:effectOutcome.effect,recoveryTransaction,rollback}}}
   catch{return null}}
 function readPendingJournal(){
   const entries=[],invalid=[];
@@ -1260,7 +1262,7 @@ function normalizeJournalDayRenames(value){
   return renames}
 function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgramId=null,
   expectedProgramFingerprint=null,expectedBlockId=undefined,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
-  reconcileSessionIds=[],dayRenames=[],effectOutcome=null}={}){
+  reconcileSessionIds=[],dayRenames=[],effectOutcome=null,recoveryTransaction=false}={}){
   const id=pendingJournalUuid(),key=PENDING_PREFIX+id;
   const journal={version:2,id,order:pendingJournalOrder(),base:unversionedSnapshot(base),liveBase:unversionedSnapshot(liveBase),
     proposal:unversionedSnapshot(proposal),replace:!!replace,expectedProgramId:expectedProgramId||null};
@@ -1271,6 +1273,10 @@ function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgr
   if(expectedFirstRunEmpty)journal.expectedFirstRunEmpty=true;
   if(reconcileSessionIds.length)journal.reconcileSessionIds=reconcileSessionIds;
   if(dayRenames.length)journal.dayRenames=dayRenames;
+  // This optional marker is absent from older journals. It scopes the
+  // recovery crash protocol without inferring ownership from a carrier delta
+  // that could belong to another state-changing workflow.
+  if(recoveryTransaction)journal.recoveryTransaction=true;
   const outcome=normalizeDraftEffectOutcome(effectOutcome);
   if(outcome.status===DRAFT_EFFECT_VALID)journal.effect=outcome.effect;
   const raw=JSON.stringify(journal);
@@ -1289,7 +1295,7 @@ function setupActivationAlreadyCommitted(head,proposal,expectedSetupDraftRaw){
     setupActivationMatches(current,expectedSetupDraftRaw,head?.programMeta?.id)&&
     current.programId===proposed.programId;
 }
-function armPendingJournalRollback(record,snapshot){
+function armPendingJournalRollback(record,snapshot,{forceRollback=false}={}){
   if(!record||record.legacy||!isValidStateShape(snapshot)||
     Object.prototype.hasOwnProperty.call(snapshot,STORAGE_DRAFT_TXN))return null;
   try{
@@ -1297,7 +1303,7 @@ function armPendingJournalRollback(record,snapshot){
     const journal=JSON.parse(record.raw),rollback=cloneSnapshot(snapshot);
     journal.rollbackRevision=readRevision(rollback);
     delete journal.rollback;
-    if(!storageSnapshotsEqual(unversionedSnapshot(rollback),record.journal.base))
+    if(forceRollback||!storageSnapshotsEqual(unversionedSnapshot(rollback),record.journal.base))
       journal.rollback=rollback;
     const raw=JSON.stringify(journal);
     localStorage.setItem(record.key,raw);
@@ -1377,12 +1383,12 @@ function pendingJournalSuccessorMatches(record,head){
       sharedRebaseSeed:journal.id});
   return readRevision(candidate)===readRevision(head)&&storageSnapshotsEqual(candidate,head)}
 function isRecoveryJournalAttempt(journal){
+  if(journal?.recoveryTransaction!==true)return false;
   const proposalCarrier=journal?.proposal?.recoveryTransitions;
-  const baseCarrier=journal?.base?.recoveryTransitions;
   if(!isValidRecoveryTransitions(proposalCarrier))return false;
-  const before=Array.isArray(baseCarrier?.records)?baseCarrier.records:[];
-  return proposalCarrier.records.length>before.length&&
-    proposalCarrier.records.some(record=>record?.kind==="recovery_week"&&record?.status==="committed");
+  const hasCommittedRecovery=proposalCarrier.records.some(record=>
+    record?.kind==="recovery_week"&&record?.status==="committed");
+  return hasCommittedRecovery;
 }
 /* Bounded semantic/value equality for inherited transition values: absent on
    both sides is equal; anything present compares canonical parsed values, so
@@ -1647,7 +1653,8 @@ async function compensatePendingDraftTransaction(snapshot,io,transactionId,effec
   const durable=!!(result.localOk||result.idbOk);
   const restored=durable?DraftStore.restoreEffect(transactionId,effect,contextFingerprint):{settled:false};
   return{settled:durable&&restored.settled,snapshot:rollback,result}}
-async function settleAppliedDraftTransaction(prepared,finalized,effect,checked,io,provisionalResult){
+async function settleAppliedDraftTransaction(prepared,finalized,effect,checked,io,provisionalResult,
+  forceFinalization=false){
   const transaction=pendingDraftTransaction(prepared),transactionId=transaction?.id||null;
   const contextFingerprint=transaction?draftContextFingerprint(transaction.previous):null;
   const applied=applyPendingJournalEffect(effect);
@@ -1657,7 +1664,7 @@ async function settleAppliedDraftTransaction(prepared,finalized,effect,checked,i
   if(!pendingDraftEffectAccepted(effect,checked,transactionId,contextFingerprint)){
     const compensation=await compensatePendingDraftTransaction(prepared,io,transactionId,effect);
     return Object.assign({accepted:false,rejected:true},compensation)}
-  if(!transaction)return{accepted:true,rejected:false,snapshot:finalized,result:null};
+  if(!transaction&&!forceFinalization)return{accepted:true,rejected:false,snapshot:finalized,result:null};
   const result=await writeSnapshot(finalized,io);
   if(!(result.localOk||result.idbOk)){
     const compensation=await compensatePendingDraftTransaction(prepared,io,transactionId,effect);
@@ -1670,7 +1677,7 @@ async function settleAppliedDraftTransaction(prepared,finalized,effect,checked,i
   return{accepted:true,rejected:false,settled:true,snapshot:finalized,result}}
 async function executeDraftTransaction({record=null,transactionId=record?.journal?.id||null,effect=null,
   prepared=null,snapshot=null,io=null,writePrepared=true,preparedResult=null,
-  retainRecordOnWriteFailure=false,discard=false}={}){
+  retainRecordOnWriteFailure=false,discard=false,forceFinalization=false}={}){
   const effectOutcome=normalizeDraftEffectOutcome(effect);
   const transaction=prepared&&pendingDraftTransaction(prepared);
   const id=transaction?.id||transactionId;
@@ -1713,8 +1720,9 @@ async function executeDraftTransaction({record=null,transactionId=record?.journa
   const checked=writePrepared?pendingJournalEffectState(effectOutcome):preEffectState;
   const provisionalResult=result||
     {revision:readRevision(prepared),localOk:!writePrepared,idbOk:!writePrepared};
+  const finalizeRecovery=forceFinalization&&provisionalResult.localOk===true&&provisionalResult.idbOk===true;
   const settlement=await settleAppliedDraftTransaction(
-    prepared,snapshot,effectOutcome,checked,io,provisionalResult);
+    prepared,snapshot,effectOutcome,checked,io,provisionalResult,finalizeRecovery);
   if(!settlement.accepted){
     if(settlement.rejected&&settlement.settled){
       const closed=close(true);
@@ -1747,7 +1755,7 @@ async function executeDraftTransaction({record=null,transactionId=record?.journa
 function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null,
   expectedProgramFingerprint=null,expectedBlockId=undefined,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
   expectedSetupDraftRaw=undefined,
-  reconcileSessionIds=[],dayRenames=[],effect=null,preflight=null}={}){
+  reconcileSessionIds=[],dayRenames=[],effect=null,preflight=null,recoveryTransaction=false}={}){
   requireAdapter(io,"enqueueStateChange");
   const frozenBase=cloneSnapshot(base),frozenLiveBase=cloneSnapshot(liveBase);
   const frozenProposal=cloneSnapshot(proposal),frozenEffectOutcome=normalizeDraftEffectOutcome(effect);
@@ -1768,7 +1776,7 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
         expectedStorageRevision,
         expectedFirstRunEmpty,
         reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
-        effectOutcome:frozenEffectOutcome})
+        effectOutcome:frozenEffectOutcome,recoveryTransaction})
     :null;
   if(io===storageIO&&!pendingRecord){
     const failed={revision:readRevision(frozenBase),localOk:false,idbOk:false,journalFailed:true};
@@ -1843,8 +1851,8 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
       await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
         effect:frozenEffectOutcome,discard:true});
       return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true,ineligible:true}}
-    if(pendingRecord&&draftEffectRequiresCoordination(frozenEffectOutcome)){
-      const armed=armPendingJournalRollback(pendingRecord,head);
+    if(pendingRecord&&(draftEffectRequiresCoordination(frozenEffectOutcome)||recoveryTransaction)){
+      const armed=armPendingJournalRollback(pendingRecord,head,{forceRollback:recoveryTransaction});
       if(!armed){
         await executeDraftTransaction({record:pendingRecord,
           transactionId:pendingRecord.journal.id,effect:frozenEffectOutcome,discard:true});
@@ -1857,7 +1865,8 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
     const prepared=preparePendingDraftTransaction(snapshot,head,frozenEffect,pendingRecord?.journal.id);
     const transactionId=pendingDraftTransaction(prepared)?.id||coordinationId;
     const execution=await executeDraftTransaction({record:pendingRecord,transactionId,
-      effect:frozenEffectOutcome,prepared,snapshot,io,writePrepared:true});
+      effect:frozenEffectOutcome,prepared,snapshot,io,writePrepared:true,
+      forceFinalization:recoveryTransaction});
     if(execution.kind==="close-failed")
       return{revision:readRevision(head),localOk:false,idbOk:false,draftConflict:true,closeFailed:true};
     if(execution.kind==="precondition-rejected")
@@ -7272,6 +7281,7 @@ async function confirmRecoveryTransition(params,Transition,Compiler,catalogue){
     expectedProgramFingerprint:draftProgramFingerprint(state),
     expectedBlockId:expectedSourceBlock,
     expectedStorageRevision:predecessor.durableRevision,
+    recoveryTransaction:true,
     preflight,
   });
   if(result.localOk||result.idbOk){await refreshRecoveryProjectionCache(state);return{ok:true,committed:true,...result};}
@@ -7776,6 +7786,7 @@ const repforgeProgramTransitionAdapter = {
       expectedProgramFingerprint:draftProgramFingerprint(state),
       expectedBlockId:blockId,
       expectedStorageRevision:expectedRevision,
+      recoveryTransaction:true,
       preflight,
     });
     if(result.localOk||result.idbOk){await refreshRecoveryProjectionCache(state);return{ok:true,committed:true,...result};}
@@ -14945,11 +14956,13 @@ async function resolveBootReplicas(candidate=null){
         if(!discarded.settled)
           return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
         continue}
-      // A recovery-start journal may be left between its intent and the
-      // mirrored snapshot. Reapply it only when the acknowledged DraftV2
-      // boundary is still clear; a draft created after the journal was armed
-      // must survive untouched and the pending start is discarded.
-      if(isRecoveryJournalAttempt(journal)&&blockStartDraftGuard(head)){
+      // A recovery journal without a rollback snapshot was written before the
+      // lock-held preparation boundary. It is intent only, never a durable
+      // block start, so discard it without replaying or advancing state. A
+      // prepared journal is replayed only while the acknowledged DraftV2
+      // boundary is still clear; a draft created after it was armed survives
+      // untouched and the pending start is discarded.
+      if(isRecoveryJournalAttempt(journal)&&(!journal.rollback||blockStartDraftGuard(head))){
         const discarded=await executeDraftTransaction({record,transactionId:journal.id,
           effect:journal.effectOutcome,discard:true});
         if(!discarded.settled)
