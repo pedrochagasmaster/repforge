@@ -76,17 +76,43 @@ function sameLogicalDocument(actual, expected) {
     JSON.stringify(canonicalize(withoutStorageMetadata(expected)));
 }
 
+function sameValue(actual, expected) {
+  return JSON.stringify(canonicalize(actual)) === JSON.stringify(canonicalize(expected));
+}
+
 function mutateBackupForNegative(backup, mutation) {
   const mutated = clone(backup);
   const history = Array.isArray(mutated?.programHistory) ? mutated.programHistory : [];
   if (mutation === "transitionIn") {
+    if (!mutated.programMeta || !Object.prototype.hasOwnProperty.call(mutated.programMeta, "transitionIn")) {
+      throw new Error("transitionIn negative could not find programMeta.transitionIn to remove");
+    }
     delete mutated.programMeta?.transitionIn;
+    if (Object.prototype.hasOwnProperty.call(mutated.programMeta, "transitionIn")) {
+      throw new Error("transitionIn negative did not remove programMeta.transitionIn");
+    }
   } else if (mutation === "transitionOut") {
-    const archive = history.find((entry) => entry?.transitionOut);
-    if (archive) delete archive.transitionOut;
+    const archiveIndex = history.findIndex((entry) => entry?.transitionOut);
+    if (archiveIndex < 0) throw new Error("transitionOut negative could not find an archive transitionOut");
+    const archive = history[archiveIndex];
+    delete archive.transitionOut;
+    if (Object.prototype.hasOwnProperty.call(history[archiveIndex], "transitionOut")) {
+      throw new Error("transitionOut negative did not remove the archive transitionOut");
+    }
   } else if (mutation === "archiveId") {
-    const archive = history.find((entry) => entry?.archiveId);
-    if (archive) archive.archiveId = "mutated-by-p052-negative";
+    const archiveIndex = history.findIndex((entry) => entry?.archiveId);
+    if (archiveIndex < 0) throw new Error("archiveId negative could not find an archiveId to mutate");
+    const archive = history[archiveIndex];
+    const originalArchiveId = archive.archiveId;
+    archive.archiveId = "mutated-by-p052-negative";
+    if (archive.archiveId === originalArchiveId) {
+      throw new Error("archiveId negative did not change the archiveId value");
+    }
+  } else {
+    throw new Error(`Unknown P052_MUTATE_BACKUP value: ${mutation}`);
+  }
+  if (sameValue(mutated, backup)) {
+    throw new Error(`${mutation} negative did not change the backup document`);
   }
   return mutated;
 }
@@ -292,6 +318,35 @@ function transitionIdentity(snapshot) {
   };
 }
 
+function backupProvenance(snapshot) {
+  const transitionIn = snapshot?.programMeta?.transitionIn ?? null;
+  const history = Array.isArray(snapshot?.programHistory) ? snapshot.programHistory : [];
+  const archive = history.find((entry) => entry?.id === transitionIn?.archiveId) ?? null;
+  return {
+    transitionIn: clone(transitionIn),
+    archive: clone(archive),
+    programHistory: clone(history),
+    log: clone(snapshot?.log ?? []),
+  };
+}
+
+function hasCompleteTransitionIn(transitionIn) {
+  if (!transitionIn || typeof transitionIn !== "object" || Array.isArray(transitionIn)) return false;
+  return [
+    "schemaVersion", "transitionId", "kind", "status", "createdAt", "confirmedAt",
+    "predecessor", "diagnosis", "derivation", "successor", "diff",
+    "progressionContract", "archiveId", "proposalHash",
+  ].every((key) => Object.prototype.hasOwnProperty.call(transitionIn, key));
+}
+
+function hasCompleteArchive(archive) {
+  return !!archive && typeof archive === "object" && !Array.isArray(archive) &&
+    typeof archive.id === "string" && archive.id === archive.archiveId &&
+    archive.meta && typeof archive.meta === "object" && !Array.isArray(archive.meta) &&
+    Array.isArray(archive.program) &&
+    archive.transitionOut && typeof archive.transitionOut === "object" && !Array.isArray(archive.transitionOut);
+}
+
 async function main() {
   console.log("052-P7: program transition backup round-trip proof");
   await assertServingApp(BASE);
@@ -325,30 +380,38 @@ async function main() {
 
     await reloadAndBoot(source);
     const sourceAfterTransition = await readReplicas(source);
+    const sourceLocalProvenance = backupProvenance(sourceAfterTransition.local);
+    const sourceIdbProvenance = backupProvenance(sourceAfterTransition.idb);
+    const sourceProvenance = clone(sourceLocalProvenance);
     const sourceIdentity = transitionIdentity(sourceAfterTransition.local);
     check(sourceAfterTransition.local?.programMeta?.id === "prog_p052_backup_successor" &&
       sourceAfterTransition.idb?.programMeta?.id === "prog_p052_backup_successor",
       "A→B successor is present in both durable replicas");
-    check(sourceIdentity.transitionIn?.status === "committed" &&
-      sourceIdentity.transitionIn?.transitionId === transition.proposal.transitionId &&
-      sourceIdentity.transitionIn?.proposalHash === transition.proposal.proposalHash &&
-      sourceIdentity.transitionIn?.predecessor?.programId === transition.proposal.predecessor.programId &&
-      sourceIdentity.transitionIn?.successor?.programId === transition.proposal.successor.programId,
-      "Successor transitionIn identity matches the committed proposal");
+    check(hasCompleteTransitionIn(sourceLocalProvenance.transitionIn) &&
+      sourceLocalProvenance.transitionIn.status === "committed" &&
+      sourceLocalProvenance.transitionIn.transitionId === transition.proposal.transitionId &&
+      sourceLocalProvenance.transitionIn.proposalHash === transition.proposal.proposalHash &&
+      sourceLocalProvenance.transitionIn.predecessor?.programId === transition.proposal.predecessor.programId &&
+      sourceLocalProvenance.transitionIn.successor?.programId === transition.proposal.successor.programId,
+      "Source successor programMeta.transitionIn is complete and matches the committed proposal");
     check(sourceIdentity.archiveId === transition.proposal.predecessor.programId &&
       sourceIdentity.archive?.id === transition.proposal.predecessor.programId &&
       sourceIdentity.archive?.archiveId === transition.proposal.predecessor.programId,
       "Predecessor archive identity and archiveId link match the contract");
-    check(sourceIdentity.transitionOut?.schemaVersion === 1 &&
-      sourceIdentity.transitionOut?.transitionId === transition.proposal.transitionId &&
-      sourceIdentity.transitionOut?.proposalHash === transition.proposal.proposalHash &&
-      sourceIdentity.transitionOut?.successorProgramId === transition.proposal.successor.programId,
-      "Predecessor archive transitionOut link matches the committed proposal");
-    check(JSON.stringify(sourceAfterTransition.local?.programHistory) === JSON.stringify(sourceAfterTransition.idb?.programHistory),
-      "Transition archive is byte-equivalent across localStorage and IndexedDB");
-    check(JSON.stringify(sourceAfterTransition.local?.log) === JSON.stringify(beforeTransition.local?.log) &&
-      JSON.stringify(sourceAfterTransition.idb?.log) === JSON.stringify(beforeTransition.idb?.log),
-      "A→B preserves the real workout log identity in both replicas");
+    check(hasCompleteArchive(sourceLocalProvenance.archive) &&
+      sourceLocalProvenance.archive.transitionOut.schemaVersion === 1 &&
+      sourceLocalProvenance.archive.transitionOut.transitionId === transition.proposal.transitionId &&
+      sourceLocalProvenance.archive.transitionOut.proposalHash === transition.proposal.proposalHash &&
+      sourceLocalProvenance.archive.transitionOut.successorProgramId === transition.proposal.successor.programId,
+      "Source predecessor archive retains complete transitionOut, meta, and program values");
+    check(sameValue(sourceLocalProvenance.transitionIn, sourceIdbProvenance.transitionIn) &&
+      sameValue(sourceLocalProvenance.archive, sourceIdbProvenance.archive) &&
+      sameValue(sourceLocalProvenance.programHistory, sourceIdbProvenance.programHistory) &&
+      sameValue(sourceLocalProvenance.log, sourceIdbProvenance.log),
+      "Source localStorage and IndexedDB agree on complete transitionIn, archive, history, and log");
+    check(sameValue(sourceLocalProvenance.log, beforeTransition.local?.log) &&
+      sameValue(sourceIdbProvenance.log, beforeTransition.idb?.log),
+      "A→B preserves the real workout log identity and values in both source replicas");
 
     // Create a real acknowledged DraftV2 after the transition. Ordinary backup
     // must omit it even though it is present at export time.
@@ -379,6 +442,12 @@ async function main() {
     check(!JSON.stringify(exported).includes("repforge_pending_v1") &&
       !JSON.stringify(exported).includes("repforge_draft_v1"),
       "Ordinary backup contains no volatile journal or DraftV2 storage key");
+    const exportedProvenance = backupProvenance(exported);
+    check(sameValue(exportedProvenance.transitionIn, sourceProvenance.transitionIn) &&
+      sameValue(exportedProvenance.archive, sourceProvenance.archive) &&
+      sameValue(exportedProvenance.programHistory, sourceProvenance.programHistory) &&
+      sameValue(exportedProvenance.log, sourceProvenance.log),
+      "Production export preserves the complete source transitionIn, archive, history, and log values");
 
     targetContext = await browser.newContext();
     const target = await targetContext.newPage();
@@ -395,6 +464,8 @@ async function main() {
 
     const targetBeforeReload = await readReplicas(target);
     const targetIdentity = transitionIdentity(targetBeforeReload.local);
+    const targetLocalProvenance = backupProvenance(targetBeforeReload.local);
+    const targetIdbProvenance = backupProvenance(targetBeforeReload.idb);
     check(sameLogicalDocument(targetBeforeReload.local, expectedExport) &&
       sameLogicalDocument(targetBeforeReload.idb, expectedExport),
       "Fresh-context Replace imports the exact exported logical document into both replicas", {
@@ -402,6 +473,9 @@ async function main() {
         localProgramId: targetBeforeReload.local?.programMeta?.id,
         idbProgramId: targetBeforeReload.idb?.programMeta?.id,
       });
+    check(sameValue(targetLocalProvenance, sourceProvenance) &&
+      sameValue(targetIdbProvenance, sourceProvenance),
+      "Both imported replicas preserve complete transitionIn, archive, history, and log source values");
     check(!IMPORT_MARKER_KEYS.some((key) => Object.prototype.hasOwnProperty.call(targetBeforeReload.local || {}, key)) &&
       !IMPORT_MARKER_KEYS.some((key) => Object.prototype.hasOwnProperty.call(targetBeforeReload.idb || {}, key)),
       "Fresh-context import leaves no follow-up or transaction marker in either durable replica");
@@ -428,12 +502,15 @@ async function main() {
     const targetReloadBefore = clone(targetBeforeReload);
     await reloadAndBoot(target);
     const targetAfterReload = await readReplicas(target);
+    const reloadedLocalProvenance = backupProvenance(targetAfterReload.local);
+    const reloadedIdbProvenance = backupProvenance(targetAfterReload.idb);
     check(sameLogicalDocument(targetAfterReload.local, targetReloadBefore.local) &&
       sameLogicalDocument(targetAfterReload.idb, targetReloadBefore.idb),
       "Reload preserves the imported logical document exactly in both replicas");
-    check(JSON.stringify(targetAfterReload.local?.programHistory) === JSON.stringify(targetAfterReload.idb?.programHistory) &&
-      JSON.stringify(targetAfterReload.local?.programMeta?.transitionIn) === JSON.stringify(targetAfterReload.idb?.programMeta?.transitionIn),
-      "Reload keeps archive and transitionIn replicas equal");
+    check(sameValue(reloadedLocalProvenance, sourceProvenance) &&
+      sameValue(reloadedIdbProvenance, sourceProvenance) &&
+      sameValue(reloadedLocalProvenance, reloadedIdbProvenance),
+      "Reload keeps complete transitionIn, archive, history, and log replicas equal");
   } finally {
     await targetContext?.close().catch(() => {});
     await sourceContext?.close().catch(() => {});
