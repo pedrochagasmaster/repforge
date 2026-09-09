@@ -1092,6 +1092,56 @@ function transitionJournalAttempt(proposal,base){
     const baseTout=baseMap.map.get(key);
     if(!transitionRecordEqual(propTout,baseTout))return true}
   return false}
+function programHistoryUniqueIds(history){
+  const ids=new Set();
+  for(const row of history){
+    if(!isPlainStateObject(row))return null;
+    const id=row.id;
+    if(typeof id!=="string"||!id.trim())return null;
+    if(ids.has(id))return null;
+    ids.add(id)}
+  return ids}
+/* Correction 4: the one non-transition journal that replays is the exact
+   existing program-replacement shape — a new valid active id, no proposal
+   transitionIn, a transitionOut multiset identical to the base, every base
+   history row retained value-identically keyed by primary id, and exactly one
+   additional legacy archive for the old active id with no transitionOut, no
+   conflicting archiveId, and the exact captured base program/meta including
+   its transitionIn. Every other transitionIn removal stays a guarded attempt. */
+function isCoherentLegacyReplacement(proposal,base){
+  if(!proposal||!isPlainStateObject(proposal)||!base||!isPlainStateObject(base))return false;
+  const propMeta=proposal.programMeta,baseMeta=base.programMeta;
+  if(!isPlainStateObject(propMeta)||!isPlainStateObject(baseMeta))return false;
+  const succId=propMeta.id;
+  if(typeof succId!=="string"||!succId.trim()||succId===baseMeta.id)return false;
+  if(propMeta.transitionIn!=null)return false;
+  const propMap=extractTransitionOutMap(proposal);
+  const baseMap=extractTransitionOutMap(base);
+  if(propMap.invalid||baseMap.invalid)return false;
+  if(propMap.map.size!==baseMap.map.size)return false;
+  for(const [key,propTout] of propMap.map.entries()){
+    if(!baseMap.map.has(key))return false;
+    if(!transitionRecordEqual(propTout,baseMap.map.get(key)))return false}
+  const propHist=Array.isArray(proposal.programHistory)?proposal.programHistory:[];
+  const baseHist=Array.isArray(base.programHistory)?base.programHistory:[];
+  if(propHist.length!==baseHist.length+1)return false;
+  const propIds=programHistoryUniqueIds(propHist);
+  const baseIds=programHistoryUniqueIds(baseHist);
+  if(!propIds||!baseIds)return false;
+  for(const b of baseHist){
+    const p=propHist.find(row=>row.id===b.id);
+    if(!p)return false;
+    if(!transitionRecordEqual(p,b))return false}
+  const newRows=propHist.filter(row=>!baseIds.has(row.id));
+  if(newRows.length!==1)return false;
+  const newRow=newRows[0];
+  if(newRow.id!==baseMeta.id)return false;
+  if(newRow.transitionOut!=null)return false;
+  if(newRow.archiveId!=null&&newRow.archiveId!==newRow.id)return false;
+  if(newRow.meta==null||!transitionRecordEqual(newRow.meta,baseMeta))return false;
+  if(!Array.isArray(newRow.program))return false;
+  if(!transitionRecordEqual(newRow.program,Array.isArray(base.program)?base.program:[]))return false;
+  return true}
 function isCoherentV1TransitionIn(tin){
   return isPlainStateObject(tin)&&isBoundedTransitionValue(tin)&&
     tin.schemaVersion===1&&tin.status==="committed"&&
@@ -1142,14 +1192,14 @@ function isCoherentTransitionProposal(proposal,base){
       if(newArc.meta?.transitionIn!=null)return false;
     }
 
-    // Every inherited base archive must be retained value-identically
+    // Every inherited base history row must be retained value-identically,
+    // keyed by its stable primary id. Legacy rows without archiveId or
+    // transitionOut are kept as they are — never forced to invent fields.
     for(const b of baseHist){
-      if(!b||typeof b.id!=="string"||!b.id||b.id!==b.archiveId)return false;
+      if(!b||typeof b.id!=="string"||!b.id)return false;
       const matching=propHist.filter(p=>p!==newArc&&p?.id===b.id);
       if(matching.length!==1)return false;
-      const p=matching[0];
-      if(p.archiveId!==b.archiveId)return false;
-      if(!transitionRecordEqual(p.transitionOut,b.transitionOut))return false;
+      if(!transitionRecordEqual(matching[0],b))return false;
     }
   }
   return true}
@@ -3063,7 +3113,7 @@ function buildProgramMeta({name, answers, entrySource}={}){
     sessionLength:a.sessionLength??null,
     mesocycleLengthWeeks:Number.isFinite(+a.mesocycleLengthWeeks)&&+a.mesocycleLengthWeeks>0?Math.round(+a.mesocycleLengthWeeks):6,
     mesocycleStatus:"active",completedAt:null,onboarded:true,
-    progressionRelations:[],progressionModifiers:[],
+    progressionRelations:[],progressionModifiers:[],progressionIncompatibilities:[],
     blockPromptDismissedId:null,entrySource:normalizeProgramEntrySource(entrySource)}}
 function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date().toISOString(),base=defaultProgramMeta(log);
   if(!m||typeof m!=="object")return base;
@@ -13958,7 +14008,8 @@ async function resolveBootReplicas(candidate=null){
         replayed=true;
         continue}
       if(transitionJournalAttempt(journal.proposal,journal.base)&&
-        !isCoherentTransitionProposal(journal.proposal,journal.base)){
+        !isCoherentTransitionProposal(journal.proposal,journal.base)&&
+        !isCoherentLegacyReplacement(journal.proposal,journal.base)){
         const discarded=await executeDraftTransaction({record,transactionId:journal.id,
           effect:journal.effectOutcome,discard:true});
         if(!discarded.settled)

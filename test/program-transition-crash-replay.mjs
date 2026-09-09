@@ -423,6 +423,30 @@ async function crashGenericWhileQueued({ locker, survivor, context }, spec) {
       } else if (poisonSpec.kind === "tout-removed") {
         const row = clone.programHistory.find((h) => h?.transitionOut);
         if (row) delete row.transitionOut;
+      } else if (poisonSpec.kind === "tin-removed") {
+        delete clone.programMeta.transitionIn;
+      } else if (poisonSpec.kind === "legacy-clean" ||
+                 poisonSpec.kind === "legacy-tout-removed" ||
+                 poisonSpec.kind === "legacy-tout-mutated" ||
+                 poisonSpec.kind === "legacy-tout-relinked") {
+        const baseMeta = JSON.parse(JSON.stringify(clone.programMeta));
+        const oldId = baseMeta.id;
+        delete clone.programMeta.transitionIn;
+        clone.programMeta.id = "prog_p6c_legacy_poison";
+        clone.programHistory = [...(clone.programHistory || [])];
+        clone.programHistory.push({
+          id: oldId,
+          meta: baseMeta,
+          program: JSON.parse(JSON.stringify(clone.program)),
+          completedAt: "2026-10-03T20:00:00.000Z",
+        });
+        const arc = clone.programHistory.find((h) => h?.transitionOut);
+        if (poisonSpec.kind === "legacy-tout-removed") delete arc.transitionOut;
+        else if (poisonSpec.kind === "legacy-tout-mutated") {
+          arc.transitionOut = { ...arc.transitionOut, proposalHash: "c".repeat(64) };
+        } else {
+          arc.transitionOut = { ...arc.transitionOut, successorProgramId: "prog_p6c_relinked_succ" };
+        }
       } else if (poisonSpec.kind === "control-settings") {
         clone.settings = { ...clone.settings, restSec: 135 };
       } else if (poisonSpec.kind === "control-reordered-archives") {
@@ -448,6 +472,59 @@ async function crashGenericWhileQueued({ locker, survivor, context }, spec) {
     return !locks.pending.some((l) => l.name === lockName);
   }, STORAGE_LOCK, { timeout: 10000 });
   return journal;
+}
+
+// Correction-4 red vehicle: the real legacy program-replacement writer.
+// commitNextBlock("repeat") builds its proposal, archives the predecessor
+// (with the predecessor's full old meta, including transitionIn, and no
+// transitionOut/archiveId), strips the active transitionIn by starting a
+// fresh block meta, and arms the production journal before the state-write
+// lock. The writer is destroyed queued, so the journal replays at boot.
+async function crashLegacyReplacementWhileQueued({ locker, writer, survivor }) {
+  await bootOthers([writer]);
+  await holdStorageLock(locker);
+  await writer.evaluate(() => {
+    window.__p6cLegacyResult = window.__repforgeCommitNextBlock("repeat");
+  });
+  await waitForPendingStorageLocks(locker, 1);
+  await survivor.waitForFunction((prefix) =>
+    Object.keys(localStorage).some((k) => k.startsWith(prefix)), PENDING_PREFIX, { timeout: 10000 });
+  const journal = await readJournal(survivor);
+  if (!journal) throw new Error("legacy replacement journal was not armed while queued");
+  const parsed = JSON.parse(journal.raw);
+  if (parsed?.id == null) throw new Error("armed legacy journal has no id");
+  await writer.close();
+  await releaseStorageLock(locker);
+  await locker.waitForFunction(async (lockName) => {
+    const locks = await navigator.locks.query();
+    return !locks.pending.some((l) => l.name === lockName);
+  }, STORAGE_LOCK, { timeout: 10000 });
+  return journal;
+}
+
+// Adds one valid old legacy history row — a stable primary id, no archiveId,
+// no transitionOut — to the durable base through the real proposed-state path,
+// then reloads so both replicas and the live clone agree on it.
+async function addLegacyHistoryRow(page, tag) {
+  const res = await page.evaluate(async (t) => {
+    const s = JSON.parse(JSON.stringify(window.__repforgeWorkoutDraft.state()));
+    s.programHistory = [...(s.programHistory || [])];
+    const row = {
+      id: `prog_p6c_legacy_old_${t}`,
+      meta: { id: `prog_p6c_legacy_old_${t}`, name: "Legacy predecessor block", onboarded: true },
+      completedAt: "2026-09-30T00:00:00.000Z",
+    };
+    s.programHistory.push(row);
+    const res = await window.__repforgeCommitProposedState(s);
+    await window.__repforgeStorage.flush();
+    return { ok: res.localOk && res.idbOk, rowId: row.id };
+  }, tag);
+  if (!res.ok) throw new Error(`legacy history row seed failed: ${JSON.stringify(res)}`);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  const state = await page.evaluate(() => window.__repforgeWorkoutDraft.state());
+  return { rowId: res.rowId, revision: state._storageRevision,
+    legacyRow: JSON.parse(JSON.stringify((state.programHistory || []).find((h) => h?.id === res.rowId))) };
 }
 
 // Production write-fault injection: the shipped transaction must fail on the
@@ -1644,6 +1721,394 @@ async function main() {
         "duplicate retry after prepared B->C replay reports alreadyCommitted", dupRetry);
 
       await context.close();
+    }
+
+    // =========================================================================
+    // Case 9 (correction 4): the existing program-replacement shape replays
+    // coherently at boot, while arbitrary transitionIn stripping stays guarded.
+    //
+    // 9a. A real A->B compiler-backed transition commits; a real
+    //     commitNextBlock("repeat") then arms the production legacy
+    //     replacement journal while queued and its writer dies. The journal
+    //     removes active B's transitionIn, keeps A's transitionOut, and adds
+    //     exactly one legacy archive for B with B's full old meta. Boot must
+    //     replay it exactly once to the fresh legacy successor at R+1 — not
+    //     discard it and silently leave B at the old revision.
+    // 9b. A same-program journal that only removes transitionIn is still a
+    //     guarded transition attempt and is discarded.
+    // 9c. A coherent-looking legacy replacement whose inherited A
+    //     transitionOut is removed/mutated/relinked is discarded.
+    // 9d. A base holding a legacy history row (id but no archiveId/transitionOut)
+    //     keeps that row value-identically through a real Plan-052 transition's
+    //     prepared and final crash recovery.
+    // =========================================================================
+    console.log("\n9. Coherent legacy replacement replays; arbitrary tin stripping stays guarded");
+    {
+      // ---- 9a: the real legacy replacement journal replays exactly once ----
+      {
+        const env = await newBootedContext(browser);
+        const { locker, survivor, context } = env;
+        const setup = await setupPredecessorWithSentinelAndDraft(survivor, "legacy_repl");
+        const revisionA = setup.predecessorRevision;
+
+        const propose = await page_or_null(survivor, {
+          transitionId: "tr_p6c_legacy_ab",
+          successorProgramId: "prog_p6c_legacy_b",
+          createdAt: "2026-10-03T21:00:00.000Z",
+        });
+        check(propose?.ok === true, "9a: A->B sibling proposal created", propose?.code);
+        const proposalAB = propose.proposal;
+        const committedAB = await confirmTransition(survivor, {
+          proposal: proposalAB,
+          transitionId: proposalAB.transitionId,
+          successorProgramId: proposalAB.successor.programId,
+          confirmedAt: "2026-10-03T21:10:00.000Z",
+          proposalHash: proposalAB.proposalHash,
+          acknowledgedDraftRaw: setup.preDraftRaw,
+        });
+        check(committedAB?.ok === true && committedAB?.committed === true &&
+              committedAB?.localOk === true && committedAB?.idbOk === true,
+          "9a: A->B transition committed cleanly", committedAB);
+        await survivor.evaluate(() => window.__repforgeStorage.flush());
+        await survivor.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(survivor, { base: BASE });
+
+        const stateB = await readReplicas(survivor);
+        const activeBId = stateB.local.programId;
+        const revisionB = stateB.local.revision;
+        check(activeBId === "prog_p6c_legacy_b" && revisionB === revisionA + 1,
+          "9a: program B is active at revision R+1 with its A->B provenance", { activeBId, revisionB });
+        const tinB = JSON.parse(JSON.stringify(stateB.local.transitionIn));
+        const historyB = JSON.parse(JSON.stringify(stateB.local.programHistory));
+        check(tinB?.transitionId === proposalAB.transitionId && historyB.length === 1 &&
+              historyB[0]?.archiveId === proposalAB.predecessor.programId,
+          "9a: B carries the committed A->B transitionIn and the A archive with its transitionOut");
+
+        await bootOthers([locker]);
+
+        const journal = await crashLegacyReplacementWhileQueued(env);
+        const armed = JSON.parse(journal.raw);
+        const armedProp = armed.proposal, armedBase = armed.base;
+        check(armedBase?.programMeta?.id === activeBId && armedBase?.programMeta?.transitionIn?.transitionId === proposalAB.transitionId,
+          "9a: the journal base is active B with its exact A->B transitionIn");
+        check(typeof armedProp?.programMeta?.id === "string" && armedProp.programMeta.id !== activeBId &&
+              armedProp.programMeta.id.trim() !== "",
+          "9a: the journal proposal activates a different valid program id", armedProp?.programMeta?.id);
+        check(armedProp?.programMeta?.transitionIn == null,
+          "9a: the journal proposal transitionIn is absent (legacy fresh block meta)");
+        const propTouts = (armedProp.programHistory || []).filter((h) => h?.transitionOut);
+        const baseTouts = (armedBase.programHistory || []).filter((h) => h?.transitionOut);
+        check(propTouts.length === 1 && baseTouts.length === 1 &&
+              isDeepStrictEqual(propTouts[0].transitionOut, baseTouts[0].transitionOut) &&
+              isDeepStrictEqual(propTouts[0], baseTouts[0]),
+          "9a: the inherited A transitionOut archive is retained value-identically");
+        const extraRows = (armedProp.programHistory || []).filter((h) =>
+          !(armedBase.programHistory || []).some((b) => b?.id === h?.id));
+        check(extraRows.length === 1 && extraRows[0].id === activeBId &&
+              extraRows[0].transitionOut == null && extraRows[0].archiveId == null &&
+              isDeepStrictEqual(extraRows[0].meta, armedBase.programMeta) &&
+              isDeepStrictEqual(extraRows[0].program, armedBase.program),
+          "9a: exactly one legacy archive for B captures the exact base program/meta including the A->B transitionIn");
+
+        // Observe every durable repforge_v1 write during boot so the replay
+        // is proven exactly-once: the journal replay must advance the
+        // revision by exactly one (R+1) per replica. The production legacy
+        // writer must emit the complete current metadata shape, so boot has
+        // no normalization write to append.
+        await survivor.evaluate(() => { window.__p6cBootWrites = []; });
+        await survivor.addInitScript(() => {
+          window.__p6cBootWrites = [];
+          const origSet = Storage.prototype.setItem;
+          Storage.prototype.setItem = function (k, v) {
+            if (k === "repforge_v1") {
+              try { window.__p6cBootWrites.push({ side: "local", rev: JSON.parse(v)._storageRevision }); } catch {}
+            }
+            return origSet.apply(this, arguments);
+          };
+          const origPut = IDBObjectStore.prototype.put;
+          IDBObjectStore.prototype.put = function (v, k) {
+            if (k === "repforge_v1") {
+              try { window.__p6cBootWrites.push({ side: "idb", rev: JSON.parse(typeof v === "string" ? v : JSON.stringify(v))._storageRevision }); } catch {}
+            }
+            return origPut.apply(this, arguments);
+          };
+        });
+
+        await survivor.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(survivor, { base: BASE });
+
+        const legacySuccessorId = armedProp.programMeta.id;
+        const bootWrites = await survivor.evaluate(() => window.__p6cBootWrites || []);
+        const localWrites = bootWrites.filter((w) => w.side === "local").map((w) => w.rev);
+        const idbWrites = bootWrites.filter((w) => w.side === "idb").map((w) => w.rev);
+        for (const [side, writes] of [["local", localWrites], ["idb", idbWrites]]) {
+          check(isDeepStrictEqual(writes, [revisionB + 1]),
+            `9a: boot performed exactly one durable replay write at R+1 in ${side}`, writes);
+        }
+        const replayed = await readReplicas(survivor);
+        for (const side of ["local", "idb"]) {
+          check(replayed[side].programId === legacySuccessorId,
+            `9a: boot replayed the coherent legacy replacement to the fresh successor in ${side}`,
+            replayed[side].programId);
+          check(replayed[side].revision === revisionB + 1,
+            `9a: the durable successor sits exactly at replay revision R+1 in ${side}`,
+            { expected: revisionB + 1, actual: replayed[side].revision });
+          check(replayed[side].transitionIn == null,
+            `9a: active transitionIn is absent in ${side} (no fabricated link to the new legacy successor)`);
+          check(replayed[side].programHistory.length === 2,
+            `9a: exactly two archives in ${side} after the legacy replacement replay`,
+            replayed[side].programHistory.length);
+          check(isDeepStrictEqual(replayed[side].programHistory[0], historyB[0]),
+            `9a: the inherited A archive is value-identical in ${side}`);
+          const bArchive = replayed[side].programHistory[1];
+          check(bArchive?.id === activeBId && bArchive?.transitionOut == null && bArchive?.archiveId == null,
+            `9a: the new B legacy archive has no transitionOut and no archiveId in ${side}`, bArchive);
+          check(isDeepStrictEqual(bArchive?.meta?.transitionIn, tinB),
+            `9a: the B legacy archive meta carries the exact A->B transitionIn in ${side}`);
+          check(isDeepStrictEqual(replayed[side].log, setup.logSentinel),
+            `9a: log sentinel unchanged in ${side}`);
+        }
+        const legacyDraft = await readDraftBytes(survivor);
+        check(legacyDraft.raw === setup.preDraftRaw && legacyDraft.checkpoint === setup.preCheckpointRaw,
+          "9a: DraftV2 raw and checkpoint bytes unchanged by the legacy replay");
+        const legacyArtifacts = await artifactKeys(survivor);
+        check(legacyArtifacts.pending.length === 0 && legacyArtifacts.closing.length === 0 &&
+              legacyArtifacts.sidecar.length === 0,
+          "9a: replay consumed every pending, sidecar, and closing artifact", legacyArtifacts);
+
+        await survivor.evaluate(() => { window.__p6cBootWrites = []; });
+        await survivor.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(survivor, { base: BASE });
+        const secondBootWrites = await survivor.evaluate(() => window.__p6cBootWrites || []);
+        const secondBoot = await readReplicas(survivor);
+        check(secondBootWrites.length === 0,
+          "9a: a second boot performed zero durable writes", secondBootWrites);
+        for (const side of ["local", "idb"]) {
+          check(secondBoot[side].programId === legacySuccessorId &&
+                secondBoot[side].revision === replayed[side].revision &&
+                secondBoot[side].programHistory.length === 2 &&
+                isDeepStrictEqual(secondBoot[side].programHistory, replayed[side].programHistory),
+            `9a: a second boot added no revision or archive in ${side}`, secondBoot[side]);
+        }
+        await context.close();
+      }
+
+      // ---- 9b: same-program tin removal is still a guarded attempt ----
+      {
+        const env = await newBootedContext(browser);
+        const { locker, survivor, context } = env;
+        const setup = await setupPredecessorWithSentinelAndDraft(survivor, "tin_strip");
+        const revisionR = setup.predecessorRevision;
+        const propose = await page_or_null(survivor, {
+          transitionId: "tr_p6c_tin_strip",
+          successorProgramId: "prog_p6c_tin_strip_b",
+          createdAt: "2026-10-03T22:00:00.000Z",
+        });
+        const proposal = propose.proposal;
+        const confirmArgs = {
+          proposal,
+          transitionId: proposal.transitionId,
+          successorProgramId: proposal.successor.programId,
+          confirmedAt: "2026-10-03T22:10:00.000Z",
+          proposalHash: proposal.proposalHash,
+          acknowledgedDraftRaw: setup.preDraftRaw,
+        };
+        const committed = await confirmTransition(survivor, confirmArgs);
+        check(committed?.committed === true, "9b: the transition committed before the tin-strip case", committed);
+        await survivor.evaluate(() => window.__repforgeStorage.flush());
+        await survivor.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(survivor, { base: BASE });
+
+        const committedState = await readReplicas(survivor);
+        const revisionT = committedState.local.revision;
+        const originalTin = JSON.parse(JSON.stringify(committedState.local.transitionIn));
+        const originalHistory = JSON.parse(JSON.stringify(committedState.local.programHistory));
+
+        await bootOthers([locker]);
+        const journal = await crashGenericWhileQueued({ locker, survivor, context }, { kind: "tin-removed" });
+        check(journal.key.startsWith(PENDING_PREFIX), "9b: the same-program tin-strip journal is armed");
+        const armed = JSON.parse(journal.raw);
+        check(armed.proposal?.programMeta?.transitionIn == null &&
+              armed.proposal?.programMeta?.id === proposal.successor.programId,
+          "9b: the armed journal keeps the same active id and only removes transitionIn");
+        await survivor.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(survivor, { base: BASE });
+
+        const after = await readReplicas(survivor);
+        for (const side of ["local", "idb"]) {
+          check(after[side].programId === proposal.successor.programId &&
+                after[side].revision === revisionT &&
+                isDeepStrictEqual(after[side].transitionIn, originalTin) &&
+                isDeepStrictEqual(after[side].programHistory, originalHistory) &&
+                isDeepStrictEqual(after[side].log, setup.logSentinel),
+            `9b: boot discarded the same-program tin strip and left B unchanged in ${side}`, after[side]);
+        }
+        const draftAfter = await readDraftBytes(survivor);
+        check(draftAfter.raw === setup.preDraftRaw && draftAfter.checkpoint === setup.preCheckpointRaw,
+          "9b: DraftV2 bytes unchanged by the tin-strip discard");
+        const artifacts = await artifactKeys(survivor);
+        check(artifacts.pending.length === 0 && artifacts.closing.length === 0 && artifacts.sidecar.length === 0,
+          "9b: the tin-strip discard cleared every artifact", artifacts);
+        const retry = await confirmTransition(survivor, confirmArgs);
+        check(retry?.alreadyCommitted === true && retry?.committed === true,
+          "9b: the exact retry after the discard returns alreadyCommitted", retry);
+        await context.close();
+      }
+
+      // ---- 9c: legacy-shaped replacements that tamper inherited transitionOut fail closed ----
+      for (const legacyPoison of [
+        { name: "removed inherited A transitionOut", kind: "legacy-tout-removed" },
+        { name: "mutated inherited A transitionOut field", kind: "legacy-tout-mutated" },
+        { name: "relinked inherited A transitionOut successor", kind: "legacy-tout-relinked" },
+      ]) {
+        const env = await newBootedContext(browser);
+        const { locker, survivor, context } = env;
+        const setup = await setupPredecessorWithSentinelAndDraft(survivor, "legacy_poison");
+        const revisionR = setup.predecessorRevision;
+        const propose = await page_or_null(survivor, {
+          transitionId: "tr_p6c_legacy_poison",
+          successorProgramId: "prog_p6c_legacy_poison_b",
+          createdAt: "2026-10-03T23:00:00.000Z",
+        });
+        const proposal = propose.proposal;
+        const confirmArgs = {
+          proposal,
+          transitionId: proposal.transitionId,
+          successorProgramId: proposal.successor.programId,
+          confirmedAt: "2026-10-03T23:10:00.000Z",
+          proposalHash: proposal.proposalHash,
+          acknowledgedDraftRaw: setup.preDraftRaw,
+        };
+        const committed = await confirmTransition(survivor, confirmArgs);
+        check(committed?.committed === true, `9c: the transition committed (${legacyPoison.name})`, committed);
+        await survivor.evaluate(() => window.__repforgeStorage.flush());
+        await survivor.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(survivor, { base: BASE });
+
+        const committedState = await readReplicas(survivor);
+        const revisionT = committedState.local.revision;
+        const originalTin = JSON.parse(JSON.stringify(committedState.local.transitionIn));
+        const originalHistory = JSON.parse(JSON.stringify(committedState.local.programHistory));
+
+        await bootOthers([locker]);
+        const journal = await crashGenericWhileQueued({ locker, survivor, context }, { kind: legacyPoison.kind });
+        const armed = JSON.parse(journal.raw);
+        check(armed.proposal?.programMeta?.transitionIn == null &&
+              armed.proposal?.programMeta?.id !== proposal.successor.programId &&
+              (armed.proposal.programHistory || []).length ===
+                (armed.base.programHistory || []).length + 1,
+          `9c: the armed journal carries the coherent-looking legacy replacement shape (${legacyPoison.name})`);
+        await survivor.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(survivor, { base: BASE });
+
+        const after = await readReplicas(survivor);
+        for (const side of ["local", "idb"]) {
+          check(after[side].programId === proposal.successor.programId &&
+                after[side].revision === revisionT &&
+                isDeepStrictEqual(after[side].transitionIn, originalTin) &&
+                isDeepStrictEqual(after[side].programHistory, originalHistory) &&
+                isDeepStrictEqual(after[side].log, setup.logSentinel),
+            `9c: boot discarded the tampered legacy replacement and left B unchanged in ${side}`, after[side]);
+        }
+        const draftAfter = await readDraftBytes(survivor);
+        check(draftAfter.raw === setup.preDraftRaw && draftAfter.checkpoint === setup.preCheckpointRaw,
+          `9c: DraftV2 bytes unchanged by the discard (${legacyPoison.name})`);
+        const artifacts = await artifactKeys(survivor);
+        check(artifacts.pending.length === 0 && artifacts.closing.length === 0 && artifacts.sidecar.length === 0,
+          `9c: the discard cleared every artifact (${legacyPoison.name})`, artifacts);
+        const retry = await confirmTransition(survivor, confirmArgs);
+        check(retry?.alreadyCommitted === true && retry?.committed === true,
+          `9c: the exact retry after the discard returns alreadyCommitted (${legacyPoison.name})`, retry);
+        await context.close();
+      }
+
+      // ---- 9d: a legacy history row survives a real Plan-052 transition's recovery ----
+      for (const variant of [
+        { name: "prepared", fault: "write" },
+        { name: "final", fault: "cleanup" },
+      ]) {
+        const context = await browser.newContext();
+        const survivor = await context.newPage();
+        survivor.on("dialog", (d) => d.dismiss().catch(() => {}));
+        await survivor.goto(BASE);
+        await waitForAppBoot(survivor, { base: BASE });
+        await clearStorage(survivor);
+        await survivor.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(survivor, { base: BASE });
+
+        const setup = await setupPredecessorWithSentinelAndDraft(survivor, `legacy_row_${variant.name}`);
+        const seed = await addLegacyHistoryRow(survivor, variant.name);
+        const revisionSeed = seed.revision;
+        const legacyRow = seed.legacyRow;
+        check(legacyRow?.id === seed.rowId && !Object.prototype.hasOwnProperty.call(legacyRow, "archiveId") &&
+              !Object.prototype.hasOwnProperty.call(legacyRow, "transitionOut"),
+          `9d (${variant.name}): the seeded legacy row has a primary id and no archiveId/transitionOut`, legacyRow);
+
+        const propose = await page_or_null(survivor, {
+          transitionId: `tr_p6c_legacy_row_${variant.name}`,
+          successorProgramId: `prog_p6c_legacy_row_${variant.name}_b`,
+          createdAt: "2026-10-04T00:00:00.000Z",
+        });
+        check(propose?.ok === true, `9d (${variant.name}): sibling proposal created over the legacy-row base`, propose?.code);
+        const proposal = propose.proposal;
+
+        if (variant.fault === "write") await injectWriteFailureAfterFirst(survivor);
+        else await injectCleanupFailure(survivor);
+        const res = await confirmTransition(survivor, {
+          proposal,
+          transitionId: proposal.transitionId,
+          successorProgramId: proposal.successor.programId,
+          confirmedAt: "2026-10-04T00:10:00.000Z",
+          proposalHash: proposal.proposalHash,
+          acknowledgedDraftRaw: setup.preDraftRaw,
+        });
+        await survivor.evaluate(() => { if (window.__p6cRestoreWriteSeam) window.__p6cRestoreWriteSeam(); });
+        await survivor.evaluate(() => { if (window.__p6cRestoreCleanupSeam) window.__p6cRestoreCleanupSeam(); });
+        await survivor.evaluate(() => window.__repforgeStorage.flush());
+        if (variant.fault === "write") {
+          check(res?.deferred === true && res?.finalizationPending === true,
+            `9d (${variant.name}): the interrupted confirm reports deferred finalization`, res);
+        } else {
+          check(res?.localOk === true && res?.idbOk === true,
+            `9d (${variant.name}): the finalized commit landed in both replicas despite the interrupted cleanup`, res);
+        }
+
+        await survivor.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(survivor, { base: BASE });
+
+        const recovered = await readReplicas(survivor);
+        for (const side of ["local", "idb"]) {
+          check(recovered[side].programId === proposal.successor.programId &&
+                recovered[side].revision === revisionSeed + 1,
+            `9d (${variant.name}): recovery finished the same successor at R+1 in ${side}`, recovered[side]);
+          check(recovered[side].programHistory.length === 2,
+            `9d (${variant.name}): exactly two history rows in ${side}`, recovered[side].programHistory.length);
+          check(isDeepStrictEqual(recovered[side].programHistory.find((h) => h?.id === seed.rowId), legacyRow),
+            `9d (${variant.name}): the legacy row is retained value-identically in ${side} with no invented fields`);
+          const newArc = recovered[side].programHistory.find((h) => h?.id === proposal.predecessor.programId);
+          check(newArc?.id === proposal.predecessor.programId &&
+                newArc?.archiveId === proposal.predecessor.programId &&
+                newArc?.transitionOut?.schemaVersion === 1 &&
+                newArc?.transitionOut?.transitionId === proposal.transitionId &&
+                newArc?.transitionOut?.proposalHash === proposal.proposalHash &&
+                newArc?.transitionOut?.successorProgramId === proposal.successor.programId,
+            `9d (${variant.name}): the new transition archive is exact in ${side}`, newArc);
+          check(recovered[side].transitionIn?.transitionId === proposal.transitionId &&
+                recovered[side].transitionIn?.archiveId === proposal.predecessor.programId,
+            `9d (${variant.name}): the successor transitionIn is exact in ${side}`);
+          check(recovered[side].storageDraftTransaction == null,
+            `9d (${variant.name}): no parsed transaction marker remains in ${side}`);
+          check(isDeepStrictEqual(recovered[side].log, setup.logSentinel),
+            `9d (${variant.name}): log sentinel unchanged in ${side}`);
+        }
+        const draftAfter = await readDraftBytes(survivor);
+        check(draftAfter.raw === setup.preDraftRaw && draftAfter.checkpoint === setup.preCheckpointRaw,
+          `9d (${variant.name}): DraftV2 bytes unchanged through recovery`);
+        const artifacts = await artifactKeys(survivor);
+        check(artifacts.pending.length === 0 && artifacts.closing.length === 0 && artifacts.sidecar.length === 0,
+          `9d (${variant.name}): recovery cleared every pending, sidecar, and closing artifact`, artifacts);
+        await context.close();
+      }
     }
 
   } finally {
