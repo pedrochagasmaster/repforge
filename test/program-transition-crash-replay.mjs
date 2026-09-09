@@ -257,6 +257,65 @@ async function proposeRecoveryCrashOracle(page, transitionId, createdAt = RECOVE
   });
 }
 
+async function proposeAndSealRecoveryCrashOracle(page, transitionId, createdAt = RECOVERY_CREATED_AT, confirmedAt = RECOVERY_CONFIRMED_AT) {
+  return page.evaluate(async ({ transitionId, createdAt, confirmedAt, reassessmentDueAt, evidence, approvedPolicy }) => {
+    const adapter = window.__repforgeProgramTransition;
+    if (typeof adapter?.proposeRecoveryWeek !== "function") {
+      return { ok: false, status: "unavailable", code: "recovery_proposal_seam_missing", missing: true };
+    }
+    const proposed = await adapter.proposeRecoveryWeek({
+      evidence,
+      approvedPolicy,
+      transitionId,
+      createdAt,
+    });
+    if (!proposed?.ok) return proposed;
+    try {
+      const record = window.RepForgeProgramTransition.commitRecord(proposed.proposal, {
+        confirmedAt,
+        reassessmentDueAt,
+        archiveId: null,
+      });
+      return { ok: true, record, proposal: proposed.proposal };
+    } catch (error) {
+      return { ok: false, error: String(error?.message || error) };
+    }
+  }, {
+    transitionId,
+    createdAt,
+    confirmedAt,
+    reassessmentDueAt: RECOVERY_DUE_AT,
+    evidence: JSON.parse(JSON.stringify(RECOVERY_EVIDENCE)),
+    approvedPolicy: JSON.parse(JSON.stringify(RECOVERY_POLICY_V2)),
+  });
+}
+
+async function validateRecoveryRecordAgainstLive(page, record) {
+  return page.evaluate(async ({ candidate, approvedPolicy }) => {
+    const Transition = window.RepForgeProgramTransition;
+    const Compiler = window.RepForgeProgramCompiler;
+    const catalogue = window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY;
+    const snapshot = window.__repforgeWorkoutDraft?.state?.();
+    if (!Transition || !Compiler || !snapshot?.programMeta?.compilerContext) {
+      return { ok: false, code: "record-validation_seam_missing" };
+    }
+    let predecessorInstance;
+    try {
+      predecessorInstance = Compiler.compile(snapshot.programMeta.compilerContext, catalogue);
+    } catch (error) {
+      return { ok: false, code: "record-validation_compile_failed", error: String(error?.message || error) };
+    }
+    const validation = await Transition.validateRecoveryRecord(candidate, {
+      predecessor: candidate?.predecessor,
+      predecessorInstance,
+      approvedPolicy,
+      supportedVersions: Compiler.VERSIONS,
+      existingRecoveryRecords: [],
+    });
+    return { ok: validation?.ok === true, code: validation?.code, status: validation?.status };
+  }, { candidate: JSON.parse(JSON.stringify(record)), approvedPolicy: JSON.parse(JSON.stringify(RECOVERY_POLICY_V2)) });
+}
+
 function recoveryConfirmArgs(proposal, confirmedAt = RECOVERY_CONFIRMED_AT) {
   return {
     proposal,
@@ -274,30 +333,37 @@ function carrierRecords(snapshot) {
     : [];
 }
 
-function withoutRecoveryCommitFields(snapshot) {
-  const copy = JSON.parse(JSON.stringify(snapshot));
-  delete copy._storageRevision;
-  delete copy.recoveryTransitions;
-  if (copy.programMeta) delete copy.programMeta.blockId;
-  return copy;
+function committedRecoveryRecord(proposal, confirmedAt = RECOVERY_CONFIRMED_AT, reassessmentDueAt = RECOVERY_DUE_AT) {
+  const record = JSON.parse(JSON.stringify(proposal));
+  record.status = "committed";
+  record.confirmedAt = confirmedAt;
+  record.archiveId = null;
+  record.diff.recoveryWeek.confirmedAt = confirmedAt;
+  record.diff.recoveryWeek.reassessmentDueAt = reassessmentDueAt;
+  record.diff.recoveryWeek.reassessmentOutcome = null;
+  return record;
 }
 
-function exactRecoverySuccess(source, actual, proposal) {
-  const targetBlockId = proposal?.diff?.recoveryWeek?.blockId;
-  const records = carrierRecords(actual);
-  return isDeepStrictEqual(withoutRecoveryCommitFields(source), withoutRecoveryCommitFields(actual)) &&
-    isDeepStrictEqual(source.program, actual.program) &&
-    isDeepStrictEqual(source.programHistory || [], actual.programHistory || []) &&
-    actual._storageRevision === source._storageRevision + 1 &&
-    actual.programMeta?.id === source.programMeta?.id &&
-    actual.programMeta?.blockId === targetBlockId &&
-    records.length === 1 &&
-    records[0]?.kind === "recovery_week" &&
-    records[0]?.status === "committed" &&
-    records[0]?.proposalHash === proposal.proposalHash &&
-    records[0]?.transitionId === proposal.transitionId &&
-    records[0]?.archiveId === null &&
-    records[0]?.successor === undefined;
+function expectedRecoverySuccess(source, proposal, confirmedAt = RECOVERY_CONFIRMED_AT) {
+  const expected = JSON.parse(JSON.stringify(source));
+  expected._storageRevision = source._storageRevision + 1;
+  expected.programMeta = {
+    ...expected.programMeta,
+    blockId: proposal.diff.recoveryWeek.blockId,
+  };
+  const priorCarrier = source.recoveryTransitions && typeof source.recoveryTransitions === "object"
+    ? JSON.parse(JSON.stringify(source.recoveryTransitions))
+    : { schemaVersion: 1, records: [], quarantine: [] };
+  expected.recoveryTransitions = {
+    ...priorCarrier,
+    records: [...(Array.isArray(priorCarrier.records) ? priorCarrier.records : []),
+      committedRecoveryRecord(proposal, confirmedAt)],
+  };
+  return expected;
+}
+
+function exactRecoverySuccess(source, actual, proposal, confirmedAt = RECOVERY_CONFIRMED_AT) {
+  return isDeepStrictEqual(actual, expectedRecoverySuccess(source, proposal, confirmedAt));
 }
 
 function exactSourceState(source, actual) {
@@ -393,21 +459,32 @@ async function injectFirstReplicaFailure(page, side) {
   await page.evaluate(({ key, side }) => {
     const originalSetItem = Storage.prototype.setItem;
     const originalPut = IDBObjectStore.prototype.put;
+    const stats = { side, writes: 0, faults: 0 };
     if (side === "local") {
       Storage.prototype.setItem = function (candidate) {
-        if (candidate === key) throw new Error("audit: recovery local write interrupted");
+        if (candidate === key) {
+          stats.writes++;
+          stats.faults++;
+          throw new Error("audit: recovery local write interrupted");
+        }
         return originalSetItem.apply(this, arguments);
       };
     } else {
       IDBObjectStore.prototype.put = function (_value, candidate) {
-        if (candidate === key) throw new Error("audit: recovery IndexedDB write interrupted");
+        if (candidate === key) {
+          stats.writes++;
+          stats.faults++;
+          throw new Error("audit: recovery IndexedDB write interrupted");
+        }
         return originalPut.apply(this, arguments);
       };
     }
     window.__p6cRestoreReplicaFailure = () => {
       Storage.prototype.setItem = originalSetItem;
       IDBObjectStore.prototype.put = originalPut;
+      return { ...stats };
     };
+    window.__p6cReplicaFailureStats = stats;
   }, { key: KEY, side });
 }
 
@@ -846,24 +923,33 @@ async function injectWriteFailureAfterFirst(page) {
   await page.evaluate((key) => {
     const originalSetItem = Storage.prototype.setItem;
     const originalPut = IDBObjectStore.prototype.put;
-    let localWrites = 0;
-    let idbWrites = 0;
+    const stats = { localWrites: 0, idbWrites: 0, localFaults: 0, idbFaults: 0 };
     Storage.prototype.setItem = function (candidate) {
-      if (candidate === key && ++localWrites > 1) {
-        throw new Error("audit: defer final durable state");
+      if (candidate === key) {
+        stats.localWrites++;
+        if (stats.localWrites > 1) {
+          stats.localFaults++;
+          throw new Error("audit: defer final durable state");
+        }
       }
       return originalSetItem.apply(this, arguments);
     };
     IDBObjectStore.prototype.put = function (_value, candidate) {
-      if (candidate === key && ++idbWrites > 1) {
-        throw new Error("audit: defer final durable state");
+      if (candidate === key) {
+        stats.idbWrites++;
+        if (stats.idbWrites > 1) {
+          stats.idbFaults++;
+          throw new Error("audit: defer final durable state");
+        }
       }
       return originalPut.apply(this, arguments);
     };
     window.__p6cRestoreWriteSeam = () => {
       Storage.prototype.setItem = originalSetItem;
       IDBObjectStore.prototype.put = originalPut;
+      return { ...stats };
     };
+    window.__p6cWriteFaultStats = stats;
   }, KEY);
 }
 
@@ -887,17 +973,22 @@ async function injectIdbState(page, value) {
 async function injectCleanupFailure(page) {
   await page.evaluate(() => {
     const originalRemoveItem = Storage.prototype.removeItem;
+    const stats = { attempts: 0, faults: 0 };
     Storage.prototype.removeItem = function (key) {
       if (typeof key === "string" &&
           (key.startsWith("repforge_pending_v1") || key.startsWith("repforge_draft_v1:closing") ||
            key.startsWith("repforge_draft_v1:pending"))) {
+        stats.attempts++;
+        stats.faults++;
         throw new Error("audit: cleanup interrupted");
       }
       return originalRemoveItem.apply(this, arguments);
     };
     window.__p6cRestoreCleanupSeam = () => {
       Storage.prototype.removeItem = originalRemoveItem;
+      return { ...stats };
     };
+    window.__p6cCleanupFaultStats = stats;
   });
 }
 
@@ -1098,7 +1189,9 @@ async function main() {
 
       await injectWriteFailureAfterFirst(survivor);
       const interrupted = await confirmTransition(survivor, args);
-      await survivor.evaluate(() => window.__p6cRestoreWriteSeam());
+      const writeFaults = await survivor.evaluate(() => window.__p6cRestoreWriteSeam?.() || null);
+      check(writeFaults?.localFaults > 0 && writeFaults?.idbFaults > 0,
+        "prepared replacement fault injection hit both durable write seams", writeFaults);
       await survivor.evaluate(() => window.__repforgeStorage.flush());
       check(interrupted?.deferred === true && interrupted?.finalizationPending === true,
         "interrupted confirm reports the truthful deferred finalization, not a settled commit", interrupted);
@@ -1209,7 +1302,8 @@ async function main() {
 
       await injectCleanupFailure(survivor);
       const committed = await confirmTransition(survivor, args);
-      await survivor.evaluate(() => window.__p6cRestoreCleanupSeam());
+      const cleanupFaults = await survivor.evaluate(() => window.__p6cRestoreCleanupSeam?.() || null);
+      check(cleanupFaults?.faults > 0, "finalized replacement cleanup fault injection hit", cleanupFaults);
       await survivor.evaluate(() => window.__repforgeStorage.flush());
       check(committed?.localOk === true && committed?.idbOk === true,
         "transition finalized in both replicas despite the interrupted cleanup", committed);
@@ -1995,7 +2089,9 @@ async function main() {
         proposalHash: proposalBC.proposalHash,
         acknowledgedDraftRaw: setup.preDraftRaw,
       });
-      await survivor.evaluate(() => window.__p6cRestoreWriteSeam());
+      const writeFaults = await survivor.evaluate(() => window.__p6cRestoreWriteSeam?.() || null);
+      check(writeFaults?.localFaults > 0 && writeFaults?.idbFaults > 0,
+        "prepared chained replacement fault injection hit both durable write seams", writeFaults);
       await survivor.evaluate(() => window.__repforgeStorage.flush());
       check(interrupted?.deferred === true && interrupted?.finalizationPending === true,
         "interrupted B->C confirm reports deferred finalization", interrupted);
@@ -2494,8 +2590,15 @@ async function main() {
           proposalHash: proposal.proposalHash,
           acknowledgedDraftRaw: setup.preDraftRaw,
         });
-        await survivor.evaluate(() => { if (window.__p6cRestoreWriteSeam) window.__p6cRestoreWriteSeam(); });
-        await survivor.evaluate(() => { if (window.__p6cRestoreCleanupSeam) window.__p6cRestoreCleanupSeam(); });
+        const writeFaults = await survivor.evaluate(() => window.__p6cRestoreWriteSeam?.() || null);
+        const cleanupFaults = await survivor.evaluate(() => window.__p6cRestoreCleanupSeam?.() || null);
+        if (variant.fault === "write") {
+          check(writeFaults?.localFaults > 0 && writeFaults?.idbFaults > 0,
+            `9e (${variant.name}): write fault injection hit both durable write seams`, writeFaults);
+        } else {
+          check(cleanupFaults?.faults > 0,
+            `9e (${variant.name}): cleanup fault injection hit`, cleanupFaults);
+        }
         await survivor.evaluate(() => window.__repforgeStorage.flush());
         if (variant.fault === "write") {
           check(res?.deferred === true && res?.finalizationPending === true,
@@ -2703,14 +2806,12 @@ async function main() {
       }
       await injectWriteFailureAfterFirst(survivor);
       const interrupted = await confirmTransition(survivor, recoveryConfirmArgs(proposal));
-      await survivor.evaluate(() => window.__p6cRestoreWriteSeam?.());
+      const writeFaults = await survivor.evaluate(() => window.__p6cRestoreWriteSeam?.() || null);
+      check(writeFaults?.localFaults > 0 && writeFaults?.idbFaults > 0,
+        "prepared recovery fault injection hit both required durable write seams", writeFaults);
       await survivor.evaluate(() => window.__repforgeStorage.flush());
-      const preparedInterrupted = interrupted?.deferred === true || interrupted?.finalizationPending === true;
-      if (!preparedInterrupted) {
-        console.log("  Evidence gap: recovery has no separate prepared/finalization write seam on this head; exact commit was verified instead.");
-      }
-      check(preparedInterrupted || interrupted?.committed === true,
-        "prepared recovery write seam reports either deferred finalization or an exact atomic commit", interrupted);
+      check(interrupted?.deferred === true && interrupted?.finalizationPending === true,
+        "prepared recovery write seam reports deferred finalization", interrupted);
       const prepared = await readFullReplicas(survivor);
       check(exactRecoverySuccess(source.replicas.local, prepared.local, proposal) &&
         exactRecoverySuccess(source.replicas.idb, prepared.idb, proposal),
@@ -2723,11 +2824,7 @@ async function main() {
       check(preparedDraft.raw === source.drafts.raw && preparedDraft.checkpoint === source.drafts.checkpoint &&
         preparedDraft.recovery === source.drafts.recovery,
       "prepared recovery leaves DraftV2 unchanged", preparedDraft);
-      if (preparedInterrupted) {
-        check(await readJournal(survivor) != null, "prepared recovery retains its journal until boot finalization");
-      } else {
-        console.log("  Evidence gap: no retained prepared recovery journal was observable because the no-effect carrier commit completed atomically.");
-      }
+      check(await readJournal(survivor) != null, "prepared recovery retains its journal until boot finalization");
 
       await survivor.reload({ waitUntil: "domcontentloaded" });
       await waitForAppBoot(survivor, { base: BASE });
@@ -2772,7 +2869,8 @@ async function main() {
       }
       await injectCleanupFailure(survivor);
       const committed = await confirmTransition(survivor, recoveryConfirmArgs(proposal));
-      await survivor.evaluate(() => window.__p6cRestoreCleanupSeam?.());
+      const cleanupFaults = await survivor.evaluate(() => window.__p6cRestoreCleanupSeam?.() || null);
+      check(cleanupFaults?.faults > 0, "cleanup recovery fault injection hit", cleanupFaults);
       await survivor.evaluate(() => window.__repforgeStorage.flush());
       check(committed?.localOk === true && committed?.idbOk === true || committed?.deferred === true,
         "cleanup interruption leaves the recovery state durable", committed);
@@ -2827,6 +2925,23 @@ async function main() {
         await context.close();
         continue;
       }
+      const alternateRecordResult = await proposeAndSealRecoveryCrashOracle(
+        survivor,
+        `tr_p6c_recovery_partial_alternate_${damaged}`,
+        "2026-10-05T09:01:00.000Z",
+      );
+      check(alternateRecordResult?.ok === true,
+        `${damaged}-only alternate carrier was proposed and sealed through production seams`, alternateRecordResult);
+      const alternateRecord = alternateRecordResult?.record;
+      if (alternateRecord) {
+        const alternateValidation = await validateRecoveryRecordAgainstLive(survivor, alternateRecord);
+        check(alternateValidation.ok === true,
+          `${damaged}-only alternate carrier passes the authoritative recovery validator`, alternateValidation);
+      }
+      if (!alternateRecord) {
+        await context.close();
+        continue;
+      }
       const committed = await confirmTransition(survivor, recoveryConfirmArgs(proposal));
       await survivor.evaluate(() => window.__repforgeStorage.flush());
       check(committed?.committed === true, `${damaged}-only recovery target committed before damage`, committed);
@@ -2834,28 +2949,48 @@ async function main() {
       check(exactRecoverySuccess(source.replicas.local, target.local, proposal) &&
         exactRecoverySuccess(source.replicas.idb, target.idb, proposal),
       `${damaged}-only recovery has one exact target before replica damage`);
+
+      const successorLocal = JSON.parse(JSON.stringify(target.local));
+      const successorIdb = JSON.parse(JSON.stringify(target.idb));
+      const sourceLocalCandidate = JSON.parse(JSON.stringify(source.replicas.local));
+      const sourceIdbCandidate = JSON.parse(JSON.stringify(source.replicas.idb));
+      successorLocal.settings = { ...(successorLocal.settings || {}), restSec: 181 };
+      successorIdb.settings = { ...(successorIdb.settings || {}), restSec: 181 };
+      const alternateCarrier = {
+        schemaVersion: 1,
+        records: [JSON.parse(JSON.stringify(alternateRecord))],
+        quarantine: [],
+      };
+      sourceLocalCandidate.recoveryTransitions = JSON.parse(JSON.stringify(alternateCarrier));
+      sourceIdbCandidate.recoveryTransitions = JSON.parse(JSON.stringify(alternateCarrier));
+      sourceLocalCandidate.settings = { ...(sourceLocalCandidate.settings || {}), restSec: 271 };
+      sourceIdbCandidate.settings = { ...(sourceIdbCandidate.settings || {}), restSec: 271 };
+      const localCandidate = damaged === "local" ? successorLocal : sourceLocalCandidate;
+      const idbCandidate = damaged === "local" ? sourceIdbCandidate : successorIdb;
+      const expectedWinner = damaged === "local" ? successorLocal : successorIdb;
+
       if (damaged === "local") {
-        await injectIdbState(survivor, source.replicas.idb);
+        await survivor.evaluate((raw) => localStorage.setItem("repforge_v1", raw), JSON.stringify(localCandidate));
+        await injectIdbState(survivor, idbCandidate);
       } else {
-        await survivor.evaluate((raw) => localStorage.setItem("repforge_v1", raw), JSON.stringify(source.replicas.local));
+        await survivor.evaluate((raw) => localStorage.setItem("repforge_v1", raw), JSON.stringify(localCandidate));
+        await injectIdbState(survivor, idbCandidate);
       }
       const mixed = await readFullReplicas(survivor);
-      check(exactRecoverySuccess(source.replicas.local, mixed.local, proposal) ||
-        exactSourceState(source.replicas.local, mixed.local),
-      `${damaged}-only fixture has a complete local candidate, never a partial carrier array`);
-      check(exactRecoverySuccess(source.replicas.idb, mixed.idb, proposal) ||
-        exactSourceState(source.replicas.idb, mixed.idb),
-      `${damaged}-only fixture has a complete IndexedDB candidate, never a partial carrier array`);
+      check(isDeepStrictEqual(mixed.local, localCandidate) && isDeepStrictEqual(mixed.idb, idbCandidate) &&
+        mixed.local?.settings?.restSec !== mixed.idb?.settings?.restSec &&
+        carrierRecords(mixed.local).length === 1 && carrierRecords(mixed.idb).length === 1,
+      `${damaged}-only fixture seeds two distinguishable complete carriers and whole-state candidates`, { mixed, localCandidate, idbCandidate });
 
       await survivor.reload({ waitUntil: "domcontentloaded" });
       await waitForAppBoot(survivor, { base: BASE });
       const healed = await readFullReplicas(survivor);
-      check(exactRecoverySuccess(source.replicas.local, healed.local, proposal) &&
-        exactRecoverySuccess(source.replicas.idb, healed.idb, proposal),
-      `${damaged}-only boot heals both replicas to the exact full successor`);
+      check(isDeepStrictEqual(healed.local, expectedWinner) && isDeepStrictEqual(healed.idb, expectedWinner),
+        `${damaged}-only boot chooses one exact higher-revision whole-state winner`, { healed, expectedWinner });
       check(carrierRecords(healed.local).length === 1 && carrierRecords(healed.idb).length === 1 &&
-        isDeepStrictEqual(carrierRecords(healed.local), carrierRecords(healed.idb)),
-      `${damaged}-only boot keeps exactly one mirrored carrier record`);
+        isDeepStrictEqual(carrierRecords(healed.local)[0], committedRecoveryRecord(proposal)) &&
+        isDeepStrictEqual(carrierRecords(healed.idb)[0], committedRecoveryRecord(proposal)),
+      `${damaged}-only boot keeps exactly one exact mirrored recovery record`);
       check(recoveryHasNoArtifacts(await artifactKeys(survivor)), `${damaged}-only boot clears all artifacts`);
       await assertRecoverySecondBoot(survivor, healed, `${damaged}-only recovery`);
       await context.close();
@@ -2964,7 +3099,9 @@ async function main() {
       }
       await injectFirstReplicaFailure(survivor, failedSide);
       const result = await confirmTransition(survivor, recoveryConfirmArgs(proposal));
-      await survivor.evaluate(() => window.__p6cRestoreReplicaFailure?.());
+      const replicaFaults = await survivor.evaluate(() => window.__p6cRestoreReplicaFailure?.() || null);
+      check(replicaFaults?.side === failedSide && replicaFaults?.writes === 1 && replicaFaults?.faults === 1,
+        `${failedSide}-failure fault injection hit exactly one requested durable write`, replicaFaults);
       await survivor.evaluate(() => window.__repforgeStorage.flush());
       const faulted = await readFullReplicas(survivor);
       check(exactSourceOrRecovery(source.replicas.local, faulted.local, proposal) &&
@@ -3033,8 +3170,20 @@ async function main() {
       check(moved.ok === true, `${fault} reassessment week-boundary fixture committed`, moved);
       await survivor.reload({ waitUntil: "domcontentloaded" });
       await waitForAppBoot(survivor, { base: BASE });
+      const liveDraft = await enterRecoveryDraft(survivor, `live acknowledged reassessment ${fault}`);
+      check(liveDraft.ok === true && typeof liveDraft.raw === "string" && typeof liveDraft.checkpoint === "string",
+        `${fault} reassessment seeds a live acknowledged DraftV2`, liveDraft);
+      await survivor.evaluate(({ key, raw }) => localStorage.setItem(key, raw), {
+        key: RECOVERY_KEY,
+        raw: source.setup.preDraftRaw,
+      });
+      const seededDraft = await readDraftBytes(survivor);
+      const seededCheckpoint = seededDraft.checkpoint ? JSON.parse(seededDraft.checkpoint) : null;
+      check(seededDraft.raw === liveDraft.raw && seededCheckpoint?.kind === "committed" &&
+        seededCheckpoint?.raw === liveDraft.raw && seededDraft.recovery === source.setup.preDraftRaw,
+      `${fault} reassessment seeds acknowledged DraftV2 checkpoint and recovery bytes`, seededDraft);
       const before = await readFullReplicas(survivor);
-      const beforeDraft = await readDraftBytes(survivor);
+      const beforeDraft = seededDraft;
       const beforeRecord = carrierRecords(before.local)[0];
       check(beforeRecord?.proposalHash === proposal.proposalHash && beforeRecord?.diff?.recoveryWeek?.reassessmentOutcome === null,
         `${fault} reassessment starts from one open carrier with the original hash`, beforeRecord);
@@ -3049,18 +3198,23 @@ async function main() {
       if (fault === "write") await injectWriteFailureAfterFirst(survivor);
       else await injectCleanupFailure(survivor);
       const interrupted = await reassessRecovery(survivor, reassessArgs);
-      await survivor.evaluate(() => window.__p6cRestoreWriteSeam?.());
-      await survivor.evaluate(() => window.__p6cRestoreCleanupSeam?.());
-      await survivor.evaluate(() => window.__repforgeStorage.flush());
-      check(interrupted?.committed === true || interrupted?.deferred === true || interrupted?.finalizationPending === true ||
-        interrupted?.localOk === true || interrupted?.idbOk === true,
-      `${fault} reassessment interruption is reported through the production seam`, interrupted);
-      const reassessmentInterrupted = interrupted?.deferred === true || interrupted?.finalizationPending === true;
-      if (reassessmentInterrupted) {
-        check(await readJournal(survivor) != null, `${fault} reassessment retains its journal until boot replay`);
-      } else if (fault === "write") {
-        console.log("  Evidence gap: outcome-only reassessment has no separate finalization write seam on this head; exact atomic result was verified instead.");
+      if (fault === "write") {
+        const writeFaults = await survivor.evaluate(() => window.__p6cRestoreWriteSeam?.() || null);
+        check(writeFaults?.localFaults > 0 && writeFaults?.idbFaults > 0,
+          "outcome-only reassessment fault injection hit both required durable write seams", writeFaults);
+      } else {
+        const cleanupFaults = await survivor.evaluate(() => window.__p6cRestoreCleanupSeam?.() || null);
+        check(cleanupFaults?.faults > 0, "outcome-only reassessment cleanup fault injection hit", cleanupFaults);
       }
+      await survivor.evaluate(() => window.__repforgeStorage.flush());
+      if (fault === "write") {
+        check(interrupted?.deferred === true && interrupted?.finalizationPending === true,
+          "outcome-only reassessment write seam reports deferred finalization", interrupted);
+      } else {
+        check(interrupted?.committed === true || interrupted?.deferred === true || interrupted?.finalizationPending === true,
+          `${fault} reassessment interruption is reported through the production seam`, interrupted);
+      }
+      check(await readJournal(survivor) != null, `${fault} reassessment retains its journal until boot replay`);
 
       await survivor.reload({ waitUntil: "domcontentloaded" });
       await waitForAppBoot(survivor, { base: BASE });
