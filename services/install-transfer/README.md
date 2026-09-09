@@ -4,6 +4,24 @@ This directory is the isolated Plan 053 service. It has its own Wrangler
 configuration, lockfile, and test dependencies; the root static app does not
 depend on it.
 
+## Evidence status at the accepted S53-01 head
+
+This documentation is reconciled against `5074c4eefc389d45adc93c4c2f6d133b01ee3f22`,
+the accepted PR235 head. S53-01 corrected the claim-response boundary without
+changing the logical clone contract:
+
+- the create request and logical envelope remain limited to `2,000,000` UTF-8
+  bytes;
+- claim, commit, and status request bodies remain limited to `4,096` bytes; and
+- a claim response has its own `2,004,096`-byte bound (`2,000,000` bytes for
+  the envelope plus the approved small-response headroom), with one byte over
+  that bound rejected as `response-too-large`.
+
+The client parser and Worker use that explicit claim-response mode. The Worker
+returns the generic `503 {"state":"unavailable"}` if it cannot emit a bounded
+claim response. This is a transport boundary correction, not a new envelope
+field or a larger logical payload.
+
 The bearer format is:
 
 ```text
@@ -41,7 +59,28 @@ Run the foundation checks from this directory:
 npm ci
 npm run check
 npm test
+npm run deploy:dry
 ```
+
+At this accepted head the commands report 14 Vitest files and 65 passing
+service tests, followed by a passing health-producer integration; the source
+check reports 14 service files, 5 scripts, and the Wrangler configuration; and
+the dry bundle reports 162.20 KiB uncompressed / 31.87 KiB gzip with four
+Durable Object bindings. These are local or dry-run results, not deployment or
+retention evidence.
+
+From the repository root, the two required shared/client checks are:
+
+```sh
+node test/install-transfer-limits.mjs
+node test/install-transfer-client-contract.mjs
+```
+
+The first passes its independent boundary, hostile-input, redaction, and
+Node/browser parity checks (and deliberately does not claim service parity).
+The second passes 9/9 client-contract assertions, including the S53-01
+near-maximum claim response and `+1` rejection. No check-in test was changed
+for this documentation packet.
 
 Claim and commit transitions use conditional SQLite updates keyed by the
 expected state, token digest, and expiry. The local Workers runtime tests
@@ -94,6 +133,14 @@ Billing remains an explicit current owner receipt because no Cloudflare billing
 API is claimed here. The integration test exercises the scheduler's real HTTP
 requests and child probe. No public health or heartbeat route is provided.
 
+The source scheduler has fail-closed guards for repeated cursors and repeated
+object IDs. The committed health-producer integration currently proves a
+complete two-page pass and rejects a full page that ends without a cursor.
+Deterministic committed coverage for repeated cursors/object IDs, or an
+authenticated staging artifact exercising those cases, remains open; neither
+the current integration nor this packet closes that gate. No ephemeral probe
+output is treated as durable evidence.
+
 The provider alarm is a deletion backstop, not proof of the live 60-minute
 guarantee by itself. Cloudflare documents at-least-once alarm execution and
 possible delay; staging needs the independent watchdog, purge health checks,
@@ -102,9 +149,12 @@ guarantee can be claimed. See [RUNBOOK.md](RUNBOOK.md) for the staging
 prerequisites and the unclaimed provider-deadline gate.
 
 Production uses the Cloudflare Durable Object `jurisdiction("eu")`
-subnamespace for transfer, rate, and health objects. The local workerd used by
-the test plugin currently exposes that API but raises
+subnamespace for transfer, rate, health, and registry objects. The local
+workerd used by the test plugin currently exposes that API but raises
 `Jurisdiction restrictions are not implemented in workerd.`; the narrow
 fallback in `namespaces.js` keeps SQLite tests runnable. Local tests therefore
 prove storage and transitions, not EU placement. The staging proof must use a
-real EU-restricted namespace.
+real EU-restricted namespace. They also do not prove a provider recovery-image
+restore, edge-log redaction, billing receipt, watchdog lag, or minute-60/
+minute-75 disposal on Cloudflare. Those owner/environment gates remain open;
+see [RUNBOOK.md](RUNBOOK.md).
