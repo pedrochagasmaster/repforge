@@ -30,21 +30,15 @@ jobs:
               return hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
           assert blob(original)=='f1e8475ee1bb4288e17bb9a25b068c32fc136368'
           before='    const workoutResult = await workout.evaluate(() => window.__renameRaceWorkoutResult);\n'
-          after=before+'''    // Done dispatches an asynchronous editor commit without returning its promise.
-              // flush() only snapshots the current persistence tail; the editor can enqueue
-              // its rename later. Wait for the real successful-commit UI before reading it.
-              await renamer.waitForFunction(
-                () => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
-                undefined,
-                { timeout: 10000 }
-              );
-          '''
-          # Match the test's four-space block indentation after YAML strips its own prefix.
           after=before+'    // Done dispatches an asynchronous editor commit without returning its promise.\n    // flush() only snapshots the current persistence tail; the editor can enqueue\n    // its rename later. Wait for the real successful-commit UI before reading it.\n    await renamer.waitForFunction(\n      () => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),\n      undefined,\n      { timeout: 10000 }\n    );\n'
           text=original.decode()
           assert text.count(before)==2
           text=text.replace(before,after)
-          assert blob(text.encode())=='8dfb6d19f89202e1fe794a0f070d361703e73882'
+          for value in ['107.5','110']:
+              before=f'    await fillRaceWorkout(workout, {value});\n'
+              assert text.count(before)==1
+              text=text.replace(before,before+'    // Complete fixture input/suggestion writes before imposing the two-transaction race.\n    await workout.evaluate(() => window.__repforgeWorkoutDraft.flush());\n')
+          assert blob(text.encode())=='3715e6119ac92a9fee0ea8f926346a2ce435ad45'
           path.write_text(text)
           subprocess.run(['node','--check',str(path)],check=True)
           PY
@@ -79,7 +73,7 @@ jobs:
           import hashlib,json,os,pathlib,urllib.request
           data=pathlib.Path('test/program-draft-day-rename.mjs').read_bytes()
           sha=hashlib.sha1(b'blob '+str(len(data)).encode()+b'\0'+data).hexdigest()
-          assert sha=='8dfb6d19f89202e1fe794a0f070d361703e73882'
+          assert sha=='3715e6119ac92a9fee0ea8f926346a2ce435ad45'
           req=urllib.request.Request('https://api.github.com/repos/pedrochagasmaster/repforge/git/blobs',
               data=json.dumps({'content':data.decode(),'encoding':'utf-8'}).encode(),
               headers={'Authorization':'Bearer '+os.environ['GH_TOKEN'],'Accept':'application/vnd.github+json','Content-Type':'application/json'},method='POST')
