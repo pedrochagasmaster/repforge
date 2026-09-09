@@ -437,6 +437,25 @@ async function dispatchRename(page, oldDay, nextDay) {
   );
 }
 
+async function waitForPendingRenameJournal(page, oldDay, nextDay) {
+  await page.waitForFunction(
+    ({ prefix, oldDay: expectedOldDay, nextDay: expectedNextDay }) => {
+      for (let index = 0; index < localStorage.length; index++) {
+        const key = localStorage.key(index);
+        if (!key?.startsWith(prefix)) continue;
+        let value;
+        try { value = JSON.parse(localStorage.getItem(key)); } catch { continue; }
+        if (value?.dayRenames?.some((rename) =>
+          rename?.from === expectedOldDay && rename?.to === expectedNextDay
+        )) return true;
+      }
+      return false;
+    },
+    { prefix: "repforge_pending_v1:", oldDay, nextDay },
+    { timeout: 10000 }
+  );
+}
+
 async function holdStorageLock(page) {
   await page.evaluate((lockName) => {
     let release;
@@ -1121,6 +1140,22 @@ async function runWorkoutThenRenameRace(browser) {
     });
     await waitForPendingStorageLocks(locker, 1);
     await dispatchRename(renamer, "Day 1", "Push Day");
+    await waitForPendingRenameJournal(renamer, "Day 1", "Push Day");
+    const renameJournal = (await readRuntime(renamer)).pendingEntries.find((entry) =>
+      entry.value?.dayRenames?.some((rename) => rename?.from === "Day 1" && rename?.to === "Push Day")
+    );
+    const renameEffect = renameJournal?.value?.effect;
+    check(
+      renameJournal?.value?.dayRenames?.length === 1 &&
+        renameJournal.value.dayRenames[0]?.from === "Day 1" &&
+        renameJournal.value.dayRenames[0]?.to === "Push Day" &&
+        renameEffect?.kind === "replace-draft" &&
+        renameEffect?.expectedRaw === before.draftRaw &&
+        renameEffect?.precondition === "abort-same-day" &&
+        renameEffect?.conflictDay === "Day 1",
+      "workout-first rename queues its exact same-day draft precondition",
+      renameJournal?.value
+    );
     await waitForPendingStorageLocks(locker, 2);
     await releaseStorageLock(locker);
     await workout.waitForFunction(() => window.__renameRaceSaveCommitted === true, undefined, { timeout: 10000 });

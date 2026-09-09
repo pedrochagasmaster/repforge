@@ -21,7 +21,14 @@ Verify after project creation and after any PostHog configuration change:
 
 Application configuration remains authoritative even if a project toggle
 drifts. Project state is still a release gate because remote settings can
-change SDK behavior.
+change SDK behavior. Record which settings were inspected and actually changed;
+a repository merge does not reconcile live PostHog configuration.
+
+Before interpreting a release, confirm the project ID/timezone, explicit
+app-version range, and private attribution roster using
+[`posthog-measurement-setup.md`](posthog-measurement-setup.md). Do not use the
+empty person-property test cohort as evidence that founder traffic is excluded.
+Keep internal and unclassified traffic visible in diagnostics, not pilot metrics.
 
 ## Zero-tolerance health queries
 
@@ -34,10 +41,17 @@ change SDK behavior.
 | Product event missing schema/app/channel | 1 event | Exclude producing release and repair adapter | Founder |
 | Preview/test traffic included in a production scorecard | 1 included event | Repair filters and invalidate the mixed reading | Founder |
 | Autocapture action missing or outside the five-token set | 1 event | Disable autocapture and investigate the producing release | Founder |
+| Working/terminal event missing SDK session ID | 1 event | Report uncorrelated events separately; inspect adapter/deploy before interpreting session reliability | Founder |
 
 Subscribe to a threshold alert where PostHog supports the exact query.
 Otherwise add the invariant to the daily alpha checklist. An alert is not
-complete until the owner and response are recorded.
+complete until the owner and response are recorded. SQL table definitions do
+not automatically create alerts.
+
+Run completeness/channel checks before the scorecard inclusion predicates;
+otherwise the missing/invalid events disappear. Keep historical pre-schema-1
+traffic separated from current-release incidents. The compiled collection check
+is not a full property/value leakage audit or automatic-settings audit.
 
 ## Silence and replay checks
 
@@ -51,19 +65,31 @@ produced `app_boot` in the prior seven days:
 - after 20 eligible opted-in sessions, replay availability below 80%: separate
   opt-out, browser blocking, SDK failure, and ingestion failure before acting.
 
-These are pipeline checks, never product-success thresholds.
+These are pipeline checks, never product-success thresholds. Independently of
+those thresholds, a known opted-in smoke journey with missing expected events
+requires investigation. Missing iOS events alone are not evidence of iOS churn.
+Do not add a blanket bot exclusion: a privacy-minimized payload may be labelled
+as automation because it has no user agent. Do not reintroduce identifying
+metadata to appease that classifier.
+
+Derive replay eligibility from opted-in SDK sessions, not schema labels on
+`$snapshot` events, which intentionally have a different envelope.
 
 ## Production deploy smoke
 
 Run within 30 minutes of each production deploy:
 
 1. Record commit SHA, generated `app_version`, production URL, tester/browser,
-   start time, and project timezone.
-2. On a clean install, confirm exactly one `app_boot` with safe origin/path and
-   no query, fragment, person profile, or extra property.
+   start time, project ID/timezone, and private roster revision. Register the
+   confirmed synthetic installation IDs before interpreting production rates.
+2. On a clean install, confirm exactly one `app_boot` with the declared common
+   and event properties, permitted transport IDs, and no person profile or
+   extra URL/DOM metadata. Do not require `$host` or a user-agent property.
 3. Choose a program route explicitly and activate it; verify the expected
    closed events and duplicate expectations.
 4. Log and finish a synthetic session; verify only bucketed counts/duration.
+   Then start another session and save a set: verify `set_saved` again without
+   requiring the installation-once `first_set_logged` event to repeat.
 5. Open one marked navigation action; verify the reconstructed
    `$autocapture.telemetry_action` and absence of text/DOM/URL fields.
 6. Inspect replay: useful geometry/interactions, all app text and inputs masked,
@@ -74,9 +100,31 @@ Run within 30 minutes of each production deploy:
    resume collection. Opt in and verify only future events resume with the same
    installation identity.
 9. Repeat a returning-install boot and an offline product flow. Telemetry
-   failure must not change product results.
-10. Remove/exclude synthetic smoke traffic using its preview/release context;
-    never weaken production filters to find it.
+   failure must not change product results. Exercise delayed/blocked SDK loading
+   and confirm whether the expected boot reaches ingestion after startup; a
+   test adapter installed before app boot does not verify real CDN/SDK timing.
+10. Confirm synthetic production traffic is excluded by the private internal
+    roster, even though its `release_channel` is `production`. Do not delete
+    events or rely only on preview filters. A newly rotated ID needs confirmation.
+
+Complete this matrix on actual devices; emulation is supporting, not substitute,
+evidence. Record exact versions, outcomes, and private controlled windows.
+
+| Context | Clean and returning boot | Activate, save, finish, second-session save | Offline / SDK failure | Opt-out and reload |
+|---|---|---|---|---|
+| Android Chrome tab | Required | Required | Required | Required |
+| Installed Android PWA | Required | Required | Required | Required |
+| iOS Safari tab | Required | Required | Required | Required |
+| Installed iOS PWA | Required | Required | Required | Required |
+| Any other iOS browser used for testing | Required if used | Required if used | Required if used | Required if used |
+
+Verify successful ingestion of each expected event in PostHog, not just local
+console/network initiation. Record missing events as collection failures until
+investigated. Inspect the deployed config/version, consent, blocked/late SDK,
+proxy response, and outbound boundary before attributing loss to user behavior.
+Also check Cancel/back navigation on current Safari: historical rage-click and
+generic-error samples do not establish a current defect or justify a speculative
+UI rewrite. Do not claim performance regression from tiny legacy LCP samples.
 
 ## Hostile leakage smoke
 
@@ -99,23 +147,26 @@ For every health or privacy incident record:
 - verified fixed commit/deploy; and
 - re-enable approval.
 
-Do not paste setup payloads, workout data, notes, full URLs, or replay contents
-into GitHub, logs, or the PR body.
+Do not paste installation IDs, rosters, compiled definitions, setup payloads,
+workout data, notes, full URLs, or replay contents into GitHub, public logs, or
+the PR body. Keep correlation evidence in the private operations record.
 
 ## Release evidence template
 
 ```text
 Commit / app_version:
-Deployment:
-Project timezone:
+Deployment / project ID / timezone:
+Private roster revision (no IDs here):
 Smoke start/end:
-Clean + returning + offline:
+Device/browser/PWA matrix:
+Clean + returning + offline + delayed SDK:
 Product events and duplicate audit:
 Autocapture allowlist:
 Replay masking:
 Opt-out before/after SDK and reload:
 Hostile-sentinel request scan:
-Dashboard/alerts reviewed:
+Dashboard definitions executed / legacy charts labelled:
+Alerts and live project settings reviewed:
 Exceptions / external blockers:
 Reviewer:
 ```

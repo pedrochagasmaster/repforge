@@ -31,6 +31,7 @@ export const SUITES = {
     s("test/posthog-adapter.mjs"),
     s("test/posthog-config.mjs"),
     s("test/telemetry-call-sites.mjs"),
+    s("test/posthog-measurement.mjs", [], {"nodeArgs": ["--test"]}),
     s("test/motion-polish.mjs"),
     s("test/runtime-budget.mjs"),
     s("test/apple-design-followup.mjs"),
