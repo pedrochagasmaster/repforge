@@ -8,3 +8,4 @@ posthog-config.js
 *.measurement-private.json
 *measurement*.private.json
 measurement-private/
+.ci-results/

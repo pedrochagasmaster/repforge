@@ -61,6 +61,16 @@ function requestText(request) {
 }
 
 const browser = await launchChromium();
+// Keep the injected synthetic config authoritative whether a preview config
+// exists on disk or not. Otherwise a disabled config makes this gate time out,
+// while a real config could send requests outside the deterministic SDK double.
+async function privacyContext() {
+  const context = await browser.newContext({ serviceWorkers: "block" });
+  await context.route(/\/posthog-config\.js(?:\?|$)/, route => route.fulfill({
+    status: 200, contentType: "application/javascript", body: "/* config supplied by privacy fixture */",
+  }));
+  return context;
+}
 let checks = 0;
 const ok = (condition, message) => {
   assert.ok(condition, message);
@@ -71,7 +81,7 @@ const ok = (condition, message) => {
 try {
   console.log("Hostile values do not cross telemetry or replay requests");
   {
-    const context = await browser.newContext();
+    const context = await privacyContext();
     const requests = [];
     await context.route(`**${SDK_PATH}`, route => route.fulfill({ status: 200, contentType: "application/javascript", body: FAKE_SDK }));
     await context.route("**/e/", route => { requests.push(route.request()); return route.fulfill({ status: 200, body: "{}" }); });
@@ -160,7 +170,7 @@ try {
       "the approved product event reaches the request boundary");
     const auto = envelopes.find(envelope => envelope.event === "$autocapture");
     ok(auto?.properties?.telemetry_action === "nav_history", "autocapture retains only the reviewed action token");
-    ok(!("$elements" in auto.properties) && !("$current_url" in auto.properties), "autocapture strips DOM chains and URLs");
+    ok(!("$elements" in auto.properties) && !('$current_url' in auto.properties), "autocapture strips DOM chains and URLs");
     const replay = envelopes.find(envelope => envelope.event === "$snapshot");
     const servedIndex = new URL("index.html", BASE);
     ok(replay?.properties?.$current_url === servedIndex.origin + servedIndex.pathname,
@@ -177,8 +187,9 @@ try {
 
   console.log("SDK and network failures do not block app behavior");
   {
-    const context = await browser.newContext();
-    await context.route(`**${SDK_PATH}`, route => route.abort("failed"));
+    const context = await privacyContext();
+    let sdkAttempts = 0;
+    await context.route(`**${SDK_PATH}`, route => { sdkAttempts++; return route.abort("failed"); });
     await context.addInitScript(([key, value]) => window.localStorage.setItem(key, value), [
       "repforge_v1",
       JSON.stringify({
@@ -200,6 +211,7 @@ try {
     const page = await context.newPage();
     await page.goto(BASE);
     await waitForAppBoot(page, { base: BASE });
+    ok(sdkAttempts > 0, "the failure case actually attempts the intercepted SDK load");
     ok(await page.locator("#dayTabs button").count() > 0, "the app boots when the SDK fails to load");
     await page.evaluate(() => window.__repforgeShowSettings());
     ok(await page.locator("#telemetryToggle").isVisible(), "the privacy control remains usable after SDK failure");
