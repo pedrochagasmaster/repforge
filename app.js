@@ -58,6 +58,51 @@ function isBoundedTransitionValue(value,depth=0,state={nodes:0}){
   if(!isPlainStateObject(value)||Object.keys(value).length>TRANSITION_VALUE_LIMITS.keys)return false;
   return Object.keys(value).every(key=>isBoundedTransitionValue(value[key],depth+1,state));
 }
+const RECOVERY_HASH_RE=/^[0-9a-f]{64}$/;
+const RECOVERY_CARRIER_INSTANT_RE=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+function isRecoveryCarrierQuarantineEntry(value){
+  if(!isPlainStateObject(value)||!isBoundedTransitionValue(value))return false;
+  const keys=["schemaVersion","digest","raw","sourceReplica","detectedAt","reason"];
+  if(Object.keys(value).length!==keys.length||!keys.every(key=>Object.prototype.hasOwnProperty.call(value,key)))return false;
+  return value.schemaVersion===1&&RECOVERY_HASH_RE.test(value.digest)&&
+    typeof value.raw==="string"&&value.raw.length<=TRANSITION_VALUE_LIMITS.stringLength&&
+    ["localStorage","indexedDB","both"].includes(value.sourceReplica)&&
+    RECOVERY_CARRIER_INSTANT_RE.test(value.detectedAt)&&
+    ["known-schema-malformed-recovery","duplicate-target-conflict"].includes(value.reason);
+}
+function isRecoveryCarrierRecord(value){
+  if(!isPlainStateObject(value)||!isBoundedTransitionValue(value))return false;
+  const recordKeys=["schemaVersion","transitionId","kind","createdAt","status","predecessor","diagnosis","derivation","diff","progressionContract","archiveId","confirmedAt","proposalHash"];
+  if(Object.keys(value).length!==recordKeys.length||!recordKeys.every(key=>Object.prototype.hasOwnProperty.call(value,key)))return false;
+  const predecessor=value.predecessor,overlay=value.diff?.recoveryWeek,evidence=overlay?.eligibilityEvidence;
+  const overlayKeys=["schemaVersion","policyVersion","transitionId","blockId","activePeriod","eligibilityEvidence","baseProgramFingerprint","entries","createdAt","confirmedAt","reassessmentDueAt","reassessmentOutcome"];
+  const diffKeys=["days","exercises","prescriptions","recoveryWeek"];
+  if(value.schemaVersion!==1||value.kind!=="recovery_week"||value.status!=="committed"||
+    typeof value.transitionId!=="string"||!value.transitionId.trim()||
+    !RECOVERY_CARRIER_INSTANT_RE.test(value.createdAt)||!RECOVERY_CARRIER_INSTANT_RE.test(value.confirmedAt)||
+    !RECOVERY_HASH_RE.test(value.proposalHash)||value.archiveId!==null||
+    !isPlainStateObject(predecessor)||typeof predecessor.programId!=="string"||!predecessor.programId.trim()||
+    !isValidBlockId(predecessor.blockId,predecessor.programId)||
+    !isPlainStateObject(value.diff)||Object.keys(value.diff).length!==diffKeys.length||!diffKeys.every(key=>Object.prototype.hasOwnProperty.call(value.diff,key))||
+    !isPlainStateObject(overlay)||Object.keys(overlay).length!==overlayKeys.length||!overlayKeys.every(key=>Object.prototype.hasOwnProperty.call(overlay,key))||
+    overlay.schemaVersion!==1||overlay.policyVersion!==2||overlay.transitionId!==value.transitionId||
+    typeof overlay.blockId!=="string"||!overlay.blockId.trim()||overlay.blockId===predecessor.blockId||
+    overlay.activePeriod!=="nextBlockWeek1"||!RECOVERY_CARRIER_INSTANT_RE.test(overlay.createdAt)||
+    !RECOVERY_CARRIER_INSTANT_RE.test(overlay.reassessmentDueAt)||overlay.confirmedAt!==value.confirmedAt||
+    ![null,"Better","About the same","Worse"].includes(overlay.reassessmentOutcome)||
+    !isPlainStateObject(evidence)||evidence.sourceBlockId!==predecessor.blockId||
+    typeof evidence.sourceBlockId!=="string"||!evidence.sourceBlockId.trim()||
+    !Array.isArray(overlay.entries)||overlay.entries.length===0)return false;
+  return true;
+}
+function isValidRecoveryTransitions(value){
+  if(!isPlainStateObject(value)||!isBoundedTransitionValue(value)||value.schemaVersion!==1)return false;
+  const keys=["schemaVersion","records","quarantine"];
+  if(Object.keys(value).length!==keys.length||!keys.every(key=>Object.prototype.hasOwnProperty.call(value,key)))return false;
+  return Array.isArray(value.records)&&value.records.length<=TRANSITION_VALUE_LIMITS.arrayItems&&
+    value.records.every(isRecoveryCarrierRecord)&&Array.isArray(value.quarantine)&&
+    value.quarantine.length<=TRANSITION_VALUE_LIMITS.arrayItems&&value.quarantine.every(isRecoveryCarrierQuarantineEntry);
+}
 function isSafeProgressionFields(value){
   if(!isPlainStateObject(value))return false;
   if(Object.prototype.hasOwnProperty.call(value,"progressionType")&&
@@ -110,6 +155,7 @@ function isValidStateShape(s){
     if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isSafeProgressionFields)||
       !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
     if(Object.prototype.hasOwnProperty.call(s,"programMeta")&&!isSafeProgressionMeta(s.programMeta))return false;
+    if(Object.prototype.hasOwnProperty.call(s,"recoveryTransitions")&&!isValidRecoveryTransitions(s.recoveryTransitions))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_DRAFT_TXN)&&!pendingDraftTransaction(s))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_SETUP_TXN)&&!isValidSetupActivationMarker(s[STORAGE_SETUP_TXN]))return false;
     // Optional: backups written before custom exercises existed stay importable.
@@ -316,6 +362,11 @@ function applyAcceptedSnapshot(base,snapshot){
   live[STORAGE_REV]=readRevision(snapshot);
   state=live;
   prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
+  const liveBlock=snapshotBlockId(state),sameCarrierRecord=activeRecoveryRecord&&
+    recoveryCarrierRecords(state).some(record=>record.transitionId===activeRecoveryRecord.transitionId&&
+      record.proposalHash===activeRecoveryRecord.proposalHash&&record.diff?.recoveryWeek?.blockId===liveBlock);
+  if(sameCarrierRecord){activeRecoveryRecordBlockId=liveBlock}
+  else{activeRecoveryRecord=null;activeRecoveryRecordBlockId=null}
   mutationBase=cloneSnapshot(snapshot);
   dropMemo.clear();baselineMemo.clear()}
 function unversionedSnapshot(snapshot){
@@ -873,13 +924,13 @@ function parsedAcknowledgedDraftV2(raw,source){
  * The committed checkpoint is the acknowledged aggregate; a valid queued V2
  * sidecar is also live because it is the next ordered draft publication.
  */
-function readLiveAcknowledgedDraftV2(){
+function readLiveAcknowledgedDraftV2(snapshot=state){
   const canonical=DraftStore.readCanonicalStatus();
   if(canonical.status!=="ok")return{status:"unavailable",reason:"canonical-read"};
   const checkpoint=DraftStore.readV2Checkpoint();
   if(checkpoint.status==="invalid"||checkpoint.status==="read-failed")
     return{status:"unavailable",reason:"checkpoint-read"};
-  const context=draftContextFingerprint(state);
+  const context=draftContextFingerprint(snapshot);
   const queued=DraftStore.pending().entries.filter(entry=>entry.value.programFingerprint===context).at(-1);
   const queuedDraft=queued?parsedAcknowledgedDraftV2(queued.value.raw,"pending"):null;
   if(queuedDraft)return queuedDraft;
@@ -910,8 +961,8 @@ function readLiveAcknowledgedDraftV2(){
   const canonicalDraft=parsedAcknowledgedDraftV2(canonical.raw,"canonical");
   return canonicalDraft||{status:"none"};
 }
-function blockStartDraftGuard(){
-  const live=readLiveAcknowledgedDraftV2();
+function blockStartDraftGuard(snapshot=state){
+  const live=readLiveAcknowledgedDraftV2(snapshot);
   if(live.status==="live")return{draftConflict:true,code:"live_draft_blocks_next_block"};
   if(live.status==="unavailable")return{draftConflict:true,code:"draft_state_unavailable"};
   return null;
@@ -1137,6 +1188,14 @@ function pendingJournalSuccessorMatches(record,head){
       dayRenames:journal.dayRenames,expectedFirstRunEmpty:journal.expectedFirstRunEmpty,
       sharedRebaseSeed:journal.id});
   return readRevision(candidate)===readRevision(head)&&storageSnapshotsEqual(candidate,head)}
+function isRecoveryJournalAttempt(journal){
+  const proposalCarrier=journal?.proposal?.recoveryTransitions;
+  const baseCarrier=journal?.base?.recoveryTransitions;
+  if(!isValidRecoveryTransitions(proposalCarrier))return false;
+  const before=Array.isArray(baseCarrier?.records)?baseCarrier.records:[];
+  return proposalCarrier.records.length>before.length&&
+    proposalCarrier.records.some(record=>record?.kind==="recovery_week"&&record?.status==="committed");
+}
 /* Bounded semantic/value equality for inherited transition values: absent on
    both sides is equal; anything present compares canonical parsed values, so
    a changed field is a difference even when every ID is retained. */
@@ -2528,6 +2587,7 @@ function applySessionLength(program,sessionLength,equipment,experience,dayOcc){
     list.forEach((e,i)=>{e.order=i+1;out.push(e)})}
   program.length=0;program.push(...out)}
 let state,prog,day,installPrompt=null,saving=false,editSession=null,volWindow=7;
+let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
 let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
 // restPaused holds the milliseconds left while the clock is held (null while it
 // runs); restLength is the length the current or next rest is armed at.
@@ -3397,6 +3457,8 @@ function normalizeLoaded(s,options={}){
   const structured=withExplicitProgramStructure(out.program,out.programMeta);
   out.program=structured.program;out.programMeta=structured.meta;
   out[STORAGE_REV]=readRevision(s);
+  if(Object.prototype.hasOwnProperty.call(s,"recoveryTransitions"))
+    out.recoveryTransitions=cloneSnapshot(s.recoveryTransitions);
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_SETUP_TXN))out[STORAGE_SETUP_TXN]=cloneSnapshot(s[STORAGE_SETUP_TXN]);
   if(Object.prototype.hasOwnProperty.call(s,"programmingContext")){
@@ -3539,6 +3601,49 @@ function programWeekContext(name,mc){
   if(mc.isFinalWeek)return t("log.context.program_week_ready",{name:nm,n:mc.current,total:mc.total});
   if(mc.current!=null)return t("log.context.program_week",{name:nm,n:mc.current,total:mc.total});
   return nm}
+function recoveryCarrierRecords(snapshot=state){
+  const carrier=snapshot?.recoveryTransitions;
+  return isValidRecoveryTransitions(carrier)?carrier.records:[];
+}
+function recoveryCompilerInstance(snapshot,Compiler,catalogue){
+  const meta=snapshot?.programMeta;
+  if(classifyCompilerTransitionProvenance(meta)!=="present"||!meta?.compilerContext||
+    typeof Compiler?.compile!=="function")return null;
+  try{
+    const instance=Compiler.compile(meta.compilerContext,catalogue);
+    if(!instance||instance.kind!=="compiled"||!compilerProgramMatchesLive(snapshot.program,instance.program,snapshot.customExercises))return null;
+    return instance;
+  }catch{return null}}
+async function validatedRecoveryRecordForSnapshot(snapshot,record){
+  const Transition=typeof RepForgeProgramTransition!=="undefined"?RepForgeProgramTransition:null;
+  const Compiler=typeof ProgramCompiler!=="undefined"?ProgramCompiler:null;
+  const catalogue=typeof EXERCISE_LIBRARY!=="undefined"?EXERCISE_LIBRARY:null;
+  if(!Transition||typeof Transition.validateRecoveryRecord!=="function"||
+    typeof Transition.approvedRecoveryPolicy!=="function"||!Compiler)return null;
+  const instance=recoveryCompilerInstance(snapshot,Compiler,catalogue);
+  if(!instance)return null;
+  const validation=await Transition.validateRecoveryRecord(record,{
+    predecessor:cloneSnapshot(record.predecessor),
+    predecessorInstance:instance,
+    approvedPolicy:Transition.approvedRecoveryPolicy(),
+    supportedVersions:Compiler.VERSIONS,
+    existingRecoveryRecords:recoveryCarrierRecords(snapshot),
+  });
+  return validation?.ok?validation.record:null;
+}
+async function refreshRecoveryProjectionCache(snapshot=state){
+  activeRecoveryRecord=null;activeRecoveryRecordBlockId=null;
+  const blockId=snapshotBlockId(snapshot),records=recoveryCarrierRecords(snapshot);
+  if(!isValidBlockId(blockId,snapshot?.programMeta?.id))return null;
+  const matches=records.filter(record=>record?.diff?.recoveryWeek?.blockId===blockId);
+  // Two valid records for one target are retained but neither applies. The
+  // later quarantine/conflict policy must not be inferred in this slice.
+  if(matches.length!==1)return null;
+  const validated=await validatedRecoveryRecordForSnapshot(snapshot,matches[0]);
+  if(!validated)return null;
+  activeRecoveryRecord=validated;activeRecoveryRecordBlockId=blockId;
+  return validated;
+}
 function rowMusclesPure(row,program){
   if(row.performedPrimary!=null||row.performedSecondary!=null)
     return{primary:row.performedPrimary||"",secondary:row.performedSecondary||""};
@@ -4122,8 +4227,19 @@ function syncProgramStructureFromProgram(proposal,program){
 }
 function scheduledProgramRows(){
   const week=mesocycleLifecycle(state.programMeta).current;
-  if(week==null||typeof ProgramCompiler?.projectProgramForWeek!=="function")return state.program;
-  return ProgramCompiler.projectProgramForWeek(state.program,state.programMeta?.programStructure,week)}
+  let rows=state.program;
+  if(week!=null&&typeof ProgramCompiler?.projectProgramForWeek==="function")
+    rows=ProgramCompiler.projectProgramForWeek(rows,state.programMeta?.programStructure,week);
+  if(activeRecoveryRecord&&activeRecoveryRecordBlockId===snapshotBlockId(state)&&week!=null){
+    const Transition=typeof RepForgeProgramTransition!=="undefined"?RepForgeProgramTransition:null;
+    const projected=Transition?.projectRecoveryProgram?.(state.program,activeRecoveryRecord,{
+      blockId:activeRecoveryRecordBlockId,
+      elapsedWeek:mesocycleLifecycle(state.programMeta).elapsedWeek,
+      baseProgramFingerprint:activeRecoveryRecord.diff.recoveryWeek.baseProgramFingerprint,
+    });
+    if(projected?.ok&&projected.active)rows=projected.rows;
+  }
+  return rows}
 function exercises(d=day){return scheduledProgramRows().filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
 function exerciseNameTokens(ex){
   const names=new Set([ex?.name,ex?.displayName].map(movementToken).filter(Boolean));
@@ -6872,6 +6988,107 @@ function classifyCommittedTransition(snapshot, proposal, archiveId) {
 
   return "conflict";
 }
+function classifyCommittedRecovery(snapshot, proposal){
+  const target=proposal?.diff?.recoveryWeek?.blockId;
+  const transitionId=proposal?.transitionId,proposalHash=proposal?.proposalHash;
+  if(typeof target!=="string"||!target||typeof transitionId!=="string"||!transitionId||
+    typeof proposalHash!=="string"||!proposalHash)return "conflict";
+  const records=recoveryCarrierRecords(snapshot);
+  const matches=records.filter(record=>record.transitionId===transitionId&&
+    record.proposalHash===proposalHash&&record.diff?.recoveryWeek?.blockId===target);
+  if(snapshot?.programMeta?.blockId===target&&matches.length===1)return "match";
+  if(snapshot?.programMeta?.blockId===proposal?.predecessor?.blockId&&
+    !records.some(record=>record.transitionId===transitionId||record.diff?.recoveryWeek?.blockId===target))return "absent";
+  return records.some(record=>record.diff?.recoveryWeek?.blockId===target||record.transitionId===transitionId)
+    ? "conflict" : "absent";
+}
+async function confirmRecoveryTransition(params,Transition,Compiler,catalogue){
+  const invalid=(code,extra={})=>({ok:false,committed:false,invalid:true,code,...extra,
+    localOk:false,idbOk:false,revision:readRevision(state)});
+  const proposal=params?.proposal;
+  if(!isPlainStateObject(proposal)||proposal.kind!=="recovery_week")return invalid("unsupported_transition_kind");
+  if(proposal.status!=="preview")return invalid("proposal_not_preview");
+  if(typeof proposal.proposalHash!=="string"||!proposal.proposalHash)return invalid("proposal_hash_absent");
+  if(params.proposalHash!==proposal.proposalHash)return invalid("proposal_hash_mismatch");
+  if(params.transitionId!==proposal.transitionId)return invalid("transition_id_mismatch");
+  if(typeof params.confirmedAt!=="string"||!params.confirmedAt)return invalid("confirmed_at_missing");
+  if(typeof params.reassessmentDueAt!=="string"||!params.reassessmentDueAt)return invalid("reassessment_due_missing");
+  if(!Object.prototype.hasOwnProperty.call(params,"acknowledgedDraftRaw")||
+    !(params.acknowledgedDraftRaw===null||typeof params.acknowledgedDraftRaw==="string"))return invalid("acknowledged_draft_missing");
+  const predecessor=proposal.predecessor,target=proposal.diff?.recoveryWeek?.blockId;
+  if(!isPlainStateObject(predecessor)||!isValidBlockId(predecessor.blockId,predecessor.programId))return invalid("legacy_block_ineligible");
+  if(typeof target!=="string"||!target||target===predecessor.blockId)return invalid("recovery_target_equals_source");
+  const preIdem=classifyCommittedRecovery(state,proposal);
+  if(preIdem==="match")return{ok:true,committed:true,alreadyCommitted:true,revision:readRevision(state),localOk:true,idbOk:true,kind:"committed"};
+  if(preIdem==="conflict")return invalid("conflicting_recovery_record");
+  if(params.acknowledgedDraftRaw!==readDraftRaw())return invalid("draft_mismatch",{draftConflict:true,conflict:true});
+  const guard=blockStartDraftGuard();
+  if(guard)return invalid(guard.code,{draftConflict:true,conflict:true});
+  const expectedSourceBlock=predecessor.blockId;
+  const initialInstance=recoveryCompilerInstance(state,Compiler,catalogue);
+  const initialRoute=state?.programMeta?.entrySource?.route;
+  if(!initialInstance||!initialRoute||!TRANSITION_SOURCE_ROUTES.includes(initialRoute)||
+    proposal.predecessor.source!==transitionContractSource(initialRoute))return invalid("transition_source_changed",{stale:true});
+  const initialValidation=await Transition.validateRecoveryProposal(proposal,{
+    predecessor:{programId:state.programMeta.id,durableRevision:predecessor.durableRevision,source:predecessor.source,blockId:expectedSourceBlock},
+    predecessorInstance:initialInstance,
+    approvedPolicy:Transition.approvedRecoveryPolicy(),
+    supportedVersions:Compiler.VERSIONS,
+    existingRecoveryRecords:recoveryCarrierRecords(state),
+  });
+  if(!initialValidation.ok)return invalid(initialValidation.code||"invalid_recovery_proposal",{
+    stale:initialValidation.status==="stale",invalid:initialValidation.status!=="stale"});
+  let initialCommitted;
+  try{initialCommitted=Transition.commitRecord(initialValidation.proposal,{confirmedAt:params.confirmedAt,reassessmentDueAt:params.reassessmentDueAt,archiveId:null})}
+  catch(error){return invalid("invalid_recovery_lifecycle",{error:String(error?.message||error)})}
+  const initialCarrier=isValidRecoveryTransitions(state.recoveryTransitions)
+    ?cloneSnapshot(state.recoveryTransitions):{schemaVersion:1,records:[],quarantine:[]};
+  const initialProposal=cloneSnapshot(state);
+  initialProposal.programMeta={...cloneSnapshot(state.programMeta),blockId:target};
+  initialProposal.recoveryTransitions={schemaVersion:1,records:[...initialCarrier.records,cloneSnapshot(initialCommitted)],quarantine:cloneSnapshot(initialCarrier.quarantine)};
+  const preflight=async({head})=>{
+    const lockedIdem=classifyCommittedRecovery(head,proposal);
+    if(lockedIdem==="match")return{reject:true,result:{ok:true,committed:true,alreadyCommitted:true,revision:readRevision(head),localOk:true,idbOk:true,kind:"committed"}};
+    if(lockedIdem==="conflict")return{reject:true,result:invalid("conflicting_recovery_record")};
+    if(head?.programMeta?.id!==predecessor.programId||readRevision(head)!==predecessor.durableRevision||
+      snapshotBlockId(head)!==expectedSourceBlock)
+      return{reject:true,result:{ok:false,committed:false,stale:true,staleRevision:readRevision(head)!==predecessor.durableRevision,
+        code:readRevision(head)!==predecessor.durableRevision?"stale_proposal":"predecessor_changed",localOk:false,idbOk:false}};
+    const lockedGuard=blockStartDraftGuard(head);
+    if(lockedGuard)return{reject:true,result:{ok:false,committed:false,draftConflict:true,conflict:true,code:lockedGuard.code,localOk:false,idbOk:false}};
+    const instance=recoveryCompilerInstance(head,Compiler,catalogue);
+    if(!instance)return{reject:true,result:{ok:false,committed:false,invalid:true,code:"predecessor_reconstruction_failed",localOk:false,idbOk:false}};
+    const route=head.programMeta?.entrySource?.route;
+    if(!route||!TRANSITION_SOURCE_ROUTES.includes(route)||proposal.predecessor.source!==transitionContractSource(route))
+      return{reject:true,result:{ok:false,committed:false,stale:true,code:"transition_source_changed",localOk:false,idbOk:false}};
+    const validation=await Transition.validateRecoveryProposal(proposal,{
+      predecessor:{programId:head.programMeta.id,durableRevision:predecessor.durableRevision,source:predecessor.source,blockId:expectedSourceBlock},
+      predecessorInstance:instance,
+      approvedPolicy:Transition.approvedRecoveryPolicy(),
+      supportedVersions:Compiler.VERSIONS,
+      existingRecoveryRecords:recoveryCarrierRecords(head),
+    });
+    if(!validation.ok)return{reject:true,result:{ok:false,committed:false,stale:validation.status==="stale",invalid:validation.status!=="stale",code:validation.code||"invalid_recovery_proposal",localOk:false,idbOk:false}};
+    let committed;
+    try{committed=Transition.commitRecord(validation.proposal,{confirmedAt:params.confirmedAt,reassessmentDueAt:params.reassessmentDueAt,archiveId:null})}
+    catch(error){return{reject:true,result:{ok:false,committed:false,invalid:true,code:"invalid_recovery_lifecycle",error:String(error?.message||error),localOk:false,idbOk:false}}}
+    const existing=isValidRecoveryTransitions(head.recoveryTransitions)
+      ?cloneSnapshot(head.recoveryTransitions):{schemaVersion:1,records:[],quarantine:[]};
+    const next=cloneSnapshot(head);
+    next.programMeta={...cloneSnapshot(head.programMeta),blockId:target};
+    next.recoveryTransitions={schemaVersion:1,records:[...existing.records,cloneSnapshot(committed)],quarantine:cloneSnapshot(existing.quarantine)};
+    return{proposal:next};
+  };
+  const result=await commitProposedState(initialProposal,storageIO,{
+    expectedProgramId:predecessor.programId,
+    expectedProgramFingerprint:draftProgramFingerprint(state),
+    expectedBlockId:expectedSourceBlock,
+    expectedStorageRevision:predecessor.durableRevision,
+    preflight,
+  });
+  if(result.localOk||result.idbOk){await refreshRecoveryProjectionCache(state);return{ok:true,committed:true,...result};}
+  return{ok:false,committed:false,...result};
+}
 const repforgeProgramTransitionAdapter = {
   async proposeSibling(input = {}) {
     const Transition = typeof RepForgeProgramTransition !== "undefined"
@@ -6930,6 +7147,62 @@ const repforgeProgramTransitionAdapter = {
     };
 
     return await Transition.proposeSibling(fullInput);
+  },
+
+  async proposeRecoveryWeek(input = {}) {
+    const Transition = typeof RepForgeProgramTransition !== "undefined"
+      ? RepForgeProgramTransition
+      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
+    if (!Transition || typeof Transition.proposeRecoveryWeek !== "function" ||
+        typeof Transition.approvedRecoveryPolicy !== "function") {
+      return { ok: false, status: "unavailable", code: "recovery_proposal_seam_missing", unavailable: true };
+    }
+    const Compiler = typeof ProgramCompiler !== "undefined"
+      ? ProgramCompiler
+      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
+    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
+      ? EXERCISE_LIBRARY
+      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
+    const liveMeta = state?.programMeta;
+    const sourceBlockId = snapshotBlockId(state);
+    if (!isValidBlockId(sourceBlockId, liveMeta?.id)) {
+      return { ok: false, status: "unavailable", code: "legacy_block_ineligible", unavailable: true };
+    }
+    const compilerProvenance = classifyCompilerTransitionProvenance(liveMeta);
+    if (compilerProvenance !== "present") {
+      return { ok: false, status: "unavailable", code: compilerProvenance === "invalid"
+        ? "compiler_provenance_unavailable" : "compiler_provenance_absent", unavailable: true };
+    }
+    const entrySource = liveMeta.entrySource;
+    if (!entrySource || !TRANSITION_SOURCE_ROUTES.includes(entrySource.route) ||
+        typeof entrySource.fingerprint !== "string" || !entrySource.fingerprint) {
+      return { ok: false, status: "unavailable", code: "transition_source_unavailable", unavailable: true };
+    }
+    const predecessorInstance = recoveryCompilerInstance(state, Compiler, catalogue);
+    if (!predecessorInstance) {
+      return { ok: false, status: "unavailable", code: "predecessor_reconstruction_failed", unavailable: true };
+    }
+    const evidence = isPlainStateObject(input.evidence) ? {
+      ...cloneSnapshot(input.evidence),
+      sourceBlockId,
+    } : { sourceBlockId };
+    return await Transition.proposeRecoveryWeek({
+      predecessorInstance,
+      predecessor: {
+        programId: liveMeta.id,
+        durableRevision: readRevision(state),
+        source: transitionContractSource(entrySource.route),
+        blockId: sourceBlockId,
+        compilerProvenance: liveMeta.programStructure?.provenance,
+      },
+      evidence,
+      approvedPolicy: input.approvedPolicy || Transition.approvedRecoveryPolicy(),
+      transitionId: input.transitionId || uid(),
+      blockId: allocateBlockId(),
+      createdAt: input.createdAt || new Date().toISOString(),
+      supportedVersions: Compiler.VERSIONS,
+      existingRecoveryRecords: recoveryCarrierRecords(state),
+    });
   },
 
   async proposeVolumeReduction(input = {}) {
@@ -7007,6 +7280,10 @@ const repforgeProgramTransitionAdapter = {
       ok: false, committed: false, invalid: true, code,
       localOk: false, idbOk: false, revision: readRevision(state),
     });
+
+    if (proposal?.kind === "recovery_week") {
+      return confirmRecoveryTransition(params,Transition,Compiler,catalogue);
+    }
 
     // ---------------------------------------------------------------------
     // The proposal is the authority. Every supplied identity must equal the
@@ -7229,6 +7506,92 @@ const repforgeProgramTransitionAdapter = {
       return { ok: true, committed: true, ...res };
     }
     return { ok: false, committed: false, ...res };
+  },
+
+  async reassessRecovery(params = {}) {
+    const Transition = typeof RepForgeProgramTransition !== "undefined"
+      ? RepForgeProgramTransition
+      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
+    const Compiler = typeof ProgramCompiler !== "undefined"
+      ? ProgramCompiler
+      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
+    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
+      ? EXERCISE_LIBRARY
+      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
+    const invalid=(code,extra={})=>({ok:false,committed:false,invalid:true,code,...extra,localOk:false,idbOk:false,revision:readRevision(state)});
+    if(!Transition||typeof Transition.validateRecoveryRecord!=="function"||
+      typeof Transition.reassessRecoveryRecord!=="function"||typeof Transition.approvedRecoveryPolicy!=="function")
+      return invalid("recovery_reassessment_seam_missing");
+    const {expectedRevision,blockId,transitionId,proposalHash,acknowledgedRecord,outcome}=params;
+    if(!Number.isInteger(expectedRevision)||expectedRevision<0)return invalid("stale");
+    if(typeof blockId!=="string"||!blockId.trim()||typeof transitionId!=="string"||!transitionId.trim()||
+      typeof proposalHash!=="string"||!proposalHash.trim())return invalid("recovery_reassessment_invalid");
+    if(!isPlainStateObject(acknowledgedRecord))return invalid("recovery_reassessment_invalid");
+    if(!["Better","About the same","Worse"].includes(outcome))return invalid("recovery_reassessment_invalid");
+    if(readRevision(state)!==expectedRevision||snapshotBlockId(state)!==blockId)return invalid("stale",{stale:true,staleRevision:readRevision(state)!==expectedRevision});
+    const initialRecords=recoveryCarrierRecords(state);
+    const initialMatches=initialRecords.map((record,index)=>({record,index})).filter(({record})=>
+      record.transitionId===transitionId&&record.proposalHash===proposalHash);
+    if(initialMatches.length!==1)return invalid("stale",{stale:true});
+    const initialMatch=initialMatches[0];
+    if(initialMatch.record.diff?.recoveryWeek?.blockId!==blockId)return invalid("stale",{stale:true});
+    if(initialMatch.record.diff?.recoveryWeek?.reassessmentOutcome!==null)return invalid("recovery_reassessment_closed");
+    if(!storageSnapshotsEqual(initialMatch.record,acknowledgedRecord))return invalid("stale",{stale:true});
+    const initialInstance=recoveryCompilerInstance(state,Compiler,catalogue);
+    if(!initialInstance)return invalid("predecessor_reconstruction_failed");
+    const initialValidation=await Transition.validateRecoveryRecord(initialMatch.record,{
+      predecessor:cloneSnapshot(initialMatch.record.predecessor),
+      predecessorInstance:initialInstance,
+      approvedPolicy:Transition.approvedRecoveryPolicy(),
+      supportedVersions:Compiler.VERSIONS,
+      existingRecoveryRecords:initialRecords,
+    });
+    if(!initialValidation.ok)return invalid(initialValidation.code||"recovery_reassessment_invalid",{stale:initialValidation.status==="stale"});
+    const initialReassessed=Transition.reassessRecoveryRecord(initialValidation.record,outcome,{
+      blockId,elapsedWeek:mesocycleLifecycle(state.programMeta).elapsedWeek,
+    });
+    if(!initialReassessed.ok)return invalid(initialReassessed.code||"recovery_reassessment_invalid");
+    const initialProposal=cloneSnapshot(state);
+    initialProposal.recoveryTransitions.records[initialMatch.index]=cloneSnapshot(initialReassessed.record);
+    const preflight=async({head})=>{
+      if(readRevision(head)!==expectedRevision)return{reject:true,result:{ok:false,committed:false,stale:true,staleRevision:true,code:"stale",localOk:false,idbOk:false}};
+      if(snapshotBlockId(head)!==blockId)return{reject:true,result:{ok:false,committed:false,stale:true,code:"stale",localOk:false,idbOk:false}};
+      const records=recoveryCarrierRecords(head);
+      const matches=records.map((record,index)=>({record,index})).filter(({record})=>
+        record.transitionId===transitionId&&record.proposalHash===proposalHash);
+      if(matches.length!==1)return{reject:true,result:{ok:false,committed:false,stale:true,code:"stale",localOk:false,idbOk:false}};
+      const {record,index}=matches[0];
+      if(record.diff?.recoveryWeek?.blockId!==blockId)return{reject:true,result:{ok:false,committed:false,stale:true,code:"stale",localOk:false,idbOk:false}};
+      if(record.diff?.recoveryWeek?.reassessmentOutcome!==null)
+        return{reject:true,result:{ok:false,committed:false,code:"recovery_reassessment_closed",localOk:false,idbOk:false}};
+      if(!storageSnapshotsEqual(record,acknowledgedRecord))
+        return{reject:true,result:{ok:false,committed:false,stale:true,code:"stale",localOk:false,idbOk:false}};
+      const instance=recoveryCompilerInstance(head,Compiler,catalogue);
+      if(!instance)return{reject:true,result:{ok:false,committed:false,invalid:true,code:"predecessor_reconstruction_failed",localOk:false,idbOk:false}};
+      const validation=await Transition.validateRecoveryRecord(record,{
+        predecessor:cloneSnapshot(record.predecessor),
+        predecessorInstance:instance,
+        approvedPolicy:Transition.approvedRecoveryPolicy(),
+        supportedVersions:Compiler.VERSIONS,
+        existingRecoveryRecords:records,
+      });
+      if(!validation.ok)return{reject:true,result:{ok:false,committed:false,stale:validation.status==="stale",invalid:validation.status!=="stale",code:validation.code||"recovery_reassessment_invalid",localOk:false,idbOk:false}};
+      const elapsedWeek=mesocycleLifecycle(head.programMeta).elapsedWeek;
+      const reassessed=Transition.reassessRecoveryRecord(validation.record,outcome,{blockId,elapsedWeek});
+      if(!reassessed.ok)return{reject:true,result:{ok:false,committed:false,code:reassessed.code||"recovery_reassessment_invalid",localOk:false,idbOk:false}};
+      const next=cloneSnapshot(head);
+      next.recoveryTransitions.records[index]=cloneSnapshot(reassessed.record);
+      return{proposal:next};
+    };
+    const result=await commitProposedState(initialProposal,storageIO,{
+      expectedProgramId:state?.programMeta?.id||null,
+      expectedProgramFingerprint:draftProgramFingerprint(state),
+      expectedBlockId:blockId,
+      expectedStorageRevision:expectedRevision,
+      preflight,
+    });
+    if(result.localOk||result.idbOk){await refreshRecoveryProjectionCache(state);return{ok:true,committed:true,...result};}
+    return{ok:false,committed:false,...result};
   },
 
   async stageGuidedManualRepair(params = {}, io = storageIO) {
@@ -14383,6 +14746,16 @@ async function resolveBootReplicas(candidate=null){
         if(!discarded.settled)
           return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
         continue}
+      // A recovery-start journal may be left between its intent and the
+      // mirrored snapshot. Reapply it only when the acknowledged DraftV2
+      // boundary is still clear; a draft created after the journal was armed
+      // must survive untouched and the pending start is discarded.
+      if(isRecoveryJournalAttempt(journal)&&blockStartDraftGuard(head)){
+        const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+          effect:journal.effectOutcome,discard:true});
+        if(!discarded.settled)
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+        continue}
       if(pendingJournalSuccessorMatches(record,head)){
         const prepared=preparePendingDraftTransaction(
           head,journal.rollback,journal.effectOutcome,journal.id);
@@ -14468,6 +14841,7 @@ async function applyBootDecision(decision){
   prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
   state.programMeta=normalizeProgramMeta(state.programMeta,state.log,state.program);
   resetPersistenceBase(decision.kind==="first-run"?state:decision.snapshot);
+  await refreshRecoveryProjectionCache(state);
   DraftStore.promote(null,draftContextFingerprint(state));
   day=days()[0]||"Day 1";
   applyGotoParam();

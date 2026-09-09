@@ -159,6 +159,53 @@
     return value;
   }
 
+  // Runtime consumers cannot read the Markdown policy document. Keep this
+  // literal in the transition boundary, where the executable policy checks
+  // already live, and return a fresh frozen value so callers cannot mutate the
+  // approved contract they pass back into a validator.
+  function approvedRecoveryPolicy() {
+    return deepFreeze({
+      kind: "taurifer-recovery-policy",
+      policyVersion: RECOVERY_POLICY_VERSION,
+      status: "Approved",
+      primaryPatterns: ["knee-dominant", "horizontal press", "hip/hinge"],
+      patternMapping: {
+        squat: "knee-dominant",
+        press: "horizontal press",
+        incline_press: "horizontal press",
+        hinge: "hip/hinge",
+      },
+      eligibility: {
+        qualifyingOutcomes: ["maintained", "declined"],
+        minimumPatterns: 2,
+        checkpointAnswers: ["Yes", "No", "Not sure"],
+        qualifyingCheckpointAnswer: "Yes",
+      },
+      ruleB: {
+        optional: { effectiveWorkingSets: 0, reason: "optional-removed" },
+        protected: { rounding: "ceil", divisor: 2, reason: "protected-ceil" },
+        reducible: { rounding: "floor", divisor: 2, reason: "reducible-floor" },
+        coverageRescue: {
+          minimumWorkingSets: 1,
+          selection: "first-eligible-stable-order",
+          reason: "pattern-rescue",
+        },
+      },
+      acceptanceBand: { minimum: 0.4, maximum: 0.6 },
+      allowlistedMisses: {
+        growth_2_v1: { base: 32, effective: 12 },
+        growth_3_v1: { base: 49, effective: 17 },
+      },
+      reassessment: {
+        outcomes: ["Better", "About the same", "Worse"],
+        unset: null,
+        ordinaryReviewOutcomes: ["About the same", "Worse"],
+        sameBlockRepeat: false,
+        weekTwoCanonical: true,
+      },
+    });
+  }
+
   // Shared prior-record scan for the same-target-block repeat rule. Every
   // prior must be a closed committed recovery record — own-data JSON tree with
   // `kind:"recovery_week"`, `status:"committed"`, `archiveId:null`, no
@@ -2136,10 +2183,20 @@
     const evidenceKeys = Object.keys(evidence);
     const knownEvidenceKeys = evidenceKeys.every((key) =>
       key === "outcomesByPattern" || key === "checkpointAnswer" ||
-      key === "qualifyingPatterns" || key === "question");
+      key === "qualifyingPatterns" || key === "question" || key === "sourceBlockId");
     const questionOk = !evidenceKeys.includes("question") ||
       evidence.question === RECOVERY_CHECKPOINT_QUESTION;
-    if (!knownEvidenceKeys || !questionOk || evidenceKeys.length > 4) {
+    if (!knownEvidenceKeys || !questionOk || evidenceKeys.length > 5) {
+      return Object.freeze({
+        ok: false,
+        status: "ineligible",
+        ineligible: true,
+        code: "invalid_evidence",
+      });
+    }
+
+    if (own(evidence, "sourceBlockId") &&
+        (typeof evidence.sourceBlockId !== "string" || !evidence.sourceBlockId.trim())) {
       return Object.freeze({
         ok: false,
         status: "ineligible",
@@ -2217,6 +2274,7 @@
         outcomesByPattern: normalizedOutcomes,
         qualifyingPatterns,
         checkpointAnswer: "Yes",
+        ...(own(evidence, "sourceBlockId") ? { sourceBlockId: evidence.sourceBlockId } : {}),
       },
     });
   }
@@ -2354,6 +2412,18 @@
           source: input.source,
         };
 
+    if (typeof predecessor.blockId !== "string" || !predecessor.blockId.trim()) {
+      return invalid("legacy_block_ineligible");
+    }
+    if (predecessor.blockId.length > 240 || predecessor.blockId === predecessor.programId) {
+      return invalid("invalid_block_identity");
+    }
+
+    const evidence = input.evidence;
+    if (!isObject(evidence) || evidence.sourceBlockId !== predecessor.blockId) {
+      return invalid("source_block_mismatch");
+    }
+
     if (typeof predecessor.programId !== "string" || !predecessor.programId.trim() ||
         !Number.isInteger(predecessor.durableRevision) || predecessor.durableRevision < 0 ||
         typeof predecessor.source !== "string" || !RECONSTRUCTABLE_SOURCES.has(predecessor.source)) {
@@ -2364,9 +2434,10 @@
     const blockId = input.blockId;
     const createdAt = input.createdAt;
     if (typeof transitionId !== "string" || !transitionId.trim() ||
-        typeof blockId !== "string" || !blockId.trim() ||
+        typeof blockId !== "string" || !blockId.trim() || blockId.length > 240 ||
+        blockId === predecessor.blockId ||
         !isCanonicalInstant(createdAt)) {
-      return invalid("invalid_proposal");
+      return invalid(blockId === predecessor.blockId ? "recovery_target_equals_source" : "invalid_proposal");
     }
 
     {
@@ -2391,7 +2462,7 @@
       return invalid("unsupported_compiler_version");
     }
 
-    const eligibilityResult = evaluateRecoveryEligibility(input.evidence, approvedPolicy);
+    const eligibilityResult = evaluateRecoveryEligibility(evidence, approvedPolicy);
     if (!eligibilityResult.ok) {
       return eligibilityResult;
     }
@@ -2444,6 +2515,7 @@
         fingerprint: predecessorFingerprint,
         durableRevision: predecessor.durableRevision,
         source: predecessor.source,
+        blockId: predecessor.blockId,
         compilerProvenance: clone(predecessorInstance.provenance),
       },
       diagnosis: {
@@ -2525,7 +2597,7 @@
     if (Object.keys(proposal).some((key) => !PROPOSAL_KEYS.includes(key))) {
       return { ok: false, status: "invalid", code: "invalid_proposal" };
     }
-    const PREDECESSOR_KEYS = ["programId", "fingerprint", "durableRevision", "source", "compilerProvenance"];
+    const PREDECESSOR_KEYS = ["programId", "fingerprint", "durableRevision", "source", "blockId", "compilerProvenance"];
     if (!isOwnRecord(proposal.predecessor) ||
         Object.keys(proposal.predecessor).some((key) => !PREDECESSOR_KEYS.includes(key))) {
       return { ok: false, status: "invalid", code: "invalid_proposal" };
@@ -2579,7 +2651,7 @@
         ]) ||
         overlay.activePeriod !== "nextBlockWeek1" ||
         overlay.transitionId !== proposal.transitionId ||
-        typeof overlay.blockId !== "string" || !overlay.blockId.trim() ||
+        typeof overlay.blockId !== "string" || !overlay.blockId.trim() || overlay.blockId.length > 240 ||
         !isCanonicalInstant(overlay.createdAt) ||
         overlay.createdAt !== proposal.createdAt ||
         overlay.reassessmentOutcome !== null) {
@@ -2590,10 +2662,17 @@
       return { ok: false, status: "invalid", code: "missing_validation_snapshot" };
     }
 
-    for (const field of ["programId", "durableRevision", "source"]) {
+    for (const field of ["programId", "durableRevision", "source", "blockId"]) {
       if (proposal.predecessor?.[field] !== current.predecessor[field]) {
         return { ok: false, status: "stale", code: "predecessor_changed" };
       }
+    }
+    if (typeof proposal.predecessor.blockId !== "string" || !proposal.predecessor.blockId.trim() ||
+        proposal.predecessor.blockId === proposal.predecessor.programId) {
+      return { ok: false, status: "invalid", code: "legacy_block_ineligible" };
+    }
+    if (proposal.diff.recoveryWeek.blockId === proposal.predecessor.blockId) {
+      return { ok: false, status: "invalid", code: "recovery_target_equals_source" };
     }
     const liveFingerprint = await fingerprintCompilerInstance(current.predecessorInstance);
     if (proposal.predecessor?.fingerprint !== liveFingerprint) {
@@ -2632,6 +2711,9 @@
     }
     if (!sameCanonical(overlay.eligibilityEvidence, eligibility.eligibilityEvidence)) {
       return { ok: false, status: "invalid", code: "recovery_evidence_mismatch" };
+    }
+    if (overlay.eligibilityEvidence.sourceBlockId !== proposal.predecessor.blockId) {
+      return { ok: false, status: "invalid", code: "source_block_mismatch" };
     }
 
     const expectedDiagnosis = {
@@ -3063,6 +3145,7 @@
     commitRecord,
     reassessRecoveryRecord,
     projectRecoveryProgram,
+    approvedRecoveryPolicy,
     createGuidedManualRepair,
     createGuidedManualRepairCandidate: createGuidedManualRepair,
     evaluateRecoveryEligibility,

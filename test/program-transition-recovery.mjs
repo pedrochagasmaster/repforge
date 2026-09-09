@@ -648,26 +648,35 @@ function independentRuleB(instance) {
 
 function validRecoveryInput(overrides = {}) {
   const predecessorInstance = overrides.predecessorInstance || Compiler.compile(gymContext("growth", 4), EXERCISE_LIBRARY);
+  const blockId = overrides.blockId || "block_local_b1";
+  const sourceBlockId = overrides.predecessor?.blockId || `source_${blockId}`;
+  const predecessor = {
+    programId: "prog_recovery_test_4",
+    durableRevision: 1,
+    source: "Recommend",
+    ...(overrides.predecessor || {}),
+    blockId: sourceBlockId,
+  };
+  const evidence = {
+    outcomesByPattern: {
+      "knee-dominant": "maintained",
+      "horizontal press": "declined",
+    },
+    checkpointAnswer: "Yes",
+    ...(overrides.evidence || {}),
+    sourceBlockId: overrides.evidence?.sourceBlockId || sourceBlockId,
+  };
   return {
-    predecessorInstance,
-    predecessor: {
-      programId: "prog_recovery_test_4",
-      durableRevision: 1,
-      source: "Recommend",
-    },
-    approvedPolicy: clone(APPROVED_POLICY_V2),
-    evidence: {
-      outcomesByPattern: {
-        "knee-dominant": "maintained",
-        "horizontal press": "declined",
-      },
-      checkpointAnswer: "Yes",
-    },
-    transitionId: "tr_recov_001",
-    blockId: "block_local_b1",
-    createdAt: "2026-10-01T09:00:00.000Z",
-    supportedVersions: Compiler.VERSIONS,
     ...overrides,
+    predecessorInstance,
+    predecessor,
+    approvedPolicy: overrides.approvedPolicy || clone(APPROVED_POLICY_V2),
+    evidence,
+    transitionId: overrides.transitionId || "tr_recov_001",
+    blockId,
+    createdAt: Object.prototype.hasOwnProperty.call(overrides, "createdAt")
+      ? overrides.createdAt : "2026-10-01T09:00:00.000Z",
+    supportedVersions: overrides.supportedVersions || Compiler.VERSIONS,
   };
 }
 
@@ -766,6 +775,7 @@ test("Rule B independent oracle across all 20 real compilations", async () => {
         },
         qualifyingPatterns: ["knee-dominant", "horizontal press"],
         checkpointAnswer: "Yes",
+        sourceBlockId: input.predecessor.blockId,
       });
       assert.equal(overlay.baseProgramFingerprint, proposal.predecessor.fingerprint);
       assert.equal(overlay.createdAt, input.createdAt);
@@ -1118,6 +1128,7 @@ test("semantic rejection before hash check: non-allowlisted out-of-band version"
       programId: "prog_recovery_test_4",
       durableRevision: 1,
       source: "Recommend",
+      blockId: "source_block_local_b1",
     },
     predecessorInstance: nonAllowlistedInstance,
     approvedPolicy: APPROVED_POLICY_V2,
@@ -1508,6 +1519,7 @@ test("allocation rejects compiler-valid snapshots with unsupported status, bad b
       programId: "prog_recovery_test_4",
       durableRevision: 1,
       source: "Recommend",
+      blockId: "source_block_local_b1",
     },
     predecessorInstance: uncovered,
     approvedPolicy: APPROVED_POLICY_V2,

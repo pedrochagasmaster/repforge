@@ -28,6 +28,10 @@ reasons in `SUPPORT`. Do not execute a filesystem glob or add the same command i
 another workflow. The inventory currently contains 106 commands: fast (40),
 state (24), entry (24), workout (16), and privacy (2). The PostHog measurement
 contract runs once in the fast lane as `node --test test/posthog-measurement.mjs`.
+The pinned Plan 052 R5a recovery-carrier oracle is currently an explicit local
+probe rather than an inventory command: its fixture enters one day while its
+coverage assertions require every program slot. It remains unscheduled until
+the reviewed oracle correction lands; this does not weaken the existing lanes.
 Add property modules to the generative runner's inventory; its self-test rejects
 orphaned modules.
 

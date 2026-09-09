@@ -128,6 +128,7 @@ export const SUPPORT = {
   "test/focus-shots.mjs": "Manual focused screenshot utility, not a regression suite.",
   "test/library-shots.mjs": "Manual library screenshot utility, not a regression suite.",
   "test/pt-copy-shots.mjs": "Manual copy-review screenshot utility, not a regression suite.",
+  "test/program-transition-recovery-carrier.mjs": "Pinned Plan 052 R5a oracle is run explicitly while its day-scope fixture is corrected; its current all-slot assertions are intentionally not a CI command.",
   "test/fixtures/": "Imported synthetic data and seed helpers, including the immutable old-worker fixture.",
   "test/generative/adapters/": "Production-module adapters imported by generative properties.",
   "test/generative/arbitraries/": "Generators imported by generative properties.",
