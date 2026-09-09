@@ -18,8 +18,11 @@
  *   - a bounded known-schema malformed candidate is omitted while the
  *     canonical projection remains, and its exact v1 quarantine entry is
  *     persisted, deduplicated by digest+reason, and source-attributed;
- *   - two independently valid, same-target records remain retained but apply
- *     neither, with one independently sorted/hash-computed conflict bundle;
+ *   - two independently valid records from a small real compiler-backed
+ *     predecessor remain retained but apply neither, with one independently
+ *     sorted/hash-computed conflict bundle;
+ *   - the real normalized producer pair is measured as an over-bound conflict
+ *     bundle and must preserve both replicas through full storage recovery;
  *   - unknown required policy versions, unknown schemas, over-bound values,
  *     and malformed quarantine containers preserve both replicas byte-for-
  *     byte and open the existing full Storage Recovery boundary.
@@ -60,6 +63,8 @@ const CREATED_AT = "2026-10-01T09:00:00.000Z";
 const CONFIRMED_AT = "2026-10-01T09:12:00.000Z";
 const REASSESSMENT_DUE_AT = "2026-10-08T09:12:00.000Z";
 const MALFORMED_DETECTED_AT = "2026-10-01T09:30:00.000Z";
+const EXPECTED_BOUNDED_CONFLICT_RAW_LENGTH = 9949;
+const EXPECTED_OVER_BOUND_CONFLICT_RAW_LENGTH = 16033;
 
 const APPROVED_POLICY_V2 = parseExecutablePolicy(
   readFileSync(new URL("../docs/recovery-week-policy.md", import.meta.url), "utf8"),
@@ -95,6 +100,17 @@ const EXPECTED_CANONICAL = new Map(
 const EXPECTED_WEEK_ONE = new Map(
   FIXED_FIXTURE_DAY.slots.map((slot) => [slot.slotId, WEEK_ONE_BY_SLOT.get(slot.slotId)]),
 );
+const BOUNDED_DUPLICATE_FIXTURE = PROGRAM_FAMILY_FIXTURE.reviewCompilations.find(
+  (compilation) => compilation.blueprintId === "strength_2_v1",
+);
+if (!BOUNDED_DUPLICATE_FIXTURE) throw new Error("strength_2_v1 fixture is required by the bounded duplicate oracle");
+const BOUNDED_DUPLICATE_DAY = BOUNDED_DUPLICATE_FIXTURE.days[0];
+const BOUNDED_DUPLICATE_DAY_SLOTS = BOUNDED_DUPLICATE_DAY.slots.filter((slot) => slot.status !== "optional");
+const BOUNDED_DUPLICATE_EXPECTATIONS = {
+  dayId: BOUNDED_DUPLICATE_DAY.dayId,
+  slotIds: BOUNDED_DUPLICATE_DAY_SLOTS.map((slot) => slot.slotId),
+  canonical: new Map(BOUNDED_DUPLICATE_DAY_SLOTS.map((slot) => [slot.slotId, slot.sets])),
+};
 
 const results = { passed: 0, failed: 0, harnessFailed: 0, failures: [] };
 const QUARANTINE_V1_KEYS = ["schemaVersion", "digest", "raw", "sourceReplica", "detectedAt", "reason"];
@@ -261,11 +277,17 @@ async function clearStorage(page) {
   }, { key: KEY, draftKey: DRAFT_KEY, checkpointKey: CHECKPOINT_KEY, dbName: DB_NAME });
 }
 
-async function activateBalancedPredecessor(page) {
-  return page.evaluate(async () => {
+async function activateBalancedPredecessor(page, options = {}) {
+  return page.evaluate(async (input) => {
     if (!window.RepForgeProgramEntryAdapter || !window.RepForgeProgramCompiler) {
       return { ok: false, code: "compiler_or_entry_adapter_missing" };
     }
+    const desiredResult = input.desiredResult || "balanced";
+    const structuredExperience = input.structuredExperience || "6_to_24m";
+    const daysPerWeek = input.daysPerWeek || 4;
+    const sessionMinutes = input.sessionMinutes || 90;
+    const preferredRestSeconds = input.preferredRestSeconds || 90;
+    const environment = input.environment || { kind: "commercial_gym" };
     const services = window.RepForgeProgramEntryAdapter.createProductionServices({
       Compiler: window.RepForgeProgramCompiler,
       catalogue: window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY,
@@ -273,13 +295,13 @@ async function activateBalancedPredecessor(page) {
     const compiled = services.compile({
       mode: "recommend",
       answers: {
-        desiredResult: "balanced",
-        structuredExperience: "6_to_24m",
+        desiredResult,
+        structuredExperience,
         recentConsistency: "most",
-        daysPerWeek: 4,
-        sessionMinutes: 90,
-        preferredRestSeconds: 90,
-        environment: { kind: "commercial_gym" },
+        daysPerWeek,
+        sessionMinutes,
+        preferredRestSeconds,
+        environment,
         primaryMuscles: [],
         deEmphasizedMuscles: [],
         ignoredMuscles: [],
@@ -299,8 +321,8 @@ async function activateBalancedPredecessor(page) {
     baseProposal.programMeta.compilerContext = JSON.parse(JSON.stringify(compiled.compilerContext));
     const finalized = await window.__repforgeFinalizeProgramSetup({
       exercises: compiled.preview.program,
-      name: compiled.name || "Balanced 4-Day",
-      answers: { goal: "strength_hypertrophy", daysPerWeek: 4 },
+      name: compiled.name || input.name || "Balanced predecessor",
+      answers: { goal: input.goal || "strength_hypertrophy", daysPerWeek },
       destination: "log",
       origin: "first-run",
       draftConfirmed: true,
@@ -313,7 +335,7 @@ async function activateBalancedPredecessor(page) {
     });
     await window.__repforgeStorage.flush();
     return { ok: finalized?.localOk || finalized?.idbOk, finalized };
-  });
+  }, options);
 }
 
 async function buildValidRecord(page, {
@@ -370,23 +392,26 @@ async function buildValidRecord(page, {
   }, { transitionId, targetBlockId, createdAt, confirmedAt, reassessmentDueAt, approvedPolicy: clone(approvedPolicy) });
 }
 
-async function alignProgramIdentity(page, programId) {
-  return page.evaluate(async (nextProgramId) => {
+async function alignProgramIdentity(page, programId, blockId = undefined) {
+  return page.evaluate(async ({ nextProgramId, nextBlockId }) => {
     const hook = window.__repforgeWorkoutDraft;
     if (!hook || typeof window.__repforgeCommitProposedState !== "function" ||
       !window.__repforgeStorage?.flush) {
       return { ok: false, code: "program-identity-alignment_seam_missing" };
     }
     const snapshot = hook.state();
-    const proposal = { ...snapshot, programMeta: { ...snapshot.programMeta, id: nextProgramId } };
+    const programMeta = { ...snapshot.programMeta, id: nextProgramId };
+    if (nextBlockId !== undefined) programMeta.blockId = nextBlockId;
+    const proposal = { ...snapshot, programMeta };
     const result = await window.__repforgeCommitProposedState(proposal);
     await window.__repforgeStorage.flush();
     return {
       ok: result?.localOk || result?.idbOk,
       liveProgramId: window.__repforgeWorkoutDraft.state()?.programMeta?.id,
+      liveBlockId: window.__repforgeWorkoutDraft.state()?.programMeta?.blockId,
       result,
     };
-  }, programId);
+  }, { nextProgramId: programId, nextBlockId: blockId });
 }
 
 async function validateRecordAgainstLive(page, record, approvedPolicy = APPROVED_POLICY_V2) {
@@ -422,7 +447,7 @@ async function validateRecordAgainstLive(page, record, approvedPolicy = APPROVED
   }, { record: clone(record), approvedPolicy: clone(approvedPolicy) });
 }
 
-async function observeProjection(page) {
+async function observeProjection(page, expectations = {}) {
   return page.evaluate(async ({ expectedDayId, slotIds }) => {
     const hook = window.__repforgeWorkoutDraft;
     const snapshot = hook?.state?.();
@@ -447,11 +472,14 @@ async function observeProjection(page) {
       rows,
       blockId: draft?.program?.blockId ?? null,
     };
-  }, { expectedDayId: FIXED_FIXTURE_DAY_ID, slotIds: FIXED_FIXTURE_SLOT_IDS });
+  }, {
+    expectedDayId: expectations.dayId || FIXED_FIXTURE_DAY_ID,
+    slotIds: expectations.slotIds || FIXED_FIXTURE_SLOT_IDS,
+  });
 }
 
-function projectionMatches(observed, expected) {
-  if (!observed?.ok || observed.draftDayId !== FIXED_FIXTURE_DAY_ID) return false;
+function projectionMatches(observed, expected, expectedDayId = FIXED_FIXTURE_DAY_ID) {
+  if (!observed?.ok || observed.draftDayId !== expectedDayId) return false;
   const actual = observed.rows || [];
   const expectedRows = [...expected].filter(([, sets]) => sets > 0);
   return actual.length === expectedRows.length && expectedRows.every(([slotId, sets], index) =>
@@ -689,13 +717,37 @@ async function sourceAttributionScenario(browser, base, validRecord, sourceRepli
   await context.close();
 }
 
-async function duplicateTargetScenario(browser, base, firstRecord, secondRecord) {
-  console.log("\n5. Two individually valid records targeting one block conflict deterministically");
+async function duplicateTargetScenario(browser, base, firstRecord, secondRecord, expectations = {
+  dayId: FIXED_FIXTURE_DAY_ID,
+  slotIds: FIXED_FIXTURE_SLOT_IDS,
+  canonical: EXPECTED_CANONICAL,
+}) {
+  console.log("\n5. Two independently valid bounded records targeting one block conflict deterministically");
   const targetBlockId = recordTarget(firstRecord);
   const records = [firstRecord, secondRecord];
   const expectedRaw = expectedConflictRaw(targetBlockId, records);
   const expectedDigest = sha256Utf8(expectedRaw);
   const outcomes = [];
+  for (const [index, record] of records.entries()) {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+    page.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
+    await page.goto(BASE);
+    await waitForAppBoot(page, { base: BASE });
+    const carrier = { schemaVersion: 1, records: [record], quarantine: [] };
+    const seeded = incrementedState(stateWithCarrier(base, carrier, targetBlockId));
+    await seedReplicas(page, seeded, seeded);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    const mode = await waitForReadyOrRecovery(page);
+    const after = await readReplicas(page);
+    check(mode.booted === true, `bounded valid record ${index + 1} boots without full recovery`, mode);
+    check(mode.recoveryOpen === false, `bounded valid record ${index + 1} is accepted without full recovery`, mode);
+    check(recordsOf(after.local).length === 1 && recordsOf(after.idb).length === 1 &&
+      isDeepStrictEqual(recordsOf(after.local)[0], record) &&
+      isDeepStrictEqual(recordsOf(after.idb)[0], record),
+    `bounded valid record ${index + 1} retains its independently validated carrier envelope`);
+    await context.close();
+  }
   for (const permutation of [records, [...records].reverse()]) {
     const context = await browser.newContext();
     const page = await context.newPage();
@@ -713,8 +765,8 @@ async function duplicateTargetScenario(browser, base, firstRecord, secondRecord)
     if (mode.booted) {
       check(recordsOf(after.local).length === 2 && recordsOf(after.idb).length === 2,
         `duplicate permutation ${outcomes.length + 1} retains both valid records`, after.local?.recoveryTransitions);
-      const projection = await observeProjection(page);
-      check(projectionMatches(projection, EXPECTED_CANONICAL),
+      const projection = await observeProjection(page, expectations);
+      check(projectionMatches(projection, expectations.canonical, expectations.dayId),
         `duplicate permutation ${outcomes.length + 1} applies neither record and renders canonical`, projection);
       const quarantine = carrierOf(after.local)?.quarantine || [];
       check(quarantine.length === 1, `duplicate permutation ${outcomes.length + 1} creates one conflict quarantine entry`, quarantine);
@@ -740,8 +792,8 @@ async function duplicateTargetScenario(browser, base, firstRecord, secondRecord)
         reloadedEntry?.detectedAt === firstDetectedAt && reloadedEntry?.raw === expectedRaw &&
         reloadedEntry?.digest === expectedDigest && reloadedEntry?.reason === "duplicate-target-conflict",
         `duplicate permutation ${outcomes.length + 1} reload retains the conflict entry first-seen fields`);
-      const reloadedProjection = await observeProjection(page);
-      check(projectionMatches(reloadedProjection, EXPECTED_CANONICAL),
+      const reloadedProjection = await observeProjection(page, expectations);
+      check(projectionMatches(reloadedProjection, expectations.canonical, expectations.dayId),
         `duplicate permutation ${outcomes.length + 1} reload still applies neither record`, reloadedProjection);
       outcomes.push({ raw: entry?.raw, digest: entry?.digest });
     } else {
@@ -755,13 +807,35 @@ async function duplicateTargetScenario(browser, base, firstRecord, secondRecord)
   "permutations produce identical deterministic conflict raw/digest", outcomes);
 }
 
-async function fullRecoveryScenario(browser, base, label, carrier) {
+async function overBoundDuplicateScenario(browser, base, firstRecord, secondRecord) {
+  const targetBlockId = recordTarget(firstRecord);
+  const raw = expectedConflictRaw(targetBlockId, [firstRecord, secondRecord]);
+  console.log(`  measured over-bound duplicate conflict raw length: ${raw.length}`);
+  check(raw.length === EXPECTED_OVER_BOUND_CONFLICT_RAW_LENGTH,
+    "real normalized duplicate conflict raw length remains pinned at 16,033 characters",
+    { rawLength: raw.length, expected: EXPECTED_OVER_BOUND_CONFLICT_RAW_LENGTH }, "harness");
+  check(raw.length > 10000,
+    "real normalized duplicate conflict raw independently exceeds the 10,000-character bound",
+    { rawLength: raw.length, limit: 10000 }, "harness");
+  if (raw.length <= 10000) {
+    throw new Error("HARNESS FAILURE: real normalized duplicate conflict bundle is not over-bound");
+  }
+  await fullRecoveryScenario(
+    browser,
+    base,
+    "over-bound duplicate conflict bundle",
+    { schemaVersion: 1, records: [firstRecord, secondRecord], quarantine: [] },
+    targetBlockId,
+  );
+}
+
+async function fullRecoveryScenario(browser, base, label, carrier, blockId = base.programMeta?.blockId) {
   const context = await browser.newContext();
   const page = await context.newPage();
   page.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
   await page.goto(BASE);
   await waitForAppBoot(page, { base: BASE });
-  const seeded = incrementedState(stateWithCarrier(base, carrier, base.programMeta?.blockId));
+  const seeded = incrementedState(stateWithCarrier(base, carrier, blockId));
   const localRaw = JSON.stringify(seeded);
   await seedReplicas(page, seeded, seeded, localRaw);
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -870,9 +944,112 @@ async function main() {
     await sourceAttributionScenario(browser, base, firstRecord, "localStorage");
     await sourceAttributionScenario(browser, base, firstRecord, "indexedDB");
     await sourceAttributionScenario(browser, base, firstRecord, "both");
-    await duplicateTargetScenario(browser, base, firstRecord, secondRecord);
+    const boundedSource = await openCleanPage(browser);
+    const boundedActivation = await activateBalancedPredecessor(boundedSource.page, {
+      desiredResult: "strength",
+      structuredExperience: "first",
+      daysPerWeek: 2,
+      sessionMinutes: 60,
+      preferredRestSeconds: 60,
+      name: "Bounded duplicate source",
+      goal: "strength",
+    });
+    check(boundedActivation.ok, "small real compiler-backed predecessor activated for bounded duplicates", boundedActivation, "harness");
+    if (!boundedActivation.ok) throw new Error("HARNESS FAILURE: could not establish bounded duplicate predecessor");
+    await boundedSource.page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(boundedSource.page, { base: BASE });
+    const boundedProgramAlignment = await alignProgramIdentity(boundedSource.page, "p", "a");
+    check(boundedProgramAlignment.ok && boundedProgramAlignment.liveProgramId === "p" &&
+      boundedProgramAlignment.liveBlockId === "a",
+    "bounded duplicate source uses short independent program/block identities", boundedProgramAlignment, "harness");
+    if (!boundedProgramAlignment.ok || boundedProgramAlignment.liveProgramId !== "p" ||
+      boundedProgramAlignment.liveBlockId !== "a") {
+      throw new Error("HARNESS FAILURE: could not establish bounded duplicate source identity");
+    }
+    const boundedBase = await boundedSource.page.evaluate(() => window.__repforgeWorkoutDraft.state());
+    const boundedFirstResult = await buildValidRecord(boundedSource.page, {
+      transitionId: "b1",
+      targetBlockId: "t",
+    });
+    check(boundedFirstResult.ok, "small production transition seam creates bounded duplicate record one", boundedFirstResult, "harness");
+    if (!boundedFirstResult.ok) throw new Error("HARNESS FAILURE: could not create bounded duplicate record one");
+    const boundedFirstRecord = boundedFirstResult.record;
+    const boundedFirstValidation = await validateRecordAgainstLive(boundedSource.page, boundedFirstRecord);
+    check(boundedFirstValidation.ok && boundedFirstValidation.predecessorProgramId === "p" &&
+      boundedFirstValidation.sourceBlockId === "a" && boundedFirstValidation.targetBlockId === "t",
+    "bounded duplicate record one passes the authoritative transition validator", boundedFirstValidation, "harness");
+    if (!boundedFirstValidation.ok || boundedFirstValidation.predecessorProgramId !== "p" ||
+      boundedFirstValidation.sourceBlockId !== "a" || boundedFirstValidation.targetBlockId !== "t") {
+      throw new Error("HARNESS FAILURE: bounded duplicate record one is not independently valid");
+    }
 
-    console.log("\n6. Unknown, over-bound, and malformed-quarantine inputs enter exact full storage recovery");
+    const boundedDuplicateSource = await openCleanPage(browser);
+    const boundedDuplicateActivation = await activateBalancedPredecessor(boundedDuplicateSource.page, {
+      desiredResult: "strength",
+      structuredExperience: "first",
+      daysPerWeek: 2,
+      sessionMinutes: 60,
+      preferredRestSeconds: 60,
+      name: "Bounded duplicate source",
+      goal: "strength",
+    });
+    check(boundedDuplicateActivation.ok, "second small compiler-backed predecessor activated for bounded duplicates", boundedDuplicateActivation, "harness");
+    if (!boundedDuplicateActivation.ok) throw new Error("HARNESS FAILURE: could not establish second bounded duplicate predecessor");
+    await boundedDuplicateSource.page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(boundedDuplicateSource.page, { base: BASE });
+    const boundedDuplicateAlignment = await alignProgramIdentity(boundedDuplicateSource.page, "p", "b");
+    check(boundedDuplicateAlignment.ok && boundedDuplicateAlignment.liveProgramId === "p" &&
+      boundedDuplicateAlignment.liveBlockId === "b",
+    "second bounded duplicate source shares only the program identity", boundedDuplicateAlignment, "harness");
+    if (!boundedDuplicateAlignment.ok || boundedDuplicateAlignment.liveProgramId !== "p" ||
+      boundedDuplicateAlignment.liveBlockId !== "b") {
+      throw new Error("HARNESS FAILURE: could not establish second bounded duplicate source identity");
+    }
+    const boundedSecondResult = await buildValidRecord(boundedDuplicateSource.page, {
+      transitionId: "b2",
+      targetBlockId: "t",
+    });
+    check(boundedSecondResult.ok, "small production transition seam creates bounded duplicate record two", boundedSecondResult, "harness");
+    if (!boundedSecondResult.ok) throw new Error("HARNESS FAILURE: could not create bounded duplicate record two");
+    const boundedSecondRecord = boundedSecondResult.record;
+    const boundedSecondValidation = await validateRecordAgainstLive(boundedDuplicateSource.page, boundedSecondRecord);
+    check(boundedSecondValidation.ok && boundedSecondValidation.predecessorProgramId === "p" &&
+      boundedSecondValidation.sourceBlockId === "b" && boundedSecondValidation.targetBlockId === "t",
+    "bounded duplicate record two passes the authoritative transition validator", boundedSecondValidation, "harness");
+    if (!boundedSecondValidation.ok || boundedSecondValidation.predecessorProgramId !== "p" ||
+      boundedSecondValidation.sourceBlockId !== "b" || boundedSecondValidation.targetBlockId !== "t") {
+      throw new Error("HARNESS FAILURE: bounded duplicate record two is not independently valid");
+    }
+    const boundedDuplicateRecords = [boundedFirstRecord, boundedSecondRecord];
+    check(boundedFirstRecord.predecessor?.blockId !== boundedSecondRecord.predecessor?.blockId &&
+      boundedFirstRecord.transitionId !== boundedSecondRecord.transitionId &&
+      boundedFirstRecord.proposalHash !== boundedSecondRecord.proposalHash &&
+      recordTarget(boundedFirstRecord) === recordTarget(boundedSecondRecord),
+    "bounded duplicate records retain distinct sources and identities with one shared target", undefined, "harness");
+    if (boundedFirstRecord.predecessor?.blockId === boundedSecondRecord.predecessor?.blockId ||
+      boundedFirstRecord.transitionId === boundedSecondRecord.transitionId ||
+      boundedFirstRecord.proposalHash === boundedSecondRecord.proposalHash ||
+      recordTarget(boundedFirstRecord) !== recordTarget(boundedSecondRecord)) {
+      throw new Error("HARNESS FAILURE: bounded duplicate records are not an independent same-target pair");
+    }
+    const boundedConflictRaw = expectedConflictRaw("t", boundedDuplicateRecords);
+    console.log(`  measured bounded duplicate conflict raw length: ${boundedConflictRaw.length}`);
+    check(boundedConflictRaw.length === EXPECTED_BOUNDED_CONFLICT_RAW_LENGTH,
+      "independently valid bounded duplicate conflict raw length remains pinned at 9,949 characters",
+      { rawLength: boundedConflictRaw.length, expected: EXPECTED_BOUNDED_CONFLICT_RAW_LENGTH }, "harness");
+    check(boundedConflictRaw.length <= 10000,
+      "independently valid bounded duplicate conflict raw stays within the 10,000-character bound",
+      { rawLength: boundedConflictRaw.length, limit: 10000 }, "harness");
+    if (boundedConflictRaw.length > 10000) {
+      throw new Error("HARNESS FAILURE: independently valid bounded duplicate conflict bundle is over-bound");
+    }
+    await boundedSource.context.close();
+    await boundedDuplicateSource.context.close();
+    await duplicateTargetScenario(browser, boundedBase, ...boundedDuplicateRecords, BOUNDED_DUPLICATE_EXPECTATIONS);
+    console.log("\n6. Real normalized duplicate overflow preserves untouched replicas through full recovery");
+    await overBoundDuplicateScenario(browser, base, firstRecord, secondRecord);
+
+    console.log("\n7. Unknown, over-bound, and malformed-quarantine inputs enter exact full storage recovery");
     const unknownTopLevel = { schemaVersion: 2, records: [], quarantine: [] };
     await fullRecoveryScenario(browser, base, "unknown top-level carrier schema", unknownTopLevel);
     const unknownRecord = clone(firstRecord);
@@ -895,7 +1072,7 @@ async function main() {
     await fullRecoveryScenario(browser, base, "over-bound aggregate", overBoundAggregate);
     await fullRecoveryScenario(browser, base, "malformed quarantine container", { schemaVersion: 1, records: [], quarantine: {} });
 
-    console.log("\n7. Replica disagreement never recursively unions whole carriers");
+    console.log("\n8. Replica disagreement never recursively unions whole carriers");
     const disagreementContext = await browser.newContext();
     const disagreementPage = await disagreementContext.newPage();
     disagreementPage.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
