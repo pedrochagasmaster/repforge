@@ -61,6 +61,7 @@ export const SUITES = {
     s("test/program-block-identity.mjs"),
     s("test/program-transition-recovery-carrier.mjs"),
     s("test/program-transition-recovery-corruption.mjs"),
+    s("test/program-transition-r7-boundary.mjs"),
     s("test/recover-gate.mjs"),
     s("test/workout-draft-storage.mjs"),
     s("test/workout-draft-sw-upgrade.mjs"),

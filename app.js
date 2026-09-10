@@ -4391,6 +4391,11 @@ function buildSharedProgramMeta(raw,program=[]){
     progressionModifiers:normalizeProgressionModifiers(raw?.progressionModifiers),
     blockPromptDismissedId:null,
     programStructure:raw?.programStructure?cloneSnapshot(raw.programStructure):null}}
+function sharedPreviewMeta(raw){
+  const out={};
+  for(const key of ["name","goal","experience","daysPerWeek","splitType","equipment","priorityMuscles","sessionLength","mesocycleLengthWeeks"])
+    if(Object.prototype.hasOwnProperty.call(raw||{},key))out[key]=cloneSnapshot(raw[key]);
+  return out}
 function proposalFromSharedSetup(payload,baseState=state){
   if(!SharedSetup)throw new TypeError("Shared setup unavailable");
   const checked=SharedSetup.validate(payload,{builtInIds:SHARED_BUILT_IN_IDS});
@@ -14240,11 +14245,12 @@ async function commitSharedSetup(io=storageIO){
       days:sharedPreviewDays(program,structure,checked.value.settings),
       customExercises:cloneSnapshot(proposal.customExercises||[]),
       progressionRelations:cloneSnapshot(proposal.programMeta?.progressionRelations||[]),
+      progressionModifiers:cloneSnapshot(proposal.programMeta?.progressionModifiers||[]),
       // Shared metadata keeps its released display labels in sharedMeta. The
       // common draft schema's primaryMuscles field is the generator's closed
       // token vocabulary, so do not copy human-labelled payload values into it.
       primaryMuscles:[],
-      sharedMeta:cloneSnapshot(payload.meta),
+      sharedMeta:sharedPreviewMeta(payload.meta),
       sharedSettings:cloneSnapshot(checked.value.settings),
       sharedImport:cloneSnapshot(proposal[SHARED_IMPORT]||null)};
     startOnboarding("first-run",{userInitiated:true,forceFresh:true});

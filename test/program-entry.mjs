@@ -784,3 +784,45 @@ test("build-route setup draft normalizes and preserves diagnostics facts", () =>
   assert.equal(normalizedMins.value.result.diagnostics.sessionMinutes, 45);
   assert.equal(normalizedMins.value.result.diagnostics.daysPerWeek, undefined);
 });
+
+test("progression modifier targets follow the authoritative field shape without opening the entry envelope", () => {
+  const modifier = {
+    id: "pending-modifier",
+    version: 1,
+    compatibleStrategies: ["range@1"],
+    weekNumber: 1,
+    target: "repMin",
+    params: { pending: true },
+  };
+  let state = Entry.selectRoute(fresh(), "import");
+  state = Entry.setAnswers(state, { importReady: true });
+  state = Entry.setResult(state, {
+    fingerprint: "modifier-target",
+    selected: { id: "import", source: "import" },
+    preview: {
+      program: [{ id: "import-row", day: "Day 1", order: 1, name: "Row", sets: 3, min: 8, max: 12 }],
+      progressionModifiers: [modifier],
+    },
+  });
+  state = Entry.advance(state).state;
+  const camelCase = Entry.normalizeSetupDraft(state);
+  assert.equal(camelCase.ok, true, camelCase.issues?.join(","));
+  assert.deepEqual(camelCase.value.result.preview.progressionModifiers, [modifier]);
+
+  const noTarget = structuredClone(state);
+  noTarget.result.preview.progressionModifiers[0].target = null;
+  const nullTarget = Entry.normalizeSetupDraft(noTarget);
+  assert.equal(nullTarget.ok, true, nullTarget.issues?.join(","));
+
+  const unknownModifierKey = structuredClone(state);
+  unknownModifierKey.result.preview.progressionModifiers[0].futureField = true;
+  const modifierRejected = Entry.normalizeSetupDraft(unknownModifierKey);
+  assert.equal(modifierRejected.ok, false);
+  assert.ok(modifierRejected.issues.some((issue) => issue.includes("futureField:unknown_key")));
+
+  const unknownPreviewKey = structuredClone(state);
+  unknownPreviewKey.result.preview.futureEnvelopeField = true;
+  const previewRejected = Entry.normalizeSetupDraft(unknownPreviewKey);
+  assert.equal(previewRejected.ok, false);
+  assert.ok(previewRejected.issues.some((issue) => issue.includes("futureEnvelopeField:unknown_key")));
+});
