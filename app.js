@@ -560,8 +560,12 @@ async function refreshPersistenceHead(){
   if(diskRev<currentRev||storageSnapshotsEqual(disk,current))return{head:current};
   return{head:current,conflict:true}}
 function withStorageLock(io,op){
-  if(io===storageIO&&navigator.locks?.request)return navigator.locks.request(STORAGE_LOCK,op);
-  return op()}
+  const guarded=async(...args)=>{
+    if(io===storageIO&&installTransferMutationFrozen())
+      return{localOk:false,idbOk:false,conflict:true,transferFrozen:true,code:"install-transfer-frozen"};
+    return op(...args)};
+  if(io===storageIO&&navigator.locks?.request)return navigator.locks.request(STORAGE_LOCK,guarded);
+  return guarded()}
 function applyAcceptedSnapshot(base,snapshot){
   const live=rebaseStateChange(base,snapshot,state,{preferProposal:false});
   live[STORAGE_REV]=readRevision(snapshot);
@@ -1909,6 +1913,11 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
     noteWriteHealth(failed);
     return Promise.resolve(failed)}
   const operation=enqueueWrite(()=>withStorageLock(io,async()=>{
+    if(io===storageIO&&installTransferMutationFrozen()){
+      await executeDraftTransaction({record:pendingRecord,transactionId:pendingRecord?.journal.id||null,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(frozenBase),localOk:false,idbOk:false,
+        conflict:true,transferFrozen:true,code:"install-transfer-frozen"}}
     let head=cloneSnapshot(persistHead||frozenBase);
     if(io===storageIO){
       const refreshed=await refreshPersistenceHead();
@@ -2032,7 +2041,15 @@ const I18N=window.RepForgeI18n;
 const t=(k,v)=>I18N?I18N.t(k,v):k;
 const tp=(n,w)=>I18N?I18N.tp(n,w):(+n===1?w:w+"s");
 const captureEvent=(event,properties)=>{try{return window.RepForgeTelemetry?.capture(event,properties)===true}catch{return false}};
-const bootTelemetry=()=>{try{const config=window.__POSTHOG_CONFIG__||{};
+function installTransferGuardTelemetry(){
+  const telemetry=window.RepForgeTelemetry;
+  if(!telemetry?.setEnabled||telemetry.__repforgeInstallTransferGuarded)return;
+  const guarded={...telemetry,setEnabled(enabled){
+    if(installTransferMutationFrozen())return telemetry.isEnabled?.()!==false;
+    return telemetry.setEnabled(enabled)}};
+  try{Object.defineProperty(guarded,"__repforgeInstallTransferGuarded",{value:true});window.RepForgeTelemetry=guarded}catch{}
+}
+const bootTelemetry=()=>{if(installTransferMutationFrozen())return null;try{const config=window.__POSTHOG_CONFIG__||{};
   const result=window.RepForgeTelemetry?.boot({appVersion:config.appVersion||"dev",crypto:window.crypto,
     location:window.location,navigator:window.navigator,releaseChannel:config.releaseChannel||"preview",
     storage:window.localStorage})||null;
@@ -3370,6 +3387,7 @@ function enqueueDraftCommand(type,payload={},ui={}){
       return{status:"applied",draft:activeWorkoutDraft,raw:activeWorkoutDraftRaw,noOp:true};
     const nextRaw=JSON.stringify(WorkoutDraft.serialize(next));
     const attempt={expectedDraftId:activeWorkoutDraft.draftId,expectedRevision:activeWorkoutDraft.revision,nextRaw,operationId};
+    if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
     const written=await DraftStore.compareAndSwapV2(attempt);
     if(written.status==="applied"){activeWorkoutDraft=written.draft;activeWorkoutDraftRaw=written.raw;
       hydrateDraftCollections(workoutDraftProjection());clearDraftUiRecovery()}
@@ -4636,11 +4654,17 @@ async function installTransferWriteMarker(marker){
     return true;
   }catch{return false}}
 async function installTransferClearMarker(){
-  try{
-    localStorage.removeItem(INSTALL_IMPORT_KEY);
-    await idbDel(INSTALL_IMPORT_KEY);
-    return true;
-  }catch{return false}}
+  let localRaw,idbMarker;
+  try{localRaw=localStorage.getItem(INSTALL_IMPORT_KEY)}catch{return false}
+  try{idbMarker=await idbGet(INSTALL_IMPORT_KEY);if(idbMarker===undefined)idbMarker=null}
+  catch{return false}
+  let localCleared=false,idbCleared=false;
+  try{localStorage.removeItem(INSTALL_IMPORT_KEY);localCleared=true}catch{}
+  try{await idbDel(INSTALL_IMPORT_KEY);idbCleared=true}catch{}
+  if(localCleared&&idbCleared)return true;
+  if(localCleared&&localRaw!==null){try{localStorage.setItem(INSTALL_IMPORT_KEY,localRaw)}catch{}}
+  if(idbCleared&&idbMarker!==null){try{await idbSet(INSTALL_IMPORT_KEY,cloneSnapshot(idbMarker))}catch{}}
+  return false}
 function installTransferFreezeSignal(){
   try{
     const raw=localStorage.getItem(INSTALL_FREEZE_KEY);
@@ -4648,6 +4672,9 @@ function installTransferFreezeSignal(){
     const value=JSON.parse(raw);
     return value&&typeof value==="object"&&!Array.isArray(value)?value:{invalid:true};
   }catch{return{invalid:true}}}
+function installTransferFreezeOwned(){
+  const signal=installTransferFreezeSignal();
+  return !!installTransferFreezeOwner&&signal?.owner===installTransferFreezeOwner}
 function installTransferMutationFrozen(){
   const signal=installTransferFreezeSignal();
   return !!signal&&signal.owner!==installTransferFreezeOwner;
@@ -4660,6 +4687,7 @@ function installTransferBroadcast(type,value){
   }catch{}}
 async function withInstallTransferLock(work){
   if(!navigator.locks?.request)return{ok:false,code:"install-transfer-lock-unavailable",blocked:true};
+  if(installTransferFreezeOwned())return work(installTransferFreezeOwner);
   const owner=uid();
   try{
     return await navigator.locks.request("install-transfer",async()=>{
@@ -4705,6 +4733,7 @@ async function installTransferStandaloneClient({preserveCleanupMarker=false}={})
   const credentials=transfer.createCredentialVault({crypto:window.crypto,indexedDB:window.indexedDB});
   const operationLock={withLock(name,work){
     if(!navigator.locks?.request)throw new Error("install-transfer-lock-unavailable");
+    if(installTransferFreezeOwned()&&name==="install-transfer")return Promise.resolve().then(work);
     return navigator.locks.request(name,work)}};
   const transport=transfer.createFetchTransport({fetch:window.fetch.bind(window),baseUrl:window.location.href});
   const client=transfer.createClient({contract,crypto:window.crypto,transport,context:"standalone",
@@ -4719,6 +4748,8 @@ async function installTransferPrepareStandaloneBoot(){
     if(inboundBefore?.phase==="local-committed"||inboundBefore?.phase==="cleanup-pending"){
       const standalone=await installTransferStandaloneClient();
       const cleanup=await standalone.client.commit();
+      if(cleanup?.ok===true&&!await installTransferClearMarker())
+        return{ok:false,code:"marker-clear-failed",blocked:true,state:"localCommitted",cleanup};
       return{ok:true,state:"localCommitted",cleanup};
     }
     const destination=await installTransferDestination();
@@ -4732,7 +4763,8 @@ async function installTransferPrepareStandaloneBoot(){
     let pair;
     try{pair=await standalone.credentials.unseal("standalone-inbound",claimedMarker.sealedCredentials)}
     catch{return{ok:false,code:"claim-credential-unavailable"}}
-    const digest=await installTransferClaimDigest(standalone.contract,{claimId:pair?.claimId});
+    const digest=await installTransferClaimDigest(standalone.contract,{claimId:pair?.claimId,
+      credentials:standalone.credentials});
     if(!digest.ok)return{ok:false,code:digest.code||"claim-digest-failed"};
     return{ok:true,pending:{standalone,envelope:claimed.envelope,claimId:pair.claimId,claimIdDigest:digest.value}};
   }catch(error){return{ok:false,code:error?.message||"standalone-transfer-failed"}}
@@ -4741,12 +4773,14 @@ async function installTransferCompleteStandaloneBoot(prepared){
   if(!prepared?.pending)return prepared||{ok:true,absent:true};
   const {standalone,envelope,claimId,claimIdDigest}=prepared.pending;
   try{
-    const imported=await importInstallTransfer(envelope,{claimId,claimIdDigest});
+    const imported=await importInstallTransfer(envelope,{claimId,claimIdDigest,credentials:standalone.credentials});
     if(!imported?.ok)return imported;
     const latest=await standalone.inbound.read();
     if(!latest?.sealedCredentials)return{ok:false,code:"claim-marker-lost",localOk:true,idbOk:true};
     await standalone.inbound.write({...latest,phase:"local-committed",claimIdDigest});
     const cleanup=await standalone.client.commit();
+    if(cleanup?.ok===true&&!await installTransferClearMarker())
+      return{ok:false,code:"marker-clear-failed",blocked:true,localOk:true,idbOk:true,cleanup};
     return{...imported,cleanup,cleanupRetry:cleanup?.ok!==true};
   }catch(error){return{ok:false,code:error?.message||"standalone-transfer-failed"}}
 }
@@ -4754,20 +4788,21 @@ function installTransferFault(point){
   const hook=window.__repforgeInstallTransferImportFault;
   if(typeof hook==="function"&&hook(point)===true)throw new Error(`install-transfer-import-fault:${point}`);
   if(hook===point)throw new Error(`install-transfer-import-fault:${point}`)}
-async function installTransferClaimDigest(contract,{claimId=null,claimIdDigest=null}={}){
-  if(claimId!==null&&claimId!==undefined){
-    if(!contract?.validateClaimId?.(claimId)?.ok)return{ok:false,code:"claim-id-invalid"};
-    const digest=await recoverySha256(claimId);
-    if(claimIdDigest!==null&&claimIdDigest!==undefined&&claimIdDigest!==digest)
-      return{ok:false,code:"claim-id-digest-mismatch"};
-    return{ok:true,value:digest}}
-  if(typeof claimIdDigest==="string"&&/^[0-9a-f]{64}$/.test(claimIdDigest))return{ok:true,value:claimIdDigest};
-  // The browser seam can be exercised before the network client is wired. Use
-  // a real locally generated claim identity, never the envelope hash, so the
-  // marker remains bound to a claim-shaped value.
-  const generated=uid();
-  if(!contract?.validateClaimId?.(generated)?.ok)return{ok:false,code:"claim-id-unavailable"};
-  return{ok:true,value:await recoverySha256(generated)}}
+async function installTransferClaimDigest(contract,{claimId=null,claimIdDigest=null,credentials=null}={}){
+  if(claimId===null||claimId===undefined)return{ok:false,code:"claim-id-required"};
+  if(!contract?.validateClaimId?.(claimId)?.ok)return{ok:false,code:"claim-id-invalid"};
+  if(typeof credentials?.unseal!=="function")return{ok:false,code:"claim-credentials-required"};
+  const inbound=installTransferReadInboundMarker();
+  if(!inbound?.sealedCredentials||!["staged","claiming","claimed"].includes(inbound.phase))
+    return{ok:false,code:"claim-credentials-unavailable"};
+  let pair;
+  try{pair=await credentials.unseal("standalone-inbound",inbound.sealedCredentials)}
+  catch{return{ok:false,code:"claim-credentials-unavailable"}}
+  if(pair?.claimId!==claimId)return{ok:false,code:"claim-id-unbound"};
+  const digest=await recoverySha256(claimId);
+  if(claimIdDigest!==null&&claimIdDigest!==undefined&&claimIdDigest!==digest)
+    return{ok:false,code:"claim-id-digest-mismatch"};
+  return{ok:true,value:digest}}
 function installTransferMeaningful(snapshot){
   if(!snapshot||typeof snapshot!=="object")return true;
   const defaultSettings=normalizeSettings(DEFAULTS);
@@ -4941,11 +4976,19 @@ async function installTransferRestoreDurable(previous,current){
   const currentRevision=readRevision(current?.snapshot);
   const target=cloneSnapshot(previous.durableState);
   if(installTransferLogicalEqual(exportableState(current?.snapshot),target)&&
-    current?.local?.status==="valid"&&current?.idb?.status==="valid")return{ok:true,unchanged:true};
-  const result=await commitProposedState(target,storageIO,{replace:true,
-    expectedStorageRevision:currentRevision,recoveryTransaction:true,
-    preflight:async({head})=>readRevision(head)!==currentRevision
-      ?{reject:true,result:{ok:false,conflict:true,staleRevision:true,code:"rollback-stale-revision"}}:null});
+    current?.local?.status==="valid"&&current?.idb?.status==="valid"&&
+    readRevision(current.local.parsed)===currentRevision&&
+    readRevision(current.idb.parsed)===currentRevision&&
+    storageSnapshotsEqual(current.local.parsed,current.idb.parsed))return{ok:true,unchanged:true};
+  target[STORAGE_REV]=currentRevision+1;
+  const result=await withStorageLock(storageIO,async()=>{
+    const local=readLocalStatus(),idb=await readIdbStatus(),latest=chooseSnapshot(local,idb);
+    if((latest.kind!=="chosen"&&latest.kind!=="first-run")||
+      latest.kind==="chosen"&&(readRevision(latest.snapshot)!==currentRevision||
+        !storageSnapshotsEqual(latest.snapshot,current.snapshot)))
+      return{revision:currentRevision,localOk:false,idbOk:false,conflict:true,staleRevision:true,
+        code:"rollback-stale-revision"};
+    return writeSnapshot(target,storageIO)});
   return{ok:!!(result?.localOk&&result?.idbOk),result,code:result?.code||"durable-rollback-failed"}}
 function installTransferStoredLogicalMatches(marker,current,expected){
   return !!(current?.ok&&current.logical&&installTransferLogicalEqual(
@@ -4994,22 +5037,26 @@ async function installTransferResumeMarker(marker){
   const current=await installTransferStoredLogicalSnapshot();
   if(!current.ok)return{ok:false,code:current.code||"install-import-read-failed",blocked:true};
   const incomingMatch=installTransferStoredLogicalMatches(marker,current,marker.incoming);
-  const previousMatch=installTransferStoredLogicalMatches(marker,current,marker.previous);
   if(marker.phase==="local-committed")
     return{ok:true,state:"localCommitted",deferredRemoteCommit:true,diverged:!incomingMatch};
-  if(marker.phase!=="local-committed"&&incomingMatch){
+  if(marker.phase==="importing"&&incomingMatch){
     const committed={...marker,phase:"local-committed"};
     if(!await installTransferWriteMarker(committed))return{ok:false,code:"marker-commit-failed",blocked:true};
     return{ok:true,state:"localCommitted",resumed:true,deferredRemoteCommit:true}}
-  if(previousMatch||marker.phase!=="local-committed"){
-    const rollback=await installTransferRollback(marker,current);
+  if(marker.phase==="importing"||marker.phase==="rolling-back"){
+    let rollingBack=marker;
+    if(marker.phase==="importing"){
+      rollingBack={...marker,phase:"rolling-back"};
+      if(!await installTransferWriteMarker(rollingBack))return{ok:false,code:"marker-rollback-phase-failed",blocked:true};
+    }
+    const rollback=await installTransferRollback(rollingBack,current);
     if(!rollback.ok)return{ok:false,...rollback,blocked:true};
     if(!await installTransferClearMarker())return{ok:false,code:"marker-clear-failed",blocked:true,rollback};
     return{ok:true,state:"rolledBack",rollback}
   }
   return{ok:false,code:"install-import-diverged",blocked:true}
 }
-async function importInstallTransferUnlocked(envelope,{claimId=null,claimIdDigest=null,transactionId=null}={}){
+async function importInstallTransferUnlocked(envelope,{claimId=null,claimIdDigest=null,transactionId=null,credentials=null}={}){
   let marker=null;
   try{
     const {contract}=await ensureInstallTransferModules();
@@ -5024,7 +5071,7 @@ async function importInstallTransferUnlocked(envelope,{claimId=null,claimIdDiges
     const previousCapture=await installTransferCaptureLogicalSnapshot(destination.snapshot);
     if(!previousCapture?.ok)return{ok:false,localOk:false,idbOk:false,code:previousCapture?.code||"previous-snapshot-failed"};
     if(!transactionId)transactionId=uid();
-    const claim=await installTransferClaimDigest(contract,{claimId,claimIdDigest});
+    const claim=await installTransferClaimDigest(contract,{claimId,claimIdDigest,credentials});
     if(!claim.ok)return{ok:false,localOk:false,idbOk:false,code:claim.code};
     marker={version:1,transactionId,claimIdDigest:claim.value,phase:"importing",
       previous:installTransferPreviousMarker({candidateRaw:readSetupDraftRaw()},previousCapture.value),
@@ -14662,7 +14709,10 @@ window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
 const UIKEY=INSTALL_UI_KEY;
 function loadUiPrefs(){try{const o=JSON.parse(localStorage.getItem(UIKEY));return o&&typeof o==="object"?o:{}}catch{return{}}}
 let uiPrefs=loadUiPrefs();
-function setUiPref(k,v){uiPrefs[k]=v;try{localStorage.setItem(UIKEY,JSON.stringify(uiPrefs))}catch(e){console.warn("ui prefs save failed",e)}}
+function setUiPref(k,v){
+  if(installTransferMutationFrozen())return false;
+  uiPrefs[k]=v;try{localStorage.setItem(UIKEY,JSON.stringify(uiPrefs));return true}
+  catch(e){console.warn("ui prefs save failed",e);return false}}
 
 /* ---- Appearance ----
    A UI pref, not a setting: which paper this device prefers says nothing about
@@ -15860,26 +15910,42 @@ async function handleSharedSetupHash(){
   // Start action has already entered the common preview. Do not reopen the
   // first-run gate over that preview.
   if(firstRunPending()&&!entryState)openFirstRun()}
+function installTransferBootNeedsLock(){
+  if(navigator.locks?.request)return true;
+  if(installTransferReadRaw(INSTALL_IMPORT_KEY)!==null||installTransferReadRaw(INSTALL_INBOUND_KEY)!==null)
+    return true;
+  return window.__repforgeInstallTransferPreBootRequest!==undefined}
 async function boot(){
   // Program metadata and the first render are built from the loaded state, so
   // the language has to be settled before that — not after the state exists.
   const sharedCandidate=captureSharedSetupSource();
   if(I18N)I18N.setLang(I18N.detectLang());
-  const importMarker=await installTransferReadMarker();
-  if(importMarker?.invalid)throw new Error(importMarker.code||"install-import-marker-invalid");
-  const standalonePrepared=await installTransferPrepareStandaloneBoot();
-  if(standalonePrepared?.blocked)throw new Error(standalonePrepared.code);
-  let decision=await resolveBootReplicas();
-  while(decision.kind==="unresolved"){
-    const candidate=await presentStorageRecovery(decision);
-    decision=await resolveBootReplicas(candidate)}
-  await applyBootDecision(decision);
-  const preBootTransfer=await runInstallTransferPreBootRequest();
-  if(preBootTransfer?.blocked)throw new Error(preBootTransfer.code);
-  const transferResume=await resumeInstallTransferImport();
-  if(transferResume?.blocked)throw new Error(transferResume.code);
-  const standaloneTransfer=await installTransferCompleteStandaloneBoot(standalonePrepared);
-  if(standaloneTransfer?.blocked)throw new Error(standaloneTransfer.code);
+  installTransferGuardTelemetry();
+  const transferWork=async()=>{
+    const importMarker=await installTransferReadMarker();
+    if(importMarker?.invalid)return{ok:false,code:importMarker.code||"install-import-marker-invalid"};
+    const transferResume=importMarker
+      ?await installTransferResumeMarker(importMarker):{ok:true,absent:true};
+    if(transferResume?.ok!==true)return transferResume||{ok:false,code:"install-import-recovery-failed"};
+    let decision=await resolveBootReplicas();
+    while(decision.kind==="unresolved"){
+      const candidate=await presentStorageRecovery(decision);
+      decision=await resolveBootReplicas(candidate)}
+    await applyBootDecision(decision);
+    const preBootTransfer=await runInstallTransferPreBootRequest();
+    if(preBootTransfer?.ok!==true)return preBootTransfer||{ok:false,code:"preboot-import-failed"};
+    const standalonePrepared=await installTransferPrepareStandaloneBoot();
+    if(standalonePrepared?.ok!==true)return standalonePrepared||{ok:false,code:"standalone-transfer-failed"};
+    const standaloneTransfer=await installTransferCompleteStandaloneBoot(standalonePrepared);
+    if(standaloneTransfer?.ok!==true)return standaloneTransfer||{ok:false,code:"standalone-transfer-failed"};
+    return{ok:true,decision};
+  };
+  const transferResult=installTransferBootNeedsLock()
+    ?await withInstallTransferLock(transferWork):await transferWork();
+  if(transferResult?.ok!==true){
+    window.__repforgeBootFailure=transferResult;
+    throw new Error(transferResult?.code||"install-transfer-failed")}
+  const decision=transferResult.decision;
   bootTelemetry();
   installTransferRecordBootDevice();
   await recoverCommittedSetupDraft();
