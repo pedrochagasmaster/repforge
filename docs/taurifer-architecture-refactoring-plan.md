@@ -1,7 +1,7 @@
 # Taurifer — architecture audit and refactoring plan
 
-**Audit date:** 9 September 2026
-**Repository:** `pedrochagasmaster/repforge`
+**Audit date:** 9 September 2026<br>
+**Repository:** `pedrochagasmaster/repforge`<br>
 **Historical audit snapshot:** `77c6a011e1bba5121ebd2ee15db85d77275c6ee5` (9 September 2026)<br>
 **Current-main reconciliation:** `e4a5e31c0fdc695beffbda02e4bcc3d6a0e81e6d` (10 September 2026, after PR228 and merged PR238)<br>
 **Status:** Proposed engineering guidance; no runtime or product changes. This document does not create a second backlog, authorize a plan, or override approved product decisions.
