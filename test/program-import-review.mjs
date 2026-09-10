@@ -476,13 +476,14 @@ async function main() {
       const result = await window.__repforgeCommitNextBlock("repeat");
       const snapshot = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
       const entry = snapshot.programHistory?.find((item) => item.id === oldId);
-      return { result, entry, oldId };
+      return { result, entry, oldId, activeProgram: snapshot.program, activeMeta: snapshot.programMeta };
     });
     assert(
-      archived.result?.committed && archived.entry?.program?.find((e) => e.id === "slot-heavy")?.progression?.strategy?.id === "range" &&
-        archived.entry?.meta?.progressionRelations?.[0]?.id === "relation-import" &&
-        archived.entry?.meta?.programStructure?.provenance?.blueprintId === "balanced_2_v1",
-      "archived program history preserves the progression model",
+      archived.result?.committed && !archived.entry &&
+        archived.activeProgram?.find((e) => e.id === "slot-heavy")?.progression?.strategy?.id === "range" &&
+        archived.activeMeta?.progressionRelations?.[0]?.id === "relation-import" &&
+        archived.activeMeta?.programStructure?.provenance?.blueprintId === "balanced_2_v1",
+      "a repeated block preserves the progression model without an archive",
       JSON.stringify(archived)
     );
 

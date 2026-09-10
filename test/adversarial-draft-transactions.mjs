@@ -817,7 +817,7 @@ async function runSameRawDraftWalAcceptance(browser) {
 }
 
 async function runDuplicateCleanupOrphan(browser) {
-  console.log("\n1b. Duplicate expectedProgramId cleanup owns a queued draft");
+  console.log("\n1b. A valid DraftV2 blocks duplicate block-start cleanup before journaling");
   const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
   try {
     const writer = await openApp(context);
@@ -825,42 +825,21 @@ async function runDuplicateCleanupOrphan(browser) {
     let originalDraftRaw = JSON.stringify(workoutDraft("duplicate-cleanup-original", "93.75"));
     originalDraftRaw = await seedScenario(writer, { state: originalState, draftRaw: originalDraftRaw });
     const seeded = await readRuntime(writer);
-    const stale = await openOldPopup(context, writer, "adversarial-duplicate-stale");
-    const locker = await openApp(context);
-    await holdStorageLock(locker);
-    await writer.evaluate((oldProgramId) => {
-      window.__adversarialDuplicateResult = window.__repforgeCommitNextBlock(
-        "reduce_volume",
-        undefined,
-        oldProgramId
-      );
-    }, seeded.local.programMeta.id);
-    await waitForPendingStorageLock(locker);
-
-    await stale.locator(`[data-k="${SET_KEY}_load"]`).fill("141.25");
-    await waitForDraftPendingValue(stale, `${SET_KEY}_load`, "141.25");
-    const staged = await readRuntime(stale);
-    const stagedRaw = latestDraftPendingRaw(staged);
-    const advanced = replacementState(seeded.local, {
-      revision: seeded.local._storageRevision + 1,
-      programId: "already-advanced-program",
-      programName: "Already advanced elsewhere",
-    });
-    await writeReplicas(locker, advanced);
-    await releaseStorageLock(locker);
-    const result = await writer.evaluate(() => window.__adversarialDuplicateResult);
+    const beforeBytes = { draftRaw: seeded.draftRaw, checkpointRaw: seeded.checkpointRaw };
+    const result = await writer.evaluate((oldProgramId) =>
+      window.__repforgeCommitNextBlock("reduce_volume", undefined, oldProgramId),
+      seeded.local.programMeta.id
+    );
     await writer.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(writer);
-    await writer.reload({ waitUntil: "domcontentloaded" });
-    await waitForApp(writer);
-    const reloaded = await readRuntime(writer);
 
     check(
-      result?.duplicate === true &&
-        result?.kind === "duplicate" &&
-        final.local?.programMeta?.id === advanced.programMeta.id &&
-        final.idb?.programMeta?.id === advanced.programMeta.id,
-      "precondition: expectedProgramId mismatch takes the duplicate cleanup branch",
+      result?.draftConflict === true &&
+        result?.code === "live_draft_blocks_next_block" &&
+        result?.committed === false &&
+        result?.localOk === false &&
+        result?.idbOk === false,
+      "precondition: a live DraftV2 refuses the explicit block start before duplicate cleanup",
       {
         result,
         local: programSummary(final.local),
@@ -868,36 +847,27 @@ async function runDuplicateCleanupOrphan(browser) {
       }
     );
     check(
-      rawDraftLoad(stagedRaw) === "141.25" &&
-        final.draftRaw === stagedRaw &&
+      final.draftRaw === beforeBytes.draftRaw &&
+        final.checkpointRaw === beforeBytes.checkpointRaw &&
         final.persistenceArtifacts.length === 0 &&
-        reloaded.draftRaw === stagedRaw &&
-        reloaded.persistenceArtifacts.length === 0,
-      "duplicate cleanup promotes the queued draft and leaves no sidecar across reload",
+        final.pendingEntries.length === 0,
+      "the refused block start preserves exact DraftV2 bytes and writes no transaction artifacts",
       {
-        stagedLoad: rawDraftLoad(stagedRaw),
-        canonicalLoad: rawDraftLoad(final.draftRaw),
+        beforeDraft: beforeBytes.draftRaw,
+        afterDraft: final.draftRaw,
         stateJournals: final.pendingEntries.length,
-        sidecars: final.draftPendingEntries.length,
         artifacts: final.persistenceArtifacts,
-        reloadCanonicalLoad: rawDraftLoad(reloaded.draftRaw),
-        reloadSidecars: reloaded.draftPendingEntries.length,
-        reloadArtifacts: reloaded.persistenceArtifacts,
       }
     );
-
     check(
-      result?.duplicate === true &&
-        final.draftRaw === stagedRaw &&
+      final.local?._storageRevision === seeded.local?._storageRevision &&
+        final.idb?._storageRevision === seeded.idb?._storageRevision &&
         final.persistenceArtifacts.length === 0,
-      "duplicate expectedProgramId cleanup restores its staged writes before deleting the owning journal",
+      "the refusal leaves both durable replicas at the captured revision",
       {
         result,
-        canonicalMatchesStaged: final.draftRaw === stagedRaw,
-        canonicalLoad: rawDraftLoad(final.draftRaw),
-        stagedLoad: rawDraftLoad(stagedRaw),
-        stateJournals: final.pendingEntries.length,
-        sidecars: final.draftPendingEntries.length,
+        localRevision: final.local?._storageRevision,
+        idbRevision: final.idb?._storageRevision,
         artifacts: final.persistenceArtifacts,
       }
     );
@@ -1162,7 +1132,7 @@ async function runLateSidecarFailedCompensation(browser) {
 }
 
 async function runDeferredBlockFinalization(browser) {
-  console.log("\n2b. Block finalization failure remains explicitly deferred");
+  console.log("\n2b. A valid DraftV2 refuses block finalization before any write");
   const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
   try {
     const page = await openApp(context);
@@ -1200,26 +1170,26 @@ async function runDeferredBlockFinalization(browser) {
     );
     const interrupted = await readRuntime(page);
     check(
-      observed.localStateWrites === 3 &&
-        observed.idbStateWrites === 3 &&
-        observed.result?.accepted === true &&
-        observed.result?.deferred === true &&
-        observed.result?.finalizationPending === true &&
+      observed.localStateWrites === 0 &&
+        observed.idbStateWrites === 0 &&
+        observed.result?.draftConflict === true &&
+        observed.result?.code === "live_draft_blocks_next_block" &&
         observed.result?.committed === false &&
-        observed.result?.kind === "deferred" &&
-        observed.result?.localOk === true &&
-        observed.result?.idbOk === true,
-      "a provisional block accepted by both replicas reports deferred instead of committed",
+        observed.result?.deferred === false &&
+        observed.result?.localOk === false &&
+        observed.result?.idbOk === false,
+      "a valid DraftV2 refuses block finalization before capture, journal, or replica writes",
       observed
     );
     check(
-      interrupted.local?.programMeta?.id !== originalState.programMeta.id &&
-        interrupted.idb?.programMeta?.id !== originalState.programMeta.id &&
-        interrupted.local?._storageDraftTransaction?.version === 1 &&
-        interrupted.idb?._storageDraftTransaction?.version === 1 &&
+      interrupted.local?.programMeta?.id === originalState.programMeta.id &&
+        interrupted.idb?.programMeta?.id === originalState.programMeta.id &&
+        !interrupted.local?._storageDraftTransaction &&
+        !interrupted.idb?._storageDraftTransaction &&
         interrupted.draftRaw === draftRaw &&
-        interrupted.pendingEntries.length === 1,
-      "deferred block state retains its finalization marker, journal, and exact draft",
+        interrupted.pendingEntries.length === 0 &&
+        interrupted.persistenceArtifacts.length === 0,
+      "the refused block start retains the original replicas, exact draft, and no artifacts",
       {
         local: programSummary(interrupted.local),
         idb: programSummary(interrupted.idb),
@@ -1232,13 +1202,13 @@ async function runDeferredBlockFinalization(browser) {
     await waitForApp(page);
     const finalized = await readRuntime(page);
     check(
-      finalized.local?.programMeta?.id === interrupted.local?.programMeta?.id &&
+      finalized.local?.programMeta?.id === originalState.programMeta.id &&
         finalized.idb?.programMeta?.id === interrupted.idb?.programMeta?.id &&
         !finalized.local?._storageDraftTransaction &&
         !finalized.idb?._storageDraftTransaction &&
         finalized.draftRaw === draftRaw &&
         finalized.persistenceArtifacts.length === 0,
-      "boot finalizes the explicitly deferred block without losing its draft",
+      "a later boot preserves the refused block start without losing its draft",
       {
         local: programSummary(finalized.local),
         idb: programSummary(finalized.idb),

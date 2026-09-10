@@ -10,7 +10,7 @@
  */
 import { pathToFileURL } from "url";
 import { gzipSync } from "zlib";
-import { launchChromium } from "./browser.mjs";
+import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import {
   BUILT_IN_IDS,
   CURRENT_SETTINGS_DEFAULTS,
@@ -368,7 +368,9 @@ export async function openAppPage(browser, {
   await page.addInitScript(INSTALL_EVENT);
   const url = `${APP_INDEX}${search}${hash}`;
   await page.goto(url, { waitUntil: "domcontentloaded" });
-  await page.waitForFunction(() => document.readyState === "complete", null, { timeout: 15000 }).catch(() => {});
+  await waitForAppBoot(page, { timeout: 15000, base: BASE });
+  const booted = await page.evaluate(() => window.__repforgeBooted === true);
+  if (!booted) throw new Error("openAppPage returned before the app boot contract was satisfied");
   return { context, page, errors };
 }
 
@@ -1113,6 +1115,141 @@ export async function runSharedSetupFlow(browser) {
       roundTrip.pairedSlots.length > 0 && roundTrip.pairedSlots.every((id) => !String(id).startsWith("library:")),
       "shared paired slot identities use bare canonical library IDs",
       JSON.stringify(roundTrip.pairedSlots),
+    );
+    await context.close();
+  });
+
+  await runCase("Full compiler-generated v3 payload retains safe provenance and modifiers", async () => {
+    const { context, page } = await openAppPage(browser);
+    await clearSite(page);
+    const generated = await page.evaluate(() => {
+      const compiler = window.RepForgeProgramCompiler;
+      const library = window.RepForgeExercises?.library || window.EXERCISE_LIBRARY || [];
+      const compilerContext = {
+        schemaVersion: 2,
+        familyId: "balanced",
+        frequency: 4,
+        sessionMinutes: 90,
+        preferredRestSeconds: 120,
+        equipment: ["barbell", "dumbbell", "machine", "cable", "smith"],
+        environment: ["safe_pull", "training_support"],
+        loadIncrements: { barbell: 2.5, dumbbell: 2, machine: 5, cable: 5, smith: 2.5 },
+        preferences: [],
+        dislikes: [],
+        history: [],
+        primaryMuscles: [],
+        deEmphasizedMuscles: [],
+        ignoredMuscles: [],
+        priorityMovements: [],
+        profile: "standard",
+        recentConsistency: "consistent",
+        reentryEnabled: false,
+        weekNumber: 1,
+      };
+      const result = compiler?.compile(compilerContext, library);
+      if (!result || result.kind !== "compiled") return { kind: result?.kind || null };
+      return {
+        kind: result.kind,
+        rows: result.program.length,
+        program: result.program,
+        programStructure: result.programStructure,
+        compilerContext,
+        relations: (result.relations || []).filter((relation) => relation.state === "attached").map((relation) => ({
+          schemaVersion: 1,
+          id: relation.id,
+          type: "paired_exposure",
+          version: 1,
+          movementId: `library:${relation.movementId}`,
+          members: [
+            { exerciseId: relation.heavySlotId, role: "heavy" },
+            { exerciseId: relation.volumeSlotId, role: "volume" },
+          ],
+        })),
+        modifier: {
+          id: "pending-modifier",
+          version: 1,
+          compatibleStrategies: ["range@1"],
+          weekNumber: 1,
+          target: "repMin",
+          params: { pending: true },
+        },
+      };
+    });
+    assert(generated.kind === "compiled" && generated.rows === 16,
+      "full compiler fixture is the real 16-row producer shape", JSON.stringify(generated));
+    if (generated.kind !== "compiled" || generated.rows !== 16) {
+      await context.close();
+      return;
+    }
+    await persistState(page, configuredState({
+      name: "Full compiler v3 program",
+      program: generated.program,
+      log: [],
+      programHistory: [],
+      programMeta: {
+        daysPerWeek: 4,
+        splitType: "upper_lower",
+        goal: "strength_hypertrophy",
+        experience: "advanced",
+        equipment: ["machines", "cables", "dumbbells", "barbells"],
+        priorityMuscles: ["Chest", "Back", "Quads"],
+        sessionLength: "long",
+        mesocycleLengthWeeks: 8,
+        programStructure: generated.programStructure,
+        progressionRelations: generated.relations,
+        progressionModifiers: [generated.modifier],
+        compilerContext: generated.compilerContext,
+        entrySource: { route: "recommend", fingerprint: "full-v3" },
+      },
+    }));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await dismissGates(page);
+    await page.click('nav button[data-view="program"]');
+    await page.waitForSelector("#program.view.active");
+    const roundTrip = await page.evaluate(async () => {
+      try {
+        const payload = window.__repforgeSharedSetup?.build?.();
+        const checked = payload
+          ? window.RepForgeSharedSetup?.validate?.(payload, {
+              builtInIds: new Set((window.RepForgeExercises?.library || []).map((entry) => entry.id)),
+            })
+          : null;
+        const encoded = payload && window.RepForgeSharedSetup?.encode
+          ? await window.RepForgeSharedSetup.encode(payload, {
+              builtInIds: new Set((window.RepForgeExercises?.library || []).map((entry) => entry.id)),
+            })
+          : null;
+        return { payload, checked, encoded };
+      } catch (error) {
+        return { error: String(error) };
+      }
+    });
+    assert(!roundTrip.error && roundTrip.payload, "full compiler state crosses the shared builder", JSON.stringify(roundTrip));
+    assert(roundTrip.payload?.program?.exercises?.length === 16,
+      "full compiler v3 payload retains all 16 exercises", JSON.stringify(roundTrip.payload?.program));
+    assert(roundTrip.checked?.ok === true && roundTrip.encoded?.ok === true && roundTrip.encoded.value.startsWith("v3."),
+      "full compiler v3 payload passes strict validation and selects the v3 envelope", JSON.stringify(roundTrip));
+    assert(
+      JSON.stringify(roundTrip.payload?.program?.meta?.programStructure) === JSON.stringify(generated.programStructure) &&
+        JSON.stringify(roundTrip.payload?.program?.meta?.progressionModifiers) === JSON.stringify([generated.modifier]),
+      "full compiler v3 payload retains exact safe structure and nonempty modifier",
+      JSON.stringify(roundTrip.payload?.program?.meta),
+    );
+    assert(
+      JSON.stringify(roundTrip.payload?.program?.meta?.progressionRelations) === JSON.stringify(generated.relations.map((relation) => ({
+        ...relation,
+        movementId: relation.movementId.replace(/^library:/, ""),
+      }))),
+      "full compiler v3 payload retains exact paired relation identities",
+      JSON.stringify(roundTrip.payload?.program?.meta?.progressionRelations),
+    );
+    assert(
+      !Object.prototype.hasOwnProperty.call(roundTrip.payload?.program?.meta || {}, "compilerContext") &&
+        !Object.prototype.hasOwnProperty.call(roundTrip.payload?.program?.meta || {}, "entrySource") &&
+        !Object.prototype.hasOwnProperty.call(roundTrip.payload || {}, "log") &&
+        !Object.prototype.hasOwnProperty.call(roundTrip.payload || {}, "programHistory"),
+      "full compiler v3 payload excludes private compiler and lifecycle state",
+      JSON.stringify(roundTrip.payload),
     );
     await context.close();
   });

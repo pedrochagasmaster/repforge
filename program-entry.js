@@ -537,7 +537,7 @@
     recommend: new Set(["selected", "candidates", "alternative", "diagnostics", "explanation", "telemetry", "serviceVersion"]),
     custom: new Set(["selected", "candidates", "alternative", "diagnostics", "explanation", "telemetry", "serviceVersion"]),
     browse: new Set(["selected", "telemetry"]),
-    build: new Set(["selected"]),
+    build: new Set(["selected", "diagnostics"]),
     import: new Set(["selected"]),
     shared: new Set(["selected", "telemetry"]),
   });
@@ -558,9 +558,9 @@
     recommend: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
     custom: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
     browse: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles"]),
-    build: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "primaryMuscles", "customExercises"]),
+    build: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "primaryMuscles", "customExercises"]),
     import: new Set(["source", "format", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "customExercises", "primaryMuscles"]),
-    shared: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "customExercises", "primaryMuscles", "sharedMeta", "sharedSettings", "sharedImport"]),
+    shared: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionModifiers", "progressionIncompatibilities", "days", "customExercises", "primaryMuscles", "sharedMeta", "sharedSettings", "sharedImport"]),
   });
   const PROGRAM_ROW_KEYS = new Set(["id", "slotId", "dayId", "day", "order", "name", "displayName", "libraryId", "movementId", "sets", "min", "max", "primary", "secondary", "notes", "alternates", "targetRirStart", "targetRirEnd", "minSets", "maxSets", "priority", "loadingMode", "loadIncrement", "progression", "progressionIncompatibility", "rest", "rir", "tempo", "progressionType"]);
   const DAY_KEYS = new Set(["id", "dayId", "label", "order", "estimateMinutes", "exercises", "displayNameKey", "nameOverride"]);
@@ -617,6 +617,14 @@
     }
   }
 
+  // Progression owns this field's vocabulary. It is a field name rather than
+  // an entry token: the authoritative engine permits camelCase targets (and a
+  // null target for modifiers that adjust no field), while the surrounding
+  // modifier envelope remains closed below.
+  function validModifierTarget(value) {
+    return value === null || (typeof value === "string" && value.trim().length > 0);
+  }
+
   function validateProgression(value, path, issues) {
     if (!isPlainObject(value)) { issues.push(`${path}:not_object`); return; }
     rejectUnknownKeys(value, PROGRESSION_KEYS, path, issues);
@@ -639,7 +647,7 @@
       if (modifier.version !== undefined && (!Number.isInteger(modifier.version) || modifier.version < 1)) issues.push(`${modifierPath}.version:invalid`);
       if (modifier.compatibleStrategies !== undefined) normalizeStrategyList(modifier.compatibleStrategies, `${modifierPath}.compatibleStrategies`, issues, MAX_LIST_LENGTH);
       if (modifier.weekNumber !== undefined && (!Number.isInteger(modifier.weekNumber) || modifier.weekNumber < 1)) issues.push(`${modifierPath}.weekNumber:invalid`);
-      if (modifier.target !== undefined && !validToken(modifier.target)) issues.push(`${modifierPath}.target:invalid`);
+      if (modifier.target !== undefined && !validModifierTarget(modifier.target)) issues.push(`${modifierPath}.target:invalid`);
       if (modifier.params !== undefined && !isPlainObject(modifier.params)) issues.push(`${modifierPath}.params:invalid`);
     });
   }

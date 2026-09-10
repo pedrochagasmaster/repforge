@@ -33,6 +33,45 @@ const VERSIONS = {
   progression: "range-1",
 };
 
+// These are copied from the entry contract as independent oracle constants.
+// The tests below deliberately do not read Entry.MAX_* so a product-bound
+// regression cannot silently rewrite its own expected boundary.
+const ENTRY_NODE_LIMIT = 2048;
+const ENTRY_DEPTH_LIMIT = 12;
+const ENTRY_DRAFT_BYTES = 65536;
+const ENTRY_DRAFT_ENVELOPE_BYTES = 66560;
+
+function countJsonNodes(value) {
+  if (value === null || typeof value !== "object") return 1;
+  return 1 + Object.values(value).reduce((total, child) => total + countJsonNodes(child), 0);
+}
+
+function draftAtNodeCount(target) {
+  const draft = fresh();
+  draft.legacyHints = {};
+  let index = 0;
+  while (countJsonNodes(draft) < target) draft.legacyHints[`padding_${index++}`] = null;
+  assert.equal(countJsonNodes(draft), target);
+  return draft;
+}
+
+function draftAtDepth(target) {
+  const draft = fresh();
+  let nested = null;
+  // The root is depth zero and the terminal null is visited as a node too;
+  // target therefore needs target - 1 nested objects below legacyHints.
+  for (let index = 1; index < target; index++) nested = { next: nested };
+  draft.legacyHints = nested;
+  return draft;
+}
+
+function rawAtUtf8Bytes(value, target) {
+  const raw = JSON.stringify(value);
+  const bytes = Buffer.byteLength(raw, "utf8");
+  assert.ok(bytes <= target, `fixture must fit the requested byte boundary (${bytes} <= ${target})`);
+  return raw + " ".repeat(target - bytes);
+}
+
 function fresh() {
   return Entry.createState({
     draftId: "00000000-0000-4000-8000-000000000048",
@@ -317,6 +356,54 @@ test("draft schema rejects corrupt, oversized, deep, unknown, and polluted input
     assert.equal(result.code, "invalid-setup-draft");
   }
   assert.equal({}.polluted, undefined);
+});
+
+test("entry draft node and depth limits accept exact bounds and reject only above them", () => {
+  const nodeBelow = Entry.normalizeSetupDraft(draftAtNodeCount(ENTRY_NODE_LIMIT - 1));
+  const nodeExact = Entry.normalizeSetupDraft(draftAtNodeCount(ENTRY_NODE_LIMIT));
+  const nodeAbove = Entry.normalizeSetupDraft(draftAtNodeCount(ENTRY_NODE_LIMIT + 1));
+  assert.equal(nodeBelow.ok, true, nodeBelow.issues?.join(","));
+  assert.equal(nodeExact.ok, true, nodeExact.issues?.join(","));
+  assert.equal(nodeAbove.ok, false);
+  assert.ok(nodeAbove.issues.includes("too_many_nodes"), nodeAbove.issues?.join(","));
+
+  const depthBelow = Entry.normalizeSetupDraft(draftAtDepth(ENTRY_DEPTH_LIMIT - 1));
+  const depthExact = Entry.normalizeSetupDraft(draftAtDepth(ENTRY_DEPTH_LIMIT));
+  const depthAbove = Entry.normalizeSetupDraft(draftAtDepth(ENTRY_DEPTH_LIMIT + 1));
+  assert.equal(depthBelow.ok, true, depthBelow.issues?.join(","));
+  assert.equal(depthExact.ok, true, depthExact.issues?.join(","));
+  assert.equal(depthAbove.ok, false);
+  assert.ok(depthAbove.issues.includes("too_deep"), depthAbove.issues?.join(","));
+});
+
+test("entry draft UTF-8 byte and envelope bounds accept exact bytes and reject only above them", () => {
+  const utf8Draft = { ...fresh(), legacyHints: { marker: "🧪" } };
+  const exactDraftRaw = rawAtUtf8Bytes(utf8Draft, ENTRY_DRAFT_BYTES);
+  assert.notEqual(exactDraftRaw.length, Buffer.byteLength(exactDraftRaw, "utf8"));
+  const belowDraft = Entry.normalizeSetupDraft(exactDraftRaw.slice(0, -1));
+  const exactDraft = Entry.normalizeSetupDraft(exactDraftRaw);
+  const aboveDraft = Entry.normalizeSetupDraft(`${exactDraftRaw} `);
+  assert.equal(belowDraft.ok, true, belowDraft.issues?.join(","));
+  assert.equal(exactDraft.ok, true, exactDraft.issues?.join(","));
+  assert.equal(aboveDraft.ok, false);
+  assert.ok(aboveDraft.issues.includes("too_large"), aboveDraft.issues?.join(","));
+
+  const state = fresh();
+  const envelope = {
+    schemaVersion: 1,
+    draftId: state.draftId,
+    revision: 0,
+    ownerId: "tab-a",
+    state,
+  };
+  const exactEnvelopeRaw = rawAtUtf8Bytes(envelope, ENTRY_DRAFT_ENVELOPE_BYTES);
+  const belowEnvelope = Entry.normalizeSetupDraftEnvelope(exactEnvelopeRaw.slice(0, -1));
+  const exactEnvelope = Entry.normalizeSetupDraftEnvelope(exactEnvelopeRaw);
+  const aboveEnvelope = Entry.normalizeSetupDraftEnvelope(`${exactEnvelopeRaw} `);
+  assert.equal(belowEnvelope.ok, true, belowEnvelope.issues?.join(","));
+  assert.equal(exactEnvelope.ok, true, exactEnvelope.issues?.join(","));
+  assert.equal(aboveEnvelope.ok, false);
+  assert.ok(aboveEnvelope.issues.includes("too_large"), aboveEnvelope.issues?.join(","));
 });
 
 test("hostile answer patches fail without mutating state or prototypes", () => {
@@ -661,4 +748,81 @@ test("draft schema rejects nested prototype pollution in result and legacyHints"
   assert.equal(Entry.normalizeSetupDraft({ ...base, legacyHints: pollutedHints }).ok, false);
   assert.throws(() => Entry.setResult(base, pollutedResult), /Invalid program-entry result/);
   assert.equal({}.polluted, undefined);
+});
+test("build-route setup draft normalizes and preserves diagnostics facts", () => {
+  let state = fresh();
+  state = Entry.selectRoute(state, "build");
+  state = Entry.setAnswers(state, { programName: "Guided repair", daysPerWeek: 3 });
+  state = Entry.setResult(state, {
+    fingerprint: "fp_build_repair",
+    selected: { id: "manual_build", source: "manual_build" },
+    diagnostics: { mainConstraint: "fewer_days", daysPerWeek: 3 },
+    preview: {
+      source: "build",
+      program: [
+        { id: "row_1", day: "Day 1", dayId: "d1", order: 1, name: "Squat", sets: 3, min: 5, max: 8 },
+      ],
+      days: [
+        { dayId: "d1", label: "Day 1", order: 1, exercises: [{ id: "row_1", day: "Day 1", dayId: "d1", order: 1, name: "Squat", sets: 3, min: 5, max: 8 }] },
+      ],
+    },
+  });
+  state.step = "editor";
+  const normalized = Entry.normalizeSetupDraft(state);
+  assert.equal(normalized.ok, true, JSON.stringify(normalized.issues));
+  assert.equal(normalized.value.result.diagnostics.mainConstraint, "fewer_days");
+  assert.equal(normalized.value.result.diagnostics.daysPerWeek, 3);
+  assert.equal(normalized.value.result.diagnostics.sessionMinutes, undefined);
+
+  let stateMins = Entry.setResult(state, {
+    ...state.result,
+    diagnostics: { mainConstraint: "sessions_too_long", sessionMinutes: 45 },
+  });
+  const normalizedMins = Entry.normalizeSetupDraft(stateMins);
+  assert.equal(normalizedMins.ok, true, JSON.stringify(normalizedMins.issues));
+  assert.equal(normalizedMins.value.result.diagnostics.mainConstraint, "sessions_too_long");
+  assert.equal(normalizedMins.value.result.diagnostics.sessionMinutes, 45);
+  assert.equal(normalizedMins.value.result.diagnostics.daysPerWeek, undefined);
+});
+
+test("progression modifier targets follow the authoritative field shape without opening the entry envelope", () => {
+  const modifier = {
+    id: "pending-modifier",
+    version: 1,
+    compatibleStrategies: ["range@1"],
+    weekNumber: 1,
+    target: "repMin",
+    params: { pending: true },
+  };
+  let state = Entry.selectRoute(fresh(), "import");
+  state = Entry.setAnswers(state, { importReady: true });
+  state = Entry.setResult(state, {
+    fingerprint: "modifier-target",
+    selected: { id: "import", source: "import" },
+    preview: {
+      program: [{ id: "import-row", day: "Day 1", order: 1, name: "Row", sets: 3, min: 8, max: 12 }],
+      progressionModifiers: [modifier],
+    },
+  });
+  state = Entry.advance(state).state;
+  const camelCase = Entry.normalizeSetupDraft(state);
+  assert.equal(camelCase.ok, true, camelCase.issues?.join(","));
+  assert.deepEqual(camelCase.value.result.preview.progressionModifiers, [modifier]);
+
+  const noTarget = structuredClone(state);
+  noTarget.result.preview.progressionModifiers[0].target = null;
+  const nullTarget = Entry.normalizeSetupDraft(noTarget);
+  assert.equal(nullTarget.ok, true, nullTarget.issues?.join(","));
+
+  const unknownModifierKey = structuredClone(state);
+  unknownModifierKey.result.preview.progressionModifiers[0].futureField = true;
+  const modifierRejected = Entry.normalizeSetupDraft(unknownModifierKey);
+  assert.equal(modifierRejected.ok, false);
+  assert.ok(modifierRejected.issues.some((issue) => issue.includes("futureField:unknown_key")));
+
+  const unknownPreviewKey = structuredClone(state);
+  unknownPreviewKey.result.preview.futureEnvelopeField = true;
+  const previewRejected = Entry.normalizeSetupDraft(unknownPreviewKey);
+  assert.equal(previewRejected.ok, false);
+  assert.ok(previewRejected.issues.some((issue) => issue.includes("futureEnvelopeField:unknown_key")));
 });
