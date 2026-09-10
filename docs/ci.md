@@ -87,8 +87,9 @@ variants and semantic comparison are unchanged.
 
 ## Failures and performance evidence
 
-Every script writes its command, initial result, duration and bounded stdout /
-stderr under `.ci-results/<lane>/`. Reports are updated after each script, not
+Every script writes its command, initial result, duration and complete stdout /
+stderr under `.ci-results/<lane>/`; the terminal shows only a bounded failure
+excerpt unless `--verbose` is used. Reports are updated after each script, not
 only at successful job completion. The runner continues after a failing script.
 Per-script timeouts terminate the process group, including abandoned browsers.
 GitHub summaries show timings; artifacts upload with `if: always()` and expire

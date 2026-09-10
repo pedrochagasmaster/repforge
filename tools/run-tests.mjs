@@ -1,30 +1,29 @@
 #!/usr/bin/env node
 /** Run isolated suites with terse default output; full logs always go to .ci-results. */
 import { spawn, execFileSync } from "node:child_process";
-import { appendFileSync, closeSync, mkdirSync, openSync, rmSync, writeFileSync, writeSync } from "node:fs";
+import { appendFileSync, closeSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync, writeSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { SUITES, BROWSER_LANES, commandArgs, inventoryErrors, suiteId } from "../test/suites.mjs";
 import { changedFilesForTests, formatAffected, selectAffected } from "./test-selection.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
-const MAX_LOG_BYTES = 20 * 1024 * 1024;
 const MAX_FAILURE_EXCERPT = 12 * 1024;
+const PREVIEW_GENERATED_FILES = ["index.html", "posthog-config.js"];
 
 export function execute(suite, { cwd = ROOT, outputDir, env = process.env, timeoutMs = suite.timeoutMs || 600000, verbose = false } = {}) {
   mkdirSync(outputDir, { recursive: true });
   const log = openSync(join(outputDir, "output.log"), "w");
   const started = Date.now();
   return new Promise((resolveResult) => {
-    let bytes = 0, tail = "", timedOut = false, interrupted = false, done = false, spawnError = null, forceTimer;
+    let tail = "", timedOut = false, interrupted = false, done = false, spawnError = null, forceTimer;
     const child = spawn(process.execPath, commandArgs(suite), {
       cwd, detached: process.platform !== "win32", stdio: ["ignore", "pipe", "pipe"],
       env: { ...env, ...suite.env, REPFORGE_ARTIFACT_DIR: outputDir },
     });
     const capture = (destination) => (chunk) => {
       if (verbose) destination.write(chunk);
-      if (bytes < MAX_LOG_BYTES) writeSync(log, chunk.subarray(0, MAX_LOG_BYTES - bytes));
-      bytes += chunk.length;
+      writeSync(log, chunk);
       tail = (tail + chunk.toString("utf8")).slice(-MAX_FAILURE_EXCERPT);
     };
     child.stdout.on("data", capture(process.stdout));
@@ -50,7 +49,6 @@ export function execute(suite, { cwd = ROOT, outputDir, env = process.env, timeo
       done = true;
       clearTimeout(timer); clearTimeout(forceTimer);
       process.removeListener("SIGINT", interrupt); process.removeListener("SIGTERM", interrupt);
-      if (bytes > MAX_LOG_BYTES) writeSync(log, "\n[artifact log truncated; full stream is in the CI job log]\n");
       closeSync(log);
       resolveResult({
         command: ["node", ...commandArgs(suite)], startedAt: new Date(started).toISOString(),
@@ -114,36 +112,123 @@ function repositoryFiles() {
     { cwd: ROOT, encoding: "utf8" }).split("\0").filter(Boolean);
 }
 
-async function maybeStartLocalPreview(entries, { cwd = ROOT, env = process.env } = {}) {
+function snapshotPreviewFiles(cwd) {
+  return PREVIEW_GENERATED_FILES.map((relativePath) => {
+    const path = join(cwd, relativePath);
+    try {
+      return { path, exists: true, bytes: readFileSync(path) };
+    } catch (error) {
+      if (error.code === "ENOENT") return { path, exists: false, bytes: null };
+      throw error;
+    }
+  });
+}
+
+function restorePreviewFiles(snapshot) {
+  for (const file of snapshot) {
+    if (file.exists) writeFileSync(file.path, file.bytes);
+    else rmSync(file.path, { force: true });
+  }
+}
+
+export async function maybeStartLocalPreview(entries, {
+  cwd = ROOT,
+  env = process.env,
+  fetchImpl = globalThis.fetch,
+  execFileSyncImpl = execFileSync,
+  spawnImpl = spawn,
+  signalSource = process,
+  killGroup = (pid, signal) => process.kill(-pid, signal),
+  wait = (milliseconds) => new Promise((resolveWait) => setTimeout(resolveWait, milliseconds)),
+} = {}) {
   if (!entries.some(({ lane }) => BROWSER_LANES.has(lane))) return null;
   const target = new URL(env.REPFORGE_URL || "http://localhost:8000/");
   if (!["localhost", "127.0.0.1"].includes(target.hostname) || !["", "8000"].includes(target.port)) return null;
   try {
-    await fetch(target, { signal: AbortSignal.timeout(700) });
+    await fetchImpl(target, { signal: AbortSignal.timeout(700) });
     return null;
   } catch {}
-  execFileSync(process.execPath, ["scripts/generate-posthog-config.mjs"], { cwd, stdio: "ignore" });
-  mkdirSync(join(cwd, ".ci-results"), { recursive: true });
-  const serverLog = openSync(join(cwd, ".ci-results/local-server.log"), "w");
-  const child = spawn("python3", ["-m", "http.server", "8000"], {
-    cwd, detached: process.platform !== "win32", stdio: ["ignore", serverLog, serverLog],
-  });
-  for (let attempt = 0; attempt < 40; attempt++) {
-    try {
-      const response = await fetch(target, { signal: AbortSignal.timeout(500) });
-      if (response.ok) {
-        console.log("Started temporary local preview for affected browser checks.");
-        return () => {
-          try { process.platform === "win32" ? child.kill("SIGTERM") : process.kill(-child.pid, "SIGTERM"); } catch {}
-          try { closeSync(serverLog); } catch {}
-        };
+  const snapshot = snapshotPreviewFiles(cwd);
+  let serverLog = null;
+  let child = null;
+  let childExited = false;
+  let cleanupDone = false;
+  let cleanupError = null;
+  let interrupted = false;
+  let spawnError = null;
+  const abort = new AbortController();
+  const removeSignalListener = () => {
+    signalSource.removeListener("SIGINT", onSignal);
+    signalSource.removeListener("SIGTERM", onSignal);
+  };
+  const cleanup = () => {
+    if (cleanupDone) return cleanupError;
+    cleanupDone = true;
+    removeSignalListener();
+    const errors = [];
+    if (child && !childExited && child.pid) {
+      try {
+        if (process.platform === "win32") child.kill("SIGTERM");
+        else killGroup(child.pid, "SIGTERM");
+      } catch (error) {
+        if (error.code !== "ESRCH") errors.push(error);
       }
-    } catch {}
-    await new Promise((resolveWait) => setTimeout(resolveWait, 100));
+    }
+    if (serverLog !== null) {
+      try { closeSync(serverLog); } catch (error) { if (error.code !== "EBADF") errors.push(error); }
+    }
+    try { restorePreviewFiles(snapshot); } catch (error) { errors.push(error); }
+    cleanupError = errors.length ? new AggregateError(errors, "Could not clean up the temporary local preview") : null;
+    return cleanupError;
+  };
+  const onSignal = () => {
+    interrupted = true;
+    abort.abort();
+    cleanup();
+  };
+  signalSource.once("SIGINT", onSignal);
+  signalSource.once("SIGTERM", onSignal);
+  try {
+    execFileSyncImpl(process.execPath, ["scripts/generate-posthog-config.mjs"], {
+      cwd,
+      stdio: "ignore",
+      env: { ...env, CF_PAGES_BRANCH: "", POSTHOG_ENABLE_PREVIEWS: "false", POSTHOG_PROJECT_TOKEN: "" },
+    });
+    if (interrupted) throw new Error("Temporary local preview startup interrupted");
+    mkdirSync(join(cwd, ".ci-results"), { recursive: true });
+    serverLog = openSync(join(cwd, ".ci-results/local-server.log"), "w");
+    child = spawnImpl("python3", ["-m", "http.server", "8000"], {
+      cwd, detached: process.platform !== "win32", stdio: ["ignore", serverLog, serverLog],
+    });
+    child.once?.("error", (error) => { spawnError = error; });
+    child.once?.("exit", () => { childExited = true; });
+    child.once?.("close", () => { childExited = true; });
+    for (let attempt = 0; attempt < 40; attempt++) {
+      if (interrupted) throw new Error("Temporary local preview startup interrupted");
+      if (spawnError) throw spawnError;
+      try {
+        const response = await fetchImpl(target, { signal: abort.signal });
+        if (interrupted) throw new Error("Temporary local preview startup interrupted");
+        if (response.ok) {
+          console.log("Started temporary local preview for affected browser checks.");
+          return () => {
+            const error = cleanup();
+            if (error) throw error;
+          };
+        }
+      } catch (error) {
+        if (interrupted) throw new Error("Temporary local preview startup interrupted", { cause: error });
+        if (spawnError) throw spawnError;
+      }
+      await wait(100);
+    }
+    throw new Error("Could not start the temporary local preview on http://localhost:8000/");
+  } catch (error) {
+    removeSignalListener();
+    const cleanupFailure = cleanup();
+    if (cleanupFailure) throw new AggregateError([error, cleanupFailure], "Temporary local preview failed");
+    throw error;
   }
-  try { child.kill("SIGTERM"); } catch {}
-  closeSync(serverLog);
-  throw new Error("Could not start the temporary local preview on http://localhost:8000/");
 }
 
 async function main() {

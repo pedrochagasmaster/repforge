@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { EventEmitter } from "node:events";
 import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -7,7 +8,7 @@ import test from "node:test";
 import { SUITES, SUPPORT, commandArgs, inventoryErrors } from "./suites.mjs";
 import { changedFiles, selectVisuals } from "../tools/ci-selection.mjs";
 import { changedFilesForTests, selectAffected } from "../tools/test-selection.mjs";
-import { execute, runLane } from "../tools/run-tests.mjs";
+import { execute, maybeStartLocalPreview, runLane } from "../tools/run-tests.mjs";
 
 const manifest = { screens: [{ flow: "app", id: "today" }, { flow: "onboarding", id: "start" }] };
 const scratch = (t) => {
@@ -30,10 +31,10 @@ test("inventory schedules each command once and classifies support explicitly", 
 });
 
 test("visual capture ignores non-rendering tests/tools but remains conservative for real inputs", () => {
-  for (const file of ["README.md", "docs/backlog.md", "plans/060.md", "test/accessibility.mjs", "test/ci.mjs", "tools/run-tests.mjs", "tools/test-selection.mjs", "tools/ci-selection.mjs"]) {
+  for (const file of ["README.md", "docs/backlog.md", "plans/060.md", "test/accessibility.mjs", "test/ci.mjs", "tools/run-tests.mjs", "tools/check-test-syntax.mjs"]) {
     assert.equal(selectVisuals([file], manifest).mode, "none", file);
   }
-  for (const file of ["app.js", "index.html", "styles.css", "i18n-en.json", "sw.js", "shared-setup.js", "fonts/new.woff2", "assets/exercises/foo.png", "test/browser.mjs", "test/fixtures/shared-setup.mjs", "tools/ui-screens/session.mjs", "tools/capture-ui-screens.mjs", ".github/workflows/simulation.yml", "docs/ui-screens/manifest.json", "docs/ui-screens/entry-semantics.json", "unknown.txt"]) {
+  for (const file of ["app.js", "index.html", "styles.css", "i18n-en.json", "sw.js", "shared-setup.js", "fonts/new.woff2", "assets/exercises/foo.png", "test/browser.mjs", "test/fixtures/shared-setup.mjs", "test/fixtures/seed-program.mjs", "test/fixtures/telemetry.mjs", "tools/test-selection.mjs", "tools/ci-selection.mjs", "tools/ui-screens/session.mjs", "tools/capture-ui-screens.mjs", ".github/workflows/simulation.yml", "docs/ui-screens/manifest.json", "docs/ui-screens/entry-semantics.json", "unknown.txt"]) {
     assert.equal(selectVisuals([file], manifest).mode, "full", file);
   }
   assert.equal(selectVisuals(null, manifest).mode, "full");
@@ -87,6 +88,60 @@ test("runner records full output while returning only a bounded diagnostic tail"
   assert.ok(result.durationMs >= 0); assert.match(result.tail, /stderr marker/);
   const log = readFileSync(join(outputDir, "output.log"), "utf8");
   assert.match(log, /stdout marker/); assert.match(log, /stderr marker/);
+});
+
+test("runner retains output beyond the terminal excerpt bound", async (t) => {
+  const cwd = scratch(t);
+  const outputSize = 20 * 1024 * 1024 + 257;
+  writeFileSync(join(cwd, "fixture.mjs"), `process.stdout.write("x".repeat(${outputSize}));\n`);
+  const outputDir = join(cwd, "result");
+  const result = await execute({ file: "fixture.mjs", args: [] }, { cwd, outputDir });
+  const log = readFileSync(join(outputDir, "output.log"));
+  assert.equal(result.status, "passed");
+  assert.equal(log.length, outputSize);
+  assert.ok(result.tail.length <= 12 * 1024);
+});
+
+test("temporary preview disables analytics and restores generated files on interruption", async (t) => {
+  const cwd = scratch(t);
+  const indexPath = join(cwd, "index.html");
+  const configPath = join(cwd, "posthog-config.js");
+  const originalIndex = Buffer.from("original index bytes\n");
+  writeFileSync(indexPath, originalIndex);
+  const signalSource = new EventEmitter();
+  const killSignals = [];
+  let calls = 0;
+  let generatedEnv;
+  const child = { pid: 1234, once() { return this; }, kill(signal) { killSignals.push(signal); } };
+  const fakeExecFileSync = (_file, _args, options) => {
+    generatedEnv = options.env;
+    writeFileSync(indexPath, "generated index bytes\n");
+    writeFileSync(configPath, "generated config bytes\n");
+  };
+  const fakeFetch = async () => {
+    calls += 1;
+    if (calls === 1) throw new Error("preview is not running");
+    signalSource.emit("SIGINT");
+    return { ok: true };
+  };
+  await assert.rejects(
+    () => maybeStartLocalPreview([{ lane: "entry" }], {
+      cwd,
+      env: { ...process.env, CF_PAGES_BRANCH: "main", POSTHOG_ENABLE_PREVIEWS: "true", POSTHOG_PROJECT_TOKEN: "phc_secret" },
+      signalSource,
+      fetchImpl: fakeFetch,
+      execFileSyncImpl: fakeExecFileSync,
+      spawnImpl: () => child,
+      killGroup: (_pid, signal) => killSignals.push(signal),
+    }),
+    /interrupted/
+  );
+  assert.equal(generatedEnv.CF_PAGES_BRANCH, "");
+  assert.equal(generatedEnv.POSTHOG_ENABLE_PREVIEWS, "false");
+  assert.equal(generatedEnv.POSTHOG_PROJECT_TOKEN, "");
+  assert.deepEqual(killSignals, ["SIGTERM"]);
+  assert.deepEqual(readFileSync(indexPath), originalIndex);
+  assert.equal(existsSync(configPath), false);
 });
 
 test("runner continues after failure and cannot replay a failed suite to green", async (t) => {

@@ -7,8 +7,8 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans)\/.+\.md$/;
-const NON_RENDERING_TEST = /^test\/(?!browser\.mjs$|fixtures\/shared-setup\.mjs$).+\.(?:mjs|js)$/;
-const NON_RENDERING_TOOL = /^tools\/(?:run-tests|test-selection|ci-selection|check-test-syntax)\.mjs$/;
+const NON_RENDERING_TEST = /^test\/(?!browser\.mjs$|fixtures(?:\/|$)).+\.(?:mjs|js)$/;
+const NON_RENDERING_TOOL = /^tools\/(?:run-tests|check-test-syntax)\.mjs$/;
 
 export function selectVisuals(files, manifest, { force = false } = {}) {
   const full = (reason) => ({ mode: "full", screens: [], reason });
