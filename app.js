@@ -36,6 +36,9 @@ function isPlainStateObject(value){
   const proto=Object.getPrototypeOf(value);
   return proto===Object.prototype||proto===null}
 const PROGRESSION_VALUE_LIMITS=Object.freeze({depth:32,nodes:1000,keys:128,arrayItems:128,stringLength:4000});
+function isValidBlockId(value,programId=null){
+  return typeof value==="string"&&value.trim().length>0&&value.length<=240&&
+    (programId==null||value!==programId)}
 function isBoundedProgressionValue(value,depth=0,state={nodes:0}){
   if(++state.nodes>PROGRESSION_VALUE_LIMITS.nodes||depth>PROGRESSION_VALUE_LIMITS.depth)return false;
   if(typeof value==="string")return value.length<=PROGRESSION_VALUE_LIMITS.stringLength;
@@ -44,6 +47,235 @@ function isBoundedProgressionValue(value,depth=0,state={nodes:0}){
   if(Array.isArray(value))return value.length<=PROGRESSION_VALUE_LIMITS.arrayItems&&value.every(item=>isBoundedProgressionValue(item,depth+1,state));
   if(!isPlainStateObject(value)||Object.keys(value).length>PROGRESSION_VALUE_LIMITS.keys)return false;
   return Object.keys(value).every(key=>isBoundedProgressionValue(value[key],depth+1,state));
+}
+const TRANSITION_VALUE_LIMITS=Object.freeze({depth:32,nodes:10000,keys:128,arrayItems:256,stringLength:10000});
+function isBoundedTransitionValue(value,depth=0,state={nodes:0}){
+  if(++state.nodes>TRANSITION_VALUE_LIMITS.nodes||depth>TRANSITION_VALUE_LIMITS.depth)return false;
+  if(typeof value==="string")return value.length<=TRANSITION_VALUE_LIMITS.stringLength;
+  if(value===null||typeof value==="boolean")return true;
+  if(typeof value==="number")return Number.isFinite(value);
+  if(Array.isArray(value))return value.length<=TRANSITION_VALUE_LIMITS.arrayItems&&value.every(item=>isBoundedTransitionValue(item,depth+1,state));
+  if(!isPlainStateObject(value)||Object.keys(value).length>TRANSITION_VALUE_LIMITS.keys)return false;
+  return Object.keys(value).every(key=>isBoundedTransitionValue(value[key],depth+1,state));
+}
+const RECOVERY_HASH_RE=/^[0-9a-f]{64}$/;
+const RECOVERY_CARRIER_INSTANT_RE=/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}Z$/;
+const RECOVERY_CARRIER_KEYS=["schemaVersion","records","quarantine"];
+const RECOVERY_RECORD_KEYS=["schemaVersion","transitionId","kind","createdAt","status","predecessor","diagnosis","derivation","diff","progressionContract","archiveId","confirmedAt","proposalHash"];
+const RECOVERY_OVERLAY_KEYS=["schemaVersion","policyVersion","transitionId","blockId","activePeriod","eligibilityEvidence","baseProgramFingerprint","entries","createdAt","confirmedAt","reassessmentDueAt","reassessmentOutcome"];
+const RECOVERY_DIFF_KEYS=["days","exercises","prescriptions","recoveryWeek"];
+const RECOVERY_QUARANTINE_REASONS=["known-schema-malformed-recovery","duplicate-target-conflict"];
+const RECOVERY_REPLICA_SOURCES=["localStorage","indexedDB","both"];
+function recoveryCodeUnitCompare(left,right){return left<right?-1:left>right?1:0}
+function exactRecoveryKeys(value,keys){
+  return isPlainStateObject(value)&&Object.keys(value).length===keys.length&&
+    keys.every(key=>Object.prototype.hasOwnProperty.call(value,key))}
+function isRecoveryCarrierQuarantineEntry(value){
+  if(!isPlainStateObject(value)||!isBoundedTransitionValue(value))return false;
+  const keys=["schemaVersion","digest","raw","sourceReplica","detectedAt","reason"];
+  if(Object.keys(value).length!==keys.length||!keys.every(key=>Object.prototype.hasOwnProperty.call(value,key)))return false;
+  return value.schemaVersion===1&&RECOVERY_HASH_RE.test(value.digest)&&
+    typeof value.raw==="string"&&value.raw.length<=TRANSITION_VALUE_LIMITS.stringLength&&
+    RECOVERY_REPLICA_SOURCES.includes(value.sourceReplica)&&
+    RECOVERY_CARRIER_INSTANT_RE.test(value.detectedAt)&&
+    RECOVERY_QUARANTINE_REASONS.includes(value.reason);
+}
+function isRecoveryCarrierRecord(value){
+  if(!isPlainStateObject(value)||!isBoundedTransitionValue(value))return false;
+  if(!exactRecoveryKeys(value,RECOVERY_RECORD_KEYS))return false;
+  const predecessor=value.predecessor,overlay=value.diff?.recoveryWeek,evidence=overlay?.eligibilityEvidence;
+  const overlayKeys=RECOVERY_OVERLAY_KEYS;
+  const diffKeys=RECOVERY_DIFF_KEYS;
+  if(value.schemaVersion!==1||value.kind!=="recovery_week"||value.status!=="committed"||
+    typeof value.transitionId!=="string"||!value.transitionId.trim()||
+    !RECOVERY_CARRIER_INSTANT_RE.test(value.createdAt)||!RECOVERY_CARRIER_INSTANT_RE.test(value.confirmedAt)||
+    !RECOVERY_HASH_RE.test(value.proposalHash)||value.archiveId!==null||
+    !isPlainStateObject(predecessor)||typeof predecessor.programId!=="string"||!predecessor.programId.trim()||
+    !isValidBlockId(predecessor.blockId,predecessor.programId)||
+    !isPlainStateObject(value.diff)||Object.keys(value.diff).length!==diffKeys.length||!diffKeys.every(key=>Object.prototype.hasOwnProperty.call(value.diff,key))||
+    !isPlainStateObject(overlay)||Object.keys(overlay).length!==overlayKeys.length||!overlayKeys.every(key=>Object.prototype.hasOwnProperty.call(overlay,key))||
+    overlay.schemaVersion!==1||overlay.policyVersion!==2||overlay.transitionId!==value.transitionId||
+    typeof overlay.blockId!=="string"||!overlay.blockId.trim()||overlay.blockId===predecessor.blockId||
+    overlay.activePeriod!=="nextBlockWeek1"||!RECOVERY_CARRIER_INSTANT_RE.test(overlay.createdAt)||
+    !RECOVERY_CARRIER_INSTANT_RE.test(overlay.reassessmentDueAt)||overlay.confirmedAt!==value.confirmedAt||
+    ![null,"Better","About the same","Worse"].includes(overlay.reassessmentOutcome)||
+    !isPlainStateObject(evidence)||evidence.sourceBlockId!==predecessor.blockId||
+    typeof evidence.sourceBlockId!=="string"||!evidence.sourceBlockId.trim()||
+    !Array.isArray(overlay.entries)||overlay.entries.length===0)return false;
+  return true;
+}
+function isValidRecoveryTransitions(value){
+  if(!isPlainStateObject(value)||!isBoundedTransitionValue(value)||value.schemaVersion!==1)return false;
+  const keys=RECOVERY_CARRIER_KEYS;
+  if(!exactRecoveryKeys(value,keys))return false;
+  return Array.isArray(value.records)&&value.records.length<=TRANSITION_VALUE_LIMITS.arrayItems&&
+    value.records.every(isRecoveryCarrierRecord)&&Array.isArray(value.quarantine)&&
+    value.quarantine.length<=TRANSITION_VALUE_LIMITS.arrayItems&&value.quarantine.every(isRecoveryCarrierQuarantineEntry);
+}
+/* Carrier classification is deliberately narrower than normalization. The
+   supported envelope is closed: an unknown key/version is storage recovery,
+   while a known envelope whose semantic record is malformed can fall back to
+   the canonical program and leave bounded evidence. */
+function classifyRecoveryRecordEnvelope(value){
+  if(!isPlainStateObject(value)||!isBoundedTransitionValue(value)||
+    !exactRecoveryKeys(value,RECOVERY_RECORD_KEYS)||value.schemaVersion!==1)return"unknown";
+  const diff=value.diff,overlay=diff?.recoveryWeek;
+  if(!isPlainStateObject(diff)||!exactRecoveryKeys(diff,RECOVERY_DIFF_KEYS)||
+    !isPlainStateObject(overlay)||!exactRecoveryKeys(overlay,RECOVERY_OVERLAY_KEYS)||
+    overlay.schemaVersion!==1||overlay.policyVersion!==2)return"unknown";
+  return isRecoveryCarrierRecord(value)?"valid":"malformed";
+}
+function classifyRecoveryCarrier(value){
+  if(value===undefined)return{kind:"absent",malformed:[],valid:[],needsEvidence:false};
+  if(!isPlainStateObject(value)||!isBoundedTransitionValue(value)||
+    !exactRecoveryKeys(value,RECOVERY_CARRIER_KEYS)||value.schemaVersion!==1||
+    !Array.isArray(value.records)||value.records.length>TRANSITION_VALUE_LIMITS.arrayItems||
+    !Array.isArray(value.quarantine)||value.quarantine.length>TRANSITION_VALUE_LIMITS.arrayItems||
+    !value.quarantine.every(isRecoveryCarrierQuarantineEntry))return{kind:"unknown"};
+  const valid=[],malformed=[];
+  for(const record of value.records){
+    const status=classifyRecoveryRecordEnvelope(record);
+    if(status==="unknown")return{kind:"unknown"};
+    if(status==="valid")valid.push(record);
+    else malformed.push(record)}
+  const targets=new Map();
+  for(const record of valid){
+    const target=record.diff.recoveryWeek.blockId;
+    if(!targets.has(target))targets.set(target,[]);
+    targets.get(target).push(record)}
+  const conflicts=[...targets].filter(([,records])=>records.length>1)
+    .map(([targetBlockId,records])=>({targetBlockId,records}));
+  return{kind:"known",valid,malformed,conflicts,
+    needsEvidence:malformed.length>0||conflicts.length>0};
+}
+function recoveryCarrierConflictGroups(records){
+  const targets=new Map();
+  for(const record of records){
+    const target=record.diff.recoveryWeek.blockId;
+    if(!targets.has(target))targets.set(target,[]);
+    targets.get(target).push(record)}
+  return[...targets].filter(([,group])=>group.length>1)
+    .map(([targetBlockId,group])=>({targetBlockId,records:group}))
+}
+async function validateRecoveryCarrierRecord(snapshot,record){
+  const Transition=typeof RepForgeProgramTransition!=="undefined"?RepForgeProgramTransition:null;
+  const Compiler=typeof ProgramCompiler!=="undefined"?ProgramCompiler:null;
+  const catalogue=typeof EXERCISE_LIBRARY!=="undefined"?EXERCISE_LIBRARY:null;
+  if(!Transition||typeof Transition.validateRecoveryRecord!=="function"||
+    typeof Transition.approvedRecoveryPolicy!=="function"||!Compiler||
+    !Compiler.VERSIONS||typeof Compiler.VERSIONS!=="object")return{kind:"unavailable"};
+  const instance=recoveryCompilerInstance(snapshot,Compiler,catalogue);
+  if(!instance)return{kind:"unavailable"};
+  let validation;
+  try{
+    validation=await Transition.validateRecoveryRecord(record,{
+      predecessor:cloneSnapshot(record.predecessor),
+      predecessorInstance:instance,
+      approvedPolicy:Transition.approvedRecoveryPolicy(),
+      supportedVersions:Compiler.VERSIONS,
+      // Validate each candidate independently. The candidate itself is the
+      // only repeat context, so two independently valid records can become a
+      // deterministic target conflict after validation.
+      existingRecoveryRecords:[record],
+    });
+  }catch{return{kind:"unavailable"}}
+  if(validation?.ok===true&&validation.record)return{kind:"valid"};
+  if(!validation||typeof validation!=="object")return{kind:"unavailable"};
+  return{kind:"malformed"};
+}
+async function classifyRecoveryCarrierSemantics(snapshot,classification){
+  const valid=[],malformed=[...classification.malformed];
+  for(const record of classification.valid){
+    const result=await validateRecoveryCarrierRecord(snapshot,record);
+    if(result.kind==="unavailable")return{kind:"unavailable"};
+    if(result.kind==="valid")valid.push(record);
+    else malformed.push(record)}
+  const conflicts=recoveryCarrierConflictGroups(valid);
+  return{kind:"known",valid,malformed,conflicts,
+    needsEvidence:malformed.length>0||conflicts.length>0};
+}
+function isValidStateWithoutRecoveryCarrier(value){
+  if(!isPlainStateObject(value)||!Object.prototype.hasOwnProperty.call(value,"recoveryTransitions"))return false;
+  const copy=cloneSnapshot(value);delete copy.recoveryTransitions;
+  return isValidStateShape(copy)}
+function carrierReadStatus(parsed,raw){
+  const classification=classifyRecoveryCarrier(parsed?.recoveryTransitions);
+  if(classification.kind==="known"&&
+    (isValidStateShape(parsed)||isValidStateWithoutRecoveryCarrier(parsed)))
+    return{status:"valid",raw,parsed,recoveryCarrierClassification:classification};
+  return null;
+}
+function recoverySourceReplica(source){
+  return source==="local"?"localStorage":source==="idb"?"indexedDB":"both";
+}
+function mergeRecoverySource(existing,incoming){
+  if(existing===incoming)return existing;
+  if(existing==="both"||incoming==="both")return"both";
+  return"both";
+}
+function quarantineEntryKey(entry){return`${entry.digest}\u0000${entry.reason}`}
+function sourceReplicaForCarrierDecision(decision,localRead,idbRead){
+  const localClass=localRead?.recoveryCarrierClassification;
+  const idbClass=idbRead?.recoveryCarrierClassification;
+  const equal=localRead?.status==="valid"&&idbRead?.status==="valid"&&
+    snapshotsEqual(localRead.parsed,idbRead.parsed);
+  if(equal&&localClass?.kind==="known"&&idbClass?.kind==="known"&&
+    (localClass.valid.length+localClass.malformed.length)>0)return"both";
+  return recoverySourceReplica(decision?.source);
+}
+async function recoverySha256(raw){
+  if(typeof TextEncoder!=="function"||!globalThis.crypto?.subtle)throw new Error("SHA-256 unavailable");
+  const bytes=new TextEncoder().encode(raw);
+  const digest=await globalThis.crypto.subtle.digest("SHA-256",bytes);
+  return Array.from(new Uint8Array(digest),byte=>byte.toString(16).padStart(2,"0")).join("");
+}
+function mergeRecoveryQuarantine(list,entry){
+  const key=quarantineEntryKey(entry),index=list.findIndex(candidate=>quarantineEntryKey(candidate)===key);
+  if(index<0){list.push(entry);return true}
+  const previous=list[index],source=mergeRecoverySource(previous.sourceReplica,entry.sourceReplica);
+  if(source===previous.sourceReplica)return false;
+  list[index]={...previous,sourceReplica:source};
+  return true;
+}
+async function normalizeRecoveryCarrierSnapshot(snapshot,sourceReplica,{priorQuarantine=[]}={}){
+  let classification=classifyRecoveryCarrier(snapshot?.recoveryTransitions);
+  if(classification.kind!=="known")return{kind:classification.kind,snapshot};
+  let semantic;
+  try{semantic=await classifyRecoveryCarrierSemantics(snapshot,classification)}
+  catch{return{kind:"full-recovery",snapshot}}
+  if(semantic.kind!=="known")return{kind:"full-recovery",snapshot};
+  classification=semantic;
+  const carrier=snapshot.recoveryTransitions;
+  const normalized={schemaVersion:1,records:classification.valid.map(cloneSnapshot),quarantine:[]};
+  for(const entry of carrier.quarantine)
+    mergeRecoveryQuarantine(normalized.quarantine,cloneSnapshot(entry));
+  for(const entry of priorQuarantine)
+    mergeRecoveryQuarantine(normalized.quarantine,cloneSnapshot(entry));
+  const detectedAt=()=>new Date().toISOString();
+  const addEvidence=async(raw,reason)=>{
+    if(typeof raw!=="string"||raw.length>TRANSITION_VALUE_LIMITS.stringLength)
+      return{kind:"full-recovery"};
+    let digest;
+    try{digest=await recoverySha256(raw)}catch{return{kind:"full-recovery"}}
+    const entry={schemaVersion:1,digest,raw,sourceReplica,detectedAt:detectedAt(),reason};
+    mergeRecoveryQuarantine(normalized.quarantine,entry);
+    if(!isBoundedTransitionValue(normalized))return{kind:"full-recovery"};
+    return{kind:"ok"};
+  };
+  for(const malformed of classification.malformed){
+    const result=await addEvidence(JSON.stringify(malformed),"known-schema-malformed-recovery");
+    if(result.kind!=="ok")return{kind:result.kind,snapshot};
+  }
+  for(const conflict of classification.conflicts){
+    const records=[...conflict.records].sort((left,right)=>
+      recoveryCodeUnitCompare(String(left.proposalHash||""),String(right.proposalHash||""))||
+      recoveryCodeUnitCompare(String(left.transitionId||""),String(right.transitionId||"")));
+    const result=await addEvidence(JSON.stringify({targetBlockId:conflict.targetBlockId,records}),"duplicate-target-conflict");
+    if(result.kind!=="ok")return{kind:result.kind,snapshot};
+  }
+  if(!isBoundedTransitionValue(normalized))return{kind:"full-recovery",snapshot};
+  const next=cloneSnapshot(snapshot);next.recoveryTransitions=normalized;
+  return{kind:"known",snapshot:next,changed:!storageSnapshotsEqual(next,snapshot)};
 }
 function isSafeProgressionFields(value){
   if(!isPlainStateObject(value))return false;
@@ -55,17 +287,24 @@ function isSafeProgressionFields(value){
 function isSafeProgressionMeta(value){
   if(value==null)return true;
   if(!isPlainStateObject(value))return false;
+  if(Object.prototype.hasOwnProperty.call(value,"blockId")&&
+    !isValidBlockId(value.blockId,value.id))return false;
+  if(Object.prototype.hasOwnProperty.call(value,"transitionIn")&&value.transitionIn!=null&&
+    !isCoherentV1TransitionIn(value.transitionIn))return false;
   for(const key of ["progressionRelations","progressionModifiers","progressionIncompatibilities"])
     if(Object.prototype.hasOwnProperty.call(value,key)&&
       (!Array.isArray(value[key])||!isBoundedProgressionValue(value[key])))return false;
   return true}
 function isSafeProgramHistoryEntry(entry){
   if(!isPlainStateObject(entry))return false;
+  if(Object.prototype.hasOwnProperty.call(entry,"transitionOut")&&entry.transitionOut!=null&&
+    !isCoherentV1TransitionOut(entry.transitionOut))return false;
   if(Object.prototype.hasOwnProperty.call(entry,"meta")&&!isSafeProgressionMeta(entry.meta))return false;
   if(!Object.prototype.hasOwnProperty.call(entry,"program"))return true;
   return Array.isArray(entry.program)&&entry.program.every(isSafeProgressionFields)}
 function isSafeLogRow(entry){
   if(!isPlainStateObject(entry))return false;
+  if(Object.prototype.hasOwnProperty.call(entry,"blockId")&&!isValidBlockId(entry.blockId))return false;
   for(const key of ["performedName","performedLibraryId","performedMovementId","performedPrimary","performedSecondary"])
     if(Object.prototype.hasOwnProperty.call(entry,key)&&entry[key]!=null&&typeof entry[key]!=="string")
       return false;
@@ -90,6 +329,7 @@ function isValidStateShape(s){
     if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isSafeProgressionFields)||
       !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
     if(Object.prototype.hasOwnProperty.call(s,"programMeta")&&!isSafeProgressionMeta(s.programMeta))return false;
+    if(Object.prototype.hasOwnProperty.call(s,"recoveryTransitions")&&!isValidRecoveryTransitions(s.recoveryTransitions))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_DRAFT_TXN)&&!pendingDraftTransaction(s))return false;
     if(Object.prototype.hasOwnProperty.call(s,STORAGE_SETUP_TXN)&&!isValidSetupActivationMarker(s[STORAGE_SETUP_TXN]))return false;
     // Optional: backups written before custom exercises existed stay importable.
@@ -124,14 +364,20 @@ function readLocalStatus(){
   try{const raw=localStorage.getItem(KEY);
     if(raw==null)return{status:"absent",raw:null,parsed:null};
     try{const parsed=JSON.parse(raw);
-      if(isValidStateShape(parsed))return{status:"valid",raw,parsed};
+      if(isValidStateShape(parsed))return{status:"valid",raw,parsed,
+        recoveryCarrierClassification:classifyRecoveryCarrier(parsed?.recoveryTransitions)};
+      const carrier=carrierReadStatus(parsed,raw);
+      if(carrier)return carrier;
       return{status:"invalid",raw,parsed}}
     catch{return{status:"invalid",raw,parsed:null}}}
   catch(e){return{status:"failed",raw:null,parsed:null,error:e}}}
 async function readIdbStatus(){
   try{const parsed=await idbGet(KEY);
     if(parsed==null)return{status:"absent",raw:null,parsed:null};
-    if(isValidStateShape(parsed))return{status:"valid",raw:parsed,parsed};
+    if(isValidStateShape(parsed))return{status:"valid",raw:parsed,parsed,
+      recoveryCarrierClassification:classifyRecoveryCarrier(parsed?.recoveryTransitions)};
+    const carrier=carrierReadStatus(parsed,parsed);
+    if(carrier)return carrier;
     return{status:"invalid",raw:parsed,parsed}}
   catch(e){return{status:"failed",raw:null,parsed:null,error:e}}}
 function chooseSnapshot(localRead,idbRead){
@@ -283,7 +529,15 @@ async function refreshPersistenceHead(){
   if(decision.kind!=="chosen")return{head:cloneSnapshot(persistHead),conflict:true};
   if(pendingDraftTransaction(decision.snapshot))
     return{head:cloneSnapshot(persistHead),conflict:true,draftTransaction:true};
-  const disk=cloneSnapshot(decision.snapshot),current=cloneSnapshot(persistHead);
+  const current=cloneSnapshot(persistHead);
+  let disk=cloneSnapshot(decision.snapshot);
+  let normalized;
+  try{normalized=await normalizeRecoveryCarrierSnapshot(
+    disk,sourceReplicaForCarrierDecision(decision,local,idb),{
+      priorQuarantine:current?.recoveryTransitions?.quarantine||[]})}
+  catch{return{head:current,conflict:true,recovery:true}}
+  if(normalized.kind==="full-recovery")return{head:current,conflict:true,recovery:true};
+  if(normalized.kind==="known")disk=normalized.snapshot;
   const diskRev=readRevision(disk),currentRev=readRevision(current);
   if(diskRev>currentRev)return{head:disk};
   if(diskRev<currentRev||storageSnapshotsEqual(disk,current))return{head:current};
@@ -296,6 +550,11 @@ function applyAcceptedSnapshot(base,snapshot){
   live[STORAGE_REV]=readRevision(snapshot);
   state=live;
   prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
+  const liveBlock=snapshotBlockId(state),sameCarrierRecord=activeRecoveryRecord&&
+    recoveryCarrierRecords(state).some(record=>record.transitionId===activeRecoveryRecord.transitionId&&
+      record.proposalHash===activeRecoveryRecord.proposalHash&&record.diff?.recoveryWeek?.blockId===liveBlock);
+  if(sameCarrierRecord){activeRecoveryRecordBlockId=liveBlock}
+  else{activeRecoveryRecord=null;activeRecoveryRecordBlockId=null}
   mutationBase=cloneSnapshot(snapshot);
   dropMemo.clear();baselineMemo.clear()}
 function unversionedSnapshot(snapshot){
@@ -495,8 +754,11 @@ function pendingJournalOrder(){
   pendingJournalClock=at;
   return{at,writer:pendingJournalWriterId,seq:++pendingJournalSeq}}
 function draftProgramFingerprint(snapshot){
-  return JSON.stringify(canonicalize({programMetaId:snapshot?.programMeta?.id||null,
-    program:Array.isArray(snapshot?.program)?snapshot.program:[]}))}
+  const value={programMetaId:snapshot?.programMeta?.id||null,
+    program:Array.isArray(snapshot?.program)?snapshot.program:[]};
+  if(Object.prototype.hasOwnProperty.call(snapshot?.programMeta||{},"blockId"))
+    value.programMetaBlockId=snapshot.programMeta.blockId;
+  return JSON.stringify(canonicalize(value))}
 /* DraftV2 bounds its stored fingerprint. Hash the complete canonical program
    instead of truncating it: length plus four independent FNV-1a passes make
    every source byte participate while keeping the adapter value fixed-size. */
@@ -510,12 +772,19 @@ function workoutDraftFault(point){
   if(window.__repforgeDraftFault!==point)return false;
   window.__repforgeDraftFault=null;return true}
 function draftContextFingerprint(snapshot){
-  return JSON.stringify(canonicalize({programMetaId:snapshot?.programMeta?.id||null,
+  const value={programMetaId:snapshot?.programMeta?.id||null,
     program:Array.isArray(snapshot?.program)?snapshot.program:[],
-    unit:snapshot?.settings?.unit||"kg",rirMode:snapshot?.settings?.rirMode||"numeric"}))}
+    unit:snapshot?.settings?.unit||"kg",rirMode:snapshot?.settings?.rirMode||"numeric"};
+  if(Object.prototype.hasOwnProperty.call(snapshot?.programMeta||{},"blockId"))
+    value.programMetaBlockId=snapshot.programMeta.blockId;
+  return JSON.stringify(canonicalize(value))}
+function snapshotBlockId(snapshot){
+  const meta=snapshot?.programMeta;
+  return Object.prototype.hasOwnProperty.call(meta||{},"blockId")?meta.blockId:null}
 function programTransitionPrecondition(snapshot=state){
   return{expectedProgramId:snapshot?.programMeta?.id||null,
     expectedProgramFingerprint:draftProgramFingerprint(snapshot),
+    expectedBlockId:snapshotBlockId(snapshot),
     expectedStorageRevision:readRevision(snapshot)}}
 const DraftStore={
   readCanonicalRaw(){
@@ -833,6 +1102,59 @@ const DraftStore={
     catch{return{settled:false,hadWrites:false}}
     return this.promote(transactionId,contextFingerprint)}
 };
+function parsedAcknowledgedDraftV2(raw,source){
+  const parsed=WorkoutDraft?.parse(raw);
+  return parsed?.kind==="valid"?{status:"live",raw,draft:parsed.draft,source}:null}
+/*
+ * This is deliberately a read-only boundary. A block start may not trigger
+ * boot reconciliation, checkpoint repair, recovery retention, or any other
+ * draft mutation while deciding whether it is safe to cross the boundary.
+ * The committed checkpoint is the acknowledged aggregate; a valid queued V2
+ * sidecar is also live because it is the next ordered draft publication.
+ */
+function readLiveAcknowledgedDraftV2(snapshot=state){
+  const canonical=DraftStore.readCanonicalStatus();
+  if(canonical.status!=="ok")return{status:"unavailable",reason:"canonical-read"};
+  const checkpoint=DraftStore.readV2Checkpoint();
+  if(checkpoint.status==="invalid"||checkpoint.status==="read-failed")
+    return{status:"unavailable",reason:"checkpoint-read"};
+  const context=draftContextFingerprint(snapshot);
+  const queued=DraftStore.pending().entries.filter(entry=>entry.value.programFingerprint===context).at(-1);
+  const queuedDraft=queued?parsedAcknowledgedDraftV2(queued.value.raw,"pending"):null;
+  if(queuedDraft)return queuedDraft;
+  if(checkpoint.status==="valid"){
+    const value=checkpoint.value;
+    if(value.kind==="tombstone")return{status:"none"};
+    if(value.kind==="committed"){
+      const committed=parsedAcknowledgedDraftV2(value.raw,"checkpoint");
+      return committed||{status:"unavailable",reason:"committed-draft"};
+    }
+    if(value.kind==="pending"){
+      // Before canonical publication, retain the acknowledged predecessor when
+      // present; with no predecessor the candidate itself is the in-flight
+      // V2 value and must still block a destructive block start.
+      const protectedRaw=canonical.raw===value.baseRaw&&value.previous?.raw||value.raw;
+      const pendingDraft=parsedAcknowledgedDraftV2(protectedRaw,"checkpoint-pending");
+      return pendingDraft||{status:"unavailable",reason:"pending-draft"};
+    }
+    if(value.kind==="pending-removal"){
+      // The removal is not acknowledged until the tombstone is committed. If
+      // canonical bytes have been overwritten in the meantime, the protected
+      // V2 value remains the authoritative live draft until reconciliation.
+      const pendingRemoval=parsedAcknowledgedDraftV2(value.raw,"checkpoint-pending-removal");
+      return pendingRemoval||{status:"unavailable",reason:"pending-removal"};
+    }
+    return{status:"unavailable",reason:"checkpoint-kind"};
+  }
+  const canonicalDraft=parsedAcknowledgedDraftV2(canonical.raw,"canonical");
+  return canonicalDraft||{status:"none"};
+}
+function blockStartDraftGuard(snapshot=state){
+  const live=readLiveAcknowledgedDraftV2(snapshot);
+  if(live.status==="live")return{draftConflict:true,code:"live_draft_blocks_next_block"};
+  if(live.status==="unavailable")return{draftConflict:true,code:"draft_state_unavailable"};
+  return null;
+}
 function v2CheckpointRecord(draft,raw,operationId=draft.writer.operationId){
   return{version:1,kind:"committed",draftId:draft.draftId,revision:draft.revision,operationId,
     programFingerprint:draft.program.programFingerprint,raw}}
@@ -875,9 +1197,16 @@ function decodePendingJournal(key,raw){
       !Number.isSafeInteger(order?.seq)))return null;
     const effectOutcome=legacy?{status:DRAFT_EFFECT_NONE,effect:null}:
       draftEffectOutcome(Object.prototype.hasOwnProperty.call(journal,"effect")?journal.effect:null);
+    const recoveryTransactionPresent=Object.prototype.hasOwnProperty.call(journal,"recoveryTransaction");
+    if(journal.recoveryTransaction!=null&&typeof journal.recoveryTransaction!=="boolean")return null;
+    const recoveryTransaction=journal.recoveryTransaction===true;
     const expectedProgramFingerprint=typeof journal.expectedProgramFingerprint==="string"&&
       journal.expectedProgramFingerprint.length<=PENDING_EFFECT_MAX_RAW?journal.expectedProgramFingerprint:null;
     if(journal.expectedProgramFingerprint!=null&&!expectedProgramFingerprint)return null;
+    const expectedBlockId=Object.prototype.hasOwnProperty.call(journal,"expectedBlockId")
+      ?(journal.expectedBlockId===null?null:isValidBlockId(journal.expectedBlockId)?journal.expectedBlockId:null)
+      :undefined;
+    if(Object.prototype.hasOwnProperty.call(journal,"expectedBlockId")&&expectedBlockId===null&&journal.expectedBlockId!==null)return null;
     const expectedStorageRevision=Object.prototype.hasOwnProperty.call(journal,"expectedStorageRevision")
       ?journal.expectedStorageRevision:null;
     if(expectedStorageRevision!==null&&(!Number.isInteger(expectedStorageRevision)||expectedStorageRevision<0))return null;
@@ -897,9 +1226,9 @@ function decodePendingJournal(key,raw){
       id:journal.id,base:unversionedSnapshot(journal.base),liveBase:unversionedSnapshot(journal.liveBase),
       proposal:unversionedSnapshot(journal.proposal),replace:!!journal.replace,
       expectedProgramId:typeof journal.expectedProgramId==="string"&&journal.expectedProgramId?journal.expectedProgramId:null,
-      expectedProgramFingerprint,expectedStorageRevision,
+      expectedProgramFingerprint,expectedBlockId,expectedStorageRevision,
       expectedFirstRunEmpty:journal.expectedFirstRunEmpty===true,reconcileSessionIds,dayRenames,
-      effectOutcome,effect:effectOutcome.effect,rollback}}}
+      effectOutcome,effect:effectOutcome.effect,recoveryTransaction,recoveryTransactionPresent,rollback}}}
   catch{return null}}
 function readPendingJournal(){
   const entries=[],invalid=[];
@@ -933,17 +1262,22 @@ function normalizeJournalDayRenames(value){
     renames.push({from:entry.from,to:entry.to})}
   return renames}
 function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgramId=null,
-  expectedProgramFingerprint=null,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
-  reconcileSessionIds=[],dayRenames=[],effectOutcome=null}={}){
+  expectedProgramFingerprint=null,expectedBlockId=undefined,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
+  reconcileSessionIds=[],dayRenames=[],effectOutcome=null,recoveryTransaction=false}={}){
   const id=pendingJournalUuid(),key=PENDING_PREFIX+id;
   const journal={version:2,id,order:pendingJournalOrder(),base:unversionedSnapshot(base),liveBase:unversionedSnapshot(liveBase),
     proposal:unversionedSnapshot(proposal),replace:!!replace,expectedProgramId:expectedProgramId||null};
   if(expectedProgramFingerprint)journal.expectedProgramFingerprint=expectedProgramFingerprint;
+  if(expectedBlockId!==undefined)journal.expectedBlockId=expectedBlockId;
   if(Number.isInteger(expectedStorageRevision)&&expectedStorageRevision>=0)
     journal.expectedStorageRevision=expectedStorageRevision;
   if(expectedFirstRunEmpty)journal.expectedFirstRunEmpty=true;
   if(reconcileSessionIds.length)journal.reconcileSessionIds=reconcileSessionIds;
   if(dayRenames.length)journal.dayRenames=dayRenames;
+  // This optional marker is absent from older journals. It scopes the
+  // recovery crash protocol without inferring ownership from a carrier delta
+  // that could belong to another state-changing workflow.
+  if(recoveryTransaction)journal.recoveryTransaction=true;
   const outcome=normalizeDraftEffectOutcome(effectOutcome);
   if(outcome.status===DRAFT_EFFECT_VALID)journal.effect=outcome.effect;
   const raw=JSON.stringify(journal);
@@ -962,7 +1296,7 @@ function setupActivationAlreadyCommitted(head,proposal,expectedSetupDraftRaw){
     setupActivationMatches(current,expectedSetupDraftRaw,head?.programMeta?.id)&&
     current.programId===proposed.programId;
 }
-function armPendingJournalRollback(record,snapshot){
+function armPendingJournalRollback(record,snapshot,{forceRollback=false}={}){
   if(!record||record.legacy||!isValidStateShape(snapshot)||
     Object.prototype.hasOwnProperty.call(snapshot,STORAGE_DRAFT_TXN))return null;
   try{
@@ -970,7 +1304,7 @@ function armPendingJournalRollback(record,snapshot){
     const journal=JSON.parse(record.raw),rollback=cloneSnapshot(snapshot);
     journal.rollbackRevision=readRevision(rollback);
     delete journal.rollback;
-    if(!storageSnapshotsEqual(unversionedSnapshot(rollback),record.journal.base))
+    if(forceRollback||!storageSnapshotsEqual(unversionedSnapshot(rollback),record.journal.base))
       journal.rollback=rollback;
     const raw=JSON.stringify(journal);
     localStorage.setItem(record.key,raw);
@@ -1049,6 +1383,319 @@ function pendingJournalSuccessorMatches(record,head){
       dayRenames:journal.dayRenames,expectedFirstRunEmpty:journal.expectedFirstRunEmpty,
       sharedRebaseSeed:journal.id});
   return readRevision(candidate)===readRevision(head)&&storageSnapshotsEqual(candidate,head)}
+function recoveryJournalCarrier(snapshot){
+  const carrier=snapshot?.recoveryTransitions;
+  if(carrier===undefined)return{records:[],quarantine:[]};
+  return isValidRecoveryTransitions(carrier)
+    ?{records:carrier.records,quarantine:carrier.quarantine}:null;
+}
+function recoveryJournalNonCarrierEqual(base,proposal,{ignoreBlockId=false}={}){
+  const left=cloneSnapshot(base),right=cloneSnapshot(proposal);
+  if(!isPlainStateObject(left?.programMeta)||!isPlainStateObject(right?.programMeta))return false;
+  delete left.recoveryTransitions;
+  delete right.recoveryTransitions;
+  if(ignoreBlockId){
+    delete left.programMeta.blockId;
+    delete right.programMeta.blockId}
+  return storageSnapshotsEqual(left,right);
+}
+/* Pre-c4 version-2 journals did not carry recoveryTransaction. Recovering
+   that absence by looking for any carrier delta would claim unrelated import,
+   setup, replacement, or generic work. Keep the old compatibility path a
+   closed reconstruction of the two canonical recovery mutations instead. */
+function classifyLegacyRecoveryJournal(journal){
+  if(!journal||journal.recoveryTransactionPresent===true)return null;
+  const base=journal.base,proposal=journal.proposal;
+  if(!isPlainStateObject(base)||!isPlainStateObject(proposal)||
+    !isPlainStateObject(base.programMeta)||!isPlainStateObject(proposal.programMeta)||
+    base.programMeta.id!==proposal.programMeta.id)return null;
+  const sourceBlock=base.programMeta.blockId,targetBlock=proposal.programMeta.blockId;
+  if(!isValidBlockId(sourceBlock,base.programMeta.id)||
+    !isValidBlockId(targetBlock,proposal.programMeta.id))return null;
+  const baseCarrier=recoveryJournalCarrier(base),proposalCarrier=recoveryJournalCarrier(proposal);
+  if(!baseCarrier||!proposalCarrier||!recoveryJournalNonCarrierEqual(base,proposal,{ignoreBlockId:true}))return null;
+  if(journal.expectedProgramId!==base.programMeta.id||journal.expectedBlockId!==sourceBlock||
+    !Number.isInteger(journal.expectedStorageRevision)||journal.expectedStorageRevision<0)return null;
+
+  const before=baseCarrier.records,after=proposalCarrier.records;
+  const sameQuarantine=storageSnapshotsEqual(baseCarrier.quarantine,proposalCarrier.quarantine);
+  if(!sameQuarantine)return null;
+  if(targetBlock!==sourceBlock&&after.length===before.length+1&&
+    before.every((record,index)=>transitionRecordEqual(record,after[index]))){
+    const appended=after.at(-1),overlay=appended?.diff?.recoveryWeek;
+    const targetWasAbsent=!before.some(record=>record?.diff?.recoveryWeek?.blockId===targetBlock);
+    if(targetWasAbsent&&appended?.predecessor?.programId===base.programMeta.id&&
+      appended.predecessor.blockId===sourceBlock&&
+      appended.predecessor.durableRevision===journal.expectedStorageRevision&&
+      overlay?.blockId===targetBlock&&overlay?.reassessmentOutcome===null&&
+      typeof journal.expectedProgramFingerprint==="string"&&
+      draftProgramFingerprint(base)===journal.expectedProgramFingerprint)
+      return"start";
+    return null;
+  }
+
+  // Reassessment is the legacy outcome-only mutation. It intentionally does
+  // not qualify as a recovery journal attempt: generic replay must preserve
+  // its old unmarked R->R+1 semantics.
+  if(targetBlock===sourceBlock&&after.length===before.length&&
+    recoveryJournalNonCarrierEqual(base,proposal)&&
+    before.length>0){
+    let changed=-1;
+    for(let index=0;index<before.length;index++){
+      if(transitionRecordEqual(before[index],after[index]))continue;
+      if(changed!==-1)return"other";
+      const beforeOverlay=before[index]?.diff?.recoveryWeek;
+      const afterOverlay=after[index]?.diff?.recoveryWeek;
+      if(beforeOverlay?.reassessmentOutcome!==null||
+        !["Better","About the same","Worse"].includes(afterOverlay?.reassessmentOutcome)||
+        !isPlainStateObject(beforeOverlay)||!isPlainStateObject(afterOverlay))return"other";
+      const beforeCopy=cloneSnapshot(before[index]),afterCopy=cloneSnapshot(after[index]);
+      beforeCopy.diff.recoveryWeek.reassessmentOutcome=null;
+      afterCopy.diff.recoveryWeek.reassessmentOutcome=null;
+      if(!transitionRecordEqual(beforeCopy,afterCopy))return"other";
+      changed=index;
+    }
+    if(changed!==-1)return"reassessment";
+  }
+  return null;
+}
+/* A pre-c4 journal with recovery-shaped state can still be unmarked. The
+   compatibility classifier above recognizes only the two canonical mutations:
+   one new block-start record, or one outcome-only reassessment. Any other
+   valid recovery-carrier mutation is ambiguous and must not fall through to
+   generic state replay. Metadata is not a positive signal here: missing or
+   malformed preconditions must fail closed too. Keep this gate separate from
+   isRecoveryJournalAttempt so the legacy single-reassessment replay contract
+   remains unchanged. */
+function isAmbiguousLegacyRecoveryJournalMutation(journal){
+  if(!journal||journal.recoveryTransactionPresent===true)return false;
+  const classified=classifyLegacyRecoveryJournal(journal);
+  if(classified==="start"||classified==="reassessment")return false;
+  const base=journal.base,proposal=journal.proposal;
+  if(!isPlainStateObject(base)||!isPlainStateObject(proposal)||
+    !isPlainStateObject(base.programMeta)||!isPlainStateObject(proposal.programMeta)||
+    base.programMeta.id!==proposal.programMeta.id)return false;
+  const sourceBlock=base.programMeta.blockId,targetBlock=proposal.programMeta.blockId;
+  if(!isValidBlockId(sourceBlock,base.programMeta.id)||
+    !isValidBlockId(targetBlock,proposal.programMeta.id)||
+    !recoveryJournalNonCarrierEqual(base,proposal,{ignoreBlockId:true}))return false;
+  const baseCarrier=recoveryJournalCarrier(base),proposalCarrier=recoveryJournalCarrier(proposal);
+  if(!baseCarrier||!proposalCarrier||
+    storageSnapshotsEqual(baseCarrier,proposalCarrier))return false;
+  const hasRecoveryRecord=[...baseCarrier.records,...proposalCarrier.records].some(record=>
+    record?.kind==="recovery_week"&&record?.status==="committed");
+  if(!hasRecoveryRecord)return false;
+  return true;
+}
+function isRecoveryJournalAttempt(journal){
+  if(journal?.recoveryTransaction===true){
+    const proposalCarrier=journal?.proposal?.recoveryTransitions;
+    if(!isValidRecoveryTransitions(proposalCarrier))return false;
+    return proposalCarrier.records.some(record=>
+      record?.kind==="recovery_week"&&record?.status==="committed");
+  }
+  return classifyLegacyRecoveryJournal(journal)==="start";
+}
+/* Bounded semantic/value equality for inherited transition values: absent on
+   both sides is equal; anything present compares canonical parsed values, so
+   a changed field is a difference even when every ID is retained. */
+function transitionRecordEqual(a,b){
+  if(a==null||b==null)return a==b;
+  return storageSnapshotsEqual(a,b)}
+function classifyInheritedTransitionValue(value,validator){
+  if(value==null)return "absent";
+  return validator(value)?"supported-v1":"unknown-or-malformed"}
+function extractTransitionOutMap(snapshot){
+  const history=Array.isArray(snapshot?.programHistory)?snapshot.programHistory:[];
+  const map=new Map();
+  let invalid=false;
+  for(const h of history){
+    if(!isPlainStateObject(h)){invalid=true;break}
+    const toutStatus=classifyInheritedTransitionValue(h.transitionOut,isCoherentV1TransitionOut);
+    if(toutStatus==="absent")continue;
+    const aid=typeof h.archiveId==="string"&&h.archiveId.trim()?h.archiveId.trim():null;
+    const hid=typeof h.id==="string"&&h.id.trim()?h.id.trim():null;
+    if(toutStatus!=="supported-v1"||!aid||!hid||aid!==hid||map.has(aid)){
+      invalid=true;break}
+    map.set(aid,h.transitionOut)}
+  return{map,invalid}}
+function classifyInheritedProvenance(snapshot){
+  const meta=isPlainStateObject(snapshot?.programMeta)?snapshot.programMeta:null;
+  const history=Array.isArray(snapshot?.programHistory)?snapshot.programHistory:[];
+  const transitionIn=classifyInheritedTransitionValue(meta?.transitionIn,isCoherentV1TransitionIn);
+  const transitionOut=extractTransitionOutMap(snapshot);
+  if(transitionIn==="unknown-or-malformed"||transitionOut.invalid)
+    return{ok:false,transitionIn,transitionOut:transitionOut.map};
+  const records=[];
+  if(meta?.transitionIn!=null)records.push({holderId:meta.id,value:meta.transitionIn});
+  for(const row of history){
+    if(!isPlainStateObject(row))return{ok:false,transitionIn,transitionOut:transitionOut.map};
+    if(row.meta==null)continue;
+    if(!isPlainStateObject(row.meta))return{ok:false,transitionIn,transitionOut:transitionOut.map};
+    const status=classifyInheritedTransitionValue(row.meta.transitionIn,isCoherentV1TransitionIn);
+    if(status==="unknown-or-malformed")return{ok:false,transitionIn,transitionOut:transitionOut.map};
+    if(status==="supported-v1")records.push({holderId:row.id,value:row.meta.transitionIn});
+  }
+  const archivesById=new Map();
+  for(const row of history){
+    if(row.transitionOut==null)continue;
+    const id=typeof row.id==="string"&&row.id.trim()?row.id.trim():null;
+    const archiveId=typeof row.archiveId==="string"&&row.archiveId.trim()?row.archiveId.trim():null;
+    if(!id||!archiveId||id!==archiveId||archivesById.has(id))
+      return{ok:false,transitionIn,transitionOut:transitionOut.map};
+    archivesById.set(id,row);
+  }
+  for(const record of records){
+    const tin=record.value;
+    if(typeof record.holderId!=="string"||!record.holderId.trim()||
+      tin.successor.programId!==record.holderId||tin.archiveId!==tin.predecessor.programId)
+      return{ok:false,transitionIn,transitionOut:transitionOut.map};
+    const archive=archivesById.get(tin.archiveId);
+    if(!archive||archive.id!==tin.archiveId||archive.archiveId!==tin.archiveId)return{
+      ok:false,transitionIn,transitionOut:transitionOut.map};
+    const tout=archive.transitionOut;
+    if(tout.transitionId!==tin.transitionId||tout.proposalHash!==tin.proposalHash||
+      tout.successorProgramId!==tin.successor.programId)
+      return{ok:false,transitionIn,transitionOut:transitionOut.map};
+  }
+  for(const [archiveId,tout] of transitionOut.map.entries()){
+    const linked=records.filter(({value:tin})=>tin.archiveId===archiveId&&
+      tin.transitionId===tout.transitionId&&tin.proposalHash===tout.proposalHash&&
+      tin.successor.programId===tout.successorProgramId);
+    if(linked.length!==1)return{ok:false,transitionIn,transitionOut:transitionOut.map};
+  }
+  return{ok:true,transitionIn,transitionOut:transitionOut.map}}
+function transitionJournalAttempt(proposal,base){
+  if(!proposal||!isPlainStateObject(proposal))return false;
+  const propProvenance=classifyInheritedProvenance(proposal);
+  const baseProvenance=classifyInheritedProvenance(base);
+  if(!propProvenance.ok||!baseProvenance.ok)return true;
+  const propTin=isPlainStateObject(proposal.programMeta)?proposal.programMeta.transitionIn:null;
+  const baseTin=isPlainStateObject(base?.programMeta)?base.programMeta.transitionIn:null;
+  if(!transitionRecordEqual(propTin,baseTin))return true;
+  if(propProvenance.transitionOut.size!==baseProvenance.transitionOut.size)return true;
+  for(const [key,propTout] of propProvenance.transitionOut.entries()){
+    if(!baseProvenance.transitionOut.has(key))return true;
+    const baseTout=baseProvenance.transitionOut.get(key);
+    if(!transitionRecordEqual(propTout,baseTout))return true}
+  return false}
+function programHistoryUniqueIds(history){
+  const ids=new Set();
+  for(const row of history){
+    if(!isPlainStateObject(row))return null;
+    const id=row.id;
+    if(typeof id!=="string"||!id.trim())return null;
+    if(ids.has(id))return null;
+    ids.add(id)}
+  return ids}
+/* Correction 4: the one non-transition journal that replays is the exact
+   existing program-replacement shape — a new valid active id, no proposal
+   transitionIn, a transitionOut multiset identical to the base, every base
+   history row retained value-identically keyed by primary id, and exactly one
+   additional legacy archive for the old active id with no transitionOut, no
+   conflicting archiveId, and the exact captured base program/meta including
+   its transitionIn. Every other transitionIn removal stays a guarded attempt. */
+function isCoherentLegacyReplacement(proposal,base){
+  if(!proposal||!isPlainStateObject(proposal)||!base||!isPlainStateObject(base))return false;
+  const propMeta=proposal.programMeta,baseMeta=base.programMeta;
+  if(!isPlainStateObject(propMeta)||!isPlainStateObject(baseMeta))return false;
+  const propProvenance=classifyInheritedProvenance(proposal);
+  const baseProvenance=classifyInheritedProvenance(base);
+  if(!propProvenance.ok||!baseProvenance.ok)return false;
+  const succId=propMeta.id;
+  if(typeof succId!=="string"||!succId.trim()||succId===baseMeta.id)return false;
+  if(propMeta.transitionIn!=null)return false;
+  const propMap=propProvenance.transitionOut;
+  const baseMap=baseProvenance.transitionOut;
+  if(propMap.size!==baseMap.size)return false;
+  for(const [key,propTout] of propMap.entries()){
+    if(!baseMap.has(key))return false;
+    if(!transitionRecordEqual(propTout,baseMap.get(key)))return false}
+  const propHist=Array.isArray(proposal.programHistory)?proposal.programHistory:[];
+  const baseHist=Array.isArray(base.programHistory)?base.programHistory:[];
+  if(propHist.length!==baseHist.length+1)return false;
+  const propIds=programHistoryUniqueIds(propHist);
+  const baseIds=programHistoryUniqueIds(baseHist);
+  if(!propIds||!baseIds)return false;
+  for(const b of baseHist){
+    const p=propHist.find(row=>row.id===b.id);
+    if(!p)return false;
+    if(!transitionRecordEqual(p,b))return false}
+  const newRows=propHist.filter(row=>!baseIds.has(row.id));
+  if(newRows.length!==1)return false;
+  const newRow=newRows[0];
+  if(newRow.id!==baseMeta.id)return false;
+  if(newRow.transitionOut!=null)return false;
+  if(newRow.archiveId!=null&&newRow.archiveId!==newRow.id)return false;
+  if(newRow.meta==null||!transitionRecordEqual(newRow.meta,baseMeta))return false;
+  if(!Array.isArray(newRow.program))return false;
+  if(!transitionRecordEqual(newRow.program,Array.isArray(base.program)?base.program:[]))return false;
+  return true}
+function isCoherentV1TransitionIn(tin){
+  return isPlainStateObject(tin)&&isBoundedTransitionValue(tin)&&
+    tin.schemaVersion===1&&tin.status==="committed"&&
+    typeof tin.transitionId==="string"&&tin.transitionId.trim()!==""&&
+    typeof tin.proposalHash==="string"&&tin.proposalHash.trim()!==""&&
+    typeof tin.archiveId==="string"&&tin.archiveId.trim()!==""&&
+    typeof tin.confirmedAt==="string"&&tin.confirmedAt.trim()!==""&&
+    isPlainStateObject(tin.successor)&&isPlainStateObject(tin.predecessor)&&
+    typeof tin.successor.programId==="string"&&tin.successor.programId.trim()!==""&&
+    typeof tin.predecessor.programId==="string"&&tin.predecessor.programId.trim()!==""}
+function isCoherentV1TransitionOut(tout){
+  return isPlainStateObject(tout)&&isBoundedTransitionValue(tout)&&
+    tout.schemaVersion===1&&
+    typeof tout.transitionId==="string"&&tout.transitionId.trim()!==""&&
+    typeof tout.proposalHash==="string"&&tout.proposalHash.trim()!==""&&
+    typeof tout.successorProgramId==="string"&&tout.successorProgramId.trim()!==""}
+function isCoherentTransitionProposal(proposal,base){
+  if(!proposal||!isPlainStateObject(proposal))return false;
+  const propProvenance=classifyInheritedProvenance(proposal);
+  if(!propProvenance.ok)return false;
+  const tin=proposal.programMeta?.transitionIn;
+  if(!isCoherentV1TransitionIn(tin))return false;
+  const succId=tin.successor.programId,predId=tin.predecessor.programId;
+  if(proposal.programMeta.id!==succId)return false;
+  if(tin.archiveId!==predId)return false;
+  const propHist=Array.isArray(proposal.programHistory)?proposal.programHistory:[];
+  const newOccupants=propHist.filter(h=>h&&(h.id===predId||h.archiveId===predId));
+  if(newOccupants.length!==1)return false;
+  const newArc=newOccupants[0];
+  if(newArc.id!==predId||newArc.archiveId!==predId)return false;
+  if(!isCoherentV1TransitionOut(newArc.transitionOut))return false;
+  const tout=newArc.transitionOut;
+  if(tout.transitionId!==tin.transitionId||tout.proposalHash!==tin.proposalHash||
+    tout.successorProgramId!==succId)return false;
+  const allWithTransId=propHist.filter(h=>h?.transitionOut?.transitionId===tin.transitionId);
+  if(allWithTransId.length!==1)return false;
+
+  if(base!=null){
+    if(!isPlainStateObject(base))return false;
+    const baseProvenance=classifyInheritedProvenance(base);
+    if(!baseProvenance.ok)return false;
+    if(base.programMeta?.id!==predId)return false;
+    const baseHist=Array.isArray(base.programHistory)?base.programHistory:[];
+    if(propHist.length!==baseHist.length+1)return false;
+    if(baseHist.some(h=>h&&(h.id===predId||h.archiveId===predId)))return false;
+
+    // Inherited transitionIn provenance captured in new archive
+    const baseTin=base.programMeta?.transitionIn;
+    if(baseTin!=null){
+      if(!transitionRecordEqual(newArc.meta?.transitionIn,baseTin))return false;
+    }else{
+      if(newArc.meta?.transitionIn!=null)return false;
+    }
+
+    // Every inherited base history row must be retained value-identically,
+    // keyed by its stable primary id. Legacy rows without archiveId or
+    // transitionOut are kept as they are — never forced to invent fields.
+    for(const b of baseHist){
+      if(!b||typeof b.id!=="string"||!b.id)return false;
+      const matching=propHist.filter(p=>p!==newArc&&p?.id===b.id);
+      if(matching.length!==1)return false;
+      if(!transitionRecordEqual(matching[0],b))return false;
+    }
+  }
+  return true}
 function preparePendingDraftTransaction(snapshot,previous,effect,id){
   const prepared=cloneSnapshot(snapshot),outcome=normalizeDraftEffectOutcome(effect),receipt=outcome.effect;
   if(outcome.status!==DRAFT_EFFECT_VALID||!draftEffectRequiresCoordination(outcome))return prepared;
@@ -1112,7 +1759,8 @@ async function compensatePendingDraftTransaction(snapshot,io,transactionId,effec
   const durable=!!(result.localOk||result.idbOk);
   const restored=durable?DraftStore.restoreEffect(transactionId,effect,contextFingerprint):{settled:false};
   return{settled:durable&&restored.settled,snapshot:rollback,result}}
-async function settleAppliedDraftTransaction(prepared,finalized,effect,checked,io,provisionalResult){
+async function settleAppliedDraftTransaction(prepared,finalized,effect,checked,io,provisionalResult,
+  forceFinalization=false){
   const transaction=pendingDraftTransaction(prepared),transactionId=transaction?.id||null;
   const contextFingerprint=transaction?draftContextFingerprint(transaction.previous):null;
   const applied=applyPendingJournalEffect(effect);
@@ -1122,7 +1770,7 @@ async function settleAppliedDraftTransaction(prepared,finalized,effect,checked,i
   if(!pendingDraftEffectAccepted(effect,checked,transactionId,contextFingerprint)){
     const compensation=await compensatePendingDraftTransaction(prepared,io,transactionId,effect);
     return Object.assign({accepted:false,rejected:true},compensation)}
-  if(!transaction)return{accepted:true,rejected:false,snapshot:finalized,result:null};
+  if(!transaction&&!forceFinalization)return{accepted:true,rejected:false,snapshot:finalized,result:null};
   const result=await writeSnapshot(finalized,io);
   if(!(result.localOk||result.idbOk)){
     const compensation=await compensatePendingDraftTransaction(prepared,io,transactionId,effect);
@@ -1135,7 +1783,7 @@ async function settleAppliedDraftTransaction(prepared,finalized,effect,checked,i
   return{accepted:true,rejected:false,settled:true,snapshot:finalized,result}}
 async function executeDraftTransaction({record=null,transactionId=record?.journal?.id||null,effect=null,
   prepared=null,snapshot=null,io=null,writePrepared=true,preparedResult=null,
-  retainRecordOnWriteFailure=false,discard=false}={}){
+  retainRecordOnWriteFailure=false,discard=false,forceFinalization=false}={}){
   const effectOutcome=normalizeDraftEffectOutcome(effect);
   const transaction=prepared&&pendingDraftTransaction(prepared);
   const id=transaction?.id||transactionId;
@@ -1178,8 +1826,9 @@ async function executeDraftTransaction({record=null,transactionId=record?.journa
   const checked=writePrepared?pendingJournalEffectState(effectOutcome):preEffectState;
   const provisionalResult=result||
     {revision:readRevision(prepared),localOk:!writePrepared,idbOk:!writePrepared};
+  const finalizeRecovery=forceFinalization&&provisionalResult.localOk===true&&provisionalResult.idbOk===true;
   const settlement=await settleAppliedDraftTransaction(
-    prepared,snapshot,effectOutcome,checked,io,provisionalResult);
+    prepared,snapshot,effectOutcome,checked,io,provisionalResult,finalizeRecovery);
   if(!settlement.accepted){
     if(settlement.rejected&&settlement.settled){
       const closed=close(true);
@@ -1210,9 +1859,9 @@ async function executeDraftTransaction({record=null,transactionId=record?.journa
   return{kind:"committed",accepted:true,rejected:false,settled:true,
     snapshot,result:settlement.result||result,closed}}
 function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null,
-  expectedProgramFingerprint=null,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
+  expectedProgramFingerprint=null,expectedBlockId=undefined,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
   expectedSetupDraftRaw=undefined,
-  reconcileSessionIds=[],dayRenames=[],effect=null,preflight=null}={}){
+  reconcileSessionIds=[],dayRenames=[],effect=null,preflight=null,recoveryTransaction=false}={}){
   requireAdapter(io,"enqueueStateChange");
   const frozenBase=cloneSnapshot(base),frozenLiveBase=cloneSnapshot(liveBase);
   const frozenProposal=cloneSnapshot(proposal),frozenEffectOutcome=normalizeDraftEffectOutcome(effect);
@@ -1229,10 +1878,11 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
   let pendingRecord=io===storageIO
     ?writePendingJournal(frozenBase,frozenLiveBase,frozenProposal,
       {replace,expectedProgramId,expectedProgramFingerprint,
+        expectedBlockId,
         expectedStorageRevision,
         expectedFirstRunEmpty,
         reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
-        effectOutcome:frozenEffectOutcome})
+        effectOutcome:frozenEffectOutcome,recoveryTransaction})
     :null;
   if(io===storageIO&&!pendingRecord){
     const failed={revision:readRevision(frozenBase),localOk:false,idbOk:false,journalFailed:true};
@@ -1264,27 +1914,8 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
         effect:frozenEffectOutcome,discard:true});
       return{revision:readRevision(head),localOk:true,idbOk:true,alreadyCommitted:true,
         pendingJournalCleanup:discarded.settled!==true}}
-    if(expectedStorageRevision!==undefined&&readRevision(head)!==expectedStorageRevision){
-      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
-        effect:frozenEffectOutcome,discard:true});
-      return{revision:readRevision(head),localOk:false,idbOk:false,
-        conflict:true,staleRevision:true}}
-    if(expectedProgramId&&head?.programMeta?.id!==expectedProgramId){
-      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
-        effect:frozenEffectOutcome,discard:true});
-      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
-    if(expectedProgramFingerprint&&draftProgramFingerprint(head)!==expectedProgramFingerprint){
-      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
-        effect:frozenEffectOutcome,discard:true});
-      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
-    if(expectedFirstRunEmpty&&(head?.programMeta?.onboarded||head?.log?.length||head?.programHistory?.length)){
-      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
-        effect:frozenEffectOutcome,discard:true});
-      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true,ineligible:true}}
-    // Some editor guards depend on a second tab's draft, which can be written
-    // while this operation waits for the cross-tab lock. Let the caller inspect
-    // that state after the lock is acquired but before the journal is armed or
-    // either durable replica is touched.
+    // On freshly reread lock-held head, exact-match idempotency and custom
+    // preflight guards are evaluated before generic predecessor revision/ID/fingerprint rejection.
     if(typeof preflight==="function"){
       const checked=await preflight({head:cloneSnapshot(head),proposal:cloneSnapshot(workingProposal)});
       if(checked?.proposal){
@@ -1305,8 +1936,29 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
         await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
           effect:frozenEffectOutcome,discard:true});
         return Object.assign({revision:readRevision(head),localOk:false,idbOk:false},checked.result||{conflict:true})}}
-    if(pendingRecord&&draftEffectRequiresCoordination(frozenEffectOutcome)){
-      const armed=armPendingJournalRollback(pendingRecord,head);
+    if(expectedStorageRevision!==undefined&&readRevision(head)!==expectedStorageRevision){
+      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(head),localOk:false,idbOk:false,
+        conflict:true,staleRevision:true}}
+        if(expectedProgramId&&head?.programMeta?.id!==expectedProgramId){
+      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
+    if(expectedProgramFingerprint&&draftProgramFingerprint(head)!==expectedProgramFingerprint){
+      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
+    if(expectedBlockId!==undefined&&snapshotBlockId(head)!==expectedBlockId){
+      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true,staleBlock:true}}
+    if(expectedFirstRunEmpty&&(head?.programMeta?.onboarded||head?.log?.length||head?.programHistory?.length)){
+      await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true,ineligible:true}}
+    if(pendingRecord&&(draftEffectRequiresCoordination(frozenEffectOutcome)||recoveryTransaction)){
+      const armed=armPendingJournalRollback(pendingRecord,head,{forceRollback:recoveryTransaction});
       if(!armed){
         await executeDraftTransaction({record:pendingRecord,
           transactionId:pendingRecord.journal.id,effect:frozenEffectOutcome,discard:true});
@@ -1319,7 +1971,8 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
     const prepared=preparePendingDraftTransaction(snapshot,head,frozenEffect,pendingRecord?.journal.id);
     const transactionId=pendingDraftTransaction(prepared)?.id||coordinationId;
     const execution=await executeDraftTransaction({record:pendingRecord,transactionId,
-      effect:frozenEffectOutcome,prepared,snapshot,io,writePrepared:true});
+      effect:frozenEffectOutcome,prepared,snapshot,io,writePrepared:true,
+      forceFinalization:recoveryTransaction});
     if(execution.kind==="close-failed")
       return{revision:readRevision(head),localOk:false,idbOk:false,draftConflict:true,closeFailed:true};
     if(execution.kind==="precondition-rejected")
@@ -1546,6 +2199,10 @@ function syncLogModeControls(){
   if(full){full.classList.toggle("active",list);full.setAttribute("aria-pressed",list?"true":"false")}
   if(focus){focus.classList.toggle("active",!list);focus.setAttribute("aria-pressed",list?"false":"true")}}
 const uid=()=>crypto?.randomUUID?.()||`id_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+/* Block identity is allocated only at a real activation/block-start boundary.
+   Normalisation, boot, replay, and staged proposals must preserve absence or
+   the already-captured candidate instead of calling this allocator. */
+const allocateBlockId=()=>`block_${uid()}`;
 const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`};
 const esc=v=>String(v??"").replaceAll("&","&amp;").replaceAll("<","&lt;").replaceAll(">","&gt;").replaceAll('"',"&quot;").replaceAll("'","&#039;");
 const fmtPlain=v=>Number.isFinite(Number(v))?(Number.isInteger(Number(v))?String(Number(v)):Number(v).toFixed(2).replace(/\.?0+$/,"")):"";
@@ -2233,6 +2890,7 @@ function applySessionLength(program,sessionLength,equipment,experience,dayOcc){
     list.forEach((e,i)=>{e.order=i+1;out.push(e)})}
   program.length=0;program.push(...out)}
 let state,prog,day,installPrompt=null,saving=false,editSession=null,volWindow=7;
+let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
 let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
 // restPaused holds the milliseconds left while the clock is held (null while it
 // runs); restLength is the length the current or next rest is armed at.
@@ -2346,7 +3004,7 @@ function workoutDayId(label){
   return String(matched?.dayId||exercises(label)[0]?.dayId||label)}
 function workoutProgramContext(label=day){
   const slots=exercises(label),empty={};
-  return{
+  const context={
     programId:String(state.programMeta?.id||"local-program"),
     programFingerprint:workoutProgramFingerprint(state),
     durableRevision:readRevision(state),
@@ -2362,10 +3020,15 @@ function workoutProgramContext(label=day){
         setIds:Array.from({length:ex.sets},(_,i)=>`set-${i+1}`),minReps:ex.min,maxReps:ex.max,
         targetRir:1,notes:ex.notes||"",primary:ex.primary||"",secondary:ex.secondary||"",
         progressionStrategy:strategyIdFor(ex),movementPattern:ex.loadingMode||null,
-        sourceFingerprint:workoutProgramFingerprint({programMeta:{id:ex.id},program:[ex]}),programmedSets,index}})}
+        sourceFingerprint:workoutProgramFingerprint({programMeta:{id:ex.id},program:[ex]}),programmedSets,index}})
+  };
+  if(Object.prototype.hasOwnProperty.call(state.programMeta||{},"blockId"))context.blockId=state.programMeta.blockId;
+  return context
 }
 function workoutParseContext(label=day){const context=workoutProgramContext(label);
-  return{programId:context.programId,programFingerprint:context.programFingerprint,dayId:context.dayId}}
+  const parsed={programId:context.programId,programFingerprint:context.programFingerprint,dayId:context.dayId};
+  if(Object.prototype.hasOwnProperty.call(context,"blockId"))parsed.blockId=context.blockId;
+  return parsed}
 function displayDraftText(field,value){
   if(value==null)return value;
   if(field!=="load"&&field!=="bodyweight")return value;
@@ -2961,10 +3624,12 @@ function buildProgramMeta({name, answers, entrySource}={}){
     sessionLength:a.sessionLength??null,
     mesocycleLengthWeeks:Number.isFinite(+a.mesocycleLengthWeeks)&&+a.mesocycleLengthWeeks>0?Math.round(+a.mesocycleLengthWeeks):6,
     mesocycleStatus:"active",completedAt:null,onboarded:true,
-    progressionRelations:[],progressionModifiers:[],
+    progressionRelations:[],progressionModifiers:[],progressionIncompatibilities:[],
     blockPromptDismissedId:null,entrySource:normalizeProgramEntrySource(entrySource)}}
 function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date().toISOString(),base=defaultProgramMeta(log);
   if(!m||typeof m!=="object")return base;
+  if(Object.prototype.hasOwnProperty.call(m,"blockId")&&!isValidBlockId(m.blockId,m.id))
+    throw new TypeError("blockId: expected bounded opaque identity");
   const started=typeof m.started==="string"&&/^\d{4}-\d{2}-\d{2}$/.test(m.started)?m.started:(m.started===null?null:base.started);
   const goal=typeof m.goal==="string"?m.goal.trim()||null:m.goal===null?null:base.goal;
   const experience=typeof m.experience==="string"?m.experience.trim()||null:m.experience===null?null:base.experience;
@@ -2989,10 +3654,36 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
   if(m.programStructure!=null&&!isBoundedProgressionValue(m.programStructure))throw new TypeError("programStructure: structure exceeds safety bounds");
   const programStructure=m.programStructure&&typeof m.programStructure==="object"?cloneSnapshot(m.programStructure):base.programStructure;
   const entrySource=normalizeProgramEntrySource(m.entrySource);
-  return{id:typeof m.id==="string"&&m.id?m.id:base.id,name:typeof m.name==="string"?m.name.trim():"",started,
+  let compilerContext=null;
+  if(m.compilerContext!=null){
+    if(!isBoundedProgressionValue(m.compilerContext))throw new TypeError("compilerContext: structure exceeds safety bounds");
+    if(typeof m.compilerContext!=="object"||Array.isArray(m.compilerContext))throw new TypeError("compilerContext: expected object");
+    const check=typeof ProgramCompiler?.validateContext==="function"
+      ?ProgramCompiler.validateContext(m.compilerContext)
+      :({ok:typeof m.compilerContext.schemaVersion==="number"&&m.compilerContext.schemaVersion>=1});
+    if(check.ok)compilerContext=cloneSnapshot(m.compilerContext);
+  }
+  let transitionIn=null;
+  if(m.transitionIn!=null){
+    if(!isBoundedTransitionValue(m.transitionIn))throw new TypeError("transitionIn: structure exceeds safety bounds");
+    if(typeof m.transitionIn!=="object"||Array.isArray(m.transitionIn))throw new TypeError("transitionIn: expected object");
+    const t=m.transitionIn;
+    if(t.schemaVersion===1&&typeof t.transitionId==="string"&&t.transitionId.trim()&&
+       typeof t.proposalHash==="string"&&t.proposalHash.trim()&&t.status==="committed"&&
+       typeof t.confirmedAt==="string"&&t.confirmedAt.trim()&&typeof t.archiveId==="string"&&t.archiveId.trim()&&
+       typeof t.successor==="object"&&t.successor!==null&&typeof t.predecessor==="object"&&t.predecessor!==null){
+      transitionIn=cloneSnapshot(t);
+    }
+  }
+  const normalizedId=typeof m.id==="string"&&m.id?m.id:base.id;
+  const metaObj={id:normalizedId,name:typeof m.name==="string"?m.name.trim():"",started,
     created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
-    progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId,programStructure,entrySource}}
+    progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId,programStructure,entrySource};
+  if(Object.prototype.hasOwnProperty.call(m,"blockId"))metaObj.blockId=m.blockId;
+  if(compilerContext!=null)metaObj.compilerContext=compilerContext;
+  if(transitionIn!=null)metaObj.transitionIn=transitionIn;
+  return metaObj;}
 
 function withExplicitProgramStructure(program,meta){
   if(!ProgramCompiler?.migrateLegacyStructure)return{program,meta};
@@ -3039,6 +3730,20 @@ function normalizeProgramHistory(history,lookup){
       normalized.program=structured.program;
       if(normalized.meta)normalized.meta=structured.meta;
       else normalized.programMeta=structured.meta}
+    if(entry.transitionOut!=null){
+      if(!isBoundedTransitionValue(entry.transitionOut))throw new TypeError("transitionOut: structure exceeds safety bounds");
+      if(typeof entry.transitionOut==="object"&&!Array.isArray(entry.transitionOut)){
+        const t=entry.transitionOut;
+        if(t.schemaVersion===1&&typeof t.transitionId==="string"&&t.transitionId.trim()&&
+           typeof t.proposalHash==="string"&&t.proposalHash.trim()&&
+           typeof t.successorProgramId==="string"&&t.successorProgramId.trim()){
+          normalized.transitionOut=cloneSnapshot(t);
+        }
+      }
+    }
+    if(typeof entry.archiveId==="string"&&entry.archiveId.trim()){
+      normalized.archiveId=entry.archiveId.trim();
+    }
     return normalized})}
 function normalizeLoaded(s,options={}){
   if(s==null)return{settings:{...DEFAULTS},programMeta:defaultProgramMeta([]),program:[],log:[],programHistory:[],customExercises:[],[STORAGE_REV]:0};
@@ -3055,6 +3760,8 @@ function normalizeLoaded(s,options={}){
   const structured=withExplicitProgramStructure(out.program,out.programMeta);
   out.program=structured.program;out.programMeta=structured.meta;
   out[STORAGE_REV]=readRevision(s);
+  if(Object.prototype.hasOwnProperty.call(s,"recoveryTransitions"))
+    out.recoveryTransitions=cloneSnapshot(s.recoveryTransitions);
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_FOLLOWUP))out[STORAGE_FOLLOWUP]=s[STORAGE_FOLLOWUP];
   if(Object.prototype.hasOwnProperty.call(s,STORAGE_SETUP_TXN))out[STORAGE_SETUP_TXN]=cloneSnapshot(s[STORAGE_SETUP_TXN]);
   if(Object.prototype.hasOwnProperty.call(s,"programmingContext")){
@@ -3197,6 +3904,49 @@ function programWeekContext(name,mc){
   if(mc.isFinalWeek)return t("log.context.program_week_ready",{name:nm,n:mc.current,total:mc.total});
   if(mc.current!=null)return t("log.context.program_week",{name:nm,n:mc.current,total:mc.total});
   return nm}
+function recoveryCarrierRecords(snapshot=state){
+  const carrier=snapshot?.recoveryTransitions;
+  return isValidRecoveryTransitions(carrier)?carrier.records:[];
+}
+function recoveryCompilerInstance(snapshot,Compiler,catalogue){
+  const meta=snapshot?.programMeta;
+  if(classifyCompilerTransitionProvenance(meta)!=="present"||!meta?.compilerContext||
+    typeof Compiler?.compile!=="function")return null;
+  try{
+    const instance=Compiler.compile(meta.compilerContext,catalogue);
+    if(!instance||instance.kind!=="compiled"||!compilerProgramMatchesLive(snapshot.program,instance.program,snapshot.customExercises))return null;
+    return instance;
+  }catch{return null}}
+async function validatedRecoveryRecordForSnapshot(snapshot,record){
+  const Transition=typeof RepForgeProgramTransition!=="undefined"?RepForgeProgramTransition:null;
+  const Compiler=typeof ProgramCompiler!=="undefined"?ProgramCompiler:null;
+  const catalogue=typeof EXERCISE_LIBRARY!=="undefined"?EXERCISE_LIBRARY:null;
+  if(!Transition||typeof Transition.validateRecoveryRecord!=="function"||
+    typeof Transition.approvedRecoveryPolicy!=="function"||!Compiler)return null;
+  const instance=recoveryCompilerInstance(snapshot,Compiler,catalogue);
+  if(!instance)return null;
+  const validation=await Transition.validateRecoveryRecord(record,{
+    predecessor:cloneSnapshot(record.predecessor),
+    predecessorInstance:instance,
+    approvedPolicy:Transition.approvedRecoveryPolicy(),
+    supportedVersions:Compiler.VERSIONS,
+    existingRecoveryRecords:recoveryCarrierRecords(snapshot),
+  });
+  return validation?.ok?validation.record:null;
+}
+async function refreshRecoveryProjectionCache(snapshot=state){
+  activeRecoveryRecord=null;activeRecoveryRecordBlockId=null;
+  const blockId=snapshotBlockId(snapshot),records=recoveryCarrierRecords(snapshot);
+  if(!isValidBlockId(blockId,snapshot?.programMeta?.id))return null;
+  const matches=records.filter(record=>record?.diff?.recoveryWeek?.blockId===blockId);
+  // Two valid records for one target are retained but neither applies. The
+  // later quarantine/conflict policy must not be inferred in this slice.
+  if(matches.length!==1)return null;
+  const validated=await validatedRecoveryRecordForSnapshot(snapshot,matches[0]);
+  if(!validated)return null;
+  activeRecoveryRecord=validated;activeRecoveryRecordBlockId=blockId;
+  return validated;
+}
 function rowMusclesPure(row,program){
   if(row.performedPrimary!=null||row.performedSecondary!=null)
     return{primary:row.performedPrimary||"",secondary:row.performedSecondary||""};
@@ -3345,8 +4095,15 @@ function successorProgramList(strategy,list){
   const src=cloneSnapshot(list||[]);
   if(strategy==="repeat_swaps")return src.map(e=>e.alternates?.length?{...e,name:e.alternates[0]}:e);
   if(strategy==="increase_volume")return src.map(e=>({...e,sets:Math.min((e.sets||2)+1,e.maxSets||6)}));
-  if(strategy==="reduce_volume")return src.map(e=>({...e,sets:Math.max((e.sets||2)-1,1)}));
   return src}
+// Historical snapshots can predate compiler provenance. They remain readable
+// and keep their established draft-safe rollover behavior, but this path never
+// claims a Plan-052 transition record. Any compiler-backed program is routed
+// through proposeVolumeReduction/confirmTransition above instead.
+function legacyBlockSuccessorProgramList(strategy,list){
+  const src=cloneSnapshot(list||[]);
+  if(strategy==="reduce_volume")return src.map(e=>({...e,sets:Math.max((e.sets||2)-1,1)}));
+  return successorProgramList(strategy,src)}
 function capturePendingBlock(strategy,review){
   return{...captureProgramReplacement(state,review||blockReviewCurrent),strategy}}
 function hasArchivableProgram(snapshot){
@@ -3359,19 +4116,28 @@ function captureProgramReplacement(snapshot=state,review=null){
   const meta=snapshot?.programMeta;
   const program=Array.isArray(snapshot?.program)?snapshot.program:[];
   if(!hasArchivableProgram(snapshot))return null;
-  return{oldProgramId:meta.id,oldMeta:cloneSnapshot(meta),oldProgram:cloneSnapshot(program),
+  return{oldProgramId:meta.id,oldBlockId:snapshotBlockId(snapshot),oldMeta:cloneSnapshot(meta),oldProgram:cloneSnapshot(program),
     programFingerprint:draftProgramFingerprint(snapshot),storageRevision:readRevision(snapshot),
     review:review?cloneSnapshot(review):null}}
 function archiveCapturedProgram(proposal,cap){
   if(!cap?.oldProgramId)return proposal;
   const history=Array.isArray(proposal.programHistory)?proposal.programHistory:[];
   if(history.some(h=>h.id===cap.oldProgramId)){proposal.programHistory=history;return proposal}
-  history.push({id:cap.oldProgramId,meta:cloneSnapshot(cap.oldMeta),program:cloneSnapshot(cap.oldProgram),
-    completedAt:new Date().toISOString(),review:cloneSnapshot(cap.review)});
+  const entry={id:cap.oldProgramId,meta:cloneSnapshot(cap.oldMeta),program:cloneSnapshot(cap.oldProgram),
+    completedAt:new Date().toISOString(),review:cloneSnapshot(cap.review)};
+  if(cap.transitionOut)entry.transitionOut=cloneSnapshot(cap.transitionOut);
+  if(cap.archiveId)entry.archiveId=cap.archiveId;
+  history.push(entry);
   proposal.programHistory=history;return proposal}
 async function commitProgramReplacement(proposal,io=storageIO,{capture=captureProgramReplacement(state),
-  effect=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false}={}){
+  effect=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false,preflight=null,
+  expectedProgramId=undefined,expectedProgramFingerprint=undefined,expectedBlockId=undefined,
+  expectedStorageRevision=undefined}={}){
   requireAdapter(io,"commitProgramReplacement");
+  const predecessorId=capture?.oldProgramId??state?.programMeta?.id;
+  if(proposal?.programMeta&&proposal.programMeta.id!==predecessorId&&
+    !Object.prototype.hasOwnProperty.call(proposal.programMeta,"blockId"))
+    proposal.programMeta.blockId=allocateBlockId();
   if(capture)archiveCapturedProgram(proposal,capture);
   // A first-run shared proposal is deliberately rebased onto the newest
   // eligible head. Its eligibility guard replaces the ordinary active-program
@@ -3380,12 +4146,15 @@ async function commitProgramReplacement(proposal,io=storageIO,{capture=capturePr
   // converge.
   const transition=replace&&expectedFirstRunEmpty
     ?{expectedProgramId:state?.programMeta?.id||null,
-      expectedProgramFingerprint:draftProgramFingerprint(state)}
+      expectedProgramFingerprint:draftProgramFingerprint(state),expectedBlockId:snapshotBlockId(state)}
     :capture
     ?{expectedProgramId:capture.oldProgramId,expectedProgramFingerprint:capture.programFingerprint,
-      expectedStorageRevision:capture.storageRevision}
-    :programTransitionPrecondition(state);
-  return commitProposedState(proposal,io,{...transition,effect,expectedSetupDraftRaw,replace,expectedFirstRunEmpty})}
+      expectedBlockId:capture.oldBlockId,expectedStorageRevision:capture.storageRevision}
+    :{expectedProgramId:expectedProgramId!==undefined?expectedProgramId:(state?.programMeta?.id||null),
+      expectedProgramFingerprint:expectedProgramFingerprint!==undefined?expectedProgramFingerprint:draftProgramFingerprint(state),
+      expectedBlockId:expectedBlockId!==undefined?expectedBlockId:snapshotBlockId(state),
+      expectedStorageRevision:expectedStorageRevision!==undefined?expectedStorageRevision:readRevision(state)};
+  return commitProposedState(proposal,io,{...transition,effect,expectedSetupDraftRaw,replace,expectedFirstRunEmpty,preflight})}
 function blockToast(strategy){
   const msg={repeat:"toast.new_block_same",repeat_swaps:"toast.new_block_swaps",
     increase_volume:"toast.new_block_volume_increased",reduce_volume:"toast.new_block_volume_reduced",onboarding:"toast.new_block_started"};
@@ -3402,18 +4171,45 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
   const liveId=state.programMeta?.id;
   const oldId=expectedOldId||liveId;
   if(!liveId||!oldId)return Promise.resolve(blockTransitionResult("failed"));
+  // An acknowledged DraftV2 owns a captured prescription and block identity.
+  // Refuse before capture, journaling, or any storage boundary so the exact
+  // draft/checkpoint bytes remain untouched for the lifter to finish or clear.
+  const draftGuard=blockStartDraftGuard();
+  if(draftGuard)return Promise.resolve(blockTransitionResult("failed",draftGuard));
   if(blockCommitInFlight?.oldProgramId===oldId)return blockCommitInFlight.promise;
   if(liveId!==oldId)return Promise.resolve(blockTransitionResult("duplicate"));
   const cap=pendingBlockTransition&&pendingBlockTransition.oldProgramId===liveId
     ?pendingBlockTransition:capturePendingBlock(strategy,blockReviewCurrent);
-  if(state.programMeta.id!==cap.oldProgramId)return Promise.resolve(blockTransitionResult("duplicate"));
+  if(!cap||state.programMeta.id!==cap.oldProgramId)return Promise.resolve(blockTransitionResult("duplicate"));
   if(strategy==="onboarding"){
     pendingBlockTransition=cap;
     closeBlockReview();
     startOnboarding("block");
     return Promise.resolve(blockTransitionResult("deferred"))}
   const task=(async()=>{
-    const nextProgram=new Program(successorProgramList(strategy,cap.oldProgram)).toJSON();
+    const compilerProvenance = classifyCompilerTransitionProvenance(cap.oldMeta);
+    if(strategy==="reduce_volume"&&compilerProvenance==="present"){
+      const diagnosis={kind:"reduce_training_volume",answers:{},
+        eligibleEvidenceIds:["explicit_volume_reduction"],insufficientEvidenceReasons:[]};
+      const proposed=await repforgeProgramTransitionAdapter.proposeVolumeReduction({
+        diagnosis,transitionId:uid(),successorProgramId:uid(),createdAt:new Date().toISOString(),policyVersion:1});
+      if(!proposed?.ok)
+        return blockTransitionResult("failed",{invalid:true,code:proposed?.code||"volume_reduction_unavailable"});
+      const acknowledgedDraftRaw=readDraftRaw();
+      const persisted=await repforgeProgramTransitionAdapter.confirmTransition({
+        proposal:proposed.proposal,transitionId:proposed.proposal.transitionId,
+        successorProgramId:proposed.proposal.successor.programId,
+        confirmedAt:new Date().toISOString(),proposalHash:proposed.proposal.proposalHash,
+        acknowledgedDraftRaw});
+      const kind=persisted.localOk||persisted.idbOk?"committed":
+        persisted.alreadyCommitted||persisted.staleRevision||persisted.stale?"duplicate":"failed";
+      const result=blockTransitionResult(kind,persisted);
+      if(result.committed){
+        pendingBlockTransition=null;day=days()[0]||"Day 1";closeBlockReview();blockToast(strategy);render()}
+      return result}
+    if(strategy==="reduce_volume"&&compilerProvenance==="invalid")
+      return blockTransitionResult("failed",{invalid:true,code:"compiler_provenance_unavailable"});
+    const nextProgram=new Program(legacyBlockSuccessorProgramList(strategy,cap.oldProgram)).toJSON();
     let effect=null;
     if(strategy==="reduce_volume"){
       const draftRaw=readDraftRaw();
@@ -3430,9 +4226,26 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
         return blockTransitionResult("failed",{draftConflict:true})}}
     const proposal=cloneSnapshot(state);
     const nextMeta=buildProgramMeta({name:cap.oldMeta?.name,answers:cap.oldMeta||{}});
+    const literalRepeat=strategy==="repeat";
+    if(literalRepeat){
+      nextMeta.id=cap.oldMeta.id;
+      // A literal repeat keeps the program identity and prescription model;
+      // carry compiler/progression provenance into the fresh block while the
+      // activation fields above still describe the new block boundary.
+      for(const key of ["progressionRelations","progressionModifiers","progressionIncompatibilities",
+        "programStructure","compilerContext","entrySource"]){
+        if(Object.prototype.hasOwnProperty.call(cap.oldMeta||{},key))
+          nextMeta[key]=cloneSnapshot(cap.oldMeta[key]);
+      }
+    }
+    nextMeta.blockId=allocateBlockId();
     proposal.programMeta=nextMeta;
     proposal.program=nextProgram;
-    const persisted=await commitProgramReplacement(proposal,io,{capture:cap,effect});
+    const persisted=await commitProgramReplacement(proposal,io,literalRepeat
+      ?{capture:null,effect,expectedProgramId:cap.oldProgramId,
+        expectedProgramFingerprint:cap.programFingerprint,expectedBlockId:cap.oldBlockId,
+        expectedStorageRevision:cap.storageRevision}
+      :{capture:cap,effect});
     const kind=persisted.localOk||persisted.idbOk?"committed":
       persisted.duplicate||persisted.staleRevision?"duplicate":"failed";
     const result=blockTransitionResult(kind,persisted);
@@ -3578,6 +4391,11 @@ function buildSharedProgramMeta(raw,program=[]){
     progressionModifiers:normalizeProgressionModifiers(raw?.progressionModifiers),
     blockPromptDismissedId:null,
     programStructure:raw?.programStructure?cloneSnapshot(raw.programStructure):null}}
+function sharedPreviewMeta(raw){
+  const out={};
+  for(const key of ["name","goal","experience","daysPerWeek","splitType","equipment","priorityMuscles","sessionLength","mesocycleLengthWeeks"])
+    if(Object.prototype.hasOwnProperty.call(raw||{},key))out[key]=cloneSnapshot(raw[key]);
+  return out}
 function proposalFromSharedSetup(payload,baseState=state){
   if(!SharedSetup)throw new TypeError("Shared setup unavailable");
   const checked=SharedSetup.validate(payload,{builtInIds:SHARED_BUILT_IN_IDS});
@@ -3717,8 +4535,19 @@ function syncProgramStructureFromProgram(proposal,program){
 }
 function scheduledProgramRows(){
   const week=mesocycleLifecycle(state.programMeta).current;
-  if(week==null||typeof ProgramCompiler?.projectProgramForWeek!=="function")return state.program;
-  return ProgramCompiler.projectProgramForWeek(state.program,state.programMeta?.programStructure,week)}
+  let rows=state.program;
+  if(week!=null&&typeof ProgramCompiler?.projectProgramForWeek==="function")
+    rows=ProgramCompiler.projectProgramForWeek(rows,state.programMeta?.programStructure,week);
+  if(activeRecoveryRecord&&activeRecoveryRecordBlockId===snapshotBlockId(state)&&week!=null){
+    const Transition=typeof RepForgeProgramTransition!=="undefined"?RepForgeProgramTransition:null;
+    const projected=Transition?.projectRecoveryProgram?.(state.program,activeRecoveryRecord,{
+      blockId:activeRecoveryRecordBlockId,
+      elapsedWeek:mesocycleLifecycle(state.programMeta).elapsedWeek,
+      baseProgramFingerprint:activeRecoveryRecord.diff.recoveryWeek.baseProgramFingerprint,
+    });
+    if(projected?.ok&&projected.active)rows=projected.rows;
+  }
+  return rows}
 function exercises(d=day){return scheduledProgramRows().filter(x=>x.day===d).sort((a,b)=>a.order-b.order||a.name.localeCompare(b.name))}
 function exerciseNameTokens(ex){
   const names=new Set([ex?.name,ex?.displayName].map(movementToken).filter(Boolean));
@@ -5899,7 +6728,11 @@ async function saveWorkoutV2(io){
   const effect=destructiveDraftClearEffect(rawDraft);
   if(typeof window.__repforgeDraftBeforeSaveCommit==="function")
     await window.__repforgeDraftBeforeSaveCommit({session,draftId:savedDraft.draftId,revision:savedDraft.revision});
-  const result=await commitProposedState(proposal,io||storageIO,{effect,reconcileSessionIds:[session]});
+  const expectedBlockId=Object.prototype.hasOwnProperty.call(savedDraft.program||{},"blockId")
+    ?savedDraft.program.blockId:null;
+  const result=await commitProposedState(proposal,io||storageIO,
+    {effect,reconcileSessionIds:[session],expectedProgramId:savedDraft.program.programId,
+      expectedBlockId});
   if(!(result.localOk||result.idbOk)){
     const kind=result.draftConflict?"stale":"persist";
     draftUiRecovery={kind,status:result.draftConflict?"stale":"save-failed",attempt:null,pendingValue:null,
@@ -6357,8 +7190,893 @@ window.__repforgeCommitProposedState=proposal=>commitProposedState(proposal,stor
 window.__repforgePersistSetupDraft=next=>persistSetupDraft(next);
 window.__repforgeEntryState=()=>cloneSnapshot(entryState);
 window.__repforgeActivateEntryPreview=opts=>activateEntryPreview(opts);
+window.__repforgeCreateOnboardingProgramEditorAdapter=()=>createOnboardingProgramEditorAdapter();
+window.__repforgeStageGuidedManualRepair=(params,io)=>repforgeProgramTransitionAdapter.stageGuidedManualRepair(params,io);
 window.__repforgeOnboardingOrigin=()=>onboardingOrigin;
 window.__repforgePendingBlock=()=>pendingBlockTransition;
+// Durable program-entry routes whose compiler context can be re-derived and
+// therefore support an in-place sibling transition. Build / Import / Shared and
+// a missing route carry no reconstructable provenance and stay typed Unavailable.
+const TRANSITION_SOURCE_ROUTES = ["recommend", "custom", "browse"];
+// One route spelling conversion to the transition contract (Recommend/Custom/Browse).
+function transitionContractSource(route) {
+  return route.charAt(0).toUpperCase() + route.slice(1);
+}
+const COMPILER_PROVENANCE_FIELDS = [
+  "familyId", "blueprintId", "blueprintVersion", "compilerVersion", "catalogueVersion",
+  "rulesVersion", "contextVersion", "profileId", "recentConsistencyVersion",
+];
+/* Compiler context is not provenance. A context can be absent from a shared
+   import even while its released programStructure still carries the complete
+   compiler receipt; conversely, a stale context must not turn a historical
+   program into a compiler-backed transition. The structure receipt is the
+   independent discriminator for the two paths. */
+function classifyCompilerTransitionProvenance(meta) {
+  const provenance = meta?.programStructure?.provenance;
+  if (provenance == null) return "absent";
+  if (!isPlainStateObject(provenance)) return "invalid";
+  if (provenance.source === "legacy_migration" || provenance.source === "manual_build") return "absent";
+  const strings = ["familyId", "blueprintId", "profileId"];
+  if (!strings.every(key => typeof provenance[key] === "string" && provenance[key].trim())) return "invalid";
+  if (!COMPILER_PROVENANCE_FIELDS.every(key => Object.prototype.hasOwnProperty.call(provenance, key))) return "invalid";
+  if (!["blueprintVersion", "compilerVersion", "catalogueVersion", "rulesVersion", "contextVersion", "recentConsistencyVersion"]
+    .every(key => Number.isSafeInteger(provenance[key]) && provenance[key] >= 1)) return "invalid";
+  return "present";
+}
+function canonicalTransitionProgram(program, customExercises) {
+  const rows = new Program(program, snapshotLookup(customExercises)).toJSON();
+  return rows.map(row => {
+    const canonical = cloneSnapshot(row);
+    // Compiler pattern labels are derived display data. Linked durable rows
+    // resolve those labels from the catalogue; identity and every authored
+    // field (including notes, sets, progression, and slot placement) remain.
+    delete canonical.primary;
+    delete canonical.secondary;
+    return canonical;
+  });
+}
+function compilerProgramMatchesLive(liveProgram, compilerProgram, customExercises) {
+  try {
+    return JSON.stringify(canonicalize(canonicalTransitionProgram(liveProgram, customExercises))) ===
+      JSON.stringify(canonicalize(canonicalTransitionProgram(compilerProgram, customExercises)));
+  } catch {
+    return false;
+  }
+}
+// Exact, read-only classification of a stored transition-in against a proposal.
+// "match" -> already committed (return success, no mutation); "conflict" -> the
+// stored record is partial or disagrees (typed invalid, never success);
+// "absent" -> no transition-in and no archive collision, proceed to the
+// transaction.
+function classifyCommittedTransition(snapshot, proposal, archiveId) {
+  const succId = proposal?.successor?.programId;
+  const predId = proposal?.predecessor?.programId;
+  const transId = proposal?.transitionId;
+  const propHash = proposal?.proposalHash;
+  if (typeof succId !== "string" || !succId.trim() ||
+      typeof predId !== "string" || !predId.trim() ||
+      typeof transId !== "string" || !transId.trim() ||
+      typeof propHash !== "string" || !propHash.trim() ||
+      typeof archiveId !== "string" || !archiveId.trim() ||
+      archiveId !== predId) {
+    return "conflict";
+  }
+
+  const activeId = snapshot?.programMeta?.id;
+  const history = Array.isArray(snapshot?.programHistory) ? snapshot.programHistory : [];
+  const occupants = history.filter(h => h && (h.id === archiveId || h.archiveId === archiveId));
+
+  if (activeId === succId) {
+    const tin = snapshot?.programMeta?.transitionIn;
+    if (!isPlainStateObject(tin)) return "conflict";
+    const agree =
+      tin.status === "committed" &&
+      tin.transitionId === transId &&
+      tin.proposalHash === propHash &&
+      tin.archiveId === archiveId &&
+      tin.successor?.programId === succId &&
+      tin.predecessor?.programId === predId;
+    if (!agree) return "conflict";
+    if (occupants.length !== 1) return "conflict";
+    const link = occupants[0];
+    const exact =
+      link.id === archiveId &&
+      link.archiveId === archiveId &&
+      link.transitionOut?.transitionId === transId &&
+      link.transitionOut?.proposalHash === propHash &&
+      link.transitionOut?.successorProgramId === succId;
+    return exact ? "match" : "conflict";
+  }
+
+  if (activeId === predId) {
+    if (snapshot?.programMeta?.transitionIn?.transitionId === transId) return "conflict";
+    if (history.some(h => h?.transitionOut?.transitionId === transId)) return "conflict";
+    return occupants.length === 0 ? "absent" : "conflict";
+  }
+
+  return "conflict";
+}
+function classifyCommittedRecovery(snapshot, proposal){
+  const target=proposal?.diff?.recoveryWeek?.blockId;
+  const transitionId=proposal?.transitionId,proposalHash=proposal?.proposalHash;
+  if(typeof target!=="string"||!target||typeof transitionId!=="string"||!transitionId||
+    typeof proposalHash!=="string"||!proposalHash)return "conflict";
+  const records=recoveryCarrierRecords(snapshot);
+  const matches=records.filter(record=>record.transitionId===transitionId&&
+    record.proposalHash===proposalHash&&record.diff?.recoveryWeek?.blockId===target);
+  if(snapshot?.programMeta?.blockId===target&&matches.length===1)return "match";
+  if(snapshot?.programMeta?.blockId===proposal?.predecessor?.blockId&&
+    !records.some(record=>record.transitionId===transitionId||record.diff?.recoveryWeek?.blockId===target))return "absent";
+  return records.some(record=>record.diff?.recoveryWeek?.blockId===target||record.transitionId===transitionId)
+    ? "conflict" : "absent";
+}
+async function confirmRecoveryTransition(params,Transition,Compiler,catalogue){
+  const invalid=(code,extra={})=>({ok:false,committed:false,invalid:true,code,...extra,
+    localOk:false,idbOk:false,revision:readRevision(state)});
+  const proposal=params?.proposal;
+  if(!isPlainStateObject(proposal)||proposal.kind!=="recovery_week")return invalid("unsupported_transition_kind");
+  if(proposal.status!=="preview")return invalid("proposal_not_preview");
+  if(typeof proposal.proposalHash!=="string"||!proposal.proposalHash)return invalid("proposal_hash_absent");
+  if(params.proposalHash!==proposal.proposalHash)return invalid("proposal_hash_mismatch");
+  if(params.transitionId!==proposal.transitionId)return invalid("transition_id_mismatch");
+  if(typeof params.confirmedAt!=="string"||!params.confirmedAt)return invalid("confirmed_at_missing");
+  if(typeof params.reassessmentDueAt!=="string"||!params.reassessmentDueAt)return invalid("reassessment_due_missing");
+  if(!Object.prototype.hasOwnProperty.call(params,"acknowledgedDraftRaw")||
+    !(params.acknowledgedDraftRaw===null||typeof params.acknowledgedDraftRaw==="string"))return invalid("acknowledged_draft_missing");
+  const predecessor=proposal.predecessor,target=proposal.diff?.recoveryWeek?.blockId;
+  if(!isPlainStateObject(predecessor)||!isValidBlockId(predecessor.blockId,predecessor.programId))return invalid("legacy_block_ineligible");
+  if(typeof target!=="string"||!target||target===predecessor.blockId)return invalid("recovery_target_equals_source");
+  const preIdem=classifyCommittedRecovery(state,proposal);
+  if(preIdem==="match")return{ok:true,committed:true,alreadyCommitted:true,revision:readRevision(state),localOk:true,idbOk:true,kind:"committed"};
+  if(preIdem==="conflict")return invalid("conflicting_recovery_record");
+  if(params.acknowledgedDraftRaw!==readDraftRaw())return invalid("draft_mismatch",{draftConflict:true,conflict:true});
+  const guard=blockStartDraftGuard();
+  if(guard)return invalid(guard.code,{draftConflict:true,conflict:true});
+  const expectedSourceBlock=predecessor.blockId;
+  const initialInstance=recoveryCompilerInstance(state,Compiler,catalogue);
+  const initialRoute=state?.programMeta?.entrySource?.route;
+  if(!initialInstance||!initialRoute||!TRANSITION_SOURCE_ROUTES.includes(initialRoute)||
+    proposal.predecessor.source!==transitionContractSource(initialRoute))return invalid("transition_source_changed",{stale:true});
+  const initialValidation=await Transition.validateRecoveryProposal(proposal,{
+    predecessor:{programId:state.programMeta.id,durableRevision:predecessor.durableRevision,source:predecessor.source,blockId:expectedSourceBlock},
+    predecessorInstance:initialInstance,
+    approvedPolicy:Transition.approvedRecoveryPolicy(),
+    supportedVersions:Compiler.VERSIONS,
+    existingRecoveryRecords:recoveryCarrierRecords(state),
+  });
+  if(!initialValidation.ok)return invalid(initialValidation.code||"invalid_recovery_proposal",{
+    stale:initialValidation.status==="stale",invalid:initialValidation.status!=="stale"});
+  let initialCommitted;
+  try{initialCommitted=Transition.commitRecord(initialValidation.proposal,{confirmedAt:params.confirmedAt,reassessmentDueAt:params.reassessmentDueAt,archiveId:null})}
+  catch(error){return invalid("invalid_recovery_lifecycle",{error:String(error?.message||error)})}
+  const initialCarrier=isValidRecoveryTransitions(state.recoveryTransitions)
+    ?cloneSnapshot(state.recoveryTransitions):{schemaVersion:1,records:[],quarantine:[]};
+  const initialProposal=cloneSnapshot(state);
+  initialProposal.programMeta={...cloneSnapshot(state.programMeta),blockId:target};
+  initialProposal.recoveryTransitions={schemaVersion:1,records:[...initialCarrier.records,cloneSnapshot(initialCommitted)],quarantine:cloneSnapshot(initialCarrier.quarantine)};
+  const preflight=async({head})=>{
+    const lockedIdem=classifyCommittedRecovery(head,proposal);
+    if(lockedIdem==="match")return{reject:true,result:{ok:true,committed:true,alreadyCommitted:true,revision:readRevision(head),localOk:true,idbOk:true,kind:"committed"}};
+    if(lockedIdem==="conflict")return{reject:true,result:invalid("conflicting_recovery_record")};
+    if(head?.programMeta?.id!==predecessor.programId||readRevision(head)!==predecessor.durableRevision||
+      snapshotBlockId(head)!==expectedSourceBlock)
+      return{reject:true,result:{ok:false,committed:false,stale:true,staleRevision:readRevision(head)!==predecessor.durableRevision,
+        code:readRevision(head)!==predecessor.durableRevision?"stale_proposal":"predecessor_changed",localOk:false,idbOk:false}};
+    const lockedGuard=blockStartDraftGuard(head);
+    if(lockedGuard)return{reject:true,result:{ok:false,committed:false,draftConflict:true,conflict:true,code:lockedGuard.code,localOk:false,idbOk:false}};
+    const instance=recoveryCompilerInstance(head,Compiler,catalogue);
+    if(!instance)return{reject:true,result:{ok:false,committed:false,invalid:true,code:"predecessor_reconstruction_failed",localOk:false,idbOk:false}};
+    const route=head.programMeta?.entrySource?.route;
+    if(!route||!TRANSITION_SOURCE_ROUTES.includes(route)||proposal.predecessor.source!==transitionContractSource(route))
+      return{reject:true,result:{ok:false,committed:false,stale:true,code:"transition_source_changed",localOk:false,idbOk:false}};
+    const validation=await Transition.validateRecoveryProposal(proposal,{
+      predecessor:{programId:head.programMeta.id,durableRevision:predecessor.durableRevision,source:predecessor.source,blockId:expectedSourceBlock},
+      predecessorInstance:instance,
+      approvedPolicy:Transition.approvedRecoveryPolicy(),
+      supportedVersions:Compiler.VERSIONS,
+      existingRecoveryRecords:recoveryCarrierRecords(head),
+    });
+    if(!validation.ok)return{reject:true,result:{ok:false,committed:false,stale:validation.status==="stale",invalid:validation.status!=="stale",code:validation.code||"invalid_recovery_proposal",localOk:false,idbOk:false}};
+    let committed;
+    try{committed=Transition.commitRecord(validation.proposal,{confirmedAt:params.confirmedAt,reassessmentDueAt:params.reassessmentDueAt,archiveId:null})}
+    catch(error){return{reject:true,result:{ok:false,committed:false,invalid:true,code:"invalid_recovery_lifecycle",error:String(error?.message||error),localOk:false,idbOk:false}}}
+    const existing=isValidRecoveryTransitions(head.recoveryTransitions)
+      ?cloneSnapshot(head.recoveryTransitions):{schemaVersion:1,records:[],quarantine:[]};
+    const next=cloneSnapshot(head);
+    next.programMeta={...cloneSnapshot(head.programMeta),blockId:target};
+    next.recoveryTransitions={schemaVersion:1,records:[...existing.records,cloneSnapshot(committed)],quarantine:cloneSnapshot(existing.quarantine)};
+    return{proposal:next};
+  };
+  const result=await commitProposedState(initialProposal,storageIO,{
+    expectedProgramId:predecessor.programId,
+    expectedProgramFingerprint:draftProgramFingerprint(state),
+    expectedBlockId:expectedSourceBlock,
+    expectedStorageRevision:predecessor.durableRevision,
+    recoveryTransaction:true,
+    preflight,
+  });
+  if(result.localOk||result.idbOk){await refreshRecoveryProjectionCache(state);return{ok:true,committed:true,...result};}
+  return{ok:false,committed:false,...result};
+}
+const repforgeProgramTransitionAdapter = {
+  async proposeSibling(input = {}) {
+    const Transition = typeof RepForgeProgramTransition !== "undefined"
+      ? RepForgeProgramTransition
+      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
+    if (!Transition) {
+      return { ok: false, status: "unavailable", code: "transition_domain_unavailable", unavailable: true };
+    }
+    const Compiler = typeof ProgramCompiler !== "undefined"
+      ? ProgramCompiler
+      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
+    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
+      ? EXERCISE_LIBRARY
+      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
+
+    const liveMeta = state?.programMeta;
+    if (!liveMeta?.compilerContext) {
+      return { ok: false, status: "unavailable", code: "compiler_context_unavailable", unavailable: true };
+    }
+    // Durable source is required, never invented. A normalized entrySource always
+    // carries both a route and a fingerprint; anything outside the reconstructable
+    // set is typed Unavailable rather than defaulted to Recommend.
+    const entrySource = liveMeta.entrySource;
+    if (!entrySource || !TRANSITION_SOURCE_ROUTES.includes(entrySource.route) ||
+        typeof entrySource.fingerprint !== "string" || !entrySource.fingerprint) {
+      return { ok: false, status: "unavailable", code: "transition_source_unavailable", unavailable: true };
+    }
+    const predContext = liveMeta.compilerContext;
+    const source = transitionContractSource(entrySource.route);
+
+    const diagnosis = input.diagnosis;
+    const kind = (diagnosis?.kind === "sessions_too_long")
+      ? "shorter_session_sibling"
+      : "lower_frequency_sibling";
+
+    const targetConstraint = input.targetConstraint !== undefined
+      ? input.targetConstraint
+      : (kind === "lower_frequency_sibling" ? { frequency: diagnosis?.answers?.availableDays } : null);
+
+    const fullInput = {
+      kind,
+      targetConstraint,
+      diagnosis,
+      transitionId: input.transitionId,
+      successorProgramId: input.successorProgramId,
+      createdAt: input.createdAt || new Date().toISOString(),
+      catalogue,
+      Compiler,
+      compilerContext: predContext,
+      predecessor: {
+        programId: liveMeta.id,
+        durableRevision: readRevision(state),
+        source,
+        compilerProvenance: liveMeta.programStructure?.provenance,
+      },
+    };
+
+    return await Transition.proposeSibling(fullInput);
+  },
+
+  async proposeRecoveryWeek(input = {}) {
+    const Transition = typeof RepForgeProgramTransition !== "undefined"
+      ? RepForgeProgramTransition
+      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
+    if (!Transition || typeof Transition.proposeRecoveryWeek !== "function" ||
+        typeof Transition.approvedRecoveryPolicy !== "function") {
+      return { ok: false, status: "unavailable", code: "recovery_proposal_seam_missing", unavailable: true };
+    }
+    const Compiler = typeof ProgramCompiler !== "undefined"
+      ? ProgramCompiler
+      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
+    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
+      ? EXERCISE_LIBRARY
+      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
+    const liveMeta = state?.programMeta;
+    const sourceBlockId = snapshotBlockId(state);
+    if (!isValidBlockId(sourceBlockId, liveMeta?.id)) {
+      return { ok: false, status: "unavailable", code: "legacy_block_ineligible", unavailable: true };
+    }
+    const compilerProvenance = classifyCompilerTransitionProvenance(liveMeta);
+    if (compilerProvenance !== "present") {
+      return { ok: false, status: "unavailable", code: compilerProvenance === "invalid"
+        ? "compiler_provenance_unavailable" : "compiler_provenance_absent", unavailable: true };
+    }
+    const entrySource = liveMeta.entrySource;
+    if (!entrySource || !TRANSITION_SOURCE_ROUTES.includes(entrySource.route) ||
+        typeof entrySource.fingerprint !== "string" || !entrySource.fingerprint) {
+      return { ok: false, status: "unavailable", code: "transition_source_unavailable", unavailable: true };
+    }
+    const predecessorInstance = recoveryCompilerInstance(state, Compiler, catalogue);
+    if (!predecessorInstance) {
+      return { ok: false, status: "unavailable", code: "predecessor_reconstruction_failed", unavailable: true };
+    }
+    const evidence = isPlainStateObject(input.evidence) ? {
+      ...cloneSnapshot(input.evidence),
+      sourceBlockId,
+    } : { sourceBlockId };
+    return await Transition.proposeRecoveryWeek({
+      predecessorInstance,
+      predecessor: {
+        programId: liveMeta.id,
+        durableRevision: readRevision(state),
+        source: transitionContractSource(entrySource.route),
+        blockId: sourceBlockId,
+        compilerProvenance: liveMeta.programStructure?.provenance,
+      },
+      evidence,
+      approvedPolicy: input.approvedPolicy || Transition.approvedRecoveryPolicy(),
+      transitionId: input.transitionId || uid(),
+      blockId: allocateBlockId(),
+      createdAt: input.createdAt || new Date().toISOString(),
+      supportedVersions: Compiler.VERSIONS,
+      existingRecoveryRecords: recoveryCarrierRecords(state),
+    });
+  },
+
+  async proposeVolumeReduction(input = {}) {
+    const Transition = typeof RepForgeProgramTransition !== "undefined"
+      ? RepForgeProgramTransition
+      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
+    if (!Transition) {
+      return { ok: false, status: "unavailable", code: "transition_domain_unavailable", unavailable: true };
+    }
+    const Compiler = typeof ProgramCompiler !== "undefined"
+      ? ProgramCompiler
+      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
+    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
+      ? EXERCISE_LIBRARY
+      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
+
+    const liveMeta = state?.programMeta;
+    const compilerProvenance = classifyCompilerTransitionProvenance(liveMeta);
+    if (compilerProvenance !== "present") {
+      return { ok: false, status: "unavailable", code: compilerProvenance === "invalid"
+        ? "compiler_provenance_unavailable" : "compiler_provenance_absent", unavailable: true };
+    }
+    if (!liveMeta?.compilerContext) {
+      return { ok: false, status: "unavailable", code: "compiler_context_unavailable", unavailable: true };
+    }
+    const entrySource = liveMeta.entrySource;
+    if (!entrySource || !TRANSITION_SOURCE_ROUTES.includes(entrySource.route) ||
+        typeof entrySource.fingerprint !== "string" || !entrySource.fingerprint) {
+      return { ok: false, status: "unavailable", code: "transition_source_unavailable", unavailable: true };
+    }
+    const predecessorInstance = Compiler.compile(liveMeta.compilerContext, catalogue);
+    if (!predecessorInstance || predecessorInstance.kind !== "compiled") {
+      return { ok: false, status: "unavailable", code: "predecessor_reconstruction_failed", unavailable: true };
+    }
+    if (!compilerProgramMatchesLive(state.program, predecessorInstance.program, state.customExercises)) {
+      return { ok: false, status: "unavailable", code: "live_program_mismatch", unavailable: true };
+    }
+    const diagnosis = input.diagnosis;
+    return await Transition.proposeVolumeReduction({
+      predecessorInstance,
+      predecessor: {
+        programId: liveMeta.id,
+        durableRevision: readRevision(state),
+        source: transitionContractSource(entrySource.route),
+      },
+      transitionId: input.transitionId,
+      successorProgramId: input.successorProgramId,
+      createdAt: input.createdAt || new Date().toISOString(),
+      diagnosis,
+      policyVersion: input.policyVersion === undefined
+        ? Transition.VOLUME_REDUCTION_POLICY_VERSION
+        : input.policyVersion,
+      supportedVersions: Compiler.VERSIONS,
+    });
+  },
+
+  async confirmTransition(params = {}) {
+    const Transition = typeof RepForgeProgramTransition !== "undefined"
+      ? RepForgeProgramTransition
+      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
+    if (!Transition) {
+      return { ok: false, status: "unavailable", code: "transition_domain_unavailable", committed: false, localOk: false, idbOk: false };
+    }
+    const Compiler = typeof ProgramCompiler !== "undefined"
+      ? ProgramCompiler
+      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
+    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
+      ? EXERCISE_LIBRARY
+      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
+
+    const { proposal, proposalHash, transitionId, successorProgramId, confirmedAt } = params;
+    const hasAck = Object.prototype.hasOwnProperty.call(params, "acknowledgedDraftRaw");
+    const acknowledgedDraftRaw = params.acknowledgedDraftRaw;
+    const invalid = (code) => ({
+      ok: false, committed: false, invalid: true, code,
+      localOk: false, idbOk: false, revision: readRevision(state),
+    });
+
+    if (proposal?.kind === "recovery_week") {
+      return confirmRecoveryTransition(params,Transition,Compiler,catalogue);
+    }
+
+    // ---------------------------------------------------------------------
+    // The proposal is the authority. Every supplied identity must equal the
+    // proposal field byte-for-byte before idempotency or any transaction, and
+    // there is no public archiveId input — its identity is the predecessor.
+    // ---------------------------------------------------------------------
+    if (!isPlainStateObject(proposal)) return invalid("proposal_missing");
+    if (proposal.status !== "preview") return invalid("proposal_not_preview");
+    if (typeof proposal.proposalHash !== "string" || !proposal.proposalHash) return invalid("proposal_hash_absent");
+    if (typeof proposalHash !== "string" || proposalHash !== proposal.proposalHash) return invalid("proposal_hash_mismatch");
+    if (typeof transitionId !== "string" || transitionId !== proposal.transitionId) return invalid("transition_id_mismatch");
+    if (typeof successorProgramId !== "string" || successorProgramId !== proposal?.successor?.programId) return invalid("successor_id_mismatch");
+    if (typeof confirmedAt !== "string" || !confirmedAt) return invalid("confirmed_at_missing");
+    if (!hasAck || !(acknowledgedDraftRaw === null || typeof acknowledgedDraftRaw === "string")) return invalid("acknowledged_draft_missing");
+    const predecessorProgramId = proposal?.predecessor?.programId;
+    if (typeof predecessorProgramId !== "string" || !predecessorProgramId) return invalid("predecessor_id_absent");
+    if (!Number.isInteger(proposal?.predecessor?.durableRevision)) return invalid("predecessor_revision_absent");
+
+    // Archive identity is deterministic: the predecessor program id.
+    const archiveId = predecessorProgramId;
+
+    // ---- Exact, read-only idempotency — only after the full pin contract ----
+    const preIdem = classifyCommittedTransition(state, proposal, archiveId);
+    if (preIdem === "match") {
+      return { ok: true, committed: true, alreadyCommitted: true, revision: readRevision(state), localOk: true, idbOk: true, kind: "committed" };
+    }
+    if (preIdem === "conflict") return invalid("conflicting_transition_record");
+
+    // Fast typed draft-acknowledgement result; the preservation effect re-guards
+    // this atomically under the lock.
+    const currentDraftRaw = readDraftRaw();
+    if (acknowledgedDraftRaw !== currentDraftRaw) {
+      return { ok: false, committed: false, draftConflict: true, conflict: true, code: "draft_mismatch", localOk: false, idbOk: false, revision: readRevision(state) };
+    }
+
+    // Permanent volume reduction cannot strand completed or edited sets in
+    // slots the proposal removes or reduces. Keep the existing DraftV2 guard
+    // at the production confirmation boundary, before the replacement journal
+    // is armed, so an unsafe proposal has zero durable side effects.
+    if (proposal.kind === "reduce_training_volume") {
+      let draft = {};
+      try {
+        const parsed = JSON.parse(acknowledgedDraftRaw || "{}");
+        if (isPlainStateObject(parsed)) draft = parsed;
+      } catch {}
+      const currentBySlot = new Map((state.program || []).map((row) => [row.slotId || row.id, row]));
+      const blocked = (proposal.diff?.exercises || []).some((change) => {
+        const current = currentBySlot.get(change.predecessorSlot);
+        if (!current) return false;
+        const beforeSets = Number(change.before?.sets ?? current.sets);
+        const afterSets = change.after === null ? 0 : Number(change.after?.sets ?? beforeSets);
+        return Number.isFinite(beforeSets) && Number.isFinite(afterSets) &&
+          draftHasProgressInRemovedSets(current.id || current.slotId, afterSets, beforeSets, draft);
+      });
+      if (blocked) {
+        return { ok: false, committed: false, draftConflict: true, conflict: true,
+          code: "draft_conflict", localOk: false, idbOk: false, revision: readRevision(state) };
+      }
+    }
+
+    // ---- Existing program-replacement capture/archive transaction owns it ----
+    const capture = captureProgramReplacement(state);
+    if (!capture || capture.oldProgramId !== predecessorProgramId) return invalid("predecessor_unavailable");
+    // The capture stands in for "the predecessor exactly as the proposal saw it".
+    // Pin its revision to the proposal's durableRevision so a real intervening
+    // durable commit fails the lock-held precondition and leaves the prepared
+    // archive non-durable.
+    capture.storageRevision = proposal.predecessor.durableRevision;
+    capture.archiveId = archiveId;
+    capture.transitionOut = {
+      schemaVersion: 1,
+      transitionId: proposal.transitionId,
+      proposalHash: proposal.proposalHash,
+      successorProgramId: proposal.successor.programId,
+    };
+
+    const effect = draftPreservationEffect(acknowledgedDraftRaw);
+    const baseProposal = cloneSnapshot(state);
+
+    const preflight = async ({ head, proposal: draftProposal }) => {
+      // Read-only idempotency re-check under the lock.
+      const lockedIdem = classifyCommittedTransition(head, proposal, archiveId);
+      if (lockedIdem === "match") {
+        return { reject: true, result: { ok: true, committed: true, alreadyCommitted: true, revision: readRevision(head), localOk: true, idbOk: true, kind: "committed" } };
+      }
+      if (lockedIdem === "conflict") {
+        return { reject: true, result: { invalid: true, code: "conflicting_transition_record", localOk: false, idbOk: false } };
+      }
+      // Exact predecessor preconditions.
+      if (head.programMeta?.id !== predecessorProgramId) {
+        return { reject: true, result: { stale: true, code: "predecessor_changed", localOk: false, idbOk: false } };
+      }
+      if (readRevision(head) !== proposal.predecessor.durableRevision) {
+        return { reject: true, result: { stale: true, staleRevision: true, code: "stale_proposal", localOk: false, idbOk: false } };
+      }
+      const route = head.programMeta?.entrySource?.route;
+      if (!route || !TRANSITION_SOURCE_ROUTES.includes(route)) {
+        return { reject: true, result: { invalid: true, code: "transition_source_unavailable", localOk: false, idbOk: false } };
+      }
+      const compilerProvenance = classifyCompilerTransitionProvenance(head.programMeta);
+      if (compilerProvenance !== "present") {
+        return { reject: true, result: { invalid: true,
+          code: compilerProvenance === "invalid" ? "compiler_provenance_unavailable" : "compiler_provenance_absent",
+          localOk: false, idbOk: false } };
+      }
+      const predContext = head.programMeta?.compilerContext;
+      if (!predContext) {
+        return { reject: true, result: { invalid: true, code: "missing_compiler_context", localOk: false, idbOk: false } };
+      }
+      const predInstance = Compiler.compile(predContext, catalogue);
+      if (!predInstance || predInstance.kind !== "compiled") {
+        return { reject: true, result: { invalid: true, code: "predecessor_reconstruction_failed", localOk: false, idbOk: false } };
+      }
+      if (!compilerProgramMatchesLive(head.program, predInstance.program, head.customExercises)) {
+        return { reject: true, result: { invalid: true, code: "live_program_mismatch", localOk: false, idbOk: false } };
+      }
+
+      let succContext;
+      let succInstance;
+      if (proposal.kind === "lower_frequency_sibling") {
+        succContext = { ...cloneSnapshot(predContext), frequency: proposal.diagnosis?.answers?.availableDays };
+        delete succContext.splitId;
+      } else if (proposal.kind === "shorter_session_sibling") {
+        succContext = { ...cloneSnapshot(predContext), sessionMinutes: proposal.diagnosis?.answers?.sessionMinutes };
+      } else if (proposal.kind === "reduce_training_volume") {
+        const derived = await Transition.proposeVolumeReduction({
+          predecessorInstance: predInstance,
+          predecessor: {
+            programId: head.programMeta.id,
+            durableRevision: readRevision(head),
+            source: transitionContractSource(route),
+          },
+          transitionId: proposal.transitionId,
+          successorProgramId: proposal.successor?.programId,
+          createdAt: proposal.createdAt,
+          diagnosis: proposal.diagnosis,
+          policyVersion: proposal.derivation?.policyVersions?.volumeReduction,
+          supportedVersions: Compiler.VERSIONS,
+        });
+        if (!derived.ok) {
+          return { reject: true, result: { invalid: true, code: derived.code || "invalid_volume_proposal", localOk: false, idbOk: false } };
+        }
+        succInstance = derived.successorInstance;
+        succContext = cloneSnapshot(predContext);
+      } else {
+        return { reject: true, result: { invalid: true, code: "unsupported_transition_kind", localOk: false, idbOk: false } };
+      }
+
+      if (!succInstance) {
+        const checkedSuccContext = Compiler.validateContext(succContext);
+        if (!checkedSuccContext.ok) {
+          return { reject: true, result: { invalid: true, code: "invalid_successor_context", localOk: false, idbOk: false } };
+        }
+        succInstance = Compiler.compile(succContext, catalogue);
+      }
+      if (!succInstance || succInstance.kind !== "compiled") {
+        return { reject: true, result: { invalid: true, code: "successor_compilation_failed", localOk: false, idbOk: false } };
+      }
+
+      // Semantic validation runs here, lock-held. No archive is pushed in preflight.
+      const validation = await Transition.validateProposal(proposal, {
+        predecessor: {
+          programId: head.programMeta.id,
+          durableRevision: readRevision(head),
+          source: transitionContractSource(route),
+        },
+        predecessorInstance: predInstance,
+        successorInstance: succInstance,
+        predecessorCompilerContext: predContext,
+        successorCompilerContext: succContext,
+      });
+      if (!validation.ok) {
+        const typed = validation.status === "stale" ? { stale: true } : { invalid: true };
+        return { reject: true, result: { ...typed, code: validation.code || "invalid_proposal", localOk: false, idbOk: false } };
+      }
+
+      // Pure sealing with explicit, non-environment values.
+      const committedRecord = Transition.commitRecord(proposal, { confirmedAt, archiveId });
+
+      const successorMeta = {
+        ...cloneSnapshot(head.programMeta),
+        id: proposal.successor.programId,
+        // A compiler-backed transition is a real replacement block. Allocate
+        // its target identity only after the lock-held proposal validation;
+        // the resulting proposal/journal carries this candidate through
+        // replay, while the durable write remains the single confirmation.
+        blockId: allocateBlockId(),
+        daysPerWeek: succInstance.frequency,
+        sessionLength: String(succContext.sessionMinutes),
+        programStructure: cloneSnapshot(succInstance.programStructure),
+        progressionRelations: (succInstance.relations || []).filter(r => r.state === "attached").map(r => ({
+          schemaVersion: 1,
+          id: r.id,
+          type: "paired_exposure",
+          version: 1,
+          movementId: `library:${r.movementId}`,
+          members: [
+            { exerciseId: r.heavySlotId, role: "heavy" },
+            { exerciseId: r.volumeSlotId, role: "volume" },
+          ],
+        })),
+        compilerContext: cloneSnapshot(succContext),
+        // The successor carries the predecessor's exact entrySource object. Its
+        // compiler fingerprint/provenance already live on the transition-in record.
+        entrySource: cloneSnapshot(head.programMeta.entrySource),
+        transitionIn: committedRecord,
+        updated: confirmedAt,
+      };
+
+      draftProposal.program = new Program(succInstance.program, snapshotLookup(draftProposal.customExercises)).toJSON();
+      draftProposal.programMeta = successorMeta;
+      // draftProposal.programHistory already carries the single archive entry that
+      // archiveCapturedProgram(capture) pushed before the lock — leave it untouched.
+      return { proposal: draftProposal };
+    };
+
+    const res = await commitProgramReplacement(baseProposal, storageIO, { capture, effect, preflight });
+
+    if (res.localOk || res.idbOk) {
+      return { ok: true, committed: true, ...res };
+    }
+    return { ok: false, committed: false, ...res };
+  },
+
+  async reassessRecovery(params = {}) {
+    const Transition = typeof RepForgeProgramTransition !== "undefined"
+      ? RepForgeProgramTransition
+      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
+    const Compiler = typeof ProgramCompiler !== "undefined"
+      ? ProgramCompiler
+      : (typeof window !== "undefined" ? window.ProgramCompiler : null);
+    const catalogue = typeof EXERCISE_LIBRARY !== "undefined"
+      ? EXERCISE_LIBRARY
+      : (typeof window !== "undefined" ? (window.__repforgeExerciseLibrary || window.EXERCISE_LIBRARY) : null);
+    const invalid=(code,extra={})=>({ok:false,committed:false,invalid:true,code,...extra,localOk:false,idbOk:false,revision:readRevision(state)});
+    if(!Transition||typeof Transition.validateRecoveryRecord!=="function"||
+      typeof Transition.reassessRecoveryRecord!=="function"||typeof Transition.approvedRecoveryPolicy!=="function")
+      return invalid("recovery_reassessment_seam_missing");
+    const {expectedRevision,blockId,transitionId,proposalHash,acknowledgedRecord,outcome}=params;
+    if(!Number.isInteger(expectedRevision)||expectedRevision<0)return invalid("stale");
+    if(typeof blockId!=="string"||!blockId.trim()||typeof transitionId!=="string"||!transitionId.trim()||
+      typeof proposalHash!=="string"||!proposalHash.trim())return invalid("recovery_reassessment_invalid");
+    if(!isPlainStateObject(acknowledgedRecord))return invalid("recovery_reassessment_invalid");
+    if(!["Better","About the same","Worse"].includes(outcome))return invalid("recovery_reassessment_invalid");
+    if(readRevision(state)!==expectedRevision||snapshotBlockId(state)!==blockId)return invalid("stale",{stale:true,staleRevision:readRevision(state)!==expectedRevision});
+    const initialRecords=recoveryCarrierRecords(state);
+    const initialMatches=initialRecords.map((record,index)=>({record,index})).filter(({record})=>
+      record.transitionId===transitionId&&record.proposalHash===proposalHash);
+    if(initialMatches.length!==1)return invalid("stale",{stale:true});
+    const initialMatch=initialMatches[0];
+    if(initialMatch.record.diff?.recoveryWeek?.blockId!==blockId)return invalid("stale",{stale:true});
+    if(initialMatch.record.diff?.recoveryWeek?.reassessmentOutcome!==null)return invalid("recovery_reassessment_closed");
+    if(!storageSnapshotsEqual(initialMatch.record,acknowledgedRecord))return invalid("stale",{stale:true});
+    const initialInstance=recoveryCompilerInstance(state,Compiler,catalogue);
+    if(!initialInstance)return invalid("predecessor_reconstruction_failed");
+    const initialValidation=await Transition.validateRecoveryRecord(initialMatch.record,{
+      predecessor:cloneSnapshot(initialMatch.record.predecessor),
+      predecessorInstance:initialInstance,
+      approvedPolicy:Transition.approvedRecoveryPolicy(),
+      supportedVersions:Compiler.VERSIONS,
+      existingRecoveryRecords:initialRecords,
+    });
+    if(!initialValidation.ok)return invalid(initialValidation.code||"recovery_reassessment_invalid",{stale:initialValidation.status==="stale"});
+    const initialReassessed=Transition.reassessRecoveryRecord(initialValidation.record,outcome,{
+      blockId,elapsedWeek:mesocycleLifecycle(state.programMeta).elapsedWeek,
+    });
+    if(!initialReassessed.ok)return invalid(initialReassessed.code||"recovery_reassessment_invalid");
+    const initialProposal=cloneSnapshot(state);
+    initialProposal.recoveryTransitions.records[initialMatch.index]=cloneSnapshot(initialReassessed.record);
+    const preflight=async({head})=>{
+      if(readRevision(head)!==expectedRevision)return{reject:true,result:{ok:false,committed:false,stale:true,staleRevision:true,code:"stale",localOk:false,idbOk:false}};
+      if(snapshotBlockId(head)!==blockId)return{reject:true,result:{ok:false,committed:false,stale:true,code:"stale",localOk:false,idbOk:false}};
+      const records=recoveryCarrierRecords(head);
+      const matches=records.map((record,index)=>({record,index})).filter(({record})=>
+        record.transitionId===transitionId&&record.proposalHash===proposalHash);
+      if(matches.length!==1)return{reject:true,result:{ok:false,committed:false,stale:true,code:"stale",localOk:false,idbOk:false}};
+      const {record,index}=matches[0];
+      if(record.diff?.recoveryWeek?.blockId!==blockId)return{reject:true,result:{ok:false,committed:false,stale:true,code:"stale",localOk:false,idbOk:false}};
+      if(record.diff?.recoveryWeek?.reassessmentOutcome!==null)
+        return{reject:true,result:{ok:false,committed:false,code:"recovery_reassessment_closed",localOk:false,idbOk:false}};
+      if(!storageSnapshotsEqual(record,acknowledgedRecord))
+        return{reject:true,result:{ok:false,committed:false,stale:true,code:"stale",localOk:false,idbOk:false}};
+      const instance=recoveryCompilerInstance(head,Compiler,catalogue);
+      if(!instance)return{reject:true,result:{ok:false,committed:false,invalid:true,code:"predecessor_reconstruction_failed",localOk:false,idbOk:false}};
+      const validation=await Transition.validateRecoveryRecord(record,{
+        predecessor:cloneSnapshot(record.predecessor),
+        predecessorInstance:instance,
+        approvedPolicy:Transition.approvedRecoveryPolicy(),
+        supportedVersions:Compiler.VERSIONS,
+        existingRecoveryRecords:records,
+      });
+      if(!validation.ok)return{reject:true,result:{ok:false,committed:false,stale:validation.status==="stale",invalid:validation.status!=="stale",code:validation.code||"recovery_reassessment_invalid",localOk:false,idbOk:false}};
+      const elapsedWeek=mesocycleLifecycle(head.programMeta).elapsedWeek;
+      const reassessed=Transition.reassessRecoveryRecord(validation.record,outcome,{blockId,elapsedWeek});
+      if(!reassessed.ok)return{reject:true,result:{ok:false,committed:false,code:reassessed.code||"recovery_reassessment_invalid",localOk:false,idbOk:false}};
+      const next=cloneSnapshot(head);
+      next.recoveryTransitions.records[index]=cloneSnapshot(reassessed.record);
+      return{proposal:next};
+    };
+    const result=await commitProposedState(initialProposal,storageIO,{
+      expectedProgramId:state?.programMeta?.id||null,
+      expectedProgramFingerprint:draftProgramFingerprint(state),
+      expectedBlockId:blockId,
+      expectedStorageRevision:expectedRevision,
+      recoveryTransaction:true,
+      preflight,
+    });
+    if(result.localOk||result.idbOk){await refreshRecoveryProjectionCache(state);return{ok:true,committed:true,...result};}
+    return{ok:false,committed:false,...result};
+  },
+
+  async stageGuidedManualRepair(params = {}, io = storageIO) {
+    const Transition = typeof RepForgeProgramTransition !== "undefined"
+      ? RepForgeProgramTransition
+      : (typeof window !== "undefined" ? window.RepForgeProgramTransition : null);
+    if (!Transition) {
+      return { ok: false, status: "unavailable", code: "transition_domain_unavailable", unavailable: true };
+    }
+    if (!ProgramEntry) {
+      return { ok: false, status: "unavailable", code: "program_entry_unavailable", unavailable: true };
+    }
+
+    // The injected IO is honoured only so a deliberate setup-draft write
+    // failure can be proven; lock ownership stays on the production path.
+    const targetIO = io || storageIO;
+
+    // The production boundary derives the guided candidate strictly from the
+    // live active program and the live durable revision after a genuine typed
+    // sibling Unavailable. It accepts no caller-supplied guided result, active
+    // snapshot, or durable revision — only the typed Unavailable and its
+    // diagnosis. createGuidedManualRepair still fails typed on any stale or
+    // mismatched input and mutates nothing.
+    let unavailable = params.unavailable || (params.siblingResult?.ok === false ? params.siblingResult : null);
+    const diagnosis = params.diagnosis;
+    if (!unavailable && diagnosis && typeof this.proposeSibling === "function") {
+      const targetConstraint = diagnosis.targetConstraint || (
+        diagnosis.kind === "sessions_too_long"
+          ? { sessionMinutes: diagnosis.answers?.sessionMinutes ?? diagnosis.sessionMinutes }
+          : { frequency: diagnosis.answers?.availableDays ?? diagnosis.answers?.daysPerWeek ?? diagnosis.daysPerWeek }
+      );
+      const siblingRes = await this.proposeSibling({
+        diagnosis,
+        targetConstraint,
+        transitionId: uid(),
+        successorProgramId: uid(),
+      });
+      if (siblingRes?.ok === false) unavailable = siblingRes;
+    }
+
+    const liveRevision = readRevision(state);
+    const created = Transition.createGuidedManualRepair({
+      unavailable,
+      diagnosis,
+      activeProgram: state,
+      durableRevision: liveRevision,
+      versions: entryVersions(),
+      customExercises: customExercises(),
+    });
+    if (!created.ok) return created;
+    const guidedResult = created;
+
+    const diagKind = diagnosis?.kind;
+    if (diagKind !== "fewer_days" && diagKind !== "sessions_too_long") {
+      return { ok: false, status: "unavailable", code: "diagnosis_invalid", unavailable: true, invalid: true };
+    }
+
+    const targetDays = diagnosis?.answers?.availableDays ?? diagnosis?.answers?.daysPerWeek ?? diagnosis?.targetConstraint?.frequency ?? diagnosis?.daysPerWeek;
+    const targetMins = diagnosis?.answers?.sessionMinutes ?? diagnosis?.targetConstraint?.sessionMinutes ?? diagnosis?.sessionMinutes;
+
+    const diagnosticsFacts = {
+      mainConstraint: diagKind,
+    };
+    if (diagKind === "fewer_days") {
+      if (!Number.isInteger(targetDays)) {
+        return { ok: false, status: "unavailable", code: "invalid_diagnosis_target", unavailable: true, invalid: true };
+      }
+      diagnosticsFacts.daysPerWeek = targetDays;
+    } else if (diagKind === "sessions_too_long") {
+      if (!Number.isInteger(targetMins)) {
+        return { ok: false, status: "unavailable", code: "invalid_diagnosis_target", unavailable: true, invalid: true };
+      }
+      diagnosticsFacts.sessionMinutes = targetMins;
+    }
+
+    const candidate = guidedResult.candidate || guidedResult;
+    const model = makeProgram(candidate.program, snapshotLookup(candidate.customExercises), state?.programMeta);
+    const structure = candidate.programStructure ? cloneSnapshot(candidate.programStructure) : null;
+    const structureDays = structure?.days || [];
+    const previewDays = structureDays.length
+      ? structureDays.map((item) => ({
+          dayId: item.dayId,
+          label: item.label,
+          ...(item.displayNameKey ? { displayNameKey: item.displayNameKey } : {}),
+          ...(item.nameOverride ? { nameOverride: item.nameOverride } : {}),
+          ...(item.order !== undefined ? { order: item.order } : {}),
+          exercises: model.forDay(item.label || item.dayId).map((e) => cloneSnapshot(e)),
+        }))
+      : model.days().map((label, idx) => ({
+          dayId: label,
+          label,
+          order: idx + 1,
+          exercises: model.forDay(label).map((e) => cloneSnapshot(e)),
+        }));
+
+    const preview = {
+      source: "build",
+      program: cloneSnapshot(candidate.program),
+      programStructure: structure,
+      progressionRelations: cloneSnapshot(candidate.progressionRelations || []),
+      progressionModifiers: cloneSnapshot(candidate.progressionModifiers || []),
+      progressionIncompatibilities: cloneSnapshot(candidate.progressionIncompatibilities || []),
+      days: previewDays,
+      customExercises: cloneSnapshot(candidate.customExercises || []),
+    };
+
+    const name = state?.programMeta?.name || "RepForge Program";
+    const fingerprint = entryCandidateFingerprint("build", name, preview);
+
+    const result = {
+      schemaVersion: ProgramEntry.SCHEMA_VERSION,
+      route: "build",
+      fingerprint,
+      name,
+      selected: {
+        id: "manual_build",
+        source: "manual_build",
+      },
+      diagnostics: diagnosticsFacts,
+      preview,
+    };
+
+    // Pin the staged draft to the same live durable revision the candidate was
+    // derived from. Activation re-checks it via activationReadiness/CAS.
+    const draftRevision = Number.isInteger(guidedResult.durableRevision)
+      ? guidedResult.durableRevision
+      : liveRevision;
+
+    const answers = {
+      programName: name,
+      daysPerWeek: previewDays.length,
+    };
+    if (diagKind === "fewer_days" && Number.isInteger(targetDays) && targetDays >= 2 && targetDays <= 6) {
+      answers.daysPerWeek = targetDays;
+    }
+
+    let draftState = ProgramEntry.createState({
+      draftId: uid(),
+      activeProgramRevisionAtStart: draftRevision,
+      now: entryNow(),
+      versions: entryVersions(),
+    });
+    draftState = ProgramEntry.selectRoute(draftState, "build");
+    draftState = ProgramEntry.setAnswers(draftState, answers);
+    draftState = ProgramEntry.setResult(draftState, result);
+    draftState = { ...draftState, step: "editor" };
+
+    const saveResult = await persistSetupDraft(draftState, targetIO);
+    if (!saveResult?.ok) {
+      return {
+        ok: false,
+        staged: false,
+        conflict: !!saveResult?.conflict,
+        writeFailed: !!saveResult?.writeFailed,
+        invalid: !!saveResult?.invalid,
+        code: saveResult?.conflict ? "save_conflict" : (saveResult?.writeFailed ? "save_failed" : "draft_invalid"),
+      };
+    }
+
+    if (params.openEditor !== false) {
+      openEntryDraftEditor();
+    }
+
+    return {
+      ok: true,
+      staged: true,
+      kind: "guided_manual_repair",
+      envelope: saveResult.envelope,
+      draftState: entryState,
+    };
+  },
+};
+if (typeof window !== "undefined") {
+  window.__repforgeProgramTransition = repforgeProgramTransitionAdapter;
+}
 window.__repforgeParseCommand=parseSetCommand;
 window.__repforgeNormalizeCommand=normalizeCommandText;
 window.__repforgeParseDec=parseDec;
@@ -6966,8 +8684,9 @@ function editorChooseExercise(request){
     openExercisePicker(options)})}
 function installedEditorDocument(){return editorDocumentFromSnapshot(state)}
 function installedEditorToken(snapshot=state){return{revision:readRevision(snapshot),programId:snapshot?.programMeta?.id||null,
-  fingerprint:draftProgramFingerprint(snapshot)}}
-function editorTokenEqual(a,b){return Number(a?.revision)===Number(b?.revision)&&a?.programId===b?.programId&&a?.fingerprint===b?.fingerprint}
+  blockId:snapshotBlockId(snapshot),fingerprint:draftProgramFingerprint(snapshot)}}
+function editorTokenEqual(a,b){return Number(a?.revision)===Number(b?.revision)&&a?.programId===b?.programId&&
+  a?.blockId===b?.blockId&&a?.fingerprint===b?.fingerprint}
 function editorDocumentDays(document){
   const labels=[];
   for(const entry of document?.programMeta?.programStructure?.days||[]){
@@ -7146,6 +8865,8 @@ function createInstalledProgramEditorAdapter(){
       if(refreshed.conflict)return{ok:false,conflict:true,editorConflict:true};
       const head=refreshed.head||state,headToken=installedEditorToken(head);
       let document=cloneSnapshot(nextDocument),edits=session.edits||intent?.edits||[];
+      if(expectedToken?.blockId!==headToken.blockId)
+        return{ok:false,conflict:true,editorConflict:true,staleBlock:true};
       if(!editorTokenEqual(expectedToken,headToken)){
         const rebased=editorRebaseDocument({edits},head);if(rebased.conflict)return{ok:false,conflict:true,editorConflict:true};
         document=rebased.document}
@@ -7160,8 +8881,11 @@ function createInstalledProgramEditorAdapter(){
       const dayRenames=edits.filter(edit=>edit?.kind==="day_name"&&edit.before!==undefined&&edit.after!==undefined)
         .map(edit=>({from:String(edit.before),to:String(edit.after)}));
       const result=await commitProposedState(proposal,storageIO,{effect,dayRenames,
+        expectedProgramId:headToken.programId,expectedBlockId:headToken.blockId,
         preflight:({head:lockedHead})=>{
           const lockedToken=installedEditorToken(lockedHead);
+          if(headToken.blockId!==lockedToken.blockId)
+            return{reject:true,result:{ok:false,conflict:true,editorConflict:true,staleBlock:true}};
           if(!editorTokenEqual(headToken,lockedToken)){
             const rebased=editorRebaseDocument({edits},lockedHead);
             if(rebased.conflict)
@@ -8274,7 +9998,13 @@ function buildSharedSetupPayload(){
     settings:sharedSettings(state.settings)}}
 function exportProgram(){
   const exercises=prog.toJSON();
-  const payload={version:3,meta:state.programMeta,exercises,
+  const meta=cloneSnapshot(state.programMeta||{});
+  // A program file is a portable template, not an active block/recovery
+  // carrier. Identity and lifecycle provenance stay in full backups only;
+  // activation will mint a fresh local block at the durable boundary.
+  for(const key of ["blockId","transitionIn","recoveryTransitions","recoveryQuarantine","recoveryLifecycle"])
+    delete meta[key];
+  const payload={version:3,meta,exercises,
     customExercises:referencedCustomExercises(exercises)};
   const slug=fileSlug(state.programMeta?.name);
   download(JSON.stringify(payload,null,2),`taurifer_program_${slug?`${slug}_`:""}${today()}.json`,"application/json")}
@@ -10579,7 +12309,46 @@ function startOnboarding(origin,opts={}){
   if(opts.userInitiated===false)return;
   // Opening the hub is not choosing a route; telemetry waits for a route pick.
 }
-function maybeShowOnboarding(){if(!state.programMeta?.onboarded&&state.log.length===0)startOnboarding("first-run",{userInitiated:false})}
+// A persisted setup draft is auto-resumed on boot only when it is a normalized
+// guided manual-repair build/editor draft: route "build", step "editor", a
+// non-empty preview program, and the exact diagnosis instruction
+// stageGuidedManualRepair writes — an integer diagnostics.daysPerWeek in 1..7
+// for fewer_days (createGuidedManualRepair's target range; the ordinary build
+// answers.daysPerWeek editor seed keeps its own 2..6 constraint), or a positive
+// integer diagnostics.sessionMinutes for sessions_too_long. A main-constraint
+// token alone, or a missing / non-integer / out-of-range target, does not
+// qualify: ordinary saved setup drafts on an onboarded device are left
+// untouched, and first-run behavior is unchanged.
+function isGuidedRepairSetupDraft(envelope){
+  const st=envelope?.state;
+  if(!st||st.route!=="build"||st.step!=="editor")return false;
+  const result=st.result;
+  if(!result||result.route!=="build")return false;
+  const preview=result.preview;
+  if(!preview||!Array.isArray(preview.program)||preview.program.length===0)return false;
+  const diagnostics=result.diagnostics;
+  const main=diagnostics?.mainConstraint;
+  if(main==="fewer_days"){
+    const days=diagnostics.daysPerWeek;
+    return Number.isInteger(days)&&days>=1&&days<=7;
+  }
+  if(main==="sessions_too_long"){
+    const minutes=diagnostics.sessionMinutes;
+    return Number.isInteger(minutes)&&minutes>0;
+  }
+  return false;
+}
+function maybeShowOnboarding(){
+  if(!state.programMeta?.onboarded&&state.log.length===0){
+    startOnboarding("first-run",{userInitiated:false});
+    return;
+  }
+  const record=readSetupDraftRecord();
+  if(record.ok&&record.envelope&&isGuidedRepairSetupDraft(record.envelope)){
+    startOnboarding("settings",{userInitiated:false});
+    if(entryState?.step==="editor"&&entryState?.result?.preview)openEntryDraftEditor();
+  }
+}
 function cancelOnboarding(){
   if(onboardingOrigin==="block")pendingBlockTransition=null;
   onboardingOrigin=null;closeOnboarding()}
@@ -12156,6 +13925,9 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
   baseProposal.programMeta.progressionModifiers=cloneSnapshot(preview?.progressionModifiers||[]);
   baseProposal.programMeta.progressionIncompatibilities=cloneSnapshot(preview?.progressionIncompatibilities||[]);
   baseProposal.programMeta.programStructure=programStructure?cloneSnapshot(programStructure):null;
+  const compilerContext=(route==="recommend"||route==="custom"||route==="browse")
+    ?(entryState.result?.compilerContext||null):null;
+  if(compilerContext)baseProposal.programMeta.compilerContext=cloneSnapshot(compilerContext);
   const telemetryRoute=route==="recommend"||route==="custom"||route==="browse"||route==="build"||route==="import"||route==="shared"?route:"custom";
   const result=await finalizeProgramSetup({
     exercises,
@@ -12169,6 +13941,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
     entryTelemetry:entryState.result?.telemetry||null,
     entrySource:{route,fingerprint:entryState.result?.fingerprint},
     programStructure,
+    compilerContext,
     expectedSetupDraftRaw:activationDraftHandle?.raw??null,
     replace:route==="shared",
     expectedFirstRunEmpty:route==="shared"});
@@ -12190,10 +13963,14 @@ function telemetryGeneratedProgram(goal){
   if(goal==="strength_hypertrophy")return{goal:"balanced",family:"legacy"};
   if(goal==="hypertrophy")return{goal:"muscle_growth",family:"legacy"};
   return null}
-async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,entrySource=null,programStructure=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false}={}){
+async function finalizeProgramSetup({exercises,name,answers,destination,origin,io,draftConfirmed=false,discardDraftRaw,baseProposal=null,telemetryRoute="custom",entryTelemetry=null,entrySource=null,programStructure=null,expectedSetupDraftRaw=undefined,replace=false,expectedFirstRunEmpty=false,compilerContext=null}={}){
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
   const blockCap=originEff==="block"?pendingBlockTransition:null;
+  if(originEff==="block"){
+    const draftGuard=blockStartDraftGuard();
+    if(draftGuard)return blockTransitionResult("failed",draftGuard);
+  }
   const replacementCapture=blockCap||captureProgramReplacement(state);
   const draftActive=draftHasProgress();
   const confirmedDraftRaw=discardDraftRaw===undefined?readDraftRaw():discardDraftRaw;
@@ -12204,6 +13981,10 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     if(!blockCap)return blockTransitionResult("failed");
     if(proposal.programMeta?.id!==blockCap.oldProgramId)return blockTransitionResult("duplicate")}
   const meta=buildProgramMeta({name,answers:answers||{},entrySource});
+  // This is the durable activation boundary. Staged program/import/shared
+  // values remain blockless; the candidate is captured once in this proposal
+  // and replay thereafter reads the journaled value.
+  meta.blockId=allocateBlockId();
   proposal.program=new Program(exercises,snapshotLookup(proposal.customExercises)).toJSON();
   meta.progressionRelations=normalizeProgressionRelations(baseProposal?.programMeta?.progressionRelations,proposal.program);
   meta.progressionModifiers=normalizeProgressionModifiers(baseProposal?.programMeta?.progressionModifiers);
@@ -12211,6 +13992,18 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     ?cloneSnapshot(baseProposal.programMeta.progressionIncompatibilities):[];
   meta.programStructure=programStructure?cloneSnapshot(programStructure):
     (baseProposal?.programMeta?.programStructure?cloneSnapshot(baseProposal.programMeta.programStructure):null);
+  const routeEff=entrySource?.route||telemetryRoute;
+  if(routeEff==="recommend"||routeEff==="custom"||routeEff==="browse"){
+    const rawContext=compilerContext||baseProposal?.programMeta?.compilerContext;
+    if(rawContext){
+      if(typeof ProgramCompiler?.validateContext==="function"){
+        const checked=ProgramCompiler.validateContext(rawContext);
+        if(checked.ok)meta.compilerContext=cloneSnapshot(rawContext);
+      }else if(rawContext&&typeof rawContext==="object"){
+        meta.compilerContext=cloneSnapshot(rawContext);
+      }
+    }
+  }
   proposal.programMeta=meta;
   // The setup draft lives outside the mirrored state stores. Keep an exact,
   // storage-only receipt in the successor so a crash after the program commit
@@ -12452,11 +14245,12 @@ async function commitSharedSetup(io=storageIO){
       days:sharedPreviewDays(program,structure,checked.value.settings),
       customExercises:cloneSnapshot(proposal.customExercises||[]),
       progressionRelations:cloneSnapshot(proposal.programMeta?.progressionRelations||[]),
+      progressionModifiers:cloneSnapshot(proposal.programMeta?.progressionModifiers||[]),
       // Shared metadata keeps its released display labels in sharedMeta. The
       // common draft schema's primaryMuscles field is the generator's closed
       // token vocabulary, so do not copy human-labelled payload values into it.
       primaryMuscles:[],
-      sharedMeta:cloneSnapshot(payload.meta),
+      sharedMeta:sharedPreviewMeta(payload.meta),
       sharedSettings:cloneSnapshot(checked.value.settings),
       sharedImport:cloneSnapshot(proposal[SHARED_IMPORT]||null)};
     startOnboarding("first-run",{userInitiated:true,forceFresh:true});
@@ -13225,6 +15019,17 @@ async function resolveBootReplicas(candidate=null){
       if(!recoveryChoiceMatches(candidate,decision))return decision;
       decision={kind:"chosen",snapshot:cloneSnapshot(candidate.snapshot),source:candidate.source,
         heal:candidate.source==="local"?"idb":"local"}}
+    if(decision.kind==="chosen"){
+      const sourceReplica=sourceReplicaForCarrierDecision(decision,local,idb);
+      let normalized;
+      try{normalized=await normalizeRecoveryCarrierSnapshot(decision.snapshot,sourceReplica)}
+      catch{normalized={kind:"full-recovery"}};
+      if(normalized.kind==="full-recovery")
+        return{kind:"unresolved",reason:"no-valid",
+          local:{...local,status:"invalid"},idb:{...idb,status:"invalid"}};
+      if(normalized.kind==="known"){
+        decision.snapshot=normalized.snapshot;
+        decision.recoveryChanged=!!normalized.changed}}
     let head=decision.kind==="first-run"?null:cloneSnapshot(decision.snapshot),replayed=false,draftConflict=false;
     const storedTransaction=head&&pendingDraftTransaction(head);
     if(storedTransaction){
@@ -13263,6 +15068,24 @@ async function resolveBootReplicas(candidate=null){
         if(!discarded.settled)
           return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
         continue}
+      if(isAmbiguousLegacyRecoveryJournalMutation(journal)){
+        const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+          effect:journal.effectOutcome,discard:true});
+        if(!discarded.settled)
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+        continue}
+      // A recovery journal without a rollback snapshot was written before the
+      // lock-held preparation boundary. It is intent only, never a durable
+      // block start, so discard it without replaying or advancing state. A
+      // prepared journal is replayed only while the acknowledged DraftV2
+      // boundary is still clear; a draft created after it was armed survives
+      // untouched and the pending start is discarded.
+      if(isRecoveryJournalAttempt(journal)&&(!journal.rollback||blockStartDraftGuard(head))){
+        const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+          effect:journal.effectOutcome,discard:true});
+        if(!discarded.settled)
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+        continue}
       if(pendingJournalSuccessorMatches(record,head)){
         const prepared=preparePendingDraftTransaction(
           head,journal.rollback,journal.effectOutcome,journal.id);
@@ -13277,6 +15100,14 @@ async function resolveBootReplicas(candidate=null){
         if(execution.kind!=="committed")draftConflict=true;
         replayed=true;
         continue}
+      if(transitionJournalAttempt(journal.proposal,journal.base)&&
+        !isCoherentTransitionProposal(journal.proposal,journal.base)&&
+        !isCoherentLegacyReplacement(journal.proposal,journal.base)){
+        const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+          effect:journal.effectOutcome,discard:true});
+        if(!discarded.settled)
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+        continue}
       if(journal.expectedProgramId&&head?.programMeta?.id!==journal.expectedProgramId){
         const discarded=await executeDraftTransaction({record,transactionId:journal.id,
           effect:journal.effectOutcome,discard:true});
@@ -13285,6 +15116,12 @@ async function resolveBootReplicas(candidate=null){
         continue}
       if(journal.expectedProgramFingerprint&&
         draftProgramFingerprint(head)!==journal.expectedProgramFingerprint){
+        const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+          effect:journal.effectOutcome,discard:true});
+        if(!discarded.settled)
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+        continue}
+      if(journal.expectedBlockId!==undefined&&snapshotBlockId(head)!==journal.expectedBlockId){
         const discarded=await executeDraftTransaction({record,transactionId:journal.id,
           effect:journal.effectOutcome,discard:true});
         if(!discarded.settled)
@@ -13325,8 +15162,10 @@ async function resolveBootReplicas(candidate=null){
       head=execution.snapshot;
       if(execution.kind!=="committed")draftConflict=true;
       replayed=true}
-    if(replayed)return{kind:"chosen",snapshot:head,source:"pending",draftConflict};
-    if(decision.kind==="chosen"&&decision.heal)await writeSnapshot(cloneSnapshot(decision.snapshot),storageIO);
+    if(replayed)return{kind:"chosen",snapshot:head,source:"pending",draftConflict,
+      recoveryChanged:!!decision.recoveryChanged};
+    if(decision.kind==="chosen"&&decision.heal&&!decision.recoveryChanged)
+      await writeSnapshot(cloneSnapshot(decision.snapshot),storageIO);
     return Object.assign({},decision,{draftConflict})})}
 async function applyBootDecision(decision){
   if(decision.kind==="first-run")state=normalizeLoaded(null);
@@ -13334,13 +15173,14 @@ async function applyBootDecision(decision){
   prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
   state.programMeta=normalizeProgramMeta(state.programMeta,state.log,state.program);
   resetPersistenceBase(decision.kind==="first-run"?state:decision.snapshot);
+  await refreshRecoveryProjectionCache(state);
   DraftStore.promote(null,draftContextFingerprint(state));
   day=days()[0]||"Day 1";
   applyGotoParam();
   const migrated=migrateLog();
   const metaDrift=decision.snapshot&&canonicalPayload({programMeta:decision.snapshot.programMeta})!==canonicalPayload({programMeta:state.programMeta});
   const revisionless=decision.snapshot&&!Object.prototype.hasOwnProperty.call(decision.snapshot,STORAGE_REV);
-  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift)await persist();
+  if(decision.kind==="first-run"||decision.migrate||revisionless||migrated||metaDrift||decision.recoveryChanged)await persist();
   if(I18N)I18N.setLang(resolveLang())}
 window.__repforgeSharedSetup={
   get status(){return sharedSetupDraft.status},

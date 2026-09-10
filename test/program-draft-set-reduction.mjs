@@ -635,13 +635,13 @@ async function main() {
     const afterSafeBlock = await readRuntime(page);
 
     check(
-      safeBlockResult?.committed === true &&
-        safeBlockResult?.localOk &&
-        safeBlockResult?.idbOk &&
-        programSets(afterSafeBlock.local) === 1 &&
-        programSets(afterSafeBlock.idb) === 1 &&
+      safeBlockResult?.draftConflict === true &&
+        safeBlockResult?.code === "live_draft_blocks_next_block" &&
+        safeBlockResult?.committed === false &&
+        programSets(afterSafeBlock.local) === 2 &&
+        programSets(afterSafeBlock.idb) === 2 &&
         afterSafeBlock.persistenceArtifacts.length === 0,
-      "reduce_volume remains allowed when removed sets have no draft progress",
+      "reduce_volume block start is refused while any valid DraftV2 is live",
       {
         safeBlockResult,
         localSets: programSets(afterSafeBlock.local),
@@ -652,7 +652,7 @@ async function main() {
     check(
       afterSafeBlock.draftRaw === beforeSafeBlock.draftRaw &&
         (await page.locator(`[data-k="${EXERCISE_ID}_1_load"]`).inputValue()) === "105",
-      "accepted reduce_volume preserves the exact compatible draft and retained set",
+      "refused reduce_volume preserves the exact compatible draft and both sets",
       {
         before: beforeSafeBlock.draftRaw,
         after: afterSafeBlock.draftRaw,
@@ -671,7 +671,7 @@ async function main() {
         safeRows[0]?.load === 105 &&
         afterSafeFinish.draftRaw == null &&
         afterSafeFinish.persistenceArtifacts.length === 0,
-      "Finish saves the retained set after accepted compatible reduce_volume",
+      "Finish saves the progressed set after refused reduce_volume",
       {
         savedSets: safeRows.map((row) => row.set),
         savedLoads: safeRows.map((row) => row.load),
