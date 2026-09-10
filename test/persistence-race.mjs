@@ -101,6 +101,7 @@ function loggedState(revision = 30) {
 }
 
 async function waitForApp(page) {
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.waitForFunction(
     () =>
       typeof window.__repforgeStorage?.flush === "function" &&
