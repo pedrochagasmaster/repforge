@@ -1443,10 +1443,9 @@ async function scenarioDeferredOnboardingCannotSupersedeRepeat(browser) {
     check(
       (repeatResult?.localOk || repeatResult?.idbOk) &&
         repeatResult.kind === "committed" &&
-        repeatId &&
-        repeatId !== rev130.programMeta.id &&
+        repeatId === rev130.programMeta.id &&
         repeatRevision === baselineRevision + 1,
-      "precondition: Tab B commits a Repeat successor through the real Web Lock",
+      "precondition: Tab B commits a Repeat block with the existing program identity through the real Web Lock",
       { baselineRevision, repeatResult, replicas: summary(afterRepeat) }
     );
     check(
@@ -1463,9 +1462,9 @@ async function scenarioDeferredOnboardingCannotSupersedeRepeat(browser) {
         final.idb?.programMeta?.id === repeatId &&
         final.local?._storageRevision === repeatRevision &&
         final.idb?._storageRevision === repeatRevision &&
-        final.local?.programHistory?.filter((entry) => entry.id === rev130.programMeta.id).length === 1 &&
-        final.idb?.programHistory?.filter((entry) => entry.id === rev130.programMeta.id).length === 1,
-      "the stale finalizer preserves Tab B's successor, archive, and revision",
+        final.local?.programHistory?.filter((entry) => entry.id === rev130.programMeta.id).length === 0 &&
+        final.idb?.programHistory?.filter((entry) => entry.id === rev130.programMeta.id).length === 0,
+      "the stale finalizer preserves Tab B's repeated identity without an archive or extra revision",
       { repeatId, repeatRevision, replicas: summary(final) }
     );
     check(
