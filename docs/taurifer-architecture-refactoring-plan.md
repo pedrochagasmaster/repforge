@@ -2,14 +2,27 @@
 
 **Audit date:** 9 September 2026  
 **Repository:** `pedrochagasmaster/repforge`  
-**Audited merged baseline:** `77c6a011e1bba5121ebd2ee15db85d77275c6ee5`  
-**Status:** Proposed engineering plan; no repository changes made. This document does not create a second backlog or override approved product decisions.
+**Historical audit snapshot:** `77c6a011e1bba5121ebd2ee15db85d77275c6ee5` (9 September 2026)<br>
+**Current-main reconciliation:** `e3c798855c6f25963543f4578a4288df741772fd` (10 September 2026, after PR228)<br>
+**Status:** Proposed engineering guidance; no runtime or product changes. This document does not create a second backlog, authorize a plan, or override approved product decisions.
+
+The measured inventory, local test count, failure evidence, line anchors, and S1–S19 source links below describe the historical `77c6a011` snapshot. They remain historical evidence and are not claims about current main.
+
+## Baseline and current-main reconciliation
+
+Current main is `e3c798855c6f25963543f4578a4288df741772fd`, the merge of PR228's Plan 052 block-transition provenance foundation. That merge adds `program-transition.js`, the transition and recovery contract, the recovery-carrier and block-identity implementation, and related `app.js` and test changes. At this head, `app.js` is 15,280 lines, `program-transition.js` is present, and `docs/ci.md` records 109 executable commands. The detailed measurements below stay pinned to `77c6a011`; they are not a new current-main audit.
+
+Plan 052 is integrated at this current head. Structural transitions require both the localStorage and IndexedDB replicas for a `committed` result. A one-replica or partial write remains an explicit deferred, partial, or recovery outcome. Any later durable-state extraction must preserve Plan 052's whole-state reconciliation, `recoveryTransitions` quarantine, opaque block identity, reassessment CAS, DraftV2 checkpoint authority, and `_storageDraftTransaction` semantics.
+
+At this reconciliation, PR235 is still an open draft and its Plan 053 client and service work is not in current main. The transfer path in the target direction is therefore planned PR235/Plan 053 scope, not an existing client. It remains the narrow ADR 0013 exception: one hour, token-derived AEAD, EU Durable Object processing, the transfer cookie, the approved clone scope, and no account or synchronization platform. The durable refactor does no work inside PR235. After PR235 receives owner approval and merges, first normalize one outcome-oriented durable transaction result without changing partial-write truth. Then extract foreground commit, WAL, locks, replica settlement, DraftV2, and boot recovery behind the accepted contracts.
+
+Nothing in this document authorizes Plan 054 or any later plan. Candidate work remains subordinate to `docs/backlog.md`, the current plan files, the cross-plan steering sequence, and each plan's owner, visual, staging, physical-device, and same-SHA gates.
 
 ## Recommendation
 
 Keep Taurifer as a statically deployed application with a small number of deep JavaScript modules. Do not rewrite it in a framework, replace its storage protocol, or turn each screen into an independently managed subsystem.
 
-The highest-leverage change is to make **durable state commit and recovery one owned module**, then place workout-session and program-entry orchestration behind outcome-oriented interfaces. The safest first production refactor is **explicit gesture-controller ownership**, which removes a concrete cross-file takeover protocol without changing stored data. Both changes should simplify work already authorized by Plans 051–059 rather than delay that initiative with a separate architecture program.
+The highest-leverage change is to make **durable state commit and recovery one owned module**, then place workout-session and program-entry orchestration behind outcome-oriented interfaces. The safest first production refactor is **explicit gesture-controller ownership**, which removes a concrete cross-file takeover protocol without changing stored data. Both changes should simplify work covered by Plans 051–059, subject to their existing owners and gates, rather than delay that initiative with a separate architecture program.
 
 The main problem is not that `app.js` is large. It is that callers must understand details that should belong to the implementation: draft receipts, replica outcomes, recovery timing, setup-draft cleanup, and the identities of another module's event listeners. Moving those functions into different files without changing what callers need to know would preserve the problem. [S1–S6]
 
@@ -70,7 +83,7 @@ These are earned modules. Preserve and consume them; do not create replacement i
 
 ## 3. Prioritized deepening candidates
 
-“Strong” means the source shows concrete cross-module knowledge or workflow coupling. “Worth exploring” means there is a plausible benefit that must be demonstrated in a bounded slice. It does not authorize speculative platform work.
+“Strong” means the source shows concrete cross-module knowledge or workflow coupling. “Worth exploring” means there is a plausible benefit that must be demonstrated in a bounded slice. These candidates remain subordinate to `docs/backlog.md`, the current plan owners, the steering sequence, and all owner and device gates. They do not authorize speculative platform work or Plan 054+ implementation.
 
 ### A. Own durable commit and recovery — **Strong; highest leverage**
 
@@ -84,13 +97,13 @@ The write interface includes program identity, fingerprint, storage revision, fi
 
 The module must absorb the hard coordination, not just rename `enqueueStateChange`. Keep semantic operation preparation near its domain owner, but keep raw receipt construction, rollback markers, replica healing, ordering, and journal cleanup out of screen code. Initially preserve the existing algorithm and disk formats behind a temporary compatibility facade. Do not simultaneously replace the protocol with a new generic command bus.
 
-Define outcomes that distinguish committed, already committed, conflict, rejected, recovery required, and deferred settlement. Preserve finer existing distinctions in the mapping. Replica health is separate: a permitted one-replica durable acceptance must not become a failure merely because the other replica failed. Conversely, “some bytes were written” must not automatically mean “the workflow completed.” Keep compensation diagnostics inside the module rather than asking every caller to combine booleans.
+Define outcomes that distinguish committed, already committed, conflict, rejected, recovery required, and deferred settlement. Preserve finer existing distinctions in the mapping. For a structural transition, `committed` requires both the localStorage and IndexedDB replicas to settle. A one-replica or partial write remains an explicit deferred, partial, or recovery result; it must not be reported as a committed replacement, recovery, or reassessment. Replica health is separate for operations that permit one-replica durable acceptance: the other replica's failure must not turn that permitted acceptance into a workflow failure. Conversely, “some bytes were written” must not automatically mean “the workflow completed.” Keep compensation diagnostics inside the module rather than asking every caller to combine booleans.
 
 **Dependency category:** local-substitutable, with browser-only integration obligations. The test substitute must exercise the same coordinator, not bypass WAL or locks because its object identity differs. Use explicit fault scheduling for local storage, asynchronous IndexedDB, journal failure, and lock contention. Keep real-browser cross-tab tests because an in-memory rig cannot establish browser lock, unload, or service-worker behavior.
 
 **Acceptance:** the existing race/recovery matrix passes; a rejected operation cannot appear committed after reload; a duplicate cannot mint another session/archive; a newer acknowledged draft survives stale work; UI observes one authoritative completion result; recovery uses the same protocol implementation as foreground writes.
 
-**Sequencing:** first create the characterization and ownership map. Do not start a competing extraction of the active persistence regions while #228/#235 are changing them. Extract from their accepted, integrated contract, with one writer responsible for the affected code at a time. Architectural priority is high; scheduling depends on that integration gate.
+**Sequencing:** first create the characterization and ownership map. Do no durable extraction work inside PR235. After PR235 receives owner approval and merges, normalize one outcome-oriented durable transaction result behind a compatible seam without changing partial-write truth. Then extract foreground commit, WAL, locks, replica settlement, DraftV2, and boot recovery from the accepted Plan 052 and Plan 053 contracts, with one writer responsible for the affected code at a time. Architectural priority is high; scheduling remains subordinate to `docs/backlog.md`, the current plan files, the steering sequence, and their owner and device gates.
 
 ### B. Make workout-session lifecycle an explicit module — **Strong**
 
@@ -110,7 +123,7 @@ Finish must own the capture-to-acknowledgement sequence and clear the completed 
 
 **Acceptance:** correcting/uncommitting preserves values; immediate Complete → Finish waits for acknowledged work; stale finish cannot clear a successor; total failure preserves recoverable input; leaving preserves the draft; a read-only preview writes nothing; summary and history describe the acknowledged session. Keep the existing Plan 055 capability-parity gate before deleting List.
 
-**Sequencing:** implement as bounded work within Plan 055, consuming Plan 051. Do not rebuild DraftV2, introduce a second session store, or make the entire storage extraction a new prerequisite for every Focus UI slice. Where necessary, use a temporary narrow delegate to the existing coordinator.
+**Sequencing:** if Plan 055 accepts this candidate, implement it as bounded work that consumes Plan 051 and follows Plan 055's gates. Do not rebuild DraftV2, introduce a second session store, or make the entire storage extraction a new prerequisite for every Focus UI slice. Where necessary, use a temporary narrow delegate to the existing coordinator.
 
 ### C. Own entry workflow and activation — **Strong**
 
@@ -126,13 +139,13 @@ Keep the pure state machine and compiler adapter. Deepen the imperative host aro
 
 Do not force every inbound format through one permissive “normalize everything” function. Program imports/shared setup produce executable candidates; full backup replacement restores a different aggregate; backup merge imports historical sessions; install transfer has its own approved clone scope. Raw free-form source/reply remains tab-scoped and is cleared at its specified exits. Display-name matching must never silently repoint established exercise identity.
 
-The existing `program-transition.js` work in #228 is the starting point for transition semantics, not a reason to create a parallel transition implementation. Its reviewed recovery-carrier and block-identity changes are not present in this main snapshot. Consume the accepted contract after integration; do not infer current merge readiness from historical PR-body blockers.
+The audited `77c6a011` snapshot predates `program-transition.js`. Current main at `e3c798855c6f25963543f4578a4288df741772fd` includes the accepted PR228 implementation and its reviewed recovery-carrier and block-identity changes. Use that implementation as the starting point for transition semantics, not a reason to create a parallel transition implementation. Consume the accepted contract; do not infer current merge readiness from historical PR-body blockers.
 
-**Dependency category:** pure candidate/state computation, browser-local draft storage, and an already-authorized owned remote seam only where Plan 053 requires it. No network adapter belongs in ordinary compilation or import parsing.
+**Dependency category:** pure candidate/state computation, browser-local draft storage, and the planned PR235/Plan 053 transfer seam only where its accepted contract requires it. No network adapter belongs in ordinary compilation or import parsing.
 
 **Acceptance:** cancellation is storage-silent for the active program; retry after activation/cleanup interruption does not create another successor; stale cross-tab confirmation fails clearly; user-reviewed identity and prescriptions survive activation; legacy supported import/share versions still decode; full backups and transfer do not lose their extra authorized fields.
 
-**Sequencing:** entry-host deepening belongs with Plan 054, transition integration with Plan 052, and installed-editor convergence with Plan 057. Do not merge those whole plans into one refactoring PR.
+**Sequencing:** these are candidate alignments, not authorization. Entry-host deepening remains under Plan 054's owner and device gates, transition integration remains under Plan 052's accepted contract, and installed-editor convergence remains under Plan 057. Do not start or merge Plan 054+ work from this document, and do not merge those whole plans into one refactoring PR.
 
 ### D. Give gestures one owner and an explicit lifetime — **Strong; safest first refactor**
 
@@ -150,7 +163,7 @@ Retain current gesture physics, hit regions, scroll arbitration, reduced-motion 
 
 **Acceptance:** mounting twice cannot cause duplicate navigation; disposal during a drag is safe; pointer cancellation returns to the correct card; Escape cancels without stray work; missing Motion still leaves a working app; no boot polling or cross-file listener removal remains. Use physical-device proof in the existing release gate for browser-sensitive behavior, not as an unsupported claim from Chromium alone.
 
-**Sequencing:** a bounded runtime PR coordinated with Plan 055; it can precede the persistence extraction without changing storage or product semantics.
+**Sequencing:** if an existing owner accepts this candidate, coordinate the bounded runtime PR with Plan 055 and its gates. It can precede the persistence extraction without changing storage or product semantics.
 
 ### E. Own historical evidence projections — **Worth exploring**
 
@@ -166,7 +179,7 @@ Extract one proven slice, such as lift/session history selection or summary fact
 
 **Acceptance:** identical historical snapshots produce identical results; renames do not change movement identity; archived and current sessions are not conflated; same-length corrections invalidate results; display formatting cannot alter engine inputs. Measure representative small and accumulated histories before claiming faster input or render performance.
 
-**Sequencing:** align with Plan 056 and the surfaces it actually changes. Defer a broad read-model subsystem until the first extraction proves reuse and meaningful improvement.
+**Sequencing:** if Plan 056 accepts this candidate, align it with the surfaces that plan actually changes and its gates. Defer a broad read-model subsystem until the first extraction proves reuse and meaningful improvement.
 
 ### F. Make release/cache ownership explicit — **Strong for checks; broader tooling conditional**
 
@@ -182,7 +195,7 @@ Test cold boot, cached offline boot, an older controlled client during upgrade, 
 
 **Acceptance:** a newly extracted required script cannot be omitted from offline coverage; optional PostHog configuration never becomes a required precache dependency; vendored immutability remains deliberate; old/new client and draft migration tests still pass; missing required code fails visibly rather than presenting successful boot.
 
-**Sequencing:** add these protections with the first script extraction. Do not turn release-tooling improvements into an independent pre-alpha platform project.
+**Sequencing:** if an existing plan accepts this candidate, add these protections with the first script extraction under that plan's gates. Do not turn release-tooling improvements into an independent pre-alpha platform project.
 
 ### G. Move tests to the interfaces they protect — **Strong; cross-cutting**
 
@@ -198,7 +211,7 @@ With the first event-producer extraction, update the telemetry scan to cover the
 
 **Acceptance:** internal refactoring does not require changing outcome assertions; privacy scanning covers every production event producer; initial CI failures remain authoritative even if diagnostic replay passes; no duplicate suite scheduler is introduced; deleted coverage has an explicit replacement.
 
-**Sequencing:** part of every extraction. Integrate or coordinate with #238 rather than building another runner. This audit makes no unmeasured CI speedup claim.
+**Sequencing:** treat this as a concern of each accepted extraction. Integrate or coordinate with #238 rather than building another runner. PR238 must merge into this branch before final review. This audit makes no unmeasured CI speedup claim.
 
 ### H. Align exercise vocabulary and presentation ownership — **Worth exploring**
 
@@ -212,7 +225,7 @@ Move a coherent operation with its vocabulary when demonstrated by actual consum
 
 **Acceptance:** picker/import/share identity fixtures remain unchanged; pure entry remains free of runtime dependencies; both locales/themes and the required enlarged-text variants preserve approved semantics and visual identity.
 
-**Sequencing:** search/identity work with Plans 054/057 when touched; CSS convergence with Plan 058. Broad token migration or List removal is not authorized by this refactoring candidate alone.
+**Sequencing:** these are candidate alignments only. Search and identity work remains with Plans 054/057 when those owners and gates permit it; CSS convergence remains with Plan 058. Broad token migration or List removal is not authorized by this refactoring candidate.
 
 ## 4. Target dependency direction
 
@@ -238,29 +251,31 @@ Workflow owners --------> One durable-state commit / recovery owner
                               (real browser / fault rig)
 
 Approved workflow outcomes --> Existing telemetry interface --> PostHog adapter
-Plan 053 only -------------> Existing scoped transfer client --> Owned transfer endpoint
+Planned PR235/Plan 053 --> Planned scoped transfer client --> Owned transfer endpoint
 ```
 
 Workflows may use the durable-state owner; renderers must not construct journals or inspect individual replicas. Pure domain modules must not import the application host, telemetry, or DOM. Boot creates the few required instances explicitly. Avoid an event bus, service locator, global dependency container, or one file for every helper. Keep the current root-level deployment conventions during the initial slices; a repository-wide path reorganization can wait.
 
-## 5. Execution plan and PR boundaries
+The transfer path is not in current main. PR235/Plan 053 owns the planned client and endpoint, and ADR 0013 keeps it to a one-hour, token-derived AEAD, EU Durable Object, transfer-cookie, exact-clone exception with no account or synchronization platform. It is not an existing adapter for this audit's durable-state owner.
 
-The following are **proposed implementation slices**, not newly allocated plan numbers or a second queue. Accepted slices belong under the existing plan owners in `docs/backlog.md` and `plans/README.md`. The order describes dependencies, not calendar estimates.
+## 5. Candidate slices and PR boundaries
 
-| Slice | Delta and existing owner | Prerequisite | Definition of done |
+The following are **non-binding candidate slices**, not a roadmap, newly allocated plan numbers, or a second queue. The R0–R9 labels only make later discussion precise; they do not impose an order or authorize a branch. `docs/backlog.md` is the repository's only ordered queue. Accepted work belongs under the existing plan owners, current plan files, and `docs/ui-overhaul-implementation-sequence.md`; owner, visual, staging, physical-device, and same-SHA gates remain required. The dependency notes are architectural observations, not calendar estimates or permission to start Plan 054+ work.
+
+| Candidate | Delta and existing owner | Prerequisite | Definition of done |
 |---|---|---|---|
 | R0 — Reconcile baseline | Diagnose the recorded persistence race; reconcile #236/#237 and #238 test-runner work. | Current main and current PR status re-read. | Deterministic explanation/fix or explicit unresolved release blocker; full authoritative CI evidence retained; no retry-to-green. |
 | R1 — Record ownership | Add a compact architecture map and scenario-to-owner matrix to existing docs. Define temporary facade and removal criteria. | R0 understanding, not a new design framework. | Every selected workflow has a production interface, real caller, test owner, preserved invariants, and exclusions. |
 | R2 — Own gesture lifetime | Replace polling/takeover with explicit mount/dispose; coordinate with Plan 055. | Established runtime baseline. | One listener owner; fallback/reduced-motion/cancellation tests; unchanged UI evidence where behavior is unchanged. |
 | R3 — Protect extraction seams | Extend release, telemetry and i18n source-scope checks; keep suite registration singular. | First affected runtime extraction. | Deliberately omitting a required script or adding an unreviewed producer fails the appropriate check. |
-| R4 — Extract durable protocol | Move foreground commit, boot recovery, journal, replica and draft-sidecar coordination as one owner; preserve old exports via temporary delegates. | Accepted integration contract from #228/#235; no concurrent edits to owned regions; adequate fault characterization. | Existing on-disk bytes/formats and fault outcomes are preserved; UI effects are outside the protocol; production/fault rig use the same coordinator. |
-| R5 — Hide caller protocol details | Route one workout finish and one program activation/replacement path through outcome-oriented interfaces; then migrate remaining callers incrementally. | R4 or a clearly bounded compatible delegate during active-plan work. | Callers no longer assemble receipts or interpret replica health as workflow status; crash/retry/duplicate cases survive. |
-| R6 — Own workout lifecycle | Move pending-work, acknowledgement, finish and recovery orchestration into the session module during Plan 055. | Plan 051; storage interface understood; R2 coordinated. | Renderer consumes projections; exact draft identity preserved; no duplicate store; parity precedes List deletion. |
-| R7 — Own entry/lifecycle host | Consolidate setup-draft lifetime and activation delegation under Plans 054/057; consume Plan 052 semantics and Plan 053 only where specified. | Accepted prerequisite contracts and prior-plan gates. | Reviewed candidate equals activated candidate; cleanup retry is idempotent; import/backup/transfer scopes remain distinct. |
-| R8 — Prove a shared projection | Extract one history/summary projection with two consumers, within Plan 056. | Stable snapshot inputs; measured baseline. | Same answers, explicit invalidation, demonstrated locality or performance benefit. Stop if it only adds delegation. |
-| R9 — Remove obsolete paths and converge | Delete temporary facade code when consumers are migrated; retire only proven-replaced tests; perform touched CSS ownership changes under Plan 058. | All affected callers and capability gates verified. | No dual authorities; current docs match implementation; Plan 059 same-SHA release evidence, including devices, remains required. |
+| R4 — Normalize, then extract durable protocol | After owner-approved PR235/Plan 053 merges, first normalize one outcome-oriented durable transaction result without changing partial-write truth. Then move foreground commit, boot recovery, journal, replica, and DraftV2-sidecar coordination as one owner; preserve old exports via temporary delegates. No work belongs inside PR235. | Accepted and integrated Plan 052 contract, owner-approved PR235/Plan 053, no concurrent edits to owned regions, and adequate fault characterization. | Existing on-disk bytes/formats and fault outcomes are preserved; structural `committed` requires both replicas; partial writes remain explicit deferred/partial/recovery outcomes; UI effects stay outside the protocol; production and fault rig use the same coordinator. |
+| R5 — Hide caller protocol details | Route one workout finish and one program activation/replacement path through outcome-oriented interfaces; then migrate remaining callers incrementally. | R4 or a clearly bounded compatible delegate during active-plan work. | Callers no longer assemble receipts or interpret replica health as workflow status; crash, retry, and duplicate cases survive. |
+| R6 — Own workout lifecycle | Candidate alignment with Plan 055: move pending-work, acknowledgement, finish, and recovery orchestration into the session module. | Plan 051; storage interface understood; R2 coordinated; Plan 055's existing gates. | Renderer consumes projections; exact draft identity is preserved; no duplicate store; parity precedes List deletion. |
+| R7 — Own entry/lifecycle host | Candidate alignment with Plans 054/057: consolidate setup-draft lifetime and activation delegation while consuming Plan 052 semantics and planned PR235/Plan 053 transfer scope only where specified. | Accepted prerequisite contracts, prior-plan gates, and Plan 054 owner/device gates. | Reviewed candidate equals activated candidate; cleanup retry is idempotent; import, backup, and transfer scopes remain distinct. |
+| R8 — Prove a shared projection | Candidate alignment with Plan 056: extract one history/summary projection with two consumers. | Stable snapshot inputs, measured baseline, and Plan 056's gates. | Same answers, explicit invalidation, demonstrated locality or performance benefit. Stop if it only adds delegation. |
+| R9 — Remove obsolete paths and converge | Candidate cleanup after affected callers and capability gates are complete; delete temporary facade code, retire only proven-replaced tests, and perform touched CSS ownership changes under Plan 058. | All affected callers and capability gates verified. | No dual authorities; current docs match implementation; Plan 059 same-SHA release evidence, including devices, remains required. |
 
-R2 and narrowly scoped R3 work can proceed without waiting for the full storage extraction. R4 and R5 must be serial with ongoing storage/provenance edits. Do not make all conditional candidates prerequisites for launch. Every accepted slice should reduce risk or effort in an already approved workflow.
+These candidate notes do not schedule work. If an existing plan accepts one, its owner controls the slice and its gates. R2 and narrowly scoped R3 work may be useful without the full storage extraction, but no slice may bypass `docs/backlog.md`, current-plan dependencies, PR235 owner approval, Plan 054+ owner/device gates, or Plan 059's same-SHA evidence. R4 and R5 must be serial with ongoing storage/provenance edits. Do not make conditional candidates prerequisites for launch. Every accepted slice must reduce risk or effort in an already approved workflow.
 
 ### Standard contents of an implementation PR
 
@@ -273,7 +288,7 @@ A PR whose only outcome is fewer lines in `app.js`, more files, or extra layers 
 | Risk | Required proof | Test surface |
 |---|---|---|
 | Draft mutation and finish ordering | Pending correction, refresh failure, exact revision capture, duplicate finish, successor protection. | Workout-session interface plus existing DraftV2/browser tests. |
-| Partial writes and compensation | Both-success, local-only, IDB-only, both-fail; rollback that succeeds on the opposite replica; deferred cleanup. | Same durable coordinator with fault rig, followed by real reload proof. |
+| Partial writes and compensation | Both-success, local-only, IDB-only, both-fail; classify each result without flattening it into `committed`; rollback that succeeds on the opposite replica; deferred cleanup. | Same durable coordinator with fault rig, followed by real reload proof. |
 | Cross-tab/unload | Journal before lock wait; unload before/after commit; fresh head under lock; newer canonical/checkpoint/sidecar. | Existing browser race and adversarial suites. |
 | Program activation | Immutable reviewed candidate, stale revision, retry after committed receipt, archive exactly once, transition provenance. | Entry/lifecycle interface and Plan 052 integration suites. |
 | Compatibility | Supported setup versions; legacy draft writer and newer checkpoint; raw recovery fidelity; export field scopes. | Existing codec, backup, storage and SW-upgrade fixtures. |
@@ -311,7 +326,7 @@ The result should be a codebase where “change workout completion” leads to o
 
 ## 9. Source register
 
-All main-source references below are pinned to the audited commit. PR links are live work references; re-read their current accepted state before execution. References support the observations; proposed interfaces and sequencing are the audit's recommendations.
+S1–S19 are historical references pinned to the `77c6a011` audit snapshot. The current-main reconciliation uses the exact `e3c798855c6f25963543f4578a4288df741772fd` sources in S20. PR links are live work references; re-read their current accepted state before execution. References support the observations; proposed interfaces and candidate sequencing remain subordinate to the canonical backlog, current plan owners, and their gates.
 
 - **S1:** [AGENTS.md](https://github.com/pedrochagasmaster/repforge/blob/77c6a011e1bba5121ebd2ee15db85d77275c6ee5/AGENTS.md), [CONTEXT.md](https://github.com/pedrochagasmaster/repforge/blob/77c6a011e1bba5121ebd2ee15db85d77275c6ee5/CONTEXT.md).
 - **S2:** [Canonical backlog](https://github.com/pedrochagasmaster/repforge/blob/77c6a011e1bba5121ebd2ee15db85d77275c6ee5/docs/backlog.md), [ADR 0010](https://github.com/pedrochagasmaster/repforge/blob/77c6a011e1bba5121ebd2ee15db85d77275c6ee5/docs/adr/0010-product-business-thesis-and-validation-sequencing.md).
@@ -332,4 +347,5 @@ All main-source references below are pinned to the audited commit. PR links are 
 - **S17:** [ADR 0013](https://github.com/pedrochagasmaster/repforge/blob/77c6a011e1bba5121ebd2ee15db85d77275c6ee5/docs/adr/0013-temporary-install-transfer.md), [PR #235](https://github.com/pedrochagasmaster/repforge/pull/235), changed-file inventory and selected transport diff; [PR #228](https://github.com/pedrochagasmaster/repforge/pull/228), changed-file inventory and selected entry/recovery-policy diffs.
 - **S18:** [Baseline CI run](https://github.com/pedrochagasmaster/repforge/actions/runs/34310771684), [state-job log](https://github.com/pedrochagasmaster/repforge/actions/runs/34310771684/job/102336801212), [source artifact provenance](https://github.com/pedrochagasmaster/repforge/actions/runs/34310771572).
 - **S19:** [Plan 058](https://github.com/pedrochagasmaster/repforge/blob/77c6a011e1bba5121ebd2ee15db85d77275c6ee5/plans/058-design-system-convergence.md), [motion-polish stylesheet](https://github.com/pedrochagasmaster/repforge/blob/77c6a011e1bba5121ebd2ee15db85d77275c6ee5/motion-polish.css).
+- **S20:** [Current main after PR228](https://github.com/pedrochagasmaster/repforge/tree/e3c798855c6f25963543f4578a4288df741772fd), [current backlog](https://github.com/pedrochagasmaster/repforge/blob/e3c798855c6f25963543f4578a4288df741772fd/docs/backlog.md), [current plan index](https://github.com/pedrochagasmaster/repforge/blob/e3c798855c6f25963543f4578a4288df741772fd/plans/README.md), [Plan 052 transition contract](https://github.com/pedrochagasmaster/repforge/blob/e3c798855c6f25963543f4578a4288df741772fd/docs/block-transition-provenance.md), [current CI inventory](https://github.com/pedrochagasmaster/repforge/blob/e3c798855c6f25963543f4578a4288df741772fd/docs/ci.md), [overhaul steering sequence](https://github.com/pedrochagasmaster/repforge/blob/e3c798855c6f25963543f4578a4288df741772fd/docs/ui-overhaul-implementation-sequence.md), [Plan 053 status](https://github.com/pedrochagasmaster/repforge/blob/e3c798855c6f25963543f4578a4288df741772fd/plans/053-ios-install-transfer-foundation.md), and [ADR 0013](https://github.com/pedrochagasmaster/repforge/blob/e3c798855c6f25963543f4578a4288df741772fd/docs/adr/0013-temporary-install-transfer.md).
 - **Method:** [Requested architecture skill](https://github.com/mattpocock/skills/blob/main/skills/engineering/improve-codebase-architecture/SKILL.md), [codebase-design vocabulary](https://github.com/mattpocock/skills/blob/main/skills/engineering/codebase-design/SKILL.md), [deepening/testing guidance](https://github.com/mattpocock/skills/blob/main/skills/engineering/codebase-design/DEEPENING.md), [visual-report format](https://github.com/mattpocock/skills/blob/main/skills/engineering/improve-codebase-architecture/HTML-REPORT.md). These informed the analysis; the recommendations are specific to the inspected Taurifer code.
