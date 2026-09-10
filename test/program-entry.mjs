@@ -33,6 +33,45 @@ const VERSIONS = {
   progression: "range-1",
 };
 
+// These are copied from the entry contract as independent oracle constants.
+// The tests below deliberately do not read Entry.MAX_* so a product-bound
+// regression cannot silently rewrite its own expected boundary.
+const ENTRY_NODE_LIMIT = 2048;
+const ENTRY_DEPTH_LIMIT = 12;
+const ENTRY_DRAFT_BYTES = 65536;
+const ENTRY_DRAFT_ENVELOPE_BYTES = 66560;
+
+function countJsonNodes(value) {
+  if (value === null || typeof value !== "object") return 1;
+  return 1 + Object.values(value).reduce((total, child) => total + countJsonNodes(child), 0);
+}
+
+function draftAtNodeCount(target) {
+  const draft = fresh();
+  draft.legacyHints = {};
+  let index = 0;
+  while (countJsonNodes(draft) < target) draft.legacyHints[`padding_${index++}`] = null;
+  assert.equal(countJsonNodes(draft), target);
+  return draft;
+}
+
+function draftAtDepth(target) {
+  const draft = fresh();
+  let nested = null;
+  // The root is depth zero and the terminal null is visited as a node too;
+  // target therefore needs target - 1 nested objects below legacyHints.
+  for (let index = 1; index < target; index++) nested = { next: nested };
+  draft.legacyHints = nested;
+  return draft;
+}
+
+function rawAtUtf8Bytes(value, target) {
+  const raw = JSON.stringify(value);
+  const bytes = Buffer.byteLength(raw, "utf8");
+  assert.ok(bytes <= target, `fixture must fit the requested byte boundary (${bytes} <= ${target})`);
+  return raw + " ".repeat(target - bytes);
+}
+
 function fresh() {
   return Entry.createState({
     draftId: "00000000-0000-4000-8000-000000000048",
@@ -317,6 +356,54 @@ test("draft schema rejects corrupt, oversized, deep, unknown, and polluted input
     assert.equal(result.code, "invalid-setup-draft");
   }
   assert.equal({}.polluted, undefined);
+});
+
+test("entry draft node and depth limits accept exact bounds and reject only above them", () => {
+  const nodeBelow = Entry.normalizeSetupDraft(draftAtNodeCount(ENTRY_NODE_LIMIT - 1));
+  const nodeExact = Entry.normalizeSetupDraft(draftAtNodeCount(ENTRY_NODE_LIMIT));
+  const nodeAbove = Entry.normalizeSetupDraft(draftAtNodeCount(ENTRY_NODE_LIMIT + 1));
+  assert.equal(nodeBelow.ok, true, nodeBelow.issues?.join(","));
+  assert.equal(nodeExact.ok, true, nodeExact.issues?.join(","));
+  assert.equal(nodeAbove.ok, false);
+  assert.ok(nodeAbove.issues.includes("too_many_nodes"), nodeAbove.issues?.join(","));
+
+  const depthBelow = Entry.normalizeSetupDraft(draftAtDepth(ENTRY_DEPTH_LIMIT - 1));
+  const depthExact = Entry.normalizeSetupDraft(draftAtDepth(ENTRY_DEPTH_LIMIT));
+  const depthAbove = Entry.normalizeSetupDraft(draftAtDepth(ENTRY_DEPTH_LIMIT + 1));
+  assert.equal(depthBelow.ok, true, depthBelow.issues?.join(","));
+  assert.equal(depthExact.ok, true, depthExact.issues?.join(","));
+  assert.equal(depthAbove.ok, false);
+  assert.ok(depthAbove.issues.includes("too_deep"), depthAbove.issues?.join(","));
+});
+
+test("entry draft UTF-8 byte and envelope bounds accept exact bytes and reject only above them", () => {
+  const utf8Draft = { ...fresh(), legacyHints: { marker: "🧪" } };
+  const exactDraftRaw = rawAtUtf8Bytes(utf8Draft, ENTRY_DRAFT_BYTES);
+  assert.notEqual(exactDraftRaw.length, Buffer.byteLength(exactDraftRaw, "utf8"));
+  const belowDraft = Entry.normalizeSetupDraft(exactDraftRaw.slice(0, -1));
+  const exactDraft = Entry.normalizeSetupDraft(exactDraftRaw);
+  const aboveDraft = Entry.normalizeSetupDraft(`${exactDraftRaw} `);
+  assert.equal(belowDraft.ok, true, belowDraft.issues?.join(","));
+  assert.equal(exactDraft.ok, true, exactDraft.issues?.join(","));
+  assert.equal(aboveDraft.ok, false);
+  assert.ok(aboveDraft.issues.includes("too_large"), aboveDraft.issues?.join(","));
+
+  const state = fresh();
+  const envelope = {
+    schemaVersion: 1,
+    draftId: state.draftId,
+    revision: 0,
+    ownerId: "tab-a",
+    state,
+  };
+  const exactEnvelopeRaw = rawAtUtf8Bytes(envelope, ENTRY_DRAFT_ENVELOPE_BYTES);
+  const belowEnvelope = Entry.normalizeSetupDraftEnvelope(exactEnvelopeRaw.slice(0, -1));
+  const exactEnvelope = Entry.normalizeSetupDraftEnvelope(exactEnvelopeRaw);
+  const aboveEnvelope = Entry.normalizeSetupDraftEnvelope(`${exactEnvelopeRaw} `);
+  assert.equal(belowEnvelope.ok, true, belowEnvelope.issues?.join(","));
+  assert.equal(exactEnvelope.ok, true, exactEnvelope.issues?.join(","));
+  assert.equal(aboveEnvelope.ok, false);
+  assert.ok(aboveEnvelope.issues.includes("too_large"), aboveEnvelope.issues?.join(","));
 });
 
 test("hostile answer patches fail without mutating state or prototypes", () => {

@@ -85,6 +85,15 @@ const EVIDENCE = {
   checkpointAnswer: "Yes",
 };
 
+const R7_PROGRESSION_MODIFIER = {
+  id: "pending-modifier",
+  version: 1,
+  compatibleStrategies: ["range@1"],
+  weekNumber: 1,
+  target: "repMin",
+  params: { pending: true },
+};
+
 let passed = 0;
 const failures = [];
 
@@ -137,6 +146,22 @@ function hasForbiddenKey(value, keys = PRIVATE_KEYS) {
   return Object.entries(value).some(([key, child]) => keys.has(key) || hasForbiddenKey(child, keys));
 }
 
+function expectedSharedTransport(state, rows) {
+  const meta = state?.programMeta || {};
+  return {
+    rows,
+    programStructure: clone(meta.programStructure),
+    provenance: clone(meta.programStructure?.provenance),
+    progressionRelations: clone(meta.progressionRelations || []).map((relation) => ({
+      ...relation,
+      movementId: typeof relation?.movementId === "string"
+        ? relation.movementId.replace(/^library:/, "")
+        : relation?.movementId,
+    })),
+    progressionModifiers: [clone(R7_PROGRESSION_MODIFIER)],
+  };
+}
+
 function hashUtf8(raw) {
   return createHash("sha256").update(raw, "utf8").digest("hex");
 }
@@ -179,7 +204,7 @@ async function flush(page) {
 }
 
 async function activateProductionPredecessor(page) {
-  return page.evaluate(async () => {
+  return page.evaluate(async (modifier) => {
     const adapter = window.RepForgeProgramEntryAdapter;
     const compiler = window.RepForgeProgramCompiler;
     if (!adapter || !compiler || typeof window.__repforgeFinalizeProgramSetup !== "function") {
@@ -212,7 +237,7 @@ async function activateProductionPredecessor(page) {
     const baseProposal = window.__repforgeWorkoutDraft.state();
     baseProposal.programMeta = baseProposal.programMeta || {};
     baseProposal.programMeta.progressionRelations = structuredClone(compiled.preview.progressionRelations || []);
-    baseProposal.programMeta.progressionModifiers = [];
+    baseProposal.programMeta.progressionModifiers = [structuredClone(modifier)];
     baseProposal.programMeta.progressionIncompatibilities = [];
     baseProposal.programMeta.programStructure = structuredClone(compiled.preview.programStructure);
     baseProposal.programMeta.compilerContext = structuredClone(compiled.compilerContext);
@@ -231,8 +256,17 @@ async function activateProductionPredecessor(page) {
       baseProposal,
     });
     await window.__repforgeStorage.flush();
-    return { ok: !!(finalized?.localOk || finalized?.idbOk), finalized };
-  });
+    return {
+      ok: !!(finalized?.localOk || finalized?.idbOk),
+      finalized,
+      compilerFixture: {
+        rows: compiled.preview.program.length,
+        programStructure: compiled.preview.programStructure,
+        progressionRelations: compiled.preview.progressionRelations || [],
+        compilerContext: compiled.compilerContext,
+      },
+    };
+  }, R7_PROGRESSION_MODIFIER);
 }
 
 async function commitReplacement(page) {
@@ -264,7 +298,12 @@ async function commitReplacement(page) {
       acknowledgedDraftRaw: null,
     });
     await window.__repforgeStorage.flush();
-    return { ok: !!(confirmed?.committed && (confirmed.localOk || confirmed.idbOk)), proposal, confirmed };
+    return {
+      ok: !!(confirmed?.committed && (confirmed.localOk || confirmed.idbOk)),
+      proposal,
+      confirmed,
+      successorRows: proposalResult.successorInstance?.program?.length ?? null,
+    };
   });
 }
 
@@ -514,7 +553,7 @@ function privateProgramTransportDocument(programJson) {
   return candidate;
 }
 
-async function runProgramFileDoor(browser, base, programJson, expectedProvenance) {
+async function runProgramFileDoor(browser, base, programJson, expectedSafe) {
   const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
   const privateDocument = privateProgramTransportDocument(programJson);
@@ -536,17 +575,34 @@ async function runProgramFileDoor(browser, base, programJson, expectedProvenance
       "program file crosses the receive and review boundary in a fresh context");
     await settleImportRows(page);
     await page.locator("#importCommit").click();
-    await page.locator("#entryActivate").waitFor({ state: "visible" });
     const staged = await readReplicas(page);
     const setupDraft = await page.evaluate(() => localStorage.getItem("repforge_program_setup_draft_v1") || "");
     check(staged.localRaw === before.localRaw && sameValue(staged.idb, before.idb) &&
       !setupDraft.includes("r7-private-program-file"),
     "program file review stages without mutating durable state or persisting private fields");
-    await page.locator("#entryActivate").click();
+    const activation = page.locator("#entryActivate");
+    const activationAvailable = await activation.waitFor({ state: "visible", timeout: 10000 })
+      .then(() => true).catch(() => false);
+    if (!activationAvailable) {
+      const diagnostic = await page.evaluate(() => ({
+        firstRunClass: document.querySelector("#firstRun")?.className || null,
+        onboardingClass: document.querySelector("#onboarding")?.className || null,
+        entryStep: window.__repforgeOnboarding?.entry?.()?.step || null,
+        setupDraft: !!localStorage.getItem("repforge_program_setup_draft_v1"),
+        body: document.querySelector("#onbBody")?.innerText?.slice(0, 240) || null,
+      }));
+      check(false, "program file candidate reaches the activation boundary after receive/review", diagnostic);
+      return;
+    }
+    await activation.click();
     await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), undefined, { timeout: 15000 });
     const after = await readReplicas(page);
-    check(after.local?.programMeta?.programStructure?.provenance?.blueprintId === expectedProvenance?.blueprintId,
+    check(after.local?.programMeta?.programStructure?.provenance?.blueprintId === expectedSafe?.provenance?.blueprintId,
       "program file activation retains safe compiler provenance", after.local?.programMeta?.programStructure?.provenance);
+    check(sameValue(after.local?.programMeta?.programStructure, expectedSafe?.programStructure),
+      "program file activation retains the exact safe compiler structure", after.local?.programMeta?.programStructure);
+    check(sameValue(after.local?.programMeta?.progressionModifiers, expectedSafe?.progressionModifiers),
+      "program file activation retains the nonempty compiler progression modifier", after.local?.programMeta?.progressionModifiers);
     check(sameValue(after.local, after.idb) && after.local?.program?.length > 0 &&
       Array.isArray(after.local?.log) && after.local.log.length === 0 &&
       Array.isArray(after.local?.programHistory) && after.local.programHistory.length === 0 &&
@@ -559,9 +615,9 @@ async function runProgramFileDoor(browser, base, programJson, expectedProvenance
   }
 }
 
-async function createSharedSetupLink(page) {
+async function createSharedSetupLink(page, base = BASE) {
   await page.reload({ waitUntil: "domcontentloaded" });
-  await waitForAppBoot(page, { base: BASE });
+  await waitForAppBoot(page, { base });
   await page.locator('nav button[data-view="program"]').click();
   await page.locator("#shareProgramSetup").click();
   await page.waitForFunction(() => {
@@ -576,7 +632,7 @@ async function createSharedSetupLink(page) {
   return fragment;
 }
 
-async function runSharedSetupDoor(browser, base, fragment, expectedProvenance) {
+async function runSharedSetupDoor(browser, base, fragment, expectedProvenance, expectedSafe = {}) {
   const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
   try {
@@ -585,12 +641,10 @@ async function runSharedSetupDoor(browser, base, fragment, expectedProvenance) {
     await page.locator("#firstRunSharedStart").waitFor({ state: "visible" });
     const before = await readReplicas(page);
     await page.locator("#firstRunSharedStart").click();
-    const stagedBoundary = await page.waitForFunction(
-      () => !!document.querySelector("#entryActivate") || window.__repforgeOnboarding?.entry?.()?.step === "preview",
-      undefined,
-      { timeout: 10000 },
-    ).then(() => true).catch(() => false);
-    if (!stagedBoundary || !(await page.locator("#entryActivate").count())) {
+    const activation = page.locator("#entryActivate");
+    const activationAvailable = await activation.waitFor({ state: "visible", timeout: 10000 })
+      .then(() => true).catch(() => false);
+    if (!activationAvailable) {
       const diagnostic = await page.evaluate(() => ({
         firstRunClass: document.querySelector("#firstRun")?.className || null,
         onboardingClass: document.querySelector("#onboarding")?.className || null,
@@ -601,22 +655,54 @@ async function runSharedSetupDoor(browser, base, fragment, expectedProvenance) {
       check(false, "shared setup candidate reaches the activation boundary after receive/stage", diagnostic);
       return;
     }
-    await page.locator("#entryActivate").waitFor({ state: "visible" });
     const staged = await readReplicas(page);
     const setupDraft = await page.evaluate(() => localStorage.getItem("repforge_program_setup_draft_v1") || "");
     check(staged.localRaw === before.localRaw && sameValue(staged.idb, before.idb) && setupDraft.length > 0,
       "shared setup crosses receive/stage without mutating durable state");
-    await page.locator("#entryActivate").click();
+    const preview = await page.evaluate(() => window.__repforgeOnboarding?.entry?.()?.result?.preview || null);
+    check(preview?.program?.length === expectedSafe?.rows,
+      "shared setup preview retains the full compiler row count", preview?.program?.length);
+    check(sameValue(preview?.programStructure, expectedSafe?.programStructure),
+      "shared setup preview retains the exact safe compiler structure", preview?.programStructure);
+    check(sameValue(preview?.progressionModifiers, expectedSafe?.progressionModifiers),
+      "shared setup preview retains the nonempty compiler progression modifier", preview?.progressionModifiers);
+    await activation.click();
     await page.waitForFunction(() => !document.querySelector("#onboarding")?.classList.contains("active"), undefined, { timeout: 15000 });
     const after = await readReplicas(page);
     check(after.local?.programMeta?.programStructure?.provenance?.blueprintId === expectedProvenance?.blueprintId,
       "shared setup activation retains safe compiler provenance", after.local?.programMeta?.programStructure?.provenance);
+    check(sameValue(after.local?.programMeta?.programStructure, expectedSafe?.programStructure),
+      "shared setup activation retains the exact safe compiler structure", after.local?.programMeta?.programStructure);
+    check(sameValue(after.local?.programMeta?.progressionModifiers, expectedSafe?.progressionModifiers),
+      "shared setup activation retains the nonempty compiler progression modifier", after.local?.programMeta?.progressionModifiers);
     check(sameValue(after.local, after.idb) && after.local?.program?.length > 0 &&
       Array.isArray(after.local?.log) && after.local.log.length === 0 &&
       Array.isArray(after.local?.programHistory) && after.local.programHistory.length === 0 &&
       !Object.prototype.hasOwnProperty.call(after.local || {}, "recoveryTransitions") &&
       !after.local?.programMeta?.transitionIn,
     "shared setup activation contains no history, recovery carrier, or transition evidence");
+  } finally {
+    await context.close();
+  }
+}
+
+async function runFullCompilerSharedDoor(browser, base, sourceState, expectedSafe) {
+  const context = await browser.newContext({ serviceWorkers: "block", viewport: { width: 390, height: 844 } });
+  const page = await context.newPage();
+  page.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
+  try {
+    await page.goto(base, { waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base });
+    await writeReplicas(page, sourceState);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base });
+    const seeded = await readReplicas(page);
+    must(seeded.local && sameValue(seeded.local, seeded.idb),
+      "full compiler shared fixture is mirrored before the send door");
+    check(seeded.local.program?.length === expectedSafe.rows,
+      "full compiler shared fixture has the independent 16-row producer shape", seeded.local.program?.length);
+    const fragment = await createSharedSetupLink(page, base);
+    await runSharedSetupDoor(browser, base, fragment, expectedSafe.provenance, expectedSafe);
   } finally {
     await context.close();
   }
@@ -905,8 +991,18 @@ async function main() {
     must(activation.ok, "production predecessor activation succeeds", activation);
     await sourcePage.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(sourcePage, { base: BASE });
+    const predecessor = await readReplicas(sourcePage);
+    must(predecessor.local && sameValue(predecessor.local, predecessor.idb),
+      "real compiler predecessor is mirrored before the 15-row transition");
+    check(predecessor.local.program?.length === 16,
+      "real compiler predecessor has the independent 16-row max-ish shape", predecessor.local.program?.length);
+    check(sameValue(predecessor.local.programMeta?.progressionModifiers, [R7_PROGRESSION_MODIFIER]),
+      "real compiler predecessor carries the nonempty progression modifier", predecessor.local.programMeta?.progressionModifiers);
+    const predecessorExpected = expectedSharedTransport(predecessor.local, 16);
     const replacement = await commitReplacement(sourcePage);
     must(replacement.ok, "production replacement commit succeeds", replacement);
+    check(replacement.successorRows === 15,
+      "production sibling transition produces the exact 15-row successor", replacement.successorRows);
     await sourcePage.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(sourcePage, { base: BASE });
     const recovery = await commitRecovery(sourcePage);
@@ -918,6 +1014,12 @@ async function main() {
     const source = await readReplicas(sourcePage);
     const sourceState = source.local;
     must(sourceState && sameValue(source.local, source.idb), "source production state is mirrored before R7 boundary tests");
+    check(sourceState.program?.length === 15,
+      "real transition/recovery producer leaves the exact 15-row successor", sourceState.program?.length);
+    check(sameValue(sourceState.programMeta?.progressionModifiers, [R7_PROGRESSION_MODIFIER]),
+      "real transition/recovery producer retains the nonempty progression modifier",
+      sourceState.programMeta?.progressionModifiers);
+    const finalExpected = expectedSharedTransport(sourceState, 15);
 
     console.log("\n1. Full backup retains replacement and recovery provenance");
     check(sourceState.programMeta?.transitionIn?.transitionId === replacement.proposal.transitionId,
@@ -979,22 +1081,34 @@ async function main() {
 
       console.log("\n2. Program/setup/free-form transport doors exclude private recovery evidence");
       const programJson = await exportProgramJson(sourcePage);
-      check(!hasForbiddenKey(programJson) && !Object.prototype.hasOwnProperty.call(programJson, "programHistory") &&
+    check(!hasForbiddenKey(programJson) && !Object.prototype.hasOwnProperty.call(programJson, "programHistory") &&
         !Object.prototype.hasOwnProperty.call(programJson, "log") &&
         programJson.meta?.programStructure?.provenance?.blueprintId ===
           afterExport.local.programMeta?.programStructure?.provenance?.blueprintId,
-      "program JSON excludes recovery/history/block transition fields while retaining safe compiler structure provenance", programJson);
-      const shared = await readSharedSetupPayload(sourcePage);
-      must(shared.ok, "shared setup encode/decode public seams are available", shared);
-      check(!hasForbiddenKey(shared.payload) && !hasForbiddenKey(shared.decoded.value) &&
+    "program JSON excludes recovery/history/block transition fields while retaining safe compiler structure provenance", programJson);
+    check(sameValue(programJson.meta?.programStructure, finalExpected.programStructure) &&
+      sameValue(programJson.meta?.progressionModifiers, finalExpected.progressionModifiers),
+    "program JSON carries the exact safe compiler structure and nonempty modifier", programJson.meta);
+    const shared = await readSharedSetupPayload(sourcePage);
+    must(shared.ok, "shared setup encode/decode public seams are available", shared);
+    check(!hasForbiddenKey(shared.payload) && !hasForbiddenKey(shared.decoded.value) &&
         shared.payload.program?.meta?.programStructure?.provenance?.blueprintId ===
           afterExport.local.programMeta?.programStructure?.provenance?.blueprintId,
-      "shared setup excludes private recovery/history evidence while retaining safe active compiler provenance", shared.payload);
-      await runProgramFileDoor(browser, BASE, programJson, afterExport.local.programMeta?.programStructure?.provenance);
+    "shared setup excludes private recovery/history evidence while retaining safe active compiler provenance", shared.payload);
+    check(shared.encoded.value.startsWith("v3.") &&
+      shared.payload.program?.exercises?.length === finalExpected.rows &&
+      sameValue(shared.payload.program?.meta?.programStructure, finalExpected.programStructure) &&
+      sameValue(shared.payload.program?.meta?.progressionRelations, finalExpected.progressionRelations) &&
+      sameValue(shared.payload.program?.meta?.progressionModifiers, finalExpected.progressionModifiers) &&
+      sameValue(shared.decoded.value?.program?.meta?.programStructure, finalExpected.programStructure) &&
+      sameValue(shared.decoded.value?.program?.meta?.progressionModifiers, finalExpected.progressionModifiers),
+    "shared v3 payload round-trips the exact bounded structure, relations, rows, and nonempty modifier", shared.payload);
+    await runProgramFileDoor(browser, BASE, programJson, finalExpected);
+    await runFullCompilerSharedDoor(browser, BASE, predecessor.local, predecessorExpected);
       await sourcePage.reload({ waitUntil: "domcontentloaded" });
       await waitForAppBoot(sourcePage, { base: BASE });
       const sharedFragment = await createSharedSetupLink(sourcePage);
-      await runSharedSetupDoor(browser, BASE, sharedFragment, afterExport.local.programMeta?.programStructure?.provenance);
+      await runSharedSetupDoor(browser, BASE, sharedFragment, finalExpected.provenance, finalExpected);
       await checkFreeformBoundary(sourcePage, afterExport);
     } finally {
       await targetContext.close();
