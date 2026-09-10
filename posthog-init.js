@@ -1,11 +1,12 @@
 (function (root, factory) {
   const api = factory();
   if (typeof module === "object" && module.exports) module.exports = api;
-  if (root && root.document) api.start(root);
+  if (root && root.document) root.RepForgePostHog = api;
 })(typeof globalThis !== "undefined" ? globalThis : this, function () {
   "use strict";
 
   const SDK_VERSION = "1.400.0";
+  const runtimeByBrowser = new WeakMap();
 
   function createAdapter(posthog) {
     return Object.freeze({
@@ -107,33 +108,61 @@
   }
 
   function start(browser) {
-    const config = browser.__POSTHOG_CONFIG__;
+    if (!browser || (typeof browser !== "object" && typeof browser !== "function")) return false;
+    const config = browser.__POSTHOG_CONFIG__ || {};
     const telemetry = browser.RepForgeTelemetry;
+    if (!telemetry || typeof telemetry.boot !== "function") return false;
     const token = config?.projectToken;
     const host = config?.host;
-    if (!telemetry || !token || !host || config.sdkVersion !== SDK_VERSION) return false;
-    const status = telemetry.boot({
-      appVersion: config.appVersion,
+    let status;
+    try {
+      status = telemetry.boot({
+      appVersion: config.appVersion || "dev",
       crypto: browser.crypto,
       location: browser.location,
       navigator: browser.navigator,
-      projectToken: token,
-      releaseChannel: config.releaseChannel,
+      ...(typeof token === "string" ? { projectToken: token } : {}),
+      releaseChannel: config.releaseChannel || "preview",
       storage: browser.localStorage,
-    });
-    if (!status.installationId) return false;
-    const script = browser.document.createElement("script");
-    script.async = true;
-    script.crossOrigin = "anonymous";
-    script.src = `${host}/static/${SDK_VERSION}/array.js`;
-    script.onload = function () {
+      });
+    } catch { return false; }
+    if (!status?.installationId) return false;
+    // The core identity exists even in an unconfigured development build. SDK
+    // validation and loading are optional after that durable boot succeeds.
+    if (!token || !host || config.sdkVersion !== SDK_VERSION) return true;
+    const current = runtimeByBrowser.get(browser);
+    if (current?.state === "loading") return true;
+    if (current?.state === "loaded") {
       try {
-        const posthog = browser.posthog;
-        posthog.init(token, createConfig({ ...status, host, token }));
-        telemetry.boot({ adapter: createAdapter(posthog) });
+        if (browser.posthog) telemetry.boot({ adapter: createAdapter(browser.posthog) });
       } catch {}
-    };
-    browser.document.head.appendChild(script);
+      return true;
+    }
+    const document = browser.document;
+    if (!document?.createElement || !document.head?.appendChild) return true;
+    let script;
+    try {
+      script = document.createElement("script");
+      script.async = true;
+      script.crossOrigin = "anonymous";
+      script.src = `${host}/static/${SDK_VERSION}/array.js`;
+      runtimeByBrowser.set(browser, { state: "loading" });
+      script.onload = function () {
+        try {
+          const posthog = browser.posthog;
+          if (!posthog?.init) throw new Error("posthog-sdk-unavailable");
+          posthog.init(token, createConfig({ ...status, host, token }));
+          telemetry.boot({ adapter: createAdapter(posthog) });
+          runtimeByBrowser.set(browser, { state: "loaded" });
+        } catch {
+          runtimeByBrowser.set(browser, { state: "failed" });
+        }
+      };
+      script.onerror = function () { runtimeByBrowser.set(browser, { state: "failed" }); };
+      document.head.appendChild(script);
+    } catch {
+      runtimeByBrowser.set(browser, { state: "failed" });
+    }
     return true;
   }
 

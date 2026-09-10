@@ -837,11 +837,13 @@ const DraftStore={
       return{status:"valid",raw,value}}
     catch(error){return{status:"read-failed",raw:null,error}}},
   writeV2Checkpoint(value){
+    if(installTransferMutationFrozen())return false;
     try{localStorage.setItem(DRAFT_V2_CHECKPOINT,JSON.stringify(value));return true}
     catch{return false}},
   v2Tombstone(draft,operationId){return{version:1,kind:"tombstone",draftId:draft.draftId,
     revision:draft.revision,operationId,programFingerprint:draft.program.programFingerprint}},
   async compareAndSwapV2({expectedRaw,expectedDraftId,expectedRevision,nextRaw,operationId}){
+    if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
     if(!navigator.locks?.request)return{status:"lock-unavailable"};
     if(typeof nextRaw!=="string"||nextRaw.length>PENDING_EFFECT_MAX_RAW)
       return{status:"invalid-next"};
@@ -850,7 +852,8 @@ const DraftStore={
     // before waiting for the shared lock. Preserve a newer workout command in
     // that transaction's ordered sidecar so its lock-held preflight sees the
     // conflict and the workout survives when the transaction closes.
-    const stageFor=target=>{const currentRaw=this.readRaw(),current=WorkoutDraft?.parse(currentRaw);
+    const stageFor=target=>{if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
+      const currentRaw=this.readRaw(),current=WorkoutDraft?.parse(currentRaw);
       if(expectedRaw!==undefined?currentRaw!==expectedRaw:
         current?.kind!=="valid"||current.draft.draftId!==expectedDraftId||current.draft.revision!==expectedRevision)
         return{status:"stale",raw:currentRaw,draft:current?.draft};
@@ -859,6 +862,7 @@ const DraftStore={
     const target=this.writeTarget();
     if(target)return stageFor(target);
     return navigator.locks.request(STORAGE_LOCK,async()=>{
+      if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
       const queuedTarget=this.writeTarget();if(queuedTarget)return stageFor(queuedTarget);
       const read=this.readCanonicalStatus();
       if(read.status!=="ok")return read;
@@ -916,8 +920,10 @@ const DraftStore={
       return{status:"applied",raw:verify.raw,draft:parsed.draft}
     })},
   async removeV2({expectedDraftId,expectedRevision,operationId}){
+    if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
     if(!navigator.locks?.request)return{status:"lock-unavailable"};
     return navigator.locks.request(STORAGE_LOCK,async()=>{
+      if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
       if(this.writeTarget())return{status:"transaction-active"};
       const read=this.readCanonicalStatus();if(read.status!=="ok")return read;
       const live=WorkoutDraft?.parse(read.raw);
@@ -938,6 +944,7 @@ const DraftStore={
       return{status:"applied",raw:null,draft:live.draft}
     })},
   publishCanonical(raw){
+    if(installTransferMutationFrozen())return false;
     if(raw!==null&&typeof raw!=="string")return false;
     try{
       if(raw===null)localStorage.removeItem(DRAFT);
@@ -996,6 +1003,7 @@ const DraftStore={
     try{return localStorage.getItem(DRAFT_CLOSE_PREFIX+transactionId)!=null}
     catch{return false}},
   beginClose(transactionId){
+    if(installTransferMutationFrozen())return false;
     if(typeof transactionId!=="string"||!transactionId)return false;
     try{
       localStorage.setItem(DRAFT_CLOSE_PREFIX+transactionId,
@@ -1022,6 +1030,7 @@ const DraftStore={
     const next=readPendingJournal().entries[0];
     return next?{id:next.journal.id}:null},
   writeSidecar(transactionId,raw){
+    if(installTransferMutationFrozen())return false;
     if(typeof transactionId!=="string"||!transactionId||
       !(raw===null||typeof raw==="string"&&raw.length<=PENDING_EFFECT_MAX_RAW))return false;
     const order=pendingJournalOrder(),key=`${DRAFT_PENDING_PREFIX}${transactionId}:${pendingJournalWriterId}`;
@@ -1033,6 +1042,7 @@ const DraftStore={
       return this.decodeSidecar(key,encoded)}
     catch{return false}},
   stage(target,raw){
+    if(installTransferMutationFrozen())return false;
     if(!target||typeof target.id!=="string")return false;
     if(!this.writeSidecar(target.id,raw))return false;
     if(!this.transactionOwned(target.id))return this.promote(target.id).settled;
@@ -1043,6 +1053,7 @@ const DraftStore={
       entry.value.programFingerprint===contextFingerprint).at(-1);
     return queued?queued.value.raw:this.readCanonicalRaw()},
   publish(raw){
+    if(installTransferMutationFrozen())return false;
     if(!(raw===null||typeof raw==="string"&&raw.length<=PENDING_EFFECT_MAX_RAW))return false;
     const staged=this.writeSidecar(DRAFT_WRITE_TRANSACTION,raw);
     if(!staged)return false;
@@ -1059,10 +1070,13 @@ const DraftStore={
   write(raw){return typeof raw==="string"&&this.publish(raw)},
   remove(){return this.publish(null)},
   clearSidecar(entry){
+    if(installTransferMutationFrozen())return false;
     try{
-      if(localStorage.getItem(entry.key)===entry.raw)localStorage.removeItem(entry.key)}
-    catch{}},
+      if(localStorage.getItem(entry.key)===entry.raw)localStorage.removeItem(entry.key);
+      return true}
+    catch{return false}},
   promote(transactionId,contextFingerprint=null){
+    if(installTransferMutationFrozen())return{settled:false,hadWrites:false,transferFrozen:true,code:"install-transfer-frozen"};
     const pending=this.related(transactionId,contextFingerprint);
     if(!pending.entries.length&&!pending.invalid.length)
       return{settled:true,hadWrites:false,raw:undefined};
@@ -1072,14 +1086,16 @@ const DraftStore={
       const parsed=WorkoutDraft?.parse(latest.value.raw);
       if(parsed?.kind==="valid"&&!this.writeV2Checkpoint(v2CheckpointRecord(parsed.draft,latest.value.raw)))
         return{settled:false,hadWrites:true,raw:latest.value.raw}}
-    for(const entry of pending.entries)this.clearSidecar(entry);
+    for(const entry of pending.entries){if(!this.clearSidecar(entry))return{settled:false,hadWrites:true,transferFrozen:true,code:"install-transfer-frozen"}}
     for(const invalid of pending.invalid){
+      if(installTransferMutationFrozen())return{settled:false,hadWrites:true,transferFrozen:true,code:"install-transfer-frozen"};
       try{if(localStorage.getItem(invalid.key)===invalid.raw)localStorage.removeItem(invalid.key)}
       catch{}}
     const remaining=this.related(transactionId,contextFingerprint);
     return{settled:remaining.entries.length===0&&remaining.invalid.length===0,
       hadWrites:true,raw:latest?.value.raw}},
   restoreEffect(transactionId,effect,contextFingerprint=null){
+    if(installTransferMutationFrozen())return{settled:false,hadWrites:false,transferFrozen:true,code:"install-transfer-frozen"};
     const promoted=this.promote(transactionId,contextFingerprint);
     if(!promoted.settled)return promoted;
     const outcome=normalizeDraftEffectOutcome(effect);
@@ -1119,6 +1135,7 @@ const DraftStore={
     const published=this.publishCanonical(receipt.expectedRaw);
     return{settled:published&&commitV2CheckpointEffect(prepared,receipt.expectedRaw),hadWrites:false,raw:receipt.expectedRaw}},
   endClose(transactionId,contextFingerprint=null){
+    if(installTransferMutationFrozen())return{settled:false,hadWrites:false,transferFrozen:true,code:"install-transfer-frozen"};
     try{localStorage.removeItem(DRAFT_CLOSE_PREFIX+transactionId)}
     catch{return{settled:false,hadWrites:false}}
     return this.promote(transactionId,contextFingerprint)}
@@ -2049,10 +2066,8 @@ function installTransferGuardTelemetry(){
     return telemetry.setEnabled(enabled)}};
   try{Object.defineProperty(guarded,"__repforgeInstallTransferGuarded",{value:true});window.RepForgeTelemetry=guarded}catch{}
 }
-const bootTelemetry=()=>{if(installTransferMutationFrozen())return null;try{const config=window.__POSTHOG_CONFIG__||{};
-  const result=window.RepForgeTelemetry?.boot({appVersion:config.appVersion||"dev",crypto:window.crypto,
-    location:window.location,navigator:window.navigator,releaseChannel:config.releaseChannel||"preview",
-    storage:window.localStorage})||null;
+const bootTelemetry=()=>{if(installTransferMutationFrozen())return null;try{
+  const result=window.RepForgePostHog?.start(window)||null;
   if(result)installTransferTelemetryBooted=true;
   return result}catch{return null}};
 const telemetryPlatformClass=()=>{if(isIOS())return"ios";const ua=navigator.userAgent||"";if(/android/i.test(ua))return"android";if(/windows|macintosh|linux|cros/i.test(ua))return"desktop";return"other"};
@@ -15910,11 +15925,19 @@ async function handleSharedSetupHash(){
   // Start action has already entered the common preview. Do not reopen the
   // first-run gate over that preview.
   if(firstRunPending()&&!entryState)openFirstRun()}
-function installTransferBootNeedsLock(){
-  if(navigator.locks?.request)return true;
-  if(installTransferReadRaw(INSTALL_IMPORT_KEY)!==null||installTransferReadRaw(INSTALL_INBOUND_KEY)!==null)
-    return true;
-  return window.__repforgeInstallTransferPreBootRequest!==undefined}
+async function installTransferBootNeedsLock(){
+  // Ordinary boots must not publish a transfer freeze marker. Read both
+  // mirrored import-marker stores before deciding whether transfer work needs
+  // the cross-tab lock; an IDB-only or divergent marker must still fail closed
+  // inside transferWork before ordinary replica healing can begin.
+  const importMarker=await installTransferReadMarker();
+  if(importMarker!==null)return true;
+  if(installTransferReadInboundMarker()!==null)return true;
+  if(window.__repforgeInstallTransferPreBootRequest!==undefined)return true;
+  try{
+    const {transfer}=await ensureInstallTransferModules();
+    return !!transfer.readTransferCookie({document});
+  }catch{return false}}
 async function boot(){
   // Program metadata and the first render are built from the loaded state, so
   // the language has to be settled before that — not after the state exists.
@@ -15940,7 +15963,7 @@ async function boot(){
     if(standaloneTransfer?.ok!==true)return standaloneTransfer||{ok:false,code:"standalone-transfer-failed"};
     return{ok:true,decision};
   };
-  const transferResult=installTransferBootNeedsLock()
+  const transferResult=await installTransferBootNeedsLock()
     ?await withInstallTransferLock(transferWork):await transferWork();
   if(transferResult?.ok!==true){
     window.__repforgeBootFailure=transferResult;
