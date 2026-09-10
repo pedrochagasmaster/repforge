@@ -4729,15 +4729,22 @@ function installTransferReadInboundMarker(){
     const marker=JSON.parse(raw);
     return marker&&typeof marker==="object"&&!Array.isArray(marker)?marker:{invalid:true,raw};
   }catch{return{invalid:true,code:"inbound-marker-invalid"}}}
-function installTransferInboundStore(){
+function installTransferInboundStore({preserveCleanupMarker=false}={}){
+  let deferCleanupClear=false;
   return{
     async read(){return installTransferReadInboundMarker()},
-    async write(marker){localStorage.setItem(INSTALL_INBOUND_KEY,JSON.stringify(marker))},
-    async clear(){localStorage.removeItem(INSTALL_INBOUND_KEY)},
+    async write(marker){
+      const previous=installTransferReadInboundMarker();
+      if(preserveCleanupMarker&&marker?.phase==="cleanup-pending"&&marker.remoteState==="deleted"&&previous?.phase==="local-committed")
+        deferCleanupClear=true;
+      localStorage.setItem(INSTALL_INBOUND_KEY,JSON.stringify(marker))},
+    async clear(){
+      if(deferCleanupClear){deferCleanupClear=false;return}
+      localStorage.removeItem(INSTALL_INBOUND_KEY)},
   }}
-async function installTransferStandaloneClient(){
+async function installTransferStandaloneClient({preserveCleanupMarker=false}={}){
   const {contract,transfer}=await ensureInstallTransferModules();
-  const inbound=installTransferInboundStore();
+  const inbound=installTransferInboundStore({preserveCleanupMarker});
   const credentials=transfer.createCredentialVault({crypto:window.crypto,indexedDB:window.indexedDB});
   const operationLock={withLock(name,work){
     if(!navigator.locks?.request)throw new Error("install-transfer-lock-unavailable");
@@ -4763,7 +4770,7 @@ async function installTransferPrepareStandaloneBoot(){
     const destination=await installTransferDestination();
     if(destination.blocked)return{ok:false,code:destination.code,blocked:true};
     if(installTransferMeaningful(destination.snapshot))return{ok:false,code:"destination-meaningful"};
-    const standalone=await installTransferStandaloneClient();
+    const standalone=await installTransferStandaloneClient({preserveCleanupMarker:true});
     const claimed=await standalone.client.claim();
     if(!claimed?.ok||claimed.state!=="validating")return{ok:false,code:claimed?.code||"claim-failed",state:claimed?.state};
     const claimedMarker=await standalone.inbound.read();
