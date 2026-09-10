@@ -1459,6 +1459,34 @@ function classifyLegacyRecoveryJournal(journal){
   }
   return null;
 }
+/* A pre-c4 journal with recovery-shaped state can still be unmarked. The
+   compatibility classifier above recognizes only the two canonical mutations:
+   one new block-start record, or one outcome-only reassessment. Any other
+   valid recovery-carrier mutation is ambiguous and must not fall through to
+   generic state replay. Metadata is not a positive signal here: missing or
+   malformed preconditions must fail closed too. Keep this gate separate from
+   isRecoveryJournalAttempt so the legacy single-reassessment replay contract
+   remains unchanged. */
+function isAmbiguousLegacyRecoveryJournalMutation(journal){
+  if(!journal||journal.recoveryTransactionPresent===true)return false;
+  const classified=classifyLegacyRecoveryJournal(journal);
+  if(classified==="start"||classified==="reassessment")return false;
+  const base=journal.base,proposal=journal.proposal;
+  if(!isPlainStateObject(base)||!isPlainStateObject(proposal)||
+    !isPlainStateObject(base.programMeta)||!isPlainStateObject(proposal.programMeta)||
+    base.programMeta.id!==proposal.programMeta.id)return false;
+  const sourceBlock=base.programMeta.blockId,targetBlock=proposal.programMeta.blockId;
+  if(!isValidBlockId(sourceBlock,base.programMeta.id)||
+    !isValidBlockId(targetBlock,proposal.programMeta.id)||
+    !recoveryJournalNonCarrierEqual(base,proposal,{ignoreBlockId:true}))return false;
+  const baseCarrier=recoveryJournalCarrier(base),proposalCarrier=recoveryJournalCarrier(proposal);
+  if(!baseCarrier||!proposalCarrier||
+    storageSnapshotsEqual(baseCarrier,proposalCarrier))return false;
+  const hasRecoveryRecord=[...baseCarrier.records,...proposalCarrier.records].some(record=>
+    record?.kind==="recovery_week"&&record?.status==="committed");
+  if(!hasRecoveryRecord)return false;
+  return true;
+}
 function isRecoveryJournalAttempt(journal){
   if(journal?.recoveryTransaction===true){
     const proposalCarrier=journal?.proposal?.recoveryTransitions;
@@ -15029,6 +15057,12 @@ async function resolveBootReplicas(candidate=null){
       // the successor a second time after a crash.
       const setupMarker=journal.proposal?.[STORAGE_SETUP_TXN];
       if(setupActivationAlreadyCommitted(head,journal.proposal,setupMarker?.raw)){
+        const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+          effect:journal.effectOutcome,discard:true});
+        if(!discarded.settled)
+          return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+        continue}
+      if(isAmbiguousLegacyRecoveryJournalMutation(journal)){
         const discarded=await executeDraftTransaction({record,transactionId:journal.id,
           effect:journal.effectOutcome,discard:true});
         if(!discarded.settled)

@@ -491,6 +491,91 @@ async function removeRecoveryTransactionMarker(page, journal) {
   }, journal.key);
 }
 
+async function appendRecoveryRecordToJournal(page, journal, record) {
+  await page.evaluate(({ key, appended }) => {
+    const raw = localStorage.getItem(key);
+    if (raw == null) throw new Error("missing pending recovery journal");
+    const journal = JSON.parse(raw);
+    const carrier = journal?.proposal?.recoveryTransitions;
+    if (!carrier || !Array.isArray(carrier.records)) throw new Error("pending journal has no proposal carrier");
+    carrier.records.push(JSON.parse(JSON.stringify(appended)));
+    localStorage.setItem(key, JSON.stringify(journal));
+  }, { key: journal.key, appended: record });
+}
+
+async function changeRecoveryJournalRecordOutcomes(page, journal, outcomes) {
+  await page.evaluate(({ key, outcomeByIndex }) => {
+    const raw = localStorage.getItem(key);
+    if (raw == null) throw new Error("missing pending recovery journal");
+    const journal = JSON.parse(raw);
+    const records = journal?.proposal?.recoveryTransitions?.records;
+    if (!Array.isArray(records)) throw new Error("pending journal has no proposal records");
+    for (const [index, outcome] of Object.entries(outcomeByIndex)) {
+      const record = records[Number(index)];
+      if (!record) throw new Error(`missing proposal recovery record ${index}`);
+      record.diff.recoveryWeek.reassessmentOutcome = outcome;
+    }
+    localStorage.setItem(key, JSON.stringify(journal));
+  }, { key: journal.key, outcomeByIndex: outcomes });
+}
+
+async function corruptRecoveryJournalMetadata(page, journal, field, value) {
+  await page.evaluate(({ key, field, value }) => {
+    const raw = localStorage.getItem(key);
+    if (raw == null) throw new Error("missing pending recovery journal");
+    const journal = JSON.parse(raw);
+    journal[field] = value;
+    localStorage.setItem(key, JSON.stringify(journal));
+  }, { key: journal.key, field, value });
+}
+
+async function assertUnmarkedRecoveryDiscard(page, source, sourceBytes, label) {
+  const sourceLocal = source.replicas.local;
+  const sourceIdb = source.replicas.idb;
+  const sourceRevision = sourceLocal?._storageRevision;
+  const before = await readFullReplicas(page);
+  const beforeBytes = await readReplicaBytes(page);
+  check(exactSourceState(sourceLocal, before.local) && exactSourceState(sourceIdb, before.idb),
+    `${label}: source replicas remain exact before boot`);
+  check(sourceBytes.local === beforeBytes.local && sourceBytes.idb === beforeBytes.idb,
+    `${label}: source replica bytes remain exact before boot`);
+  await installBootWriteSpy(page);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  const after = await readFullReplicas(page);
+  const afterBytes = await readReplicaBytes(page);
+  const bootWrites = await page.evaluate(() => window.__p6cProvenanceBootWrites || []);
+  check(exactSourceState(sourceLocal, after.local) && exactSourceState(sourceIdb, after.idb),
+    `${label}: boot discards the ambiguous journal without changing either replica`, after);
+  check(sourceBytes.local === afterBytes.local && sourceBytes.idb === afterBytes.idb,
+    `${label}: boot preserves exact source replica bytes`);
+  check(after.local?._storageRevision === sourceRevision && after.idb?._storageRevision === sourceRevision,
+    `${label}: discard advances no durable revision`, after);
+  check(carrierRecords(after.local).length === carrierRecords(after.idb).length &&
+    carrierRecords(after.local).length === carrierRecords(sourceLocal).length,
+  `${label}: discard creates zero new carrier records`);
+  check(after.local?.programMeta?.blockId === sourceLocal?.programMeta?.blockId &&
+    after.idb?.programMeta?.blockId === sourceIdb?.programMeta?.blockId,
+  `${label}: discard keeps the source block active`);
+  check(after.local?.programHistory?.length === sourceLocal?.programHistory?.length &&
+    after.idb?.programHistory?.length === sourceIdb?.programHistory?.length,
+  `${label}: discard creates zero archives`);
+  check(bootWrites.length === 0, `${label}: discard performs zero durable state writes`, bootWrites);
+  const drafts = await readDraftBytes(page);
+  check(drafts.raw === source.drafts.raw && drafts.checkpoint === source.drafts.checkpoint &&
+    drafts.recovery === source.drafts.recovery,
+  `${label}: discard preserves exact DraftV2 bytes`, drafts);
+  check(recoveryHasNoArtifacts(await artifactKeys(page)), `${label}: discard drains all journal artifacts`);
+  const secondBefore = await readFullReplicas(page);
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForAppBoot(page, { base: BASE });
+  const secondAfter = await readFullReplicas(page);
+  check(exactSourceState(secondBefore.local, secondAfter.local) &&
+    exactSourceState(secondBefore.idb, secondAfter.idb),
+  `${label}: second boot is idempotent`);
+  check(recoveryHasNoArtifacts(await artifactKeys(page)), `${label}: second boot leaves no artifacts`);
+}
+
 async function injectFirstReplicaFailure(page, side) {
   await page.evaluate(({ key, side }) => {
     const originalSetItem = Storage.prototype.setItem;
@@ -2920,6 +3005,177 @@ async function main() {
         check(recoveryHasNoArtifacts(await artifactKeys(survivor)),
           "pre-c4 unmarked reassessment drains all artifacts");
         await assertRecoverySecondBoot(survivor, after, "pre-c4 unmarked reassessment");
+        await context.close();
+      }
+    }
+
+    // =========================================================================
+    // R5b2 compatibility control: an unmarked journal whose carrier contains
+    // two otherwise-valid appended recovery records is ambiguous. It is not
+    // the single canonical pre-c4 start, so boot must discard it rather than
+    // generic-replay an unbounded carrier mutation.
+    // =========================================================================
+    console.log("\n10d. Pre-c4 ambiguous journal with two appended recovery records fails closed");
+    {
+      const env = await newBootedContext(browser);
+      const { locker, writer, survivor, context } = env;
+      const source = await setupRecoverySource(survivor, "recovery-ambiguous-two-appends");
+      const sourceBytes = await readReplicaBytes(survivor);
+      const proposalResult = await proposeRecoveryCrashOracle(survivor, "tr_p6c_recovery_ambiguous_two_appends");
+      const secondResult = await proposeAndSealRecoveryCrashOracle(survivor, "tr_p6c_recovery_ambiguous_two_appends_b");
+      check(proposalResult?.ok === true && secondResult?.ok === true,
+        "two-appended compatibility fixture uses two production-backed recovery records",
+        { first: proposalResult, second: secondResult });
+      const proposal = proposalResult?.proposal;
+      if (!proposal || !secondResult?.record) {
+        check(proposalResult?.missing !== true && secondResult?.missing !== true,
+          "two-appended compatibility fixture seams exist", { proposalResult, secondResult });
+        await context.close();
+      } else {
+        await bootOthers([locker, writer]);
+        const journal = await crashRecoveryWhileQueued(env, recoveryConfirmArgs(proposal));
+        const marked = JSON.parse(journal.raw);
+        check(marked.recoveryTransaction === true,
+          "two-appended fixture begins with the current marked recovery journal", marked);
+        await removeRecoveryTransactionMarker(survivor, journal);
+        await appendRecoveryRecordToJournal(survivor, journal, secondResult.record);
+        const legacy = JSON.parse((await readJournal(survivor)).raw);
+        check(!Object.prototype.hasOwnProperty.call(legacy, "recoveryTransaction") &&
+          carrierRecords(legacy.proposal).length === 2,
+        "two-appended fixture is unmarked with two valid recovery records", legacy.proposal?.recoveryTransitions);
+        await assertUnmarkedRecoveryDiscard(survivor, source, sourceBytes,
+          "two-appended unmarked recovery journal");
+        await context.close();
+      }
+    }
+
+    // =========================================================================
+    // R5b2 compatibility control: multiple changed reassessment records are
+    // also ambiguous. The old unmarked single-outcome replay remains valid,
+    // but a journal changing more than one carrier record must not commit.
+    // =========================================================================
+    console.log("\n10e. Pre-c4 ambiguous journal with multiple reassessments fails closed");
+    {
+      const env = await newBootedContext(browser);
+      const { locker, writer, survivor, context } = env;
+      await setupRecoverySource(survivor, "recovery-ambiguous-reassessments");
+      const firstResult = await proposeRecoveryCrashOracle(survivor, "tr_p6c_recovery_ambiguous_reassessments_a");
+      check(firstResult?.ok === true, "multiple-reassessment fixture created its first production-backed proposal", firstResult);
+      const firstProposal = firstResult?.proposal;
+      if (!firstProposal) {
+        check(firstResult?.missing !== true, "multiple-reassessment first proposal seam exists", firstResult);
+        await context.close();
+      } else {
+        const firstCommit = await confirmTransition(survivor, recoveryConfirmArgs(firstProposal));
+        check(firstCommit?.committed === true,
+          "multiple-reassessment fixture committed its first recovery record", firstCommit);
+        await survivor.evaluate(() => window.__repforgeStorage.flush());
+        await survivor.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(survivor, { base: BASE });
+
+        const secondResult = await proposeRecoveryCrashOracle(survivor, "tr_p6c_recovery_ambiguous_reassessments_b");
+        check(secondResult?.ok === true,
+          "multiple-reassessment fixture created its second production-backed proposal", secondResult);
+        const secondProposal = secondResult?.proposal;
+        if (!secondProposal) {
+          check(secondResult?.missing !== true, "multiple-reassessment second proposal seam exists", secondResult);
+          await context.close();
+        } else {
+          const secondCommit = await confirmTransition(survivor, recoveryConfirmArgs(secondProposal));
+          check(secondCommit?.committed === true,
+            "multiple-reassessment fixture committed its second recovery record", secondCommit);
+          await survivor.evaluate(() => window.__repforgeStorage.flush());
+          await survivor.reload({ waitUntil: "domcontentloaded" });
+          await waitForAppBoot(survivor, { base: BASE });
+
+          const moved = await survivor.evaluate(async () => {
+            const next = JSON.parse(JSON.stringify(window.__repforgeWorkoutDraft.state()));
+            next.programMeta = {
+              ...next.programMeta,
+              started: new Date(Date.now() - 8 * 86400000).toISOString().slice(0, 10),
+            };
+            const result = await window.__repforgeCommitProposedState(next);
+            await window.__repforgeStorage.flush();
+            return { ok: result?.localOk || result?.idbOk, result };
+          });
+          check(moved.ok === true, "multiple-reassessment fixture committed its week-boundary state", moved);
+          await survivor.reload({ waitUntil: "domcontentloaded" });
+          await waitForAppBoot(survivor, { base: BASE });
+
+          const source = {
+            replicas: await readFullReplicas(survivor),
+            drafts: await readDraftBytes(survivor),
+          };
+          const sourceBytes = await readReplicaBytes(survivor);
+          const records = carrierRecords(source.replicas.local);
+          const targetRecord = records.at(-1);
+          check(records.length === 2 && targetRecord?.diff?.recoveryWeek?.reassessmentOutcome === null,
+            "multiple-reassessment fixture has two open carrier records before reassessment", records);
+          if (!targetRecord) {
+            await context.close();
+          } else {
+            const reassessArgs = {
+              expectedRevision: source.replicas.local?._storageRevision,
+              blockId: targetRecord.diff.recoveryWeek.blockId,
+              transitionId: targetRecord.transitionId,
+              proposalHash: targetRecord.proposalHash,
+              acknowledgedRecord: targetRecord,
+              outcome: "Worse",
+            };
+            await bootOthers([locker, writer]);
+            const journal = await crashRecoveryReassessmentWhileQueued(env, reassessArgs);
+            const marked = JSON.parse(journal.raw);
+            check(marked.recoveryTransaction === true,
+              "multiple-reassessment fixture begins with the current marked journal", marked);
+            await removeRecoveryTransactionMarker(survivor, journal);
+            await changeRecoveryJournalRecordOutcomes(survivor, journal, { 0: "Worse" });
+            const legacy = JSON.parse((await readJournal(survivor)).raw);
+            const legacyRecords = carrierRecords(legacy.proposal);
+            const changed = legacyRecords.filter((record, index) =>
+              record?.diff?.recoveryWeek?.reassessmentOutcome !== records[index]?.diff?.recoveryWeek?.reassessmentOutcome);
+            check(!Object.prototype.hasOwnProperty.call(legacy, "recoveryTransaction") &&
+              legacyRecords.length === 2 && changed.length === 2,
+            "multiple-reassessment fixture is unmarked with two changed records", { legacyRecords, changed: changed.length });
+            await assertUnmarkedRecoveryDiscard(survivor, source, sourceBytes,
+              "multiple-reassessment unmarked recovery journal");
+            await context.close();
+          }
+        }
+      }
+    }
+
+    // =========================================================================
+    // R5b2 compatibility control: a carrier-shaped journal with malformed
+    // recovery metadata is not the canonical old start. Its valid-looking
+    // single carrier mutation must fail closed rather than generic-replay.
+    // =========================================================================
+    console.log("\n10f. Pre-c4 recovery journal with malformed metadata fails closed");
+    {
+      const env = await newBootedContext(browser);
+      const { locker, writer, survivor, context } = env;
+      const source = await setupRecoverySource(survivor, "recovery-ambiguous-metadata");
+      const sourceBytes = await readReplicaBytes(survivor);
+      const proposalResult = await proposeRecoveryCrashOracle(survivor, "tr_p6c_recovery_ambiguous_metadata");
+      check(proposalResult?.ok === true,
+        "malformed-metadata fixture uses a production-backed recovery proposal", proposalResult);
+      const proposal = proposalResult?.proposal;
+      if (!proposal) {
+        check(proposalResult?.missing !== true, "malformed-metadata proposal seam exists", proposalResult);
+        await context.close();
+      } else {
+        await bootOthers([locker, writer]);
+        const journal = await crashRecoveryWhileQueued(env, recoveryConfirmArgs(proposal));
+        const marked = JSON.parse(journal.raw);
+        check(marked.recoveryTransaction === true,
+          "malformed-metadata fixture begins with the current marked journal", marked);
+        await removeRecoveryTransactionMarker(survivor, journal);
+        await corruptRecoveryJournalMetadata(survivor, journal, "expectedProgramFingerprint", null);
+        const legacy = JSON.parse((await readJournal(survivor)).raw);
+        check(!Object.prototype.hasOwnProperty.call(legacy, "recoveryTransaction") &&
+          legacy.expectedProgramFingerprint === null,
+        "malformed-metadata fixture is an unmarked journal missing its program fingerprint", legacy);
+        await assertUnmarkedRecoveryDiscard(survivor, source, sourceBytes,
+          "malformed-metadata unmarked recovery journal");
         await context.close();
       }
     }
