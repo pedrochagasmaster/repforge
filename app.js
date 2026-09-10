@@ -5,11 +5,16 @@ const DRAFT_V2_CHECKPOINT=`${DRAFT}:v2-checkpoint`;
 const DRAFT_WRITE_TRANSACTION="draft-write";
 const DB="repforge",STORE="kv";
 const INSTALL_IMPORT_KEY="repforge_install_import_v1";
+const INSTALL_INBOUND_KEY="repforge_transfer_inbound_v1";
+const INSTALL_FREEZE_KEY="repforge_install_transfer_freeze_v1";
+const INSTALL_FREEZE_CHANNEL="repforge_install_transfer_v1";
 const INSTALL_UI_KEY="repforge_ui_v1";
 const TELEMETRY_ENABLED_KEY="repforge_telemetry_enabled_v1";
 const TELEMETRY_IDENTITY_KEY="repforge_telemetry_identity_v1";
 let installTransferModulePromise=null;
 let installTransferTelemetryBooted=false;
+let installTransferFreezeOwner=null;
+let installTransferFreezeChannel=null;
 function installTransferRawAtLoad(key){try{return localStorage.getItem(key)}catch{return null}}
 const installTransferInitialDevice={
   ui:installTransferRawAtLoad(INSTALL_UI_KEY),
@@ -1875,6 +1880,8 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
   expectedSetupDraftRaw=undefined,
   reconcileSessionIds=[],dayRenames=[],effect=null,preflight=null,recoveryTransaction=false}={}){
   requireAdapter(io,"enqueueStateChange");
+  if(io===storageIO&&installTransferMutationFrozen())
+    return Promise.resolve({revision:readRevision(base),localOk:false,idbOk:false,conflict:true,transferFrozen:true,code:"install-transfer-frozen"});
   const frozenBase=cloneSnapshot(base),frozenLiveBase=cloneSnapshot(liveBase);
   const frozenProposal=cloneSnapshot(proposal),frozenEffectOutcome=normalizeDraftEffectOutcome(effect);
   let workingProposal=cloneSnapshot(frozenProposal);
@@ -3348,6 +3355,7 @@ function enqueueDraftCommand(type,payload={},ui={}){
   const focus=draftFocusIdentity(payload),pendingValue=Object.prototype.hasOwnProperty.call(ui,"pendingValue")?
     String(ui.pendingValue??""):Object.prototype.hasOwnProperty.call(payload,"value")?String(payload.value??""):null;
   const task=draftWriteTail.then(async()=>{
+    if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
     if(!activeWorkoutDraft)return{status:"missing"};
     if((draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed")&&!draftUiRecovery.allowRetry){
       renderWorkout();restoreDraftFocus(focus);return{status:"recovery-pending"}}
@@ -4574,18 +4582,174 @@ async function installTransferCaptureLogicalSnapshot(durableSnapshot=state,{stor
   return{ok:true,value:logical}}
 function installTransferLogicalEqual(left,right){
   return JSON.stringify(canonicalize(left))===JSON.stringify(canonicalize(right))}
-function installTransferReadMarker(){
+function installTransferParseMarker(raw){
+  if(typeof raw!=="string")return{invalid:true,raw};
   try{
-    const raw=localStorage.getItem(INSTALL_IMPORT_KEY);
+    const marker=JSON.parse(raw);
+    return marker&&typeof marker==="object"&&!Array.isArray(marker)?marker:{invalid:true,raw}}
+  catch(error){return{invalid:true,raw,error:String(error?.message||"invalid-marker")}}}
+function installTransferMarkerShape(marker){
+  const keys=["version","transactionId","claimIdDigest","phase","previous","incoming","createdAt","expectedLocalRevision"];
+  if(!isPlainStateObject(marker)||Object.keys(marker).length!==keys.length||!keys.every(key=>Object.hasOwn(marker,key)))return false;
+  if(marker.version!==1||typeof marker.transactionId!=="string"||marker.transactionId.length===0||marker.transactionId.length>256||
+    !/^[0-9a-f]{64}$/.test(marker.claimIdDigest)||!RECOVERY_CARRIER_INSTANT_RE.test(marker.createdAt)||
+    !Number.isSafeInteger(marker.expectedLocalRevision)||marker.expectedLocalRevision<0||
+    !["importing","rolling-back","local-committed"].includes(marker.phase))return false;
+  const previous=marker.previous;
+  const previousKeys=["durableState","workoutDraft","programEntryDraft","uiPreferences","analytics","telemetryIdentity","devicePresence","candidateRaw"];
+  if(!isPlainStateObject(previous)||Object.keys(previous).length!==previousKeys.length||!previousKeys.every(key=>Object.hasOwn(previous,key))||
+    !isValidStateShape(previous.durableState)||
+    (previous.workoutDraft!==null&&(!isPlainStateObject(previous.workoutDraft)||Array.isArray(previous.workoutDraft)))||
+    (previous.programEntryDraft!==null&&(!isPlainStateObject(previous.programEntryDraft)||Array.isArray(previous.programEntryDraft)))||
+    !isPlainStateObject(previous.uiPreferences)||!isPlainStateObject(previous.analytics)||typeof previous.analytics.enabled!=="boolean"||
+    (previous.telemetryIdentity!==null&&(!isPlainStateObject(previous.telemetryIdentity)||Array.isArray(previous.telemetryIdentity)))||
+    !isPlainStateObject(previous.devicePresence)||typeof previous.devicePresence.ui!=="boolean"||
+    typeof previous.devicePresence.consent!=="boolean"||typeof previous.devicePresence.identity!=="boolean"||
+    (previous.candidateRaw!==null&&typeof previous.candidateRaw!=="string"))return false;
+  return isPlainStateObject(marker.incoming)&&!Array.isArray(marker.incoming);
+}
+async function installTransferValidateMarker(marker){
+  if(!installTransferMarkerShape(marker))return{ok:false,code:"install-import-marker-invalid"};
+  try{
+    const {contract}=await ensureInstallTransferModules();
+    const checked=await contract.validateEnvelopeIntegrity(cloneSnapshot(marker.incoming),window.crypto);
+    return checked?.ok?{ok:true,marker}:{ok:false,code:checked?.code||"install-import-marker-envelope-invalid"};
+  }catch{return{ok:false,code:"install-import-marker-envelope-invalid"}}}
+async function installTransferReadMarker(){
+  let localRaw=null,idbMarker=null;
+  try{localRaw=localStorage.getItem(INSTALL_IMPORT_KEY)}catch{return{invalid:true,code:"install-import-marker-read-failed"}}
+  try{idbMarker=await idbGet(INSTALL_IMPORT_KEY);if(idbMarker===undefined)idbMarker=null}
+  catch{return{invalid:true,code:"install-import-marker-read-failed"}}
+  if(localRaw===null&&idbMarker===null)return null;
+  const localMarker=localRaw===null?null:installTransferParseMarker(localRaw);
+  if(localMarker===null||idbMarker===null||localMarker?.invalid||!installTransferLogicalEqual(localMarker,idbMarker))
+    return{invalid:true,code:"install-import-marker-divergent",marker:localMarker,idbMarker};
+  const checked=await installTransferValidateMarker(localMarker);
+  return checked.ok?checked.marker:{invalid:true,code:checked.code,marker:localMarker,idbMarker};
+}
+async function installTransferWriteMarker(marker){
+  const checked=await installTransferValidateMarker(marker);
+  if(!checked.ok)return false;
+  try{
+    localStorage.setItem(INSTALL_IMPORT_KEY,JSON.stringify(marker));
+    await idbSet(INSTALL_IMPORT_KEY,cloneSnapshot(marker));
+    return true;
+  }catch{return false}}
+async function installTransferClearMarker(){
+  try{
+    localStorage.removeItem(INSTALL_IMPORT_KEY);
+    await idbDel(INSTALL_IMPORT_KEY);
+    return true;
+  }catch{return false}}
+function installTransferFreezeSignal(){
+  try{
+    const raw=localStorage.getItem(INSTALL_FREEZE_KEY);
+    if(raw===null)return null;
+    const value=JSON.parse(raw);
+    return value&&typeof value==="object"&&!Array.isArray(value)?value:{invalid:true};
+  }catch{return{invalid:true}}}
+function installTransferMutationFrozen(){
+  const signal=installTransferFreezeSignal();
+  return !!signal&&signal.owner!==installTransferFreezeOwner;
+}
+function installTransferBroadcast(type,value){
+  try{
+    if(typeof BroadcastChannel!=="function")return;
+    if(!installTransferFreezeChannel)installTransferFreezeChannel=new BroadcastChannel(INSTALL_FREEZE_CHANNEL);
+    installTransferFreezeChannel.postMessage({type,value});
+  }catch{}}
+async function withInstallTransferLock(work){
+  if(!navigator.locks?.request)return{ok:false,code:"install-transfer-lock-unavailable",blocked:true};
+  const owner=uid();
+  try{
+    return await navigator.locks.request("install-transfer",async()=>{
+      installTransferFreezeOwner=owner;
+      try{
+        localStorage.setItem(INSTALL_FREEZE_KEY,JSON.stringify({version:1,owner,createdAt:new Date().toISOString()}));
+        installTransferBroadcast("freeze",owner);
+      }catch{installTransferFreezeOwner=null;return{ok:false,code:"install-transfer-freeze-failed",blocked:true}}
+      try{return await work(owner)}
+      finally{
+        try{
+          const signal=installTransferFreezeSignal();
+          if(signal?.owner===owner)localStorage.removeItem(INSTALL_FREEZE_KEY);
+        }catch{}
+        installTransferBroadcast("release",owner);
+        installTransferFreezeOwner=null;
+      }
+    });
+  }catch{return{ok:false,code:"install-transfer-lock-failed",blocked:true}}}
+function installTransferReadInboundMarker(){
+  try{
+    const raw=localStorage.getItem(INSTALL_INBOUND_KEY);
     if(raw===null)return null;
     const marker=JSON.parse(raw);
-    return marker&&typeof marker==="object"&&!Array.isArray(marker)
-      ?marker:{invalid:true,raw}}
-  catch(error){return{invalid:true,error:String(error?.message||"invalid-marker")}}}
-function installTransferWriteMarker(marker){
-  try{localStorage.setItem(INSTALL_IMPORT_KEY,JSON.stringify(marker));return true}
-  catch{return false}}
-function installTransferClearMarker(){return installTransferWriteRaw(INSTALL_IMPORT_KEY,null)}
+    return marker&&typeof marker==="object"&&!Array.isArray(marker)?marker:{invalid:true,raw};
+  }catch{return{invalid:true,code:"inbound-marker-invalid"}}}
+function installTransferInboundStore({preserveCleanupMarker=false}={}){
+  let deferCleanupClear=false;
+  return{
+    async read(){return installTransferReadInboundMarker()},
+    async write(marker){
+      const previous=installTransferReadInboundMarker();
+      if(preserveCleanupMarker&&marker?.phase==="cleanup-pending"&&marker.remoteState==="deleted"&&previous?.phase==="local-committed")
+        deferCleanupClear=true;
+      localStorage.setItem(INSTALL_INBOUND_KEY,JSON.stringify(marker))},
+    async clear(){
+      if(deferCleanupClear){deferCleanupClear=false;return}
+      localStorage.removeItem(INSTALL_INBOUND_KEY)},
+  }}
+async function installTransferStandaloneClient({preserveCleanupMarker=false}={}){
+  const {contract,transfer}=await ensureInstallTransferModules();
+  const inbound=installTransferInboundStore({preserveCleanupMarker});
+  const credentials=transfer.createCredentialVault({crypto:window.crypto,indexedDB:window.indexedDB});
+  const operationLock={withLock(name,work){
+    if(!navigator.locks?.request)throw new Error("install-transfer-lock-unavailable");
+    return navigator.locks.request(name,work)}};
+  const transport=transfer.createFetchTransport({fetch:window.fetch.bind(window),baseUrl:window.location.href});
+  const client=transfer.createClient({contract,crypto:window.crypto,transport,context:"standalone",
+    document,location:window.location,storage:{inbound,credentials,operationLock}});
+  return{client,contract,transfer,inbound,credentials}}
+async function installTransferPrepareStandaloneBoot(){
+  try{
+    const {transfer}=await ensureInstallTransferModules();
+    const inboundBefore=installTransferReadInboundMarker();
+    const cookie=transfer.readTransferCookie({document});
+    if(!cookie&&!inboundBefore)return{ok:true,absent:true};
+    if(inboundBefore?.phase==="local-committed"||inboundBefore?.phase==="cleanup-pending"){
+      const standalone=await installTransferStandaloneClient();
+      const cleanup=await standalone.client.commit();
+      return{ok:true,state:"localCommitted",cleanup};
+    }
+    const destination=await installTransferDestination();
+    if(destination.blocked)return{ok:false,code:destination.code,blocked:true};
+    if(installTransferMeaningful(destination.snapshot))return{ok:false,code:"destination-meaningful"};
+    const standalone=await installTransferStandaloneClient({preserveCleanupMarker:true});
+    const claimed=await standalone.client.claim();
+    if(!claimed?.ok||claimed.state!=="validating")return{ok:false,code:claimed?.code||"claim-failed",state:claimed?.state};
+    const claimedMarker=await standalone.inbound.read();
+    if(!claimedMarker?.sealedCredentials)return{ok:false,code:"claim-marker-missing"};
+    let pair;
+    try{pair=await standalone.credentials.unseal("standalone-inbound",claimedMarker.sealedCredentials)}
+    catch{return{ok:false,code:"claim-credential-unavailable"}}
+    const digest=await installTransferClaimDigest(standalone.contract,{claimId:pair?.claimId});
+    if(!digest.ok)return{ok:false,code:digest.code||"claim-digest-failed"};
+    return{ok:true,pending:{standalone,envelope:claimed.envelope,claimId:pair.claimId,claimIdDigest:digest.value}};
+  }catch(error){return{ok:false,code:error?.message||"standalone-transfer-failed"}}
+}
+async function installTransferCompleteStandaloneBoot(prepared){
+  if(!prepared?.pending)return prepared||{ok:true,absent:true};
+  const {standalone,envelope,claimId,claimIdDigest}=prepared.pending;
+  try{
+    const imported=await importInstallTransfer(envelope,{claimId,claimIdDigest});
+    if(!imported?.ok)return imported;
+    const latest=await standalone.inbound.read();
+    if(!latest?.sealedCredentials)return{ok:false,code:"claim-marker-lost",localOk:true,idbOk:true};
+    await standalone.inbound.write({...latest,phase:"local-committed",claimIdDigest});
+    const cleanup=await standalone.client.commit();
+    return{...imported,cleanup,cleanupRetry:cleanup?.ok!==true};
+  }catch(error){return{ok:false,code:error?.message||"standalone-transfer-failed"}}
+}
 function installTransferFault(point){
   const hook=window.__repforgeInstallTransferImportFault;
   if(typeof hook==="function"&&hook(point)===true)throw new Error(`install-transfer-import-fault:${point}`);
@@ -4606,6 +4770,9 @@ async function installTransferClaimDigest(contract,{claimId=null,claimIdDigest=n
   return{ok:true,value:await recoverySha256(generated)}}
 function installTransferMeaningful(snapshot){
   if(!snapshot||typeof snapshot!=="object")return true;
+  const defaultSettings=normalizeSettings(DEFAULTS);
+  const destinationSettings=normalizeSettings(snapshot.settings);
+  if(!installTransferLogicalEqual(destinationSettings,defaultSettings))return true;
   if(snapshot.programMeta?.onboarded===true||Array.isArray(snapshot.program)&&snapshot.program.length||
     structureDayLabels(snapshot.programMeta)||Array.isArray(snapshot.log)&&snapshot.log.length||
     Array.isArray(snapshot.programHistory)&&snapshot.programHistory.length||
@@ -4828,21 +4995,21 @@ async function installTransferResumeMarker(marker){
   if(!current.ok)return{ok:false,code:current.code||"install-import-read-failed",blocked:true};
   const incomingMatch=installTransferStoredLogicalMatches(marker,current,marker.incoming);
   const previousMatch=installTransferStoredLogicalMatches(marker,current,marker.previous);
-  if(marker.phase==="local-committed"&&incomingMatch)
-    return{ok:true,state:"localCommitted",deferredRemoteCommit:true};
+  if(marker.phase==="local-committed")
+    return{ok:true,state:"localCommitted",deferredRemoteCommit:true,diverged:!incomingMatch};
   if(marker.phase!=="local-committed"&&incomingMatch){
     const committed={...marker,phase:"local-committed"};
-    if(!installTransferWriteMarker(committed))return{ok:false,code:"marker-commit-failed",blocked:true};
+    if(!await installTransferWriteMarker(committed))return{ok:false,code:"marker-commit-failed",blocked:true};
     return{ok:true,state:"localCommitted",resumed:true,deferredRemoteCommit:true}}
   if(previousMatch||marker.phase!=="local-committed"){
     const rollback=await installTransferRollback(marker,current);
     if(!rollback.ok)return{ok:false,...rollback,blocked:true};
-    if(!installTransferClearMarker())return{ok:false,code:"marker-clear-failed",blocked:true,rollback};
+    if(!await installTransferClearMarker())return{ok:false,code:"marker-clear-failed",blocked:true,rollback};
     return{ok:true,state:"rolledBack",rollback}
   }
   return{ok:false,code:"install-import-diverged",blocked:true}
 }
-async function importInstallTransfer(envelope,{claimId=null,claimIdDigest=null,transactionId=null}={}){
+async function importInstallTransferUnlocked(envelope,{claimId=null,claimIdDigest=null,transactionId=null}={}){
   let marker=null;
   try{
     const {contract}=await ensureInstallTransferModules();
@@ -4862,7 +5029,7 @@ async function importInstallTransfer(envelope,{claimId=null,claimIdDigest=null,t
     marker={version:1,transactionId,claimIdDigest:claim.value,phase:"importing",
       previous:installTransferPreviousMarker({candidateRaw:readSetupDraftRaw()},previousCapture.value),
       incoming:cloneSnapshot(envelope),createdAt:new Date().toISOString(),expectedLocalRevision:destination.revision};
-    if(!installTransferWriteMarker(marker))return{ok:false,localOk:false,idbOk:false,code:"marker-write-failed"};
+    if(!await installTransferWriteMarker(marker))return{ok:false,localOk:false,idbOk:false,code:"marker-write-failed"};
     installTransferFault("after-marker");
     const durable=await commitProposedState(cloneSnapshot(envelope.durableState),storageIO,{replace:true,
       expectedStorageRevision:destination.revision,recoveryTransaction:true,
@@ -4884,7 +5051,7 @@ async function importInstallTransfer(envelope,{claimId=null,claimIdDigest=null,t
     const readback=await installTransferReadback(envelope,state);
     if(!readback.ok)return{...readback,phase:marker.phase};
     marker={...marker,phase:"local-committed"};
-    if(!installTransferWriteMarker(marker))return{ok:false,localOk:true,idbOk:true,code:"marker-commit-failed",phase:"importing"};
+    if(!await installTransferWriteMarker(marker))return{ok:false,localOk:true,idbOk:true,code:"marker-commit-failed",phase:"importing"};
     installTransferFault("after-local-committed");
     return{ok:true,state:"localCommitted",phase:marker.phase,localOk:true,idbOk:true,transactionId:marker.transactionId,
       marker:cloneSnapshot(marker)}
@@ -4892,10 +5059,13 @@ async function importInstallTransfer(envelope,{claimId=null,claimIdDigest=null,t
     return{ok:false,localOk:false,idbOk:false,code:error?.message||"install-import-failed",phase:marker?.phase||"none",
       transactionId:marker?.transactionId||transactionId||null}}
 }
+async function importInstallTransfer(envelope,options={}){
+  return withInstallTransferLock(()=>importInstallTransferUnlocked(envelope,options));
+}
 async function resumeInstallTransferImport(){
-  const marker=installTransferReadMarker();
+  const marker=await installTransferReadMarker();
   if(!marker)return{ok:true,absent:true};
-  return installTransferResumeMarker(marker)}
+  return withInstallTransferLock(()=>installTransferResumeMarker(marker))}
 async function runInstallTransferPreBootRequest(){
   const request=window.__repforgeInstallTransferPreBootRequest;
   if(request===undefined)return{ok:true,absent:true};
@@ -12598,6 +12768,7 @@ async function recoverCommittedSetupDraft(){
   return withStorageLock(storageIO,()=>removeObservedSetupDraft({raw,envelope:null}));
 }
 function persistSetupDraft(next,io=storageIO){
+  if(io===storageIO&&installTransferMutationFrozen())return Promise.resolve({ok:false,conflict:true,code:"install-transfer-frozen"});
   if(!ProgramEntry||!next)return Promise.resolve({ok:false});
   const stamped=ProgramEntry.updateTimestamp(next,entryNow());
   const normalized=ProgramEntry.normalizeSetupDraft(stamped);
@@ -15694,6 +15865,10 @@ async function boot(){
   // the language has to be settled before that — not after the state exists.
   const sharedCandidate=captureSharedSetupSource();
   if(I18N)I18N.setLang(I18N.detectLang());
+  const importMarker=await installTransferReadMarker();
+  if(importMarker?.invalid)throw new Error(importMarker.code||"install-import-marker-invalid");
+  const standalonePrepared=await installTransferPrepareStandaloneBoot();
+  if(standalonePrepared?.blocked)throw new Error(standalonePrepared.code);
   let decision=await resolveBootReplicas();
   while(decision.kind==="unresolved"){
     const candidate=await presentStorageRecovery(decision);
@@ -15703,6 +15878,8 @@ async function boot(){
   if(preBootTransfer?.blocked)throw new Error(preBootTransfer.code);
   const transferResume=await resumeInstallTransferImport();
   if(transferResume?.blocked)throw new Error(transferResume.code);
+  const standaloneTransfer=await installTransferCompleteStandaloneBoot(standalonePrepared);
+  if(standaloneTransfer?.blocked)throw new Error(standaloneTransfer.code);
   bootTelemetry();
   installTransferRecordBootDevice();
   await recoverCommittedSetupDraft();
