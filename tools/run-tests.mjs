@@ -10,6 +10,7 @@ import { changedFilesForTests, formatAffected, selectAffected } from "./test-sel
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MAX_FAILURE_EXCERPT = 12 * 1024;
 const PREVIEW_GENERATED_FILES = ["index.html", "posthog-config.js"];
+const PREVIEW_READINESS_TIMEOUT_MS = 500;
 
 export function execute(suite, { cwd = ROOT, outputDir, env = process.env, timeoutMs = suite.timeoutMs || 600000, verbose = false } = {}) {
   mkdirSync(outputDir, { recursive: true });
@@ -139,6 +140,8 @@ export async function maybeStartLocalPreview(entries, {
   spawnImpl = spawn,
   signalSource = process,
   killGroup = (pid, signal) => process.kill(-pid, signal),
+  setTimeoutImpl = setTimeout,
+  clearTimeoutImpl = clearTimeout,
   wait = (milliseconds) => new Promise((resolveWait) => setTimeout(resolveWait, milliseconds)),
 } = {}) {
   if (!entries.some(({ lane }) => BROWSER_LANES.has(lane))) return null;
@@ -186,6 +189,40 @@ export async function maybeStartLocalPreview(entries, {
     abort.abort();
     cleanup();
   };
+  const fetchWithDeadline = async (url) => {
+    const requestAbort = new AbortController();
+    let rejectDeadline;
+    let rejectLifecycle;
+    let lifecycleRejected = false;
+    const deadline = new Promise((_, reject) => { rejectDeadline = reject; });
+    const lifecycle = new Promise((_, reject) => { rejectLifecycle = reject; });
+    const rejectOnLifecycle = () => {
+      if (lifecycleRejected) return;
+      lifecycleRejected = true;
+      rejectLifecycle(abort.signal.reason || new Error("Local preview startup interrupted"));
+    };
+    const relayAbort = () => requestAbort.abort(abort.signal.reason);
+    const onLifecycleAbort = () => {
+      relayAbort();
+      rejectOnLifecycle();
+    };
+    if (abort.signal.aborted) onLifecycleAbort();
+    else abort.signal.addEventListener("abort", onLifecycleAbort, { once: true });
+    const timeout = setTimeoutImpl(() => {
+      const error = new Error("Local preview readiness request timed out");
+      requestAbort.abort(error);
+      rejectDeadline(error);
+    }, PREVIEW_READINESS_TIMEOUT_MS);
+    try {
+      const response = await Promise.race([
+        Promise.resolve().then(() => fetchImpl(url, { signal: requestAbort.signal })), deadline, lifecycle,
+      ]);
+      return response;
+    } finally {
+      clearTimeoutImpl(timeout);
+      abort.signal.removeEventListener("abort", onLifecycleAbort);
+    }
+  };
   signalSource.once("SIGINT", onSignal);
   signalSource.once("SIGTERM", onSignal);
   try {
@@ -207,7 +244,7 @@ export async function maybeStartLocalPreview(entries, {
       if (interrupted) throw new Error("Temporary local preview startup interrupted");
       if (spawnError) throw spawnError;
       try {
-        const response = await fetchImpl(target, { signal: abort.signal });
+        const response = await fetchWithDeadline(target);
         if (interrupted) throw new Error("Temporary local preview startup interrupted");
         if (response.ok) {
           console.log("Started temporary local preview for affected browser checks.");

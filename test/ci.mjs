@@ -34,7 +34,7 @@ test("visual capture ignores non-rendering tests/tools but remains conservative 
   for (const file of ["README.md", "docs/backlog.md", "plans/060.md", "test/accessibility.mjs", "test/ci.mjs", "tools/run-tests.mjs", "tools/check-test-syntax.mjs"]) {
     assert.equal(selectVisuals([file], manifest).mode, "none", file);
   }
-  for (const file of ["app.js", "index.html", "styles.css", "i18n-en.json", "sw.js", "shared-setup.js", "fonts/new.woff2", "assets/exercises/foo.png", "test/browser.mjs", "test/fixtures/shared-setup.mjs", "test/fixtures/seed-program.mjs", "test/fixtures/telemetry.mjs", "tools/test-selection.mjs", "tools/ci-selection.mjs", "tools/ui-screens/session.mjs", "tools/capture-ui-screens.mjs", ".github/workflows/simulation.yml", "docs/ui-screens/manifest.json", "docs/ui-screens/entry-semantics.json", "unknown.txt"]) {
+  for (const file of ["app.js", "index.html", "styles.css", "i18n-en.json", "sw.js", "shared-setup.js", "fonts/new.woff2", "assets/exercises/foo.png", "test/browser.mjs", "test/fixtures/shared-setup.mjs", "test/fixtures/seed-program.mjs", "test/fixtures/telemetry.mjs", "test/fixtures/README.md", "test/fixtures/nested/AGENTS.md", "tools/test-selection.mjs", "tools/ci-selection.mjs", "tools/ui-screens/session.mjs", "tools/capture-ui-screens.mjs", ".github/workflows/simulation.yml", "docs/ui-screens/manifest.json", "docs/ui-screens/entry-semantics.json", "unknown.txt"]) {
     assert.equal(selectVisuals([file], manifest).mode, "full", file);
   }
   assert.equal(selectVisuals(null, manifest).mode, "full");
@@ -139,6 +139,67 @@ test("temporary preview disables analytics and restores generated files on inter
   assert.equal(generatedEnv.CF_PAGES_BRANCH, "");
   assert.equal(generatedEnv.POSTHOG_ENABLE_PREVIEWS, "false");
   assert.equal(generatedEnv.POSTHOG_PROJECT_TOKEN, "");
+  assert.deepEqual(killSignals, ["SIGTERM"]);
+  assert.deepEqual(readFileSync(indexPath), originalIndex);
+  assert.equal(existsSync(configPath), false);
+});
+
+test("temporary preview bounds every hanging readiness request and cleans up", async (t) => {
+  const cwd = scratch(t);
+  const indexPath = join(cwd, "index.html");
+  const configPath = join(cwd, "posthog-config.js");
+  const originalIndex = Buffer.from("original index bytes\n");
+  writeFileSync(indexPath, originalIndex);
+  const signalSource = new EventEmitter();
+  const killSignals = [];
+  const timeoutDelays = [];
+  let fetchCalls = 0;
+  let deadlineAborts = 0;
+  const child = { pid: 5678, once() { return this; } };
+  const fakeExecFileSync = () => {
+    writeFileSync(indexPath, "generated index bytes\n");
+    writeFileSync(configPath, "generated config bytes\n");
+  };
+  const fakeFetch = async (_url, { signal }) => {
+    fetchCalls += 1;
+    if (fetchCalls === 1) throw new Error("preview is not running");
+    if (signal.aborted) deadlineAborts += 1;
+    return new Promise((_, reject) => {
+      if (signal.aborted) return;
+      signal.addEventListener("abort", () => {
+        deadlineAborts += 1;
+        if (signal.reason?.message !== "Local preview readiness request timed out") reject(new Error("request aborted"));
+      }, { once: true });
+    });
+  };
+  const startup = maybeStartLocalPreview([{ lane: "entry" }], {
+    cwd,
+    signalSource,
+    fetchImpl: fakeFetch,
+    execFileSyncImpl: fakeExecFileSync,
+    spawnImpl: () => child,
+    killGroup: (_pid, signal) => killSignals.push(signal),
+    setTimeoutImpl: (callback, milliseconds) => {
+      timeoutDelays.push(milliseconds);
+      callback();
+      return Symbol("deadline");
+    },
+    clearTimeoutImpl: () => {},
+    wait: async () => {},
+  });
+  const outcome = await Promise.race([
+    startup.then(() => ({ kind: "resolved" }), (error) => ({ kind: "rejected", error })),
+    new Promise((resolveOutcome) => setImmediate(() => resolveOutcome({ kind: "pending" }))),
+  ]);
+  if (outcome.kind === "pending") {
+    signalSource.emit("SIGINT");
+    await startup.catch(() => {});
+  }
+  assert.equal(outcome.kind, "rejected");
+  assert.match(outcome.error.message, /Could not start the temporary local preview/);
+  assert.equal(fetchCalls, 41);
+  assert.equal(deadlineAborts, 40);
+  assert.deepEqual(timeoutDelays, Array.from({ length: 40 }, () => 500));
   assert.deepEqual(killSignals, ["SIGTERM"]);
   assert.deepEqual(readFileSync(indexPath), originalIndex);
   assert.equal(existsSync(configPath), false);
