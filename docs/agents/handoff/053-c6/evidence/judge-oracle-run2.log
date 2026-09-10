@@ -1,0 +1,161 @@
+Plan 053-P4a/P4b: production-backed install-transfer import oracle
+Effective settings: model=native gpt-5.6-luna; reasoning_effort=max; fork_turns=none; service omitted
+  ✓ source program is activated through production compiler/finalization
+  ✓ custom exercise is saved through the production custom-exercise API
+  ✓ Plan 052 successor is committed through the production transition adapter
+  ✓ Plan 052 recovery carrier record is committed through the production adapter
+  ✓ source creates an acknowledged DraftV2 through the production browser seam
+  ✓ source persists a current program-entry candidate through __repforgePersistSetupDraft
+  ✓ source sets non-default UI preference, disabled consent, and preserves stable identity
+  ✓ P3 RepForgeInstallTransfer captures all real producer sections
+  ✓ P3 RepForgeInstallTransfer builds an envelope from the real source journey
+  ✓ shared RepForgeInstallTransferContract validates the built envelope
+  ✓ envelope carries acknowledged logical DraftV2 without writer/revision metadata
+  ✓ envelope carries the normalized persisted entry candidate without its wrapper
+  ✓ source envelope retains final Plan 052 programMeta.blockId
+  ✓ source envelope retains committed programMeta.transitionIn
+  ✓ source envelope retains programHistory transitionOut
+  ✓ source envelope retains recoveryTransitions records and quarantine arrays
+  ✓ source envelope retains the real workout log and custom exercise
+  ✓ envelope DraftV2 equals the real production logical clone
+  ✓ envelope candidate equals the production persisted candidate
+
+Plan 053-P4b pre-telemetry first-boot import
+  ✓ pre-telemetry destination begins without prefs, consent, or identity
+  ✓ RepForgeTelemetry boots only after preboot import binds the incoming identity
+  ✓ preboot import preserves incoming installationId and disabled consent at telemetry boot
+  ✓ pre-telemetry standalone boot performs one real claim and one acknowledged commit
+  ✓ pre-telemetry destination: durable state is exact in localStorage and IndexedDB
+  ✓ pre-telemetry destination: DraftV2 logical state and acknowledged checkpoint/current read back exactly
+  ✓ pre-telemetry destination: persisted entry candidate reads back exactly
+  ✓ pre-telemetry destination: UI preferences, consent, and telemetry identity read back exactly
+  ✓ pre-telemetry destination after reload: durable state is exact in localStorage and IndexedDB
+  ✓ pre-telemetry destination after reload: DraftV2 logical state and acknowledged checkpoint/current read back exactly
+  ✓ pre-telemetry destination after reload: persisted entry candidate reads back exactly
+  ✓ pre-telemetry destination after reload: UI preferences, consent, and telemetry identity read back exactly
+  ✓ pre-telemetry destination reload does not replay an unclaimed transfer request
+  ✓ destination exposes window.__repforgeInstallTransferImport
+  ✓ fresh destination accepts the production import result
+  ✓ fresh destination: durable state is exact in localStorage and IndexedDB
+  ✓ fresh destination: DraftV2 logical state and acknowledged checkpoint/current read back exactly
+  ✓ fresh destination: persisted entry candidate reads back exactly
+  ✓ fresh destination: UI preferences, consent, and telemetry identity read back exactly
+  ✓ after reload: durable state is exact in localStorage and IndexedDB
+  ✓ after reload: DraftV2 logical state and acknowledged checkpoint/current read back exactly
+  ✓ after reload: persisted entry candidate reads back exactly
+  ✓ after reload: UI preferences, consent, and telemetry identity read back exactly
+  ✓ meaningful destination has real production state before import
+  ✓ meaningful destination refuses before mutation
+  ✓ meaningful-destination refusal leaves storage bytes/logical state unchanged
+
+Plan 053-P4b deterministic import fault matrix
+  ✓ after marker: injected fault returns a non-success result
+  ✓ after marker: marker records the interrupted import phase
+  ✓ after marker: reload/boot settles after the interrupted import
+  ✓ after marker: boot exposes one complete incoming or previous clone, never mixed
+  ✓ after marker: no remote-commit authorization or commit request before local proof
+  ✓ after durable state: injected fault returns a non-success result
+  ✓ after durable state: marker records the interrupted import phase
+  ✓ after durable state: reload/boot settles after the interrupted import
+  ✓ after durable state: boot exposes one complete incoming or previous clone, never mixed
+  ✓ after durable state: no remote-commit authorization or commit request before local proof
+  ✓ after DraftV2: injected fault returns a non-success result
+  ✓ after DraftV2: marker records the interrupted import phase
+  ✓ after DraftV2: reload/boot settles after the interrupted import
+  ✓ after DraftV2: boot exposes one complete incoming or previous clone, never mixed
+  ✓ after DraftV2: no remote-commit authorization or commit request before local proof
+  ✓ after candidate: injected fault returns a non-success result
+  ✓ after candidate: marker records the interrupted import phase
+  ✓ after candidate: reload/boot settles after the interrupted import
+  ✓ after candidate: boot exposes one complete incoming or previous clone, never mixed
+  ✓ after candidate: no remote-commit authorization or commit request before local proof
+  ✓ after device sections: injected fault returns a non-success result
+  ✓ after device sections: marker records the interrupted import phase
+  ✓ after device sections: reload/boot settles after the interrupted import
+  ✓ after device sections: boot exposes one complete incoming or previous clone, never mixed
+  ✓ after device sections: no remote-commit authorization or commit request before local proof
+  ✓ read-back mismatch: injected fault returns a non-success result
+  ✓ read-back mismatch: marker records the interrupted import phase
+  ✓ read-back mismatch: reload/boot settles after the interrupted import
+  ✓ read-back mismatch: boot exposes one complete incoming or previous clone, never mixed
+  ✓ read-back mismatch: no remote-commit authorization or commit request before local proof
+  ✓ after local committed: injected fault returns a non-success result
+  ✓ after local committed: marker records the interrupted import phase
+  ✓ after local committed: reload/boot settles after the interrupted import
+  ✓ after local committed: boot exposes one complete incoming or previous clone, never mixed
+  ✓ after local committed: reload exposes the retained deletion-retry marker instead of rolling back
+
+Plan 053-P4b meaningful-destination refusal matrix
+  ✓ prefs-only: deterministic meaningful state is seeded through current APIs
+  ✓ prefs-only: import refuses the meaningful destination
+  ✓ prefs-only: refusal occurs before any local or IndexedDB mutation
+  ✓ prefs-only: no remote-commit authorization or commit request before local proof
+  ✓ consent/identity-only: deterministic meaningful state is seeded through current APIs
+  ✓ consent/identity-only: import refuses the meaningful destination
+  ✓ consent/identity-only: refusal occurs before any local or IndexedDB mutation
+  ✓ consent/identity-only: no remote-commit authorization or commit request before local proof
+  ✓ DraftV2-only: deterministic meaningful state is seeded through current APIs
+  ✓ DraftV2-only: import refuses the meaningful destination
+  ✓ DraftV2-only: refusal occurs before any local or IndexedDB mutation
+  ✓ DraftV2-only: no remote-commit authorization or commit request before local proof
+  ✓ candidate-only: deterministic meaningful state is seeded through current APIs
+  ✓ candidate-only: import refuses the meaningful destination
+  ✓ candidate-only: refusal occurs before any local or IndexedDB mutation
+  ✓ candidate-only: no remote-commit authorization or commit request before local proof
+  ✓ unreadable state: deterministic meaningful state is seeded through current APIs
+  ✓ unreadable state: import refuses the meaningful destination
+  ✓ unreadable state: refusal occurs before any local or IndexedDB mutation
+  ✓ unreadable state: no remote-commit authorization or commit request before local proof
+
+Plan 053-P4c A standalone cookie claim/import/commit boundary
+  ✗ P4c-A: standalone cookie claim/import/commit/cleanup is wired through the real app boot
+    Detail: {
+  "claimCount": 1,
+  "inboundPhase": null,
+  "imported": true,
+  "durableProgramLength": 15,
+  "idbMatches": true,
+  "commitCount": 1,
+  "commitAfterProof": true,
+  "finalInboundPhase": null
+}
+
+Plan 053-P4c B concurrent same-storage import arbitration
+  ✓ P4c-B: one cross-tab import transaction owns the marker, freezes the sibling, and exposes no mixed clone
+
+Plan 053-P4c C mirrored marker and fail-closed validation
+  ✓ P4c-C: a real claimed transfer mirrors its claim-bound marker and every divergent version/digest/timestamp/revision/hash fails closed without clearing it
+
+Plan 053-P4c D non-default durable-settings destination refusal
+  ✓ P4c-D: a destination with only non-default durable settings refuses before claim or mutation
+
+Plan 053-P4c E local-committed mutation and remote-delete retry
+  ✓ P4c-E: a genuine local-committed claim survives a post-commit UI/state mutation, boots without rollback, and retries its bound remote deletion
+
+Plan 053-P4c F post-marker failure blocks boot until recovery
+  ✓ P4c-F: a post-marker standalone failure leaves boot blocked with mirrored importing markers and no later telemetry or init
+
+Plan 053-P4c G import-marker recovery precedes ordinary replica healing
+  ✓ P4c-G: marker recovery completes before ordinary replica healing when one replica is incomplete
+
+Plan 053-P4c H sibling UI/consent writes are blocked during import freeze
+  ✓ P4c-H: a sibling tab cannot mutate UI preferences or telemetry consent while import owns the freeze
+
+Plan 053-P4c L foreign transfer freeze blocks DraftV2 create and clear
+  ✓ P4c-L: a foreign transfer freeze blocks production DraftV2 create/enter and clear without changing canonical bytes
+
+Plan 053-P4c I direct/preboot import requires a real claimed credential
+  ✓ P4c-I: the production-exposed direct import seam cannot mint a digest or import without cookie/client claim credentials
+
+Plan 053-P4c J rollback phase is mirrored before rollback work and resumes after crash
+  ✓ P4c-J: rollback mirrors rolling-back before any rollback write, blocks the crashed boot, and resumes to the previous durable state
+
+Plan 053-P4c K acknowledged remote deletion clears both import-marker replicas
+  ✓ P4c-K: acknowledged remote deletion clears the full import marker from localStorage and IndexedDB
+  ✓ P4c-M: acknowledged remote deletion also clears the inbound credential marker
+
+Plan 053-P4c N malformed import marker blocks PostHog and app boot before identity minting
+  ✓ P4c-N: malformed import-marker recovery stops before PostHog/app boot, identity or consent mutation, and client initialization
+
+Result: 113 passed, 1 failed
+Current blocker: one or more atomic import/recovery contracts failed; no production code was added by this oracle.
