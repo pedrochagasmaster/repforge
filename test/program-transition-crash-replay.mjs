@@ -455,6 +455,42 @@ async function crashRecoveryWhileQueued({ locker, writer, survivor }, confirmArg
   return journal;
 }
 
+async function crashRecoveryReassessmentWhileQueued({ locker, writer, survivor }, reassessArgs) {
+  await holdStorageLock(locker);
+  await writer.evaluate((args) => {
+    window.__p6cRecoveryReassessResult = window.__repforgeProgramTransition.reassessRecovery(args);
+  }, reassessArgs);
+  await waitForPendingStorageLocks(locker, 1);
+  await survivor.waitForFunction((prefix) =>
+    Object.keys(localStorage).some((key) => key.startsWith(prefix)), PENDING_PREFIX, { timeout: 10000 });
+  const journal = await readJournal(survivor);
+  if (!journal) throw new Error("reassessment journal was not armed while queued");
+  const parsed = JSON.parse(journal.raw);
+  if (parsed?.id == null) throw new Error("reassessment journal has no id");
+  await writer.close();
+  await releaseStorageLock(locker);
+  await locker.waitForFunction(async (lockName) => {
+    const locks = await navigator.locks.query();
+    return !locks.pending.some((lock) => lock.name === lockName);
+  }, STORAGE_LOCK, { timeout: 10000 });
+  return journal;
+}
+
+// Compatibility vehicle for a journal written by the pre-c4aa8c19 worker. The
+// old version-2 shape is production-created, then its newly introduced marker
+// is removed from the exact persisted bytes before boot. This keeps the
+// compatibility proof on the real recovery writer rather than a hand-built
+// carrier or journal substitute.
+async function removeRecoveryTransactionMarker(page, journal) {
+  await page.evaluate((key) => {
+    const raw = localStorage.getItem(key);
+    if (raw == null) throw new Error("missing pending recovery journal");
+    const journal = JSON.parse(raw);
+    delete journal.recoveryTransaction;
+    localStorage.setItem(key, JSON.stringify(journal));
+  }, journal.key);
+}
+
 async function injectFirstReplicaFailure(page, side) {
   await page.evaluate(({ key, side }) => {
     const originalSetItem = Storage.prototype.setItem;
@@ -2718,6 +2754,173 @@ async function main() {
       check(exactSourceState(secondBefore.local, secondAfter.local) && exactSourceState(secondBefore.idb, secondAfter.idb),
         "second boot after pre-lock recovery discard is idempotent");
       await context.close();
+      }
+    }
+
+    // =========================================================================
+    // R5b2 compatibility control: c4aa8c19 added recoveryTransaction to the
+    // journal. A real pre-c4aa8c19 version-2 recovery-start journal therefore
+    // has every production field except that marker. It must take the same
+    // fail-closed pre-lock path as the marked intent, not generic replay.
+    // =========================================================================
+    console.log("\n10b. Pre-c4 unmarked recovery-start journal is discarded exactly");
+    {
+      const env = await newBootedContext(browser);
+      const { locker, writer, survivor, context } = env;
+      const source = await setupRecoverySource(survivor, "recovery-prelock-legacy");
+      const sourceLocal = source.replicas.local;
+      const sourceIdb = source.replicas.idb;
+      const sourceBytes = await readReplicaBytes(survivor);
+      const sourceRevision = sourceLocal?._storageRevision;
+      const proposalResult = await proposeRecoveryCrashOracle(survivor, "tr_p6c_recovery_prelock_legacy");
+      check(proposalResult?.ok === true,
+        "pre-c4 recovery-start compatibility proposal is production-backed", proposalResult);
+      const proposal = proposalResult?.proposal;
+      if (!proposal) {
+        check(proposalResult?.missing !== true,
+          "pre-c4 recovery-start compatibility seam exists", proposalResult);
+        await context.close();
+      } else {
+        await bootOthers([locker, writer]);
+        const journal = await crashRecoveryWhileQueued(env, recoveryConfirmArgs(proposal));
+        const marked = JSON.parse(journal.raw);
+        check(marked.recoveryTransaction === true,
+          "compatibility fixture begins with the current production recovery marker", marked);
+        await removeRecoveryTransactionMarker(survivor, journal);
+        const legacyJournal = await readJournal(survivor);
+        const legacy = JSON.parse(legacyJournal.raw);
+        check(!Object.prototype.hasOwnProperty.call(legacy, "recoveryTransaction"),
+          "compatibility fixture is the historical unmarked version-2 journal", legacy);
+
+        const beforeReload = await readFullReplicas(survivor);
+        const beforeReloadBytes = await readReplicaBytes(survivor);
+        check(exactSourceState(sourceLocal, beforeReload.local) && exactSourceState(sourceIdb, beforeReload.idb),
+          "historical unmarked recovery journal leaves both source replicas exact before boot");
+        check(sourceBytes.local === beforeReloadBytes.local && sourceBytes.idb === beforeReloadBytes.idb,
+          "historical unmarked recovery journal preserves exact source replica bytes before boot");
+        await installBootWriteSpy(survivor);
+        await survivor.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(survivor, { base: BASE });
+
+        const after = await readFullReplicas(survivor);
+        const afterBytes = await readReplicaBytes(survivor);
+        const bootWrites = await survivor.evaluate(() => window.__p6cProvenanceBootWrites || []);
+        check(exactSourceState(sourceLocal, after.local) && exactSourceState(sourceIdb, after.idb),
+          "boot discards the pre-c4 unmarked recovery start without changing either replica", after);
+        check(sourceBytes.local === afterBytes.local && sourceBytes.idb === afterBytes.idb,
+          "pre-c4 unmarked recovery discard preserves exact source replica bytes");
+        check(after.local?._storageRevision === sourceRevision && after.idb?._storageRevision === sourceRevision,
+          "pre-c4 unmarked recovery discard advances no durable revision", after);
+        check(carrierRecords(after.local).length === 0 && carrierRecords(after.idb).length === 0,
+          "pre-c4 unmarked recovery discard creates zero carrier records");
+        check(after.local?.programMeta?.blockId === sourceLocal?.programMeta?.blockId &&
+              after.idb?.programMeta?.blockId === sourceIdb?.programMeta?.blockId,
+          "pre-c4 unmarked recovery discard keeps the source block active");
+        check(after.local?.programHistory?.length === sourceLocal?.programHistory?.length &&
+              after.idb?.programHistory?.length === sourceIdb?.programHistory?.length,
+          "pre-c4 unmarked recovery discard creates zero archives");
+        check(bootWrites.length === 0,
+          "pre-c4 unmarked recovery discard performs zero durable state writes", bootWrites);
+        const drafts = await readDraftBytes(survivor);
+        check(drafts.raw === source.drafts.raw && drafts.checkpoint === source.drafts.checkpoint &&
+              drafts.recovery === source.drafts.recovery,
+          "pre-c4 unmarked recovery discard preserves exact DraftV2 bytes", drafts);
+        check(recoveryHasNoArtifacts(await artifactKeys(survivor)),
+          "pre-c4 unmarked recovery discard drains all journal artifacts");
+
+        const secondBefore = await readFullReplicas(survivor);
+        await survivor.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(survivor, { base: BASE });
+        const secondAfter = await readFullReplicas(survivor);
+        check(exactSourceState(secondBefore.local, secondAfter.local) &&
+              exactSourceState(secondBefore.idb, secondAfter.idb),
+          "second boot after pre-c4 unmarked discard is idempotent");
+        await context.close();
+      }
+    }
+
+    // =========================================================================
+    // R5b2 compatibility control: an older unmarked reassessment journal must
+    // retain its generic R->R+1 replay semantics. It is not a block-start
+    // attempt merely because it carries a recovery record.
+    // =========================================================================
+    console.log("\n10c. Pre-c4 unmarked recovery reassessment replays generically");
+    {
+      const env = await newBootedContext(browser);
+      const { locker, writer, survivor, context } = env;
+      const source = await setupRecoverySource(survivor, "recovery-reassess-legacy");
+      const proposalResult = await proposeRecoveryCrashOracle(survivor, "tr_p6c_recovery_reassess_legacy");
+      check(proposalResult?.ok === true,
+        "pre-c4 reassessment compatibility proposal is production-backed", proposalResult);
+      const proposal = proposalResult?.proposal;
+      if (!proposal) {
+        check(proposalResult?.missing !== true,
+          "pre-c4 reassessment compatibility seam exists", proposalResult);
+        await context.close();
+      } else {
+        const committed = await confirmTransition(survivor, recoveryConfirmArgs(proposal));
+        check(committed?.committed === true, "pre-c4 reassessment compatibility carrier committed", committed);
+        await survivor.evaluate(() => window.__repforgeStorage.flush());
+        const moved = await survivor.evaluate(async () => {
+          const next = JSON.parse(JSON.stringify(window.__repforgeWorkoutDraft.state()));
+          next.programMeta = {
+            ...next.programMeta,
+            started: new Date(Date.now() - 8 * 86400000).toISOString().slice(0, 10),
+          };
+          const result = await window.__repforgeCommitProposedState(next);
+          await window.__repforgeStorage.flush();
+          return { ok: result?.localOk || result?.idbOk, result };
+        });
+        check(moved.ok === true, "pre-c4 reassessment week-boundary fixture committed", moved);
+        await survivor.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(survivor, { base: BASE });
+        const before = await readFullReplicas(survivor);
+        const beforeRecord = carrierRecords(before.local)[0];
+        const reassessArgs = {
+          expectedRevision: before.local?._storageRevision,
+          blockId: proposal.diff.recoveryWeek.blockId,
+          transitionId: proposal.transitionId,
+          proposalHash: proposal.proposalHash,
+          acknowledgedRecord: beforeRecord,
+          outcome: "Worse",
+        };
+        await bootOthers([locker, writer]);
+        const journal = await crashRecoveryReassessmentWhileQueued(env, reassessArgs);
+        const marked = JSON.parse(journal.raw);
+        check(marked.recoveryTransaction === true,
+          "pre-c4 reassessment fixture begins with the current marker", marked);
+        await removeRecoveryTransactionMarker(survivor, journal);
+        const legacy = JSON.parse((await readJournal(survivor)).raw);
+        check(!Object.prototype.hasOwnProperty.call(legacy, "recoveryTransaction"),
+          "pre-c4 reassessment fixture is the historical unmarked journal", legacy);
+        const drafts = await readDraftBytes(survivor);
+        const beforeRevision = before.local?._storageRevision;
+        await survivor.reload({ waitUntil: "domcontentloaded" });
+        await waitForAppBoot(survivor, { base: BASE });
+        const after = await readFullReplicas(survivor);
+        const expectedLocal = JSON.parse(JSON.stringify(before.local));
+        expectedLocal._storageRevision = beforeRevision + 1;
+        expectedLocal.recoveryTransitions.records[0] = recoveryRecordWithOutcome(beforeRecord, "Worse");
+        const expectedIdb = JSON.parse(JSON.stringify(before.idb));
+        expectedIdb._storageRevision = beforeRevision + 1;
+        expectedIdb.recoveryTransitions.records[0] = recoveryRecordWithOutcome(beforeRecord, "Worse");
+        check(isDeepStrictEqual(after.local, expectedLocal) && isDeepStrictEqual(after.idb, expectedIdb),
+          "pre-c4 unmarked reassessment replays exactly one generic R+1 update", { expectedLocal, expectedIdb, after });
+        check(after.local?.programMeta?.blockId === before.local?.programMeta?.blockId &&
+          after.idb?.programMeta?.blockId === before.idb?.programMeta?.blockId &&
+          isDeepStrictEqual(after.local?.program, before.local?.program) &&
+          isDeepStrictEqual(after.idb?.program, before.idb?.program) &&
+          isDeepStrictEqual(after.local?.programHistory, before.local?.programHistory) &&
+          isDeepStrictEqual(after.idb?.programHistory, before.idb?.programHistory),
+        "pre-c4 unmarked reassessment preserves block, program, and archive history");
+        const afterDraft = await readDraftBytes(survivor);
+        check(afterDraft.raw === drafts.raw && afterDraft.checkpoint === drafts.checkpoint &&
+          afterDraft.recovery === drafts.recovery,
+        "pre-c4 unmarked reassessment preserves DraftV2 bytes", afterDraft);
+        check(recoveryHasNoArtifacts(await artifactKeys(survivor)),
+          "pre-c4 unmarked reassessment drains all artifacts");
+        await assertRecoverySecondBoot(survivor, after, "pre-c4 unmarked reassessment");
+        await context.close();
       }
     }
 

@@ -1197,6 +1197,7 @@ function decodePendingJournal(key,raw){
       !Number.isSafeInteger(order?.seq)))return null;
     const effectOutcome=legacy?{status:DRAFT_EFFECT_NONE,effect:null}:
       draftEffectOutcome(Object.prototype.hasOwnProperty.call(journal,"effect")?journal.effect:null);
+    const recoveryTransactionPresent=Object.prototype.hasOwnProperty.call(journal,"recoveryTransaction");
     if(journal.recoveryTransaction!=null&&typeof journal.recoveryTransaction!=="boolean")return null;
     const recoveryTransaction=journal.recoveryTransaction===true;
     const expectedProgramFingerprint=typeof journal.expectedProgramFingerprint==="string"&&
@@ -1227,7 +1228,7 @@ function decodePendingJournal(key,raw){
       expectedProgramId:typeof journal.expectedProgramId==="string"&&journal.expectedProgramId?journal.expectedProgramId:null,
       expectedProgramFingerprint,expectedBlockId,expectedStorageRevision,
       expectedFirstRunEmpty:journal.expectedFirstRunEmpty===true,reconcileSessionIds,dayRenames,
-      effectOutcome,effect:effectOutcome.effect,recoveryTransaction,rollback}}}
+      effectOutcome,effect:effectOutcome.effect,recoveryTransaction,recoveryTransactionPresent,rollback}}}
   catch{return null}}
 function readPendingJournal(){
   const entries=[],invalid=[];
@@ -1382,13 +1383,90 @@ function pendingJournalSuccessorMatches(record,head){
       dayRenames:journal.dayRenames,expectedFirstRunEmpty:journal.expectedFirstRunEmpty,
       sharedRebaseSeed:journal.id});
   return readRevision(candidate)===readRevision(head)&&storageSnapshotsEqual(candidate,head)}
+function recoveryJournalCarrier(snapshot){
+  const carrier=snapshot?.recoveryTransitions;
+  if(carrier===undefined)return{records:[],quarantine:[]};
+  return isValidRecoveryTransitions(carrier)
+    ?{records:carrier.records,quarantine:carrier.quarantine}:null;
+}
+function recoveryJournalNonCarrierEqual(base,proposal,{ignoreBlockId=false}={}){
+  const left=cloneSnapshot(base),right=cloneSnapshot(proposal);
+  if(!isPlainStateObject(left?.programMeta)||!isPlainStateObject(right?.programMeta))return false;
+  delete left.recoveryTransitions;
+  delete right.recoveryTransitions;
+  if(ignoreBlockId){
+    delete left.programMeta.blockId;
+    delete right.programMeta.blockId}
+  return storageSnapshotsEqual(left,right);
+}
+/* Pre-c4 version-2 journals did not carry recoveryTransaction. Recovering
+   that absence by looking for any carrier delta would claim unrelated import,
+   setup, replacement, or generic work. Keep the old compatibility path a
+   closed reconstruction of the two canonical recovery mutations instead. */
+function classifyLegacyRecoveryJournal(journal){
+  if(!journal||journal.recoveryTransactionPresent===true)return null;
+  const base=journal.base,proposal=journal.proposal;
+  if(!isPlainStateObject(base)||!isPlainStateObject(proposal)||
+    !isPlainStateObject(base.programMeta)||!isPlainStateObject(proposal.programMeta)||
+    base.programMeta.id!==proposal.programMeta.id)return null;
+  const sourceBlock=base.programMeta.blockId,targetBlock=proposal.programMeta.blockId;
+  if(!isValidBlockId(sourceBlock,base.programMeta.id)||
+    !isValidBlockId(targetBlock,proposal.programMeta.id))return null;
+  const baseCarrier=recoveryJournalCarrier(base),proposalCarrier=recoveryJournalCarrier(proposal);
+  if(!baseCarrier||!proposalCarrier||!recoveryJournalNonCarrierEqual(base,proposal,{ignoreBlockId:true}))return null;
+  if(journal.expectedProgramId!==base.programMeta.id||journal.expectedBlockId!==sourceBlock||
+    !Number.isInteger(journal.expectedStorageRevision)||journal.expectedStorageRevision<0)return null;
+
+  const before=baseCarrier.records,after=proposalCarrier.records;
+  const sameQuarantine=storageSnapshotsEqual(baseCarrier.quarantine,proposalCarrier.quarantine);
+  if(!sameQuarantine)return null;
+  if(targetBlock!==sourceBlock&&after.length===before.length+1&&
+    before.every((record,index)=>transitionRecordEqual(record,after[index]))){
+    const appended=after.at(-1),overlay=appended?.diff?.recoveryWeek;
+    const targetWasAbsent=!before.some(record=>record?.diff?.recoveryWeek?.blockId===targetBlock);
+    if(targetWasAbsent&&appended?.predecessor?.programId===base.programMeta.id&&
+      appended.predecessor.blockId===sourceBlock&&
+      appended.predecessor.durableRevision===journal.expectedStorageRevision&&
+      overlay?.blockId===targetBlock&&overlay?.reassessmentOutcome===null&&
+      typeof journal.expectedProgramFingerprint==="string"&&
+      draftProgramFingerprint(base)===journal.expectedProgramFingerprint)
+      return"start";
+    return null;
+  }
+
+  // Reassessment is the legacy outcome-only mutation. It intentionally does
+  // not qualify as a recovery journal attempt: generic replay must preserve
+  // its old unmarked R->R+1 semantics.
+  if(targetBlock===sourceBlock&&after.length===before.length&&
+    recoveryJournalNonCarrierEqual(base,proposal)&&
+    before.length>0){
+    let changed=-1;
+    for(let index=0;index<before.length;index++){
+      if(transitionRecordEqual(before[index],after[index]))continue;
+      if(changed!==-1)return"other";
+      const beforeOverlay=before[index]?.diff?.recoveryWeek;
+      const afterOverlay=after[index]?.diff?.recoveryWeek;
+      if(beforeOverlay?.reassessmentOutcome!==null||
+        !["Better","About the same","Worse"].includes(afterOverlay?.reassessmentOutcome)||
+        !isPlainStateObject(beforeOverlay)||!isPlainStateObject(afterOverlay))return"other";
+      const beforeCopy=cloneSnapshot(before[index]),afterCopy=cloneSnapshot(after[index]);
+      beforeCopy.diff.recoveryWeek.reassessmentOutcome=null;
+      afterCopy.diff.recoveryWeek.reassessmentOutcome=null;
+      if(!transitionRecordEqual(beforeCopy,afterCopy))return"other";
+      changed=index;
+    }
+    if(changed!==-1)return"reassessment";
+  }
+  return null;
+}
 function isRecoveryJournalAttempt(journal){
-  if(journal?.recoveryTransaction!==true)return false;
-  const proposalCarrier=journal?.proposal?.recoveryTransitions;
-  if(!isValidRecoveryTransitions(proposalCarrier))return false;
-  const hasCommittedRecovery=proposalCarrier.records.some(record=>
-    record?.kind==="recovery_week"&&record?.status==="committed");
-  return hasCommittedRecovery;
+  if(journal?.recoveryTransaction===true){
+    const proposalCarrier=journal?.proposal?.recoveryTransitions;
+    if(!isValidRecoveryTransitions(proposalCarrier))return false;
+    return proposalCarrier.records.some(record=>
+      record?.kind==="recovery_week"&&record?.status==="committed");
+  }
+  return classifyLegacyRecoveryJournal(journal)==="start";
 }
 /* Bounded semantic/value equality for inherited transition values: absent on
    both sides is equal; anything present compares canonical parsed values, so

@@ -158,6 +158,38 @@ async function flushStorage(page) {
   });
 }
 
+async function flushFieldBearingDraft(page, expectedFields) {
+  return page.evaluate(
+    async ({ draftKey, expected }) => {
+      const hook = window.__repforgeWorkoutDraft;
+      if (typeof hook?.flush !== "function") throw new Error("DraftV2 flush seam is unavailable");
+      await hook.flush();
+      const raw = localStorage.getItem(draftKey);
+      if (typeof raw !== "string") throw new Error("DraftV2 bytes were not published after flush");
+      let parsed;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        throw new Error("DraftV2 bytes are not JSON after flush");
+      }
+      const exerciseId = parsed?.exerciseOrder?.[0];
+      const exercise = exerciseId ? parsed?.exercises?.[exerciseId] : null;
+      const setId = exercise?.setOrder?.[0];
+      const set = setId ? exercise?.sets?.[setId] : null;
+      const actual = {
+        load: set?.edited?.load,
+        reps: set?.edited?.reps,
+        rir: set?.edited?.rir,
+      };
+      if (actual.load !== expected.load || actual.reps !== expected.reps || actual.rir !== expected.rir) {
+        throw new Error(`DraftV2 entered fields were not serialized: ${JSON.stringify({ actual, expected })}`);
+      }
+      return raw;
+    },
+    { draftKey: DRAFT, expected: expectedFields }
+  );
+}
+
 async function putBoth(page, snapshot) {
   await flushStorage(page);
   await clearPersistenceArtifacts(page);
@@ -244,7 +276,9 @@ try {
   await page.locator('[data-k="race-press_1_load"]').fill("60");
   await page.locator('[data-k="race-press_1_reps"]').fill("10");
   await page.locator('[data-k="race-press_1_rir"]').fill("1");
-  await page.waitForFunction((draftKey) => localStorage.getItem(draftKey) !== null, DRAFT);
+  const workoutDraftBeforeFault = await flushFieldBearingDraft(page, { load: "60", reps: "10", rir: "1" });
+  check(typeof workoutDraftBeforeFault === "string" && workoutDraftBeforeFault.length > 0,
+    "same-page race captures the exact field-bearing DraftV2 bytes before fault injection");
 
   await page.evaluate(
     ({ key, dbName, storeName }) => {
@@ -387,8 +421,7 @@ try {
   await page.locator('[data-k="race-press_1_load"]').fill("65");
   await page.locator('[data-k="race-press_1_reps"]').fill("8");
   await page.locator('[data-k="race-press_1_rir"]').fill("1");
-  await page.waitForFunction((draftKey) => localStorage.getItem(draftKey) !== null, DRAFT);
-  const resetDraftBefore = await page.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT);
+  const resetDraftBefore = await flushFieldBearingDraft(page, { load: "65", reps: "8", rir: "1" });
   await page.evaluate((key) => {
     const originalSet = Storage.prototype.setItem;
     const originalPut = IDBObjectStore.prototype.put;
