@@ -4739,7 +4739,11 @@ function installTransferInboundStore({preserveCleanupMarker=false}={}){
         deferCleanupClear=true;
       localStorage.setItem(INSTALL_INBOUND_KEY,JSON.stringify(marker))},
     async clear(){
-      if(deferCleanupClear){deferCleanupClear=false;return}
+      if(deferCleanupClear){
+        deferCleanupClear=false;
+        queueMicrotask(()=>{try{localStorage.removeItem(INSTALL_INBOUND_KEY)}catch{}});
+        return;
+      }
       localStorage.removeItem(INSTALL_INBOUND_KEY)},
   }}
 async function installTransferStandaloneClient({preserveCleanupMarker=false}={}){

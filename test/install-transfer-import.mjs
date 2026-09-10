@@ -812,6 +812,24 @@ async function openStandaloneTransferPage(browser, envelope, events, options = {
   if (options.initScript) {
     await context.addInitScript(options.initScript, options.initArg);
   }
+  await context.addInitScript(({ inboundKey, installKey }) => {
+    window.__repforgeInboundLifecycle = [];
+    const record = (kind, key, value) => {
+      let parsed = null;
+      try { parsed = JSON.parse(value); } catch { parsed = value; }
+      window.__repforgeInboundLifecycle.push({ kind, key, value: parsed, timestamp: Date.now() });
+    };
+    const origSet = Storage.prototype.setItem;
+    Storage.prototype.setItem = function(k, v) {
+      if (k === inboundKey || k === installKey) record("set", k, v);
+      return origSet.call(this, k, v);
+    };
+    const origRemove = Storage.prototype.removeItem;
+    Storage.prototype.removeItem = function(k) {
+      if (k === inboundKey || k === installKey) record("remove", k, null);
+      return origRemove.call(this, k);
+    };
+  }, { inboundKey: INBOUND_MARKER_KEY, installKey: INSTALL_MARKER_KEY });
   await context.addInitScript(({ cookieValue, seedOnce }) => {
     const originalMatchMedia = window.matchMedia.bind(window);
     window.matchMedia = (query) => {
@@ -1126,12 +1144,21 @@ async function runP4cStandaloneClaimCommit(browser, envelope) {
   const events = [];
   const { context, page, cookie, removeRoutes } = await openStandaloneTransferPage(browser, envelope, events);
   try {
-    const inbound = parseMarker(await page.evaluate((key) => localStorage.getItem(key), INBOUND_MARKER_KEY));
+    const lifecycle = await page.evaluate(() => window.__repforgeInboundLifecycle || []);
     const claimEvents = events.filter((event) => event.kind === "claim");
     const commitEvents = events.filter((event) => event.kind === "commit");
-    const inboundCredential = inbound?.sealedCredentials || inbound?.sealedToken;
-    const inboundValid = !!inbound && ["staged", "claiming", "claimed", "local-committed", "cleanup-pending"].includes(inbound.phase) &&
-      !!inboundCredential && !JSON.stringify(inbound).includes(cookie.token);
+
+    const cleanupPendingEntry = lifecycle.find((e) =>
+      e.key === INBOUND_MARKER_KEY && e.kind === "set" &&
+      e.value?.phase === "cleanup-pending" && e.value?.remoteState === "deleted"
+    );
+    const cleanupPendingMarker = cleanupPendingEntry?.value || null;
+    const inboundCredential = cleanupPendingMarker?.sealedCredentials ||
+      commitEvents[0]?.inboundAtRequest?.sealedCredentials;
+    const inboundValid = !!inboundCredential &&
+      (cleanupPendingMarker?.phase === "cleanup-pending" ||
+       ["staged", "claiming", "claimed", "local-committed", "cleanup-pending"].includes(commitEvents[0]?.inboundAtRequest?.phase)) &&
+      !JSON.stringify(cleanupPendingMarker || commitEvents[0]?.inboundAtRequest).includes(cookie.token);
 
     const actual = await readLogical(page, { flushDraft: false });
     const idb = await readIdb(page);
@@ -1140,18 +1167,31 @@ async function runP4cStandaloneClaimCommit(browser, envelope) {
     const commitAfterProof = commitEvents.length === 1 &&
       commitEvents[0]?.markerAtRequest?.phase === "local-committed";
 
+    await page.waitForFunction(({ inboundKey, markerKey }) =>
+      localStorage.getItem(inboundKey) === null &&
+      localStorage.getItem(markerKey) === null,
+    { inboundKey: INBOUND_MARKER_KEY, markerKey: INSTALL_MARKER_KEY },
+    { timeout: 5000 }).catch(() => {});
+
     const finalInbound = parseMarker(await page.evaluate((key) => localStorage.getItem(key), INBOUND_MARKER_KEY));
+    const finalLocalMarker = parseMarker(await page.evaluate((key) => localStorage.getItem(key), INSTALL_MARKER_KEY));
+    const finalIdbMarker = await readIdbValue(page, INSTALL_MARKER_KEY);
     const cleanup = commitEvents.length === 1 &&
-      (finalInbound === null || finalInbound?.phase === "cleanup-pending" && finalInbound.remoteState === "deleted");
+      finalInbound === null && finalLocalMarker === null && finalIdbMarker === null;
+
     check(claimEvents.length === 1 && inboundValid &&
       typeof claimEvents[0]?.body?.claimId === "string" && claimEvents[0].body.claimId.length >= 22 &&
       imported && commitAfterProof && cleanup,
     "P4c-A: standalone cookie claim/import/commit/cleanup is wired through the real app boot",
     {
-      claimCount: claimEvents.length, inboundPhase: inbound?.phase || null, imported,
+      claimCount: claimEvents.length,
+      inboundPhase: cleanupPendingMarker?.phase || commitEvents[0]?.inboundAtRequest?.phase || null,
+      imported,
       durableProgramLength: actual.durableState?.program?.length,
       idbMatches: sameValue(logicalDurableState(idb), envelope.durableState),
-      commitCount: commitEvents.length, commitAfterProof, finalInboundPhase: finalInbound?.phase || null,
+      commitCount: commitEvents.length, commitAfterProof,
+      finalInboundPhase: finalInbound?.phase || null,
+      cleanupSettled: cleanup,
     });
   } finally {
     await removeRoutes();
@@ -1772,6 +1812,13 @@ async function runP4cRemoteDeletionClearsMirrors(browser, envelope) {
   const { context, page, removeRoutes } = await openStandaloneTransferPage(browser, envelope, events);
   try {
     const commit = events.find((event) => event.kind === "commit");
+
+    await page.waitForFunction(({ inboundKey, markerKey }) =>
+      localStorage.getItem(inboundKey) === null &&
+      localStorage.getItem(markerKey) === null,
+    { inboundKey: INBOUND_MARKER_KEY, markerKey: INSTALL_MARKER_KEY },
+    { timeout: 5000 }).catch(() => {});
+
     const localMarker = parseMarker(await page.evaluate((key) => localStorage.getItem(key), INSTALL_MARKER_KEY));
     const idbMarker = await readIdbValue(page, INSTALL_MARKER_KEY);
     const finalInbound = parseMarker(await page.evaluate((key) => localStorage.getItem(key), INBOUND_MARKER_KEY));
