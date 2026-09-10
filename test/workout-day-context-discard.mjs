@@ -187,7 +187,15 @@ async function main() {
     await page.locator("#bodyweight").fill(OLD_BODYWEIGHT);
     await fillSet(page, DAY_1_EXERCISE, 101);
 
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
     const beforeSwitch = await contextSnapshot(page);
+    const beforeDraft = JSON.parse(beforeSwitch.draftRaw || "{}");
+    const beforeSet = beforeDraft.exercises?.[DAY_1_EXERCISE]?.sets?.["set-1"];
+    check(
+      beforeSet?.edited?.effort === "hard" && beforeSet?.touched?.effort === true,
+      "Pre-cancel snapshot acknowledges the entered effort field",
+      { beforeSet }
+    );
 
     dialogAction = "dismiss";
     await page.click('#dayTabs button[data-day="Day 2"]');

@@ -3,3 +3,9 @@ node_modules/
 tools/motion-runtime/node_modules/
 .env
 posthog-config.js
+
+# Private analytics rosters and compiled definitions must remain outside the repo.
+*.measurement-private.json
+*measurement*.private.json
+measurement-private/
+.ci-results/

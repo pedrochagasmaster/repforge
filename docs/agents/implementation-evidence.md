@@ -86,6 +86,8 @@ worktree and attach them to CI or the PR. The recorder captures command output,
 exit status, and Git state before and after execution. Its successful result
 means **command passed on an unchanged clean commit**, not **phase complete**.
 
+For ordinary coding loops, use `node tools/run-tests.mjs affected --base origin/main` before choosing a broader gate. The runner is intentionally quiet; retained `.ci-results/` logs and failure artifacts are the evidence source, not thousands of passing terminal lines. Correct an exact failing suite first, then widen after the packet is coherent. Do not spend agent time/tokens repeatedly running full regression after each edit; full gates belong at the plan-defined checkpoint/final clean candidate.
+
 - Name the exact assertion and its limitations beside each report.
 - Record failing cases too. A failed command must remain distinguishable from
   a test suite that successfully rejected a deliberately invalid fixture.

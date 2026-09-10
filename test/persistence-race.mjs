@@ -101,6 +101,7 @@ function loggedState(revision = 30) {
 }
 
 async function waitForApp(page) {
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.waitForFunction(
     () =>
       typeof window.__repforgeStorage?.flush === "function" &&
@@ -156,6 +157,87 @@ async function flushStorage(page) {
   await page.evaluate(async () => {
     await window.__repforgeStorage.flush();
   });
+}
+
+async function flushFieldBearingDraft(page, expectedFields) {
+  await page.waitForFunction(
+    (expected) => {
+      const draft = window.__repforgeWorkoutDraft?.current?.();
+      const exerciseId = draft?.exerciseOrder?.[0];
+      const exercise = exerciseId ? draft.exercises?.[exerciseId] : null;
+      const setId = exercise?.setOrder?.[0];
+      const set = setId ? exercise.sets?.[setId] : null;
+      return set?.edited?.load === expected.load &&
+        set?.edited?.reps === expected.reps && set?.edited?.rir === expected.rir;
+    },
+    expectedFields,
+    { timeout: 5000 }
+  );
+  return page.evaluate(
+    async ({ expected }) => {
+      const hook = window.__repforgeWorkoutDraft;
+      if (typeof hook?.flush !== "function") throw new Error("DraftV2 flush seam is unavailable");
+      await hook.flush();
+      const raw = hook.raw?.();
+      if (typeof raw !== "string") throw new Error("DraftV2 bytes were not published after flush");
+      let parsed;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        throw new Error("DraftV2 bytes are not JSON after flush");
+      }
+      const exerciseId = parsed?.exerciseOrder?.[0];
+      const exercise = exerciseId ? parsed?.exercises?.[exerciseId] : null;
+      const setId = exercise?.setOrder?.[0];
+      const set = setId ? exercise?.sets?.[setId] : null;
+      const actual = {
+        load: set?.edited?.load,
+        reps: set?.edited?.reps,
+        rir: set?.edited?.rir,
+      };
+      if (actual.load !== expected.load || actual.reps !== expected.reps || actual.rir !== expected.rir) {
+        throw new Error(`DraftV2 entered fields were not serialized: ${JSON.stringify({ actual, expected })}`);
+      }
+      return raw;
+    },
+    { expected: expectedFields }
+  );
+}
+
+async function readAcknowledgedDraft(page) {
+  return page.evaluate((draftKey) => {
+    const hook = window.__repforgeWorkoutDraft;
+    const raw = typeof hook?.raw === "function" ? hook.raw() : null;
+    const checkpointRaw = localStorage.getItem(`${draftKey}:v2-checkpoint`);
+    let checkpoint = null;
+    try {
+      checkpoint = checkpointRaw == null ? null : JSON.parse(checkpointRaw);
+    } catch {}
+    return {
+      raw,
+      checkpointRaw,
+      checkpoint,
+      recovery: localStorage.getItem(`${draftKey}:recovery`),
+    };
+  }, DRAFT);
+}
+
+function validCommittedDraftCheckpoint(draft) {
+  if (typeof draft?.raw !== "string" || typeof draft?.checkpointRaw !== "string") return false;
+  let parsed;
+  try {
+    parsed = JSON.parse(draft.raw);
+  } catch {
+    return false;
+  }
+  const checkpoint = draft.checkpoint;
+  return checkpoint?.version === 1 &&
+    checkpoint.kind === "committed" &&
+    checkpoint.raw === draft.raw &&
+    checkpoint.draftId === parsed?.draftId &&
+    checkpoint.revision === parsed?.revision &&
+    checkpoint.programFingerprint === parsed?.program?.programFingerprint &&
+    draft.recovery === null;
 }
 
 async function putBoth(page, snapshot) {
@@ -244,7 +326,9 @@ try {
   await page.locator('[data-k="race-press_1_load"]').fill("60");
   await page.locator('[data-k="race-press_1_reps"]').fill("10");
   await page.locator('[data-k="race-press_1_rir"]').fill("1");
-  await page.waitForFunction((draftKey) => localStorage.getItem(draftKey) !== null, DRAFT);
+  const workoutDraftBeforeFault = await flushFieldBearingDraft(page, { load: "60", reps: "10", rir: "1" });
+  check(typeof workoutDraftBeforeFault === "string" && workoutDraftBeforeFault.length > 0,
+    "same-page race captures the exact field-bearing DraftV2 bytes before fault injection");
 
   await page.evaluate(
     ({ key, dbName, storeName }) => {
@@ -387,8 +471,7 @@ try {
   await page.locator('[data-k="race-press_1_load"]').fill("65");
   await page.locator('[data-k="race-press_1_reps"]').fill("8");
   await page.locator('[data-k="race-press_1_rir"]').fill("1");
-  await page.waitForFunction((draftKey) => localStorage.getItem(draftKey) !== null, DRAFT);
-  const resetDraftBefore = await page.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT);
+  const resetDraftBefore = await flushFieldBearingDraft(page, { load: "65", reps: "8", rir: "1" });
   await page.evaluate((key) => {
     const originalSet = Storage.prototype.setItem;
     const originalPut = IDBObjectStore.prototype.put;
@@ -409,25 +492,31 @@ try {
   }, KEY);
   page.once("dialog", (dialog) => dialog.accept());
   await page.click("#reset");
-  await page.evaluate(async () => {
-    await window.__repforgeStorage.flush();
-    await new Promise((resolve) => requestAnimationFrame(() => resolve()));
-    window.__restoreResetFailure?.();
+  await page.evaluate(() => window.__repforgeStorage.flush());
+  await page.waitForFunction(() => {
+    const result = window.__repforgeStorage.health()?.lastResult;
+    return result?.localOk === false && result?.idbOk === false;
   });
+  await page.evaluate(() => window.__restoreResetFailure?.());
   const resetFailure = await readBoth(page);
-  const resetDraftAfter = await page.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT);
+  const resetDraftAfter = await readAcknowledgedDraft(page);
+  const resetArtifactsAfter = await inventoryPersistenceArtifacts(page);
   await page.evaluate(() => document.querySelector('nav button[data-view="history"]')?.click());
   const resetLiveSession = await page.locator('[data-sess="old-session"]').count();
   const resetFailureSummary = {
     localRows: resetFailure.local?.log?.length ?? null,
     idbRows: resetFailure.idb?.log?.length ?? null,
-    draftByteEquivalent: resetDraftAfter === resetDraftBefore,
+    draftByteEquivalent: resetDraftAfter.raw === resetDraftBefore,
+    draftCheckpointValid: validCommittedDraftCheckpoint(resetDraftAfter),
+    draftArtifactsClean: resetArtifactsAfter.draftArtifacts.length === 0,
     liveSessionPresent: resetLiveSession === 1,
   };
   check(
     resetFailureSummary.localRows === 1 &&
       resetFailureSummary.idbRows === 1 &&
       resetFailureSummary.draftByteEquivalent &&
+      resetFailureSummary.draftCheckpointValid &&
+      resetFailureSummary.draftArtifactsClean &&
       resetFailureSummary.liveSessionPresent,
     "Delete log changes live state and draft only after an accepted replica",
     resetFailureSummary
@@ -538,8 +627,7 @@ try {
         window.__repforgeShowSettings();
         document.querySelector("#jumpPct").value = "7.75";
         document.querySelector("#saveSettings").click();
-        await Promise.resolve();
-        await Promise.resolve();
+        await window.__repforgeStorage.flush();
       });
       const ordinary = await readBoth(writer);
       const ordinaryUi = await writer.evaluate(() => ({
@@ -571,9 +659,11 @@ try {
           telemetryRoute: "custom",
         });
       }, KEY);
-      await writer.evaluate(
-        () => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)))
-      );
+      await writer.waitForFunction(() => {
+        const toast = document.querySelector("#toast")?.textContent || "";
+        const storageFull = window.RepForgeI18n?.t("toast.storage_full") || "";
+        return toast.trim() === storageFull.trim();
+      });
       const required = await readBoth(writer);
       // The toast copy is asked of the catalog, not spelled out here: a reword
       // should not fail a check about which of the two toasts was raised.

@@ -9236,6 +9236,38 @@ async function main() {
   const histBeforeBlock = (await getState(page)).programHistory?.length || 0;
   const idBeforeBlock = (await getState(page)).programMeta?.id;
   const revisionBeforeBlock = (await getState(page))._storageRevision || 0;
+  // A valid DraftV2 owns the captured prescription and block identity. The
+  // explicit block-start command must refuse before it can open the next-block
+  // onboarding flow or touch any draft/checkpoint bytes. Clear that independent
+  // workout fixture, then exercise the existing deferred onboarding contract.
+  await flushDraftWork(page);
+  const draftBeforeBlockedBlock = await page.evaluate((d) => ({
+    raw: localStorage.getItem(d),
+    checkpoint: window.__repforgeWorkoutDraft?.checkpoint?.() || null,
+    recovery: window.__repforgeWorkoutDraft?.recovery?.() || null,
+  }), DRAFT);
+  const onboardingBlockedByDraft = await page.evaluate(() => window.__repforgeCommitNextBlock("onboarding"));
+  const draftAfterBlockedBlock = await page.evaluate((d) => ({
+    raw: localStorage.getItem(d),
+    checkpoint: window.__repforgeWorkoutDraft?.checkpoint?.() || null,
+    recovery: window.__repforgeWorkoutDraft?.recovery?.() || null,
+  }), DRAFT);
+  const stateAfterBlockedBlock = await getState(page);
+  assert(
+    onboardingBlockedByDraft.kind === "failed" &&
+      onboardingBlockedByDraft.committed === false &&
+      onboardingBlockedByDraft.draftConflict === true &&
+      onboardingBlockedByDraft.code === "live_draft_blocks_next_block" &&
+      stateAfterBlockedBlock._storageRevision === revisionBeforeBlock &&
+      stateAfterBlockedBlock.programMeta?.id === idBeforeBlock &&
+      (stateAfterBlockedBlock.programHistory?.length || 0) === histBeforeBlock &&
+      JSON.stringify(draftAfterBlockedBlock) === JSON.stringify(draftBeforeBlockedBlock),
+    "A valid DraftV2 blocks explicit block start without changing state or draft bytes",
+    JSON.stringify({ result: onboardingBlockedByDraft, before: draftBeforeBlockedBlock, after: draftAfterBlockedBlock }),
+    "commitNextBlock(onboarding) with live DraftV2 → refused before capture/journal/write"
+  );
+  await clearDraftFixture(page);
+  await reloadApp(page);
   const onboardingDeferred = await page.evaluate(() => window.__repforgeCommitNextBlock("onboarding"));
   await page.waitForSelector("#onboarding.active", { timeout: 5000 });
   const stateWhileOnboarding = await getState(page);
@@ -9311,21 +9343,28 @@ async function main() {
   );
 
   const idForDup = afterBlockSave.programMeta.id;
+  const blockIdForDup = afterBlockSave.programMeta.blockId;
   const histForDup = afterBlockSave.programHistory.length;
+  const revisionForDup = afterBlockSave._storageRevision;
   await page.evaluate(async () => {
     await Promise.all([window.__repforgeCommitNextBlock("repeat"), window.__repforgeCommitNextBlock("repeat")]);
   });
   await page.evaluate(() => window.__repforgeStorage?.flush?.());
   const afterDup = await getState(page);
   assert(
-    afterDup.programMeta.id !== idForDup &&
-      afterDup.programHistory.length === histForDup + 1 &&
-      afterDup.programHistory.filter((h) => h.id === idForDup).length === 1,
-    "Double next-block commit archives the old id once",
-    `hist ${histForDup} → ${afterDup.programHistory.length} id=${afterDup.programMeta.id}`,
+    afterDup.programMeta.id === idForDup &&
+      afterDup.programMeta.blockId &&
+      afterDup.programMeta.blockId !== blockIdForDup &&
+      afterDup._storageRevision === revisionForDup + 1 &&
+      afterDup.programHistory.length === histForDup &&
+      afterDup.programHistory.filter((h) => h.id === idForDup).length === 0,
+    "Double literal-repeat commit creates one fresh block without archiving the program",
+    `hist ${histForDup} → ${afterDup.programHistory.length} id=${afterDup.programMeta.id} block=${afterDup.programMeta.blockId}`,
     "Promise.all commitNextBlock(repeat) ×2"
   );
   const settledId = afterDup.programMeta.id;
+  const settledBlockId = afterDup.programMeta.blockId;
+  const settledRevision = afterDup._storageRevision;
   const settledHistory = afterDup.programHistory.length;
   const repeatedBlock = await page.evaluate(
     (oldId) => window.__repforgeCommitNextBlock("repeat", undefined, oldId),
@@ -9334,14 +9373,17 @@ async function main() {
   await page.evaluate(() => window.__repforgeStorage?.flush?.());
   const afterRepeatedBlock = await getState(page);
   assert(
-    repeatedBlock.kind === "duplicate" &&
-      repeatedBlock.committed === false &&
-      repeatedBlock.duplicate === true &&
+    repeatedBlock.kind === "committed" &&
+      repeatedBlock.committed === true &&
       afterRepeatedBlock.programMeta.id === settledId &&
-      afterRepeatedBlock.programHistory.length === settledHistory,
-    "A settled block-review activation cannot create another successor",
+      afterRepeatedBlock.programMeta.blockId !== settledBlockId &&
+      afterRepeatedBlock._storageRevision === settledRevision + 1 &&
+      afterRepeatedBlock.programHistory.length === settledHistory &&
+      afterRepeatedBlock.programMeta.id === settledId &&
+      afterRepeatedBlock.programHistory.filter((h) => h.id === settledId).length === 0,
+    "A settled literal repeat can start another fresh block without a successor archive",
     JSON.stringify({ repeatedBlock, settledId, afterId: afterRepeatedBlock.programMeta.id }),
-    `commitNextBlock(repeat, expected=${idForDup}) after settlement`
+    `commitNextBlock(repeat, expected=${idForDup}) after the prior repeat`
   );
   const beforeFailedBlock = await getState(page);
   const failedBlock = await page.evaluate(async (oldId) => {

@@ -36,6 +36,11 @@
     return value == null || isText(value, { empty: true, max });
   }
 
+  function isBlockId(value, programId) {
+    return isText(value, { max: MAX_ID }) && value.trim().length > 0 &&
+      (programId == null || value !== programId);
+  }
+
   function jsonClone(value) {
     return JSON.parse(JSON.stringify(value));
   }
@@ -269,6 +274,9 @@
           max: field === "programFingerprint" ? 2000 : 500,
         })) issues.push(`program.${field}`);
       }
+      if (hasOwn(value.program, "blockId") && !isBlockId(value.program.blockId, value.program.programId)) {
+        issues.push("program.blockId");
+      }
       if (!isSafeInteger(value.program.durableRevision)) issues.push("program.durableRevision");
       if (!UNITS.has(value.program.unit)) issues.push("program.unit");
       if (!RIR_MODES.has(value.program.rirMode)) issues.push("program.rirMode");
@@ -428,6 +436,7 @@
       exerciseOrder,
       exercises,
     };
+    if (hasOwn(programContext, "blockId")) draft.program.blockId = programContext.blockId;
     const checked = validate(draft);
     return checked.ok ? deepFreeze(draft) : error("invalid-created-draft", { issues: checked.issues });
   }
@@ -440,7 +449,7 @@
 
   function contextMismatch(draft, context) {
     if (!isPlainObject(context)) return null;
-    const fields = ["programId", "programFingerprint", "durableRevision", "dayId"];
+    const fields = ["programId", "programFingerprint", "durableRevision", "dayId", "blockId"];
     for (const field of fields) {
       if (hasOwn(context, field) && context[field] !== draft.program[field]) return field;
     }
@@ -880,6 +889,7 @@
           rir: values.rir,
           notes: draft.session.notes.trim(),
           created: completedAt,
+          ...(hasOwn(draft.program, "blockId") ? { blockId: draft.program.blockId } : {}),
           primary: original.primary,
           secondary: original.secondary,
           performedName: performed.displayName,
