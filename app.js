@@ -4,6 +4,18 @@ const PENDING_PREFIX=`${PENDING}:`,DRAFT_PENDING_PREFIX=`${DRAFT}:pending:`,DRAF
 const DRAFT_V2_CHECKPOINT=`${DRAFT}:v2-checkpoint`;
 const DRAFT_WRITE_TRANSACTION="draft-write";
 const DB="repforge",STORE="kv";
+const INSTALL_IMPORT_KEY="repforge_install_import_v1";
+const INSTALL_UI_KEY="repforge_ui_v1";
+const TELEMETRY_ENABLED_KEY="repforge_telemetry_enabled_v1";
+const TELEMETRY_IDENTITY_KEY="repforge_telemetry_identity_v1";
+let installTransferModulePromise=null;
+let installTransferTelemetryBooted=false;
+function installTransferRawAtLoad(key){try{return localStorage.getItem(key)}catch{return null}}
+const installTransferInitialDevice={
+  ui:installTransferRawAtLoad(INSTALL_UI_KEY),
+  consent:installTransferRawAtLoad(TELEMETRY_ENABLED_KEY),
+  identity:installTransferRawAtLoad(TELEMETRY_IDENTITY_KEY)};
+let installTransferBootDevice=null;
 function loadNotifyMeta(){
   try{return JSON.parse(localStorage.getItem(NOTIFY_META)||"{}")||{}}catch{return{}}
 }
@@ -2014,9 +2026,11 @@ const t=(k,v)=>I18N?I18N.t(k,v):k;
 const tp=(n,w)=>I18N?I18N.tp(n,w):(+n===1?w:w+"s");
 const captureEvent=(event,properties)=>{try{return window.RepForgeTelemetry?.capture(event,properties)===true}catch{return false}};
 const bootTelemetry=()=>{try{const config=window.__POSTHOG_CONFIG__||{};
-  return window.RepForgeTelemetry?.boot({appVersion:config.appVersion||"dev",crypto:window.crypto,
+  const result=window.RepForgeTelemetry?.boot({appVersion:config.appVersion||"dev",crypto:window.crypto,
     location:window.location,navigator:window.navigator,releaseChannel:config.releaseChannel||"preview",
-    storage:window.localStorage})||null}catch{return null}};
+    storage:window.localStorage})||null;
+  if(result)installTransferTelemetryBooted=true;
+  return result}catch{return null}};
 const telemetryPlatformClass=()=>{if(isIOS())return"ios";const ua=navigator.userAgent||"";if(/android/i.test(ua))return"android";if(/windows|macintosh|linux|cros/i.test(ua))return"desktop";return"other"};
 const applyI18n=()=>{if(!I18N)return;I18N.applyDom();
   const hard=$("#statsHardSetLede");if(hard)hard.innerHTML=t("stats.completed_hard_sets.lede");
@@ -4473,6 +4487,424 @@ async function commitProposedState(proposal,io=storageIO,opts={}){
   const result=await enqueueStateChange(base,snapshot,io,Object.assign({},opts,{liveBase}));
   if(result.draftConflict&&!result.journalFailed)toast(t("toast.draft_conflict_retry"),{assertive:true});
   return result}
+function installTransferReadJson(key){
+  try{
+    const raw=localStorage.getItem(key);
+    if(raw===null)return null;
+    const value=JSON.parse(raw);
+    return value&&typeof value==="object"&&!Array.isArray(value)?value:null}
+  catch{return null}}
+function installTransferReadRaw(key){try{return localStorage.getItem(key)}catch{return null}}
+function installTransferWriteRaw(key,raw){
+  try{
+    if(raw===null)localStorage.removeItem(key);
+    else localStorage.setItem(key,raw);
+    return true}
+  catch{return false}}
+function installTransferRecordBootDevice(){
+  installTransferBootDevice={
+    consent:installTransferReadRaw(TELEMETRY_ENABLED_KEY),
+    identity:installTransferReadRaw(TELEMETRY_IDENTITY_KEY)}
+}
+function installTransferDeviceMeaningful(){
+  const uiRaw=installTransferReadRaw(UIKEY),ui=installTransferReadJson(UIKEY);
+  if(installTransferInitialDevice.ui!==null||uiRaw!==null&&Object.keys(ui||{}).length>0)return true;
+  const consent=installTransferReadRaw(TELEMETRY_ENABLED_KEY);
+  if(installTransferInitialDevice.consent!==null||
+    consent!==null&&consent!==installTransferBootDevice?.consent)return true;
+  const identity=installTransferReadRaw(TELEMETRY_IDENTITY_KEY);
+  return installTransferInitialDevice.identity!==null||
+    identity!==null&&identity!==installTransferBootDevice?.identity}
+async function ensureInstallTransferModules(){
+  if(!installTransferModulePromise){
+    installTransferModulePromise=Promise.resolve().then(()=>{
+      const contract=window.RepForgeInstallTransferContract;
+      const transfer=window.RepForgeInstallTransfer;
+      if(!contract?.validateEnvelopeIntegrity||!transfer?.captureLogicalSnapshot)
+        throw new Error("install-transfer modules unavailable");
+      return{contract,transfer}}).catch(error=>{installTransferModulePromise=null;throw error})}
+  return installTransferModulePromise}
+function installTransferDraftSource(){
+  return{
+    flush:()=>drainDraftWork(),
+    current:()=>activeWorkoutDraft,
+    checkpoint:()=>DraftStore.readV2Checkpoint(),
+    read:()=>DraftStore.readCanonicalStatus(),
+    logicalCloneSection:draft=>WorkoutDraft.logicalCloneSection(draft),
+  }}
+function installTransferStoredDraftSource(){
+  const read=DraftStore.readCanonicalStatus();
+  let current=null;
+  if(read.status==="ok"&&read.raw!==null){
+    const parsed=WorkoutDraft.parse(read.raw);
+    if(parsed?.kind==="valid")current=parsed.draft}
+  return{
+    flush:()=>Promise.resolve(),
+    current:()=>current,
+    checkpoint:()=>DraftStore.readV2Checkpoint(),
+    read:()=>DraftStore.readCanonicalStatus(),
+    logicalCloneSection:draft=>WorkoutDraft.logicalCloneSection(draft),
+  }}
+function installTransferSections(durableSnapshot=state,{storedDraft=false}={}){
+  return{
+    durableState:()=>exportableState(durableSnapshot),
+    workoutDraft:storedDraft?installTransferStoredDraftSource():installTransferDraftSource(),
+    programEntryDraft:()=>{
+      const record=readSetupDraftRecord();
+      if(!record.ok)throw new Error("program-entry-draft-unavailable");
+      return record.envelope?.state||null},
+    uiPreferences:()=>installTransferReadJson(UIKEY)||{},
+    analytics:()=>({enabled:window.RepForgeTelemetry?.isEnabled?.()!==false&&
+      localStorage.getItem(TELEMETRY_ENABLED_KEY)!=="false"}),
+    telemetryIdentity:()=>installTransferReadJson(TELEMETRY_IDENTITY_KEY),
+  }}
+function installTransferRecoveryIdentityPlaceholder(){
+  return{schemaVersion:1,installationId:uid(),createdAt:new Date().toISOString()}}
+async function installTransferCaptureLogicalSnapshot(durableSnapshot=state,{storedDraft=false}={}){
+  const identityRaw=installTransferReadRaw(TELEMETRY_IDENTITY_KEY);
+  const sections=installTransferSections(durableSnapshot,{storedDraft});
+  if(identityRaw===null)sections.telemetryIdentity=()=>installTransferRecoveryIdentityPlaceholder();
+  const {transfer}=await ensureInstallTransferModules();
+  let captured;
+  try{captured=await transfer.captureLogicalSnapshot(sections)}
+  catch(error){return{ok:false,code:error?.message||"logical-snapshot-failed"}}
+  if(!captured?.ok)return{ok:false,code:captured?.code||"logical-snapshot-failed"};
+  const logical=captured.value;
+  if(identityRaw===null)logical.telemetryIdentity=null;
+  return{ok:true,value:logical}}
+function installTransferLogicalEqual(left,right){
+  return JSON.stringify(canonicalize(left))===JSON.stringify(canonicalize(right))}
+function installTransferReadMarker(){
+  try{
+    const raw=localStorage.getItem(INSTALL_IMPORT_KEY);
+    if(raw===null)return null;
+    const marker=JSON.parse(raw);
+    return marker&&typeof marker==="object"&&!Array.isArray(marker)
+      ?marker:{invalid:true,raw}}
+  catch(error){return{invalid:true,error:String(error?.message||"invalid-marker")}}}
+function installTransferWriteMarker(marker){
+  try{localStorage.setItem(INSTALL_IMPORT_KEY,JSON.stringify(marker));return true}
+  catch{return false}}
+function installTransferClearMarker(){return installTransferWriteRaw(INSTALL_IMPORT_KEY,null)}
+function installTransferFault(point){
+  const hook=window.__repforgeInstallTransferImportFault;
+  if(typeof hook==="function"&&hook(point)===true)throw new Error(`install-transfer-import-fault:${point}`);
+  if(hook===point)throw new Error(`install-transfer-import-fault:${point}`)}
+async function installTransferClaimDigest(contract,{claimId=null,claimIdDigest=null}={}){
+  if(claimId!==null&&claimId!==undefined){
+    if(!contract?.validateClaimId?.(claimId)?.ok)return{ok:false,code:"claim-id-invalid"};
+    const digest=await recoverySha256(claimId);
+    if(claimIdDigest!==null&&claimIdDigest!==undefined&&claimIdDigest!==digest)
+      return{ok:false,code:"claim-id-digest-mismatch"};
+    return{ok:true,value:digest}}
+  if(typeof claimIdDigest==="string"&&/^[0-9a-f]{64}$/.test(claimIdDigest))return{ok:true,value:claimIdDigest};
+  // The browser seam can be exercised before the network client is wired. Use
+  // a real locally generated claim identity, never the envelope hash, so the
+  // marker remains bound to a claim-shaped value.
+  const generated=uid();
+  if(!contract?.validateClaimId?.(generated)?.ok)return{ok:false,code:"claim-id-unavailable"};
+  return{ok:true,value:await recoverySha256(generated)}}
+function installTransferMeaningful(snapshot){
+  if(!snapshot||typeof snapshot!=="object")return true;
+  if(snapshot.programMeta?.onboarded===true||Array.isArray(snapshot.program)&&snapshot.program.length||
+    structureDayLabels(snapshot.programMeta)||Array.isArray(snapshot.log)&&snapshot.log.length||
+    Array.isArray(snapshot.programHistory)&&snapshot.programHistory.length||
+    Array.isArray(snapshot.customExercises)&&snapshot.customExercises.length)return true;
+  const carrier=snapshot.recoveryTransitions;
+  if(Array.isArray(carrier?.records)&&carrier.records.length||Array.isArray(carrier?.quarantine)&&carrier.quarantine.length)return true;
+  const draft=readLiveAcknowledgedDraftV2(snapshot);
+  if(draft.status==="live"||draft.status==="unavailable")return true;
+  const candidate=readSetupDraftRecord();
+  return !candidate.ok||!!candidate.envelope||installTransferDeviceMeaningful()}
+async function installTransferDestination(){
+  const local=readLocalStatus(),idb=await readIdbStatus(),decision=chooseSnapshot(local,idb);
+  if(decision.kind==="first-run")return{local,idb,decision,snapshot:normalizeLoaded(null),revision:0};
+  if(decision.kind!=="chosen"||pendingDraftTransaction(decision.snapshot))
+    return{local,idb,decision,blocked:true,code:pendingDraftTransaction(decision.snapshot)?"destination-transaction-pending":"destination-storage-unresolved"};
+  return{local,idb,decision,snapshot:cloneSnapshot(decision.snapshot),revision:readRevision(decision.snapshot)}}
+async function installTransferReadback(envelope,durableSnapshot,{storedDraft=false}={}){
+  const {contract,transfer}=await ensureInstallTransferModules();
+  const local=readLocalStatus(),idb=await readIdbStatus();
+  const durableExpected=envelope.durableState;
+  const localOk=local.status==="valid"&&installTransferLogicalEqual(exportableState(local.parsed),durableExpected);
+  const idbOk=idb.status==="valid"&&installTransferLogicalEqual(exportableState(idb.parsed),durableExpected);
+  let logical=null,logicalError=null;
+  try{
+    const captured=await transfer.captureLogicalSnapshot(installTransferSections(durableSnapshot,{storedDraft}));
+    if(!captured?.ok)logicalError=captured?.code||"logical-readback-failed";
+    else logical=captured.value;
+  }catch(error){logicalError=error?.message||"logical-readback-failed"}
+  if(logicalError)return{ok:false,localOk,idbOk,code:logicalError,local,idb};
+  const expectedLogical={durableState:envelope.durableState,workoutDraft:envelope.workoutDraft,
+    programEntryDraft:envelope.programEntryDraft,uiPreferences:envelope.uiPreferences,
+    analytics:envelope.analytics,telemetryIdentity:envelope.telemetryIdentity};
+  const exactSections=installTransferLogicalEqual(logical,expectedLogical);
+  const candidateEnvelope={...cloneSnapshot(envelope),...cloneSnapshot(logical)};
+  let integrity;
+  try{integrity=await contract.validateEnvelopeIntegrity(candidateEnvelope,window.crypto)}
+  catch{integrity={ok:false,code:"integrity-validation-failed"}}
+  const ok=localOk&&idbOk&&exactSections&&integrity?.ok===true;
+  return{ok,localOk,idbOk,exactSections,integrityOk:integrity?.ok===true,local,idb,logical,
+    code:ok?null:integrity?.code||(!exactSections?"logical-readback-mismatch":"replica-readback-mismatch")}}
+async function installTransferStoredLogicalSnapshot(){
+  const local=readLocalStatus(),idb=await readIdbStatus(),decision=chooseSnapshot(local,idb);
+  const snapshot=decision.kind==="first-run"?normalizeLoaded(null):decision.snapshot;
+  if(decision.kind!=="chosen"&&decision.kind!=="first-run")
+    return{ok:false,local,idb,decision,code:"destination-storage-unresolved"};
+  const captured=await installTransferCaptureLogicalSnapshot(snapshot,{storedDraft:true});
+  if(!captured.ok)return{ok:false,local,idb,decision,code:captured.code||"logical-read-failed"};
+  return{ok:true,local,idb,decision,snapshot,logical:captured.value}}
+function installTransferLogicalProjection(envelope){
+  return{durableState:envelope?.durableState||null,workoutDraft:envelope?.workoutDraft??null,
+    programEntryDraft:envelope?.programEntryDraft??null,uiPreferences:envelope?.uiPreferences||{},
+    analytics:envelope?.analytics||null,telemetryIdentity:envelope?.telemetryIdentity??null}}
+function installTransferDevicePresence(){
+  return{ui:installTransferReadRaw(UIKEY)!==null,
+    consent:installTransferReadRaw(TELEMETRY_ENABLED_KEY)!==null,
+    identity:installTransferReadRaw(TELEMETRY_IDENTITY_KEY)!==null}}
+function installTransferCandidateLogical(raw){
+  if(raw===null)return null;
+  try{
+    const parsed=ProgramEntry?.normalizeSetupDraftEnvelope?.(raw);
+    return parsed?.ok?parsed.value.envelope.state:null}
+  catch{return null}}
+function installTransferPreviousMarker(extra,logical){
+  return{...logical,devicePresence:installTransferDevicePresence(),candidateRaw:extra.candidateRaw}}
+async function installTransferWriteDraft(logical,durableRevision){
+  const current=DraftStore.readCanonicalStatus();
+  if(current.status!=="ok")return{ok:false,code:"draft-read-failed"};
+  if(logical===null){
+    if(current.raw===null)return{ok:true,absent:true};
+    const parsed=WorkoutDraft.parse(current.raw);
+    if(parsed?.kind!=="valid")return{ok:false,code:"draft-untrusted"};
+    const removed=await DraftStore.removeV2({expectedDraftId:parsed.draft.draftId,
+      expectedRevision:parsed.draft.revision,operationId:`install-import-remove-${uid()}`});
+    return{ok:removed.status==="applied"||removed.status==="missing",status:removed.status,
+      code:removed.status==="applied"?null:"draft-remove-failed"}}
+  const next=cloneSnapshot(logical),operationId=`install-import-${uid()}`;
+  next.revision=0;next.writer=draftWriter(operationId);
+  next.program={...next.program,durableRevision};
+  const checked=WorkoutDraft.parse(next);
+  if(checked?.kind!=="valid")return{ok:false,code:"draft-rehydrate-invalid"};
+  const nextRaw=JSON.stringify(WorkoutDraft.serialize(checked.draft));
+  const written=await DraftStore.compareAndSwapV2({expectedRaw:current.raw,nextRaw,operationId});
+  if(written.status==="applied"){
+    activeWorkoutDraft=written.draft;activeWorkoutDraftRaw=written.raw;workoutDraftRecovery=null;
+    return{ok:true,status:written.status,raw:written.raw}}
+  return{ok:false,status:written.status,code:"draft-write-failed"}}
+function installTransferWriteCandidate(logical){
+  const observedRaw=readSetupDraftRaw();
+  if(logical===null){
+    if(observedRaw===null)return Promise.resolve({ok:true,absent:true});
+    return queueSetupDraftWrite(()=>withStorageLock(storageIO,()=>{
+      if(readSetupDraftRaw()!==observedRaw)return{ok:false,conflict:true};
+      const removed=removeObservedSetupDraft({raw:observedRaw,envelope:null});
+      return{ok:removed.ok,conflict:!!removed.conflict}}))}
+  if(!ProgramEntry)return Promise.resolve({ok:false,code:"program-entry-unavailable"});
+  const normalized=ProgramEntry.normalizeSetupDraft(logical);
+  if(!normalized.ok)return Promise.resolve({ok:false,code:"program-entry-invalid"});
+  let envelope;
+  try{
+    const fresh=freshSetupDraftEnvelope(normalized.value);
+    envelope=ProgramEntry.advanceSetupDraftEnvelope(fresh,normalized.value,setupDraftOwnerId)}
+  catch{return Promise.resolve({ok:false,code:"program-entry-envelope-invalid"})}
+  const raw=JSON.stringify(envelope);
+  return queueSetupDraftWrite(()=>withStorageLock(storageIO,()=>{
+    if(readSetupDraftRaw()!==observedRaw)return{ok:false,conflict:true};
+    try{localStorage.setItem(SETUP_DRAFT_KEY,raw)}catch{return{ok:false,writeFailed:true}}
+    entryState=cloneSnapshot(normalized.value);entryDraftHandle={raw,envelope};
+    return{ok:true,envelope}}))}
+function installTransferWriteDeviceSections(envelope){
+  try{
+    const prefs=cloneSnapshot(envelope.uiPreferences);
+    delete prefs.repforge_freeform_session_v1;delete prefs.repforge_import_source_v1;
+    localStorage.setItem(UIKEY,JSON.stringify(prefs));uiPrefs=loadUiPrefs();
+    const consentRaw=String(envelope.analytics.enabled===true);
+    if(window.RepForgeTelemetry?.setEnabled)window.RepForgeTelemetry.setEnabled(envelope.analytics.enabled===true);
+    if(!installTransferWriteRaw(TELEMETRY_ENABLED_KEY,consentRaw))return{ok:false,code:"device-consent-write-failed"};
+    if(!installTransferWriteRaw(TELEMETRY_IDENTITY_KEY,JSON.stringify(envelope.telemetryIdentity)))
+      return{ok:false,code:"device-identity-write-failed"};
+    if(installTransferTelemetryBooted)bootTelemetry();
+    return{ok:true}
+  }catch{return{ok:false,code:"device-section-write-failed"}}}
+function installTransferRestoreDeviceSections(previous,presence={}){
+  try{
+    const prefs=cloneSnapshot(previous.uiPreferences||{});
+    if(presence.ui===false){
+      if(!installTransferWriteRaw(UIKEY,null))return{ok:false,code:"device-prefs-rollback-failed"};
+    }else if(!installTransferWriteRaw(UIKEY,JSON.stringify(prefs)))
+      return{ok:false,code:"device-prefs-rollback-failed"};
+    if(window.RepForgeTelemetry?.setEnabled)
+      window.RepForgeTelemetry.setEnabled(previous.analytics?.enabled===true);
+    if(presence.consent===false){
+      if(!installTransferWriteRaw(TELEMETRY_ENABLED_KEY,null))return{ok:false,code:"device-consent-rollback-failed"};
+    }else if(!installTransferWriteRaw(TELEMETRY_ENABLED_KEY,String(previous.analytics?.enabled===true)))
+      return{ok:false,code:"device-consent-rollback-failed"};
+    if(presence.identity===false){
+      if(!installTransferWriteRaw(TELEMETRY_IDENTITY_KEY,null))return{ok:false,code:"device-identity-rollback-failed"};
+    }else if(!installTransferWriteRaw(TELEMETRY_IDENTITY_KEY,JSON.stringify(previous.telemetryIdentity)))
+      return{ok:false,code:"device-identity-rollback-failed"};
+    if(installTransferTelemetryBooted)bootTelemetry();
+    uiPrefs=loadUiPrefs();
+    return{ok:true}
+  }catch{return{ok:false,code:"device-rollback-failed"}}}
+function installTransferRestoreCandidate(previousRaw,allowedLogicals=[]){
+  const observedRaw=readSetupDraftRaw();
+  if(previousRaw===undefined)return Promise.resolve({ok:false,code:"candidate-rollback-metadata-missing"});
+  return queueSetupDraftWrite(()=>withStorageLock(storageIO,()=>{
+    const current=readSetupDraftRaw();
+    const previousLogical=installTransferCandidateLogical(previousRaw);
+    const currentLogical=installTransferCandidateLogical(current);
+    if(current!==observedRaw)return{ok:false,conflict:true};
+    const allowed=[previousLogical,...allowedLogicals]
+      .filter(value=>value!==undefined)
+      .some(value=>installTransferLogicalEqual(currentLogical,value));
+    if(!allowed)return{ok:false,conflict:true};
+    if(previousRaw===null){
+      const removed=removeObservedSetupDraft({raw:current,envelope:null});
+      if(!removed.ok)return{ok:false,...removed};
+      entryState=null;entryDraftHandle=null;
+      return{ok:true}}
+    if(!previousLogical)return{ok:false,code:"candidate-rollback-invalid"};
+    try{localStorage.setItem(SETUP_DRAFT_KEY,previousRaw)}catch{return{ok:false,code:"candidate-rollback-write-failed"}}
+    const envelope=JSON.parse(previousRaw);
+    entryState=cloneSnapshot(previousLogical);entryDraftHandle={raw:previousRaw,envelope};
+    return{ok:true}}))}
+async function installTransferRestoreDurable(previous,current){
+  const currentRevision=readRevision(current?.snapshot);
+  const target=cloneSnapshot(previous.durableState);
+  if(installTransferLogicalEqual(exportableState(current?.snapshot),target)&&
+    current?.local?.status==="valid"&&current?.idb?.status==="valid")return{ok:true,unchanged:true};
+  const result=await commitProposedState(target,storageIO,{replace:true,
+    expectedStorageRevision:currentRevision,recoveryTransaction:true,
+    preflight:async({head})=>readRevision(head)!==currentRevision
+      ?{reject:true,result:{ok:false,conflict:true,staleRevision:true,code:"rollback-stale-revision"}}:null});
+  return{ok:!!(result?.localOk&&result?.idbOk),result,code:result?.code||"durable-rollback-failed"}}
+function installTransferStoredLogicalMatches(marker,current,expected){
+  return !!(current?.ok&&current.logical&&installTransferLogicalEqual(
+    current.logical,installTransferLogicalProjection(expected))) }
+async function installTransferRollback(marker,current){
+  const previous=marker.previous;
+  if(!previous||typeof previous!=="object")return{ok:false,code:"rollback-previous-missing"};
+  if(!current?.ok)return{ok:false,code:current?.code||"rollback-read-failed"};
+  // An importing marker owns every local boundary until the local proof is
+  // promoted. A read-back mismatch is therefore an interrupted transaction,
+  // not a reason to leave a mixed clone waiting for a later boot.
+  const incoming=marker.incoming;
+  const currentCandidateRaw=readSetupDraftRaw();
+  const currentCandidate=installTransferCandidateLogical(currentCandidateRaw);
+  const incomingCandidate=incoming?.programEntryDraft??null;
+  const previousCandidate=previous.programEntryDraft??null;
+  const candidateMatchesIncoming=installTransferLogicalEqual(currentCandidate,incomingCandidate);
+  const candidateMatchesPrevious=installTransferLogicalEqual(currentCandidate,previousCandidate);
+  if(!candidateMatchesIncoming&&!candidateMatchesPrevious&&currentCandidateRaw!==null)
+    return{ok:false,code:"candidate-rollback-conflict"};
+  if(currentCandidateRaw===null&&!candidateMatchesIncoming&&!candidateMatchesPrevious&&
+    (incomingCandidate!==null||previousCandidate!==null))return{ok:false,code:"candidate-rollback-conflict"};
+  const durable=await installTransferRestoreDurable(previous,current);
+  if(!durable.ok)return{ok:false,code:durable.code,durable};
+  installTransferFault("after-rollback-durable");
+  const draft=await installTransferWriteDraft(previous.workoutDraft,
+    Number.isSafeInteger(marker.expectedLocalRevision)?marker.expectedLocalRevision:0);
+  if(!draft.ok)return{ok:false,code:draft.code||"draft-rollback-failed",durable};
+  installTransferFault("after-rollback-draft");
+  const candidate=await installTransferRestoreCandidate(previous.candidateRaw??null,
+    [incomingCandidate]);
+  if(!candidate.ok)return{ok:false,code:candidate.code||"candidate-rollback-failed",durable,draft};
+  installTransferFault("after-rollback-candidate");
+  const device=installTransferRestoreDeviceSections(previous,previous.devicePresence||{});
+  if(!device.ok)return{ok:false,code:device.code||"device-rollback-failed",durable,draft,candidate};
+  installTransferFault("after-rollback-device");
+  const verified=await installTransferStoredLogicalSnapshot();
+  if(!verified.ok||!installTransferStoredLogicalMatches(marker,verified,previous))
+    return{ok:false,code:"rollback-readback-mismatch",durable,draft,candidate,device,verified};
+  return{ok:true,state:"rolledBack",durable,draft,candidate,device,verified}}
+async function installTransferResumeMarker(marker){
+  if(marker?.invalid)return{ok:false,code:"install-import-marker-invalid",blocked:true};
+  if(!marker||marker.version!==1||!marker.previous||!marker.incoming||
+    !["importing","rolling-back","local-committed"].includes(marker.phase))
+    return{ok:false,code:"install-import-marker-invalid",blocked:true};
+  const current=await installTransferStoredLogicalSnapshot();
+  if(!current.ok)return{ok:false,code:current.code||"install-import-read-failed",blocked:true};
+  const incomingMatch=installTransferStoredLogicalMatches(marker,current,marker.incoming);
+  const previousMatch=installTransferStoredLogicalMatches(marker,current,marker.previous);
+  if(marker.phase==="local-committed"&&incomingMatch)
+    return{ok:true,state:"localCommitted",deferredRemoteCommit:true};
+  if(marker.phase!=="local-committed"&&incomingMatch){
+    const committed={...marker,phase:"local-committed"};
+    if(!installTransferWriteMarker(committed))return{ok:false,code:"marker-commit-failed",blocked:true};
+    return{ok:true,state:"localCommitted",resumed:true,deferredRemoteCommit:true}}
+  if(previousMatch||marker.phase!=="local-committed"){
+    const rollback=await installTransferRollback(marker,current);
+    if(!rollback.ok)return{ok:false,...rollback,blocked:true};
+    if(!installTransferClearMarker())return{ok:false,code:"marker-clear-failed",blocked:true,rollback};
+    return{ok:true,state:"rolledBack",rollback}
+  }
+  return{ok:false,code:"install-import-diverged",blocked:true}
+}
+async function importInstallTransfer(envelope,{claimId=null,claimIdDigest=null,transactionId=null}={}){
+  let marker=null;
+  try{
+    const {contract}=await ensureInstallTransferModules();
+    const checked=await contract.validateEnvelopeIntegrity(cloneSnapshot(envelope),window.crypto);
+    if(!checked?.ok)return{ok:false,localOk:false,idbOk:false,code:checked?.code||"invalid-envelope"};
+    envelope=checked.value;
+    const destination=await installTransferDestination();
+    if(destination.blocked)return{ok:false,localOk:false,idbOk:false,code:destination.code};
+    if(installTransferMeaningful(destination.snapshot))
+      return{ok:false,localOk:false,idbOk:false,code:"destination-meaningful"};
+    const {transfer}=await ensureInstallTransferModules();
+    const previousCapture=await installTransferCaptureLogicalSnapshot(destination.snapshot);
+    if(!previousCapture?.ok)return{ok:false,localOk:false,idbOk:false,code:previousCapture?.code||"previous-snapshot-failed"};
+    if(!transactionId)transactionId=uid();
+    const claim=await installTransferClaimDigest(contract,{claimId,claimIdDigest});
+    if(!claim.ok)return{ok:false,localOk:false,idbOk:false,code:claim.code};
+    marker={version:1,transactionId,claimIdDigest:claim.value,phase:"importing",
+      previous:installTransferPreviousMarker({candidateRaw:readSetupDraftRaw()},previousCapture.value),
+      incoming:cloneSnapshot(envelope),createdAt:new Date().toISOString(),expectedLocalRevision:destination.revision};
+    if(!installTransferWriteMarker(marker))return{ok:false,localOk:false,idbOk:false,code:"marker-write-failed"};
+    installTransferFault("after-marker");
+    const durable=await commitProposedState(cloneSnapshot(envelope.durableState),storageIO,{replace:true,
+      expectedStorageRevision:destination.revision,recoveryTransaction:true,
+      preflight:async({head})=>installTransferMeaningful(head)
+        ?{reject:true,result:{ok:false,localOk:false,idbOk:false,conflict:true,code:"destination-meaningful"}}:null});
+    if(!(durable?.localOk&&durable?.idbOk))return{ok:false,localOk:!!durable?.localOk,idbOk:!!durable?.idbOk,
+      code:durable?.code||"durable-write-incomplete",phase:marker.phase};
+    installTransferFault("after-durable");
+    const draft=await installTransferWriteDraft(envelope.workoutDraft,durable.revision);
+    if(!draft.ok)return{ok:false,localOk:true,idbOk:true,code:draft.code||"draft-write-failed",phase:marker.phase};
+    installTransferFault("after-draft");
+    const candidate=await installTransferWriteCandidate(envelope.programEntryDraft);
+    if(!candidate.ok)return{ok:false,localOk:true,idbOk:true,code:candidate.code||"candidate-write-failed",phase:marker.phase};
+    installTransferFault("after-candidate");
+    const device=installTransferWriteDeviceSections(envelope);
+    if(!device.ok)return{ok:false,localOk:true,idbOk:true,code:device.code,phase:marker.phase};
+    installTransferFault("after-device");
+    installTransferFault("before-readback");
+    const readback=await installTransferReadback(envelope,state);
+    if(!readback.ok)return{...readback,phase:marker.phase};
+    marker={...marker,phase:"local-committed"};
+    if(!installTransferWriteMarker(marker))return{ok:false,localOk:true,idbOk:true,code:"marker-commit-failed",phase:"importing"};
+    installTransferFault("after-local-committed");
+    return{ok:true,state:"localCommitted",phase:marker.phase,localOk:true,idbOk:true,transactionId:marker.transactionId,
+      marker:cloneSnapshot(marker)}
+  }catch(error){
+    return{ok:false,localOk:false,idbOk:false,code:error?.message||"install-import-failed",phase:marker?.phase||"none",
+      transactionId:marker?.transactionId||transactionId||null}}
+}
+async function resumeInstallTransferImport(){
+  const marker=installTransferReadMarker();
+  if(!marker)return{ok:true,absent:true};
+  return installTransferResumeMarker(marker)}
+async function runInstallTransferPreBootRequest(){
+  const request=window.__repforgeInstallTransferPreBootRequest;
+  if(request===undefined)return{ok:true,absent:true};
+  try{
+    delete window.__repforgeInstallTransferPreBootRequest;
+    if(!request||typeof request!=="object"||Array.isArray(request)||!request.envelope)
+      return{ok:false,code:"preboot-request-invalid"};
+    return await importInstallTransfer(request.envelope,request.options||{})
+  }catch(error){return{ok:false,code:error?.message||"preboot-import-failed"}}}
 async function deleteTrainingLog(io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
   const proposal=cloneSnapshot(state);
   proposal.log=[];
@@ -7187,6 +7619,7 @@ window.__repforgeBuildBlockReview=buildBlockReview;
 window.__repforgeCommitNextBlock=commitNextBlock;
 window.__repforgeFinalizeProgramSetup=(opts,io)=>finalizeProgramSetup(Object.assign({},opts,{io:io||opts?.io||storageIO}));
 window.__repforgeCommitProposedState=proposal=>commitProposedState(proposal,storageIO);
+window.__repforgeInstallTransferImport=(envelope,options)=>importInstallTransfer(envelope,options);
 window.__repforgePersistSetupDraft=next=>persistSetupDraft(next);
 window.__repforgeEntryState=()=>cloneSnapshot(entryState);
 window.__repforgeActivateEntryPreview=opts=>activateEntryPreview(opts);
@@ -14055,7 +14488,7 @@ function editOnboardingProgram(io){
 window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
 
 // ---- UI prefs (kept separate from training data so they never touch export/import) ----
-const UIKEY="repforge_ui_v1";
+const UIKEY=INSTALL_UI_KEY;
 function loadUiPrefs(){try{const o=JSON.parse(localStorage.getItem(UIKEY));return o&&typeof o==="object"?o:{}}catch{return{}}}
 let uiPrefs=loadUiPrefs();
 function setUiPref(k,v){uiPrefs[k]=v;try{localStorage.setItem(UIKEY,JSON.stringify(uiPrefs))}catch(e){console.warn("ui prefs save failed",e)}}
@@ -15261,12 +15694,17 @@ async function boot(){
   // the language has to be settled before that — not after the state exists.
   const sharedCandidate=captureSharedSetupSource();
   if(I18N)I18N.setLang(I18N.detectLang());
-  bootTelemetry();
   let decision=await resolveBootReplicas();
   while(decision.kind==="unresolved"){
     const candidate=await presentStorageRecovery(decision);
     decision=await resolveBootReplicas(candidate)}
   await applyBootDecision(decision);
+  const preBootTransfer=await runInstallTransferPreBootRequest();
+  if(preBootTransfer?.blocked)throw new Error(preBootTransfer.code);
+  const transferResume=await resumeInstallTransferImport();
+  if(transferResume?.blocked)throw new Error(transferResume.code);
+  bootTelemetry();
+  installTransferRecordBootDevice();
   await recoverCommittedSetupDraft();
   await prepareSharedSetup(sharedCandidate);
   const draftBoot=await initializeWorkoutDraft({restoreDay:true});
