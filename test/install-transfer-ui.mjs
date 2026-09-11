@@ -19,6 +19,20 @@ function standaloneInit() {
     : original(query);
 }
 
+// Tab forward then wrap backwards past the first control: a dialog that contains
+// focus never lets either direction escape into the inert page behind it.
+async function focusStaysInside(page, selector) {
+  const reach = async () => await page.evaluate((sel) => {
+    const root = document.querySelector(sel);
+    return !!(root && document.activeElement && root.contains(document.activeElement));
+  }, selector);
+  await page.keyboard.press("Tab");
+  const forward = await reach();
+  await page.keyboard.press("Shift+Tab");
+  await page.keyboard.press("Shift+Tab");
+  return forward && await reach();
+}
+
 async function seedEstablishedState(page) {
   await page.addInitScript((durableState) => {
     localStorage.setItem("repforge_v1", JSON.stringify({ ...durableState, _storageRevision: 4 }));
@@ -61,12 +75,16 @@ try {
     await page.click("#installBannerAction");
     await page.waitForSelector("#iosInstallSheet.is-open", { timeout: 3000 });
     assert.equal(await page.locator("#iosInstallSheet").getAttribute("aria-labelledby"), "iosInstallTitle", "transfer dialog has a stable accessible name");
+    assert.equal(await page.evaluate(() => document.activeElement?.id), "installTransferStart", "opening the transfer dialog moves focus to its primary action");
+    assert.equal(await focusStaysInside(page, "#iosInstallSheet"), true, "the transfer dialog contains keyboard focus in both directions");
     const disclosure = await page.locator("#installTransferDisclosure").innerText();
     assert.match(disclosure, /Cloudflare/i, "pre-action disclosure names Cloudflare");
     assert.match(disclosure, /EU/i, "pre-action disclosure names the EU boundary");
     assert.equal(requests.length, 0, "opening the explanation does not create a transfer");
     await page.click("#installTransferPrivacy");
     await page.waitForSelector("#privacySheet.is-open");
+    assert.equal(await page.evaluate(() => document.activeElement?.id), "privacyClose", "the cached Privacy dialog takes focus on open");
+    assert.equal(await focusStaysInside(page, "#privacySheet"), true, "the cached Privacy dialog contains keyboard focus in both directions");
     const privacy = await page.locator("#privacySheet").innerText();
     assert.match(privacy, /derives .* encryption from the .* token/i, "cached Privacy explains token-derived encryption");
     assert.match(privacy, /30 days/i, "cached Privacy qualifies provider restore retention");
@@ -88,7 +106,7 @@ try {
     assert.equal(requests.length, 1, "the explicit production action creates one transfer");
     assert.equal(requests[0].envelope?.kind, "taurifer-install-transfer", "the production action sends the logical clone envelope");
     assert.equal(await page.locator("#installTransferStatus").getAttribute("aria-live"), "polite", "transfer progress uses a polite live region");
-    checks += 10;
+    checks += 14;
     await context.close();
   }
 
