@@ -510,7 +510,7 @@ test("Deliberate Negative 6: a second Safari tab creates an independent recovery
 
 test("Deliberate Negative 7: a mutation bypasses the freeze is FALSE (freeze blocks mutations fail-closed)", async () => {
   const rawMarker = { version: 1, phase: "confirmed", recoverySnapshot: { tokenDigest: "d".repeat(64), expiresAt: "2026-09-08T20:00:00.000Z" } };
-  
+
   // App-level freeze check emulation:
   function installTransferMutationFrozen(outboundMarker) {
     if (!outboundMarker) return false;

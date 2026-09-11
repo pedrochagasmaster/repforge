@@ -4,7 +4,7 @@
 - **Worktree**: `/home/ubuntu/repforge-ui-053-install-transfer`
 - **Service Directory**: `/home/ubuntu/repforge-ui-053-install-transfer/services/install-transfer`
 - **Date**: 2026-09-11
-- **Status**: Complete (Environment-Independent Evidence Verified; Staging Gates Awaiting Owner Credentials)
+- **Status**: Historical local packet at `5074c4eefc389d45adc93c4c2f6d133b01ee3f22`; not current-candidate acceptance evidence. Staging gates remain open.
 
 ---
 
@@ -20,7 +20,7 @@ All environment-independent service contracts, operational runbooks, and negativ
 | Staging / Auth Status | `wrangler whoami` | **CONFIRMED UNAUTHENTICATED** (Expected open gate, no mock deployment) | `wrangler whoami` |
 | Minute-60 ciphertext expiry | Expiry at 60m deletes ciphertext immediately | **VERIFIED** | `transfer-do.test.js`: `distinguishes unclaimed expiry from claimed-expired and purges the tombstone` |
 | Minute-75 tombstone / purge | Purge at 75m deletes alarm and all SQLite tables | **VERIFIED** | `transfer-do.test.js`: `storageSummary: { alarm: null, tables: [] }` |
-| Provider object disposal & restored image | Complete teardown; no secret/bearer persistence in SQLite image | **VERIFIED** | `transfer-do.test.js`: disposal failure recovery, ambiguous disposal recovery, alarm delete order, deduplicated create hygiene |
+| Provider object disposal & restored image | Complete teardown; no secret/bearer persistence in SQLite image | **LOCAL MODEL VERIFIED; PROVIDER RESTORE OPEN** | `transfer-do.test.js`: disposal failure recovery, ambiguous disposal recovery, alarm delete order, deduplicated create hygiene; authenticated provider restore remains required |
 | Watchdog & deletion-lag behavior | 5-minute lease expiry; deletion incident latches until generation ack | **VERIFIED** | `health-do.test.js`: fresh lease requirement, deletion incident latching & rollback; `ops.test.js` |
 | Billing kill-switch behavior | >= 1,000 cents or > 24h stale observation disables creates | **VERIFIED** | `health-do.test.js`: `recordBilling` threshold & age checks; `operations.test.js`: `TRANSFER_KILL_SWITCH` |
 | Sensitive-log & redaction verification | Zero bearer, claimId, clone, ciphertext, or full URL in logs/diagnostics | **VERIFIED** | `test/install-transfer-limits.mjs`: 5 redaction channels, canary omission checks; `health-producer.integration.mjs` |
@@ -81,11 +81,11 @@ Executed in `services/install-transfer`:
 ────────────────────
 Total Upload: 162.20 KiB / gzip: 31.87 KiB
 Your Worker has access to the following bindings:
-Binding                                                          Resource            
-env.TRANSFER_OBJECTS (TransferDurableObject)                     Durable Object      
-env.RATE_LIMIT_BUCKETS (RateLimitDurableObject)                  Durable Object      
-env.TRANSFER_HEALTH (TransferHealthDurableObject)                Durable Object      
-env.TRANSFER_REGISTRY (TransferRouteRegistryDurableObject)       Durable Object      
+Binding                                                          Resource
+env.TRANSFER_OBJECTS (TransferDurableObject)                     Durable Object
+env.RATE_LIMIT_BUCKETS (RateLimitDurableObject)                  Durable Object
+env.TRANSFER_HEALTH (TransferHealthDurableObject)                Durable Object
+env.TRANSFER_REGISTRY (TransferRouteRegistryDurableObject)       Durable Object
 
 --dry-run: exiting now.
 ```
@@ -133,16 +133,16 @@ To deploy without logging in, run a command like `wrangler deploy --temporary` t
     3. `this.schemaReady = false; this.storageDisposed = true;`
   - **Evidence**: Verified in `test/transfer-do.test.js`: at `baseNow + 15 * 60_000 + 10`, `rows(claimedStub)` returns empty array `[]`, and `storageSummary` confirms `{ alarm: null, tables: [] }`.
 
-### 3.3. Provider Object Disposal & Restored-Image Hygiene
+### 3.3. Local Disposal Model; Provider Restored-Image Gate Open
 - **Zero lingering artifacts**:
   - Durable Object alarms are stored inside the DO storage engine. Deleting the alarm prior to `deleteAll()` ensures no trailing metadata remains.
 - **Disposal Failure & Recovery**:
   - If `deleteAll()` throws, disposal fails closed: `storageDisposed` remains false, deletion health is latched unhealthy via `_markDeletionUnhealthy()`, and a bounded alarm (`DISPOSAL_RETRY_MS = 60,000`) is armed.
   - If `deleteAll()` succeeds but the network acknowledgement is dropped, the subsequent invocation cleanly completes without recreating tables.
-- **Restored SQLite Image Inspection**:
+- **Local SQLite storage-model inspection**:
   - The SQLite table schema contains: `singleton`, `state`, `record_version`, `transfer_id`, `idempotency_digest`, `token_digest`, `envelope_ciphertext`, `envelope_salt`, `envelope_nonce`, `envelope_aad`, `claim_digest`, `expires_at`, `tombstone_until`, `created_at`, `claimed_at`.
   - At no point is a raw bearer token, AEAD key, claim ID, or plaintext payload stored in SQLite.
-  - An extracted snapshot of SQLite storage (cold rescan / backup restore) contains only encrypted bytes with non-persisted ephemeral keys, keyed HMAC digests, or nullified columns post-terminal transition.
+  - Local cold-rescan tests contain only encrypted bytes, keyed HMAC digests, or nullified columns after the terminal transition. They do not prove Cloudflare provider backup/restore behavior; authenticated staging restore evidence remains open.
 
 ### 3.4. Watchdog and Deletion-Lag Behavior
 - **Watchdog Signal Lease**:
@@ -203,4 +203,4 @@ The following gates are intentionally kept open and cannot be closed in local or
 
 ## 5. Conclusion
 
-Row 7 Service / Operations evidence preparation is complete and verified. The service implementation satisfies all safety, encryption, deletion, and operational isolation requirements without deploying to production or utilizing unauthorized temporary preview accounts.
+This historical packet closes only its named local assertions. Authenticated staging, provider restore/disposal, real logs, scheduled automation, and physical-device acceptance remain open; no production or temporary-preview deployment was used.

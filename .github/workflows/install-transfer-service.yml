@@ -45,11 +45,14 @@ jobs:
       - name: Install pinned service dependencies
         run: npm ci
 
-      - name: Check service source and bindings
-        run: npm run check
+      - name: Run the inventoried service gate
+        run: node ../../tools/run-tests.mjs service
 
-      - name: Run service tests
-        run: npm test
-
-      - name: Verify the worker bundle without deploying
-        run: npm run deploy:dry
+      - name: Upload service results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: install-transfer-service-${{ github.sha }}
+          path: .ci-results/service/
+          include-hidden-files: true
+          retention-days: 7

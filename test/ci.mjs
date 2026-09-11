@@ -26,6 +26,7 @@ test("inventory schedules each command once and classifies support explicitly", 
   assert.match(inventoryErrors(files, { ...SUITES, duplicate: [SUITES.fast[0]] }).join("\n"), /Duplicate command/);
   assert.ok(SUITES.fast.some((s) => s.file === "test/shared-setup-unit.mjs"));
   assert.equal(Object.values(SUITES).flat().filter((s) => s.file === "test/vendor-runtimes.mjs").length, 1);
+  assert.deepEqual(SUITES.service.map((s) => s.file), ["test/install-transfer-service.mjs"]);
   assert.equal(Object.values(SUITES).flat().some((s) => s.file === "tools/build-vendor-runtimes.mjs"), false);
   assert.deepEqual(commandArgs({ file: "test/x.mjs", args: ["--self-test"], nodeArgs: ["--test"] }), ["--test", "test/x.mjs", "--self-test"]);
 });
@@ -60,7 +61,9 @@ test("affected selection is narrow when proven and fail-safe when it is not", ()
   const telemetry = selectAffected(["telemetry.js"]);
   assert.deepEqual([...new Set(telemetry.entries.map(({ lane }) => lane))].sort(), ["fast", "privacy"]);
   const app = selectAffected(["app.js"]);
-  assert.equal(app.entries.length, Object.values(SUITES).flat().length);
+  assert.equal(app.entries.length, Object.values(SUITES).flat().length - SUITES.service.length);
+  const service = selectAffected(["services/install-transfer/src/index.js", ".github/workflows/install-transfer-service.yml"]);
+  assert.deepEqual([...new Set(service.entries.map(({ lane }) => lane))], ["service"]);
   assert.equal(selectAffected(["mystery.bin"]).mode, "all");
 });
 
@@ -127,7 +130,7 @@ test("temporary preview disables analytics and restores generated files on inter
   await assert.rejects(
     () => maybeStartLocalPreview([{ lane: "entry" }], {
       cwd,
-      env: { ...process.env, CF_PAGES_BRANCH: "main", POSTHOG_ENABLE_PREVIEWS: "true", POSTHOG_PROJECT_TOKEN: "phc_secret" },
+      env: { ...process.env, REPFORGE_URL: "http://localhost:8000/", CF_PAGES_BRANCH: "main", POSTHOG_ENABLE_PREVIEWS: "true", POSTHOG_PROJECT_TOKEN: "phc_secret" },
       signalSource,
       fetchImpl: fakeFetch,
       execFileSyncImpl: fakeExecFileSync,
@@ -174,6 +177,7 @@ test("temporary preview bounds every hanging readiness request and cleans up", a
   };
   const startup = maybeStartLocalPreview([{ lane: "entry" }], {
     cwd,
+    env: { ...process.env, REPFORGE_URL: "http://localhost:8000/" },
     signalSource,
     fetchImpl: fakeFetch,
     execFileSyncImpl: fakeExecFileSync,

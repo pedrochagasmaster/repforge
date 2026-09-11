@@ -128,6 +128,9 @@ export const SUITES = {
     s("test/telemetry-leakage.mjs"),
     s("test/install-transfer-telemetry.mjs"),
   ],
+  service: [
+    s("test/install-transfer-service.mjs", [], { timeoutMs: 1200000 }),
+  ],
 };
 
 export const SUPPORT = {
