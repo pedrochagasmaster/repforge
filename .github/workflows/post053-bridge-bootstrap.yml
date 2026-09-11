@@ -1,0 +1,81 @@
+name: Post-053 bridge bootstrap
+
+on:
+  push:
+    branches: [codex/post053-bridge-bootstrap]
+    paths: [.github/workflows/post053-bridge-bootstrap.yml]
+
+permissions:
+  contents: read
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      BASE_SHA: bad6cc9d04fd34889745cce0ea200cc9d9d7e6b5
+      ACCEPTED_053: dd704100151fa476e8be6d35bd8d68e931479259
+      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/post053-pinned-browsers
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: main
+          fetch-depth: 1
+          persist-credentials: false
+      - name: Verify the live merged base before preparing the workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+          git fetch --no-tags --depth=1 origin main
+          test "$(git rev-parse origin/main)" = "$BASE_SHA"
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          git cat-file -p HEAD | grep -Fx "parent $ACCEPTED_053"
+          test -z "$(git status --porcelain)"
+          if git config --local --get-regexp 'http\..*extraheader|credential\.'; then
+            echo 'Refusing to archive a checkout with credential configuration.' >&2
+            exit 1
+          fi
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: test/package-lock.json
+      - name: Install only the repository-pinned test tools
+        working-directory: test
+        run: |
+          npm ci
+          npx playwright install --with-deps --only-shell chromium
+      - name: Package the credential-free checkout and browser separately
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(git rev-parse HEAD)" = "$BASE_SHA"
+          test -z "$(git status --porcelain)"
+          node --input-type=module -e '
+            import fs from "node:fs";
+            import cp from "node:child_process";
+            const git = (...args) => cp.execFileSync("git", args, {encoding: "utf8"}).trim();
+            const manifest = {
+              base: git("rev-parse", "HEAD"), tree: git("rev-parse", "HEAD^{tree}"),
+              accepted053: process.env.ACCEPTED_053, node: process.version,
+              playwright: JSON.parse(fs.readFileSync("test/node_modules/playwright/package.json", "utf8")).version,
+              fastCheck: JSON.parse(fs.readFileSync("test/node_modules/fast-check/package.json", "utf8")).version,
+              status: git("status", "--porcelain"), testsRun: false,
+              purpose: "Exact checkout and pinned dependencies only; not acceptance evidence."
+            };
+            fs.writeFileSync(process.env.RUNNER_TEMP + "/post053-bootstrap.json", JSON.stringify(manifest, null, 2) + "\n");
+          '
+          tar -czf "$RUNNER_TEMP/post053-base.tar.gz" -C "$GITHUB_WORKSPACE" .
+          tar -czf "$RUNNER_TEMP/post053-browsers.tar.gz" -C "$PLAYWRIGHT_BROWSERS_PATH" .
+          cd "$RUNNER_TEMP"
+          sha256sum post053-base.tar.gz post053-browsers.tar.gz > post053-bootstrap-sha256.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: post053-exact-base-and-tools
+          path: |
+            ${{ runner.temp }}/post053-base.tar.gz
+            ${{ runner.temp }}/post053-browsers.tar.gz
+            ${{ runner.temp }}/post053-bootstrap.json
+            ${{ runner.temp }}/post053-bootstrap-sha256.txt
+          compression-level: 0
+          retention-days: 1
