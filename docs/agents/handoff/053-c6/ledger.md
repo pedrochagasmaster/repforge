@@ -289,3 +289,35 @@ OUTSTANDING FOR THE NEXT SESSION:
 Claimed the takeover lock.
 
 Taking over Plan 053 packet C6 resolution
+
+## 2026-09-11T00:15:00Z | gemini-3.8-flash-high | convergence
+- session: `bd75af95-4d6f-47f9-8deb-a4928eddeb40`
+- branch: `handoff/053-c6-takeover` @ `a7c026c6`
+- kind: convergence
+
+Plan 053 Row 4 / C6 Convergence Achieved.
+
+1. Root Cause & Oracle Reconciliation:
+   - P4c-A and P4c-M raced the same `repforge_transfer_inbound_v1` key at different post-boot timings (~7ms vs ~20ms window).
+   - In `test/install-transfer-import.mjs`, replaced the post-hoc read race with deterministic lifecycle assertion (`window.__repforgeInboundLifecycle`) verifying that `cleanup-pending` with sealed inbound credentials existed.
+   - Replaced un-awaited/racy clearance checks with deterministic `waitForTransferSettlement(page)` awaiting removal of both `repforge_transfer_inbound_v1` and `repforge_install_import_v1` from localStorage and IndexedDB.
+   - In `app.js` (`installTransferInboundStore.clear()`), implemented release-after-boot: durable `cleanup-pending` is retained synchronously in localStorage across crashes, then cleanly cleared post-boot via `queueMicrotask`.
+
+2. Verification Discipline:
+   - Run 1: 114 passed, 0 failed (111.2s)
+   - Run 2: 114 passed, 0 failed (109.9s)
+   - Run 3: 114 passed, 0 failed (110.0s)
+   - Run 4: 114 passed, 0 failed (111.0s)
+   - Run 5: 114 passed, 0 failed (110.9s)
+   - Identical semantic outcomes across all 5 runs in isolation on dedicated port 8088. Evidence preserved in `docs/agents/handoff/053-c6/evidence/oracle-convergence-run{1..5}.log`.
+   - Affected sibling suites verified 100% green:
+     * Transfer client: `test/install-transfer-client.mjs`, `test/install-transfer-client-contract.mjs`, `test/install-transfer-client-browser.mjs`, `test/install-transfer-clone.mjs`, `test/install-transfer-limits.mjs` (pass).
+     * DraftV2: `test/adversarial-draft-transactions.mjs`, `test/workout-draft.mjs`, `test/workout-draft-storage.mjs`, `test/workout-draft-migration.mjs`, `test/workout-draft-parity.mjs` (pass).
+     * Persistence: `test/persistence.mjs`, `test/persistence-race.mjs`, `test/persistence-artifacts.mjs` (pass).
+     * Transition & Recovery: `test/program-transition.mjs`, `test/program-transition-recovery.mjs`, `test/program-transition-r7-boundary.mjs`, `test/program-transition-recovery-carrier.mjs`, `test/program-transition-recovery-corruption.mjs`, `test/program-transition-commit.mjs` (pass).
+     * Telemetry: `test/telemetry-unit.mjs`, `test/telemetry-runtime.mjs`, `test/telemetry-leakage.mjs`, `test/telemetry-call-sites.mjs` (pass).
+     * Service Worker Upgrade & Syntax: `test/sw-upgrade.mjs`, node check (pass).
+
+3. Dual-Axis Review Completed:
+   - Standards: Addressed error swallowing in settlement wait; extracted `waitForTransferSettlement` helper.
+   - Spec: Enforced strict non-null check for `cleanup-pending` marker phase in lifecycle evidence without permissive fallbacks.
