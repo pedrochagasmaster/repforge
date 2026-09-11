@@ -12,6 +12,9 @@ export const SUITES = {
     s("test/program-transition-compiler-provenance.mjs"),
     s("test/program-transition-siblings.mjs"),
     s("test/program-transition-volume.mjs"),
+    s("test/install-transfer-client-contract.mjs"),
+    s("test/install-transfer-client.mjs"),
+    s("test/install-transfer-limits.mjs"),
     s("test/ui-plan-050-progress-fixture.mjs"),
     s("test/verification-recorder.mjs", [], {"nodeArgs": ["--test"]}),
     s("tools/check-production-syntax.mjs"),
@@ -47,6 +50,7 @@ export const SUITES = {
     s("test/ci-browser.mjs"),
     s("test/program-entry-conflict-runtime.mjs"),
     s("test/sw-upgrade.mjs"),
+    s("test/install-transfer-sw-upgrade.mjs"),
     s("test/program-transition-sw-upgrade.mjs"),
     s("test/program-entry-rules-runtime.mjs"),
     s("test/persistence-artifacts.mjs", ["--self-test"]),
@@ -62,6 +66,11 @@ export const SUITES = {
     s("test/program-transition-recovery-carrier.mjs"),
     s("test/program-transition-recovery-corruption.mjs"),
     s("test/program-transition-r7-boundary.mjs"),
+    s("test/install-transfer-client-browser.mjs"),
+    s("test/install-transfer-clone.mjs"),
+    s("test/install-transfer-import.mjs"),
+    s("test/install-transfer-recovery.mjs"),
+    s("test/install-transfer-ui.mjs"),
     s("test/recover-gate.mjs"),
     s("test/workout-draft-storage.mjs"),
     s("test/workout-draft-sw-upgrade.mjs"),
@@ -119,6 +128,10 @@ export const SUITES = {
   privacy: [
     s("test/telemetry-runtime.mjs"),
     s("test/telemetry-leakage.mjs"),
+    s("test/install-transfer-telemetry.mjs"),
+  ],
+  service: [
+    s("test/install-transfer-service.mjs", [], { timeoutMs: 1200000 }),
   ],
 };
 

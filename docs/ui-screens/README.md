@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 83 screens,
-361 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 97 screens,
+473 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -204,6 +204,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Settings](screens/settings/main__phone-390-light-en.png) | 3 | The settings list. |
 | [Settings — Appearance](screens/settings/appearance__phone-390-light-en.png) | 3 | The appearance/theme row. |
 | [Settings — privacy and analytics](screens/settings/privacy__phone-390-light-en.png) | 3 | The privacy and analytics section. |
+| [Privacy — temporary install transfer](screens/settings/privacy-disclosure__phone-390-light-en.png) | 8 | The cached ADR 0013 disclosure reached from Settings. |
 
 ### Install and tour
 
@@ -211,4 +212,17 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | --- | --- | --- |
 | [Install banner](screens/install/banner__phone-390-light-en.png) | 3 | The install prompt banner. |
 | [iOS install sheet](screens/install/ios-sheet__phone-390-light-en.png) | 3 | The iOS add-to-home-screen instructions. |
+| [Install transfer — informed action](screens/install/transfer-eligible__phone-390-light-en.png) | 8 | The pre-action transfer explanation and explicit consent. |
+| [Install transfer — creating](screens/install/transfer-creating__phone-390-light-en.png) | 8 | Transfer creation in progress. |
+| [Install transfer — ready to install](screens/install/transfer-ready__phone-390-light-en.png) | 8 | Successful creation followed by Safari installation instructions. |
+| [Install transfer — retryable creation failure](screens/install/transfer-retryable__phone-390-light-en.png) | 8 | A definitive pre-create failure with retry and install-without-transfer actions. |
+| [Install transfer — claiming](screens/install/transfer-claiming__phone-390-light-en.png) | 8 | The installed app is claiming its one-time transfer. |
+| [Install transfer — importing](screens/install/transfer-importing__phone-390-light-en.png) | 8 | The installed app is atomically importing the clone. |
+| [Install transfer — complete](screens/install/transfer-success__phone-390-light-en.png) | 8 | Verified local import and remote deletion are complete. |
+| [Install transfer — cleanup retry](screens/install/transfer-cleanup__phone-390-light-en.png) | 8 | Local import succeeded while verified remote deletion still needs retry. |
+| [Install transfer — unavailable](screens/install/transfer-terminal__phone-390-light-en.png) | 8 | The transfer is definitively unavailable and the installed app can continue safely. |
+| [Install transfer — destination protected](screens/install/transfer-destination__phone-390-light-en.png) | 8 | Existing installed-app data prevents replacement by a transfer. |
+| [Install transfer — interrupted import](screens/install/transfer-interrupted__phone-390-light-en.png) | 8 | A recoverable installed import failure offers an explicit retry. |
+| [Install transfer — unknown outcome](screens/install/transfer-unknown__phone-390-light-en.png) | 8 | An indeterminate source outcome remains frozen until explicit divergence confirmation. |
+| [Install transfer — claimed then expired](screens/install/transfer-claimed-expired__phone-390-light-en.png) | 8 | Claimed-expired recovery remains frozen until explicit divergence confirmation. |
 | [Feature tour](screens/install/tour__phone-390-light-en.png) | 3 | The first-session feature tour. |

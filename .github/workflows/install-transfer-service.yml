@@ -1,0 +1,58 @@
+name: Install-transfer service
+
+on:
+  pull_request:
+    paths:
+      - "services/install-transfer/**"
+      - "install-transfer-contract.js"
+      - "install-transfer.js"
+      - "workout-draft.js"
+      - "program-entry.js"
+      - "test/fixtures/install-transfer-clone-v1.json"
+      - ".github/workflows/install-transfer-service.yml"
+  push:
+    branches: [main]
+    paths:
+      - "services/install-transfer/**"
+      - "install-transfer-contract.js"
+      - "install-transfer.js"
+      - "workout-draft.js"
+      - "program-entry.js"
+      - "test/fixtures/install-transfer-clone-v1.json"
+      - ".github/workflows/install-transfer-service.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  install-transfer-service:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: services/install-transfer
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+
+      - name: Install pinned service dependencies
+        run: npm ci
+
+      - name: Run the inventoried service gate
+        run: node ../../tools/run-tests.mjs service
+
+      - name: Upload service results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: install-transfer-service-${{ github.sha }}
+          path: .ci-results/service/
+          include-hidden-files: true
+          retention-days: 7

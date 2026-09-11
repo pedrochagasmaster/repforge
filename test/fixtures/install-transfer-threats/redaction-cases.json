@@ -1,0 +1,123 @@
+{
+  "fixture": "install-transfer-redaction-cases",
+  "fixtureVersion": 1,
+  "authority": "docs/adr/0013-temporary-install-transfer.md",
+  "status": "independent-wave-a-design",
+  "sentinelPolicy": "All values below are inert fixture canaries, never credentials or clone data. Tests must assert absence without printing them.",
+  "forbiddenFieldNames": [
+    "token",
+    "claimId",
+    "ciphertext",
+    "envelope",
+    "requestBody",
+    "body",
+    "payload",
+    "clone",
+    "fullUrl",
+    "cookie",
+    "identity",
+    "installationId",
+    "program"
+  ],
+  "cases": [
+    {
+      "id": "create-request-log",
+      "channel": "service-structured-log",
+      "input": {
+        "operation": "create",
+        "method": "POST",
+        "path": "/v1/transfers",
+        "token": "FIXTURE_ONLY_TOKEN_CANARY",
+        "requestBody": "FIXTURE_ONLY_CLONE_BODY_CANARY",
+        "envelope": { "kind": "taurifer-install-transfer", "schemaVersion": 1 },
+        "fullUrl": "https://transfer.example/v1/transfers?token=FIXTURE_ONLY_TOKEN_CANARY"
+      },
+      "mustOmitPaths": ["token", "requestBody", "envelope", "fullUrl"],
+      "mustNotContain": ["FIXTURE_ONLY_TOKEN_CANARY", "FIXTURE_ONLY_CLONE_BODY_CANARY"],
+      "allowedShape": { "operation": "create", "method": "POST", "path": "/v1/transfers" }
+    },
+    {
+      "id": "claim-request-log",
+      "channel": "service-structured-log",
+      "input": {
+        "operation": "claim",
+        "claimId": "FIXTURE_ONLY_CLAIM_ID_CANARY",
+        "token": "FIXTURE_ONLY_TOKEN_CANARY",
+        "ciphertext": "FIXTURE_ONLY_CIPHERTEXT_CANARY",
+        "response": { "state": "claiming", "clone": "FIXTURE_ONLY_CLONE_CANARY" }
+      },
+      "mustOmitPaths": ["claimId", "token", "ciphertext", "response.clone"],
+      "mustNotContain": ["FIXTURE_ONLY_CLAIM_ID_CANARY", "FIXTURE_ONLY_TOKEN_CANARY", "FIXTURE_ONLY_CIPHERTEXT_CANARY", "FIXTURE_ONLY_CLONE_CANARY"],
+      "allowedShape": { "operation": "claim" }
+    },
+    {
+      "id": "static-host-cookie-log",
+      "channel": "static-host-access-log",
+      "input": {
+        "method": "GET",
+        "path": "/index.html",
+        "cookie": "repforge_transfer_v1=FIXTURE_ONLY_TOKEN_CANARY",
+        "fullUrl": "https://taurifer.example/index.html?transfer=FIXTURE_ONLY_TOKEN_CANARY#setup=FIXTURE_ONLY_SETUP_CANARY"
+      },
+      "mustOmitPaths": ["cookie", "fullUrl"],
+      "mustNotContain": ["FIXTURE_ONLY_TOKEN_CANARY", "FIXTURE_ONLY_SETUP_CANARY"],
+      "allowedShape": { "method": "GET", "path": "/index.html" }
+    },
+    {
+      "id": "status-response",
+      "channel": "client-response-observable",
+      "input": {
+        "state": "deleted",
+        "expiresAt": "2026-10-01T10:00:00.000Z",
+        "token": "FIXTURE_ONLY_TOKEN_CANARY",
+        "envelope": { "kind": "taurifer-install-transfer" },
+        "identity": { "installationId": "FIXTURE_ONLY_IDENTITY_CANARY" },
+        "program": "FIXTURE_ONLY_PROGRAM_CANARY"
+      },
+      "mustOmitPaths": ["token", "envelope", "identity", "program"],
+      "mustNotContain": ["FIXTURE_ONLY_TOKEN_CANARY", "FIXTURE_ONLY_IDENTITY_CANARY", "FIXTURE_ONLY_PROGRAM_CANARY"],
+      "allowedShape": { "state": "deleted", "expiresAt": "2026-10-01T10:00:00.000Z" }
+    },
+    {
+      "id": "telemetry-event",
+      "channel": "telemetry",
+      "input": {
+        "event": "late_install_transfer",
+        "source_context": "browser",
+        "destination_context": "standalone",
+        "token": "FIXTURE_ONLY_TOKEN_CANARY",
+        "claimId": "FIXTURE_ONLY_CLAIM_ID_CANARY",
+        "payload_size": 12345,
+        "program": "FIXTURE_ONLY_PROGRAM_CANARY",
+        "installationId": "FIXTURE_ONLY_IDENTITY_CANARY"
+      },
+      "mustOmitPaths": ["token", "claimId", "payload_size", "program", "installationId"],
+      "mustNotContain": ["FIXTURE_ONLY_TOKEN_CANARY", "FIXTURE_ONLY_CLAIM_ID_CANARY", "FIXTURE_ONLY_PROGRAM_CANARY", "FIXTURE_ONLY_IDENTITY_CANARY"],
+      "allowedShape": {
+        "event": "late_install_transfer",
+        "source_context": "browser",
+        "destination_context": "standalone"
+      }
+    },
+    {
+      "id": "error-and-trace",
+      "channel": "error-tracking",
+      "input": {
+        "message": "transfer failed",
+        "stack": "Error: transfer failed at create (FIXTURE_ONLY_TOKEN_CANARY)",
+        "requestBody": "FIXTURE_ONLY_CLONE_BODY_CANARY",
+        "fullUrl": "https://taurifer.example/index.html?token=FIXTURE_ONLY_TOKEN_CANARY",
+        "context": { "claimId": "FIXTURE_ONLY_CLAIM_ID_CANARY", "ciphertext": "FIXTURE_ONLY_CIPHERTEXT_CANARY" }
+      },
+      "mustOmitPaths": ["stack", "requestBody", "fullUrl", "context.claimId", "context.ciphertext"],
+      "mustNotContain": ["FIXTURE_ONLY_TOKEN_CANARY", "FIXTURE_ONLY_CLONE_BODY_CANARY", "FIXTURE_ONLY_CLAIM_ID_CANARY", "FIXTURE_ONLY_CIPHERTEXT_CANARY"],
+      "allowedShape": { "message": "transfer failed" }
+    }
+  ],
+  "assertionsPlannedWhenValidatorsExist": [
+    "Service/browser diagnostics omit all listed sensitive paths and canaries before logging or telemetry.",
+    "Status responses contain exactly state and expiresAt; they never disclose a clone, identity, or token.",
+    "The redaction test inspects the real structured log/trace adapter and a captured browser request, rather than testing a copied redactor.",
+    "No failure message or assertion output prints the canary values."
+  ]
+}

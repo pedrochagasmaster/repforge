@@ -4,6 +4,24 @@ const PENDING_PREFIX=`${PENDING}:`,DRAFT_PENDING_PREFIX=`${DRAFT}:pending:`,DRAF
 const DRAFT_V2_CHECKPOINT=`${DRAFT}:v2-checkpoint`;
 const DRAFT_WRITE_TRANSACTION="draft-write";
 const DB="repforge",STORE="kv";
+const INSTALL_IMPORT_KEY="repforge_install_import_v1";
+const INSTALL_INBOUND_KEY="repforge_transfer_inbound_v1";
+const INSTALL_OUTBOUND_KEY="repforge_transfer_outbound_v1";
+const INSTALL_FREEZE_KEY="repforge_install_transfer_freeze_v1";
+const INSTALL_FREEZE_CHANNEL="repforge_install_transfer_v1";
+const INSTALL_UI_KEY="repforge_ui_v1";
+const TELEMETRY_ENABLED_KEY="repforge_telemetry_enabled_v1";
+const TELEMETRY_IDENTITY_KEY="repforge_telemetry_identity_v1";
+let installTransferModulePromise=null;
+let installTransferTelemetryBooted=false;
+let installTransferFreezeOwner=null;
+let installTransferFreezeChannel=null;
+function installTransferRawAtLoad(key){try{return localStorage.getItem(key)}catch{return null}}
+const installTransferInitialDevice={
+  ui:installTransferRawAtLoad(INSTALL_UI_KEY),
+  consent:installTransferRawAtLoad(TELEMETRY_ENABLED_KEY),
+  identity:installTransferRawAtLoad(TELEMETRY_IDENTITY_KEY)};
+let installTransferBootDevice=null;
 function loadNotifyMeta(){
   try{return JSON.parse(localStorage.getItem(NOTIFY_META)||"{}")||{}}catch{return{}}
 }
@@ -543,8 +561,12 @@ async function refreshPersistenceHead(){
   if(diskRev<currentRev||storageSnapshotsEqual(disk,current))return{head:current};
   return{head:current,conflict:true}}
 function withStorageLock(io,op){
-  if(io===storageIO&&navigator.locks?.request)return navigator.locks.request(STORAGE_LOCK,op);
-  return op()}
+  const guarded=async(...args)=>{
+    if(io===storageIO&&installTransferMutationFrozen())
+      return{localOk:false,idbOk:false,conflict:true,transferFrozen:true,code:"install-transfer-frozen"};
+    return op(...args)};
+  if(io===storageIO&&navigator.locks?.request)return navigator.locks.request(STORAGE_LOCK,guarded);
+  return guarded()}
 function applyAcceptedSnapshot(base,snapshot){
   const live=rebaseStateChange(base,snapshot,state,{preferProposal:false});
   live[STORAGE_REV]=readRevision(snapshot);
@@ -816,11 +838,13 @@ const DraftStore={
       return{status:"valid",raw,value}}
     catch(error){return{status:"read-failed",raw:null,error}}},
   writeV2Checkpoint(value){
+    if(installTransferMutationFrozen())return false;
     try{localStorage.setItem(DRAFT_V2_CHECKPOINT,JSON.stringify(value));return true}
     catch{return false}},
   v2Tombstone(draft,operationId){return{version:1,kind:"tombstone",draftId:draft.draftId,
     revision:draft.revision,operationId,programFingerprint:draft.program.programFingerprint}},
   async compareAndSwapV2({expectedRaw,expectedDraftId,expectedRevision,nextRaw,operationId}){
+    if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
     if(!navigator.locks?.request)return{status:"lock-unavailable"};
     if(typeof nextRaw!=="string"||nextRaw.length>PENDING_EFFECT_MAX_RAW)
       return{status:"invalid-next"};
@@ -829,7 +853,8 @@ const DraftStore={
     // before waiting for the shared lock. Preserve a newer workout command in
     // that transaction's ordered sidecar so its lock-held preflight sees the
     // conflict and the workout survives when the transaction closes.
-    const stageFor=target=>{const currentRaw=this.readRaw(),current=WorkoutDraft?.parse(currentRaw);
+    const stageFor=target=>{if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
+      const currentRaw=this.readRaw(),current=WorkoutDraft?.parse(currentRaw);
       if(expectedRaw!==undefined?currentRaw!==expectedRaw:
         current?.kind!=="valid"||current.draft.draftId!==expectedDraftId||current.draft.revision!==expectedRevision)
         return{status:"stale",raw:currentRaw,draft:current?.draft};
@@ -838,6 +863,7 @@ const DraftStore={
     const target=this.writeTarget();
     if(target)return stageFor(target);
     return navigator.locks.request(STORAGE_LOCK,async()=>{
+      if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
       const queuedTarget=this.writeTarget();if(queuedTarget)return stageFor(queuedTarget);
       const read=this.readCanonicalStatus();
       if(read.status!=="ok")return read;
@@ -895,8 +921,10 @@ const DraftStore={
       return{status:"applied",raw:verify.raw,draft:parsed.draft}
     })},
   async removeV2({expectedDraftId,expectedRevision,operationId}){
+    if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
     if(!navigator.locks?.request)return{status:"lock-unavailable"};
     return navigator.locks.request(STORAGE_LOCK,async()=>{
+      if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
       if(this.writeTarget())return{status:"transaction-active"};
       const read=this.readCanonicalStatus();if(read.status!=="ok")return read;
       const live=WorkoutDraft?.parse(read.raw);
@@ -917,6 +945,7 @@ const DraftStore={
       return{status:"applied",raw:null,draft:live.draft}
     })},
   publishCanonical(raw){
+    if(installTransferMutationFrozen())return false;
     if(raw!==null&&typeof raw!=="string")return false;
     try{
       if(raw===null)localStorage.removeItem(DRAFT);
@@ -975,6 +1004,7 @@ const DraftStore={
     try{return localStorage.getItem(DRAFT_CLOSE_PREFIX+transactionId)!=null}
     catch{return false}},
   beginClose(transactionId){
+    if(installTransferMutationFrozen())return false;
     if(typeof transactionId!=="string"||!transactionId)return false;
     try{
       localStorage.setItem(DRAFT_CLOSE_PREFIX+transactionId,
@@ -1001,6 +1031,7 @@ const DraftStore={
     const next=readPendingJournal().entries[0];
     return next?{id:next.journal.id}:null},
   writeSidecar(transactionId,raw){
+    if(installTransferMutationFrozen())return false;
     if(typeof transactionId!=="string"||!transactionId||
       !(raw===null||typeof raw==="string"&&raw.length<=PENDING_EFFECT_MAX_RAW))return false;
     const order=pendingJournalOrder(),key=`${DRAFT_PENDING_PREFIX}${transactionId}:${pendingJournalWriterId}`;
@@ -1012,6 +1043,7 @@ const DraftStore={
       return this.decodeSidecar(key,encoded)}
     catch{return false}},
   stage(target,raw){
+    if(installTransferMutationFrozen())return false;
     if(!target||typeof target.id!=="string")return false;
     if(!this.writeSidecar(target.id,raw))return false;
     if(!this.transactionOwned(target.id))return this.promote(target.id).settled;
@@ -1022,6 +1054,7 @@ const DraftStore={
       entry.value.programFingerprint===contextFingerprint).at(-1);
     return queued?queued.value.raw:this.readCanonicalRaw()},
   publish(raw){
+    if(installTransferMutationFrozen())return false;
     if(!(raw===null||typeof raw==="string"&&raw.length<=PENDING_EFFECT_MAX_RAW))return false;
     const staged=this.writeSidecar(DRAFT_WRITE_TRANSACTION,raw);
     if(!staged)return false;
@@ -1038,10 +1071,13 @@ const DraftStore={
   write(raw){return typeof raw==="string"&&this.publish(raw)},
   remove(){return this.publish(null)},
   clearSidecar(entry){
+    if(installTransferMutationFrozen())return false;
     try{
-      if(localStorage.getItem(entry.key)===entry.raw)localStorage.removeItem(entry.key)}
-    catch{}},
+      if(localStorage.getItem(entry.key)===entry.raw)localStorage.removeItem(entry.key);
+      return true}
+    catch{return false}},
   promote(transactionId,contextFingerprint=null){
+    if(installTransferMutationFrozen())return{settled:false,hadWrites:false,transferFrozen:true,code:"install-transfer-frozen"};
     const pending=this.related(transactionId,contextFingerprint);
     if(!pending.entries.length&&!pending.invalid.length)
       return{settled:true,hadWrites:false,raw:undefined};
@@ -1051,14 +1087,16 @@ const DraftStore={
       const parsed=WorkoutDraft?.parse(latest.value.raw);
       if(parsed?.kind==="valid"&&!this.writeV2Checkpoint(v2CheckpointRecord(parsed.draft,latest.value.raw)))
         return{settled:false,hadWrites:true,raw:latest.value.raw}}
-    for(const entry of pending.entries)this.clearSidecar(entry);
+    for(const entry of pending.entries){if(!this.clearSidecar(entry))return{settled:false,hadWrites:true,transferFrozen:true,code:"install-transfer-frozen"}}
     for(const invalid of pending.invalid){
+      if(installTransferMutationFrozen())return{settled:false,hadWrites:true,transferFrozen:true,code:"install-transfer-frozen"};
       try{if(localStorage.getItem(invalid.key)===invalid.raw)localStorage.removeItem(invalid.key)}
       catch{}}
     const remaining=this.related(transactionId,contextFingerprint);
     return{settled:remaining.entries.length===0&&remaining.invalid.length===0,
       hadWrites:true,raw:latest?.value.raw}},
   restoreEffect(transactionId,effect,contextFingerprint=null){
+    if(installTransferMutationFrozen())return{settled:false,hadWrites:false,transferFrozen:true,code:"install-transfer-frozen"};
     const promoted=this.promote(transactionId,contextFingerprint);
     if(!promoted.settled)return promoted;
     const outcome=normalizeDraftEffectOutcome(effect);
@@ -1098,6 +1136,7 @@ const DraftStore={
     const published=this.publishCanonical(receipt.expectedRaw);
     return{settled:published&&commitV2CheckpointEffect(prepared,receipt.expectedRaw),hadWrites:false,raw:receipt.expectedRaw}},
   endClose(transactionId,contextFingerprint=null){
+    if(installTransferMutationFrozen())return{settled:false,hadWrites:false,transferFrozen:true,code:"install-transfer-frozen"};
     try{localStorage.removeItem(DRAFT_CLOSE_PREFIX+transactionId)}
     catch{return{settled:false,hadWrites:false}}
     return this.promote(transactionId,contextFingerprint)}
@@ -1863,6 +1902,8 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
   expectedSetupDraftRaw=undefined,
   reconcileSessionIds=[],dayRenames=[],effect=null,preflight=null,recoveryTransaction=false}={}){
   requireAdapter(io,"enqueueStateChange");
+  if(io===storageIO&&installTransferMutationFrozen())
+    return Promise.resolve({revision:readRevision(base),localOk:false,idbOk:false,conflict:true,transferFrozen:true,code:"install-transfer-frozen"});
   const frozenBase=cloneSnapshot(base),frozenLiveBase=cloneSnapshot(liveBase);
   const frozenProposal=cloneSnapshot(proposal),frozenEffectOutcome=normalizeDraftEffectOutcome(effect);
   let workingProposal=cloneSnapshot(frozenProposal);
@@ -1890,6 +1931,11 @@ function enqueueStateChange(base,proposal,io,{replace=false,liveBase=base,expect
     noteWriteHealth(failed);
     return Promise.resolve(failed)}
   const operation=enqueueWrite(()=>withStorageLock(io,async()=>{
+    if(io===storageIO&&installTransferMutationFrozen()){
+      await executeDraftTransaction({record:pendingRecord,transactionId:pendingRecord?.journal.id||null,
+        effect:frozenEffectOutcome,discard:true});
+      return{revision:readRevision(frozenBase),localOk:false,idbOk:false,
+        conflict:true,transferFrozen:true,code:"install-transfer-frozen"}}
     let head=cloneSnapshot(persistHead||frozenBase);
     if(io===storageIO){
       const refreshed=await refreshPersistenceHead();
@@ -2013,10 +2059,18 @@ const I18N=window.RepForgeI18n;
 const t=(k,v)=>I18N?I18N.t(k,v):k;
 const tp=(n,w)=>I18N?I18N.tp(n,w):(+n===1?w:w+"s");
 const captureEvent=(event,properties)=>{try{return window.RepForgeTelemetry?.capture(event,properties)===true}catch{return false}};
-const bootTelemetry=()=>{try{const config=window.__POSTHOG_CONFIG__||{};
-  return window.RepForgeTelemetry?.boot({appVersion:config.appVersion||"dev",crypto:window.crypto,
-    location:window.location,navigator:window.navigator,releaseChannel:config.releaseChannel||"preview",
-    storage:window.localStorage})||null}catch{return null}};
+function installTransferGuardTelemetry(){
+  const telemetry=window.RepForgeTelemetry;
+  if(!telemetry?.setEnabled||telemetry.__repforgeInstallTransferGuarded)return;
+  const guarded={...telemetry,setEnabled(enabled){
+    if(installTransferMutationFrozen())return telemetry.isEnabled?.()!==false;
+    return telemetry.setEnabled(enabled)}};
+  try{Object.defineProperty(guarded,"__repforgeInstallTransferGuarded",{value:true});window.RepForgeTelemetry=guarded}catch{}
+}
+const bootTelemetry=()=>{if(installTransferMutationFrozen())return null;try{
+  const result=window.RepForgePostHog?.start(window)||null;
+  if(result)installTransferTelemetryBooted=true;
+  return result}catch{return null}};
 const telemetryPlatformClass=()=>{if(isIOS())return"ios";const ua=navigator.userAgent||"";if(/android/i.test(ua))return"android";if(/windows|macintosh|linux|cros/i.test(ua))return"desktop";return"other"};
 const applyI18n=()=>{if(!I18N)return;I18N.applyDom();
   const hard=$("#statsHardSetLede");if(hard)hard.innerHTML=t("stats.completed_hard_sets.lede");
@@ -3334,6 +3388,7 @@ function enqueueDraftCommand(type,payload={},ui={}){
   const focus=draftFocusIdentity(payload),pendingValue=Object.prototype.hasOwnProperty.call(ui,"pendingValue")?
     String(ui.pendingValue??""):Object.prototype.hasOwnProperty.call(payload,"value")?String(payload.value??""):null;
   const task=draftWriteTail.then(async()=>{
+    if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
     if(!activeWorkoutDraft)return{status:"missing"};
     if((draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed")&&!draftUiRecovery.allowRetry){
       renderWorkout();restoreDraftFocus(focus);return{status:"recovery-pending"}}
@@ -3348,6 +3403,7 @@ function enqueueDraftCommand(type,payload={},ui={}){
       return{status:"applied",draft:activeWorkoutDraft,raw:activeWorkoutDraftRaw,noOp:true};
     const nextRaw=JSON.stringify(WorkoutDraft.serialize(next));
     const attempt={expectedDraftId:activeWorkoutDraft.draftId,expectedRevision:activeWorkoutDraft.revision,nextRaw,operationId};
+    if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
     const written=await DraftStore.compareAndSwapV2(attempt);
     if(written.status==="applied"){activeWorkoutDraft=written.draft;activeWorkoutDraftRaw=written.raw;
       hydrateDraftCollections(workoutDraftProjection());clearDraftUiRecovery()}
@@ -4473,6 +4529,790 @@ async function commitProposedState(proposal,io=storageIO,opts={}){
   const result=await enqueueStateChange(base,snapshot,io,Object.assign({},opts,{liveBase}));
   if(result.draftConflict&&!result.journalFailed)toast(t("toast.draft_conflict_retry"),{assertive:true});
   return result}
+function installTransferReadJson(key){
+  try{
+    const raw=localStorage.getItem(key);
+    if(raw===null)return null;
+    const value=JSON.parse(raw);
+    return value&&typeof value==="object"&&!Array.isArray(value)?value:null}
+  catch{return null}}
+function installTransferReadRaw(key){try{return localStorage.getItem(key)}catch{return null}}
+function installTransferWriteRaw(key,raw){
+  try{
+    if(raw===null)localStorage.removeItem(key);
+    else localStorage.setItem(key,raw);
+    return true}
+  catch{return false}}
+function installTransferRecordBootDevice(){
+  installTransferBootDevice={
+    consent:installTransferReadRaw(TELEMETRY_ENABLED_KEY),
+    identity:installTransferReadRaw(TELEMETRY_IDENTITY_KEY)}
+}
+function installTransferDeviceMeaningful(){
+  const uiRaw=installTransferReadRaw(UIKEY),ui=installTransferReadJson(UIKEY);
+  if(installTransferInitialDevice.ui!==null||uiRaw!==null&&Object.keys(ui||{}).length>0)return true;
+  const consent=installTransferReadRaw(TELEMETRY_ENABLED_KEY);
+  if(installTransferInitialDevice.consent!==null||
+    consent!==null&&consent!==installTransferBootDevice?.consent)return true;
+  const identity=installTransferReadRaw(TELEMETRY_IDENTITY_KEY);
+  return installTransferInitialDevice.identity!==null||
+    identity!==null&&identity!==installTransferBootDevice?.identity}
+async function ensureInstallTransferModules(){
+  if(!installTransferModulePromise){
+    installTransferModulePromise=Promise.resolve().then(()=>{
+      const contract=window.RepForgeInstallTransferContract;
+      const transfer=window.RepForgeInstallTransfer;
+      if(!contract?.validateEnvelopeIntegrity||!transfer?.captureLogicalSnapshot)
+        throw new Error("install-transfer modules unavailable");
+      return{contract,transfer}}).catch(error=>{installTransferModulePromise=null;throw error})}
+  return installTransferModulePromise}
+function installTransferDraftSource(){
+  return{
+    flush:()=>drainDraftWork(),
+    current:()=>activeWorkoutDraft,
+    checkpoint:()=>DraftStore.readV2Checkpoint(),
+    read:()=>DraftStore.readCanonicalStatus(),
+    logicalCloneSection:draft=>WorkoutDraft.logicalCloneSection(draft),
+  }}
+function installTransferStoredDraftSource(){
+  const read=DraftStore.readCanonicalStatus();
+  let current=null;
+  if(read.status==="ok"&&read.raw!==null){
+    const parsed=WorkoutDraft.parse(read.raw);
+    if(parsed?.kind==="valid")current=parsed.draft}
+  return{
+    flush:()=>Promise.resolve(),
+    current:()=>current,
+    checkpoint:()=>DraftStore.readV2Checkpoint(),
+    read:()=>DraftStore.readCanonicalStatus(),
+    logicalCloneSection:draft=>WorkoutDraft.logicalCloneSection(draft),
+  }}
+function installTransferSections(durableSnapshot=state,{storedDraft=false}={}){
+  return{
+    durableState:()=>exportableState(durableSnapshot),
+    workoutDraft:storedDraft?installTransferStoredDraftSource():installTransferDraftSource(),
+    programEntryDraft:()=>{
+      const record=readSetupDraftRecord();
+      if(!record.ok)throw new Error("program-entry-draft-unavailable");
+      return record.envelope?.state||null},
+    uiPreferences:()=>installTransferReadJson(UIKEY)||{},
+    analytics:()=>({enabled:window.RepForgeTelemetry?.isEnabled?.()!==false&&
+      localStorage.getItem(TELEMETRY_ENABLED_KEY)!=="false"}),
+    telemetryIdentity:()=>installTransferReadJson(TELEMETRY_IDENTITY_KEY),
+  }}
+function installTransferRecoveryIdentityPlaceholder(){
+  return{schemaVersion:1,installationId:uid(),createdAt:new Date().toISOString()}}
+async function installTransferCaptureLogicalSnapshot(durableSnapshot=state,{storedDraft=false}={}){
+  const identityRaw=installTransferReadRaw(TELEMETRY_IDENTITY_KEY);
+  const sections=installTransferSections(durableSnapshot,{storedDraft});
+  if(identityRaw===null)sections.telemetryIdentity=()=>installTransferRecoveryIdentityPlaceholder();
+  const {transfer}=await ensureInstallTransferModules();
+  let captured;
+  try{captured=await transfer.captureLogicalSnapshot(sections)}
+  catch(error){return{ok:false,code:error?.message||"logical-snapshot-failed"}}
+  if(!captured?.ok)return{ok:false,code:captured?.code||"logical-snapshot-failed"};
+  const logical=captured.value;
+  if(identityRaw===null)logical.telemetryIdentity=null;
+  return{ok:true,value:logical}}
+function installTransferLogicalEqual(left,right){
+  return JSON.stringify(canonicalize(left))===JSON.stringify(canonicalize(right))}
+function installTransferParseMarker(raw){
+  if(typeof raw!=="string")return{invalid:true,raw};
+  try{
+    const marker=JSON.parse(raw);
+    return marker&&typeof marker==="object"&&!Array.isArray(marker)?marker:{invalid:true,raw}}
+  catch(error){return{invalid:true,raw,error:String(error?.message||"invalid-marker")}}}
+function installTransferMarkerShape(marker){
+  const keys=["version","transactionId","claimIdDigest","phase","previous","incoming","createdAt","expectedLocalRevision"];
+  if(!isPlainStateObject(marker)||Object.keys(marker).length!==keys.length||!keys.every(key=>Object.hasOwn(marker,key)))return false;
+  if(marker.version!==1||typeof marker.transactionId!=="string"||marker.transactionId.length===0||marker.transactionId.length>256||
+    !/^[0-9a-f]{64}$/.test(marker.claimIdDigest)||!RECOVERY_CARRIER_INSTANT_RE.test(marker.createdAt)||
+    !Number.isSafeInteger(marker.expectedLocalRevision)||marker.expectedLocalRevision<0||
+    !["importing","rolling-back","local-committed"].includes(marker.phase))return false;
+  const previous=marker.previous;
+  const previousKeys=["durableState","workoutDraft","programEntryDraft","uiPreferences","analytics","telemetryIdentity","devicePresence","candidateRaw"];
+  if(!isPlainStateObject(previous)||Object.keys(previous).length!==previousKeys.length||!previousKeys.every(key=>Object.hasOwn(previous,key))||
+    !isValidStateShape(previous.durableState)||
+    (previous.workoutDraft!==null&&(!isPlainStateObject(previous.workoutDraft)||Array.isArray(previous.workoutDraft)))||
+    (previous.programEntryDraft!==null&&(!isPlainStateObject(previous.programEntryDraft)||Array.isArray(previous.programEntryDraft)))||
+    !isPlainStateObject(previous.uiPreferences)||!isPlainStateObject(previous.analytics)||typeof previous.analytics.enabled!=="boolean"||
+    (previous.telemetryIdentity!==null&&(!isPlainStateObject(previous.telemetryIdentity)||Array.isArray(previous.telemetryIdentity)))||
+    !isPlainStateObject(previous.devicePresence)||typeof previous.devicePresence.ui!=="boolean"||
+    typeof previous.devicePresence.consent!=="boolean"||typeof previous.devicePresence.identity!=="boolean"||
+    (previous.candidateRaw!==null&&typeof previous.candidateRaw!=="string"))return false;
+  return isPlainStateObject(marker.incoming)&&!Array.isArray(marker.incoming);
+}
+async function installTransferValidateMarker(marker){
+  if(!installTransferMarkerShape(marker))return{ok:false,code:"install-import-marker-invalid"};
+  try{
+    const {contract}=await ensureInstallTransferModules();
+    const checked=await contract.validateEnvelopeIntegrity(cloneSnapshot(marker.incoming),window.crypto);
+    return checked?.ok?{ok:true,marker}:{ok:false,code:checked?.code||"install-import-marker-envelope-invalid"};
+  }catch{return{ok:false,code:"install-import-marker-envelope-invalid"}}}
+async function installTransferReadMarker(){
+  let localRaw=null,idbMarker=null;
+  try{localRaw=localStorage.getItem(INSTALL_IMPORT_KEY)}catch{return{invalid:true,code:"install-import-marker-read-failed"}}
+  try{idbMarker=await idbGet(INSTALL_IMPORT_KEY);if(idbMarker===undefined)idbMarker=null}
+  catch{return{invalid:true,code:"install-import-marker-read-failed"}}
+  if(localRaw===null&&idbMarker===null)return null;
+  const localMarker=localRaw===null?null:installTransferParseMarker(localRaw);
+  if(localMarker===null||idbMarker===null||localMarker?.invalid||!installTransferLogicalEqual(localMarker,idbMarker))
+    return{invalid:true,code:"install-import-marker-divergent",marker:localMarker,idbMarker};
+  const checked=await installTransferValidateMarker(localMarker);
+  return checked.ok?checked.marker:{invalid:true,code:checked.code,marker:localMarker,idbMarker};
+}
+async function installTransferWriteMarker(marker){
+  const checked=await installTransferValidateMarker(marker);
+  if(!checked.ok)return false;
+  try{
+    localStorage.setItem(INSTALL_IMPORT_KEY,JSON.stringify(marker));
+    await idbSet(INSTALL_IMPORT_KEY,cloneSnapshot(marker));
+    return true;
+  }catch{return false}}
+async function installTransferClearMarker(){
+  let localRaw,idbMarker;
+  try{localRaw=localStorage.getItem(INSTALL_IMPORT_KEY)}catch{return false}
+  try{idbMarker=await idbGet(INSTALL_IMPORT_KEY);if(idbMarker===undefined)idbMarker=null}
+  catch{return false}
+  let localCleared=false,idbCleared=false;
+  try{localStorage.removeItem(INSTALL_IMPORT_KEY);localCleared=true}catch{}
+  try{await idbDel(INSTALL_IMPORT_KEY);idbCleared=true}catch{}
+  if(localCleared&&idbCleared)return true;
+  if(localCleared&&localRaw!==null){try{localStorage.setItem(INSTALL_IMPORT_KEY,localRaw)}catch{}}
+  if(idbCleared&&idbMarker!==null){try{await idbSet(INSTALL_IMPORT_KEY,cloneSnapshot(idbMarker))}catch{}}
+  return false}
+function installTransferFreezeSignal(){
+  try{
+    const raw=localStorage.getItem(INSTALL_FREEZE_KEY);
+    if(raw===null)return null;
+    const value=JSON.parse(raw);
+    return value&&typeof value==="object"&&!Array.isArray(value)?value:{invalid:true};
+  }catch{return{invalid:true}}}
+function installTransferFreezeOwned(){
+  const signal=installTransferFreezeSignal();
+  return !!installTransferFreezeOwner&&signal?.owner===installTransferFreezeOwner}
+function installTransferOutboundMarker(){
+  try{
+    const raw=localStorage.getItem(INSTALL_OUTBOUND_KEY);
+    if(raw===null)return null;
+    const marker=JSON.parse(raw);
+    return marker&&typeof marker==="object"&&!Array.isArray(marker)?marker:{invalid:true,raw};
+  }catch{return{invalid:true,code:"outbound-marker-invalid"}}}
+function installTransferOutboundFrozen(){
+  const marker=installTransferOutboundMarker();
+  if(!marker)return false;
+  return marker.phase!=="resumedDiverged";
+}
+function installTransferMutationFrozen(){
+  const signal=installTransferFreezeSignal();
+  if(signal&&signal.owner!==installTransferFreezeOwner)return true;
+  if(installTransferOutboundFrozen())return true;
+  return false;
+}
+function installTransferOutboundStore(){
+  return{
+    async read(){return installTransferOutboundMarker()},
+    async write(marker){
+      localStorage.setItem(INSTALL_OUTBOUND_KEY,JSON.stringify(marker));
+    },
+    async clear(){
+      localStorage.removeItem(INSTALL_OUTBOUND_KEY);
+    }
+  };
+}
+async function installTransferBrowserClient(){
+  const {contract,transfer}=await ensureInstallTransferModules();
+  const outbound=installTransferOutboundStore();
+  const credentials=transfer.createCredentialVault({crypto:window.crypto,indexedDB:window.indexedDB});
+  const operationLock={withLock(name,work){
+    if(!navigator.locks?.request)throw new Error("install-transfer-lock-unavailable");
+    if(installTransferFreezeOwned()&&name==="install-transfer")return Promise.resolve().then(work);
+    return navigator.locks.request(name,work)}};
+  const transport=transfer.createFetchTransport({fetch:window.fetch.bind(window),baseUrl:window.location.href});
+  const client=transfer.createClient({contract,crypto:window.crypto,transport,context:"browser",
+    document,location:window.location,storage:{outbound,credentials,operationLock}});
+  return{client,contract,transfer,outbound,credentials};
+}
+let installTransferPollingActive=false,installTransferPollingTimer=null,installTransferPollingDelay=5000;
+const INSTALL_TRANSFER_POLL_MARGIN_MS=10*60*1000;
+function installTransferStopPolling(){
+  if(installTransferPollingTimer!==null)clearTimeout(installTransferPollingTimer);
+  installTransferPollingTimer=null;installTransferPollingDelay=5000;
+}
+async function installTransferPersistUnknown(code){
+  const write=()=>{
+    const marker=installTransferOutboundMarker();
+    if(!marker||!["creating","awaiting-claim","unknown-outcome"].includes(marker.phase))return false;
+    try{
+      localStorage.setItem(INSTALL_OUTBOUND_KEY,JSON.stringify({...marker,phase:"unknown-outcome",outcomeCode:code||"status-unavailable"}));
+      return true;
+    }catch{return false}
+  };
+  try{
+    return navigator.locks?.request?await navigator.locks.request("install-transfer",write):write();
+  }catch{return false}
+}
+function installTransferSchedulePoll(){
+  if(installTransferPollingTimer!==null)return;
+  const delay=installTransferPollingDelay;
+  installTransferPollingDelay=Math.min(60000,Math.max(5000,delay*2));
+  installTransferPollingTimer=setTimeout(()=>{
+    installTransferPollingTimer=null;
+    installTransferPollOutboundStatus();
+  },delay);
+}
+async function installTransferPollOutboundStatus(){
+  if(installTransferPollingActive)return;
+  installTransferPollingActive=true;
+  try{
+    const browserClient=await installTransferBrowserClient();
+    const res=await browserClient.client.status({
+      source:{sourceRevision:readRevision(state)}
+    });
+    if(res?.ok&&res.state==="confirmed"){
+      installTransferStopPolling();
+      if($("#iosInstallSheet")?.classList.contains("is-open"))installTransferRenderState("success",res);
+      showInstallBanner(true);
+      return;
+    }
+    if(res?.ok&&res.state==="idle"&&res.remoteState==="expired"){
+      installTransferStopPolling();
+      hideInstallBanner(true);
+      if($("#iosInstallSheet")?.classList.contains("is-open"))closeIosInstallSheet();
+      toast(t("toast.transfer_expired")||"Transfer expired");
+      return;
+    }
+    if(res?.code==="transfer-pending"){
+      const marker=installTransferOutboundMarker();
+      const expiresAt=Date.parse(res.expiresAt||marker?.expiresAt||"");
+      if(Number.isFinite(expiresAt)&&Date.now()>=expiresAt+INSTALL_TRANSFER_POLL_MARGIN_MS){
+        await installTransferPersistUnknown("poll-exhausted");
+        installTransferStopPolling();
+        if($("#iosInstallSheet")?.classList.contains("is-open"))installTransferRenderState("unknown",res);
+        showInstallBanner(true);
+        return;
+      }
+      showInstallBanner(true);
+      installTransferSchedulePoll();
+      return;
+    }
+    await installTransferPersistUnknown(res?.code);
+    installTransferStopPolling();
+    if($("#iosInstallSheet")?.classList.contains("is-open"))
+      installTransferRenderState(res?.code==="claimed-expired"?"claimed-expired":"unknown",res);
+    showInstallBanner(true);
+  }catch{
+    await installTransferPersistUnknown("status-unavailable");
+    installTransferStopPolling();
+    if($("#iosInstallSheet")?.classList.contains("is-open"))installTransferRenderState("unknown");
+    showInstallBanner(true)}
+  finally{
+    installTransferPollingActive=false;
+  }
+}
+async function installTransferCreateFromSafari(){
+  installTransferRenderState("creating");
+  try{
+    const browserClient=await installTransferBrowserClient();
+    const identity=installTransferReadJson(TELEMETRY_IDENTITY_KEY);
+    const sourceRevision=readRevision(state);
+    const result=await browserClient.client.create({
+      sections:installTransferSections(state),
+      source:{context:"browser",logicalInstallationId:identity?.installationId||"local-installation",sourceRevision},
+      consent:{enabled:true},
+      sourceAfter:()=>installTransferSections(state),
+      hasMeaningfulData:installTransferMeaningful(state),
+    });
+    if(result?.ok&&result.state==="ready"){
+      installTransferRenderState("ready",result);
+      installTransferStopPolling();
+      installTransferSchedulePoll();
+      return result;
+    }
+    if(result?.state==="terminalUnavailable"){
+      installTransferRenderState("retryable",result);
+      return result;
+    }
+    await installTransferPersistUnknown(result?.code);
+    installTransferRenderState(result?.code==="claimed-expired"?"claimed-expired":"unknown",result);
+    return result;
+  }catch(error){
+    await installTransferPersistUnknown(error?.message||"create-unknown-outcome");
+    const result={ok:false,state:"unknown-outcome",code:error?.message||"create-unknown-outcome"};
+    installTransferRenderState("unknown",result);
+    return result;
+  }
+}
+async function installTransferConfirmDivergence(){
+  installTransferStopPolling();
+  try{
+    const browserClient=await installTransferBrowserClient();
+    await browserClient.client.confirmDivergence();
+  }catch{
+    const marker=installTransferOutboundMarker();
+    if(marker&&marker.phase!=="invalid"){
+      try{localStorage.setItem(INSTALL_OUTBOUND_KEY,JSON.stringify({...marker,phase:"resumedDiverged",divergedAt:new Date().toISOString()}))}catch{}
+    }
+  }
+  hideInstallBanner(true);
+  toast(t("toast.resumed_in_browser")||"Resumed in browser");
+}
+async function installTransferCheckOutboundOnBoot(){
+  const marker=installTransferOutboundMarker();
+  if(!marker||marker.phase==="resumedDiverged")return;
+  showInstallBanner(true);
+  if(marker.phase==="creating")installTransferCreateFromSafari();
+  else if(marker.phase==="awaiting-claim")installTransferPollOutboundStatus();
+}
+function installTransferBroadcast(type,value){
+  try{
+    if(typeof BroadcastChannel!=="function")return;
+    if(!installTransferFreezeChannel)installTransferFreezeChannel=new BroadcastChannel(INSTALL_FREEZE_CHANNEL);
+    installTransferFreezeChannel.postMessage({type,value});
+  }catch{}}
+async function withInstallTransferLock(work){
+  if(!navigator.locks?.request)return{ok:false,code:"install-transfer-lock-unavailable",blocked:true};
+  if(installTransferFreezeOwned())return work(installTransferFreezeOwner);
+  const owner=uid();
+  try{
+    return await navigator.locks.request("install-transfer",async()=>{
+      installTransferFreezeOwner=owner;
+      try{
+        localStorage.setItem(INSTALL_FREEZE_KEY,JSON.stringify({version:1,owner,createdAt:new Date().toISOString()}));
+        installTransferBroadcast("freeze",owner);
+      }catch{installTransferFreezeOwner=null;return{ok:false,code:"install-transfer-freeze-failed",blocked:true}}
+      try{return await work(owner)}
+      finally{
+        try{
+          const signal=installTransferFreezeSignal();
+          if(signal?.owner===owner)localStorage.removeItem(INSTALL_FREEZE_KEY);
+        }catch{}
+        installTransferBroadcast("release",owner);
+        installTransferFreezeOwner=null;
+      }
+    });
+  }catch{return{ok:false,code:"install-transfer-lock-failed",blocked:true}}}
+function installTransferReadInboundMarker(){
+  try{
+    const raw=localStorage.getItem(INSTALL_INBOUND_KEY);
+    if(raw===null)return null;
+    const marker=JSON.parse(raw);
+    return marker&&typeof marker==="object"&&!Array.isArray(marker)?marker:{invalid:true,raw};
+  }catch{return{invalid:true,code:"inbound-marker-invalid"}}}
+function installTransferInboundStore({preserveCleanupMarker=false}={}){
+  let deferCleanupClear=false;
+  return{
+    async read(){return installTransferReadInboundMarker()},
+    async write(marker){
+      const previous=installTransferReadInboundMarker();
+      if(preserveCleanupMarker&&marker?.phase==="cleanup-pending"&&marker.remoteState==="deleted"&&previous?.phase==="local-committed")
+        deferCleanupClear=true;
+      localStorage.setItem(INSTALL_INBOUND_KEY,JSON.stringify(marker))},
+    async clear(){
+      if(deferCleanupClear){
+        deferCleanupClear=false;
+        queueMicrotask(()=>{try{localStorage.removeItem(INSTALL_INBOUND_KEY)}catch{}});
+        return;
+      }
+      localStorage.removeItem(INSTALL_INBOUND_KEY)},
+  }}
+async function installTransferStandaloneClient({preserveCleanupMarker=false}={}){
+  const {contract,transfer}=await ensureInstallTransferModules();
+  const inbound=installTransferInboundStore({preserveCleanupMarker});
+  const credentials=transfer.createCredentialVault({crypto:window.crypto,indexedDB:window.indexedDB});
+  const operationLock={withLock(name,work){
+    if(!navigator.locks?.request)throw new Error("install-transfer-lock-unavailable");
+    if(installTransferFreezeOwned()&&name==="install-transfer")return Promise.resolve().then(work);
+    return navigator.locks.request(name,work)}};
+  const transport=transfer.createFetchTransport({fetch:window.fetch.bind(window),baseUrl:window.location.href});
+  const client=transfer.createClient({contract,crypto:window.crypto,transport,context:"standalone",
+    document,location:window.location,storage:{inbound,credentials,operationLock}});
+  return{client,contract,transfer,inbound,credentials}}
+async function installTransferPrepareStandaloneBoot(){
+  try{
+    const {transfer}=await ensureInstallTransferModules();
+    const inboundBefore=installTransferReadInboundMarker();
+    const cookie=transfer.readTransferCookie({document});
+    if(!cookie&&!inboundBefore)return{ok:true,absent:true};
+    openIosInstallSheet("claiming");
+    if(inboundBefore?.phase==="local-committed"||inboundBefore?.phase==="cleanup-pending"){
+      const standalone=await installTransferStandaloneClient();
+      const cleanup=await standalone.client.commit();
+      if(cleanup?.ok===true&&!await installTransferClearMarker())
+        return{ok:false,code:"marker-clear-failed",blocked:true,state:"localCommitted",cleanup};
+      return{ok:true,state:"localCommitted",cleanup};
+    }
+    const destination=await installTransferDestination();
+    if(destination.blocked)return{ok:false,code:destination.code,blocked:true};
+    if(installTransferMeaningful(destination.snapshot))return{ok:false,code:"destination-meaningful"};
+    const standalone=await installTransferStandaloneClient({preserveCleanupMarker:true});
+    const claimed=await standalone.client.claim();
+    if(!claimed?.ok||claimed.state!=="validating")return{ok:false,code:claimed?.code||"claim-failed",state:claimed?.state};
+    installTransferRenderState("importing",{expiresAt:claimed.expiresAt});
+    const claimedMarker=await standalone.inbound.read();
+    if(!claimedMarker?.sealedCredentials)return{ok:false,code:"claim-marker-missing"};
+    let pair;
+    try{pair=await standalone.credentials.unseal("standalone-inbound",claimedMarker.sealedCredentials)}
+    catch{return{ok:false,code:"claim-credential-unavailable"}}
+    const digest=await installTransferClaimDigest(standalone.contract,{claimId:pair?.claimId,
+      credentials:standalone.credentials});
+    if(!digest.ok)return{ok:false,code:digest.code||"claim-digest-failed"};
+    return{ok:true,pending:{standalone,envelope:claimed.envelope,claimId:pair.claimId,claimIdDigest:digest.value}};
+  }catch(error){return{ok:false,code:error?.message||"standalone-transfer-failed"}}
+}
+async function installTransferCompleteStandaloneBoot(prepared){
+  if(!prepared?.pending)return prepared||{ok:true,absent:true};
+  const {standalone,envelope,claimId,claimIdDigest}=prepared.pending;
+  try{
+    const imported=await importInstallTransfer(envelope,{claimId,claimIdDigest,credentials:standalone.credentials});
+    if(!imported?.ok)return imported;
+    const latest=await standalone.inbound.read();
+    if(!latest?.sealedCredentials)return{ok:false,code:"claim-marker-lost",localOk:true,idbOk:true};
+    await standalone.inbound.write({...latest,phase:"local-committed",claimIdDigest});
+    const cleanup=await standalone.client.commit();
+    if(cleanup?.ok===true&&!await installTransferClearMarker())
+      return{ok:false,code:"marker-clear-failed",blocked:true,localOk:true,idbOk:true,cleanup};
+    return{...imported,cleanup,cleanupRetry:cleanup?.ok!==true};
+  }catch(error){return{ok:false,code:error?.message||"standalone-transfer-failed"}}
+}
+function installTransferFault(point){
+  const hook=window.__repforgeInstallTransferImportFault;
+  if(typeof hook==="function"&&hook(point)===true)throw new Error(`install-transfer-import-fault:${point}`);
+  if(hook===point)throw new Error(`install-transfer-import-fault:${point}`)}
+async function installTransferClaimDigest(contract,{claimId=null,claimIdDigest=null,credentials=null}={}){
+  if(claimId===null||claimId===undefined)return{ok:false,code:"claim-id-required"};
+  if(!contract?.validateClaimId?.(claimId)?.ok)return{ok:false,code:"claim-id-invalid"};
+  if(typeof credentials?.unseal!=="function")return{ok:false,code:"claim-credentials-required"};
+  const inbound=installTransferReadInboundMarker();
+  if(!inbound?.sealedCredentials||!["staged","claiming","claimed"].includes(inbound.phase))
+    return{ok:false,code:"claim-credentials-unavailable"};
+  let pair;
+  try{pair=await credentials.unseal("standalone-inbound",inbound.sealedCredentials)}
+  catch{return{ok:false,code:"claim-credentials-unavailable"}}
+  if(pair?.claimId!==claimId)return{ok:false,code:"claim-id-unbound"};
+  const digest=await recoverySha256(claimId);
+  if(claimIdDigest!==null&&claimIdDigest!==undefined&&claimIdDigest!==digest)
+    return{ok:false,code:"claim-id-digest-mismatch"};
+  return{ok:true,value:digest}}
+function installTransferMeaningful(snapshot){
+  if(!snapshot||typeof snapshot!=="object")return true;
+  const defaultSettings=normalizeSettings(DEFAULTS);
+  const destinationSettings=normalizeSettings(snapshot.settings);
+  if(!installTransferLogicalEqual(destinationSettings,defaultSettings))return true;
+  if(snapshot.programMeta?.onboarded===true||Array.isArray(snapshot.program)&&snapshot.program.length||
+    structureDayLabels(snapshot.programMeta)||Array.isArray(snapshot.log)&&snapshot.log.length||
+    Array.isArray(snapshot.programHistory)&&snapshot.programHistory.length||
+    Array.isArray(snapshot.customExercises)&&snapshot.customExercises.length)return true;
+  const carrier=snapshot.recoveryTransitions;
+  if(Array.isArray(carrier?.records)&&carrier.records.length||Array.isArray(carrier?.quarantine)&&carrier.quarantine.length)return true;
+  const draft=readLiveAcknowledgedDraftV2(snapshot);
+  if(draft.status==="live"||draft.status==="unavailable")return true;
+  const candidate=readSetupDraftRecord();
+  return !candidate.ok||!!candidate.envelope||installTransferDeviceMeaningful()}
+async function installTransferDestination(){
+  const local=readLocalStatus(),idb=await readIdbStatus(),decision=chooseSnapshot(local,idb);
+  if(decision.kind==="first-run")return{local,idb,decision,snapshot:normalizeLoaded(null),revision:0};
+  if(decision.kind!=="chosen"||pendingDraftTransaction(decision.snapshot))
+    return{local,idb,decision,blocked:true,code:pendingDraftTransaction(decision.snapshot)?"destination-transaction-pending":"destination-storage-unresolved"};
+  return{local,idb,decision,snapshot:cloneSnapshot(decision.snapshot),revision:readRevision(decision.snapshot)}}
+async function installTransferReadback(envelope,durableSnapshot,{storedDraft=false}={}){
+  const {contract,transfer}=await ensureInstallTransferModules();
+  const local=readLocalStatus(),idb=await readIdbStatus();
+  const durableExpected=envelope.durableState;
+  const localOk=local.status==="valid"&&installTransferLogicalEqual(exportableState(local.parsed),durableExpected);
+  const idbOk=idb.status==="valid"&&installTransferLogicalEqual(exportableState(idb.parsed),durableExpected);
+  let logical=null,logicalError=null;
+  try{
+    const captured=await transfer.captureLogicalSnapshot(installTransferSections(durableSnapshot,{storedDraft}));
+    if(!captured?.ok)logicalError=captured?.code||"logical-readback-failed";
+    else logical=captured.value;
+  }catch(error){logicalError=error?.message||"logical-readback-failed"}
+  if(logicalError)return{ok:false,localOk,idbOk,code:logicalError,local,idb};
+  const expectedLogical={durableState:envelope.durableState,workoutDraft:envelope.workoutDraft,
+    programEntryDraft:envelope.programEntryDraft,uiPreferences:envelope.uiPreferences,
+    analytics:envelope.analytics,telemetryIdentity:envelope.telemetryIdentity};
+  const exactSections=installTransferLogicalEqual(logical,expectedLogical);
+  const candidateEnvelope={...cloneSnapshot(envelope),...cloneSnapshot(logical)};
+  let integrity;
+  try{integrity=await contract.validateEnvelopeIntegrity(candidateEnvelope,window.crypto)}
+  catch{integrity={ok:false,code:"integrity-validation-failed"}}
+  const ok=localOk&&idbOk&&exactSections&&integrity?.ok===true;
+  return{ok,localOk,idbOk,exactSections,integrityOk:integrity?.ok===true,local,idb,logical,
+    code:ok?null:integrity?.code||(!exactSections?"logical-readback-mismatch":"replica-readback-mismatch")}}
+async function installTransferStoredLogicalSnapshot(){
+  const local=readLocalStatus(),idb=await readIdbStatus(),decision=chooseSnapshot(local,idb);
+  const snapshot=decision.kind==="first-run"?normalizeLoaded(null):decision.snapshot;
+  if(decision.kind!=="chosen"&&decision.kind!=="first-run")
+    return{ok:false,local,idb,decision,code:"destination-storage-unresolved"};
+  const captured=await installTransferCaptureLogicalSnapshot(snapshot,{storedDraft:true});
+  if(!captured.ok)return{ok:false,local,idb,decision,code:captured.code||"logical-read-failed"};
+  return{ok:true,local,idb,decision,snapshot,logical:captured.value}}
+function installTransferLogicalProjection(envelope){
+  return{durableState:envelope?.durableState||null,workoutDraft:envelope?.workoutDraft??null,
+    programEntryDraft:envelope?.programEntryDraft??null,uiPreferences:envelope?.uiPreferences||{},
+    analytics:envelope?.analytics||null,telemetryIdentity:envelope?.telemetryIdentity??null}}
+function installTransferDevicePresence(){
+  return{ui:installTransferReadRaw(UIKEY)!==null,
+    consent:installTransferReadRaw(TELEMETRY_ENABLED_KEY)!==null,
+    identity:installTransferReadRaw(TELEMETRY_IDENTITY_KEY)!==null}}
+function installTransferCandidateLogical(raw){
+  if(raw===null)return null;
+  try{
+    const parsed=ProgramEntry?.normalizeSetupDraftEnvelope?.(raw);
+    return parsed?.ok?parsed.value.envelope.state:null}
+  catch{return null}}
+function installTransferPreviousMarker(extra,logical){
+  return{...logical,devicePresence:installTransferDevicePresence(),candidateRaw:extra.candidateRaw}}
+async function installTransferWriteDraft(logical,durableRevision){
+  const current=DraftStore.readCanonicalStatus();
+  if(current.status!=="ok")return{ok:false,code:"draft-read-failed"};
+  if(logical===null){
+    if(current.raw===null)return{ok:true,absent:true};
+    const parsed=WorkoutDraft.parse(current.raw);
+    if(parsed?.kind!=="valid")return{ok:false,code:"draft-untrusted"};
+    const removed=await DraftStore.removeV2({expectedDraftId:parsed.draft.draftId,
+      expectedRevision:parsed.draft.revision,operationId:`install-import-remove-${uid()}`});
+    return{ok:removed.status==="applied"||removed.status==="missing",status:removed.status,
+      code:removed.status==="applied"?null:"draft-remove-failed"}}
+  const next=cloneSnapshot(logical),operationId=`install-import-${uid()}`;
+  next.revision=0;next.writer=draftWriter(operationId);
+  next.program={...next.program,durableRevision};
+  const checked=WorkoutDraft.parse(next);
+  if(checked?.kind!=="valid")return{ok:false,code:"draft-rehydrate-invalid"};
+  const nextRaw=JSON.stringify(WorkoutDraft.serialize(checked.draft));
+  const written=await DraftStore.compareAndSwapV2({expectedRaw:current.raw,nextRaw,operationId});
+  if(written.status==="applied"){
+    activeWorkoutDraft=written.draft;activeWorkoutDraftRaw=written.raw;workoutDraftRecovery=null;
+    return{ok:true,status:written.status,raw:written.raw}}
+  return{ok:false,status:written.status,code:"draft-write-failed"}}
+function installTransferWriteCandidate(logical){
+  const observedRaw=readSetupDraftRaw();
+  if(logical===null){
+    if(observedRaw===null)return Promise.resolve({ok:true,absent:true});
+    return queueSetupDraftWrite(()=>withStorageLock(storageIO,()=>{
+      if(readSetupDraftRaw()!==observedRaw)return{ok:false,conflict:true};
+      const removed=removeObservedSetupDraft({raw:observedRaw,envelope:null});
+      return{ok:removed.ok,conflict:!!removed.conflict}}))}
+  if(!ProgramEntry)return Promise.resolve({ok:false,code:"program-entry-unavailable"});
+  const normalized=ProgramEntry.normalizeSetupDraft(logical);
+  if(!normalized.ok)return Promise.resolve({ok:false,code:"program-entry-invalid"});
+  let envelope;
+  try{
+    const fresh=freshSetupDraftEnvelope(normalized.value);
+    envelope=ProgramEntry.advanceSetupDraftEnvelope(fresh,normalized.value,setupDraftOwnerId)}
+  catch{return Promise.resolve({ok:false,code:"program-entry-envelope-invalid"})}
+  const raw=JSON.stringify(envelope);
+  return queueSetupDraftWrite(()=>withStorageLock(storageIO,()=>{
+    if(readSetupDraftRaw()!==observedRaw)return{ok:false,conflict:true};
+    try{localStorage.setItem(SETUP_DRAFT_KEY,raw)}catch{return{ok:false,writeFailed:true}}
+    entryState=cloneSnapshot(normalized.value);entryDraftHandle={raw,envelope};
+    return{ok:true,envelope}}))}
+function installTransferWriteDeviceSections(envelope){
+  try{
+    const prefs=cloneSnapshot(envelope.uiPreferences);
+    delete prefs.repforge_freeform_session_v1;delete prefs.repforge_import_source_v1;
+    localStorage.setItem(UIKEY,JSON.stringify(prefs));uiPrefs=loadUiPrefs();
+    const consentRaw=String(envelope.analytics.enabled===true);
+    if(window.RepForgeTelemetry?.setEnabled)window.RepForgeTelemetry.setEnabled(envelope.analytics.enabled===true);
+    if(!installTransferWriteRaw(TELEMETRY_ENABLED_KEY,consentRaw))return{ok:false,code:"device-consent-write-failed"};
+    if(!installTransferWriteRaw(TELEMETRY_IDENTITY_KEY,JSON.stringify(envelope.telemetryIdentity)))
+      return{ok:false,code:"device-identity-write-failed"};
+    if(installTransferTelemetryBooted)bootTelemetry();
+    return{ok:true}
+  }catch{return{ok:false,code:"device-section-write-failed"}}}
+function installTransferRestoreDeviceSections(previous,presence={}){
+  try{
+    const prefs=cloneSnapshot(previous.uiPreferences||{});
+    if(presence.ui===false){
+      if(!installTransferWriteRaw(UIKEY,null))return{ok:false,code:"device-prefs-rollback-failed"};
+    }else if(!installTransferWriteRaw(UIKEY,JSON.stringify(prefs)))
+      return{ok:false,code:"device-prefs-rollback-failed"};
+    if(window.RepForgeTelemetry?.setEnabled)
+      window.RepForgeTelemetry.setEnabled(previous.analytics?.enabled===true);
+    if(presence.consent===false){
+      if(!installTransferWriteRaw(TELEMETRY_ENABLED_KEY,null))return{ok:false,code:"device-consent-rollback-failed"};
+    }else if(!installTransferWriteRaw(TELEMETRY_ENABLED_KEY,String(previous.analytics?.enabled===true)))
+      return{ok:false,code:"device-consent-rollback-failed"};
+    if(presence.identity===false){
+      if(!installTransferWriteRaw(TELEMETRY_IDENTITY_KEY,null))return{ok:false,code:"device-identity-rollback-failed"};
+    }else if(!installTransferWriteRaw(TELEMETRY_IDENTITY_KEY,JSON.stringify(previous.telemetryIdentity)))
+      return{ok:false,code:"device-identity-rollback-failed"};
+    if(installTransferTelemetryBooted)bootTelemetry();
+    uiPrefs=loadUiPrefs();
+    return{ok:true}
+  }catch{return{ok:false,code:"device-rollback-failed"}}}
+function installTransferRestoreCandidate(previousRaw,allowedLogicals=[]){
+  const observedRaw=readSetupDraftRaw();
+  if(previousRaw===undefined)return Promise.resolve({ok:false,code:"candidate-rollback-metadata-missing"});
+  return queueSetupDraftWrite(()=>withStorageLock(storageIO,()=>{
+    const current=readSetupDraftRaw();
+    const previousLogical=installTransferCandidateLogical(previousRaw);
+    const currentLogical=installTransferCandidateLogical(current);
+    if(current!==observedRaw)return{ok:false,conflict:true};
+    const allowed=[previousLogical,...allowedLogicals]
+      .filter(value=>value!==undefined)
+      .some(value=>installTransferLogicalEqual(currentLogical,value));
+    if(!allowed)return{ok:false,conflict:true};
+    if(previousRaw===null){
+      const removed=removeObservedSetupDraft({raw:current,envelope:null});
+      if(!removed.ok)return{ok:false,...removed};
+      entryState=null;entryDraftHandle=null;
+      return{ok:true}}
+    if(!previousLogical)return{ok:false,code:"candidate-rollback-invalid"};
+    try{localStorage.setItem(SETUP_DRAFT_KEY,previousRaw)}catch{return{ok:false,code:"candidate-rollback-write-failed"}}
+    const envelope=JSON.parse(previousRaw);
+    entryState=cloneSnapshot(previousLogical);entryDraftHandle={raw:previousRaw,envelope};
+    return{ok:true}}))}
+async function installTransferRestoreDurable(previous,current){
+  const currentRevision=readRevision(current?.snapshot);
+  const target=cloneSnapshot(previous.durableState);
+  if(installTransferLogicalEqual(exportableState(current?.snapshot),target)&&
+    current?.local?.status==="valid"&&current?.idb?.status==="valid"&&
+    readRevision(current.local.parsed)===currentRevision&&
+    readRevision(current.idb.parsed)===currentRevision&&
+    storageSnapshotsEqual(current.local.parsed,current.idb.parsed))return{ok:true,unchanged:true};
+  target[STORAGE_REV]=currentRevision+1;
+  const result=await withStorageLock(storageIO,async()=>{
+    const local=readLocalStatus(),idb=await readIdbStatus(),latest=chooseSnapshot(local,idb);
+    if((latest.kind!=="chosen"&&latest.kind!=="first-run")||
+      latest.kind==="chosen"&&(readRevision(latest.snapshot)!==currentRevision||
+        !storageSnapshotsEqual(latest.snapshot,current.snapshot)))
+      return{revision:currentRevision,localOk:false,idbOk:false,conflict:true,staleRevision:true,
+        code:"rollback-stale-revision"};
+    return writeSnapshot(target,storageIO)});
+  return{ok:!!(result?.localOk&&result?.idbOk),result,code:result?.code||"durable-rollback-failed"}}
+function installTransferStoredLogicalMatches(marker,current,expected){
+  return !!(current?.ok&&current.logical&&installTransferLogicalEqual(
+    current.logical,installTransferLogicalProjection(expected))) }
+async function installTransferRollback(marker,current){
+  const previous=marker.previous;
+  if(!previous||typeof previous!=="object")return{ok:false,code:"rollback-previous-missing"};
+  if(!current?.ok)return{ok:false,code:current?.code||"rollback-read-failed"};
+  // An importing marker owns every local boundary until the local proof is
+  // promoted. A read-back mismatch is therefore an interrupted transaction,
+  // not a reason to leave a mixed clone waiting for a later boot.
+  const incoming=marker.incoming;
+  const currentCandidateRaw=readSetupDraftRaw();
+  const currentCandidate=installTransferCandidateLogical(currentCandidateRaw);
+  const incomingCandidate=incoming?.programEntryDraft??null;
+  const previousCandidate=previous.programEntryDraft??null;
+  const candidateMatchesIncoming=installTransferLogicalEqual(currentCandidate,incomingCandidate);
+  const candidateMatchesPrevious=installTransferLogicalEqual(currentCandidate,previousCandidate);
+  if(!candidateMatchesIncoming&&!candidateMatchesPrevious&&currentCandidateRaw!==null)
+    return{ok:false,code:"candidate-rollback-conflict"};
+  if(currentCandidateRaw===null&&!candidateMatchesIncoming&&!candidateMatchesPrevious&&
+    (incomingCandidate!==null||previousCandidate!==null))return{ok:false,code:"candidate-rollback-conflict"};
+  const durable=await installTransferRestoreDurable(previous,current);
+  if(!durable.ok)return{ok:false,code:durable.code,durable};
+  installTransferFault("after-rollback-durable");
+  const draft=await installTransferWriteDraft(previous.workoutDraft,
+    Number.isSafeInteger(marker.expectedLocalRevision)?marker.expectedLocalRevision:0);
+  if(!draft.ok)return{ok:false,code:draft.code||"draft-rollback-failed",durable};
+  installTransferFault("after-rollback-draft");
+  const candidate=await installTransferRestoreCandidate(previous.candidateRaw??null,
+    [incomingCandidate]);
+  if(!candidate.ok)return{ok:false,code:candidate.code||"candidate-rollback-failed",durable,draft};
+  installTransferFault("after-rollback-candidate");
+  const device=installTransferRestoreDeviceSections(previous,previous.devicePresence||{});
+  if(!device.ok)return{ok:false,code:device.code||"device-rollback-failed",durable,draft,candidate};
+  installTransferFault("after-rollback-device");
+  const verified=await installTransferStoredLogicalSnapshot();
+  if(!verified.ok||!installTransferStoredLogicalMatches(marker,verified,previous))
+    return{ok:false,code:"rollback-readback-mismatch",durable,draft,candidate,device,verified};
+  return{ok:true,state:"rolledBack",durable,draft,candidate,device,verified}}
+async function installTransferResumeMarker(marker){
+  if(marker?.invalid)return{ok:false,code:"install-import-marker-invalid",blocked:true};
+  if(!marker||marker.version!==1||!marker.previous||!marker.incoming||
+    !["importing","rolling-back","local-committed"].includes(marker.phase))
+    return{ok:false,code:"install-import-marker-invalid",blocked:true};
+  const current=await installTransferStoredLogicalSnapshot();
+  if(!current.ok)return{ok:false,code:current.code||"install-import-read-failed",blocked:true};
+  const incomingMatch=installTransferStoredLogicalMatches(marker,current,marker.incoming);
+  if(marker.phase==="local-committed")
+    return{ok:true,state:"localCommitted",deferredRemoteCommit:true,diverged:!incomingMatch};
+  if(marker.phase==="importing"&&incomingMatch){
+    const committed={...marker,phase:"local-committed"};
+    if(!await installTransferWriteMarker(committed))return{ok:false,code:"marker-commit-failed",blocked:true};
+    return{ok:true,state:"localCommitted",resumed:true,deferredRemoteCommit:true}}
+  if(marker.phase==="importing"||marker.phase==="rolling-back"){
+    let rollingBack=marker;
+    if(marker.phase==="importing"){
+      rollingBack={...marker,phase:"rolling-back"};
+      if(!await installTransferWriteMarker(rollingBack))return{ok:false,code:"marker-rollback-phase-failed",blocked:true};
+    }
+    const rollback=await installTransferRollback(rollingBack,current);
+    if(!rollback.ok)return{ok:false,...rollback,blocked:true};
+    if(!await installTransferClearMarker())return{ok:false,code:"marker-clear-failed",blocked:true,rollback};
+    return{ok:true,state:"rolledBack",rollback}
+  }
+  return{ok:false,code:"install-import-diverged",blocked:true}
+}
+async function importInstallTransferUnlocked(envelope,{claimId=null,claimIdDigest=null,transactionId=null,credentials=null}={}){
+  let marker=null;
+  try{
+    const {contract}=await ensureInstallTransferModules();
+    const checked=await contract.validateEnvelopeIntegrity(cloneSnapshot(envelope),window.crypto);
+    if(!checked?.ok)return{ok:false,localOk:false,idbOk:false,code:checked?.code||"invalid-envelope"};
+    envelope=checked.value;
+    const destination=await installTransferDestination();
+    if(destination.blocked)return{ok:false,localOk:false,idbOk:false,code:destination.code};
+    if(installTransferMeaningful(destination.snapshot))
+      return{ok:false,localOk:false,idbOk:false,code:"destination-meaningful"};
+    const {transfer}=await ensureInstallTransferModules();
+    const previousCapture=await installTransferCaptureLogicalSnapshot(destination.snapshot);
+    if(!previousCapture?.ok)return{ok:false,localOk:false,idbOk:false,code:previousCapture?.code||"previous-snapshot-failed"};
+    if(!transactionId)transactionId=uid();
+    const claim=await installTransferClaimDigest(contract,{claimId,claimIdDigest,credentials});
+    if(!claim.ok)return{ok:false,localOk:false,idbOk:false,code:claim.code};
+    marker={version:1,transactionId,claimIdDigest:claim.value,phase:"importing",
+      previous:installTransferPreviousMarker({candidateRaw:readSetupDraftRaw()},previousCapture.value),
+      incoming:cloneSnapshot(envelope),createdAt:new Date().toISOString(),expectedLocalRevision:destination.revision};
+    if(!await installTransferWriteMarker(marker))return{ok:false,localOk:false,idbOk:false,code:"marker-write-failed"};
+    installTransferFault("after-marker");
+    const durable=await commitProposedState(cloneSnapshot(envelope.durableState),storageIO,{replace:true,
+      expectedStorageRevision:destination.revision,recoveryTransaction:true,
+      preflight:async({head})=>installTransferMeaningful(head)
+        ?{reject:true,result:{ok:false,localOk:false,idbOk:false,conflict:true,code:"destination-meaningful"}}:null});
+    if(!(durable?.localOk&&durable?.idbOk))return{ok:false,localOk:!!durable?.localOk,idbOk:!!durable?.idbOk,
+      code:durable?.code||"durable-write-incomplete",phase:marker.phase};
+    installTransferFault("after-durable");
+    const draft=await installTransferWriteDraft(envelope.workoutDraft,durable.revision);
+    if(!draft.ok)return{ok:false,localOk:true,idbOk:true,code:draft.code||"draft-write-failed",phase:marker.phase};
+    installTransferFault("after-draft");
+    const candidate=await installTransferWriteCandidate(envelope.programEntryDraft);
+    if(!candidate.ok)return{ok:false,localOk:true,idbOk:true,code:candidate.code||"candidate-write-failed",phase:marker.phase};
+    installTransferFault("after-candidate");
+    const device=installTransferWriteDeviceSections(envelope);
+    if(!device.ok)return{ok:false,localOk:true,idbOk:true,code:device.code,phase:marker.phase};
+    installTransferFault("after-device");
+    installTransferFault("before-readback");
+    const readback=await installTransferReadback(envelope,state);
+    if(!readback.ok)return{...readback,phase:marker.phase};
+    marker={...marker,phase:"local-committed"};
+    if(!await installTransferWriteMarker(marker))return{ok:false,localOk:true,idbOk:true,code:"marker-commit-failed",phase:"importing"};
+    installTransferFault("after-local-committed");
+    return{ok:true,state:"localCommitted",phase:marker.phase,localOk:true,idbOk:true,transactionId:marker.transactionId,
+      marker:cloneSnapshot(marker)}
+  }catch(error){
+    return{ok:false,localOk:false,idbOk:false,code:error?.message||"install-import-failed",phase:marker?.phase||"none",
+      transactionId:marker?.transactionId||transactionId||null}}
+}
+async function importInstallTransfer(envelope,options={}){
+  return withInstallTransferLock(()=>importInstallTransferUnlocked(envelope,options));
+}
+async function resumeInstallTransferImport(){
+  const marker=await installTransferReadMarker();
+  if(!marker)return{ok:true,absent:true};
+  return withInstallTransferLock(()=>installTransferResumeMarker(marker))}
+async function runInstallTransferPreBootRequest(){
+  const request=window.__repforgeInstallTransferPreBootRequest;
+  if(request===undefined)return{ok:true,absent:true};
+  try{
+    delete window.__repforgeInstallTransferPreBootRequest;
+    if(!request||typeof request!=="object"||Array.isArray(request)||!request.envelope)
+      return{ok:false,code:"preboot-request-invalid"};
+    return await importInstallTransfer(request.envelope,request.options||{})
+  }catch(error){return{ok:false,code:error?.message||"preboot-import-failed"}}}
 async function deleteTrainingLog(io=storageIO,{discardDraftRaw=readDraftRaw()}={}){
   const proposal=cloneSnapshot(state);
   proposal.log=[];
@@ -7187,6 +8027,7 @@ window.__repforgeBuildBlockReview=buildBlockReview;
 window.__repforgeCommitNextBlock=commitNextBlock;
 window.__repforgeFinalizeProgramSetup=(opts,io)=>finalizeProgramSetup(Object.assign({},opts,{io:io||opts?.io||storageIO}));
 window.__repforgeCommitProposedState=proposal=>commitProposedState(proposal,storageIO);
+window.__repforgeInstallTransferImport=(envelope,options)=>importInstallTransfer(envelope,options);
 window.__repforgePersistSetupDraft=next=>persistSetupDraft(next);
 window.__repforgeEntryState=()=>cloneSnapshot(entryState);
 window.__repforgeActivateEntryPreview=opts=>activateEntryPreview(opts);
@@ -12165,6 +13006,7 @@ async function recoverCommittedSetupDraft(){
   return withStorageLock(storageIO,()=>removeObservedSetupDraft({raw,envelope:null}));
 }
 function persistSetupDraft(next,io=storageIO){
+  if(io===storageIO&&installTransferMutationFrozen())return Promise.resolve({ok:false,conflict:true,code:"install-transfer-frozen"});
   if(!ProgramEntry||!next)return Promise.resolve({ok:false});
   const stamped=ProgramEntry.updateTimestamp(next,entryNow());
   const normalized=ProgramEntry.normalizeSetupDraft(stamped);
@@ -14055,10 +14897,13 @@ function editOnboardingProgram(io){
 window.closeOnboarding=closeOnboarding;window.startOnboarding=startOnboarding;
 
 // ---- UI prefs (kept separate from training data so they never touch export/import) ----
-const UIKEY="repforge_ui_v1";
+const UIKEY=INSTALL_UI_KEY;
 function loadUiPrefs(){try{const o=JSON.parse(localStorage.getItem(UIKEY));return o&&typeof o==="object"?o:{}}catch{return{}}}
 let uiPrefs=loadUiPrefs();
-function setUiPref(k,v){uiPrefs[k]=v;try{localStorage.setItem(UIKEY,JSON.stringify(uiPrefs))}catch(e){console.warn("ui prefs save failed",e)}}
+function setUiPref(k,v){
+  if(installTransferMutationFrozen())return false;
+  uiPrefs[k]=v;try{localStorage.setItem(UIKEY,JSON.stringify(uiPrefs));return true}
+  catch(e){console.warn("ui prefs save failed",e);return false}}
 
 /* ---- Appearance ----
    A UI pref, not a setting: which paper this device prefers says nothing about
@@ -14151,7 +14996,14 @@ async function triggerInstall(){
     // offers the event again.
     if(outcome==="accepted"){hideInstallBanner(false);closeFirstRunInstall();toast(t("toast.installing"))}
     renderSettings();renderInstallSurfaces();return}
-  if(mode==="ios"){openIosInstallSheet();return}
+  if(mode==="ios"){
+    const marker=installTransferOutboundMarker();
+    const recoveryState=marker?.phase==="awaiting-claim"?"ready"
+      :marker?.phase==="creating"?"creating"
+      :marker?.phase==="confirmed"?"success"
+      :marker?.phase==="unknown-outcome"?(marker.outcomeCode==="claimed-expired"?"claimed-expired":"unknown")
+      :null;
+    openIosInstallSheet(recoveryState||(installTransferMeaningful(state)?"eligible":"manual"));return}
   if(mode==="safari"){showInstallBanner(true);return}
 }
 function installBannerEligible(){
@@ -14164,17 +15016,83 @@ function installBannerEligible(){
 }
 function showInstallBanner(force){
   const b=$("#installBanner");if(!b)return;
+  const outboundMarker=installTransferOutboundMarker();
+  if(outboundMarker&&outboundMarker.phase!=="resumedDiverged"){
+    const title=$(".installbanner__title");
+    const body=$("#installBannerBody");
+    const act=$("#installBannerAction");
+    if(outboundMarker.phase==="confirmed"){
+      if(title)title.textContent=t("install.transfer.confirmed_title")||"Workout Data Transferred";
+      const isStale=outboundMarker.recoverySnapshot?.mutatedAfterCreation===true;
+      if(body)body.textContent=isStale
+        ?(t("install.transfer.stale_body")||"Your workout data was transferred to the installed app, but was modified here afterward. The installed app may not have recent changes.")
+        :(t("install.transfer.confirmed_body")||"Your workout data was transferred to the installed app.");
+    }else if(outboundMarker.phase==="awaiting-claim"||outboundMarker.phase==="creating"){
+      if(title)title.textContent=t("install.transfer.pending_title")||"Transfer in Progress";
+      if(body)body.textContent=t("install.transfer.pending_body")||"Open Taurifer from your Home Screen to complete the transfer.";
+    }else{
+      const claimedExpired=outboundMarker.outcomeCode==="claimed-expired";
+      if(title)title.textContent=t(claimedExpired?"install.transfer.claimed_expired_title":"install.transfer.unknown_title");
+      if(body)body.textContent=t(claimedExpired?"install.transfer.claimed_expired_body":"install.transfer.unknown_body");
+    }
+    if(act){
+      act.classList.remove("hidden");
+      const pending=["awaiting-claim","creating"].includes(outboundMarker.phase);
+      act.textContent=t(pending?"install.card.ios_action":"install.transfer.resume_action")||"Resume in browser";
+      act.onclick=installMode()==="ios"?triggerInstall:()=>showInstallTransferDivergenceDialog(installTransferConfirmDivergence);
+    }
+    b.classList.remove("hidden");
+    return;
+  }
   const mode=installMode();
   if(mode==="none")return;
   if(!force&&!installBannerEligible())return;
   $("#installBannerBody").innerHTML=mode==="safari"?esc(t("install.card.safari_only_body")):installInstructions();
   const act=$("#installBannerAction");
-  // A button appears only where it does something: Chrome's prompt, or the
-  // Safari sheet. In another iOS browser the banner is the explanation itself.
-  if(mode==="native"){act.classList.remove("hidden");act.textContent=t("install.action")}
-  else if(mode==="ios"){act.classList.remove("hidden");act.textContent=t("install.card.ios_action")}
+  if(mode==="native"){act.classList.remove("hidden");act.textContent=t("install.action");act.onclick=triggerInstall;}
+  else if(mode==="ios"){act.classList.remove("hidden");act.textContent=t("install.card.ios_action");act.onclick=triggerInstall;}
   else act.classList.add("hidden");
   b.classList.remove("hidden");
+}
+function showInstallTransferDivergenceDialog(onConfirm){
+  let dialog=$("#installTransferDivergenceModal");
+  if(!dialog){
+    dialog=document.createElement("div");
+    dialog.id="installTransferDivergenceModal";
+    dialog.className="sheet sheet--divergence";
+    dialog.setAttribute("role","dialog");
+    dialog.setAttribute("aria-modal","true");
+    dialog.setAttribute("aria-labelledby","divergenceTitle");
+    dialog.innerHTML=`
+      <div class="sheet__head">
+        <div class="sheet__titles">
+          <p class="sheet__title" id="divergenceTitle">${esc(t("install.transfer.divergence_title")||"Permanent Divergence Warning")}</p>
+        </div>
+      </div>
+      <div style="padding:16px;">
+        <p id="divergenceBody">${esc(t("install.transfer.divergence_body")||"If you resume in browser, future changes here and in the installed app will not merge and will develop separate workout histories.")}</p>
+        <div style="display:flex;gap:12px;margin-top:16px;">
+          <button type="button" class="btn btn--secondary" id="divergenceDismiss">${esc(t("dialog.cancel")||"Dismiss")}</button>
+          <button type="button" class="btn btn--cta" id="divergenceConfirm">${esc(t("install.transfer.confirm_resume")||"Confirm and Resume")}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(dialog);
+  }
+  const scrim=$("#iosInstallScrim");
+  openModal(dialog,{
+    scrim,
+    initialFocus:$("#divergenceDismiss"),
+    onEscape:()=>closeModal(dialog)
+  });
+  requestAnimationFrame(()=>{dialog.classList.add("is-open");scrim?.classList.add("is-open")});
+  $("#divergenceDismiss").onclick=()=>{
+    closeModal(dialog);
+  };
+  $("#divergenceConfirm").onclick=async()=>{
+    closeModal(dialog);
+    if(typeof onConfirm==="function")await onConfirm();
+  };
 }
 function hideInstallBanner(remember){$("#installBanner")?.classList.add("hidden");if(remember)setUiPref("installDismissedAt",Date.now())}
 function maybeShowInstallBanner(){if(installBannerEligible())showInstallBanner(false)}
@@ -14403,13 +15321,80 @@ function closeWhySheet(){
    points at Safari's own control. The bar it draws is an illustration of
    Safari, and the only third-party UI Taurifer ever draws — Chrome's install
    prompt is Chrome's to render, and we only ever ask for it. */
-function openIosInstallSheet(){
+let installTransferVisibleState="manual",privacyReturnsToTransfer=false;
+function installTransferTime(expiresAt){
+  const date=new Date(expiresAt);
+  if(Number.isNaN(date.valueOf()))return"";
+  try{return new Intl.DateTimeFormat(I18N?.getLang?.()==="pt"?"pt-BR":"en",{
+    dateStyle:"medium",timeStyle:"short"}).format(date)}catch{return date.toLocaleString()}}
+function installTransferContinueWithoutTransfer(){
+  const marker=installTransferOutboundMarker();
+  if(marker?.phase==="creating"&&!marker.sealedCredentials){
+    try{localStorage.removeItem(INSTALL_OUTBOUND_KEY)}catch{}
+  }
+  installTransferRenderState("manual")}
+function installTransferRenderState(stateName,detail={}){
+  const sheet=$("#iosInstallSheet");if(!sheet)return false;
+  const definitions={
+    manual:["install.ios.title","install.ios.sub",""],
+    eligible:["install.transfer.eligible_title","install.transfer.eligible_sub","install.transfer.eligible_body"],
+    creating:["install.transfer.creating_title","install.transfer.creating_sub","install.transfer.creating_status"],
+    ready:["install.transfer.ready_title","install.transfer.ready_sub","install.transfer.ready_status"],
+    retryable:["install.transfer.retryable_title","install.transfer.retryable_sub","install.transfer.retryable_status"],
+    claiming:["install.transfer.claiming_title","install.transfer.claiming_sub","install.transfer.claiming_status"],
+    importing:["install.transfer.importing_title","install.transfer.importing_sub","install.transfer.importing_status"],
+    success:["install.transfer.success_title","install.transfer.success_sub","install.transfer.success_status"],
+    cleanup:["install.transfer.cleanup_title","install.transfer.cleanup_sub","install.transfer.cleanup_status"],
+    terminal:["install.transfer.terminal_title","install.transfer.terminal_sub","install.transfer.terminal_status"],
+    destination:["install.transfer.destination_title","install.transfer.terminal_sub","install.transfer.destination_status"],
+    interrupted:["install.transfer.interrupted_title","install.transfer.terminal_sub","install.transfer.interrupted_status"],
+    unknown:["install.transfer.unknown_title","install.transfer.terminal_sub","install.transfer.unknown_body"],
+    "claimed-expired":["install.transfer.claimed_expired_title","install.transfer.terminal_sub","install.transfer.claimed_expired_body"],
+  };
+  const def=definitions[stateName]||definitions.interrupted;
+  installTransferVisibleState=stateName;
+  sheet.dataset.transferState=stateName;
+  const title=$("#iosInstallTitle"),sub=sheet.querySelector(".installsheet__sub"),body=$("#installTransferBody"),status=$("#installTransferStatus");
+  if(title){title.textContent=t(def[0]);title.tabIndex=-1}
+  if(sub)sub.textContent=t(def[1]);
+  if(body)body.textContent=stateName==="eligible"&&def[2]?t(def[2]):"";
+  if(status)status.textContent=!['manual','eligible'].includes(stateName)&&def[2]?t(def[2]):"";
+  $("#installTransferIntro")?.classList.toggle("hidden",!["eligible","retryable"].includes(stateName));
+  $("#iosInstallInstructions")?.classList.toggle("hidden",!["manual","ready"].includes(stateName));
+  const expiry=$("#installTransferExpiry"),formatted=installTransferTime(detail.expiresAt);
+  if(expiry){expiry.textContent=formatted?t("install.transfer.expires",{time:formatted}):"";expiry.classList.toggle("hidden",!formatted)}
+  const actions=$("#installTransferActions"),start=$("#installTransferStart"),retry=$("#installTransferRetry"),cont=$("#installTransferContinue"),done=$("#iosInstallDone"),close=$("#iosInstallClose");
+  actions?.classList.toggle("hidden",!["eligible","retryable","success","cleanup","terminal","destination","interrupted","unknown","claimed-expired"].includes(stateName));
+  start?.classList.toggle("hidden",stateName!=="eligible");
+  retry?.classList.toggle("hidden",!["retryable","cleanup","interrupted"].includes(stateName));
+  const canContinue=["eligible","retryable","success","cleanup","terminal","destination","unknown","claimed-expired"].includes(stateName);
+  cont?.classList.toggle("hidden",!canContinue);
+  if(cont)cont.textContent=t(["eligible","retryable"].includes(stateName)?"install.transfer.without"
+    :["unknown","claimed-expired"].includes(stateName)?"install.transfer.resume_action":"install.transfer.continue");
+  done?.classList.toggle("hidden",!["manual","ready"].includes(stateName));
+  const busy=["creating","claiming","importing"].includes(stateName);
+  sheet.setAttribute("aria-busy",busy?"true":"false");
+  close?.classList.toggle("hidden",busy||["interrupted","unknown","claimed-expired"].includes(stateName));
+  if(activeModal?.el===sheet)
+    activeModal.onEscape=busy||["interrupted","unknown","claimed-expired"].includes(stateName)?undefined:closeIosInstallSheet;
+  if(retry)retry.onclick=()=>isStandalone()?location.reload():installTransferCreateFromSafari();
+  if(cont)cont.onclick=()=>["eligible","retryable"].includes(stateName)?installTransferContinueWithoutTransfer()
+    :["unknown","claimed-expired"].includes(stateName)?installTransferRequestDivergence()
+    :closeIosInstallSheet();
+  if(["ready","retryable","success","cleanup","terminal","destination","interrupted","unknown","claimed-expired"].includes(stateName))
+    queueMicrotask(()=>{try{title?.focus({preventScroll:true})}catch{}});
+  return true}
+function openIosInstallSheet(stateName){
   const sheet=$("#iosInstallSheet"),scrim=$("#iosInstallScrim");
   if(!sheet)return;
+  const selected=stateName||((!isStandalone()&&installTransferMeaningful(state))?"eligible":"manual");
+  installTransferRenderState(selected);
   const host=$("#iosInstallHost");
   if(host)host.textContent=location.hostname||"";
   document.body.classList.add("is-sheet-open");
-  openModal(sheet,{initialFocus:$("#iosInstallDone"),onEscape:closeIosInstallSheet,scrim,
+  const initial=selected==="eligible"?$("#installTransferStart"):selected==="manual"?$("#iosInstallDone"):$("#iosInstallTitle");
+  const dismissable=!["creating","claiming","importing","interrupted","unknown","claimed-expired"].includes(selected);
+  openModal(sheet,{initialFocus:initial,onEscape:dismissable?closeIosInstallSheet:undefined,scrim,
     delayHide:reducedMotion()?0:280});
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
 function closeIosInstallSheet(){
@@ -14417,6 +15402,23 @@ function closeIosInstallSheet(){
   if(!sheet)return Promise.resolve(false);
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
   return closeModal(sheet)}
+function openPrivacySheet({fromTransfer=false}={}){
+  const sheet=$("#privacySheet"),scrim=$("#privacyScrim");if(!sheet)return;
+  privacyReturnsToTransfer=fromTransfer;
+  openModal(sheet,{scrim,handoff:fromTransfer,initialFocus:$("#privacyClose"),onEscape:closePrivacySheet,
+    returnFocus:fromTransfer?$("#installTransferPrivacy"):document.activeElement,delayHide:reducedMotion()?0:280});
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
+async function closePrivacySheet(){
+  const returns=privacyReturnsToTransfer;privacyReturnsToTransfer=false;
+  await closeModal($("#privacySheet"));
+  if(returns){
+    openIosInstallSheet(installTransferVisibleState);
+    queueMicrotask(()=>$("#installTransferPrivacy")?.focus({preventScroll:true}));
+  }}
+async function installTransferRequestDivergence(){
+  await closeIosInstallSheet();
+  showInstallBanner(true);
+  showInstallTransferDivergenceDialog(installTransferConfirmDivergence)}
 
 // ---- Feature tour (bottom-sheet coach that walks every feature) ----
 const TOUR=[
@@ -14576,7 +15578,8 @@ function endTour(completed){
   maybeShowInstallBanner()}
 function maybeStartTour(){if(uiPrefs.tourDone)return false;if($("#onboarding")?.classList.contains("active"))return false;startTour("first-run");return true}
 window.startTour=startTour;window.closeTour=()=>{if(tourActive)endTour(false)};
-window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,startTour,currentTheme,resolvedTheme,setTheme};
+window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,startTour,currentTheme,resolvedTheme,setTheme,
+  openInstallTransferState:stateName=>openIosInstallSheet(stateName),openPrivacy:()=>openPrivacySheet()};
 function resumeProgramEditFollowUp(){
   if(state?.[STORAGE_FOLLOWUP]?.kind!=="onboarding-edit")return false;
   programEditMode=true;
@@ -14635,6 +15638,12 @@ function init(){
     if(sharedStart.disabled)return;
     await commitSharedSetup(storageIO)};
   $("#whyClose").onclick=closeWhySheet;
+  $("#installTransferStart").onclick=installTransferCreateFromSafari;
+  $("#installTransferPrivacy").onclick=()=>openPrivacySheet({fromTransfer:true});
+  $("#privacyDetails").onclick=()=>openPrivacySheet();
+  $("#privacyClose").onclick=closePrivacySheet;
+  $("#privacyScrim").onclick=closePrivacySheet;
+  $("#iosInstallClose").onclick=closeIosInstallSheet;
   $("#iosInstallDone").onclick=closeIosInstallSheet;
   $("#iosInstallScrim").onclick=closeIosInstallSheet;
   $("#tourBack").onclick=()=>{if(tourStep>0){tourStep--;renderTour()}};
@@ -15256,23 +16265,90 @@ async function handleSharedSetupHash(){
   // Start action has already entered the common preview. Do not reopen the
   // first-run gate over that preview.
   if(firstRunPending()&&!entryState)openFirstRun()}
+async function installTransferBootNeedsLock(){
+  // Ordinary boots must not publish a transfer freeze marker. Read both
+  // mirrored import-marker stores before deciding whether transfer work needs
+  // the cross-tab lock; an IDB-only or divergent marker must still fail closed
+  // inside transferWork before ordinary replica healing can begin.
+  const importMarker=await installTransferReadMarker();
+  if(importMarker!==null)return true;
+  if(installTransferReadInboundMarker()!==null)return true;
+  if(window.__repforgeInstallTransferPreBootRequest!==undefined)return true;
+  try{
+    const {transfer}=await ensureInstallTransferModules();
+    return !!transfer.readTransferCookie({document});
+  }catch{return false}}
 async function boot(){
   // Program metadata and the first render are built from the loaded state, so
   // the language has to be settled before that — not after the state exists.
   const sharedCandidate=captureSharedSetupSource();
   if(I18N)I18N.setLang(I18N.detectLang());
+  installTransferGuardTelemetry();
+  const transferWork=async()=>{
+    const importMarker=await installTransferReadMarker();
+    if(importMarker?.invalid)return{ok:false,code:importMarker.code||"install-import-marker-invalid"};
+    const transferResume=importMarker
+      ?await installTransferResumeMarker(importMarker):{ok:true,absent:true};
+    if(transferResume?.ok!==true)return transferResume||{ok:false,code:"install-import-recovery-failed"};
+    let decision=await resolveBootReplicas();
+    while(decision.kind==="unresolved"){
+      const candidate=await presentStorageRecovery(decision);
+      decision=await resolveBootReplicas(candidate)}
+    await applyBootDecision(decision);
+    const preBootTransfer=await runInstallTransferPreBootRequest();
+    if(preBootTransfer?.ok!==true)return{...(preBootTransfer||{ok:false,code:"preboot-import-failed"}),decision};
+    const standalonePrepared=await installTransferPrepareStandaloneBoot();
+    if(standalonePrepared?.ok!==true)return{...(standalonePrepared||{ok:false,code:"standalone-transfer-failed"}),decision,productRecovery:true};
+    const standaloneTransfer=await installTransferCompleteStandaloneBoot(standalonePrepared);
+    if(standaloneTransfer?.ok!==true)return{...(standaloneTransfer||{ok:false,code:"standalone-transfer-failed"}),decision,productRecovery:true};
+    return{ok:true,decision,transferResult:standaloneTransfer};
+  };
+  const transferResult=await installTransferBootNeedsLock()
+    ?await withInstallTransferLock(transferWork):await transferWork();
+  if(transferResult?.ok!==true){
+    window.__repforgeBootFailure=transferResult;
+    if(transferResult.productRecovery!==true)throw new Error(transferResult?.code||"install-transfer-failed");
+    const blockedImportMarker=await installTransferReadMarker();
+    if(blockedImportMarker){
+      openIosInstallSheet("interrupted");
+      return;
+    }
+    if(!state){
+      state=normalizeLoaded(null);
+      prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
+      state.programMeta=normalizeProgramMeta(state.programMeta,state.log,state.program);
+      resetPersistenceBase(state);day=days()[0]||"Day 1";
+      if(I18N)I18N.setLang(resolveLang())}
+    init();
+    const failureState=transferResult.code==="destination-meaningful"?"destination"
+      :transferResult.state==="terminalUnavailable"||["service-unavailable","transfer-cookie-missing","claim-credential-invalid"].includes(transferResult.code)?"terminal"
+      :"interrupted";
+    openIosInstallSheet(failureState);
+    return}
+  const decision=transferResult.decision;
   bootTelemetry();
-  let decision=await resolveBootReplicas();
-  while(decision.kind==="unresolved"){
-    const candidate=await presentStorageRecovery(decision);
-    decision=await resolveBootReplicas(candidate)}
-  await applyBootDecision(decision);
+  if(transferResult.transferResult?.localOk===true){
+    try{
+      window.RepForgeTelemetry?.recordLateInstallTransfer?.({
+        state: transferResult.transferResult.state||"localCommitted",
+        localImportVerified: true,
+        cleanupRetry: transferResult.transferResult.cleanupRetry===true,
+        platform_class: telemetryPlatformClass(),
+      });
+    }catch{}
+  }
+  if(!isStandalone()){
+    await installTransferCheckOutboundOnBoot();
+  }
+  installTransferRecordBootDevice();
   await recoverCommittedSetupDraft();
   await prepareSharedSetup(sharedCandidate);
   const draftBoot=await initializeWorkoutDraft({restoreDay:true});
   if(draftBoot.status==="ready")hydrateWorkoutDraft({restoreDay:true});
   resumeProgramEditFollowUp();
   init();
+  if(transferResult.transferResult?.localOk===true){
+    openIosInstallSheet(transferResult.transferResult.cleanup?.ok===true?"success":"cleanup")}
   if(draftBoot.status!=="ready"&&draftBoot.status!=="absent")showDraftInitializationRecovery(draftBoot);
   captureEvent("app_boot",{first_run:firstRunPending(),language:I18N?.getLang?.()==="pt"?"pt":"en",platform_class:telemetryPlatformClass()});
   if(sharedSetupDraft.status==="existing")toast(t("setup.shared.existing"),{assertive:true});

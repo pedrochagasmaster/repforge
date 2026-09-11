@@ -31,8 +31,8 @@ The fast lane needs npm dependencies, but not an installed browser or server.
 The inventory checks every tracked or unignored test script: runnable suites
 must be scheduled; imported helpers and manual screenshot utilities have explicit
 reasons in `SUPPORT`. Do not execute a filesystem glob or add the same command in
-another workflow. The inventory currently contains 109 commands: fast (40),
-state (27), entry (24), workout (16), and privacy (2). The PostHog measurement
+another workflow. The inventory currently contains 118 commands: fast (43),
+state (31), entry (24), workout (16), privacy (3), and service (1). The PostHog measurement
 contract runs once in the fast lane as `node --test test/posthog-measurement.mjs`.
 Add property modules to the generative runner's inventory; its self-test rejects
 orphaned modules.
@@ -46,6 +46,7 @@ orphaned modules.
 | `browser (entry)` | Program compilation, import/share, onboarding, editor and entry UI. |
 | `browser (workout)` | Browser i18n, workout interaction, accessibility, progression, history and the complete 52-week simulation. |
 | `telemetry-privacy` | Runtime event meaning and hostile-sentinel leakage, not screenshots. Pure telemetry contracts are in the fast job. |
+| `install-transfer-service` | The inventoried Worker source check, local-runtime tests, and dry deployment bundle. |
 | `visual-evidence` | Selected capture, registration, perceptual and semantic comparison. |
 | `verification-evidence` | Compatibility alias for the fast job, not a second recorder execution. |
 | `simulation` | Aggregate gate; every dependency must succeed. Failed, cancelled or unexpectedly skipped jobs cannot produce a green aggregate. |

@@ -1,0 +1,34 @@
+{
+  "durableState": {
+    "programMetaId": "pm_seed01",
+    "programMetaName": "Build Muscle",
+    "logSession": "2026-09-08_Day 1_seed01",
+    "customExerciseId": "custom:c01",
+    "minimumHistoryEntries": 1
+  },
+  "uiPreferences": {
+    "theme": "dark"
+  },
+  "analytics": {
+    "enabled": true
+  },
+  "telemetryIdentity": {
+    "schemaVersion": 1,
+    "installationId": "3e1f5c8a-9d02-4b77-8a31-6e4d2c9f0ab5",
+    "createdAt": "2026-08-01T10:00:00.000Z"
+  },
+  "volatileDurableKeys": [
+    "_storageRevision",
+    "_storageFollowUp",
+    "_storageDraftTransaction",
+    "_storageSetupActivation"
+  ],
+  "draftLogicalKeys": [
+    "schemaVersion",
+    "draftId",
+    "program",
+    "session",
+    "exerciseOrder",
+    "exercises"
+  ]
+}

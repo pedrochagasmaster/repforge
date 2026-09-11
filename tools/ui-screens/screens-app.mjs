@@ -42,6 +42,12 @@ async function focusMode(page) {
   await sleep(page, 500);
 }
 
+async function openTransferState(page, state) {
+  await page.evaluate((name) => window.__repforgeUi.openInstallTransferState(name), state);
+  await page.waitForSelector(`#iosInstallSheet[data-transfer-state="${state}"].is-open`, { timeout: 10000 });
+  await sleep(page, 300);
+}
+
 /** Fill the current focus card and save the set, which starts the rest timer. */
 async function logCurrentSet(page) {
   await page.evaluate(() => {
@@ -304,6 +310,12 @@ export const APP_SCENARIOS = {
   "settings/main": (page) => openSettings(page),
   "settings/appearance": (page) => openSettings(page, "#theme"),
   "settings/privacy": (page) => openSettings(page, "#telemetryToggle"),
+  "settings/privacy-disclosure": async (page) => {
+    await openSettings(page, "#privacyDetails");
+    await page.click("#privacyDetails");
+    await page.waitForSelector("#privacySheet.is-open", { timeout: 10000 });
+    await sleep(page, 300);
+  },
 
   "install/banner": async (page) => {
     await page.evaluate(() => window.__repforgeUi.showInstallBanner());
@@ -315,19 +327,21 @@ export const APP_SCENARIOS = {
     if (!shown) throw new Error("install banner did not open");
   },
   "install/ios-sheet": async (page) => {
-    await page.evaluate(() => {
-      const sheet = document.querySelector("#iosInstallSheet");
-      const scrim = document.querySelector("#iosInstallScrim");
-      if (!sheet) return;
-      sheet.hidden = false;
-      sheet.classList.remove("hidden");
-      sheet.classList.add("is-open");
-      scrim?.classList.remove("hidden");
-      scrim?.classList.add("is-open");
-      document.body.classList.add("is-sheet-open");
-    });
-    await sleep(page, 450);
+    await openTransferState(page, "manual");
   },
+  "install/transfer-eligible": (page) => openTransferState(page, "eligible"),
+  "install/transfer-creating": (page) => openTransferState(page, "creating"),
+  "install/transfer-ready": (page) => openTransferState(page, "ready"),
+  "install/transfer-retryable": (page) => openTransferState(page, "retryable"),
+  "install/transfer-claiming": (page) => openTransferState(page, "claiming"),
+  "install/transfer-importing": (page) => openTransferState(page, "importing"),
+  "install/transfer-success": (page) => openTransferState(page, "success"),
+  "install/transfer-cleanup": (page) => openTransferState(page, "cleanup"),
+  "install/transfer-terminal": (page) => openTransferState(page, "terminal"),
+  "install/transfer-destination": (page) => openTransferState(page, "destination"),
+  "install/transfer-interrupted": (page) => openTransferState(page, "interrupted"),
+  "install/transfer-unknown": (page) => openTransferState(page, "unknown"),
+  "install/transfer-claimed-expired": (page) => openTransferState(page, "claimed-expired"),
   "install/tour": async (page) => {
     await page.evaluate(() => window.__repforgeUi.startTour("settings"));
     await sleep(page, 600);
@@ -340,7 +354,9 @@ export const APP_SCENARIOS = {
 };
 
 /** The iOS install sheet only renders under a Safari user agent. */
-export const APP_USER_AGENT = {
-  "install/banner": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
-  "install/ios-sheet": "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1",
-};
+const IOS_SAFARI = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1";
+export const APP_USER_AGENT = Object.fromEntries([
+  "banner", "ios-sheet", "transfer-eligible", "transfer-creating", "transfer-ready", "transfer-retryable",
+  "transfer-claiming", "transfer-importing", "transfer-success", "transfer-cleanup", "transfer-terminal",
+  "transfer-destination", "transfer-interrupted", "transfer-unknown", "transfer-claimed-expired",
+].map((id) => [`install/${id}`, IOS_SAFARI]));

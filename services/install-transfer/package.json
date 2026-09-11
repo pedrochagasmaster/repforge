@@ -1,0 +1,20 @@
+{
+  "name": "@taurifer/install-transfer-service",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run && node test/health-producer.integration.mjs",
+    "test:watch": "vitest",
+    "dev": "wrangler dev",
+    "check": "node scripts/check.mjs",
+    "deploy:dry": "wrangler deploy --dry-run",
+    "ops:health": "node scripts/health-producer.mjs",
+    "ops:purge": "node scripts/purge-due.mjs",
+    "ops:ack": "node scripts/deletion-ack.mjs"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.0.0",
+    "vitest": "^4.1.0",
+    "wrangler": "^4.130.0"
+  }
+}

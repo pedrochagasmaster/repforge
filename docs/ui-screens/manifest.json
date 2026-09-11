@@ -906,6 +906,13 @@
       "variants": "standard"
     },
     {
+      "id": "privacy-disclosure",
+      "flow": "settings",
+      "label": "Privacy — temporary install transfer",
+      "scenario": "The cached ADR 0013 disclosure reached from Settings.",
+      "variants": "demandingText"
+    },
+    {
       "id": "banner",
       "flow": "install",
       "label": "Install banner",
@@ -918,6 +925,97 @@
       "label": "iOS install sheet",
       "scenario": "The iOS add-to-home-screen instructions.",
       "variants": "standard"
+    },
+    {
+      "id": "transfer-eligible",
+      "flow": "install",
+      "label": "Install transfer — informed action",
+      "scenario": "The pre-action transfer explanation and explicit consent.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "transfer-creating",
+      "flow": "install",
+      "label": "Install transfer — creating",
+      "scenario": "Transfer creation in progress.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "transfer-ready",
+      "flow": "install",
+      "label": "Install transfer — ready to install",
+      "scenario": "Successful creation followed by Safari installation instructions.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "transfer-retryable",
+      "flow": "install",
+      "label": "Install transfer — retryable creation failure",
+      "scenario": "A definitive pre-create failure with retry and install-without-transfer actions.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "transfer-claiming",
+      "flow": "install",
+      "label": "Install transfer — claiming",
+      "scenario": "The installed app is claiming its one-time transfer.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "transfer-importing",
+      "flow": "install",
+      "label": "Install transfer — importing",
+      "scenario": "The installed app is atomically importing the clone.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "transfer-success",
+      "flow": "install",
+      "label": "Install transfer — complete",
+      "scenario": "Verified local import and remote deletion are complete.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "transfer-cleanup",
+      "flow": "install",
+      "label": "Install transfer — cleanup retry",
+      "scenario": "Local import succeeded while verified remote deletion still needs retry.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "transfer-terminal",
+      "flow": "install",
+      "label": "Install transfer — unavailable",
+      "scenario": "The transfer is definitively unavailable and the installed app can continue safely.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "transfer-destination",
+      "flow": "install",
+      "label": "Install transfer — destination protected",
+      "scenario": "Existing installed-app data prevents replacement by a transfer.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "transfer-interrupted",
+      "flow": "install",
+      "label": "Install transfer — interrupted import",
+      "scenario": "A recoverable installed import failure offers an explicit retry.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "transfer-unknown",
+      "flow": "install",
+      "label": "Install transfer — unknown outcome",
+      "scenario": "An indeterminate source outcome remains frozen until explicit divergence confirmation.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "transfer-claimed-expired",
+      "flow": "install",
+      "label": "Install transfer — claimed then expired",
+      "scenario": "Claimed-expired recovery remains frozen until explicit divergence confirmation.",
+      "variants": "demandingText"
     },
     {
       "id": "tour",

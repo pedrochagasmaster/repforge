@@ -106,6 +106,7 @@ function addEntries(target, additions) {
 }
 
 const DOMAIN_RULES = [
+  { match: /^(services\/install-transfer\/|\.github\/workflows\/install-transfer-service\.yml$)/, lanes: ["service"], why: "install-transfer service gate" },
   { match: /^(telemetry\.js|posthog-(?:adapter|init)\.js|posthog-config\.js|scripts\/generate-posthog-config\.mjs)$/, lanes: ["fast", "privacy"], why: "telemetry boundary" },
   { match: /^workout-draft\.js$/, lanes: ["fast", "state", "workout"], why: "durable workout draft" },
   { match: /^(program-entry(?:-adapter)?\.js|program-compiler\.js)$/, lanes: ["fast", "state", "entry", "workout"], why: "program entry/compiler contract" },

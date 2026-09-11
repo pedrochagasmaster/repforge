@@ -1,0 +1,32 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "taurifer-install-transfer-local",
+  "main": "src/index.js",
+  "compatibility_date": "2026-09-08",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "TRANSFER_OBJECTS",
+        "class_name": "TransferDurableObject"
+      },
+      {
+        "name": "RATE_LIMIT_BUCKETS",
+        "class_name": "RateLimitDurableObject"
+      },
+      {
+        "name": "TRANSFER_HEALTH",
+        "class_name": "TransferHealthDurableObject"
+      },
+      {
+        "name": "TRANSFER_REGISTRY",
+        "class_name": "TransferRouteRegistryDurableObject"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["TransferDurableObject", "RateLimitDurableObject", "TransferHealthDurableObject", "TransferRouteRegistryDurableObject"]
+    }
+  ]
+}

@@ -1,11 +1,25 @@
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 
 const require = createRequire(import.meta.url);
 const { SDK_VERSION, createAdapter, createConfig, start } = require("../posthog-init.js");
 const safeLocation = { origin: "https://taurifer.example", pathname: "/index.html" };
 
 assert.equal(SDK_VERSION, "1.400.0");
+
+{
+  const calls = [];
+  const context = {
+    document: {},
+    RepForgeTelemetry: { boot: () => calls.push("boot") },
+  };
+  const source = readFileSync(resolve(process.cwd(), "posthog-init.js"), "utf8");
+  require("node:vm").runInNewContext(source, context);
+  assert.equal(typeof context.RepForgePostHog?.start, "function");
+  assert.deepEqual(calls, [], "the browser adapter is passive until app boot owns start()");
+}
 
 {
   const beforeSend = value => value;
@@ -90,6 +104,23 @@ assert.equal(SDK_VERSION, "1.400.0");
   adapter.setEnabled(false);
   adapter.setEnabled(true);
   assert.deepEqual(calls.map(call => call[0]), ["capture", "stop", "out", "clear", "in", "start"]);
+}
+
+{
+  const calls = [];
+  const browser = {
+    __POSTHOG_CONFIG__: {},
+    RepForgeTelemetry: {
+      boot: options => {
+        calls.push(options);
+        return { installationId: "123e4567-e89b-42d3-a456-426614174000" };
+      },
+    },
+  };
+  assert.equal(start(browser), true);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].appVersion, "dev");
+  assert.equal(calls[0].releaseChannel, "preview");
 }
 
 {

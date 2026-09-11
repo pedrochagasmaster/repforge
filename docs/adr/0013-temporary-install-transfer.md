@@ -113,6 +113,19 @@ data, tab/writer/operation IDs, cookies, notification/permission runtime data,
 and provider analytics session IDs. Parsing applies explicit field/size/depth
 limits (below) and rejects unknown required versions.
 
+`logicalStateDigest` is a source-local comparison value. The browser derives it
+from an ordered projection of every logical section, in this order:
+`durableState`, `workoutDraft`, `programEntryDraft`, `uiPreferences`,
+`analytics`, and `telemetryIdentity`. Object keys are sorted recursively, while
+array order is preserved. The projection excludes envelope creation metadata
+(`kind`, `schemaVersion`, `createdAt`, `source`, and `sourceRevision`) and is
+never serialized into the transfer envelope, its integrity object, backup data,
+or the remote record. No logical section may be omitted. The source compares
+this digest before and after creation to mark the captured clone stale. The
+envelope's only integrity field is `canonicalPayloadHash`, which remains the
+import hash. These values answer different questions and must not be
+substituted for one another.
+
 ### Payload boundaries (exact)
 
 Both the browser module and the service enforce these limits identically;
@@ -741,19 +754,27 @@ copies remain outside remote deletion.
    `{duplicate: true, expiresAt}` with NO token: the server cannot reproduce
    a bearer it never stored. The client seals the received token to its
    local outbound marker immediately (see commit credentials), so a crash
-   after receipt stays recoverable; a client that never received the token
-   starts over with a new key after the orphan expires. One key never yields
-   two live records.
+   after receipt stays recoverable. A same-key retry can learn the server's
+   expiry, but a local timer cannot prove that the record was never claimed.
+   If creation may have succeeded and Safari has no recoverable bearer, Safari
+   enters `unknown-outcome` and freezes. It must not mint a new key
+   automatically. A fresh transfer is permitted only after explicit
+   divergence confirmation; only a server-confirmed `expired` state with no
+   claim permits silent resume. One key never yields two live records.
 2. `POST /v1/transfers/claims` with `{token, claimId}`: atomically bind an
    `available` transfer to the client-generated claim ID (128+ bits) and
    return the clone to that same claim on safe retries. Every other claim ID
    receives a generic unavailable response with uniform invalid/expired/
    claimed shape.
 3. `POST /v1/transfers/claims/commit` with `{token, claimId}`: accept the
-   bound claim and delete ciphertext immediately. A minimal non-sensitive
-   tombstone retains only token digest, terminal state, and original expiry
-   to communicate one-time/recovery status; it contains no clone or identity
-   and is purged after the tombstone margin below.
+   bound claim only when both the bearer token and bound claim ID authenticate,
+   then delete ciphertext immediately. A token-authenticated retry after
+   deletion returns the same deleted result. A minimal non-sensitive tombstone
+   retains only token digest, terminal state, and original expiry to communicate
+   one-time/recovery status; it contains no claim digest, clone, or identity
+   and is purged after the tombstone margin below. A commit against
+   `claimed-expired` returns the generic unavailable result and cannot
+   resurrect server state or roll back a locally proven import.
 4. `POST /v1/transfers/status` with `{token}`: return `{state, expiresAt}`
    and nothing else — no clone, no identity. This is how the creating Safari
    learns the outcome (see Safari polling below).
@@ -763,6 +784,27 @@ copies remain outside remote deletion.
    `claimed-expired` record stays learnable through Safari's 10-minute
    post-expiry polling window with 5 minutes of slack. Monitor the oldest
    live record and deletion lag.
+
+### Exact response boundary
+
+The following shapes are part of the endpoint contract. The generic body is
+deliberately the same for invalid, expired, other-claim, and unavailable
+operations.
+
+| Result | HTTP | Body |
+|---|---:|---|
+| First create | `201` | `{token, expiresAt}` |
+| Duplicate create with the same live idempotency key | `200` | `{duplicate: true, expiresAt}` |
+| Bound claim, including a retry by the same claim | `200` | `{envelope, expiresAt}` |
+| Bound active commit, or a token-authenticated retry after deletion | `200` | `{state: "deleted", expiresAt}` |
+| Status for a token that authenticates, including a terminal state | `200` | `{state, expiresAt}` only |
+| Generic invalid, expired, other-claim, or unavailable claim/commit/status operation; `claimed-expired` commit | `404` | `{state: "unavailable"}` |
+| Rate rejection | `429` | `{state: "unavailable"}` |
+| Creates disabled | `503` | `{state: "unavailable"}` |
+
+A valid status bearer may expose only its terminal state and expiry. A status
+request with an invalid or purged bearer uses the generic `404` body. The
+service does not retain a claim digest in a deleted tombstone.
 
 Tokens carry at least 256 random bits and are never stored plaintext. Server
 states are `available`, `claiming`, `deleted`, `expired`, and
@@ -813,7 +855,7 @@ specified. Residual risk is accepted and disclosed, never defined away.
 | T-10 | Clock skew between client, server, and expiry job | Absolute server-issued expiry; skew-tolerant acceptance window documented by the implementer; server clock owns expiry |
 | T-11 | Expiration backlog or purge failure | Expiry-job monitoring with deletion-latency bounds; alarm and kill switch; manual purge runbook; no new creates while deletion health is uncertain |
 | T-12 | Token-derived-key compromise or disposal gap | The service keeps the token and derived key only in request memory; recovery images may retain ciphertext for up to 30 days, but cannot decrypt it without the discarded token; creation is disabled if key/config health is uncertain |
-| T-13 | Sealed commit-credential loss (key wiped, profile reset) | Unrecoverable by design; 60-minute expiry plus purge backstop; local data never at risk; fresh-transfer user guidance |
+| T-13 | Sealed commit-credential loss (key wiped, profile reset) | Unrecoverable by design; 60-minute expiry plus purge backstop; local data never at risk; fresh-transfer guidance only after explicit divergence confirmation |
 | T-14 | Status-polling oracle or unknown-outcome confusion | Status returns state plus expiry only, to the bearer holder alone; every indeterminate outcome — Safari-outbound credential loss, poll exhaustion, service failure, or status unavailability — routes into the non-silent G-88 divergence-warning path, never a silent browser continue (installed-inbound credential loss is the separate deletion-retry fault, not an unknown outcome) |
 
 ## iOS handoff cookie
@@ -870,20 +912,25 @@ createdAt, expectedLocalRevision
 1. Before app initialization exposes mutable UI, read the handoff token,
    stage the `repforge_transfer_inbound_v1` marker with the sealed token and
    a stable client-generated claim ID, then claim.
-2. Validate all envelope sections and the canonical hash in memory.
+2. Validate all envelope sections and `canonicalPayloadHash` in memory.
 3. Acquire the cross-tab state/draft/import lock; freeze other tabs via
    BroadcastChannel/storage signaling.
 4. Stage the marker with complete previous and incoming snapshots.
 5. Write normalized durable state through the existing mirror/WAL path,
    write or remove DraftV2 and the candidate draft, then
    preferences/consent/identity.
-6. Re-read and validate every section and identity; set marker
+6. Re-read and validate every section, identity, and `canonicalPayloadHash`; set marker
    `local-committed`.
 7. Release into installed boot, call remote commit/delete, then clear the
    marker after confirmed or retryable deletion bookkeeping.
 
+The service cannot prove that the browser completed local read-back. The real
+client call boundary proves the ordering: the installed client sends commit
+only after the storage adapter has re-read every section and validated the
+canonical hash. A remote commit never authorizes a local rollback.
+
 On boot, an incomplete marker either finishes the entire incoming import if
-the committed sections and hash prove safe, or restores the entire previous
+the committed sections and canonical hash prove safe, or restores the entire previous
 snapshot. Mixed state is never exposed. Failure before local commit leaves current
 installed state unchanged. If the installed context already holds meaningful
 local state, stop and require explicit choice; never overwrite automatically.
@@ -911,14 +958,18 @@ outbound marker and the installed inbound marker never cross contexts:
   `sealedToken`, `tokenDigest`, and `expiresAt` filled. A crash before the
   response leaves a `creating` marker that still holds the idempotency key
   and creation timestamp — on reboot Safari retries the create with that
-  same key: a live record answers `{duplicate: true, expiresAt}` (no token;
-  the orphan dies at expiry and Safari starts a new transfer then), a
-  terminal record is confirmed and the marker cleared. One key never yields
-  two live records, and the fault test for this exact boundary is required
-  (crash between staged marker and response). Safari never learns the
-  installed app's claim ID and never needs it: creation retry uses the
-  idempotency key, outcome polling uses the token. There is no second
-  Safari-side marker.
+  same key: a live record answers `{duplicate: true, expiresAt}` (no token).
+  The retry can learn the server's expiry, but a local timer cannot prove
+  that the record was never claimed. If creation may have succeeded and Safari
+  has no recoverable bearer, it enters `unknown-outcome` and freezes; it never
+  mints a new key automatically. A fresh transfer is permitted only after
+  explicit divergence confirmation. Only a server-confirmed `expired` state
+  with no claim permits silent resume. A terminal record is confirmed and the
+  marker cleared. One key never yields two live records, and the fault test for
+  this exact boundary is required (crash between staged marker and response).
+  Safari never learns the installed app's claim ID and never needs it:
+  creation retry uses the idempotency key, outcome polling uses the token.
+  There is no second Safari-side marker.
 - `sourceRevision` captures the durable revision counter at creation, and
   creation takes the source operation lock so two Safari tabs cannot mint
   competing transfers. Any local mutation after creation sets

@@ -2,16 +2,18 @@
 
 Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
 and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
-Plan 053 uses native **Luna, Max reasoning, Fast service** subagents under the
-[native worker protocol](#native-luna-worker-protocol) below. This owner instruction
-supersedes the Herdr/Gemini routing for this plan only. The
+Plan 053 uses native Luna with Max reasoning under the
+[native worker protocol](#native-luna-worker-protocol) below. The latest owner
+instruction for this run removes service-tier and priority selection; it
+supersedes the starting prompt's Fast-service wording as well as the
+Herdr/Gemini routing for this plan. The
 [worker packets](#worker-packets) retain their acceptance requirements. Fill
 live SHAs, worker IDs, worktrees, server origins, and PIDs before dispatch;
 documented revisions are historical anchors.
 
 - **Plan number:** 053
 - **Phase:** 2C — State and lifecycle foundations
-- **Status:** Planned; implementation has not started
+- **Status:** Coordinator kickoff complete; the P0 actor/credential/fault oracle is accepted and this documentation slice records its protocol resolutions. Implementation packets have not started on the integration branch. The current owner setting is Luna Max with no service-tier or priority selection.
 - **Owner approval state:** One-hour transfer, Cloudflare provider, EU Durable
   Object boundary, token-derived encryption, operations, incident rules, and
   privacy disclosure are approved. Staging and physical-device evidence remain
@@ -128,6 +130,18 @@ stops the import. The executable rule and fixture live in
 `tools/canonical-clone-hash.mjs` with `test/fixtures/install-transfer-clone-v1.json`
 (`node tools/canonical-clone-hash.mjs --check`).
 
+`logicalStateDigest` is a source-local comparison value used to detect stale
+mutations. The browser derives it from an ordered projection of every logical
+section, in this order: `durableState`, `workoutDraft`, `programEntryDraft`,
+`uiPreferences`, `analytics`, and `telemetryIdentity`. Object keys are sorted
+recursively, while array order is preserved. The projection excludes envelope
+creation metadata (`kind`, `schemaVersion`, `createdAt`, `source`, and
+`sourceRevision`) and is never serialized into the transfer envelope, its
+integrity object, backup data, or the remote record. No logical section may be
+omitted. The source compares this digest before and after creation; a change
+marks the copy stale without changing the captured clone. The envelope's only
+integrity field is `canonicalPayloadHash`, which remains the import hash.
+
 Normalization removes `_storageRevision`, `_storageFollowUp`, `_storageDraftTransaction`, `_storageSetupActivation`, pending/closing sidecar data, tab/writer/operation IDs, cookies, notification/permission runtime data, and provider analytics session IDs. It retains program/history/archive/provenance and other logical user settings in the durable state. Parsing applies explicit field/size/depth limits and rejects unknown required versions. The limits are exactly ADR 0013's payload-boundary table (create body ≤ 2,000,000 bytes; claim/commit/status body ≤ 4,096 bytes; envelope ≤ 2,000,000 bytes; depth ≤ 64; keys per object ≤ 256; array items ≤ 10,000; string values ≤ 8,000 chars; log rows ≤ 200,000; program rows ≤ 2,000; programHistory ≤ 2,000; customExercises ≤ 1,000; claim ID 128–256 bits; create ≤ 5/min per IP; claim/commit/status ≤ 60/min per token). These are new shared transfer-envelope bounds, informed by but not equal to the app's current internal progression and setup-link limits: a complete clone is a different contract from a progression value or setup fragment. The numbers do not change existing app bounds. The browser module and the service must enforce the same transfer table — neither may invent different validators.
 
 ### Server record and endpoints
@@ -136,8 +150,26 @@ Use Phase 049's endpoint semantics:
 
 - Create validates envelope/size, assigns `expiresAt <= serverNow + 60 minutes`, generates a 256-bit one-time token, derives an AES-256-GCM key with HKDF-SHA-256 using domain-separated info and a stored random salt, stores only ciphertext/nonce/associated data/salt plus a keyed token digest, and returns the plaintext token once.
 - Claim atomically changes `available` to `claiming(claimId)`. The bound claim ID can retry; every other claim receives a generic unavailable response.
-- Commit/delete accepts the bound claim and deletes ciphertext immediately. A minimal non-sensitive tombstone retains only token digest, terminal state, and original expiry to communicate one-time/recovery status; it contains no clone or identity and is purged after the 15-minute tombstone margin. A `claiming` record whose commit never arrives expires into `claimed-expired` (import possibly complete); `expired` strictly means never claimed.
+- Commit/delete authenticates the token and the claim ID bound during claim, then deletes ciphertext immediately. A token-authenticated retry after deletion returns the same deleted result. A minimal non-sensitive tombstone retains only token digest, terminal state, and original expiry to communicate one-time/recovery status; it contains no claim digest, clone, or identity and is purged after the 15-minute tombstone margin. A `claiming` record whose commit never arrives expires into `claimed-expired` (import possibly complete); `expired` strictly means never claimed.
 - An independent expiry process deletes ciphertext at/before 60 minutes even when the client never returns. Monitor the oldest live record and deletion lag.
+
+The ADR 0013 response boundary is exact:
+
+| Result | HTTP | Body |
+|---|---:|---|
+| First create | `201` | `{token, expiresAt}` |
+| Duplicate create with the same live idempotency key | `200` | `{duplicate: true, expiresAt}` |
+| Bound claim, including a retry by the same claim | `200` | `{envelope, expiresAt}` |
+| Bound active commit, or a token-authenticated retry after deletion | `200` | `{state: "deleted", expiresAt}` |
+| Status for a token that authenticates, including a terminal state | `200` | `{state, expiresAt}` only |
+| Generic invalid, expired, other-claim, or unavailable claim/commit/status operation; `claimed-expired` commit | `404` | `{state: "unavailable"}` |
+| Rate rejection | `429` | `{state: "unavailable"}` |
+| Creates disabled | `503` | `{state: "unavailable"}` |
+
+The generic `404` body is used when the bearer cannot authenticate the
+requested operation. A valid status bearer may expose only its terminal state
+and expiry. A commit against `claimed-expired` returns `404` and cannot
+resurrect server state or roll back a locally proven import.
 
 The service keeps neither the token nor the derived encryption key after the
 request. A long-lived HMAC pepper may authenticate token and IP digests but
@@ -180,10 +212,15 @@ Import protocol:
 3. Acquire the cross-tab state/draft/import lock and freeze other tabs through BroadcastChannel/storage signaling.
 4. Stage the marker with complete previous and incoming snapshots.
 5. Write normalized durable state through the existing mirror/WAL path, write/remove DraftV2 and candidate draft, then preferences/consent/identity.
-6. Re-read and validate every section and identity; set marker `local-committed`.
+6. Re-read and validate every section, identity, and `canonicalPayloadHash`; set marker `local-committed`.
 7. Release into installed boot, call remote commit/delete, then clear the marker after confirmed or retryable deletion bookkeeping.
 
-On boot, an incomplete marker either finishes the entire incoming import if the committed sections/hash prove safe or restores the entire previous snapshot. Mixed state is never exposed. Remote commit is idempotently retried after a locally committed import. A failure before local commit leaves current installed state unchanged. If the installed context unexpectedly already has meaningful local state, stop and require explicit choice; never overwrite automatically.
+The service cannot prove that the browser completed local read-back. The real
+client call boundary proves the ordering: the installed client sends commit
+only after the storage adapter has re-read every section and validated the
+canonical hash. A remote commit never authorizes a local rollback.
+
+On boot, an incomplete marker either finishes the entire incoming import if the committed sections and canonical hash prove safe or restores the entire previous snapshot. Mixed state is never exposed. Remote commit is idempotently retried after a locally committed import. A failure before local commit leaves current installed state unchanged. If the installed context unexpectedly already has meaningful local state, stop and require explicit choice; never overwrite automatically.
 
 ### Browser recovery snapshot
 
@@ -246,7 +283,7 @@ Creation/claim explicitly report that this one action needs a connection. Ordina
 
 Required cases:
 
-- crash/timeout during create: retry the same idempotency key; a live record returns `{duplicate: true, expiresAt}` with NO token, because the server cannot reproduce a bearer it never stored. Seal the received token to the outbound marker immediately; a client that never received the token starts over with a new key after the orphan expires. One key never yields two live records;
+- crash/timeout during create: retry the same idempotency key; a live record returns `{duplicate: true, expiresAt}` with NO token, because the server cannot reproduce a bearer it never stored. Seal the received token to the outbound marker immediately. A same-key retry can learn the server's expiry, but a local timer cannot prove that the record was never claimed. If creation may have succeeded and Safari has no recoverable bearer, enter `unknown-outcome` and freeze; never mint a new key automatically. A fresh transfer is permitted only after explicit divergence confirmation, while only a server-confirmed `expired` state with no claim permits silent resume. One key never yields two live records;
 - crash before claim bind: retry claim;
 - crash after bind: same claim ID resumes, different claim fails;
 - crash before local writes: installed prior state unchanged;
@@ -395,8 +432,8 @@ Rules for every packet in this plan:
 | 053-P0 | 1 | Per-boundary actor/credential/fault oracle table for create, claim, commit, status, and Safari freeze · **plan (read-only)** | Plan 049 endpoint contract, ADR 0013 boundary table, `docs/adr/0013-temporary-install-transfer.md` | Table listing, per boundary: which actor holds which sealed credential, the expected terminal state on loss, and the observable a test will assert. Failure enumerated per boundary (lost create response, unbound claim, commit-never-arrives, unavailable status, credential unseal failure) | baseline: `node --check app.js` → planned: consumed as the oracle by 053-P2/P3/P4/P5 assertion files | STOP if a boundary has no single owning actor or an ambiguous terminal state · reviewer: coordinator signs the table into PR before 053-P2 |
 | 053-P1a | 1 | Logical clone V1 schema + normalization fixture: acknowledged DraftV2 section, `repforge_v1`/`repforge_ui_v1` normalized values, consent + identity; volatile fields stripped · **build** | `window.__repforgeWorkoutDraft`, `telemetry.js` keys; existing `tools/canonical-clone-hash.mjs`, `test/fixtures/install-transfer-clone-v1.json`; NEW `test/install-transfer-clone.mjs` | existing `tools/canonical-clone-hash.mjs --check` plus NEW `test/install-transfer-clone.mjs`: `integrity.canonicalPayloadHash` recomputed independently over the sorted-key preimage equals the fixture value. Failure: a fixture carrying `_storageDraftTransaction`, a WAL entry, a lock ID, or the raw flat `repforge_draft_v1` string fails normalization; an untrustworthy active draft yields a recoverable failure; confirmed absence yields `workoutDraft: null` | baseline: `node test/shared-setup-unit.mjs` → planned: `node test/install-transfer-clone.mjs` plus existing hash check | STOP if any volatile marker survives normalization or a raw storage dump is uploaded · reviewer: reproduces one stripped-field case and the untrustworthy-active-draft failure and valid no-draft case |
 | 053-P1b | 1 | Shared transfer-limits constant + threat/redaction checklist fixtures (hostile inputs, log-field assertions) · **build** | ADR 0013 boundary table; NEW static-compatible limits module with Node and browser consumers; coordinator pins its file and loading contract before dispatch | NEW `test/install-transfer-limits.mjs`: the browser validator and the service validator import the same constant and reject the same over-limit fixture with the same code. Failure: the two validators disagree on one bound | baseline: `node test/shared-setup-flow.mjs` → planned: `node test/install-transfer-limits.mjs` | STOP if a limit is duplicated as a literal in two places · reviewer: reproduces the disagreement fixture turning green |
-| 053-P2a | 2 | Service create + idempotency + encrypted-at-rest storage + independent 60-minute expiry (fake clock) · **build** | NEW `services/install-transfer/**`; closed Cloudflare/EU contract | NEW `services/install-transfer/test/**`: a retried create with the same idempotency key returns `{duplicate:true, expiresAt}` and no token; ciphertext is gone at/before `serverNow + 60min`. Failure: a second live record for one key; AEAD tamper accepted | baseline: `node --check sw.js` → planned: service suite `node --test services/install-transfer/test/contract.mjs` (NEW) | STOP if the provider/EU/key-disposal/operations/disclosure contract would drift · reviewer: reproduces the fake-clock expiry and the AEAD-tamper rejection |
-| 053-P2b | 2 | Claim bind/retry + competing/duplicate claim + commit-verified delete + payload-free tombstone + kill switch · **build** | NEW `services/install-transfer/**`; 053-P0 oracle | extend the service suite: the bound `claimId` retries; every other claim gets the generic unavailable shape; delete happens only after verified commit, never on claim. Failure: delete on claim alone; a second claimant succeeds | baseline: `node --check sw.js` → planned: service suite (NEW) | STOP if interrupted claims cannot retry without admitting a second claimant · reviewer: reproduces the competing-claim and commit-verified-delete cases |
+| 053-P2a | 2 | Service create + idempotency + encrypted-at-rest storage + independent 60-minute expiry (fake clock) · **build** | NEW `services/install-transfer/**`; closed Cloudflare/EU contract | NEW `services/install-transfer/test/**`: a retried create with the same idempotency key returns `{duplicate:true, expiresAt}` and no token; ciphertext is gone at/before `serverNow + 60min`. Failure: a second live record for one key; AEAD tamper accepted | baseline: `node --check sw.js` → planned: isolated service manifest gate in `services/install-transfer/`: `npm ci`, `npm run check`, `npm test`, `npm run deploy:dry` | STOP if the provider/EU/key-disposal/operations/disclosure contract would drift · reviewer: reproduces the fake-clock expiry and the AEAD-tamper rejection |
+| 053-P2b | 2 | Claim bind/retry + competing/duplicate claim + commit-verified delete + payload-free tombstone + kill switch · **build** | NEW `services/install-transfer/**`; 053-P0 oracle | extend the service suite: the bound `claimId` retries; every other claim gets the generic unavailable shape; delete happens only after verified commit, never on claim. Failure: delete on claim alone; a second claimant succeeds | baseline: `node --check sw.js` → planned: same isolated service manifest gate (`npm run check`, `npm test`, `npm run deploy:dry`) | STOP if interrupted claims cannot retry without admitting a second claimant · reviewer: reproduces the competing-claim and commit-verified-delete cases |
 | 053-P3 | 3 | Browser envelope build + API calls + dedicated handoff-token cookie (distinct key, never `repforge_setup_v1`) + setup-cookie coexistence + browser/standalone context detection · **build** | `index.html` install surfaces, `repforge_setup_v1` cookie (kept distinct), Plan 051 DraftV2 (merged); NEW `install-transfer.js` | NEW `test/install-transfer-client.mjs`: envelope is built from parsed state (never a storage dump); token never enters fragment/history/DOM/telemetry; a setup proposal and a transfer token coexist and disambiguate deterministically. Failure: token written to `location.hash`; the setup cookie overloaded | baseline: `node test/install-modes.mjs` → planned: `node test/install-transfer-client.mjs` | STOP if the token reaches a URL, log, or the setup cookie · reviewer: reproduces the coexistence case and a redaction assertion |
 | 053-P4 | 4 | Atomic local import: `repforge_install_import_v1` marker through the existing durable write path, complete write/read-back, boot finish-or-rollback, valid destination DraftV2 checkpoint recreated, remote delete retried from the sealed inbound marker · **build** | `window.__repforgeWorkoutDraft.cas`, `_storageDraftTransaction`, boot replay, `test/thermonuclear-races.mjs`, `test/workout-draft-storage.mjs`; NEW markers | NEW `test/install-transfer-import.mjs`: crash at every numbered import step leaves either the complete incoming state or the complete previous snapshot — never mixed; a populated destination stops and asks. Failure: a partial write is exposed; an active source draft is silently dropped | baseline: `node test/thermonuclear-races.mjs && node test/workout-draft-storage.mjs` → planned: `node test/install-transfer-import.mjs` | STOP if import can overwrite meaningful destination state or expose a partial clone · reviewer: reproduces two crash-boundary recoveries |
 | 053-P5 | 5 | Safari recovery-snapshot state machine: freeze after success, `claimed-expired`/`expired`/`unknown-outcome` handling, explicit `Resume in browser` divergence confirmation · **build** | 053-P0 oracle; `install-transfer.js`; ADR 0013 outbound marker and recovery-snapshot state; no competing freeze marker | extend `test/install-transfer-client.mjs`: an indeterminate outcome always routes through the divergence warning, never silent resume; `expired`-never-claimed clears the outbound marker and resumes normally. Failure: plain dismissal removes the freeze | baseline: `node test/install-modes.mjs` → planned: `node test/install-transfer-client.mjs` | STOP if any indeterminate path allows silent parallel use · reviewer: reproduces the `unknown-outcome` and the divergence-confirm cases |
@@ -417,17 +454,18 @@ Rules for every packet in this plan:
 Use the checked-in [starting prompt](../docs/agents/prompts/plan-053-luna.md).
 The coordinator owns decomposition, contract review, integration decisions,
 PR handoff, and final judgment. Every delegated worker, including reviewers
-and the integrator, uses native Luna with Max reasoning and Fast service.
+and the integrator, uses native Luna with Max reasoning. The latest owner
+instruction removes service-tier and priority selection for this run, so the
+starting prompt's Fast-service requirement is overridden here.
 Do not dispatch Herdr/T3 workers or substitute Gemini, Sonnet, Sol, or Opus.
 
 Select the actual available Luna model identifier, expected `gpt-5.6-luna`,
-and reasoning effort `max`. Verify Fast independently from model/effort.
-If the spawn API has no service-tier field, use a supported session setting
-only when it demonstrably applies to children. Never invent a `fast` argument
-or infer Fast from a model name. Record effective settings in the PR. If any
-requested setting cannot be selected or verified, continue coordinator setup
-and read-only preparation, report the exact limitation, and obtain direction
-before dispatching workers with different or unverified settings.
+and reasoning effort `max`. Record the effective model and reasoning setting
+in the PR. Do not add or infer a service-tier or priority setting from a model
+name. If the model or reasoning setting cannot be selected or verified,
+continue coordinator setup and read-only preparation, report the exact
+limitation, and obtain direction before dispatching workers with different or
+unverified settings.
 
 Use explicit bounded briefs rather than inheriting the entire conversation.
 Each brief includes packet ID, source/head SHA, owned paths and symbols,
