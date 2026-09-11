@@ -12,6 +12,7 @@ export const SUITES = {
     s("test/program-transition-compiler-provenance.mjs"),
     s("test/program-transition-siblings.mjs"),
     s("test/program-transition-volume.mjs"),
+    s("test/durable-outcome-contract.mjs"),
     s("test/install-transfer-client-contract.mjs"),
     s("test/install-transfer-client.mjs"),
     s("test/install-transfer-limits.mjs"),

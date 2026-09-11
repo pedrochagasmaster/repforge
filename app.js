@@ -426,7 +426,8 @@ function chooseSnapshot(localRead,idbRead){
     if(lr>ir)return{kind:"chosen",snapshot:localRead.parsed,source:"local",heal:"idb"};
     return{kind:"chosen",snapshot:idbRead.parsed,source:"idb",heal:"local"}}
   return{kind:"unresolved",reason:"divergent",local:localRead,idb:idbRead}}
-const storageIO={
+const DurableState = (typeof window !== "undefined" && window.RepForgeDurableState) || (typeof RepForgeDurableState !== "undefined" ? RepForgeDurableState : null);
+const storageIO = (DurableState && DurableState.storageIO) || {
   writeLocal(data){localStorage.setItem(KEY,JSON.stringify(data))},
   async writeIdb(data){await idbSet(KEY,data)}
 };
@@ -440,12 +441,24 @@ let persistTail=Promise.resolve();
 let persistHead=null,mutationBase=null;
 let storageHealth={localOk:true,idbOk:true,degraded:false,revision:0,lastResult:null};
 let storageDegradedToast=false;
+if (DurableState) {
+  DurableState.addStorageHealthListener((h) => { noteWriteHealth(h); });
+  DurableState.setMutationFreezeCheck(() => (typeof installTransferMutationFrozen === "function" ? installTransferMutationFrozen() : false));
+}
 function enqueueWrite(op){
+  if(DurableState)return DurableState.enqueueWrite(op);
   const result=persistTail.then(op);
   persistTail=result.then(()=>undefined,()=>undefined);
   return result}
-function flushStorage(){return Promise.all([persistTail,typeof setupDraftWriteQueue!=="undefined"?setupDraftWriteQueue:Promise.resolve()])}
+function flushStorage(){
+  const tail=DurableState?DurableState.flushStorage():persistTail;
+  return Promise.all([tail,typeof setupDraftWriteQueue!=="undefined"?setupDraftWriteQueue:Promise.resolve()])}
 async function writeSnapshot(snapshot,io){
+  if(DurableState){
+    const res = await DurableState.writeSnapshot(snapshot,io);
+    noteWriteHealth(res);
+    return res;
+  }
   if(!io||typeof io.writeLocal!=="function"||typeof io.writeIdb!=="function")
     throw new Error("writeSnapshot requires an explicit adapter");
   const data=cloneSnapshot(snapshot),rev=readRevision(data);
@@ -539,7 +552,8 @@ function rebaseStateChange(base,proposal,target,{preferProposal=true}={}){
 function storageSnapshotsEqual(a,b){return changeValueEqual(a,b)}
 function resetPersistenceBase(snapshot){
   persistHead=cloneSnapshot(snapshot);
-  mutationBase=cloneSnapshot(snapshot)}
+  mutationBase=cloneSnapshot(snapshot);
+  if(DurableState)DurableState.setPersistHead(snapshot)}
 async function refreshPersistenceHead(){
   const local=readLocalStatus(),idb=await readIdbStatus();
   const decision=chooseSnapshot(local,idb);
@@ -5323,11 +5337,11 @@ async function deleteTrainingLog(io=storageIO,{discardDraftRaw=readDraftRaw()}={
   return result}
 window.__repforgeStorage={
   flush:flushStorage,
-  chooseSnapshot,
+  chooseSnapshot:(local,idb)=>(DurableState?DurableState.chooseSnapshot(local,idb):chooseSnapshot(local,idb)),
   writeWithAdapter(snapshot,io){
     requireAdapter(io,"writeWithAdapter");
     return enqueueWrite(()=>writeSnapshot(cloneSnapshot(snapshot),io))},
-  health(){return Object.assign({},storageHealth)},
+  health(){return Object.assign({},DurableState?.getStorageHealth(),storageHealth)},
   rebaseForTest(base,proposal,target,opts){return rebaseStateChange(base,proposal,target,opts)},
   replaceImport(incoming,io,opts){requireAdapter(io,"replaceImport");return replaceImportedState(incoming,io,opts)},
   mergeImport(incoming,io){requireAdapter(io,"mergeImport");return mergeImportedLog(incoming,io)}}
