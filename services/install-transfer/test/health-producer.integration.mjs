@@ -20,7 +20,11 @@ const servers = [];
 try {
   await runCompletePass();
   await runAmbiguousPage();
-  console.log("health producer integration passed");
+  await run100LimitChunking();
+  await runLimitTooLowRejection();
+  await runRepeatedCursor();
+  await runRepeatedObjectId();
+  console.log("health producer integration passed (all 6 cases verified)");
 } finally {
   await Promise.all(servers.splice(0).map((value) => closeServer(value)));
 }
@@ -57,7 +61,62 @@ async function runAmbiguousPage() {
   assert.equal(state.billingPosts, 0);
 }
 
-function environment(service, provider, files) {
+async function run100LimitChunking() {
+  const state = createState();
+  state.chunking100 = true;
+  const service = await startServer((request, body) => handleService(request, body, state));
+  const provider = await startServer((request) => handleProvider(request, state));
+  const files = await receipts();
+  const result = await runProducer(environment(service, provider, files, {
+    TRANSFER_ENUM_PAGE_LIMIT: "100",
+    TRANSFER_ENUM_MAX_OBJECTS: "288",
+  }));
+  assert.equal(result.code, 0, result.stderr);
+  assert.match(result.stdout, /scheduled health accepted/u);
+  assert.equal(state.positiveHeartbeats, 5);
+  assert.equal(state.failureHeartbeats, 0);
+  // 100 objects must be drained in batches of at most 32: 32 + 32 + 32 + 4
+  assert.deepEqual(state.purgeObjectBatches.map((b) => b.length), [32, 32, 32, 4]);
+  assert.equal(state.purgeObjectBatches.flat().length, 100);
+}
+
+async function runLimitTooLowRejection() {
+  const state = createState();
+  state.limitTooLow = true;
+  const service = await startServer((request, body) => handleService(request, body, state));
+  const provider = await startServer((request) => handleProvider(request, state));
+  const files = await receipts();
+  const result = await runProducer(environment(service, provider, files));
+  assert.notEqual(result.code, 0);
+  assert.equal(state.positiveHeartbeats, 0);
+  assert.equal(state.failureHeartbeats, 1);
+}
+
+async function runRepeatedCursor() {
+  const state = createState();
+  state.repeatedCursor = true;
+  const service = await startServer((request, body) => handleService(request, body, state));
+  const provider = await startServer((request) => handleProvider(request, state));
+  const files = await receipts();
+  const result = await runProducer(environment(service, provider, files));
+  assert.notEqual(result.code, 0);
+  assert.equal(state.positiveHeartbeats, 0);
+  assert.equal(state.failureHeartbeats, 1);
+}
+
+async function runRepeatedObjectId() {
+  const state = createState();
+  state.repeatedObjectId = true;
+  const service = await startServer((request, body) => handleService(request, body, state));
+  const provider = await startServer((request) => handleProvider(request, state));
+  const files = await receipts();
+  const result = await runProducer(environment(service, provider, files));
+  assert.notEqual(result.code, 0);
+  assert.equal(state.positiveHeartbeats, 0);
+  assert.equal(state.failureHeartbeats, 1);
+}
+
+function environment(service, provider, files, overrides = {}) {
   return {
     TRANSFER_SERVICE_URL: "http://localhost:" + service.port,
     TRANSFER_WATCHDOG_SECRET: secrets.watchdog,
@@ -73,6 +132,7 @@ function environment(service, provider, files) {
     TRANSFER_ENUM_PAGE_LIMIT: "10",
     TRANSFER_ENUM_MAX_OBJECTS: "32",
     TRANSFER_ALLOW_TEST_OBSERVATION: "true",
+    ...overrides,
   };
 }
 
@@ -113,6 +173,10 @@ function createState() {
     billingPosts: 0,
     healthGets: 0,
     fullPageWithoutCursor: false,
+    chunking100: false,
+    limitTooLow: false,
+    repeatedCursor: false,
+    repeatedObjectId: false,
   };
 }
 
@@ -122,6 +186,50 @@ async function handleProvider(request, state) {
   state.providerAuth = true;
   const cursor = parsed.searchParams.get("cursor");
   state.providerQueries.push(cursor);
+
+  if (state.limitTooLow) {
+    return jsonResponse(400, {
+      result: null,
+      success: false,
+      errors: [{ code: 10077, message: "Malformed parameter: limit is too low" }],
+      messages: [],
+    });
+  }
+
+  if (state.chunking100) {
+    if (cursor === null) {
+      const ids = Array.from({ length: 100 }, (_, i) => i.toString(16).padStart(64, "0"));
+      return jsonResponse(200, {
+        success: true,
+        result: ids.map((id) => ({ id, hasStoredData: true })),
+        result_info: { count: 100, cursor: "chunk-page-2" },
+      });
+    }
+    return jsonResponse(200, {
+      success: true,
+      result: [],
+      result_info: { count: 0, cursor: "" },
+    });
+  }
+
+  if (state.repeatedCursor) {
+    const ids = cursor === null ? objectIds.slice(0, 2) : objectIds.slice(2);
+    return jsonResponse(200, {
+      success: true,
+      result: ids.map((id) => ({ id, hasStoredData: true })),
+      result_info: { cursor: "repeat-cursor" },
+    });
+  }
+
+  if (state.repeatedObjectId) {
+    const ids = cursor === null ? [objectIds[0], objectIds[1]] : [objectIds[0], objectIds[2]];
+    return jsonResponse(200, {
+      success: true,
+      result: ids.map((id) => ({ id, hasStoredData: true })),
+      result_info: cursor === null ? { cursor: "page-2" } : {},
+    });
+  }
+
   const ids = state.fullPageWithoutCursor
     ? fullPageIds
     : (cursor === null ? objectIds.slice(0, 2) : objectIds.slice(2));

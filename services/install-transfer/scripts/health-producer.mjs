@@ -20,7 +20,7 @@ const providerApiToken = requiredSecret("TRANSFER_CF_API_TOKEN");
 const providerAccountId = boundedAccountId(requiredEnv("TRANSFER_CF_ACCOUNT_ID"), "TRANSFER_CF_ACCOUNT_ID");
 const providerNamespaceId = boundedNamespaceId(requiredEnv("TRANSFER_DO_NAMESPACE_ID"), "TRANSFER_DO_NAMESPACE_ID");
 const providerApiBase = requiredProviderApiBase();
-const providerPageLimit = parseProviderPageLimit(process.env.TRANSFER_ENUM_PAGE_LIMIT ?? "32");
+const providerPageLimit = parseProviderPageLimit(process.env.TRANSFER_ENUM_PAGE_LIMIT ?? "100");
 const providerMaxObjects = parseProviderMaxObjects(process.env.TRANSFER_ENUM_MAX_OBJECTS ?? "288");
 const allowTestFixture = process.env.TRANSFER_ALLOW_TEST_OBSERVATION === "true";
 
@@ -424,7 +424,7 @@ function boundedNamespaceId(value, name) {
 function parseProviderPageLimit(value) {
   if (!/^(?:[1-9][0-9]*)$/u.test(value)) throw new Error("TRANSFER_ENUM_PAGE_LIMIT is invalid");
   const parsed = Number(value);
-  if (!Number.isSafeInteger(parsed) || parsed < 10 || parsed > 32) throw new Error("TRANSFER_ENUM_PAGE_LIMIT must be 10-32");
+  if (!Number.isSafeInteger(parsed) || parsed < 10 || parsed > 100) throw new Error("TRANSFER_ENUM_PAGE_LIMIT must be 10-100");
   return parsed;
 }
 

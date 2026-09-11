@@ -75,7 +75,7 @@ The staging deployment needs these non-secret settings and bindings:
   print it.
 - `TRANSFER_CF_ACCOUNT_ID` and `TRANSFER_DO_NAMESPACE_ID` — the fixed account
   and transfer namespace used by the provider enumeration. The scheduler
-  rejects other namespaces and limits each page to 10–32 objects and each
+  rejects other namespaces and limits each page to 10–100 objects (defaulting to Cloudflare's minimum supported limit of 100 objects) and batches purge calls in chunks of at most 32 objects, with each
   complete pass to at most 288 objects (nine 32-ID purge batches plus the
   registry purge within the private purge-role rate window).
 
@@ -118,7 +118,7 @@ authenticated provider gate has passed.
 | Billing at or above 1,000 cents, or stale billing evidence | New creates are disabled; billing threshold is not a hard cap and does not remove recovery paths | `health-do.test.js` threshold/age assertions; `observation.test.js` |
 | Kill switch or invalid/missing static health/configuration | New creates are disabled and the public transfer response is generic `503 {"state":"unavailable"}` | `operations.test.js`; `http.test.js` — `requires the exact configured origin...` |
 | Full page without cursor | Committed scheduler integration rejects the ambiguous page before positive health is posted | `health-producer.integration.mjs` |
-| Repeated cursor or repeated object ID | Source guards fail closed; deterministic committed coverage or an authenticated staging artifact remains open | `scripts/health-producer.mjs`; no accepted repeated-pagination artifact yet |
+| Repeated cursor or repeated object ID | Source guards fail closed; deterministic committed coverage or an authenticated staging artifact remains open | `scripts/health-producer.mjs`, `test/health-producer.integration.mjs` |
 | Missed alarm, corrupt metadata, or disposal acknowledgement failure | Local alarm/purge path quarantines or retries and latches deletion health; it never treats a failed disposal as success | `transfer-do.test.js` — alarm corruption, disposal failure, ambiguous disposal; `registry-do.test.js` |
 | Tampered ciphertext/AAD or invalid bearer | Decryption/authentication fails closed; HTTP uses the generic `404 {"state":"unavailable"}` and MAC rejection allocates no rate/object state | `crypto.test.js`, `routing.test.js`, `transfer-do.test.js`, `http.test.js` |
 | Creates disabled while an existing transfer is recoverable | Create is generic `503`, while claim/status/commit and private purge remain reachable for recovery | `http.test.js` — `routes create, duplicate, claim, commit, and status...`; `ops.test.js` purge assertions |
