@@ -4739,12 +4739,17 @@ function installTransferStopPolling(){
   if(installTransferPollingTimer!==null)clearTimeout(installTransferPollingTimer);
   installTransferPollingTimer=null;installTransferPollingDelay=5000;
 }
-function installTransferPersistUnknown(code){
-  const marker=installTransferOutboundMarker();
-  if(!marker||marker.phase==="resumedDiverged")return false;
+async function installTransferPersistUnknown(code){
+  const write=()=>{
+    const marker=installTransferOutboundMarker();
+    if(!marker||!["creating","awaiting-claim","unknown-outcome"].includes(marker.phase))return false;
+    try{
+      localStorage.setItem(INSTALL_OUTBOUND_KEY,JSON.stringify({...marker,phase:"unknown-outcome",outcomeCode:code||"status-unavailable"}));
+      return true;
+    }catch{return false}
+  };
   try{
-    localStorage.setItem(INSTALL_OUTBOUND_KEY,JSON.stringify({...marker,phase:"unknown-outcome",outcomeCode:code||"status-unavailable"}));
-    return true;
+    return navigator.locks?.request?await navigator.locks.request("install-transfer",write):write();
   }catch{return false}
 }
 function installTransferSchedulePoll(){
@@ -4781,7 +4786,7 @@ async function installTransferPollOutboundStatus(){
       const marker=installTransferOutboundMarker();
       const expiresAt=Date.parse(res.expiresAt||marker?.expiresAt||"");
       if(Number.isFinite(expiresAt)&&Date.now()>=expiresAt+INSTALL_TRANSFER_POLL_MARGIN_MS){
-        installTransferPersistUnknown("poll-exhausted");
+        await installTransferPersistUnknown("poll-exhausted");
         installTransferStopPolling();
         if($("#iosInstallSheet")?.classList.contains("is-open"))installTransferRenderState("unknown",res);
         showInstallBanner(true);
@@ -4791,13 +4796,13 @@ async function installTransferPollOutboundStatus(){
       installTransferSchedulePoll();
       return;
     }
-    installTransferPersistUnknown(res?.code);
+    await installTransferPersistUnknown(res?.code);
     installTransferStopPolling();
     if($("#iosInstallSheet")?.classList.contains("is-open"))
       installTransferRenderState(res?.code==="claimed-expired"?"claimed-expired":"unknown",res);
     showInstallBanner(true);
   }catch{
-    installTransferPersistUnknown("status-unavailable");
+    await installTransferPersistUnknown("status-unavailable");
     installTransferStopPolling();
     if($("#iosInstallSheet")?.classList.contains("is-open"))installTransferRenderState("unknown");
     showInstallBanner(true)}
@@ -4828,11 +4833,11 @@ async function installTransferCreateFromSafari(){
       installTransferRenderState("retryable",result);
       return result;
     }
-    installTransferPersistUnknown(result?.code);
+    await installTransferPersistUnknown(result?.code);
     installTransferRenderState(result?.code==="claimed-expired"?"claimed-expired":"unknown",result);
     return result;
   }catch(error){
-    installTransferPersistUnknown(error?.message||"create-unknown-outcome");
+    await installTransferPersistUnknown(error?.message||"create-unknown-outcome");
     const result={ok:false,state:"unknown-outcome",code:error?.message||"create-unknown-outcome"};
     installTransferRenderState("unknown",result);
     return result;
