@@ -67,6 +67,7 @@ export const SUITES = {
     s("test/program-transition-r7-boundary.mjs"),
     s("test/install-transfer-client-browser.mjs"),
     s("test/install-transfer-clone.mjs"),
+    s("test/install-transfer-import.mjs"),
     s("test/recover-gate.mjs"),
     s("test/workout-draft-storage.mjs"),
     s("test/workout-draft-sw-upgrade.mjs"),
