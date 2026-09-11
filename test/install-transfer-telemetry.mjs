@@ -70,6 +70,20 @@ const POSTHOG_SDK_DOUBLE = `(() => {
   };
 })();`;
 
+function posthogConfigScript(config) {
+  return `window.__POSTHOG_CONFIG__ = Object.freeze(${JSON.stringify(config)});`;
+}
+
+async function routePosthogConfig(context, config) {
+  await context.route(/\/posthog-config\.js(?:\?|$)/, (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/javascript",
+      body: posthogConfigScript(config),
+    })
+  );
+}
+
 let checks = 0;
 const ok = (condition, message) => {
   assert.ok(condition, message);
@@ -396,22 +410,24 @@ try {
     const transferredUuid = "44444444-4444-4444-8444-444444444444";
     const transferredCreatedAt = "2026-10-10T12:00:00.000Z";
     const context = await browser.newContext({ serviceWorkers: "block" });
+    const posthogConfig = {
+      appVersion: "test-disabled-consent",
+      host: BASE.replace(/\/$/, ""),
+      projectToken: "phc_test_token",
+      releaseChannel: "preview",
+      sdkVersion: "1.400.0",
+    };
+    await routePosthogConfig(context, posthogConfig);
     await context.route(`**${POSTHOG_SDK_PATH}`, (route) =>
       route.fulfill({ status: 200, contentType: "application/javascript", body: POSTHOG_SDK_DOUBLE })
     );
 
-    await context.addInitScript(({ idKey, consentKey, uuid, createdAt }) => {
+    await context.addInitScript(({ idKey, consentKey, uuid, createdAt, config }) => {
       // Simulate restored state right after import settlement
       localStorage.setItem(idKey, JSON.stringify({ schemaVersion: 1, installationId: uuid, createdAt }));
       localStorage.setItem(consentKey, "false"); // disabled consent transferred
-      window.__POSTHOG_CONFIG__ = {
-        appVersion: "test-disabled-consent",
-        host: location.origin,
-        projectToken: "phc_test_token",
-        releaseChannel: "preview",
-        sdkVersion: "1.400.0",
-      };
-    }, { idKey: IDENTITY_KEY, consentKey: CONSENT_KEY, uuid: transferredUuid, createdAt: transferredCreatedAt });
+      window.__POSTHOG_CONFIG__ = config;
+    }, { idKey: IDENTITY_KEY, consentKey: CONSENT_KEY, uuid: transferredUuid, createdAt: transferredCreatedAt, config: posthogConfig });
 
     const page = await context.newPage();
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
@@ -455,21 +471,23 @@ try {
     const transferredUuid = "55555555-5555-4555-8555-555555555555";
     const transferredCreatedAt = "2026-10-10T14:00:00.000Z";
     const context = await browser.newContext({ serviceWorkers: "block" });
+    const posthogConfig = {
+      appVersion: "test-enabled-consent",
+      host: BASE.replace(/\/$/, ""),
+      projectToken: "phc_test_token",
+      releaseChannel: "preview",
+      sdkVersion: "1.400.0",
+    };
+    await routePosthogConfig(context, posthogConfig);
     await context.route(`**${POSTHOG_SDK_PATH}`, (route) =>
       route.fulfill({ status: 200, contentType: "application/javascript", body: POSTHOG_SDK_DOUBLE })
     );
 
-    await context.addInitScript(({ idKey, consentKey, uuid, createdAt }) => {
+    await context.addInitScript(({ idKey, consentKey, uuid, createdAt, config }) => {
       localStorage.setItem(idKey, JSON.stringify({ schemaVersion: 1, installationId: uuid, createdAt }));
       localStorage.setItem(consentKey, "true"); // enabled consent transferred
-      window.__POSTHOG_CONFIG__ = {
-        appVersion: "test-enabled-consent",
-        host: location.origin,
-        projectToken: "phc_test_token",
-        releaseChannel: "preview",
-        sdkVersion: "1.400.0",
-      };
-    }, { idKey: IDENTITY_KEY, consentKey: CONSENT_KEY, uuid: transferredUuid, createdAt: transferredCreatedAt });
+      window.__POSTHOG_CONFIG__ = config;
+    }, { idKey: IDENTITY_KEY, consentKey: CONSENT_KEY, uuid: transferredUuid, createdAt: transferredCreatedAt, config: posthogConfig });
 
     const page = await context.newPage();
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
