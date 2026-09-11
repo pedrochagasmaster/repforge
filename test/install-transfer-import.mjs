@@ -1503,10 +1503,16 @@ async function runP4cPostMarkerBootOrdering(browser, envelope) {
     const idbMarker = await readIdbValue(page, INSTALL_MARKER_KEY);
     const telemetryAfterMarker = (trace.telemetryBoots || []).filter((entry) => entry.before?.markerPhase === "importing");
     const initAfterMarker = (trace.initMarkers || []).filter((entry) => entry.markerPhase === "importing");
+    const recoveryUi = await page.evaluate(() => ({
+      state: document.querySelector("#iosInstallSheet")?.dataset.transferState || null,
+      visible: document.querySelector("#iosInstallSheet")?.hidden === false,
+      retryVisible: !document.querySelector("#installTransferRetry")?.classList.contains("hidden"),
+    }));
     check(trace.faulted === true && trace.booted === false && localMarker?.phase === "importing" &&
-      idbMarker?.phase === "importing" && telemetryAfterMarker.length === 0 && initAfterMarker.length === 0,
-    "P4c-F: a post-marker standalone failure leaves boot blocked with mirrored importing markers and no later telemetry or init",
-    { trace, localPhase: localMarker?.phase, idbPhase: idbMarker?.phase, telemetryAfterMarker, initAfterMarker, events });
+      idbMarker?.phase === "importing" && telemetryAfterMarker.length === 0 && initAfterMarker.length === 0 &&
+      recoveryUi.state === "interrupted" && recoveryUi.visible && recoveryUi.retryVisible,
+    "P4c-F: a post-marker standalone failure blocks unsafe app boot but renders retry UI over mirrored importing markers",
+    { trace, localPhase: localMarker?.phase, idbPhase: idbMarker?.phase, telemetryAfterMarker, initAfterMarker, recoveryUi, events });
   } finally {
     await removeRoutes();
     await context.close();

@@ -482,6 +482,10 @@
           <button type="button" class="toggle" id="telemetryToggle" aria-pressed="true" data-i18n-aria="settings.analytics.toggle_aria" aria-label="Analytics"></button>
         </div>
         <p class="lede" data-i18n="settings.analytics.disclosure">Taurifer sends anonymous product events, never workout values, exercise names, notes, free text, setup links, or backup data. Turn this off at any time.</p>
+        <button type="button" class="settings-row" id="privacyDetails">
+          <span class="settings-row__label" data-i18n="privacy.open">Privacy details</span>
+          <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
+        </button>
       </div>
 
       <p class="settings-group__label" data-i18n="settings.group.program">Program &amp; progression</p>
@@ -712,6 +716,31 @@
        draws another app's UI: it illustrates Safari's own toolbar to point at
        the control the lifter has to tap. Chrome's install prompt is never
        drawn here — it is Chrome's, and we only ask for it. -->
+  <div id="privacyScrim" class="sheet-scrim hidden"></div>
+  <div id="privacySheet" class="sheet sheet--privacy hidden" role="dialog" aria-modal="true" aria-labelledby="privacyTitle" hidden>
+    <div class="privacy-sheet">
+      <div class="sheet__head">
+        <div class="sheet__titles">
+          <h2 class="sheet__title" id="privacyTitle" data-i18n="privacy.title">Privacy</h2>
+          <p class="sheet__sub" data-i18n="privacy.local_first">Your training data stays on this device except when you explicitly create an install transfer.</p>
+        </div>
+        <button type="button" class="whysheet__close" id="privacyClose" data-i18n-aria="dialog.close" aria-label="Close">✕</button>
+      </div>
+      <div class="privacy-sheet__body">
+        <section aria-labelledby="privacyTransferTitle">
+          <h3 id="privacyTransferTitle" data-i18n="privacy.transfer.title">Temporary install transfer</h3>
+          <p data-i18n="privacy.transfer.contents">The encrypted logical clone includes your normalized program and workout state, history, archive and provenance, active workout draft, unfinished program setup, UI preferences, analytics consent, and stable telemetry identity. It excludes volatile locks, journals, transaction markers, cookies, permissions, cache state, and provider session state.</p>
+          <p data-i18n="privacy.transfer.processing">The transfer needs a network connection. Cloudflare can handle the request at its global edge before a Durable Object processes and stores it in the EU. Cloudflare briefly sees plaintext while creating and claiming the record. TLS protects transit. This is server-side encryption, not end-to-end encryption.</p>
+          <p data-i18n="privacy.transfer.encryption">Taurifer derives AES-256-GCM encryption from the one-time token with HKDF-SHA-256. The service never stores the token or derived key. It stores ciphertext, a keyed token digest, nonce, associated data, and random salt.</p>
+          <p data-i18n="privacy.transfer.retention">Live ciphertext is deleted after the installed app verifies the local import and commits it, or by minute 60. A payload-free tombstone can remain through minute 75. Cloudflare recovery images can retain ciphertext for up to 30 days, but the restored image alone cannot decrypt it after the token and key are gone.</p>
+          <p data-i18n="privacy.transfer.cookie">The handoff cookie contains only the opaque token and expiry. The static host receives it with the matching HTML request. Transfer access logs must strip cookies, request bodies, tokens, and full URLs.</p>
+          <p data-i18n="privacy.transfer.ratelimit">Create abuse counters use HMAC-derived IP buckets. They store no raw IP, are not linked to a transfer or token, and last no more than two minutes.</p>
+          <p data-i18n="privacy.transfer.recovery">Safari keeps its original local data. After a completed or uncertain transfer it becomes a recovery snapshot. To resume there, you must confirm that future Safari and installed-app changes stay separate and never merge.</p>
+          <p data-i18n="privacy.transfer.scope">The transfer preserves analytics consent, telemetry identity, and UI preferences. It is not an account, cloud backup, or synchronization. The intentional Safari and installed-app copies remain on their devices.</p>
+        </section>
+      </div>
+    </div>
+  </div>
   <div id="iosInstallScrim" class="sheet-scrim hidden"></div>
   <div id="iosInstallSheet" class="sheet sheet--install hidden" role="dialog" aria-modal="true" aria-labelledby="iosInstallTitle" hidden>
     <span class="sheet__grab" aria-hidden="true"></span>
@@ -722,7 +751,23 @@
           <p class="installsheet__title" id="iosInstallTitle" data-i18n="install.ios.title">Install on iPhone</p>
           <p class="installsheet__sub" data-i18n="install.ios.sub">Add Taurifer to your Home Screen.</p>
         </div>
+        <button type="button" class="whysheet__close installsheet__close" id="iosInstallClose" data-i18n-aria="dialog.close" aria-label="Close">✕</button>
       </div>
+      <div id="installTransferIntro" class="install-transfer__intro hidden">
+        <p class="install-transfer__body" id="installTransferBody"></p>
+        <div class="install-transfer__disclosure" id="installTransferDisclosure">
+          <p data-i18n="install.transfer.disclosure">Cloudflare temporarily processes and stores an encrypted copy in the EU for up to one hour. Global Cloudflare edge ingress can handle it first. A connection is required, and your original Safari data stays on this device.</p>
+          <button type="button" class="textlink" id="installTransferPrivacy" data-i18n="install.transfer.privacy_action">Read full privacy details</button>
+        </div>
+      </div>
+      <p id="installTransferStatus" class="install-transfer__status" role="status" aria-live="polite" aria-atomic="true"></p>
+      <p id="installTransferExpiry" class="install-transfer__expiry hidden"></p>
+      <div id="installTransferActions" class="install-transfer__actions hidden">
+        <button type="button" class="btn btn--cta btn--noarrow" id="installTransferStart" data-i18n="install.transfer.start">Install and transfer my data</button>
+        <button type="button" class="btn btn--secondary btn--noarrow hidden" id="installTransferRetry" data-i18n="install.transfer.retry">Retry transfer</button>
+        <button type="button" class="btn btn--secondary btn--noarrow" id="installTransferContinue" data-i18n="install.transfer.without">Install without transferring</button>
+      </div>
+      <div id="iosInstallInstructions">
       <div class="safaribar" aria-hidden="true">
         <span class="safaribar__side"><span class="safaribar__tool safaribar__tool--back"></span></span>
         <div class="safaribar__url">
@@ -741,6 +786,7 @@
         <li class="installsteps__step"><span class="installsteps__n">03</span><span class="installsteps__body" data-i18n="install.ios.step3" data-i18n-html></span></li>
         <li class="installsteps__step"><span class="installsteps__n">04</span><span class="installsteps__body" data-i18n="install.ios.step4" data-i18n-html></span></li>
       </ol>
+      </div>
       <button type="button" class="btn btn--cta btn--noarrow installsheet__done" id="iosInstallDone" data-i18n="install.ios.done">Done</button>
       <p class="installsheet__foot" data-i18n="install.ios.foot">Taurifer will open from its icon on your Home Screen.</p>
     </div>
@@ -956,16 +1002,16 @@
        reordering stays reachable through each row's Move controls. -->
   <script src="vendor/motion/motion.js"></script>
   <script src="vendor/dnd-kit/dnd-kit.js"></script>
-  <script src="motion-layer.js?v=225"></script>
-  <script src="program-compiler.js?v=225"></script>
-  <script src="program-entry.js?v=225"></script>
-  <script src="program-entry-adapter.js?v=225"></script>
-  <script src="program-editor.js?v=225"></script>
-  <script src="shared-setup.js?v=225"></script>
-  <script src="workout-draft.js?v=225"></script>
-  <script src="program-transition.js?v=225"></script>
+  <script src="motion-layer.js?v=226"></script>
+  <script src="program-compiler.js?v=226"></script>
+  <script src="program-entry.js?v=226"></script>
+  <script src="program-entry-adapter.js?v=226"></script>
+  <script src="program-editor.js?v=226"></script>
+  <script src="shared-setup.js?v=226"></script>
+  <script src="workout-draft.js?v=226"></script>
+  <script src="program-transition.js?v=226"></script>
   <script src="install-transfer-contract.js"></script>
   <script src="install-transfer.js"></script>
-  <script src="app.js?v=225"></script>
+  <script src="app.js?v=226"></script>
 </body>
 </html>

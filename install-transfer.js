@@ -386,6 +386,17 @@
     catch { return "/index.html"; }
   }
 
+  function cookieVisibleAtLocation(locationLike, path) {
+    try {
+      const current = new URL(locationLike?.href || locationLike || root.location?.href || "http://localhost/").pathname;
+      return current === path || current.startsWith(`${path}/`);
+    } catch { return false; }
+  }
+
+  function browserCookieDocument(document) {
+    return document?.nodeType === 9 && typeof document.defaultView === "object";
+  }
+
   function localHost(host) {
     return host === "localhost" || host === "127.0.0.1" || host === "[::1]" || host === "::1";
   }
@@ -425,8 +436,9 @@
     if (maxAge <= 0) return false;
     const secure = localHost(hostname(location)) ? "" : "; Secure";
     try {
-      document.cookie = `${COOKIE_NAME}=${encoded}; Path=${cookiePath(location)}; Max-Age=${maxAge}; SameSite=Lax${secure}`;
-      return readCookie(document, COOKIE_NAME) === encoded;
+      const path = cookiePath(location);
+      document.cookie = `${COOKIE_NAME}=${encoded}; Path=${path}; Max-Age=${maxAge}; SameSite=Lax${secure}`;
+      return !cookieVisibleAtLocation(location, path) && browserCookieDocument(document) || readCookie(document, COOKIE_NAME) === encoded;
     } catch { return false; }
   }
 
@@ -438,8 +450,9 @@
     if (!document) return false;
     const secure = localHost(hostname(location)) ? "" : "; Secure";
     try {
-      document.cookie = `${COOKIE_NAME}=; Path=${cookiePath(location)}; Max-Age=0; SameSite=Lax${secure}`;
-      return readCookie(document, COOKIE_NAME) === null;
+      const path = cookiePath(location);
+      document.cookie = `${COOKIE_NAME}=; Path=${path}; Max-Age=0; SameSite=Lax${secure}`;
+      return !cookieVisibleAtLocation(location, path) && browserCookieDocument(document) || readCookie(document, COOKIE_NAME) === null;
     } catch { return false; }
   }
 

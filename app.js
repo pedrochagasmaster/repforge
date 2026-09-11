@@ -4733,7 +4733,29 @@ async function installTransferBrowserClient(){
     document,location:window.location,storage:{outbound,credentials,operationLock}});
   return{client,contract,transfer,outbound,credentials};
 }
-let installTransferPollingActive=false;
+let installTransferPollingActive=false,installTransferPollingTimer=null,installTransferPollingDelay=5000;
+const INSTALL_TRANSFER_POLL_MARGIN_MS=10*60*1000;
+function installTransferStopPolling(){
+  if(installTransferPollingTimer!==null)clearTimeout(installTransferPollingTimer);
+  installTransferPollingTimer=null;installTransferPollingDelay=5000;
+}
+function installTransferPersistUnknown(code){
+  const marker=installTransferOutboundMarker();
+  if(!marker||marker.phase==="resumedDiverged")return false;
+  try{
+    localStorage.setItem(INSTALL_OUTBOUND_KEY,JSON.stringify({...marker,phase:"unknown-outcome",outcomeCode:code||"status-unavailable"}));
+    return true;
+  }catch{return false}
+}
+function installTransferSchedulePoll(){
+  if(installTransferPollingTimer!==null)return;
+  const delay=installTransferPollingDelay;
+  installTransferPollingDelay=Math.min(60000,Math.max(5000,delay*2));
+  installTransferPollingTimer=setTimeout(()=>{
+    installTransferPollingTimer=null;
+    installTransferPollOutboundStatus();
+  },delay);
+}
 async function installTransferPollOutboundStatus(){
   if(installTransferPollingActive)return;
   installTransferPollingActive=true;
@@ -4743,21 +4765,81 @@ async function installTransferPollOutboundStatus(){
       source:{sourceRevision:readRevision(state)}
     });
     if(res?.ok&&res.state==="confirmed"){
+      installTransferStopPolling();
+      if($("#iosInstallSheet")?.classList.contains("is-open"))installTransferRenderState("success",res);
       showInstallBanner(true);
       return;
     }
     if(res?.ok&&res.state==="idle"&&res.remoteState==="expired"){
+      installTransferStopPolling();
       hideInstallBanner(true);
+      if($("#iosInstallSheet")?.classList.contains("is-open"))closeIosInstallSheet();
       toast(t("toast.transfer_expired")||"Transfer expired");
       return;
     }
+    if(res?.code==="transfer-pending"){
+      const marker=installTransferOutboundMarker();
+      const expiresAt=Date.parse(res.expiresAt||marker?.expiresAt||"");
+      if(Number.isFinite(expiresAt)&&Date.now()>=expiresAt+INSTALL_TRANSFER_POLL_MARGIN_MS){
+        installTransferPersistUnknown("poll-exhausted");
+        installTransferStopPolling();
+        if($("#iosInstallSheet")?.classList.contains("is-open"))installTransferRenderState("unknown",res);
+        showInstallBanner(true);
+        return;
+      }
+      showInstallBanner(true);
+      installTransferSchedulePoll();
+      return;
+    }
+    installTransferPersistUnknown(res?.code);
+    installTransferStopPolling();
+    if($("#iosInstallSheet")?.classList.contains("is-open"))
+      installTransferRenderState(res?.code==="claimed-expired"?"claimed-expired":"unknown",res);
     showInstallBanner(true);
-  }catch{}
+  }catch{
+    installTransferPersistUnknown("status-unavailable");
+    installTransferStopPolling();
+    if($("#iosInstallSheet")?.classList.contains("is-open"))installTransferRenderState("unknown");
+    showInstallBanner(true)}
   finally{
     installTransferPollingActive=false;
   }
 }
+async function installTransferCreateFromSafari(){
+  installTransferRenderState("creating");
+  try{
+    const browserClient=await installTransferBrowserClient();
+    const identity=installTransferReadJson(TELEMETRY_IDENTITY_KEY);
+    const sourceRevision=readRevision(state);
+    const result=await browserClient.client.create({
+      sections:installTransferSections(state),
+      source:{context:"browser",logicalInstallationId:identity?.installationId||"local-installation",sourceRevision},
+      consent:{enabled:true},
+      sourceAfter:()=>installTransferSections(state),
+      hasMeaningfulData:installTransferMeaningful(state),
+    });
+    if(result?.ok&&result.state==="ready"){
+      installTransferRenderState("ready",result);
+      installTransferStopPolling();
+      installTransferSchedulePoll();
+      return result;
+    }
+    if(result?.state==="terminalUnavailable"){
+      installTransferRenderState("retryable",result);
+      return result;
+    }
+    installTransferPersistUnknown(result?.code);
+    installTransferRenderState(result?.code==="claimed-expired"?"claimed-expired":"unknown",result);
+    return result;
+  }catch(error){
+    installTransferPersistUnknown(error?.message||"create-unknown-outcome");
+    const result={ok:false,state:"unknown-outcome",code:error?.message||"create-unknown-outcome"};
+    installTransferRenderState("unknown",result);
+    return result;
+  }
+}
 async function installTransferConfirmDivergence(){
+  installTransferStopPolling();
   try{
     const browserClient=await installTransferBrowserClient();
     await browserClient.client.confirmDivergence();
@@ -4774,9 +4856,8 @@ async function installTransferCheckOutboundOnBoot(){
   const marker=installTransferOutboundMarker();
   if(!marker||marker.phase==="resumedDiverged")return;
   showInstallBanner(true);
-  if(marker.phase==="awaiting-claim"||marker.phase==="creating"){
-    installTransferPollOutboundStatus();
-  }
+  if(marker.phase==="creating")installTransferCreateFromSafari();
+  else if(marker.phase==="awaiting-claim")installTransferPollOutboundStatus();
 }
 function installTransferBroadcast(type,value){
   try{
@@ -4848,6 +4929,7 @@ async function installTransferPrepareStandaloneBoot(){
     const inboundBefore=installTransferReadInboundMarker();
     const cookie=transfer.readTransferCookie({document});
     if(!cookie&&!inboundBefore)return{ok:true,absent:true};
+    openIosInstallSheet("claiming");
     if(inboundBefore?.phase==="local-committed"||inboundBefore?.phase==="cleanup-pending"){
       const standalone=await installTransferStandaloneClient();
       const cleanup=await standalone.client.commit();
@@ -4861,6 +4943,7 @@ async function installTransferPrepareStandaloneBoot(){
     const standalone=await installTransferStandaloneClient({preserveCleanupMarker:true});
     const claimed=await standalone.client.claim();
     if(!claimed?.ok||claimed.state!=="validating")return{ok:false,code:claimed?.code||"claim-failed",state:claimed?.state};
+    installTransferRenderState("importing",{expiresAt:claimed.expiresAt});
     const claimedMarker=await standalone.inbound.read();
     if(!claimedMarker?.sealedCredentials)return{ok:false,code:"claim-marker-missing"};
     let pair;
@@ -14908,7 +14991,14 @@ async function triggerInstall(){
     // offers the event again.
     if(outcome==="accepted"){hideInstallBanner(false);closeFirstRunInstall();toast(t("toast.installing"))}
     renderSettings();renderInstallSurfaces();return}
-  if(mode==="ios"){openIosInstallSheet();return}
+  if(mode==="ios"){
+    const marker=installTransferOutboundMarker();
+    const recoveryState=marker?.phase==="awaiting-claim"?"ready"
+      :marker?.phase==="creating"?"creating"
+      :marker?.phase==="confirmed"?"success"
+      :marker?.phase==="unknown-outcome"?(marker.outcomeCode==="claimed-expired"?"claimed-expired":"unknown")
+      :null;
+    openIosInstallSheet(recoveryState||(installTransferMeaningful(state)?"eligible":"manual"));return}
   if(mode==="safari"){showInstallBanner(true);return}
 }
 function installBannerEligible(){
@@ -14936,13 +15026,15 @@ function showInstallBanner(force){
       if(title)title.textContent=t("install.transfer.pending_title")||"Transfer in Progress";
       if(body)body.textContent=t("install.transfer.pending_body")||"Open Taurifer from your Home Screen to complete the transfer.";
     }else{
-      if(title)title.textContent=t("install.transfer.unknown_title")||"Transfer Outcome Unknown";
-      if(body)body.textContent=t("install.transfer.unknown_body")||"The transfer status could not be confirmed. If you opened the installed app, your data may have transferred.";
+      const claimedExpired=outboundMarker.outcomeCode==="claimed-expired";
+      if(title)title.textContent=t(claimedExpired?"install.transfer.claimed_expired_title":"install.transfer.unknown_title");
+      if(body)body.textContent=t(claimedExpired?"install.transfer.claimed_expired_body":"install.transfer.unknown_body");
     }
     if(act){
       act.classList.remove("hidden");
-      act.textContent=t("install.transfer.resume_action")||"Resume in browser";
-      act.onclick=()=>showInstallTransferDivergenceDialog(installTransferConfirmDivergence);
+      const pending=["awaiting-claim","creating"].includes(outboundMarker.phase);
+      act.textContent=t(pending?"install.card.ios_action":"install.transfer.resume_action")||"Resume in browser";
+      act.onclick=installMode()==="ios"?triggerInstall:()=>showInstallTransferDivergenceDialog(installTransferConfirmDivergence);
     }
     b.classList.remove("hidden");
     return;
@@ -14952,8 +15044,8 @@ function showInstallBanner(force){
   if(!force&&!installBannerEligible())return;
   $("#installBannerBody").innerHTML=mode==="safari"?esc(t("install.card.safari_only_body")):installInstructions();
   const act=$("#installBannerAction");
-  if(mode==="native"){act.classList.remove("hidden");act.textContent=t("install.action");act.onclick=null;}
-  else if(mode==="ios"){act.classList.remove("hidden");act.textContent=t("install.card.ios_action");act.onclick=null;}
+  if(mode==="native"){act.classList.remove("hidden");act.textContent=t("install.action");act.onclick=triggerInstall;}
+  else if(mode==="ios"){act.classList.remove("hidden");act.textContent=t("install.card.ios_action");act.onclick=triggerInstall;}
   else act.classList.add("hidden");
   b.classList.remove("hidden");
 }
@@ -14988,6 +15080,7 @@ function showInstallTransferDivergenceDialog(onConfirm){
     initialFocus:$("#divergenceDismiss"),
     onEscape:()=>closeModal(dialog)
   });
+  requestAnimationFrame(()=>{dialog.classList.add("is-open");scrim?.classList.add("is-open")});
   $("#divergenceDismiss").onclick=()=>{
     closeModal(dialog);
   };
@@ -15223,13 +15316,80 @@ function closeWhySheet(){
    points at Safari's own control. The bar it draws is an illustration of
    Safari, and the only third-party UI Taurifer ever draws — Chrome's install
    prompt is Chrome's to render, and we only ever ask for it. */
-function openIosInstallSheet(){
+let installTransferVisibleState="manual",privacyReturnsToTransfer=false;
+function installTransferTime(expiresAt){
+  const date=new Date(expiresAt);
+  if(Number.isNaN(date.valueOf()))return"";
+  try{return new Intl.DateTimeFormat(I18N?.getLang?.()==="pt"?"pt-BR":"en",{
+    dateStyle:"medium",timeStyle:"short"}).format(date)}catch{return date.toLocaleString()}}
+function installTransferContinueWithoutTransfer(){
+  const marker=installTransferOutboundMarker();
+  if(marker?.phase==="creating"&&!marker.sealedCredentials){
+    try{localStorage.removeItem(INSTALL_OUTBOUND_KEY)}catch{}
+  }
+  installTransferRenderState("manual")}
+function installTransferRenderState(stateName,detail={}){
+  const sheet=$("#iosInstallSheet");if(!sheet)return false;
+  const definitions={
+    manual:["install.ios.title","install.ios.sub",""],
+    eligible:["install.transfer.eligible_title","install.transfer.eligible_sub","install.transfer.eligible_body"],
+    creating:["install.transfer.creating_title","install.transfer.creating_sub","install.transfer.creating_status"],
+    ready:["install.transfer.ready_title","install.transfer.ready_sub","install.transfer.ready_status"],
+    retryable:["install.transfer.retryable_title","install.transfer.retryable_sub","install.transfer.retryable_status"],
+    claiming:["install.transfer.claiming_title","install.transfer.claiming_sub","install.transfer.claiming_status"],
+    importing:["install.transfer.importing_title","install.transfer.importing_sub","install.transfer.importing_status"],
+    success:["install.transfer.success_title","install.transfer.success_sub","install.transfer.success_status"],
+    cleanup:["install.transfer.cleanup_title","install.transfer.cleanup_sub","install.transfer.cleanup_status"],
+    terminal:["install.transfer.terminal_title","install.transfer.terminal_sub","install.transfer.terminal_status"],
+    destination:["install.transfer.destination_title","install.transfer.terminal_sub","install.transfer.destination_status"],
+    interrupted:["install.transfer.interrupted_title","install.transfer.terminal_sub","install.transfer.interrupted_status"],
+    unknown:["install.transfer.unknown_title","install.transfer.terminal_sub","install.transfer.unknown_body"],
+    "claimed-expired":["install.transfer.claimed_expired_title","install.transfer.terminal_sub","install.transfer.claimed_expired_body"],
+  };
+  const def=definitions[stateName]||definitions.interrupted;
+  installTransferVisibleState=stateName;
+  sheet.dataset.transferState=stateName;
+  const title=$("#iosInstallTitle"),sub=sheet.querySelector(".installsheet__sub"),body=$("#installTransferBody"),status=$("#installTransferStatus");
+  if(title){title.textContent=t(def[0]);title.tabIndex=-1}
+  if(sub)sub.textContent=t(def[1]);
+  if(body)body.textContent=stateName==="eligible"&&def[2]?t(def[2]):"";
+  if(status)status.textContent=!['manual','eligible'].includes(stateName)&&def[2]?t(def[2]):"";
+  $("#installTransferIntro")?.classList.toggle("hidden",!["eligible","retryable"].includes(stateName));
+  $("#iosInstallInstructions")?.classList.toggle("hidden",!["manual","ready"].includes(stateName));
+  const expiry=$("#installTransferExpiry"),formatted=installTransferTime(detail.expiresAt);
+  if(expiry){expiry.textContent=formatted?t("install.transfer.expires",{time:formatted}):"";expiry.classList.toggle("hidden",!formatted)}
+  const actions=$("#installTransferActions"),start=$("#installTransferStart"),retry=$("#installTransferRetry"),cont=$("#installTransferContinue"),done=$("#iosInstallDone"),close=$("#iosInstallClose");
+  actions?.classList.toggle("hidden",!["eligible","retryable","success","cleanup","terminal","destination","interrupted","unknown","claimed-expired"].includes(stateName));
+  start?.classList.toggle("hidden",stateName!=="eligible");
+  retry?.classList.toggle("hidden",!["retryable","cleanup","interrupted"].includes(stateName));
+  const canContinue=["eligible","retryable","success","cleanup","terminal","destination","unknown","claimed-expired"].includes(stateName);
+  cont?.classList.toggle("hidden",!canContinue);
+  if(cont)cont.textContent=t(["eligible","retryable"].includes(stateName)?"install.transfer.without"
+    :["unknown","claimed-expired"].includes(stateName)?"install.transfer.resume_action":"install.transfer.continue");
+  done?.classList.toggle("hidden",!["manual","ready"].includes(stateName));
+  const busy=["creating","claiming","importing"].includes(stateName);
+  sheet.setAttribute("aria-busy",busy?"true":"false");
+  close?.classList.toggle("hidden",busy||["interrupted","unknown","claimed-expired"].includes(stateName));
+  if(activeModal?.el===sheet)
+    activeModal.onEscape=busy||["interrupted","unknown","claimed-expired"].includes(stateName)?undefined:closeIosInstallSheet;
+  if(retry)retry.onclick=()=>isStandalone()?location.reload():installTransferCreateFromSafari();
+  if(cont)cont.onclick=()=>["eligible","retryable"].includes(stateName)?installTransferContinueWithoutTransfer()
+    :["unknown","claimed-expired"].includes(stateName)?installTransferRequestDivergence()
+    :closeIosInstallSheet();
+  if(["ready","retryable","success","cleanup","terminal","destination","interrupted","unknown","claimed-expired"].includes(stateName))
+    queueMicrotask(()=>{try{title?.focus({preventScroll:true})}catch{}});
+  return true}
+function openIosInstallSheet(stateName){
   const sheet=$("#iosInstallSheet"),scrim=$("#iosInstallScrim");
   if(!sheet)return;
+  const selected=stateName||((!isStandalone()&&installTransferMeaningful(state))?"eligible":"manual");
+  installTransferRenderState(selected);
   const host=$("#iosInstallHost");
   if(host)host.textContent=location.hostname||"";
   document.body.classList.add("is-sheet-open");
-  openModal(sheet,{initialFocus:$("#iosInstallDone"),onEscape:closeIosInstallSheet,scrim,
+  const initial=selected==="eligible"?$("#installTransferStart"):selected==="manual"?$("#iosInstallDone"):$("#iosInstallTitle");
+  const dismissable=!["creating","claiming","importing","interrupted","unknown","claimed-expired"].includes(selected);
+  openModal(sheet,{initialFocus:initial,onEscape:dismissable?closeIosInstallSheet:undefined,scrim,
     delayHide:reducedMotion()?0:280});
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
 function closeIosInstallSheet(){
@@ -15237,6 +15397,23 @@ function closeIosInstallSheet(){
   if(!sheet)return Promise.resolve(false);
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
   return closeModal(sheet)}
+function openPrivacySheet({fromTransfer=false}={}){
+  const sheet=$("#privacySheet"),scrim=$("#privacyScrim");if(!sheet)return;
+  privacyReturnsToTransfer=fromTransfer;
+  openModal(sheet,{scrim,handoff:fromTransfer,initialFocus:$("#privacyClose"),onEscape:closePrivacySheet,
+    returnFocus:fromTransfer?$("#installTransferPrivacy"):document.activeElement,delayHide:reducedMotion()?0:280});
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")})}
+async function closePrivacySheet(){
+  const returns=privacyReturnsToTransfer;privacyReturnsToTransfer=false;
+  await closeModal($("#privacySheet"));
+  if(returns){
+    openIosInstallSheet(installTransferVisibleState);
+    queueMicrotask(()=>$("#installTransferPrivacy")?.focus({preventScroll:true}));
+  }}
+async function installTransferRequestDivergence(){
+  await closeIosInstallSheet();
+  showInstallBanner(true);
+  showInstallTransferDivergenceDialog(installTransferConfirmDivergence)}
 
 // ---- Feature tour (bottom-sheet coach that walks every feature) ----
 const TOUR=[
@@ -15396,7 +15573,8 @@ function endTour(completed){
   maybeShowInstallBanner()}
 function maybeStartTour(){if(uiPrefs.tourDone)return false;if($("#onboarding")?.classList.contains("active"))return false;startTour("first-run");return true}
 window.startTour=startTour;window.closeTour=()=>{if(tourActive)endTour(false)};
-window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,startTour,currentTheme,resolvedTheme,setTheme};
+window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,startTour,currentTheme,resolvedTheme,setTheme,
+  openInstallTransferState:stateName=>openIosInstallSheet(stateName),openPrivacy:()=>openPrivacySheet()};
 function resumeProgramEditFollowUp(){
   if(state?.[STORAGE_FOLLOWUP]?.kind!=="onboarding-edit")return false;
   programEditMode=true;
@@ -15455,6 +15633,12 @@ function init(){
     if(sharedStart.disabled)return;
     await commitSharedSetup(storageIO)};
   $("#whyClose").onclick=closeWhySheet;
+  $("#installTransferStart").onclick=installTransferCreateFromSafari;
+  $("#installTransferPrivacy").onclick=()=>openPrivacySheet({fromTransfer:true});
+  $("#privacyDetails").onclick=()=>openPrivacySheet();
+  $("#privacyClose").onclick=closePrivacySheet;
+  $("#privacyScrim").onclick=closePrivacySheet;
+  $("#iosInstallClose").onclick=closeIosInstallSheet;
   $("#iosInstallDone").onclick=closeIosInstallSheet;
   $("#iosInstallScrim").onclick=closeIosInstallSheet;
   $("#tourBack").onclick=()=>{if(tourStep>0){tourStep--;renderTour()}};
@@ -16107,18 +16291,35 @@ async function boot(){
       decision=await resolveBootReplicas(candidate)}
     await applyBootDecision(decision);
     const preBootTransfer=await runInstallTransferPreBootRequest();
-    if(preBootTransfer?.ok!==true)return preBootTransfer||{ok:false,code:"preboot-import-failed"};
+    if(preBootTransfer?.ok!==true)return{...(preBootTransfer||{ok:false,code:"preboot-import-failed"}),decision};
     const standalonePrepared=await installTransferPrepareStandaloneBoot();
-    if(standalonePrepared?.ok!==true)return standalonePrepared||{ok:false,code:"standalone-transfer-failed"};
+    if(standalonePrepared?.ok!==true)return{...(standalonePrepared||{ok:false,code:"standalone-transfer-failed"}),decision,productRecovery:true};
     const standaloneTransfer=await installTransferCompleteStandaloneBoot(standalonePrepared);
-    if(standaloneTransfer?.ok!==true)return standaloneTransfer||{ok:false,code:"standalone-transfer-failed"};
+    if(standaloneTransfer?.ok!==true)return{...(standaloneTransfer||{ok:false,code:"standalone-transfer-failed"}),decision,productRecovery:true};
     return{ok:true,decision,transferResult:standaloneTransfer};
   };
   const transferResult=await installTransferBootNeedsLock()
     ?await withInstallTransferLock(transferWork):await transferWork();
   if(transferResult?.ok!==true){
     window.__repforgeBootFailure=transferResult;
-    throw new Error(transferResult?.code||"install-transfer-failed")}
+    if(transferResult.productRecovery!==true)throw new Error(transferResult?.code||"install-transfer-failed");
+    const blockedImportMarker=await installTransferReadMarker();
+    if(blockedImportMarker){
+      openIosInstallSheet("interrupted");
+      return;
+    }
+    if(!state){
+      state=normalizeLoaded(null);
+      prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
+      state.programMeta=normalizeProgramMeta(state.programMeta,state.log,state.program);
+      resetPersistenceBase(state);day=days()[0]||"Day 1";
+      if(I18N)I18N.setLang(resolveLang())}
+    init();
+    const failureState=transferResult.code==="destination-meaningful"?"destination"
+      :transferResult.state==="terminalUnavailable"||["service-unavailable","transfer-cookie-missing","claim-credential-invalid"].includes(transferResult.code)?"terminal"
+      :"interrupted";
+    openIosInstallSheet(failureState);
+    return}
   const decision=transferResult.decision;
   bootTelemetry();
   if(transferResult.transferResult?.localOk===true){
@@ -16141,6 +16342,8 @@ async function boot(){
   if(draftBoot.status==="ready")hydrateWorkoutDraft({restoreDay:true});
   resumeProgramEditFollowUp();
   init();
+  if(transferResult.transferResult?.localOk===true){
+    openIosInstallSheet(transferResult.transferResult.cleanup?.ok===true?"success":"cleanup")}
   if(draftBoot.status!=="ready"&&draftBoot.status!=="absent")showDraftInitializationRecovery(draftBoot);
   captureEvent("app_boot",{first_run:firstRunPending(),language:I18N?.getLang?.()==="pt"?"pt":"en",platform_class:telemetryPlatformClass()});
   if(sharedSetupDraft.status==="existing")toast(t("setup.shared.existing"),{assertive:true});
