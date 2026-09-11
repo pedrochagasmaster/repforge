@@ -46,7 +46,10 @@ separate teams or synchronized delivery dates.
 | Work | Required outcome | Governing detail |
 |---|---|---|
 | Deliver the owner-approved UI overhaul | Execute Plans 049–059 in DAG order with owner gates honored: reconciled contracts, verified defect fixes, DraftV2/transition/transfer foundations, landing/entry, Focus-only workout, truthful Progress, converged management surfaces, system migration, and same-SHA launch validation. No governing current-tense document contradicts G-01–G-88. | [Plan 049](../plans/049-ui-overhaul-canonical-reconciliation.md), [sequence](ui-overhaul-implementation-sequence.md), [dispositions](ui-overhaul-disposition-register.md) |
+| Complete the post-Plan053 durable-state architecture bridge | After owner-approved Plan 053 merges, normalize one outcome-oriented durable transaction result contract, then extract foreground commit, WAL/journal, WebLock, replica settlement/recovery, DraftV2 transaction-sidecar coordination, and boot recovery behind one tested owner. Preserve all existing durable formats and Plan 051–053 semantics. This is the only standalone architecture tranche inserted before Plan 054. | [Architecture plan](taurifer-architecture-refactoring-plan.md), [overhaul sequence](ui-overhaul-implementation-sequence.md) |
 | Finish launch-readiness evidence | Complete the remaining real-device iOS/VoiceOver and Android/TalkBack cells, with the exact release-candidate build and evidence required by Plan 041. The implementation itself landed in PR #114. | [Plan 041](../plans/041-prelaunch-all-findings-remediation.md) |
+
+> The remaining PR #239 architecture findings are not a second queue. They are absorbed into Plans 054–059 as explicit implementation/acceptance deltas: entry/lifecycle ownership in 054/057; workout-session and gesture ownership in 055; historical projections in 056; release/cache, presentation and obsolete-path convergence in 058; and final architecture/evidence closure in 059.
 
 The measurement foundation, shared progression engine, program families, and
 entry/onboarding flow (Plans 045–048) are implemented; their rows moved to
@@ -56,6 +59,7 @@ The rolling alpha starts organically, one participant at a time, after these
 foundations are credible. There is no synchronized cohort, special research
 onboarding, individual program audit, payment, fake door, or stable entitlement
 promise.
+
 
 ## 2. Next — complete the program relationship
 
@@ -133,10 +137,10 @@ These are real but do not outrank the foundation above.
 
 ## 6. Engineering debt
 
+> The former draft-result-contract and persistence-extraction debt items were promoted by owner decision into the post-Plan053 architecture bridge in the Now sequence. They are no longer independent Later work.
+
 | Status | Item | Boundary |
 |---|---|---|
-| Later | One draft-transaction result contract | Replace the mixture of result kinds/flags with one documented shape without weakening partial-write and compensation semantics. |
-| Later | Extract the persistence protocol | Move the dual-replica write, WAL, lock rebasing, and recovery protocol out of `app.js` behind a tested module boundary. This is a refactor, not a storage rewrite. It also unblocks the generative recommendation-determinism/provenance and backup round-trip properties, which are deliberately waiting on a clean domain seam rather than scraping `app.js`; sequence it against the overhaul's persistence-adjacent work (Plans 051–053) rather than after it. |
 | Later | Systematic exercise alias pass | Editorial pass over all 270 movements in `tools/exercise-curation.json`, adding gym vernacular, acronyms and morphological variants in EN and PT. Plan 061 aliases only what its corpus proves broken; this is the rest. Boundary: aliases add ways to reach an entry and never repoint a `libraryId` at a different movement. |
 | Later | Centralize browser-test helpers | Unify app boot, lock fixtures, state seeding, and common browser assertions without hiding test intent. |
 | Completed | History identity/search contract | Current History matching uses performed library/movement identity for aliases and preserves immutable performed labels; focused tests hold the rule. |

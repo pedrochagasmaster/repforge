@@ -10,9 +10,10 @@ live SHAs, thread ID, server origin, and PID before dispatch.
 - **Phase:** 8 — Public-launch validation
 - **Status:** Planned; implementation has not started
 - **Owner approval state:** Validation method is approved; final launch sign-off belongs to the owner
-- **Depends on:** Plans 049–058 merged and owner gates within them closed
+- **Depends on:** Plans 049–058, the durable-state bridge, their architecture acceptance deltas, and all existing owner gates. No implementation plan is authorized early by this final verification allocation.
 - **Blocks:** Public-launch UI/UX acceptance; it does not authorize release/merge by itself
 - **Governing G decisions:** G-01, G-05–G-06, G-59, G-74–G-76, G-83
+- **Architecture-audit ownership:** Candidate F final-SHA release/cache verification; Candidate G complete runtime/test-scope closure; R9 final architecture/evidence closure; verification of every owner-ratified PR239 disposition.
 - **Governing UI findings:** UI-04, UI-31, and regression evidence for UI-01–UI-32
 - **Affected surfaces:** Entire shipped PWA, complete catalog, browser/installed modes, service worker/offline, accessibility, telemetry/privacy/release documentation
 - **Complexity:** High
@@ -58,6 +59,22 @@ Acceptance explicitly protects Taurifer's identity/palette, token-swap themes, S
 - The service-worker shell and the **six** protected script query revisions (`program-compiler.js`, `program-entry.js`, `program-entry-adapter.js`, `shared-setup.js`, `workout-draft.js`, `app.js`) must remain in lockstep at the live revision (`repforge-v188` / `?v=188` on `c3491c5e`), not any documented number.
 
 ## Architecture
+
+### Architecture-audit adoption: final architecture and evidence closure
+
+Extend the existing release evidence manifest rather than create another
+roadmap or acceptance system. Account for every PR239 A–H candidate (including
+both H concerns) and R0–R9 disposition from the owner-ratified architecture table.
+
+1. On the exact final candidate SHA, verify one durable settlement/recovery authority, one DraftV2 store with its accepted session owner, one entry/lifecycle workflow, and one explicitly mounted/disposed gesture owner. No obsolete delegate may conceal a second implementation.
+2. Verify earned historical-projection and exercise-vocabulary reuse against actual consumers. An explicit, evidenced decision that generalization was not earned is valid where the governing plan allows it; speculative modules or orphaned findings are not.
+3. Verify Plan 058's executable release/cache contract, required/optional runtime policies, offline and old/new-worker behavior, and complete source/privacy/syntax coverage. All extracted runtime code must be in the verified scope.
+4. Verify that tests follow the production interfaces, removed scenarios have named equivalent evidence, every executable suite is registered once, unknown executable inputs remain conservative, and the merged PR238 runner remains the only suite scheduler. Diagnostic replay never changes a failed authoritative result to pass.
+5. Bind each architecture finding to its owning bridge/plan, implementation or explicitly allowed non-extraction disposition, current consumer, exact-SHA command/artifact and acceptance result. Missing evidence is open/failed/blocked, not inferred from historical green runs.
+6. Preserve all existing owner, physical-device, accessibility, staging, privacy and same-SHA gates. Plan 053's accepted old-SHA staging/device evidence establishes its predecessor contract; it is not new-SHA release proof. Route defects to their existing owner and rerun affected plus broad evidence after any source change.
+
+This plan verifies closure; it does not resume later architecture redesign or
+weaken thresholds to make the final manifest green.
 
 ### Release evidence manifest
 
@@ -184,6 +201,11 @@ Create one allowlist/schema document and executable payload test for the events 
 Allowed common properties are event schema version, coarse platform/display context, locale, plan-defined step/outcome code, and non-content experiment/config ID if already approved. Prohibit program/exercise IDs or names, sets/loads/reps/RIR/bodyweight, notes, readiness answers, exact dates, transfer/setup token/payload/URL, exact payload size, archive/draft contents, and cross-device identifiers beyond the existing pseudonymous installation ID. Consent-off emits nothing. No metric has an automatic decision threshold; owner reviews post-launch evidence.
 
 ## Testing and executable evidence
+
+The release evidence manifest must include the complete PR239 disposition
+matrix and the final architecture checks above, with explicit pass/fail/open
+or allowed non-extraction evidence. Reconcile it with the UI/G decisions and
+existing physical-device/owner gates on one immutable candidate SHA.
 
 ### Finding regression map
 

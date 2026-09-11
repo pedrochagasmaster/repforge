@@ -12,9 +12,10 @@ live SHAs, thread ID, server origin, and PID before dispatch.
 - **Owner approval state:** Flow and evidence policy plus recovery policy
   version 2 are approved; implementation must preserve the closed recovery
   contract and still provide its required evidence
-- **Depends on:** Plan 049; Plan 050; Plan 052 transition/provenance foundation. Progress contextual cues integrate with Plan 054's registry. Plans 049/050 are merged on main `c3491c5e`; **Plan 052 is in progress (PR #228) and not yet merged** — packets that call its proposal API (056-P6, 056-P7) are gated on 052's matching rows merging, and consume `RepForgeProgramTransition`, never a parallel lifecycle engine
+- **Depends on:** Plan 049; Plan 050; merged Plan 052 transition/provenance foundation; the durable-state bridge and Plan 054 transitively/currently under the hard sequence. Progress cues consume Plan 054's registry. Plans 051–053 are merged at `bad6cc9d`; consume `RepForgeProgramTransition`, never a parallel lifecycle engine.
 - **Blocks:** Progress-owned Plan 057 integration, Plan 058 system convergence, and Plan 059 launch validation
 - **Governing G decisions:** G-11, G-24, G-27, G-29–G-36, G-38, G-49, G-53–G-56, G-60–G-61, G-69–G-70
+- **Architecture-audit ownership:** Candidate E / R8 historical snapshot projection; Progress portion of Candidate G interface-oriented tests.
 - **Governing UI findings:** UI-08, UI-09, UI-10, UI-11, UI-12, and chart-policy part of UI-29
 - **Affected surfaces:** Progress Overview/Review/Evidence, Strength/Volume/PRs, Program end-block entry, transition diagnosis/preview/confirmation, guided editor handoff, recovery-week status
 - **Complexity:** Very high
@@ -75,6 +76,25 @@ Preserve deterministic progression/`Why this weight?` facts, compiler provenance
 - Current catalog has Overview, exercise chart, Strength, Volume, PRs, and Review frames. Baseline runtime exposes fresh-program attention and partial-block arithmetic that this plan replaces.
 
 ## Architecture
+
+### Architecture-audit adoption: acknowledged historical projections
+
+Extend this plan's existing pure Progress view-model module; do not create a
+competing module or progression/evidence engine.
+
+1. Progress calculations consume an explicit acknowledged snapshot rather than reaching into mutable global state ad hoc.
+2. The first extracted historical projection must have at least two genuine production consumers before being generalized.
+3. Valid candidates include a coherent history/session/evidence selection projection reused by two of Overview, Review, Strength/Volume evidence, or later Summary/Today management consumers.
+4. If inspection finds no honest second consumer, DO NOT create a generic read-model subsystem. Keep the calculation local and record that the broader extraction was not earned.
+5. Projection output is data/codes, never localized HTML.
+6. Preserve distinct meanings of performed e1RM, RIR-adjusted capacity, actual volume, planned volume, and outcome evidence.
+7. Cache/index invalidation must be tied to acknowledged snapshot identity/revision, not array length or last timestamp.
+8. Prove identical snapshots → identical results; same-length correction invalidates prior projection; exercise display rename does not change movement identity; archived and current program evidence are not conflated; and presentation formatting cannot alter progression-engine inputs.
+9. Measure representative small and accumulated histories before claiming performance improvement.
+
+Keep the existing progression engine authoritative. The second-consumer gate
+is a real acceptance decision, not permission to invent a consumer or to ship
+later management UI early.
 
 ### Progress view model boundary
 
@@ -224,6 +244,12 @@ Readiness answers, evidence details, and proposal diffs stay local/backup and ou
 Only approved coarse task outcomes: Progress Overview/Review/Evidence opened; baseline/action item opened; transition kind previewed/confirmed/canceled/failed by coarse reason; guide completed/dismissed. Do not send exercise/program IDs, performance values, readiness answers, exact dates, diffs, or recovery eligibility facts. Owner interpretation only; no automatic redesign or transition.
 
 ## Testing and executable evidence
+
+Historical-projection acceptance includes the deterministic snapshot,
+same-length correction, stable movement identity, archive/current separation,
+and presentation/engine boundary tests above. Record the two real production
+consumers, or explicitly record that generalization was not earned. Retain
+small/accumulated-history measurements with the tested SHA.
 
 ### Pure/scoped evidence
 

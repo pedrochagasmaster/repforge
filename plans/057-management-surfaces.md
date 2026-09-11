@@ -10,9 +10,10 @@ live SHAs, thread ID, server origin, and PID before dispatch.
 - **Phase:** 6 — Management surfaces
 - **Status:** Planned; implementation has not started
 - **Owner approval state:** Approved direction; final owner phone review remains
-- **Depends on:** Plan 049; Plan 050; Plan 054 Privacy/guide registry; Plan 055 workout/session integration; Plan 056 outcome/Review contracts
+- **Depends on:** Plan 049; Plan 050; the merged durable-state bridge plus the architecture outputs of Plans 054–056: entry/lifecycle host and Privacy/guide registry, accepted workout-session owner, and outcome/Review contracts with any earned historical projection.
 - **Blocks:** Plan 058 full-system convergence and Plan 059 launch validation
 - **Governing G decisions:** G-12–G-14, G-17, G-23–G-24, G-38, G-45–G-46, G-49, G-60, G-62–G-69, G-80
+- **Architecture-audit ownership:** Candidate C / R7 installed-management completion; Candidate H shared vocabulary completion; management portion of R5 caller migration.
 - **Governing UI findings:** UI-13, UI-14, UI-24, UI-25, UI-26, UI-27, UI-28
 - **Affected surfaces:** History session/read/edit/delete, Share setup/repair, session summary, Today, Program overview/editor/actions, Settings/help/privacy, rest-timer visual semantics
 - **Complexity:** Very high
@@ -61,6 +62,17 @@ Preserve History/session facts, Share's fail-closed exact-identity boundary, Sum
 - Timer behavior exists in Focus header/sheet. Plan 055 fixes its reserved geometry; current ring and primary control both use orange and icon systems mix fill/stroke weight.
 
 ## Architecture
+
+### Architecture-audit adoption: management workflow convergence
+
+1. History Save/Delete, Program replacement/editor activation, Share repair return, and other durable management writes consume the normalized durable-state outcome rather than raw WAL/replica flags.
+2. History UI-local working copies remain volatile until explicit Save. The workflow owner delegates atomic durability to the durable-state owner and interprets only the normalized outcome.
+3. Program replacement/editor activation must reuse the entry/lifecycle host established in Plan 054 rather than create a second activation workflow.
+4. Retry after an already committed replacement must be idempotent and must not create another archive/program transition.
+5. Full backup, history merge, setup/share and install-transfer remain distinct workflows.
+6. If Plan 054 established a shared exercise catalogue/search vocabulary seam, migrate Share/repair/Program/search consumers to it; remove compatibility exports from `ProgramEntryAdapter` only after all entry + management identity tests are green; preserve exact library/custom/historical identity; and never fuzzy-repoint an established ID.
+7. If Plan 056 proves an acknowledged historical projection, Summary/Today/Program consumers reuse it where semantically identical. Do not create parallel calculations merely for management rendering.
+8. Keep presentation concerns outside workflow/domain owners.
 
 ### History read/edit state machine
 
@@ -205,6 +217,17 @@ Share displays no privacy/transport essay and leaks no invalid program payload. 
 Only Phase 049-approved coarse task outcomes: History read/edit/save/cancel/delete confirmation outcome; Share blocked count bucket/repair opened/valid share outcome; Settings guide replay; Program readiness navigation. Do not send names, row values, dates, blocker identity/reason details granular enough to reveal exercise content, notes, bodyweight, payload/URL, or deletion data. Owner interpretation only.
 
 ## Testing and executable evidence
+
+Architecture acceptance additionally proves:
+
+- History partial/replica failure never appears saved; stale History save/delete remains conflict, not silent merge.
+- Replacement retry after acknowledged commit archives exactly once.
+- Share repair cannot change unrelated exercise identity.
+- Vocabulary migration leaves import/share/picker identity fixtures byte/semantically equivalent.
+- Legacy formats continue to decode.
+
+Conditional reuse follows the actual accepted 054/056 outputs; it must not
+manufacture a second vocabulary or historical projection.
 
 - History read/edit state-machine tests: selection replaces calendar; Back restores; no mutation before Save; Cancel exact; Save atomic; stale two-tab conflict; delete separate/confirmed; full names; locale dates.
 - Share valid and every-blocker journeys: list equality with validator; per-row stable Repair; built-in/custom/missing facts; cancel/success/stale return; fail-closed actions; no fuzzy/omission/fabrication; length/no-truncation; task-only copy.

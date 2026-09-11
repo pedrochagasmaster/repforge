@@ -20,8 +20,11 @@ boundary.
 
 Do not start an implementation branch until the planning PR is owner-approved.
 That approval is merged, and so are Plans 049 (PR #222), 050 (PR #227), and
-051 (PR #226). Plan 052 has published work in PR #228. Resume that work rather
-than creating a replacement branch. Plans 052–059 proceed in the sequence DAG's order. The
+051 (PR #226), 052 (PR #228), and owner-approved 053 (PR #235). The post-053
+base is `bad6cc9d04fd34889745cce0ea200cc9d9d7e6b5`. The owner has ratified one
+unnumbered durable-state bridge before Plan 054; its completion and merge are
+still required. Plans 054–059 absorb the remaining PR239 findings as explicit
+acceptance deltas and proceed in the sequence DAG's order. The
 post-Wave-3 product roadmap remains deferred; none of its unrelated features
 may be pulled into these plans.
 
@@ -32,8 +35,9 @@ may be pulled into these plans.
 | [049](./049-ui-overhaul-canonical-reconciliation.md) | 0 | **IMPLEMENTED** | Reconcile canonical contracts and specify semantic roles, transition/recovery provenance, and the bounded transfer exception. Dispositions: [`docs/ui-overhaul-disposition-register.md`](../docs/ui-overhaul-disposition-register.md). |
 | [050](./050-ui-correctness-and-catalog-leverage.md) | 1 | **IMPLEMENTED** | Fix verified UI-01–UI-07 defects and UI-29's fixture; add copy/overflow/risk-matrix leverage. |
 | [051](./051-workout-draft-state-foundation.md) | 2A | **IMPLEMENTED — PR #226** | Replace hidden DOM ownership with versioned, crash-safe DraftV2 state. |
-| [052](./052-block-transition-provenance-foundation.md) | 2B | **IMPLEMENTATION IN PROGRESS — PR #228** | Make block transitions reconstructable, preview-hashed, provenance-preserving, and atomic. |
-| [053](./053-ios-install-transfer-foundation.md) | 2C | **PLANNED — DEPENDS ON 049/051** | Build the narrowly scoped one-hour encrypted iOS install transfer and recovery snapshot. |
+| [052](./052-block-transition-provenance-foundation.md) | 2B | **IMPLEMENTED — PR #228** | Make block transitions reconstructable, preview-hashed, provenance-preserving, and atomic. |
+| [053](./053-ios-install-transfer-foundation.md) | 2C | **IMPLEMENTED — PR #235** | Build the narrowly scoped one-hour encrypted iOS install transfer and recovery snapshot. |
+| [Bridge](../docs/taurifer-architecture-refactoring-plan.md#owner-ratified-disposition-after-plan-053) | 2D | **AUTHORIZED — MUST FINISH BEFORE 054** | Normalize one durable outcome and extract settlement/recovery under accepted Plans 051–053; no new numbered plan or second queue. |
 | [054](./054-landing-and-program-entry.md) | 3 | **PLANNED — OWNER VISUAL GATE** | Deliver the selected product-led landing, adaptive shared entry, five-job hierarchy, install policy, guides, and Privacy page. |
 | [055](./055-focus-only-workout.md) | 4 | **PLANNED — DEPENDS ON 051** | Reach capability parity in Focus, add read-only Preview/scope layers, then delete List. |
 | [056](./056-progress-and-block-lifecycle.md) | 5 | **PLANNED — DEPENDS ON 052** | Correct Progress scope/evidence and expose only exact, confirmed block transitions. |
@@ -44,7 +48,8 @@ may be pulled into these plans.
 Phase 2 has three independently mergeable plans because workout data loss,
 program-transition provenance, and temporary backend security have distinct
 failure and rollback boundaries. Their combined completion gate closes the
-phase.
+phase. The owner-ratified unnumbered bridge follows 053 and must merge before
+054 production implementation. Its scheduling does not authorize 054–059 early.
 
 Implementation PRs stop at **OWNER REVIEW** after their engineering gates pass.
 Only an explicit owner instruction authorizes merge. A merged predecessor does
