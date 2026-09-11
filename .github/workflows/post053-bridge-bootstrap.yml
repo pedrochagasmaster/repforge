@@ -15,7 +15,6 @@ jobs:
     env:
       BASE_SHA: bad6cc9d04fd34889745cce0ea200cc9d9d7e6b5
       ACCEPTED_053: dd704100151fa476e8be6d35bd8d68e931479259
-      PLAYWRIGHT_BROWSERS_PATH: ${{ runner.temp }}/post053-pinned-browsers
     steps:
       - uses: actions/checkout@v5
         with:
@@ -35,6 +34,7 @@ jobs:
             echo 'Refusing to archive a checkout with credential configuration.' >&2
             exit 1
           fi
+          echo "PLAYWRIGHT_BROWSERS_PATH=$RUNNER_TEMP/post053-pinned-browsers" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v5
         with:
           node-version: '22'
