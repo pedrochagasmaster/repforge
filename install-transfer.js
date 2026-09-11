@@ -661,6 +661,7 @@
         }
         return stateResult(success({ state: "ready", expiresAt: existing.expiresAt, stale: existing.mutatedAfterCreation === true }));
       }
+      if (existing?.phase === "resumedDiverged") existing = null;
       if (existing?.phase === "confirmed") return unavailable("transfer-already-complete", "terminalUnavailable");
       if (existing && existing.phase !== "creating") return unavailable("marker-invalid", "unknown-outcome");
       if (existing && !validString(existing.idempotencyKey, { max: IDENTIFIER_MAX_CHARS })) return unavailable("marker-invalid", "unknown-outcome");
@@ -895,7 +896,7 @@
       recoveryState = "none";
       return stateResult(success({ state: "idle", remoteState: "expired", expiresAt: recovery.expiresAt }));
     }
-    async function statusLocked() {
+    async function statusLocked({ source } = {}) {
       if (context !== "browser") return stateResult(failure("wrong-context", "idle"));
       if (!outbound || !credentials) return unavailable("storage-unavailable");
       let marker;
@@ -904,7 +905,11 @@
       if (marker?.phase === "confirmed" && marker.recoverySnapshot) {
         if (!clearTransferCookie({ document, location })) return unavailable("cookie-clear-failed", "unknown-outcome");
         recoveryState = "confirmed";
-        return stateResult(success({ state: "confirmed", remoteState: "deleted", expiresAt: marker.recoverySnapshot.expiresAt }));
+        return stateResult(success({ state: "confirmed", remoteState: "deleted", expiresAt: marker.recoverySnapshot.expiresAt, recoverySnapshot: marker.recoverySnapshot }));
+      }
+      if (marker?.phase === "resumedDiverged") {
+        recoveryState = "resumedDiverged";
+        return stateResult(success({ state: "idle", recoveryState: "resumedDiverged" }));
       }
       if (marker?.phase === "cleanup-pending") return finishOutboundCleanup(marker);
       if (!marker?.sealedCredentials) return stateResult(unavailable("credential-unavailable", "unknown-outcome"));
@@ -927,7 +932,7 @@
           confirmedAt,
           expiresAt: reply.body.expiresAt,
           sourceRevision: Number.isSafeInteger(marker.sourceRevision) ? marker.sourceRevision : undefined,
-          mutatedAfterCreation: marker.mutatedAfterCreation === true,
+          mutatedAfterCreation: marker.mutatedAfterCreation === true || (Number.isSafeInteger(source?.sourceRevision) && marker.sourceRevision !== undefined && source.sourceRevision !== marker.sourceRevision),
         };
         if (recovery.sourceRevision === undefined) delete recovery.sourceRevision;
         try {
@@ -948,17 +953,58 @@
         if (!clearTransferCookie({ document, location })) return unavailable("cookie-clear-failed", "unknown-outcome");
         return finishOutboundCleanup({ version: 1, phase: "cleanup-pending", cleanupState: "expired", recoverySnapshot: recovery, sealedCredentials: marker.sealedCredentials, credentialKeyId: marker.sealedCredentials.keyId });
       }
-      recoveryState = reply.body.state === "claimed-expired" ? "awaitingClaimOutcome" : recoveryState;
-      return stateResult(unavailable(reply.body.state === "claimed-expired" ? "claimed-expired" : "status-unavailable", "unknown-outcome"));
+      if (reply.body.state === "claimed-expired") {
+        recoveryState = "resumeWarning";
+        return stateResult(unavailable("claimed-expired", "unknown-outcome"));
+      }
+      return stateResult(unavailable("status-unavailable", "unknown-outcome"));
     }
-    async function status() {
-      return withOperationLock(OPERATION_NAMES.status, statusLocked);
+    async function status(options) {
+      return withOperationLock(OPERATION_NAMES.status, () => statusLocked(options));
+    }
+    async function confirmDivergenceLocked() {
+      if (context !== "browser") return stateResult(failure("wrong-context", "idle"));
+      if (!outbound) return unavailable("storage-unavailable");
+      let marker;
+      try { marker = await outbound.read(); }
+      catch { return unavailable("marker-read-failed", "unknown-outcome"); }
+      if (!marker) {
+        recoveryState = "resumedDiverged";
+        currentState = "idle";
+        return stateResult(success({ state: "resumedDiverged" }));
+      }
+      if (marker.sealedCredentials) {
+        try { await credentials?.forget("browser-outbound", marker.sealedCredentials); } catch {}
+      }
+      clearTransferCookie({ document, location });
+      const divergedMarker = {
+        version: 1,
+        phase: "resumedDiverged",
+        divergedAt: timestampNow(),
+        recoverySnapshot: marker.recoverySnapshot || null,
+      };
+      try {
+        await outbound.write(divergedMarker);
+      } catch {
+        return unavailable("marker-write-failed", "unknown-outcome");
+      }
+      recoveryState = "resumedDiverged";
+      currentState = "idle";
+      return stateResult(success({ state: "resumedDiverged" }));
+    }
+    async function confirmDivergence() {
+      return withOperationLock(OPERATION_NAMES.status, confirmDivergenceLocked);
+    }
+    function dismiss() {
+      return { ok: true, recoveryState, state: currentState };
     }
     return Object.freeze({
       create,
       claim,
       commit,
       status,
+      confirmDivergence,
+      dismiss,
       state: () => currentState,
       recoveryState: () => recoveryState,
     });

@@ -6,6 +6,7 @@ const DRAFT_WRITE_TRANSACTION="draft-write";
 const DB="repforge",STORE="kv";
 const INSTALL_IMPORT_KEY="repforge_install_import_v1";
 const INSTALL_INBOUND_KEY="repforge_transfer_inbound_v1";
+const INSTALL_OUTBOUND_KEY="repforge_transfer_outbound_v1";
 const INSTALL_FREEZE_KEY="repforge_install_transfer_freeze_v1";
 const INSTALL_FREEZE_CHANNEL="repforge_install_transfer_v1";
 const INSTALL_UI_KEY="repforge_ui_v1";
@@ -4690,9 +4691,92 @@ function installTransferFreezeSignal(){
 function installTransferFreezeOwned(){
   const signal=installTransferFreezeSignal();
   return !!installTransferFreezeOwner&&signal?.owner===installTransferFreezeOwner}
+function installTransferOutboundMarker(){
+  try{
+    const raw=localStorage.getItem(INSTALL_OUTBOUND_KEY);
+    if(raw===null)return null;
+    const marker=JSON.parse(raw);
+    return marker&&typeof marker==="object"&&!Array.isArray(marker)?marker:{invalid:true,raw};
+  }catch{return{invalid:true,code:"outbound-marker-invalid"}}}
+function installTransferOutboundFrozen(){
+  const marker=installTransferOutboundMarker();
+  if(!marker)return false;
+  return marker.phase!=="resumedDiverged";
+}
 function installTransferMutationFrozen(){
   const signal=installTransferFreezeSignal();
-  return !!signal&&signal.owner!==installTransferFreezeOwner;
+  if(signal&&signal.owner!==installTransferFreezeOwner)return true;
+  if(installTransferOutboundFrozen())return true;
+  return false;
+}
+function installTransferOutboundStore(){
+  return{
+    async read(){return installTransferOutboundMarker()},
+    async write(marker){
+      localStorage.setItem(INSTALL_OUTBOUND_KEY,JSON.stringify(marker));
+    },
+    async clear(){
+      localStorage.removeItem(INSTALL_OUTBOUND_KEY);
+    }
+  };
+}
+async function installTransferBrowserClient(){
+  const {contract,transfer}=await ensureInstallTransferModules();
+  const outbound=installTransferOutboundStore();
+  const credentials=transfer.createCredentialVault({crypto:window.crypto,indexedDB:window.indexedDB});
+  const operationLock={withLock(name,work){
+    if(!navigator.locks?.request)throw new Error("install-transfer-lock-unavailable");
+    if(installTransferFreezeOwned()&&name==="install-transfer")return Promise.resolve().then(work);
+    return navigator.locks.request(name,work)}};
+  const transport=transfer.createFetchTransport({fetch:window.fetch.bind(window),baseUrl:window.location.href});
+  const client=transfer.createClient({contract,crypto:window.crypto,transport,context:"browser",
+    document,location:window.location,storage:{outbound,credentials,operationLock}});
+  return{client,contract,transfer,outbound,credentials};
+}
+let installTransferPollingActive=false;
+async function installTransferPollOutboundStatus(){
+  if(installTransferPollingActive)return;
+  installTransferPollingActive=true;
+  try{
+    const browserClient=await installTransferBrowserClient();
+    const res=await browserClient.client.status({
+      source:{sourceRevision:readRevision(state)}
+    });
+    if(res?.ok&&res.state==="confirmed"){
+      showInstallBanner(true);
+      return;
+    }
+    if(res?.ok&&res.state==="idle"&&res.remoteState==="expired"){
+      hideInstallBanner(true);
+      toast(t("toast.transfer_expired")||"Transfer expired");
+      return;
+    }
+    showInstallBanner(true);
+  }catch{}
+  finally{
+    installTransferPollingActive=false;
+  }
+}
+async function installTransferConfirmDivergence(){
+  try{
+    const browserClient=await installTransferBrowserClient();
+    await browserClient.client.confirmDivergence();
+  }catch{
+    const marker=installTransferOutboundMarker();
+    if(marker&&marker.phase!=="invalid"){
+      try{localStorage.setItem(INSTALL_OUTBOUND_KEY,JSON.stringify({...marker,phase:"resumedDiverged",divergedAt:new Date().toISOString()}))}catch{}
+    }
+  }
+  hideInstallBanner(true);
+  toast(t("toast.resumed_in_browser")||"Resumed in browser");
+}
+async function installTransferCheckOutboundOnBoot(){
+  const marker=installTransferOutboundMarker();
+  if(!marker||marker.phase==="resumedDiverged")return;
+  showInstallBanner(true);
+  if(marker.phase==="awaiting-claim"||marker.phase==="creating"){
+    installTransferPollOutboundStatus();
+  }
 }
 function installTransferBroadcast(type,value){
   try{
@@ -14837,17 +14921,80 @@ function installBannerEligible(){
 }
 function showInstallBanner(force){
   const b=$("#installBanner");if(!b)return;
+  const outboundMarker=installTransferOutboundMarker();
+  if(outboundMarker&&outboundMarker.phase!=="resumedDiverged"){
+    const title=$(".installbanner__title");
+    const body=$("#installBannerBody");
+    const act=$("#installBannerAction");
+    if(outboundMarker.phase==="confirmed"){
+      if(title)title.textContent=t("install.transfer.confirmed_title")||"Workout Data Transferred";
+      const isStale=outboundMarker.recoverySnapshot?.mutatedAfterCreation===true;
+      if(body)body.textContent=isStale
+        ?(t("install.transfer.stale_body")||"Your workout data was transferred to the installed app, but was modified here afterward. The installed app may not have recent changes.")
+        :(t("install.transfer.confirmed_body")||"Your workout data was transferred to the installed app.");
+    }else if(outboundMarker.phase==="awaiting-claim"||outboundMarker.phase==="creating"){
+      if(title)title.textContent=t("install.transfer.pending_title")||"Transfer in Progress";
+      if(body)body.textContent=t("install.transfer.pending_body")||"Open Taurifer from your Home Screen to complete the transfer.";
+    }else{
+      if(title)title.textContent=t("install.transfer.unknown_title")||"Transfer Outcome Unknown";
+      if(body)body.textContent=t("install.transfer.unknown_body")||"The transfer status could not be confirmed. If you opened the installed app, your data may have transferred.";
+    }
+    if(act){
+      act.classList.remove("hidden");
+      act.textContent=t("install.transfer.resume_action")||"Resume in browser";
+      act.onclick=()=>showInstallTransferDivergenceDialog(installTransferConfirmDivergence);
+    }
+    b.classList.remove("hidden");
+    return;
+  }
   const mode=installMode();
   if(mode==="none")return;
   if(!force&&!installBannerEligible())return;
   $("#installBannerBody").innerHTML=mode==="safari"?esc(t("install.card.safari_only_body")):installInstructions();
   const act=$("#installBannerAction");
-  // A button appears only where it does something: Chrome's prompt, or the
-  // Safari sheet. In another iOS browser the banner is the explanation itself.
-  if(mode==="native"){act.classList.remove("hidden");act.textContent=t("install.action")}
-  else if(mode==="ios"){act.classList.remove("hidden");act.textContent=t("install.card.ios_action")}
+  if(mode==="native"){act.classList.remove("hidden");act.textContent=t("install.action");act.onclick=null;}
+  else if(mode==="ios"){act.classList.remove("hidden");act.textContent=t("install.card.ios_action");act.onclick=null;}
   else act.classList.add("hidden");
   b.classList.remove("hidden");
+}
+function showInstallTransferDivergenceDialog(onConfirm){
+  let dialog=$("#installTransferDivergenceModal");
+  if(!dialog){
+    dialog=document.createElement("div");
+    dialog.id="installTransferDivergenceModal";
+    dialog.className="sheet sheet--divergence";
+    dialog.setAttribute("role","dialog");
+    dialog.setAttribute("aria-modal","true");
+    dialog.setAttribute("aria-labelledby","divergenceTitle");
+    dialog.innerHTML=`
+      <div class="sheet__head">
+        <div class="sheet__titles">
+          <p class="sheet__title" id="divergenceTitle">${esc(t("install.transfer.divergence_title")||"Permanent Divergence Warning")}</p>
+        </div>
+      </div>
+      <div style="padding:16px;">
+        <p id="divergenceBody">${esc(t("install.transfer.divergence_body")||"If you resume in browser, future changes here and in the installed app will not merge and will develop separate workout histories.")}</p>
+        <div style="display:flex;gap:12px;margin-top:16px;">
+          <button type="button" class="btn btn--secondary" id="divergenceDismiss">${esc(t("dialog.cancel")||"Dismiss")}</button>
+          <button type="button" class="btn btn--cta" id="divergenceConfirm">${esc(t("install.transfer.confirm_resume")||"Confirm and Resume")}</button>
+        </div>
+      </div>
+    `;
+    document.body.appendChild(dialog);
+  }
+  const scrim=$("#iosInstallScrim");
+  openModal(dialog,{
+    scrim,
+    initialFocus:$("#divergenceDismiss"),
+    onEscape:()=>closeModal(dialog)
+  });
+  $("#divergenceDismiss").onclick=()=>{
+    closeModal(dialog);
+  };
+  $("#divergenceConfirm").onclick=async()=>{
+    closeModal(dialog);
+    if(typeof onConfirm==="function")await onConfirm();
+  };
 }
 function hideInstallBanner(remember){$("#installBanner")?.classList.add("hidden");if(remember)setUiPref("installDismissedAt",Date.now())}
 function maybeShowInstallBanner(){if(installBannerEligible())showInstallBanner(false)}
@@ -15965,7 +16112,7 @@ async function boot(){
     if(standalonePrepared?.ok!==true)return standalonePrepared||{ok:false,code:"standalone-transfer-failed"};
     const standaloneTransfer=await installTransferCompleteStandaloneBoot(standalonePrepared);
     if(standaloneTransfer?.ok!==true)return standaloneTransfer||{ok:false,code:"standalone-transfer-failed"};
-    return{ok:true,decision};
+    return{ok:true,decision,transferResult:standaloneTransfer};
   };
   const transferResult=await installTransferBootNeedsLock()
     ?await withInstallTransferLock(transferWork):await transferWork();
@@ -15974,6 +16121,19 @@ async function boot(){
     throw new Error(transferResult?.code||"install-transfer-failed")}
   const decision=transferResult.decision;
   bootTelemetry();
+  if(transferResult.transferResult?.localOk===true){
+    try{
+      window.RepForgeTelemetry?.recordLateInstallTransfer?.({
+        state: transferResult.transferResult.state||"localCommitted",
+        localImportVerified: true,
+        cleanupRetry: transferResult.transferResult.cleanupRetry===true,
+        platform_class: telemetryPlatformClass(),
+      });
+    }catch{}
+  }
+  if(!isStandalone()){
+    await installTransferCheckOutboundOnBoot();
+  }
   installTransferRecordBootDevice();
   await recoverCommittedSetupDraft();
   await prepareSharedSetup(sharedCandidate);

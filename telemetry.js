@@ -8,6 +8,7 @@
   const SCHEMA_VERSION = 1;
   const IDENTITY_KEY = "repforge_telemetry_identity_v1";
   const PREFERENCE_KEY = "repforge_telemetry_enabled_v1";
+  const TRANSFER_EMITTED_KEY = "repforge_telemetry_install_transfer_emitted_v1";
   const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
   const VERSION_PATTERN = /^[a-zA-Z0-9._-]{1,32}$/;
   const CHANNELS = Object.freeze(["production", "preview"]);
@@ -84,6 +85,18 @@
     session_summary_viewed: event({}, "Completed-session summary opened", "once_per_session"),
     block_review_viewed: event({ completion: values("early", "partial", "complete", "extended") }, "Block review opened", "repeatable"),
     program_transition_selected: event({ transition: values("resume", "repair", "rebase", "switch") }, "Program transition selected", "once_per_setup_flow"),
+    late_install_transfer: Object.freeze({
+      phase: "install_transfer",
+      properties: Object.freeze({
+        outcome: optional(values("success")),
+        source_context: values("browser"),
+        destination_context: values("standalone"),
+        platform_family: optional(values("ios", "android", "desktop", "other")),
+        platform_class: optional(values("ios", "android", "desktop", "other")),
+      }),
+      metric: "Late install transfer completed",
+      duplicates: "milestone",
+    }),
   });
 
   let runtime = emptyRuntime();
@@ -216,7 +229,7 @@
   function capture(eventName, properties = {}) {
     if (!runtime.enabled) return false;
     const definition = EVENTS[eventName];
-    if (!definition || definition.phase !== "alpha") return reject("unknown_event", eventName);
+    if (!definition || (definition.phase !== "alpha" && definition.phase !== "install_transfer")) return reject("unknown_event", eventName);
     if (!properties || typeof properties !== "object" || Array.isArray(properties)) return reject("invalid_properties", eventName);
     const keys = Object.keys(properties);
     if (keys.some(key => key.startsWith("$") ||
@@ -247,7 +260,7 @@
     if (envelope.event === "$snapshot") return filterReplay(envelope);
     const definition = EVENTS[envelope.event];
     const properties = envelope.properties;
-    if (!definition || definition.phase !== "alpha" || !properties || typeof properties !== "object" || Array.isArray(properties)) return null;
+    if (!definition || (definition.phase !== "alpha" && definition.phase !== "install_transfer") || !properties || typeof properties !== "object" || Array.isArray(properties)) return null;
     const clean = {};
     for (const [key, validator] of Object.entries(definition.properties)) {
       if (!validProperty(properties[key], validator)) return null;
@@ -263,7 +276,7 @@
     // before_send seam. The SDK adds it before calling us; preserve only the
     // exact configured token so the privacy allowlist cannot become a general
     // pass-through for token-shaped application data.
-    if (properties.token !== undefined) clean.token = properties.token;
+    if (properties.token !== undefined && typeof runtime.projectToken === "string" && properties.token === runtime.projectToken) clean.token = properties.token;
     const identity = installationIdentity();
     if (!identity || properties.distinct_id !== identity.installationId) return null;
     clean.distinct_id = identity.installationId;
@@ -372,17 +385,90 @@
     return minutes <= 15 ? "0_15" : minutes <= 30 ? "16_30" : minutes <= 60 ? "31_60" : minutes <= 90 ? "61_90" : "90_plus";
   }
 
+  function canEmitLateInstallTransfer(params = {}) {
+    if (!params || typeof params !== "object") return false;
+    const consent = params.enabled !== undefined ? params.enabled === true : runtime.enabled;
+    if (!consent) return false;
+    if (params.alreadyEmitted === true) return false;
+    const isLocalCommitted = params.state === "localCommitted" || params.phase === "local-committed";
+    const isLocalOk = params.localOk === true || params.localImportVerified === true;
+    if (!isLocalCommitted && !isLocalOk) return false;
+    if (params.claimOnly || params.validationOnly || params.partialImport || params.rollback || params.state === "rolledBack") {
+      return false;
+    }
+    if (params.remoteDeleteAmbiguous === true || params.cleanupRetry === true) return false;
+    return true;
+  }
+
+  function buildLateInstallTransferPayload(options = {}) {
+    const payload = {
+      outcome: "success",
+      source_context: "browser",
+      destination_context: "standalone",
+    };
+    if (options.platform_class && ["ios", "android", "desktop", "other"].includes(options.platform_class)) {
+      payload.platform_class = options.platform_class;
+    }
+    if (options.platform_family && ["ios", "android", "desktop", "other"].includes(options.platform_family)) {
+      payload.platform_family = options.platform_family;
+    }
+    return Object.freeze(payload);
+  }
+
+  function hasEmittedLateInstallTransfer(storage) {
+    const s = storage || runtime.storage;
+    try {
+      return s ? s.getItem(TRANSFER_EMITTED_KEY) === "true" : false;
+    } catch {
+      return false;
+    }
+  }
+
+  function markLateInstallTransferEmitted(storage) {
+    const s = storage || runtime.storage;
+    try {
+      if (s) s.setItem(TRANSFER_EMITTED_KEY, "true");
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  function recordLateInstallTransfer(options = {}) {
+    const storage = options.storage || runtime.storage;
+    const already = options.alreadyEmitted !== undefined ? options.alreadyEmitted : hasEmittedLateInstallTransfer(storage);
+    if (!canEmitLateInstallTransfer({ ...options, alreadyEmitted: already })) {
+      return false;
+    }
+    const payload = buildLateInstallTransferPayload(options);
+    const captured = capture("late_install_transfer", payload);
+    if (captured) {
+      markLateInstallTransferEmitted(storage);
+      return true;
+    }
+    return false;
+  }
+
   return Object.freeze({
     DUPLICATE_POLICIES,
     boot,
     bucketCount,
     bucketDuration,
+    buildLateInstallTransferPayload,
+    canEmitLateInstallTransfer,
     capture,
-    getEventNames: () => Object.freeze(Object.keys(EVENTS)),
+    getEventNames: (filter) => {
+      const names = Object.keys(EVENTS);
+      if (filter === "all") return Object.freeze(names);
+      return Object.freeze(names.filter(name => EVENTS[name]?.phase === "alpha"));
+    },
     getEventPolicy: name => EVENTS[name]?.duplicates || null,
     getAutocaptureActions: () => AUTOCAPTURE_ACTIONS,
     getSchemaVersion: () => SCHEMA_VERSION,
+    hasEmittedLateInstallTransfer,
     isEnabled: () => runtime.enabled,
+    markLateInstallTransferEmitted,
+    recordLateInstallTransfer,
     setEnabled,
   });
 });

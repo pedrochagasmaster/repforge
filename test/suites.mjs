@@ -68,6 +68,7 @@ export const SUITES = {
     s("test/install-transfer-client-browser.mjs"),
     s("test/install-transfer-clone.mjs"),
     s("test/install-transfer-import.mjs"),
+    s("test/install-transfer-recovery.mjs"),
     s("test/recover-gate.mjs"),
     s("test/workout-draft-storage.mjs"),
     s("test/workout-draft-sw-upgrade.mjs"),
@@ -125,6 +126,7 @@ export const SUITES = {
   privacy: [
     s("test/telemetry-runtime.mjs"),
     s("test/telemetry-leakage.mjs"),
+    s("test/install-transfer-telemetry.mjs"),
   ],
 };
 
