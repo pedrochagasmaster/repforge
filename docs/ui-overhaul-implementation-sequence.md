@@ -73,21 +73,25 @@ Production-backed baseline checks passed before planning: Focus 116, History 40,
 
 ## Post-Plan053 architecture bridge
 
+Current status: implemented in PR #240 and merged at
+`3710f34bb677c59674a3677c03d2fc1427e07cef`. Plan 054 is now active. The
+planning-time bullets below retain the bridge's required scope and sequencing;
+they no longer describe outstanding work.
+
 - It is an unnumbered bounded engineering bridge, not a new product plan.
 - It begins only after owner-approved Plan 053 has merged.
 - It owns PR239 R0/R1 and R4, the initial R3 protections, and only the part of R5 needed to establish the normalized durable outcome interface and compatibility facade.
-- It must finish before Plan 054 production implementation.
+- It finished before Plan 054 production implementation in PR #240.
 - It does not own workout lifecycle, entry-host UX, Progress projections, management UI, gesture redesign, or design-system work.
 - Those remaining audit findings are allocated to Plans 054–059 below.
 
 The owner ratified this insertion on 2026-09-11. PR #235 is merged at
 `bad6cc9d04fd34889745cce0ea200cc9d9d7e6b5`, including accepted candidate
 `dd704100151fa476e8be6d35bd8d68e931479259`. Its recorded 34/34 acceptance
-matrix and the final Plan 051–053 contracts remain binding. The dated resume
-and planning snapshots above are historical; they do not reopen those merges
-or permit later production work before the bridge. Re-read the live branch
-and gate state at every handoff. This scheduling authorization is not bridge
-completion or merge approval.
+matrix and the final Plan 051–053 contracts remain binding. PR #240 completed
+and merged the bridge. The dated resume and planning snapshots above are
+historical; they do not reopen those merges. Re-read the live branch and gate
+state at every handoff.
 
 The [owner-ratified disposition](taurifer-architecture-refactoring-plan.md#owner-ratified-disposition-after-plan-053)
 allocates every PR239 candidate/R label. Plans 054/057 own entry and management
@@ -223,7 +227,7 @@ Parallel plans never copy unpublished files, cherry-pick arbitrary sibling work,
 |---|---|---|---|
 | `docs/ui-audit.md` decision register/companion | 049 | 059 verifies | Audit findings remain authoritative; do not edit product meaning |
 | `docs/backlog.md`, ADRs, brand/privacy/current specs | 049 | 054–059 verify/consume | Phase 0 merges before code; later doc corrections cite owner plan |
-| Durable persistence/draft settlement and boot-recovery region | Plans 051–053 establish the accepted durable contracts; the bridge owns settlement/recovery implementation | Plans 054–057 consume the durable-state owner; 058 removes compatibility delegates only after all callers migrate; 059 verifies one authority remains | Bridge before 054; consumers must not recreate WAL, WebLock, replica or sidecar logic; no format/semantic changes |
+| Durable persistence/draft settlement and boot-recovery region | Plans 051–053 establish the accepted durable contracts; the bridge owns settlement/recovery implementation | Plans 054–057 consume the durable-state owner; 058 removes compatibility delegates only after all callers migrate; 059 verifies one authority remains | PR #240 bridge precedes 054; consumers must not recreate WAL, WebLock, replica or sidecar logic; no format/semantic changes |
 | `app.js` entry/install region | 054 | 053 primitive first; 057 Settings links | 053 → 054 → 057 |
 | `app.js` Progress/block region | 052 domain/commit boundary, 056 UI | 057 summary/Program consumers, 058 annotations | 052 → 056 → 057 → 058 |
 | `app.js` History/Share/Summary/Today/Program/Settings | 057 | 058 presentation annotations | Wait for 054–056, then 057 → 058 |

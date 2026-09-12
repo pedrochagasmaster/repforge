@@ -46,7 +46,6 @@ separate teams or synchronized delivery dates.
 | Work | Required outcome | Governing detail |
 |---|---|---|
 | Deliver the owner-approved UI overhaul | Execute Plans 049–059 in DAG order with owner gates honored: reconciled contracts, verified defect fixes, DraftV2/transition/transfer foundations, landing/entry, Focus-only workout, truthful Progress, converged management surfaces, system migration, and same-SHA launch validation. No governing current-tense document contradicts G-01–G-88. | [Plan 049](../plans/049-ui-overhaul-canonical-reconciliation.md), [sequence](ui-overhaul-implementation-sequence.md), [dispositions](ui-overhaul-disposition-register.md) |
-| Complete the post-Plan053 durable-state architecture bridge | After owner-approved Plan 053 merges, normalize one outcome-oriented durable transaction result contract, then extract foreground commit, WAL/journal, WebLock, replica settlement/recovery, DraftV2 transaction-sidecar coordination, and boot recovery behind one tested owner. Preserve all existing durable formats and Plan 051–053 semantics. This is the only standalone architecture tranche inserted before Plan 054. | [Architecture plan](taurifer-architecture-refactoring-plan.md), [overhaul sequence](ui-overhaul-implementation-sequence.md) |
 | Finish launch-readiness evidence | Complete the remaining real-device iOS/VoiceOver and Android/TalkBack cells, with the exact release-candidate build and evidence required by Plan 041. The implementation itself landed in PR #114. | [Plan 041](../plans/041-prelaunch-all-findings-remediation.md) |
 
 > The remaining PR #239 architecture findings are not a second queue. They are absorbed into Plans 054–059 as explicit implementation/acceptance deltas: entry/lifecycle ownership in 054/057; workout-session and gesture ownership in 055; historical projections in 056; release/cache, presentation and obsolete-path convergence in 058; and final architecture/evidence closure in 059.
@@ -151,6 +150,12 @@ These are real but do not outrank the foundation above.
 Do not re-add these as backlog without new owner evidence.
 
 ### Completed or absorbed
+
+- The post-Plan053 durable-state architecture bridge is implemented in PR
+  #240 and merged at `3710f34bb677c59674a3677c03d2fc1427e07cef`.
+  `durable-state.js` owns the normalized outcome, settlement, recovery, WAL,
+  replica, and DraftV2 transaction-sidecar contracts. Plan 054 is the active
+  overhaul implementation.
 
 - Plans 045–048 are implemented (measurement foundation, shared progression
   engine, program families/compiler, program entry/onboarding). Their former

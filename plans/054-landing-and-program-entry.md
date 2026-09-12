@@ -8,9 +8,9 @@ live SHAs, thread ID, server origin, and PID before dispatch.
 
 - **Plan number:** 054
 - **Phase:** 3 — Landing and program entry
-- **Status:** Planned; implementation has not started
+- **Status:** Active implementation; 054-P1 in progress
 - **Owner approval state:** Product flow is approved; landing mini-interface direction requires owner selection before visual implementation
-- **Depends on:** Plan 049; Plan 050; the merged post-Plan053 durable-state architecture bridge (including accepted Plans 051–053). Plans 051/052/053 are merged at main `bad6cc9d`; the bridge must finish and merge before this plan's production implementation. Plan 050's shipped expert-control and copy/overflow components remain the starting point; the landing visual-selection gate remains mandatory.
+- **Depends on:** Plan 049; Plan 050; accepted Plans 051–053; and the post-Plan053 durable-state architecture bridge, implemented in PR #240 and merged at current main `3710f34bb677c59674a3677c03d2fc1427e07cef`. Plan 050's shipped expert-control and copy/overflow components remain the starting point; the landing visual-selection gate remains mandatory.
 - **Blocks:** Relevant Plan 057 Settings/Privacy integration, Plan 058 full-system migration, and Plan 059 launch validation
 - **Governing G decisions:** G-09–G-10, G-17–G-21, G-25–G-26, G-37, G-39–G-40, G-46–G-52, G-62, G-69, G-72–G-73, G-79, G-81–G-82
 - **Architecture-audit ownership:** Candidate C / R7 first half; Candidate H shared exercise-vocabulary seam; entry portion of R5 caller migration.
