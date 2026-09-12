@@ -101,8 +101,9 @@ This document reconstructs the live durable state architecture of RepForge follo
   - `storageIO`, `withStorageLock`, `writeSnapshot`, `noteWriteHealth`
   - WAL journal: `writePendingJournal`, `readPendingJournal`, `clearPendingJournal`, `armPendingJournalRollback`
   - Replicas & arbitration: `readLocalStatus`, `readIdbStatus`, `chooseSnapshot`, `resolveBootReplicas`
-  - Transaction engine: `executeDraftTransaction`, `enqueueStateChange`, `commitProposedState`, `commitProgramReplacement`
+  - DraftV2 storage: checkpoint CAS, tombstones, transaction sidecars, promotion, and compensation
+  - Transaction engine: `executeDraftTransaction`, `enqueueStateChange`
 
-- `app.js` supplies a host adapter for pure state rebasing, recovery-carrier validation, the existing DraftV2 store, setup-draft observation, and accepted-snapshot adoption. The durable module invokes those operations but owns their ordering. Toasts and other presentation effects stay in `app.js`; one module health event produces one host notification.
+- `app.js` supplies a host adapter for state rebasing, recovery-carrier validation, the pure WorkoutDraft parser, live-state access, setup-draft observation, recovery retention, and accepted-snapshot adoption. The durable module owns DraftV2 storage ordering. Toasts and other presentation effects stay in `app.js`; one module health event produces one host notification.
 
 - The compatibility facade in `app.js` retains the old internal function names for existing callers and test hooks. Each facade method delegates to `durable-state.js`; it contains no WAL, lock, replica, settlement, or boot-replay implementation. Remove a facade method only when its last existing caller moves in a separately authorized plan. A fallback release is a code revert: it reads the same keys, revisions, journals, DraftV2 records, and setup receipts because this extraction changes no durable format.

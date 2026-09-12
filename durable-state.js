@@ -35,6 +35,7 @@
   const DRAFT_V2_CHECKPOINT = "repforge_draft_v1:v2-checkpoint";
   const DRAFT_PENDING_PREFIX = "repforge_draft_v1:pending:";
   const DRAFT_CLOSE_PREFIX = "repforge_draft_v1:closing:";
+  const DRAFT_WRITE_TRANSACTION = "draft-write";
 
   const DRAFT_EFFECT_VALID = "valid";
   const DRAFT_EFFECT_INVALID = "invalid";
@@ -122,15 +123,7 @@
   }
 
   function exportableState(snapshot) {
-    const copy = cloneSnapshot(snapshot);
-    if (copy && typeof copy === "object") {
-      delete copy[STORAGE_REV];
-      delete copy[STORAGE_FOLLOWUP];
-      delete copy[STORAGE_DRAFT_TXN];
-      delete copy[STORAGE_SETUP_TXN];
-      delete copy[SHARED_IMPORT];
-    }
-    return copy;
+    return stripStorageMeta(snapshot);
   }
 
   function canonicalize(value) {
@@ -158,7 +151,8 @@
   }
 
   function snapshotsEqual(a, b) {
-    return canonicalPayload(mirrorComparisonSnapshot(a)) === canonicalPayload(mirrorComparisonSnapshot(b));
+    return JSON.stringify(canonicalize(mirrorComparisonSnapshot(a))) ===
+      JSON.stringify(canonicalize(mirrorComparisonSnapshot(b)));
   }
 
   function storageSnapshotsEqual(a, b) {
@@ -166,14 +160,7 @@
   }
 
   function isValidStateShape(snapshot) {
-    if (typeof host?.isValidStateShape === "function") return host.isValidStateShape(snapshot);
-    if (!isPlainStateObject(snapshot)) return false;
-    if (snapshot.program !== undefined && !Array.isArray(snapshot.program)) return false;
-    if (snapshot.log !== undefined && !Array.isArray(snapshot.log)) return false;
-    if (snapshot.programHistory !== undefined && !Array.isArray(snapshot.programHistory)) return false;
-    if (snapshot.settings !== undefined && !isPlainStateObject(snapshot.settings)) return false;
-    if (snapshot.programMeta !== undefined && !isPlainStateObject(snapshot.programMeta)) return false;
-    return true;
+    return hostFunction("isValidStateShape")(snapshot);
   }
 
     function snapshotBlockId(snapshot){
@@ -187,35 +174,376 @@
       value.programMetaBlockId=snapshot.programMeta.blockId;
     return JSON.stringify(canonicalize(value))}
 
-  function getDraftStore() {
-    if (host?.draftStore) return host.draftStore;
-    return (typeof RepForgeWorkoutDraft !== "undefined" && RepForgeWorkoutDraft.DraftStore)
-      || (root && root.RepForgeWorkoutDraft && root.RepForgeWorkoutDraft.DraftStore)
-      || (root && root.DraftStore)
-      || null;
-  }
-
-  function getProgramTransition() {
-    if (host?.programTransition) return host.programTransition;
-    return (typeof RepForgeProgramTransition !== "undefined" && RepForgeProgramTransition)
-      || (root && root.RepForgeProgramTransition)
-      || null;
-  }
-
   function hostFunction(name) {
     const fn = host?.[name];
     if (typeof fn !== "function") throw new Error(`durable host adapter missing ${name}`);
     return fn;
   }
 
-  const DraftStore = new Proxy({}, {
-    get(_target, property) {
-      const store = getDraftStore();
-      if (!store) throw new Error("durable host adapter missing draftStore");
-      const value = store[property];
-      return typeof value === "function" ? value.bind(store) : value;
-    },
-  });
+  function currentStateSnapshot(){
+    return typeof host?.getLiveState==="function"?host.getLiveState():persistHead}
+  function workoutDraft(){return host?.workoutDraft||root?.RepForgeWorkoutDraft||null}
+  function retainDraftRecovery(raw,reason){return hostFunction("storeDraftRecovery")(raw,reason)}
+
+  function v2CheckpointRecord(draft,raw,operationId=draft.writer.operationId){
+    return{version:1,kind:"committed",draftId:draft.draftId,revision:draft.revision,operationId,
+      programFingerprint:draft.program.programFingerprint,raw}}
+  function prepareV2CheckpointEffect(currentRaw,nextRaw,operationId,{previous:previousOverride}={}){
+    const current=workoutDraft()?.parse(currentRaw),next=workoutDraft()?.parse(nextRaw),checkpoint=DraftStore.readV2Checkpoint();
+    if(checkpoint.status==="invalid"||checkpoint.status==="read-failed")return{ok:false,reason:"checkpoint-unreadable"};
+    if(nextRaw===currentRaw)return{ok:true,kind:"none"};
+    if(current?.kind==="valid"&&nextRaw===null){
+      const pending={...v2CheckpointRecord(current.draft,currentRaw,operationId),kind:"pending-removal",baseRaw:currentRaw};
+      return DraftStore.writeV2Checkpoint(pending)?{ok:true,kind:"pending-removal",value:pending}:{ok:false,reason:"checkpoint-write"}}
+    if(next?.kind!=="valid")return current?.kind==="valid"?{ok:false,reason:"v2-replacement-invalid"}:{ok:true,kind:"none"};
+    const previous=previousOverride!==undefined?previousOverride:
+      current?.kind==="valid"?v2CheckpointRecord(current.draft,currentRaw):null;
+    const pending={...v2CheckpointRecord(next.draft,nextRaw,operationId),kind:"pending",baseRaw:currentRaw,previous};
+    return DraftStore.writeV2Checkpoint(pending)?{ok:true,kind:"pending",value:pending}:{ok:false,reason:"checkpoint-write"}}
+  function commitV2CheckpointEffect(prepared,nextRaw){
+    if(prepared.kind==="none")return true;
+    if(prepared.kind==="pending-removal"){
+      if(nextRaw!==null)return false;
+      const removed=workoutDraft()?.parse(prepared.value.raw);
+      return removed?.kind==="valid"&&DraftStore.writeV2Checkpoint(
+        DraftStore.v2Tombstone(removed.draft,prepared.value.operationId))}
+    const next=workoutDraft()?.parse(nextRaw);
+    return next?.kind==="valid"&&DraftStore.writeV2Checkpoint(v2CheckpointRecord(next.draft,nextRaw,prepared.value.operationId))}
+
+  const DraftStore={
+    readCanonicalRaw(){
+      try{return localStorage.getItem(DRAFT)}
+      catch{return null}},
+    readCanonicalStatus(){
+      try{return{status:"ok",raw:localStorage.getItem(DRAFT)}}
+      catch(error){return{status:"read-failed",error}}},
+    readV2Checkpoint(){
+      try{const raw=localStorage.getItem(DRAFT_V2_CHECKPOINT);if(raw==null)return{status:"absent",raw:null};
+        const value=JSON.parse(raw);
+        if(!isPlainStateObject(value)||value.version!==1||!["pending","pending-removal","committed","tombstone"].includes(value.kind)||
+          typeof value.draftId!=="string"||!value.draftId||value.draftId.length>240||
+          !Number.isSafeInteger(value.revision)||value.revision<0||
+          typeof value.operationId!=="string"||!value.operationId||value.operationId.length>240||
+          typeof value.programFingerprint!=="string"||!value.programFingerprint||value.programFingerprint.length>2000||
+          (value.kind!=="tombstone"&&(typeof value.raw!=="string"||value.raw.length>PENDING_EFFECT_MAX_RAW)))
+          return{status:"invalid",raw};
+        const validRecord=record=>{const parsed=workoutDraft()?.parse(record?.raw);
+          return isPlainStateObject(record)&&typeof record.draftId==="string"&&Number.isSafeInteger(record.revision)&&
+            typeof record.operationId==="string"&&typeof record.programFingerprint==="string"&&parsed?.kind==="valid"&&
+            parsed.draft.draftId===record.draftId&&parsed.draft.revision===record.revision};
+        if(value.kind!=="tombstone"&&!validRecord(value))return{status:"invalid",raw};
+        if(value.kind==="pending"&&
+          (!(value.baseRaw===null||typeof value.baseRaw==="string"&&value.baseRaw.length<=PENDING_EFFECT_MAX_RAW)||
+            value.previous!=null&&!validRecord(value.previous)))
+          return{status:"invalid",raw};
+        if(value.kind==="pending-removal"&&value.baseRaw!==value.raw)return{status:"invalid",raw};
+        return{status:"valid",raw,value}}
+      catch(error){return{status:"read-failed",raw:null,error}}},
+    writeV2Checkpoint(value){
+      if(installTransferMutationFrozen())return false;
+      try{localStorage.setItem(DRAFT_V2_CHECKPOINT,JSON.stringify(value));return true}
+      catch{return false}},
+    v2Tombstone(draft,operationId){return{version:1,kind:"tombstone",draftId:draft.draftId,
+      revision:draft.revision,operationId,programFingerprint:draft.program.programFingerprint}},
+    async compareAndSwapV2({expectedRaw,expectedDraftId,expectedRevision,nextRaw,operationId}){
+      if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
+      if(!navigator.locks?.request)return{status:"lock-unavailable"};
+      if(typeof nextRaw!=="string"||nextRaw.length>PENDING_EFFECT_MAX_RAW)
+        return{status:"invalid-next"};
+      const candidate=workoutDraft()?.parse(nextRaw);if(candidate?.kind!=="valid")return{status:"invalid-next"};
+      // A state transaction has already published its exact draft precondition
+      // before waiting for the shared lock. Preserve a newer workout command in
+      // that transaction's ordered sidecar so its lock-held preflight sees the
+      // conflict and the workout survives when the transaction closes.
+      const stageFor=target=>{if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
+        const currentRaw=this.readRaw(),current=workoutDraft()?.parse(currentRaw);
+        if(expectedRaw!==undefined?currentRaw!==expectedRaw:
+          current?.kind!=="valid"||current.draft.draftId!==expectedDraftId||current.draft.revision!==expectedRevision)
+          return{status:"stale",raw:currentRaw,draft:current?.draft};
+        if(!this.stage(target,nextRaw))return{status:"stage-failed"};
+        return{status:"applied",raw:nextRaw,draft:candidate.draft,staged:true}};
+      const target=this.writeTarget();
+      if(target)return stageFor(target);
+      return navigator.locks.request(STORAGE_LOCK,async()=>{
+        if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
+        const queuedTarget=this.writeTarget();if(queuedTarget)return stageFor(queuedTarget);
+        const read=this.readCanonicalStatus();
+        if(read.status!=="ok")return read;
+        if(expectedRaw!==undefined){
+          if(read.raw!==expectedRaw)return{status:"stale",raw:read.raw}}
+        else{
+          const live=workoutDraft()?.parse(read.raw);
+          if(live?.kind!=="valid")return{status:live?.kind==="absent"?"missing":"invalid-live",raw:read.raw};
+          if(live.draft.writer.operationId!==operationId&&
+            (live.draft.draftId!==expectedDraftId||live.draft.revision!==expectedRevision))
+            return{status:"stale",raw:read.raw,draft:live.draft}}
+        const next=candidate;
+        const priorCheckpoint=this.readV2Checkpoint();
+        if(priorCheckpoint.status!=="valid"&&priorCheckpoint.status!=="absent")return{status:"checkpoint-unreadable"};
+        const liveParsed=workoutDraft()?.parse(read.raw);
+        if(priorCheckpoint.value?.kind==="pending"&&priorCheckpoint.value.operationId===operationId){
+          if(priorCheckpoint.value.raw!==nextRaw)return{status:"operation-conflict",raw:read.raw};
+          if(read.raw===priorCheckpoint.value.raw){
+            if(!this.writeV2Checkpoint(v2CheckpointRecord(next.draft,nextRaw,operationId)))
+              return{status:"checkpoint-commit-failed",raw:read.raw,draft:next.draft};
+            return{status:"applied",raw:read.raw,draft:next.draft,idempotent:true}}
+          if(read.raw===priorCheckpoint.value.baseRaw){
+            if(!this.publishCanonical(nextRaw))return{status:"write-failed"};
+            const verify=this.readCanonicalStatus();
+            if(verify.status!=="ok")return verify;
+            if(verify.raw!==nextRaw)return{status:"readback-mismatch",raw:verify.raw};
+            if(!this.writeV2Checkpoint(v2CheckpointRecord(next.draft,nextRaw,operationId)))
+              return{status:"checkpoint-commit-failed",raw:verify.raw,draft:next.draft};
+            return{status:"applied",raw:verify.raw,draft:next.draft,idempotent:true}}
+          return{status:"checkpoint-conflict",raw:read.raw}}
+        if(liveParsed?.kind==="valid"){
+          if(priorCheckpoint.value?.kind!=="committed"||priorCheckpoint.value.raw!==read.raw)
+            return{status:priorCheckpoint.status==="absent"?"checkpoint-missing":"checkpoint-conflict",raw:read.raw};}
+        if(liveParsed?.kind==="valid"&&liveParsed.draft.writer.operationId===operationId)
+          return nextRaw===read.raw?{status:"applied",raw:read.raw,draft:liveParsed.draft,idempotent:true}:
+            {status:"operation-conflict",raw:read.raw};
+        else if(liveParsed?.kind==="legacy"&&priorCheckpoint.status!=="absent")
+          return{status:"checkpoint-conflict",raw:read.raw};
+        else if(liveParsed?.kind==="absent"&&priorCheckpoint.status==="valid"&&priorCheckpoint.value.kind!=="tombstone")
+          return{status:"checkpoint-conflict",raw:read.raw};
+        const previous=liveParsed?.kind==="valid"?v2CheckpointRecord(liveParsed.draft,read.raw):null;
+        const checkpoint={version:1,kind:"pending",draftId:next.draft.draftId,revision:next.draft.revision,
+          operationId,programFingerprint:next.draft.program.programFingerprint,raw:nextRaw,baseRaw:read.raw,previous};
+        if(!this.writeV2Checkpoint(checkpoint))return{status:"checkpoint-failed"};
+        if(workoutDraftFault("before-canonical-write"))return{status:"fault-before-canonical"};
+        if(!this.publishCanonical(nextRaw))return{status:"write-failed"};
+        const verify=this.readCanonicalStatus();
+        if(verify.status!=="ok")return verify;
+        if(verify.raw!==nextRaw)return{status:"readback-mismatch",raw:verify.raw};
+        const parsed=workoutDraft()?.parse(verify.raw);
+        if(parsed?.kind!=="valid")return{status:"invalid-readback",raw:verify.raw};
+        if(workoutDraftFault("after-canonical-write"))return{status:"fault-after-canonical",raw:verify.raw,draft:parsed.draft};
+        if(!this.writeV2Checkpoint(v2CheckpointRecord(parsed.draft,verify.raw,operationId)))
+          return{status:"checkpoint-commit-failed",raw:verify.raw,draft:parsed.draft};
+        return{status:"applied",raw:verify.raw,draft:parsed.draft}
+      })},
+    async removeV2({expectedDraftId,expectedRevision,operationId}){
+      if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
+      if(!navigator.locks?.request)return{status:"lock-unavailable"};
+      return navigator.locks.request(STORAGE_LOCK,async()=>{
+        if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
+        if(this.writeTarget())return{status:"transaction-active"};
+        const read=this.readCanonicalStatus();if(read.status!=="ok")return read;
+        const live=workoutDraft()?.parse(read.raw);
+        if(live?.kind!=="valid")return{status:live?.kind==="absent"?"missing":"invalid-live",raw:read.raw};
+        if(live.draft.draftId!==expectedDraftId||live.draft.revision!==expectedRevision)
+          return{status:"stale",raw:read.raw,draft:live.draft};
+        const checkpoint=this.readV2Checkpoint();
+        if(checkpoint.status!=="valid"||checkpoint.value.kind!=="committed"||checkpoint.value.raw!==read.raw)
+          return{status:checkpoint.status==="absent"?"checkpoint-missing":"checkpoint-conflict",raw:read.raw};
+        const prepared=prepareV2CheckpointEffect(read.raw,null,operationId);
+        if(!prepared.ok)return{status:prepared.reason};
+        if(workoutDraftFault("before-canonical-remove"))return{status:"fault-before-canonical"};
+        if(!this.publishCanonical(null))return{status:"write-failed"};
+        const verify=this.readCanonicalStatus();if(verify.status!=="ok")return verify;
+        if(verify.raw!==null)return{status:"readback-mismatch",raw:verify.raw};
+        if(workoutDraftFault("after-canonical-remove"))return{status:"fault-after-canonical"};
+        if(!commitV2CheckpointEffect(prepared,null))return{status:"checkpoint-commit-failed"};
+        return{status:"applied",raw:null,draft:live.draft}
+      })},
+    publishCanonical(raw){
+      if(installTransferMutationFrozen())return false;
+      if(raw!==null&&typeof raw!=="string")return false;
+      try{
+        if(raw===null)localStorage.removeItem(DRAFT);
+        else localStorage.setItem(DRAFT,raw);
+        return true}
+      catch{return false}},
+    sidecarKeys(transactionId=null){
+      const keys=[],prefix=transactionId==null?DRAFT_PENDING_PREFIX:`${DRAFT_PENDING_PREFIX}${transactionId}:`;
+      try{for(let i=0;i<localStorage.length;i++){
+        const key=localStorage.key(i);
+        if(key?.startsWith(prefix))keys.push(key)}}
+      catch{}
+      return[...new Set(keys)].sort()},
+    decodeSidecar(key,raw){
+      try{
+        const value=JSON.parse(raw),order=value?.order;
+        if(!isPlainStateObject(value)||value.version!==1||typeof value.transactionId!=="string"||
+          !value.transactionId||typeof value.writer!=="string"||!value.writer||
+          key!==`${DRAFT_PENDING_PREFIX}${value.transactionId}:${value.writer}`||
+          !(value.raw===null||typeof value.raw==="string"&&value.raw.length<=PENDING_EFFECT_MAX_RAW)||
+          typeof value.programFingerprint!=="string"||
+          !Number.isSafeInteger(order?.at)||typeof order?.writer!=="string"||
+          !Number.isSafeInteger(order?.seq))return null;
+        return{key,raw,value}}
+      catch{return null}},
+    pending(transactionId=null){
+      const entries=[],invalid=[];
+      for(const key of this.sidecarKeys(transactionId)){
+        let raw;
+        try{raw=localStorage.getItem(key)}catch{continue}
+        if(raw==null)continue;
+        const entry=this.decodeSidecar(key,raw);
+        if(!entry)invalid.push({key,raw});
+        else if(transactionId==null||entry.value.transactionId===transactionId)entries.push(entry)}
+      entries.sort((a,b)=>a.value.order.at-b.value.order.at||
+        a.value.order.writer.localeCompare(b.value.order.writer)||
+        a.value.order.seq-b.value.order.seq||a.key.localeCompare(b.key));
+      return{entries,invalid}},
+    related(transactionId=null,contextFingerprint=null){
+      const pending=this.pending();
+      const entries=pending.entries.filter(entry=>
+        transactionId!=null&&entry.value.transactionId===transactionId||
+        contextFingerprint!=null&&entry.value.programFingerprint===contextFingerprint);
+      const invalid=transactionId==null?[]:pending.invalid.filter(entry=>
+        entry.key.startsWith(`${DRAFT_PENDING_PREFIX}${transactionId}:`));
+      return{entries,invalid}},
+    closingIds(){
+      const ids=[];
+      try{for(let i=0;i<localStorage.length;i++){
+        const key=localStorage.key(i);
+        if(key?.startsWith(DRAFT_CLOSE_PREFIX)&&key.length>DRAFT_CLOSE_PREFIX.length)
+          ids.push(key.slice(DRAFT_CLOSE_PREFIX.length))}}
+      catch{}
+      return[...new Set(ids)].sort()},
+    isClosing(transactionId){
+      try{return localStorage.getItem(DRAFT_CLOSE_PREFIX+transactionId)!=null}
+      catch{return false}},
+    beginClose(transactionId){
+      if(installTransferMutationFrozen())return false;
+      if(typeof transactionId!=="string"||!transactionId)return false;
+      try{
+        localStorage.setItem(DRAFT_CLOSE_PREFIX+transactionId,
+          JSON.stringify({version:1,transactionId,writer:getJournalWriterId()}));
+        return true}
+      catch{return false}},
+    transactionOwned(transactionId){
+      if(this.isClosing(transactionId))return true;
+      const local=readLocalStatus();
+      const transaction=local.status==="valid"?pendingDraftTransaction(local.parsed):null;
+      if(transaction?.id===transactionId)return true;
+      return readPendingJournal().entries.some(record=>record.journal.id===transactionId)},
+    writeTarget(){
+      const closing=this.closingIds()[0];
+      if(closing)return{id:closing};
+      if(!hasPendingJournal())return null;
+      const local=readLocalStatus();
+      const transaction=local.status==="valid"?pendingDraftTransaction(local.parsed):null;
+      if(transaction)return{id:transaction.id};
+      // Any durable-state journal can reach a lock-held preflight that depends
+      // on workout progress (for example, reducing a set count that was safe
+      // when clicked). Stage draft writes behind the oldest journal so that
+      // preflight sees and either rejects or reconciles them before state lands.
+      const next=readPendingJournal().entries[0];
+      return next?{id:next.journal.id}:null},
+    writeSidecar(transactionId,raw){
+      if(installTransferMutationFrozen())return false;
+      if(typeof transactionId!=="string"||!transactionId||
+        !(raw===null||typeof raw==="string"&&raw.length<=PENDING_EFFECT_MAX_RAW))return false;
+      const writer=getJournalWriterId();
+      const order=pendingJournalOrder(),key=`${DRAFT_PENDING_PREFIX}${transactionId}:${writer}`;
+      const value={version:1,transactionId,writer,order,
+        programFingerprint:draftContextFingerprint(currentStateSnapshot()),raw};
+      try{
+        const encoded=JSON.stringify(value);
+        localStorage.setItem(key,encoded);
+        return this.decodeSidecar(key,encoded)}
+      catch{return false}},
+    stage(target,raw){
+      if(installTransferMutationFrozen())return false;
+      if(!target||typeof target.id!=="string")return false;
+      if(!this.writeSidecar(target.id,raw))return false;
+      if(!this.transactionOwned(target.id))return this.promote(target.id).settled;
+      return true},
+    readRaw(){
+      const contextFingerprint=draftContextFingerprint(currentStateSnapshot());
+      const queued=this.pending().entries.filter(entry=>
+        entry.value.programFingerprint===contextFingerprint).at(-1);
+      return queued?queued.value.raw:this.readCanonicalRaw()},
+    publish(raw){
+      if(installTransferMutationFrozen())return false;
+      if(!(raw===null||typeof raw==="string"&&raw.length<=PENDING_EFFECT_MAX_RAW))return false;
+      const staged=this.writeSidecar(DRAFT_WRITE_TRANSACTION,raw);
+      if(!staged)return false;
+      const stable=()=>{
+        if(this.writeTarget())return false;
+        const local=readLocalStatus();
+        return local.status==="valid"&&!pendingDraftTransaction(local.parsed)&&
+          draftContextFingerprint(local.parsed)===staged.value.programFingerprint};
+      if(!stable())return true;
+      if(!this.publishCanonical(raw))return false;
+      if(!stable())return true;
+      this.clearSidecar(staged);
+      return true},
+    write(raw){return typeof raw==="string"&&this.publish(raw)},
+    remove(){return this.publish(null)},
+    clearSidecar(entry){
+      if(installTransferMutationFrozen())return false;
+      try{
+        if(localStorage.getItem(entry.key)===entry.raw)localStorage.removeItem(entry.key);
+        return true}
+      catch{return false}},
+    promote(transactionId,contextFingerprint=null){
+      if(installTransferMutationFrozen())return{settled:false,hadWrites:false,transferFrozen:true,code:"install-transfer-frozen"};
+      const pending=this.related(transactionId,contextFingerprint);
+      if(!pending.entries.length&&!pending.invalid.length)
+        return{settled:true,hadWrites:false,raw:undefined};
+      const latest=pending.entries.at(-1);
+      if(latest){
+        if(!this.publishCanonical(latest.value.raw))return{settled:false,hadWrites:true,raw:latest.value.raw};
+        const parsed=workoutDraft()?.parse(latest.value.raw);
+        if(parsed?.kind==="valid"&&!this.writeV2Checkpoint(v2CheckpointRecord(parsed.draft,latest.value.raw)))
+          return{settled:false,hadWrites:true,raw:latest.value.raw}}
+      for(const entry of pending.entries){if(!this.clearSidecar(entry))return{settled:false,hadWrites:true,transferFrozen:true,code:"install-transfer-frozen"}}
+      for(const invalid of pending.invalid){
+        if(installTransferMutationFrozen())return{settled:false,hadWrites:true,transferFrozen:true,code:"install-transfer-frozen"};
+        try{if(localStorage.getItem(invalid.key)===invalid.raw)localStorage.removeItem(invalid.key)}
+        catch{}}
+      const remaining=this.related(transactionId,contextFingerprint);
+      return{settled:remaining.entries.length===0&&remaining.invalid.length===0,
+        hadWrites:true,raw:latest?.value.raw}},
+    restoreEffect(transactionId,effect,contextFingerprint=null){
+      if(installTransferMutationFrozen())return{settled:false,hadWrites:false,transferFrozen:true,code:"install-transfer-frozen"};
+      const promoted=this.promote(transactionId,contextFingerprint);
+      if(!promoted.settled)return promoted;
+      const outcome=normalizeDraftEffectOutcome(effect);
+      if(outcome.status!==DRAFT_EFFECT_VALID)return promoted;
+      const receipt=outcome.effect;
+      const appliedRaw=receipt.kind==="clear-draft"?null:receipt.replacementRaw;
+      const current=this.readCanonicalStatus();
+      if(current.status!=="ok")return{settled:false,hadWrites:false,raw:receipt.expectedRaw};
+      const checkpoint=this.readV2Checkpoint();
+      const currentDraft=workoutDraft()?.parse(current.raw),expectedDraft=workoutDraft()?.parse(receipt.expectedRaw);
+      const acknowledgedSuccessor=checkpoint.status==="valid"&&checkpoint.value.kind==="committed"&&
+        checkpoint.value.raw===current.raw&&currentDraft?.kind==="valid"&&
+        (expectedDraft?.kind!=="valid"||currentDraft.draft.draftId!==expectedDraft.draft.draftId||
+          currentDraft.draft.revision>expectedDraft.draft.revision);
+      // A sidecar produced by the V2 adapter is a real acknowledged successor.
+      // A legacy tab can only preserve the same nested V2 revision while adding
+      // flat fields, or publish an unsupported flat draft. Keep the successor;
+      // roll the legacy bytes into recovery below.
+      if(acknowledgedSuccessor)return promoted;
+      const writeAfterRemoval=checkpoint.status==="valid"&&checkpoint.value.kind==="tombstone"&&current.raw!=null;
+      if((promoted.hadWrites||writeAfterRemoval)&&current.raw!==receipt.expectedRaw){
+        if(current.raw!=null)retainDraftRecovery(current.raw,"draft-write-during-rollback");
+        const prepared=prepareV2CheckpointEffect(current.raw,receipt.expectedRaw,`rollback-${transactionId}`);
+        if(!prepared.ok||!this.publishCanonical(receipt.expectedRaw)||
+          !commitV2CheckpointEffect(prepared,receipt.expectedRaw))
+          return{settled:false,hadWrites:true,raw:receipt.expectedRaw};
+        return{settled:true,hadWrites:true,raw:receipt.expectedRaw}}
+      if(current.raw!==appliedRaw){
+        if(current.raw===receipt.expectedRaw){
+          const expected=workoutDraft()?.parse(receipt.expectedRaw);
+          if(expected?.kind==="valid"&&!this.writeV2Checkpoint(v2CheckpointRecord(
+            expected.draft,receipt.expectedRaw,`rollback-${transactionId}`)))
+            return{settled:false,hadWrites:false,raw:receipt.expectedRaw}}
+        return promoted}
+      const prepared=prepareV2CheckpointEffect(appliedRaw,receipt.expectedRaw,`rollback-${transactionId}`);
+      if(!prepared.ok)return{settled:false,hadWrites:false,raw:receipt.expectedRaw};
+      const published=this.publishCanonical(receipt.expectedRaw);
+      return{settled:published&&commitV2CheckpointEffect(prepared,receipt.expectedRaw),hadWrites:false,raw:receipt.expectedRaw}},
+    endClose(transactionId,contextFingerprint=null){
+      if(installTransferMutationFrozen())return{settled:false,hadWrites:false,transferFrozen:true,code:"install-transfer-frozen"};
+      try{localStorage.removeItem(DRAFT_CLOSE_PREFIX+transactionId)}
+      catch{return{settled:false,hadWrites:false}}
+      return this.promote(transactionId,contextFingerprint)}
+  };
 
   function installTransferMutationFrozen() {
     return isMutationFrozen();
@@ -408,12 +736,6 @@
       committed = true;
       settled = true;
       rejected = false;
-    } else if (deferred || finalizationPending || compensationPending) {
-      status = "deferred";
-      kind = "deferred_pending";
-      committed = false; // NEVER flatten deferred writes into committed!
-      settled = false;
-      rejected = false;
     } else if (journalFailed) {
       status = "failed";
       kind = "rejected_failure";
@@ -426,6 +748,12 @@
       committed = false;
       settled = !compensationPending && !finalizationPending;
       rejected = true;
+    } else if (deferred || finalizationPending || compensationPending) {
+      status = "deferred";
+      kind = "deferred_pending";
+      committed = false; // NEVER flatten deferred writes into committed!
+      settled = false;
+      rejected = false;
     } else if (localOk && idbOk) {
       status = "committed";
       kind = "committed";
@@ -457,13 +785,14 @@
       committed,
       settled,
       rejected,
-      accepted: accepted || committed || kind === "degraded_committed",
-      deferred: deferred || finalizationPending || kind === "deferred_pending",
-      recoveryPending: kind === "degraded_committed" || kind === "deferred_pending",
+      accepted: rejected ? false : accepted || committed || kind === "degraded_committed",
+      deferred: deferred || finalizationPending || compensationPending || kind === "deferred_pending",
+      recoveryPending: compensationPending || finalizationPending ||
+        kind === "degraded_committed" || kind === "deferred_pending",
       localOk,
       idbOk,
       revision,
-      conflict: conflict || rejected,
+      conflict: conflict || draftConflict || transferFrozen || rejected,
       code,
     });
   }
@@ -691,7 +1020,7 @@
         else if(checkpoint.value.kind==="tombstone")authoritativeRaw=null;
         else return{receipt,currentRaw:null,status:"read-failed"};
         if(currentRaw!==authoritativeRaw&&currentRaw!=null)
-          storeDraftRecovery(currentRaw,"canonical-overwrite-before-state-transaction")}
+          retainDraftRecovery(currentRaw,"canonical-overwrite-before-state-transaction")}
       if(authoritativeRaw===receipt.expectedRaw)
         return{receipt,currentRaw:authoritativeRaw,status:"exact",overwrittenRaw:currentRaw!==authoritativeRaw?currentRaw:undefined};
       if(authoritativeRaw==null)return{receipt,currentRaw:authoritativeRaw,status:"missing"};
@@ -1217,14 +1546,6 @@
   function enqueueStateChange(base, proposal, io = storageIO, options = {}) {
     return Promise.resolve(enqueueStateChangeRaw(base, proposal, io, options))
       .then(result => normalizeDurableOutcome(result));
-  }
-
-  async function commitProposedState(proposal, io = storageIO, options = {}) {
-    return enqueueStateChange(persistHead || proposal, proposal, io, options);
-  }
-
-  async function commitProgramReplacement(proposal, io = storageIO, options = {}) {
-    return commitProposedState(proposal, io, Object.assign({}, options, { replace: true }));
   }
 
   // --- Boot Replay & Resolution ---
@@ -1854,6 +2175,12 @@
     DRAFT_PENDING_PREFIX,
     DRAFT_CLOSE_PREFIX,
 
+    // DraftV2 storage owner
+    DraftStore,
+    v2CheckpointRecord,
+    prepareV2CheckpointEffect,
+    commitV2CheckpointEffect,
+
     // Normalizer & Contracts
     normalizeDurableOutcome,
 
@@ -1890,6 +2217,7 @@
     canonicalize,
     canonicalPayload,
     mirrorComparisonSnapshot,
+    draftProgramFingerprint,
     setPersistHead,
     getPersistHead,
     resetPersistenceBase,
@@ -1929,8 +2257,6 @@
     rejectedDraftTransactionSnapshot,
     executeDraftTransaction,
     enqueueStateChange,
-    commitProposedState,
-    commitProgramReplacement,
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;

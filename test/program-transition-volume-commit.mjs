@@ -497,6 +497,71 @@ async function main() {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
 
+    const partialBefore = await page.evaluate(() => window.__repforgeWorkoutDraft.state());
+    const partialResult = await page.evaluate(async (oldId) => {
+      const io = {
+        async writeLocal(data) {
+          localStorage.setItem("repforge_v1", JSON.stringify(data));
+        },
+        async writeIdb() {
+          throw new Error("injected IDB failure");
+        },
+      };
+      return window.__repforgeCommitNextBlock("repeat", io, oldId);
+    }, partialBefore.programMeta.id);
+    check(partialResult?.committed === false && partialResult?.kind === "deferred" &&
+          partialResult?.localOk === true && partialResult?.idbOk === false &&
+          partialResult?.recoveryPending === true,
+      "one-replica block transition remains deferred instead of reporting committed", partialResult);
+
+    await clearStorage(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    const directReactivated = await activateBalancedRecommendPredecessor(page);
+    check(directReactivated.ok, "fresh predecessor reactivated after partial-outcome proof", directReactivated);
+    if (!directReactivated.ok) throw new Error(`direct reactivation failed: ${JSON.stringify(directReactivated)}`);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+
+    const onboardingPartial = await page.evaluate(async () => {
+      const before = window.__repforgeWorkoutDraft.state();
+      const deferred = await window.__repforgeCommitNextBlock("onboarding");
+      const io = {
+        async writeLocal(data) {
+          localStorage.setItem("repforge_v1", JSON.stringify(data));
+        },
+        async writeIdb() {
+          throw new Error("injected IDB failure");
+        },
+      };
+      const result = await window.__repforgeFinalizeProgramSetup({
+        exercises: before.program,
+        name: "Deferred block successor",
+        answers: { goal: "hypertrophy" },
+        destination: "log",
+        origin: "block",
+      }, io);
+      return { deferred, result, pending: window.__repforgePendingBlock() };
+    });
+    check(onboardingPartial.deferred?.kind === "deferred" &&
+          onboardingPartial.result?.committed === false &&
+          onboardingPartial.result?.kind === "deferred" &&
+          onboardingPartial.result?.localOk === true &&
+          onboardingPartial.result?.idbOk === false &&
+          onboardingPartial.pending?.oldProgramId,
+      "one-replica onboarding block activation stays open and pending", onboardingPartial);
+
+    await clearStorage(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    const directReactivatedAfterOnboardingPartial = await activateBalancedRecommendPredecessor(page);
+    check(directReactivatedAfterOnboardingPartial.ok,
+      "fresh predecessor reactivated after onboarding partial-outcome proof", directReactivatedAfterOnboardingPartial);
+    if (!directReactivatedAfterOnboardingPartial.ok)
+      throw new Error(`direct reactivation failed: ${JSON.stringify(directReactivatedAfterOnboardingPartial)}`);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+
     // The user-facing block action must take the same compiler-backed path as
     // the explicit adapter seam. This is the production boundary that used to
     // apply the forbidden blanket +/-1 shortcut.

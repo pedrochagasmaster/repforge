@@ -19,6 +19,18 @@
 import assert from "node:assert/strict";
 import DurableState from "../durable-state.js";
 
+DurableState.configureHost({
+  isValidStateShape(snapshot) {
+    return !!snapshot && typeof snapshot === "object" && !Array.isArray(snapshot) &&
+      Array.isArray(snapshot.program) && Array.isArray(snapshot.log) &&
+      (!Object.hasOwn(snapshot, "programHistory") || Array.isArray(snapshot.programHistory)) &&
+      (!Object.hasOwn(snapshot, "settings") || !!snapshot.settings &&
+        typeof snapshot.settings === "object" && !Array.isArray(snapshot.settings)) &&
+      (!Object.hasOwn(snapshot, "programMeta") || !!snapshot.programMeta &&
+        typeof snapshot.programMeta === "object" && !Array.isArray(snapshot.programMeta));
+  },
+});
+
 const failures = [];
 
 function check(condition, message, detail) {
@@ -142,6 +154,22 @@ console.log("\n1. Pure outcome contract normalizer");
   check(outcome.kind === "rejected_failure", "Journal failure maps to rejected_failure");
   check(outcome.status === "failed" && outcome.code === "journal_failed",
     "Journal failure preserves its operational failure code");
+}
+
+// A rejected draft transaction stays rejected while durable compensation remains.
+{
+  const outcome = DurableState.normalizeDurableOutcome({
+    localOk: false,
+    idbOk: false,
+    draftConflict: true,
+    compensationPending: true,
+    revision: 9,
+  });
+  check(outcome.kind === "rejected_conflict", "Draft conflict stays rejected while compensation is pending");
+  check(outcome.rejected === true && outcome.conflict === true,
+    "Pending compensation preserves conflict and rejection semantics");
+  check(outcome.deferred === true && outcome.recoveryPending === true && outcome.settled === false,
+    "Pending compensation exposes unfinished recovery without accepting the action");
 }
 
 // Case 6: Settlement deferred / Close deferred - MUST NEVER flatten to committed
@@ -281,22 +309,34 @@ globalThis.localStorage = mockLocalStorage;
 {
   mockLocalStorage.clear();
   mockLocalStorage.setItem("repforge_pending_v1:corrupt", "not-valid-json{{{");
-  mockLocalStorage.setItem("repforge_pending_v1:valid", JSON.stringify({
+  mockLocalStorage.setItem("repforge_pending_v1:weak-shape", JSON.stringify({
     version: 2,
-    id: "valid",
-    order: { at: 100, writer: "contract-test", seq: 1 },
+    id: "weak-shape",
+    order: { at: 99, writer: "contract-test", seq: 0 },
     base: {},
     liveBase: {},
     proposal: {},
     effectOutcome: { status: "none", effect: null },
   }));
+  const validState = { program: [], log: [], programHistory: [], settings: {}, programMeta: {} };
+  mockLocalStorage.setItem("repforge_pending_v1:valid", JSON.stringify({
+    version: 2,
+    id: "valid",
+    order: { at: 100, writer: "contract-test", seq: 1 },
+    base: validState,
+    liveBase: validState,
+    proposal: validState,
+    effectOutcome: { status: "none", effect: null },
+  }));
 
   const journal = DurableState.readPendingJournal();
   check(journal.entries.length === 1, "One valid journal entry parsed");
-  check(journal.invalid.length === 1, "One corrupt entry identified");
-  check(journal.invalid[0].key === "repforge_pending_v1:corrupt", "Corrupt key correctly identified");
+  check(journal.invalid.length === 2, "Corrupt and production-invalid journal entries identified");
+  check(journal.invalid.some((entry) => entry.key === "repforge_pending_v1:corrupt"), "Corrupt key correctly identified");
+  check(journal.invalid.some((entry) => entry.key === "repforge_pending_v1:weak-shape"),
+    "Journal validation rejects the weak shape that production rejects");
 
-  DurableState.clearPendingJournal(journal.invalid[0]);
+  DurableState.clearPendingJournal(journal.invalid.find((entry) => entry.key === "repforge_pending_v1:corrupt"));
   check(mockLocalStorage.getItem("repforge_pending_v1:corrupt") === null, "Corrupt entry cleaned up");
 }
 

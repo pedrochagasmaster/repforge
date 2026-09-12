@@ -83,6 +83,17 @@ Upload reports as CI artifacts or attach them to the PR. Keep their tested SHA
 even when a later documentation-only commit changes the branch head. Current-head
 claims require a new run. This tool never labels a phase complete or changes a PR.
 
+## move-draft-store-owner.mjs
+
+Moves the historical DraftStore checkpoint, CAS, tombstone, and sidecar
+algorithms from `app.js` into `durable-state.js`. The migration is idempotent;
+its check mode guards the forwarding-only boundary after the move.
+
+```bash
+node tools/move-draft-store-owner.mjs
+node tools/move-draft-store-owner.mjs --check
+```
+
 ## build-i18n.mjs
 
 Rewrites `i18n.js` from `i18n-en.json`, `i18n-pt.json`, and
