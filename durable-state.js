@@ -626,11 +626,16 @@
     return isMutationFrozen();
   }
 
-  function settleOrphanDraftClosings(snapshot){
+  function settleOrphanDraftArtifacts(snapshot){
     const activeTransaction=pendingDraftTransaction(snapshot);
     const journalIds=new Set(readPendingJournal().entries.map(record=>record.journal.id));
+    const pending=DraftStore.pending();
+    const transactionIds=new Set([
+      ...DraftStore.closingIds(),
+      ...pending.entries.map(entry=>entry.value.transactionId)
+    ]);
     let settled=true;
-    for(const transactionId of DraftStore.closingIds()){
+    for(const transactionId of transactionIds){
       if(activeTransaction?.id===transactionId||journalIds.has(transactionId))continue;
       if(DraftStore.endClose(transactionId).settled!==true)settled=false}
     return{settled}}
@@ -857,6 +862,15 @@
       committed = false;
       settled = false;
       rejected = false;
+    } else if (accepted && (deferred || finalizationPending)) {
+      // A freeze may begin after the local replica has already accepted the
+      // write. Keep that partial transaction recoverable instead of claiming
+      // that the proposal was rejected without mutation.
+      status = "deferred";
+      kind = "deferred_pending";
+      committed = false;
+      settled = false;
+      rejected = false;
     } else if (conflict || draftConflict || transferFrozen) {
       status = "rejected";
       kind = "rejected_conflict";
@@ -982,20 +996,23 @@
     if(io===storageIO&&installTransferMutationFrozen())
       return{revision,localOk:false,idbOk:false,conflict:true,
         transferFrozen:true,code:"install-transfer-frozen"};
-    let localOk = false, idbOk = false;
+    let localOk = false, idbOk = false, transferFrozen = false;
     try {
       const res = await io.writeLocal(target);
       localOk = res !== false;
     } catch {
       localOk = false;
     }
-    try {
+    if(io===storageIO&&installTransferMutationFrozen())transferFrozen=true;
+    else try {
       const res = await io.writeIdb(target);
       idbOk = res !== false;
     } catch {
       idbOk = false;
     }
-    const result = { revision, localOk, idbOk };
+    const result = transferFrozen
+      ?{revision,localOk,idbOk,conflict:true,transferFrozen:true,code:"install-transfer-frozen"}
+      :{revision,localOk,idbOk};
     noteWriteHealth(result);
     return result;
   }
@@ -1695,7 +1712,7 @@
         const discarded=await executeDraftTransaction({record,transactionId:record.journal.id,
           effect:record.journal.effectOutcome,discard:true});
         if(discarded.settled!==true)pendingJournalCleanup=true}
-      if(!settleOrphanDraftClosings(head).settled)pendingJournalCleanup=true;
+      if(!settleOrphanDraftArtifacts(head).settled)pendingJournalCleanup=true;
       return normalizeDurableOutcome({revision:readRevision(head),localOk:true,idbOk:true,
         alreadyCommitted:true,pendingJournalCleanup})})
   }
@@ -1852,7 +1869,7 @@
         head=execution.snapshot;
         if(execution.kind!=="committed")draftConflict=true;
         replayed=true}
-      if(!settleOrphanDraftClosings(head).settled)
+      if(!settleOrphanDraftArtifacts(head).settled)
         return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
       if(replayed)return{kind:"chosen",snapshot:head,source:"pending",draftConflict,
         recoveryChanged:!!decision.recoveryChanged};

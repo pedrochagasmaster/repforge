@@ -37,6 +37,7 @@ DurableState.configureHost({
   workoutDraft: WorkoutDraft,
   rebaseStateChange(_base, proposal) { return structuredClone(proposal); },
   rebaseSharedSetupSnapshot() {},
+  applyAcceptedSnapshot() {},
   isValidBlockId() { return false; },
   isValidRecoveryTransitions() { return false; },
   isBoundedTransitionValue() { return true; },
@@ -504,6 +505,63 @@ globalThis.localStorage = mockLocalStorage;
     check(preflightOutcome.kind==="rejected_conflict"&&preflightOutcome.transferFrozen===true&&
       afterPreflight._storageRevision===4&&idbValues.get("repforge_v1")._storageRevision===4&&putCount===0,
       "Freeze during asynchronous preflight prevents both proposal writes",preflightOutcome);
+    frozen=false;
+    const originalWriteLocal=DurableState.storageIO.writeLocal;
+    try{
+      DurableState.storageIO.writeLocal=async snapshot=>{
+        mockLocalStorage.setItem("repforge_v1",JSON.stringify(snapshot));
+        frozen=true;
+        return true};
+      const midWriteOutcome=await DurableState.enqueueStateChange(base,proposal);
+      const afterLocalWrite=JSON.parse(mockLocalStorage.getItem("repforge_v1"));
+      check(midWriteOutcome.kind==="deferred_pending"&&midWriteOutcome.settled===false&&
+        midWriteOutcome.recoveryPending===true&&midWriteOutcome.transferFrozen===true,
+        "Freeze after the local write leaves an unsettled recoverable transaction",midWriteOutcome);
+      check(afterLocalWrite._storageRevision===5&&idbValues.get("repforge_v1")._storageRevision===4&&putCount===0,
+        "Freeze after the local write prevents the IndexedDB write from starting",
+        {local:afterLocalWrite,idb:idbValues.get("repforge_v1"),putCount});
+    }finally{
+      DurableState.storageIO.writeLocal=originalWriteLocal;
+    }
+    frozen=false;
+    DurableState.clearAllPendingJournal();
+    for(const key of [...Array(mockLocalStorage.length)].map((_,i)=>mockLocalStorage.key(i))){
+      if(key?.startsWith("repforge_draft_v1:"))mockLocalStorage.removeItem(key)}
+    mockLocalStorage.removeItem("repforge_draft_v1");
+    mockLocalStorage.setItem("repforge_v1",JSON.stringify(base));
+    idbValues.set("repforge_v1",base);
+    DurableState.setPersistHead(base);
+    const orphanId="orphan-promotion-retry";
+    const orphanWriter="orphan-writer";
+    mockLocalStorage.setItem(`repforge_draft_v1:closing:${orphanId}`,JSON.stringify({
+      version:1,transactionId:orphanId,writer:orphanWriter,
+    }));
+    mockLocalStorage.setItem(`repforge_draft_v1:pending:${orphanId}:${orphanWriter}`,JSON.stringify({
+      version:1,transactionId:orphanId,writer:orphanWriter,
+      order:{at:2,writer:orphanWriter,seq:2},raw:freezeDraftRaw(),
+      programFingerprint:"freeze-sidecar-context",
+    }));
+    const originalSetItem=mockLocalStorage.setItem;
+    let failCanonicalOnce=true;
+    mockLocalStorage.setItem=(key,value)=>{
+      if(key==="repforge_draft_v1"&&failCanonicalOnce){
+        failCanonicalOnce=false;
+        throw new Error("injected orphan promotion failure")}
+      return originalSetItem(key,value)};
+    let firstRecovery;
+    try{firstRecovery=await DurableState.resolveBootReplicas()}
+    finally{mockLocalStorage.setItem=originalSetItem}
+    const secondRecovery=await DurableState.resolveBootReplicas();
+    const recoveredOrphan=WorkoutDraft.parse(mockLocalStorage.getItem("repforge_draft_v1"));
+    const orphanCheckpoint=DurableState.DraftStore.readV2Checkpoint();
+    const orphanArtifacts=[...Array(mockLocalStorage.length)].map((_,i)=>mockLocalStorage.key(i)).filter(key=>
+      key?.startsWith("repforge_draft_v1:closing:")||key?.startsWith("repforge_draft_v1:pending:"));
+    check(firstRecovery.kind==="unresolved"&&firstRecovery.reason==="pending-transaction",
+      "Failed orphan-sidecar promotion keeps boot unresolved",firstRecovery);
+    check(secondRecovery.kind==="chosen"&&recoveredOrphan.kind==="valid"&&
+      orphanCheckpoint.status==="valid"&&orphanArtifacts.length===0,
+      "The next boot retries ownerless sidecar promotion and drains its artifacts",
+      {secondRecovery,recoveredOrphan:recoveredOrphan.kind,checkpoint:orphanCheckpoint.status,orphanArtifacts});
   }finally{
     DurableState.setMutationFreezeCheck(null);
     if(indexedDbDescriptor)Object.defineProperty(globalThis,"indexedDB",indexedDbDescriptor);
