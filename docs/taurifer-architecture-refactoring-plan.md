@@ -258,6 +258,69 @@ Workflows may use the durable-state owner; renderers must not construct journals
 
 The transfer path is not in current main. PR235/Plan 053 owns the planned client and endpoint, and ADR 0013 keeps it to a one-hour, token-derived AEAD, EU Durable Object, transfer-cookie, exact-clone exception with no account or synchronization platform. It is not an existing adapter for this audit's durable-state owner.
 
+## Owner-ratified disposition after Plan 053
+
+| Audit finding / candidate | Ratified owner | Required disposition |
+|---|---|---|
+| A — durable commit/recovery | Post-053 bridge | Implement now: normalized outcome contract, then one durable settlement/recovery owner |
+| B — workout-session lifecycle | Plan 055 | Implement inside Focus-only migration around existing DraftV2; no second store |
+| C — entry workflow / activation | Plans 054 + 057 | 054 owns candidate/setup-draft/activation workflow; 057 finishes installed-management consumers |
+| D — gesture lifetime | Plan 055 | Replace polling/takeover with one explicit mount/dispose owner |
+| E — historical evidence projections | Plan 056 | Prove one shared acknowledged-snapshot projection with at least two real consumers or explicitly stop if reuse is not earned |
+| F — release/cache ownership | Bridge + 058 + 059 | Bridge protects its first extracted runtime; 058 establishes the system-wide executable release contract; 059 verifies it on the final SHA |
+| G — tests follow interfaces | Cross-cutting + 059 | Every extraction migrates tests/guards with behavior; 059 verifies complete runtime scope and one scheduler |
+| H — exercise vocabulary ownership | Plans 054 + 057 | 054 establishes a coherent shared vocabulary seam only when real consumers prove it; 057 migrates management/share consumers and removes entry-only leakage |
+| H — presentation ownership | Plan 058 | Fold overrides into semantic owners during system convergence; no parallel design system |
+| R0 | Bridge | Reconstruct current baseline and classify failures before refactor |
+| R1 | Bridge + plan amendments | Record owner/caller/test/facade map |
+| R2 | Plan 055 | Explicit gesture lifetime |
+| R3 | Bridge initially; all extractions; 058 | Source/privacy/release guards follow moved runtime code |
+| R4 | Bridge | Normalize then extract durable protocol |
+| R5 | Bridge + 054/055/057 + 058 | Bridge establishes interface/facade; domain plans migrate their callers; 058 removes obsolete delegates |
+| R6 | Plan 055 | Workout lifecycle |
+| R7 | Plans 054 + 057 | Entry/lifecycle host |
+| R8 | Plan 056 | Shared historical projection |
+| R9 | Plan 058 + 059 | Delete obsolete paths/converge; final SHA verifies no dual authorities |
+
+This table is an owner scheduling decision. It turns the audit's non-binding candidates into bounded acceptance deltas under the existing plans without authorizing those plans early.
+
+The start gate was revalidated on 2026-09-11: PR #235 is merged into main
+at `bad6cc9d04fd34889745cce0ea200cc9d9d7e6b5`, with accepted candidate
+`dd704100151fa476e8be6d35bd8d68e931479259` and its recorded 34/34 acceptance
+matrix. PR #228 and PR #238 are integrated, and PR #239 is merged. The original
+77c6a011 measurements, e4a5e31 reconciliation, old line numbers, and historical
+candidate-order suggestions remain unchanged; they are not current code or
+current scheduling authority. The bridge starts from that merged main and
+reconstructs the current producer/consumer and recovery paths before refactoring.
+
+References: [PR #235 merge and final candidate](https://github.com/pedrochagasmaster/repforge/pull/235),
+[final acceptance matrix](https://github.com/pedrochagasmaster/repforge/pull/235#issuecomment-5637065102),
+[PR #228 final implementation](https://github.com/pedrochagasmaster/repforge/pull/228),
+[PR #238 runner contract](https://github.com/pedrochagasmaster/repforge/pull/238),
+and [PR #239 reconciliation](https://github.com/pedrochagasmaster/repforge/pull/239).
+
+### Bridge ownership, callers, tests, and temporary facade
+
+This map is reconstructed at `bad6cc9d`, not from the audit's historical lines.
+The bridge is not accepted merely because this allocation is committed.
+
+| Current production boundary | Bridge ownership / retained domain caller | Required proof and facade exit |
+|---|---|---|
+| `enqueueStateChange`, `executeDraftTransaction`, `writeSnapshot`, `withStorageLock` | One durable execution owner takes immutable proposals, applies existing preconditions, and returns a normalized outcome. `persist` / `commitProposedState` become temporary delegates. | Persistence, persistence-race, thermonuclear, transition commit/crash/recovery, and a fault rig that executes the real owner. Preserve partial/deferred truth and both-replica structural acceptance. |
+| Pending journal, closing markers, `_storageDraftTransaction`, DraftStore/checkpoint CAS | Bridge owns WAL, lock, settlement, compensation, checkpoint/tombstone and transaction-sidecar coordination. `workout-draft.js` keeps pure DraftV2 semantics. | DraftV2 storage/migration/checkpoint/conflict/adversarial and exact-byte recovery tests. No second store and no format/key/lock rename. |
+| `resolveBootReplicas` | Boot calls the same durable recovery owner as foreground settlement. App retains recovery presentation and domain-specific acceptance decisions. | Reload, crash replay, quarantine, newer-draft preservation, structural two-replica failures, and old/new-worker tests. No second replay algorithm. |
+| `commitProgramReplacement`, `commitProposedState` consumers, History Save/Delete, workout finish, entry activation | Domain preparation stays in the accepted application/transition/entry/draft boundaries. Bridge provides the normalized interface and a documented temporary compatibility facade; Plans 054/055/057 migrate their callers. | Existing activation, History, finish, backup and identity fixtures remain green. Facade removal is Plan 058 scope, only after every consumer migrates with equivalent proof. |
+| Install-transfer import/readback and boot ordering | Consume the durable owner without changing ADR 0013's exact-clone/import-marker/rollback/freeze contract or the transfer client's service responsibilities. | Accepted Plan 053 import, clone, telemetry, recovery UI and SW-upgrade suites; staging/device evidence must never be relabelled as evidence for a new SHA. |
+| New runtime registration and deliberate source guards | Bridge covers its first extraction in HTML/SW load/cache policy, syntax, privacy and affected selection. One existing runner/inventory remains authoritative. | Missing required runtime/offline/upgrade negative controls; relocated source is still scanned; unknown executable paths select all. Plan 058 owns system-wide convergence and 059 final-SHA closure. |
+
+The compatibility facade is forwarding-only, not a second implementation.
+It preserves current callers while exposing one outcome-oriented durable
+contract. It may not flatten `deferred`, conflict, recovery or partial settlement
+into success. Structural replacement/recovery/reassessment requires both
+replicas for `committed`; permitted one-replica operations retain their existing
+acceptance rule and report replica health separately. Plan 058 deletes delegates
+only after all named domain consumers migrate; Plan 059 verifies one authority.
+
 ## 5. Candidate slices and PR boundaries
 
 The following are **non-binding candidate slices**, not a roadmap, newly allocated plan numbers, or a second queue. The R0–R9 labels only make later discussion precise; they do not impose an order or authorize a branch. `docs/backlog.md` is the repository's only ordered queue. Accepted work belongs under the existing plan owners, current plan files, and `docs/ui-overhaul-implementation-sequence.md`; owner, visual, staging, physical-device, and same-SHA gates remain required. The dependency notes are architectural observations, not calendar estimates or permission to start Plan 054+ work.

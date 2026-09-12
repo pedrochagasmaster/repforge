@@ -71,6 +71,31 @@ The branch/PR review was refreshed on 2026-09-04. Open PRs #183 (PostHog deploym
 
 Production-backed baseline checks passed before planning: Focus 116, History 40, program entry 287, install modes 348, accessibility 171, and session summary 45 assertions. `node tools/extract-ui-audit-findings.mjs --check` reported 72 screens, 221 frames, four source PRs, 32 findings, and 88 decisions; the catalog completeness check independently reported 72/221. These are current-state facts, not completion evidence for future plans.
 
+## Post-Plan053 architecture bridge
+
+- It is an unnumbered bounded engineering bridge, not a new product plan.
+- It begins only after owner-approved Plan 053 has merged.
+- It owns PR239 R0/R1 and R4, the initial R3 protections, and only the part of R5 needed to establish the normalized durable outcome interface and compatibility facade.
+- It must finish before Plan 054 production implementation.
+- It does not own workout lifecycle, entry-host UX, Progress projections, management UI, gesture redesign, or design-system work.
+- Those remaining audit findings are allocated to Plans 054–059 below.
+
+The owner ratified this insertion on 2026-09-11. PR #235 is merged at
+`bad6cc9d04fd34889745cce0ea200cc9d9d7e6b5`, including accepted candidate
+`dd704100151fa476e8be6d35bd8d68e931479259`. Its recorded 34/34 acceptance
+matrix and the final Plan 051–053 contracts remain binding. The dated resume
+and planning snapshots above are historical; they do not reopen those merges
+or permit later production work before the bridge. Re-read the live branch
+and gate state at every handoff. This scheduling authorization is not bridge
+completion or merge approval.
+
+The [owner-ratified disposition](taurifer-architecture-refactoring-plan.md#owner-ratified-disposition-after-plan-053)
+allocates every PR239 candidate/R label. Plans 054/057 own entry and management
+workflow/vocabulary consumers; 055 owns the workout-session and gesture
+lifetimes; 056 owns earned historical projections; 058 owns system-wide
+release/cache, presentation, and obsolete-path convergence; 059 verifies
+complete architecture and evidence closure on the final SHA.
+
 ## Plan inventory
 
 | Plan | Phase | Name | Findings | Principal G decisions | Depends on | Complexity | Risk |
@@ -80,9 +105,10 @@ Production-backed baseline checks passed before planning: Focus 116, History 40,
 | 051 | 2A | Workout draft state foundation | Foundation beneath UI-18 | G-08, G-22, G-41–G-44, G-69, G-77, G-84 | 049; merge after 050 hotspot reconciliation | Very high | Very high |
 | 052 | 2B | Block-transition provenance foundation | Foundation beneath UI-10 | G-24, G-31–G-36, G-53–G-56, G-61, G-70 | 049 | Very high | Very high |
 | 053 | 2C | Temporary iOS install-transfer foundation | Foundation beneath UI-19 | G-07, G-39, G-48, G-71, G-84–G-88 | 049, 051 | Very high | Critical |
-| 054 | 3 | Landing and program entry | UI-14 privacy; UI-15–UI-17; UI-19; UI-32 | G-09–G-10, G-17–G-21, G-25–G-26, G-37, G-39–G-40, G-46–G-52, G-72–G-73, G-79, G-81 | 049, 050; transfer slice 053 | Very high | High |
-| 055 | 4 | Focus-only workout | UI-18, UI-23; Today preview adjacent to UI-25 | G-08, G-15, G-22, G-41–G-44, G-62, G-69 | 049, 050, 051; tour cleanup 054 | Very high | Very high |
-| 056 | 5 | Progress and block lifecycle | UI-08–UI-12; UI-29 chart | G-11, G-24, G-27, G-29–G-36, G-53–G-56, G-60–G-61, G-70 | 049, 050, 052; cue slice 054 | Very high | Very high |
+| Bridge | 2D | Durable-state architecture bridge | PR239 A / R0 / R1 / R3(initial) / R4 / R5 foundation | — | 051, 052, owner-approved+merged 053 | Very high | Critical |
+| 054 | 3 | Landing and program entry | UI-14 privacy; UI-15–UI-17; UI-19; UI-32 | G-09–G-10, G-17–G-21, G-25–G-26, G-37, G-39–G-40, G-46–G-52, G-72–G-73, G-79, G-81 | 049, 050, merged durable-state bridge; accepted 053 transfer | Very high | High |
+| 055 | 4 | Focus-only workout | UI-18, UI-23; Today preview adjacent to UI-25 | G-08, G-15, G-22, G-41–G-44, G-62, G-69 | 049, 050, 051, merged bridge, 054 | Very high | Very high |
+| 056 | 5 | Progress and block lifecycle | UI-08–UI-12; UI-29 chart | G-11, G-24, G-27, G-29–G-36, G-53–G-56, G-60–G-61, G-70 | 049, 050, 052, merged bridge via 054 | Very high | Very high |
 | 057 | 6 | Management surfaces | UI-13, UI-14 repair, UI-24–UI-28 | G-12–G-14, G-17, G-23–G-24, G-38, G-45–G-46, G-60, G-63–G-68, G-80 | 049, 050, 054, 055, 056 | Very high | High |
 | 058 | 7 | Design-system convergence | UI-20–UI-22, UI-30 | G-13–G-14, G-28, G-57–G-60, G-67, G-74, G-80–G-81 | 049–057 principal surfaces | Very high | High |
 | 059 | 8 | Public-launch UI validation | UI-04, UI-31; regression UI-01–UI-32 | G-01, G-05–G-06, G-59, G-74–G-76, G-83 | 049–058 and all owner gates | High | Critical |
@@ -96,6 +122,7 @@ flowchart TD
   P051["051 · Phase 2A<br/>Workout DraftV2"]
   P052["052 · Phase 2B<br/>Transition provenance"]
   P053["053 · Phase 2C<br/>iOS transfer"]
+  BRIDGE["Bridge · Phase 2D<br/>Durable-state owner"]
   P054["054 · Phase 3<br/>Landing + entry"]
   P055["055 · Phase 4<br/>Focus only"]
   P056["056 · Phase 5<br/>Progress + blocks"]
@@ -111,15 +138,18 @@ flowchart TD
 
   P049 --> P054
   P050 --> P054
-  P053 -->|"late-install slice"| P054
+  P051 --> BRIDGE
+  P052 --> BRIDGE
+  P053 --> BRIDGE
+  BRIDGE --> P054
 
   P050 --> P055
   P051 --> P055
-  P054 -->|"guide registry / tour deletion"| P055
+  P054 --> P055
 
   P050 --> P056
   P052 --> P056
-  P054 -->|"guide registry"| P056
+  P054 --> P056
 
   P054 --> P057
   P055 --> P057
@@ -142,27 +172,31 @@ flowchart TD
   P058 --> P059
 ```
 
-The DAG is acyclic. Edges labelled with a slice do not prevent independent earlier commits on the destination branch; they prevent that dependent slice and final merge.
+The DAG is acyclic. The post-053 production dependency is hard:
+053 → durable-state bridge → 054 → 055 / 056 → 057 → 058 → 059.
+Read-only inventory, fixtures, and owner-selected visual preparation may be
+prepared earlier where their existing plan allows it; production implementation
+may not bypass this ordering or the plan's owner gates.
 
 ## Critical path
 
 The hard sequence is:
 
-1. Plan 049 resolves canonical contracts, the service/provider/privacy boundary,
-   and recovery policy version 2; staging, physical-device, and landing gates
-   remain downstream.
-2. Plans 050, 051, and 052 branch from the reconciled contract. They may develop concurrently, but shared shell/cache work merges in the order 050 → 051 → 052 unless a PR has no overlapping files.
-3. Plan 053 consumes DraftV2 and closes the install-transfer foundation. Service-only work may start earlier, but client import cannot.
-4. Plan 054 consumes the corrected catalog harness and transfer. Its landing visual slice stops for owner selection.
-5. Plan 055 consumes DraftV2 and the contextual-guide registry before removing List/tour artifacts. Core Focus work can overlap Plan 054; deletion/merge cannot bypass it.
-6. Plan 056 consumes transition provenance, policy version 2, and the guide
-   registry. Its recovery slice must preserve that closed policy and stops only
-   on contract drift or missing implementation evidence.
-7. Plan 057 consumes the stabilized entry/privacy, workout, and Progress outcome contracts.
-8. Plan 058 migrates every public surface after Plans 054–057 stop changing principal structure.
-9. Plan 059 validates one immutable release-candidate SHA, then waits for physical-device and final owner sign-off.
+049 → 050/051/052 → 053 → durable-state bridge → 054 → 055 and 056 → 057 → 058 → 059.
 
-The longest likely path is 049 → 051 → 053 → 054 → 055 integration → 057 → 058 → 059. Recovery implementation follows a second hard path: 049 → 052 → 056 → 057 → 058 → 059; policy selection is already closed in Phase 0.
+Plan 049 establishes the canonical contracts. Plans 050/051/052 establish the
+correctness, DraftV2, and transition foundations while serializing shared
+storage/shell changes. Plan 053 then closes its transfer, staging, physical-device,
+and owner gates. The bridge normalizes the durable outcome before extracting
+settlement/recovery under those accepted contracts. Plan 054 consumes the merged
+bridge and retains the landing visual-selection gate. Plans 055 and 056 consume
+054 and the bridge for workout/gesture ownership and historical projections,
+respectively. Plan 057 completes management consumers; Plan 058 converges the
+system and removes obsolete delegates only after migration; Plan 059 verifies
+one immutable release-candidate SHA and waits for final device/owner sign-off.
+
+The architecture insertion neither changes recovery policy version 2 nor
+weakens any visual, staging, physical-device, privacy, or same-SHA gate.
 
 ## Parallelism and merge constraints
 
@@ -173,9 +207,10 @@ The longest likely path is 049 → 051 → 053 → 054 → 055 integration → 0
 | 051 | No; after 049 | 050 UI checks; 052 transition model; 053 service fixtures | 049 and reconciliation with merged 050 hotspots | `app.js`, `index.html`, SW, draft/race/focus tests; very high with 055 |
 | 052 | No; after 049 | 050/051; 053 service | 049 policy version 2; staging/evidence still downstream | compiler/adapter, `app.js`, SW, storage/backup tests; high with 056 |
 | 053 | Service-only scaffolding after 049; client later | 050/052; service contract beside 051 | 051, selected contract, staging/device evidence | `app.js`, telemetry, i18n, SW, install/shared tests; critical with 054 |
-| 054 | Visual-direction preparation after 049/050 | 055 workout-owned and 056 Progress-owned code | 050; transfer slice 053; imagegen owner selection | shell, entry modules, i18n, SW, manifest; high |
-| 055 | Core after 051 | 054 entry and 056 Progress with file partition | 051; tour deletion after 054 registry | workout portions of app/index/CSS, i18n, SW, catalog; very high |
-| 056 | Core after 052/050 | 054 entry and 055 workout with file partition | 052 policy version 2; cues after 054 | Progress/Program portions, compiler adapter, i18n, SW, manifest; very high |
+| Bridge | Only after owner-approved 053 merges | Read-only later-plan characterization; one durable-state writer | 051, 052, owner-approved and merged 053 | Settlement/recovery, DraftV2 sidecars, boot, cache and source/privacy guards |
+| 054 | Visual-direction preparation only before bridge | Read-only 055/056 characterization; no later production implementation | Merged durable-state bridge, 050/053, imagegen owner selection | shell, entry modules, i18n, SW, manifest; high |
+| 055 | Production after 054 and bridge | 056 Progress with explicit file partition | Bridge, 051, 054; List deletion requires parity and accepted session owner | workout portions of app/index/CSS, gesture lifetime, i18n, SW, catalog; very high |
+| 056 | Production after 054 and bridge | 055 workout with explicit file partition | Bridge, 052 policy version 2, 054 | Progress/Program portions, compiler adapter, i18n, SW, manifest; very high |
 | 057 | No | History and Share investigation/tests may be prepared, but one branch/integrator owns shared files | 054, 055, 056 | Almost every monolithic UI file; very high |
 | 058 | Inventory/checker can prepare against a pinned snapshot | Automated inventory preparation only | Principal UI plans 054–057 | Entire public CSS/markup/catalog; serialize all visual work |
 | 059 | No | Catalog, accessibility, and privacy checks can run concurrently against the same immutable SHA | 049–058 and all gates | Evidence manifest is single-writer; any source fix invalidates evidence |
@@ -188,11 +223,11 @@ Parallel plans never copy unpublished files, cherry-pick arbitrary sibling work,
 |---|---|---|---|
 | `docs/ui-audit.md` decision register/companion | 049 | 059 verifies | Audit findings remain authoritative; do not edit product meaning |
 | `docs/backlog.md`, ADRs, brand/privacy/current specs | 049 | 054–059 verify/consume | Phase 0 merges before code; later doc corrections cite owner plan |
-| `app.js` persistence/draft region | 051 | 053 import, 055 workout | 051 → 053 → 055; transition storage region from 052 merges before 056 |
+| Durable persistence/draft settlement and boot-recovery region | Plans 051–053 establish the accepted durable contracts; the bridge owns settlement/recovery implementation | Plans 054–057 consume the durable-state owner; 058 removes compatibility delegates only after all callers migrate; 059 verifies one authority remains | Bridge before 054; consumers must not recreate WAL, WebLock, replica or sidecar logic; no format/semantic changes |
 | `app.js` entry/install region | 054 | 053 primitive first; 057 Settings links | 053 → 054 → 057 |
 | `app.js` Progress/block region | 052 domain/commit boundary, 056 UI | 057 summary/Program consumers, 058 annotations | 052 → 056 → 057 → 058 |
 | `app.js` History/Share/Summary/Today/Program/Settings | 057 | 058 presentation annotations | Wait for 054–056, then 057 → 058 |
-| `workout-draft.js` (shipped) | 051 | 052 draft-safe transition, 053 logical clone, 055 UI | Reuse the acknowledged aggregate and existing checkpoint/CAS adapter; consumers do not add fields independently. Required schema changes return to the 051 contract for explicit review |
+| `workout-draft.js` (shipped) | 051 owns the pure aggregate; bridge owns durable transaction-sidecar coordination | Accepted 052/053 integrations, then 055 session owner and 054–057 durable consumers | Reuse the sole acknowledged aggregate and bridge checkpoint/CAS owner; no second store. Required schema changes return to the 051 contract for explicit review |
 | `program-transition.js` (new) | 052 | 056 | 056 renders/commits proposals only; it does not modify derivation |
 | `progress-model.js` (new) | 056 | 057 summary/Today, 059 tests | Outcome/scope changes remain owned by 056 |
 | `install-transfer.js` / `services/install-transfer/**` | 053 | 054 promotion, 059 validation | 054 never changes claim/import semantics; service isolated from root deps |

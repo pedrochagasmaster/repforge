@@ -10,9 +10,10 @@ live SHAs, thread ID, server origin, and PID before dispatch.
 - **Phase:** 4 — Focus-only workout
 - **Status:** Planned; implementation has not started
 - **Owner approval state:** Focus-only direction is final; capability parity is an implementation gate
-- **Depends on:** Plan 049 semantic roles; Plan 050 responsive/overflow harness; Plan 051 DraftV2 and DOM-independence. The contextual-guide cleanup slice integrates after Plan 054's guide registry
+- **Depends on:** Plan 049 semantic roles; Plan 050 responsive/overflow harness; Plan 051 DraftV2 and DOM-independence; the merged durable-state architecture bridge; Plan 054 entry/guide registry under the hard sequence. No workout-store or persistence-protocol replacement is authorized.
 - **Blocks:** Workout-owned portions of Plan 057/058 and final Plan 059 acceptance
 - **Governing G decisions:** G-08, G-15, G-22, G-41–G-44, G-49, G-62, G-69, G-77
+- **Architecture-audit ownership:** Candidate B / R6 workout-session lifecycle; Candidate D / R2 gesture lifetime; workout portion of R5 caller migration.
 - **Governing UI findings:** UI-18, UI-23, and Today preview behavior associated with UI-25
 - **Affected surfaces:** Today session actions, active workout shell, Focus card, session map/sheet, exercise actions, rest timer, draft resume/save/summary, obsolete List/tour artifacts
 - **Complexity:** Very high
@@ -92,9 +93,39 @@ Mode switching itself is intentionally removed. It is not a capability to preser
 
 ## Architecture
 
+### Architecture-audit adoption: workout-session owner
+
+1. Existing DraftV2 remains the sole workout aggregate/store.
+2. Add one workout-session orchestration owner around DraftV2 and the durable-state owner.
+3. It owns start/resume lifecycle, pending command acknowledgement, obtaining the acknowledged projection, leave, finish, completion/recovery sequencing, and exact session/draft identity across retries.
+4. It does NOT own progression mathematics, DOM rendering, translations, animation, or a second workout store.
+5. Finish must wait for acknowledged pending work; capture the exact acknowledged revision; use the normalized durable outcome; never present deferred/partial settlement as saved; prevent a stale finish from clearing a newer successor draft/session; clear the completed in-memory identity before another session can be created; and open Summary only from acknowledged completion.
+6. `Leave workout` preserves the same exact DraftV2 and does not accidentally compile/save it.
+7. `Preview session` remains storage-silent and never creates workout-session durable state.
+
+### Architecture-audit adoption: explicit gesture lifetime
+
+Replace the current cross-file gesture takeover pattern with one explicit
+controller lifetime:
+
+- Application boot explicitly mounts one gesture owner.
+- That owner chooses the supported Motion runtime or the existing fallback.
+- No polling a global boot flag.
+- No module removes event listeners installed by another owner.
+- No global callback replacement as the ownership mechanism.
+- The returned disposal handle removes owned listeners, disconnects observers, cancels pending animation/gesture work, and releases gesture state.
+- Mounting twice cannot create duplicate navigation.
+- Disposal during an active drag/swipe is safe.
+- Pointer cancellation, Escape and reduced-motion behavior remain correct.
+- Missing Motion runtime leaves the fallback fully functional.
+
+Preserve current gesture physics, hit regions, scroll arbitration and
+accessibility. List deletion remains gated by both capability parity AND the
+accepted workout-session owner.
+
 ### One renderer over DraftV2
 
-Consume Plan 051's `activeWorkoutDraft` and commands directly. Remove mode branching from all save/read/state paths before removing markup. The sole renderer has three layers:
+Consume Plan 051's DraftV2 through the accepted workout-session owner and its acknowledged command/projection interface. Remove mode branching from all save/read/state paths before removing markup. The sole renderer has three layers:
 
 1. immersive workout shell: header/context, exercise navigation, active exercise, ordered sets, rest status, finish/leave entry;
 2. Session sheet: whole-session map/overview, reorder, date, bodyweight, session notes, early finish;
@@ -120,7 +151,7 @@ Normal finish validates required completed state. Early finish names skipped/inc
 
 ### List deletion order
 
-Delete only after all parity rows are green on the DraftV2 renderer:
+Delete only after all parity rows are green on the DraftV2 renderer AND the workout-session owner is accepted:
 
 1. remove mode preference/toggle/route/event paths;
 2. remove List markup and hidden off-screen carriers;
@@ -202,6 +233,16 @@ Workout, bodyweight, and notes remain local. Preview/guide/leave actions must no
 Only previously approved coarse task events may distinguish preview opened, workout started, safe leave, saved, and contextual-guide completion. Never send load/reps/RIR/bodyweight, exercise identity, notes, substitutions, draft content, or timer values. Owner interpretation only.
 
 ## Testing and executable evidence
+
+Architecture acceptance additionally proves:
+
+- Immediate Complete → Finish while a pending correction exists.
+- Total durable failure preserves recoverable draft; deferred settlement does not produce false success.
+- Stale finish cannot clear successor; Leave/resume preserves exact identity; Preview writes nothing.
+- Double gesture mount, disposal during gesture, pointer cancel, missing Motion, and reduced motion.
+
+Use the actual session/gesture owners and production input routes; do not
+substitute an independent test-only store or gesture algorithm.
 
 - Convert the capability table to named test cases and record its green status in the PR before List deletion.
 - Storage-diff test proves Preview creates/changes no draft, log, durable revision, timer, or start event.

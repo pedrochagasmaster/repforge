@@ -10,9 +10,10 @@ live SHAs, thread ID, server origin, and PID before dispatch.
 - **Phase:** 7 — System convergence
 - **Status:** Planned; implementation has not started
 - **Owner approval state:** Semantic direction is approved; rendered results require owner visual review
-- **Depends on:** Plans 049–057 merged; principal public surfaces and interaction structure must have stopped moving
+- **Depends on:** Plans 049–057 and the durable-state bridge merged, including the accepted architecture outputs of 054–057; principal public surfaces and interaction structure must have stopped moving.
 - **Blocks:** Plan 059 public-launch validation
 - **Governing G decisions:** G-13–G-14, G-28, G-57–G-60, G-67, G-74, G-80–G-81
+- **Architecture-audit ownership:** Candidate F system-wide release/cache ownership; Candidate H presentation ownership; R3 runtime-guard convergence; R5 compatibility-facade removal; R9 obsolete-path convergence.
 - **Governing UI findings:** UI-20, UI-21, UI-22, UI-30
 - **Affected surfaces:** Every public app/landing/sheet/dialog/toast/navigation/control/chart/catalog surface
 - **Complexity:** Very high
@@ -60,6 +61,19 @@ Preserve Taurifer's warm paper/ink/burnt-orange identity, token-only dark swap, 
 - The 72-state/221-frame audit baseline already changed: main `c3491c5e` is 75 screens / 317 frames after Plans 050/051, and Plans 053–057 will change it further. Plan 058 must inventory the live manifest at its dispatch base SHA rather than use any documented count.
 
 ## Architecture
+
+### Architecture-audit adoption: release, presentation and obsolete-path convergence
+
+The owner-ratified PR239 allocation is acceptance scope inside this plan, not
+a separate engineering queue or permission to implement this plan early.
+
+1. Establish one executable system-wide release/cache contract for actual runtime assets: required versus optional, load order, versioning, precache coverage, and explicit cache policy. Extend/derive from existing checks and HTML where possible; do not introduce another manually maintained authority, application build requirement, bundler, or generic platform.
+2. Carry forward the bridge's first-extraction protections. Source/privacy/syntax and affected-selection guards follow every moved production module; no runtime code escapes scanning because it left `app.js`. Keep unknown executable inputs conservatively selected and the merged PR238 single scheduler/inventory contract intact.
+3. Prove cold boot, cached offline boot, old/new controlled-client upgrade, required-code failure, and unavailable optional runtime/configuration. Optional PostHog configuration must not become a required precache dependency, and an HTML fallback must not be accepted as JavaScript.
+4. Fold presentation overrides, including applicable motion-polish rules, into their semantic owners during the already authorized system migration. Preserve task-specific variants, both locales/themes, enlarged text and approved visual identity. Do not create a parallel design system or mechanically reorder the cascade without rendered evidence.
+5. Remove obsolete durable/entry/workout compatibility delegates only after Plans 054/055/057 have migrated every caller and the old-scenario → replacement-proof map is green. No duplicate durable settlement, replay, activation, workout store, gesture owner, or semantically identical historical calculation may remain as an alternative authority.
+6. Preserve legacy readers, durable formats/keys/locks, progression semantics, exact exercise identity, backup/setup/transfer scope, and all accepted Plan 051–053 invariants. Historical compatibility is not an obsolete path merely because current UI no longer writes its format.
+7. Record every retained delegate/exception with its real consumer, reason and existing plan owner; a broad allowlist or unowned deferral does not satisfy convergence. Plan 059 verifies the final authority and executable-release result on its candidate SHA.
 
 ### Re-runnable role inventory
 
@@ -218,6 +232,12 @@ No privacy/data behavior changes. Visual test fixtures remain deterministic/loca
 None. Component tokens, contrast, and visual exceptions are not product analytics. Do not add automatic redesign triggers.
 
 ## Testing and executable evidence
+
+PR239 architecture acceptance includes the executable release/cache and
+source-scope negative controls above; an exhaustive caller/delegate inventory;
+old-scenario → new-interface test equivalence before deletion; and rendered
+presentation-owner proof. Keep every suite registered once in the existing
+inventory and preserve first-failure/diagnostic-replay truth.
 
 ### Inventory/static checks
 

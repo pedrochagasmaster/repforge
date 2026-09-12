@@ -10,12 +10,10 @@ live SHAs, thread ID, server origin, and PID before dispatch.
 - **Phase:** 3 — Landing and program entry
 - **Status:** Planned; implementation has not started
 - **Owner approval state:** Product flow is approved; landing mini-interface direction requires owner selection before visual implementation
-- **Depends on:** Plan 049; Plan 050; Plan 053 for the established-data iOS transfer slice (and transitively Plan 051).
-  Plans 049/050/051 are merged on main `c3491c5e`; Plan 052 is in progress (PR #228); Plan 053 is not started. Plan 050
-  (PR #227) already ships the enlarged-text expert-control geometry and the copy/overflow leverage — packets consume
-  those components and do not re-fix them.
+- **Depends on:** Plan 049; Plan 050; the merged post-Plan053 durable-state architecture bridge (including accepted Plans 051–053). Plans 051/052/053 are merged at main `bad6cc9d`; the bridge must finish and merge before this plan's production implementation. Plan 050's shipped expert-control and copy/overflow components remain the starting point; the landing visual-selection gate remains mandatory.
 - **Blocks:** Relevant Plan 057 Settings/Privacy integration, Plan 058 full-system migration, and Plan 059 launch validation
 - **Governing G decisions:** G-09–G-10, G-17–G-21, G-25–G-26, G-37, G-39–G-40, G-46–G-52, G-62, G-69, G-72–G-73, G-79, G-81–G-82
+- **Architecture-audit ownership:** Candidate C / R7 first half; Candidate H shared exercise-vocabulary seam; entry portion of R5 caller migration.
 - **Governing UI findings:** UI-14 (Privacy-page ownership), UI-15, UI-16, UI-17, UI-19, UI-32
 - **Affected surfaces:** First-run landing, valid shared-link landing, entry chooser, Recommend/Custom/Browse/Build/Import paths, recommendation preview, install promotion, contextual guidance, Privacy page
 - **Complexity:** Very high
@@ -49,6 +47,10 @@ Preserve Taurifer's name/voice, warm paper/ink/burnt-orange system, token-swap d
 
 ## Non-goals
 
+- No general persistence abstraction in this plan; consume the merged durable-state owner.
+- No generic repository/service-container architecture.
+- No exercise vocabulary extraction without a proven second consumer.
+
 - No creator avatar/name/trust claims, publisher attribution, or authenticity system (G-82 deferred).
 - No merging Recommend and Custom, hiding expert controls, or inventing a sixth entry job.
 - No separate landing visual language, new exercise art, or dark treatment of licensed paper art.
@@ -69,6 +71,20 @@ Preserve Taurifer's name/voice, warm paper/ink/burnt-orange system, token-swap d
 - The current Privacy/settings capture is a section, while Share includes disclosure/cookie prose. The service worker already caches the shell and must cache the routed page content.
 
 ## Architecture
+
+### Architecture-audit adoption: entry workflow ownership
+
+1. Preserve `program-entry.js` as the pure route/state authority and preserve the compiler/editor modules that already own their domains.
+2. Introduce or deepen exactly one imperative entry-workflow owner for setup-draft lifetime, candidate orchestration, reviewed-candidate identity, activation delegation, acknowledged completion, and cleanup/retry.
+3. Entry renderers may not construct WAL/journal metadata, inspect localStorage/IndexedDB replica outcomes, assemble persistence receipts, or decide whether a partial write counts as workflow success. They consume the bridge's normalized durable outcome.
+4. Activation must commit the exact candidate the user reviewed; re-read/revalidate the acknowledged durable head; fail clearly on stale conflict; recognize already-committed activation idempotently; and clean setup state only after acknowledged activation.
+5. Keep inbound representations distinct: setup/shared-link executable candidate; ordinary import candidate; full backup replacement; history-only backup merge; Plan 053 exact install-transfer clone. Do not introduce one permissive `normalizeEverything` representation.
+6. Exercise/search vocabulary: entry-only enums remain with the pure entry state machine. If equipment/muscle/search vocabulary has at least one genuine non-entry consumer, move the coherent operation plus its vocabulary to a shared exercised module. Do not create a constants-only file, generic utils bag, or duplicate catalogue. Preserve current `libraryId` and identity fixtures exactly.
+7. Add acceptance proof for cancellation/storage silence; reviewed candidate == activated candidate; stale cross-tab activation; retry after durable activation but before setup cleanup; no duplicate archive/successor; legacy setup/share decode; and transfer/backup scopes staying distinct.
+
+These are acceptance deltas within this plan, not early authorization or a
+replacement for its owner/visual/device gates. Domain workflow ownership stays
+separate from the bridge's durability implementation.
 
 ### Landing routing and one-time state
 
@@ -214,6 +230,11 @@ Landing and Settings link to the cached page. Shared landing displays only propo
 Use only Phase 049-approved coarse comprehension/task funnels: landing viewed → chooser opened; entry route selected → valid candidate → activation; install offer by platform/milestone → dismissed/completed; guide shown/dismissed/completed; `late_install_transfer` remains owned by Plan 053. Respect consent and stable identity. Do not send answers, program/exercise identity, free text, shared payload, tokens, or visual-direction selection. The owner alone interprets results.
 
 ## Testing and executable evidence
+
+Architecture adoption is part of acceptance: prove every entry-workflow and
+vocabulary condition above through the production route and normalized durable
+interface, including the stale/idempotent and no-write negative cases. Existing
+identity/legacy-format fixtures must remain byte/semantically equivalent.
 
 - Pure routing tests for generic/shared/returning landing and no-program fallback.
 - All five route journeys, explicit activation, replacement conflict, resume/rules drift, primary-only and real-alternative recommendation, no fabricated alternative.

@@ -1424,12 +1424,19 @@ try {
         { status: "valid", raw: "{}", parsed: { program: [{ id: "x", name: "Press" }], log: [], settings: { unit: "kg", lang: "en" } } },
         { status: "valid", raw: "{}", parsed: { settings: { lang: "en", unit: "kg" }, log: [], program: [{ name: "Press", id: "x" }] } }
       );
+      const activation = valid("Activation", 3);
+      activation.parsed._storageSetupActivation = {
+        version: 1,
+        programId: "activation-program",
+        raw: "setup-candidate",
+      };
       return {
         first: choose({ status: "absent" }, { status: "absent" }).kind,
         equalLegacy: choose(valid("A"), valid("A")).migrate,
         reorderedLegacy: reordered.kind === "chosen" && reordered.migrate === true,
         higher: choose(valid("L", 2), valid("I", 1)).source,
         divergent: choose(valid("A", 0), valid("B", 0)).kind,
+        activationReceipt: choose(activation, valid("Activation", 3)).kind,
         invalid: choose(valid("A", 1), { status: "invalid", raw: "x" }).kind,
       };
     });
@@ -1438,6 +1445,7 @@ try {
     assert(table.reorderedLegacy === true, "chooseSnapshot: object key order does not create false divergence", JSON.stringify(table));
     assert(table.higher === "local", "chooseSnapshot: higher local revision wins", JSON.stringify(table));
     assert(table.divergent === "unresolved", "chooseSnapshot: equal-revision divergence is unresolved", JSON.stringify(table));
+    assert(table.activationReceipt === "unresolved", "chooseSnapshot: setup-activation receipt is load-bearing replica state", JSON.stringify(table));
     assert(table.invalid === "unresolved", "chooseSnapshot: valid+invalid is unresolved", JSON.stringify(table));
     await context.close();
   }

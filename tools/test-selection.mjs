@@ -8,7 +8,7 @@ import { SUITES, commandArgs } from "../test/suites.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const ALL = Object.entries(SUITES).flatMap(([lane, suites]) => suites.map((suite) => ({ lane, suite })));
-const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans)\/.+\.md$/;
+const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans)\/.+\.(md|html)$/;
 
 function git(args, cwd) {
   return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });
@@ -108,6 +108,7 @@ function addEntries(target, additions) {
 const DOMAIN_RULES = [
   { match: /^(services\/install-transfer\/|\.github\/workflows\/install-transfer-service\.yml$)/, lanes: ["service"], why: "install-transfer service gate" },
   { match: /^(telemetry\.js|posthog-(?:adapter|init)\.js|posthog-config\.js|scripts\/generate-posthog-config\.mjs)$/, lanes: ["fast", "privacy"], why: "telemetry boundary" },
+  { match: /^durable-state\.js$/, lanes: ["fast", "state", "workout"], why: "durable state and persistence engine" },
   { match: /^workout-draft\.js$/, lanes: ["fast", "state", "workout"], why: "durable workout draft" },
   { match: /^(program-entry(?:-adapter)?\.js|program-compiler\.js)$/, lanes: ["fast", "state", "entry", "workout"], why: "program entry/compiler contract" },
   { match: /^program-editor\.js$/, lanes: ["entry", "workout"], why: "program editor UI" },

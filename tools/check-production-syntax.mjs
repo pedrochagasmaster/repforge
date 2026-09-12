@@ -15,6 +15,7 @@ const files = execFileSync("git", ["ls-files", "-z", "--", "*.js"], { encoding: 
   .filter((file) => !file.includes("/"));
 const expected = [
   "app.js",
+  "durable-state.js",
   "exercises.js",
   "i18n.js",
   "install-transfer-contract.js",
