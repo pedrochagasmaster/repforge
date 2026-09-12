@@ -1,4 +1,5 @@
-# Reconstructed Live Durable Model & Result-State Contract
+# Reconstructed Live Durable Model and Result-State Contract
+
 **Phase C0: Live Baseline Reconstruction at SHA `bad6cc9d`**
 
 ## 1. Executive Summary
@@ -38,16 +39,12 @@ This document reconstructs the live durable state architecture of RepForge follo
 
 | State Category | Result Code / Kind | Characteristics & Flags | In-Memory Reaction | Disk State |
 |---|---|---|---|---|
-| **Committed** | `committed` | `localOk: true`, `idbOk: true`, `accepted: true`, `rejected: false`, `settled: true`, `revision: N` | Live state rebased & adopted; `persistHead` advanced. | Both `localStorage` and `IndexedDB` contain identical snapshot at revision `N`. Journal cleared. |
-| **Already Committed** | `committed` (idempotent) | `alreadyCommitted: true`, `localOk: true`, `idbOk: true`, `accepted: true`, `revision: N` | Verified existing head matches requested transition/activation. No duplicate write. | Already durable at revision `N`. Pending journal entry discarded. |
-| **Precondition Conflict** | `conflict` | `localOk: false`, `idbOk: false`, `conflict: true`, `staleRevision: true`, `staleBlock: true`, `duplicate: true`, `ineligible: true`, or `setupDraftConflict: true` | State unmutated. Toast or domain refusal returned to caller. | Disk unchanged. Journal entry discarded. |
-| **Draft Conflict** | `draftConflict` | `localOk: false`, `idbOk: false`, `draftConflict: true`, `effectInvalid: true`, or `closeFailed: true` | State unmutated. User notified via toast to retry draft sync. | Disk unchanged. Journal entry discarded. |
-| **Transfer Frozen** | `transferFrozen` | `localOk: false`, `idbOk: false`, `conflict: true`, `transferFrozen: true`, `code: "install-transfer-frozen"` | Write aborted immediately before or under lock. | Disk unchanged. No journal entry written or journal discarded. |
-| **Close Deferred** | `close-deferred` | `accepted: true`, `deferred: true`, `settled: false`, `finalizationPending: true`, `localOk: true/false`, `idbOk: true/false` | Snapshot is durable; live state adopts snapshot to prevent UI drift while journal cleanup settles. | Prepared or finalized snapshot durable on disk. Journal record cleanup pending. |
-| **Settlement Deferred** | `settlement-deferred` | `accepted: true`, `deferred: true`, `settled: false`, `finalizationPending: true` | Prepared snapshot durable; live state adopts rebased snapshot. | Prepared snapshot on disk; finalization write pending. |
-| **Compensated** | `compensated` | `accepted: false`, `rejected: true`, `settled: true`, `draftConflict: true`, `localOk: false`, `idbOk: false` | Rollback snapshot applied to live state and disk after downstream failure. | Disk restored to rollback state (revision `N+1`). Draft effect restored. |
-| **Partial / Recovery Required** | `write-failed` / degraded | `localOk !== idbOk`, or compensation failed (`compensationPending: true`) | Write health marked degraded (`storageHealth.degraded = true`). Toast shown. | One replica updated, other replica stale. WAL or boot resolution will heal opposite replica. |
-| **Fatal Storage Error** | `journalFailed` / `write-failed` | `localOk: false`, `idbOk: false`, `journalFailed: true` or quota exceeded | `storageHealth` marked failed. Assertive toast shown ("Storage full"). | Disk unchanged. |
+| **Committed** | `kind: "committed"` | `status: "committed"`, both replica flags true, `accepted: true`, `committed: true`, `settled: true` | Live state rebased and adopted; `persistHead` advanced. | Both replicas contain revision `N`. Journal cleared. |
+| **Already Committed** | `kind: "already_committed"` | The durable receipt proves an idempotent predecessor; `accepted`, `committed`, and `settled` are true. | No duplicate activation, session, or archive is created. | Existing revision remains authoritative. Pending journal entry is discarded. |
+| **Rejected Conflict** | `kind: "rejected_conflict"` | `status: "rejected"`; includes stale revision/block, draft conflict, setup-draft conflict, ineligibility, and transfer freeze. | State remains unmutated. The caller chooses the domain refusal or UI consequence. | Rejected proposal does not become the durable head. Its journal is discarded or retained only when compensation remains pending. |
+| **Deferred Pending** | `kind: "deferred_pending"` | `status: "deferred"` for explicit finalization/compensation work, or `status: "partial"` for an unaccepted one-replica write; `committed: false`, `settled: false`. | An explicitly accepted prepared snapshot may be adopted, but no caller may relabel it as fully committed. | WAL, transaction marker, or replica repair remains authoritative. |
+| **Degraded Committed** | `kind: "degraded_committed"` | The workflow explicitly permits one-replica acceptance: `accepted: true`, `committed: false`, `status: "partial"`, `recoveryPending: true`. | The host may complete that workflow while displaying degraded storage health. | One replica has the accepted revision; boot or a later write heals the peer. |
+| **Rejected Failure** | `kind: "rejected_failure"` | Both replica flags are false, `status: "failed"`, `accepted: false`, `committed: false`; includes journal failure and total write failure. | Live state and the actionable workflow input remain unchanged. The host presents the existing destructive persistence failure. | Rejected proposal is not retained as the durable head. |
 
 ---
 
@@ -84,11 +81,12 @@ This document reconstructs the live durable state architecture of RepForge follo
 
 ---
 
-## 6. Extraction Plan (C1 & C2)
+## 6. Extracted Module and Compatibility Seam
 
-- **C1: Normalize One Durable Outcome Contract**
-  Define `DurableOutcome` with explicit fields:
+- `durable-state.js` returns one `DurableOutcome` with explicit fields:
   - `status`: `"committed"` | `"already_committed"` | `"rejected"` | `"deferred"` | `"partial"` | `"failed"`
+  - `kind`: `"committed"` | `"already_committed"` | `"rejected_conflict"` | `"rejected_failure"` | `"deferred_pending"` | `"degraded_committed"`
+  - `accepted`: whether the workflow may acknowledge the result
   - `committed`: boolean (true ONLY when required replicas settled)
   - `revision`: integer
   - `localOk`: boolean
@@ -97,12 +95,14 @@ This document reconstructs the live durable state architecture of RepForge follo
   - `deferred`: boolean
   - `code`: string (machine-readable failure reason)
   - `error`: optional exception details
-  - Adapter maps this contract to legacy caller shapes without breaking backwards compatibility.
+  - `recoveryPending`: whether replica repair or deferred settlement remains
 
-- **C2: Extract One Deep Module (`durable-state.js`)**
-  Extract:
+- `durable-state.js` owns:
   - `storageIO`, `withStorageLock`, `writeSnapshot`, `noteWriteHealth`
   - WAL journal: `writePendingJournal`, `readPendingJournal`, `clearPendingJournal`, `armPendingJournalRollback`
   - Replicas & arbitration: `readLocalStatus`, `readIdbStatus`, `chooseSnapshot`, `resolveBootReplicas`
   - Transaction engine: `executeDraftTransaction`, `enqueueStateChange`, `commitProposedState`, `commitProgramReplacement`
-  Keep pure domain logic (Plan 052 transition derivation, Plan 051 draft reducer, Plan 053 transfer client) outside this module.
+
+- `app.js` supplies a host adapter for pure state rebasing, recovery-carrier validation, the existing DraftV2 store, setup-draft observation, and accepted-snapshot adoption. The durable module invokes those operations but owns their ordering. Toasts and other presentation effects stay in `app.js`; one module health event produces one host notification.
+
+- The compatibility facade in `app.js` retains the old internal function names for existing callers and test hooks. Each facade method delegates to `durable-state.js`; it contains no WAL, lock, replica, settlement, or boot-replay implementation. Remove a facade method only when its last existing caller moves in a separately authorized plan. A fallback release is a code revert: it reads the same keys, revisions, journals, DraftV2 records, and setup receipts because this extraction changes no durable format.

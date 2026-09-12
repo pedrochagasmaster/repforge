@@ -42,6 +42,7 @@ console.log("\n1. Pure outcome contract normalizer");
     accepted: true,
   });
   check(outcome.status === "committed", "Committed status is 'committed'");
+  check(outcome.kind === "committed", "Committed maps to the committed workflow kind");
   check(outcome.committed === true, "Committed is true when both replicas succeed");
   check(outcome.settled === true, "Settled is true for committed outcome");
   check(outcome.rejected === false, "Rejected is false for committed outcome");
@@ -61,6 +62,7 @@ console.log("\n1. Pure outcome contract normalizer");
     accepted: true,
   });
   check(outcome.status === "already_committed", "Idempotent duplicate status is 'already_committed'");
+  check(outcome.kind === "already_committed", "Idempotent duplicate maps to already_committed");
   check(outcome.committed === true, "Idempotent duplicate reports committed: true");
   check(outcome.alreadyCommitted === true, "alreadyCommitted flag is preserved");
   check(outcome.settled === true, "Settled is true for already-committed");
@@ -77,6 +79,7 @@ console.log("\n1. Pure outcome contract normalizer");
     revision: 10,
   });
   check(outcome.status === "rejected", "Stale revision status is 'rejected'");
+  check(outcome.kind === "rejected_conflict", "Stale revision maps to rejected_conflict");
   check(outcome.committed === false, "Stale revision is NOT committed");
   check(outcome.rejected === true, "Rejected is true for stale revision");
   check(outcome.conflict === true, "Conflict is true for stale revision");
@@ -112,6 +115,35 @@ console.log("\n1. Pure outcome contract normalizer");
   check(outcome.code === "draft_conflict", "Code is 'draft_conflict'");
 }
 
+// Logical duplicate/ineligibility is a conflict, not a storage failure.
+{
+  const outcome = DurableState.normalizeDurableOutcome({
+    localOk: false,
+    idbOk: false,
+    duplicate: true,
+    ineligible: true,
+    revision: 9,
+  });
+  check(outcome.kind === "rejected_conflict", "Duplicate/ineligible result maps to rejected_conflict");
+  check(outcome.status === "rejected" && outcome.conflict === true,
+    "Duplicate/ineligible result retains logical conflict semantics");
+}
+
+// A WAL failure is an operational failure even when a required draft effect
+// also reports draftConflict to preserve the legacy caller signal.
+{
+  const outcome = DurableState.normalizeDurableOutcome({
+    localOk: false,
+    idbOk: false,
+    journalFailed: true,
+    draftConflict: true,
+    revision: 9,
+  });
+  check(outcome.kind === "rejected_failure", "Journal failure maps to rejected_failure");
+  check(outcome.status === "failed" && outcome.code === "journal_failed",
+    "Journal failure preserves its operational failure code");
+}
+
 // Case 6: Settlement deferred / Close deferred - MUST NEVER flatten to committed
 {
   const outcome = DurableState.normalizeDurableOutcome({
@@ -123,6 +155,7 @@ console.log("\n1. Pure outcome contract normalizer");
     finalizationPending: true,
   });
   check(outcome.status === "deferred", "Deferred write status is 'deferred'");
+  check(outcome.kind === "deferred_pending", "Deferred settlement maps to deferred_pending");
   check(outcome.committed === false, "CRITICAL: Deferred write is NOT flattened to committed: true");
   check(outcome.deferred === true, "Deferred flag is true");
   check(outcome.finalizationPending === true, "finalizationPending is true");
@@ -137,14 +170,30 @@ console.log("\n1. Pure outcome contract normalizer");
     idbOk: false,
     revision: 5,
   });
-  check(outcome.status === "deferred", "Partial write status is 'deferred' by default");
+  check(outcome.status === "partial", "Partial write status is 'partial' by default");
+  check(outcome.kind === "deferred_pending", "Unaccepted partial write maps to deferred_pending");
   check(outcome.committed === false, "Partial one-replica write is NOT committed by default");
   check(outcome.settled === false, "Partial one-replica write is NOT settled");
   check(outcome.localOk === true, "localOk is true");
   check(outcome.idbOk === false, "idbOk is false");
 }
 
-// Case 8: Fatal storage failure (both replicas failed)
+// Case 8: A workflow that permits one-replica acceptance remains explicit.
+{
+  const outcome = DurableState.normalizeDurableOutcome({
+    localOk: true,
+    idbOk: false,
+    revision: 6,
+    accepted: true,
+  });
+  check(outcome.status === "partial", "Accepted one-replica write remains partial");
+  check(outcome.kind === "degraded_committed", "Accepted one-replica write maps to degraded_committed");
+  check(outcome.accepted === true, "Degraded committed workflow remains accepted");
+  check(outcome.committed === false, "Degraded committed does not claim both replicas settled");
+  check(outcome.recoveryPending === true, "Degraded committed exposes replica recovery work");
+}
+
+// Case 9: Fatal storage failure (both replicas failed)
 {
   const outcome = DurableState.normalizeDurableOutcome({
     localOk: false,
@@ -152,6 +201,7 @@ console.log("\n1. Pure outcome contract normalizer");
     revision: 0,
   });
   check(outcome.status === "failed", "Total storage failure status is 'failed'");
+  check(outcome.kind === "rejected_failure", "Total storage failure maps to rejected_failure");
   check(outcome.committed === false, "Total failure is NOT committed");
   check(outcome.settled === false, "Total failure is NOT settled");
   check(outcome.rejected === false, "Total failure is not a logical rejection");
@@ -234,7 +284,7 @@ globalThis.localStorage = mockLocalStorage;
   mockLocalStorage.setItem("repforge_pending_v1:valid", JSON.stringify({
     version: 2,
     id: "valid",
-    order: 100,
+    order: { at: 100, writer: "contract-test", seq: 1 },
     base: {},
     liveBase: {},
     proposal: {},

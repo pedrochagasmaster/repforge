@@ -1625,7 +1625,9 @@ export async function runSharedSetupFlow(browser) {
     }, KEY);
     assert(!localOnly.missing, "commit hook accepts an explicit adapter", JSON.stringify(localOnly));
     assert(
-      localOnly.staged?.staged === true && localOnly.result?.localOk && !localOnly.result?.idbOk && localOnly.onboarded === true,
+      localOnly.staged?.staged === true && localOnly.result?.localOk && !localOnly.result?.idbOk &&
+      localOnly.result?.kind === "degraded_committed" && localOnly.result?.accepted === true &&
+      localOnly.result?.committed === false && localOnly.onboarded === true,
       "local-only success still commits, matching current replica semantics",
       JSON.stringify(localOnly)
     );
@@ -1662,7 +1664,10 @@ export async function runSharedSetupFlow(browser) {
       const result = await window.__repforgeActivateEntryPreview({ destination: "log", skipReplaceConfirm: true, io });
       return { staged, result, hook: window.__repforgeSharedSetup?.status };
     }, KEY);
-    assert(idbOnly.staged?.staged === true && idbOnly.result?.idbOk && !idbOnly.result?.localOk, "IDB-only success follows existing transaction semantics", JSON.stringify(idbOnly));
+    assert(idbOnly.staged?.staged === true && idbOnly.result?.idbOk && !idbOnly.result?.localOk &&
+      idbOnly.result?.kind === "degraded_committed" && idbOnly.result?.accepted === true &&
+      idbOnly.result?.committed === false,
+    "IDB-only success follows existing transaction semantics", JSON.stringify(idbOnly));
     await idbPage.context.close();
 
     const failPage = await openAppPage(browser, { standalone: true });
@@ -1679,21 +1684,48 @@ export async function runSharedSetupFlow(browser) {
         writeLocal() { throw new Error("ls fail"); },
         async writeIdb() { throw new Error("idb fail"); },
       } });
-      const start = document.querySelector("#firstRunSharedStart");
+      const activate = document.querySelector("#entryActivate");
       const toast = document.querySelector("#toast");
-      return {
+      const failure = {
         staged,
         result,
         gate: !document.querySelector("#firstRun")?.classList.contains("hidden"),
-        preview: !!document.querySelector("#entryActivate"),
+        onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
+        preview: !!activate,
         onboarded: JSON.parse(localStorage.getItem("repforge_v1") || "{}").programMeta?.onboarded,
-        enabled: start && !start.disabled,
-        busy: start?.getAttribute("aria-busy") === "true",
+        setupDraft: localStorage.getItem("repforge_program_setup_draft_v1") !== null,
+        enabled: activate && !activate.disabled,
+        busy: activate?.getAttribute("aria-busy") === "true",
         status: hook.status,
         toast: toast && !toast.classList.contains("hidden") ? toast.textContent : null,
       };
+      const retry = await window.__repforgeActivateEntryPreview({ destination: "log", skipReplaceConfirm: true });
+      const afterRetry = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      const retryState = {
+        onboarded: afterRetry.programMeta?.onboarded,
+        history: afterRetry.programHistory?.length,
+        revision: afterRetry._storageRevision,
+        setupDraft: localStorage.getItem("repforge_program_setup_draft_v1"),
+        onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
+      };
+      const duplicate = await window.__repforgeActivateEntryPreview({ destination: "log", skipReplaceConfirm: true });
+      const afterDuplicate = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      return { failure, retry, retryState, duplicate, afterDuplicate: {
+        revision: afterDuplicate._storageRevision,
+        history: afterDuplicate.programHistory?.length,
+      } };
     });
-    assert(failed.staged?.staged === true && failed.preview && failed.onboarded !== true && /storage/i.test(failed.toast || ""), "total activation write failure keeps the editable preview", JSON.stringify(failed));
+    assert(failed.failure?.staged?.staged === true && failed.failure.onboarding && failed.failure.preview &&
+      failed.failure.onboarded !== true && failed.failure.setupDraft && failed.failure.enabled && !failed.failure.busy &&
+      failed.failure.result?.kind === "rejected_failure" && failed.failure.result?.accepted === false &&
+      /storage/i.test(failed.failure.toast || ""),
+    "total activation write failure keeps the editable preview", JSON.stringify(failed));
+    assert(failed.retry?.localOk && failed.retry?.idbOk && failed.retryState?.onboarded === true &&
+      failed.retryState.history === 0 && failed.retryState.setupDraft === null && !failed.retryState.onboarding,
+    "a later retry activates exactly once and consumes the staged candidate", JSON.stringify(failed));
+    assert(failed.duplicate == null && failed.afterDuplicate?.revision === failed.retryState?.revision &&
+      failed.afterDuplicate?.history === failed.retryState?.history,
+    "a post-success retry cannot duplicate activation or archive", JSON.stringify(failed));
     await failPage.context.close();
   });
 
