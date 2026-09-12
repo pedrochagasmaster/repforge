@@ -426,6 +426,43 @@ async function run() {
   assert(fallback.logged === 1, "the session is saved either way", JSON.stringify(fallback));
   assert(/saved/i.test(fallback.toast), "the toast stands in for the screen", fallback.toast);
 
+  // ---- 8 — durable rows are not the same as a settled finish -------------------
+  phase("Deferred finalization keeps the workout in recovery");
+  await seed(page, fixture());
+  await enterLog(page);
+  await logSet(page, "ex2", 1, 15, 10, 1);
+  const deferredFinish = await page.evaluate(async (draftKey) => {
+    const before = window.__repforgeWorkoutDraft.current();
+    const originalRemoveItem = Storage.prototype.removeItem;
+    Storage.prototype.removeItem = function (key) {
+      if (String(key).startsWith(`${draftKey}:closing:`)) throw new Error("injected closing-marker failure");
+      return originalRemoveItem.apply(this, arguments);
+    };
+    let result;
+    try {
+      result = await window.__repforgeSaveWorkout();
+    } finally {
+      Storage.prototype.removeItem = originalRemoveItem;
+    }
+    return {
+      result,
+      beforeId: before?.draftId || null,
+      activeId: window.__repforgeWorkoutDraft.current()?.draftId || null,
+      recoveryVisible: !document.querySelector("#draftRecovery")?.classList.contains("hidden"),
+      summaryVisible: !document.querySelector("#sessionSummary")?.classList.contains("hidden"),
+      logLength: window.__repforgeWorkoutDraft.state().log.length,
+      closingKeys: Object.keys(localStorage).filter((key) => key.startsWith(`${draftKey}:closing:`)),
+    };
+  }, DRAFT);
+  assert(deferredFinish.result?.kind === "deferred_pending" &&
+    deferredFinish.result?.committed === false && deferredFinish.result?.settled === false &&
+    deferredFinish.result?.finalizationPending === true,
+  "closing-marker failure returns an unsettled durable outcome", JSON.stringify(deferredFinish));
+  assert(deferredFinish.activeId === deferredFinish.beforeId && deferredFinish.recoveryVisible &&
+    !deferredFinish.summaryVisible && deferredFinish.logLength === 1 && deferredFinish.closingKeys.length === 1,
+  "an unsettled finish keeps the active workout and recovery UI instead of completing the workflow",
+  JSON.stringify(deferredFinish));
+
   assert(!errors.length, "no uncaught page errors", errors.slice(0, 3).join(" | "));
 
   await browser.close();

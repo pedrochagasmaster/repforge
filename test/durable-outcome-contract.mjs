@@ -156,6 +156,23 @@ console.log("\n1. Pure outcome contract normalizer");
     "Journal failure preserves its operational failure code");
 }
 
+// Idempotent durable state can coexist with unfinished journal cleanup. The
+// operation is committed, but the workflow is not yet settled.
+{
+  const outcome = DurableState.normalizeDurableOutcome({
+    localOk: true,
+    idbOk: true,
+    alreadyCommitted: true,
+    pendingJournalCleanup: true,
+  });
+  check(outcome.committed === true && outcome.alreadyCommitted === true,
+    "Already-committed retry preserves idempotent commit truth while cleanup is pending");
+  check(outcome.settled === false && outcome.deferred === true && outcome.recoveryPending === true,
+    "Pending journal cleanup cannot report a settled workflow");
+  check(outcome.code === "journal_cleanup_pending",
+    "Pending journal cleanup has an actionable machine-readable code");
+}
+
 // A rejected draft transaction stays rejected while durable compensation remains.
 {
   const outcome = DurableState.normalizeDurableOutcome({
@@ -236,6 +253,12 @@ console.log("\n1. Pure outcome contract normalizer");
 }
 
 console.log("\n2. Fault-injection under simulated storage faults");
+
+{
+  let rejected = false;
+  try { await DurableState.readAuxiliaryIdbValue("repforge_v1"); } catch { rejected = true; }
+  check(rejected, "Auxiliary IndexedDB access rejects the primary state key");
+}
 
 // Mock LocalStorage and IndexedDB environment for node test
 const mockLocalStorage = (() => {

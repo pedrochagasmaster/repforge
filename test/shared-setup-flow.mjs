@@ -1621,14 +1621,17 @@ export async function runSharedSetupFlow(browser) {
       const staged = await hook.commit(io);
       const result = await window.__repforgeActivateEntryPreview({ destination: "log", skipReplaceConfirm: true, io });
       const state = JSON.parse(localStorage.getItem(key) || "{}");
-      return { staged, result, name: state.programMeta?.name, onboarded: state.programMeta?.onboarded };
+      return { staged, result, name: state.programMeta?.name, onboarded: state.programMeta?.onboarded,
+        onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
+        setupDraft: localStorage.getItem("repforge_program_setup_draft_v1") !== null };
     }, KEY);
     assert(!localOnly.missing, "commit hook accepts an explicit adapter", JSON.stringify(localOnly));
     assert(
       localOnly.staged?.staged === true && localOnly.result?.localOk && !localOnly.result?.idbOk &&
       localOnly.result?.kind === "degraded_committed" && localOnly.result?.accepted === true &&
-      localOnly.result?.committed === false && localOnly.onboarded === true,
-      "local-only success still commits, matching current replica semantics",
+      localOnly.result?.committed === false && localOnly.onboarded === true &&
+      localOnly.onboarding && localOnly.setupDraft,
+      "local-only activation remains open until replica recovery settles",
       JSON.stringify(localOnly)
     );
     await context.close();
@@ -1662,13 +1665,56 @@ export async function runSharedSetupFlow(browser) {
       };
       const staged = await hook.commit(io);
       const result = await window.__repforgeActivateEntryPreview({ destination: "log", skipReplaceConfirm: true, io });
-      return { staged, result, hook: window.__repforgeSharedSetup?.status };
+      return { staged, result, hook: window.__repforgeSharedSetup?.status,
+        onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
+        setupDraft: localStorage.getItem("repforge_program_setup_draft_v1") !== null };
     }, KEY);
     assert(idbOnly.staged?.staged === true && idbOnly.result?.idbOk && !idbOnly.result?.localOk &&
       idbOnly.result?.kind === "degraded_committed" && idbOnly.result?.accepted === true &&
-      idbOnly.result?.committed === false,
-    "IDB-only success follows existing transaction semantics", JSON.stringify(idbOnly));
+      idbOnly.result?.committed === false && idbOnly.onboarding && idbOnly.setupDraft,
+    "IDB-only activation remains open until replica recovery settles", JSON.stringify(idbOnly));
     await idbPage.context.close();
+
+    const deferredPage = await openAppPage(browser, { standalone: true });
+    await clearSite(deferredPage.page);
+    await deferredPage.page.reload({ waitUntil: "domcontentloaded" });
+    const encodedDeferred = await encodeSharedPayload(deferredPage.page, cloneFixture(MINIMAL_PAYLOAD));
+    await deferredPage.page.goto(setupUrl(encodedDeferred.value, "finalization-deferred"), { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(deferredPage.page);
+    const deferredActivation = await deferredPage.page.evaluate(async (draftKey) => {
+      const hook = window.__repforgeSharedSetup;
+      const staged = await hook.commit();
+      const originalRemoveItem = Storage.prototype.removeItem;
+      Storage.prototype.removeItem = function (key) {
+        if (String(key).startsWith(`${draftKey}:closing:`)) throw new Error("injected closing-marker failure");
+        return originalRemoveItem.apply(this, arguments);
+      };
+      let result;
+      try {
+        result = await window.__repforgeActivateEntryPreview({ destination: "log", skipReplaceConfirm: true });
+      } finally {
+        Storage.prototype.removeItem = originalRemoveItem;
+      }
+      const toast = document.querySelector("#toast");
+      return {
+        staged,
+        result,
+        onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
+        preview: !!document.querySelector("#entryActivate"),
+        setupDraft: localStorage.getItem("repforge_program_setup_draft_v1") !== null,
+        toast: toast && !toast.classList.contains("hidden") ? toast.textContent : null,
+        closingKeys: Object.keys(localStorage).filter((key) => key.startsWith(`${draftKey}:closing:`)),
+      };
+    }, DRAFT);
+    assert(deferredActivation.staged?.staged === true &&
+      deferredActivation.result?.kind === "deferred_pending" &&
+      deferredActivation.result?.committed === false && deferredActivation.result?.settled === false &&
+      deferredActivation.result?.finalizationPending === true && deferredActivation.onboarding &&
+      deferredActivation.preview && deferredActivation.setupDraft && deferredActivation.closingKeys.length === 1 &&
+      !/program saved/i.test(deferredActivation.toast || ""),
+    "deferred activation keeps its reviewed candidate and setup draft open for recovery",
+    JSON.stringify(deferredActivation));
+    await deferredPage.context.close();
 
     const failPage = await openAppPage(browser, { standalone: true });
     await clearSite(failPage.page);
@@ -2252,10 +2298,11 @@ export async function runSharedSetupFlow(browser) {
         return original.call(this, key);
       };
     }, "repforge_pending_v1");
-    if (!(await clickSharedStart(page))) {
+    if (!(await clickSharedStart(page, { activate: false }))) {
       await context.close();
       return;
     }
+    await page.click("#entryActivate");
     await page.waitForTimeout(500);
     await page.evaluate(() => {
       if (window.__origRemoveItem) window.Storage.prototype.removeItem = window.__origRemoveItem;
@@ -2304,7 +2351,7 @@ export async function runSharedSetupFlow(browser) {
     await context.close();
   });
 
-  await runCase("A deferred journal close still applies the accepted program to live state", async () => {
+  await runCase("A deferred journal close keeps activation open until recovery", async () => {
     const { context, page } = await openAppPage(browser, { standalone: true });
     await clearSite(page);
     await persistState(page, firstRunEligibleState([]));
@@ -2326,25 +2373,32 @@ export async function runSharedSetupFlow(browser) {
         return original.call(this, key);
       };
     }, "repforge_pending_v1");
-    if (!(await clickSharedStart(page))) {
+    if (!(await clickSharedStart(page, { activate: false }))) {
       await context.close();
       return;
     }
+    await page.click("#entryActivate");
     await page.waitForTimeout(600);
     await page.evaluate(() => {
       if (window.__origRemoveItem) window.Storage.prototype.removeItem = window.__origRemoveItem;
     });
     const durable = (await readBothReplicas(page)).local || {};
     const live = await readLiveAcceptance(page);
+    const recoveryUi = await page.evaluate(() => ({
+      onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
+      preview: !!document.querySelector("#entryActivate"),
+      setupDraft: localStorage.getItem("repforge_program_setup_draft_v1") !== null,
+    }));
     assert(
       durable.programMeta?.name === payload.program.meta.name,
       "the shared program is durable after the deferred close",
       JSON.stringify({ name: durable.programMeta?.name })
     );
-    assert(!live.gateOpen, "the first-run gate closed", JSON.stringify(live));
+    assert(recoveryUi.onboarding && recoveryUi.preview && recoveryUi.setupDraft,
+      "the reviewed candidate stays open while journal cleanup is pending", JSON.stringify(recoveryUi));
     assert(
-      live.dayChips.length === payload.program.meta.daysPerWeek,
-      "live state renders the accepted split, not the pre-acceptance program",
+      live.dayChips.length === 1,
+      "the app does not render the successor as completed before journal cleanup settles",
       JSON.stringify(live.dayChips)
     );
     assert(

@@ -87,7 +87,8 @@ claims require a new run. This tool never labels a phase complete or changes a P
 
 Moves the historical DraftStore checkpoint, CAS, tombstone, and sidecar
 algorithms from `app.js` into `durable-state.js`. The migration is idempotent;
-its check mode guards the forwarding-only boundary after the move.
+its check mode guards the forwarding-only boundary after the move and rejects
+direct primary-replica deletion from `app.js`.
 
 ```bash
 node tools/move-draft-store-owner.mjs

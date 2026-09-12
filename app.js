@@ -3,7 +3,6 @@ const WorkoutDraft=window.RepForgeWorkoutDraft;
 const DRAFT_PENDING_PREFIX=`${DRAFT}:pending:`,DRAFT_CLOSE_PREFIX=`${DRAFT}:closing:`;
 const DRAFT_V2_CHECKPOINT=`${DRAFT}:v2-checkpoint`;
 const DRAFT_WRITE_TRANSACTION="draft-write";
-const DB="repforge",STORE="kv";
 const INSTALL_IMPORT_KEY="repforge_install_import_v1";
 const INSTALL_INBOUND_KEY="repforge_transfer_inbound_v1";
 const INSTALL_OUTBOUND_KEY="repforge_transfer_outbound_v1";
@@ -26,23 +25,9 @@ function loadNotifyMeta(){
   try{return JSON.parse(localStorage.getItem(NOTIFY_META)||"{}")||{}}catch{return{}}
 }
 function saveNotifyMeta(m){localStorage.setItem(NOTIFY_META,JSON.stringify(m))}
-function idbOpen(){return new Promise((res,rej)=>{const r=indexedDB.open(DB,1);
-  r.onupgradeneeded=()=>r.result.createObjectStore(STORE);r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error)})}
-async function idbGet(key){const db=await idbOpen();
-  try{return await new Promise((res,rej)=>{
-    const tx=db.transaction(STORE,"readonly").objectStore(STORE).get(key);
-    tx.onsuccess=()=>res(tx.result);tx.onerror=()=>rej(tx.error)})}
-  finally{db.close()}}
-async function idbSet(key,val){const db=await idbOpen();
-  try{return await new Promise((res,rej)=>{
-    const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).put(val,key);
-    tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
-  finally{db.close()}}
-async function idbDel(key){const db=await idbOpen();
-  try{return await new Promise((res,rej)=>{
-    const tx=db.transaction(STORE,"readwrite");tx.objectStore(STORE).delete(key);
-    tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
-  finally{db.close()}}
+async function idbGet(key){return DurableState.readAuxiliaryIdbValue(key)}
+async function idbSet(key,val){return DurableState.writeAuxiliaryIdbValue(key,val)}
+async function idbDel(key){return DurableState.deleteAuxiliaryIdbValue(key)}
 const STORAGE_REV="_storageRevision",STORAGE_FOLLOWUP="_storageFollowUp",STORAGE_DRAFT_TXN="_storageDraftTransaction",STORAGE_SETUP_TXN="_storageSetupActivation";
 /* Transient, journal-only: what a shared proposal contributed as its own custom
    definitions, so a rebase against a refreshed head can tell payload data from
@@ -6197,7 +6182,7 @@ async function saveWorkoutV2(io){
   const result=await commitProposedState(proposal,io||storageIO,
     {effect,reconcileSessionIds:[session],expectedProgramId:savedDraft.program.programId,
       expectedBlockId});
-  if(!(result.localOk||result.idbOk)){
+  if(result.committed!==true||result.settled!==true){
     const kind=result.draftConflict?"stale":"persist";
     draftUiRecovery={kind,status:result.draftConflict?"stale":"save-failed",attempt:null,pendingValue:null,
       copyValue:capturedRaw,copyKind:"data",focus:draftFocusIdentity(),retry:!result.draftConflict,
@@ -13417,7 +13402,7 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
   if(result?.staleRevision||result?.conflict||result?.duplicate||result?.ineligible){
     await surfaceEntryDurableConflict();
     return result}
-  if(result?.localOk||result?.idbOk){
+  if(result?.committed===true&&result?.settled===true){
     const cleanup=await removeSetupDraftIfCurrent(activationDraftHandle);
     if(cleanup?.writeFailed)toast(t("entry.save_failed.body"));
     entryDurableConflictNeedsReload=false;
@@ -13483,7 +13468,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   const persisted=await commitProgramReplacement(proposal,adapter,
     {capture:replacementCapture,effect,expectedSetupDraftRaw,replace,expectedFirstRunEmpty});
   const result=originEff==="block"?blockTransitionDurableResult(persisted):persisted;
-  if(originEff==="block"?!result.committed:!(result.localOk||result.idbOk))return result;
+  if(result.committed!==true||result.settled!==true)return result;
   const versionCategory=telemetryRoute==="import"?"import_v1":
     telemetryRoute==="shared"?"shared_v1":
     telemetryRoute==="build"?"manual_v1":
@@ -14616,10 +14601,9 @@ function presentStorageRecovery(decision){
         if(retryBusy)return;
         if(!confirm(t("dialog.storage_recovery.start_fresh_confirm")))return;
         retryBusy=true;d.dataset.busy="1";
-        const {localNow,idbNow}=await withStorageLock(storageIO,async()=>{
-          try{localStorage.removeItem(KEY)}catch{}
-          try{await idbDel(KEY)}catch{}
-          return{localNow:readLocalStatus(),idbNow:await readIdbStatus()}});
+        const cleared=await DurableState.clearPrimaryReplicas();
+        const localNow=cleared.localNow||readLocalStatus();
+        const idbNow=cleared.idbNow||await readIdbStatus();
         if(localNow.status==="absent"&&idbNow.status==="absent"){
           clearAllPendingJournal();
           finish({kind:"first-run"})}

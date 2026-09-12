@@ -623,6 +623,25 @@
       tx.oncomplete=()=>res();tx.onerror=()=>rej(tx.error)})}
     finally{db.close()}}
 
+  function requireAuxiliaryIdbKey(key) {
+    if (typeof key !== "string" || !key || key === KEY) {
+      throw new TypeError("auxiliary IndexedDB key required");
+    }
+    return key;
+  }
+
+  function readAuxiliaryIdbValue(key) {
+    return idbGet(requireAuxiliaryIdbKey(key));
+  }
+
+  function writeAuxiliaryIdbValue(key, value) {
+    return idbSet(requireAuxiliaryIdbKey(key), value);
+  }
+
+  function deleteAuxiliaryIdbValue(key) {
+    return idbDel(requireAuxiliaryIdbKey(key));
+  }
+
   // --- Replicas Status & Arbitration ---
   function readLocalStatus(key = KEY) {
     try {
@@ -711,6 +730,7 @@
     const deferred = !!result?.deferred;
     const finalizationPending = !!result?.finalizationPending;
     const compensationPending = !!result?.compensationPending;
+    const pendingJournalCleanup = !!result?.pendingJournalCleanup;
     const transferFrozen = !!result?.transferFrozen;
     const journalFailed = !!result?.journalFailed;
     const stale = !!(result?.stale || result?.staleRevision || result?.staleBlock);
@@ -720,6 +740,7 @@
       draftConflict ? "draft_conflict" :
       stale ? "stale_proposal" :
       conflict ? (result?.reason || "conflict") :
+      pendingJournalCleanup ? "journal_cleanup_pending" :
       deferred ? "settlement_deferred" :
       null
     );
@@ -734,7 +755,7 @@
       status = "already_committed";
       kind = "already_committed";
       committed = true;
-      settled = true;
+      settled = !pendingJournalCleanup;
       rejected = false;
     } else if (journalFailed) {
       status = "failed";
@@ -786,14 +807,29 @@
       settled,
       rejected,
       accepted: rejected ? false : accepted || committed || kind === "degraded_committed",
-      deferred: deferred || finalizationPending || compensationPending || kind === "deferred_pending",
-      recoveryPending: compensationPending || finalizationPending ||
+      deferred: deferred || finalizationPending || compensationPending || pendingJournalCleanup || kind === "deferred_pending",
+      recoveryPending: compensationPending || finalizationPending || pendingJournalCleanup ||
         kind === "degraded_committed" || kind === "deferred_pending",
       localOk,
       idbOk,
       revision,
       conflict: conflict || draftConflict || transferFrozen || rejected,
       code,
+    });
+  }
+
+  async function clearPrimaryReplicas() {
+    return withStorageLock(storageIO, async () => {
+      try { localStorage.removeItem(KEY); } catch {}
+      try { await idbDel(KEY); } catch {}
+      const localNow = readLocalStatus();
+      const idbNow = await readIdbStatus();
+      return {
+        localNow,
+        idbNow,
+        localOk: localNow.status === "absent",
+        idbOk: idbNow.status === "absent",
+      };
     });
   }
 
@@ -2201,6 +2237,10 @@
     // Replicas & Arbitration
     readLocalStatus,
     readIdbStatus,
+    clearPrimaryReplicas,
+    readAuxiliaryIdbValue,
+    writeAuxiliaryIdbValue,
+    deleteAuxiliaryIdbValue,
     chooseSnapshot,
     snapshotsEqual,
     storageSnapshotsEqual,

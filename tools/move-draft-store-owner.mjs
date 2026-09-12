@@ -22,6 +22,9 @@ function verify() {
   if (!durable.includes("  const DraftStore={")) fail("durable-state.js does not define DraftStore");
   if (!durable.includes("    DraftStore,")) fail("durable-state.js does not export DraftStore");
   if (!durable.includes("function currentStateSnapshot()")) fail("live-state host boundary is missing");
+  if (/localStorage\.removeItem\(KEY\)/.test(app) || /idbDel\(KEY\)/.test(app))
+    fail("app.js directly deletes a primary durable replica");
+  if (/indexedDB\.open\(DB/.test(app)) fail("app.js still defines IndexedDB primitives");
 }
 
 if (app.includes("const DraftStore=DurableState.DraftStore;")) {
