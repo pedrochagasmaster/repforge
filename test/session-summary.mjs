@@ -463,6 +463,65 @@ async function run() {
   "an unsettled finish keeps the active workout and recovery UI instead of completing the workflow",
   JSON.stringify(deferredFinish));
 
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  const recoveredClose = await page.evaluate((draftKey) => ({
+    logLength: window.__repforgeWorkoutDraft.state().log.length,
+    closingKeys: Object.keys(localStorage).filter((key) => key.startsWith(`${draftKey}:closing:`)),
+  }), DRAFT);
+  assert(recoveredClose.logLength === 1 && recoveredClose.closingKeys.length === 0,
+    "boot clears a closing marker whose transaction and journal already settled",
+    JSON.stringify(recoveredClose));
+
+  // ---- 9 — failure to create the closing marker is unfinished recovery -------
+  phase("A closing marker creation failure retains its replay witness");
+  await seed(page, fixture());
+  await enterLog(page);
+  await logSet(page, "ex2", 1, 15, 10, 1);
+  const closeCreationFailure = await page.evaluate(async (draftKey) => {
+    const before = window.__repforgeWorkoutDraft.current();
+    const originalSetItem = Storage.prototype.setItem;
+    Storage.prototype.setItem = function (key) {
+      if (String(key).startsWith(`${draftKey}:closing:`)) throw new Error("injected closing-marker creation failure");
+      return originalSetItem.apply(this, arguments);
+    };
+    let result;
+    try {
+      result = await window.__repforgeSaveWorkout();
+    } finally {
+      Storage.prototype.setItem = originalSetItem;
+    }
+    return {
+      result,
+      beforeId: before?.draftId || null,
+      activeId: window.__repforgeWorkoutDraft.current()?.draftId || null,
+      recoveryVisible: !document.querySelector("#draftRecovery")?.classList.contains("hidden"),
+      summaryVisible: !document.querySelector("#sessionSummary")?.classList.contains("hidden"),
+      pendingKeys: Object.keys(localStorage).filter((key) => key.startsWith("repforge_pending_v1:")),
+    };
+  }, DRAFT);
+  assert(closeCreationFailure.result?.kind === "deferred_pending" &&
+    closeCreationFailure.result?.settled === false && closeCreationFailure.result?.rejected === false &&
+    closeCreationFailure.result?.pendingJournalCleanup === true && closeCreationFailure.pendingKeys.length === 1,
+  "closing-marker creation failure reports the retained WAL as unfinished recovery",
+  JSON.stringify(closeCreationFailure));
+  assert(closeCreationFailure.activeId === closeCreationFailure.beforeId &&
+    closeCreationFailure.recoveryVisible && !closeCreationFailure.summaryVisible,
+  "the workout remains recoverable while closing-marker creation is blocked",
+  JSON.stringify(closeCreationFailure));
+
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  const replayedClose = await page.evaluate((draftKey) => ({
+    logLength: window.__repforgeWorkoutDraft.state().log.length,
+    draft: window.__repforgeWorkoutDraft.current(),
+    artifacts: Object.keys(localStorage).filter((key) =>
+      key.startsWith("repforge_pending_v1:") || key.startsWith(`${draftKey}:closing:`)),
+  }), DRAFT);
+  assert(replayedClose.logLength === 1 && replayedClose.draft === null && replayedClose.artifacts.length === 0,
+    "boot replays the retained workout finish and drains its transaction artifacts",
+    JSON.stringify(replayedClose));
+
   assert(!errors.length, "no uncaught page errors", errors.slice(0, 3).join(" | "));
 
   await browser.close();

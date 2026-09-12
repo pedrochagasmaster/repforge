@@ -626,6 +626,15 @@
     return isMutationFrozen();
   }
 
+  function settleOrphanDraftClosings(snapshot){
+    const activeTransaction=pendingDraftTransaction(snapshot);
+    const journalIds=new Set(readPendingJournal().entries.map(record=>record.journal.id));
+    let settled=true;
+    for(const transactionId of DraftStore.closingIds()){
+      if(activeTransaction?.id===transactionId||journalIds.has(transactionId))continue;
+      if(DraftStore.endClose(transactionId).settled!==true)settled=false}
+    return{settled}}
+
   function readSetupDraftRaw() {
     return hostFunction("readSetupDraftRaw")();
   }
@@ -970,6 +979,9 @@
     requireAdapter(io, "writeSnapshot");
     const target = cloneSnapshot(snapshot);
     const revision = readRevision(target);
+    if(io===storageIO&&installTransferMutationFrozen())
+      return{revision,localOk:false,idbOk:false,conflict:true,
+        transferFrozen:true,code:"install-transfer-frozen"};
     let localOk = false, idbOk = false;
     try {
       const res = await io.writeLocal(target);
@@ -1545,7 +1557,10 @@
         transactionId:pendingRecord?.journal.id||null,effect:frozenEffectOutcome,discard:true});
       return Object.assign({},result,{pendingJournalCleanup:discarded.settled!==true})};
     const cancelUnstarted=()=>{
-      const cleared=clearPendingJournal(pendingRecord);
+      const transactionId=pendingRecord?.journal.id||null;
+      const related=transactionId?DraftStore.related(transactionId):{entries:[],invalid:[]};
+      const hasRelatedDraftWrites=related.entries.length>0||related.invalid.length>0;
+      const cleared=!hasRelatedDraftWrites&&clearPendingJournal(pendingRecord);
       return Object.assign({revision:readRevision(frozenBase),localOk:false,idbOk:false,
         conflict:true,transferFrozen:true,code:"install-transfer-frozen"},
         {pendingJournalCleanup:!cleared})};
@@ -1555,6 +1570,7 @@
       let head=cloneSnapshot(persistHead||frozenBase);
       if(io===storageIO){
         const refreshed=await refreshPersistenceHead();
+        if(installTransferMutationFrozen())return cancelUnstarted();
         if(refreshed.conflict){
           console.warn("storage write blocked by an unresolved concurrent snapshot");
           return discardPending({revision:readRevision(head),localOk:false,idbOk:false,conflict:true})}
@@ -1576,6 +1592,7 @@
       // preflight guards are evaluated before generic predecessor revision/ID/fingerprint rejection.
       if(typeof preflight==="function"){
         const checked=await preflight({head:cloneSnapshot(head),proposal:cloneSnapshot(workingProposal)});
+        if(io===storageIO&&installTransferMutationFrozen())return cancelUnstarted();
         if(checked?.proposal){
           workingProposal=cloneSnapshot(checked.proposal);
           // Keep crash recovery pointed at the proposal that survived the
@@ -1615,14 +1632,18 @@
           expectedFirstRunEmpty,sharedRebaseSeed:pendingRecord?.journal.id||coordinationId});
       const prepared=preparePendingDraftTransaction(snapshot,head,frozenEffect,pendingRecord?.journal.id);
       const transactionId=pendingDraftTransaction(prepared)?.id||coordinationId;
+      if(io===storageIO&&installTransferMutationFrozen())return cancelUnstarted();
       const execution=await executeDraftTransaction({record:pendingRecord,transactionId,
         effect:frozenEffectOutcome,prepared,snapshot,io,writePrepared:true,
         forceFinalization:recoveryTransaction});
       if(execution.kind==="close-failed")
-        return{revision:readRevision(head),localOk:false,idbOk:false,draftConflict:true,closeFailed:true};
+        return{revision:readRevision(head),localOk:false,idbOk:false,draftConflict:true,closeFailed:true,
+          pendingJournalCleanup:execution.settled!==true};
       if(execution.kind==="precondition-rejected")
-        return{revision:readRevision(head),localOk:false,idbOk:false,draftConflict:true};
-      if(execution.kind==="write-failed")return execution.result;
+        return{revision:readRevision(head),localOk:false,idbOk:false,draftConflict:true,
+          pendingJournalCleanup:execution.settled!==true};
+      if(execution.kind==="write-failed")return Object.assign({},execution.result,
+        {pendingJournalCleanup:execution.settled!==true});
       if(execution.kind==="rejected"||execution.kind==="compensated"){
         if(execution.settled&&execution.snapshot){
           persistHead=cloneSnapshot(execution.snapshot);
@@ -1674,6 +1695,7 @@
         const discarded=await executeDraftTransaction({record,transactionId:record.journal.id,
           effect:record.journal.effectOutcome,discard:true});
         if(discarded.settled!==true)pendingJournalCleanup=true}
+      if(!settleOrphanDraftClosings(head).settled)pendingJournalCleanup=true;
       return normalizeDurableOutcome({revision:readRevision(head),localOk:true,idbOk:true,
         alreadyCommitted:true,pendingJournalCleanup})})
   }
@@ -1830,6 +1852,8 @@
         head=execution.snapshot;
         if(execution.kind!=="committed")draftConflict=true;
         replayed=true}
+      if(!settleOrphanDraftClosings(head).settled)
+        return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
       if(replayed)return{kind:"chosen",snapshot:head,source:"pending",draftConflict,
         recoveryChanged:!!decision.recoveryChanged};
       if(decision.kind==="chosen"&&decision.heal&&!decision.recoveryChanged)

@@ -17,7 +17,11 @@
  *    - Interrupted / deferred settlement
  */
 import assert from "node:assert/strict";
+import { createRequire } from "node:module";
 import DurableState from "../durable-state.js";
+
+const require = createRequire(import.meta.url);
+const WorkoutDraft = require("../workout-draft.js");
 
 DurableState.configureHost({
   isValidStateShape(snapshot) {
@@ -30,9 +34,55 @@ DurableState.configureHost({
         typeof snapshot.programMeta === "object" && !Array.isArray(snapshot.programMeta));
   },
   normalizeRecoveryCarrierSnapshot(snapshot) { return { kind: "known", snapshot }; },
+  workoutDraft: WorkoutDraft,
+  rebaseStateChange(_base, proposal) { return structuredClone(proposal); },
+  rebaseSharedSetupSnapshot() {},
+  isValidBlockId() { return false; },
+  isValidRecoveryTransitions() { return false; },
+  isBoundedTransitionValue() { return true; },
 });
 
 const failures = [];
+
+function freezeDraftRaw() {
+  const draft = WorkoutDraft.create({
+    programId: "freeze-program",
+    programFingerprint: "freeze-sidecar-context",
+    durableRevision: 4,
+    dayId: "freeze-day",
+    dayLabel: "Day 1",
+    scheduleDate: "2026-09-12",
+    unit: "kg",
+    rirMode: "numeric",
+    exercises: [{
+      exerciseInstanceId: "freeze-slot",
+      sourceExerciseId: "freeze-source",
+      displayName: "Freeze proof",
+      sets: 1,
+      setIds: ["freeze-set"],
+      minReps: 6,
+      maxReps: 10,
+      targetRir: 2,
+      notes: "",
+      primary: "Quads",
+      secondary: "",
+      movementPattern: "squat",
+      progressionStrategy: "double_progression",
+      sourceFingerprint: "freeze-source-fingerprint",
+      programmedSets: [{ suggestedLoad: 20, suggestedReps: 8, targetRir: 2 }],
+    }],
+  }, {
+    draftId: "freeze-draft",
+    writer: { installationId: "freeze-install", tabId: "freeze-tab", operationId: "freeze-create" },
+    startedAt: "2026-09-12T10:00:00.000Z",
+    updatedAt: "2026-09-12T10:00:00.000Z",
+    scheduleDate: "2026-09-12",
+    selectedExerciseId: "freeze-slot",
+    bodyweight: "",
+    notes: "",
+  }, {});
+  return JSON.stringify(draft);
+}
 
 function check(condition, message, detail) {
   if (condition) {
@@ -330,31 +380,134 @@ globalThis.localStorage = mockLocalStorage;
 }
 
 // Fault Test D2: A transfer freeze can begin after WAL publication while the
-// writer waits for the shared lock. The rejected proposal must not survive for
-// boot replay.
+// writer waits for the shared lock. If a DraftV2 command staged behind that
+// journal, cancellation must retain their shared recovery witness.
 {
   mockLocalStorage.clear();
   const base={program:[],log:[],programHistory:[],settings:{},programMeta:{},_storageRevision:4};
   const proposal={...base,settings:{units:"kg"}};
   mockLocalStorage.setItem("repforge_v1",JSON.stringify(base));
   DurableState.setPersistHead(base);
+  const idbValues=new Map([["repforge_v1",base]]);
+  const database={
+    objectStoreNames:{contains:()=>true},createObjectStore(){},close(){},
+    transaction(_store,mode){
+      const transaction={oncomplete:null,onerror:null,error:null,objectStore(){return{
+        get(key){const request={onsuccess:null,onerror:null,error:null,result:undefined};
+          queueMicrotask(()=>{request.result=idbValues.get(key);request.onsuccess?.()});return request},
+        put(value,key){idbValues.set(key,value);queueMicrotask(()=>transaction.oncomplete?.())},
+        delete(key){idbValues.delete(key);queueMicrotask(()=>transaction.oncomplete?.())}
+      }}};
+      return transaction}
+  };
   let frozen=false;
   DurableState.setMutationFreezeCheck(()=>frozen);
+  const indexedDbDescriptor=Object.getOwnPropertyDescriptor(globalThis,"indexedDB");
   const navigatorDescriptor=Object.getOwnPropertyDescriptor(globalThis,"navigator");
+  Object.defineProperty(globalThis,"indexedDB",{configurable:true,value:{open(){
+    const request={result:database,error:null,onupgradeneeded:null,onsuccess:null,onerror:null};
+    queueMicrotask(()=>request.onsuccess?.());return request
+  }}});
+  let firstLock=true;
   Object.defineProperty(globalThis,"navigator",{configurable:true,value:{locks:{
-    request:async(_name,callback)=>{frozen=true;return callback()}
+    request:async(_name,callback)=>{
+      if(firstLock){
+        firstLock=false;
+        const pendingKey=[...Array(mockLocalStorage.length)].map((_,i)=>mockLocalStorage.key(i))
+          .find(key=>key?.startsWith("repforge_pending_v1:"));
+        const transactionId=pendingKey?.slice("repforge_pending_v1:".length);
+        const writer="freeze-sidecar-writer";
+        mockLocalStorage.setItem(`repforge_draft_v1:pending:${transactionId}:${writer}`,JSON.stringify({
+          version:1,transactionId,writer,order:{at:1,writer,seq:1},
+          raw:freezeDraftRaw(),programFingerprint:"freeze-sidecar-context",
+        }));
+        frozen=true;
+      }
+      return callback()}
   }}});
   try{
     const outcome=await DurableState.enqueueStateChange(base,proposal);
-    const pending=[];
+    const pending=[],sidecars=[];
     for(let i=0;i<mockLocalStorage.length;i++){
       const key=mockLocalStorage.key(i);
-      if(key?.startsWith("repforge_pending_v1:"))pending.push(key)}
-    check(outcome.kind==="rejected_conflict"&&outcome.settled===true,
-      "Freeze after WAL creation returns a settled rejection when cancellation succeeds",outcome);
-    check(pending.length===0,"Freeze after WAL creation leaves no replayable proposal journal",pending);
+      if(key?.startsWith("repforge_pending_v1:"))pending.push(key);
+      if(key?.startsWith("repforge_draft_v1:pending:"))sidecars.push(key)}
+    check(outcome.kind==="deferred_pending"&&outcome.settled===false&&outcome.recoveryPending===true,
+      "Freeze cancellation stays deferred when a DraftV2 sidecar depends on its WAL",outcome);
+    check(pending.length===1&&sidecars.length===1,
+      "Freeze cancellation retains the journal and its staged DraftV2 command",{pending,sidecars});
+    frozen=false;
+    const recovered=await DurableState.resolveBootReplicas();
+    const artifacts=[];
+    for(let i=0;i<mockLocalStorage.length;i++){
+      const key=mockLocalStorage.key(i);
+      if(key?.startsWith("repforge_pending_v1:")||key?.startsWith("repforge_draft_v1:pending:")||
+        key?.startsWith("repforge_draft_v1:closing:"))artifacts.push(key)}
+    check(recovered.kind==="chosen"&&recovered.draftConflict===true,
+      "Unfreeze boot recovery rejects the stale state proposal after preserving the draft",recovered);
+    const recoveredDraft=WorkoutDraft.parse(mockLocalStorage.getItem("repforge_draft_v1"));
+    const checkpoint=DurableState.DraftStore.readV2Checkpoint();
+    check(recoveredDraft.kind==="valid"&&recoveredDraft.draft.draftId==="freeze-draft"&&
+      checkpoint.status==="valid"&&checkpoint.value.draftId==="freeze-draft"&&artifacts.length===0,
+      "Unfreeze recovery promotes the staged draft and drains its artifacts",artifacts);
   }finally{
     DurableState.setMutationFreezeCheck(null);
+    if(indexedDbDescriptor)Object.defineProperty(globalThis,"indexedDB",indexedDbDescriptor);
+    else delete globalThis.indexedDB;
+    if(navigatorDescriptor)Object.defineProperty(globalThis,"navigator",navigatorDescriptor);
+    else delete globalThis.navigator;
+  }
+}
+
+// Fault Test D2b: A foreign freeze can start while replica refresh is waiting
+// on IndexedDB. No proposal write may start after that awaited boundary.
+{
+  mockLocalStorage.clear();
+  const base={program:[],log:[],programHistory:[],settings:{},programMeta:{},_storageRevision:4};
+  const proposal={...base,settings:{units:"lb"}};
+  mockLocalStorage.setItem("repforge_v1",JSON.stringify(base));
+  DurableState.setPersistHead(base);
+  const idbValues=new Map([["repforge_v1",base]]);
+  let frozen=false,putCount=0,freezeOnGet=true;
+  const database={
+    objectStoreNames:{contains:()=>true},createObjectStore(){},close(){},
+    transaction(_store,mode){
+      const transaction={oncomplete:null,onerror:null,error:null,objectStore(){return{
+        get(key){const request={onsuccess:null,onerror:null,error:null,result:undefined};
+          queueMicrotask(()=>{if(freezeOnGet)frozen=true;request.result=idbValues.get(key);request.onsuccess?.()});return request},
+        put(value,key){putCount++;idbValues.set(key,value);queueMicrotask(()=>transaction.oncomplete?.())},
+        delete(key){idbValues.delete(key);queueMicrotask(()=>transaction.oncomplete?.())}
+      }}};
+      return transaction}
+  };
+  const indexedDbDescriptor=Object.getOwnPropertyDescriptor(globalThis,"indexedDB");
+  const navigatorDescriptor=Object.getOwnPropertyDescriptor(globalThis,"navigator");
+  Object.defineProperty(globalThis,"indexedDB",{configurable:true,value:{open(){
+    const request={result:database,error:null,onupgradeneeded:null,onsuccess:null,onerror:null};
+    queueMicrotask(()=>request.onsuccess?.());return request
+  }}});
+  Object.defineProperty(globalThis,"navigator",{configurable:true,value:{locks:{request:async(_name,callback)=>callback()}}});
+  DurableState.setMutationFreezeCheck(()=>frozen);
+  try{
+    const outcome=await DurableState.enqueueStateChange(base,proposal);
+    const local=JSON.parse(mockLocalStorage.getItem("repforge_v1"));
+    check(outcome.kind==="rejected_conflict"&&outcome.transferFrozen===true&&outcome.settled===true,
+      "Freeze detected after replica refresh returns a settled rejection",outcome);
+    check(local._storageRevision===4&&idbValues.get("repforge_v1")._storageRevision===4&&putCount===0,
+      "Freeze during replica refresh prevents both proposal writes",{local,idb:idbValues.get("repforge_v1"),putCount});
+    frozen=false;
+    freezeOnGet=false;
+    const preflightOutcome=await DurableState.enqueueStateChange(base,proposal,DurableState.storageIO,{
+      preflight:async()=>{await Promise.resolve();frozen=true;return null},
+    });
+    const afterPreflight=JSON.parse(mockLocalStorage.getItem("repforge_v1"));
+    check(preflightOutcome.kind==="rejected_conflict"&&preflightOutcome.transferFrozen===true&&
+      afterPreflight._storageRevision===4&&idbValues.get("repforge_v1")._storageRevision===4&&putCount===0,
+      "Freeze during asynchronous preflight prevents both proposal writes",preflightOutcome);
+  }finally{
+    DurableState.setMutationFreezeCheck(null);
+    if(indexedDbDescriptor)Object.defineProperty(globalThis,"indexedDB",indexedDbDescriptor);
+    else delete globalThis.indexedDB;
     if(navigatorDescriptor)Object.defineProperty(globalThis,"navigator",navigatorDescriptor);
     else delete globalThis.navigator;
   }

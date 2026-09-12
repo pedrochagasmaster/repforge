@@ -1714,6 +1714,37 @@ export async function runSharedSetupFlow(browser) {
       !/program saved/i.test(deferredActivation.toast || ""),
     "deferred activation keeps its reviewed candidate and setup draft open for recovery",
     JSON.stringify(deferredActivation));
+    await deferredPage.page.click("#entryActivate");
+    await deferredPage.page.waitForTimeout(400);
+    const settledActivation = await deferredPage.page.evaluate(async (draftKey) => {
+      const before = window.__repforgeWorkoutDraft.read().raw;
+      await window.__repforgeEnterWorkout({ focus: false });
+      const current = window.__repforgeWorkoutDraft.current();
+      const dispatched = current ? await window.__repforgeWorkoutDraft.dispatch("setSessionNotes", {
+        value: "post-setup closing-marker proof",
+      }) : null;
+      await window.__repforgeWorkoutDraft.flush();
+      return {
+        onboarding: document.querySelector("#onboarding")?.classList.contains("active"),
+        setupDraft: localStorage.getItem("repforge_program_setup_draft_v1"),
+        before,
+        dispatched,
+        canonical: localStorage.getItem(draftKey),
+        checkpoint: localStorage.getItem(`${draftKey}:v2-checkpoint`),
+        artifacts: Object.keys(localStorage).filter((key) =>
+          key.startsWith("repforge_pending_v1:") || key.startsWith(`${draftKey}:closing:`) ||
+          key.startsWith(`${draftKey}:pending:`)),
+      };
+    }, DRAFT);
+    assert(!settledActivation.onboarding && settledActivation.setupDraft === null &&
+      settledActivation.artifacts.length === 0,
+    "an immediate retry removes the orphan closing marker before closing review",
+    JSON.stringify(settledActivation));
+    assert(settledActivation.dispatched?.status === "applied" &&
+      settledActivation.canonical?.includes("post-setup closing-marker proof") &&
+      settledActivation.checkpoint?.includes("post-setup closing-marker proof"),
+    "the next DraftV2 command reaches canonical storage and its checkpoint",
+    JSON.stringify(settledActivation));
     await deferredPage.context.close();
 
     const failPage = await openAppPage(browser, { standalone: true });
