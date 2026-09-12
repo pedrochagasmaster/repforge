@@ -29,6 +29,7 @@ DurableState.configureHost({
       (!Object.hasOwn(snapshot, "programMeta") || !!snapshot.programMeta &&
         typeof snapshot.programMeta === "object" && !Array.isArray(snapshot.programMeta));
   },
+  normalizeRecoveryCarrierSnapshot(snapshot) { return { kind: "known", snapshot }; },
 });
 
 const failures = [];
@@ -326,6 +327,93 @@ globalThis.localStorage = mockLocalStorage;
   check(lockOutcome.code === "install-transfer-frozen", "code is 'install-transfer-frozen'");
 
   DurableState.setMutationFreezeCheck(null);
+}
+
+// Fault Test D2: A transfer freeze can begin after WAL publication while the
+// writer waits for the shared lock. The rejected proposal must not survive for
+// boot replay.
+{
+  mockLocalStorage.clear();
+  const base={program:[],log:[],programHistory:[],settings:{},programMeta:{},_storageRevision:4};
+  const proposal={...base,settings:{units:"kg"}};
+  mockLocalStorage.setItem("repforge_v1",JSON.stringify(base));
+  DurableState.setPersistHead(base);
+  let frozen=false;
+  DurableState.setMutationFreezeCheck(()=>frozen);
+  const navigatorDescriptor=Object.getOwnPropertyDescriptor(globalThis,"navigator");
+  Object.defineProperty(globalThis,"navigator",{configurable:true,value:{locks:{
+    request:async(_name,callback)=>{frozen=true;return callback()}
+  }}});
+  try{
+    const outcome=await DurableState.enqueueStateChange(base,proposal);
+    const pending=[];
+    for(let i=0;i<mockLocalStorage.length;i++){
+      const key=mockLocalStorage.key(i);
+      if(key?.startsWith("repforge_pending_v1:"))pending.push(key)}
+    check(outcome.kind==="rejected_conflict"&&outcome.settled===true,
+      "Freeze after WAL creation returns a settled rejection when cancellation succeeds",outcome);
+    check(pending.length===0,"Freeze after WAL creation leaves no replayable proposal journal",pending);
+  }finally{
+    DurableState.setMutationFreezeCheck(null);
+    if(navigatorDescriptor)Object.defineProperty(globalThis,"navigator",navigatorDescriptor);
+    else delete globalThis.navigator;
+  }
+}
+
+// Fault Test D3: A lock-held semantic race can reject a proposal after another
+// tab wins. If WAL removal then fails, the result must remain deferred because
+// the retained journal is still recovery work.
+{
+  mockLocalStorage.clear();
+  const base={program:[],log:[],programHistory:[],settings:{},programMeta:{},_storageRevision:7};
+  const proposal={...base,settings:{units:"lb"}};
+  mockLocalStorage.setItem("repforge_v1",JSON.stringify(base));
+  DurableState.setPersistHead(base);
+  const idbValues=new Map([["repforge_v1",base]]);
+  const database={
+    objectStoreNames:{contains:()=>true},createObjectStore(){},close(){},
+    transaction(_store,mode){
+      const transaction={oncomplete:null,onerror:null,error:null,objectStore(){return{
+        get(key){const request={onsuccess:null,onerror:null,error:null,result:undefined};
+          queueMicrotask(()=>{request.result=idbValues.get(key);request.onsuccess?.()});return request},
+        put(value,key){idbValues.set(key,value);queueMicrotask(()=>transaction.oncomplete?.())},
+        delete(key){idbValues.delete(key);queueMicrotask(()=>transaction.oncomplete?.())}
+      }}};
+      return transaction}
+  };
+  const indexedDbDescriptor=Object.getOwnPropertyDescriptor(globalThis,"indexedDB");
+  const navigatorDescriptor=Object.getOwnPropertyDescriptor(globalThis,"navigator");
+  Object.defineProperty(globalThis,"indexedDB",{configurable:true,value:{open(){
+    const request={result:database,error:null,onupgradeneeded:null,onsuccess:null,onerror:null};
+    queueMicrotask(()=>request.onsuccess?.());return request
+  }}});
+  Object.defineProperty(globalThis,"navigator",{configurable:true,value:{locks:{request:async(_name,callback)=>callback()}}});
+  const removeItem=mockLocalStorage.removeItem;
+  mockLocalStorage.removeItem=(key)=>{
+    if(key.startsWith("repforge_pending_v1:"))throw new Error("injected WAL cleanup failure");
+    return removeItem(key)};
+  try{
+    const localRead=DurableState.readLocalStatus();
+    const idbRead=await DurableState.readIdbStatus();
+    check(localRead.status==="valid"&&idbRead.status==="valid"&&DurableState.snapshotsEqual(localRead.parsed,idbRead.parsed),
+      "Transition-race fixture begins from equal valid replicas",{local:localRead.status,idb:idbRead.status});
+    let preflightRan=false;
+    const outcome=await DurableState.enqueueStateChange(base,proposal,DurableState.storageIO,{
+      preflight:()=>{preflightRan=true;return{reject:true,result:{conflict:true,reason:"transition-race"}}}
+    });
+    check(preflightRan,"Transition-race fault reaches the lock-held semantic preflight");
+    check(outcome.kind==="deferred_pending"&&outcome.settled===false&&outcome.rejected===false,
+      "Rejected transition race remains deferred when WAL cleanup fails",outcome);
+    check(outcome.pendingJournalCleanup===true&&outcome.recoveryPending===true,
+      "Transition race exposes pending journal cleanup as recovery work",outcome);
+  }finally{
+    mockLocalStorage.removeItem=removeItem;
+    DurableState.clearAllPendingJournal();
+    if(indexedDbDescriptor)Object.defineProperty(globalThis,"indexedDB",indexedDbDescriptor);
+    else delete globalThis.indexedDB;
+    if(navigatorDescriptor)Object.defineProperty(globalThis,"navigator",navigatorDescriptor);
+    else delete globalThis.navigator;
+  }
 }
 
 // Fault Test E: WAL journal decode and cleanup under corruption

@@ -21,6 +21,13 @@ function verify() {
   if (app.includes("const DraftStore={")) fail("app.js still defines DraftStore algorithms");
   if (!durable.includes("  const DraftStore={")) fail("durable-state.js does not define DraftStore");
   if (!durable.includes("    DraftStore,")) fail("durable-state.js does not export DraftStore");
+  if (!durable.includes("  async function reconcileV2Checkpoint(read,label){") ||
+      !durable.includes("    reconcileV2Checkpoint,"))
+    fail("durable-state.js does not own and export V2 checkpoint reconciliation");
+  if (!/async function reconcileV2Checkpoint\(read,label\)\{\s*return DurableState\.reconcileV2Checkpoint\(read,label\)\}/.test(app))
+    fail("app.js checkpoint reconciliation is not forwarding-only");
+  if (/DraftStore\.(?:writeV2Checkpoint|publishCanonical|v2Tombstone)\(/.test(app))
+    fail("app.js still mutates DraftV2 checkpoint state");
   if (!durable.includes("function currentStateSnapshot()")) fail("live-state host boundary is missing");
   if (/localStorage\.removeItem\(KEY\)/.test(app) || /idbDel\(KEY\)/.test(app))
     fail("app.js directly deletes a primary durable replica");
@@ -65,6 +72,7 @@ function currentStateSnapshot(){
   return typeof host?.getLiveState==="function"?host.getLiveState():persistHead}
 function workoutDraft(){return host?.workoutDraft||root?.RepForgeWorkoutDraft||null}
 function retainDraftRecovery(raw,reason){return hostFunction("storeDraftRecovery")(raw,reason)}
+function workoutParseContext(label){return hostFunction("workoutParseContext")(label)}
 `;
 const indent = (source) => source.split("\n").map((line) => `  ${line}`).join("\n");
 
@@ -96,8 +104,29 @@ function commitV2CheckpointEffect(prepared,nextRaw){
 app = app.slice(0, migratedHelperStart) + wrappers + app.slice(migratedHelperEnd);
 app = app.replace(
   "    draftStore:DraftStore,",
-  "    workoutDraft:WorkoutDraft,\n    getLiveState:()=>state,\n    storeDraftRecovery,"
+  "    workoutDraft:WorkoutDraft,\n    getLiveState:()=>state,\n    storeDraftRecovery,\n    workoutParseContext,"
 );
+
+const reconcileStart = app.indexOf("async function reconcileV2Checkpoint(read,label){");
+const reconcileEndMarker = "\nasync function initializeWorkoutDraft";
+const reconcileEnd = app.indexOf(reconcileEndMarker, reconcileStart);
+if (reconcileStart < 0 || reconcileEnd < 0) fail("cannot find V2 checkpoint reconciliation");
+let reconcile = app.slice(reconcileStart, reconcileEnd)
+  .replaceAll("WorkoutDraft.parse", "workoutDraft().parse")
+  .replaceAll("storeDraftRecovery(", "retainDraftRecovery(")
+  .replaceAll("DurableState.STORAGE_LOCK", "STORAGE_LOCK")
+  .replaceAll("state.log", "(currentStateSnapshot()?.log||[])")
+  .replaceAll("uid()", "pendingJournalUuid()");
+const durableStoreStart = durable.indexOf("  const DraftStore={");
+if (durableStoreStart < 0) fail("cannot place V2 checkpoint reconciliation");
+durable = durable.slice(0, durableStoreStart) + indent(reconcile) + "\n\n" + durable.slice(durableStoreStart);
+durable = durable.replace(
+  "    commitV2CheckpointEffect,\n\n    // Normalizer & Contracts",
+  "    commitV2CheckpointEffect,\n    reconcileV2Checkpoint,\n\n    // Normalizer & Contracts"
+);
+app = app.slice(0, reconcileStart) +
+  "async function reconcileV2Checkpoint(read,label){\n  return DurableState.reconcileV2Checkpoint(read,label)}" +
+  app.slice(reconcileEnd);
 
 writeFileSync(appPath, app);
 writeFileSync(durablePath, durable);

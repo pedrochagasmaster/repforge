@@ -103,11 +103,13 @@ This document reconstructs the live durable state architecture of RepForge follo
   - primary-replica clearing and guarded IndexedDB access for auxiliary install-transfer markers
   - WAL journal: `writePendingJournal`, `readPendingJournal`, `clearPendingJournal`, `armPendingJournalRollback`
   - Replicas & arbitration: `readLocalStatus`, `readIdbStatus`, `chooseSnapshot`, `resolveBootReplicas`
-  - DraftV2 storage: checkpoint CAS, tombstones, transaction sidecars, promotion, and compensation
+  - DraftV2 storage: checkpoint CAS, boot reconciliation, tombstones, transaction sidecars, promotion, and compensation
   - Transaction engine: `executeDraftTransaction`, `enqueueStateChange`
 
 - `app.js` supplies a host adapter for state rebasing, recovery-carrier validation, the pure WorkoutDraft parser, live-state access, setup-draft observation, recovery retention, and accepted-snapshot adoption. The durable module owns DraftV2 storage ordering. Toasts and other presentation effects stay in `app.js`; one module health event produces one host notification.
 
 - Workout finish and program activation complete their presentation workflows only when the durable outcome is both `committed` and `settled`. A one-replica acceptance, deferred DraftV2 finalization, or pending journal cleanup keeps the current input/review surface available for recovery even when the accepted snapshot is already present in a durable replica.
+
+- A lock-held rejection is settled only after its proposal journal is gone. If cleanup fails, the outcome remains `deferred_pending` because boot may still observe the journal. If an install-transfer freeze starts after journal publication but before lock acquisition, the durable owner cancels that unstarted journal before returning a settled freeze rejection.
 
 - The compatibility facade in `app.js` retains the old internal function names for existing callers and test hooks. Each facade method delegates to `durable-state.js`; it contains no WAL, lock, replica, settlement, or boot-replay implementation. Remove a facade method only when its last existing caller moves in a separately authorized plan. A fallback release is a code revert: it reads the same keys, revisions, journals, DraftV2 records, and setup receipts because this extraction changes no durable format.

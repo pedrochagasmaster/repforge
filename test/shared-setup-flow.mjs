@@ -2407,6 +2407,18 @@ export async function runSharedSetupFlow(browser) {
       JSON.stringify(live.customs)
     );
     assert(live.htmlLang === "pt-BR", "the accepted language applies to the live UI", String(live.htmlLang));
+    await page.click("#entryActivate");
+    await page.waitForTimeout(400);
+    const retried=await page.evaluate(() => ({
+      onboarding:document.querySelector("#onboarding")?.classList.contains("active"),
+      setupDraft:localStorage.getItem("repforge_program_setup_draft_v1"),
+      artifacts:Object.keys(localStorage).filter(key=>
+        key.startsWith("repforge_pending_v1:")||key.startsWith("repforge_draft_v1:closing:"))
+    }));
+    assert(!retried.onboarding&&retried.setupDraft===null,
+      "an immediate retry closes only after the setup draft is consumed",JSON.stringify(retried));
+    assert(retried.artifacts.length===0,
+      "an immediate retry settles the retained journal before closing",JSON.stringify(retried.artifacts));
     await context.close();
   });
 

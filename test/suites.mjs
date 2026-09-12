@@ -21,6 +21,7 @@ export const SUITES = {
     s("tools/check-production-syntax.mjs"),
     s("tools/check-test-syntax.mjs"),
     s("tools/move-draft-store-owner.mjs", ["--check"]),
+    s("test/draft-store-owner-check.mjs"),
     s("test/generative/run.mjs", ["--profile", "ci"]),
     s("test/program-entry.mjs"),
     s("test/program-entry-production-adapter.mjs"),

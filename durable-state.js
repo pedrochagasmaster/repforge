@@ -184,6 +184,7 @@
     return typeof host?.getLiveState==="function"?host.getLiveState():persistHead}
   function workoutDraft(){return host?.workoutDraft||root?.RepForgeWorkoutDraft||null}
   function retainDraftRecovery(raw,reason){return hostFunction("storeDraftRecovery")(raw,reason)}
+  function workoutParseContext(label){return hostFunction("workoutParseContext")(label)}
 
   function v2CheckpointRecord(draft,raw,operationId=draft.writer.operationId){
     return{version:1,kind:"committed",draftId:draft.draftId,revision:draft.revision,operationId,
@@ -209,6 +210,82 @@
         DraftStore.v2Tombstone(removed.draft,prepared.value.operationId))}
     const next=workoutDraft()?.parse(nextRaw);
     return next?.kind==="valid"&&DraftStore.writeV2Checkpoint(v2CheckpointRecord(next.draft,nextRaw,prepared.value.operationId))}
+
+  async function reconcileV2Checkpoint(read,label){
+    const checkpoint=DraftStore.readV2Checkpoint();
+    if(checkpoint.status==="invalid"||checkpoint.status==="read-failed"){
+      if(read.raw!=null)retainDraftRecovery(read.raw,"v2-checkpoint-unreadable");
+      return{status:"checkpoint-unreadable",raw:read.raw}}
+    const parser=workoutDraft(),canonical=parser?.parse(read.raw);
+    if(checkpoint.status==="absent"){
+      if(canonical?.kind==="valid"){
+        retainDraftRecovery(read.raw,"v2-checkpoint-missing");
+        return{status:"checkpoint-missing",raw:read.raw}}
+      return read}
+    const value=checkpoint.value;
+    const underCheckpointLock=async operation=>{
+      if(!navigator.locks?.request)return{status:"lock-unavailable",raw:read.raw};
+      return navigator.locks.request(STORAGE_LOCK,async()=>{
+        const current=DraftStore.readCanonicalStatus(),currentCheckpoint=DraftStore.readV2Checkpoint();
+        if(current.status!=="ok")return current;
+        if(current.raw!==read.raw||currentCheckpoint.raw!==checkpoint.raw)
+          return{status:"stale-recovery",raw:current.raw};
+        return operation(current)})};
+    const clearProtected=async(reason,draft)=>{
+      if(read.raw!=null)retainDraftRecovery(read.raw,reason);
+      return underCheckpointLock(current=>{
+        const tombstone=DraftStore.v2Tombstone(draft,`remove-${pendingJournalUuid()}`);
+        if(!DraftStore.writeV2Checkpoint(tombstone)||!DraftStore.publishCanonical(null))
+          return{status:"recovery-write-failed",raw:current.raw};
+        return{status:"ok",raw:null}})};
+    if(value.kind==="tombstone"){
+      if(read.raw==null)return read;
+      const markerDraft={draftId:value.draftId,revision:value.revision,
+        program:{programFingerprint:value.programFingerprint}};
+      return clearProtected("canonical-after-v2-removal",markerDraft)}
+    if((currentStateSnapshot()?.log||[]).some(row=>row?.session===value.draftId)){
+      const savedDraft=parser?.parse(value.raw)?.draft;
+      if(!savedDraft)return{status:"checkpoint-unreadable",raw:read.raw};
+      return clearProtected("canonical-after-saved-v2",savedDraft)}
+    if(value.kind==="pending-removal"&&read.raw===value.raw){
+      return underCheckpointLock(()=>DraftStore.writeV2Checkpoint(v2CheckpointRecord(
+        parser.parse(value.raw).draft,value.raw,value.operationId))?read:
+        {status:"checkpoint-rollback-failed",raw:read.raw})}
+    if(value.kind==="pending-removal"&&read.raw==null){
+      return underCheckpointLock(()=>DraftStore.writeV2Checkpoint(DraftStore.v2Tombstone(
+        parser.parse(value.raw).draft,value.operationId))?read:
+        {status:"checkpoint-commit-failed",raw:read.raw})}
+    const protectedValue=value.kind==="committed"||value.kind==="pending-removal"?value:value.previous;
+    const protectedParsed=protectedValue?parser?.parse(protectedValue.raw):null;
+    if(protectedValue&&protectedParsed?.kind!=="valid")return{status:"checkpoint-unreadable",raw:read.raw};
+    if(value.kind==="pending"&&read.raw===value.raw){
+      return underCheckpointLock(()=>DraftStore.writeV2Checkpoint(v2CheckpointRecord(
+        parser.parse(value.raw).draft,value.raw,value.operationId))?read:
+        {status:"checkpoint-commit-failed",raw:read.raw})}
+    if(value.kind==="pending"&&read.raw===value.baseRaw){
+      if(value.previous&&read.raw===value.previous.raw){
+        return underCheckpointLock(()=>DraftStore.writeV2Checkpoint({...value.previous,kind:"committed"})
+          ?read:{status:"checkpoint-rollback-failed",raw:read.raw})}
+      if(!value.previous)return underCheckpointLock(current=>{
+        const prepared=prepareV2CheckpointEffect(current.raw,value.raw,value.operationId,{previous:null});
+        if(!prepared.ok||!DraftStore.publishCanonical(value.raw)||!commitV2CheckpointEffect(prepared,value.raw))
+          return{status:"recovery-write-failed",raw:current.raw};
+        return{status:"ok",raw:value.raw}})}
+    if(!protectedValue){
+      retainDraftRecovery(read.raw,"orphaned-v2-pending");
+      return{status:"checkpoint-conflict",raw:read.raw}}
+    const protectedDraft=parser.parse(protectedValue.raw,
+      workoutParseContext(protectedParsed.draft.program.dayLabel||label));
+    if(protectedDraft.kind!=="valid"){
+      retainDraftRecovery(read.raw,protectedDraft.kind==="stale"?`stale-${protectedDraft.reason}`:protectedDraft.code);
+      return{status:protectedDraft.kind,error:protectedDraft,raw:read.raw}}
+    if(read.raw!==protectedValue.raw)retainDraftRecovery(read.raw,"superseded-v2-canonical");
+    return underCheckpointLock(current=>{
+      const operationId=`recover-${pendingJournalUuid()}`;
+      const prepared=prepareV2CheckpointEffect(current.raw,protectedValue.raw,operationId,{previous:protectedValue});
+      if(!prepared.ok||!DraftStore.publishCanonical(protectedValue.raw)||
+        !commitV2CheckpointEffect(prepared,protectedValue.raw))return{status:"recovery-write-failed",raw:current.raw};
+      return{status:"ok",raw:protectedValue.raw}})}
 
   const DraftStore={
     readCanonicalRaw(){
@@ -763,6 +840,14 @@
       committed = false;
       settled = false;
       rejected = false;
+    } else if (pendingJournalCleanup) {
+      // A proposal whose WAL cannot be removed may still be replayed. Until
+      // cleanup succeeds it is neither a durable rejection nor a commit.
+      status = "deferred";
+      kind = "deferred_pending";
+      committed = false;
+      settled = false;
+      rejected = false;
     } else if (conflict || draftConflict || transferFrozen) {
       status = "rejected";
       kind = "rejected_conflict";
@@ -903,11 +988,12 @@
     return result;
   }
 
-    function withStorageLock(io,op){
+    function withStorageLock(io,op,{onFrozen=null}={}){
     const guarded=async(...args)=>{
       if(io===storageIO&&installTransferMutationFrozen())
-        return normalizeDurableOutcome({localOk:false,idbOk:false,conflict:true,
-          transferFrozen:true,code:"install-transfer-frozen"});
+        return typeof onFrozen==="function"?onFrozen(...args):
+          normalizeDurableOutcome({localOk:false,idbOk:false,conflict:true,
+            transferFrozen:true,code:"install-transfer-frozen"});
       return op(...args)};
     if(io===storageIO&&navigator.locks?.request)return navigator.locks.request(STORAGE_LOCK,guarded);
     return guarded()}
@@ -1454,27 +1540,29 @@
       if(frozenEffect?.required===true)failed.draftConflict=true;
       noteWriteHealth(failed);
       return Promise.resolve(failed)}
+    const discardPending=async result=>{
+      const discarded=await executeDraftTransaction({record:pendingRecord,
+        transactionId:pendingRecord?.journal.id||null,effect:frozenEffectOutcome,discard:true});
+      return Object.assign({},result,{pendingJournalCleanup:discarded.settled!==true})};
+    const cancelUnstarted=()=>{
+      const cleared=clearPendingJournal(pendingRecord);
+      return Object.assign({revision:readRevision(frozenBase),localOk:false,idbOk:false,
+        conflict:true,transferFrozen:true,code:"install-transfer-frozen"},
+        {pendingJournalCleanup:!cleared})};
     const operation=enqueueWrite(()=>withStorageLock(io,async()=>{
       if(io===storageIO&&installTransferMutationFrozen()){
-        await executeDraftTransaction({record:pendingRecord,transactionId:pendingRecord?.journal.id||null,
-          effect:frozenEffectOutcome,discard:true});
-        return{revision:readRevision(frozenBase),localOk:false,idbOk:false,
-          conflict:true,transferFrozen:true,code:"install-transfer-frozen"}}
+        return cancelUnstarted()}
       let head=cloneSnapshot(persistHead||frozenBase);
       if(io===storageIO){
         const refreshed=await refreshPersistenceHead();
         if(refreshed.conflict){
           console.warn("storage write blocked by an unresolved concurrent snapshot");
-          await executeDraftTransaction({record:pendingRecord,
-            transactionId:pendingRecord?.journal.id||null,effect:frozenEffectOutcome,discard:true});
-          return{revision:readRevision(head),localOk:false,idbOk:false,conflict:true}}
+          return discardPending({revision:readRevision(head),localOk:false,idbOk:false,conflict:true})}
         head=refreshed.head||head}
       const coordinationId=pendingRecord?.journal.id||null;
       if(expectedSetupDraftRaw!==undefined&&readSetupDraftRaw()!==expectedSetupDraftRaw){
-        await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
-          effect:frozenEffectOutcome,discard:true});
-        return{revision:readRevision(head),localOk:false,idbOk:false,
-          conflict:true,setupDraftConflict:true}}
+        return discardPending({revision:readRevision(head),localOk:false,idbOk:false,
+          conflict:true,setupDraftConflict:true})}
       // A setup activation writes a receipt into the durable successor before it
       // attempts to consume the separate setup-draft key. If that consumption
       // was interrupted, the next click must recognize the already-installed
@@ -1503,37 +1591,24 @@
           }
         }
         if(checked?.reject){
-          await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
-            effect:frozenEffectOutcome,discard:true});
-          return Object.assign({revision:readRevision(head),localOk:false,idbOk:false},checked.result||{conflict:true})}}
+          return discardPending(Object.assign(
+            {revision:readRevision(head),localOk:false,idbOk:false},checked.result||{conflict:true}))}}
       if(expectedStorageRevision!==undefined&&readRevision(head)!==expectedStorageRevision){
-        await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
-          effect:frozenEffectOutcome,discard:true});
-        return{revision:readRevision(head),localOk:false,idbOk:false,
-          conflict:true,staleRevision:true}}
+        return discardPending({revision:readRevision(head),localOk:false,idbOk:false,
+          conflict:true,staleRevision:true})}
           if(expectedProgramId&&head?.programMeta?.id!==expectedProgramId){
-        await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
-          effect:frozenEffectOutcome,discard:true});
-        return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
+          return discardPending({revision:readRevision(head),localOk:false,idbOk:false,duplicate:true})}
       if(expectedProgramFingerprint&&draftProgramFingerprint(head)!==expectedProgramFingerprint){
-        await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
-          effect:frozenEffectOutcome,discard:true});
-        return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true}}
+        return discardPending({revision:readRevision(head),localOk:false,idbOk:false,duplicate:true})}
       if(expectedBlockId!==undefined&&snapshotBlockId(head)!==expectedBlockId){
-        await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
-          effect:frozenEffectOutcome,discard:true});
-        return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true,staleBlock:true}}
+        return discardPending({revision:readRevision(head),localOk:false,idbOk:false,duplicate:true,staleBlock:true})}
       if(expectedFirstRunEmpty&&(head?.programMeta?.onboarded||head?.log?.length||head?.programHistory?.length)){
-        await executeDraftTransaction({record:pendingRecord,transactionId:coordinationId,
-          effect:frozenEffectOutcome,discard:true});
-        return{revision:readRevision(head),localOk:false,idbOk:false,duplicate:true,ineligible:true}}
+        return discardPending({revision:readRevision(head),localOk:false,idbOk:false,duplicate:true,ineligible:true})}
       if(pendingRecord&&(draftEffectRequiresCoordination(frozenEffectOutcome)||recoveryTransaction)){
         const armed=armPendingJournalRollback(pendingRecord,head,{forceRollback:recoveryTransaction});
         if(!armed){
-          await executeDraftTransaction({record:pendingRecord,
-            transactionId:pendingRecord.journal.id,effect:frozenEffectOutcome,discard:true});
-          return{revision:readRevision(head),localOk:false,idbOk:false,
-            draftConflict:true,journalFailed:true}}
+          return discardPending({revision:readRevision(head),localOk:false,idbOk:false,
+            draftConflict:true,journalFailed:true})}
         pendingRecord=armed}
       const snapshot=stateSnapshotForHead(frozenBase,frozenLiveBase,workingProposal,head,
         {replace,reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
@@ -1576,12 +1651,31 @@
         persistHead=cloneSnapshot(snapshot);
         applyAcceptedSnapshot(frozenLiveBase,snapshot);
         return Object.assign({accepted:true},execution.result)}
-      return{revision:readRevision(head),localOk:false,idbOk:false,conflict:true}}));
+      return{revision:readRevision(head),localOk:false,idbOk:false,conflict:true}},
+      {onFrozen:cancelUnstarted}));
     return operation}
 
   function enqueueStateChange(base, proposal, io = storageIO, options = {}) {
     return Promise.resolve(enqueueStateChangeRaw(base, proposal, io, options))
       .then(result => normalizeDurableOutcome(result));
+  }
+
+  async function settleCommittedSetupActivation(raw){
+    return withStorageLock(storageIO,async()=>{
+      const refreshed=await refreshPersistenceHead();
+      const head=refreshed.head||persistHead;
+      if(refreshed.conflict||typeof raw!=="string"||
+        !setupActivationMatches(head?.[STORAGE_SETUP_TXN],raw,head?.programMeta?.id))
+        return normalizeDurableOutcome({revision:readRevision(head),localOk:false,idbOk:false,
+          conflict:true,setupDraftConflict:true});
+      let pendingJournalCleanup=false;
+      for(const record of readPendingJournal().entries){
+        if(!setupActivationAlreadyCommitted(head,record.journal.proposal,raw))continue;
+        const discarded=await executeDraftTransaction({record,transactionId:record.journal.id,
+          effect:record.journal.effectOutcome,discard:true});
+        if(discarded.settled!==true)pendingJournalCleanup=true}
+      return normalizeDurableOutcome({revision:readRevision(head),localOk:true,idbOk:true,
+        alreadyCommitted:true,pendingJournalCleanup})})
   }
 
   // --- Boot Replay & Resolution ---
@@ -2216,6 +2310,7 @@
     v2CheckpointRecord,
     prepareV2CheckpointEffect,
     commitV2CheckpointEffect,
+    reconcileV2Checkpoint,
 
     // Normalizer & Contracts
     normalizeDurableOutcome,
@@ -2297,6 +2392,7 @@
     rejectedDraftTransactionSnapshot,
     executeDraftTransaction,
     enqueueStateChange,
+    settleCommittedSetupActivation,
   };
 
   if (typeof module !== "undefined" && module.exports) module.exports = api;

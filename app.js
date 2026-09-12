@@ -1759,78 +1759,7 @@ function workoutMigrationSnapshot(legacy,label){
 function storeDraftRecovery(raw,reason){workoutDraftRecovery={raw,reason};
   try{localStorage.setItem(DRAFT_RECOVERY,JSON.stringify({version:1,reason,raw}))}catch{}}
 async function reconcileV2Checkpoint(read,label){
-  const checkpoint=DraftStore.readV2Checkpoint();
-  if(checkpoint.status==="invalid"||checkpoint.status==="read-failed"){
-    if(read.raw!=null)storeDraftRecovery(read.raw,"v2-checkpoint-unreadable");
-    return{status:"checkpoint-unreadable",raw:read.raw}}
-  const canonical=WorkoutDraft.parse(read.raw);
-  if(checkpoint.status==="absent"){
-    if(canonical.kind==="valid"){
-      storeDraftRecovery(read.raw,"v2-checkpoint-missing");
-      return{status:"checkpoint-missing",raw:read.raw}}
-    return read}
-  const value=checkpoint.value;
-  const underCheckpointLock=async operation=>{
-    if(!navigator.locks?.request)return{status:"lock-unavailable",raw:read.raw};
-    return navigator.locks.request(DurableState.STORAGE_LOCK,async()=>{
-      const current=DraftStore.readCanonicalStatus(),currentCheckpoint=DraftStore.readV2Checkpoint();
-      if(current.status!=="ok")return current;
-      if(current.raw!==read.raw||currentCheckpoint.raw!==checkpoint.raw)return{status:"stale-recovery",raw:current.raw};
-      return operation(current)})};
-  const clearProtected=async(reason,draft)=>{
-    if(read.raw!=null)storeDraftRecovery(read.raw,reason);
-    return underCheckpointLock(current=>{
-      const tombstone=DraftStore.v2Tombstone(draft,`remove-${uid()}`);
-      if(!DraftStore.writeV2Checkpoint(tombstone)||!DraftStore.publishCanonical(null))
-        return{status:"recovery-write-failed",raw:current.raw};
-      return{status:"ok",raw:null}})};
-  if(value.kind==="tombstone"){
-    if(read.raw==null)return read;
-    const markerDraft={draftId:value.draftId,revision:value.revision,
-      program:{programFingerprint:value.programFingerprint}};
-    return clearProtected("canonical-after-v2-removal",markerDraft)}
-  if(state.log.some(row=>row?.session===value.draftId)){
-    const savedDraft=WorkoutDraft.parse(value.raw)?.draft;
-    if(!savedDraft)return{status:"checkpoint-unreadable",raw:read.raw};
-    return clearProtected("canonical-after-saved-v2",savedDraft)}
-  if(value.kind==="pending-removal"&&read.raw===value.raw){
-    return underCheckpointLock(()=>DraftStore.writeV2Checkpoint(v2CheckpointRecord(
-      WorkoutDraft.parse(value.raw).draft,value.raw,value.operationId))?read:
-      {status:"checkpoint-rollback-failed",raw:read.raw})}
-  if(value.kind==="pending-removal"&&read.raw==null){
-    return underCheckpointLock(()=>DraftStore.writeV2Checkpoint(DraftStore.v2Tombstone(
-      WorkoutDraft.parse(value.raw).draft,value.operationId))?read:
-      {status:"checkpoint-commit-failed",raw:read.raw})}
-  const protectedValue=value.kind==="committed"||value.kind==="pending-removal"?value:value.previous;
-  const protectedParsed=protectedValue?WorkoutDraft.parse(protectedValue.raw):null;
-  if(protectedValue&&protectedParsed?.kind!=="valid")return{status:"checkpoint-unreadable",raw:read.raw};
-  if(value.kind==="pending"&&read.raw===value.raw){
-    return underCheckpointLock(()=>DraftStore.writeV2Checkpoint(v2CheckpointRecord(
-      WorkoutDraft.parse(value.raw).draft,value.raw,value.operationId))?read:{status:"checkpoint-commit-failed",raw:read.raw})}
-  if(value.kind==="pending"&&read.raw===value.baseRaw){
-    if(value.previous&&read.raw===value.previous.raw){
-      return underCheckpointLock(()=>DraftStore.writeV2Checkpoint({...value.previous,kind:"committed"})
-        ?read:{status:"checkpoint-rollback-failed",raw:read.raw})}
-    if(!value.previous)return underCheckpointLock(current=>{
-      const prepared=prepareV2CheckpointEffect(current.raw,value.raw,value.operationId,{previous:null});
-      if(!prepared.ok||!DraftStore.publishCanonical(value.raw)||!commitV2CheckpointEffect(prepared,value.raw))
-        return{status:"recovery-write-failed",raw:current.raw};
-      return{status:"ok",raw:value.raw}})}
-  if(!protectedValue){
-    storeDraftRecovery(read.raw,"orphaned-v2-pending");
-    return{status:"checkpoint-conflict",raw:read.raw}}
-  const protectedDraft=WorkoutDraft.parse(protectedValue.raw,
-    workoutParseContext(protectedParsed.draft.program.dayLabel||label));
-  if(protectedDraft.kind!=="valid"){
-    storeDraftRecovery(read.raw,protectedDraft.kind==="stale"?`stale-${protectedDraft.reason}`:protectedDraft.code);
-    return{status:protectedDraft.kind,error:protectedDraft,raw:read.raw}}
-  if(read.raw!==protectedValue.raw)storeDraftRecovery(read.raw,"superseded-v2-canonical");
-  return underCheckpointLock(current=>{
-    const operationId=`recover-${uid()}`;
-    const prepared=prepareV2CheckpointEffect(current.raw,protectedValue.raw,operationId,{previous:protectedValue});
-    if(!prepared.ok||!DraftStore.publishCanonical(protectedValue.raw)||
-      !commitV2CheckpointEffect(prepared,protectedValue.raw))return{status:"recovery-write-failed",raw:current.raw};
-    return{status:"ok",raw:protectedValue.raw}})}
+  return DurableState.reconcileV2Checkpoint(read,label)}
 async function initializeWorkoutDraft({restoreDay=false}={}){
   if(!WorkoutDraft)return{status:"module-unavailable"};
   let read=DraftStore.readCanonicalStatus();if(read.status!=="ok")return read;
@@ -13314,8 +13243,11 @@ async function activateEntryPreview({destination="log",manualBuild=false,skipRep
   // A previous attempt may already have committed the exact draft and then
   // failed only while consuming this separate setup record. Treat that receipt
   // as success and retry only the CAS cleanup; never mint a second program.
-  if(setupActivationAlreadyCommittedToLive(activationDraftHandle?.raw))
-    return finishAlreadyCommittedSetup(activationDraftHandle);
+  if(setupActivationAlreadyCommittedToLive(activationDraftHandle?.raw)){
+    const settled=await DurableState.settleCommittedSetupActivation(activationDraftHandle.raw);
+    if(settled?.committed===true&&settled?.settled===true)
+      return finishAlreadyCommittedSetup(activationDraftHandle);
+    return settled}
   const readiness=ProgramEntry.activationReadiness(entryState,{
     liveActiveProgramRevision:liveProgramRevision(),
     currentVersions:entryVersions(),
@@ -14808,6 +14740,7 @@ if(DurableState){
     workoutDraft:WorkoutDraft,
     getLiveState:()=>state,
     storeDraftRecovery,
+    workoutParseContext,
     isValidStateShape,
     classifyRecoveryCarrier,
     carrierReadStatus,
