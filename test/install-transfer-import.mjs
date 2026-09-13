@@ -996,6 +996,19 @@ async function seedMeaningfulDestination(page, kind, envelope) {
       window.__repforgeUi?.setTheme?.("dark");
       return { ok: window.__repforgeUi?.loadUiPrefs?.()?.theme === "dark" };
     }
+    if (["unknown-guide", "wrong-version-guide", "missing-version-guide", "extra-field-guide", "invalid-timestamp-guide"].includes(kind)) {
+      const prefs = parse(localStorage.getItem(uiKey)) || {};
+      prefs.guideState = { ...(prefs.guideState || {}) };
+      const id = kind === "unknown-guide" ? "future-user-guide" : "entry";
+      const record = kind === "invalid-timestamp-guide"
+        ? { version: 1, status: "shown", lastTransitionAt: "not-a-timestamp" }
+        : { version: kind === "wrong-version-guide" ? 999 : 1, status: "unseen", lastTransitionAt: null };
+      if (kind === "missing-version-guide") delete record.version;
+      if (kind === "extra-field-guide") record.userDisposition = "keep";
+      prefs.guideState[id] = record;
+      localStorage.setItem(uiKey, JSON.stringify(prefs));
+      return { ok: JSON.stringify(parse(localStorage.getItem(uiKey))?.guideState?.[id]) === JSON.stringify(record) };
+    }
     if (kind === "consent-identity-only") {
       window.RepForgeTelemetry?.setEnabled?.(false);
       const identity = parse(localStorage.getItem(identityKey)) || {
@@ -1118,6 +1131,11 @@ async function runMeaningfulDestinationMatrix(browser, envelope) {
   console.log("\nPlan 053-P4b meaningful-destination refusal matrix");
   const cases = [
     ["prefs-only", "prefs-only"],
+    ["unknown-guide-only", "unknown-guide"],
+    ["wrong-version-guide-only", "wrong-version-guide"],
+    ["missing-version-guide-only", "missing-version-guide"],
+    ["extra-field-guide-only", "extra-field-guide"],
+    ["invalid-timestamp-guide-only", "invalid-timestamp-guide"],
     ["consent/identity-only", "consent-identity-only"],
     ["DraftV2-only", "draft-only"],
     ["candidate-only", "candidate-only"],
@@ -1999,6 +2017,22 @@ async function main() {
     await clearProfile(destination);
     await destination.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(destination, { base: BASE });
+
+    const freshDestinationPrefs = await destination.evaluate((key) => {
+      try { return JSON.parse(localStorage.getItem(key) || "null"); }
+      catch { return null; }
+    }, UI_KEY);
+    const freshGuideRecords = Object.entries(freshDestinationPrefs?.guideState || {});
+    const automaticGuideState = freshGuideRecords.length > 0 && freshGuideRecords.every(([id, record]) =>
+      record?.status === "unseen" || id === "entry" && record?.status === "shown");
+    check(freshDestinationPrefs?.entryLandingSeen === true &&
+      freshDestinationPrefs?.theme === undefined && automaticGuideState &&
+      freshDestinationPrefs?.installLastOfferedMilestone === null &&
+      freshDestinationPrefs?.installLastOfferedAt === null &&
+      freshDestinationPrefs?.installDismissedMilestone === null &&
+      freshDestinationPrefs?.installDismissedAt === null,
+    "fresh destination contains only automatic landing/install/guide metadata before install transfer",
+    freshDestinationPrefs);
 
     const importHook = await destination.evaluate(() => typeof window.__repforgeInstallTransferImport === "function");
     if (!check(importHook, "destination exposes window.__repforgeInstallTransferImport")) {

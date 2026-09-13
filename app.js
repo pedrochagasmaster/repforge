@@ -3088,9 +3088,31 @@ function installTransferRecordBootDevice(){
     consent:installTransferReadRaw(TELEMETRY_ENABLED_KEY),
     identity:installTransferReadRaw(TELEMETRY_IDENTITY_KEY)}
 }
+function installTransferUiMeaningful(uiRaw,ui){
+  if(uiRaw===null)return false;
+  if(!ui)return true;
+  const remaining={...ui};
+  if(remaining.entryLandingSeen===true)delete remaining.entryLandingSeen;
+  for(const[key,value]of Object.entries({installLastOfferedMilestone:null,installLastOfferedAt:null,
+    installDismissedMilestone:null,installDismissedAt:null})){
+    if(remaining[key]===value)delete remaining[key]}
+  if(remaining.guideState&&typeof remaining.guideState==="object"&&!Array.isArray(remaining.guideState)){
+    const guides=Object.entries(remaining.guideState).filter(([id,record])=>{
+      if(!record||typeof record!=="object"||Array.isArray(record))return true;
+      const keys=Object.keys(record);
+      const definition=GuideRegistry?.GUIDE_DEFINITIONS?.find(guide=>guide.id===id);
+      const currentRecord=definition&&record.version===definition.version&&keys.length===3&&
+        keys.every(key=>["version","status","lastTransitionAt"].includes(key));
+      const defaultRecord=currentRecord&&record.status==="unseen"&&record.lastTransitionAt===null;
+      const automaticEntry=currentRecord&&id==="entry"&&ui.entryLandingSeen===true&&record.status==="shown"&&
+        Number.isSafeInteger(record.lastTransitionAt)&&record.lastTransitionAt>=0;
+      return !defaultRecord&&!automaticEntry});
+    if(guides.length)remaining.guideState=Object.fromEntries(guides);
+    else delete remaining.guideState}
+  return Object.keys(remaining).length>0}
 function installTransferDeviceMeaningful(){
   const uiRaw=installTransferReadRaw(UIKEY),ui=installTransferReadJson(UIKEY);
-  if(installTransferInitialDevice.ui!==null||uiRaw!==null&&Object.keys(ui||{}).length>0)return true;
+  if(installTransferUiMeaningful(uiRaw,ui))return true;
   const consent=installTransferReadRaw(TELEMETRY_ENABLED_KEY);
   if(installTransferInitialDevice.consent!==null||
     consent!==null&&consent!==installTransferBootDevice?.consent)return true;
