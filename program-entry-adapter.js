@@ -19,6 +19,7 @@
     home: "home",
     foundation: "foundation",
   });
+  const ALTERNATIVE_REASON_CODES = new Set(["compatible_split_variation"]);
   const ENV_EQUIPMENT = Object.freeze({
     commercial_gym: Object.freeze(["barbell", "dumbbell", "machine", "cable", "smith"]),
     basic_gym: Object.freeze(["dumbbell", "machine", "cable", "smith", "barbell"]),
@@ -304,6 +305,53 @@
     };
   }
 
+  function rationaleFor(answers, familyId) {
+    const facts = explanationFor(answers, familyId);
+    const codes = ["goal", "schedule", "environment", "progression"];
+    if ((answers.primaryMuscles || []).length || (answers.priorityMovements || []).length) codes.push("priorities");
+    if ((answers.mustHaveExercises || []).length || (answers.exerciseConstraints || []).length) codes.push("exercise_preferences");
+    if (answers.recentConsistency === "about_half") codes.push("interrupted_return");
+    return { codes, facts };
+  }
+
+  function structuredReason(reason) {
+    if (!reason || typeof reason !== "object" || Array.isArray(reason) ||
+      !ALTERNATIVE_REASON_CODES.has(reason.code) || !reason.facts ||
+      typeof reason.facts !== "object" || Array.isArray(reason.facts)) return null;
+    for (const [key, fact] of Object.entries(reason.facts)) {
+      if (!/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(key) || ["__proto__", "prototype", "constructor"].includes(key) ||
+        !["string", "number", "boolean"].includes(typeof fact) ||
+        (typeof fact === "number" && !Number.isFinite(fact)) ||
+        (typeof fact === "string" && fact.length > 200)) return null;
+    }
+    return JSON.parse(JSON.stringify(reason));
+  }
+
+  function structuredAlternative(primary, raw, answers, Comp, source) {
+    if (!raw || typeof raw !== "object" || Array.isArray(raw)) return null;
+    const instance = raw.instance && typeof raw.instance === "object" ? raw.instance : raw;
+    const reason = structuredReason(raw.reason);
+    if (instance.kind !== "compiled" || instance.frequency !== primary.frequency ||
+      !instance.blueprintId || instance.blueprintId === primary.blueprintId ||
+      !instance.provenance || !reason) return null;
+    const preview = previewFromInstance(instance, Comp);
+    if (!Array.isArray(preview.program) || !preview.program.length ||
+      !Array.isArray(preview.days) || preview.days.length !== primary.frequency) return null;
+    const selected = candidateFromInstance(instance, answers, Comp);
+    const alternativeSource = {
+      ...source,
+      familyId: instance.familyId,
+      blueprintId: instance.blueprintId,
+    };
+    return {
+      ...selected,
+      fingerprint: fingerprint(alternativeSource),
+      provenance: JSON.parse(JSON.stringify(instance.provenance)),
+      reason,
+      preview: JSON.parse(JSON.stringify(preview)),
+    };
+  }
+
   function compileWithServices({ mode, answers, versions, Compiler, catalogue, history }) {
     const Comp = compilerApi(Compiler);
     const library = catalogueApi(catalogue, Comp);
@@ -362,15 +410,32 @@
       deEmphasizedMuscles: mapped.value.deEmphasizedMuscles.slice(),
       ignoredMuscles: mapped.value.ignoredMuscles.slice(),
     };
+    const primaryFingerprint = fingerprint(source);
+    const alternative = mode === "recommend"
+      ? structuredAlternative(primary, primary.alternative, answers, Comp, source)
+      : null;
+    const candidate = {
+      primary: {
+        ...selected,
+        fingerprint: primaryFingerprint,
+        provenance: JSON.parse(JSON.stringify(primary.provenance || {})),
+      },
+      alternative,
+      rationale: rationaleFor(answers, primary.familyId),
+      draft: JSON.parse(JSON.stringify(preview)),
+      validation: { status: "valid" },
+      activation: { status: "pending_explicit_confirmation" },
+    };
     return {
       ok: true,
       serviceVersion: String(Comp.VERSIONS.compiler),
       name: selected.name,
       namePt: selected.namePt,
-      fingerprint: fingerprint(source),
+      fingerprint: primaryFingerprint,
       candidates: candidates.map((candidate) => ({ ...candidate })),
       selected,
-      alternative: null,
+      alternative,
+      candidate,
       diagnostics: explanationFor(answers, primary.familyId, {
         limitations: primary.limitations,
         reductions: primary.reductions,

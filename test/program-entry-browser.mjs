@@ -824,6 +824,14 @@ try {
       "recommendation cites the environment and offers an explicit review action", recommendationCopy);
     const candidateCount = await page.locator("[data-entry-select-candidate]").count();
     assert(candidateCount === 1, "recommend shows only the primary result", String(candidateCount));
+    const mergedResult = await page.evaluate(() => ({
+      step: window.__repforgeEntryState?.()?.step,
+      activate: !!document.querySelector("#entryActivate"),
+      edit: !!document.querySelector("#entryEdit"),
+      dayCount: document.querySelectorAll("#entryCandidateReview details").length,
+    }));
+    assert(mergedResult.step === "result" && mergedResult.activate && mergedResult.edit && mergedResult.dayCount === 3,
+      "recommendation rationale and editable activation preview share one result surface", JSON.stringify(mergedResult));
     const draftBefore = await page.evaluate((key) => localStorage.getItem(key), DRAFT);
     assert(!!draftBefore, "setup draft persisted during recommend");
     const draftEnvelope = JSON.parse(draftBefore);
@@ -834,6 +842,8 @@ try {
     );
     await page.locator("[data-entry-select-candidate]").first().click();
     await page.waitForSelector("#entryActivate");
+    assert(await page.evaluate(() => window.__repforgeEntryState?.()?.step) === "result",
+      "review action stays on the merged candidate surface");
     const reviewCopy = await page.locator("#onbBody").innerText();
     assert(/Build Muscle/.test(reviewCopy) && /Taurifer recommendation/.test(reviewCopy),
       "review names the candidate and its human-readable source", reviewCopy);

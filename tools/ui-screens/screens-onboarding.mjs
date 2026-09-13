@@ -18,7 +18,7 @@ import { BASE, SETUP_DRAFT, KEY, sleep, waitForApp } from "./session.mjs";
 /** Screens that must be seeded with an already-active program. */
 const NEEDS_ACTIVE_PROGRAM = new Set([
   "onboarding-start/hub-existing",
-  "onboarding-recommend/preview-existing",
+  "onboarding-recommend/result-existing",
   "onboarding-recommend/replacement-confirm",
   "onboarding-recommend/activation-conflict",
   "onboarding-recovery/rules-drift",
@@ -130,14 +130,13 @@ async function customTo(page, step) {
   if (step === "priorities") return;
   await next(page);
   await page.waitForSelector("#entryExerciseSearch", { timeout: 25000 });
-  if (["exercise-preferences", "result", "preview"].includes(step)) {
+  if (["exercise-preferences", "result"].includes(step)) {
     await setCustomExercisePreferences(page);
     if (step === "exercise-preferences") return;
   }
   await next(page);
   await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 20000 });
   if (step === "result") return;
-  await selectCandidate(page);
 }
 
 /** Keep the preference screens representative: the empty state is useful for
@@ -500,14 +499,7 @@ export const ONBOARDING_SCENARIOS = {
     await page.click('[data-entry-pick="avoidReason"][data-entry-val$="|pain"]');
   },
   "onboarding-recommend/result": (page) => recommendTo(page, { result: true, desired: "balanced" }),
-  "onboarding-recommend/preview-first-run": async (page) => {
-    await recommendTo(page, { result: true });
-    await selectCandidate(page);
-  },
-  "onboarding-recommend/preview-existing": async (page) => {
-    await recommendTo(page, { result: true, existing: true });
-    await selectCandidate(page);
-  },
+  "onboarding-recommend/result-existing": (page) => recommendTo(page, { result: true, existing: true }),
   "onboarding-recommend/replacement-confirm": async (page) => {
     await recommendTo(page, { result: true, existing: true });
     await selectCandidate(page);
@@ -521,7 +513,6 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-custom/priorities": (page) => customTo(page, "priorities"),
   "onboarding-custom/exercise-preferences": (page) => customTo(page, "exercise-preferences"),
   "onboarding-custom/result": (page) => customTo(page, "result"),
-  "onboarding-custom/preview": (page) => customTo(page, "preview"),
 
   "onboarding-browse/schedule": (page) => browseTo(page, "schedule"),
   "onboarding-browse/environment": (page) => browseTo(page, "environment"),

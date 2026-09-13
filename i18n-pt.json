@@ -1663,6 +1663,7 @@
   "entry.result.lede": "As mesmas respostas e regras produzem o mesmo programa todas as vezes.",
   "entry.result.primary": "Recomendação principal",
   "entry.result.alternative": "Alternativa próxima",
+  "entry.result.alternative_reason.compatible_split_variation": "Uma estrutura compatível diferente também se encaixa na sua agenda.",
   "entry.result.choose": "Usar este resultado",
   "entry.result.explain": "Este programa usa seu objetivo, seu treino recente, sua agenda e sua principal restrição.",
   "entry.result.why": "Por que combina com você",

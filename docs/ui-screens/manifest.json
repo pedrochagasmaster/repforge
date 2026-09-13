@@ -425,22 +425,15 @@
     {
       "id": "result",
       "flow": "onboarding-recommend",
-      "label": "Recommend — recommendation",
-      "scenario": "One named recommendation with its factual Why it fits explanation.",
+      "label": "Recommend — recommendation and review",
+      "scenario": "One candidate surface with rationale, editable program facts, and explicit activation.",
       "variants": "demandingText"
     },
     {
-      "id": "preview-first-run",
+      "id": "result-existing",
       "flow": "onboarding-recommend",
-      "label": "Recommend — review before first activation",
-      "scenario": "Identity, source, day summaries, assumptions, Edit before using, Use this program.",
-      "variants": "localized"
-    },
-    {
-      "id": "preview-existing",
-      "flow": "onboarding-recommend",
-      "label": "Recommend — review with a program active",
-      "scenario": "The same review while the current program remains untouched.",
+      "label": "Recommend — recommendation with a program active",
+      "scenario": "The merged candidate surface while the current program remains untouched.",
       "variants": "localized"
     },
     {
@@ -502,15 +495,8 @@
     {
       "id": "result",
       "flow": "onboarding-custom",
-      "label": "Custom — generated program",
-      "scenario": "The generated candidate for the chosen split.",
-      "variants": "customAccessibility"
-    },
-    {
-      "id": "preview",
-      "flow": "onboarding-custom",
-      "label": "Custom — review",
-      "scenario": "The common review surface for a custom-generated program.",
+      "label": "Custom — generated program and review",
+      "scenario": "The custom candidate, rationale, editable facts, and explicit activation on one surface.",
       "variants": "customAccessibility"
     },
     {

@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 98 screens,
-476 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 96 screens,
+469 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -65,9 +65,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Recommend 4 — equipment correction](screens/onboarding-recommend/environment-correction__phone-390-light-en.png) | 7 | The capability correction disclosure open. |
 | [Recommend 5 — priorities](screens/onboarding-recommend/priorities__phone-390-light-en.png) | 3 | Primary priorities plus optional movement and exercise-avoidance controls. |
 | [Recommend 5 — avoidance and pain safety](screens/onboarding-recommend/avoidance-pain__phone-390-light-en.png) | 7 | One avoided exercise with the pain reason selected and its safety copy. |
-| [Recommend — recommendation](screens/onboarding-recommend/result__phone-390-light-en.png) | 8 | One named recommendation with its factual Why it fits explanation. |
-| [Recommend — review before first activation](screens/onboarding-recommend/preview-first-run__phone-390-light-en.png) | 3 | Identity, source, day summaries, assumptions, Edit before using, Use this program. |
-| [Recommend — review with a program active](screens/onboarding-recommend/preview-existing__phone-390-light-en.png) | 3 | The same review while the current program remains untouched. |
+| [Recommend — recommendation and review](screens/onboarding-recommend/result__phone-390-light-en.png) | 8 | One candidate surface with rationale, editable program facts, and explicit activation. |
+| [Recommend — recommendation with a program active](screens/onboarding-recommend/result-existing__phone-390-light-en.png) | 3 | The merged candidate surface while the current program remains untouched. |
 | [Recommend — confirm replacement](screens/onboarding-recommend/replacement-confirm__phone-390-light-en.png) | 3 | The explicit archive-and-replace confirmation. History is not changed. |
 | [Recommend — activation conflict](screens/onboarding-recommend/activation-conflict__phone-390-light-en.png) | 3 | Another tab changed the active program. The newer program stays active. |
 
@@ -81,8 +80,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Custom 4 — environment](screens/onboarding-custom/environment__phone-390-light-en.png) | 4 | Environment shortcuts in the custom route. |
 | [Custom 5 — muscle priorities](screens/onboarding-custom/priorities__phone-390-light-en.png) | 8 | Each muscle has one accessible emphasis setting before exercise preferences. |
 | [Custom 6 — exercise preferences](screens/onboarding-custom/exercise-preferences__phone-390-light-en.png) | 4 | One library search offers Include or Avoid, with separate selected lists. |
-| [Custom — generated program](screens/onboarding-custom/result__phone-390-light-en.png) | 4 | The generated candidate for the chosen split. |
-| [Custom — review](screens/onboarding-custom/preview__phone-390-light-en.png) | 4 | The common review surface for a custom-generated program. |
+| [Custom — generated program and review](screens/onboarding-custom/result__phone-390-light-en.png) | 4 | The custom candidate, rationale, editable facts, and explicit activation on one surface. |
 
 ### Onboarding — Browse Taurifer programs
 

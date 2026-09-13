@@ -12068,14 +12068,15 @@ function compileGeneratorCandidate(){
   try{compiled=services.compile({mode:entryState.route,answers:entryState.answers,versions:entryVersions()})}
   catch(error){entryCompileError={code:"rebuild_failed"};console.warn("program candidate rebuild failed",error);return null}
   if(!compiled.ok){entryCompileError=compiled;return null}
+  const candidate=compiled.candidate||{};
   return{
     fingerprint:compiled.fingerprint,
     name:compiled.name,
     namePt:compiled.namePt,
     selected:compiled.selected,
     candidates:compiled.candidates,
-    alternative:null,
-    preview:compiled.preview,
+    alternative:candidate.alternative||null,
+    preview:candidate.draft||compiled.preview,
     telemetry:compiled.telemetry,
     explanation:compiled.explanation};
 }
@@ -12385,18 +12386,14 @@ function renderResultStep(){
       ?{icon:"clock",text:t("entry.result.why_interrupted")}:null,
   ].filter(Boolean);
   const duration=entryDurationLabel(preview);
-  const candidates=result.candidates||[];
   const daysBadge=primary?t("entry.catalogue.days_badge",{days:primary.daysPerWeek}):"";
-  /* With one candidate this is not a choice between programs — it is the
-     single action the whole flow was leading to, so it renders as the primary
-     button. A real fork still gets the radiogroup. */
-  const action=!primary?""
-    :candidates.length>1
-      ?`<div class="entry__hub" role="radiogroup" aria-label="${esc(t("entry.result.title"))}">`+
-        candidates.map(candidate=>`<button type="button" role="radio" aria-checked="${candidate.id===primary.id?"true":"false"}" class="entry-card entry-card--primary" data-entry-select-candidate="${esc(candidate.id)}">`+
-          `<span class="entry-card__title">${esc(entryResultName(result))}</span>`+
-          `<span class="entry-card__cap">${esc(String(candidate.daysPerWeek))} ${esc(t("entry.schedule.days.sub"))}</span></button>`).join("")+`</div>`
-      :`<div class="entry__confirm"><button type="button" class="btn btn--cta" data-entry-select-candidate="${esc(primary.id)}">${esc(t("entry.result.review"))}</button></div>`;
+  const alternative=result.alternative?.fingerprint&&result.alternative?.preview&&result.alternative?.reason
+    ?result.alternative:null;
+  const action=!primary?"":`<div class="entry__confirm"><button type="button" class="btn btn--cta" data-entry-select-candidate="${esc(primary.id)}">${esc(t("entry.result.review"))}</button></div>`;
+  const alternativeAction=!alternative?"":`<div class="entry__alternative"><p class="entry__group-lab">${esc(t("entry.result.alternative"))}</p>`+
+    `<button type="button" class="btn btn--steel" data-entry-select-alternative>`+
+    `${esc(isPt()?alternative.namePt||alternative.name:alternative.name)} · ${esc(t("entry.catalogue.days_badge",{days:alternative.daysPerWeek}))}</button>`+
+    `<p>${esc(t("entry.result.alternative_reason.compatible_split_variation"))}</p></div>`;
   return entryHeading(resultTitle)+
     `<div class="entry__payoff"><p class="onb__explain">${esc(t("entry.result.lede"))}</p>`+
     `<span class="entry__payoff-badge" aria-hidden="true"><span class="icon-mask icon-mask--rosette"></span></span></div>`+
@@ -12408,8 +12405,10 @@ function renderResultStep(){
     `<p class="entry__group-lab entry__group-lab--accent">${esc(t("entry.result.why"))}</p>`+
     `<ul class="entry__rows entry__rows--reasons">`+whyRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><span class="entry__row-body">${esc(row.text)}</span></li>`).join("")+`</ul>`+
     action+
+    alternativeAction+
     (custom?`<div class="entry__custom-actions"><button type="button" class="btn btn--steel" data-entry-action="change-priorities">${esc(t("entry.result.change_priorities"))}</button>`+
-      `<button type="button" class="btn btn--steel" data-entry-action="change-exercise-preferences">${esc(t("entry.result.change_exercise_preferences"))}</button></div>`:"")+`</div>`}
+      `<button type="button" class="btn btn--steel" data-entry-action="change-exercise-preferences">${esc(t("entry.result.change_exercise_preferences"))}</button></div>`:"")+`</div>`+
+    `<section id="entryCandidateReview" aria-labelledby="entryCandidateReviewTitle">`+renderPreviewStep({merged:true})+`</section>`}
 function renderCatalogueStep(){
   const cards=entryServices()?.browseCatalogue(entryState.answers)||[];
   const purposeLabels={
@@ -12614,7 +12613,7 @@ window.addEventListener("visibilitychange",()=>{
 function entryPreviewHasProgressionIssue(preview=entryState?.result?.preview){
   return (Array.isArray(preview?.progressionIncompatibilities)&&preview.progressionIncompatibilities.length>0)||
     (preview?.program||[]).some(exercise=>exercise?.progressionIncompatibility)}
-function renderPreviewStep(){
+function renderPreviewStep({merged=false}={}){
   const preview=entryState.result?.preview;
   if(!preview)return `<p class="lede" role="alert">${esc(t("entry.error.summary"))}</p>`;
   const previewAnswers=entryPreviewAnswers(preview);
@@ -12639,7 +12638,7 @@ function renderPreviewStep(){
     {icon:"trend",lab:t("entry.preview.progression"),text:t(entryPreviewProgressionCopy(preview,progressionIssue))},
     {icon:"scale",lab:t("entry.preview.compromises"),text:compromises?t("entry.preview.compromises_some",{n:compromises}):t("entry.preview.compromises_none")},
   ];
-  return entryHeading(t("entry.preview.title"))+`<p class="onb__explain">${esc(t("entry.preview.lede"))}</p>`+
+  return (merged?`<h2 id="entryCandidateReviewTitle" class="entry__group-lab">${esc(t("entry.preview.title"))}</h2>`:entryHeading(t("entry.preview.title")))+`<p class="onb__explain">${esc(t("entry.preview.lede"))}</p>`+
     (hasActiveProgram()&&!entryUiNotice&&entryState?.step!=="activation_conflict"
       ?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     `<div class="entry__decision"><div class="entry__ident--boxed"><h3>${esc(entryResultName()||entryState.answers.programName||t("untitled_program"))}</h3>`+
@@ -12812,7 +12811,7 @@ function renderOnboarding(){
   else if(stepId==="priorities")html+=renderPrioritiesStep();
   else if(stepId==="exercise_preferences")html+=renderExercisePreferencesStep();
   else if(stepId==="custom_shape")html+=renderCustomShapeStep();
-  else if(stepId==="result")html+=renderResultStep();
+  else if(stepId==="result"&&!isEditor)html+=renderResultStep();
   else if(stepId==="catalogue")html+=renderCatalogueStep();
   else if(stepId==="build_setup")html+=renderBuildSetupStep();
   else if(stepId==="import_source")html+=renderImportSourceStep();
@@ -13046,6 +13045,9 @@ function wireEntryDom(){
     const answers={...entryState.answers};delete answers.splitPreference;
     entryCompileError=null;entrySetState({...entryState,step:"schedule",result:null,answers})};
   $$("[data-entry-select-candidate]").forEach(btn=>btn.onclick=()=>{
+    if(entryState?.step==="result"&&(entryState.route==="recommend"||entryState.route==="custom")){
+      $("#entryCandidateReview")?.scrollIntoView?.({behavior:reducedMotion()?"auto":"smooth",block:"start"});
+      return}
     const id=btn.dataset.entrySelectCandidate;
     const selected=(entryState.result?.candidates||[]).find(c=>c.id===id)||entryState.result?.selected;
     if(!selected||!entryState.result)return;
@@ -13061,6 +13063,22 @@ function wireEntryDom(){
       explanation:entryState.result.explanation});
     entryPinnedVersionsExecutable=false;
     entrySetState(ProgramEntry.advance(next).state)});
+  const chooseAlternative=$("[data-entry-select-alternative]");if(chooseAlternative)chooseAlternative.onclick=()=>{
+    const alternative=entryState?.result?.alternative;
+    if(!alternative)return;
+    const selected={};
+    for(const key of ["id","family","familyId","name","namePt","daysPerWeek","blueprintId","split","complexity","reentry","source"]){
+      if(Object.prototype.hasOwnProperty.call(alternative,key))selected[key]=alternative[key]}
+    entryPinnedVersionsExecutable=false;
+    entrySetState(ProgramEntry.setResult(entryState,{
+      ...entryState.result,
+      fingerprint:alternative.fingerprint,
+      name:alternative.name,
+      namePt:alternative.namePt,
+      selected,
+      candidates:[selected],
+      alternative:null,
+      preview:alternative.preview}))};
   $$("[data-entry-catalogue]").forEach(btn=>btn.onclick=()=>{
     const id=btn.dataset.entryCatalogue;
     const card=(entryServices()?.browseCatalogue(entryState.answers)||[]).find(item=>item.id===id);

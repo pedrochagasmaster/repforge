@@ -1663,6 +1663,7 @@
   "entry.result.lede": "The same answers and rules produce the same program every time.",
   "entry.result.primary": "Primary recommendation",
   "entry.result.alternative": "Close alternative",
+  "entry.result.alternative_reason.compatible_split_variation": "A different compatible structure also fits your schedule.",
   "entry.result.choose": "Use this result",
   "entry.result.explain": "This program uses your goal, recent training, schedule, and main constraint.",
   "entry.result.why": "Why it fits",

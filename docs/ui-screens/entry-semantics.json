@@ -13245,1178 +13245,6 @@
       ]
     },
     {
-      "key": "onboarding-custom/preview__phone-390-dark-en",
-      "flow": "onboarding-custom",
-      "screen": "preview",
-      "label": "Custom — review",
-      "viewport": "phone-390",
-      "theme": "dark",
-      "locale": "en",
-      "text": "normal",
-      "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Create a program"
-        },
-        {
-          "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Custom program"
-        },
-        {
-          "tag": "h2",
-          "text": "Review program",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "This draft is editable. Your active program stays unchanged until you confirm."
-        },
-        {
-          "tag": "h3",
-          "text": "Muscle + Strength"
-        },
-        {
-          "tag": "p",
-          "text": "Taurifer custom program"
-        },
-        {
-          "tag": "span",
-          "text": "Source"
-        },
-        {
-          "tag": "span",
-          "text": "16 exercises"
-        },
-        {
-          "tag": "span",
-          "text": "45 working sets"
-        },
-        {
-          "tag": "span",
-          "text": "about 35–39 minutes"
-        },
-        {
-          "tag": "h4",
-          "text": "Priorities"
-        },
-        {
-          "tag": "p",
-          "text": "No special muscle priority"
-        },
-        {
-          "tag": "h4",
-          "text": "Exercise preferences"
-        },
-        {
-          "tag": "p",
-          "text": "Include: Barbell bench press · Avoid: Barbell curl"
-        },
-        {
-          "tag": "h4",
-          "text": "Equipment assumptions"
-        },
-        {
-          "tag": "p",
-          "text": "Full commercial gym · Barbell, Dumbbell, Machine, Cable, Smith machine"
-        },
-        {
-          "tag": "h4",
-          "text": "Progression"
-        },
-        {
-          "tag": "p",
-          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
-        },
-        {
-          "tag": "h4",
-          "text": "Adjustments"
-        },
-        {
-          "tag": "p",
-          "text": "No adjustments were needed."
-        },
-        {
-          "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Edit before using",
-          "name": "Edit before using",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Start over",
-          "name": "Start over",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Weekly structure"
-        },
-        {
-          "tag": "summary",
-          "text": "Lower body strength",
-          "name": "1Lower body strength4 exercises · 11 working sets · about 39 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "4 exercises · 11 working sets · about 39 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×3–6"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell back squat"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell lunge"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Standing calf raise machine"
-        },
-        {
-          "tag": "summary",
-          "text": "Upper body strength",
-          "name": "2Upper body strength4 exercises · 11 working sets · about 39 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "4 exercises · 11 working sets · about 39 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×3–6"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Assisted pull-up"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable pressdown"
-        },
-        {
-          "tag": "summary",
-          "text": "Lower body volume",
-          "name": "3Lower body volume4 exercises · 12 working sets · about 39 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "4 exercises · 12 working sets · about 39 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell back squat"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "summary",
-          "text": "Upper body volume",
-          "name": "4Upper body volume4 exercises · 11 working sets · about 35 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "4 exercises · 11 working sets · about 35 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Assisted pull-up"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable lateral raise"
-        },
-        {
-          "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
-          "type": "button"
-        }
-      ]
-    },
-    {
-      "key": "onboarding-custom/preview__phone-390-light-en",
-      "flow": "onboarding-custom",
-      "screen": "preview",
-      "label": "Custom — review",
-      "viewport": "phone-390",
-      "theme": "light",
-      "locale": "en",
-      "text": "normal",
-      "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Create a program"
-        },
-        {
-          "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Custom program"
-        },
-        {
-          "tag": "h2",
-          "text": "Review program",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "This draft is editable. Your active program stays unchanged until you confirm."
-        },
-        {
-          "tag": "h3",
-          "text": "Muscle + Strength"
-        },
-        {
-          "tag": "p",
-          "text": "Taurifer custom program"
-        },
-        {
-          "tag": "span",
-          "text": "Source"
-        },
-        {
-          "tag": "span",
-          "text": "16 exercises"
-        },
-        {
-          "tag": "span",
-          "text": "45 working sets"
-        },
-        {
-          "tag": "span",
-          "text": "about 35–39 minutes"
-        },
-        {
-          "tag": "h4",
-          "text": "Priorities"
-        },
-        {
-          "tag": "p",
-          "text": "No special muscle priority"
-        },
-        {
-          "tag": "h4",
-          "text": "Exercise preferences"
-        },
-        {
-          "tag": "p",
-          "text": "Include: Barbell bench press · Avoid: Barbell curl"
-        },
-        {
-          "tag": "h4",
-          "text": "Equipment assumptions"
-        },
-        {
-          "tag": "p",
-          "text": "Full commercial gym · Barbell, Dumbbell, Machine, Cable, Smith machine"
-        },
-        {
-          "tag": "h4",
-          "text": "Progression"
-        },
-        {
-          "tag": "p",
-          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
-        },
-        {
-          "tag": "h4",
-          "text": "Adjustments"
-        },
-        {
-          "tag": "p",
-          "text": "No adjustments were needed."
-        },
-        {
-          "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Edit before using",
-          "name": "Edit before using",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Start over",
-          "name": "Start over",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Weekly structure"
-        },
-        {
-          "tag": "summary",
-          "text": "Lower body strength",
-          "name": "1Lower body strength4 exercises · 11 working sets · about 39 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "4 exercises · 11 working sets · about 39 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×3–6"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell back squat"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell lunge"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Standing calf raise machine"
-        },
-        {
-          "tag": "summary",
-          "text": "Upper body strength",
-          "name": "2Upper body strength4 exercises · 11 working sets · about 39 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "4 exercises · 11 working sets · about 39 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×3–6"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Assisted pull-up"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable pressdown"
-        },
-        {
-          "tag": "summary",
-          "text": "Lower body volume",
-          "name": "3Lower body volume4 exercises · 12 working sets · about 39 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "4 exercises · 12 working sets · about 39 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell back squat"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "summary",
-          "text": "Upper body volume",
-          "name": "4Upper body volume4 exercises · 11 working sets · about 35 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "4 exercises · 11 working sets · about 35 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Assisted pull-up"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable lateral raise"
-        },
-        {
-          "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
-          "type": "button"
-        }
-      ]
-    },
-    {
-      "key": "onboarding-custom/preview__phone-390-light-en-text200",
-      "flow": "onboarding-custom",
-      "screen": "preview",
-      "label": "Custom — review",
-      "viewport": "phone-390",
-      "theme": "light",
-      "locale": "en",
-      "text": "text200",
-      "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Create a program"
-        },
-        {
-          "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Custom program"
-        },
-        {
-          "tag": "h2",
-          "text": "Review program",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "This draft is editable. Your active program stays unchanged until you confirm."
-        },
-        {
-          "tag": "h3",
-          "text": "Muscle + Strength"
-        },
-        {
-          "tag": "p",
-          "text": "Taurifer custom program"
-        },
-        {
-          "tag": "span",
-          "text": "Source"
-        },
-        {
-          "tag": "span",
-          "text": "16 exercises"
-        },
-        {
-          "tag": "span",
-          "text": "45 working sets"
-        },
-        {
-          "tag": "span",
-          "text": "about 35–39 minutes"
-        },
-        {
-          "tag": "h4",
-          "text": "Priorities"
-        },
-        {
-          "tag": "p",
-          "text": "No special muscle priority"
-        },
-        {
-          "tag": "h4",
-          "text": "Exercise preferences"
-        },
-        {
-          "tag": "p",
-          "text": "Include: Barbell bench press · Avoid: Barbell curl"
-        },
-        {
-          "tag": "h4",
-          "text": "Equipment assumptions"
-        },
-        {
-          "tag": "p",
-          "text": "Full commercial gym · Barbell, Dumbbell, Machine, Cable, Smith machine"
-        },
-        {
-          "tag": "h4",
-          "text": "Progression"
-        },
-        {
-          "tag": "p",
-          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
-        },
-        {
-          "tag": "h4",
-          "text": "Adjustments"
-        },
-        {
-          "tag": "p",
-          "text": "No adjustments were needed."
-        },
-        {
-          "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Edit before using",
-          "name": "Edit before using",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Start over",
-          "name": "Start over",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Weekly structure"
-        },
-        {
-          "tag": "summary",
-          "text": "Lower body strength",
-          "name": "1Lower body strength4 exercises · 11 working sets · about 39 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "4 exercises · 11 working sets · about 39 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×3–6"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell back squat"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell lunge"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Standing calf raise machine"
-        },
-        {
-          "tag": "summary",
-          "text": "Upper body strength",
-          "name": "2Upper body strength4 exercises · 11 working sets · about 39 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "4 exercises · 11 working sets · about 39 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×3–6"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Assisted pull-up"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable pressdown"
-        },
-        {
-          "tag": "summary",
-          "text": "Lower body volume",
-          "name": "3Lower body volume4 exercises · 12 working sets · about 39 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "4 exercises · 12 working sets · about 39 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell back squat"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "summary",
-          "text": "Upper body volume",
-          "name": "4Upper body volume4 exercises · 11 working sets · about 35 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "4 exercises · 11 working sets · about 35 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Assisted pull-up"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable lateral raise"
-        },
-        {
-          "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
-          "type": "button"
-        }
-      ]
-    },
-    {
-      "key": "onboarding-custom/preview__phone-390-light-pt",
-      "flow": "onboarding-custom",
-      "screen": "preview",
-      "label": "Custom — review",
-      "viewport": "phone-390",
-      "theme": "light",
-      "locale": "pt",
-      "text": "normal",
-      "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Criar um programa"
-        },
-        {
-          "tag": "button",
-          "text": "Cancelar",
-          "name": "Cancelar",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Programa personalizado"
-        },
-        {
-          "tag": "h2",
-          "text": "Revisar programa",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
-        },
-        {
-          "tag": "h3",
-          "text": "Massa + força"
-        },
-        {
-          "tag": "p",
-          "text": "Programa personalizado pelo Taurifer"
-        },
-        {
-          "tag": "span",
-          "text": "Origem"
-        },
-        {
-          "tag": "span",
-          "text": "16 exercícios"
-        },
-        {
-          "tag": "span",
-          "text": "45 séries de trabalho"
-        },
-        {
-          "tag": "span",
-          "text": "cerca de 35–39 minutos"
-        },
-        {
-          "tag": "h4",
-          "text": "Prioridades"
-        },
-        {
-          "tag": "p",
-          "text": "Sem prioridade muscular especial"
-        },
-        {
-          "tag": "h4",
-          "text": "Preferências de exercícios"
-        },
-        {
-          "tag": "p",
-          "text": "Incluir: Supino com barra · Evitar: Rosca com barra"
-        },
-        {
-          "tag": "h4",
-          "text": "Equipamentos considerados"
-        },
-        {
-          "tag": "p",
-          "text": "Academia comercial completa · Barra, Halteres, Máquina, Cabo, Smith"
-        },
-        {
-          "tag": "h4",
-          "text": "Progressão"
-        },
-        {
-          "tag": "p",
-          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
-        },
-        {
-          "tag": "h4",
-          "text": "Ajustes necessários"
-        },
-        {
-          "tag": "p",
-          "text": "Nenhum ajuste foi necessário."
-        },
-        {
-          "tag": "button",
-          "text": "Usar este programa",
-          "name": "Usar este programa",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Editar antes de usar",
-          "name": "Editar antes de usar",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Começar de novo",
-          "name": "Começar de novo",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Estrutura semanal"
-        },
-        {
-          "tag": "summary",
-          "text": "Força de membros inferiores",
-          "name": "1Força de membros inferiores4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
-        },
-        {
-          "tag": "span",
-          "text": "4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×3–6"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell back squat"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell lunge"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Standing calf raise machine"
-        },
-        {
-          "tag": "summary",
-          "text": "Força de membros superiores",
-          "name": "2Força de membros superiores4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
-        },
-        {
-          "tag": "span",
-          "text": "4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×3–6"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Assisted pull-up"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable pressdown"
-        },
-        {
-          "tag": "summary",
-          "text": "Volume de membros inferiores",
-          "name": "3Volume de membros inferiores4 exercícios · 12 séries de trabalho · cerca de 39 minutos"
-        },
-        {
-          "tag": "span",
-          "text": "4 exercícios · 12 séries de trabalho · cerca de 39 minutos"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell back squat"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "summary",
-          "text": "Volume de membros superiores",
-          "name": "4Volume de membros superiores4 exercícios · 11 séries de trabalho · cerca de 35 minutos"
-        },
-        {
-          "tag": "span",
-          "text": "4 exercícios · 11 séries de trabalho · cerca de 35 minutos"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell bench press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Assisted pull-up"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable lateral raise"
-        },
-        {
-          "tag": "button",
-          "text": "Voltar",
-          "name": "Voltar",
-          "label": "Voltar",
-          "type": "button"
-        }
-      ]
-    },
-    {
       "key": "onboarding-custom/priorities__phone-320-light-en",
       "flow": "onboarding-custom",
       "screen": "priorities",
@@ -20876,7 +19704,7 @@
       "key": "onboarding-custom/result__phone-390-dark-en",
       "flow": "onboarding-custom",
       "screen": "result",
-      "label": "Custom — generated program",
+      "label": "Custom — generated program and review",
       "viewport": "phone-390",
       "theme": "dark",
       "locale": "en",
@@ -20965,6 +19793,268 @@
           "type": "button"
         },
         {
+          "tag": "section",
+          "labelledBy": "Review program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program"
+        },
+        {
+          "tag": "p",
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+        },
+        {
+          "tag": "h3",
+          "text": "Muscle + Strength"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer custom program"
+        },
+        {
+          "tag": "span",
+          "text": "Source"
+        },
+        {
+          "tag": "span",
+          "text": "16 exercises"
+        },
+        {
+          "tag": "span",
+          "text": "45 working sets"
+        },
+        {
+          "tag": "span",
+          "text": "about 35–39 minutes"
+        },
+        {
+          "tag": "h4",
+          "text": "Priorities"
+        },
+        {
+          "tag": "p",
+          "text": "No special muscle priority"
+        },
+        {
+          "tag": "h4",
+          "text": "Exercise preferences"
+        },
+        {
+          "tag": "p",
+          "text": "Include: Barbell bench press · Avoid: Barbell curl"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipment assumptions"
+        },
+        {
+          "tag": "p",
+          "text": "Full commercial gym · Barbell, Dumbbell, Machine, Cable, Smith machine"
+        },
+        {
+          "tag": "h4",
+          "text": "Progression"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
+        },
+        {
+          "tag": "h4",
+          "text": "Adjustments"
+        },
+        {
+          "tag": "p",
+          "text": "No adjustments were needed."
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Edit before using",
+          "name": "Edit before using",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Weekly structure"
+        },
+        {
+          "tag": "summary",
+          "text": "Lower body strength",
+          "name": "1Lower body strength4 exercises · 11 working sets · about 39 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "4 exercises · 11 working sets · about 39 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell lunge"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Standing calf raise machine"
+        },
+        {
+          "tag": "summary",
+          "text": "Upper body strength",
+          "name": "2Upper body strength4 exercises · 11 working sets · about 39 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "4 exercises · 11 working sets · about 39 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable pressdown"
+        },
+        {
+          "tag": "summary",
+          "text": "Lower body volume",
+          "name": "3Lower body volume4 exercises · 12 working sets · about 39 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "4 exercises · 12 working sets · about 39 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "summary",
+          "text": "Upper body volume",
+          "name": "4Upper body volume4 exercises · 11 working sets · about 35 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "4 exercises · 11 working sets · about 35 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable lateral raise"
+        },
+        {
           "tag": "button",
           "text": "Back",
           "name": "Back",
@@ -20977,7 +20067,7 @@
       "key": "onboarding-custom/result__phone-390-light-en",
       "flow": "onboarding-custom",
       "screen": "result",
-      "label": "Custom — generated program",
+      "label": "Custom — generated program and review",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -21066,6 +20156,268 @@
           "type": "button"
         },
         {
+          "tag": "section",
+          "labelledBy": "Review program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program"
+        },
+        {
+          "tag": "p",
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+        },
+        {
+          "tag": "h3",
+          "text": "Muscle + Strength"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer custom program"
+        },
+        {
+          "tag": "span",
+          "text": "Source"
+        },
+        {
+          "tag": "span",
+          "text": "16 exercises"
+        },
+        {
+          "tag": "span",
+          "text": "45 working sets"
+        },
+        {
+          "tag": "span",
+          "text": "about 35–39 minutes"
+        },
+        {
+          "tag": "h4",
+          "text": "Priorities"
+        },
+        {
+          "tag": "p",
+          "text": "No special muscle priority"
+        },
+        {
+          "tag": "h4",
+          "text": "Exercise preferences"
+        },
+        {
+          "tag": "p",
+          "text": "Include: Barbell bench press · Avoid: Barbell curl"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipment assumptions"
+        },
+        {
+          "tag": "p",
+          "text": "Full commercial gym · Barbell, Dumbbell, Machine, Cable, Smith machine"
+        },
+        {
+          "tag": "h4",
+          "text": "Progression"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
+        },
+        {
+          "tag": "h4",
+          "text": "Adjustments"
+        },
+        {
+          "tag": "p",
+          "text": "No adjustments were needed."
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Edit before using",
+          "name": "Edit before using",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Weekly structure"
+        },
+        {
+          "tag": "summary",
+          "text": "Lower body strength",
+          "name": "1Lower body strength4 exercises · 11 working sets · about 39 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "4 exercises · 11 working sets · about 39 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell lunge"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Standing calf raise machine"
+        },
+        {
+          "tag": "summary",
+          "text": "Upper body strength",
+          "name": "2Upper body strength4 exercises · 11 working sets · about 39 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "4 exercises · 11 working sets · about 39 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable pressdown"
+        },
+        {
+          "tag": "summary",
+          "text": "Lower body volume",
+          "name": "3Lower body volume4 exercises · 12 working sets · about 39 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "4 exercises · 12 working sets · about 39 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "summary",
+          "text": "Upper body volume",
+          "name": "4Upper body volume4 exercises · 11 working sets · about 35 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "4 exercises · 11 working sets · about 35 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable lateral raise"
+        },
+        {
           "tag": "button",
           "text": "Back",
           "name": "Back",
@@ -21078,7 +20430,7 @@
       "key": "onboarding-custom/result__phone-390-light-en-text200",
       "flow": "onboarding-custom",
       "screen": "result",
-      "label": "Custom — generated program",
+      "label": "Custom — generated program and review",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -21167,6 +20519,268 @@
           "type": "button"
         },
         {
+          "tag": "section",
+          "labelledBy": "Review program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program"
+        },
+        {
+          "tag": "p",
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+        },
+        {
+          "tag": "h3",
+          "text": "Muscle + Strength"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer custom program"
+        },
+        {
+          "tag": "span",
+          "text": "Source"
+        },
+        {
+          "tag": "span",
+          "text": "16 exercises"
+        },
+        {
+          "tag": "span",
+          "text": "45 working sets"
+        },
+        {
+          "tag": "span",
+          "text": "about 35–39 minutes"
+        },
+        {
+          "tag": "h4",
+          "text": "Priorities"
+        },
+        {
+          "tag": "p",
+          "text": "No special muscle priority"
+        },
+        {
+          "tag": "h4",
+          "text": "Exercise preferences"
+        },
+        {
+          "tag": "p",
+          "text": "Include: Barbell bench press · Avoid: Barbell curl"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipment assumptions"
+        },
+        {
+          "tag": "p",
+          "text": "Full commercial gym · Barbell, Dumbbell, Machine, Cable, Smith machine"
+        },
+        {
+          "tag": "h4",
+          "text": "Progression"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
+        },
+        {
+          "tag": "h4",
+          "text": "Adjustments"
+        },
+        {
+          "tag": "p",
+          "text": "No adjustments were needed."
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Edit before using",
+          "name": "Edit before using",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Weekly structure"
+        },
+        {
+          "tag": "summary",
+          "text": "Lower body strength",
+          "name": "1Lower body strength4 exercises · 11 working sets · about 39 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "4 exercises · 11 working sets · about 39 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell lunge"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Standing calf raise machine"
+        },
+        {
+          "tag": "summary",
+          "text": "Upper body strength",
+          "name": "2Upper body strength4 exercises · 11 working sets · about 39 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "4 exercises · 11 working sets · about 39 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable pressdown"
+        },
+        {
+          "tag": "summary",
+          "text": "Lower body volume",
+          "name": "3Lower body volume4 exercises · 12 working sets · about 39 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "4 exercises · 12 working sets · about 39 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "summary",
+          "text": "Upper body volume",
+          "name": "4Upper body volume4 exercises · 11 working sets · about 35 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "4 exercises · 11 working sets · about 35 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable lateral raise"
+        },
+        {
           "tag": "button",
           "text": "Back",
           "name": "Back",
@@ -21179,7 +20793,7 @@
       "key": "onboarding-custom/result__phone-390-light-pt",
       "flow": "onboarding-custom",
       "screen": "result",
-      "label": "Custom — generated program",
+      "label": "Custom — generated program and review",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "pt",
@@ -21266,6 +20880,268 @@
           "text": "Alterar preferências de exercícios",
           "name": "Alterar preferências de exercícios",
           "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Revisar programa"
+        },
+        {
+          "tag": "h2",
+          "text": "Revisar programa"
+        },
+        {
+          "tag": "p",
+          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
+        },
+        {
+          "tag": "h3",
+          "text": "Massa + força"
+        },
+        {
+          "tag": "p",
+          "text": "Programa personalizado pelo Taurifer"
+        },
+        {
+          "tag": "span",
+          "text": "Origem"
+        },
+        {
+          "tag": "span",
+          "text": "16 exercícios"
+        },
+        {
+          "tag": "span",
+          "text": "45 séries de trabalho"
+        },
+        {
+          "tag": "span",
+          "text": "cerca de 35–39 minutos"
+        },
+        {
+          "tag": "h4",
+          "text": "Prioridades"
+        },
+        {
+          "tag": "p",
+          "text": "Sem prioridade muscular especial"
+        },
+        {
+          "tag": "h4",
+          "text": "Preferências de exercícios"
+        },
+        {
+          "tag": "p",
+          "text": "Incluir: Supino com barra · Evitar: Rosca com barra"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipamentos considerados"
+        },
+        {
+          "tag": "p",
+          "text": "Academia comercial completa · Barra, Halteres, Máquina, Cabo, Smith"
+        },
+        {
+          "tag": "h4",
+          "text": "Progressão"
+        },
+        {
+          "tag": "p",
+          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
+        },
+        {
+          "tag": "h4",
+          "text": "Ajustes necessários"
+        },
+        {
+          "tag": "p",
+          "text": "Nenhum ajuste foi necessário."
+        },
+        {
+          "tag": "button",
+          "text": "Usar este programa",
+          "name": "Usar este programa",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Editar antes de usar",
+          "name": "Editar antes de usar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Começar de novo",
+          "name": "Começar de novo",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Estrutura semanal"
+        },
+        {
+          "tag": "summary",
+          "text": "Força de membros inferiores",
+          "name": "1Força de membros inferiores4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
+        },
+        {
+          "tag": "span",
+          "text": "4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell lunge"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Standing calf raise machine"
+        },
+        {
+          "tag": "summary",
+          "text": "Força de membros superiores",
+          "name": "2Força de membros superiores4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
+        },
+        {
+          "tag": "span",
+          "text": "4 exercícios · 11 séries de trabalho · cerca de 39 minutos"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable pressdown"
+        },
+        {
+          "tag": "summary",
+          "text": "Volume de membros inferiores",
+          "name": "3Volume de membros inferiores4 exercícios · 12 séries de trabalho · cerca de 39 minutos"
+        },
+        {
+          "tag": "span",
+          "text": "4 exercícios · 12 séries de trabalho · cerca de 39 minutos"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "summary",
+          "text": "Volume de membros superiores",
+          "name": "4Volume de membros superiores4 exercícios · 11 séries de trabalho · cerca de 35 minutos"
+        },
+        {
+          "tag": "span",
+          "text": "4 exercícios · 11 séries de trabalho · cerca de 35 minutos"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable lateral raise"
         },
         {
           "tag": "button",
@@ -36029,1776 +35905,6 @@
       ]
     },
     {
-      "key": "onboarding-recommend/preview-existing__phone-390-dark-en",
-      "flow": "onboarding-recommend",
-      "screen": "preview-existing",
-      "label": "Recommend — review with a program active",
-      "viewport": "phone-390",
-      "theme": "dark",
-      "locale": "en",
-      "text": "normal",
-      "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Create a program"
-        },
-        {
-          "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Recommend"
-        },
-        {
-          "tag": "h2",
-          "text": "Review program",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "This draft is editable. Your active program stays unchanged until you confirm."
-        },
-        {
-          "tag": "p",
-          "role": "status",
-          "text": "Your current program stays active until you confirm a replacement.",
-          "name": "Your current program stays active until you confirm a replacement."
-        },
-        {
-          "tag": "h3",
-          "text": "Build Muscle"
-        },
-        {
-          "tag": "p",
-          "text": "Taurifer recommendation"
-        },
-        {
-          "tag": "span",
-          "text": "Source"
-        },
-        {
-          "tag": "span",
-          "text": "18 exercises"
-        },
-        {
-          "tag": "span",
-          "text": "49 working sets"
-        },
-        {
-          "tag": "span",
-          "text": "about 55–59 minutes"
-        },
-        {
-          "tag": "h4",
-          "text": "Priorities"
-        },
-        {
-          "tag": "p",
-          "text": "No special muscle priority"
-        },
-        {
-          "tag": "h4",
-          "text": "Equipment assumptions"
-        },
-        {
-          "tag": "p",
-          "text": "Full commercial gym · Barbell, Dumbbell, Machine, Cable, Smith machine"
-        },
-        {
-          "tag": "h4",
-          "text": "Progression"
-        },
-        {
-          "tag": "p",
-          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
-        },
-        {
-          "tag": "h4",
-          "text": "Adjustments"
-        },
-        {
-          "tag": "p",
-          "text": "No adjustments were needed."
-        },
-        {
-          "tag": "button",
-          "text": "Archive current program and use this one",
-          "name": "Archive current program and use this one",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Edit before using",
-          "name": "Edit before using",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Start over",
-          "name": "Start over",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Weekly structure"
-        },
-        {
-          "tag": "summary",
-          "text": "Lower body hypertrophy",
-          "name": "1Lower body hypertrophy6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Leg press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Chest press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable lateral raise"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable curl"
-        },
-        {
-          "tag": "summary",
-          "text": "Upper body hypertrophy",
-          "name": "2Upper body hypertrophy6 exercises · 17 working sets · about 59 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "6 exercises · 17 working sets · about 59 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Assisted pull-up"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Shoulder press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Leg press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Incline chest press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Standing calf raise machine"
-        },
-        {
-          "tag": "summary",
-          "text": "Full body practice",
-          "name": "3Full body practice6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell lunge"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Incline chest press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable lateral raise"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable curl"
-        },
-        {
-          "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
-          "type": "button"
-        }
-      ]
-    },
-    {
-      "key": "onboarding-recommend/preview-existing__phone-390-light-en",
-      "flow": "onboarding-recommend",
-      "screen": "preview-existing",
-      "label": "Recommend — review with a program active",
-      "viewport": "phone-390",
-      "theme": "light",
-      "locale": "en",
-      "text": "normal",
-      "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Create a program"
-        },
-        {
-          "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Recommend"
-        },
-        {
-          "tag": "h2",
-          "text": "Review program",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "This draft is editable. Your active program stays unchanged until you confirm."
-        },
-        {
-          "tag": "p",
-          "role": "status",
-          "text": "Your current program stays active until you confirm a replacement.",
-          "name": "Your current program stays active until you confirm a replacement."
-        },
-        {
-          "tag": "h3",
-          "text": "Build Muscle"
-        },
-        {
-          "tag": "p",
-          "text": "Taurifer recommendation"
-        },
-        {
-          "tag": "span",
-          "text": "Source"
-        },
-        {
-          "tag": "span",
-          "text": "18 exercises"
-        },
-        {
-          "tag": "span",
-          "text": "49 working sets"
-        },
-        {
-          "tag": "span",
-          "text": "about 55–59 minutes"
-        },
-        {
-          "tag": "h4",
-          "text": "Priorities"
-        },
-        {
-          "tag": "p",
-          "text": "No special muscle priority"
-        },
-        {
-          "tag": "h4",
-          "text": "Equipment assumptions"
-        },
-        {
-          "tag": "p",
-          "text": "Full commercial gym · Barbell, Dumbbell, Machine, Cable, Smith machine"
-        },
-        {
-          "tag": "h4",
-          "text": "Progression"
-        },
-        {
-          "tag": "p",
-          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
-        },
-        {
-          "tag": "h4",
-          "text": "Adjustments"
-        },
-        {
-          "tag": "p",
-          "text": "No adjustments were needed."
-        },
-        {
-          "tag": "button",
-          "text": "Archive current program and use this one",
-          "name": "Archive current program and use this one",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Edit before using",
-          "name": "Edit before using",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Start over",
-          "name": "Start over",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Weekly structure"
-        },
-        {
-          "tag": "summary",
-          "text": "Lower body hypertrophy",
-          "name": "1Lower body hypertrophy6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Leg press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Chest press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable lateral raise"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable curl"
-        },
-        {
-          "tag": "summary",
-          "text": "Upper body hypertrophy",
-          "name": "2Upper body hypertrophy6 exercises · 17 working sets · about 59 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "6 exercises · 17 working sets · about 59 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Assisted pull-up"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Shoulder press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Leg press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Incline chest press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Standing calf raise machine"
-        },
-        {
-          "tag": "summary",
-          "text": "Full body practice",
-          "name": "3Full body practice6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell lunge"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Incline chest press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable lateral raise"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable curl"
-        },
-        {
-          "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
-          "type": "button"
-        }
-      ]
-    },
-    {
-      "key": "onboarding-recommend/preview-existing__phone-390-light-pt",
-      "flow": "onboarding-recommend",
-      "screen": "preview-existing",
-      "label": "Recommend — review with a program active",
-      "viewport": "phone-390",
-      "theme": "light",
-      "locale": "pt",
-      "text": "normal",
-      "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Criar um programa"
-        },
-        {
-          "tag": "button",
-          "text": "Cancelar",
-          "name": "Cancelar",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Recomendação"
-        },
-        {
-          "tag": "h2",
-          "text": "Revisar programa",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
-        },
-        {
-          "tag": "p",
-          "role": "status",
-          "text": "Seu programa atual permanece ativo até você confirmar uma substituição.",
-          "name": "Seu programa atual permanece ativo até você confirmar uma substituição."
-        },
-        {
-          "tag": "h3",
-          "text": "Ganhar massa"
-        },
-        {
-          "tag": "p",
-          "text": "Recomendação do Taurifer"
-        },
-        {
-          "tag": "span",
-          "text": "Origem"
-        },
-        {
-          "tag": "span",
-          "text": "18 exercícios"
-        },
-        {
-          "tag": "span",
-          "text": "49 séries de trabalho"
-        },
-        {
-          "tag": "span",
-          "text": "cerca de 55–59 minutos"
-        },
-        {
-          "tag": "h4",
-          "text": "Prioridades"
-        },
-        {
-          "tag": "p",
-          "text": "Sem prioridade muscular especial"
-        },
-        {
-          "tag": "h4",
-          "text": "Equipamentos considerados"
-        },
-        {
-          "tag": "p",
-          "text": "Academia comercial completa · Barra, Halteres, Máquina, Cabo, Smith"
-        },
-        {
-          "tag": "h4",
-          "text": "Progressão"
-        },
-        {
-          "tag": "p",
-          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
-        },
-        {
-          "tag": "h4",
-          "text": "Ajustes necessários"
-        },
-        {
-          "tag": "p",
-          "text": "Nenhum ajuste foi necessário."
-        },
-        {
-          "tag": "button",
-          "text": "Arquivar o programa atual e usar este",
-          "name": "Arquivar o programa atual e usar este",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Editar antes de usar",
-          "name": "Editar antes de usar",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Começar de novo",
-          "name": "Começar de novo",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Estrutura semanal"
-        },
-        {
-          "tag": "summary",
-          "text": "Hipertrofia de membros inferiores",
-          "name": "1Hipertrofia de membros inferiores6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
-        },
-        {
-          "tag": "span",
-          "text": "6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Leg press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Chest press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable lateral raise"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable curl"
-        },
-        {
-          "tag": "summary",
-          "text": "Hipertrofia de membros superiores",
-          "name": "2Hipertrofia de membros superiores6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
-        },
-        {
-          "tag": "span",
-          "text": "6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Assisted pull-up"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Shoulder press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Leg press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Incline chest press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Standing calf raise machine"
-        },
-        {
-          "tag": "summary",
-          "text": "Prática de corpo inteiro",
-          "name": "3Prática de corpo inteiro6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
-        },
-        {
-          "tag": "span",
-          "text": "6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell lunge"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Incline chest press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable lateral raise"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable curl"
-        },
-        {
-          "tag": "button",
-          "text": "Voltar",
-          "name": "Voltar",
-          "label": "Voltar",
-          "type": "button"
-        }
-      ]
-    },
-    {
-      "key": "onboarding-recommend/preview-first-run__phone-390-dark-en",
-      "flow": "onboarding-recommend",
-      "screen": "preview-first-run",
-      "label": "Recommend — review before first activation",
-      "viewport": "phone-390",
-      "theme": "dark",
-      "locale": "en",
-      "text": "normal",
-      "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Create a program"
-        },
-        {
-          "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Recommend"
-        },
-        {
-          "tag": "h2",
-          "text": "Review program",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "This draft is editable. Your active program stays unchanged until you confirm."
-        },
-        {
-          "tag": "h3",
-          "text": "Build Muscle"
-        },
-        {
-          "tag": "p",
-          "text": "Taurifer recommendation"
-        },
-        {
-          "tag": "span",
-          "text": "Source"
-        },
-        {
-          "tag": "span",
-          "text": "18 exercises"
-        },
-        {
-          "tag": "span",
-          "text": "49 working sets"
-        },
-        {
-          "tag": "span",
-          "text": "about 55–59 minutes"
-        },
-        {
-          "tag": "h4",
-          "text": "Priorities"
-        },
-        {
-          "tag": "p",
-          "text": "No special muscle priority"
-        },
-        {
-          "tag": "h4",
-          "text": "Equipment assumptions"
-        },
-        {
-          "tag": "p",
-          "text": "Full commercial gym · Barbell, Dumbbell, Machine, Cable, Smith machine"
-        },
-        {
-          "tag": "h4",
-          "text": "Progression"
-        },
-        {
-          "tag": "p",
-          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
-        },
-        {
-          "tag": "h4",
-          "text": "Adjustments"
-        },
-        {
-          "tag": "p",
-          "text": "No adjustments were needed."
-        },
-        {
-          "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Edit before using",
-          "name": "Edit before using",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Start over",
-          "name": "Start over",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Weekly structure"
-        },
-        {
-          "tag": "summary",
-          "text": "Lower body hypertrophy",
-          "name": "1Lower body hypertrophy6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Leg press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Chest press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable lateral raise"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable curl"
-        },
-        {
-          "tag": "summary",
-          "text": "Upper body hypertrophy",
-          "name": "2Upper body hypertrophy6 exercises · 17 working sets · about 59 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "6 exercises · 17 working sets · about 59 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Assisted pull-up"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Shoulder press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Leg press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Incline chest press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Standing calf raise machine"
-        },
-        {
-          "tag": "summary",
-          "text": "Full body practice",
-          "name": "3Full body practice6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell lunge"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Incline chest press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable lateral raise"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable curl"
-        },
-        {
-          "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
-          "type": "button"
-        }
-      ]
-    },
-    {
-      "key": "onboarding-recommend/preview-first-run__phone-390-light-en",
-      "flow": "onboarding-recommend",
-      "screen": "preview-first-run",
-      "label": "Recommend — review before first activation",
-      "viewport": "phone-390",
-      "theme": "light",
-      "locale": "en",
-      "text": "normal",
-      "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Create a program"
-        },
-        {
-          "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Recommend"
-        },
-        {
-          "tag": "h2",
-          "text": "Review program",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "This draft is editable. Your active program stays unchanged until you confirm."
-        },
-        {
-          "tag": "h3",
-          "text": "Build Muscle"
-        },
-        {
-          "tag": "p",
-          "text": "Taurifer recommendation"
-        },
-        {
-          "tag": "span",
-          "text": "Source"
-        },
-        {
-          "tag": "span",
-          "text": "18 exercises"
-        },
-        {
-          "tag": "span",
-          "text": "49 working sets"
-        },
-        {
-          "tag": "span",
-          "text": "about 55–59 minutes"
-        },
-        {
-          "tag": "h4",
-          "text": "Priorities"
-        },
-        {
-          "tag": "p",
-          "text": "No special muscle priority"
-        },
-        {
-          "tag": "h4",
-          "text": "Equipment assumptions"
-        },
-        {
-          "tag": "p",
-          "text": "Full commercial gym · Barbell, Dumbbell, Machine, Cable, Smith machine"
-        },
-        {
-          "tag": "h4",
-          "text": "Progression"
-        },
-        {
-          "tag": "p",
-          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
-        },
-        {
-          "tag": "h4",
-          "text": "Adjustments"
-        },
-        {
-          "tag": "p",
-          "text": "No adjustments were needed."
-        },
-        {
-          "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Edit before using",
-          "name": "Edit before using",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Start over",
-          "name": "Start over",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Weekly structure"
-        },
-        {
-          "tag": "summary",
-          "text": "Lower body hypertrophy",
-          "name": "1Lower body hypertrophy6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Leg press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Chest press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable lateral raise"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable curl"
-        },
-        {
-          "tag": "summary",
-          "text": "Upper body hypertrophy",
-          "name": "2Upper body hypertrophy6 exercises · 17 working sets · about 59 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "6 exercises · 17 working sets · about 59 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Assisted pull-up"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Shoulder press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Leg press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Incline chest press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Standing calf raise machine"
-        },
-        {
-          "tag": "summary",
-          "text": "Full body practice",
-          "name": "3Full body practice6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "span",
-          "text": "6 exercises · 16 working sets · about 55 minutes"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell lunge"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Incline chest press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable lateral raise"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable curl"
-        },
-        {
-          "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
-          "type": "button"
-        }
-      ]
-    },
-    {
-      "key": "onboarding-recommend/preview-first-run__phone-390-light-pt",
-      "flow": "onboarding-recommend",
-      "screen": "preview-first-run",
-      "label": "Recommend — review before first activation",
-      "viewport": "phone-390",
-      "theme": "light",
-      "locale": "pt",
-      "text": "normal",
-      "motion": "normal",
-      "semantic": [
-        {
-          "tag": "section",
-          "label": "Criar um programa"
-        },
-        {
-          "tag": "button",
-          "text": "Cancelar",
-          "name": "Cancelar",
-          "type": "button"
-        },
-        {
-          "tag": "div",
-          "text": "Recomendação"
-        },
-        {
-          "tag": "h2",
-          "text": "Revisar programa",
-          "tabindex": "-1"
-        },
-        {
-          "tag": "p",
-          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
-        },
-        {
-          "tag": "h3",
-          "text": "Ganhar massa"
-        },
-        {
-          "tag": "p",
-          "text": "Recomendação do Taurifer"
-        },
-        {
-          "tag": "span",
-          "text": "Origem"
-        },
-        {
-          "tag": "span",
-          "text": "18 exercícios"
-        },
-        {
-          "tag": "span",
-          "text": "49 séries de trabalho"
-        },
-        {
-          "tag": "span",
-          "text": "cerca de 55–59 minutos"
-        },
-        {
-          "tag": "h4",
-          "text": "Prioridades"
-        },
-        {
-          "tag": "p",
-          "text": "Sem prioridade muscular especial"
-        },
-        {
-          "tag": "h4",
-          "text": "Equipamentos considerados"
-        },
-        {
-          "tag": "p",
-          "text": "Academia comercial completa · Barra, Halteres, Máquina, Cabo, Smith"
-        },
-        {
-          "tag": "h4",
-          "text": "Progressão"
-        },
-        {
-          "tag": "p",
-          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
-        },
-        {
-          "tag": "h4",
-          "text": "Ajustes necessários"
-        },
-        {
-          "tag": "p",
-          "text": "Nenhum ajuste foi necessário."
-        },
-        {
-          "tag": "button",
-          "text": "Usar este programa",
-          "name": "Usar este programa",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Editar antes de usar",
-          "name": "Editar antes de usar",
-          "type": "button"
-        },
-        {
-          "tag": "button",
-          "text": "Começar de novo",
-          "name": "Começar de novo",
-          "type": "button"
-        },
-        {
-          "tag": "p",
-          "text": "Estrutura semanal"
-        },
-        {
-          "tag": "summary",
-          "text": "Hipertrofia de membros inferiores",
-          "name": "1Hipertrofia de membros inferiores6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
-        },
-        {
-          "tag": "span",
-          "text": "6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Leg press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Chest press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable lateral raise"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable curl"
-        },
-        {
-          "tag": "summary",
-          "text": "Hipertrofia de membros superiores",
-          "name": "2Hipertrofia de membros superiores6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
-        },
-        {
-          "tag": "span",
-          "text": "6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Assisted pull-up"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Shoulder press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Leg press"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Incline chest press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Standing calf raise machine"
-        },
-        {
-          "tag": "summary",
-          "text": "Prática de corpo inteiro",
-          "name": "3Prática de corpo inteiro6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
-        },
-        {
-          "tag": "span",
-          "text": "6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Barbell lunge"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×4–8"
-        },
-        {
-          "tag": "b",
-          "text": "Incline chest press machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Seated row machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 3×8–12"
-        },
-        {
-          "tag": "b",
-          "text": "Romanian deadlift machine"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable lateral raise"
-        },
-        {
-          "tag": "div",
-          "text": "· 2×8–15"
-        },
-        {
-          "tag": "b",
-          "text": "Cable curl"
-        },
-        {
-          "tag": "button",
-          "text": "Voltar",
-          "name": "Voltar",
-          "label": "Voltar",
-          "type": "button"
-        }
-      ]
-    },
-    {
       "key": "onboarding-recommend/priorities__phone-390-dark-en",
       "flow": "onboarding-recommend",
       "screen": "priorities",
@@ -38674,8 +36780,62 @@
         },
         {
           "tag": "h2",
-          "text": "Review program",
+          "text": "Recommended program",
           "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "The same answers and rules produce the same program every time."
+        },
+        {
+          "tag": "h3",
+          "text": "Build Muscle"
+        },
+        {
+          "tag": "span",
+          "text": "3 days"
+        },
+        {
+          "tag": "span",
+          "text": "about 55–59 minutes"
+        },
+        {
+          "tag": "p",
+          "text": "Why it fits"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritizes Prioritize muscle growth."
+        },
+        {
+          "tag": "span",
+          "text": "Fits 3 training days, each capped at 60 minutes."
+        },
+        {
+          "tag": "span",
+          "text": "Written for a full commercial gym."
+        },
+        {
+          "tag": "span",
+          "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
+        },
+        {
+          "tag": "span",
+          "text": "Progresses by Rep range · Total reps."
+        },
+        {
+          "tag": "button",
+          "text": "Review this program",
+          "name": "Review this program",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Review program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program"
         },
         {
           "tag": "p",
@@ -38972,8 +37132,62 @@
         },
         {
           "tag": "h2",
-          "text": "Review program",
+          "text": "Recommended program",
           "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "The same answers and rules produce the same program every time."
+        },
+        {
+          "tag": "h3",
+          "text": "Build Muscle"
+        },
+        {
+          "tag": "span",
+          "text": "3 days"
+        },
+        {
+          "tag": "span",
+          "text": "about 55–59 minutes"
+        },
+        {
+          "tag": "p",
+          "text": "Why it fits"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritizes Prioritize muscle growth."
+        },
+        {
+          "tag": "span",
+          "text": "Fits 3 training days, each capped at 60 minutes."
+        },
+        {
+          "tag": "span",
+          "text": "Written for a full commercial gym."
+        },
+        {
+          "tag": "span",
+          "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
+        },
+        {
+          "tag": "span",
+          "text": "Progresses by Rep range · Total reps."
+        },
+        {
+          "tag": "button",
+          "text": "Review this program",
+          "name": "Review this program",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Review program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program"
         },
         {
           "tag": "p",
@@ -39270,8 +37484,62 @@
         },
         {
           "tag": "h2",
-          "text": "Revisar programa",
+          "text": "Programa recomendado",
           "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "As mesmas respostas e regras produzem o mesmo programa todas as vezes."
+        },
+        {
+          "tag": "h3",
+          "text": "Ganhar massa"
+        },
+        {
+          "tag": "span",
+          "text": "3 dias"
+        },
+        {
+          "tag": "span",
+          "text": "cerca de 55–59 minutos"
+        },
+        {
+          "tag": "p",
+          "text": "Por que combina com você"
+        },
+        {
+          "tag": "span",
+          "text": "Prioriza Priorizar ganho de massa."
+        },
+        {
+          "tag": "span",
+          "text": "Encaixa em 3 dias de treino, cada um limitado a 60 minutos."
+        },
+        {
+          "tag": "span",
+          "text": "Feito para uma academia comercial completa."
+        },
+        {
+          "tag": "span",
+          "text": "Usa Barra, Halteres, Máquina, Cabo, Smith."
+        },
+        {
+          "tag": "span",
+          "text": "Progride por Faixa de repetições · Total de repetições."
+        },
+        {
+          "tag": "button",
+          "text": "Revisar este programa",
+          "name": "Revisar este programa",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Revisar programa"
+        },
+        {
+          "tag": "h2",
+          "text": "Revisar programa"
         },
         {
           "tag": "p",
@@ -39545,7 +37813,7 @@
       "key": "onboarding-recommend/result__phone-320-light-en",
       "flow": "onboarding-recommend",
       "screen": "result",
-      "label": "Recommend — recommendation",
+      "label": "Recommend — recommendation and review",
       "viewport": "phone-320",
       "theme": "light",
       "locale": "en",
@@ -39618,6 +37886,243 @@
           "type": "button"
         },
         {
+          "tag": "section",
+          "labelledBy": "Review program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program"
+        },
+        {
+          "tag": "p",
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+        },
+        {
+          "tag": "h3",
+          "text": "Muscle + Strength"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer recommendation"
+        },
+        {
+          "tag": "span",
+          "text": "Source"
+        },
+        {
+          "tag": "span",
+          "text": "15 exercises"
+        },
+        {
+          "tag": "span",
+          "text": "43 working sets"
+        },
+        {
+          "tag": "span",
+          "text": "about 49–55 minutes"
+        },
+        {
+          "tag": "h4",
+          "text": "Priorities"
+        },
+        {
+          "tag": "p",
+          "text": "No special muscle priority"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipment assumptions"
+        },
+        {
+          "tag": "p",
+          "text": "Full commercial gym · Barbell, Dumbbell, Machine, Cable, Smith machine"
+        },
+        {
+          "tag": "h4",
+          "text": "Progression"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
+        },
+        {
+          "tag": "h4",
+          "text": "Adjustments"
+        },
+        {
+          "tag": "p",
+          "text": "No adjustments were needed."
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Edit before using",
+          "name": "Edit before using",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Weekly structure"
+        },
+        {
+          "tag": "summary",
+          "text": "Lower body strength",
+          "name": "1Lower body strength5 exercises · 14 working sets · about 55 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercises · 14 working sets · about 55 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable lateral raise"
+        },
+        {
+          "tag": "summary",
+          "text": "Upper body strength",
+          "name": "2Upper body strength5 exercises · 14 working sets · about 49 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercises · 14 working sets · about 49 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Shoulder press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell lunge"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable curl"
+        },
+        {
+          "tag": "summary",
+          "text": "Full body volume",
+          "name": "3Full body volume5 exercises · 15 working sets · about 53 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercises · 15 working sets · about 53 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
           "tag": "button",
           "text": "Back",
           "name": "Back",
@@ -39630,7 +38135,7 @@
       "key": "onboarding-recommend/result__phone-390-dark-en",
       "flow": "onboarding-recommend",
       "screen": "result",
-      "label": "Recommend — recommendation",
+      "label": "Recommend — recommendation and review",
       "viewport": "phone-390",
       "theme": "dark",
       "locale": "en",
@@ -39703,6 +38208,243 @@
           "type": "button"
         },
         {
+          "tag": "section",
+          "labelledBy": "Review program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program"
+        },
+        {
+          "tag": "p",
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+        },
+        {
+          "tag": "h3",
+          "text": "Muscle + Strength"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer recommendation"
+        },
+        {
+          "tag": "span",
+          "text": "Source"
+        },
+        {
+          "tag": "span",
+          "text": "15 exercises"
+        },
+        {
+          "tag": "span",
+          "text": "43 working sets"
+        },
+        {
+          "tag": "span",
+          "text": "about 49–55 minutes"
+        },
+        {
+          "tag": "h4",
+          "text": "Priorities"
+        },
+        {
+          "tag": "p",
+          "text": "No special muscle priority"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipment assumptions"
+        },
+        {
+          "tag": "p",
+          "text": "Full commercial gym · Barbell, Dumbbell, Machine, Cable, Smith machine"
+        },
+        {
+          "tag": "h4",
+          "text": "Progression"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
+        },
+        {
+          "tag": "h4",
+          "text": "Adjustments"
+        },
+        {
+          "tag": "p",
+          "text": "No adjustments were needed."
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Edit before using",
+          "name": "Edit before using",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Weekly structure"
+        },
+        {
+          "tag": "summary",
+          "text": "Lower body strength",
+          "name": "1Lower body strength5 exercises · 14 working sets · about 55 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercises · 14 working sets · about 55 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable lateral raise"
+        },
+        {
+          "tag": "summary",
+          "text": "Upper body strength",
+          "name": "2Upper body strength5 exercises · 14 working sets · about 49 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercises · 14 working sets · about 49 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Shoulder press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell lunge"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable curl"
+        },
+        {
+          "tag": "summary",
+          "text": "Full body volume",
+          "name": "3Full body volume5 exercises · 15 working sets · about 53 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercises · 15 working sets · about 53 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
           "tag": "button",
           "text": "Back",
           "name": "Back",
@@ -39715,7 +38457,7 @@
       "key": "onboarding-recommend/result__phone-390-light-en",
       "flow": "onboarding-recommend",
       "screen": "result",
-      "label": "Recommend — recommendation",
+      "label": "Recommend — recommendation and review",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -39788,6 +38530,243 @@
           "type": "button"
         },
         {
+          "tag": "section",
+          "labelledBy": "Review program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program"
+        },
+        {
+          "tag": "p",
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+        },
+        {
+          "tag": "h3",
+          "text": "Muscle + Strength"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer recommendation"
+        },
+        {
+          "tag": "span",
+          "text": "Source"
+        },
+        {
+          "tag": "span",
+          "text": "15 exercises"
+        },
+        {
+          "tag": "span",
+          "text": "43 working sets"
+        },
+        {
+          "tag": "span",
+          "text": "about 49–55 minutes"
+        },
+        {
+          "tag": "h4",
+          "text": "Priorities"
+        },
+        {
+          "tag": "p",
+          "text": "No special muscle priority"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipment assumptions"
+        },
+        {
+          "tag": "p",
+          "text": "Full commercial gym · Barbell, Dumbbell, Machine, Cable, Smith machine"
+        },
+        {
+          "tag": "h4",
+          "text": "Progression"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
+        },
+        {
+          "tag": "h4",
+          "text": "Adjustments"
+        },
+        {
+          "tag": "p",
+          "text": "No adjustments were needed."
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Edit before using",
+          "name": "Edit before using",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Weekly structure"
+        },
+        {
+          "tag": "summary",
+          "text": "Lower body strength",
+          "name": "1Lower body strength5 exercises · 14 working sets · about 55 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercises · 14 working sets · about 55 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable lateral raise"
+        },
+        {
+          "tag": "summary",
+          "text": "Upper body strength",
+          "name": "2Upper body strength5 exercises · 14 working sets · about 49 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercises · 14 working sets · about 49 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Shoulder press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell lunge"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable curl"
+        },
+        {
+          "tag": "summary",
+          "text": "Full body volume",
+          "name": "3Full body volume5 exercises · 15 working sets · about 53 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercises · 15 working sets · about 53 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
           "tag": "button",
           "text": "Back",
           "name": "Back",
@@ -39800,7 +38779,7 @@
       "key": "onboarding-recommend/result__phone-390-light-en-reduced",
       "flow": "onboarding-recommend",
       "screen": "result",
-      "label": "Recommend — recommendation",
+      "label": "Recommend — recommendation and review",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -39873,6 +38852,243 @@
           "type": "button"
         },
         {
+          "tag": "section",
+          "labelledBy": "Review program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program"
+        },
+        {
+          "tag": "p",
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+        },
+        {
+          "tag": "h3",
+          "text": "Muscle + Strength"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer recommendation"
+        },
+        {
+          "tag": "span",
+          "text": "Source"
+        },
+        {
+          "tag": "span",
+          "text": "15 exercises"
+        },
+        {
+          "tag": "span",
+          "text": "43 working sets"
+        },
+        {
+          "tag": "span",
+          "text": "about 49–55 minutes"
+        },
+        {
+          "tag": "h4",
+          "text": "Priorities"
+        },
+        {
+          "tag": "p",
+          "text": "No special muscle priority"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipment assumptions"
+        },
+        {
+          "tag": "p",
+          "text": "Full commercial gym · Barbell, Dumbbell, Machine, Cable, Smith machine"
+        },
+        {
+          "tag": "h4",
+          "text": "Progression"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
+        },
+        {
+          "tag": "h4",
+          "text": "Adjustments"
+        },
+        {
+          "tag": "p",
+          "text": "No adjustments were needed."
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Edit before using",
+          "name": "Edit before using",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Weekly structure"
+        },
+        {
+          "tag": "summary",
+          "text": "Lower body strength",
+          "name": "1Lower body strength5 exercises · 14 working sets · about 55 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercises · 14 working sets · about 55 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable lateral raise"
+        },
+        {
+          "tag": "summary",
+          "text": "Upper body strength",
+          "name": "2Upper body strength5 exercises · 14 working sets · about 49 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercises · 14 working sets · about 49 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Shoulder press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell lunge"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable curl"
+        },
+        {
+          "tag": "summary",
+          "text": "Full body volume",
+          "name": "3Full body volume5 exercises · 15 working sets · about 53 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercises · 15 working sets · about 53 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
           "tag": "button",
           "text": "Back",
           "name": "Back",
@@ -39885,7 +39101,7 @@
       "key": "onboarding-recommend/result__phone-390-light-en-text200",
       "flow": "onboarding-recommend",
       "screen": "result",
-      "label": "Recommend — recommendation",
+      "label": "Recommend — recommendation and review",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -39958,6 +39174,243 @@
           "type": "button"
         },
         {
+          "tag": "section",
+          "labelledBy": "Review program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program"
+        },
+        {
+          "tag": "p",
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+        },
+        {
+          "tag": "h3",
+          "text": "Muscle + Strength"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer recommendation"
+        },
+        {
+          "tag": "span",
+          "text": "Source"
+        },
+        {
+          "tag": "span",
+          "text": "15 exercises"
+        },
+        {
+          "tag": "span",
+          "text": "43 working sets"
+        },
+        {
+          "tag": "span",
+          "text": "about 49–55 minutes"
+        },
+        {
+          "tag": "h4",
+          "text": "Priorities"
+        },
+        {
+          "tag": "p",
+          "text": "No special muscle priority"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipment assumptions"
+        },
+        {
+          "tag": "p",
+          "text": "Full commercial gym · Barbell, Dumbbell, Machine, Cable, Smith machine"
+        },
+        {
+          "tag": "h4",
+          "text": "Progression"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
+        },
+        {
+          "tag": "h4",
+          "text": "Adjustments"
+        },
+        {
+          "tag": "p",
+          "text": "No adjustments were needed."
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Edit before using",
+          "name": "Edit before using",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Weekly structure"
+        },
+        {
+          "tag": "summary",
+          "text": "Lower body strength",
+          "name": "1Lower body strength5 exercises · 14 working sets · about 55 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercises · 14 working sets · about 55 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable lateral raise"
+        },
+        {
+          "tag": "summary",
+          "text": "Upper body strength",
+          "name": "2Upper body strength5 exercises · 14 working sets · about 49 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercises · 14 working sets · about 49 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Shoulder press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell lunge"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable curl"
+        },
+        {
+          "tag": "summary",
+          "text": "Full body volume",
+          "name": "3Full body volume5 exercises · 15 working sets · about 53 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercises · 15 working sets · about 53 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
           "tag": "button",
           "text": "Back",
           "name": "Back",
@@ -39970,7 +39423,7 @@
       "key": "onboarding-recommend/result__phone-390-light-pt",
       "flow": "onboarding-recommend",
       "screen": "result",
-      "label": "Recommend — recommendation",
+      "label": "Recommend — recommendation and review",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "pt",
@@ -40043,6 +39496,243 @@
           "type": "button"
         },
         {
+          "tag": "section",
+          "labelledBy": "Revisar programa"
+        },
+        {
+          "tag": "h2",
+          "text": "Revisar programa"
+        },
+        {
+          "tag": "p",
+          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
+        },
+        {
+          "tag": "h3",
+          "text": "Massa + força"
+        },
+        {
+          "tag": "p",
+          "text": "Recomendação do Taurifer"
+        },
+        {
+          "tag": "span",
+          "text": "Origem"
+        },
+        {
+          "tag": "span",
+          "text": "15 exercícios"
+        },
+        {
+          "tag": "span",
+          "text": "43 séries de trabalho"
+        },
+        {
+          "tag": "span",
+          "text": "cerca de 49–55 minutos"
+        },
+        {
+          "tag": "h4",
+          "text": "Prioridades"
+        },
+        {
+          "tag": "p",
+          "text": "Sem prioridade muscular especial"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipamentos considerados"
+        },
+        {
+          "tag": "p",
+          "text": "Academia comercial completa · Barra, Halteres, Máquina, Cabo, Smith"
+        },
+        {
+          "tag": "h4",
+          "text": "Progressão"
+        },
+        {
+          "tag": "p",
+          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
+        },
+        {
+          "tag": "h4",
+          "text": "Ajustes necessários"
+        },
+        {
+          "tag": "p",
+          "text": "Nenhum ajuste foi necessário."
+        },
+        {
+          "tag": "button",
+          "text": "Usar este programa",
+          "name": "Usar este programa",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Editar antes de usar",
+          "name": "Editar antes de usar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Começar de novo",
+          "name": "Começar de novo",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Estrutura semanal"
+        },
+        {
+          "tag": "summary",
+          "text": "Força de membros inferiores",
+          "name": "1Força de membros inferiores5 exercícios · 14 séries de trabalho · cerca de 55 minutos"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercícios · 14 séries de trabalho · cerca de 55 minutos"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable lateral raise"
+        },
+        {
+          "tag": "summary",
+          "text": "Força de membros superiores",
+          "name": "2Força de membros superiores5 exercícios · 14 séries de trabalho · cerca de 49 minutos"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercícios · 14 séries de trabalho · cerca de 49 minutos"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Shoulder press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell lunge"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable curl"
+        },
+        {
+          "tag": "summary",
+          "text": "Volume de corpo inteiro",
+          "name": "3Volume de corpo inteiro5 exercícios · 15 séries de trabalho · cerca de 53 minutos"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercícios · 15 séries de trabalho · cerca de 53 minutos"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
           "tag": "button",
           "text": "Voltar",
           "name": "Voltar",
@@ -40055,7 +39745,7 @@
       "key": "onboarding-recommend/result__phone-390-light-pt-text200",
       "flow": "onboarding-recommend",
       "screen": "result",
-      "label": "Recommend — recommendation",
+      "label": "Recommend — recommendation and review",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "pt",
@@ -40128,6 +39818,243 @@
           "type": "button"
         },
         {
+          "tag": "section",
+          "labelledBy": "Revisar programa"
+        },
+        {
+          "tag": "h2",
+          "text": "Revisar programa"
+        },
+        {
+          "tag": "p",
+          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
+        },
+        {
+          "tag": "h3",
+          "text": "Massa + força"
+        },
+        {
+          "tag": "p",
+          "text": "Recomendação do Taurifer"
+        },
+        {
+          "tag": "span",
+          "text": "Origem"
+        },
+        {
+          "tag": "span",
+          "text": "15 exercícios"
+        },
+        {
+          "tag": "span",
+          "text": "43 séries de trabalho"
+        },
+        {
+          "tag": "span",
+          "text": "cerca de 49–55 minutos"
+        },
+        {
+          "tag": "h4",
+          "text": "Prioridades"
+        },
+        {
+          "tag": "p",
+          "text": "Sem prioridade muscular especial"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipamentos considerados"
+        },
+        {
+          "tag": "p",
+          "text": "Academia comercial completa · Barra, Halteres, Máquina, Cabo, Smith"
+        },
+        {
+          "tag": "h4",
+          "text": "Progressão"
+        },
+        {
+          "tag": "p",
+          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
+        },
+        {
+          "tag": "h4",
+          "text": "Ajustes necessários"
+        },
+        {
+          "tag": "p",
+          "text": "Nenhum ajuste foi necessário."
+        },
+        {
+          "tag": "button",
+          "text": "Usar este programa",
+          "name": "Usar este programa",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Editar antes de usar",
+          "name": "Editar antes de usar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Começar de novo",
+          "name": "Começar de novo",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Estrutura semanal"
+        },
+        {
+          "tag": "summary",
+          "text": "Força de membros inferiores",
+          "name": "1Força de membros inferiores5 exercícios · 14 séries de trabalho · cerca de 55 minutos"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercícios · 14 séries de trabalho · cerca de 55 minutos"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable lateral raise"
+        },
+        {
+          "tag": "summary",
+          "text": "Força de membros superiores",
+          "name": "2Força de membros superiores5 exercícios · 14 séries de trabalho · cerca de 49 minutos"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercícios · 14 séries de trabalho · cerca de 49 minutos"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Shoulder press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell lunge"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable curl"
+        },
+        {
+          "tag": "summary",
+          "text": "Volume de corpo inteiro",
+          "name": "3Volume de corpo inteiro5 exercícios · 15 séries de trabalho · cerca de 53 minutos"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercícios · 15 séries de trabalho · cerca de 53 minutos"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
           "tag": "button",
           "text": "Voltar",
           "name": "Voltar",
@@ -40140,7 +40067,7 @@
       "key": "onboarding-recommend/result__phone-430-light-en",
       "flow": "onboarding-recommend",
       "screen": "result",
-      "label": "Recommend — recommendation",
+      "label": "Recommend — recommendation and review",
       "viewport": "phone-430",
       "theme": "light",
       "locale": "en",
@@ -40213,10 +40140,1303 @@
           "type": "button"
         },
         {
+          "tag": "section",
+          "labelledBy": "Review program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program"
+        },
+        {
+          "tag": "p",
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+        },
+        {
+          "tag": "h3",
+          "text": "Muscle + Strength"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer recommendation"
+        },
+        {
+          "tag": "span",
+          "text": "Source"
+        },
+        {
+          "tag": "span",
+          "text": "15 exercises"
+        },
+        {
+          "tag": "span",
+          "text": "43 working sets"
+        },
+        {
+          "tag": "span",
+          "text": "about 49–55 minutes"
+        },
+        {
+          "tag": "h4",
+          "text": "Priorities"
+        },
+        {
+          "tag": "p",
+          "text": "No special muscle priority"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipment assumptions"
+        },
+        {
+          "tag": "p",
+          "text": "Full commercial gym · Barbell, Dumbbell, Machine, Cable, Smith machine"
+        },
+        {
+          "tag": "h4",
+          "text": "Progression"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
+        },
+        {
+          "tag": "h4",
+          "text": "Adjustments"
+        },
+        {
+          "tag": "p",
+          "text": "No adjustments were needed."
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Edit before using",
+          "name": "Edit before using",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Weekly structure"
+        },
+        {
+          "tag": "summary",
+          "text": "Lower body strength",
+          "name": "1Lower body strength5 exercises · 14 working sets · about 55 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercises · 14 working sets · about 55 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×3–6"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable lateral raise"
+        },
+        {
+          "tag": "summary",
+          "text": "Upper body strength",
+          "name": "2Upper body strength5 exercises · 14 working sets · about 49 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercises · 14 working sets · about 49 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Shoulder press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell lunge"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable curl"
+        },
+        {
+          "tag": "summary",
+          "text": "Full body volume",
+          "name": "3Full body volume5 exercises · 15 working sets · about 53 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "5 exercises · 15 working sets · about 53 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell back squat"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
           "tag": "button",
           "text": "Back",
           "name": "Back",
           "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/result-existing__phone-390-dark-en",
+      "flow": "onboarding-recommend",
+      "screen": "result-existing",
+      "label": "Recommend — recommendation with a program active",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "h2",
+          "text": "Recommended program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "The same answers and rules produce the same program every time."
+        },
+        {
+          "tag": "h3",
+          "text": "Build Muscle"
+        },
+        {
+          "tag": "span",
+          "text": "3 days"
+        },
+        {
+          "tag": "span",
+          "text": "about 55–59 minutes"
+        },
+        {
+          "tag": "p",
+          "text": "Why it fits"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritizes Prioritize muscle growth."
+        },
+        {
+          "tag": "span",
+          "text": "Fits 3 training days, each capped at 60 minutes."
+        },
+        {
+          "tag": "span",
+          "text": "Written for a full commercial gym."
+        },
+        {
+          "tag": "span",
+          "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
+        },
+        {
+          "tag": "span",
+          "text": "Progresses by Rep range · Total reps."
+        },
+        {
+          "tag": "button",
+          "text": "Review this program",
+          "name": "Review this program",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Review program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program"
+        },
+        {
+          "tag": "p",
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Your current program stays active until you confirm a replacement.",
+          "name": "Your current program stays active until you confirm a replacement."
+        },
+        {
+          "tag": "h3",
+          "text": "Build Muscle"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer recommendation"
+        },
+        {
+          "tag": "span",
+          "text": "Source"
+        },
+        {
+          "tag": "span",
+          "text": "18 exercises"
+        },
+        {
+          "tag": "span",
+          "text": "49 working sets"
+        },
+        {
+          "tag": "span",
+          "text": "about 55–59 minutes"
+        },
+        {
+          "tag": "h4",
+          "text": "Priorities"
+        },
+        {
+          "tag": "p",
+          "text": "No special muscle priority"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipment assumptions"
+        },
+        {
+          "tag": "p",
+          "text": "Full commercial gym · Barbell, Dumbbell, Machine, Cable, Smith machine"
+        },
+        {
+          "tag": "h4",
+          "text": "Progression"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
+        },
+        {
+          "tag": "h4",
+          "text": "Adjustments"
+        },
+        {
+          "tag": "p",
+          "text": "No adjustments were needed."
+        },
+        {
+          "tag": "button",
+          "text": "Archive current program and use this one",
+          "name": "Archive current program and use this one",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Edit before using",
+          "name": "Edit before using",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Weekly structure"
+        },
+        {
+          "tag": "summary",
+          "text": "Lower body hypertrophy",
+          "name": "1Lower body hypertrophy6 exercises · 16 working sets · about 55 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "6 exercises · 16 working sets · about 55 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Leg press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Chest press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable lateral raise"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable curl"
+        },
+        {
+          "tag": "summary",
+          "text": "Upper body hypertrophy",
+          "name": "2Upper body hypertrophy6 exercises · 17 working sets · about 59 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "6 exercises · 17 working sets · about 59 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Shoulder press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Leg press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Incline chest press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Standing calf raise machine"
+        },
+        {
+          "tag": "summary",
+          "text": "Full body practice",
+          "name": "3Full body practice6 exercises · 16 working sets · about 55 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "6 exercises · 16 working sets · about 55 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell lunge"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Incline chest press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable lateral raise"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable curl"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/result-existing__phone-390-light-en",
+      "flow": "onboarding-recommend",
+      "screen": "result-existing",
+      "label": "Recommend — recommendation with a program active",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recommend"
+        },
+        {
+          "tag": "h2",
+          "text": "Recommended program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "The same answers and rules produce the same program every time."
+        },
+        {
+          "tag": "h3",
+          "text": "Build Muscle"
+        },
+        {
+          "tag": "span",
+          "text": "3 days"
+        },
+        {
+          "tag": "span",
+          "text": "about 55–59 minutes"
+        },
+        {
+          "tag": "p",
+          "text": "Why it fits"
+        },
+        {
+          "tag": "span",
+          "text": "Prioritizes Prioritize muscle growth."
+        },
+        {
+          "tag": "span",
+          "text": "Fits 3 training days, each capped at 60 minutes."
+        },
+        {
+          "tag": "span",
+          "text": "Written for a full commercial gym."
+        },
+        {
+          "tag": "span",
+          "text": "Uses Barbell, Dumbbell, Machine, Cable, Smith machine."
+        },
+        {
+          "tag": "span",
+          "text": "Progresses by Rep range · Total reps."
+        },
+        {
+          "tag": "button",
+          "text": "Review this program",
+          "name": "Review this program",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Review program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program"
+        },
+        {
+          "tag": "p",
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Your current program stays active until you confirm a replacement.",
+          "name": "Your current program stays active until you confirm a replacement."
+        },
+        {
+          "tag": "h3",
+          "text": "Build Muscle"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer recommendation"
+        },
+        {
+          "tag": "span",
+          "text": "Source"
+        },
+        {
+          "tag": "span",
+          "text": "18 exercises"
+        },
+        {
+          "tag": "span",
+          "text": "49 working sets"
+        },
+        {
+          "tag": "span",
+          "text": "about 55–59 minutes"
+        },
+        {
+          "tag": "h4",
+          "text": "Priorities"
+        },
+        {
+          "tag": "p",
+          "text": "No special muscle priority"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipment assumptions"
+        },
+        {
+          "tag": "p",
+          "text": "Full commercial gym · Barbell, Dumbbell, Machine, Cable, Smith machine"
+        },
+        {
+          "tag": "h4",
+          "text": "Progression"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
+        },
+        {
+          "tag": "h4",
+          "text": "Adjustments"
+        },
+        {
+          "tag": "p",
+          "text": "No adjustments were needed."
+        },
+        {
+          "tag": "button",
+          "text": "Archive current program and use this one",
+          "name": "Archive current program and use this one",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Edit before using",
+          "name": "Edit before using",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Weekly structure"
+        },
+        {
+          "tag": "summary",
+          "text": "Lower body hypertrophy",
+          "name": "1Lower body hypertrophy6 exercises · 16 working sets · about 55 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "6 exercises · 16 working sets · about 55 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Leg press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Chest press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable lateral raise"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable curl"
+        },
+        {
+          "tag": "summary",
+          "text": "Upper body hypertrophy",
+          "name": "2Upper body hypertrophy6 exercises · 17 working sets · about 59 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "6 exercises · 17 working sets · about 59 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Shoulder press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Leg press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Incline chest press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Standing calf raise machine"
+        },
+        {
+          "tag": "summary",
+          "text": "Full body practice",
+          "name": "3Full body practice6 exercises · 16 working sets · about 55 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "6 exercises · 16 working sets · about 55 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell lunge"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Incline chest press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable lateral raise"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable curl"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-recommend/result-existing__phone-390-light-pt",
+      "flow": "onboarding-recommend",
+      "screen": "result-existing",
+      "label": "Recommend — recommendation with a program active",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Criar um programa"
+        },
+        {
+          "tag": "button",
+          "text": "Cancelar",
+          "name": "Cancelar",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Recomendação"
+        },
+        {
+          "tag": "h2",
+          "text": "Programa recomendado",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "As mesmas respostas e regras produzem o mesmo programa todas as vezes."
+        },
+        {
+          "tag": "h3",
+          "text": "Ganhar massa"
+        },
+        {
+          "tag": "span",
+          "text": "3 dias"
+        },
+        {
+          "tag": "span",
+          "text": "cerca de 55–59 minutos"
+        },
+        {
+          "tag": "p",
+          "text": "Por que combina com você"
+        },
+        {
+          "tag": "span",
+          "text": "Prioriza Priorizar ganho de massa."
+        },
+        {
+          "tag": "span",
+          "text": "Encaixa em 3 dias de treino, cada um limitado a 60 minutos."
+        },
+        {
+          "tag": "span",
+          "text": "Feito para uma academia comercial completa."
+        },
+        {
+          "tag": "span",
+          "text": "Usa Barra, Halteres, Máquina, Cabo, Smith."
+        },
+        {
+          "tag": "span",
+          "text": "Progride por Faixa de repetições · Total de repetições."
+        },
+        {
+          "tag": "button",
+          "text": "Revisar este programa",
+          "name": "Revisar este programa",
+          "type": "button"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Revisar programa"
+        },
+        {
+          "tag": "h2",
+          "text": "Revisar programa"
+        },
+        {
+          "tag": "p",
+          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Seu programa atual permanece ativo até você confirmar uma substituição.",
+          "name": "Seu programa atual permanece ativo até você confirmar uma substituição."
+        },
+        {
+          "tag": "h3",
+          "text": "Ganhar massa"
+        },
+        {
+          "tag": "p",
+          "text": "Recomendação do Taurifer"
+        },
+        {
+          "tag": "span",
+          "text": "Origem"
+        },
+        {
+          "tag": "span",
+          "text": "18 exercícios"
+        },
+        {
+          "tag": "span",
+          "text": "49 séries de trabalho"
+        },
+        {
+          "tag": "span",
+          "text": "cerca de 55–59 minutos"
+        },
+        {
+          "tag": "h4",
+          "text": "Prioridades"
+        },
+        {
+          "tag": "p",
+          "text": "Sem prioridade muscular especial"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipamentos considerados"
+        },
+        {
+          "tag": "p",
+          "text": "Academia comercial completa · Barra, Halteres, Máquina, Cabo, Smith"
+        },
+        {
+          "tag": "h4",
+          "text": "Progressão"
+        },
+        {
+          "tag": "p",
+          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
+        },
+        {
+          "tag": "h4",
+          "text": "Ajustes necessários"
+        },
+        {
+          "tag": "p",
+          "text": "Nenhum ajuste foi necessário."
+        },
+        {
+          "tag": "button",
+          "text": "Arquivar o programa atual e usar este",
+          "name": "Arquivar o programa atual e usar este",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Editar antes de usar",
+          "name": "Editar antes de usar",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Começar de novo",
+          "name": "Começar de novo",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Estrutura semanal"
+        },
+        {
+          "tag": "summary",
+          "text": "Hipertrofia de membros inferiores",
+          "name": "1Hipertrofia de membros inferiores6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
+        },
+        {
+          "tag": "span",
+          "text": "6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Leg press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Chest press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable lateral raise"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable curl"
+        },
+        {
+          "tag": "summary",
+          "text": "Hipertrofia de membros superiores",
+          "name": "2Hipertrofia de membros superiores6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
+        },
+        {
+          "tag": "span",
+          "text": "6 exercícios · 17 séries de trabalho · cerca de 59 minutos"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Assisted pull-up"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Shoulder press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Leg press"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Incline chest press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Standing calf raise machine"
+        },
+        {
+          "tag": "summary",
+          "text": "Prática de corpo inteiro",
+          "name": "3Prática de corpo inteiro6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
+        },
+        {
+          "tag": "span",
+          "text": "6 exercícios · 16 séries de trabalho · cerca de 55 minutos"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Barbell lunge"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×4–8"
+        },
+        {
+          "tag": "b",
+          "text": "Incline chest press machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Seated row machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×8–12"
+        },
+        {
+          "tag": "b",
+          "text": "Romanian deadlift machine"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable lateral raise"
+        },
+        {
+          "tag": "div",
+          "text": "· 2×8–15"
+        },
+        {
+          "tag": "b",
+          "text": "Cable curl"
+        },
+        {
+          "tag": "button",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
           "type": "button"
         }
       ]
