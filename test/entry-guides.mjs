@@ -742,12 +742,22 @@ async function run() {
         const hasCloseTour = typeof window.closeTour === "function";
         const hasUiStartTour = typeof window.__repforgeUi?.startTour === "function";
         const replayTourBtn = document.querySelector("#replayTour");
+        const legacyBindingIds = ["tourBack", "tourNext", "tourSkip", "replayTour"];
+        const legacyBindingsSafe = legacyBindingIds.every((id) => {
+          const element = document.getElementById(id);
+          if (!element) return true;
+          const container = element.parentElement;
+          return container?.hidden === true &&
+            container?.getAttribute("aria-hidden") === "true" &&
+            element.tabIndex === -1;
+        });
         return {
           modalPresent: tourEl !== null,
           hasStartTour,
           hasCloseTour,
           hasUiStartTour,
           replayTourPresent: replayTourBtn !== null,
+          legacyBindingsSafe,
         };
       });
 
@@ -765,7 +775,8 @@ async function run() {
         !tourState.modalPresent &&
         !tourState.hasStartTour &&
         !tourState.hasCloseTour &&
-        !tourState.hasUiStartTour;
+        !tourState.hasUiStartTour &&
+        tourState.legacyBindingsSafe;
 
       assert(
         tourCleanlyRemoved,
