@@ -202,10 +202,11 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | --- | --- | --- |
 | [Settings](screens/settings/main__phone-390-light-en.png) | 3 | The settings list. |
 | [Settings — Appearance](screens/settings/appearance__phone-390-light-en.png) | 3 | The appearance/theme row. |
+| [Settings — contextual guides](screens/settings/guides__phone-390-light-en.png) | 3 | The per-guide replay controls; replay changes presentation state only. |
 | [Settings — privacy and analytics](screens/settings/privacy__phone-390-light-en.png) | 3 | The privacy and analytics section. |
 | [Privacy — temporary install transfer](screens/settings/privacy-disclosure__phone-390-light-en.png) | 8 | The cached ADR 0013 disclosure reached from Settings. |
 
-### Install and tour
+### Install
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
@@ -224,4 +225,3 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Install transfer — interrupted import](screens/install/transfer-interrupted__phone-390-light-en.png) | 8 | A recoverable installed import failure offers an explicit retry. |
 | [Install transfer — unknown outcome](screens/install/transfer-unknown__phone-390-light-en.png) | 8 | An indeterminate source outcome remains frozen until explicit divergence confirmation. |
 | [Install transfer — claimed then expired](screens/install/transfer-claimed-expired__phone-390-light-en.png) | 8 | Claimed-expired recovery remains frozen until explicit divergence confirmation. |
-| [Feature tour](screens/install/tour__phone-390-light-en.png) | 3 | The first-session feature tour. |

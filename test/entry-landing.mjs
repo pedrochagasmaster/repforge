@@ -1014,41 +1014,23 @@ try {
       await context.close();
     }
 
-    // 7C: Global tour baseline
+    // 7C: Contextual-guide replacement baseline (054-P8)
     {
       const { context, page } = await openAppPage(browser);
       await clearSite(page);
       await page.reload({ waitUntil: "domcontentloaded" });
       await waitForAppBoot(page, { base: BASE });
 
-      const tourHook = await page.evaluate(() => typeof window.startTour === "function");
-      assert(tourHook, "window.startTour global tour hook is present");
-
-      await page.evaluate(() => window.startTour("first-run"));
-      await page.waitForFunction(
-        () => !document.querySelector("#tour")?.classList.contains("hidden")
-      );
-
-      const tourState = await page.evaluate(() => {
-        const overlay = document.querySelector("#tour");
-        const shown = !!overlay && !overlay.classList.contains("hidden");
-        const title = document.querySelector("#tourTitle")?.textContent?.trim() || "";
-        const dots = document.querySelectorAll("#tourDots .tour__dot").length;
-        const next = document.querySelector("#tourNext")?.textContent?.trim() || "";
-        return { shown, title, dots, next };
-      });
-
-      assert(tourState.shown, "#tour displayed on startTour");
-      assert(tourState.title.length > 0, "tour displays title", tourState.title);
-      assert(tourState.dots > 0, "tour displays step dots", String(tourState.dots));
-      assert(tourState.next.length > 0, "tour displays next control", tourState.next);
-
-      await page.evaluate(() => window.closeTour?.());
-      await page.waitForFunction(
-        () => document.querySelector("#tour")?.classList.contains("hidden")
-      );
-      const closed = await page.evaluate(() => document.querySelector("#tour")?.classList.contains("hidden"));
-      assert(closed, "window.closeTour closes tour overlay");
+      const guideState = await page.evaluate(() => ({
+        modalAbsent: !document.querySelector("#tour"),
+        globalsAbsent: typeof window.startTour !== "function" && typeof window.closeTour !== "function",
+        guideHook: typeof window.__repforgeUi?.guideState === "function",
+        cueAnchored: !!document.querySelector("[data-guide-cue='entry'][data-anchor-target]"),
+      }));
+      assert(guideState.modalAbsent, "obsolete global tour markup is absent");
+      assert(guideState.globalsAbsent, "obsolete global tour hooks are absent");
+      assert(guideState.guideHook, "contextual guide state hook is present");
+      assert(guideState.cueAnchored, "entry guidance is attached to its action");
 
       const uiPrefs = await page.evaluate(() => window.__repforgeUi?.loadUiPrefs?.());
       assert(typeof uiPrefs === "object" && uiPrefs != null, "window.__repforgeUi.loadUiPrefs returns prefs object");
@@ -1089,8 +1071,8 @@ try {
     );
     const writes = await page.evaluate(() => window.__entryLandingWrites || []);
     assert(
-      writes.length === 1 && writes[0].visible && writes[0].route === "generic",
-      "the first true entryLandingSeen write occurs after the generic landing is visible",
+      writes.length >= 1 && writes.every((write) => write.visible && write.route === "generic"),
+      "every entryLandingSeen-bearing write occurs after the generic landing is visible",
       JSON.stringify(writes)
     );
 

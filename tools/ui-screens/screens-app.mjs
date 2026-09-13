@@ -309,6 +309,12 @@ export const APP_SCENARIOS = {
 
   "settings/main": (page) => openSettings(page),
   "settings/appearance": (page) => openSettings(page, "#theme"),
+  "settings/guides": async (page) => {
+    await openSettings(page, "#guideReplayToggle");
+    await page.click("#guideReplayToggle");
+    await page.waitForSelector("#guideReplayPanel.is-open");
+    await sleep(page, 300);
+  },
   "settings/privacy": (page) => openSettings(page, "#telemetryToggle"),
   "settings/privacy-disclosure": async (page) => {
     await openSettings(page, "#privacyDetails");
@@ -348,15 +354,6 @@ export const APP_SCENARIOS = {
   "install/transfer-interrupted": (page) => openTransferState(page, "interrupted"),
   "install/transfer-unknown": (page) => openTransferState(page, "unknown"),
   "install/transfer-claimed-expired": (page) => openTransferState(page, "claimed-expired"),
-  "install/tour": async (page) => {
-    await page.evaluate(() => window.__repforgeUi.startTour("settings"));
-    await sleep(page, 600);
-    const open = await page.evaluate(() => {
-      const tour = document.querySelector("#tour");
-      return tour && !tour.classList.contains("hidden");
-    });
-    if (!open) throw new Error("tour did not open");
-  },
 };
 
 /** Transfer surfaces only render under a Safari user agent. The promotion

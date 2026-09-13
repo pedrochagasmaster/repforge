@@ -196,9 +196,9 @@ Mechanics, all verifiable against the current catalogs:
   placeholder mismatches, and drift between the JSON catalogs and `i18n.js`.
 - **Copy names the control it points at.** When a string tells someone to press
   something, it repeats that control's own label: `log.unfinished.body` names
-  `log.finish`, `tour.8.body` names `program.end_block`. `test/i18n.mjs` checks
-  those pairs in both languages, so renaming a button breaks the guidance that
-  refers to it.
+  `log.finish`. Contextual-guide copy follows the same rule for its anchored
+  action. `test/i18n.mjs` checks these relationships in both languages, so
+  renaming a button breaks the guidance that refers to it.
 - **Portuguese uses você** and translates meaning, not words — same calm,
   direct tone as English, no literal calques (also audited by `test/i18n.mjs`).
 - **Portuguese keeps one word per thing, and it is a Portuguese word.** The

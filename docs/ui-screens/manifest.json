@@ -341,7 +341,7 @@
     },
     {
       "id": "install",
-      "label": "Install and tour"
+      "label": "Install"
     }
   ],
   "screens": [
@@ -892,6 +892,13 @@
       "variants": "standard"
     },
     {
+      "id": "guides",
+      "flow": "settings",
+      "label": "Settings — contextual guides",
+      "scenario": "The per-guide replay controls; replay changes presentation state only.",
+      "variants": "standard"
+    },
+    {
       "id": "privacy",
       "flow": "settings",
       "label": "Settings — privacy and analytics",
@@ -1009,13 +1016,6 @@
       "label": "Install transfer — claimed then expired",
       "scenario": "Claimed-expired recovery remains frozen until explicit divergence confirmation.",
       "variants": "demandingText"
-    },
-    {
-      "id": "tour",
-      "flow": "install",
-      "label": "Feature tour",
-      "scenario": "The first-session feature tour.",
-      "variants": "standard"
     }
   ]
 }

@@ -2550,27 +2550,22 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
 .onb__import{text-align:center;font-size:.875rem;color:var(--ink-soft);margin:14px 0 8px;padding:0;background:none;border:0}
 .onb__import button{background:none;border:0;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer;font:inherit;padding:0}
 
-/* Tour */
-.tour{position:fixed;left:0;right:0;bottom:calc(var(--nav) + 10px + env(safe-area-inset-bottom));z-index:75;
-  padding:0 12px;display:flex;justify-content:center;pointer-events:none}
-.tour.hidden{display:none}
-.tour__card{pointer-events:auto;width:min(100%,var(--maxw));
-  background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);
-  padding:14px 18px;box-shadow:0 8px 24px rgba(0,0,0,.1);animation:toastin .3s cubic-bezier(.2,.7,.2,1)}
-.tour__head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px}
-.tour__eyebrow{color:var(--accent-deep);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin:0;font-weight:600}
-.tour__skip{border:0;background:transparent;color:var(--ink-soft);cursor:pointer;font-size:12px;padding:4px 2px}
-.tour__title{font-weight:650;font-size:22px;line-height:1.15;margin:0 0 8px;letter-spacing:-0.01em}
-.tour__body{margin:0 0 12px;font-size:14px;line-height:1.5;color:var(--ink-soft)}
-.tour__body b{color:var(--ink);font-weight:600}
-.tour__extra:empty{display:none}
-.tour__extra{margin:0 0 12px}
-.tour__extra .btn{width:100%;justify-content:center}
-.tour__dots{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:12px}
-.tour__dot{width:7px;height:7px;border-radius:50%;background:var(--rule)}
-.tour__dot.is-on{background:var(--accent)}
-.tour__nav{display:flex;gap:10px}
-.tour__nav .btn{flex:1}
+/* Contextual guides stay in the same document flow as the action they
+   explain. They never become a modal, cover their target, or float when the
+   target is absent. */
+.guide-cue{position:relative;display:grid;grid-template-columns:1fr auto;gap:8px 12px;
+  margin:10px 0 14px;padding:12px 14px;background:var(--entry-tint);
+  border:1px solid var(--rule-strong);border-radius:var(--radius);color:var(--ink)}
+.guide-cue__copy{min-width:0}
+.guide-cue__title{margin:0 0 3px;font-size:.875rem;font-weight:650;line-height:1.3}
+.guide-cue__body{margin:0;color:var(--ink-soft);font-size:.8125rem;line-height:1.45}
+.guide-cue__dismiss{align-self:start;min-width:44px;min-height:44px;margin:-8px -10px 0 0;
+  border:0;background:transparent;color:var(--ink-soft);font:inherit;font-size:1.125rem;cursor:pointer}
+.guide-replay{padding:12px 14px;display:grid;gap:8px}
+.guide-replay[hidden]{display:none}
+.settings-panel.guide-replay.is-open{display:grid}
+.guide-replay .lede{margin:0 0 2px}
+.guide-replay .btn{width:100%;justify-content:flex-start;text-align:left}
 
 /* Icon and copy share the first row; the action takes a row of its own, the way
    the first-run install card sets it. A CTA is a 100%-width control that does

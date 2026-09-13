@@ -45203,6 +45203,27 @@
           "text": "Track my current program"
         },
         {
+          "tag": "aside",
+          "role": "status",
+          "name": "Choose how to begin",
+          "labelledBy": "Choose how to begin"
+        },
+        {
+          "tag": "p",
+          "text": "Choose how to begin"
+        },
+        {
+          "tag": "p",
+          "text": "Build a program with guidance, browse a released option, or bring a program you already have."
+        },
+        {
+          "tag": "button",
+          "text": "×",
+          "name": "Dismiss guide",
+          "label": "Dismiss guide",
+          "type": "button"
+        },
+        {
           "tag": "section",
           "labelledBy": "Bench press"
         },
@@ -45369,6 +45390,27 @@
         {
           "tag": "span",
           "text": "Track my current program"
+        },
+        {
+          "tag": "aside",
+          "role": "status",
+          "name": "Choose how to begin",
+          "labelledBy": "Choose how to begin"
+        },
+        {
+          "tag": "p",
+          "text": "Choose how to begin"
+        },
+        {
+          "tag": "p",
+          "text": "Build a program with guidance, browse a released option, or bring a program you already have."
+        },
+        {
+          "tag": "button",
+          "text": "×",
+          "name": "Dismiss guide",
+          "label": "Dismiss guide",
+          "type": "button"
         },
         {
           "tag": "section",
@@ -45539,6 +45581,27 @@
           "text": "Track my current program"
         },
         {
+          "tag": "aside",
+          "role": "status",
+          "name": "Choose how to begin",
+          "labelledBy": "Choose how to begin"
+        },
+        {
+          "tag": "p",
+          "text": "Choose how to begin"
+        },
+        {
+          "tag": "p",
+          "text": "Build a program with guidance, browse a released option, or bring a program you already have."
+        },
+        {
+          "tag": "button",
+          "text": "×",
+          "name": "Dismiss guide",
+          "label": "Dismiss guide",
+          "type": "button"
+        },
+        {
           "tag": "section",
           "labelledBy": "Bench press"
         },
@@ -45705,6 +45768,27 @@
         {
           "tag": "span",
           "text": "Track my current program"
+        },
+        {
+          "tag": "aside",
+          "role": "status",
+          "name": "Choose how to begin",
+          "labelledBy": "Choose how to begin"
+        },
+        {
+          "tag": "p",
+          "text": "Choose how to begin"
+        },
+        {
+          "tag": "p",
+          "text": "Build a program with guidance, browse a released option, or bring a program you already have."
+        },
+        {
+          "tag": "button",
+          "text": "×",
+          "name": "Dismiss guide",
+          "label": "Dismiss guide",
+          "type": "button"
         },
         {
           "tag": "section",
@@ -45875,6 +45959,27 @@
           "text": "Track my current program"
         },
         {
+          "tag": "aside",
+          "role": "status",
+          "name": "Choose how to begin",
+          "labelledBy": "Choose how to begin"
+        },
+        {
+          "tag": "p",
+          "text": "Choose how to begin"
+        },
+        {
+          "tag": "p",
+          "text": "Build a program with guidance, browse a released option, or bring a program you already have."
+        },
+        {
+          "tag": "button",
+          "text": "×",
+          "name": "Dismiss guide",
+          "label": "Dismiss guide",
+          "type": "button"
+        },
+        {
           "tag": "section",
           "labelledBy": "Bench press"
         },
@@ -46043,6 +46148,27 @@
           "text": "Acompanhar meu programa atual"
         },
         {
+          "tag": "aside",
+          "role": "status",
+          "name": "Escolha como começar",
+          "labelledBy": "Escolha como começar"
+        },
+        {
+          "tag": "p",
+          "text": "Escolha como começar"
+        },
+        {
+          "tag": "p",
+          "text": "Monte um programa com orientação, escolha uma opção pronta ou traga um programa que você já tem."
+        },
+        {
+          "tag": "button",
+          "text": "×",
+          "name": "Dispensar guia",
+          "label": "Dispensar guia",
+          "type": "button"
+        },
+        {
           "tag": "section",
           "labelledBy": "Supino reto"
         },
@@ -46209,6 +46335,27 @@
         {
           "tag": "span",
           "text": "Track my current program"
+        },
+        {
+          "tag": "aside",
+          "role": "status",
+          "name": "Choose how to begin",
+          "labelledBy": "Choose how to begin"
+        },
+        {
+          "tag": "p",
+          "text": "Choose how to begin"
+        },
+        {
+          "tag": "p",
+          "text": "Build a program with guidance, browse a released option, or bring a program you already have."
+        },
+        {
+          "tag": "button",
+          "text": "×",
+          "name": "Dismiss guide",
+          "label": "Dismiss guide",
+          "type": "button"
         },
         {
           "tag": "section",

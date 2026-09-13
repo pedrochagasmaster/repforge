@@ -458,10 +458,16 @@
           <span class="settings-row__label" data-i18n="settings.language">Language</span>
           <span class="settings-row__value"><select id="lang" class="select-flat"><option value="en">English</option><option value="pt">Português</option></select></span>
         </label>
-        <button type="button" class="settings-row" id="replayTour">
-          <span class="settings-row__label" data-i18n="settings.replay_tour">Take the app tour</span>
+        <button type="button" class="settings-row" id="guideReplayToggle" aria-expanded="false" aria-controls="guideReplayPanel">
+          <span class="settings-row__label" data-i18n="settings.guides">Contextual guides</span>
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
         </button>
+        <div id="guideReplayPanel" class="settings-panel guide-replay" aria-hidden="true">
+          <p class="lede" data-i18n="settings.guides_body">Replay one guide without changing your training data.</p>
+          <button type="button" class="btn btn--steel" data-guide-replay="entry" data-i18n="guide.entry.title">Choose how to begin</button>
+          <button type="button" class="btn btn--steel" data-guide-replay="install" data-i18n="guide.install.title">Install when it helps</button>
+          <button type="button" class="btn btn--steel" data-guide-replay="privacy" data-i18n="guide.privacy.title">Know what stays private</button>
+        </div>
         <div class="settings-row" style="cursor:default">
           <span class="settings-row__label" data-i18n="settings.about">About</span>
           <span class="settings-row__value">1.0</span>
@@ -604,22 +610,6 @@
       <button type="button" id="endBlockCancel" class="btn btn--steel" data-i18n="dialog.cancel">Cancel</button>
     </div>
   </dialog>
-  <div id="tour" class="tour hidden" role="dialog" aria-modal="true" data-i18n-aria="tour.aria" aria-label="App tour">
-    <div class="tour__card">
-      <div class="tour__head">
-        <p class="tour__eyebrow" id="tourEyebrow" data-i18n="tour.eyebrow">Tour</p>
-        <button type="button" id="tourSkip" class="tour__skip" data-i18n="tour.skip">Skip tour</button>
-      </div>
-      <h3 class="tour__title" id="tourTitle"></h3>
-      <p class="tour__body" id="tourBody"></p>
-      <div class="tour__extra" id="tourExtra"></div>
-      <div class="tour__dots" id="tourDots" aria-hidden="true"></div>
-      <div class="tour__nav">
-        <button type="button" id="tourBack" class="btn btn--steel" data-i18n="tour.back">Back</button>
-        <button type="button" id="tourNext" class="btn btn--cta" data-i18n="tour.next">Next</button>
-      </div>
-    </div>
-  </div>
   <!-- One-time entry landing. Its program loop is ordinary HTML so the same
        prescription, logged work, and next target remain legible without an
        image. Shared links adapt this surface before any proposal is stored. -->
@@ -1014,18 +1004,19 @@
        reordering stays reachable through each row's Move controls. -->
   <script src="vendor/motion/motion.js"></script>
   <script src="vendor/dnd-kit/dnd-kit.js"></script>
-  <script src="motion-layer.js?v=239"></script>
-  <script src="program-compiler.js?v=239"></script>
-  <script src="program-entry.js?v=239"></script>
-  <script src="program-entry-adapter.js?v=239"></script>
-  <script src="program-editor.js?v=239"></script>
-  <script src="shared-setup.js?v=239"></script>
-  <script src="workout-draft.js?v=239"></script>
-  <script src="program-transition.js?v=239"></script>
+  <script src="motion-layer.js?v=245"></script>
+  <script src="program-compiler.js?v=245"></script>
+  <script src="program-entry.js?v=245"></script>
+  <script src="program-entry-adapter.js?v=245"></script>
+  <script src="program-editor.js?v=245"></script>
+  <script src="shared-setup.js?v=245"></script>
+  <script src="workout-draft.js?v=245"></script>
+  <script src="program-transition.js?v=245"></script>
   <script src="install-transfer-contract.js"></script>
   <script src="install-transfer.js"></script>
-  <script src="install-policy.js?v=239"></script>
-  <script src="durable-state.js?v=239"></script>
-  <script src="app.js?v=239"></script>
+  <script src="install-policy.js?v=245"></script>
+  <script src="guide-registry.js?v=245"></script>
+  <script src="durable-state.js?v=245"></script>
+  <script src="app.js?v=245"></script>
 </body>
 </html>

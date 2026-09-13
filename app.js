@@ -1,6 +1,7 @@
 const KEY="repforge_v1",DRAFT="repforge_draft_v1",NOTIFY_META="repforge_notify_v1";
 const WorkoutDraft=window.RepForgeWorkoutDraft;
 const InstallPolicy=window.RepForgeInstallPolicy;
+const GuideRegistry=window.RepForgeGuideRegistry;
 const DRAFT_PENDING_PREFIX=`${DRAFT}:pending:`,DRAFT_CLOSE_PREFIX=`${DRAFT}:closing:`;
 const DRAFT_V2_CHECKPOINT=`${DRAFT}:v2-checkpoint`;
 const DRAFT_WRITE_TRANSACTION="draft-write";
@@ -4058,9 +4059,6 @@ function updateBodyweightField(){const el=$("#bodyweight");if(!el)return;
   if(lbl)lbl.textContent=t("log.bodyweight_unit",{unit:unitLabel()})}
 function focusList(){
   const exs=exercises();
-  if(tourActive&&tourPreview?.ignoreSkipped){
-    const first=exs[0];
-    return first?[first]:[]}
   return exs.filter(e=>!skipped.has(e.id))}
 function setWorkoutOverflow(open){const menu=$("#woOverflow");if(!menu)return;
   menu.classList.toggle("hidden",!open);
@@ -4606,23 +4604,15 @@ function paintRest(text,done,over=0){
 function updateRestChrome(){
   const focus=workoutActive&&logMode==="focus";
   const chip=$("#woRest");
-  const preview=tourActive&&tourPreview?.showRest;
   const restOn=+state.settings.restSec>0;
   if(chip){
-    const on=focus&&(restOn||preview);
+    const on=focus&&restOn;
     chip.classList.toggle("hidden",!on);
     chip.classList.toggle("is-running",!!restEnd);
-    chip.disabled=!!(preview&&!restOn);
-    if(preview&&!restOn){
-      chip.setAttribute("aria-label",t("tour.rest_preview_aria"));
-      let hint=$("#woRestPreviewHint");
-      if(!hint){hint=document.createElement("p");hint.id="woRestPreviewHint";hint.className="tour-rest-hint";chip.insertAdjacentElement("afterend",hint)}
-      hint.textContent=t("tour.rest_preview_hint");hint.hidden=false}
-    else{
-      const hint=$("#woRestPreviewHint");if(hint)hint.hidden=true;
-      if(!restEnd){chip.classList.remove("is-done","is-over");
-        chip.setAttribute("aria-label",t("focus.rest.start_aria"))}}
-    if(!restEnd&&!(preview&&!restOn))chip.classList.remove("is-done","is-over","is-paused")}
+    chip.disabled=false;
+    if(!restEnd){chip.classList.remove("is-done","is-over");
+      chip.setAttribute("aria-label",t("focus.rest.start_aria"))}
+    if(!restEnd)chip.classList.remove("is-done","is-over","is-paused")}
   const bar=$("#restBar");
   if(bar)bar.classList.toggle("is-shadowed",focus)}
 function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;restPaused=null;restAnnounced=false;
@@ -5385,7 +5375,8 @@ function render(){applyI18n();
   setWorkoutActive(workoutActive);
   renderToday();renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings();renderBlockPrompt();
   updateSessionBanner();
-  if(exView&&$("#exercise")?.classList.contains("active"))renderExerciseView()}
+  if(exView&&$("#exercise")?.classList.contains("active"))renderExerciseView();
+  queueMicrotask(()=>maybeShowContextualGuides())}
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(dayLabel(d))}</button>`).join("");
@@ -8446,7 +8437,7 @@ async function applyInstalledEditorAndContinue(){
   }
   if(result?.ok||result?.localOk||result?.idbOk){
     finishInstalledEditor();
-    if(!maybeStartTour())maybeShowInstallBanner();
+    maybeShowInstallBanner();
   }
   return result;
 }
@@ -13453,7 +13444,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     document.body.classList.remove("is-settings","is-workout","is-exercise","is-onboarding","is-library","is-preview","is-import");
     render();toast(t("toast.tweak_program"));return result}
   render();toast(t("toast.onboarding_saved"));
-  if(!maybeStartTour())maybeShowInstallBanner();
+  maybeShowInstallBanner();
   return result}
 function saveOnboardingProgram(io){
   return activateEntryPreview({destination:"log"})}
@@ -13480,6 +13471,11 @@ function ensureInstallPolicyPrefs(){
   for(const[key,value]of Object.entries(INSTALL_PREF_DEFAULTS)){
     if(!Object.prototype.hasOwnProperty.call(next,key)){next[key]=value;changed=true}}
   if(changed)replaceUiPrefs(next)}
+function ensureGuidePrefs({persist=true}={}){
+  if(!GuideRegistry?.migrateLegacyTourDone)return;
+  const next=GuideRegistry.migrateLegacyTourDone(uiPrefs);
+  if(JSON.stringify(next)===JSON.stringify(uiPrefs))return;
+  if(persist)replaceUiPrefs({...next});else uiPrefs={...next}}
 
 /* ---- Appearance ----
    A UI pref, not a setting: which paper this device prefers says nothing about
@@ -13616,7 +13612,7 @@ function installBannerEligible(){
   const decision=installPolicyDecision();
   if(!decision.eligible||!["eligible-milestone","ios-transfer"].includes(decision.state))return false;
   if(state?.[STORAGE_FOLLOWUP]?.kind==="onboarding-edit")return false;
-  if(tourActive||firstRunActive||$("#onboarding")?.classList.contains("active"))return false;
+  if(firstRunActive||$("#onboarding")?.classList.contains("active"))return false;
   return true;
 }
 function showInstallBanner(force){
@@ -13661,6 +13657,7 @@ function showInstallBanner(force){
   installPresentedDecision=decision;
   if(!force)recordInstallPolicyOffer(decision);
   b.classList.remove("hidden");
+  queueMicrotask(()=>maybeShowContextualGuides(["install"]));
 }
 function showInstallTransferDivergenceDialog(onConfirm){
   let dialog=$("#installTransferDivergenceModal");
@@ -13872,6 +13869,7 @@ function openFirstRun(kind=currentEntryLanding()){
   // The screen itself takes focus, not its first choice: a ring drawn around
   // Create before the lifter has touched anything reads as a recommendation.
   try{el.focus({preventScroll:true})}catch{}
+  queueMicrotask(()=>maybeShowContextualGuides());
   if(kind==="generic"&&uiPrefs.entryLandingSeen!==true)setUiPref("entryLandingSeen",true);
   return true}
 function trapFirstRunTab(event){
@@ -14042,79 +14040,84 @@ async function installTransferRequestDivergence(){
   showInstallBanner(true);
   showInstallTransferDivergenceDialog(installTransferConfirmDivergence)}
 
-// ---- Feature tour (bottom-sheet coach that walks every feature) ----
-const TOUR=[
-  {view:"log"},{view:"log"},{view:"log"},{view:"log"},{view:"log"},{view:"log"},
-  {view:"stats"},{view:"history"},{view:"program"},{view:"settings"},{view:"settings",install:true}
-];
-let tourStep=0,tourActive=false,tourOrigin=null,tourSnapshot=null,tourPreview=null,tourFocusOrigin=null;
-function tourSteps(){return TOUR.filter(s=>!(s.install&&isStandalone()))}
-function snapshotTourUi(){
-  const scrolls={};
-  for(const id of["log","stats","history","program","settings"]){const el=$("#"+id);if(el)scrolls[id]=el.scrollTop}
-  return{view:currentViewId(),settings:document.body.classList.contains("is-settings"),exercise:!!exView,
-    exView:exView?{key:exView.key,from:exView.from}:null,statsSeg,programEditMode,workoutActive,workoutLeft,logMode,focusIndex,
-    focusEdit:focusEdit?Object.assign({},focusEdit):null,overflow:!$("#woOverflow")?.classList.contains("hidden"),day,
-    date:$("#date")?.value||"",scrolls,windowScroll:window.scrollY}}
-function restoreTourUi(snap){
-  if(!snap)return;
-  tourPreview=null;day=snap.day;if($("#date")&&snap.date!=null)$("#date").value=snap.date;
-  logMode=snap.logMode;focusIndex=snap.focusIndex;focusEdit=snap.focusEdit;programEditMode=snap.programEditMode;
-  syncLogModeControls();
-  workoutLeft=snap.workoutLeft;
-  if(snap.statsSeg)setStatsSeg(snap.statsSeg);
-  document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-library","is-preview","is-import");
-  if(snap.settings){showSettings()}
-  else if(snap.exercise&&snap.exView){openExerciseView(snap.exView.key,snap.exView.from)}
-  else{
-    $$("nav button").forEach(x=>{const on=x.dataset.view===snap.view;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
-    $$(".view").forEach(v=>v.classList.toggle("active",v.id===snap.view))}
-  setWorkoutActive(!!snap.workoutActive);
-  document.body.classList.toggle("is-focus-wo",!!snap.workoutActive&&snap.logMode==="focus");
-  if(snap.workoutActive){renderTabs();renderWorkout()}
-  render();
-  setWorkoutOverflow(!!snap.overflow);
-  for(const[id,top]of Object.entries(snap.scrolls||{})){const el=$("#"+id);if(el)el.scrollTop=top}
-  window.scrollTo(0,snap.windowScroll||0)}
-function applyTourChoreography(step){
-  const focus=step===3||step===4,list=step===1||step===2||step===5,overflow=step===1||step===2;
-  tourPreview={step,ignoreSkipped:list||focus,showRest:step===4};
-  if(step===0){
-    setWorkoutActive(false);document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-library","is-preview","is-import");
-    $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
-    $$(".view").forEach(v=>v.classList.toggle("active",v.id==="log"));renderToday();window.scrollTo({top:0});return}
-  if(step>=1&&step<=5){
-    document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-library","is-preview","is-import");
-    $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
-    $$(".view").forEach(v=>v.classList.toggle("active",v.id==="log"));
-    logMode=focus?"focus":"full";
-    syncLogModeControls();
-    setWorkoutActive(true);renderTabs();renderWorkout();renderToday();setWorkoutOverflow(overflow);
-    if(step===5)$("#logForm .btn--save")?.scrollIntoView({block:"center"});return}
-  setWorkoutActive(false);
-  const s=tourSteps()[step];if(s?.view)navTo(s.view)}
-function openTourOverlay(){
-  const tour=$("#tour");if(!tour)return;
-  openModal(tour,{
-    initialFocus:$("#tourSkip"),
-    returnFocus:document.activeElement,
-    onEscape:()=>endTour(false)
-  })}
-function closeTourOverlay(){
-  closeModal($("#tour"))}
-function focusAfterTour(origin,original){
-  const sameId=original?.id?document.getElementById(original.id):null;
-  const stable=origin==="first-run"?$("#startWorkout"):origin==="replay"?$("#replayTour"):null;
-  const fallback=origin==="replay"?$("#settingsBack"):$('nav button[data-view="log"]');
-  for(const candidate of origin==="first-run"?[stable,original,sameId,fallback]:[original,sameId,stable,fallback]){
-    const target=resolveReturnFocus(candidate);
-    if(target){try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}return true}}
+// ---- Contextual guides ----
+let activeGuideId=null,activeGuideAnchor=null,activeGuideCue=null,activeGuideReturnFocus=null;
+function guideDefinition(id){return GuideRegistry?.GUIDE_DEFINITIONS?.find(guide=>guide.id===id)||null}
+function guideAnchor(guide){
+  if(!guide?.anchorSelector)return null;
+  return [...document.querySelectorAll(guide.anchorSelector)].find(el=>{
+    if(!(el instanceof HTMLElement)||el.hidden||el.classList.contains("hidden"))return false;
+    const style=getComputedStyle(el),rect=el.getBoundingClientRect();
+    return style.display!=="none"&&style.visibility!=="hidden"&&rect.width>0&&rect.height>0})||null}
+function guideStored(id){return uiPrefs.guideState?.[id]||null}
+function saveGuideTransition(id,status){
+  const guide=guideDefinition(id);if(!guide||!GuideRegistry?.recordGuideTransition)return false;
+  const live=GuideRegistry.migrateLegacyTourDone(loadUiPrefs());
+  const next=GuideRegistry.recordGuideTransition(live,id,status,{version:guide.version,nowMs:Date.now()});
+  return replaceUiPrefs({...next})}
+function removeContextualGuide(){
+  activeGuideCue?.remove();activeGuideId=null;activeGuideAnchor=null;activeGuideCue=null;activeGuideReturnFocus=null}
+function dismissContextualGuide({restoreFocus=false}={}){
+  if(!activeGuideId)return false;
+  const target=activeGuideReturnFocus||activeGuideAnchor;
+  saveGuideTransition(activeGuideId,"dismissed");removeContextualGuide();
+  if(restoreFocus&&target instanceof HTMLElement&&target.isConnected)target.focus({preventScroll:true});
+  return true}
+function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=false}={}){
+  const guide=guideDefinition(id);if(!guide?.wired)return false;
+  const anchor=guideAnchor(guide);
+  const decision=GuideRegistry.evaluateGuide(guide,{
+    anchorPresent:!!anchor,anchorVisible:!!anchor,uiPrefs});
+  if(!decision.eligible){
+    if(persistDeferred&&decision.decision==="deferred"&&guideStored(id)?.status!=="deferred")saveGuideTransition(id,"deferred");
+    return false}
+  removeContextualGuide();
+  const cue=document.createElement("aside"),titleId=`guideCueTitle-${id}`;
+  cue.className="guide-cue";cue.dataset.guideCue=id;cue.dataset.anchorTarget=guide.anchorSelector;
+  cue.setAttribute("role","status");cue.setAttribute("aria-labelledby",titleId);
+  cue.innerHTML=`<div class="guide-cue__copy"><p class="guide-cue__title" id="${titleId}">${esc(t(`guide.${id}.title`))}</p>`+
+    `<p class="guide-cue__body">${esc(t(`guide.${id}.body`))}</p></div>`+
+    `<button type="button" class="guide-cue__dismiss" data-guide-dismiss aria-label="${esc(t("guide.dismiss"))}">×</button>`;
+  const dismiss=cue.querySelector("[data-guide-dismiss]");
+  dismiss.onclick=event=>{event.stopPropagation();dismissContextualGuide({restoreFocus:focus})};
+  cue.addEventListener("keydown",event=>{
+    if(event.key!=="Escape")return;
+    event.preventDefault();event.stopPropagation();dismissContextualGuide({restoreFocus:true})});
+  const placement=anchor.closest(".firstrun__actions")||anchor;
+  placement.insertAdjacentElement("afterend",cue);
+  activeGuideId=id;activeGuideAnchor=anchor;activeGuideCue=cue;
+  activeGuideReturnFocus=returnFocus instanceof HTMLElement?returnFocus:null;
+  saveGuideTransition(id,"shown");
+  if(focus)queueMicrotask(()=>dismiss?.focus({preventScroll:true}));
+  return true}
+function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
+  if(firstRunOpen()&&currentEntryLanding()!=="generic")return false;
+  if(activeGuideCue?.isConnected&&activeGuideAnchor&&guideAnchor(guideDefinition(activeGuideId))===activeGuideAnchor)return true;
+  removeContextualGuide();
+  for(const id of ids)if(showContextualGuide(id))return true;
   return false}
+function completeContextualGuide(){
+  if(!activeGuideId)return false;
+  saveGuideTransition(activeGuideId,"completed");removeContextualGuide();return true}
+function replayContextualGuide(id){
+  const guide=guideDefinition(id);if(!guide||!GuideRegistry?.replayGuideState)return false;
+  uiPrefs=loadUiPrefs();
+  if(activeGuideId===id)removeContextualGuide();
+  const next=GuideRegistry.replayGuideState(uiPrefs,id,{version:guide.version,nowMs:Date.now()});
+  if(!replaceUiPrefs({...next}))return false;
+  const returnFocus=document.activeElement;
+  queueMicrotask(()=>showContextualGuide(id,{focus:true,returnFocus,persistDeferred:true}));return true}
+function contextualGuideState(){return cloneSnapshot(uiPrefs.guideState||{})}
+function onContextualGuideAction(event){
+  const target=event.target instanceof Element?event.target:null;
+  if(activeGuideAnchor&&target&&activeGuideAnchor.contains(target))completeContextualGuide()}
+
 function showSettings(){
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="settings"));
   document.body.classList.add("is-settings");document.body.classList.remove("is-exercise","is-onboarding","is-workout");
-  workoutActive=false;workoutLeft=true;window.scrollTo({top:0});render()}
+  workoutActive=false;workoutLeft=true;window.scrollTo({top:0});render();
+  queueMicrotask(()=>maybeShowContextualGuides(["install","privacy"]))}
 /* Returns to a bottom-nav destination from a stacked view. navTo cannot do it:
    it skips the click when the nav button is already marked active, which it
    still is after a full-screen view took over without touching the dock. */
@@ -14168,40 +14171,9 @@ window.__repforgeFocus={
 };
 window.__repforgeLeaveWorkout=leaveWorkout;
 window.__repforgeShowSettings=showSettings;
-function startTour(origin){
-  tourOrigin=origin==="replay"?"replay":"first-run";
-  tourFocusOrigin=document.activeElement instanceof Element?document.activeElement:null;
-  tourSnapshot=tourOrigin==="replay"?snapshotTourUi():null;
-  tourStep=0;tourActive=true;hideInstallBanner(false);openTourOverlay();renderTour()}
-function renderTour(){
-  const steps=tourSteps(),s=steps[tourStep];
-  if(!s){endTour(true);return}
-  applyTourChoreography(tourStep);
-  $("#tourEyebrow").textContent=t("tour.eyebrow_progress",{n:tourStep+1,total:steps.length});
-  $("#tourTitle").textContent=t(`tour.${tourStep}.title`);
-  const extra=$("#tourExtra");
-  if(s.install){
-    $("#tourBody").innerHTML=`${t("tour.install.body_prefix")} ${installInstructions()}`;
-    extra.innerHTML=installPrompt?`<button type="button" id="tourInstallBtn" class="btn btn--cta">${esc(t("tour.install.cta"))}</button>`:"";
-    const ib=$("#tourInstallBtn");if(ib)ib.onclick=triggerInstall;
-  }else{$("#tourBody").innerHTML=t(`tour.${tourStep}.body`);extra.innerHTML=""}
-  $("#tourDots").innerHTML=steps.map((_,i)=>`<span class="tour__dot${i===tourStep?" is-on":""}"></span>`).join("");
-  $("#tourBack").classList.toggle("hidden",tourStep===0);
-  $("#tourNext").textContent=tourStep===steps.length-1?t("tour.done"):t("tour.next");
-  if(tourStep!==5)window.scrollTo({top:0});
-}
-function endTour(completed){
-  const origin=tourOrigin,snap=tourSnapshot,focusOrigin=tourFocusOrigin;
-  closeTourOverlay();tourActive=false;tourPreview=null;tourOrigin=null;tourSnapshot=null;tourFocusOrigin=null;
-  if(origin==="first-run"){setUiPref("tourDone",true);setWorkoutActive(false);navTo("log")}
-  else if(origin==="replay")restoreTourUi(snap);
-  else{setUiPref("tourDone",true);if(completed)navTo("log")}
-  focusAfterTour(origin,focusOrigin);
-  maybeShowInstallBanner()}
-function maybeStartTour(){if(uiPrefs.tourDone)return false;if($("#onboarding")?.classList.contains("active"))return false;startTour("first-run");return true}
-window.startTour=startTour;window.closeTour=()=>{if(tourActive)endTour(false)};
-window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,startTour,currentTheme,resolvedTheme,setTheme,
-  installPolicyDecision:()=>installPolicyDecision(),
+window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,currentTheme,resolvedTheme,setTheme,
+  installPolicyDecision:()=>installPolicyDecision(),guideState:contextualGuideState,
+  replayGuide:replayContextualGuide,showGuide:showContextualGuide,
   openInstallTransferState:stateName=>openIosInstallSheet(stateName),openPrivacy:()=>openPrivacySheet()};
 function resumeProgramEditFollowUp(){
   if(state?.[STORAGE_FOLLOWUP]?.kind!=="onboarding-edit")return false;
@@ -14221,12 +14193,14 @@ window.__repforgeOnboarding={
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
   ensureInstallPolicyPrefs();
+  ensureGuidePrefs({persist:currentEntryLanding()==="generic"});
   // The pre-paint snippet in index.html has already done this for a dark
   // device; re-running it is what covers the light case and a snippet that
   // could not read storage.
   applyTheme();watchSystemTheme();
   window.addEventListener("hashchange",()=>{handleSharedSetupHash()});
   $("#firstRun")?.addEventListener("keydown",trapFirstRunTab);
+  document.addEventListener("click",onContextualGuideAction,true);
   let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(redrawChart,150)});
   window.addEventListener("orientationchange",()=>setTimeout(redrawChart,200));
   // Chrome decides when to offer this, and it usually decides after the first
@@ -14236,8 +14210,7 @@ function init(){
   // reading. One that has been left for the wizard is not pulled back: the
   // banner carries the offer from there.
   window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;
-    renderSettings();renderInstallSurfaces();
-    if(tourActive)renderTour();else maybeShowInstallBanner()});
+    renderSettings();renderInstallSurfaces();maybeShowInstallBanner()});
   window.addEventListener("appinstalled",()=>{installPrompt=null;hideInstallBanner(false);
     closeFirstRunInstall();renderSettings();renderInstallSurfaces()});
   $("#installBtn").onclick=triggerInstall;
@@ -14272,15 +14245,13 @@ function init(){
   $("#iosInstallClose").onclick=closeIosInstallSheet;
   $("#iosInstallDone").onclick=closeIosInstallSheet;
   $("#iosInstallScrim").onclick=closeIosInstallSheet;
-  $("#tourBack").onclick=()=>{if(tourStep>0){tourStep--;renderTour()}};
-  $("#tourNext").onclick=()=>{if(tourStep<tourSteps().length-1){tourStep++;renderTour()}else endTour(true)};
-  $("#tourSkip").onclick=()=>endTour(false);
-  $("#replayTour").onclick=()=>startTour("replay");
+  $("#guideReplayToggle").onclick=()=>setDisclosure($("#guideReplayToggle"),$("#guideReplayPanel"),!$("#guideReplayPanel")?.classList.contains("is-open"));
+  $$('[data-guide-replay]').forEach(button=>button.onclick=()=>replayContextualGuide(button.dataset.guideReplay));
   $("#installApp").onclick=()=>triggerInstall("manual-settings");
   $("#restBar").onclick=openRestSheet;
   // One rest control in the workout header: it starts the clock when idle, and
   // opens the timer sheet once it is running rather than ending the rest.
-  const woRest=$("#woRest");if(woRest)woRest.onclick=()=>{if(tourActive&&tourPreview?.showRest&&!(+state.settings.restSec>0))return;restEnd?openRestSheet():startRest()};
+  const woRest=$("#woRest");if(woRest)woRest.onclick=()=>{restEnd?openRestSheet():startRest()};
   const restClose=$("#restSheetClose");if(restClose)restClose.onclick=closeRestSheet;
   const restScrim=$("#restSheetScrim");if(restScrim)restScrim.onclick=closeRestSheet;
   const restMinus=$("#restMinus");if(restMinus)restMinus.onclick=()=>nudgeRest(-REST_NUDGE);
@@ -14385,7 +14356,6 @@ function init(){
   // The menu is a popover: any choice inside it, a tap outside, or Escape closes it.
   // iOS does not reliably bubble click to document, so touchstart backs it up.
   const dismissOverflow=e=>{
-    if(tourActive)return;
     const menu=$("#woOverflow");if(!menu||menu.classList.contains("hidden"))return;
     const target=e.target instanceof Element?e.target:null;
     if(target&&(menu.contains(target)||target.closest("#woOverflowBtn")))return;
@@ -14439,6 +14409,7 @@ function init(){
   const dataBackup=$("#dataBackupRow");if(dataBackup)dataBackup.onclick=()=>setDisclosure(dataBackup,$("#dataBackupPanel"),!$("#dataBackupPanel")?.classList.contains("is-open"));
   const dataImport=$("#dataImportRow");if(dataImport)dataImport.onclick=()=>setDisclosure(dataImport,$("#dataImportPanel"),!$("#dataImportPanel")?.classList.contains("is-open"));
   [["#restSecRow","#restSecPanel"],["#rirModeRow","#rirModePanel"],["#progressionRow","#progressionDetails"],["#notifyConfigRow","#notifyTypes"],["#dataBackupRow","#dataBackupPanel"],["#dataImportRow","#dataImportPanel"]].forEach(([b,p])=>setDisclosure($(b),$(p),false));
+  setDisclosure($("#guideReplayToggle"),$("#guideReplayPanel"),false);
   const commitChangedSettings=()=>{settingsEditRevision++;return commitSettings(true)};
   $("#settings").addEventListener("input",()=>{settingsEditRevision++});
   const voiceTog=$("#voiceToggle");if(voiceTog)voiceTog.onclick=()=>{const c=$("#voiceInputEnabled");if(c){c.checked=!c.checked;commitChangedSettings()}};

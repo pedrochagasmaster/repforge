@@ -169,8 +169,7 @@ function extractJsKeys(src) {
 }
 
 const DYNAMIC_FAMILIES = [
-  { test: (s) => s.includes("tour.${tourStep}.title") || s.includes('"tour."'), keys: (en) => Object.keys(en).filter((k) => /^tour\.\d+\.title$/.test(k)) },
-  { test: (s) => s.includes("tour.${tourStep}.body"), keys: (en) => Object.keys(en).filter((k) => /^tour\.\d+\.body$/.test(k)) },
+  { test: (s) => s.includes("guide.${id}.title") || s.includes("guide.${id}.body"), keys: (en) => Object.keys(en).filter((k) => /^guide\.(entry|install|privacy)\.(title|body)$/.test(k)) },
   { test: (s) => s.includes("onb.title.${onbStep}"), keys: (en) => Object.keys(en).filter((k) => /^onb\.title\.\d+$/.test(k)) },
   { test: (s) => s.includes("entry.desired_result.${"), keys: (en) => Object.keys(en).filter((k) => /^entry\.desired_result\.[^.]+\.(label|sub)$/.test(k)) },
   { test: (s) => s.includes("entry.background.experience.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.background.experience.") && k !== "entry.background.experience.label") },
@@ -262,9 +261,7 @@ async function runBrowserParity(en, pt) {
         document.querySelector(`nav button[data-view="${view}"]`)?.click();
       }
       window.__repforgeShowSettings?.();
-      window.startTour?.("replay");
-      for (let i = 0; i < 11; i++) document.querySelector("#tourNext")?.click();
-      window.closeTour?.();
+      for (const id of ["entry", "install", "privacy"]) window.__repforgeUi?.showGuide?.(id);
     };
     window.RepForgeI18n.setLang("en");
     window.RepForgeI18n.applyDom();
@@ -320,12 +317,12 @@ async function main() {
   const privacyCopy = {
     en: {
       "meta.description": "Taurifer keeps workout logs, drafts, and history on this device. Setup links share a program and selected settings.",
-      "tour.0.body": "Workout logs, drafts, and history stay on this device. Taurifer never uploads them. Setup links share a program, its configuration, eight selected settings, and the app language. They never include workout history. Choose <b>Next</b> to see each part of the app, or <b>Skip tour</b> to close this guide.",
+      "guide.privacy.body": "Open Privacy for the exact local-storage, setup-link, transfer, and analytics boundaries.",
       "program.share_setup_body": "The link shares this program, its configuration, eight selected settings, and the app language. It does not include workout history. For iOS installation, a temporary cookie stores the compressed proposal. The static host receives that cookie with matching index.html requests for up to seven days. Compression and encoding do not encrypt the proposal.",
     },
     pt: {
       "meta.description": "O Taurifer mantém seus treinos, rascunhos e histórico neste dispositivo. Links de configuração compartilham um programa e ajustes selecionados.",
-      "tour.0.body": "Seus treinos, rascunhos e histórico ficam neste dispositivo. O Taurifer nunca os envia. Links de configuração compartilham um programa, sua configuração, oito ajustes selecionados e o idioma do app. Eles nunca incluem o histórico de treinos. Toque em <b>Próximo</b> para conhecer cada parte do app ou em <b>Pular tour</b> para fechar este guia.",
+      "guide.privacy.body": "Abra Privacidade para ver os limites exatos de armazenamento local, links, transferência e análise de uso.",
       "program.share_setup_body": "O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. Ele não inclui o histórico de treinos. Para instalar no iOS, um cookie temporário armazena a proposta comprimida. O host estático recebe esse cookie com as requisições correspondentes de index.html por até sete dias. A compressão e a codificação não criptografam a proposta.",
     },
   };
@@ -447,7 +444,6 @@ async function main() {
 
   const controlReferences = [
     ["log.unfinished.body", "log.finish"],
-    ["tour.8.body", "program.end_block"],
   ];
   for (const [lang, dict] of Object.entries({ en, pt })) {
     const staleControls = controlReferences

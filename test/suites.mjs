@@ -113,6 +113,7 @@ export const SUITES = {
     s("test/entry-chooser.mjs"),
     s("test/entry-expert-controls.mjs"),
     s("test/entry-install-policy.mjs"),
+    s("test/entry-guides.mjs"),
   ],
   workout: [
     s("test/i18n.mjs"),
