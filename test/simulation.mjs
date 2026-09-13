@@ -369,7 +369,7 @@ async function getProgramExercises(page, day) {
 }
 
 async function clearState(page) {
-  await page.evaluate(async ({ k, d, setup }) => {
+  await page.evaluate(async ({ k, d, setup, ui }) => {
     localStorage.removeItem(k);
     // Clean-fixture reset: a canonical remove alone leaves the V2 checkpoint,
     // recovery copy, tombstone and transaction sidecars behind. Those belong
@@ -378,13 +378,14 @@ async function clearState(page) {
       if (key === d || key.startsWith(`${d}:`)) localStorage.removeItem(key);
     }
     localStorage.removeItem(setup);
+    localStorage.removeItem(ui);
     await new Promise((res) => {
       const req = indexedDB.deleteDatabase("repforge");
       req.onsuccess = () => res();
       req.onerror = () => res();
       req.onblocked = () => res();
     });
-  }, { k: KEY, d: DRAFT, setup: SETUP_DRAFT });
+  }, { k: KEY, d: DRAFT, setup: SETUP_DRAFT, ui: "repforge_ui_v1" });
 }
 
 async function clearDraftFixture(page) {
@@ -9578,7 +9579,10 @@ async function main() {
   );
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => typeof window.__repforgeStorage?.flush === "function", { timeout: 10000 });
-  await startFromFirstRun(page);
+  // The generic landing is intentionally one-shot. A retained setup draft
+  // resumes directly in the entry hub on later launches instead of replaying
+  // the marketing surface and making the lifter choose Create again.
+  await page.waitForSelector("#onboarding.active", { timeout: 10000 });
   await page.waitForSelector("#entryResumeContinue", { timeout: 10000 });
   await page.click("#entryResumeContinue");
   await page.waitForSelector("#entryActivate", { timeout: 10000 });

@@ -7,8 +7,8 @@ generated output: a new version replaces the file wholesale, never an edit.
 ## `mark.png`
 
 The Taurifer yoke with no paper under it, 192×192 (48 CSS px at 4×), drawn by
-the first-run gate's brand row so the mark stands on the page instead of on a
-plate. It is derived from `icons/icon.svg` — the source of truth — by dropping
+the landing header so the mark stands on the page instead of on a plate. It is
+derived from `icons/icon.svg` — the source of truth — by dropping
 that file's single full-bleed ground rect and rasterising the rest:
 
 ```
@@ -22,18 +22,20 @@ warm ground, which reads as a tile against the app's paper.
 
 ## `milo-hero.webp`
 
-The first-run hero's illustration (ADR 0006): the calf-carrier grown into the
-bull-carrier, 960×894. Owner-supplied art, landed 2026-08 from a 1242×1266 PNG
-the product owner provided.
+The retired first-run illustration from ADR 0006: the calf-carrier grown into
+the bull-carrier, 960×894. Owner-supplied art, landed 2026-08 from a 1242×1266
+PNG the product owner provided. Plan 054 keeps this file only as historical
+design provenance; production markup and the service worker no longer refer to
+or precache it.
 
-It is shown whole at every width — never cropped, never running off an edge —
+In the superseded composition it was shown whole at every width — never cropped, never running off an edge —
 set into the poem's own block, with the poem flowing around it (`float`). The
 copy is what accommodates the picture: lines stay short while they pass it and
 run their full length below it. Do not solve a layout problem here by cropping
 this file or letting it bleed; re-break the copy instead
 (`docs/brand-guide.md`, "Ethos").
 
-Its size is not a number anywhere: the CSS derives it from the poem, taking
+Its former size was not a number: the CSS derived it from the poem, taking
 whichever is smaller of the column left over once a 27-character line has its
 room and the eight short lines it may pass (ADR 0006, amended 2026-08). So a
 new export at this ratio needs no measurement, and one at a different ratio
@@ -61,13 +63,11 @@ here, so the crop, the balance, and the encode were all done in the same
 borrowed Chromium the tools use — a canvas draw, a per-channel multiply over
 `ImageData`, and `canvas.toDataURL("image/webp", 0.9)`.
 
-To replace it: redo those steps against the new original, keep the file name,
-and bump `CACHE` in `sw.js` (the path is already in `ASSETS`; precache is
-atomic, so a listed-but-missing file breaks the whole service-worker install).
-Re-run `node test/install-modes.mjs`, which asserts the hero paints this file
-and that nothing about it reaches a screen reader.
+Do not replace or reconnect it without a new owner decision. The current
+`test/install-modes.mjs` instead checks the live product-loop landing selected
+for Plan 054.
 
-The hero paints it with `background-image` rather than an `<img>`: it is
+The retired hero painted it with `background-image` rather than an `<img>`: it was
 decorative, the copy beside it says everything, and a missing export leaves
 paper behind the copy rather than a broken-image glyph — the same line the
 exercise tiles hold. No placeholder art ever stands in for it.

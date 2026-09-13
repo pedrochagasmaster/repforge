@@ -41692,7 +41692,7 @@
       "key": "onboarding-shared/gate__phone-320-light-en",
       "flow": "onboarding-shared",
       "screen": "gate",
-      "label": "Shared setup — confirmation gate",
+      "label": "Shared setup — adaptive landing",
       "viewport": "phone-320",
       "theme": "light",
       "locale": "en",
@@ -41711,24 +41711,22 @@
           "text": "Taurifer"
         },
         {
-          "tag": "p",
-          "text": "Strength isn't something you're born with."
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
         },
         {
           "tag": "p",
-          "text": "Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it."
+          "text": "Program received"
+        },
+        {
+          "tag": "h1",
+          "text": "Your program is ready to train."
         },
         {
           "tag": "p",
-          "text": "Your program is ready."
-        },
-        {
-          "tag": "section",
-          "labelledBy": "Program"
-        },
-        {
-          "tag": "p",
-          "text": "Program"
+          "text": "Review the program that was sent to you, then start it on this device."
         },
         {
           "tag": "button",
@@ -41742,6 +41740,114 @@
         {
           "tag": "span",
           "text": "Coach program · 1 day per week"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "h2",
+          "text": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Workout"
+        },
+        {
+          "tag": "span",
+          "text": "History"
+        },
+        {
+          "tag": "span",
+          "text": "Program prescription"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 60 kg"
+        },
+        {
+          "tag": "span",
+          "text": "Target RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "Sets logged 3/3"
+        },
+        {
+          "tag": "small",
+          "text": "Set 1"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 2"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 3"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Next session · add load"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 62.5 kg"
+        },
+        {
+          "tag": "section",
+          "label": "How Taurifer helps"
+        },
+        {
+          "tag": "strong",
+          "text": "Built for your week"
+        },
+        {
+          "tag": "p",
+          "text": "A program that fits your time and goals."
+        },
+        {
+          "tag": "strong",
+          "text": "Set-by-set guidance"
+        },
+        {
+          "tag": "p",
+          "text": "Know exactly what to do in the gym."
+        },
+        {
+          "tag": "strong",
+          "text": "Adapts from your logs"
+        },
+        {
+          "tag": "p",
+          "text": "Progression based on your history."
         }
       ]
     },
@@ -41749,7 +41855,7 @@
       "key": "onboarding-shared/gate__phone-390-dark-en",
       "flow": "onboarding-shared",
       "screen": "gate",
-      "label": "Shared setup — confirmation gate",
+      "label": "Shared setup — adaptive landing",
       "viewport": "phone-390",
       "theme": "dark",
       "locale": "en",
@@ -41768,24 +41874,22 @@
           "text": "Taurifer"
         },
         {
-          "tag": "p",
-          "text": "Strength isn't something you're born with."
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
         },
         {
           "tag": "p",
-          "text": "Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it."
+          "text": "Program received"
+        },
+        {
+          "tag": "h1",
+          "text": "Your program is ready to train."
         },
         {
           "tag": "p",
-          "text": "Your program is ready."
-        },
-        {
-          "tag": "section",
-          "labelledBy": "Program"
-        },
-        {
-          "tag": "p",
-          "text": "Program"
+          "text": "Review the program that was sent to you, then start it on this device."
         },
         {
           "tag": "button",
@@ -41799,6 +41903,114 @@
         {
           "tag": "span",
           "text": "Coach program · 1 day per week"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "h2",
+          "text": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Workout"
+        },
+        {
+          "tag": "span",
+          "text": "History"
+        },
+        {
+          "tag": "span",
+          "text": "Program prescription"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 60 kg"
+        },
+        {
+          "tag": "span",
+          "text": "Target RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "Sets logged 3/3"
+        },
+        {
+          "tag": "small",
+          "text": "Set 1"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 2"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 3"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Next session · add load"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 62.5 kg"
+        },
+        {
+          "tag": "section",
+          "label": "How Taurifer helps"
+        },
+        {
+          "tag": "strong",
+          "text": "Built for your week"
+        },
+        {
+          "tag": "p",
+          "text": "A program that fits your time and goals."
+        },
+        {
+          "tag": "strong",
+          "text": "Set-by-set guidance"
+        },
+        {
+          "tag": "p",
+          "text": "Know exactly what to do in the gym."
+        },
+        {
+          "tag": "strong",
+          "text": "Adapts from your logs"
+        },
+        {
+          "tag": "p",
+          "text": "Progression based on your history."
         }
       ]
     },
@@ -41806,7 +42018,7 @@
       "key": "onboarding-shared/gate__phone-390-light-en",
       "flow": "onboarding-shared",
       "screen": "gate",
-      "label": "Shared setup — confirmation gate",
+      "label": "Shared setup — adaptive landing",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -41825,24 +42037,22 @@
           "text": "Taurifer"
         },
         {
-          "tag": "p",
-          "text": "Strength isn't something you're born with."
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
         },
         {
           "tag": "p",
-          "text": "Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it."
+          "text": "Program received"
+        },
+        {
+          "tag": "h1",
+          "text": "Your program is ready to train."
         },
         {
           "tag": "p",
-          "text": "Your program is ready."
-        },
-        {
-          "tag": "section",
-          "labelledBy": "Program"
-        },
-        {
-          "tag": "p",
-          "text": "Program"
+          "text": "Review the program that was sent to you, then start it on this device."
         },
         {
           "tag": "button",
@@ -41856,6 +42066,114 @@
         {
           "tag": "span",
           "text": "Coach program · 1 day per week"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "h2",
+          "text": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Workout"
+        },
+        {
+          "tag": "span",
+          "text": "History"
+        },
+        {
+          "tag": "span",
+          "text": "Program prescription"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 60 kg"
+        },
+        {
+          "tag": "span",
+          "text": "Target RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "Sets logged 3/3"
+        },
+        {
+          "tag": "small",
+          "text": "Set 1"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 2"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 3"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Next session · add load"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 62.5 kg"
+        },
+        {
+          "tag": "section",
+          "label": "How Taurifer helps"
+        },
+        {
+          "tag": "strong",
+          "text": "Built for your week"
+        },
+        {
+          "tag": "p",
+          "text": "A program that fits your time and goals."
+        },
+        {
+          "tag": "strong",
+          "text": "Set-by-set guidance"
+        },
+        {
+          "tag": "p",
+          "text": "Know exactly what to do in the gym."
+        },
+        {
+          "tag": "strong",
+          "text": "Adapts from your logs"
+        },
+        {
+          "tag": "p",
+          "text": "Progression based on your history."
         }
       ]
     },
@@ -41863,7 +42181,7 @@
       "key": "onboarding-shared/gate__phone-390-light-en-reduced",
       "flow": "onboarding-shared",
       "screen": "gate",
-      "label": "Shared setup — confirmation gate",
+      "label": "Shared setup — adaptive landing",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -41882,24 +42200,22 @@
           "text": "Taurifer"
         },
         {
-          "tag": "p",
-          "text": "Strength isn't something you're born with."
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
         },
         {
           "tag": "p",
-          "text": "Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it."
+          "text": "Program received"
+        },
+        {
+          "tag": "h1",
+          "text": "Your program is ready to train."
         },
         {
           "tag": "p",
-          "text": "Your program is ready."
-        },
-        {
-          "tag": "section",
-          "labelledBy": "Program"
-        },
-        {
-          "tag": "p",
-          "text": "Program"
+          "text": "Review the program that was sent to you, then start it on this device."
         },
         {
           "tag": "button",
@@ -41913,6 +42229,114 @@
         {
           "tag": "span",
           "text": "Coach program · 1 day per week"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "h2",
+          "text": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Workout"
+        },
+        {
+          "tag": "span",
+          "text": "History"
+        },
+        {
+          "tag": "span",
+          "text": "Program prescription"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 60 kg"
+        },
+        {
+          "tag": "span",
+          "text": "Target RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "Sets logged 3/3"
+        },
+        {
+          "tag": "small",
+          "text": "Set 1"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 2"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 3"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Next session · add load"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 62.5 kg"
+        },
+        {
+          "tag": "section",
+          "label": "How Taurifer helps"
+        },
+        {
+          "tag": "strong",
+          "text": "Built for your week"
+        },
+        {
+          "tag": "p",
+          "text": "A program that fits your time and goals."
+        },
+        {
+          "tag": "strong",
+          "text": "Set-by-set guidance"
+        },
+        {
+          "tag": "p",
+          "text": "Know exactly what to do in the gym."
+        },
+        {
+          "tag": "strong",
+          "text": "Adapts from your logs"
+        },
+        {
+          "tag": "p",
+          "text": "Progression based on your history."
         }
       ]
     },
@@ -41920,7 +42344,7 @@
       "key": "onboarding-shared/gate__phone-390-light-en-text200",
       "flow": "onboarding-shared",
       "screen": "gate",
-      "label": "Shared setup — confirmation gate",
+      "label": "Shared setup — adaptive landing",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -41939,24 +42363,22 @@
           "text": "Taurifer"
         },
         {
-          "tag": "p",
-          "text": "Strength isn't something you're born with."
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
         },
         {
           "tag": "p",
-          "text": "Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it."
+          "text": "Program received"
+        },
+        {
+          "tag": "h1",
+          "text": "Your program is ready to train."
         },
         {
           "tag": "p",
-          "text": "Your program is ready."
-        },
-        {
-          "tag": "section",
-          "labelledBy": "Program"
-        },
-        {
-          "tag": "p",
-          "text": "Program"
+          "text": "Review the program that was sent to you, then start it on this device."
         },
         {
           "tag": "button",
@@ -41970,6 +42392,114 @@
         {
           "tag": "span",
           "text": "Coach program · 1 day per week"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "h2",
+          "text": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Workout"
+        },
+        {
+          "tag": "span",
+          "text": "History"
+        },
+        {
+          "tag": "span",
+          "text": "Program prescription"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 60 kg"
+        },
+        {
+          "tag": "span",
+          "text": "Target RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "Sets logged 3/3"
+        },
+        {
+          "tag": "small",
+          "text": "Set 1"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 2"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 3"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Next session · add load"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 62.5 kg"
+        },
+        {
+          "tag": "section",
+          "label": "How Taurifer helps"
+        },
+        {
+          "tag": "strong",
+          "text": "Built for your week"
+        },
+        {
+          "tag": "p",
+          "text": "A program that fits your time and goals."
+        },
+        {
+          "tag": "strong",
+          "text": "Set-by-set guidance"
+        },
+        {
+          "tag": "p",
+          "text": "Know exactly what to do in the gym."
+        },
+        {
+          "tag": "strong",
+          "text": "Adapts from your logs"
+        },
+        {
+          "tag": "p",
+          "text": "Progression based on your history."
         }
       ]
     },
@@ -41977,7 +42507,7 @@
       "key": "onboarding-shared/gate__phone-390-light-pt",
       "flow": "onboarding-shared",
       "screen": "gate",
-      "label": "Shared setup — confirmation gate",
+      "label": "Shared setup — adaptive landing",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "pt",
@@ -41996,24 +42526,22 @@
           "text": "Taurifer"
         },
         {
-          "tag": "p",
-          "text": "Strength isn't something you're born with."
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
         },
         {
           "tag": "p",
-          "text": "Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it."
+          "text": "Program received"
+        },
+        {
+          "tag": "h1",
+          "text": "Your program is ready to train."
         },
         {
           "tag": "p",
-          "text": "Your program is ready."
-        },
-        {
-          "tag": "section",
-          "labelledBy": "Program"
-        },
-        {
-          "tag": "p",
-          "text": "Program"
+          "text": "Review the program that was sent to you, then start it on this device."
         },
         {
           "tag": "button",
@@ -42027,6 +42555,114 @@
         {
           "tag": "span",
           "text": "Coach program · 1 day per week"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "h2",
+          "text": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Workout"
+        },
+        {
+          "tag": "span",
+          "text": "History"
+        },
+        {
+          "tag": "span",
+          "text": "Program prescription"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 60 kg"
+        },
+        {
+          "tag": "span",
+          "text": "Target RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "Sets logged 3/3"
+        },
+        {
+          "tag": "small",
+          "text": "Set 1"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 2"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 3"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Next session · add load"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 62.5 kg"
+        },
+        {
+          "tag": "section",
+          "label": "How Taurifer helps"
+        },
+        {
+          "tag": "strong",
+          "text": "Built for your week"
+        },
+        {
+          "tag": "p",
+          "text": "A program that fits your time and goals."
+        },
+        {
+          "tag": "strong",
+          "text": "Set-by-set guidance"
+        },
+        {
+          "tag": "p",
+          "text": "Know exactly what to do in the gym."
+        },
+        {
+          "tag": "strong",
+          "text": "Adapts from your logs"
+        },
+        {
+          "tag": "p",
+          "text": "Progression based on your history."
         }
       ]
     },
@@ -42034,7 +42670,7 @@
       "key": "onboarding-shared/gate__phone-390-light-pt-text200",
       "flow": "onboarding-shared",
       "screen": "gate",
-      "label": "Shared setup — confirmation gate",
+      "label": "Shared setup — adaptive landing",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "pt",
@@ -42053,24 +42689,22 @@
           "text": "Taurifer"
         },
         {
-          "tag": "p",
-          "text": "Strength isn't something you're born with."
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
         },
         {
           "tag": "p",
-          "text": "Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it."
+          "text": "Program received"
+        },
+        {
+          "tag": "h1",
+          "text": "Your program is ready to train."
         },
         {
           "tag": "p",
-          "text": "Your program is ready."
-        },
-        {
-          "tag": "section",
-          "labelledBy": "Program"
-        },
-        {
-          "tag": "p",
-          "text": "Program"
+          "text": "Review the program that was sent to you, then start it on this device."
         },
         {
           "tag": "button",
@@ -42084,6 +42718,114 @@
         {
           "tag": "span",
           "text": "Coach program · 1 day per week"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "h2",
+          "text": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Workout"
+        },
+        {
+          "tag": "span",
+          "text": "History"
+        },
+        {
+          "tag": "span",
+          "text": "Program prescription"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 60 kg"
+        },
+        {
+          "tag": "span",
+          "text": "Target RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "Sets logged 3/3"
+        },
+        {
+          "tag": "small",
+          "text": "Set 1"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 2"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 3"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Next session · add load"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 62.5 kg"
+        },
+        {
+          "tag": "section",
+          "label": "How Taurifer helps"
+        },
+        {
+          "tag": "strong",
+          "text": "Built for your week"
+        },
+        {
+          "tag": "p",
+          "text": "A program that fits your time and goals."
+        },
+        {
+          "tag": "strong",
+          "text": "Set-by-set guidance"
+        },
+        {
+          "tag": "p",
+          "text": "Know exactly what to do in the gym."
+        },
+        {
+          "tag": "strong",
+          "text": "Adapts from your logs"
+        },
+        {
+          "tag": "p",
+          "text": "Progression based on your history."
         }
       ]
     },
@@ -42091,7 +42833,7 @@
       "key": "onboarding-shared/gate__phone-430-light-en",
       "flow": "onboarding-shared",
       "screen": "gate",
-      "label": "Shared setup — confirmation gate",
+      "label": "Shared setup — adaptive landing",
       "viewport": "phone-430",
       "theme": "light",
       "locale": "en",
@@ -42110,24 +42852,22 @@
           "text": "Taurifer"
         },
         {
-          "tag": "p",
-          "text": "Strength isn't something you're born with."
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
         },
         {
           "tag": "p",
-          "text": "Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it."
+          "text": "Program received"
+        },
+        {
+          "tag": "h1",
+          "text": "Your program is ready to train."
         },
         {
           "tag": "p",
-          "text": "Your program is ready."
-        },
-        {
-          "tag": "section",
-          "labelledBy": "Program"
-        },
-        {
-          "tag": "p",
-          "text": "Program"
+          "text": "Review the program that was sent to you, then start it on this device."
         },
         {
           "tag": "button",
@@ -42141,6 +42881,636 @@
         {
           "tag": "span",
           "text": "Coach program · 1 day per week"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "h2",
+          "text": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Workout"
+        },
+        {
+          "tag": "span",
+          "text": "History"
+        },
+        {
+          "tag": "span",
+          "text": "Program prescription"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 60 kg"
+        },
+        {
+          "tag": "span",
+          "text": "Target RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "Sets logged 3/3"
+        },
+        {
+          "tag": "small",
+          "text": "Set 1"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 2"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 3"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Next session · add load"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 62.5 kg"
+        },
+        {
+          "tag": "section",
+          "label": "How Taurifer helps"
+        },
+        {
+          "tag": "strong",
+          "text": "Built for your week"
+        },
+        {
+          "tag": "p",
+          "text": "A program that fits your time and goals."
+        },
+        {
+          "tag": "strong",
+          "text": "Set-by-set guidance"
+        },
+        {
+          "tag": "p",
+          "text": "Know exactly what to do in the gym."
+        },
+        {
+          "tag": "strong",
+          "text": "Adapts from your logs"
+        },
+        {
+          "tag": "p",
+          "text": "Progression based on your history."
+        }
+      ]
+    },
+    {
+      "key": "onboarding-shared/invalid__phone-390-dark-en",
+      "flow": "onboarding-shared",
+      "screen": "invalid",
+      "label": "Shared setup — invalid landing",
+      "viewport": "phone-390",
+      "theme": "dark",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Set up Taurifer",
+          "label": "Set up Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "This program link cannot be used."
+        },
+        {
+          "tag": "p",
+          "text": "Nothing from the link was saved. You can still build or import a program."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "This shared program link is invalid or incomplete.",
+          "name": "This shared program link is invalid or incomplete."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "h2",
+          "text": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Workout"
+        },
+        {
+          "tag": "span",
+          "text": "History"
+        },
+        {
+          "tag": "span",
+          "text": "Program prescription"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 60 kg"
+        },
+        {
+          "tag": "span",
+          "text": "Target RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "Sets logged 3/3"
+        },
+        {
+          "tag": "small",
+          "text": "Set 1"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 2"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 3"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Next session · add load"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 62.5 kg"
+        },
+        {
+          "tag": "p",
+          "text": "Plan. Lift. Progress."
+        },
+        {
+          "tag": "section",
+          "label": "How Taurifer helps"
+        },
+        {
+          "tag": "strong",
+          "text": "Built for your week"
+        },
+        {
+          "tag": "p",
+          "text": "A program that fits your time and goals."
+        },
+        {
+          "tag": "strong",
+          "text": "Set-by-set guidance"
+        },
+        {
+          "tag": "p",
+          "text": "Know exactly what to do in the gym."
+        },
+        {
+          "tag": "strong",
+          "text": "Adapts from your logs"
+        },
+        {
+          "tag": "p",
+          "text": "Progression based on your history."
+        }
+      ]
+    },
+    {
+      "key": "onboarding-shared/invalid__phone-390-light-en",
+      "flow": "onboarding-shared",
+      "screen": "invalid",
+      "label": "Shared setup — invalid landing",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Set up Taurifer",
+          "label": "Set up Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "This program link cannot be used."
+        },
+        {
+          "tag": "p",
+          "text": "Nothing from the link was saved. You can still build or import a program."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "This shared program link is invalid or incomplete.",
+          "name": "This shared program link is invalid or incomplete."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "h2",
+          "text": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Workout"
+        },
+        {
+          "tag": "span",
+          "text": "History"
+        },
+        {
+          "tag": "span",
+          "text": "Program prescription"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 60 kg"
+        },
+        {
+          "tag": "span",
+          "text": "Target RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "Sets logged 3/3"
+        },
+        {
+          "tag": "small",
+          "text": "Set 1"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 2"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 3"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Next session · add load"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 62.5 kg"
+        },
+        {
+          "tag": "p",
+          "text": "Plan. Lift. Progress."
+        },
+        {
+          "tag": "section",
+          "label": "How Taurifer helps"
+        },
+        {
+          "tag": "strong",
+          "text": "Built for your week"
+        },
+        {
+          "tag": "p",
+          "text": "A program that fits your time and goals."
+        },
+        {
+          "tag": "strong",
+          "text": "Set-by-set guidance"
+        },
+        {
+          "tag": "p",
+          "text": "Know exactly what to do in the gym."
+        },
+        {
+          "tag": "strong",
+          "text": "Adapts from your logs"
+        },
+        {
+          "tag": "p",
+          "text": "Progression based on your history."
+        }
+      ]
+    },
+    {
+      "key": "onboarding-shared/invalid__phone-390-light-pt",
+      "flow": "onboarding-shared",
+      "screen": "invalid",
+      "label": "Shared setup — invalid landing",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "pt",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "div",
+          "role": "dialog",
+          "name": "Configurar o Taurifer",
+          "label": "Configurar o Taurifer",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "button",
+          "text": "Privacidade",
+          "name": "Privacidade",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Este link de programa não pode ser usado."
+        },
+        {
+          "tag": "p",
+          "text": "Nada do link foi salvo. Você ainda pode montar ou importar um programa."
+        },
+        {
+          "tag": "p",
+          "role": "status",
+          "text": "Este link de programa compartilhado é inválido ou está incompleto.",
+          "name": "Este link de programa compartilhado é inválido ou está incompleto."
+        },
+        {
+          "tag": "button",
+          "name": "Montar meu programa",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Montar meu programa"
+        },
+        {
+          "tag": "button",
+          "name": "Acompanhar meu programa atual",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu programa atual"
+        },
+        {
+          "tag": "section",
+          "labelledBy": "Supino reto"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "h2",
+          "text": "Supino reto"
+        },
+        {
+          "tag": "span",
+          "text": "Treino"
+        },
+        {
+          "tag": "span",
+          "text": "Histórico"
+        },
+        {
+          "tag": "span",
+          "text": "Prescrição do programa"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 60 kg"
+        },
+        {
+          "tag": "span",
+          "text": "Meta de RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "Séries registradas 3/3"
+        },
+        {
+          "tag": "small",
+          "text": "Série 1"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Série 2"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Série 3"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Próxima sessão · aumente a carga"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 62.5 kg"
+        },
+        {
+          "tag": "p",
+          "text": "Planeje. Treine. Progrida."
+        },
+        {
+          "tag": "section",
+          "label": "Como o Taurifer ajuda"
+        },
+        {
+          "tag": "strong",
+          "text": "Feito para sua semana"
+        },
+        {
+          "tag": "p",
+          "text": "Um programa que cabe no seu tempo e nas suas metas."
+        },
+        {
+          "tag": "strong",
+          "text": "Orientação série por série"
+        },
+        {
+          "tag": "p",
+          "text": "Saiba exatamente o que fazer na academia."
+        },
+        {
+          "tag": "strong",
+          "text": "Adapta-se aos seus registros"
+        },
+        {
+          "tag": "p",
+          "text": "Progressão baseada no seu histórico."
         }
       ]
     },
@@ -42562,7 +43932,7 @@
       "key": "onboarding-start/first-run__phone-320-light-en",
       "flow": "onboarding-start",
       "screen": "first-run",
-      "label": "First-run gate",
+      "label": "One-time landing",
       "viewport": "phone-320",
       "theme": "light",
       "locale": "en",
@@ -42581,50 +43951,148 @@
           "text": "Taurifer"
         },
         {
-          "tag": "p",
-          "text": "Strength isn't something you're born with."
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Stop guessing what to lift. And start progressing."
         },
         {
           "tag": "p",
-          "text": "Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it."
+          "text": "Show up and lift. Taurifer plans your sessions, logs your sets, and tells you what comes next."
         },
         {
-          "tag": "p",
-          "text": "Choose where to start."
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "section",
-          "labelledBy": "Program"
+          "labelledBy": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "h2",
+          "text": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Workout"
+        },
+        {
+          "tag": "span",
+          "text": "History"
+        },
+        {
+          "tag": "span",
+          "text": "Program prescription"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 60 kg"
+        },
+        {
+          "tag": "span",
+          "text": "Target RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "Sets logged 3/3"
+        },
+        {
+          "tag": "small",
+          "text": "Set 1"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 2"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 3"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Next session · add load"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 62.5 kg"
         },
         {
           "tag": "p",
-          "text": "Program"
+          "text": "Plan. Lift. Progress."
         },
         {
-          "tag": "button",
-          "name": "Create a program Answer a few questions or build your own program",
-          "type": "button"
+          "tag": "section",
+          "label": "How Taurifer helps"
         },
         {
-          "tag": "span",
-          "text": "Create a program"
+          "tag": "strong",
+          "text": "Built for your week"
         },
         {
-          "tag": "span",
-          "text": "Answer a few questions or build your own program"
+          "tag": "p",
+          "text": "A program that fits your time and goals."
         },
         {
-          "tag": "button",
-          "name": "Import a program Use a shared Taurifer program",
-          "type": "button"
+          "tag": "strong",
+          "text": "Set-by-set guidance"
         },
         {
-          "tag": "span",
-          "text": "Import a program"
+          "tag": "p",
+          "text": "Know exactly what to do in the gym."
         },
         {
-          "tag": "span",
-          "text": "Use a shared Taurifer program"
+          "tag": "strong",
+          "text": "Adapts from your logs"
+        },
+        {
+          "tag": "p",
+          "text": "Progression based on your history."
         }
       ]
     },
@@ -42632,7 +44100,7 @@
       "key": "onboarding-start/first-run__phone-390-dark-en",
       "flow": "onboarding-start",
       "screen": "first-run",
-      "label": "First-run gate",
+      "label": "One-time landing",
       "viewport": "phone-390",
       "theme": "dark",
       "locale": "en",
@@ -42651,50 +44119,148 @@
           "text": "Taurifer"
         },
         {
-          "tag": "p",
-          "text": "Strength isn't something you're born with."
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Stop guessing what to lift. And start progressing."
         },
         {
           "tag": "p",
-          "text": "Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it."
+          "text": "Show up and lift. Taurifer plans your sessions, logs your sets, and tells you what comes next."
         },
         {
-          "tag": "p",
-          "text": "Choose where to start."
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "section",
-          "labelledBy": "Program"
+          "labelledBy": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "h2",
+          "text": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Workout"
+        },
+        {
+          "tag": "span",
+          "text": "History"
+        },
+        {
+          "tag": "span",
+          "text": "Program prescription"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 60 kg"
+        },
+        {
+          "tag": "span",
+          "text": "Target RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "Sets logged 3/3"
+        },
+        {
+          "tag": "small",
+          "text": "Set 1"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 2"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 3"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Next session · add load"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 62.5 kg"
         },
         {
           "tag": "p",
-          "text": "Program"
+          "text": "Plan. Lift. Progress."
         },
         {
-          "tag": "button",
-          "name": "Create a program Answer a few questions or build your own program",
-          "type": "button"
+          "tag": "section",
+          "label": "How Taurifer helps"
         },
         {
-          "tag": "span",
-          "text": "Create a program"
+          "tag": "strong",
+          "text": "Built for your week"
         },
         {
-          "tag": "span",
-          "text": "Answer a few questions or build your own program"
+          "tag": "p",
+          "text": "A program that fits your time and goals."
         },
         {
-          "tag": "button",
-          "name": "Import a program Use a shared Taurifer program",
-          "type": "button"
+          "tag": "strong",
+          "text": "Set-by-set guidance"
         },
         {
-          "tag": "span",
-          "text": "Import a program"
+          "tag": "p",
+          "text": "Know exactly what to do in the gym."
         },
         {
-          "tag": "span",
-          "text": "Use a shared Taurifer program"
+          "tag": "strong",
+          "text": "Adapts from your logs"
+        },
+        {
+          "tag": "p",
+          "text": "Progression based on your history."
         }
       ]
     },
@@ -42702,7 +44268,7 @@
       "key": "onboarding-start/first-run__phone-390-light-en",
       "flow": "onboarding-start",
       "screen": "first-run",
-      "label": "First-run gate",
+      "label": "One-time landing",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -42721,50 +44287,148 @@
           "text": "Taurifer"
         },
         {
-          "tag": "p",
-          "text": "Strength isn't something you're born with."
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Stop guessing what to lift. And start progressing."
         },
         {
           "tag": "p",
-          "text": "Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it."
+          "text": "Show up and lift. Taurifer plans your sessions, logs your sets, and tells you what comes next."
         },
         {
-          "tag": "p",
-          "text": "Choose where to start."
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "section",
-          "labelledBy": "Program"
+          "labelledBy": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "h2",
+          "text": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Workout"
+        },
+        {
+          "tag": "span",
+          "text": "History"
+        },
+        {
+          "tag": "span",
+          "text": "Program prescription"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 60 kg"
+        },
+        {
+          "tag": "span",
+          "text": "Target RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "Sets logged 3/3"
+        },
+        {
+          "tag": "small",
+          "text": "Set 1"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 2"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 3"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Next session · add load"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 62.5 kg"
         },
         {
           "tag": "p",
-          "text": "Program"
+          "text": "Plan. Lift. Progress."
         },
         {
-          "tag": "button",
-          "name": "Create a program Answer a few questions or build your own program",
-          "type": "button"
+          "tag": "section",
+          "label": "How Taurifer helps"
         },
         {
-          "tag": "span",
-          "text": "Create a program"
+          "tag": "strong",
+          "text": "Built for your week"
         },
         {
-          "tag": "span",
-          "text": "Answer a few questions or build your own program"
+          "tag": "p",
+          "text": "A program that fits your time and goals."
         },
         {
-          "tag": "button",
-          "name": "Import a program Use a shared Taurifer program",
-          "type": "button"
+          "tag": "strong",
+          "text": "Set-by-set guidance"
         },
         {
-          "tag": "span",
-          "text": "Import a program"
+          "tag": "p",
+          "text": "Know exactly what to do in the gym."
         },
         {
-          "tag": "span",
-          "text": "Use a shared Taurifer program"
+          "tag": "strong",
+          "text": "Adapts from your logs"
+        },
+        {
+          "tag": "p",
+          "text": "Progression based on your history."
         }
       ]
     },
@@ -42772,7 +44436,7 @@
       "key": "onboarding-start/first-run__phone-390-light-en-reduced",
       "flow": "onboarding-start",
       "screen": "first-run",
-      "label": "First-run gate",
+      "label": "One-time landing",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -42791,50 +44455,148 @@
           "text": "Taurifer"
         },
         {
-          "tag": "p",
-          "text": "Strength isn't something you're born with."
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Stop guessing what to lift. And start progressing."
         },
         {
           "tag": "p",
-          "text": "Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it."
+          "text": "Show up and lift. Taurifer plans your sessions, logs your sets, and tells you what comes next."
         },
         {
-          "tag": "p",
-          "text": "Choose where to start."
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "section",
-          "labelledBy": "Program"
+          "labelledBy": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "h2",
+          "text": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Workout"
+        },
+        {
+          "tag": "span",
+          "text": "History"
+        },
+        {
+          "tag": "span",
+          "text": "Program prescription"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 60 kg"
+        },
+        {
+          "tag": "span",
+          "text": "Target RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "Sets logged 3/3"
+        },
+        {
+          "tag": "small",
+          "text": "Set 1"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 2"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 3"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Next session · add load"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 62.5 kg"
         },
         {
           "tag": "p",
-          "text": "Program"
+          "text": "Plan. Lift. Progress."
         },
         {
-          "tag": "button",
-          "name": "Create a program Answer a few questions or build your own program",
-          "type": "button"
+          "tag": "section",
+          "label": "How Taurifer helps"
         },
         {
-          "tag": "span",
-          "text": "Create a program"
+          "tag": "strong",
+          "text": "Built for your week"
         },
         {
-          "tag": "span",
-          "text": "Answer a few questions or build your own program"
+          "tag": "p",
+          "text": "A program that fits your time and goals."
         },
         {
-          "tag": "button",
-          "name": "Import a program Use a shared Taurifer program",
-          "type": "button"
+          "tag": "strong",
+          "text": "Set-by-set guidance"
         },
         {
-          "tag": "span",
-          "text": "Import a program"
+          "tag": "p",
+          "text": "Know exactly what to do in the gym."
         },
         {
-          "tag": "span",
-          "text": "Use a shared Taurifer program"
+          "tag": "strong",
+          "text": "Adapts from your logs"
+        },
+        {
+          "tag": "p",
+          "text": "Progression based on your history."
         }
       ]
     },
@@ -42842,7 +44604,7 @@
       "key": "onboarding-start/first-run__phone-390-light-en-text200",
       "flow": "onboarding-start",
       "screen": "first-run",
-      "label": "First-run gate",
+      "label": "One-time landing",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "en",
@@ -42861,50 +44623,148 @@
           "text": "Taurifer"
         },
         {
-          "tag": "p",
-          "text": "Strength isn't something you're born with."
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Stop guessing what to lift. And start progressing."
         },
         {
           "tag": "p",
-          "text": "Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it."
+          "text": "Show up and lift. Taurifer plans your sessions, logs your sets, and tells you what comes next."
         },
         {
-          "tag": "p",
-          "text": "Choose where to start."
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "section",
-          "labelledBy": "Program"
+          "labelledBy": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "h2",
+          "text": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Workout"
+        },
+        {
+          "tag": "span",
+          "text": "History"
+        },
+        {
+          "tag": "span",
+          "text": "Program prescription"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 60 kg"
+        },
+        {
+          "tag": "span",
+          "text": "Target RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "Sets logged 3/3"
+        },
+        {
+          "tag": "small",
+          "text": "Set 1"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 2"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 3"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Next session · add load"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 62.5 kg"
         },
         {
           "tag": "p",
-          "text": "Program"
+          "text": "Plan. Lift. Progress."
         },
         {
-          "tag": "button",
-          "name": "Create a program Answer a few questions or build your own program",
-          "type": "button"
+          "tag": "section",
+          "label": "How Taurifer helps"
         },
         {
-          "tag": "span",
-          "text": "Create a program"
+          "tag": "strong",
+          "text": "Built for your week"
         },
         {
-          "tag": "span",
-          "text": "Answer a few questions or build your own program"
+          "tag": "p",
+          "text": "A program that fits your time and goals."
         },
         {
-          "tag": "button",
-          "name": "Import a program Use a shared Taurifer program",
-          "type": "button"
+          "tag": "strong",
+          "text": "Set-by-set guidance"
         },
         {
-          "tag": "span",
-          "text": "Import a program"
+          "tag": "p",
+          "text": "Know exactly what to do in the gym."
         },
         {
-          "tag": "span",
-          "text": "Use a shared Taurifer program"
+          "tag": "strong",
+          "text": "Adapts from your logs"
+        },
+        {
+          "tag": "p",
+          "text": "Progression based on your history."
         }
       ]
     },
@@ -42912,7 +44772,7 @@
       "key": "onboarding-start/first-run__phone-390-light-pt",
       "flow": "onboarding-start",
       "screen": "first-run",
-      "label": "First-run gate",
+      "label": "One-time landing",
       "viewport": "phone-390",
       "theme": "light",
       "locale": "pt",
@@ -42931,50 +44791,148 @@
           "text": "Taurifer"
         },
         {
-          "tag": "p",
-          "text": "Força não vem de nascença."
+          "tag": "button",
+          "text": "Privacidade",
+          "name": "Privacidade",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Pare de adivinhar o que levantar. E comece a progredir."
         },
         {
           "tag": "p",
-          "text": "Desafio após desafio. Dia após dia. Toda vez que você vai além do que julgava possível, o esforço molda você. Ele passa a fazer parte de quem você é. E você se torna quem precisou ser. A força, então, é sua — não porque lhe foi dada, mas porque você a construiu."
+          "text": "Apareça e treine. O Taurifer planeja suas sessões, registra suas séries e diz o que vem depois."
         },
         {
-          "tag": "p",
-          "text": "Escolha por onde começar."
+          "tag": "button",
+          "name": "Montar meu programa",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Montar meu programa"
+        },
+        {
+          "tag": "button",
+          "name": "Acompanhar meu programa atual",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu programa atual"
         },
         {
           "tag": "section",
-          "labelledBy": "Programa"
+          "labelledBy": "Supino reto"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "h2",
+          "text": "Supino reto"
+        },
+        {
+          "tag": "span",
+          "text": "Treino"
+        },
+        {
+          "tag": "span",
+          "text": "Histórico"
+        },
+        {
+          "tag": "span",
+          "text": "Prescrição do programa"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 60 kg"
+        },
+        {
+          "tag": "span",
+          "text": "Meta de RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "Séries registradas 3/3"
+        },
+        {
+          "tag": "small",
+          "text": "Série 1"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Série 2"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Série 3"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Próxima sessão · aumente a carga"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 62.5 kg"
         },
         {
           "tag": "p",
-          "text": "Programa"
+          "text": "Planeje. Treine. Progrida."
         },
         {
-          "tag": "button",
-          "name": "Criar um programa Responda a algumas perguntas ou monte seu próprio programa",
-          "type": "button"
+          "tag": "section",
+          "label": "Como o Taurifer ajuda"
         },
         {
-          "tag": "span",
-          "text": "Criar um programa"
+          "tag": "strong",
+          "text": "Feito para sua semana"
         },
         {
-          "tag": "span",
-          "text": "Responda a algumas perguntas ou monte seu próprio programa"
+          "tag": "p",
+          "text": "Um programa que cabe no seu tempo e nas suas metas."
         },
         {
-          "tag": "button",
-          "name": "Importar um programa Use um programa Taurifer compartilhado",
-          "type": "button"
+          "tag": "strong",
+          "text": "Orientação série por série"
         },
         {
-          "tag": "span",
-          "text": "Importar um programa"
+          "tag": "p",
+          "text": "Saiba exatamente o que fazer na academia."
         },
         {
-          "tag": "span",
-          "text": "Use um programa Taurifer compartilhado"
+          "tag": "strong",
+          "text": "Adapta-se aos seus registros"
+        },
+        {
+          "tag": "p",
+          "text": "Progressão baseada no seu histórico."
         }
       ]
     },
@@ -42982,7 +44940,7 @@
       "key": "onboarding-start/first-run__phone-430-light-en",
       "flow": "onboarding-start",
       "screen": "first-run",
-      "label": "First-run gate",
+      "label": "One-time landing",
       "viewport": "phone-430",
       "theme": "light",
       "locale": "en",
@@ -43001,50 +44959,148 @@
           "text": "Taurifer"
         },
         {
-          "tag": "p",
-          "text": "Strength isn't something you're born with."
+          "tag": "button",
+          "text": "Privacy",
+          "name": "Privacy",
+          "type": "button"
+        },
+        {
+          "tag": "h1",
+          "text": "Stop guessing what to lift. And start progressing."
         },
         {
           "tag": "p",
-          "text": "Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it."
+          "text": "Show up and lift. Taurifer plans your sessions, logs your sets, and tells you what comes next."
         },
         {
-          "tag": "p",
-          "text": "Choose where to start."
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "section",
-          "labelledBy": "Program"
+          "labelledBy": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Taurifer"
+        },
+        {
+          "tag": "h2",
+          "text": "Bench press"
+        },
+        {
+          "tag": "span",
+          "text": "Workout"
+        },
+        {
+          "tag": "span",
+          "text": "History"
+        },
+        {
+          "tag": "span",
+          "text": "Program prescription"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 60 kg"
+        },
+        {
+          "tag": "span",
+          "text": "Target RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "Sets logged 3/3"
+        },
+        {
+          "tag": "small",
+          "text": "Set 1"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 2"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Set 3"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "span",
+          "text": "RIR 2"
+        },
+        {
+          "tag": "small",
+          "text": "Next session · add load"
+        },
+        {
+          "tag": "strong",
+          "text": "3 × 8–10 62.5 kg"
         },
         {
           "tag": "p",
-          "text": "Program"
+          "text": "Plan. Lift. Progress."
         },
         {
-          "tag": "button",
-          "name": "Create a program Answer a few questions or build your own program",
-          "type": "button"
+          "tag": "section",
+          "label": "How Taurifer helps"
         },
         {
-          "tag": "span",
-          "text": "Create a program"
+          "tag": "strong",
+          "text": "Built for your week"
         },
         {
-          "tag": "span",
-          "text": "Answer a few questions or build your own program"
+          "tag": "p",
+          "text": "A program that fits your time and goals."
         },
         {
-          "tag": "button",
-          "name": "Import a program Use a shared Taurifer program",
-          "type": "button"
+          "tag": "strong",
+          "text": "Set-by-set guidance"
         },
         {
-          "tag": "span",
-          "text": "Import a program"
+          "tag": "p",
+          "text": "Know exactly what to do in the gym."
         },
         {
-          "tag": "span",
-          "text": "Use a shared Taurifer program"
+          "tag": "strong",
+          "text": "Adapts from your logs"
+        },
+        {
+          "tag": "p",
+          "text": "Progression based on your history."
         }
       ]
     },

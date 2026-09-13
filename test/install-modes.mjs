@@ -2,8 +2,7 @@
 /**
  * Install promotion and the first-run setup screen.
  *
- * The screen opens on every first run, because the program question is always
- * live there. What its install section says is decided by capabilities and
+ * The landing opens once on an empty device. What its install section says is decided by capabilities and
  * display mode, never by screen size, so this suite drives each capability
  * combination and reads back what was rendered:
  *
@@ -19,16 +18,9 @@
  * that the event is consumed, and that no install is claimed unless Chrome
  * said "accepted".
  *
- * The ethos hero (ADR 0006) leads the gate in both languages; its strings are
- * locked here the way the install cards are — line breaks included, because the
- * block is set like a poem and the breaks are part of the copy — and its
- * illustration must stay decorative: painted by CSS, hidden from assistive
- * technology, never announced.
- *
- * The hero is also the one place in the app whose *shape* is copy: a wrapped
- * line is a broken line, so the last section drives the gate across phone
- * widths in both languages and counts the line boxes the poem actually
- * occupies against the breaks its string was written with.
+ * Plan 054 supersedes the full ethos hero with the owner-selected product loop.
+ * This suite locks its prescription, logged sets, derived next target, early
+ * entry actions, and responsive separation from controls across both locales.
  *
  * Two more sections cover the install offer outside first run:
  *
@@ -109,6 +101,10 @@ async function firstRunPage(browser, { ua, locale = "en-US", standalone = false,
   }
   await page.addInitScript(INSTALL_EVENT);
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  // P3 writes entryLandingSeen at the end of the first landing render. Let
+  // that boot settle before clearing the origin, or its late UI-pref write can
+  // race the reset and make the deliberate clean reload look like a return.
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
   await page.evaluate(async () => {
     localStorage.clear();
     await new Promise((res) => {
@@ -249,94 +245,50 @@ const card = () => ({
   create: !!document.querySelector("#firstRunCreate"),
   import: !!document.querySelector("#firstRunImport"),
   heroTitle: document.querySelector(".firstrun-hero__title")?.textContent || null,
-  heroBody: document.querySelector(".firstrun-hero__body")?.textContent || null,
-  // The illustration is painted, not marked up, so nothing about it may reach a
-  // screen reader: no alt text to read and no image element to announce.
-  heroArtDecorative:
-    [...document.querySelectorAll(".firstrun-hero img")].every((n) => n.getAttribute("alt") === "") &&
-    (document.querySelector(".firstrun-hero__art")?.getAttribute("aria-hidden") === "true") &&
-    !document.querySelector(".firstrun-hero__art")?.textContent.trim(),
-  heroArtFile: (() => {
-    const art = document.querySelector(".firstrun-hero__art");
-    return art ? getComputedStyle(art).backgroundImage : null;
-  })(),
+  heroBody: document.querySelector("#firstRunLede")?.textContent || null,
+  previewText: document.querySelector(".firstrun-preview")?.textContent.replace(/\s+/g, " ").trim() || null,
+  privacy: document.querySelector("#firstRunPrivacy")?.textContent.trim() || null,
   // The gate stands the mark on its paper, so it draws the ground-free
   // rendering and never the app icon, which carries a ground of its own.
   markSrc: document.querySelector(".firstrun__logo")?.getAttribute("src") || null,
 });
 
-// What the gate looks like, measured rather than described. The picture and
-// copy use separate grid regions, so no line the passage was written with may
-// wrap and no text can collide with the illustration. Compact screens stack
-// title, art, and poem; wide screens give the art its own column. The complete
-// export stays contained at its authored ratio, the page never grows wider
-// than the viewport, and the enlarged brand row remains centred.
+// The selected landing keeps the live product loop separate from copy and
+// controls. At the narrowest supported width it stacks; otherwise it uses the
+// owner-selected copy/phone composition without horizontal overflow.
 const heroShape = () => {
-  const poem = document.querySelector(".firstrun-hero__body");
-  const art = document.querySelector(".firstrun-hero__art");
   const title = document.querySelector(".firstrun-hero__title");
   const hero = document.querySelector(".firstrun-hero");
+  const preview = document.querySelector(".firstrun-preview");
   const logo = document.querySelector(".firstrun__logo");
   const wordmark = document.querySelector(".firstrun__wordmark");
   const lede = document.querySelector(".firstrun__lede");
-  const firstControl = document.querySelector("#firstRunInstallAction");
-  const installLabel = document.querySelector("#firstRunInstallLabel");
-  const installCard = document.querySelector("#firstRunInstallCard");
-  const programLabel = document.querySelector("#firstRunProgramLabel");
-  const rows = document.querySelector(".firstrun__rows");
-  const continueButton = document.querySelector(".firstrun__continue");
+  const actions = document.querySelector("#firstRunStandardProgram");
+  const firstControl = document.querySelector("#firstRunCreate");
   const row = document.querySelector(".firstrun__brand").getBoundingClientRect();
-  const range = document.createRange();
-  range.selectNodeContents(poem);
-  const lineRects = [...range.getClientRects()].filter((r) => r.width > 0);
-  const p = poem.getBoundingClientRect();
-  const a = art.getBoundingClientRect();
+  const p = preview.getBoundingClientRect();
+  const copy = document.querySelector(".firstrun-hero__copy").getBoundingClientRect();
+  const controls = actions.getBoundingClientRect();
   const t = title.getBoundingClientRect();
   const h = hero.getBoundingClientRect();
   const intersects = (one, two) =>
     one.left < two.right && one.right > two.left && one.top < two.bottom && one.bottom > two.top;
   return {
-    // One rect per line box the poem occupies; the stanza breaks are empty
-    // ones, and a wrapped line shows up as one more than was written.
-    rendered: lineRects.length,
-    written: poem.textContent.split("\n").filter((line) => line.trim()).length,
-    poemSize: parseFloat(getComputedStyle(poem).fontSize),
-    poemHeight: p.height,
-    compact: matchMedia("(max-width:759px)").matches,
+    stacked: getComputedStyle(hero).gridTemplateAreas.includes('"copy"') &&
+      !getComputedStyle(hero).gridTemplateAreas.includes('"copy preview"'),
     titleAlign: getComputedStyle(title).textAlign,
-    titleCentered: Math.abs((t.left + t.right) / 2 - (h.left + h.right) / 2) <= 1,
-    artBeforePoem: a.bottom <= p.top + 1,
-    artSeparated: !intersects(a, t) && !intersects(a, p),
-    artInsideHero:
-      a.left >= h.left - 1 && a.right <= h.right + 1 && a.top >= h.top - 1 && a.bottom <= h.bottom + 1,
-    artInsideViewport: a.left >= -1 && a.right <= innerWidth + 1,
-    artWidth: Math.round(a.width),
-    artRatio: a.width / a.height,
-    artContained: getComputedStyle(art).backgroundSize === "contain",
+    previewSeparated: !intersects(p, controls) && !intersects(p, t) && !intersects(p, lede.getBoundingClientRect()),
+    previewInsideViewport: p.left >= -1 && p.right <= innerWidth + 1,
+    previewFacts: preview.textContent.replace(/\s+/g, " ").trim(),
     noHorizontalOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
     heroBottom: h.bottom,
     ledeTop: lede.getBoundingClientRect().top,
     firstControlTop: firstControl?.getBoundingClientRect().top ?? null,
     viewportHeight: innerHeight,
-    leftEdges: {
-      hero: h.left,
-      title: t.left,
-      poem: p.left,
-      lede: lede.getBoundingClientRect().left,
-      installLabel: installLabel.getBoundingClientRect().left,
-      installCard: installCard.getBoundingClientRect().left,
-      programLabel: programLabel.getBoundingClientRect().left,
-      rows: rows.getBoundingClientRect().left,
-      continueButton: continueButton.getBoundingClientRect().left,
-    },
+    copyInsideHero: copy.left >= h.left - 1 && copy.right <= h.right + 1,
     logoWidth: Math.round(logo.getBoundingClientRect().width),
     wordmarkSize: parseFloat(getComputedStyle(wordmark).fontSize),
-    // The tracked wordmark ends on a letter-space nothing fills, so the ink is
-    // centred when this sits a pixel or two right of the column's middle.
-    lockupOffset: Math.round(
-      (logo.getBoundingClientRect().left + wordmark.getBoundingClientRect().right) / 2 -
-        (row.left + row.right) / 2
-    ),
+    lockupInsideViewport: row.left >= 0 && row.right <= innerWidth,
   };
 };
 
@@ -362,25 +314,32 @@ async function run() {
     assert(shown.action === "Install Taurifer", "the button asks Chrome to install", shown.action);
     assert(shown.continueLabel === "Continue in browser", "the escape hatch says browser", shown.continueLabel);
     assert(
-      shown.heroTitle === "Strength isn't something you're born with.",
-      "the ethos hero leads the gate",
+      shown.heroTitle === "Stop guessing what to lift. And start progressing.",
+      "the product landing leads the gate",
       shown.heroTitle
     );
     assert(
-      shown.heroBody ===
-        "Challenge after challenge.\nDay after day.\nEvery time you go beyond\nwhat you thought possible," +
-          "\nthe effort shapes you.\n\nIt becomes part of\nwho you are.\nAnd you become who you needed to be." +
-          "\n\nStrength, then, is yours —\nnot because it was given to you,\nbut because you built it.",
-      "the hero body carries the ethos, broken where it was written",
+      shown.heroBody === "Show up and lift. Taurifer plans your sessions, logs your sets, and tells you what comes next.",
+      "the landing explains the product loop",
       JSON.stringify(shown.heroBody)
     );
-    assert(shown.heroArtDecorative, "the hero art reaches no screen reader");
     assert(
-      /assets\/brand\/milo-hero\.webp/.test(shown.heroArtFile || ""),
-      "the illustration is the one the hero paints",
-      shown.heroArtFile
+      /Program prescription/.test(shown.previewText || "") && /Sets logged 3\/3/.test(shown.previewText || "") && /62\.5 kg/.test(shown.previewText || ""),
+      "the preview carries prescription, logged work, and derived next target",
+      shown.previewText
     );
+    assert(shown.privacy === "Privacy", "the landing links to Privacy", shown.privacy);
     assert(shown.markSrc === "assets/brand/mark.png", "the gate stands the ground-free mark on its paper", shown.markSrc);
+
+    await page.click("#firstRunPrivacy");
+    await page.waitForSelector("#privacySheet.is-open:not([hidden])", { timeout: 8000 });
+    const privacy = await page.evaluate(() => ({
+      title: document.querySelector("#privacyTitle")?.textContent.trim() || "",
+      modal: document.querySelector("#privacySheet")?.getAttribute("aria-modal") || null,
+    }));
+    assert(privacy.title === "Privacy" && privacy.modal === "true", "the landing Privacy action opens the existing disclosure surface", JSON.stringify(privacy));
+    await page.click("#privacyClose");
+    await page.waitForFunction(() => document.querySelector("#privacySheet")?.hidden === true, undefined, { timeout: 8000 });
 
     await page.click("#firstRunInstallAction");
     await page.waitForTimeout(300);
@@ -397,8 +356,8 @@ async function run() {
     assert(accepted.calls === 1, "prompt() runs once per tap", String(accepted.calls));
     assert(accepted.toast === "Installing Taurifer…", "an accepted install is reported", String(accepted.toast));
     assert(
-      accepted.lede === "Choose where to start." && !accepted.continueShown,
-      "the screen drops to the program question alone",
+      accepted.lede === "Show up and lift. Taurifer plans your sessions, logs your sets, and tells you what comes next." && !accepted.continueShown,
+      "install completion leaves the product landing and removes only its escape hatch",
       JSON.stringify({ lede: accepted.lede, continueShown: accepted.continueShown })
     );
     assert(!accepted.section, "an accepted install removes the install section", JSON.stringify(accepted));
@@ -527,7 +486,7 @@ async function run() {
     }));
     assert(st.create && st.import, "the screen still asks the program question", JSON.stringify(st));
     assert(!st.section, "no install section is drawn", JSON.stringify(st));
-    assert(st.lede === "Choose where to start.", "the lede drops the install sentence", st.lede);
+    assert(st.lede === "Show up and lift. Taurifer plans your sessions, logs your sets, and tells you what comes next.", "the landing copy does not invent an unavailable install action", st.lede);
     assert(!st.continueShown, "no browser to continue in, no link offering it", JSON.stringify(st));
     assert(!st.banner && !st.topButton, "and nothing else promotes an install", JSON.stringify(st));
     allErrors.push(...errors);
@@ -556,7 +515,7 @@ async function run() {
     assert(st.create && st.import, "the installed app still offers Create and Import", JSON.stringify(st));
     assert(!st.onboarding, "it does not jump straight into the wizard", JSON.stringify(st));
     assert(!st.section, "it promotes no install", JSON.stringify(st));
-    assert(st.lede === "Choose where to start.", "the lede drops the install sentence", st.lede);
+    assert(st.lede === "Show up and lift. Taurifer plans your sessions, logs your sets, and tells you what comes next.", "the installed landing keeps its product explanation", st.lede);
     assert(!st.continueShown, "and there is no browser to continue in", JSON.stringify(st));
     assert(!st.banner, "the banner stays away", JSON.stringify(st));
     assert(!st.topButton, "the top install button stays away", JSON.stringify(st));
@@ -655,13 +614,10 @@ async function run() {
       pt.body
     );
     assert(pt.continueLabel === "Continuar no Safari", "PT escape hatch", pt.continueLabel);
-    assert(pt.heroTitle === "Força não vem de nascença.", "PT hero title", pt.heroTitle);
+    assert(pt.heroTitle === "Pare de adivinhar o que levantar. E comece a progredir.", "PT landing title", pt.heroTitle);
     assert(
-      pt.heroBody ===
-        "Desafio após desafio.\nDia após dia.\nToda vez que você vai além\ndo que julgava possível," +
-          "\no esforço molda você.\n\nEle passa a fazer parte\nde quem você é.\nE você se torna quem precisou ser." +
-          "\n\nA força, então, é sua —\nnão porque lhe foi dada,\nmas porque você a construiu.",
-      "PT hero body",
+      pt.heroBody === "Apareça e treine. O Taurifer planeja suas sessões, registra suas séries e diz o que vem depois.",
+      "PT landing body",
       JSON.stringify(pt.heroBody)
     );
     await context.close();
@@ -683,10 +639,9 @@ async function run() {
     allErrors.push(...errors);
   }
 
-  // ---- The hero's shape, from compact phones through the wide composition ----
+  // ---- The landing's shape, from compact phones through the wide composition ----
   {
-    console.log("\nThe ethos hero's shape");
-    const poemSizeAt759 = new Map();
+    console.log("\nThe product landing's shape");
     for (const width of [320, 390, 430, 759, 760, 768, 1024, 1280]) {
       for (const locale of ["en-US", "pt-BR"]) {
         const { context, page, errors } = await firstRunPage(browser, { ua: IOS_UA, locale, width });
@@ -696,52 +651,17 @@ async function run() {
         await page.waitForTimeout(150);
         const shape = await page.evaluate(heroShape);
         const at = `${width}px ${locale}`;
+        assert(shape.previewSeparated, `${at}: product preview does not cover copy or entry actions`, JSON.stringify(shape));
+        assert(shape.previewInsideViewport, `${at}: product preview stays inside the viewport`, JSON.stringify(shape));
+        assert(/3 × 8–10/.test(shape.previewFacts) && /60 kg × 10/.test(shape.previewFacts) && /62\.5 kg/.test(shape.previewFacts), `${at}: the complete product loop remains present`, shape.previewFacts);
+        assert(shape.titleAlign === "left", `${at}: the editorial headline stays left aligned`, shape.titleAlign);
         assert(
-          shape.rendered === shape.written,
-          `${at}: the poem keeps the breaks it was written with`,
-          JSON.stringify(shape)
-        );
-        assert(shape.artSeparated, `${at}: text never overlaps the illustration`, JSON.stringify(shape));
-        assert(
-          shape.artInsideHero && shape.artInsideViewport && shape.artContained,
-          `${at}: the complete illustration stays contained in the page`,
-          JSON.stringify(shape)
-        );
-        assert(
-          Math.abs(shape.artRatio - 1072 / 998) < 0.002,
-          `${at}: the illustration keeps its original proportions`,
-          JSON.stringify(shape)
-        );
-        if (width === 390) {
-          assert(
-            shape.artWidth >= 240,
-            `${at}: the retained mobile illustration is at least 240px wide`,
-            JSON.stringify(shape)
-          );
-        }
-        assert(
-          shape.compact ? shape.artBeforePoem : !shape.artBeforePoem,
-          `${at}: the responsive hero uses the intended composition`,
-          JSON.stringify(shape)
-        );
-        assert(
-          shape.compact
-            ? shape.titleAlign === "center" && shape.titleCentered
-            : shape.titleAlign === "left",
-          `${at}: the hero title follows the compact and wide alignment`,
-          JSON.stringify({ align: shape.titleAlign, centered: shape.titleCentered })
-        );
-        assert(
-          shape.logoWidth >= 62 && shape.wordmarkSize >= 21,
-          `${at}: the brand lockup has deliberate prominence`,
+          shape.logoWidth >= 39 && shape.wordmarkSize >= 14 && shape.lockupInsideViewport,
+          `${at}: the brand lockup remains legible and contained`,
           JSON.stringify(shape)
         );
         assert(shape.noHorizontalOverflow, `${at}: the page has no horizontal overflow`, JSON.stringify(shape));
-        assert(
-          Math.abs(shape.lockupOffset) <= 4,
-          `${at}: the mark and the wordmark are centred on the column`,
-          JSON.stringify(shape)
-        );
+        assert(shape.copyInsideHero, `${at}: landing copy stays within its grid region`, JSON.stringify(shape));
         if (width === 320 || width === 390) {
           assert(
             shape.ledeTop < shape.viewportHeight,
@@ -752,22 +672,6 @@ async function run() {
             shape.firstControlTop != null && shape.firstControlTop <= 1.15 * shape.viewportHeight,
             `${at}: the first control is within 1.15 screens`,
             JSON.stringify(shape)
-          );
-        }
-        if (width === 759) poemSizeAt759.set(locale, shape.poemSize);
-        if (width === 760) {
-          assert(
-            Math.abs(shape.poemSize - poemSizeAt759.get(locale)) < 1,
-            `${at}: the poem size stays continuous across the breakpoint`,
-            JSON.stringify({ at759: poemSizeAt759.get(locale), at760: shape.poemSize })
-          );
-        }
-        if (width === 768 || width === 1280) {
-          const edges = Object.values(shape.leftEdges);
-          assert(
-            Math.max(...edges) - Math.min(...edges) <= 1,
-            `${at}: first-run content shares the hero's left edge`,
-            JSON.stringify(shape.leftEdges)
           );
         }
         allErrors.push(...errors);
@@ -969,10 +873,10 @@ async function run() {
       assert(encoded?.ok, "shared iOS Safari: payload encodes", JSON.stringify(encoded));
       const shown = await page.evaluate(card);
       const gate = await page.evaluate(sharedGateSnapshot);
-      assert(shown.heroTitle === "Strength isn't something you're born with.", "shared iOS Safari: ethos hero remains", shown.heroTitle);
+      assert(shown.heroTitle === "Your program is ready to train.", "shared iOS Safari: landing adapts to the received program", shown.heroTitle);
       assert(shown.section, "shared iOS Safari: install card remains", JSON.stringify(shown));
       assert(gate.startVisible && !gate.createVisible && !gate.importVisible, "shared iOS Safari: one Start this program row", JSON.stringify(gate));
-      assert(gate.lede === SHARED_COPY.en.lede, "shared iOS Safari: install-then-start lede", gate.lede);
+      assert(gate.lede === "Review the program that was sent to you, then start it on this device.", "shared iOS Safari: review-before-start lede", gate.lede);
       assert(shown.create, "shared iOS Safari: Create still exists in the document", JSON.stringify(shown));
       await page.click("#firstRunContinue");
       await page.waitForTimeout(200);
@@ -1028,7 +932,7 @@ async function run() {
       const st = await page.evaluate(sharedGateSnapshot);
       assert(st.startVisible && !st.createVisible, "shared standalone: Start this program is the program control", JSON.stringify(st));
       assert(!st.install && !st.continueShown, "shared standalone: no install section", JSON.stringify(st));
-      assert(st.lede === SHARED_COPY.en.ledeInstalled, "shared standalone: installed lede", st.lede);
+      assert(st.lede === "Review the program that was sent to you, then start it on this device.", "shared standalone: review-before-start lede", st.lede);
       assert(!st.onboarding, "shared standalone: does not jump into the wizard", JSON.stringify(st));
       await context.close();
     } catch (err) {
@@ -1047,8 +951,8 @@ async function run() {
       assert(encoded?.ok, "shared PT: payload encodes", JSON.stringify(encoded));
       const pt = await page.evaluate(sharedGateSnapshot);
       const shown = await page.evaluate(card);
-      assert(shown.heroTitle === "Força não vem de nascença.", "shared PT: hero follows the payload language", shown.heroTitle);
-      assert(pt.lede === SHARED_COPY.pt.lede, "shared PT: lede before acceptance", pt.lede);
+      assert(shown.heroTitle === "Seu programa está pronto para treinar.", "shared PT: landing follows the payload language", shown.heroTitle);
+      assert(pt.lede === "Revise o programa que enviaram para você e depois comece neste dispositivo.", "shared PT: review-before-start lede", pt.lede);
       assert(pt.startTitle === SHARED_COPY.pt.title, "shared PT: Start this program in Portuguese", pt.startTitle);
       await context.close();
     } catch (err) {

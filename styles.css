@@ -180,19 +180,8 @@
 :root[data-theme="dark"] .exdet-art__figure{
   padding-block:var(--exercise-art-lead);
 }
-/* The gate's two brand images are the same case as the artwork above, and the
-   first thing a dark install ever sees. Both are drawn on cream: the hero
-   export carries its own field, and the mark keeps a pale rim where its ground
-   was taken away — on charcoal that field is a hard white rectangle and the rim
-   a smudge around the yoke. So dark gives each one the plate it is already
-   painted for. Nothing crops, nothing moves: the paper fills the same box the
-   art was contained in, and the corner is the only thing added. */
-:root[data-theme="dark"] .firstrun__logo,
-:root[data-theme="dark"] .firstrun-hero__art{
-  background-color:var(--brand-paper);
-}
-:root[data-theme="dark"] .firstrun-hero__art{border-radius:14px}
-:root[data-theme="dark"] .firstrun__logo{border-radius:16px}
+/* The ground-free mark keeps a pale rim where its paper was removed. */
+:root[data-theme="dark"] .firstrun__logo{background-color:var(--brand-paper);border-radius:16px}
 :root[data-theme="dark"] nav{
   backdrop-filter:blur(28px) saturate(125%);
   -webkit-backdrop-filter:blur(28px) saturate(125%);
@@ -3656,17 +3645,8 @@ body.is-firstrun main{visibility:hidden}
 body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{display:none}
 .firstrun__inner{
   --firstrun-pad:clamp(18px,5vw,34px);
-  max-width:900px;margin:0 auto;padding:0 var(--firstrun-pad);
+  max-width:1120px;margin:0 auto;padding:0 var(--firstrun-pad);
 }
-/* Someone arriving from a shared link came to see a program, not the ethos.
-   Raise what they were sent above the poem; the brand still opens the page. */
-.firstrun.is-shared .firstrun__inner{display:flex;flex-direction:column}
-.firstrun.is-shared .firstrun__brand{order:0}
-.firstrun.is-shared .firstrun__lede{order:1;margin-top:26px}
-.firstrun.is-shared .firstrun__section{order:2}
-.firstrun.is-shared #firstRunInstall{order:3}
-.firstrun.is-shared .firstrun-hero{order:4;margin-top:38px}
-.firstrun.is-shared .firstrun__continue{order:5}
 /* The paper both brand images were painted on. It is a property of the files,
    not of the theme, which is why it is one constant rather than a palette
    entry: light lets the page be it, dark hands it back as a plate. */
@@ -3690,48 +3670,6 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   margin-right:-.26em;font-size:clamp(21px,5.3vw,26px);font-weight:650;
   letter-spacing:.26em;text-transform:uppercase;color:var(--ink);
 }
-/* The ethos hero (ADR 0006): ink type and the complete illustration on the
-   page's own paper — no plate. Text and art always occupy separate grid areas.
-   On a phone the picture becomes a strong, centred beat between the sentence
-   and poem; once the column is genuinely wide enough, it moves beside the copy.
-   This lets the art grow without asking a fixed line of the poem to wrap around
-   it, putting graphite behind type, or bleeding any part of the export off the
-   screen. `container-type` sizes the compact composition from the usable hero
-   column rather than from the viewport outside its safe padding. */
-.firstrun-hero{
-  position:relative;isolation:isolate;container-type:inline-size;display:grid;
-  grid-template-areas:"title" "art" "body";
-  /* This is a legible supporting passage, not a second headline. Its compact
-     scale leaves enough of the first screen to introduce the setup controls. */
-  --poem:clamp(11px,3.39cqw,13px);
-  --poem-line:calc(1.42 * var(--poem));
-}
-.firstrun-hero__title{
-  grid-area:title;position:relative;z-index:1;margin:0 auto;max-width:14ch;
-  font-size:clamp(32px,10cqw,46px);font-weight:700;letter-spacing:-0.025em;line-height:1.04;color:var(--ink);
-  text-align:center;
-}
-/* Decorative, so it is painted rather than marked up: nothing to announce, and
-   a missing export leaves paper behind the copy instead of a broken image,
-   which is what the empty-tile doctrine asks for. The file is drawn on the
-   app's own paper, so on cream it needs no field of its own to dissolve into;
-   dark paints that paper under it instead. The box uses the export's exact
-   1072/998 ratio and `contain`; neither axis can crop, in either theme. */
-.firstrun-hero__art{
-  grid-area:art;z-index:0;aspect-ratio:1072/998;width:min(78cqw,250px);max-width:100%;
-  margin:clamp(13px,3.7cqw,19px) auto clamp(15px,4cqw,22px);
-  background:no-repeat center/contain url("assets/brand/milo-hero.webp");
-  pointer-events:none;
-}
-.firstrun-hero__body{
-  grid-area:body;position:relative;z-index:1;width:min(100%,40ch);margin:0;justify-self:center;
-  /* Set in the body face, not the mono one. The passage is the app's own voice
-     introducing itself, and mono made it read as sample output beside the
-     headline it belongs to. Line breaks are copy here (ADR 0006), so the
-     measure below is checked against the face rather than assumed. */
-  white-space:pre-line;font-size:var(--poem);
-  line-height:var(--poem-line);color:var(--ink);
-}
 .firstrun__lede{
   width:min(100%,var(--maxw));margin:clamp(30px,6vw,44px) 0 0;
   font-size:16px;line-height:1.45;color:var(--ink-soft);
@@ -3749,40 +3687,6 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   background:none;border:0;cursor:pointer;font:inherit;font-size:15px;font-weight:500;color:var(--ink);
 }
 
-@media (min-width:760px){
-  .firstrun-hero{
-    --poem:clamp(13px,1.7cqw,15px);
-    grid-template-columns:minmax(0,1fr) minmax(340px,44%);
-    grid-template-areas:"title art" "body art";
-    column-gap:clamp(32px,5cqw,48px);align-items:start;
-  }
-  .firstrun-hero__title{align-self:end;font-size:clamp(44px,6.2cqw,54px);margin:0;text-align:left}
-  .firstrun-hero__art{width:100%;margin:0;align-self:center}
-  .firstrun-hero__body{margin-top:clamp(24px,3cqw,30px);justify-self:start}
-}
-
-.firstrun-row{
-  display:flex;align-items:center;gap:18px;width:100%;min-height:78px;padding:18px 0;
-  background:none;border:0;border-bottom:1px solid var(--rule);
-  cursor:pointer;text-align:left;font:inherit;color:var(--ink);
-}
-.firstrun-row:last-child{border-bottom:0}
-.firstrun-row__icon{
-  flex:none;display:inline-flex;align-items:center;justify-content:center;
-  width:46px;height:46px;border:1.5px solid var(--ink);
-}
-.firstrun-row__icon::before{
-  content:"";width:22px;height:22px;background:var(--ink);
-  -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain;
-}
-.firstrun-row__icon--plus::before{
-  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
-  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
-}
-.firstrun-row__icon--import::before{
-  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v10M7.5 10l4.5 4.5L16.5 10M5 19h14'/%3E%3C/svg%3E");
-  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v10M7.5 10l4.5 4.5L16.5 10M5 19h14'/%3E%3C/svg%3E");
-}
 .firstrun-row__text{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 .firstrun-row__title,.firstrun-row__cap{overflow-wrap:anywhere}
 .firstrun-row__title{font-size:19px;font-weight:650;letter-spacing:-0.01em;color:var(--ink)}
@@ -3793,24 +3697,151 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   content:"";display:block;width:100%;height:100%;background:currentColor;
   -webkit-mask:var(--arrow) no-repeat center/contain;mask:var(--arrow) no-repeat center/contain;
 }
-.firstrun-row__icon--start::before{
-  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6.8v10.4L18 12z'/%3E%3C/svg%3E");
-  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6.8v10.4L18 12z'/%3E%3C/svg%3E");
-}
 .firstrun-row__busy{
   position:absolute;right:0;top:50%;margin-top:-9px;
   width:18px;height:18px;border:2px solid var(--rule);
   border-top-color:var(--accent);border-radius:50%;
 }
 #firstRunSharedStart{position:relative}
-.firstrun-row:disabled,.firstrun-row[aria-busy="true"]{opacity:.55;cursor:progress}
-.firstrun-row[aria-busy="true"] .firstrun-row__go,
-.firstrun-row:has(.firstrun-row__busy:not(.hidden)) .firstrun-row__go{visibility:hidden}
+#firstRunSharedStart:disabled,#firstRunSharedStart[aria-busy="true"]{opacity:.55;cursor:progress}
+#firstRunSharedStart[aria-busy="true"] .firstrun-row__go,
+#firstRunSharedStart:has(.firstrun-row__busy:not(.hidden)) .firstrun-row__go{visibility:hidden}
 .firstrun__error{
   width:100%;margin:12px 0 0;font-size:14px;line-height:1.4;color:var(--danger);
   overflow-wrap:anywhere;
 }
 .firstrun__error:empty{display:none}
+
+/* Plan 054 landing. The selected owner reference supplies the composition;
+   every product fact stays live text and every colour stays on app tokens. */
+.firstrun__header{display:flex;align-items:center;justify-content:space-between;gap:18px}
+.firstrun__header .firstrun__brand{justify-content:flex-start;gap:13px;margin:0}
+.firstrun__header .firstrun__logo{width:46px;height:46px}
+.firstrun__header .firstrun__wordmark{font-size:17px;letter-spacing:.3em}
+.firstrun__utility{display:flex;align-items:center;justify-content:flex-end;gap:14px}
+.firstrun__utility-action{
+  display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:8px 0;
+  border:0;background:none;color:var(--ink);font:inherit;font-size:14px;text-decoration:underline;
+  text-underline-offset:4px;cursor:pointer;
+}
+.firstrun__utility-action:first-child{color:var(--accent-deep)}
+.firstrun__install-icon{
+  width:18px;height:18px;background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12M7.5 10.5 12 15l4.5-4.5M4 16v4h16v-4'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12M7.5 10.5 12 15l4.5-4.5M4 16v4h16v-4'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.firstrun .firstrun-hero{
+  display:grid;grid-template-areas:"copy" "preview";grid-template-columns:minmax(0,1fr);
+  gap:38px;margin-top:clamp(48px,12vw,88px);
+}
+.firstrun-hero__copy{grid-area:copy;min-width:0}
+.firstrun .firstrun-hero__title{
+  max-width:10.7ch;margin:0;text-align:left;font-size:clamp(44px,12.2vw,72px);
+  line-height:.98;letter-spacing:-.052em;font-weight:700;
+}
+.firstrun .firstrun__lede{
+  max-width:35ch;margin:26px 0 0;font-size:clamp(17px,4.7vw,21px);line-height:1.38;color:var(--ink);
+}
+.firstrun__actions{display:grid;gap:12px;max-width:390px;margin-top:28px}
+.firstrun__cta{
+  display:flex;align-items:center;justify-content:space-between;gap:18px;width:100%;min-height:58px;
+  padding:14px 18px;border:1.5px solid var(--accent-deep);border-radius:4px;
+  font:inherit;font-size:18px;font-weight:550;text-align:left;cursor:pointer;
+}
+.firstrun__cta--primary{background:var(--accent-deep);color:var(--accent-ink)}
+.firstrun__cta--secondary{background:transparent;color:var(--accent-deep)}
+.firstrun__cta .firstrun-row__go{color:currentColor}
+.firstrun__cta .firstrun-row__title{color:inherit;font-size:18px}
+.firstrun__cta .firstrun-row__cap{color:inherit;font-size:13px;opacity:.82}
+.firstrun-preview{
+  grid-area:preview;align-self:center;justify-self:center;width:min(100%,344px);padding:28px 22px 24px;
+  border:2px solid var(--ink);border-radius:34px;background:var(--surface);color:var(--ink);
+  box-shadow:0 22px 48px rgba(var(--ink-rgb),.16);transform:rotate(1.5deg);
+}
+.firstrun-preview__topline{display:flex;justify-content:space-between;font-size:9px;font-weight:650;letter-spacing:.28em;text-transform:uppercase}
+.firstrun-preview__title{margin:19px 0 10px;font-size:27px;line-height:1;font-weight:700;letter-spacing:-.035em}
+.firstrun-preview__tabs{display:flex;gap:28px;border-bottom:1px solid var(--rule);font-size:12px;color:var(--ink-soft)}
+.firstrun-preview__tabs span:first-child{padding:0 0 8px;border-bottom:2px solid var(--accent);color:var(--accent-deep)}
+.firstrun-preview__section{display:grid;gap:5px;padding:17px 0;border-bottom:1px solid var(--rule)}
+.firstrun-preview__label,.firstrun-preview__next small{
+  font-family:var(--mono);font-size:9px;line-height:1.4;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);
+}
+.firstrun-preview__prescription{font-family:var(--mono);font-size:20px;line-height:1.25;font-weight:500}
+.firstrun-preview__muted{font-size:11px;color:var(--ink-soft)}
+.firstrun-preview__sets{display:grid;gap:0;margin:5px 0 0;padding:0;list-style:none}
+.firstrun-preview__sets li{display:grid;grid-template-columns:25px 1fr auto;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--rule);font-size:10px;color:var(--ink-soft)}
+.firstrun-preview__sets li:first-child{border-top:0}
+.firstrun-preview__sets li>span:nth-child(2){display:grid;gap:2px}
+.firstrun-preview__sets small{font-size:9px}
+.firstrun-preview__sets strong{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--ink)}
+.firstrun-preview__check{display:grid;place-items:center;width:21px;height:21px;border-radius:50%;background:var(--accent-deep);color:var(--accent-ink);font-size:12px}
+.firstrun-preview__next{display:grid;grid-template-columns:36px 1fr;align-items:center;gap:12px;margin-top:15px;padding:14px;background:var(--well)}
+.firstrun-preview__next span:last-child{display:grid;gap:4px}
+.firstrun-preview__next strong{font-family:var(--mono);font-size:17px;line-height:1.2;font-weight:500}
+.firstrun-preview__trend{font-size:30px;color:var(--accent-deep)}
+.firstrun__ethos{max-width:16ch;margin:34px 0 0;padding-top:17px;border-top:1px solid var(--ink);font-family:var(--mono);font-size:11px;line-height:1.7;letter-spacing:.18em;text-transform:uppercase;white-space:pre-line}
+.firstrun-benefits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:52px calc(-1 * var(--firstrun-pad)) -30px;border-top:1px solid var(--rule);background:var(--surface)}
+.firstrun-benefits>div{min-width:0;padding:23px clamp(12px,3vw,24px);border-left:1px solid var(--rule)}
+.firstrun-benefits>div:first-child{border-left:0}
+.firstrun-benefits__icon{display:block;min-height:27px;color:var(--accent-deep);font-family:var(--mono);font-size:24px;line-height:1}
+.firstrun-benefits strong{display:block;margin-top:8px;font-size:clamp(13px,3.4vw,18px);line-height:1.15}
+.firstrun-benefits p{margin:7px 0 0;font-size:clamp(11px,2.9vw,15px);line-height:1.35;color:var(--ink-soft)}
+.firstrun__shared-only{display:none}
+.firstrun.is-shared .firstrun__shared-only{display:flex;margin:0 0 18px}
+.firstrun.is-shared .firstrun__ethos{display:none}
+.firstrun.is-shared #firstRunInstall{margin-top:36px}
+.firstrun .firstrun__section{width:min(100%,560px);margin:38px 0 0}
+.firstrun .firstrun__continue{margin:24px 0 0}
+
+@media (min-width:640px){
+  .firstrun .firstrun-hero{grid-template-areas:"copy preview";grid-template-columns:minmax(0,1fr) minmax(280px,42%);align-items:center;gap:clamp(30px,6vw,76px)}
+  .firstrun .firstrun-hero__title{font-size:clamp(54px,8vw,88px)}
+  .firstrun-preview{justify-self:end}
+  .firstrun-benefits{margin-left:0;margin-right:0}
+}
+
+@media (min-width:360px) and (max-width:639px){
+  .firstrun .firstrun-hero{
+    grid-template-areas:"copy preview";grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);
+    align-items:start;gap:10px;margin-top:48px;
+  }
+  .firstrun .firstrun-hero__title{font-size:clamp(32px,8.2vw,36px);line-height:.96}
+  .firstrun .firstrun__lede{margin-top:18px;font-size:14px;line-height:1.38}
+  .firstrun__actions{gap:9px;margin-top:20px}
+  .firstrun__cta{min-height:48px;padding:10px 12px;font-size:14px}
+  .firstrun__cta .firstrun-row__title{font-size:14px}
+  .firstrun__cta .firstrun-row__cap{font-size:10px}
+  .firstrun-preview{width:158px;margin-top:86px;padding:15px 10px 13px;border-radius:23px;transform:rotate(2.5deg)}
+  .firstrun-preview__title{margin:12px 0 7px;font-size:19px}
+  .firstrun-preview__tabs{gap:18px;font-size:9px}
+  .firstrun-preview__tabs span:first-child{padding-bottom:6px}
+  .firstrun-preview__section{gap:3px;padding:10px 0}
+  .firstrun-preview__label,.firstrun-preview__next small{font-size:6px}
+  .firstrun-preview__prescription{font-size:13px}
+  .firstrun-preview__muted{font-size:8px}
+  .firstrun-preview__sets{margin-top:2px}
+  .firstrun-preview__sets li{grid-template-columns:18px 1fr auto;gap:5px;padding:5px 0;font-size:7px}
+  .firstrun-preview__sets small{font-size:6px}
+  .firstrun-preview__sets strong{font-size:8px}
+  .firstrun-preview__check{width:16px;height:16px;font-size:8px}
+  .firstrun-preview__next{grid-template-columns:24px 1fr;gap:7px;margin-top:9px;padding:8px}
+  .firstrun-preview__next strong{font-size:10px}
+  .firstrun-preview__trend{font-size:20px}
+  .firstrun__ethos{margin-top:12px}
+  .firstrun-benefits{margin-top:30px}
+  .firstrun.is-shared .firstrun-preview{margin-top:54px}
+}
+
+@media (max-width:420px){
+  .firstrun__utility{gap:10px}
+  .firstrun__utility-action{font-size:12px}
+  .firstrun__header .firstrun__logo{width:39px;height:39px}
+  .firstrun__header .firstrun__wordmark{font-size:14px}
+}
+
+@media (max-width:359px){
+  .firstrun-preview{width:min(92%,320px);transform:none}
+}
 
 /* The install card. It bleeds to the edge of the setup column, which is the
    screen on a phone, and it is the only orange field in the app. */

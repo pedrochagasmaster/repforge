@@ -349,6 +349,12 @@ async function sharedTo(page, step) {
   await page.waitForSelector("#onboarding.active #entryActivate", { timeout: 25000 });
 }
 
+async function sharedInvalidTo(page) {
+  await page.goto(`${BASE.replace(/\/?$/, "/")}index.html#setup=v1.not+base64`, { waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await page.waitForSelector('#firstRun[data-entry-landing="shared-invalid"]:not(.hidden)', { timeout: 25000 });
+}
+
 async function resume(page) {
   await recommendTo(page);
   // The final answer persists asynchronously. Do not reload until the draft
@@ -538,6 +544,7 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-import/preview": (page) => importTo(page, "preview"),
 
   "onboarding-shared/gate": (page) => sharedTo(page, "gate"),
+  "onboarding-shared/invalid": sharedInvalidTo,
   "onboarding-shared/preview": (page) => sharedTo(page, "preview"),
 
   "onboarding-recovery/resume": resume,
@@ -554,6 +561,12 @@ export async function focusOnboardingSubject(page, key) {
       onboarding.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
       onboarding.scrollTop = 0;
       onboarding.scrollLeft = 0;
+    }
+    const firstRun = document.querySelector("#firstRun");
+    if (firstRun) {
+      firstRun.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
+      firstRun.scrollTop = 0;
+      firstRun.scrollLeft = 0;
     }
     if (sel) document.querySelector(sel)?.scrollIntoView({ block: "center", inline: "nearest" });
   }, FOCUS_SELECTOR[key] || null);

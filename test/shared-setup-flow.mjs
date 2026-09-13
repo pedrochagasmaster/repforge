@@ -48,8 +48,8 @@ export const SHARED_DOM = Object.freeze({
 
 export const SHARED_COPY = Object.freeze({
   en: {
-    lede: "Install the app, then start your program.",
-    ledeInstalled: "Your program is ready.",
+    lede: "Review the program that was sent to you, then start it on this device.",
+    ledeInstalled: "Review the program that was sent to you, then start it on this device.",
     title: "Start this program",
     capOne: (name) => `${name} · 1 day per week`,
     capMany: (name, n) => `${name} · ${n} days per week`,
@@ -65,8 +65,8 @@ export const SHARED_COPY = Object.freeze({
     shareBody: "The link shares this program, its configuration, eight selected settings, and the app language. It does not include workout history. For iOS installation, a temporary cookie stores the compressed proposal. The static host receives that cookie with matching index.html requests for up to seven days. Compression and encoding do not encrypt the proposal.",
   },
   pt: {
-    lede: "Instale o app e comece seu programa.",
-    ledeInstalled: "Seu programa está pronto.",
+    lede: "Revise o programa que enviaram para você e depois comece neste dispositivo.",
+    ledeInstalled: "Revise o programa que enviaram para você e depois comece neste dispositivo.",
     title: "Começar este programa",
     capOne: (name) => `${name} · 1 dia por semana`,
     capMany: (name, n) => `${name} · ${n} dias por semana`,
@@ -289,16 +289,17 @@ async function persistState(page, state) {
 
 async function clearSite(page) {
   await page.evaluate(
-    async ({ k, d, setup }) => {
+    async ({ k, d, setup, ui }) => {
       localStorage.removeItem(k);
       localStorage.removeItem(d);
       localStorage.removeItem(setup);
+      localStorage.removeItem(ui);
       await new Promise((res) => {
         const req = indexedDB.deleteDatabase("repforge");
         req.onsuccess = req.onerror = req.onblocked = () => res();
       });
     },
-    { k: KEY, d: DRAFT, setup: SETUP_DRAFT }
+    { k: KEY, d: DRAFT, setup: SETUP_DRAFT, ui: "repforge_ui_v1" }
   );
 }
 

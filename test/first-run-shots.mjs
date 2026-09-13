@@ -50,14 +50,14 @@ for (const [width, height] of VIEWPORTS) {
 
   measurements[`${width}x${height}`] = await page.evaluate(() => {
     const box = (selector) => document.querySelector(selector).getBoundingClientRect();
-    const poem = document.querySelector(".firstrun-hero__body");
     return {
-      poemHeight: box(".firstrun-hero__body").height,
-      poemSize: parseFloat(getComputedStyle(poem).fontSize),
-      pictureWidth: box(".firstrun-hero__art").width,
+      headlineHeight: box("#firstRunHeadline").height,
+      headlineSize: parseFloat(getComputedStyle(document.querySelector("#firstRunHeadline")).fontSize),
+      previewWidth: box(".firstrun-preview").width,
+      previewHeight: box(".firstrun-preview").height,
       heroBottom: box(".firstrun-hero").bottom,
       introductionTop: box(".firstrun__lede").top,
-      firstControlTop: box("#firstRunInstallAction").top,
+      firstControlTop: box("#firstRunCreate").top,
     };
   });
   await page.screenshot({ path: join(OUT, `first-run-${width}x${height}.png`) });

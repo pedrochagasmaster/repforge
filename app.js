@@ -13648,6 +13648,7 @@ let sharedSetupDraft={status:"none",source:null,encoded:null,payload:null,error:
 let firstRunActive=false;
 const firstRunOpen=()=>!!$("#firstRun")&&!$("#firstRun").classList.contains("hidden");
 const sharedSetupReady=()=>sharedSetupDraft.status==="ready"&&!!sharedSetupDraft.payload;
+const sharedSetupInvalid=()=>sharedSetupDraft.status==="invalid"||sharedSetupDraft.status==="unsupported";
 const sharedSetupEligible=()=>firstRunPending()&&!(state.programHistory?.length);
 function sharedSetupErrorKey(code){
   if(code==="unsupported-version")return"setup.shared.unsupported";
@@ -13656,6 +13657,7 @@ function sharedSetupErrorKey(code){
 function renderFirstRunProgramMode(){
   const standard=$("#firstRunStandardProgram"),shared=$("#firstRunSharedProgram"),error=$("#firstRunSharedError");
   const ready=sharedSetupReady();
+  const invalid=sharedSetupInvalid();
   standard?.classList.toggle("hidden",ready);
   shared?.classList.toggle("hidden",!ready);
   $("#firstRun")?.classList.toggle("is-shared",ready);
@@ -13666,7 +13668,7 @@ function renderFirstRunProgramMode(){
     if(title)title.textContent=t("setup.shared.title");
     if(cap)cap.textContent=t(n===1?"setup.shared.cap_one":"setup.shared.cap_many",{name,n});
     if(error){error.textContent="";error.classList.add("hidden")}}
-  else if(sharedSetupDraft.status==="invalid"||sharedSetupDraft.status==="unsupported"){
+  else if(invalid){
     if(error){error.textContent=t(sharedSetupErrorKey(sharedSetupDraft.error));error.classList.remove("hidden")}}
   else if(error){error.textContent="";error.classList.add("hidden")}}
 function setSharedSetupBusy(busy){
@@ -13737,9 +13739,10 @@ async function commitSharedSetup(io=storageIO){
 /** Write the install section from the current reading, or take it away. Rule 5:
  *  a browser with no mechanism gets no section at all, never a dead button. */
 function renderFirstRunInstall(){
-  const sec=$("#firstRunInstall"),card=$("#firstRunInstallCard");
+  const sec=$("#firstRunInstall"),card=$("#firstRunInstallCard"),link=$("#firstRunInstallLink");
   if(!sec||!card)return;
   const mode=installMode();
+  link?.classList.toggle("hidden",mode==="none");
   if(mode==="none"){sec.classList.add("hidden");card.innerHTML="";return}
   const body=mode==="native"?t("install.card.browser_body")
     :mode==="ios"?t("install.card.ios_body"):t("install.card.safari_only_body");
@@ -13756,10 +13759,10 @@ function renderFirstRunInstall(){
  *  screen is only the program question, and "Continue in browser" would be an
  *  answer to a question nobody asked. */
 function setFirstRunOffer(offer){
-  const lede=$("#firstRunLede");
-  if(lede)lede.textContent=sharedSetupReady()
-    ?t(offer?"setup.shared.lede":"setup.shared.lede_installed")
-    :t(offer?"setup.lede":"setup.lede_installed");
+  const shared=sharedSetupReady(),invalid=sharedSetupInvalid();
+  const headline=$("#firstRunHeadline"),lede=$("#firstRunLede");
+  if(headline)headline.textContent=t(shared?"landing.shared.headline":invalid?"landing.shared.invalid_headline":"landing.headline");
+  if(lede)lede.textContent=t(shared?"landing.shared.body":invalid?"landing.shared.invalid_body":"landing.body");
   $("#firstRunContinue")?.classList.toggle("hidden",!offer);
 }
 /** Chrome accepted the install, or the app reports itself installed. Either way
@@ -13770,22 +13773,28 @@ function closeFirstRunInstall(){
   setFirstRunOffer(false);
 }
 function renderFirstRun(){
+  renderFirstRunProgramMode();
   setFirstRunOffer(installMode()!=="none");
   const label=$("#firstRunContinueLabel");
   if(label)label.textContent=isIOSSafari()?t("setup.continue_safari"):t("setup.continue_browser");
   renderFirstRunInstall();
-  renderFirstRunProgramMode();
 }
-function openFirstRun(){
+function currentEntryLanding(){
+  if(sharedSetupReady())return"shared";
+  if(sharedSetupInvalid())return"shared-invalid";
+  return"generic"}
+function openFirstRun(kind=currentEntryLanding()){
   const el=$("#firstRun");if(!el)return false;
   firstRunActive=true;
   renderFirstRun();
+  el.dataset.entryLanding=kind;
   el.classList.remove("hidden");
   document.body.classList.add("is-firstrun");
   window.scrollTo({top:0});
   // The screen itself takes focus, not its first choice: a ring drawn around
   // Create before the lifter has touched anything reads as a recommendation.
   try{el.focus({preventScroll:true})}catch{}
+  if(kind==="generic"&&uiPrefs.entryLandingSeen!==true)setUiPref("entryLandingSeen",true);
   return true}
 function trapFirstRunTab(event){
   if(event.key!=="Tab"||!firstRunOpen())return;
@@ -13804,19 +13813,16 @@ function suspendFirstRun(){
 function closeFirstRun(){
   firstRunActive=false;suspendFirstRun()}
 const firstRunPending=()=>!state.programMeta?.onboarded&&!state.log.length;
-/** The screen carries two questions: install, and which program. The program
- *  question is live on every first run, so the screen opens on every first run.
- *  The install question adds its section wherever the browser has an answer —
- *  and where it has none, the screen is the program question by itself.
- *
- *  This is the one door into a first program. Import used to reach it only
- *  through a text link inside the wizard's first step, which made bringing a
- *  shared program the hidden path and building one from scratch the default;
- *  they are two equal ways to begin and now read as two. */
+/** Resolve the landing before ordinary navigation. A valid or invalid shared
+ *  handoff always gets its complete fail-closed surface. Otherwise an empty
+ *  device sees the generic landing once, then returns to Today's no-program
+ *  state on later launches. */
 function maybeShowFirstRun(){
   if(sharedSetupDraft.status==="existing")return false;
   if(!firstRunPending())return false;
-  return openFirstRun()}
+  const kind=currentEntryLanding();
+  if(kind==="generic"&&uiPrefs.entryLandingSeen===true)return false;
+  return openFirstRun(kind)}
 window.closeFirstRun=closeFirstRun;window.openFirstRun=openFirstRun;
 
 /* ---- "Why this weight?" sheet ----
@@ -14157,6 +14163,8 @@ function init(){
   $("#installBtn").onclick=triggerInstall;
   $("#installBannerClose").onclick=()=>hideInstallBanner(true);
   $("#installBannerAction").onclick=triggerInstall;
+  $("#firstRunInstallLink").onclick=triggerInstall;
+  $("#firstRunPrivacy").onclick=()=>openPrivacySheet();
   $("#firstRunCreate").onclick=()=>{closeFirstRun();startOnboarding("first-run")};
   // Import runs through the same review as everywhere else; the gate stays
   // standing behind it so backing out returns here rather than to an empty app.

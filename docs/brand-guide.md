@@ -28,65 +28,30 @@ app icon is a bull-horned monogram, and it stops there.
 **The rule: the theme never appears in working surfaces.** No bull, calf,
 carrying, forge, or Latin in any string, in any language — not in copy, alt
 text, tooltips, notifications, export contents, or store metadata. Themed copy
-was implemented and deliberately reverted (see ADR 0004). The theme's
-permitted surfaces are exactly two: the app icon (see [The mark](#the-mark))
-and the first-run gate's ethos hero (see [Ethos](#ethos); ADR 0006).
+was implemented and deliberately reverted (see ADR 0004). Its permitted
+surface is the app icon (see [The mark](#the-mark)). The landing uses the mark
+and wordmark as identity, but Plan 054 retired the Milo illustration and themed
+passage from the shipped surface.
 
 ## Ethos
 
 The belief the product exists to serve, stated once. It retells the Milo
 story in plain life terms — no training vocabulary — so it holds for anyone
 building anything slowly. The canon below is internal: never quote it in app
-copy, and use it to judge decisions. Its one user-facing rendering is the
-distilled passage on the first-run gate's hero (ADR 0006) — a threshold the
-app crosses once, never a working surface:
+copy, and use it to judge decisions. ADR 0006 once permitted a distilled
+first-run rendering; Plan 054 and the owner's selected landing target retired
+that exception:
 
 | Key | English | Portuguese |
 | --- | --- | --- |
 | `setup.ethos.title` | Strength isn't something you're born with. | Força não vem de nascença. |
 | `setup.ethos.body` | Challenge after challenge. / Day after day. / Every time you go beyond / what you thought possible, / the effort shapes you. // It becomes part of / who you are. / And you become who you needed to be. // Strength, then, is yours — / not because it was given to you, / but because you built it. | Desafio após desafio. / Dia após dia. / Toda vez que você vai além / do que julgava possível, / o esforço molda você. // Ele passa a fazer parte / de quem você é. / E você se torna quem precisou ser. // A força, então, é sua — / não porque lhe foi dada, / mas porque você a construiu. |
 
-The body is the one string in the app that is **set, not just written**: it is
-typeset in the mono face as a short poem, and `/` above marks a line break
-(`\n` in the catalogues, `//` a stanza break). The breaks are part of the copy
-and travel with the translation — a wrapped-wherever-it-lands version of this
-passage is a different passage.
-
-The illustration is never cropped and never leaves the page: **neither the copy
-nor the picture gives.** They occupy separate grid areas. On compact screens
-the complete picture is a centred beat between the title and poem; at 760 px
-and above it moves into a dedicated column beside both. Its box keeps the
-export's exact aspect ratio and paints it with `background-size:contain`, so no
-part of the drawing can be clipped or stretched.
-
-The written breaks still have to fit as written, in both languages, at every
-supported width. A translation is re-broken by hand rather than allowed to
-wrap wherever the browser happens to find room. `node test/install-modes.mjs`
-counts the rendered lines against the written ones and also checks text/art
-separation, aspect ratio, containment, lockup prominence, horizontal overflow,
-and continuous type sizing across the responsive breakpoint. The poem is sized
-for legibility and centred within a `40ch` measure; the remaining side margin is
-intentional, not a space the type must fill.
-
-On a 390 px first-run screen the complete picture remains at least 240 px wide.
-That choice means the install card may begin below the first screen, but the
-introduction to the setup controls must remain visible there and the first
-control must stay within a short scroll (at most 1.15 screens).
-
-The hero's illustration — the calf-carrier grown into the bull-carrier — lives
-at `assets/brand/milo-hero.webp`: owner-supplied, decorative, painted by CSS so
-an absent export leaves paper rather than a broken image, replaced wholesale
-like the mark, precached like every asset. No placeholder icons, initials, or
-silhouettes ever stand in for it (the same line the exercise tiles hold). It is
-white-balanced onto `--bg` so the file's own rectangle disappears into the page
-— the same problem the exercise detail page solves with a `mediaBg` field, made
-cheaper here by there being one file. How it was produced, and how
-to replace it, is in `assets/brand/README.md`. Past the gate, the app stays
-quiet so the record can speak.
-
-Shared setup links (ADR 0007) switch only the program-choice rows that
-follow this hero. They do not change the title, poem, illustration, brand
-lockup, installation card, installation sheet, or responsive composition.
+The table records the retired rendering verbatim so historical screenshots and
+ADR 0006 remain interpretable. The strings are not referenced by production
+markup. `assets/brand/milo-hero.webp` remains an owner-licensed archival source;
+it is not referenced or precached. Current landing rules live in
+[First-run modes](#first-run-modes).
 
 > Strength isn't something you're born with.\
 > It's something you build.\
@@ -116,29 +81,34 @@ lockup, installation card, installation sheet, or responsive composition.
 
 ## First-run modes
 
-The first-run gate (`#firstRun`, "Set up Taurifer") is the theme's second
-permitted surface and the one door into a first program. It has two
-program-choice modes. The hero rules in [Ethos](#ethos) and ADR 0006 apply
-to both; shared mode must not restyle or crop them.
+The Plan 054 landing (`#firstRun`) is the one-time threshold into an empty
+device. It uses warm paper, ink, burnt orange, the Taurifer lockup, an editorial
+headline, and a live HTML product loop showing prescription, logged sets, and a
+derived next target. The owner-selected reference and hash live in
+`docs/design/plan-054-landing-directions.md`; the reference photograph does not
+ship.
 
-**Standard** — no shared setup source. The install section behaves as ADR
-0005. The program section is two equal rows: Create a program and Import a
-program. Ledes stay `setup.lede` / `setup.lede_installed`.
+**Generic** — no shared setup source. It renders only while no program,
+content, or history exists and `repforge_ui_v1.entryLandingSeen` is not true.
+Build my program and Track my current program are the early entry actions.
+Privacy opens the existing disclosure surface. A later empty visit boots the
+ordinary Today/Program no-program states.
 
-**Shared** — a valid setup proposal on a first run with no archived
-program history. The install section, hero, and lockup are unchanged. Create
-and Import are hidden. One Start this program row identifies the proposal
-by name and day count. The first-run gate remains the consent boundary: Start
-this program accepts the handoff into the owned editable preview, while the
-active program stays untouched. The preview's explicit Use this program action
-is still required for activation. There is no exercise-mapping review because
-the shared payload already carries current built-in or custom identities.
-Ledes and the row:
+**Shared valid** — a valid setup proposal on an eligible device. The headline
+explains that the received program is ready, and one Start this program action
+identifies it by name and day count. The landing remains the consent boundary:
+Start accepts the handoff into the owned editable preview while active durable
+state stays untouched. The preview's explicit Use this program action is still
+required for activation.
+
+**Shared invalid** — an invalid or unsupported link says that it cannot be used
+and that nothing was saved, retains the specific live-region reason, and offers
+the safe generic entry actions. It does not consume `entryLandingSeen`.
+
+Shared captions remain localized rather than assembled from fragments:
 
 | Key | English | Portuguese |
 | --- | --- | --- |
-| `setup.shared.lede` | Install the app, then start your program. | Instale o app e comece seu programa. |
-| `setup.shared.lede_installed` | Your program is ready. | Seu programa está pronto. |
 | `setup.shared.title` | Start this program | Começar este programa |
 | `setup.shared.cap_one` | {name} · 1 day per week | {name} · 1 dia por semana |
 | `setup.shared.cap_many` | {name} · {n} days per week | {name} · {n} dias por semana |
@@ -153,11 +123,8 @@ Existing configured state — onboarded metadata, any log rows, or any
 `programHistory` — does not reopen this gate and does not apply the
 proposal.
 
-UI overhaul note: the landing composition, install timing, and tour-adjacent
-guidance above describe the shipped gate. They are superseded by
-G-09/G-18–G-21 (landing), G-39/G-48/G-72 (install promotion), and G-40
-(contextual guidance), specified by Plans 053–054. Until those plans land,
-this section remains the accurate description of the shipped behavior.
+Plan 054 P3 owns only the landing and routing above. Later packets still own
+install timing, contextual guidance, and the cached Privacy page.
 
 **What a setup link shares.** The in-app share sheet states the exact
 claim before the coach acts; do not strengthen or soften it in other
@@ -214,9 +181,8 @@ Mechanics, all verifiable against the current catalogs:
 - **No exclamation marks.** Both catalogs have zero today; keep it that way.
 - **Toasts are complete sentences ending in a period.** Put compound facts in
   separate sentences: "Workout saved. {n} {sets} logged."
-- **App prose uses periods and commas, not em dashes.** The fixed
-  `setup.ethos.body` poem is the sole exception and requires a separate copy
-  decision. Do not replace an em dash with parentheses, an en dash, or a spaced
+- **App prose uses periods and commas, not em dashes.** Do not replace an em
+  dash with parentheses, an en dash, or a spaced
   hyphen. En dashes remain valid inside numeric ranges, where they mean "to".
   Use straight quotes in UI copy.
 - **Name the fact or action.** Avoid metaphor labels, promotional claims,
@@ -285,9 +251,10 @@ Principles the tokens can't express:
 
 Dark appearance carries the same material grammar rather than introducing a
 second visual identity: warm charcoal paper, off-white ink, ember orange,
-hairlines and whitespace. Its primary action is a quiet parchment inversion,
-not a large orange field. Artwork painted on cream — the exercise illustrations,
-the ethos hero, the ground-free mark — keeps that paper as a deliberate archival
+hairlines and whitespace. Working-surface primary actions use a quiet parchment
+inversion. The one-time landing's owner-selected burnt-orange CTA is the
+approved exception. Artwork painted on cream — the exercise illustrations and
+the ground-free mark — keeps that paper as a deliberate archival
 plate with a corner of its own, rather than being inverted, tinted, dimmed, or
 dissolved into charcoal with a gradient. Repeated status markers should not all
 glow on charcoal; a repeated *signal* is a different thing from a repeated glow,
@@ -303,8 +270,7 @@ CSS disagree, the CSS wins — fix this document.
 
 The app icon is a charcoal monogram: a letter T whose crossbar sweeps up into
 bull horns, cut with a burnt-orange edge, resting on the warm paper ground.
-Outside the first-run hero (see [Ethos](#ethos)), it is the one place the
-name's origin is allowed to show.
+It is the one place the name's origin is allowed to show.
 
 - `icons/icon.svg` is **generated output, not source** — 9,233 vector paths.
   Never hand-edit it and never run optimizers (SVGO etc.) on it; a new mark
@@ -315,8 +281,8 @@ name's origin is allowed to show.
   on the paper background. Regenerate per `icons/README.md`; never with an
   ad-hoc downscale.
 - `assets/brand/mark.png` is the same mark **with the paper ground dropped**,
-  for the one place inside the app that stands it on the page: the first-run
-  gate's brand row, where mark and wordmark sit **centred** on the column. It
+  for the one place inside the app that stands it on the page: the landing
+  header, where mark and wordmark form the left side of the utility row. It
   is derived from `icons/icon.svg` by
   `tools/build-brand-mark.mjs`, which removes the single full-bleed ground rect
   and rasterises the rest — so it is generated output twice over. Re-run it
@@ -324,8 +290,8 @@ name's origin is allowed to show.
   icon in that row: its ground reads as a plate against the app's paper. That
   reasoning is about cream. The rendering keeps a pale edge where its ground was
   taken away, so on charcoal the gate paints the paper back under it as a plate
-  rather than leaving a smudge on the dark page — the same answer dark gives the
-  ethos hero and the exercise artwork.
+  rather than leaving a smudge on the dark page — the same answer dark gives
+  the exercise artwork.
 - The mark carries **no themed text**: no caption, tooltip, or alt text about
   bulls or bearing. The Settings identity mark ships `alt=""`.
 

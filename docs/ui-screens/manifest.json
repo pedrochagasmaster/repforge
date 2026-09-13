@@ -348,8 +348,8 @@
     {
       "id": "first-run",
       "flow": "onboarding-start",
-      "label": "First-run gate",
-      "scenario": "No program exists. The gate that precedes every entry route.",
+      "label": "One-time landing",
+      "scenario": "First empty visit. Product loop, early Build and Track actions, Privacy, and device-local seen state.",
       "variants": "accessibility"
     },
     {
@@ -642,9 +642,16 @@
     {
       "id": "gate",
       "flow": "onboarding-shared",
-      "label": "Shared setup — confirmation gate",
-      "scenario": "The first-run gate for an incoming setup link. Nothing persists until Start.",
+      "label": "Shared setup — adaptive landing",
+      "scenario": "An incoming setup link adapts the landing around its safe program summary. Nothing persists until Start.",
       "variants": "demandingText"
+    },
+    {
+      "id": "invalid",
+      "flow": "onboarding-shared",
+      "label": "Shared setup — invalid landing",
+      "scenario": "An invalid setup link explains that nothing was saved and keeps safe Build and Track actions available.",
+      "variants": "localized"
     },
     {
       "id": "preview",

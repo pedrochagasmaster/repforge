@@ -24,10 +24,12 @@
  *
  * Run: node test/entry-landing.mjs
  */
+import { readFileSync } from "node:fs";
 import { pathToFileURL } from "url";
 import { isDeepStrictEqual } from "node:util";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import {
+  BUILT_IN_IDS,
   CURRENT_SETTINGS_DEFAULTS,
   REPRESENTATIVE_PAYLOAD,
   cloneFixture,
@@ -47,6 +49,7 @@ const FAULT = process.env.REPFORGE_ENTRY_LANDING_FAULT;
 const KEY = "repforge_v1";
 const SETUP_DRAFT = "repforge_program_setup_draft_v1";
 const COOKIE = "repforge_setup_v1";
+const UIKEY = "repforge_ui_v1";
 
 const SENTINELS = Object.freeze({
   name: "Sentinel Shared Characterization Program",
@@ -135,6 +138,81 @@ function makeSentinelPayload() {
     }
   }
   return p;
+}
+
+async function readUiPrefsRaw(page) {
+  return page.evaluate((k) => localStorage.getItem(k), UIKEY);
+}
+
+async function observeEntryLandingWrites(page) {
+  await page.addInitScript(({ uiKey }) => {
+    const original = Storage.prototype.setItem;
+    window.__entryLandingWrites = [];
+    Storage.prototype.setItem = function (key, value) {
+      if (this === localStorage && key === uiKey) {
+        let parsed = null;
+        try { parsed = JSON.parse(value); } catch {}
+        if (parsed?.entryLandingSeen === true) {
+          const landing = document.querySelector("#firstRun");
+          window.__entryLandingWrites.push({
+            visible: !!landing && !landing.classList.contains("hidden"),
+            route: landing?.dataset.entryLanding || null,
+          });
+        }
+      }
+      return original.call(this, key, value);
+    };
+  }, { uiKey: UIKEY });
+}
+
+async function decodeSharedPayload(page, encodedValue) {
+  return page.evaluate(
+    async ({ value, ids }) => {
+      const api = window.RepForgeSharedSetup;
+      if (!api || typeof api.decode !== "function") return { ok: false, code: "missing-module", missing: true };
+      const result = await api.decode(value, { builtInIds: new Set(ids) });
+      return result && typeof result === "object" ? result : { ok: false, code: "invalid-result" };
+    },
+    { value: encodedValue, ids: [...BUILT_IN_IDS] }
+  );
+}
+
+/**
+ * Recursively walks a plain JSON value and returns every path where a key
+ * literally named `keyName` occurs, at any depth — proving semantic scope
+ * (a nested leak) rather than only checking the top-level shape.
+ */
+function findKeyPaths(value, keyName, path = "$") {
+  const hits = [];
+  if (value === null || typeof value !== "object") return hits;
+  if (Array.isArray(value)) {
+    value.forEach((item, i) => hits.push(...findKeyPaths(item, keyName, `${path}[${i}]`)));
+    return hits;
+  }
+  for (const [k, v] of Object.entries(value)) {
+    const nextPath = `${path}.${k}`;
+    if (k === keyName) hits.push(nextPath);
+    hits.push(...findKeyPaths(v, keyName, nextPath));
+  }
+  return hits;
+}
+
+/**
+ * Proof-first fault injection for requirement 5 (054-P3): simulates, purely
+ * test-side on an already-captured export/decoded-proposal object, the kind
+ * of regression a future change could introduce (the device-local landing
+ * preference leaking into a durable/shared payload). This never touches
+ * production code or adds a production fault hook — it mutates the object
+ * the real export/decode routes already produced, immediately before the
+ * isolation oracle inspects it, so the same oracle either catches it or not.
+ */
+function injectEntryLandingPref(obj) {
+  const clone = JSON.parse(JSON.stringify(obj ?? {}));
+  if (clone && typeof clone === "object") {
+    if (clone.settings && typeof clone.settings === "object") clone.settings.entryLandingSeen = true;
+    else clone.entryLandingSeen = true;
+  }
+  return clone;
 }
 
 /**
@@ -405,6 +483,7 @@ try {
     // 5b. Direct first-run Import control (#firstRunImport from first-run screen)
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
+    await page.evaluate(() => window.openFirstRun?.());
     await waitForFirstRun(page);
     await page.waitForSelector("#firstRunImport", { timeout: 10000 });
     await page.click("#firstRunImport");
@@ -591,6 +670,46 @@ try {
       scopeActivated.allLocalKeys.every((key) => !key.startsWith("repforge_pending_v1:")),
       "activation settles without residual durable WAL entries"
     );
+
+    await context.close();
+  }
+
+  phase("Phase 4b: Invalid shared proposal gets a complete fail-closed landing (054-P3)");
+  {
+    const { context, page } = await openAppPage(browser);
+    await clearSite(page);
+    await page.goto(`${APP_INDEX}#setup=v1.not+base64`, { waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await waitForFirstRun(page);
+
+    const invalid = await page.evaluate((uiKey) => {
+      let prefs = {};
+      try { prefs = JSON.parse(localStorage.getItem(uiKey) || "{}"); } catch {}
+      const shown = (selector) => {
+        const element = document.querySelector(selector);
+        return !!element && !element.classList.contains("hidden");
+      };
+      return {
+        route: document.querySelector("#firstRun")?.dataset.entryLanding || null,
+        headline: document.querySelector("#firstRunHeadline")?.textContent.trim() || "",
+        body: document.querySelector("#firstRunLede")?.textContent.trim() || "",
+        error: document.querySelector("#firstRunSharedError")?.textContent.trim() || "",
+        create: shown("#firstRunCreate"),
+        import: shown("#firstRunImport"),
+        entryLandingSeen: prefs.entryLandingSeen,
+      };
+    }, UIKEY);
+
+    assert(invalid.route === "shared-invalid", "invalid setup uses the explicit shared-invalid landing route", JSON.stringify(invalid));
+    assert(invalid.headline === "This program link cannot be used.", "invalid setup gives a complete fail-closed heading", invalid.headline);
+    assert(invalid.body === "Nothing from the link was saved. You can still build or import a program.", "invalid setup states that nothing was saved and offers a safe next step", invalid.body);
+    assert(invalid.error.length > 0, "invalid setup retains the specific live-region reason", invalid.error);
+    assert(invalid.create && invalid.import, "invalid setup keeps safe Build and Track actions available", JSON.stringify(invalid));
+    assert(invalid.entryLandingSeen !== true, "invalid shared setup does not consume the generic one-time landing preference", JSON.stringify(invalid));
+
+    const scope = await inspectStorageScope(page);
+    assert(scope.programCountLocal === 0 && scope.programCountIdb === 0, "invalid shared setup writes no durable program rows");
+    assert(scope.setupDraft === null, "invalid shared setup creates no candidate draft");
 
     await context.close();
   }
@@ -934,6 +1053,257 @@ try {
 
       await context.close();
     }
+  }
+
+  // ------------------------------------------------------------------------
+  // Packet 054-P3, requirement 1: the one-time generic landing writes
+  // entryLandingSeen only after it has rendered successfully.
+  // ------------------------------------------------------------------------
+  phase("Phase 8: Generic landing renders, then and only then records entryLandingSeen (054-P3)");
+  {
+    const { context, page } = await openAppPage(browser);
+    await clearSite(page);
+    const prefsBeforeLanding = await readUiPrefsRaw(page);
+    assert(prefsBeforeLanding === null, "entryLandingSeen is absent before the empty first visit begins");
+    await observeEntryLandingWrites(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+
+    // On an empty, no-program, no-shared-proposal first visit, #firstRun is the
+    // generic landing and its successful render triggers the one-time pref.
+    await waitForFirstRun(page);
+    const landingVisible = await page.evaluate(() => {
+      const el = document.querySelector("#firstRun");
+      return !!el && !el.classList.contains("hidden");
+    });
+    assert(landingVisible, "the generic landing (#firstRun, no shared proposal) renders on an empty first visit");
+
+    const prefsAfterRaw = await readUiPrefsRaw(page);
+    const parsedAfter = prefsAfterRaw ? JSON.parse(prefsAfterRaw) : {};
+    assert(
+      parsedAfter.entryLandingSeen === true,
+      "repforge_ui_v1 records entryLandingSeen === true only after the generic landing has rendered successfully",
+      JSON.stringify(parsedAfter)
+    );
+    const writes = await page.evaluate(() => window.__entryLandingWrites || []);
+    assert(
+      writes.length === 1 && writes[0].visible && writes[0].route === "generic",
+      "the first true entryLandingSeen write occurs after the generic landing is visible",
+      JSON.stringify(writes)
+    );
+
+    await context.close();
+  }
+
+  // ------------------------------------------------------------------------
+  // Packet 054-P3, requirement 2: a second empty/no-program visit does not
+  // show the landing again; it boots ordinary Today/Program no-program states.
+  // ------------------------------------------------------------------------
+  phase("Phase 9: A second empty/no-program visit boots ordinary Today/Program, not the landing (054-P3)");
+  {
+    const { context, page } = await openAppPage(browser);
+    await clearSite(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await waitForFirstRun(page);
+
+    // Mark the landing as already seen directly, independent of whether
+    // Phase 8's write behavior is implemented yet, so this phase isolates
+    // requirement 2 on its own.
+    await page.evaluate((k) => {
+      localStorage.setItem(k, JSON.stringify({ entryLandingSeen: true }));
+    }, UIKEY);
+    await dismissGates(page);
+
+    // Second visit: reload with entryLandingSeen already true and still zero
+    // program/log/history.
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+
+    const secondVisit = await page.evaluate(() => {
+      const shown = (sel) => {
+        const el = document.querySelector(sel);
+        return !!el && !el.classList.contains("hidden");
+      };
+      return {
+        firstRunShown: shown("#firstRun"),
+        todayNoProgram: shown("#todayNoProgram"),
+        todaySetupBtn: shown("#todaySetupProgram"),
+      };
+    });
+
+    assert(
+      !secondVisit.firstRunShown,
+      "a second no-program visit with entryLandingSeen already true does not reopen the generic landing",
+      JSON.stringify(secondVisit)
+    );
+    assert(secondVisit.todayNoProgram, "second visit boots directly into Today's no-program state");
+    assert(secondVisit.todaySetupBtn, "second visit's Today no-program state still offers its setup action");
+
+    // The already-recorded assertion above is the proof; dismiss the
+    // (incorrectly reopened) landing so the nav bar is reachable to check
+    // Program's no-program state too, rather than hanging on production's
+    // current defect.
+    await dismissGates(page);
+    await page.click('nav [data-view="program"]');
+    await page.waitForFunction(() => document.querySelector("#program")?.classList.contains("active"));
+    const progNoProgram = await page.evaluate(() => {
+      const el = document.querySelector("#programNoProgram");
+      return !!el && !el.classList.contains("hidden");
+    });
+    assert(progNoProgram, "second visit's Program tab shows its own no-program setup state");
+
+    await context.close();
+  }
+
+  {
+    const sentinelPayload = makeSentinelPayload();
+    const { context, page } = await openAppPage(browser);
+    await clearSite(page);
+    const encoded = await encodeSharedPayload(page, sentinelPayload);
+    assert(encoded?.ok, "sentinel payload encoded for the fresh shared-route preference check", JSON.stringify(encoded));
+
+    await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+    const prefsAtFreshSharedGate = await page.evaluate((k) => {
+      try { return JSON.parse(localStorage.getItem(k) || "{}"); } catch { return {}; }
+    }, UIKEY);
+    assert(
+      !Object.prototype.hasOwnProperty.call(prefsAtFreshSharedGate, "entryLandingSeen"),
+      "a fresh shared landing does not create entryLandingSeen",
+      JSON.stringify(prefsAtFreshSharedGate)
+    );
+
+    await context.close();
+  }
+
+  // ------------------------------------------------------------------------
+  // Packet 054-P3, requirement 3: a valid shared proposal reaches the
+  // adaptive shared landing even when entryLandingSeen is already true, and
+  // the shared route writes neither entryLandingSeen nor a proposal field
+  // into repforge_ui_v1 before explicit Start.
+  // ------------------------------------------------------------------------
+  phase("Phase 10: Valid shared proposal bypasses entryLandingSeen and stays storage-silent before Start (054-P3)");
+  {
+    const sentinelPayload = makeSentinelPayload();
+    const { context, page } = await openAppPage(browser);
+    await clearSite(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+
+    // Seed entryLandingSeen === true, simulating a device that already
+    // abandoned an earlier empty visit past the generic landing.
+    await page.evaluate((k) => {
+      localStorage.setItem(k, JSON.stringify({ entryLandingSeen: true }));
+    }, UIKEY);
+    const prefsBeforeShared = await readUiPrefsRaw(page);
+
+    const encoded = await encodeSharedPayload(page, sentinelPayload);
+    assert(encoded?.ok, "sentinel payload encoded for the already-seen-landing check", JSON.stringify(encoded));
+
+    await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
+    await waitForFirstRun(page);
+
+    const gate = await page.evaluate(sharedGateSnapshot);
+    assert(
+      gate.gate && gate.sharedPresent && !gate.sharedHidden,
+      "the adaptive shared landing still opens even though entryLandingSeen is already true",
+      JSON.stringify(gate)
+    );
+    assert(
+      gate.startVisible && gate.startName.includes(SENTINELS.name),
+      "Start this program is the primary action, naming the shared program",
+      gate.startName
+    );
+
+    const prefsAtGate = await readUiPrefsRaw(page);
+    assert(
+      prefsAtGate === prefsBeforeShared,
+      "reaching the shared gate leaves repforge_ui_v1 byte-identical (no write)",
+      `${prefsBeforeShared} -> ${prefsAtGate}`
+    );
+
+    // Now explicitly Start, but stop short of activation.
+    await page.click("#firstRunSharedStart");
+    await page.waitForSelector("#entryActivate", { timeout: 15000 });
+
+    const prefsAfterStart = await readUiPrefsRaw(page);
+    assert(
+      prefsAfterStart === prefsBeforeShared,
+      "Start still leaves repforge_ui_v1 byte-identical before explicit activation",
+      `${prefsBeforeShared} -> ${prefsAfterStart}`
+    );
+
+    await context.close();
+  }
+
+  // ------------------------------------------------------------------------
+  // Packet 054-P3, requirements 4 & 5: entryLandingSeen is absent from an
+  // ordinary backup/export and from every decoded shared setup-link
+  // proposal, recursively at any depth; a narrow test-side fault proves the
+  // oracle actually catches a leak.
+  // ------------------------------------------------------------------------
+  phase("Phase 11: entryLandingSeen absent from export and setup-link proposal, with proof-first fault switch (054-P3)");
+  {
+    const { context, page } = await openAppPage(browser);
+    await clearSite(page);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await waitForFirstRun(page);
+
+    // Seed entryLandingSeen in device-local prefs so a real leak would have
+    // something concrete to carry across, then dismiss into the ordinary app.
+    await page.evaluate((k) => {
+      localStorage.setItem(k, JSON.stringify({ entryLandingSeen: true }));
+    }, UIKEY);
+    await dismissGates(page);
+
+    // 11a. Ordinary backup/export (current production hook: Settings ->
+    // Backup & export -> Export backup JSON).
+    await page.evaluate(() => document.querySelector("#openSettings")?.click());
+    await page.waitForSelector("#settings.active", { timeout: 5000 });
+    await page.locator("#dataBackupRow").click();
+    const [download] = await Promise.all([
+      page.waitForEvent("download", { timeout: 10000 }),
+      page.locator("#exportJson").click(),
+    ]);
+    let exported = JSON.parse(readFileSync(await download.path(), "utf8"));
+    if (FAULT === "export-entry-pref") {
+      console.log("  [FAULT INJECTION] simulating an entryLandingSeen leak into the exported backup");
+      exported = injectEntryLandingPref(exported);
+    }
+    const exportHits = findKeyPaths(exported, "entryLandingSeen");
+    assert(
+      exportHits.length === 0,
+      "ordinary backup/export never contains entryLandingSeen at any depth",
+      JSON.stringify(exportHits)
+    );
+
+    // 11b. Build through the production allowlist, then encode and decode the
+    // exact payload that the share route would send.
+    const activeState = await page.evaluate((payload) =>
+      window.__repforgeSharedSetup.buildProposal(payload), cloneFixture(REPRESENTATIVE_PAYLOAD));
+    await persistState(page, activeState);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    const builtPayload = await page.evaluate(() => window.__repforgeSharedSetup.build());
+    const encoded = await encodeSharedPayload(page, builtPayload);
+    assert(encoded?.ok, "representative payload encoded for the proposal isolation check", JSON.stringify(encoded));
+    const decoded = await decodeSharedPayload(page, encoded.value);
+    assert(decoded?.ok, "encoded proposal decodes cleanly for inspection", JSON.stringify(decoded));
+    let proposal = decoded.value;
+    if (FAULT === "export-entry-pref") {
+      console.log("  [FAULT INJECTION] simulating an entryLandingSeen leak into the decoded shared proposal");
+      proposal = injectEntryLandingPref(proposal);
+    }
+    const proposalHits = findKeyPaths(proposal, "entryLandingSeen");
+    assert(
+      proposalHits.length === 0,
+      "decoded shared setup-link proposal never contains entryLandingSeen at any depth",
+      JSON.stringify(proposalHits)
+    );
+
+    await context.close();
   }
 } finally {
   await browser.close();

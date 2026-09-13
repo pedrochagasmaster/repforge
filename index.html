@@ -620,75 +620,87 @@
       </div>
     </div>
   </div>
-  <!-- First-run setup. The install section is written by app.js from what the
-       browser actually offers — a captured beforeinstallprompt, iOS Safari's
-       manual Home Screen flow, or nothing at all — never from screen size. -->
+  <!-- One-time entry landing. Its program loop is ordinary HTML so the same
+       prescription, logged work, and next target remain legible without an
+       image. Shared links adapt this surface before any proposal is stored. -->
   <div id="firstRun" class="firstrun hidden ph-no-capture" role="dialog" aria-modal="true" tabindex="-1" data-i18n-aria="setup.aria" aria-label="Set up Taurifer">
     <div class="firstrun__inner">
-      <div class="firstrun__brand">
-        <!-- The gate draws the mark on the page, not on a plate, so it uses the
-             ground-free rendering of icons/icon.svg (tools/build-brand-mark.mjs)
-             rather than the app icon, which carries its own warm ground. -->
-        <img class="firstrun__logo" src="assets/brand/mark.png" alt="" width="48" height="48">
-        <span class="firstrun__wordmark">Taurifer</span>
-      </div>
-      <h1 class="visually-hidden" data-i18n="setup.title">Set up Taurifer</h1>
-      <!-- The one user-facing rendering of the ethos (ADR 0006). The body is
-           set like a poem: its string carries its own line breaks, which
-           `white-space:pre-line` honours, so the block breaks where it was
-           written rather than wherever the phone happens to wrap it. The art
-           element sits between the sentence and poem in source order: the
-           responsive grid gives it a dedicated row on compact screens and a
-           dedicated column on wider ones, so neither language ever competes
-           with or overlaps the picture. The fallback below is the same copy
-           as one paragraph, for the moment before i18n applies. The
-           illustration itself is decorative and drawn by CSS from
-           assets/brand/milo-hero.webp — an absent export leaves paper, never a
-           broken image; details are in assets/brand/README.md. -->
+      <header class="firstrun__header">
+        <div class="firstrun__brand">
+          <img class="firstrun__logo" src="assets/brand/mark.png" alt="" width="48" height="48">
+          <span class="firstrun__wordmark">Taurifer</span>
+        </div>
+        <div class="firstrun__utility">
+          <button type="button" class="firstrun__utility-action hidden" id="firstRunInstallLink">
+            <span class="firstrun__install-icon" aria-hidden="true"></span>
+            <span data-i18n="landing.install">Install app</span>
+          </button>
+          <button type="button" class="firstrun__utility-action" id="firstRunPrivacy" data-i18n="privacy.title">Privacy</button>
+        </div>
+      </header>
+
       <div class="firstrun-hero">
-        <p class="firstrun-hero__title" data-i18n="setup.ethos.title">Strength isn't something you're born with.</p>
-        <div class="firstrun-hero__art" aria-hidden="true"></div>
-        <p class="firstrun-hero__body" data-i18n="setup.ethos.body">Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it.</p>
+        <div class="firstrun-hero__copy">
+          <p class="firstrun__eyebrow firstrun__shared-only" data-i18n="landing.shared.eyebrow">Program received</p>
+          <h1 class="firstrun-hero__title" id="firstRunHeadline" data-i18n="landing.headline">Stop guessing what to lift. And start progressing.</h1>
+          <p class="firstrun__lede" id="firstRunLede" data-i18n="landing.body">Show up and lift. Taurifer plans your sessions, logs your sets, and tells you what comes next.</p>
+
+          <p id="firstRunSharedError" class="firstrun__error hidden" role="status"></p>
+          <div id="firstRunStandardProgram" class="firstrun__actions">
+            <button type="button" class="firstrun__cta firstrun__cta--primary" id="firstRunCreate">
+              <span data-i18n="landing.build">Build my program</span><span class="firstrun-row__go" aria-hidden="true"></span>
+            </button>
+            <button type="button" class="firstrun__cta firstrun__cta--secondary" id="firstRunImport">
+              <span data-i18n="landing.track">Track my current program</span><span class="firstrun-row__go" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div id="firstRunSharedProgram" class="firstrun__actions hidden">
+            <button type="button" class="firstrun__cta firstrun__cta--primary" id="firstRunSharedStart">
+              <span class="firstrun-row__text">
+                <span class="firstrun-row__title" id="firstRunSharedTitle" data-i18n="setup.shared.title">Start this program</span>
+                <span class="firstrun-row__cap" id="firstRunSharedCap"></span>
+              </span>
+              <span class="firstrun-row__busy hidden" id="firstRunSharedBusy" aria-hidden="true"></span>
+              <span class="firstrun-row__go" aria-hidden="true"></span>
+            </button>
+          </div>
+        </div>
+
+        <section class="firstrun-preview" aria-labelledby="landingPreviewTitle">
+          <div class="firstrun-preview__topline"><span>Taurifer</span><span aria-hidden="true">•••</span></div>
+          <h2 class="firstrun-preview__title" id="landingPreviewTitle" data-i18n="landing.preview.exercise">Bench press</h2>
+          <div class="firstrun-preview__tabs"><span data-i18n="landing.preview.workout">Workout</span><span data-i18n="landing.preview.history">History</span></div>
+          <div class="firstrun-preview__section">
+            <span class="firstrun-preview__label" data-i18n="landing.preview.prescription">Program prescription</span>
+            <strong class="firstrun-preview__prescription">3 × 8–10<br>60 kg</strong>
+            <span class="firstrun-preview__muted" data-i18n="landing.preview.target_rir">Target RIR 2</span>
+          </div>
+          <div class="firstrun-preview__section">
+            <span class="firstrun-preview__label" data-i18n="landing.preview.logged">Sets logged 3/3</span>
+            <ol class="firstrun-preview__sets">
+              <li><span class="firstrun-preview__check" aria-hidden="true">✓</span><span><small data-i18n="landing.preview.set_1">Set 1</small><strong>60 kg × 10</strong></span><span>RIR 2</span></li>
+              <li><span class="firstrun-preview__check" aria-hidden="true">✓</span><span><small data-i18n="landing.preview.set_2">Set 2</small><strong>60 kg × 10</strong></span><span>RIR 2</span></li>
+              <li><span class="firstrun-preview__check" aria-hidden="true">✓</span><span><small data-i18n="landing.preview.set_3">Set 3</small><strong>60 kg × 10</strong></span><span>RIR 2</span></li>
+            </ol>
+          </div>
+          <div class="firstrun-preview__next">
+            <span class="firstrun-preview__trend" aria-hidden="true">↗</span>
+            <span><small data-i18n="landing.preview.next">Next session · add load</small><strong>3 × 8–10<br>62.5 kg</strong></span>
+          </div>
+        </section>
       </div>
-      <p class="firstrun__lede" id="firstRunLede" data-i18n="setup.lede">Install Taurifer, then choose how to begin.</p>
+
+      <p class="firstrun__ethos" data-i18n="landing.ethos">Plan. Lift. Progress.</p>
 
       <section id="firstRunInstall" class="firstrun__section hidden" aria-labelledby="firstRunInstallLabel">
         <p class="firstrun__eyebrow" id="firstRunInstallLabel" data-i18n="setup.install_label">Install</p>
         <div id="firstRunInstallCard" class="installcard"></div>
       </section>
 
-      <section class="firstrun__section" aria-labelledby="firstRunProgramLabel">
-        <p class="firstrun__eyebrow" id="firstRunProgramLabel" data-i18n="setup.program_label">Program</p>
-        <p id="firstRunSharedError" class="firstrun__error hidden" role="status"></p>
-        <div id="firstRunStandardProgram" class="firstrun__rows">
-          <button type="button" class="firstrun-row" id="firstRunCreate">
-            <span class="firstrun-row__icon firstrun-row__icon--plus" aria-hidden="true"></span>
-            <span class="firstrun-row__text">
-              <span class="firstrun-row__title" data-i18n="setup.create.title">Create a program</span>
-              <span class="firstrun-row__cap" data-i18n="setup.create.cap">Answer a few questions or build your own program</span>
-            </span>
-            <span class="firstrun-row__go" aria-hidden="true"></span>
-          </button>
-          <button type="button" class="firstrun-row" id="firstRunImport">
-            <span class="firstrun-row__icon firstrun-row__icon--import" aria-hidden="true"></span>
-            <span class="firstrun-row__text">
-              <span class="firstrun-row__title" data-i18n="setup.import.title">Import a program</span>
-              <span class="firstrun-row__cap" data-i18n="setup.import.cap">Use a shared Taurifer program</span>
-            </span>
-            <span class="firstrun-row__go" aria-hidden="true"></span>
-          </button>
-        </div>
-        <div id="firstRunSharedProgram" class="firstrun__rows hidden">
-          <button type="button" class="firstrun-row" id="firstRunSharedStart">
-            <span class="firstrun-row__icon firstrun-row__icon--start" aria-hidden="true"></span>
-            <span class="firstrun-row__text">
-              <span class="firstrun-row__title" id="firstRunSharedTitle" data-i18n="setup.shared.title">Start this program</span>
-              <span class="firstrun-row__cap" id="firstRunSharedCap"></span>
-            </span>
-            <span class="firstrun-row__busy hidden" id="firstRunSharedBusy" aria-hidden="true"></span>
-            <span class="firstrun-row__go" aria-hidden="true"></span>
-          </button>
-        </div>
+      <section class="firstrun-benefits" aria-label="Why Taurifer" data-i18n-aria="landing.benefits_aria">
+        <div><span class="firstrun-benefits__icon" aria-hidden="true">□</span><strong data-i18n="landing.benefit.week.title">Built for your week</strong><p data-i18n="landing.benefit.week.body">A program that fits your time and goals.</p></div>
+        <div><span class="firstrun-benefits__icon" aria-hidden="true">↔</span><strong data-i18n="landing.benefit.guidance.title">Set-by-set guidance</strong><p data-i18n="landing.benefit.guidance.body">Know exactly what to do in the gym.</p></div>
+        <div><span class="firstrun-benefits__icon" aria-hidden="true">↗</span><strong data-i18n="landing.benefit.adapts.title">Adapts from your logs</strong><p data-i18n="landing.benefit.adapts.body">Progression based on your history.</p></div>
       </section>
 
       <button type="button" class="firstrun__continue" id="firstRunContinue">
@@ -1002,17 +1014,17 @@
        reordering stays reachable through each row's Move controls. -->
   <script src="vendor/motion/motion.js"></script>
   <script src="vendor/dnd-kit/dnd-kit.js"></script>
-  <script src="motion-layer.js?v=234"></script>
-  <script src="program-compiler.js?v=234"></script>
-  <script src="program-entry.js?v=234"></script>
-  <script src="program-entry-adapter.js?v=234"></script>
-  <script src="program-editor.js?v=234"></script>
-  <script src="shared-setup.js?v=234"></script>
-  <script src="workout-draft.js?v=234"></script>
-  <script src="program-transition.js?v=234"></script>
+  <script src="motion-layer.js?v=235"></script>
+  <script src="program-compiler.js?v=235"></script>
+  <script src="program-entry.js?v=235"></script>
+  <script src="program-entry-adapter.js?v=235"></script>
+  <script src="program-editor.js?v=235"></script>
+  <script src="shared-setup.js?v=235"></script>
+  <script src="workout-draft.js?v=235"></script>
+  <script src="program-transition.js?v=235"></script>
   <script src="install-transfer-contract.js"></script>
   <script src="install-transfer.js"></script>
-  <script src="durable-state.js?v=234"></script>
-  <script src="app.js?v=234"></script>
+  <script src="durable-state.js?v=235"></script>
+  <script src="app.js?v=235"></script>
 </body>
 </html>

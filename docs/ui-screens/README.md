@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 97 screens,
-473 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 98 screens,
+476 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -49,7 +49,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [First-run gate](screens/onboarding-start/first-run__phone-390-light-en.png) | 7 | No program exists. The gate that precedes every entry route. |
+| [One-time landing](screens/onboarding-start/first-run__phone-390-light-en.png) | 7 | First empty visit. Product loop, early Build and Track actions, Privacy, and device-local seen state. |
 | [Entry hub](screens/onboarding-start/hub__phone-390-light-en.png) | 7 | Create a program. Recommend and Custom carry the accent rail; Browse and Bring or build my own recede. |
 | [Entry hub — own disclosure open](screens/onboarding-start/hub-own-open__phone-390-light-en.png) | 3 | The Bring or build my own disclosure expanded to reveal the nested Build and Import rows. |
 | [Entry hub — existing program](screens/onboarding-start/hub-existing__phone-390-light-en.png) | 3 | Opened from Settings while a program is active, so replacement consequences are in view. |
@@ -121,7 +121,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Shared setup — confirmation gate](screens/onboarding-shared/gate__phone-390-light-en.png) | 8 | The first-run gate for an incoming setup link. Nothing persists until Start. |
+| [Shared setup — adaptive landing](screens/onboarding-shared/gate__phone-390-light-en.png) | 8 | An incoming setup link adapts the landing around its safe program summary. Nothing persists until Start. |
+| [Shared setup — invalid landing](screens/onboarding-shared/invalid__phone-390-light-en.png) | 3 | An invalid setup link explains that nothing was saved and keeps safe Build and Track actions available. |
 | [Shared setup — review](screens/onboarding-shared/preview__phone-390-light-en.png) | 3 | The editable preview a shared payload lands in before explicit activation. |
 
 ### Onboarding — resume and rule drift
