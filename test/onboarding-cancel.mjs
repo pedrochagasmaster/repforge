@@ -121,6 +121,7 @@ page.on("pageerror", (e) => errors.push(e.message));
 page.on("dialog", (d) => d.accept());
 
 await page.goto(BASE, { waitUntil: "domcontentloaded" });
+await waitForAppBoot(page, { base: BASE });
 await clearState(page);
 await page.reload({ waitUntil: "domcontentloaded" });
 await waitForAppBoot(page, { base: BASE });
