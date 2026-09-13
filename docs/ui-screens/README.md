@@ -50,8 +50,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [One-time landing](screens/onboarding-start/first-run__phone-390-light-en.png) | 7 | First empty visit. Product loop, early Build and Track actions, Privacy, and device-local seen state. |
-| [Entry hub](screens/onboarding-start/hub__phone-390-light-en.png) | 7 | Create a program. Recommend and Custom carry the accent rail; Browse and Bring or build my own recede. |
-| [Entry hub — own disclosure open](screens/onboarding-start/hub-own-open__phone-390-light-en.png) | 3 | The Bring or build my own disclosure expanded to reveal the nested Build and Import rows. |
+| [Entry hub](screens/onboarding-start/hub__phone-390-light-en.png) | 7 | Create a program. Recommend is the sole primary path; Custom is its generated alternative; Browse stands alone; Bring or build is collapsed. |
+| [Entry hub — own disclosure open](screens/onboarding-start/hub-own-open__phone-390-light-en.png) | 3 | The Bring or build disclosure expanded with aria-expanded to reveal Build, paste, and Taurifer-file import paths. |
 | [Entry hub — existing program](screens/onboarding-start/hub-existing__phone-390-light-en.png) | 3 | Opened from Settings while a program is active, so replacement consequences are in view. |
 
 ### Onboarding — Recommend one for me

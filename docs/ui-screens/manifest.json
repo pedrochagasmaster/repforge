@@ -356,14 +356,14 @@
       "id": "hub",
       "flow": "onboarding-start",
       "label": "Entry hub",
-      "scenario": "Create a program. Recommend and Custom carry the accent rail; Browse and Bring or build my own recede.",
+      "scenario": "Create a program. Recommend is the sole primary path; Custom is its generated alternative; Browse stands alone; Bring or build is collapsed.",
       "variants": "accessibility"
     },
     {
       "id": "hub-own-open",
       "flow": "onboarding-start",
       "label": "Entry hub — own disclosure open",
-      "scenario": "The Bring or build my own disclosure expanded to reveal the nested Build and Import rows.",
+      "scenario": "The Bring or build disclosure expanded with aria-expanded to reveal Build, paste, and Taurifer-file import paths.",
       "variants": "localized"
     },
     {

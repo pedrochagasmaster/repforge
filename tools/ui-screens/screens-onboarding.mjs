@@ -443,6 +443,7 @@ async function activationConflict(page) {
 
 /** Bring the frame's subject into view for surfaces taller than the viewport. */
 const FOCUS_SELECTOR = {
+  "onboarding-start/hub-own-open": "#entryOwnToggle",
   "onboarding-recommend/avoidance-pain": ".entry__pain",
   "onboarding-custom/exercise-preferences": ".entry__exercise-selected-group",
   "onboarding-recommend/activation-conflict": ".entry__notice",

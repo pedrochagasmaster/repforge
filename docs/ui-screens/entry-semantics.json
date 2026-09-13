@@ -45166,7 +45166,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a program or empty days"
+          "text": "Choose a ready-made program"
         },
         {
           "tag": "button",
@@ -45182,8 +45182,13 @@
           "text": "Choose a complete program by purpose and schedule."
         },
         {
+          "tag": "p",
+          "text": "Bring or build your own"
+        },
+        {
           "tag": "button",
           "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -45258,7 +45263,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a program or empty days"
+          "text": "Choose a ready-made program"
         },
         {
           "tag": "button",
@@ -45274,8 +45279,13 @@
           "text": "Choose a complete program by purpose and schedule."
         },
         {
+          "tag": "p",
+          "text": "Bring or build your own"
+        },
+        {
           "tag": "button",
           "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -45350,7 +45360,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a program or empty days"
+          "text": "Choose a ready-made program"
         },
         {
           "tag": "button",
@@ -45366,8 +45376,13 @@
           "text": "Choose a complete program by purpose and schedule."
         },
         {
+          "tag": "p",
+          "text": "Bring or build your own"
+        },
+        {
           "tag": "button",
           "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -45442,7 +45457,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a program or empty days"
+          "text": "Choose a ready-made program"
         },
         {
           "tag": "button",
@@ -45458,8 +45473,13 @@
           "text": "Choose a complete program by purpose and schedule."
         },
         {
+          "tag": "p",
+          "text": "Bring or build your own"
+        },
+        {
           "tag": "button",
           "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -45534,7 +45554,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a program or empty days"
+          "text": "Choose a ready-made program"
         },
         {
           "tag": "button",
@@ -45550,8 +45570,13 @@
           "text": "Choose a complete program by purpose and schedule."
         },
         {
+          "tag": "p",
+          "text": "Bring or build your own"
+        },
+        {
           "tag": "button",
           "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -45626,7 +45651,7 @@
         },
         {
           "tag": "p",
-          "text": "Comece com um programa ou dias vazios"
+          "text": "Escolha um programa pronto"
         },
         {
           "tag": "button",
@@ -45642,8 +45667,13 @@
           "text": "Escolha um programa completo por objetivo e frequência."
         },
         {
+          "tag": "p",
+          "text": "Traga ou monte o seu"
+        },
+        {
           "tag": "button",
           "name": "Usar meu próprio programaComece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer.",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -45718,7 +45748,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a program or empty days"
+          "text": "Choose a ready-made program"
         },
         {
           "tag": "button",
@@ -45734,8 +45764,13 @@
           "text": "Choose a complete program by purpose and schedule."
         },
         {
+          "tag": "p",
+          "text": "Bring or build your own"
+        },
+        {
           "tag": "button",
           "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -45816,7 +45851,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a program or empty days"
+          "text": "Choose a ready-made program"
         },
         {
           "tag": "button",
@@ -45832,8 +45867,13 @@
           "text": "Choose a complete program by purpose and schedule."
         },
         {
+          "tag": "p",
+          "text": "Bring or build your own"
+        },
+        {
           "tag": "button",
           "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -45914,7 +45954,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a program or empty days"
+          "text": "Choose a ready-made program"
         },
         {
           "tag": "button",
@@ -45930,8 +45970,13 @@
           "text": "Choose a complete program by purpose and schedule."
         },
         {
+          "tag": "p",
+          "text": "Bring or build your own"
+        },
+        {
           "tag": "button",
           "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -46012,7 +46057,7 @@
         },
         {
           "tag": "p",
-          "text": "Comece com um programa ou dias vazios"
+          "text": "Escolha um programa pronto"
         },
         {
           "tag": "button",
@@ -46028,8 +46073,13 @@
           "text": "Escolha um programa completo por objetivo e frequência."
         },
         {
+          "tag": "p",
+          "text": "Traga ou monte o seu"
+        },
+        {
           "tag": "button",
           "name": "Usar meu próprio programaComece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer.",
+          "aria-expanded": "false",
           "type": "button"
         },
         {
@@ -46104,7 +46154,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a program or empty days"
+          "text": "Choose a ready-made program"
         },
         {
           "tag": "button",
@@ -46120,8 +46170,13 @@
           "text": "Choose a complete program by purpose and schedule."
         },
         {
+          "tag": "p",
+          "text": "Bring or build your own"
+        },
+        {
           "tag": "button",
           "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
+          "aria-expanded": "true",
           "type": "button"
         },
         {
@@ -46235,7 +46290,7 @@
         },
         {
           "tag": "p",
-          "text": "Start with a program or empty days"
+          "text": "Choose a ready-made program"
         },
         {
           "tag": "button",
@@ -46251,8 +46306,13 @@
           "text": "Choose a complete program by purpose and schedule."
         },
         {
+          "tag": "p",
+          "text": "Bring or build your own"
+        },
+        {
           "tag": "button",
           "name": "Use my own programStart with empty days, paste any program, or import a Taurifer file.",
+          "aria-expanded": "true",
           "type": "button"
         },
         {
@@ -46366,7 +46426,7 @@
         },
         {
           "tag": "p",
-          "text": "Comece com um programa ou dias vazios"
+          "text": "Escolha um programa pronto"
         },
         {
           "tag": "button",
@@ -46382,8 +46442,13 @@
           "text": "Escolha um programa completo por objetivo e frequência."
         },
         {
+          "tag": "p",
+          "text": "Traga ou monte o seu"
+        },
+        {
           "tag": "button",
           "name": "Usar meu próprio programaComece com dias vazios, cole qualquer programa ou importe um arquivo Taurifer.",
+          "aria-expanded": "true",
           "type": "button"
         },
         {

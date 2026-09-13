@@ -113,9 +113,10 @@ async function openInstalledProgramEditor(page) {
 }
 
 async function openFreshEntryAt(browser, viewport, textScale = 1) {
-  const { context, page } = await openFresh(browser);
-  await page.setViewportSize(viewport);
-  await page.reload({ waitUntil: "domcontentloaded" });
+  const context = await browser.newContext({ viewport });
+  const page = await context.newPage();
+  page.on("dialog", (dialog) => dialog.dismiss().catch(() => {}));
+  await page.goto(BASE);
   await waitForAppBoot(page, { base: BASE });
   if (textScale !== 1) {
     await page.evaluate((scale) => { document.documentElement.style.fontSize = `${scale * 100}%`; }, textScale);
@@ -647,10 +648,10 @@ try {
       "hub presents one visible title", JSON.stringify(hubComposition.visibleTitles));
     assert(hubComposition.progressSegments === 0 && hubComposition.progressLabel === "",
       "hub has no progress segments or progress label", JSON.stringify(hubComposition));
-    assert(JSON.stringify(hubComposition.primary) === JSON.stringify(["recommend", "custom"]),
-      "Recommend and Custom are both primary routes", JSON.stringify(hubComposition.primary));
-    assert(JSON.stringify(hubComposition.secondary) === JSON.stringify(["browse"]),
-      "Browse is a secondary route", JSON.stringify(hubComposition.secondary));
+    assert(JSON.stringify(hubComposition.primary) === JSON.stringify(["recommend"]),
+      "Recommend is the sole primary route", JSON.stringify(hubComposition.primary));
+    assert(JSON.stringify(hubComposition.secondary) === JSON.stringify(["custom", "browse"]),
+      "Custom is subordinate and Browse remains separate", JSON.stringify(hubComposition.secondary));
     assert(hubComposition.routeChrome.every((route) => route.icon && route.chevron),
       "hub routes use Taurifer icon and chevron language", JSON.stringify(hubComposition.routeChrome));
     await page.click("#entryOwnToggle");
