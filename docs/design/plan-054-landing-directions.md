@@ -113,5 +113,20 @@ Constraints: same 390 x 844 phone canvas specified here; exact copy and data onl
 
 ## Owner decision
 
-Pending. Record the selected direction and exact artifact SHA-256 here and in
-draft PR #241 before 054-P3 begins.
+Selected on 2026-09-13: the owner supplied a new reference and stated, "This is
+the exact target we should aim for." It replaces A, B, and C as the production
+visual target.
+
+Selected artifact: [owner-selected-target.jpg](mocks/plan-054/owner-selected-target.jpg)
+
+SHA-256: `390f3fccf2fb24a766146311754599c3c3f0217568c05db0ffc029735674812e`
+
+The binding composition is the complete editorial landing shown in the selected
+artifact: compact brand/install/menu header; oversized proposition; short
+supporting copy; two early program-entry actions; a prominent phone product view
+that demonstrates prescription, logged sets, and the next target; and a concise
+three-part benefit strip. Production must build this as responsive semantic UI.
+The JPEG is a reference record, not a production image or screen-catalog frame.
+
+The earlier A/B/C artifacts remain preview evidence only. None is selected or
+eligible to enter production markup.
