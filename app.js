@@ -12436,7 +12436,8 @@ function renderCatalogueStep(){
       entryRangeLabel(Math.min(...setCounts),Math.max(...setCounts),
         "entry.catalogue.sets_range","entry.catalogue.sets_exact")].join(" · "):"";
     const progression=(card.progressionStrategies||[]).map(id=>progressionLabels[id]).filter(Boolean).join(" · ");
-    const equipment=(card.equipmentAssumptions||[]).map(token=>t(`entry.equip.${token}`)||token).join(", ");
+    const equipment=(card.equipmentAssumptions||[]).map(token=>{
+      const key=`entry.equip.${token}`,label=t(key);return label===key?"":label}).filter(Boolean).join(", ");
     const mismatch=card.mismatch==="frequency"?t("entry.catalogue.mismatch_frequency",{
       requested:entryState.answers.daysPerWeek,actual:card.daysPerWeek}):"";
     /* One flat button per program, laid out as a column: identity first, then
@@ -12446,10 +12447,10 @@ function renderCatalogueStep(){
       `<span class="entry-prog__head"><span class="entry-prog__name">${esc(familyName)}</span>`+
       `<span class="entry-prog__days">${esc(t("entry.catalogue.days_badge",{days:card.daysPerWeek}))}</span>`+
       `<span class="entry-prog__go chevron" aria-hidden="true"></span></span>`+
-      `<span class="entry-prog__purpose">${esc(purposeLabels[card.purpose]||familyName)}</span>`+
+      (purposeLabels[card.purpose]?`<span class="entry-prog__purpose">${esc(purposeLabels[card.purpose])}</span>`:"")+
       `<span class="entry-prog__facts">${minutes?`<span>${esc(minutes)}</span>`:""}${structure?`<span>${esc(structure)}</span>`:""}</span>`+
-      `<span class="entry-prog__meta">${esc(t("entry.catalogue.progression",{progression}))}</span>`+
-      `<span class="entry-prog__meta">${esc(t("entry.catalogue.equipment",{equipment}))}</span>`+
+      (progression?`<span class="entry-prog__meta">${esc(t("entry.catalogue.progression",{progression}))}</span>`:"")+
+      (equipment?`<span class="entry-prog__meta">${esc(t("entry.catalogue.equipment",{equipment}))}</span>`:"")+
       (mismatch?`<span class="entry-prog__warn">${esc(mismatch)}</span>`:"")+
       `</button>`}
   if(!cards.length)return entryHeading(t("entry.catalogue.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.catalogue.empty_title"))}</strong>`+

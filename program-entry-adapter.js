@@ -536,7 +536,7 @@
           namePt: `${family.namePt} · ${frequency} dias`,
           familyName: family.name,
           familyNamePt: family.namePt,
-          purpose: family.publicGoal || "train_anywhere",
+          purpose: family.publicGoal || (family.limitedEquipment === true ? "train_anywhere" : null),
           daysPerWeek: frequency,
           minutes: estimates.length ? [Math.min(...estimates), Math.max(...estimates)] : [],
           release: JSON.parse(JSON.stringify(release)),
@@ -547,7 +547,7 @@
           weeklyStructure: (compiled.days || []).map((day) => day.label),
           structureFacts,
           progressionStrategies,
-          equipmentAssumptions: equipmentAssumptions.length ? equipmentAssumptions : ["bodyweight"],
+          equipmentAssumptions,
           mismatch: mismatch[0] || null,
           mismatches: mismatch,
           fingerprint: fingerprint({
