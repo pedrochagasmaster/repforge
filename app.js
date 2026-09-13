@@ -1,5 +1,6 @@
 const KEY="repforge_v1",DRAFT="repforge_draft_v1",NOTIFY_META="repforge_notify_v1";
 const WorkoutDraft=window.RepForgeWorkoutDraft;
+const InstallPolicy=window.RepForgeInstallPolicy;
 const DRAFT_PENDING_PREFIX=`${DRAFT}:pending:`,DRAFT_CLOSE_PREFIX=`${DRAFT}:closing:`;
 const DRAFT_V2_CHECKPOINT=`${DRAFT}:v2-checkpoint`;
 const DRAFT_WRITE_TRANSACTION="draft-write";
@@ -3532,7 +3533,7 @@ async function installTransferClaimDigest(contract,{claimId=null,claimIdDigest=n
   if(claimIdDigest!==null&&claimIdDigest!==undefined&&claimIdDigest!==digest)
     return{ok:false,code:"claim-id-digest-mismatch"};
   return{ok:true,value:digest}}
-function installTransferMeaningful(snapshot){
+function installTransferStateMeaningful(snapshot){
   if(!snapshot||typeof snapshot!=="object")return true;
   const defaultSettings=normalizeSettings(DEFAULTS);
   const destinationSettings=normalizeSettings(snapshot.settings);
@@ -3546,7 +3547,9 @@ function installTransferMeaningful(snapshot){
   const draft=readLiveAcknowledgedDraftV2(snapshot);
   if(draft.status==="live"||draft.status==="unavailable")return true;
   const candidate=readSetupDraftRecord();
-  return !candidate.ok||!!candidate.envelope||installTransferDeviceMeaningful()}
+  return !candidate.ok||!!candidate.envelope}
+function installTransferMeaningful(snapshot){
+  return installTransferStateMeaningful(snapshot)||installTransferDeviceMeaningful()}
 async function installTransferDestination(){
   const local=readLocalStatus(),idb=await readIdbStatus(),decision=chooseSnapshot(local,idb);
   if(decision.kind==="first-run")return{local,idb,decision,snapshot:normalizeLoaded(null),revision:0};
@@ -6132,7 +6135,9 @@ async function saveWorkoutV2(io){
     duration:window.RepForgeTelemetry?.bucketDuration(startedAt?Math.max(0,(Date.now()-startedAt)/60000):0)});
   const btn=$(".btn--save");if(btn){btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped")}
   const summary=buildSessionSummary({rows,prevLog,session,date,day:savedDay,startedAt});render();
-  if(!openSessionSummary(summary))toast(t("toast.workout_forged",{n:rows.length,sets:tp(rows.length,"set")}));
+  if(!openSessionSummary(summary)){
+    toast(t("toast.workout_forged",{n:rows.length,sets:tp(rows.length,"set")}));
+    maybeShowInstallBanner()}
   return result}
 
 async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(saving)return;
@@ -6310,7 +6315,8 @@ function closeSessionSummary(opts={}){
   // the day's session swaps the start CTA for the recap, so the target is read
   // off the rendered dashboard instead of assumed to be the CTA.
   if(!opts.nav){const next=resolveReturnFocus(todayPrimaryControl);
-    if(next){try{next.focus({preventScroll:true})}catch{}}}}
+    if(next){try{next.focus({preventScroll:true})}catch{}}}
+  maybeShowInstallBanner()}
 window.__repforgeSessionSummary={
   open:openSessionSummary,close:closeSessionSummary,
   build:buildSessionSummary,current:()=>sessionSummaryCurrent};
@@ -9239,7 +9245,8 @@ function renderSettings(){
   updateVoiceBtn();
   // Rule 5: the row is there only when tapping it leads somewhere — Chrome's
   // prompt, the Safari sheet, or the explanation another iOS browser needs.
-  const ia=$("#installApp");if(ia)ia.classList.toggle("hidden",installMode()==="none");
+  const manualInstall=installPolicyDecision("manual-settings");
+  const ia=$("#installApp");if(ia)ia.classList.toggle("hidden",!manualInstall.eligible&&installMode()!=="safari");
   const sec=normalizeRestSec(state.settings.restSec),disp=$("#restSecDisplay");
   if(disp)disp.textContent=sec?fmtClock(sec):t("settings.rest_off");
   const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=state.settings.rirMode==="effort"?t("settings.rir_effort"):t("settings.rir_numbers");
@@ -13462,6 +13469,17 @@ function setUiPref(k,v){
   if(installTransferMutationFrozen())return false;
   uiPrefs[k]=v;try{localStorage.setItem(UIKEY,JSON.stringify(uiPrefs));return true}
   catch(e){console.warn("ui prefs save failed",e);return false}}
+const INSTALL_PREF_DEFAULTS=Object.freeze({installLastOfferedMilestone:null,installLastOfferedAt:null,
+  installDismissedMilestone:null,installDismissedAt:null});
+function replaceUiPrefs(next){
+  if(installTransferMutationFrozen())return false;
+  try{localStorage.setItem(UIKEY,JSON.stringify(next));uiPrefs=next;return true}
+  catch(e){console.warn("ui prefs save failed",e);return false}}
+function ensureInstallPolicyPrefs(){
+  let changed=false;const next={...uiPrefs};
+  for(const[key,value]of Object.entries(INSTALL_PREF_DEFAULTS)){
+    if(!Object.prototype.hasOwnProperty.call(next,key)){next[key]=value;changed=true}}
+  if(changed)replaceUiPrefs(next)}
 
 /* ---- Appearance ----
    A UI pref, not a setting: which paper this device prefers says nothing about
@@ -13506,6 +13524,8 @@ const isIOS=()=>{const ua=navigator.userAgent||"";return /iphone|ipad|ipod/i.tes
    so do the in-app webviews; nothing else on iOS can be told apart. */
 const IOS_NON_SAFARI=/CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|OPR\/|YaBrowser|DuckDuckGo|Brave|FBAN|FBAV|FBIOS|Instagram|Line\/|Twitter|MicroMessenger|GSA\//i;
 const isIOSSafari=()=>isIOS()&&!IOS_NON_SAFARI.test(navigator.userAgent||"");
+const isChromium=()=>!/iphone|ipad|ipod/i.test(navigator.userAgent||"")&&
+  /Chrome|Chromium|CriOS|EdgA|EdgiOS|OPR\//i.test(navigator.userAgent||"");
 /** The single decision about which install interface a browser gets. It reads
  *  capabilities and display mode — never screen size — in this order:
  *    "none"   already installed, or nothing worth offering
@@ -13526,7 +13546,26 @@ function installMode(){
    one that redraws once there is something to redraw. */
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e},true);
 const IOS_SHARE_SVG='<svg class="ios-share" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v13"/><path d="M8 7l4-4 4 4"/><path d="M6 12H4v8h16v-8h-2"/></svg>';
-const INSTALL_SNOOZE_MS=7*86400000;
+function installPolicySavedWorkouts(){
+  return new Set((state?.log||[]).filter(isWork).map(row=>row.session)).size}
+function installPolicyTransferAvailable(){
+  return typeof window.RepForgeInstallTransferContract?.validateEnvelopeIntegrity==="function"&&
+    typeof window.RepForgeInstallTransfer?.captureLogicalSnapshot==="function"&&
+    typeof navigator.locks?.request==="function"&&!!window.crypto?.subtle}
+function installPolicyDecision(source="automatic"){
+  if(!InstallPolicy?.evaluateInstallPolicy)return{state:"unsupported",eligible:false,milestone:null,reason:"policy-unavailable"};
+  return InstallPolicy.evaluateInstallPolicy({
+    platform:isIOS()?"ios":isChromium()?"chromium":"other",
+    isIOSSafari:isIOSSafari(),hasInstallCapability:!!installPrompt,standalone:isStandalone(),
+    hasMeaningfulData:installTransferStateMeaningful(state),savedWorkoutsCount:installPolicySavedWorkouts(),
+    uiPrefs,nowMs:Date.now(),source,transferAvailable:installPolicyTransferAvailable()})}
+function recordInstallPolicyOffer(decision){
+  if(!Number.isInteger(decision?.milestone))return;
+  replaceUiPrefs({...InstallPolicy.recordInstallOffer(uiPrefs,{milestone:decision.milestone,nowMs:Date.now()})})}
+function recordInstallPolicyDismissal(decision){
+  if(!Number.isInteger(decision?.milestone))return;
+  replaceUiPrefs({...InstallPolicy.recordInstallDismissal(uiPrefs,{milestone:decision.milestone,nowMs:Date.now()})})}
+let installPresentedDecision=null;
 function installInstructions(){
   if(isIOS())return t("install.ios_instructions",{icon:IOS_SHARE_SVG});
   if(installPrompt)return t("install.prompt_instructions");
@@ -13535,12 +13574,16 @@ function installInstructions(){
 /** Every surface that offers an install, refreshed from one reading of what the
  *  browser can do. Called whenever that reading can have changed. */
 function renderInstallSurfaces(){
-  const mode=installMode();
-  $("#installBtn")?.classList.toggle("hidden",mode!=="native");
-  $("#installApp")?.classList.toggle("hidden",mode==="none");
+  const mode=installMode(),automatic=installPolicyDecision(),manual=installPolicyDecision("manual-settings");
+  $("#installBtn")?.classList.toggle("hidden",mode!=="native"||!automatic.eligible);
+  $("#installApp")?.classList.toggle("hidden",!manual.eligible&&mode!=="safari");
   renderFirstRunInstall();
 }
-async function triggerInstall(){
+async function triggerInstall(source="automatic"){
+  const requestSource=source==="manual-settings"?"manual-settings":"automatic";
+  const decision=requestSource==="manual-settings"
+    ?installPolicyDecision("manual-settings")
+    :installPresentedDecision||installPolicyDecision();
   const mode=installMode();
   if(mode==="native"){
     // The event is single-use. Clearing it before the await is what makes a
@@ -13553,6 +13596,9 @@ async function triggerInstall(){
     // an install, and a dismissal simply leaves the section gone until Chrome
     // offers the event again.
     if(outcome==="accepted"){hideInstallBanner(false);closeFirstRunInstall();toast(t("toast.installing"))}
+    else{
+      if(outcome==="dismissed"&&requestSource==="automatic")recordInstallPolicyDismissal(decision);
+      hideInstallBanner(false);closeFirstRunInstall()}
     renderSettings();renderInstallSurfaces();return}
   if(mode==="ios"){
     const marker=installTransferOutboundMarker();
@@ -13561,15 +13607,16 @@ async function triggerInstall(){
       :marker?.phase==="confirmed"?"success"
       :marker?.phase==="unknown-outcome"?(marker.outcomeCode==="claimed-expired"?"claimed-expired":"unknown")
       :null;
-    openIosInstallSheet(recoveryState||(installTransferMeaningful(state)?"eligible":"manual"));return}
+    if(!recoveryState&&!decision.eligible)return;
+    const transfer=decision.reason==="ios-transfer";
+    openIosInstallSheet(recoveryState||(transfer?"eligible":"manual"));return}
   if(mode==="safari"){showInstallBanner(true);return}
 }
 function installBannerEligible(){
-  if(installMode()==="none")return false;
+  const decision=installPolicyDecision();
+  if(!decision.eligible||!["eligible-milestone","ios-transfer"].includes(decision.state))return false;
   if(state?.[STORAGE_FOLLOWUP]?.kind==="onboarding-edit")return false;
   if(tourActive||firstRunActive||$("#onboarding")?.classList.contains("active"))return false;
-  const dis=+uiPrefs.installDismissedAt||0;
-  if(dis&&Date.now()-dis<INSTALL_SNOOZE_MS)return false;
   return true;
 }
 function showInstallBanner(force){
@@ -13605,11 +13652,14 @@ function showInstallBanner(force){
   const mode=installMode();
   if(mode==="none")return;
   if(!force&&!installBannerEligible())return;
+  const decision=force?installPolicyDecision("manual-settings"):installPolicyDecision();
   $("#installBannerBody").innerHTML=mode==="safari"?esc(t("install.card.safari_only_body")):installInstructions();
   const act=$("#installBannerAction");
   if(mode==="native"){act.classList.remove("hidden");act.textContent=t("install.action");act.onclick=triggerInstall;}
   else if(mode==="ios"){act.classList.remove("hidden");act.textContent=t("install.card.ios_action");act.onclick=triggerInstall;}
   else act.classList.add("hidden");
+  installPresentedDecision=decision;
+  if(!force)recordInstallPolicyOffer(decision);
   b.classList.remove("hidden");
 }
 function showInstallTransferDivergenceDialog(onConfirm){
@@ -13652,7 +13702,10 @@ function showInstallTransferDivergenceDialog(onConfirm){
     if(typeof onConfirm==="function")await onConfirm();
   };
 }
-function hideInstallBanner(remember){$("#installBanner")?.classList.add("hidden");if(remember)setUiPref("installDismissedAt",Date.now())}
+function hideInstallBanner(remember){
+  $("#installBanner")?.classList.add("hidden");
+  if(remember)recordInstallPolicyDismissal(installPresentedDecision);
+  installPresentedDecision=null}
 function maybeShowInstallBanner(){if(installBannerEligible())showInstallBanner(false)}
 
 /* ---- First-run setup: install, then choose a program ----
@@ -13761,9 +13814,11 @@ async function commitSharedSetup(io=storageIO){
 function renderFirstRunInstall(){
   const sec=$("#firstRunInstall"),card=$("#firstRunInstallCard"),link=$("#firstRunInstallLink");
   if(!sec||!card)return;
-  const mode=installMode();
-  link?.classList.toggle("hidden",mode==="none");
-  if(mode==="none"){sec.classList.add("hidden");card.innerHTML="";return}
+  const mode=installMode(),decision=installPolicyDecision();
+  const explanatory=mode==="safari"&&decision.state==="unsupported";
+  const shown=decision.eligible||explanatory;
+  link?.classList.toggle("hidden",!shown);
+  if(!shown){sec.classList.add("hidden");card.innerHTML="";return}
   const body=mode==="native"?t("install.card.browser_body")
     :mode==="ios"?t("install.card.ios_body"):t("install.card.safari_only_body");
   const action=mode==="native"?t("install.card.browser_action"):mode==="ios"?t("install.card.ios_action"):"";
@@ -13772,6 +13827,7 @@ function renderFirstRunInstall(){
     `<p class="installcard__body">${esc(body)}</p></div>`+
     (action?`<button type="button" class="btn btn--cta installcard__action" id="firstRunInstallAction">${esc(action)}</button>`:"");
   const act=$("#firstRunInstallAction");if(act)act.onclick=triggerInstall;
+  installPresentedDecision=decision;
   sec.classList.remove("hidden");
 }
 /** The lede and the escape hatch both speak to the install offer, so they follow
@@ -13790,11 +13846,13 @@ function setFirstRunOffer(offer){
 function closeFirstRunInstall(){
   const sec=$("#firstRunInstall");if(sec)sec.classList.add("hidden");
   const card=$("#firstRunInstallCard");if(card)card.innerHTML="";
+  installPresentedDecision=null;
   setFirstRunOffer(false);
 }
 function renderFirstRun(){
   renderFirstRunProgramMode();
-  setFirstRunOffer(installMode()!=="none");
+  const decision=installPolicyDecision(),mode=installMode();
+  setFirstRunOffer(decision.eligible||mode==="safari"&&decision.state==="unsupported");
   const label=$("#firstRunContinueLabel");
   if(label)label.textContent=isIOSSafari()?t("setup.continue_safari"):t("setup.continue_browser");
   renderFirstRunInstall();
@@ -13831,7 +13889,7 @@ function suspendFirstRun(){
   const el=$("#firstRun");if(!el)return;
   el.classList.add("hidden");document.body.classList.remove("is-firstrun")}
 function closeFirstRun(){
-  firstRunActive=false;suspendFirstRun()}
+  firstRunActive=false;installPresentedDecision=null;suspendFirstRun()}
 const firstRunPending=()=>!state.programMeta?.onboarded&&!state.log.length;
 /** Resolve the landing before ordinary navigation. A valid or invalid shared
  *  handoff always gets its complete fail-closed surface. Otherwise an empty
@@ -14143,6 +14201,7 @@ function endTour(completed){
 function maybeStartTour(){if(uiPrefs.tourDone)return false;if($("#onboarding")?.classList.contains("active"))return false;startTour("first-run");return true}
 window.startTour=startTour;window.closeTour=()=>{if(tourActive)endTour(false)};
 window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,startTour,currentTheme,resolvedTheme,setTheme,
+  installPolicyDecision:()=>installPolicyDecision(),
   openInstallTransferState:stateName=>openIosInstallSheet(stateName),openPrivacy:()=>openPrivacySheet()};
 function resumeProgramEditFollowUp(){
   if(state?.[STORAGE_FOLLOWUP]?.kind!=="onboarding-edit")return false;
@@ -14161,6 +14220,7 @@ window.__repforgeOnboarding={
 
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
+  ensureInstallPolicyPrefs();
   // The pre-paint snippet in index.html has already done this for a dark
   // device; re-running it is what covers the light case and a snippet that
   // could not read storage.
@@ -14197,7 +14257,7 @@ function init(){
   // "Continue in browser" is an answer to the install offer, not to the program
   // question: it takes the offer off the table for a while, then hands over to
   // the same first run the app has always had.
-  $("#firstRunContinue").onclick=()=>{setUiPref("installDismissedAt",Date.now());
+  $("#firstRunContinue").onclick=()=>{recordInstallPolicyDismissal(installPresentedDecision);
     if(sharedSetupReady()){closeFirstRunInstall();renderFirstRunProgramMode();return}
     closeFirstRun();startOnboarding("first-run")};
   const sharedStart=$("#firstRunSharedStart");if(sharedStart)sharedStart.onclick=async()=>{
@@ -14216,7 +14276,7 @@ function init(){
   $("#tourNext").onclick=()=>{if(tourStep<tourSteps().length-1){tourStep++;renderTour()}else endTour(true)};
   $("#tourSkip").onclick=()=>endTour(false);
   $("#replayTour").onclick=()=>startTour("replay");
-  $("#installApp").onclick=triggerInstall;
+  $("#installApp").onclick=()=>triggerInstall("manual-settings");
   $("#restBar").onclick=openRestSheet;
   // One rest control in the workout header: it starts the clock when idle, and
   // opens the timer sheet once it is running rather than ending the rest.

@@ -318,7 +318,13 @@ export const APP_SCENARIOS = {
   },
 
   "install/banner": async (page) => {
-    await page.evaluate(() => window.__repforgeUi.showInstallBanner());
+    await page.evaluate(() => {
+      const event = new Event("beforeinstallprompt");
+      event.prompt = () => {};
+      event.userChoice = Promise.resolve({ outcome: "dismissed" });
+      window.dispatchEvent(event);
+      window.__repforgeUi.showInstallBanner(false);
+    });
     await sleep(page, 500);
     const shown = await page.evaluate(() => {
       const banner = document.querySelector(".installbanner");
@@ -353,10 +359,12 @@ export const APP_SCENARIOS = {
   },
 };
 
-/** The iOS install sheet only renders under a Safari user agent. */
+/** Transfer surfaces only render under a Safari user agent. The promotion
+ * banner stays on Chromium so its catalog state exercises the native install
+ * capability and earned-value milestone. */
 const IOS_SAFARI = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1";
 export const APP_USER_AGENT = Object.fromEntries([
-  "banner", "ios-sheet", "transfer-eligible", "transfer-creating", "transfer-ready", "transfer-retryable",
+  "ios-sheet", "transfer-eligible", "transfer-creating", "transfer-ready", "transfer-retryable",
   "transfer-claiming", "transfer-importing", "transfer-success", "transfer-cleanup", "transfer-terminal",
   "transfer-destination", "transfer-interrupted", "transfer-unknown", "transfer-claimed-expired",
 ].map((id) => [`install/${id}`, IOS_SAFARI]));

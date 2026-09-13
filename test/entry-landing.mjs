@@ -944,11 +944,11 @@ try {
   }
 
   // ------------------------------------------------------------------------
-  // Requirement 7: Current install and global-tour behavior recorded as baseline
+  // Requirement 7: P7 install timing and the still-current tour baseline
   // ------------------------------------------------------------------------
-  phase("Phase 7: Baseline install and tour behavior recorded");
+  phase("Phase 7: Install value gate and global-tour baseline recorded");
   {
-    // 7A: Install baseline in standard browser with beforeinstallprompt
+    // 7A: Chromium captures capability but withholds promotion before value
     {
       const { context, page } = await openAppPage(browser);
       await clearSite(page);
@@ -977,13 +977,15 @@ try {
           installShown: shown("#firstRunInstall"),
           actionBtn: !!document.querySelector("#firstRunInstallAction"),
           continuePresent: !!document.querySelector("#firstRunContinue"),
+          continueShown: shown("#firstRunContinue"),
           continueLabel: document.querySelector("#firstRunContinueLabel")?.textContent?.trim() || null,
         };
       });
 
-      assert(installState.actionBtn, "first-run install card action button exists in DOM");
-      assert(installState.installShown, "first-run install card is shown after beforeinstallprompt");
+      assert(!installState.actionBtn, "pre-value Chromium exposes no install card action");
+      assert(!installState.installShown, "pre-value Chromium withholds the automatic install card");
       assert(installState.continuePresent, "first-run continue affordance is present in DOM");
+      assert(!installState.continueShown, "pre-value Chromium shows no install-specific escape hatch");
       assert(installState.continueLabel != null, "first-run continue label is rendered", installState.continueLabel);
       await context.close();
     }

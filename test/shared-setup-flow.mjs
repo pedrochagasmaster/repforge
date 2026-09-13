@@ -1413,7 +1413,7 @@ export async function runSharedSetupFlow(browser) {
     await context.close();
   });
 
-  await runCase("Chrome install accepted/dismissed leaves the shared action", async () => {
+  await runCase("Pre-value Chrome install capability leaves only the shared action", async () => {
     const { context, page } = await openAppPage(browser, { ua: ANDROID_UA });
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -1427,32 +1427,13 @@ export async function runSharedSetupFlow(browser) {
     await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
     await page.evaluate(() => window.__fireInstall());
-    await page.waitForSelector("#firstRunInstallAction", { timeout: 8000 });
-    await page.click("#firstRunInstallAction");
-    await page.waitForTimeout(300);
-    const accepted = await page.evaluate(sharedGateSnapshot);
-    assert(accepted.gate && accepted.startVisible, "accepted Chrome install keeps the shared row", JSON.stringify(accepted));
-    assert(!accepted.install, "accepted install removes the install section", JSON.stringify(accepted));
-    assert(!accepted.createVisible, "Create stays hidden after Chrome accepted", JSON.stringify(accepted));
+    const gated = await page.evaluate(sharedGateSnapshot);
+    assert(gated.gate && gated.startVisible, "captured Chrome capability keeps the shared row", JSON.stringify(gated));
+    assert(!gated.install, "pre-value Chrome does not promote installation", JSON.stringify(gated));
+    assert(!gated.createVisible, "Create stays hidden on the shared route", JSON.stringify(gated));
+    const durable = await page.evaluate(readDurableState);
+    assert(durable.cookie, "suppressed Chrome promotion preserves the setup handoff cookie", durable.cookie);
     await context.close();
-
-    const dismissed = await openAppPage(browser, { ua: ANDROID_UA });
-    await clearSite(dismissed.page);
-    await dismissed.page.reload({ waitUntil: "domcontentloaded" });
-    await waitForFirstRun(dismissed.page);
-    const encoded2 = await encodeSharedPayload(dismissed.page, cloneFixture(MINIMAL_PAYLOAD));
-    await dismissed.page.goto(`${APP_INDEX}#setup=${encoded2.value}`, { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(dismissed.page);
-    await dismissed.page.evaluate(() => {
-      window.__choice = "dismissed";
-      window.__fireInstall();
-    });
-    await dismissed.page.waitForSelector("#firstRunInstallAction", { timeout: 8000 });
-    await dismissed.page.click("#firstRunInstallAction");
-    await dismissed.page.waitForTimeout(300);
-    const afterDismiss = await dismissed.page.evaluate(sharedGateSnapshot);
-    assert(afterDismiss.startVisible && afterDismiss.gate, "dismissed Chrome prompt keeps the shared row", JSON.stringify(afterDismiss));
-    await dismissed.context.close();
   });
 
   await runCase("Cookie-only standalone reconstructs the shared gate", async () => {

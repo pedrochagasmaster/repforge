@@ -1,10 +1,10 @@
-const CACHE = "repforge-v238";
+const CACHE = "repforge-v239";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
-  "./vendor/motion/motion.js", "./vendor/dnd-kit/dnd-kit.js", "./vendor/dnd-kit/dnd-kit.runtime.js", "./motion-layer.js", "./motion-layer.js?v=238",
+  "./vendor/motion/motion.js", "./vendor/dnd-kit/dnd-kit.js", "./vendor/dnd-kit/dnd-kit.runtime.js", "./motion-layer.js", "./motion-layer.js?v=239",
   "./telemetry.js", "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js", "./install-transfer-contract.js", "./install-transfer.js",
-  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=238", "./program-entry.js", "./program-entry.js?v=238", "./program-entry-adapter.js", "./program-entry-adapter.js?v=238", "./program-editor.js", "./program-editor.js?v=238",
-  "./shared-setup.js", "./shared-setup.js?v=238", "./workout-draft.js", "./workout-draft.js?v=238", "./program-transition.js", "./program-transition.js?v=238", "./durable-state.js", "./durable-state.js?v=238", "./app.js", "./app.js?v=238",
+  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=239", "./program-entry.js", "./program-entry.js?v=239", "./program-entry-adapter.js", "./program-entry-adapter.js?v=239", "./program-editor.js", "./program-editor.js?v=239",
+  "./shared-setup.js", "./shared-setup.js?v=239", "./workout-draft.js", "./workout-draft.js?v=239", "./program-transition.js", "./program-transition.js?v=239", "./install-policy.js", "./install-policy.js?v=239", "./durable-state.js", "./durable-state.js?v=239", "./app.js", "./app.js?v=239",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
@@ -51,7 +51,7 @@ self.addEventListener("activate", event => {
   );
 });
 
-const SHELL = new Set(["/", "/index.html", "/app.js", "/workout-draft.js", "/program-transition.js", "/durable-state.js", "/styles.css", "/motion-polish.css", "/motion-layer.js", "/vendor/motion/motion.js", "/vendor/dnd-kit/dnd-kit.js", "/vendor/dnd-kit/dnd-kit.runtime.js", "/i18n.js", "/exercises.js", "/shared-setup.js", "/program-compiler.js", "/program-entry.js", "/program-entry-adapter.js", "/program-editor.js", "/install-transfer-contract.js", "/install-transfer.js", "/telemetry.js", "/posthog-init.js", "/posthog-config.js", "/manifest.webmanifest"]);
+const SHELL = new Set(["/", "/index.html", "/app.js", "/workout-draft.js", "/program-transition.js", "/durable-state.js", "/styles.css", "/motion-polish.css", "/motion-layer.js", "/vendor/motion/motion.js", "/vendor/dnd-kit/dnd-kit.js", "/vendor/dnd-kit/dnd-kit.runtime.js", "/i18n.js", "/exercises.js", "/shared-setup.js", "/program-compiler.js", "/program-entry.js", "/program-entry-adapter.js", "/program-editor.js", "/install-policy.js", "/install-transfer-contract.js", "/install-transfer.js", "/telemetry.js", "/posthog-init.js", "/posthog-config.js", "/manifest.webmanifest"]);
 const IMMUTABLE_RUNTIMES = new Set(["/vendor/motion/motion.js", "/vendor/dnd-kit/dnd-kit.runtime.js"]);
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
 function shellPathname(pathname) {

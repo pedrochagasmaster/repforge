@@ -148,7 +148,7 @@ const BANNER_PROGRAM = JSON.stringify({
   ],
 });
 
-async function bannerPage(browser, { ua, locale = "en-US", width = 393, native = false } = {}) {
+async function bannerPage(browser, { ua, locale = "en-US", width = 393, native = false, choice = "accepted" } = {}) {
   const { context, page, errors } = await firstRunPage(browser, { ua, locale, width });
   await page.setInputFiles("#importProgram", {
     name: "program.json",
@@ -164,7 +164,25 @@ async function bannerPage(browser, { ua, locale = "en-US", width = 393, native =
   });
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 15000 });
-  if (native) await page.evaluate(() => window.__fireInstall());
+  if (native) {
+    const seeded = await page.evaluate(async (nextChoice) => {
+      const proposal = window.__repforgeWorkoutDraft.state();
+      const exercise = proposal.program[0];
+      proposal.log.push({
+        session: "install-value-1", date: "2026-09-13", day: exercise.day,
+        name: exercise.name, exerciseId: exercise.id, set: 1, load: 50, reps: 8, rir: 2,
+        notes: "", created: "2026-09-13T12:00:00.000Z",
+      });
+      const result = await window.__repforgeCommitProposedState(proposal);
+      window.__choice = nextChoice;
+      window.__fireInstall();
+      window.__repforgeUi.showInstallBanner(false);
+      return result?.committed === true && result?.settled === true;
+    }, choice);
+    if (!seeded) throw new Error("install value milestone did not commit");
+  } else {
+    await page.evaluate(() => window.__repforgeUi.showInstallBanner(true));
+  }
   await page.waitForSelector("#installBanner:not(.hidden)", { timeout: 8000 });
   // The copy is measured in characters of a web font.
   await page.evaluate(() => document.fonts.ready);
@@ -297,22 +315,15 @@ async function run() {
   const browser = await launchChromium();
   const allErrors = [];
 
-  // ---- Chromium holding a deferred prompt ----
+  // ---- Chromium holding a deferred prompt before first value ----
   {
-    console.log("Chromium with a captured beforeinstallprompt");
+    console.log("Chromium before the first saved-workout value milestone");
     const { context, page, errors } = await firstRunPage(browser, { ua: ANDROID_UA });
     await page.evaluate(() => window.__fireInstall());
     await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 8000 });
     const shown = await page.evaluate(card);
-    assert(shown.section, "the install section is offered", JSON.stringify(shown));
-    assert(shown.title === "Install Taurifer", "card title", shown.title);
-    assert(
-      shown.body === "Open it from your Home Screen, without browser controls.",
-      "card body names browser controls",
-      shown.body
-    );
-    assert(shown.action === "Install Taurifer", "the button asks Chrome to install", shown.action);
-    assert(shown.continueLabel === "Continue in browser", "the escape hatch says browser", shown.continueLabel);
+    assert(!shown.section, "Chromium does not promote installation before first value", JSON.stringify(shown));
+    assert(shown.title === null && shown.action === null, "the gated card exposes no dead install action", JSON.stringify(shown));
     assert(
       shown.heroTitle === "Stop guessing what to lift. And start progressing.",
       "the product landing leads the gate",
@@ -341,66 +352,64 @@ async function run() {
     await page.click("#privacyClose");
     await page.waitForFunction(() => document.querySelector("#privacySheet")?.hidden === true, undefined, { timeout: 8000 });
 
-    await page.click("#firstRunInstallAction");
-    await page.waitForTimeout(300);
-    const accepted = await page.evaluate(() => ({
+    const gated = await page.evaluate(() => ({
       calls: window.__promptCalls,
-      section: !document.querySelector("#firstRunInstall").classList.contains("hidden"),
-      gate: !document.querySelector("#firstRun").classList.contains("hidden"),
-      create: !!document.querySelector("#firstRunCreate"),
       topButton: !document.querySelector("#installBtn").classList.contains("hidden"),
-      toast: (() => { const el = document.querySelector("#toast"); return el && !el.classList.contains("hidden") ? el.textContent : null; })(),
-      lede: document.querySelector("#firstRunLede")?.textContent || null,
-      continueShown: !document.querySelector("#firstRunContinue").classList.contains("hidden"),
+      decision: window.__repforgeUi.installPolicyDecision(),
     }));
-    assert(accepted.calls === 1, "prompt() runs once per tap", String(accepted.calls));
-    assert(accepted.toast === "Installing Taurifer…", "an accepted install is reported", String(accepted.toast));
-    assert(
-      accepted.lede === "Show up and lift. Taurifer plans your sessions, logs your sets, and tells you what comes next." && !accepted.continueShown,
-      "install completion leaves the product landing and removes only its escape hatch",
-      JSON.stringify({ lede: accepted.lede, continueShown: accepted.continueShown })
-    );
-    assert(!accepted.section, "an accepted install removes the install section", JSON.stringify(accepted));
-    assert(accepted.gate && accepted.create, "the program choices stay", JSON.stringify(accepted));
-    assert(!accepted.topButton, "the consumed event leaves no install button behind", JSON.stringify(accepted));
+    assert(gated.calls === 0, "the native prompt is not consumed before value", JSON.stringify(gated));
+    assert(!gated.topButton && gated.decision.state === "chromium-awaiting-value",
+      "all automatic Chromium promotion awaits value", JSON.stringify(gated));
     allErrors.push(...errors);
     await context.close();
   }
 
-  // ---- Chromium, prompt dismissed ----
+  // ---- Chromium after first value, prompt dismissed ----
   {
-    console.log("\nChromium after the lifter dismisses Chrome's prompt");
-    const { context, page, errors } = await firstRunPage(browser, { ua: ANDROID_UA });
-    await page.evaluate(() => {
-      window.__choice = "dismissed";
-      window.__fireInstall();
-    });
-    await page.waitForSelector("#firstRunInstallAction", { timeout: 8000 });
-    await page.click("#firstRunInstallAction");
-    await page.waitForTimeout(300);
+    console.log("\nChromium after first value and prompt dismissal");
+    const { context, page, errors } = await bannerPage(browser, { ua: ANDROID_UA, native: true, choice: "dismissed" });
+    await page.click("#installBannerAction");
+    await page.waitForFunction(() => window.__promptCalls === 1, undefined, { timeout: 8000 });
     const after = await page.evaluate(() => ({
       calls: window.__promptCalls,
-      gate: !document.querySelector("#firstRun").classList.contains("hidden"),
-      create: !!document.querySelector("#firstRunCreate"),
-      import: !!document.querySelector("#firstRunImport"),
-      section: !document.querySelector("#firstRunInstall").classList.contains("hidden"),
+      banner: !document.querySelector("#installBanner").classList.contains("hidden"),
       toast: (() => { const el = document.querySelector("#toast"); return el && !el.classList.contains("hidden") ? el.textContent : null; })(),
+      prefs: JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}"),
     }));
-    assert(after.gate && after.create && after.import, "Create and Import survive a dismissal", JSON.stringify(after));
-    assert(after.calls === 1, "a dismissal does not prompt again", String(after.calls));
-    assert(!after.section, "the spent event leaves no dead button", JSON.stringify(after));
+    assert(after.calls === 1, "the eligible native prompt runs exactly once", String(after.calls));
+    assert(!after.banner, "the spent event leaves no dead banner action", JSON.stringify(after));
     assert(!after.toast, "no install is claimed that Chrome did not confirm", JSON.stringify(after));
+    assert(after.prefs.installDismissedMilestone === 1 && Number.isFinite(after.prefs.installDismissedAt),
+      "dismissal records the first-value milestone", JSON.stringify(after.prefs));
 
-    // Chrome may offer the event again; the section comes back with it.
-    await page.evaluate(() => window.__fireInstall());
-    await page.waitForTimeout(100);
+    // A fresh capability event cannot bypass the recorded milestone.
+    await page.evaluate(() => { window.__fireInstall(); window.__repforgeUi.showInstallBanner(false); });
     assert(
-      await page.evaluate(() => !document.querySelector("#firstRunInstall").classList.contains("hidden")),
-      "a re-offered event brings the section back"
+      await page.evaluate(() => document.querySelector("#installBanner").classList.contains("hidden")),
+      "a re-offered event does not loop before the third workout"
     );
     allErrors.push(...errors);
     await context.close();
 
+  }
+
+  // ---- Chromium after first value, prompt accepted ----
+  {
+    console.log("\nChromium after first value and prompt acceptance");
+    const { context, page, errors } = await bannerPage(browser, { ua: ANDROID_UA, native: true });
+    await page.click("#installBannerAction");
+    await page.waitForFunction(() => window.__promptCalls === 1, undefined, { timeout: 8000 });
+    const accepted = await page.evaluate(() => ({
+      calls: window.__promptCalls,
+      banner: !document.querySelector("#installBanner").classList.contains("hidden"),
+      topButton: !document.querySelector("#installBtn").classList.contains("hidden"),
+      toast: (() => { const el = document.querySelector("#toast"); return el && !el.classList.contains("hidden") ? el.textContent : null; })(),
+    }));
+    assert(accepted.calls === 1, "accepted value-milestone prompt runs exactly once", JSON.stringify(accepted));
+    assert(accepted.toast === "Installing Taurifer…", "an accepted install is reported", String(accepted.toast));
+    assert(!accepted.banner && !accepted.topButton, "accepted install consumes every native promotion action", JSON.stringify(accepted));
+    allErrors.push(...errors);
+    await context.close();
   }
 
   // ---- iOS Safari ----
@@ -630,9 +639,9 @@ async function run() {
     await page.waitForSelector("#firstRun:not(.hidden)", { timeout: 8000 });
     const pt = await page.evaluate(card);
     assert(
-      pt.body === "Abra pela Tela de Início, sem os controles do navegador.",
-      "PT Chromium card body",
-      pt.body
+      !pt.section && pt.body === null,
+      "PT Chromium also withholds promotion before value",
+      JSON.stringify(pt)
     );
     assert(pt.continueLabel === "Continuar no navegador", "PT Chromium escape hatch", pt.continueLabel);
     await context.close();
@@ -889,34 +898,17 @@ async function run() {
   }
 
   {
-    console.log("\nShared setup · Chromium native install");
+    console.log("\nShared setup · Chromium awaits value");
     try {
       const { context, page, encoded } = await sharedInstallPage(browser, { ua: ANDROID_UA, payload: cloneFixture(MINIMAL_PAYLOAD) });
       assert(encoded?.ok, "shared Chromium: payload encodes", JSON.stringify(encoded));
       await page.evaluate(() => window.__fireInstall());
-      await page.waitForSelector("#firstRunInstallAction", { timeout: 8000 });
-      await page.click("#firstRunInstallAction");
-      await page.waitForTimeout(300);
-      const accepted = await page.evaluate(sharedGateSnapshot);
-      assert(accepted.startVisible && accepted.gate && !accepted.install, "shared Chromium: accepted install leaves the shared action", JSON.stringify(accepted));
+      const gated = await page.evaluate(sharedGateSnapshot);
+      assert(gated.startVisible && gated.gate && !gated.install,
+        "shared Chromium: pre-activation proposal keeps Start and suppresses install before value", JSON.stringify(gated));
       await context.close();
     } catch (err) {
-      assert(false, "shared Chromium accepted (uncaught)", String(err && err.stack || err));
-    }
-    try {
-      const { context, page } = await sharedInstallPage(browser, { ua: ANDROID_UA, payload: cloneFixture(MINIMAL_PAYLOAD) });
-      await page.evaluate(() => {
-        window.__choice = "dismissed";
-        window.__fireInstall();
-      });
-      await page.waitForSelector("#firstRunInstallAction", { timeout: 8000 });
-      await page.click("#firstRunInstallAction");
-      await page.waitForTimeout(300);
-      const dismissed = await page.evaluate(sharedGateSnapshot);
-      assert(dismissed.startVisible && dismissed.gate, "shared Chromium: dismissed prompt leaves the shared action", JSON.stringify(dismissed));
-      await context.close();
-    } catch (err) {
-      assert(false, "shared Chromium dismissed (uncaught)", String(err && err.stack || err));
+      assert(false, "shared Chromium awaiting value (uncaught)", String(err && err.stack || err));
     }
   }
 
