@@ -729,6 +729,10 @@
         <button type="button" class="whysheet__close" id="privacyClose" data-i18n-aria="dialog.close" aria-label="Close">✕</button>
       </div>
       <div class="privacy-sheet__body">
+        <section aria-labelledby="privacySetupTitle">
+          <h3 id="privacySetupTitle" data-i18n="privacy.setup.title">Program setup links</h3>
+          <p data-i18n="privacy.setup.body">A setup link carries a program proposal in its #setup= fragment. It is an unencrypted bearer link, so anyone you forward it to can read and use it. For the iOS Home Screen handoff, the temporary repforge_setup_v1 cookie carries that proposal to the static host for up to seven days. It never includes workout logs or program history.</p>
+        </section>
         <section aria-labelledby="privacyTransferTitle">
           <h3 id="privacyTransferTitle" data-i18n="privacy.transfer.title">Temporary install transfer</h3>
           <p data-i18n="privacy.transfer.contents">The encrypted logical clone includes your normalized program and workout state, history, archive and provenance, active workout draft, unfinished program setup, UI preferences, analytics consent, and stable telemetry identity. It excludes volatile locks, journals, transaction markers, cookies, permissions, cache state, and provider session state.</p>
@@ -739,6 +743,18 @@
           <p data-i18n="privacy.transfer.ratelimit">Create abuse counters use HMAC-derived IP buckets. They store no raw IP, are not linked to a transfer or token, and last no more than two minutes.</p>
           <p data-i18n="privacy.transfer.recovery">Safari keeps its original local data. After a completed or uncertain transfer it becomes a recovery snapshot. To resume there, you must confirm that future Safari and installed-app changes stay separate and never merge.</p>
           <p data-i18n="privacy.transfer.scope">The transfer preserves analytics consent, telemetry identity, and UI preferences. It is not an account, cloud backup, or synchronization. The intentional Safari and installed-app copies remain on their devices.</p>
+        </section>
+        <section aria-labelledby="privacyTelemetryTitle">
+          <h3 id="privacyTelemetryTitle" data-i18n="privacy.telemetry.title">Telemetry and consent</h3>
+          <p data-i18n="privacy.telemetry.body">Telemetry is opt-in under the consent policy in Settings. It sends coarse product funnels with a stable anonymous identity, never workout values, exercise names, notes, free text, setup links, transfer tokens, or backup data. You can turn it off at any time.</p>
+        </section>
+        <section aria-labelledby="privacyControlsTitle">
+          <h3 id="privacyControlsTitle" data-i18n="privacy.controls.title">Export and delete</h3>
+          <p data-i18n="privacy.controls.body">Use Settings to export a JSON backup before moving or clearing this browser. Delete workout history permanently removes logs and the active draft from local storage while keeping your program and Settings. The separate delete-all action names everything it removes before you confirm.</p>
+        </section>
+        <section aria-labelledby="privacyLimitationsTitle">
+          <h3 id="privacyLimitationsTitle" data-i18n="privacy.limitations.title">Limitations</h3>
+          <p data-i18n="privacy.limitations.body">Taurifer has no automatic cloud sync or server backup. Clearing browser storage or losing the device can make data unrecoverable without an export. A setup link is a bearer link, so forwarding it gives the recipient the proposal. Browser and installed-app copies do not merge.</p>
         </section>
       </div>
     </div>
@@ -865,7 +881,7 @@
       <span class="sheet__spacer" aria-hidden="true"></span>
     </div>
     <div class="sheet__body share-setup">
-      <p id="shareSetupBody" data-i18n="program.share_setup_body">The link shares this program, its configuration, eight selected settings, and the app language. It does not include workout history. For iOS installation, a temporary cookie stores the compressed proposal. The static host receives that cookie with matching index.html requests for up to seven days. Compression and encoding do not encrypt the proposal.</p>
+      <p id="shareSetupBody" data-i18n="program.share_setup_body">Create a setup link for this program. Copy the link or open the system Share sheet.</p>
       <p id="shareSetupLink" class="share-setup__link" tabindex="0"></p>
       <p id="shareSetupStatus" class="share-setup__status hidden" role="status"></p>
     </div>
@@ -1004,19 +1020,19 @@
        reordering stays reachable through each row's Move controls. -->
   <script src="vendor/motion/motion.js"></script>
   <script src="vendor/dnd-kit/dnd-kit.js"></script>
-  <script src="motion-layer.js?v=245"></script>
-  <script src="program-compiler.js?v=245"></script>
-  <script src="program-entry.js?v=245"></script>
-  <script src="program-entry-adapter.js?v=245"></script>
-  <script src="program-editor.js?v=245"></script>
-  <script src="shared-setup.js?v=245"></script>
-  <script src="workout-draft.js?v=245"></script>
-  <script src="program-transition.js?v=245"></script>
+  <script src="motion-layer.js?v=246"></script>
+  <script src="program-compiler.js?v=246"></script>
+  <script src="program-entry.js?v=246"></script>
+  <script src="program-entry-adapter.js?v=246"></script>
+  <script src="program-editor.js?v=246"></script>
+  <script src="shared-setup.js?v=246"></script>
+  <script src="workout-draft.js?v=246"></script>
+  <script src="program-transition.js?v=246"></script>
   <script src="install-transfer-contract.js"></script>
   <script src="install-transfer.js"></script>
-  <script src="install-policy.js?v=245"></script>
-  <script src="guide-registry.js?v=245"></script>
-  <script src="durable-state.js?v=245"></script>
-  <script src="app.js?v=245"></script>
+  <script src="install-policy.js?v=246"></script>
+  <script src="guide-registry.js?v=246"></script>
+  <script src="durable-state.js?v=246"></script>
+  <script src="app.js?v=246"></script>
 </body>
 </html>

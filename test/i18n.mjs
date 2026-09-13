@@ -318,12 +318,12 @@ async function main() {
     en: {
       "meta.description": "Taurifer keeps workout logs, drafts, and history on this device. Setup links share a program and selected settings.",
       "guide.privacy.body": "Open Privacy for the exact local-storage, setup-link, transfer, and analytics boundaries.",
-      "program.share_setup_body": "The link shares this program, its configuration, eight selected settings, and the app language. It does not include workout history. For iOS installation, a temporary cookie stores the compressed proposal. The static host receives that cookie with matching index.html requests for up to seven days. Compression and encoding do not encrypt the proposal.",
+      "privacy.setup.body": "A setup link carries a program proposal in its #setup= fragment. It is an unencrypted bearer link, so anyone you forward it to can read and use it. For the iOS Home Screen handoff, the temporary repforge_setup_v1 cookie carries that proposal to the static host for up to seven days. It never includes workout logs or program history.",
     },
     pt: {
       "meta.description": "O Taurifer mantém seus treinos, rascunhos e histórico neste dispositivo. Links de configuração compartilham um programa e ajustes selecionados.",
       "guide.privacy.body": "Abra Privacidade para ver os limites exatos de armazenamento local, links, transferência e análise de uso.",
-      "program.share_setup_body": "O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. Ele não inclui o histórico de treinos. Para instalar no iOS, um cookie temporário armazena a proposta comprimida. O host estático recebe esse cookie com as requisições correspondentes de index.html por até sete dias. A compressão e a codificação não criptografam a proposta.",
+      "privacy.setup.body": "Um link de configuração leva uma proposta de programa no fragmento #setup=. Ele é um link portador sem criptografia: qualquer pessoa para quem você o encaminhar pode ler e usar a proposta. Para a passagem à Tela de Início no iOS, o cookie temporário repforge_setup_v1 leva essa proposta ao host estático por até sete dias. Ele nunca inclui registros de treino nem histórico de programas.",
     },
   };
   for (const lang of ["en", "pt"]) {

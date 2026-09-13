@@ -62,7 +62,7 @@ export const SHARED_COPY = Object.freeze({
     shareUnsupported: "This browser cannot create setup links.",
     saved: "Program saved.",
     shareTitle: "Share program setup",
-    shareBody: "The link shares this program, its configuration, eight selected settings, and the app language. It does not include workout history. For iOS installation, a temporary cookie stores the compressed proposal. The static host receives that cookie with matching index.html requests for up to seven days. Compression and encoding do not encrypt the proposal.",
+    shareBody: "Create a setup link for this program. Copy the link or open the system Share sheet.",
   },
   pt: {
     lede: "Revise o programa que enviaram para você e depois comece neste dispositivo.",
@@ -814,7 +814,7 @@ export async function runSharedSetupFlow(browser) {
     }
   });
 
-  await runCase("Web Share sends title and URL only; sheet keeps the disclosure", async () => {
+  await runCase("Web Share and its sheet stay task-only", async () => {
     const { context, page } = await openAppPage(browser, { webShare: true, clipboard: true });
     await clearSite(page);
     await persistState(page, configuredState({
@@ -843,7 +843,7 @@ export async function runSharedSetupFlow(browser) {
     const link = await readShareSetupLink(page);
     assert(
       sheet.bodyVisible && sheet.body === SHARED_COPY.en.shareBody,
-      "share sheet still displays the privacy disclosure",
+      "share sheet keeps only task guidance",
       sheet.body
     );
     assert(!!link && /#setup=/.test(link), "share sheet shows the generated setup URL", link);
