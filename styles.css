@@ -3780,49 +3780,13 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun__cta .firstrun-row__go{color:currentColor}
 .firstrun__cta .firstrun-row__title{color:inherit;font-size:18px}
 .firstrun__cta .firstrun-row__cap{color:inherit;font-size:13px;opacity:.82}
+/* The device render. It is sized from the hero, not from a fixed width, so it
+   holds the selected target's proportion — a little over a third of the page —
+   at every viewport, and its own alpha carries the shadow. */
 .firstrun-preview{
-  position:relative;grid-area:preview;align-self:center;justify-self:center;width:min(100%,344px);padding:36px 22px 24px;
-  border:3px solid var(--ink);border-radius:34px;background:var(--surface);color:var(--ink);
-  box-shadow:0 22px 48px rgba(var(--ink-rgb),.16);transform:rotate(1.5deg);
+  grid-area:preview;align-self:center;justify-self:center;display:block;
+  width:100%;max-width:342px;height:auto;
 }
-.firstrun-preview::before{
-  content:"";position:absolute;top:14px;left:50%;transform:translateX(-50%);
-  width:64px;height:6px;border-radius:4px;background:var(--ink);opacity:.85;
-}
-.firstrun-preview__topline{display:flex;justify-content:space-between;font-size:9px;font-weight:650;letter-spacing:.28em;text-transform:uppercase}
-.firstrun-preview__title{margin:19px 0 10px;font-size:27px;line-height:1;font-weight:700;letter-spacing:-.035em}
-.firstrun-preview__tabs{display:flex;gap:28px;border-bottom:1px solid var(--rule);font-size:12px;color:var(--ink-soft)}
-.firstrun-preview__tabs span:first-child{padding:0 0 8px;border-bottom:2px solid var(--accent);color:var(--accent-deep)}
-.firstrun-preview__section{display:grid;gap:5px;padding:17px 0;border-bottom:1px solid var(--rule)}
-.firstrun-preview__label,.firstrun-preview__next small{
-  font-family:var(--mono);font-size:9px;line-height:1.4;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);
-}
-.firstrun-preview__prescription{font-family:var(--mono);font-size:20px;line-height:1.25;font-weight:500}
-/* The prescription earns a second column so the drawing sits beside the
-   numbers it belongs to, the way the selected target sets it. The paper colour
-   arrives inline from the movement's own sampled `mediaBg`. */
-.firstrun-preview__section--rx{grid-template-columns:minmax(0,1fr) auto;column-gap:10px}
-.firstrun-preview__section--rx>:not(.firstrun-preview__art){grid-column:1}
-/* The label keeps the full measure — it is the section's heading, and letting
-   the drawing squeeze it wraps two words that belong on one line. */
-.firstrun-preview__section--rx>.firstrun-preview__label{grid-column:1/-1}
-.firstrun-preview__art{
-  grid-column:2;grid-row:2/4;align-self:center;
-  width:58px;aspect-ratio:1;border-radius:7px;
-  background:var(--exercise-art-bg) url("assets/exercises/pr_bb.webp") center/88% no-repeat;
-}
-.firstrun-preview__muted{font-size:11px;color:var(--ink-soft)}
-.firstrun-preview__sets{display:grid;gap:0;margin:5px 0 0;padding:0;list-style:none}
-.firstrun-preview__sets li{display:grid;grid-template-columns:25px 1fr auto;align-items:center;gap:8px;padding:8px 0;border-top:1px solid var(--rule);font-size:10px;color:var(--ink-soft)}
-.firstrun-preview__sets li:first-child{border-top:0}
-.firstrun-preview__sets li>span:nth-child(2){display:grid;gap:2px}
-.firstrun-preview__sets small{font-size:9px}
-.firstrun-preview__sets strong{font-family:var(--mono);font-size:12px;font-weight:500;color:var(--ink)}
-.firstrun-preview__check{display:grid;place-items:center;width:21px;height:21px;border-radius:50%;background:var(--accent-deep);color:var(--accent-ink);font-size:12px}
-.firstrun-preview__next{display:grid;grid-template-columns:36px 1fr;align-items:center;gap:12px;margin-top:15px;padding:14px;background:var(--well)}
-.firstrun-preview__next span:last-child{display:grid;gap:4px}
-.firstrun-preview__next strong{font-family:var(--mono);font-size:17px;line-height:1.2;font-weight:500}
-.firstrun-preview__trend{font-size:30px;color:var(--accent-deep)}
 .firstrun__ethos{max-width:16ch;margin:34px 0 0;padding-top:17px;border-top:1px solid var(--ink);font-family:var(--mono);font-size:11px;line-height:1.7;letter-spacing:.18em;text-transform:uppercase;white-space:pre-line}
 .firstrun-benefits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:52px calc(-1 * var(--firstrun-pad)) -30px;border-top:1px solid var(--rule);background:var(--surface)}
 .firstrun-benefits>div{min-width:0;padding:23px clamp(12px,3vw,24px);border-left:1px solid var(--rule)}
@@ -3868,25 +3832,16 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun__cta{min-height:48px;padding:10px 12px;font-size:14px}
   .firstrun__cta .firstrun-row__title{font-size:14px}
   .firstrun__cta .firstrun-row__cap{font-size:10px}
-  .firstrun-preview{width:146px;margin-top:86px;padding:22px 10px 13px;border-radius:23px;transform:rotate(2.5deg)}
-  .firstrun-preview::before{top:8px;width:34px;height:4px}
-  .firstrun-preview__title{margin:12px 0 7px;font-size:19px}
-  .firstrun-preview__tabs{gap:18px;font-size:9px}
-  .firstrun-preview__tabs span:first-child{padding-bottom:6px}
-  .firstrun-preview__section{gap:3px;padding:10px 0}
-  .firstrun-preview__section--rx{column-gap:6px}
-  .firstrun-preview__art{width:36px;border-radius:5px}
-  .firstrun-preview__label,.firstrun-preview__next small{font-size:6px}
-  .firstrun-preview__prescription{font-size:13px}
-  .firstrun-preview__muted{font-size:8px}
-  .firstrun-preview__sets{margin-top:2px}
-  .firstrun-preview__sets li{grid-template-columns:18px 1fr auto;gap:5px;padding:5px 0;font-size:7px}
-  .firstrun-preview__sets small{font-size:6px}
-  .firstrun-preview__sets strong{font-size:8px}
-  .firstrun-preview__check{width:16px;height:16px;font-size:8px}
-  .firstrun-preview__next{grid-template-columns:24px 1fr;gap:7px;margin-top:9px;padding:8px}
-  .firstrun-preview__next strong{font-size:10px}
-  .firstrun-preview__trend{font-size:20px}
+  /* The device runs off the right edge rather than stopping at the measure.
+     A phone this narrow cannot give the render more grid width without
+     wrapping the proposition, and the selected target puts the device against
+     the page edge anyway. The overflow is clipped by the gate's own
+     `overflow-x:hidden`. */
+  .firstrun-preview{
+    margin-top:34px;
+    width:calc(100% + var(--firstrun-pad));
+    max-width:none;margin-right:calc(-1 * var(--firstrun-pad));
+  }
   .firstrun__ethos{margin-top:12px}
   .firstrun-benefits{margin-top:30px}
   .firstrun.is-shared .firstrun-preview{margin-top:54px}
@@ -3900,7 +3855,7 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 
 @media (max-width:359px){
-  .firstrun-preview{width:min(92%,320px);transform:none}
+  .firstrun-preview{width:min(92%,320px)}
 }
 
 /* The install card. It bleeds to the edge of the setup column, which is the

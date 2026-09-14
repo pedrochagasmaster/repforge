@@ -20,6 +20,38 @@ Re-run it when a new mark lands. Never hand-edit or hand-crop the output, and
 never point the gate at `icons/icon.svg` instead: the app icon paints its own
 warm ground, which reads as a tile against the app's paper.
 
+## `landing-device.webp`
+
+The phone in the landing hero, 541×1058 with alpha. Owner-supplied, landed
+2026-09-14 as a rendered iPhone holding a real Taurifer screen: a Push session
+in week 4, the incline converging chest press at 4–8 reps and RIR 0–2, last
+session's 152.5 kg for 7 reps, and the set derived from it.
+
+Two things were done to the original, and both matter if it is ever replaced:
+
+1. **Trimmed to its own alpha** (`Image.getbbox()`), from 1152×1440 to
+   541×1058. The transparent margin was a third of the file and every pixel of
+   it is a pixel the device does not get when the image is sized from a grid
+   column.
+2. **Encoded as WebP at quality 88 (~33 kB) with alpha preserved.** The drop
+   shadow lives in that alpha, so the render needs no CSS shadow and sits on
+   the photograph without a box.
+
+It is an `<img>`, not a `background-image`, and this is the one brand image
+that is *not* decorative: it is the only place the landing shows the product,
+so it carries a real, localized `alt` naming the loop it displays — the
+target, the work logged last session, and the set derived from them. That
+string is `landing.preview.alt`, and `data-i18n-alt` keeps it translated.
+`test/install-modes.mjs` asserts those facts from the accessible name in both
+languages.
+
+The screen inside it is a raster, so it does not reflow, restyle for dark, or
+translate. That is the accepted cost of the owner's direction, recorded in
+`docs/design/plan-054-landing-directions.md`; a pt-BR reader sees an English
+screen with a Portuguese description of it. Replacing this file means
+re-checking that the alt still describes what the new render actually shows —
+a stale description here is worse than no image.
+
 ## `landing-hero.webp`
 
 The photograph behind the Plan 054 landing hero, 941×1672. Owner-supplied,

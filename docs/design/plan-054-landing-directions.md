@@ -153,6 +153,39 @@ processing, and the dark/`forced-colors` withholding rule are recorded in
 `assets/brand/README.md`. This is brand art, not exercise art: the 96-file
 illustration set stays closed and untouched.
 
-The photograph carries no product fact. Every fact in the hero — prescription,
-logged sets, derived next target — remains live text in the phone preview, so
-the landing still reads correctly with the image absent.
+The photograph carries no product fact.
+
+### Device render, supplied 2026-09-14
+
+The selected target's phone is a rendered device showing the product. The first
+implementation drew that phone in CSS with the loop as live text. The owner
+judged the result too far from the target and supplied a device render to use
+instead.
+
+Production asset: `assets/brand/landing-device.webp` (541×1058 with alpha, ~33 kB).
+
+SHA-256 of the supplied source PNG:
+`8f2411895e8611a7b84f2046273310eb4ba15bfe9eca8bd88587de45d82c9598`
+
+SHA-256 of the shipped WebP:
+`52a7e5158c2dfdef385b62f621b24326bef20cae07aea7b9813f4a0c4a5f3cb4`
+
+The render shows a real Taurifer screen, so the truthful-loop requirement still
+holds: a Push session in week 4, the incline converging chest press prescribed
+at 4–8 reps and RIR 0–2, the 152.5 kg for 7 reps logged last session, and the
+set derived from it. The numbers differ from the A/B/C previews because this is
+a different session, not because anything was invented.
+
+**This trades live text for a raster, and that cost was accepted knowingly.**
+The loop now reaches assistive technology and both languages through the
+image's localized `alt` (`landing.preview.alt`, bound by a new `data-i18n-alt`
+attribute), and `test/install-modes.mjs` asserts the prescription, the logged
+work and the derived target from that accessible name in en-US and pt-BR. What
+is genuinely lost: the screen inside the render does not reflow at 200% text,
+does not restyle for dark, and does not translate — a pt-BR reader sees an
+English screen described in Portuguese. The ten `landing.preview.*` strings the
+drawn phone used are removed.
+
+This supersedes the accessibility caveat above for the phone only. Everything
+outside the render — proposition, actions, benefits, ethos, Privacy — remains
+semantic, localized, reflowing text.

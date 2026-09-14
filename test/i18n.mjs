@@ -139,7 +139,7 @@ function loadRuntimeDicts() {
 
 function htmlI18nKeys(html) {
   const keys = new Set();
-  for (const attr of ["data-i18n", "data-i18n-aria", "data-i18n-placeholder", "data-i18n-title"]) {
+  for (const attr of ["data-i18n", "data-i18n-aria", "data-i18n-placeholder", "data-i18n-title", "data-i18n-alt"]) {
     const re = new RegExp(`${attr}="([^"]+)"`, "g");
     let m;
     while ((m = re.exec(html))) keys.add(m[1]);

@@ -1033,16 +1033,7 @@ const EN = {
   "landing.shared.body": "Review the program that was sent to you, then start it on this device.",
   "landing.shared.invalid_headline": "This program link cannot be used.",
   "landing.shared.invalid_body": "Nothing from the link was saved. You can still build or import a program.",
-  "landing.preview.exercise": "Bench press",
-  "landing.preview.workout": "Workout",
-  "landing.preview.history": "History",
-  "landing.preview.prescription": "Program prescription",
-  "landing.preview.target_rir": "Target RIR 2",
-  "landing.preview.logged": "Sets logged 3/3",
-  "landing.preview.set_1": "Set 1",
-  "landing.preview.set_2": "Set 2",
-  "landing.preview.set_3": "Set 3",
-  "landing.preview.next": "Next session · add load",
+  "landing.preview.alt": "The Taurifer app open on a phone during a Push session in week 4. It shows the chest press target of 4–8 reps at RIR 0–2, the 152.5 kg for 7 reps logged last session, and the set it derives from them: hold 152.5 kg and aim for 8 reps.",
   "landing.benefits_aria": "How Taurifer helps",
   "landing.benefit.week.title": "Built for your week",
   "landing.benefit.week.body": "A program that fits your time and goals.",
@@ -2904,16 +2895,7 @@ const PT = {
   "landing.shared.body": "Revise o programa que enviaram para você e depois comece neste dispositivo.",
   "landing.shared.invalid_headline": "Este link de programa não pode ser usado.",
   "landing.shared.invalid_body": "Nada do link foi salvo. Você ainda pode montar ou importar um programa.",
-  "landing.preview.exercise": "Supino reto",
-  "landing.preview.workout": "Treino",
-  "landing.preview.history": "Histórico",
-  "landing.preview.prescription": "Prescrição do programa",
-  "landing.preview.target_rir": "Meta de RIR 2",
-  "landing.preview.logged": "Séries registradas 3/3",
-  "landing.preview.set_1": "Série 1",
-  "landing.preview.set_2": "Série 2",
-  "landing.preview.set_3": "Série 3",
-  "landing.preview.next": "Próxima sessão · aumente a carga",
+  "landing.preview.alt": "O app Taurifer aberto no celular durante uma sessão Push na semana 4. Mostra a meta de 4–8 repetições com RIR 0–2 no supino, os 152,5 kg por 7 repetições registrados na sessão anterior e a série que ele deriva delas: manter 152,5 kg e buscar 8 repetições.",
   "landing.benefits_aria": "Como o Taurifer ajuda",
   "landing.benefit.week.title": "Feito para sua semana",
   "landing.benefit.week.body": "Um programa que cabe no seu tempo e nas suas metas.",
@@ -3818,6 +3800,9 @@ const PT = {
     });
     document.querySelectorAll("[data-i18n-title]").forEach(el => {
       el.setAttribute("title", t(el.getAttribute("data-i18n-title")));
+    });
+    document.querySelectorAll("[data-i18n-alt]").forEach(el => {
+      el.setAttribute("alt", t(el.getAttribute("data-i18n-alt")));
     });
     const meta = document.querySelector('meta[name="description"]');
     if (meta) meta.setAttribute("content", t("meta.description"));

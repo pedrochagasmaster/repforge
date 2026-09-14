@@ -264,7 +264,9 @@ const card = () => ({
   import: !!document.querySelector("#firstRunImport"),
   heroTitle: document.querySelector(".firstrun-hero__title")?.textContent || null,
   heroBody: document.querySelector("#firstRunLede")?.textContent || null,
-  previewText: document.querySelector(".firstrun-preview")?.textContent.replace(/\s+/g, " ").trim() || null,
+  // The preview is the owner-supplied device render, so the loop it shows is
+  // carried by its accessible name rather than by rendered text.
+  previewText: document.querySelector(".firstrun-preview")?.getAttribute("alt")?.replace(/\s+/g, " ").trim() || null,
   privacy: document.querySelector("#firstRunPrivacy")?.textContent.trim() || null,
   // The gate stands the mark on its paper, so it draws the ground-free
   // rendering and never the app icon, which carries a ground of its own.
@@ -297,7 +299,7 @@ const heroShape = () => {
     titleAlign: getComputedStyle(title).textAlign,
     previewSeparated: !intersects(p, controls) && !intersects(p, t) && !intersects(p, lede.getBoundingClientRect()),
     previewInsideViewport: p.left >= -1 && p.right <= innerWidth + 1,
-    previewFacts: preview.textContent.replace(/\s+/g, " ").trim(),
+    previewFacts: (preview.getAttribute("alt") || "").replace(/\s+/g, " ").trim(),
     noHorizontalOverflow: document.documentElement.scrollWidth <= document.documentElement.clientWidth,
     heroBottom: h.bottom,
     ledeTop: lede.getBoundingClientRect().top,
@@ -335,7 +337,9 @@ async function run() {
       JSON.stringify(shown.heroBody)
     );
     assert(
-      /Program prescription/.test(shown.previewText || "") && /Sets logged 3\/3/.test(shown.previewText || "") && /62\.5 kg/.test(shown.previewText || ""),
+      /4–8 reps at RIR 0–2/.test(shown.previewText || "") &&
+        /152\.5 kg for 7 reps logged last session/.test(shown.previewText || "") &&
+        /hold 152\.5 kg and aim for 8 reps/.test(shown.previewText || ""),
       "the preview carries prescription, logged work, and derived next target",
       shown.previewText
     );
@@ -662,7 +666,10 @@ async function run() {
         const at = `${width}px ${locale}`;
         assert(shape.previewSeparated, `${at}: product preview does not cover copy or entry actions`, JSON.stringify(shape));
         assert(shape.previewInsideViewport, `${at}: product preview stays inside the viewport`, JSON.stringify(shape));
-        assert(/3 × 8–10/.test(shape.previewFacts) && /60 kg × 10/.test(shape.previewFacts) && /62\.5 kg/.test(shape.previewFacts), `${at}: the complete product loop remains present`, shape.previewFacts);
+        // Locale-tolerant: the accessible name is translated, and Portuguese
+        // writes the load 152,5. The exact English wording is asserted once,
+        // in the en-US landing block above.
+        assert(/4–8/.test(shape.previewFacts) && /RIR 0–2/.test(shape.previewFacts) && /152[.,]5 kg/.test(shape.previewFacts), `${at}: the complete product loop remains present`, shape.previewFacts);
         assert(shape.titleAlign === "left", `${at}: the editorial headline stays left aligned`, shape.titleAlign);
         assert(
           shape.logoWidth >= 39 && shape.wordmarkSize >= 14 && shape.lockupInsideViewport,

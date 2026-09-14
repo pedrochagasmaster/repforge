@@ -656,32 +656,15 @@
           </div>
         </div>
 
-        <section class="firstrun-preview" aria-labelledby="landingPreviewTitle">
-          <div class="firstrun-preview__topline"><span>Taurifer</span><span aria-hidden="true">•••</span></div>
-          <h2 class="firstrun-preview__title" id="landingPreviewTitle" data-i18n="landing.preview.exercise">Bench press</h2>
-          <div class="firstrun-preview__tabs"><span data-i18n="landing.preview.workout">Workout</span><span data-i18n="landing.preview.history">History</span></div>
-          <!-- The licensed drawing for pr_bb, on the paper colour sampled from
-               that file (`mediaBg` in exercises.js). Decorative here: the
-               prescription beside it already says what the movement is. -->
-          <div class="firstrun-preview__section firstrun-preview__section--rx">
-            <span class="firstrun-preview__label" data-i18n="landing.preview.prescription">Program prescription</span>
-            <strong class="firstrun-preview__prescription">3 × 8–10<br>60 kg</strong>
-            <span class="firstrun-preview__muted" data-i18n="landing.preview.target_rir">Target RIR 2</span>
-            <span class="firstrun-preview__art" style="--exercise-art-bg:#eee3d0" aria-hidden="true"></span>
-          </div>
-          <div class="firstrun-preview__section">
-            <span class="firstrun-preview__label" data-i18n="landing.preview.logged">Sets logged 3/3</span>
-            <ol class="firstrun-preview__sets">
-              <li><span class="firstrun-preview__check" aria-hidden="true">✓</span><span><small data-i18n="landing.preview.set_1">Set 1</small><strong>60 kg × 10</strong></span><span>RIR 2</span></li>
-              <li><span class="firstrun-preview__check" aria-hidden="true">✓</span><span><small data-i18n="landing.preview.set_2">Set 2</small><strong>60 kg × 10</strong></span><span>RIR 2</span></li>
-              <li><span class="firstrun-preview__check" aria-hidden="true">✓</span><span><small data-i18n="landing.preview.set_3">Set 3</small><strong>60 kg × 10</strong></span><span>RIR 2</span></li>
-            </ol>
-          </div>
-          <div class="firstrun-preview__next">
-            <span class="firstrun-preview__trend" aria-hidden="true">↗</span>
-            <span><small data-i18n="landing.preview.next">Next session · add load</small><strong>3 × 8–10<br>62.5 kg</strong></span>
-          </div>
-        </section>
+        <!-- The owner-supplied device render. It is a photograph of the real
+             app, not a drawing of one, so the loop it shows — the target, the
+             work logged last session, and the set derived from them — lives in
+             its localized alt rather than in markup. Nothing on this surface
+             depends on it rendering. -->
+        <img class="firstrun-preview" src="assets/brand/landing-device.webp"
+             width="541" height="1058" decoding="async"
+             data-i18n-alt="landing.preview.alt"
+             alt="The Taurifer app open on a phone during a Push session in week 4. It shows the chest press target of 4–8 reps at RIR 0–2, the 152.5 kg for 7 reps logged last session, and the set it derives from them: hold 152.5 kg and aim for 8 reps.">
       </div>
 
       <p class="firstrun__ethos" data-i18n="landing.ethos">Plan. Lift. Progress.</p>
@@ -1030,19 +1013,19 @@
        reordering stays reachable through each row's Move controls. -->
   <script src="vendor/motion/motion.js"></script>
   <script src="vendor/dnd-kit/dnd-kit.js"></script>
-  <script src="motion-layer.js?v=249"></script>
-  <script src="program-compiler.js?v=249"></script>
-  <script src="program-entry.js?v=249"></script>
-  <script src="program-entry-adapter.js?v=249"></script>
-  <script src="program-editor.js?v=249"></script>
-  <script src="shared-setup.js?v=249"></script>
-  <script src="workout-draft.js?v=249"></script>
-  <script src="program-transition.js?v=249"></script>
+  <script src="motion-layer.js?v=250"></script>
+  <script src="program-compiler.js?v=250"></script>
+  <script src="program-entry.js?v=250"></script>
+  <script src="program-entry-adapter.js?v=250"></script>
+  <script src="program-editor.js?v=250"></script>
+  <script src="shared-setup.js?v=250"></script>
+  <script src="workout-draft.js?v=250"></script>
+  <script src="program-transition.js?v=250"></script>
   <script src="install-transfer-contract.js"></script>
   <script src="install-transfer.js"></script>
-  <script src="install-policy.js?v=249"></script>
-  <script src="guide-registry.js?v=249"></script>
-  <script src="durable-state.js?v=249"></script>
-  <script src="app.js?v=249"></script>
+  <script src="install-policy.js?v=250"></script>
+  <script src="guide-registry.js?v=250"></script>
+  <script src="durable-state.js?v=250"></script>
+  <script src="app.js?v=250"></script>
 </body>
 </html>

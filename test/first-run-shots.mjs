@@ -36,6 +36,16 @@ for (const [width, height] of VIEWPORTS) {
   });
   const page = await context.newPage();
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  // This first load is itself a first run: it renders the landing and then
+  // records `entryLandingSeen`. Clearing before that write lands lets it
+  // re-persist afterwards, and the reload boots past the gate into Today.
+  // Wait for the write, the way the other fresh-device fixtures do.
+  await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 15000 });
+  await page.waitForFunction(
+    () => (localStorage.getItem("repforge_ui_v1") || "").includes('"entryLandingSeen":true'),
+    null,
+    { timeout: 15000 }
+  );
   await page.evaluate(async () => {
     localStorage.clear();
     await new Promise((resolve) => {
