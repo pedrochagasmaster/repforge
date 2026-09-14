@@ -1,6 +1,6 @@
 # Brand art
 
-Owner-licensed brand illustrations only — nothing here ships without a
+Owner-licensed brand art only — nothing here ships without a
 licence covering distribution. Like `icons/icon.svg`, files here are
 generated output: a new version replaces the file wholesale, never an edit.
 
@@ -19,6 +19,41 @@ node tools/build-brand-mark.mjs
 Re-run it when a new mark lands. Never hand-edit or hand-crop the output, and
 never point the gate at `icons/icon.svg` instead: the app icon paints its own
 warm ground, which reads as a tile against the app's paper.
+
+## `landing-hero.webp`
+
+The photograph behind the Plan 054 landing hero, 941×1672. Owner-supplied,
+landed 2026-09-14 as the background for the selected landing target recorded in
+`docs/design/plan-054-landing-directions.md`. It is the only photograph in the
+app; the 96 exercise illustrations remain a separate closed set, and this file
+is not one of them.
+
+One thing was done to the original, and it matters if it is ever replaced:
+**white-balanced onto the app's paper**, the same per-channel multiply
+`milo-hero.webp` describes below. The photographed wall reads about
+`#F7F2E8`; each channel was scaled so that wall lands on `--bg` (`#F4F2EF`).
+The point is the seam: the hero fades out onto solid paper just above the
+benefit strip, and an unbalanced file would draw a warm-to-neutral line exactly
+there. The plates and the bottle are near-black and move imperceptibly; the
+towel's burnt-orange stripe stays inside the accent family.
+
+It is **not** cropped. The composition is the owner's — lit wall in the upper
+two thirds where the proposition sits, plates and bottle along the bottom.
+Compact widths draw it `center bottom`, so the phone gets that whole
+composition; from 640px the crop moves to `center top`, because covering a
+landscape hero with a portrait file would otherwise put the plates behind the
+headline. Re-crop in CSS, never in this file.
+
+Encoded as WebP at quality 78 (~88 kB) with Pillow — `Image.point()` for the
+balance, then `save(…, quality=78, method=6)`. Unlike `milo-hero.webp` this
+needed no Chromium detour.
+
+It is painted with `background-image` on `.firstrun-hero::before`, decorative
+and never in the accessibility tree: it carries no product fact, so a missing
+export leaves paper behind the copy rather than a broken-image glyph — the
+line the exercise tiles and the retired Milo hero both hold. Dark withholds it
+rather than filtering it, because there is no honest dark treatment of a
+photographed warm wall; `forced-colors` withholds it too.
 
 ## `milo-hero.webp`
 

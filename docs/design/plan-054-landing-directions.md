@@ -130,3 +130,29 @@ The JPEG is a reference record, not a production image or screen-catalog frame.
 
 The earlier A/B/C artifacts remain preview evidence only. None is selected or
 eligible to enter production markup.
+
+### Hero photograph, supplied 2026-09-14
+
+The selected target carries a photographic hero background. At selection time
+no such licensed file existed in the repository, so the first implementation
+pass built the composition on flat paper and recorded the photograph as
+reference-only. The owner then supplied the photograph itself.
+
+Production asset: `assets/brand/landing-hero.webp` (941×1672, ~88 kB).
+
+SHA-256 of the supplied source PNG:
+`3c66655225cb75bb35c041532b19e017af6735c59f567ce697767468182fe43b`
+
+SHA-256 of the shipped WebP:
+`ebbe91723ad9c8479af8ed79b009ff3affb115ddb7c85aff6f2eeb3b9f254a11`
+
+It ships white-balanced onto `--bg` and otherwise uncropped; the crop is a CSS
+decision that differs between compact and wide, because a portrait photograph
+cannot hold a landscape hero at the phone's composition. Provenance,
+processing, and the dark/`forced-colors` withholding rule are recorded in
+`assets/brand/README.md`. This is brand art, not exercise art: the 96-file
+illustration set stays closed and untouched.
+
+The photograph carries no product fact. Every fact in the hero — prescription,
+logged sets, derived next target — remains live text in the phone preview, so
+the landing still reads correctly with the image absent.
