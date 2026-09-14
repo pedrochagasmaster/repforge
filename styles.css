@@ -3729,10 +3729,10 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
      and every extra pixel of height is paid for in width: `cover` on a
      portrait file scales to the taller box and crops the sides, where the
      plate the composition is built on is the first thing to go. */
-  left:50%;width:100vw;transform:translateX(-50%);top:-150px;bottom:-50px;
-  background:url("assets/brand/landing-hero.webp") 38% bottom/cover no-repeat;
-  -webkit-mask:linear-gradient(to bottom,#000 70%,transparent 97%);
-  mask:linear-gradient(to bottom,#000 70%,transparent 97%);
+  left:50%;width:100vw;transform:translateX(-50%);top:-90px;bottom:-20px;
+  background:url("assets/brand/landing-hero.webp") 36% top/cover no-repeat;
+  -webkit-mask:linear-gradient(to bottom,#000 88%,transparent 100%);
+  mask:linear-gradient(to bottom,#000 88%,transparent 100%);
 }
 :root[data-theme="dark"] .firstrun-hero::before{display:none}
 @media (forced-colors:active){.firstrun-hero::before{display:none}}
@@ -3759,7 +3759,7 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 .firstrun .firstrun-hero{
   display:grid;grid-template-areas:"copy" "preview";grid-template-columns:minmax(0,1fr);
-  gap:38px;margin-top:clamp(48px,12vw,88px);
+  gap:28px;margin-top:clamp(20px,5vw,36px);
 }
 .firstrun-hero__copy{grid-area:copy;min-width:0}
 .firstrun .firstrun-hero__title{
@@ -3771,14 +3771,15 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 .firstrun__actions{display:grid;gap:12px;max-width:390px;margin-top:28px}
 .firstrun__cta{
-  display:flex;align-items:center;justify-content:space-between;gap:18px;width:100%;min-height:58px;
-  padding:14px 18px;border:1.5px solid var(--accent-deep);border-radius:4px;
-  font:inherit;font-size:18px;font-weight:550;text-align:left;cursor:pointer;
+  display:flex;align-items:center;justify-content:space-between;gap:18px;width:100%;min-height:54px;
+  padding:12px 18px;border:1.5px solid var(--accent-deep);border-radius:4px;
+  font:inherit;font-size:17px;font-weight:600;text-align:left;cursor:pointer;
 }
 .firstrun__cta--primary{background:var(--accent-deep);color:var(--accent-ink)}
-.firstrun__cta--secondary{background:transparent;color:var(--accent-deep)}
+.firstrun__cta--secondary{background:var(--bg);color:var(--ink)}
+.firstrun__cta--secondary:hover{background:var(--well)}
 .firstrun__cta .firstrun-row__go{color:currentColor}
-.firstrun__cta .firstrun-row__title{color:inherit;font-size:18px}
+.firstrun__cta .firstrun-row__title{color:inherit;font-size:17px}
 .firstrun__cta .firstrun-row__cap{color:inherit;font-size:13px;opacity:.82}
 /* The device render. It is sized from the hero, not from a fixed width, so it
    holds the selected target's proportion — a little over a third of the page —
@@ -3787,16 +3788,29 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   grid-area:preview;align-self:center;justify-self:center;display:block;
   width:100%;max-width:342px;height:auto;
 }
-.firstrun__ethos{max-width:16ch;margin:34px 0 0;padding-top:17px;border-top:1px solid var(--ink);font-family:var(--mono);font-size:11px;line-height:1.7;letter-spacing:.18em;text-transform:uppercase;white-space:pre-line}
-.firstrun-benefits{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));margin:52px calc(-1 * var(--firstrun-pad)) -30px;border-top:1px solid var(--rule);background:var(--surface)}
-.firstrun-benefits>div{min-width:0;padding:23px clamp(12px,3vw,24px);border-left:1px solid var(--rule)}
+.firstrun__ethos{
+  max-width:16ch;margin:28px 0 0;padding-top:14px;
+  font-family:var(--mono);font-size:11px;line-height:1.7;letter-spacing:.18em;
+  text-transform:uppercase;white-space:pre-line;position:relative;
+}
+.firstrun__ethos::before{
+  content:"";position:absolute;top:0;left:0;
+  width:24px;height:1px;background:var(--ink);
+}
+.firstrun-benefits{
+  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
+  margin:42px calc(-1 * var(--firstrun-pad)) 0;
+  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
+  background:var(--bg);
+}
+.firstrun-benefits>div{min-width:0;padding:20px clamp(10px,2.5vw,20px);border-left:1px solid var(--rule)}
 .firstrun-benefits>div:first-child{border-left:0}
-.firstrun-benefits__icon{display:block;width:26px;height:26px;background:var(--accent-deep)}
+.firstrun-benefits__icon{display:block;width:24px;height:24px;background:var(--accent-deep)}
 .firstrun-benefits__icon--week{-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E") center/contain no-repeat}
 .firstrun-benefits__icon--guidance{-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 9v6M8 6v12M16 6v12M20 9v6M8 12h8'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 9v6M8 6v12M16 6v12M20 9v6M8 12h8'/%3E%3C/svg%3E") center/contain no-repeat}
-.firstrun-benefits__icon--adapts{-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='23 6 13.5 15.5 8.5 10.5 1 18'/%3E%3Cpolyline points='17 6 23 6 23 12'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='23 6 13.5 15.5 8.5 10.5 1 18'/%3E%3Cpolyline points='17 6 23 6 23 12'/%3E%3C/svg%3E") center/contain no-repeat}
-.firstrun-benefits strong{display:block;margin-top:8px;font-size:clamp(13px,3.4vw,18px);line-height:1.15}
-.firstrun-benefits p{margin:7px 0 0;font-size:clamp(11px,2.9vw,15px);line-height:1.35;color:var(--ink-soft)}
+.firstrun-benefits__icon--adapts{-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='23 6 13.5 15.5 8.5 10.5 1 18'/%3E%3Cpolyline points='17 6 23 6 23 12'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='23 6 13.5 15.5 8.5 10.5 1 18'/%3E%3C/svg%3E") center/contain no-repeat}
+.firstrun-benefits strong{display:block;margin-top:8px;font-size:clamp(13px,3.2vw,16px);font-weight:650;line-height:1.2}
+.firstrun-benefits p{margin:6px 0 0;font-size:clamp(11px,2.7vw,14px);line-height:1.35;color:var(--ink-soft)}
 .firstrun__shared-only{display:none}
 .firstrun.is-shared .firstrun__shared-only{display:flex;margin:0 0 18px}
 .firstrun.is-shared .firstrun__ethos{display:none}
@@ -3817,33 +3831,29 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 
 @media (min-width:360px) and (max-width:639px){
   .firstrun .firstrun-hero{
-    /* The preview is a fixed width, so it takes one rather than a share: the
-       proposition gets every pixel left over, which is what lets "Stop
-       guessing" hold one line at 390 the way the selected target sets it. The
-       gap is not spacing — the tilted preview's bounding box bleeds about 9px
-       past each edge of its column, and this is the clearance that keeps it
-       off the headline. */
-    grid-template-areas:"copy preview";grid-template-columns:minmax(0,1fr) 146px;
-    align-items:start;gap:12px;margin-top:48px;
+    grid-template-areas:"copy preview";
+    grid-template-columns:minmax(0,1fr) minmax(185px,50%);
+    align-items:start;gap:12px;margin-top:clamp(16px,4.5vw,28px);
   }
-  .firstrun .firstrun-hero__title{font-size:clamp(32px,8.2vw,36px);line-height:.96}
-  .firstrun .firstrun__lede{margin-top:18px;font-size:14px;line-height:1.38}
-  .firstrun__actions{gap:9px;margin-top:20px}
-  .firstrun__cta{min-height:48px;padding:10px 12px;font-size:14px}
+  .firstrun .firstrun-hero__title{
+    font-size:clamp(33px,8.5vw,36px);line-height:.96;
+    width:min(calc(100% + 75px),260px);
+  }
+  .firstrun .firstrun__lede{margin-top:16px;font-size:14px;line-height:1.38}
+  .firstrun__actions{gap:9px;margin-top:18px}
+  .firstrun__cta{min-height:48px;padding:10px 14px;font-size:14px;font-weight:600}
   .firstrun__cta .firstrun-row__title{font-size:14px}
   .firstrun__cta .firstrun-row__cap{font-size:10px}
-  /* The device runs off the right edge rather than stopping at the measure.
-     A phone this narrow cannot give the render more grid width without
-     wrapping the proposition, and the selected target puts the device against
-     the page edge anyway. The overflow is clipped by the gate's own
-     `overflow-x:hidden`. */
   .firstrun-preview{
-    margin-top:34px;
+    margin-top:clamp(85px,27vw,130px);
     width:calc(100% + var(--firstrun-pad));
-    max-width:none;margin-right:calc(-1 * var(--firstrun-pad));
+    max-width:none;
+    margin-right:calc(-1 * var(--firstrun-pad));
+    align-self:end;
+    margin-bottom:20px;
   }
-  .firstrun__ethos{margin-top:12px}
-  .firstrun-benefits{margin-top:30px}
+  .firstrun__ethos{margin-top:20px}
+  .firstrun-benefits{margin-top:24px}
   .firstrun.is-shared .firstrun-preview{margin-top:54px}
 }
 
@@ -3855,7 +3865,20 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 
 @media (max-width:359px){
-  .firstrun-preview{width:min(92%,320px)}
+  .firstrun .firstrun-hero{
+    grid-template-areas:"copy" "preview";
+    grid-template-columns:minmax(0,1fr);
+    gap:24px;
+    margin-top:20px;
+  }
+  .firstrun .firstrun-hero__title{
+    font-size:clamp(30px,9.5vw,34px);
+    width:auto;
+  }
+  .firstrun-preview{
+    width:min(92%,320px);
+    margin:0 auto;
+  }
 }
 
 /* The install card. It bleeds to the edge of the setup column, which is the

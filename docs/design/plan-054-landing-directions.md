@@ -189,3 +189,43 @@ drawn phone used are removed.
 This supersedes the accessibility caveat above for the phone only. Everything
 outside the render — proposition, actions, benefits, ethos, Privacy — remains
 semantic, localized, reflowing text.
+
+## Responsive Composition & Visual Alignment (Focused Pass)
+
+Following owner review of candidate implementation `210404ac`, this section records the intended responsive composition bringing the physical mobile landing page materially closer to `docs/design/mocks/plan-054/owner-selected-target.jpg`.
+
+### Typography Retention Decision
+- **Established Typography Preserved**: Taurifer strictly preserves its established **IBM Plex Sans** (body and editorial display) and **IBM Plex Mono** (ethos, tags, technical notation).
+- **Explicit Rejection**: No serif font, secondary display face, or foreign web fonts are introduced. The editorial gravitas of the target is achieved entirely through typographic weight, leading, scale hierarchy, and layout rhythm within the existing Plex family.
+
+### Responsive Composition Architecture
+1. **Hero Photograph Composition**:
+   - The owner-supplied hero photograph (`assets/brand/landing-hero.webp`) is positioned so that the primary proposition (headline, supporting copy, and program actions) sits over the light upper wall background.
+   - The dark weight plates sit visually below the action controls rather than behind them.
+   - The textured foreground floor is preserved, with the bottom fade transition (`-webkit-mask`) held until the contact base where it blends seamlessly into the warm paper background of the benefit strip.
+   - The crop remains fully responsive across compact viewports via CSS background positioning and sizing (`background-position: 36% top; background-size: cover;`) rather than baked into a static raster export.
+
+2. **Phone Prominence and Placement**:
+   - The supplied device render (`assets/brand/landing-device.webp`) is significantly enlarged (from the previous rigid 146px column to ~50–52% of mobile viewport width, e.g. ~195–215px at 390px, ~215–235px at 430px) so it serves as the visual anchor of the hero.
+   - The render matches the target's diagonal placement and edge-to-edge rightward bleed.
+   - Its base is convincingly grounded on the photographed surface near the plate level, utilizing its natural shadow and contact treatment.
+   - Geometric separation invariants are maintained: the device render does not collide with or crowd the headline, supporting copy, or action buttons.
+
+3. **Mobile Hero Layout & Dynamic Width**:
+   - The rigid 146px mobile grid is replaced with a responsive structure that allows the headline to claim ample width near the top (e.g. ~240px–260px at 390px), breaking cleanly across 4 editorial lines matching the target ("Stop guessing / what to lift. / And start / progressing.").
+   - Lower in the composition, narrower supporting copy and actions coexist alongside the enlarged diagonal phone render without text collisions.
+   - Safe stacked fallback is retained for compact 320px viewports, enlarged 200% dynamic text, and localized Portuguese (PT-BR) where button copy requires greater measure.
+
+4. **Action Buttons & Readability**:
+   - Primary action (`#firstRunCreate`): prominent burnt-orange background (`--accent-deep`) with white ink, refined padding, weight 600, right-aligned arrow.
+   - Secondary action (`#firstRunImport`): solid, opaque warm-paper background (`--bg` / `--well`) with burnt-orange hairline border (`--accent-deep`) and dark ink (`--ink`), ensuring complete legibility and preventing visual disappearance against textured background or plates.
+   - Both actions maintain touch target compliance (>=44px), refined label weights, and flex-wrap tolerance for localized text.
+
+5. **Hero Ending, Ethos & Benefit Strip Rhythm**:
+   - "Plan. Lift. Progress." (`.firstrun__ethos`) is positioned quietly within the lower-left hero composition, preceded by a restrained short rule divider matching the target (~24px–32px).
+   - The 3-part benefit strip (`.firstrun-benefits`) sits immediately after the hero, featuring warm-paper surface (`--bg`), subtle vertical hairline dividers (`--rule`), consistent orange line icons, stronger titles, and concise descriptions.
+   - Expanded installation instructions (`#firstRunInstall`) sit below the benefit strip or reveal contextually upon tapping the header install link, preserving the approved install policy and early iOS offer.
+
+6. **Header Spacing & Lockup**:
+   - Excess vertical margin between header and proposition is reduced to bring the headline into close editorial proximity with the brand lockup.
+   - Compact brand lockup (mark >= 39px, wordmark >= 14px) and utility actions (Privacy and policy-gated Install) remain cleanly aligned without inventing placeholder navigation controls.

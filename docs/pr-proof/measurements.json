@@ -1,38 +1,38 @@
 {
   "320x844": {
-    "headlineHeight": 172.4375,
-    "headlineSize": 44,
+    "headlineHeight": 119.1875,
+    "headlineSize": 30.4,
     "previewWidth": 261.265625,
     "previewHeight": 510.9375,
-    "heroBottom": 1233.453125,
-    "introductionTop": 312.4375,
-    "firstControlTop": 410.796875
+    "heroBottom": 1196.265625,
+    "introductionTop": 231.1875,
+    "firstControlTop": 329.546875
   },
   "390x844": {
-    "headlineHeight": 122.875,
-    "headlineSize": 32,
-    "previewWidth": 165.5,
-    "previewHeight": 323.65625,
-    "heroBottom": 667.5625,
-    "introductionTop": 252.875,
-    "firstControlTop": 350.125
+    "headlineHeight": 127.3125,
+    "headlineSize": 33.15,
+    "previewWidth": 204.5,
+    "previewHeight": 399.921875,
+    "heroBottom": 835.640625,
+    "introductionTop": 224.859375,
+    "firstControlTop": 339.421875
   },
   "430x932": {
-    "headlineHeight": 135.375,
-    "headlineSize": 35.26,
-    "previewWidth": 167.5,
-    "previewHeight": 327.5625,
-    "heroBottom": 615.71875,
-    "introductionTop": 267.375,
-    "firstControlTop": 345.3125
+    "headlineHeight": 138.1875,
+    "headlineSize": 36,
+    "previewWidth": 215,
+    "previewHeight": 420.453125,
+    "heroBottom": 757.125,
+    "introductionTop": 239.53125,
+    "firstControlTop": 334.78125
   },
   "768x1024": {
     "headlineHeight": 240.8125,
     "headlineSize": 61.44,
     "previewWidth": 294,
     "previewHeight": 574.953125,
-    "heroBottom": 805.4375,
-    "introductionTop": 434.8125,
-    "firstControlTop": 549.71875
+    "heroBottom": 829.5,
+    "introductionTop": 382.8125,
+    "firstControlTop": 497.71875
   }
 }
