@@ -3104,9 +3104,17 @@ function installTransferUiMeaningful(uiRaw,ui){
       const currentRecord=definition&&record.version===definition.version&&keys.length===3&&
         keys.every(key=>["version","status","lastTransitionAt"].includes(key));
       const defaultRecord=currentRecord&&record.status==="unseen"&&record.lastTransitionAt===null;
-      const automaticEntry=currentRecord&&id==="entry"&&ui.entryLandingSeen===true&&record.status==="shown"&&
-        Number.isSafeInteger(record.lastTransitionAt)&&record.lastTransitionAt>=0;
-      return !defaultRecord&&!automaticEntry});
+      // "install" (iOS Safari's always-present card) and "privacy" (the
+      // landing's always-present Privacy link) can self-show from the
+      // ordinary automatic landing flow. "entry" now anchors at the
+      // chooser instead of the landing, but an abandoned setup draft can
+      // still resume straight into the chooser on a later automatic boot
+      // (no deliberate action), so it can reach "shown" the same way. None
+      // of the three should make an otherwise-fresh destination read as
+      // meaningful merely because one of them appeared.
+      const automaticLandingGuide=currentRecord&&(id==="entry"||id==="install"||id==="privacy")&&ui.entryLandingSeen===true&&
+        record.status==="shown"&&Number.isSafeInteger(record.lastTransitionAt)&&record.lastTransitionAt>=0;
+      return !defaultRecord&&!automaticLandingGuide});
     if(guides.length)remaining.guideState=Object.fromEntries(guides);
     else delete remaining.guideState}
   return Object.keys(remaining).length>0}
@@ -12863,7 +12871,10 @@ function renderOnboarding(){
     const initialPreviewIssue=(stepId==="preview"||stepId==="activation_conflict")&&entryPreviewHasProgressionIssue();
     const target=initialPreviewIssue?$("#entryActivationStatus"):$("#entryHeading");
     if(target)try{target.focus({preventScroll:true})}catch{}}
-  if(entryValidationNotice){const alert=$("#entryValidation");if(alert)try{alert.focus({preventScroll:true})}catch{}}}
+  if(entryValidationNotice){const alert=$("#entryValidation");if(alert)try{alert.focus({preventScroll:true})}catch{}}
+  // The "entry" guide explains the five-job chooser, so it shows here rather
+  // than on the landing that opens it.
+  if(!route||stepId==="entry")queueMicrotask(()=>maybeShowContextualGuides(["entry"]));}
 function wireEntryDom(){
   $$("[data-entry-route]").forEach(btn=>btn.onclick=()=>entrySelectRoute(btn.dataset.entryRoute));
   const own=$("#entryOwnToggle");if(own)own.onclick=()=>{entryOwnOpen=!entryOwnOpen;renderOnboarding()};
@@ -13891,7 +13902,10 @@ function openFirstRun(kind=currentEntryLanding()){
   // The screen itself takes focus, not its first choice: a ring drawn around
   // Create before the lifter has touched anything reads as a recommendation.
   try{el.focus({preventScroll:true})}catch{}
-  queueMicrotask(()=>maybeShowContextualGuides());
+  // The "entry" guide anchors at the chooser's Recommend card, not here: the
+  // landing offers exactly two actions already named in its own copy, and
+  // the guide explains the five-job chooser one screen later.
+  queueMicrotask(()=>maybeShowContextualGuides(["install","privacy"]));
   if(kind==="generic"&&uiPrefs.entryLandingSeen!==true)setUiPref("entryLandingSeen",true);
   return true}
 function trapFirstRunTab(event){
@@ -14105,7 +14119,11 @@ function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=fa
   cue.addEventListener("keydown",event=>{
     if(event.key!=="Escape")return;
     event.preventDefault();event.stopPropagation();dismissContextualGuide({restoreFocus:true})});
-  const placement=anchor.closest(".firstrun__actions")||anchor;
+  // #firstRunPrivacy lives in the narrow header utility row: inserted there,
+  // the cue is a flex sibling with no room and collapses into a vertical
+  // sliver of one word per line. Anchoring it after the whole header instead
+  // keeps it a full-width block without changing which control it names.
+  const placement=anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||anchor;
   placement.insertAdjacentElement("afterend",cue);
   activeGuideId=id;activeGuideAnchor=anchor;activeGuideCue=cue;
   activeGuideReturnFocus=returnFocus instanceof HTMLElement?returnFocus:null;

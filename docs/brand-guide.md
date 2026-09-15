@@ -90,7 +90,7 @@ ship.
 
 **Generic** — no shared setup source. It renders only while no program,
 content, or history exists and `repforge_ui_v1.entryLandingSeen` is not true.
-Build my program and Track my current program are the early entry actions.
+Build my workout and I already have my workout are the early entry actions.
 Privacy opens the existing disclosure surface. A later empty visit boots the
 ordinary Today/Program no-program states.
 

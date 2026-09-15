@@ -1014,23 +1014,40 @@ try {
       await context.close();
     }
 
-    // 7C: Contextual-guide replacement baseline (054-P8)
+    // 7C: Contextual-guide replacement baseline (054-P8, relocated per owner audit)
     {
       const { context, page } = await openAppPage(browser);
       await clearSite(page);
       await page.reload({ waitUntil: "domcontentloaded" });
       await waitForAppBoot(page, { base: BASE });
 
-      const guideState = await page.evaluate(() => ({
+      const globals = await page.evaluate(() => ({
         modalAbsent: !document.querySelector("#tour"),
         globalsAbsent: typeof window.startTour !== "function" && typeof window.closeTour !== "function",
         guideHook: typeof window.__repforgeUi?.guideState === "function",
-        cueAnchored: !!document.querySelector("[data-guide-cue='entry'][data-anchor-target]"),
+        // The generic landing offers exactly two named actions of its own;
+        // the "entry" cue explains the five-job chooser one screen later, so
+        // it must not be present here.
+        entryCueAbsentOnLanding: !document.querySelector("[data-guide-cue='entry']"),
       }));
-      assert(guideState.modalAbsent, "obsolete global tour markup is absent");
-      assert(guideState.globalsAbsent, "obsolete global tour hooks are absent");
-      assert(guideState.guideHook, "contextual guide state hook is present");
-      assert(guideState.cueAnchored, "entry guidance is attached to its action");
+      assert(globals.modalAbsent, "obsolete global tour markup is absent");
+      assert(globals.globalsAbsent, "obsolete global tour hooks are absent");
+      assert(globals.guideHook, "contextual guide state hook is present");
+      assert(globals.entryCueAbsentOnLanding, "the generic landing does not show the entry-chooser guide");
+
+      await page.click("#firstRunCreate");
+      await page.waitForSelector("#onboarding.active");
+      await page.waitForSelector("[data-guide-cue='entry'][data-anchor-target]");
+      const chooserGuide = await page.evaluate(() => {
+        const cue = document.querySelector("[data-guide-cue='entry']");
+        const anchor = document.querySelector('[data-entry-route="recommend"]');
+        return {
+          cueAnchored: !!cue?.getAttribute("data-anchor-target"),
+          anchorsRecommendCard: !!(anchor && cue?.dataset.anchorTarget && anchor.matches(cue.dataset.anchorTarget)),
+        };
+      });
+      assert(chooserGuide.cueAnchored, "entry guidance is attached to its action");
+      assert(chooserGuide.anchorsRecommendCard, "entry guidance anchors the chooser's primary Recommend card, not the landing");
 
       const uiPrefs = await page.evaluate(() => window.__repforgeUi?.loadUiPrefs?.());
       assert(typeof uiPrefs === "object" && uiPrefs != null, "window.__repforgeUi.loadUiPrefs returns prefs object");

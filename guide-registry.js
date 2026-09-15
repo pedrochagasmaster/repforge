@@ -10,7 +10,12 @@
   ]);
   const PLAN_054_GUIDE_IDS = Object.freeze(["entry", "install", "privacy"]);
   const GUIDE_DEFINITIONS = Object.freeze([
-    Object.freeze({ id: "entry", version: 1, anchorSelector: "#firstRunCreate", coveredByOldTour: false, wired: true }),
+    // Anchored to the chooser's primary Recommend card, not the generic
+    // landing: the "how to begin" explanation belongs where there is more
+    // than one path in front of the lifter, not before the landing's own
+    // two actions. version:2 so a device that already dismissed/completed
+    // the old landing-anchored cue sees it once more at its new anchor.
+    Object.freeze({ id: "entry", version: 2, anchorSelector: "[data-entry-route=\"recommend\"]", coveredByOldTour: false, wired: true }),
     Object.freeze({ id: "first-set", version: 1, anchorSelector: ".saveset", coveredByOldTour: true, wired: false }),
     Object.freeze({ id: "focus-utilities", version: 1, anchorSelector: "#woOverflowBtn", coveredByOldTour: true, wired: false }),
     Object.freeze({ id: "progress", version: 1, anchorSelector: "nav [data-view=\"stats\"]", coveredByOldTour: true, wired: false }),

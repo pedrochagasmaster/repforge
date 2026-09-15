@@ -1,10 +1,10 @@
-const CACHE = "repforge-v251";
+const CACHE = "repforge-v252";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
-  "./vendor/motion/motion.js", "./vendor/dnd-kit/dnd-kit.js", "./vendor/dnd-kit/dnd-kit.runtime.js", "./motion-layer.js", "./motion-layer.js?v=251",
+  "./vendor/motion/motion.js", "./vendor/dnd-kit/dnd-kit.js", "./vendor/dnd-kit/dnd-kit.runtime.js", "./motion-layer.js", "./motion-layer.js?v=252",
   "./telemetry.js", "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js", "./install-transfer-contract.js", "./install-transfer.js",
-  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=251", "./program-entry.js", "./program-entry.js?v=251", "./program-entry-adapter.js", "./program-entry-adapter.js?v=251", "./program-editor.js", "./program-editor.js?v=251",
-  "./shared-setup.js", "./shared-setup.js?v=251", "./workout-draft.js", "./workout-draft.js?v=251", "./program-transition.js", "./program-transition.js?v=251", "./install-policy.js", "./install-policy.js?v=251", "./guide-registry.js", "./guide-registry.js?v=251", "./durable-state.js", "./durable-state.js?v=251", "./app.js", "./app.js?v=251",
+  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=252", "./program-entry.js", "./program-entry.js?v=252", "./program-entry-adapter.js", "./program-entry-adapter.js?v=252", "./program-editor.js", "./program-editor.js?v=252",
+  "./shared-setup.js", "./shared-setup.js?v=252", "./workout-draft.js", "./workout-draft.js?v=252", "./program-transition.js", "./program-transition.js?v=252", "./install-policy.js", "./install-policy.js?v=252", "./guide-registry.js", "./guide-registry.js?v=252", "./durable-state.js", "./durable-state.js?v=252", "./app.js", "./app.js?v=252",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",

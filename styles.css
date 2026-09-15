@@ -2560,7 +2560,10 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
   border:1px solid var(--rule-strong);border-radius:var(--radius);color:var(--ink)}
 .guide-cue__copy{min-width:0}
 .guide-cue__title{margin:0 0 3px;font-size:.875rem;font-weight:650;line-height:1.3}
-.guide-cue__body{margin:0;color:var(--ink-soft);font-size:.8125rem;line-height:1.45}
+/* --ink-soft on the --entry-tint wash measures ~4.47:1, just under the 4.5:1
+   AA floor for normal text; full --ink clears it with room and still reads
+   as the subordinate line beside the bold title. */
+.guide-cue__body{margin:0;color:var(--ink);font-size:.8125rem;line-height:1.45}
 .guide-cue__dismiss{align-self:start;min-width:44px;min-height:44px;margin:-8px -10px 0 0;
   border:0;background:transparent;color:var(--ink-soft);font:inherit;font-size:1.125rem;cursor:pointer}
 .guide-replay{padding:12px 14px;display:grid;gap:8px}
@@ -3274,6 +3277,10 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry-body .entry-card[data-entry-route="recommend"]:hover{background:var(--entry-tint)}
 .entry-body .entry-card[data-entry-route="recommend"] .entry-card__icon,
 .entry-body .entry-card[data-entry-route="recommend"] .entry-card__go{color:var(--accent)}
+/* The chooser's entry guide sits right after the Recommend card it explains.
+   The hub becomes a CSS grid at wider widths, so without this the cue would
+   land in a card-sized cell instead of its own full-width row. */
+.entry__hub .guide-cue{grid-column:1/-1;margin:0 0 10px}
 .entry-body .entry__own{gap:0;padding:2px 0 2px 20px;border-left:1px solid var(--rule);margin-top:2px}
 .entry-body .entry__group-lab{
   margin:22px 0 8px;display:flex;align-items:center;gap:10px;color:var(--ink-faint)
@@ -3675,7 +3682,7 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun__section{width:min(100%,var(--maxw));margin:40px 0 0}
 .firstrun__eyebrow{
   display:flex;align-items:center;gap:14px;margin:0;
-  font-size:11px;font-weight:650;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-deep);
+  font-size:.8125rem;font-weight:650;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-deep);
 }
 .firstrun__eyebrow::after{content:"";flex:1;height:1px;background:var(--accent)}
 .firstrun__rows{margin-top:4px}
@@ -3731,8 +3738,11 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
      plate the composition is built on is the first thing to go. */
   left:50%;width:100vw;transform:translateX(-50%);top:-90px;bottom:-20px;
   background:url("assets/brand/landing-hero.webp") 36% top/cover no-repeat;
-  -webkit-mask:linear-gradient(to bottom,#000 88%,transparent 100%);
-  mask:linear-gradient(to bottom,#000 88%,transparent 100%);
+  /* Only the alpha channel of a gradient mask stop matters, so `black` masks
+     identically to any other opaque colour without naming a literal hex the
+     appearance audit would flag as a colour outside the two palettes. */
+  -webkit-mask:linear-gradient(to bottom,black 88%,transparent 100%);
+  mask:linear-gradient(to bottom,black 88%,transparent 100%);
 }
 :root[data-theme="dark"] .firstrun-hero::before{display:none}
 @media (forced-colors:active){.firstrun-hero::before{display:none}}
@@ -3762,25 +3772,34 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   gap:28px;margin-top:clamp(20px,5vw,36px);
 }
 .firstrun-hero__copy{grid-area:copy;min-width:0}
+/* Sizes below are rem, not px/vw: a fixed px (or a vw component, which tracks
+   viewport width rather than root font size) does not grow under the
+   200%-text root-scale fixture, so this functional copy would stop following
+   the reader's chosen text size. rem keeps every breakpoint in lockstep with
+   it, the same convention the entry step components already use. */
 .firstrun .firstrun-hero__title{
-  max-width:10.7ch;margin:0;text-align:left;font-size:clamp(44px,12.2vw,72px);
-  line-height:.98;letter-spacing:-.052em;font-weight:700;
+  margin:0;text-align:left;font-size:2.25rem;
+  line-height:1.05;letter-spacing:-.03em;font-weight:700;
 }
 .firstrun .firstrun__lede{
-  max-width:35ch;margin:26px 0 0;font-size:clamp(17px,4.7vw,21px);line-height:1.38;color:var(--ink);
+  max-width:35ch;margin:20px 0 0;font-size:1rem;line-height:1.4;color:var(--ink);
 }
-.firstrun__actions{display:grid;gap:12px;max-width:390px;margin-top:28px}
+.firstrun__actions{display:grid;gap:12px;max-width:390px;margin-top:26px}
 .firstrun__cta{
   display:flex;align-items:center;justify-content:space-between;gap:18px;width:100%;min-height:54px;
   padding:12px 18px;border:1.5px solid var(--accent-deep);border-radius:4px;
-  font:inherit;font-size:17px;font-weight:600;text-align:left;cursor:pointer;
+  font:inherit;font-size:1rem;font-weight:600;text-align:left;cursor:pointer;
 }
 .firstrun__cta--primary{background:var(--accent-deep);color:var(--accent-ink)}
 .firstrun__cta--secondary{background:var(--bg);color:var(--ink)}
 .firstrun__cta--secondary:hover{background:var(--well)}
 .firstrun__cta .firstrun-row__go{color:currentColor}
-.firstrun__cta .firstrun-row__title{color:inherit;font-size:17px}
-.firstrun__cta .firstrun-row__cap{color:inherit;font-size:13px;opacity:.82}
+.firstrun__cta .firstrun-row__title{color:inherit;font-size:1.0625rem}
+/* No opacity here: it used to cut this caption's rendered contrast on the
+   primary CTA's orange ground to ~4.2:1, under the 4.5:1 AA floor for normal
+   text. --accent-ink is already chosen to read against --accent-deep at full
+   strength in both themes, so removing the opacity is the fix. */
+.firstrun__cta .firstrun-row__cap{color:inherit;font-size:.875rem}
 /* The device render. It is sized from the hero, not from a fixed width, so it
    holds the selected target's proportion — a little over a third of the page —
    at every viewport, and its own alpha carries the shadow. */
@@ -3788,10 +3807,16 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   grid-area:preview;align-self:center;justify-self:center;display:block;
   width:100%;max-width:342px;height:auto;
 }
+/* A solid paper chip rather than bare text over the photograph: the crop
+   puts an unpredictable mix of lit wall and dark plate behind this line
+   depending on viewport and locale height, and near-black ink reads fine on
+   one and disappears on the other. A token-backed surface is predictable
+   everywhere the text shadows or a fixed image position would not be. */
 .firstrun__ethos{
-  max-width:16ch;margin:28px 0 0;padding-top:14px;
-  font-family:var(--mono);font-size:11px;line-height:1.7;letter-spacing:.18em;
-  text-transform:uppercase;white-space:pre-line;position:relative;
+  display:inline-block;max-width:18ch;margin:28px 0 0;padding:10px 14px;
+  background:var(--bg);
+  font-family:var(--mono);font-size:.8125rem;line-height:1.7;letter-spacing:.16em;
+  text-transform:uppercase;white-space:pre-line;position:relative;color:var(--ink);
 }
 .firstrun__ethos::before{
   content:"";position:absolute;top:0;left:0;
@@ -3809,8 +3834,8 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun-benefits__icon--week{-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E") center/contain no-repeat}
 .firstrun-benefits__icon--guidance{-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 9v6M8 6v12M16 6v12M20 9v6M8 12h8'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 9v6M8 6v12M16 6v12M20 9v6M8 12h8'/%3E%3C/svg%3E") center/contain no-repeat}
 .firstrun-benefits__icon--adapts{-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='23 6 13.5 15.5 8.5 10.5 1 18'/%3E%3Cpolyline points='17 6 23 6 23 12'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='23 6 13.5 15.5 8.5 10.5 1 18'/%3E%3C/svg%3E") center/contain no-repeat}
-.firstrun-benefits strong{display:block;margin-top:8px;font-size:clamp(13px,3.2vw,16px);font-weight:650;line-height:1.2}
-.firstrun-benefits p{margin:6px 0 0;font-size:clamp(11px,2.7vw,14px);line-height:1.35;color:var(--ink-soft)}
+.firstrun-benefits strong{display:block;margin-top:8px;font-size:1rem;font-weight:650;line-height:1.2}
+.firstrun-benefits p{margin:6px 0 0;font-size:.875rem;line-height:1.35;color:var(--ink-soft)}
 .firstrun__shared-only{display:none}
 .firstrun.is-shared .firstrun__shared-only{display:flex;margin:0 0 18px}
 .firstrun.is-shared .firstrun__ethos{display:none}
@@ -3818,9 +3843,29 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun .firstrun__section{width:min(100%,560px);margin:38px 0 0}
 .firstrun .firstrun__continue{margin:24px 0 0}
 
+/* Below 640px the hero stays a single stacked column (the base rule above):
+   the headline, subtitle and both actions always get the full measure, and
+   the device render sits below them, sized and bled to the right edge so it
+   stays prominent and integrated with the photograph without ever taking
+   width away from the copy above it. Because it is a separate row, it can
+   never collide with the title, lede or actions above it at any content
+   length — long Portuguese strings and 200% text included. */
+@media (max-width:639px){
+  .firstrun__actions{gap:9px}
+  .firstrun-preview{
+    justify-self:end;
+    width:min(58%,236px);
+    margin:4px calc(-1 * var(--firstrun-pad)) 0 0;
+  }
+}
+
+@media (max-width:359px){
+  .firstrun-preview{width:min(54%,184px)}
+}
+
 @media (min-width:640px){
   .firstrun .firstrun-hero{grid-template-areas:"copy preview";grid-template-columns:minmax(0,1fr) minmax(280px,42%);align-items:center;gap:clamp(30px,6vw,76px)}
-  .firstrun .firstrun-hero__title{font-size:clamp(54px,8vw,88px)}
+  .firstrun .firstrun-hero__title{max-width:11ch;font-size:3.5rem}
   .firstrun-preview{justify-self:end}
   .firstrun-benefits{margin-left:0;margin-right:0}
   /* A portrait photograph cannot hold a landscape hero at the crop the phone
@@ -3829,32 +3874,8 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun-hero::before{top:-210px;background-position:center top}
 }
 
-@media (min-width:360px) and (max-width:639px){
-  .firstrun .firstrun-hero{
-    grid-template-areas:"copy preview";
-    grid-template-columns:minmax(0,1fr) minmax(185px,50%);
-    align-items:start;gap:12px;margin-top:clamp(16px,4.5vw,28px);
-  }
-  .firstrun .firstrun-hero__title{
-    font-size:clamp(33px,8.5vw,36px);line-height:.96;
-    width:min(calc(100% + 75px),260px);
-  }
-  .firstrun .firstrun__lede{margin-top:16px;font-size:14px;line-height:1.38}
-  .firstrun__actions{gap:9px;margin-top:18px}
-  .firstrun__cta{min-height:48px;padding:10px 14px;font-size:14px;font-weight:600}
-  .firstrun__cta .firstrun-row__title{font-size:14px}
-  .firstrun__cta .firstrun-row__cap{font-size:10px}
-  .firstrun-preview{
-    margin-top:clamp(85px,27vw,130px);
-    width:calc(100% + var(--firstrun-pad));
-    max-width:none;
-    margin-right:calc(-1 * var(--firstrun-pad));
-    align-self:end;
-    margin-bottom:20px;
-  }
-  .firstrun__ethos{margin-top:20px}
-  .firstrun-benefits{margin-top:24px}
-  .firstrun.is-shared .firstrun-preview{margin-top:54px}
+@media (min-width:1024px){
+  .firstrun .firstrun-hero__title{font-size:5rem}
 }
 
 @media (max-width:420px){
@@ -3862,23 +3883,6 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun__utility-action{font-size:12px}
   .firstrun__header .firstrun__logo{width:39px;height:39px}
   .firstrun__header .firstrun__wordmark{font-size:14px}
-}
-
-@media (max-width:359px){
-  .firstrun .firstrun-hero{
-    grid-template-areas:"copy" "preview";
-    grid-template-columns:minmax(0,1fr);
-    gap:24px;
-    margin-top:20px;
-  }
-  .firstrun .firstrun-hero__title{
-    font-size:clamp(30px,9.5vw,34px);
-    width:auto;
-  }
-  .firstrun-preview{
-    width:min(92%,320px);
-    margin:0 auto;
-  }
 }
 
 /* The install card. It bleeds to the edge of the setup column, which is the

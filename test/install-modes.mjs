@@ -327,12 +327,12 @@ async function run() {
     assert(!shown.section, "Chromium does not promote installation before first value", JSON.stringify(shown));
     assert(shown.title === null && shown.action === null, "the gated card exposes no dead install action", JSON.stringify(shown));
     assert(
-      shown.heroTitle === "Stop guessing what to lift. And start progressing.",
+      shown.heroTitle === "Walk into the gym knowing exactly what to do.",
       "the product landing leads the gate",
       shown.heroTitle
     );
     assert(
-      shown.heroBody === "Show up and lift. Taurifer plans your sessions, logs your sets, and tells you what comes next.",
+      shown.heroBody === "Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load.",
       "the landing explains the product loop",
       JSON.stringify(shown.heroBody)
     );
@@ -499,7 +499,7 @@ async function run() {
     }));
     assert(st.create && st.import, "the screen still asks the program question", JSON.stringify(st));
     assert(!st.section, "no install section is drawn", JSON.stringify(st));
-    assert(st.lede === "Show up and lift. Taurifer plans your sessions, logs your sets, and tells you what comes next.", "the landing copy does not invent an unavailable install action", st.lede);
+    assert(st.lede === "Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load.", "the landing copy does not invent an unavailable install action", st.lede);
     assert(!st.continueShown, "no browser to continue in, no link offering it", JSON.stringify(st));
     assert(!st.banner && !st.topButton, "and nothing else promotes an install", JSON.stringify(st));
     allErrors.push(...errors);
@@ -528,7 +528,7 @@ async function run() {
     assert(st.create && st.import, "the installed app still offers Create and Import", JSON.stringify(st));
     assert(!st.onboarding, "it does not jump straight into the wizard", JSON.stringify(st));
     assert(!st.section, "it promotes no install", JSON.stringify(st));
-    assert(st.lede === "Show up and lift. Taurifer plans your sessions, logs your sets, and tells you what comes next.", "the installed landing keeps its product explanation", st.lede);
+    assert(st.lede === "Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load.", "the installed landing keeps its product explanation", st.lede);
     assert(!st.continueShown, "and there is no browser to continue in", JSON.stringify(st));
     assert(!st.banner, "the banner stays away", JSON.stringify(st));
     assert(!st.topButton, "the top install button stays away", JSON.stringify(st));
@@ -627,9 +627,9 @@ async function run() {
       pt.body
     );
     assert(pt.continueLabel === "Continuar no Safari", "PT escape hatch", pt.continueLabel);
-    assert(pt.heroTitle === "Pare de adivinhar o que levantar. E comece a progredir.", "PT landing title", pt.heroTitle);
+    assert(pt.heroTitle === "Chegue na academia sabendo exatamente o que fazer.", "PT landing title", pt.heroTitle);
     assert(
-      pt.heroBody === "Apareça e treine. O Taurifer planeja suas sessões, registra suas séries e diz o que vem depois.",
+      pt.heroBody === "É só chegar e treinar. O Taurifer monta seus treinos, registra suas séries e já diz qual é a próxima carga.",
       "PT landing body",
       JSON.stringify(pt.heroBody)
     );
@@ -693,6 +693,146 @@ async function run() {
         allErrors.push(...errors);
         await context.close();
       }
+    }
+  }
+
+  // ---- The landing's typography follows 200% root text ----
+  // Functional copy on the gate used a mix of raw px and vw-driven clamp()s,
+  // neither of which tracks document.documentElement.style.fontSize — the
+  // repository's real 200%-text fixture (see test/program-entry-a11y.mjs).
+  // rem keeps every one of these in lockstep with it instead.
+  {
+    console.log("\nThe landing's typography at real 200% root text");
+    for (const width of [320, 390]) {
+      for (const locale of ["en-US", "pt-BR"]) {
+        const { context, page, errors } = await firstRunPage(browser, { ua: IOS_UA, locale, width });
+        await page.evaluate(() => document.fonts.ready);
+        const sizes = () => page.evaluate(() => {
+          const px = (sel) => {
+            const el = document.querySelector(sel);
+            return el ? Number.parseFloat(getComputedStyle(el).fontSize) : null;
+          };
+          return {
+            headline: px(".firstrun-hero__title"),
+            lede: px("#firstRunLede"),
+            primaryCta: px("#firstRunCreate"),
+            secondaryCta: px("#firstRunImport"),
+            benefitTitle: px(".firstrun-benefits strong"),
+            benefitBody: px(".firstrun-benefits p"),
+            ethos: px(".firstrun__ethos"),
+          };
+        });
+        const before = await sizes();
+        await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+        await page.waitForTimeout(50);
+        const after = await sizes();
+        const shape = await page.evaluate(heroShape);
+        const at = `${width}px ${locale}`;
+        assert(
+          Object.keys(before).every((key) =>
+            Number.isFinite(before[key]) && Number.isFinite(after[key]) && after[key] >= before[key] * 1.99),
+          `${at}: 200% root text genuinely enlarges landing typography`,
+          JSON.stringify({ before, after })
+        );
+        assert(shape.noHorizontalOverflow, `${at}: 200% root text produces no horizontal overflow`, JSON.stringify(shape));
+        assert(shape.previewSeparated, `${at}: 200% root text keeps the product preview clear of copy and actions`, JSON.stringify(shape));
+        allErrors.push(...errors);
+        await context.close();
+      }
+    }
+  }
+
+  // ---- Known landing contrast fixes hold (owner audit) ----
+  {
+    console.log("\nLanding contrast: shared caption, ethos, and chooser guide text");
+    const luminance = (rgb) => {
+      const c = rgb.map((v) => { const x = v / 255; return x <= 0.03928 ? x / 12.92 : ((x + 0.055) / 1.055) ** 2.4; });
+      return 0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2];
+    };
+    const ratio = (a, b) => {
+      const [l1, l2] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+      return (l1 + 0.05) / (l2 + 0.05);
+    };
+    // Full alpha-composited foreground/background, walking every ancestor
+    // (not just the nearest one) — the same stacking test/accessibility.mjs's
+    // own contrast auditor uses, needed here because guide cues sit on a
+    // translucent --entry-tint wash rather than a single solid colour.
+    const contrastOf = async (page, selector) => page.evaluate((sel) => {
+      const parse = (str) => {
+        const m = String(str).match(/rgba?\((\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)[,\s]+(\d+(?:\.\d+)?)(?:[,\s/]+(\d+(?:\.\d+)?))?\)/i);
+        if (!m) return null;
+        return [+m[1], +m[2], +m[3], m[4] == null ? 1 : +m[4]];
+      };
+      const mix = (fg, bg) => {
+        const a = fg[3] + bg[3] * (1 - fg[3]);
+        if (a <= 0) return [255, 255, 255, 0];
+        return [
+          (fg[0] * fg[3] + bg[0] * bg[3] * (1 - fg[3])) / a,
+          (fg[1] * fg[3] + bg[1] * bg[3] * (1 - fg[3])) / a,
+          (fg[2] * fg[3] + bg[2] * bg[3] * (1 - fg[3])) / a,
+          a,
+        ];
+      };
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      let bg = [244, 242, 239, 1];
+      const chain = [];
+      for (let n = el; n; n = n.parentElement) chain.push(n);
+      for (const n of chain.reverse()) {
+        const c = parse(getComputedStyle(n).backgroundColor);
+        const op = Number(getComputedStyle(n).opacity);
+        if (!c) continue;
+        const withOp = [c[0], c[1], c[2], c[3] * (Number.isFinite(op) ? op : 1)];
+        if (withOp[3] > 0.01) bg = mix(withOp, bg);
+      }
+      let opacity = 1;
+      for (let n = el; n; n = n.parentElement) {
+        const o = Number(getComputedStyle(n).opacity);
+        if (Number.isFinite(o)) opacity *= o;
+      }
+      const fgParsed = parse(getComputedStyle(el).color) || [27, 26, 23, 1];
+      const fg = mix([fgParsed[0], fgParsed[1], fgParsed[2], fgParsed[3] * opacity], bg);
+      return { fg: [fg[0], fg[1], fg[2]], bg: [bg[0], bg[1], bg[2]] };
+    }, selector);
+
+    // The shared/program caption under "Start this program": no opacity
+    // reduction should stand between its ink and the AA floor.
+    {
+      const { context, page, errors } = await sharedInstallPage(browser, { ua: IOS_UA, width: 390, payload: REPRESENTATIVE_PAYLOAD });
+      await page.waitForSelector("#firstRunSharedCap:not(:empty)");
+      const info = await contrastOf(page, "#firstRunSharedCap");
+      const r = ratio(info.fg, info.bg);
+      assert(r + 1e-6 >= 4.5, "the shared program caption meets 4.5:1 normal-text contrast", JSON.stringify({ ...info, ratio: +r.toFixed(2) }));
+      allErrors.push(...errors);
+      await context.close();
+    }
+
+    // The ethos line now sits on an explicit --bg chip rather than bare on the
+    // photograph, so its rendered background is a real, readable colour.
+    {
+      const { context, page, errors } = await firstRunPage(browser, { ua: IOS_UA, width: 390 });
+      await page.waitForSelector("#firstRun:not(.hidden)");
+      const info = await contrastOf(page, ".firstrun__ethos");
+      const r = ratio(info.fg, info.bg);
+      assert(r + 1e-6 >= 4.5, "the ethos line meets 4.5:1 against its paper chip, not the photograph", JSON.stringify({ ...info, ratio: +r.toFixed(2) }));
+      allErrors.push(...errors);
+      await context.close();
+    }
+
+    // The relocated "entry" guide's supporting copy, now at the chooser.
+    {
+      const { context, page, errors } = await firstRunPage(browser, { ua: IOS_UA, width: 390 });
+      await page.waitForSelector("#firstRun:not(.hidden)");
+      await page.click("#firstRunCreate");
+      await page.waitForSelector("#onboarding.active");
+      await page.waitForSelector("[data-guide-cue='entry'] .guide-cue__body");
+      // The cue fades in; sample its settled colour, not a mid-transition frame.
+      await page.evaluate(() => Promise.all(document.getAnimations().map((a) => a.finished.catch(() => {}))));
+      const info = await contrastOf(page, "[data-guide-cue='entry'] .guide-cue__body");
+      const r = ratio(info.fg, info.bg);
+      assert(r + 1e-6 >= 4.5, "the chooser's entry guide body text meets 4.5:1", JSON.stringify({ ...info, ratio: +r.toFixed(2) }));
+      allErrors.push(...errors);
+      await context.close();
     }
   }
 
