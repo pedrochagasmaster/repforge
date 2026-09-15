@@ -1,38 +1,38 @@
 {
   "320x844": {
-    "headlineHeight": 119.1875,
-    "headlineSize": 30.4,
-    "previewWidth": 261.265625,
-    "previewHeight": 510.9375,
-    "heroBottom": 1196.265625,
-    "introductionTop": 231.1875,
-    "firstControlTop": 329.546875
+    "headlineHeight": 151.1875,
+    "headlineSize": 36,
+    "previewWidth": 211.1875,
+    "previewHeight": 413,
+    "heroBottom": 992.640625,
+    "introductionTop": 253.1875,
+    "firstControlTop": 342.359375
   },
   "390x844": {
-    "headlineHeight": 127.3125,
-    "headlineSize": 33.15,
-    "previewWidth": 204.5,
-    "previewHeight": 399.921875,
-    "heroBottom": 835.640625,
-    "introductionTop": 224.859375,
-    "firstControlTop": 339.421875
+    "headlineHeight": 113.390625,
+    "headlineSize": 36,
+    "previewWidth": 241.796875,
+    "previewHeight": 472.859375,
+    "heroBottom": 915.421875,
+    "introductionTop": 213.390625,
+    "firstControlTop": 302.5625
   },
   "430x932": {
-    "headlineHeight": 138.1875,
+    "headlineHeight": 113.390625,
     "headlineSize": 36,
-    "previewWidth": 215,
-    "previewHeight": 420.453125,
-    "heroBottom": 757.125,
-    "introductionTop": 239.53125,
-    "firstControlTop": 334.78125
+    "previewWidth": 252,
+    "previewHeight": 492.8125,
+    "heroBottom": 938.71875,
+    "introductionTop": 216.734375,
+    "firstControlTop": 305.90625
   },
   "768x1024": {
-    "headlineHeight": 240.8125,
-    "headlineSize": 61.44,
+    "headlineHeight": 235.1875,
+    "headlineSize": 56,
     "previewWidth": 294,
     "previewHeight": 574.953125,
-    "heroBottom": 829.5,
-    "introductionTop": 382.8125,
-    "firstControlTop": 497.71875
+    "heroBottom": 686.953125,
+    "introductionTop": 365.1875,
+    "firstControlTop": 454.359375
   }
 }

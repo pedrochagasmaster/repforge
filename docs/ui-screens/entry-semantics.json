@@ -43337,8 +43337,8 @@
         {
           "tag": "div",
           "role": "dialog",
-          "name": "Set up Taurifer",
-          "label": "Set up Taurifer",
+          "name": "Configurar o Taurifer",
+          "label": "Configurar o Taurifer",
           "tabindex": "-1"
         },
         {
@@ -43347,62 +43347,62 @@
         },
         {
           "tag": "button",
-          "text": "Privacy",
-          "name": "Privacy",
+          "text": "Privacidade",
+          "name": "Privacidade",
           "type": "button"
         },
         {
           "tag": "p",
-          "text": "Program received"
+          "text": "Programa recebido"
         },
         {
           "tag": "h1",
-          "text": "Your program is ready to train."
+          "text": "Seu programa está pronto para treinar."
         },
         {
           "tag": "p",
-          "text": "Review the program that was sent to you, then start it on this device."
+          "text": "Revise o programa que enviaram para você e depois comece neste dispositivo."
         },
         {
           "tag": "button",
-          "name": "Start this program Coach program · 1 day per week",
+          "name": "Começar este programa Programa do treinador · 1 dia por semana",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Start this program"
+          "text": "Começar este programa"
         },
         {
           "tag": "span",
-          "text": "Coach program · 1 day per week"
+          "text": "Programa do treinador · 1 dia por semana"
         },
         {
           "tag": "section",
-          "label": "How Taurifer helps"
+          "label": "Como o Taurifer ajuda"
         },
         {
           "tag": "strong",
-          "text": "Fits your routine"
+          "text": "Cabe na sua rotina"
         },
         {
           "tag": "p",
-          "text": "A workout built for the time you have and the goals you want to reach."
+          "text": "Um treino feito para o tempo que você tem e para o que quer alcançar."
         },
         {
           "tag": "strong",
-          "text": "Know what to do, every set"
+          "text": "Saiba o que fazer em cada série"
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "Veja a carga, as repetições e a meta de cada série."
         },
         {
           "tag": "strong",
-          "text": "Grows with you"
+          "text": "Evolui com você"
         },
         {
           "tag": "p",
-          "text": "Progression based on your performance."
+          "text": "Progressão baseada no seu desempenho."
         }
       ]
     },
@@ -43420,8 +43420,8 @@
         {
           "tag": "div",
           "role": "dialog",
-          "name": "Set up Taurifer",
-          "label": "Set up Taurifer",
+          "name": "Configurar o Taurifer",
+          "label": "Configurar o Taurifer",
           "tabindex": "-1"
         },
         {
@@ -43430,62 +43430,62 @@
         },
         {
           "tag": "button",
-          "text": "Privacy",
-          "name": "Privacy",
+          "text": "Privacidade",
+          "name": "Privacidade",
           "type": "button"
         },
         {
           "tag": "p",
-          "text": "Program received"
+          "text": "Programa recebido"
         },
         {
           "tag": "h1",
-          "text": "Your program is ready to train."
+          "text": "Seu programa está pronto para treinar."
         },
         {
           "tag": "p",
-          "text": "Review the program that was sent to you, then start it on this device."
+          "text": "Revise o programa que enviaram para você e depois comece neste dispositivo."
         },
         {
           "tag": "button",
-          "name": "Start this program Coach program · 1 day per week",
+          "name": "Começar este programa Programa do treinador · 1 dia por semana",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Start this program"
+          "text": "Começar este programa"
         },
         {
           "tag": "span",
-          "text": "Coach program · 1 day per week"
+          "text": "Programa do treinador · 1 dia por semana"
         },
         {
           "tag": "section",
-          "label": "How Taurifer helps"
+          "label": "Como o Taurifer ajuda"
         },
         {
           "tag": "strong",
-          "text": "Fits your routine"
+          "text": "Cabe na sua rotina"
         },
         {
           "tag": "p",
-          "text": "A workout built for the time you have and the goals you want to reach."
+          "text": "Um treino feito para o tempo que você tem e para o que quer alcançar."
         },
         {
           "tag": "strong",
-          "text": "Know what to do, every set"
+          "text": "Saiba o que fazer em cada série"
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "Veja a carga, as repetições e a meta de cada série."
         },
         {
           "tag": "strong",
-          "text": "Grows with you"
+          "text": "Evolui com você"
         },
         {
           "tag": "p",
-          "text": "Progression based on your performance."
+          "text": "Progressão baseada no seu desempenho."
         }
       ]
     },
@@ -44143,113 +44143,113 @@
       "semantic": [
         {
           "tag": "section",
-          "label": "Create a program"
+          "label": "Criar um programa"
         },
         {
           "tag": "button",
-          "text": "Cancel",
-          "name": "Cancel",
+          "text": "Cancelar",
+          "name": "Cancelar",
           "type": "button"
         },
         {
           "tag": "div",
-          "text": "Shared program"
+          "text": "Programa compartilhado"
         },
         {
           "tag": "h2",
-          "text": "Review program",
+          "text": "Revisar programa",
           "tabindex": "-1"
         },
         {
           "tag": "p",
-          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+          "text": "Este rascunho pode ser editado. Seu programa ativo permanece igual até você confirmar."
         },
         {
           "tag": "h3",
-          "text": "Coach program"
+          "text": "Programa do treinador"
         },
         {
           "tag": "p",
-          "text": "Shared Taurifer program"
+          "text": "Programa Taurifer compartilhado"
         },
         {
           "tag": "span",
-          "text": "Source"
+          "text": "Origem"
         },
         {
           "tag": "span",
-          "text": "1 exercise"
+          "text": "1 exercício"
         },
         {
           "tag": "span",
-          "text": "3 working sets"
+          "text": "3 séries de trabalho"
         },
         {
           "tag": "span",
-          "text": "about 12 minutes"
+          "text": "cerca de 12 minutos"
         },
         {
           "tag": "h4",
-          "text": "Priorities"
+          "text": "Prioridades"
         },
         {
           "tag": "p",
-          "text": "Chest"
+          "text": "Peito"
         },
         {
           "tag": "h4",
-          "text": "Equipment assumptions"
+          "text": "Equipamentos considerados"
         },
         {
           "tag": "p",
-          "text": "Machine"
+          "text": "Máquina"
         },
         {
           "tag": "h4",
-          "text": "Progression"
+          "text": "Progressão"
         },
         {
           "tag": "p",
-          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
+          "text": "O Taurifer atualiza as metas com base nos treinos concluídos, usando a progressão compatível de cada exercício."
         },
         {
           "tag": "h4",
-          "text": "Adjustments"
+          "text": "Ajustes necessários"
         },
         {
           "tag": "p",
-          "text": "No adjustments were needed."
+          "text": "Nenhum ajuste foi necessário."
         },
         {
           "tag": "button",
-          "text": "Use this program",
-          "name": "Use this program",
+          "text": "Usar este programa",
+          "name": "Usar este programa",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "Edit before using",
-          "name": "Edit before using",
+          "text": "Editar antes de usar",
+          "name": "Editar antes de usar",
           "type": "button"
         },
         {
           "tag": "button",
-          "text": "Start over",
-          "name": "Start over",
+          "text": "Começar de novo",
+          "name": "Começar de novo",
           "type": "button"
         },
         {
           "tag": "p",
-          "text": "Weekly structure"
+          "text": "Estrutura semanal"
         },
         {
           "tag": "summary",
-          "text": "Day 1",
-          "name": "1Day 11 exercise · 3 working sets · about 12 minutes"
+          "text": "Dia 1",
+          "name": "1Dia 11 exercício · 3 séries de trabalho · cerca de 12 minutos"
         },
         {
           "tag": "span",
-          "text": "1 exercise · 3 working sets · about 12 minutes"
+          "text": "1 exercício · 3 séries de trabalho · cerca de 12 minutos"
         },
         {
           "tag": "div",
@@ -44261,9 +44261,9 @@
         },
         {
           "tag": "button",
-          "text": "Back",
-          "name": "Back",
-          "label": "Back",
+          "text": "Voltar",
+          "name": "Voltar",
+          "label": "Voltar",
           "type": "button"
         }
       ]
@@ -44294,27 +44294,6 @@
           "tag": "button",
           "text": "Privacy",
           "name": "Privacy",
-          "type": "button"
-        },
-        {
-          "tag": "aside",
-          "role": "status",
-          "name": "Know what stays private",
-          "labelledBy": "Know what stays private"
-        },
-        {
-          "tag": "p",
-          "text": "Know what stays private"
-        },
-        {
-          "tag": "p",
-          "text": "Open Privacy for the exact local-storage, setup-link, transfer, and analytics boundaries."
-        },
-        {
-          "tag": "button",
-          "text": "×",
-          "name": "Dismiss guide",
-          "label": "Dismiss guide",
           "type": "button"
         },
         {
@@ -44406,27 +44385,6 @@
           "type": "button"
         },
         {
-          "tag": "aside",
-          "role": "status",
-          "name": "Know what stays private",
-          "labelledBy": "Know what stays private"
-        },
-        {
-          "tag": "p",
-          "text": "Know what stays private"
-        },
-        {
-          "tag": "p",
-          "text": "Open Privacy for the exact local-storage, setup-link, transfer, and analytics boundaries."
-        },
-        {
-          "tag": "button",
-          "text": "×",
-          "name": "Dismiss guide",
-          "label": "Dismiss guide",
-          "type": "button"
-        },
-        {
           "tag": "h1",
           "text": "Walk into the gym knowing exactly what to do."
         },
@@ -44512,27 +44470,6 @@
           "tag": "button",
           "text": "Privacy",
           "name": "Privacy",
-          "type": "button"
-        },
-        {
-          "tag": "aside",
-          "role": "status",
-          "name": "Know what stays private",
-          "labelledBy": "Know what stays private"
-        },
-        {
-          "tag": "p",
-          "text": "Know what stays private"
-        },
-        {
-          "tag": "p",
-          "text": "Open Privacy for the exact local-storage, setup-link, transfer, and analytics boundaries."
-        },
-        {
-          "tag": "button",
-          "text": "×",
-          "name": "Dismiss guide",
-          "label": "Dismiss guide",
           "type": "button"
         },
         {
@@ -44624,27 +44561,6 @@
           "type": "button"
         },
         {
-          "tag": "aside",
-          "role": "status",
-          "name": "Know what stays private",
-          "labelledBy": "Know what stays private"
-        },
-        {
-          "tag": "p",
-          "text": "Know what stays private"
-        },
-        {
-          "tag": "p",
-          "text": "Open Privacy for the exact local-storage, setup-link, transfer, and analytics boundaries."
-        },
-        {
-          "tag": "button",
-          "text": "×",
-          "name": "Dismiss guide",
-          "label": "Dismiss guide",
-          "type": "button"
-        },
-        {
           "tag": "h1",
           "text": "Walk into the gym knowing exactly what to do."
         },
@@ -44730,27 +44646,6 @@
           "tag": "button",
           "text": "Privacy",
           "name": "Privacy",
-          "type": "button"
-        },
-        {
-          "tag": "aside",
-          "role": "status",
-          "name": "Know what stays private",
-          "labelledBy": "Know what stays private"
-        },
-        {
-          "tag": "p",
-          "text": "Know what stays private"
-        },
-        {
-          "tag": "p",
-          "text": "Open Privacy for the exact local-storage, setup-link, transfer, and analytics boundaries."
-        },
-        {
-          "tag": "button",
-          "text": "×",
-          "name": "Dismiss guide",
-          "label": "Dismiss guide",
           "type": "button"
         },
         {
@@ -44842,27 +44737,6 @@
           "type": "button"
         },
         {
-          "tag": "aside",
-          "role": "status",
-          "name": "Saiba o que fica privado",
-          "labelledBy": "Saiba o que fica privado"
-        },
-        {
-          "tag": "p",
-          "text": "Saiba o que fica privado"
-        },
-        {
-          "tag": "p",
-          "text": "Abra Privacidade para ver os limites exatos de armazenamento local, links, transferência e análise de uso."
-        },
-        {
-          "tag": "button",
-          "text": "×",
-          "name": "Dispensar guia",
-          "label": "Dispensar guia",
-          "type": "button"
-        },
-        {
           "tag": "h1",
           "text": "Chegue na academia sabendo exatamente o que fazer."
         },
@@ -44948,27 +44822,6 @@
           "tag": "button",
           "text": "Privacy",
           "name": "Privacy",
-          "type": "button"
-        },
-        {
-          "tag": "aside",
-          "role": "status",
-          "name": "Know what stays private",
-          "labelledBy": "Know what stays private"
-        },
-        {
-          "tag": "p",
-          "text": "Know what stays private"
-        },
-        {
-          "tag": "p",
-          "text": "Open Privacy for the exact local-storage, setup-link, transfer, and analytics boundaries."
-        },
-        {
-          "tag": "button",
-          "text": "×",
-          "name": "Dismiss guide",
-          "label": "Dismiss guide",
           "type": "button"
         },
         {
