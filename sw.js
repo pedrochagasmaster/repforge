@@ -1,14 +1,14 @@
-const CACHE = "repforge-v253";
+const CACHE = "repforge-v254";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
-  "./vendor/motion/motion.js", "./vendor/dnd-kit/dnd-kit.js", "./vendor/dnd-kit/dnd-kit.runtime.js", "./motion-layer.js", "./motion-layer.js?v=253",
+  "./vendor/motion/motion.js", "./vendor/dnd-kit/dnd-kit.js", "./vendor/dnd-kit/dnd-kit.runtime.js", "./motion-layer.js", "./motion-layer.js?v=254",
   "./telemetry.js", "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js", "./install-transfer-contract.js", "./install-transfer.js",
-  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=253", "./program-entry.js", "./program-entry.js?v=253", "./program-entry-adapter.js", "./program-entry-adapter.js?v=253", "./program-editor.js", "./program-editor.js?v=253",
-  "./shared-setup.js", "./shared-setup.js?v=253", "./workout-draft.js", "./workout-draft.js?v=253", "./program-transition.js", "./program-transition.js?v=253", "./install-policy.js", "./install-policy.js?v=253", "./guide-registry.js", "./guide-registry.js?v=253", "./durable-state.js", "./durable-state.js?v=253", "./app.js", "./app.js?v=253",
+  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=254", "./program-entry.js", "./program-entry.js?v=254", "./program-entry-adapter.js", "./program-entry-adapter.js?v=254", "./program-editor.js", "./program-editor.js?v=254",
+  "./shared-setup.js", "./shared-setup.js?v=254", "./workout-draft.js", "./workout-draft.js?v=254", "./program-transition.js", "./program-transition.js?v=254", "./install-policy.js", "./install-policy.js?v=254", "./guide-registry.js", "./guide-registry.js?v=254", "./durable-state.js", "./durable-state.js?v=254", "./app.js", "./app.js?v=254",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
-  "./assets/brand/mark.png", "./assets/brand/landing-hero.webp", "./assets/brand/landing-device.webp",
+  "./assets/brand/mark.png", "./assets/brand/landing-workout-en-light.webp", "./assets/brand/landing-workout-en-dark.webp", "./assets/brand/landing-workout-pt-light.webp", "./assets/brand/landing-workout-pt-dark.webp",
   "./assets/exercises/ab_cb.webp", "./assets/exercises/ab_mc.webp", "./assets/exercises/abc_mc.webp", "./assets/exercises/abdb_bw.webp",
   "./assets/exercises/ablr_bw.webp", "./assets/exercises/abr_bw.webp", "./assets/exercises/abrt_bw.webp", "./assets/exercises/ad_mc.webp",
   "./assets/exercises/arn_db.webp", "./assets/exercises/be_mc.webp", "./assets/exercises/cd_bw.webp", "./assets/exercises/cf_db.webp",

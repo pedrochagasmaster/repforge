@@ -184,9 +184,9 @@ try {
     assert.deepEqual(landingFailures, [], `actual EN landing frame satisfies the catalog contract: ${landingFailures.join(" | ")}`);
 
     const landingSemantics = normalizeSemanticRecords(await landing.page.evaluate(collectProgramEntrySemantics));
-    assert.ok(landingSemantics.some((entry) => entry.tag === "h1" && entry.text.includes("Walk into the gym knowing exactly what to do")),
+    assert.ok(landingSemantics.some((entry) => entry.tag === "h1" && entry.text === "Your last set. Your next move."),
       "landing page semantic facts include the landing headline");
-    assert.ok(landingSemantics.some((entry) => entry.tag === "button" && entry.name === "Build my workout"),
+    assert.ok(landingSemantics.some((entry) => entry.tag === "button" && entry.name === "Build my program"),
       "landing page semantic facts include the primary build action");
 
     const landingBaseline = buildSemanticArtifact([{

@@ -264,8 +264,7 @@ const card = () => ({
   import: !!document.querySelector("#firstRunImport"),
   heroTitle: document.querySelector(".firstrun-hero__title")?.textContent || null,
   heroBody: document.querySelector("#firstRunLede")?.textContent || null,
-  // The preview is the owner-supplied device render, so the loop it shows is
-  // carried by its accessible name rather than by rendered text.
+  // The device has a translated description; the adjoining proof carries live facts.
   previewText: document.querySelector(".firstrun-preview")?.getAttribute("alt")?.replace(/\s+/g, " ").trim() || null,
   privacy: document.querySelector("#firstRunPrivacy")?.textContent.trim() || null,
   // The gate stands the mark on its paper, so it draws the ground-free
@@ -273,9 +272,7 @@ const card = () => ({
   markSrc: document.querySelector(".firstrun__logo")?.getAttribute("src") || null,
 });
 
-// The selected landing keeps the live product loop separate from copy and
-// controls. At the narrowest supported width it stacks; otherwise it uses the
-// owner-selected copy/phone composition without horizontal overflow.
+// Measure the product composition independently of its grid or device angle.
 const heroShape = () => {
   const title = document.querySelector(".firstrun-hero__title");
   const hero = document.querySelector(".firstrun-hero");
@@ -285,6 +282,9 @@ const heroShape = () => {
   const lede = document.querySelector(".firstrun__lede");
   const actions = document.querySelector("#firstRunStandardProgram");
   const firstControl = document.querySelector("#firstRunCreate");
+  const secondControl = document.querySelector("#firstRunImport");
+  const proof = document.querySelector(".firstrun-proof");
+  const next = document.querySelector(".firstrun-proof__next");
   const row = document.querySelector(".firstrun__brand").getBoundingClientRect();
   const p = preview.getBoundingClientRect();
   const copy = document.querySelector(".firstrun-hero__copy").getBoundingClientRect();
@@ -294,8 +294,6 @@ const heroShape = () => {
   const intersects = (one, two) =>
     one.left < two.right && one.right > two.left && one.top < two.bottom && one.bottom > two.top;
   return {
-    stacked: getComputedStyle(hero).gridTemplateAreas.includes('"copy"') &&
-      !getComputedStyle(hero).gridTemplateAreas.includes('"copy preview"'),
     titleAlign: getComputedStyle(title).textAlign,
     previewSeparated: !intersects(p, controls) && !intersects(p, t) && !intersects(p, lede.getBoundingClientRect()),
     previewInsideViewport: p.left >= -1 && p.right <= innerWidth + 1,
@@ -304,19 +302,21 @@ const heroShape = () => {
     heroBottom: h.bottom,
     ledeTop: lede.getBoundingClientRect().top,
     firstControlTop: firstControl?.getBoundingClientRect().top ?? null,
+    actionsInFirstViewport: [firstControl, secondControl].every((el) => {
+      const box = el.getBoundingClientRect();
+      return box.top >= 0 && box.bottom <= innerHeight && box.left >= 0 && box.right <= innerWidth;
+    }),
+    proofTop: proof?.getBoundingClientRect().top ?? null,
+    proofFacts: proof?.textContent.replace(/\s+/g, " ").trim() || "",
+    nextSize: next ? parseFloat(getComputedStyle(next).fontSize) : null,
+    proofSeparated: !!proof && !intersects(proof.getBoundingClientRect(), controls) &&
+      !intersects(proof.getBoundingClientRect(), t) && !intersects(proof.getBoundingClientRect(), lede.getBoundingClientRect()),
     viewportHeight: innerHeight,
     copyInsideHero: copy.left >= h.left - 1 && copy.right <= h.right + 1,
     logoWidth: Math.round(logo.getBoundingClientRect().width),
     wordmarkSize: parseFloat(getComputedStyle(wordmark).fontSize),
     lockupInsideViewport: row.left >= 0 && row.right <= innerWidth,
-    // How much of the device render is on the first screen. The owner audit
-    // rejected a composition where the product proof began several blocks
-    // below the proposition and read as decoration; "not overlapping" alone
-    // does not say it is part of the hero, so measure that it is.
-    previewVisibleFraction: +((Math.min(p.bottom, innerHeight) - p.top) / p.height).toFixed(3),
     previewWidthFraction: +(p.width / innerWidth).toFixed(3),
-    // Vertical distance from the last entry action to the top of the render.
-    previewGapBelowActions: Math.round(p.top - controls.bottom),
   };
 };
 
@@ -335,19 +335,18 @@ async function run() {
     assert(!shown.section, "Chromium does not promote installation before first value", JSON.stringify(shown));
     assert(shown.title === null && shown.action === null, "the gated card exposes no dead install action", JSON.stringify(shown));
     assert(
-      shown.heroTitle === "Walk into the gym knowing exactly what to do.",
+      shown.heroTitle === "Your last set.\nYour next move.",
       "the product landing leads the gate",
       shown.heroTitle
     );
     assert(
-      shown.heroBody === "Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load.",
+      shown.heroBody === "A strength program that turns the work you log into your next target.",
       "the landing explains the product loop",
       JSON.stringify(shown.heroBody)
     );
     assert(
-      /4–8 reps at RIR 0–2/.test(shown.previewText || "") &&
-        /152\.5 kg for 7 reps logged last session/.test(shown.previewText || "") &&
-        /hold 152\.5 kg and aim for 8 reps/.test(shown.previewText || ""),
+      /8–10/.test(shown.previewText || "") && /RIR 0–2/.test(shown.previewText || "") &&
+        /60 kg/.test(shown.previewText || "") && /62\.5 kg/.test(shown.previewText || ""),
       "the preview carries prescription, logged work, and derived next target",
       shown.previewText
     );
@@ -507,7 +506,7 @@ async function run() {
     }));
     assert(st.create && st.import, "the screen still asks the program question", JSON.stringify(st));
     assert(!st.section, "no install section is drawn", JSON.stringify(st));
-    assert(st.lede === "Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load.", "the landing copy does not invent an unavailable install action", st.lede);
+    assert(st.lede === "A strength program that turns the work you log into your next target.", "the landing copy does not invent an unavailable install action", st.lede);
     assert(!st.continueShown, "no browser to continue in, no link offering it", JSON.stringify(st));
     assert(!st.banner && !st.topButton, "and nothing else promotes an install", JSON.stringify(st));
     allErrors.push(...errors);
@@ -536,7 +535,7 @@ async function run() {
     assert(st.create && st.import, "the installed app still offers Create and Import", JSON.stringify(st));
     assert(!st.onboarding, "it does not jump straight into the wizard", JSON.stringify(st));
     assert(!st.section, "it promotes no install", JSON.stringify(st));
-    assert(st.lede === "Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load.", "the installed landing keeps its product explanation", st.lede);
+    assert(st.lede === "A strength program that turns the work you log into your next target.", "the installed landing keeps its product explanation", st.lede);
     assert(!st.continueShown, "and there is no browser to continue in", JSON.stringify(st));
     assert(!st.banner, "the banner stays away", JSON.stringify(st));
     assert(!st.topButton, "the top install button stays away", JSON.stringify(st));
@@ -635,9 +634,9 @@ async function run() {
       pt.body
     );
     assert(pt.continueLabel === "Continuar no Safari", "PT escape hatch", pt.continueLabel);
-    assert(pt.heroTitle === "Chegue na academia sabendo exatamente o que fazer.", "PT landing title", pt.heroTitle);
+    assert(pt.heroTitle === "Da última série\nà próxima meta.", "PT landing title", pt.heroTitle);
     assert(
-      pt.heroBody === "É só chegar e treinar. O Taurifer monta seus treinos, registra suas séries e já diz qual é a próxima carga.",
+      pt.heroBody === "Um programa de força que transforma suas séries registradas na próxima meta.",
       "PT landing body",
       JSON.stringify(pt.heroBody)
     );
@@ -663,11 +662,10 @@ async function run() {
   // ---- The landing's shape, from compact phones through the wide composition ----
   {
     console.log("\nThe product landing's shape");
-    for (const width of [320, 390, 430, 759, 760, 768, 1024, 1280]) {
+    for (const width of [320, 360, 390, 430, 759, 760, 768, 1024, 1280]) {
       for (const locale of ["en-US", "pt-BR"]) {
         const { context, page, errors } = await firstRunPage(browser, { ua: IOS_UA, locale, width });
-        // The poem is measured in characters of a web font; measuring before it
-        // arrives measures the fallback.
+        // Measure only after the production fonts are ready.
         await page.evaluate(() => document.fonts.ready);
         await page.waitForTimeout(150);
         const shape = await page.evaluate(heroShape);
@@ -675,9 +673,9 @@ async function run() {
         assert(shape.previewSeparated, `${at}: product preview does not cover copy or entry actions`, JSON.stringify(shape));
         assert(shape.previewInsideViewport, `${at}: product preview stays inside the viewport`, JSON.stringify(shape));
         // Locale-tolerant: the accessible name is translated, and Portuguese
-        // writes the load 152,5. The exact English wording is asserted once,
+        // writes the load 62,5. The exact English wording is asserted once,
         // in the en-US landing block above.
-        assert(/4–8/.test(shape.previewFacts) && /RIR 0–2/.test(shape.previewFacts) && /152[.,]5 kg/.test(shape.previewFacts), `${at}: the complete product loop remains present`, shape.previewFacts);
+        assert(/8–10/.test(shape.previewFacts) && /RIR 0–2/.test(shape.previewFacts) && /60 kg/.test(shape.previewFacts) && /62[.,]5 kg/.test(shape.previewFacts), `${at}: the complete product loop remains present`, shape.previewFacts);
         assert(shape.titleAlign === "left", `${at}: the editorial headline stays left aligned`, shape.titleAlign);
         assert(
           shape.logoWidth >= 39 && shape.wordmarkSize >= 14 && shape.lockupInsideViewport,
@@ -686,53 +684,18 @@ async function run() {
         );
         assert(shape.noHorizontalOverflow, `${at}: the page has no horizontal overflow`, JSON.stringify(shape));
         assert(shape.copyInsideHero, `${at}: landing copy stays within its grid region`, JSON.stringify(shape));
-        if (width === 320 || width === 390) {
-          assert(
-            shape.ledeTop < shape.viewportHeight,
-            `${at}: the introduction text starts on the first screen`,
-            JSON.stringify(shape)
-          );
-          assert(
-            shape.firstControlTop != null && shape.firstControlTop <= 1.15 * shape.viewportHeight,
-            `${at}: the first control is within 1.15 screens`,
-            JSON.stringify(shape)
-          );
-        }
-        // The product proof belongs to the first visual argument, not to a
-        // later decorative band.
-        //
-        // 390 and 430 are the canonical phones and carry the real bar: the
-        // render shares the hero's foot row with the ethos, so it follows the
-        // entry actions immediately and is almost wholly on the first screen.
-        // 320 cannot hold that row — the ethos alone claims most of the
-        // measure — so the row wraps and the render stacks below. That is the
-        // deliberate compact fallback, and it is asserted as its own looser
-        // contract rather than hidden behind one averaged threshold.
-        if (width === 390 || width === 430) {
-          assert(
-            shape.previewVisibleFraction >= 0.75,
-            `${at}: the product preview is substantially on the first screen`,
-            JSON.stringify(shape)
-          );
-          assert(
-            shape.previewGapBelowActions <= 60,
-            `${at}: the product preview follows the entry actions as one composition`,
-            JSON.stringify(shape)
-          );
-        }
-        if (width === 320) {
-          assert(
-            shape.previewVisibleFraction >= 0.45,
-            `${at}: the stacked compact fallback still reaches the product preview on the first screen`,
-            JSON.stringify(shape)
-          );
-        }
+        assert(shape.proofSeparated, `${at}: live product proof stays clear of headline and actions`, JSON.stringify(shape));
+        assert(shape.nextSize >= 16, `${at}: the next target remains readable live text`, JSON.stringify(shape));
+        assert(/3 (?:sets|séries) · 8–10/.test(shape.proofFacts) && /RIR 0–2/.test(shape.proofFacts) &&
+          /60 kg × 10/.test(shape.proofFacts) && /(?:All|As) 3 (?:sets|séries) · RIR 2/.test(shape.proofFacts) &&
+          /62[.,]5/.test(shape.proofFacts) && /3 (?:sets|séries) × 8/.test(shape.proofFacts),
+          `${at}: prescription, completed sets, effort, and next target are available outside the raster`, shape.proofFacts);
         if (width <= 430) {
-          assert(
-            shape.previewWidthFraction >= 0.4,
-            `${at}: the product preview is prominent, not an incidental thumbnail`,
-            JSON.stringify(shape)
-          );
+          assert(shape.actionsInFirstViewport, `${at}: both entry actions fit completely on the first screen`, JSON.stringify(shape));
+          assert(shape.proofTop !== null && shape.proofTop < shape.viewportHeight,
+            `${at}: the product proof begins on the first screen`, JSON.stringify(shape));
+          assert(shape.previewWidthFraction >= 0.6,
+            `${at}: the device is large enough to inspect on a phone`, JSON.stringify(shape));
         }
         allErrors.push(...errors);
         await context.close();
@@ -761,8 +724,9 @@ async function run() {
             lede: px("#firstRunLede"),
             primaryCta: px("#firstRunCreate"),
             secondaryCta: px("#firstRunImport"),
-            benefitTitle: px(".firstrun-benefits strong"),
-            benefitBody: px(".firstrun-benefits p"),
+            proofLabel: px(".firstrun-proof__label"),
+            proofNote: px(".firstrun-proof__note"),
+            nextTarget: px(".firstrun-proof__next"),
             ethos: px(".firstrun__ethos"),
           };
         });
@@ -779,7 +743,7 @@ async function run() {
           JSON.stringify({ before, after })
         );
         assert(shape.noHorizontalOverflow, `${at}: 200% root text produces no horizontal overflow`, JSON.stringify(shape));
-        assert(shape.previewSeparated, `${at}: 200% root text keeps the product preview clear of copy and actions`, JSON.stringify(shape));
+        assert(shape.previewSeparated && shape.proofSeparated, `${at}: 200% root text keeps the product proof clear of copy and actions`, JSON.stringify(shape));
         allErrors.push(...errors);
         await context.close();
       }
@@ -851,13 +815,7 @@ async function run() {
       await context.close();
     }
 
-    // The ethos line sits on its own paper wash rather than bare on the
-    // photograph, so its rendered background is a real, readable colour.
-    // The wash is a masked `::after`, so contrast alone is not enough: prove
-    // the opaque part of it actually covers the text box, because a fade stop
-    // that drifted onto a glyph would leave the ratio measuring a colour the
-    // glyph is not really on. Checked in both locales and at 200% text, the
-    // three things that change the box's width.
+    // With photography removed, text contrast is measured against the actual page.
     for (const [locale, scale] of [["en-US", 1], ["pt-BR", 1], ["en-US", 2]]) {
       const { context, page, errors } = await firstRunPage(browser, { ua: IOS_UA, width: 390, locale });
       await page.waitForSelector("#firstRun:not(.hidden)");
@@ -868,31 +826,25 @@ async function run() {
       const at = `${locale} x${scale}`;
       const info = await contrastOf(page, ".firstrun__ethos");
       const r = ratio(info.fg, info.bg);
-      assert(r + 1e-6 >= 4.5, `${at}: the ethos line meets 4.5:1 against its paper wash, not the photograph`,
+      assert(r + 1e-6 >= 4.5, `${at}: the ethos line meets 4.5:1 against its rendered background`,
         JSON.stringify({ ...info, ratio: +r.toFixed(2) }));
-      const wash = await page.evaluate(() => {
-        const el = document.querySelector(".firstrun__ethos");
-        const after = getComputedStyle(el, "::after");
-        const insetOf = (side) => Math.abs(Number.parseFloat(after[side]) || 0);
-        // Each mask layer is opaque until `100% - <overhang>`, so the opaque
-        // core is the wash box minus exactly the right and bottom overhangs —
-        // which is the element's own border box. Compare the two.
-        return {
-          present: after.content !== "none",
-          background: after.backgroundColor,
-          right: insetOf("right"),
-          bottom: insetOf("bottom"),
-          mask: after.maskImage || after.webkitMaskImage || "",
-        };
+      const imageBackgrounds = await page.evaluate(() => {
+        const layers = [];
+        for (let el = document.querySelector(".firstrun__ethos"); el; el = el.parentElement) {
+          for (const pseudo of [null, "::before", "::after"]) {
+            const style = getComputedStyle(el, pseudo);
+            if (style.backgroundImage !== "none") layers.push(style.backgroundImage);
+          }
+          // The opaque landing covers the shell's scroll fade and any imagery below it.
+          if (el.id === "firstRun") {
+            const color = getComputedStyle(el).backgroundColor;
+            const alpha = color.startsWith("rgba(") ? Number.parseFloat(color.split(",").at(-1)) : color.startsWith("rgb(") ? 1 : 0;
+            if (alpha === 1) break;
+          }
+        }
+        return layers;
       });
-      const opaqueToRight = /calc\(100% - 40px\)/.test(wash.mask) && wash.right === 40;
-      const opaqueToBottom = /calc\(100% - 14px\)/.test(wash.mask) && wash.bottom === 14;
-      assert(
-        wash.present && /^rgba?\(/.test(wash.background) && !/,\s*0\s*\)/.test(wash.background) &&
-          opaqueToRight && opaqueToBottom,
-        `${at}: the ethos wash stays fully opaque across the text and fades only in its overhang`,
-        JSON.stringify(wash)
-      );
+      assert(imageBackgrounds.length === 0, `${at}: no background image sits behind the ethos text`, JSON.stringify(imageBackgrounds));
       allErrors.push(...errors);
       await context.close();
     }

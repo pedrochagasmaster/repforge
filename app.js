@@ -13534,6 +13534,7 @@ const resolvedTheme=()=>{const pick=currentTheme();return pick==="system"?(darkQ
 function applyTheme(){
   const resolved=resolvedTheme();
   document.documentElement.dataset.theme=resolved;
+  renderLandingDevice();
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content",THEME_COLOR[resolved]);
   return resolved}
 /* The chart is painted into a canvas, so it is the one surface a token swap
@@ -13879,8 +13880,16 @@ function closeFirstRunInstall(){
   installPresentedDecision=null;
   setFirstRunOffer(false);
 }
+function renderLandingDevice(){
+  const image=$("#landingDevice");
+  if(!image)return;
+  const lang=I18N?.getLang?.()==="pt"?"pt":"en";
+  const theme=document.documentElement.dataset.theme==="dark"?"dark":"light";
+  image.src=`assets/brand/landing-workout-${lang}-${theme}.webp`;
+}
 function renderFirstRun(){
   renderFirstRunProgramMode();
+  renderLandingDevice();
   const decision=installPolicyDecision(),mode=installMode();
   setFirstRunOffer(decision.eligible||mode==="safari"&&decision.state==="unsupported");
   const label=$("#firstRunContinueLabel");

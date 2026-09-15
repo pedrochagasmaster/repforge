@@ -20,9 +20,56 @@ Re-run it when a new mark lands. Never hand-edit or hand-crop the output, and
 never point the gate at `icons/icon.svg` instead: the app icon paints its own
 warm ground, which reads as a tile against the app's paper.
 
+## `landing-workout-{en,pt}-{light,dark}.webp`
+
+The current landing uses four renders of the actual Taurifer Focus screen.
+Each shows a bench-press program, three recorded sets at 60 kg for 10 reps at
+RIR 2, and the app-derived 62.5 kg for 8 reps. These are authored example
+records, not a person's workout history. The range engine and real UI produce
+the shown result. No pixels or training values are invented by an image model.
+
+Source captures and configuration live in
+[`docs/pr-proof/premium-landing`](../../docs/pr-proof/premium-landing/README.md).
+`tools/capture-landing-proof.mjs --source <directory>` reconstructs the state
+from `test/fixtures/landing-proof.json`, verifies the real Focus inputs and
+history rows, and captures EN/PT in light/dark at 430×932 CSS pixels and 3× DPR,
+producing 1290×2796 PNGs. The capture resolves existing safe-area expressions
+to 59px top and 34px bottom because pinned Chromium cannot emulate those
+insets through CDP. This is a documented browser-layout emulation, not physical
+iPhone evidence. No application content or component layout is replaced.
+
+Form iPhone Studio at `/home/ubuntu/projects/form-iphone-studio` renders each
+source with the committed `render/scene.json`:
+
+- device preset `iphone15`;
+- camera `Front`, device rotation x=0°, y=-8°, z=0°;
+- lighting `Soft Studio`;
+- screen fit `fit`, zoom 1, x=0, y=0;
+- ratio 9:16, longest edge 2160;
+- transparent export, ground disabled.
+
+The resulting 1215×2160 PNG is trimmed to its alpha bounds, 759×1566, and
+encoded as WebP at quality 88, method 6. There is no perspective, color,
+content or hardware edit after rendering. CSS supplies the surrounding paper,
+type, rules, overlap and responsive layout.
+
+The near-frontal view preserves the ledger's column alignment. The recorded
+Three Quarter / Bright Product alternative adds reflection and compresses the
+text. The chosen render's software follows the page language and theme. Live
+HTML beside it carries every numerical claim and reflows with enlarged text.
+The localized image alt describes the same example.
+
+Model attribution: the studio derives its hardware from
+[polyman's iPhone 15 Pro Max model](https://sketchfab.com/3d-models/apple-iphone-15-pro-max-black-df17520841214c1792fb8a44c6783ee7),
+licensed [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
+The renderer resizes that model to the selected iPhone 15 proportions, retaining
+the model's Pro hardware details. The rendered screen and framing are modified
+compositions. This is a product mockup, not a device-specification illustration.
+
 ## `landing-device.webp`
 
-The phone in the landing hero, 541×1058 with alpha. Owner-supplied, landed
+Historical asset, removed from the landing and precache on 2026-09-15.
+The former phone in the landing hero was 541×1058 with alpha. Owner-supplied, landed
 2026-09-14 as a rendered iPhone holding a real Taurifer screen: a Push session
 in week 4, the incline converging chest press at 4–8 reps and RIR 0–2, last
 session's 152.5 kg for 7 reps, and the set derived from it.
@@ -37,7 +84,7 @@ Two things were done to the original, and both matter if it is ever replaced:
    shadow lives in that alpha, so the render needs no CSS shadow and sits on
    the photograph without a box.
 
-It is an `<img>`, not a `background-image`, and this is the one brand image
+In the superseded composition it was an `<img>`, not a `background-image`, and the brand image
 that is *not* decorative: it is the only place the landing shows the product,
 so it carries a real, localized `alt` naming the loop it displays — the
 target, the work logged last session, and the set derived from them. That
@@ -53,6 +100,9 @@ re-checking that the alt still describes what the new render actually shows —
 a stale description here is worse than no image.
 
 ## `landing-hero.webp`
+
+Historical asset, removed from the landing and precache on 2026-09-15.
+The following processing notes describe the superseded composition.
 
 The photograph behind the Plan 054 landing hero, 941×1672. Owner-supplied,
 landed 2026-09-14 as the background for the selected landing target recorded in

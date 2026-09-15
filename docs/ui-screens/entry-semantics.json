@@ -42962,32 +42962,68 @@
           "text": "Coach program · 1 day per week"
         },
         {
-          "tag": "section",
-          "label": "How Taurifer helps"
+          "tag": "figure",
+          "labelledBy": "A training example"
+        },
+        {
+          "tag": "figcaption",
+          "text": "A training example"
+        },
+        {
+          "tag": "span",
+          "text": "01 / The program"
         },
         {
           "tag": "strong",
-          "text": "Fits your routine"
+          "text": "Barbell bench press"
         },
         {
           "tag": "p",
-          "text": "A workout built for the time you have and the goals you want to reach."
+          "text": "3 sets · 8–10 reps · RIR 0–2"
+        },
+        {
+          "tag": "span",
+          "text": "02 / You logged"
         },
         {
           "tag": "strong",
-          "text": "Know what to do, every set"
+          "text": "60 kg × 10"
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "All 3 sets · RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "03 / Next session"
         },
         {
           "tag": "strong",
-          "text": "Grows with you"
+          "text": "62.5"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
         },
         {
           "tag": "p",
-          "text": "Progression based on your performance."
+          "text": "3 sets × 8 reps"
+        },
+        {
+          "tag": "p",
+          "text": "Top of the rep range reached. Add load, then build the reps again."
+        },
+        {
+          "tag": "h2",
+          "text": "The work stays with you."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, completed sets and next targets. Saved on this device, ready for your next session."
+        },
+        {
+          "tag": "p",
+          "text": "Plan. Lift. Progress."
         }
       ]
     },
@@ -43045,32 +43081,68 @@
           "text": "Coach program · 1 day per week"
         },
         {
-          "tag": "section",
-          "label": "How Taurifer helps"
+          "tag": "figure",
+          "labelledBy": "A training example"
+        },
+        {
+          "tag": "figcaption",
+          "text": "A training example"
+        },
+        {
+          "tag": "span",
+          "text": "01 / The program"
         },
         {
           "tag": "strong",
-          "text": "Fits your routine"
+          "text": "Barbell bench press"
         },
         {
           "tag": "p",
-          "text": "A workout built for the time you have and the goals you want to reach."
+          "text": "3 sets · 8–10 reps · RIR 0–2"
+        },
+        {
+          "tag": "span",
+          "text": "02 / You logged"
         },
         {
           "tag": "strong",
-          "text": "Know what to do, every set"
+          "text": "60 kg × 10"
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "All 3 sets · RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "03 / Next session"
         },
         {
           "tag": "strong",
-          "text": "Grows with you"
+          "text": "62.5"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
         },
         {
           "tag": "p",
-          "text": "Progression based on your performance."
+          "text": "3 sets × 8 reps"
+        },
+        {
+          "tag": "p",
+          "text": "Top of the rep range reached. Add load, then build the reps again."
+        },
+        {
+          "tag": "h2",
+          "text": "The work stays with you."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, completed sets and next targets. Saved on this device, ready for your next session."
+        },
+        {
+          "tag": "p",
+          "text": "Plan. Lift. Progress."
         }
       ]
     },
@@ -43128,32 +43200,68 @@
           "text": "Coach program · 1 day per week"
         },
         {
-          "tag": "section",
-          "label": "How Taurifer helps"
+          "tag": "figure",
+          "labelledBy": "A training example"
+        },
+        {
+          "tag": "figcaption",
+          "text": "A training example"
+        },
+        {
+          "tag": "span",
+          "text": "01 / The program"
         },
         {
           "tag": "strong",
-          "text": "Fits your routine"
+          "text": "Barbell bench press"
         },
         {
           "tag": "p",
-          "text": "A workout built for the time you have and the goals you want to reach."
+          "text": "3 sets · 8–10 reps · RIR 0–2"
+        },
+        {
+          "tag": "span",
+          "text": "02 / You logged"
         },
         {
           "tag": "strong",
-          "text": "Know what to do, every set"
+          "text": "60 kg × 10"
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "All 3 sets · RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "03 / Next session"
         },
         {
           "tag": "strong",
-          "text": "Grows with you"
+          "text": "62.5"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
         },
         {
           "tag": "p",
-          "text": "Progression based on your performance."
+          "text": "3 sets × 8 reps"
+        },
+        {
+          "tag": "p",
+          "text": "Top of the rep range reached. Add load, then build the reps again."
+        },
+        {
+          "tag": "h2",
+          "text": "The work stays with you."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, completed sets and next targets. Saved on this device, ready for your next session."
+        },
+        {
+          "tag": "p",
+          "text": "Plan. Lift. Progress."
         }
       ]
     },
@@ -43211,32 +43319,68 @@
           "text": "Coach program · 1 day per week"
         },
         {
-          "tag": "section",
-          "label": "How Taurifer helps"
+          "tag": "figure",
+          "labelledBy": "A training example"
+        },
+        {
+          "tag": "figcaption",
+          "text": "A training example"
+        },
+        {
+          "tag": "span",
+          "text": "01 / The program"
         },
         {
           "tag": "strong",
-          "text": "Fits your routine"
+          "text": "Barbell bench press"
         },
         {
           "tag": "p",
-          "text": "A workout built for the time you have and the goals you want to reach."
+          "text": "3 sets · 8–10 reps · RIR 0–2"
+        },
+        {
+          "tag": "span",
+          "text": "02 / You logged"
         },
         {
           "tag": "strong",
-          "text": "Know what to do, every set"
+          "text": "60 kg × 10"
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "All 3 sets · RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "03 / Next session"
         },
         {
           "tag": "strong",
-          "text": "Grows with you"
+          "text": "62.5"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
         },
         {
           "tag": "p",
-          "text": "Progression based on your performance."
+          "text": "3 sets × 8 reps"
+        },
+        {
+          "tag": "p",
+          "text": "Top of the rep range reached. Add load, then build the reps again."
+        },
+        {
+          "tag": "h2",
+          "text": "The work stays with you."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, completed sets and next targets. Saved on this device, ready for your next session."
+        },
+        {
+          "tag": "p",
+          "text": "Plan. Lift. Progress."
         }
       ]
     },
@@ -43294,32 +43438,68 @@
           "text": "Coach program · 1 day per week"
         },
         {
-          "tag": "section",
-          "label": "How Taurifer helps"
+          "tag": "figure",
+          "labelledBy": "A training example"
+        },
+        {
+          "tag": "figcaption",
+          "text": "A training example"
+        },
+        {
+          "tag": "span",
+          "text": "01 / The program"
         },
         {
           "tag": "strong",
-          "text": "Fits your routine"
+          "text": "Barbell bench press"
         },
         {
           "tag": "p",
-          "text": "A workout built for the time you have and the goals you want to reach."
+          "text": "3 sets · 8–10 reps · RIR 0–2"
+        },
+        {
+          "tag": "span",
+          "text": "02 / You logged"
         },
         {
           "tag": "strong",
-          "text": "Know what to do, every set"
+          "text": "60 kg × 10"
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "All 3 sets · RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "03 / Next session"
         },
         {
           "tag": "strong",
-          "text": "Grows with you"
+          "text": "62.5"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
         },
         {
           "tag": "p",
-          "text": "Progression based on your performance."
+          "text": "3 sets × 8 reps"
+        },
+        {
+          "tag": "p",
+          "text": "Top of the rep range reached. Add load, then build the reps again."
+        },
+        {
+          "tag": "h2",
+          "text": "The work stays with you."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, completed sets and next targets. Saved on this device, ready for your next session."
+        },
+        {
+          "tag": "p",
+          "text": "Plan. Lift. Progress."
         }
       ]
     },
@@ -43377,32 +43557,68 @@
           "text": "Programa do treinador · 1 dia por semana"
         },
         {
-          "tag": "section",
-          "label": "Como o Taurifer ajuda"
+          "tag": "figure",
+          "labelledBy": "Um exemplo de treino"
+        },
+        {
+          "tag": "figcaption",
+          "text": "Um exemplo de treino"
+        },
+        {
+          "tag": "span",
+          "text": "01 / O programa"
         },
         {
           "tag": "strong",
-          "text": "Cabe na sua rotina"
+          "text": "Supino reto com barra"
         },
         {
           "tag": "p",
-          "text": "Um treino feito para o tempo que você tem e para o que quer alcançar."
+          "text": "3 séries · 8–10 repetições · RIR 0–2"
+        },
+        {
+          "tag": "span",
+          "text": "02 / Você registrou"
         },
         {
           "tag": "strong",
-          "text": "Saiba o que fazer em cada série"
+          "text": "60 kg × 10"
         },
         {
           "tag": "p",
-          "text": "Veja a carga, as repetições e a meta de cada série."
+          "text": "As 3 séries · RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "03 / Próxima sessão"
         },
         {
           "tag": "strong",
-          "text": "Evolui com você"
+          "text": "62,5"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
         },
         {
           "tag": "p",
-          "text": "Progressão baseada no seu desempenho."
+          "text": "3 séries × 8 repetições"
+        },
+        {
+          "tag": "p",
+          "text": "Você chegou ao topo da faixa de repetições. Aumente a carga e volte a subir as repetições."
+        },
+        {
+          "tag": "h2",
+          "text": "Seu treino fica com você."
+        },
+        {
+          "tag": "p",
+          "text": "Seu programa, séries feitas e próximas metas. Tudo salvo neste dispositivo, pronto para a próxima sessão."
+        },
+        {
+          "tag": "p",
+          "text": "Planeje. Treine. Progrida."
         }
       ]
     },
@@ -43460,32 +43676,68 @@
           "text": "Programa do treinador · 1 dia por semana"
         },
         {
-          "tag": "section",
-          "label": "Como o Taurifer ajuda"
+          "tag": "figure",
+          "labelledBy": "Um exemplo de treino"
+        },
+        {
+          "tag": "figcaption",
+          "text": "Um exemplo de treino"
+        },
+        {
+          "tag": "span",
+          "text": "01 / O programa"
         },
         {
           "tag": "strong",
-          "text": "Cabe na sua rotina"
+          "text": "Supino reto com barra"
         },
         {
           "tag": "p",
-          "text": "Um treino feito para o tempo que você tem e para o que quer alcançar."
+          "text": "3 séries · 8–10 repetições · RIR 0–2"
+        },
+        {
+          "tag": "span",
+          "text": "02 / Você registrou"
         },
         {
           "tag": "strong",
-          "text": "Saiba o que fazer em cada série"
+          "text": "60 kg × 10"
         },
         {
           "tag": "p",
-          "text": "Veja a carga, as repetições e a meta de cada série."
+          "text": "As 3 séries · RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "03 / Próxima sessão"
         },
         {
           "tag": "strong",
-          "text": "Evolui com você"
+          "text": "62,5"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
         },
         {
           "tag": "p",
-          "text": "Progressão baseada no seu desempenho."
+          "text": "3 séries × 8 repetições"
+        },
+        {
+          "tag": "p",
+          "text": "Você chegou ao topo da faixa de repetições. Aumente a carga e volte a subir as repetições."
+        },
+        {
+          "tag": "h2",
+          "text": "Seu treino fica com você."
+        },
+        {
+          "tag": "p",
+          "text": "Seu programa, séries feitas e próximas metas. Tudo salvo neste dispositivo, pronto para a próxima sessão."
+        },
+        {
+          "tag": "p",
+          "text": "Planeje. Treine. Progrida."
         }
       ]
     },
@@ -43543,32 +43795,68 @@
           "text": "Coach program · 1 day per week"
         },
         {
-          "tag": "section",
-          "label": "How Taurifer helps"
+          "tag": "figure",
+          "labelledBy": "A training example"
+        },
+        {
+          "tag": "figcaption",
+          "text": "A training example"
+        },
+        {
+          "tag": "span",
+          "text": "01 / The program"
         },
         {
           "tag": "strong",
-          "text": "Fits your routine"
+          "text": "Barbell bench press"
         },
         {
           "tag": "p",
-          "text": "A workout built for the time you have and the goals you want to reach."
+          "text": "3 sets · 8–10 reps · RIR 0–2"
+        },
+        {
+          "tag": "span",
+          "text": "02 / You logged"
         },
         {
           "tag": "strong",
-          "text": "Know what to do, every set"
+          "text": "60 kg × 10"
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "All 3 sets · RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "03 / Next session"
         },
         {
           "tag": "strong",
-          "text": "Grows with you"
+          "text": "62.5"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
         },
         {
           "tag": "p",
-          "text": "Progression based on your performance."
+          "text": "3 sets × 8 reps"
+        },
+        {
+          "tag": "p",
+          "text": "Top of the rep range reached. Add load, then build the reps again."
+        },
+        {
+          "tag": "h2",
+          "text": "The work stays with you."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, completed sets and next targets. Saved on this device, ready for your next session."
+        },
+        {
+          "tag": "p",
+          "text": "Plan. Lift. Progress."
         }
       ]
     },
@@ -43616,53 +43904,85 @@
         },
         {
           "tag": "button",
-          "name": "Build my workout",
+          "name": "Build my program",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Build my workout"
+          "text": "Build my program"
         },
         {
           "tag": "button",
-          "name": "I already have my workout",
+          "name": "Track my current program",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "I already have my workout"
+          "text": "Track my current program"
+        },
+        {
+          "tag": "figure",
+          "labelledBy": "A training example"
+        },
+        {
+          "tag": "figcaption",
+          "text": "A training example"
+        },
+        {
+          "tag": "span",
+          "text": "01 / The program"
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "3 sets · 8–10 reps · RIR 0–2"
+        },
+        {
+          "tag": "span",
+          "text": "02 / You logged"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "p",
+          "text": "All 3 sets · RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "03 / Next session"
+        },
+        {
+          "tag": "strong",
+          "text": "62.5"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "p",
+          "text": "3 sets × 8 reps"
+        },
+        {
+          "tag": "p",
+          "text": "Top of the rep range reached. Add load, then build the reps again."
+        },
+        {
+          "tag": "h2",
+          "text": "The work stays with you."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, completed sets and next targets. Saved on this device, ready for your next session."
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
-        },
-        {
-          "tag": "section",
-          "label": "How Taurifer helps"
-        },
-        {
-          "tag": "strong",
-          "text": "Fits your routine"
-        },
-        {
-          "tag": "p",
-          "text": "A workout built for the time you have and the goals you want to reach."
-        },
-        {
-          "tag": "strong",
-          "text": "Know what to do, every set"
-        },
-        {
-          "tag": "p",
-          "text": "See the load, reps, and target for every set."
-        },
-        {
-          "tag": "strong",
-          "text": "Grows with you"
-        },
-        {
-          "tag": "p",
-          "text": "Progression based on your performance."
         }
       ]
     },
@@ -43710,53 +44030,85 @@
         },
         {
           "tag": "button",
-          "name": "Build my workout",
+          "name": "Build my program",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Build my workout"
+          "text": "Build my program"
         },
         {
           "tag": "button",
-          "name": "I already have my workout",
+          "name": "Track my current program",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "I already have my workout"
+          "text": "Track my current program"
+        },
+        {
+          "tag": "figure",
+          "labelledBy": "A training example"
+        },
+        {
+          "tag": "figcaption",
+          "text": "A training example"
+        },
+        {
+          "tag": "span",
+          "text": "01 / The program"
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "3 sets · 8–10 reps · RIR 0–2"
+        },
+        {
+          "tag": "span",
+          "text": "02 / You logged"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "p",
+          "text": "All 3 sets · RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "03 / Next session"
+        },
+        {
+          "tag": "strong",
+          "text": "62.5"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "p",
+          "text": "3 sets × 8 reps"
+        },
+        {
+          "tag": "p",
+          "text": "Top of the rep range reached. Add load, then build the reps again."
+        },
+        {
+          "tag": "h2",
+          "text": "The work stays with you."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, completed sets and next targets. Saved on this device, ready for your next session."
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
-        },
-        {
-          "tag": "section",
-          "label": "How Taurifer helps"
-        },
-        {
-          "tag": "strong",
-          "text": "Fits your routine"
-        },
-        {
-          "tag": "p",
-          "text": "A workout built for the time you have and the goals you want to reach."
-        },
-        {
-          "tag": "strong",
-          "text": "Know what to do, every set"
-        },
-        {
-          "tag": "p",
-          "text": "See the load, reps, and target for every set."
-        },
-        {
-          "tag": "strong",
-          "text": "Grows with you"
-        },
-        {
-          "tag": "p",
-          "text": "Progression based on your performance."
         }
       ]
     },
@@ -43804,53 +44156,85 @@
         },
         {
           "tag": "button",
-          "name": "Montar meu treino",
+          "name": "Montar meu programa",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Montar meu treino"
+          "text": "Montar meu programa"
         },
         {
           "tag": "button",
-          "name": "Já tenho meu treino",
+          "name": "Registrar meu programa atual",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Já tenho meu treino"
+          "text": "Registrar meu programa atual"
+        },
+        {
+          "tag": "figure",
+          "labelledBy": "Um exemplo de treino"
+        },
+        {
+          "tag": "figcaption",
+          "text": "Um exemplo de treino"
+        },
+        {
+          "tag": "span",
+          "text": "01 / O programa"
+        },
+        {
+          "tag": "strong",
+          "text": "Supino reto com barra"
+        },
+        {
+          "tag": "p",
+          "text": "3 séries · 8–10 repetições · RIR 0–2"
+        },
+        {
+          "tag": "span",
+          "text": "02 / Você registrou"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "p",
+          "text": "As 3 séries · RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "03 / Próxima sessão"
+        },
+        {
+          "tag": "strong",
+          "text": "62,5"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "p",
+          "text": "3 séries × 8 repetições"
+        },
+        {
+          "tag": "p",
+          "text": "Você chegou ao topo da faixa de repetições. Aumente a carga e volte a subir as repetições."
+        },
+        {
+          "tag": "h2",
+          "text": "Seu treino fica com você."
+        },
+        {
+          "tag": "p",
+          "text": "Seu programa, séries feitas e próximas metas. Tudo salvo neste dispositivo, pronto para a próxima sessão."
         },
         {
           "tag": "p",
           "text": "Planeje. Treine. Progrida."
-        },
-        {
-          "tag": "section",
-          "label": "Como o Taurifer ajuda"
-        },
-        {
-          "tag": "strong",
-          "text": "Cabe na sua rotina"
-        },
-        {
-          "tag": "p",
-          "text": "Um treino feito para o tempo que você tem e para o que quer alcançar."
-        },
-        {
-          "tag": "strong",
-          "text": "Saiba o que fazer em cada série"
-        },
-        {
-          "tag": "p",
-          "text": "Veja a carga, as repetições e a meta de cada série."
-        },
-        {
-          "tag": "strong",
-          "text": "Evolui com você"
-        },
-        {
-          "tag": "p",
-          "text": "Progressão baseada no seu desempenho."
         }
       ]
     },
@@ -44298,61 +44682,93 @@
         },
         {
           "tag": "h1",
-          "text": "Walk into the gym knowing exactly what to do."
+          "text": "Your last set. Your next move."
         },
         {
           "tag": "p",
-          "text": "Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load."
+          "text": "A strength program that turns the work you log into your next target."
         },
         {
           "tag": "button",
-          "name": "Build my workout",
+          "name": "Build my program",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Build my workout"
+          "text": "Build my program"
         },
         {
           "tag": "button",
-          "name": "I already have my workout",
+          "name": "Track my current program",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "I already have my workout"
+          "text": "Track my current program"
+        },
+        {
+          "tag": "figure",
+          "labelledBy": "A training example"
+        },
+        {
+          "tag": "figcaption",
+          "text": "A training example"
+        },
+        {
+          "tag": "span",
+          "text": "01 / The program"
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "3 sets · 8–10 reps · RIR 0–2"
+        },
+        {
+          "tag": "span",
+          "text": "02 / You logged"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "p",
+          "text": "All 3 sets · RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "03 / Next session"
+        },
+        {
+          "tag": "strong",
+          "text": "62.5"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "p",
+          "text": "3 sets × 8 reps"
+        },
+        {
+          "tag": "p",
+          "text": "Top of the rep range reached. Add load, then build the reps again."
+        },
+        {
+          "tag": "h2",
+          "text": "The work stays with you."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, completed sets and next targets. Saved on this device, ready for your next session."
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
-        },
-        {
-          "tag": "section",
-          "label": "How Taurifer helps"
-        },
-        {
-          "tag": "strong",
-          "text": "Fits your routine"
-        },
-        {
-          "tag": "p",
-          "text": "A workout built for the time you have and the goals you want to reach."
-        },
-        {
-          "tag": "strong",
-          "text": "Know what to do, every set"
-        },
-        {
-          "tag": "p",
-          "text": "See the load, reps, and target for every set."
-        },
-        {
-          "tag": "strong",
-          "text": "Grows with you"
-        },
-        {
-          "tag": "p",
-          "text": "Progression based on your performance."
         }
       ]
     },
@@ -44386,61 +44802,93 @@
         },
         {
           "tag": "h1",
-          "text": "Walk into the gym knowing exactly what to do."
+          "text": "Your last set. Your next move."
         },
         {
           "tag": "p",
-          "text": "Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load."
+          "text": "A strength program that turns the work you log into your next target."
         },
         {
           "tag": "button",
-          "name": "Build my workout",
+          "name": "Build my program",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Build my workout"
+          "text": "Build my program"
         },
         {
           "tag": "button",
-          "name": "I already have my workout",
+          "name": "Track my current program",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "I already have my workout"
+          "text": "Track my current program"
+        },
+        {
+          "tag": "figure",
+          "labelledBy": "A training example"
+        },
+        {
+          "tag": "figcaption",
+          "text": "A training example"
+        },
+        {
+          "tag": "span",
+          "text": "01 / The program"
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "3 sets · 8–10 reps · RIR 0–2"
+        },
+        {
+          "tag": "span",
+          "text": "02 / You logged"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "p",
+          "text": "All 3 sets · RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "03 / Next session"
+        },
+        {
+          "tag": "strong",
+          "text": "62.5"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "p",
+          "text": "3 sets × 8 reps"
+        },
+        {
+          "tag": "p",
+          "text": "Top of the rep range reached. Add load, then build the reps again."
+        },
+        {
+          "tag": "h2",
+          "text": "The work stays with you."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, completed sets and next targets. Saved on this device, ready for your next session."
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
-        },
-        {
-          "tag": "section",
-          "label": "How Taurifer helps"
-        },
-        {
-          "tag": "strong",
-          "text": "Fits your routine"
-        },
-        {
-          "tag": "p",
-          "text": "A workout built for the time you have and the goals you want to reach."
-        },
-        {
-          "tag": "strong",
-          "text": "Know what to do, every set"
-        },
-        {
-          "tag": "p",
-          "text": "See the load, reps, and target for every set."
-        },
-        {
-          "tag": "strong",
-          "text": "Grows with you"
-        },
-        {
-          "tag": "p",
-          "text": "Progression based on your performance."
         }
       ]
     },
@@ -44474,61 +44922,93 @@
         },
         {
           "tag": "h1",
-          "text": "Walk into the gym knowing exactly what to do."
+          "text": "Your last set. Your next move."
         },
         {
           "tag": "p",
-          "text": "Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load."
+          "text": "A strength program that turns the work you log into your next target."
         },
         {
           "tag": "button",
-          "name": "Build my workout",
+          "name": "Build my program",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Build my workout"
+          "text": "Build my program"
         },
         {
           "tag": "button",
-          "name": "I already have my workout",
+          "name": "Track my current program",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "I already have my workout"
+          "text": "Track my current program"
+        },
+        {
+          "tag": "figure",
+          "labelledBy": "A training example"
+        },
+        {
+          "tag": "figcaption",
+          "text": "A training example"
+        },
+        {
+          "tag": "span",
+          "text": "01 / The program"
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "3 sets · 8–10 reps · RIR 0–2"
+        },
+        {
+          "tag": "span",
+          "text": "02 / You logged"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "p",
+          "text": "All 3 sets · RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "03 / Next session"
+        },
+        {
+          "tag": "strong",
+          "text": "62.5"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "p",
+          "text": "3 sets × 8 reps"
+        },
+        {
+          "tag": "p",
+          "text": "Top of the rep range reached. Add load, then build the reps again."
+        },
+        {
+          "tag": "h2",
+          "text": "The work stays with you."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, completed sets and next targets. Saved on this device, ready for your next session."
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
-        },
-        {
-          "tag": "section",
-          "label": "How Taurifer helps"
-        },
-        {
-          "tag": "strong",
-          "text": "Fits your routine"
-        },
-        {
-          "tag": "p",
-          "text": "A workout built for the time you have and the goals you want to reach."
-        },
-        {
-          "tag": "strong",
-          "text": "Know what to do, every set"
-        },
-        {
-          "tag": "p",
-          "text": "See the load, reps, and target for every set."
-        },
-        {
-          "tag": "strong",
-          "text": "Grows with you"
-        },
-        {
-          "tag": "p",
-          "text": "Progression based on your performance."
         }
       ]
     },
@@ -44562,61 +45042,93 @@
         },
         {
           "tag": "h1",
-          "text": "Walk into the gym knowing exactly what to do."
+          "text": "Your last set. Your next move."
         },
         {
           "tag": "p",
-          "text": "Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load."
+          "text": "A strength program that turns the work you log into your next target."
         },
         {
           "tag": "button",
-          "name": "Build my workout",
+          "name": "Build my program",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Build my workout"
+          "text": "Build my program"
         },
         {
           "tag": "button",
-          "name": "I already have my workout",
+          "name": "Track my current program",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "I already have my workout"
+          "text": "Track my current program"
+        },
+        {
+          "tag": "figure",
+          "labelledBy": "A training example"
+        },
+        {
+          "tag": "figcaption",
+          "text": "A training example"
+        },
+        {
+          "tag": "span",
+          "text": "01 / The program"
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "3 sets · 8–10 reps · RIR 0–2"
+        },
+        {
+          "tag": "span",
+          "text": "02 / You logged"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "p",
+          "text": "All 3 sets · RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "03 / Next session"
+        },
+        {
+          "tag": "strong",
+          "text": "62.5"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "p",
+          "text": "3 sets × 8 reps"
+        },
+        {
+          "tag": "p",
+          "text": "Top of the rep range reached. Add load, then build the reps again."
+        },
+        {
+          "tag": "h2",
+          "text": "The work stays with you."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, completed sets and next targets. Saved on this device, ready for your next session."
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
-        },
-        {
-          "tag": "section",
-          "label": "How Taurifer helps"
-        },
-        {
-          "tag": "strong",
-          "text": "Fits your routine"
-        },
-        {
-          "tag": "p",
-          "text": "A workout built for the time you have and the goals you want to reach."
-        },
-        {
-          "tag": "strong",
-          "text": "Know what to do, every set"
-        },
-        {
-          "tag": "p",
-          "text": "See the load, reps, and target for every set."
-        },
-        {
-          "tag": "strong",
-          "text": "Grows with you"
-        },
-        {
-          "tag": "p",
-          "text": "Progression based on your performance."
         }
       ]
     },
@@ -44650,61 +45162,93 @@
         },
         {
           "tag": "h1",
-          "text": "Walk into the gym knowing exactly what to do."
+          "text": "Your last set. Your next move."
         },
         {
           "tag": "p",
-          "text": "Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load."
+          "text": "A strength program that turns the work you log into your next target."
         },
         {
           "tag": "button",
-          "name": "Build my workout",
+          "name": "Build my program",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Build my workout"
+          "text": "Build my program"
         },
         {
           "tag": "button",
-          "name": "I already have my workout",
+          "name": "Track my current program",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "I already have my workout"
+          "text": "Track my current program"
+        },
+        {
+          "tag": "figure",
+          "labelledBy": "A training example"
+        },
+        {
+          "tag": "figcaption",
+          "text": "A training example"
+        },
+        {
+          "tag": "span",
+          "text": "01 / The program"
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "3 sets · 8–10 reps · RIR 0–2"
+        },
+        {
+          "tag": "span",
+          "text": "02 / You logged"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "p",
+          "text": "All 3 sets · RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "03 / Next session"
+        },
+        {
+          "tag": "strong",
+          "text": "62.5"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "p",
+          "text": "3 sets × 8 reps"
+        },
+        {
+          "tag": "p",
+          "text": "Top of the rep range reached. Add load, then build the reps again."
+        },
+        {
+          "tag": "h2",
+          "text": "The work stays with you."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, completed sets and next targets. Saved on this device, ready for your next session."
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
-        },
-        {
-          "tag": "section",
-          "label": "How Taurifer helps"
-        },
-        {
-          "tag": "strong",
-          "text": "Fits your routine"
-        },
-        {
-          "tag": "p",
-          "text": "A workout built for the time you have and the goals you want to reach."
-        },
-        {
-          "tag": "strong",
-          "text": "Know what to do, every set"
-        },
-        {
-          "tag": "p",
-          "text": "See the load, reps, and target for every set."
-        },
-        {
-          "tag": "strong",
-          "text": "Grows with you"
-        },
-        {
-          "tag": "p",
-          "text": "Progression based on your performance."
         }
       ]
     },
@@ -44738,61 +45282,93 @@
         },
         {
           "tag": "h1",
-          "text": "Chegue na academia sabendo exatamente o que fazer."
+          "text": "Da última série à próxima meta."
         },
         {
           "tag": "p",
-          "text": "É só chegar e treinar. O Taurifer monta seus treinos, registra suas séries e já diz qual é a próxima carga."
+          "text": "Um programa de força que transforma suas séries registradas na próxima meta."
         },
         {
           "tag": "button",
-          "name": "Montar meu treino",
+          "name": "Montar meu programa",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Montar meu treino"
+          "text": "Montar meu programa"
         },
         {
           "tag": "button",
-          "name": "Já tenho meu treino",
+          "name": "Registrar meu programa atual",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Já tenho meu treino"
+          "text": "Registrar meu programa atual"
+        },
+        {
+          "tag": "figure",
+          "labelledBy": "Um exemplo de treino"
+        },
+        {
+          "tag": "figcaption",
+          "text": "Um exemplo de treino"
+        },
+        {
+          "tag": "span",
+          "text": "01 / O programa"
+        },
+        {
+          "tag": "strong",
+          "text": "Supino reto com barra"
+        },
+        {
+          "tag": "p",
+          "text": "3 séries · 8–10 repetições · RIR 0–2"
+        },
+        {
+          "tag": "span",
+          "text": "02 / Você registrou"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "p",
+          "text": "As 3 séries · RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "03 / Próxima sessão"
+        },
+        {
+          "tag": "strong",
+          "text": "62,5"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "p",
+          "text": "3 séries × 8 repetições"
+        },
+        {
+          "tag": "p",
+          "text": "Você chegou ao topo da faixa de repetições. Aumente a carga e volte a subir as repetições."
+        },
+        {
+          "tag": "h2",
+          "text": "Seu treino fica com você."
+        },
+        {
+          "tag": "p",
+          "text": "Seu programa, séries feitas e próximas metas. Tudo salvo neste dispositivo, pronto para a próxima sessão."
         },
         {
           "tag": "p",
           "text": "Planeje. Treine. Progrida."
-        },
-        {
-          "tag": "section",
-          "label": "Como o Taurifer ajuda"
-        },
-        {
-          "tag": "strong",
-          "text": "Cabe na sua rotina"
-        },
-        {
-          "tag": "p",
-          "text": "Um treino feito para o tempo que você tem e para o que quer alcançar."
-        },
-        {
-          "tag": "strong",
-          "text": "Saiba o que fazer em cada série"
-        },
-        {
-          "tag": "p",
-          "text": "Veja a carga, as repetições e a meta de cada série."
-        },
-        {
-          "tag": "strong",
-          "text": "Evolui com você"
-        },
-        {
-          "tag": "p",
-          "text": "Progressão baseada no seu desempenho."
         }
       ]
     },
@@ -44826,61 +45402,93 @@
         },
         {
           "tag": "h1",
-          "text": "Walk into the gym knowing exactly what to do."
+          "text": "Your last set. Your next move."
         },
         {
           "tag": "p",
-          "text": "Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load."
+          "text": "A strength program that turns the work you log into your next target."
         },
         {
           "tag": "button",
-          "name": "Build my workout",
+          "name": "Build my program",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Build my workout"
+          "text": "Build my program"
         },
         {
           "tag": "button",
-          "name": "I already have my workout",
+          "name": "Track my current program",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "I already have my workout"
+          "text": "Track my current program"
+        },
+        {
+          "tag": "figure",
+          "labelledBy": "A training example"
+        },
+        {
+          "tag": "figcaption",
+          "text": "A training example"
+        },
+        {
+          "tag": "span",
+          "text": "01 / The program"
+        },
+        {
+          "tag": "strong",
+          "text": "Barbell bench press"
+        },
+        {
+          "tag": "p",
+          "text": "3 sets · 8–10 reps · RIR 0–2"
+        },
+        {
+          "tag": "span",
+          "text": "02 / You logged"
+        },
+        {
+          "tag": "strong",
+          "text": "60 kg × 10"
+        },
+        {
+          "tag": "p",
+          "text": "All 3 sets · RIR 2"
+        },
+        {
+          "tag": "span",
+          "text": "03 / Next session"
+        },
+        {
+          "tag": "strong",
+          "text": "62.5"
+        },
+        {
+          "tag": "span",
+          "text": "kg"
+        },
+        {
+          "tag": "p",
+          "text": "3 sets × 8 reps"
+        },
+        {
+          "tag": "p",
+          "text": "Top of the rep range reached. Add load, then build the reps again."
+        },
+        {
+          "tag": "h2",
+          "text": "The work stays with you."
+        },
+        {
+          "tag": "p",
+          "text": "Your program, completed sets and next targets. Saved on this device, ready for your next session."
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
-        },
-        {
-          "tag": "section",
-          "label": "How Taurifer helps"
-        },
-        {
-          "tag": "strong",
-          "text": "Fits your routine"
-        },
-        {
-          "tag": "p",
-          "text": "A workout built for the time you have and the goals you want to reach."
-        },
-        {
-          "tag": "strong",
-          "text": "Know what to do, every set"
-        },
-        {
-          "tag": "p",
-          "text": "See the load, reps, and target for every set."
-        },
-        {
-          "tag": "strong",
-          "text": "Grows with you"
-        },
-        {
-          "tag": "p",
-          "text": "Progression based on your performance."
         }
       ]
     },

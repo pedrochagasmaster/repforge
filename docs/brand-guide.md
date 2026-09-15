@@ -82,15 +82,15 @@ it is not referenced or precached. Current landing rules live in
 ## First-run modes
 
 The Plan 054 landing (`#firstRun`) is the one-time threshold into an empty
-device. It uses warm paper, ink, burnt orange, the Taurifer lockup, an editorial
-headline, and a live HTML product loop showing prescription, logged sets, and a
-derived next target. The owner-selected reference and hash live in
-`docs/design/plan-054-landing-directions.md`; the reference photograph does not
-ship.
+device. It uses warm paper, ink, burnt orange, the Taurifer lockup and an
+editorial headline. An actual workout capture rendered through Form iPhone
+Studio sits beside live prescription, logged-work and next-target facts.
+The owner-directed refinement and historical reference hashes live in
+`docs/design/plan-054-landing-directions.md`. No gym photograph ships on the page.
 
 **Generic** — no shared setup source. It renders only while no program,
 content, or history exists and `repforge_ui_v1.entryLandingSeen` is not true.
-Build my workout and I already have my workout are the early entry actions.
+Build my program and Track my current program are the early entry actions.
 Privacy opens the existing disclosure surface. A later empty visit boots the
 ordinary Today/Program no-program states.
 

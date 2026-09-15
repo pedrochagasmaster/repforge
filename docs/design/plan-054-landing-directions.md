@@ -1,7 +1,8 @@
 # Plan 054 landing directions
 
-Status: preview-only owner gate. No direction is selected. These rasters are not
-production assets and are not part of the UI screen catalog.
+Status: the owner-selected target was implemented in PR #241. The owner
+authorized a subsequent product-led refinement on 2026-09-15. Historical
+preview rasters remain outside production and the UI screen catalog.
 
 ## Shared content and provenance
 
@@ -229,3 +230,60 @@ Following owner review of candidate implementation `210404ac`, this section reco
 6. **Header Spacing & Lockup**:
    - Excess vertical margin between header and proposition is reduced to bring the headline into close editorial proximity with the brand lockup.
    - Compact brand lockup (mark >= 39px, wordmark >= 14px) and utility actions (Privacy and policy-gated Install) remain cleanly aligned without inventing placeholder navigation controls.
+
+
+## Owner-directed product refinement, 2026-09-15
+
+The owner supplied `docs/taurifer-pr241-premium-landing-refinement.md` and
+explicitly authorized moving beyond literal reproduction of the selected
+raster. The earlier selection, photograph and device provenance above remain
+historical evidence. The photograph and supplied device no longer enter the
+landing or service-worker cache.
+
+The new direction leads with "Your last set. Your next move." The early
+Build my program and Track my current program actions retain their existing
+routes. One actual workout screen explains the product, with live prescription,
+completed-work and next-target details outside the raster. The example is
+explicitly labelled and does not purport to describe an incoming shared program.
+
+The shown example uses the current range-progression engine: three bench-press
+sets at 60 kg, 10 reps and RIR 2 produce a 62.5 kg, 8-rep target. The working
+program prescribes 3 sets of 8–10 reps, with RIR 0–2. No new progression logic,
+user state or training capability was introduced for the landing.
+
+### Composition and benchmark
+
+The live [Alpha Progression site](https://alphaprogression.com/en) was inspected
+at 390px and 1440px on 2026-09-15. Its paired product screens share clear edges,
+large scale and consistent lighting. It gives each feature enough space for
+one specific software detail to carry the claim. Those are craft lessons,
+not a reason to reproduce its blue palette, pill labels, long feature tour,
+ratings, pricing or section order.
+
+Taurifer keeps its paper, Plex type, quiet rules and burnt orange. It uses one
+compact training example instead of a feature catalogue. The next load has the
+strongest numeric emphasis, while the entry actions remain above the example.
+The result crosses the lower device edge as a readable HTML detail. The old
+three benefit columns are replaced by this causal sequence and a short statement
+about device-local training data.
+
+The near-frontal Form iPhone Studio render preserves readable columns. The
+Three Quarter / Bright Product alternative introduces stronger reflection and
+perspective compression. Two tighter in-page crops were also rejected because
+they hid the recorded work. English and Portuguese each have light and dark
+source captures, so the raster now follows the page's language and appearance.
+
+Portuguese uses "Da última série à próxima meta." It expresses the causal
+relationship naturally rather than forcing the English line breaks or idiom.
+Critical facts remain live, localized text that reflows at 200% text size.
+
+### Reproduction and evidence
+
+See [premium refinement evidence](../pr-proof/premium-landing/README.md)
+for source captures, renderer configuration, before/after frames, commands,
+trade-offs and verification. [Brand asset provenance](../../assets/brand/README.md)
+records the source viewport, hardware-model attribution and export steps.
+
+This is a subsequent owner-directed refinement, not a retroactive change to the
+2026-09-13 selection. Plan 054 remains active. Physical iOS/Android review in
+EN/PT is pending, and PR #241 must not be merged on automated evidence alone.

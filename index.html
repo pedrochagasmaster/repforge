@@ -632,8 +632,9 @@
       <div class="firstrun-hero">
         <div class="firstrun-hero__copy">
           <p class="firstrun__eyebrow firstrun__shared-only" data-i18n="landing.shared.eyebrow">Program received</p>
-          <h1 class="firstrun-hero__title" id="firstRunHeadline" data-i18n="landing.headline">Stop guessing what to lift. And start progressing.</h1>
-          <p class="firstrun__lede" id="firstRunLede" data-i18n="landing.body">Show up and lift. Taurifer plans your sessions, logs your sets, and tells you what comes next.</p>
+          <h1 class="firstrun-hero__title" id="firstRunHeadline" data-i18n="landing.headline">Your last set.
+Your next move.</h1>
+          <p class="firstrun__lede" id="firstRunLede" data-i18n="landing.body">A strength program that turns the work you log into your next target.</p>
 
           <p id="firstRunSharedError" class="firstrun__error hidden" role="status"></p>
           <div id="firstRunStandardProgram" class="firstrun__actions">
@@ -656,33 +657,39 @@
           </div>
         </div>
 
-        <!-- The foot of the hero. On a phone the ethos and the device render
-             share this row, which is what lifts the render into the first
-             screen instead of starting it a block below; the row wraps on its
-             own content, so enlarged text moves the render down rather than
-             into the annotation. Wide viewports give it `display:contents` and
-             lay both out against the copy column directly. Reading order is
-             unchanged either way. -->
-        <div class="firstrun-hero__foot">
-          <p class="firstrun__ethos" data-i18n="landing.ethos">Plan. Lift. Progress.</p>
+        <figure class="firstrun-proof" aria-labelledby="landingProofCaption">
+          <figcaption id="landingProofCaption" class="firstrun-proof__caption" data-i18n="landing.proof.example">A training example</figcaption>
+          <div class="firstrun-proof__prescription">
+            <span class="firstrun-proof__label" data-i18n="landing.proof.program">01 / The program</span>
+            <strong data-i18n="landing.proof.exercise">Barbell bench press</strong>
+            <p class="firstrun-proof__note" data-i18n="landing.proof.prescription">3 sets · 8–10 reps · RIR 0–2</p>
+          </div>
+          <div class="firstrun-proof__device">
+            <img class="firstrun-preview" id="landingDevice" src="assets/brand/landing-workout-en-light.webp"
+                 width="759" height="1566" decoding="async" data-i18n-alt="landing.preview.alt"
+                 alt="Taurifer showing three bench-press sets logged at 60 kg for 10 reps, RIR 2. The next target is 62.5 kg for 8 reps, within the program's 8–10 reps and RIR 0–2.">
+          </div>
+          <div class="firstrun-proof__result">
+            <div class="firstrun-proof__logged">
+              <span class="firstrun-proof__label" data-i18n="landing.proof.logged">02 / You logged</span>
+              <strong data-i18n="landing.proof.completed">60 kg × 10</strong>
+              <p class="firstrun-proof__note" data-i18n="landing.proof.effort">All 3 sets · RIR 2</p>
+            </div>
+            <div class="firstrun-proof__target">
+              <span class="firstrun-proof__label" data-i18n="landing.proof.next">03 / Next session</span>
+              <p class="firstrun-proof__next"><strong data-i18n="landing.proof.load">62.5</strong><span>kg</span></p>
+              <p class="firstrun-proof__reps" data-i18n="landing.proof.reps">3 sets × 8 reps</p>
+            </div>
+            <p class="firstrun-proof__reason" data-i18n="landing.proof.reason">Top of the rep range reached. Add load, then build the reps again.</p>
+          </div>
+        </figure>
 
-          <!-- The owner-supplied device render. It is a photograph of the real
-               app, not a drawing of one, so the loop it shows — the target, the
-               work logged last session, and the set derived from them — lives in
-               its localized alt rather than in markup. Nothing on this surface
-               depends on it rendering. -->
-          <img class="firstrun-preview" src="assets/brand/landing-device.webp"
-               width="541" height="1058" decoding="async"
-               data-i18n-alt="landing.preview.alt"
-               alt="The Taurifer app open on a phone during a Push session in week 4. It shows the chest press target of 4–8 reps at RIR 0–2, the 152.5 kg for 7 reps logged last session, and the set it derives from them: hold 152.5 kg and aim for 8 reps.">
-        </div>
+      <footer class="firstrun__closing">
+        <h2 data-i18n="landing.closing.title">The work stays with you.</h2>
+        <p data-i18n="landing.closing.body">Your program, completed sets and next targets. Saved on this device, ready for your next session.</p>
+        <p class="firstrun__ethos" data-i18n="landing.ethos">Plan. Lift. Progress.</p>
+      </footer>
       </div>
-
-      <section class="firstrun-benefits" aria-label="Why Taurifer" data-i18n-aria="landing.benefits_aria">
-        <div><span class="firstrun-benefits__icon firstrun-benefits__icon--week" aria-hidden="true"></span><strong data-i18n="landing.benefit.week.title">Built for your week</strong><p data-i18n="landing.benefit.week.body">A program that fits your time and goals.</p></div>
-        <div><span class="firstrun-benefits__icon firstrun-benefits__icon--guidance" aria-hidden="true"></span><strong data-i18n="landing.benefit.guidance.title">Set-by-set guidance</strong><p data-i18n="landing.benefit.guidance.body">Know exactly what to do in the gym.</p></div>
-        <div><span class="firstrun-benefits__icon firstrun-benefits__icon--adapts" aria-hidden="true"></span><strong data-i18n="landing.benefit.adapts.title">Adapts from your logs</strong><p data-i18n="landing.benefit.adapts.body">Progression based on your history.</p></div>
-      </section>
 
       <section id="firstRunInstall" class="firstrun__section hidden" aria-labelledby="firstRunInstallLabel">
         <p class="firstrun__eyebrow" id="firstRunInstallLabel" data-i18n="setup.install_label">Install</p>
@@ -1022,19 +1029,19 @@
        reordering stays reachable through each row's Move controls. -->
   <script src="vendor/motion/motion.js"></script>
   <script src="vendor/dnd-kit/dnd-kit.js"></script>
-  <script src="motion-layer.js?v=253"></script>
-  <script src="program-compiler.js?v=253"></script>
-  <script src="program-entry.js?v=253"></script>
-  <script src="program-entry-adapter.js?v=253"></script>
-  <script src="program-editor.js?v=253"></script>
-  <script src="shared-setup.js?v=253"></script>
-  <script src="workout-draft.js?v=253"></script>
-  <script src="program-transition.js?v=253"></script>
+  <script src="motion-layer.js?v=254"></script>
+  <script src="program-compiler.js?v=254"></script>
+  <script src="program-entry.js?v=254"></script>
+  <script src="program-entry-adapter.js?v=254"></script>
+  <script src="program-editor.js?v=254"></script>
+  <script src="shared-setup.js?v=254"></script>
+  <script src="workout-draft.js?v=254"></script>
+  <script src="program-transition.js?v=254"></script>
   <script src="install-transfer-contract.js"></script>
   <script src="install-transfer.js"></script>
-  <script src="install-policy.js?v=253"></script>
-  <script src="guide-registry.js?v=253"></script>
-  <script src="durable-state.js?v=253"></script>
-  <script src="app.js?v=253"></script>
+  <script src="install-policy.js?v=254"></script>
+  <script src="guide-registry.js?v=254"></script>
+  <script src="durable-state.js?v=254"></script>
+  <script src="app.js?v=254"></script>
 </body>
 </html>

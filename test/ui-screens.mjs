@@ -194,7 +194,7 @@ if (existsSync(screensRoot) && existsSync(semanticPath)) {
   // filed as PT-BR that could only ever render English — evidence that looks
   // right and is not. Rather than hard-code the strings, derive the markers:
   // any EN catalog value whose PT translation differs is an EN-only string,
-  // and a `pt` frame must not contain one verbatim.
+  // and a `pt` frame must not contain one verbatim within its UI scope.
   const enCatalog = JSON.parse(readFileSync(resolve(root, "i18n-en.json"), "utf8"));
   const ptCatalog = JSON.parse(readFileSync(resolve(root, "i18n-pt.json"), "utf8"));
   const englishOnly = new Map();
@@ -204,19 +204,49 @@ if (existsSync(screensRoot) && existsSync(semanticPath)) {
     // Short strings collide across languages ("Taurifer", "kg", "RIR"); only
     // a real sentence or label is a reliable locale marker.
     if (translated === value || value.trim().length < 12) continue;
-    if (!englishOnly.has(value.trim())) englishOnly.set(value.trim(), key);
+    if (!englishOnly.has(value.trim())) englishOnly.set(value.trim(), []);
+    englishOnly.get(value.trim()).push(key);
   }
   assert.ok(englishOnly.size > 200, "the EN/PT catalogs yield enough locale markers to be a real oracle");
-  const localeLeaks = [];
-  for (const item of semanticArtifact.captures) {
-    if (item.locale !== "pt") continue;
-    for (const entry of item.semantic) {
-      for (const field of ["text", "name", "label"]) {
-        const marker = englishOnly.get(String(entry[field] ?? "").trim());
-        if (marker) localeLeaks.push(`${item.key}: ${marker}`);
+  // Landing copy includes exercise names that are also legitimate editable
+  // program data. Its markers govern the landing routes, not every preview.
+  const landingScreens = new Set(["onboarding-start/first-run", "onboarding-shared/gate", "onboarding-shared/invalid"]);
+  for (const key of landingScreens) {
+    assert.ok(manifest.screens.some((screen) => `${screen.flow}/${screen.id}` === key),
+      `locale marker scope names a registered landing: ${key}`);
+  }
+  function findLocaleLeaks(records) {
+    const leaks = [];
+    for (const item of records) {
+      if (item.locale !== "pt") continue;
+      const landing = landingScreens.has(`${item.flow}/${item.screen}`);
+      for (const entry of item.semantic) {
+        for (const field of ["text", "name", "label"]) {
+          const markers = englishOnly.get(String(entry[field] ?? "").trim()) || [];
+          const marker = markers.find((key) => landing || !key.startsWith("landing."));
+          if (marker) leaks.push(`${item.key}: ${marker}`);
+        }
       }
     }
+    return leaks;
   }
+  const preview = semanticArtifact.captures.find((item) =>
+    item.locale === "pt" && item.flow === "onboarding-browse" && item.screen === "preview");
+  assert.ok(preview, "locale fault injection has a real Portuguese preview");
+  const withCopy = (item, copy) => ({ ...item, semantic: [{ text: copy }] });
+  assert.deepEqual(findLocaleLeaks([withCopy(preview, enCatalog["landing.proof.exercise"])]), [],
+    "an editable program exercise name does not become English UI copy through a landing-only key");
+  assert.ok(findLocaleLeaks([withCopy(preview, enCatalog["entry.hub.lede"])]).length > 0,
+    "English entry UI copy still fails outside the landing");
+  for (const key of landingScreens) {
+    const item = semanticArtifact.captures.find((record) => record.locale === "pt" && `${record.flow}/${record.screen}` === key);
+    assert.ok(item, `locale fault injection has a real Portuguese landing: ${key}`);
+    assert.ok(findLocaleLeaks([withCopy(item, enCatalog["landing.proof.exercise"])]).length > 0,
+      `${key}: an English landing exercise label is rejected`);
+    assert.ok(findLocaleLeaks([withCopy(item, enCatalog["entry.hub.lede"])]).length > 0,
+      `${key}: shared English UI markers are still rejected`);
+  }
+  const localeLeaks = findLocaleLeaks(semanticArtifact.captures);
   assert.deepEqual(localeLeaks, [],
     `pt frames render Portuguese, not English: ${[...new Set(localeLeaks)].slice(0, 6).join("; ")}`);
 

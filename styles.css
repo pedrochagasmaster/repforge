@@ -3717,213 +3717,88 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 .firstrun__error:empty{display:none}
 
-/* Plan 054 landing. The selected owner reference supplies the composition;
-   every product fact stays live text and every colour stays on app tokens. */
-
-/* The owner-supplied hero photograph, painted as a decorative backdrop rather
-   than marked up: it carries no product fact, so a missing export must leave
-   paper behind the copy instead of a broken-image glyph — the line the
-   exercise tiles and the retired Milo hero both hold. It scrolls with the
-   gate's own scroller, ends in a fade onto `--bg` so its bottom edge never
-   draws a seam wherever the copy happens to end, and is withheld from dark,
-   where the art's paper has no honest treatment (ADR 0009 / Plan 054). */
-.firstrun .firstrun-hero{position:relative}
-.firstrun-hero::before{
-  content:"";position:absolute;z-index:-1;pointer-events:none;
-  /* Full-bleed out of the 1120px measure, reaching the gate's top edge and no
-     further. Anchoring to the hero — not to a vh guess — keeps the art on the
-     copy it belongs to when Portuguese or 200% text makes that copy taller,
-     and every extra pixel of height is paid for in width: `cover` on a
-     portrait file scales to the taller box and crops the sides, where the
-     plate the composition is built on is the first thing to go. */
-  left:50%;width:100vw;transform:translateX(-50%);top:-90px;bottom:-20px;
-  background:url("assets/brand/landing-hero.webp") 36% top/cover no-repeat;
-  /* Only the alpha channel of a gradient mask stop matters, so `black` masks
-     identically to any other opaque colour without naming a literal hex the
-     appearance audit would flag as a colour outside the two palettes. */
-  -webkit-mask:linear-gradient(to bottom,black 88%,transparent 100%);
-  mask:linear-gradient(to bottom,black 88%,transparent 100%);
-}
-:root[data-theme="dark"] .firstrun-hero::before{display:none}
-@media (forced-colors:active){.firstrun-hero::before{display:none}}
+/* Plan 054: the prescription and its next target stay live around the product. */
 .firstrun__inner{position:relative;z-index:1}
-/* The entry cue is a translucent wash built for a solid card. On the landing
-   it sits on the photograph, so the same tint is laid over paper instead of
-   over whatever the crop happens to put behind it. */
-.firstrun-hero__copy .guide-cue{background:linear-gradient(var(--entry-tint),var(--entry-tint)),var(--bg)}
-.firstrun__header{display:flex;align-items:center;justify-content:space-between;gap:18px}
-.firstrun__header .firstrun__brand{justify-content:flex-start;gap:13px;margin:0}
-.firstrun__header .firstrun__logo{width:46px;height:46px}
-.firstrun__header .firstrun__wordmark{font-size:17px;letter-spacing:.3em}
-.firstrun__utility{display:flex;align-items:center;justify-content:flex-end;gap:14px}
+.firstrun__header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 18px}
+.firstrun__header .firstrun__brand{justify-content:flex-start;gap:12px;margin:0}
+.firstrun__header .firstrun__logo{width:40px;height:40px}
+.firstrun__header .firstrun__wordmark{font-size:14px;letter-spacing:.28em}
+.firstrun__utility{margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:14px;flex-wrap:wrap}
 .firstrun__utility-action{
-  display:inline-flex;align-items:center;gap:8px;min-height:44px;padding:8px 0;
-  border:0;background:none;color:var(--ink);font:inherit;font-size:14px;text-decoration:underline;
-  text-underline-offset:4px;cursor:pointer;
+  display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:8px 0;
+  border:0;background:none;color:var(--ink);font:inherit;font-size:.8125rem;
+  text-decoration:underline;text-underline-offset:4px;cursor:pointer;
 }
 .firstrun__utility-action:first-child{color:var(--accent-deep)}
 .firstrun__install-icon{
   width:18px;height:18px;background:currentColor;
-  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12M7.5 10.5 12 15l4.5-4.5M4 16v4h16v-4'/%3E%3C/svg%3E") center/contain no-repeat;
-  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12M7.5 10.5 12 15l4.5-4.5M4 16v4h16v-4'/%3E%3C/svg%3E") center/contain no-repeat;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12M7.5 10.5 12 15l4.5-4.5M4 16v4h16v-4'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12M7.5 10.5 12 15l4.5-4.5M4 16v4h16v-4'/%3E%3C/svg%3E") center/contain no-repeat;
 }
-.firstrun .firstrun-hero{
-  display:grid;grid-template-areas:"copy" "foot";grid-template-columns:minmax(0,1fr);
-  gap:22px;margin-top:clamp(18px,4.5vw,32px);
-}
+.firstrun .firstrun-hero{display:grid;grid-template-areas:"copy" "proof" "closing";grid-template-columns:minmax(0,1fr);gap:28px;margin-top:30px}
 .firstrun-hero__copy{grid-area:copy;min-width:0}
-/* The ethos and the render share this row on a phone, and it wraps on its own
-   content rather than at a guessed width: the ethos floors at its longest
-   word, so once enlarged text makes that word wide enough to crowd the
-   render, the render drops to its own line by itself. A width breakpoint
-   cannot see text scale — media-query `em` is the browser's initial font
-   size, not the root size the 200% fixture sets — so this is the only
-   mechanism that actually tracks it. */
-.firstrun-hero__foot{
-  grid-area:foot;display:flex;flex-wrap:wrap;align-items:flex-start;
-  gap:18px 12px;min-width:0;
-}
-/* Sizes below are rem, not px/vw: a fixed px (or a vw component, which tracks
-   viewport width rather than root font size) does not grow under the
-   200%-text root-scale fixture, so this functional copy would stop following
-   the reader's chosen text size. rem keeps every breakpoint in lockstep with
-   it, the same convention the entry step components already use. */
 .firstrun .firstrun-hero__title{
-  margin:0;text-align:left;font-size:2.25rem;
-  line-height:1.05;letter-spacing:-.03em;font-weight:700;
+  margin:0;text-align:left;font-size:2.75rem;line-height:1.04;letter-spacing:-.045em;
+  font-weight:600;white-space:pre-line;overflow-wrap:break-word;
 }
-.firstrun .firstrun__lede{
-  max-width:35ch;margin:18px 0 0;font-size:1rem;line-height:1.4;color:var(--ink);
-}
-.firstrun__actions{display:grid;gap:10px;max-width:390px;margin-top:22px}
+.firstrun .firstrun__lede{max-width:32ch;margin:20px 0 0;font-size:1rem;line-height:1.5;color:var(--ink-soft)}
+.firstrun__actions{display:grid;gap:10px;max-width:390px;margin-top:24px}
 .firstrun__cta{
-  display:flex;align-items:center;justify-content:space-between;gap:18px;width:100%;min-height:54px;
-  padding:12px 18px;border:1.5px solid var(--accent-deep);border-radius:4px;
-  font:inherit;font-size:1rem;font-weight:600;text-align:left;cursor:pointer;
+  display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:54px;
+  padding:13px 17px;border:1px solid var(--accent-deep);border-radius:4px;
+  font:inherit;font-size:1rem;line-height:1.35;font-weight:600;text-align:left;cursor:pointer;
 }
 .firstrun__cta--primary{background:var(--accent-deep);color:var(--accent-ink)}
-.firstrun__cta--secondary{background:var(--bg);color:var(--ink)}
+.firstrun__cta--secondary{background:var(--bg);border-color:var(--rule-strong);color:var(--ink)}
 .firstrun__cta--secondary:hover{background:var(--well)}
+.firstrun__cta:active{transform:translateY(1px)}
 .firstrun__cta .firstrun-row__go{color:currentColor}
 .firstrun__cta .firstrun-row__title{color:inherit;font-size:1.0625rem}
-/* No opacity here: it used to cut this caption's rendered contrast on the
-   primary CTA's orange ground to ~4.2:1, under the 4.5:1 AA floor for normal
-   text. --accent-ink is already chosen to read against --accent-deep at full
-   strength in both themes, so removing the opacity is the fix. */
 .firstrun__cta .firstrun-row__cap{color:inherit;font-size:.875rem}
-/* The device render. It is sized from the hero, not from a fixed width, so it
-   holds the selected target's proportion — a little over a third of the page —
-   at every viewport, and its own alpha carries the shadow. */
-.firstrun-preview{
-  grid-area:preview;align-self:center;justify-self:center;display:block;
-  width:100%;max-width:342px;height:auto;
-}
-/* An editorial annotation, not a card.
-   The crop puts an unpredictable mix of lit wall and dark plate behind this
-   line depending on viewport and locale height, so it cannot rely on the
-   photograph's pixels — but an opaque rectangle with four hard edges reads
-   as a pasted-on chip. The backing is therefore a `::after` paper wash that
-   is flush with the text column on the left, bleeds past the text on the
-   right and bottom, and is masked so only that overhang fades out. Every
-   glyph still sits on fully opaque `--bg`, so the measured contrast is the
-   token pair and nothing else; what softens is only the empty margin. */
-.firstrun__ethos{
-  grid-area:ethos;justify-self:start;align-self:start;
-  flex:1 1 0;max-width:18ch;margin:0;padding:11px 0 2px;
-  font-family:var(--mono);font-size:.8125rem;line-height:1.7;letter-spacing:.16em;
-  text-transform:uppercase;white-space:pre-line;position:relative;color:var(--ink);
-}
-.firstrun__ethos::after{
-  content:"";position:absolute;z-index:-1;inset:-2px -40px -14px -12px;
-  background:var(--bg);
-  /* Feathered on the two edges that sit against open photograph. Each fade
-     starts exactly where the overhang starts — `100% - <that inset>` — so it
-     is the empty margin that softens and never a glyph, whatever the string
-     length, locale or text scale. A percentage stop would drift onto the
-     text as the box narrows. The layers intersect; an engine without
-     `mask-composite` unions them instead, which degrades to the plain opaque
-     rectangle rather than to unreadable text. */
-  -webkit-mask:linear-gradient(to right,black calc(100% - 40px),transparent 100%),
-    linear-gradient(to bottom,black calc(100% - 14px),transparent 100%);
-  mask:linear-gradient(to right,black calc(100% - 40px),transparent 100%),
-    linear-gradient(to bottom,black calc(100% - 14px),transparent 100%);
-  -webkit-mask-composite:source-in;
-  mask-composite:intersect;
-}
-.firstrun__ethos::before{
-  content:"";position:absolute;top:0;left:0;
-  width:24px;height:1px;background:var(--ink);
-}
-.firstrun-benefits{
-  display:grid;grid-template-columns:repeat(3,minmax(0,1fr));
-  margin:42px calc(-1 * var(--firstrun-pad)) 0;
-  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
-  background:var(--bg);
-}
-.firstrun-benefits>div{min-width:0;padding:20px clamp(10px,2.5vw,20px);border-left:1px solid var(--rule)}
-.firstrun-benefits>div:first-child{border-left:0}
-.firstrun-benefits__icon{display:block;width:24px;height:24px;background:var(--accent-deep)}
-.firstrun-benefits__icon--week{-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3' y='4' width='18' height='18' rx='2'/%3E%3Cline x1='16' y1='2' x2='16' y2='6'/%3E%3Cline x1='8' y1='2' x2='8' y2='6'/%3E%3Cline x1='3' y1='10' x2='21' y2='10'/%3E%3C/svg%3E") center/contain no-repeat}
-.firstrun-benefits__icon--guidance{-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 9v6M8 6v12M16 6v12M20 9v6M8 12h8'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 9v6M8 6v12M16 6v12M20 9v6M8 12h8'/%3E%3C/svg%3E") center/contain no-repeat}
-.firstrun-benefits__icon--adapts{-webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='23 6 13.5 15.5 8.5 10.5 1 18'/%3E%3Cpolyline points='17 6 23 6 23 12'/%3E%3C/svg%3E") center/contain no-repeat;mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='23 6 13.5 15.5 8.5 10.5 1 18'/%3E%3C/svg%3E") center/contain no-repeat}
-.firstrun-benefits strong{display:block;margin-top:8px;font-size:1rem;font-weight:650;line-height:1.2}
-.firstrun-benefits p{margin:6px 0 0;font-size:.875rem;line-height:1.35;color:var(--ink-soft)}
+.firstrun-proof{grid-area:proof;margin:0;min-width:0}
+.firstrun-proof__caption{padding-top:12px;border-top:1px solid var(--rule-strong);font-size:.8125rem;color:var(--ink-soft)}
+.firstrun-proof__prescription{margin:16px 0 16px}
+.firstrun-proof__label{display:block;font-family:var(--mono);font-size:.6875rem;line-height:1.5;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft)}
+.firstrun-proof__prescription strong{display:block;margin-top:6px;font-size:1.25rem;line-height:1.2;font-weight:600}
+.firstrun-proof__note{margin:6px 0 0;font-size:.875rem;line-height:1.45;color:var(--ink-soft)}
+.firstrun-proof__device{margin:0 0 0 auto;width:88%;max-width:360px;clip-path:inset(0 0 32% 0)}
+.firstrun-preview{display:block;width:100%;height:auto}
+.firstrun-proof__result{position:relative;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,8.5rem),1fr));gap:20px 18px;margin:calc(-1 * min(60%,240px)) 0 0;padding:22px 0 0;background:var(--bg);border-top:2px solid var(--accent-deep)}
+.firstrun-proof__logged strong{display:block;margin-top:16px;font-family:var(--mono);font-size:1.125rem;font-weight:500;letter-spacing:-.04em}
+.firstrun-proof__target{min-width:0;padding-left:18px;border-left:1px solid var(--rule)}
+.firstrun-proof__next{display:flex;align-items:baseline;flex-wrap:wrap;gap:6px;margin:6px 0 0;color:var(--accent-deep);font-family:var(--mono);font-size:1rem}
+.firstrun-proof__next strong{font-size:3.25rem;line-height:1.1;font-weight:500;letter-spacing:-.075em}
+.firstrun-proof__reps{margin:6px 0 0;font-size:.875rem;line-height:1.4}
+.firstrun-proof__reason{grid-column:1/-1;max-width:40ch;margin:0;font-size:.9375rem;line-height:1.5;color:var(--ink-soft)}
+.firstrun__closing{grid-area:closing;padding-top:28px;margin-top:12px;border-top:1px solid var(--rule)}
+.firstrun__closing h2{margin:0;font-size:1.5rem;line-height:1.2;letter-spacing:-.025em;font-weight:500}
+.firstrun__closing>p:not(.firstrun__ethos){max-width:43ch;margin:12px 0 0;font-size:.9375rem;line-height:1.5;color:var(--ink-soft)}
+.firstrun__ethos{margin:24px 0 0;font-family:var(--mono);font-size:.6875rem;line-height:1.6;letter-spacing:.12em;text-transform:uppercase;color:var(--ink)}
 .firstrun__shared-only{display:none}
 .firstrun.is-shared .firstrun__shared-only{display:flex;margin:0 0 18px}
-.firstrun.is-shared .firstrun__ethos{display:none}
-.firstrun.is-shared #firstRunInstall{margin-top:36px}
+.firstrun.is-shared .firstrun-hero__title{font-size:2.5rem}
 .firstrun .firstrun__section{width:min(100%,560px);margin:38px 0 0}
 .firstrun .firstrun__continue{margin:24px 0 0}
-
-/* Compact composition.
-   The copy column keeps the full measure — headline, subtitle and both CTAs
-   span it, so nothing functional is narrowed and no label wraps into a
-   column. The render then shares the foot row with the ethos rather than
-   starting a block below it, and bleeds off the right edge, so proposition,
-   actions and product proof read as one composition. The row boundary keeps
-   a collision with the copy above structurally impossible at any string
-   length or text scale; within the row, wrapping handles the rest. */
-@media (max-width:639px){
-  .firstrun-preview{
-    flex:0 0 auto;margin-left:auto;margin-right:calc(-1 * var(--firstrun-pad));
-    width:min(62vw,252px);max-width:none;
-  }
+@media(min-width:640px){
+  .firstrun .firstrun-hero{grid-template-areas:"copy proof" "closing proof";grid-template-columns:minmax(0,1fr) minmax(0,1fr);grid-template-rows:auto 1fr;align-items:start;gap:36px;margin-top:54px}
+  .firstrun .firstrun-hero__title{font-size:3rem}
+  .firstrun-proof__prescription{margin-top:18px}
+  .firstrun__closing{margin-top:0}
 }
-
-@media (max-width:359px){
-  .firstrun-preview{width:min(66vw,214px)}
+@media(min-width:1024px){
+  .firstrun .firstrun-hero{gap:80px}
+  .firstrun .firstrun-hero__title{font-size:4rem}
+  .firstrun__lede{font-size:1.125rem}
 }
-
-/* Wide: the copy column and the render stand side by side, and the ethos
-   returns to the foot of the copy column where there is room for it. The
-   foot wrapper steps out of the way with `display:contents` so both of its
-   children are laid out against the copy column directly. */
-@media (min-width:640px){
-  .firstrun-hero__foot{display:contents}
-  .firstrun .firstrun-hero{
-    grid-template-areas:"copy preview" "ethos preview";
-    grid-template-columns:minmax(0,1fr) minmax(280px,42%);
-    grid-template-rows:auto 1fr;
-    align-items:start;column-gap:clamp(30px,6vw,76px);row-gap:30px;
-  }
-  .firstrun .firstrun-hero__title{max-width:11ch;font-size:3.5rem}
-  .firstrun-preview{align-self:center;justify-self:end}
-  .firstrun-benefits{margin-left:0;margin-right:0}
-  /* A portrait photograph cannot hold a landscape hero at the crop the phone
-     gets: covering this width would put the plates behind the headline. Wide
-     viewports keep the lit wall the copy was composed against instead. */
-  .firstrun-hero::before{top:-210px;background-position:center top}
+@media(max-width:359px){
+  .firstrun .firstrun-hero__title{font-size:2.375rem}
+  .firstrun__utility{gap:8px}
+  .firstrun__header{gap:10px}
+  .firstrun-proof__result{gap:18px 12px}
+  .firstrun-proof__target{padding-left:12px}
 }
-
-@media (min-width:1024px){
-  .firstrun .firstrun-hero__title{font-size:5rem}
-}
-
-@media (max-width:420px){
-  .firstrun__utility{gap:10px}
-  .firstrun__utility-action{font-size:12px}
-  .firstrun__header .firstrun__logo{width:39px;height:39px}
-  .firstrun__header .firstrun__wordmark{font-size:14px}
+@media(forced-colors:active){
+  .firstrun__cta,.firstrun-proof__result{border-color:ButtonText}
 }
 
 /* The install card. It bleeds to the edge of the setup column, which is the

@@ -1,0 +1,128 @@
+{
+  "settings": {
+    "jumpPct": 2.5,
+    "minJump": 2.5,
+    "rirHigh": 2,
+    "hardRir": 4,
+    "restSec": 120,
+    "lastExport": "",
+    "unit": "kg",
+    "lang": "en",
+    "rirMode": "numeric",
+    "voiceInputEnabled": false,
+    "notify": {
+      "enabled": false,
+      "timer": true,
+      "session": true,
+      "unfinished": true,
+      "missed": true
+    }
+  },
+  "programMeta": {
+    "id": "catalog-program",
+    "name": "Strength program",
+    "started": "2026-08-10",
+    "created": "2026-07-01T00:00:00.000Z",
+    "updated": "2026-08-01T00:00:00.000Z",
+    "onboarded": true,
+    "mesocycleStatus": "active",
+    "mesocycleLengthWeeks": 6,
+    "goal": "hypertrophy",
+    "experience": "intermediate",
+    "daysPerWeek": 1,
+    "splitType": "full_body",
+    "equipment": [
+      "barbell",
+      "machines",
+      "cables"
+    ],
+    "priorityMuscles": [
+      "Quads",
+      "Chest"
+    ],
+    "sessionLength": "60",
+    "completedAt": null
+  },
+  "program": [
+    {
+      "id": "ex-bench",
+      "day": "Upper body",
+      "order": 1,
+      "name": "Barbell bench press",
+      "sets": 3,
+      "min": 8,
+      "max": 10,
+      "primary": "Chest",
+      "secondary": "Triceps,Front delts",
+      "notes": "",
+      "alternates": [],
+      "libraryId": "pr_bb",
+      "progression": {
+        "schemaVersion": 1,
+        "strategy": {
+          "id": "range",
+          "version": 1,
+          "params": {
+            "workingSets": 3,
+            "repMin": 8,
+            "repMax": 10
+          }
+        },
+        "modifiers": []
+      }
+    }
+  ],
+  "log": [
+    {
+      "session": "2026-08-28_Upper body_landing",
+      "date": "2026-08-28",
+      "day": "Upper body",
+      "name": "Barbell bench press",
+      "exerciseId": "ex-bench",
+      "set": 1,
+      "load": 60,
+      "reps": 10,
+      "rir": 2,
+      "notes": "",
+      "created": "2026-08-28T12:00:00.000Z",
+      "primary": "Chest",
+      "secondary": "Triceps,Front delts",
+      "performedLibraryId": "pr_bb"
+    },
+    {
+      "session": "2026-08-28_Upper body_landing",
+      "date": "2026-08-28",
+      "day": "Upper body",
+      "name": "Barbell bench press",
+      "exerciseId": "ex-bench",
+      "set": 2,
+      "load": 60,
+      "reps": 10,
+      "rir": 2,
+      "notes": "",
+      "created": "2026-08-28T12:00:00.000Z",
+      "primary": "Chest",
+      "secondary": "Triceps,Front delts",
+      "performedLibraryId": "pr_bb"
+    },
+    {
+      "session": "2026-08-28_Upper body_landing",
+      "date": "2026-08-28",
+      "day": "Upper body",
+      "name": "Barbell bench press",
+      "exerciseId": "ex-bench",
+      "set": 3,
+      "load": 60,
+      "reps": 10,
+      "rir": 2,
+      "notes": "",
+      "created": "2026-08-28T12:00:00.000Z",
+      "primary": "Chest",
+      "secondary": "Triceps,Front delts",
+      "performedLibraryId": "pr_bb"
+    }
+  ],
+  "programHistory": [],
+  "customExercises": [],
+  "_storageRevision": 40
+}
