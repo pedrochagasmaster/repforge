@@ -668,6 +668,30 @@ async function captureObservedLogical(observation) {
   return captured.value;
 }
 
+// Independent spec oracle (mirrors, but does not call, app.js's
+// installTransferUiMeaningful): a device that only ever dwelt on the
+// automatic landing/chooser can pick up entryLandingSeen and one guide's
+// "shown" record purely from boot timing — never from a deliberate choice —
+// so two genuine captures of the same underlying clone can differ only in
+// this noise across repeated automatic boots. Strip it before comparing.
+function normalizeAutomaticUi(prefs) {
+  if (!prefs || typeof prefs !== "object") return prefs;
+  const next = { ...prefs };
+  if (next.entryLandingSeen === true) delete next.entryLandingSeen;
+  if (next.guideState && typeof next.guideState === "object" && !Array.isArray(next.guideState)) {
+    const kept = Object.entries(next.guideState).filter(([id, record]) => {
+      if (!record || typeof record !== "object" || Array.isArray(record)) return true;
+      const isDefault = record.status === "unseen" && record.lastTransitionAt === null;
+      const isAutomaticShown = ["entry", "install", "privacy"].includes(id) && record.status === "shown" &&
+        Number.isSafeInteger(record.lastTransitionAt) && record.lastTransitionAt >= 0 && prefs.entryLandingSeen === true;
+      return !isDefault && !isAutomaticShown;
+    });
+    if (kept.length) next.guideState = Object.fromEntries(kept);
+    else delete next.guideState;
+  }
+  return next;
+}
+
 function cloneMatch(actual, idbState, expected) {
   const durableState = logicalDurableState(actual?.durableState);
   const expectedDurable = logicalDurableState(expected?.durableState);
@@ -675,7 +699,7 @@ function cloneMatch(actual, idbState, expected) {
     durable: sameValue(durableState, expectedDurable) && sameValue(logicalDurableState(idbState), expectedDurable),
     draft: sameValue(actual?.draft?.logical, expected?.workoutDraft),
     candidate: sameValue(actual?.candidate, expected?.programEntryDraft),
-    device: sameValue(actual?.uiPreferences, expected?.uiPreferences) &&
+    device: sameValue(normalizeAutomaticUi(actual?.uiPreferences), normalizeAutomaticUi(expected?.uiPreferences)) &&
       sameValue(actual?.analytics, expected?.analytics) &&
       sameValue(actual?.telemetryIdentity, expected?.telemetryIdentity),
   };
@@ -996,6 +1020,19 @@ async function seedMeaningfulDestination(page, kind, envelope) {
       window.__repforgeUi?.setTheme?.("dark");
       return { ok: window.__repforgeUi?.loadUiPrefs?.()?.theme === "dark" };
     }
+    if (["unknown-guide", "wrong-version-guide", "missing-version-guide", "extra-field-guide", "invalid-timestamp-guide"].includes(kind)) {
+      const prefs = parse(localStorage.getItem(uiKey)) || {};
+      prefs.guideState = { ...(prefs.guideState || {}) };
+      const id = kind === "unknown-guide" ? "future-user-guide" : "entry";
+      const record = kind === "invalid-timestamp-guide"
+        ? { version: 1, status: "shown", lastTransitionAt: "not-a-timestamp" }
+        : { version: kind === "wrong-version-guide" ? 999 : 1, status: "unseen", lastTransitionAt: null };
+      if (kind === "missing-version-guide") delete record.version;
+      if (kind === "extra-field-guide") record.userDisposition = "keep";
+      prefs.guideState[id] = record;
+      localStorage.setItem(uiKey, JSON.stringify(prefs));
+      return { ok: JSON.stringify(parse(localStorage.getItem(uiKey))?.guideState?.[id]) === JSON.stringify(record) };
+    }
     if (kind === "consent-identity-only") {
       window.RepForgeTelemetry?.setEnabled?.(false);
       const identity = parse(localStorage.getItem(identityKey)) || {
@@ -1118,6 +1155,11 @@ async function runMeaningfulDestinationMatrix(browser, envelope) {
   console.log("\nPlan 053-P4b meaningful-destination refusal matrix");
   const cases = [
     ["prefs-only", "prefs-only"],
+    ["unknown-guide-only", "unknown-guide"],
+    ["wrong-version-guide-only", "wrong-version-guide"],
+    ["missing-version-guide-only", "missing-version-guide"],
+    ["extra-field-guide-only", "extra-field-guide"],
+    ["invalid-timestamp-guide-only", "invalid-timestamp-guide"],
     ["consent/identity-only", "consent-identity-only"],
     ["DraftV2-only", "draft-only"],
     ["candidate-only", "candidate-only"],
@@ -1999,6 +2041,27 @@ async function main() {
     await clearProfile(destination);
     await destination.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(destination, { base: BASE });
+
+    const freshDestinationPrefs = await destination.evaluate((key) => {
+      try { return JSON.parse(localStorage.getItem(key) || "null"); }
+      catch { return null; }
+    }, UI_KEY);
+    const freshGuideRecords = Object.entries(freshDestinationPrefs?.guideState || {});
+    // Owner-audit relocation: the "entry" guide now anchors at the chooser's
+    // Recommend card, not the generic landing, so a device that only ever
+    // booted through the landing never shows it automatically. "privacy"
+    // remains anchored to the landing's always-present Privacy link and is
+    // the one guide a plain boot-and-land dwell can still show automatically.
+    const automaticGuideState = freshGuideRecords.length > 0 && freshGuideRecords.every(([id, record]) =>
+      record?.status === "unseen" || id === "privacy" && record?.status === "shown");
+    check(freshDestinationPrefs?.entryLandingSeen === true &&
+      freshDestinationPrefs?.theme === undefined && automaticGuideState &&
+      freshDestinationPrefs?.installLastOfferedMilestone === null &&
+      freshDestinationPrefs?.installLastOfferedAt === null &&
+      freshDestinationPrefs?.installDismissedMilestone === null &&
+      freshDestinationPrefs?.installDismissedAt === null,
+    "fresh destination contains only automatic landing/install/guide metadata before install transfer",
+    freshDestinationPrefs);
 
     const importHook = await destination.evaluate(() => typeof window.__repforgeInstallTransferImport === "function");
     if (!check(importHook, "destination exposes window.__repforgeInstallTransferImport")) {

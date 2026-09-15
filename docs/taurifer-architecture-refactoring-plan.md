@@ -290,8 +290,8 @@ at `bad6cc9d04fd34889745cce0ea200cc9d9d7e6b5`, with accepted candidate
 matrix. PR #228 and PR #238 are integrated, and PR #239 is merged. The original
 77c6a011 measurements, e4a5e31 reconciliation, old line numbers, and historical
 candidate-order suggestions remain unchanged; they are not current code or
-current scheduling authority. The bridge starts from that merged main and
-reconstructs the current producer/consumer and recovery paths before refactoring.
+current scheduling authority. The bridge was implemented in PR #240 and merged
+at `3710f34bb677c59674a3677c03d2fc1427e07cef`; Plan 054 is the active consumer.
 
 References: [PR #235 merge and final candidate](https://github.com/pedrochagasmaster/repforge/pull/235),
 [final acceptance matrix](https://github.com/pedrochagasmaster/repforge/pull/235#issuecomment-5637065102),

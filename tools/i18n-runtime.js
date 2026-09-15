@@ -75,6 +75,9 @@
     document.querySelectorAll("[data-i18n-title]").forEach(el => {
       el.setAttribute("title", t(el.getAttribute("data-i18n-title")));
     });
+    document.querySelectorAll("[data-i18n-alt]").forEach(el => {
+      el.setAttribute("alt", t(el.getAttribute("data-i18n-alt")));
+    });
     const meta = document.querySelector('meta[name="description"]');
     if (meta) meta.setAttribute("content", t("meta.description"));
   }

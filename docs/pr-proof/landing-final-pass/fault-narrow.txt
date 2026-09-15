@@ -1,0 +1,17 @@
+node:internal/modules/run_main:123
+    triggerUncaughtException(
+    ^
+
+AssertionError [ERR_ASSERTION]: 320-en: full-width logged work precedes next session
+    at assertLanding (file:///home/ubuntu/repforge-ui-054-landing-entry/tools/capture-landing-proof.mjs:139:41)
+    at async captureMatrix (file:///home/ubuntu/repforge-ui-054-landing-entry/tools/capture-landing-proof.mjs:189:22)
+    at async file:///home/ubuntu/repforge-ui-054-landing-entry/tools/capture-landing-proof.mjs:204:8 {
+  generatedMessage: false,
+  code: 'ERR_ASSERTION',
+  actual: false,
+  expected: true,
+  operator: '==',
+  diff: 'simple'
+}
+
+Node.js v22.23.2

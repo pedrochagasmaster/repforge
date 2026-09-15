@@ -1,34 +1,38 @@
 {
   "320x844": {
-    "poemHeight": 203.125,
-    "poemSize": 11,
-    "pictureWidth": 221.515625,
-    "heroBottom": 647.140625,
-    "introductionTop": 677.140625,
-    "firstControlTop": 948.515625
+    "headlineHeight": 151.1875,
+    "headlineSize": 36,
+    "previewWidth": 211.1875,
+    "previewHeight": 413,
+    "heroBottom": 992.640625,
+    "introductionTop": 253.1875,
+    "firstControlTop": 342.359375
   },
   "390x844": {
-    "poemHeight": 219.578125,
-    "poemSize": 11.8989,
-    "pictureWidth": 250,
-    "heroBottom": 700.15625,
-    "introductionTop": 730.15625,
-    "firstControlTop": 957.34375
+    "headlineHeight": 113.390625,
+    "headlineSize": 36,
+    "previewWidth": 241.796875,
+    "previewHeight": 472.859375,
+    "heroBottom": 915.421875,
+    "introductionTop": 213.390625,
+    "firstControlTop": 302.5625
   },
   "430x932": {
-    "poemHeight": 239.890625,
-    "poemSize": 13,
-    "pictureWidth": 250,
-    "heroBottom": 742.046875,
-    "introductionTop": 772.046875,
-    "firstControlTop": 999.234375
+    "headlineHeight": 113.390625,
+    "headlineSize": 36,
+    "previewWidth": 252,
+    "previewHeight": 492.8125,
+    "heroBottom": 938.71875,
+    "introductionTop": 216.734375,
+    "firstControlTop": 305.90625
   },
   "768x1024": {
-    "poemHeight": 239.890625,
-    "poemSize": 13,
-    "pictureWidth": 340,
-    "heroBottom": 600.890625,
-    "introductionTop": 644.890625,
-    "firstControlTop": 851.078125
+    "headlineHeight": 235.1875,
+    "headlineSize": 56,
+    "previewWidth": 294,
+    "previewHeight": 574.953125,
+    "heroBottom": 686.953125,
+    "introductionTop": 365.1875,
+    "firstControlTop": 454.359375
   }
 }

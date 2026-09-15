@@ -36,6 +36,16 @@ for (const [width, height] of VIEWPORTS) {
   });
   const page = await context.newPage();
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
+  // This first load is itself a first run: it renders the landing and then
+  // records `entryLandingSeen`. Clearing before that write lands lets it
+  // re-persist afterwards, and the reload boots past the gate into Today.
+  // Wait for the write, the way the other fresh-device fixtures do.
+  await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 15000 });
+  await page.waitForFunction(
+    () => (localStorage.getItem("repforge_ui_v1") || "").includes('"entryLandingSeen":true'),
+    null,
+    { timeout: 15000 }
+  );
   await page.evaluate(async () => {
     localStorage.clear();
     await new Promise((resolve) => {
@@ -50,14 +60,14 @@ for (const [width, height] of VIEWPORTS) {
 
   measurements[`${width}x${height}`] = await page.evaluate(() => {
     const box = (selector) => document.querySelector(selector).getBoundingClientRect();
-    const poem = document.querySelector(".firstrun-hero__body");
     return {
-      poemHeight: box(".firstrun-hero__body").height,
-      poemSize: parseFloat(getComputedStyle(poem).fontSize),
-      pictureWidth: box(".firstrun-hero__art").width,
+      headlineHeight: box("#firstRunHeadline").height,
+      headlineSize: parseFloat(getComputedStyle(document.querySelector("#firstRunHeadline")).fontSize),
+      previewWidth: box(".firstrun-preview").width,
+      previewHeight: box(".firstrun-preview").height,
       heroBottom: box(".firstrun-hero").bottom,
       introductionTop: box(".firstrun__lede").top,
-      firstControlTop: box("#firstRunInstallAction").top,
+      firstControlTop: box("#firstRunCreate").top,
     };
   });
   await page.screenshot({ path: join(OUT, `first-run-${width}x${height}.png`) });

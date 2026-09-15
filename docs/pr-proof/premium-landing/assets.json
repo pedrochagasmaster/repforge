@@ -1,0 +1,22 @@
+[
+  {
+    "path": "assets/brand/landing-workout-en-light.webp",
+    "bytes": 46774,
+    "sha256": "352773a32a2a91371b85b6ac5d280ecb65f8e651c28e98e69853275c1b746f12"
+  },
+  {
+    "path": "assets/brand/landing-workout-en-dark.webp",
+    "bytes": 44912,
+    "sha256": "6e2656b73f95c294f9e1e0f8d496d78aa98f53eaf58f40391d64b259314c3754"
+  },
+  {
+    "path": "assets/brand/landing-workout-pt-light.webp",
+    "bytes": 48488,
+    "sha256": "2af0be2c56f6a9b2d0de1a854bcbe2d3831e4a189704aec7e1d1010231246cb4"
+  },
+  {
+    "path": "assets/brand/landing-workout-pt-dark.webp",
+    "bytes": 47434,
+    "sha256": "ecdb74c656e36951442fda8c92cdb843325f117a9bc72f9869626bfcfb0c8e6a"
+  }
+]

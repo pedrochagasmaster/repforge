@@ -396,3 +396,370 @@ test("exerciseConstraints become dislikes and stay out of telemetry", () => {
   assert.equal(JSON.stringify(result.telemetry).includes("pain"), false);
   assert.equal(JSON.stringify(result.telemetry).includes("bp_bb"), false);
 });
+
+
+// --- Plan 054 packet 054-P5 Proof-First Tests ---
+
+function compileWithOracle(servicesInstance, compileOptions) {
+  const result = servicesInstance.compile(compileOptions);
+  if (process.env.REPFORGE_PROGRAM_CANDIDATE_FAULT === "fabricate-alternative") {
+    if (result && result.ok && result.alternative === null) {
+      result.alternative = {
+        id: "fabricated_split_alt",
+        blueprintId: "fabricated_4_v1",
+        familyId: "fabricated",
+        name: "Fabricated Alternative",
+        namePt: "Alternativa Fabricada",
+        daysPerWeek: 4,
+        synthetic: true,
+        reason: { code: "synthesized_mutation", facts: {} },
+      };
+      if (result.candidate) {
+        result.candidate.alternative = result.alternative;
+      }
+    }
+  }
+  return result;
+}
+
+function createInjectedCompiler({
+  alternativeFamilyId = "balanced",
+  reason = { code: "compatible_split_variation", facts: { familyId: "balanced" } },
+  malformed = null,
+  incompatible = false,
+  sameIdentity = false,
+  omitReason = false,
+} = {}) {
+  return {
+    ...Compiler,
+    compile(context, catalogue) {
+      const primary = Compiler.compile(context, catalogue);
+      if (primary.kind !== "compiled") return primary;
+
+      if (malformed !== null) {
+        return {
+          ...primary,
+          alternative: malformed,
+        };
+      }
+
+      let altInstance;
+      if (sameIdentity) {
+        altInstance = Compiler.compile(context, catalogue);
+      } else if (incompatible) {
+        altInstance = Compiler.compile({ ...context, frequency: 3 }, catalogue);
+      } else {
+        const altContext = { ...context, familyId: alternativeFamilyId };
+        altInstance = Compiler.compile(altContext, catalogue);
+      }
+
+      const altEntry = {
+        ...altInstance,
+        instance: altInstance,
+        ...(omitReason ? {} : { reason }),
+      };
+
+      return {
+        ...primary,
+        alternative: altEntry,
+      };
+    },
+  };
+}
+
+test("P5: Recommend result exposes one coherent ProgramCandidate view model", () => {
+  const versions = services.currentVersions();
+  const answers = recommendAnswers({ desiredResult: "muscle_growth", daysPerWeek: 4 });
+  const result = compileWithOracle(services, {
+    mode: "recommend",
+    answers,
+    versions,
+  });
+  assert.equal(result.ok, true, result.code);
+
+  const candidate = result.candidate;
+  assert.ok(
+    candidate && typeof candidate === "object",
+    "recommend result must expose a coherent ProgramCandidate view model (e.g. result.candidate)",
+  );
+
+  const primary = candidate.primary ?? candidate.selected;
+  assert.ok(primary && typeof primary === "object", "ProgramCandidate must carry primary compiled candidate");
+  assert.equal(primary.blueprintId, "growth_4_v1");
+  assert.equal(primary.familyId, "growth");
+
+  const draft = candidate.draft ?? candidate.preview;
+  assert.ok(draft && typeof draft === "object", "ProgramCandidate must carry primary preview or editable draft");
+  assert.ok(Array.isArray(draft.program) && draft.program.length > 0, "preview/draft must contain program rows");
+  assert.ok(Array.isArray(draft.days) && draft.days.length === 4, "preview/draft must contain day structures");
+
+  assert.ok(candidate.rationale && typeof candidate.rationale === "object", "ProgramCandidate must carry structured rationale");
+  const reasonCodes = candidate.rationale.codes ?? candidate.rationale.reasonCodes;
+  assert.ok(Array.isArray(reasonCodes) && reasonCodes.length > 0, "rationale must expose structured reason codes array");
+  const facts = candidate.rationale.facts ?? candidate.explanation;
+  assert.ok(facts && typeof facts === "object", "rationale must expose structured rationale facts");
+  assert.equal(facts.desiredResult, "muscle_growth");
+  assert.equal(facts.daysPerWeek, 4);
+
+  assert.ok(
+    candidate.validation !== undefined || candidate.validationStatus !== undefined,
+    "ProgramCandidate must expose validation status",
+  );
+  assert.ok(
+    candidate.activation !== undefined || candidate.activationStatus !== undefined,
+    "ProgramCandidate must expose activation status",
+  );
+
+  assert.equal(candidate.alternative, null, "ProgramCandidate alternative must be null when compiler supplies none");
+});
+
+test("P5: alternative is non-null when injected compiler explicitly supplies a second compatible candidate plus structured reason", () => {
+  const injectedCompiler = createInjectedCompiler({
+    alternativeFamilyId: "balanced",
+    reason: { code: "compatible_split_variation", facts: { familyId: "balanced" } },
+  });
+  const customServices = Adapter.createProductionServices({
+    Compiler: injectedCompiler,
+    catalogue: EXERCISE_LIBRARY,
+  });
+  const answers = recommendAnswers({ desiredResult: "muscle_growth", daysPerWeek: 4 });
+  const result = customServices.compile({
+    mode: "recommend",
+    answers,
+    versions: customServices.currentVersions(),
+  });
+
+  assert.equal(result.ok, true, result.code);
+  const alt = result.candidate?.alternative ?? result.alternative;
+  assert.ok(alt, "alternative must be non-null when compiler explicitly supplies second candidate with reason");
+
+  const primaryId = result.selected?.blueprintId || result.candidate?.primary?.blueprintId;
+  const altId = alt.blueprintId || alt.id;
+  assert.ok(altId, "alternative must have an id or blueprintId");
+  assert.notEqual(altId, primaryId, "alternative must have an independent ID from primary");
+
+  assert.ok(alt.provenance || alt.instance?.provenance, "alternative must carry provenance");
+  const primaryFamily = result.selected?.familyId || result.instance?.familyId;
+  const altFamily = alt.familyId || alt.instance?.familyId;
+  assert.notEqual(altFamily, primaryFamily, "alternative must carry independent provenance/family");
+
+  assert.ok(alt.fingerprint, "alternative must have a deterministic fingerprint");
+  assert.notEqual(alt.fingerprint, result.fingerprint, "alternative fingerprint must be independent from primary");
+
+  const altPreview = alt.preview || alt.instance;
+  assert.ok(Array.isArray(altPreview.program) && altPreview.program.length > 0, "alternative must carry executable program rows");
+  assert.ok(Array.isArray(altPreview.days) && altPreview.days.length === answers.daysPerWeek, "alternative must carry executable days matching schedule");
+  assert.ok(
+    altPreview.program.every((row) => row.name && row.sets > 0 && row.min > 0 && row.max >= row.min),
+    "all alternative program rows must be executable",
+  );
+
+  assert.ok(alt.reason && typeof alt.reason === "object", "alternative must carry structured reason");
+  assert.equal(alt.reason.code, "compatible_split_variation");
+});
+
+test("P5: no second candidate or reason means alternative is null and never synthesized", () => {
+  const answers = recommendAnswers({ desiredResult: "muscle_growth", daysPerWeek: 4 });
+  const result = compileWithOracle(services, {
+    mode: "recommend",
+    answers,
+    versions: services.currentVersions(),
+  });
+  assert.equal(result.ok, true, result.code);
+  assert.equal(
+    result.alternative,
+    null,
+    "alternative must be null when compiler supplies no second candidate or reason",
+  );
+  if (result.candidate) {
+    assert.equal(
+      result.candidate.alternative,
+      null,
+      "candidate.alternative must be null when compiler supplies no second candidate",
+    );
+  }
+});
+
+test("P5: adapter never synthesizes an alternative from getCompatibleSplitChoices alone", () => {
+  const answers = recommendAnswers({ desiredResult: "balanced", daysPerWeek: 4 });
+  const splits = services.splitChoices(answers);
+  assert.ok(splits.choices.length >= 1, "split choices exist for these answers");
+
+  const result = compileWithOracle(services, {
+    mode: "recommend",
+    answers,
+    versions: services.currentVersions(),
+  });
+  assert.equal(result.ok, true, result.code);
+  assert.equal(
+    result.alternative,
+    null,
+    "getCompatibleSplitChoices alone must not be treated as a recommendation alternative",
+  );
+});
+
+test("P5: incompatible compiler alternative fails closed to null without contaminating primary", () => {
+  const answers = recommendAnswers({ desiredResult: "muscle_growth", daysPerWeek: 4 });
+  const injectedCompiler = createInjectedCompiler({
+    incompatible: true,
+    reason: { code: "incompatible_frequency", facts: {} },
+  });
+  const customServices = Adapter.createProductionServices({
+    Compiler: injectedCompiler,
+    catalogue: EXERCISE_LIBRARY,
+  });
+  const result = customServices.compile({
+    mode: "recommend",
+    answers,
+    versions: customServices.currentVersions(),
+  });
+
+  assert.equal(result.ok, true, "primary compile must still succeed");
+  assert.equal(result.alternative, null, "incompatible alternative must fail closed to null");
+  if (result.candidate) {
+    assert.equal(result.candidate.alternative, null, "candidate alternative must fail closed to null");
+  }
+  assert.equal(result.selected.blueprintId, "growth_4_v1");
+  assert.equal(result.selected.daysPerWeek, 4);
+  assert.ok(result.preview.program.length > 0);
+});
+
+test("P5: same-identity compiler alternative fails closed to null without contaminating primary", () => {
+  const answers = recommendAnswers({ desiredResult: "muscle_growth", daysPerWeek: 4 });
+  const injectedCompiler = createInjectedCompiler({
+    sameIdentity: true,
+    reason: { code: "duplicate_split", facts: {} },
+  });
+  const customServices = Adapter.createProductionServices({
+    Compiler: injectedCompiler,
+    catalogue: EXERCISE_LIBRARY,
+  });
+  const result = customServices.compile({
+    mode: "recommend",
+    answers,
+    versions: customServices.currentVersions(),
+  });
+
+  assert.equal(result.ok, true, "primary compile must still succeed");
+  assert.equal(result.alternative, null, "same-identity alternative must fail closed to null");
+  if (result.candidate) {
+    assert.equal(result.candidate.alternative, null);
+  }
+  assert.equal(result.selected.blueprintId, "growth_4_v1");
+});
+
+test("P5: compiler alternative missing a structured reason fails closed to null without contaminating primary", () => {
+  const answers = recommendAnswers({ desiredResult: "muscle_growth", daysPerWeek: 4 });
+  const injectedCompiler = createInjectedCompiler({
+    alternativeFamilyId: "balanced",
+    omitReason: true,
+  });
+  const customServices = Adapter.createProductionServices({
+    Compiler: injectedCompiler,
+    catalogue: EXERCISE_LIBRARY,
+  });
+  const result = customServices.compile({
+    mode: "recommend",
+    answers,
+    versions: customServices.currentVersions(),
+  });
+
+  assert.equal(result.ok, true, "primary compile must still succeed");
+  assert.equal(result.alternative, null, "alternative without structured reason must fail closed to null");
+  if (result.candidate) {
+    assert.equal(result.candidate.alternative, null);
+  }
+  assert.equal(result.selected.blueprintId, "growth_4_v1");
+});
+
+test("P5: malformed compiler alternative fails closed to null without contaminating primary", () => {
+  const answers = recommendAnswers({ desiredResult: "muscle_growth", daysPerWeek: 4 });
+  const injectedCompiler = createInjectedCompiler({
+    malformed: { invalid: "not_a_candidate_instance", program: null },
+  });
+  const customServices = Adapter.createProductionServices({
+    Compiler: injectedCompiler,
+    catalogue: EXERCISE_LIBRARY,
+  });
+  const result = customServices.compile({
+    mode: "recommend",
+    answers,
+    versions: customServices.currentVersions(),
+  });
+
+  assert.equal(result.ok, true, "primary compile must still succeed");
+  assert.equal(result.alternative, null, "malformed alternative must fail closed to null");
+  if (result.candidate) {
+    assert.equal(result.candidate.alternative, null);
+  }
+  assert.equal(result.selected.blueprintId, "growth_4_v1");
+  assert.ok(result.preview.program.length > 0);
+});
+
+test("P5: choosing or editing a candidate is represented without mutating adapter result or durable state fixture", () => {
+  const versions = services.currentVersions();
+  const answers = recommendAnswers({ desiredResult: "muscle_growth", daysPerWeek: 4 });
+  const result = compileWithOracle(services, {
+    mode: "recommend",
+    answers,
+    versions,
+  });
+  assert.equal(result.ok, true, result.code);
+
+  const originalResultSnapshot = JSON.parse(JSON.stringify(result));
+
+  const durableStateFixture = Object.freeze({
+    revision: 3,
+    activeProgramId: "prog_active_prior",
+    program: [
+      { id: "slot_prior_1", day: "Day 1", name: "Prior Bench", sets: 3, min: 6, max: 10 },
+      { id: "slot_prior_2", day: "Day 1", name: "Prior Row", sets: 3, min: 8, max: 12 },
+    ],
+    updatedAt: "2026-08-20T10:00:00.000Z",
+  });
+  const originalFixtureSnapshot = JSON.parse(JSON.stringify(durableStateFixture));
+
+  // 1. Represent editing a candidate draft (candidate-scoped edit)
+  const draft = JSON.parse(JSON.stringify(result.preview));
+  assert.ok(draft.program.length > 0);
+  const firstExercise = draft.program[0];
+  const originalSets = firstExercise.sets;
+  firstExercise.sets = originalSets + 1;
+  firstExercise.notes = "Focused tempo on eccentric phase";
+
+  assert.equal(draft.program[0].sets, originalSets + 1);
+  assert.equal(draft.program[0].notes, "Focused tempo on eccentric phase");
+
+  // 2. Represent choosing a candidate into entry state
+  let state = Entry.createState({
+    draftId: "p5-selection-draft",
+    activeProgramRevisionAtStart: durableStateFixture.revision,
+    now: "2026-08-29T12:00:00.000Z",
+    versions,
+  });
+  state = Entry.selectRoute(state, "recommend");
+  state = Entry.setAnswers(state, answers);
+  state = Entry.setResult(state, {
+    fingerprint: result.fingerprint,
+    selected: result.selected,
+    candidates: result.candidates,
+    preview: draft,
+    telemetry: result.telemetry,
+  });
+
+  assert.equal(state.result.preview.program[0].sets, originalSets + 1);
+
+  // 3. Assert original compile result is completely unmutated
+  assert.deepEqual(
+    result,
+    originalResultSnapshot,
+    "original compile result must not be mutated by candidate edits or selection",
+  );
+
+  // 4. Assert durable state fixture is completely unmutated
+  assert.deepEqual(
+    durableStateFixture,
+    originalFixtureSnapshot,
+    "durable state fixture must not be mutated during candidate choice or draft edits",
+  );
+});

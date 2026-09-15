@@ -109,6 +109,12 @@ export const SUITES = {
     s("test/import-matching.mjs"),
     s("test/program-day-names-browser.mjs"),
     s("test/shared-setup-flow.mjs"),
+    s("test/entry-landing.mjs"),
+    s("test/entry-chooser.mjs"),
+    s("test/entry-expert-controls.mjs"),
+    s("test/entry-install-policy.mjs"),
+    s("test/entry-guides.mjs"),
+    s("test/entry-privacy.mjs"),
   ],
   workout: [
     s("test/i18n.mjs"),

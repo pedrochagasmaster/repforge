@@ -18,7 +18,7 @@ import { BASE, SETUP_DRAFT, KEY, sleep, waitForApp } from "./session.mjs";
 /** Screens that must be seeded with an already-active program. */
 const NEEDS_ACTIVE_PROGRAM = new Set([
   "onboarding-start/hub-existing",
-  "onboarding-recommend/preview-existing",
+  "onboarding-recommend/result-existing",
   "onboarding-recommend/replacement-confirm",
   "onboarding-recommend/activation-conflict",
   "onboarding-recovery/rules-drift",
@@ -130,14 +130,13 @@ async function customTo(page, step) {
   if (step === "priorities") return;
   await next(page);
   await page.waitForSelector("#entryExerciseSearch", { timeout: 25000 });
-  if (["exercise-preferences", "result", "preview"].includes(step)) {
+  if (["exercise-preferences", "result"].includes(step)) {
     await setCustomExercisePreferences(page);
     if (step === "exercise-preferences") return;
   }
   await next(page);
   await page.waitForSelector("[data-entry-select-candidate], #entryActivate", { timeout: 20000 });
   if (step === "result") return;
-  await selectCandidate(page);
 }
 
 /** Keep the preference screens representative: the empty state is useful for
@@ -334,19 +333,46 @@ async function freeformTo(page, step) {
   }
 }
 
+/**
+ * A setup link carries the app language (ADR 0007), and the shared gate
+ * deliberately follows the *payload's* language rather than the device's — so
+ * a payload is not locale-neutral capture input the way a seeded state is.
+ * Feeding the English fixture to the `pt` variant produced a frame filed as
+ * PT-BR that could only ever render English, which reads as a localization
+ * bug in the app and is not one. Match the payload to the frame instead.
+ */
+function sharedPayloadFor(portuguese) {
+  if (!portuguese) return MINIMAL_PAYLOAD;
+  return {
+    ...MINIMAL_PAYLOAD,
+    program: {
+      ...MINIMAL_PAYLOAD.program,
+      meta: { ...MINIMAL_PAYLOAD.program.meta, name: "Programa do treinador" },
+    },
+    settings: { ...MINIMAL_PAYLOAD.settings, lang: "pt" },
+  };
+}
+
 /** Land on the setup-link gate, which is the shared route's real entrance. */
 async function sharedTo(page, step) {
+  const portuguese = await page.evaluate(() => document.documentElement.lang === "pt-BR");
   const fragment = await page.evaluate(async ({ payload, ids }) => {
     const encoded = await window.RepForgeSharedSetup.encode(payload, { builtInIds: ids });
     if (!encoded?.ok) throw new Error(`encode failed: ${encoded?.code || "unknown"}`);
     return encoded.value;
-  }, { payload: MINIMAL_PAYLOAD, ids: [...BUILT_IN_IDS] });
+  }, { payload: sharedPayloadFor(portuguese), ids: [...BUILT_IN_IDS] });
   await page.goto(`${BASE.replace(/\/?$/, "/")}index.html#setup=${fragment}`, { waitUntil: "domcontentloaded" });
   await waitForApp(page);
   await page.waitForSelector("#firstRunSharedStart", { timeout: 25000 });
   if (step === "gate") return;
   await page.click("#firstRunSharedStart");
   await page.waitForSelector("#onboarding.active #entryActivate", { timeout: 25000 });
+}
+
+async function sharedInvalidTo(page) {
+  await page.goto(`${BASE.replace(/\/?$/, "/")}index.html#setup=v1.not+base64`, { waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  await page.waitForSelector('#firstRun[data-entry-landing="shared-invalid"]:not(.hidden)', { timeout: 25000 });
 }
 
 async function resume(page) {
@@ -437,6 +463,7 @@ async function activationConflict(page) {
 
 /** Bring the frame's subject into view for surfaces taller than the viewport. */
 const FOCUS_SELECTOR = {
+  "onboarding-start/hub-own-open": "#entryOwnToggle",
   "onboarding-recommend/avoidance-pain": ".entry__pain",
   "onboarding-custom/exercise-preferences": ".entry__exercise-selected-group",
   "onboarding-recommend/activation-conflict": ".entry__notice",
@@ -493,14 +520,7 @@ export const ONBOARDING_SCENARIOS = {
     await page.click('[data-entry-pick="avoidReason"][data-entry-val$="|pain"]');
   },
   "onboarding-recommend/result": (page) => recommendTo(page, { result: true, desired: "balanced" }),
-  "onboarding-recommend/preview-first-run": async (page) => {
-    await recommendTo(page, { result: true });
-    await selectCandidate(page);
-  },
-  "onboarding-recommend/preview-existing": async (page) => {
-    await recommendTo(page, { result: true, existing: true });
-    await selectCandidate(page);
-  },
+  "onboarding-recommend/result-existing": (page) => recommendTo(page, { result: true, existing: true }),
   "onboarding-recommend/replacement-confirm": async (page) => {
     await recommendTo(page, { result: true, existing: true });
     await selectCandidate(page);
@@ -514,7 +534,6 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-custom/priorities": (page) => customTo(page, "priorities"),
   "onboarding-custom/exercise-preferences": (page) => customTo(page, "exercise-preferences"),
   "onboarding-custom/result": (page) => customTo(page, "result"),
-  "onboarding-custom/preview": (page) => customTo(page, "preview"),
 
   "onboarding-browse/schedule": (page) => browseTo(page, "schedule"),
   "onboarding-browse/environment": (page) => browseTo(page, "environment"),
@@ -538,6 +557,7 @@ export const ONBOARDING_SCENARIOS = {
   "onboarding-import/preview": (page) => importTo(page, "preview"),
 
   "onboarding-shared/gate": (page) => sharedTo(page, "gate"),
+  "onboarding-shared/invalid": sharedInvalidTo,
   "onboarding-shared/preview": (page) => sharedTo(page, "preview"),
 
   "onboarding-recovery/resume": resume,
@@ -554,6 +574,12 @@ export async function focusOnboardingSubject(page, key) {
       onboarding.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
       onboarding.scrollTop = 0;
       onboarding.scrollLeft = 0;
+    }
+    const firstRun = document.querySelector("#firstRun");
+    if (firstRun) {
+      firstRun.scrollTo?.({ top: 0, left: 0, behavior: "auto" });
+      firstRun.scrollTop = 0;
+      firstRun.scrollLeft = 0;
     }
     if (sel) document.querySelector(sel)?.scrollIntoView({ block: "center", inline: "nearest" });
   }, FOCUS_SELECTOR[key] || null);

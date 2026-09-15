@@ -1,0 +1,97 @@
+{
+  "mode": "source",
+  "cases": [
+    {
+      "name": "workout-en-light",
+      "nextLoad": 62.5,
+      "nextReps": 8,
+      "upcomingSets": [
+        {
+          "set": 1,
+          "load": 62.5,
+          "reps": 8
+        },
+        {
+          "set": 2,
+          "load": 62.5,
+          "reps": 8
+        },
+        {
+          "set": 3,
+          "load": 62.5,
+          "reps": 8
+        }
+      ],
+      "lastSessionRows": 3
+    },
+    {
+      "name": "workout-en-dark",
+      "nextLoad": 62.5,
+      "nextReps": 8,
+      "upcomingSets": [
+        {
+          "set": 1,
+          "load": 62.5,
+          "reps": 8
+        },
+        {
+          "set": 2,
+          "load": 62.5,
+          "reps": 8
+        },
+        {
+          "set": 3,
+          "load": 62.5,
+          "reps": 8
+        }
+      ],
+      "lastSessionRows": 3
+    },
+    {
+      "name": "workout-pt-light",
+      "nextLoad": 62.5,
+      "nextReps": 8,
+      "upcomingSets": [
+        {
+          "set": 1,
+          "load": 62.5,
+          "reps": 8
+        },
+        {
+          "set": 2,
+          "load": 62.5,
+          "reps": 8
+        },
+        {
+          "set": 3,
+          "load": 62.5,
+          "reps": 8
+        }
+      ],
+      "lastSessionRows": 3
+    },
+    {
+      "name": "workout-pt-dark",
+      "nextLoad": 62.5,
+      "nextReps": 8,
+      "upcomingSets": [
+        {
+          "set": 1,
+          "load": 62.5,
+          "reps": 8
+        },
+        {
+          "set": 2,
+          "load": 62.5,
+          "reps": 8
+        },
+        {
+          "set": 3,
+          "load": 62.5,
+          "reps": 8
+        }
+      ],
+      "lastSessionRows": 3
+    }
+  ]
+}

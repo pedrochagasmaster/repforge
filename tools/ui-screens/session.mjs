@@ -121,18 +121,31 @@ export async function openPage(browser, manifest, capture, state, options = {}) 
     }
     globalThis.Date = CaptureDate;
   }, CAPTURE_NOW);
+  // The enlarged-text state is an inline style on <html>, which a navigation
+  // destroys — and several scenarios reach their surface through a real
+  // `page.goto` rather than in-page routing (the setup-link gate is one). Set
+  // it from an init script so it is reapplied to *every* document in this
+  // context: the seed reload, the scenario's own navigations, and anything a
+  // future scenario adds. Setting it once after the first load silently
+  // captured those surfaces at 100% while the frame was still filed as
+  // `-text200`, which is evidence that looks right and is not.
+  const rootFontScale = manifest.textScales[capture.text].rootFontScale;
+  if (rootFontScale !== 1) {
+    await page.addInitScript((scale) => {
+      const apply = () => {
+        if (document.documentElement) document.documentElement.style.fontSize = `${scale * 100}%`;
+      };
+      apply();
+      document.addEventListener("DOMContentLoaded", apply, { once: true });
+    }, rootFontScale);
+  }
   await page.goto(BASE, { waitUntil: "domcontentloaded" });
   await waitForApp(page);
   await seedVerified(page, state);
-  await page.evaluate(({ theme, scale, uiKey }) => {
+  await page.evaluate(({ theme, uiKey }) => {
     localStorage.setItem(uiKey, JSON.stringify({ theme }));
     window.__repforgeUi.setTheme(theme);
-    if (scale !== 1) document.documentElement.style.fontSize = `${scale * 100}%`;
-  }, {
-    theme: capture.theme,
-    scale: manifest.textScales[capture.text].rootFontScale,
-    uiKey: UI_KEY,
-  });
+  }, { theme: capture.theme, uiKey: UI_KEY });
   await sleep(page, 180);
   return { context, page };
 }

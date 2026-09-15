@@ -826,3 +826,48 @@ test("progression modifier targets follow the authoritative field shape without 
   assert.equal(previewRejected.ok, false);
   assert.ok(previewRejected.issues.some((issue) => issue.includes("futureEnvelopeField:unknown_key")));
 });
+
+test("compiler-backed recommendation alternative round-trips through the closed draft schema", () => {
+  let state = Entry.selectRoute(fresh(), "recommend");
+  state = Entry.setAnswers(state, validAnswers("recommend"));
+  const preview = {
+    ...resultFixture("recommend").preview,
+    source: "compiler",
+    familyId: "growth",
+    blueprintId: "growth_4_v1",
+    frequency: 4,
+  };
+  state = Entry.setResult(state, {
+    fingerprint: "primary-fixture",
+    selected: { id: "growth_4_v1", familyId: "growth", blueprintId: "growth_4_v1", daysPerWeek: 4 },
+    candidates: [{ id: "growth_4_v1", familyId: "growth", blueprintId: "growth_4_v1", daysPerWeek: 4 }],
+    alternative: {
+      id: "balanced_4_v1",
+      familyId: "balanced",
+      blueprintId: "balanced_4_v1",
+      daysPerWeek: 4,
+      fingerprint: "alternative-fixture",
+      provenance: { source: "compiler", familyId: "balanced", blueprintId: "balanced_4_v1" },
+      reason: { code: "compatible_split_variation", facts: { familyId: "balanced" } },
+      preview: { ...structuredClone(preview), familyId: "balanced", blueprintId: "balanced_4_v1" },
+    },
+    preview,
+  });
+  state.step = "result";
+  const normalized = Entry.normalizeSetupDraft(state);
+  assert.equal(normalized.ok, true, normalized.issues?.join(","));
+  assert.equal(normalized.value.result.alternative.fingerprint, "alternative-fixture");
+  assert.equal(normalized.value.result.alternative.reason.code, "compatible_split_variation");
+
+  const legacyAlternative = structuredClone(state);
+  legacyAlternative.result.alternative = { id: "legacy_alt", familyId: "balanced", daysPerWeek: 4 };
+  const legacyNormalized = Entry.normalizeSetupDraft(legacyAlternative);
+  assert.equal(legacyNormalized.ok, true, legacyNormalized.issues?.join(","));
+  assert.equal(legacyNormalized.value.result.alternative.id, "legacy_alt");
+
+  const fabricated = structuredClone(state);
+  fabricated.result.alternative.reason.facts.program = [{ sets: 1 }];
+  const rejected = Entry.normalizeSetupDraft(fabricated);
+  assert.equal(rejected.ok, false);
+  assert.ok(rejected.issues.some((issue) => issue.includes("reason.facts.program:invalid")));
+});

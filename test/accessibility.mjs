@@ -254,11 +254,6 @@ async function readLogModeControls(page) {
   });
 }
 
-function expectedTourMode(step, originMode) {
-  if (step === 0) return originMode;
-  return step === 3 || step === 4 ? "focus" : "list";
-}
-
 async function readLogicalFocus(page, selector) {
   return page.evaluate((sel) => {
     const element = document.querySelector(sel);
@@ -284,94 +279,56 @@ async function readLogicalFocus(page, selector) {
   }, selector);
 }
 
-async function prepareReplayTour(page, originMode) {
-  await showView(page, "log");
-  const entry = originMode === "focus" ? "#startWorkout" : "#viewExercises";
-  await page.locator(entry).focus();
-  await page.keyboard.press("Enter");
-  await page.waitForSelector("#workoutShell:not(.hidden)");
-  const entered = await readLogModeControls(page);
-  await page.locator("#leaveWorkout").focus();
-  await page.keyboard.press("Enter");
-  await page.waitForSelector("#todayDash:not(.hidden)");
-  await page.locator("#openSettings").focus();
-  await page.keyboard.press("Enter");
-  await page.waitForSelector("#settings.view.active");
-  await page.locator("#replayTour").focus();
-  const ready = await readLogModeControls(page);
-  return { entered, ready };
-}
-
-async function runReplayTourScenario(browser, originMode, exitKind) {
+async function runContextualGuideAccessibility(browser) {
   const { context, page } = await freshPage(browser);
-  const origin = await prepareReplayTour(page, originMode);
+  await showView(page, "settings");
+  await page.waitForSelector('[data-guide-cue="privacy"]');
+  const automatic = await page.evaluate(() => {
+    const cue = document.querySelector('[data-guide-cue="privacy"]');
+    const anchor = document.querySelector("#privacyDetails");
+    return {
+      role: cue?.getAttribute("role"),
+      labelledBy: cue?.getAttribute("aria-labelledby"),
+      labelExists: !!document.getElementById(cue?.getAttribute("aria-labelledby") || ""),
+      anchorMatches: !!(anchor && cue?.dataset.anchorTarget && anchor.matches(cue.dataset.anchorTarget)),
+      modal: cue?.getAttribute("aria-modal"),
+      mainInert: !!document.querySelector("main")?.inert,
+    };
+  });
   assert(
-    origin.entered.same &&
-      origin.entered.active[0] === originMode &&
-      origin.ready.same &&
-      origin.ready.active[0] === originMode,
-    `Replay Tour ${exitKind}: ${originMode} is reachable and synchronized before replay`,
-    JSON.stringify(origin)
+    automatic.role === "status" && automatic.labelExists && automatic.anchorMatches && !automatic.modal && !automatic.mainInert,
+    "Contextual Privacy guide is labelled, anchored, and non-modal",
+    JSON.stringify(automatic)
   );
-
+  await page.locator('[data-guide-cue="privacy"] [data-guide-dismiss]').click();
+  await page.locator("#guideReplayToggle").focus();
   await page.keyboard.press("Enter");
-  await page.waitForSelector("#tour:not(.hidden)");
-  if (originMode === "list" && exitKind === "cancel") {
-    const wrap = await tabWrap(page, "#tour");
-    assert(
-      wrap.forward.inside && wrap.back.inside,
-      "Replay Tour uses the shared modal controller for forward/reverse Tab containment",
-      JSON.stringify(wrap)
-    );
-  }
-  const total = await page.locator("#tourDots .tour__dot").count();
-  const lastStep = exitKind === "cancel" ? Math.min(3, total - 1) : total - 1;
-  const trace = [];
-  for (let step = 0; step <= lastStep; step++) {
-    if (step > 0) {
-      await page.locator("#tourNext").focus();
-      await page.keyboard.press("Enter");
-    }
-    const controls = await readLogModeControls(page);
-    trace.push({ step, expected: expectedTourMode(step, originMode), ...controls });
-  }
-  const violations = trace.filter(
-    ({ expected, active, pressed, same }) =>
-      !same || active[0] !== expected || pressed[0] !== expected
-  );
+  await page.waitForSelector("#guideReplayPanel.is-open");
+  const replay = page.locator('[data-guide-replay="privacy"]');
+  await replay.focus();
+  await page.keyboard.press("Enter");
+  await page.waitForSelector('[data-guide-cue="privacy"]');
+  const focusBeforeEscape = await readLogicalFocus(page, '[data-guide-cue="privacy"] [data-guide-dismiss]');
   assert(
-    violations.length === 0,
-    `Replay Tour ${exitKind}: every ${originMode} transition keeps one matching active/pressed mode`,
-    JSON.stringify(violations)
+    focusBeforeEscape.isTarget && focusBeforeEscape.connected && focusBeforeEscape.visible,
+    "Settings replay moves focus to the contextual guide dismiss action",
+    JSON.stringify(focusBeforeEscape)
   );
-
-  if (exitKind === "cancel") {
-    await page.keyboard.press("Escape");
-  } else {
-    await page.locator("#tourNext").focus();
-    await page.keyboard.press("Enter");
-  }
-  await page.waitForFunction(() => document.querySelector("#tour")?.classList.contains("hidden"));
-  await page.waitForSelector("#settings.view.active");
-  const restored = await readLogModeControls(page);
-  const focus = await readLogicalFocus(page, "#replayTour");
-  assert(
-    restored.same &&
-      restored.active[0] === originMode &&
-      restored.pressed[0] === originMode,
-    `Replay Tour ${exitKind}: restores snapshotted ${originMode} mode`,
-    JSON.stringify(restored)
-  );
+  await page.keyboard.press("Escape");
+  await page.waitForSelector('[data-guide-cue="privacy"]', { state: "detached" });
+  const focus = await readLogicalFocus(page, '[data-guide-replay="privacy"]');
   assert(
     focus.isTarget && focus.connected && focus.visible,
-    `Replay Tour ${exitKind}: restores focus to the live visible Replay Tour origin (${originMode})`,
+    "Escape dismisses the contextual guide and restores the replay control",
     JSON.stringify(focus)
   );
+  const state = await page.evaluate(() => window.__repforgeUi.guideState());
+  assert(state.privacy?.status === "dismissed", "Escape persists the guide dismissal", JSON.stringify(state.privacy));
   await context.close();
 }
 
-async function runLocalizedHistoryAndTourChecks(browser) {
-  console.log("\nLocalized History controls and feature-tour invariants");
+async function runLocalizedHistoryAndGuideChecks(browser) {
+  console.log("\nLocalized History controls and contextual-guide invariants");
   {
     const { context, page } = await freshPage(browser);
     const expected = {
@@ -395,33 +352,7 @@ async function runLocalizedHistoryAndTourChecks(browser) {
     await context.close();
   }
 
-  for (const originMode of ["list", "focus"]) {
-    for (const exitKind of ["cancel", "complete"]) {
-      await runReplayTourScenario(browser, originMode, exitKind);
-    }
-  }
-
-  {
-    const { context, page } = await freshPage(browser);
-    await showView(page, "log");
-    await page.evaluate(() => window.startTour("first-run"));
-    await page.waitForSelector("#tour:not(.hidden)");
-    const total = await page.locator("#tourDots .tour__dot").count();
-    for (let step = 1; step < total; step++) {
-      await page.locator("#tourNext").focus();
-      await page.keyboard.press("Enter");
-    }
-    await page.locator("#tourNext").focus();
-    await page.keyboard.press("Enter");
-    await page.waitForFunction(() => document.querySelector("#tour")?.classList.contains("hidden"));
-    const focus = await readLogicalFocus(page, "#startWorkout");
-    assert(
-      focus.isTarget && focus.connected && focus.visible,
-      "First-run tour completion keeps focus on visible Start Workout",
-      JSON.stringify(focus)
-    );
-    await context.close();
-  }
+  await runContextualGuideAccessibility(browser);
 }
 
 export async function runWorkoutValidationFocusCheck(browser, check = assert) {
@@ -2686,7 +2617,7 @@ async function main() {
   if (process.argv.includes("--touch-targets-320")) {
     await runTouchTarget320Regression(browser);
   } else if (process.argv.includes("--history-tour")) {
-    await runLocalizedHistoryAndTourChecks(browser);
+    await runLocalizedHistoryAndGuideChecks(browser);
   } else if (process.argv.includes("--history-320")) {
     await runHistoryResponsiveLayoutChecks(browser);
   } else if (process.argv.includes("--dimmed-states")) {
@@ -2702,7 +2633,7 @@ async function main() {
     await runAccessibleInteractions(browser);
     await runExerciseIllustrationAccessibility(browser);
     await runHistoryResponsiveLayoutChecks(browser);
-    await runLocalizedHistoryAndTourChecks(browser);
+    await runLocalizedHistoryAndGuideChecks(browser);
     await runDimmedStateAccessibility(browser);
     await runVisualAccessibility(browser);
     await runSharedSetupAccessibility(browser);

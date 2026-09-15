@@ -1,0 +1,13 @@
+diff --git a/bin/form-studio.mjs b/bin/form-studio.mjs
+index a810df7..8051b9c 100755
+--- a/bin/form-studio.mjs
++++ b/bin/form-studio.mjs
+@@ -134,7 +134,7 @@ async function render(input,values){
+  const timeout=number(values,'timeout',1000,300000);const {chromium}=await import('playwright');const {server,url}=await serveDist();let browser;
+  try{const launch={headless:true,args:['--enable-webgl','--ignore-gpu-blocklist','--use-angle=swiftshader-webgl','--disable-dev-shm-usage']};const executable=values.browser||process.env.FORM_STUDIO_BROWSER;if(executable)launch.executablePath=resolve(executable);
+   try{browser=await chromium.launch(launch)}catch(e){throw Error(`Chromium could not start. Run "npx playwright install chromium" or pass --browser /path/to/chrome. ${e.message}`)}
+-  const page=await browser.newPage({viewport:{width:430,height:932},deviceScaleFactor:1});page.setDefaultTimeout(timeout);await page.goto(url,{waitUntil:'load'});await page.waitForFunction(()=>window.__FORM_STUDIO__?.version);await page.setInputFiles('#screenshot-upload',source);await page.evaluate(t=>window.__FORM_STUDIO__.waitUntilReady(t),timeout);const data=await page.evaluate(c=>window.__FORM_STUDIO__.render(c),config);const output=resolve(values.output??join(dirname(source),`${basename(source,extname(source))}-mockup.png`));const bytes=Buffer.from(data.slice(data.indexOf(',')+1),'base64');await writeFile(output,bytes);const metadata={output,width:bytes.readUInt32BE(16),height:bytes.readUInt32BE(20),bytes:bytes.length};console.log(values.json?JSON.stringify(metadata):output);
++  const page=await browser.newPage({viewport:{width:430,height:932},deviceScaleFactor:1});page.setDefaultTimeout(timeout);await page.goto(url,{waitUntil:'load'});await page.waitForFunction(()=>window.__FORM_STUDIO__?.version);await page.evaluate(t=>window.__FORM_STUDIO__.waitUntilReady(t),timeout);await page.setInputFiles('#screenshot-upload',source);await page.evaluate(t=>window.__FORM_STUDIO__.waitUntilReady(t),timeout);const data=await page.evaluate(c=>window.__FORM_STUDIO__.render(c),config);const output=resolve(values.output??join(dirname(source),`${basename(source,extname(source))}-mockup.png`));const bytes=Buffer.from(data.slice(data.indexOf(',')+1),'base64');await writeFile(output,bytes);const metadata={output,width:bytes.readUInt32BE(16),height:bytes.readUInt32BE(20),bytes:bytes.length};console.log(values.json?JSON.stringify(metadata):output);
+  }finally{if(browser)await browser.close();await new Promise(r=>server.close(r))}
+ }
+ async function main(){

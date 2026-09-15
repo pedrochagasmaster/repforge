@@ -139,7 +139,7 @@ function loadRuntimeDicts() {
 
 function htmlI18nKeys(html) {
   const keys = new Set();
-  for (const attr of ["data-i18n", "data-i18n-aria", "data-i18n-placeholder", "data-i18n-title"]) {
+  for (const attr of ["data-i18n", "data-i18n-aria", "data-i18n-placeholder", "data-i18n-title", "data-i18n-alt"]) {
     const re = new RegExp(`${attr}="([^"]+)"`, "g");
     let m;
     while ((m = re.exec(html))) keys.add(m[1]);
@@ -169,8 +169,7 @@ function extractJsKeys(src) {
 }
 
 const DYNAMIC_FAMILIES = [
-  { test: (s) => s.includes("tour.${tourStep}.title") || s.includes('"tour."'), keys: (en) => Object.keys(en).filter((k) => /^tour\.\d+\.title$/.test(k)) },
-  { test: (s) => s.includes("tour.${tourStep}.body"), keys: (en) => Object.keys(en).filter((k) => /^tour\.\d+\.body$/.test(k)) },
+  { test: (s) => s.includes("guide.${id}.title") || s.includes("guide.${id}.body"), keys: (en) => Object.keys(en).filter((k) => /^guide\.(entry|install|privacy)\.(title|body)$/.test(k)) },
   { test: (s) => s.includes("onb.title.${onbStep}"), keys: (en) => Object.keys(en).filter((k) => /^onb\.title\.\d+$/.test(k)) },
   { test: (s) => s.includes("entry.desired_result.${"), keys: (en) => Object.keys(en).filter((k) => /^entry\.desired_result\.[^.]+\.(label|sub)$/.test(k)) },
   { test: (s) => s.includes("entry.background.experience.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.background.experience.") && k !== "entry.background.experience.label") },
@@ -262,9 +261,7 @@ async function runBrowserParity(en, pt) {
         document.querySelector(`nav button[data-view="${view}"]`)?.click();
       }
       window.__repforgeShowSettings?.();
-      window.startTour?.("replay");
-      for (let i = 0; i < 11; i++) document.querySelector("#tourNext")?.click();
-      window.closeTour?.();
+      for (const id of ["entry", "install", "privacy"]) window.__repforgeUi?.showGuide?.(id);
     };
     window.RepForgeI18n.setLang("en");
     window.RepForgeI18n.applyDom();
@@ -320,13 +317,13 @@ async function main() {
   const privacyCopy = {
     en: {
       "meta.description": "Taurifer keeps workout logs, drafts, and history on this device. Setup links share a program and selected settings.",
-      "tour.0.body": "Workout logs, drafts, and history stay on this device. Taurifer never uploads them. Setup links share a program, its configuration, eight selected settings, and the app language. They never include workout history. Choose <b>Next</b> to see each part of the app, or <b>Skip tour</b> to close this guide.",
-      "program.share_setup_body": "The link shares this program, its configuration, eight selected settings, and the app language. It does not include workout history. For iOS installation, a temporary cookie stores the compressed proposal. The static host receives that cookie with matching index.html requests for up to seven days. Compression and encoding do not encrypt the proposal.",
+      "guide.privacy.body": "Open Privacy for the exact local-storage, setup-link, transfer, and analytics boundaries.",
+      "privacy.setup.body": "A setup link carries a program proposal in its #setup= fragment. It is an unencrypted bearer link, so anyone you forward it to can read and use it. For the iOS Home Screen handoff, the temporary repforge_setup_v1 cookie carries that proposal to the static host for up to seven days. It never includes workout logs or program history.",
     },
     pt: {
       "meta.description": "O Taurifer mantém seus treinos, rascunhos e histórico neste dispositivo. Links de configuração compartilham um programa e ajustes selecionados.",
-      "tour.0.body": "Seus treinos, rascunhos e histórico ficam neste dispositivo. O Taurifer nunca os envia. Links de configuração compartilham um programa, sua configuração, oito ajustes selecionados e o idioma do app. Eles nunca incluem o histórico de treinos. Toque em <b>Próximo</b> para conhecer cada parte do app ou em <b>Pular tour</b> para fechar este guia.",
-      "program.share_setup_body": "O link compartilha este programa, sua configuração, oito ajustes selecionados e o idioma do app. Ele não inclui o histórico de treinos. Para instalar no iOS, um cookie temporário armazena a proposta comprimida. O host estático recebe esse cookie com as requisições correspondentes de index.html por até sete dias. A compressão e a codificação não criptografam a proposta.",
+      "guide.privacy.body": "Abra Privacidade para ver os limites exatos de armazenamento local, links, transferência e análise de uso.",
+      "privacy.setup.body": "Um link de configuração leva uma proposta de programa no fragmento #setup=. Ele é um link portador sem criptografia: qualquer pessoa para quem você o encaminhar pode ler e usar a proposta. Para a passagem à Tela de Início no iOS, o cookie temporário repforge_setup_v1 leva essa proposta ao host estático por até sete dias. Ele nunca inclui registros de treino nem histórico de programas.",
     },
   };
   for (const lang of ["en", "pt"]) {
@@ -339,22 +336,14 @@ async function main() {
   const phBad = enKeys.filter((k) => placeholders(en[k]).join(",") !== placeholders(pt[k]).join(","));
   assert(!phBad.length, "EN/PT placeholder names match for every key", phBad.slice(0, 8).join(", "));
 
-  const canonicalEthos = {
-    en: "Challenge after challenge.\nDay after day.\nEvery time you go beyond\nwhat you thought possible,\nthe effort shapes you.\n\nIt becomes part of\nwho you are.\nAnd you become who you needed to be.\n\nStrength, then, is yours —\nnot because it was given to you,\nbut because you built it.",
-    pt: "Desafio após desafio.\nDia após dia.\nToda vez que você vai além\ndo que julgava possível,\no esforço molda você.\n\nEle passa a fazer parte\nde quem você é.\nE você se torna quem precisou ser.\n\nA força, então, é sua —\nnão porque lhe foi dada,\nmas porque você a construiu.",
-  };
   const punctuationPattern = /[—“”‘’]/u;
   for (const [lang, dict] of Object.entries({ en, pt })) {
-    assert(
-      dict["setup.ethos.body"] === canonicalEthos[lang],
-      `${lang.toUpperCase()} setup ethos poem remains canonical`
-    );
     const punctuationMisses = Object.entries(dict)
-      .filter(([key, value]) => key !== "setup.ethos.body" && punctuationPattern.test(value))
+      .filter(([, value]) => punctuationPattern.test(value))
       .map(([key]) => key);
     assert(
       !punctuationMisses.length,
-      `${lang.toUpperCase()} app copy avoids em dashes and curly quotes outside the fixed ethos poem`,
+      `${lang.toUpperCase()} app copy avoids em dashes and curly quotes`,
       punctuationMisses.slice(0, 8).join(", ")
     );
     const unfinishedToasts = Object.entries(dict)
@@ -455,7 +444,6 @@ async function main() {
 
   const controlReferences = [
     ["log.unfinished.body", "log.finish"],
-    ["tour.8.body", "program.end_block"],
   ];
   for (const [lang, dict] of Object.entries({ en, pt })) {
     const staleControls = controlReferences

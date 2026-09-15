@@ -107,10 +107,13 @@ the app past the gate stays as quiet as it was.
 ## Superseded in part (UI overhaul, Plan 049)
 
 The landing composition above — full Milo hero plus complete poem passage as
-the first-run gate — is superseded by G-09, G-18–G-21, G-51, and G-73,
-specified by Plan 054: a product-explaining landing headed `Get the right
-program. Know what to do next.`, a restrained product preview (owner-selected
-from imagegen directions), one early `Start training` action, one short ethos
-line, and removal of the complete passage. Retained: the brand identity, the
-theme ban on every working surface, the mark and ground mechanics, and the
-shared-link consent boundary (which the adaptive landing preserves per G-37).
+the first-run gate — is superseded by G-09, G-18–G-21, G-51, and G-73 in Plan
+054. After the mandatory direction gate, the owner supplied and selected the
+exact target recorded in `docs/design/plan-054-landing-directions.md` (artifact
+SHA-256 `390f3fccf2fb24a766146311754599c3c3f0217568c05db0ffc029735674812e`).
+The shipped landing now leads with `Stop guessing what to lift. And start
+progressing.`, early Build and Track actions, and a live prescription → logged
+sets → next target preview. The complete passage and Milo illustration are no
+longer rendered or precached. Retained: brand identity, mark and ground
+mechanics, the theme ban on working surfaces, and the shared-link consent
+boundary, which the adaptive landing preserves per G-37.

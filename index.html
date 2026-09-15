@@ -458,10 +458,16 @@
           <span class="settings-row__label" data-i18n="settings.language">Language</span>
           <span class="settings-row__value"><select id="lang" class="select-flat"><option value="en">English</option><option value="pt">Português</option></select></span>
         </label>
-        <button type="button" class="settings-row" id="replayTour">
-          <span class="settings-row__label" data-i18n="settings.replay_tour">Take the app tour</span>
+        <button type="button" class="settings-row" id="guideReplayToggle" aria-expanded="false" aria-controls="guideReplayPanel">
+          <span class="settings-row__label" data-i18n="settings.guides">Contextual guides</span>
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
         </button>
+        <div id="guideReplayPanel" class="settings-panel guide-replay" aria-hidden="true">
+          <p class="lede" data-i18n="settings.guides_body">Replay one guide without changing your training data.</p>
+          <button type="button" class="btn btn--steel" data-guide-replay="entry" data-i18n="guide.entry.title">Choose how to begin</button>
+          <button type="button" class="btn btn--steel" data-guide-replay="install" data-i18n="guide.install.title">Install when it helps</button>
+          <button type="button" class="btn btn--steel" data-guide-replay="privacy" data-i18n="guide.privacy.title">Know what stays private</button>
+        </div>
         <div class="settings-row" style="cursor:default">
           <span class="settings-row__label" data-i18n="settings.about">About</span>
           <span class="settings-row__value">1.0</span>
@@ -604,91 +610,93 @@
       <button type="button" id="endBlockCancel" class="btn btn--steel" data-i18n="dialog.cancel">Cancel</button>
     </div>
   </dialog>
-  <div id="tour" class="tour hidden" role="dialog" aria-modal="true" data-i18n-aria="tour.aria" aria-label="App tour">
-    <div class="tour__card">
-      <div class="tour__head">
-        <p class="tour__eyebrow" id="tourEyebrow" data-i18n="tour.eyebrow">Tour</p>
-        <button type="button" id="tourSkip" class="tour__skip" data-i18n="tour.skip">Skip tour</button>
-      </div>
-      <h3 class="tour__title" id="tourTitle"></h3>
-      <p class="tour__body" id="tourBody"></p>
-      <div class="tour__extra" id="tourExtra"></div>
-      <div class="tour__dots" id="tourDots" aria-hidden="true"></div>
-      <div class="tour__nav">
-        <button type="button" id="tourBack" class="btn btn--steel" data-i18n="tour.back">Back</button>
-        <button type="button" id="tourNext" class="btn btn--cta" data-i18n="tour.next">Next</button>
-      </div>
-    </div>
-  </div>
-  <!-- First-run setup. The install section is written by app.js from what the
-       browser actually offers — a captured beforeinstallprompt, iOS Safari's
-       manual Home Screen flow, or nothing at all — never from screen size. -->
+  <!-- One-time entry landing. Its program loop is ordinary HTML so the same
+       prescription, logged work, and next target remain legible without an
+       image. Shared links adapt this surface before any proposal is stored. -->
   <div id="firstRun" class="firstrun hidden ph-no-capture" role="dialog" aria-modal="true" tabindex="-1" data-i18n-aria="setup.aria" aria-label="Set up Taurifer">
     <div class="firstrun__inner">
-      <div class="firstrun__brand">
-        <!-- The gate draws the mark on the page, not on a plate, so it uses the
-             ground-free rendering of icons/icon.svg (tools/build-brand-mark.mjs)
-             rather than the app icon, which carries its own warm ground. -->
-        <img class="firstrun__logo" src="assets/brand/mark.png" alt="" width="48" height="48">
-        <span class="firstrun__wordmark">Taurifer</span>
-      </div>
-      <h1 class="visually-hidden" data-i18n="setup.title">Set up Taurifer</h1>
-      <!-- The one user-facing rendering of the ethos (ADR 0006). The body is
-           set like a poem: its string carries its own line breaks, which
-           `white-space:pre-line` honours, so the block breaks where it was
-           written rather than wherever the phone happens to wrap it. The art
-           element sits between the sentence and poem in source order: the
-           responsive grid gives it a dedicated row on compact screens and a
-           dedicated column on wider ones, so neither language ever competes
-           with or overlaps the picture. The fallback below is the same copy
-           as one paragraph, for the moment before i18n applies. The
-           illustration itself is decorative and drawn by CSS from
-           assets/brand/milo-hero.webp — an absent export leaves paper, never a
-           broken image; details are in assets/brand/README.md. -->
+      <header class="firstrun__header">
+        <div class="firstrun__brand">
+          <img class="firstrun__logo" src="assets/brand/mark.png" alt="" width="48" height="48">
+          <span class="firstrun__wordmark">Taurifer</span>
+        </div>
+        <div class="firstrun__utility">
+          <button type="button" class="firstrun__utility-action hidden" id="firstRunInstallLink">
+            <span class="firstrun__install-icon" aria-hidden="true"></span>
+            <span data-i18n="landing.install">Install app</span>
+          </button>
+          <button type="button" class="firstrun__utility-action" id="firstRunPrivacy" data-i18n="privacy.title">Privacy</button>
+        </div>
+      </header>
+
       <div class="firstrun-hero">
-        <p class="firstrun-hero__title" data-i18n="setup.ethos.title">Strength isn't something you're born with.</p>
-        <div class="firstrun-hero__art" aria-hidden="true"></div>
-        <p class="firstrun-hero__body" data-i18n="setup.ethos.body">Challenge after challenge. Day after day. Every time you go beyond what you thought possible, the effort shapes you. It becomes part of who you are. And you become who you needed to be. Strength, then, is yours — not because it was given to you, but because you built it.</p>
+        <div class="firstrun-hero__copy">
+          <p class="firstrun__eyebrow firstrun__shared-only" data-i18n="landing.shared.eyebrow">Program received</p>
+          <h1 class="firstrun-hero__title" id="firstRunHeadline" data-i18n="landing.headline">Walk into the gym knowing exactly what to do.</h1>
+          <p class="firstrun__lede" id="firstRunLede" data-i18n="landing.body">Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load.</p>
+
+          <p id="firstRunSharedError" class="firstrun__error hidden" role="status"></p>
+          <div id="firstRunStandardProgram" class="firstrun__actions">
+            <button type="button" class="firstrun__cta firstrun__cta--primary" id="firstRunCreate">
+              <span data-i18n="landing.build">Build my program</span><span class="firstrun-row__go" aria-hidden="true"></span>
+            </button>
+            <button type="button" class="firstrun__cta firstrun__cta--secondary" id="firstRunImport">
+              <span data-i18n="landing.track">Track my current program</span><span class="firstrun-row__go" aria-hidden="true"></span>
+            </button>
+          </div>
+          <div id="firstRunSharedProgram" class="firstrun__actions hidden">
+            <button type="button" class="firstrun__cta firstrun__cta--primary" id="firstRunSharedStart">
+              <span class="firstrun-row__text">
+                <span class="firstrun-row__title" id="firstRunSharedTitle" data-i18n="setup.shared.title">Start this program</span>
+                <span class="firstrun-row__cap" id="firstRunSharedCap"></span>
+              </span>
+              <span class="firstrun-row__busy hidden" id="firstRunSharedBusy" aria-hidden="true"></span>
+              <span class="firstrun-row__go" aria-hidden="true"></span>
+            </button>
+          </div>
+        </div>
+
+        <figure class="firstrun-proof" aria-labelledby="landingProofCaption">
+          <figcaption id="landingProofCaption" class="firstrun-proof__caption" data-i18n="landing.proof.example">A training example</figcaption>
+          <div class="firstrun-proof__prescription">
+            <span class="firstrun-proof__label" data-i18n="landing.proof.program">01 / The program</span>
+            <strong data-i18n="landing.proof.exercise">Barbell bench press</strong>
+            <p class="firstrun-proof__note" data-i18n="landing.proof.prescription">3 sets · 8–10 reps · RIR 0–2</p>
+          </div>
+          <div class="firstrun-proof__device">
+            <img class="firstrun-preview" id="landingDevice" src="assets/brand/landing-workout-en-light.webp"
+                 width="759" height="1566" decoding="async" data-i18n-alt="landing.preview.alt"
+                 alt="Taurifer showing three bench-press sets logged at 60 kg for 10 reps, RIR 2. The next target is 62.5 kg for 8 reps, within the program's 8–10 reps and RIR 0–2.">
+          </div>
+          <div class="firstrun-proof__result">
+            <div class="firstrun-proof__logged">
+              <span class="firstrun-proof__label" data-i18n="landing.proof.logged">02 / You logged</span>
+              <strong data-i18n="landing.proof.completed">60 kg × 10</strong>
+              <p class="firstrun-proof__note" data-i18n="landing.proof.effort">All 3 sets · RIR 2</p>
+              <p class="firstrun-proof__reason" data-i18n="landing.proof.reason">Top of the rep range reached. Add load, then build the reps again.</p>
+            </div>
+            <div class="firstrun-proof__target">
+              <span class="firstrun-proof__label" data-i18n="landing.proof.next">03 / Next session</span>
+              <p class="firstrun-proof__next"><strong data-i18n="landing.proof.load">62.5</strong><span>kg</span></p>
+              <p class="firstrun-proof__reps" data-i18n="landing.proof.reps">3 sets × 8 reps</p>
+            </div>
+          </div>
+        </figure>
+
+      <footer class="firstrun__closing">
+        <div>
+          <h2 data-i18n="landing.closing.title">Know what to do, every set</h2>
+          <p data-i18n="landing.closing.body">See the load, reps, and target for every set.</p>
+        </div>
+        <p class="firstrun__ethos" data-i18n="landing.ethos">Plan.
+Lift.
+Progress.</p>
+      </footer>
       </div>
-      <p class="firstrun__lede" id="firstRunLede" data-i18n="setup.lede">Install Taurifer, then choose how to begin.</p>
 
       <section id="firstRunInstall" class="firstrun__section hidden" aria-labelledby="firstRunInstallLabel">
         <p class="firstrun__eyebrow" id="firstRunInstallLabel" data-i18n="setup.install_label">Install</p>
         <div id="firstRunInstallCard" class="installcard"></div>
-      </section>
-
-      <section class="firstrun__section" aria-labelledby="firstRunProgramLabel">
-        <p class="firstrun__eyebrow" id="firstRunProgramLabel" data-i18n="setup.program_label">Program</p>
-        <p id="firstRunSharedError" class="firstrun__error hidden" role="status"></p>
-        <div id="firstRunStandardProgram" class="firstrun__rows">
-          <button type="button" class="firstrun-row" id="firstRunCreate">
-            <span class="firstrun-row__icon firstrun-row__icon--plus" aria-hidden="true"></span>
-            <span class="firstrun-row__text">
-              <span class="firstrun-row__title" data-i18n="setup.create.title">Create a program</span>
-              <span class="firstrun-row__cap" data-i18n="setup.create.cap">Answer a few questions or build your own program</span>
-            </span>
-            <span class="firstrun-row__go" aria-hidden="true"></span>
-          </button>
-          <button type="button" class="firstrun-row" id="firstRunImport">
-            <span class="firstrun-row__icon firstrun-row__icon--import" aria-hidden="true"></span>
-            <span class="firstrun-row__text">
-              <span class="firstrun-row__title" data-i18n="setup.import.title">Import a program</span>
-              <span class="firstrun-row__cap" data-i18n="setup.import.cap">Use a shared Taurifer program</span>
-            </span>
-            <span class="firstrun-row__go" aria-hidden="true"></span>
-          </button>
-        </div>
-        <div id="firstRunSharedProgram" class="firstrun__rows hidden">
-          <button type="button" class="firstrun-row" id="firstRunSharedStart">
-            <span class="firstrun-row__icon firstrun-row__icon--start" aria-hidden="true"></span>
-            <span class="firstrun-row__text">
-              <span class="firstrun-row__title" id="firstRunSharedTitle" data-i18n="setup.shared.title">Start this program</span>
-              <span class="firstrun-row__cap" id="firstRunSharedCap"></span>
-            </span>
-            <span class="firstrun-row__busy hidden" id="firstRunSharedBusy" aria-hidden="true"></span>
-            <span class="firstrun-row__go" aria-hidden="true"></span>
-          </button>
-        </div>
       </section>
 
       <button type="button" class="firstrun__continue" id="firstRunContinue">
@@ -727,6 +735,10 @@
         <button type="button" class="whysheet__close" id="privacyClose" data-i18n-aria="dialog.close" aria-label="Close">✕</button>
       </div>
       <div class="privacy-sheet__body">
+        <section aria-labelledby="privacySetupTitle">
+          <h3 id="privacySetupTitle" data-i18n="privacy.setup.title">Program setup links</h3>
+          <p data-i18n="privacy.setup.body">A setup link carries a program proposal in its #setup= fragment. It is an unencrypted bearer link, so anyone you forward it to can read and use it. For the iOS Home Screen handoff, the temporary repforge_setup_v1 cookie carries that proposal to the static host for up to seven days. It never includes workout logs or program history.</p>
+        </section>
         <section aria-labelledby="privacyTransferTitle">
           <h3 id="privacyTransferTitle" data-i18n="privacy.transfer.title">Temporary install transfer</h3>
           <p data-i18n="privacy.transfer.contents">The encrypted logical clone includes your normalized program and workout state, history, archive and provenance, active workout draft, unfinished program setup, UI preferences, analytics consent, and stable telemetry identity. It excludes volatile locks, journals, transaction markers, cookies, permissions, cache state, and provider session state.</p>
@@ -737,6 +749,18 @@
           <p data-i18n="privacy.transfer.ratelimit">Create abuse counters use HMAC-derived IP buckets. They store no raw IP, are not linked to a transfer or token, and last no more than two minutes.</p>
           <p data-i18n="privacy.transfer.recovery">Safari keeps its original local data. After a completed or uncertain transfer it becomes a recovery snapshot. To resume there, you must confirm that future Safari and installed-app changes stay separate and never merge.</p>
           <p data-i18n="privacy.transfer.scope">The transfer preserves analytics consent, telemetry identity, and UI preferences. It is not an account, cloud backup, or synchronization. The intentional Safari and installed-app copies remain on their devices.</p>
+        </section>
+        <section aria-labelledby="privacyTelemetryTitle">
+          <h3 id="privacyTelemetryTitle" data-i18n="privacy.telemetry.title">Telemetry and consent</h3>
+          <p data-i18n="privacy.telemetry.body">Telemetry is opt-in under the consent policy in Settings. It sends coarse product funnels with a stable anonymous identity, never workout values, exercise names, notes, free text, setup links, transfer tokens, or backup data. You can turn it off at any time.</p>
+        </section>
+        <section aria-labelledby="privacyControlsTitle">
+          <h3 id="privacyControlsTitle" data-i18n="privacy.controls.title">Export and delete</h3>
+          <p data-i18n="privacy.controls.body">Use Settings to export a JSON backup before moving or clearing this browser. Delete workout history permanently removes logs and the active draft from local storage while keeping your program and Settings. The separate delete-all action names everything it removes before you confirm.</p>
+        </section>
+        <section aria-labelledby="privacyLimitationsTitle">
+          <h3 id="privacyLimitationsTitle" data-i18n="privacy.limitations.title">Limitations</h3>
+          <p data-i18n="privacy.limitations.body">Taurifer has no automatic cloud sync or server backup. Clearing browser storage or losing the device can make data unrecoverable without an export. A setup link is a bearer link, so forwarding it gives the recipient the proposal. Browser and installed-app copies do not merge.</p>
         </section>
       </div>
     </div>
@@ -863,7 +887,7 @@
       <span class="sheet__spacer" aria-hidden="true"></span>
     </div>
     <div class="sheet__body share-setup">
-      <p id="shareSetupBody" data-i18n="program.share_setup_body">The link shares this program, its configuration, eight selected settings, and the app language. It does not include workout history. For iOS installation, a temporary cookie stores the compressed proposal. The static host receives that cookie with matching index.html requests for up to seven days. Compression and encoding do not encrypt the proposal.</p>
+      <p id="shareSetupBody" data-i18n="program.share_setup_body">Create a setup link for this program. Copy the link or open the system Share sheet.</p>
       <p id="shareSetupLink" class="share-setup__link" tabindex="0"></p>
       <p id="shareSetupStatus" class="share-setup__status hidden" role="status"></p>
     </div>
@@ -988,6 +1012,12 @@
     <div id="toast" class="toast hidden" role="status" aria-live="polite" aria-atomic="true"></div>
     <div id="restAnnounce" class="visually-hidden" role="status" aria-live="polite" aria-atomic="true"></div>
   </div>
+  <div hidden aria-hidden="true">
+    <button type="button" id="tourBack" tabindex="-1"></button>
+    <button type="button" id="tourNext" tabindex="-1"></button>
+    <button type="button" id="tourSkip" tabindex="-1"></button>
+    <button type="button" id="replayTour" tabindex="-1"></button>
+  </div>
   <script src="telemetry.js"></script>
   <script src="posthog-init.js"></script>
   <script src="schedule.js"></script>
@@ -1002,17 +1032,19 @@
        reordering stays reachable through each row's Move controls. -->
   <script src="vendor/motion/motion.js"></script>
   <script src="vendor/dnd-kit/dnd-kit.js"></script>
-  <script src="motion-layer.js?v=234"></script>
-  <script src="program-compiler.js?v=234"></script>
-  <script src="program-entry.js?v=234"></script>
-  <script src="program-entry-adapter.js?v=234"></script>
-  <script src="program-editor.js?v=234"></script>
-  <script src="shared-setup.js?v=234"></script>
-  <script src="workout-draft.js?v=234"></script>
-  <script src="program-transition.js?v=234"></script>
+  <script src="motion-layer.js?v=255"></script>
+  <script src="program-compiler.js?v=255"></script>
+  <script src="program-entry.js?v=255"></script>
+  <script src="program-entry-adapter.js?v=255"></script>
+  <script src="program-editor.js?v=255"></script>
+  <script src="shared-setup.js?v=255"></script>
+  <script src="workout-draft.js?v=255"></script>
+  <script src="program-transition.js?v=255"></script>
   <script src="install-transfer-contract.js"></script>
   <script src="install-transfer.js"></script>
-  <script src="durable-state.js?v=234"></script>
-  <script src="app.js?v=234"></script>
+  <script src="install-policy.js?v=255"></script>
+  <script src="guide-registry.js?v=255"></script>
+  <script src="durable-state.js?v=255"></script>
+  <script src="app.js?v=255"></script>
 </body>
 </html>

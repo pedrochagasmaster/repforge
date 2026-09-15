@@ -554,6 +554,9 @@
     "id", "family", "familyId", "name", "namePt", "daysPerWeek", "blueprintId", "split",
     "complexity", "reentry", "source",
   ]);
+  const ALTERNATIVE_KEYS = new Set([...SELECTED_KEYS, "fingerprint", "provenance", "reason", "preview"]);
+  const ALTERNATIVE_REASON_KEYS = new Set(["code", "facts"]);
+  const ALTERNATIVE_REASON_CODES = new Set(["compatible_split_variation"]);
   const PREVIEW_KEYS = Object.freeze({
     recommend: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
     custom: new Set(["source", "family", "familyId", "frequency", "blueprintId", "program", "programStructure", "progressionRelations", "progressionIncompatibilities", "days", "limitations", "reductions", "provenance", "primaryMuscles", "deEmphasizedMuscles", "ignoredMuscles", "customExercises"]),
@@ -615,6 +618,28 @@
     if (hasOwn(value, "daysPerWeek") && (!Number.isInteger(value.daysPerWeek) || value.daysPerWeek < 2 || value.daysPerWeek > 6)) {
       issues.push(`${path}.daysPerWeek:invalid`);
     }
+  }
+
+  function validateAlternative(value, route, path, issues) {
+    if (!isPlainObject(value)) { issues.push(`${path}:not_object`); return; }
+    rejectUnknownKeys(value, ALTERNATIVE_KEYS, path, issues);
+    validateSelected(Object.fromEntries(Object.entries(value).filter(([key]) => SELECTED_KEYS.has(key))), path, issues);
+    if (!validToken(value.fingerprint)) issues.push(`${path}.fingerprint:invalid`);
+    if (!isPlainObject(value.provenance)) issues.push(`${path}.provenance:not_object`);
+    else rejectUnknownKeys(value.provenance, PROVENANCE_KEYS, `${path}.provenance`, issues);
+    if (!isPlainObject(value.reason)) issues.push(`${path}.reason:not_object`);
+    else {
+      rejectUnknownKeys(value.reason, ALTERNATIVE_REASON_KEYS, `${path}.reason`, issues);
+      if (!ALTERNATIVE_REASON_CODES.has(value.reason.code)) issues.push(`${path}.reason.code:invalid`);
+      if (!isPlainObject(value.reason.facts)) issues.push(`${path}.reason.facts:not_object`);
+      else for (const [key, fact] of Object.entries(value.reason.facts)) {
+        if (!/^[A-Za-z][A-Za-z0-9_-]{0,63}$/.test(key) || ["__proto__", "prototype", "constructor"].includes(key) ||
+          !["string", "number", "boolean"].includes(typeof fact) ||
+          (typeof fact === "number" && !Number.isFinite(fact)) ||
+          (typeof fact === "string" && fact.length > 200)) issues.push(`${path}.reason.facts.${key}:invalid`);
+      }
+    }
+    validatePreview(value.preview, route, `${path}.preview`, issues);
   }
 
   // Progression owns this field's vocabulary. It is a field name rather than
@@ -905,7 +930,16 @@
       else validatePreview(candidate.preview, route, "$.result.preview", issues);
       if (hasOwn(candidate, "selected")) validateSelected(candidate.selected, "$.result.selected", issues);
       if (hasOwn(candidate, "alternative") && candidate.alternative !== null) {
-        validateSelected(candidate.alternative, "$.result.alternative", issues);
+        const richAlternative = isPlainObject(candidate.alternative) &&
+          ["fingerprint", "provenance", "reason", "preview"].some((key) => hasOwn(candidate.alternative, key));
+        if (richAlternative) {
+          validateAlternative(candidate.alternative, route, "$.result.alternative", issues);
+          if (candidate.alternative.fingerprint === candidate.fingerprint) issues.push("$.result.alternative.fingerprint:not_independent");
+          if (candidate.alternative.blueprintId === candidate.selected?.blueprintId) issues.push("$.result.alternative.blueprintId:not_independent");
+          if (candidate.alternative.preview?.blueprintId !== candidate.alternative.blueprintId) issues.push("$.result.alternative.preview.blueprintId:mismatch");
+          if (candidate.alternative.preview?.frequency !== candidate.alternative.daysPerWeek) issues.push("$.result.alternative.preview.frequency:mismatch");
+        }
+        else validateSelected(candidate.alternative, "$.result.alternative", issues);
       }
       if (hasOwn(candidate, "candidates")) {
         if (!Array.isArray(candidate.candidates) || candidate.candidates.length > MAX_LIST_LENGTH) {
@@ -1446,7 +1480,8 @@
     if (config.liveActiveProgramRevision !== state.activeProgramRevisionAtStart) {
       return { ok: false, code: "active_program_changed", state: { ...clone(state), step: "activation_conflict" } };
     }
-    if ((state.step !== "preview" && state.step !== "editor") || state.result === null) {
+    const mergedRecommendation = state.step === "result" && (state.route === "recommend" || state.route === "custom");
+    if ((state.step !== "preview" && state.step !== "editor" && !mergedRecommendation) || state.result === null) {
       return { ok: false, code: "preview_not_ready" };
     }
     const candidateIssues = candidateActivationIssues(state);
