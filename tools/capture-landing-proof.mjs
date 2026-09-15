@@ -7,7 +7,7 @@ import {MINIMAL_PAYLOAD, BUILT_IN_IDS} from '../test/fixtures/shared-setup.mjs';
 import {settle} from './ui-screens/session.mjs';
 
 const {values} = parseArgs({options: {
-  source: {type: 'string'}, matrix: {type: 'string'}, 'fault-next': {type: 'boolean'}, 'fault-overflow': {type: 'boolean'},
+  cases: {type: 'string'}, source: {type: 'string'}, matrix: {type: 'string'}, 'fault-next': {type: 'boolean'}, 'fault-overflow': {type: 'boolean'}, 'fault-narrow': {type: 'boolean'}, 'fault-wrap': {type: 'boolean'},
 }});
 assert(Boolean(values.source) !== Boolean(values.matrix), 'Choose --source outputdir or --matrix outputdir');
 const output = resolve(values.source || values.matrix);
@@ -103,9 +103,9 @@ async function captureSource(browser) {
 
 const matrix = [
   ...[320, 360, 390, 430, 768].map(width => ({name: `${width}-en`, width})),
-  {name: '390-pt', lang: 'pt'}, {name: '390-dark', theme: 'dark'},
+  {name: '320-pt', width: 320, lang: 'pt'}, {name: '390-pt', lang: 'pt'}, {name: '390-dark', theme: 'dark'},
   {name: '390-pt-dark', lang: 'pt', theme: 'dark'},
-  {name: '390-text200', scale: 2}, {name: '390-pt-text200', lang: 'pt', scale: 2},
+  {name: '320-text200', width: 320, scale: 2}, {name: '320-pt-text200', width: 320, scale: 2, lang: 'pt'}, {name: '390-text200', scale: 2}, {name: '390-pt-text200', lang: 'pt', scale: 2},
   {name: '390-shared', route: 'shared'}, {name: '390-shared-pt', route: 'shared', lang: 'pt'},
   {name: '390-invalid', route: 'invalid'}, {name: '390-reduced', reducedMotion: 'reduce'},
   {name: '390-forced-colors', forcedColors: 'active'}, {name: '390-safe-insets', insets: true},
@@ -120,6 +120,26 @@ async function assertLanding(page, name, lang, theme) {
   assert.equal(await image.getAttribute('src'), `assets/brand/landing-workout-${lang}-${theme}.webp`, `${name}: localized device image`);
   assert(await image.evaluate(node => node.complete && node.naturalWidth > 0), `${name}: device image loaded`);
   if (values['fault-overflow']) await page.locator('.firstrun-proof__result').evaluate(node => {node.style.width = '200vw';});
+  if (values['fault-narrow']) await page.locator('.firstrun-proof__result').evaluate(node => {node.style.gridTemplateColumns = '1fr 1fr';});
+  if (values['fault-wrap']) await page.locator('.firstrun-proof__next').evaluate(node => {node.style.flexDirection = 'column';});
+  const composition = await page.evaluate(() => {
+    const box = selector => document.querySelector(selector).getBoundingClientRect();
+    const logged = box('.firstrun-proof__logged'), target = box('.firstrun-proof__target');
+    const load = box('.firstrun-proof__next strong'), unit = box('.firstrun-proof__next span');
+    const device = box('.firstrun-proof__device'), result = box('.firstrun-proof__result');
+    const closing = box('.firstrun__closing');
+    return {
+      narrowSequence: target.top >= logged.bottom + 16 && Math.abs(target.left - logged.left) <= 1,
+      loadAndUnitTogether: unit.left >= load.right - 1 && unit.top < load.bottom && unit.right <= target.right + 1,
+      deviceOverlap: Math.min(device.right, result.right) - Math.max(device.left, result.left) > 8 &&
+        Math.min(device.bottom, result.bottom) - Math.max(device.top, result.top) > 8,
+      endingAfterProof: closing.top >= Math.max(device.bottom, result.bottom),
+    };
+  });
+  if (page.viewportSize().width <= 340) assert(composition.narrowSequence, `${name}: full-width logged work precedes next session`);
+  assert(composition.loadAndUnitTogether, `${name}: load and unit stay together inside the target`);
+  assert(composition.deviceOverlap, `${name}: live result meets the device through controlled overlap`);
+  assert(composition.endingAfterProof, `${name}: ending follows the whole proof`);
   const geometry = await page.evaluate(() => {
     const root = document.documentElement, landing = document.querySelector('#firstRun');
     return {document: root.scrollWidth - root.clientWidth, landing: landing.scrollWidth - landing.clientWidth};
@@ -139,11 +159,13 @@ async function assertLanding(page, name, lang, theme) {
   }
   await page.locator('#firstRun').evaluate(node => {node.scrollTop = 0;});
   await settle(page);
-  return {controls: count, overflow: geometry};
+  return {controls: count, overflow: geometry, composition};
 }
 
 async function captureMatrix(browser) {
-  for (const item of matrix) {
+  const selected = values.cases ? values.cases.split(',') : matrix.map(item => item.name);
+  assert(selected.length && selected.every(name => matrix.some(item => item.name === name)), 'Every requested case must exist');
+  for (const item of matrix.filter(item => selected.includes(item.name))) {
     const config = {width: 390, height: item.width === 768 ? 1024 : 844, lang: 'en', theme: 'light', reducedMotion: 'no-preference', ...item};
     const {page, context} = await open(browser, config);
     try {

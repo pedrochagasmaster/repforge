@@ -285,6 +285,10 @@ const heroShape = () => {
   const secondControl = document.querySelector("#firstRunImport");
   const proof = document.querySelector(".firstrun-proof");
   const next = document.querySelector(".firstrun-proof__next");
+  const bounds = selector => document.querySelector(selector).getBoundingClientRect();
+  const logged = bounds('.firstrun-proof__logged'), target = bounds('.firstrun-proof__target');
+  const load = bounds('.firstrun-proof__next strong'), unit = bounds('.firstrun-proof__next span');
+  const device = bounds('.firstrun-proof__device'), result = bounds('.firstrun-proof__result');
   const row = document.querySelector(".firstrun__brand").getBoundingClientRect();
   const p = preview.getBoundingClientRect();
   const copy = document.querySelector(".firstrun-hero__copy").getBoundingClientRect();
@@ -294,6 +298,10 @@ const heroShape = () => {
   const intersects = (one, two) =>
     one.left < two.right && one.right > two.left && one.top < two.bottom && one.bottom > two.top;
   return {
+    narrowSequence: target.top >= logged.bottom + 16 && Math.abs(target.left - logged.left) <= 1,
+    unitWithLoad: unit.left >= load.right - 1 && unit.top < load.bottom && unit.right <= target.right + 1,
+    deviceJoined: intersects(device, result),
+    endingAfterProof: bounds('.firstrun__closing').top >= Math.max(device.bottom, result.bottom),
     titleAlign: getComputedStyle(title).textAlign,
     previewSeparated: !intersects(p, controls) && !intersects(p, t) && !intersects(p, lede.getBoundingClientRect()),
     previewInsideViewport: p.left >= -1 && p.right <= innerWidth + 1,
@@ -335,12 +343,12 @@ async function run() {
     assert(!shown.section, "Chromium does not promote installation before first value", JSON.stringify(shown));
     assert(shown.title === null && shown.action === null, "the gated card exposes no dead install action", JSON.stringify(shown));
     assert(
-      shown.heroTitle === "Your last set.\nYour next move.",
+      shown.heroTitle === "Walk into the gym knowing exactly what to do.",
       "the product landing leads the gate",
       shown.heroTitle
     );
     assert(
-      shown.heroBody === "A strength program that turns the work you log into your next target.",
+      shown.heroBody === "Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load.",
       "the landing explains the product loop",
       JSON.stringify(shown.heroBody)
     );
@@ -506,7 +514,7 @@ async function run() {
     }));
     assert(st.create && st.import, "the screen still asks the program question", JSON.stringify(st));
     assert(!st.section, "no install section is drawn", JSON.stringify(st));
-    assert(st.lede === "A strength program that turns the work you log into your next target.", "the landing copy does not invent an unavailable install action", st.lede);
+    assert(st.lede === "Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load.", "the landing copy does not invent an unavailable install action", st.lede);
     assert(!st.continueShown, "no browser to continue in, no link offering it", JSON.stringify(st));
     assert(!st.banner && !st.topButton, "and nothing else promotes an install", JSON.stringify(st));
     allErrors.push(...errors);
@@ -535,7 +543,7 @@ async function run() {
     assert(st.create && st.import, "the installed app still offers Create and Import", JSON.stringify(st));
     assert(!st.onboarding, "it does not jump straight into the wizard", JSON.stringify(st));
     assert(!st.section, "it promotes no install", JSON.stringify(st));
-    assert(st.lede === "A strength program that turns the work you log into your next target.", "the installed landing keeps its product explanation", st.lede);
+    assert(st.lede === "Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load.", "the installed landing keeps its product explanation", st.lede);
     assert(!st.continueShown, "and there is no browser to continue in", JSON.stringify(st));
     assert(!st.banner, "the banner stays away", JSON.stringify(st));
     assert(!st.topButton, "the top install button stays away", JSON.stringify(st));
@@ -634,9 +642,9 @@ async function run() {
       pt.body
     );
     assert(pt.continueLabel === "Continuar no Safari", "PT escape hatch", pt.continueLabel);
-    assert(pt.heroTitle === "Da última série\nà próxima meta.", "PT landing title", pt.heroTitle);
+    assert(pt.heroTitle === "Chegue na academia sabendo exatamente o que fazer.", "PT landing title", pt.heroTitle);
     assert(
-      pt.heroBody === "Um programa de força que transforma suas séries registradas na próxima meta.",
+      pt.heroBody === "É só chegar e treinar. O Taurifer monta seus treinos, registra suas séries e já diz qual é a próxima carga.",
       "PT landing body",
       JSON.stringify(pt.heroBody)
     );
@@ -685,6 +693,9 @@ async function run() {
         assert(shape.noHorizontalOverflow, `${at}: the page has no horizontal overflow`, JSON.stringify(shape));
         assert(shape.copyInsideHero, `${at}: landing copy stays within its grid region`, JSON.stringify(shape));
         assert(shape.proofSeparated, `${at}: live product proof stays clear of headline and actions`, JSON.stringify(shape));
+        if (width <= 340) assert(shape.narrowSequence, `${at}: logged work precedes next session at full width`, JSON.stringify(shape));
+        assert(shape.unitWithLoad, `${at}: load and unit share a line within their column`, JSON.stringify(shape));
+        assert(shape.deviceJoined && shape.endingAfterProof, `${at}: device/result overlap and ending follow one composition`, JSON.stringify(shape));
         assert(shape.nextSize >= 16, `${at}: the next target remains readable live text`, JSON.stringify(shape));
         assert(/3 (?:sets|séries) · 8–10/.test(shape.proofFacts) && /RIR 0–2/.test(shape.proofFacts) &&
           /60 kg × 10/.test(shape.proofFacts) && /(?:All|As) 3 (?:sets|séries) · RIR 2/.test(shape.proofFacts) &&
@@ -743,6 +754,8 @@ async function run() {
           JSON.stringify({ before, after })
         );
         assert(shape.noHorizontalOverflow, `${at}: 200% root text produces no horizontal overflow`, JSON.stringify(shape));
+        assert(shape.unitWithLoad, `${at}: enlarged load and unit stay together within their column`, JSON.stringify(shape));
+        if (width <= 340) assert(shape.narrowSequence, `${at}: enlarged narrow stages retain causal order`, JSON.stringify(shape));
         assert(shape.previewSeparated && shape.proofSeparated, `${at}: 200% root text keeps the product proof clear of copy and actions`, JSON.stringify(shape));
         allErrors.push(...errors);
         await context.close();

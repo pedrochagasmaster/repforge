@@ -234,6 +234,9 @@ Following owner review of candidate implementation `210404ac`, this section reco
 
 ## Owner-directed product refinement, 2026-09-15
 
+The copy choice in this historical section was superseded by the bounded final
+pass below. Its accepted product assets and truthful fixture remain in use.
+
 The owner supplied `docs/taurifer-pr241-premium-landing-refinement.md` and
 explicitly authorized moving beyond literal reproduction of the selected
 raster. The earlier selection, photograph and device provenance above remain
@@ -287,3 +290,24 @@ records the source viewport, hardware-model attribution and export steps.
 This is a subsequent owner-directed refinement, not a retroactive change to the
 2026-09-13 selection. Plan 054 remains active. Physical iOS/Android review in
 EN/PT is pending, and PR #241 must not be merged on automated evidence alone.
+
+## Bounded final art-direction pass
+
+The owner accepted `42f93a8` as the product-led foundation and closed copy
+exploration. The final correction restores the exact EN/PT hero and ethos from
+`7970192`, and ends with its guidance benefit. It keeps the four accepted Form
+renders, actual progression fixture and all Plan 054 behavior.
+
+The composition now uses a full-width vertical logged-work/next-target sequence
+at 320. At 768, a single editorial introduction leads into one integrated
+phone/proof figure, with the closing below it. The live result overlaps the
+device, replacing the orange crop boundary. The next target carries the
+strongest emphasis, while the factual explanation belongs to the work that
+caused it. Header and CTA changes are optical refinements only.
+
+[Before/after evidence against `42f93a8`](../pr-proof/landing-final-pass/README.md)
+records the 19-case matrix, deliberate geometry failures and the remaining
+PT-at-200% word-break trade-off. The independent correction review found no
+remaining concrete visual blocker. This records implementation and browser
+review, not physical-device acceptance. PR #241 remains unmerged and Plan 054
+remains active.

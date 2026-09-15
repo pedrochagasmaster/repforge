@@ -8,7 +8,7 @@ live SHAs, thread ID, server origin, and PID before dispatch.
 
 - **Plan number:** 054
 - **Phase:** 3 — Landing and program entry
-- **Status:** Active; P1–P10 engineering implementation is published in PR #241. Owner-directed premium landing refinement is implemented for candidate review; physical-device acceptance remains open.
+- **Status:** Active; P1–P10 engineering implementation is published in PR #241. The owner-directed product-led landing and bounded final copy/composition correction are implemented for candidate review; physical-device acceptance remains open. See [final visual evidence](../docs/pr-proof/landing-final-pass/README.md).
 - **Owner approval state:** Product flow and the original landing target were approved. On 2026-09-15 the owner authorized the product-led refinement recorded in `docs/design/plan-054-landing-directions.md`; physical-device review remains required.
 - **Depends on:** Plan 049; Plan 050; accepted Plans 051–053; and the post-Plan053 durable-state architecture bridge, implemented in PR #240 and merged at current main `3710f34bb677c59674a3677c03d2fc1427e07cef`. Plan 050's shipped expert-control and copy/overflow components remain the starting point; the landing visual-selection gate remains mandatory.
 - **Blocks:** Relevant Plan 057 Settings/Privacy integration, Plan 058 full-system migration, and Plan 059 launch validation

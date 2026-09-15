@@ -1021,11 +1021,11 @@
   "setup.shared.existing": "This setup link can only be started during initial setup.",
   "setup.shared.commit_failed": "The program could not be started. Try again.",
   "landing.install": "Install app",
-  "landing.headline": "Your last set.\nYour next move.",
-  "landing.body": "A strength program that turns the work you log into your next target.",
+  "landing.headline": "Walk into the gym knowing exactly what to do.",
+  "landing.body": "Just show up and lift. Taurifer builds your workouts, logs your sets, and already tells you the next load.",
   "landing.build": "Build my program",
   "landing.track": "Track my current program",
-  "landing.ethos": "Plan. Lift. Progress.",
+  "landing.ethos": "Plan.\nLift.\nProgress.",
   "landing.shared.eyebrow": "Program received",
   "landing.shared.headline": "Your program is ready to train.",
   "landing.shared.body": "Review the program that was sent to you, then start it on this device.",
@@ -1863,6 +1863,6 @@
   "landing.proof.load": "62.5",
   "landing.proof.reps": "3 sets × 8 reps",
   "landing.proof.reason": "Top of the rep range reached. Add load, then build the reps again.",
-  "landing.closing.title": "The work stays with you.",
-  "landing.closing.body": "Your program, completed sets and next targets. Saved on this device, ready for your next session."
+  "landing.closing.title": "Know what to do, every set",
+  "landing.closing.body": "See the load, reps, and target for every set."
 }
