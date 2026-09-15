@@ -654,18 +654,28 @@
               <span class="firstrun-row__go" aria-hidden="true"></span>
             </button>
           </div>
-          <p class="firstrun__ethos" data-i18n="landing.ethos">Plan. Lift. Progress.</p>
         </div>
 
-        <!-- The owner-supplied device render. It is a photograph of the real
-             app, not a drawing of one, so the loop it shows — the target, the
-             work logged last session, and the set derived from them — lives in
-             its localized alt rather than in markup. Nothing on this surface
-             depends on it rendering. -->
-        <img class="firstrun-preview" src="assets/brand/landing-device.webp"
-             width="541" height="1058" decoding="async"
-             data-i18n-alt="landing.preview.alt"
-             alt="The Taurifer app open on a phone during a Push session in week 4. It shows the chest press target of 4–8 reps at RIR 0–2, the 152.5 kg for 7 reps logged last session, and the set it derives from them: hold 152.5 kg and aim for 8 reps.">
+        <!-- The foot of the hero. On a phone the ethos and the device render
+             share this row, which is what lifts the render into the first
+             screen instead of starting it a block below; the row wraps on its
+             own content, so enlarged text moves the render down rather than
+             into the annotation. Wide viewports give it `display:contents` and
+             lay both out against the copy column directly. Reading order is
+             unchanged either way. -->
+        <div class="firstrun-hero__foot">
+          <p class="firstrun__ethos" data-i18n="landing.ethos">Plan. Lift. Progress.</p>
+
+          <!-- The owner-supplied device render. It is a photograph of the real
+               app, not a drawing of one, so the loop it shows — the target, the
+               work logged last session, and the set derived from them — lives in
+               its localized alt rather than in markup. Nothing on this surface
+               depends on it rendering. -->
+          <img class="firstrun-preview" src="assets/brand/landing-device.webp"
+               width="541" height="1058" decoding="async"
+               data-i18n-alt="landing.preview.alt"
+               alt="The Taurifer app open on a phone during a Push session in week 4. It shows the chest press target of 4–8 reps at RIR 0–2, the 152.5 kg for 7 reps logged last session, and the set it derives from them: hold 152.5 kg and aim for 8 reps.">
+        </div>
       </div>
 
       <section class="firstrun-benefits" aria-label="Why Taurifer" data-i18n-aria="landing.benefits_aria">
@@ -1012,19 +1022,19 @@
        reordering stays reachable through each row's Move controls. -->
   <script src="vendor/motion/motion.js"></script>
   <script src="vendor/dnd-kit/dnd-kit.js"></script>
-  <script src="motion-layer.js?v=252"></script>
-  <script src="program-compiler.js?v=252"></script>
-  <script src="program-entry.js?v=252"></script>
-  <script src="program-entry-adapter.js?v=252"></script>
-  <script src="program-editor.js?v=252"></script>
-  <script src="shared-setup.js?v=252"></script>
-  <script src="workout-draft.js?v=252"></script>
-  <script src="program-transition.js?v=252"></script>
+  <script src="motion-layer.js?v=253"></script>
+  <script src="program-compiler.js?v=253"></script>
+  <script src="program-entry.js?v=253"></script>
+  <script src="program-entry-adapter.js?v=253"></script>
+  <script src="program-editor.js?v=253"></script>
+  <script src="shared-setup.js?v=253"></script>
+  <script src="workout-draft.js?v=253"></script>
+  <script src="program-transition.js?v=253"></script>
   <script src="install-transfer-contract.js"></script>
   <script src="install-transfer.js"></script>
-  <script src="install-policy.js?v=252"></script>
-  <script src="guide-registry.js?v=252"></script>
-  <script src="durable-state.js?v=252"></script>
-  <script src="app.js?v=252"></script>
+  <script src="install-policy.js?v=253"></script>
+  <script src="guide-registry.js?v=253"></script>
+  <script src="durable-state.js?v=253"></script>
+  <script src="app.js?v=253"></script>
 </body>
 </html>

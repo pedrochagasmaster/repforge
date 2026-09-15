@@ -919,11 +919,28 @@ async function run() {
       await page.goto(BASE, { waitUntil: "domcontentloaded" });
       await waitForAppBoot(page, { base: BASE });
 
+      // The entry landing deliberately presents no cue: it is a full-screen
+      // threshold whose job is the proposition, and every cue that could
+      // anchor to it restates a control it has already named. Sampling
+      // "whatever is on the first screen" therefore proves nothing about cue
+      // accessibility — drive to the chooser, which is where the entry guide
+      // is anchored, and audit the cue that genuinely renders there.
+      const landingCues = await page.evaluate(() =>
+        document.querySelectorAll(".guide-cue, [data-guide-cue]").length);
+      assert(
+        landingCues === 0,
+        "browser projection: the entry landing presents no contextual cue automatically",
+        String(landingCues)
+      );
+
+      await page.click("#firstRunCreate");
+      await page.waitForSelector("#onboarding.active", { timeout: 20000 });
+      await page.waitForSelector("[data-guide-cue='entry']", { timeout: 20000 });
+
       const cueA11y = await page.evaluate(() => {
-        // If a cue is rendered or can be triggered:
         const sampleCue = document.querySelector(".guide-cue, [data-guide-cue]");
         if (!sampleCue) {
-          return { cueFound: false, accessible: false, reason: "no cue rendered on initial screen" };
+          return { cueFound: false, accessible: false, reason: "no cue rendered at the chooser" };
         }
         const hasAriaRole =
           sampleCue.getAttribute("role") === "region" ||
@@ -935,30 +952,24 @@ async function run() {
         const dismissAccessible =
           dismissBtn &&
           (dismissBtn.hasAttribute("aria-label") || dismissBtn.textContent.trim().length > 0);
+        const anchor = document.querySelector(sampleCue.dataset.anchorTarget || "\\0");
         return {
           cueFound: true,
           hasAriaRole,
           hasAccessibleName,
           dismissAccessible: Boolean(dismissAccessible),
-          accessible: hasAriaRole && hasAccessibleName && Boolean(dismissAccessible),
+          anchored: Boolean(anchor),
+          notModal: !sampleCue.getAttribute("aria-modal"),
+          accessible: hasAriaRole && hasAccessibleName && Boolean(dismissAccessible) &&
+            Boolean(anchor) && !sampleCue.getAttribute("aria-modal"),
         };
       });
 
-      // When guide cues are implemented, verify semantic accessibility
-      if (cueA11y.cueFound) {
-        assert(
-          cueA11y.accessible,
-          "browser projection: guide cue implements accessible role, label, and focusable dismiss",
-          JSON.stringify(cueA11y)
-        );
-      } else {
-        assert(
-          false,
-          "browser projection: guide cue accessibility requires implemented cue presentation",
-          JSON.stringify(cueA11y),
-          true // Expected baseline RED on current head before P8 production changes
-        );
-      }
+      assert(
+        cueA11y.cueFound && cueA11y.accessible,
+        "browser projection: guide cue implements accessible role, label, anchor, and focusable dismiss",
+        JSON.stringify(cueA11y)
+      );
 
       await context.close();
     }

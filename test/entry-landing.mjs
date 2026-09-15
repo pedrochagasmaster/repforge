@@ -1021,19 +1021,38 @@ try {
       await page.reload({ waitUntil: "domcontentloaded" });
       await waitForAppBoot(page, { base: BASE });
 
-      const globals = await page.evaluate(() => ({
-        modalAbsent: !document.querySelector("#tour"),
-        globalsAbsent: typeof window.startTour !== "function" && typeof window.closeTour !== "function",
-        guideHook: typeof window.__repforgeUi?.guideState === "function",
-        // The generic landing offers exactly two named actions of its own;
-        // the "entry" cue explains the five-job chooser one screen later, so
-        // it must not be present here.
-        entryCueAbsentOnLanding: !document.querySelector("[data-guide-cue='entry']"),
-      }));
+      const globals = await page.evaluate(() => {
+        const cues = [...document.querySelectorAll("[data-guide-cue]")].map((el) => el.dataset.guideCue);
+        const headline = document.querySelector(".firstrun-hero__title");
+        const above = [...document.querySelectorAll("#firstRun [data-guide-cue]")]
+          .filter((el) => el.getBoundingClientRect().top < headline.getBoundingClientRect().top);
+        return {
+          modalAbsent: !document.querySelector("#tour"),
+          globalsAbsent: typeof window.startTour !== "function" && typeof window.closeTour !== "function",
+          guideHook: typeof window.__repforgeUi?.guideState === "function",
+          // The landing's whole job is the proposition, and every cue that can
+          // anchor to it restates a control it has already named. None may be
+          // presented automatically, and nothing may precede the headline.
+          cues,
+          cuesAboveHeadline: above.length,
+          // Presentation must not have been transitioned either: a cue that
+          // was recorded "shown" and then merely hidden would leave the guide
+          // spent for the context where it is actually useful.
+          guideState: window.__repforgeUi.guideState(),
+        };
+      });
       assert(globals.modalAbsent, "obsolete global tour markup is absent");
       assert(globals.globalsAbsent, "obsolete global tour hooks are absent");
       assert(globals.guideHook, "contextual guide state hook is present");
-      assert(globals.entryCueAbsentOnLanding, "the generic landing does not show the entry-chooser guide");
+      assert(globals.cues.length === 0,
+        "the generic landing presents no contextual guide automatically", JSON.stringify(globals.cues));
+      assert(globals.cuesAboveHeadline === 0,
+        "nothing precedes the landing headline", String(globals.cuesAboveHeadline));
+      assert(
+        ["entry", "install", "privacy"].every((id) => globals.guideState[id]?.status === "unseen"),
+        "the landing leaves every guide unseen rather than spending it",
+        JSON.stringify(globals.guideState)
+      );
 
       await page.click("#firstRunCreate");
       await page.waitForSelector("#onboarding.active");

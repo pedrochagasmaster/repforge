@@ -333,13 +333,34 @@ async function freeformTo(page, step) {
   }
 }
 
+/**
+ * A setup link carries the app language (ADR 0007), and the shared gate
+ * deliberately follows the *payload's* language rather than the device's — so
+ * a payload is not locale-neutral capture input the way a seeded state is.
+ * Feeding the English fixture to the `pt` variant produced a frame filed as
+ * PT-BR that could only ever render English, which reads as a localization
+ * bug in the app and is not one. Match the payload to the frame instead.
+ */
+function sharedPayloadFor(portuguese) {
+  if (!portuguese) return MINIMAL_PAYLOAD;
+  return {
+    ...MINIMAL_PAYLOAD,
+    program: {
+      ...MINIMAL_PAYLOAD.program,
+      meta: { ...MINIMAL_PAYLOAD.program.meta, name: "Programa do treinador" },
+    },
+    settings: { ...MINIMAL_PAYLOAD.settings, lang: "pt" },
+  };
+}
+
 /** Land on the setup-link gate, which is the shared route's real entrance. */
 async function sharedTo(page, step) {
+  const portuguese = await page.evaluate(() => document.documentElement.lang === "pt-BR");
   const fragment = await page.evaluate(async ({ payload, ids }) => {
     const encoded = await window.RepForgeSharedSetup.encode(payload, { builtInIds: ids });
     if (!encoded?.ok) throw new Error(`encode failed: ${encoded?.code || "unknown"}`);
     return encoded.value;
-  }, { payload: MINIMAL_PAYLOAD, ids: [...BUILT_IN_IDS] });
+  }, { payload: sharedPayloadFor(portuguese), ids: [...BUILT_IN_IDS] });
   await page.goto(`${BASE.replace(/\/?$/, "/")}index.html#setup=${fragment}`, { waitUntil: "domcontentloaded" });
   await waitForApp(page);
   await page.waitForSelector("#firstRunSharedStart", { timeout: 25000 });

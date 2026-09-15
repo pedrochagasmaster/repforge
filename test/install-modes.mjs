@@ -309,6 +309,14 @@ const heroShape = () => {
     logoWidth: Math.round(logo.getBoundingClientRect().width),
     wordmarkSize: parseFloat(getComputedStyle(wordmark).fontSize),
     lockupInsideViewport: row.left >= 0 && row.right <= innerWidth,
+    // How much of the device render is on the first screen. The owner audit
+    // rejected a composition where the product proof began several blocks
+    // below the proposition and read as decoration; "not overlapping" alone
+    // does not say it is part of the hero, so measure that it is.
+    previewVisibleFraction: +((Math.min(p.bottom, innerHeight) - p.top) / p.height).toFixed(3),
+    previewWidthFraction: +(p.width / innerWidth).toFixed(3),
+    // Vertical distance from the last entry action to the top of the render.
+    previewGapBelowActions: Math.round(p.top - controls.bottom),
   };
 };
 
@@ -690,6 +698,42 @@ async function run() {
             JSON.stringify(shape)
           );
         }
+        // The product proof belongs to the first visual argument, not to a
+        // later decorative band.
+        //
+        // 390 and 430 are the canonical phones and carry the real bar: the
+        // render shares the hero's foot row with the ethos, so it follows the
+        // entry actions immediately and is almost wholly on the first screen.
+        // 320 cannot hold that row — the ethos alone claims most of the
+        // measure — so the row wraps and the render stacks below. That is the
+        // deliberate compact fallback, and it is asserted as its own looser
+        // contract rather than hidden behind one averaged threshold.
+        if (width === 390 || width === 430) {
+          assert(
+            shape.previewVisibleFraction >= 0.75,
+            `${at}: the product preview is substantially on the first screen`,
+            JSON.stringify(shape)
+          );
+          assert(
+            shape.previewGapBelowActions <= 60,
+            `${at}: the product preview follows the entry actions as one composition`,
+            JSON.stringify(shape)
+          );
+        }
+        if (width === 320) {
+          assert(
+            shape.previewVisibleFraction >= 0.45,
+            `${at}: the stacked compact fallback still reaches the product preview on the first screen`,
+            JSON.stringify(shape)
+          );
+        }
+        if (width <= 430) {
+          assert(
+            shape.previewWidthFraction >= 0.4,
+            `${at}: the product preview is prominent, not an incidental thumbnail`,
+            JSON.stringify(shape)
+          );
+        }
         allErrors.push(...errors);
         await context.close();
       }
@@ -807,14 +851,48 @@ async function run() {
       await context.close();
     }
 
-    // The ethos line now sits on an explicit --bg chip rather than bare on the
+    // The ethos line sits on its own paper wash rather than bare on the
     // photograph, so its rendered background is a real, readable colour.
-    {
-      const { context, page, errors } = await firstRunPage(browser, { ua: IOS_UA, width: 390 });
+    // The wash is a masked `::after`, so contrast alone is not enough: prove
+    // the opaque part of it actually covers the text box, because a fade stop
+    // that drifted onto a glyph would leave the ratio measuring a colour the
+    // glyph is not really on. Checked in both locales and at 200% text, the
+    // three things that change the box's width.
+    for (const [locale, scale] of [["en-US", 1], ["pt-BR", 1], ["en-US", 2]]) {
+      const { context, page, errors } = await firstRunPage(browser, { ua: IOS_UA, width: 390, locale });
       await page.waitForSelector("#firstRun:not(.hidden)");
+      if (scale !== 1) {
+        await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+        await page.waitForTimeout(60);
+      }
+      const at = `${locale} x${scale}`;
       const info = await contrastOf(page, ".firstrun__ethos");
       const r = ratio(info.fg, info.bg);
-      assert(r + 1e-6 >= 4.5, "the ethos line meets 4.5:1 against its paper chip, not the photograph", JSON.stringify({ ...info, ratio: +r.toFixed(2) }));
+      assert(r + 1e-6 >= 4.5, `${at}: the ethos line meets 4.5:1 against its paper wash, not the photograph`,
+        JSON.stringify({ ...info, ratio: +r.toFixed(2) }));
+      const wash = await page.evaluate(() => {
+        const el = document.querySelector(".firstrun__ethos");
+        const after = getComputedStyle(el, "::after");
+        const insetOf = (side) => Math.abs(Number.parseFloat(after[side]) || 0);
+        // Each mask layer is opaque until `100% - <overhang>`, so the opaque
+        // core is the wash box minus exactly the right and bottom overhangs —
+        // which is the element's own border box. Compare the two.
+        return {
+          present: after.content !== "none",
+          background: after.backgroundColor,
+          right: insetOf("right"),
+          bottom: insetOf("bottom"),
+          mask: after.maskImage || after.webkitMaskImage || "",
+        };
+      });
+      const opaqueToRight = /calc\(100% - 40px\)/.test(wash.mask) && wash.right === 40;
+      const opaqueToBottom = /calc\(100% - 14px\)/.test(wash.mask) && wash.bottom === 14;
+      assert(
+        wash.present && /^rgba?\(/.test(wash.background) && !/,\s*0\s*\)/.test(wash.background) &&
+          opaqueToRight && opaqueToBottom,
+        `${at}: the ethos wash stays fully opaque across the text and fades only in its overhang`,
+        JSON.stringify(wash)
+      );
       allErrors.push(...errors);
       await context.close();
     }

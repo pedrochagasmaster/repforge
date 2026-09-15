@@ -13902,10 +13902,15 @@ function openFirstRun(kind=currentEntryLanding()){
   // The screen itself takes focus, not its first choice: a ring drawn around
   // Create before the lifter has touched anything reads as a recommendation.
   try{el.focus({preventScroll:true})}catch{}
-  // The "entry" guide anchors at the chooser's Recommend card, not here: the
-  // landing offers exactly two actions already named in its own copy, and
-  // the guide explains the five-job chooser one screen later.
-  queueMicrotask(()=>maybeShowContextualGuides(["install","privacy"]));
+  // No guide is presented here. This screen's whole job is the proposition,
+  // and every cue that could anchor to it explains a control the screen has
+  // already named: the two entry actions carry their own labels, the install
+  // card carries its own title and body, and Privacy is a standing link in
+  // the header. A cue above the headline pushed the product argument off the
+  // first paint to restate what was already on it. The guides themselves are
+  // untouched — "entry" shows at the chooser it explains, and "install" and
+  // "privacy" show in Settings, where they are anchored to controls whose
+  // purpose is not self-evident and where replay reaches them.
   if(kind==="generic"&&uiPrefs.entryLandingSeen!==true)setUiPref("entryLandingSeen",true);
   return true}
 function trapFirstRunTab(event){
@@ -14131,7 +14136,15 @@ function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=fa
   if(focus)queueMicrotask(()=>dismiss?.focus({preventScroll:true}));
   return true}
 function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
-  if(firstRunOpen()&&currentEntryLanding()!=="generic")return false;
+  // Never while the entry landing is up. It is a full-screen threshold whose
+  // one job is the proposition, and every cue that can anchor to it explains
+  // a control it has already named — the entry actions carry their labels,
+  // the install card carries its title and body, Privacy is a standing link.
+  // The app's ordinary render loop runs behind this gate, so the rule belongs
+  // here rather than at a call site: otherwise any future render path
+  // re-opens the same hole. The guides keep their state and their real
+  // moments — "entry" at the chooser, "install" and "privacy" in Settings.
+  if(firstRunOpen())return false;
   if(activeGuideCue?.isConnected&&activeGuideAnchor&&guideAnchor(guideDefinition(activeGuideId))===activeGuideAnchor)return true;
   removeContextualGuide();
   for(const id of ids)if(showContextualGuide(id))return true;

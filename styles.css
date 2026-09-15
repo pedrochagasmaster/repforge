@@ -3768,10 +3768,21 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12M7.5 10.5 12 15l4.5-4.5M4 16v4h16v-4'/%3E%3C/svg%3E") center/contain no-repeat;
 }
 .firstrun .firstrun-hero{
-  display:grid;grid-template-areas:"copy" "preview";grid-template-columns:minmax(0,1fr);
-  gap:28px;margin-top:clamp(20px,5vw,36px);
+  display:grid;grid-template-areas:"copy" "foot";grid-template-columns:minmax(0,1fr);
+  gap:22px;margin-top:clamp(18px,4.5vw,32px);
 }
 .firstrun-hero__copy{grid-area:copy;min-width:0}
+/* The ethos and the render share this row on a phone, and it wraps on its own
+   content rather than at a guessed width: the ethos floors at its longest
+   word, so once enlarged text makes that word wide enough to crowd the
+   render, the render drops to its own line by itself. A width breakpoint
+   cannot see text scale — media-query `em` is the browser's initial font
+   size, not the root size the 200% fixture sets — so this is the only
+   mechanism that actually tracks it. */
+.firstrun-hero__foot{
+  grid-area:foot;display:flex;flex-wrap:wrap;align-items:flex-start;
+  gap:18px 12px;min-width:0;
+}
 /* Sizes below are rem, not px/vw: a fixed px (or a vw component, which tracks
    viewport width rather than root font size) does not grow under the
    200%-text root-scale fixture, so this functional copy would stop following
@@ -3782,9 +3793,9 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   line-height:1.05;letter-spacing:-.03em;font-weight:700;
 }
 .firstrun .firstrun__lede{
-  max-width:35ch;margin:20px 0 0;font-size:1rem;line-height:1.4;color:var(--ink);
+  max-width:35ch;margin:18px 0 0;font-size:1rem;line-height:1.4;color:var(--ink);
 }
-.firstrun__actions{display:grid;gap:12px;max-width:390px;margin-top:26px}
+.firstrun__actions{display:grid;gap:10px;max-width:390px;margin-top:22px}
 .firstrun__cta{
   display:flex;align-items:center;justify-content:space-between;gap:18px;width:100%;min-height:54px;
   padding:12px 18px;border:1.5px solid var(--accent-deep);border-radius:4px;
@@ -3807,16 +3818,37 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   grid-area:preview;align-self:center;justify-self:center;display:block;
   width:100%;max-width:342px;height:auto;
 }
-/* A solid paper chip rather than bare text over the photograph: the crop
-   puts an unpredictable mix of lit wall and dark plate behind this line
-   depending on viewport and locale height, and near-black ink reads fine on
-   one and disappears on the other. A token-backed surface is predictable
-   everywhere the text shadows or a fixed image position would not be. */
+/* An editorial annotation, not a card.
+   The crop puts an unpredictable mix of lit wall and dark plate behind this
+   line depending on viewport and locale height, so it cannot rely on the
+   photograph's pixels — but an opaque rectangle with four hard edges reads
+   as a pasted-on chip. The backing is therefore a `::after` paper wash that
+   is flush with the text column on the left, bleeds past the text on the
+   right and bottom, and is masked so only that overhang fades out. Every
+   glyph still sits on fully opaque `--bg`, so the measured contrast is the
+   token pair and nothing else; what softens is only the empty margin. */
 .firstrun__ethos{
-  display:inline-block;max-width:18ch;margin:28px 0 0;padding:10px 14px;
-  background:var(--bg);
+  grid-area:ethos;justify-self:start;align-self:start;
+  flex:1 1 0;max-width:18ch;margin:0;padding:11px 0 2px;
   font-family:var(--mono);font-size:.8125rem;line-height:1.7;letter-spacing:.16em;
   text-transform:uppercase;white-space:pre-line;position:relative;color:var(--ink);
+}
+.firstrun__ethos::after{
+  content:"";position:absolute;z-index:-1;inset:-2px -40px -14px -12px;
+  background:var(--bg);
+  /* Feathered on the two edges that sit against open photograph. Each fade
+     starts exactly where the overhang starts — `100% - <that inset>` — so it
+     is the empty margin that softens and never a glyph, whatever the string
+     length, locale or text scale. A percentage stop would drift onto the
+     text as the box narrows. The layers intersect; an engine without
+     `mask-composite` unions them instead, which degrades to the plain opaque
+     rectangle rather than to unreadable text. */
+  -webkit-mask:linear-gradient(to right,black calc(100% - 40px),transparent 100%),
+    linear-gradient(to bottom,black calc(100% - 14px),transparent 100%);
+  mask:linear-gradient(to right,black calc(100% - 40px),transparent 100%),
+    linear-gradient(to bottom,black calc(100% - 14px),transparent 100%);
+  -webkit-mask-composite:source-in;
+  mask-composite:intersect;
 }
 .firstrun__ethos::before{
   content:"";position:absolute;top:0;left:0;
@@ -3843,30 +3875,39 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun .firstrun__section{width:min(100%,560px);margin:38px 0 0}
 .firstrun .firstrun__continue{margin:24px 0 0}
 
-/* Below 640px the hero stays a single stacked column (the base rule above):
-   the headline, subtitle and both actions always get the full measure, and
-   the device render sits below them, sized and bled to the right edge so it
-   stays prominent and integrated with the photograph without ever taking
-   width away from the copy above it. Because it is a separate row, it can
-   never collide with the title, lede or actions above it at any content
-   length — long Portuguese strings and 200% text included. */
+/* Compact composition.
+   The copy column keeps the full measure — headline, subtitle and both CTAs
+   span it, so nothing functional is narrowed and no label wraps into a
+   column. The render then shares the foot row with the ethos rather than
+   starting a block below it, and bleeds off the right edge, so proposition,
+   actions and product proof read as one composition. The row boundary keeps
+   a collision with the copy above structurally impossible at any string
+   length or text scale; within the row, wrapping handles the rest. */
 @media (max-width:639px){
-  .firstrun__actions{gap:9px}
   .firstrun-preview{
-    justify-self:end;
-    width:min(58%,236px);
-    margin:4px calc(-1 * var(--firstrun-pad)) 0 0;
+    flex:0 0 auto;margin-left:auto;margin-right:calc(-1 * var(--firstrun-pad));
+    width:min(62vw,252px);max-width:none;
   }
 }
 
 @media (max-width:359px){
-  .firstrun-preview{width:min(54%,184px)}
+  .firstrun-preview{width:min(66vw,214px)}
 }
 
+/* Wide: the copy column and the render stand side by side, and the ethos
+   returns to the foot of the copy column where there is room for it. The
+   foot wrapper steps out of the way with `display:contents` so both of its
+   children are laid out against the copy column directly. */
 @media (min-width:640px){
-  .firstrun .firstrun-hero{grid-template-areas:"copy preview";grid-template-columns:minmax(0,1fr) minmax(280px,42%);align-items:center;gap:clamp(30px,6vw,76px)}
+  .firstrun-hero__foot{display:contents}
+  .firstrun .firstrun-hero{
+    grid-template-areas:"copy preview" "ethos preview";
+    grid-template-columns:minmax(0,1fr) minmax(280px,42%);
+    grid-template-rows:auto 1fr;
+    align-items:start;column-gap:clamp(30px,6vw,76px);row-gap:30px;
+  }
   .firstrun .firstrun-hero__title{max-width:11ch;font-size:3.5rem}
-  .firstrun-preview{justify-self:end}
+  .firstrun-preview{align-self:center;justify-self:end}
   .firstrun-benefits{margin-left:0;margin-right:0}
   /* A portrait photograph cannot hold a landscape hero at the crop the phone
      gets: covering this width would put the plates behind the headline. Wide

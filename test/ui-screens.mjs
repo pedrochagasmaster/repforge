@@ -187,6 +187,92 @@ if (existsSync(screensRoot) && existsSync(semanticPath)) {
   assert.match(driftComparison.reasons.join("; "), /semantic text\/state changed/);
   assert.ok(driftComparison.reasons.every((reason) => reason.length < 500), "comparison details stay bounded");
 
+  // A localized frame must actually be localized.
+  //
+  // The setup-link gate follows the *payload's* language (ADR 0007), not the
+  // device's, so feeding an English fixture to a `pt` capture produced frames
+  // filed as PT-BR that could only ever render English — evidence that looks
+  // right and is not. Rather than hard-code the strings, derive the markers:
+  // any EN catalog value whose PT translation differs is an EN-only string,
+  // and a `pt` frame must not contain one verbatim.
+  const enCatalog = JSON.parse(readFileSync(resolve(root, "i18n-en.json"), "utf8"));
+  const ptCatalog = JSON.parse(readFileSync(resolve(root, "i18n-pt.json"), "utf8"));
+  const englishOnly = new Map();
+  for (const [key, value] of Object.entries(enCatalog)) {
+    const translated = ptCatalog[key];
+    if (typeof value !== "string" || typeof translated !== "string") continue;
+    // Short strings collide across languages ("Taurifer", "kg", "RIR"); only
+    // a real sentence or label is a reliable locale marker.
+    if (translated === value || value.trim().length < 12) continue;
+    if (!englishOnly.has(value.trim())) englishOnly.set(value.trim(), key);
+  }
+  assert.ok(englishOnly.size > 200, "the EN/PT catalogs yield enough locale markers to be a real oracle");
+  const localeLeaks = [];
+  for (const item of semanticArtifact.captures) {
+    if (item.locale !== "pt") continue;
+    for (const entry of item.semantic) {
+      for (const field of ["text", "name", "label"]) {
+        const marker = englishOnly.get(String(entry[field] ?? "").trim());
+        if (marker) localeLeaks.push(`${item.key}: ${marker}`);
+      }
+    }
+  }
+  assert.deepEqual(localeLeaks, [],
+    `pt frames render Portuguese, not English: ${[...new Set(localeLeaks)].slice(0, 6).join("; ")}`);
+
+  // An enlarged-text frame must actually be enlarged.
+  //
+  // The root font size is an inline style on <html>, which a navigation
+  // destroys; scenarios that reach their surface through a real page.goto
+  // silently captured `-text200` at 100%. Byte-identity with the same
+  // screen's normal-text frame is the signature of that, and of any future
+  // variant state that stops being applied.
+  //
+  // One frame is exempt, and not because the state fails to apply: the root
+  // really is 32px there. `onboarding-build/editor-ready` is scrolled wholly
+  // into the program editor, whose typography is still px-based (Plan 051's
+  // surface, unconverted), so that subtree renders identically at any root
+  // size and the two frames coincide. That is a real enlarged-text finding
+  // against the editor rather than against the catalog harness, it predates
+  // this branch, and converting the editor's type scale is Plan 055/058
+  // work. It is named here so the gap stays visible instead of being hidden
+  // by narrowing the oracle to the flows that happen to pass.
+  const INERT_TEXT_STATE_EXEMPT = new Map([
+    ["onboarding-build/editor-ready__phone-390-light-pt-text200",
+      "program editor typography is px-based; out of Plan 054 scope"],
+  ]);
+  const byVariant = new Map();
+  for (const item of captures) {
+    byVariant.set(`${item.flow}/${item.screen}__${variantSlug(item)}`, item);
+  }
+  const inertTextStates = [];
+  for (const [key, item] of byVariant) {
+    if (item.text === "normal") continue;
+    const normalKey = `${item.flow}/${item.screen}__${variantSlug({ ...item, text: "normal" })}`;
+    const normal = byVariant.get(normalKey);
+    if (!normal) continue;
+    const enlargedPath = join(screensRoot, item.flow, `${item.screen}__${variantSlug(item)}.png`);
+    const normalPath = join(screensRoot, normal.flow, `${normal.screen}__${variantSlug(normal)}.png`);
+    if (!existsSync(enlargedPath) || !existsSync(normalPath)) continue;
+    if (!readFileSync(enlargedPath).equals(readFileSync(normalPath))) continue;
+    if (INERT_TEXT_STATE_EXEMPT.has(key)) continue;
+    inertTextStates.push(key);
+  }
+  assert.deepEqual(inertTextStates, [],
+    `enlarged-text frames differ from their normal-text counterpart: ${inertTextStates.slice(0, 6).join("; ")}`);
+  // The exemption list may not rot into cover for a fixed screen.
+  const staleExemptions = [...INERT_TEXT_STATE_EXEMPT.keys()].filter((key) => {
+    const item = byVariant.get(key);
+    if (!item) return true;
+    const normal = byVariant.get(`${item.flow}/${item.screen}__${variantSlug({ ...item, text: "normal" })}`);
+    if (!normal) return true;
+    const a = join(screensRoot, item.flow, `${item.screen}__${variantSlug(item)}.png`);
+    const b = join(screensRoot, normal.flow, `${normal.screen}__${variantSlug(normal)}.png`);
+    return existsSync(a) && existsSync(b) && !readFileSync(a).equals(readFileSync(b));
+  });
+  assert.deepEqual(staleExemptions, [],
+    `every enlarged-text exemption is still needed: ${staleExemptions.join("; ")}`);
+
   // The committed catalog is its own valid baseline: exercises the manifest
   // walk and the dimension checks without letting a test rewrite evidence.
   const selfComparison = compareCatalog({ baselineRoot: screensRoot, currentRoot: screensRoot });
