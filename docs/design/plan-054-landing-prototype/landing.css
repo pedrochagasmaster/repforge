@@ -1,0 +1,343 @@
+/* Taurifer landing prototype — sectioned product narrative, refined.
+   One idea per section. Each device sits on a bounded stage and is framed
+   differently in every section, so the scroll has composition rather than
+   five repeats of the same shot. */
+
+*,*::before,*::after{box-sizing:border-box}
+
+html{-webkit-text-size-adjust:100%}
+
+body{
+  margin:0;
+  background:var(--bg);
+  color:var(--ink);
+  font-family:var(--body);
+  font-size:16px;
+  line-height:1.5;
+  -webkit-font-smoothing:antialiased;
+  text-rendering:optimizeLegibility;
+}
+
+img{max-width:100%;display:block}
+
+:focus-visible{outline:2px solid var(--accent-deep);outline-offset:3px;border-radius:2px}
+
+.lp{
+  --gutter:22px;
+  --measure:560px;
+  --beat-gap:88px;
+  /* the stage is a pedestal, derived from the theme so dark inverts correctly:
+     mixing ink into bg darkens on paper and lightens on near-black. */
+  --stage:color-mix(in srgb,var(--ink) 5%,var(--bg));
+  --stage-edge:color-mix(in srgb,var(--ink) 9%,var(--bg));
+  padding:0 var(--gutter) 0;
+}
+
+.lp__inner{max-width:var(--measure);margin:0 auto}
+
+/* ---------- header ---------- */
+
+.lp-head{
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;
+  gap:10px 18px;padding:26px 0 0;
+}
+.lp-head__brand{display:flex;align-items:center;gap:10px}
+.lp-head__logo{width:44px;height:44px}
+.lp-head__wordmark{
+  font-size:15px;font-weight:600;letter-spacing:.24em;text-transform:uppercase;
+}
+.lp-head__utility{display:flex;align-items:center;gap:14px}
+.lp-head__link{
+  display:inline-flex;align-items:center;min-height:44px;
+  border:0;background:none;padding:8px 0;color:var(--ink);
+  font:inherit;font-size:.8125rem;cursor:pointer;
+  text-decoration:underline;text-underline-offset:4px;
+}
+
+/* ---------- hero ---------- */
+
+.lp-hero{padding:34px 0 0}
+.lp-hero__title{
+  margin:0;
+  font-size:2.375rem;line-height:1.06;letter-spacing:-.045em;font-weight:600;
+  text-wrap:balance;
+}
+.lp-hero__lede{
+  max-width:38ch;margin:18px 0 0;
+  font-size:1rem;line-height:1.5;color:var(--ink-soft);
+}
+
+.lp-actions{display:grid;gap:9px;max-width:400px;margin:26px 0 0}
+.lp-cta{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;
+  width:100%;min-height:52px;padding:13px 18px;
+  border:1px solid var(--accent-deep);border-radius:3px;
+  font:inherit;font-size:1rem;line-height:1.35;font-weight:600;
+  text-align:left;cursor:pointer;
+  transition:background-color .15s ease,transform .06s ease;
+}
+.lp-cta--primary{background:var(--accent-deep);color:var(--accent-ink)}
+.lp-cta--primary:hover{background:var(--accent)}
+.lp-cta--secondary{background:var(--bg);border-color:var(--rule-strong);color:var(--ink)}
+.lp-cta--secondary:hover{background:var(--well)}
+.lp-cta:active{transform:translateY(1px)}
+.lp-cta__go{
+  flex:0 0 18px;width:18px;height:18px;color:currentColor;
+  background:currentColor;
+  -webkit-mask:var(--arrow) no-repeat center/contain;
+          mask:var(--arrow) no-repeat center/contain;
+}
+
+/* ---------- the hero device ---------- */
+/* The hero phone is the only one with no stage under it: it reads as the
+   product itself, where every later one reads as an exhibit. */
+
+.lp-hero__figure{position:relative;margin:38px 0 0;display:flex;justify-content:center}
+.lp-hero__figure::after{
+  content:"";position:absolute;left:24%;right:24%;bottom:1%;height:20px;
+  background:radial-gradient(50% 50% at 50% 50%,rgba(var(--ink-rgb),.15),transparent 72%);
+}
+/* --ink-rgb inverts to near-white in dark, so the same rule would draw a glow
+   where a shadow belongs. Ink is always the shadow colour. */
+:root[data-theme="dark"] .lp-hero__figure::after{
+  background:radial-gradient(50% 50% at 50% 50%,rgba(0,0,0,.5),transparent 72%);
+}
+/* height:auto is load-bearing: the <img> carries height="1566", and without it
+   the device renders 240x1566 — stretched, not scaled. */
+.lp-hero__figure img{position:relative;width:100%;height:auto;max-width:min(340px,100vw - 60px)}
+
+/* One device render per theme. The app's own screens are light-on-paper, so a
+   light shot on a near-black page would be the brightest thing on screen. */
+.lp-shot--dark{display:none}
+:root[data-theme="dark"] .lp-shot--light{display:none}
+:root[data-theme="dark"] .lp-shot--dark{display:block}
+/* in the paired stage the front device must stay in front of the back one
+   regardless of which theme's pair is showing */
+.lp-stage__back{z-index:0}
+.lp-stage__front{z-index:1}
+
+/* ---------- the stage ---------- */
+
+.lp-stage{
+  --stage-ar:1/1;--pw:62%;--pl:50%;--pt:50%;
+  position:relative;overflow:hidden;
+  aspect-ratio:var(--stage-ar);
+  border-radius:24px;
+  background:var(--stage);
+  border:1px solid var(--stage-edge);
+}
+.lp-stage img{
+  position:absolute;height:auto;
+  width:var(--pw);left:var(--pl);top:var(--pt);
+  translate:-50% -50%;
+}
+
+/* Five framings. The variety comes from the shape of the plate, not from
+   sliding the device sideways inside it — an off-centre phone in a wide plate
+   just reads as bad centring. So the scroll alternates portrait plates that
+   hold the whole object against landscape bands that letterbox into one part
+   of the screen: portrait, band, square, band, portrait. */
+/* The two bands mirror each other: band-low closes on the device's foot, so
+   its bottom curve is in frame; band-high opens on its head. Neither is a
+   featureless slab. The last beat is the only whole device on a plate — the
+   narrative resolves by finally showing the object entire. */
+.lp-stage--establish{--stage-ar:40/44;--pw:76%;--pl:50%;--pt:62%}
+.lp-stage--band-low {--stage-ar:16/10;--pw:105%;--pl:50%;--pt:-42%}
+.lp-stage--sheet    {--stage-ar:1/1;  --pw:86%;--pl:54%;--pt:22%}
+.lp-stage--band-high{--stage-ar:4/3;  --pw:90%;--pl:48%;--pt:104%}
+.lp-stage--portrait {--stage-ar:40/52;--pw:72%;--pl:50%;--pt:50%}
+
+/* The sixth framing: two devices on one plate, the second one set back and
+   offset. It is the only paired composition on the page, which is why it sits
+   on the section about choosing a route in. */
+/* Unlike the other five, this stage does not crop: both devices sit whole
+   inside the plate. Sized so the taller one clears top and bottom, and pushed
+   far enough apart that they overlap by about a quarter rather than half.
+   `top` resolves against the plate's height and `left` against its width, so
+   the two axes use different percentages for the same geometry. */
+.lp-stage--pair{--stage-ar:20/21}
+.lp-stage--pair .lp-stage__back{
+  width:42%;left:67%;top:43.2%;
+  /* set back: smaller, cooler and slightly turned away from the front device */
+  filter:saturate(.9) brightness(.97);
+}
+.lp-stage--pair .lp-stage__front{width:46%;left:33%;top:51.8%}
+
+/* ---------- beats ---------- */
+
+.lp-beats{margin:0;padding:0;list-style:none}
+
+.lp-beat{padding:var(--beat-gap) 0 0}
+
+.lp-beat__index{
+  display:block;margin:0 0 14px;
+  font-family:var(--mono);font-size:.6875rem;line-height:1.5;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);
+}
+.lp-beat__index b{font-weight:500;color:var(--accent-deep)}
+
+.lp-beat__title{
+  margin:0;max-width:19ch;
+  font-size:1.75rem;line-height:1.16;letter-spacing:-.032em;font-weight:600;
+  text-wrap:balance;
+}
+.lp-beat__body{
+  max-width:36ch;margin:14px 0 0;
+  font-size:.9375rem;line-height:1.55;color:var(--ink-soft);
+}
+
+/* the pulled-out truthful number */
+.lp-pull{margin:26px 0 0}
+.lp-pull__value{
+  display:flex;align-items:baseline;flex-wrap:wrap;gap:7px;margin:0;
+  font-family:var(--mono);font-weight:500;color:var(--accent-deep);
+  letter-spacing:-.06em;line-height:1.05;
+  /* the vw ceiling keeps the figure growing with the user's text size right up
+     to the point where "100→105" would run off the screen, instead of
+     overflowing at 200% */
+  font-size:min(2.75rem,13vw);
+}
+.lp-pull__unit{font-size:1rem;letter-spacing:0}
+/* U+2192 is not in the Plex subset this repo ships: typed, it falls through to
+   a platform font that is 67% wider, ignores the weight and sits off-baseline.
+   styles.css already solves this with a mask, so reuse the same --arrow token. */
+.lp-pull__arrow{
+  flex:none;align-self:center;width:.66em;height:.66em;margin:0 .02em;
+  background:currentColor;
+  -webkit-mask:var(--arrow) no-repeat center/contain;
+          mask:var(--arrow) no-repeat center/contain;
+}
+.lp-sr{
+  position:absolute;width:1px;height:1px;margin:-1px;padding:0;
+  overflow:hidden;clip-path:inset(50%);white-space:nowrap;border:0;
+}
+.lp-pull__caption{
+  margin:9px 0 0;font-size:.875rem;line-height:1.45;color:var(--ink-soft);
+}
+
+/* the app quoting its own reasoning */
+.lp-quote{
+  margin:26px 0 0;padding:0 0 0 16px;
+  border-left:2px solid var(--accent-deep);
+}
+.lp-quote p{
+  margin:0;max-width:34ch;
+  font-size:1.0625rem;line-height:1.45;letter-spacing:-.012em;
+}
+.lp-quote cite{
+  display:block;margin:10px 0 0;font-style:normal;
+  font-family:var(--mono);font-size:.6875rem;letter-spacing:.07em;
+  text-transform:uppercase;color:var(--ink-soft);
+}
+
+/* two or three short product facts, hairline separated */
+.lp-facts{margin:26px 0 0;padding:0;list-style:none;border-top:1px solid var(--rule)}
+.lp-facts li{
+  display:flex;align-items:baseline;justify-content:space-between;
+  /* wrap, not overflow: at 200% text the label and value cannot share a line */
+  flex-wrap:wrap;gap:2px 18px;
+  padding:11px 0;border-bottom:1px solid var(--rule);
+  font-size:.875rem;line-height:1.4;
+}
+/* the value is the interesting half of the row, so it carries the ink and the
+   label recedes — the reverse of the first pass */
+.lp-facts dfn{font-style:normal;min-width:0;color:var(--ink-soft)}
+.lp-facts b{
+  flex:0 1 auto;min-width:0;overflow-wrap:anywhere;
+  font-family:var(--mono);font-weight:500;font-size:.8125rem;
+  letter-spacing:-.02em;color:var(--ink);
+}
+
+.lp-beat__figure{margin:34px 0 0}
+
+/* ---------- closing ---------- */
+
+.lp-close{
+  margin:var(--beat-gap) 0 0;padding:44px 0 68px;
+  border-top:1px solid var(--rule-strong);
+}
+.lp-close__title{
+  margin:0;max-width:17ch;
+  font-size:1.875rem;line-height:1.14;letter-spacing:-.035em;font-weight:600;
+  text-wrap:balance;
+}
+.lp-close__body{
+  max-width:38ch;margin:14px 0 0;
+  font-size:.9375rem;line-height:1.55;color:var(--ink-soft);
+}
+.lp-close .lp-actions{margin-top:28px}
+
+.lp-ethos{
+  display:flex;gap:26px;flex-wrap:wrap;
+  margin:40px 0 0;padding:24px 0 0;border-top:1px solid var(--rule);
+}
+.lp-ethos p{
+  flex:0 0 auto;margin:0;white-space:pre-line;
+  font-family:var(--mono);font-size:.8125rem;line-height:1.65;
+  letter-spacing:.02em;color:var(--ink);
+}
+.lp-ethos small{
+  flex:1 1 14rem;font-size:.8125rem;line-height:1.55;color:var(--ink-soft);
+}
+
+/* ---------- wide ---------- */
+
+@media(min-width:760px){
+  .lp{--gutter:40px;--measure:1000px;--beat-gap:132px}
+
+  .lp-head{padding-top:34px}
+
+  .lp-hero{
+    display:grid;grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);
+    column-gap:56px;align-items:center;padding-top:52px;
+  }
+  .lp-hero__copy{grid-column:1}
+  .lp-hero__title{font-size:3.25rem;letter-spacing:-.05em;max-width:15ch}
+  .lp-hero__lede{font-size:1.0625rem;max-width:44ch;margin-top:22px}
+  .lp-actions{grid-template-columns:repeat(auto-fit,minmax(15rem,1fr));max-width:none;gap:12px}
+  .lp-hero__figure{grid-column:2;grid-row:1;margin:0}
+  /* the hero device is the tallest thing on the page and the hero grid centres
+     against it: at 298px it stood 615px tall and pushed the headline down the
+     first viewport. 240px keeps the whole device and lifts the copy back up. */
+  .lp-hero__figure img{max-width:286px}
+
+  .lp-beat{
+    display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    column-gap:64px;align-items:center;
+  }
+  .lp-beat__copy{grid-column:1;grid-row:1}
+  .lp-beat__figure{grid-column:2;grid-row:1;margin:0}
+  /* alternate the stage side so the scroll has rhythm */
+  .lp-beat:nth-child(even) .lp-beat__copy{grid-column:2}
+  .lp-beat:nth-child(even) .lp-beat__figure{grid-column:1}
+  /* the copy column is ~310px at 768; a flat 2.25rem broke titles into three
+     ragged lines there, so the display size tracks the column instead */
+  .lp-beat__title{font-size:clamp(1.75rem,.55rem + 2.6vw,2.25rem);letter-spacing:-.038em;max-width:18ch}
+  .lp-beat__body{font-size:1rem;max-width:38ch}
+  .lp-pull__value{font-size:min(3.5rem,7vw)}
+
+  .lp-close{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);column-gap:64px;align-items:start;padding-bottom:92px}
+  .lp-close__title{font-size:2.5rem;letter-spacing:-.04em}
+  .lp-close__actions{grid-column:2;grid-row:1}
+  .lp-close .lp-actions{margin-top:6px;grid-template-columns:1fr}
+  .lp-ethos{grid-column:1/-1}
+}
+
+@media(max-width:340px){
+  .lp{--gutter:18px;--beat-gap:72px}
+  .lp-hero__title{font-size:2rem}
+  .lp-beat__title{font-size:1.5rem}
+  .lp-pull__value{font-size:2.375rem}
+  .lp-close__title{font-size:1.625rem}
+  .lp-stage{border-radius:20px}
+}
+
+@media(prefers-reduced-motion:reduce){
+  *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+
+@media(forced-colors:active){
+  .lp-cta{border-color:ButtonText}
+  .lp-stage{border-color:CanvasText}
+  .lp-hero__figure::after{display:none}
+}
