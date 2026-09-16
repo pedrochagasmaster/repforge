@@ -1,9 +1,8 @@
 # Plan 054 — sectioned landing prototype
 
-A standalone, owner-reviewed prototype of the first-run landing. It is **not
-wired into `#firstRun`**: nothing in `index.html`, `app.js`, `styles.css`,
-`sw.js` or the i18n catalogs is touched by this directory. Integration is a
-separate change.
+The owner-reviewed prototype behind the production first-run landing. The
+prototype remains independently viewable, while `#firstRun` uses the same
+section order, copy, stage geometry, and production renders.
 
 Serve the repository root over HTTP and open
 `docs/design/plan-054-landing-prototype/`. The header carries two
@@ -101,6 +100,7 @@ its dials stop being readable, which is the whole point of those sections.
 
 Renders are cropped to one shared 903x1832 frame — the union of every angle's
 bounding box — so a more-rotated device does not end up smaller than the others.
+Production files live in `assets/brand/` under the same names.
 
 ## Verification
 
@@ -125,6 +125,7 @@ with a steady 24% overlap.
   from the rasterised edge.
 - **U+2192 is not in the shipped Plex subset.** `styles.css` documents this and
   solves it with the `--arrow` mask, which this prototype reuses. Note that
-  `i18n-en.json` and `i18n-pt.json` each still contain two literal `→`.
-- Assets total ~2.4 MB across 32 files. If this ships, only the hero pair
-  belongs in the `sw.js` precache; the rest should stay lazy.
+  `i18n-en.json` and `i18n-pt.json` each still contain four literal `→`, two
+  pre-existing and two in the approved landing copy.
+- Assets total ~2.4 MB across 32 files. Only the four hero variants across
+  EN/PT and light/dark belong in the `sw.js` precache; the rest stay lazy.

@@ -719,7 +719,7 @@ function modalFocusables(root){
   return [...root.querySelectorAll(sel)].filter(el=>{
     if(el.hasAttribute("hidden")||el.closest("[hidden]"))return false;
     const st=getComputedStyle(el);
-    return st.display!=="none"&&st.visibility!=="hidden";
+    return st.display!=="none"&&st.visibility!=="hidden"&&el.getClientRects().length>0;
   })}
 function snapshotBodyInert(){
   return [...document.body.children].map(el=>({el,inert:!!el.inert}))}
@@ -13881,11 +13881,11 @@ function closeFirstRunInstall(){
   setFirstRunOffer(false);
 }
 function renderLandingDevice(){
-  const image=$("#landingDevice");
-  if(!image)return;
   const lang=I18N?.getLang?.()==="pt"?"pt":"en";
   const theme=document.documentElement.dataset.theme==="dark"?"dark":"light";
-  image.src=`assets/brand/landing-workout-${lang}-${theme}.webp`;
+  $$('#firstRun [data-shot]').forEach(image=>{
+    image.src=`assets/brand/${image.dataset.shot}-${lang}-${theme}.webp`;
+  });
 }
 function renderFirstRun(){
   renderFirstRunProgramMode();
@@ -14280,15 +14280,19 @@ function init(){
   $("#installBannerAction").onclick=triggerInstall;
   $("#firstRunInstallLink").onclick=triggerInstall;
   $("#firstRunPrivacy").onclick=()=>openPrivacySheet();
-  $("#firstRunCreate").onclick=()=>{closeFirstRun();startOnboarding("first-run")};
+  const openFirstRunCreate=()=>{closeFirstRun();startOnboarding("first-run")};
+  $("#firstRunCreate").onclick=openFirstRunCreate;
+  $("#firstRunCreateClose").onclick=openFirstRunCreate;
   // Import runs through the same review as everywhere else; the gate stays
   // standing behind it so backing out returns here rather than to an empty app.
   // Copy and paste is the primary BYOP door, with the file door one tap away.
-  $("#firstRunImport").onclick=()=>{
+  const openFirstRunImport=()=>{
     closeFirstRun();
     startOnboarding("first-run",{userInitiated:true,forceFresh:true});
     setImportSourceMode("freeform",{render:false});
     entrySelectRoute("import")};
+  $("#firstRunImport").onclick=openFirstRunImport;
+  $("#firstRunImportClose").onclick=openFirstRunImport;
   // "Continue in browser" is an answer to the install offer, not to the program
   // question: it takes the offer off the table for a while, then hands over to
   // the same first run the app has always had.

@@ -42962,48 +42962,208 @@
           "text": "Coach program · 1 day per week"
         },
         {
-          "tag": "figure",
-          "labelledBy": "A training example"
-        },
-        {
-          "tag": "figcaption",
-          "text": "A training example"
+          "tag": "b",
+          "text": "01"
         },
         {
           "tag": "span",
-          "text": "01 / The program"
+          "text": "/ Getting started"
         },
         {
-          "tag": "strong",
-          "text": "Barbell bench press"
+          "tag": "h2",
+          "text": "Five questions, or paste what you already run."
         },
         {
           "tag": "p",
-          "text": "3 sets · 8–10 reps · RIR 0–2"
+          "text": "Taurifer can write the program from your answers, or take the one you are already running and make it trackable. Either way you end up on the same Today screen."
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommend"
+        },
+        {
+          "tag": "b",
+          "text": "5 questions → a program"
+        },
+        {
+          "tag": "dfn",
+          "text": "Custom"
+        },
+        {
+          "tag": "b",
+          "text": "Pick priorities and lifts"
+        },
+        {
+          "tag": "dfn",
+          "text": "Use my own"
+        },
+        {
+          "tag": "b",
+          "text": "Paste text or import a file"
+        },
+        {
+          "tag": "b",
+          "text": "02"
         },
         {
           "tag": "span",
-          "text": "02 / You logged"
+          "text": "/ The program"
         },
         {
-          "tag": "strong",
-          "text": "60 kg × 10"
-        },
-        {
-          "tag": "p",
-          "text": "All 3 sets · RIR 2"
+          "tag": "h2",
+          "text": "Six weeks, planned before you start."
         },
         {
           "tag": "p",
-          "text": "Top of the rep range reached. Add load, then build the reps again."
+          "text": "Six weeks, three days, built around the days you actually train. The whole block is visible, and every part of it is editable."
+        },
+        {
+          "tag": "dfn",
+          "text": "Block"
+        },
+        {
+          "tag": "b",
+          "text": "Week 5 of 6"
+        },
+        {
+          "tag": "dfn",
+          "text": "Training days"
+        },
+        {
+          "tag": "b",
+          "text": "3 per week"
+        },
+        {
+          "tag": "dfn",
+          "text": "Day 1"
+        },
+        {
+          "tag": "b",
+          "text": "5 exercises · 15 sets"
+        },
+        {
+          "tag": "b",
+          "text": "03"
         },
         {
           "tag": "span",
-          "text": "03 / Next session"
+          "text": "/ The prescription"
         },
         {
-          "tag": "strong",
-          "text": "62.5"
+          "tag": "h2",
+          "text": "Every set opens with a target."
+        },
+        {
+          "tag": "p",
+          "text": "Open the day and the load, reps and effort are already set for every exercise. Nothing to decide at the rack."
+        },
+        {
+          "tag": "dfn",
+          "text": "Target"
+        },
+        {
+          "tag": "b",
+          "text": "5–8 reps · RIR 0–2"
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommendation"
+        },
+        {
+          "tag": "b",
+          "text": "Hold 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Set 1 of 3"
+        },
+        {
+          "tag": "b",
+          "text": "100 kg × 8 · RIR 1"
+        },
+        {
+          "tag": "b",
+          "text": "04"
+        },
+        {
+          "tag": "span",
+          "text": "/ The reasoning"
+        },
+        {
+          "tag": "h2",
+          "text": "Taurifer shows you why, every time."
+        },
+        {
+          "tag": "p",
+          "text": "The range still has room, so the load stays while reps climb."
+        },
+        {
+          "tag": "cite",
+          "text": "Taurifer · Why this weight"
+        },
+        {
+          "tag": "p",
+          "text": "Every recommendation opens up. You see the sets it read, the effort it measured and the rule it applied, so you can agree with it or override it."
+        },
+        {
+          "tag": "b",
+          "text": "05"
+        },
+        {
+          "tag": "span",
+          "text": "/ The record"
+        },
+        {
+          "tag": "h2",
+          "text": "Your session totals itself."
+        },
+        {
+          "tag": "p",
+          "text": "Save the session and Taurifer totals the work, flags every personal record, and tells you which lifts moved and which did not."
+        },
+        {
+          "tag": "dfn",
+          "text": "Sets logged"
+        },
+        {
+          "tag": "b",
+          "text": "15"
+        },
+        {
+          "tag": "dfn",
+          "text": "Volume moved"
+        },
+        {
+          "tag": "b",
+          "text": "8,123 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Change by lift"
+        },
+        {
+          "tag": "b",
+          "text": "5 improved"
+        },
+        {
+          "tag": "b",
+          "text": "06"
+        },
+        {
+          "tag": "span",
+          "text": "/ Over time"
+        },
+        {
+          "tag": "h2",
+          "text": "Four sessions, 7.5 kg on the squat."
+        },
+        {
+          "tag": "p",
+          "text": "92.5 100"
+        },
+        {
+          "tag": "span",
+          "text": "to"
         },
         {
           "tag": "span",
@@ -43011,19 +43171,47 @@
         },
         {
           "tag": "p",
-          "text": "3 sets × 8 reps"
+          "text": "Top load on the back squat, up 7.5 kg over four sessions."
+        },
+        {
+          "tag": "dfn",
+          "text": "Top load"
+        },
+        {
+          "tag": "b",
+          "text": "92.5 → 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Over"
+        },
+        {
+          "tag": "b",
+          "text": "4 sessions"
+        },
+        {
+          "tag": "dfn",
+          "text": "Best estimated 1RM"
+        },
+        {
+          "tag": "b",
+          "text": "127 kg"
         },
         {
           "tag": "h2",
-          "text": "Know what to do, every set"
+          "text": "Start where you are."
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "Build a program from scratch, or bring the one you are already running. Either way you are logging sets in a couple of minutes."
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
+        },
+        {
+          "tag": "small",
+          "text": "Works offline. No account required. Your training history is stored on this device and never leaves it."
         }
       ]
     },
@@ -43081,48 +43269,208 @@
           "text": "Coach program · 1 day per week"
         },
         {
-          "tag": "figure",
-          "labelledBy": "A training example"
-        },
-        {
-          "tag": "figcaption",
-          "text": "A training example"
+          "tag": "b",
+          "text": "01"
         },
         {
           "tag": "span",
-          "text": "01 / The program"
+          "text": "/ Getting started"
         },
         {
-          "tag": "strong",
-          "text": "Barbell bench press"
+          "tag": "h2",
+          "text": "Five questions, or paste what you already run."
         },
         {
           "tag": "p",
-          "text": "3 sets · 8–10 reps · RIR 0–2"
+          "text": "Taurifer can write the program from your answers, or take the one you are already running and make it trackable. Either way you end up on the same Today screen."
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommend"
+        },
+        {
+          "tag": "b",
+          "text": "5 questions → a program"
+        },
+        {
+          "tag": "dfn",
+          "text": "Custom"
+        },
+        {
+          "tag": "b",
+          "text": "Pick priorities and lifts"
+        },
+        {
+          "tag": "dfn",
+          "text": "Use my own"
+        },
+        {
+          "tag": "b",
+          "text": "Paste text or import a file"
+        },
+        {
+          "tag": "b",
+          "text": "02"
         },
         {
           "tag": "span",
-          "text": "02 / You logged"
+          "text": "/ The program"
         },
         {
-          "tag": "strong",
-          "text": "60 kg × 10"
-        },
-        {
-          "tag": "p",
-          "text": "All 3 sets · RIR 2"
+          "tag": "h2",
+          "text": "Six weeks, planned before you start."
         },
         {
           "tag": "p",
-          "text": "Top of the rep range reached. Add load, then build the reps again."
+          "text": "Six weeks, three days, built around the days you actually train. The whole block is visible, and every part of it is editable."
+        },
+        {
+          "tag": "dfn",
+          "text": "Block"
+        },
+        {
+          "tag": "b",
+          "text": "Week 5 of 6"
+        },
+        {
+          "tag": "dfn",
+          "text": "Training days"
+        },
+        {
+          "tag": "b",
+          "text": "3 per week"
+        },
+        {
+          "tag": "dfn",
+          "text": "Day 1"
+        },
+        {
+          "tag": "b",
+          "text": "5 exercises · 15 sets"
+        },
+        {
+          "tag": "b",
+          "text": "03"
         },
         {
           "tag": "span",
-          "text": "03 / Next session"
+          "text": "/ The prescription"
         },
         {
-          "tag": "strong",
-          "text": "62.5"
+          "tag": "h2",
+          "text": "Every set opens with a target."
+        },
+        {
+          "tag": "p",
+          "text": "Open the day and the load, reps and effort are already set for every exercise. Nothing to decide at the rack."
+        },
+        {
+          "tag": "dfn",
+          "text": "Target"
+        },
+        {
+          "tag": "b",
+          "text": "5–8 reps · RIR 0–2"
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommendation"
+        },
+        {
+          "tag": "b",
+          "text": "Hold 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Set 1 of 3"
+        },
+        {
+          "tag": "b",
+          "text": "100 kg × 8 · RIR 1"
+        },
+        {
+          "tag": "b",
+          "text": "04"
+        },
+        {
+          "tag": "span",
+          "text": "/ The reasoning"
+        },
+        {
+          "tag": "h2",
+          "text": "Taurifer shows you why, every time."
+        },
+        {
+          "tag": "p",
+          "text": "The range still has room, so the load stays while reps climb."
+        },
+        {
+          "tag": "cite",
+          "text": "Taurifer · Why this weight"
+        },
+        {
+          "tag": "p",
+          "text": "Every recommendation opens up. You see the sets it read, the effort it measured and the rule it applied, so you can agree with it or override it."
+        },
+        {
+          "tag": "b",
+          "text": "05"
+        },
+        {
+          "tag": "span",
+          "text": "/ The record"
+        },
+        {
+          "tag": "h2",
+          "text": "Your session totals itself."
+        },
+        {
+          "tag": "p",
+          "text": "Save the session and Taurifer totals the work, flags every personal record, and tells you which lifts moved and which did not."
+        },
+        {
+          "tag": "dfn",
+          "text": "Sets logged"
+        },
+        {
+          "tag": "b",
+          "text": "15"
+        },
+        {
+          "tag": "dfn",
+          "text": "Volume moved"
+        },
+        {
+          "tag": "b",
+          "text": "8,123 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Change by lift"
+        },
+        {
+          "tag": "b",
+          "text": "5 improved"
+        },
+        {
+          "tag": "b",
+          "text": "06"
+        },
+        {
+          "tag": "span",
+          "text": "/ Over time"
+        },
+        {
+          "tag": "h2",
+          "text": "Four sessions, 7.5 kg on the squat."
+        },
+        {
+          "tag": "p",
+          "text": "92.5 100"
+        },
+        {
+          "tag": "span",
+          "text": "to"
         },
         {
           "tag": "span",
@@ -43130,19 +43478,47 @@
         },
         {
           "tag": "p",
-          "text": "3 sets × 8 reps"
+          "text": "Top load on the back squat, up 7.5 kg over four sessions."
+        },
+        {
+          "tag": "dfn",
+          "text": "Top load"
+        },
+        {
+          "tag": "b",
+          "text": "92.5 → 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Over"
+        },
+        {
+          "tag": "b",
+          "text": "4 sessions"
+        },
+        {
+          "tag": "dfn",
+          "text": "Best estimated 1RM"
+        },
+        {
+          "tag": "b",
+          "text": "127 kg"
         },
         {
           "tag": "h2",
-          "text": "Know what to do, every set"
+          "text": "Start where you are."
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "Build a program from scratch, or bring the one you are already running. Either way you are logging sets in a couple of minutes."
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
+        },
+        {
+          "tag": "small",
+          "text": "Works offline. No account required. Your training history is stored on this device and never leaves it."
         }
       ]
     },
@@ -43200,48 +43576,208 @@
           "text": "Coach program · 1 day per week"
         },
         {
-          "tag": "figure",
-          "labelledBy": "A training example"
-        },
-        {
-          "tag": "figcaption",
-          "text": "A training example"
+          "tag": "b",
+          "text": "01"
         },
         {
           "tag": "span",
-          "text": "01 / The program"
+          "text": "/ Getting started"
         },
         {
-          "tag": "strong",
-          "text": "Barbell bench press"
+          "tag": "h2",
+          "text": "Five questions, or paste what you already run."
         },
         {
           "tag": "p",
-          "text": "3 sets · 8–10 reps · RIR 0–2"
+          "text": "Taurifer can write the program from your answers, or take the one you are already running and make it trackable. Either way you end up on the same Today screen."
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommend"
+        },
+        {
+          "tag": "b",
+          "text": "5 questions → a program"
+        },
+        {
+          "tag": "dfn",
+          "text": "Custom"
+        },
+        {
+          "tag": "b",
+          "text": "Pick priorities and lifts"
+        },
+        {
+          "tag": "dfn",
+          "text": "Use my own"
+        },
+        {
+          "tag": "b",
+          "text": "Paste text or import a file"
+        },
+        {
+          "tag": "b",
+          "text": "02"
         },
         {
           "tag": "span",
-          "text": "02 / You logged"
+          "text": "/ The program"
         },
         {
-          "tag": "strong",
-          "text": "60 kg × 10"
-        },
-        {
-          "tag": "p",
-          "text": "All 3 sets · RIR 2"
+          "tag": "h2",
+          "text": "Six weeks, planned before you start."
         },
         {
           "tag": "p",
-          "text": "Top of the rep range reached. Add load, then build the reps again."
+          "text": "Six weeks, three days, built around the days you actually train. The whole block is visible, and every part of it is editable."
+        },
+        {
+          "tag": "dfn",
+          "text": "Block"
+        },
+        {
+          "tag": "b",
+          "text": "Week 5 of 6"
+        },
+        {
+          "tag": "dfn",
+          "text": "Training days"
+        },
+        {
+          "tag": "b",
+          "text": "3 per week"
+        },
+        {
+          "tag": "dfn",
+          "text": "Day 1"
+        },
+        {
+          "tag": "b",
+          "text": "5 exercises · 15 sets"
+        },
+        {
+          "tag": "b",
+          "text": "03"
         },
         {
           "tag": "span",
-          "text": "03 / Next session"
+          "text": "/ The prescription"
         },
         {
-          "tag": "strong",
-          "text": "62.5"
+          "tag": "h2",
+          "text": "Every set opens with a target."
+        },
+        {
+          "tag": "p",
+          "text": "Open the day and the load, reps and effort are already set for every exercise. Nothing to decide at the rack."
+        },
+        {
+          "tag": "dfn",
+          "text": "Target"
+        },
+        {
+          "tag": "b",
+          "text": "5–8 reps · RIR 0–2"
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommendation"
+        },
+        {
+          "tag": "b",
+          "text": "Hold 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Set 1 of 3"
+        },
+        {
+          "tag": "b",
+          "text": "100 kg × 8 · RIR 1"
+        },
+        {
+          "tag": "b",
+          "text": "04"
+        },
+        {
+          "tag": "span",
+          "text": "/ The reasoning"
+        },
+        {
+          "tag": "h2",
+          "text": "Taurifer shows you why, every time."
+        },
+        {
+          "tag": "p",
+          "text": "The range still has room, so the load stays while reps climb."
+        },
+        {
+          "tag": "cite",
+          "text": "Taurifer · Why this weight"
+        },
+        {
+          "tag": "p",
+          "text": "Every recommendation opens up. You see the sets it read, the effort it measured and the rule it applied, so you can agree with it or override it."
+        },
+        {
+          "tag": "b",
+          "text": "05"
+        },
+        {
+          "tag": "span",
+          "text": "/ The record"
+        },
+        {
+          "tag": "h2",
+          "text": "Your session totals itself."
+        },
+        {
+          "tag": "p",
+          "text": "Save the session and Taurifer totals the work, flags every personal record, and tells you which lifts moved and which did not."
+        },
+        {
+          "tag": "dfn",
+          "text": "Sets logged"
+        },
+        {
+          "tag": "b",
+          "text": "15"
+        },
+        {
+          "tag": "dfn",
+          "text": "Volume moved"
+        },
+        {
+          "tag": "b",
+          "text": "8,123 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Change by lift"
+        },
+        {
+          "tag": "b",
+          "text": "5 improved"
+        },
+        {
+          "tag": "b",
+          "text": "06"
+        },
+        {
+          "tag": "span",
+          "text": "/ Over time"
+        },
+        {
+          "tag": "h2",
+          "text": "Four sessions, 7.5 kg on the squat."
+        },
+        {
+          "tag": "p",
+          "text": "92.5 100"
+        },
+        {
+          "tag": "span",
+          "text": "to"
         },
         {
           "tag": "span",
@@ -43249,19 +43785,47 @@
         },
         {
           "tag": "p",
-          "text": "3 sets × 8 reps"
+          "text": "Top load on the back squat, up 7.5 kg over four sessions."
+        },
+        {
+          "tag": "dfn",
+          "text": "Top load"
+        },
+        {
+          "tag": "b",
+          "text": "92.5 → 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Over"
+        },
+        {
+          "tag": "b",
+          "text": "4 sessions"
+        },
+        {
+          "tag": "dfn",
+          "text": "Best estimated 1RM"
+        },
+        {
+          "tag": "b",
+          "text": "127 kg"
         },
         {
           "tag": "h2",
-          "text": "Know what to do, every set"
+          "text": "Start where you are."
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "Build a program from scratch, or bring the one you are already running. Either way you are logging sets in a couple of minutes."
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
+        },
+        {
+          "tag": "small",
+          "text": "Works offline. No account required. Your training history is stored on this device and never leaves it."
         }
       ]
     },
@@ -43319,48 +43883,208 @@
           "text": "Coach program · 1 day per week"
         },
         {
-          "tag": "figure",
-          "labelledBy": "A training example"
-        },
-        {
-          "tag": "figcaption",
-          "text": "A training example"
+          "tag": "b",
+          "text": "01"
         },
         {
           "tag": "span",
-          "text": "01 / The program"
+          "text": "/ Getting started"
         },
         {
-          "tag": "strong",
-          "text": "Barbell bench press"
+          "tag": "h2",
+          "text": "Five questions, or paste what you already run."
         },
         {
           "tag": "p",
-          "text": "3 sets · 8–10 reps · RIR 0–2"
+          "text": "Taurifer can write the program from your answers, or take the one you are already running and make it trackable. Either way you end up on the same Today screen."
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommend"
+        },
+        {
+          "tag": "b",
+          "text": "5 questions → a program"
+        },
+        {
+          "tag": "dfn",
+          "text": "Custom"
+        },
+        {
+          "tag": "b",
+          "text": "Pick priorities and lifts"
+        },
+        {
+          "tag": "dfn",
+          "text": "Use my own"
+        },
+        {
+          "tag": "b",
+          "text": "Paste text or import a file"
+        },
+        {
+          "tag": "b",
+          "text": "02"
         },
         {
           "tag": "span",
-          "text": "02 / You logged"
+          "text": "/ The program"
         },
         {
-          "tag": "strong",
-          "text": "60 kg × 10"
-        },
-        {
-          "tag": "p",
-          "text": "All 3 sets · RIR 2"
+          "tag": "h2",
+          "text": "Six weeks, planned before you start."
         },
         {
           "tag": "p",
-          "text": "Top of the rep range reached. Add load, then build the reps again."
+          "text": "Six weeks, three days, built around the days you actually train. The whole block is visible, and every part of it is editable."
+        },
+        {
+          "tag": "dfn",
+          "text": "Block"
+        },
+        {
+          "tag": "b",
+          "text": "Week 5 of 6"
+        },
+        {
+          "tag": "dfn",
+          "text": "Training days"
+        },
+        {
+          "tag": "b",
+          "text": "3 per week"
+        },
+        {
+          "tag": "dfn",
+          "text": "Day 1"
+        },
+        {
+          "tag": "b",
+          "text": "5 exercises · 15 sets"
+        },
+        {
+          "tag": "b",
+          "text": "03"
         },
         {
           "tag": "span",
-          "text": "03 / Next session"
+          "text": "/ The prescription"
         },
         {
-          "tag": "strong",
-          "text": "62.5"
+          "tag": "h2",
+          "text": "Every set opens with a target."
+        },
+        {
+          "tag": "p",
+          "text": "Open the day and the load, reps and effort are already set for every exercise. Nothing to decide at the rack."
+        },
+        {
+          "tag": "dfn",
+          "text": "Target"
+        },
+        {
+          "tag": "b",
+          "text": "5–8 reps · RIR 0–2"
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommendation"
+        },
+        {
+          "tag": "b",
+          "text": "Hold 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Set 1 of 3"
+        },
+        {
+          "tag": "b",
+          "text": "100 kg × 8 · RIR 1"
+        },
+        {
+          "tag": "b",
+          "text": "04"
+        },
+        {
+          "tag": "span",
+          "text": "/ The reasoning"
+        },
+        {
+          "tag": "h2",
+          "text": "Taurifer shows you why, every time."
+        },
+        {
+          "tag": "p",
+          "text": "The range still has room, so the load stays while reps climb."
+        },
+        {
+          "tag": "cite",
+          "text": "Taurifer · Why this weight"
+        },
+        {
+          "tag": "p",
+          "text": "Every recommendation opens up. You see the sets it read, the effort it measured and the rule it applied, so you can agree with it or override it."
+        },
+        {
+          "tag": "b",
+          "text": "05"
+        },
+        {
+          "tag": "span",
+          "text": "/ The record"
+        },
+        {
+          "tag": "h2",
+          "text": "Your session totals itself."
+        },
+        {
+          "tag": "p",
+          "text": "Save the session and Taurifer totals the work, flags every personal record, and tells you which lifts moved and which did not."
+        },
+        {
+          "tag": "dfn",
+          "text": "Sets logged"
+        },
+        {
+          "tag": "b",
+          "text": "15"
+        },
+        {
+          "tag": "dfn",
+          "text": "Volume moved"
+        },
+        {
+          "tag": "b",
+          "text": "8,123 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Change by lift"
+        },
+        {
+          "tag": "b",
+          "text": "5 improved"
+        },
+        {
+          "tag": "b",
+          "text": "06"
+        },
+        {
+          "tag": "span",
+          "text": "/ Over time"
+        },
+        {
+          "tag": "h2",
+          "text": "Four sessions, 7.5 kg on the squat."
+        },
+        {
+          "tag": "p",
+          "text": "92.5 100"
+        },
+        {
+          "tag": "span",
+          "text": "to"
         },
         {
           "tag": "span",
@@ -43368,19 +44092,47 @@
         },
         {
           "tag": "p",
-          "text": "3 sets × 8 reps"
+          "text": "Top load on the back squat, up 7.5 kg over four sessions."
+        },
+        {
+          "tag": "dfn",
+          "text": "Top load"
+        },
+        {
+          "tag": "b",
+          "text": "92.5 → 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Over"
+        },
+        {
+          "tag": "b",
+          "text": "4 sessions"
+        },
+        {
+          "tag": "dfn",
+          "text": "Best estimated 1RM"
+        },
+        {
+          "tag": "b",
+          "text": "127 kg"
         },
         {
           "tag": "h2",
-          "text": "Know what to do, every set"
+          "text": "Start where you are."
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "Build a program from scratch, or bring the one you are already running. Either way you are logging sets in a couple of minutes."
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
+        },
+        {
+          "tag": "small",
+          "text": "Works offline. No account required. Your training history is stored on this device and never leaves it."
         }
       ]
     },
@@ -43438,48 +44190,208 @@
           "text": "Coach program · 1 day per week"
         },
         {
-          "tag": "figure",
-          "labelledBy": "A training example"
-        },
-        {
-          "tag": "figcaption",
-          "text": "A training example"
+          "tag": "b",
+          "text": "01"
         },
         {
           "tag": "span",
-          "text": "01 / The program"
+          "text": "/ Getting started"
         },
         {
-          "tag": "strong",
-          "text": "Barbell bench press"
+          "tag": "h2",
+          "text": "Five questions, or paste what you already run."
         },
         {
           "tag": "p",
-          "text": "3 sets · 8–10 reps · RIR 0–2"
+          "text": "Taurifer can write the program from your answers, or take the one you are already running and make it trackable. Either way you end up on the same Today screen."
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommend"
+        },
+        {
+          "tag": "b",
+          "text": "5 questions → a program"
+        },
+        {
+          "tag": "dfn",
+          "text": "Custom"
+        },
+        {
+          "tag": "b",
+          "text": "Pick priorities and lifts"
+        },
+        {
+          "tag": "dfn",
+          "text": "Use my own"
+        },
+        {
+          "tag": "b",
+          "text": "Paste text or import a file"
+        },
+        {
+          "tag": "b",
+          "text": "02"
         },
         {
           "tag": "span",
-          "text": "02 / You logged"
+          "text": "/ The program"
         },
         {
-          "tag": "strong",
-          "text": "60 kg × 10"
-        },
-        {
-          "tag": "p",
-          "text": "All 3 sets · RIR 2"
+          "tag": "h2",
+          "text": "Six weeks, planned before you start."
         },
         {
           "tag": "p",
-          "text": "Top of the rep range reached. Add load, then build the reps again."
+          "text": "Six weeks, three days, built around the days you actually train. The whole block is visible, and every part of it is editable."
+        },
+        {
+          "tag": "dfn",
+          "text": "Block"
+        },
+        {
+          "tag": "b",
+          "text": "Week 5 of 6"
+        },
+        {
+          "tag": "dfn",
+          "text": "Training days"
+        },
+        {
+          "tag": "b",
+          "text": "3 per week"
+        },
+        {
+          "tag": "dfn",
+          "text": "Day 1"
+        },
+        {
+          "tag": "b",
+          "text": "5 exercises · 15 sets"
+        },
+        {
+          "tag": "b",
+          "text": "03"
         },
         {
           "tag": "span",
-          "text": "03 / Next session"
+          "text": "/ The prescription"
         },
         {
-          "tag": "strong",
-          "text": "62.5"
+          "tag": "h2",
+          "text": "Every set opens with a target."
+        },
+        {
+          "tag": "p",
+          "text": "Open the day and the load, reps and effort are already set for every exercise. Nothing to decide at the rack."
+        },
+        {
+          "tag": "dfn",
+          "text": "Target"
+        },
+        {
+          "tag": "b",
+          "text": "5–8 reps · RIR 0–2"
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommendation"
+        },
+        {
+          "tag": "b",
+          "text": "Hold 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Set 1 of 3"
+        },
+        {
+          "tag": "b",
+          "text": "100 kg × 8 · RIR 1"
+        },
+        {
+          "tag": "b",
+          "text": "04"
+        },
+        {
+          "tag": "span",
+          "text": "/ The reasoning"
+        },
+        {
+          "tag": "h2",
+          "text": "Taurifer shows you why, every time."
+        },
+        {
+          "tag": "p",
+          "text": "The range still has room, so the load stays while reps climb."
+        },
+        {
+          "tag": "cite",
+          "text": "Taurifer · Why this weight"
+        },
+        {
+          "tag": "p",
+          "text": "Every recommendation opens up. You see the sets it read, the effort it measured and the rule it applied, so you can agree with it or override it."
+        },
+        {
+          "tag": "b",
+          "text": "05"
+        },
+        {
+          "tag": "span",
+          "text": "/ The record"
+        },
+        {
+          "tag": "h2",
+          "text": "Your session totals itself."
+        },
+        {
+          "tag": "p",
+          "text": "Save the session and Taurifer totals the work, flags every personal record, and tells you which lifts moved and which did not."
+        },
+        {
+          "tag": "dfn",
+          "text": "Sets logged"
+        },
+        {
+          "tag": "b",
+          "text": "15"
+        },
+        {
+          "tag": "dfn",
+          "text": "Volume moved"
+        },
+        {
+          "tag": "b",
+          "text": "8,123 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Change by lift"
+        },
+        {
+          "tag": "b",
+          "text": "5 improved"
+        },
+        {
+          "tag": "b",
+          "text": "06"
+        },
+        {
+          "tag": "span",
+          "text": "/ Over time"
+        },
+        {
+          "tag": "h2",
+          "text": "Four sessions, 7.5 kg on the squat."
+        },
+        {
+          "tag": "p",
+          "text": "92.5 100"
+        },
+        {
+          "tag": "span",
+          "text": "to"
         },
         {
           "tag": "span",
@@ -43487,19 +44399,47 @@
         },
         {
           "tag": "p",
-          "text": "3 sets × 8 reps"
+          "text": "Top load on the back squat, up 7.5 kg over four sessions."
+        },
+        {
+          "tag": "dfn",
+          "text": "Top load"
+        },
+        {
+          "tag": "b",
+          "text": "92.5 → 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Over"
+        },
+        {
+          "tag": "b",
+          "text": "4 sessions"
+        },
+        {
+          "tag": "dfn",
+          "text": "Best estimated 1RM"
+        },
+        {
+          "tag": "b",
+          "text": "127 kg"
         },
         {
           "tag": "h2",
-          "text": "Know what to do, every set"
+          "text": "Start where you are."
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "Build a program from scratch, or bring the one you are already running. Either way you are logging sets in a couple of minutes."
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
+        },
+        {
+          "tag": "small",
+          "text": "Works offline. No account required. Your training history is stored on this device and never leaves it."
         }
       ]
     },
@@ -43557,48 +44497,208 @@
           "text": "Programa do treinador · 1 dia por semana"
         },
         {
-          "tag": "figure",
-          "labelledBy": "Um exemplo de treino"
-        },
-        {
-          "tag": "figcaption",
-          "text": "Um exemplo de treino"
+          "tag": "b",
+          "text": "01"
         },
         {
           "tag": "span",
-          "text": "01 / O programa"
+          "text": "/ Começando"
         },
         {
-          "tag": "strong",
-          "text": "Supino reto com barra"
+          "tag": "h2",
+          "text": "Cinco perguntas, ou cole o que você já faz."
         },
         {
           "tag": "p",
-          "text": "3 séries · 8–10 repetições · RIR 0–2"
+          "text": "O Taurifer pode escrever o programa a partir das suas respostas, ou pegar o que você já treina e torná-lo rastreável. De qualquer forma você chega na mesma tela de Hoje."
+        },
+        {
+          "tag": "dfn",
+          "text": "Recomendar"
+        },
+        {
+          "tag": "b",
+          "text": "5 perguntas → um programa"
+        },
+        {
+          "tag": "dfn",
+          "text": "Personalizado"
+        },
+        {
+          "tag": "b",
+          "text": "Escolha prioridades e exercícios"
+        },
+        {
+          "tag": "dfn",
+          "text": "Usar o meu"
+        },
+        {
+          "tag": "b",
+          "text": "Cole um texto ou importe um arquivo"
+        },
+        {
+          "tag": "b",
+          "text": "02"
         },
         {
           "tag": "span",
-          "text": "02 / Você registrou"
+          "text": "/ O programa"
         },
         {
-          "tag": "strong",
-          "text": "60 kg × 10"
-        },
-        {
-          "tag": "p",
-          "text": "As 3 séries · RIR 2"
+          "tag": "h2",
+          "text": "Seis semanas, planejadas antes de começar."
         },
         {
           "tag": "p",
-          "text": "Você chegou ao topo da faixa de repetições. Aumente a carga e volte a subir as repetições."
+          "text": "Seis semanas, três dias, montados em torno dos dias em que você realmente treina. O bloco inteiro fica visível, e cada parte dele é editável."
+        },
+        {
+          "tag": "dfn",
+          "text": "Bloco"
+        },
+        {
+          "tag": "b",
+          "text": "Semana 5 de 6"
+        },
+        {
+          "tag": "dfn",
+          "text": "Dias de treino"
+        },
+        {
+          "tag": "b",
+          "text": "3 por semana"
+        },
+        {
+          "tag": "dfn",
+          "text": "Dia 1"
+        },
+        {
+          "tag": "b",
+          "text": "5 exercícios · 15 séries"
+        },
+        {
+          "tag": "b",
+          "text": "03"
         },
         {
           "tag": "span",
-          "text": "03 / Próxima sessão"
+          "text": "/ A prescrição"
         },
         {
-          "tag": "strong",
-          "text": "62,5"
+          "tag": "h2",
+          "text": "Toda série já vem com um alvo."
+        },
+        {
+          "tag": "p",
+          "text": "Abra o dia e a carga, as reps e o esforço já estão definidos para cada exercício. Nada para decidir na hora."
+        },
+        {
+          "tag": "dfn",
+          "text": "Alvo"
+        },
+        {
+          "tag": "b",
+          "text": "5–8 reps · RIR 0–2"
+        },
+        {
+          "tag": "dfn",
+          "text": "Recomendação"
+        },
+        {
+          "tag": "b",
+          "text": "Mantenha 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Série 1 de 3"
+        },
+        {
+          "tag": "b",
+          "text": "100 kg × 8 · RIR 1"
+        },
+        {
+          "tag": "b",
+          "text": "04"
+        },
+        {
+          "tag": "span",
+          "text": "/ O motivo"
+        },
+        {
+          "tag": "h2",
+          "text": "O Taurifer mostra o porquê, toda vez."
+        },
+        {
+          "tag": "p",
+          "text": "A faixa ainda tem espaço, então a carga fica enquanto as reps sobem."
+        },
+        {
+          "tag": "cite",
+          "text": "Taurifer · Por que essa carga"
+        },
+        {
+          "tag": "p",
+          "text": "Toda recomendação se abre. Você vê as séries que ela leu, o esforço que mediu e a regra que aplicou, então pode concordar, ou mudar."
+        },
+        {
+          "tag": "b",
+          "text": "05"
+        },
+        {
+          "tag": "span",
+          "text": "/ O registro"
+        },
+        {
+          "tag": "h2",
+          "text": "Sua sessão se soma sozinha."
+        },
+        {
+          "tag": "p",
+          "text": "Salve a sessão e o Taurifer soma o trabalho, marca cada recorde pessoal e diz quais exercícios evoluíram e quais não."
+        },
+        {
+          "tag": "dfn",
+          "text": "Séries registradas"
+        },
+        {
+          "tag": "b",
+          "text": "15"
+        },
+        {
+          "tag": "dfn",
+          "text": "Volume movido"
+        },
+        {
+          "tag": "b",
+          "text": "8.123 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Mudança por exercício"
+        },
+        {
+          "tag": "b",
+          "text": "5 melhoraram"
+        },
+        {
+          "tag": "b",
+          "text": "06"
+        },
+        {
+          "tag": "span",
+          "text": "/ Ao longo do tempo"
+        },
+        {
+          "tag": "h2",
+          "text": "Quatro sessões, 7,5 kg no agachamento."
+        },
+        {
+          "tag": "p",
+          "text": "92.5 100"
+        },
+        {
+          "tag": "span",
+          "text": "to"
         },
         {
           "tag": "span",
@@ -43606,19 +44706,47 @@
         },
         {
           "tag": "p",
-          "text": "3 séries × 8 repetições"
+          "text": "Carga máxima no agachamento livre, 7,5 kg a mais em quatro sessões."
+        },
+        {
+          "tag": "dfn",
+          "text": "Carga máxima"
+        },
+        {
+          "tag": "b",
+          "text": "92,5 → 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Em"
+        },
+        {
+          "tag": "b",
+          "text": "4 sessões"
+        },
+        {
+          "tag": "dfn",
+          "text": "Melhor 1RM estimado"
+        },
+        {
+          "tag": "b",
+          "text": "127 kg"
         },
         {
           "tag": "h2",
-          "text": "Saiba o que fazer em cada série"
+          "text": "Comece de onde você está."
         },
         {
           "tag": "p",
-          "text": "Veja a carga, as repetições e a meta de cada série."
+          "text": "Monte um programa do zero, ou traga o que você já treina. De qualquer jeito você registra séries em poucos minutos."
         },
         {
           "tag": "p",
           "text": "Planeje. Treine. Progrida."
+        },
+        {
+          "tag": "small",
+          "text": "Funciona sem conexão. Sem conta. Seu histórico de treino fica neste dispositivo e nunca sai dele."
         }
       ]
     },
@@ -43676,48 +44804,208 @@
           "text": "Programa do treinador · 1 dia por semana"
         },
         {
-          "tag": "figure",
-          "labelledBy": "Um exemplo de treino"
-        },
-        {
-          "tag": "figcaption",
-          "text": "Um exemplo de treino"
+          "tag": "b",
+          "text": "01"
         },
         {
           "tag": "span",
-          "text": "01 / O programa"
+          "text": "/ Começando"
         },
         {
-          "tag": "strong",
-          "text": "Supino reto com barra"
+          "tag": "h2",
+          "text": "Cinco perguntas, ou cole o que você já faz."
         },
         {
           "tag": "p",
-          "text": "3 séries · 8–10 repetições · RIR 0–2"
+          "text": "O Taurifer pode escrever o programa a partir das suas respostas, ou pegar o que você já treina e torná-lo rastreável. De qualquer forma você chega na mesma tela de Hoje."
+        },
+        {
+          "tag": "dfn",
+          "text": "Recomendar"
+        },
+        {
+          "tag": "b",
+          "text": "5 perguntas → um programa"
+        },
+        {
+          "tag": "dfn",
+          "text": "Personalizado"
+        },
+        {
+          "tag": "b",
+          "text": "Escolha prioridades e exercícios"
+        },
+        {
+          "tag": "dfn",
+          "text": "Usar o meu"
+        },
+        {
+          "tag": "b",
+          "text": "Cole um texto ou importe um arquivo"
+        },
+        {
+          "tag": "b",
+          "text": "02"
         },
         {
           "tag": "span",
-          "text": "02 / Você registrou"
+          "text": "/ O programa"
         },
         {
-          "tag": "strong",
-          "text": "60 kg × 10"
-        },
-        {
-          "tag": "p",
-          "text": "As 3 séries · RIR 2"
+          "tag": "h2",
+          "text": "Seis semanas, planejadas antes de começar."
         },
         {
           "tag": "p",
-          "text": "Você chegou ao topo da faixa de repetições. Aumente a carga e volte a subir as repetições."
+          "text": "Seis semanas, três dias, montados em torno dos dias em que você realmente treina. O bloco inteiro fica visível, e cada parte dele é editável."
+        },
+        {
+          "tag": "dfn",
+          "text": "Bloco"
+        },
+        {
+          "tag": "b",
+          "text": "Semana 5 de 6"
+        },
+        {
+          "tag": "dfn",
+          "text": "Dias de treino"
+        },
+        {
+          "tag": "b",
+          "text": "3 por semana"
+        },
+        {
+          "tag": "dfn",
+          "text": "Dia 1"
+        },
+        {
+          "tag": "b",
+          "text": "5 exercícios · 15 séries"
+        },
+        {
+          "tag": "b",
+          "text": "03"
         },
         {
           "tag": "span",
-          "text": "03 / Próxima sessão"
+          "text": "/ A prescrição"
         },
         {
-          "tag": "strong",
-          "text": "62,5"
+          "tag": "h2",
+          "text": "Toda série já vem com um alvo."
+        },
+        {
+          "tag": "p",
+          "text": "Abra o dia e a carga, as reps e o esforço já estão definidos para cada exercício. Nada para decidir na hora."
+        },
+        {
+          "tag": "dfn",
+          "text": "Alvo"
+        },
+        {
+          "tag": "b",
+          "text": "5–8 reps · RIR 0–2"
+        },
+        {
+          "tag": "dfn",
+          "text": "Recomendação"
+        },
+        {
+          "tag": "b",
+          "text": "Mantenha 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Série 1 de 3"
+        },
+        {
+          "tag": "b",
+          "text": "100 kg × 8 · RIR 1"
+        },
+        {
+          "tag": "b",
+          "text": "04"
+        },
+        {
+          "tag": "span",
+          "text": "/ O motivo"
+        },
+        {
+          "tag": "h2",
+          "text": "O Taurifer mostra o porquê, toda vez."
+        },
+        {
+          "tag": "p",
+          "text": "A faixa ainda tem espaço, então a carga fica enquanto as reps sobem."
+        },
+        {
+          "tag": "cite",
+          "text": "Taurifer · Por que essa carga"
+        },
+        {
+          "tag": "p",
+          "text": "Toda recomendação se abre. Você vê as séries que ela leu, o esforço que mediu e a regra que aplicou, então pode concordar, ou mudar."
+        },
+        {
+          "tag": "b",
+          "text": "05"
+        },
+        {
+          "tag": "span",
+          "text": "/ O registro"
+        },
+        {
+          "tag": "h2",
+          "text": "Sua sessão se soma sozinha."
+        },
+        {
+          "tag": "p",
+          "text": "Salve a sessão e o Taurifer soma o trabalho, marca cada recorde pessoal e diz quais exercícios evoluíram e quais não."
+        },
+        {
+          "tag": "dfn",
+          "text": "Séries registradas"
+        },
+        {
+          "tag": "b",
+          "text": "15"
+        },
+        {
+          "tag": "dfn",
+          "text": "Volume movido"
+        },
+        {
+          "tag": "b",
+          "text": "8.123 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Mudança por exercício"
+        },
+        {
+          "tag": "b",
+          "text": "5 melhoraram"
+        },
+        {
+          "tag": "b",
+          "text": "06"
+        },
+        {
+          "tag": "span",
+          "text": "/ Ao longo do tempo"
+        },
+        {
+          "tag": "h2",
+          "text": "Quatro sessões, 7,5 kg no agachamento."
+        },
+        {
+          "tag": "p",
+          "text": "92.5 100"
+        },
+        {
+          "tag": "span",
+          "text": "to"
         },
         {
           "tag": "span",
@@ -43725,19 +45013,47 @@
         },
         {
           "tag": "p",
-          "text": "3 séries × 8 repetições"
+          "text": "Carga máxima no agachamento livre, 7,5 kg a mais em quatro sessões."
+        },
+        {
+          "tag": "dfn",
+          "text": "Carga máxima"
+        },
+        {
+          "tag": "b",
+          "text": "92,5 → 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Em"
+        },
+        {
+          "tag": "b",
+          "text": "4 sessões"
+        },
+        {
+          "tag": "dfn",
+          "text": "Melhor 1RM estimado"
+        },
+        {
+          "tag": "b",
+          "text": "127 kg"
         },
         {
           "tag": "h2",
-          "text": "Saiba o que fazer em cada série"
+          "text": "Comece de onde você está."
         },
         {
           "tag": "p",
-          "text": "Veja a carga, as repetições e a meta de cada série."
+          "text": "Monte um programa do zero, ou traga o que você já treina. De qualquer jeito você registra séries em poucos minutos."
         },
         {
           "tag": "p",
           "text": "Planeje. Treine. Progrida."
+        },
+        {
+          "tag": "small",
+          "text": "Funciona sem conexão. Sem conta. Seu histórico de treino fica neste dispositivo e nunca sai dele."
         }
       ]
     },
@@ -43795,48 +45111,208 @@
           "text": "Coach program · 1 day per week"
         },
         {
-          "tag": "figure",
-          "labelledBy": "A training example"
-        },
-        {
-          "tag": "figcaption",
-          "text": "A training example"
+          "tag": "b",
+          "text": "01"
         },
         {
           "tag": "span",
-          "text": "01 / The program"
+          "text": "/ Getting started"
         },
         {
-          "tag": "strong",
-          "text": "Barbell bench press"
+          "tag": "h2",
+          "text": "Five questions, or paste what you already run."
         },
         {
           "tag": "p",
-          "text": "3 sets · 8–10 reps · RIR 0–2"
+          "text": "Taurifer can write the program from your answers, or take the one you are already running and make it trackable. Either way you end up on the same Today screen."
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommend"
+        },
+        {
+          "tag": "b",
+          "text": "5 questions → a program"
+        },
+        {
+          "tag": "dfn",
+          "text": "Custom"
+        },
+        {
+          "tag": "b",
+          "text": "Pick priorities and lifts"
+        },
+        {
+          "tag": "dfn",
+          "text": "Use my own"
+        },
+        {
+          "tag": "b",
+          "text": "Paste text or import a file"
+        },
+        {
+          "tag": "b",
+          "text": "02"
         },
         {
           "tag": "span",
-          "text": "02 / You logged"
+          "text": "/ The program"
         },
         {
-          "tag": "strong",
-          "text": "60 kg × 10"
-        },
-        {
-          "tag": "p",
-          "text": "All 3 sets · RIR 2"
+          "tag": "h2",
+          "text": "Six weeks, planned before you start."
         },
         {
           "tag": "p",
-          "text": "Top of the rep range reached. Add load, then build the reps again."
+          "text": "Six weeks, three days, built around the days you actually train. The whole block is visible, and every part of it is editable."
+        },
+        {
+          "tag": "dfn",
+          "text": "Block"
+        },
+        {
+          "tag": "b",
+          "text": "Week 5 of 6"
+        },
+        {
+          "tag": "dfn",
+          "text": "Training days"
+        },
+        {
+          "tag": "b",
+          "text": "3 per week"
+        },
+        {
+          "tag": "dfn",
+          "text": "Day 1"
+        },
+        {
+          "tag": "b",
+          "text": "5 exercises · 15 sets"
+        },
+        {
+          "tag": "b",
+          "text": "03"
         },
         {
           "tag": "span",
-          "text": "03 / Next session"
+          "text": "/ The prescription"
         },
         {
-          "tag": "strong",
-          "text": "62.5"
+          "tag": "h2",
+          "text": "Every set opens with a target."
+        },
+        {
+          "tag": "p",
+          "text": "Open the day and the load, reps and effort are already set for every exercise. Nothing to decide at the rack."
+        },
+        {
+          "tag": "dfn",
+          "text": "Target"
+        },
+        {
+          "tag": "b",
+          "text": "5–8 reps · RIR 0–2"
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommendation"
+        },
+        {
+          "tag": "b",
+          "text": "Hold 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Set 1 of 3"
+        },
+        {
+          "tag": "b",
+          "text": "100 kg × 8 · RIR 1"
+        },
+        {
+          "tag": "b",
+          "text": "04"
+        },
+        {
+          "tag": "span",
+          "text": "/ The reasoning"
+        },
+        {
+          "tag": "h2",
+          "text": "Taurifer shows you why, every time."
+        },
+        {
+          "tag": "p",
+          "text": "The range still has room, so the load stays while reps climb."
+        },
+        {
+          "tag": "cite",
+          "text": "Taurifer · Why this weight"
+        },
+        {
+          "tag": "p",
+          "text": "Every recommendation opens up. You see the sets it read, the effort it measured and the rule it applied, so you can agree with it or override it."
+        },
+        {
+          "tag": "b",
+          "text": "05"
+        },
+        {
+          "tag": "span",
+          "text": "/ The record"
+        },
+        {
+          "tag": "h2",
+          "text": "Your session totals itself."
+        },
+        {
+          "tag": "p",
+          "text": "Save the session and Taurifer totals the work, flags every personal record, and tells you which lifts moved and which did not."
+        },
+        {
+          "tag": "dfn",
+          "text": "Sets logged"
+        },
+        {
+          "tag": "b",
+          "text": "15"
+        },
+        {
+          "tag": "dfn",
+          "text": "Volume moved"
+        },
+        {
+          "tag": "b",
+          "text": "8,123 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Change by lift"
+        },
+        {
+          "tag": "b",
+          "text": "5 improved"
+        },
+        {
+          "tag": "b",
+          "text": "06"
+        },
+        {
+          "tag": "span",
+          "text": "/ Over time"
+        },
+        {
+          "tag": "h2",
+          "text": "Four sessions, 7.5 kg on the squat."
+        },
+        {
+          "tag": "p",
+          "text": "92.5 100"
+        },
+        {
+          "tag": "span",
+          "text": "to"
         },
         {
           "tag": "span",
@@ -43844,19 +45320,47 @@
         },
         {
           "tag": "p",
-          "text": "3 sets × 8 reps"
+          "text": "Top load on the back squat, up 7.5 kg over four sessions."
+        },
+        {
+          "tag": "dfn",
+          "text": "Top load"
+        },
+        {
+          "tag": "b",
+          "text": "92.5 → 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Over"
+        },
+        {
+          "tag": "b",
+          "text": "4 sessions"
+        },
+        {
+          "tag": "dfn",
+          "text": "Best estimated 1RM"
+        },
+        {
+          "tag": "b",
+          "text": "127 kg"
         },
         {
           "tag": "h2",
-          "text": "Know what to do, every set"
+          "text": "Start where you are."
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "Build a program from scratch, or bring the one you are already running. Either way you are logging sets in a couple of minutes."
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
+        },
+        {
+          "tag": "small",
+          "text": "Works offline. No account required. Your training history is stored on this device and never leaves it."
         }
       ]
     },
@@ -43921,48 +45425,208 @@
           "text": "Track my current program"
         },
         {
-          "tag": "figure",
-          "labelledBy": "A training example"
-        },
-        {
-          "tag": "figcaption",
-          "text": "A training example"
+          "tag": "b",
+          "text": "01"
         },
         {
           "tag": "span",
-          "text": "01 / The program"
+          "text": "/ Getting started"
         },
         {
-          "tag": "strong",
-          "text": "Barbell bench press"
+          "tag": "h2",
+          "text": "Five questions, or paste what you already run."
         },
         {
           "tag": "p",
-          "text": "3 sets · 8–10 reps · RIR 0–2"
+          "text": "Taurifer can write the program from your answers, or take the one you are already running and make it trackable. Either way you end up on the same Today screen."
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommend"
+        },
+        {
+          "tag": "b",
+          "text": "5 questions → a program"
+        },
+        {
+          "tag": "dfn",
+          "text": "Custom"
+        },
+        {
+          "tag": "b",
+          "text": "Pick priorities and lifts"
+        },
+        {
+          "tag": "dfn",
+          "text": "Use my own"
+        },
+        {
+          "tag": "b",
+          "text": "Paste text or import a file"
+        },
+        {
+          "tag": "b",
+          "text": "02"
         },
         {
           "tag": "span",
-          "text": "02 / You logged"
+          "text": "/ The program"
         },
         {
-          "tag": "strong",
-          "text": "60 kg × 10"
-        },
-        {
-          "tag": "p",
-          "text": "All 3 sets · RIR 2"
+          "tag": "h2",
+          "text": "Six weeks, planned before you start."
         },
         {
           "tag": "p",
-          "text": "Top of the rep range reached. Add load, then build the reps again."
+          "text": "Six weeks, three days, built around the days you actually train. The whole block is visible, and every part of it is editable."
+        },
+        {
+          "tag": "dfn",
+          "text": "Block"
+        },
+        {
+          "tag": "b",
+          "text": "Week 5 of 6"
+        },
+        {
+          "tag": "dfn",
+          "text": "Training days"
+        },
+        {
+          "tag": "b",
+          "text": "3 per week"
+        },
+        {
+          "tag": "dfn",
+          "text": "Day 1"
+        },
+        {
+          "tag": "b",
+          "text": "5 exercises · 15 sets"
+        },
+        {
+          "tag": "b",
+          "text": "03"
         },
         {
           "tag": "span",
-          "text": "03 / Next session"
+          "text": "/ The prescription"
         },
         {
-          "tag": "strong",
-          "text": "62.5"
+          "tag": "h2",
+          "text": "Every set opens with a target."
+        },
+        {
+          "tag": "p",
+          "text": "Open the day and the load, reps and effort are already set for every exercise. Nothing to decide at the rack."
+        },
+        {
+          "tag": "dfn",
+          "text": "Target"
+        },
+        {
+          "tag": "b",
+          "text": "5–8 reps · RIR 0–2"
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommendation"
+        },
+        {
+          "tag": "b",
+          "text": "Hold 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Set 1 of 3"
+        },
+        {
+          "tag": "b",
+          "text": "100 kg × 8 · RIR 1"
+        },
+        {
+          "tag": "b",
+          "text": "04"
+        },
+        {
+          "tag": "span",
+          "text": "/ The reasoning"
+        },
+        {
+          "tag": "h2",
+          "text": "Taurifer shows you why, every time."
+        },
+        {
+          "tag": "p",
+          "text": "The range still has room, so the load stays while reps climb."
+        },
+        {
+          "tag": "cite",
+          "text": "Taurifer · Why this weight"
+        },
+        {
+          "tag": "p",
+          "text": "Every recommendation opens up. You see the sets it read, the effort it measured and the rule it applied, so you can agree with it or override it."
+        },
+        {
+          "tag": "b",
+          "text": "05"
+        },
+        {
+          "tag": "span",
+          "text": "/ The record"
+        },
+        {
+          "tag": "h2",
+          "text": "Your session totals itself."
+        },
+        {
+          "tag": "p",
+          "text": "Save the session and Taurifer totals the work, flags every personal record, and tells you which lifts moved and which did not."
+        },
+        {
+          "tag": "dfn",
+          "text": "Sets logged"
+        },
+        {
+          "tag": "b",
+          "text": "15"
+        },
+        {
+          "tag": "dfn",
+          "text": "Volume moved"
+        },
+        {
+          "tag": "b",
+          "text": "8,123 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Change by lift"
+        },
+        {
+          "tag": "b",
+          "text": "5 improved"
+        },
+        {
+          "tag": "b",
+          "text": "06"
+        },
+        {
+          "tag": "span",
+          "text": "/ Over time"
+        },
+        {
+          "tag": "h2",
+          "text": "Four sessions, 7.5 kg on the squat."
+        },
+        {
+          "tag": "p",
+          "text": "92.5 100"
+        },
+        {
+          "tag": "span",
+          "text": "to"
         },
         {
           "tag": "span",
@@ -43970,19 +45634,65 @@
         },
         {
           "tag": "p",
-          "text": "3 sets × 8 reps"
+          "text": "Top load on the back squat, up 7.5 kg over four sessions."
+        },
+        {
+          "tag": "dfn",
+          "text": "Top load"
+        },
+        {
+          "tag": "b",
+          "text": "92.5 → 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Over"
+        },
+        {
+          "tag": "b",
+          "text": "4 sessions"
+        },
+        {
+          "tag": "dfn",
+          "text": "Best estimated 1RM"
+        },
+        {
+          "tag": "b",
+          "text": "127 kg"
         },
         {
           "tag": "h2",
-          "text": "Know what to do, every set"
+          "text": "Start where you are."
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "Build a program from scratch, or bring the one you are already running. Either way you are logging sets in a couple of minutes."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
+        },
+        {
+          "tag": "small",
+          "text": "Works offline. No account required. Your training history is stored on this device and never leaves it."
         }
       ]
     },
@@ -44047,48 +45757,208 @@
           "text": "Track my current program"
         },
         {
-          "tag": "figure",
-          "labelledBy": "A training example"
-        },
-        {
-          "tag": "figcaption",
-          "text": "A training example"
+          "tag": "b",
+          "text": "01"
         },
         {
           "tag": "span",
-          "text": "01 / The program"
+          "text": "/ Getting started"
         },
         {
-          "tag": "strong",
-          "text": "Barbell bench press"
+          "tag": "h2",
+          "text": "Five questions, or paste what you already run."
         },
         {
           "tag": "p",
-          "text": "3 sets · 8–10 reps · RIR 0–2"
+          "text": "Taurifer can write the program from your answers, or take the one you are already running and make it trackable. Either way you end up on the same Today screen."
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommend"
+        },
+        {
+          "tag": "b",
+          "text": "5 questions → a program"
+        },
+        {
+          "tag": "dfn",
+          "text": "Custom"
+        },
+        {
+          "tag": "b",
+          "text": "Pick priorities and lifts"
+        },
+        {
+          "tag": "dfn",
+          "text": "Use my own"
+        },
+        {
+          "tag": "b",
+          "text": "Paste text or import a file"
+        },
+        {
+          "tag": "b",
+          "text": "02"
         },
         {
           "tag": "span",
-          "text": "02 / You logged"
+          "text": "/ The program"
         },
         {
-          "tag": "strong",
-          "text": "60 kg × 10"
-        },
-        {
-          "tag": "p",
-          "text": "All 3 sets · RIR 2"
+          "tag": "h2",
+          "text": "Six weeks, planned before you start."
         },
         {
           "tag": "p",
-          "text": "Top of the rep range reached. Add load, then build the reps again."
+          "text": "Six weeks, three days, built around the days you actually train. The whole block is visible, and every part of it is editable."
+        },
+        {
+          "tag": "dfn",
+          "text": "Block"
+        },
+        {
+          "tag": "b",
+          "text": "Week 5 of 6"
+        },
+        {
+          "tag": "dfn",
+          "text": "Training days"
+        },
+        {
+          "tag": "b",
+          "text": "3 per week"
+        },
+        {
+          "tag": "dfn",
+          "text": "Day 1"
+        },
+        {
+          "tag": "b",
+          "text": "5 exercises · 15 sets"
+        },
+        {
+          "tag": "b",
+          "text": "03"
         },
         {
           "tag": "span",
-          "text": "03 / Next session"
+          "text": "/ The prescription"
         },
         {
-          "tag": "strong",
-          "text": "62.5"
+          "tag": "h2",
+          "text": "Every set opens with a target."
+        },
+        {
+          "tag": "p",
+          "text": "Open the day and the load, reps and effort are already set for every exercise. Nothing to decide at the rack."
+        },
+        {
+          "tag": "dfn",
+          "text": "Target"
+        },
+        {
+          "tag": "b",
+          "text": "5–8 reps · RIR 0–2"
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommendation"
+        },
+        {
+          "tag": "b",
+          "text": "Hold 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Set 1 of 3"
+        },
+        {
+          "tag": "b",
+          "text": "100 kg × 8 · RIR 1"
+        },
+        {
+          "tag": "b",
+          "text": "04"
+        },
+        {
+          "tag": "span",
+          "text": "/ The reasoning"
+        },
+        {
+          "tag": "h2",
+          "text": "Taurifer shows you why, every time."
+        },
+        {
+          "tag": "p",
+          "text": "The range still has room, so the load stays while reps climb."
+        },
+        {
+          "tag": "cite",
+          "text": "Taurifer · Why this weight"
+        },
+        {
+          "tag": "p",
+          "text": "Every recommendation opens up. You see the sets it read, the effort it measured and the rule it applied, so you can agree with it or override it."
+        },
+        {
+          "tag": "b",
+          "text": "05"
+        },
+        {
+          "tag": "span",
+          "text": "/ The record"
+        },
+        {
+          "tag": "h2",
+          "text": "Your session totals itself."
+        },
+        {
+          "tag": "p",
+          "text": "Save the session and Taurifer totals the work, flags every personal record, and tells you which lifts moved and which did not."
+        },
+        {
+          "tag": "dfn",
+          "text": "Sets logged"
+        },
+        {
+          "tag": "b",
+          "text": "15"
+        },
+        {
+          "tag": "dfn",
+          "text": "Volume moved"
+        },
+        {
+          "tag": "b",
+          "text": "8,123 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Change by lift"
+        },
+        {
+          "tag": "b",
+          "text": "5 improved"
+        },
+        {
+          "tag": "b",
+          "text": "06"
+        },
+        {
+          "tag": "span",
+          "text": "/ Over time"
+        },
+        {
+          "tag": "h2",
+          "text": "Four sessions, 7.5 kg on the squat."
+        },
+        {
+          "tag": "p",
+          "text": "92.5 100"
+        },
+        {
+          "tag": "span",
+          "text": "to"
         },
         {
           "tag": "span",
@@ -44096,19 +45966,65 @@
         },
         {
           "tag": "p",
-          "text": "3 sets × 8 reps"
+          "text": "Top load on the back squat, up 7.5 kg over four sessions."
+        },
+        {
+          "tag": "dfn",
+          "text": "Top load"
+        },
+        {
+          "tag": "b",
+          "text": "92.5 → 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Over"
+        },
+        {
+          "tag": "b",
+          "text": "4 sessions"
+        },
+        {
+          "tag": "dfn",
+          "text": "Best estimated 1RM"
+        },
+        {
+          "tag": "b",
+          "text": "127 kg"
         },
         {
           "tag": "h2",
-          "text": "Know what to do, every set"
+          "text": "Start where you are."
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "Build a program from scratch, or bring the one you are already running. Either way you are logging sets in a couple of minutes."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
+        },
+        {
+          "tag": "small",
+          "text": "Works offline. No account required. Your training history is stored on this device and never leaves it."
         }
       ]
     },
@@ -44165,56 +46081,216 @@
         },
         {
           "tag": "button",
-          "name": "Registrar meu programa atual",
+          "name": "Acompanhar meu programa atual",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Registrar meu programa atual"
+          "text": "Acompanhar meu programa atual"
         },
         {
-          "tag": "figure",
-          "labelledBy": "Um exemplo de treino"
-        },
-        {
-          "tag": "figcaption",
-          "text": "Um exemplo de treino"
+          "tag": "b",
+          "text": "01"
         },
         {
           "tag": "span",
-          "text": "01 / O programa"
+          "text": "/ Começando"
         },
         {
-          "tag": "strong",
-          "text": "Supino reto com barra"
+          "tag": "h2",
+          "text": "Cinco perguntas, ou cole o que você já faz."
         },
         {
           "tag": "p",
-          "text": "3 séries · 8–10 repetições · RIR 0–2"
+          "text": "O Taurifer pode escrever o programa a partir das suas respostas, ou pegar o que você já treina e torná-lo rastreável. De qualquer forma você chega na mesma tela de Hoje."
+        },
+        {
+          "tag": "dfn",
+          "text": "Recomendar"
+        },
+        {
+          "tag": "b",
+          "text": "5 perguntas → um programa"
+        },
+        {
+          "tag": "dfn",
+          "text": "Personalizado"
+        },
+        {
+          "tag": "b",
+          "text": "Escolha prioridades e exercícios"
+        },
+        {
+          "tag": "dfn",
+          "text": "Usar o meu"
+        },
+        {
+          "tag": "b",
+          "text": "Cole um texto ou importe um arquivo"
+        },
+        {
+          "tag": "b",
+          "text": "02"
         },
         {
           "tag": "span",
-          "text": "02 / Você registrou"
+          "text": "/ O programa"
         },
         {
-          "tag": "strong",
-          "text": "60 kg × 10"
-        },
-        {
-          "tag": "p",
-          "text": "As 3 séries · RIR 2"
+          "tag": "h2",
+          "text": "Seis semanas, planejadas antes de começar."
         },
         {
           "tag": "p",
-          "text": "Você chegou ao topo da faixa de repetições. Aumente a carga e volte a subir as repetições."
+          "text": "Seis semanas, três dias, montados em torno dos dias em que você realmente treina. O bloco inteiro fica visível, e cada parte dele é editável."
+        },
+        {
+          "tag": "dfn",
+          "text": "Bloco"
+        },
+        {
+          "tag": "b",
+          "text": "Semana 5 de 6"
+        },
+        {
+          "tag": "dfn",
+          "text": "Dias de treino"
+        },
+        {
+          "tag": "b",
+          "text": "3 por semana"
+        },
+        {
+          "tag": "dfn",
+          "text": "Dia 1"
+        },
+        {
+          "tag": "b",
+          "text": "5 exercícios · 15 séries"
+        },
+        {
+          "tag": "b",
+          "text": "03"
         },
         {
           "tag": "span",
-          "text": "03 / Próxima sessão"
+          "text": "/ A prescrição"
         },
         {
-          "tag": "strong",
-          "text": "62,5"
+          "tag": "h2",
+          "text": "Toda série já vem com um alvo."
+        },
+        {
+          "tag": "p",
+          "text": "Abra o dia e a carga, as reps e o esforço já estão definidos para cada exercício. Nada para decidir na hora."
+        },
+        {
+          "tag": "dfn",
+          "text": "Alvo"
+        },
+        {
+          "tag": "b",
+          "text": "5–8 reps · RIR 0–2"
+        },
+        {
+          "tag": "dfn",
+          "text": "Recomendação"
+        },
+        {
+          "tag": "b",
+          "text": "Mantenha 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Série 1 de 3"
+        },
+        {
+          "tag": "b",
+          "text": "100 kg × 8 · RIR 1"
+        },
+        {
+          "tag": "b",
+          "text": "04"
+        },
+        {
+          "tag": "span",
+          "text": "/ O motivo"
+        },
+        {
+          "tag": "h2",
+          "text": "O Taurifer mostra o porquê, toda vez."
+        },
+        {
+          "tag": "p",
+          "text": "A faixa ainda tem espaço, então a carga fica enquanto as reps sobem."
+        },
+        {
+          "tag": "cite",
+          "text": "Taurifer · Por que essa carga"
+        },
+        {
+          "tag": "p",
+          "text": "Toda recomendação se abre. Você vê as séries que ela leu, o esforço que mediu e a regra que aplicou, então pode concordar, ou mudar."
+        },
+        {
+          "tag": "b",
+          "text": "05"
+        },
+        {
+          "tag": "span",
+          "text": "/ O registro"
+        },
+        {
+          "tag": "h2",
+          "text": "Sua sessão se soma sozinha."
+        },
+        {
+          "tag": "p",
+          "text": "Salve a sessão e o Taurifer soma o trabalho, marca cada recorde pessoal e diz quais exercícios evoluíram e quais não."
+        },
+        {
+          "tag": "dfn",
+          "text": "Séries registradas"
+        },
+        {
+          "tag": "b",
+          "text": "15"
+        },
+        {
+          "tag": "dfn",
+          "text": "Volume movido"
+        },
+        {
+          "tag": "b",
+          "text": "8.123 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Mudança por exercício"
+        },
+        {
+          "tag": "b",
+          "text": "5 melhoraram"
+        },
+        {
+          "tag": "b",
+          "text": "06"
+        },
+        {
+          "tag": "span",
+          "text": "/ Ao longo do tempo"
+        },
+        {
+          "tag": "h2",
+          "text": "Quatro sessões, 7,5 kg no agachamento."
+        },
+        {
+          "tag": "p",
+          "text": "92.5 100"
+        },
+        {
+          "tag": "span",
+          "text": "to"
         },
         {
           "tag": "span",
@@ -44222,19 +46298,65 @@
         },
         {
           "tag": "p",
-          "text": "3 séries × 8 repetições"
+          "text": "Carga máxima no agachamento livre, 7,5 kg a mais em quatro sessões."
+        },
+        {
+          "tag": "dfn",
+          "text": "Carga máxima"
+        },
+        {
+          "tag": "b",
+          "text": "92,5 → 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Em"
+        },
+        {
+          "tag": "b",
+          "text": "4 sessões"
+        },
+        {
+          "tag": "dfn",
+          "text": "Melhor 1RM estimado"
+        },
+        {
+          "tag": "b",
+          "text": "127 kg"
         },
         {
           "tag": "h2",
-          "text": "Saiba o que fazer em cada série"
+          "text": "Comece de onde você está."
         },
         {
           "tag": "p",
-          "text": "Veja a carga, as repetições e a meta de cada série."
+          "text": "Monte um programa do zero, ou traga o que você já treina. De qualquer jeito você registra séries em poucos minutos."
+        },
+        {
+          "tag": "button",
+          "name": "Montar meu programa",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Montar meu programa"
+        },
+        {
+          "tag": "button",
+          "name": "Acompanhar meu programa atual",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu programa atual"
         },
         {
           "tag": "p",
           "text": "Planeje. Treine. Progrida."
+        },
+        {
+          "tag": "small",
+          "text": "Funciona sem conexão. Sem conta. Seu histórico de treino fica neste dispositivo e nunca sai dele."
         }
       ]
     },
@@ -44707,48 +46829,208 @@
           "text": "Track my current program"
         },
         {
-          "tag": "figure",
-          "labelledBy": "A training example"
-        },
-        {
-          "tag": "figcaption",
-          "text": "A training example"
+          "tag": "b",
+          "text": "01"
         },
         {
           "tag": "span",
-          "text": "01 / The program"
+          "text": "/ Getting started"
         },
         {
-          "tag": "strong",
-          "text": "Barbell bench press"
+          "tag": "h2",
+          "text": "Five questions, or paste what you already run."
         },
         {
           "tag": "p",
-          "text": "3 sets · 8–10 reps · RIR 0–2"
+          "text": "Taurifer can write the program from your answers, or take the one you are already running and make it trackable. Either way you end up on the same Today screen."
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommend"
+        },
+        {
+          "tag": "b",
+          "text": "5 questions → a program"
+        },
+        {
+          "tag": "dfn",
+          "text": "Custom"
+        },
+        {
+          "tag": "b",
+          "text": "Pick priorities and lifts"
+        },
+        {
+          "tag": "dfn",
+          "text": "Use my own"
+        },
+        {
+          "tag": "b",
+          "text": "Paste text or import a file"
+        },
+        {
+          "tag": "b",
+          "text": "02"
         },
         {
           "tag": "span",
-          "text": "02 / You logged"
+          "text": "/ The program"
         },
         {
-          "tag": "strong",
-          "text": "60 kg × 10"
-        },
-        {
-          "tag": "p",
-          "text": "All 3 sets · RIR 2"
+          "tag": "h2",
+          "text": "Six weeks, planned before you start."
         },
         {
           "tag": "p",
-          "text": "Top of the rep range reached. Add load, then build the reps again."
+          "text": "Six weeks, three days, built around the days you actually train. The whole block is visible, and every part of it is editable."
+        },
+        {
+          "tag": "dfn",
+          "text": "Block"
+        },
+        {
+          "tag": "b",
+          "text": "Week 5 of 6"
+        },
+        {
+          "tag": "dfn",
+          "text": "Training days"
+        },
+        {
+          "tag": "b",
+          "text": "3 per week"
+        },
+        {
+          "tag": "dfn",
+          "text": "Day 1"
+        },
+        {
+          "tag": "b",
+          "text": "5 exercises · 15 sets"
+        },
+        {
+          "tag": "b",
+          "text": "03"
         },
         {
           "tag": "span",
-          "text": "03 / Next session"
+          "text": "/ The prescription"
         },
         {
-          "tag": "strong",
-          "text": "62.5"
+          "tag": "h2",
+          "text": "Every set opens with a target."
+        },
+        {
+          "tag": "p",
+          "text": "Open the day and the load, reps and effort are already set for every exercise. Nothing to decide at the rack."
+        },
+        {
+          "tag": "dfn",
+          "text": "Target"
+        },
+        {
+          "tag": "b",
+          "text": "5–8 reps · RIR 0–2"
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommendation"
+        },
+        {
+          "tag": "b",
+          "text": "Hold 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Set 1 of 3"
+        },
+        {
+          "tag": "b",
+          "text": "100 kg × 8 · RIR 1"
+        },
+        {
+          "tag": "b",
+          "text": "04"
+        },
+        {
+          "tag": "span",
+          "text": "/ The reasoning"
+        },
+        {
+          "tag": "h2",
+          "text": "Taurifer shows you why, every time."
+        },
+        {
+          "tag": "p",
+          "text": "The range still has room, so the load stays while reps climb."
+        },
+        {
+          "tag": "cite",
+          "text": "Taurifer · Why this weight"
+        },
+        {
+          "tag": "p",
+          "text": "Every recommendation opens up. You see the sets it read, the effort it measured and the rule it applied, so you can agree with it or override it."
+        },
+        {
+          "tag": "b",
+          "text": "05"
+        },
+        {
+          "tag": "span",
+          "text": "/ The record"
+        },
+        {
+          "tag": "h2",
+          "text": "Your session totals itself."
+        },
+        {
+          "tag": "p",
+          "text": "Save the session and Taurifer totals the work, flags every personal record, and tells you which lifts moved and which did not."
+        },
+        {
+          "tag": "dfn",
+          "text": "Sets logged"
+        },
+        {
+          "tag": "b",
+          "text": "15"
+        },
+        {
+          "tag": "dfn",
+          "text": "Volume moved"
+        },
+        {
+          "tag": "b",
+          "text": "8,123 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Change by lift"
+        },
+        {
+          "tag": "b",
+          "text": "5 improved"
+        },
+        {
+          "tag": "b",
+          "text": "06"
+        },
+        {
+          "tag": "span",
+          "text": "/ Over time"
+        },
+        {
+          "tag": "h2",
+          "text": "Four sessions, 7.5 kg on the squat."
+        },
+        {
+          "tag": "p",
+          "text": "92.5 100"
+        },
+        {
+          "tag": "span",
+          "text": "to"
         },
         {
           "tag": "span",
@@ -44756,19 +47038,65 @@
         },
         {
           "tag": "p",
-          "text": "3 sets × 8 reps"
+          "text": "Top load on the back squat, up 7.5 kg over four sessions."
+        },
+        {
+          "tag": "dfn",
+          "text": "Top load"
+        },
+        {
+          "tag": "b",
+          "text": "92.5 → 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Over"
+        },
+        {
+          "tag": "b",
+          "text": "4 sessions"
+        },
+        {
+          "tag": "dfn",
+          "text": "Best estimated 1RM"
+        },
+        {
+          "tag": "b",
+          "text": "127 kg"
         },
         {
           "tag": "h2",
-          "text": "Know what to do, every set"
+          "text": "Start where you are."
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "Build a program from scratch, or bring the one you are already running. Either way you are logging sets in a couple of minutes."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
+        },
+        {
+          "tag": "small",
+          "text": "Works offline. No account required. Your training history is stored on this device and never leaves it."
         }
       ]
     },
@@ -44827,48 +47155,208 @@
           "text": "Track my current program"
         },
         {
-          "tag": "figure",
-          "labelledBy": "A training example"
-        },
-        {
-          "tag": "figcaption",
-          "text": "A training example"
+          "tag": "b",
+          "text": "01"
         },
         {
           "tag": "span",
-          "text": "01 / The program"
+          "text": "/ Getting started"
         },
         {
-          "tag": "strong",
-          "text": "Barbell bench press"
+          "tag": "h2",
+          "text": "Five questions, or paste what you already run."
         },
         {
           "tag": "p",
-          "text": "3 sets · 8–10 reps · RIR 0–2"
+          "text": "Taurifer can write the program from your answers, or take the one you are already running and make it trackable. Either way you end up on the same Today screen."
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommend"
+        },
+        {
+          "tag": "b",
+          "text": "5 questions → a program"
+        },
+        {
+          "tag": "dfn",
+          "text": "Custom"
+        },
+        {
+          "tag": "b",
+          "text": "Pick priorities and lifts"
+        },
+        {
+          "tag": "dfn",
+          "text": "Use my own"
+        },
+        {
+          "tag": "b",
+          "text": "Paste text or import a file"
+        },
+        {
+          "tag": "b",
+          "text": "02"
         },
         {
           "tag": "span",
-          "text": "02 / You logged"
+          "text": "/ The program"
         },
         {
-          "tag": "strong",
-          "text": "60 kg × 10"
-        },
-        {
-          "tag": "p",
-          "text": "All 3 sets · RIR 2"
+          "tag": "h2",
+          "text": "Six weeks, planned before you start."
         },
         {
           "tag": "p",
-          "text": "Top of the rep range reached. Add load, then build the reps again."
+          "text": "Six weeks, three days, built around the days you actually train. The whole block is visible, and every part of it is editable."
+        },
+        {
+          "tag": "dfn",
+          "text": "Block"
+        },
+        {
+          "tag": "b",
+          "text": "Week 5 of 6"
+        },
+        {
+          "tag": "dfn",
+          "text": "Training days"
+        },
+        {
+          "tag": "b",
+          "text": "3 per week"
+        },
+        {
+          "tag": "dfn",
+          "text": "Day 1"
+        },
+        {
+          "tag": "b",
+          "text": "5 exercises · 15 sets"
+        },
+        {
+          "tag": "b",
+          "text": "03"
         },
         {
           "tag": "span",
-          "text": "03 / Next session"
+          "text": "/ The prescription"
         },
         {
-          "tag": "strong",
-          "text": "62.5"
+          "tag": "h2",
+          "text": "Every set opens with a target."
+        },
+        {
+          "tag": "p",
+          "text": "Open the day and the load, reps and effort are already set for every exercise. Nothing to decide at the rack."
+        },
+        {
+          "tag": "dfn",
+          "text": "Target"
+        },
+        {
+          "tag": "b",
+          "text": "5–8 reps · RIR 0–2"
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommendation"
+        },
+        {
+          "tag": "b",
+          "text": "Hold 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Set 1 of 3"
+        },
+        {
+          "tag": "b",
+          "text": "100 kg × 8 · RIR 1"
+        },
+        {
+          "tag": "b",
+          "text": "04"
+        },
+        {
+          "tag": "span",
+          "text": "/ The reasoning"
+        },
+        {
+          "tag": "h2",
+          "text": "Taurifer shows you why, every time."
+        },
+        {
+          "tag": "p",
+          "text": "The range still has room, so the load stays while reps climb."
+        },
+        {
+          "tag": "cite",
+          "text": "Taurifer · Why this weight"
+        },
+        {
+          "tag": "p",
+          "text": "Every recommendation opens up. You see the sets it read, the effort it measured and the rule it applied, so you can agree with it or override it."
+        },
+        {
+          "tag": "b",
+          "text": "05"
+        },
+        {
+          "tag": "span",
+          "text": "/ The record"
+        },
+        {
+          "tag": "h2",
+          "text": "Your session totals itself."
+        },
+        {
+          "tag": "p",
+          "text": "Save the session and Taurifer totals the work, flags every personal record, and tells you which lifts moved and which did not."
+        },
+        {
+          "tag": "dfn",
+          "text": "Sets logged"
+        },
+        {
+          "tag": "b",
+          "text": "15"
+        },
+        {
+          "tag": "dfn",
+          "text": "Volume moved"
+        },
+        {
+          "tag": "b",
+          "text": "8,123 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Change by lift"
+        },
+        {
+          "tag": "b",
+          "text": "5 improved"
+        },
+        {
+          "tag": "b",
+          "text": "06"
+        },
+        {
+          "tag": "span",
+          "text": "/ Over time"
+        },
+        {
+          "tag": "h2",
+          "text": "Four sessions, 7.5 kg on the squat."
+        },
+        {
+          "tag": "p",
+          "text": "92.5 100"
+        },
+        {
+          "tag": "span",
+          "text": "to"
         },
         {
           "tag": "span",
@@ -44876,19 +47364,65 @@
         },
         {
           "tag": "p",
-          "text": "3 sets × 8 reps"
+          "text": "Top load on the back squat, up 7.5 kg over four sessions."
+        },
+        {
+          "tag": "dfn",
+          "text": "Top load"
+        },
+        {
+          "tag": "b",
+          "text": "92.5 → 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Over"
+        },
+        {
+          "tag": "b",
+          "text": "4 sessions"
+        },
+        {
+          "tag": "dfn",
+          "text": "Best estimated 1RM"
+        },
+        {
+          "tag": "b",
+          "text": "127 kg"
         },
         {
           "tag": "h2",
-          "text": "Know what to do, every set"
+          "text": "Start where you are."
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "Build a program from scratch, or bring the one you are already running. Either way you are logging sets in a couple of minutes."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
+        },
+        {
+          "tag": "small",
+          "text": "Works offline. No account required. Your training history is stored on this device and never leaves it."
         }
       ]
     },
@@ -44947,48 +47481,208 @@
           "text": "Track my current program"
         },
         {
-          "tag": "figure",
-          "labelledBy": "A training example"
-        },
-        {
-          "tag": "figcaption",
-          "text": "A training example"
+          "tag": "b",
+          "text": "01"
         },
         {
           "tag": "span",
-          "text": "01 / The program"
+          "text": "/ Getting started"
         },
         {
-          "tag": "strong",
-          "text": "Barbell bench press"
+          "tag": "h2",
+          "text": "Five questions, or paste what you already run."
         },
         {
           "tag": "p",
-          "text": "3 sets · 8–10 reps · RIR 0–2"
+          "text": "Taurifer can write the program from your answers, or take the one you are already running and make it trackable. Either way you end up on the same Today screen."
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommend"
+        },
+        {
+          "tag": "b",
+          "text": "5 questions → a program"
+        },
+        {
+          "tag": "dfn",
+          "text": "Custom"
+        },
+        {
+          "tag": "b",
+          "text": "Pick priorities and lifts"
+        },
+        {
+          "tag": "dfn",
+          "text": "Use my own"
+        },
+        {
+          "tag": "b",
+          "text": "Paste text or import a file"
+        },
+        {
+          "tag": "b",
+          "text": "02"
         },
         {
           "tag": "span",
-          "text": "02 / You logged"
+          "text": "/ The program"
         },
         {
-          "tag": "strong",
-          "text": "60 kg × 10"
-        },
-        {
-          "tag": "p",
-          "text": "All 3 sets · RIR 2"
+          "tag": "h2",
+          "text": "Six weeks, planned before you start."
         },
         {
           "tag": "p",
-          "text": "Top of the rep range reached. Add load, then build the reps again."
+          "text": "Six weeks, three days, built around the days you actually train. The whole block is visible, and every part of it is editable."
+        },
+        {
+          "tag": "dfn",
+          "text": "Block"
+        },
+        {
+          "tag": "b",
+          "text": "Week 5 of 6"
+        },
+        {
+          "tag": "dfn",
+          "text": "Training days"
+        },
+        {
+          "tag": "b",
+          "text": "3 per week"
+        },
+        {
+          "tag": "dfn",
+          "text": "Day 1"
+        },
+        {
+          "tag": "b",
+          "text": "5 exercises · 15 sets"
+        },
+        {
+          "tag": "b",
+          "text": "03"
         },
         {
           "tag": "span",
-          "text": "03 / Next session"
+          "text": "/ The prescription"
         },
         {
-          "tag": "strong",
-          "text": "62.5"
+          "tag": "h2",
+          "text": "Every set opens with a target."
+        },
+        {
+          "tag": "p",
+          "text": "Open the day and the load, reps and effort are already set for every exercise. Nothing to decide at the rack."
+        },
+        {
+          "tag": "dfn",
+          "text": "Target"
+        },
+        {
+          "tag": "b",
+          "text": "5–8 reps · RIR 0–2"
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommendation"
+        },
+        {
+          "tag": "b",
+          "text": "Hold 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Set 1 of 3"
+        },
+        {
+          "tag": "b",
+          "text": "100 kg × 8 · RIR 1"
+        },
+        {
+          "tag": "b",
+          "text": "04"
+        },
+        {
+          "tag": "span",
+          "text": "/ The reasoning"
+        },
+        {
+          "tag": "h2",
+          "text": "Taurifer shows you why, every time."
+        },
+        {
+          "tag": "p",
+          "text": "The range still has room, so the load stays while reps climb."
+        },
+        {
+          "tag": "cite",
+          "text": "Taurifer · Why this weight"
+        },
+        {
+          "tag": "p",
+          "text": "Every recommendation opens up. You see the sets it read, the effort it measured and the rule it applied, so you can agree with it or override it."
+        },
+        {
+          "tag": "b",
+          "text": "05"
+        },
+        {
+          "tag": "span",
+          "text": "/ The record"
+        },
+        {
+          "tag": "h2",
+          "text": "Your session totals itself."
+        },
+        {
+          "tag": "p",
+          "text": "Save the session and Taurifer totals the work, flags every personal record, and tells you which lifts moved and which did not."
+        },
+        {
+          "tag": "dfn",
+          "text": "Sets logged"
+        },
+        {
+          "tag": "b",
+          "text": "15"
+        },
+        {
+          "tag": "dfn",
+          "text": "Volume moved"
+        },
+        {
+          "tag": "b",
+          "text": "8,123 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Change by lift"
+        },
+        {
+          "tag": "b",
+          "text": "5 improved"
+        },
+        {
+          "tag": "b",
+          "text": "06"
+        },
+        {
+          "tag": "span",
+          "text": "/ Over time"
+        },
+        {
+          "tag": "h2",
+          "text": "Four sessions, 7.5 kg on the squat."
+        },
+        {
+          "tag": "p",
+          "text": "92.5 100"
+        },
+        {
+          "tag": "span",
+          "text": "to"
         },
         {
           "tag": "span",
@@ -44996,19 +47690,65 @@
         },
         {
           "tag": "p",
-          "text": "3 sets × 8 reps"
+          "text": "Top load on the back squat, up 7.5 kg over four sessions."
+        },
+        {
+          "tag": "dfn",
+          "text": "Top load"
+        },
+        {
+          "tag": "b",
+          "text": "92.5 → 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Over"
+        },
+        {
+          "tag": "b",
+          "text": "4 sessions"
+        },
+        {
+          "tag": "dfn",
+          "text": "Best estimated 1RM"
+        },
+        {
+          "tag": "b",
+          "text": "127 kg"
         },
         {
           "tag": "h2",
-          "text": "Know what to do, every set"
+          "text": "Start where you are."
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "Build a program from scratch, or bring the one you are already running. Either way you are logging sets in a couple of minutes."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
+        },
+        {
+          "tag": "small",
+          "text": "Works offline. No account required. Your training history is stored on this device and never leaves it."
         }
       ]
     },
@@ -45067,48 +47807,208 @@
           "text": "Track my current program"
         },
         {
-          "tag": "figure",
-          "labelledBy": "A training example"
-        },
-        {
-          "tag": "figcaption",
-          "text": "A training example"
+          "tag": "b",
+          "text": "01"
         },
         {
           "tag": "span",
-          "text": "01 / The program"
+          "text": "/ Getting started"
         },
         {
-          "tag": "strong",
-          "text": "Barbell bench press"
+          "tag": "h2",
+          "text": "Five questions, or paste what you already run."
         },
         {
           "tag": "p",
-          "text": "3 sets · 8–10 reps · RIR 0–2"
+          "text": "Taurifer can write the program from your answers, or take the one you are already running and make it trackable. Either way you end up on the same Today screen."
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommend"
+        },
+        {
+          "tag": "b",
+          "text": "5 questions → a program"
+        },
+        {
+          "tag": "dfn",
+          "text": "Custom"
+        },
+        {
+          "tag": "b",
+          "text": "Pick priorities and lifts"
+        },
+        {
+          "tag": "dfn",
+          "text": "Use my own"
+        },
+        {
+          "tag": "b",
+          "text": "Paste text or import a file"
+        },
+        {
+          "tag": "b",
+          "text": "02"
         },
         {
           "tag": "span",
-          "text": "02 / You logged"
+          "text": "/ The program"
         },
         {
-          "tag": "strong",
-          "text": "60 kg × 10"
-        },
-        {
-          "tag": "p",
-          "text": "All 3 sets · RIR 2"
+          "tag": "h2",
+          "text": "Six weeks, planned before you start."
         },
         {
           "tag": "p",
-          "text": "Top of the rep range reached. Add load, then build the reps again."
+          "text": "Six weeks, three days, built around the days you actually train. The whole block is visible, and every part of it is editable."
+        },
+        {
+          "tag": "dfn",
+          "text": "Block"
+        },
+        {
+          "tag": "b",
+          "text": "Week 5 of 6"
+        },
+        {
+          "tag": "dfn",
+          "text": "Training days"
+        },
+        {
+          "tag": "b",
+          "text": "3 per week"
+        },
+        {
+          "tag": "dfn",
+          "text": "Day 1"
+        },
+        {
+          "tag": "b",
+          "text": "5 exercises · 15 sets"
+        },
+        {
+          "tag": "b",
+          "text": "03"
         },
         {
           "tag": "span",
-          "text": "03 / Next session"
+          "text": "/ The prescription"
         },
         {
-          "tag": "strong",
-          "text": "62.5"
+          "tag": "h2",
+          "text": "Every set opens with a target."
+        },
+        {
+          "tag": "p",
+          "text": "Open the day and the load, reps and effort are already set for every exercise. Nothing to decide at the rack."
+        },
+        {
+          "tag": "dfn",
+          "text": "Target"
+        },
+        {
+          "tag": "b",
+          "text": "5–8 reps · RIR 0–2"
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommendation"
+        },
+        {
+          "tag": "b",
+          "text": "Hold 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Set 1 of 3"
+        },
+        {
+          "tag": "b",
+          "text": "100 kg × 8 · RIR 1"
+        },
+        {
+          "tag": "b",
+          "text": "04"
+        },
+        {
+          "tag": "span",
+          "text": "/ The reasoning"
+        },
+        {
+          "tag": "h2",
+          "text": "Taurifer shows you why, every time."
+        },
+        {
+          "tag": "p",
+          "text": "The range still has room, so the load stays while reps climb."
+        },
+        {
+          "tag": "cite",
+          "text": "Taurifer · Why this weight"
+        },
+        {
+          "tag": "p",
+          "text": "Every recommendation opens up. You see the sets it read, the effort it measured and the rule it applied, so you can agree with it or override it."
+        },
+        {
+          "tag": "b",
+          "text": "05"
+        },
+        {
+          "tag": "span",
+          "text": "/ The record"
+        },
+        {
+          "tag": "h2",
+          "text": "Your session totals itself."
+        },
+        {
+          "tag": "p",
+          "text": "Save the session and Taurifer totals the work, flags every personal record, and tells you which lifts moved and which did not."
+        },
+        {
+          "tag": "dfn",
+          "text": "Sets logged"
+        },
+        {
+          "tag": "b",
+          "text": "15"
+        },
+        {
+          "tag": "dfn",
+          "text": "Volume moved"
+        },
+        {
+          "tag": "b",
+          "text": "8,123 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Change by lift"
+        },
+        {
+          "tag": "b",
+          "text": "5 improved"
+        },
+        {
+          "tag": "b",
+          "text": "06"
+        },
+        {
+          "tag": "span",
+          "text": "/ Over time"
+        },
+        {
+          "tag": "h2",
+          "text": "Four sessions, 7.5 kg on the squat."
+        },
+        {
+          "tag": "p",
+          "text": "92.5 100"
+        },
+        {
+          "tag": "span",
+          "text": "to"
         },
         {
           "tag": "span",
@@ -45116,19 +48016,65 @@
         },
         {
           "tag": "p",
-          "text": "3 sets × 8 reps"
+          "text": "Top load on the back squat, up 7.5 kg over four sessions."
+        },
+        {
+          "tag": "dfn",
+          "text": "Top load"
+        },
+        {
+          "tag": "b",
+          "text": "92.5 → 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Over"
+        },
+        {
+          "tag": "b",
+          "text": "4 sessions"
+        },
+        {
+          "tag": "dfn",
+          "text": "Best estimated 1RM"
+        },
+        {
+          "tag": "b",
+          "text": "127 kg"
         },
         {
           "tag": "h2",
-          "text": "Know what to do, every set"
+          "text": "Start where you are."
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "Build a program from scratch, or bring the one you are already running. Either way you are logging sets in a couple of minutes."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
+        },
+        {
+          "tag": "small",
+          "text": "Works offline. No account required. Your training history is stored on this device and never leaves it."
         }
       ]
     },
@@ -45187,48 +48133,208 @@
           "text": "Track my current program"
         },
         {
-          "tag": "figure",
-          "labelledBy": "A training example"
-        },
-        {
-          "tag": "figcaption",
-          "text": "A training example"
+          "tag": "b",
+          "text": "01"
         },
         {
           "tag": "span",
-          "text": "01 / The program"
+          "text": "/ Getting started"
         },
         {
-          "tag": "strong",
-          "text": "Barbell bench press"
+          "tag": "h2",
+          "text": "Five questions, or paste what you already run."
         },
         {
           "tag": "p",
-          "text": "3 sets · 8–10 reps · RIR 0–2"
+          "text": "Taurifer can write the program from your answers, or take the one you are already running and make it trackable. Either way you end up on the same Today screen."
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommend"
+        },
+        {
+          "tag": "b",
+          "text": "5 questions → a program"
+        },
+        {
+          "tag": "dfn",
+          "text": "Custom"
+        },
+        {
+          "tag": "b",
+          "text": "Pick priorities and lifts"
+        },
+        {
+          "tag": "dfn",
+          "text": "Use my own"
+        },
+        {
+          "tag": "b",
+          "text": "Paste text or import a file"
+        },
+        {
+          "tag": "b",
+          "text": "02"
         },
         {
           "tag": "span",
-          "text": "02 / You logged"
+          "text": "/ The program"
         },
         {
-          "tag": "strong",
-          "text": "60 kg × 10"
-        },
-        {
-          "tag": "p",
-          "text": "All 3 sets · RIR 2"
+          "tag": "h2",
+          "text": "Six weeks, planned before you start."
         },
         {
           "tag": "p",
-          "text": "Top of the rep range reached. Add load, then build the reps again."
+          "text": "Six weeks, three days, built around the days you actually train. The whole block is visible, and every part of it is editable."
+        },
+        {
+          "tag": "dfn",
+          "text": "Block"
+        },
+        {
+          "tag": "b",
+          "text": "Week 5 of 6"
+        },
+        {
+          "tag": "dfn",
+          "text": "Training days"
+        },
+        {
+          "tag": "b",
+          "text": "3 per week"
+        },
+        {
+          "tag": "dfn",
+          "text": "Day 1"
+        },
+        {
+          "tag": "b",
+          "text": "5 exercises · 15 sets"
+        },
+        {
+          "tag": "b",
+          "text": "03"
         },
         {
           "tag": "span",
-          "text": "03 / Next session"
+          "text": "/ The prescription"
         },
         {
-          "tag": "strong",
-          "text": "62.5"
+          "tag": "h2",
+          "text": "Every set opens with a target."
+        },
+        {
+          "tag": "p",
+          "text": "Open the day and the load, reps and effort are already set for every exercise. Nothing to decide at the rack."
+        },
+        {
+          "tag": "dfn",
+          "text": "Target"
+        },
+        {
+          "tag": "b",
+          "text": "5–8 reps · RIR 0–2"
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommendation"
+        },
+        {
+          "tag": "b",
+          "text": "Hold 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Set 1 of 3"
+        },
+        {
+          "tag": "b",
+          "text": "100 kg × 8 · RIR 1"
+        },
+        {
+          "tag": "b",
+          "text": "04"
+        },
+        {
+          "tag": "span",
+          "text": "/ The reasoning"
+        },
+        {
+          "tag": "h2",
+          "text": "Taurifer shows you why, every time."
+        },
+        {
+          "tag": "p",
+          "text": "The range still has room, so the load stays while reps climb."
+        },
+        {
+          "tag": "cite",
+          "text": "Taurifer · Why this weight"
+        },
+        {
+          "tag": "p",
+          "text": "Every recommendation opens up. You see the sets it read, the effort it measured and the rule it applied, so you can agree with it or override it."
+        },
+        {
+          "tag": "b",
+          "text": "05"
+        },
+        {
+          "tag": "span",
+          "text": "/ The record"
+        },
+        {
+          "tag": "h2",
+          "text": "Your session totals itself."
+        },
+        {
+          "tag": "p",
+          "text": "Save the session and Taurifer totals the work, flags every personal record, and tells you which lifts moved and which did not."
+        },
+        {
+          "tag": "dfn",
+          "text": "Sets logged"
+        },
+        {
+          "tag": "b",
+          "text": "15"
+        },
+        {
+          "tag": "dfn",
+          "text": "Volume moved"
+        },
+        {
+          "tag": "b",
+          "text": "8,123 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Change by lift"
+        },
+        {
+          "tag": "b",
+          "text": "5 improved"
+        },
+        {
+          "tag": "b",
+          "text": "06"
+        },
+        {
+          "tag": "span",
+          "text": "/ Over time"
+        },
+        {
+          "tag": "h2",
+          "text": "Four sessions, 7.5 kg on the squat."
+        },
+        {
+          "tag": "p",
+          "text": "92.5 100"
+        },
+        {
+          "tag": "span",
+          "text": "to"
         },
         {
           "tag": "span",
@@ -45236,19 +48342,65 @@
         },
         {
           "tag": "p",
-          "text": "3 sets × 8 reps"
+          "text": "Top load on the back squat, up 7.5 kg over four sessions."
+        },
+        {
+          "tag": "dfn",
+          "text": "Top load"
+        },
+        {
+          "tag": "b",
+          "text": "92.5 → 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Over"
+        },
+        {
+          "tag": "b",
+          "text": "4 sessions"
+        },
+        {
+          "tag": "dfn",
+          "text": "Best estimated 1RM"
+        },
+        {
+          "tag": "b",
+          "text": "127 kg"
         },
         {
           "tag": "h2",
-          "text": "Know what to do, every set"
+          "text": "Start where you are."
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "Build a program from scratch, or bring the one you are already running. Either way you are logging sets in a couple of minutes."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
+        },
+        {
+          "tag": "small",
+          "text": "Works offline. No account required. Your training history is stored on this device and never leaves it."
         }
       ]
     },
@@ -45286,7 +48438,7 @@
         },
         {
           "tag": "p",
-          "text": "É só chegar e treinar. O Taurifer monta seus treinos, registra suas séries e já diz qual é a próxima carga."
+          "text": "É só aparecer e treinar. O Taurifer monta seus treinos, registra suas séries e já diz a próxima carga."
         },
         {
           "tag": "button",
@@ -45299,56 +48451,216 @@
         },
         {
           "tag": "button",
-          "name": "Registrar meu programa atual",
+          "name": "Acompanhar meu programa atual",
           "type": "button"
         },
         {
           "tag": "span",
-          "text": "Registrar meu programa atual"
+          "text": "Acompanhar meu programa atual"
         },
         {
-          "tag": "figure",
-          "labelledBy": "Um exemplo de treino"
-        },
-        {
-          "tag": "figcaption",
-          "text": "Um exemplo de treino"
+          "tag": "b",
+          "text": "01"
         },
         {
           "tag": "span",
-          "text": "01 / O programa"
+          "text": "/ Começando"
         },
         {
-          "tag": "strong",
-          "text": "Supino reto com barra"
+          "tag": "h2",
+          "text": "Cinco perguntas, ou cole o que você já faz."
         },
         {
           "tag": "p",
-          "text": "3 séries · 8–10 repetições · RIR 0–2"
+          "text": "O Taurifer pode escrever o programa a partir das suas respostas, ou pegar o que você já treina e torná-lo rastreável. De qualquer forma você chega na mesma tela de Hoje."
+        },
+        {
+          "tag": "dfn",
+          "text": "Recomendar"
+        },
+        {
+          "tag": "b",
+          "text": "5 perguntas → um programa"
+        },
+        {
+          "tag": "dfn",
+          "text": "Personalizado"
+        },
+        {
+          "tag": "b",
+          "text": "Escolha prioridades e exercícios"
+        },
+        {
+          "tag": "dfn",
+          "text": "Usar o meu"
+        },
+        {
+          "tag": "b",
+          "text": "Cole um texto ou importe um arquivo"
+        },
+        {
+          "tag": "b",
+          "text": "02"
         },
         {
           "tag": "span",
-          "text": "02 / Você registrou"
+          "text": "/ O programa"
         },
         {
-          "tag": "strong",
-          "text": "60 kg × 10"
-        },
-        {
-          "tag": "p",
-          "text": "As 3 séries · RIR 2"
+          "tag": "h2",
+          "text": "Seis semanas, planejadas antes de começar."
         },
         {
           "tag": "p",
-          "text": "Você chegou ao topo da faixa de repetições. Aumente a carga e volte a subir as repetições."
+          "text": "Seis semanas, três dias, montados em torno dos dias em que você realmente treina. O bloco inteiro fica visível, e cada parte dele é editável."
+        },
+        {
+          "tag": "dfn",
+          "text": "Bloco"
+        },
+        {
+          "tag": "b",
+          "text": "Semana 5 de 6"
+        },
+        {
+          "tag": "dfn",
+          "text": "Dias de treino"
+        },
+        {
+          "tag": "b",
+          "text": "3 por semana"
+        },
+        {
+          "tag": "dfn",
+          "text": "Dia 1"
+        },
+        {
+          "tag": "b",
+          "text": "5 exercícios · 15 séries"
+        },
+        {
+          "tag": "b",
+          "text": "03"
         },
         {
           "tag": "span",
-          "text": "03 / Próxima sessão"
+          "text": "/ A prescrição"
         },
         {
-          "tag": "strong",
-          "text": "62,5"
+          "tag": "h2",
+          "text": "Toda série já vem com um alvo."
+        },
+        {
+          "tag": "p",
+          "text": "Abra o dia e a carga, as reps e o esforço já estão definidos para cada exercício. Nada para decidir na hora."
+        },
+        {
+          "tag": "dfn",
+          "text": "Alvo"
+        },
+        {
+          "tag": "b",
+          "text": "5–8 reps · RIR 0–2"
+        },
+        {
+          "tag": "dfn",
+          "text": "Recomendação"
+        },
+        {
+          "tag": "b",
+          "text": "Mantenha 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Série 1 de 3"
+        },
+        {
+          "tag": "b",
+          "text": "100 kg × 8 · RIR 1"
+        },
+        {
+          "tag": "b",
+          "text": "04"
+        },
+        {
+          "tag": "span",
+          "text": "/ O motivo"
+        },
+        {
+          "tag": "h2",
+          "text": "O Taurifer mostra o porquê, toda vez."
+        },
+        {
+          "tag": "p",
+          "text": "A faixa ainda tem espaço, então a carga fica enquanto as reps sobem."
+        },
+        {
+          "tag": "cite",
+          "text": "Taurifer · Por que essa carga"
+        },
+        {
+          "tag": "p",
+          "text": "Toda recomendação se abre. Você vê as séries que ela leu, o esforço que mediu e a regra que aplicou, então pode concordar, ou mudar."
+        },
+        {
+          "tag": "b",
+          "text": "05"
+        },
+        {
+          "tag": "span",
+          "text": "/ O registro"
+        },
+        {
+          "tag": "h2",
+          "text": "Sua sessão se soma sozinha."
+        },
+        {
+          "tag": "p",
+          "text": "Salve a sessão e o Taurifer soma o trabalho, marca cada recorde pessoal e diz quais exercícios evoluíram e quais não."
+        },
+        {
+          "tag": "dfn",
+          "text": "Séries registradas"
+        },
+        {
+          "tag": "b",
+          "text": "15"
+        },
+        {
+          "tag": "dfn",
+          "text": "Volume movido"
+        },
+        {
+          "tag": "b",
+          "text": "8.123 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Mudança por exercício"
+        },
+        {
+          "tag": "b",
+          "text": "5 melhoraram"
+        },
+        {
+          "tag": "b",
+          "text": "06"
+        },
+        {
+          "tag": "span",
+          "text": "/ Ao longo do tempo"
+        },
+        {
+          "tag": "h2",
+          "text": "Quatro sessões, 7,5 kg no agachamento."
+        },
+        {
+          "tag": "p",
+          "text": "92.5 100"
+        },
+        {
+          "tag": "span",
+          "text": "to"
         },
         {
           "tag": "span",
@@ -45356,19 +48668,65 @@
         },
         {
           "tag": "p",
-          "text": "3 séries × 8 repetições"
+          "text": "Carga máxima no agachamento livre, 7,5 kg a mais em quatro sessões."
+        },
+        {
+          "tag": "dfn",
+          "text": "Carga máxima"
+        },
+        {
+          "tag": "b",
+          "text": "92,5 → 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Em"
+        },
+        {
+          "tag": "b",
+          "text": "4 sessões"
+        },
+        {
+          "tag": "dfn",
+          "text": "Melhor 1RM estimado"
+        },
+        {
+          "tag": "b",
+          "text": "127 kg"
         },
         {
           "tag": "h2",
-          "text": "Saiba o que fazer em cada série"
+          "text": "Comece de onde você está."
         },
         {
           "tag": "p",
-          "text": "Veja a carga, as repetições e a meta de cada série."
+          "text": "Monte um programa do zero, ou traga o que você já treina. De qualquer jeito você registra séries em poucos minutos."
+        },
+        {
+          "tag": "button",
+          "name": "Montar meu programa",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Montar meu programa"
+        },
+        {
+          "tag": "button",
+          "name": "Acompanhar meu programa atual",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Acompanhar meu programa atual"
         },
         {
           "tag": "p",
           "text": "Planeje. Treine. Progrida."
+        },
+        {
+          "tag": "small",
+          "text": "Funciona sem conexão. Sem conta. Seu histórico de treino fica neste dispositivo e nunca sai dele."
         }
       ]
     },
@@ -45427,48 +48785,208 @@
           "text": "Track my current program"
         },
         {
-          "tag": "figure",
-          "labelledBy": "A training example"
-        },
-        {
-          "tag": "figcaption",
-          "text": "A training example"
+          "tag": "b",
+          "text": "01"
         },
         {
           "tag": "span",
-          "text": "01 / The program"
+          "text": "/ Getting started"
         },
         {
-          "tag": "strong",
-          "text": "Barbell bench press"
+          "tag": "h2",
+          "text": "Five questions, or paste what you already run."
         },
         {
           "tag": "p",
-          "text": "3 sets · 8–10 reps · RIR 0–2"
+          "text": "Taurifer can write the program from your answers, or take the one you are already running and make it trackable. Either way you end up on the same Today screen."
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommend"
+        },
+        {
+          "tag": "b",
+          "text": "5 questions → a program"
+        },
+        {
+          "tag": "dfn",
+          "text": "Custom"
+        },
+        {
+          "tag": "b",
+          "text": "Pick priorities and lifts"
+        },
+        {
+          "tag": "dfn",
+          "text": "Use my own"
+        },
+        {
+          "tag": "b",
+          "text": "Paste text or import a file"
+        },
+        {
+          "tag": "b",
+          "text": "02"
         },
         {
           "tag": "span",
-          "text": "02 / You logged"
+          "text": "/ The program"
         },
         {
-          "tag": "strong",
-          "text": "60 kg × 10"
-        },
-        {
-          "tag": "p",
-          "text": "All 3 sets · RIR 2"
+          "tag": "h2",
+          "text": "Six weeks, planned before you start."
         },
         {
           "tag": "p",
-          "text": "Top of the rep range reached. Add load, then build the reps again."
+          "text": "Six weeks, three days, built around the days you actually train. The whole block is visible, and every part of it is editable."
+        },
+        {
+          "tag": "dfn",
+          "text": "Block"
+        },
+        {
+          "tag": "b",
+          "text": "Week 5 of 6"
+        },
+        {
+          "tag": "dfn",
+          "text": "Training days"
+        },
+        {
+          "tag": "b",
+          "text": "3 per week"
+        },
+        {
+          "tag": "dfn",
+          "text": "Day 1"
+        },
+        {
+          "tag": "b",
+          "text": "5 exercises · 15 sets"
+        },
+        {
+          "tag": "b",
+          "text": "03"
         },
         {
           "tag": "span",
-          "text": "03 / Next session"
+          "text": "/ The prescription"
         },
         {
-          "tag": "strong",
-          "text": "62.5"
+          "tag": "h2",
+          "text": "Every set opens with a target."
+        },
+        {
+          "tag": "p",
+          "text": "Open the day and the load, reps and effort are already set for every exercise. Nothing to decide at the rack."
+        },
+        {
+          "tag": "dfn",
+          "text": "Target"
+        },
+        {
+          "tag": "b",
+          "text": "5–8 reps · RIR 0–2"
+        },
+        {
+          "tag": "dfn",
+          "text": "Recommendation"
+        },
+        {
+          "tag": "b",
+          "text": "Hold 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Set 1 of 3"
+        },
+        {
+          "tag": "b",
+          "text": "100 kg × 8 · RIR 1"
+        },
+        {
+          "tag": "b",
+          "text": "04"
+        },
+        {
+          "tag": "span",
+          "text": "/ The reasoning"
+        },
+        {
+          "tag": "h2",
+          "text": "Taurifer shows you why, every time."
+        },
+        {
+          "tag": "p",
+          "text": "The range still has room, so the load stays while reps climb."
+        },
+        {
+          "tag": "cite",
+          "text": "Taurifer · Why this weight"
+        },
+        {
+          "tag": "p",
+          "text": "Every recommendation opens up. You see the sets it read, the effort it measured and the rule it applied, so you can agree with it or override it."
+        },
+        {
+          "tag": "b",
+          "text": "05"
+        },
+        {
+          "tag": "span",
+          "text": "/ The record"
+        },
+        {
+          "tag": "h2",
+          "text": "Your session totals itself."
+        },
+        {
+          "tag": "p",
+          "text": "Save the session and Taurifer totals the work, flags every personal record, and tells you which lifts moved and which did not."
+        },
+        {
+          "tag": "dfn",
+          "text": "Sets logged"
+        },
+        {
+          "tag": "b",
+          "text": "15"
+        },
+        {
+          "tag": "dfn",
+          "text": "Volume moved"
+        },
+        {
+          "tag": "b",
+          "text": "8,123 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Change by lift"
+        },
+        {
+          "tag": "b",
+          "text": "5 improved"
+        },
+        {
+          "tag": "b",
+          "text": "06"
+        },
+        {
+          "tag": "span",
+          "text": "/ Over time"
+        },
+        {
+          "tag": "h2",
+          "text": "Four sessions, 7.5 kg on the squat."
+        },
+        {
+          "tag": "p",
+          "text": "92.5 100"
+        },
+        {
+          "tag": "span",
+          "text": "to"
         },
         {
           "tag": "span",
@@ -45476,19 +48994,65 @@
         },
         {
           "tag": "p",
-          "text": "3 sets × 8 reps"
+          "text": "Top load on the back squat, up 7.5 kg over four sessions."
+        },
+        {
+          "tag": "dfn",
+          "text": "Top load"
+        },
+        {
+          "tag": "b",
+          "text": "92.5 → 100 kg"
+        },
+        {
+          "tag": "dfn",
+          "text": "Over"
+        },
+        {
+          "tag": "b",
+          "text": "4 sessions"
+        },
+        {
+          "tag": "dfn",
+          "text": "Best estimated 1RM"
+        },
+        {
+          "tag": "b",
+          "text": "127 kg"
         },
         {
           "tag": "h2",
-          "text": "Know what to do, every set"
+          "text": "Start where you are."
         },
         {
           "tag": "p",
-          "text": "See the load, reps, and target for every set."
+          "text": "Build a program from scratch, or bring the one you are already running. Either way you are logging sets in a couple of minutes."
+        },
+        {
+          "tag": "button",
+          "name": "Build my program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Build my program"
+        },
+        {
+          "tag": "button",
+          "name": "Track my current program",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "Track my current program"
         },
         {
           "tag": "p",
           "text": "Plan. Lift. Progress."
+        },
+        {
+          "tag": "small",
+          "text": "Works offline. No account required. Your training history is stored on this device and never leaves it."
         }
       ]
     },

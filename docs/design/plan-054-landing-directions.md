@@ -311,3 +311,27 @@ PT-at-200% word-break trade-off. The independent correction review found no
 remaining concrete visual blocker. This records implementation and browser
 review, not physical-device acceptance. PR #241 remains unmerged and Plan 054
 remains active.
+
+## Owner-approved sectioned landing integration
+
+The owner subsequently approved the six-beat prototype at `0e485a9b`. It
+supersedes the bounded single-example composition above while preserving its
+entry actions, truthful product state, install policy, privacy surface and
+shared-link behavior.
+
+The integrated landing moves from the Today screen through program setup, the
+program overview, a set prescription, recommendation reasoning, the saved
+session summary and the exercise trend. Each beat has one claim and one
+localized product render. The first beat pairs two whole devices at a measured
+24% overlap; the remaining stages use distinct, intentional crops. The stage
+surface derives from the active theme tokens rather than fixed colors.
+
+All eight scenes have English and Portuguese, light and dark renders. Only the
+four hero variants are precached; the remaining renders load lazily so a
+one-time landing does not add roughly 2.2 MB to every install. The prototype,
+asset-generation notes and browser oracles remain in
+`docs/design/plan-054-landing-prototype/` and `tools/landing-prototype/`.
+
+This integration is still a Plan 054 candidate. Automated responsive and
+accessibility evidence does not replace the pending physical iOS and Android
+review in both languages and appearances.

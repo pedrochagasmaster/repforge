@@ -63,8 +63,8 @@ for (const [width, height] of VIEWPORTS) {
     return {
       headlineHeight: box("#firstRunHeadline").height,
       headlineSize: parseFloat(getComputedStyle(document.querySelector("#firstRunHeadline")).fontSize),
-      previewWidth: box(".firstrun-preview").width,
-      previewHeight: box(".firstrun-preview").height,
+      previewWidth: box(".firstrun-hero__figure img").width,
+      previewHeight: box(".firstrun-hero__figure img").height,
       heroBottom: box(".firstrun-hero").bottom,
       introductionTop: box(".firstrun__lede").top,
       firstControlTop: box("#firstRunCreate").top,

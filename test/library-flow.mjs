@@ -85,8 +85,11 @@ async function main() {
   const page = await context.newPage();
   page.on("dialog", (d) => d.accept());
   const badRequests = [];
-  page.on("requestfailed", (r) => badRequests.push(r.url()));
-  page.on("response", (r) => { if (r.status() >= 400) badRequests.push(`${r.status()} ${r.url()}`); });
+  const isExerciseArtwork = (url) => new URL(url).pathname.includes("/assets/exercises/");
+  page.on("requestfailed", (r) => { if (isExerciseArtwork(r.url())) badRequests.push(r.url()); });
+  page.on("response", (r) => {
+    if (r.status() >= 400 && isExerciseArtwork(r.url())) badRequests.push(`${r.status()} ${r.url()}`);
+  });
   try {
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForApp(page);

@@ -112,34 +112,39 @@ const matrix = [
 ];
 
 async function assertLanding(page, name, lang, theme) {
-  const target = page.locator('.firstrun-proof__next strong');
-  if (values['fault-next']) await target.evaluate(node => {node.textContent = '99';});
-  assert.equal(Number((await target.innerText()).replace(',', '.')), 62.5, `${name}: live next-session target`);
-  assert.match(await page.locator('.firstrun-proof__reps').innerText(), /3\D+8/, `${name}: next-session sets and reps`);
-  const image = page.locator('#landingDevice');
-  assert.equal(await image.getAttribute('src'), `assets/brand/landing-workout-${lang}-${theme}.webp`, `${name}: localized device image`);
-  assert(await image.evaluate(node => node.complete && node.naturalWidth > 0), `${name}: device image loaded`);
-  if (values['fault-overflow']) await page.locator('.firstrun-proof__result').evaluate(node => {node.style.width = '200vw';});
-  if (values['fault-narrow']) await page.locator('.firstrun-proof__result').evaluate(node => {node.style.gridTemplateColumns = '1fr 1fr';});
-  if (values['fault-wrap']) await page.locator('.firstrun-proof__next').evaluate(node => {node.style.flexDirection = 'column';});
+  const images = page.locator('#firstRun [data-shot]');
+  assert.equal(await images.count(), 8, `${name}: all eight product renders are present`);
+  for (let index = 0; index < 8; index++) {
+    const image = images.nth(index);
+    const shot = await image.getAttribute('data-shot');
+    assert.equal(await image.getAttribute('src'), `assets/brand/${shot}-${lang}-${theme}.webp`, `${name}: localized ${shot} render`);
+    await image.scrollIntoViewIfNeeded();
+    assert(await image.evaluate(node => node.complete && node.naturalWidth > 0), `${name}: ${shot} render loaded`);
+  }
+  if (values['fault-overflow']) await page.locator('.firstrun-stage').first().evaluate(node => {node.style.width = '200vw';});
+  if (values['fault-narrow']) await page.locator('.firstrun-stage--pair .firstrun-stage__front').evaluate(node => {node.style.width = '65%';});
+  if (values['fault-wrap']) await page.locator('.firstrun-pull__value').evaluate(node => {node.style.width = '4rem';});
   const composition = await page.evaluate(() => {
     const box = selector => document.querySelector(selector).getBoundingClientRect();
-    const logged = box('.firstrun-proof__logged'), target = box('.firstrun-proof__target');
-    const load = box('.firstrun-proof__next strong'), unit = box('.firstrun-proof__next span');
-    const device = box('.firstrun-proof__device'), result = box('.firstrun-proof__result');
-    const closing = box('.firstrun__closing');
+    const copy = box('.firstrun-hero__copy'), heroFigure = box('.firstrun-hero__figure');
+    const pair = box('.firstrun-stage--pair');
+    const back = box('.firstrun-stage--pair .firstrun-stage__back');
+    const front = box('.firstrun-stage--pair .firstrun-stage__front');
+    const finalBeat = box('.firstrun-beat:last-child');
+    const closing = box('.firstrun-close');
+    const inside = item => item.left >= pair.left - 1 && item.right <= pair.right + 1 && item.top >= pair.top - 1 && item.bottom <= pair.bottom + 1;
+    const overlap = Math.min(back.right, front.right) - Math.max(back.left, front.left);
     return {
-      narrowSequence: target.top >= logged.bottom + 16 && Math.abs(target.left - logged.left) <= 1,
-      loadAndUnitTogether: unit.left >= load.right - 1 && unit.top < load.bottom && unit.right <= target.right + 1,
-      deviceOverlap: Math.min(device.right, result.right) - Math.max(device.left, result.left) > 8 &&
-        Math.min(device.bottom, result.bottom) - Math.max(device.top, result.top) > 8,
-      endingAfterProof: closing.top >= Math.max(device.bottom, result.bottom),
+      mobileHeroSequence: heroFigure.top >= copy.bottom,
+      pairContained: inside(back) && inside(front),
+      pairOverlap: overlap / Math.min(back.width, front.width),
+      endingAfterProof: closing.top >= finalBeat.bottom,
     };
   });
-  if (page.viewportSize().width <= 340) assert(composition.narrowSequence, `${name}: full-width logged work precedes next session`);
-  assert(composition.loadAndUnitTogether, `${name}: load and unit stay together inside the target`);
-  assert(composition.deviceOverlap, `${name}: live result meets the device through controlled overlap`);
-  assert(composition.endingAfterProof, `${name}: ending follows the whole proof`);
+  if (page.viewportSize().width < 760) assert(composition.mobileHeroSequence, `${name}: hero copy precedes its product render`);
+  assert(composition.pairContained, `${name}: paired devices remain whole inside their stage`);
+  assert(Math.abs(composition.pairOverlap - 0.24) <= 0.01, `${name}: paired-device overlap remains 24%`);
+  assert(composition.endingAfterProof, `${name}: ending follows all six beats`);
   const geometry = await page.evaluate(() => {
     const root = document.documentElement, landing = document.querySelector('#firstRun');
     return {document: root.scrollWidth - root.clientWidth, landing: landing.scrollWidth - landing.clientWidth};
@@ -193,7 +198,7 @@ async function captureMatrix(browser) {
       await settle(page);
       await page.screenshot({path: `${output}/${item.name}-full.png`});
       report.cases.push({name: item.name, ...checks});
-      console.log(`PASS ${item.name}: next 62.5 kg; ${checks.controls} reachable controls; no horizontal overflow`);
+      console.log(`PASS ${item.name}: eight localized renders; ${checks.controls} reachable controls; no horizontal overflow`);
     } finally {await context.close();}
   }
 }

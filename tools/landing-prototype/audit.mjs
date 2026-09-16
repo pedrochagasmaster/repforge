@@ -10,6 +10,7 @@ async function page(opts) {
   const ctx = await browser.newContext({ deviceScaleFactor: 2, ...opts });
   const p = await ctx.newPage();
   await p.goto(URL, { waitUntil: 'networkidle' });
+  await p.locator('.firstrun:not(.hidden),.lp').first().waitFor();
   await p.evaluate(async () => {
     for (const i of document.querySelectorAll('img[loading="lazy"]')) i.loading = 'eager';
     await Promise.all([...document.images].map(i => i.decode().catch(() => {})));
@@ -24,7 +25,7 @@ for (const w of [320, 390]) {
   await p.waitForTimeout(400);
   const r = await p.evaluate(() => ({
     overflow: document.documentElement.scrollWidth - document.documentElement.clientWidth,
-    clipped: [...document.querySelectorAll('.lp-cta,.lp-beat__title,.lp-pull__value,.lp-facts li')]
+    clipped: [...document.querySelectorAll('.lp-cta,.lp-beat__title,.lp-pull__value,.lp-facts li,.firstrun__cta,.firstrun-beat__title,.firstrun-pull__value,.firstrun-facts li')]
       .filter(e => e.scrollWidth > e.clientWidth + 1)
       .map(e => (e.className || e.tagName) + ' :: ' + e.textContent.trim().slice(0, 40)),
   }));
@@ -46,22 +47,29 @@ for (const w of [320, 390]) {
 // --- keyboard focus: every interactive element reachable and visibly ringed ---
 {
   const { ctx, p } = await page({ viewport: { width: 390, height: 844 } });
-  const n = await p.evaluate(() => document.querySelectorAll('button').length);
-  const seen = [];
-  for (let i = 0; i < n + 2; i++) {
+  const n = await p.evaluate(() => {
+    const root = document.querySelector('.firstrun:not(.hidden),.lp');
+    const controls = [...root.querySelectorAll('button,a[href],select,input,textarea')]
+      .filter(control => control.getClientRects().length && !control.disabled);
+    controls.forEach((control, index) => control.dataset.auditFocus = String(index));
+    return controls.length;
+  });
+  const seen = new Map();
+  for (let i = 0; i < n + 1; i++) {
     await p.keyboard.press('Tab');
     const cur = await p.evaluate(() => {
       const a = document.activeElement;
-      if (!a || a === document.body) return null;
+      if (!a || a === document.body || !('auditFocus' in a.dataset)) return null;
       const s = getComputedStyle(a);
-      return { tag: a.tagName, label: a.textContent.trim().slice(0, 30), outline: s.outlineWidth, style: s.outlineStyle };
+      return { id: a.dataset.auditFocus, tag: a.tagName, label: a.textContent.trim().slice(0, 30), outline: s.outlineWidth, style: s.outlineStyle };
     });
-    if (cur) seen.push(cur);
+    if (cur) seen.set(cur.id, cur);
   }
-  const unringed = seen.filter(s => s.outline === '0px' || s.style === 'none');
-  if (seen.length < n) fails.push(`keyboard: only ${seen.length}/${n} buttons reachable`);
+  const reached = [...seen.values()];
+  const unringed = reached.filter(s => s.outline === '0px' || s.style === 'none');
+  if (reached.length < n) fails.push(`keyboard: only ${reached.length}/${n} controls reachable`);
   for (const u of unringed) fails.push(`keyboard: no focus ring on "${u.label}"`);
-  console.log(`keyboard: ${seen.length}/${n} buttons focusable, ${unringed.length} without a ring`);
+  console.log(`keyboard: ${reached.length}/${n} controls focusable, ${unringed.length} without a ring`);
   await ctx.close();
 }
 
@@ -69,10 +77,16 @@ for (const w of [320, 390]) {
 {
   const { ctx, p } = await page({ viewport: { width: 390, height: 844 } });
   const r = await p.evaluate(() => ({
-    headings: [...document.querySelectorAll('h1,h2,h3')].map(h => h.tagName),
-    missingAlt: [...document.images].filter(i => !i.hasAttribute('alt')).length,
-    emptyAlt: [...document.images].filter(i => i.alt === '').map(i => i.src.split('/').pop()),
-    h1: document.querySelectorAll('h1').length,
+    ...(() => {
+      const root = document.querySelector('.firstrun:not(.hidden),.lp');
+      const images = [...root.querySelectorAll('img')];
+      return {
+        headings: [...root.querySelectorAll('h1,h2,h3')].map(h => h.tagName),
+        missingAlt: images.filter(i => !i.hasAttribute('alt')).length,
+        emptyAlt: images.filter(i => i.alt === '').map(i => i.src.split('/').pop()),
+        h1: root.querySelectorAll('h1').length,
+      };
+    })(),
   }));
   if (r.h1 !== 1) fails.push(`headings: ${r.h1} h1 elements (want exactly 1)`);
   if (r.missingAlt) fails.push(`images: ${r.missingAlt} without an alt attribute`);
@@ -82,3 +96,4 @@ for (const w of [320, 390]) {
 
 await browser.close();
 console.log('\n' + (fails.length ? 'FAILURES:\n- ' + fails.join('\n- ') : 'no failures'));
+if (fails.length) process.exitCode = 1;

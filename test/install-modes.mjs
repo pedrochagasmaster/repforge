@@ -264,31 +264,35 @@ const card = () => ({
   import: !!document.querySelector("#firstRunImport"),
   heroTitle: document.querySelector(".firstrun-hero__title")?.textContent || null,
   heroBody: document.querySelector("#firstRunLede")?.textContent || null,
-  // The device has a translated description; the adjoining proof carries live facts.
-  previewText: document.querySelector(".firstrun-preview")?.getAttribute("alt")?.replace(/\s+/g, " ").trim() || null,
+  // Every device has a translated description. Read the whole visual sequence,
+  // not one preferred screenshot, so a missing localized beat is observable.
+  previewText: [...document.querySelectorAll(".firstrun-shot")]
+    .map((image) => image.getAttribute("alt") || "").join(" ").replace(/\s+/g, " ").trim(),
   privacy: document.querySelector("#firstRunPrivacy")?.textContent.trim() || null,
   // The gate stands the mark on its paper, so it draws the ground-free
   // rendering and never the app icon, which carries a ground of its own.
   markSrc: document.querySelector(".firstrun__logo")?.getAttribute("src") || null,
 });
 
-// Measure the product composition independently of its grid or device angle.
+// Measure the sectioned composition independently of the individual angles.
 const heroShape = () => {
   const title = document.querySelector(".firstrun-hero__title");
   const hero = document.querySelector(".firstrun-hero");
-  const preview = document.querySelector(".firstrun-preview");
+  const preview = document.querySelector(".firstrun-hero__figure .firstrun-shot");
   const logo = document.querySelector(".firstrun__logo");
   const wordmark = document.querySelector(".firstrun__wordmark");
   const lede = document.querySelector(".firstrun__lede");
   const actions = document.querySelector("#firstRunStandardProgram");
   const firstControl = document.querySelector("#firstRunCreate");
   const secondControl = document.querySelector("#firstRunImport");
-  const proof = document.querySelector(".firstrun-proof");
-  const next = document.querySelector(".firstrun-proof__next");
+  const proof = document.querySelector(".firstrun-beats");
+  const next = document.querySelector(".firstrun-pull__value");
   const bounds = selector => document.querySelector(selector).getBoundingClientRect();
-  const logged = bounds('.firstrun-proof__logged'), target = bounds('.firstrun-proof__target');
-  const load = bounds('.firstrun-proof__next strong'), unit = bounds('.firstrun-proof__next span');
-  const device = bounds('.firstrun-proof__device'), result = bounds('.firstrun-proof__result');
+  const pair = document.querySelector('.firstrun-stage--pair');
+  const pairBox = pair.getBoundingClientRect();
+  const back = bounds('.firstrun-stage__back'), front = bounds('.firstrun-stage__front');
+  const beats = [...document.querySelectorAll('.firstrun-beat')];
+  const lastBeat = beats.at(-1).getBoundingClientRect();
   const row = document.querySelector(".firstrun__brand").getBoundingClientRect();
   const p = preview.getBoundingClientRect();
   const copy = document.querySelector(".firstrun-hero__copy").getBoundingClientRect();
@@ -297,11 +301,20 @@ const heroShape = () => {
   const h = hero.getBoundingClientRect();
   const intersects = (one, two) =>
     one.left < two.right && one.right > two.left && one.top < two.bottom && one.bottom > two.top;
+  const overlap = Math.max(0, Math.min(back.right, front.right) - Math.max(back.left, front.left));
+  const pairWhole = [back, front].every((box) =>
+    box.left >= pairBox.left - 1 && box.right <= pairBox.right + 1 &&
+    box.top >= pairBox.top - 1 && box.bottom <= pairBox.bottom + 1);
+  const narrowSequence = beats.every((beat) => {
+    const copyBox = beat.querySelector('.firstrun-beat__copy').getBoundingClientRect();
+    const figureBox = beat.querySelector('.firstrun-beat__figure').getBoundingClientRect();
+    return figureBox.top >= copyBox.bottom + 16 && Math.abs(figureBox.left - copyBox.left) <= 1;
+  });
   return {
-    narrowSequence: target.top >= logged.bottom + 16 && Math.abs(target.left - logged.left) <= 1,
-    unitWithLoad: unit.left >= load.right - 1 && unit.top < load.bottom && unit.right <= target.right + 1,
-    deviceJoined: intersects(device, result),
-    endingAfterProof: bounds('.firstrun__closing').top >= Math.max(device.bottom, result.bottom),
+    narrowSequence,
+    pairWhole,
+    pairOverlap: Math.round(100 * overlap / back.width),
+    endingAfterProof: bounds('.firstrun-close').top >= lastBeat.bottom,
     titleAlign: getComputedStyle(title).textAlign,
     previewSeparated: !intersects(p, controls) && !intersects(p, t) && !intersects(p, lede.getBoundingClientRect()),
     previewInsideViewport: p.left >= -1 && p.right <= innerWidth + 1,
@@ -314,10 +327,10 @@ const heroShape = () => {
       const box = el.getBoundingClientRect();
       return box.top >= 0 && box.bottom <= innerHeight && box.left >= 0 && box.right <= innerWidth;
     }),
-    proofTop: proof?.getBoundingClientRect().top ?? null,
-    proofFacts: proof?.textContent.replace(/\s+/g, " ").trim() || "",
+    proofTop: p.top,
+    proofFacts: `${proof?.textContent || ""} ${[...proof.querySelectorAll('img')].map(image => image.alt).join(' ')}`.replace(/\s+/g, " ").trim(),
     nextSize: next ? parseFloat(getComputedStyle(next).fontSize) : null,
-    proofSeparated: !!proof && !intersects(proof.getBoundingClientRect(), controls) &&
+    proofSeparated: !!proof && proof.getBoundingClientRect().top >= h.bottom && !intersects(proof.getBoundingClientRect(), controls) &&
       !intersects(proof.getBoundingClientRect(), t) && !intersects(proof.getBoundingClientRect(), lede.getBoundingClientRect()),
     viewportHeight: innerHeight,
     copyInsideHero: copy.left >= h.left - 1 && copy.right <= h.right + 1,
@@ -353,9 +366,9 @@ async function run() {
       JSON.stringify(shown.heroBody)
     );
     assert(
-      /8–10/.test(shown.previewText || "") && /RIR 0–2/.test(shown.previewText || "") &&
-        /60 kg/.test(shown.previewText || "") && /62\.5 kg/.test(shown.previewText || ""),
-      "the preview carries prescription, logged work, and derived next target",
+        /Program screen/.test(shown.previewText || "") && /focused set view/.test(shown.previewText || "") &&
+        /saved session summary/.test(shown.previewText || "") && /strength trend/.test(shown.previewText || ""),
+      "the renders cover program, prescription, saved work, and progress",
       shown.previewText
     );
     assert(shown.privacy === "Privacy", "the landing links to Privacy", shown.privacy);
@@ -644,7 +657,7 @@ async function run() {
     assert(pt.continueLabel === "Continuar no Safari", "PT escape hatch", pt.continueLabel);
     assert(pt.heroTitle === "Chegue na academia sabendo exatamente o que fazer.", "PT landing title", pt.heroTitle);
     assert(
-      pt.heroBody === "É só chegar e treinar. O Taurifer monta seus treinos, registra suas séries e já diz qual é a próxima carga.",
+      pt.heroBody === "É só aparecer e treinar. O Taurifer monta seus treinos, registra suas séries e já diz a próxima carga.",
       "PT landing body",
       JSON.stringify(pt.heroBody)
     );
@@ -683,7 +696,7 @@ async function run() {
         // Locale-tolerant: the accessible name is translated, and Portuguese
         // writes the load 62,5. The exact English wording is asserted once,
         // in the en-US landing block above.
-        assert(/8–10/.test(shape.previewFacts) && /RIR 0–2/.test(shape.previewFacts) && /60 kg/.test(shape.previewFacts) && /62[.,]5 kg/.test(shape.previewFacts), `${at}: the complete product loop remains present`, shape.previewFacts);
+        assert(/Program|Programa/.test(shape.proofFacts) && /RIR 0–2/.test(shape.proofFacts) && /100 kg/.test(shape.proofFacts) && /127 kg/.test(shape.proofFacts), `${at}: the complete product narrative remains present`, shape.proofFacts);
         assert(shape.titleAlign === "left", `${at}: the editorial headline stays left aligned`, shape.titleAlign);
         assert(
           shape.logoWidth >= 39 && shape.wordmarkSize >= 14 && shape.lockupInsideViewport,
@@ -693,14 +706,13 @@ async function run() {
         assert(shape.noHorizontalOverflow, `${at}: the page has no horizontal overflow`, JSON.stringify(shape));
         assert(shape.copyInsideHero, `${at}: landing copy stays within its grid region`, JSON.stringify(shape));
         assert(shape.proofSeparated, `${at}: live product proof stays clear of headline and actions`, JSON.stringify(shape));
-        if (width <= 340) assert(shape.narrowSequence, `${at}: logged work precedes next session at full width`, JSON.stringify(shape));
-        assert(shape.unitWithLoad, `${at}: load and unit share a line within their column`, JSON.stringify(shape));
-        assert(shape.deviceJoined && shape.endingAfterProof, `${at}: device/result overlap and ending follow one composition`, JSON.stringify(shape));
+        if (width <= 340) assert(shape.narrowSequence, `${at}: every beat keeps copy before its full-width stage`, JSON.stringify(shape));
+        assert(shape.pairWhole, `${at}: both entry devices stay whole inside their stage`, JSON.stringify(shape));
+        assert(shape.pairOverlap >= 23 && shape.pairOverlap <= 25 && shape.endingAfterProof, `${at}: the entry pair keeps 24% overlap and the ending follows the narrative`, JSON.stringify(shape));
         assert(shape.nextSize >= 16, `${at}: the next target remains readable live text`, JSON.stringify(shape));
-        assert(/3 (?:sets|séries) · 8–10/.test(shape.proofFacts) && /RIR 0–2/.test(shape.proofFacts) &&
-          /60 kg × 10/.test(shape.proofFacts) && /(?:All|As) 3 (?:sets|séries) · RIR 2/.test(shape.proofFacts) &&
-          /62[.,]5/.test(shape.proofFacts) && /3 (?:sets|séries) × 8/.test(shape.proofFacts),
-          `${at}: prescription, completed sets, effort, and next target are available outside the raster`, shape.proofFacts);
+        assert(/5–8 reps · RIR 0–2/.test(shape.proofFacts) && /100 kg × 8 · RIR 1/.test(shape.proofFacts) &&
+          /15/.test(shape.proofFacts) && /8[,.]123 kg/.test(shape.proofFacts) && /127 kg/.test(shape.proofFacts),
+          `${at}: prescription, completed work, and progress facts remain live text`, shape.proofFacts);
         if (width <= 430) {
           assert(shape.actionsInFirstViewport, `${at}: both entry actions fit completely on the first screen`, JSON.stringify(shape));
           assert(shape.proofTop !== null && shape.proofTop < shape.viewportHeight,
@@ -735,10 +747,10 @@ async function run() {
             lede: px("#firstRunLede"),
             primaryCta: px("#firstRunCreate"),
             secondaryCta: px("#firstRunImport"),
-            proofLabel: px(".firstrun-proof__label"),
-            proofNote: px(".firstrun-proof__note"),
-            nextTarget: px(".firstrun-proof__next"),
-            ethos: px(".firstrun__ethos"),
+            beatLabel: px(".firstrun-beat__index"),
+            beatBody: px(".firstrun-beat__body"),
+            beatTitle: px(".firstrun-beat__title"),
+            ethos: px(".firstrun-ethos p"),
           };
         });
         const before = await sizes();
@@ -754,8 +766,8 @@ async function run() {
           JSON.stringify({ before, after })
         );
         assert(shape.noHorizontalOverflow, `${at}: 200% root text produces no horizontal overflow`, JSON.stringify(shape));
-        assert(shape.unitWithLoad, `${at}: enlarged load and unit stay together within their column`, JSON.stringify(shape));
         if (width <= 340) assert(shape.narrowSequence, `${at}: enlarged narrow stages retain causal order`, JSON.stringify(shape));
+        assert(shape.pairWhole && shape.pairOverlap >= 23 && shape.pairOverlap <= 25, `${at}: enlarged text does not clip or shift the entry pair`, JSON.stringify(shape));
         assert(shape.previewSeparated && shape.proofSeparated, `${at}: 200% root text keeps the product proof clear of copy and actions`, JSON.stringify(shape));
         allErrors.push(...errors);
         await context.close();
@@ -837,13 +849,13 @@ async function run() {
         await page.waitForTimeout(60);
       }
       const at = `${locale} x${scale}`;
-      const info = await contrastOf(page, ".firstrun__ethos");
+      const info = await contrastOf(page, ".firstrun-ethos p");
       const r = ratio(info.fg, info.bg);
       assert(r + 1e-6 >= 4.5, `${at}: the ethos line meets 4.5:1 against its rendered background`,
         JSON.stringify({ ...info, ratio: +r.toFixed(2) }));
       const imageBackgrounds = await page.evaluate(() => {
         const layers = [];
-        for (let el = document.querySelector(".firstrun__ethos"); el; el = el.parentElement) {
+        for (let el = document.querySelector(".firstrun-ethos p"); el; el = el.parentElement) {
           for (const pseudo of [null, "::before", "::after"]) {
             const style = getComputedStyle(el, pseudo);
             if (style.backgroundImage !== "none") layers.push(style.backgroundImage);

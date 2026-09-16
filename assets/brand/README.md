@@ -20,9 +20,29 @@ Re-run it when a new mark lands. Never hand-edit or hand-crop the output, and
 never point the gate at `icons/icon.svg` instead: the app icon paints its own
 warm ground, which reads as a tile against the app's paper.
 
-## `landing-workout-{en,pt}-{light,dark}.webp`
+## Sectioned landing renders
 
-The current landing uses four renders of the actual Taurifer Focus screen.
+The current landing uses 32 renders named
+`{shot}-{en,pt}-{light,dark}.webp`: eight real Taurifer states in both
+languages and both appearances. The shots are `today-ready`, `entry-hub`,
+`recommend-result`, `program-overview`, `focus`, `why-this-weight`,
+`session-summary`, and `exercise-chart`.
+
+`tools/landing-prototype/capture.mjs` reconstructs one intermediate lifter
+with three full-body days and twelve sessions, then captures the shipped UI at
+1290×2796. Form iPhone Studio renders each source with
+`docs/design/plan-054-landing-prototype/render/scene.json`; the per-shot device
+angles are recorded in `tools/landing-prototype/render.sh`. All outputs are
+cropped to the same 903×1832 frame so a more rotated phone does not render
+smaller than the others. No app content is redrawn or generated.
+
+The service worker precaches only the four `today-ready` hero variants. The
+other 28 renders load on demand. The complete design and reproduction notes
+live in [`docs/design/plan-054-landing-prototype`](../../docs/design/plan-054-landing-prototype/README.md).
+
+## `landing-workout-{en,pt}-{light,dark}.webp` (historical)
+
+The previous landing used four renders of the actual Taurifer Focus screen.
 Each shows a bench-press program, three recorded sets at 60 kg for 10 reps at
 RIR 2, and the app-derived 62.5 kg for 8 reps. These are authored example
 records, not a person's workout history. The range engine and real UI produce

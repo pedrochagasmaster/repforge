@@ -349,7 +349,7 @@
       "id": "first-run",
       "flow": "onboarding-start",
       "label": "One-time landing",
-      "scenario": "First empty visit. Product loop, early Build and Track actions, Privacy, and device-local seen state.",
+      "scenario": "First empty visit. Six product beats, early Build and Track actions, Privacy, and device-local seen state.",
       "variants": "accessibility"
     },
     {
