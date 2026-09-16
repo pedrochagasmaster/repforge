@@ -133,8 +133,8 @@ REPFORGE_URL=http://127.0.0.1:8231/ node test/install-modes.mjs        # 470 pas
 REPFORGE_URL=http://127.0.0.1:8231/ node test/entry-landing.mjs        # 114 passed, 0 failed
 REPFORGE_URL=http://127.0.0.1:8231/ node test/accessibility.mjs        # 158 passed, 0 failed
 REPFORGE_URL=http://127.0.0.1:8231/ node test/ui-catalog-contract.mjs  # green
-CAPTURE_FILTER=onboarding-start/first-run REPFORGE_URL=http://127.0.0.1:8231/ \
-  node tools/capture-ui-screens.mjs                      # 7/7 committed atomically
+REPFORGE_URL=http://127.0.0.1:8231/ node tools/capture-ui-screens.mjs
+                                                          # 469/469 committed atomically
 node tools/check-ui-screens.mjs                          # 96 screens, 469 frames
 REPFORGE_URL=http://127.0.0.1:8231/ node tools/run-tests.mjs affected --base origin/main
 ```
