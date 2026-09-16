@@ -2,9 +2,8 @@
 
 Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
 and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
-External Herdr workers additionally follow the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md)
-and the [Herdr worker packets](#herdr-worker-packets) section below. The coordinator fills every packet field and the
-live SHAs, thread ID, server origin, and PID before dispatch.
+Execution mechanics are intentionally outside this plan's scope; this plan defines product scope, sequencing, proof,
+and owner gates only.
 
 - **Plan number:** 057
 - **Phase:** 6 — Management surfaces
@@ -280,19 +279,18 @@ History state-machine commits preserve canonical logs and can return to read-onl
 
 For every row: mark 🟡, implement only that row, run focused proof, inspect the entire diff, remove unrelated edits, commit, push immediately, update the PR immediately, and continue only from a clean remote checkpoint.
 
-## Herdr worker packets
+## Bounded execution slices
 
-The atomic commit sequence above is the delivery contract. Each management surface is dispatched as its **own**
-self-contained packet per the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md); no worker owns
-more than one surface, and the coordinator fills every template field before dispatch.
+The atomic commit sequence above is the delivery contract. The slices below define bounded objectives, proof-first
+assertions, STOP conditions, and reviewer gates without prescribing implementation staffing or tool/model selection.
 
-Rules for every packet in this plan:
+Rules for every slice in this plan:
 
 - **Read/edit/cancel/save/destruction tests land before the change.** 057-P0 characterizes the History read → edit →
   cancel → save → delete state machine against persisted sessions before any History markup changes; the Share,
-  summary, Today, Program, Settings, and timer packets each open with their own characterization assertion.
-- **Dates and outcomes are consumed, not recomputed.** Summary and Today packets take Plan 056's canonical
-  `improved|maintained|declined` outcomes and week values; no packet adds a threshold or a volume formula.
+  summary, Today, Program, Settings, and timer slices each open with their own characterization assertion.
+- **Dates and outcomes are consumed, not recomputed.** Summary and Today slices take Plan 056's canonical
+  `improved|maintained|declined` outcomes and week values; no slice adds a threshold or a volume formula.
 - **Share identity is exact.** 057-P3's blocker list is byte-equal to `shared-setup.js` `validate()` output, keyed by
   stable day/exercise identity, with no fuzzy or display-name matching, no silent omission, and no invented
   equipment/muscle facts.
@@ -304,17 +302,16 @@ Rules for every packet in this plan:
   `test/today-done.mjs`, `test/appearance.mjs`, `test/accessibility.mjs`, `test/ui-catalog-contract.mjs`. **NEW**
   (this plan): `HistorySelection` state, structured `ShareBlocker` output, `test/history-edit.mjs`,
   `test/share-repair.mjs`, `test/management-summary.mjs`, `test/program-actions.mjs`, `test/settings-groups.mjs`.
-- **Every packet carries a deliberate failing case** and a STOP boundary; the coordinator reproduces the risky
-  assertion before the next surface packet.
+- **Every slice carries a deliberate failing case** and a STOP boundary; the risky assertion is reproduced before the next surface slice.
 
-### Row → packet map
+### Row → slice map
 
 P5 changes presentation, not muscle-volume calculation. `sessionMuscleWork()`
 already weights direct/secondary work, removes zero totals, and sorts the rows.
 Assert its existing output is preserved while replacing relative bars with
 numeric labels. Do not add a parallel muscle-volume helper.
 
-| Packet | Maps rows | Bounded objective · mode | Existing anchors (main unless NEW) | Proof-first: PLANNED assertion + independent oracle + deliberate failure | Commands: baseline now → planned | STOP · reviewer gate |
+| Slice | Maps rows | Bounded objective · mode | Existing anchors (main unless NEW) | Proof-first: PLANNED assertion + independent oracle + deliberate failure | Commands: baseline now → planned | STOP · reviewer gate |
 |---|---|---|---|---|---|---|
 | 057-P0 | 1–2 | Characterize History read/edit/cancel/save/delete over persisted sessions; pin "no mutation before Save" · **build (tests only)** | session grouping + edit fields in `app.js`, `repforge_v1` log rows; `test/history.mjs` | NEW `test/history-edit.mjs`: selecting a session and typing in an edit field produces zero change to `state.log` until Save (oracle = pre-edit durable snapshot); Cancel restores exactly. Failure: an input mutates `state.log` on change | baseline: `node test/history.mjs` → planned: `node test/history-edit.mjs` | STOP if the current surface already mutates before Save — record it, do not fix forward here · reviewer: reproduces the zero-mutation assertion |
 | 057-P1 | 1 | History read/edit state machine: calendar replaced by compact date context + Back; deep-copied working copy; Save re-reads the durable fingerprint under the state lock and replaces all rows atomically; full exercise names · **build** | `HistorySelection` (NEW), durable revision/WAL write path; `test/history.mjs` | extend `test/history-edit.mjs`: a stale fingerprint on Save produces a conflict with reload/cancel and no auto-merge; full names wrap, never ellipsized to hide identity. Failure: two-tab Save silently merges rows | baseline: `node test/history.mjs` → planned: `node test/history-edit.mjs` | STOP if a stale conflict auto-merges or names are truncated · reviewer: reproduces the two-tab conflict |
@@ -328,7 +325,7 @@ numeric labels. Do not add a parallel muscle-volume helper.
 | 057-P9 | 9 | Timer: orange only for the live progress arc; neutral primary/secondary controls; normalized icon glyph weight; countdown accuracy and background behavior unchanged (Plan 055 owns function/geometry) · **build** | timer in the Focus header/sheet; `test/focus-mode.mjs` | NEW cases in `test/management-summary.mjs` (timer block): state snapshots for idle/running/paused/overtime show computed neutral control roles and unchanged deadline behavior. Failure: countdown behavior changes; a global token is edited ahead of Plan 058 | baseline: `node test/focus-mode.mjs` → planned: same suite, timer-role cases | STOP if timer styling alters countdown/background behavior or touches global tokens · reviewer: reproduces the timer-equivalence assertion |
 | 057-P10 | 10 | Management catalog + phone gates: destructive/share/history/Program-dock states across EN/PT, light/dark, compact, 200%, PT+200, scroll-end; owner real-phone review · **build + human evidence** | catalog flows `history`, `program`, `settings`, `session`; `test/ui-catalog-contract.mjs`; physical-phone owner | regenerate `node tools/capture-ui-screens.mjs --flow history --flow program --flow settings`; scroll-end clearance for sticky Program dock and Settings rows. Failure recorded, not hidden: a destructive confirmation pushed off-screen at PT+200 | baseline: `node test/ui-catalog-contract.mjs` → planned: `node tools/capture-ui-screens.mjs --flow history` then `node tools/check-ui-screens.mjs` | STOP if a destructive boundary is obscured at any variant · reviewer + owner: real-phone review of History/Share/summary/Program/Settings/timer signed into the PR (Plan 059 repeats sign-off) |
 
-## Implementation-agent operating protocol
+## Implementation operating protocol
 
 ### Branch/worktree contract
 
@@ -339,10 +336,10 @@ numeric labels. Do not add a parallel muscle-volume helper.
 - **Primary files:** History/Share/Summary/Today/Program/Settings/timer regions of app/index/styles, `shared-setup.js`, i18n, focused tests/catalog scenarios
 - **Shared hotspots:** `app.js`, `index.html`, `styles.css`, i18n/generated, `shared-setup.js`, SW/query revisions, manifest
 - **Conflicting phases:** 054 owns Privacy/guide registry; 055 workout/timer function; 056 Progress/outcomes; 058 global tokens. This plan owns the listed management structures
-- **Safe parallelism:** History and Share slices may run in parallel only in separate branches/worktrees with one integrator and no shared-file concurrent commits; otherwise sequence as table. Plan 058 waits for principal surfaces
+- **Safe parallelism:** History and Share slices may run in parallel only in separate branches/worktrees with no shared-file concurrent commits; serialize integration before merge, otherwise sequence as table. Plan 058 waits for principal surfaces
 - **Integration order:** 054/055/056 → 057 → 058 → 059
 
-Fetch/inspect main, branches, worktrees, and PRs; resume existing work. Use one plan worktree and keep coordination checkout clean. Never copy uncommitted files or delete another agent's worktree/branch. Push `chore(plan-057): start implementation`, open a draft PR, and populate it before substantive work. Target main. When dependencies merge, fetch and explicitly merge `origin/main`, resolve deliberately, rerun affected checks, push, update PR. Published branches are not rebased.
+Fetch/inspect main, branches, worktrees, and PRs; resume existing work. Use one plan worktree and keep coordination checkout clean. Never copy uncommitted files from another worktree or delete another worktree/branch. Push `chore(plan-057): start implementation`, open a draft PR, and populate it before substantive work. Target main. When dependencies merge, fetch and explicitly merge `origin/main`, resolve deliberately, rerun affected checks, push, update PR. Published branches are not rebased.
 
 ### Required implementation PR body
 

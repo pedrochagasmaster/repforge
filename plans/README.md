@@ -38,7 +38,7 @@ may be pulled into these plans.
 | [052](./052-block-transition-provenance-foundation.md) | 2B | **IMPLEMENTED — PR #228** | Make block transitions reconstructable, preview-hashed, provenance-preserving, and atomic. |
 | [053](./053-ios-install-transfer-foundation.md) | 2C | **IMPLEMENTED — PR #235** | Build the narrowly scoped one-hour encrypted iOS install transfer and recovery snapshot. |
 | [Bridge](../docs/taurifer-architecture-refactoring-plan.md#owner-ratified-disposition-after-plan-053) | 2D | **IMPLEMENTED — PR #240** | One durable outcome and one settlement/recovery owner under accepted Plans 051–053; no new numbered plan or second queue. |
-| [054](./054-landing-and-program-entry.md) | 3 | **ACTIVE — OWNER VISUAL GATE** | Deliver the selected product-led landing, adaptive shared entry, five-job hierarchy, install policy, guides, and Privacy page. |
+| [054](./054-landing-and-program-entry.md) | 3 | **IMPLEMENTED — PR #241** | Deliver the selected product-led landing, adaptive shared entry, five-job hierarchy, install policy, guides, and Privacy page. |
 | [055](./055-focus-only-workout.md) | 4 | **PLANNED — DEPENDS ON 051** | Reach capability parity in Focus, add read-only Preview/scope layers, then delete List. |
 | [056](./056-progress-and-block-lifecycle.md) | 5 | **PLANNED — DEPENDS ON 052** | Correct Progress scope/evidence and expose only exact, confirmed block transitions. |
 | [057](./057-management-surfaces.md) | 6 | **PLANNED — DEPENDS ON 054–056** | Make History read-first, Share repairable/fail-closed, and converge management hierarchy. |
@@ -104,12 +104,14 @@ and [phase proof checkpoints](../docs/agents/ui-overhaul-proof-checkpoints.md).
 They govern first-slice proof and correction review; the numbered plans retain
 their product scope, dependencies, atomic commits, and owner gates.
 
-For Plans 052–059, use the [Herdr execution procedure](../docs/agents/herdr-ui-overhaul-execution.md)
-and the plan's bounded worker packets. Read the
+For Plans 055–059, execution mechanics are intentionally outside the canonical plan contract. Use each plan's
+bounded execution slices together with the evidence protocol and proof checkpoints; they define scope, ordering, proof,
+and review gates without selecting an implementation strategy. Read the
 [Plan 050/051 execution lessons](../docs/agents/ui-overhaul-execution-retrospective.md)
-when preparing the first acceptance contract. The
-[Plan 052 resume prompt](../docs/agents/prompts/plan-052-herdr.md) starts from
-the existing PR, not a new implementation.
+when preparing the first acceptance contract. The historical
+[Herdr procedure](../docs/agents/herdr-ui-overhaul-execution.md) and
+[Plan 052 resume prompt](../docs/agents/prompts/plan-052-herdr.md) are retained only as records of earlier execution
+and do not govern Plans 055–059.
 
 1. Confirm the work is present and correctly prioritized in
    [`docs/backlog.md`](../docs/backlog.md).
