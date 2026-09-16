@@ -48,8 +48,8 @@ export const SHARED_DOM = Object.freeze({
 
 export const SHARED_COPY = Object.freeze({
   en: {
-    lede: "Install the app, then start your program.",
-    ledeInstalled: "Your program is ready.",
+    lede: "Review the program that was sent to you, then start it on this device.",
+    ledeInstalled: "Review the program that was sent to you, then start it on this device.",
     title: "Start this program",
     capOne: (name) => `${name} · 1 day per week`,
     capMany: (name, n) => `${name} · ${n} days per week`,
@@ -62,11 +62,11 @@ export const SHARED_COPY = Object.freeze({
     shareUnsupported: "This browser cannot create setup links.",
     saved: "Program saved.",
     shareTitle: "Share program setup",
-    shareBody: "The link shares this program, its configuration, eight selected settings, and the app language. It does not include workout history. For iOS installation, a temporary cookie stores the compressed proposal. The static host receives that cookie with matching index.html requests for up to seven days. Compression and encoding do not encrypt the proposal.",
+    shareBody: "Create a setup link for this program. Copy the link or open the system Share sheet.",
   },
   pt: {
-    lede: "Instale o app e comece seu programa.",
-    ledeInstalled: "Seu programa está pronto.",
+    lede: "Revise o programa que enviaram para você e depois comece neste dispositivo.",
+    ledeInstalled: "Revise o programa que enviaram para você e depois comece neste dispositivo.",
     title: "Começar este programa",
     capOne: (name) => `${name} · 1 dia por semana`,
     capMany: (name, n) => `${name} · ${n} dias por semana`,
@@ -289,16 +289,17 @@ async function persistState(page, state) {
 
 async function clearSite(page) {
   await page.evaluate(
-    async ({ k, d, setup }) => {
+    async ({ k, d, setup, ui }) => {
       localStorage.removeItem(k);
       localStorage.removeItem(d);
       localStorage.removeItem(setup);
+      localStorage.removeItem(ui);
       await new Promise((res) => {
         const req = indexedDB.deleteDatabase("repforge");
         req.onsuccess = req.onerror = req.onblocked = () => res();
       });
     },
-    { k: KEY, d: DRAFT, setup: SETUP_DRAFT }
+    { k: KEY, d: DRAFT, setup: SETUP_DRAFT, ui: "repforge_ui_v1" }
   );
 }
 
@@ -813,7 +814,7 @@ export async function runSharedSetupFlow(browser) {
     }
   });
 
-  await runCase("Web Share sends title and URL only; sheet keeps the disclosure", async () => {
+  await runCase("Web Share and its sheet stay task-only", async () => {
     const { context, page } = await openAppPage(browser, { webShare: true, clipboard: true });
     await clearSite(page);
     await persistState(page, configuredState({
@@ -842,7 +843,7 @@ export async function runSharedSetupFlow(browser) {
     const link = await readShareSetupLink(page);
     assert(
       sheet.bodyVisible && sheet.body === SHARED_COPY.en.shareBody,
-      "share sheet still displays the privacy disclosure",
+      "share sheet keeps only task guidance",
       sheet.body
     );
     assert(!!link && /#setup=/.test(link), "share sheet shows the generated setup URL", link);
@@ -1412,7 +1413,7 @@ export async function runSharedSetupFlow(browser) {
     await context.close();
   });
 
-  await runCase("Chrome install accepted/dismissed leaves the shared action", async () => {
+  await runCase("Pre-value Chrome install capability leaves only the shared action", async () => {
     const { context, page } = await openAppPage(browser, { ua: ANDROID_UA });
     await clearSite(page);
     await page.reload({ waitUntil: "domcontentloaded" });
@@ -1426,32 +1427,13 @@ export async function runSharedSetupFlow(browser) {
     await page.goto(`${APP_INDEX}#setup=${encoded.value}`, { waitUntil: "domcontentloaded" });
     await waitForFirstRun(page);
     await page.evaluate(() => window.__fireInstall());
-    await page.waitForSelector("#firstRunInstallAction", { timeout: 8000 });
-    await page.click("#firstRunInstallAction");
-    await page.waitForTimeout(300);
-    const accepted = await page.evaluate(sharedGateSnapshot);
-    assert(accepted.gate && accepted.startVisible, "accepted Chrome install keeps the shared row", JSON.stringify(accepted));
-    assert(!accepted.install, "accepted install removes the install section", JSON.stringify(accepted));
-    assert(!accepted.createVisible, "Create stays hidden after Chrome accepted", JSON.stringify(accepted));
+    const gated = await page.evaluate(sharedGateSnapshot);
+    assert(gated.gate && gated.startVisible, "captured Chrome capability keeps the shared row", JSON.stringify(gated));
+    assert(!gated.install, "pre-value Chrome does not promote installation", JSON.stringify(gated));
+    assert(!gated.createVisible, "Create stays hidden on the shared route", JSON.stringify(gated));
+    const durable = await page.evaluate(readDurableState);
+    assert(durable.cookie, "suppressed Chrome promotion preserves the setup handoff cookie", durable.cookie);
     await context.close();
-
-    const dismissed = await openAppPage(browser, { ua: ANDROID_UA });
-    await clearSite(dismissed.page);
-    await dismissed.page.reload({ waitUntil: "domcontentloaded" });
-    await waitForFirstRun(dismissed.page);
-    const encoded2 = await encodeSharedPayload(dismissed.page, cloneFixture(MINIMAL_PAYLOAD));
-    await dismissed.page.goto(`${APP_INDEX}#setup=${encoded2.value}`, { waitUntil: "domcontentloaded" });
-    await waitForFirstRun(dismissed.page);
-    await dismissed.page.evaluate(() => {
-      window.__choice = "dismissed";
-      window.__fireInstall();
-    });
-    await dismissed.page.waitForSelector("#firstRunInstallAction", { timeout: 8000 });
-    await dismissed.page.click("#firstRunInstallAction");
-    await dismissed.page.waitForTimeout(300);
-    const afterDismiss = await dismissed.page.evaluate(sharedGateSnapshot);
-    assert(afterDismiss.startVisible && afterDismiss.gate, "dismissed Chrome prompt keeps the shared row", JSON.stringify(afterDismiss));
-    await dismissed.context.close();
   });
 
   await runCase("Cookie-only standalone reconstructs the shared gate", async () => {

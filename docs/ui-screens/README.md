@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 97 screens,
-473 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 96 screens,
+469 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -49,9 +49,9 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [First-run gate](screens/onboarding-start/first-run__phone-390-light-en.png) | 7 | No program exists. The gate that precedes every entry route. |
-| [Entry hub](screens/onboarding-start/hub__phone-390-light-en.png) | 7 | Create a program. Recommend and Custom carry the accent rail; Browse and Bring or build my own recede. |
-| [Entry hub — own disclosure open](screens/onboarding-start/hub-own-open__phone-390-light-en.png) | 3 | The Bring or build my own disclosure expanded to reveal the nested Build and Import rows. |
+| [One-time landing](screens/onboarding-start/first-run__phone-390-light-en.png) | 7 | First empty visit. Hero, getting-started/program chapter, the signature progression system, and a closing chapter, with early Build and Track actions, Privacy, and device-local seen state. |
+| [Entry hub](screens/onboarding-start/hub__phone-390-light-en.png) | 7 | Create a program. Recommend is the sole primary path; Custom is its generated alternative; Browse stands alone; Bring or build is collapsed. |
+| [Entry hub — own disclosure open](screens/onboarding-start/hub-own-open__phone-390-light-en.png) | 3 | The Bring or build disclosure expanded with aria-expanded to reveal Build, paste, and Taurifer-file import paths. |
 | [Entry hub — existing program](screens/onboarding-start/hub-existing__phone-390-light-en.png) | 3 | Opened from Settings while a program is active, so replacement consequences are in view. |
 
 ### Onboarding — Recommend one for me
@@ -65,9 +65,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Recommend 4 — equipment correction](screens/onboarding-recommend/environment-correction__phone-390-light-en.png) | 7 | The capability correction disclosure open. |
 | [Recommend 5 — priorities](screens/onboarding-recommend/priorities__phone-390-light-en.png) | 3 | Primary priorities plus optional movement and exercise-avoidance controls. |
 | [Recommend 5 — avoidance and pain safety](screens/onboarding-recommend/avoidance-pain__phone-390-light-en.png) | 7 | One avoided exercise with the pain reason selected and its safety copy. |
-| [Recommend — recommendation](screens/onboarding-recommend/result__phone-390-light-en.png) | 8 | One named recommendation with its factual Why it fits explanation. |
-| [Recommend — review before first activation](screens/onboarding-recommend/preview-first-run__phone-390-light-en.png) | 3 | Identity, source, day summaries, assumptions, Edit before using, Use this program. |
-| [Recommend — review with a program active](screens/onboarding-recommend/preview-existing__phone-390-light-en.png) | 3 | The same review while the current program remains untouched. |
+| [Recommend — recommendation and review](screens/onboarding-recommend/result__phone-390-light-en.png) | 8 | One candidate surface with rationale, editable program facts, and explicit activation. |
+| [Recommend — recommendation with a program active](screens/onboarding-recommend/result-existing__phone-390-light-en.png) | 3 | The merged candidate surface while the current program remains untouched. |
 | [Recommend — confirm replacement](screens/onboarding-recommend/replacement-confirm__phone-390-light-en.png) | 3 | The explicit archive-and-replace confirmation. History is not changed. |
 | [Recommend — activation conflict](screens/onboarding-recommend/activation-conflict__phone-390-light-en.png) | 3 | Another tab changed the active program. The newer program stays active. |
 
@@ -81,8 +80,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Custom 4 — environment](screens/onboarding-custom/environment__phone-390-light-en.png) | 4 | Environment shortcuts in the custom route. |
 | [Custom 5 — muscle priorities](screens/onboarding-custom/priorities__phone-390-light-en.png) | 8 | Each muscle has one accessible emphasis setting before exercise preferences. |
 | [Custom 6 — exercise preferences](screens/onboarding-custom/exercise-preferences__phone-390-light-en.png) | 4 | One library search offers Include or Avoid, with separate selected lists. |
-| [Custom — generated program](screens/onboarding-custom/result__phone-390-light-en.png) | 4 | The generated candidate for the chosen split. |
-| [Custom — review](screens/onboarding-custom/preview__phone-390-light-en.png) | 4 | The common review surface for a custom-generated program. |
+| [Custom — generated program and review](screens/onboarding-custom/result__phone-390-light-en.png) | 4 | The custom candidate, rationale, editable facts, and explicit activation on one surface. |
 
 ### Onboarding — Browse Taurifer programs
 
@@ -121,7 +119,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Shared setup — confirmation gate](screens/onboarding-shared/gate__phone-390-light-en.png) | 8 | The first-run gate for an incoming setup link. Nothing persists until Start. |
+| [Shared setup — adaptive landing](screens/onboarding-shared/gate__phone-390-light-en.png) | 8 | An incoming setup link adapts the landing around its safe program summary. Nothing persists until Start. |
+| [Shared setup — invalid landing](screens/onboarding-shared/invalid__phone-390-light-en.png) | 3 | An invalid setup link explains that nothing was saved and keeps safe Build and Track actions available. |
 | [Shared setup — review](screens/onboarding-shared/preview__phone-390-light-en.png) | 3 | The editable preview a shared payload lands in before explicit activation. |
 
 ### Onboarding — resume and rule drift
@@ -203,10 +202,11 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | --- | --- | --- |
 | [Settings](screens/settings/main__phone-390-light-en.png) | 3 | The settings list. |
 | [Settings — Appearance](screens/settings/appearance__phone-390-light-en.png) | 3 | The appearance/theme row. |
+| [Settings — contextual guides](screens/settings/guides__phone-390-light-en.png) | 3 | The per-guide replay controls; replay changes presentation state only. |
 | [Settings — privacy and analytics](screens/settings/privacy__phone-390-light-en.png) | 3 | The privacy and analytics section. |
 | [Privacy — temporary install transfer](screens/settings/privacy-disclosure__phone-390-light-en.png) | 8 | The cached ADR 0013 disclosure reached from Settings. |
 
-### Install and tour
+### Install
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
@@ -225,4 +225,3 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Install transfer — interrupted import](screens/install/transfer-interrupted__phone-390-light-en.png) | 8 | A recoverable installed import failure offers an explicit retry. |
 | [Install transfer — unknown outcome](screens/install/transfer-unknown__phone-390-light-en.png) | 8 | An indeterminate source outcome remains frozen until explicit divergence confirmation. |
 | [Install transfer — claimed then expired](screens/install/transfer-claimed-expired__phone-390-light-en.png) | 8 | Claimed-expired recovery remains frozen until explicit divergence confirmation. |
-| [Feature tour](screens/install/tour__phone-390-light-en.png) | 3 | The first-session feature tour. |

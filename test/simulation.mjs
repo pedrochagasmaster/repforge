@@ -282,15 +282,17 @@ async function wipePwaOrigin(page, context) {
 async function resetWithSeedProgram(page) {
   await clearState(page);
   await reloadApp(page);
-  // `clearState` leaves the device-only UI prefs alone, but an earlier phase
-  // clears them to replay the first-run tour. Landing on a ready program with
-  // `tourDone` unset reopens that tour over the app, and its overlay then eats
-  // every click the walk makes. Mark it seen: this reset hands the walk a
-  // device that is past first run.
+  // `clearState` leaves device-only UI prefs alone. Give the long-running walk
+  // a device that has already handled Plan 054's wired contextual guides so a
+  // later Settings visit cannot change the scenario's intended surface.
   await page.evaluate(() => {
     const k = "repforge_ui_v1";
     const prefs = JSON.parse(localStorage.getItem(k) || "{}");
-    prefs.tourDone = true;
+    prefs.guideState = Object.fromEntries(["entry", "install", "privacy"].map((id) => [id, {
+      version: 1,
+      status: "completed",
+      lastTransitionAt: Date.now(),
+    }]));
     localStorage.setItem(k, JSON.stringify(prefs));
   });
   await installSeedProgram(page, { key: KEY, waitFor: waitForApp });
@@ -369,7 +371,7 @@ async function getProgramExercises(page, day) {
 }
 
 async function clearState(page) {
-  await page.evaluate(async ({ k, d, setup }) => {
+  await page.evaluate(async ({ k, d, setup, ui }) => {
     localStorage.removeItem(k);
     // Clean-fixture reset: a canonical remove alone leaves the V2 checkpoint,
     // recovery copy, tombstone and transaction sidecars behind. Those belong
@@ -378,13 +380,14 @@ async function clearState(page) {
       if (key === d || key.startsWith(`${d}:`)) localStorage.removeItem(key);
     }
     localStorage.removeItem(setup);
+    localStorage.removeItem(ui);
     await new Promise((res) => {
       const req = indexedDB.deleteDatabase("repforge");
       req.onsuccess = () => res();
       req.onerror = () => res();
       req.onblocked = () => res();
     });
-  }, { k: KEY, d: DRAFT, setup: SETUP_DRAFT });
+  }, { k: KEY, d: DRAFT, setup: SETUP_DRAFT, ui: "repforge_ui_v1" });
 }
 
 async function clearDraftFixture(page) {
@@ -9578,7 +9581,10 @@ async function main() {
   );
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => typeof window.__repforgeStorage?.flush === "function", { timeout: 10000 });
-  await startFromFirstRun(page);
+  // The generic landing is intentionally one-shot. A retained setup draft
+  // resumes directly in the entry hub on later launches instead of replaying
+  // the marketing surface and making the lifter choose Create again.
+  await page.waitForSelector("#onboarding.active", { timeout: 10000 });
   await page.waitForSelector("#entryResumeContinue", { timeout: 10000 });
   await page.click("#entryResumeContinue");
   await page.waitForSelector("#entryActivate", { timeout: 10000 });
@@ -9608,11 +9614,7 @@ async function main() {
     JSON.stringify({ note: afterDone.program?.[0]?.notes, follow: afterDone._storageFollowUp }),
     "Edit onboarding → resume review → activate"
   );
-  await page.evaluate(() => {
-    if (typeof window.closeTour === "function") window.closeTour();
-  });
-
-  beginPhase("Honest affordances, tour, and deletion copy");
+  beginPhase("Honest affordances, contextual guides, and deletion copy");
   await nav(page, "log");
   const firstExId = await page.evaluate(() => {
     const b = document.querySelector("#todayExList [data-exopen], #workout [data-exopen]");
@@ -9749,178 +9751,48 @@ async function main() {
     `log=${afterDelete.log.length} draft=${draftGone} program=${afterDelete.program.length}`
   );
 
-  const tourCopy = await page.evaluate(() => {
-    const en = window.RepForgeI18n.STRINGS.en;
-    const pt = window.RepForgeI18n.STRINGS.pt;
+  const guideBaseline = await page.evaluate(() => ({
+    oldMarkup: !!document.querySelector("#tour"),
+    oldStart: typeof window.startTour,
+    oldClose: typeof window.closeTour,
+    guides: window.__repforgeUi?.guideState?.(),
+    draft: localStorage.getItem("repforge_draft_v1"),
+  }));
+  assert(
+    !guideBaseline.oldMarkup && guideBaseline.oldStart === "undefined" && guideBaseline.oldClose === "undefined",
+    "The obsolete global tour has no production route",
+    JSON.stringify(guideBaseline)
+  );
+  await nav(page, "settings");
+  await page.click("#guideReplayToggle");
+  await page.click('[data-guide-replay="privacy"]');
+  await page.waitForSelector('[data-guide-cue="privacy"]');
+  const cue = await page.evaluate(() => {
+    const node = document.querySelector('[data-guide-cue="privacy"]');
+    const anchor = document.querySelector("#privacyDetails");
     return {
-      en3: en["tour.3.body"],
-      pt3: pt["tour.3.body"],
-      en4: en["tour.4.body"],
-      pt4: pt["tour.4.body"],
+      role: node?.getAttribute("role"),
+      anchored: !!(node?.dataset.anchorTarget && anchor?.matches(node.dataset.anchorTarget)),
+      modal: node?.getAttribute("aria-modal"),
+      mainInert: !!document.querySelector("main")?.inert,
     };
   });
-  assert(
-    /header arrows|swipe/i.test(tourCopy.en3) &&
-      /setas do cabeçalho|deslize/i.test(tourCopy.pt3) &&
-      !/bottom/i.test(tourCopy.en3) &&
-      /header rest/i.test(tourCopy.en4),
-    "Tour step 3/4 copy teaches swipe, header chevrons, and header rest in both languages",
-    JSON.stringify(tourCopy)
-  );
-
-  await page.evaluate(() => window.startTour("first-run"));
-  await page.waitForSelector("#tour:not(.hidden)", { timeout: 3000 });
-  const tourModal = await page.evaluate(() => {
-    const tour = document.querySelector("#tour");
-    const focused = document.activeElement?.id;
-    const inertMain = document.querySelector("main")?.inert;
-    return { modal: tour?.getAttribute("aria-modal"), focused, inertMain, hidden: tour?.classList.contains("hidden") };
-  });
-  assert(
-    tourModal.modal === "true" && tourModal.focused === "tourSkip" && tourModal.inertMain === true,
-    "Tour is aria-modal with Skip focused and the preview surface inert",
-    JSON.stringify(tourModal)
-  );
-
-  const stepAt = async (n) => {
-    await page.evaluate((i) => {
-      while (window.__repforgeUi && document.querySelector("#tour:not(.hidden)")) {
-        const eyebrow = document.querySelector("#tourEyebrow")?.textContent || "";
-        const cur = +(eyebrow.match(/(\d+)/) || [])[1] || 1;
-        if (cur - 1 === i) break;
-        if (cur - 1 < i) document.querySelector("#tourNext")?.click();
-        else document.querySelector("#tourBack")?.click();
-        break;
-      }
-    }, n);
-    for (let i = 0; i < 12; i++) {
-      const cur = await page.evaluate(() => {
-        const t = document.querySelector("#tourEyebrow")?.textContent || "";
-        return +(t.match(/(\d+)/) || [])[1] || 1;
-      });
-      if (cur - 1 === n) break;
-      if (cur - 1 < n) await page.click("#tourNext");
-      else await page.click("#tourBack");
-    }
-    return page.evaluate(() => ({
-      view: document.querySelector(".view.active")?.id,
-      workout: document.body.classList.contains("is-workout"),
-      focus: document.body.classList.contains("is-focus-wo"),
-      overflow: !document.querySelector("#woOverflow")?.classList.contains("hidden"),
-      arrows: !!document.querySelector("#woPrev"),
-      rest: !document.querySelector("#woRest")?.classList.contains("hidden"),
-      finishInView: !!document.querySelector("#logForm .btn--save"),
-    }));
-  };
-  const s0 = await stepAt(0);
-  assert(s0.view === "log" && !s0.workout, "Tour step 0 shows the Today dashboard", JSON.stringify(s0));
-  const s1 = await stepAt(1);
-  assert(s1.workout && !s1.focus && s1.overflow, "Tour step 1 is List with overflow open", JSON.stringify(s1));
-  const s2 = await stepAt(2);
-  assert(s2.workout && !s2.focus && s2.overflow, "Tour step 2 keeps List overflow open for layout controls", JSON.stringify(s2));
-  const s3 = await stepAt(3);
-  assert(s3.workout && s3.focus && !s3.overflow && s3.arrows, "Tour step 3 is Focus with header arrows and overflow closed", JSON.stringify(s3));
-  const s4 = await stepAt(4);
-  assert(s4.workout && s4.focus && s4.rest, "Tour step 4 shows the header rest control", JSON.stringify(s4));
-  const s5 = await stepAt(5);
-  assert(s5.workout && !s5.focus && s5.finishInView, "Tour step 5 is List with Finish workout in view", JSON.stringify(s5));
-  const s6 = await stepAt(6);
-  assert(s6.view === "stats", "Tour step 6 opens Progress", JSON.stringify(s6));
-
-  const draftDuring = await page.evaluate((d) => localStorage.getItem(d), DRAFT);
-  const logDuring = (await getState(page)).log.length;
-  await page.click("#tourSkip");
-  const firstRunExit = await page.evaluate(() => ({
-    hidden: document.querySelector("#tour")?.classList.contains("hidden"),
-    view: document.querySelector(".view.active")?.id,
-    workout: document.body.classList.contains("is-workout"),
-    focus: document.activeElement?.id,
-    tourDone: JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").tourDone,
+  assert(cue.role === "status" && cue.anchored && !cue.modal && !cue.mainInert, "Privacy guide is contextual and non-modal", JSON.stringify(cue));
+  await page.click("#privacyDetails");
+  await page.waitForSelector("#privacySheet.is-open");
+  const completed = await page.evaluate(() => window.__repforgeUi.guideState().privacy);
+  assert(completed.status === "completed", "Performing the anchored Privacy action completes its guide", JSON.stringify(completed));
+  await page.click("#privacyClose");
+  await page.waitForSelector("#privacySheet", { state: "hidden" });
+  await page.click('[data-guide-replay="entry"]');
+  await page.waitForFunction(() => window.__repforgeUi.guideState().entry?.status === "deferred");
+  const missingAnchor = await page.evaluate(() => ({
+    entry: window.__repforgeUi.guideState().entry,
+    floating: !!document.querySelector('[data-guide-cue="entry"]'),
+    draft: localStorage.getItem("repforge_draft_v1"),
   }));
-  assert(
-    firstRunExit.hidden && firstRunExit.view === "log" && !firstRunExit.workout && firstRunExit.focus === "startWorkout" && firstRunExit.tourDone,
-    "First-run Skip ends on Today with focus on Start workout",
-    JSON.stringify(firstRunExit)
-  );
-  assert(draftDuring == null || draftDuring === (await page.evaluate((d) => localStorage.getItem(d), DRAFT)), "Tour preview does not write a draft", draftDuring);
-
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: true }));
-  await page.waitForTimeout(80);
-  const replaySnap = await page.evaluate(() => ({
-    workout: document.body.classList.contains("is-workout"),
-    focus: document.body.classList.contains("is-focus-wo"),
-    day: document.querySelector("#woDayTitle")?.textContent || "",
-  }));
-  await page.evaluate(() => window.startTour("replay"));
-  await page.waitForSelector("#tour:not(.hidden)");
-  await page.click("#tourNext");
-  await page.click("#tourSkip");
-  const replaySkip = await page.evaluate(() => ({
-    hidden: document.querySelector("#tour")?.classList.contains("hidden"),
-    workout: document.body.classList.contains("is-workout"),
-    focus: document.body.classList.contains("is-focus-wo"),
-    focused: document.activeElement?.id,
-  }));
-  assert(
-    replaySkip.hidden && replaySkip.workout === replaySnap.workout && replaySkip.focus === replaySnap.focus,
-    "Replay Skip restores the pre-tour workout snapshot",
-    JSON.stringify({ replaySnap, replaySkip })
-  );
-
-  await page.evaluate(() => window.startTour("replay"));
-  await page.waitForSelector("#tour:not(.hidden)");
-  for (let i = 0; i < 12; i++) {
-    const last = await page.evaluate(() => document.querySelector("#tourNext")?.textContent || "");
-    await page.click("#tourNext");
-    if (/done|concluir|pronto/i.test(last)) break;
-  }
-  const replayDone = await page.evaluate(() => ({
-    hidden: document.querySelector("#tour")?.classList.contains("hidden"),
-    workout: document.body.classList.contains("is-workout"),
-    focus: document.body.classList.contains("is-focus-wo"),
-  }));
-  assert(
-    replayDone.hidden && replayDone.workout === replaySnap.workout && replayDone.focus === replaySnap.focus,
-    "Replay Done restores the pre-tour snapshot",
-    JSON.stringify(replayDone)
-  );
-
-  await page.evaluate(() => window.__repforgeLeaveWorkout?.());
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
-  await page.evaluate(() => {
-    document.querySelectorAll("#workout [data-skip]").forEach((b) => b.click());
-  });
-  const skippedBefore = await page.evaluate(() => document.querySelectorAll("#workout .exercise.is-skipped, #workout .skipbar").length);
-  const logBeforeSkipTour = (await getState(page)).log.length;
-  await page.evaluate(() => window.startTour("replay"));
-  await stepAt(3);
-  const previewName = await page.evaluate(() => document.querySelector("#workout .focus-ex__name")?.textContent || "");
-  const skippedUnchanged = await page.evaluate(() => {
-    window.closeTour();
-    return document.querySelectorAll("#workout [data-skip]").length;
-  });
-  assert(!!previewName, "All-skipped Focus preview still shows the first program exercise", `name=${previewName}`);
-  assert((await getState(page)).log.length === logBeforeSkipTour, "All-skipped tour preview does not mutate the log", "");
-
-  await nav(page, "settings");
-  await page.evaluate(() => document.querySelector("#restSecPanel")?.classList.add("is-open"));
-  await page.fill("#restSec", "0");
-  await page.evaluate(() => document.querySelector("#restSec")?.dispatchEvent(new Event("change", { bubbles: true })));
-  await page.waitForTimeout(50);
-  await page.evaluate(() => window.startTour("replay"));
-  await stepAt(4);
-  const restPreview = await page.evaluate(() => ({
-    visible: !document.querySelector("#woRest")?.classList.contains("hidden"),
-    disabled: !!document.querySelector("#woRest")?.disabled,
-    hint: document.querySelector("#woRestPreviewHint")?.textContent || "",
-    running: document.querySelector("#woRest")?.classList.contains("is-running"),
-  }));
-  await page.click("#tourSkip");
-  assert(
-    restPreview.visible && restPreview.disabled && restPreview.hint && !restPreview.running,
-    "Disabled-rest tour preview shows the header control without starting a timer",
-    JSON.stringify(restPreview)
-  );
+  assert(missingAnchor.entry.status === "deferred" && !missingAnchor.floating, "A hidden entry anchor defers without a floating guide", JSON.stringify(missingAnchor));
+  assert(missingAnchor.draft === guideBaseline.draft, "Contextual guide presentation does not write a workout draft", JSON.stringify(missingAnchor));
 
   beginPhase("Coaching counts and destinations");
   {

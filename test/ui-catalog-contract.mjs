@@ -4,6 +4,13 @@ import { resolve } from "node:path";
 import { assertServingApp, launchChromium } from "./browser.mjs";
 import { loadManifest } from "../tools/ui-screens/manifest.mjs";
 import { APP_SCENARIOS, appState } from "../tools/ui-screens/screens-app.mjs";
+import { ONBOARDING_SCENARIOS, onboardingState } from "../tools/ui-screens/screens-onboarding.mjs";
+import {
+  buildSemanticArtifact,
+  collectProgramEntrySemantics,
+  compareSemanticArtifacts,
+  normalizeSemanticRecords,
+} from "../tools/ui-screens/semantics.mjs";
 import { dismissChrome, openPage, settle } from "../tools/ui-screens/session.mjs";
 import { collectCatalogEvidence, configForCapture, validateCatalogEvidence, validateCatalogMetadata } from "../tools/ui-screens/catalog-contract.mjs";
 
@@ -160,6 +167,52 @@ try {
     console.log(`deliberate overlap rejection: ${overlapFailures.find((failure) => failure.includes("#catalogOverlapA") && failure.includes("#catalogOverlapB"))}`);
   } finally {
     await en.context.close();
+  }
+
+  async function openLanding(locale = "en") {
+    const capture = { flow: "onboarding-start", screen: "first-run", viewport: "phone-390", theme: "light", locale, text: "normal", motion: "normal" };
+    const opened = await openPage(browser, manifest, capture, onboardingState("onboarding-start/first-run", manifest.locales[locale].lang));
+    await ONBOARDING_SCENARIOS["onboarding-start/first-run"](opened.page);
+    await settle(opened.page);
+    return { ...opened, capture, config: configForCapture(manifest, capture) };
+  }
+
+  const landing = await openLanding("en");
+  try {
+    const landingEvidence = await landing.page.evaluate(collectCatalogEvidence, landing.config);
+    const landingFailures = validate(landingEvidence, landing.config);
+    assert.deepEqual(landingFailures, [], `actual EN landing frame satisfies the catalog contract: ${landingFailures.join(" | ")}`);
+
+    const landingSemantics = normalizeSemanticRecords(await landing.page.evaluate(collectProgramEntrySemantics));
+    assert.ok(landingSemantics.some((entry) => entry.tag === "h1" && entry.text === "Walk into the gym knowing exactly what to do."),
+      "landing page semantic facts include the landing headline");
+    assert.ok(landingSemantics.some((entry) => entry.tag === "button" && entry.name === "Build my program"),
+      "landing page semantic facts include the primary build action");
+
+    const landingBaseline = buildSemanticArtifact([{
+      key: "onboarding-start/first-run__phone-390-light-en",
+      capture: landing.capture,
+      semantic: landingSemantics,
+    }]);
+
+    await ONBOARDING_SCENARIOS["onboarding-start/hub"](landing.page);
+    await settle(landing.page);
+    const hubSemantics = normalizeSemanticRecords(await landing.page.evaluate(collectProgramEntrySemantics));
+
+    const wrongRouteCandidate = buildSemanticArtifact([{
+      key: "onboarding-start/first-run__phone-390-light-en",
+      capture: landing.capture,
+      semantic: hubSemantics,
+    }]);
+
+    const semanticComparison = compareSemanticArtifacts(landingBaseline, wrongRouteCandidate);
+    assert.equal(semanticComparison.ok, false,
+      "a landing state captured on the wrong semantic route/facts is rejected");
+    assert.ok(semanticComparison.reasons.some((reason) => reason.startsWith("semantic text/state changed: onboarding-start/first-run")),
+      `semantic-fact mismatch is rejected: ${semanticComparison.reasons.join(" | ")}`);
+    console.log(`deliberate semantic-route rejection: ${semanticComparison.reasons.find((reason) => reason.startsWith("semantic text/state changed: onboarding-start/first-run"))}`);
+  } finally {
+    await landing.context.close();
   }
 
   const pt = await openLibrary("pt");

@@ -18,6 +18,7 @@ const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 const SETUP_DRAFT = "repforge_setup_draft_v1";
+const UI = "repforge_ui_v1";
 
 const results = { passed: 0, failed: 0 };
 
@@ -35,8 +36,8 @@ const phase = (n) => console.log(`\n${n}`);
 
 async function clearState(page) {
   await page.evaluate(
-    async ({ k, d, s }) => {
-      [k, d, s].forEach((key) => localStorage.removeItem(key));
+    async ({ k, d, s, ui }) => {
+      [k, d, s, ui].forEach((key) => localStorage.removeItem(key));
       await new Promise((res) => {
         const req = indexedDB.deleteDatabase("repforge");
         req.onsuccess = () => res();
@@ -44,7 +45,7 @@ async function clearState(page) {
         req.onblocked = () => res();
       });
     },
-    { k: KEY, d: DRAFT, s: SETUP_DRAFT }
+    { k: KEY, d: DRAFT, s: SETUP_DRAFT, ui: UI }
   );
 }
 
@@ -120,6 +121,7 @@ page.on("pageerror", (e) => errors.push(e.message));
 page.on("dialog", (d) => d.accept());
 
 await page.goto(BASE, { waitUntil: "domcontentloaded" });
+await waitForAppBoot(page, { base: BASE });
 await clearState(page);
 await page.reload({ waitUntil: "domcontentloaded" });
 await waitForAppBoot(page, { base: BASE });

@@ -341,29 +341,29 @@
     },
     {
       "id": "install",
-      "label": "Install and tour"
+      "label": "Install"
     }
   ],
   "screens": [
     {
       "id": "first-run",
       "flow": "onboarding-start",
-      "label": "First-run gate",
-      "scenario": "No program exists. The gate that precedes every entry route.",
+      "label": "One-time landing",
+      "scenario": "First empty visit. Hero, getting-started/program chapter, the signature progression system, and a closing chapter, with early Build and Track actions, Privacy, and device-local seen state.",
       "variants": "accessibility"
     },
     {
       "id": "hub",
       "flow": "onboarding-start",
       "label": "Entry hub",
-      "scenario": "Create a program. Recommend and Custom carry the accent rail; Browse and Bring or build my own recede.",
+      "scenario": "Create a program. Recommend is the sole primary path; Custom is its generated alternative; Browse stands alone; Bring or build is collapsed.",
       "variants": "accessibility"
     },
     {
       "id": "hub-own-open",
       "flow": "onboarding-start",
       "label": "Entry hub — own disclosure open",
-      "scenario": "The Bring or build my own disclosure expanded to reveal the nested Build and Import rows.",
+      "scenario": "The Bring or build disclosure expanded with aria-expanded to reveal Build, paste, and Taurifer-file import paths.",
       "variants": "localized"
     },
     {
@@ -425,22 +425,15 @@
     {
       "id": "result",
       "flow": "onboarding-recommend",
-      "label": "Recommend — recommendation",
-      "scenario": "One named recommendation with its factual Why it fits explanation.",
+      "label": "Recommend — recommendation and review",
+      "scenario": "One candidate surface with rationale, editable program facts, and explicit activation.",
       "variants": "demandingText"
     },
     {
-      "id": "preview-first-run",
+      "id": "result-existing",
       "flow": "onboarding-recommend",
-      "label": "Recommend — review before first activation",
-      "scenario": "Identity, source, day summaries, assumptions, Edit before using, Use this program.",
-      "variants": "localized"
-    },
-    {
-      "id": "preview-existing",
-      "flow": "onboarding-recommend",
-      "label": "Recommend — review with a program active",
-      "scenario": "The same review while the current program remains untouched.",
+      "label": "Recommend — recommendation with a program active",
+      "scenario": "The merged candidate surface while the current program remains untouched.",
       "variants": "localized"
     },
     {
@@ -502,15 +495,8 @@
     {
       "id": "result",
       "flow": "onboarding-custom",
-      "label": "Custom — generated program",
-      "scenario": "The generated candidate for the chosen split.",
-      "variants": "customAccessibility"
-    },
-    {
-      "id": "preview",
-      "flow": "onboarding-custom",
-      "label": "Custom — review",
-      "scenario": "The common review surface for a custom-generated program.",
+      "label": "Custom — generated program and review",
+      "scenario": "The custom candidate, rationale, editable facts, and explicit activation on one surface.",
       "variants": "customAccessibility"
     },
     {
@@ -642,9 +628,16 @@
     {
       "id": "gate",
       "flow": "onboarding-shared",
-      "label": "Shared setup — confirmation gate",
-      "scenario": "The first-run gate for an incoming setup link. Nothing persists until Start.",
+      "label": "Shared setup — adaptive landing",
+      "scenario": "An incoming setup link adapts the landing around its safe program summary. Nothing persists until Start.",
       "variants": "demandingText"
+    },
+    {
+      "id": "invalid",
+      "flow": "onboarding-shared",
+      "label": "Shared setup — invalid landing",
+      "scenario": "An invalid setup link explains that nothing was saved and keeps safe Build and Track actions available.",
+      "variants": "localized"
     },
     {
       "id": "preview",
@@ -899,6 +892,13 @@
       "variants": "standard"
     },
     {
+      "id": "guides",
+      "flow": "settings",
+      "label": "Settings — contextual guides",
+      "scenario": "The per-guide replay controls; replay changes presentation state only.",
+      "variants": "standard"
+    },
+    {
       "id": "privacy",
       "flow": "settings",
       "label": "Settings — privacy and analytics",
@@ -1016,13 +1016,6 @@
       "label": "Install transfer — claimed then expired",
       "scenario": "Claimed-expired recovery remains frozen until explicit divergence confirmation.",
       "variants": "demandingText"
-    },
-    {
-      "id": "tour",
-      "flow": "install",
-      "label": "Feature tour",
-      "scenario": "The first-session feature tour.",
-      "variants": "standard"
     }
   ]
 }

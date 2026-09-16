@@ -1,0 +1,271 @@
+{
+  "mode": "matrix",
+  "cases": [
+    {
+      "name": "320-en",
+      "controls": 3,
+      "overflow": {
+        "document": 0,
+        "landing": 0
+      },
+      "composition": {
+        "narrowSequence": true,
+        "loadAndUnitTogether": true,
+        "deviceOverlap": true,
+        "endingAfterProof": true
+      }
+    },
+    {
+      "name": "360-en",
+      "controls": 3,
+      "overflow": {
+        "document": 0,
+        "landing": 0
+      },
+      "composition": {
+        "narrowSequence": true,
+        "loadAndUnitTogether": true,
+        "deviceOverlap": true,
+        "endingAfterProof": true
+      }
+    },
+    {
+      "name": "390-en",
+      "controls": 3,
+      "overflow": {
+        "document": 0,
+        "landing": 0
+      },
+      "composition": {
+        "narrowSequence": false,
+        "loadAndUnitTogether": true,
+        "deviceOverlap": true,
+        "endingAfterProof": true
+      }
+    },
+    {
+      "name": "430-en",
+      "controls": 3,
+      "overflow": {
+        "document": 0,
+        "landing": 0
+      },
+      "composition": {
+        "narrowSequence": false,
+        "loadAndUnitTogether": true,
+        "deviceOverlap": true,
+        "endingAfterProof": true
+      }
+    },
+    {
+      "name": "768-en",
+      "controls": 3,
+      "overflow": {
+        "document": 0,
+        "landing": 0
+      },
+      "composition": {
+        "narrowSequence": true,
+        "loadAndUnitTogether": true,
+        "deviceOverlap": true,
+        "endingAfterProof": true
+      }
+    },
+    {
+      "name": "320-pt",
+      "controls": 3,
+      "overflow": {
+        "document": 0,
+        "landing": 0
+      },
+      "composition": {
+        "narrowSequence": true,
+        "loadAndUnitTogether": true,
+        "deviceOverlap": true,
+        "endingAfterProof": true
+      }
+    },
+    {
+      "name": "390-pt",
+      "controls": 3,
+      "overflow": {
+        "document": 0,
+        "landing": 0
+      },
+      "composition": {
+        "narrowSequence": false,
+        "loadAndUnitTogether": true,
+        "deviceOverlap": true,
+        "endingAfterProof": true
+      }
+    },
+    {
+      "name": "390-dark",
+      "controls": 3,
+      "overflow": {
+        "document": 0,
+        "landing": 0
+      },
+      "composition": {
+        "narrowSequence": false,
+        "loadAndUnitTogether": true,
+        "deviceOverlap": true,
+        "endingAfterProof": true
+      }
+    },
+    {
+      "name": "390-pt-dark",
+      "controls": 3,
+      "overflow": {
+        "document": 0,
+        "landing": 0
+      },
+      "composition": {
+        "narrowSequence": false,
+        "loadAndUnitTogether": true,
+        "deviceOverlap": true,
+        "endingAfterProof": true
+      }
+    },
+    {
+      "name": "320-text200",
+      "controls": 3,
+      "overflow": {
+        "document": 0,
+        "landing": 0
+      },
+      "composition": {
+        "narrowSequence": true,
+        "loadAndUnitTogether": true,
+        "deviceOverlap": true,
+        "endingAfterProof": true
+      }
+    },
+    {
+      "name": "320-pt-text200",
+      "controls": 3,
+      "overflow": {
+        "document": 0,
+        "landing": 0
+      },
+      "composition": {
+        "narrowSequence": true,
+        "loadAndUnitTogether": true,
+        "deviceOverlap": true,
+        "endingAfterProof": true
+      }
+    },
+    {
+      "name": "390-text200",
+      "controls": 3,
+      "overflow": {
+        "document": 0,
+        "landing": 0
+      },
+      "composition": {
+        "narrowSequence": true,
+        "loadAndUnitTogether": true,
+        "deviceOverlap": true,
+        "endingAfterProof": true
+      }
+    },
+    {
+      "name": "390-pt-text200",
+      "controls": 3,
+      "overflow": {
+        "document": 0,
+        "landing": 0
+      },
+      "composition": {
+        "narrowSequence": true,
+        "loadAndUnitTogether": true,
+        "deviceOverlap": true,
+        "endingAfterProof": true
+      }
+    },
+    {
+      "name": "390-shared",
+      "controls": 2,
+      "overflow": {
+        "document": 0,
+        "landing": 0
+      },
+      "composition": {
+        "narrowSequence": false,
+        "loadAndUnitTogether": true,
+        "deviceOverlap": true,
+        "endingAfterProof": true
+      }
+    },
+    {
+      "name": "390-shared-pt",
+      "controls": 2,
+      "overflow": {
+        "document": 0,
+        "landing": 0
+      },
+      "composition": {
+        "narrowSequence": false,
+        "loadAndUnitTogether": true,
+        "deviceOverlap": true,
+        "endingAfterProof": true
+      }
+    },
+    {
+      "name": "390-invalid",
+      "controls": 3,
+      "overflow": {
+        "document": 0,
+        "landing": 0
+      },
+      "composition": {
+        "narrowSequence": false,
+        "loadAndUnitTogether": true,
+        "deviceOverlap": true,
+        "endingAfterProof": true
+      }
+    },
+    {
+      "name": "390-reduced",
+      "controls": 3,
+      "overflow": {
+        "document": 0,
+        "landing": 0
+      },
+      "composition": {
+        "narrowSequence": false,
+        "loadAndUnitTogether": true,
+        "deviceOverlap": true,
+        "endingAfterProof": true
+      }
+    },
+    {
+      "name": "390-forced-colors",
+      "controls": 3,
+      "overflow": {
+        "document": 0,
+        "landing": 0
+      },
+      "composition": {
+        "narrowSequence": false,
+        "loadAndUnitTogether": true,
+        "deviceOverlap": true,
+        "endingAfterProof": true
+      }
+    },
+    {
+      "name": "390-safe-insets",
+      "controls": 3,
+      "overflow": {
+        "document": 0,
+        "landing": 0
+      },
+      "composition": {
+        "narrowSequence": false,
+        "loadAndUnitTogether": true,
+        "deviceOverlap": true,
+        "endingAfterProof": true
+      }
+    }
+  ]
+}

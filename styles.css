@@ -42,6 +42,7 @@
   --positive-rgb:47,125,51;
   --danger-rgb:201,58,43;
   --ink-rgb:27,26,23;
+  --bg-rgb:244,242,239;
   /* The wash behind a selected program-entry choice: warm copper at a low
      alpha so a bounded white card gains a tint without a second surface
      colour. Defined per theme so dark lifts it enough to register. */
@@ -129,6 +130,7 @@
   --positive-rgb:99,194,103;
   --danger-rgb:255,102,112;
   --ink-rgb:242,239,233;
+  --bg-rgb:20,19,16;
   --entry-tint:rgba(242,112,59,.12);
   --knob:#F7F5F1;
   --scrim:rgba(0,0,0,.62);
@@ -180,19 +182,8 @@
 :root[data-theme="dark"] .exdet-art__figure{
   padding-block:var(--exercise-art-lead);
 }
-/* The gate's two brand images are the same case as the artwork above, and the
-   first thing a dark install ever sees. Both are drawn on cream: the hero
-   export carries its own field, and the mark keeps a pale rim where its ground
-   was taken away — on charcoal that field is a hard white rectangle and the rim
-   a smudge around the yoke. So dark gives each one the plate it is already
-   painted for. Nothing crops, nothing moves: the paper fills the same box the
-   art was contained in, and the corner is the only thing added. */
-:root[data-theme="dark"] .firstrun__logo,
-:root[data-theme="dark"] .firstrun-hero__art{
-  background-color:var(--brand-paper);
-}
-:root[data-theme="dark"] .firstrun-hero__art{border-radius:14px}
-:root[data-theme="dark"] .firstrun__logo{border-radius:16px}
+/* The ground-free mark keeps a pale rim where its paper was removed. */
+:root[data-theme="dark"] .firstrun__logo{background-color:var(--brand-paper);border-radius:16px}
 :root[data-theme="dark"] nav{
   backdrop-filter:blur(28px) saturate(125%);
   -webkit-backdrop-filter:blur(28px) saturate(125%);
@@ -2561,27 +2552,25 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
 .onb__import{text-align:center;font-size:.875rem;color:var(--ink-soft);margin:14px 0 8px;padding:0;background:none;border:0}
 .onb__import button{background:none;border:0;color:var(--ink);text-decoration:underline;text-underline-offset:3px;cursor:pointer;font:inherit;padding:0}
 
-/* Tour */
-.tour{position:fixed;left:0;right:0;bottom:calc(var(--nav) + 10px + env(safe-area-inset-bottom));z-index:75;
-  padding:0 12px;display:flex;justify-content:center;pointer-events:none}
-.tour.hidden{display:none}
-.tour__card{pointer-events:auto;width:min(100%,var(--maxw));
-  background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);
-  padding:14px 18px;box-shadow:0 8px 24px rgba(0,0,0,.1);animation:toastin .3s cubic-bezier(.2,.7,.2,1)}
-.tour__head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:4px}
-.tour__eyebrow{color:var(--accent-deep);font-size:11px;letter-spacing:.08em;text-transform:uppercase;margin:0;font-weight:600}
-.tour__skip{border:0;background:transparent;color:var(--ink-soft);cursor:pointer;font-size:12px;padding:4px 2px}
-.tour__title{font-weight:650;font-size:22px;line-height:1.15;margin:0 0 8px;letter-spacing:-0.01em}
-.tour__body{margin:0 0 12px;font-size:14px;line-height:1.5;color:var(--ink-soft)}
-.tour__body b{color:var(--ink);font-weight:600}
-.tour__extra:empty{display:none}
-.tour__extra{margin:0 0 12px}
-.tour__extra .btn{width:100%;justify-content:center}
-.tour__dots{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;margin-bottom:12px}
-.tour__dot{width:7px;height:7px;border-radius:50%;background:var(--rule)}
-.tour__dot.is-on{background:var(--accent)}
-.tour__nav{display:flex;gap:10px}
-.tour__nav .btn{flex:1}
+/* Contextual guides stay in the same document flow as the action they
+   explain. They never become a modal, cover their target, or float when the
+   target is absent. */
+.guide-cue{position:relative;display:grid;grid-template-columns:1fr auto;gap:8px 12px;
+  margin:10px 0 14px;padding:12px 14px;background:var(--entry-tint);
+  border:1px solid var(--rule-strong);border-radius:var(--radius);color:var(--ink)}
+.guide-cue__copy{min-width:0}
+.guide-cue__title{margin:0 0 3px;font-size:.875rem;font-weight:650;line-height:1.3}
+/* --ink-soft on the --entry-tint wash measures ~4.47:1, just under the 4.5:1
+   AA floor for normal text; full --ink clears it with room and still reads
+   as the subordinate line beside the bold title. */
+.guide-cue__body{margin:0;color:var(--ink);font-size:.8125rem;line-height:1.45}
+.guide-cue__dismiss{align-self:start;min-width:44px;min-height:44px;margin:-8px -10px 0 0;
+  border:0;background:transparent;color:var(--ink-soft);font:inherit;font-size:1.125rem;cursor:pointer}
+.guide-replay{padding:12px 14px;display:grid;gap:8px}
+.guide-replay[hidden]{display:none}
+.settings-panel.guide-replay.is-open{display:grid}
+.guide-replay .lede{margin:0 0 2px}
+.guide-replay .btn{width:100%;justify-content:flex-start;text-align:left}
 
 /* Icon and copy share the first row; the action takes a row of its own, the way
    the first-run install card sets it. A CTA is a 100%-width control that does
@@ -3262,9 +3251,8 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
   padding:16px 4px;border:0;border-bottom:1px solid var(--rule);
   border-radius:0;background:transparent;box-shadow:none;transition:background-color .15s ease
 }
-/* `.entry-card--primary` (carried by Recommend and Custom for the wide-screen
-   grid) paints a copper inset ring on the plain surface; the hub only wants
-   that emphasis on the focal route, applied as a real keyline below. */
+/* The shared card base paints no inset ring here. Recommend receives the one
+   focal keyline below; every other job stays subordinate to that first path. */
 :root .entry-body .entry-card,
 :root[data-theme="dark"] .entry-body .entry-card{box-shadow:none}
 /* In the flow a route row is borderless, so hover reads as a wash rather than
@@ -3272,6 +3260,8 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry-body .entry-card:hover{background:var(--well)}
 .entry-body .entry-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .entry-body .entry-card--nested{min-height:52px;padding:12px 4px 12px 14px;border-bottom:0}
+.entry-body .entry-card--subordinate{min-height:54px;padding:12px 4px;color:var(--ink-soft)}
+.entry-body .entry-card--subordinate .entry-card__title{font-size:.9375rem;color:var(--ink)}
 .entry-body .entry-card__icon{width:28px;height:28px;flex:none;background:currentColor;color:var(--ink-soft)}
 .entry-body .entry-card__body{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px;text-align:left}
 .entry-body .entry-card__title{font-size:1rem;line-height:1.25;font-weight:700}
@@ -3287,6 +3277,10 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry-body .entry-card[data-entry-route="recommend"]:hover{background:var(--entry-tint)}
 .entry-body .entry-card[data-entry-route="recommend"] .entry-card__icon,
 .entry-body .entry-card[data-entry-route="recommend"] .entry-card__go{color:var(--accent)}
+/* The chooser's entry guide sits right after the Recommend card it explains.
+   The hub becomes a CSS grid at wider widths, so without this the cue would
+   land in a card-sized cell instead of its own full-width row. */
+.entry__hub .guide-cue{grid-column:1/-1;margin:0 0 10px}
 .entry-body .entry__own{gap:0;padding:2px 0 2px 20px;border-left:1px solid var(--rule);margin-top:2px}
 .entry-body .entry__group-lab{
   margin:22px 0 8px;display:flex;align-items:center;gap:10px;color:var(--ink-faint)
@@ -3656,17 +3650,8 @@ body.is-firstrun main{visibility:hidden}
 body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{display:none}
 .firstrun__inner{
   --firstrun-pad:clamp(18px,5vw,34px);
-  max-width:900px;margin:0 auto;padding:0 var(--firstrun-pad);
+  max-width:1120px;margin:0 auto;padding:0 var(--firstrun-pad);
 }
-/* Someone arriving from a shared link came to see a program, not the ethos.
-   Raise what they were sent above the poem; the brand still opens the page. */
-.firstrun.is-shared .firstrun__inner{display:flex;flex-direction:column}
-.firstrun.is-shared .firstrun__brand{order:0}
-.firstrun.is-shared .firstrun__lede{order:1;margin-top:26px}
-.firstrun.is-shared .firstrun__section{order:2}
-.firstrun.is-shared #firstRunInstall{order:3}
-.firstrun.is-shared .firstrun-hero{order:4;margin-top:38px}
-.firstrun.is-shared .firstrun__continue{order:5}
 /* The paper both brand images were painted on. It is a property of the files,
    not of the theme, which is why it is one constant rather than a palette
    entry: light lets the page be it, dark hands it back as a plate. */
@@ -3690,48 +3675,6 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   margin-right:-.26em;font-size:clamp(21px,5.3vw,26px);font-weight:650;
   letter-spacing:.26em;text-transform:uppercase;color:var(--ink);
 }
-/* The ethos hero (ADR 0006): ink type and the complete illustration on the
-   page's own paper — no plate. Text and art always occupy separate grid areas.
-   On a phone the picture becomes a strong, centred beat between the sentence
-   and poem; once the column is genuinely wide enough, it moves beside the copy.
-   This lets the art grow without asking a fixed line of the poem to wrap around
-   it, putting graphite behind type, or bleeding any part of the export off the
-   screen. `container-type` sizes the compact composition from the usable hero
-   column rather than from the viewport outside its safe padding. */
-.firstrun-hero{
-  position:relative;isolation:isolate;container-type:inline-size;display:grid;
-  grid-template-areas:"title" "art" "body";
-  /* This is a legible supporting passage, not a second headline. Its compact
-     scale leaves enough of the first screen to introduce the setup controls. */
-  --poem:clamp(11px,3.39cqw,13px);
-  --poem-line:calc(1.42 * var(--poem));
-}
-.firstrun-hero__title{
-  grid-area:title;position:relative;z-index:1;margin:0 auto;max-width:14ch;
-  font-size:clamp(32px,10cqw,46px);font-weight:700;letter-spacing:-0.025em;line-height:1.04;color:var(--ink);
-  text-align:center;
-}
-/* Decorative, so it is painted rather than marked up: nothing to announce, and
-   a missing export leaves paper behind the copy instead of a broken image,
-   which is what the empty-tile doctrine asks for. The file is drawn on the
-   app's own paper, so on cream it needs no field of its own to dissolve into;
-   dark paints that paper under it instead. The box uses the export's exact
-   1072/998 ratio and `contain`; neither axis can crop, in either theme. */
-.firstrun-hero__art{
-  grid-area:art;z-index:0;aspect-ratio:1072/998;width:min(78cqw,250px);max-width:100%;
-  margin:clamp(13px,3.7cqw,19px) auto clamp(15px,4cqw,22px);
-  background:no-repeat center/contain url("assets/brand/milo-hero.webp");
-  pointer-events:none;
-}
-.firstrun-hero__body{
-  grid-area:body;position:relative;z-index:1;width:min(100%,40ch);margin:0;justify-self:center;
-  /* Set in the body face, not the mono one. The passage is the app's own voice
-     introducing itself, and mono made it read as sample output beside the
-     headline it belongs to. Line breaks are copy here (ADR 0006), so the
-     measure below is checked against the face rather than assumed. */
-  white-space:pre-line;font-size:var(--poem);
-  line-height:var(--poem-line);color:var(--ink);
-}
 .firstrun__lede{
   width:min(100%,var(--maxw));margin:clamp(30px,6vw,44px) 0 0;
   font-size:16px;line-height:1.45;color:var(--ink-soft);
@@ -3739,7 +3682,7 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 .firstrun__section{width:min(100%,var(--maxw));margin:40px 0 0}
 .firstrun__eyebrow{
   display:flex;align-items:center;gap:14px;margin:0;
-  font-size:11px;font-weight:650;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-deep);
+  font-size:.8125rem;font-weight:650;letter-spacing:.14em;text-transform:uppercase;color:var(--accent-deep);
 }
 .firstrun__eyebrow::after{content:"";flex:1;height:1px;background:var(--accent)}
 .firstrun__rows{margin-top:4px}
@@ -3749,40 +3692,6 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   background:none;border:0;cursor:pointer;font:inherit;font-size:15px;font-weight:500;color:var(--ink);
 }
 
-@media (min-width:760px){
-  .firstrun-hero{
-    --poem:clamp(13px,1.7cqw,15px);
-    grid-template-columns:minmax(0,1fr) minmax(340px,44%);
-    grid-template-areas:"title art" "body art";
-    column-gap:clamp(32px,5cqw,48px);align-items:start;
-  }
-  .firstrun-hero__title{align-self:end;font-size:clamp(44px,6.2cqw,54px);margin:0;text-align:left}
-  .firstrun-hero__art{width:100%;margin:0;align-self:center}
-  .firstrun-hero__body{margin-top:clamp(24px,3cqw,30px);justify-self:start}
-}
-
-.firstrun-row{
-  display:flex;align-items:center;gap:18px;width:100%;min-height:78px;padding:18px 0;
-  background:none;border:0;border-bottom:1px solid var(--rule);
-  cursor:pointer;text-align:left;font:inherit;color:var(--ink);
-}
-.firstrun-row:last-child{border-bottom:0}
-.firstrun-row__icon{
-  flex:none;display:inline-flex;align-items:center;justify-content:center;
-  width:46px;height:46px;border:1.5px solid var(--ink);
-}
-.firstrun-row__icon::before{
-  content:"";width:22px;height:22px;background:var(--ink);
-  -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain;
-}
-.firstrun-row__icon--plus::before{
-  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
-  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");
-}
-.firstrun-row__icon--import::before{
-  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v10M7.5 10l4.5 4.5L16.5 10M5 19h14'/%3E%3C/svg%3E");
-  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 4v10M7.5 10l4.5 4.5L16.5 10M5 19h14'/%3E%3C/svg%3E");
-}
 .firstrun-row__text{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px}
 .firstrun-row__title,.firstrun-row__cap{overflow-wrap:anywhere}
 .firstrun-row__title{font-size:19px;font-weight:650;letter-spacing:-0.01em;color:var(--ink)}
@@ -3793,24 +3702,303 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   content:"";display:block;width:100%;height:100%;background:currentColor;
   -webkit-mask:var(--arrow) no-repeat center/contain;mask:var(--arrow) no-repeat center/contain;
 }
-.firstrun-row__icon--start::before{
-  -webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6.8v10.4L18 12z'/%3E%3C/svg%3E");
-  mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 6.8v10.4L18 12z'/%3E%3C/svg%3E");
-}
 .firstrun-row__busy{
   position:absolute;right:0;top:50%;margin-top:-9px;
   width:18px;height:18px;border:2px solid var(--rule);
   border-top-color:var(--accent);border-radius:50%;
 }
 #firstRunSharedStart{position:relative}
-.firstrun-row:disabled,.firstrun-row[aria-busy="true"]{opacity:.55;cursor:progress}
-.firstrun-row[aria-busy="true"] .firstrun-row__go,
-.firstrun-row:has(.firstrun-row__busy:not(.hidden)) .firstrun-row__go{visibility:hidden}
+#firstRunSharedStart:disabled,#firstRunSharedStart[aria-busy="true"]{opacity:.55;cursor:progress}
+#firstRunSharedStart[aria-busy="true"] .firstrun-row__go,
+#firstRunSharedStart:has(.firstrun-row__busy:not(.hidden)) .firstrun-row__go{visibility:hidden}
 .firstrun__error{
   width:100%;margin:12px 0 0;font-size:14px;line-height:1.4;color:var(--danger);
   overflow-wrap:anywhere;
 }
 .firstrun__error:empty{display:none}
+
+/* Plan 054: the prescription and its next target stay live around the product. */
+.firstrun__inner{position:relative;z-index:1}
+.firstrun__header{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:10px 18px}
+.firstrun__header .firstrun__brand{justify-content:flex-start;gap:10px;margin:0}
+.firstrun__header .firstrun__logo{width:46px;height:46px}
+.firstrun__header .firstrun__wordmark{font-size:15px;letter-spacing:.24em}
+.firstrun__utility{margin-left:auto;display:flex;align-items:center;justify-content:flex-end;gap:14px;flex-wrap:wrap}
+.firstrun__utility-action{
+  display:inline-flex;align-items:center;gap:7px;min-height:44px;padding:8px 0;
+  border:0;background:none;color:var(--ink);font:inherit;font-size:.8125rem;
+  text-decoration:underline;text-underline-offset:4px;cursor:pointer;
+}
+.firstrun__utility-action:first-child{color:var(--accent-deep)}
+.firstrun__install-icon{
+  width:18px;height:18px;background:currentColor;
+  -webkit-mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12M7.5 10.5 12 15l4.5-4.5M4 16v4h16v-4'/%3E%3C/svg%3E") center/contain no-repeat;
+  mask:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3v12M7.5 10.5 12 15l4.5-4.5M4 16v4h16v-4'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.firstrun .firstrun-hero{display:grid;grid-template-areas:"copy" "proof" "closing";grid-template-columns:minmax(0,1fr);gap:28px;margin-top:30px}
+.firstrun-hero__copy{grid-area:copy;min-width:0}
+.firstrun .firstrun-hero__title{
+  margin:0;text-align:left;font-size:2.375rem;line-height:1.08;letter-spacing:-.045em;
+  font-weight:600;white-space:pre-line;overflow-wrap:break-word;text-wrap:balance;
+}
+.firstrun .firstrun__lede{max-width:38ch;margin:18px 0 0;font-size:1rem;line-height:1.5;color:var(--ink-soft)}
+.firstrun__actions{display:grid;gap:8px;max-width:390px;margin-top:24px}
+.firstrun__cta{
+  display:flex;align-items:center;justify-content:space-between;gap:16px;width:100%;min-height:52px;
+  padding:13px 18px;border:1px solid var(--accent-deep);border-radius:3px;
+  font:inherit;font-size:1rem;line-height:1.35;font-weight:600;text-align:left;cursor:pointer;
+}
+.firstrun__cta--primary{background:var(--accent-deep);color:var(--accent-ink)}
+.firstrun__cta--secondary{background:var(--bg);border-color:var(--rule-strong);color:var(--ink)}
+.firstrun__cta--secondary:hover{background:var(--well)}
+.firstrun__cta:active{transform:translateY(1px)}
+.firstrun__cta .firstrun-row__go{color:currentColor;width:18px;height:18px;flex:0 0 18px}
+.firstrun__cta .firstrun-row__title{color:inherit;font-size:1.0625rem}
+.firstrun__cta .firstrun-row__cap{color:inherit;font-size:.875rem}
+.firstrun__shared-only{display:none}
+.firstrun.is-shared .firstrun__shared-only{display:flex;margin:0 0 18px}
+.firstrun.is-shared .firstrun-hero__title{font-size:2.5rem}
+.firstrun .firstrun__section{width:min(100%,560px);margin:38px 0 0}
+.firstrun .firstrun__continue{margin:24px 0 0}
+@media(min-width:700px){
+  .firstrun__inner{max-width:640px}
+  .firstrun .firstrun-hero{gap:40px;margin-top:36px}
+  .firstrun .firstrun-hero__title{max-width:22ch;font-size:3rem}
+  .firstrun .firstrun__lede{max-width:52ch;font-size:1.0625rem}
+  .firstrun__actions{max-width:none;grid-template-columns:1fr 1fr;gap:12px}
+}
+@media(max-width:340px){
+  .firstrun .firstrun-hero__title{font-size:2rem}
+  .firstrun__utility{gap:8px}
+  .firstrun__header{gap:10px}
+}
+@media(forced-colors:active){
+  .firstrun__cta{border-color:ButtonText}
+}
+
+/* Plan 054 sectioned landing. Each section carries one product fact and one
+   bounded device stage. The stage color derives from the active palette. */
+.firstrun__inner{
+  --firstrun-stage:color-mix(in srgb,var(--ink) 5%,var(--bg));
+  --firstrun-stage-edge:color-mix(in srgb,var(--ink) 9%,var(--bg));
+  --firstrun-beat-gap:88px;
+  max-width:560px;
+}
+.firstrun .firstrun-hero{
+  display:grid;grid-template-columns:minmax(0,1fr);gap:0;margin:0;padding:34px 0 0;
+}
+.firstrun .firstrun-hero__title{
+  max-width:none;font-size:2.375rem;line-height:1.06;letter-spacing:-.045em;
+}
+.firstrun .firstrun__lede{max-width:38ch}
+.firstrun-hero__figure{
+  position:relative;display:flex;justify-content:flex-end;
+  margin:2px calc(-1 * var(--firstrun-pad)) 0;
+}
+.firstrun-hero__figure::after{
+  content:"";position:absolute;right:6%;left:auto;bottom:1%;width:52%;height:20px;
+  background:radial-gradient(50% 50% at 50% 50%,rgba(var(--ink-rgb),.15),transparent 72%);
+}
+:root[data-theme="dark"] .firstrun-hero__figure::after{
+  background:radial-gradient(50% 50% at 50% 50%,rgba(0,0,0,.5),transparent 72%);
+}
+.firstrun-hero__figure img{
+  position:relative;width:100%;height:auto;max-width:min(420px,calc(100vw - 20px));
+}
+.firstrun-shot{display:block;max-width:100%;height:auto}
+
+.firstrun-stage{
+  --stage-ar:1/1;--phone-width:62%;--phone-left:50%;--phone-top:50%;
+  position:relative;overflow:hidden;aspect-ratio:var(--stage-ar);
+  border:1px solid var(--firstrun-stage-edge);border-radius:24px;
+  background:var(--firstrun-stage);
+}
+.firstrun-stage img{
+  position:absolute;width:var(--phone-width);height:auto;left:var(--phone-left);
+  top:var(--phone-top);translate:-50% -50%;
+}
+.firstrun-stage--pair{--stage-ar:20/21}
+.firstrun-stage--pair .firstrun-stage__back{
+  z-index:0;width:42%;left:67%;top:43.2%;filter:saturate(.9) brightness(.97);
+}
+.firstrun-stage--pair .firstrun-stage__front{z-index:1;width:46%;left:33%;top:51.8%}
+
+/* The signature composition: one large, mostly-whole Focus screen carries the
+   causal loop, with a tight "why this weight" crop lapped over its foot corner
+   so the reasoning stays physically attached to the recommendation it explains. */
+.firstrun-signature__figure{position:relative;margin:34px 0 64px}
+.firstrun-stage--signature{--stage-ar:41/54;--phone-width:82%;--phone-left:50%;--phone-top:46%}
+/* Tight crop of the "why this weight" sheet: title, verdict and last-session
+   row only, cropped from its 903x1832 source so no bezel or dimmed background
+   shows through. See docs/design/plan-054-landing-directions.md for the math. */
+.firstrun-stage--signature-crop{
+  --stage-ar:635/255;--phone-width:142%;--phone-left:46%;--phone-top:4%;
+  position:absolute;z-index:2;width:58%;right:-7%;bottom:-11%;
+  border-radius:14px;box-shadow:none;
+}
+@media(max-width:340px){
+  .firstrun-stage--signature-crop{right:-4%;bottom:-8%;width:56%}
+}
+
+.firstrun-beats{margin:0;padding:0}
+.firstrun-beat{padding:var(--firstrun-beat-gap) 0 0}
+.firstrun-signature{padding:var(--firstrun-beat-gap) 0 0}
+.firstrun-beat__index{
+  margin:0 0 14px;font-family:var(--mono);font-size:.6875rem;line-height:1.5;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);
+}
+.firstrun-beat__index b{font-weight:500;color:var(--accent-deep)}
+.firstrun-beat__title{
+  max-width:19ch;margin:0;font-size:1.75rem;line-height:1.16;
+  letter-spacing:-.032em;font-weight:600;text-wrap:balance;
+}
+.firstrun-beat__body{
+  max-width:36ch;margin:14px 0 0;font-size:.9375rem;line-height:1.55;color:var(--ink-soft);
+}
+.firstrun-beat__figure{margin:34px 0 0}
+.firstrun-facts{margin:26px 0 0;padding:0;list-style:none;border-top:1px solid var(--rule)}
+.firstrun-facts li{
+  display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;
+  gap:2px 18px;padding:11px 0;border-bottom:1px solid var(--rule);
+  font-size:.875rem;line-height:1.4;
+}
+.firstrun-facts dfn{min-width:0;font-style:normal;color:var(--ink-soft)}
+.firstrun-facts b{
+  flex:0 1 auto;min-width:0;overflow-wrap:anywhere;font-family:var(--mono);
+  font-size:.8125rem;font-weight:500;letter-spacing:-.02em;color:var(--ink);
+}
+.firstrun-quote{margin:26px 0 0;padding:0 0 0 16px;border-left:2px solid var(--accent-deep)}
+.firstrun-quote p{max-width:34ch;margin:0;font-size:1.0625rem;line-height:1.45;letter-spacing:-.012em}
+.firstrun-quote cite{
+  display:block;margin:10px 0 0;font-family:var(--mono);font-size:.6875rem;
+  font-style:normal;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-soft);
+}
+
+/* The signature chapter states the causal loop in DOM order before any of it
+   is repeated visually: target set, logged set, the rule, the verdict. */
+.firstrun-signature__title{
+  max-width:16ch;margin:0;font-size:1.875rem;line-height:1.14;
+  letter-spacing:-.035em;font-weight:600;text-wrap:balance;
+}
+.firstrun-loop{display:flex;align-items:center;flex-wrap:wrap;gap:14px;margin:26px 0 0}
+.firstrun-loop__step{margin:0;display:flex;flex-direction:column;gap:4px}
+.firstrun-loop__step dfn{font-style:normal;font-size:.75rem;color:var(--ink-soft)}
+.firstrun-loop__step b{
+  font-family:var(--mono);font-size:.875rem;font-weight:500;letter-spacing:-.02em;color:var(--ink);
+}
+.firstrun-loop__arrow{
+  flex:none;width:16px;height:16px;background:var(--ink-soft);
+  -webkit-mask:var(--arrow) no-repeat center/contain;mask:var(--arrow) no-repeat center/contain;
+}
+.firstrun-verdict{margin:26px 0 0;display:flex;align-items:baseline;gap:11px;flex-wrap:wrap}
+.firstrun-verdict__label{
+  font-family:var(--mono);font-size:.6875rem;line-height:1.5;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);
+}
+.firstrun-verdict__value{
+  font-family:var(--mono);font-size:1.5rem;font-weight:600;letter-spacing:-.025em;color:var(--accent-deep);
+}
+
+.firstrun-pull{margin:26px 0 0}
+.firstrun-pull__value{
+  display:flex;align-items:baseline;flex-wrap:wrap;gap:7px;margin:0;
+  font-family:var(--mono);font-size:min(2.75rem,13vw);font-weight:500;
+  line-height:1.05;letter-spacing:-.06em;color:var(--accent-deep);
+}
+.firstrun-pull__unit{font-size:1rem;letter-spacing:0}
+.firstrun-pull__arrow{
+  flex:none;align-self:center;width:.66em;height:.66em;margin:0 .02em;background:currentColor;
+  -webkit-mask:var(--arrow) no-repeat center/contain;mask:var(--arrow) no-repeat center/contain;
+}
+.firstrun-pull__caption{margin:9px 0 0;font-size:.875rem;line-height:1.45;color:var(--ink-soft)}
+/* The climax: the same pull component, scaled up and pulled full-width, so the
+   four-session trend is the single largest statement on the page. */
+.firstrun-pull--climax{
+  margin:56px 0 0;padding:40px 0 0;border-top:1px solid var(--rule-strong);
+}
+.firstrun-pull--climax .firstrun-pull__value{font-size:min(4.25rem,16vw)}
+.firstrun-pull--climax .firstrun-pull__caption{max-width:42ch;font-size:1rem}
+
+.firstrun-close{
+  margin:var(--firstrun-beat-gap) 0 0;padding:44px 0 68px;
+  border-top:1px solid var(--rule-strong);
+}
+.firstrun-close__title{
+  max-width:17ch;margin:0;font-size:1.875rem;line-height:1.14;
+  letter-spacing:-.035em;font-weight:600;text-wrap:balance;
+}
+.firstrun-close__body{
+  max-width:38ch;margin:14px 0 0;font-size:.9375rem;line-height:1.55;color:var(--ink-soft);
+}
+.firstrun-close .firstrun__actions{max-width:400px;margin-top:28px}
+.firstrun-ethos{
+  display:flex;flex-wrap:wrap;gap:26px;margin:40px 0 0;padding:24px 0 0;
+  border-top:1px solid var(--rule);
+}
+.firstrun-ethos p{
+  flex:0 0 auto;margin:0;white-space:pre-line;font-family:var(--mono);
+  font-size:.8125rem;line-height:1.65;letter-spacing:.02em;color:var(--ink);
+}
+.firstrun-ethos small{flex:1 1 14rem;font-size:.8125rem;line-height:1.55;color:var(--ink-soft)}
+.firstrun.is-shared .firstrun-close__actions{display:none}
+
+@media(min-width:760px){
+  .firstrun__inner{--firstrun-beat-gap:132px;max-width:1000px}
+  .firstrun .firstrun-hero{
+    grid-template-columns:minmax(0,1.08fr) minmax(0,.92fr);column-gap:56px;
+    align-items:center;padding-top:52px;
+  }
+  .firstrun-hero__copy{grid-column:1}
+  .firstrun .firstrun-hero__title{max-width:15ch;font-size:3.25rem;letter-spacing:-.05em}
+  .firstrun .firstrun__lede{max-width:44ch;margin-top:22px;font-size:1.0625rem}
+  .firstrun-hero__figure{grid-column:2;grid-row:1;margin:0 calc(-1 * var(--firstrun-pad)) 0 0}
+  .firstrun-hero__figure img{max-width:340px}
+  .firstrun-beat{
+    display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    column-gap:64px;align-items:center;
+  }
+  .firstrun-beat__copy{grid-column:1;grid-row:1}
+  .firstrun-beat__figure{grid-column:2;grid-row:1;margin:0}
+  .firstrun-beat__title{max-width:18ch;font-size:clamp(1.75rem,.55rem + 2.6vw,2.25rem);letter-spacing:-.038em}
+  .firstrun-beat__body{max-width:38ch;font-size:1rem}
+  .firstrun-pull__value{font-size:min(3.5rem,7vw)}
+  .firstrun-signature{
+    display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    grid-template-areas:"copy figure" "pull pull";
+    column-gap:64px;align-items:center;
+  }
+  .firstrun-signature__copy{grid-area:copy}
+  .firstrun-signature__figure{grid-area:figure;margin:0}
+  .firstrun-signature__title{max-width:15ch;font-size:clamp(2rem,.6rem + 3vw,2.75rem);letter-spacing:-.04em}
+  .firstrun-pull--climax{grid-area:pull;margin-top:64px}
+  .firstrun-pull--climax .firstrun-pull__value{font-size:min(5.5rem,7.5vw)}
+  .firstrun-close{
+    display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    column-gap:64px;align-items:start;padding-bottom:92px;
+  }
+  .firstrun-close__title{font-size:2.5rem;letter-spacing:-.04em}
+  .firstrun-close__actions{grid-column:2;grid-row:1}
+  .firstrun-close .firstrun__actions{grid-template-columns:1fr;margin-top:6px}
+  .firstrun-ethos{grid-column:1/-1}
+}
+@media(max-width:340px){
+  .firstrun__inner{--firstrun-beat-gap:72px}
+  .firstrun .firstrun-hero__title{font-size:2rem}
+  .firstrun-beat__title{font-size:1.5rem}
+  .firstrun-signature__title{font-size:1.5rem}
+  .firstrun-pull__value{font-size:2.375rem}
+  .firstrun-pull--climax .firstrun-pull__value{font-size:2.75rem}
+  .firstrun-close__title{font-size:1.625rem}
+  .firstrun-stage{border-radius:20px}
+}
+@media(prefers-reduced-motion:reduce){
+  .firstrun *{animation-duration:.01ms !important;transition-duration:.01ms !important}
+}
+@media(forced-colors:active){
+  .firstrun__cta{border-color:ButtonText}
+  .firstrun-stage{border-color:CanvasText}
+  .firstrun-hero__figure::after{display:none}
+}
 
 /* The install card. It bleeds to the edge of the setup column, which is the
    screen on a phone, and it is the only orange field in the app. */

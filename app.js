@@ -1,5 +1,7 @@
 const KEY="repforge_v1",DRAFT="repforge_draft_v1",NOTIFY_META="repforge_notify_v1";
 const WorkoutDraft=window.RepForgeWorkoutDraft;
+const InstallPolicy=window.RepForgeInstallPolicy;
+const GuideRegistry=window.RepForgeGuideRegistry;
 const DRAFT_PENDING_PREFIX=`${DRAFT}:pending:`,DRAFT_CLOSE_PREFIX=`${DRAFT}:closing:`;
 const DRAFT_V2_CHECKPOINT=`${DRAFT}:v2-checkpoint`;
 const DRAFT_WRITE_TRANSACTION="draft-write";
@@ -717,7 +719,7 @@ function modalFocusables(root){
   return [...root.querySelectorAll(sel)].filter(el=>{
     if(el.hasAttribute("hidden")||el.closest("[hidden]"))return false;
     const st=getComputedStyle(el);
-    return st.display!=="none"&&st.visibility!=="hidden";
+    return st.display!=="none"&&st.visibility!=="hidden"&&el.getClientRects().length>0;
   })}
 function snapshotBodyInert(){
   return [...document.body.children].map(el=>({el,inert:!!el.inert}))}
@@ -3086,9 +3088,39 @@ function installTransferRecordBootDevice(){
     consent:installTransferReadRaw(TELEMETRY_ENABLED_KEY),
     identity:installTransferReadRaw(TELEMETRY_IDENTITY_KEY)}
 }
+function installTransferUiMeaningful(uiRaw,ui){
+  if(uiRaw===null)return false;
+  if(!ui)return true;
+  const remaining={...ui};
+  if(remaining.entryLandingSeen===true)delete remaining.entryLandingSeen;
+  for(const[key,value]of Object.entries({installLastOfferedMilestone:null,installLastOfferedAt:null,
+    installDismissedMilestone:null,installDismissedAt:null})){
+    if(remaining[key]===value)delete remaining[key]}
+  if(remaining.guideState&&typeof remaining.guideState==="object"&&!Array.isArray(remaining.guideState)){
+    const guides=Object.entries(remaining.guideState).filter(([id,record])=>{
+      if(!record||typeof record!=="object"||Array.isArray(record))return true;
+      const keys=Object.keys(record);
+      const definition=GuideRegistry?.GUIDE_DEFINITIONS?.find(guide=>guide.id===id);
+      const currentRecord=definition&&record.version===definition.version&&keys.length===3&&
+        keys.every(key=>["version","status","lastTransitionAt"].includes(key));
+      const defaultRecord=currentRecord&&record.status==="unseen"&&record.lastTransitionAt===null;
+      // "install" (iOS Safari's always-present card) and "privacy" (the
+      // landing's always-present Privacy link) can self-show from the
+      // ordinary automatic landing flow. "entry" now anchors at the
+      // chooser instead of the landing, but an abandoned setup draft can
+      // still resume straight into the chooser on a later automatic boot
+      // (no deliberate action), so it can reach "shown" the same way. None
+      // of the three should make an otherwise-fresh destination read as
+      // meaningful merely because one of them appeared.
+      const automaticLandingGuide=currentRecord&&(id==="entry"||id==="install"||id==="privacy")&&ui.entryLandingSeen===true&&
+        record.status==="shown"&&Number.isSafeInteger(record.lastTransitionAt)&&record.lastTransitionAt>=0;
+      return !defaultRecord&&!automaticLandingGuide});
+    if(guides.length)remaining.guideState=Object.fromEntries(guides);
+    else delete remaining.guideState}
+  return Object.keys(remaining).length>0}
 function installTransferDeviceMeaningful(){
   const uiRaw=installTransferReadRaw(UIKEY),ui=installTransferReadJson(UIKEY);
-  if(installTransferInitialDevice.ui!==null||uiRaw!==null&&Object.keys(ui||{}).length>0)return true;
+  if(installTransferUiMeaningful(uiRaw,ui))return true;
   const consent=installTransferReadRaw(TELEMETRY_ENABLED_KEY);
   if(installTransferInitialDevice.consent!==null||
     consent!==null&&consent!==installTransferBootDevice?.consent)return true;
@@ -3532,7 +3564,7 @@ async function installTransferClaimDigest(contract,{claimId=null,claimIdDigest=n
   if(claimIdDigest!==null&&claimIdDigest!==undefined&&claimIdDigest!==digest)
     return{ok:false,code:"claim-id-digest-mismatch"};
   return{ok:true,value:digest}}
-function installTransferMeaningful(snapshot){
+function installTransferStateMeaningful(snapshot){
   if(!snapshot||typeof snapshot!=="object")return true;
   const defaultSettings=normalizeSettings(DEFAULTS);
   const destinationSettings=normalizeSettings(snapshot.settings);
@@ -3546,7 +3578,9 @@ function installTransferMeaningful(snapshot){
   const draft=readLiveAcknowledgedDraftV2(snapshot);
   if(draft.status==="live"||draft.status==="unavailable")return true;
   const candidate=readSetupDraftRecord();
-  return !candidate.ok||!!candidate.envelope||installTransferDeviceMeaningful()}
+  return !candidate.ok||!!candidate.envelope}
+function installTransferMeaningful(snapshot){
+  return installTransferStateMeaningful(snapshot)||installTransferDeviceMeaningful()}
 async function installTransferDestination(){
   const local=readLocalStatus(),idb=await readIdbStatus(),decision=chooseSnapshot(local,idb);
   if(decision.kind==="first-run")return{local,idb,decision,snapshot:normalizeLoaded(null),revision:0};
@@ -4055,9 +4089,6 @@ function updateBodyweightField(){const el=$("#bodyweight");if(!el)return;
   if(lbl)lbl.textContent=t("log.bodyweight_unit",{unit:unitLabel()})}
 function focusList(){
   const exs=exercises();
-  if(tourActive&&tourPreview?.ignoreSkipped){
-    const first=exs[0];
-    return first?[first]:[]}
   return exs.filter(e=>!skipped.has(e.id))}
 function setWorkoutOverflow(open){const menu=$("#woOverflow");if(!menu)return;
   menu.classList.toggle("hidden",!open);
@@ -4603,23 +4634,15 @@ function paintRest(text,done,over=0){
 function updateRestChrome(){
   const focus=workoutActive&&logMode==="focus";
   const chip=$("#woRest");
-  const preview=tourActive&&tourPreview?.showRest;
   const restOn=+state.settings.restSec>0;
   if(chip){
-    const on=focus&&(restOn||preview);
+    const on=focus&&restOn;
     chip.classList.toggle("hidden",!on);
     chip.classList.toggle("is-running",!!restEnd);
-    chip.disabled=!!(preview&&!restOn);
-    if(preview&&!restOn){
-      chip.setAttribute("aria-label",t("tour.rest_preview_aria"));
-      let hint=$("#woRestPreviewHint");
-      if(!hint){hint=document.createElement("p");hint.id="woRestPreviewHint";hint.className="tour-rest-hint";chip.insertAdjacentElement("afterend",hint)}
-      hint.textContent=t("tour.rest_preview_hint");hint.hidden=false}
-    else{
-      const hint=$("#woRestPreviewHint");if(hint)hint.hidden=true;
-      if(!restEnd){chip.classList.remove("is-done","is-over");
-        chip.setAttribute("aria-label",t("focus.rest.start_aria"))}}
-    if(!restEnd&&!(preview&&!restOn))chip.classList.remove("is-done","is-over","is-paused")}
+    chip.disabled=false;
+    if(!restEnd){chip.classList.remove("is-done","is-over");
+      chip.setAttribute("aria-label",t("focus.rest.start_aria"))}
+    if(!restEnd)chip.classList.remove("is-done","is-over","is-paused")}
   const bar=$("#restBar");
   if(bar)bar.classList.toggle("is-shadowed",focus)}
 function stopRest(){if(restTick){clearInterval(restTick);restTick=null}restEnd=0;restPaused=null;restAnnounced=false;
@@ -5382,7 +5405,8 @@ function render(){applyI18n();
   setWorkoutActive(workoutActive);
   renderToday();renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings();renderBlockPrompt();
   updateSessionBanner();
-  if(exView&&$("#exercise")?.classList.contains("active"))renderExerciseView()}
+  if(exView&&$("#exercise")?.classList.contains("active"))renderExerciseView();
+  queueMicrotask(()=>maybeShowContextualGuides())}
 
 function renderTabs(){const ds=days();if(!ds.includes(day))day=ds[0]||"Day 1";
   $("#dayTabs").innerHTML=ds.map(d=>`<button type="button" role="tab" aria-selected="${d===day?"true":"false"}" class="${d===day?"active":""}" data-day="${esc(d)}">${esc(dayLabel(d))}</button>`).join("");
@@ -6132,7 +6156,9 @@ async function saveWorkoutV2(io){
     duration:window.RepForgeTelemetry?.bucketDuration(startedAt?Math.max(0,(Date.now()-startedAt)/60000):0)});
   const btn=$(".btn--save");if(btn){btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped")}
   const summary=buildSessionSummary({rows,prevLog,session,date,day:savedDay,startedAt});render();
-  if(!openSessionSummary(summary))toast(t("toast.workout_forged",{n:rows.length,sets:tp(rows.length,"set")}));
+  if(!openSessionSummary(summary)){
+    toast(t("toast.workout_forged",{n:rows.length,sets:tp(rows.length,"set")}));
+    maybeShowInstallBanner()}
   return result}
 
 async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(saving)return;
@@ -6310,7 +6336,8 @@ function closeSessionSummary(opts={}){
   // the day's session swaps the start CTA for the recap, so the target is read
   // off the rendered dashboard instead of assumed to be the CTA.
   if(!opts.nav){const next=resolveReturnFocus(todayPrimaryControl);
-    if(next){try{next.focus({preventScroll:true})}catch{}}}}
+    if(next){try{next.focus({preventScroll:true})}catch{}}}
+  maybeShowInstallBanner()}
 window.__repforgeSessionSummary={
   open:openSessionSummary,close:closeSessionSummary,
   build:buildSessionSummary,current:()=>sessionSummaryCurrent};
@@ -8440,7 +8467,7 @@ async function applyInstalledEditorAndContinue(){
   }
   if(result?.ok||result?.localOk||result?.idbOk){
     finishInstalledEditor();
-    if(!maybeStartTour())maybeShowInstallBanner();
+    maybeShowInstallBanner();
   }
   return result;
 }
@@ -9239,7 +9266,8 @@ function renderSettings(){
   updateVoiceBtn();
   // Rule 5: the row is there only when tapping it leads somewhere — Chrome's
   // prompt, the Safari sheet, or the explanation another iOS browser needs.
-  const ia=$("#installApp");if(ia)ia.classList.toggle("hidden",installMode()==="none");
+  const manualInstall=installPolicyDecision("manual-settings");
+  const ia=$("#installApp");if(ia)ia.classList.toggle("hidden",!manualInstall.eligible&&installMode()!=="safari");
   const sec=normalizeRestSec(state.settings.restSec),disp=$("#restSecDisplay");
   if(disp)disp.textContent=sec?fmtClock(sec):t("settings.rest_off");
   const rirDisp=$("#rirModeDisplay");if(rirDisp)rirDisp.textContent=state.settings.rirMode==="effort"?t("settings.rir_effort"):t("settings.rir_numbers");
@@ -11830,11 +11858,12 @@ function renderEntryHub(){
     `<div class="entry__hub entry__hub--routes">`+
       `<p class="entry__group-lab">${esc(t("entry.hub.group.written"))}</p>`+
       `<button type="button" class="entry-card entry-card--primary" data-entry-route="recommend"><span class="entry-card__icon icon-mask icon-mask--wand" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.recommend.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.recommend.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
-      `<button type="button" class="entry-card entry-card--primary" data-entry-route="custom"><span class="entry-card__icon icon-mask icon-mask--sliders" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.custom.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.custom.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
-      `<p class="entry__group-lab">${esc(t("entry.hub.group.ready"))}</p>`+
+      `<button type="button" class="entry-card entry-card--secondary entry-card--subordinate" data-entry-route="custom"><span class="entry-card__icon icon-mask icon-mask--sliders" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.custom.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.custom.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
+      `<p class="entry__group-lab">${esc(t("entry.hub.group.browse"))}</p>`+
       `<button type="button" class="entry-card entry-card--secondary" data-entry-route="browse"><span class="entry-card__icon icon-mask icon-mask--search" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.browse.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.browse.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
-      `<button type="button" class="entry-card entry-card--secondary" id="entryOwnToggle" aria-pressed="${entryOwnOpen?"true":"false"}"><span class="entry-card__icon icon-mask icon-mask--sheet" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.own.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.own.cap"))}</span></span><span class="entry-card__go chevron${entryOwnOpen?" is-down":""}" aria-hidden="true"></span></button>`+
-      (entryOwnOpen?`<div class="entry__own">`+
+      `<p class="entry__group-lab">${esc(t("entry.hub.group.own"))}</p>`+
+      `<button type="button" class="entry-card entry-card--secondary" id="entryOwnToggle" aria-expanded="${entryOwnOpen?"true":"false"}" aria-controls="entryOwnChoices"><span class="entry-card__icon icon-mask icon-mask--sheet" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.own.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.own.cap"))}</span></span><span class="entry-card__go chevron${entryOwnOpen?" is-down":""}" aria-hidden="true"></span></button>`+
+      (entryOwnOpen?`<div class="entry__own" id="entryOwnChoices">`+
         `<button type="button" class="entry-card entry-card--secondary entry-card--nested" data-entry-route="build"><span class="entry-card__icon icon-mask icon-mask--pencil" aria-hidden="true"></span><span class="entry-card__body"><span class="entry-card__title">${esc(t("entry.hub.build.title"))}</span><span class="entry-card__cap">${esc(t("entry.hub.build.cap"))}</span></span><span class="entry-card__go chevron" aria-hidden="true"></span></button>`+
         /* The free-form door is the same import route by its other side, so it
            carries an id rather than a second `data-entry-route="import"`: one
@@ -12067,14 +12096,15 @@ function compileGeneratorCandidate(){
   try{compiled=services.compile({mode:entryState.route,answers:entryState.answers,versions:entryVersions()})}
   catch(error){entryCompileError={code:"rebuild_failed"};console.warn("program candidate rebuild failed",error);return null}
   if(!compiled.ok){entryCompileError=compiled;return null}
+  const candidate=compiled.candidate||{};
   return{
     fingerprint:compiled.fingerprint,
     name:compiled.name,
     namePt:compiled.namePt,
     selected:compiled.selected,
     candidates:compiled.candidates,
-    alternative:null,
-    preview:compiled.preview,
+    alternative:candidate.alternative||null,
+    preview:candidate.draft||compiled.preview,
     telemetry:compiled.telemetry,
     explanation:compiled.explanation};
 }
@@ -12384,18 +12414,14 @@ function renderResultStep(){
       ?{icon:"clock",text:t("entry.result.why_interrupted")}:null,
   ].filter(Boolean);
   const duration=entryDurationLabel(preview);
-  const candidates=result.candidates||[];
   const daysBadge=primary?t("entry.catalogue.days_badge",{days:primary.daysPerWeek}):"";
-  /* With one candidate this is not a choice between programs — it is the
-     single action the whole flow was leading to, so it renders as the primary
-     button. A real fork still gets the radiogroup. */
-  const action=!primary?""
-    :candidates.length>1
-      ?`<div class="entry__hub" role="radiogroup" aria-label="${esc(t("entry.result.title"))}">`+
-        candidates.map(candidate=>`<button type="button" role="radio" aria-checked="${candidate.id===primary.id?"true":"false"}" class="entry-card entry-card--primary" data-entry-select-candidate="${esc(candidate.id)}">`+
-          `<span class="entry-card__title">${esc(entryResultName(result))}</span>`+
-          `<span class="entry-card__cap">${esc(String(candidate.daysPerWeek))} ${esc(t("entry.schedule.days.sub"))}</span></button>`).join("")+`</div>`
-      :`<div class="entry__confirm"><button type="button" class="btn btn--cta" data-entry-select-candidate="${esc(primary.id)}">${esc(t("entry.result.review"))}</button></div>`;
+  const alternative=result.alternative?.fingerprint&&result.alternative?.preview&&result.alternative?.reason
+    ?result.alternative:null;
+  const action=!primary?"":`<div class="entry__confirm"><button type="button" class="btn btn--cta" data-entry-select-candidate="${esc(primary.id)}">${esc(t("entry.result.review"))}</button></div>`;
+  const alternativeAction=!alternative?"":`<div class="entry__alternative"><p class="entry__group-lab">${esc(t("entry.result.alternative"))}</p>`+
+    `<button type="button" class="btn btn--steel" data-entry-select-alternative>`+
+    `${esc(isPt()?alternative.namePt||alternative.name:alternative.name)} · ${esc(t("entry.catalogue.days_badge",{days:alternative.daysPerWeek}))}</button>`+
+    `<p>${esc(t("entry.result.alternative_reason.compatible_split_variation"))}</p></div>`;
   return entryHeading(resultTitle)+
     `<div class="entry__payoff"><p class="onb__explain">${esc(t("entry.result.lede"))}</p>`+
     `<span class="entry__payoff-badge" aria-hidden="true"><span class="icon-mask icon-mask--rosette"></span></span></div>`+
@@ -12407,8 +12433,10 @@ function renderResultStep(){
     `<p class="entry__group-lab entry__group-lab--accent">${esc(t("entry.result.why"))}</p>`+
     `<ul class="entry__rows entry__rows--reasons">`+whyRows.map(row=>`<li class="entry__row"><span class="entry__row-ico icon-mask icon-mask--${esc(row.icon)}" aria-hidden="true"></span><span class="entry__row-body">${esc(row.text)}</span></li>`).join("")+`</ul>`+
     action+
+    alternativeAction+
     (custom?`<div class="entry__custom-actions"><button type="button" class="btn btn--steel" data-entry-action="change-priorities">${esc(t("entry.result.change_priorities"))}</button>`+
-      `<button type="button" class="btn btn--steel" data-entry-action="change-exercise-preferences">${esc(t("entry.result.change_exercise_preferences"))}</button></div>`:"")+`</div>`}
+      `<button type="button" class="btn btn--steel" data-entry-action="change-exercise-preferences">${esc(t("entry.result.change_exercise_preferences"))}</button></div>`:"")+`</div>`+
+    `<section id="entryCandidateReview" aria-labelledby="entryCandidateReviewTitle">`+renderPreviewStep({merged:true})+`</section>`}
 function renderCatalogueStep(){
   const cards=entryServices()?.browseCatalogue(entryState.answers)||[];
   const purposeLabels={
@@ -12436,7 +12464,8 @@ function renderCatalogueStep(){
       entryRangeLabel(Math.min(...setCounts),Math.max(...setCounts),
         "entry.catalogue.sets_range","entry.catalogue.sets_exact")].join(" · "):"";
     const progression=(card.progressionStrategies||[]).map(id=>progressionLabels[id]).filter(Boolean).join(" · ");
-    const equipment=(card.equipmentAssumptions||[]).map(token=>t(`entry.equip.${token}`)||token).join(", ");
+    const equipment=(card.equipmentAssumptions||[]).map(token=>{
+      const key=`entry.equip.${token}`,label=t(key);return label===key?"":label}).filter(Boolean).join(", ");
     const mismatch=card.mismatch==="frequency"?t("entry.catalogue.mismatch_frequency",{
       requested:entryState.answers.daysPerWeek,actual:card.daysPerWeek}):"";
     /* One flat button per program, laid out as a column: identity first, then
@@ -12446,10 +12475,10 @@ function renderCatalogueStep(){
       `<span class="entry-prog__head"><span class="entry-prog__name">${esc(familyName)}</span>`+
       `<span class="entry-prog__days">${esc(t("entry.catalogue.days_badge",{days:card.daysPerWeek}))}</span>`+
       `<span class="entry-prog__go chevron" aria-hidden="true"></span></span>`+
-      `<span class="entry-prog__purpose">${esc(purposeLabels[card.purpose]||familyName)}</span>`+
+      (purposeLabels[card.purpose]?`<span class="entry-prog__purpose">${esc(purposeLabels[card.purpose])}</span>`:"")+
       `<span class="entry-prog__facts">${minutes?`<span>${esc(minutes)}</span>`:""}${structure?`<span>${esc(structure)}</span>`:""}</span>`+
-      `<span class="entry-prog__meta">${esc(t("entry.catalogue.progression",{progression}))}</span>`+
-      `<span class="entry-prog__meta">${esc(t("entry.catalogue.equipment",{equipment}))}</span>`+
+      (progression?`<span class="entry-prog__meta">${esc(t("entry.catalogue.progression",{progression}))}</span>`:"")+
+      (equipment?`<span class="entry-prog__meta">${esc(t("entry.catalogue.equipment",{equipment}))}</span>`:"")+
       (mismatch?`<span class="entry-prog__warn">${esc(mismatch)}</span>`:"")+
       `</button>`}
   if(!cards.length)return entryHeading(t("entry.catalogue.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.catalogue.empty_title"))}</strong>`+
@@ -12613,7 +12642,7 @@ window.addEventListener("visibilitychange",()=>{
 function entryPreviewHasProgressionIssue(preview=entryState?.result?.preview){
   return (Array.isArray(preview?.progressionIncompatibilities)&&preview.progressionIncompatibilities.length>0)||
     (preview?.program||[]).some(exercise=>exercise?.progressionIncompatibility)}
-function renderPreviewStep(){
+function renderPreviewStep({merged=false}={}){
   const preview=entryState.result?.preview;
   if(!preview)return `<p class="lede" role="alert">${esc(t("entry.error.summary"))}</p>`;
   const previewAnswers=entryPreviewAnswers(preview);
@@ -12638,7 +12667,7 @@ function renderPreviewStep(){
     {icon:"trend",lab:t("entry.preview.progression"),text:t(entryPreviewProgressionCopy(preview,progressionIssue))},
     {icon:"scale",lab:t("entry.preview.compromises"),text:compromises?t("entry.preview.compromises_some",{n:compromises}):t("entry.preview.compromises_none")},
   ];
-  return entryHeading(t("entry.preview.title"))+`<p class="onb__explain">${esc(t("entry.preview.lede"))}</p>`+
+  return (merged?`<h2 id="entryCandidateReviewTitle" class="entry__group-lab">${esc(t("entry.preview.title"))}</h2>`:entryHeading(t("entry.preview.title")))+`<p class="onb__explain">${esc(t("entry.preview.lede"))}</p>`+
     (hasActiveProgram()&&!entryUiNotice&&entryState?.step!=="activation_conflict"
       ?`<p class="entry__active" role="status">${esc(t("entry.active_notice"))}</p>`:"")+
     `<div class="entry__decision"><div class="entry__ident--boxed"><h3>${esc(entryResultName()||entryState.answers.programName||t("untitled_program"))}</h3>`+
@@ -12811,7 +12840,7 @@ function renderOnboarding(){
   else if(stepId==="priorities")html+=renderPrioritiesStep();
   else if(stepId==="exercise_preferences")html+=renderExercisePreferencesStep();
   else if(stepId==="custom_shape")html+=renderCustomShapeStep();
-  else if(stepId==="result")html+=renderResultStep();
+  else if(stepId==="result"&&!isEditor)html+=renderResultStep();
   else if(stepId==="catalogue")html+=renderCatalogueStep();
   else if(stepId==="build_setup")html+=renderBuildSetupStep();
   else if(stepId==="import_source")html+=renderImportSourceStep();
@@ -12842,7 +12871,10 @@ function renderOnboarding(){
     const initialPreviewIssue=(stepId==="preview"||stepId==="activation_conflict")&&entryPreviewHasProgressionIssue();
     const target=initialPreviewIssue?$("#entryActivationStatus"):$("#entryHeading");
     if(target)try{target.focus({preventScroll:true})}catch{}}
-  if(entryValidationNotice){const alert=$("#entryValidation");if(alert)try{alert.focus({preventScroll:true})}catch{}}}
+  if(entryValidationNotice){const alert=$("#entryValidation");if(alert)try{alert.focus({preventScroll:true})}catch{}}
+  // The "entry" guide explains the five-job chooser, so it shows here rather
+  // than on the landing that opens it.
+  if(!route||stepId==="entry")queueMicrotask(()=>maybeShowContextualGuides(["entry"]));}
 function wireEntryDom(){
   $$("[data-entry-route]").forEach(btn=>btn.onclick=()=>entrySelectRoute(btn.dataset.entryRoute));
   const own=$("#entryOwnToggle");if(own)own.onclick=()=>{entryOwnOpen=!entryOwnOpen;renderOnboarding()};
@@ -13045,6 +13077,9 @@ function wireEntryDom(){
     const answers={...entryState.answers};delete answers.splitPreference;
     entryCompileError=null;entrySetState({...entryState,step:"schedule",result:null,answers})};
   $$("[data-entry-select-candidate]").forEach(btn=>btn.onclick=()=>{
+    if(entryState?.step==="result"&&(entryState.route==="recommend"||entryState.route==="custom")){
+      $("#entryCandidateReview")?.scrollIntoView?.({behavior:reducedMotion()?"auto":"smooth",block:"start"});
+      return}
     const id=btn.dataset.entrySelectCandidate;
     const selected=(entryState.result?.candidates||[]).find(c=>c.id===id)||entryState.result?.selected;
     if(!selected||!entryState.result)return;
@@ -13060,6 +13095,22 @@ function wireEntryDom(){
       explanation:entryState.result.explanation});
     entryPinnedVersionsExecutable=false;
     entrySetState(ProgramEntry.advance(next).state)});
+  const chooseAlternative=$("[data-entry-select-alternative]");if(chooseAlternative)chooseAlternative.onclick=()=>{
+    const alternative=entryState?.result?.alternative;
+    if(!alternative)return;
+    const selected={};
+    for(const key of ["id","family","familyId","name","namePt","daysPerWeek","blueprintId","split","complexity","reentry","source"]){
+      if(Object.prototype.hasOwnProperty.call(alternative,key))selected[key]=alternative[key]}
+    entryPinnedVersionsExecutable=false;
+    entrySetState(ProgramEntry.setResult(entryState,{
+      ...entryState.result,
+      fingerprint:alternative.fingerprint,
+      name:alternative.name,
+      namePt:alternative.namePt,
+      selected,
+      candidates:[selected],
+      alternative:null,
+      preview:alternative.preview}))};
   $$("[data-entry-catalogue]").forEach(btn=>btn.onclick=()=>{
     const id=btn.dataset.entryCatalogue;
     const card=(entryServices()?.browseCatalogue(entryState.answers)||[]).find(item=>item.id===id);
@@ -13426,7 +13477,7 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
     document.body.classList.remove("is-settings","is-workout","is-exercise","is-onboarding","is-library","is-preview","is-import");
     render();toast(t("toast.tweak_program"));return result}
   render();toast(t("toast.onboarding_saved"));
-  if(!maybeStartTour())maybeShowInstallBanner();
+  maybeShowInstallBanner();
   return result}
 function saveOnboardingProgram(io){
   return activateEntryPreview({destination:"log"})}
@@ -13442,6 +13493,22 @@ function setUiPref(k,v){
   if(installTransferMutationFrozen())return false;
   uiPrefs[k]=v;try{localStorage.setItem(UIKEY,JSON.stringify(uiPrefs));return true}
   catch(e){console.warn("ui prefs save failed",e);return false}}
+const INSTALL_PREF_DEFAULTS=Object.freeze({installLastOfferedMilestone:null,installLastOfferedAt:null,
+  installDismissedMilestone:null,installDismissedAt:null});
+function replaceUiPrefs(next){
+  if(installTransferMutationFrozen())return false;
+  try{localStorage.setItem(UIKEY,JSON.stringify(next));uiPrefs=next;return true}
+  catch(e){console.warn("ui prefs save failed",e);return false}}
+function ensureInstallPolicyPrefs(){
+  let changed=false;const next={...uiPrefs};
+  for(const[key,value]of Object.entries(INSTALL_PREF_DEFAULTS)){
+    if(!Object.prototype.hasOwnProperty.call(next,key)){next[key]=value;changed=true}}
+  if(changed)replaceUiPrefs(next)}
+function ensureGuidePrefs({persist=true}={}){
+  if(!GuideRegistry?.migrateLegacyTourDone)return;
+  const next=GuideRegistry.migrateLegacyTourDone(uiPrefs);
+  if(JSON.stringify(next)===JSON.stringify(uiPrefs))return;
+  if(persist)replaceUiPrefs({...next});else uiPrefs={...next}}
 
 /* ---- Appearance ----
    A UI pref, not a setting: which paper this device prefers says nothing about
@@ -13467,6 +13534,7 @@ const resolvedTheme=()=>{const pick=currentTheme();return pick==="system"?(darkQ
 function applyTheme(){
   const resolved=resolvedTheme();
   document.documentElement.dataset.theme=resolved;
+  renderLandingDevice();
   document.querySelector('meta[name="theme-color"]')?.setAttribute("content",THEME_COLOR[resolved]);
   return resolved}
 /* The chart is painted into a canvas, so it is the one surface a token swap
@@ -13486,6 +13554,8 @@ const isIOS=()=>{const ua=navigator.userAgent||"";return /iphone|ipad|ipod/i.tes
    so do the in-app webviews; nothing else on iOS can be told apart. */
 const IOS_NON_SAFARI=/CriOS|FxiOS|EdgiOS|OPiOS|OPT\/|OPR\/|YaBrowser|DuckDuckGo|Brave|FBAN|FBAV|FBIOS|Instagram|Line\/|Twitter|MicroMessenger|GSA\//i;
 const isIOSSafari=()=>isIOS()&&!IOS_NON_SAFARI.test(navigator.userAgent||"");
+const isChromium=()=>!/iphone|ipad|ipod/i.test(navigator.userAgent||"")&&
+  /Chrome|Chromium|CriOS|EdgA|EdgiOS|OPR\//i.test(navigator.userAgent||"");
 /** The single decision about which install interface a browser gets. It reads
  *  capabilities and display mode — never screen size — in this order:
  *    "none"   already installed, or nothing worth offering
@@ -13506,7 +13576,26 @@ function installMode(){
    one that redraws once there is something to redraw. */
 window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e},true);
 const IOS_SHARE_SVG='<svg class="ios-share" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3v13"/><path d="M8 7l4-4 4 4"/><path d="M6 12H4v8h16v-8h-2"/></svg>';
-const INSTALL_SNOOZE_MS=7*86400000;
+function installPolicySavedWorkouts(){
+  return new Set((state?.log||[]).filter(isWork).map(row=>row.session)).size}
+function installPolicyTransferAvailable(){
+  return typeof window.RepForgeInstallTransferContract?.validateEnvelopeIntegrity==="function"&&
+    typeof window.RepForgeInstallTransfer?.captureLogicalSnapshot==="function"&&
+    typeof navigator.locks?.request==="function"&&!!window.crypto?.subtle}
+function installPolicyDecision(source="automatic"){
+  if(!InstallPolicy?.evaluateInstallPolicy)return{state:"unsupported",eligible:false,milestone:null,reason:"policy-unavailable"};
+  return InstallPolicy.evaluateInstallPolicy({
+    platform:isIOS()?"ios":isChromium()?"chromium":"other",
+    isIOSSafari:isIOSSafari(),hasInstallCapability:!!installPrompt,standalone:isStandalone(),
+    hasMeaningfulData:installTransferStateMeaningful(state),savedWorkoutsCount:installPolicySavedWorkouts(),
+    uiPrefs,nowMs:Date.now(),source,transferAvailable:installPolicyTransferAvailable()})}
+function recordInstallPolicyOffer(decision){
+  if(!Number.isInteger(decision?.milestone))return;
+  replaceUiPrefs({...InstallPolicy.recordInstallOffer(uiPrefs,{milestone:decision.milestone,nowMs:Date.now()})})}
+function recordInstallPolicyDismissal(decision){
+  if(!Number.isInteger(decision?.milestone))return;
+  replaceUiPrefs({...InstallPolicy.recordInstallDismissal(uiPrefs,{milestone:decision.milestone,nowMs:Date.now()})})}
+let installPresentedDecision=null;
 function installInstructions(){
   if(isIOS())return t("install.ios_instructions",{icon:IOS_SHARE_SVG});
   if(installPrompt)return t("install.prompt_instructions");
@@ -13515,12 +13604,16 @@ function installInstructions(){
 /** Every surface that offers an install, refreshed from one reading of what the
  *  browser can do. Called whenever that reading can have changed. */
 function renderInstallSurfaces(){
-  const mode=installMode();
-  $("#installBtn")?.classList.toggle("hidden",mode!=="native");
-  $("#installApp")?.classList.toggle("hidden",mode==="none");
+  const mode=installMode(),automatic=installPolicyDecision(),manual=installPolicyDecision("manual-settings");
+  $("#installBtn")?.classList.toggle("hidden",mode!=="native"||!automatic.eligible);
+  $("#installApp")?.classList.toggle("hidden",!manual.eligible&&mode!=="safari");
   renderFirstRunInstall();
 }
-async function triggerInstall(){
+async function triggerInstall(source="automatic"){
+  const requestSource=source==="manual-settings"?"manual-settings":"automatic";
+  const decision=requestSource==="manual-settings"
+    ?installPolicyDecision("manual-settings")
+    :installPresentedDecision||installPolicyDecision();
   const mode=installMode();
   if(mode==="native"){
     // The event is single-use. Clearing it before the await is what makes a
@@ -13533,6 +13626,9 @@ async function triggerInstall(){
     // an install, and a dismissal simply leaves the section gone until Chrome
     // offers the event again.
     if(outcome==="accepted"){hideInstallBanner(false);closeFirstRunInstall();toast(t("toast.installing"))}
+    else{
+      if(outcome==="dismissed"&&requestSource==="automatic")recordInstallPolicyDismissal(decision);
+      hideInstallBanner(false);closeFirstRunInstall()}
     renderSettings();renderInstallSurfaces();return}
   if(mode==="ios"){
     const marker=installTransferOutboundMarker();
@@ -13541,15 +13637,16 @@ async function triggerInstall(){
       :marker?.phase==="confirmed"?"success"
       :marker?.phase==="unknown-outcome"?(marker.outcomeCode==="claimed-expired"?"claimed-expired":"unknown")
       :null;
-    openIosInstallSheet(recoveryState||(installTransferMeaningful(state)?"eligible":"manual"));return}
+    if(!recoveryState&&!decision.eligible)return;
+    const transfer=decision.reason==="ios-transfer";
+    openIosInstallSheet(recoveryState||(transfer?"eligible":"manual"));return}
   if(mode==="safari"){showInstallBanner(true);return}
 }
 function installBannerEligible(){
-  if(installMode()==="none")return false;
+  const decision=installPolicyDecision();
+  if(!decision.eligible||!["eligible-milestone","ios-transfer"].includes(decision.state))return false;
   if(state?.[STORAGE_FOLLOWUP]?.kind==="onboarding-edit")return false;
-  if(tourActive||firstRunActive||$("#onboarding")?.classList.contains("active"))return false;
-  const dis=+uiPrefs.installDismissedAt||0;
-  if(dis&&Date.now()-dis<INSTALL_SNOOZE_MS)return false;
+  if(firstRunActive||$("#onboarding")?.classList.contains("active"))return false;
   return true;
 }
 function showInstallBanner(force){
@@ -13585,12 +13682,16 @@ function showInstallBanner(force){
   const mode=installMode();
   if(mode==="none")return;
   if(!force&&!installBannerEligible())return;
+  const decision=force?installPolicyDecision("manual-settings"):installPolicyDecision();
   $("#installBannerBody").innerHTML=mode==="safari"?esc(t("install.card.safari_only_body")):installInstructions();
   const act=$("#installBannerAction");
   if(mode==="native"){act.classList.remove("hidden");act.textContent=t("install.action");act.onclick=triggerInstall;}
   else if(mode==="ios"){act.classList.remove("hidden");act.textContent=t("install.card.ios_action");act.onclick=triggerInstall;}
   else act.classList.add("hidden");
+  installPresentedDecision=decision;
+  if(!force)recordInstallPolicyOffer(decision);
   b.classList.remove("hidden");
+  queueMicrotask(()=>maybeShowContextualGuides(["install"]));
 }
 function showInstallTransferDivergenceDialog(onConfirm){
   let dialog=$("#installTransferDivergenceModal");
@@ -13632,7 +13733,10 @@ function showInstallTransferDivergenceDialog(onConfirm){
     if(typeof onConfirm==="function")await onConfirm();
   };
 }
-function hideInstallBanner(remember){$("#installBanner")?.classList.add("hidden");if(remember)setUiPref("installDismissedAt",Date.now())}
+function hideInstallBanner(remember){
+  $("#installBanner")?.classList.add("hidden");
+  if(remember)recordInstallPolicyDismissal(installPresentedDecision);
+  installPresentedDecision=null}
 function maybeShowInstallBanner(){if(installBannerEligible())showInstallBanner(false)}
 
 /* ---- First-run setup: install, then choose a program ----
@@ -13648,6 +13752,7 @@ let sharedSetupDraft={status:"none",source:null,encoded:null,payload:null,error:
 let firstRunActive=false;
 const firstRunOpen=()=>!!$("#firstRun")&&!$("#firstRun").classList.contains("hidden");
 const sharedSetupReady=()=>sharedSetupDraft.status==="ready"&&!!sharedSetupDraft.payload;
+const sharedSetupInvalid=()=>sharedSetupDraft.status==="invalid"||sharedSetupDraft.status==="unsupported";
 const sharedSetupEligible=()=>firstRunPending()&&!(state.programHistory?.length);
 function sharedSetupErrorKey(code){
   if(code==="unsupported-version")return"setup.shared.unsupported";
@@ -13656,6 +13761,7 @@ function sharedSetupErrorKey(code){
 function renderFirstRunProgramMode(){
   const standard=$("#firstRunStandardProgram"),shared=$("#firstRunSharedProgram"),error=$("#firstRunSharedError");
   const ready=sharedSetupReady();
+  const invalid=sharedSetupInvalid();
   standard?.classList.toggle("hidden",ready);
   shared?.classList.toggle("hidden",!ready);
   $("#firstRun")?.classList.toggle("is-shared",ready);
@@ -13666,7 +13772,7 @@ function renderFirstRunProgramMode(){
     if(title)title.textContent=t("setup.shared.title");
     if(cap)cap.textContent=t(n===1?"setup.shared.cap_one":"setup.shared.cap_many",{name,n});
     if(error){error.textContent="";error.classList.add("hidden")}}
-  else if(sharedSetupDraft.status==="invalid"||sharedSetupDraft.status==="unsupported"){
+  else if(invalid){
     if(error){error.textContent=t(sharedSetupErrorKey(sharedSetupDraft.error));error.classList.remove("hidden")}}
   else if(error){error.textContent="";error.classList.add("hidden")}}
 function setSharedSetupBusy(busy){
@@ -13737,10 +13843,13 @@ async function commitSharedSetup(io=storageIO){
 /** Write the install section from the current reading, or take it away. Rule 5:
  *  a browser with no mechanism gets no section at all, never a dead button. */
 function renderFirstRunInstall(){
-  const sec=$("#firstRunInstall"),card=$("#firstRunInstallCard");
+  const sec=$("#firstRunInstall"),card=$("#firstRunInstallCard"),link=$("#firstRunInstallLink");
   if(!sec||!card)return;
-  const mode=installMode();
-  if(mode==="none"){sec.classList.add("hidden");card.innerHTML="";return}
+  const mode=installMode(),decision=installPolicyDecision();
+  const explanatory=mode==="safari"&&decision.state==="unsupported";
+  const shown=decision.eligible||explanatory;
+  link?.classList.toggle("hidden",!shown);
+  if(!shown){sec.classList.add("hidden");card.innerHTML="";return}
   const body=mode==="native"?t("install.card.browser_body")
     :mode==="ios"?t("install.card.ios_body"):t("install.card.safari_only_body");
   const action=mode==="native"?t("install.card.browser_action"):mode==="ios"?t("install.card.ios_action"):"";
@@ -13749,6 +13858,7 @@ function renderFirstRunInstall(){
     `<p class="installcard__body">${esc(body)}</p></div>`+
     (action?`<button type="button" class="btn btn--cta installcard__action" id="firstRunInstallAction">${esc(action)}</button>`:"");
   const act=$("#firstRunInstallAction");if(act)act.onclick=triggerInstall;
+  installPresentedDecision=decision;
   sec.classList.remove("hidden");
 }
 /** The lede and the escape hatch both speak to the install offer, so they follow
@@ -13756,10 +13866,10 @@ function renderFirstRunInstall(){
  *  screen is only the program question, and "Continue in browser" would be an
  *  answer to a question nobody asked. */
 function setFirstRunOffer(offer){
-  const lede=$("#firstRunLede");
-  if(lede)lede.textContent=sharedSetupReady()
-    ?t(offer?"setup.shared.lede":"setup.shared.lede_installed")
-    :t(offer?"setup.lede":"setup.lede_installed");
+  const shared=sharedSetupReady(),invalid=sharedSetupInvalid();
+  const headline=$("#firstRunHeadline"),lede=$("#firstRunLede");
+  if(headline)headline.textContent=t(shared?"landing.shared.headline":invalid?"landing.shared.invalid_headline":"landing.headline");
+  if(lede)lede.textContent=t(shared?"landing.shared.body":invalid?"landing.shared.invalid_body":"landing.body");
   $("#firstRunContinue")?.classList.toggle("hidden",!offer);
 }
 /** Chrome accepted the install, or the app reports itself installed. Either way
@@ -13767,25 +13877,50 @@ function setFirstRunOffer(offer){
 function closeFirstRunInstall(){
   const sec=$("#firstRunInstall");if(sec)sec.classList.add("hidden");
   const card=$("#firstRunInstallCard");if(card)card.innerHTML="";
+  installPresentedDecision=null;
   setFirstRunOffer(false);
 }
+function renderLandingDevice(){
+  const lang=I18N?.getLang?.()==="pt"?"pt":"en";
+  const theme=document.documentElement.dataset.theme==="dark"?"dark":"light";
+  $$('#firstRun [data-shot]').forEach(image=>{
+    image.src=`assets/brand/${image.dataset.shot}-${lang}-${theme}.webp`;
+  });
+}
 function renderFirstRun(){
-  setFirstRunOffer(installMode()!=="none");
+  renderFirstRunProgramMode();
+  renderLandingDevice();
+  const decision=installPolicyDecision(),mode=installMode();
+  setFirstRunOffer(decision.eligible||mode==="safari"&&decision.state==="unsupported");
   const label=$("#firstRunContinueLabel");
   if(label)label.textContent=isIOSSafari()?t("setup.continue_safari"):t("setup.continue_browser");
   renderFirstRunInstall();
-  renderFirstRunProgramMode();
 }
-function openFirstRun(){
+function currentEntryLanding(){
+  if(sharedSetupReady())return"shared";
+  if(sharedSetupInvalid())return"shared-invalid";
+  return"generic"}
+function openFirstRun(kind=currentEntryLanding()){
   const el=$("#firstRun");if(!el)return false;
   firstRunActive=true;
   renderFirstRun();
+  el.dataset.entryLanding=kind;
   el.classList.remove("hidden");
   document.body.classList.add("is-firstrun");
   window.scrollTo({top:0});
   // The screen itself takes focus, not its first choice: a ring drawn around
   // Create before the lifter has touched anything reads as a recommendation.
   try{el.focus({preventScroll:true})}catch{}
+  // No guide is presented here. This screen's whole job is the proposition,
+  // and every cue that could anchor to it explains a control the screen has
+  // already named: the two entry actions carry their own labels, the install
+  // card carries its own title and body, and Privacy is a standing link in
+  // the header. A cue above the headline pushed the product argument off the
+  // first paint to restate what was already on it. The guides themselves are
+  // untouched — "entry" shows at the chooser it explains, and "install" and
+  // "privacy" show in Settings, where they are anchored to controls whose
+  // purpose is not self-evident and where replay reaches them.
+  if(kind==="generic"&&uiPrefs.entryLandingSeen!==true)setUiPref("entryLandingSeen",true);
   return true}
 function trapFirstRunTab(event){
   if(event.key!=="Tab"||!firstRunOpen())return;
@@ -13802,21 +13937,18 @@ function suspendFirstRun(){
   const el=$("#firstRun");if(!el)return;
   el.classList.add("hidden");document.body.classList.remove("is-firstrun")}
 function closeFirstRun(){
-  firstRunActive=false;suspendFirstRun()}
+  firstRunActive=false;installPresentedDecision=null;suspendFirstRun()}
 const firstRunPending=()=>!state.programMeta?.onboarded&&!state.log.length;
-/** The screen carries two questions: install, and which program. The program
- *  question is live on every first run, so the screen opens on every first run.
- *  The install question adds its section wherever the browser has an answer —
- *  and where it has none, the screen is the program question by itself.
- *
- *  This is the one door into a first program. Import used to reach it only
- *  through a text link inside the wizard's first step, which made bringing a
- *  shared program the hidden path and building one from scratch the default;
- *  they are two equal ways to begin and now read as two. */
+/** Resolve the landing before ordinary navigation. A valid or invalid shared
+ *  handoff always gets its complete fail-closed surface. Otherwise an empty
+ *  device sees the generic landing once, then returns to Today's no-program
+ *  state on later launches. */
 function maybeShowFirstRun(){
   if(sharedSetupDraft.status==="existing")return false;
   if(!firstRunPending())return false;
-  return openFirstRun()}
+  const kind=currentEntryLanding();
+  if(kind==="generic"&&uiPrefs.entryLandingSeen===true)return false;
+  return openFirstRun(kind)}
 window.closeFirstRun=closeFirstRun;window.openFirstRun=openFirstRun;
 
 /* ---- "Why this weight?" sheet ----
@@ -13958,79 +14090,96 @@ async function installTransferRequestDivergence(){
   showInstallBanner(true);
   showInstallTransferDivergenceDialog(installTransferConfirmDivergence)}
 
-// ---- Feature tour (bottom-sheet coach that walks every feature) ----
-const TOUR=[
-  {view:"log"},{view:"log"},{view:"log"},{view:"log"},{view:"log"},{view:"log"},
-  {view:"stats"},{view:"history"},{view:"program"},{view:"settings"},{view:"settings",install:true}
-];
-let tourStep=0,tourActive=false,tourOrigin=null,tourSnapshot=null,tourPreview=null,tourFocusOrigin=null;
-function tourSteps(){return TOUR.filter(s=>!(s.install&&isStandalone()))}
-function snapshotTourUi(){
-  const scrolls={};
-  for(const id of["log","stats","history","program","settings"]){const el=$("#"+id);if(el)scrolls[id]=el.scrollTop}
-  return{view:currentViewId(),settings:document.body.classList.contains("is-settings"),exercise:!!exView,
-    exView:exView?{key:exView.key,from:exView.from}:null,statsSeg,programEditMode,workoutActive,workoutLeft,logMode,focusIndex,
-    focusEdit:focusEdit?Object.assign({},focusEdit):null,overflow:!$("#woOverflow")?.classList.contains("hidden"),day,
-    date:$("#date")?.value||"",scrolls,windowScroll:window.scrollY}}
-function restoreTourUi(snap){
-  if(!snap)return;
-  tourPreview=null;day=snap.day;if($("#date")&&snap.date!=null)$("#date").value=snap.date;
-  logMode=snap.logMode;focusIndex=snap.focusIndex;focusEdit=snap.focusEdit;programEditMode=snap.programEditMode;
-  syncLogModeControls();
-  workoutLeft=snap.workoutLeft;
-  if(snap.statsSeg)setStatsSeg(snap.statsSeg);
-  document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-library","is-preview","is-import");
-  if(snap.settings){showSettings()}
-  else if(snap.exercise&&snap.exView){openExerciseView(snap.exView.key,snap.exView.from)}
-  else{
-    $$("nav button").forEach(x=>{const on=x.dataset.view===snap.view;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
-    $$(".view").forEach(v=>v.classList.toggle("active",v.id===snap.view))}
-  setWorkoutActive(!!snap.workoutActive);
-  document.body.classList.toggle("is-focus-wo",!!snap.workoutActive&&snap.logMode==="focus");
-  if(snap.workoutActive){renderTabs();renderWorkout()}
-  render();
-  setWorkoutOverflow(!!snap.overflow);
-  for(const[id,top]of Object.entries(snap.scrolls||{})){const el=$("#"+id);if(el)el.scrollTop=top}
-  window.scrollTo(0,snap.windowScroll||0)}
-function applyTourChoreography(step){
-  const focus=step===3||step===4,list=step===1||step===2||step===5,overflow=step===1||step===2;
-  tourPreview={step,ignoreSkipped:list||focus,showRest:step===4};
-  if(step===0){
-    setWorkoutActive(false);document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-library","is-preview","is-import");
-    $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
-    $$(".view").forEach(v=>v.classList.toggle("active",v.id==="log"));renderToday();window.scrollTo({top:0});return}
-  if(step>=1&&step<=5){
-    document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-library","is-preview","is-import");
-    $$("nav button").forEach(x=>{const on=x.dataset.view==="log";x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")});
-    $$(".view").forEach(v=>v.classList.toggle("active",v.id==="log"));
-    logMode=focus?"focus":"full";
-    syncLogModeControls();
-    setWorkoutActive(true);renderTabs();renderWorkout();renderToday();setWorkoutOverflow(overflow);
-    if(step===5)$("#logForm .btn--save")?.scrollIntoView({block:"center"});return}
-  setWorkoutActive(false);
-  const s=tourSteps()[step];if(s?.view)navTo(s.view)}
-function openTourOverlay(){
-  const tour=$("#tour");if(!tour)return;
-  openModal(tour,{
-    initialFocus:$("#tourSkip"),
-    returnFocus:document.activeElement,
-    onEscape:()=>endTour(false)
-  })}
-function closeTourOverlay(){
-  closeModal($("#tour"))}
-function focusAfterTour(origin,original){
-  const sameId=original?.id?document.getElementById(original.id):null;
-  const stable=origin==="first-run"?$("#startWorkout"):origin==="replay"?$("#replayTour"):null;
-  const fallback=origin==="replay"?$("#settingsBack"):$('nav button[data-view="log"]');
-  for(const candidate of origin==="first-run"?[stable,original,sameId,fallback]:[original,sameId,stable,fallback]){
-    const target=resolveReturnFocus(candidate);
-    if(target){try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}return true}}
+// ---- Contextual guides ----
+let activeGuideId=null,activeGuideAnchor=null,activeGuideCue=null,activeGuideReturnFocus=null;
+function guideDefinition(id){return GuideRegistry?.GUIDE_DEFINITIONS?.find(guide=>guide.id===id)||null}
+function guideAnchor(guide){
+  if(!guide?.anchorSelector)return null;
+  return [...document.querySelectorAll(guide.anchorSelector)].find(el=>{
+    if(!(el instanceof HTMLElement)||el.hidden||el.classList.contains("hidden"))return false;
+    const style=getComputedStyle(el),rect=el.getBoundingClientRect();
+    return style.display!=="none"&&style.visibility!=="hidden"&&rect.width>0&&rect.height>0})||null}
+function guideStored(id){return uiPrefs.guideState?.[id]||null}
+function saveGuideTransition(id,status){
+  const guide=guideDefinition(id);if(!guide||!GuideRegistry?.recordGuideTransition)return false;
+  const live=GuideRegistry.migrateLegacyTourDone(loadUiPrefs());
+  const next=GuideRegistry.recordGuideTransition(live,id,status,{version:guide.version,nowMs:Date.now()});
+  return replaceUiPrefs({...next})}
+function removeContextualGuide(){
+  activeGuideCue?.remove();activeGuideId=null;activeGuideAnchor=null;activeGuideCue=null;activeGuideReturnFocus=null}
+function dismissContextualGuide({restoreFocus=false}={}){
+  if(!activeGuideId)return false;
+  const target=activeGuideReturnFocus||activeGuideAnchor;
+  saveGuideTransition(activeGuideId,"dismissed");removeContextualGuide();
+  if(restoreFocus&&target instanceof HTMLElement&&target.isConnected)target.focus({preventScroll:true});
+  return true}
+function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=false}={}){
+  const guide=guideDefinition(id);if(!guide?.wired)return false;
+  const anchor=guideAnchor(guide);
+  const decision=GuideRegistry.evaluateGuide(guide,{
+    anchorPresent:!!anchor,anchorVisible:!!anchor,uiPrefs});
+  if(!decision.eligible){
+    if(persistDeferred&&decision.decision==="deferred"&&guideStored(id)?.status!=="deferred")saveGuideTransition(id,"deferred");
+    return false}
+  removeContextualGuide();
+  const cue=document.createElement("aside"),titleId=`guideCueTitle-${id}`;
+  cue.className="guide-cue";cue.dataset.guideCue=id;cue.dataset.anchorTarget=guide.anchorSelector;
+  cue.setAttribute("role","status");cue.setAttribute("aria-labelledby",titleId);
+  cue.innerHTML=`<div class="guide-cue__copy"><p class="guide-cue__title" id="${titleId}">${esc(t(`guide.${id}.title`))}</p>`+
+    `<p class="guide-cue__body">${esc(t(`guide.${id}.body`))}</p></div>`+
+    `<button type="button" class="guide-cue__dismiss" data-guide-dismiss aria-label="${esc(t("guide.dismiss"))}">×</button>`;
+  const dismiss=cue.querySelector("[data-guide-dismiss]");
+  dismiss.onclick=event=>{event.stopPropagation();dismissContextualGuide({restoreFocus:focus})};
+  cue.addEventListener("keydown",event=>{
+    if(event.key!=="Escape")return;
+    event.preventDefault();event.stopPropagation();dismissContextualGuide({restoreFocus:true})});
+  // #firstRunPrivacy lives in the narrow header utility row: inserted there,
+  // the cue is a flex sibling with no room and collapses into a vertical
+  // sliver of one word per line. Anchoring it after the whole header instead
+  // keeps it a full-width block without changing which control it names.
+  const placement=anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||anchor;
+  placement.insertAdjacentElement("afterend",cue);
+  activeGuideId=id;activeGuideAnchor=anchor;activeGuideCue=cue;
+  activeGuideReturnFocus=returnFocus instanceof HTMLElement?returnFocus:null;
+  saveGuideTransition(id,"shown");
+  if(focus)queueMicrotask(()=>dismiss?.focus({preventScroll:true}));
+  return true}
+function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
+  // Never while the entry landing is up. It is a full-screen threshold whose
+  // one job is the proposition, and every cue that can anchor to it explains
+  // a control it has already named — the entry actions carry their labels,
+  // the install card carries its title and body, Privacy is a standing link.
+  // The app's ordinary render loop runs behind this gate, so the rule belongs
+  // here rather than at a call site: otherwise any future render path
+  // re-opens the same hole. The guides keep their state and their real
+  // moments — "entry" at the chooser, "install" and "privacy" in Settings.
+  if(firstRunOpen())return false;
+  if(activeGuideCue?.isConnected&&activeGuideAnchor&&guideAnchor(guideDefinition(activeGuideId))===activeGuideAnchor)return true;
+  removeContextualGuide();
+  for(const id of ids)if(showContextualGuide(id))return true;
   return false}
+function completeContextualGuide(){
+  if(!activeGuideId)return false;
+  saveGuideTransition(activeGuideId,"completed");removeContextualGuide();return true}
+function replayContextualGuide(id){
+  const guide=guideDefinition(id);if(!guide||!GuideRegistry?.replayGuideState)return false;
+  uiPrefs=loadUiPrefs();
+  if(activeGuideId===id)removeContextualGuide();
+  const next=GuideRegistry.replayGuideState(uiPrefs,id,{version:guide.version,nowMs:Date.now()});
+  if(!replaceUiPrefs({...next}))return false;
+  const returnFocus=document.activeElement;
+  queueMicrotask(()=>showContextualGuide(id,{focus:true,returnFocus,persistDeferred:true}));return true}
+function contextualGuideState(){return cloneSnapshot(uiPrefs.guideState||{})}
+function onContextualGuideAction(event){
+  const target=event.target instanceof Element?event.target:null;
+  if(activeGuideAnchor&&target&&activeGuideAnchor.contains(target))completeContextualGuide()}
+
 function showSettings(){
   $$("nav button").forEach(x=>{x.classList.remove("active");x.setAttribute("aria-current","false")});
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="settings"));
   document.body.classList.add("is-settings");document.body.classList.remove("is-exercise","is-onboarding","is-workout");
-  workoutActive=false;workoutLeft=true;window.scrollTo({top:0});render()}
+  workoutActive=false;workoutLeft=true;window.scrollTo({top:0});render();
+  queueMicrotask(()=>maybeShowContextualGuides(["install","privacy"]))}
 /* Returns to a bottom-nav destination from a stacked view. navTo cannot do it:
    it skips the click when the nav button is already marked active, which it
    still is after a full-screen view took over without touching the dock. */
@@ -14084,39 +14233,9 @@ window.__repforgeFocus={
 };
 window.__repforgeLeaveWorkout=leaveWorkout;
 window.__repforgeShowSettings=showSettings;
-function startTour(origin){
-  tourOrigin=origin==="replay"?"replay":"first-run";
-  tourFocusOrigin=document.activeElement instanceof Element?document.activeElement:null;
-  tourSnapshot=tourOrigin==="replay"?snapshotTourUi():null;
-  tourStep=0;tourActive=true;hideInstallBanner(false);openTourOverlay();renderTour()}
-function renderTour(){
-  const steps=tourSteps(),s=steps[tourStep];
-  if(!s){endTour(true);return}
-  applyTourChoreography(tourStep);
-  $("#tourEyebrow").textContent=t("tour.eyebrow_progress",{n:tourStep+1,total:steps.length});
-  $("#tourTitle").textContent=t(`tour.${tourStep}.title`);
-  const extra=$("#tourExtra");
-  if(s.install){
-    $("#tourBody").innerHTML=`${t("tour.install.body_prefix")} ${installInstructions()}`;
-    extra.innerHTML=installPrompt?`<button type="button" id="tourInstallBtn" class="btn btn--cta">${esc(t("tour.install.cta"))}</button>`:"";
-    const ib=$("#tourInstallBtn");if(ib)ib.onclick=triggerInstall;
-  }else{$("#tourBody").innerHTML=t(`tour.${tourStep}.body`);extra.innerHTML=""}
-  $("#tourDots").innerHTML=steps.map((_,i)=>`<span class="tour__dot${i===tourStep?" is-on":""}"></span>`).join("");
-  $("#tourBack").classList.toggle("hidden",tourStep===0);
-  $("#tourNext").textContent=tourStep===steps.length-1?t("tour.done"):t("tour.next");
-  if(tourStep!==5)window.scrollTo({top:0});
-}
-function endTour(completed){
-  const origin=tourOrigin,snap=tourSnapshot,focusOrigin=tourFocusOrigin;
-  closeTourOverlay();tourActive=false;tourPreview=null;tourOrigin=null;tourSnapshot=null;tourFocusOrigin=null;
-  if(origin==="first-run"){setUiPref("tourDone",true);setWorkoutActive(false);navTo("log")}
-  else if(origin==="replay")restoreTourUi(snap);
-  else{setUiPref("tourDone",true);if(completed)navTo("log")}
-  focusAfterTour(origin,focusOrigin);
-  maybeShowInstallBanner()}
-function maybeStartTour(){if(uiPrefs.tourDone)return false;if($("#onboarding")?.classList.contains("active"))return false;startTour("first-run");return true}
-window.startTour=startTour;window.closeTour=()=>{if(tourActive)endTour(false)};
-window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,startTour,currentTheme,resolvedTheme,setTheme,
+window.__repforgeUi={loadUiPrefs,isStandalone,isIOS,showInstallBanner,currentTheme,resolvedTheme,setTheme,
+  installPolicyDecision:()=>installPolicyDecision(),guideState:contextualGuideState,
+  replayGuide:replayContextualGuide,showGuide:showContextualGuide,
   openInstallTransferState:stateName=>openIosInstallSheet(stateName),openPrivacy:()=>openPrivacySheet()};
 function resumeProgramEditFollowUp(){
   if(state?.[STORAGE_FOLLOWUP]?.kind!=="onboarding-edit")return false;
@@ -14135,12 +14254,15 @@ window.__repforgeOnboarding={
 
 function init(){
   if("serviceWorker" in navigator)navigator.serviceWorker.register("./sw.js").catch(()=>{});
+  ensureInstallPolicyPrefs();
+  ensureGuidePrefs({persist:currentEntryLanding()==="generic"});
   // The pre-paint snippet in index.html has already done this for a dark
   // device; re-running it is what covers the light case and a snippet that
   // could not read storage.
   applyTheme();watchSystemTheme();
   window.addEventListener("hashchange",()=>{handleSharedSetupHash()});
   $("#firstRun")?.addEventListener("keydown",trapFirstRunTab);
+  document.addEventListener("click",onContextualGuideAction,true);
   let rzT;window.addEventListener("resize",()=>{clearTimeout(rzT);rzT=setTimeout(redrawChart,150)});
   window.addEventListener("orientationchange",()=>setTimeout(redrawChart,200));
   // Chrome decides when to offer this, and it usually decides after the first
@@ -14150,26 +14272,31 @@ function init(){
   // reading. One that has been left for the wizard is not pulled back: the
   // banner carries the offer from there.
   window.addEventListener("beforeinstallprompt",e=>{e.preventDefault();installPrompt=e;
-    renderSettings();renderInstallSurfaces();
-    if(tourActive)renderTour();else maybeShowInstallBanner()});
+    renderSettings();renderInstallSurfaces();maybeShowInstallBanner()});
   window.addEventListener("appinstalled",()=>{installPrompt=null;hideInstallBanner(false);
     closeFirstRunInstall();renderSettings();renderInstallSurfaces()});
   $("#installBtn").onclick=triggerInstall;
   $("#installBannerClose").onclick=()=>hideInstallBanner(true);
   $("#installBannerAction").onclick=triggerInstall;
-  $("#firstRunCreate").onclick=()=>{closeFirstRun();startOnboarding("first-run")};
+  $("#firstRunInstallLink").onclick=triggerInstall;
+  $("#firstRunPrivacy").onclick=()=>openPrivacySheet();
+  const openFirstRunCreate=()=>{closeFirstRun();startOnboarding("first-run")};
+  $("#firstRunCreate").onclick=openFirstRunCreate;
+  $("#firstRunCreateClose").onclick=openFirstRunCreate;
   // Import runs through the same review as everywhere else; the gate stays
   // standing behind it so backing out returns here rather than to an empty app.
   // Copy and paste is the primary BYOP door, with the file door one tap away.
-  $("#firstRunImport").onclick=()=>{
+  const openFirstRunImport=()=>{
     closeFirstRun();
     startOnboarding("first-run",{userInitiated:true,forceFresh:true});
     setImportSourceMode("freeform",{render:false});
     entrySelectRoute("import")};
+  $("#firstRunImport").onclick=openFirstRunImport;
+  $("#firstRunImportClose").onclick=openFirstRunImport;
   // "Continue in browser" is an answer to the install offer, not to the program
   // question: it takes the offer off the table for a while, then hands over to
   // the same first run the app has always had.
-  $("#firstRunContinue").onclick=()=>{setUiPref("installDismissedAt",Date.now());
+  $("#firstRunContinue").onclick=()=>{recordInstallPolicyDismissal(installPresentedDecision);
     if(sharedSetupReady()){closeFirstRunInstall();renderFirstRunProgramMode();return}
     closeFirstRun();startOnboarding("first-run")};
   const sharedStart=$("#firstRunSharedStart");if(sharedStart)sharedStart.onclick=async()=>{
@@ -14184,15 +14311,13 @@ function init(){
   $("#iosInstallClose").onclick=closeIosInstallSheet;
   $("#iosInstallDone").onclick=closeIosInstallSheet;
   $("#iosInstallScrim").onclick=closeIosInstallSheet;
-  $("#tourBack").onclick=()=>{if(tourStep>0){tourStep--;renderTour()}};
-  $("#tourNext").onclick=()=>{if(tourStep<tourSteps().length-1){tourStep++;renderTour()}else endTour(true)};
-  $("#tourSkip").onclick=()=>endTour(false);
-  $("#replayTour").onclick=()=>startTour("replay");
-  $("#installApp").onclick=triggerInstall;
+  $("#guideReplayToggle").onclick=()=>setDisclosure($("#guideReplayToggle"),$("#guideReplayPanel"),!$("#guideReplayPanel")?.classList.contains("is-open"));
+  $$('[data-guide-replay]').forEach(button=>button.onclick=()=>replayContextualGuide(button.dataset.guideReplay));
+  $("#installApp").onclick=()=>triggerInstall("manual-settings");
   $("#restBar").onclick=openRestSheet;
   // One rest control in the workout header: it starts the clock when idle, and
   // opens the timer sheet once it is running rather than ending the rest.
-  const woRest=$("#woRest");if(woRest)woRest.onclick=()=>{if(tourActive&&tourPreview?.showRest&&!(+state.settings.restSec>0))return;restEnd?openRestSheet():startRest()};
+  const woRest=$("#woRest");if(woRest)woRest.onclick=()=>{restEnd?openRestSheet():startRest()};
   const restClose=$("#restSheetClose");if(restClose)restClose.onclick=closeRestSheet;
   const restScrim=$("#restSheetScrim");if(restScrim)restScrim.onclick=closeRestSheet;
   const restMinus=$("#restMinus");if(restMinus)restMinus.onclick=()=>nudgeRest(-REST_NUDGE);
@@ -14297,7 +14422,6 @@ function init(){
   // The menu is a popover: any choice inside it, a tap outside, or Escape closes it.
   // iOS does not reliably bubble click to document, so touchstart backs it up.
   const dismissOverflow=e=>{
-    if(tourActive)return;
     const menu=$("#woOverflow");if(!menu||menu.classList.contains("hidden"))return;
     const target=e.target instanceof Element?e.target:null;
     if(target&&(menu.contains(target)||target.closest("#woOverflowBtn")))return;
@@ -14351,6 +14475,7 @@ function init(){
   const dataBackup=$("#dataBackupRow");if(dataBackup)dataBackup.onclick=()=>setDisclosure(dataBackup,$("#dataBackupPanel"),!$("#dataBackupPanel")?.classList.contains("is-open"));
   const dataImport=$("#dataImportRow");if(dataImport)dataImport.onclick=()=>setDisclosure(dataImport,$("#dataImportPanel"),!$("#dataImportPanel")?.classList.contains("is-open"));
   [["#restSecRow","#restSecPanel"],["#rirModeRow","#rirModePanel"],["#progressionRow","#progressionDetails"],["#notifyConfigRow","#notifyTypes"],["#dataBackupRow","#dataBackupPanel"],["#dataImportRow","#dataImportPanel"]].forEach(([b,p])=>setDisclosure($(b),$(p),false));
+  setDisclosure($("#guideReplayToggle"),$("#guideReplayPanel"),false);
   const commitChangedSettings=()=>{settingsEditRevision++;return commitSettings(true)};
   $("#settings").addEventListener("input",()=>{settingsEditRevision++});
   const voiceTog=$("#voiceToggle");if(voiceTog)voiceTog.onclick=()=>{const c=$("#voiceInputEnabled");if(c){c.checked=!c.checked;commitChangedSettings()}};

@@ -1,0 +1,64 @@
+{
+  "cameraPreset": "Front",
+  "lightingPreset": "Soft Studio",
+  "device": {
+    "variant": "iphone15",
+    "finish": "#96928a",
+    "position": [
+      0,
+      0.06,
+      0
+    ],
+    "rotation": [
+      0,
+      -0.13962634015954636,
+      0
+    ],
+    "scale": 1
+  },
+  "camera": {
+    "fov": 35,
+    "distance": 6,
+    "positionX": 0,
+    "positionY": 0.25,
+    "targetX": 0,
+    "targetY": 0,
+    "roll": 0,
+    "focusDistance": 6,
+    "aperture": 0.025,
+    "depthOfField": 0
+  },
+  "lighting": {
+    "keyIntensity": 2.2,
+    "keyAzimuth": 45,
+    "keyElevation": 50,
+    "fillIntensity": 0.8,
+    "rimIntensity": 1.1,
+    "rimAzimuth": 150,
+    "environmentIntensity": 0.9,
+    "shadowOpacity": 0.2,
+    "shadowSoftness": 3,
+    "reflectionIntensity": 0.7,
+    "screenGlow": 0.65,
+    "temperature": "#fffaf2",
+    "environment": "studio"
+  },
+  "background": {
+    "type": "solid",
+    "colorA": "#eae8e2",
+    "colorB": "#a7b2c2",
+    "gradientAngle": 135,
+    "ground": false
+  },
+  "screenFit": {
+    "mode": "fit",
+    "x": 0,
+    "y": 0,
+    "zoom": 1
+  },
+  "export": {
+    "ratio": "9:16",
+    "resolution": 2160,
+    "transparent": true
+  }
+}

@@ -240,7 +240,7 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
   // must also precache those exact URLs for the next offline launch.
   const index = readFileSync(join(ROOT, "index.html"), "utf8");
   const sw = readFileSync(join(ROOT, "sw.js"), "utf8");
-  const expectedRevision = "234";
+  const expectedRevision = "257";
   const revision = sw.match(/const CACHE = "repforge-v(\d+)"/)?.[1] || "";
   const transitionAssets = [
     "motion-layer.js",
@@ -251,6 +251,8 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
     "shared-setup.js",
     "workout-draft.js",
     "program-transition.js",
+    "install-policy.js",
+    "guide-registry.js",
     "durable-state.js",
     "app.js",
   ];
@@ -283,6 +285,8 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
     "the program compiler is part of the offline shell");
   assert(/SHELL = new Set\([^\n]+"\/program-entry\.js"/.test(sw) && /SHELL = new Set\([^\n]+"\/program-entry-adapter\.js"/.test(sw),
     "program-entry modules are part of the offline shell");
+  assert(/SHELL = new Set\([^\n]+"\/install-policy\.js"/.test(sw),
+    "the install policy is part of the offline shell");
   assert(/registration\.scope/.test(sw) && /SCOPE_PATH/.test(sw),
     "service-worker shell matching is relative to its production scope");
 }
