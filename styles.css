@@ -3792,17 +3792,18 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
 }
 .firstrun .firstrun__lede{max-width:38ch}
 .firstrun-hero__figure{
-  position:relative;display:flex;justify-content:center;margin:38px 0 0;
+  position:relative;display:flex;justify-content:flex-end;
+  margin:2px calc(-1 * var(--firstrun-pad)) 0;
 }
 .firstrun-hero__figure::after{
-  content:"";position:absolute;left:24%;right:24%;bottom:1%;height:20px;
+  content:"";position:absolute;right:6%;left:auto;bottom:1%;width:52%;height:20px;
   background:radial-gradient(50% 50% at 50% 50%,rgba(var(--ink-rgb),.15),transparent 72%);
 }
 :root[data-theme="dark"] .firstrun-hero__figure::after{
   background:radial-gradient(50% 50% at 50% 50%,rgba(0,0,0,.5),transparent 72%);
 }
 .firstrun-hero__figure img{
-  position:relative;width:100%;height:auto;max-width:min(340px,calc(100vw - 60px));
+  position:relative;width:100%;height:auto;max-width:min(420px,calc(100vw - 20px));
 }
 .firstrun-shot{display:block;max-width:100%;height:auto}
 
@@ -3816,19 +3817,32 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   position:absolute;width:var(--phone-width);height:auto;left:var(--phone-left);
   top:var(--phone-top);translate:-50% -50%;
 }
-.firstrun-stage--establish{--stage-ar:40/44;--phone-width:76%;--phone-left:50%;--phone-top:62%}
-.firstrun-stage--band-low{--stage-ar:16/10;--phone-width:105%;--phone-left:50%;--phone-top:-42%}
-.firstrun-stage--sheet{--stage-ar:1/1;--phone-width:86%;--phone-left:54%;--phone-top:22%}
-.firstrun-stage--band-high{--stage-ar:4/3;--phone-width:90%;--phone-left:48%;--phone-top:104%}
-.firstrun-stage--portrait{--stage-ar:40/52;--phone-width:72%;--phone-left:50%;--phone-top:50%}
 .firstrun-stage--pair{--stage-ar:20/21}
 .firstrun-stage--pair .firstrun-stage__back{
   z-index:0;width:42%;left:67%;top:43.2%;filter:saturate(.9) brightness(.97);
 }
 .firstrun-stage--pair .firstrun-stage__front{z-index:1;width:46%;left:33%;top:51.8%}
 
+/* The signature composition: one large, mostly-whole Focus screen carries the
+   causal loop, with a tight "why this weight" crop lapped over its foot corner
+   so the reasoning stays physically attached to the recommendation it explains. */
+.firstrun-signature__figure{position:relative;margin:34px 0 64px}
+.firstrun-stage--signature{--stage-ar:41/54;--phone-width:82%;--phone-left:50%;--phone-top:46%}
+/* Tight crop of the "why this weight" sheet: title, verdict and last-session
+   row only, cropped from its 903x1832 source so no bezel or dimmed background
+   shows through. See docs/design/plan-054-landing-directions.md for the math. */
+.firstrun-stage--signature-crop{
+  --stage-ar:635/255;--phone-width:142%;--phone-left:46%;--phone-top:4%;
+  position:absolute;z-index:2;width:58%;right:-7%;bottom:-11%;
+  border-radius:14px;box-shadow:none;
+}
+@media(max-width:340px){
+  .firstrun-stage--signature-crop{right:-4%;bottom:-8%;width:56%}
+}
+
 .firstrun-beats{margin:0;padding:0}
 .firstrun-beat{padding:var(--firstrun-beat-gap) 0 0}
+.firstrun-signature{padding:var(--firstrun-beat-gap) 0 0}
 .firstrun-beat__index{
   margin:0 0 14px;font-family:var(--mono);font-size:.6875rem;line-height:1.5;
   letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);
@@ -3859,6 +3873,32 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   display:block;margin:10px 0 0;font-family:var(--mono);font-size:.6875rem;
   font-style:normal;letter-spacing:.07em;text-transform:uppercase;color:var(--ink-soft);
 }
+
+/* The signature chapter states the causal loop in DOM order before any of it
+   is repeated visually: target set, logged set, the rule, the verdict. */
+.firstrun-signature__title{
+  max-width:16ch;margin:0;font-size:1.875rem;line-height:1.14;
+  letter-spacing:-.035em;font-weight:600;text-wrap:balance;
+}
+.firstrun-loop{display:flex;align-items:center;flex-wrap:wrap;gap:14px;margin:26px 0 0}
+.firstrun-loop__step{margin:0;display:flex;flex-direction:column;gap:4px}
+.firstrun-loop__step dfn{font-style:normal;font-size:.75rem;color:var(--ink-soft)}
+.firstrun-loop__step b{
+  font-family:var(--mono);font-size:.875rem;font-weight:500;letter-spacing:-.02em;color:var(--ink);
+}
+.firstrun-loop__arrow{
+  flex:none;width:16px;height:16px;background:var(--ink-soft);
+  -webkit-mask:var(--arrow) no-repeat center/contain;mask:var(--arrow) no-repeat center/contain;
+}
+.firstrun-verdict{margin:26px 0 0;display:flex;align-items:baseline;gap:11px;flex-wrap:wrap}
+.firstrun-verdict__label{
+  font-family:var(--mono);font-size:.6875rem;line-height:1.5;
+  letter-spacing:.09em;text-transform:uppercase;color:var(--ink-soft);
+}
+.firstrun-verdict__value{
+  font-family:var(--mono);font-size:1.5rem;font-weight:600;letter-spacing:-.025em;color:var(--accent-deep);
+}
+
 .firstrun-pull{margin:26px 0 0}
 .firstrun-pull__value{
   display:flex;align-items:baseline;flex-wrap:wrap;gap:7px;margin:0;
@@ -3871,6 +3911,13 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   -webkit-mask:var(--arrow) no-repeat center/contain;mask:var(--arrow) no-repeat center/contain;
 }
 .firstrun-pull__caption{margin:9px 0 0;font-size:.875rem;line-height:1.45;color:var(--ink-soft)}
+/* The climax: the same pull component, scaled up and pulled full-width, so the
+   four-session trend is the single largest statement on the page. */
+.firstrun-pull--climax{
+  margin:56px 0 0;padding:40px 0 0;border-top:1px solid var(--rule-strong);
+}
+.firstrun-pull--climax .firstrun-pull__value{font-size:min(4.25rem,16vw)}
+.firstrun-pull--climax .firstrun-pull__caption{max-width:42ch;font-size:1rem}
 
 .firstrun-close{
   margin:var(--firstrun-beat-gap) 0 0;padding:44px 0 68px;
@@ -3904,19 +3951,27 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun-hero__copy{grid-column:1}
   .firstrun .firstrun-hero__title{max-width:15ch;font-size:3.25rem;letter-spacing:-.05em}
   .firstrun .firstrun__lede{max-width:44ch;margin-top:22px;font-size:1.0625rem}
-  .firstrun-hero__figure{grid-column:2;grid-row:1;margin:0}
-  .firstrun-hero__figure img{max-width:286px}
+  .firstrun-hero__figure{grid-column:2;grid-row:1;margin:0 calc(-1 * var(--firstrun-pad)) 0 0}
+  .firstrun-hero__figure img{max-width:340px}
   .firstrun-beat{
     display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
     column-gap:64px;align-items:center;
   }
   .firstrun-beat__copy{grid-column:1;grid-row:1}
   .firstrun-beat__figure{grid-column:2;grid-row:1;margin:0}
-  .firstrun-beat:nth-child(even) .firstrun-beat__copy{grid-column:2}
-  .firstrun-beat:nth-child(even) .firstrun-beat__figure{grid-column:1}
   .firstrun-beat__title{max-width:18ch;font-size:clamp(1.75rem,.55rem + 2.6vw,2.25rem);letter-spacing:-.038em}
   .firstrun-beat__body{max-width:38ch;font-size:1rem}
   .firstrun-pull__value{font-size:min(3.5rem,7vw)}
+  .firstrun-signature{
+    display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+    grid-template-areas:"copy figure" "pull pull";
+    column-gap:64px;align-items:center;
+  }
+  .firstrun-signature__copy{grid-area:copy}
+  .firstrun-signature__figure{grid-area:figure;margin:0}
+  .firstrun-signature__title{max-width:15ch;font-size:clamp(2rem,.6rem + 3vw,2.75rem);letter-spacing:-.04em}
+  .firstrun-pull--climax{grid-area:pull;margin-top:64px}
+  .firstrun-pull--climax .firstrun-pull__value{font-size:min(5.5rem,7.5vw)}
   .firstrun-close{
     display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);
     column-gap:64px;align-items:start;padding-bottom:92px;
@@ -3930,7 +3985,9 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   .firstrun__inner{--firstrun-beat-gap:72px}
   .firstrun .firstrun-hero__title{font-size:2rem}
   .firstrun-beat__title{font-size:1.5rem}
+  .firstrun-signature__title{font-size:1.5rem}
   .firstrun-pull__value{font-size:2.375rem}
+  .firstrun-pull--climax .firstrun-pull__value{font-size:2.75rem}
   .firstrun-close__title{font-size:1.625rem}
   .firstrun-stage{border-radius:20px}
 }

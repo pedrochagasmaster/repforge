@@ -292,7 +292,10 @@ const heroShape = () => {
   const pairBox = pair.getBoundingClientRect();
   const back = bounds('.firstrun-stage__back'), front = bounds('.firstrun-stage__front');
   const beats = [...document.querySelectorAll('.firstrun-beat')];
-  const lastBeat = beats.at(-1).getBoundingClientRect();
+  const sections = [...document.querySelectorAll('.firstrun-beats > *')];
+  const lastBeat = sections.at(-1).getBoundingClientRect();
+  const signatureCopy = document.querySelector('.firstrun-signature__copy');
+  const signatureFigure = document.querySelector('.firstrun-signature__figure');
   const row = document.querySelector(".firstrun__brand").getBoundingClientRect();
   const p = preview.getBoundingClientRect();
   const copy = document.querySelector(".firstrun-hero__copy").getBoundingClientRect();
@@ -305,14 +308,24 @@ const heroShape = () => {
   const pairWhole = [back, front].every((box) =>
     box.left >= pairBox.left - 1 && box.right <= pairBox.right + 1 &&
     box.top >= pairBox.top - 1 && box.bottom <= pairBox.bottom + 1);
+  // The "why this weight" crop deliberately laps over the signature anchor's
+  // foot corner (and may bleed a few px past the edge, like the hero figure);
+  // page-level containment is `noHorizontalOverflow`'s job, not this check's.
+  const anchorBox = bounds('.firstrun-stage--signature');
+  const cropBox = bounds('.firstrun-stage--signature-crop');
+  const signatureCropAttached = intersects(anchorBox, cropBox);
   const narrowSequence = beats.every((beat) => {
     const copyBox = beat.querySelector('.firstrun-beat__copy').getBoundingClientRect();
     const figureBox = beat.querySelector('.firstrun-beat__figure').getBoundingClientRect();
     return figureBox.top >= copyBox.bottom + 16 && Math.abs(figureBox.left - copyBox.left) <= 1;
-  });
+  }) && (() => {
+    const copyBox = signatureCopy.getBoundingClientRect(), figureBox = signatureFigure.getBoundingClientRect();
+    return figureBox.top >= copyBox.bottom + 16 && Math.abs(figureBox.left - copyBox.left) <= 1;
+  })();
   return {
     narrowSequence,
     pairWhole,
+    signatureCropAttached,
     pairOverlap: Math.round(100 * overlap / back.width),
     endingAfterProof: bounds('.firstrun-close').top >= lastBeat.bottom,
     titleAlign: getComputedStyle(title).textAlign,
@@ -366,9 +379,9 @@ async function run() {
       JSON.stringify(shown.heroBody)
     );
     assert(
-        /Program screen/.test(shown.previewText || "") && /focused set view/.test(shown.previewText || "") &&
-        /saved session summary/.test(shown.previewText || "") && /strength trend/.test(shown.previewText || ""),
-      "the renders cover program, prescription, saved work, and progress",
+        /recommended program screen/.test(shown.previewText || "") && /Create a program screen/.test(shown.previewText || "") &&
+        /focused set view/.test(shown.previewText || "") && /Why this weight sheet/.test(shown.previewText || ""),
+      "the renders cover getting started, the program, and the prescription's reasoning",
       shown.previewText
     );
     assert(shown.privacy === "Privacy", "the landing links to Privacy", shown.privacy);
@@ -696,7 +709,7 @@ async function run() {
         // Locale-tolerant: the accessible name is translated, and Portuguese
         // writes the load 62,5. The exact English wording is asserted once,
         // in the en-US landing block above.
-        assert(/Program|Programa/.test(shape.proofFacts) && /RIR 0–2/.test(shape.proofFacts) && /100 kg/.test(shape.proofFacts) && /127 kg/.test(shape.proofFacts), `${at}: the complete product narrative remains present`, shape.proofFacts);
+        assert(/program|programa/i.test(shape.proofFacts) && /RIR 0–2/.test(shape.proofFacts) && /100 kg/.test(shape.proofFacts) && /127 kg/.test(shape.proofFacts), `${at}: the complete product narrative remains present`, shape.proofFacts);
         assert(shape.titleAlign === "left", `${at}: the editorial headline stays left aligned`, shape.titleAlign);
         assert(
           shape.logoWidth >= 39 && shape.wordmarkSize >= 14 && shape.lockupInsideViewport,
@@ -709,6 +722,7 @@ async function run() {
         if (width <= 340) assert(shape.narrowSequence, `${at}: every beat keeps copy before its full-width stage`, JSON.stringify(shape));
         assert(shape.pairWhole, `${at}: both entry devices stay whole inside their stage`, JSON.stringify(shape));
         assert(shape.pairOverlap >= 23 && shape.pairOverlap <= 25 && shape.endingAfterProof, `${at}: the entry pair keeps 24% overlap and the ending follows the narrative`, JSON.stringify(shape));
+        assert(shape.signatureCropAttached, `${at}: the reasoning crop stays attached to the signature anchor and inside the viewport`, JSON.stringify(shape));
         assert(shape.nextSize >= 16, `${at}: the next target remains readable live text`, JSON.stringify(shape));
         assert(/5–8 reps · RIR 0–2/.test(shape.proofFacts) && /100 kg × 8 · RIR 1/.test(shape.proofFacts) &&
           /15/.test(shape.proofFacts) && /8[,.]123 kg/.test(shape.proofFacts) && /127 kg/.test(shape.proofFacts),

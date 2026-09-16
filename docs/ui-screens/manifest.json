@@ -349,7 +349,7 @@
       "id": "first-run",
       "flow": "onboarding-start",
       "label": "One-time landing",
-      "scenario": "First empty visit. Six product beats, early Build and Track actions, Privacy, and device-local seen state.",
+      "scenario": "First empty visit. Hero, getting-started/program chapter, the signature progression system, and a closing chapter, with early Build and Track actions, Privacy, and device-local seen state.",
       "variants": "accessibility"
     },
     {

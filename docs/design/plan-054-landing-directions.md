@@ -1,8 +1,9 @@
 # Plan 054 landing directions
 
 Status: the owner-selected target was implemented in PR #241. The owner
-authorized a subsequent product-led refinement on 2026-09-15. Historical
-preview rasters remain outside production and the UI screen catalog.
+authorized a subsequent product-led refinement on 2026-09-15, then a further
+art-direction recomposition on 2026-09-16 (below). Historical preview rasters
+remain outside production and the UI screen catalog.
 
 ## Shared content and provenance
 
@@ -314,6 +315,12 @@ remains active.
 
 ## Owner-approved sectioned landing integration
 
+The six-beat composition in this section was superseded by the art-direction
+recomposition below on 2026-09-16. It remains accurate as a description of the
+prototype at `docs/design/plan-054-landing-prototype/`, and of the production
+candidate between `a2ce8ca8` and the recomposition — it is not the current
+production visual contract.
+
 The owner subsequently approved the six-beat prototype at `0e485a9b`. It
 supersedes the bounded single-example composition above while preserving its
 entry actions, truthful product state, install policy, privacy surface and
@@ -335,3 +342,84 @@ asset-generation notes and browser oracles remain in
 This integration is still a Plan 054 candidate. Automated responsive and
 accessibility evidence does not replace the pending physical iOS and Android
 review in both languages and appearances.
+
+## Owner-directed art-direction recomposition, 2026-09-16
+
+The owner judged the integrated six-beat landing technically mature but still
+"one art-direction pass short of premium": a sequence of individually
+competent product mockups rather than one exceptional page, with the
+progression/recommendation loop — Taurifer's most differentiated idea — not
+dominant enough. This pass was explicitly authorized to revise the six-section
+composition and stage geometry while preserving every Plan 054 behavior,
+entry semantic, and product contract.
+
+The six beats recompose into four narrative movements without dropping any
+product claim:
+
+- **Hero** — unchanged copy and entry actions; the `today-ready` device is
+  larger, bleeds past the content column to the trailing viewport edge, and
+  sits closer to the copy for a more integrated first viewport.
+- **01 / Getting started** — merges the former beats 01 (entry hub +
+  recommended program) and 02 (program overview). The paired `entry-hub` /
+  `recommend-result` render stays the anchor; the program-overview facts
+  (week, training days, Day 1's exercise/set count) fold into this chapter's
+  fact row instead of a second full-width device section. `program-overview`
+  stays a real, captured render — it simply no longer appears in production;
+  it remains in the prototype and its asset provenance.
+- **02 / What happens after you log a set** — the signature chapter and the
+  page's visual climax. It states the causal loop as live semantic HTML in
+  DOM order — target, logged set, the "why this weight" rule as a quote, the
+  `Hold 100 kg` verdict, then the session's compact facts — anchored by one
+  large `focus` render with a tightly cropped `why-this-weight` card lapped
+  over its foot corner (source crop `(160,905)`–`(795,1160)` of the shared
+  903×1832 frame: title, verdict and last-session row only, no bezel or
+  dimmed background). The four-session `92.5 → 100 kg` trend and best
+  estimated 1RM close the chapter as a full-width typographic climax, sized
+  larger than any other text on the page. `session-summary` and
+  `exercise-chart` stay real, captured renders; their facts now read as live
+  text rather than a fourth and fifth device section.
+- **Closing** — unchanged structurally; the body copy now calls back to the
+  signature chapter's promise ("your next set is already decided") instead of
+  a generic time estimate.
+
+Device appearances drop from eight images across seven stages to five images
+across four stages (hero, the entry pair, the signature anchor, and its
+crop), concentrating rather than adding. No new renders were generated — this
+recomposes the existing eight approved Form iPhone Studio scenes; all eight
+stay in `assets/brand/` and in the standalone prototype's evidence. The
+service-worker precache boundary is unchanged: only the four `today-ready`
+variants are precached, `program-overview`, `session-summary` and
+`exercise-chart` were already lazy-only and stay so even though production no
+longer references them.
+
+This pass also fixed a pre-existing bug it happened to touch directly: the
+four-session trend's screen-reader-only "to" used a `sr-only` class that was
+never defined in `styles.css` (the project's real utility is
+`.visually-hidden`), so the word rendered visibly next to the arrow glyph in
+the six-beat production candidate. It now uses `.visually-hidden` and is
+silent for sighted users, as originally intended.
+
+`landing.beat1`–`landing.beat6` i18n keys retire; `landing.program.*` and
+`landing.system.*` replace them in both catalogs, keeping the same underlying
+facts and fixture (Full body, week 5 of 6, `Hold 100 kg`, `92.5 → 100 kg`,
+127 kg best estimated 1RM). `test/install-modes.mjs`'s landing-shape oracle
+was updated alongside: its `/Program|Programa/` and render-inventory checks
+depended on alt text from renders this pass removed from production, and its
+`lastBeat`/`narrowSequence` checks silently covered only `.firstrun-beat` and
+would have kept passing without ever looking at the new signature section, so
+both were widened to cover `.firstrun-beats > *` and `.firstrun-signature__*`
+rather than loosened. A new `signatureCropAttached` assertion was added for
+the crop-over-anchor relationship the old composition never had.
+
+Cache revision advanced to `repforge-v257` (from `v256`) because `index.html`,
+`styles.css` and the generated `i18n.js` all changed; the coupled
+`shared-setup.js`/`app.js` `?v=` revisions moved in lockstep per the existing
+ritual even though neither file's content changed, to keep
+`test/exercise-library.mjs`'s lockstep check meaningful.
+
+See [premium art-direction refinement evidence](../pr-proof/premium-landing-refinement/README.md)
+for before/after captures, the full test run, and remaining trade-offs. This
+is an art-direction delta on top of the already-integrated Plan 054
+candidate, not a new product specification. PR #241 remains unmerged, Plan
+054 remains active, and physical iOS/Android and assistive-technology review
+remains open.
