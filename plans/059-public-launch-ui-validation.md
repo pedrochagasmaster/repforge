@@ -2,9 +2,8 @@
 
 Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
 and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
-External Herdr workers additionally follow the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md)
-and the [Herdr worker packets](#herdr-worker-packets) section below. The coordinator fills every packet field and the
-live SHAs, thread ID, server origin, and PID before dispatch.
+Execution mechanics are intentionally outside this plan's scope; this plan defines product scope, sequencing, proof,
+and owner gates only.
 
 - **Plan number:** 059
 - **Phase:** 8 — Public-launch validation
@@ -68,7 +67,7 @@ both H concerns) and R0–R9 disposition from the owner-ratified architecture ta
 
 1. On the exact final candidate SHA, verify one durable settlement/recovery authority, one DraftV2 store with its accepted session owner, one entry/lifecycle workflow, and one explicitly mounted/disposed gesture owner. No obsolete delegate may conceal a second implementation.
 2. Verify earned historical-projection and exercise-vocabulary reuse against actual consumers. An explicit, evidenced decision that generalization was not earned is valid where the governing plan allows it; speculative modules or orphaned findings are not.
-3. Verify Plan 058's executable release/cache contract, required/optional runtime policies, offline and old/new-worker behavior, and complete source/privacy/syntax coverage. All extracted runtime code must be in the verified scope.
+3. Verify Plan 058's executable release/cache contract, required/optional runtime policies, offline and old/new-service-worker behavior, and complete source/privacy/syntax coverage. All extracted runtime code must be in the verified scope.
 4. Verify that tests follow the production interfaces, removed scenarios have named equivalent evidence, every executable suite is registered once, unknown executable inputs remain conservative, and the merged PR238 runner remains the only suite scheduler. Diagnostic replay never changes a failed authoritative result to pass.
 5. Bind each architecture finding to its owning bridge/plan, implementation or explicitly allowed non-extraction disposition, current consumer, exact-SHA command/artifact and acceptance result. Missing evidence is open/failed/blocked, not inferred from historical green runs.
 6. Preserve all existing owner, physical-device, accessibility, staging, privacy and same-SHA gates. Plan 053's accepted old-SHA staging/device evidence establishes its predecessor contract; it is not new-SHA release proof. Route defects to their existing owner and rerun affected plus broad evidence after any source change.
@@ -288,18 +287,16 @@ Phase 059 is a release hold: a failed candidate is not promoted. Test/evidence c
 
 For every row: mark 🟡; execute only that slice; run focused proof; inspect all changes/artifacts; eliminate unrelated data; commit; push immediately; update the PR immediately. A failed row remains ⛔ with exact next steps rather than a local workaround.
 
-## Herdr worker packets
+## Bounded execution slices
 
-The atomic commit sequence above is the delivery contract. Each row is dispatched as one or more self-contained packets
-per the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md); the coordinator fills every template
-field before dispatch. This phase is an evidence hold, not a build — packets add tooling and record results, and any
-product failure is routed back to its owning plan on a fresh commit.
+The atomic commit sequence above is the delivery contract. The slices below define bounded objectives, proof-first
+assertions, STOP conditions, and reviewer gates without prescribing implementation staffing or tool/model selection. This phase is an evidence hold, not a build; slices add tooling and record results, and product failures return to their owning plan.
 
-Rules for every packet in this plan:
+Rules for every slice in this plan:
 
 - **Manifest and immutable candidate first.** 059-P1 pins the candidate SHA and the SHA-bound evidence manifest, and
-  **predeclares** every automation helper the later packets need (scroll-clearance driver, semantic-evidence recorder,
-  telemetry payload test) as PLANNED manifest rows with an owning packet — no helper appears without a prior
+  **predeclares** every automation helper the later slices need (scroll-clearance driver, semantic-evidence recorder,
+  telemetry payload test) as PLANNED manifest rows with an owning slice — no helper appears without a prior
   declaration.
 - **Physical-device evidence is human-only.** 059-P5's iOS Safari/PWA/VoiceOver and Android Chrome/PWA/TalkBack rows
   are never satisfied by a simulator, emulator, screenshot, or automated accessibility tree; the owner records them
@@ -315,13 +312,13 @@ Rules for every packet in this plan:
   `test/generative/run.mjs --profile ci`, `window.__repforgeBooted`, `sw.js` `ASSETS`/`SHELL`. **NEW** (this plan):
   the release evidence manifest + checker, the scroll-clearance driver, the semantic-evidence recorder, the telemetry
   allowlist schema + payload test.
-- **Every packet carries a deliberate failing case** and a STOP boundary.
+- **Every slice carries a deliberate failing case** and a STOP boundary.
 
-### Row → packet map
+### Row → slice map
 
-| Packet | Maps rows | Bounded objective · mode | Existing anchors (main unless NEW) | Proof-first: PLANNED assertion + independent oracle + deliberate failure | Commands: baseline now → planned | STOP · reviewer gate |
+| Slice | Maps rows | Bounded objective · mode | Existing anchors (main unless NEW) | Proof-first: PLANNED assertion + independent oracle + deliberate failure | Commands: baseline now → planned | STOP · reviewer gate |
 |---|---|---|---|---|---|---|
-| 059-P1 | 1 | Pin the candidate SHA; build the SHA-bound evidence manifest + checker with UI-01–UI-32 / G-01–G-88 rows, closed result states, and predeclared PLANNED automation helpers · **build (tooling only)** | governing docs; NEW release evidence manifest + checker | seed a duplicate, a missing, and a stale-SHA row and prove the checker rejects each; no row is `pass` without a named artifact/command/observation (oracle = the manifest schema). Failure: evidence recorded against two SHAs with no invalidation | baseline: `git diff --check` → planned: `node tools/check-release-evidence.mjs` (NEW) | STOP if a helper is used before it is declared, or a `pass` lacks an artifact · reviewer: coordinator records candidate SHA + open rows in the PR |
+| 059-P1 | 1 | Pin the candidate SHA; build the SHA-bound evidence manifest + checker with UI-01–UI-32 / G-01–G-88 rows, closed result states, and predeclared PLANNED automation helpers · **build (tooling only)** | governing docs; NEW release evidence manifest + checker | seed a duplicate, a missing, and a stale-SHA row and prove the checker rejects each; no row is `pass` without a named artifact/command/observation (oracle = the manifest schema). Failure: evidence recorded against two SHAs with no invalidation | baseline: `git diff --check` → planned: `node tools/check-release-evidence.mjs` (NEW) | STOP if a helper is used before it is declared, or a `pass` lacks an artifact · reviewer: candidate SHA + open rows are recorded in the PR |
 | 059-P2 | 2 | Final catalog + scroll-clearance matrix: live risk variants, semantic facts, per-state overflow, and a real scroll-end driver for every long surface in compact/standard, browser/installed · **build** | `tools/capture-ui-screens.mjs`, `tools/check-ui-screens.mjs`, `tools/compare-ui-screens.mjs`, `test/ui-screens.mjs`; NEW scroll-clearance driver (declared in 059-P1) | driver enters each long route with deterministic fixtures, scrolls to `scrollTop` max, and asserts the final content + final focusable action clear the persistent dock + safe-area inset and are not clipped by an inner scroller. Failure: occlusion inferred from a screenshot instead of a driven scroll-end | baseline: `node tools/check-ui-screens.mjs && node tools/compare-ui-screens.mjs` → planned: `node tools/capture-ui-screens.mjs` (full) + `node test/scroll-clearance.mjs` (NEW) | STOP if a screen lacks a role-required variant or a driver cannot reach true scroll end · reviewer: reproduces one long-surface clearance |
 | 059-P3 | 3 | Browser accessibility acceptance: focus order/restoration, announcements, selected/disabled/validation states, keyboard, targets, scaling, safe areas, reduced motion, dialog containment · **build** | `test/accessibility.mjs`, critical-flow suites, `window.__repforgeBooted` | one named journey per requirement (focus restoration after Share repair, History edit/cancel, transition preview, etc.); each asserts a semantic-tree fact, not a pixel. Failure: a threshold weakened so a failing journey "passes" | baseline: `node test/accessibility.mjs --touch-targets-320` → planned: `node test/launch-accessibility.mjs` (NEW) | STOP if any critical action is not operable without sight in-browser (physical AT is 059-P5) · reviewer: reproduces two per-requirement journeys |
 | 059-P4 | 4 | Freeze the launch telemetry allowlist: one schema doc + executable payload test over already-approved events; actual network/log inspection · **build** | `test/telemetry-leakage.mjs`, `telemetry.js` (`installationId`, consent keys); NEW allowlist schema + payload test | allowed events/properties pass; a forbidden property (program/exercise ID, loads/reps, notes, dates, token, exact size) fails; consent-off emits nothing (oracle = the allowlist doc). Failure: an unapproved event slips through | baseline: `node test/telemetry-leakage.mjs` → planned: `node test/launch-telemetry.mjs` (NEW) | STOP if inspection reveals sensitive content or a non-allowlisted event · reviewer: reproduces the consent-off silence and one forbidden-property rejection |
@@ -329,7 +326,7 @@ Rules for every packet in this plan:
 | 059-P6 | 6 | Reconcile shipped UI, catalog, audit, source inventory, backlog, ADRs, plans, brand guide, telemetry schema, tests, SW/cache inventory, and privacy claims to one candidate · **build (docs + consistency checks)** | `sw.js` `ASSETS`/`SHELL`, governing docs; evidence manifest | consistency/path/cache/disposition checks pass; every UI-01–UI-32 and G-01–G-88 row has a current SHA-bound disposition; a docs-only receipt edit does not trigger a full suite, but a source fix invalidates and re-runs affected + broad evidence. Failure: a stale cache revision or an embedded example that drifted from its fixture | baseline: `node tools/build-i18n.mjs --check` → planned: `node tools/check-release-evidence.mjs --reconcile` (NEW) | STOP on any cross-document/cache/schema drift — route product drift to the owning plan · reviewer: full command list run against the same candidate |
 | 059-P7 | 7 | Present the candidate for owner sign-off: clean remote boundary, no open threads or STOP conditions, no merge · **plan** | PR body/evidence; remote SHA | `git status --short` clean; remote head == candidate SHA; every owner gate audited; latest full regression references the same SHA. Failure: presenting with an open ⛔ row or a regression run on a different SHA | baseline: `node test/generative/run.mjs --profile ci` → planned: same, referenced by SHA in the manifest | STOP before any merge/release without explicit owner authorization · reviewer + owner: owner signs the evidence manifest |
 
-## Implementation-agent operating protocol
+## Implementation operating protocol
 
 ### Branch/worktree contract
 
@@ -340,7 +337,7 @@ Rules for every packet in this plan:
 - **Primary files:** launch evidence/checker, catalog test matrix/scenarios/PNGs, accessibility/telemetry privacy tests, final consistency documentation
 - **Shared hotspots:** catalog manifest/artifacts, test helpers, telemetry schema, SW/cache inventory, every governing doc; production code changes route to owning fix PR
 - **Conflicting phases:** none may continue changing public surfaces during a candidate run; any fix creates a new candidate SHA and invalidates evidence
-- **Safe parallelism:** Automated catalog, accessibility, and privacy checks can run in parallel against the exact same immutable SHA; physical device runs start after automation passes. One coordinator owns the evidence manifest
+- **Safe parallelism:** Automated catalog, accessibility, and privacy checks can run in parallel against the exact same immutable SHA; physical device runs start after automation passes. The evidence manifest has one authoritative writer at a time
 - **Integration order:** all implementation plans → 059 automation → physical devices → owner sign-off; no release before it
 
 Fetch/inspect main, branches, worktrees, and PRs; resume existing Plan 059 work. Use one coordination/evidence worktree and immutable candidate SHA; never copy uncommitted files or delete another worktree/branch. Push `chore(plan-059): start implementation`, open a draft PR, and populate it before validation work. Target main. When any fix merges, fetch and explicitly merge `origin/main`, invalidate affected evidence, rerun, push, and update the PR. Never rebase published history.

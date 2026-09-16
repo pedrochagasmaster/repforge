@@ -2,9 +2,8 @@
 
 Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
 and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
-External Herdr workers additionally follow the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md)
-and the [Herdr worker packets](#herdr-worker-packets) section below. The coordinator fills every packet field and the
-live SHAs, thread ID, server origin, and PID before dispatch.
+Execution mechanics are intentionally outside this plan's scope; this plan defines product scope, sequencing, proof,
+and owner gates only.
 
 - **Plan number:** 056
 - **Phase:** 5 — Progress and block lifecycle
@@ -322,20 +321,18 @@ Keep parsers for new navigation prefs and transition records. The UI can tempora
 
 For each row: mark 🟡; implement only the row; run its focused proof; inspect the complete diff; remove unrelated changes; commit; push immediately; update the PR; proceed only from a truthful remote boundary.
 
-## Herdr worker packets
+## Bounded execution slices
 
-The atomic commit sequence above is the delivery contract. Each row is dispatched as one or more self-contained packets
-per the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md); the coordinator fills every template
-field before dispatch. Dispatch order is **model → navigation → evidence/sparse charts → lifecycle actions →
-recovery**, so a worker never designs the whole phase.
+The atomic commit sequence above is the delivery contract. The slices below define bounded objectives, proof-first
+assertions, STOP conditions, and reviewer gates without prescribing implementation staffing or tool/model selection.
 
-Rules for every packet in this plan:
+Rules for every slice in this plan:
 
 - **Proactive fixtures with independent denominators.** 056-P1 builds known-schedule + known-log fixtures whose
   expected week/block denominators and evidence thresholds are computed by hand from the schedule, not from
   `progress-model.js`.
 - **Reuse Plan 052 proposals.** 056-P6/P7 call `RepForgeProgramTransition` (`proposeSibling`,
-  `proposeVolumeReduction`, `proposeRecoveryWeek`, `validateProposal`) and render its exact diff; no packet builds a
+  `proposeVolumeReduction`, `proposeRecoveryWeek`, `validateProposal`) and render its exact diff; no slice builds a
   second lifecycle/transition engine. Recovery uses the exact approved policy version 2 from
   `docs/recovery-week-policy.md`; nothing is invented and no runtime percentage clamp is added.
 - **Anchors are concrete.** Existing: `STATS_SEG` (`app.js:2905`), `setStatsSeg()` (`app.js:3864`),
@@ -346,12 +343,11 @@ Rules for every packet in this plan:
   `test/ui-catalog-contract.mjs`. **NEW** (this plan): `progress-model.js`, `test/progress-model.mjs`,
   `test/progress-navigation.mjs`, `test/progress-evidence.mjs`, `test/progress-lifecycle.mjs`,
   `test/progress-recovery.mjs`.
-- **Every packet carries a deliberate failing case** and a STOP boundary; the coordinator reproduces the risky
-  assertion before the next packet.
+- **Every slice carries a deliberate failing case** and a STOP boundary; the risky assertion is reproduced before the next slice.
 
-### Row → packet map
+### Row → slice map
 
-| Packet | Maps rows | Bounded objective · mode | Existing anchors (main unless NEW) | Proof-first: PLANNED assertion + independent oracle + deliberate failure | Commands: baseline now → planned | STOP · reviewer gate |
+| Slice | Maps rows | Bounded objective · mode | Existing anchors (main unless NEW) | Proof-first: PLANNED assertion + independent oracle + deliberate failure | Commands: baseline now → planned | STOP · reviewer gate |
 |---|---|---|---|---|---|---|
 | 056-P1 | 1 | Known-schedule / known-log fixtures pinning evidence scope, outcome/action vocabulary, period arithmetic, sparse-data policy, and active-vs-final review · **build (tests only)** | `weeklySnapshot()`, `buildBlockReview()`, `blockSnapshot()`, `DELTA_THRESHOLDS`; `test/progression-fixtures.mjs` | NEW `test/progress-model.mjs` characterization cases: expected week and block-to-date denominators computed by hand from the fixture schedule (oracle independent of any model code). Failure: fresh-program Overview yields "attention" rows with zero evidence; a 28-day window compared to a one-week plan | baseline: `node test/progression-fixtures.mjs && node test/progression-engine.mjs` → planned: `node test/progress-model.mjs` | STOP if a label's time scope or denominator cannot be reconstructed from the fixture · reviewer: reproduces one denominator by hand and the fresh-program baseline |
 | 056-P2 | 2 | Pure `progress-model.js`: `buildWeekStatus` / `buildProgramActionQueue` / `buildReviewCheckpoint` / `buildStrengthEvidence` / `buildVolumeEvidence` / `buildPREvidence` returning codes/values/scopes/counts/destination IDs, not HTML · **build** | authoritative progression results; `RepForgeProgramTransition` API (read-only here); NEW `progress-model.js` | extend `test/progress-model.mjs`: every observation has `evidenceState` and, only when sufficient, an `outcome`; `insufficient` never enters action counts, warning colors, or transition eligibility. Failure: the model recomputes a progression threshold or a transition diff itself | baseline: `node test/generative/run.mjs --profile ci` → planned: `node test/progress-model.mjs` | STOP if the model reimplements progression or transition math · reviewer: reproduces the insufficient-evidence exclusion |
@@ -363,7 +359,7 @@ Rules for every packet in this plan:
 | 056-P8 | 8 | Attach Progress interpretation/review contextual cues through Plan 054's guide registry · **build** | Plan 054 guide registry (merged); `progress` UI in `app.js` | extend `test/progress-navigation.mjs` (or NEW `test/progress-guides.mjs`): complete/dismiss/replay/missing-anchor focus behavior; no behavior loss when cues are disabled. Failure: a cue floats with no anchor | baseline: `node test/accessibility.mjs` → planned: `node test/progress-guides.mjs` | STOP if the registry is not merged or a cue orphans · reviewer: reproduces replay and deferred-anchor |
 | 056-P9 | 9 | Lifecycle + catalog acceptance: full locales/themes/text/reduced-motion, transition-fault journeys through visible UI, catalog regen, owner-phone evidence · **build + human evidence** | catalog flow `progress`; `test/ui-catalog-contract.mjs`; physical-phone owner | regenerate `node tools/capture-ui-screens.mjs --flow progress`; stale/duplicate/two-tab/crash behavior from Plan 052 verified through the Progress UI. Failure recorded, not hidden: a transition preview hash that differs from its commit hash | baseline: `node test/ui-catalog-contract.mjs` → planned: `node tools/capture-ui-screens.mjs --flow progress` then `node tools/check-ui-screens.mjs` | STOP if preview and commit hashes differ or archive/history/progression identity is not preserved · reviewer + owner: device review of baseline/action scopes, all previews, and recovery wording signed into the PR |
 
-## Implementation-agent operating protocol
+## Implementation operating protocol
 
 ### Branch/worktree contract
 

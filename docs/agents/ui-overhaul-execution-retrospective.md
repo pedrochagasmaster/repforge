@@ -1,7 +1,7 @@
 # Execution lessons from Plans 050 and 051
 
-This document records evidence for revising Plans 052–059, not new product
-direction. The main problem was late proof of cross-cutting contracts combined
+This document records the evidence that originally informed revisions to Plans 052–059, not new product
+direction. Its routing-specific observations are historical; current execution mechanics come from the active plans. The main problem was late proof of cross-cutting contracts combined
 with quota interruptions and excessive coordinator handoffs. The available
 evidence does not justify assigning percentages of delay or ranking model ability.
 
@@ -44,7 +44,7 @@ This correction illustrates why worker summaries require source checks.
 | Important existing intent and precision behavior was proved late | `89345e6a` adds `contextTouched`, canonical unit precision, and queue/refresh completion cases | Carry preserved invariants into initial fixtures, including cleared values and exact numeric state, not only happy-path logging |
 | A generic pending lock did not identify the intended race | `06988ac8` replaces that wait with the queued set-reduction journal and drains boot work | Fault fixtures wait on the exact operation before injecting the competing write |
 | Active tab did not mean destination content existed | `5979fb5f` waits for the target exercise card before the existing attention-routing assertions | Separate navigation, rendering, and durable completion assertions; no arbitrary sleeps |
-| Quota stalls were amplified by orchestration churn | Plan 050 limit errors and Plan 051 September 7 audit describe initialization stalls, repeated status interruptions, and small follow-up assignments | External workers, one bounded contract per turn, uninterrupted execution within that contract, script-based monitoring |
+| Quota stalls were amplified by orchestration churn | Plan 050 limit errors and Plan 051 September 7 audit describe initialization stalls, repeated status interruptions, and small follow-up assignments | Keep each implementation slice bounded to one contract, avoid status-only interruptions inside that slice, and use script-based monitoring where useful |
 | Worker reports were not reliable evidence | Plan 051 external closeout brief corrects an invented SHA suffix, a claimed test count, and an omitted CI retry | Read actual Git/CI state; preserve failing run history; independently judge assertions and exact SHAs |
 
 The strategic improvement was not merely using another model. The later Plan
@@ -54,10 +54,9 @@ That reduced the engineering decisions left to the worker.
 
 ## What changes now
 
-The [Herdr procedure](herdr-ui-overhaul-execution.md) and each revised plan put
-proof before expansion. The coordinator prepares one bounded packet, then lets
-the worker execute it without status-only interruptions. A packet can contain
-several related assertions; it is not one dispatch per assertion or CSS rule.
+The revision that followed this retrospective put proof before expansion and originally paired that discipline with
+the [Herdr procedure](herdr-ui-overhaul-execution.md). The routing mechanics are now historical for Plans 052–054.
+Plans 055–059 retain the bounded, proof-first slices and STOP/review gates without prescribing implementation mechanics.
 
 Plan 052 proves real proposal/commit/reload/archive integration early. Plan 053
 first resolves the actor/fault table and acknowledged clone boundary. Plans

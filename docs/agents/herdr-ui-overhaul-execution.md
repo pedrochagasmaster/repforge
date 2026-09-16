@@ -1,16 +1,13 @@
-# Dispatch bounded UI-overhaul work through Herdr
+# Historical Herdr UI-overhaul execution procedure
 
-Use this procedure for Plans 052–059. The numbered plan owns product scope,
-atomic commits, dependencies, rollback, and owner gates. The
-[evidence protocol](implementation-evidence.md) owns acceptance and review.
-This document explains how to execute those contracts with external workers.
-It does not authorize a new feature, weaker test, or additional owner gate.
+This document is retained as execution history for UI-overhaul work that used Herdr during Plans 052–054. It no longer
+governs future UI-overhaul plans. Plans 055–059 intentionally specify product scope, atomic commits, dependencies,
+rollback, proof, and owner gates without prescribing execution mechanics. The
+[evidence protocol](implementation-evidence.md) remains the active acceptance and review contract.
 
-Plan 053 is the owner-authorized transport/model exception: use its
-[native Luna worker protocol](../../plans/053-ios-install-transfer-foundation.md#native-luna-worker-protocol)
-instead of this document's Herdr dispatch and model routing. Its separate-writer
-worktrees and integration ownership govern concurrency. Other plans retain
-the defaults here.
+Plan 053 used an owner-authorized transport/model exception through its
+[native Luna worker protocol](../../plans/053-ios-install-transfer-foundation.md#native-luna-worker-protocol).
+That exception and the Herdr routing below are historical records, not defaults for Plans 055–059.
 
 ## Establish one writer and an accurate starting point
 

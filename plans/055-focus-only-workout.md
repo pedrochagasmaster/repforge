@@ -2,9 +2,8 @@
 
 Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
 and this plan's [first proof checkpoint](../docs/agents/ui-overhaul-proof-checkpoints.md).
-External Herdr workers additionally follow the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md)
-and the [Herdr worker packets](#herdr-worker-packets) section below. The coordinator fills every packet field and the
-live SHAs, thread ID, server origin, and PID before dispatch.
+Execution mechanics are intentionally outside this plan's scope; this plan defines product scope, sequencing, proof,
+and owner gates only.
 
 - **Plan number:** 055
 - **Phase:** 4 — Focus-only workout
@@ -56,7 +55,7 @@ Preserve the Today → workout → save → centered summary loop, Focus's one-e
 - The global app dock is hidden in Focus via body state, but exit semantics and draft preservation need one explicit action.
 - Today's start action can create the workout state. The new Preview action must be observational and storage-silent.
 - `styles.css` contains separate List (`.ex`, set row/table, floating rest) and Focus (`.focus-*`, `.deck`, `.ledger`, `.wo-rest`) systems, plus fixed/min-height/absolute-position rules causing whitespace and timer/title pressure.
-- `test/focus-mode.mjs` reported 116 passing cases at the planning baseline; treat that as a historical figure and re-measure on the dispatch base SHA. `test/simulation.mjs` and the tour tests intentionally toggle both modes and sometimes query hidden inputs.
+- `test/focus-mode.mjs` reported 116 passing cases at the planning baseline; treat that as a historical figure and re-measure on the implementation base SHA. `test/simulation.mjs` and the tour tests intentionally toggle both modes and sometimes query hidden inputs.
 - Catalog states include `workout/list`, `workout/focus`, rest timer, exercise note, and why; the global `install/tour` depicts List/Focus switching.
 
 ## Capability parity table
@@ -293,20 +292,18 @@ Before List deletion, the single DraftV2 renderer can fall back to the prior pro
 
 For every row: mark 🟡; implement only that slice; run focused verification; inspect the complete diff; eliminate unrelated edits; commit; push immediately; update the PR; continue only from a truthful remote checkpoint.
 
-## Herdr worker packets
+## Bounded execution slices
 
-The atomic commit sequence above is the delivery contract. Each row is dispatched as one or more self-contained packets
-per the [Herdr dispatch procedure](../docs/agents/herdr-ui-overhaul-execution.md); the coordinator fills every template
-field before dispatch. Row 3 is split so the Session sheet and the Exercise-actions sheet are separate worker
-boundaries, and navigation/reorder/leave is its own boundary.
+The atomic commit sequence above is the delivery contract. The slices below define bounded objectives, proof-first
+assertions, STOP conditions, and reviewer gates without prescribing implementation staffing or tool/model selection.
 
-Rules for every packet in this plan:
+Rules for every slice in this plan:
 
 - **Proactive parity first.** 055-P1 converts the whole capability table into visible-control test cases before any
-  relocation packet, and List is deleted only after every row is green — 055-P8 proves *deletion parity*, nothing new.
-- **Reuse Plan 051, do not redo it.** Packets consume `activeWorkoutDraft` and `window.__repforgeWorkoutDraft`
+  relocation slice, and List is deleted only after every row is green — 055-P8 proves *deletion parity*, nothing new.
+- **Reuse Plan 051, do not redo it.** Slices consume `activeWorkoutDraft` and `window.__repforgeWorkoutDraft`
   (`current`, `dispatch`, `flush`, `checkpoint`, `read`, `state`) and the existing `test/workout-draft-*.mjs` suites;
-  packets rerun affected DraftV2 crash/storage proof when they change its callers, without rebuilding its implementation.
+  slices rerun affected DraftV2 crash/storage proof when they change its callers, without rebuilding its implementation.
 - **Anchors are concrete.** Existing: mode switch + Focus render in `app.js`, `#todayNoProgram`, session summary path
   (`buildSessionSummary`, `openSessionSummary` in `app.js`), `.focus-*` / `.deck` / `.ledger` / `.wo-rest` styles,
   `sw.js` `SHELL` six protected scripts, `test/exercise-library.mjs` revision lockstep, `test/focus-mode.mjs`,
@@ -316,12 +313,11 @@ Rules for every packet in this plan:
   `test/focus-navigation.mjs`.
 - **Plan 054 guide registry stays intact.** 055-P8 removes only List-specific guide copy, after Plan 054's registry is
   merged; it never restores the global tour.
-- **Every packet carries a deliberate failing case** and a STOP boundary; the coordinator reproduces the risky
-  assertion before the next relocation packet.
+- **Every slice carries a deliberate failing case** and a STOP boundary; the risky assertion is reproduced before the next relocation slice.
 
-### Row → packet map
+### Row → slice map
 
-| Packet | Maps rows | Bounded objective · mode | Existing anchors (main unless NEW) | Proof-first: PLANNED assertion + independent oracle + deliberate failure | Commands: baseline now → planned | STOP · reviewer gate |
+| Slice | Maps rows | Bounded objective · mode | Existing anchors (main unless NEW) | Proof-first: PLANNED assertion + independent oracle + deliberate failure | Commands: baseline now → planned | STOP · reviewer gate |
 |---|---|---|---|---|---|---|
 | 055-P1 | 1 | Convert the capability parity table into executable visible-control cases with a destination per row; record baseline gaps · **build (tests only)** | parity table in this plan; `window.__repforgeWorkoutDraft.state`/`projection`; `test/focus-mode.mjs`, `test/workout-draft-parity.mjs` | NEW `test/focus-only-parity.mjs`: each capability is exercised through a visible control and asserted against DraftV2 projection (oracle = the table's "Required proof" column), with no hidden `data-k` input query. Failure: a row that only passes by reading a hidden List input | baseline: `node test/focus-mode.mjs && node test/workout-draft-parity.mjs` → planned: `node test/focus-only-parity.mjs` | STOP if a parity row has no visible-control path or no owner scope · reviewer: reproduces the no-hidden-input run and the gap list |
 | 055-P2 | 2 | Today read-only session Preview: planned-session view model, distinct Start boundary, storage-silent · **build** | Today start action + `renderTodayNoProgram` in `app.js`; `window.__repforgeWorkoutDraft.current` | NEW `test/today-preview.mjs`: opening and closing Preview produces zero change to draft, log, durable revision, timers, and start telemetry (oracle = pre-open snapshot). Failure: Preview calls DraftV2 `create()`, writes a timestamp, or emits a workout-start event | baseline: `node test/today-done.mjs` → planned: `node test/today-preview.mjs` | STOP if Preview writes any draft/session/start state · reviewer: reproduces the zero-write diff |
@@ -333,7 +329,7 @@ Rules for every packet in this plan:
 | 055-P8 | 7 | Remove obsolete List markup/styles/translations/tests/catalog scenario and List-tour references; replace List-based behavior tests with visible Focus/Session/Exercise proof; SW + six script revisions in lockstep · **build** | `sw.js` `SHELL` (`program-compiler.js`, `program-entry.js`, `program-entry-adapter.js`, `shared-setup.js`, `workout-draft.js`, `app.js`), `test/exercise-library.mjs` lockstep, catalog `workout/list`; Plan 054 guide registry (merged) | source/test grep proves no `workout/list` route, markup selector, hidden `data-k` owner, or List-tour step remains (excluding historical docs); each removed behavior test has a named visible replacement. Failure: a live selector still references List | baseline: `node test/exercise-library.mjs && node test/ui-catalog-contract.mjs` → planned: same, plus the grep audit script (NEW) | STOP if any parity row still queries hidden markup, or the guide registry is not merged · reviewer: reproduces the selector audit and one replacement test |
 | 055-P9 | 8 | Focus-only release evidence: full catalog regen, SW upgrade mid-draft, reduced motion, accessibility, real-phone owner review · **build + human evidence** | `test/sw-upgrade.mjs`, `test/workout-draft-sw-upgrade.mjs`, catalog manifest; physical-phone owner | regenerate `node tools/capture-ui-screens.mjs --flow workout --flow session --flow today`; critical-flow matrix at EN/PT, light/dark, 320/390/430, 200%, PT+200, reduced motion. Failure recorded, not hidden: a service-worker update mid-draft that loses the resume point | baseline: `node test/workout-draft-sw-upgrade.mjs && node test/sw-upgrade.mjs` → planned: `node tools/capture-ui-screens.mjs --flow workout` then `node tools/check-ui-screens.mjs` | STOP if real-phone one-handed review is claimed from emulation · reviewer + owner: device review and full regression/catalog evidence signed into the PR (Plan 059 repeats launch sign-off) |
 
-## Implementation-agent operating protocol
+## Implementation operating protocol
 
 ### Branch/worktree contract
 
@@ -347,7 +343,7 @@ Rules for every packet in this plan:
 - **Safe parallelism:** Core work may run beside Plan 054 and Plan 056 in file-partitioned commits; serialize shell/i18n/SW/manifest and merge main before proof
 - **Integration order:** 049/050/051 → 055; guide-deletion slice after 054; then relevant 057/058/059
 
-Fetch current main; inspect branches/worktrees/PRs; resume existing work. Use one dedicated worktree; keep coordination checkout clean; never copy uncommitted files or delete another agent's work. Push `chore(plan-055): start implementation`, open a draft PR, and populate it before substantive work. Target main. When prerequisites merge, fetch and explicitly merge `origin/main`, resolve deliberately, rerun affected proof, push, update PR. Do not rebase published history.
+Fetch current main; inspect branches/worktrees/PRs; resume existing work. Use one dedicated worktree; keep coordination checkout clean; never copy uncommitted files from another worktree or delete another worktree/branch. Push `chore(plan-055): start implementation`, open a draft PR, and populate it before substantive work. Target main. When prerequisites merge, fetch and explicitly merge `origin/main`, resolve deliberately, rerun affected proof, push, update PR. Do not rebase published history.
 
 ### Required implementation PR body
 

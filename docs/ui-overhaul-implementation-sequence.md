@@ -33,12 +33,12 @@ Revalidated on 2026-09-07 at main
   for conflict risk; do not import their product or dependency choices into this
   program without authorization.
 
-Use the [Herdr execution procedure](agents/herdr-ui-overhaul-execution.md)
-before dispatching work. Each plan supplies bounded packets mapped to its atomic
-rows. The [execution lessons](agents/ui-overhaul-execution-retrospective.md)
-explain the source evidence; the [Plan 052 prompt](agents/prompts/plan-052-herdr.md)
-resumes the existing branch. These additions change delivery mechanics, not the
-approved phase order or product gates.
+Plans 055–059 intentionally leave implementation mechanics unspecified. Each plan supplies bounded execution slices
+mapped to its atomic rows, while the [evidence protocol](agents/implementation-evidence.md),
+[proof checkpoints](agents/ui-overhaul-proof-checkpoints.md), and
+[execution lessons](agents/ui-overhaul-execution-retrospective.md) define the required acceptance discipline. Historical
+Herdr and Plan 052 routing documents are execution records only. This change does not alter the approved phase order or
+product gates.
 
 The first implementation action is to inspect PR #228 and merge current main
 explicitly in its clean dedicated worktree. Reprove its published proposal and
@@ -49,19 +49,15 @@ history or wait for already-merged Plans 050 and 051.
 
 | Work | Can start now? | Isolation and merge constraint |
 |---|---|---|
-| 052 published-contract review and next packet | Yes | Resume #228; one writer; merge main before storage integration |
-| 053 service contract and fake-clock tests | Yes | Separate worktree; service-only files; client/storage changes serialize with 052 |
-| 054 landing visual proposals and route characterization | Yes | Preserve owner selection gate; established-data install flow waits for 053 |
-| 055 capability characterization | Yes | Reuse 051 proof; UI changes still follow the plan's phase and guide-registry gates |
-| 056 evidence fixtures/model preparation | Independent preparation only | Transition consumer waits for 052; no competing proposal implementation |
-| 057–058 source inventory | Read-only preparation | Public mutations wait for their existing predecessor gates |
+| 055 Focus-only workout | Yes | Reuse Plan 051 proof and the merged Plan 054 guide registry; keep a separate worktree and serialize shared shell/i18n/SW/manifest integration with 056 |
+| 056 Progress and block lifecycle | Yes | Reuse the merged Plan 052 transition contract; keep a separate worktree and serialize shared shell/i18n/SW/manifest integration with 055 |
+| 057 management-surface inventory | Read-only preparation | Public mutations wait for 055 and 056 to merge |
+| 058 design-system inventory | Read-only preparation | Surface migration waits for principal surfaces through 057 |
 | 059 launch acceptance | No | All implementation and required owner gates must close first |
 
-Parallel worktrees isolate files, not CPU, ports, provider quota, or mutable
-contracts. Assign a distinct server and artifact directory per plan. Serialize
-heavy captures and browser runs when they contend. Within a plan, prefer one
-writer plus a bounded read-only oracle review. Across plans, the integrator
-merges main and reruns affected proof at every shared-file boundary.
+Parallel worktrees isolate files, not CPU, ports, or mutable contracts. Keep plan worktrees, server ports, and artifact
+directories distinct. Serialize heavy captures and browser runs when they contend, and serialize commits that touch shared
+hotspots. Merge current main and rerun affected proof at every shared-file boundary.
 
 ## Repository reconstruction evidence
 
@@ -74,9 +70,9 @@ Production-backed baseline checks passed before planning: Focus 116, History 40,
 ## Post-Plan053 architecture bridge
 
 Current status: implemented in PR #240 and merged at
-`3710f34bb677c59674a3677c03d2fc1427e07cef`. Plan 054 is now active. The
-planning-time bullets below retain the bridge's required scope and sequencing;
-they no longer describe outstanding work.
+`3710f34bb677c59674a3677c03d2fc1427e07cef`. Plan 054 subsequently merged in PR #241 at
+`87833ded1e92ba3bc68308860d40939c5ca9b1c6`; Plans 055 and 056 are now the parallel implementation frontier. The
+planning-time bullets below retain the bridge's required scope and sequencing; they no longer describe outstanding work.
 
 - It is an unnumbered bounded engineering bridge, not a new product plan.
 - It begins only after owner-approved Plan 053 has merged.
@@ -215,7 +211,7 @@ weakens any visual, staging, physical-device, privacy, or same-SHA gate.
 | 054 | Visual-direction preparation only before bridge | Read-only 055/056 characterization; no later production implementation | Merged durable-state bridge, 050/053, imagegen owner selection | shell, entry modules, i18n, SW, manifest; high |
 | 055 | Production after 054 and bridge | 056 Progress with explicit file partition | Bridge, 051, 054; List deletion requires parity and accepted session owner | workout portions of app/index/CSS, gesture lifetime, i18n, SW, catalog; very high |
 | 056 | Production after 054 and bridge | 055 workout with explicit file partition | Bridge, 052 policy version 2, 054 | Progress/Program portions, compiler adapter, i18n, SW, manifest; very high |
-| 057 | No | History and Share investigation/tests may be prepared, but one branch/integrator owns shared files | 054, 055, 056 | Almost every monolithic UI file; very high |
+| 057 | No | History and Share investigation/tests may be prepared in isolated worktrees; shared-file integration is serialized | 054, 055, 056 | Almost every monolithic UI file; very high |
 | 058 | Inventory/checker can prepare against a pinned snapshot | Automated inventory preparation only | Principal UI plans 054–057 | Entire public CSS/markup/catalog; serialize all visual work |
 | 059 | No | Catalog, accessibility, and privacy checks can run concurrently against the same immutable SHA | 049–058 and all gates | Evidence manifest is single-writer; any source fix invalidates evidence |
 
