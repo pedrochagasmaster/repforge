@@ -658,10 +658,10 @@ div.settings-row{cursor:default}
 .today-last{display:flex;align-items:center;gap:8px;margin:22px 0 8px;font-size:13px;color:var(--ink-faint)}
 
 /* ---- Active workout ---- */
-.wo-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
-.wo-head__center{text-align:center;min-width:0;flex:1}
-.wo-head__title{font-size:17px;font-weight:600}
-.wo-head__sub{font-size:13px;color:var(--ink-soft);margin-top:2px}
+.wo-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;min-height:44px}
+.wo-head__center{text-align:center;min-width:0;flex:1;overflow:hidden}
+.wo-head__title{font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wo-head__sub{font-size:13px;color:var(--ink-soft);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wo-head__end{display:flex;align-items:center;gap:6px;flex:none;position:relative;justify-self:end}
 /* Rest lives in the workout chrome, never over the card's controls: a square
    with the stopwatch while idle, a counting pill once it is running. */

@@ -132,6 +132,7 @@ export const SUITES = {
     s("test/focus-session-sheet.mjs"),
     s("test/focus-exercise-actions.mjs"),
     s("test/focus-navigation.mjs"),
+    s("test/focus-geometry.mjs"),
     s("test/recommendation-parity.mjs"),
     s("test/progression-strategies-ui.mjs"),
     s("test/sheet-swipe-dismiss.mjs"),

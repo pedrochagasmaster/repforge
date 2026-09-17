@@ -1,3 +1,29 @@
+function mountFallbackGestures() {
+  document.addEventListener("pointerdown", sheetDragStart);
+  window.addEventListener("pointermove", sheetDragMove, { passive: true });
+  window.addEventListener("pointerup", sheetDragEnd);
+  window.addEventListener("pointercancel", sheetDragEnd);
+  const wk = $("#workout");
+  if (wk) wk.addEventListener("pointerdown", focusDragStart);
+  window.addEventListener("pointermove", focusDragMove, { passive: true });
+  window.addEventListener("pointerup", focusDragEnd);
+  window.addEventListener("pointercancel", focusDragEnd);
+  let disposed = false;
+  return {
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      document.removeEventListener("pointerdown", sheetDragStart);
+      window.removeEventListener("pointermove", sheetDragMove);
+      window.removeEventListener("pointerup", sheetDragEnd);
+      window.removeEventListener("pointercancel", sheetDragEnd);
+      if (wk) wk.removeEventListener("pointerdown", focusDragStart);
+      window.removeEventListener("pointermove", focusDragMove);
+      window.removeEventListener("pointerup", focusDragEnd);
+      window.removeEventListener("pointercancel", focusDragEnd);
+    }
+  };
+}
 const KEY="repforge_v1",DRAFT="repforge_draft_v1",NOTIFY_META="repforge_notify_v1";
 const WorkoutDraft=window.RepForgeWorkoutDraft;
 const InstallPolicy=window.RepForgeInstallPolicy;
@@ -14727,12 +14753,7 @@ function init(){
   const ptShare=$("#programTextShare");if(ptShare)ptShare.onclick=shareProgramText;
   trackSheetViewport();
   blockZoomGestures();
-  // Every bottom sheet is dismissed the way its grab handle says it is: pushed
-  // back down. Delegated, so a sheet added later is dragged without new wiring.
-  document.addEventListener("pointerdown",sheetDragStart);
-  window.addEventListener("pointermove",sheetDragMove,{passive:true});
-  window.addEventListener("pointerup",sheetDragEnd);
-  window.addEventListener("pointercancel",sheetDragEnd);
+  // Sheet and card deck gestures are mounted via explicit gesture controller lifetime.
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
   const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>navTo("log");
   const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({focus:true});
@@ -14769,12 +14790,7 @@ function init(){
     closeEffortPop()},{capture:true});
   let deckResize;
   window.addEventListener("resize",()=>{clearTimeout(deckResize);deckResize=setTimeout(sizeFocusDeck,120)});
-  // Focus mode is a card deck: drag it sideways, or use the arrow keys.
-  const wk=$("#workout");
-  if(wk)wk.addEventListener("pointerdown",focusDragStart);
-  window.addEventListener("pointermove",focusDragMove,{passive:true});
-  window.addEventListener("pointerup",focusDragEnd);
-  window.addEventListener("pointercancel",focusDragEnd);
+  // Keyboard navigation for card deck; pointer drag owned by gesture controller.
   document.addEventListener("keydown",e=>{
     if(!workoutActive||logMode!=="focus")return;
     if(e.metaKey||e.ctrlKey||e.altKey)return;
@@ -15018,6 +15034,13 @@ function init(){
   if(!maybeShowFirstRun()){
     maybeShowOnboarding();
     if(!$("#onboarding").classList.contains("active"))maybeShowInstallBanner()}
+  // Explicit gesture controller lifetime (Candidate D / R2)
+  if (window.RepForgeMotion?.mountGestureController) {
+    window.__repforgeGestureHandle = window.RepForgeMotion.mountGestureController();
+  } else {
+    window.__repforgeGestureHandle = mountFallbackGestures();
+  }
+
   // The one signal that the whole boot pipeline — replica recovery, first-run
   // persistence, the first render — has finished. Test gates used to wait for a
   // day tab, which a device with no program never grows.
