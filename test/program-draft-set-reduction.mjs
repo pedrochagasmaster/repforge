@@ -322,21 +322,33 @@ async function settleBootStorage(page) {
 }
 
 async function waitForQueuedReductionJournal(page) {
-  await page.waitForFunction(
-    (exerciseId) => Object.keys(localStorage)
-      .filter((key) => key.startsWith("repforge_pending_v1:"))
-      .some((key) => {
-        try {
-          const journal = JSON.parse(localStorage.getItem(key) || "null");
-          const exercise = journal?.proposal?.program?.find((entry) => entry?.id === exerciseId);
-          return journal?.version === 2 && exercise?.sets === 1;
-        } catch {
-          return false;
-        }
-      }),
-    EXERCISE_ID,
-    { timeout: 10000 }
-  );
+  try {
+    await page.waitForFunction(
+      (exerciseId) => Object.keys(localStorage)
+        .filter((key) => key.startsWith("repforge_pending_v1:"))
+        .some((key) => {
+          try {
+            const journal = JSON.parse(localStorage.getItem(key) || "null");
+            const exercise = journal?.proposal?.program?.find((entry) => entry?.id === exerciseId);
+            return journal?.version === 2 && exercise?.sets === 1;
+          } catch {
+            return false;
+          }
+        }),
+      EXERCISE_ID,
+      { timeout: 10000 }
+    );
+  } catch (error) {
+    const detail = await page.evaluate(async () => ({
+      pending: Object.keys(localStorage).filter((key) => key.startsWith("repforge_pending_v1:")),
+      editorOpen: !document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
+      editorStatus: document.querySelector('#programEditor [data-role="editor-status"]')?.textContent || "",
+      leaveDialog: document.querySelector("#programEditorLeave")?.hasAttribute("open") || false,
+      programSets: JSON.parse(localStorage.getItem("repforge_v1") || "{}").program?.find((entry) => entry.id === "draft-guard-press")?.sets,
+      locks: await navigator.locks.query(),
+    }));
+    throw new Error(`timed out waiting for queued reduction journal: ${JSON.stringify(detail)}`, { cause: error });
+  }
 }
 
 async function releaseStorageLock(page) {

@@ -2092,7 +2092,7 @@ function draftHasProgressInRemovedSets(exerciseId,nextSets,currentSets,d){
     return exercise.setOrder.some(setId=>{
       const set=exercise.sets[setId];
       return set.ordinal>nextSets&&(set.completion!=="pending"||set.role==="warmup"||
-        set.touched.load||set.touched.reps||set.touched.effort||parseDec(set.edited.load)>0)})}
+        set.touched.load||set.touched.reps||set.touched.effort)})}
   const marked=new Set(["__done","__touched","__warm"].flatMap(k=>Array.isArray(d[k])?d[k]:[]));
   for(let n=nextSets+1;n<=currentSets;n++){
     const key=`${exerciseId}_${n}`;
