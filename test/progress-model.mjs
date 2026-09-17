@@ -7,7 +7,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
 const fixturePath = path.join(root, "test/fixtures/progress-evidence-v1.json");
@@ -134,8 +134,13 @@ if (fs.existsSync(modelPath)) {
   assert.equal(weekStatus.outcome, undefined, "partial week must not carry a final weekly outcome");
 
   const freshStatus = model.buildWeekStatus(program, { started: program.started, mesocycleLengthWeeks: program.mesocycleLengthWeeks }, [], now);
-  assert.equal(freshStatus.status, "not-started");
+  assert.equal(freshStatus.status, "in-progress", "a started week with zero logs is live, not failing");
+  assert.equal(freshStatus.completedSessions, 0);
   assert.equal(freshStatus.outcome, undefined, "fresh program must not infer an outcome");
+
+  const noBlock = model.buildWeekStatus(program, { started: null, mesocycleLengthWeeks: program.mesocycleLengthWeeks }, [], now);
+  assert.equal(noBlock.status, "not-started");
+  assert.equal(noBlock.outcome, undefined);
 
   const freshQueue = model.buildProgramActionQueue(program, { started: program.started }, [], {});
   assert.deepEqual(freshQueue, expected.freshProgram.actionItems, "fresh program has no action items");
@@ -159,10 +164,70 @@ if (fs.existsSync(modelPath)) {
   assert.equal(volume.completedWorkingSets, expected.blockToDate.completedWorkingSets);
   assert.equal(volume.plannedWorkingSets, expected.blockToDate.plannedWorkingSets);
   assert.equal(volume.period.plannedSessions, expected.blockToDate.plannedSessions);
+  assert.equal(volume.period.elapsedNumberedWeeks, expected.blockToDate.elapsedNumberedWeeks);
+  assert.equal(volume.periodStatus, "in-progress");
+
+  const thisWeek = model.buildVolumeEvidence("this-week", program, { started: program.started }, log, now);
+  assert.equal(thisWeek.completedWorkingSets, expected.currentWeek.completedWorkingSets);
+  assert.equal(thisWeek.plannedWorkingSets, expected.currentWeek.plannedWorkingSets);
+  assert.equal(thisWeek.period.start, expected.currentWeek.start);
+  assert.equal(thisWeek.period.end, expected.currentWeek.end);
+  assert.equal(thisWeek.periodStatus, "in-progress", "partial week is in progress, not a decline");
 
   const freshVolume = model.buildVolumeEvidence("block-to-date", program, { started: program.started }, [], now);
   assert.equal(freshVolume.completedWorkingSets, 0);
   assert.equal(freshVolume.evidenceState, "insufficient", "zero completed work is insufficient, not zero progress");
+
+  const prAll = model.buildPREvidence("all-history", log, { started: program.started })
+    .filter((e) => e.exerciseId === "bench");
+  assert.deepEqual(prAll.map((e) => e.date), ["2026-08-24", "2026-08-31", "2026-09-07", "2026-09-14"], "bench load PRs across history");
+  const prBlock = model.buildPREvidence("current-block", log, { started: program.started })
+    .filter((e) => e.exerciseId === "bench");
+  assert.deepEqual(prBlock.map((e) => e.date), ["2026-09-07", "2026-09-14"], "bench load PRs inside the block");
+  assert.equal(prBlock[0].priorValue, 80, "PR entry carries the prior top value");
+  assert.ok(prAll.every((e) => e.kind === "load"));
+
+  const benchAllSeries = model.buildStrengthEvidence("all-history", "bench", log, { started: program.started });
+  assert.equal(benchAllSeries.presentation, "trend");
+  assert.equal(benchAllSeries.evidenceCount, strength.bench.allHistory.points);
+
+  // Architecture-audit acceptance: deterministic, correction-sensitive,
+  // identity-stable, and archive/current-separated.
+  const source = fs.readFileSync(modelPath, "utf8");
+  for (const forbidden of ["document", "localStorage", "sessionStorage", "XMLHttpRequest", "fetch("]) {
+    assert.ok(!source.includes(forbidden), `pure model must not contain ${forbidden}`);
+  }
+
+  const metaWith = { started: program.started, mesocycleLengthWeeks: program.mesocycleLengthWeeks };
+  const runAll = () => ({
+    week: model.buildWeekStatus(program, metaWith, log, now),
+    queue: model.buildProgramActionQueue(program, metaWith, log, []),
+    review: model.buildReviewCheckpoint(program, metaWith, log, now),
+    strength: model.buildStrengthEvidence("current-block", "bench", log, metaWith),
+    volume: model.buildVolumeEvidence("block-to-date", program, metaWith, log, now),
+    prs: model.buildPREvidence("current-block", log, metaWith),
+  });
+  assert.deepEqual(runAll(), runAll(), "identical snapshots produce identical results");
+
+  // A same-length correction (one row's load fixed in place) must change the
+  // result: no memo may survive on array length or last timestamp.
+  const corrected = log.map((r) => r.session === "s-b3" ? { ...r, load: 84 } : r);
+  assert.notDeepEqual(
+    model.buildStrengthEvidence("current-block", "bench", corrected, metaWith).points,
+    model.buildStrengthEvidence("current-block", "bench", log, metaWith).points,
+    "same-length correction invalidates the prior projection");
+
+  // A display-name change never moves movement identity: matching is by
+  // exercise id, so evidence is unchanged when only the display label differs.
+  const renamed = log.map((r) => r.exercise === "bench" ? { ...r, name: "Bench press (renamed)" } : r);
+  assert.deepEqual(
+    model.buildStrengthEvidence("current-block", "bench", renamed, metaWith),
+    model.buildStrengthEvidence("current-block", "bench", log, metaWith),
+    "display rename does not change movement identity");
+
+  // Archived (pre-block) evidence never leaks into the current-block scope.
+  const blockPoints = model.buildStrengthEvidence("current-block", "bench", log, metaWith).points.map((p) => p.value);
+  assert.deepEqual(blockPoints, [80, 82.5, 85], "current-block scope excludes archived pre-block rows");
 
   console.log("model matrix: exercised against progress-model.js");
 } else {
