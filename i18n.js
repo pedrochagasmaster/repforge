@@ -1922,6 +1922,13 @@ const EN = {
   "stats.volume.no_period": "No block period to compare yet.",
   "stats.volume.in_progress": "{done} of {planned} sets toward the full period",
   "stats.volume.partial_period": "{done} of {planned} sets in this period",
+  "review.outcomes.label": "Observed outcomes",
+  "review.outcomes.none": "No observed outcomes yet — baseline building continues.",
+  "review.outcomes.none_aria": "No observed outcomes yet; baseline building continues.",
+  "review.active_readonly": "This block is still active. Review is read-only until the block ends.",
+  "review.actions.label": "Structural actions",
+  "review.action.repeat": "Repeat this program next block",
+  "review.insufficient.note": "Evidence is thin. Only schedule and volume routes are available; no performance-driven change.",
 };
 const PT = {
   "meta.description": "O Taurifer mantém seus treinos, rascunhos e histórico neste dispositivo. Links de configuração compartilham um programa e ajustes selecionados.",
@@ -3845,6 +3852,13 @@ const PT = {
   "stats.volume.no_period": "Ainda não há período de bloco para comparar.",
   "stats.volume.in_progress": "{done} de {planned} séries rumo ao período completo",
   "stats.volume.partial_period": "{done} de {planned} séries neste período",
+  "review.outcomes.label": "Resultados observados",
+  "review.outcomes.none": "Ainda sem resultados observados — a construção de base continua.",
+  "review.outcomes.none_aria": "Ainda sem resultados observados; a construção de base continua.",
+  "review.active_readonly": "Este bloco ainda está ativo. A revisão é somente leitura até o fim do bloco.",
+  "review.actions.label": "Ações estruturais",
+  "review.action.repeat": "Repetir este programa no próximo bloco",
+  "review.insufficient.note": "As evidências são escassas. Só rotas de agenda e volume estão disponíveis; nenhuma mudança por desempenho.",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

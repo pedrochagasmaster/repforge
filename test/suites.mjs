@@ -132,6 +132,7 @@ export const SUITES = {
     s("test/progression-strategies-ui.mjs"),
     s("test/progress-navigation.mjs"),
     s("test/progress-evidence.mjs"),
+    s("test/progress-lifecycle.mjs"),
     s("test/sheet-swipe-dismiss.mjs"),
     s("test/motion-integration.mjs"),
     s("test/session-summary.mjs"),

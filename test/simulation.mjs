@@ -7088,6 +7088,20 @@ async function main() {
       `panel="${panel.replace(/\s+/g, " ").slice(0, 220)}"`,
       "#reviewPanel when stored-completed"
     );
+    const reviewActions = await page.evaluate(() =>
+      [...document.querySelectorAll("#reviewPanel [data-review-action]")].map((b) => b.dataset.reviewAction));
+    assert(
+      reviewActions.includes("repeat"),
+      "F8: completed block Review exposes the literal repeat structural action",
+      `actions=${reviewActions.join(",")}`,
+      "#reviewPanel actions at block-complete"
+    );
+    assert(
+      !reviewActions.includes("schedule-repair") && !reviewActions.includes("recovery-week"),
+      "F8: unwired structural kinds do not render as dead buttons",
+      `actions=${reviewActions.join(",")}`,
+      "structural kinds appear with their owning packets"
+    );
 
     await persistState(page, { ...(await getState(page)), settings: { ...(await getState(page)).settings, lang: "pt" } });
     await reloadApp(page);
@@ -7240,6 +7254,7 @@ async function main() {
       revision: s._storageRevision || 0,
       historyLen: s.programHistory.length,
       metaId: s.programMeta.id,
+      blockId: s.programMeta.blockId || null,
       status: s.programMeta.mesocycleStatus,
       sets: s.program.map((e) => ({ sets: e.sets, maxSets: e.maxSets || 6 })),
     };
@@ -7254,7 +7269,7 @@ async function main() {
     JSON.stringify(p9LegacyHooks),
     "legacy two-step test hooks are absent"
   );
-  const p9Result = await page.evaluate(() => window.__repforgeCommitNextBlock("increase_volume"));
+  const p9Result = await page.evaluate(() => window.__repforgeCommitNextBlock("repeat"));
   await page.evaluate(() => window.__repforgeStorage.flush());
   const p9Today = new Date().toISOString().slice(0, 10);
   const p9After = await page.evaluate((oldId) => {
@@ -7268,6 +7283,7 @@ async function main() {
       archivedSets: archived?.program?.map((e) => e.sets),
       archivedReviewProgramId: archived?.review?.programId,
       metaId: s.programMeta.id,
+      blockId: s.programMeta.blockId || null,
       status: s.programMeta.mesocycleStatus,
       started: s.programMeta.started,
       sets: s.program.map((e) => e.sets),
@@ -7283,36 +7299,30 @@ async function main() {
       p9After.revision === p9Result.revision,
     "P9: canonical next-block commit reports one accepted revision",
     JSON.stringify({ before: p9Before.revision, result: p9Result, after: p9After.revision }),
-    "__repforgeCommitNextBlock(increase_volume) → accepted local/idb result at revision +1"
+    "__repforgeCommitNextBlock(repeat) → accepted local/idb result at revision +1"
   );
+  // Plan 056: the legacy program-altering strategies are gone. The literal
+  // repeat keeps the program identity and prescription into a fresh block —
+  // nothing is archived because nothing is replaced — and structural change
+  // goes through Plan 052 proposals only.
   assert(
-    p9After.historyLen === p9Before.historyLen + 1 &&
-      p9After.archivedCount === 1 &&
-      p9After.archivedMetaId === p9Before.metaId &&
-      p9After.archivedReviewProgramId === p9Before.metaId &&
-      p9After.metaId !== p9Before.metaId &&
+    p9After.metaId === p9Before.metaId &&
+      p9After.blockId !== p9Before.blockId &&
+      p9After.historyLen === p9Before.historyLen &&
+      p9After.archivedCount === 0 &&
       p9After.status === "active" &&
-      p9After.started === p9Today,
-    "P9: one atomic transition archives the old block and activates its successor",
-    JSON.stringify({
-      history: `${p9Before.historyLen} → ${p9After.historyLen}`,
-      archivedCount: p9After.archivedCount,
-      oldId: p9Before.metaId,
-      newId: p9After.metaId,
-      status: p9After.status,
-      started: p9After.started,
-    }),
-    "commitNextBlock proposal contains old archive plus active successor"
-  );
-  assert(
-    Array.isArray(p9After.archivedSets) &&
-      p9After.archivedSets.length === p9Before.sets.length &&
-      p9After.archivedSets.every((n, i) => n === p9Before.sets[i].sets) &&
+      p9After.started === p9Today &&
       p9After.sets.length === p9Before.sets.length &&
-      p9After.sets.every((n, i) => n === Math.min(p9Before.sets[i].sets + 1, p9Before.sets[i].maxSets)),
-    "P9: atomic increase_volume preserves archived sets and caps successor sets",
-    `archived=${p9After.archivedSets.join(",")} successor=${p9After.sets.join(",")}`,
-    "commitNextBlock(increase_volume) → archive unchanged, successor +1 up to maxSets"
+      p9After.sets.every((n, i) => n === p9Before.sets[i].sets),
+    "P9: literal repeat rolls the block identity with the prescription unchanged",
+    JSON.stringify({
+      metaId: p9After.metaId === p9Before.metaId,
+      blockRolled: p9After.blockId !== p9Before.blockId,
+      history: `${p9Before.historyLen} → ${p9After.historyLen}`,
+      started: p9After.started,
+      sets: p9After.sets.join(","),
+    }),
+    "commitNextBlock(repeat) → same program, new blockId, no archive"
   );
 
   beginPhase("Phase: P5 program generation");

@@ -40,6 +40,9 @@ async function freshPage() {
   const page = await context.newPage();
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.goto(base, { waitUntil: "domcontentloaded" });
+  // Seed only after the first boot settles, so its initial persist cannot
+  // overwrite the fixture.
+  await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 20000 });
   await page.evaluate(async () => {
     const regs = await navigator.serviceWorker?.getRegistrations?.() || [];
     for (const reg of regs) await reg.unregister();

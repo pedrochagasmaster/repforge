@@ -1919,5 +1919,12 @@
   "stats.volume.period_text": "From {start} to {end}",
   "stats.volume.no_period": "No block period to compare yet.",
   "stats.volume.in_progress": "{done} of {planned} sets toward the full period",
-  "stats.volume.partial_period": "{done} of {planned} sets in this period"
+  "stats.volume.partial_period": "{done} of {planned} sets in this period",
+  "review.outcomes.label": "Observed outcomes",
+  "review.outcomes.none": "No observed outcomes yet — baseline building continues.",
+  "review.outcomes.none_aria": "No observed outcomes yet; baseline building continues.",
+  "review.active_readonly": "This block is still active. Review is read-only until the block ends.",
+  "review.actions.label": "Structural actions",
+  "review.action.repeat": "Repeat this program next block",
+  "review.insufficient.note": "Evidence is thin. Only schedule and volume routes are available; no performance-driven change."
 }

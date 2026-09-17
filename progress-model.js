@@ -215,7 +215,10 @@
     const days = Math.floor((dateAtNoon(today) - dateAtNoon(norm.started)) / DAY_MS);
     const isComplete = meta?.mesocycleStatus === "completed" || (Number.isFinite(days) && days >= norm.weeks * 7);
     if (!isComplete) return { ...base, lifecycle: "active-block", end, structuralActions: [] };
-    const actions = ["schedule-repair", "reduce-volume", "guided-edit"];
+    // "repeat" is the neutral continue path: always available at a completed
+    // boundary, never performance-derived. progress/review are gated on
+    // sufficient observed outcomes.
+    const actions = ["repeat", "schedule-repair", "reduce-volume", "guided-edit"];
     if (sufficient.some((f) => f.outcome === "improved")) actions.unshift("progress");
     if (sufficient.some((f) => f.outcome === "maintained")) actions.unshift("repeat");
     if (sufficient.some((f) => f.outcome === "declined")) actions.unshift("review");

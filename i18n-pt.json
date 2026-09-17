@@ -1919,5 +1919,12 @@
   "stats.volume.period_text": "De {start} a {end}",
   "stats.volume.no_period": "Ainda não há período de bloco para comparar.",
   "stats.volume.in_progress": "{done} de {planned} séries rumo ao período completo",
-  "stats.volume.partial_period": "{done} de {planned} séries neste período"
+  "stats.volume.partial_period": "{done} de {planned} séries neste período",
+  "review.outcomes.label": "Resultados observados",
+  "review.outcomes.none": "Ainda sem resultados observados — a construção de base continua.",
+  "review.outcomes.none_aria": "Ainda sem resultados observados; a construção de base continua.",
+  "review.active_readonly": "Este bloco ainda está ativo. A revisão é somente leitura até o fim do bloco.",
+  "review.actions.label": "Ações estruturais",
+  "review.action.repeat": "Repetir este programa no próximo bloco",
+  "review.insufficient.note": "As evidências são escassas. Só rotas de agenda e volume estão disponíveis; nenhuma mudança por desempenho."
 }

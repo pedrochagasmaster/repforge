@@ -2613,7 +2613,6 @@ function buildBlockReview(programMeta,program,log){const p=new Program(program||
   return{programId:programMeta?.id||null,started,ended,plannedSessions,completedSessions,adherenceRatio,
     improvedLifts,flatLifts,regressedLifts,stalledLifts,prs,completedHardSetsByMuscle,plannedHardSetsByMuscle,
     volumeCompliance,recommendation,created:new Date().toISOString()}}
-const REC_STRATEGY={repeat_or_progress:"repeat",repeat_with_small_swaps:"repeat_swaps",reduce_volume_or_deload:"reduce_volume",keep_program_improve_completion:"repeat",repeat_with_simpler_schedule:"reduce_volume"};
 function blockRecommendationCopy(key){const k=key||"repeat_with_small_swaps";return{line:t(`block_rec.${k}.line`),why:t(`block_rec.${k}.why`)}}
 function blockSnapshot(programMeta,log){const review=buildBlockReview(programMeta,prog.toJSON(),log),life=mesocycleLifecycle(programMeta);
   return{...review,weekCurrent:life.current,weekTotal:life.total,elapsedWeek:life.elapsedWeek,
@@ -2634,6 +2633,60 @@ function buildPlainSummary(snapshot){if(!snapshot)return"";
   return parts.join(" ")}
 function renderReview(){const el=$("#reviewPanel");if(!el)return;
   if(!state.programMeta?.started){el.innerHTML=`<p class="lede">${esc(t("review.no_start"))}</p>`;return}
+  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  if(!Model){legacyReviewPanel(el);return}
+  const meta=state.programMeta||{};
+  const checkpoint=Model.buildReviewCheckpoint(prog.toJSON(),
+    {started:meta.started,mesocycleLengthWeeks:meta.mesocycleLengthWeeks||6,
+     mesocycleStatus:meta.mesocycleStatus,observedOutcomes:reviewObservedOutcomes(),recoveryEligible:meta.recoveryEligible===true},
+    state.log,today());
+  const life=mesocycleLifecycle(meta);
+  const weekLine=life.isComplete?t("meso.complete"):life.isFinalWeek&&life.current!=null?t("meso.week_ready",{n:life.current,total:life.total}):t("review.week_of",{n:life.current??"—",total:life.total});
+  const volume=Model.buildVolumeEvidence("block-to-date",prog.toJSON(),
+    {started:meta.started,mesocycleLengthWeeks:meta.mesocycleLengthWeeks||6},state.log,today());
+  const pct=volume.plannedWorkingSets?Math.min(100,Math.round(volume.completedWorkingSets/volume.plannedWorkingSets*100)):0;
+  const nameForLiftKey=key=>currentExerciseForLiftKey(key)?.name||key;
+  const outcomes=checkpoint.observedOutcomes;
+  const outcomeLine=outcomes.length
+    ?outcomes.map(o=>`${esc(nameForLiftKey(o.exerciseId))} · ${esc(t(EVIDENCE_OUTCOME_KEYS[o.outcome]||""))}`).join("<br>")
+    :`<span class="visually-hidden">${esc(t("review.outcomes.none_aria"))}</span>${esc(t("review.outcomes.none"))}`;
+  const actions=checkpoint.lifecycle==="block-complete"?renderReviewActions(checkpoint):"";
+  const readOnlyNote=checkpoint.lifecycle==="active-block"
+    ?`<p class="review__readonly" role="note">${esc(t("review.active_readonly"))}</p>`:"";
+  const rec=blockSnapshot(meta,state.log).recommendation;
+  const recCopy=blockRecommendationCopy(rec);
+  el.innerHTML=`<div class="blockprogress"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
+    `<p><b>${esc(weekLine)}</b></p>`+
+    `<p><b>${esc(t("review.sessions"))}</b> ${esc(t("review.sessions_completed",{done:volume.completedSessions,planned:volume.period.plannedSessions||volume.plannedSessions}))}</p>`+
+    `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p>`+
+    `<p class="lede">${esc(t("stats.volume.period_text",{start:longDate(volume.period.start||meta.started||""),end:longDate(volume.period.end||today())}))}</p></div>`+
+    `<p class="section-label">${esc(t("review.outcomes.label"))}</p><div class="review__outcomes">${outcomeLine}</div>`+
+    `<p class="review__summary">${esc(recCopy.line)}</p>`+readOnlyNote+actions;
+  bindReviewActions()}
+// Observed outcomes are engine facts (paired-exposure comparison), never
+// representation-derived. Insufficient lifts never enter this list.
+function reviewObservedOutcomes(){
+  const facts=strengthFactsByLift();
+  return Object.entries(facts).map(([key,outcome])=>({exerciseId:key,outcome}))}
+// Structural actions appear only at a completed boundary (Plan 056/P5). Each
+// kind renders only when its production flow is wired in this packet; the
+// eligibility contract itself lives in progress-model.js.
+const REVIEW_ACTION_LABELS={repeat:"review.action.repeat"};
+function renderReviewActions(checkpoint){
+  const kinds=checkpoint.structuralActions.filter(k=>REVIEW_ACTION_LABELS[k]);
+  if(!kinds.length)return "";
+  return `<p class="section-label">${esc(t("review.actions.label"))}</p><div class="review__actions">`+
+    kinds.map(k=>`<button type="button" class="btn btn--steel" data-review-action="${k}">${esc(t(REVIEW_ACTION_LABELS[k]))}</button>`).join("")+`</div>`}
+function bindReviewActions(){
+  $$("[data-review-action]").forEach(b=>b.onclick=()=>{
+    const kind=b.dataset.reviewAction;
+    if(kind==="repeat")finishBlockAndStart("repeat");
+    // Schedule, volume and recovery flows land with their own packets.
+    else if(kind==="schedule-repair")startScheduleRepair?.();
+    else if(kind==="reduce-volume")startVolumeReduction?.();
+    else if(kind==="recovery-week")startRecoveryWeek?.();
+    else if(kind==="guided-edit")startGuidedEdit?.()})}
+function legacyReviewPanel(el){
   const snap=blockSnapshot(state.programMeta,state.log),pct=Math.round((snap.volumeCompliance||0)*100),summary=buildPlainSummary(snap);
   const weekLine=snap.isComplete?t("meso.complete"):snap.isFinalWeek?t("meso.week_ready",{n:snap.weekCurrent,total:snap.weekTotal}):t("review.week_of",{n:snap.weekCurrent??"—",total:snap.weekTotal});
   el.innerHTML=`<div class="blockprogress"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
@@ -2642,76 +2695,13 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
     `<p><b>${esc(t("review.lifts"))}</b> ${esc(t("review.lifts_summary",{improved:snap.improvedLifts,flat:snap.flatLifts,stalled:snap.stalledLifts}))}</p>`+
     `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p></div>`+
     `<p class="review__summary">${esc(summary)}</p>`}
-function renderBlockReviewPanel(review){const copy=blockRecommendationCopy(review.recommendation),pct=Math.round((review.volumeCompliance||0)*100);
-  const meta=state.programMeta||{},started=meta.started?new Date(`${meta.started}T12:00:00`):null;
-  const activationProgramId=review.programId||meta.id||null;
-  const end=new Date(`${today()}T12:00:00`);
-  const range=started?`${started.getDate()} ${t("month_short."+started.getMonth())} – ${end.getDate()} ${t("month_short."+end.getMonth())}`:"";
-  const life=mesocycleLifecycle(meta),weeks=life.total||6;
-  const hero=life.isComplete?t("dialog.block_review.completed"):life.isFinalWeek&&life.current!=null?t("dialog.block_review.ready",{n:life.current,total:life.total}):life.current!=null?t("today.week_of",{n:life.current,total:life.total}):t("dialog.block_review.title");
-  const recKey=review.recommendation||"repeat_with_small_swaps";
-  const strategies=[
-    {id:"repeat_swaps",title:t("dialog.block_review.repeat_swaps"),cap:t("block_strategy.repeat_swaps.cap")},
-    {id:"repeat",title:t("dialog.block_review.repeat"),cap:t("block_strategy.repeat.cap")},
-    {id:"increase_volume",title:t("dialog.block_review.increase_volume"),cap:t("block_strategy.increase_volume.cap")},
-    {id:"reduce_volume",title:t("dialog.block_review.reduce_volume"),cap:t("block_strategy.reduce_volume.cap")},
-    {id:"onboarding",title:t("dialog.block_review.onboarding"),cap:t("block_strategy.onboarding.cap")},
-  ];
-  const recStrategy=REC_STRATEGY[recKey]||"repeat_swaps";
-  $("#blockReviewBody").innerHTML=
-    `<p class="blockreview__prog">${esc(meta.name||t("untitled_program"))}</p>`+
-    `<h2 class="blockreview__hero">${esc(hero)}</h2>`+
-    `<p class="blockreview__range">${esc(t("dialog.block_review.range",{weeks,range}))}</p>`+
-    `<div class="blockreview__adherence"><span>${esc(t("review.sessions_completed",{done:review.completedSessions,planned:review.plannedSessions}))}</span><span>${pct}%</span></div>`+
-    `<div class="blockreview__bar"><span style="width:${pct}%"></span><i class="blockreview__bar-knob" style="left:${pct}%"></i></div>`+
-    `<div class="statrow statrow--4">`+
-    `<div class="statrow__cell"><div class="statrow__val">${review.improvedLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.improved"))}</div></div>`+
-    `<div class="statrow__cell"><div class="statrow__val">${review.flatLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.stable"))}</div></div>`+
-    `<div class="statrow__cell"><div class="statrow__val">${review.stalledLifts}</div><div class="statrow__cap">${esc(t("block_review.stalled"))}</div></div>`+
-    `<div class="statrow__cell"><div class="statrow__val">${pct}%</div><div class="statrow__cap">${esc(t("block_review.volume"))}</div></div></div>`+
-    `<div class="recblock"><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
-    `<div class="recblock__head">${esc(copy.line)}</div>`+
-    `<p class="recblock__body"><span class="recblock__why-lab">${esc(t("review.why"))}</span> ${esc(copy.why)}</p>`+
-    `<button type="button" class="text-link" id="blockSeeAnalysis">${esc(t("block_review.see_analysis"))}</button></div>`+
-    `<p class="section-label">${esc(t("block_review.next_block"))}</p>`+
-    `<div id="blockStrategies">${strategies.map(s=>`<button type="button" class="radio-card blockreview__act${s.id===recStrategy?" is-selected is-recommended":""}" data-strategy="${s.id}">`+
-      `<span class="radio-card__body"><span class="radio-card__title">${esc(s.title)}${s.id===recStrategy?` <span class="tag-rec">${esc(t("aria.recommended"))}</span>`:""}</span>`+
-      `<span class="radio-card__cap">${esc(s.cap)}</span></span><span class="radio-card__mark"></span></button>`).join("")}</div>`+
-    `<p class="blockreview__lock">🔒 ${esc(t("block_review.preserved"))}</p>`+
-    `<div class="blockreview__sticky"><button type="button" class="btn btn--cta" id="blockStartNext">${esc(t("block_review.start_next"))}</button>`+
-    `<button type="button" class="text-link text-link--center text-link--accent" id="blockDecideLater">${esc(t("block_review.decide_later"))}</button></div>`;
-  let selected=recStrategy;
-  $$("#blockStrategies .blockreview__act").forEach(b=>b.onclick=()=>{selected=b.dataset.strategy;
-    $$("#blockStrategies .blockreview__act").forEach(x=>x.classList.toggle("is-selected",x===b))});
-  $("#blockStartNext").onclick=()=>finishBlockAndStart(selected,activationProgramId);
-  $("#blockDecideLater").onclick=closeBlockReview;
-  const anal=$("#blockSeeAnalysis");if(anal)anal.onclick=()=>{
-    closeBlockReview();
-    navTo("stats");setStatsSeg("review");
-    const seg=$(`#statsSeg button[data-seg="review"]`);if(seg)seg.focus()}}
-let blockReviewCurrent=null;
 let pendingBlockTransition=null;
 let onboardingOrigin=null;
 let blockCommitInFlight=null;
-function closeBlockReview(){
-  closeModal($("#blockReview"))}
-function successorProgramList(strategy,list){
-  const src=cloneSnapshot(list||[]);
-  if(strategy==="repeat_swaps")return src.map(e=>e.alternates?.length?{...e,name:e.alternates[0]}:e);
-  if(strategy==="increase_volume")return src.map(e=>({...e,sets:Math.min((e.sets||2)+1,e.maxSets||6)}));
-  return src}
-// Historical snapshots can predate compiler provenance. They remain readable
-// and keep their established draft-safe rollover behavior, but this path never
-// claims a Plan-052 transition record. Any compiler-backed program is routed
-// through proposeVolumeReduction/confirmTransition above instead.
-function legacyBlockSuccessorProgramList(strategy,list){
-  const src=cloneSnapshot(list||[]);
-  if(strategy==="reduce_volume")return src.map(e=>({...e,sets:Math.max((e.sets||2)-1,1)}));
-  return successorProgramList(strategy,src)}
 function capturePendingBlock(strategy,review){
   // The routed Review surface no longer stages a dialog, but the archived
   // block keeps its review snapshot: capture it from live state here.
-  const snapshot=review||blockReviewCurrent||buildBlockReview(state.programMeta,state.program,state.log);
+  const snapshot=review||buildBlockReview(state.programMeta,state.program,state.log);
   return{...captureProgramReplacement(state,snapshot),strategy}}
 function hasArchivableProgram(snapshot){
   const meta=snapshot?.programMeta;
@@ -2762,10 +2752,6 @@ async function commitProgramReplacement(proposal,io=storageIO,{capture=capturePr
       expectedBlockId:expectedBlockId!==undefined?expectedBlockId:snapshotBlockId(state),
       expectedStorageRevision:expectedStorageRevision!==undefined?expectedStorageRevision:readRevision(state)};
   return commitProposedState(proposal,io,{...transition,effect,expectedSetupDraftRaw,replace,expectedFirstRunEmpty,preflight})}
-function blockToast(strategy){
-  const msg={repeat:"toast.new_block_same",repeat_swaps:"toast.new_block_swaps",
-    increase_volume:"toast.new_block_volume_increased",reduce_volume:"toast.new_block_volume_reduced",onboarding:"toast.new_block_started"};
-  toast(t(msg[strategy]||"toast.new_block_started"))}
 function blockTransitionResult(kind,result={}){
   const deferred=kind==="deferred"||result.deferred===true;
   const outcomeKind=deferred?"deferred":kind;
@@ -2791,53 +2777,24 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
   if(blockCommitInFlight?.oldProgramId===oldId)return blockCommitInFlight.promise;
   if(liveId!==oldId)return Promise.resolve(blockTransitionResult("duplicate"));
   const cap=pendingBlockTransition&&pendingBlockTransition.oldProgramId===liveId
-    ?pendingBlockTransition:capturePendingBlock(strategy,blockReviewCurrent);
+    ?pendingBlockTransition:capturePendingBlock(strategy);
   if(!cap||state.programMeta.id!==cap.oldProgramId)return Promise.resolve(blockTransitionResult("duplicate"));
   if(strategy==="onboarding"){
-    pendingBlockTransition=cap;
-    closeBlockReview();
+    pendingBlockTransition=pendingBlockTransition||cap;
     startOnboarding("block");
     return Promise.resolve(blockTransitionResult("deferred"))}
   const task=(async()=>{
     const compilerProvenance = classifyCompilerTransitionProvenance(cap.oldMeta);
-    if(strategy==="reduce_volume"&&compilerProvenance==="present"){
-      const diagnosis={kind:"reduce_training_volume",answers:{},
-        eligibleEvidenceIds:["explicit_volume_reduction"],insufficientEvidenceReasons:[]};
-      const proposed=await repforgeProgramTransitionAdapter.proposeVolumeReduction({
-        diagnosis,transitionId:uid(),successorProgramId:uid(),createdAt:new Date().toISOString(),policyVersion:1});
-      if(!proposed?.ok)
-        return blockTransitionResult("failed",{invalid:true,code:proposed?.code||"volume_reduction_unavailable"});
-      const acknowledgedDraftRaw=readDraftRaw();
-      const persisted=await repforgeProgramTransitionAdapter.confirmTransition({
-        proposal:proposed.proposal,transitionId:proposed.proposal.transitionId,
-        successorProgramId:proposed.proposal.successor.programId,
-        confirmedAt:new Date().toISOString(),proposalHash:proposed.proposal.proposalHash,
-        acknowledgedDraftRaw});
-      const result=blockTransitionDurableResult(persisted);
-      if(result.committed){
-        pendingBlockTransition=null;day=days()[0]||"Day 1";closeBlockReview();blockToast(strategy);render()}
-      return result}
-    if(strategy==="reduce_volume"&&compilerProvenance==="invalid")
-      return blockTransitionResult("failed",{invalid:true,code:"compiler_provenance_unavailable"});
-    const nextProgram=new Program(legacyBlockSuccessorProgramList(strategy,cap.oldProgram)).toJSON();
+    // Plan 056: the legacy program-altering strategies are gone. Structural
+    // change goes through Plan 052 proposals; the only remaining direct path
+    // is the literal repeat, which keeps the program and prescription intact.
+    if(strategy!=="repeat")return blockTransitionResult("failed",{invalid:true,code:"unsupported_strategy"});
+    const nextProgram=cloneSnapshot(cap.oldProgram);
     let effect=null;
-    if(strategy==="reduce_volume"){
-      const draftRaw=readDraftRaw();
-      let draft={};
-      try{const parsed=JSON.parse(draftRaw||"{}");if(isPlainStateObject(parsed))draft=parsed}
-      catch{}
-      const currentById=new Map(cap.oldProgram.map(ex=>[ex.id,ex]));
-      const blocked=nextProgram.some(ex=>{
-        const current=currentById.get(ex.id);
-        return current&&draftHasProgressInRemovedSets(ex.id,ex.sets,current.sets,draft)});
-      effect=draftPreservationEffect(draftRaw);
-      if(blocked||effect.status!==DRAFT_EFFECT_VALID){
-        toast(t("toast.set_count_locked_draft"));
-        return blockTransitionResult("failed",{draftConflict:true})}}
     const proposal=cloneSnapshot(state);
     const nextMeta=buildProgramMeta({name:cap.oldMeta?.name,answers:cap.oldMeta||{}});
-    const literalRepeat=strategy==="repeat";
-    if(literalRepeat){
+    const literalRepeat=true;
+    {
       nextMeta.id=cap.oldMeta.id;
       // A literal repeat keeps the program identity and prescription model;
       // carry compiler/progression provenance into the fresh block while the
@@ -2858,23 +2815,16 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
       :{capture:cap,effect});
     const result=blockTransitionDurableResult(persisted);
     if(result.committed){
-      pendingBlockTransition=null;day=days()[0]||"Day 1";closeBlockReview();blockToast(strategy);render()}
+      pendingBlockTransition=null;day=days()[0]||"Day 1";toast(t("toast.new_block_volume_reduced"));render()}
     return result})();
   blockCommitInFlight={oldProgramId:oldId,promise:task};
   const clear=()=>{if(blockCommitInFlight?.promise===task)blockCommitInFlight=null};
   task.then(clear,clear);
   return task}
-function finishBlockAndStart(strategy,expectedOldId){return commitNextBlock(strategy,storageIO,expectedOldId)}
-function openBlockReview(review,opts={}){
-  blockReviewCurrent=review;renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
-  openModal(d,{
-    initialFocus:$("#blockReviewClose"),
-    returnFocus:opts.returnFocus||document.activeElement,
-    onEscape:closeBlockReview,
-    handoff:!!opts.handoff,
-    prevInert:opts.prevInert
-  });
-  $("#blockReviewClose").onclick=closeBlockReview}
+function finishBlockAndStart(strategy,expectedOldId){
+  // Only the literal repeat and the onboarding handoff remain reachable.
+  if(strategy!=="repeat"&&strategy!=="onboarding")return Promise.resolve(blockTransitionResult("failed",{invalid:true,code:"unsupported_strategy"}));
+  return commitNextBlock(strategy,storageIO,expectedOldId)}
 // Plan 056: Program's End block (and the Review-block row) route into the
 // single Progress → Review lifecycle. There is no separate competing dialog.
 function promptEndBlock(){
