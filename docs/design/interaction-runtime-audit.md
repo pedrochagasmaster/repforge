@@ -12,6 +12,14 @@ work is the baseline here, not something to be revisited.
 > re-grab listed under Known residuals is implemented. Read that note alongside
 > the rows marked here, which describe the state before it.
 
+Plan 055 replaces listener takeover with an explicit, idempotent controller
+mounted by application boot. The controller owns its listeners and disposal;
+Focus navigation calls its handle. Disposing cancels queued navigation, and
+pointer cancellation never commits a swipe. The fallback has the same lifetime
+when Motion or the whole layer is unavailable. Gesture physics and vendored
+exports are unchanged. `test/focus-geometry.mjs` exercises all three runtime
+configurations with and without reduced motion.
+
 Three questions were asked of every interaction, in this order:
 
 1. **Does it deserve motion at all?** Emil Kowalski's `emil-design-eng`
