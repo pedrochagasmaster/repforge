@@ -5688,7 +5688,7 @@ async function main() {
   // The live card is the only active exercise owner; neighbouring peeks stay inert.
   const visible = await page.evaluate(() => ({
     current: document.querySelectorAll("#workout .exercise.is-current:not(.is-peek)").length,
-    topLevel: document.querySelectorAll("#workout > .exercise").length,
+    topLevel: [...document.querySelector("#workout").children].filter((node) => node.matches(".exercise")).length,
     peeksInert: [...document.querySelectorAll("#workout .exercise.is-peek")].every((card) => card.inert),
   }));
   assert(
