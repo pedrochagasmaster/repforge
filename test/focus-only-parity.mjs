@@ -7,7 +7,7 @@
  * renderer, and asserted against the acknowledged DraftV2 projection. Rows
  * whose approved destination does not exist yet are recorded as named gaps
  * with their owning slice, so the PR body can paste the live table. No case
- * may pass by reading a hidden List input or an inert peek card: the helper
+ * may pass by reading a hidden compatibility input or an inert peek card: the helper
  * below refuses controls outside the live focus card, and the last section
  * proves the guard rejects the hidden carriers that still exist in the DOM.
  *

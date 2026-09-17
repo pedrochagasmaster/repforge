@@ -5401,7 +5401,7 @@ async function main() {
     copied.checked === "max" && copied.draft === "max",
     "Copy last fills the effort picker from the last session",
     JSON.stringify(copied),
-    "Log (List) → Copy after a Max session → picker shows Max"
+    "Focus → Copy after a Max session → picker shows Max"
   );
 
   // ---- Focus mode: effort takes the third column of the well as a spinner, and
@@ -5680,20 +5680,21 @@ async function main() {
     "Log → reopen → bodyweight prefilled"
   );
 
-  // Focus mode shows one exercise; Finish saves like list mode
+  // Focus shows one exercise; Finish saves the acknowledged session.
   await nav(page, "log");
   await selectDay(page, "Day 1");
 
   await page.waitForTimeout(80);
-  // Only the deck's card shows; the List markup that carries the other
-  // exercises' fields is display:none, and the peeks are parked out of sight.
-  const visible = await page.locator("#workout > .exercise").evaluateAll((els) =>
-    els.every((e) => getComputedStyle(e).display === "none")
-  );
+  // The live card is the only active exercise owner; neighbouring peeks stay inert.
+  const visible = await page.evaluate(() => ({
+    current: document.querySelectorAll("#workout .exercise.is-current:not(.is-peek)").length,
+    topLevel: document.querySelectorAll("#workout > .exercise").length,
+    peeksInert: [...document.querySelectorAll("#workout .exercise.is-peek")].every((card) => card.inert),
+  }));
   assert(
-    visible,
-    "Focus mode shows one exercise at a time",
-    "Non-current exercises visible in focus mode",
+    visible.current === 1 && visible.topLevel === 0 && visible.peeksInert,
+    "Focus has one live exercise owner and no retired top-level projection",
+    JSON.stringify(visible),
     "Log → Focus → only current card shown"
   );
   const overflowClosed = await page.evaluate(() => ({
@@ -6102,7 +6103,7 @@ async function main() {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(260);
 
-  // Focus carries List's per-exercise controls: last session's numbers and skip.
+  // Focus carries the per-exercise controls: last session's numbers and skip.
   // A fresh card for an exercise with history: last session is what it leads on.
   await clearDraftFixture(page);
   await page.evaluate(() => window.__repforgeEnterWorkout?.({}));

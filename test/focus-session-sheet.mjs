@@ -2,8 +2,8 @@
 /**
  * Plan 055 / 055-P3: Session sheet for workout metadata, map, and early finish.
  *
- * The Session sheet relocated date, bodyweight, and session notes from List and
- * header overflow into a dedicated Focus sheet, backed by DraftV2 commands.
+ * The Session sheet owns date, bodyweight, and session notes in a dedicated
+ * Focus surface backed by DraftV2 commands.
  * Every field round-trips through reload, the session map reflects exercise
  * completion and allows direct jump, and Early finish requires an explicit
  * confirmation from a fresh draft revision, rejecting stale revisions.

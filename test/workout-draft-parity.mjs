@@ -3,8 +3,8 @@ import { selectExercise, openActions, exerciseAction, sessionField } from "./fix
 /**
  * Production-backed characterization for Plan 051's workout-draft boundary.
  *
- * The journey uses only controls that are visible in the selected List or
- * Focus mode. It records the current saved-row meaning while exercising the
+ * The journey uses only controls visible in Focus, Session, or Exercise actions.
+ * It records the current saved-row meaning while exercising the
  * same draft through repeat-last, completion, correction/uncommit, warm-up,
  * skip/restore, substitution, notes, metadata, reload, and save.
  *
