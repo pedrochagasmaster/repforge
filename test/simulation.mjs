@@ -5364,6 +5364,7 @@ async function main() {
 
   await nav(page, "log");
   await selectDay(page, "Day 1");
+  await selectFocusExercise(page, effEx.id);
   const effortSpinner = page.locator(`#workout .exercise.is-current [data-effspin="${effEx.id}_1"]`);
   await effortSpinner.focus();
   await page.keyboard.press("Home");
