@@ -5923,7 +5923,7 @@ function cursetHtml(ex,n,r,draft,prev,{peek=false}={}){
         ` aria-label="${esc(t("log.set_effort_aria",{n}))}" aria-describedby="effpop_${esc(key)}"`+
         ` aria-valuemin="1" aria-valuemax="${EFFORT_STEPS.length}"`+
         ` aria-valuenow="${i+1}" aria-valuetext="${esc(effortLabel(effortVal))}">${esc(effortLabel(effortVal))}</div>`;
-    return focusCell(esc(t("log.effort")),body,{cls:"is-effort",extra:peek?"":effortPopHtml(key,effortVal),
+    return focusCell(peek?esc(t("log.effort")):term("Effort"),body,{cls:"is-effort",extra:peek?"":effortPopHtml(key,effortVal),
       steps:stepBtn(key,-1,t("focus.effort_down_aria"),"data-effstep",peek)+stepBtn(key,1,t("focus.effort_up_aria"),"data-effstep",peek)})})();
   const rirCell=focusCell(peek?"RIR":term("RIR"),
     val(rirVal,`data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="done" aria-label="${esc(t("log.set_rir_aria",{n}))}"`),
