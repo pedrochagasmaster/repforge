@@ -16,7 +16,7 @@
  *    - Missing Motion runtime leaves fallback functional.
  */
 
-import { chromium } from "playwright";
+import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const BASE_URL = process.env.REPFORGE_URL || "http://localhost:8807/";
@@ -29,22 +29,20 @@ function assert(condition, message, detail = "") {
 }
 
 async function main() {
-  const browser = await chromium.launch({
-    headless: true,
-    args: ["--no-sandbox", "--disable-setuid-sandbox"],
-  });
+  const browser = await launchChromium();
 
   try {
     /* ======================================================================
      * 1. Geometry Stability: Title & Timer at PT + 200% scaling
      * ====================================================================== */
     console.log("\nGeometry Stability: PT + 200% text scaling across viewports (320, 390, 430)");
-    for (const width of [320, 390, 430]) {
+    for (const width of [320, 390, 430]) for (const lang of ["en", "pt"]) for (const theme of ["light", "dark"]) for (const scale of [1, 2]) {
       const context = await browser.newContext({
         viewport: { width, height: 800 },
         serviceWorkers: "block",
       });
       const page = await context.newPage();
+      page.setDefaultTimeout(10000);
 
       await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
       await page.waitForFunction(() => window.__repforgeBooted === true);
@@ -55,20 +53,16 @@ async function main() {
         waitFor: async (p) => p.waitForFunction(() => window.__repforgeBooted === true),
       });
 
-      await page.evaluate(async (k) => {
-        const s = JSON.parse(localStorage.getItem(k) || "{}");
-        s.settings = s.settings || {};
-        s.settings.lang = "pt";
-        localStorage.setItem(k, JSON.stringify(s));
-        if (typeof window.setLang === "function") await window.setLang("pt");
-      }, STATE_KEY);
-      await page.waitForTimeout(100);
-
-      // Apply 200% font scaling via text-size-adjust / font scale emulation
-      await page.evaluate(() => {
-        document.documentElement.style.fontSize = "32px"; // 200% of 16px
-      });
-
+      await page.locator("#openSettings").click();
+      await page.locator("#lang").selectOption(lang);
+      await page.waitForFunction(lang => document.documentElement.lang === (lang === "pt" ? "pt-BR" : "en"), lang);
+      await page.waitForFunction(lang => JSON.parse(localStorage.getItem("repforge_v1"))?.settings?.lang === lang, lang);
+      await page.evaluate(({ theme, scale }) => {
+        window.__repforgeUi.setTheme(theme);
+        document.documentElement.style.fontSize = `${scale * 100}%`;
+      }, { theme, scale });
+      assert(await page.locator("html").getAttribute("lang") === (lang === "pt" ? "pt-BR" : "en"), "actual document language matches fixture");
+      await page.locator("#settingsBack").click();
       // Enter Focus workout
       await page.locator("#startWorkout").click();
       await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
@@ -80,39 +74,15 @@ async function main() {
       assert(titleIdleBox != null && titleIdleBox.width > 0, `title exists and has width at ${width}px PT+200%`);
 
       // Start the rest timer
-      await page.evaluate(() => {
-        const rest = document.querySelector("#woRest");
-        if (rest) {
-          rest.classList.remove("hidden");
-          rest.classList.add("is-running");
-          const time = rest.querySelector(".wo-rest__time");
-          if (time) time.textContent = "1:30";
-        }
-      });
-      await page.waitForTimeout(100);
+      await page.locator("#woRest").click();
+      await page.waitForSelector("#woRest.is-running");
 
       // Measure title bounding box while timer is running
       const titleRunningBox = await titleEl.boundingBox();
       const shiftX = Math.abs(titleRunningBox.x - titleIdleBox.x);
       const shiftY = Math.abs(titleRunningBox.y - titleIdleBox.y);
 
-      console.log(`[Viewport ${width}px PT+200%] Title shift X: ${shiftX.toFixed(2)}px, Y: ${shiftY.toFixed(2)}px`);
-      const idleSub = await page.locator("#woDaySub").boundingBox();
-      const centerBox = await page.locator(".wo-head__center").boundingBox();
-      const leaveBox2 = await page.locator("#leaveWorkout").boundingBox();
-      console.log("Leave box:", leaveBox2);
-      console.log("Center box:", centerBox);
-      console.log("Idle Title:", titleIdleBox);
-      console.log("Idle Sub:", idleSub);
-      console.log("Running:", titleRunningBox);
-      const headBoxes = await page.evaluate(() => {
-        return {
-          headIdle: document.querySelector(".wo-head").getBoundingClientRect(),
-          end: document.querySelector(".wo-head__end").getBoundingClientRect(),
-          rest: document.querySelector("#woRest")?.getBoundingClientRect(),
-        };
-      });
-      console.log("Head boxes:", headBoxes);
+      console.log(`${width}px ${lang} ${theme} ${scale * 100}%: timer title shift ${shiftX.toFixed(2)}, ${shiftY.toFixed(2)}`);
       assert(shiftX <= 1.0, `title X must remain stable when timer runs at ${width}px PT+200% (shift: ${shiftX.toFixed(2)}px)`);
       assert(shiftY <= 1.0, `title Y must remain stable when timer runs at ${width}px PT+200% (shift: ${shiftY.toFixed(2)}px)`);
 
@@ -151,7 +121,7 @@ async function main() {
 
       // 2. Double mount: idempotent, returns same active controller or safe handle
       const controller2 = motion.mountGestureController();
-      const doubleMountSafe = controller1 === controller2 || typeof controller2?.dispose === "function";
+      const doubleMountSafe = controller1 === controller2;
 
       // 3. Disposal
       controller1.dispose();
@@ -176,6 +146,44 @@ async function main() {
     assert(gestureContract.canRemount, "controller can be re-mounted cleanly after disposal");
 
     await testPage.close();
+    for (const runtime of ["motion", "fallback", "no-layer"]) for (const reduced of [false, true]) {
+      const context=await browser.newContext({viewport:{width:390,height:844},serviceWorkers:"block",reducedMotion:reduced?"reduce":"no-preference"});
+      const page=await context.newPage();
+      page.setDefaultTimeout(10000);
+      if(runtime!=="motion")await page.route("**/vendor/motion/motion.js",route=>route.abort());
+      if(runtime==="no-layer")await page.route("**/motion-layer.js*",route=>route.abort());
+      await page.goto(BASE_URL);
+      await page.waitForFunction(()=>window.__repforgeBooted);
+      await installSeedProgram(page,{waitFor:p=>p.waitForFunction(()=>window.__repforgeBooted)});
+      await page.locator("#startWorkout").click();
+      const cancel=await page.evaluate(async()=>{
+        const start=window.__repforgeFocus.at();
+        const card=document.querySelector(".exercise.is-current");
+        card.dispatchEvent(new PointerEvent("pointerdown",{bubbles:true,pointerId:19,pointerType:"touch",clientX:280,clientY:250}));
+        window.dispatchEvent(new PointerEvent("pointermove",{pointerId:19,pointerType:"touch",clientX:80,clientY:250}));
+        window.dispatchEvent(new PointerEvent("pointercancel",{pointerId:19,pointerType:"touch",clientX:80,clientY:250}));
+        await new Promise(resolve=>setTimeout(resolve,400));
+        return {start,end:window.__repforgeFocus.at()};
+      });
+      assert(cancel.start===cancel.end,`${runtime} reduced=${reduced}: pointercancel never navigates`);
+      await page.locator("#woNext").click();
+      await page.waitForFunction(()=>window.__repforgeFocus.at()===1);
+      const disposal=await page.evaluate(async()=>{
+        const handle=window.__repforgeGestureHandle;
+        if(!matchMedia("(prefers-reduced-motion: reduce)").matches)handle.navigate(1);
+        const at=window.__repforgeFocus.at();
+        handle.dispose();handle.dispose();
+        await new Promise(resolve=>setTimeout(resolve,450));
+        const after=window.__repforgeFocus.at();
+        window.__repforgeGestureHandle=window.RepForgeMotion?.mountGestureController()||window.mountFallbackGestures();
+        return {at,after,clean:!document.querySelector("#focusDeck.is-swiping, .exercise.is-dragging")};
+      });
+      assert(disposal.at===disposal.after && disposal.clean,`${runtime} reduced=${reduced}: disposal cancels pending navigation and gesture state`);
+      await page.locator("#woNext").click();
+      await page.waitForFunction(()=>window.__repforgeFocus.at()===2);
+      await context.close();
+    }
+
     console.log("\nAll Focus geometry and gesture lifetime assertions passed successfully!");
   } finally {
     await browser.close();

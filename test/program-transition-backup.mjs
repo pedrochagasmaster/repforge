@@ -16,6 +16,7 @@
  * longer matches the pre-mutation backup identity. This makes a green normal
  * run distinguishable from proof that the oracle detects field loss.
  */
+import { finishEarly } from "./fixtures/focus-workout.mjs";
 import { launchChromium, waitForAppBoot, assertServingApp } from "./browser.mjs";
 import { readFileSync } from "node:fs";
 
@@ -215,7 +216,7 @@ async function activatePredecessor(page) {
 
 async function saveRealWorkout(page) {
   const day = await page.evaluate(() => window.__repforgeWorkoutDraft.state()?.program?.[0]?.day || "Day 1");
-  const entered = await page.evaluate((dayLabel) => window.__repforgeEnterWorkout({ day: dayLabel, focus: false }), day);
+  const entered = await page.evaluate((dayLabel) => window.__repforgeEnterWorkout({ day: dayLabel, focus: true }), day);
   if (!entered || entered.status && entered.status !== "ready") {
     throw new Error(`Could not enter production workout: ${JSON.stringify(entered)}`);
   }
@@ -224,8 +225,8 @@ async function saveRealWorkout(page) {
   await page.locator("#workout input[data-k$='_reps']").first().fill("8");
   await page.locator("#workout input[data-k$='_rir']").first().fill("2");
   await page.locator("#workout button[data-save]").first().click();
-  await page.waitForFunction(() => document.querySelector("#workout button[data-save]")?.getAttribute("aria-pressed") === "true");
-  await page.locator("#logForm .btn--save").click();
+  await page.waitForFunction(() => !!document.querySelector('#workout .exercise.is-current [data-editn="1"]'));
+  await finishEarly(page);
   await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === false, undefined, { timeout: 10000 });
   await page.locator("#sumDone").click();
   await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === true, undefined, { timeout: 10000 });
@@ -416,7 +417,7 @@ async function main() {
     // Create a real acknowledged DraftV2 after the transition. Ordinary backup
     // must omit it even though it is present at export time.
     const successorDay = await source.evaluate(() => window.__repforgeWorkoutDraft.state()?.program?.[0]?.day || "Day 1");
-    await source.evaluate((day) => window.__repforgeEnterWorkout({ day, focus: false }), successorDay);
+    await source.evaluate((day) => window.__repforgeEnterWorkout({ day, focus: true }), successorDay);
     const sourceDraftState = await source.evaluate(() => ({
       raw: localStorage.getItem("repforge_draft_v1"),
       checkpoint: localStorage.getItem("repforge_draft_v1:v2-checkpoint"),

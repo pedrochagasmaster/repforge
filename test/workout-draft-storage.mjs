@@ -309,12 +309,8 @@ async function main() {
 
     await sessionField(page, "#sessionNotes", "typed then cleared");
     await sessionField(page, "#sessionNotes", "");
-    await page.locator("#woOverflowBtn").click();
-    await page.waitForSelector("#woOverflow:not(.hidden)");
-    await page.locator("#sessionDate").fill("2026-08-21");
-    await page.locator("#woOverflowBtn").click();
-    await page.waitForSelector("#woOverflow:not(.hidden)");
-    await page.locator("#sessionDate").fill("");
+    await sessionField(page,"#sessionDate","2026-08-21");
+    await sessionField(page,"#sessionDate","");
     await sessionField(page, "#sessionBodyweight", "80");
     await sessionField(page, "#sessionBodyweight", "");
     await page.waitForFunction(() => {
@@ -535,7 +531,7 @@ async function main() {
     await waitForBoot(page);
     await enter(page, "Day 1");
 
-    await page.waitForSelector(`#workout:not(.is-focus) .exercise[data-ex="${dynamicExercise.id}"]`);
+    await page.waitForSelector(`#workout.is-focus .exercise.is-current[data-ex="${dynamicExercise.id}"]`);
     await page.locator(`[data-k="${dynamicExercise.id}_1_load"]`).fill("110");
     await page.locator(`[data-k="${dynamicExercise.id}_1_reps"]`).fill("8");
     await page.locator(`[data-k="${dynamicExercise.id}_1_rir"]`).fill("3");
@@ -555,9 +551,13 @@ async function main() {
         load: set?.edited?.load,
         touched: set?.touched?.load,
         input: document.querySelector(`[data-k="${id}_2_load"]`)?.value,
-        note: document.querySelector(`.exercise[data-ex="${id}"] .insession`)?.textContent || "",
+
       };
     }, { draft: DRAFT, id: dynamicExercise.id });
+    await page.locator("#workout .exercise.is-current [data-why]").click();
+    suggestionAfterComplete.note=await page.locator("#whyBody").textContent();
+    await page.locator("#whyClose").click();
+    await page.locator("#whySheet").waitFor({state:"hidden"});
     check(suggestionAfterComplete.load === "112.5" && suggestionAfterComplete.input === "112.5",
       "a completed set acknowledges the next compiler suggestion in V2 and the visible row", suggestionAfterComplete);
     check(suggestionAfterComplete.touched === false && /112\.5/.test(suggestionAfterComplete.note),
@@ -567,7 +567,7 @@ async function main() {
     await waitForBoot(page);
     await enter(page, "Day 1");
 
-    await page.waitForSelector(`#workout:not(.is-focus) .exercise[data-ex="${dynamicExercise.id}"]`);
+    await page.waitForSelector(`#workout.is-focus .exercise.is-current[data-ex="${dynamicExercise.id}"]`);
     check(await page.locator(`[data-k="${dynamicExercise.id}_2_load"]`).inputValue() === "112.5",
       "reload renders the acknowledged suggestion instead of restoring the stale programmed value");
     await page.locator(`[data-save="${dynamicExercise.id}_2"]`).click();

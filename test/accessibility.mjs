@@ -361,7 +361,9 @@ export async function runWorkoutValidationFocusCheck(browser, check = assert) {
   await reps.fill("");
   await rir.fill("1");
 
-  const finish = page.locator("#logForm .btn--save");
+  await page.locator("#sessionSheetBtn").click();
+  await page.locator("#sessionEarlyFinish").click();
+  const finish = page.locator("#sessionEarlyConfirm");
   await finish.focus();
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => {
@@ -377,7 +379,7 @@ export async function runWorkoutValidationFocusCheck(browser, check = assert) {
     const form = document.querySelector("#logForm");
     const invalid = [...form.querySelectorAll("[aria-invalid='true']")];
     const first = invalid[0];
-    const finishButton = form.querySelector(".btn--save");
+    const finishButton = document.querySelector("#sessionEarlyConfirm");
     return {
       activeKey: document.activeElement?.dataset?.k || document.activeElement?.id || null,
       expectedKey,

@@ -1132,15 +1132,7 @@ async function scenarioInPageFinishPreservesNewerDraft(browser) {
       },
       `${DRAFT}:recovery`
     );
-    const ui = await writer.evaluate(() => ({
-      formReady:
-        !document.querySelector("#logForm")?.inert &&
-        document.querySelector("#logForm")?.getAttribute("aria-busy") === null,
-      set1Suggested: document.querySelector('[data-set="audit-press_1"]')?.classList.contains("is-suggested"),
-      set1Done: document.querySelector('[data-set="audit-press_1"]')?.classList.contains("is-done"),
-      set2Suggested: document.querySelector('[data-set="audit-press_2"]')?.classList.contains("is-suggested"),
-      set2Load: document.querySelector('[data-k="audit-press_2_load"]')?.value ?? null,
-    }));
+
 
     check(
       (finishResult?.localOk || finishResult?.idbOk) &&
@@ -1160,16 +1152,7 @@ async function scenarioInPageFinishPreservesNewerDraft(browser) {
         recoveryMatches: recoveryRaw === newerDraftRaw,
       }
     );
-    check(
-      ui.formReady &&
-        ui.set1Suggested === true &&
-        ui.set1Done === false &&
-        ui.set2Suggested === true &&
-        ui.set2Load === "82.5" &&
-        (await writer.evaluate(() => window.__repforgeWorkoutDraft.raw())) === null,
-      "the finishing tab resets stale collections without adopting unacknowledged legacy fields",
-      { ...ui, activeDraftRaw: await writer.evaluate(() => window.__repforgeWorkoutDraft.raw()) }
-    );
+
 
     const fresh = await openApp(context);
     const afterFreshBoot = await readBoth(fresh);
@@ -1191,6 +1174,21 @@ async function scenarioInPageFinishPreservesNewerDraft(browser) {
       "a fresh boot retains only the recovery copy beside the accepted session",
       { replicas: summary(afterFreshBoot), recoveryMatches: recoveryAfterFreshBoot === newerDraftRaw }
     );
+    check(await writer.evaluate(() => window.__repforgeWorkoutDraft.raw()) === null,
+      "the finishing tab releases the completed draft identity");
+    await writer.locator("#sumDone").click();
+    await enterWorkout(writer);
+    const next = await writer.evaluate(() => ({
+      load: document.querySelector('#workout .exercise.is-current [data-k="audit-press_1_load"]')?.value,
+      completed: document.querySelectorAll('#workout .exercise.is-current [data-editn]').length,
+      draft: window.__repforgeWorkoutDraft.current(),
+    }));
+    check(next.load === "82.5" && next.completed === 0 &&
+      next.draft.exerciseOrder.every(id => next.draft.exercises[id].setOrder.every(setId => {
+        const set=next.draft.exercises[id].sets[setId];
+        return set.completion === "pending" && !Object.values(set.touched).some(Boolean);
+      })), "a new visible Focus session has fresh suggestions without stale completion or cross-tab input", next);
+
   } finally {
     await context.close();
   }

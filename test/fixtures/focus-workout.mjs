@@ -27,3 +27,9 @@ export async function sessionField(page, selector, value) {
   await page.locator("#sessionSheetClose").click();
   await page.locator("#sessionSheet").waitFor({ state: "hidden" });
 }
+
+export async function finishEarly(page) {
+  await page.locator("#sessionSheetBtn").click();
+  await page.locator("#sessionEarlyFinish").click();
+  await page.locator("#sessionEarlyConfirm").click();
+}

@@ -126,10 +126,28 @@ export const APP_SCENARIOS = {
   },
 
   "workout/focus": focusMode,
-  "today/preview": async page => { await page.click("#viewExercises"); await page.waitForSelector("#previewSessionSheet.is-open"); },
+  "today/preview": async page => { await page.click("#previewSession"); await page.waitForSelector("#previewSessionSheet.is-open"); },
   "workout/session": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); },
   "workout/early-finish": async page => { await focusMode(page); await logCurrentSet(page); await page.click("#sessionSheetBtn"); await page.click("#sessionEarlyFinish"); },
   "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-exactions-open]").click(); },
+  "workout/skipped-actions": async page => {
+    await focusMode(page);
+    const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
+    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#exActionSkipBtn").click();
+    await page.locator("#exActionsSheet").waitFor({state:"hidden"});
+    await page.locator("#sessionSheetBtn").click();
+    await page.locator(`[data-session-map-jump="${id}"]`).click();
+    await page.locator("#exActionsSheet.is-open").waitFor();
+  },
+  "workout/substituted-actions": async page => {
+    await focusMode(page);
+    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#exActionSubstBtn").click();
+    await page.locator("#exPickList .pickrow").first().click();
+    await page.locator("#exPickSheet").waitFor({state:"hidden"});
+    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+  },
   "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-exactions-open]").click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
   "workout/reorder": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); await page.locator("[data-session-reorder-down]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
   "workout/correction": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-editn]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },

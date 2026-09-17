@@ -133,7 +133,7 @@ async function todayView(page) {
       prLine: text(".today-done__pr"),
       hasExercisePreview: !!document.querySelector("#todayExList"),
       startVisible: visible("#startWorkout"),
-      viewExVisible: visible("#viewExercises"),
+      viewExVisible: visible("#startWorkout"),
       reviewVisible: visible("#reviewTodaySession"),
       anotherVisible: visible("#logAnotherSession"),
       startText: text("#startWorkout"),

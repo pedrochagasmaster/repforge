@@ -14,6 +14,7 @@
  * mirrored marker validation, settings-only destination refusal, and
  * post-commit divergence recovery remain independently observable gaps.
  */
+import { finishEarly } from "./fixtures/focus-workout.mjs";
 import { webcrypto } from "node:crypto";
 import { createRequire } from "node:module";
 import { readFileSync } from "node:fs";
@@ -308,15 +309,15 @@ async function activateProgram(page) {
 
 async function saveWorkout(page) {
   const day = await page.evaluate(() => window.__repforgeWorkoutDraft.state()?.program?.[0]?.day || "Day 1");
-  const entered = await page.evaluate((dayLabel) => window.__repforgeEnterWorkout({ day: dayLabel, focus: false }), day);
+  const entered = await page.evaluate((dayLabel) => window.__repforgeEnterWorkout({ day: dayLabel, focus: true }), day);
   if (!entered) throw new Error(`production workout entry failed: ${JSON.stringify(entered)}`);
   await page.locator("#workout input[data-k$='_load']").first().waitFor({ state: "visible" });
   await page.locator("#workout input[data-k$='_load']").first().fill("60");
   await page.locator("#workout input[data-k$='_reps']").first().fill("8");
   await page.locator("#workout input[data-k$='_rir']").first().fill("2");
   await page.locator("#workout button[data-save]").first().click();
-  await page.waitForFunction(() => document.querySelector("#workout button[data-save]")?.getAttribute("aria-pressed") === "true");
-  await page.locator("#logForm .btn--save").click();
+  await page.waitForFunction(() => !!document.querySelector('#workout .exercise.is-current [data-editn="1"]'));
+  await finishEarly(page);
   await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === false, undefined, { timeout: 10000 });
   await page.locator("#sumDone").click();
   await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === true, undefined, { timeout: 10000 });
@@ -393,7 +394,7 @@ async function createAcknowledgedDraft(page) {
     const hook = window.__repforgeWorkoutDraft;
     const day = hook?.state?.()?.program?.[0]?.day;
     if (!hook || typeof window.__repforgeEnterWorkout !== "function" || !day) return { ok: false, code: "draft-producer-seam-unavailable" };
-    const entered = await window.__repforgeEnterWorkout({ day, focus: false });
+    const entered = await window.__repforgeEnterWorkout({ day, focus: true });
     const current = hook.current?.();
     const exerciseId = current?.exerciseOrder?.[0];
     const setId = exerciseId && current.exercises?.[exerciseId]?.setOrder?.[0];
@@ -1723,12 +1724,12 @@ async function runP4cForeignFreezeDraftBoundary(browser) {
     await page.evaluate(({ freezeKey, value }) => localStorage.setItem(freezeKey, JSON.stringify(value)),
       { freezeKey: FREEZE_KEY, value: freeze });
     let createResult;
-    try { createResult = await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false })); }
+    try { createResult = await page.evaluate(() => window.__repforgeEnterWorkout({ focus: true })); }
     catch (error) { createResult = { thrown: error.message }; }
     const afterCreate = await readDraftBytes();
 
     await page.evaluate((freezeKey) => localStorage.removeItem(freezeKey), FREEZE_KEY);
-    const clearFixture = await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+    const clearFixture = await page.evaluate(() => window.__repforgeEnterWorkout({ focus: true }));
     if (clearFixture !== true) throw new Error(`L clear fixture creation failed: ${JSON.stringify(clearFixture)}`);
     await flush(page);
     const beforeClear = await readDraftBytes();

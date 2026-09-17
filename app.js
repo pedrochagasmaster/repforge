@@ -1,4 +1,20 @@
+let fallbackGestureController=null;
+const fallbackFocusTimers=new Set();
+function fallbackFocusLater(callback,delay){
+  const timer=setTimeout(()=>{fallbackFocusTimers.delete(timer);callback()},delay);
+  fallbackFocusTimers.add(timer);return timer}
+function cancelFallbackGestures(){
+  for(const timer of fallbackFocusTimers)clearTimeout(timer);
+  fallbackFocusTimers.clear();
+  focusFlinging=false;
+  if(sheetDrag){sheetDragRelease(sheetDrag.rec);sheetDrag=null}
+  const drag=focusDrag;focusDrag=null;
+  drag?.card?.classList.remove("is-dragging");
+  const track=drag?.track||focusTrack();
+  focusSetTrack(track,0);track?.classList.remove("is-settling");
+  $("#focusDeck")?.classList.remove("is-swiping")}
 function mountFallbackGestures() {
+  if(fallbackGestureController)return fallbackGestureController;
   document.addEventListener("pointerdown", sheetDragStart);
   window.addEventListener("pointermove", sheetDragMove, { passive: true });
   window.addEventListener("pointerup", sheetDragEnd);
@@ -9,10 +25,17 @@ function mountFallbackGestures() {
   window.addEventListener("pointerup", focusDragEnd);
   window.addEventListener("pointercancel", focusDragEnd);
   let disposed = false;
-  return {
+  const onEscape=e=>{if(e.key==="Escape")cancelFallbackGestures()};
+  document.addEventListener("keydown",onEscape,true);
+  fallbackGestureController = {
+    isFluid:false,
+    navigate:dir=>!disposed && fallbackFocusAnimateTo(dir),
     dispose() {
       if (disposed) return;
       disposed = true;
+      cancelFallbackGestures();
+      fallbackGestureController=null;
+      document.removeEventListener("keydown",onEscape,true);
       document.removeEventListener("pointerdown", sheetDragStart);
       window.removeEventListener("pointermove", sheetDragMove);
       window.removeEventListener("pointerup", sheetDragEnd);
@@ -23,6 +46,7 @@ function mountFallbackGestures() {
       window.removeEventListener("pointercancel", focusDragEnd);
     }
   };
+  return fallbackGestureController;
 }
 const KEY="repforge_v1",DRAFT="repforge_draft_v1",NOTIFY_META="repforge_notify_v1";
 const WorkoutDraft=window.RepForgeWorkoutDraft;
@@ -4128,7 +4152,11 @@ async function goToLogExercise(exId){
   if(logBtn){$$("nav button").forEach(x=>{const on=x===logBtn;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")})}
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="log"));
   document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-library","is-preview","is-import");
-  await enterWorkout({});
+  if(!await enterWorkout({}))return;
+  const selected=await enqueueDraftCommand("selectExercise",{exerciseInstanceId:exId});
+  if(selected.status!=="applied")return;
+  hydrateDraftCollections(workoutDraftProjection(),{restoreSelection:true});
+  renderWorkout();
   const art=$(`#workout [data-ex="${exId}"]`);if(art){art.scrollIntoView({behavior:"smooth",block:"center"})}}
 function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
   $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
@@ -4533,8 +4561,8 @@ function explainRecommendation(ex){
   if(!ex)return rows;
   const rec=recommendation(ex),u=unitLabel();
   if(rec.status==="manual")return rows;
-  // A never-trained lift has no history and no arithmetic; the button is hidden there.
-  if(rec.status==="new")return rows;
+  // A new lift can still explain an adjustment from sets logged in this session.
+  if(rec.status==="new"){const note=inSessionNote(ex,loadDraft());return note?[{label:t("why.session"),text:note}]:rows}
   if(rec.strategy&&rec.strategy!=="range")return explainStrategy(ex,rec,u);
   const prev=last(ex).filter(x=>+x.load>0);
   if(prev.length)rows.push({label:t("why.last"),
@@ -4999,7 +5027,7 @@ async function confirmPickerDay(){
   if(!next||!days().includes(next))return;
   if(!await requestWorkoutDay(next))return;
   await closeDayPickSheet();
-  await enterWorkout({day:next,focus:true});
+  await enterWorkout({day:next});
   toast(t("toast.day_ready",{day:dayLabel(next)}))}
 /** Keep the sheet above the software keyboard rather than behind it, and inside
  *  the band the keyboard leaves visible so its header stays on screen. */
@@ -5107,6 +5135,7 @@ function sheetDragEnd(e){
   if(!sheetDrag||(e&&e.pointerId!=null&&e.pointerId!==sheetDrag.id))return;
   const{rec,dy,vy,live,motion}=sheetDrag;sheetDrag=null;
   if(!live)return;
+  if(e?.type==="pointercancel"){sheetDragRelease(rec);return}
   // The drag ends over whatever the thumb started on, so a button under it must
   // not also fire.
   if(dy>SHEET_DRAG_LOCK)swallowNextClick();
@@ -5156,8 +5185,7 @@ const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").
  *  and that half does use a spring. */
 function focusAnimateTo(dir){
   const controller=window.__repforgeGestureHandle;
-  if(controller?.isFluid)return controller.navigate(dir);
-  return fallbackFocusAnimateTo(dir)}
+  return controller?.navigate(dir)||false}
 function fallbackFocusAnimateTo(dir){
   if(focusFlinging||!focusCanGo(dir))return false;
   const track=focusTrack(),deck=$("#focusDeck");
@@ -5166,7 +5194,7 @@ function fallbackFocusAnimateTo(dir){
   deck?.classList.add("is-swiping");
   track.classList.add("is-settling");
   focusSetTrack(track,-dir*focusStep());
-  setTimeout(()=>{
+  fallbackFocusLater(()=>{
     focusFlinging=false;
     track.classList.remove("is-settling");
     deck?.classList.remove("is-swiping");
@@ -5227,7 +5255,7 @@ function focusSettle(track,card,deck,{from=0,velocity=0}={}){
   const run=window.RepForgeMotion?.settleFocusDeck(track,{from,velocity});
   if(run){run.then(done);return}
   focusSetTrack(track,0);
-  setTimeout(done,220)}
+  fallbackFocusLater(done,220)}
 function focusDragEnd(e){
   if(!focusDrag||(e&&e.pointerId!=null&&e.pointerId!==focusDrag.id))return;
   const{card,track,dx,axis,vx}=focusDrag;focusDrag=null;
@@ -5239,7 +5267,7 @@ function focusDragEnd(e){
   // it was thrown (0.4px/ms is roughly a deliberate flick).
   const flick=Math.abs(vx)>=.4&&Math.sign(vx)===Math.sign(dx)&&Math.abs(dx)>=28;
   const past=Math.abs(dx)>=Math.min(110,Math.max(56,width*.2))||flick;
-  if(!past||!focusCanGo(dir)){focusSettle(track,card,deck,{from:dx,velocity:vx});return}
+  if(e?.type==="pointercancel"||!past||!focusCanGo(dir)){focusSettle(track,card,deck,{from:dx,velocity:vx});return}
   card.classList.remove("is-dragging");
   focusAnimateTo(dir)}
 async function enterWorkout(opts={}){if(opts.day&&!await requestWorkoutDay(opts.day))return false;
@@ -5340,7 +5368,7 @@ function todayExListHtml(exs){if(!exs.length)return"";
    strip and an Up next built from no program are the same lie in smaller type. */
 function renderTodayNoProgram(){
   for(const sel of["#todayProgram","#todaySessionLabel","#todaySession","#startWorkout","#previewSession","#chooseAnotherDay",
-    "#viewExercises","#reviewTodaySession","#logAnotherSession","#todayWeekLabel","#todayWeek",
+    "#reviewTodaySession","#logAnotherSession","#todayWeekLabel","#todayWeek",
     "#todayUpNextLabel","#todayUpNext","#todayLast"]){
     const el=$(sel);if(el)el.classList.add("hidden")}
   const sess=$("#todaySession");if(sess)sess.innerHTML="";
@@ -5381,9 +5409,9 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
     // A one-day split has no other day to offer, so the picker would open onto
     // the day Today already leads with.
     const canPickDay=!recap&&days().length>1;
-    for(const[sel,shown]of[["#startWorkout",!recap],["#previewSession",!recap],["#chooseAnotherDay",canPickDay],["#viewExercises",!recap],["#reviewTodaySession",!!recap],["#logAnotherSession",!!recap]]){
+    for(const[sel,shown]of[["#startWorkout",!recap],["#previewSession",!recap],["#chooseAnotherDay",canPickDay],["#reviewTodaySession",!!recap],["#logAnotherSession",!!recap]]){
       const el=$(sel);if(el)el.classList.toggle("hidden",!shown)}
-    const ready=$("#readyLine");if(ready)ready.onclick=()=>{enterWorkout({focus:true});
+    const ready=$("#readyLine");if(ready)ready.onclick=()=>{enterWorkout({});
       const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");
       if(first){first.scrollIntoView({behavior:"smooth",block:"center"})}}
     $$("#todayExList [data-exopen]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
@@ -5474,6 +5502,7 @@ function closePreviewSessionSheet(){
 
 /* ---- Session sheet (Focus workout) ---- */
 let sessionEarlyRevision = null;
+let sessionEarlyDraftId = null;
 
 function renderSessionSheet(){
   const sheet = $("#sessionSheet");
@@ -5534,6 +5563,7 @@ function renderSessionSheet(){
         [currentOrder[idx - 1], currentOrder[idx]] = [currentOrder[idx], currentOrder[idx - 1]];
         const res = await enqueueDraftCommand("reorderExercises", { exerciseOrder: currentOrder });
         if (res.status === "applied") {
+          hydrateDraftCollections(workoutDraftProjection(),{restoreSelection:true});
           renderWorkout();
           renderSessionSheet();
         }
@@ -5548,6 +5578,7 @@ function renderSessionSheet(){
         [currentOrder[idx], currentOrder[idx + 1]] = [currentOrder[idx + 1], currentOrder[idx]];
         const res = await enqueueDraftCommand("reorderExercises", { exerciseOrder: currentOrder });
         if (res.status === "applied") {
+          hydrateDraftCollections(workoutDraftProjection(),{restoreSelection:true});
           renderWorkout();
           renderSessionSheet();
         }
@@ -5557,6 +5588,7 @@ function renderSessionSheet(){
 
   // Reset early finish prompt
   sessionEarlyRevision = null;
+  sessionEarlyDraftId = null;
   const earlyPrompt = $("#sessionEarlyPrompt");
   if (earlyPrompt) earlyPrompt.classList.add("hidden");
   const earlyBtn = $("#sessionEarlyFinish");
@@ -5568,6 +5600,19 @@ function renderSessionSheet(){
   }
 }
 
+function renderEarlyFinishPreview(){
+  const draft=activeWorkoutDraft;
+  const rows=draft?WorkoutDraft.toHistoryRows({...draft,session:{...draft.session,status:"finishing"}},new Date().toISOString()):null;
+  const host=$("#sessionEarlyOmissions");
+  if(!host)return;
+  if(!Array.isArray(rows)){host.textContent=t("session.sheet.early_invalid");return}
+  const included=new Set(rows.map(row=>`${row.exerciseId}_${row.set}`));
+  host.innerHTML=draft.exerciseOrder.map(id=>{
+    const exercise=draft.exercises[id];
+    const omitted=exercise.setOrder.filter(setId=>!included.has(`${id}_${exercise.sets[setId].ordinal}`));
+    return omitted.length?`<li>${esc(t("session.sheet.omitted",{name:exercise.displayName,sets:omitted.map(setId=>exercise.sets[setId].ordinal).join(", ")}))}</li>`:"";
+  }).join("");
+}
 function openSessionSheet(){
   if (!activeWorkoutDraft) return;
   renderSessionSheet();
@@ -5955,7 +6000,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
     `<span class="focus-ex__setof${setofFresh}">${esc(t("focus.set_of",{x:" ",y:ex.sets})).replace(" ",`<b>${setNo}</b>`)}</span></div>`+
     `<div class="focus-ex__title"><div class="focus-ex__titletext">${nameHtml}`+
     `<p class="focus-ex__target"><span class="focus-ex__alvo">${esc(t("today.target_label"))}</span>${esc(targetText(ex))}</p>`+
-    (r.status!=="new"?`<button type="button" class="text-link focus-ex__why"`+
+    (r.status!=="new"||inSessionNote(ex,draft)?`<button type="button" class="text-link focus-ex__why"`+
       `${peek?dead():` data-why="${esc(ex.id)}" aria-label="${esc(t("why.open_aria",{name}))}"`}>${esc(t("why.open"))}</button>`:"")+
     `</div>${tools}</div></div>`+
     `<div class="fcard__ledger">${focusLedgerHtml(ex,r,draft,prev,{effortMode,peek})}</div>`+
@@ -14149,6 +14194,7 @@ function openWhySheetFor(ex,opener){
   const sheet=$("#whySheet"),scrim=$("#whyScrim");
   if(!sheet||!ex)return;
   const rec=recommendation(ex);
+  const decision=$("#whyDecision");if(decision)decision.textContent=rec.label;
   const target=$("#whyTarget");
   if(target)target.textContent=rec.load!=null?t("today.rec_keep",{load:fmtLoad(rec.load),unit:unitLabel()}):rec.label;
   const body=$("#whyBody");
@@ -14589,20 +14635,19 @@ function init(){
   // Sheet and card deck gestures are mounted via explicit gesture controller lifetime.
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
   const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>navTo("log");
-  const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({focus:true});
+  const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({});
   const previewToday=$("#previewSession");if(previewToday)previewToday.onclick=()=>openPreviewSessionSheet();
   const previewClose=$("#previewSessionClose");if(previewClose)previewClose.onclick=()=>closePreviewSessionSheet();
   const previewScrim=$("#previewSessionScrim");if(previewScrim)previewScrim.onclick=()=>closePreviewSessionSheet();
   const previewStart=document.querySelector("[data-preview-start]");if(previewStart)previewStart.onclick=async()=>{
     const p=closePreviewSessionSheet(); if(p && typeof p.then==="function") await p;
-    await enterWorkout({focus:true});
+    await enterWorkout({});
   };
   const otherDay=$("#chooseAnotherDay");if(otherDay)otherDay.onclick=()=>openDayPickSheet();
-  const viewEx=$("#viewExercises");if(viewEx)viewEx.onclick=()=>enterWorkout({focus:false});
   const reviewToday=$("#reviewTodaySession");if(reviewToday)reviewToday.onclick=()=>openTodaySessionInHistory();
   // Training twice in a day is the lifter's call, never Today's suggestion, so it
   // opens the day that follows the one already done rather than repeating it.
-  const another=$("#logAnotherSession");if(another)another.onclick=()=>enterWorkout({day:dayAfterTrainedToday()||day,focus:true});
+  const another=$("#logAnotherSession");if(another)another.onclick=()=>enterWorkout({day:dayAfterTrainedToday()||day});
   const leaveWo=$("#leaveWorkout");if(leaveWo)leaveWo.onclick=leaveWorkout;
   const woOv=$("#woOverflowBtn");if(woOv)woOv.onclick=e=>{e.stopPropagation();toggleWorkoutOverflow()};
   // The menu is a popover: any choice inside it, a tap outside, or Escape closes it.
@@ -14650,9 +14695,12 @@ function init(){
     if(activeWorkoutDraft)await enqueueDraftCommand("setSessionNotes",{value:sessNotes.value},{pendingValue:sessNotes.value});
   });
 
-  const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.onclick=()=>{
+  const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.onclick=async()=>{
+    await drainDraftWork();
     if(!activeWorkoutDraft)return;
+    renderEarlyFinishPreview();
     sessionEarlyRevision=activeWorkoutDraft.revision;
+    sessionEarlyDraftId=activeWorkoutDraft.draftId;
     const earlyMsg=$("#sessionEarlyMsg");
     if(earlyMsg){earlyMsg.classList.remove("is-error");earlyMsg.textContent=t("session.sheet.early_prompt")}
     const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.remove("hidden");
@@ -14734,11 +14782,13 @@ function init(){
 
   const earlyConfirm=$("#sessionEarlyConfirm");if(earlyConfirm)earlyConfirm.onclick=async()=>{
     if(!activeWorkoutDraft)return;
-    if(sessionEarlyRevision==null||activeWorkoutDraft.revision!==sessionEarlyRevision){
+    if(sessionEarlyRevision==null||activeWorkoutDraft.revision!==sessionEarlyRevision||activeWorkoutDraft.draftId!==sessionEarlyDraftId){
       const earlyMsg=$("#sessionEarlyMsg");
       if(earlyMsg){earlyMsg.classList.add("is-error");earlyMsg.textContent=t("session.sheet.stale_error")}
       toast(t("session.sheet.stale_error"));
       sessionEarlyRevision=activeWorkoutDraft.revision;
+      sessionEarlyDraftId=activeWorkoutDraft.draftId;
+      renderEarlyFinishPreview();
       return;
     }
     const expectedDraft={draftId:activeWorkoutDraft.draftId,revision:sessionEarlyRevision};

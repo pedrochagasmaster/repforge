@@ -109,6 +109,8 @@ async function main() {
       };
     }, STATE_KEY);
 
+    const selectedBefore=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
+
     // Click Move Down on row 0
     await reorderDownBtn.click();
     await page.waitForTimeout(350);
@@ -122,6 +124,9 @@ async function main() {
         setOrdinalsEx0: draft.exercises[draft.exerciseOrder[0]].setOrder.map(sid => draft.exercises[draft.exerciseOrder[0]].sets[sid].ordinal),
       };
     }, STATE_KEY);
+
+    assert(await page.locator("#workout .exercise.is-current").getAttribute("data-ex")===selectedBefore,
+      "session reordering preserves the selected exercise identity");
 
     // Verify draftOrder was swapped
     assert(

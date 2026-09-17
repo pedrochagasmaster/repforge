@@ -420,8 +420,8 @@ async function waitForSetDone(page, exerciseId, ordinal = 1) {
     const draft = window.__repforgeWorkoutDraft?.current?.();
     const exercise = draft?.exercises?.[id];
     const set = exercise && Object.values(exercise.sets || {}).find((candidate) => candidate.ordinal === setOrdinal);
-    return set?.completion !== "pending" &&
-      document.querySelector(`[data-set="${id}_${setOrdinal}"]`)?.classList.contains("is-done");
+    return !!set && set.completion !== "pending" &&
+      !!document.querySelector(`#workout .exercise.is-current [data-editex="${id}"][data-editn="${setOrdinal}"]`);
   }, { exerciseId, ordinal }, { timeout: 5000 });
 }
 
@@ -978,14 +978,23 @@ async function openStatsDeep(page) {
   });
 }
 
+async function whyInfo(page, id) {
+  await selectFocusExercise(page,id);
+  await page.locator("#workout .exercise.is-current [data-why]").click();
+  const info={chip:await page.locator("#whyDecision").textContent(),rec:await page.locator("#whyTarget").textContent(),body:await page.locator("#whyBody").textContent()};
+  await page.locator("#whyClose").click();
+  await page.locator("#whySheet").waitFor({state:"hidden"});
+  return info;
+}
+
 async function cardInfoById(page, exId) {
   await selectFocusExercise(page, exId);
   const card = page.locator("#workout .exercise.is-current");
   const info = await card.evaluate(a => ({
     status: [...a.classList].find(c => /^is-(add|add2|hold|reduce|new|manual)$/.test(c)) || "",
-    chip: a.querySelector(".focus-ex__target")?.textContent || "",
-    rec: a.querySelector(".focus-ex__target")?.textContent || "",
+    cue: a.querySelector(".focus-cue")?.textContent || "",
   }));
+  if(await card.locator("[data-why]").count())Object.assign(info,await whyInfo(page,exId));
   await card.locator("[data-exactions-open]").click();
   info.setup = await page.locator("#exActionsSetupText").textContent();
   await page.locator("#exActionsClose").click();
@@ -1096,6 +1105,7 @@ async function editSimField(page, key, value) {
       field: target.field, value: canonicalDraftField(target.field, String(value)),
     });
     if (result.status !== "applied") throw new Error(`Draft edit failed: ${result.status}`);
+    await refreshSuggestions(target.exerciseInstanceId);
     renderWorkout();
   }, {key, value});
 }
@@ -1727,18 +1737,10 @@ async function main() {
 
   await nav(page, "log");
   await selectDay(page, "Day 2");
-  const lastLine = await page
-    .locator("#workout .exercise")
-    .filter({ has: page.locator(`.ex__name:text-is("${newName}")`) })
-    .locator(".prev")
-    .textContent()
-    .catch(() => "");
-  assert(
-    lastLine.includes("Last set"),
-    "Renamed exercise still shows last session via exerciseId",
-    `Expected Last set line after rename, got "${lastLine}"`,
-    "Rename exercise → Log tab → previous session should still display"
-  );
+  await selectFocusExercise(page, renamedEx.id);
+  const past=await page.locator("#workout .exercise.is-current .ledger__row.is-past").allTextContents();
+  assert(past.length>0 && past.some(row=>row.includes(String(loggedOnDay2.load))),
+    "Renamed exercise still shows previous-session values via exerciseId", JSON.stringify(past));
 
   // Add exercise — now via the library picker rather than a blank row
   await nav(page, "program");
@@ -3092,7 +3094,7 @@ async function main() {
   const [exNew, exAdd, exAdd2, exHold] = matrixEx;
   const newCard = await cardInfoById(page, exNew.id);
   assert(
-    newCard?.status === "is-new" && /new/i.test(newCard.chip),
+    newCard?.status === "is-new" && /pick a load/i.test(newCard.cue),
     "Fresh exercise recommends New lift status",
     JSON.stringify(newCard),
     "Clear state → Log Day 1 → exercise with no history is is-new"
@@ -3187,10 +3189,7 @@ async function main() {
     await nav(page, "log");
     await selectDay(page, "Day 1");
 
-    const blockNote = await page
-      .locator(`.exercise[data-ex="${dynEx.id}"] .rec__block`)
-      .textContent()
-      .catch(() => "");
+    const blockNote = (await whyInfo(page, dynEx.id)).body;
     assert(
       /strength rose across 3 sessions/i.test(blockNote || ""),
       "Block-trend note reflects rising strength across the block",
@@ -3222,10 +3221,7 @@ async function main() {
     await page.waitForTimeout(120);
     const dynUpLoad2 = +(await readSimField(page, `${dynEx.id}_2_load`));
     const dynUpReps2 = +(await readSimField(page, `${dynEx.id}_2_reps`));
-    const dynUpNote = await page
-      .locator(`.exercise[data-ex="${dynEx.id}"] .insession`)
-      .textContent()
-      .catch(() => "");
+    const dynUpNote = (await whyInfo(page, dynEx.id)).body;
     assert(
       dynUpLoad2 > dynBaseLoad2,
       "Easy set 1 (top reps, high RIR) nudges set 2 load up in-session",
@@ -3252,10 +3248,7 @@ async function main() {
     await editSimField(page, `${dynEx.id}_1_rir`, "0");
     await page.waitForTimeout(120);
     const dynEditedLoad2 = +(await readSimField(page, `${dynEx.id}_2_load`));
-    const dynEditedNote = await page
-      .locator(`.exercise[data-ex="${dynEx.id}"] .insession`)
-      .textContent()
-      .catch(() => "");
+    const dynEditedNote = (await whyInfo(page, dynEx.id)).body;
     assert(
       dynEditedLoad2 < dynBaseLoad2 && /missed the target.*decreases to/is.test(dynEditedNote || ""),
       "Editing a committed set refreshes its later load suggestion and note",
@@ -3280,10 +3273,7 @@ async function main() {
     await commitDraftSet(page, `.saveset[data-save="${dynEx.id}_1"]`, dynEx.id, 1);
     await page.waitForTimeout(120);
     const dynDownLoad2 = +(await readSimField(page, `${dynEx.id}_2_load`));
-    const dynDownNote = await page
-      .locator(`.exercise[data-ex="${dynEx.id}"] .insession`)
-      .textContent()
-      .catch(() => "");
+    const dynDownNote = (await whyInfo(page, dynEx.id)).body;
     assert(
       dynDownLoad2 < dynBase2b,
       "Short set 1 (below min reps) eases set 2 load down in-session",
@@ -3296,10 +3286,7 @@ async function main() {
       `note="${dynDownNote}"`,
       "Portuguese UI + short set 1 → localized highlighted note"
     );
-    const blockNotePt = await page
-      .locator(`.exercise[data-ex="${dynEx.id}"] .rec__block`)
-      .textContent()
-      .catch(() => "");
+    const blockNotePt = (await whyInfo(page, dynEx.id)).body;
     assert(
       /força subiu em 3 sessões/i.test(blockNotePt || ""),
       "Block-trend note is localized in Portuguese",
@@ -3412,7 +3399,7 @@ async function main() {
       );
     }
 
-    // Saving out of order must preserve an edited earlier row and explain set 3.
+    // A retained legacy/out-of-order aggregate remains valid domain input; Focus exposes only the next set.
     const beforeOutOfOrder = await getState(page);
     await persistState(page, {
       ...beforeOutOfOrder,
@@ -3428,14 +3415,18 @@ async function main() {
     await editSimField(page, `${dynEx.id}_2_load`, "110");
     await editSimField(page, `${dynEx.id}_2_reps`, String(max));
     await editSimField(page, `${dynEx.id}_2_rir`, "3");
-    await commitDraftSet(page, `.saveset[data-save="${dynEx.id}_2"]`, dynEx.id, 2);
+    assert(await page.locator(`#workout .exercise.is-current [data-save="${dynEx.id}_2"]`).count()===0,
+      "Focus does not expose an out-of-order completion control");
+    await page.evaluate(async id=>{
+      const target=window.__repforgeWorkoutDraft.target(`${id}_2_load`);
+      const result=await window.__repforgeWorkoutDraft.dispatch("completeSet",{exerciseInstanceId:id,setId:target.setId});
+      if(result.status!=="applied")throw new Error(`Legacy aggregate setup failed: ${result.status}`);
+      await refreshSuggestions(id);renderWorkout();
+    },dynEx.id);
     await page.waitForTimeout(120);
     const preservedSet1 = +(await readSimField(page, `${dynEx.id}_1_load`));
     const adjustedSet3 = +(await readSimField(page, `${dynEx.id}_3_load`));
-    const outOfOrderNote = await page
-      .locator(`.exercise[data-ex="${dynEx.id}"] .insession`)
-      .textContent()
-      .catch(() => "");
+    const outOfOrderNote = (await whyInfo(page, dynEx.id)).body;
     assert(
       preservedSet1 === 109 && adjustedSet3 > 110 && /set 3/i.test(outOfOrderNote || ""),
       "Out-of-order save preserves touched rows and explains the next adjusted set",
@@ -3601,10 +3592,7 @@ async function main() {
       `load=${reentryLoad} reps=${reentryReps} range=${exReentry.min}-${exReentry.max}`,
       "Add load with surplus capacity → set 1 targets predicted reps at the new load, above the bottom"
     );
-    const reentryNote = await page
-      .locator(`.exercise[data-ex="${exReentry.id}"] .insession`)
-      .textContent()
-      .catch(() => "");
+    const reentryNote = (await whyInfo(page, exReentry.id)).body;
     assert(
       /start with \d+ reps at your usual effort/i.test(reentryNote || ""),
       "The re-entry note explains the new load's rep target",
@@ -3662,10 +3650,7 @@ async function main() {
       `set3 reps=${dropSet3} set2 performed=7`,
       "Commit 8 then 7 reps @ RIR 1 → set 3 targets no more than the second set's performed reps"
     );
-    const dropNote = await page
-      .locator(`.exercise[data-ex="${dropEx.id}"] .insession`)
-      .textContent()
-      .catch(() => "");
+    const dropNote = (await whyInfo(page, dropEx.id)).body;
     assert(
       /reps have dropped in this session/i.test(dropNote || ""),
       "The anticipated-drop note names the trend, not the arithmetic",
@@ -3696,10 +3681,7 @@ async function main() {
     await commitDraftSet(page, `.saveset[data-save="${steadyEx.id}_1"]`, steadyEx.id, 1);
     await page.waitForTimeout(150);
     const steadySet2 = +(await readSimField(page, `${steadyEx.id}_2_reps`));
-    const steadyNote = await page
-      .locator(`.exercise[data-ex="${steadyEx.id}"] .insession`)
-      .textContent()
-      .catch(() => "");
+    const steadyNote = (await whyInfo(page, steadyEx.id)).body;
     assert(
       steadySet2 < 8 && /stays at/i.test(steadyNote || "") && !/have dropped/i.test(steadyNote || ""),
       "A target eased only by the lifter's typical RIR is not reported as a downward trend",
@@ -3813,10 +3795,7 @@ async function main() {
       `before=${beforeTemperReps} after=${afterTemperReps} min=${exOverlap.min}`,
       "Commit three chest sets well under baseline → the untouched chest lift's set 1 asks for fewer reps"
     );
-    const temperNote = await page
-      .locator(`.exercise[data-ex="${exOverlap.id}"] .insession`)
-      .textContent()
-      .catch(() => "");
+    const temperNote = (await whyInfo(page, exOverlap.id)).body;
     assert(
       /below their usual level/i.test(temperNote || ""),
       "The temper note states the measured signal without exposing the arithmetic",
@@ -4054,7 +4033,7 @@ async function main() {
         `reps=${logReps} expected=${c.firstReps}`,
         `Log → ${c.key} set 1 reps`
       );
-      const cardHead = await page.locator(`.exercise[data-ex="${c.ex.id}"] .focus-ex__target, .exercise[data-ex="${c.ex.id}"] .recblock__head, #workout .focus-ex__target`).first().textContent();
+      const cardHead = await page.locator("#workout .exercise.is-current .focus-cue").textContent();
       assert(
         /55/.test(cardHead || "") && !/53\.75/.test(cardHead || ""),
         `F1: ${c.key} kg card shows the grid load`,
@@ -8328,7 +8307,7 @@ async function main() {
   await selectFocusExercise(page, noteEx.id);
   await page.locator("#workout .exercise.is-current [data-exnote-open]").click();
   const notePrefill = await page.inputValue("#exNoteText");
-  await page.click("#exNoteClose");
+  await page.click("#exNoteCancel");
   assert(
     notePrefill === NOTE_TEXT,
     "Next session prefills the last exercise note",
@@ -8982,11 +8961,11 @@ async function main() {
   await stopRestIfRunning(page);
   await setWorkoutField(page, `[data-k="${valKey}_load"]`, "");
   const restHiddenBefore = await page.evaluate(() => document.querySelector("#restBar")?.classList.contains("hidden") !== false);
-  const doneBefore = await page.evaluate((k) => document.querySelector(`[data-set="${k}"]`)?.classList.contains("is-done"), valKey);
+  const doneBefore = (await draftSetState(page,valKey)).done;
   await clickSaveSet(page, valKey);
   await page.waitForTimeout(80);
   const restHiddenAfter = await page.evaluate(() => document.querySelector("#restBar")?.classList.contains("hidden") !== false);
-  const doneAfter = await page.evaluate((k) => document.querySelector(`[data-set="${k}"]`)?.classList.contains("is-done"), valKey);
+  const doneAfter = (await draftSetState(page,valKey)).done;
   const draftForDone = await readDraft(page);
   const draftDone = draftForDone?.exerciseOrder.flatMap((id) =>
     Object.values(draftForDone.exercises[id]?.sets || {})

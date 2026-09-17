@@ -1253,7 +1253,6 @@ const EN = {
   "today.start": "Start workout",
   "today.continue": "Continue workout",
   "today.preview": "Preview session",
-  "today.view_exercises": "View exercises",
   "today.choose_day": "Choose another day",
   "today.choose_day_title": "Choose another day",
   "today.choose_day_sub": "Pick which day of your program to train today.",
@@ -1930,6 +1929,8 @@ const EN = {
   "session.sheet.reorder_up_aria": "Move {name} earlier in workout",
   "session.sheet.reorder_down_aria": "Move {name} later in workout",
   "workout.leave_failed": "Could not save workout progress. Please try again.",
+  "session.sheet.omitted": "{name}: sets {sets}",
+  "session.sheet.early_invalid": "Correct the highlighted set values before finishing.",
 };
 const PT = {
   "meta.description": "O Taurifer mantém seus treinos, rascunhos e histórico neste dispositivo. Links de configuração compartilham um programa e ajustes selecionados.",
@@ -3184,7 +3185,6 @@ const PT = {
   "today.start": "Começar treino",
   "today.continue": "Continuar treino",
   "today.preview": "Prévia da sessão",
-  "today.view_exercises": "Ver exercícios",
   "today.choose_day": "Escolher outro dia",
   "today.choose_day_title": "Escolher outro dia",
   "today.choose_day_sub": "Escolha qual dia do seu programa você quer treinar hoje.",
@@ -3861,6 +3861,8 @@ const PT = {
   "session.sheet.reorder_up_aria": "Mover {name} para antes no treino",
   "session.sheet.reorder_down_aria": "Mover {name} para depois no treino",
   "workout.leave_failed": "Não foi possível salvar o progresso do treino. Tente novamente.",
+  "session.sheet.omitted": "{name}: séries {sets}",
+  "session.sheet.early_invalid": "Corrija os valores destacados antes de concluir.",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

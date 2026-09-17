@@ -216,6 +216,12 @@ async function main() {
     assert(await page.locator("#sessionEarlyConfirm").isVisible(),
       "tapping early finish reveals the confirmation prompt");
 
+    const omitted=await page.locator("#sessionEarlyOmissions li").allTextContents();
+    const names=await page.evaluate(()=>{const d=window.__repforgeWorkoutDraft.current();return d.exerciseOrder.map(id=>d.exercises[id].displayName)});
+    assert(omitted.length===names.length && omitted[0]===`${names[0]}: sets 2` &&
+      omitted.slice(1).every((text,index)=>text===`${names[index+1]}: sets 1, 2`),
+      "early finish names every omitted exercise and ordinal, excluding the logged set", JSON.stringify(omitted));
+
     // Intentionally mutate the draft behind the prompt to make the captured revision stale!
     await page.evaluate(async () => {
       await window.__repforgeWorkoutDraft.dispatch("setSessionNotes", {

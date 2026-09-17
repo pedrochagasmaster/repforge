@@ -3,6 +3,7 @@
  * Regression for session context leaking across a confirmed workout-day discard.
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
+import { finishEarly } from "./fixtures/focus-workout.mjs";
 import { launchChromium } from "./browser.mjs";
 import {
   clearPersistenceArtifacts,
@@ -176,15 +177,18 @@ async function main() {
     await page.evaluate(() => window.__repforgeStorage.flush());
     await writeFixture(page, fixture());
     await reloadApp(page);
-    await page.click("#viewExercises");
+    await page.click("#startWorkout");
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
 
     const freshDate = await page.locator("#sessionDate").inputValue();
-    await page.click("#woOverflowBtn");
+    await page.click("#sessionSheetBtn");
     await page.locator("#sessionDate").fill(OLD_DATE);
     await page.locator("#sessionDate").dispatchEvent("change");
     await page.locator("#sessionNotes").fill(OLD_NOTE);
     await page.locator("#sessionBodyweight").fill(OLD_BODYWEIGHT);
+    await page.locator("#sessionBodyweight").blur();
+    await page.locator("#sessionSheetClose").click();
+    await page.locator("#sessionSheet").waitFor({state:"hidden"});
     await fillSet(page, DAY_1_EXERCISE, 101);
 
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
@@ -197,8 +201,11 @@ async function main() {
       { beforeSet }
     );
 
+    await page.locator("#leaveWorkout").click();
+    await page.locator("#chooseAnotherDay").click();
+    await page.locator('[data-daypick="Day 2"]').click();
     dialogAction = "dismiss";
-    await page.click('#dayTabs button[data-day="Day 2"]');
+    await page.locator("#dayPickConfirm").click();
     dialogAction = "accept";
     const afterCancel = await contextSnapshot(page);
     check(
@@ -211,7 +218,7 @@ async function main() {
       { beforeSwitch, afterCancel }
     );
 
-    await page.click('#dayTabs button[data-day="Day 2"]');
+    await page.locator("#dayPickConfirm").click();
     await page.waitForFunction(
       () => document.querySelector("#dayTabs button.active")?.dataset.day === "Day 2",
       { timeout: 5000 }
@@ -241,7 +248,7 @@ async function main() {
     );
 
     await fillSet(page, DAY_2_EXERCISE, 77);
-    await page.click("#logForm .btn--save");
+    await finishEarly(page);
     await page.waitForFunction(
       (key) => JSON.parse(localStorage.getItem(key) || "{}").log?.length === 1,
       KEY,

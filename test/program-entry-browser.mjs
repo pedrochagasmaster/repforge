@@ -1920,6 +1920,8 @@ try {
     assert(weekOneDom.durableBytes === durableBeforeWeekOne,
       "week-one execution leaves authored durable program bytes unchanged");
 
+    const cleared=await page.evaluate(()=>window.__repforgeWorkoutDraft.clear());
+    assert(cleared===true,"week-one draft is explicitly closed before creating a week-two session");
     const weekTwoStart = new Date();
     weekTwoStart.setUTCDate(weekTwoStart.getUTCDate() - 8);
     await page.evaluate(async ({ key, started }) => {

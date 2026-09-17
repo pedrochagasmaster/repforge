@@ -266,7 +266,7 @@ async function openApp(context) {
 
 async function ensureWorkoutOpen(page) {
   if (!(await page.locator("#workoutShell").isVisible())) {
-    await page.click("#viewExercises");
+    await page.click("#startWorkout");
   }
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
 }
@@ -650,10 +650,14 @@ async function runAcceptedRename(browser) {
         load: document.querySelector(`[data-k="${setKey}_load"]`)?.value ?? null,
         reps: document.querySelector(`[data-k="${setKey}_reps"]`)?.value ?? null,
         rir: document.querySelector(`[data-k="${setKey}_rir"]`)?.value ?? null,
-        notes: document.querySelector(`[data-exnote="${exerciseId}"]`)?.value ?? null,
+
       }),
       { exerciseId: EXERCISE_ID, setKey: SET_KEY }
     );
+    await page.locator("#workout .exercise.is-current [data-exnote-open]").click();
+    workoutUi.notes=await page.locator("#exNoteText").inputValue();
+    await page.locator("#exNoteCancel").click();
+    await page.locator("#exNoteSheet").waitFor({state:"hidden"});
     check(
       workoutUi.activeDay === "Push Day" &&
         workoutUi.exercisePresent &&

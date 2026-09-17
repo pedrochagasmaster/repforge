@@ -3,6 +3,7 @@
  * Focused regression for reducing planned sets while a workout draft is active.
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
+import { finishEarly } from "./fixtures/focus-workout.mjs";
 import { launchChromium } from "./browser.mjs";
 import {
   clearPersistenceArtifacts,
@@ -230,6 +231,14 @@ async function reduceSets(page) {
 }
 
 async function fillSet(page, set, load, reps, rir) {
+  if(!await page.locator(`[data-k="${EXERCISE_ID}_${set}_load"]`).count()) {
+    const correction=page.locator(`[data-editex="${EXERCISE_ID}"][data-editn="${set}"]`);
+    if(await correction.count())await correction.click();
+    else {
+      await page.locator("#workout .exercise.is-current .saveset").click();
+      await page.locator(`[data-k="${EXERCISE_ID}_${set}_load"]`).waitFor();
+    }
+  }
   for (const [field, value] of [["load", load], ["reps", reps], ["rir", rir]]) {
     const key = `${EXERCISE_ID}_${set}_${field}`;
     await page.locator(`[data-k="${key}"]`).fill(String(value));
@@ -360,7 +369,7 @@ async function main() {
     await writeFixture(page, fixture());
     await reloadApp(page);
 
-    await page.click("#viewExercises");
+    await page.click("#startWorkout");
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     await fillSet(page, 1, 100, 8, 1);
     await fillSet(page, 2, 90, 10, 2);
@@ -440,7 +449,7 @@ async function main() {
     await page.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
     await page.click("#programEditorDiscard");
     await page.waitForSelector("#log.view.active", { timeout: 5000 });
-    await page.click("#viewExercises");
+    await page.click("#startWorkout");
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
 
     const set2Reachable =
@@ -450,7 +459,7 @@ async function main() {
       set2DraftValue: afterReduction.draft?.[`${EXERCISE_ID}_2_load`],
     });
 
-    await page.click("#logForm .btn--save");
+    await finishEarly(page);
     await page.waitForFunction(
       (key) => JSON.parse(localStorage.getItem(key) || "{}").log?.length > 0,
       KEY,
@@ -482,7 +491,7 @@ async function main() {
 
     await writeFixture(page, fixture());
     await reloadApp(page);
-    await page.click("#viewExercises");
+    await page.click("#startWorkout");
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     await fillSet(page, 1, 100, 8, 1);
 

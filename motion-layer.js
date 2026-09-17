@@ -410,7 +410,10 @@
     const queued = run.queuedDir;
     cleanupFocusSlide(run);
     if (commit) global.focusGo?.(commit);
-    if (commit && queued) requestAnimationFrame(() => fluidFocusAnimateTo(queued));
+    const owner=activeGestureController;
+    if (commit && queued) requestAnimationFrame(() => {
+      if(owner && activeGestureController===owner)owner.navigate(queued);
+    });
   }
   function retargetFocusSlide(run, target) {
     freezeFocusPresentation(run.track);
@@ -582,11 +585,22 @@
   function mountGestureController() {
     if (activeGestureController) return activeGestureController;
 
+    if (!available) {
+      const fallback=global.mountFallbackGestures();
+      const controller={isFluid:false,navigate:dir=>activeGestureController===controller && global.fallbackFocusAnimateTo(dir),dispose(){
+        fallback.dispose();
+        if(activeGestureController===controller)activeGestureController=null;
+      }};
+      activeGestureController=controller;
+      return controller;
+    }
     const useFluid = available;
     const workout = document.getElementById("workout");
 
     function onKeyDown(event) {
       if (event.key !== "Escape") return;
+      if (focusSlide) cleanupFocusSlide(focusSlide);
+      if (focusGesture) focusPointerEnd({pointerId:focusGesture.id,type:"pointercancel"});
       if (sheetGesture) clearSheetGesture({ clearRun: true });
       for (const [sheet, motion] of sheetRuns) {
         if (!sheet.hidden && sheet.classList.contains("is-open")) {

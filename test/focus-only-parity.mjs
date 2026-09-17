@@ -33,31 +33,22 @@ function assert(cond, name, detail = "") {
 const phase = (n) => console.log(`\n${n}`);
 
 /** Live-card field helper. Every data-k lookup in this suite goes through
- *  here, so no case can silently read the hidden List carriers that focus
- *  mode still renders for the non-current exercises, or an inert peek copy. */
+ *  here, so no case can silently read a hidden carrier or an inert peek copy. */
 const flushDraft = (page) => page.evaluate(() => window.__repforgeWorkoutDraft.flush());
-/** Fill the live card's field until the acknowledged DraftV2 projection
- *  carries the value. The app re-renders asynchronously around suggestions,
- *  so each attempt drains the write queue, fills, drains again, and reads
- *  the value back through the draft adapter's own target mapping. */
-async function liveField(page, keySuffix, value) {
-  for (let attempt = 0; attempt < 4; attempt++) {
-    await flushDraft(page);
-    const live = page.locator(`#workout .exercise.is-current:not(.is-peek) [data-k$="${keySuffix}"]`).first();
-    await live.waitFor({ state: "visible", timeout: 5000 });
-    const key = await live.getAttribute("data-k");
-    await live.fill(String(value));
-    await flushDraft(page);
-    const landed = await page.evaluate(({ key, value }) => {
-      const target = window.__repforgeWorkoutDraft.target(key);
-      if (!target) return false;
-      const draft = window.__repforgeWorkoutDraft.current();
-      const set = draft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId];
-      return String(set?.edited?.[target.field] ?? "") === String(value);
-    }, { key, value });
-    if (landed) return live;
-  }
-  throw new Error(`live field ${keySuffix} never reached the acknowledged draft as ${value}`);
+/** One visible edit must reach the acknowledged DraftV2 without a second input. */
+async function liveField(page,keySuffix,value){
+  await flushDraft(page);
+  const live=page.locator(`#workout .exercise.is-current:not(.is-peek) [data-k$="${keySuffix}"]`).first();
+  await live.waitFor({state:"visible",timeout:5000});
+  const key=await live.getAttribute("data-k");
+  await live.fill(String(value));
+  await flushDraft(page);
+  await page.waitForFunction(({key,value})=>{
+    const target=window.__repforgeWorkoutDraft.target(key);
+    const draft=window.__repforgeWorkoutDraft.current();
+    return target && String(draft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId]?.edited?.[target.field]??"")===String(value);
+  },{key,value},{timeout:5000});
+  return live;
 }
 async function liveWellButton(page, kind) {
   const btn = page.locator(`#workout .exercise.is-current:not(.is-peek) .focus-well .${kind}`).first();
@@ -159,29 +150,20 @@ async function enterFocus(page, index = 0) {
   await page.waitForTimeout(140);
 }
 
-/** Commit the well's active set through its single action, and verify the
- *  acknowledged draft marks that exact set done. The well re-renders around
- *  suggestions, so the click is retried against the freshly bound button
- *  until the projection confirms the completion. */
-async function commitActiveSet(page, { load = 60, reps = 8, rir = 2 } = {}) {
-  await liveField(page, "_load", load);
-  await liveField(page, "_reps", reps);
-  await liveField(page, "_rir", rir);
-  const key = await page.evaluate(() =>
-    document.querySelector("#workout .exercise.is-current:not(.is-peek) .focus-well [data-k$='_load']")?.dataset.k);
-  for (let attempt = 0; attempt < 4; attempt++) {
-    const button = page.locator("#workout .exercise.is-current:not(.is-peek) .focus-well .saveset").first();
-    if (await button.count() === 0) break;
-    await button.click();
-    await flushDraft(page);
-    const done = await page.evaluate((key) => {
-      const target = window.__repforgeWorkoutDraft.target(key);
-      const draft = window.__repforgeWorkoutDraft.current();
-      return target && draft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId]?.completion !== "pending";
-    }, key);
-    if (done) return;
-  }
-  throw new Error(`active set ${key} never reached a completed state in the acknowledged draft`);
+/** One completion click must acknowledge the exact active set. */
+async function commitActiveSet(page,{load=60,reps=8,rir=2}={}){
+  await liveField(page,"_load",load);
+  await liveField(page,"_reps",reps);
+  await liveField(page,"_rir",rir);
+  const key=await page.locator("#workout .exercise.is-current .focus-well [data-k$='_load']").getAttribute("data-k");
+  await page.locator("#workout .exercise.is-current .focus-well .saveset").click();
+  await flushDraft(page);
+  await page.waitForFunction(key=>{
+    const target=window.__repforgeWorkoutDraft.target(key);
+    const draft=window.__repforgeWorkoutDraft.current();
+    const set=target&&draft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId];
+    return !!set && set.completion!=="pending";
+  },key,{timeout:5000});
 }
 
 /** The acknowledged DraftV2 facts for one exercise, read from the projection. */

@@ -693,49 +693,49 @@
       "flow": "workout",
       "label": "Workout — focus mode",
       "scenario": "One exercise at a time.",
-      "variants": "accessibility"
+      "variants": "demandingText"
     },
     {
       "id": "stale-draft",
       "flow": "workout",
       "label": "Workout — stale draft recovery",
       "scenario": "A conflicting tab won while this tab retains a pending field value and offers Reload latest or Copy value.",
-      "variants": "accessibility"
+      "variants": "demandingText"
     },
     {
       "id": "persist-retry",
       "flow": "workout",
       "label": "Workout — draft persistence retry",
       "scenario": "A field write was interrupted; the exact pending value remains visible beside Retry and Copy value actions.",
-      "variants": "accessibility"
+      "variants": "demandingText"
     },
     {
       "id": "invalid-draft",
       "flow": "workout",
       "label": "Workout — invalid draft recovery",
       "scenario": "An unreadable local draft remains untouched and offers a non-destructive copy action.",
-      "variants": "accessibility"
+      "variants": "demandingText"
     },
     {
       "id": "rest-timer",
       "flow": "workout",
       "label": "Workout — rest timer",
       "scenario": "The rest timer sheet.",
-      "variants": "accessibility"
+      "variants": "demandingText"
     },
     {
       "id": "exercise-note",
       "flow": "workout",
       "label": "Workout — exercise note",
       "scenario": "The per-exercise note sheet.",
-      "variants": "accessibility"
+      "variants": "demandingText"
     },
     {
       "id": "why-this-weight",
       "flow": "workout",
       "label": "Workout — why this weight",
       "scenario": "The recommendation inspector.",
-      "variants": "accessibility"
+      "variants": "demandingText"
     },
     {
       "id": "summary",
@@ -1015,56 +1015,70 @@
       "flow": "today",
       "label": "Read-only session preview",
       "scenario": "Read-only session preview through production controls.",
-      "variants": "accessibility"
+      "variants": "demandingText"
     },
     {
       "id": "session",
       "flow": "workout",
       "label": "Session details and map",
       "scenario": "Session details and map through production controls.",
-      "variants": "accessibility"
+      "variants": "demandingText"
     },
     {
       "id": "early-finish",
       "flow": "workout",
       "label": "Early finish confirmation",
       "scenario": "Early finish confirmation through production controls.",
-      "variants": "accessibility"
+      "variants": "demandingText"
     },
     {
       "id": "exercise-actions",
       "flow": "workout",
       "label": "Exercise actions",
       "scenario": "Exercise actions through production controls.",
-      "variants": "accessibility"
+      "variants": "demandingText"
     },
     {
       "id": "warmup-actions",
       "flow": "workout",
       "label": "Warm-up role",
       "scenario": "Warm-up role through production controls.",
-      "variants": "accessibility"
+      "variants": "demandingText"
     },
     {
       "id": "reorder",
       "flow": "workout",
       "label": "Session reorder",
       "scenario": "Session reorder through production controls.",
-      "variants": "accessibility"
+      "variants": "demandingText"
     },
     {
       "id": "correction",
       "flow": "workout",
       "label": "Set correction",
       "scenario": "Set correction through production controls.",
-      "variants": "accessibility"
+      "variants": "demandingText"
     },
     {
       "id": "draft-resume",
       "flow": "today",
       "label": "Resume saved draft",
       "scenario": "Resume saved draft through production controls.",
-      "variants": "accessibility"
+      "variants": "demandingText"
+    },
+    {
+      "id": "skipped-actions",
+      "flow": "workout",
+      "label": "Skipped exercise actions",
+      "scenario": "workout/skipped-actions",
+      "variants": "demandingText"
+    },
+    {
+      "id": "substituted-actions",
+      "flow": "workout",
+      "label": "Substituted exercise actions",
+      "scenario": "workout/substituted-actions",
+      "variants": "demandingText"
     }
   ]
 }

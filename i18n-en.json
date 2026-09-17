@@ -1251,7 +1251,6 @@
   "today.start": "Start workout",
   "today.continue": "Continue workout",
   "today.preview": "Preview session",
-  "today.view_exercises": "View exercises",
   "today.choose_day": "Choose another day",
   "today.choose_day_title": "Choose another day",
   "today.choose_day_sub": "Pick which day of your program to train today.",
@@ -1927,5 +1926,7 @@
   "ex.actions.open_notes": "Edit exercise notes",
   "session.sheet.reorder_up_aria": "Move {name} earlier in workout",
   "session.sheet.reorder_down_aria": "Move {name} later in workout",
-  "workout.leave_failed": "Could not save workout progress. Please try again."
+  "workout.leave_failed": "Could not save workout progress. Please try again.",
+  "session.sheet.omitted": "{name}: sets {sets}",
+  "session.sheet.early_invalid": "Correct the highlighted set values before finishing."
 }
