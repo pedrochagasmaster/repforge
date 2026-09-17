@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 
 function audit(source) {
   assert.doesNotMatch(source, /\b(?:setLogMode|syncLogModeControls|setRowHtml)\b|\.setrow\b|\.sets__head\b|workout\/list/,
@@ -9,6 +9,11 @@ function audit(source) {
 for (const file of ["app.js", "styles.css", "motion-polish.css", "tools/ui-screens/screens-app.mjs"]) {
   audit(readFileSync(new URL(`../${file}`, import.meta.url), "utf8"));
 }
+for (const file of readdirSync(new URL("./",import.meta.url))) {
+  if(file.endsWith(".mjs") && file!=="focus-only-source.mjs")
+    audit(readFileSync(new URL(file,import.meta.url),"utf8"));
+}
+audit(readFileSync(new URL("../docs/ui-screens/manifest.json",import.meta.url),"utf8"));
 assert.throws(() => audit('function setRowHtml() { return "<div class=\"setrow\">"; }'));
 assert.throws(() => audit('.setrow { display: grid }'));
 audit('function focusCardHtml() { return "<article>"; }');
