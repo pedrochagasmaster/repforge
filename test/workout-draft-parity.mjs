@@ -233,7 +233,7 @@ async function main() {
       const card = document.querySelector("#workout .exercise.is-current");
       return {
         name: card?.querySelector(".focus-ex__name")?.textContent?.trim(),
-        completed: card?.querySelectorAll(".ledger__row[data-editn]").length,
+        completed: card?.querySelectorAll(".ledger__row[data-editn]:not(.is-editing)").length,
         active: ["load", "reps", "rir"].map(
           (field) => card?.querySelector(`.focus-well [data-k$="_${field}"]`)?.value,
         ),
@@ -277,14 +277,14 @@ async function main() {
       return exercise && exercise.sets[exercise.setOrder[0]].completion === "pending";
     }, { id: first.id });
     assert(
-      (await page.locator(`.exercise[data-ex="${first.id}"] [data-save="${first.id}_1"]`).getAttribute("aria-pressed")) === "false",
+      await page.locator(`.exercise[data-ex="${first.id}"] [data-k="${first.id}_1_load"]`).inputValue() === "55",
       "Focus uncommit retains corrected values while returning the set to pending",
     );
 
     const pendingAgain = await page.evaluate(() => {
       const card = document.querySelector("#workout .exercise.is-current");
       return {
-        completed: card?.querySelectorAll(".ledger__row[data-editn]").length,
+        completed: card?.querySelectorAll(".ledger__row[data-editn]:not(.is-editing)").length,
         active: ["load", "reps", "rir"].map(
           (field) => card?.querySelector(`.focus-well [data-k$="_${field}"]`)?.value,
         ),

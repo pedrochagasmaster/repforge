@@ -37,12 +37,15 @@ async function main() {
      * ====================================================================== */
     console.log("\nGeometry Stability: PT + 200% text scaling across viewports (320, 390, 430)");
     for (const width of [320, 390, 430]) for (const lang of ["en", "pt"]) for (const theme of ["light", "dark"]) for (const scale of [1, 2]) {
+      const height = { 320: 568, 390: 844, 430: 932 }[width];
       const context = await browser.newContext({
-        viewport: { width, height: 800 },
+        viewport: { width, height },
         serviceWorkers: "block",
       });
       const page = await context.newPage();
       page.setDefaultTimeout(10000);
+      const cdp = await context.newCDPSession(page);
+      await cdp.send("Emulation.setSafeAreaInsetsOverride", { insets: { top: 44, bottom: 34, left: 0, right: 0 } });
 
       await page.goto(BASE_URL, { waitUntil: "domcontentloaded" });
       await page.waitForFunction(() => window.__repforgeBooted === true);
@@ -53,6 +56,22 @@ async function main() {
         waitFor: async (p) => p.waitForFunction(() => window.__repforgeBooted === true),
       });
 
+      await page.evaluate(async () => {
+        const state = JSON.parse(localStorage.getItem("repforge_v1"));
+        const ex = state.program[0];
+        const date = new Date(); date.setDate(date.getDate() - 7);
+        state.log = [1, 2].map(set => ({ date: date.toISOString().slice(0, 10), day: ex.day,
+          exerciseId: ex.id, name: ex.name, set, load: 60, reps: 8, rir: 2,
+          programId: state.programMeta.id, sessionId: "geometry-previous" }));
+        localStorage.setItem("repforge_v1", JSON.stringify(state));
+        const db = await new Promise((resolve, reject) => { const request = indexedDB.open("repforge", 1);
+          request.onsuccess = () => resolve(request.result); request.onerror = () => reject(request.error); });
+        await new Promise((resolve, reject) => { const tx = db.transaction("kv", "readwrite");
+          tx.objectStore("kv").put(state, "repforge_v1"); tx.oncomplete = resolve; tx.onerror = () => reject(tx.error); });
+        db.close();
+      });
+      await page.reload();
+      await page.waitForFunction(() => window.__repforgeBooted);
       await page.locator("#openSettings").click();
       await page.locator("#lang").selectOption(lang);
       await page.waitForFunction(lang => document.documentElement.lang === (lang === "pt" ? "pt-BR" : "en"), lang);
@@ -94,8 +113,20 @@ async function main() {
 
       // Check previous-session band minimum / existence
       const prevBand = page.locator(".exercise.is-current .fcard__ledger");
+      await prevBand.locator(".ledger__row.is-past").first().scrollIntoViewIfNeeded();
       const prevBandBox = await prevBand.boundingBox();
-      assert(prevBandBox != null && prevBandBox.height >= 40, `previous-session band has defined minimum height at ${width}px`);
+      const contextBox = await page.locator(".exercise.is-current .fcard__context").boundingBox();
+      assert(await prevBand.locator(".ledger__row.is-past").count() === 2, "previous-session proof uses actual history");
+      const firstPrevious = await prevBand.locator(".ledger__row.is-past").first().boundingBox();
+      assert(prevBandBox != null && firstPrevious.y >= contextBox.y && firstPrevious.y + firstPrevious.height <= Math.min(prevBandBox.y + prevBandBox.height, contextBox.y + contextBox.height) + 1,
+        `previous-session header and at least one complete row remain readable at ${width}px`);
+      const safe = await page.evaluate(() => {
+        const head = document.querySelector(".wo-head").getBoundingClientRect();
+        const action = document.querySelector(".exercise.is-current [data-save]").getBoundingClientRect();
+        return { top: head.top, bottom: action.bottom, overflow: document.documentElement.scrollWidth > innerWidth };
+      });
+      assert(safe.top >= 44 && safe.bottom <= height - 34 && !safe.overflow,
+        `header and primary action respect emulated safe areas at ${width}px`, JSON.stringify(safe));
 
       await page.close();
       await context.close();

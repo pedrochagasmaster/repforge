@@ -4650,8 +4650,8 @@ async function runRefreshSuggestions(exId){
   return result}
 function refreshSuggestions(exId){return trackDraftRefresh(()=>runRefreshSuggestions(exId))}
 function fmtClock(s){const sec=Math.max(0,Math.round(Number(s)||0));const m=Math.floor(sec/60);return `${m}:${String(sec%60).padStart(2,"0")}`}
-/** Rest reads in two places: the floating bar for List, and the chip in the
- *  workout header for Focus — where it must never sit over a control.
+/** Rest reads in two places: the floating bar outside the workout and the chip
+ *  in the workout header, where it must never sit over a control.
  *  `over` is seconds elapsed past the bell; it drives the overtime styling. */
 function paintRest(text,done,over=0){
   paintRestSheet();
@@ -5214,7 +5214,7 @@ function focusDragStart(e){
   const card=focusCard(),track=focusTrack();if(!card||!track)return;
   const ledger=card.querySelector(".fcard__ledger");
   focusDrag={id:e.pointerId,x:e.clientX,y:e.clientY,dx:0,axis:null,card,track,
-    scrolls:!!ledger&&ledger.scrollHeight>ledger.clientHeight+1,
+    scrolls:[ledger,card.querySelector(".fcard__context")].some(el=>el&&el.scrollHeight>el.clientHeight+1),
     vx:0,lastX:e.clientX,lastT:e.timeStamp||performance.now()}}
 const DRAG_LOCK=10;
 function focusDragMove(e){
@@ -5995,7 +5995,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
     `</div>`;
   return `<article class="exercise exercise--focus is-${r.status}${peek?" is-peek":" is-current"}"`+
     (peek?` aria-hidden="true" inert data-peek="${esc(ex.id)}"`:` data-ex="${esc(ex.id)}"`)+`>`+
-    `<div class="fcard__head"><div class="focus-ex__eyebrow">`+
+    `<div class="fcard__context" role="region" aria-label="${esc(name)}" tabindex="${peek?-1:0}"><div class="fcard__head"><div class="focus-ex__eyebrow">`+
     `<span class="focus-ex__muscle">${esc(muscleListLabel(ex.primary))}</span>`+
     `<span class="focus-ex__setof${setofFresh}">${esc(t("focus.set_of",{x:" ",y:ex.sets})).replace(" ",`<b>${setNo}</b>`)}</span></div>`+
     `<div class="focus-ex__title"><div class="focus-ex__titletext">${nameHtml}`+
@@ -6003,7 +6003,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
     (r.status!=="new"||inSessionNote(ex,draft)?`<button type="button" class="text-link focus-ex__why"`+
       `${peek?dead():` data-why="${esc(ex.id)}" aria-label="${esc(t("why.open_aria",{name}))}"`}>${esc(t("why.open"))}</button>`:"")+
     `</div>${tools}</div></div>`+
-    `<div class="fcard__ledger">${focusLedgerHtml(ex,r,draft,prev,{effortMode,peek})}</div>`+
+    `<div class="fcard__ledger">${focusLedgerHtml(ex,r,draft,prev,{effortMode,peek})}</div></div>`+
     focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek})+`</article>`}
 
 /** The deck: the live card plus an inert copy of each neighbour, parked off

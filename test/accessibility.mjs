@@ -179,6 +179,7 @@ async function modalInfo(page, sel) {
     const bodyKids = [...document.body.children].map((c) => ({
       id: c.id,
       inert: !!c.inert,
+      permanent: c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]'),
       tag: c.tagName.toLowerCase(),
     }));
     const stops = [...(el?.querySelectorAll("a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex='-1'])") || [])]
@@ -190,7 +191,7 @@ async function modalInfo(page, sel) {
       active: document.activeElement?.id || document.activeElement?.tagName || null,
       stops,
       hostInert: host ? !!host.inert : null,
-      inertIds: bodyKids.filter((c) => c.inert).map((c) => c.id || c.tag),
+      inertIds: bodyKids.filter((c) => c.inert && !c.permanent).map((c) => c.id || c.tag),
       liveKids: bodyKids.filter((c) => !c.inert).map((c) => c.id || c.tag),
     };
   }, sel);
@@ -450,7 +451,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   const afterEsc = await page.evaluate(() => ({
     hidden: !document.querySelector("#endBlockConfirm")?.open,
     active: document.activeElement?.id,
-    leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id),
+    leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id),
   }));
   assert(info.hidden && afterEsc.active === "reviewBlockLink", "Review Block Confirm: Escape is Cancel and returns to #reviewBlockLink", JSON.stringify(afterEsc));
   assert(afterEsc.leaked.length === 0, "Review Block Confirm: closing restores inertness", JSON.stringify(afterEsc.leaked));
@@ -477,7 +478,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   const after = await page.evaluate(() => ({
     hidden: !document.querySelector("#blockReview")?.open,
     active: document.activeElement?.id,
-    leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+    leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
   }));
   assert(after.hidden && after.active === "reviewBlockLink", "Block Review: Escape closes and returns to original #reviewBlockLink opener", JSON.stringify(after));
   assert(after.leaked.length === 0, "chained modals do not leak inertness", JSON.stringify(after.leaked));
@@ -601,7 +602,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     );
     return {
       open: !!document.querySelector("#storageRecovery")?.open,
-      leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+      leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
       active: active?.id || active?.tagName,
       activeIsStart: active === start,
       activeConnected: !!active?.isConnected,
@@ -645,7 +646,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     );
     return {
       open: !!document.querySelector("#storageRecovery")?.open,
-      leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+      leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
       active: active?.id || active?.tagName,
       activeIsStart: active === start,
       activeConnected: !!active?.isConnected,
@@ -693,7 +694,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   }, { timeout: 8000 });
   const whyAfter = await page.evaluate(() => ({
     hidden: document.querySelector("#whySheet")?.hidden || document.querySelector("#whySheet")?.classList.contains("hidden"),
-    leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+    leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
     focusWhy: document.activeElement?.getAttribute("data-why"),
   }));
   assert(whyAfter.hidden, "Why sheet: Escape is Cancel and hides the sheet", JSON.stringify(whyAfter));
@@ -724,7 +725,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   });
   const after = await page.evaluate(() => ({
     hidden: document.querySelector("#exNoteSheet")?.hidden || document.querySelector("#exNoteSheet")?.classList.contains("hidden"),
-    leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+    leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
     focusNote: document.activeElement?.getAttribute("data-exnote-open"),
   }));
   assert(after.hidden, "Exercise Note: Escape is Cancel and hides the sheet", JSON.stringify(after));
@@ -743,7 +744,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   }, noteId, { timeout: 8000 });
   const saved = await page.evaluate(() => ({
     focusNote: document.activeElement?.getAttribute("data-exnote-open"),
-    leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+    leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
   }));
   assert(saved.focusNote === noteId, "Exercise Note: Save returns focus after the rerender", JSON.stringify({ noteId, saved }));
   assert(saved.leaked.length === 0, "Exercise Note: Save restores inertness", JSON.stringify(saved.leaked));
@@ -1071,7 +1072,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   await page.evaluate(() => promptEndBlock());
   await page.locator("#endBlockCancel").click();
   const leaked = await page.evaluate(() => ({
-    inert: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+    inert: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
     confirm: !document.querySelector("#endBlockConfirm")?.open,
   }));
   assert(leaked.confirm && leaked.inert.length === 0, "two consecutive modals do not leak inertness/listeners", JSON.stringify(leaked));
@@ -2113,7 +2114,7 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
   await page.click("#startWorkout");
   await page.waitForSelector("#workoutShell:not(.hidden)");
   const fonts = await page.evaluate(() => {
-    const nodes = [...document.querySelectorAll("#workout input:not([type=hidden]):not([type=checkbox]):not([type=radio]), #workout select, #workout textarea, #notes, #bodyweight, #date")];
+    const nodes = [...document.querySelectorAll("#workout input:not([type=hidden]):not([type=checkbox]):not([type=radio]), #workout select, #workout textarea, #sessionNotes, #sessionBodyweight, #sessionDate")];
     return nodes.filter((el) => getComputedStyle(el).display !== "none").map((el) => ({ id: el.id, px: parseFloat(getComputedStyle(el).fontSize) }));
   });
   assert(fonts.every((f) => f.px >= 16), "visible editable fields are at least 16px", JSON.stringify(fonts));
@@ -2210,8 +2211,9 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
       await page.click("#startWorkout");
       await page.waitForSelector("#workoutShell:not(.hidden)");
     }
+    if (!await page.locator("#sessionSheet").isVisible()) await page.locator("#sessionSheetBtn").click();
     const info = await page.evaluate((expected) => {
-      const lbl = document.querySelector("#bodyweightLabel");
+      const lbl = document.querySelector("#sessionBodyweightLabel");
       const span = lbl?.querySelector("span");
       const extras = [...(lbl?.childNodes || [])].filter((n) => n.nodeType === 3 && n.textContent.trim()).map((n) => n.textContent);
       const hits = (lbl?.textContent || "").match(/Bodyweight|Peso corporal/g) || [];

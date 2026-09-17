@@ -493,7 +493,7 @@
     focusGesture = {
       id: event.pointerId, x: event.clientX, y: event.clientY, anchorX: event.clientX,
       dx: 0, axis: null, card, track, deck, baseX: 0,
-      scrolls: !!ledger && ledger.scrollHeight > ledger.clientHeight + 1,
+      scrolls: [ledger, card.querySelector(".fcard__context")].some(el => el && el.scrollHeight > el.clientHeight + 1),
       velocity: 0, lastX: event.clientX, lastT: event.timeStamp || performance.now(),
     };
   }

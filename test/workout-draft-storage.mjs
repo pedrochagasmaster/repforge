@@ -675,6 +675,8 @@ async function main() {
     await page.locator(`[data-k="${retainedExercise.id}_2_load"]`).fill("1");
     await page.locator('#workout .exercise.is-current [data-editn="1"]').click();
     await page.locator(`[data-k="${retainedExercise.id}_1_reps"]`).fill("7");
+    await page.locator(`[data-save="${retainedExercise.id}_1"]`).click();
+    await page.waitForSelector(`[data-k="${retainedExercise.id}_2_reps"]`);
     await page.waitForFunction(({ draft, id }) => {
       const value = JSON.parse(localStorage.getItem(draft) || "null");
       const exercise = value?.exercises?.[id];
@@ -683,8 +685,10 @@ async function main() {
     }, { draft: DRAFT, id: retainedExercise.id });
     check(await page.evaluate(({draft,id})=>{const ex=JSON.parse(localStorage.getItem(draft)).exercises[id];return ex.sets[ex.setOrder[1]].edited.load}, {draft:DRAFT,id:retainedExercise.id}) === "1",
       "an explicit off-grid edit survives a later suggestion refresh");
+    await page.locator('#workout .exercise.is-current [data-editn="1"]').click();
     await page.evaluate(() => { window.__repforgeDraftFault = "stale-suggestion-loop"; });
     await page.locator(`[data-k="${retainedExercise.id}_1_reps"]`).fill("6");
+    await page.locator(`[data-save="${retainedExercise.id}_1"]`).click();
     await page.waitForSelector("#draftRecovery:not(.hidden)");
     check(await page.locator("#draftRecoveryRetry").isVisible(),
       "repeated stale suggestion sources expose a visible Retry action");

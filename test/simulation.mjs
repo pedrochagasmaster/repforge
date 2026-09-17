@@ -436,6 +436,10 @@ async function readDraft(page) {
 }
 
 async function nav(page, view) {
+  if (await page.locator("#sessionSummary:not(.hidden)").isVisible()) {
+    await page.locator("#sumDone").click();
+    await page.locator("#sessionSummary").waitFor({state:"hidden"});
+  }
   if (view === "settings") {
     // Profile control lives on Today (hidden during active workout / other tabs).
     await page.evaluate(() => window.__repforgeShowSettings?.());
@@ -458,10 +462,10 @@ async function nav(page, view) {
     }
   }
   if (view === "log") {
-    // Ensure workout shell is available for set logging assertions (List mode).
+    // Enter the sole workout route for the simulation.
     const shell = page.locator("#workoutShell:not(.hidden)");
     if (!(await shell.count())) {
-      const entered = await page.evaluate(async () => window.__repforgeEnterWorkout?.({ focus: false }));
+      const entered = await page.evaluate(async () => window.__repforgeEnterWorkout?.({}));
       if (entered === false) {
         console.log("    Log navigation diagnostic", await page.evaluate(() => ({
           draft: window.__repforgeWorkoutDraft?.read?.(),
@@ -856,7 +860,7 @@ async function logJson(page) {
 
 async function resetWorkoutDraft(page) {
   await clearDraftFixture(page);
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
 }
 
 async function setLangUnit(page, lang, unit) {
@@ -2635,7 +2639,7 @@ async function main() {
   const metaBeforeImport = stateBeforeImport.programMeta;
   const programBeforeImport = stateBeforeImport.program;
   const importDraft = await page.evaluate(async () => {
-    const entered = await window.__repforgeEnterWorkout?.({ focus: false });
+    const entered = await window.__repforgeEnterWorkout?.({});
     if (entered !== true) throw new Error("Could not open a workout to seed the import draft");
     const result = await window.__repforgeWorkoutDraft?.dispatch("setSessionNotes", {
       value: "unfinished before program import",
@@ -5012,11 +5016,9 @@ async function main() {
     // sheet explain the substitute's arithmetic under the slot's headline.
     const subEx = whyCases[0].ex;
     await selectDay(page, "Day 1");
-    await page.evaluate((id) => {
-      const art = document.querySelector(`.exercise[data-ex="${id}"]`);
-      if (art?.classList.contains("is-skipped")) document.querySelector(`.ex__skip[data-skip="${id}"]`)?.click();
-    }, subEx.id);
-    await page.waitForTimeout(80);
+    if (await page.evaluate(id => window.__repforgeWorkoutDraft.current()?.exercises[id]?.status === "skipped", subEx.id)) {
+      await exerciseAction(page, subEx.id, "#exActionSkipBtn");
+    }
     await exerciseAction(page, `${subEx.id}`, "#exActionSubstBtn");
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
     const subPicked = await page.evaluate(() => {
@@ -5110,11 +5112,9 @@ async function main() {
   await nav(page, "log");
   const subDay = d1First.day;
   await selectDay(page, subDay);
-  await page.evaluate((id) => {
-    const art = document.querySelector(`.exercise[data-ex="${id}"]`);
-    if (art?.classList.contains("is-skipped")) document.querySelector(`.ex__skip[data-skip="${id}"]`)?.click();
-  }, d1First.id);
-  await page.waitForTimeout(80);
+  if (await page.evaluate(id => window.__repforgeWorkoutDraft.current()?.exercises[id]?.status === "skipped", d1First.id)) {
+    await exerciseAction(page, d1First.id, "#exActionSkipBtn");
+  }
   await exerciseAction(page, `${d1First.id}`, "#exActionSubstBtn");
   await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
   const swapped = await pickExact("Leg press");
@@ -8492,7 +8492,7 @@ async function main() {
     "Resume substituted draft → Finish"
   );
 
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   await flushDraftWork(page);
   const afterFinishDraft = await readDraft(page);
   const fresh = await page.evaluate(({ a, b, skip }) => ({
@@ -8614,7 +8614,7 @@ async function main() {
           (window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.status === "skipped");
       }, draftExSkip.id, { timeout: 5000 });
       await reloadApp(page);
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   assert(
     await page.evaluate((id) => (window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.status === "skipped"), draftExSkip.id),
     "Direct skip survives reload",
@@ -8631,7 +8631,7 @@ async function main() {
     }, draftExSkip.id, { timeout: 5000 });
   }
   await reloadApp(page);
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   assert(
     !(await page.evaluate((id) => (window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.status === "skipped"), draftExSkip.id)),
     "Show all survives reload as unskipped",
@@ -8762,7 +8762,7 @@ async function main() {
   await page.selectOption("#unit", "lb");
   await page.waitForTimeout(80);
   await reloadApp(page);
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   const bwDisp = await page.evaluate(() => document.querySelector("#sessionBodyweight")?.value);
   const beforeBw = new Set((await getState(page)).log.map((r) => r.session));
   await saveWorkout(page);
@@ -8854,7 +8854,7 @@ async function main() {
     localStorage.setItem(k, JSON.stringify(d));
   }, { id: legacyEx.id, k: DRAFT });
   await reloadApp(page);
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   const beforeLegacy = (await getState(page)).log.length;
   await saveWorkout(page);
   assert(
@@ -9589,7 +9589,7 @@ async function main() {
     return b?.getAttribute("data-exopen") || "";
   });
   if (!firstExId) {
-    await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+    await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   }
   const exId = firstExId || (await page.evaluate(() => document.querySelector("#workout [data-exopen]")?.getAttribute("data-exopen") || ""));
   if (exId) {

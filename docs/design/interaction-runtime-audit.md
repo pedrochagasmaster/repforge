@@ -201,3 +201,11 @@ left to a person on a real device:
   edge of a long day list held in one hand.
 - Whether the drop animation reads correctly against a screen reader's own
   pacing when both are running.
+
+Plan 055 compact-screen correction: the card context (exercise heading and ledger)
+can scroll above the fixed active-set controls. The ledger retains a 112px
+minimum, enough for its column heading and one complete previous-set row. Both
+gesture owners yield vertical movement when either context or ledger scrolls;
+horizontal paging retains its existing physics. The context is a named keyboard
+region, and inert peeks have no tab stop. Safe-area browser emulation is automated
+evidence; physical one-handed review remains an owner gate.

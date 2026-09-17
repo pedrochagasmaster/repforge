@@ -678,7 +678,7 @@ div.settings-row{cursor:default}
 .wo-rest.is-running .wo-rest__icon{display:none}
 .wo-rest.is-done{color:var(--accent-deep);border-color:var(--accent)}
 @media (prefers-reduced-motion:reduce){.wo-rest{transition:none}}
-/* The floating bar is the List-mode surface; Focus reads it from the header. */
+/* The active workout reads the timer from its header. */
 body.is-focus-wo .restbar{display:none!important}
 
 .wo-progress{margin:2px 0 12px}
@@ -690,10 +690,6 @@ body.is-focus-wo .restbar{display:none!important}
 }
 .focusnav:disabled{color:var(--ink-faint);cursor:default}
 .segbar--ex{gap:8px;margin:0}
-body.is-workout #logWorkspace{padding-bottom:72px}
-body.is-workout #logForm{padding-bottom:24px}
-/* Focus mode ends at the deck: the log-set button and the set list that the
-   padding in List mode clears both live inside the card. */
 body.is-workout.is-focus-wo #logWorkspace,
 body.is-workout.is-focus-wo #logForm{padding-bottom:0}
 /* Focus fills the screen by layout, not by arithmetic: every box between the
@@ -747,8 +743,8 @@ article.exercise--focus{
 article.exercise--focus input,article.exercise--focus textarea{-webkit-user-select:text;user-select:text}
 article.exercise--focus.is-dragging{box-shadow:0 18px 44px rgba(0,0,0,.20)}
 article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px rgba(0,0,0,.08)}
-#workout.is-focus > .exercise{display:none}
 
+.fcard__context{display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
 .fcard__head{flex:none;padding:18px 20px 0}
 .focus-ex__eyebrow{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 .focus-ex__muscle{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);
@@ -773,9 +769,9 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
   content:"";position:absolute;top:7px;right:7px;width:6px;height:6px;border-radius:50%;background:var(--accent);
 }
 
-/* ---- Ledger: the only scrolling region of the card ---- */
+/* The ledger retains a readable band; compact screens scroll the context above the fixed set controls. */
 .fcard__ledger{
-  flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  flex:1 0 112px;min-height:112px;overflow-y:auto;overscroll-behavior:contain;
   touch-action:none;
   padding:0 20px 6px;margin-top:18px;
   scrollbar-width:thin;scrollbar-color:var(--rule-strong) transparent;
@@ -826,7 +822,7 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
   grid-template-columns:2.4rem minmax(0,1.6fr) minmax(0,1fr) minmax(0,1.3fr);
 }
 .ledger__empty{color:var(--ink-soft)}
-.ledger__dash{color:var(--rule-strong)}
+.ledger__dash{color:var(--ink-soft)}
 /* A logged effort reads as its word, which needs more room than a RIR digit. */
 .ledger__eff{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* The set being re-opened is marked in place: it stays where it was logged. */
@@ -844,7 +840,7 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .ledger__more .icon-mask{transition:transform .2s ease}
 .ledger__more[aria-expanded="true"] .icon-mask{transform:rotate(180deg)}
 @media (prefers-reduced-motion:reduce){.ledger__more .icon-mask{transition:none}}
-/* Every set that is not in the well still needs a field to hold its value. */
+
 
 /* ---- Well: attached, and the same height whatever the ledger is doing ---- */
 .focus-well{
