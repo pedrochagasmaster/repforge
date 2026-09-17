@@ -5534,6 +5534,122 @@ function closeSessionSheet(){
 }
 window.__repforgeSessionSheet = { open: openSessionSheet, close: closeSessionSheet, render: renderSessionSheet };
 
+/* ---- Exercise actions sheet (Focus workout) ---- */
+let activeExActionsId = null;
+
+function renderExActionsSheet(exId) {
+  const sheet = $("#exActionsSheet");
+  if (!sheet || !activeWorkoutDraft) return;
+  activeExActionsId = exId;
+  const draftEx = activeWorkoutDraft.exercises[exId];
+  const progEx = prog.find(exId);
+  if (!draftEx) return;
+
+  const displayName = draftEx.displayName || (progEx ? (substituted.get(progEx.id) || progEx.name) : exId);
+  const titleEl = $("#exActionsTitle");
+  if (titleEl) titleEl.textContent = displayName;
+
+  const subEl = $("#exActionsSub");
+  if (subEl) {
+    const primary = draftEx.programmed?.primary || progEx?.primary || "";
+    const setsTotal = draftEx.setOrder.length;
+    subEl.textContent = (primary ? muscleListLabel(primary) + " · " : "") + `${setsTotal} sets`;
+  }
+
+  // Setup notes
+  const setupTextEl = $("#exActionsSetupText");
+  const setupText = draftEx.setupNotes || draftEx.programmed?.notes || progEx?.notes || "";
+  if (setupTextEl) {
+    setupTextEl.textContent = setupText || t("ex.actions.no_setup_notes");
+  }
+
+  // Repeat last session
+  const repeatBtn = $("#exActionRepeatBtn");
+  const repeatHint = $("#exActionRepeatHint");
+  const prevSets = progEx ? last(sessionExercise(progEx)) : [];
+  if (repeatBtn) {
+    if (prevSets.length > 0) {
+      repeatBtn.disabled = false;
+      if (repeatHint) repeatHint.textContent = "";
+    } else {
+      repeatBtn.disabled = true;
+      if (repeatHint) repeatHint.textContent = t("ex.actions.no_history");
+    }
+  }
+
+  // Substitution
+  const substBtn = $("#exActionSubstBtn");
+  const restoreOrigBtn = $("#exActionRestoreOrigBtn");
+  const isSubstituted = !!draftEx.substitution;
+  if (substBtn) substBtn.textContent = t(isSubstituted ? "ex.actions.change_substitution" : "ex.actions.substitute");
+  if (restoreOrigBtn) restoreOrigBtn.classList.toggle("hidden", !isSubstituted);
+
+  // Warmup sets list
+  const warmupList = $("#exActionsWarmupList");
+  if (warmupList) {
+    const rows = draftEx.setOrder.map((sid, idx) => {
+      const set = draftEx.sets[sid];
+      if (!set) return "";
+      const isWarmup = set.role === "warmup";
+      const roleLabel = t(isWarmup ? "ex.actions.role_warmup" : "ex.actions.role_working");
+      const btnLabel = t(isWarmup ? "ex.actions.mark_working" : "ex.actions.mark_warmup");
+      return `<div class="exactions__warmup-row">` +
+        `<div class="exactions__warmup-info">` +
+        `<span class="exactions__warmup-num">${esc(t("log.set"))} ${idx + 1}</span>` +
+        `<span class="exactions__warmup-role ${isWarmup ? "is-warmup" : ""}">${esc(roleLabel)}</span>` +
+        `</div>` +
+        `<button type="button" class="btn btn--steel btn--sm" data-warm-toggle-set="${esc(sid)}">${esc(btnLabel)}</button>` +
+        `</div>`;
+    }).filter(Boolean);
+    warmupList.innerHTML = rows.join("");
+    $$("#exActionsWarmupList [data-warm-toggle-set]").forEach(btn => {
+      btn.onclick = async () => {
+        const sid = btn.dataset.warmToggleSet;
+        const set = draftEx.sets[sid];
+        if (!set) return;
+        const type = set.role === "warmup" ? "markWorking" : "markWarmup";
+        const res = await enqueueDraftCommand(type, { exerciseInstanceId: exId, setId: sid });
+        if (res.status === "applied") {
+          renderWorkout();
+          renderExActionsSheet(exId);
+        }
+      };
+    });
+  }
+
+  // Skip / restore exercise
+  const skipBtn = $("#exActionSkipBtn");
+  const isSkipped = draftEx.status === "skipped";
+  if (skipBtn) {
+    skipBtn.textContent = t(isSkipped ? "ex.actions.restore" : "ex.actions.skip");
+  }
+}
+
+function openExActionsSheet(exId) {
+  if (!activeWorkoutDraft) return;
+  renderExActionsSheet(exId);
+  const sheet = $("#exActionsSheet"), scrim = $("#exActionsScrim");
+  if (!sheet) return;
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet, {
+    initialFocus: $("#exActionsClose"),
+    onEscape: closeExActionsSheet,
+    scrim,
+    delayHide: reducedMotion() ? 0 : 280
+  });
+  requestAnimationFrame(() => { sheet.classList.add("is-open"); scrim?.classList.add("is-open"); });
+}
+
+function closeExActionsSheet() {
+  const sheet = $("#exActionsSheet");
+  if (!sheet) return Promise.resolve(false);
+  if (sheet.hidden && !(activeModal && activeModal.el === sheet)) return Promise.resolve(false);
+  return closeModal(sheet);
+}
+window.__repforgeExActions = { open: openExActionsSheet, close: closeExActionsSheet, render: renderExActionsSheet };
+
+
+
 
 function render(){applyI18n();
   // Auto-resume an in-progress session (page reload mid-workout), but never
@@ -5787,6 +5903,9 @@ function focusCardHtml(ex,r,draft,prev,opts){
     `<button type="button" class="focus-tool${noteVal?" has-note":""}"`+
     `${peek?dead():` data-exnote-open="${esc(ex.id)}" aria-label="${esc(t("focus.note_aria",{name}))}"`}>`+
     `<span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span></button>`+
+    `<button type="button" class="focus-tool"`+
+    `${peek?dead():` data-exactions-open="${esc(ex.id)}" aria-label="${esc(t("focus.actions_aria",{name}))}"`}>`+
+    `<span class="icon-mask icon-mask--sm icon-mask--overflow" aria-hidden="true"></span></button>`+
     (showSkip?`<button type="button" class="focus-tool ex__skip"`+
       `${peek?dead():` data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name}))}"`}>`+
       `<span class="icon-mask icon-mask--sm icon-mask--skip" aria-hidden="true"></span></button>`:"")+
@@ -6131,7 +6250,8 @@ function bindWorkout(){
       const id=b.dataset.fold;
       focusUnfolded.has(id)?focusUnfolded.delete(id):focusUnfolded.add(id);
       renderWorkout()});
-    $w("[data-exnote-open]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.exnoteOpen))}
+    $w("[data-exnote-open]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.exnoteOpen));
+    $w("[data-exactions-open]").forEach(b=>b.onclick=()=>openExActionsSheet(b.dataset.exactionsOpen))}
   else{$("#woProgress")?.classList.add("hidden")}
   updateFocusChrome();
 }
@@ -14366,7 +14486,12 @@ window.__repforgeWorkoutDraft={
 // Test seam for the Focus deck, alongside the other __repforge* harness hooks.
 window.__repforgeFocus={
   go:focusAnimateTo,list:focusList,at:()=>focusIndex,editing:()=>focusEdit,
-  to(i){focusIndex=Math.max(0,i);focusEdit=null;renderWorkout()},
+  to(i){
+    focusIndex=Math.max(0,i);focusEdit=null;
+    const fl=focusList();
+    if(activeWorkoutDraft&&fl[focusIndex])void enqueueDraftCommand("selectExercise",{exerciseInstanceId:fl[focusIndex].id});
+    renderWorkout();
+  },
 };
 window.__repforgeLeaveWorkout=leaveWorkout;
 window.__repforgeShowSettings=showSettings;
@@ -14641,6 +14766,73 @@ function init(){
     const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.add("hidden");
     const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.classList.remove("hidden");
   };
+
+  const exActionRepeat=$("#exActionRepeatBtn");
+  if(exActionRepeat)exActionRepeat.onclick=async()=>{
+    const id=activeExActionsId;
+    const progEx=id?prog.find(id):null;
+    const prevSets=progEx?last(sessionExercise(progEx)):[];
+    if(!prevSets.length||!activeWorkoutDraft)return;
+    const values=prevSets.map(s=>({
+      ordinal:s.set,
+      load:canonicalNumberText(s.load),
+      reps:canonicalNumberText(s.reps),
+      ...(isEffortMode()?{effort:effortForRir(s.rir)}:{rir:canonicalNumberText(s.rir)})
+    }));
+    const res=await enqueueDraftCommand("repeatPreviousSetValues",{exerciseInstanceId:id,values});
+    if(res.status==="applied"){
+      renderWorkout();
+      toast(t("toast.filled_from_last"));
+      closeExActionsSheet();
+    }
+  };
+
+  const exActionSubst=$("#exActionSubstBtn");
+  if(exActionSubst)exActionSubst.onclick=()=>{
+    const id=activeExActionsId;
+    closeExActionsSheet().then(()=>{
+      if(id)openSubstitutePicker(id);
+    });
+  };
+
+  const exActionRestoreOrig=$("#exActionRestoreOrigBtn");
+  if(exActionRestoreOrig)exActionRestoreOrig.onclick=async()=>{
+    const id=activeExActionsId;
+    if(id&&activeWorkoutDraft){
+      const res=await enqueueDraftCommand("restoreOriginalExercise",{exerciseInstanceId:id});
+      if(res.status==="applied"){
+        renderWorkout();
+        closeExActionsSheet();
+      }
+    }
+  };
+
+  const exActionSkip=$("#exActionSkipBtn");
+  if(exActionSkip)exActionSkip.onclick=async()=>{
+    const id=activeExActionsId;
+    if(id&&activeWorkoutDraft){
+      const isSkipped=activeWorkoutDraft.exercises[id]?.status==="skipped";
+      const type=isSkipped?"restoreExercise":"skipExercise";
+      const res=await enqueueDraftCommand(type,{exerciseInstanceId:id});
+      if(res.status==="applied"){
+        renderWorkout();
+        closeExActionsSheet();
+      }
+    }
+  };
+
+  const exActionNotes=$("#exActionNotesBtn");
+  if(exActionNotes)exActionNotes.onclick=()=>{
+    const id=activeExActionsId;
+    closeExActionsSheet().then(()=>{
+      if(id)openExNoteSheet(id);
+    });
+  };
+
+  const exActionsClose=$("#exActionsClose");
+  if(exActionsClose)exActionsClose.onclick=closeExActionsSheet;
+  const exActionsScrim=$("#exActionsScrim");
+  if(exActionsScrim)exActionsScrim.onclick=closeExActionsSheet;
 
   const earlyConfirm=$("#sessionEarlyConfirm");if(earlyConfirm)earlyConfirm.onclick=async()=>{
     if(!activeWorkoutDraft)return;

@@ -956,6 +956,50 @@ Progress.</p>
     </div>
   </div>
 
+  <div id="exActionsScrim" class="sheet-scrim hidden"></div>
+  <div id="exActionsSheet" class="sheet sheet--exactions hidden" role="dialog" aria-modal="true" aria-labelledby="exActionsTitle" hidden>
+    <span class="sheet__grab" aria-hidden="true"></span>
+    <div class="sheet__head sheet__head--stack">
+      <div class="sheet__titles">
+        <p class="sheet__title" id="exActionsTitle" data-i18n="ex.actions.title">Exercise actions</p>
+        <p class="sheet__sub" id="exActionsSub"></p>
+      </div>
+    </div>
+    <div class="sheet__body exactions-sheet__body">
+      <div class="exactions__section" id="exActionsSetupSection">
+        <p class="section-label" data-i18n="ex.actions.setup_notes">Programmed setup notes</p>
+        <p class="exactions__setup-text" id="exActionsSetupText"></p>
+      </div>
+      <div class="exactions__section" id="exActionsRepeatSection">
+        <p class="section-label" data-i18n="ex.actions.history_title">Previous session values</p>
+        <button type="button" class="btn btn--steel exactions__btn" id="exActionRepeatBtn" data-i18n="ex.actions.repeat_last">Repeat last session</button>
+        <p class="exactions__hint" id="exActionRepeatHint"></p>
+      </div>
+      <div class="exactions__section" id="exActionsSubstSection">
+        <p class="section-label" data-i18n="ex.actions.subst_title">Exercise substitution</p>
+        <div class="exactions__actions">
+          <button type="button" class="btn btn--steel exactions__btn" id="exActionSubstBtn" data-i18n="ex.actions.substitute">Substitute exercise</button>
+          <button type="button" class="btn btn--steel exactions__btn hidden" id="exActionRestoreOrigBtn" data-i18n="ex.actions.restore_original">Restore original exercise</button>
+        </div>
+      </div>
+      <div class="exactions__section" id="exActionsWarmupSection">
+        <p class="section-label" data-i18n="ex.actions.warmup_title">Warm-up sets</p>
+        <div class="exactions__warmup-list" id="exActionsWarmupList" role="group"></div>
+      </div>
+      <div class="exactions__section" id="exActionsSkipSection">
+        <p class="section-label" data-i18n="ex.actions.skip_title">Exercise status</p>
+        <button type="button" class="btn btn--steel exactions__btn" id="exActionSkipBtn" data-i18n="ex.actions.skip">Skip exercise</button>
+      </div>
+      <div class="exactions__section" id="exActionsNotesSection">
+        <p class="section-label" data-i18n="ex.actions.notes_title">Exercise notes</p>
+        <button type="button" class="btn btn--steel exactions__btn" id="exActionNotesBtn" data-i18n="ex.actions.open_notes">Edit exercise notes</button>
+      </div>
+    </div>
+    <div class="sheet__foot sheet__foot--stack">
+      <button type="button" class="text-link text-link--center" id="exActionsClose" data-i18n="dialog.close">Close</button>
+    </div>
+  </div>
+
   <div id="dayPickScrim" class="sheet-scrim hidden"></div>
   <div id="dayPickSheet" class="sheet sheet--daypick hidden" role="dialog" aria-modal="true" aria-labelledby="dayPickTitle" hidden>
     <span class="sheet__grab" aria-hidden="true"></span>
@@ -1148,19 +1192,19 @@ Progress.</p>
        reordering stays reachable through each row's Move controls. -->
   <script src="vendor/motion/motion.js"></script>
   <script src="vendor/dnd-kit/dnd-kit.js"></script>
-  <script src="motion-layer.js?v=259"></script>
-  <script src="program-compiler.js?v=259"></script>
-  <script src="program-entry.js?v=259"></script>
-  <script src="program-entry-adapter.js?v=259"></script>
-  <script src="program-editor.js?v=259"></script>
-  <script src="shared-setup.js?v=259"></script>
-  <script src="workout-draft.js?v=259"></script>
-  <script src="program-transition.js?v=259"></script>
+  <script src="motion-layer.js?v=260"></script>
+  <script src="program-compiler.js?v=260"></script>
+  <script src="program-entry.js?v=260"></script>
+  <script src="program-entry-adapter.js?v=260"></script>
+  <script src="program-editor.js?v=260"></script>
+  <script src="shared-setup.js?v=260"></script>
+  <script src="workout-draft.js?v=260"></script>
+  <script src="program-transition.js?v=260"></script>
   <script src="install-transfer-contract.js"></script>
   <script src="install-transfer.js"></script>
-  <script src="install-policy.js?v=259"></script>
-  <script src="guide-registry.js?v=259"></script>
-  <script src="durable-state.js?v=259"></script>
-  <script src="app.js?v=259"></script>
+  <script src="install-policy.js?v=260"></script>
+  <script src="guide-registry.js?v=260"></script>
+  <script src="durable-state.js?v=260"></script>
+  <script src="app.js?v=260"></script>
 </body>
 </html>
