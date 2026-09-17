@@ -5975,6 +5975,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
   const{peek=false,hasNext=true,allDone=false,showSkip=true}=opts;
   const effortMode=isEffortMode();
   const n=focusActiveSet(ex);
+  const deltaText=deltaPreviewFor(ex,draft);
   const perf=substituted.get(ex.id);
   const name=perf||ex.name;
   const nameHtml=`<h3 class="focus-ex__name"><button type="button" class="ex__name ex__namebtn"`+
@@ -6005,7 +6006,8 @@ function focusCardHtml(ex,r,draft,prev,opts){
     (r.status!=="new"||inSessionNote(ex,draft)?`<button type="button" class="text-link focus-ex__why"`+
       `${peek?dead():` data-why="${esc(ex.id)}" aria-label="${esc(t("why.open_aria",{name}))}"`}>${esc(t("why.open"))}</button>`:"")+
     `</div>${tools}</div></div>`+
-    `<div class="fcard__ledger">${focusLedgerHtml(ex,r,draft,prev,{effortMode,peek})}</div></div>`+
+    `<div class="fcard__ledger"><p class="delta-prev${deltaText?"":" hidden"}" aria-live="polite">${esc(deltaText)}</p>`+
+    `${focusLedgerHtml(ex,r,draft,prev,{effortMode,peek})}</div></div>`+
     focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek})+`</article>`}
 
 /** The deck: the live card plus an inert copy of each neighbour, parked off
@@ -6078,6 +6080,13 @@ async function refreshAfterCommittedEdit(row){
   const exId=row.closest(".exercise")?.dataset.ex;
   return exId?refreshSuggestions(exId):{status:"unchanged"}}
 
+function updateExerciseDeltaPreview(exId){
+  const card=$(`#workout .exercise.is-current[data-ex="${CSS.escape(exId)}"]`);
+  const ex=sessionExercise(prog.find(exId)),el=card?.querySelector(".delta-prev");
+  if(!ex||!el)return;
+  const text=deltaPreviewFor(ex,WorkoutSession.projection());
+  el.textContent=text;el.classList.toggle("hidden",!text)}
+
 // Latest note the lifter left on this exercise, so machine setup carries into the next session.
 function lastExerciseNote(ex){const match=matchLift(ex);
   const rows=state.log.filter(r=>match(r)&&String(r.exNote||"").trim());
@@ -6120,7 +6129,7 @@ function bindWorkout(){
     const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},{pendingValue:i.value});
     if(result.status!=="applied")return;
-    updateSaveMeta();await refreshAfterCommittedEdit(row)};
+    updateSaveMeta();updateExerciseDeltaPreview(target.exerciseInstanceId);await refreshAfterCommittedEdit(row)};
   i.onfocus=()=>i.select()});
   $w(".term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $w("[data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)});
@@ -6169,7 +6178,7 @@ function bindWorkout(){
     setEffortPick(key,next);
     const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:"effort",value:next});if(result.status!=="applied")return;
-    updateSaveMeta();refreshAfterCommittedEdit(el.closest(".curset"))};
+    updateSaveMeta();updateExerciseDeltaPreview(target.exerciseInstanceId);refreshAfterCommittedEdit(el.closest(".curset"))};
   $w("[data-effstep]").forEach(b=>b.onclick=()=>stepEffort(b.dataset.effstep,+b.dataset.dir||0));
   $w("[data-effspin]").forEach(el=>{
     // Tapping the word asks what it means; the ± buttons beside it change it.
@@ -14687,7 +14696,7 @@ function init(){
     if(!workoutActive)return;
     if(e.metaKey||e.ctrlKey||e.altKey)return;
     const el=e.target instanceof Element?e.target:null;
-    if(el&&el.closest("input,select,textarea,[contenteditable]"))return;
+    if(el&&el.closest("button,a,input,select,textarea,[contenteditable],[role=spinbutton]"))return;
     if(e.key==="ArrowRight")focusAnimateTo(1);
     else if(e.key==="ArrowLeft")focusAnimateTo(-1)});
   const sessionSheetBtn=$("#sessionSheetBtn");if(sessionSheetBtn)sessionSheetBtn.onclick=()=>openSessionSheet();

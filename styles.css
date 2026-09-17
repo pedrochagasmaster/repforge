@@ -768,6 +768,7 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .focus-ex__tools .focus-tool.has-note::after{
   content:"";position:absolute;top:7px;right:7px;width:6px;height:6px;border-radius:50%;background:var(--accent);
 }
+.exercise--focus .delta-prev{font-size:12px;line-height:1.35;color:var(--ink-faint);margin:0 0 10px}
 
 /* The ledger retains a readable band; compact screens scroll the context above the fixed set controls. */
 .fcard__ledger{
@@ -1063,8 +1064,8 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .curset__cell:not(:last-child)::after{
   content:"";position:absolute;right:0;top:12%;bottom:8%;width:1px;background:var(--rule);
 }
-.curset__cell-lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px;
-  display:flex;align-items:baseline;justify-content:center;gap:5px;white-space:nowrap}
+.curset__cell-lab{position:relative;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px;
+  display:flex;align-items:baseline;justify-content:center;gap:5px;min-height:1.4em;white-space:nowrap}
 .curset__cell-lab.is-accent{color:var(--accent-deep)}
 .curset__val,.curset__cell input.curset__val{
   width:100%;max-width:100%;box-sizing:border-box;margin:0;padding:0;border:0;background:transparent;border-radius:0;
@@ -2218,7 +2219,9 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
   text-decoration:underline dotted;text-decoration-color:var(--ink-faint);cursor:pointer;font:inherit;line-height:1.4}
 .term:hover{text-decoration-color:var(--accent);color:var(--accent-deep)}
 /* Form controls drop inherited casing and tracking (HTML's UA sheet), so a term
-   used as a column heading has to be told to look like one. */.curset__cell-lab .term{text-transform:uppercase;letter-spacing:.08em}
+   used as a column heading has to be told to look like one. Its 44px hit box
+   overlays the label band instead of making that column taller than its peers. */
+.curset__cell-lab .term{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-transform:uppercase;letter-spacing:.08em}
 .glossary{
   position:absolute;z-index:60;max-width:280px;
   background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);

@@ -1111,6 +1111,7 @@ async function editSimField(page, key, value) {
 async function exerciseAction(page, exId, button) {
   await selectFocusExercise(page, exId);
   await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+  await page.locator("#exActionsSheet.is-open").waitFor({ state: "visible" });
   await page.locator(button).click();
   await page.locator("#exActionsSheet").waitFor({state: "hidden"});
   await flushDraftWork(page);
@@ -5375,11 +5376,12 @@ async function main() {
     role: el.getAttribute("role"), value: el.dataset.e,
     focused: document.activeElement === el,
     clipped: el.scrollWidth > el.clientWidth + 1,
+    exerciseId: el.closest(".exercise.is-current")?.dataset.ex,
   }));
   const keyboardDraft = await readDraft(page);
   const keyboardEx = keyboardDraft.exercises[effEx.id];
   assert(keyboardEffort.role === "spinbutton" && keyboardEffort.value === "hard" &&
-    keyboardEffort.focused && !keyboardEffort.clipped &&
+    keyboardEffort.focused && !keyboardEffort.clipped && keyboardEffort.exerciseId === effEx.id &&
     keyboardEx.sets[keyboardEx.setOrder[0]].edited.effort === "hard",
     "Focus effort keyboard selection is visible, semantic, and persisted", JSON.stringify(keyboardEffort));
   // Copy carries the effort of the last session, not just its numbers.
@@ -6131,10 +6133,10 @@ async function main() {
     "Focus → an exercise with history lists what was lifted last time"
   );
   assert(
-    lastSession.tools === 2 && lastSession.skip && lastSession.note && lastSession.restInCard === 0,
-    "the focus card carries note and skip; rest stays in the workout chrome",
+    lastSession.tools === 3 && lastSession.skip && lastSession.note && lastSession.restInCard === 0,
+    "the focus card carries note, actions, and skip; rest stays in the workout chrome",
     JSON.stringify(lastSession),
-    "Focus → the card header holds the note and Skip, and no timer of its own"
+    "Focus → the card header holds note, Exercise actions, and Skip, and no timer of its own"
   );
   const beforeSkip = await page.evaluate(() => ({
     ex: document.querySelector("#workout .exercise.is-current")?.dataset.ex,
@@ -8278,9 +8280,10 @@ async function main() {
   await fillExerciseSets(page, noteEx.id, noteEx.sets, 90, 8, 2);
   await selectFocusExercise(page, noteEx.id);
   await page.locator("#workout .exercise.is-current [data-exnote-open]").click();
+  await page.locator("#exNoteSheet.is-open").waitFor({ state: "visible" });
   await page.fill("#exNoteText", NOTE_TEXT);
   await page.click("#exNoteSave");
-  await page.waitForTimeout(120);
+  await page.locator("#exNoteSheet").waitFor({ state: "hidden" });
   await flushDraftWork(page);
   const noteDraft = await page.evaluate(() => {
     try {
@@ -8310,6 +8313,7 @@ async function main() {
   );
   await selectFocusExercise(page, noteEx.id);
   await page.locator("#workout .exercise.is-current [data-exnote-open]").click();
+  await page.locator("#exNoteSheet.is-open").waitFor({ state: "visible" });
   const notePrefill = await page.inputValue("#exNoteText");
   await page.click("#exNoteCancel");
   assert(
@@ -8460,9 +8464,10 @@ async function main() {
   }
   const resumed = await page.evaluate(({ a, skip, b }) => {
     const d = window.__repforgeWorkoutDraft?.current?.();
+    const firstSetId = d?.exercises?.[a]?.setOrder?.[0];
     const skipped = d?.exercises?.[skip];
     return {
-      load: document.querySelector(`[data-k="${a}_1_load"]`)?.value,
+      load: firstSetId ? d.exercises[a].sets[firstSetId]?.edited?.load : undefined,
       note: document.querySelector("#sessionNotes")?.value,
       bw: document.querySelector("#sessionBodyweight")?.value,
       date: document.querySelector("#sessionDate")?.value,
@@ -8474,7 +8479,7 @@ async function main() {
   }, { a: draftExA.id, skip: draftExSkip.id, b: draftExB.id });
   assert(
     resumed.load === "77" && resumed.note === sessionNote && resumed.bw === "82.5" && resumed.date === nonToday,
-    "Resumed list draft keeps set, note, bodyweight, and date",
+    "Resumed Focus draft keeps set, note, bodyweight, and date",
     JSON.stringify(resumed),
     "Log values + leave + reload + Continue"
   );
