@@ -12,8 +12,15 @@ for (const file of ["app.js", "styles.css", "motion-polish.css", "tools/ui-scree
   audit(readFileSync(new URL(`../${file}`, import.meta.url), "utf8"));
 }
 for (const file of readdirSync(new URL("./",import.meta.url))) {
-  if(file.endsWith(".mjs") && file!=="focus-only-source.mjs")
-    audit(readFileSync(new URL(file,import.meta.url),"utf8"));
+  if(file.endsWith(".mjs") && file!=="focus-only-source.mjs") {
+    let source=readFileSync(new URL(file,import.meta.url),"utf8");
+    if(file==="workout-draft-sw-upgrade.mjs") {
+      const retained=/window\.__repforgeEnterWorkout\(\{ day: "Day 1", focus: true \}\)/g;
+      assert.equal(source.match(retained)?.length,1,"only the retained Plan 050 worker keeps its historical route flag");
+      source=source.replace(retained,"window.__repforgeEnterWorkout({ day: \"Day 1\" })");
+    }
+    audit(source);
+  }
 }
 audit(readFileSync(new URL("../docs/ui-screens/manifest.json",import.meta.url),"utf8"));
 assert.throws(() => audit('function setRowHtml() { return "<div class=\"setrow\">"; }'));

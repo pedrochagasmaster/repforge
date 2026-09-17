@@ -103,7 +103,9 @@ try {
   assert.equal(await page.evaluate(() => !!navigator.serviceWorker.controller), true, "Plan 050 worker controls its app");
 
   const secondId = seedProgram().filter((exercise) => exercise.day === "Day 1")[1].id;
-  await page.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
+  // The retained Plan 050 worker still needs its historical route flag before
+  // the current worker migrates the draft. Current-code calls below omit it.
+  await page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 1", focus: true }));
   await page.locator("#woNext").click();
   await page.waitForSelector(`#workout.is-focus .exercise.is-current[data-ex="${secondId}"]`);
   for (const [field, value] of [["load", "72.5"], ["reps", "9"], ["rir", "1"]]) {
