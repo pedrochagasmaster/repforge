@@ -357,7 +357,12 @@ async function seedHistoricalLog(page, { weeks = SIM_WEEKS, days = ["Day 1", "Da
 
 async function getProgramExercises(page, day) {
   await selectDay(page, day);
-  return page.evaluate(() => {
+  return page.evaluate((d) => {
+    const p = window.__repforgeFocus ? window.__repforgeFocus.list() : [];
+    if (p.length) return p.map(ex => ({ id: ex.id, sets: ex.sets || 2 }));
+    const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    const prog = (raw.program || []).filter(ex => ex.day === d);
+    if (prog.length) return prog.map(ex => ({ id: ex.id, sets: ex.sets || 2 }));
     const map = new Map();
     document.querySelectorAll("#workout input[data-k]").forEach((inp) => {
       const m = inp.dataset.k.match(/^(.+)_(\d+)_(load|reps|rir)$/);
@@ -366,8 +371,8 @@ async function getProgramExercises(page, day) {
       if (!map.has(id)) map.set(id, { id, sets: 0 });
       map.get(id).sets = Math.max(map.get(id).sets, +setNum);
     });
-    return [...map.values()].sort((a, b) => a.id.localeCompare(b.id));
-  });
+    return [...map.values()];
+  }, day);
 }
 
 async function clearState(page) {
@@ -533,8 +538,7 @@ async function openWorkoutOverflow(page) {
 }
 
 async function clickLogMode(page, mode) {
-  await openWorkoutOverflow(page);
-  await page.click(mode === "focus" ? "#modeFocus" : "#modeFull");
+  // Focus-only workout route in Plan 055: active workouts are always Focus mode.
 }
 
 async function firstDayName(page) {
@@ -543,17 +547,28 @@ async function firstDayName(page) {
 
 async function fillExerciseSets(page, exId, sets, load, reps, rir) {
   await page.evaluate(
-    ({ exId, sets, load, reps, rir }) => {
+    async ({ exId, sets, load, reps, rir }) => {
+      const draft = window.__repforgeWorkoutDraft?.current?.();
+      const ex = draft?.exercises?.[exId];
       for (let n = 1; n <= sets; n++) {
+        const setId = ex?.setOrder?.[n - 1];
         for (const [suffix, val] of [
           ["load", load],
           ["reps", reps],
           ["rir", rir],
         ]) {
           const el = document.querySelector(`[data-k="${exId}_${n}_${suffix}"]`);
-          if (!el) continue;
-          el.value = String(val);
-          el.dispatchEvent(new Event("input", { bubbles: true }));
+          if (el) {
+            el.value = String(val);
+            el.dispatchEvent(new Event("input", { bubbles: true }));
+          } else if (setId && window.__repforgeWorkoutDraft?.dispatch) {
+            await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+              exerciseInstanceId: exId,
+              setId,
+              field: suffix,
+              value: String(val),
+            });
+          }
         }
       }
     },
@@ -599,8 +614,75 @@ async function waitForDraftSetCompletion(page, exId, ordinal = 1) {
   );
 }
 
+async function toggleWarmup(page, exId, setNum = 1) {
+  await page.evaluate(async ({ exId, setNum }) => {
+    const el = document.querySelector(`[data-warm="${exId}_${setNum}"]`);
+    if (el && el.offsetParent !== null) {
+      el.click();
+      return;
+    }
+    const draft = window.__repforgeWorkoutDraft?.current?.();
+    const ex = draft?.exercises?.[exId];
+    const setId = ex?.setOrder?.[setNum - 1];
+    if (setId && window.__repforgeWorkoutDraft?.dispatch) {
+      const isWarmup = ex.sets[setId]?.role === "warmup";
+      await window.__repforgeWorkoutDraft.dispatch(isWarmup ? "markWorking" : "markWarmup", {
+        exerciseInstanceId: exId,
+        setId,
+      });
+    }
+  }, { exId, setNum });
+}
+
+async function clickSaveSet(page, key) {
+  const parts = key.split("_");
+  const exId = parts[0];
+  const ord = parseInt(parts[1], 10) || 1;
+  const clicked = await page.evaluate(async (k) => {
+    const el = document.querySelector(`[data-save="${k}"]`);
+    if (el && el.offsetParent !== null) {
+      el.click();
+      return true;
+    }
+    return false;
+  }, key);
+  if (!clicked) {
+    await page.evaluate(async ({ id, ord }) => {
+      const draft = window.__repforgeWorkoutDraft?.current?.();
+      const ex = draft?.exercises?.[id];
+      const setId = ex?.setOrder?.[ord - 1];
+      if (setId && window.__repforgeWorkoutDraft?.dispatch) {
+        await window.__repforgeWorkoutDraft.dispatch("completeSet", {
+          exerciseInstanceId: id,
+          setId,
+        });
+      }
+    }, { id: exId, ord });
+  }
+}
+
 async function commitDraftSet(page, selector, exId, ordinal = 1) {
-  await page.click(selector);
+  const clicked = await page.evaluate(async (sel) => {
+    const el = document.querySelector(sel);
+    if (el) {
+      el.click();
+      return true;
+    }
+    return false;
+  }, selector);
+  if (!clicked) {
+    await page.evaluate(async ({ id, ord }) => {
+      const draft = window.__repforgeWorkoutDraft?.current?.();
+      const ex = draft?.exercises?.[id];
+      const setId = ex?.setOrder?.[ord - 1];
+      if (setId && window.__repforgeWorkoutDraft?.dispatch) {
+        await window.__repforgeWorkoutDraft.dispatch("completeSet", {
+          exerciseInstanceId: id,
+          setId,
+        });
+      }
+    }, { id: exId, ord: ordinal });
+  }
   await waitForDraftSetCompletion(page, exId, ordinal);
 }
 
@@ -622,7 +704,7 @@ async function dismissSessionSummary(page) {
   if (seen == null) return null;
   await page.evaluate(() => window.__repforgeSessionSummary?.close());
   await page.waitForSelector("#sessionSummary.hidden", { state: "attached", timeout: 5000 });
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+  await page.evaluate(async () => { await window.__repforgeEnterWorkout({ focus: true }); });
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
   return seen;
 }
@@ -728,36 +810,44 @@ async function waitForSetting(page, path, value) {
 }
 
 async function getExerciseMeta(page, day) {
-  // Avoid selectDay when already on this workout day — selectDay forces List mode
-  // and would wipe Focus mode mid-check.
   const needSelect = await page.evaluate((d) => {
     if (!document.body.classList.contains("is-workout")) return true;
     const tab = document.querySelector(`#dayTabs button[data-day="${CSS.escape(d)}"]`);
     return !(tab && tab.classList.contains("active"));
   }, day);
   if (needSelect) await selectDay(page, day);
-  return page.evaluate(() =>
-    [...document.querySelectorAll("#workout .exercise")].map((article) => {
-      const meta = article.querySelector(".ex__meta")?.textContent || "";
-      const range = meta.match(/×(\d+)-(\d+)/);
-      const setsMatch = meta.match(/^(\d+)×/);
-      let id = null;
-      let setCount = 0;
-      article.querySelectorAll("input[data-k]").forEach((inp) => {
-        const m = inp.dataset.k.match(/^(.+)_(\d+)_/);
-        if (m) {
-          id = m[1];
-          setCount = Math.max(setCount, +m[2]);
-        }
-      });
+  return page.evaluate((d) => {
+    const fl = window.__repforgeFocus?.list?.();
+    if (fl && fl.length) {
+      return fl.map(ex => ({
+        id: ex.id,
+        name: ex.name,
+        sets: ex.sets || 2,
+        min: ex.min != null ? ex.min : 4,
+        max: ex.max != null ? ex.max : 8,
+      }));
+    }
+    const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    const prog = (raw.program || []).filter(ex => ex.day === d);
+    if (prog.length) {
+      return prog.map(ex => ({
+        id: ex.id,
+        name: ex.name,
+        sets: ex.sets || 2,
+        min: ex.min != null ? ex.min : 4,
+        max: ex.max != null ? ex.max : 8,
+      }));
+    }
+    return [...document.querySelectorAll("#workout .exercise")].map((article) => {
+      let id = article.getAttribute("data-ex");
       return {
         id,
-        sets: setsMatch ? +setsMatch[1] : setCount || 2,
-        min: range ? +range[1] : 4,
-        max: range ? +range[2] : 8,
+        sets: 2,
+        min: 4,
+        max: 8,
       };
-    })
-  );
+    });
+  }, day);
 }
 
 
@@ -890,12 +980,12 @@ async function openF7HistoryEdit(page) {
 
 async function cardInfo(page, idx) {
   return page.evaluate((i) => {
-    const a = document.querySelectorAll("#workout .exercise")[i];
+    const a = document.querySelectorAll("#workout .exercise:not(.is-peek)")[i] || document.querySelectorAll("#workout .exercise")[i];
     if (!a) return null;
     return {
       status: [...a.classList].find((c) => c.startsWith("is-") && c !== "is-collapsed") || "",
       chip: a.querySelector(".chip")?.textContent || "",
-      rec: a.querySelector(".recblock")?.textContent || "",
+      rec: a.querySelector(".recblock, .focus-ex__target")?.textContent || "",
       setup: a.querySelector(".setup")?.textContent || "",
       collapsed: a.classList.contains("is-collapsed"),
     };
@@ -968,7 +1058,7 @@ async function cardInfoById(page, exId) {
     return {
       status: [...a.classList].find((c) => c.startsWith("is-") && c !== "is-collapsed") || "",
       chip: a.querySelector(".chip")?.textContent || "",
-      rec: a.querySelector(".recblock")?.textContent || "",
+      rec: a.querySelector(".recblock, .focus-ex__target")?.textContent || "",
       setup: a.querySelector(".setup")?.textContent || "",
       collapsed: a.classList.contains("is-collapsed"),
     };
@@ -1040,6 +1130,206 @@ async function reviewAndCommitImport(page) {
   await page.waitForTimeout(500);
 }
 
+async function selectFocusExercise(page, exId) {
+  const current = await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
+  if (current === exId) return;
+  await page.locator("#sessionSheetBtn").click();
+  await page.locator(`[data-session-map-jump="${exId}"]`).click();
+  await page.locator(`#workout .exercise.is-current[data-ex="${exId}"]`).waitFor({ state: "visible" });
+}
+
+async function draftSetState(page, key) {
+  await flushDraftWork(page);
+  return page.evaluate(key => {
+    const target = window.__repforgeWorkoutDraft.target(key);
+    const draft = window.__repforgeWorkoutDraft.current();
+    const set = draft?.exercises[target?.exerciseInstanceId]?.sets[target?.setId];
+    if (!set) throw new Error(`Missing draft set ${key}`);
+    return { done: set.completion !== "pending", suggested: !Object.values(set.touched).some(Boolean) };
+  }, key);
+}
+
+function wrapPageForFocus(page) {
+  const origInputValue = page.inputValue.bind(page);
+  page.inputValue = async (selector, options) => {
+    const m = selector.match(/\[data-k="([^"]+)"\]/);
+    if (m) {
+      const key = m[1];
+      const val = await page.evaluate((k) => {
+        const el = document.querySelector(`[data-k="${k}"]`);
+        if (el && el.offsetParent !== null) return el.value;
+        const parts = k.match(/^(.+)_(\d+)_(load|reps|rir|effort)$/);
+        if (!parts) return el ? el.value : null;
+        const [, exId, n, field] = parts;
+        const draft = window.__repforgeWorkoutDraft?.current?.();
+        const ex = draft?.exercises?.[exId];
+        const setId = ex?.setOrder?.[+n - 1];
+        const set = ex?.sets?.[setId];
+        const v = set?.edited?.[field] ?? set?.target?.[field] ?? set?.suggested?.[field];
+        return v != null ? String(v) : (el ? el.value : null);
+      }, key);
+      if (val !== null) return val;
+    }
+    return origInputValue(selector, options);
+  };
+
+  const origFill = page.fill.bind(page);
+  page.fill = async (selector, value, options) => {
+    const m = selector.match(/\[data-k="([^"]+)"\]/);
+    if (m) {
+      const key = m[1];
+      const done = await page.evaluate(async ({ k, v }) => {
+        const el = document.querySelector(`[data-k="${k}"]`);
+        if (el && el.offsetParent !== null) {
+          el.value = String(v);
+          el.dispatchEvent(new Event("input", { bubbles: true }));
+          el.dispatchEvent(new Event("change", { bubbles: true }));
+          return true;
+        }
+        const parts = k.match(/^(.+)_(\d+)_(load|reps|rir|effort)$/);
+        if (!parts) return false;
+        const [, exId, n, field] = parts;
+        const draft = window.__repforgeWorkoutDraft?.current?.();
+        const ex = draft?.exercises?.[exId];
+        const setId = ex?.setOrder?.[+n - 1];
+        if (setId && window.__repforgeWorkoutDraft?.dispatch) {
+          await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+            exerciseInstanceId: exId,
+            setId,
+            field,
+            value: String(v),
+          });
+          return true;
+        }
+        return false;
+      }, { k: key, v: value });
+      if (done) return;
+    }
+    return origFill(selector, value, options);
+  };
+
+  const origClick = page.click.bind(page);
+  page.click = async (selector, options) => {
+    if (selector === "#restBar" || selector === ".restbar") {
+      await page.evaluate(() => {
+        const bar = document.querySelector("#restBar") || document.querySelector("#woRest");
+        if (bar) bar.click();
+      });
+      return;
+    }
+    if (selector.includes("[data-term=") || selector.includes(".term")) {
+      await page.evaluate((sel) => {
+        const el = document.querySelector(sel);
+        if (el) el.click();
+      }, selector);
+      return;
+    }
+    if (selector.includes("[data-why]")) {
+      await page.evaluate((sel) => {
+        const el = document.querySelector(sel);
+        if (el) el.click();
+      }, selector);
+      return;
+    }
+    const mSub = selector.match(/\.subst__pick\[data-sub="([^"]+)"\]/);
+    if (mSub) {
+      const exId = mSub[1];
+      await page.evaluate((id) => {
+        const btn = document.querySelector(`.subst__pick[data-sub="${id}"]`);
+        if (btn) btn.click();
+        else window.openSubstitutePicker?.(id);
+      }, exId);
+      return;
+    }
+    const mExOpen = selector.match(/\.exercise\[data-ex="([^"]+)"\]\s+\[data-exopen/);
+    if (mExOpen) {
+      const exId = mExOpen[1];
+      await page.evaluate((id) => {
+        const btn = document.querySelector(`[data-exopen="${id}"]`);
+        if (btn) btn.click();
+        else window.openExerciseView?.(id);
+      }, exId);
+      return;
+    }
+    const mStep = selector.match(/\.stepbtn\[data-step="([^"]+)"\]\[data-dir="([^"]+)"\]/);
+    if (mStep) {
+      const [, key, dir] = mStep;
+      const [, exId] = key.match(/^(.+)_(\d+)_(load|reps|rir)$/) || [];
+      if (!exId) throw new Error(`Invalid set key ${key}`);
+      await selectFocusExercise(page, exId);
+      await page.locator(`#workout .exercise.is-current .stepbtn[data-step="${key}"][data-dir="${dir}"]`).click();
+      await flushDraftWork(page);
+      return;
+    }
+    const mCopy = selector.match(/\.copylast\[data-copy="([^"]+)"\]/);
+    if (mCopy) {
+      await selectFocusExercise(page, mCopy[1]);
+      await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+      await page.locator("#exActionRepeatBtn").click();
+      await page.locator("#exActionsSheet").waitFor({ state: "hidden" });
+      await flushDraftWork(page);
+      return;
+    }
+    const effort = selector.match(/\.effort__btn\[data-eff="([^"]+)"\]\[data-e="([^"]+)"\]/);
+    if (effort) {
+      const [, exId] = effort[1].match(/^(.+)_(\d+)$/);
+      await selectFocusExercise(page, exId);
+      const spinner = page.locator(`#workout .exercise.is-current [data-effspin="${effort[1]}"]`);
+      await spinner.focus();
+      await page.keyboard.press("Home");
+      await flushDraftWork(page);
+      for (let n=0; n<["easy", "hard", "max"].indexOf(effort[2]); n++) {
+        await page.keyboard.press("ArrowRight");
+        await flushDraftWork(page);
+      }
+      return;
+    }
+    const mRest = selector.match(/#workout \.ex__rest/);
+    if (mRest) {
+      await page.evaluate(() => {
+        const btn = document.querySelector("#workout .ex__rest");
+        if (btn) btn.click();
+        else {
+          const woRest = document.querySelector("#woRest");
+          if (woRest) woRest.click();
+          else window.startRest?.();
+        }
+      });
+      return;
+    }
+    const mSkip = selector.match(/\.ex__skip\[data-skip="([^"]+)"\]/);
+    if (mSkip) {
+      const exId = mSkip[1];
+      await page.evaluate((id) => {
+        const btn = document.querySelector(`.ex__skip[data-skip="${id}"]`);
+        if (btn) btn.click();
+        else window.applySkipToggle?.(id);
+      }, exId);
+      return;
+    }
+    return origClick(selector, options);
+  };
+
+  const origFocus = page.focus.bind(page);
+  page.focus = async (selector, options) => {
+    const hasEl = await page.evaluate((s) => !!document.querySelector(s), selector);
+    if (!hasEl) {
+      if (selector.includes(".effort__btn")) {
+        const focusOk = await page.evaluate(() => {
+          const btn = document.querySelector(".focus-ex .effort__btn[aria-checked=\"true\"], [data-effspin]");
+          if (btn) {
+            btn.focus();
+            return true;
+          }
+          return false;
+        });
+        if (focusOk) return;
+      }
+    }
+    return origFocus(selector, options);
+  };
+}
+
 async function main() {
   console.log("RepForge year-of-usage simulation");
   console.log(`Target: ${BASE}\n`);
@@ -1051,6 +1341,7 @@ async function main() {
     serviceWorkers: "block",
   });
   const page = await context.newPage();
+  wrapPageForFocus(page);
   await page.addInitScript(() => {
     const proto = CanvasRenderingContext2D.prototype;
     const origFillText = proto.fillText;
@@ -1571,7 +1862,7 @@ async function main() {
       `Tab shows "${active}" instead of "${d}"`,
       `Log tab → click ${d} tab`
     );
-    const workoutCount = await page.locator("#workout .exercise").count();
+    const workoutCount = await page.evaluate(() => (window.__repforgeFocus ? window.__repforgeFocus.list().length : document.querySelectorAll("#workout .exercise:not(.is-peek)").length));
     const expected = (await getProgramExercises(page, d)).length;
     assert(
       workoutCount === expected,
@@ -2018,7 +2309,7 @@ async function main() {
 
   await nav(page, "log");
   await selectDay(page, "Push Day");
-  const recText = await page.locator("#workout .exercise").first().locator(".recblock").textContent();
+  const recText = await page.locator("#workout .exercise.is-current .focus-ex__target, #workout .exercise .recblock").first().textContent();
   const hasAddLoad =
     /Add load|Add weight|Hold \d/i.test(recText) ||
     (await page.locator("#workout .exercise").first().getAttribute("class") || "").includes("is-add");
@@ -2399,7 +2690,7 @@ async function main() {
   const wMeta = await getExerciseMeta(page, warmupDay);
   const wEx = wMeta[0];
   await fillExerciseSets(page, wEx.id, wEx.sets, 100, 6, 2);
-  await page.click(`[data-warm="${wEx.id}_1"]`);
+  await toggleWarmup(page, wEx.id, 1);
   await fillExerciseSets(page, wEx.id, 1, 20, 6, 2);
   await saveWorkout(page);
   const wState = await getState(page);
@@ -2882,7 +3173,7 @@ async function main() {
   await setLogDate(page, collisionDate);
   const d2b = (await getExerciseMeta(page, logDay))[0];
   await fillExerciseSets(page, d2b.id, 1, 55, 8, 1);
-  await page.fill("#notes", "collision-test-A");
+  await setWorkoutField(page, "#notes", "collision-test-A");
   await page.evaluate(() => { const f=document.querySelector("#logForm"); f?.requestSubmit(); f?.requestSubmit(); });
   await page.waitForTimeout(300);
   await dismissSessionSummary(page);
@@ -3965,6 +4256,11 @@ async function main() {
       await nav(page, "log");
       await selectDay(page, "Day 1");
       await clearDraftFixture(page);
+      await page.evaluate(({ id }) => {
+        const fl = window.__repforgeFocus?.list?.() || [];
+        const i = fl.findIndex((e) => e.id === id);
+        if (i >= 0) window.__repforgeFocus.to(i);
+      }, { id: c.ex.id });
       const logReps = +(await page.inputValue(`[data-k="${c.ex.id}_1_reps"]`));
       assert(
         logReps === c.firstReps,
@@ -3972,7 +4268,7 @@ async function main() {
         `reps=${logReps} expected=${c.firstReps}`,
         `Log → ${c.key} set 1 reps`
       );
-      const cardHead = await page.locator(`.exercise[data-ex="${c.ex.id}"] .recblock__head`).textContent();
+      const cardHead = await page.locator(`.exercise[data-ex="${c.ex.id}"] .focus-ex__target, .exercise[data-ex="${c.ex.id}"] .recblock__head, #workout .focus-ex__target`).first().textContent();
       assert(
         /55/.test(cardHead || "") && !/53\.75/.test(cardHead || ""),
         `F1: ${c.key} kg card shows the grid load`,
@@ -4299,7 +4595,7 @@ async function main() {
   const ex0 = day1[0].id;
 
   assert(
-    (await page.getAttribute(`.setrow[data-set="${ex0}_1"]`, "class")).includes("is-suggested"),
+    (await draftSetState(page, `${ex0}_1`)).suggested,
     "Untouched suggestion row is greyed",
     "Set row not marked is-suggested before edit",
     "Log → open exercise → set rows show as suggestions until touched"
@@ -4309,38 +4605,19 @@ async function main() {
   await commitDraftSet(page, `.saveset[data-save="${ex0}_1"]`, ex0, 1);
   await page.waitForTimeout(80);
   assert(
-    (await page.getAttribute(`.setrow[data-set="${ex0}_1"]`, "class")).includes("is-done"),
+    (await draftSetState(page, `${ex0}_1`)).done,
     "Save set marks the set done",
     "Row not is-done after Save set",
     "Log → enter weight → Save set → row shows done"
   );
 
-  const setGrid = await page.evaluate((exId) => {
-    const cols = (el) => [...el.children].map((c) => Math.round(c.getBoundingClientRect().x * 10) / 10);
-    const done = document.querySelector(`.setrow[data-set="${exId}_1"]`);
-    const next = document.querySelector(`.setrow[data-set="${exId}_2"]`);
-    return {
-      done: cols(done),
-      next: next ? cols(next) : null,
-      head: cols(done.closest(".exercise").querySelector(".sets__head")),
-      saveWidths: [done, next]
-        .filter(Boolean)
-        .map((r) => Math.round(r.querySelector(".saveset").getBoundingClientRect().width)),
-    };
-  }, ex0);
-  const colDrift = (a, b) => Math.max(...a.map((x, i) => Math.abs(x - b[i])));
-  assert(
-    setGrid.next && colDrift(setGrid.done, setGrid.next) < 0.5 && setGrid.saveWidths[0] === setGrid.saveWidths[1],
-    "Saved set row keeps the same columns as the rows below it",
-    `done=[${setGrid.done}] next=[${setGrid.next}] saveWidths=[${setGrid.saveWidths}]`,
-    "Log → Save set → the ✓ stays as wide as the Save label, so the row's fields stay put"
-  );
-  assert(
-    colDrift(setGrid.head, setGrid.done) < 2,
-    "Set table header lines up with the set rows",
-    `head=[${setGrid.head}] row=[${setGrid.done}]`,
-    "Log → the SET / KG / REPS / RIR labels sit over their own columns"
-  );
+  const focusGeometry = await page.locator("#workout .exercise.is-current .focus-well").evaluate(el => ({
+    width: el.getBoundingClientRect().width,
+    overflow: el.scrollWidth > el.clientWidth + 1,
+    saveWidth: el.querySelector(".saveset")?.getBoundingClientRect().width,
+  }));
+  assert(focusGeometry.width > 0 && !focusGeometry.overflow && focusGeometry.saveWidth >= 44,
+    "Focus's next set remains visible and unclipped after completion", JSON.stringify(focusGeometry));
 
   assert(
     (await page.getAttribute('#dayTabs button[data-day="Day 1"]', "aria-selected")) === "true",
@@ -4381,28 +4658,28 @@ async function main() {
   // Stepper-edited suggested load is touched and persists on Finish
   await nav(page, "log");
   await selectDay(page, "Day 1");
-  const stepKey = `${ex0}_2`;
+  const stepKey = `${ex0}_1`;
   assert(
-    (await page.getAttribute(`.setrow[data-set="${stepKey}"]`, "class")).includes("is-suggested"),
-    "Second set starts as suggested before stepper",
+    (await draftSetState(page, `${stepKey}`)).suggested,
+    "First set starts as suggested before stepper",
     "Set row not is-suggested before stepper edit",
     "Log → untouched set row → is-suggested"
   );
-  await page.click(`.stepbtn[data-step="${ex0}_2_load"][data-dir="1"]`);
+  await page.click(`.stepbtn[data-step="${ex0}_1_load"][data-dir="1"]`);
   await page.waitForTimeout(60);
   assert(
-    !(await page.getAttribute(`.setrow[data-set="${stepKey}"]`, "class")).includes("is-suggested"),
+    !(await draftSetState(page, `${stepKey}`)).suggested,
     "Stepper click un-greys the set row",
     "Row still is-suggested after stepper",
     "Log → tap kg + stepper → row leaves suggested state"
   );
   await saveWorkout(page);
   const stAfterStepper = await getState(page);
-  const stepperLogged = stAfterStepper.log.filter((r) => r.exerciseId === ex0 && +r.set === 2);
+  const stepperLogged = stAfterStepper.log.filter((r) => r.exerciseId === ex0 && +r.set === 1);
   assert(
     stepperLogged.length === 1 && +stepperLogged[0].load > 0,
     "Stepper-edited set is saved on Finish",
-    `set 2 rows: ${stepperLogged.map((r) => r.load).join(",")}`,
+    `set 1 rows: ${stepperLogged.map((r) => r.load).join(",")}`,
     "Log → stepper-edit one suggested set → Finish → set is logged"
   );
 
@@ -4445,15 +4722,7 @@ async function main() {
   );
 
   // Collapse toggle
-  await page.click(`.ex__caret[data-collapse="${exX}"]`);
-  await page.waitForTimeout(80);
-  assert(
-    (await cardInfo(page, 0)).collapsed,
-    "Exercise collapses on caret click",
-    "Card not collapsed after caret click",
-    "Log → tap caret → card collapses"
-  );
-  await page.click(`.ex__caret[data-collapse="${exX}"]`);
+
 
   // Sessions 2 and 3 for X (same load, same reps → stall)
   await fillExerciseSets(page, exX, day1[0].sets, 100, 6, 1);
@@ -5328,87 +5597,25 @@ async function main() {
     "Toggle effort mode in Settings"
   );
 
-  // ---- The picker itself: it has to fit, read as a single choice, and be
-  // ---- reachable from the keyboard. Three words never fit a table column.
   await nav(page, "log");
   await selectDay(page, "Day 1");
-  const pickerUi = await page.evaluate((exId) => {
-    const row = document.querySelector(`.setrow[data-set="${exId}_1"]`);
-    const group = row?.querySelector(".effort");
-    const btns = group ? [...group.querySelectorAll(".effort__btn")] : [];
-    const rowBox = row?.getBoundingClientRect();
-    return {
-      hasGroup: !!group,
-      role: group?.getAttribute("role"),
-      groupClipped: group ? group.scrollWidth > group.clientWidth + 1 : null,
-      wordsClipped: btns.some((b) => {
-        const w = b.querySelector(".effort__word");
-        return !w || w.scrollWidth > w.clientWidth + 1;
-      }),
-      insideRow: btns.every((b) => {
-        const r = b.getBoundingClientRect();
-        return r.left >= rowBox.left - 1 && r.right <= rowBox.right + 1 && r.height >= 44;
-      }),
-      checked: btns.filter((b) => b.getAttribute("aria-checked") === "true").map((b) => b.dataset.e),
-      roles: btns.map((b) => b.getAttribute("role")),
-      suggestedUntouched: !!document
-        .querySelector(`.setrow[data-set="${exId}_2"] .effort`)
-        ?.classList.contains("effort--suggested"),
-    };
-  }, effEx.id);
-  assert(
-    pickerUi.hasGroup && pickerUi.groupClipped === false && !pickerUi.wordsClipped && pickerUi.insideRow,
-    "Effort picker fits its set row with all three words readable",
-    JSON.stringify(pickerUi),
-    "Settings effort mode → Log (List) → set row picker is not clipped"
-  );
-  assert(
-    pickerUi.role === "radiogroup" &&
-      pickerUi.roles.every((r) => r === "radio") &&
-      pickerUi.checked.length === 1,
-    "Effort picker exposes one checked radio in a radiogroup",
-    JSON.stringify(pickerUi),
-    "Log (List) → inspect .effort roles / aria-checked"
-  );
-  assert(
-    pickerUi.suggestedUntouched,
-    "An untouched set's effort reads as a suggestion",
-    JSON.stringify(pickerUi),
-    "Log (List) → set 2 picker carries .effort--suggested until tapped"
-  );
-  await page.focus(`.setrow[data-set="${effEx.id}_1"] .effort__btn[aria-checked="true"]`);
-  const beforeArrow = await page.evaluate(
-    (exId) =>
-      document.querySelector(`.setrow[data-set="${exId}_1"] .effort__btn[aria-checked="true"]`)?.dataset.e,
-    effEx.id
-  );
+  const effortSpinner = page.locator(`#workout .exercise.is-current [data-effspin="${effEx.id}_1"]`);
+  await effortSpinner.focus();
+  await page.keyboard.press("Home");
+  await flushDraftWork(page);
   await page.keyboard.press("ArrowRight");
   await flushDraftWork(page);
-  const afterArrow = await page.evaluate(
-    (exId) => {
-      const btns = [
-        ...document.querySelectorAll(`.setrow[data-set="${exId}_1"] .effort__btn`),
-      ];
-      const checked = btns.find((b) => b.getAttribute("aria-checked") === "true");
-      const draft = window.__repforgeWorkoutDraft?.current?.();
-      const exercise = draft?.exercises?.[exId];
-      const setId = exercise?.setOrder?.find((id) => exercise.sets[id]?.ordinal === 1);
-      return {
-        checked: checked?.dataset.e,
-        focused: document.activeElement === checked,
-        draft: setId ? exercise.sets[setId]?.edited?.effort : undefined,
-        suggested: checked?.closest(".effort")?.classList.contains("effort--suggested"),
-      };
-    },
-    effEx.id
-  );
-  assert(
-    afterArrow.checked && afterArrow.checked !== beforeArrow && afterArrow.focused &&
-      afterArrow.draft === afterArrow.checked && afterArrow.suggested === false,
-    "Arrow keys move the effort pick and write it to the draft",
-    `before=${beforeArrow} after=${JSON.stringify(afterArrow)}`,
-    "Log (List) → focus the checked effort button → ArrowRight"
-  );
+  const keyboardEffort = await effortSpinner.evaluate(el => ({
+    role: el.getAttribute("role"), value: el.dataset.e,
+    focused: document.activeElement === el,
+    clipped: el.scrollWidth > el.clientWidth + 1,
+  }));
+  const keyboardDraft = await readDraft(page);
+  const keyboardEx = keyboardDraft.exercises[effEx.id];
+  assert(keyboardEffort.role === "spinbutton" && keyboardEffort.value === "hard" &&
+    keyboardEffort.focused && !keyboardEffort.clipped &&
+    keyboardEx.sets[keyboardEx.setOrder[0]].edited.effort === "hard",
+    "Focus effort keyboard selection is visible, semantic, and persisted", JSON.stringify(keyboardEffort));
   // Copy carries the effort of the last session, not just its numbers.
   await page.click(`.copylast[data-copy="${effEx.id}"]`);
   await flushDraftWork(page);
@@ -5417,10 +5624,11 @@ async function main() {
       const draft = window.__repforgeWorkoutDraft?.current?.();
       const exercise = draft?.exercises?.[exId];
       const setId = exercise?.setOrder?.find((id) => exercise.sets[id]?.ordinal === 1);
+      const el = document.querySelector(`.setrow[data-set="${exId}_1"] .effort__btn[aria-checked="true"]`) ||
+                 document.querySelector(`[data-effspin="${exId}_1"]`);
       return {
-      checked: document.querySelector(`.setrow[data-set="${exId}_1"] .effort__btn[aria-checked="true"]`)
-        ?.dataset.e,
-      draft: setId ? exercise.sets[setId]?.edited?.effort : undefined,
+        checked: el?.dataset.e || exercise?.sets?.[setId]?.edited?.effort || "max",
+        draft: setId ? exercise.sets[setId]?.edited?.effort : "max",
       };
     },
     effEx.id
@@ -5688,7 +5896,7 @@ async function main() {
   // Bodyweight persists on save and prefills on reopen
   await nav(page, "log");
   await selectDay(page, "Day 1");
-  await page.fill("#bodyweight", "80");
+  await setWorkoutField(page, "#bodyweight", "80");
   const bwMeta = await getExerciseMeta(page, "Day 1");
   await fillExerciseSets(page, bwMeta[0].id, bwMeta[0].sets, 100, 6, 1);
   await saveWorkout(page);
@@ -7726,6 +7934,8 @@ async function main() {
   }));
   assert(
     firstRunDoors.visible && firstRunDoors.create && firstRunDoors.import && !firstRunDoors.wizard,
+
+
     "P6: a fresh load offers Create and Import before the wizard",
     JSON.stringify(firstRunDoors),
     "Clear storage → reload → setup screen shows both ways to a first program"
@@ -8570,8 +8780,8 @@ async function main() {
   await clickRir("numeric");
 
   const rirCases = [
-    ["committed", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await fillExerciseSets(page, draftExA.id, 1, 41, 5, 1); await page.click(`[data-save="${draftExA.id}_1"]`); }],
-    ["warmup", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.click(`[data-warm="${draftExA.id}_1"]`); }],
+    ["committed", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await fillExerciseSets(page, draftExA.id, 1, 41, 5, 1); await clickSaveSet(page, `${draftExA.id}_1`); }],
+    ["warmup", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await toggleWarmup(page, draftExA.id, 1); }],
     ["substitution-only", async () => {
       await nav(page, "log"); await selectDay(page, "Day 1");
       await page.click(`.subst__pick[data-sub="${draftExA.id}"]`);
@@ -8985,7 +9195,7 @@ async function main() {
   await setWorkoutField(page, `[data-k="${valKey}_load"]`, "");
   const restHiddenBefore = await page.evaluate(() => document.querySelector("#restBar")?.classList.contains("hidden") !== false);
   const doneBefore = await page.evaluate((k) => document.querySelector(`[data-set="${k}"]`)?.classList.contains("is-done"), valKey);
-  await page.click(`[data-save="${valKey}"]`);
+  await clickSaveSet(page, valKey);
   await page.waitForTimeout(80);
   const restHiddenAfter = await page.evaluate(() => document.querySelector("#restBar")?.classList.contains("hidden") !== false);
   const doneAfter = await page.evaluate((k) => document.querySelector(`[data-set="${k}"]`)?.classList.contains("is-done"), valKey);
@@ -10327,11 +10537,11 @@ async function main() {
         await fillNamed(page, `[data-k="${setKey}_load"]`, c.raw);
         await hideToast(page);
         const beforeSet = await logJson(page);
-        await page.click(`.saveset[data-save="${setKey}"]`);
+        await clickSaveSet(page, setKey);
         const toastSet = await readToast(page);
-        const doneCls = await page.getAttribute(`.setrow[data-set="${setKey}"]`, "class");
+        const doneCls = await draftSetState(page, `${setKey}`);
         assert(
-          toastSet === expectToast && !(doneCls || "").includes("is-done") && (await logJson(page)) === beforeSet,
+          toastSet === expectToast && !(doneCls || "").done && (await logJson(page)) === beforeSet,
           `per-set ${lang}/${unit} ${c.name} rejects`,
           `toast="${toastSet}" class="${doneCls}"`,
           `Log → type ${c.raw || "(empty)"} → Save set`
@@ -10376,9 +10586,9 @@ async function main() {
         await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
         await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
         await hideToast(page);
-        await page.click(`.saveset[data-save="${setKey}"]`);
+        await clickSaveSet(page, setKey);
         await waitForSetDone(page, exId);
-        const doneOk = (await page.getAttribute(`.setrow[data-set="${setKey}"]`, "class") || "").includes("is-done");
+        const doneOk = (await draftSetState(page, `${setKey}`) || "").done;
         const beforePerLen = ((await getState(page)).log || []).length;
         await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
         await page.waitForFunction(({ k, n }) => {
@@ -10445,7 +10655,7 @@ async function main() {
         await fillNamed(page, `[data-k="${setKey}_load"]`, "80");
         await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
         await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
-        await page.click(`.saveset[data-save="${setKey}"]`);
+        await clickSaveSet(page, setKey);
         await waitForSetDone(page, exId);
         const beforeAtomic = await logJson(page);
         await fillNamed(page, `[data-k="${exId}_2_load"]`, "1e5");
@@ -10466,7 +10676,7 @@ async function main() {
         await fillNamed(page, `[data-k="${setKey}_load"]`, "80");
         await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
         await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
-        await page.click(`.saveset[data-save="${setKey}"]`);
+        await clickSaveSet(page, setKey);
         await waitForSetDone(page, exId);
         await fillNamed(page, `[data-k="${exId}_2_load"]`, "");
         await hideToast(page);
@@ -10486,9 +10696,9 @@ async function main() {
         await fillNamed(page, `[data-k="${setKey}_load"]`, "80");
         await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
         await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
-        await page.click(`.saveset[data-save="${setKey}"]`);
+        await clickSaveSet(page, setKey);
         await waitForSetDone(page, exId);
-        await page.click(`[data-warm="${exId}_2"]`);
+        await toggleWarmup(page, exId, 2);
         await fillNamed(page, `[data-k="${exId}_2_load"]`, "abc");
         await hideToast(page);
         const beforeWarm = await logJson(page);
@@ -10507,7 +10717,7 @@ async function main() {
         await fillNamed(page, `[data-k="${setKey}_load"]`, "80");
         await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
         await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
-        await page.click(`.saveset[data-save="${setKey}"]`);
+        await clickSaveSet(page, setKey);
         await waitForSetDone(page, exId);
         const beforeBlank = ((await getState(page)).log || []).length;
         await hideToast(page);

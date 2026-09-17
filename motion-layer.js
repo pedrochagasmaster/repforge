@@ -631,19 +631,16 @@
       global.__tauriferFluidControllersInstalled = true;
     }
 
-    const prevFocusAnimateTo = global.focusAnimateTo;
-    if (useFluid) {
-      global.focusAnimateTo = fluidFocusAnimateTo;
-      if (global.__repforgeFocus) global.__repforgeFocus.go = fluidFocusAnimateTo;
-    }
 
     let disposed = false;
     const controller = {
       isFluid: useFluid,
+      navigate: dir => !disposed && (useFluid ? fluidFocusAnimateTo(dir) : global.fallbackFocusAnimateTo?.(dir)),
       dispose() {
         if (disposed) return;
         disposed = true;
 
+        if (focusSlide) cleanupFocusSlide(focusSlide);
         if (sheetGesture) clearSheetGesture({ clearRun: true });
         if (focusGesture) {
           const g = focusGesture;
@@ -678,8 +675,6 @@
         if (useFluid) {
           document.removeEventListener("keydown", onKeyDown, true);
           global.__tauriferFluidControllersInstalled = false;
-          if (global.focusAnimateTo === fluidFocusAnimateTo) global.focusAnimateTo = prevFocusAnimateTo;
-          if (global.__repforgeFocus?.go === fluidFocusAnimateTo) global.__repforgeFocus.go = prevFocusAnimateTo;
         }
 
         if (activeGestureController === controller) {

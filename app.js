@@ -884,10 +884,6 @@ function setDisclosure(button,panel,open){
   const show=()=>panel.classList.toggle("is-open",on);
   if(window.RepForgeMotion)window.RepForgeMotion.animateDisclosure(panel,on,show);
   else show()}
-function syncLogModeControls(){
-  const list=logMode==="full",full=$("#modeFull"),focus=$("#modeFocus");
-  if(full){full.classList.toggle("active",list);full.setAttribute("aria-pressed",list?"true":"false")}
-  if(focus){focus.classList.toggle("active",!list);focus.setAttribute("aria-pressed",list?"false":"true")}}
 const uid=()=>crypto?.randomUUID?.()||`id_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 /* Block identity is allocated only at a real activation/block-start boundary.
    Normalisation, boot, replay, and staged proposals must preserve absence or
@@ -1901,12 +1897,12 @@ function showDraftCommandRecovery(status,attempt,{pendingValue=null,focus=null,r
   draftUiRecovery={kind:draftRecoveryMessageKind(status),status,attempt,pendingValue,
     copyValue:pendingValue,copyKind:"value",focus,retry:status!=="stale",retryAction,discard:false};
   renderDraftRecovery();focusDraftRecovery()}
-function showDraftInitializationRecovery(result,{retryMode="initialize",label=day,focusMode=null,contextTouched=null}={}){
+function showDraftInitializationRecovery(result,{retryMode="initialize",label=day,contextTouched=null}={}){
   const kind=draftRecoveryMessageKind(result?.status,true),raw=result?.raw??workoutDraftRecovery?.raw??null,
     parsed=WorkoutDraft?.parse(raw),identity=parsed?.kind==="valid"?
       {draftId:parsed.draft.draftId,revision:parsed.draft.revision}:null;
   draftUiRecovery={kind,status:result?.status,attempt:null,pendingValue:null,copyValue:raw,copyKind:"data",
-    focus:null,retry:true,retryMode,label,focusMode,contextTouched,discardIdentity:identity,discard:kind==="program"&&!!identity};
+    focus:null,retry:true,retryMode,label,contextTouched,discardIdentity:identity,discard:kind==="program"&&!!identity};
   renderDraftRecovery();focusDraftRecovery()}
 function clearDraftUiRecovery(){draftUiRecovery=null;renderDraftRecovery()}
 async function copyDraftRecoveryValue(){const value=draftUiRecovery?.copyValue;if(value==null)return false;
@@ -1928,10 +1924,9 @@ function retryDraftRecovery(){
       initializeWorkoutDraft({restoreDay:true});return operation.then(result=>{
     if(result.status==="ready"){hydrateDraftCollections(workoutDraftProjection(),{restoreSelection:true});clearDraftUiRecovery();
       if(!workoutActive)setWorkoutActive(true);
-      if(recovery.focusMode===true)logMode="focus";else if(recovery.focusMode===false)logMode="full";
-      syncLogModeControls();document.body.classList.toggle("is-focus-wo",logMode==="focus");
+      document.body.classList.add("is-focus-wo");
       renderTabs();renderWorkout();renderToday();restoreDraftFocus(recovery.focus)}
-    else showDraftInitializationRecovery(result,{retryMode:recovery.retryMode,label:recovery.label,focusMode:recovery.focusMode,contextTouched:recovery.contextTouched});return result})}
+    else showDraftInitializationRecovery(result,{retryMode:recovery.retryMode,label:recovery.label,contextTouched:recovery.contextTouched});return result})}
   const task=draftWriteTail.then(()=>DraftStore.compareAndSwapV2(recovery.attempt))
     .then(result=>applyDraftRetryResult(result,recovery));
   draftWriteTail=task.then(()=>undefined,()=>undefined);return task}
@@ -1998,7 +1993,7 @@ function hydrateDraftCollections(d,{restoreSelection=false}={}){
   warmups.clear();retainSetKeys(d.__warm,known).forEach(k=>warmups.add(k));
   skipped.clear();(d.__skipped||[]).forEach(id=>{if(known.has(id))skipped.add(id)});
   if(restoreSelection){const selectedIndex=focusList().findIndex(ex=>ex.id===d.__selectedExerciseId);
-    if(selectedIndex>=0)focusIndex=selectedIndex}
+    focusIndex=selectedIndex>=0?selectedIndex:0}
   substituted.clear();substitutedRef.clear();
   const subs=d.__substituted&&typeof d.__substituted==="object"?d.__substituted:{};
   const refs=d.__substitutedRef&&typeof d.__substitutedRef==="object"?d.__substitutedRef:{};
@@ -2132,7 +2127,7 @@ async function applySkipToggle(id){
   if(!activeWorkoutDraft)return false;
   const result=await enqueueDraftCommand(skipped.has(id)?"restoreExercise":"skipExercise",{exerciseInstanceId:id});
   if(result.status!=="applied")return false;
-  if(logMode==="focus"){const fl=focusList();focusIndex=Math.min(focusIndex,Math.max(0,fl.length-1))}
+  {const fl=focusList();focusIndex=Math.min(focusIndex,Math.max(0,fl.length-1))}
   renderWorkout();return true}
 async function applyShowAll(){
   if(!activeWorkoutDraft)return false;
@@ -2183,7 +2178,7 @@ async function applyFatigueTrim(){
   for(const id of [...skipped])if(!flagged.has(id)){const result=await enqueueDraftCommand("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
   for(const id of flagged)if(!skipped.has(id)){const result=await enqueueDraftCommand("skipExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
   renderWorkout();toast(t("toast.trimmed_priority"))}
-let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
+let focusIndex=0,statsSeg="overview",prFilter="all";
 let focusDrag=null,focusFlinging=false;
 /** Focus mode — the set being re-opened for edit: {exId,n,snap}. `snap` is the
  *  set as it stood when editing began, so cancelling puts it back untouched. */
@@ -4142,11 +4137,10 @@ function setWorkoutOverflow(open){const menu=$("#woOverflow");if(!menu)return;
   $("#woOverflowBtn")?.setAttribute("aria-expanded",open?"true":"false")}
 function closeWorkoutOverflow(){setWorkoutOverflow(false)}
 function toggleWorkoutOverflow(){setWorkoutOverflow($("#woOverflow")?.classList.contains("hidden"))}
-function setLogMode(m){logMode=m;syncLogModeControls();document.body.classList.toggle("is-focus-wo",m==="focus");focusIndex=0;focusEdit=null;closeWorkoutOverflow();renderWorkout()}
 async function goToLogExercise(exId){
   const ex=prog.find(exId);if(!ex)return;
   if(!await requestWorkoutDay(ex.day))return;
-  if(logMode==="focus"){
+  {
     const fl=focusList(),idx=fl.findIndex(e=>e.id===exId);
     focusIndex=idx>=0?idx:0;
   }
@@ -4679,7 +4673,7 @@ function paintRest(text,done,over=0){
   else chip.setAttribute("aria-label",t(done?"focus.rest.done_aria":"focus.rest.running_aria",{time:text}))}
 /** Show or hide the header chip, and keep the floating bar out of Focus. */
 function updateRestChrome(){
-  const focus=workoutActive&&logMode==="focus";
+  const focus=workoutActive;
   const chip=$("#woRest");
   const restOn=+state.settings.restSec>0;
   if(chip){
@@ -4928,7 +4922,7 @@ function playPanelAnimation(el,cls){if(!el)return;
   void el.offsetWidth;
   el.classList.add(cls);
   el.addEventListener("animationend",()=>el.classList.remove(cls),{once:true})}
-function updateFocusChrome(){document.body.classList.toggle("is-focus-wo",workoutActive&&logMode==="focus");
+function updateFocusChrome(){document.body.classList.toggle("is-focus-wo",workoutActive);
   updateRestChrome()}
 
 /* ---- Exercise note sheet ---- */
@@ -5190,6 +5184,10 @@ const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").
  *  responsiveness. `focusSettle` below is the half of this that is a real catch,
  *  and that half does use a spring. */
 function focusAnimateTo(dir){
+  const controller=window.__repforgeGestureHandle;
+  if(controller?.isFluid)return controller.navigate(dir);
+  return fallbackFocusAnimateTo(dir)}
+function fallbackFocusAnimateTo(dir){
   if(focusFlinging||!focusCanGo(dir))return false;
   const track=focusTrack(),deck=$("#focusDeck");
   if(!track||reducedMotion())return focusGo(dir);
@@ -5208,7 +5206,7 @@ const FOCUS_SLIDE_MS=210;
 function focusSetTrack(track,dx){
   if(track)track.style.transform=`translate3d(${dx}px,0,0)`}
 function focusDragStart(e){
-  if(focusFlinging||!workoutActive||logMode!=="focus")return;
+  if(focusFlinging||!workoutActive)return;
   if(e.pointerType==="mouse"&&e.button!==0)return;
   const el=e.target instanceof Element?e.target:null;
   // Fields keep their caret; every other part of the card is draggable, with the
@@ -5274,17 +5272,15 @@ function focusDragEnd(e){
   card.classList.remove("is-dragging");
   focusAnimateTo(dir)}
 async function enterWorkout(opts={}){if(opts.day&&!await requestWorkoutDay(opts.day))return false;
+  if(opts.day)focusIndex=0;
   const prepared=await createWorkoutDraft(day);
   if(prepared.status!=="ready"){
-    showDraftInitializationRecovery(prepared,{retryMode:"create",label:day,focusMode:opts.focus});return false}
+    showDraftInitializationRecovery(prepared,{retryMode:"create",label:day});return false}
   clearDraftUiRecovery();
   workoutLeft=false;setWorkoutActive(true);
   hydrateDraftCollections(workoutDraftProjection(),{restoreSelection:true});
-  // Focus layout matches mock 01; List remains the default for broad editing/tests.
-  if(opts.focus===true)logMode="focus";
-  else if(opts.focus===false)logMode="full";
-  syncLogModeControls();
-  document.body.classList.toggle("is-focus-wo",logMode==="focus");
+  // Focus is the sole workout route.
+  document.body.classList.add("is-focus-wo");
   renderTabs();renderWorkout();renderToday();window.scrollTo({top:0});return true}
 async function leaveWorkout(){
   if(document.activeElement&&document.activeElement.tagName==="INPUT"){
@@ -5550,6 +5546,7 @@ function renderSessionSheet(){
       if (e.target.closest("[data-session-reorder-up], [data-session-reorder-down]")) return;
       const exId = b.dataset.sessionMapEx;
       closeSessionSheet().then(() => {
+        if (activeWorkoutDraft?.exercises[exId]?.status === "skipped") { openExActionsSheet(exId); return; }
         if (window.__repforgeFocus) {
           const list = window.__repforgeFocus.list() || [];
           const idx = list.findIndex(item => item.id === exId);
@@ -5647,7 +5644,7 @@ function renderExActionsSheet(exId) {
 
   // Setup notes
   const setupTextEl = $("#exActionsSetupText");
-  const setupText = draftEx.setupNotes || draftEx.programmed?.notes || progEx?.notes || "";
+  const setupText = draftEx.programmed?.notes || progEx?.notes || "";
   if (setupTextEl) {
     setupTextEl.textContent = setupText || t("ex.actions.no_setup_notes");
   }
@@ -6040,15 +6037,15 @@ function renderWorkout(){
   const hiddenCount=exercises().filter(e=>skipped.has(e.id)).length;
   const banner=hiddenCount?`<div class="skipbar">${esc(t("log.skipbar",{n:hiddenCount}))} <button type="button" class="skipbar__show">${esc(t("log.skipbar.show_all"))}</button></div>`:"";
   const fl=focusList();
-  if(logMode==="focus"&&fl.length)focusIndex=Math.min(focusIndex,fl.length-1);
-  const curId=logMode==="focus"&&fl.length?fl[focusIndex]?.id:null;
-  const at=logMode==="focus"&&fl.length?Math.min(focusIndex,fl.length-1):0;
-  const wk=$("#workout");if(!wk){focusLogged=null;return}wk.classList.toggle("is-focus",logMode==="focus");
+  if(fl.length)focusIndex=Math.min(focusIndex,fl.length-1);
+  const curId=fl.length?fl[focusIndex]?.id:null;
+  const at=fl.length?Math.min(focusIndex,fl.length-1):0;
+  const wk=$("#workout");if(!wk){focusLogged=null;return}wk.classList.add("is-focus");
   wk.innerHTML=banner+exercises().map(slotEx=>{const ex=sessionExercise(slotEx);
     const r=recommendation(ex),prev=last(ex);
     // Focus renders the current exercise as its own full-height card; the rest
     // stay as (hidden) List markup, which is what carries their draft fields.
-    if(logMode==="focus"&&ex.id===curId)return focusDeckHtml(ex,r,draft,prev,{fl,at});
+    if(ex.id===curId)return focusDeckHtml(ex,r,draft,prev,{fl,at});
     const prevHtml=prev.length?`<div class="prev"><span>${esc(t("log.prev"))}</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>${esc(effortOrRirLabel(x.rir))}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">${esc(t("log.copy_last"))}</button></div>`:"";
     const deltaHtml=(()=>{const txt=deltaPreviewFor(ex,draft);return txt?`<div class="delta-prev">${esc(txt)}</div>`:""})();
     const blockHtml=r.blockNote?`<p class="rec__block">${esc(r.blockNote)}</p>`:"";
@@ -6219,7 +6216,7 @@ function bindWorkout(){
       const nowDone=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].completion!=="pending";
       if(editing&&nowDone){focusEdit=null;toast(t("toast.set_updated"))}
       if(nowDone&&!editing){lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;startRest();armUnfinishedWatch()}
-      if(logMode==="focus"&&nowDone&&!editing)focusLogged={exId:target.exerciseInstanceId,n:target.ordinal};
+      if(nowDone&&!editing)focusLogged={exId:target.exerciseInstanceId,n:target.ordinal};
       if(nowDone&&refreshReservation){refreshStarted=true;const refreshed=await refreshReservation.start(()=>runRefreshSuggestions(target.exerciseInstanceId));
         if(refreshed.status!=="applied"&&refreshed.status!=="unchanged")return}
       renderWorkout()
@@ -6305,7 +6302,7 @@ function bindWorkout(){
   const sb=$("#workout .skipbar__show");if(sb)sb.onclick=()=>applyShowAll();
   $w(".ex__caret").forEach(b=>b.onclick=()=>{const id=b.dataset.collapse,art=b.closest(".exercise");if(!art)return;
     const now=!collapsed.has(id);now?collapsed.add(id):collapsed.delete(id);art.classList.toggle("is-collapsed",now)});
-  if(logMode==="focus"){const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0;
+  {const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0;
     const progEl=$("#woProgress");
     if(progEl){progEl.classList.remove("hidden");
       progEl.innerHTML=`<div class="wo-progress__top">`+
@@ -6341,7 +6338,6 @@ function bindWorkout(){
       renderWorkout()});
     $w("[data-exnote-open]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.exnoteOpen));
     $w("[data-exactions-open]").forEach(b=>b.onclick=()=>openExActionsSheet(b.dataset.exactionsOpen))}
-  else{$("#woProgress")?.classList.add("hidden")}
   updateFocusChrome();
 }
 
@@ -6452,8 +6448,11 @@ function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
     $$("#workout input").filter(i=>i.dataset.k&&i.dataset.k.endsWith("_load")&&parseDec(i.value)>0).length;
   $("#saveMeta").textContent=done?t("log.save_meta.done",{day:dayLabel(day),done,planned}):(entered?t("log.save_meta.entered",{day:dayLabel(day),entered,planned}):t("log.save_meta.planned",{day:dayLabel(day),planned}));}
 
-async function saveWorkoutV2(io){
+async function saveWorkoutV2(io,expectedDraft=null){
   await drainDraftWork();
+  if(expectedDraft&&(activeWorkoutDraft?.draftId!==expectedDraft.draftId||activeWorkoutDraft?.revision!==expectedDraft.revision)){
+    toast(t("session.sheet.stale_error"));
+    return{localOk:false,idbOk:false,reason:"stale-confirmation"}}
   if(!activeWorkoutDraft)return null;
   if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed")return{localOk:false,idbOk:false,reason:"recovery-pending"};
   const capturedDraft=activeWorkoutDraft,capturedRaw=activeWorkoutDraftRaw,operationId=`finish-${uid()}`,now=new Date().toISOString();
@@ -6507,11 +6506,11 @@ async function saveWorkoutV2(io){
     maybeShowInstallBanner()}
   return result}
 
-async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(saving)return;
+async function saveWorkout(e,io,expectedDraft=null){if(e&&e.preventDefault)e.preventDefault();if(saving)return;
   const form=$("#logForm"),formWasInert=!!form?.inert,formBusy=form?.getAttribute("aria-busy")??null;
   if(!activeWorkoutDraft){showDraftInitializationRecovery({status:"invalid",raw:DraftStore.readRaw()});return{localOk:false,idbOk:false,reason:"missing-active-draft"}}
   saving=true;if(form){form.inert=true;form.setAttribute("aria-busy","true")}
-  try{return await saveWorkoutV2(io)}finally{
+  try{return await saveWorkoutV2(io,expectedDraft)}finally{
     if(form){form.inert=formWasInert;if(formBusy==null)form.removeAttribute("aria-busy");else form.setAttribute("aria-busy",formBusy)}
     if(form&&!form.inert){const invalid=form.querySelector("[aria-invalid='true']");if(invalid){try{invalid.focus()}catch{}}}
     saving=false}}
@@ -6674,7 +6673,7 @@ function closeSessionSummary(opts={}){
   if(el&&activeModal?.el===el)closeModal(el);
   el?.classList.remove("is-played");
   // Finishing a session ends it: the shell steps back to Today either way.
-  leaveWorkout();
+  workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");
   if(opts.nav)navTo(opts.nav);
   else render();
   // The control that opened this is gone with the workout, so focus lands on
@@ -7839,8 +7838,8 @@ function resolveExerciseFromCommand(parsed,currentExercises){
     const q=parsed.exerciseName.toLowerCase();
     const hit=currentExercises.filter(e=>{const n=e.name.toLowerCase();return n.startsWith(q)||n.includes(q)});
     return hit.length===1?hit[0]:null}
-  if(logMode==="focus"){const fl=focusList();return fl[Math.min(focusIndex,Math.max(0,fl.length-1))]||null}
-  return currentExercises[0]||null}
+  {const fl=focusList();return fl[Math.min(focusIndex,Math.max(0,fl.length-1))]||null}
+}
 async function applyParsedCommand(parsed,context){
   const d=context?.day??day,exs=exercises(d).filter(e=>!skipped.has(e.id)),ex=resolveExerciseFromCommand(parsed,exs);
   if(!ex)return;
@@ -7868,7 +7867,7 @@ async function applyCommandText(text){
   if(!parsed.ok){toast(parsed.error);return false}
   const exs=exercises().filter(e=>!skipped.has(e.id)),ex=resolveExerciseFromCommand(parsed,exs);
   if(!ex){toast(t("command.error.no_exercise_match"));return false}
-  const r=await applyParsedCommand(parsed,{day,logMode});
+  const r=await applyParsedCommand(parsed,{day});
   if(!r)return false;
   const rirBit=parsed.rir!=null?` @${fmt(parsed.rir)}`:parsed.effort?` ${effortLabel(parsed.effort)}`:"";
   toast(t("toast.command_applied",{load:fmt(parsed.load),reps:parsed.reps,rir:rirBit}));
@@ -14792,7 +14791,7 @@ function init(){
   window.addEventListener("resize",()=>{clearTimeout(deckResize);deckResize=setTimeout(sizeFocusDeck,120)});
   // Keyboard navigation for card deck; pointer drag owned by gesture controller.
   document.addEventListener("keydown",e=>{
-    if(!workoutActive||logMode!=="focus")return;
+    if(!workoutActive)return;
     if(e.metaKey||e.ctrlKey||e.altKey)return;
     const el=e.target instanceof Element?e.target:null;
     if(el&&el.closest("input,select,textarea,[contenteditable]"))return;
@@ -14922,8 +14921,9 @@ function init(){
       sessionEarlyRevision=activeWorkoutDraft.revision;
       return;
     }
+    const expectedDraft={draftId:activeWorkoutDraft.draftId,revision:sessionEarlyRevision};
     const p=closeSessionSheet();if(p&&typeof p.then==="function")await p;
-    await saveWorkout();
+    await saveWorkout(null,null,expectedDraft);
   };
   const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=async()=>{
     if(setupEditorOpen){requestEntryCancel();return}
@@ -14973,9 +14973,6 @@ function init(){
   $("#statsDeep").addEventListener("toggle",()=>{if($("#statsDeep").open)redrawChart()});
   applyDraftContextToDom();
   updateBodyweightField();
-  $("#modeFull").onclick=()=>setLogMode("full");
-  $("#modeFocus").onclick=()=>setLogMode("focus");
-  syncLogModeControls();
   const vBtn=$("#voiceBtn");if(vBtn)vBtn.onclick=()=>{closeWorkoutOverflow();startVoiceInput()};
   updateVoiceBtn();
   $("#logForm").addEventListener("submit",(e)=>{e.preventDefault();saveWorkout(e)});

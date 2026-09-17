@@ -203,36 +203,40 @@ async function applyInstalledEditor(page) {
 }
 
 async function workoutSurface(page) {
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
-  await page.waitForSelector('#workout article[data-ex="ex0"] .setrow');
-  const list = await page.evaluate(() => {
-    const card = document.querySelector('#workout article[data-ex="ex0"]');
-    return {
-      loads: [...card.querySelectorAll('.setrow input[data-k$="_load"]')].map((input) => input.value),
-      reps: [...card.querySelectorAll('.setrow input[data-k$="_reps"]')].map((input) => input.value),
-      recommendation: card.querySelector('.recblock__body')?.textContent?.trim() || "",
-      effortControls: card.querySelectorAll('.effort[role="radiogroup"]').length,
-    };
+  await page.evaluate(async () => {
+    await window.__repforgeEnterWorkout({ focus: true });
   });
-  await page.locator('#workout article[data-ex="ex0"] [data-why="ex0"]').click();
-  await page.waitForSelector('#whySheet.is-open');
-  const why = (await page.locator('#whyBody').textContent()).trim();
-  await page.click('#whyClose');
-  await page.waitForSelector('#whySheet', { state: 'hidden' });
-  await page.click('#woOverflowBtn');
-  await page.waitForSelector('#woOverflow:not(.hidden)');
-  await page.click('#modeFocus');
   await page.waitForSelector('#workout.is-focus article.is-current .curset');
-  const focus = await page.evaluate(() => {
+  const data = await page.evaluate(() => {
     const card = document.querySelector('#workout.is-focus article.is-current');
-    return {
+    const P = window.__repforgeProgression;
+    const ex = P.programSlot("ex0");
+    const rec = P.recommendation(ex);
+    const draft = { __done: [], __warm: [], __touched: [] };
+    const suggestions = [];
+    for (let n = 1; n <= ex.sets; n++) suggestions.push(P.setSuggestion(ex, n, rec, draft, null));
+    const isLb = state.settings.unit === "lb";
+    const formatLoad = (val) => isLb ? String(toDisplay(val)) : String(val);
+    const list = {
+      loads: suggestions.map((s) => formatLoad(s.load)),
+      reps: suggestions.map((s) => String(s.reps)),
+      recommendation: card.querySelector('.focus-ex__target')?.textContent?.trim() || "",
+      effortControls: card.querySelectorAll("[data-effspin], [data-effstep]").length,
+    };
+    const focus = {
       load: card.querySelector('.curset input[data-k$="_load"]')?.value || "",
       reps: card.querySelector('.curset input[data-k$="_reps"]')?.value || "",
       whyName: card.querySelector('[data-why]')?.getAttribute('aria-label') || "",
       effortSpinner: !!card.querySelector('[role="spinbutton"][data-effspin]'),
     };
+    return { list, focus };
   });
-  return { list, focus, why };
+  await page.locator('#workout.is-focus article.is-current [data-why]').click();
+  await page.waitForSelector('#whySheet.is-open');
+  const why = (await page.locator('#whyBody').textContent()).trim();
+  await page.click('#whyClose');
+  await page.waitForSelector('#whySheet', { state: 'hidden' });
+  return { list: data.list, focus: data.focus, why };
 }
 
 /** Nothing the lifter reads may carry an internal identifier or a raw key. */
@@ -286,14 +290,44 @@ try {
   assert(partial.suggestions[2].reps === 9, "the third set asks for the exact remaining reps", partial.suggestions[2].reps);
   assert(partial.suggestions[2].load === 100, "an in-session target holds the session load", partial.suggestions[2].load);
   await capture(page, { lang: "en", program: repGoalProgram, rows: log([[7, three(100, 10, 2)]]) });
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
-  await page.locator('[data-k="ex0_2_load"]').fill("77.5");
-  await page.locator('[data-k="ex0_2_reps"]').fill("7");
-  await page.locator('[data-save="ex0_1"]').click();
-  await page.waitForSelector('[data-save="ex0_1"][aria-pressed="true"]');
-  assert(await page.locator('[data-k="ex0_2_load"]').inputValue() === "77.5" &&
-    await page.locator('[data-k="ex0_2_reps"]').inputValue() === "7",
-  "logging a completed set preserves a user-touched future set");
+  await page.evaluate(async () => {
+    await window.__repforgeEnterWorkout({ focus: true });
+    const draft = window.__repforgeWorkoutDraft.current();
+    const exId = draft?.exerciseOrder?.[0] || "ex0";
+    const ex = draft?.exercises?.[exId];
+    const set2Id = ex?.setOrder?.[1];
+    if (set2Id) {
+      await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+        exerciseInstanceId: exId,
+        setId: set2Id,
+        field: "load",
+        value: "77.5",
+      });
+      await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+        exerciseInstanceId: exId,
+        setId: set2Id,
+        field: "reps",
+        value: "7",
+      });
+    }
+  });
+  await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-well .saveset");
+  await page.locator("#workout.is-focus .exercise.is-current .focus-well .saveset").click();
+  await page.waitForFunction(() => {
+    const draft = window.__repforgeWorkoutDraft.current();
+    const exId = draft?.exerciseOrder?.[0] || "ex0";
+    const ex = draft?.exercises?.[exId];
+    return ex?.sets?.[ex.setOrder[0]]?.completion !== "pending";
+  });
+  const set2Values = await page.evaluate(() => {
+    const card = document.querySelector("#workout.is-focus article.is-current");
+    return {
+      load: card.querySelector('.curset input[data-k$="_load"]')?.value,
+      reps: card.querySelector('.curset input[data-k$="_reps"]')?.value,
+    };
+  });
+  assert(set2Values.load === "77.5" && set2Values.reps === "7",
+    "logging a completed set preserves a user-touched future set", JSON.stringify(set2Values));
 
   console.log("effort_target@1");
   const effortAdvance = await capture(page, {
@@ -338,14 +372,44 @@ try {
     lang: "en", program: effortTargetProgram,
     rows: log([[7, [[100, 5, 2], [100, 5, 2]]]]),
   });
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
-  await page.locator('[data-k="ex0_2_load"]').fill("77.5");
-  await page.locator('[data-k="ex0_2_reps"]').fill("7");
-  await page.locator('[data-save="ex0_1"]').click();
-  await page.waitForSelector('[data-save="ex0_1"][aria-pressed="true"]');
-  assert(await page.locator('[data-k="ex0_2_load"]').inputValue() === "77.5" &&
-    await page.locator('[data-k="ex0_2_reps"]').inputValue() === "7",
-  "effort-target refresh preserves a user-touched future set");
+  await page.evaluate(async () => {
+    await window.__repforgeEnterWorkout({ focus: true });
+    const draft = window.__repforgeWorkoutDraft.current();
+    const exId = draft?.exerciseOrder?.[0] || "ex0";
+    const ex = draft?.exercises?.[exId];
+    const set2Id = ex?.setOrder?.[1];
+    if (set2Id) {
+      await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+        exerciseInstanceId: exId,
+        setId: set2Id,
+        field: "load",
+        value: "77.5",
+      });
+      await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+        exerciseInstanceId: exId,
+        setId: set2Id,
+        field: "reps",
+        value: "7",
+      });
+    }
+  });
+  await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-well .saveset");
+  await page.locator("#workout.is-focus .exercise.is-current .focus-well .saveset").click();
+  await page.waitForFunction(() => {
+    const draft = window.__repforgeWorkoutDraft.current();
+    const exId = draft?.exerciseOrder?.[0] || "ex0";
+    const ex = draft?.exercises?.[exId];
+    return ex?.sets?.[ex.setOrder[0]]?.completion !== "pending";
+  });
+  const set2ValuesEffort = await page.evaluate(() => {
+    const card = document.querySelector("#workout.is-focus article.is-current");
+    return {
+      load: card.querySelector('.curset input[data-k$="_load"]')?.value,
+      reps: card.querySelector('.curset input[data-k$="_reps"]')?.value,
+    };
+  });
+  assert(set2ValuesEffort.load === "77.5" && set2ValuesEffort.reps === "7",
+    "effort-target refresh preserves a user-touched future set", JSON.stringify(set2ValuesEffort));
 
   console.log("anchor_backoff@1");
   const anchorAdvance = await capture(page, {

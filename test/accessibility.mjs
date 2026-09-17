@@ -1070,29 +1070,18 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   const { context, page } = await freshPage(browser);
   await page.click("#startWorkout");
   await page.waitForSelector("#workoutShell:not(.hidden)");
-  const pressed = await page.evaluate(() => ({
-    full: document.querySelector("#modeFull")?.getAttribute("aria-pressed"),
-    focus: document.querySelector("#modeFocus")?.getAttribute("aria-pressed"),
-    count: [...document.querySelectorAll("#modeFull, #modeFocus")].filter((b) => b.getAttribute("aria-pressed") === "true").length,
-    fullActive: document.querySelector("#modeFull")?.classList.contains("active"),
+  const modeStatus = await page.evaluate(() => ({
+    modeSwitch: document.querySelector(".modeswitch"),
+    modeFull: document.querySelector("#modeFull"),
+    modeFocus: document.querySelector("#modeFocus"),
+    isFocusWo: document.body.classList.contains("is-focus-wo"),
+    isWorkoutFocus: document.querySelector("#workout")?.classList.contains("is-focus"),
   }));
-  assert(pressed.focus === "true" && pressed.full === "false" && pressed.count === 1, "Start workout presses only the Focus button", JSON.stringify(pressed));
-  await page.evaluate(() => setLogMode("focus"));
-  const focus = await page.evaluate(() => ({
-    full: document.querySelector("#modeFull")?.getAttribute("aria-pressed"),
-    focus: document.querySelector("#modeFocus")?.getAttribute("aria-pressed"),
-    count: [...document.querySelectorAll("#modeFull, #modeFocus")].filter((b) => b.getAttribute("aria-pressed") === "true").length,
-  }));
-  assert(focus.full === "false" && focus.focus === "true" && focus.count === 1, "Focus mode presses only the Focus button", JSON.stringify(focus));
-  await page.evaluate(() => enterWorkout({ focus: false }));
-  const list = await page.evaluate(() => ({
-    full: document.querySelector("#modeFull")?.getAttribute("aria-pressed"),
-    focus: document.querySelector("#modeFocus")?.getAttribute("aria-pressed"),
-    count: [...document.querySelectorAll("#modeFull, #modeFocus")].filter((b) => b.getAttribute("aria-pressed") === "true").length,
-  }));
-  assert(list.full === "true" && list.focus === "false" && list.count === 1, "enterWorkout keeps exactly one pressed layout button", JSON.stringify(list));
+  assert(!modeStatus.modeSwitch && !modeStatus.modeFull && !modeStatus.modeFocus, "workout layout toggle is removed in favor of Focus-only", JSON.stringify(modeStatus));
+  assert(modeStatus.isFocusWo && modeStatus.isWorkoutFocus, "Start workout activates Focus mode unconditionally", JSON.stringify(modeStatus));
   await context.close();
 }
+
 
 {
   const { context, page } = await freshPage(browser);
@@ -1812,7 +1801,7 @@ async function visitSurfaces(page) {
 }
 
 async function runTouchTarget320Regression(browser) {
-  console.log("\nNarrow list-mode touch targets (320×568)");
+  console.log("\nNarrow focus-mode touch targets (320×568)");
   for (const mode of ["numeric", "effort"]) {
     const context = await browser.newContext({
       viewport: { width: 320, height: 568 },
@@ -1822,9 +1811,9 @@ async function runTouchTarget320Regression(browser) {
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await clearState(page);
-    await seedLangUnit(page, "en", "kg", true, mode);
-    await page.click("#viewExercises");
-    await page.waitForSelector("#workoutShell:not(.hidden) #workout .setrow");
+    await seedLangUnit(page, "en", "kg", false, mode);
+    await page.click("#startWorkout");
+    await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus .exercise.is-current .focus-well");
     await page.evaluate(() =>
       document.getAnimations().forEach((animation) => animation.finish())
     );
@@ -1842,166 +1831,64 @@ async function runTouchTarget320Regression(browser) {
           bottom: round(rect.bottom),
         };
       };
-      const selectorFor = (element) => {
-        const tag = element.tagName.toLowerCase();
-        if (element.dataset.k) return `${tag}[data-k="${element.dataset.k}"]`;
-        if (element.dataset.warm) return `${tag}[data-warm="${element.dataset.warm}"]`;
-        if (element.dataset.save) return `${tag}[data-save="${element.dataset.save}"]`;
-        if (element.dataset.step) {
-          return `${tag}[data-step="${element.dataset.step}"][data-dir="${element.dataset.dir}"]`;
-        }
-        if (element.dataset.eff) {
-          return `${tag}[data-eff="${element.dataset.eff}"][data-e="${element.dataset.e}"]`;
-        }
-        return tag;
-      };
-      const categoryFor = (element) => {
-        if (element.dataset.warm) return "warm-up";
-        if (element.dataset.save) return "save";
-        if (element.dataset.step) return "load-step";
-        if (element.dataset.eff) return "effort";
-        if (element.dataset.k?.endsWith("_load")) return "load";
-        if (element.dataset.k?.endsWith("_reps")) return "reps";
-        if (element.dataset.k?.endsWith("_rir")) return "rir";
-        return element.tagName.toLowerCase();
-      };
-      const rows = [...document.querySelectorAll("#workout .setrow")];
-      const targets = rows.flatMap((row) =>
-        [...row.querySelectorAll("button,input:not([type=hidden])")].map((element) => ({
-          selector: selectorFor(element),
-          category: categoryFor(element),
-          type: element.getAttribute("type"),
-          inputMode: element.getAttribute("inputmode"),
-          rect: rectOf(element),
-        }))
-      );
-      const expectedFieldSelectors = rows.flatMap((row) => {
-        const key = row.dataset.set;
-        const selectors = [
-          `input[data-k="${key}_load"]`,
-          `input[data-k="${key}_reps"]`,
-        ];
-        if (rirMode === "numeric") selectors.push(`input[data-k="${key}_rir"]`);
-        return selectors;
+      const card = document.querySelector("#workout.is-focus .exercise.is-current");
+      const interactive = [
+        ...document.querySelectorAll("#woHead button:not([hidden])"),
+        ...card.querySelectorAll("button:not([hidden]), input:not([type=hidden]), [role=spinbutton]"),
+        ...document.querySelectorAll("#woProgress button:not([hidden])"),
+      ].filter((el) => {
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && getComputedStyle(el).display !== "none" && getComputedStyle(el).visibility !== "hidden";
       });
-      const actualFieldSelectors = rows.flatMap((row) =>
-        [...row.querySelectorAll("input[data-k]")].map(selectorFor)
-      );
-      const loadInputs = targets.filter((target) => target.category === "load");
-      const violations = targets.filter(
-        ({ rect }) => rect.w + 0.01 < 44 || rect.h + 0.01 < 44
-      );
-      const overlaps = [];
-      for (const row of rows) {
-        const firstLine = [...row.children]
-          .filter((element) => !element.classList.contains("effort"))
-          .map((element) => ({ selector: selectorFor(element), rect: rectOf(element) }))
-          .sort((a, b) => a.rect.x - b.rect.x);
-        for (let index = 1; index < firstLine.length; index++) {
-          if (firstLine[index - 1].rect.right > firstLine[index].rect.x + 0.01) {
-            overlaps.push([firstLine[index - 1], firstLine[index]]);
-          }
-        }
-        const load = row.querySelector(".kg input");
-        const down = row.querySelector('.kg [data-dir="-1"]');
-        const up = row.querySelector('.kg [data-dir="1"]');
-        if (load && down && up) {
-          const loadRect = rectOf(load);
-          const downRect = rectOf(down);
-          const upRect = rectOf(up);
-          if (
-            loadRect.bottom > downRect.y + 0.01 ||
-            loadRect.bottom > upRect.y + 0.01 ||
-            downRect.right > upRect.x + 0.01
-          ) {
-            overlaps.push([
-              { selector: selectorFor(load), rect: loadRect },
-              { selector: `${selectorFor(down)} / ${selectorFor(up)}`, rect: downRect },
-            ]);
-          }
-        }
-      }
-      const dimensions = {};
-      for (const target of targets) {
-        dimensions[target.category] ||= [];
-        const value = `${target.rect.w}×${target.rect.h}`;
-        if (!dimensions[target.category].includes(value)) {
-          dimensions[target.category].push(value);
-        }
-      }
+
+      const targets = interactive.map((element) => ({
+        tag: element.tagName.toLowerCase(),
+        id: element.id || null,
+        aria: element.getAttribute("aria-label") || null,
+        k: element.dataset.k || element.dataset.step || element.dataset.effstep || null,
+        rect: rectOf(element),
+      }));
+
+      const violations = targets.filter(({ rect }) => rect.w + 0.01 < 44 || rect.h + 0.01 < 44);
       const root = document.documentElement;
       const workout = document.querySelector("#workout");
-      const firstRow = rows[0];
-      const header = document.querySelector("#workout .sets__head");
-      const rowTracks = firstRow ? getComputedStyle(firstRow).gridTemplateColumns : "";
-      const headerTracks = header ? getComputedStyle(header).gridTemplateColumns : "";
       return {
         mode: rirMode,
-        rowCount: rows.length,
-        expectedFieldSelectors,
-        actualFieldSelectors,
-        loadInputs,
         targetCount: targets.length,
+        targets,
         violations,
-        overlaps,
-        dimensions,
-        rowTracks,
-        headerTracks,
+        hasLoad: !!card.querySelector("input[data-k$=\"_load\"]"),
+        hasReps: !!card.querySelector("input[data-k$=\"_reps\"]"),
+        hasRirOrEffort: rirMode === "numeric" ? !!card.querySelector("input[data-k$=\"_rir\"]") : !!card.querySelector("[data-effspin]"),
         overflow: {
           document: { client: root.clientWidth, scroll: root.scrollWidth },
           workout: {
             client: workout?.clientWidth || 0,
             scroll: workout?.scrollWidth || 0,
           },
-          rows: rows.map((row) => ({
-            key: row.dataset.set,
-            client: row.clientWidth,
-            scroll: row.scrollWidth,
-          })),
         },
       };
     }, mode);
 
-    const exactFields =
-      layout.rowCount === 3 &&
-      JSON.stringify(layout.actualFieldSelectors) ===
-        JSON.stringify(layout.expectedFieldSelectors) &&
-      layout.loadInputs.length === 3 &&
-      layout.loadInputs.every(
-        ({ type, inputMode }) => type === "text" && inputMode === "decimal"
-      );
     assert(
-      exactFields,
-      `320px ${mode} rows expose the exact expected set-field selectors`,
-      JSON.stringify({
-        expected: layout.expectedFieldSelectors,
-        actual: layout.actualFieldSelectors,
-        loads: layout.loadInputs,
-      })
+      layout.hasLoad && layout.hasReps && layout.hasRirOrEffort,
+      `320px ${mode} Focus card exposes the expected input fields`,
+      JSON.stringify({ load: layout.hasLoad, reps: layout.hasReps, rirOrEff: layout.hasRirOrEffort })
     );
     assert(
       layout.violations.length === 0,
-      `320px ${mode} row actions are all at least 44×44 CSS px`,
+      `320px ${mode} Focus actions are all at least 44×44 CSS px`,
       JSON.stringify(layout.violations)
     );
     const noOverflow =
-      layout.rowTracks === layout.headerTracks &&
-      layout.overlaps.length === 0 &&
       layout.overflow.document.scroll <= layout.overflow.document.client &&
-      layout.overflow.workout.scroll <= layout.overflow.workout.client &&
-      layout.overflow.rows.every(({ client, scroll }) => scroll <= client);
+      layout.overflow.workout.scroll <= layout.overflow.workout.client;
     assert(
       noOverflow,
-      `320px ${mode} header and rows align without overlap or horizontal overflow`,
-      JSON.stringify({
-        tracks: { header: layout.headerTracks, row: layout.rowTracks },
-        overlaps: layout.overlaps,
-        overflow: layout.overflow,
-      })
+      `320px ${mode} Focus view aligns without horizontal overflow`,
+      JSON.stringify(layout.overflow)
     );
-    console.log(
-      `    ${mode}: ${layout.rowTracks}; ${JSON.stringify(layout.dimensions)}`
-    );
+    console.log(`    ${mode}: ${layout.targetCount} targets compliant at 320px`);
     await context.close();
   }
 }

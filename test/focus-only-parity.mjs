@@ -14,6 +14,8 @@
  * Run: node test/focus-only-parity.mjs
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
+import { execFileSync } from "node:child_process";
+import { fileURLToPath } from "node:url";
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
@@ -27,12 +29,6 @@ function assert(cond, name, detail = "") {
   results.failed++;
   console.log(`  ✗ ${name}`);
   if (detail) console.log(`    ${detail}`);
-}
-/** A row whose approved Focus/Session/Exercise-actions destination does not
- *  exist yet. Each gap names its owning slice; none may be silent. */
-function gap(row, owner) {
-  results.gaps++;
-  console.log(`  · gap: ${row} → owning slice ${owner}`);
 }
 const phase = (n) => console.log(`\n${n}`);
 
@@ -140,7 +136,7 @@ async function boot(page, { lang = "en", rirMode = "numeric", restSec = 60 } = {
     created: `${previousDate}T12:00:00.000Z`, primary: first.primary, secondary: first.secondary,
   }));
   await persist(page, `
-    s.settings = { ...(s.settings || {}), lang: ${JSON.stringify(lang)}, rirMode: ${JSON.stringify(rirMode)}, restSec: ${restSec} };
+    s.settings = { ...(s.settings || {}), voiceInputEnabled: true, lang: ${JSON.stringify(lang)}, rirMode: ${JSON.stringify(rirMode)}, restSec: ${restSec} };
     s.program = ${JSON.stringify(program)};
     s.programMeta = ${JSON.stringify(seedProgramMeta())};
     s.log = ${JSON.stringify(previousRows)};`);
@@ -219,6 +215,11 @@ async function main() {
     isMobile: true,
     hasTouch: true,
     serviceWorkers: "block",
+  });
+  await context.addInitScript(() => {
+    window.SpeechRecognition = class {
+      start() { window.__voiceTest = this; }
+    };
   });
   const page = await context.newPage();
   const errors = [];
@@ -467,21 +468,27 @@ async function main() {
     assert(resumed.sets[0].load === "47.5",
       "resuming restores the touched value on the same exercise", JSON.stringify(resumed));
 
-    /* ---- Capability rows whose destinations are still to be built ---- */
-    phase("Recorded gaps: destinations owned by later slices, never silent");
-    gap("Session map / whole-session inspection → Session sheet", "055-P3");
-    gap("Exercise reordering → Session map", "055-P4");
-    gap("Repeat last-session values → Exercise actions", "055-P4");
-    gap("Substitution / restore original → Exercise actions", "055-P4");
-    gap("Warm-up / restore working set → Exercise actions", "055-P4");
-    gap("Programmed setup notes → Exercise actions", "055-P4");
-    gap("Skip restore per exercise (single-exercise control) → Exercise actions", "055-P4");
-    gap("Bodyweight → Session sheet", "055-P3");
-    gap("Session notes → Session sheet", "055-P3");
-    gap("Date → Session sheet", "055-P3");
-    gap("Early finish preview/confirm → Session sheet", "055-P3");
-    gap("Explicit leave persistence-fault proof → workout-session owner", "055-P5");
-    gap("Voice input (capability-detected) → owner decision before any removal (STOP applies)", "owner");
+    phase("Capability-detected voice fills the active set");
+    await page.locator("#woOverflowBtn").click();
+    assert(await page.locator("#voiceBtn").isVisible(), "voice remains reachable when supported and enabled");
+    await page.locator("#voiceBtn").click();
+    await page.evaluate(() => window.__voiceTest.onresult({ results: [[{ transcript: "80 x 8 @2" }]] }));
+    await flushDraft(page);
+    const spoken = await exerciseFacts(page, second.id);
+    assert(spoken.sets[0].load === "80" && spoken.sets[0].reps === "8", "recognized voice edits the active exercise through DraftV2");
+
+    /* ---- Mode-route absence (055-P7) ---- */
+    phase("Mode route absence: no mode toggle/switch exists; active workouts always Focus");
+    const modeToggles = await page.locator("#modeFull, #modeFocus, .modeswitch").count();
+    assert(modeToggles === 0, "no mode switch (.modeswitch, #modeFull, #modeFocus) is present in DOM", `count: ${modeToggles}`);
+
+    const activeMode = await page.evaluate(() => ({
+      logMode: typeof logMode !== "undefined" ? logMode : null,
+      isFocusWo: document.body.classList.contains("is-focus-wo"),
+      isWorkoutFocus: document.querySelector("#workout")?.classList.contains("is-focus"),
+    }));
+    assert(activeMode.logMode === null && activeMode.isFocusWo && activeMode.isWorkoutFocus,
+      "active workout is unconditionally Focus mode", JSON.stringify(activeMode));
 
     /* ---- No-hidden-input guard ---- */
     phase("Guard: hidden List carriers exist in the DOM but no case reads them");
@@ -517,6 +524,13 @@ async function main() {
     await browser.close();
   }
 
+  // These suites own the Session, Exercise, reorder and storage-failure rows.
+  // A nonzero child exit fails this parity gate, rather than silently recording a gap.
+  for (const suite of ["focus-session-sheet.mjs", "focus-exercise-actions.mjs", "focus-navigation.mjs"]) {
+    execFileSync(process.execPath, [fileURLToPath(new URL(suite, import.meta.url))], {
+      stdio: "inherit", env: { ...process.env, REPFORGE_URL: BASE },
+    });
+  }
   console.log(`\n${results.passed} passed, ${results.failed} failed, ${results.gaps} recorded gaps`);
   if (results.failed) process.exitCode = 1;
 }
