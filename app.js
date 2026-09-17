@@ -5411,9 +5411,9 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
     const canPickDay=!recap&&days().length>1;
     for(const[sel,shown]of[["#startWorkout",!recap],["#previewSession",!recap],["#chooseAnotherDay",canPickDay],["#reviewTodaySession",!!recap],["#logAnotherSession",!!recap]]){
       const el=$(sel);if(el)el.classList.toggle("hidden",!shown)}
-    const ready=$("#readyLine");if(ready)ready.onclick=()=>{enterWorkout({});
-      const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");
-      if(first){first.scrollIntoView({behavior:"smooth",block:"center"})}}
+    const ready=$("#readyLine");if(ready)ready.onclick=()=>{
+      const first=exercises().find(e=>{const status=recommendation(e).status;return status==="add"||status==="add2"});
+      if(first)void goToLogExercise(first.id)}
     $$("#todayExList [data-exopen]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
     const more=$("#todayExMore");if(more)more.onclick=()=>{todayExOpen=!todayExOpen;renderToday()}
   // A draft with logged or filled sets means the session is still open.
@@ -5528,7 +5528,7 @@ function renderSessionSheet(){
       const doneCount = ex.setOrder.filter(sid => ex.sets[sid]?.completion !== "pending").length;
       const totalCount = ex.setOrder.length;
       const isSkipped = ex.status === "skipped";
-      const statusText = isSkipped ? t("focus.skipped") : `${doneCount}/${totalCount}` + (doneCount === totalCount && totalCount > 0 ? " ✓" : "");
+      const statusText = isSkipped ? t("log.skipped") : `${doneCount}/${totalCount}` + (doneCount === totalCount && totalCount > 0 ? " ✓" : "");
       return `<div class="session-map__row" data-session-map-ex="${esc(exId)}">` +
         `<button type="button" class="session-map__jump" data-session-map-jump="${esc(exId)}">` +
         `<span class="session-map__name">${esc(ex.displayName)}</span>` +

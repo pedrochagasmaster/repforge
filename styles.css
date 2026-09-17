@@ -1541,7 +1541,7 @@ body.is-sheet-open{overflow:hidden}
 .session-sheet__early-section{display:flex;flex-direction:column;gap:8px;padding-top:8px;border-top:1px solid var(--rule)}
 .session-early-prompt{display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--well);border-radius:8px}
 .session-early-msg{font-size:13px;color:var(--ink-soft);margin:0}
-.session-early-msg.is-error{color:var(--danger, #e53935);font-weight:600}
+.session-early-msg.is-error{color:var(--danger);font-weight:600}
 .session-early-actions{display:flex;gap:8px}
 .session-early-actions .btn{flex:1}
 

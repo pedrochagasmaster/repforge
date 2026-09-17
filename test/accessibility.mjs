@@ -1949,66 +1949,39 @@ async function runDimmedStateAccessibility(browser) {
       JSON.stringify(warmup.issues)
     );
 
-    await page.locator("#workout .exercise .ex__skip").first().click();
-    await page.waitForSelector("#workout .exercise.is-skipped");
-    await page.evaluate(() =>
-      document.getAnimations().forEach((animation) => animation.finish())
-    );
-    const semantics = await page.evaluate(() => {
-      const card = document.querySelector("#workout .exercise.is-skipped");
-      const action = card?.querySelector(".ex__skip");
-      const status = card?.querySelector(".ex__state");
-      const name = card?.querySelector(".ex__name");
-      return {
-        actionText: action?.textContent.replace(/\s+/g, " ").trim() || "",
-        actionAria: action?.getAttribute("aria-label") || "",
-        statusText: status?.textContent.replace(/\s+/g, " ").trim() || "",
-        statusIsRealDom: !!status,
-        generatedNameContent: name
-          ? getComputedStyle(name, "::after").content
-          : "",
-      };
-    });
-    const copy = expected[lang];
-    assert(
-      semantics.actionText === copy.restore &&
-        semantics.actionAria === copy.restoreAria &&
-        semantics.statusText === copy.skipped &&
-        semantics.statusIsRealDom &&
-        !["Skipped", "Pulado"].some((label) =>
-          semantics.generatedNameContent.includes(label)
-        ),
-      `skipped label and restore action are state-correct real DOM copy (${lang})`,
-      JSON.stringify({ expected: copy, actual: semantics })
-    );
-    const skipped = await auditEnabledControlText(
-      page,
-      "#workout .exercise.is-skipped",
-      ["#workout .exercise.is-skipped .ex__state"]
-    );
-    assert(
-      skipped.issues.length === 0 &&
-        skipped.extraText.length === 1 &&
-        !skipped.extraText[0].missing &&
-        skipped.extraText[0].ratio >= 4.5,
-      `skipped label/action and enabled control text contrast ≥4.5:1 (${lang})`,
-      JSON.stringify(skipped)
-    );
-
-    await page.locator("#workout .exercise.is-skipped .ex__skip").click();
-    await page.waitForSelector("#workout .exercise:not(.is-skipped)");
-    const restored = await page.evaluate(() => {
-      const action = document.querySelector("#workout .exercise .ex__skip");
-      return {
-        text: action?.textContent.replace(/\s+/g, " ").trim() || "",
-        aria: action?.getAttribute("aria-label") || "",
-      };
-    });
-    assert(
-      restored.text === copy.skip && restored.aria === copy.skipAria,
-      `restoring returns the action to Skip semantics (${lang})`,
-      JSON.stringify({ expected: copy, actual: restored })
-    );
+    const skippedId=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
+    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#exActionSkipBtn").click();
+    await page.locator("#exActionsSheet").waitFor({state:"hidden"});
+    await page.locator("#sessionSheetBtn").click();
+    const statusSelector=`[data-session-map-ex="${skippedId}"] .session-map__status`;
+    const copy=expected[lang];
+    assert(await page.locator(statusSelector).textContent()===copy.skipped,
+      `Session map exposes a real skipped status (${lang})`);
+    const skipped=await auditEnabledControlText(page,"#sessionSheet",[statusSelector]);
+    assert(skipped.issues.length===0 && skipped.extraText.length===1 &&
+      !skipped.extraText[0].missing && skipped.extraText[0].ratio>=4.5,
+      `skipped status and enabled controls have contrast ≥4.5:1 (${lang})`,JSON.stringify(skipped));
+    await page.locator(`[data-session-map-jump="${skippedId}"]`).click();
+    await page.locator("#exActionsSheet.is-open").waitFor();
+    const restore=lang==="pt"?"Restaurar exercício":"Restore exercise";
+    assert(await page.getByRole("button",{name:restore,exact:true}).count()===1,
+      `skipped exercise exposes its named Restore action (${lang})`);
+    const actions=await auditEnabledControlText(page,"#exActionsSheet");
+    assert(actions.issues.length===0,`Restore action text has contrast ≥4.5:1 (${lang})`,JSON.stringify(actions));
+    await page.getByRole("button",{name:restore,exact:true}).click();
+    await page.locator("#exActionsSheet").waitFor({state:"hidden"});
+    assert(await page.evaluate(id=>window.__repforgeWorkoutDraft.current().exercises[id].status==="active",skippedId),
+      `Restore returns the exact exercise to active state (${lang})`);
+    await page.locator("#sessionSheetBtn").click();
+    await page.locator(`[data-session-map-jump="${skippedId}"]`).click();
+    await page.locator("#sessionSheet").waitFor({state:"hidden"});
+    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    const skip=lang==="pt"?"Pular exercício":"Skip exercise";
+    assert(await page.getByRole("button",{name:skip,exact:true}).count()===1,
+      `restoring returns the action to Skip semantics (${lang})`);
+    await page.locator("#exActionsClose").click();
+    await page.locator("#exActionsSheet").waitFor({state:"hidden"});
 
     await page.evaluate(() => leaveWorkout());
     await showView(page, "history");

@@ -614,7 +614,11 @@ async function main() {
       const value = JSON.parse(localStorage.getItem(draft) || "null"),exercise=value?.exercises?.[id];
       return exercise?.sets?.[exercise?.setOrder?.[1]]?.edited?.reps === "6";
     }, { draft: DRAFT, id: dynamicExercise.id });
+    await partialPage.locator('#workout .exercise.is-current [data-editn="1"]').click();
     await partialPage.locator(`[data-k="${dynamicExercise.id}_1_load"]`).fill("60");
+    await partialPage.locator(`#workout .exercise.is-current [data-save="${dynamicExercise.id}_1"]`).click();
+    await partialPage.locator(`[data-k="${dynamicExercise.id}_2_load"]`).waitFor();
+    await partialPage.evaluate(()=>window.__repforgeWorkoutDraft.flush());
     await partialPage.waitForFunction(({ draft, id }) => {
       const value = JSON.parse(localStorage.getItem(draft) || "null"),exercise=value?.exercises?.[id],set=exercise?.sets?.[exercise?.setOrder?.[1]];
       return set?.edited?.reps === "6" && set?.edited?.load != null;
@@ -669,6 +673,7 @@ async function main() {
       return exercise?.sets?.[exercise?.setOrder?.[0]]?.completion !== "pending";
     }, { draft: DRAFT, id: retainedExercise.id });
     await page.locator(`[data-k="${retainedExercise.id}_2_load"]`).fill("1");
+    await page.locator('#workout .exercise.is-current [data-editn="1"]').click();
     await page.locator(`[data-k="${retainedExercise.id}_1_reps"]`).fill("7");
     await page.waitForFunction(({ draft, id }) => {
       const value = JSON.parse(localStorage.getItem(draft) || "null");
@@ -676,7 +681,7 @@ async function main() {
       const set = exercise?.sets?.[exercise?.setOrder?.[1]];
       return set?.edited?.load === "1" && set?.touched?.load === true;
     }, { draft: DRAFT, id: retainedExercise.id });
-    check(await page.locator(`[data-k="${retainedExercise.id}_2_load"]`).inputValue() === "1",
+    check(await page.evaluate(({draft,id})=>{const ex=JSON.parse(localStorage.getItem(draft)).exercises[id];return ex.sets[ex.setOrder[1]].edited.load}, {draft:DRAFT,id:retainedExercise.id}) === "1",
       "an explicit off-grid edit survives a later suggestion refresh");
     await page.evaluate(() => { window.__repforgeDraftFault = "stale-suggestion-loop"; });
     await page.locator(`[data-k="${retainedExercise.id}_1_reps"]`).fill("6");

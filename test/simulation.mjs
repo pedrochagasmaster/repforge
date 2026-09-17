@@ -497,24 +497,19 @@ async function revealProgramExerciseDetails(page, id) {
   return row.locator('details[data-role="more-details"]');
 }
 
-async function selectDay(page, dayName) {
-  await page.evaluate(async (d) => {
-    // Day tabs live in the workout shell; ensure it is open in List mode
-    // so notes/bodyweight/day chrome stay interactive for harness checks.
-    if (typeof window.__repforgeEnterWorkout === "function") await window.__repforgeEnterWorkout({ day: d, focus: false });
-    else {
-      const b = document.querySelector(`#dayTabs button[data-day="${CSS.escape(d)}"]`);
-      if (b) b.click();
-    }
-  }, dayName);
-  await page.waitForFunction(
-    (d) => document.querySelector(`#dayTabs button[data-day="${CSS.escape(d)}"]`)?.classList.contains("active"),
-    dayName,
-    { timeout: 5000 }
-  );
+async function selectDay(page,dayName){
+  await page.evaluate(day=>window.__repforgeEnterWorkout({day}),dayName);
+  await page.waitForFunction(day=>window.__repforgeWorkoutDraft.current()?.program.dayLabel===day,dayName,{timeout:5000});
 }
 
-/** Date lives in the workout overflow menu (may be hidden) — set via DOM. */
+async function requestVisibleDay(page,day){
+  if(await page.locator("#workoutShell").isVisible())await page.locator("#leaveWorkout").click();
+  if(!await page.locator("#dayPickSheet").isVisible())await page.locator("#chooseAnotherDay").click();
+  await page.locator(`[data-daypick="${day}"]`).click();
+  await page.locator("#dayPickConfirm").click();
+}
+
+/** Bulk session-date setup uses the production Session field handler. */
 async function setLogDate(page, value) {
   await page.evaluate((v) => {
     const el = document.querySelector("#sessionDate");
@@ -4652,19 +4647,10 @@ async function main() {
     "Log → after add-load recs → Today shows N ready"
   );
   await page.locator("#readyLine, .today-ready").first().click();
-  await page.waitForSelector("#workoutShell:not(.hidden), #workout .exercise", { timeout: 5000 });
-  assert(
-    await page.evaluate(
-      (id) => {
-        const el = document.querySelector(`.exercise[data-ex="${id}"]`);
-        return !!el && !el.classList.contains("is-collapsed");
-      },
-      exHot.id
-    ),
-    "Readiness line opens workout and expands a hot lift card",
-    "Card still collapsed after readiness click",
-    "Tap Today readiness → first hot exercise expands"
-  );
+  await page.waitForSelector(`#workout .exercise.is-current[data-ex="${exHot.id}"]`, { timeout: 5000 });
+  assert(await page.locator(`#workout .exercise.is-current[data-ex="${exHot.id}"]`).isVisible(),
+    "Readiness line opens Focus on the first hot lift", "Hot lift is not visible",
+    "Tap Today readiness → first hot exercise is selected");
 
   // Session notes persist on saved rows (notes field is Focus-chrome-hidden; set via DOM)
   await page.evaluate(() => {
@@ -4754,7 +4740,7 @@ async function main() {
     "Log → tap ⏱ on an exercise → rest timer appears"
   );
   // The floating clock opens the timer sheet; it never ends the rest on its own.
-  await page.click("#restBar");
+  await page.click("#woRest");
   await page.waitForTimeout(350);
   const restSheet = await page.evaluate(() => {
     const el = document.querySelector("#restSheet");
@@ -8594,7 +8580,7 @@ async function main() {
   await selectDay(page, otherDay);
   const dayOnlyRaw = await readDraftRaw(page);
   dialogMode = "dismiss";
-  await page.click('#dayTabs button[data-day="Day 1"]');
+  await requestVisibleDay(page,"Day 1");
   dialogMode = "accept";
   const dayAfterCancel = await page.evaluate(() => ({
     raw: window.__repforgeWorkoutDraft?.read?.().raw ?? null,
@@ -8606,7 +8592,7 @@ async function main() {
     JSON.stringify({ active: dayAfterCancel.active, same: dayAfterCancel.raw === dayOnlyRaw }),
     `${otherDay} day-only draft → Day 1 → Cancel`
   );
-  await page.click('#dayTabs button[data-day="Day 1"]');
+  await requestVisibleDay(page,"Day 1");
   await page.waitForFunction(() => document.querySelector("#dayTabs button.active")?.dataset.day === "Day 1");
   const dayAfterConfirm = await readDraft(page);
   assert(
@@ -8662,7 +8648,7 @@ async function main() {
     const rawDay = await readDraftRaw(page);
     const currentDay = await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day);
     dialogMode = "dismiss";
-    await page.click(`#dayTabs button[data-day="${otherDay}"]`);
+    await requestVisibleDay(page,otherDay);
     await page.waitForTimeout(80);
     dialogMode = "accept";
     await flushDraftWork(page);
@@ -8677,7 +8663,7 @@ async function main() {
       "Fill Day 1 → other day tab → Cancel"
     );
     dialogMode = "accept";
-    await page.click(`#dayTabs button[data-day="${otherDay}"]`);
+    await requestVisibleDay(page,otherDay);
     await page.waitForFunction((d) => document.querySelector("#dayTabs button.active")?.dataset.day === d, otherDay, { timeout: 5000 });
     const confirmed = await readDraft(page);
     await reloadApp(page);
