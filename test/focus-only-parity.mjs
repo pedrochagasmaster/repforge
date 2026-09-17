@@ -226,14 +226,12 @@ async function main() {
     assert(nav.label?.endsWith("1 of 6") && nav.prevDisabled === true && nav.count === 6,
       "first exercise is reachable with the previous arrow disabled and position announced", JSON.stringify(nav));
     const walkTo = async (target) => {
-      for (let at = 1; at <= target; at++) {
+      while (await page.evaluate(() => window.__repforgeFocus.at()) < target) {
+        const next = await page.evaluate(() => window.__repforgeFocus.at() + 1);
         await page.locator("#woNext").click();
-        // The deck locks for its 210ms slide and ignores clicks meanwhile; the
-        // displayed position after `at` clicks is at+1, so wait for that
-        // announcement instead of a fixed sleep.
         await page.waitForFunction(
           (n) => document.querySelector("#woProgress .wo-progress__lab")?.textContent?.trim().endsWith(`${n} of 6`),
-          at + 1, { timeout: 5000 });
+          next + 1, { timeout: 5000 });
       }
     };
     await walkTo(1);
