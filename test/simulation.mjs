@@ -638,7 +638,7 @@ async function dismissSessionSummary(page) {
   if (seen == null) return null;
   await page.evaluate(() => window.__repforgeSessionSummary?.close());
   await page.waitForSelector("#sessionSummary.hidden", { state: "attached", timeout: 5000 });
-  await page.evaluate(async () => { await window.__repforgeEnterWorkout({ focus: true }); });
+  await page.evaluate(async () => { await window.__repforgeEnterWorkout({}); });
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
   return seen;
 }
@@ -2097,7 +2097,7 @@ async function main() {
 
   await nav(page, "log");
   await selectDay(page, "Push Day");
-  const recText = await page.locator("#workout .exercise.is-current .focus-ex__target, #workout .exercise .recblock").first().textContent();
+  const recText = await page.locator("#workout .exercise.is-current .focus-ex__target").first().textContent();
   const hasAddLoad =
     /Add load|Add weight|Hold \d/i.test(recText) ||
     (await page.locator("#workout .exercise").first().getAttribute("class") || "").includes("is-add");
@@ -2963,7 +2963,7 @@ async function main() {
   await fillExerciseSets(page, d2b.id, 1, 55, 8, 1);
   await setWorkoutField(page, "#sessionNotes", "collision-test-A");
   await page.evaluate(() => { const f=document.querySelector("#logForm"); f?.requestSubmit(); f?.requestSubmit(); });
-  await page.waitForTimeout(300);
+  await page.locator("#sessionSummary:not(.hidden)").waitFor({state:"visible"});
   await dismissSessionSummary(page);
   state = await getState(page);
   const collisionSessions = [
@@ -2986,7 +2986,7 @@ async function main() {
   await fillExerciseSets(page, d3.id, 1, 61.25, 8, 1);
   const logLenBeforeInvalid = (await getState(page)).log.length;
   await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
-  await page.waitForTimeout(200);
+  await page.locator("#sessionSummary:not(.hidden)").waitFor({state:"visible"});
   await dismissSessionSummary(page);
   const logLenAfterInvalid = (await getState(page)).log.length;
   const formValid = await page.evaluate(() => document.querySelector("#logForm").checkValidity());
@@ -4054,8 +4054,8 @@ async function main() {
       await page.waitForSelector("#log.view.active", { timeout: 5000 });
 
       await clearDraftFixture(page);
-      await page.evaluate(({ id, day }) => {
-        window.__repforgeEnterWorkout?.({ focus: true, day });
+      await page.evaluate(async ({ id, day }) => {
+        await window.__repforgeEnterWorkout?.({ day });
         const fl = window.__repforgeFocus?.list?.() || [];
         const i = fl.findIndex((e) => e.id === id);
         if (i >= 0) window.__repforgeFocus.to(i);
@@ -4173,8 +4173,8 @@ async function main() {
       );
 
       await clearDraftFixture(page);
-      await page.evaluate(({ id, day }) => {
-        window.__repforgeEnterWorkout?.({ focus: true, day });
+      await page.evaluate(async ({ id, day }) => {
+        await window.__repforgeEnterWorkout?.({ day });
         const fl = window.__repforgeFocus?.list?.() || [];
         const i = fl.findIndex((e) => e.id === id);
         if (i >= 0) window.__repforgeFocus.to(i);
@@ -6043,7 +6043,7 @@ async function main() {
   // Clean-fixture reset: drop the harness's prefills and every V2 sidecar so
   // the card behaves like a fresh session.
   await clearDraftFixture(page);
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: true }));
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   await page.waitForTimeout(260);
   const fitBefore = await fitMetrics();
   await page.evaluate(() => {
@@ -6094,7 +6094,7 @@ async function main() {
   // Focus carries List's per-exercise controls: last session's numbers and skip.
   // A fresh card for an exercise with history: last session is what it leads on.
   await clearDraftFixture(page);
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: true }));
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   await page.waitForTimeout(300);
   const lastSession = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
@@ -8705,7 +8705,7 @@ async function main() {
     await fillExerciseSets(page, draftExA.id, 1, 57, 5, 1);
     const rawEnter = await readDraftRaw(page);
     dialogMode = "dismiss";
-    await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d, focus: false }), otherDay);
+    await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d }), otherDay);
     assert(
       (await readDraftRaw(page)) === rawEnter,
       "enterWorkout({day}) Cancel preserves the raw draft",
@@ -8713,7 +8713,7 @@ async function main() {
       "enterWorkout other day → Cancel"
     );
     dialogMode = "accept";
-    await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d, focus: false }), otherDay);
+    await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d }), otherDay);
     assert(
       (await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day)) === otherDay,
       "enterWorkout({day}) Confirm selects the new day",
@@ -10007,7 +10007,7 @@ async function main() {
     // V2 checkpoint and correctly trigger recovery on the first offline nav.
     const seedWorkoutDay = String(seedState.program?.[0]?.day || "");
     if (!seedWorkoutDay) throw new Error("PWA production draft seed has no program day");
-    const enteredPwa = await pwaPage.evaluate(async (day) => window.__repforgeEnterWorkout?.({ day, focus: false }), seedWorkoutDay);
+    const enteredPwa = await pwaPage.evaluate(async (day) => window.__repforgeEnterWorkout?.({ day }), seedWorkoutDay);
     if (enteredPwa === false) throw new Error("PWA production draft entry was refused");
     await pwaPage.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     try {
@@ -11095,7 +11095,7 @@ async function main() {
   await persistState(page, focusState);
   await reloadApp(page);
   await nav(page, "log");
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: true }));
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   await page.waitForSelector("#woPrev", { timeout: 5000 });
   const focusNavContrast = await page.evaluate(() => {
     const lin = (c) => {

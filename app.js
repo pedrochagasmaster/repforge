@@ -1151,17 +1151,20 @@ const loadHeadHtml=()=>`${esc(t("today.load"))} ${unitHintHtml()}`;
 const fmtLoad=kg=>fmt(toDisplay(kg));
 const fmtLoadPlain=kg=>fmtPlain(toDisplay(kg));
 const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${esc(t(`glossary.term.${key}`)||key)}</button>`;
-function resetDraftSessionState(){
+function resetWorkoutSessionIdentity(){
   clearUnfinishedWatch();
   lastCommitAt=0;sessionStartedAt=0;
   committed.clear();touched.clear();warmups.clear();skipped.clear();substituted.clear();substitutedRef.clear();
   contextTouched={day:false,date:false,sessionNotes:false,bodyweight:false};
+  activeWorkoutDraft=null;activeWorkoutDraftRaw=null;draftUiRecovery=null;
+}
+function resetDraftSessionPresentation(){
   const el=$("#unfinishedBanner");
   if(el){el.classList.add("hidden");el.hidden=true}
   delete document.body.dataset.unfinishedPrompt;
-  activeWorkoutDraft=null;activeWorkoutDraftRaw=null;
-  clearDraftUiRecovery();
+  renderDraftRecovery();
 }
+function resetDraftSessionState(){resetWorkoutSessionIdentity();resetDraftSessionPresentation()}
 async function clearDraft(){
   if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed"){
     renderDraftRecovery();focusDraftRecovery();return false}
@@ -1177,7 +1180,7 @@ async function clearDraft(){
     if(parsed?.kind==="valid")return false;
     if(!DraftStore.remove())return false}
   resetDraftSessionState();return true}
-const loadDraft=()=>{if(activeWorkoutDraft)return workoutDraftProjection();
+const loadDraft=()=>{if(activeWorkoutDraft)return WorkoutSession.projection();
   try{return JSON.parse(DraftStore.readRaw()||"{}")}catch{return{}}};
 function convertDraftUnitsRaw(raw,oldUnit,newUnit){
   if(raw==null||oldUnit===newUnit)return raw;
@@ -1923,16 +1926,16 @@ async function copyDraftRecoveryValue(){const value=draftUiRecovery?.copyValue;i
   toast(t("draft.recovery.copy_failed"),{assertive:true});return false}
 async function applyDraftRetryResult(result,recovery){
   if(result.status==="applied"){activeWorkoutDraft=result.draft;activeWorkoutDraftRaw=result.raw;
-    hydrateDraftCollections(workoutDraftProjection());clearDraftUiRecovery();renderWorkout();restoreDraftFocus(recovery.focus);return result}
+    hydrateDraftCollections(WorkoutSession.projection());clearDraftUiRecovery();renderWorkout();restoreDraftFocus(recovery.focus);return result}
   showDraftCommandRecovery(result.status,recovery.attempt,recovery);return result}
 function retryDraftRecovery(){
   const recovery=draftUiRecovery;if(!recovery)return Promise.resolve({status:"missing"});
   if(recovery.retryAction)return Promise.resolve(recovery.retryAction()).then(result=>{
     if(result?.status==="applied"){clearDraftUiRecovery();renderWorkout()}
     else showDraftCommandRecovery(result?.status,null,recovery);return result});
-  if(!recovery.attempt){const operation=recovery.retryMode==="create"?createWorkoutDraft(recovery.label,{contextTouched:recovery.contextTouched}):
+  if(!recovery.attempt){const operation=recovery.retryMode==="create"?WorkoutSession.start(recovery.label,{contextTouched:recovery.contextTouched}):
       initializeWorkoutDraft({restoreDay:true});return operation.then(result=>{
-    if(result.status==="ready"){hydrateDraftCollections(workoutDraftProjection(),{restoreSelection:true});clearDraftUiRecovery();
+    if(result.status==="ready"){hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});clearDraftUiRecovery();
       if(!workoutActive)setWorkoutActive(true);
       document.body.classList.add("is-focus-wo");
       renderTabs();renderWorkout();renderToday();restoreDraftFocus(recovery.focus)}
@@ -1943,7 +1946,7 @@ function retryDraftRecovery(){
 async function reloadLatestWorkoutDraft(){
   const recovery=draftUiRecovery,loaded=await initializeWorkoutDraft({restoreDay:true});
   if(loaded.status!=="ready"){showDraftInitializationRecovery(loaded);return loaded}
-  hydrateDraftCollections(workoutDraftProjection(),{restoreSelection:true});clearDraftUiRecovery();renderTabs();renderWorkout();renderToday();
+  hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});clearDraftUiRecovery();renderTabs();renderWorkout();renderToday();
   restoreDraftFocus(recovery?.focus);return loaded}
 async function discardRecoveredWorkoutDraft(){
   const captured=draftUiRecovery?.discardIdentity;
@@ -1980,7 +1983,7 @@ function enqueueDraftCommand(type,payload={},ui={}){
     }
     const written=await DraftStore.compareAndSwapV2(attempt);
     if(written.status==="applied"){activeWorkoutDraft=written.draft;activeWorkoutDraftRaw=written.raw;
-      hydrateDraftCollections(workoutDraftProjection());clearDraftUiRecovery()}
+      hydrateDraftCollections(WorkoutSession.projection());clearDraftUiRecovery()}
     else showDraftCommandRecovery(written.status,attempt,{pendingValue,focus});
     return written});
   const settled=task.then(()=>undefined,()=>undefined);
@@ -2112,7 +2115,7 @@ async function requestWorkoutDay(nextDay){
   day=nextDay;
   contextTouched.day=true;
   const selectionContextTouched={day:true,date:false,sessionNotes:false,bodyweight:false};
-  const created=await createWorkoutDraft(nextDay,{contextTouched:selectionContextTouched});
+  const created=await WorkoutSession.start(nextDay,{contextTouched:selectionContextTouched});
   if(created.status!=="ready"){
     showDraftInitializationRecovery(created,{retryMode:"create",label:nextDay,contextTouched:selectionContextTouched});
     return false;
@@ -2129,13 +2132,13 @@ function changeRirMode(newMode){
   return true}
 async function applySkipToggle(id){
   if(!activeWorkoutDraft)return false;
-  const result=await enqueueDraftCommand(skipped.has(id)?"restoreExercise":"skipExercise",{exerciseInstanceId:id});
+  const result=await WorkoutSession.dispatch(skipped.has(id)?"restoreExercise":"skipExercise",{exerciseInstanceId:id});
   if(result.status!=="applied")return false;
   {const fl=focusList();focusIndex=Math.min(focusIndex,Math.max(0,fl.length-1))}
   renderWorkout();return true}
 async function applyShowAll(){
   if(!activeWorkoutDraft)return false;
-  for(const id of [...skipped]){const result=await enqueueDraftCommand("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return false}
+  for(const id of [...skipped]){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return false}
   renderWorkout();return true}
 function replacementSnapshot(id,name,libraryRef){
   const entry=libraryRef?libraryEntry(libraryRef):null,token=movementToken(name),original=activeWorkoutDraft?.exercises?.[id],slot=prog.find(id);
@@ -2149,7 +2152,7 @@ async function applyPredefinedSub(id,name,libraryRef=null){
   if(!activeWorkoutDraft)return false;
   const type=!n?"restoreOriginalExercise":"substituteExercise";
   const payload={exerciseInstanceId:id};if(n){payload.replacement=replacementSnapshot(id,n,libraryRef);payload.selectedAt=new Date().toISOString()}
-  const result=await enqueueDraftCommand(type,payload);if(result.status!=="applied")return false;
+  const result=await WorkoutSession.dispatch(type,payload);if(result.status!=="applied")return false;
   renderWorkout();return true}
 async function applyCustomSub(id,raw,libraryRef=null){
   const name=String(raw||"").trim().slice(0,80);
@@ -2157,7 +2160,7 @@ async function applyCustomSub(id,raw,libraryRef=null){
   if(!activeWorkoutDraft)return false;
   const restore=!name||name===progName,type=restore?"restoreOriginalExercise":"substituteExercise";
   const payload={exerciseInstanceId:id};if(!restore){payload.replacement=replacementSnapshot(id,name,libraryRef);payload.selectedAt=new Date().toISOString()}
-  const result=await enqueueDraftCommand(type,payload);if(result.status!=="applied")return false;
+  const result=await WorkoutSession.dispatch(type,payload);if(result.status!=="applied")return false;
   renderWorkout();return true}
 function sessionExercise(ex){
   if(!ex||!substituted.has(ex.id))return ex;
@@ -2179,8 +2182,8 @@ function fatigueFlagged(){return exercises().filter(e=>{const r=recommendation(s
 async function applyFatigueTrim(){
   const flagged=new Set(fatigueFlagged().map(e=>e.id));
   if(!activeWorkoutDraft)return;
-  for(const id of [...skipped])if(!flagged.has(id)){const result=await enqueueDraftCommand("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
-  for(const id of flagged)if(!skipped.has(id)){const result=await enqueueDraftCommand("skipExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
+  for(const id of [...skipped])if(!flagged.has(id)){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
+  for(const id of flagged)if(!skipped.has(id)){const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
   renderWorkout();toast(t("toast.trimmed_priority"))}
 let focusIndex=0,statsSeg="overview",prFilter="all";
 let focusDrag=null,focusFlinging=false;
@@ -3175,7 +3178,7 @@ async function ensureInstallTransferModules(){
   return installTransferModulePromise}
 function installTransferDraftSource(){
   return{
-    flush:()=>drainDraftWork(),
+    flush:()=>WorkoutSession.flush(),
     current:()=>activeWorkoutDraft,
     checkpoint:()=>DraftStore.readV2Checkpoint(),
     read:()=>DraftStore.readCanonicalStatus(),
@@ -4153,9 +4156,9 @@ async function goToLogExercise(exId){
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="log"));
   document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-library","is-preview","is-import");
   if(!await enterWorkout({}))return;
-  const selected=await enqueueDraftCommand("selectExercise",{exerciseInstanceId:exId});
+  const selected=await WorkoutSession.dispatch("selectExercise",{exerciseInstanceId:exId});
   if(selected.status!=="applied")return;
-  hydrateDraftCollections(workoutDraftProjection(),{restoreSelection:true});
+  hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
   renderWorkout();
   const art=$(`#workout [data-ex="${exId}"]`);if(art){art.scrollIntoView({behavior:"smooth",block:"center"})}}
 function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
@@ -4614,12 +4617,12 @@ function suggestionUpdatesFor(ex,draft){
 async function persistUntouchedSuggestions(exId){
   if(!activeWorkoutDraft)return{status:"missing"};
   for(let attempt=0;attempt<2;attempt++){
-    const sourceRevision=activeWorkoutDraft.revision,draft=workoutDraftProjection(),ex=prog.find(exId);
+    const sourceRevision=activeWorkoutDraft.revision,draft=WorkoutSession.projection(),ex=prog.find(exId);
     if(!ex)return{status:"missing"};
     const targets=[ex,...exercises(ex.day).filter(o=>o.id!==ex.id&&!hasCommittedSets(o))];
     const updates=targets.flatMap(o=>suggestionUpdatesFor(sessionExercise(o),draft));
     if(!updates.length)return{status:"unchanged"};
-    const result=await enqueueDraftCommand("refreshUntouchedSuggestions",{sourceRevision,updates});
+    const result=await WorkoutSession.dispatch("refreshUntouchedSuggestions",{sourceRevision,updates});
     if(result.status==="applied")return result;
     if(result.status==="domain-error"&&result.error?.code==="stale-suggestion")continue;
     return result}
@@ -4643,7 +4646,7 @@ async function runRefreshSuggestions(exId){
     await hook({exId})}
   const result=await persistUntouchedSuggestions(exId);
   if(result.status!=="applied"&&result.status!=="unchanged")return result;
-  const ex=prog.find(exId);if(!ex)return result;const draft=workoutDraftProjection();
+  const ex=prog.find(exId);if(!ex)return result;const draft=WorkoutSession.projection();
   applyAcknowledgedSuggestions(sessionExercise(ex),draft);
   for(const o of exercises(ex.day)){if(o.id===ex.id||hasCommittedSets(o))continue;
     applyAcknowledgedSuggestions(sessionExercise(o),draft)}
@@ -4953,7 +4956,7 @@ async function saveExNoteSheet(){
   const id=exNoteFor,val=$("#exNoteText")?.value??"";
   if(id){const ta=$(`[data-exnote="${id}"]`);if(ta)ta.value=val;
     if(!activeWorkoutDraft)return;
-    await enqueueDraftCommand("setExerciseNotes",{exerciseInstanceId:id,value:val})}
+    await WorkoutSession.dispatch("setExerciseNotes",{exerciseInstanceId:id,value:val})}
   await closeExNoteSheet();
   if(id){
     renderWorkout();
@@ -5162,7 +5165,7 @@ function focusGo(dir){
   const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0,next=at+dir;
   if(next<0||next>=fl.length)return false;
   focusIndex=next;focusEdit=null;
-  if(activeWorkoutDraft&&fl[next])void enqueueDraftCommand("selectExercise",{exerciseInstanceId:fl[next].id});
+  if(activeWorkoutDraft&&fl[next])void WorkoutSession.dispatch("selectExercise",{exerciseInstanceId:fl[next].id});
   renderWorkout();window.scrollTo({top:0});return true}
 function focusCanGo(dir){const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0;
   return at+dir>=0&&at+dir<fl.length}
@@ -5272,12 +5275,12 @@ function focusDragEnd(e){
   focusAnimateTo(dir)}
 async function enterWorkout(opts={}){if(opts.day&&!await requestWorkoutDay(opts.day))return false;
   if(opts.day)focusIndex=0;
-  const prepared=await createWorkoutDraft(day);
+  const prepared=await WorkoutSession.start(day);
   if(prepared.status!=="ready"){
     showDraftInitializationRecovery(prepared,{retryMode:"create",label:day});return false}
   clearDraftUiRecovery();
   workoutLeft=false;setWorkoutActive(true);
-  hydrateDraftCollections(workoutDraftProjection(),{restoreSelection:true});
+  hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
   // Focus is the sole workout route.
   document.body.classList.add("is-focus-wo");
   renderTabs();renderWorkout();renderToday();window.scrollTo({top:0});return true}
@@ -5285,8 +5288,7 @@ async function leaveWorkout(){
   if(document.activeElement&&document.activeElement.tagName==="INPUT"){
     document.activeElement.blur();
   }
-  await drainDraftWork();
-  if(draftUiRecovery?.attempt||draftUiRecovery?.status||window.__repforgeDraftFault==="persist-failure"){
+  if(!await WorkoutSession.leave()){
     toast(t("workout.leave_failed"));
     showDraftCommandRecovery("storage-error",draftUiRecovery?.attempt||{});
     return false;
@@ -5561,9 +5563,9 @@ function renderSessionSheet(){
       const idx = currentOrder.indexOf(exId);
       if (idx > 0) {
         [currentOrder[idx - 1], currentOrder[idx]] = [currentOrder[idx], currentOrder[idx - 1]];
-        const res = await enqueueDraftCommand("reorderExercises", { exerciseOrder: currentOrder });
+        const res = await WorkoutSession.dispatch("reorderExercises", { exerciseOrder: currentOrder });
         if (res.status === "applied") {
-          hydrateDraftCollections(workoutDraftProjection(),{restoreSelection:true});
+          hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
           renderWorkout();
           renderSessionSheet();
         }
@@ -5576,9 +5578,9 @@ function renderSessionSheet(){
       const idx = currentOrder.indexOf(exId);
       if (idx >= 0 && idx < currentOrder.length - 1) {
         [currentOrder[idx], currentOrder[idx + 1]] = [currentOrder[idx + 1], currentOrder[idx]];
-        const res = await enqueueDraftCommand("reorderExercises", { exerciseOrder: currentOrder });
+        const res = await WorkoutSession.dispatch("reorderExercises", { exerciseOrder: currentOrder });
         if (res.status === "applied") {
-          hydrateDraftCollections(workoutDraftProjection(),{restoreSelection:true});
+          hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
           renderWorkout();
           renderSessionSheet();
         }
@@ -5710,7 +5712,7 @@ function renderExActionsSheet(exId) {
         const set = draftEx.sets[sid];
         if (!set) return;
         const type = set.role === "warmup" ? "markWorking" : "markWarmup";
-        const res = await enqueueDraftCommand(type, { exerciseInstanceId: exId, setId: sid });
+        const res = await WorkoutSession.dispatch(type, { exerciseInstanceId: exId, setId: sid });
         if (res.status === "applied") {
           renderWorkout();
           renderExActionsSheet(exId);
@@ -5923,7 +5925,7 @@ function cursetHtml(ex,n,r,draft,prev,{peek=false}={}){
         ` aria-valuenow="${i+1}" aria-valuetext="${esc(effortLabel(effortVal))}">${esc(effortLabel(effortVal))}</div>`;
     return focusCell(esc(t("log.effort")),body,{cls:"is-effort",extra:peek?"":effortPopHtml(key,effortVal),
       steps:stepBtn(key,-1,t("focus.effort_down_aria"),"data-effstep",peek)+stepBtn(key,1,t("focus.effort_up_aria"),"data-effstep",peek)})})();
-  const rirCell=focusCell("RIR",
+  const rirCell=focusCell(peek?"RIR":term("RIR"),
     val(rirVal,`data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="done" aria-label="${esc(t("log.set_rir_aria",{n}))}"`),
     {steps:stepBtn(`${ex.id}_${n}_rir`,-1,t("log.set_decrease_aria",{n,unit:"RIR"}),"data-step",peek)+stepBtn(`${ex.id}_${n}_rir`,1,t("log.set_increase_aria",{n,unit:"RIR"}),"data-step",peek)});
   return `<div class="curset" data-set="${esc(key)}"><div class="curset__grid">`+
@@ -6115,7 +6117,7 @@ function bindWorkout(){
   $w("input").forEach(i=>{i.oninput=async()=>{const row=i.closest(".curset"),target=draftTargetFromKey(i.dataset.k);
     if(!activeWorkoutDraft||!target?.field)return;
     row?.classList.remove("is-suggested");
-    const result=await enqueueDraftCommand("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
+    const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},{pendingValue:i.value});
     if(result.status!=="applied")return;
     updateSaveMeta();await refreshAfterCommittedEdit(row)};
@@ -6130,7 +6132,7 @@ function bindWorkout(){
     const refreshReservation=type==="completeSet"?reserveDraftRefresh():null;
     let refreshStarted=false;
     try{
-      const result=await enqueueDraftCommand(type,{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId});
+      const result=await WorkoutSession.dispatch(type,{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId});
       if(result.status==="domain-error"){applyDraftIssue(result.error?.issues);return}
       if(result.status!=="applied")return;
       const nowDone=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].completion!=="pending";
@@ -6143,7 +6145,7 @@ function bindWorkout(){
     }finally{if(refreshReservation&&!refreshStarted)refreshReservation.cancel()}});
   $w("[data-warm]").forEach(b=>b.onclick=async()=>{const key=b.dataset.warm,target=draftTargetFromKey(key);
     if(!activeWorkoutDraft||!target)return;
-    const result=await enqueueDraftCommand(warmups.has(key)?"markWorking":"markWarmup",
+    const result=await WorkoutSession.dispatch(warmups.has(key)?"markWorking":"markWarmup",
       {exerciseInstanceId:target.exerciseInstanceId,setId:target.setId});if(result.status!=="applied")return;
     renderWorkout()});
   $w(".stepbtn").forEach(b=>b.onclick=async()=>{if(!b.dataset.step)return;
@@ -6165,7 +6167,7 @@ function bindWorkout(){
     if(next===el.dataset.e)return;
     const target=draftTargetFromKey(key);if(!activeWorkoutDraft||!target)return;
     setEffortPick(key,next);
-    const result=await enqueueDraftCommand("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
+    const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:"effort",value:next});if(result.status!=="applied")return;
     updateSaveMeta();refreshAfterCommittedEdit(el.closest(".curset"))};
   $w("[data-effstep]").forEach(b=>b.onclick=()=>stepEffort(b.dataset.effstep,+b.dataset.dir||0));
@@ -6199,7 +6201,7 @@ function bindWorkout(){
       if(!activeWorkoutDraft||!target)return;
       focusEdit={exId,n,snap:{load:d[`${key}_load`],reps:d[`${key}_reps`],rir:d[`${key}_rir`],effort:d[`${key}_effort`],
         completedAt:activeWorkoutDraft.exercises[exId].sets[target.setId].completion?.completedAt}};
-      const result=await enqueueDraftCommand("uncommitSet",{exerciseInstanceId:exId,setId:target.setId});
+      const result=await WorkoutSession.dispatch("uncommitSet",{exerciseInstanceId:exId,setId:target.setId});
       if(result.status!=="applied"){focusEdit=null;return}
       renderWorkout()});
     $w("[data-fcancel]").forEach(b=>b.onclick=async()=>{
@@ -6207,9 +6209,9 @@ function bindWorkout(){
       const{exId,n,snap}=focusEdit,key=`${exId}_${n}`,target=draftTargetFromKey(key);
       if(!activeWorkoutDraft||!target)return;
       for(const field of["load","reps","rir","effort"]){
-        if(snap[field]==null)continue;const result=await enqueueDraftCommand("editSetField",{exerciseInstanceId:exId,
+        if(snap[field]==null)continue;const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:exId,
           setId:target.setId,field,value:snap[field]});if(result.status!=="applied")return}
-      const restored=await enqueueDraftCommand("completeSet",{exerciseInstanceId:exId,setId:target.setId,completedAt:snap.completedAt||new Date().toISOString()});
+      const restored=await WorkoutSession.dispatch("completeSet",{exerciseInstanceId:exId,setId:target.setId,completedAt:snap.completedAt||new Date().toISOString()});
       if(restored.status!=="applied")return;focusEdit=null;renderWorkout()});
     $w("[data-fold]").forEach(b=>b.onclick=()=>{
       const id=b.dataset.fold;
@@ -6324,26 +6326,30 @@ function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
     const exercise=activeWorkoutDraft.exercises[exId];return count+exercise.setOrder.filter(setId=>{
       const set=exercise.sets[setId],value=set.edited.load;
       return set.touched.load&&typeof value==="string"&&value.trim()!==""}).length},0):
-    $$("#workout input").filter(i=>i.dataset.k&&i.dataset.k.endsWith("_load")&&parseDec(i.value)>0).length;
+    0;
   $("#saveMeta").textContent=done?t("log.save_meta.done",{day:dayLabel(day),done,planned}):(entered?t("log.save_meta.entered",{day:dayLabel(day),entered,planned}):t("log.save_meta.planned",{day:dayLabel(day),planned}));}
 
-async function saveWorkoutV2(io,expectedDraft=null){
+const WorkoutSession=(()=>{
+  async function start(label,options){
+    await drainDraftWork();
+    return createWorkoutDraft(label,options)}
+  async function leave(){
+    await drainDraftWork();
+    return !draftUiRecovery?.attempt&&!draftUiRecovery?.status&&window.__repforgeDraftFault!=="persist-failure"}
+async function finish(io,expectedDraft=null){
   await drainDraftWork();
   if(expectedDraft&&(activeWorkoutDraft?.draftId!==expectedDraft.draftId||activeWorkoutDraft?.revision!==expectedDraft.revision)){
-    toast(t("session.sheet.stale_error"));
-    return{localOk:false,idbOk:false,reason:"stale-confirmation"}}
-  if(!activeWorkoutDraft)return null;
-  if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed")return{localOk:false,idbOk:false,reason:"recovery-pending"};
+    return{result:{localOk:false,idbOk:false,reason:"stale-confirmation"}}}
+  if(!activeWorkoutDraft)return{result:null};
+  if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed")return{result:{localOk:false,idbOk:false,reason:"recovery-pending"}};
   const capturedDraft=activeWorkoutDraft,capturedRaw=activeWorkoutDraftRaw,operationId=`finish-${uid()}`,now=new Date().toISOString();
   const finishing=WorkoutDraft.reduce(capturedDraft,{type:"beginFinish",operationId,
     expectedRevision:capturedDraft.revision,updatedAt:now,writer:draftWriter(operationId)});
-  if(WorkoutDraft.isDomainError(finishing))return{localOk:false,idbOk:false,validation:true,issues:finishing.issues||[]};
+  if(WorkoutDraft.isDomainError(finishing))return{result:{localOk:false,idbOk:false,validation:true,issues:finishing.issues||[]}};
   const issues=WorkoutDraft.validateForSave(finishing);
-  if(issues.length){
-    if(!applyDraftIssue(issues))toast(t(issues.some(issue=>issue.code==="no-work")?"toast.enter_weight_before_save":"validation.load"));
-    return{localOk:false,idbOk:false,validation:true,issues}}
+  if(issues.length)return{result:{localOk:false,idbOk:false,validation:true,issues}};
   const created=new Date().toISOString(),rows=WorkoutDraft.toHistoryRows(finishing,created);
-  if(WorkoutDraft.isDomainError(rows))return{localOk:false,idbOk:false,validation:true,issues:rows.issues};
+  if(WorkoutDraft.isDomainError(rows))return{result:{localOk:false,idbOk:false,validation:true,issues:rows.issues}};
   const session=capturedDraft.draftId,date=capturedDraft.program.scheduleDate,
     savedDay=capturedDraft.program.dayLabel,startedAt=Date.parse(capturedDraft.session.startedAt)||0,
     prevLog=state.log.slice(),rawDraft=capturedRaw,savedDraft=capturedDraft;
@@ -6359,20 +6365,28 @@ async function saveWorkoutV2(io,expectedDraft=null){
   const result=await commitProposedState(proposal,io||storageIO,
     {effect,reconcileSessionIds:[session],expectedProgramId:savedDraft.program.programId,
       expectedBlockId});
-  if(result.committed!==true||result.settled!==true){
-    const kind=result.draftConflict?"stale":"persist";
-    draftUiRecovery={kind,status:result.draftConflict?"stale":"save-failed",attempt:null,pendingValue:null,
-      copyValue:capturedRaw,copyKind:"data",focus:draftFocusIdentity(),retry:!result.draftConflict,
-      retryAction:result.draftConflict?null:()=>saveWorkoutV2(io),discard:false};
-    renderDraftRecovery();focusDraftRecovery();
+  if(result.committed!==true||result.settled!==true)return{result,capturedRaw};
+  resetWorkoutSessionIdentity();
+  return{result,completed:{rows,prevLog,session,date,day:savedDay,startedAt,draftId:savedDraft.draftId}}}
+  return Object.freeze({start,leave,finish,dispatch:enqueueDraftCommand,projection:workoutDraftProjection,flush:drainDraftWork})})();
+
+async function saveWorkoutV2(io,expectedDraft=null){
+  const {result,completed,capturedRaw}=await WorkoutSession.finish(io,expectedDraft);
+  if(!completed){
+    if(result?.reason==="stale-confirmation")toast(t("session.sheet.stale_error"));
+    if(result?.validation&&!applyDraftIssue(result.issues||[]))
+      toast(t(result.issues?.some(issue=>issue.code==="no-work")?"toast.enter_weight_before_save":"validation.load"));
+    if(capturedRaw!=null){
+      const stale=!!result.draftConflict;
+      draftUiRecovery={kind:stale?"stale":"persist",status:stale?"stale":"save-failed",attempt:null,pendingValue:null,
+        copyValue:capturedRaw,copyKind:"data",focus:draftFocusIdentity(),retry:!stale,
+        retryAction:stale?null:()=>saveWorkoutV2(io),discard:false};
+      renderDraftRecovery();focusDraftRecovery()}
     return result}
-  // The captured draft is no longer active once its durable rows and tombstone
-  // commit. Clear the in-memory identity before any post-commit observer can
-  // open a successor workout; otherwise initialize() would keep returning the
-  // just-saved aggregate and an overlapping successor could reuse its identity.
-  resetDraftSessionState();resetSessionContextFields();stopRest();
+  resetDraftSessionPresentation();resetSessionContextFields();stopRest();
+  const {rows,prevLog,session,date,day:savedDay,startedAt,draftId}=completed;
   if(typeof window.__repforgeDraftAfterSaveCommit==="function")
-    await window.__repforgeDraftAfterSaveCommit({session,draftId:savedDraft.draftId});
+    await window.__repforgeDraftAfterSaveCommit({session,draftId});
   if(!prevLog.some(isWork)&&rows.some(isWork))captureEvent("first_set_logged",{});
   captureEvent("session_completed",{
     set_count:window.RepForgeTelemetry?.bucketCount(rows.filter(isWork).length,"sets"),
@@ -7736,7 +7750,7 @@ async function applyParsedCommand(parsed,context){
     {field:"reps",value:String(parsed.reps)}];
   if(isEffortMode())fields.push({field:"effort",value:parsed.effort||(parsed.rir!=null?effortForRir(parsed.rir):"hard")});
   else fields.push({field:"rir",value:parsed.rir!=null?canonicalNumberText(parsed.rir):""});
-  for(const field of fields){const result=await enqueueDraftCommand("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
+  for(const field of fields){const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:field.field,value:field.value});if(result.status!=="applied")return}
   renderWorkout();return{ex,set:setN}}
 /** Fill the next open set from a spoken set, e.g. "80 x 8 @1". Returns true when applied. */
@@ -14426,16 +14440,16 @@ window.__repforgeSaveWorkout=(io)=>saveWorkout({preventDefault(){}},io);
 window.__repforgeWorkoutDraft={
   current:()=>activeWorkoutDraft,
   raw:()=>activeWorkoutDraftRaw,
-  projection:()=>workoutDraftProjection(),
+  projection:()=>WorkoutSession.projection(),
   target:draftTargetFromKey,
-  dispatch:(type,payload)=>enqueueDraftCommand(type,payload),
+  dispatch:(type,payload)=>WorkoutSession.dispatch(type,payload),
   initialize:initializeWorkoutDraft,
   checkpoint:()=>DraftStore.readV2Checkpoint(),
   read:()=>DraftStore.readCanonicalStatus(),
   // Browser harness seam: settle both the ordered DraftV2 write queue and any
   // suggestion refresh that is still computing or retrying before inspecting
   // acknowledged state. Production callers use the same drain internally.
-  flush:()=>drainDraftWork(),
+  flush:()=>WorkoutSession.flush(),
   cas:({expectedRaw,expectedDraftId,expectedRevision,nextRaw,operationId})=>
     DraftStore.compareAndSwapV2({expectedRaw,expectedDraftId,expectedRevision,nextRaw,operationId}),
   stageLegacy:(transactionId,raw)=>DraftStore.writeSidecar(transactionId,raw),
@@ -14457,7 +14471,7 @@ window.__repforgeFocus={
   to(i){
     focusIndex=Math.max(0,i);focusEdit=null;
     const fl=focusList();
-    if(activeWorkoutDraft&&fl[focusIndex])void enqueueDraftCommand("selectExercise",{exerciseInstanceId:fl[focusIndex].id});
+    if(activeWorkoutDraft&&fl[focusIndex])void WorkoutSession.dispatch("selectExercise",{exerciseInstanceId:fl[focusIndex].id});
     renderWorkout();
   },
 };
@@ -14682,17 +14696,17 @@ function init(){
 
   const sessDate=$("#sessionDate");if(sessDate)sessDate.addEventListener("change",async()=>{
     contextTouched.date=true;
-    if(activeWorkoutDraft)await enqueueDraftCommand("setSessionDate",{value:sessDate.value},{pendingValue:sessDate.value});
+    if(activeWorkoutDraft)await WorkoutSession.dispatch("setSessionDate",{value:sessDate.value},{pendingValue:sessDate.value});
   });
 
   const sessBw=$("#sessionBodyweight");if(sessBw)sessBw.addEventListener("input",async()=>{
     contextTouched.bodyweight=true;
-    if(activeWorkoutDraft)await enqueueDraftCommand("setBodyweight",{value:canonicalDraftBodyweight(sessBw.value)},{pendingValue:sessBw.value});
+    if(activeWorkoutDraft)await WorkoutSession.dispatch("setBodyweight",{value:canonicalDraftBodyweight(sessBw.value)},{pendingValue:sessBw.value});
   });
 
   const sessNotes=$("#sessionNotes");if(sessNotes)sessNotes.addEventListener("input",async()=>{
     contextTouched.sessionNotes=true;
-    if(activeWorkoutDraft)await enqueueDraftCommand("setSessionNotes",{value:sessNotes.value},{pendingValue:sessNotes.value});
+    if(activeWorkoutDraft)await WorkoutSession.dispatch("setSessionNotes",{value:sessNotes.value},{pendingValue:sessNotes.value});
   });
 
   const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.onclick=async()=>{
@@ -14725,7 +14739,7 @@ function init(){
       reps:canonicalNumberText(s.reps),
       ...(isEffortMode()?{effort:effortForRir(s.rir)}:{rir:canonicalNumberText(s.rir)})
     }));
-    const res=await enqueueDraftCommand("repeatPreviousSetValues",{exerciseInstanceId:id,values});
+    const res=await WorkoutSession.dispatch("repeatPreviousSetValues",{exerciseInstanceId:id,values});
     if(res.status==="applied"){
       renderWorkout();
       toast(t("toast.filled_from_last"));
@@ -14745,7 +14759,7 @@ function init(){
   if(exActionRestoreOrig)exActionRestoreOrig.onclick=async()=>{
     const id=activeExActionsId;
     if(id&&activeWorkoutDraft){
-      const res=await enqueueDraftCommand("restoreOriginalExercise",{exerciseInstanceId:id});
+      const res=await WorkoutSession.dispatch("restoreOriginalExercise",{exerciseInstanceId:id});
       if(res.status==="applied"){
         renderWorkout();
         closeExActionsSheet();
@@ -14759,7 +14773,7 @@ function init(){
     if(id&&activeWorkoutDraft){
       const isSkipped=activeWorkoutDraft.exercises[id]?.status==="skipped";
       const type=isSkipped?"restoreExercise":"skipExercise";
-      const res=await enqueueDraftCommand(type,{exerciseInstanceId:id});
+      const res=await WorkoutSession.dispatch(type,{exerciseInstanceId:id});
       if(res.status==="applied"){
         renderWorkout();
         closeExActionsSheet();

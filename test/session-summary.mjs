@@ -13,6 +13,7 @@
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
+import { selectExercise, finishEarly } from "./fixtures/focus-workout.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -132,28 +133,25 @@ async function seed(page, state) {
 
 /** Fill and commit one set through the Focus well, the way a lifter logs it. */
 async function logSet(page, exId, n, load, reps, rir) {
-  await page.evaluate(
-    ({ exId, n, load, reps, rir }) => {
-      for (const [suffix, val] of [["load", load], ["reps", reps], ["rir", rir]]) {
-        const el = document.querySelector(`[data-k="${exId}_${n}_${suffix}"]`);
-        if (!el) continue;
-        el.value = String(val);
-        el.dispatchEvent(new Event("input", { bubbles: true }));
-      }
-      document.querySelector(`.saveset[data-save="${exId}_${n}"]`)?.click();
-    },
-    { exId, n, load, reps, rir }
-  );
-  await page.waitForTimeout(90);
+  await selectExercise(page, exId);
+  for (const [field, value] of [["load", load], ["reps", reps], ["rir", rir]]) {
+    await page.locator(`#workout .exercise.is-current [data-k="${exId}_${n}_${field}"]`).fill(String(value));
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+  }
+  await page.locator(`#workout .exercise.is-current [data-save="${exId}_${n}"]`).click();
+  await page.waitForFunction(({exId,n}) => {
+    const exercise = window.__repforgeWorkoutDraft.current()?.exercises[exId];
+    return Object.values(exercise?.sets || {}).some(set => set.ordinal === n && set.completion !== "pending");
+  }, {exId,n});
 }
 
 async function enterLog(page) {
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
 }
 
 async function finish(page) {
-  await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
+  await finishEarly(page);
   await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 8000 });
   await settleStats(page);
 }

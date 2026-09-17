@@ -113,7 +113,7 @@ async function main() {
 
       // Check previous-session band minimum / existence
       const prevBand = page.locator(".exercise.is-current .fcard__ledger");
-      await prevBand.locator(".ledger__row.is-past").first().scrollIntoViewIfNeeded();
+      await prevBand.scrollIntoViewIfNeeded();
       const prevBandBox = await prevBand.boundingBox();
       const contextBox = await page.locator(".exercise.is-current .fcard__context").boundingBox();
       assert(await prevBand.locator(".ledger__row.is-past").count() === 2, "previous-session proof uses actual history");
@@ -187,6 +187,7 @@ async function main() {
       await page.waitForFunction(()=>window.__repforgeBooted);
       await installSeedProgram(page,{waitFor:p=>p.waitForFunction(()=>window.__repforgeBooted)});
       await page.locator("#startWorkout").click();
+      await page.locator("#workout .exercise.is-current").waitFor({state:"visible"});
       const cancel=await page.evaluate(async()=>{
         const start=window.__repforgeFocus.at();
         const card=document.querySelector(".exercise.is-current");
