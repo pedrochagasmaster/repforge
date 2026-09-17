@@ -1725,7 +1725,7 @@ body.is-sheet-open{overflow:hidden}
 .pr-kind--e1rm{color:var(--accent-deep);background:rgba(var(--accent-rgb),.08)}
 .prtimeline{display:flex;flex-direction:column;gap:0;margin-top:4px}
 .prtl__row{display:grid;grid-template-columns:auto 1fr auto auto auto;gap:6px 10px;align-items:center;
-  padding:14px 0;border-radius:0;background:transparent;border:0;border-bottom:1px solid var(--rule);font-size:13px;line-height:1.35}
+  width:100%;padding:14px 0;border-radius:0;background:transparent;border:0;border-bottom:1px solid var(--rule);font-size:13px;line-height:1.35;text-align:left;cursor:pointer}
 .prtl__date{font-size:12px;color:var(--ink-soft);white-space:nowrap}
 .prtl__ex{font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prtl__set{font-size:13px;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -2615,6 +2615,12 @@ body.is-sheet-open .installbanner{display:none}
 .seg.seg--stats.seg--evidence{border-bottom:0;margin-bottom:6px}
 .seg.seg--stats.seg--evidence button{padding:8px 9px;font-size:12px;color:var(--ink-faint)}
 .seg.seg--stats.seg--evidence button.active{color:var(--ink)}
+/* Evidence summary rows (Plan 056 UI-08): full names, one value, drill-in. */
+.evrow{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:11px 2px;background:none;border:0;border-bottom:1px solid var(--rule)}
+.evrow .listrow__main{flex:1;min-width:0}
+.evrow__val{font-family:var(--mono);font-size:14px;white-space:nowrap}
+.evrow__detail{padding:8px 2px 14px;border-bottom:1px solid var(--rule)}
+.evrows{display:block}
 @media (max-width:360px){.seg.seg--stats button{padding:12px 6px;font-size:12px}}
 /* The smallest phone is the one width where six columns still ask for more room
    than the card has, so the ledger tightens before it falls back to scrolling. */

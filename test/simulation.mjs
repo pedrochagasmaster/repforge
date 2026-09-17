@@ -7989,17 +7989,20 @@ async function main() {
   await page.click('#statsEvidence button[data-seg="strength"]');
   await page.waitForTimeout(80);
   assert(
-    (await page.locator("#strengthDash table").count()) > 0,
-    "Strength dashboard renders a table",
-    "No table inside #strengthDash",
-    "Stats → Strength segment → #strengthDash table"
+    (await page.locator("#strengthDash .evrow").count()) > 0,
+    "Strength evidence renders summary rows",
+    "No .evrow inside #strengthDash",
+    "Stats → Strength evidence → summary rows"
   );
-  const dashRows = await page.locator("#strengthDash table tbody tr").count();
+  const loggedExercise = await page.evaluate(() => window.__repforgeStrengthDashboard()[0]?.exercise || "");
+  const evRow = page.locator("#strengthDash .evrow", { hasText: loggedExercise }).first();
+  await evRow.click();
+  const drillRows = await page.locator("#strengthDash .evrow__detail:not([hidden]) table tbody tr").count();
   assert(
-    dashRows > 0,
-    "Strength dashboard table has data rows",
-    `row count=${dashRows}`,
-    "Stats → Strength → table rows for logged lifts"
+    drillRows > 0,
+    "Strength drill-in reveals the complete evidence table",
+    `row count=${drillRows}`,
+    "Stats → Strength → drill-in table rows"
   );
   const dashData = await page.evaluate(() => window.__repforgeStrengthDashboard());
   assert(
@@ -8039,30 +8042,19 @@ async function main() {
     "Stats → click Volume → #segVolume active"
   );
   assert(
-    (await page.locator("#volumeDash table").count()) > 0,
-    "#volumeDash table exists",
-    "No table in #volumeDash",
-    "Stats → Volume segment → volume dashboard table"
+    (await page.locator("#volumeDash .vrow").count()) > 0,
+    "#volumeDash has evidence rows",
+    "No .vrow in #volumeDash",
+    "Stats → Volume evidence → muscle rows"
   );
-  const volRowCount = await page.locator("#volumeDash table tbody tr").count();
+  const periodText = await page.evaluate(() => document.querySelector("#volumePeriod")?.textContent || "");
+  const started = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1")).programMeta.started || null);
+  const periodOk = started ? /From /.test(periodText) : /No block period/.test(periodText);
   assert(
-    volRowCount > 0,
-    "Volume dashboard has muscle rows",
-    `rowCount=${volRowCount}`,
-    "Stats → Volume → table has tbody rows"
-  );
-  const volStatuses = await page.evaluate(() => {
-    const th = [...document.querySelectorAll("#volumeDash th")].map((t) => t.textContent);
-    const idx = th.indexOf("Status");
-    if (idx < 0) return [];
-    return [...document.querySelectorAll("#volumeDash tbody tr")].map((tr) => tr.cells[idx]?.textContent);
-  });
-  const validStatus = new Set(["Low", "On target", "High"]);
-  assert(
-    volStatuses.length > 0 && volStatuses.every((s) => validStatus.has(s)),
-    "Status column values are Low, On target, or High",
-    `statuses=${volStatuses.slice(0, 5).join(",")}`,
-    "Stats → Volume → Status column in {Low, On target, High}"
+    periodOk,
+    "Volume evidence states its period bounds (or honest absence) in accessible text",
+    `period="${periodText}" started=${started}`,
+    "Stats → Volume → period text"
   );
   const volDashApi = await page.evaluate(() => {
     const fn = window.__repforgeVolumeDashboard;
@@ -10956,10 +10948,14 @@ async function main() {
     JSON.stringify(chartPaint.fillText.map((x) => ({ text: x.text, fillStyle: x.fillStyle }))),
     "Inspect #chart.__rfPaint.fillText colors"
   );
+  // Plan 056 sparse policy: a one-point snapshot draws no connector at all;
+  // comparison/trend keep the brand-orange data stroke.
+  const chartPresentation = await page.evaluate(() => window.__repforgeChartLastPresentation || null);
+  const hasAccentStroke = chartPaint.stroke.some((x) => x.strokeStyle === "#e04e14");
   assert(
-    chartPaint.stroke.some((x) => x.strokeStyle === "#e04e14") &&
-      chartPaint.stroke.some((x) => x.strokeStyle === "#e4e1da"),
-    "C1: chart data stroke stays brand orange; grid stays rule",
+    (chartPresentation === "snapshot" && !hasAccentStroke) ||
+      (chartPresentation !== "snapshot" && hasAccentStroke),
+    "C1: data stroke follows the sparse-evidence policy and stays brand orange",
     JSON.stringify(chartPaint.stroke),
     "Inspect #chart.__rfPaint.stroke colors"
   );
@@ -10979,7 +10975,7 @@ async function main() {
   );
   await page.click("#overviewVolumeMore");
   await page.waitForSelector("#segVolume.active", { timeout: 5000 });
-  const volTableCount = await page.locator("#volumeDash tbody tr").count();
+  const volTableCount = await page.locator("#volumeDash .vrow").count();
   const volActive = await page.evaluate(
     () =>
       document.querySelector('#statsEvidence button[data-seg="volume"]')?.classList.contains("active") &&

@@ -929,6 +929,9 @@ const repsAtLoad=(cap,load)=>cap>0&&load>0?Math.round(30*(cap/load-1)*1e6)/1e6:0
 const shortDate=d=>{const p=String(d||"").split("-");if(p.length!==3)return String(d||"");
   const day=+p[2],mon=t("month_short."+(+p[1]-1));
   return isPt()?`${day} ${mon}`:`${mon} ${day}`};
+// Locale-aware long date for evidence headings and drill-ins (G-38).
+const longDate=d=>{const p=String(d||"").split("-");if(p.length!==3)return String(d||"");
+  try{return new Date(`${d}T12:00:00`).toLocaleDateString(locTag(),{day:"numeric",month:"long",year:"numeric"})}catch{return d}};
 /* Rows and logs keep their stable grouping labels. Generated structure records
    carry a localized display-name key beside that internal label, while a name
    override is the exact text the lifter typed. Legacy Day N strings still get
@@ -2146,6 +2149,7 @@ async function applyFatigueTrim(){
   for(const id of flagged)if(!skipped.has(id)){const result=await enqueueDraftCommand("skipExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
   renderWorkout();toast(t("toast.trimmed_priority"))}
 let logMode="full",focusIndex=0,statsSeg="overview",evidenceView=null,prFilter="all";
+let strengthScope="current-block",volumeScope="this-week";
 let focusDrag=null,focusFlinging=false;
 /** Focus mode — the set being re-opened for edit: {exId,n,snap}. `snap` is the
  *  set as it stood when editing began, so cancelling puts it back untouched. */
@@ -4132,6 +4136,19 @@ function setStatsSeg(seg){
   for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
   if(seg==="overview")redrawChart();else if(seg==="review")renderReview()}
 window.__repforgeStatsNav={setStatsSeg,setEvidenceView};
+// Read-only evidence seam: suites assert the model-backed values the Evidence
+// views render, without scraping DOM markup.
+window.__repforgeProgressEvidence={
+  strength:liftId=>{
+    const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return null;
+    const rows=state.log.filter(isWork).map(r=>({exerciseId:liftKey(r),session:r.session,date:r.date,load:+r.load,reps:+r.reps}));
+    return Model.buildStrengthEvidence(strengthScope,liftId,rows,{started:state.programMeta?.started||null,facts:strengthFactsByLift()})},
+  volume:scope=>{
+    const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return null;
+    return Model.buildVolumeEvidence(scope==="block-to-date"?"block-to-date":"this-week",prog.toJSON(),
+      {started:state.programMeta?.started||null,mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6},state.log,today())},
+  chartPresentation:n=>n>=3?"trend":n===2?"comparison":"snapshot",
+  keyForExerciseId:exId=>{const ex=prog.find(exId);return ex?exerciseLiftKey(ex):null}};
 
 // Block (mesocycle) trend — a WEAK signal derived from e1RM across this lift's
 // sessions inside the current block. Only tempers aggressiveness / rep targets.
@@ -6376,7 +6393,7 @@ function strengthDashboard(){
   for(const [k,sess] of byLift){const latest=sess.at(-1),first=sess[0],best=Math.max(...sess.map(s=>s.e1rm));
     const ex=currentExerciseForLiftKey(k);
     const rec=ex?recommendation(ex):{label:"—"};
-    rows.push({exercise:latest.name,latest:`${fmtLoad(latest.top)}×${latest.topReps}`,best,blockDelta:latest.e1rm-first.e1rm,
+    rows.push({key:k,exercise:latest.name,latest:`${fmtLoad(latest.top)}×${latest.topReps}`,best,blockDelta:latest.e1rm-first.e1rm,
       prs:prN.get(k)||0,lastTrained:latest.date,signal:rec.label})}
   return rows.sort((a,b)=>a.exercise.localeCompare(b.exercise))}
 window.__repforgeStrengthDashboard=strengthDashboard;
@@ -6389,7 +6406,48 @@ window.__repforgeProgression={
   sessionsFor:ex=>sessionsFor(ex),
   programSlot:id=>{const slot=prog.find(id);return slot?sessionExercise(slot):null}};
 
-function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;const rows=strengthDashboard();
+function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;
+  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  const scopeSeg=$("#strengthScopeSeg");
+  if(scopeSeg)$$("#strengthScopeSeg button").forEach(b=>{const on=b.dataset.scope===strengthScope;
+    b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false");
+    b.onclick=()=>{strengthScope=b.dataset.scope;renderStrengthDash()}});
+  if(!Model){legacyStrengthTable(el);return}
+  const dash=strengthDashboard(),facts=strengthFactsByLift();
+  const rows=state.log.filter(isWork).map(r=>({exerciseId:liftKey(r),session:r.session,date:r.date,load:+r.load,reps:+r.reps}));
+  const meta={started:state.programMeta?.started||null,facts};
+  // Program slots with no logged history still earn a row: zero points is
+  // baseline-building, not an absence.
+  const keys=new Set(dash.map(r=>r.key));
+  for(const ex of prog.exercises){const k=exerciseLiftKey(ex)||`slot:${ex.id}`;if(!keys.has(k))keys.add(k)}
+  if(!keys.size){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
+  const nameOf=k=>dash.find(r=>r.key===k)?.exercise||prog.exercises.find(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===k)?.name||k;
+  el.innerHTML=[...keys].sort((a,b)=>nameOf(a).localeCompare(nameOf(b),locTag())).map(k=>{
+    const series=Model.buildStrengthEvidence(strengthScope,k,rows,meta);
+    const label=t(`stats.evidence.${series.presentation}`);
+    const outcome=series.outcome&&EVIDENCE_OUTCOME_KEYS[series.outcome]?` · ${t(EVIDENCE_OUTCOME_KEYS[series.outcome])}`:"";
+    const reason=!series.outcome&&series.reason&&series.presentation!=="empty"?` · ${t(`stats.evidence.reason.${series.reason}`)}`:"";
+    const baseline=series.presentation==="empty"?` · ${t("stats.evidence.baseline")}`:"";
+    const latest=dash.find(r=>r.key===k)?.latest;
+    const value=latest?`${fmtLoad(latest.split("×")[0])}×${latest.split("×")[1]}`:"—";
+    const detail=strengthDetailTable(k);
+    return `<button type="button" class="evrow" data-evkey="${esc(k)}" aria-expanded="false">`+
+      `<div class="listrow__main"><div class="listrow__title">${esc(nameOf(k))}</div>`+
+      `<div class="listrow__sub">${esc(label)}${esc(outcome||reason||baseline)}</div></div>`+
+      `<span class="evrow__val">${esc(value)}</span><span class="chevron" aria-hidden="true"></span></button>`+
+      `<div class="evrow__detail" data-evdetail="${esc(k)}" hidden>${detail}</div>`}).join("");
+  $$("#strengthDash [data-evkey]").forEach(b=>b.onclick=()=>{
+    const detail=$(`[data-evdetail="${b.dataset.evkey}"]`);if(!detail)return;
+    const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false")})}
+function strengthDetailTable(k){
+  const sess=summaries().filter(x=>x.liftKey===k);
+  if(!sess.length)return `<p class="lede">${esc(t("stats.evidence.reason.untested"))}</p>`;
+  const u=unitLabel();
+  return `<p class="lede">${esc(t("stats.evidence.range",{start:longDate(sess[0].date),end:longDate(sess.at(-1).date)}))}</p>`+
+    table(sess.map(s=>({[t("stats.table.date")]:shortDate(s.date),[t("stats.table.top")]:fmtLoad(s.top),[t("stats.table.reps")]:s.topReps,
+      [t("stats.table.e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(s.e1rm))),[t("stats.table.rir")]:fmt(s.rir)})))}
+function legacyStrengthTable(el){
+  const rows=strengthDashboard();
   if(!rows.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
   const u=unitLabel(),fmtDelta=d=>{const n=toDisplay(d),a=Math.abs(n);const s=n>0?"+":n<0?"-":"";return s+(a?fmt(Math.round(a)):0)};
   el.innerHTML=table(rows.map(r=>({[t("stats.table.exercise")]:r.exercise,[t("stats.table.latest")]:r.latest,[t("stats.table.best_e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(r.best))),
@@ -7573,13 +7631,18 @@ function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
   const delta=ev=>ev.kind==="load"?(ev.deltaLoad!=null?`+${fmtLoad(ev.deltaLoad)}${unitLabel()}`:"")
     :ev.kind==="reps"?(ev.deltaReps!=null?`+${ev.deltaReps}`:"")
     :(ev.deltaE1rm!=null?`+${fmt(Math.round(toDisplay(ev.deltaE1rm)))}${unitLabel()}`:"");
-  el.innerHTML=events.map(ev=>{const kc=ev.kind==="load"?"pr-kind--load":ev.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm";
+  el.innerHTML=events.map((ev,i)=>{const kc=ev.kind==="load"?"pr-kind--load":ev.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm";
     const d=delta(ev);
-    return `<div class="prtl__row"><span class="prtl__date">${esc(prDate(ev.date))}</span>`+
+    return `<button type="button" class="prtl__row" data-prrow="${i}" aria-expanded="false"><span class="prtl__date">${esc(prDate(ev.date))}</span>`+
       `<span class="prtl__ex">${esc(ev.exerciseName)}</span>`+
       `<span class="pr-kind ${kc}">${esc(kindLbl(ev.kind))}</span>`+
       `<span class="prtl__set">${esc(fmtLoad(ev.load))}${unitLabel()} × ${esc(ev.reps)}</span>`+
-      (d?`<span class="prtl__delta">${esc(d)}</span>`:"")+`</div>`}).join("")}
+      (d?`<span class="prtl__delta">${esc(d)}</span>`:"")+`<span class="chevron" aria-hidden="true"></span></button>`+
+      `<div class="evrow__detail" data-prdetail="${i}" hidden><p class="lede">${esc(longDate(ev.date))}</p>`+
+      `<p class="lede">${esc(`${kindLbl(ev.kind)} · ${fmtLoad(ev.load)}${unitLabel()} × ${ev.reps}`)}${d?` · ${esc(d)}`:""}</p></div>`}).join("");
+  $$("#prTimeline [data-prrow]").forEach(b=>b.onclick=()=>{
+    const detail=$(`[data-prdetail="${b.dataset.prrow}"]`);if(!detail)return;
+    const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false")})}
 
 function renderPRs(){const el=$("#prLedger");if(!el)return;
   const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>ev.liftKey===sel);
@@ -7675,7 +7738,65 @@ function volumeDashboard(windowDays){const planned=prog.volume(),c7=completedHar
     return{muscle,planned:p,completed7:c7v,completed28:c28v,status:volumeStatus(p,c7v)}})}
 window.__repforgeVolumeDashboard=volumeDashboard;
 window.__repforgeOverviewVolume={pct:overviewBarPct,sorted:overviewVolumeSorted,label:muscleLabel};
+// Observed outcomes come from the authoritative paired-exposure comparison,
+// never from presentation. flat reads as "maintained" in the evidence model.
+const EVIDENCE_OUTCOME_KEYS={improved:"stats.outcome.improved",maintained:"stats.outcome.maintained",declined:"stats.outcome.declined"};
+function strengthFactsByLift(){
+  const facts={},map={improved:"improved",flat:"maintained",regressed:"declined"};
+  for(const ex of prog.exercises){const k=exerciseLiftKey(ex);if(!k||facts[k])continue;
+    const sess=sessionsFor(ex);if(!sess.length)continue;
+    const latest=sess.at(-1),latestRows=state.log.filter(r=>r.session===latest.session&&matchLift(ex)(r));
+    const cmp=compareExerciseSession(ex,workingRows(latestRows));
+    if(map[cmp.status])facts[k]=map[cmp.status]}
+  return facts}
 function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
+  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  const scopeSeg=$("#volumeScopeSeg");
+  if(scopeSeg)$$("#volumeScopeSeg button").forEach(b=>{const on=b.dataset.vscope===volumeScope;
+    b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false");
+    b.onclick=()=>{volumeScope=b.dataset.vscope;renderVolumeDash()}});
+  const periodEl=$("#volumePeriod");
+  if(!Model){legacyVolumeTable(el);if(periodEl)periodEl.textContent="";return}
+  const ev=Model.buildVolumeEvidence(volumeScope==="this-week"?"this-week":"block-to-date",prog.toJSON(),
+    {started:state.programMeta?.started||null,mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6},state.log,today());
+  if(periodEl)periodEl.textContent=ev.period.start
+    ?t("stats.volume.period_text",{start:longDate(ev.period.start),end:longDate(ev.period.end||today())})
+    :t("stats.volume.no_period");
+  const plannedMap=volumePlannedMuscleMap(ev);
+  const completed=hardSetsInRange(state.log,state.program,ev.period.start,ev.period.end||today(),+state.settings.hardRir);
+  const names=new Set([...plannedMap.keys(),...completed.keys()]);
+  if(!names.size){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_hard_sets",{n:7}))}</div>`;return}
+  const rows=[...names].sort((a,b)=>muscleLabel(a).localeCompare(muscleLabel(b),locTag())).map(m=>{
+    const planned=volEff(plannedMap,m),done=volEff(completed,m);
+    const inProgress=ev.periodStatus!=="complete"&&ev.period.end&&String(ev.period.end)>=today();
+    const caption=planned?(!inProgress&&done<planned?t("stats.volume.partial_period")
+      :inProgress?t("stats.volume.in_progress",{done:fmt(done),planned:fmt(planned)}):""):"";
+    return `<div class="vrow"><span class="vrow__name">${esc(muscleLabel(m))}</span>`+
+      `<span class="vrow__bar" aria-hidden="true"><span class="vrow__fill${done>=planned&&planned?" is-on":""}" style="width:${planned?Math.min(100,Math.round(done/planned*100)):0}%"></span></span>`+
+      `<span class="vrow__num">${fmt(done)} / ${fmt(planned)}</span>`+
+      `<span class="vrow__status${inProgress?"":""}">${esc(caption)}</span></div>`}).join("");
+  el.innerHTML=`<div class="evrows">${rows}</div>`}
+// Planned per-muscle denominators for the rendered scope. This week uses the
+// one canonical weekly prescription (projected through an active recovery
+// overlay); block-to-date multiplies the canonical week by the elapsed numbered
+// weeks the model computed, swapping in the recovery projection for its week.
+function volumePlannedMuscleMap(ev){
+  const weekly=prog.volume();
+  if(ev.scope!=="block-to-date")return weekly;
+  const m=new Map();
+  for(const[name,v]of weekly)m.set(name,{d:v.d*ev.period.elapsedNumberedWeeks,p:v.p*ev.period.elapsedNumberedWeeks});
+  if(activeRecoveryRecord&&activeRecoveryRecordBlockId===snapshotBlockId(state)){
+    for(const[name,v]of weekly){const cur=m.get(name);if(cur){cur.d-=v.d;cur.p-=v.p}}
+    const Transition=typeof RepForgeProgramTransition!=="undefined"?RepForgeProgramTransition:null;
+    const projected=Transition?.projectRecoveryProgram?.(state.program,activeRecoveryRecord,{
+      blockId:activeRecoveryRecordBlockId,
+      elapsedWeek:mesocycleLifecycle(state.programMeta).elapsedWeek,
+      baseProgramFingerprint:activeRecoveryRecord.diff.recoveryWeek.baseProgramFingerprint});
+    if(projected?.ok&&projected.active){
+      const pm=new Program(projected.rows).volume();
+      for(const[name,v]of pm){const cur=m.get(name)||{d:0,p:0};cur.d+=v.d;cur.p+=v.p;m.set(name,cur)}}}
+  return m}
+function legacyVolumeTable(el){
   const rows=volumeDashboard(7).map(r=>({[t("stats.table.muscle")]:muscleLabel(r.muscle),[t("stats.table.planned")]:fmt(r.planned),[t("stats.table.completed_7d")]:fmt(r.completed7),[t("stats.table.completed_28d")]:fmt(r.completed28),[t("stats.table.status")]:r.status}));
   el.innerHTML=table(rows)}
 function renderCompleted(){const el=$("#completedVolume");if(!el)return;const m=completedHardSets(volWindow);
@@ -7715,8 +7836,17 @@ function draw(rows,sel="#chart"){
   const accent=pal.accent;
   ctx.strokeStyle=C.rule;ctx.lineWidth=1;ctx.fillStyle=C.dim;ctx.textAlign="right";
   for(let i=0;i<=3;i++){const gy=padT+ih*i/3,val=hi-(rng*i/3);ctx.beginPath();ctx.moveTo(padL,gy);ctx.lineTo(w-padR,gy);ctx.stroke();ctx.fillText(yLabel(val)+` ${unitLabel()}`,padL-8,gy)}
-  ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.lineJoin="round";ctx.lineCap="round";
-  ctx.beginPath();rows.forEach((r,i)=>{const v=r.e1rm??r.top;i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v))});ctx.stroke();
+  // Sparse-evidence policy (UI-29 / G-27): one point is a snapshot with no
+  // connector, two points a comparison with a restrained secondary connector,
+  // three or more a trend. The line never draws before the evidence supports it.
+  const presentation=rows.length>=3?"trend":rows.length===2?"comparison":"snapshot";
+  window.__repforgeChartLastPresentation=presentation;
+  ctx.strokeStyle=accent;ctx.lineJoin="round";ctx.lineCap="round";
+  if(presentation==="trend"){ctx.lineWidth=2;
+    ctx.beginPath();rows.forEach((r,i)=>{const v=r.e1rm??r.top;i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v))});ctx.stroke()}
+  else if(presentation==="comparison"){ctx.lineWidth=1.5;ctx.globalAlpha=.4;
+    ctx.beginPath();rows.forEach((r,i)=>{const v=r.e1rm??r.top;i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v))});ctx.stroke();ctx.globalAlpha=1}
+  else window.__repforgeChartLastPresentation=presentation;
   rows.forEach((r,i)=>{const v=r.e1rm??r.top,last=i===rows.length-1;ctx.beginPath();ctx.arc(X(i),Y(v),last?4:3.5,0,7);
     ctx.fillStyle=accent;ctx.fill()});
   const lastV=rows.at(-1).e1rm??rows.at(-1).top,lx=X(rows.length-1),ly=Y(lastV);ctx.fillStyle=pal.deep;ctx.textAlign=lx>w-60?"right":"left";ctx.font='600 12px "Plex Sans",sans-serif';

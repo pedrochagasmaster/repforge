@@ -226,10 +226,20 @@
           <h3 class="subhead" data-i18n="stats.top_loads_by_exercise">Top loads by exercise</h3><div id="tops" class="table"></div>
         </details>
       </div>
-      <div id="segStrength" class="stats-seg"><h3 class="subhead" data-i18n="stats.strength">Strength</h3><div id="strengthDash" class="table"></div></div>
+      <div id="segStrength" class="stats-seg">
+        <div id="strengthScopeSeg" class="seg seg--window" role="tablist" data-i18n-aria="stats.scope_aria" aria-label="Strength scope">
+          <button type="button" data-scope="current-block" class="active" role="tab" aria-selected="true" data-i18n="stats.scope.current_block">Current block</button>
+          <button type="button" data-scope="all-history" role="tab" aria-selected="false" data-i18n="stats.scope.all_history">All history</button>
+        </div>
+        <h3 class="subhead" data-i18n="stats.strength">Strength</h3><div id="strengthDash"></div></div>
       <div id="segVolume" class="stats-seg">
+        <div id="volumeScopeSeg" class="seg seg--window" role="tablist" data-i18n-aria="stats.volume_scope_aria" aria-label="Volume period">
+          <button type="button" data-vscope="this-week" class="active" role="tab" aria-selected="true" data-i18n="stats.volume.scope.this_week">This week</button>
+          <button type="button" data-vscope="block-to-date" role="tab" aria-selected="false" data-i18n="stats.volume.scope.block_to_date">Block to date</button>
+        </div>
         <h3 class="subhead" data-i18n="stats.volume">Volume</h3>
-        <div id="volumeDash" class="table"></div>
+        <div id="volumePeriod" class="lede" role="text"></div>
+        <div id="volumeDash"></div>
       </div>
       <div id="segPRs" class="stats-seg">
         <p class="lede" data-i18n="stats.prs.lede">Your load, rep, and estimated one-rep-max records.</p>
@@ -1103,6 +1113,7 @@ Progress.</p>
   <script src="install-policy.js?v=258"></script>
   <script src="guide-registry.js?v=258"></script>
   <script src="durable-state.js?v=258"></script>
+  <script src="progress-model.js?v=258"></script>
   <script src="app.js?v=258"></script>
 </body>
 </html>
