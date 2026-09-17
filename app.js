@@ -14710,7 +14710,7 @@ function init(){
   });
 
   const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.onclick=async()=>{
-    await drainDraftWork();
+    await WorkoutSession.flush();
     if(!activeWorkoutDraft)return;
     renderEarlyFinishPreview();
     sessionEarlyRevision=activeWorkoutDraft.revision;
