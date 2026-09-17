@@ -9,6 +9,7 @@
     "unseen", "shown", "dismissed", "completed", "deferred", "replay",
   ]);
   const PLAN_054_GUIDE_IDS = Object.freeze(["entry", "install", "privacy"]);
+  const PLAN_056_GUIDE_IDS = Object.freeze(["progress", "block-transition"]);
   const GUIDE_DEFINITIONS = Object.freeze([
     // Anchored to the chooser's primary Recommend card, not the generic
     // landing: the "how to begin" explanation belongs where there is more
@@ -18,8 +19,8 @@
     Object.freeze({ id: "entry", version: 2, anchorSelector: "[data-entry-route=\"recommend\"]", coveredByOldTour: false, wired: true }),
     Object.freeze({ id: "first-set", version: 1, anchorSelector: ".saveset", coveredByOldTour: true, wired: false }),
     Object.freeze({ id: "focus-utilities", version: 1, anchorSelector: "#woOverflowBtn", coveredByOldTour: true, wired: false }),
-    Object.freeze({ id: "progress", version: 1, anchorSelector: "nav [data-view=\"stats\"]", coveredByOldTour: true, wired: false }),
-    Object.freeze({ id: "block-transition", version: 1, anchorSelector: "#endBlock", coveredByOldTour: true, wired: false }),
+    Object.freeze({ id: "progress", version: 2, anchorSelector: "#statsSeg [data-seg=\"overview\"]", coveredByOldTour: true, wired: true }),
+    Object.freeze({ id: "block-transition", version: 2, anchorSelector: "#statsSeg [data-seg=\"review\"]", coveredByOldTour: true, wired: true }),
     Object.freeze({ id: "backup", version: 1, anchorSelector: "#exportJson", coveredByOldTour: true, wired: false }),
     Object.freeze({ id: "install", version: 1, anchorSelector: "#firstRunInstallAction, #installApp", coveredByOldTour: true, wired: true }),
     Object.freeze({ id: "privacy", version: 1, anchorSelector: "#firstRunPrivacy, #privacyDetails", coveredByOldTour: false, wired: true }),
@@ -84,6 +85,7 @@
   return Object.freeze({
     GUIDE_STATUSES,
     PLAN_054_GUIDE_IDS,
+    PLAN_056_GUIDE_IDS,
     GUIDE_DEFINITIONS,
     evaluateGuide,
     recordGuideTransition,

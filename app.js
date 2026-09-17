@@ -4314,7 +4314,8 @@ function setStatsSeg(seg){
   $$("#statsEvidence button").forEach(b=>{b.classList.remove("active");b.setAttribute("aria-selected","false")});
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
   for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
-  if(seg==="overview")redrawChart();else if(seg==="review")renderReview()}
+  if(seg==="overview")redrawChart();else if(seg==="review")renderReview();
+  queueMicrotask(()=>maybeShowContextualGuides([seg==="review"?"block-transition":"progress"]))}
 window.__repforgeStatsNav={setStatsSeg,setEvidenceView};
 // Read-only evidence seam: suites assert the model-backed values the Evidence
 // views render, without scraping DOM markup.
@@ -6757,6 +6758,8 @@ function renderStats(){
   renderPRs();renderAttention();renderCompleted();renderReview();
   if(statsSeg==="review")renderReview();
   renderEvidenceView();
+  if($("#stats")?.classList.contains("active")&&!evidenceView)
+    queueMicrotask(()=>maybeShowContextualGuides([statsSeg==="review"?"block-transition":"progress"]));
 }
 
 function detectPRs(log,opts={}){
@@ -14476,7 +14479,8 @@ function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=fa
   // the cue is a flex sibling with no room and collapses into a vertical
   // sliver of one word per line. Anchoring it after the whole header instead
   // keeps it a full-width block without changing which control it names.
-  const placement=anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||anchor;
+  const placement=anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||
+    anchor.closest("#statsSeg")||anchor;
   placement.insertAdjacentElement("afterend",cue);
   activeGuideId=id;activeGuideAnchor=anchor;activeGuideCue=cue;
   activeGuideReturnFocus=returnFocus instanceof HTMLElement?returnFocus:null;
