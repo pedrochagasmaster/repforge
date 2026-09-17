@@ -5344,11 +5344,11 @@ async function main() {
   await editSimField(page, `${effEx.id}_1_reps`, "4");
   await selectEffort(page, `${effEx.id}_1`, "max");
   await flushDraftWork(page);
-  effortSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
+  const effortRowsBefore = (await getState(page)).log.length;
   await saveWorkout(page);
   effortState = await getState(page);
-  effortSession = [...new Set(effortState.log.map((r) => r.session))].find((s) => !effortSessionsBefore.has(s));
-  effortRow = effortState.log.find((r) => r.session === effortSession && r.exerciseId === effEx.id && +r.set === 1);
+  effortRow = effortState.log.slice(effortRowsBefore)
+    .find((r) => r.exerciseId === effEx.id && +r.set === 1);
   assert(
     effortRow && effortRow.rir === 0,
     "Effort mode Max saves as RIR 0",
