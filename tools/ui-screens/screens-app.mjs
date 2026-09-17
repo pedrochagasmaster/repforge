@@ -106,6 +106,11 @@ async function openSettings(page, anchor) {
   await sleep(page, 250);
 }
 
+async function resetSheetScroll(page, selector) {
+  await page.locator(selector).evaluate((element) => { element.scrollTop = 0; });
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+}
+
 export const APP_SCENARIOS = {
   "today/no-program": async (page) => { await dismissChrome(page); await sleep(page, 300); },
   "today/ready": async (page) => { await dismissChrome(page); await sleep(page, 300); },
@@ -127,9 +132,9 @@ export const APP_SCENARIOS = {
 
   "workout/focus": focusMode,
   "today/preview": async page => { await page.click("#previewSession"); await page.waitForSelector("#previewSessionSheet.is-open"); },
-  "workout/session": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); },
-  "workout/early-finish": async page => { await focusMode(page); await logCurrentSet(page); await page.click("#sessionSheetBtn"); await page.click("#sessionEarlyFinish"); },
-  "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-exactions-open]").click(); },
+  "workout/session": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); await resetSheetScroll(page, ".session-sheet__body"); },
+  "workout/early-finish": async page => { await focusMode(page); await logCurrentSet(page); await page.click("#sessionSheetBtn"); await page.click("#sessionEarlyFinish"); await resetSheetScroll(page, ".session-sheet__body"); },
+  "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-exactions-open]").click(); await resetSheetScroll(page, ".exactions-sheet__body"); },
   "workout/skipped-actions": async page => {
     await focusMode(page);
     const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
@@ -139,6 +144,7 @@ export const APP_SCENARIOS = {
     await page.locator("#sessionSheetBtn").click();
     await page.locator(`[data-session-map-jump="${id}"]`).click();
     await page.locator("#exActionsSheet.is-open").waitFor();
+    await resetSheetScroll(page, ".exactions-sheet__body");
   },
   "workout/substituted-actions": async page => {
     await focusMode(page);
@@ -147,9 +153,10 @@ export const APP_SCENARIOS = {
     await page.locator("#exPickList .pickrow").first().click();
     await page.locator("#exPickSheet").waitFor({state:"hidden"});
     await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await resetSheetScroll(page, ".exactions-sheet__body");
   },
-  "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-exactions-open]").click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
-  "workout/reorder": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); await page.locator("[data-session-reorder-down]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
+  "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-exactions-open]").click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".exactions-sheet__body"); },
+  "workout/reorder": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); await page.locator("[data-session-reorder-down]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".session-sheet__body"); },
   "workout/correction": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-editn]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
   "today/draft-resume": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-k$='_load']").fill("80"); await page.click("#leaveWorkout"); },
 
