@@ -5312,7 +5312,7 @@ function todayExListHtml(exs){if(!exs.length)return"";
    part of the dashboard that describes a program is taken down together: a week
    strip and an Up next built from no program are the same lie in smaller type. */
 function renderTodayNoProgram(){
-  for(const sel of["#todayProgram","#todaySessionLabel","#todaySession","#startWorkout","#chooseAnotherDay",
+  for(const sel of["#todayProgram","#todaySessionLabel","#todaySession","#startWorkout","#previewSession","#chooseAnotherDay",
     "#viewExercises","#reviewTodaySession","#logAnotherSession","#todayWeekLabel","#todayWeek",
     "#todayUpNextLabel","#todayUpNext","#todayLast"]){
     const el=$(sel);if(el)el.classList.add("hidden")}
@@ -5354,7 +5354,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
     // A one-day split has no other day to offer, so the picker would open onto
     // the day Today already leads with.
     const canPickDay=!recap&&days().length>1;
-    for(const[sel,shown]of[["#startWorkout",!recap],["#chooseAnotherDay",canPickDay],["#viewExercises",!recap],["#reviewTodaySession",!!recap],["#logAnotherSession",!!recap]]){
+    for(const[sel,shown]of[["#startWorkout",!recap],["#previewSession",!recap],["#chooseAnotherDay",canPickDay],["#viewExercises",!recap],["#reviewTodaySession",!!recap],["#logAnotherSession",!!recap]]){
       const el=$(sel);if(el)el.classList.toggle("hidden",!shown)}
     const ready=$("#readyLine");if(ready)ready.onclick=()=>{enterWorkout({focus:true});
       const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");
@@ -5396,6 +5396,53 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   const woTitle=$("#woDayTitle");if(woTitle)woTitle.textContent=dayLabel(day);
   const woSub=$("#woDaySub");if(woSub){const mc3=mesocycleWeek();
     woSub.textContent=mc3.isComplete?t("meso.complete"):mc3.current!=null?t("today.week_short",{n:mc3.current}):""}
+}
+/* ---- Today preview (read-only) ---- */
+// Pure view model: no draft, no timestamps, no side effects.
+function plannedPreviewModel(d=day){
+  const exs=exercises(d);
+  return exs.map(ex=>{
+    const rec=recommendation(ex);
+    return {id:ex.id,name:ex.name,sets:ex.sets,min:ex.min,max:ex.max,primary:ex.primary,notes:ex.notes||"",rec};
+  });
+}
+function previewExerciseRowHtml(ex){
+  const sets=`${ex.sets} × ${ex.min}–${ex.max}`;
+  const meta=[ex.primary?muscleListLabel(ex.primary):"",ex.notes?`${t("log.setup")}: ${ex.notes}`:""].filter(Boolean).join(" · ");
+  const rec = ex.rec && ex.rec.status!=="new" ? `<span class="preview__meta">${esc(ex.rec.label)} · ${esc(ex.rec.text)}</span>` : "";
+  return `<button type="button" class="preview__row" data-preview-exercise data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:ex.name}))}">`+
+    `<span class="preview__row-main"><span class="preview__name">${esc(ex.name)}</span><span class="preview__sets">${esc(sets)}</span></span>`+
+    (meta?`<span class="preview__meta">${esc(meta)}</span>`:"")+rec+`</button>`;
+}
+function renderPreviewSessionSheet(){
+  const list=$("#previewSessionList");if(!list)return;
+  const dayEl=document.querySelector("[data-preview-day]");if(dayEl)dayEl.textContent=dayLabel(day);
+  const rows=plannedPreviewModel(day);
+  list.innerHTML=rows.map(previewExerciseRowHtml).join("");
+  $$("#previewSessionList [data-exopen]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.exopen;
+    closePreviewSessionSheet().then(()=>openExerciseView(id,"log"));
+  });
+}
+function openPreviewSessionSheet(){
+  if(!hasProgramContent())return;
+  renderPreviewSessionSheet();
+  const sheet=$("#previewSessionSheet"),scrim=$("#previewSessionScrim");
+  if(!sheet)return;
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet,{
+    initialFocus:$("#previewSessionList .preview__row")||$("#previewSessionClose"),
+    onEscape:closePreviewSessionSheet,
+    scrim,
+    delayHide:reducedMotion()?0:280
+  });
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")});
+}
+function closePreviewSessionSheet(){
+  const sheet=$("#previewSessionSheet");
+  if(!sheet)return Promise.resolve(false);
+  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  return closeModal(sheet);
 }
 
 function render(){applyI18n();
@@ -14411,6 +14458,13 @@ function init(){
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
   const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>navTo("log");
   const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({focus:true});
+  const previewToday=$("#previewSession");if(previewToday)previewToday.onclick=()=>openPreviewSessionSheet();
+  const previewClose=$("#previewSessionClose");if(previewClose)previewClose.onclick=()=>closePreviewSessionSheet();
+  const previewScrim=$("#previewSessionScrim");if(previewScrim)previewScrim.onclick=()=>closePreviewSessionSheet();
+  const previewStart=document.querySelector("[data-preview-start]");if(previewStart)previewStart.onclick=async()=>{
+    const p=closePreviewSessionSheet(); if(p && typeof p.then==="function") await p;
+    await enterWorkout({focus:true});
+  };
   const otherDay=$("#chooseAnotherDay");if(otherDay)otherDay.onclick=()=>openDayPickSheet();
   const viewEx=$("#viewExercises");if(viewEx)viewEx.onclick=()=>enterWorkout({focus:false});
   const reviewToday=$("#reviewTodaySession");if(reviewToday)reviewToday.onclick=()=>openTodaySessionInHistory();

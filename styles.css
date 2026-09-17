@@ -1580,6 +1580,15 @@ body.is-sheet-open{overflow:hidden}
 }
 .sheet__foot--stack{display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--rule)}
 .sheet__foot--stack .text-link{min-height:44px}
+.sheet--preview{height:auto}
+.preview__body{flex-direction:column;overflow:hidden;padding:0 16px}
+.preview__list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
+.preview__row{display:flex;flex-direction:column;gap:4px;width:100%;padding:12px 12px;text-align:left;background:none;border:0;border-bottom:1px solid var(--rule);cursor:pointer}
+.preview__row:last-child{border-bottom:0}
+.preview__row-main{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.preview__name{font-size:15px;font-weight:600;color:var(--ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.preview__sets{font-size:13px;color:var(--ink-soft);flex:none;white-space:nowrap}
+.preview__meta{font-size:12px;color:var(--ink-faint);line-height:1.4}
 
 /* ---- Rest timer sheet ---- */
 /* Tapping a running clock used to end the rest, which is the one thing a lifter
