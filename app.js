@@ -2655,6 +2655,7 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
     ?`<p class="review__readonly" role="note">${esc(t("review.active_readonly"))}</p>`:"";
   const rec=blockSnapshot(meta,state.log).recommendation;
   const recCopy=blockRecommendationCopy(rec);
+  if(reviewFlow){renderReviewFlow(el);return}
   el.innerHTML=`<div class="blockprogress"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
     `<p><b>${esc(weekLine)}</b></p>`+
     `<p><b>${esc(t("review.sessions"))}</b> ${esc(t("review.sessions_completed",{done:volume.completedSessions,planned:volume.period.plannedSessions||volume.plannedSessions}))}</p>`+
@@ -2671,7 +2672,7 @@ function reviewObservedOutcomes(){
 // Structural actions appear only at a completed boundary (Plan 056/P5). Each
 // kind renders only when its production flow is wired in this packet; the
 // eligibility contract itself lives in progress-model.js.
-const REVIEW_ACTION_LABELS={repeat:"review.action.repeat"};
+const REVIEW_ACTION_LABELS={repeat:"review.action.repeat","schedule-repair":"review.action.schedule_repair","guided-edit":"review.action.guided_edit"};
 function renderReviewActions(checkpoint){
   const kinds=checkpoint.structuralActions.filter(k=>REVIEW_ACTION_LABELS[k]);
   if(!kinds.length)return "";
@@ -2695,6 +2696,125 @@ function legacyReviewPanel(el){
     `<p><b>${esc(t("review.lifts"))}</b> ${esc(t("review.lifts_summary",{improved:snap.improvedLifts,flat:snap.flatLifts,stalled:snap.stalledLifts}))}</p>`+
     `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p></div>`+
     `<p class="review__summary">${esc(summary)}</p>`}
+// --- Schedule repair flow (Plan 056/P6): one diagnosed question, then either
+// the exact Plan 052 sibling proposal (rendered from its own diff and
+// confirmed by hash) or the exact-program guided fallback, which stages a
+// setup draft and never archives. Cancel leaves the program untouched.
+let reviewFlow=null;
+function startScheduleRepair(){reviewFlow={stage:"diagnosis",action:"schedule-repair",kind:"fewer_days",target:""};renderReview()}
+function startGuidedEdit(){reviewFlow={stage:"diagnosis",action:"guided-edit",kind:"fewer_days",target:""};renderReview()}
+async function closeReviewFlow(){
+  if(reviewFlow?.stage==="staged"){
+    const cleared=await clearSetupDraft();
+    if(!cleared?.ok){reviewFlow={stage:"error",code:cleared?.conflict?"save_conflict":"save_failed"};renderReview();return}}
+  reviewFlow=null;renderReview()}
+function reviewMovementLabel(mid){
+  const raw=String(mid||"").replace(/^(library|custom):/,"");
+  const entry=raw?libraryEntry(raw):null;
+  return libraryName(entry)||raw}
+function renderReviewFlow(el){
+  const flow=reviewFlow||{};
+  if(flow.stage==="preview")return renderSiblingPreview(el,flow);
+  if(flow.stage==="staged"){
+    el.innerHTML=`<p class="review__staged" role="status">${esc(t("review.staged.done"))}</p>`+
+      `<div class="btnrow"><button type="button" class="btn btn--cta" data-flow-editor>${esc(t("review.staged.open"))}</button>`+
+      `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
+    const open=$("[data-flow-editor]",el);if(open)open.onclick=()=>{reviewFlow=null;startOnboarding("settings",{userInitiated:true})};
+    bindFlowCancel(el);return}
+  if(flow.stage==="error"){
+    const stale=flow.stale===true||String(flow.code||"").includes("stale")||String(flow.code||"").includes("mismatch");
+    el.innerHTML=`<p class="review__error" role="alert">${esc(t(stale?"review.error.stale":"review.error.failed"))}</p>`+
+      `<div class="btnrow"><button type="button" class="btn btn--steel" data-flow-restart>${esc(t("review.error.retry"))}</button>`+
+      `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
+    const restart=$("[data-flow-restart]",el);if(restart)restart.onclick=startScheduleRepair;
+    bindFlowCancel(el);return}
+  if(flow.stage==="done"){
+    el.innerHTML=`<p class="review__staged" role="status">${esc(t("review.done.committed"))}</p>`+
+      `<div class="btnrow"><button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.close"))}</button></div>`;
+    bindFlowCancel(el);return}
+  // diagnosis
+  const isDays=flow.kind!=="sessions_too_long";
+  const targetLabel=isDays?t("review.diagnosis.days_question"):t("review.diagnosis.minutes_question");
+  el.innerHTML=`<p class="section-label">${esc(t("review.diagnosis.title"))}</p>`+
+    `<div class="review__diag">`+
+    `<button type="button" class="radio-card${flow.kind==="fewer_days"?" is-selected":""}" data-diag="fewer_days"><span class="radio-card__body"><span class="radio-card__title">${esc(t("review.diagnosis.fewer_days"))}</span></span><span class="radio-card__mark"></span></button>`+
+    `<button type="button" class="radio-card${flow.kind==="sessions_too_long"?" is-selected":""}" data-diag="sessions_too_long"><span class="radio-card__body"><span class="radio-card__title">${esc(t("review.diagnosis.sessions_too_long"))}</span></span><span class="radio-card__mark"></span></button>`+
+    `</div><label class="field"><span>${esc(targetLabel)}</span>`+
+    `<input type="number" inputmode="numeric" min="${isDays?1:15}" max="${isDays?7:240}" step="1" value="${esc(flow.target)}" data-diag-target></label>`+
+    (flow.error?`<p class="review__error" role="alert">${esc(t(flow.error))}</p>`:"")+
+    `<div class="btnrow"><button type="button" class="btn btn--cta" data-diag-continue>${esc(t(flow.action==="guided-edit"?"review.diagnosis.edit":"review.diagnosis.continue"))}</button>`+
+    `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
+  $$("[data-diag]",el).forEach(b=>b.onclick=()=>{flow.kind=b.dataset.diag;flow.error=null;renderReview()});
+  const input=$("[data-diag-target]",el);
+  if(input)input.oninput=()=>{flow.target=input.value;flow.error=null};
+  const cont=$("[data-diag-continue]",el);if(cont)cont.onclick=continueScheduleDiagnosis;
+  bindFlowCancel(el)}
+function bindFlowCancel(el){const c=$("[data-flow-cancel]",el);if(c)c.onclick=()=>void closeReviewFlow()}
+async function continueScheduleDiagnosis(){
+  const flow=reviewFlow;if(!flow||flow.stage!=="diagnosis")return;
+  const n=Number(flow.target);
+  const valid=flow.kind==="fewer_days"?Number.isInteger(n)&&n>=1&&n<=7:Number.isInteger(n)&&n>=15&&n<=240;
+  if(!valid){flow.error=flow.kind==="fewer_days"?"review.diagnosis.days_invalid":"review.diagnosis.minutes_invalid";renderReview();return}
+  const answers=flow.kind==="fewer_days"?{availableDays:n}:{sessionMinutes:n};
+  const diagnosis={kind:flow.kind,answers,eligibleEvidenceIds:["explicit_schedule_repair"],insufficientEvidenceReasons:[]};
+  if(flow.action==="guided-edit")return stageGuidedRepairFlow(diagnosis,null);
+  const res=await repforgeProgramTransitionAdapter.proposeSibling({diagnosis,transitionId:uid(),successorProgramId:uid()});
+  if(res?.ok){reviewFlow={stage:"preview",action:"schedule-repair",proposal:res.proposal};renderReview()}
+  else await stageGuidedRepairFlow(diagnosis,res)}
+async function stageGuidedRepairFlow(diagnosis,unavailable){
+  const staged=await window.__repforgeStageGuidedManualRepair(unavailable
+    ?{diagnosis,unavailable,openEditor:false}:{diagnosis,openEditor:false});
+  if(staged?.ok){reviewFlow={stage:"staged"};renderReview()}
+  else{reviewFlow={stage:"error",code:staged?.code||"guided_staging_failed"};renderReview()}}
+function reviewDiffMovement(entry){
+  const slotId=entry?.successorSlot||entry?.predecessorSlot;
+  const live=(state.program||[]).find(row=>(row.slotId||row.id)===slotId);
+  return reviewMovementLabel(entry?.movement||live?.libraryId||live?.movementId)||live?.name||slotId||"—"}
+function reviewPrescriptionText(snapshot){
+  if(!snapshot)return"—";
+  const reps=(snapshot.reps||[]).join("–"),rir=(snapshot.rir||[]).join("–");
+  return t("review.preview.prescription",{sets:snapshot.sets,reps,rir,rest:snapshot.restSeconds,
+    strategy:snapshot.strategy,kind:snapshot.prescriptionClass})}
+function renderSiblingPreview(el,flow){
+  const p=flow.proposal||{},diff=p.diff||{};
+  const beforeDays=[...new Set(state.program.map(r=>r.day))].length;
+  const afterDays=(diff.days||[]).filter(d=>d.after).length;
+  const beforeMinutes=Number(state.programMeta?.compilerContext?.sessionMinutes)||0;
+  const afterMinutes=p.kind==="shorter_session_sibling"?Number(p.diagnosis?.answers?.sessionMinutes)||0:beforeMinutes;
+  const added=(diff.exercises||[]).filter(e=>!e.before&&e.after);
+  const removed=(diff.exercises||[]).filter(e=>e.before&&!e.after);
+  const changed=(diff.prescriptions||[]).filter(x=>x.reason==="prescription changed");
+  const lines=[];
+  for(const x of diff.days||[]){
+    if(x.before&&x.after&&x.before.label===x.after.label&&x.before.index===x.after.index&&x.before.slots===x.after.slots)continue;
+    lines.push(`<li>${esc(t("review.preview.day_change",{before:x.before?`${x.before.label} · ${x.before.slots}`:"—",
+      after:x.after?`${x.after.label} · ${x.after.slots}`:"—"}))}</li>`)}
+  for(const x of changed)lines.push(`<li>${esc(t("review.preview.prescription_change",{movement:reviewDiffMovement(x),
+    before:reviewPrescriptionText(x.before),after:reviewPrescriptionText(x.after)}))}</li>`);
+  for(const x of added)lines.push(`<li>${esc(t("review.preview.exercise_added",{movement:reviewDiffMovement(x),sets:x.after.sets}))}</li>`);
+  for(const x of removed)lines.push(`<li>${esc(t("review.preview.exercise_removed",{movement:reviewDiffMovement(x),sets:x.before.sets}))}</li>`);
+  el.innerHTML=`<p class="section-label">${esc(t("review.preview.title"))}</p>`+
+    `<p><b>${esc(t("review.preview.frequency",{before:beforeDays,after:afterDays}))}</b></p>`+
+    (beforeMinutes&&afterMinutes?`<p><b>${esc(t("review.preview.duration",{before:beforeMinutes,after:afterMinutes}))}</b></p>`:"")+
+    `<p class="lede">${esc(t("review.preview.provenance"))}</p>`+
+    (lines.length?`<ul class="review__diff">${lines.join("")}</ul>`:`<p class="lede">${esc(t("review.preview.exercises_unchanged"))}</p>`)+
+    `<p class="lede"><code>${esc(String(p.proposalHash||""))}</code></p>`+
+    `<p class="lede">${esc(t("review.preview.hash_note"))}</p>`+
+    `<div class="btnrow"><button type="button" class="btn btn--cta" data-preview-confirm>${esc(t("review.preview.confirm"))}</button>`+
+    `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.preview.cancel"))}</button></div>`;
+  const confirm=$("[data-preview-confirm]",el);
+  if(confirm)confirm.onclick=async()=>{
+    confirm.disabled=true;
+    const persisted=await repforgeProgramTransitionAdapter.confirmTransition({
+      proposal:p,proposalHash:p.proposalHash,transitionId:p.transitionId,
+      successorProgramId:p.successor?.programId,confirmedAt:new Date().toISOString(),
+      acknowledgedDraftRaw:readDraftRaw()});
+    if(persisted?.committed){
+      reviewFlow={stage:"done"};day=days()[0]||"Day 1";toast(t("review.done.committed"));render();
+    }else{
+      reviewFlow={stage:"error",code:persisted?.code,stale:persisted?.duplicate===true||!!persisted?.staleRevision};
+      render()}}
+  bindFlowCancel(el)}
 let pendingBlockTransition=null;
 let onboardingOrigin=null;
 let blockCommitInFlight=null;
