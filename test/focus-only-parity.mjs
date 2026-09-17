@@ -41,13 +41,35 @@ async function liveField(page,keySuffix,value){
   const live=page.locator(`#workout .exercise.is-current:not(.is-peek) [data-k$="${keySuffix}"]`).first();
   await live.waitFor({state:"visible",timeout:5000});
   const key=await live.getAttribute("data-k");
-  await live.fill(String(value));
+  // Dispatch one browser input event and wait for the visible control's async
+  // handler. Playwright's multi-step editing helpers can otherwise overlap a
+  // field re-render with the replacement keystrokes.
+  await live.evaluate((el, next) => {
+    el.value = next;
+    el.dispatchEvent(new InputEvent("input", { bubbles: true, inputType: "insertText", data: next }));
+  }, String(value));
   await flushDraft(page);
-  await page.waitForFunction(({key,value})=>{
-    const target=window.__repforgeWorkoutDraft.target(key);
-    const draft=window.__repforgeWorkoutDraft.current();
-    return target && String(draft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId]?.edited?.[target.field]??"")===String(value);
-  },{key,value},{timeout:5000});
+  try {
+    await page.waitForFunction(({key,value})=>{
+      const target=window.__repforgeWorkoutDraft.target(key);
+      const draft=window.__repforgeWorkoutDraft.current();
+      return target && String(draft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId]?.edited?.[target.field]??"")===String(value);
+    },{key,value},{timeout:5000});
+  } catch (error) {
+    const diagnostic = await page.evaluate(({ key, value }) => {
+      const target = window.__repforgeWorkoutDraft.target(key);
+      const draft = window.__repforgeWorkoutDraft.current();
+      const set = target && draft?.exercises?.[target.exerciseInstanceId]?.sets?.[target.setId];
+      const persisted = window.__repforgeWorkoutDraft.read();
+      return { key, expected: String(value), target, edited: set?.edited, touched: set?.touched,
+        completion: set?.completion,
+        visibleValue: document.querySelector(`#workout .exercise.is-current:not(.is-peek) [data-k="${CSS.escape(key)}"]`)?.value,
+        activeRevision: draft?.revision, persistedStatus: persisted?.status,
+        persistedRevision: persisted?.draft?.revision, recovery: window.__repforgeWorkoutDraft.recovery() };
+    }, { key, value });
+    console.error(`live field did not reach DraftV2: ${JSON.stringify(diagnostic)}`);
+    throw error;
+  }
   return live;
 }
 async function liveWellButton(page, kind) {
