@@ -142,6 +142,7 @@
               <span class="icon-mask icon-mask--sm icon-mask--timer wo-rest__icon" aria-hidden="true"></span>
               <span class="wo-rest__time" aria-hidden="true"></span>
             </button>
+            <button type="button" class="icon-btn icon-btn--ghost" id="sessionSheetBtn" aria-label="Session details" data-i18n-aria="session.sheet.btn_aria"><span class="icon-mask icon-mask--sheet" aria-hidden="true"></span></button>
             <button type="button" class="icon-btn icon-btn--ghost" id="woOverflowBtn" aria-label="More" aria-haspopup="true" aria-expanded="false" aria-controls="woOverflow"><span class="icon-mask icon-mask--overflow" aria-hidden="true"></span></button>
             <div id="woOverflow" class="wo-overflow hidden">
               <div class="modeswitch" role="group" data-i18n-aria="log.layout_aria" aria-label="Log layout">
@@ -914,6 +915,47 @@ Progress.</p>
       <button type="button" class="text-link text-link--center" id="previewSessionClose" data-i18n="dialog.close">Close</button>
     </div>
   </div>
+  <div id="sessionSheetScrim" class="sheet-scrim hidden"></div>
+  <div id="sessionSheet" class="sheet sheet--session hidden" role="dialog" aria-modal="true" aria-labelledby="sessionSheetTitle" hidden>
+    <span class="sheet__grab" aria-hidden="true"></span>
+    <div class="sheet__head sheet__head--stack">
+      <div class="sheet__titles">
+        <p class="sheet__title" id="sessionSheetTitle" data-i18n="session.sheet.title">Session details</p>
+        <p class="sheet__sub" id="sessionSheetSub" data-i18n="session.sheet.subtitle">Overview and workout notes</p>
+      </div>
+    </div>
+    <div class="sheet__body session-sheet__body">
+      <div class="session-sheet__meta">
+        <label class="field"><span data-i18n="log.date">Date</span>
+          <input id="sessionDate" type="date">
+        </label>
+        <label class="field"><span data-i18n="log.bodyweight">Bodyweight (optional)</span>
+          <input id="sessionBodyweight" type="text" inputmode="decimal" enterkeyhint="done" placeholder="kg">
+        </label>
+        <label class="field"><span data-i18n="log.notes">Session notes</span>
+          <textarea id="sessionNotes" rows="3" data-i18n-placeholder="log.notes.placeholder" placeholder="Belt on, felt strong, machine #3 squeaks…"></textarea>
+        </label>
+      </div>
+      <div class="session-sheet__overview">
+        <p class="section-label" data-i18n="session.sheet.overview_label">Session map</p>
+        <div id="sessionMap" class="session-map" role="group" aria-labelledby="sessionSheetTitle"></div>
+      </div>
+      <div class="session-sheet__early-section" id="sessionEarlySection">
+        <button type="button" class="btn btn--steel session-early-btn" id="sessionEarlyFinish" data-i18n="session.sheet.early_finish">Finish session early</button>
+        <div id="sessionEarlyPrompt" class="session-early-prompt hidden" aria-live="polite">
+          <p class="session-early-msg" id="sessionEarlyMsg" data-i18n="session.sheet.early_prompt">Unlogged sets will be omitted.</p>
+          <div class="session-early-actions">
+            <button type="button" class="btn btn--cta session-early-confirm" id="sessionEarlyConfirm" data-i18n="session.sheet.early_confirm">Confirm early finish</button>
+            <button type="button" class="btn btn--steel" id="sessionEarlyCancel" data-i18n="dialog.cancel">Cancel</button>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="sheet__foot sheet__foot--stack">
+      <button type="button" class="text-link text-link--center" id="sessionSheetClose" data-i18n="dialog.close">Close</button>
+    </div>
+  </div>
+
   <div id="dayPickScrim" class="sheet-scrim hidden"></div>
   <div id="dayPickSheet" class="sheet sheet--daypick hidden" role="dialog" aria-modal="true" aria-labelledby="dayPickTitle" hidden>
     <span class="sheet__grab" aria-hidden="true"></span>
@@ -1106,19 +1148,19 @@ Progress.</p>
        reordering stays reachable through each row's Move controls. -->
   <script src="vendor/motion/motion.js"></script>
   <script src="vendor/dnd-kit/dnd-kit.js"></script>
-  <script src="motion-layer.js?v=258"></script>
-  <script src="program-compiler.js?v=258"></script>
-  <script src="program-entry.js?v=258"></script>
-  <script src="program-entry-adapter.js?v=258"></script>
-  <script src="program-editor.js?v=258"></script>
-  <script src="shared-setup.js?v=258"></script>
-  <script src="workout-draft.js?v=258"></script>
-  <script src="program-transition.js?v=258"></script>
+  <script src="motion-layer.js?v=259"></script>
+  <script src="program-compiler.js?v=259"></script>
+  <script src="program-entry.js?v=259"></script>
+  <script src="program-entry-adapter.js?v=259"></script>
+  <script src="program-editor.js?v=259"></script>
+  <script src="shared-setup.js?v=259"></script>
+  <script src="workout-draft.js?v=259"></script>
+  <script src="program-transition.js?v=259"></script>
   <script src="install-transfer-contract.js"></script>
   <script src="install-transfer.js"></script>
-  <script src="install-policy.js?v=258"></script>
-  <script src="guide-registry.js?v=258"></script>
-  <script src="durable-state.js?v=258"></script>
-  <script src="app.js?v=258"></script>
+  <script src="install-policy.js?v=259"></script>
+  <script src="guide-registry.js?v=259"></script>
+  <script src="durable-state.js?v=259"></script>
+  <script src="app.js?v=259"></script>
 </body>
 </html>

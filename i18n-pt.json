@@ -1899,5 +1899,13 @@
   "landing.proof.reps": "3 séries × 8 repetições",
   "landing.proof.reason": "Você chegou ao topo da faixa de repetições. Aumente a carga e volte a subir as repetições.",
   "landing.closing.title": "Comece de onde você está.",
-  "landing.closing.body": "Monte um programa do zero, ou traga o que você já treina. De qualquer jeito, sua próxima série já está decidida."
+  "landing.closing.body": "Monte um programa do zero, ou traga o que você já treina. De qualquer jeito, sua próxima série já está decidida.",
+  "session.sheet.btn_aria": "Detalhes da sessão",
+  "session.sheet.title": "Detalhes da sessão",
+  "session.sheet.subtitle": "Visão geral e notas do treino",
+  "session.sheet.overview_label": "Mapa da sessão",
+  "session.sheet.early_finish": "Concluir treino mais cedo",
+  "session.sheet.early_prompt": "Séries não registradas serão omitidas do histórico.",
+  "session.sheet.early_confirm": "Confirmar conclusão antecipada",
+  "session.sheet.stale_error": "A sessão foi atualizada. Revise antes de concluir."
 }

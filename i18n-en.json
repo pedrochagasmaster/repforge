@@ -1899,5 +1899,13 @@
   "landing.proof.reps": "3 sets × 8 reps",
   "landing.proof.reason": "Top of the rep range reached. Add load, then build the reps again.",
   "landing.closing.title": "Start where you are.",
-  "landing.closing.body": "Build a program from scratch, or bring the one you already run. Either way, your next set is already decided."
+  "landing.closing.body": "Build a program from scratch, or bring the one you already run. Either way, your next set is already decided.",
+  "session.sheet.btn_aria": "Session details",
+  "session.sheet.title": "Session details",
+  "session.sheet.subtitle": "Overview and workout notes",
+  "session.sheet.overview_label": "Session map",
+  "session.sheet.early_finish": "Finish session early",
+  "session.sheet.early_prompt": "Unlogged sets will be omitted from history.",
+  "session.sheet.early_confirm": "Confirm early finish",
+  "session.sheet.stale_error": "Session was updated. Review before finishing."
 }

@@ -2001,6 +2001,10 @@ function applyDraftContextToDom(){
   if(dateEl) dateEl.value=Object.prototype.hasOwnProperty.call(d,"__date")?d.__date:today();
   if(bwEl) bwEl.value=Object.prototype.hasOwnProperty.call(d,"__bodyweight")?d.__bodyweight:lastBodyweight();
   if(notesEl) notesEl.value=Object.prototype.hasOwnProperty.call(d,"__sessionNotes")?d.__sessionNotes:"";
+  const sDate=$("#sessionDate"),sBw=$("#sessionBodyweight"),sNotes=$("#sessionNotes");
+  if(sDate&&dateEl)sDate.value=dateEl.value;
+  if(sBw&&bwEl)sBw.value=bwEl.value;
+  if(sNotes&&notesEl)sNotes.value=notesEl.value;
 }
 function resetSessionContextFields(){
   contextTouched={day:false,date:false,sessionNotes:false,bodyweight:false};
@@ -2008,6 +2012,10 @@ function resetSessionContextFields(){
   if(notesEl)notesEl.value="";
   if(dateEl)dateEl.value=today();
   if(bwEl)bwEl.value=lastBodyweight();
+  const sNotes=$("#sessionNotes"),sDate=$("#sessionDate"),sBw=$("#sessionBodyweight");
+  if(sNotes)sNotes.value="";
+  if(sDate)sDate.value=today();
+  if(sBw)sBw.value=lastBodyweight();
 }
 function isDisposableDraft(draft){
   // A stale draft may skip the explicit recovery surface only when replacing
@@ -5444,6 +5452,88 @@ function closePreviewSessionSheet(){
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
   return closeModal(sheet);
 }
+
+/* ---- Session sheet (Focus workout) ---- */
+let sessionEarlyRevision = null;
+
+function renderSessionSheet(){
+  const sheet = $("#sessionSheet");
+  if (!sheet) return;
+  const draft = activeWorkoutDraft;
+  const dateInput = $("#sessionDate");
+  if (dateInput) dateInput.value = draft?.program?.scheduleDate || todayIso();
+  const bwInput = $("#sessionBodyweight");
+  if (bwInput) {
+    bwInput.value = displayDraftText("bodyweight", draft?.session?.bodyweight) || "";
+    bwInput.placeholder = unitLabel();
+  }
+  const notesInput = $("#sessionNotes");
+  if (notesInput) notesInput.value = draft?.session?.notes || "";
+
+  // Render Session map
+  const mapEl = $("#sessionMap");
+  if (mapEl && draft) {
+    const rows = (draft.exerciseOrder || []).map(exId => {
+      const ex = draft.exercises[exId];
+      if (!ex) return "";
+      const doneCount = ex.setOrder.filter(sid => ex.sets[sid]?.completion !== "pending").length;
+      const totalCount = ex.setOrder.length;
+      const isSkipped = ex.status === "skipped";
+      const statusText = isSkipped ? t("focus.skipped") : `${doneCount}/${totalCount}` + (doneCount === totalCount && totalCount > 0 ? " ✓" : "");
+      return `<button type="button" class="session-map__row" data-session-map-ex="${esc(exId)}">` +
+        `<span class="session-map__name">${esc(ex.displayName)}</span>` +
+        `<span class="session-map__status ${doneCount === totalCount && totalCount > 0 ? "is-complete" : isSkipped ? "is-skipped" : ""}">${esc(statusText)}</span>` +
+        `</button>`;
+    }).filter(Boolean);
+    mapEl.innerHTML = rows.join("");
+    $$("#sessionMap [data-session-map-ex]").forEach(b => b.onclick = () => {
+      const exId = b.dataset.sessionMapEx;
+      closeSessionSheet().then(() => {
+        if (window.__repforgeFocus) {
+          const list = window.__repforgeFocus.list() || [];
+          const idx = list.findIndex(e => e.id === exId);
+          if (idx >= 0) window.__repforgeFocus.to(idx);
+        }
+      });
+    });
+  }
+
+  // Reset early finish prompt
+  sessionEarlyRevision = null;
+  const earlyPrompt = $("#sessionEarlyPrompt");
+  if (earlyPrompt) earlyPrompt.classList.add("hidden");
+  const earlyBtn = $("#sessionEarlyFinish");
+  if (earlyBtn) earlyBtn.classList.remove("hidden");
+  const earlyMsg = $("#sessionEarlyMsg");
+  if (earlyMsg) {
+    earlyMsg.classList.remove("is-error");
+    earlyMsg.textContent = t("session.sheet.early_prompt");
+  }
+}
+
+function openSessionSheet(){
+  if (!activeWorkoutDraft) return;
+  renderSessionSheet();
+  const sheet = $("#sessionSheet"), scrim = $("#sessionSheetScrim");
+  if (!sheet) return;
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet, {
+    initialFocus: $("#sessionDate") || $("#sessionSheetClose"),
+    onEscape: closeSessionSheet,
+    scrim,
+    delayHide: reducedMotion() ? 0 : 280
+  });
+  requestAnimationFrame(() => { sheet.classList.add("is-open"); scrim?.classList.add("is-open"); });
+}
+
+function closeSessionSheet(){
+  const sheet = $("#sessionSheet");
+  if (!sheet) return Promise.resolve(false);
+  if (sheet.hidden && !(activeModal && activeModal.el === sheet)) return Promise.resolve(false);
+  return closeModal(sheet);
+}
+window.__repforgeSessionSheet = { open: openSessionSheet, close: closeSessionSheet, render: renderSessionSheet };
+
 
 function render(){applyI18n();
   // Auto-resume an in-progress session (page reload mid-workout), but never
@@ -14505,11 +14595,65 @@ function init(){
     if(e.key==="ArrowRight")focusAnimateTo(1);
     else if(e.key==="ArrowLeft")focusAnimateTo(-1)});
   const woDate=$("#date");if(woDate)woDate.addEventListener("change",async()=>{contextTouched.date=true;
-    if(activeWorkoutDraft)await enqueueDraftCommand("setSessionDate",{value:woDate.value},{pendingValue:woDate.value});closeWorkoutOverflow()});
+    if(activeWorkoutDraft)await enqueueDraftCommand("setSessionDate",{value:woDate.value},{pendingValue:woDate.value});
+    const sDate=$("#sessionDate");if(sDate&&sDate.value!==woDate.value)sDate.value=woDate.value;
+    closeWorkoutOverflow()});
   const woNotes=$("#notes");if(woNotes)woNotes.addEventListener("input",async()=>{contextTouched.sessionNotes=true;
-    if(activeWorkoutDraft)await enqueueDraftCommand("setSessionNotes",{value:woNotes.value},{pendingValue:woNotes.value})});
+    if(activeWorkoutDraft)await enqueueDraftCommand("setSessionNotes",{value:woNotes.value},{pendingValue:woNotes.value});
+    const sNotes=$("#sessionNotes");if(sNotes&&sNotes.value!==woNotes.value)sNotes.value=woNotes.value});
   const woBw=$("#bodyweight");if(woBw)woBw.addEventListener("input",async()=>{contextTouched.bodyweight=true;
-    if(activeWorkoutDraft)await enqueueDraftCommand("setBodyweight",{value:canonicalDraftBodyweight(woBw.value)},{pendingValue:woBw.value})});
+    if(activeWorkoutDraft)await enqueueDraftCommand("setBodyweight",{value:canonicalDraftBodyweight(woBw.value)},{pendingValue:woBw.value});
+    const sBw=$("#sessionBodyweight");if(sBw&&sBw.value!==woBw.value)sBw.value=woBw.value});
+
+  const sessionSheetBtn=$("#sessionSheetBtn");if(sessionSheetBtn)sessionSheetBtn.onclick=()=>openSessionSheet();
+  const sessionSheetClose=$("#sessionSheetClose");if(sessionSheetClose)sessionSheetClose.onclick=()=>closeSessionSheet();
+  const sessionSheetScrim=$("#sessionSheetScrim");if(sessionSheetScrim)sessionSheetScrim.onclick=()=>closeSessionSheet();
+
+  const sessDate=$("#sessionDate");if(sessDate)sessDate.addEventListener("change",async()=>{
+    contextTouched.date=true;
+    if(activeWorkoutDraft)await enqueueDraftCommand("setSessionDate",{value:sessDate.value},{pendingValue:sessDate.value});
+    const woDate=$("#date");if(woDate&&woDate.value!==sessDate.value)woDate.value=sessDate.value;
+  });
+
+  const sessBw=$("#sessionBodyweight");if(sessBw)sessBw.addEventListener("input",async()=>{
+    contextTouched.bodyweight=true;
+    if(activeWorkoutDraft)await enqueueDraftCommand("setBodyweight",{value:canonicalDraftBodyweight(sessBw.value)},{pendingValue:sessBw.value});
+    const woBw=$("#bodyweight");if(woBw&&woBw.value!==sessBw.value)woBw.value=sessBw.value;
+  });
+
+  const sessNotes=$("#sessionNotes");if(sessNotes)sessNotes.addEventListener("input",async()=>{
+    contextTouched.sessionNotes=true;
+    if(activeWorkoutDraft)await enqueueDraftCommand("setSessionNotes",{value:sessNotes.value},{pendingValue:sessNotes.value});
+    const woNotes=$("#notes");if(woNotes&&woNotes.value!==sessNotes.value)woNotes.value=sessNotes.value;
+  });
+
+  const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.onclick=()=>{
+    if(!activeWorkoutDraft)return;
+    sessionEarlyRevision=activeWorkoutDraft.revision;
+    const earlyMsg=$("#sessionEarlyMsg");
+    if(earlyMsg){earlyMsg.classList.remove("is-error");earlyMsg.textContent=t("session.sheet.early_prompt")}
+    const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.remove("hidden");
+    earlyBtn.classList.add("hidden");
+  };
+
+  const earlyCancel=$("#sessionEarlyCancel");if(earlyCancel)earlyCancel.onclick=()=>{
+    sessionEarlyRevision=null;
+    const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.add("hidden");
+    const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.classList.remove("hidden");
+  };
+
+  const earlyConfirm=$("#sessionEarlyConfirm");if(earlyConfirm)earlyConfirm.onclick=async()=>{
+    if(!activeWorkoutDraft)return;
+    if(sessionEarlyRevision==null||activeWorkoutDraft.revision!==sessionEarlyRevision){
+      const earlyMsg=$("#sessionEarlyMsg");
+      if(earlyMsg){earlyMsg.classList.add("is-error");earlyMsg.textContent=t("session.sheet.stale_error")}
+      toast(t("session.sheet.stale_error"));
+      sessionEarlyRevision=activeWorkoutDraft.revision;
+      return;
+    }
+    const p=closeSessionSheet();if(p&&typeof p.then==="function")await p;
+    await saveWorkout();
+  };
   const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=async()=>{
     if(setupEditorOpen){requestEntryCancel();return}
     if(programEditMode){requestInstalledDone();return}

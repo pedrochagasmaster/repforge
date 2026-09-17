@@ -1902,6 +1902,14 @@ const EN = {
   "landing.proof.reason": "Top of the rep range reached. Add load, then build the reps again.",
   "landing.closing.title": "Start where you are.",
   "landing.closing.body": "Build a program from scratch, or bring the one you already run. Either way, your next set is already decided.",
+  "session.sheet.btn_aria": "Session details",
+  "session.sheet.title": "Session details",
+  "session.sheet.subtitle": "Overview and workout notes",
+  "session.sheet.overview_label": "Session map",
+  "session.sheet.early_finish": "Finish session early",
+  "session.sheet.early_prompt": "Unlogged sets will be omitted from history.",
+  "session.sheet.early_confirm": "Confirm early finish",
+  "session.sheet.stale_error": "Session was updated. Review before finishing.",
 };
 const PT = {
   "meta.description": "O Taurifer mantém seus treinos, rascunhos e histórico neste dispositivo. Links de configuração compartilham um programa e ajustes selecionados.",
@@ -3805,6 +3813,14 @@ const PT = {
   "landing.proof.reason": "Você chegou ao topo da faixa de repetições. Aumente a carga e volte a subir as repetições.",
   "landing.closing.title": "Comece de onde você está.",
   "landing.closing.body": "Monte um programa do zero, ou traga o que você já treina. De qualquer jeito, sua próxima série já está decidida.",
+  "session.sheet.btn_aria": "Detalhes da sessão",
+  "session.sheet.title": "Detalhes da sessão",
+  "session.sheet.subtitle": "Visão geral e notas do treino",
+  "session.sheet.overview_label": "Mapa da sessão",
+  "session.sheet.early_finish": "Concluir treino mais cedo",
+  "session.sheet.early_prompt": "Séries não registradas serão omitidas do histórico.",
+  "session.sheet.early_confirm": "Confirmar conclusão antecipada",
+  "session.sheet.stale_error": "A sessão foi atualizada. Revise antes de concluir.",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };
