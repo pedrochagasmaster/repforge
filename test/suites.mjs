@@ -35,6 +35,7 @@ export const SUITES = {
     s("test/progression-fixtures.mjs"),
     s("test/progression-engine.mjs"),
     s("test/progression-range-simulation.mjs"),
+    s("test/progress-model.mjs"),
     s("test/progression-strategies-simulation.mjs"),
     s("test/vendor-runtimes.mjs"),
     s("test/telemetry-fixtures.mjs"),
