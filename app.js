@@ -1943,6 +1943,10 @@ function enqueueDraftCommand(type,payload={},ui={}){
     const nextRaw=JSON.stringify(WorkoutDraft.serialize(next));
     const attempt={expectedDraftId:activeWorkoutDraft.draftId,expectedRevision:activeWorkoutDraft.revision,nextRaw,operationId};
     if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
+    if(window.__repforgeDraftFault==="persist-failure"){
+      showDraftCommandRecovery("storage-error",attempt,{pendingValue,focus});
+      return{status:"storage-error",code:"simulated-persist-failure"};
+    }
     const written=await DraftStore.compareAndSwapV2(attempt);
     if(written.status==="applied"){activeWorkoutDraft=written.draft;activeWorkoutDraftRaw=written.raw;
       hydrateDraftCollections(workoutDraftProjection());clearDraftUiRecovery()}
@@ -4096,6 +4100,15 @@ function updateBodyweightField(){const el=$("#bodyweight");if(!el)return;
   const lbl=$("#bodyweightLabel")?.querySelector("span");
   if(lbl)lbl.textContent=t("log.bodyweight_unit",{unit:unitLabel()})}
 function focusList(){
+  if(activeWorkoutDraft&&Array.isArray(activeWorkoutDraft.exerciseOrder)){
+    const byId=new Map(exercises().map(e=>[e.id,e]));
+    const list=[];
+    for(const id of activeWorkoutDraft.exerciseOrder){
+      const e=byId.get(id);
+      if(e&&!skipped.has(e.id))list.push(e);
+    }
+    return list;
+  }
   const exs=exercises();
   return exs.filter(e=>!skipped.has(e.id))}
 function setWorkoutOverflow(open){const menu=$("#woOverflow");if(!menu)return;
@@ -5240,13 +5253,26 @@ async function enterWorkout(opts={}){if(opts.day&&!await requestWorkoutDay(opts.
     showDraftInitializationRecovery(prepared,{retryMode:"create",label:day,focusMode:opts.focus});return false}
   clearDraftUiRecovery();
   workoutLeft=false;setWorkoutActive(true);
+  hydrateDraftCollections(workoutDraftProjection(),{restoreSelection:true});
   // Focus layout matches mock 01; List remains the default for broad editing/tests.
   if(opts.focus===true)logMode="focus";
   else if(opts.focus===false)logMode="full";
   syncLogModeControls();
   document.body.classList.toggle("is-focus-wo",logMode==="focus");
   renderTabs();renderWorkout();renderToday();window.scrollTo({top:0});return true}
-function leaveWorkout(){workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0})}
+async function leaveWorkout(){
+  if(document.activeElement&&document.activeElement.tagName==="INPUT"){
+    document.activeElement.blur();
+  }
+  await drainDraftWork();
+  if(draftUiRecovery?.attempt||draftUiRecovery?.status||window.__repforgeDraftFault==="persist-failure"){
+    toast(t("workout.leave_failed"));
+    showDraftCommandRecovery("storage-error",draftUiRecovery?.attempt||{});
+    return false;
+  }
+  workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0});
+  return true;
+}
 function dayMuscles(d){const seen=[],exs=exercises(d||day);
   for(const e of exs){const m=String(e.primary||"").split(",")[0].trim();if(m&&!seen.includes(m))seen.push(m);if(seen.length>=3)break}
   return seen}
@@ -5473,28 +5499,65 @@ function renderSessionSheet(){
   // Render Session map
   const mapEl = $("#sessionMap");
   if (mapEl && draft) {
-    const rows = (draft.exerciseOrder || []).map(exId => {
+    const order = draft.exerciseOrder || [];
+    const rows = order.map((exId, idx) => {
       const ex = draft.exercises[exId];
       if (!ex) return "";
       const doneCount = ex.setOrder.filter(sid => ex.sets[sid]?.completion !== "pending").length;
       const totalCount = ex.setOrder.length;
       const isSkipped = ex.status === "skipped";
       const statusText = isSkipped ? t("focus.skipped") : `${doneCount}/${totalCount}` + (doneCount === totalCount && totalCount > 0 ? " ✓" : "");
-      return `<button type="button" class="session-map__row" data-session-map-ex="${esc(exId)}">` +
+      return `<div class="session-map__row" data-session-map-ex="${esc(exId)}">` +
+        `<button type="button" class="session-map__jump" data-session-map-jump="${esc(exId)}">` +
         `<span class="session-map__name">${esc(ex.displayName)}</span>` +
         `<span class="session-map__status ${doneCount === totalCount && totalCount > 0 ? "is-complete" : isSkipped ? "is-skipped" : ""}">${esc(statusText)}</span>` +
-        `</button>`;
+        `</button>` +
+        `<div class="session-map__reorder">` +
+        `<button type="button" class="session-map__reorder-btn" data-session-reorder-up="${esc(exId)}" aria-label="${esc(t("session.sheet.reorder_up_aria", { name: ex.displayName }))}"${idx === 0 ? " disabled" : ""}>` +
+        `<span class="icon-mask icon-mask--chev-up" aria-hidden="true"></span></button>` +
+        `<button type="button" class="session-map__reorder-btn" data-session-reorder-down="${esc(exId)}" aria-label="${esc(t("session.sheet.reorder_down_aria", { name: ex.displayName }))}"${idx === order.length - 1 ? " disabled" : ""}>` +
+        `<span class="icon-mask icon-mask--chev-down" aria-hidden="true"></span></button>` +
+        `</div></div>`;
     }).filter(Boolean);
     mapEl.innerHTML = rows.join("");
-    $$("#sessionMap [data-session-map-ex]").forEach(b => b.onclick = () => {
+    $$("#sessionMap [data-session-map-ex]").forEach(b => b.onclick = (e) => {
+      if (e.target.closest("[data-session-reorder-up], [data-session-reorder-down]")) return;
       const exId = b.dataset.sessionMapEx;
       closeSessionSheet().then(() => {
         if (window.__repforgeFocus) {
           const list = window.__repforgeFocus.list() || [];
-          const idx = list.findIndex(e => e.id === exId);
+          const idx = list.findIndex(item => item.id === exId);
           if (idx >= 0) window.__repforgeFocus.to(idx);
         }
       });
+    });
+    $$("#sessionMap [data-session-reorder-up]").forEach(b => b.onclick = async (e) => {
+      e.stopPropagation();
+      const exId = b.dataset.sessionReorderUp;
+      const currentOrder = (activeWorkoutDraft?.exerciseOrder || []).slice();
+      const idx = currentOrder.indexOf(exId);
+      if (idx > 0) {
+        [currentOrder[idx - 1], currentOrder[idx]] = [currentOrder[idx], currentOrder[idx - 1]];
+        const res = await enqueueDraftCommand("reorderExercises", { exerciseOrder: currentOrder });
+        if (res.status === "applied") {
+          renderWorkout();
+          renderSessionSheet();
+        }
+      }
+    });
+    $$("#sessionMap [data-session-reorder-down]").forEach(b => b.onclick = async (e) => {
+      e.stopPropagation();
+      const exId = b.dataset.sessionReorderDown;
+      const currentOrder = (activeWorkoutDraft?.exerciseOrder || []).slice();
+      const idx = currentOrder.indexOf(exId);
+      if (idx >= 0 && idx < currentOrder.length - 1) {
+        [currentOrder[idx], currentOrder[idx + 1]] = [currentOrder[idx + 1], currentOrder[idx]];
+        const res = await enqueueDraftCommand("reorderExercises", { exerciseOrder: currentOrder });
+        if (res.status === "applied") {
+          renderWorkout();
+          renderSessionSheet();
+        }
+      }
     });
   }
 

@@ -1931,6 +1931,9 @@ const EN = {
   "ex.actions.restore": "Restore exercise",
   "ex.actions.notes_title": "Exercise notes",
   "ex.actions.open_notes": "Edit exercise notes",
+  "session.sheet.reorder_up_aria": "Move {name} earlier in workout",
+  "session.sheet.reorder_down_aria": "Move {name} later in workout",
+  "workout.leave_failed": "Could not save workout progress. Please try again.",
 };
 const PT = {
   "meta.description": "O Taurifer mantém seus treinos, rascunhos e histórico neste dispositivo. Links de configuração compartilham um programa e ajustes selecionados.",
@@ -3863,6 +3866,9 @@ const PT = {
   "ex.actions.restore": "Restaurar exercício",
   "ex.actions.notes_title": "Notas do exercício",
   "ex.actions.open_notes": "Editar notas do exercício",
+  "session.sheet.reorder_up_aria": "Mover {name} para antes no treino",
+  "session.sheet.reorder_down_aria": "Mover {name} para depois no treino",
+  "workout.leave_failed": "Não foi possível salvar o progresso do treino. Tente novamente.",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

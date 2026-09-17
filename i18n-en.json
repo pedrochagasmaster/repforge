@@ -1928,5 +1928,8 @@
   "ex.actions.skip": "Skip exercise",
   "ex.actions.restore": "Restore exercise",
   "ex.actions.notes_title": "Exercise notes",
-  "ex.actions.open_notes": "Edit exercise notes"
+  "ex.actions.open_notes": "Edit exercise notes",
+  "session.sheet.reorder_up_aria": "Move {name} earlier in workout",
+  "session.sheet.reorder_down_aria": "Move {name} later in workout",
+  "workout.leave_failed": "Could not save workout progress. Please try again."
 }

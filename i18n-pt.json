@@ -1928,5 +1928,8 @@
   "ex.actions.skip": "Pular exercício",
   "ex.actions.restore": "Restaurar exercício",
   "ex.actions.notes_title": "Notas do exercício",
-  "ex.actions.open_notes": "Editar notas do exercício"
+  "ex.actions.open_notes": "Editar notas do exercício",
+  "session.sheet.reorder_up_aria": "Mover {name} para antes no treino",
+  "session.sheet.reorder_down_aria": "Mover {name} para depois no treino",
+  "workout.leave_failed": "Não foi possível salvar o progresso do treino. Tente novamente."
 }

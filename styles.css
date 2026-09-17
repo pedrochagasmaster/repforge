@@ -1596,12 +1596,17 @@ body.is-sheet-open{overflow:hidden}
 .session-sheet__meta{display:flex;flex-direction:column;gap:12px}
 .session-sheet__overview{display:flex;flex-direction:column;gap:8px}
 .session-map{display:flex;flex-direction:column;border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:var(--card)}
-.session-map__row{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;background:none;border:0;border-bottom:1px solid var(--rule);text-align:left;cursor:pointer;width:100%}
+.session-map__row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:none;border:0;border-bottom:1px solid var(--rule);text-align:left;width:100%;gap:8px}
 .session-map__row:last-child{border-bottom:0}
+.session-map__jump{display:flex;align-items:center;justify-content:space-between;flex:1;min-width:0;background:none;border:0;padding:4px 0;cursor:pointer;text-align:left;gap:8px}
 .session-map__name{font-size:14px;font-weight:600;color:var(--ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .session-map__status{font-size:12px;font-weight:600;color:var(--ink-soft);flex:none}
 .session-map__status.is-complete{color:var(--accent)}
 .session-map__status.is-skipped{color:var(--ink-faint)}
+.session-map__reorder{display:flex;align-items:center;gap:4px;flex:none}
+.session-map__reorder-btn{width:32px;height:32px;padding:0;display:inline-flex;align-items:center;justify-content:center;background:none;border:0;color:var(--ink-soft);border-radius:6px;cursor:pointer}
+.session-map__reorder-btn:hover:not(:disabled){background:var(--well);color:var(--ink)}
+.session-map__reorder-btn:disabled{opacity:0.3;cursor:default}
 .session-sheet__early-section{display:flex;flex-direction:column;gap:8px;padding-top:8px;border-top:1px solid var(--rule)}
 .session-early-prompt{display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--well);border-radius:8px}
 .session-early-msg{font-size:13px;color:var(--ink-soft);margin:0}
