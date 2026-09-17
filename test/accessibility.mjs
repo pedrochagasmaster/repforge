@@ -233,27 +233,6 @@ async function persistState(page, state) {
   );
 }
 
-async function readLogModeControls(page) {
-  return page.evaluate(() => {
-    const controls = [
-      { mode: "list", element: document.querySelector("#modeFull") },
-      { mode: "focus", element: document.querySelector("#modeFocus") },
-    ];
-    const active = controls.filter(({ element }) => element?.classList.contains("active")).map(({ mode }) => mode);
-    const pressed = controls.filter(({ element }) => element?.getAttribute("aria-pressed") === "true").map(({ mode }) => mode);
-    return {
-      active,
-      pressed,
-      same: active.length === 1 && pressed.length === 1 && active[0] === pressed[0],
-      attributes: controls.map(({ mode, element }) => ({
-        mode,
-        active: !!element?.classList.contains("active"),
-        pressed: element?.getAttribute("aria-pressed") || null,
-      })),
-    };
-  });
-}
-
 async function readLogicalFocus(page, selector) {
   return page.evaluate((sel) => {
     const element = document.querySelector(sel);
@@ -369,7 +348,7 @@ export async function runWorkoutValidationFocusCheck(browser, check = assert) {
 
   await page.click("#startWorkout");
   await page.waitForSelector("#workoutShell:not(.hidden)");
-  await page.evaluate(() => setLogMode("full"));
+
 
   const load = page.locator('#workout input[data-k$="_load"]').first();
   const loadKey = await load.getAttribute("data-k");
@@ -1072,8 +1051,8 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   await page.waitForSelector("#workoutShell:not(.hidden)");
   const modeStatus = await page.evaluate(() => ({
     modeSwitch: document.querySelector(".modeswitch"),
-    modeFull: document.querySelector("#modeFull"),
-    modeFocus: document.querySelector("#modeFocus"),
+    modeFull: document.querySelector("button#modeFull"),
+    modeFocus: document.querySelector("button#modeFocus"),
     isFocusWo: document.body.classList.contains("is-focus-wo"),
     isWorkoutFocus: document.querySelector("#workout")?.classList.contains("is-focus"),
   }));
@@ -1792,7 +1771,6 @@ async function visitSurfaces(page) {
     await start.click();
     await page.waitForSelector("#workoutShell:not(.hidden)");
     await page.evaluate(() => {
-      if (typeof setLogMode === "function") setLogMode("full");
     });
     const term = page.locator(".term[data-term]").first();
     if (await term.count()) await term.click().catch(() => {});
@@ -1946,15 +1924,17 @@ async function runDimmedStateAccessibility(browser) {
 
     await page.click("#startWorkout");
     await page.waitForSelector("#workoutShell:not(.hidden)");
-    await page.evaluate(() => setLogMode("full"));
-    await page.locator("#workout [data-warm]").first().click();
-    await page.waitForSelector("#workout .setrow.is-warmup");
+
+    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click();
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await page.locator("#exActionsClose").click();
     await page.evaluate(() =>
       document.getAnimations().forEach((animation) => animation.finish())
     );
     const warmup = await auditEnabledControlText(
       page,
-      "#workout .setrow.is-warmup"
+      "#workout .exercise.is-current .focus-well"
     );
     assert(
       warmup.controls.length >= 5,
@@ -2171,7 +2151,7 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
     };
   });
   assert(touch.step === "manipulation" && touch.field === "manipulation", "controls retain touch-action:manipulation", JSON.stringify(touch));
-  await page.evaluate(() => setLogMode("focus"));
+
   await page.waitForSelector("#workout .exercise.is-current");
   const grip = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");

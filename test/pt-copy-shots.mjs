@@ -112,9 +112,9 @@ async function main() {
   // Log a session end to end, so the saved-workout copy is the real one.
   await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
   await page.waitForTimeout(400);
-  const loads = page.locator("#workout .setrow input[data-k$='_load']");
-  const reps = page.locator("#workout .setrow input[data-k$='_reps']");
-  const rirs = page.locator("#workout .setrow input[data-k$='_rir']");
+  const loads = page.locator("#workout .exercise.is-current .curset input[data-k$='_load']");
+  const reps = page.locator("#workout .exercise.is-current .curset input[data-k$='_reps']");
+  const rirs = page.locator("#workout .exercise.is-current .curset input[data-k$='_rir']");
   const n = Math.min(await loads.count(), 4);
   for (let i = 0; i < n; i++) {
     await loads.nth(i).fill("60");

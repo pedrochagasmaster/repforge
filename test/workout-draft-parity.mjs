@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { selectExercise, openActions, exerciseAction, sessionField } from "./fixtures/focus-workout.mjs";
 /**
  * Production-backed characterization for Plan 051's workout-draft boundary.
  *
@@ -84,7 +85,7 @@ async function fillVisible(page, selector, value) {
 }
 
 async function chooseSubstitute(page, exerciseId, name) {
-  await page.locator(`.exercise[data-ex="${exerciseId}"] .subst__pick`).click();
+  await exerciseAction(page, exerciseId, "#exActionSubstBtn");
   await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
   await page.fill("#exPickSearch", name);
   await page.waitForTimeout(100);
@@ -99,10 +100,6 @@ async function chooseSubstitute(page, exerciseId, name) {
   assert(picked, "the visible substitution picker selects the exact library movement", name);
 }
 
-async function switchMode(page, buttonId) {
-  await page.locator("#woOverflowBtn").click();
-  await page.locator(buttonId).click();
-}
 
 function normalizeRows(rows) {
   return rows.map((row) => {
@@ -168,18 +165,18 @@ async function main() {
     await page.evaluate((key) => localStorage.removeItem(key), DRAFT_KEY);
     await reload(page);
 
-    console.log("\nList projection: previous values, metadata, skip/restore, substitution, warm-up");
+    console.log("\nFocus session: previous values, metadata, skip/restore, substitution, warm-up");
     await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false, day: "Day 1" }));
-    await page.waitForSelector("#workoutShell:not(.hidden) #workout:not(.is-focus)", { timeout: 5000 });
-    await page.locator(`.exercise[data-ex="${first.id}"] .copylast`).click();
+    await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus", { timeout: 5000 });
+    await exerciseAction(page, first.id, "#exActionRepeatBtn");
     await page.waitForTimeout(100);
 
     const repeated = await page.evaluate((id) => ({
       first: ["load", "reps", "rir"].map(
-        (field) => document.querySelector(`.exercise[data-ex="${id}"] [data-k="${id}_1_${field}"]`)?.value,
+        (field) => String(window.__repforgeWorkoutDraft.projection()[`${id}_1_${field}`] ?? ""),
       ),
       second: ["load", "reps", "rir"].map(
-        (field) => document.querySelector(`.exercise[data-ex="${id}"] [data-k="${id}_2_${field}"]`)?.value,
+        (field) => String(window.__repforgeWorkoutDraft.projection()[`${id}_2_${field}`] ?? ""),
       ),
     }), first.id);
     assert(
@@ -188,21 +185,26 @@ async function main() {
       JSON.stringify(repeated),
     );
 
+    await selectExercise(page, second.id);
     await fillVisible(page, `#workout [data-k="${second.id}_1_load"]`, 35);
     await fillVisible(page, `#workout [data-k="${second.id}_1_reps"]`, 12);
     await fillVisible(page, `#workout [data-k="${second.id}_1_rir"]`, 2);
-    await page.locator("#woOverflowBtn").click();
-    await fillVisible(page, "#date", SESSION_DATE);
-    await fillVisible(page, "#bodyweight", 82.5);
-    await fillVisible(page, "#notes", SESSION_NOTE);
-    await page.locator(`.exercise[data-ex="${first.id}"] [data-exnote-toggle="${first.id}"]`).click();
-    await fillVisible(page, `.exercise[data-ex="${first.id}"] [data-exnote="${first.id}"]`, EXERCISE_NOTE);
-    await page.locator(`.exercise[data-ex="${first.id}"] [data-warm="${first.id}_2"]`).click();
-
-    await page.locator(`.exercise[data-ex="${second.id}"] [data-skip="${second.id}"]`).click();
-    await page.locator(`.exercise[data-ex="${second.id}"] [data-skip="${second.id}"]`).click();
+    await sessionField(page, "#sessionDate", SESSION_DATE);
+    await sessionField(page, "#sessionBodyweight", 82.5);
+    await sessionField(page, "#sessionNotes", SESSION_NOTE);
+    await selectExercise(page, first.id);
+    await page.locator("#workout .exercise.is-current [data-exnote-open]").click();
+    await page.locator("#exNoteText").fill(EXERCISE_NOTE);
+    await page.locator("#exNoteSave").click();
+    await page.locator("#exNoteSheet").waitFor({state: "hidden"});
+    await openActions(page, first.id);
+    await page.locator("#exActionsWarmupList [data-warm-toggle-set]").nth(1).click();
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await page.locator("#exActionsClose").click();
+    await exerciseAction(page, second.id, "#exActionSkipBtn");
+    await exerciseAction(page, second.id, "#exActionSkipBtn");
     const restoredSecond = await page.evaluate((id) => ["load", "reps", "rir"].map(
-      (field) => document.querySelector(`.exercise[data-ex="${id}"] [data-k="${id}_1_${field}"]`)?.value,
+      (field) => String(window.__repforgeWorkoutDraft.projection()[`${id}_1_${field}`] ?? ""),
     ), second.id);
     assert(
       JSON.stringify(restoredSecond) === JSON.stringify(["35", "12", "2"]),
@@ -211,7 +213,8 @@ async function main() {
     );
 
     await chooseSubstitute(page, first.id, "Lat pulldown");
-    await page.locator(`.exercise[data-ex="${third.id}"] [data-skip="${third.id}"]`).click();
+    await exerciseAction(page, third.id, "#exActionSkipBtn");
+    await selectExercise(page, first.id);
     await page.locator(`.exercise[data-ex="${first.id}"] [data-save="${first.id}_1"]`).click();
     await page.waitForFunction(({ id }) => {
       const draft = window.__repforgeWorkoutDraft.current();
@@ -219,12 +222,12 @@ async function main() {
       return exercise && exercise.sets[exercise.setOrder[0]].completion !== "pending";
     }, { id: first.id });
     assert(
-      (await page.locator(`.exercise[data-ex="${first.id}"] [data-save="${first.id}_1"]`).getAttribute("aria-pressed")) === "true",
-      "List completion commits the programmed set",
+      await page.locator(`#workout .exercise.is-current [data-editn="1"]`).count() === 1,
+      "Focus completion commits the programmed set",
     );
 
     console.log("\nFocus projection: correction, uncommit, recommit, ordered next set");
-    await switchMode(page, "#modeFocus");
+
     await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 5000 });
     const focusFirst = await page.evaluate(() => {
       const card = document.querySelector("#workout .exercise.is-current");
@@ -266,9 +269,8 @@ async function main() {
     const corrected = await page.locator("#workout .exercise.is-current .ledger__row[data-editn] .ledger__load").textContent();
     assert(corrected?.trim() === "55", "Focus correction updates the committed set in place", corrected || "missing row");
 
-    await switchMode(page, "#modeFull");
-    await page.waitForSelector("#workout:not(.is-focus)", { timeout: 5000 });
-    await page.locator(`.exercise[data-ex="${first.id}"] [data-save="${first.id}_1"]`).click();
+    await page.waitForSelector("#workout.is-focus", { timeout: 5000 });
+    await page.locator(`#workout .exercise.is-current [data-editn="1"]`).click();
     await page.waitForFunction(({ id }) => {
       const draft = window.__repforgeWorkoutDraft.current();
       const exercise = draft?.exercises?.[id];
@@ -276,9 +278,9 @@ async function main() {
     }, { id: first.id });
     assert(
       (await page.locator(`.exercise[data-ex="${first.id}"] [data-save="${first.id}_1"]`).getAttribute("aria-pressed")) === "false",
-      "List uncommit retains corrected values while returning the set to pending",
+      "Focus uncommit retains corrected values while returning the set to pending",
     );
-    await switchMode(page, "#modeFocus");
+
     const pendingAgain = await page.evaluate(() => {
       const card = document.querySelector("#workout .exercise.is-current");
       return {
@@ -326,9 +328,9 @@ async function main() {
         ),
         visibleIds: window.__repforgeFocus.list().map((exercise) => exercise.id),
         thirdId,
-        date: document.querySelector("#date")?.value,
-        bodyweight: document.querySelector("#bodyweight")?.value,
-        sessionNotes: document.querySelector("#notes")?.value,
+        date: document.querySelector("#sessionDate")?.value,
+        bodyweight: document.querySelector("#sessionBodyweight")?.value,
+        sessionNotes: document.querySelector("#sessionNotes")?.value,
       };
     }, { firstId: first.id, secondId: second.id, thirdId: third.id });
     assert(
@@ -439,7 +441,7 @@ async function main() {
     console.log("\nAd hoc substitution: performed identity changes without losing slot muscle provenance");
     await page.evaluate(() => window.closeSessionSummary?.());
     await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false, day: "Day 1" }));
-    await page.waitForSelector("#workoutShell:not(.hidden) #workout:not(.is-focus)", { timeout: 5000 });
+    await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus", { timeout: 5000 });
     const adHocResult = await page.evaluate(async ({ exerciseId, primary, secondary }) => {
       return window.__repforgeWorkoutDraft.dispatch("substituteExercise", {
         exerciseInstanceId: exerciseId,

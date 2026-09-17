@@ -689,60 +689,53 @@
       "variants": "standard"
     },
     {
-      "id": "list",
-      "flow": "workout",
-      "label": "Workout — list mode",
-      "scenario": "The default logging surface.",
-      "variants": "standard"
-    },
-    {
       "id": "focus",
       "flow": "workout",
       "label": "Workout — focus mode",
       "scenario": "One exercise at a time.",
-      "variants": "standard"
+      "variants": "accessibility"
     },
     {
       "id": "stale-draft",
       "flow": "workout",
       "label": "Workout — stale draft recovery",
       "scenario": "A conflicting tab won while this tab retains a pending field value and offers Reload latest or Copy value.",
-      "variants": "demandingText"
+      "variants": "accessibility"
     },
     {
       "id": "persist-retry",
       "flow": "workout",
       "label": "Workout — draft persistence retry",
       "scenario": "A field write was interrupted; the exact pending value remains visible beside Retry and Copy value actions.",
-      "variants": "demandingText"
+      "variants": "accessibility"
     },
     {
       "id": "invalid-draft",
       "flow": "workout",
       "label": "Workout — invalid draft recovery",
       "scenario": "An unreadable local draft remains untouched and offers a non-destructive copy action.",
-      "variants": "demandingText"
+      "variants": "accessibility"
     },
     {
       "id": "rest-timer",
       "flow": "workout",
       "label": "Workout — rest timer",
       "scenario": "The rest timer sheet.",
-      "variants": "standard"
+      "variants": "accessibility"
     },
     {
       "id": "exercise-note",
       "flow": "workout",
       "label": "Workout — exercise note",
       "scenario": "The per-exercise note sheet.",
-      "variants": "standard"
+      "variants": "accessibility"
     },
     {
       "id": "why-this-weight",
       "flow": "workout",
       "label": "Workout — why this weight",
       "scenario": "The recommendation inspector.",
-      "variants": "standard"
+      "variants": "accessibility"
     },
     {
       "id": "summary",
@@ -1016,6 +1009,62 @@
       "label": "Install transfer — claimed then expired",
       "scenario": "Claimed-expired recovery remains frozen until explicit divergence confirmation.",
       "variants": "demandingText"
+    },
+    {
+      "id": "preview",
+      "flow": "today",
+      "label": "Read-only session preview",
+      "scenario": "Read-only session preview through production controls.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "session",
+      "flow": "workout",
+      "label": "Session details and map",
+      "scenario": "Session details and map through production controls.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "early-finish",
+      "flow": "workout",
+      "label": "Early finish confirmation",
+      "scenario": "Early finish confirmation through production controls.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "exercise-actions",
+      "flow": "workout",
+      "label": "Exercise actions",
+      "scenario": "Exercise actions through production controls.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "warmup-actions",
+      "flow": "workout",
+      "label": "Warm-up role",
+      "scenario": "Warm-up role through production controls.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "reorder",
+      "flow": "workout",
+      "label": "Session reorder",
+      "scenario": "Session reorder through production controls.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "correction",
+      "flow": "workout",
+      "label": "Set correction",
+      "scenario": "Set correction through production controls.",
+      "variants": "accessibility"
+    },
+    {
+      "id": "draft-resume",
+      "flow": "today",
+      "label": "Resume saved draft",
+      "scenario": "Resume saved draft through production controls.",
+      "variants": "accessibility"
     }
   ]
 }

@@ -1005,20 +1005,7 @@ const effortOrRirLabel=rir=>isEffortMode()?effortLabel(effortForRir(rir)):`@${fm
 const targetText=ex=>isEffortMode()
   ?t("today.target_rest_effort",{min:ex.min,max:ex.max,effort:effortWord(targetEffort())})
   :t("today.target_rest",{min:ex.min,max:ex.max,rir:fmt(state.settings.rirHigh)});
-/** The three-way effort picker — the compact radiogroup on a List set row.
- *  Focus states it as a spinner instead; see cursetHtml. */
-function effortControlHtml(key,n,val,{confirmed=true}={}){
-  return `<div class="effort${confirmed?"":" effort--suggested"}" role="radiogroup" aria-label="${esc(t("log.set_effort_aria",{n}))}">`+
-    EFFORT_STEPS.map(e=>{const on=val===e;
-      return `<button type="button" class="effort__btn${on?" active":""}" role="radio" aria-checked="${on?"true":"false"}"`+
-        ` tabindex="${on?"0":"-1"}" data-eff="${esc(key)}" data-e="${e}">`+
-        `<span class="effort__word">${esc(effortLabel(e))}</span></button>`}).join("")+`</div>`}
-/** Move a set's effort pick, in every copy of its picker that is on screen —
- *  the List row's radiogroup and the Focus well's spinner alike. */
 function setEffortPick(key,eff){
-  $$(`.effort__btn[data-eff="${key}"]`).forEach(b=>{const on=b.dataset.e===eff;
-    b.classList.toggle("active",on);b.setAttribute("aria-checked",on?"true":"false");b.tabIndex=on?0:-1;
-    b.closest(".effort")?.classList.remove("effort--suggested")});
   $$(`[data-effspin="${key}"]`).forEach(el=>{
     el.dataset.e=eff;el.textContent=effortLabel(eff);
     el.setAttribute("aria-valuenow",String(EFFORT_STEPS.indexOf(eff)+1));
@@ -1648,7 +1635,6 @@ function maybeUnfinishedOnOpen(){
   if(elapsed>=UNFINISHED_MS) showUnfinishedPrompt();
   else armUnfinishedWatch(UNFINISHED_MS-elapsed);
 }
-const collapsed=new Set();
 const skipped=new Set();
 const substituted=new Map();
 /* Which library definition a swap pointed at, when it came from the picker.
@@ -2022,25 +2008,19 @@ function hydrateWorkoutDraft({restoreDay=false,restoreSelection=restoreDay}={}){
   if(restoreDay&&typeof d.__day==="string"&&days().includes(d.__day)) day=d.__day;
   return d}
 function applyDraftContextToDom(){
-  const d=loadDraft(),dateEl=$("#date"),bwEl=$("#bodyweight"),notesEl=$("#notes");
+  const d=loadDraft(),dateEl=$("#sessionDate"),bwEl=$("#sessionBodyweight"),notesEl=$("#sessionNotes");
   if(dateEl) dateEl.value=Object.prototype.hasOwnProperty.call(d,"__date")?d.__date:today();
   if(bwEl) bwEl.value=Object.prototype.hasOwnProperty.call(d,"__bodyweight")?d.__bodyweight:lastBodyweight();
   if(notesEl) notesEl.value=Object.prototype.hasOwnProperty.call(d,"__sessionNotes")?d.__sessionNotes:"";
-  const sDate=$("#sessionDate"),sBw=$("#sessionBodyweight"),sNotes=$("#sessionNotes");
-  if(sDate&&dateEl)sDate.value=dateEl.value;
-  if(sBw&&bwEl)sBw.value=bwEl.value;
-  if(sNotes&&notesEl)sNotes.value=notesEl.value;
+
 }
 function resetSessionContextFields(){
   contextTouched={day:false,date:false,sessionNotes:false,bodyweight:false};
-  const notesEl=$("#notes"),dateEl=$("#date"),bwEl=$("#bodyweight");
+  const notesEl=$("#sessionNotes"),dateEl=$("#sessionDate"),bwEl=$("#sessionBodyweight");
   if(notesEl)notesEl.value="";
   if(dateEl)dateEl.value=today();
   if(bwEl)bwEl.value=lastBodyweight();
-  const sNotes=$("#sessionNotes"),sDate=$("#sessionDate"),sBw=$("#sessionBodyweight");
-  if(sNotes)sNotes.value="";
-  if(sDate)sDate.value=today();
-  if(sBw)sBw.value=lastBodyweight();
+
 }
 function isDisposableDraft(draft){
   // A stale draft may skip the explicit recovery surface only when replacing
@@ -4116,9 +4096,9 @@ function jump(load,mult){return Math.max(load*(+state.settings.jumpPct||0)*mult/
 function lastBodyweight(){const rows=state.log.filter(r=>+r.bodyweight>0);
   if(!rows.length)return "";const latest=rows.sort((a,b)=>String(b.created).localeCompare(String(a.created)))[0];
   return fmt(toDisplay(latest.bodyweight))}
-function updateBodyweightField(){const el=$("#bodyweight");if(!el)return;
+function updateBodyweightField(){const el=$("#sessionBodyweight");if(!el)return;
   el.placeholder=unitLabel();
-  const lbl=$("#bodyweightLabel")?.querySelector("span");
+  const lbl=$("#sessionBodyweightLabel")?.querySelector("span");
   if(lbl)lbl.textContent=t("log.bodyweight_unit",{unit:unitLabel()})}
 function focusList(){
   if(activeWorkoutDraft&&Array.isArray(activeWorkoutDraft.exerciseOrder)){
@@ -4149,7 +4129,7 @@ async function goToLogExercise(exId){
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="log"));
   document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-library","is-preview","is-import");
   await enterWorkout({});
-  const art=$(`#workout [data-ex="${exId}"]`);if(art){collapsed.delete(exId);art.classList.remove("is-collapsed");art.scrollIntoView({behavior:"smooth",block:"center"})}}
+  const art=$(`#workout [data-ex="${exId}"]`);if(art){art.scrollIntoView({behavior:"smooth",block:"center"})}}
 function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
   $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
@@ -4636,20 +4616,11 @@ async function runRefreshSuggestions(exId){
   const result=await persistUntouchedSuggestions(exId);
   if(result.status!=="applied"&&result.status!=="unchanged")return result;
   const ex=prog.find(exId);if(!ex)return result;const draft=workoutDraftProjection();
-  applyAcknowledgedSuggestions(sessionExercise(ex),draft);updateInSessionNote(exId);
+  applyAcknowledgedSuggestions(sessionExercise(ex),draft);
   for(const o of exercises(ex.day)){if(o.id===ex.id||hasCommittedSets(o))continue;
-    applyAcknowledgedSuggestions(sessionExercise(o),draft);updateInSessionNote(o.id)}
+    applyAcknowledgedSuggestions(sessionExercise(o),draft)}
   return result}
 function refreshSuggestions(exId){return trackDraftRefresh(()=>runRefreshSuggestions(exId))}
-function updateInSessionNote(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
-  const ex=sessionExercise(prog.find(exId));if(!ex)return;const text=inSessionNote(ex,loadDraft());
-  let el=art.querySelector(".insession");
-  if(!text){el?.remove();return}
-  if(el){el.textContent=text;return}
-  el=document.createElement("div");el.className="insession";el.textContent=text;
-  const anchor=art.querySelector(".delta-prev")||art.querySelector(".prev");
-  if(anchor)anchor.insertAdjacentElement("afterend",el);
-  else{const head=art.querySelector(".sets__head");if(head)head.insertAdjacentElement("beforebegin",el)}}
 function fmtClock(s){const sec=Math.max(0,Math.round(Number(s)||0));const m=Math.floor(sec/60);return `${m}:${String(sec%60).padStart(2,"0")}`}
 /** Rest reads in two places: the floating bar for List, and the chip in the
  *  workout header for Focus — where it must never sit over a control.
@@ -5414,7 +5385,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
       const el=$(sel);if(el)el.classList.toggle("hidden",!shown)}
     const ready=$("#readyLine");if(ready)ready.onclick=()=>{enterWorkout({focus:true});
       const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");
-      if(first){collapsed.delete(first.dataset.ex);first.classList.remove("is-collapsed");first.scrollIntoView({behavior:"smooth",block:"center"})}}
+      if(first){first.scrollIntoView({behavior:"smooth",block:"center"})}}
     $$("#todayExList [data-exopen]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
     const more=$("#todayExMore");if(more)more.onclick=()=>{todayExOpen=!todayExOpen;renderToday()}
   // A draft with logged or filled sets means the session is still open.
@@ -5759,25 +5730,6 @@ function setFieldVals(ex,n,r,draft,prev){
   const effortVal=draft[`${key}_effort`]||(old&&old.rir!=null?effortForRir(old.rir):"hard");
   const rirVal=draft[`${key}_rir`]??(old&&old.rir!=null?fmtPlain(old.rir):1);
   return{key,isW,kgVal,repsVal,rirVal,effortVal}}
-function setRowHtml(ex,n,r,draft,prev,nextSet){
-  const{key,isW,kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
-  const effortMode=isEffortMode();
-  const cls=`${committed.has(key)?"is-done":(touched.has(key)?"":"is-suggested")}${isW?" is-warmup":""}${n===nextSet?" is-next":""}${effortMode?" has-effort":""}`;
-  // Effort takes a line of its own under the numbers: three words never fit the
-  // RIR column, and clipping the last of them hides the option that matters.
-  const rirInput=effortMode?""
-    :`<input data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="next" aria-label="${esc(t("log.set_rir_aria",{n}))}" value="${esc(rirVal)}">`;
-  const effortLine=effortMode?effortControlHtml(key,n,effortVal,{confirmed:committed.has(key)||touched.has(key)}):"";
-  return `<div class="setrow ${cls}" data-set="${esc(key)}"><button type="button" class="setrow__n" data-warm="${esc(key)}" aria-pressed="${isW?"true":"false"}" title="${esc(t("log.warmup_title"))}">${isW?"W":n}</button>`+
-    `<div class="kg"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:unitLabel()}))}">−</button>`+
-    `<input data-k="${ex.id}_${n}_load" type="text" inputmode="decimal" enterkeyhint="next" aria-label="${esc(t("log.set_unit_aria",{n,unit:unitLabel()}))}" placeholder="${unitLabel()}" value="${esc(kgVal)}">`+
-    `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:unitLabel()}))}">+</button></div>`+
-    `<input data-k="${ex.id}_${n}_reps" type="text" inputmode="numeric" enterkeyhint="next" aria-label="${esc(t("log.set_reps_aria",{n}))}" value="${esc(repsVal)}">`+
-    rirInput+
-    `<button type="button" class="saveset" data-save="${esc(key)}" aria-pressed="${committed.has(key)?"true":"false"}" aria-label="${esc(t("log.save_set_aria",{n}))}">`+
-    `<span class="saveset__label">${esc(t("log.save_set"))}</span></button>`+
-    effortLine+`</div>`}
-
 /* ============================================================
    Focus mode
    One full-height card per exercise: a scrolling ledger of what has been
@@ -6032,81 +5984,14 @@ function renderWorkout(){
   const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
     lc.textContent=nm||mc.current!=null||mc.isComplete?programWeekContext(nm,mc):t("log.context.today")}
   const draft=hydrateWorkoutDraft();
-  const effortMode=isEffortMode();
-  const restOn=+state.settings.restSec>0;
   const hiddenCount=exercises().filter(e=>skipped.has(e.id)).length;
   const banner=hiddenCount?`<div class="skipbar">${esc(t("log.skipbar",{n:hiddenCount}))} <button type="button" class="skipbar__show">${esc(t("log.skipbar.show_all"))}</button></div>`:"";
   const fl=focusList();
   if(fl.length)focusIndex=Math.min(focusIndex,fl.length-1);
-  const curId=fl.length?fl[focusIndex]?.id:null;
   const at=fl.length?Math.min(focusIndex,fl.length-1):0;
   const wk=$("#workout");if(!wk){focusLogged=null;return}wk.classList.add("is-focus");
-  wk.innerHTML=banner+exercises().map(slotEx=>{const ex=sessionExercise(slotEx);
-    const r=recommendation(ex),prev=last(ex);
-    // Focus renders the current exercise as its own full-height card; the rest
-    // stay as (hidden) List markup, which is what carries their draft fields.
-    if(ex.id===curId)return focusDeckHtml(ex,r,draft,prev,{fl,at});
-    const prevHtml=prev.length?`<div class="prev"><span>${esc(t("log.prev"))}</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>${esc(effortOrRirLabel(x.rir))}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">${esc(t("log.copy_last"))}</button></div>`:"";
-    const deltaHtml=(()=>{const txt=deltaPreviewFor(ex,draft);return txt?`<div class="delta-prev">${esc(txt)}</div>`:""})();
-    const blockHtml=r.blockNote?`<p class="rec__block">${esc(r.blockNote)}</p>`:"";
-    const sessNote=inSessionNote(ex,draft),sessHtml=sessNote?`<div class="insession">${esc(sessNote)}</div>`:"";
-    let nextSet=0;for(let n=1;n<=ex.sets;n++){if(!committed.has(`${ex.id}_${n}`)){nextSet=n;break}}
-    const rows=Array.from({length:ex.sets},(_,i)=>setRowHtml(ex,i+1,r,draft,prev,nextSet)).join("");
-    const isSkipped=skipped.has(ex.id),perf=substituted.get(ex.id),display=perf||ex.name;
-    // The heading is the movement being performed and nothing else. Which slot
-    // it stands in is a second thought, and gets its own full-width line down
-    // beside the substitute control rather than wrapping the title into a
-    // four-line paragraph on a phone.
-    const nameLabel=esc(perf||ex.name);
-    const statusHtml=isSkipped?`<span class="ex__state">${esc(t("log.skipped"))}</span>`:"";
-    const openAria=t("log.open_exercise_aria",{name:display})+(isSkipped?` · ${t("log.skipped")}`:"");
-    const nameHtml=`<button type="button" class="ex__name ex__namebtn" data-exopen="${esc(ex.id)}" aria-label="${esc(openAria)}">${nameLabel}${statusHtml}</button>`;
-    const skipLabel=isSkipped?t("log.restore"):t("log.skip");
-    const skipAria=isSkipped?t("log.restore_aria",{name:display}):t("log.skip_aria",{name:display});
-    const noteVal=draft.__exnotes?.[ex.id]??lastExerciseNote(ex);
-    const notePreview=noteVal?esc(noteVal):esc(t("log.note.empty"));
-    const noteHtml=`<div class="exnote${noteVal?" has-note":""}">`+
-      `<button type="button" class="exnote__toggle" data-exnote-toggle="${esc(ex.id)}" aria-expanded="false" aria-controls="exnote_${esc(ex.id)}">`+
-      `<span class="exnote__lab">${esc(t("log.note"))}</span><span class="exnote__preview">${notePreview}</span></button>`+
-      `<textarea class="exnote__input hidden" id="exnote_${esc(ex.id)}" data-exnote="${esc(ex.id)}" rows="2" `+
-      `placeholder="${esc(t("log.note.placeholder"))}" aria-label="${esc(t("log.note_aria",{name:ex.name}))}">${esc(noteVal)}</textarea></div>`;
-    // Every slot can be swapped now, not just the ones that happen to carry
-    // alternates: the machine being taken does not check the program first.
-    // The field says what it holds, and its own label names the job for a
-    // screen reader, so a printed "USE:" beside it was a caption on a caption.
-    const subPick=`<div class="subst${perf?" is-swapped":""}"><span class="subst__lab visually-hidden">${esc(t("log.substitute.label"))}</span>`+
-      `<button type="button" class="subst__pick${perf?" is-swapped":""}" data-sub="${esc(ex.id)}" aria-label="${esc(t("log.substitute.aria",{name:slotEx.name}))}">${esc(perf||ex.name)}</button>`+
-      (perf?`<p class="subst__from">${esc(t("log.substitute_for",{name:slotEx.name}))}</p>`:"")+
-      `</div>`;
-    const recHead=r.load!=null?t("today.rec_keep",{load:fmtLoad(r.load),unit:unitLabel()}):r.label;
-    const recBlock=`<div class="recblock is-${r.status}"><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
-      `<div class="recblock__head">${esc(recHead)}</div><p class="recblock__body">${esc(r.text)}</p>${blockHtml}`+
-      (r.status!=="new"?`<button type="button" class="text-link recblock__why" data-why="${esc(ex.id)}" aria-label="${esc(t("why.open_aria",{name:ex.name}))}">${esc(t("why.open"))}</button>`:"")+
-      `</div>`;
-    const listHead=`<div class="ex__top"><div class="ex__head"><h3 class="ex__nameh">${nameHtml}</h3>`+
-      `<p class="ex__meta"><span class="ex__tag">${esc(muscleListLabel(ex.primary))}</span><span class="nowrap">${ex.sets}×${ex.min}-${ex.max} reps</span> · `+
-      `<span class="nowrap">${effortMode?term(EFFORT_TERM[targetEffort()]):`${term("RIR")} 0-${fmt(state.settings.rirHigh)}`}</span></p></div>`+
-      `<div class="ex__topend">`+
-      (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="${esc(t("log.rest_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--timer" aria-hidden="true"></span></button>`:"")+
-      `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-label="${esc(skipAria)}">${esc(skipLabel)}</button>`+
-      `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-label="${esc(t("log.toggle_sets_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button></div></div>`;
-    return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${isSkipped?" is-skipped":""}" data-ex="${esc(ex.id)}">`+
-      listHead+
-      `<div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
-      `<span class="chip">${esc(r.label)}</span></div>`+
-      recBlock+
-      (ex.notes?`<p class="setup"><span>${esc(t("log.setup"))}</span>${esc(ex.notes)}</p>`:"")+
-      subPick+
-      prevHtml+deltaHtml+sessHtml+
-      `<div class="sets__head${effortMode?" has-effort":""}"><span>${esc(t("log.set"))}</span><span>${loadHeadHtml()}</span><span>${esc(t("log.reps"))}</span>`+
-      (effortMode?"":`<span>${term("RIR")}</span>`)+
-      `<span class="sets__head-save" aria-hidden="true">${esc(t("log.save_set"))}</span>`+
-      // In effort mode the picker sits on its own line, so its heading does too.
-      (effortMode?`<span class="sets__head-eff">${term("Effort")}</span>`:"")+
-      `</div>${rows}`+
-      noteHtml+
-      `</article>`;
-  }).join("");
+  const current=fl[at] ? sessionExercise(fl[at]) : null;
+  wk.innerHTML=banner+(current ? focusDeckHtml(current,recommendation(current),draft,last(current),{fl,at}) : "");
   // The landing animation belongs to this render alone: the markup that plays
   // it has been written, so the next render draws the same card at rest.
   focusLogged=null;
@@ -6141,21 +6026,10 @@ function sizeFocusCard(card){
   if(gap>0||anchor.getBoundingClientRect().top<ledger.getBoundingClientRect().top)
     ledger.scrollTop=Math.max(0,ledger.scrollTop+gap+8)}
 
-// Keep the "next set up" marker on the first unsaved row of an exercise card.
-function updateNextMarker(art){if(!art)return;let found=false;
-  art.querySelectorAll(".setrow").forEach(r=>{const on=!found&&!r.classList.contains("is-done");if(on)found=true;
-    r.classList.toggle("is-next",on)})}
 async function refreshAfterCommittedEdit(row){
   if(!row?.dataset.set||!committed.has(row.dataset.set))return{status:"unchanged"};
   const exId=row.closest(".exercise")?.dataset.ex;
   return exId?refreshSuggestions(exId):{status:"unchanged"}}
-
-function updateExerciseDeltaPreview(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
-  const ex=sessionExercise(prog.find(exId));if(!ex)return;const text=deltaPreviewFor(ex,loadDraft()),el=art.querySelector(".delta-prev");
-  if(!text){el?.remove();return}
-  if(el)el.textContent=text;else{const n=document.createElement("div");n.className="delta-prev";n.textContent=text;
-    const anchor=art.querySelector(".prev")||art.querySelector(".sets__head");
-    if(anchor)anchor.insertAdjacentElement(anchor.classList.contains("sets__head")?"beforebegin":"afterend",n)}}
 
 // Latest note the lifter left on this exercise, so machine setup carries into the next session.
 function lastExerciseNote(ex){const match=matchLift(ex);
@@ -6175,7 +6049,8 @@ function applyDraftIssue(issues){
   const issue=(issues||[]).find(item=>item?.field||String(item?.code||"").startsWith("invalid-"));
   if(!issue)return false;
   const field=issue.field==="scheduleDate"?"date":issue.field;
-  let el=field==="date"?$("#date"):field==="bodyweight"?$("#bodyweight"):null;
+  let el=field==="date"?$("#sessionDate"):field==="bodyweight"?$("#sessionBodyweight"):null;
+  if(el)openSessionSheet();
   let loadErrorKey="validation.load";
   if(!el&&issue.exerciseInstanceId&&issue.setId){const exercise=activeWorkoutDraft?.exercises?.[issue.exerciseInstanceId],
       set=exercise?.sets?.[issue.setId],key=set?`${issue.exerciseInstanceId}_${set.ordinal}_${field}`:null;
@@ -6192,13 +6067,13 @@ function applyDraftIssue(issues){
  *  live one takes a handler. */
 const $w=sel=>$$(`#workout ${sel}`).filter(el=>!el.closest(".is-peek"));
 function bindWorkout(){
-  $w("input").forEach(i=>{i.oninput=async()=>{const row=i.closest(".setrow, .curset"),target=draftTargetFromKey(i.dataset.k);
+  $w("input").forEach(i=>{i.oninput=async()=>{const row=i.closest(".curset"),target=draftTargetFromKey(i.dataset.k);
     if(!activeWorkoutDraft||!target?.field)return;
     row?.classList.remove("is-suggested");
     const result=await enqueueDraftCommand("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},{pendingValue:i.value});
     if(result.status!=="applied")return;
-    updateSaveMeta();updateExerciseDeltaPreview(target.exerciseInstanceId);await refreshAfterCommittedEdit(row)};
+    updateSaveMeta();await refreshAfterCommittedEdit(row)};
   i.onfocus=()=>i.select()});
   $w(".term").forEach(b=>b.onclick=e=>{e.stopPropagation();glossaryPopover(b.dataset.term,b)});
   $w("[data-why]").forEach(b=>b.onclick=e=>{e.stopPropagation();openWhySheet(b.dataset.why,b)});
@@ -6237,32 +6112,7 @@ function bindWorkout(){
       inp.value=fmtPlain(toDisplay(nextKg));
     }
     await inp.oninput?.()});
-  $w(".copylast").forEach(b=>b.onclick=async()=>{const ex=sessionExercise(prog.find(b.dataset.copy)),prevSets=ex?last(ex):[];if(!prevSets.length)return;
-    if(!activeWorkoutDraft)return;
-    const values=prevSets.map(s=>({ordinal:s.set,load:canonicalNumberText(s.load),reps:canonicalNumberText(s.reps),
-      ...(isEffortMode()?{effort:effortForRir(s.rir)}:{rir:canonicalNumberText(s.rir)})}));
-    const result=await enqueueDraftCommand("repeatPreviousSetValues",{exerciseInstanceId:b.dataset.copy,values});
-    if(result.status!=="applied")return;renderWorkout();toast(t("toast.filled_from_last"))});
-  $w(".ex__rest").forEach(b=>b.onclick=()=>startRest());
   $w(".ex__skip").forEach(b=>b.onclick=()=>applySkipToggle(b.dataset.skip));
-  $w(".subst__pick").forEach(b=>b.onclick=()=>openSubstitutePicker(b.dataset.sub));
-  $w(".effort__btn").forEach(b=>{
-    b.onclick=async()=>{const key=b.dataset.eff,target=draftTargetFromKey(key);
-      if(!activeWorkoutDraft||!target)return;
-      setEffortPick(key,b.dataset.e);
-      const row=b.closest(".setrow, .curset");if(row)row.classList.remove("is-suggested");
-      const result=await enqueueDraftCommand("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
-        setId:target.setId,field:"effort",value:b.dataset.e});if(result.status!=="applied")return;
-      updateSaveMeta();refreshAfterCommittedEdit(row)};
-    // Arrow keys walk the picker like the single-choice control it is.
-    b.onkeydown=e=>{const step=e.key==="ArrowRight"||e.key==="ArrowDown"?1:e.key==="ArrowLeft"||e.key==="ArrowUp"?-1:0;
-      const jump=e.key==="Home"?0:e.key==="End"?EFFORT_STEPS.length-1:null;
-      if(!step&&jump==null)return;
-      e.preventDefault();
-      const i=EFFORT_STEPS.indexOf(b.dataset.e);
-      const next=jump!=null?jump:(i+step+EFFORT_STEPS.length)%EFFORT_STEPS.length;
-      b.closest(".effort")?.querySelectorAll(".effort__btn")[next]?.click();
-      b.closest(".effort")?.querySelectorAll(".effort__btn")[next]?.focus()}});
   const stepEffort=async(key,dir)=>{
     const el=$(`[data-effspin="${key}"]`);if(!el)return;
     const i=Math.max(0,EFFORT_STEPS.indexOf(el.dataset.e));
@@ -6284,24 +6134,8 @@ function bindWorkout(){
       const jump=e.key==="Home"?-EFFORT_STEPS.length:e.key==="End"?EFFORT_STEPS.length:null;
       if(!step&&jump==null)return;
       e.preventDefault();stepEffort(el.dataset.effspin,jump??step)}});
-  $w("[data-exnote-toggle]").forEach(b=>b.onclick=()=>{
-    const id=b.dataset.exnoteToggle;let wrap=b.closest(".exnote");
-    if(!wrap&&id)wrap=$(`#workout [data-ex="${id}"] .exnote`);
-    const ta=wrap?.querySelector(".exnote__input");if(!ta)return;
-    const open=ta.classList.toggle("hidden")===false;b.setAttribute("aria-expanded",open?"true":"false");
-    wrap.classList.toggle("is-open",open);
-    if(open){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)}});
-  $w(".exnote__input").forEach(t=>{t.oninput=async()=>{
-    if(!activeWorkoutDraft)return;
-    const result=await enqueueDraftCommand("setExerciseNotes",{exerciseInstanceId:t.dataset.exnote,value:t.value},{pendingValue:t.value});
-    if(result.status!=="applied")return;
-    const prev=t.closest(".exnote")?.querySelector(".exnote__preview");
-    if(prev)prev.textContent=t.value.trim()||t("log.note.empty");
-    t.closest(".exnote")?.classList.toggle("has-note",!!t.value.trim())}});
   $w(".ex__namebtn").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
   const sb=$("#workout .skipbar__show");if(sb)sb.onclick=()=>applyShowAll();
-  $w(".ex__caret").forEach(b=>b.onclick=()=>{const id=b.dataset.collapse,art=b.closest(".exercise");if(!art)return;
-    const now=!collapsed.has(id);now?collapsed.add(id):collapsed.delete(id);art.classList.toggle("is-collapsed",now)});
   {const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0;
     const progEl=$("#woProgress");
     if(progEl){progEl.classList.remove("hidden");
@@ -6348,7 +6182,7 @@ function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=re
     if(lab)lab.textContent=hot?t("top.gauge.hot",{n:hot}):t("top.gauge.forge");
     g.classList.toggle("is-hot",hot>0);
     g.style.cursor=hot?"pointer":"default";
-    g.onclick=hot?()=>{enterWorkout({});const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");if(first){collapsed.delete(first.dataset.ex);first.classList.remove("is-collapsed");first.scrollIntoView({behavior:"smooth",block:"center"})}}:null}
+    g.onclick=hot?()=>{enterWorkout({});const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");if(first){first.scrollIntoView({behavior:"smooth",block:"center"})}}:null}
 }
 
 function renderFatigue(){const el=$("#fatigue");if(!el)return;const exs=exercises();
@@ -9645,7 +9479,7 @@ async function commitSettings(silent){const editRevision=settingsEditRevision;
   // in Settings is the lifter saying it plainly — it wins.
   if(oldRestSec!==state.settings.restSec)restLength=0;
   if(oldUnit!==newUnit){
-    const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=parseDec(bw.value);if(Number.isFinite(n))bw.value=fmtPlain(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
+    const bw=$("#sessionBodyweight");if(bw&&bw.value!==""){const n=parseDec(bw.value);if(Number.isFinite(n))bw.value=fmtPlain(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
   if(oldLang!==state.settings.lang&&I18N)I18N.setLang(state.settings.lang);
   if(editRevision===settingsEditRevision)render();
   if(!silent)toast(t("toast.settings_saved"));
@@ -14797,17 +14631,6 @@ function init(){
     if(el&&el.closest("input,select,textarea,[contenteditable]"))return;
     if(e.key==="ArrowRight")focusAnimateTo(1);
     else if(e.key==="ArrowLeft")focusAnimateTo(-1)});
-  const woDate=$("#date");if(woDate)woDate.addEventListener("change",async()=>{contextTouched.date=true;
-    if(activeWorkoutDraft)await enqueueDraftCommand("setSessionDate",{value:woDate.value},{pendingValue:woDate.value});
-    const sDate=$("#sessionDate");if(sDate&&sDate.value!==woDate.value)sDate.value=woDate.value;
-    closeWorkoutOverflow()});
-  const woNotes=$("#notes");if(woNotes)woNotes.addEventListener("input",async()=>{contextTouched.sessionNotes=true;
-    if(activeWorkoutDraft)await enqueueDraftCommand("setSessionNotes",{value:woNotes.value},{pendingValue:woNotes.value});
-    const sNotes=$("#sessionNotes");if(sNotes&&sNotes.value!==woNotes.value)sNotes.value=woNotes.value});
-  const woBw=$("#bodyweight");if(woBw)woBw.addEventListener("input",async()=>{contextTouched.bodyweight=true;
-    if(activeWorkoutDraft)await enqueueDraftCommand("setBodyweight",{value:canonicalDraftBodyweight(woBw.value)},{pendingValue:woBw.value});
-    const sBw=$("#sessionBodyweight");if(sBw&&sBw.value!==woBw.value)sBw.value=woBw.value});
-
   const sessionSheetBtn=$("#sessionSheetBtn");if(sessionSheetBtn)sessionSheetBtn.onclick=()=>openSessionSheet();
   const sessionSheetClose=$("#sessionSheetClose");if(sessionSheetClose)sessionSheetClose.onclick=()=>closeSessionSheet();
   const sessionSheetScrim=$("#sessionSheetScrim");if(sessionSheetScrim)sessionSheetScrim.onclick=()=>closeSessionSheet();
@@ -14815,19 +14638,16 @@ function init(){
   const sessDate=$("#sessionDate");if(sessDate)sessDate.addEventListener("change",async()=>{
     contextTouched.date=true;
     if(activeWorkoutDraft)await enqueueDraftCommand("setSessionDate",{value:sessDate.value},{pendingValue:sessDate.value});
-    const woDate=$("#date");if(woDate&&woDate.value!==sessDate.value)woDate.value=sessDate.value;
   });
 
   const sessBw=$("#sessionBodyweight");if(sessBw)sessBw.addEventListener("input",async()=>{
     contextTouched.bodyweight=true;
     if(activeWorkoutDraft)await enqueueDraftCommand("setBodyweight",{value:canonicalDraftBodyweight(sessBw.value)},{pendingValue:sessBw.value});
-    const woBw=$("#bodyweight");if(woBw&&woBw.value!==sessBw.value)woBw.value=sessBw.value;
   });
 
   const sessNotes=$("#sessionNotes");if(sessNotes)sessNotes.addEventListener("input",async()=>{
     contextTouched.sessionNotes=true;
     if(activeWorkoutDraft)await enqueueDraftCommand("setSessionNotes",{value:sessNotes.value},{pendingValue:sessNotes.value});
-    const woNotes=$("#notes");if(woNotes&&woNotes.value!==sessNotes.value)woNotes.value=sessNotes.value;
   });
 
   const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.onclick=()=>{

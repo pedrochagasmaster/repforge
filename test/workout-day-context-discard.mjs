@@ -145,9 +145,9 @@ async function fillSet(page, exerciseId, load) {
 async function contextSnapshot(page) {
   return page.evaluate((draftKey) => ({
     activeDay: document.querySelector("#dayTabs button.active")?.dataset.day,
-    date: document.querySelector("#date")?.value,
-    notes: document.querySelector("#notes")?.value,
-    bodyweight: document.querySelector("#bodyweight")?.value,
+    date: document.querySelector("#sessionDate")?.value,
+    notes: document.querySelector("#sessionNotes")?.value,
+    bodyweight: document.querySelector("#sessionBodyweight")?.value,
     draftRaw: localStorage.getItem(draftKey),
   }), DRAFT);
 }
@@ -179,12 +179,12 @@ async function main() {
     await page.click("#viewExercises");
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
 
-    const freshDate = await page.locator("#date").inputValue();
+    const freshDate = await page.locator("#sessionDate").inputValue();
     await page.click("#woOverflowBtn");
-    await page.locator("#date").fill(OLD_DATE);
-    await page.locator("#date").dispatchEvent("change");
-    await page.locator("#notes").fill(OLD_NOTE);
-    await page.locator("#bodyweight").fill(OLD_BODYWEIGHT);
+    await page.locator("#sessionDate").fill(OLD_DATE);
+    await page.locator("#sessionDate").dispatchEvent("change");
+    await page.locator("#sessionNotes").fill(OLD_NOTE);
+    await page.locator("#sessionBodyweight").fill(OLD_BODYWEIGHT);
     await fillSet(page, DAY_1_EXERCISE, 101);
 
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());

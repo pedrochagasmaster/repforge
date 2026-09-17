@@ -211,16 +211,6 @@ async function main() {
   phase("State 01: new exercise, no history");
   await boot(page);
   await setSetCount(page, 0, 5);
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
-  await page.waitForSelector("#workout .exercise .ex__tag", { timeout: 5000 });
-  const listGap = await page.evaluate(() => {
-    const tag = document.querySelector("#workout .exercise .ex__tag");
-    const target = tag?.nextElementSibling;
-    if (!tag || !target) return null;
-    return Math.round(target.getBoundingClientRect().left - tag.getBoundingClientRect().right);
-  });
-  assert(listGap != null && listGap >= 8,
-    "list mode leaves space between the muscle group and the set target", String(listGap));
   await enterFocus(page, 0);
   let st = await cardState(page);
   assert(st.emptyRow && st.ledgerRows === 0 && st.pastRows === 0,

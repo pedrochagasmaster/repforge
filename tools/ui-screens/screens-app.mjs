@@ -34,13 +34,7 @@ async function enterWorkout(page, options = {}) {
   await sleep(page, 600);
 }
 
-async function focusMode(page) {
-  await enterWorkout(page, { focus: false });
-  await page.click("#woOverflowBtn");
-  await sleep(page, 200);
-  await page.click("#modeFocus");
-  await sleep(page, 500);
-}
+async function focusMode(page) { await enterWorkout(page); }
 
 async function openTransferState(page, state) {
   await page.evaluate((name) => window.__repforgeUi.openInstallTransferState(name), state);
@@ -131,8 +125,16 @@ export const APP_SCENARIOS = {
     await sleep(page, 600);
   },
 
-  "workout/list": (page) => enterWorkout(page),
   "workout/focus": focusMode,
+  "today/preview": async page => { await page.click("#viewExercises"); await page.waitForSelector("#previewSessionSheet.is-open"); },
+  "workout/session": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); },
+  "workout/early-finish": async page => { await focusMode(page); await logCurrentSet(page); await page.click("#sessionSheetBtn"); await page.click("#sessionEarlyFinish"); },
+  "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-exactions-open]").click(); },
+  "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-exactions-open]").click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
+  "workout/reorder": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); await page.locator("[data-session-reorder-down]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
+  "workout/correction": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-editn]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
+  "today/draft-resume": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-k$='_load']").fill("80"); await page.click("#leaveWorkout"); },
+
   "workout/stale-draft": async (page) => {
     await enterWorkout(page);
     await page.evaluate(async () => {

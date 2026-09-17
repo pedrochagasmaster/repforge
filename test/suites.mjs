@@ -32,6 +32,7 @@ export const SUITES = {
     s("test/workout-draft-migration.mjs"),
     s("test/schedule.mjs"),
     s("test/exercise-library.mjs"),
+    s("test/focus-only-source.mjs"),
     s("test/progression-fixtures.mjs"),
     s("test/progression-engine.mjs"),
     s("test/progression-range-simulation.mjs"),

@@ -215,12 +215,9 @@ nav button:active{transform:scale(.975)}
   .icon-btn:hover{color:var(--ink-soft)}
   .icon-btn--profile:hover{color:var(--ink-faint)}
   .focus-well .btn--cta.saveset:hover{color:var(--cta-ink);border-color:transparent}
-  .effort__btn:not(.active):hover{color:var(--ink-soft);background:transparent}
-  .setrow:not(.is-next):not(.is-done) .saveset:hover::after{background:var(--ink-faint)}
   .saveset:hover{color:var(--ink-soft);border-color:var(--rule)}
   .stepbtn:hover{color:var(--ink-soft)}
   .curset__steps .stepbtn:hover{color:var(--ink);background:transparent}
-  .copylast:hover{color:var(--ink-soft);border-color:var(--rule)}
   .pday__head .iconbtn--del:hover{border-color:var(--rule)}
   .iconbtn:hover:not(:disabled){color:var(--ink-soft);border-color:var(--rule)}
   .iconbtn--del:hover:not(:disabled){color:var(--danger);border-color:var(--rule);background:var(--surface)}

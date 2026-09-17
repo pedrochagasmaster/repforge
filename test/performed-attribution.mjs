@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { exerciseAction } from "./fixtures/focus-workout.mjs";
 /**
  * A mid-session swap must move the work with it.
  *
@@ -114,7 +115,6 @@ async function main() {
     await page.waitForSelector("#workout .exercise", { timeout: 5000 });
     await page.evaluate((id) => {
       const art = document.querySelector(`.exercise[data-ex="${id}"]`);
-      if (art?.classList.contains("is-collapsed")) document.querySelector(`.ex__caret[data-collapse="${id}"]`)?.click();
     }, slot.id);
     await settle(page, 150);
     const beforeSwap = await page.evaluate((id) => ({
@@ -124,7 +124,7 @@ async function main() {
     assert(beforeSwap.prev.includes("200"), "the slot initially reads the quad movement's own history", JSON.stringify(beforeSwap));
 
     // Swap it to a lat movement for this session.
-    await page.click(`.subst__pick[data-sub="${slot.id}"]`);
+    await exerciseAction(page, slot.id, "#exActionSubstBtn");
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
     const swapped = await pickExact(page, "Lat pulldown");
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });

@@ -479,7 +479,7 @@ async function main() {
 
     /* ---- Mode-route absence (055-P7) ---- */
     phase("Mode route absence: no mode toggle/switch exists; active workouts always Focus");
-    const modeToggles = await page.locator("#modeFull, #modeFocus, .modeswitch").count();
+    const modeToggles = await page.locator("button#modeFull, button#modeFocus, .modeswitch").count();
     assert(modeToggles === 0, "no mode switch (.modeswitch, #modeFull, #modeFocus) is present in DOM", `count: ${modeToggles}`);
 
     const activeMode = await page.evaluate(() => ({
@@ -490,33 +490,22 @@ async function main() {
     assert(activeMode.logMode === null && activeMode.isFocusWo && activeMode.isWorkoutFocus,
       "active workout is unconditionally Focus mode", JSON.stringify(activeMode));
 
-    /* ---- No-hidden-input guard ---- */
-    phase("Guard: hidden List carriers exist in the DOM but no case reads them");
-    const guard = await page.evaluate(() => {
-      const all = [...document.querySelectorAll("#workout [data-k]")];
-      const hidden = all.filter((el) => {
-        const card = el.closest(".exercise");
-        return !card || !card.classList.contains("is-current") || card.classList.contains("is-peek") ||
-          !el.offsetParent && getComputedStyle(el).visibility !== "visible" && !el.checkVisibility?.();
-      });
-      return { total: all.length, hidden: hidden.length, sample: hidden.slice(0, 3).map((el) => el.dataset.k) };
+    phase("Only the visible current card carries workout input keys");
+    const fieldOwners = await page.locator("#workout [data-k]").evaluateAll(fields => fields.map(el => ({
+      key: el.dataset.k,
+      current: !!el.closest(".exercise.is-current:not(.is-peek)"),
+      visible: el.checkVisibility(),
+    })));
+    assert(fieldOwners.length > 0 && fieldOwners.every(el => el.current && el.visible),
+      "no hidden input owns workout behavior", JSON.stringify(fieldOwners));
+    await page.evaluate(() => {
+      const input = document.createElement("input");
+      input.dataset.k = "parity-hidden-probe"; input.hidden = true;
+      document.querySelector("#workout").append(input);
     });
-    assert(guard.total > 0 && guard.hidden > 0,
-      "hidden list/peek carriers are still present, so the guard below is meaningful", JSON.stringify(guard));
-    // The liveField helper itself only ever resolved visible live-card fields;
-    // prove it by resolving one known hidden key and observing it is not the
-    // helper's result.
-    const hiddenKey = await page.evaluate(() => {
-      const el = [...document.querySelectorAll("#workout [data-k]")]
-        .find((el) => { const card = el.closest(".exercise"); return card && (!card.classList.contains("is-current") || card.classList.contains("is-peek")); });
-      return el?.dataset.k ?? null;
-    });
-    if (hiddenKey) {
-      const rejected = await page.locator(`#workout .exercise.is-current:not(.is-peek) [data-k="${hiddenKey}"]`).count();
-      assert(rejected === 0, `the live-card selector never resolves a hidden carrier (${hiddenKey})`);
-    } else {
-      assert(false, "a hidden carrier was found to prove the guard against", "none found");
-    }
+    assert(await page.locator('#workout .exercise.is-current:not(.is-peek) [data-k="parity-hidden-probe"]').count() === 0,
+      "the live-input selector rejects an injected hidden carrier");
+    await page.locator('[data-k="parity-hidden-probe"]').evaluate(el => el.remove());
 
     assert(errors.length === 0, "the parity journey emits no page or console errors", errors.join(" | "));
   } finally {

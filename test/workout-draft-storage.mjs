@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { exerciseAction, sessionField } from "./fixtures/focus-workout.mjs";
 /**
  * Production storage/DOM gate for Plan 051's first DraftV2 vertical slice.
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
@@ -124,11 +125,6 @@ async function fillCurrent(page, field, value) {
   }, { key, field, value: String(value) });
 }
 
-async function switchMode(page, selector) {
-  await page.locator("#woOverflowBtn").click();
-  await page.locator(selector).click();
-}
-
 async function commandFixture(page, field, value, operationId) {
   return page.evaluate(({ field, value, operationId }) => {
     const draft = window.RepForgeWorkoutDraft.parse(window.__repforgeWorkoutDraft.read().raw).draft;
@@ -198,15 +194,14 @@ async function main() {
       const exercise = draft.exercises[draft.session.selectedExerciseId];
       return exercise.sets[exercise.setOrder[0]].completion !== "pending";
     });
-    await switchMode(page, "#modeFull");
-    await page.waitForSelector("#workout:not(.is-focus)");
-    await page.locator(`.exercise[data-ex="${first.id}"] [data-save="${first.id}_1"]`).click();
+
+    await page.locator(`#workout .exercise.is-current [data-editn="1"]`).click();
     await page.waitForFunction(() => {
       const draft = window.__repforgeWorkoutDraft.current();
       const exercise = draft.exercises["seed-ex-1"];
       return exercise.sets[exercise.setOrder[0]].completion === "pending";
     });
-    await switchMode(page, "#modeFocus");
+
     await page.waitForSelector("#workout.is-focus .exercise.is-current");
     await page.evaluate(() => document.querySelectorAll("#workout .focus-inputs").forEach((node) => node.remove()));
     await fillCurrent(page, "load", "62.5");
@@ -253,13 +248,13 @@ async function main() {
     console.log("\n1a. Canonical unit conversion keeps numeric truth through DraftV2 and History");
     await reset(page, { unit: "lb" });
     await enter(page, "Day 1");
-    await switchMode(page, "#modeFull");
+
     const precisionExercise = seedProgram()[0];
     const precisionLoad = 12.5 / 2.2046226218;
     await page.locator(`[data-k="${precisionExercise.id}_1_load"]`).fill("12.5");
     await page.locator(`[data-k="${precisionExercise.id}_1_reps"]`).fill("8");
     await page.locator(`[data-k="${precisionExercise.id}_1_rir"]`).fill("2");
-    await page.locator("#bodyweight").fill("12.5");
+    await sessionField(page, "#sessionBodyweight", "12.5");
     await page.waitForFunction(({ draft, id, expected }) => {
       const value = JSON.parse(localStorage.getItem(draft) || "null");
       const exercise = value?.exercises?.[id];
@@ -292,8 +287,8 @@ async function main() {
       "History preserves converted load and bodyweight numeric truth", preciseRow);
     await page.evaluate(() => window.__repforgeSessionSummary?.close());
     await enter(page, "Day 1");
-    await switchMode(page, "#modeFull");
-    await page.locator(`.copylast[data-copy="${precisionExercise.id}"]`).click();
+
+    await exerciseAction(page, precisionExercise.id, "#exActionRepeatBtn");
     await page.waitForFunction(({ draft, id, expected }) => {
       const value = JSON.parse(localStorage.getItem(draft) || "null");
       const exercise = value?.exercises?.[id];
@@ -311,18 +306,17 @@ async function main() {
     console.log("\n1c. Session context intent survives clearing, reload, and mode guards");
     await reset(page);
     await enter(page);
-    await switchMode(page, "#modeFull");
-    await page.waitForSelector("#workout:not(.is-focus)");
-    await page.locator("#notes").fill("typed then cleared");
-    await page.locator("#notes").fill("");
+
+    await sessionField(page, "#sessionNotes", "typed then cleared");
+    await sessionField(page, "#sessionNotes", "");
     await page.locator("#woOverflowBtn").click();
     await page.waitForSelector("#woOverflow:not(.hidden)");
-    await page.locator("#date").fill("2026-08-21");
+    await page.locator("#sessionDate").fill("2026-08-21");
     await page.locator("#woOverflowBtn").click();
     await page.waitForSelector("#woOverflow:not(.hidden)");
-    await page.locator("#date").fill("");
-    await page.locator("#bodyweight").fill("80");
-    await page.locator("#bodyweight").fill("");
+    await page.locator("#sessionDate").fill("");
+    await sessionField(page, "#sessionBodyweight", "80");
+    await sessionField(page, "#sessionBodyweight", "");
     await page.waitForFunction(() => {
       const draft = window.__repforgeWorkoutDraft.current();
       return draft?.session?.notes === "" && draft.session.bodyweight === "" && draft.program.scheduleDate === "" &&
@@ -377,9 +371,9 @@ async function main() {
 
     await reset(page);
     await enter(page);
-    await switchMode(page, "#modeFull");
-    await page.locator("#notes").fill("typed then cleared");
-    await page.locator("#notes").fill("");
+
+    await sessionField(page, "#sessionNotes", "typed then cleared");
+    await sessionField(page, "#sessionNotes", "");
     await page.waitForFunction(() => {
       const draft = window.__repforgeWorkoutDraft.current();
       const flags = draft?.session?.contextTouched;
@@ -540,7 +534,7 @@ async function main() {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForBoot(page);
     await enter(page, "Day 1");
-    await switchMode(page, "#modeFull");
+
     await page.waitForSelector(`#workout:not(.is-focus) .exercise[data-ex="${dynamicExercise.id}"]`);
     await page.locator(`[data-k="${dynamicExercise.id}_1_load"]`).fill("110");
     await page.locator(`[data-k="${dynamicExercise.id}_1_reps"]`).fill("8");
@@ -572,7 +566,7 @@ async function main() {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForBoot(page);
     await enter(page, "Day 1");
-    await switchMode(page, "#modeFull");
+
     await page.waitForSelector(`#workout:not(.is-focus) .exercise[data-ex="${dynamicExercise.id}"]`);
     check(await page.locator(`[data-k="${dynamicExercise.id}_2_load"]`).inputValue() === "112.5",
       "reload renders the acknowledged suggestion instead of restoring the stale programmed value");
@@ -606,7 +600,7 @@ async function main() {
     await partialPage.reload({ waitUntil: "domcontentloaded" });
     await waitForBoot(partialPage);
     await enter(partialPage, "Day 1");
-    await switchMode(partialPage, "#modeFull");
+
     await partialPage.locator(`[data-k="${dynamicExercise.id}_1_load"]`).fill("110");
     await partialPage.locator(`[data-k="${dynamicExercise.id}_1_reps"]`).fill("8");
     await partialPage.locator(`[data-k="${dynamicExercise.id}_1_rir"]`).fill("3");
@@ -664,7 +658,7 @@ async function main() {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForBoot(page);
     await enter(page, "Day 1");
-    await switchMode(page, "#modeFull");
+
     await page.locator(`[data-k="${retainedExercise.id}_1_load"]`).fill("110");
     await page.locator(`[data-k="${retainedExercise.id}_1_reps"]`).fill("8");
     await page.locator(`[data-k="${retainedExercise.id}_1_rir"]`).fill("3");

@@ -1907,8 +1907,8 @@ try {
     const durableBeforeWeekOne = await page.evaluate((key) => localStorage.getItem(key), KEY);
     await page.evaluate(({ day }) => window.__repforgeEnterWorkout({ focus: false, day }), { day: reducedDay });
     const weekOneDom = await page.evaluate(() => ({
-      exercises: document.querySelectorAll("#workout > .exercise").length,
-      sets: document.querySelectorAll("#workout .setrow").length,
+      exercises: window.__repforgeWorkoutDraft.current().exerciseOrder.length,
+      sets: Object.values(window.__repforgeWorkoutDraft.current().exercises).reduce((n, ex) => n + ex.setOrder.length, 0),
       durableBytes: localStorage.getItem("repforge_v1"),
     }));
     assert(weekOneDom.exercises === expectedWeekOneExercises,
@@ -1945,8 +1945,8 @@ try {
     await waitForAppBoot(page, { base: BASE });
     await page.evaluate(({ day }) => window.__repforgeEnterWorkout({ focus: false, day }), { day: reducedDay });
     const weekTwoDom = await page.evaluate(() => ({
-      exercises: document.querySelectorAll("#workout > .exercise").length,
-      sets: document.querySelectorAll("#workout .setrow").length,
+      exercises: window.__repforgeWorkoutDraft.current().exerciseOrder.length,
+      sets: Object.values(window.__repforgeWorkoutDraft.current().exercises).reduce((n, ex) => n + ex.setOrder.length, 0),
     }));
     assert(weekTwoDom.exercises === expectedNormalExercises,
       "interrupted treatment restores all exercises in week two",
