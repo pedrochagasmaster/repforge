@@ -127,6 +127,7 @@ export const SUITES = {
     s("test/today-day-picker.mjs"),
     s("test/focus-mode.mjs"),
     s("test/workout-draft-parity.mjs"),
+    s("test/focus-only-parity.mjs"),
     s("test/recommendation-parity.mjs"),
     s("test/progression-strategies-ui.mjs"),
     s("test/sheet-swipe-dismiss.mjs"),
