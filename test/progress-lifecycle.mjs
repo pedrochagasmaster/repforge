@@ -296,7 +296,7 @@ if (BROWSER) {
     assert.equal(step.preview, true, "90→60 minutes resolves a same-frequency compiled sibling");
     assert.match(step.text, /Training days: 4 → 4/, "shorter-session preview preserves frequency");
     assert.match(step.text, /Session target: 90 → 60 minutes/, "preview states the exact duration change");
-    assert.match(step.text, /RIR/, "shorter-session preview renders exact prescription fields");
+    assert.match(step.text, /Same exercises, same prescriptions/, "shorter-session preview states that no prescription changed");
     const after = await stateOf(page);
     assert.equal(after.metaId, before.metaId, "shorter-session preview leaves the program identity untouched");
     assert.equal(after.historyLen, 0, "shorter-session preview archives nothing");
@@ -311,13 +311,13 @@ if (BROWSER) {
     await seedCompiledProgram(page, { days: 3, minutes: 90 });
     await markBlockComplete(page);
     await openReview(page);
-    const step = await driveToPreview(page, { kind: "sessions_too_long", value: 45 });
+    const step = await driveToPreview(page, { kind: "sessions_too_long", value: 15 });
     assert.equal(step.staged, true, "shorter-session sibling unavailable stages guided repair");
     const after = await stateOf(page);
     const draft = JSON.parse(after.setupDraft || "{}");
     const diag = draft?.state?.result?.diagnostics || null;
     assert.equal(diag?.mainConstraint, "sessions_too_long");
-    assert.equal(diag?.sessionMinutes, 45);
+    assert.equal(diag?.sessionMinutes, 15);
     assert.equal(after.historyLen, 0, "still no archive");
     await page.evaluate(() => localStorage.removeItem("repforge_program_setup_draft_v1"));
     await context.close();

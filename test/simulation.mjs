@@ -7097,10 +7097,11 @@ async function main() {
       "#reviewPanel actions at block-complete"
     );
     assert(
-      !reviewActions.includes("schedule-repair") && !reviewActions.includes("recovery-week"),
-      "F8: unwired structural kinds do not render as dead buttons",
+      ["schedule-repair", "reduce-volume", "guided-edit"].every((kind) => reviewActions.includes(kind)) &&
+        !reviewActions.includes("recovery-week") && !reviewActions.includes("progress"),
+      "F8: wired structural actions render while evidence-ineligible actions stay absent",
       `actions=${reviewActions.join(",")}`,
-      "structural kinds appear with their owning packets"
+      "completed block with insufficient performance and recovery evidence"
     );
 
     await persistState(page, { ...(await getState(page)), settings: { ...(await getState(page)).settings, lang: "pt" } });

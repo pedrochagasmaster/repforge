@@ -504,7 +504,12 @@ function stateWithoutRecoveryCommitDelta(snapshot) {
   const copy = clone(snapshot);
   delete copy._storageRevision;
   delete copy.recoveryTransitions;
-  if (copy.programMeta) delete copy.programMeta.blockId;
+  if (copy.programMeta) {
+    delete copy.programMeta.blockId;
+    delete copy.programMeta.started;
+    delete copy.programMeta.mesocycleStatus;
+    delete copy.programMeta.updated;
+  }
   return copy;
 }
 

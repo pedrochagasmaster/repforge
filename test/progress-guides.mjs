@@ -89,6 +89,7 @@ async function openProgress(page) {
     "deferred replay leaves focus on the invoking button");
 
   await openProgress(page);
+  await page.locator('[data-guide-cue="progress"] [data-guide-dismiss]').click();
   await page.click('#statsSeg [data-seg="review"]');
   await page.waitForSelector('[data-guide-cue="block-transition"]', { timeout: 5000 });
   await page.focus('#statsSeg [data-seg="review"]');

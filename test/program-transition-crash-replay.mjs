@@ -350,6 +350,9 @@ function expectedRecoverySuccess(source, proposal, confirmedAt = RECOVERY_CONFIR
   expected.programMeta = {
     ...expected.programMeta,
     blockId: proposal.diff.recoveryWeek.blockId,
+    started: confirmedAt.slice(0, 10),
+    mesocycleStatus: "active",
+    updated: confirmedAt,
   };
   const priorCarrier = source.recoveryTransitions && typeof source.recoveryTransitions === "object"
     ? JSON.parse(JSON.stringify(source.recoveryTransitions))
@@ -905,17 +908,36 @@ async function crashGenericWhileQueued({ locker, survivor, context }, spec) {
   return journal;
 }
 
-// Correction-4 red vehicle: the real legacy program-replacement writer.
-// commitNextBlock("increase_volume") builds its proposal, archives the predecessor
-// (with the predecessor's full old meta, including transitionIn, and no
-// transitionOut/archiveId), strips the active transitionIn by starting a
-// fresh block meta, and arms the production journal before the state-write
-// lock. The writer is destroyed queued, so the journal replays at boot.
+// Historical compatibility vehicle: construct the exact legacy replacement
+// snapshot and submit it through the generic production state boundary. The
+// retired direct block strategies stay unreachable; this only proves that an
+// already-accepted journal from an older app still replays safely at boot.
 async function crashLegacyReplacementWhileQueued({ locker, writer, survivor }) {
   await bootOthers([writer]);
   await holdStorageLock(locker);
   await writer.evaluate(() => {
-    window.__p6cLegacyResult = window.__repforgeCommitNextBlock("increase_volume");
+    const proposal = JSON.parse(JSON.stringify(window.__repforgeWorkoutDraft.state()));
+    const oldMeta = JSON.parse(JSON.stringify(proposal.programMeta));
+    const oldProgram = JSON.parse(JSON.stringify(proposal.program));
+    proposal.program = proposal.program.map((row) => ({ ...row, sets: Math.min(99, Number(row.sets || 0) + 1) }));
+    proposal.programMeta = {
+      ...oldMeta,
+      id: `${oldMeta.id}-legacy-successor`,
+      blockId: `${oldMeta.id}-legacy-block`,
+      started: "2026-10-04",
+      created: "2026-10-04T00:00:00.000Z",
+      updated: "2026-10-04T00:00:00.000Z",
+      mesocycleStatus: "active",
+      completedAt: null,
+    };
+    delete proposal.programMeta.transitionIn;
+    proposal.programHistory = [...(proposal.programHistory || []), {
+      id: oldMeta.id,
+      meta: oldMeta,
+      program: oldProgram,
+      completedAt: "2026-10-04T00:00:00.000Z",
+    }];
+    window.__p6cLegacyResult = window.__repforgeCommitProposedState(proposal);
   });
   await waitForPendingStorageLocks(locker, 1);
   await survivor.waitForFunction((prefix) =>

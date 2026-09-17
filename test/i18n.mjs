@@ -169,7 +169,7 @@ function extractJsKeys(src) {
 }
 
 const DYNAMIC_FAMILIES = [
-  { test: (s) => s.includes("guide.${id}.title") || s.includes("guide.${id}.body"), keys: (en) => Object.keys(en).filter((k) => /^guide\.(entry|install|privacy)\.(title|body)$/.test(k)) },
+  { test: (s) => s.includes("guide.${id}.title") || s.includes("guide.${id}.body"), keys: (en) => Object.keys(en).filter((k) => /^guide\.[^.]+\.(title|body)$/.test(k)) },
   { test: (s) => s.includes("onb.title.${onbStep}"), keys: (en) => Object.keys(en).filter((k) => /^onb\.title\.\d+$/.test(k)) },
   { test: (s) => s.includes("entry.desired_result.${"), keys: (en) => Object.keys(en).filter((k) => /^entry\.desired_result\.[^.]+\.(label|sub)$/.test(k)) },
   { test: (s) => s.includes("entry.background.experience.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.background.experience.") && k !== "entry.background.experience.label") },
@@ -188,6 +188,12 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes("glossary.${termKey}") || s.includes("glossary.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("glossary.") && !k.startsWith("glossary.term.")) },
   { test: (s) => s.includes("block_rec.${"), keys: (en) => Object.keys(en).filter((k) => /^block_rec\.[^.]+\.(line|why)$/.test(k)) },
   { test: (s) => s.includes("review.summary.adherence.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("review.summary.adherence.")) },
+  { test: (s) => s.includes("review.recovery.outcome.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("review.recovery.outcome.")) },
+  { test: (s) => s.includes("review.recovery.answer.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("review.recovery.answer.")) },
+  { test: (s) => s.includes("review.recovery.reason.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("review.recovery.reason.")) },
+  { test: (s) => s.includes("review.recovery.pattern.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("review.recovery.pattern.")) },
+  { test: (s) => s.includes("stats.evidence.${series.presentation}"), keys: (en) => Object.keys(en).filter((k) => /^stats\.evidence\.[^.]+$/.test(k)) },
+  { test: (s) => s.includes("stats.evidence.reason.${series.reason}"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("stats.evidence.reason.")) },
   { test: (s) => s.includes("rec.block.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("rec.block.")) },
   { test: (s) => s.includes('"why.rule."'), keys: () => ["why.rule.top", "why.rule.cap_top", "why.rule.cap_top2", "why.rule.below_range", "why.rule.stalled", "why.rule.recover", "why.rule.push_reps", "why.rule.hold"] },
   { test: (s) => s.includes("focus.cue.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("focus.cue.")) },

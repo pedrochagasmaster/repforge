@@ -2784,7 +2784,9 @@ function renderReviewFlow(el){
     el.innerHTML=`<p class="review__staged" role="status">${esc(t("review.staged.done"))}</p>`+
       `<div class="btnrow"><button type="button" class="btn btn--cta" data-flow-editor>${esc(t("review.staged.open"))}</button>`+
       `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
-    const open=$("[data-flow-editor]",el);if(open)open.onclick=()=>{reviewFlow=null;startOnboarding("settings",{userInitiated:true})};
+    const open=$("[data-flow-editor]",el);if(open)open.onclick=()=>{
+      reviewFlow=null;startOnboarding("settings",{userInitiated:true});
+      if(entryState?.step==="editor"&&entryState?.result?.preview){entryUiNotice=null;openEntryDraftEditor()}};
     bindFlowCancel(el);return}
   if(flow.stage==="error"){
     const stale=flow.stale===true||String(flow.code||"").includes("stale")||String(flow.code||"").includes("mismatch");

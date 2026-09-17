@@ -148,7 +148,7 @@ await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeo
 const weekTwo = await page.evaluate(() => {
   const snapshot = window.__repforgeWorkoutDraft.state();
   const elapsed = 2;
-  const canonical = window.ProgramCompiler.projectProgramForWeek(
+  const canonical = window.RepForgeProgramCompiler.projectProgramForWeek(
     snapshot.program, snapshot.programMeta.programStructure, elapsed);
   return { scheduled: window.__repforgeProgressReview.scheduledProgram(), canonical,
     record: window.__repforgeProgressReview.activeRecovery(), revision: snapshot._storageRevision };
