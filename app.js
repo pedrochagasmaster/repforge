@@ -2636,9 +2636,11 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
   if(!Model){legacyReviewPanel(el);return}
   const meta=state.programMeta||{};
+  const recoveryEvidence=reviewRecoveryEvidence();
   const checkpoint=Model.buildReviewCheckpoint(prog.toJSON(),
     {started:meta.started,mesocycleLengthWeeks:meta.mesocycleLengthWeeks||6,
-     mesocycleStatus:meta.mesocycleStatus,observedOutcomes:reviewObservedOutcomes(),recoveryEligible:meta.recoveryEligible===true},
+     mesocycleStatus:meta.mesocycleStatus,observedOutcomes:reviewObservedOutcomes(),
+     recoveryEligible:recoveryEvidence.qualifyingPatterns.length>=2},
     state.log,today());
   const life=mesocycleLifecycle(meta);
   const weekLine=life.isComplete?t("meso.complete"):life.isFinalWeek&&life.current!=null?t("meso.week_ready",{n:life.current,total:life.total}):t("review.week_of",{n:life.current??"—",total:life.total});
@@ -2656,23 +2658,67 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
   const rec=blockSnapshot(meta,state.log).recommendation;
   const recCopy=blockRecommendationCopy(rec);
   if(reviewFlow){renderReviewFlow(el);return}
-  el.innerHTML=`<div class="blockprogress"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
+  el.innerHTML=reviewRecoveryStatusHtml()+`<div class="blockprogress"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
     `<p><b>${esc(weekLine)}</b></p>`+
     `<p><b>${esc(t("review.sessions"))}</b> ${esc(t("review.sessions_completed",{done:volume.completedSessions,planned:volume.period.plannedSessions||volume.plannedSessions}))}</p>`+
     `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p>`+
     `<p class="lede">${esc(t("stats.volume.period_text",{start:longDate(volume.period.start||meta.started||""),end:longDate(volume.period.end||today())}))}</p></div>`+
     `<p class="section-label">${esc(t("review.outcomes.label"))}</p><div class="review__outcomes">${outcomeLine}</div>`+
     `<p class="review__summary">${esc(recCopy.line)}</p>`+readOnlyNote+actions;
-  bindReviewActions()}
+  bindReviewActions();bindRecoveryStatus()}
 // Observed outcomes are engine facts (paired-exposure comparison), never
 // representation-derived. Insufficient lifts never enter this list.
 function reviewObservedOutcomes(){
   const facts=strengthFactsByLift();
   return Object.entries(facts).map(([key,outcome])=>({exerciseId:key,outcome}))}
+function reviewRecoveryEvidence(){
+  const instance=recoveryCompilerInstance(state,typeof ProgramCompiler!=="undefined"?ProgramCompiler:null,
+    typeof EXERCISE_LIBRARY!=="undefined"?EXERCISE_LIBRARY:null);
+  const outcomesByPattern={},facts=strengthFactsByLift();
+  if(!instance)return{outcomesByPattern,qualifyingPatterns:[]};
+  const patternMap={squat:"knee-dominant",press:"horizontal press",incline_press:"horizontal press",hinge:"hip/hinge"};
+  const candidates=new Map();
+  for(const day of instance.days||[])for(const slot of day.slots||[]){
+    const pattern=patternMap[slot.contract?.patterns?.[0]];
+    const row=(state.program||[]).find(item=>(item.slotId||item.id)===slot.slotId);
+    const outcome=row?facts[exerciseLiftKey(row)]:null;
+    if(!pattern||!outcome)continue;
+    if(!candidates.has(pattern))candidates.set(pattern,[]);
+    candidates.get(pattern).push(outcome)}
+  for(const pattern of ["knee-dominant","horizontal press","hip/hinge"]){
+    const observed=candidates.get(pattern)||[];
+    outcomesByPattern[pattern]=observed.find(outcome=>outcome==="maintained"||outcome==="declined")||observed[0]||"insufficient"}
+  const qualifyingPatterns=Object.entries(outcomesByPattern)
+    .filter(([,outcome])=>outcome==="maintained"||outcome==="declined").map(([pattern])=>pattern);
+  return{outcomesByPattern,qualifyingPatterns}}
+function activeReviewRecovery(){
+  const blockId=snapshotBlockId(state);
+  if(!activeRecoveryRecord||activeRecoveryRecordBlockId!==blockId)return null;
+  return activeRecoveryRecord.diff?.recoveryWeek?.blockId===blockId?activeRecoveryRecord:null}
+function reviewRecoveryStatusHtml(){
+  const record=activeReviewRecovery();if(!record)return"";
+  const overlay=record.diff.recoveryWeek,week=mesocycleLifecycle(state.programMeta).elapsedWeek;
+  if(week===1)return`<section class="review__recovery" role="status"><p class="section-label">${esc(t("review.recovery.week1_title"))}</p><p>${esc(t("review.recovery.week1_body"))}</p></section>`;
+  const outcome=overlay.reassessmentOutcome;
+  if(outcome!==null)return`<section class="review__recovery" role="status"><p class="section-label">${esc(t("review.recovery.result_title"))}</p><p>${esc(t("review.recovery.result",{outcome:t(`review.recovery.outcome.${outcome}`)}))}</p></section>`;
+  if(Number.isInteger(week)&&week>=2)return`<section class="review__recovery"><p class="section-label">${esc(t("review.recovery.reassess_title"))}</p>`+
+    `<p>${esc(t("review.recovery.reassess_question"))}</p><div class="review__actions" role="group" aria-label="${esc(t("review.recovery.reassess_title"))}">`+
+    ["Better","About the same","Worse"].map(outcome=>`<button type="button" class="btn btn--steel" data-recovery-outcome="${esc(outcome)}">${esc(t(`review.recovery.outcome.${outcome}`))}</button>`).join("")+`</div></section>`;
+  return""}
+function bindRecoveryStatus(){
+  $$('[data-recovery-outcome]').forEach(button=>button.onclick=async()=>{
+    const record=activeReviewRecovery();if(!record)return;
+    button.disabled=true;
+    const result=await repforgeProgramTransitionAdapter.reassessRecovery({
+      expectedRevision:readRevision(state),blockId:snapshotBlockId(state),transitionId:record.transitionId,
+      proposalHash:record.proposalHash,acknowledgedRecord:cloneSnapshot(record),outcome:button.dataset.recoveryOutcome});
+    if(result?.committed){toast(t("review.recovery.reassessed"));render()}
+    else{toast(t(result?.code==="recovery_reassessment_closed"?"review.recovery.closed":"review.error.failed"),{assertive:true});renderReview()}})}
 // Structural actions appear only at a completed boundary (Plan 056/P5). Each
 // kind renders only when its production flow is wired in this packet; the
 // eligibility contract itself lives in progress-model.js.
-const REVIEW_ACTION_LABELS={repeat:"review.action.repeat","schedule-repair":"review.action.schedule_repair","guided-edit":"review.action.guided_edit"};
+const REVIEW_ACTION_LABELS={repeat:"review.action.repeat","schedule-repair":"review.action.schedule_repair",
+  "reduce-volume":"review.action.reduce_volume","recovery-week":"review.action.recovery_week","guided-edit":"review.action.guided_edit"};
 function renderReviewActions(checkpoint){
   const kinds=checkpoint.structuralActions.filter(k=>REVIEW_ACTION_LABELS[k]);
   if(!kinds.length)return "";
@@ -2703,6 +2749,8 @@ function legacyReviewPanel(el){
 let reviewFlow=null;
 function startScheduleRepair(){reviewFlow={stage:"diagnosis",action:"schedule-repair",kind:"fewer_days",target:""};renderReview()}
 function startGuidedEdit(){reviewFlow={stage:"diagnosis",action:"guided-edit",kind:"fewer_days",target:""};renderReview()}
+function startVolumeReduction(){reviewFlow={stage:"volume-question",action:"reduce-volume"};renderReview()}
+function startRecoveryWeek(){reviewFlow={stage:"recovery-question",action:"recovery-week",answer:null};renderReview()}
 async function closeReviewFlow(){
   if(reviewFlow?.stage==="staged"){
     const cleared=await clearSetupDraft();
@@ -2715,6 +2763,23 @@ function reviewMovementLabel(mid){
 function renderReviewFlow(el){
   const flow=reviewFlow||{};
   if(flow.stage==="preview")return renderSiblingPreview(el,flow);
+  if(flow.stage==="volume-question"){
+    el.innerHTML=`<p class="section-label">${esc(t("review.volume.title"))}</p><p>${esc(t("review.volume.question"))}</p>`+
+      `<p class="lede">${esc(t("review.volume.body"))}</p><div class="btnrow">`+
+      `<button type="button" class="btn btn--cta" data-volume-confirm>${esc(t("review.volume.continue"))}</button>`+
+      `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
+    const confirm=$("[data-volume-confirm]",el);if(confirm)confirm.onclick=proposeVolumeReductionFlow;
+    bindFlowCancel(el);return}
+  if(flow.stage==="recovery-question"){
+    const evidence=reviewRecoveryEvidence(),eligible=evidence.qualifyingPatterns.length>=2;
+    el.innerHTML=`<p class="section-label">${esc(t("review.recovery.title"))}</p>`+
+      `<p>${esc(t("review.recovery.question"))}</p>`+
+      `<div class="review__actions" role="group" aria-label="${esc(t("review.recovery.question"))}">`+
+      ["Yes","No","Not sure"].map(answer=>`<button type="button" class="btn btn--steel" data-recovery-answer="${esc(answer)}">${esc(t(`review.recovery.answer.${answer}`))}</button>`).join("")+`</div>`+
+      (flow.message?`<p class="review__readonly" role="status">${esc(t(flow.message))}</p>`:"")+
+      `<div class="btnrow"><button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
+    $$('[data-recovery-answer]',el).forEach(button=>button.onclick=()=>answerRecoveryQuestion(button.dataset.recoveryAnswer,eligible,evidence));
+    bindFlowCancel(el);return}
   if(flow.stage==="staged"){
     el.innerHTML=`<p class="review__staged" role="status">${esc(t("review.staged.done"))}</p>`+
       `<div class="btnrow"><button type="button" class="btn btn--cta" data-flow-editor>${esc(t("review.staged.open"))}</button>`+
@@ -2726,10 +2791,11 @@ function renderReviewFlow(el){
     el.innerHTML=`<p class="review__error" role="alert">${esc(t(stale?"review.error.stale":"review.error.failed"))}</p>`+
       `<div class="btnrow"><button type="button" class="btn btn--steel" data-flow-restart>${esc(t("review.error.retry"))}</button>`+
       `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
-    const restart=$("[data-flow-restart]",el);if(restart)restart.onclick=startScheduleRepair;
+    const restart=$("[data-flow-restart]",el);if(restart)restart.onclick=flow.action==="reduce-volume"
+      ?startVolumeReduction:flow.action==="recovery-week"?startRecoveryWeek:startScheduleRepair;
     bindFlowCancel(el);return}
   if(flow.stage==="done"){
-    el.innerHTML=`<p class="review__staged" role="status">${esc(t("review.done.committed"))}</p>`+
+    el.innerHTML=`<p class="review__staged" role="status">${esc(t(flow.doneKey||"review.done.committed"))}</p>`+
       `<div class="btnrow"><button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.close"))}</button></div>`;
     bindFlowCancel(el);return}
   // diagnosis
@@ -2765,7 +2831,26 @@ async function stageGuidedRepairFlow(diagnosis,unavailable){
   const staged=await window.__repforgeStageGuidedManualRepair(unavailable
     ?{diagnosis,unavailable,openEditor:false}:{diagnosis,openEditor:false});
   if(staged?.ok){reviewFlow={stage:"staged"};renderReview()}
-  else{reviewFlow={stage:"error",code:staged?.code||"guided_staging_failed"};renderReview()}}
+  else{reviewFlow={stage:"error",action:"guided-edit",code:staged?.code||"guided_staging_failed"};renderReview()}}
+async function proposeVolumeReductionFlow(){
+  const result=await repforgeProgramTransitionAdapter.proposeVolumeReduction({
+    diagnosis:{kind:"reduce_training_volume",answers:{confirmed:true},
+      eligibleEvidenceIds:["explicit_volume_reduction"],insufficientEvidenceReasons:[]},
+    transitionId:uid(),successorProgramId:uid()});
+  reviewFlow=result?.ok?{stage:"preview",action:"reduce-volume",proposal:result.proposal}
+    :{stage:"error",action:"reduce-volume",code:result?.code||"volume_reduction_unavailable"};
+  renderReview()}
+async function answerRecoveryQuestion(answer,eligible,evidence){
+  if(answer!=="Yes"){
+    reviewFlow={stage:"recovery-question",action:"recovery-week",answer,
+      message:answer==="No"?"review.recovery.answer_no":"review.recovery.answer_unsure"};renderReview();return}
+  if(!eligible){reviewFlow={stage:"recovery-question",action:"recovery-week",answer,
+    message:"review.recovery.insufficient"};renderReview();return}
+  const result=await repforgeProgramTransitionAdapter.proposeRecoveryWeek({
+    evidence:{outcomesByPattern:evidence.outcomesByPattern,checkpointAnswer:"Yes"},transitionId:uid()});
+  reviewFlow=result?.ok?{stage:"preview",action:"recovery-week",proposal:result.proposal}
+    :{stage:"error",action:"recovery-week",code:result?.code||"recovery_ineligible"};
+  renderReview()}
 function reviewDiffMovement(entry){
   const slotId=entry?.successorSlot||entry?.predecessorSlot;
   const live=(state.program||[]).find(row=>(row.slotId||row.id)===slotId);
@@ -2777,6 +2862,7 @@ function reviewPrescriptionText(snapshot){
     strategy:snapshot.strategy,kind:snapshot.prescriptionClass})}
 function renderSiblingPreview(el,flow){
   const p=flow.proposal||{},diff=p.diff||{};
+  if(p.kind==="recovery_week")return renderRecoveryPreview(el,flow);
   const beforeDays=[...new Set(state.program.map(r=>r.day))].length;
   const afterDays=(diff.days||[]).filter(d=>d.after).length;
   const beforeMinutes=Number(state.programMeta?.compilerContext?.sessionMinutes)||0;
@@ -2805,15 +2891,39 @@ function renderSiblingPreview(el,flow){
   const confirm=$("[data-preview-confirm]",el);
   if(confirm)confirm.onclick=async()=>{
     confirm.disabled=true;
+    const confirmedAt=new Date().toISOString();
     const persisted=await repforgeProgramTransitionAdapter.confirmTransition({
       proposal:p,proposalHash:p.proposalHash,transitionId:p.transitionId,
-      successorProgramId:p.successor?.programId,confirmedAt:new Date().toISOString(),
+      successorProgramId:p.successor?.programId,confirmedAt,
       acknowledgedDraftRaw:readDraftRaw()});
     if(persisted?.committed){
-      reviewFlow={stage:"done"};day=days()[0]||"Day 1";toast(t("review.done.committed"));render();
+      reviewFlow={stage:"done",doneKey:p.kind==="reduce_training_volume"?"review.volume.committed":"review.done.committed"};
+      day=days()[0]||"Day 1";toast(t(reviewFlow.doneKey));render();
     }else{
-      reviewFlow={stage:"error",code:persisted?.code,stale:persisted?.duplicate===true||!!persisted?.staleRevision};
+      reviewFlow={stage:"error",action:flow.action,code:persisted?.code,stale:persisted?.duplicate===true||!!persisted?.staleRevision};
       render()}}
+  bindFlowCancel(el)}
+function renderRecoveryPreview(el,flow){
+  const p=flow.proposal,overlay=p.diff.recoveryWeek;
+  const evidence=overlay.eligibilityEvidence;
+  const entries=overlay.entries.map(entry=>`<li>${esc(reviewDiffMovement({movement:entry.movement,predecessorSlot:entry.slot}))}: `+
+    `${esc(t("review.recovery.set_change",{before:entry.baseWorkingSets,after:entry.effectiveWorkingSets}))} · `+
+    `${esc(t(`review.recovery.reason.${entry.reason}`))}</li>`).join("");
+  const evidenceRows=evidence.qualifyingPatterns.map(pattern=>
+    `<li>${esc(t(`review.recovery.pattern.${pattern}`))}: ${esc(t(EVIDENCE_OUTCOME_KEYS[evidence.outcomesByPattern[pattern]]))}</li>`).join("");
+  el.innerHTML=`<p class="section-label">${esc(t("review.recovery.preview_title"))}</p>`+
+    `<p><b>${esc(t("review.recovery.policy",{version:overlay.policyVersion}))}</b></p>`+
+    `<p>${esc(t("review.recovery.week2"))}</p><ul class="review__diff">${evidenceRows}${entries}</ul>`+
+    `<p class="lede"><code>${esc(p.proposalHash)}</code></p><p class="lede">${esc(t("review.preview.hash_note"))}</p>`+
+    `<div class="btnrow"><button type="button" class="btn btn--cta" data-preview-confirm>${esc(t("review.recovery.confirm"))}</button>`+
+    `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.preview.cancel"))}</button></div>`;
+  const confirm=$("[data-preview-confirm]",el);if(confirm)confirm.onclick=async()=>{
+    confirm.disabled=true;
+    const confirmedAt=new Date().toISOString(),due=new Date(Date.parse(confirmedAt)+7*86400000).toISOString();
+    const persisted=await repforgeProgramTransitionAdapter.confirmTransition({proposal:p,proposalHash:p.proposalHash,
+      transitionId:p.transitionId,confirmedAt,reassessmentDueAt:due,acknowledgedDraftRaw:readDraftRaw()});
+    if(persisted?.committed){reviewFlow={stage:"done",doneKey:"review.recovery.committed"};toast(t(reviewFlow.doneKey));render()}
+    else{reviewFlow={stage:"error",action:"recovery-week",code:persisted?.code,stale:!!persisted?.stale||!!persisted?.staleRevision};render()}};
   bindFlowCancel(el)}
 let pendingBlockTransition=null;
 let onboardingOrigin=null;
@@ -6904,7 +7014,9 @@ async function confirmRecoveryTransition(params,Transition,Compiler,catalogue){
   const initialCarrier=isValidRecoveryTransitions(state.recoveryTransitions)
     ?cloneSnapshot(state.recoveryTransitions):{schemaVersion:1,records:[],quarantine:[]};
   const initialProposal=cloneSnapshot(state);
-  initialProposal.programMeta={...cloneSnapshot(state.programMeta),blockId:target};
+  const blockStarted=params.confirmedAt.slice(0,10);
+  initialProposal.programMeta={...cloneSnapshot(state.programMeta),blockId:target,started:blockStarted,
+    mesocycleStatus:"active",updated:params.confirmedAt};
   initialProposal.recoveryTransitions={schemaVersion:1,records:[...initialCarrier.records,cloneSnapshot(initialCommitted)],quarantine:cloneSnapshot(initialCarrier.quarantine)};
   const preflight=async({head})=>{
     const lockedIdem=classifyCommittedRecovery(head,proposal);
@@ -6935,7 +7047,8 @@ async function confirmRecoveryTransition(params,Transition,Compiler,catalogue){
     const existing=isValidRecoveryTransitions(head.recoveryTransitions)
       ?cloneSnapshot(head.recoveryTransitions):{schemaVersion:1,records:[],quarantine:[]};
     const next=cloneSnapshot(head);
-    next.programMeta={...cloneSnapshot(head.programMeta),blockId:target};
+    next.programMeta={...cloneSnapshot(head.programMeta),blockId:target,started:blockStarted,
+      mesocycleStatus:"active",updated:params.confirmedAt};
     next.recoveryTransitions={schemaVersion:1,records:[...existing.records,cloneSnapshot(committed)],quarantine:cloneSnapshot(existing.quarantine)};
     return{proposal:next};
   };
@@ -7332,6 +7445,8 @@ const repforgeProgramTransitionAdapter = {
         // the resulting proposal/journal carries this candidate through
         // replay, while the durable write remains the single confirmation.
         blockId: allocateBlockId(),
+        started: confirmedAt.slice(0,10),
+        mesocycleStatus: "active",
         daysPerWeek: succInstance.frequency,
         sessionLength: String(succContext.sessionMinutes),
         programStructure: cloneSnapshot(succInstance.programStructure),
@@ -7628,6 +7743,12 @@ const repforgeProgramTransitionAdapter = {
 };
 if (typeof window !== "undefined") {
   window.__repforgeProgramTransition = repforgeProgramTransitionAdapter;
+  window.__repforgeProgressReview={
+    recoveryEvidence:()=>cloneSnapshot(reviewRecoveryEvidence()),
+    activeRecovery:()=>cloneSnapshot(activeReviewRecovery()),
+    scheduledProgram:()=>cloneSnapshot(scheduledProgramRows()),
+    flow:()=>cloneSnapshot(reviewFlow),
+  };
 }
 window.__repforgeParseCommand=parseSetCommand;
 window.__repforgeNormalizeCommand=normalizeCommandText;
