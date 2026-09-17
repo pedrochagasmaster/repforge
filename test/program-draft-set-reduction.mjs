@@ -704,6 +704,10 @@ async function main() {
       await settleBootStorage(page);
       await settleBootStorage(workout);
       await settleBootStorage(locker);
+      await fillSet(workout,1,100,8,1);
+      await workout.locator("#workout .exercise.is-current .saveset").click();
+      await workout.locator(`[data-k="${EXERCISE_ID}_2_load"]`).waitFor();
+      await workout.evaluate(()=>window.__repforgeWorkoutDraft.flush());
       await holdStorageLock(locker);
 
       await reduceSets(page);

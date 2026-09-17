@@ -1738,8 +1738,9 @@ async function main() {
   await nav(page, "log");
   await selectDay(page, "Day 2");
   await selectFocusExercise(page, renamedEx.id);
-  const past=await page.locator("#workout .exercise.is-current .ledger__row.is-past").allTextContents();
-  assert(past.length>0 && past.some(row=>row.includes(String(loggedOnDay2.load))),
+  const latestRenameRow=state.log.filter(row=>row.exerciseId===renamedEx.id).sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.created).localeCompare(String(a.created)))[0];
+  const past=await page.locator("#workout .exercise.is-current .ledger__row.is-past .ledger__load").allTextContents();
+  assert(past.length>0 && past.includes(String(latestRenameRow.load)),
     "Renamed exercise still shows previous-session values via exerciseId", JSON.stringify(past));
 
   // Add exercise — now via the library picker rather than a blank row
@@ -4253,8 +4254,8 @@ async function main() {
       "Log → on-grid hold set 1 reps"
     );
     await clearDraftFixture(page);
-    await page.evaluate(({ id, day }) => {
-      window.__repforgeEnterWorkout?.({ focus: true, day });
+    await page.evaluate(async ({ id, day }) => {
+      await window.__repforgeEnterWorkout?.({ day });
       const fl = window.__repforgeFocus?.list?.() || [];
       const i = fl.findIndex((e) => e.id === id);
       if (i >= 0) window.__repforgeFocus.to(i);
@@ -4304,8 +4305,8 @@ async function main() {
       "Log → 0.1 kg grid hold set 1 reps"
     );
     await clearDraftFixture(page);
-    await page.evaluate(({ id, day }) => {
-      window.__repforgeEnterWorkout?.({ focus: true, day });
+    await page.evaluate(async ({ id, day }) => {
+      await window.__repforgeEnterWorkout?.({ day });
       const fl = window.__repforgeFocus?.list?.() || [];
       const i = fl.findIndex((e) => e.id === id);
       if (i >= 0) window.__repforgeFocus.to(i);
@@ -4440,7 +4441,8 @@ async function main() {
   );
   await saveWorkout(page);
   const stAfterStepper = await getState(page);
-  const stepperLogged = stAfterStepper.log.filter((r) => r.exerciseId === ex0 && +r.set === 1);
+  const priorSessionIds=new Set(stAfterFinish.log.map(row=>row.session));
+  const stepperLogged = stAfterStepper.log.filter((r) => r.exerciseId === ex0 && +r.set === 1 && !priorSessionIds.has(r.session));
   assert(
     stepperLogged.length === 1 && +stepperLogged[0].load > 0,
     "Stepper-edited set is saved on Finish",
@@ -4538,11 +4540,14 @@ async function main() {
   await page.click("#fatigue .fatigue__trim");
   await flushDraftWork(page);
   await page.waitForFunction(
-    () => document.querySelectorAll("#workout .exercise.is-skipped").length >= 2,
+    () => Object.values(window.__repforgeWorkoutDraft.current().exercises).filter(ex=>ex.status==="skipped").length >= 2,
     undefined,
     { timeout: 5000 }
   );
-  const hiddenAfterTrim = await page.locator("#workout .exercise.is-skipped").count();
+  await page.locator("#sessionSheetBtn").click();
+  const hiddenAfterTrim=await page.locator("#sessionMap .session-map__status.is-skipped").count();
+  await page.locator("#sessionSheetClose").click();
+  await page.locator("#sessionSheet").waitFor({state:"hidden"});
   assert(
     hiddenAfterTrim >= 2,
     "Fatigue trim hides backing-off lifts",
@@ -4558,12 +4563,12 @@ async function main() {
   await page.click(".skipbar__show");
   await flushDraftWork(page);
   await page.waitForFunction(
-    () => document.querySelectorAll("#workout .exercise.is-skipped").length === 0,
+    () => Object.values(window.__repforgeWorkoutDraft.current().exercises).filter(ex=>ex.status==="skipped").length === 0,
     undefined,
     { timeout: 5000 }
   );
   assert(
-    (await page.locator("#workout .exercise.is-skipped").count()) === 0,
+    (await page.evaluate(()=>Object.values(window.__repforgeWorkoutDraft.current().exercises).filter(ex=>ex.status==="skipped").length))===0,
     "Show all restores trimmed exercises",
     "Exercises still skipped after Show all",
     "Skip bar → Show all → exercises visible again"
@@ -8462,7 +8467,7 @@ async function main() {
       note: document.querySelector("#sessionNotes")?.value,
       bw: document.querySelector("#sessionBodyweight")?.value,
       date: document.querySelector("#sessionDate")?.value,
-      skipped: skipped?.status === "skipped" || document.querySelector(`.exercise[data-ex="${skip}"]`)?.classList.contains("is-skipped"),
+      skipped: skipped?.status === "skipped" || (window.__repforgeWorkoutDraft.current()?.exercises?.[skip]?.status === "skipped"),
       subA: d?.exercises?.[a]?.substitution?.replacement?.displayName,
       subB: d?.exercises?.[b]?.substitution?.replacement?.displayName,
       day: d?.program?.dayLabel,
@@ -8506,7 +8511,7 @@ async function main() {
   const afterFinishDraft = await readDraft(page);
   const fresh = await page.evaluate(({ a, b, skip }) => ({
     subA: window.__repforgeWorkoutDraft.projection().__substituted?.[a] || "",
-    skipped: document.querySelector(`.exercise[data-ex="${skip}"]`)?.classList.contains("is-skipped"),
+    skipped: (window.__repforgeWorkoutDraft.current()?.exercises?.[skip]?.status === "skipped"),
     note: document.querySelector("#sessionNotes")?.value,
     date: document.querySelector("#sessionDate")?.value,
   }), { a: draftExA.id, b: draftExB.id, skip: draftExSkip.id });
@@ -8620,12 +8625,12 @@ async function main() {
       await page.waitForFunction((id) => {
         const draft = window.__repforgeWorkoutDraft?.current?.();
         return draft?.exercises?.[id]?.status === "skipped" &&
-          document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-skipped");
+          (window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.status === "skipped");
       }, draftExSkip.id, { timeout: 5000 });
       await reloadApp(page);
   await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
   assert(
-    await page.evaluate((id) => document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-skipped"), draftExSkip.id),
+    await page.evaluate((id) => (window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.status === "skipped"), draftExSkip.id),
     "Direct skip survives reload",
     "skip class missing",
     "Skip → reload"
@@ -8636,13 +8641,13 @@ async function main() {
     await page.waitForFunction((id) => {
       const draft = window.__repforgeWorkoutDraft?.current?.();
       return draft?.exercises?.[id]?.status !== "skipped" &&
-        !document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-skipped");
+        !(window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.status === "skipped");
     }, draftExSkip.id, { timeout: 5000 });
   }
   await reloadApp(page);
   await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
   assert(
-    !(await page.evaluate((id) => document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-skipped"), draftExSkip.id)),
+    !(await page.evaluate((id) => (window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.status === "skipped"), draftExSkip.id)),
     "Show all survives reload as unskipped",
     "still skipped",
     "Show all → reload"

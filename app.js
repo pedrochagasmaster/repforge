@@ -5509,7 +5509,7 @@ function renderSessionSheet(){
   if (!sheet) return;
   const draft = activeWorkoutDraft;
   const dateInput = $("#sessionDate");
-  if (dateInput) dateInput.value = draft?.program?.scheduleDate || todayIso();
+  if (dateInput) dateInput.value = draft?.program?.scheduleDate ?? today();
   const bwInput = $("#sessionBodyweight");
   if (bwInput) {
     bwInput.value = displayDraftText("bodyweight", draft?.session?.bodyweight) || "";
