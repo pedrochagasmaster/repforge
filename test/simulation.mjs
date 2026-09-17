@@ -4038,7 +4038,7 @@ async function main() {
         /55/.test(cardHead || "") && !/53\.75/.test(cardHead || ""),
         `F1: ${c.key} kg card shows the grid load`,
         `head="${cardHead}"`,
-        `Log list → ${c.key} recblock headline`
+        `Focus card → ${c.key} recommendation cue`
       );
 
       await page.click(`.exercise[data-ex="${c.ex.id}"] [data-exopen="${c.ex.id}"]`);
@@ -4934,7 +4934,10 @@ async function main() {
     await closeWhy();
 
     // 4. A never-trained lift has no arithmetic to show, so it offers no button.
-    const newHasWhy = await page.locator(`.exercise[data-ex="${whyNewEx.id}"] [data-why]`).count();
+    await page.locator("#sessionSheetBtn").click();
+    await page.locator(`[data-session-map-jump="${whyNewEx.id}"]`).click();
+    await page.locator("#sessionSheet").waitFor({ state: "hidden" });
+    const newHasWhy = await page.locator(`#workout .exercise.is-current[data-ex="${whyNewEx.id}"] [data-why]`).count();
     const newStatus = await whyRecOf(whyNewEx.id);
     assert(
       newStatus.status === "new" && newHasWhy === 0,
@@ -4944,8 +4947,7 @@ async function main() {
     );
 
     // 5. Escape closes and hands focus back to the exact opener.
-    await page.click(`.exercise[data-ex="${whyCases[0].ex.id}"] [data-why]`);
-    await page.waitForSelector("#whySheet.is-open", { timeout: 5000 });
+    await openWhyFrom(whyCases[0].ex.id);
     const focusOnOpen = await page.evaluate(() => document.activeElement?.id || "");
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => document.querySelector("#whySheet")?.hidden === true, null, { timeout: 5000 });
@@ -4963,7 +4965,9 @@ async function main() {
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, "Day 1");
-    const ptLabel = await page.locator(`.exercise[data-ex="${whyCases[0].ex.id}"] [data-why]`).textContent();
+    await openWhyFrom(whyCases[0].ex.id);
+    const ptLabel = await page.locator(`#workout .exercise.is-current[data-ex="${whyCases[0].ex.id}"] [data-why]`).textContent();
+    await closeWhy();
     const ptSheet = await openWhyFrom(whyCases[0].ex.id);
     assert(
       /Por que essa carga\?/.test(ptLabel || "") && /topo da faixa/.test(ptSheet.body),
@@ -5000,7 +5004,9 @@ async function main() {
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, "Day 1");
-    await page.click(`.exercise[data-ex="${whyCases[0].ex.id}"] [data-exopen="${whyCases[0].ex.id}"]`);
+    await openWhyFrom(whyCases[0].ex.id);
+    await closeWhy();
+    await page.click(`#workout .exercise.is-current[data-ex="${whyCases[0].ex.id}"] [data-exopen="${whyCases[0].ex.id}"]`);
     await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
     const detailWhy = await page.locator("#exDetail [data-why]").count();
     await page.click("#exDetail [data-why]");
