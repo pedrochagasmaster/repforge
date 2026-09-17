@@ -6365,19 +6365,27 @@ async function main() {
   await nav(page, "stats");
   const segBtnCount = await page.locator("#statsSeg button").count();
   assert(
-    segBtnCount === 5,
-    "Stats segmented control has 5 segments",
+    segBtnCount === 2,
+    "Stats primary control has Overview and Review (Plan 056)",
     `button count=${segBtnCount}`,
     "Stats tab → inspect #statsSeg buttons"
   );
   const segLabels = await page.locator("#statsSeg button").allTextContents();
   assert(
-    segLabels.includes("Overview") && segLabels.includes("Strength") && segLabels.includes("Volume") && segLabels.includes("PRs") && segLabels.includes("Review"),
-    "Stats segments include Overview, Strength, Volume, PRs, Review",
+    segLabels.includes("Overview") && segLabels.includes("Review"),
+    "Primary segments are Overview and Review",
     `labels=${segLabels.join(",")}`,
-    "Stats tab → segment button labels"
+    "Stats tab → primary segment button labels"
   );
-  await page.click('#statsSeg button[data-seg="strength"]');
+  const evBtnCount = await page.locator("#statsEvidence button").count();
+  const evLabels = await page.locator("#statsEvidence button").allTextContents();
+  assert(
+    evBtnCount === 3 && evLabels.includes("Strength") && evLabels.includes("Volume") && evLabels.includes("PRs"),
+    "Evidence group carries Strength, Volume, PRs",
+    `count=${evBtnCount} labels=${evLabels.join(",")}`,
+    "Stats tab → inspect #statsEvidence buttons"
+  );
+  await page.click('#statsEvidence button[data-seg="strength"]');
   await page.waitForTimeout(80);
   const strengthVisible = await page.evaluate(() => {
     const s = document.querySelector("#segStrength");
@@ -6970,62 +6978,65 @@ async function main() {
       "buildPlainSummary at week 8 of 6"
     );
 
-    const openFullScreenReview = async () => {
+    // Plan 056: End block routes into the single Progress → Review surface.
+    // No separate confirm or full-screen dialog opens along the way.
+    const openProgressReview = async () => {
       await nav(page, "program");
       await applyProgramEditor(page);
       await page.click("#reviewBlockLink");
-      await page.waitForSelector("#endBlockConfirm[open]", { timeout: 5000 });
-      await page.click("#endBlockGo");
-      await page.waitForSelector("#blockReview[open]", { timeout: 5000 });
+      await page.waitForSelector("#stats.view.active", { timeout: 5000 });
+      await page.waitForFunction(() => document.querySelector('#statsSeg button[data-seg="review"]')?.classList.contains("active"), null, { timeout: 5000 });
+      await page.waitForFunction(() => !document.querySelector("#endBlockConfirm")?.open);
+      return (await page.locator("#reviewPanel").textContent()) || "";
     };
-    const heroOf = async () => (await page.locator("#blockReview .blockreview__hero").textContent())?.trim() || "";
-    const panelOf = async () => (await page.locator("#blockReview").textContent()) || "";
+    const routeOk = async () => {
+      const st = await page.evaluate(() => ({
+        reviewSeg: document.querySelector('#statsSeg button[data-seg="review"]')?.classList.contains("active"),
+        overviewSeg: document.querySelector('#statsSeg button[data-seg="overview"]')?.classList.contains("active"),
+        panelVisible: document.querySelector("#segReview")?.classList.contains("active"),
+        confirmOpen: !!document.querySelector("#endBlockConfirm")?.open,
+        dialogOpen: !!document.querySelector("#blockReview")?.open,
+      }));
+      return st.reviewSeg && !st.overviewSeg && st.panelVisible && !st.confirmOpen && !st.dialogOpen;
+    };
 
-    await openFullScreenReview();
-    let hero = await heroOf();
-    let panel = await panelOf();
+    let panel = await openProgressReview();
     assert(
-      /Week 6 of 6/.test(hero) && /ready for review/i.test(hero) && !/Block complete/i.test(hero) && !overrunText(hero),
-      "F8: full-screen review headline is ready-for-review while still active",
-      `hero="${hero}"`,
-      "End block → #blockReview hero at week 8 of 6, mesocycleStatus=active"
+      await routeOk(),
+      "F8: End block routes to the single Progress → Review surface",
+      JSON.stringify(await page.evaluate(() => ({ stats: document.querySelector("#stats")?.classList.contains("active"), confirm: !!document.querySelector("#endBlockConfirm")?.open, dialog: !!document.querySelector("#blockReview")?.open }))),
+      "End block → Progress → Review, no competing dialog"
     );
     assert(
       /Week 6 of 6/.test(panel) && /ready for review/i.test(panel) && !/Block complete/i.test(panel) && !overrunText(panel) && !/Week 8 of 6/.test(panel),
-      "F8: full-screen review copy stays clamped and not completed while active",
+      "F8: routed Review copy stays clamped and not completed while active",
       `panel="${panel.replace(/\s+/g, " ").slice(0, 220)}"`,
-      "#blockReview body at active week 8 of 6"
+      "#reviewPanel at active week 8 of 6"
     );
-    await page.click("#blockDecideLater");
-    await page.waitForFunction(() => !document.querySelector("#blockReview")?.open);
     const afterLater = (await getState(page)).programMeta.mesocycleStatus;
     assert(
       afterLater === "active",
-      "F8: Decide later leaves the mesocycle active",
+      "F8: read-only Review leaves the mesocycle active",
       `status=${afterLater}`,
-      "#blockDecideLater at week 8 of 6"
+      "Review route at week 8 of 6"
     );
 
     f8 = await getState(page);
     await persistState(page, { ...f8, settings: { ...f8.settings, lang: "pt" } });
     await reloadApp(page);
-    await openFullScreenReview();
-    hero = await heroOf();
-    panel = await panelOf();
+    panel = await openProgressReview();
     assert(
-      /Semana 6 de 6/.test(hero) && /pronta para revisão/i.test(hero) && !/Bloco concluído/i.test(hero) && !overrunText(hero),
-      "F8: PT full-screen review headline is ready-for-review while still active",
-      `hero="${hero}"`,
-      "lang=pt → #blockReview hero at active week 8 of 6"
+      await routeOk(),
+      "F8: PT End block routes to the single Progress → Review surface",
+      JSON.stringify(await page.evaluate(() => ({ confirm: !!document.querySelector("#endBlockConfirm")?.open, dialog: !!document.querySelector("#blockReview")?.open }))),
+      "lang=pt → End block → Progress → Review"
     );
     assert(
       /Semana 6 de 6/.test(panel) && /pronta para revisão/i.test(panel) && !/Bloco concluído/i.test(panel) && !overrunText(panel) && !/Semana 8 de 6/.test(panel),
-      "F8: PT full-screen review copy stays clamped and not completed while active",
+      "F8: PT routed Review copy stays clamped and not completed while active",
       `panel="${panel.replace(/\s+/g, " ").slice(0, 220)}"`,
-      "lang=pt → #blockReview body at active week 8 of 6"
+      "lang=pt → #reviewPanel at active week 8 of 6"
     );
-    await page.click("#blockDecideLater");
-    await page.waitForFunction(() => !document.querySelector("#blockReview")?.open);
     await persistState(page, { ...(await getState(page)), settings: { ...(await getState(page)).settings, lang: "en" } });
     await reloadApp(page);
 
@@ -7064,42 +7075,29 @@ async function main() {
       "Review panel + plain summary when completed"
     );
 
-    await openFullScreenReview();
-    hero = await heroOf();
-    panel = await panelOf();
+    panel = await openProgressReview();
     assert(
-      /^Block complete$/i.test(hero) && !/ready for review/i.test(hero) && !overrunText(hero),
-      "F8: full-screen review headline is Block complete only when stored-completed",
-      `hero="${hero}"`,
-      "End block → #blockReview hero at mesocycleStatus=completed"
+      await routeOk(),
+      "F8: stored-completed End block still routes to the single Review surface",
+      JSON.stringify(await page.evaluate(() => ({ confirm: !!document.querySelector("#endBlockConfirm")?.open, dialog: !!document.querySelector("#blockReview")?.open }))),
+      "End block → Progress → Review at mesocycleStatus=completed"
     );
     assert(
       /Block complete/i.test(panel) && !/Week 8 of 6/.test(panel) && !overrunText(panel),
-      "F8: completed full-screen review keeps week displays clamped",
+      "F8: completed routed Review keeps week displays clamped",
       `panel="${panel.replace(/\s+/g, " ").slice(0, 220)}"`,
-      "#blockReview body when stored-completed"
+      "#reviewPanel when stored-completed"
     );
-    await page.click("#blockReviewClose");
-    await page.waitForFunction(() => !document.querySelector("#blockReview")?.open);
 
     await persistState(page, { ...(await getState(page)), settings: { ...(await getState(page)).settings, lang: "pt" } });
     await reloadApp(page);
-    await openFullScreenReview();
-    hero = await heroOf();
-    panel = await panelOf();
+    panel = await openProgressReview();
     assert(
-      /^Bloco concluído$/i.test(hero) && !/pronta para revisão/i.test(hero),
-      "F8: PT full-screen review headline is Bloco concluído when stored-completed",
-      `hero="${hero}"`,
-      "lang=pt → #blockReview hero at mesocycleStatus=completed"
-    );
-    assert(
-      /Bloco concluído/i.test(panel) && !/Semana 8 de 6/.test(panel) && !overrunText(panel),
-      "F8: PT completed full-screen review keeps week displays clamped",
+      /Bloco concluído/i.test(panel) && !/pronta para revisão/i.test(panel) && !/Semana 8 de 6/.test(panel),
+      "F8: PT completed routed Review is Bloco concluído",
       `panel="${panel.replace(/\s+/g, " ").slice(0, 220)}"`,
-      "lang=pt → #blockReview body when stored-completed"
+      "lang=pt → #reviewPanel when stored-completed"
     );
-    await page.click("#blockReviewClose");
     await page.waitForFunction(() => !document.querySelector("#blockReview")?.open);
     await persistState(page, f8Restore);
     await reloadApp(page);
@@ -7206,74 +7204,32 @@ async function main() {
     `volumeCompliance=${blockReview?.volumeCompliance}`,
     "__repforgeBuildBlockReview → volumeCompliance capped at 1"
   );
+  // Plan 056: End block routes into the single Progress → Review surface.
+  // No separate confirm or full-screen dialog opens along the way.
   await nav(page, "program");
   await applyProgramEditor(page);
   await page.click("#reviewBlockLink");
-  await page.waitForSelector("#endBlockConfirm[open]", { timeout: 5000 });
+  await page.waitForSelector("#stats.view.active", { timeout: 5000 });
+  await page.waitForFunction(() => document.querySelector('#statsSeg button[data-seg="review"]')?.classList.contains("active"), null, { timeout: 5000 });
   assert(
-    await page.evaluate(() => !document.querySelector("#blockReview")?.open),
-    "P8: confirm open — block review stays hidden",
-    `blockReview hidden=${await page.evaluate(() => !document.querySelector("#blockReview")?.open)}`,
-    "End block → #endBlockConfirm visible, #blockReview still hidden"
+    await page.evaluate(() => !document.querySelector("#endBlockConfirm")?.open && !document.querySelector("#blockReview")?.open),
+    "P8: End block routes to Review with no competing dialog",
+    JSON.stringify(await page.evaluate(() => ({ confirm: !!document.querySelector("#endBlockConfirm")?.open, dialog: !!document.querySelector("#blockReview")?.open }))),
+    "End block → Progress → Review, dialogs stay closed"
   );
-  await page.click("#endBlockCancel");
-  await page.waitForFunction(() => !document.querySelector("#endBlockConfirm")?.open);
+  const KNOWN_RECOMMENDATIONS = [
+    "repeat_or_progress",
+    "repeat_with_small_swaps",
+    "reduce_volume_or_deload",
+    "keep_program_improve_completion",
+    "repeat_with_simpler_schedule",
+  ];
   assert(
-    await page.evaluate(() => !document.querySelector("#blockReview")?.open),
-    "P8: cancel confirm — block review stays hidden",
-    `blockReview hidden=${await page.evaluate(() => !document.querySelector("#blockReview")?.open)}`,
-    "Cancel #endBlockConfirm → overlay hides, review not opened"
+    KNOWN_RECOMMENDATIONS.includes(blockReview.recommendation),
+    "P8: buildBlockReview returns a known recommendation key",
+    `recommendation=${blockReview.recommendation}`,
+    "recommendation vocabulary stays closed"
   );
-  await page.click("#reviewBlockLink");
-  await page.waitForSelector("#endBlockConfirm[open]", { timeout: 5000 });
-  await page.click("#endBlockGo");
-  await page.waitForSelector("#blockReview[open]", { timeout: 5000 });
-  const REC_STRATEGY = {
-    repeat_or_progress: "repeat",
-    repeat_with_small_swaps: "repeat_swaps",
-    reduce_volume_or_deload: "reduce_volume",
-    keep_program_improve_completion: "repeat",
-    repeat_with_simpler_schedule: "reduce_volume",
-  };
-  const expectedStrategy = REC_STRATEGY[blockReview.recommendation];
-  const recommendedInfo = await page.evaluate(() => {
-    const btns = [...document.querySelectorAll(".blockreview__act.is-recommended")];
-    return { count: btns.length, strategy: btns[0]?.dataset.strategy ?? null };
-  });
-  assert(
-    recommendedInfo.count === 1,
-    "P8: exactly one recommended strategy button",
-    `count=${recommendedInfo.count}`,
-    "Open block review → one .blockreview__act.is-recommended"
-  );
-  assert(
-    recommendedInfo.strategy === expectedStrategy,
-    "P8: recommended strategy matches buildBlockReview recommendation",
-    `got=${recommendedInfo.strategy} expected=${expectedStrategy} recommendation=${blockReview.recommendation}`,
-    "REC_STRATEGY map → highlighted data-strategy"
-  );
-  const reviewText = await page.locator("#blockReview").textContent();
-  assert(
-    /Recommendation/i.test(reviewText) && /Why:/i.test(reviewText),
-    "P8: block review panel shows recommendation and Why",
-    reviewText?.slice(0, 160),
-    "Program tab → End block → review panel opens"
-  );
-  const recSnippets = {
-    repeat_with_simpler_schedule: "simpler schedule",
-    reduce_volume_or_deload: "reduce volume",
-    repeat_or_progress: "repeat this block or progress",
-    keep_program_improve_completion: "improve completion",
-    repeat_with_small_swaps: "small swaps",
-  };
-  assert(
-    reviewText.toLowerCase().includes(recSnippets[blockReview.recommendation]),
-    "P8: review panel shows friendly recommendation copy",
-    `panel=${reviewText?.slice(0, 200)} recommendation=${blockReview.recommendation}`,
-    "End block → panel body includes mapped recommendation line"
-  );
-  await page.click("#blockReviewClose");
-  await page.waitForFunction(() => !document.querySelector("#blockReview")?.open);
 
   beginPhase("Phase: P9 next-block flow");
   await page.evaluate(() => window.__repforgeStorage.flush());
@@ -8030,7 +7986,7 @@ async function main() {
   await seedHistoricalLog(page);
   await reloadApp(page);
   await nav(page, "stats");
-  await page.click('#statsSeg button[data-seg="strength"]');
+  await page.click('#statsEvidence button[data-seg="strength"]');
   await page.waitForTimeout(80);
   assert(
     (await page.locator("#strengthDash table").count()) > 0,
@@ -8073,7 +8029,7 @@ async function main() {
 
   beginPhase("Phase: volume dashboard (P13)");
   await nav(page, "stats");
-  await page.click('#statsSeg button[data-seg="volume"]');
+  await page.click('#statsEvidence button[data-seg="volume"]');
   await page.waitForTimeout(80);
   const volSegActive = await page.evaluate(() => document.querySelector("#segVolume")?.classList.contains("active"));
   assert(
@@ -8125,7 +8081,7 @@ async function main() {
   );
 
   beginPhase("Phase: PR timeline (P14)");
-  await page.click('#statsSeg button[data-seg="prs"]');
+  await page.click('#statsEvidence button[data-seg="prs"]');
   await page.waitForTimeout(80);
   const prSegActive = await page.evaluate(() => document.querySelector("#segPRs")?.classList.contains("active"));
   assert(
@@ -11026,7 +10982,7 @@ async function main() {
   const volTableCount = await page.locator("#volumeDash tbody tr").count();
   const volActive = await page.evaluate(
     () =>
-      document.querySelector('#statsSeg button[data-seg="volume"]')?.classList.contains("active") &&
+      document.querySelector('#statsEvidence button[data-seg="volume"]')?.classList.contains("active") &&
       document.querySelector("#segVolume")?.classList.contains("active")
   );
   assert(

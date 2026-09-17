@@ -443,63 +443,71 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   await page.click('nav button[data-view="program"]');
   await page.waitForSelector("#program.view.active");
   await page.waitForSelector("#reviewBlockLink");
+  // Plan 056: End block routes to Progress → Review; the old confirm dialog is
+  // gone from the journey. Focus moves to the Review tab and no dialog opens.
   await page.locator("#reviewBlockLink").click();
-  let info = await modalInfo(page, "#endBlockConfirm");
-  assert(info.open && info.active === "endBlockCancel", "Review Block Confirm: initial focus is #endBlockCancel", JSON.stringify(info));
-  assert(info.liveKids.includes("endBlockConfirm") && info.liveKids.includes("announcementHost"), "Review Block Confirm: dialog and announcement host stay interactive", JSON.stringify(info.liveKids));
-  assert(info.inertIds.includes("main") || info.inertIds.length > 0, "Review Block Confirm: background is inert", JSON.stringify(info.inertIds));
-  const wrap = await tabWrap(page, "#endBlockConfirm");
-  assert(wrap.forward.inside && wrap.back.inside, "Review Block Confirm: Tab wraps inside", JSON.stringify(wrap));
-  // A modal dims what it is covering. This one only could once it became a
-  // native <dialog>: a div has no backdrop to paint.
-  const scrim = await page.evaluate(() => {
-    // The token is authored text and the backdrop is a computed colour, so they
-    // are compared as numbers rather than as strings.
-    const parse = (value) => (String(value).match(/[\d.]+/g) || []).map(Number);
-    const backdrop = getComputedStyle(document.querySelector("#endBlockConfirm"), "::backdrop").backgroundColor;
-    const token = getComputedStyle(document.documentElement).getPropertyValue("--scrim");
-    return { backdrop, token: token.trim(), same: JSON.stringify(parse(backdrop)) === JSON.stringify(parse(token)) };
-  });
-  assert(scrim.same && /^rgba\(/.test(scrim.backdrop),
-    "Review Block Confirm: the backdrop paints the app's own scrim token", JSON.stringify(scrim));
-  await page.keyboard.press("Escape");
-  await page.waitForFunction(() => !document.querySelector("#endBlockConfirm")?.open);
-  await page.waitForFunction(() => document.activeElement?.id === "reviewBlockLink");
-  info = await modalInfo(page, "#endBlockConfirm");
-  const afterEsc = await page.evaluate(() => ({
-    hidden: !document.querySelector("#endBlockConfirm")?.open,
-    active: document.activeElement?.id,
+  await page.waitForSelector("#stats.view.active", { timeout: 5000 });
+  const route = await page.evaluate(() => ({
+    active: document.activeElement?.id || document.activeElement?.dataset?.seg || null,
+    activeIsReviewTab: document.activeElement === document.querySelector('#statsSeg button[data-seg="review"]'),
+    reviewSelected: document.querySelector('#statsSeg button[data-seg="review"]')?.getAttribute("aria-selected"),
+    panelVisible: document.querySelector("#segReview")?.classList.contains("active"),
+    confirmOpen: !!document.querySelector("#endBlockConfirm")?.open,
+    dialogOpen: !!document.querySelector("#blockReview")?.open,
     leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id),
   }));
-  assert(info.hidden && afterEsc.active === "reviewBlockLink", "Review Block Confirm: Escape is Cancel and returns to #reviewBlockLink", JSON.stringify(afterEsc));
-  assert(afterEsc.leaked.length === 0, "Review Block Confirm: closing restores inertness", JSON.stringify(afterEsc.leaked));
+  assert(route.activeIsReviewTab && route.reviewSelected === "true" && route.panelVisible,
+    "End block: focus lands on the Review tab and the panel opens", JSON.stringify(route));
+  assert(!route.confirmOpen && !route.dialogOpen && route.leaked.length === 0,
+    "End block: no competing dialog opens and inertness is untouched", JSON.stringify(route));
+  // Evidence is a secondary tablist with correct tab semantics.
+  const evidenceTabs = await page.evaluate(() => {
+    const group = document.querySelector("#statsEvidence");
+    return {
+      role: group?.getAttribute("role"),
+      tabs: [...(group?.querySelectorAll("button") || [])].map((b) => ({ seg: b.dataset.seg, selected: b.getAttribute("aria-selected") })),
+    };
+  });
+  assert(evidenceTabs.role === "tablist" && evidenceTabs.tabs.length === 3 && evidenceTabs.tabs.every((t) => t.selected === "false"),
+    "Evidence group is a labelled secondary tablist with three unselected tabs", JSON.stringify(evidenceTabs));
+  await page.click('#statsEvidence button[data-seg="volume"]');
+  const evSel = await page.evaluate(() => ({
+    selected: document.querySelector('#statsEvidence button[data-seg="volume"]')?.getAttribute("aria-selected"),
+    panel: document.querySelector("#segVolume")?.classList.contains("active"),
+  }));
+  assert(evSel.selected === "true" && evSel.panel, "Evidence selection exposes aria-selected and its panel", JSON.stringify(evSel));
   await context.close();
 }
 
 {
+  // Plan 056: the confirm → full-screen dialog handoff no longer exists.
+  // End block routes to Progress → Review, and focus management follows the
+  // routed surface instead of chained modals.
   const { context, page } = await freshPage(browser);
   await page.click('nav button[data-view="program"]');
   await page.waitForSelector("#program.view.active");
   await page.waitForSelector("#reviewBlockLink");
   await page.locator("#reviewBlockLink").click();
-  await page.locator("#endBlockGo").click();
-  const review = await modalInfo(page, "#blockReview");
-  const confirmGone = await page.evaluate(() => !document.querySelector("#endBlockConfirm")?.open);
-  assert(review.open && review.active === "blockReviewClose", "Block Review: initial focus is #blockReviewClose after handoff", JSON.stringify(review));
-  assert(confirmGone, "Block Review: End Block Confirm is hidden after handoff");
-  assert(!review.liveKids.includes("endBlockConfirm") || document.querySelector("#endBlockConfirm")?.inert, "Block Review: confirm dialog is not left interactive", JSON.stringify(review.liveKids));
-  const wrap = await tabWrap(page, "#blockReview");
-  assert(wrap.forward.inside && wrap.back.inside, "Block Review: Tab wraps inside", JSON.stringify(wrap));
-  await page.keyboard.press("Escape");
-  await page.waitForFunction(() => !document.querySelector("#blockReview")?.open);
-  await page.waitForFunction(() => document.activeElement?.id === "reviewBlockLink");
-  const after = await page.evaluate(() => ({
-    hidden: !document.querySelector("#blockReview")?.open,
-    active: document.activeElement?.id,
+  await page.waitForSelector("#stats.view.active", { timeout: 5000 });
+  const routed = await page.evaluate(() => ({
+    active: document.activeElement === document.querySelector('#statsSeg button[data-seg="review"]'),
+    panel: document.querySelector("#segReview")?.classList.contains("active"),
+    confirmOpen: !!document.querySelector("#endBlockConfirm")?.open,
+    dialogOpen: !!document.querySelector("#blockReview")?.open,
     leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
   }));
-  assert(after.hidden && after.active === "reviewBlockLink", "Block Review: Escape closes and returns to original #reviewBlockLink opener", JSON.stringify(after));
-  assert(after.leaked.length === 0, "chained modals do not leak inertness", JSON.stringify(after.leaked));
+  assert(routed.active && routed.panel && !routed.confirmOpen && !routed.dialogOpen && routed.leaked.length === 0,
+    "Block Review route: focus lands on the Review tab, no dialogs, no inertness leak", JSON.stringify(routed));
+  // Opening Evidence and returning keeps the keyboard on a real control.
+  await page.click('#statsEvidence button[data-seg="strength"]');
+  await page.click('#statsSeg button[data-seg="review"]');
+  const back = await page.evaluate(() => ({
+    panel: document.querySelector("#segReview")?.classList.contains("active"),
+    evidenceOpen: !!document.querySelector("#segStrength")?.classList.contains("active"),
+    leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+  }));
+  assert(back.panel && !back.evidenceOpen && back.leaked.length === 0,
+    "Review ↔ Evidence round trip restores the Review panel with no leak", JSON.stringify(back));
   await context.close();
 }
 
@@ -1095,16 +1103,20 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
 }
 
 {
+  // Plan 056: the End block confirm modal is gone. Repeated routes must stay
+  // clean: two consecutive End block routes leave no dialogs and no leak.
   const { context, page } = await freshPage(browser);
   await page.evaluate(() => promptEndBlock());
-  await page.locator("#endBlockCancel").click();
+  await page.waitForSelector("#stats.view.active", { timeout: 5000 });
   await page.evaluate(() => promptEndBlock());
-  await page.locator("#endBlockCancel").click();
   const leaked = await page.evaluate(() => ({
     inert: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
     confirm: !document.querySelector("#endBlockConfirm")?.open,
+    dialog: !document.querySelector("#blockReview")?.open,
+    reviewPanel: document.querySelector("#segReview")?.classList.contains("active"),
   }));
-  assert(leaked.confirm && leaked.inert.length === 0, "two consecutive modals do not leak inertness/listeners", JSON.stringify(leaked));
+  assert(leaked.confirm && leaked.dialog && leaked.reviewPanel && leaked.inert.length === 0,
+    "repeated End block routes open no dialogs and leak no inertness", JSON.stringify(leaked));
   await context.close();
 }
 

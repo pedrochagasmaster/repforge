@@ -2145,7 +2145,7 @@ async function applyFatigueTrim(){
   for(const id of [...skipped])if(!flagged.has(id)){const result=await enqueueDraftCommand("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
   for(const id of flagged)if(!skipped.has(id)){const result=await enqueueDraftCommand("skipExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
   renderWorkout();toast(t("toast.trimmed_priority"))}
-let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
+let logMode="full",focusIndex=0,statsSeg="overview",evidenceView=null,prFilter="all";
 let focusDrag=null,focusFlinging=false;
 /** Focus mode — the set being re-opened for edit: {exId,n,snap}. `snap` is the
  *  set as it stood when editing began, so cancelling puts it back untouched. */
@@ -2170,7 +2170,12 @@ let installedProgramEditor=null,onboardingProgramEditor=null,installedEditorSess
 let settingsEditRevision=0;
 // Today's session lists its first few exercises; the rest sit behind a "+N" row.
 const TODAY_EX_PREVIEW=3;let todayExOpen=false;
-const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
+// Two-level Progress navigation (Plan 056): Overview/Review are the primary
+// tasks; Strength/Volume/PRs are a labelled Evidence group. Old one-level seg
+// values keep working: evidence keys map onto the Evidence view and unknown
+// values fall back to Overview.
+const STATS_SEG={overview:"segOverview",review:"segReview"};
+const EVIDENCE_SEG={strength:"segStrength",volume:"segVolume",prs:"segPRs"};
 
 function migrateLogSnapshot(snapshot){let changed=false;const lookup=snapshotLookup(snapshot.customExercises);
   for(const row of snapshot.log){
@@ -2700,7 +2705,10 @@ function legacyBlockSuccessorProgramList(strategy,list){
   if(strategy==="reduce_volume")return src.map(e=>({...e,sets:Math.max((e.sets||2)-1,1)}));
   return successorProgramList(strategy,src)}
 function capturePendingBlock(strategy,review){
-  return{...captureProgramReplacement(state,review||blockReviewCurrent),strategy}}
+  // The routed Review surface no longer stages a dialog, but the archived
+  // block keeps its review snapshot: capture it from live state here.
+  const snapshot=review||blockReviewCurrent||buildBlockReview(state.programMeta,state.program,state.log);
+  return{...captureProgramReplacement(state,snapshot),strategy}}
 function hasArchivableProgram(snapshot){
   const meta=snapshot?.programMeta;
   const hasDefinition=(Array.isArray(snapshot?.program)&&snapshot.program.length>0)||structureDayLabels(meta);
@@ -2863,23 +2871,11 @@ function openBlockReview(review,opts={}){
     prevInert:opts.prevInert
   });
   $("#blockReviewClose").onclick=closeBlockReview}
-function promptEndBlock(event){
-  const d=$("#endBlockConfirm");if(!d)return;
-  const invoked=event?.currentTarget;
-  const focused=document.activeElement;
-  const opener=invoked instanceof HTMLElement
-    ?invoked
-    :focused instanceof HTMLElement&&focused!==document.body
-    ?focused
-    :[$("#reviewBlockLink"),$("#endBlock")].find(el=>el&&el.offsetParent!==null);
-  openModal(d,{
-    initialFocus:$("#endBlockCancel"),
-    returnFocus:opener,
-    onEscape:()=>closeModal(d)
-  });
-  $("#endBlockGo").onclick=()=>{
-    openBlockReview(buildBlockReview(state.programMeta,state.program,state.log),{handoff:true,returnFocus:opener})};
-  $("#endBlockCancel").onclick=()=>closeModal(d)}
+// Plan 056: Program's End block (and the Review-block row) route into the
+// single Progress → Review lifecycle. There is no separate competing dialog.
+function promptEndBlock(){
+  navTo("stats");setStatsSeg("review");
+  const seg=$('#statsSeg button[data-seg="review"]');if(seg)seg.focus()}
 async function dismissBlockPrompt(){
   const proposal=cloneSnapshot(state);
   if(!proposal.programMeta)proposal.programMeta=defaultProgramMeta(proposal.log);
@@ -4109,10 +4105,33 @@ async function goToLogExercise(exId){
   document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-library","is-preview","is-import");
   await enterWorkout({});
   const art=$(`#workout [data-ex="${exId}"]`);if(art){collapsed.delete(exId);art.classList.remove("is-collapsed");art.scrollIntoView({behavior:"smooth",block:"center"})}}
-function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
+function evidenceRenderers(){
+  return{strength:renderStrengthDash,volume:renderVolumeDash,prs:renderPRTimeline}}
+function renderEvidenceView(){
+  if(!evidenceView)return;
+  const fn=evidenceRenderers()[evidenceView];
+  if(fn)fn()}
+function setEvidenceView(view){
+  if(!EVIDENCE_SEG[view]){evidenceView=null;
+    $$("#statsEvidence button").forEach(b=>{b.classList.remove("active");b.setAttribute("aria-selected","false")});
+    for(const id of Object.values(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
+    return}
+  evidenceView=view;
+  $$("#statsEvidence button").forEach(b=>{const on=b.dataset.seg===view;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
+  for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
+  for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===view)}
+  renderEvidenceView()}
+function setStatsSeg(seg){
+  // Legacy one-level values route to their Evidence view (Plan 056 migration).
+  if(EVIDENCE_SEG[seg])return setEvidenceView(seg);
+  if(!STATS_SEG[seg])seg="overview";
+  statsSeg=seg;evidenceView=null;
   $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
+  $$("#statsEvidence button").forEach(b=>{b.classList.remove("active");b.setAttribute("aria-selected","false")});
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
-  if(seg==="overview")redrawChart();else if(seg==="strength")renderStrengthDash();else if(seg==="volume")renderVolumeDash();else if(seg==="prs")renderPRTimeline();else if(seg==="review")renderReview()}
+  for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
+  if(seg==="overview")redrawChart();else if(seg==="review")renderReview()}
+window.__repforgeStatsNav={setStatsSeg,setEvidenceView};
 
 // Block (mesocycle) trend — a WEAK signal derived from e1RM across this lift's
 // sessions inside the current block. Only tempers aggressiveness / rep targets.
@@ -6498,9 +6517,8 @@ function renderStats(){
   const progRows=[...topByLift.values()].sort((a,b)=>b.load-a.load||b.reps-a.reps).map(r=>({[t("stats.table.exercise")]:r.Exercise,[unitLabel()]:fmtLoad(r.load),[t("stats.table.reps")]:r.reps,[t("stats.table.rir")]:fmt(r.rir),[t("stats.table.date")]:r.date}));
   $("#tops").innerHTML=table(progRows);
   renderPRs();renderAttention();renderCompleted();renderReview();
-  if(statsSeg==="strength")renderStrengthDash();
-  if(statsSeg==="volume")renderVolumeDash();
-  if(statsSeg==="prs")renderPRTimeline();
+  if(statsSeg==="review")renderReview();
+  renderEvidenceView();
 }
 
 function detectPRs(log,opts={}){
@@ -7711,7 +7729,7 @@ function draw(rows,sel="#chart"){
 
 function redrawChart(){
   if($("#exercise")?.classList.contains("active")&&exView){draw(summaries().filter(x=>x.liftKey===exView.key),"#exChart");return}
-  if(!$("#stats").classList.contains("active")||statsSeg!=="overview")return;
+  if(!$("#stats").classList.contains("active")||statsSeg!=="overview"||evidenceView!=null)return;
   const sel=$("#statExercise").value,rows=summaries().filter(x=>x.liftKey===sel);draw(rows)}
 
 const historyDiagnostics={enabled:false,builds:0,sourceRowVisits:0,last:null,onBuilt:null,
@@ -14539,6 +14557,7 @@ function init(){
   ["#notifyTimer","#notifySession","#notifyUnfinished","#notifyMissed"].forEach(sel=>{const el=$(sel);if(el)el.onchange=commitChangedSettings});
   $$("#volWindow button").forEach(b=>b.onclick=()=>{volWindow=+b.dataset.win;renderCompleted()});
   $$("#statsSeg button").forEach(b=>b.onclick=()=>setStatsSeg(b.dataset.seg));
+  $$("#statsEvidence button").forEach(b=>b.onclick=()=>setEvidenceView(b.dataset.seg));
   const lc=$("#logContext");if(lc)lc.onclick=()=>{navTo("stats");setStatsSeg("review")};
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
   $("#reset").onclick=async()=>{

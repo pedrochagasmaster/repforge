@@ -130,6 +130,7 @@ export const SUITES = {
     s("test/workout-draft-parity.mjs"),
     s("test/recommendation-parity.mjs"),
     s("test/progression-strategies-ui.mjs"),
+    s("test/progress-navigation.mjs"),
     s("test/sheet-swipe-dismiss.mjs"),
     s("test/motion-integration.mjs"),
     s("test/session-summary.mjs"),

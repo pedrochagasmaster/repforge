@@ -97,7 +97,8 @@ async function openProgram(page) {
 
 async function progressSegment(page, segment) {
   await view(page, "stats");
-  await page.click(`#statsSeg [data-seg="${segment}"]`);
+  const primary = segment === "overview" || segment === "review";
+  await page.click(`${primary ? "#statsSeg" : "#statsEvidence"} [data-seg="${segment}"]`);
   await sleep(page, 500);
 }
 

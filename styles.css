@@ -2610,6 +2610,11 @@ body.is-sheet-open .installbanner{display:none}
 .seg.seg--stats button{padding:12px 9px;font-size:13px}
 .seg.seg--stats button:first-child{padding-left:0}
 .seg.seg--stats button:last-child{padding-right:0}
+/* Evidence is a secondary group under the two primary tasks (Plan 056): the
+   same tab row language, visually smaller so it never competes with them. */
+.seg.seg--stats.seg--evidence{border-bottom:0;margin-bottom:6px}
+.seg.seg--stats.seg--evidence button{padding:8px 9px;font-size:12px;color:var(--ink-faint)}
+.seg.seg--stats.seg--evidence button.active{color:var(--ink)}
 @media (max-width:360px){.seg.seg--stats button{padding:12px 6px;font-size:12px}}
 /* The smallest phone is the one width where six columns still ask for more room
    than the card has, so the ledger tightens before it falls back to scrolling. */
