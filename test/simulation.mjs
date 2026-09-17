@@ -6223,7 +6223,7 @@ async function main() {
     recAfterLog && recAfterLog.logged > 0 && recAfterLog.rec === 0 && !!recAfterLog.cue,
     "the recommendation stays as the well's one-line cue once a set is logged",
     JSON.stringify(recAfterLog),
-    "Focus → log a set → List's recommendation block is gone and the cue names the next set"
+    "Focus → log a set → no duplicate recommendation block and the cue names the next set"
   );
   await page.evaluate(() => document.querySelector("[data-ffinish]")?.click());
   await page.waitForTimeout(120);
