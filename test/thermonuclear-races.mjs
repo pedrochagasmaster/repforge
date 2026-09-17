@@ -288,7 +288,7 @@ function summary(both) {
 }
 
 async function enterWorkout(page) {
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout({}));
 }
 
 async function fillSet(page, set, { load, reps, rir }) {

@@ -4867,7 +4867,12 @@ async function main() {
         return { status: r.status, reason: r.reason, load: r.load, cr: r.cr, jumpMult: r.jumpMult };
       }, id);
     const openWhyFrom = async (id) => {
-      await page.click(`.exercise[data-ex="${id}"] [data-why]`);
+      if (!(await page.locator(`#workout .exercise.is-current[data-ex="${id}"]`).count())) {
+        await page.locator("#sessionSheetBtn").click();
+        await page.locator(`[data-session-map-jump="${id}"]`).click();
+        await page.locator("#sessionSheet").waitFor({ state: "hidden" });
+      }
+      await page.click(`#workout .exercise.is-current[data-ex="${id}"] [data-why]`);
       await page.waitForSelector("#whySheet.is-open", { timeout: 5000 });
       return page.evaluate(() => ({
         target: document.querySelector("#whyTarget")?.textContent || "",

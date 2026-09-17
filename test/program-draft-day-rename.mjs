@@ -543,7 +543,7 @@ async function waitForRaceDraft(page, load, timeout = 10000) {
 }
 
 async function fillRaceWorkout(page, load) {
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.locator(`[data-k="${EXERCISE_ID}_1_load"]`).fill(String(load));
   await page.locator(`[data-k="${EXERCISE_ID}_1_reps"]`).fill("8");
   await page.locator(`[data-k="${EXERCISE_ID}_1_rir"]`).fill("1");

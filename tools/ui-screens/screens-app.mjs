@@ -30,7 +30,7 @@ const view = async (page, name) => {
 };
 
 async function enterWorkout(page, options = {}) {
-  await page.evaluate((opts) => window.__repforgeEnterWorkout(opts), { focus: false, ...options });
+  await page.evaluate((opts) => window.__repforgeEnterWorkout(opts), options);
   await sleep(page, 600);
 }
 
@@ -60,7 +60,7 @@ async function logCurrentSet(page) {
 }
 
 async function saveWholeSession(page) {
-  await enterWorkout(page, { focus: true, day: "Day 1" });
+  await enterWorkout(page, { day: "Day 1" });
   await page.evaluate(() => {
     const set = (suffix, value) => {
       document.querySelectorAll(`#workout [data-k$="${suffix}"]`).forEach((el, index) => {

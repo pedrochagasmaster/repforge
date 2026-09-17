@@ -4,6 +4,8 @@ import { readFileSync, readdirSync } from "node:fs";
 function audit(source) {
   assert.doesNotMatch(source, /\b(?:setLogMode|syncLogModeControls|setRowHtml)\b|\.setrow\b|\.sets__head\b|workout\/list/,
     "retired List ownership must not return");
+  assert.doesNotMatch(source, /__repforgeEnterWorkout\s*\(\s*\{[^}]*\bfocus\s*:/,
+    "workout callers must not retain a legacy route option");
 }
 
 for (const file of ["app.js", "styles.css", "motion-polish.css", "tools/ui-screens/screens-app.mjs"]) {

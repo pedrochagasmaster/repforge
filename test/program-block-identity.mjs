@@ -201,7 +201,7 @@ async function activateRealProgram(page, name = "Block identity oracle") {
 
 async function startWorkout(page) {
   const day = await page.evaluate(() => window.__repforgeWorkoutDraft.state()?.program?.[0]?.day || "Day 1");
-  const entered = await page.evaluate((dayLabel) => window.__repforgeEnterWorkout({ day: dayLabel, focus: true }), day);
+  const entered = await page.evaluate((dayLabel) => window.__repforgeEnterWorkout({ day: dayLabel}), day);
   if (!entered || (entered.status && entered.status !== "ready")) {
     throw new Error(`production workout entry failed: ${JSON.stringify(entered)}`);
   }

@@ -103,7 +103,7 @@ try {
   assert.equal(await page.evaluate(() => !!navigator.serviceWorker.controller), true, "Plan 050 worker controls its app");
 
   const secondId = seedProgram().filter((exercise) => exercise.day === "Day 1")[1].id;
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: true, day: "Day 1" }));
+  await page.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
   await page.locator("#woNext").click();
   await page.waitForSelector(`#workout.is-focus .exercise.is-current[data-ex="${secondId}"]`);
   for (const [field, value] of [["load", "72.5"], ["reps", "9"], ["rir", "1"]]) {
@@ -137,7 +137,7 @@ try {
   await page.reload({ waitUntil: "domcontentloaded" });await boot(page, base);
   assert.equal(await page.evaluate((draft) => localStorage.getItem(draft), DRAFT), migrated.raw,
     "a second boot reads the same migration instead of converting twice");
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: true, day: "Day 1" }));
+  await page.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
   await page.locator("#woNext").click();
   await page.waitForFunction((id) => window.__repforgeWorkoutDraft.current()?.session.selectedExerciseId === id, secondId);
   const selectedRaw = await page.evaluate((draft) => localStorage.getItem(draft), DRAFT);
@@ -145,7 +145,7 @@ try {
   await context.setOffline(true);
   const response = await page.reload({ waitUntil: "domcontentloaded" });await boot(page, base);
   assert.equal(response?.fromServiceWorker(), true, "the current cached shell boots offline");
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: true }));
+  await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.waitForSelector(`#workout.is-focus .exercise.is-current[data-ex="${secondId}"]`);
   assert.equal(await page.evaluate((draft) => localStorage.getItem(draft), DRAFT), selectedRaw,
     "offline reload preserves the complete selected non-first Focus revision");

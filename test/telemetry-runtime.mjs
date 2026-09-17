@@ -354,7 +354,7 @@ try {
     const { context, page } = await openApp(browser, { seed: loggableProgram() });
     await page.evaluate(() => {
       window.closeFirstRun?.();
-      window.__repforgeEnterWorkout({ focus: false });
+      window.__repforgeEnterWorkout({});
     });
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 8000 });
     for (const [exerciseId, set, load, reps] of [
@@ -413,7 +413,7 @@ try {
     assert((await captured(page)).length === 0, "opted-out boot reaches no adapter event");
     await page.evaluate(() => {
       window.closeFirstRun?.();
-      window.__repforgeEnterWorkout({ focus: false });
+      window.__repforgeEnterWorkout({});
     });
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 8000 });
     await page.evaluate(() => {

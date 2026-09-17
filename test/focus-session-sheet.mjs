@@ -92,7 +92,7 @@ async function main() {
     /* ---- Enter workout in Focus mode ---- */
     phase("Session sheet: visible control in Focus header");
     await page.evaluate(async () => {
-      await window.__repforgeEnterWorkout({ focus: true });
+      await window.__repforgeEnterWorkout({});
     });
     await page.waitForSelector("#workout.is-focus .exercise.is-current", { state: "attached", timeout: 5000 });
 
@@ -152,7 +152,7 @@ async function main() {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await page.evaluate(async () => {
-      await window.__repforgeEnterWorkout({ focus: true });
+      await window.__repforgeEnterWorkout({});
     });
     await page.waitForSelector("#workout.is-focus .exercise.is-current", { state: "attached", timeout: 5000 });
 

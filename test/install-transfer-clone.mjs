@@ -221,7 +221,7 @@ async function enterAndEditDraft(page) {
   // surface action and deliberately does not mutate Settings view state.
   await page.evaluate(() => document.querySelector('nav button[data-view="log"]')?.click());
   await page.waitForTimeout(40);
-  const entered = await page.evaluate(async () => window.__repforgeEnterWorkout({ focus: false }));
+  const entered = await page.evaluate(async () => window.__repforgeEnterWorkout({}));
   if (!entered) {
     const diagnostic = await page.evaluate(() => ({
       bodyClassCount: document.body.classList.length,

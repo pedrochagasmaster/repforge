@@ -86,7 +86,7 @@ async function boot(page, { lang = "pt", rirMode = "numeric", device = "ref" } =
 /** Enter an active workout in Focus mode at a given exercise index. */
 async function enterFocus(page, index = 0) {
   await page.evaluate((i) => {
-    window.__repforgeEnterWorkout({ focus: true });
+    window.__repforgeEnterWorkout({});
     window.__repforgeFocus.to(i);
   }, index);
   await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 5000 });

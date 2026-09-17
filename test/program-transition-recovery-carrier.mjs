@@ -322,7 +322,7 @@ async function openDraftWithEdit(page, requestedDayLabel, note = "recovery carri
     if (!hook || typeof window.__repforgeEnterWorkout !== "function" || !requestedDayLabel) {
       return { ok: false, error: "workout seam unavailable" };
     }
-    const entered = await window.__repforgeEnterWorkout({ day: requestedDayLabel, focus: false });
+    const entered = await window.__repforgeEnterWorkout({ day: requestedDayLabel});
     if (!entered || !hook.current?.()) return { ok: false, error: "draft did not initialize" };
     const draft = hook.current();
     const exerciseId = draft.exerciseOrder?.[0];
@@ -878,7 +878,7 @@ async function main() {
       "week-one request retains the fixed expected day identity", weekOneDayRequest);
     const weekOneEntered = weekOneDayRequest?.ok
       ? await page.evaluate((requestedDayLabel) =>
-        window.__repforgeEnterWorkout({ day: requestedDayLabel, focus: false }),
+        window.__repforgeEnterWorkout({ day: requestedDayLabel}),
       weekOneDayRequest.requestedDayLabel)
       : false;
     check(weekOneEntered === true, "week-one workout opens through the production draft seam");
@@ -1019,7 +1019,7 @@ async function main() {
     "all booted recovery scenarios retain the same fixed fixture day identity");
     const weekTwoEntered = weekTwoDayRequest?.ok
       ? await page.evaluate((requestedDayLabel) =>
-        window.__repforgeEnterWorkout({ day: requestedDayLabel, focus: false }),
+        window.__repforgeEnterWorkout({ day: requestedDayLabel}),
       weekTwoDayRequest.requestedDayLabel)
       : false;
     check(weekTwoEntered === true, "week-two workout opens through the production draft seam");

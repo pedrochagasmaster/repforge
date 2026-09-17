@@ -204,7 +204,7 @@ async function applyInstalledEditor(page) {
 
 async function workoutSurface(page) {
   await page.evaluate(async () => {
-    await window.__repforgeEnterWorkout({ focus: true });
+    await window.__repforgeEnterWorkout({});
   });
   await page.waitForSelector('#workout.is-focus article.is-current .curset');
   const data = await page.evaluate(() => {
@@ -291,7 +291,7 @@ try {
   assert(partial.suggestions[2].load === 100, "an in-session target holds the session load", partial.suggestions[2].load);
   await capture(page, { lang: "en", program: repGoalProgram, rows: log([[7, three(100, 10, 2)]]) });
   await page.evaluate(async () => {
-    await window.__repforgeEnterWorkout({ focus: true });
+    await window.__repforgeEnterWorkout({});
     const draft = window.__repforgeWorkoutDraft.current();
     const exId = draft?.exerciseOrder?.[0] || "ex0";
     const ex = draft?.exercises?.[exId];
@@ -373,7 +373,7 @@ try {
     rows: log([[7, [[100, 5, 2], [100, 5, 2]]]]),
   });
   await page.evaluate(async () => {
-    await window.__repforgeEnterWorkout({ focus: true });
+    await window.__repforgeEnterWorkout({});
     const draft = window.__repforgeWorkoutDraft.current();
     const exId = draft?.exerciseOrder?.[0] || "ex0";
     const ex = draft?.exercises?.[exId];

@@ -322,7 +322,7 @@ try {
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
 
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.locator('[data-k="race-press_1_load"]').fill("60");
   await page.locator('[data-k="race-press_1_reps"]').fill("10");
   await page.locator('[data-k="race-press_1_rir"]').fill("1");
@@ -425,7 +425,7 @@ try {
     await peer.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForApp(peer);
 
-    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+    await page.evaluate(() => window.__repforgeEnterWorkout({}));
     await page.locator('[data-k="race-press_1_load"]').fill("62.5");
     await page.locator('[data-k="race-press_1_reps"]').fill("9");
     await page.locator('[data-k="race-press_1_rir"]').fill("1");
@@ -467,7 +467,7 @@ try {
   await putBoth(page, loggedState(30));
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.locator('[data-k="race-press_1_load"]').fill("65");
   await page.locator('[data-k="race-press_1_reps"]').fill("8");
   await page.locator('[data-k="race-press_1_rir"]').fill("1");
@@ -527,7 +527,7 @@ try {
   await putBoth(page, resetRaceSeed);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.locator('[data-k="race-press_1_load"]').fill("67.5");
   await page.locator('[data-k="race-press_1_reps"]').fill("8");
   await page.locator('[data-k="race-press_1_rir"]').fill("1");

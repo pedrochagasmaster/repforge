@@ -166,7 +166,7 @@ async function main() {
     await reload(page);
 
     console.log("\nFocus session: previous values, metadata, skip/restore, substitution, warm-up");
-    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false, day: "Day 1" }));
+    await page.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
     await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus", { timeout: 5000 });
     await exerciseAction(page, first.id, "#exActionRepeatBtn");
     await page.waitForTimeout(100);
@@ -306,7 +306,7 @@ async function main() {
     const rawBeforeReload = await page.evaluate((key) => localStorage.getItem(key), DRAFT_KEY);
     assert(typeof rawBeforeReload === "string" && rawBeforeReload.length > 0, "the active workout is persisted before reload");
     await reload(page);
-    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: true }));
+    await page.evaluate(() => window.__repforgeEnterWorkout({}));
     await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 5000 });
     const afterReload = await page.evaluate(({ firstId, secondId, thirdId }) => {
       const list = window.__repforgeFocus.list();
@@ -440,7 +440,7 @@ async function main() {
 
     console.log("\nAd hoc substitution: performed identity changes without losing slot muscle provenance");
     await page.evaluate(() => window.closeSessionSummary?.());
-    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false, day: "Day 1" }));
+    await page.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
     await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus", { timeout: 5000 });
     const adHocResult = await page.evaluate(async ({ exerciseId, primary, secondary }) => {
       return window.__repforgeWorkoutDraft.dispatch("substituteExercise", {

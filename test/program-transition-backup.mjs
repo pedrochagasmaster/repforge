@@ -216,7 +216,7 @@ async function activatePredecessor(page) {
 
 async function saveRealWorkout(page) {
   const day = await page.evaluate(() => window.__repforgeWorkoutDraft.state()?.program?.[0]?.day || "Day 1");
-  const entered = await page.evaluate((dayLabel) => window.__repforgeEnterWorkout({ day: dayLabel, focus: true }), day);
+  const entered = await page.evaluate((dayLabel) => window.__repforgeEnterWorkout({ day: dayLabel}), day);
   if (!entered || entered.status && entered.status !== "ready") {
     throw new Error(`Could not enter production workout: ${JSON.stringify(entered)}`);
   }
@@ -417,7 +417,7 @@ async function main() {
     // Create a real acknowledged DraftV2 after the transition. Ordinary backup
     // must omit it even though it is present at export time.
     const successorDay = await source.evaluate(() => window.__repforgeWorkoutDraft.state()?.program?.[0]?.day || "Day 1");
-    await source.evaluate((day) => window.__repforgeEnterWorkout({ day, focus: true }), successorDay);
+    await source.evaluate((day) => window.__repforgeEnterWorkout({ day}), successorDay);
     const sourceDraftState = await source.evaluate(() => ({
       raw: localStorage.getItem("repforge_draft_v1"),
       checkpoint: localStorage.getItem("repforge_draft_v1:v2-checkpoint"),

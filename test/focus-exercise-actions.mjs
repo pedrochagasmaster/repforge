@@ -101,7 +101,7 @@ async function main() {
 
     // Enter Focus workout
     await page.evaluate(async () => {
-      await window.__repforgeEnterWorkout({ focus: true });
+      await window.__repforgeEnterWorkout({});
     });
     await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus", { timeout: 5000 });
 

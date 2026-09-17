@@ -110,7 +110,7 @@ async function main() {
   await shot(page, "01_hoje");
 
   // Log a session end to end, so the saved-workout copy is the real one.
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.waitForTimeout(400);
   const loads = page.locator("#workout .exercise.is-current .curset input[data-k$='_load']");
   const reps = page.locator("#workout .exercise.is-current .curset input[data-k$='_reps']");

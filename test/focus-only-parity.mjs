@@ -143,7 +143,7 @@ async function reload(page) {
 /** Enter Focus through the production entry path and park on a card. */
 async function enterFocus(page, index = 0) {
   await page.evaluate(async (i) => {
-    await window.__repforgeEnterWorkout({ focus: true });
+    await window.__repforgeEnterWorkout({});
     window.__repforgeFocus.to(i);
   }, index);
   await page.waitForSelector("#workout.is-focus .exercise.is-current", { state: "attached", timeout: 5000 });

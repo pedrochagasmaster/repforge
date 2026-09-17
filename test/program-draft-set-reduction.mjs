@@ -553,7 +553,7 @@ async function main() {
 
     await writeFixture(page, fixture());
     await reloadApp(page);
-    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+    await page.evaluate(() => window.__repforgeEnterWorkout({}));
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     await fillSet(page, 1, 100, 8, 1);
     await fillSet(page, 2, 92.5, 10, 2);
@@ -630,7 +630,7 @@ async function main() {
 
     await writeFixture(page, fixture());
     await reloadApp(page);
-    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+    await page.evaluate(() => window.__repforgeEnterWorkout({}));
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     await fillSet(page, 1, 105, 8, 1);
 
@@ -699,7 +699,7 @@ async function main() {
       await locker.goto(BASE, { waitUntil: "domcontentloaded" });
       await waitForApp(locker);
       await openProgramEditor(page);
-      await workout.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+      await workout.evaluate(() => window.__repforgeEnterWorkout({}));
       await workout.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
       await settleBootStorage(page);
       await settleBootStorage(workout);
@@ -721,7 +721,7 @@ async function main() {
       await page.evaluate(() => window.__repforgeStorage.flush());
       const raced = await readRuntime(page);
       await reloadApp(page);
-      await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+      await page.evaluate(() => window.__repforgeEnterWorkout({}));
       await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
       check(
         programSets(raced.local) === 2 &&

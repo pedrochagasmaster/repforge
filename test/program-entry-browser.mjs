@@ -1905,7 +1905,7 @@ try {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
     const durableBeforeWeekOne = await page.evaluate((key) => localStorage.getItem(key), KEY);
-    await page.evaluate(({ day }) => window.__repforgeEnterWorkout({ focus: false, day }), { day: reducedDay });
+    await page.evaluate(({ day }) => window.__repforgeEnterWorkout({day }), { day: reducedDay });
     const weekOneDom = await page.evaluate(() => ({
       exercises: window.__repforgeWorkoutDraft.current().exerciseOrder.length,
       sets: Object.values(window.__repforgeWorkoutDraft.current().exercises).reduce((n, ex) => n + ex.setOrder.length, 0),
@@ -1945,7 +1945,7 @@ try {
     }, { key: KEY, started: weekTwoStart.toISOString().slice(0, 10) });
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
-    await page.evaluate(({ day }) => window.__repforgeEnterWorkout({ focus: false, day }), { day: reducedDay });
+    await page.evaluate(({ day }) => window.__repforgeEnterWorkout({day }), { day: reducedDay });
     const weekTwoDom = await page.evaluate(() => ({
       exercises: window.__repforgeWorkoutDraft.current().exerciseOrder.length,
       sets: Object.values(window.__repforgeWorkoutDraft.current().exercises).reduce((n, ex) => n + ex.setOrder.length, 0),

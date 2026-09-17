@@ -150,7 +150,7 @@ async function todayView(page) {
 }
 
 async function logAndSaveToday(page, day) {
-  await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d, focus: false }), day);
+  await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d}), day);
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
   await page.evaluate((d) => {
     const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
@@ -324,7 +324,7 @@ console.log("\nToday — completed session state");
   await logAndSaveToday(page, "Day 1");
   assert((await todayView(page)).hasDoneCard, "Second session: starts from the done state");
 
-  await page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 2", focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 2"}));
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
   await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");

@@ -309,7 +309,7 @@ async function activateProgram(page) {
 
 async function saveWorkout(page) {
   const day = await page.evaluate(() => window.__repforgeWorkoutDraft.state()?.program?.[0]?.day || "Day 1");
-  const entered = await page.evaluate((dayLabel) => window.__repforgeEnterWorkout({ day: dayLabel, focus: true }), day);
+  const entered = await page.evaluate((dayLabel) => window.__repforgeEnterWorkout({ day: dayLabel}), day);
   if (!entered) throw new Error(`production workout entry failed: ${JSON.stringify(entered)}`);
   await page.locator("#workout input[data-k$='_load']").first().waitFor({ state: "visible" });
   await page.locator("#workout input[data-k$='_load']").first().fill("60");
@@ -394,7 +394,7 @@ async function createAcknowledgedDraft(page) {
     const hook = window.__repforgeWorkoutDraft;
     const day = hook?.state?.()?.program?.[0]?.day;
     if (!hook || typeof window.__repforgeEnterWorkout !== "function" || !day) return { ok: false, code: "draft-producer-seam-unavailable" };
-    const entered = await window.__repforgeEnterWorkout({ day, focus: true });
+    const entered = await window.__repforgeEnterWorkout({ day});
     const current = hook.current?.();
     const exerciseId = current?.exerciseOrder?.[0];
     const setId = exerciseId && current.exercises?.[exerciseId]?.setOrder?.[0];
@@ -1724,12 +1724,12 @@ async function runP4cForeignFreezeDraftBoundary(browser) {
     await page.evaluate(({ freezeKey, value }) => localStorage.setItem(freezeKey, JSON.stringify(value)),
       { freezeKey: FREEZE_KEY, value: freeze });
     let createResult;
-    try { createResult = await page.evaluate(() => window.__repforgeEnterWorkout({ focus: true })); }
+    try { createResult = await page.evaluate(() => window.__repforgeEnterWorkout({})); }
     catch (error) { createResult = { thrown: error.message }; }
     const afterCreate = await readDraftBytes();
 
     await page.evaluate((freezeKey) => localStorage.removeItem(freezeKey), FREEZE_KEY);
-    const clearFixture = await page.evaluate(() => window.__repforgeEnterWorkout({ focus: true }));
+    const clearFixture = await page.evaluate(() => window.__repforgeEnterWorkout({}));
     if (clearFixture !== true) throw new Error(`L clear fixture creation failed: ${JSON.stringify(clearFixture)}`);
     await flush(page);
     const beforeClear = await readDraftBytes();

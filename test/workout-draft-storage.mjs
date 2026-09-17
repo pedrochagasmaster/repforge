@@ -59,7 +59,7 @@ async function openOldApp(context) {
 }
 
 async function oldAppWriteSet(page, exerciseId, { load, reps, rir }, day = "Day 1") {
-  await page.evaluate((label) => window.__repforgeEnterWorkout({ focus: false, day: label }), day);
+  await page.evaluate((label) => window.__repforgeEnterWorkout({day: label }), day);
   await page.waitForSelector(`#workout:not(.is-focus) .exercise[data-ex="${exerciseId}"]`);
   await page.locator(`[data-k="${exerciseId}_1_load"]`).fill(String(load));
   await page.locator(`[data-k="${exerciseId}_1_reps"]`).fill(String(reps));
@@ -110,7 +110,7 @@ async function reset(page, options = {}) {
 }
 
 async function enter(page, day = "Day 1") {
-  await page.evaluate((label) => window.__repforgeEnterWorkout({ focus: true, day: label }), day);
+  await page.evaluate((label) => window.__repforgeEnterWorkout({day: label }), day);
   await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 5000 });
 }
 
@@ -347,7 +347,7 @@ async function main() {
 
     await reset(page);
     await enter(page, "Day 1");
-    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: true, day: "Day 2" }));
+    await page.evaluate(() => window.__repforgeEnterWorkout({day: "Day 2" }));
     await page.waitForSelector("#workout.is-focus .exercise.is-current");
     const dayIntent = await rawState(page);
     const dayDraft = JSON.parse(dayIntent.raw);
@@ -812,7 +812,7 @@ async function main() {
       window.__repforgeDraftAfterSaveCommit = async () => {
         delete window.__repforgeDraftAfterSaveCommit;
         await window.__repforgeWorkoutDraft.initialize();
-        await window.__repforgeEnterWorkout({ focus: true, day: "Day 1" });
+        await window.__repforgeEnterWorkout({day: "Day 1" });
         const hook = window.__repforgeWorkoutDraft;
         const draft = hook.current();
         const exerciseInstanceId = draft.session.selectedExerciseId;
@@ -893,7 +893,7 @@ async function main() {
     console.log("\n4. Stale tabs, legacy writers, sidecars, and day recovery cannot replace V2 truth");
     await reset(page);
     const oldLiveWriter = await openOldApp(context);
-    await oldLiveWriter.evaluate(() => window.__repforgeEnterWorkout({ focus: false, day: "Day 1" }));
+    await oldLiveWriter.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
     await oldLiveWriter.waitForSelector("#workout:not(.is-focus)");
     await enter(page, "Day 2");
     await page.evaluate(() => window.__repforgeWorkoutDraft.dispatch("editSetField", {
@@ -950,7 +950,7 @@ async function main() {
 
     await reset(page);
     const staleRenameOldApp = await openOldApp(context);
-    await staleRenameOldApp.evaluate(() => window.__repforgeEnterWorkout({ focus: false, day: "Day 1" }));
+    await staleRenameOldApp.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
     await staleRenameOldApp.waitForSelector(`#workout:not(.is-focus) .exercise[data-ex="${first.id}"]`);
     await enter(page);
     await page.evaluate(() => window.__repforgeWorkoutDraft.dispatch("editSetField", {
@@ -1091,7 +1091,7 @@ async function main() {
       checkpointRestored: rollback.checkpoint.value?.raw === activeRaw,
     });
     const postRemovalLegacy = await openOldApp(context);
-    await postRemovalLegacy.evaluate(() => window.__repforgeEnterWorkout({ focus: false, day: "Day 1" }));
+    await postRemovalLegacy.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
     await postRemovalLegacy.waitForSelector(`#workout:not(.is-focus) .exercise[data-ex="${first.id}"]`);
     const replacement = await page.evaluate(async () => {
       const hook = window.__repforgeWorkoutDraft;
@@ -1330,7 +1330,7 @@ async function main() {
     const lockUnavailable = await page.evaluate(async () => {
       const locks = navigator.locks, original = locks.request;
       Object.defineProperty(locks, "request", { configurable: true, value: undefined });
-      try { return await window.__repforgeEnterWorkout({ focus: true, day: "Day 1" }); }
+      try { return await window.__repforgeEnterWorkout({day: "Day 1" }); }
       finally { delete locks.request; window.__draftLockRestored = typeof navigator.locks.request === "function" && !!original; }
     });
     await page.waitForSelector("#draftRecovery:not(.hidden)");
@@ -1397,7 +1397,7 @@ async function main() {
     changedPristine._storageRevision += 1;
     await writeState(page, changedPristine);
     await page.reload({ waitUntil: "domcontentloaded" });await waitForBoot(page);
-    const enteredPristine = await page.evaluate(() => window.__repforgeEnterWorkout({ focus: true, day: "Day 1" }));
+    const enteredPristine = await page.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
     await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 5000 });
     const afterPristine = await rawState(page);
     const afterPristineDraft = JSON.parse(afterPristine.raw || "null");
