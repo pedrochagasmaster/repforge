@@ -36,7 +36,15 @@ const log = [
 const meta = seedProgramMeta({ id: "evidence-program", started });
 
 async function freshPage() {
-  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
+  await context.addInitScript((fixedNow) => {
+    const NativeDate = Date;
+    class FixedDate extends NativeDate {
+      constructor(...args) { super(...(args.length ? args : [fixedNow])); }
+      static now() { return new NativeDate(fixedNow).getTime(); }
+    }
+    globalThis.Date = FixedDate;
+  }, "2026-09-17T12:00:00.000Z");
   const page = await context.newPage();
   page.on("pageerror", (e) => errors.push(String(e)));
   await page.goto(base, { waitUntil: "domcontentloaded" });
