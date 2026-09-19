@@ -33,7 +33,7 @@ const now = "2026-08-31T12:00:00";
     { exerciseId: "e1", evidenceState: "sufficient", outcome: "maintained" },
     { exerciseId: "e2", evidenceState: "sufficient", outcome: "declined" },
   ];
-  const done = model.buildReviewCheckpoint(program, { ...meta, mesocycleStatus: "completed", observedOutcomes: facts }, [], now);
+  const done = model.buildReviewCheckpoint(program, { ...meta, mesocycleStatus: "completed", evidenceRecords: facts }, [], now);
   assert.equal(done.lifecycle, "block-complete");
   for (const kind of ["repeat", "review", "schedule-repair", "reduce-volume", "guided-edit"]) {
     assert.ok(done.structuralActions.includes(kind), `completed block enables ${kind}`);
@@ -47,11 +47,11 @@ const now = "2026-08-31T12:00:00";
     { exerciseId: "e1", evidenceState: "sufficient", outcome: "improved" },
     { exerciseId: "e2", evidenceState: "sufficient", outcome: "improved" },
   ];
-  const done = model.buildReviewCheckpoint(program, { ...meta, mesocycleStatus: "completed", observedOutcomes: facts }, [], now);
+  const done = model.buildReviewCheckpoint(program, { ...meta, mesocycleStatus: "completed", evidenceRecords: facts }, [], now);
   assert.ok(done.structuralActions.includes("progress"));
   assert.ok(!done.structuralActions.includes("recovery-week"), "recovery needs the policy gate, not just evidence");
   const recov = model.buildReviewCheckpoint(program,
-    { ...meta, mesocycleStatus: "completed", observedOutcomes: facts, recoveryEligible: true }, [], now);
+    { ...meta, mesocycleStatus: "completed", evidenceRecords: facts, recoveryEligible: true }, [], now);
   assert.ok(recov.structuralActions.includes("recovery-week"));
 }
 
@@ -61,7 +61,7 @@ const now = "2026-08-31T12:00:00";
     { exerciseId: "e1", evidenceState: "insufficient", outcome: undefined },
   ];
   const done = model.buildReviewCheckpoint(program,
-    { ...meta, mesocycleStatus: "completed", observedOutcomes: insufficient }, [], now);
+    { ...meta, mesocycleStatus: "completed", evidenceRecords: insufficient }, [], now);
   assert.equal(done.lifecycle, "block-complete");
   assert.deepEqual(done.structuralActions, ["repeat", "schedule-repair", "reduce-volume", "guided-edit"],
     "insufficient final evidence offers repeat plus non-evidence routes, no performance-derived change");

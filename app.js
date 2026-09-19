@@ -2149,7 +2149,7 @@ async function applyFatigueTrim(){
   for(const id of flagged)if(!skipped.has(id)){const result=await enqueueDraftCommand("skipExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
   renderWorkout();toast(t("toast.trimmed_priority"))}
 let logMode="full",focusIndex=0,statsSeg="overview",evidenceView=null,prFilter="all";
-let strengthScope="current-block",volumeScope="this-week";
+let strengthScope="current-block",volumeScope="this-week",volumeDrillMuscle=null;
 let focusDrag=null,focusFlinging=false;
 /** Focus mode — the set being re-opened for edit: {exId,n,snap}. `snap` is the
  *  set as it stood when editing began, so cancelling puts it back untouched. */
@@ -2167,7 +2167,7 @@ const focusUnfolded=new Set();
 /** Sets logged before older rows fold away, and how many stay above the fold. */
 const FOCUS_FOLD_MIN=5,FOCUS_FOLD_KEEP=2;
 let exView=null;
-let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=false,histMonth=null,histQuery="",readyExpanded=false;
+let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=false,histMonth=null,histQuery="";
 /* The editor module owns the draft document. Hosts retain only its lifecycle
    and adapter session so the installed editor can stay private until Done. */
 let installedProgramEditor=null,onboardingProgramEditor=null,installedEditorSession=null,pendingEditorNavigation=null;
@@ -2581,6 +2581,11 @@ function hardSetsInRange(log,program,started,ended,hardRir){const m=new Map();
     for(const p of muscles(mus.primary))addVol(m,p,1,0);
     for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
   return m}
+function volumeMapFromRows(rows,program){const m=new Map();
+  for(const x of rows||[]){const mus=rowMusclesPure(x,program);
+    for(const p of muscles(mus.primary))addVol(m,p,1,0);
+    for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
+  return m}
 function buildBlockReview(programMeta,program,log){const p=new Program(program||[]),days=p.days(),total=programMeta?.mesocycleLengthWeeks||6;
   const started=programMeta?.started||null,ended=today(),hardRir=DEFAULTS.hardRir;
   const plannedSessions=total&&days.length?total*days.length:0;
@@ -2639,13 +2644,13 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
   const recoveryEvidence=reviewRecoveryEvidence();
   const checkpoint=Model.buildReviewCheckpoint(prog.toJSON(),
     {started:meta.started,mesocycleLengthWeeks:meta.mesocycleLengthWeeks||6,
-     mesocycleStatus:meta.mesocycleStatus,observedOutcomes:reviewObservedOutcomes(),
+     mesocycleStatus:meta.mesocycleStatus,evidenceRecords:reviewObservedOutcomes(),
      recoveryEligible:recoveryEvidence.qualifyingPatterns.length>=2},
     state.log,today());
   const life=mesocycleLifecycle(meta);
   const weekLine=life.isComplete?t("meso.complete"):life.isFinalWeek&&life.current!=null?t("meso.week_ready",{n:life.current,total:life.total}):t("review.week_of",{n:life.current??"—",total:life.total});
   const volume=Model.buildVolumeEvidence("block-to-date",prog.toJSON(),
-    {started:meta.started,mesocycleLengthWeeks:meta.mesocycleLengthWeeks||6},state.log,today());
+    progressEvidenceMeta(),state.log,today());
   const pct=volume.plannedWorkingSets?Math.min(100,Math.round(volume.completedWorkingSets/volume.plannedWorkingSets*100)):0;
   const nameForLiftKey=key=>currentExerciseForLiftKey(key)?.name||key;
   const outcomes=checkpoint.observedOutcomes;
@@ -2655,8 +2660,8 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
   const actions=checkpoint.lifecycle==="block-complete"?renderReviewActions(checkpoint):"";
   const readOnlyNote=checkpoint.lifecycle==="active-block"
     ?`<p class="review__readonly" role="note">${esc(t("review.active_readonly"))}</p>`:"";
-  const rec=blockSnapshot(meta,state.log).recommendation;
-  const recCopy=blockRecommendationCopy(rec);
+  const evidenceNote=checkpoint.lifecycle==="block-complete"&&!checkpoint.hasSufficientEvidence
+    ?`<p class="review__summary">${esc(t("review.insufficient.note"))}</p>`:"";
   if(reviewFlow){renderReviewFlow(el);return}
   el.innerHTML=reviewRecoveryStatusHtml()+`<div class="blockprogress"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
     `<p><b>${esc(weekLine)}</b></p>`+
@@ -2664,13 +2669,12 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
     `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p>`+
     `<p class="lede">${esc(t("stats.volume.period_text",{start:longDate(volume.period.start||meta.started||""),end:longDate(volume.period.end||today())}))}</p></div>`+
     `<p class="section-label">${esc(t("review.outcomes.label"))}</p><div class="review__outcomes">${outcomeLine}</div>`+
-    `<p class="review__summary">${esc(recCopy.line)}</p>`+readOnlyNote+actions;
+    evidenceNote+readOnlyNote+actions;
   bindReviewActions();bindRecoveryStatus()}
 // Observed outcomes are engine facts (paired-exposure comparison), never
 // representation-derived. Insufficient lifts never enter this list.
 function reviewObservedOutcomes(){
-  const facts=strengthFactsByLift();
-  return Object.entries(facts).map(([key,outcome])=>({exerciseId:key,outcome}))}
+  return strengthEvidenceRecords("current-block")}
 function reviewRecoveryEvidence(){
   const instance=recoveryCompilerInstance(state,typeof ProgramCompiler!=="undefined"?ProgramCompiler:null,
     typeof EXERCISE_LIBRARY!=="undefined"?EXERCISE_LIBRARY:null);
@@ -2886,9 +2890,9 @@ function renderSiblingPreview(el,flow){
     (beforeMinutes&&afterMinutes?`<p><b>${esc(t("review.preview.duration",{before:beforeMinutes,after:afterMinutes}))}</b></p>`:"")+
     `<p class="lede">${esc(t("review.preview.provenance"))}</p>`+
     (lines.length?`<ul class="review__diff">${lines.join("")}</ul>`:`<p class="lede">${esc(t("review.preview.exercises_unchanged"))}</p>`)+
-    `<p class="lede"><code>${esc(String(p.proposalHash||""))}</code></p>`+
+    `<p class="lede"><code class="review__hash">${esc(String(p.proposalHash||""))}</code></p>`+
     `<p class="lede">${esc(t("review.preview.hash_note"))}</p>`+
-    `<div class="btnrow"><button type="button" class="btn btn--cta" data-preview-confirm>${esc(t("review.preview.confirm"))}</button>`+
+    `<div class="btnrow review__preview-actions"><button type="button" class="btn btn--cta" data-preview-confirm>${esc(t("review.preview.confirm"))}</button>`+
     `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.preview.cancel"))}</button></div>`;
   const confirm=$("[data-preview-confirm]",el);
   if(confirm)confirm.onclick=async()=>{
@@ -2916,8 +2920,8 @@ function renderRecoveryPreview(el,flow){
   el.innerHTML=`<p class="section-label">${esc(t("review.recovery.preview_title"))}</p>`+
     `<p><b>${esc(t("review.recovery.policy",{version:overlay.policyVersion}))}</b></p>`+
     `<p>${esc(t("review.recovery.week2"))}</p><ul class="review__diff">${evidenceRows}${entries}</ul>`+
-    `<p class="lede"><code>${esc(p.proposalHash)}</code></p><p class="lede">${esc(t("review.preview.hash_note"))}</p>`+
-    `<div class="btnrow"><button type="button" class="btn btn--cta" data-preview-confirm>${esc(t("review.recovery.confirm"))}</button>`+
+    `<p class="lede"><code class="review__hash">${esc(p.proposalHash)}</code></p><p class="lede">${esc(t("review.preview.hash_note"))}</p>`+
+    `<div class="btnrow review__preview-actions"><button type="button" class="btn btn--cta" data-preview-confirm>${esc(t("review.recovery.confirm"))}</button>`+
     `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.preview.cancel"))}</button></div>`;
   const confirm=$("[data-preview-confirm]",el);if(confirm)confirm.onclick=async()=>{
     confirm.disabled=true;
@@ -4324,14 +4328,18 @@ window.__repforgeStatsNav={setStatsSeg,setEvidenceView};
 window.__repforgeProgressEvidence={
   strength:liftId=>{
     const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return null;
-    const rows=state.log.filter(isWork).map(r=>({exerciseId:liftKey(r),session:r.session,date:r.date,load:+r.load,reps:+r.reps}));
-    return Model.buildStrengthEvidence(strengthScope,liftId,rows,{started:state.programMeta?.started||null,facts:strengthFactsByLift()})},
+    return strengthProjection(strengthScope).series.get(liftId)||null},
   volume:scope=>{
     const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return null;
     return Model.buildVolumeEvidence(scope==="block-to-date"?"block-to-date":"this-week",prog.toJSON(),
-      {started:state.programMeta?.started||null,mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6},state.log,today())},
+      progressEvidenceMeta(),state.log,today())},
+  records:scope=>strengthEvidenceRecords(scope||strengthScope),
   chartPresentation:n=>n>=3?"trend":n===2?"comparison":"snapshot",
   keyForExerciseId:exId=>{const ex=prog.find(exId);return ex?exerciseLiftKey(ex):null}};
+window.__repforgeProgressReview={
+  activeRecovery:()=>activeReviewRecovery(),
+  scheduledProgram:()=>scheduledProgramRows(),
+};
 
 // Block (mesocycle) trend — a WEAK signal derived from e1RM across this lift's
 // sessions inside the current block. Only tempers aggressiveness / rep targets.
@@ -6576,7 +6584,7 @@ function strengthDashboard(){
   for(const [k,sess] of byLift){const latest=sess.at(-1),first=sess[0],best=Math.max(...sess.map(s=>s.e1rm));
     const ex=currentExerciseForLiftKey(k);
     const rec=ex?recommendation(ex):{label:"—"};
-    rows.push({key:k,exercise:latest.name,latest:`${fmtLoad(latest.top)}×${latest.topReps}`,best,blockDelta:latest.e1rm-first.e1rm,
+    rows.push({key:k,exercise:latest.name,latestLoad:latest.top,latestReps:latest.topReps,best,blockDelta:latest.e1rm-first.e1rm,
       prs:prN.get(k)||0,lastTrained:latest.date,signal:rec.label})}
   return rows.sort((a,b)=>a.exercise.localeCompare(b.exercise))}
 window.__repforgeStrengthDashboard=strengthDashboard;
@@ -6596,34 +6604,33 @@ function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;
     b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false");
     b.onclick=()=>{strengthScope=b.dataset.scope;renderStrengthDash()}});
   if(!Model){legacyStrengthTable(el);return}
-  const dash=strengthDashboard(),facts=strengthFactsByLift();
-  const rows=state.log.filter(isWork).map(r=>({exerciseId:liftKey(r),session:r.session,date:r.date,load:+r.load,reps:+r.reps}));
-  const meta={started:state.programMeta?.started||null,facts};
+  const projection=strengthProjection(strengthScope),dash=projection.dashboard;
   // Program slots with no logged history still earn a row: zero points is
   // baseline-building, not an absence.
-  const keys=new Set(dash.map(r=>r.key));
+  const keys=new Set(projection.keys);
   for(const ex of prog.exercises){const k=exerciseLiftKey(ex)||`slot:${ex.id}`;if(!keys.has(k))keys.add(k)}
   if(!keys.size){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
   const nameOf=k=>dash.find(r=>r.key===k)?.exercise||prog.exercises.find(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===k)?.name||k;
   el.innerHTML=[...keys].sort((a,b)=>nameOf(a).localeCompare(nameOf(b),locTag())).map(k=>{
-    const series=Model.buildStrengthEvidence(strengthScope,k,rows,meta);
+    const series=projection.series.get(k);
     const label=t(`stats.evidence.${series.presentation}`);
     const outcome=series.outcome&&EVIDENCE_OUTCOME_KEYS[series.outcome]?` · ${t(EVIDENCE_OUTCOME_KEYS[series.outcome])}`:"";
     const reason=!series.outcome&&series.reason&&series.presentation!=="empty"?` · ${t(`stats.evidence.reason.${series.reason}`)}`:"";
     const baseline=series.presentation==="empty"?` · ${t("stats.evidence.baseline")}`:"";
-    const latest=dash.find(r=>r.key===k)?.latest;
-    const value=latest?`${fmtLoad(latest.split("×")[0])}×${latest.split("×")[1]}`:"—";
-    const detail=strengthDetailTable(k);
+    const value=series.latest?`${fmtLoad(series.latest.value)}×${series.latest.reps}`:"—";
+    const comparison=series.comparison;
+    const change=comparison?` · ${t("stats.evidence.change",{absolute:`${comparison.absolute>0?"+":""}${fmt(toDisplay(comparison.absolute))} ${unitLabel()}`,percentage:`${comparison.percentage>0?"+":""}${fmt(comparison.percentage)}`})}`:"";
+    const detail=strengthDetailTable(k,projection);
     return `<button type="button" class="evrow" data-evkey="${esc(k)}" aria-expanded="false">`+
       `<div class="listrow__main"><div class="listrow__title">${esc(nameOf(k))}</div>`+
-      `<div class="listrow__sub">${esc(label)}${esc(outcome||reason||baseline)}</div></div>`+
+      `<div class="listrow__sub">${esc(label)}${esc(outcome||reason||baseline)}${esc(change)}</div></div>`+
       `<span class="evrow__val">${esc(value)}</span><span class="chevron" aria-hidden="true"></span></button>`+
       `<div class="evrow__detail" data-evdetail="${esc(k)}" hidden>${detail}</div>`}).join("");
   $$("#strengthDash [data-evkey]").forEach(b=>b.onclick=()=>{
     const detail=$(`[data-evdetail="${b.dataset.evkey}"]`);if(!detail)return;
     const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false")})}
-function strengthDetailTable(k){
-  const sess=summaries().filter(x=>x.liftKey===k);
+function strengthDetailTable(k,projection=strengthProjection(strengthScope)){
+  const sess=projection.sessions.filter(x=>x.liftKey===k);
   if(!sess.length)return `<p class="lede">${esc(t("stats.evidence.reason.untested"))}</p>`;
   const u=unitLabel();
   return `<p class="lede">${esc(t("stats.evidence.range",{start:longDate(sess[0].date),end:longDate(sess.at(-1).date)}))}</p>`+
@@ -6633,60 +6640,70 @@ function legacyStrengthTable(el){
   const rows=strengthDashboard();
   if(!rows.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
   const u=unitLabel(),fmtDelta=d=>{const n=toDisplay(d),a=Math.abs(n);const s=n>0?"+":n<0?"-":"";return s+(a?fmt(Math.round(a)):0)};
-  el.innerHTML=table(rows.map(r=>({[t("stats.table.exercise")]:r.exercise,[t("stats.table.latest")]:r.latest,[t("stats.table.best_e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(r.best))),
+  el.innerHTML=table(rows.map(r=>({[t("stats.table.exercise")]:r.exercise,[t("stats.table.latest")]:`${fmtLoad(r.latestLoad)}×${r.latestReps}`,[t("stats.table.best_e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(r.best))),
     [t("stats.table.delta_block")]:fmtDelta(r.blockDelta),[t("stats.table.prs")]:r.prs,[t("stats.table.signal")]:r.signal})))}
 
-// The week reads as a headline: the verdict first, the arithmetic under it, and a
-// session bar so "3 of 4" is legible without reading. The attention tally counts the
-// same lifts the Attention list below shows, so the two numbers never disagree.
-function coachingDestKey(group){if(group==="add")return"details";if(group==="new"||group==="stale")return"log";return"trend"}
-function coachingDestLabel(group){const k=coachingDestKey(group);return k==="details"?t("stats.dest.details"):k==="log"?t("stats.dest.log"):t("stats.dest.trend")}
-function renderThisWeek(){const el=$("#thisWeek");if(!el)return;const w=weeklySnapshot();
-  const attnN=attentionCount();
-  const segs=Math.max(w.plannedDays,w.completedDays,1),done=Math.min(w.completedDays,segs);
-  el.innerHTML=`<div class="ov-week-status">${esc(t("stats.this_week.status",{status:w.status}))}</div>`+
-    `<div class="ov-week-line">${esc(t("stats.this_week.line",{done:w.completedDays,planned:w.plannedDays,hardSets:`${w.totalHardSets} ${tp(w.totalHardSets,"hard set")}`}))}</div>`+
+// The week reads as a headline: the arithmetic the model computed, a session bar so
+// "3 of 4" is legible without reading, and the baseline tally. Every number comes
+// from the same evidence model the lists below render, so none of them disagree.
+function renderThisWeek(){const el=$("#thisWeek");if(!el)return;
+  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return;
+  const w=Model.buildWeekStatus(prog.toJSON(),progressEvidenceMeta(),state.log,today());
+  const records=strengthEvidenceRecords("current-block"),baselineN=records.filter(r=>r.evidenceState==="insufficient").length;
+  const segs=Math.max(w.plannedSessions,w.completedSessions,1),done=Math.min(w.completedSessions,segs);
+  el.innerHTML=`<div class="ov-week-status">${esc(t("stats.this_week.in_progress"))}</div>`+
+    `<div class="ov-week-line">${esc(t("stats.this_week.progress",{sessions:`${w.completedSessions} / ${w.plannedSessions}`,sets:`${w.completedWorkingSets} / ${w.plannedWorkingSets}`}))}</div>`+
     `<div class="ov-week-bar" aria-hidden="true">`+
     Array.from({length:segs},(_,i)=>`<span class="ov-week-bar__seg${i<done?" is-done":""}"></span>`).join("")+`</div>`+
     `<div class="statrow">`+
-    `<div class="statrow__cell" data-week-metric="improved"><div class="statrow__val">${w.improvedLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.improved"))}</div></div>`+
-    `<div class="statrow__cell" data-week-metric="stable"><div class="statrow__val">${w.flatLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.stable"))}</div></div>`+
-    `<div class="statrow__cell${attnN?" is-attn":""}" data-week-metric="attention"><div class="statrow__val">${attnN||0}${attnN?`<span class="statrow__dot"></span>`:""}</div><div class="statrow__cap">${esc(t("stats.this_week.attention"))}</div></div>`+
+    `<div class="statrow__cell" data-week-metric="sessions"><div class="statrow__val">${w.completedSessions}</div><div class="statrow__cap">${esc(t("stats.this_week.sessions"))}</div></div>`+
+    `<div class="statrow__cell" data-week-metric="sets"><div class="statrow__val">${w.completedWorkingSets}</div><div class="statrow__cap">${esc(t("stats.this_week.working_sets"))}</div></div>`+
+    `<div class="statrow__cell" data-week-metric="baseline"><div class="statrow__val">${baselineN}</div><div class="statrow__cap">${esc(t("stats.this_week.baseline"))}</div></div>`+
     `</div>`}
 function overviewBarPct(planned,completed7){return planned>0?Math.min(100,Math.round(completed7/planned*100)):0}
-function overviewVolumeSorted(){return volumeDashboard(7).slice().sort((a,b)=>{
-  const da=Math.max(a.planned-a.completed7,0),db=Math.max(b.planned-b.completed7,0);
-  if(db!==da)return db-da;
-  const ra=a.planned>0?a.completed7/a.planned:Infinity,rb=b.planned>0?b.completed7/b.planned:Infinity;
-  if(ra!==rb)return ra-rb;
-  return muscleLabel(a.muscle).localeCompare(muscleLabel(b.muscle),locTag())})}
+function volumeStatusKey(planned,completed){
+  if(!planned)return completed>0?"high":"on-target";
+  const ratio=completed/planned;
+  return ratio<0.6?"below":ratio<=1.3?"on-target":"high"}
+function overviewVolumeProjection(){
+  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  if(!Model)return volumeDashboard(7).map(row=>({...row,statusKey:volumeStatusKey(row.planned,row.completed7)}));
+  const meta=progressEvidenceMeta(),evidence=Model.buildVolumeEvidence("this-week",prog.toJSON(),meta,state.log,today());
+  const planned=volumePlannedMuscleMap(evidence,meta.weekPrescriptions),completed=volumeMapFromRows(evidence.completedRows,state.program);
+  const names=new Set([...planned.keys(),...completed.keys()]);
+  return[...names].map(muscle=>{
+    const plannedValue=volEff(planned,muscle),completedValue=volEff(completed,muscle);
+    // A muscle with no compatible hard-set observation is baseline-building;
+    // the Overview must not turn that absence into a negative status.
+    const evidenceState=completedValue>0?"sufficient":"insufficient";
+    const periodInProgress=evidence.periodStatus!=="complete";
+    const statusKey=evidenceState==="insufficient"?"baseline":
+      periodInProgress&&plannedValue>0?"in-progress":volumeStatusKey(plannedValue,completedValue);
+    const status=statusKey==="baseline"?t("stats.evidence.baseline"):
+      statusKey==="in-progress"?t("stats.volume.in_progress",{done:fmt(completedValue),planned:fmt(plannedValue)}):
+      statusKey==="high"?t("status.high"):statusKey==="below"?t("stats.volume_below"):t("stats.volume_on_target");
+    return{muscle,planned:plannedValue,completed7:completedValue,status,statusKey,evidenceState,
+      pct:overviewBarPct(plannedValue,completedValue)}
+  }).sort((a,b)=>{
+    const da=Math.max(a.planned-a.completed7,0),db=Math.max(b.planned-b.completed7,0);
+    if(db!==da)return db-da;
+    const ra=a.planned>0?a.completed7/a.planned:Infinity,rb=b.planned>0?b.completed7/b.planned:Infinity;
+    if(ra!==rb)return ra-rb;
+    return muscleLabel(a.muscle).localeCompare(muscleLabel(b.muscle),locTag())})}
+function overviewVolumeSorted(){return overviewVolumeProjection()}
 function renderOverviewVolume(){const el=$("#overviewVolume");if(!el)return;
   const rows=overviewVolumeSorted(),shown=rows.slice(0,8),more=rows.length-shown.length;
-  el.innerHTML=rows.length?shown.map(r=>{
-    const high=r.status===t("status.high"),on=r.status===t("status.on_target"),below=r.status===t("status.low");
-    const pct=overviewBarPct(r.planned,r.completed7);
-    const label=high?t("status.high"):below?t("stats.volume_below"):t("stats.volume_on_target");
-    return `<div class="vrow" data-muscle="${esc(r.muscle)}"><span class="vrow__name">${esc(muscleLabel(r.muscle))}</span>`+
-      `<span class="vrow__bar"><span class="vrow__fill${high?" is-high":on?" is-on":""}" style="width:${pct}%"></span></span>`+
-      `<span class="vrow__num">${fmt(r.completed7)} / ${fmt(r.planned)}</span>`+
-      `<span class="vrow__status${on?" is-on":""}">${esc(label)}</span></div>`}).join("")+
+  el.innerHTML=rows.length?shown.map(row=>{
+    const fillClass=row.statusKey==="high"?" is-high":row.statusKey==="on-target"?" is-on":"";
+    const statusClass=row.statusKey==="on-target"?" is-on":"";
+    return `<button type="button" class="vrow" data-muscle="${esc(row.muscle)}"><span class="vrow__name">${esc(muscleLabel(row.muscle))}</span>`+
+      `<span class="vrow__bar"><span class="vrow__fill${fillClass}" style="width:${row.pct}%"></span></span>`+
+      `<span class="vrow__num">${fmt(row.completed7)} / ${fmt(row.planned)}</span>`+
+      `<span class="vrow__status${statusClass}">${esc(row.status)}</span><span class="chevron" aria-hidden="true"></span></button>`}).join("")+
       (more>0?`<button type="button" class="link-row-cta" id="overviewVolumeMore">${esc(t("stats.volume_more",{n:more}))}</button>`:"")
     :`<div class="empty">${esc(t("stats.empty.no_hard_sets",{n:7}))}</div>`;
+  $$("#overviewVolume [data-muscle]").forEach(button=>button.onclick=()=>{volumeDrillMuscle=button.dataset.muscle;setEvidenceView("volume")});
   const moreBtn=$("#overviewVolumeMore");if(moreBtn)moreBtn.onclick=()=>setStatsSeg("volume")}
-function renderReadyList(){const el=$("#readyList");if(!el)return;
-  const add=attentionGroups().find(g=>g.key==="add");
-  if(!add?.items.length){el.innerHTML="";readyExpanded=false;return}
-  const items=add.items,cap=4,shown=readyExpanded?items:items.slice(0,cap),more=items.length-cap;
-  const row=({ex,why})=>{const r=recommendation(ex);const prev=last(ex);const base=prev.find(s=>s.set===1)?.load??prev[0]?.load;
-      const delta=r.load!=null&&base!=null?r.load-base:null;
-      const deltaTxt=delta!=null?`+${fmtLoad(Math.abs(delta))} ${unitLabel()}`:r.label;
-      const dest=coachingDestLabel("add");
-      return `<button type="button" class="ready-row listrow" data-ready="${esc(ex.id)}" data-dest="details"><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div>`+
-        `<div class="listrow__sub">${esc(why)}</div></div><span class="ready-row__delta">${esc(deltaTxt)}</span><span class="coach-dest">${esc(dest)}</span><span class="chevron" aria-hidden="true"></span></button>`};
-  el.innerHTML=`<p class="section-label">${esc(t("stats.ready_to_progress"))}<span class="section-label__count">${esc(t("stats.section_count",{n:items.length}))}</span></p>`+shown.map(row).join("")+
-    (more>0&&!readyExpanded?`<button type="button" class="link-row-cta" id="readySeeAll"><span>${esc(t("stats.ready_see_all",{n:items.length}))}</span><span class="chevron" aria-hidden="true"></span></button>`:"");
-  $$("#readyList [data-ready]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.ready,"stats"));
-  const see=$("#readySeeAll");if(see)see.onclick=()=>{readyExpanded=true;renderReadyList()}}
 function recentDeltaRows(){const sessMap=new Map();
   for(const x of state.log){if(!sessMap.has(x.session))sessMap.set(x.session,{session:x.session,date:x.date,created:x.created})}
   const recent=[...sessMap.values()].sort((a,b)=>String(b.created).localeCompare(String(a.created))||String(b.date).localeCompare(String(a.date))).slice(0,10);
@@ -6710,10 +6727,9 @@ function renderStats(){
       `<p class="emptystate__body">${esc(t("stats.empty.body"))}</p>`+
       `<button type="button" class="btn btn--cta" id="statsIntroGo">${esc(t("stats.empty.cta"))}</button>`;
     const go=$("#statsIntroGo");if(go)go.onclick=()=>navTo("log");
-    for(const sel of["#thisWeek","#readyList","#attention","#metrics","#statsDeep","#overviewVolume"]){const el=$(sel);if(el)el.classList.toggle("hidden",!hasLog)}
+    for(const sel of["#thisWeek","#attention","#metrics","#statsDeep","#overviewVolume"]){const el=$(sel);if(el)el.classList.toggle("hidden",!hasLog)}
   }
   renderThisWeek();
-  renderReadyList();
   renderOverviewVolume();
   // Stat exercise options: the label and identity both follow what was actually
   // performed, so reusing a program slot cannot merge two different movements.
@@ -7857,28 +7873,15 @@ function renderPRs(){const el=$("#prLedger");if(!el)return;
         `<td>${esc(delta)}</td></tr>`}).join("")
   }</tbody></table>`}
 
-// Action board — which lifts need a decision, grouped by signal (one group per lift).
-function attentionSignal(ex,fatigueCluster){
-  const r=recommendation(ex),sess=sessionsFor(ex);
-  if(r.status==="add"||r.status==="add2")return{key:"add",why:t("attention.add.why")};
-  if(r.status==="reduce"||r.stalled)return{key:"reduce",why:t("attention.reduce.why")};
-  if(r.status==="new")return{key:"new",why:t("attention.new.why")};
-  if(sess.length){
-    const lastDate=String(sess.at(-1).date).slice(0,10),cutoff=daysAgo(10);
-    if(lastDate<cutoff){const n=Math.floor((new Date(`${today()}T12:00:00`)-new Date(`${lastDate}T12:00:00`))/86400000);
-      return{key:"stale",why:t("attention.stale.why",{n})}}
-  }
-  const planned=prog.volume(),done=completedHardSets(7);
-  for(const m of muscles(ex.primary)){const p=planned.get(m),d=done.get(m),target=p?p.d+p.p:0,actual=d?d.d+d.p:0;
-    if(target>0&&actual<target)return{key:"vol",why:t("attention.vol.why")}}
-  if(recoverSignal(ex,sess)||(fatigueCluster&&r.status==="hold"&&recoverSignal(ex,sess,1)))return{key:"fatigue",why:t("attention.fatigue.why")};
-  return null}
-function attentionGroups(){const fatigueCluster=prog.exercises.filter(ex=>{const r=recommendation(ex);return r.status==="reduce"||r.stalled}).length>=2;
-  const defs=[{key:"add",cls:"add",lead:t("attention.add.lead")},{key:"reduce",cls:"reduce",lead:t("attention.reduce.lead")},{key:"new",cls:"new",lead:t("attention.new.lead")},
-    {key:"stale",cls:"stale",lead:t("attention.stale.lead")},{key:"vol",cls:"vol",lead:t("attention.vol.lead")},{key:"fatigue",cls:"fatigue",lead:t("attention.fatigue.lead")}];
-  const g=Object.fromEntries(defs.map(d=>[d.key,[]]));
-  for(const ex of prog.exercises){const sig=attentionSignal(ex,fatigueCluster);if(sig)g[sig.key].push({ex,why:sig.why})}
-  return defs.map(d=>({...d,items:g[d.key]})).filter(d=>d.items.length)}
+// Needs action is derived only from canonical sufficient evidence records.
+function attentionGroups(){
+  const items=RepForgeProgressModel.buildProgramActionQueue(prog.toJSON(),progressEvidenceMeta(),state.log,
+    strengthEvidenceRecords("current-block"));
+  const groups=new Map();
+  for(const item of items){const key=item.recommendation,ex=currentExerciseForLiftKey(item.destinationId);
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push({ex:ex||{id:item.destinationId,name:item.destinationId},why:t(`stats.recommendation.${key}`),item})}
+  return[...groups].map(([key,entries])=>({key,cls:key,lead:t(`stats.recommendation.${key}`),items:entries}))}
 window.__repforgeRecoverSignal=recoverSignal;
 window.__repforgeRecommendation=recommendation;
 window.__repforgeProgressionForExercise=progressionForExercise;
@@ -7888,34 +7891,19 @@ window.__repforgeCapacity={CAPACITY,capRir,capReps,capE1rm,repsAtLoad,typicalRir
 window.__repforgeAttention=attentionGroups;
 // Lifts on the Attention board — everything the board lists, so the "attention" cell in
 // the weekly stat row and the "ATTENTION · n" heading always report the same lifts.
-function attentionCount(groups){return(groups||attentionGroups().filter(g=>g.key!=="add")).reduce((n,g)=>n+g.items.length,0)}
+function attentionCount(groups){return(groups||attentionGroups()).reduce((n,g)=>n+g.items.length,0)}
 function renderAttention(){const el=$("#attention");if(!el)return;
-  const groups=attentionGroups().filter(g=>g.key!=="add");
-  if(!groups.length){el.innerHTML="";return}
-  const n=attentionCount(groups);
-  const html=`<p class="section-label">${esc(t("attention.title"))}<span class="section-label__count">${esc(t("stats.section_count",{n}))}</span></p>`+groups.map(({key,cls,lead,items})=>{
-    // A cause the whole group shares is stated once, above the lifts it holds:
-    // ten rows repeating "Primary muscle under weekly volume target." read as a
-    // rendering fault rather than as ten lifts sharing one reason. A group whose
-    // rows differ — "Last trained 15 days ago." beside 22 — keeps them, because
-    // hoisting one row's sentence would speak for the others.
-    const shared=items.length>1&&items.every(it=>it.why===items[0].why)?items[0].why:"";
-    return `<div class="attn__grp attn--${cls}"><span class="attn__lead">${esc(lead)}</span>`+
-    `<p class="attn__why${shared?"":" visually-hidden"}">${esc(items[0]?.why||"")}</p>`+
-    items.map(({ex,why})=>{const dest=coachingDestLabel(key),destKey=coachingDestKey(key);
-      // The destination is spoken, not printed: the chevron carries it for the
-      // eye, and ten rows of "View trend" were charging the reason beside them
-      // for a word the row already implies. A shared reason goes the same way:
-      // the eye reads it once above the group, and each row keeps it in its own
-      // accessible name, so a row still answers "why" on its own.
-      return `<button type="button" class="attn__chip" data-attn="${esc(ex.id)}" data-attngo="${esc(key)}" data-dest="${esc(destKey)}"><span class="attn__dot" aria-hidden="true"></span><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div>`+
-      `<div class="listrow__sub${shared?" visually-hidden":""}">${esc(why)}</div>`+
-      `</div><span class="coach-dest visually-hidden">${esc(dest)}</span><span class="chevron" aria-hidden="true"></span></button>`}).join("")+`</div>`}).join("");
-  el.innerHTML=html;
-  $$("#attention [data-attn]").forEach(b=>b.onclick=()=>{const grp=b.dataset.attngo,id=b.dataset.attn,ex=prog.find(id);
-    if(grp==="new"||grp==="stale"){if(ex)goToLogExercise(ex.id)}
-    else{const k=ex?exerciseLiftKey(ex):null,has=!!k&&[...$("#statExercise").options].some(o=>o.value===k);
-      if(has){$("#statsDeep").open=true;$("#statExercise").value=k;renderStats();redrawChart();$("#chart").scrollIntoView({behavior:"smooth",block:"center"})}else toast(t("toast.chart_missing_lift"))}});}
+  const groups=attentionGroups(),count=attentionCount(groups);
+  el.innerHTML=`<p class="section-label">${esc(t("stats.needs_action"))}<span class="section-label__count">${esc(t("stats.section_count",{n:count}))}</span></p>`+
+    // The recommendation *is* the group here, so it is stated once as the lead.
+    // Each row keeps it in its own accessible name, so a chip still answers
+    // "why" on its own without printing the same sentence beside every lift.
+    (groups.length?groups.map(group=>`<div class="attn__grp attn--${esc(group.cls)}"><span class="attn__lead">${esc(group.lead)}</span>`+
+      group.items.map(({ex,item,why})=>`<button type="button" class="attn__chip" data-action-lift="${esc(item.destinationId)}" data-attn="${esc(ex.id)}" data-attngo="${esc(group.key)}"><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div>`+
+        `<div class="listrow__sub visually-hidden">${esc(why)}</div></div><span class="chevron" aria-hidden="true"></span></button>`).join("")+`</div>`).join("")
+      :`<p class="lede">${esc(t("stats.needs_action.none"))}</p>`);
+  $$("#attention [data-action-lift]").forEach(button=>button.onclick=()=>{strengthScope="current-block";setEvidenceView("strength");
+    const row=$(`#strengthDash [data-evkey="${CSS.escape(button.dataset.actionLift)}"]`);row?.focus();row?.scrollIntoView({block:"center"})})}
 
 // Completed hard sets per muscle over a rolling window (load>0, reps>0, RIR within hardRir).
 function completedHardSets(windowDays){const cutoff=daysAgo(windowDays-1),hr=+state.settings.hardRir,m=new Map();
@@ -7937,14 +7925,68 @@ window.__repforgeOverviewVolume={pct:overviewBarPct,sorted:overviewVolumeSorted,
 // Observed outcomes come from the authoritative paired-exposure comparison,
 // never from presentation. flat reads as "maintained" in the evidence model.
 const EVIDENCE_OUTCOME_KEYS={improved:"stats.outcome.improved",maintained:"stats.outcome.maintained",declined:"stats.outcome.declined"};
-function strengthFactsByLift(){
-  const facts={},map={improved:"improved",flat:"maintained",regressed:"declined"};
-  for(const ex of prog.exercises){const k=exerciseLiftKey(ex);if(!k||facts[k])continue;
-    const sess=sessionsFor(ex);if(!sess.length)continue;
-    const latest=sess.at(-1),latestRows=state.log.filter(r=>r.session===latest.session&&matchLift(ex)(r));
-    const cmp=compareExerciseSession(ex,workingRows(latestRows));
-    if(map[cmp.status])facts[k]=map[cmp.status]}
-  return facts}
+function strengthEvidenceRows(){return state.log.filter(isWork).map(r=>({exerciseId:liftKey(r),session:r.session,date:r.date,
+  load:+r.load,reps:+r.reps,rir:+r.rir,work:true}))}
+function strengthEvidenceRecords(scope="current-block"){
+  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return[];
+  const meta={started:state.programMeta?.started||null,
+    mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6};
+  const rows=strengthEvidenceRows(),programKeys=new Set(prog.exercises.map(ex=>exerciseLiftKey(ex)||`slot:${ex.id}`));
+  const keys=new Set([...programKeys,...rows.map(liftKey)]);
+  const outcomeByStatus={improved:"improved",flat:"maintained",regressed:"declined"},records=[];
+  for(const key of keys){
+    const series=Model.buildStrengthEvidence(scope,key,rows,meta);
+    if(!programKeys.has(key)&&series.evidenceCount===0)continue;
+    const record={exerciseId:key,scope:series.scope,evidenceState:series.evidenceState,
+      evidenceCount:series.evidenceCount,reason:series.reason};
+    if(series.evidenceState==="sufficient"){
+      // The model owns scope selection. Reuse its ordered point identities for
+      // the authoritative comparison instead of filtering the raw log again in
+      // this producer.
+      const sessions=series.points.map(point=>String(point.session));
+      const previous=rows.filter(r=>r.exerciseId===key&&String(r.session)===sessions.at(-2));
+      const latest=rows.filter(r=>r.exerciseId===key&&String(r.session)===sessions.at(-1));
+      const outcome=outcomeByStatus[buildSessionDelta(previous,latest).status];
+      if(outcome)record.outcome=outcome;
+    }
+    records.push(record)}
+  return Model.normalizeEvidenceRecords(records)}
+function strengthFactsByLift(scope="current-block"){
+  return Object.fromEntries(strengthEvidenceRecords(scope).filter(r=>r.outcome).map(r=>[r.exerciseId,r.outcome]))}
+function strengthProjection(scope="current-block"){
+  const Model=RepForgeProgressModel,meta={started:state.programMeta?.started||null,
+    mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6};
+  const allSessions=summaries(),records=strengthEvidenceRecords(scope),rows=strengthEvidenceRows(),dashboard=[],keys=new Set();
+  for(const ex of prog.exercises)keys.add(exerciseLiftKey(ex)||`slot:${ex.id}`);
+  for(const row of rows)keys.add(row.exerciseId);
+  const series=new Map();
+  for(const key of keys){
+    const current=Model.buildStrengthEvidence(scope,key,rows,{...meta,evidenceRecords:records});
+    if(!prog.exercises.some(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===key)&&current.evidenceCount===0)continue;
+    const sessionIds=new Set(current.points.map(point=>String(point.session)));
+    const liftSessions=allSessions.filter(session=>session.liftKey===key&&sessionIds.has(String(session.session)));
+    const latest=liftSessions.at(-1);
+    if(latest){
+      const first=liftSessions[0],best=Math.max(...liftSessions.map(session=>session.e1rm));
+      const pointDates=new Set(current.points.map(point=>String(point.date)));
+      const scopedPrs=detectPRs(state.log).filter(event=>event.liftKey===key&&pointDates.has(String(event.date)));
+      const ex=currentExerciseForLiftKey(key),rec=ex?recommendation(ex):{label:"—"};
+      // Keep the historical read-only hook's fields stable while the primary
+      // Strength surfaces consume the numeric projection above. `latest` is
+      // the compatibility string only; renderers use latestLoad/latestReps
+      // and the model's numeric points, so no display value re-enters math.
+      dashboard.push({key,exercise:latest.name,latestLoad:latest.top,latestReps:latest.topReps,
+        latest:`${fmtLoad(latest.top)}×${latest.topReps}`,best,blockDelta:latest.e1rm-first.e1rm,
+        prs:scopedPrs.length,lastTrained:latest.date,signal:rec.label});
+    }
+    series.set(key,current)}
+  const scopedSessionIds=new Map([...series].map(([key,current])=>[key,new Set(current.points.map(point=>String(point.session)))]));
+  const sessions=allSessions.filter(session=>scopedSessionIds.get(session.liftKey)?.has(String(session.session)));
+  return{keys:new Set(series.keys()),dashboard,sessions,records,series}}
+// The test seam and the legacy fallback both read the same scoped projection
+// as the primary Strength renderer. No caller gets an all-history latest value
+// while the selected surface says current block.
+window.__repforgeStrengthDashboard=()=>strengthProjection(strengthScope).dashboard;
 function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
   const scopeSeg=$("#volumeScopeSeg");
@@ -7953,13 +7995,14 @@ function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
     b.onclick=()=>{volumeScope=b.dataset.vscope;renderVolumeDash()}});
   const periodEl=$("#volumePeriod");
   if(!Model){legacyVolumeTable(el);if(periodEl)periodEl.textContent="";return}
+  const evidenceMeta=progressEvidenceMeta();
   const ev=Model.buildVolumeEvidence(volumeScope==="this-week"?"this-week":"block-to-date",prog.toJSON(),
-    {started:state.programMeta?.started||null,mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6},state.log,today());
+    evidenceMeta,state.log,today());
   if(periodEl)periodEl.textContent=ev.period.start
     ?t("stats.volume.period_text",{start:longDate(ev.period.start),end:longDate(ev.period.end||today())})
     :t("stats.volume.no_period");
-  const plannedMap=volumePlannedMuscleMap(ev);
-  const completed=hardSetsInRange(state.log,state.program,ev.period.start,ev.period.end||today(),+state.settings.hardRir);
+  const plannedMap=volumePlannedMuscleMap(ev,evidenceMeta.weekPrescriptions);
+  const completed=volumeMapFromRows(ev.completedRows,state.program);
   const names=new Set([...plannedMap.keys(),...completed.keys()]);
   if(!names.size){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_hard_sets",{n:7}))}</div>`;return}
   const rows=[...names].sort((a,b)=>muscleLabel(a).localeCompare(muscleLabel(b),locTag())).map(m=>{
@@ -7967,30 +8010,59 @@ function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
     const inProgress=ev.periodStatus!=="complete"&&ev.period.end&&String(ev.period.end)>=today();
     const caption=planned?(!inProgress&&done<planned?t("stats.volume.partial_period")
       :inProgress?t("stats.volume.in_progress",{done:fmt(done),planned:fmt(planned)}):""):"";
-    return `<div class="vrow"><span class="vrow__name">${esc(muscleLabel(m))}</span>`+
+    const detail=volumeDetailTable(m,ev);
+    return `<button type="button" class="vrow evrow" data-volume-muscle="${esc(m)}" aria-expanded="false"><span class="vrow__name">${esc(muscleLabel(m))}</span>`+
       `<span class="vrow__bar" aria-hidden="true"><span class="vrow__fill${done>=planned&&planned?" is-on":""}" style="width:${planned?Math.min(100,Math.round(done/planned*100)):0}%"></span></span>`+
       `<span class="vrow__num">${fmt(done)} / ${fmt(planned)}</span>`+
-      `<span class="vrow__status${inProgress?"":""}">${esc(caption)}</span></div>`}).join("");
-  el.innerHTML=`<div class="evrows">${rows}</div>`}
-// Planned per-muscle denominators for the rendered scope. This week uses the
-// one canonical weekly prescription (projected through an active recovery
-// overlay); block-to-date multiplies the canonical week by the elapsed numbered
-// weeks the model computed, swapping in the recovery projection for its week.
-function volumePlannedMuscleMap(ev){
-  const weekly=prog.volume();
-  if(ev.scope!=="block-to-date")return weekly;
-  const m=new Map();
-  for(const[name,v]of weekly)m.set(name,{d:v.d*ev.period.elapsedNumberedWeeks,p:v.p*ev.period.elapsedNumberedWeeks});
-  if(activeRecoveryRecord&&activeRecoveryRecordBlockId===snapshotBlockId(state)){
-    for(const[name,v]of weekly){const cur=m.get(name);if(cur){cur.d-=v.d;cur.p-=v.p}}
-    const Transition=typeof RepForgeProgramTransition!=="undefined"?RepForgeProgramTransition:null;
-    const projected=Transition?.projectRecoveryProgram?.(state.program,activeRecoveryRecord,{
-      blockId:activeRecoveryRecordBlockId,
-      elapsedWeek:mesocycleLifecycle(state.programMeta).elapsedWeek,
-      baseProgramFingerprint:activeRecoveryRecord.diff.recoveryWeek.baseProgramFingerprint});
-    if(projected?.ok&&projected.active){
-      const pm=new Program(projected.rows).volume();
-      for(const[name,v]of pm){const cur=m.get(name)||{d:0,p:0};cur.d+=v.d;cur.p+=v.p;m.set(name,cur)}}}
+      `<span class="vrow__status${inProgress?"":""}">${esc(caption)}</span><span class="chevron" aria-hidden="true"></span></button>`+
+      `<div class="evrow__detail" data-volume-detail="${esc(m)}" hidden>${detail}</div>`}).join("");
+  el.innerHTML=`<div class="evrows">${rows}</div>`;
+  $$("#volumeDash [data-volume-muscle]").forEach(button=>button.onclick=()=>{const detail=$(`[data-volume-detail="${CSS.escape(button.dataset.volumeMuscle)}"]`);
+    const open=detail?.hidden;if(detail)detail.hidden=!open;button.setAttribute("aria-expanded",open?"true":"false");volumeDrillMuscle=open?button.dataset.volumeMuscle:null});
+  if(volumeDrillMuscle){const button=$(`#volumeDash [data-volume-muscle="${CSS.escape(volumeDrillMuscle)}"]`);button?.click()}}
+function volumeDetailTable(muscle,ev){
+  const groups=new Map();
+  for(const row of ev.completedRows||[]){
+    const ms=rowMuscles(row);let weight=0;
+    if(muscles(ms.primary).includes(muscle))weight=1;else if(muscles(ms.secondary).includes(muscle))weight=.5;
+    if(!weight)continue;const key=`${row.session}|${liftKey(row)}`,current=groups.get(key)||{date:row.date,name:displayName(row),sets:0};current.sets+=weight;groups.set(key,current)}
+  const rows=[...groups.values()].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  return rows.length?table(rows.map(row=>({[t("stats.table.date")]:shortDate(row.date),[t("stats.table.exercise")]:row.name,[t("stats.table.sets")]:fmt(row.sets)})))
+    :`<p class="lede">${esc(t("stats.evidence.reason.untested"))}</p>`}
+// Planned per-muscle denominators for the rendered scope. Each week is
+// projected from the durable compiler receipt, then the persisted recovery
+// overlay is applied to week one. The current scheduled row is a presentation
+// projection and must never rewrite historical denominators.
+function prescriptionForRows(rows,plannedSessions=undefined){
+  const p=new Program(rows),musclesByName=volMapToObj(p.volume());
+  const structureDays=state.programMeta?.programStructure?.days;
+  return{plannedSessions:plannedSessions??(Array.isArray(structureDays)&&structureDays.length?structureDays.length:p.days().length),
+    plannedWorkingSets:rows.reduce((n,row)=>n+(+row.sets||0),0),musclesByName}}
+function recoveryRowsForPrescription(rows,record){
+  if(!record)return rows;
+  const bySlot=new Map((record.diff?.recoveryWeek?.entries||[]).map(entry=>[entry.slot,entry.effectiveWorkingSets]));
+  return rows.flatMap(row=>{
+    const slotId=row.slotId||row.id;
+    if(!bySlot.has(slotId))return[row];
+    const sets=bySlot.get(slotId);
+    return sets>0?[{...row,sets}]:[]})}
+function progressWeekRows(weekNumber,record){
+  let rows=state.program;
+  if(Number.isInteger(weekNumber)&&typeof ProgramCompiler?.projectProgramForWeek==="function")
+    rows=ProgramCompiler.projectProgramForWeek(rows,state.programMeta?.programStructure,weekNumber);
+  return weekNumber===1?recoveryRowsForPrescription(rows,record):rows}
+function progressWeekPrescriptions(){
+  const weeks=Math.max(1,Number(state.programMeta?.mesocycleLengthWeeks)||6);
+  const record=activeRecoveryRecord&&activeRecoveryRecordBlockId===snapshotBlockId(state)?activeRecoveryRecord:null;
+  return Array.from({length:weeks},(_,index)=>prescriptionForRows(progressWeekRows(index+1,record)))}
+function progressEvidenceMeta(){return{started:state.programMeta?.started||null,
+  mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,hardRir:+state.settings.hardRir,
+  weekPrescriptions:progressWeekPrescriptions()}}
+function volumePlannedMuscleMap(ev,prescriptions=progressWeekPrescriptions()){
+  const m=new Map(),week=ev.period?.weekNumber||mesocycleLifecycle(state.programMeta).elapsedWeek||1;
+  const selected=ev.scope==="block-to-date"?prescriptions.slice(0,ev.period.elapsedNumberedWeeks):[prescriptions[Math.min(Math.max(week-1,0),prescriptions.length-1)]];
+  for(const rx of selected)for(const[name,v]of Object.entries(rx?.musclesByName||{})){
+    const cur=m.get(name)||{d:0,p:0};cur.d+=v.d;cur.p+=v.p;m.set(name,cur)}
   return m}
 function legacyVolumeTable(el){
   const rows=volumeDashboard(7).map(r=>({[t("stats.table.muscle")]:muscleLabel(r.muscle),[t("stats.table.planned")]:fmt(r.planned),[t("stats.table.completed_7d")]:fmt(r.completed7),[t("stats.table.completed_28d")]:fmt(r.completed28),[t("stats.table.status")]:r.status}));

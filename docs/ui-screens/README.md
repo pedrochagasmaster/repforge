@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 96 screens,
-469 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 118 screens,
+620 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -163,11 +163,33 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Progress — overview](screens/progress/overview__phone-390-light-en.png) | 3 | The Progress landing tab. |
+| [Progress — baseline-building overview](screens/progress/overview-baseline__phone-390-light-en.png) | 8 | Sparse evidence remains neutral and contributes no Needs action items. |
+| [Progress — actionable overview](screens/progress/overview-action__phone-390-light-en.png) | 3 | Sufficient evidence produces linked program-wide action items. |
 | [Progress — exercise chart](screens/progress/exercise-chart__phone-390-light-en.png) | 3 | A single lift's strength chart. |
 | [Progress — Strength](screens/progress/strength__phone-390-light-en.png) | 3 | The Strength sub-tab. |
+| [Progress — Strength current block](screens/progress/strength-current-block__phone-390-light-en.png) | 3 | Current-block values, outcomes, and drill-in share one scope. |
+| [Progress — Strength all history](screens/progress/strength-all-history__phone-390-light-en.png) | 3 | All-history scope explicitly includes archived observations. |
+| [Progress — Strength comparison](screens/progress/strength-comparison__phone-390-light-en.png) | 8 | Two compatible points show values, dates, absolute change, and percentage change. |
+| [Progress — Strength sparse evidence](screens/progress/strength-sparse__phone-390-light-en.png) | 8 | Zero or one compatible point remains neutral baseline evidence. |
 | [Progress — Volume](screens/progress/volume__phone-390-light-en.png) | 3 | The Volume sub-tab and its muscle rows. |
+| [Progress — Volume block to date](screens/progress/volume-block__phone-390-light-en.png) | 3 | Block-to-date volume uses elapsed weekly prescriptions. |
+| [Progress — Volume muscle detail](screens/progress/volume-drill-in__phone-390-light-en.png) | 8 | A primary muscle row expands to its scoped session evidence. |
 | [Progress — PRs](screens/progress/prs__phone-390-light-en.png) | 3 | The personal-record list. |
+| [Progress — PR detail](screens/progress/prs-drill-in__phone-390-light-en.png) | 3 | A personal record expands to locale-formatted evidence detail. |
 | [Progress — Review](screens/progress/review__phone-390-light-en.png) | 8 | The mesocycle review surface. |
+| [Progress — active Review](screens/progress/review-active__phone-390-light-en.png) | 8 | The active-block checkpoint is read-only. |
+| [Progress — completed-block Review](screens/progress/review-complete__phone-390-light-en.png) | 8 | A completed block exposes the evidence-valid structural routes. |
+| [Progress — insufficient-evidence Review](screens/progress/review-insufficient__phone-390-light-en.png) | 8 | A completed block with sparse evidence excludes performance-derived actions. |
+| [Progress — schedule diagnosis](screens/progress/schedule-diagnosis__phone-390-light-en.png) | 8 | The one-question choice between fewer days and shorter sessions. |
+| [Progress — lower-frequency preview](screens/progress/sibling-lower-frequency__phone-390-light-en.png) | 8 | A provenance-backed lower-frequency sibling diff before confirmation. |
+| [Progress — shorter-session preview](screens/progress/sibling-shorter-session__phone-390-light-en.png) | 8 | A provenance-backed shorter-session sibling diff before confirmation. |
+| [Progress — guided repair staged](screens/progress/guided-repair__phone-390-light-en.png) | 8 | The exact current program is staged for explicit guided editing. |
+| [Progress — volume-reduction preview](screens/progress/volume-reduction-preview__phone-390-light-en.png) | 8 | The protected permanent-volume reduction diff before confirmation. |
+| [Progress — recovery eligibility](screens/progress/recovery-ineligible__phone-390-light-en.png) | 8 | Recovery stays unavailable without sufficient qualifying pattern evidence. |
+| [Progress — recovery readiness question](screens/progress/recovery-questions__phone-390-light-en.png) | 8 | Eligible pattern evidence still requires the explicit local readiness answer. |
+| [Progress — recovery preview](screens/progress/recovery-preview__phone-390-light-en.png) | 8 | The policy-versioned week-one prescription diff before confirmation. |
+| [Progress — active recovery week](screens/progress/recovery-active__phone-390-light-en.png) | 8 | The confirmed recovery overlay is visible during week one. |
+| [Progress — recovery reassessment](screens/progress/recovery-reassessment__phone-390-light-en.png) | 8 | Canonical week two asks Better, About the same, or Worse. |
 
 ### History
 

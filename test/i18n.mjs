@@ -194,6 +194,7 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes("review.recovery.pattern.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("review.recovery.pattern.")) },
   { test: (s) => s.includes("stats.evidence.${series.presentation}"), keys: (en) => Object.keys(en).filter((k) => /^stats\.evidence\.[^.]+$/.test(k)) },
   { test: (s) => s.includes("stats.evidence.reason.${series.reason}"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("stats.evidence.reason.")) },
+  { test: (s) => s.includes("stats.recommendation.${"), keys: () => ["stats.recommendation.progress", "stats.recommendation.repeat", "stats.recommendation.review"] },
   { test: (s) => s.includes("rec.block.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("rec.block.")) },
   { test: (s) => s.includes('"why.rule."'), keys: () => ["why.rule.top", "why.rule.cap_top", "why.rule.cap_top2", "why.rule.below_range", "why.rule.stalled", "why.rule.recover", "why.rule.push_reps", "why.rule.hold"] },
   { test: (s) => s.includes("focus.cue.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("focus.cue.")) },

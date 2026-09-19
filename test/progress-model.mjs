@@ -178,6 +178,19 @@ if (fs.existsSync(modelPath)) {
   assert.equal(freshVolume.completedWorkingSets, 0);
   assert.equal(freshVolume.evidenceState, "insufficient", "zero completed work is insufficient, not zero progress");
 
+  const effortGated = model.buildVolumeEvidence("this-week", program,
+    { started: program.started, hardRir: 4 },
+    [
+      { session: "hard", date: "2026-09-14", load: 60, reps: 8, rir: 2, work: true },
+      { session: "far", date: "2026-09-14", load: 60, reps: 8, rir: 5, work: true },
+      { session: "missing", date: "2026-09-14", load: 60, reps: 8, work: true },
+      { session: "warmup", date: "2026-09-14", load: 20, reps: 8, rir: 1, warmup: true, work: true },
+    ], now);
+  assert.equal(effortGated.completedWorkingSets, 1,
+    "volume evidence counts only hard working sets with a qualifying RIR");
+  assert.equal(effortGated.completedRows.length, 1,
+    "the scoped volume projection exposes the same hard rows used by its total");
+
   const prAll = model.buildPREvidence("all-history", log, { started: program.started })
     .filter((e) => e.exerciseId === "bench");
   assert.deepEqual(prAll.map((e) => e.date), ["2026-08-24", "2026-08-31", "2026-09-07", "2026-09-14"], "bench load PRs across history");
@@ -190,6 +203,65 @@ if (fs.existsSync(modelPath)) {
   const benchAllSeries = model.buildStrengthEvidence("all-history", "bench", log, { started: program.started });
   assert.equal(benchAllSeries.presentation, "trend");
   assert.equal(benchAllSeries.evidenceCount, strength.bench.allHistory.points);
+
+  const evidenceRecords = [
+    { exerciseId: "bench", evidenceState: "sufficient", evidenceCount: 3, outcome: "improved" },
+    { exerciseId: "squat", evidenceState: "insufficient", evidenceCount: 1, reason: "single-observation", outcome: "declined" },
+  ];
+  const scopedRecords = model.normalizeEvidenceRecords(evidenceRecords, { scope: "current-block" });
+  assert.equal(scopedRecords[0].scope, "current-block", "the canonical record carries its scope");
+  assert.equal(scopedRecords[1].outcome, undefined, "normalization removes outcomes from insufficient records");
+  const canonicalMeta = { started: program.started, mesocycleLengthWeeks: program.mesocycleLengthWeeks, evidenceRecords };
+  assert.equal(model.buildStrengthEvidence("current-block", "bench", log, canonicalMeta).outcome, "improved",
+    "Strength consumes the canonical evidence record");
+  assert.equal(model.buildStrengthEvidence("current-block", "squat", log, canonicalMeta).outcome, undefined,
+    "an insufficient record cannot carry an outcome into Strength");
+  assert.deepEqual(model.buildReviewCheckpoint(program, canonicalMeta, log, now).observedOutcomes,
+    [{ exerciseId: "bench", outcome: "improved" }], "Review consumes the same canonical record");
+  assert.deepEqual(model.buildProgramActionQueue(program, canonicalMeta, log, evidenceRecords).map((x) => x.destinationId),
+    ["bench"], "the action queue excludes insufficient canonical records");
+  const allHistoryOnly = [{ exerciseId: "bench", scope: "all-history", evidenceState: "sufficient", evidenceCount: 3, outcome: "improved" }];
+  assert.deepEqual(model.buildProgramActionQueue(program, canonicalMeta, log, allHistoryOnly), [],
+    "current-block action queue rejects an all-history-only record");
+  assert.deepEqual(model.buildReviewCheckpoint(program, { ...canonicalMeta, evidenceRecords: allHistoryOnly }, log, now).observedOutcomes, [],
+    "current-block Review rejects an all-history-only record");
+  assert.equal(model.buildStrengthEvidence("current-block", "bench", log.map((row) => ({ ...row, capacity: 999 })), {
+    started: program.started,
+    evidenceRecords: [{ ...scopedRecords[0], scope: "current-block" }],
+  }).points.at(-1).value, 85, "Strength points keep load numeric instead of accepting a capacity display value");
+  assert.equal(model.buildStrengthEvidence("current-block", "bench", log, {
+    started: program.started,
+    evidenceRecords: [{ ...scopedRecords[0], scope: "all-history" }],
+  }).outcome, undefined, "an all-history record cannot leak into current-block Strength");
+
+  const rdlComparison = model.buildStrengthEvidence("current-block", "rdl", log, { started: program.started });
+  assert.equal(rdlComparison.presentation, "comparison");
+  assert.equal(rdlComparison.comparison.absolute, 2.5, "two-point comparison keeps an absolute numeric delta");
+  assert.ok(Math.abs(rdlComparison.comparison.percentage - 2.5) < 0.000001,
+    "two-point comparison keeps the percentage delta");
+
+  const prescribed = model.buildVolumeEvidence("block-to-date", program, {
+    started: program.started,
+    mesocycleLengthWeeks: program.mesocycleLengthWeeks,
+    weekPrescriptions: [
+      { plannedSessions: 3, plannedWorkingSets: 6 },
+      { plannedSessions: 3, plannedWorkingSets: 12 },
+      { plannedSessions: 3, plannedWorkingSets: 12 },
+    ],
+  }, log, "2026-09-16T12:00:00");
+  assert.equal(prescribed.plannedWorkingSets, 30,
+    "block-to-date preserves the recovery-week prescription after the overlay is inactive");
+
+  const completedBlock = model.buildVolumeEvidence("block-to-date", program, {
+    started: program.started,
+    mesocycleLengthWeeks: program.mesocycleLengthWeeks,
+    weekPrescriptions: Array.from({ length: 4 }, () => ({ plannedSessions: 3, plannedWorkingSets: 11 })),
+  }, [...log, { session: "after-block", date: "2026-10-01", exercise: "bench", load: 100, reps: 8, work: true }], "2026-10-02T12:00:00");
+  assert.equal(completedBlock.periodStatus, "complete", "completed block volume is a closed period");
+  assert.equal(completedBlock.period.end, "2026-09-27", "completed block ends at its durable block boundary");
+  assert.equal(completedBlock.plannedWorkingSets, 44, "completed block sums every numbered prescription once");
+  assert.equal(completedBlock.completedWorkingSets, expected.blockToDate.completedWorkingSets,
+    "completed block excludes post-block work from its historical denominator");
 
   // Architecture-audit acceptance: deterministic, correction-sensitive,
   // identity-stable, and archive/current-separated.
@@ -228,6 +300,18 @@ if (fs.existsSync(modelPath)) {
   // Archived (pre-block) evidence never leaks into the current-block scope.
   const blockPoints = model.buildStrengthEvidence("current-block", "bench", log, metaWith).points.map((p) => p.value);
   assert.deepEqual(blockPoints, [80, 82.5, 85], "current-block scope excludes archived pre-block rows");
+
+  const afterBlock = [...log, { session: "s-after", date: "2026-09-28", exercise: "bench", load: 90, reps: 8, work: true }];
+  assert.deepEqual(
+    model.buildStrengthEvidence("current-block", "bench", afterBlock, metaWith).points.map((p) => p.value),
+    [80, 82.5, 85],
+    "current-block scope also excludes rows after the durable block end"
+  );
+  assert.equal(
+    model.buildStrengthEvidence("all-history", "bench", afterBlock, metaWith).points.at(-1).value,
+    90,
+    "all-history scope retains post-block rows explicitly"
+  );
 
   console.log("model matrix: exercised against progress-model.js");
 } else {

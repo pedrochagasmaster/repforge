@@ -25,6 +25,7 @@ const rows = [
 const program = rows.map(([day, order, name, primary, secondary], i) =>
   ({ id: `pev-${i + 1}`, day, order, name, sets: 2, min: 4, max: 8, primary, secondary }));
 const log = [
+  { session: "h-lat", date: "2026-09-05", day: "Day 1", exerciseId: "pev-2", name: "Machine lateral raise", load: 62.5, reps: 8, rir: 2, set: 1, work: true },
   { session: "h0", date: "2026-09-05", day: "Day 1", exerciseId: "pev-1", name: "Incline chest press", load: 50, reps: 8, rir: 2, set: 1, work: true },
   { session: "b1", date: "2026-09-14", day: "Day 1", exerciseId: "pev-1", name: "Incline chest press", load: 55, reps: 8, rir: 2, set: 1, work: true },
   { session: "b2", date: "2026-09-15", day: "Day 1", exerciseId: "pev-1", name: "Incline chest press", load: 57.5, reps: 8, rir: 2, set: 1, work: true },
@@ -35,7 +36,7 @@ const log = [
 ];
 const meta = seedProgramMeta({ id: "evidence-program", started });
 
-async function freshPage() {
+async function freshPage({ lang = "en", unit = "kg", seededLog = log } = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
   await context.addInitScript((fixedNow) => {
     const NativeDate = Date;
@@ -56,11 +57,12 @@ async function freshPage() {
     for (const reg of regs) await reg.unregister();
     for (const key of await caches?.keys?.() || []) await caches.delete(key);
   });
-  await page.evaluate(async ({ program, meta, log }) => {
+  await page.evaluate(async ({ program, meta, log, lang, unit }) => {
     const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
     raw.program = program;
     raw.programMeta = meta;
     raw.log = log;
+    raw.settings = { ...raw.settings, lang, unit };
     localStorage.setItem("repforge_v1", JSON.stringify(raw));
     const db = await new Promise((res, rej) => {
       const r = indexedDB.open("repforge", 1);
@@ -75,7 +77,7 @@ async function freshPage() {
       tx.onerror = () => rej(tx.error);
     });
     db.close();
-  }, { program, meta, log });
+  }, { program, meta, log: seededLog, lang, unit });
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 20000 });
   await page.evaluate(() => document.querySelector('nav button[data-view="stats"]')?.click());
@@ -109,6 +111,7 @@ async function freshPage() {
   assert.equal(seam.lateral.evidenceState, "insufficient");
   assert.equal(seam.lateral.reason, "untested");
   assert.equal(seam.lateral.outcome, undefined, "insufficient carries no outcome");
+  assert.equal(seam.bench.outcome, "improved", "the real producer's sufficient outcome reaches Strength");
 
   // Scope: current block excludes pre-block rows; all history includes them.
   assert.equal(seam.bench.points.length, 3);
@@ -116,14 +119,47 @@ async function freshPage() {
   await page.waitForSelector("#segStrength.active", { timeout: 5000 });
   const blockRows = await page.locator("#strengthDash .evrow").count();
   assert.ok(blockRows >= 4, "every program lift has a summary row");
+  const lateralBlock = page.locator(`#strengthDash [data-evkey="${keys.lateral}"]`);
+  assert.match(await lateralBlock.textContent(), /—/, "current-block latest excludes historical-only observations");
   await page.click('#strengthScopeSeg button[data-scope="all-history"]');
   const seamAll = await page.evaluate(({ keys }) => window.__repforgeProgressEvidence.strength(keys.bench), { keys });
   assert.equal(seamAll.points.length, 4, "all-history scope includes pre-block rows");
   assert.equal(seamAll.presentation, "trend");
+  const lateralAll = page.locator(`#strengthDash [data-evkey="${keys.lateral}"]`);
+  assert.match(await lateralAll.locator(".evrow__val").textContent(), /62\.5×8/, "all-history latest includes historical observations");
+  await lateralAll.click();
+  assert.equal(await page.locator(`#strengthDash [data-evdetail="${keys.lateral}"] tbody tr`).count(), 1,
+    "all-history drill-in includes the historical session");
   // Switching back restores current-block scope.
   await page.click('#strengthScopeSeg button[data-scope="current-block"]');
   const seamBack = await page.evaluate(({ keys }) => window.__repforgeProgressEvidence.strength(keys.bench), { keys });
   assert.equal(seamBack.points.length, 3);
+  const lateralBack = page.locator(`#strengthDash [data-evkey="${keys.lateral}"]`);
+  assert.match(await lateralBack.locator(".evrow__val").textContent(), /—/, "current-block latest excludes the historical observation");
+  await lateralBack.click();
+  assert.equal(await page.locator(`#strengthDash [data-evdetail="${keys.lateral}"] tbody tr`).count(), 0,
+    "current-block drill-in excludes the historical session");
+
+  const rdlRow = page.locator(`#strengthDash [data-evkey="${keys.rdl}"]`);
+  assert.match(await rdlRow.textContent(), /-2\.5 kg \(-3\.33/, "two-point comparison shows absolute and percentage change");
+
+  // The same producer output drives the action queue, Review, and Strength.
+  // This is deliberately exercised through the live app, not shaped consumer
+  // fixtures, so a producer/model contract drift cannot hide behind a mock.
+  const canonicalJourney = await page.evaluate(({ keys }) => ({
+    records: window.__repforgeProgressEvidence.records("current-block"),
+    actions: window.__repforgeAttention().flatMap((group) => group.items.map((item) => item.item.destinationId)),
+    bench: window.__repforgeProgressEvidence.strength(keys.bench),
+  }), { keys });
+  const benchRecord = canonicalJourney.records.find((record) => record.exerciseId === keys.bench);
+  assert.equal(benchRecord?.evidenceState, "sufficient", "the producer emits sufficient evidence for the live bench series");
+  assert.equal(benchRecord?.outcome, canonicalJourney.bench.outcome, "Strength consumes the producer's canonical outcome");
+  assert.ok(canonicalJourney.actions.includes(keys.bench), "sufficient evidence reaches the Overview action destination");
+  assert.ok(!canonicalJourney.actions.includes(keys.lateral), "insufficient evidence never reaches the action destination");
+  await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("review"));
+  assert.match(await page.locator("#reviewPanel").textContent(), /Incline chest press/,
+    "the same sufficient record reaches the live Review renderer");
+  await page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
 
   // Drill-in reveals the complete evidence table for one lift.
   const firstRow = page.locator("#strengthDash .evrow").first();
@@ -134,6 +170,33 @@ async function freshPage() {
   });
   assert.equal(detailVisible, true, "drill-in shows the full per-lift table");
   await context.close();
+}
+
+// Numeric loads stay numeric until the locale/unit display boundary.
+{
+  const en = await freshPage({ lang: "en", unit: "kg" });
+  await en.page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
+  const enKey = await en.page.evaluate(() => window.__repforgeProgressEvidence.keyForExerciseId("pev-2"));
+  await en.page.click('#strengthScopeSeg button[data-scope="all-history"]');
+  assert.match(await en.page.locator(`#strengthDash [data-evkey="${enKey}"] .evrow__val`).textContent(), /62\.5×8/,
+    "English kg renders the decimal once without reparsing it");
+  await en.context.close();
+
+  const pt = await freshPage({ lang: "pt", unit: "kg" });
+  await pt.page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
+  const key = await pt.page.evaluate(() => window.__repforgeProgressEvidence.keyForExerciseId("pev-2"));
+  await pt.page.click('#strengthScopeSeg button[data-scope="all-history"]');
+  assert.match(await pt.page.locator(`#strengthDash [data-evkey="${key}"] .evrow__val`).textContent(), /62,5×8/,
+    "Portuguese kg renders the decimal once without reparsing it");
+  await pt.context.close();
+
+  const lb = await freshPage({ lang: "en", unit: "lb" });
+  await lb.page.evaluate(() => window.__repforgeStatsNav.setEvidenceView("strength"));
+  const lbKey = await lb.page.evaluate(() => window.__repforgeProgressEvidence.keyForExerciseId("pev-2"));
+  await lb.page.click('#strengthScopeSeg button[data-scope="all-history"]');
+  assert.match(await lb.page.locator(`#strengthDash [data-evkey="${lbKey}"] .evrow__val`).textContent(), /137\.79×8/,
+    "62.5 kg converts to pounds exactly once");
+  await lb.context.close();
 }
 
 // Volume: model-backed denominators per scope, neutral in-progress wording.
@@ -151,6 +214,9 @@ async function freshPage() {
   assert.equal(week.ev.plannedWorkingSets, 8, "this-week planned is one canonical week (4 rows x 2 sets)");
   assert.match(week.periodText, /From /, "period bounds are stated in accessible text");
   assert.equal(week.caption, true, "partial week reads as progress toward the period, not a verdict");
+  await page.locator("#volumeDash [data-volume-muscle]").first().click();
+  assert.ok(await page.locator("#volumeDash .evrow__detail:not([hidden]) tbody tr").count() > 0,
+    "a primary Volume muscle row drills into its scoped sessions");
 
   await page.click('#volumeScopeSeg button[data-vscope="block-to-date"]');
   const block = await page.evaluate(() => ({
@@ -160,6 +226,20 @@ async function freshPage() {
   assert.equal(block.ev.completedWorkingSets, 6);
   assert.equal(block.ev.plannedWorkingSets, 8);
   assert.equal(block.ev.period.end, "2026-09-17", "block-to-date runs through today, never a fixed 28-day window");
+  await context.close();
+}
+
+// Sparse observations remain neutral throughout Overview and Review.
+{
+  const sparseLog = log.filter((row) => ["b1", "b4"].includes(row.session));
+  const { context, page } = await freshPage({ seededLog: sparseLog });
+  const overview = await page.locator("#segOverview").textContent();
+  assert.doesNotMatch(overview, /Attention|Below/, "legacy warning labels are absent for baseline-building evidence");
+  assert.match(overview, /Needs action\s*0|Needs action[\s\S]*Nothing requires action/,
+    "insufficient evidence contributes zero Needs action items");
+  await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("review"));
+  assert.match(await page.locator("#reviewPanel").textContent(), /baseline building/i,
+    "the same insufficient records reach Review as neutral baseline state");
   await context.close();
 }
 

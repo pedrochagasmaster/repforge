@@ -131,10 +131,14 @@ const weekOne = await page.evaluate(() => ({
   active: window.__repforgeProgressReview.activeRecovery(),
   rows: window.__repforgeProgressReview.scheduledProgram(),
   canonical: window.__repforgeWorkoutDraft.state().program,
+  volume: window.__repforgeProgressEvidence.volume("block-to-date"),
 }));
 assert.ok(weekOne.active, "week one restores the validated recovery marker after reload");
 assert.ok(weekOne.rows.some((row, index) => row.sets !== weekOne.canonical[index]?.sets),
   "week one applies the approved recovery overlay");
+const recoveryWeekSets = recovery.proposal.diff.recoveryWeek.entries.reduce((total, entry) => total + entry.effectiveWorkingSets, 0);
+assert.equal(weekOne.volume.plannedWorkingSets, recoveryWeekSets,
+  "week-one block volume uses the applied recovery prescription");
 
 await page.evaluate(async () => {
   const next = window.__repforgeWorkoutDraft.state();
@@ -151,9 +155,13 @@ const weekTwo = await page.evaluate(() => {
   const canonical = window.RepForgeProgramCompiler.projectProgramForWeek(
     snapshot.program, snapshot.programMeta.programStructure, elapsed);
   return { scheduled: window.__repforgeProgressReview.scheduledProgram(), canonical,
+    volume: window.__repforgeProgressEvidence.volume("block-to-date"),
     record: window.__repforgeProgressReview.activeRecovery(), revision: snapshot._storageRevision };
 });
 assert.deepEqual(weekTwo.scheduled, weekTwo.canonical, "week two restores the canonical prescription exactly");
+const canonicalWeekSets = recoveryState.program.reduce((total, row) => total + row.sets, 0);
+assert.equal(weekTwo.volume.plannedWorkingSets, recoveryWeekSets + canonicalWeekSets,
+  "the week after recovery retains recovery volume and adds the canonical week");
 
 const beforeReassessment = structuredClone(weekTwo.record);
 const reassessed = await adapterCall("reassessRecovery", {
@@ -167,6 +175,20 @@ const expectedReassessment = structuredClone(beforeReassessment);
 expectedReassessment.diff.recoveryWeek.reassessmentOutcome = "About the same";
 assert.deepEqual(afterReassessment, expectedReassessment, "reassessment changes only the closed outcome field");
 assert.equal(afterReassessment.proposalHash, recovery.proposal.proposalHash, "reassessment preserves proposal hash");
+
+await page.evaluate(async () => {
+  const next = window.__repforgeWorkoutDraft.state();
+  const d = new Date(`${next.programMeta.started}T12:00:00`);d.setDate(d.getDate() - 14);
+  next.programMeta.started = d.toISOString().slice(0, 10);
+  await window.__repforgeCommitProposedState(next);
+  await window.__repforgeStorage.flush();
+});
+await page.reload({ waitUntil: "domcontentloaded" });
+await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 20000 });
+const laterVolume = await page.evaluate(() => window.__repforgeProgressEvidence.volume("block-to-date"));
+assert.equal(laterVolume.period.elapsedNumberedWeeks, 4);
+assert.equal(laterVolume.plannedWorkingSets, recoveryWeekSets + canonicalWeekSets * 3,
+  "later block-to-date totals preserve the historical recovery-week prescription");
 
 await bootFresh();
 await seedCompiledProgram();
