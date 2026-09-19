@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { selectExercise, openActions, exerciseAction, sessionField } from "./fixtures/focus-workout.mjs";
+import { selectExercise, openActions, exerciseAction, sessionField, finishEarly } from "./fixtures/focus-workout.mjs";
 /**
  * Production-backed characterization for Plan 051's workout-draft boundary.
  *
@@ -353,15 +353,10 @@ async function main() {
 
     const beforeRows = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).log, STATE_KEY);
     const sessionsBefore = new Set(beforeRows.map((row) => row.session));
-    const saveResult = await page.evaluate(async () => {
-      // The fixture intentionally preserves skipped/incomplete exercises; save
-      // it through the product's explicit early-finish confirmation boundary.
-      const result = await window.__repforgeSaveWorkout(null, {
-        completion: window.__repforgeEarlyFinishConfirmation,
-      });
-      await window.__repforgeStorage.flush();
-      return result;
-    });
+    // The fixture intentionally preserves skipped/incomplete exercises; save
+    // it through the product's explicit early-finish confirmation UI.
+    const saveResult = await finishEarly(page);
+    await page.evaluate(() => window.__repforgeStorage.flush());
     const saved = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)), STATE_KEY);
     const sessionId = [...new Set(saved.log.map((row) => row.session))].find((id) => !sessionsBefore.has(id));
     const actualRows = normalizeRows(saved.log.filter((row) => row.session === sessionId));
@@ -467,13 +462,8 @@ async function main() {
     await page.locator(`.exercise[data-ex="${first.id}"] [data-save="${first.id}_1"]`).click();
     const sessionsBeforeAdHoc = new Set((await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).log, STATE_KEY))
       .map((row) => row.session));
-    const adHocSave = await page.evaluate(async () => {
-      const result = await window.__repforgeSaveWorkout(null, {
-        completion: window.__repforgeEarlyFinishConfirmation,
-      });
-      await window.__repforgeStorage.flush();
-      return result;
-    });
+    const adHocSave = await finishEarly(page);
+    await page.evaluate(() => window.__repforgeStorage.flush());
     const adHocRows = await page.evaluate(({ key, knownSessions }) => {
       const log = JSON.parse(localStorage.getItem(key)).log;
       const session = [...new Set(log.map((row) => row.session))].find((id) => !knownSessions.includes(id));

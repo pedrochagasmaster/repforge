@@ -28,10 +28,21 @@ export async function sessionField(page, selector, value) {
   await page.locator("#sessionSheet").waitFor({ state: "hidden" });
 }
 
-export async function finishEarly(page) {
+export async function openEarlyFinish(page) {
+  // The app keeps the last finish promise for harness observation. Clear that
+  // receipt before starting a new confirmation so a later test cannot read a
+  // previously settled finish while the new click handler is still pending.
+  await page.evaluate(() => { window.__repforgeLastWorkoutFinish = null; });
   await page.locator("#sessionSheetBtn").click();
   await page.locator("#sessionEarlyFinish").click();
+  await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)");
+}
+
+export async function finishEarly(page) {
+  await openEarlyFinish(page);
   await page.locator("#sessionEarlyConfirm").click();
+  await page.waitForFunction(() => window.__repforgeLastWorkoutFinish != null, undefined, { timeout: 15000 });
+  const result = await page.evaluate(async () => await window.__repforgeLastWorkoutFinish);
   await page.waitForFunction(() => window.__repforgeWorkoutDraft.current() === null, undefined, { timeout: 15000 });
-  return page.evaluate(() => window.__repforgeLastWorkoutFinish);
+  return result;
 }

@@ -113,9 +113,23 @@ async function main() {
 
     // Operate the Move Down control through the keyboard path. The row rerender
     // must restore focus by exercise identity, not by the old DOM node.
+    const movingExerciseId = beforeOrder.draftOrder[0];
+    const firstMove = await page.evaluate(() => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      const moving = draft.exerciseOrder[0];
+      return { revision: draft.revision, exerciseId: moving, expectedIndex: 1, count: draft.exerciseOrder.length };
+    });
     await reorderDownBtn.focus();
     await reorderDownBtn.press("Enter");
-    await page.waitForTimeout(350);
+    await page.waitForFunction(({ revision, exerciseId, expectedIndex, count }) => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      const active = document.activeElement;
+      const activeId = active?.dataset?.sessionReorderDown || active?.dataset?.sessionReorderUp;
+      const announcement = document.querySelector("#toast")?.textContent || "";
+      return draft && draft.revision > revision && draft.exerciseOrder.indexOf(exerciseId) === expectedIndex &&
+        activeId === exerciseId && active?.tagName === "BUTTON" && !active.disabled &&
+        announcement.includes(String(expectedIndex + 1)) && announcement.includes(String(count));
+    }, firstMove, { timeout: 5000 });
 
     const reorderFocus = await page.evaluate(() => ({
       tag: document.activeElement?.tagName,
@@ -169,11 +183,21 @@ async function main() {
     // move to the stable exercise identity's other live reorder control so
     // keyboard reordering remains operable at the boundary.
     for (let step = 1; step < beforeOrder.draftOrder.length - 1; step++) {
+      const beforeMove = await page.evaluate((exerciseId) => {
+        const draft = window.__repforgeWorkoutDraft.current();
+        const currentIndex = draft.exerciseOrder.indexOf(exerciseId);
+        return { revision: draft.revision, exerciseId, expectedIndex: currentIndex + 1, count: draft.exerciseOrder.length };
+      }, movingExerciseId);
       await page.keyboard.press("Enter");
-      await page.waitForFunction((id) => {
+      await page.waitForFunction(({ revision, exerciseId, expectedIndex, count }) => {
+        const draft = window.__repforgeWorkoutDraft.current();
         const active = document.activeElement;
-        return active?.dataset?.sessionReorderDown === id || active?.dataset?.sessionReorderUp === id;
-      }, beforeOrder.draftOrder[0]);
+        const activeId = active?.dataset?.sessionReorderDown || active?.dataset?.sessionReorderUp;
+        const announcement = document.querySelector("#toast")?.textContent || "";
+        return draft && draft.revision > revision && draft.exerciseOrder.indexOf(exerciseId) === expectedIndex &&
+          activeId === exerciseId && active?.tagName === "BUTTON" && !active.disabled &&
+          announcement.includes(String(expectedIndex + 1)) && announcement.includes(String(count));
+      }, beforeMove, { timeout: 5000 });
     }
     const boundaryFocus = await page.evaluate(() => ({
       exerciseId: document.activeElement?.dataset?.sessionReorderUp || null,

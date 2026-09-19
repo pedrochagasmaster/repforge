@@ -14493,8 +14493,10 @@ function navTo(view){
 }
 window.__repforgeEnterWorkout=enterWorkout;
 window.__repforgeGoToLogExercise=goToLogExercise;
-window.__repforgeSaveWorkout=(io, options)=>saveWorkout({preventDefault(){}},io, options);
-window.__repforgeEarlyFinishConfirmation=EARLY_FINISH_CONFIRMATION;
+// The public harness seam can exercise only the ordinary completion path. The
+// early-finish capability stays private to the confirmation handler below so
+// callers cannot turn an arbitrary programmatic save into an early finish.
+window.__repforgeSaveWorkout=()=>saveWorkout({preventDefault(){}});
 window.__repforgeWorkoutDraft={
   current:()=>activeWorkoutDraft,
   raw:()=>activeWorkoutDraftRaw,

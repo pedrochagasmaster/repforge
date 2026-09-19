@@ -67,6 +67,13 @@ try {
     const programmatic = await page.evaluate(() => window.__repforgeSaveWorkout());
     assert.equal(programmatic.validation, true,
       "the programmatic normal-finish seam rejects the same incomplete workout");
+    assert.equal(await page.evaluate(() => typeof window.__repforgeEarlyFinishConfirmation), "undefined",
+      "the early-finish capability is not exposed on the public window surface");
+    const attemptedBypass = await page.evaluate(() => window.__repforgeSaveWorkout(null, {
+      completion: "confirmed early finish",
+    }));
+    assert.equal(attemptedBypass.validation, true,
+      "extra arguments cannot turn the public normal-finish seam into early completion");
     assert.ok(await page.evaluate(() => Boolean(window.__repforgeWorkoutDraft.current())),
       "programmatic normal finish cannot clear an incomplete draft");
     await context.close();
@@ -92,13 +99,28 @@ try {
     await completeSet(page, first.exerciseInstanceId, first.setId);
     await page.locator("#sessionSheetBtn").click();
     await page.locator("#sessionEarlyFinish").click();
+    await page.evaluate(async () => {
+      await window.__repforgeWorkoutDraft.dispatch("setSessionNotes", { value: "stale confirmation probe" });
+      await window.__repforgeWorkoutDraft.flush();
+    });
+    await page.locator("#sessionEarlyConfirm").click();
+    await page.waitForFunction(() => /updated|stale|changed|refresh/i.test(
+      document.querySelector("#sessionEarlyMsg")?.textContent || ""));
+    assert.ok(await page.evaluate(() => Boolean(window.__repforgeWorkoutDraft.current())),
+      "a stale early-finish confirmation cannot clear the changed draft");
+    assert.equal(await page.locator("#sessionSummary").isHidden(), true,
+      "a stale early-finish confirmation cannot open the completed summary");
     await page.locator("#sessionEarlyCancel").click();
     assert.equal(await page.locator("#sessionEarlyPrompt").isHidden(), true,
       "canceling early finish returns to the unconfirmed session state");
     assert.ok(await page.evaluate(() => Boolean(window.__repforgeWorkoutDraft.current())),
       "canceling early finish preserves the draft");
     await page.locator("#sessionEarlyFinish").click();
+    await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)");
     await page.locator("#sessionEarlyConfirm").click();
+    await page.waitForFunction(() => window.__repforgeLastWorkoutFinish != null);
+    const finishResult = await page.evaluate(async () => await window.__repforgeLastWorkoutFinish);
+    assert.equal(finishResult?.committed, true, "confirmed early finish commits: " + JSON.stringify(finishResult));
     await page.waitForSelector("#sessionSummary:not(.hidden)");
     assert.equal(await page.evaluate(() => Boolean(window.__repforgeWorkoutDraft.current())), false,
       "explicit confirmed early finish saves and clears the draft");

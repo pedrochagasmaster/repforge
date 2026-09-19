@@ -706,6 +706,37 @@ async function saveWorkout(page, { expectNewRows = true, earlyFinish = false } =
   return await dismissSessionSummary(page);
 }
 
+async function finishEarlyWithStorageOutcome(page, { localOk, idbOk }) {
+  await page.evaluate(({ localOk, idbOk }) => {
+    const adapter = window.RepForgeDurableState?.storageIO;
+    if (!adapter || typeof adapter.writeLocal !== "function" || typeof adapter.writeIdb !== "function") {
+      throw new Error("durable storage adapter unavailable");
+    }
+    const writeLocal = adapter.writeLocal.bind(adapter);
+    const writeIdb = adapter.writeIdb.bind(adapter);
+    adapter.writeLocal = async (...args) => localOk ? writeLocal(...args) : false;
+    adapter.writeIdb = async (...args) => idbOk ? writeIdb(...args) : false;
+    window.__restoreFinishAdapter = () => {
+      adapter.writeLocal = writeLocal;
+      adapter.writeIdb = writeIdb;
+      delete window.__restoreFinishAdapter;
+    };
+    window.__repforgeLastWorkoutFinish = null;
+  }, { localOk, idbOk });
+  await page.locator("#sessionSheetBtn").click();
+  await page.locator("#sessionEarlyFinish").click();
+  await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)");
+  await page.locator("#sessionEarlyConfirm").click();
+  await page.waitForFunction(() => window.__repforgeLastWorkoutFinish != null, undefined, { timeout: 15000 });
+  return page.evaluate(async () => {
+    try {
+      return await window.__repforgeLastWorkoutFinish;
+    } finally {
+      window.__restoreFinishAdapter?.();
+    }
+  });
+}
+
 async function flushStorage(page) {
   await page.evaluate(async () => {
     if (window.__repforgeStorage?.flush) await window.__repforgeStorage.flush();
@@ -8845,30 +8876,7 @@ async function main() {
     await fillExerciseSets(page, draftExA.id, 1, 61, 5, 1);
     const raw = await readDraftRaw(page);
     const beforeLen = (await getState(page)).log.length;
-    const result = await page.evaluate(async ({ localOk, idbOk }) => {
-      const io = {
-        async writeLocal(data) {
-          if (!localOk) throw new Error("ls fail");
-          localStorage.setItem("repforge_v1", JSON.stringify(data));
-        },
-        async writeIdb(data) {
-          if (!idbOk) throw new Error("idb fail");
-          const db = await new Promise((res, rej) => {
-            const r = indexedDB.open("repforge", 1);
-            r.onsuccess = () => res(r.result);
-            r.onerror = () => rej(r.error);
-          });
-          await new Promise((res, rej) => {
-            const tx = db.transaction("kv", "readwrite");
-            tx.objectStore("kv").put(data, "repforge_v1");
-            tx.oncomplete = () => res();
-            tx.onerror = () => rej(tx.error);
-          });
-          db.close();
-        },
-      };
-      return window.__repforgeSaveWorkout(io, { completion: window.__repforgeEarlyFinishConfirmation });
-    }, { localOk, idbOk });
+    const result = await finishEarlyWithStorageOutcome(page, { localOk, idbOk });
     await page.evaluate(() => window.__repforgeStorage?.flush?.());
     if (localOk || idbOk) {
       await reloadApp(page);

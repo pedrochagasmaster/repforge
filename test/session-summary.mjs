@@ -13,7 +13,7 @@
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
  */
 import { launchChromium } from "./browser.mjs";
-import { selectExercise, finishEarly } from "./fixtures/focus-workout.mjs";
+import { selectExercise, finishEarly, openEarlyFinish } from "./fixtures/focus-workout.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -411,13 +411,11 @@ async function run() {
   await seed(page, fixture());
   await enterLog(page);
   await logSet(page, "ex2", 1, 15, 10, 1);
-  const fallback = await page.evaluate(async () => {
-    // Strip the host so openSessionSummary has nothing to open, the way a
-    // stripped shell or an older cached index.html would leave it.
-    document.querySelector("#sessionSummary")?.remove();
-    await window.__repforgeSaveWorkout(null, {
-      completion: window.__repforgeEarlyFinishConfirmation,
-    });
+  // Strip the host so openSessionSummary has nothing to open, the way a
+  // stripped shell or an older cached index.html would leave it.
+  await page.evaluate(() => document.querySelector("#sessionSummary")?.remove());
+  await finishEarly(page);
+  const fallback = await page.evaluate(() => {
     return {
       toast: document.querySelector("#toast")?.textContent?.trim() || "",
       logged: (JSON.parse(localStorage.getItem("repforge_v1") || "{}").log || []).length,
@@ -431,24 +429,25 @@ async function run() {
   await seed(page, fixture());
   await enterLog(page);
   await logSet(page, "ex2", 1, 15, 10, 1);
-  const deferredFinish = await page.evaluate(async (draftKey) => {
+  await openEarlyFinish(page);
+  await page.evaluate((draftKey) => {
     const before = window.__repforgeWorkoutDraft.current();
     const originalRemoveItem = Storage.prototype.removeItem;
     Storage.prototype.removeItem = function (key) {
       if (String(key).startsWith(`${draftKey}:closing:`)) throw new Error("injected closing-marker failure");
       return originalRemoveItem.apply(this, arguments);
     };
-    let result;
-    try {
-      result = await window.__repforgeSaveWorkout(null, {
-        completion: window.__repforgeEarlyFinishConfirmation,
-      });
-    } finally {
-      Storage.prototype.removeItem = originalRemoveItem;
-    }
+    window.__restoreFinishFault = () => { Storage.prototype.removeItem = originalRemoveItem; };
+    window.__deferredFinishBefore = before;
+  }, DRAFT);
+  await page.locator("#sessionEarlyConfirm").click();
+  await page.waitForFunction(() => window.__repforgeLastWorkoutFinish != null, undefined, { timeout: 15000 });
+  const deferredFinish = await page.evaluate(async (draftKey) => {
+    const result = await window.__repforgeLastWorkoutFinish;
+    window.__restoreFinishFault?.();
     return {
       result,
-      beforeId: before?.draftId || null,
+      beforeId: window.__deferredFinishBefore?.draftId || null,
       activeId: window.__repforgeWorkoutDraft.current()?.draftId || null,
       recoveryVisible: !document.querySelector("#draftRecovery")?.classList.contains("hidden"),
       summaryVisible: !document.querySelector("#sessionSummary")?.classList.contains("hidden"),
@@ -480,24 +479,25 @@ async function run() {
   await seed(page, fixture());
   await enterLog(page);
   await logSet(page, "ex2", 1, 15, 10, 1);
-  const closeCreationFailure = await page.evaluate(async (draftKey) => {
+  await openEarlyFinish(page);
+  await page.evaluate((draftKey) => {
     const before = window.__repforgeWorkoutDraft.current();
     const originalSetItem = Storage.prototype.setItem;
     Storage.prototype.setItem = function (key) {
       if (String(key).startsWith(`${draftKey}:closing:`)) throw new Error("injected closing-marker creation failure");
       return originalSetItem.apply(this, arguments);
     };
-    let result;
-    try {
-      result = await window.__repforgeSaveWorkout(null, {
-        completion: window.__repforgeEarlyFinishConfirmation,
-      });
-    } finally {
-      Storage.prototype.setItem = originalSetItem;
-    }
+    window.__restoreFinishFault = () => { Storage.prototype.setItem = originalSetItem; };
+    window.__deferredFinishBefore = before;
+  }, DRAFT);
+  await page.locator("#sessionEarlyConfirm").click();
+  await page.waitForFunction(() => window.__repforgeLastWorkoutFinish != null, undefined, { timeout: 15000 });
+  const closeCreationFailure = await page.evaluate(async (draftKey) => {
+    const result = await window.__repforgeLastWorkoutFinish;
+    window.__restoreFinishFault?.();
     return {
       result,
-      beforeId: before?.draftId || null,
+      beforeId: window.__deferredFinishBefore?.draftId || null,
       activeId: window.__repforgeWorkoutDraft.current()?.draftId || null,
       recoveryVisible: !document.querySelector("#draftRecovery")?.classList.contains("hidden"),
       summaryVisible: !document.querySelector("#sessionSummary")?.classList.contains("hidden"),

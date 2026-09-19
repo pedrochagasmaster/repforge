@@ -13,6 +13,7 @@
  */
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
+import { finishEarly } from "./fixtures/focus-workout.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -1121,18 +1122,15 @@ async function main() {
   };
   draftPage.on("framenavigated", onFinishFrameNavigation);
   draftPage.on("request", onFinishNavigationRequest);
+  // This resumed draft deliberately contains a skipped exercise, so its
+  // completion must use the explicit early-finish confirmation UI.
+  const result = await finishEarly(draftPage);
   const resumedSave = await draftPage.evaluate(async ({ k, d, exerciseId, performedName }) => {
-    // This resumed draft deliberately contains a skipped exercise, so its
-    // completion must use the explicit early-finish confirmation seam.
-    const result = await window.__repforgeSaveWorkout(null, {
-      completion: window.__repforgeEarlyFinishConfirmation,
-    });
     await window.__repforgeStorage.flush();
     const log = JSON.parse(localStorage.getItem(k) || "{}").log || [];
     const matchingRows = log.filter((row) => row.exerciseId === exerciseId && row.performedName === performedName);
     return {
       href: location.href,
-      result,
       logLength: log.length,
       draftCleared: localStorage.getItem(d) === null,
       sessions: [...new Set(matchingRows.map((row) => row.session))],
@@ -1144,6 +1142,7 @@ async function main() {
       })),
     };
   }, { k: KEY, d: DRAFT, exerciseId: keepEx.id, performedName: alt });
+  resumedSave.result = result;
   draftPage.off("framenavigated", onFinishFrameNavigation);
   draftPage.off("request", onFinishNavigationRequest);
   const finishNavigation = {

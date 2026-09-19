@@ -8,6 +8,7 @@ import {
   clearPersistenceArtifacts,
   inventoryPersistenceArtifacts,
 } from "./persistence-artifacts.mjs";
+import { openEarlyFinish } from "./fixtures/focus-workout.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -1140,14 +1141,32 @@ async function runWorkoutThenRenameRace(browser) {
         window.__renameRaceSaveCommitted = true;
         await afterSave;
       };
-      // This fixture intentionally leaves the second set unfinished. The race
-      // is still a legitimate saved session, but it must enter through the
-      // same explicit early-finish confirmation boundary as the product flow.
-      window.__renameRaceWorkoutResult = window.__repforgeSaveWorkout(null, {
-        completion: window.__repforgeEarlyFinishConfirmation,
-      });
+      window.__repforgeDraftBeforeSaveCommit = async () => {
+        delete window.__repforgeDraftBeforeSaveCommit;
+        window.__renameRaceSavePhase = true;
+      };
     });
-    await waitForPendingStorageLocks(locker, 1);
+    await workout.evaluate((lockName) => {
+      const original = navigator.locks.request.bind(navigator.locks);
+      window.__renameRaceLockRequested = false;
+      navigator.locks.request = (name, ...args) => {
+        if (name === lockName && window.__renameRaceSavePhase) window.__renameRaceLockRequested = true;
+        return original(name, ...args);
+      };
+      window.__restoreRenameRaceLockProbe = () => {
+        navigator.locks.request = original;
+        delete window.__restoreRenameRaceLockProbe;
+      };
+    }, STORAGE_LOCK);
+    // This fixture intentionally leaves the second set unfinished. The race
+    // is still a legitimate saved session, but it must enter through the
+    // same explicit early-finish confirmation boundary as the product flow.
+    await openEarlyFinish(workout);
+    await workout.locator("#sessionEarlyConfirm").click();
+    // The probe is armed only after WorkoutSession has crossed its final draft
+    // drain, so this is the state transaction's lock request rather than a
+    // preceding DraftV2 command.
+    await workout.waitForFunction(() => window.__renameRaceLockRequested === true, undefined, { timeout: 10000 });
     await dispatchRename(renamer, "Day 1", "Push Day");
     await waitForPendingRenameJournal(renamer, "Day 1", "Push Day");
     const renameJournal = (await readRuntime(renamer)).pendingEntries.find((entry) =>
@@ -1177,7 +1196,8 @@ async function runWorkoutThenRenameRace(browser) {
       { timeout: 10000 }
     );
     await workout.evaluate(() => window.__renameRaceResumeAfterSave());
-    const workoutResult = await workout.evaluate(() => window.__renameRaceWorkoutResult);
+    const workoutResult = await workout.evaluate(async () => await window.__repforgeLastWorkoutFinish);
+    await workout.evaluate(() => window.__restoreRenameRaceLockProbe?.());
     await Promise.all([
       workout.evaluate(() => window.__repforgeStorage.flush()),
       renamer.evaluate(() => window.__repforgeStorage.flush()),
@@ -1258,14 +1278,13 @@ async function runRenameThenWorkoutRace(browser) {
     await holdStorageLock(locker);
     await dispatchRename(renamer, "Day 1", "Push Day");
     await waitForPendingStorageLocks(locker, 1);
-    await workout.evaluate(() => {
-      window.__renameRaceWorkoutResult = window.__repforgeSaveWorkout(null, {
-        completion: window.__repforgeEarlyFinishConfirmation,
-      });
-    });
+    await workout.evaluate(() => { window.__repforgeLastWorkoutFinish = null; });
+    await openEarlyFinish(workout);
+    await workout.locator("#sessionEarlyConfirm").click();
     await waitForPendingStorageLocks(locker, 2);
+    await workout.waitForFunction(() => window.__repforgeLastWorkoutFinish != null, undefined, { timeout: 10000 });
     await releaseStorageLock(locker);
-    const workoutResult = await workout.evaluate(() => window.__renameRaceWorkoutResult);
+    const workoutResult = await workout.evaluate(async () => await window.__repforgeLastWorkoutFinish);
     // Done dispatches an asynchronous editor commit without returning its promise.
     // flush() only snapshots the current persistence tail; the editor can enqueue
     // its rename later. Wait for the real successful-commit UI before reading it.
@@ -1281,9 +1300,11 @@ async function runRenameThenWorkoutRace(browser) {
     check(workoutResult?.draftConflict === true && !workoutResult?.localOk && !workoutResult?.idbOk,
       "rename-first ordering rejects the stale captured workout revision", workoutResult);
     await reloadApp(workout);
-    const retriedWorkoutResult = await workout.evaluate(() => window.__repforgeSaveWorkout(null, {
-      completion: window.__repforgeEarlyFinishConfirmation,
-    }));
+    await workout.evaluate(() => { window.__repforgeLastWorkoutFinish = null; });
+    await openEarlyFinish(workout);
+    await workout.locator("#sessionEarlyConfirm").click();
+    await workout.waitForFunction(() => window.__repforgeLastWorkoutFinish != null, undefined, { timeout: 10000 });
+    const retriedWorkoutResult = await workout.evaluate(async () => await window.__repforgeLastWorkoutFinish);
     await workout.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(locker);
     await reloadApp(locker);
