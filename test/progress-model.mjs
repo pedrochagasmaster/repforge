@@ -265,6 +265,40 @@ if (fs.existsSync(modelPath)) {
   const allHistory = model.buildStrengthEvidence("all-history", "bench", provenanceRows, provenanceMeta);
   assert.deepEqual(allHistory.points.map((point) => point.value), [200, 100, 105, 300],
     "all-history explicitly retains foreign and legacy rows");
+
+  // Chronology is date-first. A missing creation timestamp is not an earlier
+  // event than a dated row merely because String(null) sorts first.
+  const mixedTimestampRows = [
+    { exerciseId: "bench", session: "newer-date-no-created", date: "2026-09-16", load: 105, reps: 8, rir: 2, work: true },
+    { exerciseId: "bench", session: "older-date-created", date: "2026-09-15", created: "2026-09-15T18:00:00.000Z", load: 100, reps: 8, rir: 2, work: true },
+  ];
+  const mixedStrength = model.buildStrengthEvidence("all-history", "bench", mixedTimestampRows, {});
+  assert.deepEqual(mixedStrength.points.map((point) => point.value), [100, 105],
+    "strength chronology orders by workout date before optional creation time");
+  assert.equal(mixedStrength.latest.session, "newer-date-no-created",
+    "latest strength value follows the latest workout date when created is absent");
+  assert.deepEqual(mixedStrength.comparison, { from: 100, to: 105, absolute: 5, percentage: 5 },
+    "latest/previous comparison uses the same mixed-timestamp chronology");
+  const mixedPrs = model.buildPREvidence("all-history", mixedTimestampRows, {});
+  assert.deepEqual(mixedPrs.map((entry) => ({ date: entry.date, value: entry.value, priorValue: entry.priorValue })),
+    [{ date: "2026-09-16", value: 105, priorValue: 100 }],
+    "PR chronology uses the same date-first ordering as Strength");
+
+  const chronologyRows = [
+    { exerciseId: "bench", session: "z-no-created", date: "2026-09-17", load: 120, reps: 8, rir: 2, work: true },
+    { exerciseId: "bench", session: "a-created", date: "2026-09-17", created: "2026-09-17T10:00:00.000Z", load: 115, reps: 8, rir: 2, work: true },
+    { exerciseId: "bench", session: "z-created", date: "2026-09-18", created: "2026-09-18T10:00:00.000Z", load: 125, reps: 8, rir: 2, work: true },
+    { exerciseId: "bench", session: "a-no-created", date: "2026-09-18", load: 122.5, reps: 8, rir: 2, work: true },
+    { exerciseId: "bench", session: "b-tied", date: "2026-09-19", created: "2026-09-19T10:00:00.000Z", load: 130, reps: 8, rir: 2, work: true },
+    { exerciseId: "bench", session: "a-tied", date: "2026-09-19", created: "2026-09-19T10:00:00.000Z", load: 127.5, reps: 8, rir: 2, work: true },
+    { exerciseId: "bench", session: "b-no-created", date: "2026-09-20", load: 135, reps: 8, rir: 2, work: true },
+    { exerciseId: "bench", session: "a-no-created-later", date: "2026-09-20", load: 132.5, reps: 8, rir: 2, work: true },
+  ];
+  const chronology = model.buildStrengthEvidence("all-history", "bench", chronologyRows, {});
+  assert.deepEqual(chronology.points.map((point) => point.session), [
+    "a-created", "z-no-created", "a-no-created", "z-created", "a-tied", "b-tied",
+    "a-no-created-later", "b-no-created",
+  ], "same-day chronology uses both timestamps when present and stable identities otherwise");
   const legacyOnly = [{ exerciseId: "rdl", session: "legacy", date: "2026-09-10", load: 80, reps: 8, rir: 2, work: true }];
   assert.equal(model.buildStrengthEvidence("current-block", "rdl", legacyOnly, provenanceMeta).evidenceCount, 0,
     "legacy rows without block provenance do not silently enter a modern current block");

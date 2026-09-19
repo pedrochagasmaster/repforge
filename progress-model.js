@@ -84,6 +84,29 @@
     return String(value == null ? "" : value).slice(0, 10);
   }
 
+  // Workout date is the domain chronology. `created` is optional metadata
+  // useful for ordering sessions recorded on the same workout date, but it
+  // must never move a later dated workout before an earlier one. When only
+  // one same-day session has creation metadata, fall back to the stable
+  // session identity instead of treating a missing timestamp as earliest.
+  function compareChronology(a, b) {
+    const dateOrder = isoDate(a?.date).localeCompare(isoDate(b?.date));
+    if (dateOrder) return dateOrder;
+    const aCreated = a?.created == null ? "" : String(a.created).trim();
+    const bCreated = b?.created == null ? "" : String(b.created).trim();
+    if (aCreated && bCreated) {
+      const createdOrder = aCreated.localeCompare(bCreated);
+      if (createdOrder) return createdOrder;
+    }
+    const aSession = String(a?.sessionKey ?? a?.session ?? a?.id ?? "");
+    const bSession = String(b?.sessionKey ?? b?.session ?? b?.id ?? "");
+    const sessionOrder = aSession.localeCompare(bSession);
+    if (sessionOrder) return sessionOrder;
+    const aSet = Number.isFinite(Number(a?.set)) ? Number(a.set) : 0;
+    const bSet = Number.isFinite(Number(b?.set)) ? Number(b.set) : 0;
+    return aSet - bSet;
+  }
+
   function dateAtNoon(value) {
     return new Date(`${isoDate(value)}T12:00:00`);
   }
@@ -342,9 +365,7 @@
         prev.reps = Number(row.reps);
       }
     }
-    const points = [...bySession.values()].sort((a, b) =>
-      String(a.created ?? "").localeCompare(String(b.created ?? "")) ||
-      a.date.localeCompare(b.date) || String(a.sessionKey).localeCompare(String(b.sessionKey)));
+    const points = [...bySession.values()].sort(compareChronology);
     const count = points.length;
     const evidenceScope = useBlock ? "current-block" : String(scope);
     const fact = normalizeEvidenceRecords(meta?.evidenceRecords)
@@ -475,24 +496,31 @@
     for (const [key, rows] of byKey) {
       const bySession = new Map();
       for (const row of rows) {
-        const skey = String(row.session ?? row.date);
+        const skey = `${String(row.session ?? row.date)}\u0000${String(row.blockId ?? "")}`;
         const value = Number(row.load);
         const prev = bySession.get(skey);
-        if (!prev) bySession.set(skey, { date: isoDate(row.date), value, session: skey });
-        else if (value > prev.value) { prev.value = value; prev.date = isoDate(row.date); }
+        if (!prev) bySession.set(skey, {
+          date: isoDate(row.date), created: row.created ?? null, value,
+          session: String(row.session ?? row.date), sessionKey: skey,
+        });
+        else {
+          if (value > prev.value) prev.value = value;
+          if (!prev.created && row.created) prev.created = row.created;
+          if (!prev.date && row.date) prev.date = isoDate(row.date);
+        }
       }
-      const sessions = [...bySession.values()].sort((a, b) =>
-        a.date === b.date ? a.session.localeCompare(b.session) : a.date.localeCompare(b.date));
+      const sessions = [...bySession.values()].sort(compareChronology);
       let best = null;
       for (const s of sessions) {
         if (best == null) { best = s; continue; }
         if (s.value > best.value) {
-          entries.push({ exerciseId: key, date: s.date, value: s.value, priorValue: best.value, kind: "load" });
+          entries.push({ exerciseId: key, date: s.date, created: s.created, session: s.session,
+            sessionKey: s.sessionKey, value: s.value, priorValue: best.value, kind: "load" });
           best = s;
         }
       }
     }
-    return entries.sort((a, b) => a.date.localeCompare(b.date) || a.exerciseId.localeCompare(b.exerciseId));
+    return entries.sort((a, b) => compareChronology(a, b) || a.exerciseId.localeCompare(b.exerciseId));
   }
 
   const api = {
@@ -504,6 +532,7 @@
     OUTCOME_TO_RECOMMENDATION,
     normalizeEvidenceRecord,
     normalizeEvidenceRecords,
+    compareChronology,
     buildWeekStatus,
     buildProgramActionQueue,
     buildReviewCheckpoint,

@@ -715,8 +715,11 @@
             else day.slots.forEach((slot, slotIndex) => {
               const slotPath = `${dayPath}.slots[${slotIndex}]`;
               if (!isPlainObject(slot)) { issues.push(`${slotPath}:not_object`); return; }
-              rejectUnknownKeys(slot, new Set(["slotId", "sets"]), slotPath, issues);
+              rejectUnknownKeys(slot, new Set(["slotId", "sets", "primary", "secondary"]), slotPath, issues);
               if (!validToken(slot.slotId) || !Number.isInteger(slot.sets)) issues.push(`${slotPath}:invalid`);
+              for (const key of ["primary", "secondary"]) {
+                if (slot[key] !== undefined && typeof slot[key] !== "string") issues.push(`${slotPath}.${key}:invalid`);
+              }
             });
           });
         }

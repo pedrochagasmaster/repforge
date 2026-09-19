@@ -287,6 +287,8 @@ function isSafeProgressionMeta(value){
   for(const key of ["progressionRelations","progressionModifiers","progressionIncompatibilities"])
     if(Object.prototype.hasOwnProperty.call(value,key)&&
       (!Array.isArray(value[key])||!isBoundedProgressionValue(value[key])))return false;
+  if(Object.prototype.hasOwnProperty.call(value,"programStructure")&&value.programStructure!=null&&
+    !isBoundedProgressionValue(value.programStructure))return false;
   return true}
 function isSafeProgramHistoryEntry(entry){
   if(!isPlainStateObject(entry))return false;
@@ -2299,7 +2301,8 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
 function withExplicitProgramStructure(program,meta){
   if(!ProgramCompiler?.migrateLegacyStructure)return{program,meta};
   const migrated=ProgramCompiler.migrateLegacyStructure(program,meta?.programStructure);
-  return{program:migrated.program,meta:{...meta,programStructure:migrated.structure}}
+  const structure=normalizeProgramStructureReceipts(migrated.structure,migrated.program,meta);
+  return{program:migrated.program,meta:{...meta,programStructure:structure}}
 }
 function isImportableState(s){return isValidStateShape(s)}
 /* A custom exercise is a library entry the lifter authored, so it is normalised
@@ -2477,7 +2480,7 @@ function weeklySnapshot(date=today()){const{start,end}=weekRange(date),weekStart
     if(!isWork(x)||!(+x.load>0&&+x.reps>0))continue;totalWorkingSets++;if(+x.rir<=hr)totalHardSets++}
   const prs=detectPRs(state.log).filter(ev=>String(ev.date)>=start&&String(ev.date)<=end);
   const trained=new Map();for(const x of state.log){if(String(x.date)<start||String(x.date)>end)continue;if(!isWork(x)||!(+x.load>0))continue;
-    const k=liftKey(x),cur=trained.get(k);if(!cur||String(x.created)>String(cur.created))trained.set(k,{session:x.session,created:x.created})}
+    const k=liftKey(x),cur=trained.get(k);if(!cur||compareLogChronology(cur,x)<0)trained.set(k,{session:x.session,date:x.date,created:x.created})}
   let improvedLifts=0,flatLifts=0,regressedLifts=0,fatigueFlags=0;
   for(const[k,sess]of trained){
     const rows=state.log.filter(r=>r.session===sess.session&&liftKey(r)===k);if(!rows.length)continue;
@@ -2564,22 +2567,34 @@ function rowMusclesPure(row,program){
   if(row.primary!=null||row.secondary!=null)return{primary:row.primary||"",secondary:row.secondary||""};
   const ex=(program||[]).find(e=>e.name===row.name);
   return ex?{primary:ex.primary,secondary:ex.secondary}:{primary:"",secondary:""}}
+function compareLogChronology(a,b){
+  const model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  if(typeof model?.compareChronology==="function")return model.compareChronology(a,b);
+  const dateOrder=String(a?.date??"").slice(0,10).localeCompare(String(b?.date??"").slice(0,10));
+  if(dateOrder)return dateOrder;
+  const aCreated=a?.created==null?"":String(a.created).trim(),bCreated=b?.created==null?"":String(b.created).trim();
+  if(aCreated&&bCreated){const createdOrder=aCreated.localeCompare(bCreated);if(createdOrder)return createdOrder}
+  return String(a?.sessionKey??a?.session??a?.id??"").localeCompare(String(b?.sessionKey??b?.session??b?.id??""))}
+function mergeLogChronology(target,row){
+  if(!target.date&&row?.date)target.date=row.date;
+  if(!target.created&&row?.created)target.created=row.created;
+  return target}
 function volMapToObj(m){const o={};for(const[k,v]of m)o[k]={d:v.d,p:v.p};return o}
 function sessionsForLog(ex,log){const match=matchLift(ex),m=new Map();
   for(const x of log||[]){if(!match(x)||!(+x.load>0)||!isWork(x))continue;
     if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,loads:[],reps:[],rirs:[]});
-    const o=m.get(x.session);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir)}
+    const o=mergeLogChronology(m.get(x.session),x);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir)}
   return[...m.values()].map(o=>({session:o.session,date:o.date,created:o.created,reps:o.reps,
     med:median(o.loads),top:Math.max(...o.loads),minReps:Math.min(...o.reps),maxReps:Math.max(...o.reps),medReps:median(o.reps),
     avgRir:avg(o.rirs),bestE1rm:Math.max(...o.loads.map((load,index)=>e1rm(load,o.reps[index])))}))
-    .sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)))}
+    .sort(compareLogChronology)}
 function previousSessionRowsLog(ex,beforeSessionId,log){const match=matchLift(ex),m=new Map();
   for(const x of log||[]){if(!match(x)||!(+x.load>0)||!isWork(x)||!(+x.reps>0))continue;
-    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,rows:[]});m.get(x.session).rows.push(x)}
-  const ordered=[...m.values()].sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)));
+    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,rows:[]});mergeLogChronology(m.get(x.session),x).rows.push(x)}
+  const ordered=[...m.values()].sort(compareLogChronology);
   const curIdx=ordered.findIndex(s=>s.session===beforeSessionId);
-  if(curIdx<0){const curCreated=(log||[]).find(r=>r.session===beforeSessionId)?.created;if(!curCreated)return ordered.length?ordered.at(-1).rows:[];
-    const older=ordered.filter(s=>String(s.created).localeCompare(String(curCreated))<0);return older.length?older.at(-1).rows:[]}
+  if(curIdx<0){const current=(log||[]).find(r=>r.session===beforeSessionId);if(!current)return ordered.length?ordered.at(-1).rows:[];
+    const older=ordered.filter(s=>compareLogChronology(s,current)<0);return older.length?older.at(-1).rows:[]}
   return curIdx>0?ordered[curIdx-1].rows:[]}
 function hardSetsInRange(log,program,started,ended,hardRir){const m=new Map();
   for(const x of log||[]){if(started&&String(x.date)<started)continue;if(ended&&String(x.date)>ended)continue;
@@ -3259,7 +3274,23 @@ async function commitProposedState(proposal,io=storageIO,opts={}){
   const snapshot=cloneSnapshot(proposal);
   const structured=withExplicitProgramStructure(snapshot.program,snapshot.programMeta||defaultProgramMeta(snapshot.log));
   snapshot.program=structured.program;snapshot.programMeta=structured.meta;
-  const result=await enqueueStateChange(base,snapshot,io,Object.assign({},opts,{liveBase}));
+  // A lock-held preflight may replace the optimistic proposal with a compiler
+  // successor. Normalize that returned successor at the same boundary as the
+  // optimistic proposal so boot never has to perform a second, revisionful
+  // migration of a valid committed state.
+  const durableOpts=Object.assign({},opts,{liveBase});
+  if(typeof opts.preflight==="function"){
+    durableOpts.preflight=async context=>{
+      const checked=await opts.preflight(context);
+      if(!checked?.proposal)return checked;
+      const next=cloneSnapshot(checked.proposal);
+      const nextStructured=withExplicitProgramStructure(next.program,
+        next.programMeta||defaultProgramMeta(next.log));
+      next.program=nextStructured.program;next.programMeta=nextStructured.meta;
+      return{...checked,proposal:next};
+    };
+  }
+  const result=await enqueueStateChange(base,snapshot,io,durableOpts);
   if(result.draftConflict&&!result.journalFailed)toast(t("toast.draft_conflict_retry"),{assertive:true});
   return result}
 function installTransferReadJson(key){
@@ -4113,61 +4144,123 @@ function structureDayLabels(meta){
 function makeProgram(list,lookup=null,meta=null){
   return new Program(list,lookup,structureDayLabels(meta),
     meta?.programStructure?.provenance?.source==="manual_build")}
-function compactPlannedProgram(program){
-  return(Array.isArray(program)?program:[]).map((row,index)=>{
-    const out={id:String(row?.id||`legacy_${index+1}`),slotId:String(row?.slotId||row?.id||`legacy_${index+1}`),
-      dayId:String(row?.dayId||row?.day||`day_${index+1}`),day:String(row?.day||""),order:Number(row?.order)||index+1,
-      name:String(row?.name||""),sets:Number.isFinite(+row?.sets)?Math.max(0,+row.sets):0,
-      min:Number.isFinite(+row?.min)?+row.min:null,max:Number.isFinite(+row?.max)?+row.max:null,
-      primary:String(row?.primary||""),secondary:String(row?.secondary||"")};
-    for(const key of ["displayName","libraryId","movementId"])if(row?.[key]!=null)out[key]=String(row[key]);
-    return out}).filter(row=>row.name||row.id)}
-function plannedPrescriptionForProgram(program,week,existing){
-  const days=new Map();
-  for(const row of compactPlannedProgram(program).sort((a,b)=>a.order-b.order||a.id.localeCompare(b.id))){
+// Progress needs only immutable weekly slot receipts: identity, effective
+// working sets, and direct/secondary muscle attribution. Keeping names,
+// display metadata, and progression fields out of historical receipts makes
+// the representation bounded without losing the facts used by Volume.
+function prescriptionProgramRows(program){
+  return(Array.isArray(program)?program:[]).map((row,index)=>({
+    id:String(row?.id||`legacy_${index+1}`),
+    slotId:String(row?.slotId||row?.id||`legacy_${index+1}`),
+    dayId:String(row?.dayId||row?.day||`day_${index+1}`),
+    day:String(row?.day||""),
+    order:Number.isFinite(+row?.order)?+row.order:index+1,
+    sets:Number.isFinite(+row?.sets)?Math.max(0,+row.sets):0,
+    primary:String(row?.primary||""),
+    secondary:String(row?.secondary||"")
+  })).filter(row=>row.id||row.slotId)}
+function existingPrescriptionSlots(existing){
+  const slots=new Map();
+  for(const day of Array.isArray(existing?.days)?existing.days:[])
+    for(const slot of Array.isArray(day?.slots)?day.slots:[])
+      if(slot?.slotId!=null)slots.set(String(slot.slotId),slot);
+  return slots}
+function plannedPrescriptionForProgram(program,week,existing,{preserveSets=true}={}){
+  const days=new Map(),existingSlots=existingPrescriptionSlots(existing);
+  for(const row of prescriptionProgramRows(program).sort((a,b)=>a.order-b.order||a.id.localeCompare(b.id))){
     const dayId=row.dayId||row.day||`day_${days.size+1}`;
     if(!days.has(dayId))days.set(dayId,{dayId,slots:[]});
-    days.get(dayId).slots.push({slotId:row.slotId,sets:row.sets});
+    const prior=existingSlots.get(row.slotId);
+    const sets=preserveSets&&Number.isFinite(+prior?.sets)?Math.max(0,+prior.sets):row.sets;
+    const primary=preserveSets&&typeof prior?.primary==="string"?prior.primary:row.primary;
+    const secondary=preserveSets&&typeof prior?.secondary==="string"?prior.secondary:row.secondary;
+    days.get(dayId).slots.push({slotId:row.slotId,sets,primary,secondary});
   }
   return{week,phase:typeof existing?.phase==="string"?existing.phase:"manual_edit",days:[...days.values()]}}
+function preservePrescriptionReceipt(existing,program,week){
+  if(!existing||!Array.isArray(existing.days))return null;
+  const sourceSlots=new Map(prescriptionProgramRows(program).map(row=>[row.slotId,row]));
+  const days=[];
+  for(const day of existing.days){
+    if(!day||typeof day.dayId!=="string"||!Array.isArray(day.slots))return null;
+    const slots=[];
+    for(const slot of day.slots){
+      if(!slot||typeof slot.slotId!=="string"||!Number.isInteger(slot.sets)||slot.sets<0)return null;
+      const source=sourceSlots.get(slot.slotId);
+      slots.push({slotId:slot.slotId,sets:slot.sets,
+        primary:typeof slot.primary==="string"?slot.primary:source?.primary||"",
+        secondary:typeof slot.secondary==="string"?slot.secondary:source?.secondary||""});
+    }
+    days.push({dayId:day.dayId,slots});
+  }
+  return{week,phase:typeof existing.phase==="string"?existing.phase:"manual_edit",days}
+}
+function normalizeProgramStructureReceipts(structure,program,meta){
+  const source=structure&&typeof structure==="object"&&!Array.isArray(structure)
+    ?cloneSnapshot(structure):{};
+  const hasStoredHistory=(Array.isArray(source.weekPrescriptions)&&source.weekPrescriptions.length>0)||
+    (Array.isArray(source.programVersions)&&source.programVersions.length>0);
+  // A legacy structure with no historical prescription data remains lazy until
+  // the first owned program mutation. Reconstructing receipts here would make
+  // them stale when a legacy/imported snapshot changes its current program
+  // before the editor's history owner has recorded that change.
+  if(!hasStoredHistory){source.weekPrescriptions=[];delete source.programVersions;return source}
+  const storedWeekCount=Array.isArray(source.weekPrescriptions)?source.weekPrescriptions.length:0;
+  const total=Math.max(1,storedWeekCount||Number(meta?.mesocycleLengthWeeks)||6);
+  const existingWeeks=new Map((Array.isArray(source.weekPrescriptions)?source.weekPrescriptions:[])
+    .filter(entry=>Number.isInteger(entry?.week)&&entry.week>=1&&entry.week<=total)
+    .map(entry=>[entry.week,entry]));
+  const versions=(Array.isArray(source.programVersions)?source.programVersions:[])
+    .filter(entry=>Number.isInteger(entry?.fromWeek)&&entry.fromWeek>=1&&entry.fromWeek<=total&&Array.isArray(entry.program))
+    .sort((a,b)=>a.fromWeek-b.fromWeek);
+  source.weekPrescriptions=Array.from({length:total},(_,index)=>{
+    const week=index+1,existing=existingWeeks.get(week),version=[...versions].reverse().find(entry=>entry.fromWeek<=week);
+    const sourceProgram=version?.program||program;
+    // Existing compiler receipts are already a valid compact schedule. Keep
+    // them byte-for-byte stable until an owned program edit needs to freeze
+    // their muscle attribution; the renderer can derive current attribution
+    // from the authored program in the meantime.
+    if(existing&&!versions.length)return cloneSnapshot(existing);
+    return preservePrescriptionReceipt(existing,sourceProgram,week)||
+      plannedPrescriptionForProgram(sourceProgram,week,null);
+  });
+  // The receipt is the sole historical program representation. Legacy
+  // programVersions are consumed during migration and never carried forward.
+  delete source.programVersions;
+  return source}
 function preserveProgramPrescriptionHistory(structure,previousProgram,nextProgram,previousMeta){
-  const total=Math.max(1,Number(previousMeta?.mesocycleLengthWeeks)||6),life=mesocycleLifecycle(previousMeta);
+  const storedWeekCount=Array.isArray(structure?.weekPrescriptions)?structure.weekPrescriptions.length:0;
+  const total=Math.max(1,storedWeekCount||Number(previousMeta?.mesocycleLengthWeeks)||6),life=mesocycleLifecycle(previousMeta);
   const week=life.elapsedWeek!=null&&life.elapsedWeek>=1&&life.elapsedWeek<=total&&previousMeta?.mesocycleStatus!=="completed"
     ?life.elapsedWeek:null;
-  if(!Array.isArray(previousProgram))return structure;
-  const oldCompact=compactPlannedProgram(previousProgram),nextCompact=compactPlannedProgram(nextProgram);
-  if(JSON.stringify(oldCompact)===JSON.stringify(nextCompact))return structure;
-  const existingWeeks=new Map((Array.isArray(structure.weekPrescriptions)?structure.weekPrescriptions:[])
-    .filter(entry=>Number.isInteger(entry?.week)).map(entry=>[entry.week,entry]));
-  // A completed block has no new prescription boundary. Keep the durable
-  // receipts that describe its elapsed weeks, but pin the historical program
-  // snapshot as the source for per-muscle projection if a later edit changes
-  // the display/program rows after the block has closed.
+  const oldRows=prescriptionProgramRows(previousProgram),nextRows=prescriptionProgramRows(nextProgram);
+  // Existing receipts describe the predecessor/current prescription before
+  // this edit. Use that program to backfill legacy receipts that predate the
+  // attribution fields; the new program is applied only to the edit boundary
+  // and future weeks below.
+  const normalized=normalizeProgramStructureReceipts(structure,previousProgram||nextProgram,previousMeta);
+  if(!Array.isArray(previousProgram)||JSON.stringify(oldRows)===JSON.stringify(nextRows))return normalized;
+  const existingWeeks=new Map(normalized.weekPrescriptions.map(entry=>[entry.week,entry]));
   if(!week){
-    if(!existingWeeks.size)
-      structure.weekPrescriptions=Array.from({length:total},(_,index)=>plannedPrescriptionForProgram(previousProgram,index+1,null));
-    const existingVersions=(Array.isArray(structure.programVersions)?structure.programVersions:[])
-      .filter(entry=>Number.isInteger(entry?.fromWeek)&&entry.fromWeek>=1&&entry.fromWeek<=total&&Array.isArray(entry.program))
-      .map(entry=>({fromWeek:entry.fromWeek,program:compactPlannedProgram(entry.program)}));
-    if(!existingVersions.some(entry=>entry.fromWeek===1)){
-      structure.programVersions=[{fromWeek:1,program:oldCompact},...existingVersions]
-        .sort((a,b)=>a.fromWeek-b.fromWeek);
-    }
-    return structure;
+    // A completed block has no new boundary. Existing receipts remain the
+    // record of what was prescribed; if none exist, seed the closed block
+    // from the predecessor program before the current edit.
+    normalized.weekPrescriptions=Array.from({length:total},(_,index)=>
+      preservePrescriptionReceipt(existingWeeks.get(index+1),previousProgram,index+1)||
+      plannedPrescriptionForProgram(previousProgram,index+1,null));
+    return normalized;
   }
-  structure.weekPrescriptions=Array.from({length:total},(_,index)=>{
-    const number=index+1;
-    if(number<week)return existingWeeks.get(number)||plannedPrescriptionForProgram(previousProgram,number,null);
-    return plannedPrescriptionForProgram(nextProgram,number,existingWeeks.get(number));
+  normalized.weekPrescriptions=Array.from({length:total},(_,index)=>{
+    const number=index+1,existing=existingWeeks.get(number);
+    return number<week
+      // An existing receipt is already the immutable record for that week;
+      // keep slots that a later program edit removed. Only an absent receipt
+      // may be reconstructed from the predecessor program.
+      ?preservePrescriptionReceipt(existing,previousProgram,number)||
+        plannedPrescriptionForProgram(previousProgram,number,null)
+      :plannedPrescriptionForProgram(nextProgram,number,existing,{preserveSets:false});
   });
-  const priorVersions=(Array.isArray(structure.programVersions)?structure.programVersions:[])
-    .filter(entry=>Number.isInteger(entry?.fromWeek)&&entry.fromWeek>=1&&entry.fromWeek<=total&&Array.isArray(entry.program))
-    .map(entry=>({fromWeek:entry.fromWeek,program:compactPlannedProgram(entry.program)}));
-  if(!priorVersions.some(entry=>entry.fromWeek===1))priorVersions.unshift({fromWeek:1,program:oldCompact});
-  const versions=priorVersions.filter(entry=>entry.fromWeek<week);
-  versions.push({fromWeek:week,program:nextCompact});
-  structure.programVersions=versions.sort((a,b)=>a.fromWeek-b.fromWeek);
-  return structure}
+  return normalized}
 function syncProgramStructureFromProgram(proposal,program,previousProgram=null,previousMeta=null){
   const struct=proposal.programMeta?.programStructure;
   if(!struct||!Array.isArray(struct.days))return;
@@ -4194,7 +4287,7 @@ function syncProgramStructureFromProgram(proposal,program,previousProgram=null,p
         ...(nameOverride?{nameOverride}:{})}})};
   proposal.programMeta.programStructure=previousProgram
     ?preserveProgramPrescriptionHistory(synced,previousProgram,program.toJSON(),previousMeta||state.programMeta)
-    :synced;
+    :normalizeProgramStructureReceipts(synced,program.toJSON(),previousMeta||proposal.programMeta||state.programMeta);
 }
 function scheduledProgramRows(){
   const week=mesocycleLifecycle(state.programMeta).current;
@@ -4227,20 +4320,20 @@ function matchLift(ex){const movementId=ex?.movementId?String(ex.movementId):"",
     return names.has(movementToken(loggedMovementName(row)))}}
 function last(ex){const match=matchLift(ex);
   const hits=state.log.filter(x=>match(x)&&isWork(x));if(!hits.length)return[];
-  const sid=[...hits].sort((a,b)=>String(b.created).localeCompare(String(a.created)))[0].session;
+  const sid=[...hits].sort((a,b)=>compareLogChronology(b,a))[0].session;
   return hits.filter(x=>x.session===sid).sort((a,b)=>a.set-b.set)}
 // One entry per past session for this lift, oldest→newest, working sets only (load>0).
 function sessionsFor(ex){const match=matchLift(ex),m=new Map();
   for(const x of state.log){if(!match(x)||!(+x.load>0)||!isWork(x))continue;
     if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,loads:[],reps:[],rirs:[],caps:[],cappedRirs:[]});
-    const o=m.get(x.session);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir);
+    const o=mergeLogChronology(m.get(x.session),x);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir);
     // Capacity twins of the RIR-blind aggregates — the engine reads these, stats keep the originals.
     o.caps.push(capE1rm(+x.load,+x.reps,x.rir));o.cappedRirs.push(capRir(x.rir))}
   return [...m.values()].map(o=>({session:o.session,date:o.date,created:o.created,reps:o.reps,
     med:median(o.loads),top:Math.max(...o.loads),minReps:Math.min(...o.reps),maxReps:Math.max(...o.reps),medReps:median(o.reps),
     avgRir:avg(o.rirs),bestE1rm:Math.max(...o.loads.map((load,index)=>e1rm(load,o.reps[index]))),
     caps:o.caps,bestCap:Math.max(...o.caps),medCap:median(o.caps),medCappedRir:median(o.cappedRirs)}))
-    .sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)))}
+    .sort(compareLogChronology)}
 // The lifter's own recent habitual RIR for this lift — a measurement, not a target.
 function typicalRir(ex,sess){sess=sess||sessionsFor(ex);
   const recent=sess.slice(-CAPACITY.baselineSessions);
@@ -4267,11 +4360,11 @@ function exerciseSessionMetrics(rows){const w=workingRows(rows);if(!w.length)ret
   return{topLoad,topLoadReps,totalReps,totalVolume,bestE1rm,avgRir:avg(rirs),workingSets:w.length}}
 function previousSessionForExercise(ex,beforeSessionId){const match=matchLift(ex),m=new Map();
   for(const x of state.log){if(!match(x)||!(+x.load>0)||!isWork(x)||!(+x.reps>0))continue;
-    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,rows:[]});m.get(x.session).rows.push(x)}
-  const ordered=[...m.values()].sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)));
+    if(!m.has(x.session))m.set(x.session,{session:x.session,date:x.date,created:x.created,rows:[]});mergeLogChronology(m.get(x.session),x).rows.push(x)}
+  const ordered=[...m.values()].sort(compareLogChronology);
   const curIdx=ordered.findIndex(s=>s.session===beforeSessionId);
-  if(curIdx<0){const curCreated=state.log.find(r=>r.session===beforeSessionId)?.created;if(!curCreated)return ordered.length?ordered.at(-1).rows:[];
-    const older=ordered.filter(s=>String(s.created).localeCompare(String(curCreated))<0);return older.length?older.at(-1).rows:[]}
+  if(curIdx<0){const current=state.log.find(r=>r.session===beforeSessionId);if(!current)return ordered.length?ordered.at(-1).rows:[];
+    const older=ordered.filter(s=>compareLogChronology(s,current)<0);return older.length?older.at(-1).rows:[]}
   return curIdx>0?ordered[curIdx-1].rows:[]}
 function buildSessionDelta(prevRows,currentRows){const previous=exerciseSessionMetrics(prevRows),current=exerciseSessionMetrics(currentRows),T=DELTA_THRESHOLDS;
   if(!previous||!current)return{status:"not_comparable",label:t("delta.not_comparable.label"),text:t("delta.not_comparable.text"),metrics:null};
@@ -4332,7 +4425,7 @@ const LOAD_EPS=1e-6;
 const sameLoad=(a,b)=>a!=null&&b!=null&&Math.abs(a-b)<=LOAD_EPS;
 function jump(load,mult){return Math.max(load*(+state.settings.jumpPct||0)*mult/100,+state.settings.minJump||2.5)}
 function lastBodyweight(){const rows=state.log.filter(r=>+r.bodyweight>0);
-  if(!rows.length)return "";const latest=rows.sort((a,b)=>String(b.created).localeCompare(String(a.created)))[0];
+  if(!rows.length)return "";const latest=rows.sort((a,b)=>compareLogChronology(b,a))[0];
   return fmt(toDisplay(latest.bodyweight))}
 function updateBodyweightField(){const el=$("#bodyweight");if(!el)return;
   el.placeholder=unitLabel();
@@ -4434,9 +4527,9 @@ function progressionHistory(ex){
   const match=matchLift(ex),m=new Map();
   for(const x of state.log){if(!match(x)||!(+x.load>0)||!isWork(x))continue;
     if(!m.has(x.session))m.set(x.session,{sessionId:x.session,date:x.date,created:x.created,sets:[]});
-    m.get(x.session).sets.push({load:+x.load,reps:+x.reps,rir:x.rir==null?null:+x.rir})}
+    mergeLogChronology(m.get(x.session),x).sets.push({load:+x.load,reps:+x.reps,rir:x.rir==null?null:+x.rir})}
   return[...m.values()]
-    .sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)))
+    .sort(compareLogChronology)
     .map(s=>({sessionId:s.sessionId,date:s.date,sets:s.sets}))}
 /** The engine's closed input. Settings are the lifter's own grid and jump;
  *  context carries only the block, never a family or a program identity. */
@@ -4624,9 +4717,9 @@ function historicalSetDrop(ex){
   const match=matchLift(ex),m=new Map();
   for(const x of state.log){if(!match(x)||!(+x.load>0)||!(+x.reps>0)||!isWork(x))continue;
     if(!m.has(x.session))m.set(x.session,{created:x.created,date:x.date,rows:[]});
-    m.get(x.session).rows.push(x)}
+    mergeLogChronology(m.get(x.session),x).rows.push(x)}
   const recent=[...m.values()]
-    .sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)))
+    .sort(compareLogChronology)
     .slice(-CAPACITY.baselineSessions);
   const drops=[];
   for(const s of recent){const rows=[...s.rows].sort((a,b)=>(+a.set||0)-(+b.set||0));
@@ -6111,7 +6204,7 @@ function updateExerciseDeltaPreview(exId){const art=$(`#workout [data-ex="${exId
 function lastExerciseNote(ex){const match=matchLift(ex);
   const rows=state.log.filter(r=>match(r)&&String(r.exNote||"").trim());
   if(!rows.length)return"";
-  const latest=rows.sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.created).localeCompare(String(b.created))).at(-1);
+  const latest=rows.sort(compareLogChronology).at(-1);
   return String(latest.exNote).trim()}
 function clearFieldInvalid(root){
   (root||document).querySelectorAll("[aria-invalid='true']").forEach(el=>el.removeAttribute("aria-invalid"))}
@@ -6635,12 +6728,12 @@ window.__repforgeSessionSummary={
   build:buildSessionSummary,current:()=>sessionSummaryCurrent};
 
 function summaries(){const m=new Map();
-  for(const x of state.log){if(!isWork(x))continue;const k=`${x.session}|${liftKey(x)}`;if(!m.has(k))m.set(k,{session:x.session,date:x.date,day:x.day,liftKey:liftKey(x),name:displayName(x),loads:[],reps:[],rirs:[],sets:0});
-    const o=m.get(k);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir);o.sets++}
+  for(const x of state.log){if(!isWork(x))continue;const k=`${x.session}|${liftKey(x)}`;if(!m.has(k))m.set(k,{session:x.session,date:x.date,created:x.created,day:x.day,liftKey:liftKey(x),name:displayName(x),loads:[],reps:[],rirs:[],sets:0});
+    const o=mergeLogChronology(m.get(k),x);o.loads.push(+x.load);o.reps.push(+x.reps);o.rirs.push(+x.rir);o.sets++}
   return [...m.values()].map(o=>{let top=0,topReps=0,vol=0,best=0;
     o.loads.forEach((ld,i)=>{const rp=o.reps[i];vol+=ld*rp;const e=e1rm(ld,rp);if(e>best)best=e;if(ld>top){top=ld;topReps=rp}});
-    return{session:o.session,date:o.date,day:o.day,liftKey:o.liftKey,name:o.name,top,topReps,reps:sum(o.reps),rir:avg(o.rirs),sets:o.sets,volume:vol,e1rm:best};})
-    .sort((a,b)=>a.date.localeCompare(b.date)||a.session.localeCompare(b.session))}
+    return{session:o.session,date:o.date,created:o.created,day:o.day,liftKey:o.liftKey,name:o.name,top,topReps,reps:sum(o.reps),rir:avg(o.rirs),sets:o.sets,volume:vol,e1rm:best};})
+    .sort(compareLogChronology)}
 
 function strengthDashboard(){
   const byLift=new Map();for(const s of summaries()){(byLift.get(s.liftKey)||byLift.set(s.liftKey,[]).get(s.liftKey)).push(s)}
@@ -6770,8 +6863,9 @@ function renderOverviewVolume(){const el=$("#overviewVolume");if(!el)return;
   $$("#overviewVolume [data-muscle]").forEach(button=>button.onclick=()=>{volumeDrillMuscle=button.dataset.muscle;setEvidenceView("volume")});
   const moreBtn=$("#overviewVolumeMore");if(moreBtn)moreBtn.onclick=()=>setStatsSeg("volume")}
 function recentDeltaRows(){const sessMap=new Map();
-  for(const x of state.log){if(!sessMap.has(x.session))sessMap.set(x.session,{session:x.session,date:x.date,created:x.created})}
-  const recent=[...sessMap.values()].sort((a,b)=>String(b.created).localeCompare(String(a.created))||String(b.date).localeCompare(String(a.date))).slice(0,10);
+  for(const x of state.log){if(!sessMap.has(x.session))sessMap.set(x.session,{session:x.session,date:x.date,created:x.created});
+    mergeLogChronology(sessMap.get(x.session),x)}
+  const recent=[...sessMap.values()].sort((a,b)=>compareLogChronology(b,a)).slice(0,10);
   const out=[];
   for(const sess of recent){const byLift=new Map();
     for(const r of state.log.filter(x=>x.session===sess.session)){const k=liftKey(r);if(!byLift.has(k))byLift.set(k,[]);byLift.get(k).push(r)}
@@ -6800,7 +6894,7 @@ function renderStats(){
   // performed, so reusing a program slot cannot merge two different movements.
   const keys=[...new Set(state.log.filter(isWork).map(liftKey))].sort();
   const keyLabel=k=>{const rows=state.log.filter(r=>liftKey(r)===k);
-    const latest=[...rows].sort((a,b)=>String(b.created).localeCompare(String(a.created)))[0];
+    const latest=[...rows].sort((a,b)=>compareLogChronology(b,a))[0];
     return latest?displayName(latest):k};
   const sums=summaries();
   const totalVol=sum(state.log.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
@@ -6847,7 +6941,7 @@ function renderStats(){
 
 function detectPRs(log,opts={}){
   const rows=(Array.isArray(log)?log:[]).filter(isWork).filter(r=>+r.load>0)
-    .sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.created).localeCompare(String(b.created)));
+    .sort(compareLogChronology);
   const best=new Map(),events=[];
   for(const row of rows){const k=liftKey(row),ld=+row.load,rp=+row.reps,em=e1rm(ld,rp);
     const cur=best.get(k)||{load:0,repsAtMax:0,e1rm:0};
@@ -7895,7 +7989,7 @@ function prTimeline(filter){
   if(filter==="load"||filter==="reps"||filter==="e1rm")events=all.filter(e=>e.kind===filter);
   else if(filter==="program"){const ids=new Set(prog.exercises.map(exerciseLiftKey));
     events=all.filter(e=>ids.has(e.liftKey))}
-  return events.sort((a,b)=>String(b.date).localeCompare(String(a.date)))}
+  return events.sort((a,b)=>compareLogChronology(b,a))}
 window.__repforgePrTimeline=prTimeline;
 
 function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
@@ -8127,44 +8221,43 @@ function volumeDetailTable(muscle,ev){
   for(const row of ev.completedRows||[]){
     const ms=rowMuscles(row);let weight=0;
     if(muscles(ms.primary).includes(muscle))weight=1;else if(muscles(ms.secondary).includes(muscle))weight=.5;
-    if(!weight)continue;const key=`${row.session}|${liftKey(row)}`,current=groups.get(key)||{date:row.date,name:displayName(row),sets:0};current.sets+=weight;groups.set(key,current)}
-  const rows=[...groups.values()].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+    if(!weight)continue;const key=`${row.session}|${liftKey(row)}`,current=groups.get(key)||{session:row.session,date:row.date,created:row.created,name:displayName(row)};mergeLogChronology(current,row);current.sets=(current.sets||0)+weight;groups.set(key,current)}
+  const rows=[...groups.values()].sort((a,b)=>compareLogChronology(b,a));
   return rows.length?table(rows.map(row=>({[t("stats.table.date")]:shortDate(row.date),[t("stats.table.exercise")]:row.name,[t("stats.table.sets")]:fmt(row.sets)})))
     :`<p class="lede">${esc(t("stats.evidence.reason.untested"))}</p>`}
-// Planned per-muscle denominators for the rendered scope. Each week is
-// projected from the durable compiler receipt, then the persisted recovery
-// overlay is applied to week one. The current scheduled row is a presentation
-// projection and must never rewrite historical denominators.
-function prescriptionForRows(rows,plannedSessions=undefined){
-  const p=new Program(rows),musclesByName=volMapToObj(p.volume());
-  const structureDays=state.programMeta?.programStructure?.days;
-  return{plannedSessions:plannedSessions??(Array.isArray(structureDays)&&structureDays.length?structureDays.length:p.days().length),
-    plannedWorkingSets:rows.reduce((n,row)=>n+(+row.sets||0),0),musclesByName}}
-function recoveryRowsForPrescription(rows,record){
-  if(!record)return rows;
-  const bySlot=new Map((record.diff?.recoveryWeek?.entries||[]).map(entry=>[entry.slot,entry.effectiveWorkingSets]));
-  return rows.flatMap(row=>{
-    const slotId=row.slotId||row.id;
-    if(!bySlot.has(slotId))return[row];
-    const sets=bySlot.get(slotId);
-    return sets>0?[{...row,sets}]:[]})}
-function progressProgramForWeek(weekNumber){
-  const versions=Array.isArray(state.programMeta?.programStructure?.programVersions)
-    ?state.programMeta.programStructure.programVersions.filter(entry=>Number.isInteger(entry?.fromWeek)&&Array.isArray(entry.program))
-      .sort((a,b)=>a.fromWeek-b.fromWeek):[];
-  const version=[...versions].reverse().find(entry=>entry.fromWeek<=weekNumber);
-  return version?cloneSnapshot(version.program):state.program}
-function progressWeekRows(weekNumber,record){
-  let rows=progressProgramForWeek(weekNumber);
-  if(Number.isInteger(weekNumber)&&typeof ProgramCompiler?.projectProgramForWeek==="function")
-    rows=ProgramCompiler.projectProgramForWeek(rows,state.programMeta?.programStructure,weekNumber);
-  return weekNumber===1?recoveryRowsForPrescription(rows,record):rows}
+// Planned per-muscle denominators for the rendered scope. Each week is read
+// directly from the compact durable receipt; the current scheduled row is a
+// presentation projection and must never rewrite historical denominators.
+function prescriptionForReceipt(receipt,program=state.program){
+  const musclesByName=new Map(),days=Array.isArray(receipt?.days)?receipt.days:[];
+  const bySlot=new Map(prescriptionProgramRows(program).map(row=>[row.slotId,row]));
+  const add=(name,d,p)=>{for(const muscle of muscles(name)){const key=String(muscle||"").trim();if(!key)continue;
+    const current=musclesByName.get(key)||{d:0,p:0};current.d+=d;current.p+=p;musclesByName.set(key,current)}};
+  let plannedWorkingSets=0;
+  for(const day of days)for(const slot of Array.isArray(day?.slots)?day.slots:[]){
+    const sets=Number.isFinite(+slot?.sets)?Math.max(0,+slot.sets):0;
+    const authored=bySlot.get(String(slot?.slotId));
+    const primary=typeof slot?.primary==="string"?slot.primary:authored?.primary;
+    const secondary=typeof slot?.secondary==="string"?slot.secondary:authored?.secondary;
+    plannedWorkingSets+=sets;add(primary,sets,0);add(secondary,0,sets*.5)}
+  return{plannedSessions:days.filter(day=>Array.isArray(day?.slots)&&day.slots.length).length,
+    plannedWorkingSets,musclesByName:volMapToObj(musclesByName)}}
+function recoveryReceiptForWeek(receipt,record){
+  if(!record)return receipt;
+  const bySlot=new Map((record.diff?.recoveryWeek?.entries||[])
+    .map(entry=>[String(entry.slot),Number.isFinite(+entry.effectiveWorkingSets)?Math.max(0,+entry.effectiveWorkingSets):0]));
+  if(!bySlot.size)return receipt;
+  return{...receipt,phase:"recovery",days:(Array.isArray(receipt?.days)?receipt.days:[]).map(day=>({...day,
+    slots:(Array.isArray(day?.slots)?day.slots:[]).map(slot=>bySlot.has(String(slot?.slotId))
+      ?{...slot,sets:bySlot.get(String(slot.slotId))}:slot)}))}}
 function progressWeekPrescriptions(){
   const weeks=Math.max(1,Number(state.programMeta?.mesocycleLengthWeeks)||6);
   const record=activeRecoveryRecord&&activeRecoveryRecordBlockId===snapshotBlockId(state)?activeRecoveryRecord:null;
+  const structure=state.programMeta?.programStructure;
+  const receipts=Array.isArray(structure?.weekPrescriptions)?structure.weekPrescriptions:[];
   return Array.from({length:weeks},(_,index)=>{
-    const rows=progressWeekRows(index+1,record),days=new Set(rows.map(row=>row.dayId||row.day).filter(Boolean));
-    return prescriptionForRows(rows,days.size);
+    const receipt=receipts[index]||plannedPrescriptionForProgram(state.program,index+1,null);
+    return prescriptionForReceipt(index===0?recoveryReceiptForWeek(receipt,record):receipt,state.program);
   })}
 function progressEvidenceMeta(){return{started:state.programMeta?.started||null,
   mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,hardRir:+state.settings.hardRir,
@@ -8259,11 +8352,11 @@ function buildHistoryIndex(log){
   for(const row of rows){
     const sid=row&&row.session!=null?String(row.session):"";
     if(!sessionMap.has(sid))sessionMap.set(sid,{session:row.session,date:row.date,day:row.day,created:row.created,rows:[]});
-    sessionMap.get(sid).rows.push(row)}
+    const session=mergeLogChronology(sessionMap.get(sid),row);
+    session.rows.push(row)}
   for(const sess of sessionMap.values()){
     sess.rows.sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set)}
-  const sessions=[...sessionMap.values()].sort((a,b)=>{
-    const dd=String(b.date).localeCompare(String(a.date));return dd||String(b.created).localeCompare(String(a.created))});
+  const sessions=[...sessionMap.values()].sort((a,b)=>compareLogChronology(b,a));
   const liftChrono=new Map();
   for(const row of rows){
     if(!isWork(row)||!(+row.load>0)||!(+row.reps>0))continue;
@@ -8271,10 +8364,11 @@ function buildHistoryIndex(log){
     if(!liftChrono.has(k))liftChrono.set(k,new Map());
     const sm=liftChrono.get(k);
     if(!sm.has(row.session))sm.set(row.session,{session:row.session,date:row.date,created:row.created,rows:[]});
-    sm.get(row.session).rows.push(row)}
+    const session=mergeLogChronology(sm.get(row.session),row);
+    session.rows.push(row)}
   const liftPred=new Map();
   for(const[k,sm]of liftChrono){
-    const ordered=[...sm.values()].sort((a,b)=>String(a.created).localeCompare(String(b.created))||String(a.date).localeCompare(String(b.date)));
+    const ordered=[...sm.values()].sort(compareLogChronology);
     for(let i=0;i<ordered.length;i++){
       const cur=ordered[i],pred=i>0?ordered[i-1].rows:[];
       liftPred.set(`${cur.session}|${k}`,pred)}}
@@ -8307,7 +8401,7 @@ function buildHistoryIndex(log){
     if(!bucket.byDay.has(dayNum))bucket.byDay.set(dayNum,{sets:0,pr:false});
     bucket.byDay.get(dayNum).sets++;
     if(prDates.has(date))bucket.byDay.get(dayNum).pr=true}
-  const tableRows=[...rows].sort((a,b)=>String(b.date).localeCompare(String(a.date))||displayName(a).localeCompare(displayName(b))||a.set-b.set);
+  const tableRows=[...rows].sort((a,b)=>compareLogChronology(b,a)||displayName(a).localeCompare(displayName(b))||a.set-b.set);
   const index={rows,sessions,months,prEvents,tableRows,liftPred};
   if(historyDiagnostics.enabled){
     historyDiagnostics.builds++;historyDiagnostics.sourceRowVisits+=rows.length;historyDiagnostics.last=index;
@@ -8500,9 +8594,9 @@ window.__repforgeSaveSessionEdit=saveSessionEdit;
 function exerciseSessionsDetail(key){const m=new Map();
   for(const r of state.log){if(liftKey(r)!==key)continue;
     if(!m.has(r.session))m.set(r.session,{session:r.session,date:r.date,day:r.day,created:r.created,rows:[],note:""});
-    const e=m.get(r.session);e.rows.push(r);
+    const e=mergeLogChronology(m.get(r.session),r);e.rows.push(r);
     if(!e.note&&String(r.exNote||"").trim())e.note=String(r.exNote).trim()}
-  return [...m.values()].sort((a,b)=>String(a.date).localeCompare(String(b.date))||String(a.created).localeCompare(String(b.created)))}
+  return [...m.values()].sort(compareLogChronology)}
 
 function currentViewId(){return $$(".view").find(v=>v.classList.contains("active"))?.id||"log"}
 function openExerciseView(key,from){if(!key)return;
@@ -10791,7 +10885,7 @@ function suggestedForDay(dayName,limit=6){
    are the ones they see. Reads library ids, which survive a language change. */
 function recentExercises(limit=8){
   const seen=[],ids=new Set();
-  const log=[...(state.log||[])].sort((a,b)=>String(b.created||"").localeCompare(String(a.created||"")));
+  const log=[...(state.log||[])].sort((a,b)=>compareLogChronology(b,a));
   const add=id=>{if(!id||ids.has(id))return;const entry=libraryEntry(id);if(!entry)return;ids.add(id);seen.push(entry)};
   for(const r of log){
     if(seen.length>=limit)break;
@@ -12110,14 +12204,33 @@ async function recoverCommittedSetupDraft(){
   if(raw===null||raw!==marker.raw)return{ok:true,absent:raw===null,conflict:raw!==null};
   return withStorageLock(storageIO,()=>removeObservedSetupDraft({raw,envelope:null}));
 }
+function setupDraftPersistenceProjection(value){
+  const projected=cloneSnapshot(value);
+  const projectStructure=structure=>{
+    if(!structure||typeof structure!=="object"||!Array.isArray(structure.weekPrescriptions))return;
+    structure.weekPrescriptions=structure.weekPrescriptions.map(entry=>({...entry,
+      days:Array.isArray(entry.days)?entry.days.map(day=>({...day,
+        slots:Array.isArray(day.slots)?day.slots.map(slot=>({slotId:slot.slotId,sets:slot.sets})):day.slots
+      })):entry.days
+    }));
+  };
+  projectStructure(projected.result?.preview?.programStructure);
+  projectStructure(projected.result?.alternative?.preview?.programStructure);
+  return projected;
+}
 function persistSetupDraft(next,io=storageIO){
   if(io===storageIO&&installTransferMutationFrozen())return Promise.resolve({ok:false,conflict:true,code:"install-transfer-frozen"});
   if(!ProgramEntry||!next)return Promise.resolve({ok:false});
   const stamped=ProgramEntry.updateTimestamp(next,entryNow());
-  const normalized=ProgramEntry.normalizeSetupDraft(stamped);
+  const draftProjection=setupDraftPersistenceProjection(stamped);
+  const normalized=ProgramEntry.normalizeSetupDraft(draftProjection);
   if(!normalized.ok)return Promise.resolve({ok:false,invalid:true});
   const queuedState=normalized.value;
-  entryState=queuedState;
+  // The staged draft omits attribution that is derivable from its current
+  // program to stay within the setup-draft contract. Keep the richer in-memory
+  // candidate for the editor and let the durable commit boundary restore the
+  // canonical receipt representation before either replica is touched.
+  entryState={...queuedState,result:cloneSnapshot(stamped.result)};
   return queueSetupDraftWrite(()=>withStorageLock(storageIO,async()=>{
     const currentRaw=readSetupDraftRaw();
     const handle=entryDraftHandle||{

@@ -200,6 +200,30 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
   await lb.context.close();
 }
 
+// Legacy/imported rows may omit `created`; every live ordering surface keeps
+// the calendar workout date primary in that case.
+{
+  const mixedTimestampLog = [
+    { session: "older-created", date: "2026-09-15", created: "2026-09-15T18:00:00.000Z", day: "Day 1", exerciseId: "pev-1", name: "Incline chest press", load: 100, reps: 8, rir: 2, set: 1, work: true },
+    { session: "newer-no-created", date: "2026-09-16", day: "Day 1", exerciseId: "pev-1", name: "Incline chest press", load: 105, reps: 8, rir: 2, set: 1, work: true },
+  ];
+  const { context, page } = await freshPage({ seededLog: mixedTimestampLog });
+  const mixed = await page.evaluate(() => {
+    const key = window.__repforgeProgressEvidence.keyForExerciseId("pev-1");
+    return {
+      strength: window.__repforgeProgressEvidence.strength(key),
+      loadPrs: window.__repforgePrTimeline("load").filter((entry) => entry.exerciseId === "pev-1"),
+    };
+  });
+  assert.deepEqual(mixed.strength.points.map((point) => point.value), [100, 105],
+    "live Strength chronology is date-first when created is absent");
+  assert.equal(mixed.strength.latest.value, 105, "live Strength latest follows the newer dated session");
+  assert.deepEqual(mixed.loadPrs.map((entry) => ({ date: entry.date, load: entry.load, delta: entry.deltaLoad })),
+    [{ date: "2026-09-16", load: 105, delta: 5 }, { date: "2026-09-15", load: 100, delta: undefined }],
+    "live PR chronology uses the same date-first ordering");
+  await context.close();
+}
+
 // Volume: model-backed denominators per scope, neutral in-progress wording.
 {
   const { context, page } = await freshPage();
@@ -348,9 +372,9 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
   await context.close();
 }
 
-// Historical prescriptions are versioned at the installed-editor boundary.
-// This covers a recovery week, the following edited week, a second edit in
-// week three, and a later block-to-date total across a reload.
+// Historical prescriptions are compact receipts at the installed-editor
+// boundary. This covers a recovery week, the following edited week, a second
+// edit in week three, and a later block-to-date total across a reload.
 {
   const provenanceProgram = [
     { id: "prov-ex-1", slotId: "prov-slot-1", dayId: "prov-day-1", day: "Day 1", order: 1, name: "Incline chest press", sets: 2, min: 6, max: 10, primary: "Chest", secondary: "" },
@@ -400,11 +424,14 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
   });
   assert.equal(weekTwo.evidence.plannedWorkingSets, 7,
     "week two block-to-date keeps the recovery prescription and uses the edited week-two prescription");
-  assert.deepEqual(weekTwo.structure.programVersions.map((entry) => entry.fromWeek), [1, 2],
-    "the first installed edit records old and new program versions");
+  assert.equal(weekTwo.structure.programVersions, undefined,
+    "the durable structure does not retain full historical program snapshots");
   assert.deepEqual(weekTwo.structure.weekPrescriptions.map((entry) =>
     entry.days.reduce((sum, day) => sum + day.slots.reduce((n, slot) => n + slot.sets, 0), 0)), [2, 5, 5, 5],
     "the durable weekly receipt preserves recovery and updates only current/future weeks");
+  assert.ok(weekTwo.structure.weekPrescriptions.every((entry) => entry.days.every((day) => day.slots.every((slot) =>
+    slot.primary === "Chest" || slot.primary === "Hamstrings"))),
+  "durable weekly receipts retain the muscle attribution needed for historical volume");
 
   await page.evaluate(() => sessionStorage.setItem("__repforge_test_now", "2026-09-17T12:00:00.000Z"));
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -440,8 +467,8 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
   });
   assert.equal(afterWeekThreeEdit.evidence.plannedWorkingSets, 13,
     "a week-three edit does not reproject the recovery or week-two denominator");
-  assert.deepEqual(afterWeekThreeEdit.structure.programVersions.map((entry) => entry.fromWeek), [1, 2, 3],
-    "later edits append one version boundary instead of replacing history");
+  assert.equal(afterWeekThreeEdit.structure.programVersions, undefined,
+    "later edits keep one bounded receipt representation instead of appending snapshots");
 
   await page.evaluate(() => sessionStorage.setItem("__repforge_test_now", "2026-09-24T12:00:00.000Z"));
   await page.reload({ waitUntil: "domcontentloaded" });
@@ -451,6 +478,184 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
   assert.equal(later.plannedWorkingSets, 19,
     "later totals sum the exact recovery, week-two, week-three, and week-four prescriptions");
   await context.close();
+}
+
+// The historical receipt remains bounded at the scale of a real generated
+// program. This deliberately uses all 18 seed movements and mutates the same
+// slot once in every numbered week, with a reload after every commit.
+{
+  const productionProgram = seedProgram().map((row, index) => ({
+    ...row,
+    id: `prod-ex-${index + 1}`,
+    slotId: `prod-slot-${index + 1}`,
+    dayId: `prod-day-${row.day.slice(-1)}`,
+    sets: 3,
+  }));
+  const productionDays = [...new Map(productionProgram.map((row) => [row.dayId, { dayId: row.dayId, label: row.day, order: Number(row.day.slice(-1)) }])).values()];
+  const productionReceipt = (week, firstSets = 3) => ({
+    week,
+    phase: "normal",
+    days: productionDays.map((day) => ({
+      dayId: day.dayId,
+      slots: productionProgram.filter((row) => row.dayId === day.dayId).map((row) => ({
+        slotId: row.slotId,
+        sets: row.id === "prod-ex-1" ? firstSets : 3,
+        primary: row.primary,
+        secondary: row.secondary,
+      })),
+    })),
+  });
+  const productionMeta = seedProgramMeta({
+    id: "production-provenance-program", name: "Production provenance", started: "2026-09-01",
+    blockId: "block-production-provenance", mesocycleLengthWeeks: 6,
+    programStructure: {
+      schemaVersion: 1,
+      days: productionDays,
+      provenance: { source: "manual_test", compilerVersion: null },
+      weekPrescriptions: Array.from({ length: 6 }, (_, index) => productionReceipt(index + 1)),
+    },
+  });
+  const { context, page } = await freshPage({
+    seededProgram: productionProgram, seededMeta: productionMeta, seededLog: [], fixedNow: "2026-09-03T12:00:00.000Z",
+  });
+  const boundedNodeCount = (value) => {
+    if (value === null || typeof value !== "object") return 1;
+    return 1 + (Array.isArray(value) ? value.reduce((sum, item) => sum + boundedNodeCount(item), 0)
+      : Object.values(value).reduce((sum, item) => sum + boundedNodeCount(item), 0));
+  };
+  const weekTotals = [];
+  let maximumNodes = 0;
+  const dates = [null, "2026-09-03T12:00:00.000Z", "2026-09-10T12:00:00.000Z", "2026-09-17T12:00:00.000Z", "2026-09-24T12:00:00.000Z", "2026-10-01T12:00:00.000Z", "2026-10-08T12:00:00.000Z"];
+  const inspectProductionState = async (week) => {
+    const snapshot = await page.evaluate(async () => {
+      await window.__repforgeStorage.flush();
+      const raw = JSON.parse(localStorage.getItem("repforge_v1"));
+      return {
+        raw,
+        valid: window.__repforgeValidateStateShape(raw),
+        booted: window.__repforgeBooted === true,
+        volume: window.__repforgeProgressEvidence.volume("block-to-date"),
+        programLength: window.__repforgeWorkoutDraft.state().program.length,
+      };
+    });
+    const structure = snapshot.raw.programMeta.programStructure;
+    const receiptTotals = structure.weekPrescriptions.map((entry) =>
+      entry.days.reduce((sum, day) => sum + day.slots.reduce((total, slot) => total + slot.sets, 0), 0));
+    maximumNodes = Math.max(maximumNodes, boundedNodeCount(structure));
+    assert.equal(snapshot.valid, true, `week ${week} persisted state passes the production validator`);
+    assert.equal(snapshot.booted, true, `week ${week} remains booted before reload`);
+    assert.equal(snapshot.programLength, 18, `week ${week} keeps all production exercises`);
+    assert.ok(maximumNodes < 1000, `week ${week} receipt stays below the 1000-node bound (${maximumNodes})`);
+    assert.deepEqual(structure.programVersions, undefined, `week ${week} has no full historical program snapshots`);
+    assert.equal(structure.weekPrescriptions.length, 6, `week ${week} stores every numbered receipt`);
+    assert.ok(structure.weekPrescriptions.every((entry) => entry.days.every((day) => day.slots.every((slot) =>
+      typeof slot.primary === "string" && typeof slot.secondary === "string"))),
+    `week ${week} receipts retain direct and secondary muscle attribution`);
+    const expectedTotal = weekTotals.reduce((sum, total) => sum + total, 0);
+    assert.equal(snapshot.volume.period.elapsedNumberedWeeks, week, `week ${week} elapsed period`);
+    assert.equal(snapshot.volume.plannedWorkingSets, expectedTotal, `week ${week} exact historical denominator`);
+    assert.deepEqual(receiptTotals.slice(0, week), weekTotals, `week ${week} past receipts do not change`);
+    assert.ok(receiptTotals.slice(week).every((total) => total === 54 + week),
+      `week ${week} current/future receipts use only the intended edit`);
+  };
+  const editProductionWeek = async (week) => {
+    await page.evaluate(() => document.querySelector('nav button[data-view="program"]')?.click());
+    await page.waitForSelector("#program.view.active", { timeout: 5000 });
+    if (await page.locator("#programEditorWrap").evaluate((element) => element.classList.contains("is-hidden"))) {
+      await page.click("#programEditToggle");
+    }
+    await page.waitForSelector('#programEditor [data-role="exercise"][data-id="prod-ex-1"]', { timeout: 5000 });
+    await page.locator('#programEditor [data-role="adjust"][data-id="prod-ex-1"][data-field="sets"][data-delta="1"]').click();
+    await page.click("#programEditToggle");
+    await page.waitForFunction(() => document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"), null, { timeout: 10000 });
+    await page.waitForFunction(async (expected) => (await window.__debugProgramEditor()).state.program.find((row) => row.id === "prod-ex-1")?.sets === expected,
+      3 + week, { timeout: 10000 });
+  };
+  for (let week = 1; week <= 6; week++) {
+    if (week > 1) {
+      await page.evaluate((date) => sessionStorage.setItem("__repforge_test_now", date), dates[week]);
+      await page.reload({ waitUntil: "domcontentloaded" });
+      const booted = await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 5000 })
+        .then(() => true).catch(() => false);
+      assert.equal(booted, true, `week ${week} reload completes boot`);
+    }
+    await editProductionWeek(week);
+    weekTotals.push(54 + week);
+    await inspectProductionState(week);
+  }
+  assert.ok(maximumNodes < 1000, `maximum production receipt size remains bounded (${maximumNodes})`);
+  console.log(`production receipt maximum structural nodes: ${maximumNodes}`);
+  const rejected = await page.evaluate(async () => {
+    const invalid = structuredClone(window.__repforgeWorkoutDraft.state());
+    invalid.programMeta.programStructure = { oversized: Array.from({ length: 1200 }, () => ({ value: 1 })) };
+    const writes = [];
+    const result = await window.__repforgeStorage.writeWithAdapter(invalid, {
+      writeLocal: async () => { writes.push("local"); return true; },
+      writeIdb: async () => { writes.push("idb"); return true; },
+    });
+    return { result, writes };
+  });
+  assert.equal(rejected.result.code, "invalid-state", "an over-bound proposal is rejected at the write boundary");
+  assert.deepEqual(rejected.writes, [], "an over-bound proposal touches neither durable replica");
+  await context.close();
+
+  // A completed block has no active edit boundary. Its receipts still own
+  // the historical denominator, so editing the authored program afterwards
+  // must not rewrite any completed week's prescription.
+  const completedMeta = seedProgramMeta({
+    id: "completed-production-provenance-program", name: "Completed production provenance",
+    started: "2026-09-01", mesocycleLengthWeeks: 6, mesocycleStatus: "completed",
+    completedAt: "2026-10-08T12:00:00.000Z", blockId: "block-completed-production-provenance",
+    programStructure: structuredClone(productionMeta.programStructure),
+  });
+  const completed = await freshPage({
+    seededProgram: productionProgram, seededMeta: completedMeta, seededLog: [],
+    fixedNow: "2026-10-09T12:00:00.000Z",
+  });
+  const completedBefore = await completed.page.evaluate(() => ({
+    volume: window.__repforgeProgressEvidence.volume("block-to-date"),
+    structure: window.__repforgeWorkoutDraft.state().programMeta.programStructure,
+  }));
+  assert.equal(completedBefore.volume.plannedWorkingSets, 324,
+    "a completed block includes every recorded weekly prescription");
+  await completed.page.evaluate(() => document.querySelector('nav button[data-view="program"]')?.click());
+  await completed.page.waitForSelector("#program.view.active", { timeout: 5000 });
+  if (await completed.page.locator("#programEditorWrap").evaluate((element) => element.classList.contains("is-hidden"))) {
+    await completed.page.click("#programEditToggle");
+  }
+  await completed.page.waitForSelector('#programEditor [data-role="exercise"][data-id="prod-ex-1"]', { timeout: 5000 });
+  await completed.page.locator('#programEditor [data-role="adjust"][data-id="prod-ex-1"][data-field="sets"][data-delta="1"]').click();
+  await completed.page.click("#programEditToggle");
+  await completed.page.waitForFunction(async () =>
+    (await window.__debugProgramEditor()).state.program.find((row) => row.id === "prod-ex-1")?.sets === 4,
+  undefined, { timeout: 10000 });
+  const completedAfter = await completed.page.evaluate(async () => {
+    await window.__repforgeStorage.flush();
+    const state = window.__repforgeWorkoutDraft.state();
+    const firstSlot = state.programMeta.programStructure.weekPrescriptions[0].days
+      .flatMap((day) => day.slots).find((slot) => slot.slotId === "prod-slot-1");
+    return {
+      volume: window.__repforgeProgressEvidence.volume("block-to-date"),
+      state,
+      firstSlot,
+    };
+  });
+  assert.equal(completedAfter.volume.plannedWorkingSets, 324,
+    "editing after completion does not reproject the closed block denominator");
+  assert.equal(completedAfter.firstSlot.sets, 3,
+    "the completed week's receipt keeps its originally prescribed sets");
+  assert.equal(completedAfter.firstSlot.primary, "Quads",
+    "the completed week's receipt keeps direct muscle attribution");
+  assert.equal(completedAfter.firstSlot.secondary, "Glutes,Adductors",
+    "the completed week's receipt keeps secondary muscle attribution");
+  assert.equal(completedAfter.state.program.find((row) => row.id === "prod-ex-1").sets, 4,
+    "the authored program still records the post-block edit separately");
+  assert.equal(completedAfter.state.programMeta.programStructure.programVersions, undefined,
+    "completed-block editing does not reintroduce full historical snapshots");
+  assert.equal(await completed.page.evaluate(() => window.__repforgeValidateStateShape(
+    JSON.parse(localStorage.getItem("repforge_v1")))), true,
+  "the completed-block edit remains within the durable state contract");
+  await completed.context.close();
 }
 
 // Chart sparse policy: two points never draw a trend line.

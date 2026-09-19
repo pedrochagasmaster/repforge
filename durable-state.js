@@ -814,7 +814,8 @@
     const idbOk = !!result?.idbOk;
     const revision = typeof result?.revision === "number" ? result.revision : (options.revision ?? 0);
     const conflict = !!(result?.conflict || result?.duplicate || result?.ineligible ||
-      result?.setupDraftConflict || result?.stale || result?.staleRevision || result?.staleBlock);
+      result?.setupDraftConflict || result?.stale || result?.staleRevision || result?.staleBlock ||
+      result?.stateInvalid);
     const draftConflict = !!result?.draftConflict;
     const alreadyCommitted = !!result?.alreadyCommitted;
     const accepted = !!result?.accepted;
@@ -830,6 +831,7 @@
       journalFailed ? "journal_failed" :
       draftConflict ? "draft_conflict" :
       stale ? "stale_proposal" :
+      result?.stateInvalid ? "invalid-state" :
       conflict ? (result?.reason || "conflict") :
       pendingJournalCleanup ? "journal_cleanup_pending" :
       deferred ? "settlement_deferred" :
@@ -993,6 +995,13 @@
     requireAdapter(io, "writeSnapshot");
     const target = cloneSnapshot(snapshot);
     const revision = readRevision(target);
+    // This is the last common write boundary for normal snapshots, prepared
+    // draft transactions, boot heals, and test adapters. Validate the exact
+    // shape the boot reader accepts before touching either durable replica.
+    if (!isValidStateShape(target)) {
+      return { revision, localOk: false, idbOk: false, conflict: true,
+        stateInvalid: true, code: "invalid-state" };
+    }
     if(io===storageIO&&installTransferMutationFrozen())
       return{revision,localOk:false,idbOk:false,conflict:true,
         transferFrozen:true,code:"install-transfer-frozen"};
@@ -1548,6 +1557,9 @@
     const frozenBase=cloneSnapshot(base),frozenLiveBase=cloneSnapshot(liveBase);
     const frozenProposal=cloneSnapshot(proposal),frozenEffectOutcome=normalizeDraftEffectOutcome(effect);
     let workingProposal=cloneSnapshot(frozenProposal);
+    if(!isValidStateShape(frozenBase)||!isValidStateShape(frozenLiveBase)||!isValidStateShape(frozenProposal))
+      return Promise.resolve({revision:readRevision(frozenBase),localOk:false,idbOk:false,
+        conflict:true,stateInvalid:true,code:"invalid-state"});
     const frozenReconcileSessionIds=normalizeJournalSessionIds(reconcileSessionIds);
     const frozenDayRenames=normalizeJournalDayRenames(dayRenames);
     if(frozenReconcileSessionIds==null||frozenDayRenames==null)
@@ -1649,6 +1661,9 @@
       const snapshot=stateSnapshotForHead(frozenBase,frozenLiveBase,workingProposal,head,
         {replace,reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
           expectedFirstRunEmpty,sharedRebaseSeed:pendingRecord?.journal.id||coordinationId});
+      if(!isValidStateShape(snapshot))
+        return discardPending({revision:readRevision(head),localOk:false,idbOk:false,
+          conflict:true,stateInvalid:true,code:"invalid-state"});
       const prepared=preparePendingDraftTransaction(snapshot,head,frozenEffect,pendingRecord?.journal.id);
       const transactionId=pendingDraftTransaction(prepared)?.id||coordinationId;
       if(io===storageIO&&installTransferMutationFrozen())return cancelUnstarted();
