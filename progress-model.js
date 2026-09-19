@@ -31,12 +31,16 @@
     declined: "review",
   });
 
+  const DEFAULT_INSUFFICIENT_REASON = "untested";
+
   const DAY_MS = 86400000;
 
   // Canonical evidence record shared by the producer, lifecycle model, and
   // renderers. `scope` is nullable only for old in-memory callers; production
   // records always carry it so an all-history record cannot leak into a
-  // current-block surface.
+  // current-block surface. A sufficient record is deliberately strict: it is
+  // an assertion that the authoritative comparison produced an outcome, not a
+  // count-based presentation guess.
   function normalizeEvidenceRecord(record, defaultScope = null) {
     if (!record || !EVIDENCE_STATES.includes(record.evidenceState)) return null;
     const exerciseId = String(record.exerciseId ?? "");
@@ -44,19 +48,27 @@
     const scope = EVIDENCE_SCOPES.includes(record.scope)
       ? record.scope
       : EVIDENCE_SCOPES.includes(defaultScope) ? defaultScope : null;
+    const evidenceCount = Number.isInteger(record.evidenceCount) && record.evidenceCount >= 0
+      ? record.evidenceCount : 0;
     const normalized = {
       exerciseId,
       scope,
       evidenceState: record.evidenceState,
-      evidenceCount: Number.isFinite(record.evidenceCount) ? record.evidenceCount : 0,
-      reason: record.reason ?? null,
+      evidenceCount,
+      reason: record.evidenceState === "insufficient"
+        ? String(record.reason ?? "").trim() || DEFAULT_INSUFFICIENT_REASON
+        : null,
     };
-    if (record.evidenceState === "sufficient" && OUTCOMES.includes(record.outcome)) {
+    if (record.evidenceState === "sufficient") {
+      if (evidenceCount < 2 || !OUTCOMES.includes(record.outcome)) return null;
+      const expectedRecommendation = OUTCOME_TO_RECOMMENDATION[record.outcome];
+      if (record.recommendation !== undefined && record.recommendation !== expectedRecommendation) return null;
       normalized.outcome = record.outcome;
-      normalized.recommendation = RECOMMENDATIONS.includes(record.recommendation)
-        ? record.recommendation : OUTCOME_TO_RECOMMENDATION[record.outcome];
+      normalized.recommendation = expectedRecommendation;
     }
-    if (Array.isArray(record.reasonCodes)) normalized.reasonCodes = record.reasonCodes.slice();
+    if (Array.isArray(record.reasonCodes)) {
+      normalized.reasonCodes = record.reasonCodes.filter((code) => typeof code === "string").slice();
+    }
     return normalized;
   }
 
@@ -154,6 +166,18 @@
     return out;
   }
 
+  function belongsToBlock(row, meta) {
+    const blockId = String(meta?.blockId ?? "").trim();
+    if (!blockId) return true;
+    // A modern active block must have provenance on every row. Missing blockId
+    // is legacy data, not evidence for the current block.
+    return String(row?.blockId ?? "").trim() === blockId;
+  }
+
+  function scopedRows(log, start, end, meta) {
+    return rowsInRange(log, start, end).filter((row) => belongsToBlock(row, meta));
+  }
+
   function countSessions(rows) {
     return new Set(rows.filter(isWorkingRow).map((r) => r.session ?? r.date)).size;
   }
@@ -162,8 +186,8 @@
     return rows.filter(isWorkingRow).length;
   }
 
-  function completedHardRows(log, start, end, hardRir) {
-    return rowsInRange(log, start, end).filter((row) => isHardWorkingRow(row, hardRir));
+  function completedHardRows(log, start, end, hardRir, meta) {
+    return scopedRows(log, start, end, meta).filter((row) => isHardWorkingRow(row, hardRir));
   }
 
   function elapsedWeekOf(started, now, weeks) {
@@ -206,7 +230,7 @@
     const elapsedWeek = Math.floor(days / 7) + 1;
     const start = addDays(norm.started, (elapsedWeek - 1) * 7);
     const end = addDays(start, 6);
-    const rows = rowsInRange(log, start, end);
+    const rows = scopedRows(log, start, end, meta);
     const rx = weekPrescription(meta, elapsedWeek - 1);
     return {
       week: elapsedWeek,
@@ -295,25 +319,32 @@
     };
     const bySession = new Map();
     let excludedHardRows = 0;
-    for (const row of rowsInRange(log, useBlock ? bounds.start : null, useBlock ? bounds.end : null)) {
+    let missingEffortRows = 0;
+    const sessionKeyFor = (row) => `${String(row.session ?? row.date)}\u0000${String(row.blockId ?? "")}`;
+    for (const row of scopedRows(log, useBlock ? bounds.start : null, useBlock ? bounds.end : null, useBlock ? meta : null)) {
       if (!row || !matches(row)) continue;
       if (!isWorkingRow(row)) {
         if (Number(row.load) > 0) excludedHardRows++;
         continue;
       }
-      const key = String(row.session ?? row.date);
+      const key = sessionKeyFor(row);
       // Strength's visible value is a load. Capacity/e1RM facts belong to the
       // progression engine and must never be sent through the load formatter.
       const value = Number(row.load);
+      if (row.rir == null || row.rir === "" || !Number.isFinite(Number(row.rir))) missingEffortRows++;
       const prev = bySession.get(key);
-      if (!prev) bySession.set(key, { session: key, date: isoDate(row.date), value, reps: Number(row.reps) });
+      if (!prev) bySession.set(key, { session: String(row.session ?? row.date), sessionKey: key,
+        date: isoDate(row.date), created: row.created ?? null, value, reps: Number(row.reps) });
       else if (value > prev.value || (value === prev.value && Number(row.reps) > prev.reps)) {
+        prev.date = isoDate(row.date);
+        prev.created = row.created ?? prev.created;
         prev.value = value;
         prev.reps = Number(row.reps);
       }
     }
     const points = [...bySession.values()].sort((a, b) =>
-      a.date === b.date ? String(a.session).localeCompare(String(b.session)) : a.date.localeCompare(b.date));
+      String(a.created ?? "").localeCompare(String(b.created ?? "")) ||
+      a.date.localeCompare(b.date) || String(a.sessionKey).localeCompare(String(b.sessionKey)));
     const count = points.length;
     const evidenceScope = useBlock ? "current-block" : String(scope);
     const fact = normalizeEvidenceRecords(meta?.evidenceRecords)
@@ -325,8 +356,12 @@
       points,
       evidenceCount: count,
       presentation: count === 0 ? "empty" : count === 1 ? "snapshot" : count === 2 ? "comparison" : "trend",
-      evidenceState: count >= 2 ? "sufficient" : "insufficient",
-      reason: count === 0 ? (excludedHardRows > 0 ? "missing-effort" : "untested") : count === 1 ? "single-observation" : null,
+      // A point count describes presentation shape, not evidence validity.
+      // Only the producer's authoritative comparable-exposure fact can make a
+      // series sufficient; otherwise it remains neutral baseline-building.
+      evidenceState: fact?.evidenceState ?? "insufficient",
+      reason: fact?.reason ?? (count === 0 ? (excludedHardRows > 0 ? "missing-effort" : "untested") :
+        count === 1 ? "single-observation" : missingEffortRows > 0 ? "missing-effort" : "untested"),
       outcome: undefined,
       latest: count ? { ...points.at(-1) } : null,
       comparison: count === 2 ? {
@@ -337,6 +372,7 @@
       } : null,
     };
     if (series.evidenceState === "sufficient" && fact && OUTCOMES.includes(fact.outcome)) series.outcome = fact.outcome;
+    if (series.evidenceState === "sufficient") series.reason = null;
     return series;
   }
 
@@ -359,8 +395,8 @@
       const weekIndex = Math.min(Math.max(0, Math.floor(days / 7)), norm.weeks - 1);
       const start = addDays(norm.started, weekIndex * 7);
       const end = addDays(start, 6);
-      const rows = rowsInRange(log, start, end);
-      const completedRows = completedHardRows(log, start, end, meta?.hardRir);
+      const rows = scopedRows(log, start, end, meta);
+      const completedRows = completedHardRows(log, start, end, meta?.hardRir, meta);
       const rx = weekPrescription(meta, weekIndex);
       return {
         scope,
@@ -394,14 +430,14 @@
     const elapsed = Math.min(Math.floor(days / 7) + 1, norm.weeks);
     const start = norm.started;
     const end = complete ? addDays(norm.started, norm.weeks * 7 - 1) : today;
-    const rows = rowsInRange(log, start, end);
+    const rows = scopedRows(log, start, end, meta);
     let plannedWorkingSets = 0, plannedSessions = 0;
     for (let i = 0; i < elapsed; i++) {
       const rx = weekPrescription(meta, i);
       plannedWorkingSets += rx?.plannedWorkingSets ?? norm.plannedWorkingSetsPerWeek;
       plannedSessions += rx?.plannedSessions ?? norm.plannedSessionsPerWeek;
     }
-    const completedRows = completedHardRows(log, start, end, meta?.hardRir);
+    const completedRows = completedHardRows(log, start, end, meta?.hardRir, meta);
     const completed = completedRows.length;
     return {
       scope,
@@ -428,7 +464,7 @@
     const bounds = evidenceBounds(scope, meta);
     const useBlock = scope === "current-block" && bounds.start;
     const byKey = new Map();
-    for (const row of rowsInRange(log, useBlock ? bounds.start : null, useBlock ? bounds.end : null)) {
+    for (const row of scopedRows(log, useBlock ? bounds.start : null, useBlock ? bounds.end : null, useBlock ? meta : null)) {
       if (!isWorkingRow(row)) continue;
       const key = String(row.exerciseId ?? row.exercise ?? row.name ?? "");
       if (!key) continue;

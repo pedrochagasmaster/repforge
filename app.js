@@ -298,6 +298,7 @@ function isSafeProgramHistoryEntry(entry){
 function isSafeLogRow(entry){
   if(!isPlainStateObject(entry))return false;
   if(Object.prototype.hasOwnProperty.call(entry,"blockId")&&!isValidBlockId(entry.blockId))return false;
+  if(Object.prototype.hasOwnProperty.call(entry,"rirMeasured")&&typeof entry.rirMeasured!=="boolean")return false;
   for(const key of ["performedName","performedLibraryId","performedMovementId","performedPrimary","performedSecondary"])
     if(Object.prototype.hasOwnProperty.call(entry,key)&&entry[key]!=null&&typeof entry[key]!=="string")
       return false;
@@ -2201,9 +2202,15 @@ function migrateLogSnapshot(snapshot){let changed=false;const lookup=snapshotLoo
     if(row.performedPrimary==null&&row.primary!=null){row.performedPrimary=String(row.primary||"");changed=true}
     if(row.performedSecondary==null&&row.secondary!=null){row.performedSecondary=String(row.secondary||"");changed=true}}
   const ld=posNum(row.load),rp=posNum(row.reps);
+  const missingRir=row.rir==null||row.rir==="",parsedRir=parseDec(row.rir);
   const explicitStrategy=ex?.progression?.strategy?.id;
-  const preserveMissingRir=explicitStrategy&&explicitStrategy!=="range"&&(row.rir==null||row.rir==="");
+  const preserveMissingRir=explicitStrategy&&explicitStrategy!=="range"&&missingRir;
+  // Keep the released progression input exactly as it was. Progress also needs
+  // to know that a legacy range row which was coerced to RIR 0 was unmeasured,
+  // so retain that provenance separately instead of changing recommendation
+  // arithmetic for every existing program.
   const rr=preserveMissingRir?null:posNum(row.rir);
+  if((missingRir||!Number.isFinite(parsedRir)||parsedRir<0)&&row.rirMeasured!==false){row.rirMeasured=false;changed=true}
   if(ld!==row.load||rp!==row.reps||rr!==row.rir){row.load=ld;row.reps=rp;row.rir=rr;changed=true}}
   return changed}
 function migrateLog(){return migrateLogSnapshot(state)}
@@ -4106,14 +4113,69 @@ function structureDayLabels(meta){
 function makeProgram(list,lookup=null,meta=null){
   return new Program(list,lookup,structureDayLabels(meta),
     meta?.programStructure?.provenance?.source==="manual_build")}
-function syncProgramStructureFromProgram(proposal,program){
+function compactPlannedProgram(program){
+  return(Array.isArray(program)?program:[]).map((row,index)=>{
+    const out={id:String(row?.id||`legacy_${index+1}`),slotId:String(row?.slotId||row?.id||`legacy_${index+1}`),
+      dayId:String(row?.dayId||row?.day||`day_${index+1}`),day:String(row?.day||""),order:Number(row?.order)||index+1,
+      name:String(row?.name||""),sets:Number.isFinite(+row?.sets)?Math.max(0,+row.sets):0,
+      min:Number.isFinite(+row?.min)?+row.min:null,max:Number.isFinite(+row?.max)?+row.max:null,
+      primary:String(row?.primary||""),secondary:String(row?.secondary||"")};
+    for(const key of ["displayName","libraryId","movementId"])if(row?.[key]!=null)out[key]=String(row[key]);
+    return out}).filter(row=>row.name||row.id)}
+function plannedPrescriptionForProgram(program,week,existing){
+  const days=new Map();
+  for(const row of compactPlannedProgram(program).sort((a,b)=>a.order-b.order||a.id.localeCompare(b.id))){
+    const dayId=row.dayId||row.day||`day_${days.size+1}`;
+    if(!days.has(dayId))days.set(dayId,{dayId,slots:[]});
+    days.get(dayId).slots.push({slotId:row.slotId,sets:row.sets});
+  }
+  return{week,phase:typeof existing?.phase==="string"?existing.phase:"manual_edit",days:[...days.values()]}}
+function preserveProgramPrescriptionHistory(structure,previousProgram,nextProgram,previousMeta){
+  const total=Math.max(1,Number(previousMeta?.mesocycleLengthWeeks)||6),life=mesocycleLifecycle(previousMeta);
+  const week=life.elapsedWeek!=null&&life.elapsedWeek>=1&&life.elapsedWeek<=total&&previousMeta?.mesocycleStatus!=="completed"
+    ?life.elapsedWeek:null;
+  if(!Array.isArray(previousProgram))return structure;
+  const oldCompact=compactPlannedProgram(previousProgram),nextCompact=compactPlannedProgram(nextProgram);
+  if(JSON.stringify(oldCompact)===JSON.stringify(nextCompact))return structure;
+  const existingWeeks=new Map((Array.isArray(structure.weekPrescriptions)?structure.weekPrescriptions:[])
+    .filter(entry=>Number.isInteger(entry?.week)).map(entry=>[entry.week,entry]));
+  // A completed block has no new prescription boundary. Keep the durable
+  // receipts that describe its elapsed weeks, but pin the historical program
+  // snapshot as the source for per-muscle projection if a later edit changes
+  // the display/program rows after the block has closed.
+  if(!week){
+    if(!existingWeeks.size)
+      structure.weekPrescriptions=Array.from({length:total},(_,index)=>plannedPrescriptionForProgram(previousProgram,index+1,null));
+    const existingVersions=(Array.isArray(structure.programVersions)?structure.programVersions:[])
+      .filter(entry=>Number.isInteger(entry?.fromWeek)&&entry.fromWeek>=1&&entry.fromWeek<=total&&Array.isArray(entry.program))
+      .map(entry=>({fromWeek:entry.fromWeek,program:compactPlannedProgram(entry.program)}));
+    if(!existingVersions.some(entry=>entry.fromWeek===1)){
+      structure.programVersions=[{fromWeek:1,program:oldCompact},...existingVersions]
+        .sort((a,b)=>a.fromWeek-b.fromWeek);
+    }
+    return structure;
+  }
+  structure.weekPrescriptions=Array.from({length:total},(_,index)=>{
+    const number=index+1;
+    if(number<week)return existingWeeks.get(number)||plannedPrescriptionForProgram(previousProgram,number,null);
+    return plannedPrescriptionForProgram(nextProgram,number,existingWeeks.get(number));
+  });
+  const priorVersions=(Array.isArray(structure.programVersions)?structure.programVersions:[])
+    .filter(entry=>Number.isInteger(entry?.fromWeek)&&entry.fromWeek>=1&&entry.fromWeek<=total&&Array.isArray(entry.program))
+    .map(entry=>({fromWeek:entry.fromWeek,program:compactPlannedProgram(entry.program)}));
+  if(!priorVersions.some(entry=>entry.fromWeek===1))priorVersions.unshift({fromWeek:1,program:oldCompact});
+  const versions=priorVersions.filter(entry=>entry.fromWeek<week);
+  versions.push({fromWeek:week,program:nextCompact});
+  structure.programVersions=versions.sort((a,b)=>a.fromWeek-b.fromWeek);
+  return structure}
+function syncProgramStructureFromProgram(proposal,program,previousProgram=null,previousMeta=null){
   const struct=proposal.programMeta?.programStructure;
   if(!struct||!Array.isArray(struct.days))return;
   const labels=program._structureDays&&program._structureDays.length
     ?program._structureDays.slice():program.days();
   const byLabel=new Map(struct.days.map(d=>[d.label,d]));
   const byIndex=struct.days.slice();
-  proposal.programMeta.programStructure={
+  const synced={
     ...cloneSnapshot(struct),
     days:labels.map((label,i)=>{
       const prev=byLabel.get(label)||byIndex[i];
@@ -4129,7 +4191,10 @@ function syncProgramStructureFromProgram(proposal,program){
         ?label:override;
       return{dayId,label,order:i+1,
         ...(displayNameKey?{displayNameKey}:{}),
-        ...(nameOverride?{nameOverride}:{})}})}
+        ...(nameOverride?{nameOverride}:{})}})};
+  proposal.programMeta.programStructure=previousProgram
+    ?preserveProgramPrescriptionHistory(synced,previousProgram,program.toJSON(),previousMeta||state.programMeta)
+    :synced;
 }
 function scheduledProgramRows(){
   const week=mesocycleLifecycle(state.programMeta).current;
@@ -6786,11 +6851,11 @@ function detectPRs(log,opts={}){
   const best=new Map(),events=[];
   for(const row of rows){const k=liftKey(row),ld=+row.load,rp=+row.reps,em=e1rm(ld,rp);
     const cur=best.get(k)||{load:0,repsAtMax:0,e1rm:0};
-    if(ld>cur.load){events.push({kind:"load",liftKey:k,date:row.date,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaLoad:cur.load>0?ld-cur.load:undefined});
+    if(ld>cur.load){events.push({kind:"load",liftKey:k,date:row.date,session:row.session,blockId:row.blockId??null,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaLoad:cur.load>0?ld-cur.load:undefined});
       cur.load=ld;cur.repsAtMax=rp}
-    else if(ld===cur.load&&rp>cur.repsAtMax){events.push({kind:"reps",liftKey:k,date:row.date,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaReps:rp-cur.repsAtMax});
+    else if(ld===cur.load&&rp>cur.repsAtMax){events.push({kind:"reps",liftKey:k,date:row.date,session:row.session,blockId:row.blockId??null,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaReps:rp-cur.repsAtMax});
       cur.repsAtMax=rp}
-    if(em>cur.e1rm){events.push({kind:"e1rm",liftKey:k,date:row.date,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaE1rm:cur.e1rm>0?em-cur.e1rm:undefined});
+    if(em>cur.e1rm){events.push({kind:"e1rm",liftKey:k,date:row.date,session:row.session,blockId:row.blockId??null,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaE1rm:cur.e1rm>0?em-cur.e1rm:undefined});
       cur.e1rm=em}
     best.set(k,cur)}
   return events}
@@ -7925,51 +7990,78 @@ window.__repforgeOverviewVolume={pct:overviewBarPct,sorted:overviewVolumeSorted,
 // Observed outcomes come from the authoritative paired-exposure comparison,
 // never from presentation. flat reads as "maintained" in the evidence model.
 const EVIDENCE_OUTCOME_KEYS={improved:"stats.outcome.improved",maintained:"stats.outcome.maintained",declined:"stats.outcome.declined"};
-function strengthEvidenceRows(){return state.log.filter(isWork).map(r=>({exerciseId:liftKey(r),session:r.session,date:r.date,
-  load:+r.load,reps:+r.reps,rir:+r.rir,work:true}))}
+function strengthSessionKey(row){return`${String(row?.session??row?.date)}\u0000${String(row?.blockId??"")}`}
+function strengthEvidenceRows(){return state.log.filter(isWork).map(r=>({exerciseId:liftKey(r),session:r.session,
+  sessionKey:strengthSessionKey(r),date:r.date,created:r.created??null,blockId:r.blockId??null,
+  name:displayName(r),day:r.day,primary:r.primary,secondary:r.secondary,
+  load:+r.load,reps:+r.reps,rir:r.rirMeasured===false||r.rir==null||r.rir===""?null:+r.rir,work:true}))}
 function strengthEvidenceRecords(scope="current-block"){
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return[];
   const meta={started:state.programMeta?.started||null,
-    mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6};
+    mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,
+    blockId:snapshotBlockId(state)};
   const rows=strengthEvidenceRows(),programKeys=new Set(prog.exercises.map(ex=>exerciseLiftKey(ex)||`slot:${ex.id}`));
   const keys=new Set([...programKeys,...rows.map(liftKey)]);
   const outcomeByStatus={improved:"improved",flat:"maintained",regressed:"declined"},records=[];
+  const hasEffort=row=>row?.rir!=null&&row.rir!==""&&Number.isFinite(Number(row.rir));
   for(const key of keys){
     const series=Model.buildStrengthEvidence(scope,key,rows,meta);
     if(!programKeys.has(key)&&series.evidenceCount===0)continue;
-    const record={exerciseId:key,scope:series.scope,evidenceState:series.evidenceState,
-      evidenceCount:series.evidenceCount,reason:series.reason};
-    if(series.evidenceState==="sufficient"){
-      // The model owns scope selection. Reuse its ordered point identities for
-      // the authoritative comparison instead of filtering the raw log again in
-      // this producer.
-      const sessions=series.points.map(point=>String(point.session));
-      const previous=rows.filter(r=>r.exerciseId===key&&String(r.session)===sessions.at(-2));
-      const latest=rows.filter(r=>r.exerciseId===key&&String(r.session)===sessions.at(-1));
-      const outcome=outcomeByStatus[buildSessionDelta(previous,latest).status];
-      if(outcome)record.outcome=outcome;
+    // The model owns scope and chronological point selection. The producer
+    // then asks the authoritative paired-exposure comparison for the final
+    // outcome; a count alone can never produce a sufficient record.
+    const pointRows=new Map(series.points.map(point=>[point.sessionKey,
+      rows.filter(row=>row.exerciseId===key&&row.sessionKey===point.sessionKey)]));
+    const latestPoint=series.points.at(-1),previousPoint=series.points.at(-2);
+    const latestRows=latestPoint?pointRows.get(latestPoint.sessionKey)||[]:[];
+    const previousRows=previousPoint?pointRows.get(previousPoint.sessionKey)||[]:[];
+    let evidenceState="insufficient",reason=series.reason||"untested",outcome;
+    if(series.evidenceCount>=2){
+      const comparableEffort=[...previousRows,...latestRows].every(hasEffort);
+      if(!comparableEffort)reason="missing-effort";
+      else{
+        const delta=buildSessionDelta(previousRows,latestRows);
+        outcome=outcomeByStatus[delta.status];
+        if(outcome){evidenceState="sufficient";reason=null}
+        else reason=delta.status==="changed_load"?"changed-load":"incompatible-exposure";
+      }
+    }else if(series.evidenceCount===1){
+      reason=latestRows.some(row=>!hasEffort(row))?"missing-effort":"single-observation";
     }
+    const record={exerciseId:key,scope:series.scope,evidenceState,
+      evidenceCount:series.evidenceCount,reason};
+    if(outcome)record.outcome=outcome;
     records.push(record)}
   return Model.normalizeEvidenceRecords(records)}
 function strengthFactsByLift(scope="current-block"){
   return Object.fromEntries(strengthEvidenceRecords(scope).filter(r=>r.outcome).map(r=>[r.exerciseId,r.outcome]))}
 function strengthProjection(scope="current-block"){
   const Model=RepForgeProgressModel,meta={started:state.programMeta?.started||null,
-    mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6};
-  const allSessions=summaries(),records=strengthEvidenceRecords(scope),rows=strengthEvidenceRows(),dashboard=[],keys=new Set();
+    mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,
+    blockId:snapshotBlockId(state)};
+  const records=strengthEvidenceRecords(scope),rows=strengthEvidenceRows(),dashboard=[],keys=new Set();
   for(const ex of prog.exercises)keys.add(exerciseLiftKey(ex)||`slot:${ex.id}`);
   for(const row of rows)keys.add(row.exerciseId);
   const series=new Map();
   for(const key of keys){
     const current=Model.buildStrengthEvidence(scope,key,rows,{...meta,evidenceRecords:records});
     if(!prog.exercises.some(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===key)&&current.evidenceCount===0)continue;
-    const sessionIds=new Set(current.points.map(point=>String(point.session)));
-    const liftSessions=allSessions.filter(session=>session.liftKey===key&&sessionIds.has(String(session.session)));
+    const pointKeys=new Set(current.points.map(point=>point.sessionKey));
+    const liftRows=rows.filter(row=>row.exerciseId===key&&pointKeys.has(row.sessionKey));
+    const liftSessions=current.points.map(point=>{
+      const source=liftRows.filter(row=>row.sessionKey===point.sessionKey);
+      const topRow=source.slice().sort((a,b)=>b.load-a.load||b.reps-a.reps)[0]||point;
+      const top=Number(topRow.load),topReps=Number(topRow.reps),volume=source.reduce((n,row)=>n+row.load*row.reps,0);
+      return{session:point.session,date:point.date,day:source[0]?.day||"",liftKey:key,
+        name:source[0]?.name||currentExerciseForLiftKey(key)?.name||key,top,topReps,reps:source.reduce((n,row)=>n+row.reps,0),
+        rir:avg(source.map(row=>row.rir).filter(value=>Number.isFinite(value))),sets:source.length,volume,
+        e1rm:Math.max(...source.map(row=>e1rm(row.load,row.reps))),sessionKey:point.sessionKey};
+    });
     const latest=liftSessions.at(-1);
     if(latest){
       const first=liftSessions[0],best=Math.max(...liftSessions.map(session=>session.e1rm));
-      const pointDates=new Set(current.points.map(point=>String(point.date)));
-      const scopedPrs=detectPRs(state.log).filter(event=>event.liftKey===key&&pointDates.has(String(event.date)));
+      const scopedPrs=detectPRs(state.log).filter(event=>event.liftKey===key&&
+        pointKeys.has(strengthSessionKey(event)));
       const ex=currentExerciseForLiftKey(key),rec=ex?recommendation(ex):{label:"—"};
       // Keep the historical read-only hook's fields stable while the primary
       // Strength surfaces consume the numeric projection above. `latest` is
@@ -7980,8 +8072,18 @@ function strengthProjection(scope="current-block"){
         prs:scopedPrs.length,lastTrained:latest.date,signal:rec.label});
     }
     series.set(key,current)}
-  const scopedSessionIds=new Map([...series].map(([key,current])=>[key,new Set(current.points.map(point=>String(point.session)))]));
-  const sessions=allSessions.filter(session=>scopedSessionIds.get(session.liftKey)?.has(String(session.session)));
+  const sessions=[...series].flatMap(([key,current])=>{
+    const pointKeys=new Set(current.points.map(point=>point.sessionKey));
+    const matching=rows.filter(row=>row.exerciseId===key&&pointKeys.has(row.sessionKey));
+    return current.points.map(point=>{
+      const source=matching.filter(row=>row.sessionKey===point.sessionKey);
+      const top=source.slice().sort((a,b)=>b.load-a.load||b.reps-a.reps)[0]||point;
+      return{session:point.session,date:point.date,day:source[0]?.day||"",liftKey:key,
+        name:source[0]?.name||currentExerciseForLiftKey(key)?.name||key,top:top.load,topReps:top.reps,
+        reps:source.reduce((n,row)=>n+row.reps,0),rir:avg(source.map(row=>row.rir).filter(value=>Number.isFinite(value))),sets:source.length,
+        volume:source.reduce((n,row)=>n+row.load*row.reps,0),e1rm:Math.max(...source.map(row=>e1rm(row.load,row.reps))),sessionKey:point.sessionKey};
+    });
+  });
   return{keys:new Set(series.keys()),dashboard,sessions,records,series}}
 // The test seam and the legacy fallback both read the same scoped projection
 // as the primary Strength renderer. No caller gets an all-history latest value
@@ -8046,17 +8148,27 @@ function recoveryRowsForPrescription(rows,record){
     if(!bySlot.has(slotId))return[row];
     const sets=bySlot.get(slotId);
     return sets>0?[{...row,sets}]:[]})}
+function progressProgramForWeek(weekNumber){
+  const versions=Array.isArray(state.programMeta?.programStructure?.programVersions)
+    ?state.programMeta.programStructure.programVersions.filter(entry=>Number.isInteger(entry?.fromWeek)&&Array.isArray(entry.program))
+      .sort((a,b)=>a.fromWeek-b.fromWeek):[];
+  const version=[...versions].reverse().find(entry=>entry.fromWeek<=weekNumber);
+  return version?cloneSnapshot(version.program):state.program}
 function progressWeekRows(weekNumber,record){
-  let rows=state.program;
+  let rows=progressProgramForWeek(weekNumber);
   if(Number.isInteger(weekNumber)&&typeof ProgramCompiler?.projectProgramForWeek==="function")
     rows=ProgramCompiler.projectProgramForWeek(rows,state.programMeta?.programStructure,weekNumber);
   return weekNumber===1?recoveryRowsForPrescription(rows,record):rows}
 function progressWeekPrescriptions(){
   const weeks=Math.max(1,Number(state.programMeta?.mesocycleLengthWeeks)||6);
   const record=activeRecoveryRecord&&activeRecoveryRecordBlockId===snapshotBlockId(state)?activeRecoveryRecord:null;
-  return Array.from({length:weeks},(_,index)=>prescriptionForRows(progressWeekRows(index+1,record)))}
+  return Array.from({length:weeks},(_,index)=>{
+    const rows=progressWeekRows(index+1,record),days=new Set(rows.map(row=>row.dayId||row.day).filter(Boolean));
+    return prescriptionForRows(rows,days.size);
+  })}
 function progressEvidenceMeta(){return{started:state.programMeta?.started||null,
   mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,hardRir:+state.settings.hardRir,
+  blockId:snapshotBlockId(state),
   weekPrescriptions:progressWeekPrescriptions()}}
 function volumePlannedMuscleMap(ev,prescriptions=progressWeekPrescriptions()){
   const m=new Map(),week=ev.period?.weekNumber||mesocycleLifecycle(state.programMeta).elapsedWeek||1;
@@ -8485,7 +8597,8 @@ function editorSnapshotFromDocument(document,base=state){
   proposal.program=cloneSnapshot(document?.program||[]);
   proposal.programMeta={...(cloneSnapshot(base?.programMeta||defaultProgramMeta(base?.log||[]))),...(cloneSnapshot(document?.programMeta||{}))};
   proposal.customExercises=cloneSnapshot(document?.customExercises||base?.customExercises||[]);
-  syncProgramStructureFromProgram(proposal,makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta));
+  syncProgramStructureFromProgram(proposal,makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta),
+    base?.program,base?.programMeta);
   return proposal}
 function editorAdapterTranslate(key,vars,fallback){
   const value=t(key,vars);return value===key?(fallback||key):value}
@@ -8915,7 +9028,17 @@ function programEditorProgram(){
   const snapshot=programEditorSnapshot();
   return makeProgram(snapshot.program,null,snapshot.programMeta)}
 async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
-  if(!setupEditorOpen)return commitProposedState(proposal,io,opts);
+  if(!setupEditorOpen){
+    // Every installed-program mutation, including the legacy field/JSON
+    // editor, crosses this boundary. Record the effective prescription before
+    // the durable commit so an edit in week N cannot reproject weeks < N from
+    // today's mutable program. The mounted editor also uses this helper at
+    // its final Apply, so there is one owner for the history receipt.
+    syncProgramStructureFromProgram(proposal,
+      makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta),
+      state.program,state.programMeta);
+    return commitProposedState(proposal,io,opts);
+  }
   if(!entryState?.result?.preview)return{localOk:false,idbOk:false,setupDraftInvalid:true};
   const model=makeProgram(proposal.program,null,proposal.programMeta);
   const structure=proposal.programMeta?.programStructure?cloneSnapshot(proposal.programMeta.programStructure):null;
@@ -9565,7 +9688,7 @@ async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value
     const nextExDays=new Set(nextProgram.exercises.map(e=>e.day));
     nextProgram._structureDays=nextProgram._structureDays.filter(d=>nextExDays.has(d)||!prevExDays.has(d))}
   proposal.program=nextProgram.toJSON();
-  syncProgramStructureFromProgram(proposal,nextProgram);
+  syncProgramStructureFromProgram(proposal,nextProgram,currentSnapshot.program,currentSnapshot.programMeta);
   migrateLogSnapshot(proposal);
   const effect=destructiveDraftClearEffect(discardDraftRaw);
   const result=await commitProgramEditorProposal(proposal,storageIO,{effect,...transition});

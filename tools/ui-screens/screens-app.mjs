@@ -149,6 +149,7 @@ async function completeCompiledProgram(page, { days = 4, minutes = 90 } = {}) {
       session: "catalog-transition-session", date: state.programMeta.started,
       day: exercise.day, name: exercise.name, exerciseId: exercise.id, set: 1,
       load: 60 + index * 5, reps: 8, rir: 2, work: true,
+      blockId: state.programMeta.blockId || undefined,
       created: state.programMeta.started + "T12:00:00.000Z",
       primary: exercise.primary, secondary: exercise.secondary,
       performedLibraryId: exercise.libraryId || undefined,
@@ -194,10 +195,12 @@ async function openRecoveryPreview(page) {
     state.programMeta.started = start;
     state.programMeta.mesocycleStatus = "completed";
     state.log = [];
+    const blockId = state.programMeta.blockId || undefined;
     for (const [index, exercise] of state.program.entries()) for (const [offset, load] of [[7, 50 + index], [1, 50 + index]]) {
       const date = new Date(Date.now() - offset * 86400000).toISOString().slice(0, 10);
       state.log.push({ session: `recovery-${offset}-${index}`, date, day: exercise.day, name: exercise.name,
         exerciseId: exercise.id, set: 1, load, reps: 8, rir: 2, work: true,
+        blockId,
         primary: exercise.primary, secondary: exercise.secondary,
         performedLibraryId: exercise.libraryId || undefined,
         created: `${date}T12:00:00.000Z` });
@@ -211,6 +214,7 @@ async function openRecoveryPreview(page) {
         session: "recovery-current-" + index, date: currentDate, day: exercise.day,
         name: exercise.name, exerciseId: exercise.id, set: 1, load: 40,
         reps: 6, rir: 2, work: true, primary: exercise.primary,
+        blockId,
         secondary: exercise.secondary, performedLibraryId: exercise.libraryId || undefined,
         created: currentDate + "T13:00:00.000Z",
       });

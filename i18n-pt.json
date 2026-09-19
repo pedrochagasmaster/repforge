@@ -1914,6 +1914,8 @@
   "stats.evidence.reason.untested": "Nenhuma série compatível registrada ainda.",
   "stats.evidence.reason.single-observation": "Uma série compatível é um retrato, não uma tendência.",
   "stats.evidence.reason.missing-effort": "Séries registradas sem dados de esforço.",
+  "stats.evidence.reason.incompatible-exposure": "Estas observações ainda não podem ser comparadas com segurança.",
+  "stats.evidence.reason.changed-load": "A exposição mudou antes que uma comparação pudesse ser feita.",
   "stats.evidence.range": "{start} a {end}",
   "stats.evidence.change": "{absolute} ({percentage}%)",
   "stats.table.sets": "Séries",

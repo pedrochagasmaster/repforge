@@ -9795,6 +9795,7 @@ async function main() {
         rir,
         notes: "",
         created: `${date}T12:00:0${i}Z`,
+        blockId: "coach-block",
         primary,
         secondary: "",
       }));
@@ -9838,6 +9839,7 @@ async function main() {
       ...(prior.programMeta || {}),
       id: "coach-fixture",
       name: "Coach fixture",
+      blockId: "coach-block",
       onboarded: true,
       // Keep the paired exposures inside the explicit current-block scope;
       // inheriting the preceding simulation's transient block start can make

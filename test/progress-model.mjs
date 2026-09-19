@@ -234,8 +234,52 @@ if (fs.existsSync(modelPath)) {
     evidenceRecords: [{ ...scopedRecords[0], scope: "all-history" }],
   }).outcome, undefined, "an all-history record cannot leak into current-block Strength");
 
+  // The canonical record boundary rejects claims that do not carry an
+  // authoritative outcome/recommendation pair, and strips action vocabulary
+  // from neutral records.
+  assert.equal(model.normalizeEvidenceRecord({ exerciseId: "bench", scope: "current-block", evidenceState: "sufficient", evidenceCount: 2 }), null,
+    "sufficient evidence without an outcome is not a valid canonical record");
+  assert.equal(model.normalizeEvidenceRecord({ exerciseId: "bench", scope: "current-block", evidenceState: "sufficient", evidenceCount: 2, outcome: "improved", recommendation: "review" }), null,
+    "a recommendation inconsistent with the authoritative outcome is rejected");
+  assert.deepEqual(model.normalizeEvidenceRecord({ exerciseId: "bench", scope: "current-block", evidenceState: "insufficient", evidenceCount: 2, outcome: "improved", recommendation: "progress" }),
+    { exerciseId: "bench", scope: "current-block", evidenceState: "insufficient", evidenceCount: 2, reason: "untested" },
+    "insufficient evidence is neutral and cannot carry an action outcome");
+  assert.deepEqual(model.normalizeEvidenceRecord({ exerciseId: "bench", scope: "current-block", evidenceState: "insufficient", evidenceCount: 2, reason: "missing-effort", outcome: "declined" }),
+    { exerciseId: "bench", scope: "current-block", evidenceState: "insufficient", evidenceCount: 2, reason: "missing-effort" },
+    "insufficient evidence keeps its failure-to-prove reason without leaking an outcome");
+
+  // Provenance, not date alone, owns current-block scope. Chronology remains
+  // deterministic for two sessions recorded on the same day.
+  const provenanceRows = [
+    { exerciseId: "bench", session: "old", date: "2026-09-10", created: "2026-09-10T08:00:00.000Z", blockId: "old-block", load: 200, reps: 8, rir: 2, work: true },
+    { exerciseId: "bench", session: "early", date: "2026-09-10", created: "2026-09-10T09:00:00.000Z", blockId: "current-block", load: 100, reps: 8, rir: 2, work: true },
+    { exerciseId: "bench", session: "late", date: "2026-09-10", created: "2026-09-10T18:00:00.000Z", blockId: "current-block", load: 105, reps: 8, rir: 2, work: true },
+    { exerciseId: "bench", session: "legacy", date: "2026-09-11", created: "2026-09-11T08:00:00.000Z", load: 300, reps: 8, rir: 2, work: true },
+  ];
+  const provenanceMeta = { started: "2026-09-01", mesocycleLengthWeeks: 2, blockId: "current-block" };
+  const scoped = model.buildStrengthEvidence("current-block", "bench", provenanceRows, provenanceMeta);
+  assert.deepEqual(scoped.points.map((point) => point.value), [100, 105],
+    "current-block strength excludes foreign and legacy rows even on overlapping dates");
+  assert.deepEqual(scoped.points.map((point) => point.created), ["2026-09-10T09:00:00.000Z", "2026-09-10T18:00:00.000Z"],
+    "same-day strength points use creation chronology");
+  const allHistory = model.buildStrengthEvidence("all-history", "bench", provenanceRows, provenanceMeta);
+  assert.deepEqual(allHistory.points.map((point) => point.value), [200, 100, 105, 300],
+    "all-history explicitly retains foreign and legacy rows");
+  const legacyOnly = [{ exerciseId: "rdl", session: "legacy", date: "2026-09-10", load: 80, reps: 8, rir: 2, work: true }];
+  assert.equal(model.buildStrengthEvidence("current-block", "rdl", legacyOnly, provenanceMeta).evidenceCount, 0,
+    "legacy rows without block provenance do not silently enter a modern current block");
+  assert.equal(model.buildStrengthEvidence("all-history", "rdl", legacyOnly, provenanceMeta).evidenceCount, 1,
+    "legacy rows remain available in explicit all-history mode");
+  const scopedVolume = model.buildVolumeEvidence("this-week", program, {
+    ...provenanceMeta, hardRir: 4, weekPrescriptions: [{ plannedSessions: 1, plannedWorkingSets: 2 }],
+  }, provenanceRows, "2026-09-10T12:00:00");
+  assert.equal(scopedVolume.completedWorkingSets, 2,
+    "volume uses the same current-block provenance boundary as Strength");
+
   const rdlComparison = model.buildStrengthEvidence("current-block", "rdl", log, { started: program.started });
   assert.equal(rdlComparison.presentation, "comparison");
+  assert.equal(rdlComparison.evidenceState, "insufficient",
+    "a point count alone cannot promote Strength without an authoritative comparable outcome");
   assert.equal(rdlComparison.comparison.absolute, 2.5, "two-point comparison keeps an absolute numeric delta");
   assert.ok(Math.abs(rdlComparison.comparison.percentage - 2.5) < 0.000001,
     "two-point comparison keeps the percentage delta");

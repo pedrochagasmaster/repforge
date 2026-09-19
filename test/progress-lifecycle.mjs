@@ -30,8 +30,8 @@ const now = "2026-08-31T12:00:00";
 // Completed block with sufficient evidence: evidence-valid actions only.
 {
   const facts = [
-    { exerciseId: "e1", evidenceState: "sufficient", outcome: "maintained" },
-    { exerciseId: "e2", evidenceState: "sufficient", outcome: "declined" },
+    { exerciseId: "e1", evidenceState: "sufficient", evidenceCount: 2, outcome: "maintained" },
+    { exerciseId: "e2", evidenceState: "sufficient", evidenceCount: 2, outcome: "declined" },
   ];
   const done = model.buildReviewCheckpoint(program, { ...meta, mesocycleStatus: "completed", evidenceRecords: facts }, [], now);
   assert.equal(done.lifecycle, "block-complete");
@@ -44,8 +44,8 @@ const now = "2026-08-31T12:00:00";
 // Improved evidence unlocks progress; recovery only with the approved policy flag.
 {
   const facts = [
-    { exerciseId: "e1", evidenceState: "sufficient", outcome: "improved" },
-    { exerciseId: "e2", evidenceState: "sufficient", outcome: "improved" },
+    { exerciseId: "e1", evidenceState: "sufficient", evidenceCount: 2, outcome: "improved" },
+    { exerciseId: "e2", evidenceState: "sufficient", evidenceCount: 2, outcome: "improved" },
   ];
   const done = model.buildReviewCheckpoint(program, { ...meta, mesocycleStatus: "completed", evidenceRecords: facts }, [], now);
   assert.ok(done.structuralActions.includes("progress"));

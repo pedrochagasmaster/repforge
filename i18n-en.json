@@ -1914,6 +1914,8 @@
   "stats.evidence.reason.untested": "No compatible sets logged yet.",
   "stats.evidence.reason.single-observation": "One compatible set is a snapshot, not a trend.",
   "stats.evidence.reason.missing-effort": "Logged sets are missing effort data.",
+  "stats.evidence.reason.incompatible-exposure": "These observations cannot be compared safely yet.",
+  "stats.evidence.reason.changed-load": "The exposure changed before a comparison could be made.",
   "stats.evidence.range": "{start} to {end}",
   "stats.evidence.change": "{absolute} ({percentage}%)",
   "stats.table.sets": "Sets",
