@@ -1122,7 +1122,11 @@ async function main() {
   draftPage.on("framenavigated", onFinishFrameNavigation);
   draftPage.on("request", onFinishNavigationRequest);
   const resumedSave = await draftPage.evaluate(async ({ k, d, exerciseId, performedName }) => {
-    const result = await window.__repforgeSaveWorkout();
+    // This resumed draft deliberately contains a skipped exercise, so its
+    // completion must use the explicit early-finish confirmation seam.
+    const result = await window.__repforgeSaveWorkout(null, {
+      completion: window.__repforgeEarlyFinishConfirmation,
+    });
     await window.__repforgeStorage.flush();
     const log = JSON.parse(localStorage.getItem(k) || "{}").log || [];
     const matchingRows = log.filter((row) => row.exerciseId === exerciseId && row.performedName === performedName);

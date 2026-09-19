@@ -5,6 +5,7 @@
  * migrates once and resumes a non-first Focus card while fully offline.
  */
 import assert from "node:assert/strict";
+import { finishEarly } from "./fixtures/focus-workout.mjs";
 import { execFileSync } from "node:child_process";
 import { createServer } from "node:http";
 import { createReadStream, readFileSync, statSync } from "node:fs";
@@ -165,7 +166,7 @@ try {
     const exercise = draft?.exercises?.[exerciseId];
     return exercise && exercise.sets[exercise.setOrder[0]].completion !== "pending";
   }, secondId);
-  const offlineSave = await page.evaluate(() => window.__repforgeSaveWorkout());
+  const offlineSave = await finishEarly(page);
   const offlineResult = await page.evaluate(({ stateKey, draftKey, checkpointKey, exerciseId }) => {
     const state = JSON.parse(localStorage.getItem(stateKey) || "{}");
     const checkpoint = JSON.parse(localStorage.getItem(checkpointKey) || "null");

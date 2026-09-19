@@ -148,8 +148,13 @@ async function main() {
       set("load", 60); set("reps", 10); set("rir", 2);
     }, slot.id);
     await settle(page, 150);
-    await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
-    await page.waitForTimeout(1200);
+    // The substitution journey intentionally logs only this slot. Persist that
+    // partial session through the user-visible early-finish confirmation rather
+    // than treating a normal form submit as a completion shortcut.
+    await page.locator("#sessionSheetBtn").click();
+    await page.locator("#sessionEarlyFinish").click();
+    await page.locator("#sessionEarlyConfirm").click();
+    await page.waitForSelector("#sessionSummary:not(.hidden)");
     await page.evaluate(() => document.querySelector("#sessionSummary .sumsheet__done, #sessionSummary button")?.click());
     await settle(page, 400);
 

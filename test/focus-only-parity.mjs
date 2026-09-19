@@ -431,6 +431,22 @@ async function main() {
     phase("Save to summary: one atomic commit, draft cleared, summary opens");
     // The finish action lives on the done well of the last card, so the save
     // journey completes the last exercise's ordered sets and finishes there.
+    // Complete all preceding exercises so the final exercise completes the workout
+    for (let i = 0; i < dayExercises.length - 1; i++) {
+      const ex = dayExercises[i];
+      await page.evaluate(async (exId) => {
+        const draft = window.__repforgeWorkoutDraft.current();
+        const exercise = draft?.exercises?.[exId];
+        if (!exercise) return;
+        for (const setId of exercise.setOrder) {
+          await window.__repforgeWorkoutDraft.dispatch("editSetField", { exerciseInstanceId: exId, setId, field: "load", value: "50" });
+          await window.__repforgeWorkoutDraft.dispatch("editSetField", { exerciseInstanceId: exId, setId, field: "reps", value: "10" });
+          await window.__repforgeWorkoutDraft.dispatch("editSetField", { exerciseInstanceId: exId, setId, field: "rir", value: "2" });
+          await window.__repforgeWorkoutDraft.dispatch("completeSet", { exerciseInstanceId: exId, setId, completedAt: new Date().toISOString() });
+        }
+        await window.__repforgeWorkoutDraft.flush();
+      }, ex.id);
+    }
     await enterFocus(page, dayExercises.length - 1);
     const lastId = lastOfDay.id;
     await commitActiveSet(page, { load: 40, reps: 10, rir: 2 });

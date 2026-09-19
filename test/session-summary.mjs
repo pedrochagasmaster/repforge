@@ -415,7 +415,9 @@ async function run() {
     // Strip the host so openSessionSummary has nothing to open, the way a
     // stripped shell or an older cached index.html would leave it.
     document.querySelector("#sessionSummary")?.remove();
-    await window.__repforgeSaveWorkout();
+    await window.__repforgeSaveWorkout(null, {
+      completion: window.__repforgeEarlyFinishConfirmation,
+    });
     return {
       toast: document.querySelector("#toast")?.textContent?.trim() || "",
       logged: (JSON.parse(localStorage.getItem("repforge_v1") || "{}").log || []).length,
@@ -438,7 +440,9 @@ async function run() {
     };
     let result;
     try {
-      result = await window.__repforgeSaveWorkout();
+      result = await window.__repforgeSaveWorkout(null, {
+        completion: window.__repforgeEarlyFinishConfirmation,
+      });
     } finally {
       Storage.prototype.removeItem = originalRemoveItem;
     }
@@ -485,7 +489,9 @@ async function run() {
     };
     let result;
     try {
-      result = await window.__repforgeSaveWorkout();
+      result = await window.__repforgeSaveWorkout(null, {
+        completion: window.__repforgeEarlyFinishConfirmation,
+      });
     } finally {
       Storage.prototype.setItem = originalSetItem;
     }

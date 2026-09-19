@@ -5556,6 +5556,26 @@ function renderSessionSheet(){
         }
       });
     });
+    const restoreReorderFocus = (exerciseId, direction) => {
+      const key = direction === "up" ? "sessionReorderUp" : "sessionReorderDown";
+      const control = [...mapEl.querySelectorAll("[data-session-reorder-up], [data-session-reorder-down]")]
+        .find(button => button.dataset[key] === exerciseId && !button.disabled) ||
+        [...mapEl.querySelectorAll("[data-session-reorder-up], [data-session-reorder-down]")]
+          .find(button => button.dataset[direction === "up" ? "sessionReorderDown" : "sessionReorderUp"] === exerciseId && !button.disabled) ||
+        mapEl.querySelector(`[data-session-map-ex="${CSS.escape(exerciseId)}"]`);
+      if (control) control.focus({ preventScroll: true });
+    };
+    const announceReorder = (exerciseId, direction) => {
+      const order = activeWorkoutDraft?.exerciseOrder || [];
+      const index = order.indexOf(exerciseId);
+      const exercise = activeWorkoutDraft?.exercises?.[exerciseId];
+      restoreReorderFocus(exerciseId, direction);
+      if (index >= 0 && exercise) announce(t("session.sheet.reorder_announcement", {
+        name: exercise.displayName,
+        index: index + 1,
+        count: order.length,
+      }));
+    };
     $$("#sessionMap [data-session-reorder-up]").forEach(b => b.onclick = async (e) => {
       e.stopPropagation();
       const exId = b.dataset.sessionReorderUp;
@@ -5568,6 +5588,7 @@ function renderSessionSheet(){
           hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
           renderWorkout();
           renderSessionSheet();
+          announceReorder(exId, "up");
         }
       }
     });
@@ -5583,6 +5604,7 @@ function renderSessionSheet(){
           hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
           renderWorkout();
           renderSessionSheet();
+          announceReorder(exId, "down");
         }
       }
     });
@@ -6338,6 +6360,7 @@ function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
     0;
   $("#saveMeta").textContent=done?t("log.save_meta.done",{day:dayLabel(day),done,planned}):(entered?t("log.save_meta.entered",{day:dayLabel(day),entered,planned}):t("log.save_meta.planned",{day:dayLabel(day),planned}));}
 
+const EARLY_FINISH_CONFIRMATION=Symbol("confirmed early finish");
 const WorkoutSession=(()=>{
   async function start(label,options){
     await drainDraftWork();
@@ -6345,12 +6368,36 @@ const WorkoutSession=(()=>{
   async function leave(){
     await drainDraftWork();
     return !draftUiRecovery?.attempt&&!draftUiRecovery?.status&&window.__repforgeDraftFault!=="persist-failure"}
-async function finish(io,expectedDraft=null){
+function normalFinishIssues(draft){
+  const issues=[];
+  for(const exerciseId of draft?.exerciseOrder||[]){
+    const exercise=draft.exercises?.[exerciseId];
+    if(!exercise)continue;
+    if(exercise.status==="skipped"){
+      issues.push({code:"incomplete-workout",exerciseInstanceId:exerciseId});
+      continue}
+    for(const setId of exercise.setOrder||[]){
+      const set=exercise.sets?.[setId];
+      if(set?.completion==="pending")issues.push({code:"incomplete-workout",exerciseInstanceId:exerciseId,setId})}}
+  return issues}
+async function finish(io,{expectedDraft=null,completion="normal"}={}){
   await drainDraftWork();
   if(expectedDraft&&(activeWorkoutDraft?.draftId!==expectedDraft.draftId||activeWorkoutDraft?.revision!==expectedDraft.revision)){
     return{result:{localOk:false,idbOk:false,reason:"stale-confirmation"}}}
   if(!activeWorkoutDraft)return{result:null};
   if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed")return{result:{localOk:false,idbOk:false,reason:"recovery-pending"}};
+  const earlyConfirmed=completion===EARLY_FINISH_CONFIRMATION;
+  if(completion!=="normal"&&!earlyConfirmed)return{result:{localOk:false,idbOk:false,reason:"invalid-finish-kind"}};
+  if(!earlyConfirmed){
+    // Surface malformed user input before the completeness boundary. A
+    // touched invalid set is not an invitation to take the early-finish path;
+    // it must remain an ordinary validation error while untouched/pending
+    // planned work is what makes normal completion incomplete.
+    const inputIssues=WorkoutDraft.validateForSave(activeWorkoutDraft)
+      .filter(issue=>issue.code!=="finish-required"&&issue.code!=="no-work");
+    if(inputIssues.length)return{result:{localOk:false,idbOk:false,validation:true,issues:inputIssues}};
+    const issues=normalFinishIssues(activeWorkoutDraft);
+    if(issues.length)return{result:{localOk:false,idbOk:false,validation:true,issues}}}
   const capturedDraft=activeWorkoutDraft,capturedRaw=activeWorkoutDraftRaw,operationId=`finish-${uid()}`,now=new Date().toISOString();
   const finishing=WorkoutDraft.reduce(capturedDraft,{type:"beginFinish",operationId,
     expectedRevision:capturedDraft.revision,updatedAt:now,writer:draftWriter(operationId)});
@@ -6379,17 +6426,18 @@ async function finish(io,expectedDraft=null){
   return{result,completed:{rows,prevLog,session,date,day:savedDay,startedAt,draftId:savedDraft.draftId}}}
   return Object.freeze({start,leave,finish,dispatch:enqueueDraftCommand,projection:workoutDraftProjection,flush:drainDraftWork})})();
 
-async function saveWorkoutV2(io,expectedDraft=null){
-  const {result,completed,capturedRaw}=await WorkoutSession.finish(io,expectedDraft);
+async function saveWorkoutV2(io,{expectedDraft=null,completion="normal"}={}){
+  const {result,completed,capturedRaw}=await WorkoutSession.finish(io,{expectedDraft,completion});
   if(!completed){
     if(result?.reason==="stale-confirmation")toast(t("session.sheet.stale_error"));
     if(result?.validation&&!applyDraftIssue(result.issues||[]))
-      toast(t(result.issues?.some(issue=>issue.code==="no-work")?"toast.enter_weight_before_save":"validation.load"));
+      toast(t(result.issues?.some(issue=>issue.code==="incomplete-workout")?"toast.finish_incomplete":
+        result.issues?.some(issue=>issue.code==="no-work")?"toast.enter_weight_before_save":"validation.load"));
     if(capturedRaw!=null){
       const stale=!!result.draftConflict;
       draftUiRecovery={kind:stale?"stale":"persist",status:stale?"stale":"save-failed",attempt:null,pendingValue:null,
         copyValue:capturedRaw,copyKind:"data",focus:draftFocusIdentity(),retry:!stale,
-        retryAction:stale?null:()=>saveWorkoutV2(io),discard:false};
+        retryAction:stale?null:()=>saveWorkoutV2(io,{expectedDraft,completion}),discard:false};
       renderDraftRecovery();focusDraftRecovery()}
     return result}
   resetDraftSessionPresentation();resetSessionContextFields();stopRest();
@@ -6408,11 +6456,11 @@ async function saveWorkoutV2(io,expectedDraft=null){
     maybeShowInstallBanner()}
   return result}
 
-async function saveWorkout(e,io,expectedDraft=null){if(e&&e.preventDefault)e.preventDefault();if(saving)return;
+async function saveWorkout(e,io,options={}){if(e&&e.preventDefault)e.preventDefault();if(saving)return;
   const form=$("#logForm"),formWasInert=!!form?.inert,formBusy=form?.getAttribute("aria-busy")??null;
   if(!activeWorkoutDraft){showDraftInitializationRecovery({status:"invalid",raw:DraftStore.readRaw()});return{localOk:false,idbOk:false,reason:"missing-active-draft"}}
   saving=true;if(form){form.inert=true;form.setAttribute("aria-busy","true")}
-  try{return await saveWorkoutV2(io,expectedDraft)}finally{
+  try{return await saveWorkoutV2(io,options)}finally{
     if(form){form.inert=formWasInert;if(formBusy==null)form.removeAttribute("aria-busy");else form.setAttribute("aria-busy",formBusy)}
     if(form&&!form.inert){const invalid=form.querySelector("[aria-invalid='true']");if(invalid){try{invalid.focus()}catch{}}}
     saving=false}}
@@ -14445,7 +14493,8 @@ function navTo(view){
 }
 window.__repforgeEnterWorkout=enterWorkout;
 window.__repforgeGoToLogExercise=goToLogExercise;
-window.__repforgeSaveWorkout=(io)=>saveWorkout({preventDefault(){}},io);
+window.__repforgeSaveWorkout=(io, options)=>saveWorkout({preventDefault(){}},io, options);
+window.__repforgeEarlyFinishConfirmation=EARLY_FINISH_CONFIRMATION;
 window.__repforgeWorkoutDraft={
   current:()=>activeWorkoutDraft,
   raw:()=>activeWorkoutDraftRaw,
@@ -14816,7 +14865,9 @@ function init(){
     }
     const expectedDraft={draftId:activeWorkoutDraft.draftId,revision:sessionEarlyRevision};
     const p=closeSessionSheet();if(p&&typeof p.then==="function")await p;
-    await saveWorkout(null,null,expectedDraft);
+    const finishPromise=saveWorkout(null,null,{expectedDraft,completion:EARLY_FINISH_CONFIRMATION});
+    window.__repforgeLastWorkoutFinish=finishPromise;
+    await finishPromise;
   };
   const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=async()=>{
     if(setupEditorOpen){requestEntryCancel();return}

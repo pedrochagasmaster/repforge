@@ -1928,9 +1928,11 @@ const EN = {
   "ex.actions.open_notes": "Edit exercise notes",
   "session.sheet.reorder_up_aria": "Move {name} earlier in workout",
   "session.sheet.reorder_down_aria": "Move {name} later in workout",
+  "session.sheet.reorder_announcement": "{name} moved to position {index} of {count}.",
   "workout.leave_failed": "Could not save workout progress. Please try again.",
   "session.sheet.omitted": "{name}: sets {sets}",
   "session.sheet.early_invalid": "Correct the highlighted set values before finishing.",
+  "toast.finish_incomplete": "Complete the planned sets, or use Finish session early.",
 };
 const PT = {
   "meta.description": "O Taurifer mantém seus treinos, rascunhos e histórico neste dispositivo. Links de configuração compartilham um programa e ajustes selecionados.",
@@ -3860,9 +3862,11 @@ const PT = {
   "ex.actions.open_notes": "Editar notas do exercício",
   "session.sheet.reorder_up_aria": "Mover {name} para antes no treino",
   "session.sheet.reorder_down_aria": "Mover {name} para depois no treino",
+  "session.sheet.reorder_announcement": "{name} movido para a posição {index} de {count}.",
   "workout.leave_failed": "Não foi possível salvar o progresso do treino. Tente novamente.",
   "session.sheet.omitted": "{name}: séries {sets}",
   "session.sheet.early_invalid": "Corrija os valores destacados antes de concluir.",
+  "toast.finish_incomplete": "Conclua as séries planejadas ou use Concluir treino mais cedo.",
 };
 (function (root) {
   const STRINGS = { en: EN, pt: PT };

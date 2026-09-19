@@ -354,7 +354,11 @@ async function main() {
     const beforeRows = await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).log, STATE_KEY);
     const sessionsBefore = new Set(beforeRows.map((row) => row.session));
     const saveResult = await page.evaluate(async () => {
-      const result = await window.__repforgeSaveWorkout();
+      // The fixture intentionally preserves skipped/incomplete exercises; save
+      // it through the product's explicit early-finish confirmation boundary.
+      const result = await window.__repforgeSaveWorkout(null, {
+        completion: window.__repforgeEarlyFinishConfirmation,
+      });
       await window.__repforgeStorage.flush();
       return result;
     });
@@ -464,7 +468,9 @@ async function main() {
     const sessionsBeforeAdHoc = new Set((await page.evaluate((key) => JSON.parse(localStorage.getItem(key)).log, STATE_KEY))
       .map((row) => row.session));
     const adHocSave = await page.evaluate(async () => {
-      const result = await window.__repforgeSaveWorkout();
+      const result = await window.__repforgeSaveWorkout(null, {
+        completion: window.__repforgeEarlyFinishConfirmation,
+      });
       await window.__repforgeStorage.flush();
       return result;
     });

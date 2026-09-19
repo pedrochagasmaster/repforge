@@ -131,6 +131,7 @@ export const SUITES = {
     s("test/workout-draft-parity.mjs"),
     s("test/focus-only-parity.mjs"),
     s("test/focus-session-sheet.mjs"),
+    s("test/workout-finish-boundary.mjs"),
     s("test/focus-exercise-actions.mjs"),
     s("test/focus-navigation.mjs"),
     s("test/focus-geometry.mjs"),

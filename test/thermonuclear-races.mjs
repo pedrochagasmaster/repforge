@@ -297,6 +297,32 @@ async function fillSet(page, set, { load, reps, rir }) {
   await page.locator(`[data-k="audit-press_${set}_rir"]`).fill(String(rir));
 }
 
+async function completeWorkout(page) {
+  for (const set of [1, 2]) {
+    const values = {
+      load: await page.locator(`[data-k="audit-press_${set}_load"]`).inputValue(),
+      reps: await page.locator(`[data-k="audit-press_${set}_reps"]`).inputValue(),
+      rir: await page.locator(`[data-k="audit-press_${set}_rir"]`).inputValue(),
+    };
+    if (!values.load || !values.reps || !values.rir) {
+      await fillSet(page, set, {
+        load: values.load || 60,
+        reps: values.reps || 10,
+        rir: values.rir || 2,
+      });
+    }
+    await page.locator(`.saveset[data-save="audit-press_${set}"]`).click();
+  }
+  await page.waitForFunction(() => {
+    const draft = window.__repforgeWorkoutDraft?.current?.();
+    return draft?.exerciseOrder?.every((exerciseId) => {
+      const exercise = draft.exercises?.[exerciseId];
+      return exercise?.setOrder?.every((setId) => exercise.sets?.[setId]?.completion !== "pending");
+    });
+  });
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+}
+
 async function openProgramEditor(page) {
   await page.evaluate(() => window.__repforgeLeaveWorkout?.());
   await page.click('nav button[data-view="program"]');
@@ -355,6 +381,7 @@ async function scenarioUnloadWithTwoPendingIntents(browser) {
 
     await enterWorkout(page);
     await fillSet(page, 1, { load: 72.5, reps: 9, rir: 1 });
+    await completeWorkout(page);
     await page.waitForFunction((draftKey) => localStorage.getItem(draftKey) !== null, DRAFT);
     await holdStorageLock(locker);
 
@@ -426,6 +453,7 @@ async function scenarioIdbOnlyThenStaleSettings(browser) {
 
     await enterWorkout(writer);
     await fillSet(writer, 1, { load: 60, reps: 10, rir: 1 });
+    await completeWorkout(writer);
     const accepted = await writer.evaluate(async (key) => {
       const originalSetItem = Storage.prototype.setItem;
       Storage.prototype.setItem = function (candidate, value) {
@@ -448,7 +476,7 @@ async function scenarioIdbOnlyThenStaleSettings(browser) {
         oneSided.local?._storageRevision === beforeRevision &&
         oneSided.local?.log?.length === 0 &&
         oneSided.idb?._storageRevision === accepted.revision &&
-        oneSided.idb?.log?.length === 1,
+        oneSided.idb?.log?.length === 2,
       "precondition: the next workout revision is accepted only by IDB while local remains at the prior head",
       { beforeRevision, accepted, replicas: summary(oneSided) }
     );
@@ -605,6 +633,7 @@ async function scenarioFinishClearsNewerSet(browser) {
 
     await enterWorkout(page);
     await fillSet(page, 1, { load: 70, reps: 8, rir: 1 });
+    await completeWorkout(page);
     await holdStorageLock(locker);
     await page.evaluate(() => {
       window.__auditFinishSet1 = window.__repforgeSaveWorkout();
@@ -995,6 +1024,7 @@ async function scenarioBootReplayFinishClearsCapturedDraft(browser) {
 
     await enterWorkout(writer);
     await fillSet(writer, 1, { load: 77.5, reps: 9, rir: 1 });
+    await completeWorkout(writer);
     await writer.waitForFunction((draftKey) => localStorage.getItem(draftKey) !== null, DRAFT);
     const capturedDraftRaw = await writer.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT);
 
@@ -1038,8 +1068,8 @@ async function scenarioBootReplayFinishClearsCapturedDraft(browser) {
       localSessions.size === 1 &&
         idbSessions.size === 1 &&
         idbSessions.has(savedSession) &&
-        replayed.local.log.filter((row) => row.session === savedSession).length === 1 &&
-        replayed.idb.log.filter((row) => row.session === savedSession).length === 1,
+        replayed.local.log.filter((row) => row.session === savedSession).length === 2 &&
+        replayed.idb.log.filter((row) => row.session === savedSession).length === 2,
       "boot replay makes exactly one session durable in both replicas",
       { replicas: summary(replayed), localSessions: [...localSessions], idbSessions: [...idbSessions] }
     );
@@ -1090,6 +1120,7 @@ async function scenarioInPageFinishPreservesNewerDraft(browser) {
 
     await enterWorkout(writer);
     await fillSet(writer, 1, { load: 82.5, reps: 8, rir: 1 });
+    await completeWorkout(writer);
     await writer.waitForFunction((draftKey) => localStorage.getItem(draftKey) !== null, DRAFT);
     const capturedDraftRaw = await writer.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT);
 
@@ -1136,8 +1167,8 @@ async function scenarioInPageFinishPreservesNewerDraft(browser) {
 
     check(
       (finishResult?.localOk || finishResult?.idbOk) &&
-        final.local?.log?.length === 1 &&
-        final.idb?.log?.length === 1 &&
+        final.local?.log?.length === 2 &&
+        final.idb?.log?.length === 2 &&
         final.persistenceArtifacts.length === 0,
       "precondition: the captured Finish is accepted and only its record is cleaned",
       { finishResult, replicas: summary(final), artifacts: final.persistenceArtifacts }
@@ -1169,8 +1200,8 @@ async function scenarioInPageFinishPreservesNewerDraft(browser) {
     check(
       afterFreshBoot.draftRaw === null &&
         recoveryAfterFreshBoot === newerDraftRaw &&
-        (afterFreshBoot.local?.log?.length ?? 0) === 1 &&
-        (afterFreshBoot.idb?.log?.length ?? 0) === 1,
+        (afterFreshBoot.local?.log?.length ?? 0) === 2 &&
+        (afterFreshBoot.idb?.log?.length ?? 0) === 2,
       "a fresh boot retains only the recovery copy beside the accepted session",
       { replicas: summary(afterFreshBoot), recoveryMatches: recoveryAfterFreshBoot === newerDraftRaw }
     );
@@ -1205,6 +1236,7 @@ async function scenarioTotalFinishFailureIsDurablyRejected(browser) {
 
     await enterWorkout(page);
     await fillSet(page, 1, { load: 87.5, reps: 8, rir: 1 });
+    await completeWorkout(page);
     await page.waitForFunction((draftKey) => localStorage.getItem(draftKey) !== null, DRAFT);
     const capturedDraftRaw = await page.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT);
     const result = await page.evaluate(

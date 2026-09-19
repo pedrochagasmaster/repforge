@@ -1140,7 +1140,12 @@ async function runWorkoutThenRenameRace(browser) {
         window.__renameRaceSaveCommitted = true;
         await afterSave;
       };
-      window.__renameRaceWorkoutResult = window.__repforgeSaveWorkout();
+      // This fixture intentionally leaves the second set unfinished. The race
+      // is still a legitimate saved session, but it must enter through the
+      // same explicit early-finish confirmation boundary as the product flow.
+      window.__renameRaceWorkoutResult = window.__repforgeSaveWorkout(null, {
+        completion: window.__repforgeEarlyFinishConfirmation,
+      });
     });
     await waitForPendingStorageLocks(locker, 1);
     await dispatchRename(renamer, "Day 1", "Push Day");
@@ -1254,7 +1259,9 @@ async function runRenameThenWorkoutRace(browser) {
     await dispatchRename(renamer, "Day 1", "Push Day");
     await waitForPendingStorageLocks(locker, 1);
     await workout.evaluate(() => {
-      window.__renameRaceWorkoutResult = window.__repforgeSaveWorkout();
+      window.__renameRaceWorkoutResult = window.__repforgeSaveWorkout(null, {
+        completion: window.__repforgeEarlyFinishConfirmation,
+      });
     });
     await waitForPendingStorageLocks(locker, 2);
     await releaseStorageLock(locker);
@@ -1274,7 +1281,9 @@ async function runRenameThenWorkoutRace(browser) {
     check(workoutResult?.draftConflict === true && !workoutResult?.localOk && !workoutResult?.idbOk,
       "rename-first ordering rejects the stale captured workout revision", workoutResult);
     await reloadApp(workout);
-    const retriedWorkoutResult = await workout.evaluate(() => window.__repforgeSaveWorkout());
+    const retriedWorkoutResult = await workout.evaluate(() => window.__repforgeSaveWorkout(null, {
+      completion: window.__repforgeEarlyFinishConfirmation,
+    }));
     await workout.evaluate(() => window.__repforgeStorage.flush());
     const final = await readRuntime(locker);
     await reloadApp(locker);

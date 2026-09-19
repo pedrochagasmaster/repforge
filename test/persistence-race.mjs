@@ -204,6 +204,19 @@ async function flushFieldBearingDraft(page, expectedFields) {
   );
 }
 
+async function completeOnlySet(page) {
+  const button = page.locator('.saveset[data-save="race-press_1"]');
+  await button.click();
+  await page.waitForFunction(() => {
+    const draft = window.__repforgeWorkoutDraft?.current?.();
+    const exerciseId = draft?.exerciseOrder?.[0];
+    const exercise = exerciseId ? draft.exercises?.[exerciseId] : null;
+    const setId = exercise?.setOrder?.[0];
+    return setId ? exercise.sets?.[setId]?.completion !== "pending" : false;
+  });
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+}
+
 async function readAcknowledgedDraft(page) {
   return page.evaluate((draftKey) => {
     const hook = window.__repforgeWorkoutDraft;
@@ -329,6 +342,7 @@ try {
   const workoutDraftBeforeFault = await flushFieldBearingDraft(page, { load: "60", reps: "10", rir: "1" });
   check(typeof workoutDraftBeforeFault === "string" && workoutDraftBeforeFault.length > 0,
     "same-page race captures the exact field-bearing DraftV2 bytes before fault injection");
+  await completeOnlySet(page);
 
   await page.evaluate(
     ({ key, dbName, storeName }) => {
@@ -429,6 +443,7 @@ try {
     await page.locator('[data-k="race-press_1_load"]').fill("62.5");
     await page.locator('[data-k="race-press_1_reps"]').fill("9");
     await page.locator('[data-k="race-press_1_rir"]').fill("1");
+    await completeOnlySet(page);
     const crossAccepted = await page.evaluate(() => window.__repforgeSaveWorkout());
     await flushStorage(page);
 
@@ -531,6 +546,7 @@ try {
   await page.locator('[data-k="race-press_1_load"]').fill("67.5");
   await page.locator('[data-k="race-press_1_reps"]').fill("8");
   await page.locator('[data-k="race-press_1_rir"]').fill("1");
+  await completeOnlySet(page);
   await page.evaluate(
     ({ key, dbName, storeName }) => {
       let release;

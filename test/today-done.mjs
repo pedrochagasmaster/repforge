@@ -152,18 +152,24 @@ async function todayView(page) {
 async function logAndSaveToday(page, day) {
   await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d}), day);
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
-  await page.evaluate((d) => {
+  await page.evaluate(async (d) => {
     const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    const draft = window.__repforgeWorkoutDraft.current();
     for (const ex of (state.program || []).filter((e) => e.day === d)) {
-      for (let n = 1; n <= (ex.sets || 1); n++) {
-        for (const [suffix, val] of [["load", 60], ["reps", ex.min || 8], ["rir", 1]]) {
-          const el = document.querySelector(`[data-k="${ex.id}_${n}_${suffix}"]`);
-          if (!el) continue;
-          el.value = String(val);
-          el.dispatchEvent(new Event("input", { bubbles: true }));
+      const exercise = draft?.exercises?.[ex.id];
+      if (!exercise) continue;
+      for (const setId of exercise.setOrder) {
+        for (const [field, value] of [["load", "60"], ["reps", String(ex.min || 8)], ["rir", "1"]]) {
+          await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+            exerciseInstanceId: ex.id, setId, field, value,
+          });
         }
+        await window.__repforgeWorkoutDraft.dispatch("completeSet", {
+          exerciseInstanceId: ex.id, setId, completedAt: new Date().toISOString(),
+        });
       }
     }
+    await window.__repforgeWorkoutDraft.flush();
   }, day);
   await page.evaluate(async () => {
     await window.__repforgeSaveWorkout();

@@ -250,7 +250,9 @@ async function enterAndEditDraft(page) {
 }
 
 async function saveWorkoutAndReload(page) {
-  await page.locator("#logForm").evaluate((form) => form.requestSubmit());
+  await page.locator("#sessionSheetBtn").click();
+  await page.locator("#sessionEarlyFinish").click();
+  await page.locator("#sessionEarlyConfirm").click();
   await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 10000 });
   await page.locator("#sumDone").click();
   await page.waitForSelector("#workoutShell.hidden", { state: "attached", timeout: 8000 });

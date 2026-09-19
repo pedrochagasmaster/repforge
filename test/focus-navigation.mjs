@@ -111,9 +111,23 @@ async function main() {
 
     const selectedBefore=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
 
-    // Click Move Down on row 0
-    await reorderDownBtn.click();
+    // Operate the Move Down control through the keyboard path. The row rerender
+    // must restore focus by exercise identity, not by the old DOM node.
+    await reorderDownBtn.focus();
+    await reorderDownBtn.press("Enter");
     await page.waitForTimeout(350);
+
+    const reorderFocus = await page.evaluate(() => ({
+      tag: document.activeElement?.tagName,
+      exerciseId: document.activeElement?.dataset?.sessionReorderDown || null,
+      announcement: document.querySelector("#toast")?.textContent || "",
+    }));
+    assert(reorderFocus.tag === "BUTTON" && reorderFocus.exerciseId === beforeOrder.draftOrder[0],
+      "keyboard reorder keeps focus on the same logical Move down control",
+      JSON.stringify(reorderFocus));
+    assert(reorderFocus.announcement.includes("2") && reorderFocus.announcement.includes(String(beforeOrder.draftOrder.length)),
+      "keyboard reorder announces the resulting position",
+      JSON.stringify(reorderFocus));
 
     const afterOrder = await page.evaluate((key) => {
       const draft = window.__repforgeWorkoutDraft.current();
@@ -149,6 +163,29 @@ async function main() {
       "STOP guard: reorder in Session map NEVER mutates set ordinals",
       JSON.stringify({ before: beforeOrder.setOrdinalsEx0, after: afterOrder.setOrdinalsEx0 })
     );
+
+    // Continue using the same keyboard path until the moved exercise reaches
+    // the end. The requested Move down control is then disabled; focus must
+    // move to the stable exercise identity's other live reorder control so
+    // keyboard reordering remains operable at the boundary.
+    for (let step = 1; step < beforeOrder.draftOrder.length - 1; step++) {
+      await page.keyboard.press("Enter");
+      await page.waitForFunction((id) => {
+        const active = document.activeElement;
+        return active?.dataset?.sessionReorderDown === id || active?.dataset?.sessionReorderUp === id;
+      }, beforeOrder.draftOrder[0]);
+    }
+    const boundaryFocus = await page.evaluate(() => ({
+      exerciseId: document.activeElement?.dataset?.sessionReorderUp || null,
+      disabled: document.activeElement?.disabled || false,
+      announcement: document.querySelector("#toast")?.textContent || "",
+    }));
+    assert(boundaryFocus.exerciseId === beforeOrder.draftOrder[0] && !boundaryFocus.disabled,
+      "keyboard reorder restores focus to a live control at the list boundary",
+      JSON.stringify(boundaryFocus));
+    assert(boundaryFocus.announcement.includes(String(beforeOrder.draftOrder.length)),
+      "boundary reorder announces the final position",
+      JSON.stringify(boundaryFocus));
 
     // Close session sheet: verify Focus deck reflects the new first exercise
     await page.locator("#sessionSheetClose").click();

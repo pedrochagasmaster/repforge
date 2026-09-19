@@ -618,7 +618,7 @@ async function main() {
       "drafted set 2 remains reachable after rejected reduce_volume"
     );
 
-    await page.evaluate(() => window.__repforgeSaveWorkout());
+    await finishEarly(page);
     await page.evaluate(() => window.__repforgeStorage.flush());
     const afterBlockFinish = await readRuntime(page);
     const blockRows = (afterBlockFinish.local?.log ?? [])
@@ -680,7 +680,7 @@ async function main() {
       }
     );
 
-    await page.evaluate(() => window.__repforgeSaveWorkout());
+    await finishEarly(page);
     await page.evaluate(() => window.__repforgeStorage.flush());
     const afterSafeFinish = await readRuntime(page);
     const safeRows = (afterSafeFinish.local?.log ?? []).filter(

@@ -32,4 +32,6 @@ export async function finishEarly(page) {
   await page.locator("#sessionSheetBtn").click();
   await page.locator("#sessionEarlyFinish").click();
   await page.locator("#sessionEarlyConfirm").click();
+  await page.waitForFunction(() => window.__repforgeWorkoutDraft.current() === null, undefined, { timeout: 15000 });
+  return page.evaluate(() => window.__repforgeLastWorkoutFinish);
 }

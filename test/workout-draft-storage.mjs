@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { exerciseAction, sessionField } from "./fixtures/focus-workout.mjs";
+import { exerciseAction, finishEarly, sessionField } from "./fixtures/focus-workout.mjs";
 /**
  * Production storage/DOM gate for Plan 051's first DraftV2 vertical slice.
  * Requires a static server on REPFORGE_URL (default http://localhost:8000/).
@@ -112,6 +112,31 @@ async function reset(page, options = {}) {
 async function enter(page, day = "Day 1") {
   await page.evaluate((label) => window.__repforgeEnterWorkout({day: label }), day);
   await page.waitForSelector("#workout.is-focus .exercise.is-current", { timeout: 5000 });
+}
+
+// Plan 055's normal finish only accepts a complete workout. These scenarios are
+// about *when* Finish captures its revision, not about partial workouts, so every
+// set except the visible one under test is completed up front and the storage
+// hazard is still exercised on that last visible completion.
+async function completeAllButCurrent(page) {
+  await page.evaluate(async () => {
+    const hook = window.__repforgeWorkoutDraft;
+    const draft = hook.current();
+    const heldExercise = draft.session.selectedExerciseId;
+    const heldSet = draft.exercises[heldExercise].setOrder[0];
+    for (const exerciseInstanceId of draft.exerciseOrder) {
+      for (const setId of draft.exercises[exerciseInstanceId].setOrder) {
+        if (exerciseInstanceId === heldExercise && setId === heldSet) continue;
+        for (const [field, value] of [["load", "60"], ["reps", "8"], ["rir", "2"]]) {
+          await hook.dispatch("editSetField", { exerciseInstanceId, setId, field, value });
+        }
+        await hook.dispatch("completeSet", { exerciseInstanceId, setId, completedAt: new Date().toISOString() });
+      }
+    }
+    await hook.flush();
+  });
+  await page.evaluate(() => window.__repforgeFocus.to(0));
+  await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-well .saveset", { timeout: 5000 });
 }
 
 async function fillCurrent(page, field, value) {
@@ -233,11 +258,8 @@ async function main() {
     const hiddenBeforeSave = await page.locator("#workout .focus-inputs").count();
     check(hiddenBeforeSave === 0,
       "reload and rerender create no hidden List-input carriers before save", { hiddenBeforeSave });
-    const save = await page.evaluate(async () => {
-      const result = await window.__repforgeSaveWorkout();
-      await window.__repforgeStorage.flush();
-      return result;
-    });
+    const save = await finishEarly(page);
+    await page.evaluate(() => window.__repforgeStorage.flush());
     const saved = await rawState(page);
     const row = saved.state.log.find((candidate) => candidate.exerciseId === first.id && candidate.load === 62.5);
     check((save?.localOk || save?.idbOk) && row?.reps === 8 && row?.rir === 2,
@@ -275,11 +297,8 @@ async function main() {
     await waitForBoot(page);
     check((await rawState(page)).raw === preciseBeforeReload,
       "canonical converted load and bodyweight survive reload byte-for-byte");
-    const preciseSave = await page.evaluate(async () => {
-      const result = await window.__repforgeSaveWorkout();
-      await window.__repforgeStorage.flush();
-      return result;
-    });
+    const preciseSave = await finishEarly(page);
+    await page.evaluate(() => window.__repforgeStorage.flush());
     const preciseSaved = await rawState(page);
     const preciseRow = preciseSaved.state.log.find((row) => row.exerciseId === precisionExercise.id);
     check((preciseSave?.localOk || preciseSave?.idbOk) && preciseRow &&
@@ -409,6 +428,7 @@ async function main() {
     console.log("\n1a. Immediate Complete then Finish orders the acknowledged write");
     await reset(page);
     await enter(page);
+    await completeAllButCurrent(page);
     await fillCurrent(page, "load", "61");
     await fillCurrent(page, "reps", "8");
     await fillCurrent(page, "rir", "2");
@@ -577,7 +597,7 @@ async function main() {
       return exercise?.sets?.[exercise?.setOrder?.[1]]?.completion !== "pending";
     }, { draft: DRAFT, id: dynamicExercise.id });
     const dynamicDraftId = await page.evaluate(() => window.__repforgeWorkoutDraft.current()?.draftId);
-    const dynamicSave = await page.evaluate(() => window.__repforgeSaveWorkout());
+    const dynamicSave = await finishEarly(page);
     await page.evaluate(() => window.__repforgeStorage.flush());
     await page.evaluate(() => window.__repforgeSessionSummary?.close());
     await page.waitForSelector("#sessionSummary.hidden", { state: "attached", timeout: 5000 });
@@ -721,11 +741,8 @@ async function main() {
       load: migratedSet.edited.load,
       checkpointKind: migrated.checkpoint?.kind,
     });
-    const migratedSave = await page.evaluate(async () => {
-      const result = await window.__repforgeSaveWorkout();
-      await window.__repforgeStorage.flush();
-      return result;
-    });
+    const migratedSave = await finishEarly(page);
+    await page.evaluate(() => window.__repforgeStorage.flush());
     const migratedSaved = await rawState(page);
     check((migratedSave?.localOk || migratedSave?.idbOk) &&
       migratedSaved.state.log.some((candidate) => candidate.exerciseId === first.id && candidate.load === 57.5) &&
@@ -754,6 +771,7 @@ async function main() {
     console.log("\n2. Save owns its captured revision and cannot clear a successor draft");
     await reset(page);
     await enter(page);
+    await completeAllButCurrent(page);
     await fillCurrent(page, "load", "60");
     await fillCurrent(page, "reps", "8");
     await fillCurrent(page, "rir", "2");
@@ -803,6 +821,7 @@ async function main() {
 
     await reset(page);
     await enter(page);
+    await completeAllButCurrent(page);
     await fillCurrent(page, "load", "64");
     await fillCurrent(page, "reps", "8");
     await fillCurrent(page, "rir", "2");
