@@ -1935,7 +1935,14 @@ export async function runSharedSetupFlow(browser) {
       const fragment = encoded.ok ? encoded.value : wireFragment(REPRESENTATIVE_PAYLOAD);
       const before = await page.evaluate(readDurableState);
       await page.goto(`${APP_INDEX}#setup=${fragment}`, { waitUntil: "domcontentloaded" });
-      await page.waitForTimeout(600);
+      await page.waitForFunction(
+        (expected) => {
+          const el = document.querySelector("#toast");
+          return el && !el.classList.contains("hidden") && el.textContent === expected;
+        },
+        SHARED_COPY.en.existing,
+        { timeout: 5000 }
+      );
       const after = await page.evaluate(readDurableState);
       const gate = await page.evaluate(sharedGateSnapshot);
       const toast = await page.evaluate(() => {

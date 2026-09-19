@@ -13,7 +13,25 @@ export function appState(key, lang) {
   if (key === "today/no-program" || key === "program/no-program") {
     return emptyEntryState(lang);
   }
+  if (key.startsWith("progress/sibling-") || key === "progress/volume-reduction-preview" ||
+      ["progress/recovery-ineligible","progress/recovery-questions","progress/recovery-preview","progress/recovery-active","progress/recovery-reassessment"].includes(key)) {
+    return emptyEntryState(lang);
+  }
   const state = catalogState();
+  if (key === "progress/overview-baseline" || key === "progress/review-insufficient") {
+    const seen = new Set();
+    state.log = state.log.filter((row) => {
+      const id = row.exerciseId || row.name;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
+  }
+  if ((key.startsWith("progress/review-") && key !== "progress/review-active") || key.startsWith("progress/schedule-") ||
+      key.startsWith("progress/sibling-") || key.startsWith("progress/guided-") ||
+      key.startsWith("progress/volume-reduction") || key.startsWith("progress/recovery-")) {
+    state.programMeta.mesocycleStatus = "completed";
+  }
   // The editor reference is intentionally a compact two-exercise day, matching
   // the canonical installed-editor mockup. Other catalog surfaces keep the
   // richer fixture so their progress and volume evidence remains meaningful.
@@ -97,8 +115,130 @@ async function openProgram(page) {
 
 async function progressSegment(page, segment) {
   await view(page, "stats");
-  await page.click(`#statsSeg [data-seg="${segment}"]`);
+  const primary = segment === "overview" || segment === "review";
+  await page.click(`${primary ? "#statsSeg" : "#statsEvidence"} [data-seg="${segment}"]`);
   await sleep(page, 500);
+}
+
+async function completeCompiledProgram(page, { days = 4, minutes = 90 } = {}) {
+  await page.evaluate(async ({ days, minutes }) => {
+    const services = window.__repforgeOnboarding.services();
+    const compiled = services.compile({ mode: "recommend", answers: {
+      desiredResult: "balanced", structuredExperience: "6_to_24m", recentConsistency: "most",
+      daysPerWeek: days, sessionMinutes: minutes, preferredRestSeconds: 90,
+      environment: { kind: "commercial_gym" }, primaryMuscles: [], deEmphasizedMuscles: [],
+      ignoredMuscles: [], priorityMovements: [], mustHaveExercises: [], exerciseConstraints: [],
+    }, versions: services.currentVersions() });
+    if (!compiled.ok) throw new Error(`catalog compiler failed: ${compiled.code}`);
+    const finalized = await window.__repforgeFinalizeProgramSetup({
+      exercises: compiled.preview.program, name: "Catalog transition program",
+      answers: { goal: "strength_hypertrophy", experience: "intermediate", sessionLength: String(minutes), daysPerWeek: days }, destination: "log", origin: "first-run",
+      draftConfirmed: true, telemetryRoute: "recommend", entryTelemetry: compiled.telemetry,
+      entrySource: { route: "recommend", fingerprint: compiled.fingerprint },
+      programStructure: compiled.preview.programStructure, compilerContext: compiled.compilerContext,
+    });
+    if (!(finalized?.localOk || finalized?.idbOk)) throw new Error("catalog finalize failed");
+    const state = JSON.parse(localStorage.getItem("repforge_v1"));
+    state.programMeta.mesocycleStatus = "completed";
+    // The production shell keeps the detailed Progress panels out of the
+    // first-run empty state. Give transition frames one real session so they
+    // exercise the completed-block Review surface without pretending that the
+    // empty-device shell has evidence. Recovery scenarios replace this with
+    // their own dated rows below.
+    state.log = state.program.slice(0, 2).map((exercise, index) => ({
+      session: "catalog-transition-session", date: state.programMeta.started,
+      day: exercise.day, name: exercise.name, exerciseId: exercise.id, set: 1,
+      load: 60 + index * 5, reps: 8, rir: 2, work: true,
+      blockId: state.programMeta.blockId || undefined,
+      created: state.programMeta.started + "T12:00:00.000Z",
+      primary: exercise.primary, secondary: exercise.secondary,
+      performedLibraryId: exercise.libraryId || undefined,
+    }));
+    const committed = await window.__repforgeCommitProposedState(state);
+    if (!(committed?.localOk || committed?.idbOk)) throw new Error("catalog completion failed");
+    await window.__repforgeStorage.flush();
+  }, { days, minutes });
+  // The direct commit seam updates durable state and the in-memory owner,
+  // but the capture is proving the post-boot surface. Reload so the
+  // transition frames cannot depend on which view happened to be active
+  // while the fixture was assembled.
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await page.waitForFunction(() => window.__repforgeBooted === true, undefined, { timeout: 20000 });
+  await sleep(page, 300);
+}
+
+async function openCompletedReview(page) {
+  await progressSegment(page, "review");
+}
+
+async function openScheduleDiagnosis(page) {
+  await openCompletedReview(page);
+  await page.click('[data-review-action="schedule-repair"]');
+  await sleep(page, 300);
+}
+
+async function openSiblingPreview(page, kind) {
+  await completeCompiledProgram(page);
+  await openScheduleDiagnosis(page);
+  if (kind === "sessions_too_long") await page.click('[data-diag="sessions_too_long"]');
+  await page.fill("[data-diag-target]", kind === "sessions_too_long" ? "60" : "3");
+  await page.click("[data-diag-continue]");
+  await page.waitForSelector("[data-preview-confirm]", { timeout: 20000 });
+  await sleep(page, 400);
+}
+
+async function openRecoveryPreview(page) {
+  await completeCompiledProgram(page);
+  await page.evaluate(async () => {
+    const state = JSON.parse(localStorage.getItem("repforge_v1"));
+    const start = new Date(Date.now() - 14 * 86400000).toISOString().slice(0, 10);
+    state.programMeta.started = start;
+    state.programMeta.mesocycleStatus = "completed";
+    state.log = [];
+    const blockId = state.programMeta.blockId || undefined;
+    for (const [index, exercise] of state.program.entries()) for (const [offset, load] of [[7, 50 + index], [1, 50 + index]]) {
+      const date = new Date(Date.now() - offset * 86400000).toISOString().slice(0, 10);
+      state.log.push({ session: `recovery-${offset}-${index}`, date, day: exercise.day, name: exercise.name,
+        exerciseId: exercise.id, set: 1, load, reps: 8, rir: 2, work: true,
+        blockId,
+        primary: exercise.primary, secondary: exercise.secondary,
+        performedLibraryId: exercise.libraryId || undefined,
+        created: `${date}T12:00:00.000Z` });
+    }
+    // The completed-program seed contributes one ordinary exposure. Add a
+    // current, lower-rep exposure so the real paired-session comparison
+    // produces maintained/declined pattern evidence for the recovery gate.
+    const currentDate = new Date(Date.now()).toISOString().slice(0, 10);
+    for (const [index, exercise] of state.program.entries()) {
+      state.log.push({
+        session: "recovery-current-" + index, date: currentDate, day: exercise.day,
+        name: exercise.name, exerciseId: exercise.id, set: 1, load: 40,
+        reps: 6, rir: 2, work: true, primary: exercise.primary,
+        blockId,
+        secondary: exercise.secondary, performedLibraryId: exercise.libraryId || undefined,
+        created: currentDate + "T13:00:00.000Z",
+      });
+    }
+    const committed = await window.__repforgeCommitProposedState(state);
+    if (!(committed?.localOk || committed?.idbOk)) throw new Error("catalog evidence commit failed");
+    await window.__repforgeStorage.flush();
+  });
+  await openCompletedReview(page);
+  await page.click('[data-review-action="recovery-week"]');
+}
+
+async function recoveryPreview(page) {
+  await openRecoveryPreview(page);
+  await page.click('[data-recovery-answer="Yes"]');
+  await page.waitForSelector("[data-preview-confirm]", { timeout: 20000 });
+}
+
+async function confirmRecovery(page) {
+  await recoveryPreview(page);
+  await page.click("[data-preview-confirm]");
+  await page.waitForSelector(".review__staged", { timeout: 20000 });
+  await page.click("[data-flow-cancel]");
+  await sleep(page, 400);
 }
 
 async function openSettings(page, anchor) {
@@ -212,6 +352,8 @@ export const APP_SCENARIOS = {
   "session/summary": saveWholeSession,
 
   "progress/overview": (page) => view(page, "stats"),
+  "progress/overview-baseline": (page) => view(page, "stats"),
+  "progress/overview-action": (page) => view(page, "stats"),
   "progress/exercise-chart": async (page) => {
     await view(page, "stats");
     await page.evaluate(() => {
@@ -233,9 +375,29 @@ export const APP_SCENARIOS = {
     await sleep(page, 500);
   },
   "progress/strength": (page) => progressSegment(page, "strength"),
+  "progress/strength-current-block": (page) => progressSegment(page, "strength"),
+  "progress/strength-all-history": async (page) => { await progressSegment(page, "strength"); await page.click('#strengthScopeSeg [data-scope="all-history"]'); },
+  "progress/strength-comparison": async (page) => { await progressSegment(page, "strength"); const key=await page.evaluate(()=>[...document.querySelectorAll("#strengthDash [data-evkey]")].map(row=>row.dataset.evkey).find(id=>window.__repforgeProgressEvidence.strength(id)?.presentation==="comparison"));const row=page.locator(`#strengthDash [data-evkey="${key}"]`);await row.scrollIntoViewIfNeeded();await row.click(); },
+  "progress/strength-sparse": async (page) => { await progressSegment(page, "strength"); const key=await page.evaluate(()=>[...document.querySelectorAll("#strengthDash [data-evkey]")].map(row=>row.dataset.evkey).find(id=>window.__repforgeProgressEvidence.strength(id)?.evidenceState==="insufficient"));const row=page.locator(`#strengthDash [data-evkey="${key}"]`);await row.scrollIntoViewIfNeeded(); },
   "progress/volume": (page) => progressSegment(page, "volume"),
+  "progress/volume-block": async (page) => { await progressSegment(page, "volume"); await page.click('#volumeScopeSeg [data-vscope="block-to-date"]'); },
+  "progress/volume-drill-in": async (page) => { await progressSegment(page, "volume"); await page.locator("#volumeDash [data-volume-muscle]").first().click(); },
   "progress/prs": (page) => progressSegment(page, "prs"),
+  "progress/prs-drill-in": async (page) => { await progressSegment(page, "prs"); await page.locator("#prTimeline .prtl__row").first().click(); },
   "progress/review": (page) => progressSegment(page, "review"),
+  "progress/review-active": (page) => progressSegment(page, "review"),
+  "progress/review-complete": openCompletedReview,
+  "progress/review-insufficient": openCompletedReview,
+  "progress/schedule-diagnosis": openScheduleDiagnosis,
+  "progress/sibling-lower-frequency": (page) => openSiblingPreview(page, "fewer_days"),
+  "progress/sibling-shorter-session": (page) => openSiblingPreview(page, "sessions_too_long"),
+  "progress/guided-repair": async (page) => { await openCompletedReview(page);await page.click('[data-review-action="guided-edit"]');await page.fill("[data-diag-target]","3");await page.click("[data-diag-continue]");await page.waitForSelector(".review__staged",{timeout:20000}); },
+  "progress/volume-reduction-preview": async (page) => { await completeCompiledProgram(page);await openCompletedReview(page);await page.click('[data-review-action="reduce-volume"]');await page.click("[data-volume-confirm]");await page.waitForSelector("[data-preview-confirm]",{timeout:20000}); },
+  "progress/recovery-ineligible": async (page) => { await openRecoveryPreview(page);await page.click('[data-recovery-answer="Not sure"]'); },
+  "progress/recovery-questions": openRecoveryPreview,
+  "progress/recovery-preview": recoveryPreview,
+  "progress/recovery-active": confirmRecovery,
+  "progress/recovery-reassessment": async (page) => { await confirmRecovery(page);await page.evaluate(async()=>{const state=window.__repforgeWorkoutDraft.state();const date=new Date(`${state.programMeta.started}T12:00:00`);date.setDate(date.getDate()-8);state.programMeta.started=date.toISOString().slice(0,10);await window.__repforgeCommitProposedState(state);await window.__repforgeStorage.flush();});await page.reload({waitUntil:"domcontentloaded"});await progressSegment(page,"review"); },
 
   "history/list": (page) => view(page, "history"),
   "history/session": async (page) => {

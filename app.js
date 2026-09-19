@@ -298,6 +298,7 @@ function isSafeProgramHistoryEntry(entry){
 function isSafeLogRow(entry){
   if(!isPlainStateObject(entry))return false;
   if(Object.prototype.hasOwnProperty.call(entry,"blockId")&&!isValidBlockId(entry.blockId))return false;
+  if(Object.prototype.hasOwnProperty.call(entry,"rirMeasured")&&typeof entry.rirMeasured!=="boolean")return false;
   for(const key of ["performedName","performedLibraryId","performedMovementId","performedPrimary","performedSecondary"])
     if(Object.prototype.hasOwnProperty.call(entry,key)&&entry[key]!=null&&typeof entry[key]!=="string")
       return false;
@@ -929,6 +930,9 @@ const repsAtLoad=(cap,load)=>cap>0&&load>0?Math.round(30*(cap/load-1)*1e6)/1e6:0
 const shortDate=d=>{const p=String(d||"").split("-");if(p.length!==3)return String(d||"");
   const day=+p[2],mon=t("month_short."+(+p[1]-1));
   return isPt()?`${day} ${mon}`:`${mon} ${day}`};
+// Locale-aware long date for evidence headings and drill-ins (G-38).
+const longDate=d=>{const p=String(d||"").split("-");if(p.length!==3)return String(d||"");
+  try{return new Date(`${d}T12:00:00`).toLocaleDateString(locTag(),{day:"numeric",month:"long",year:"numeric"})}catch{return d}};
 /* Rows and logs keep their stable grouping labels. Generated structure records
    carry a localized display-name key beside that internal label, while a name
    override is the exact text the lifter typed. Legacy Day N strings still get
@@ -2145,7 +2149,8 @@ async function applyFatigueTrim(){
   for(const id of [...skipped])if(!flagged.has(id)){const result=await enqueueDraftCommand("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
   for(const id of flagged)if(!skipped.has(id)){const result=await enqueueDraftCommand("skipExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
   renderWorkout();toast(t("toast.trimmed_priority"))}
-let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
+let logMode="full",focusIndex=0,statsSeg="overview",evidenceView=null,prFilter="all";
+let strengthScope="current-block",volumeScope="this-week",volumeDrillMuscle=null;
 let focusDrag=null,focusFlinging=false;
 /** Focus mode — the set being re-opened for edit: {exId,n,snap}. `snap` is the
  *  set as it stood when editing began, so cancelling puts it back untouched. */
@@ -2163,14 +2168,19 @@ const focusUnfolded=new Set();
 /** Sets logged before older rows fold away, and how many stay above the fold. */
 const FOCUS_FOLD_MIN=5,FOCUS_FOLD_KEEP=2;
 let exView=null;
-let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=false,histMonth=null,histQuery="",readyExpanded=false;
+let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=false,histMonth=null,histQuery="";
 /* The editor module owns the draft document. Hosts retain only its lifecycle
    and adapter session so the installed editor can stay private until Done. */
 let installedProgramEditor=null,onboardingProgramEditor=null,installedEditorSession=null,pendingEditorNavigation=null;
 let settingsEditRevision=0;
 // Today's session lists its first few exercises; the rest sit behind a "+N" row.
 const TODAY_EX_PREVIEW=3;let todayExOpen=false;
-const STATS_SEG={overview:"segOverview",strength:"segStrength",volume:"segVolume",prs:"segPRs",review:"segReview"};
+// Two-level Progress navigation (Plan 056): Overview/Review are the primary
+// tasks; Strength/Volume/PRs are a labelled Evidence group. Old one-level seg
+// values keep working: evidence keys map onto the Evidence view and unknown
+// values fall back to Overview.
+const STATS_SEG={overview:"segOverview",review:"segReview"};
+const EVIDENCE_SEG={strength:"segStrength",volume:"segVolume",prs:"segPRs"};
 
 function migrateLogSnapshot(snapshot){let changed=false;const lookup=snapshotLookup(snapshot.customExercises);
   for(const row of snapshot.log){
@@ -2192,9 +2202,15 @@ function migrateLogSnapshot(snapshot){let changed=false;const lookup=snapshotLoo
     if(row.performedPrimary==null&&row.primary!=null){row.performedPrimary=String(row.primary||"");changed=true}
     if(row.performedSecondary==null&&row.secondary!=null){row.performedSecondary=String(row.secondary||"");changed=true}}
   const ld=posNum(row.load),rp=posNum(row.reps);
+  const missingRir=row.rir==null||row.rir==="",parsedRir=parseDec(row.rir);
   const explicitStrategy=ex?.progression?.strategy?.id;
-  const preserveMissingRir=explicitStrategy&&explicitStrategy!=="range"&&(row.rir==null||row.rir==="");
+  const preserveMissingRir=explicitStrategy&&explicitStrategy!=="range"&&missingRir;
+  // Keep the released progression input exactly as it was. Progress also needs
+  // to know that a legacy range row which was coerced to RIR 0 was unmeasured,
+  // so retain that provenance separately instead of changing recommendation
+  // arithmetic for every existing program.
   const rr=preserveMissingRir?null:posNum(row.rir);
+  if((missingRir||!Number.isFinite(parsedRir)||parsedRir<0)&&row.rirMeasured!==false){row.rirMeasured=false;changed=true}
   if(ld!==row.load||rp!==row.reps||rr!==row.rir){row.load=ld;row.reps=rp;row.rir=rr;changed=true}}
   return changed}
 function migrateLog(){return migrateLogSnapshot(state)}
@@ -2572,6 +2588,11 @@ function hardSetsInRange(log,program,started,ended,hardRir){const m=new Map();
     for(const p of muscles(mus.primary))addVol(m,p,1,0);
     for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
   return m}
+function volumeMapFromRows(rows,program){const m=new Map();
+  for(const x of rows||[]){const mus=rowMusclesPure(x,program);
+    for(const p of muscles(mus.primary))addVol(m,p,1,0);
+    for(const s of muscles(mus.secondary))addVol(m,s,0,.5)}
+  return m}
 function buildBlockReview(programMeta,program,log){const p=new Program(program||[]),days=p.days(),total=programMeta?.mesocycleLengthWeeks||6;
   const started=programMeta?.started||null,ended=today(),hardRir=DEFAULTS.hardRir;
   const plannedSessions=total&&days.length?total*days.length:0;
@@ -2604,7 +2625,6 @@ function buildBlockReview(programMeta,program,log){const p=new Program(program||
   return{programId:programMeta?.id||null,started,ended,plannedSessions,completedSessions,adherenceRatio,
     improvedLifts,flatLifts,regressedLifts,stalledLifts,prs,completedHardSetsByMuscle,plannedHardSetsByMuscle,
     volumeCompliance,recommendation,created:new Date().toISOString()}}
-const REC_STRATEGY={repeat_or_progress:"repeat",repeat_with_small_swaps:"repeat_swaps",reduce_volume_or_deload:"reduce_volume",keep_program_improve_completion:"repeat",repeat_with_simpler_schedule:"reduce_volume"};
 function blockRecommendationCopy(key){const k=key||"repeat_with_small_swaps";return{line:t(`block_rec.${k}.line`),why:t(`block_rec.${k}.why`)}}
 function blockSnapshot(programMeta,log){const review=buildBlockReview(programMeta,prog.toJSON(),log),life=mesocycleLifecycle(programMeta);
   return{...review,weekCurrent:life.current,weekTotal:life.total,elapsedWeek:life.elapsedWeek,
@@ -2625,6 +2645,106 @@ function buildPlainSummary(snapshot){if(!snapshot)return"";
   return parts.join(" ")}
 function renderReview(){const el=$("#reviewPanel");if(!el)return;
   if(!state.programMeta?.started){el.innerHTML=`<p class="lede">${esc(t("review.no_start"))}</p>`;return}
+  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  if(!Model){legacyReviewPanel(el);return}
+  const meta=state.programMeta||{};
+  const recoveryEvidence=reviewRecoveryEvidence();
+  const checkpoint=Model.buildReviewCheckpoint(prog.toJSON(),
+    {started:meta.started,mesocycleLengthWeeks:meta.mesocycleLengthWeeks||6,
+     mesocycleStatus:meta.mesocycleStatus,evidenceRecords:reviewObservedOutcomes(),
+     recoveryEligible:recoveryEvidence.qualifyingPatterns.length>=2},
+    state.log,today());
+  const life=mesocycleLifecycle(meta);
+  const weekLine=life.isComplete?t("meso.complete"):life.isFinalWeek&&life.current!=null?t("meso.week_ready",{n:life.current,total:life.total}):t("review.week_of",{n:life.current??"—",total:life.total});
+  const volume=Model.buildVolumeEvidence("block-to-date",prog.toJSON(),
+    progressEvidenceMeta(),state.log,today());
+  const pct=volume.plannedWorkingSets?Math.min(100,Math.round(volume.completedWorkingSets/volume.plannedWorkingSets*100)):0;
+  const nameForLiftKey=key=>currentExerciseForLiftKey(key)?.name||key;
+  const outcomes=checkpoint.observedOutcomes;
+  const outcomeLine=outcomes.length
+    ?outcomes.map(o=>`${esc(nameForLiftKey(o.exerciseId))} · ${esc(t(EVIDENCE_OUTCOME_KEYS[o.outcome]||""))}`).join("<br>")
+    :`<span class="visually-hidden">${esc(t("review.outcomes.none_aria"))}</span>${esc(t("review.outcomes.none"))}`;
+  const actions=checkpoint.lifecycle==="block-complete"?renderReviewActions(checkpoint):"";
+  const readOnlyNote=checkpoint.lifecycle==="active-block"
+    ?`<p class="review__readonly" role="note">${esc(t("review.active_readonly"))}</p>`:"";
+  const evidenceNote=checkpoint.lifecycle==="block-complete"&&!checkpoint.hasSufficientEvidence
+    ?`<p class="review__summary">${esc(t("review.insufficient.note"))}</p>`:"";
+  if(reviewFlow){renderReviewFlow(el);return}
+  el.innerHTML=reviewRecoveryStatusHtml()+`<div class="blockprogress"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
+    `<p><b>${esc(weekLine)}</b></p>`+
+    `<p><b>${esc(t("review.sessions"))}</b> ${esc(t("review.sessions_completed",{done:volume.completedSessions,planned:volume.period.plannedSessions||volume.plannedSessions}))}</p>`+
+    `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p>`+
+    `<p class="lede">${esc(t("stats.volume.period_text",{start:longDate(volume.period.start||meta.started||""),end:longDate(volume.period.end||today())}))}</p></div>`+
+    `<p class="section-label">${esc(t("review.outcomes.label"))}</p><div class="review__outcomes">${outcomeLine}</div>`+
+    evidenceNote+readOnlyNote+actions;
+  bindReviewActions();bindRecoveryStatus()}
+// Observed outcomes are engine facts (paired-exposure comparison), never
+// representation-derived. Insufficient lifts never enter this list.
+function reviewObservedOutcomes(){
+  return strengthEvidenceRecords("current-block")}
+function reviewRecoveryEvidence(){
+  const instance=recoveryCompilerInstance(state,typeof ProgramCompiler!=="undefined"?ProgramCompiler:null,
+    typeof EXERCISE_LIBRARY!=="undefined"?EXERCISE_LIBRARY:null);
+  const outcomesByPattern={},facts=strengthFactsByLift();
+  if(!instance)return{outcomesByPattern,qualifyingPatterns:[]};
+  const patternMap={squat:"knee-dominant",press:"horizontal press",incline_press:"horizontal press",hinge:"hip/hinge"};
+  const candidates=new Map();
+  for(const day of instance.days||[])for(const slot of day.slots||[]){
+    const pattern=patternMap[slot.contract?.patterns?.[0]];
+    const row=(state.program||[]).find(item=>(item.slotId||item.id)===slot.slotId);
+    const outcome=row?facts[exerciseLiftKey(row)]:null;
+    if(!pattern||!outcome)continue;
+    if(!candidates.has(pattern))candidates.set(pattern,[]);
+    candidates.get(pattern).push(outcome)}
+  for(const pattern of ["knee-dominant","horizontal press","hip/hinge"]){
+    const observed=candidates.get(pattern)||[];
+    outcomesByPattern[pattern]=observed.find(outcome=>outcome==="maintained"||outcome==="declined")||observed[0]||"insufficient"}
+  const qualifyingPatterns=Object.entries(outcomesByPattern)
+    .filter(([,outcome])=>outcome==="maintained"||outcome==="declined").map(([pattern])=>pattern);
+  return{outcomesByPattern,qualifyingPatterns}}
+function activeReviewRecovery(){
+  const blockId=snapshotBlockId(state);
+  if(!activeRecoveryRecord||activeRecoveryRecordBlockId!==blockId)return null;
+  return activeRecoveryRecord.diff?.recoveryWeek?.blockId===blockId?activeRecoveryRecord:null}
+function reviewRecoveryStatusHtml(){
+  const record=activeReviewRecovery();if(!record)return"";
+  const overlay=record.diff.recoveryWeek,week=mesocycleLifecycle(state.programMeta).elapsedWeek;
+  if(week===1)return`<section class="review__recovery" role="status"><p class="section-label">${esc(t("review.recovery.week1_title"))}</p><p>${esc(t("review.recovery.week1_body"))}</p></section>`;
+  const outcome=overlay.reassessmentOutcome;
+  if(outcome!==null)return`<section class="review__recovery" role="status"><p class="section-label">${esc(t("review.recovery.result_title"))}</p><p>${esc(t("review.recovery.result",{outcome:t(`review.recovery.outcome.${outcome}`)}))}</p></section>`;
+  if(Number.isInteger(week)&&week>=2)return`<section class="review__recovery"><p class="section-label">${esc(t("review.recovery.reassess_title"))}</p>`+
+    `<p>${esc(t("review.recovery.reassess_question"))}</p><div class="review__actions" role="group" aria-label="${esc(t("review.recovery.reassess_title"))}">`+
+    ["Better","About the same","Worse"].map(outcome=>`<button type="button" class="btn btn--steel" data-recovery-outcome="${esc(outcome)}">${esc(t(`review.recovery.outcome.${outcome}`))}</button>`).join("")+`</div></section>`;
+  return""}
+function bindRecoveryStatus(){
+  $$('[data-recovery-outcome]').forEach(button=>button.onclick=async()=>{
+    const record=activeReviewRecovery();if(!record)return;
+    button.disabled=true;
+    const result=await repforgeProgramTransitionAdapter.reassessRecovery({
+      expectedRevision:readRevision(state),blockId:snapshotBlockId(state),transitionId:record.transitionId,
+      proposalHash:record.proposalHash,acknowledgedRecord:cloneSnapshot(record),outcome:button.dataset.recoveryOutcome});
+    if(result?.committed){toast(t("review.recovery.reassessed"));render()}
+    else{toast(t(result?.code==="recovery_reassessment_closed"?"review.recovery.closed":"review.error.failed"),{assertive:true});renderReview()}})}
+// Structural actions appear only at a completed boundary (Plan 056/P5). Each
+// kind renders only when its production flow is wired in this packet; the
+// eligibility contract itself lives in progress-model.js.
+const REVIEW_ACTION_LABELS={repeat:"review.action.repeat","schedule-repair":"review.action.schedule_repair",
+  "reduce-volume":"review.action.reduce_volume","recovery-week":"review.action.recovery_week","guided-edit":"review.action.guided_edit"};
+function renderReviewActions(checkpoint){
+  const kinds=checkpoint.structuralActions.filter(k=>REVIEW_ACTION_LABELS[k]);
+  if(!kinds.length)return "";
+  return `<p class="section-label">${esc(t("review.actions.label"))}</p><div class="review__actions">`+
+    kinds.map(k=>`<button type="button" class="btn btn--steel" data-review-action="${k}">${esc(t(REVIEW_ACTION_LABELS[k]))}</button>`).join("")+`</div>`}
+function bindReviewActions(){
+  $$("[data-review-action]").forEach(b=>b.onclick=()=>{
+    const kind=b.dataset.reviewAction;
+    if(kind==="repeat")finishBlockAndStart("repeat");
+    // Schedule, volume and recovery flows land with their own packets.
+    else if(kind==="schedule-repair")startScheduleRepair?.();
+    else if(kind==="reduce-volume")startVolumeReduction?.();
+    else if(kind==="recovery-week")startRecoveryWeek?.();
+    else if(kind==="guided-edit")startGuidedEdit?.()})}
+function legacyReviewPanel(el){
   const snap=blockSnapshot(state.programMeta,state.log),pct=Math.round((snap.volumeCompliance||0)*100),summary=buildPlainSummary(snap);
   const weekLine=snap.isComplete?t("meso.complete"):snap.isFinalWeek?t("meso.week_ready",{n:snap.weekCurrent,total:snap.weekTotal}):t("review.week_of",{n:snap.weekCurrent??"—",total:snap.weekTotal});
   el.innerHTML=`<div class="blockprogress"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
@@ -2633,74 +2753,199 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
     `<p><b>${esc(t("review.lifts"))}</b> ${esc(t("review.lifts_summary",{improved:snap.improvedLifts,flat:snap.flatLifts,stalled:snap.stalledLifts}))}</p>`+
     `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p></div>`+
     `<p class="review__summary">${esc(summary)}</p>`}
-function renderBlockReviewPanel(review){const copy=blockRecommendationCopy(review.recommendation),pct=Math.round((review.volumeCompliance||0)*100);
-  const meta=state.programMeta||{},started=meta.started?new Date(`${meta.started}T12:00:00`):null;
-  const activationProgramId=review.programId||meta.id||null;
-  const end=new Date(`${today()}T12:00:00`);
-  const range=started?`${started.getDate()} ${t("month_short."+started.getMonth())} – ${end.getDate()} ${t("month_short."+end.getMonth())}`:"";
-  const life=mesocycleLifecycle(meta),weeks=life.total||6;
-  const hero=life.isComplete?t("dialog.block_review.completed"):life.isFinalWeek&&life.current!=null?t("dialog.block_review.ready",{n:life.current,total:life.total}):life.current!=null?t("today.week_of",{n:life.current,total:life.total}):t("dialog.block_review.title");
-  const recKey=review.recommendation||"repeat_with_small_swaps";
-  const strategies=[
-    {id:"repeat_swaps",title:t("dialog.block_review.repeat_swaps"),cap:t("block_strategy.repeat_swaps.cap")},
-    {id:"repeat",title:t("dialog.block_review.repeat"),cap:t("block_strategy.repeat.cap")},
-    {id:"increase_volume",title:t("dialog.block_review.increase_volume"),cap:t("block_strategy.increase_volume.cap")},
-    {id:"reduce_volume",title:t("dialog.block_review.reduce_volume"),cap:t("block_strategy.reduce_volume.cap")},
-    {id:"onboarding",title:t("dialog.block_review.onboarding"),cap:t("block_strategy.onboarding.cap")},
-  ];
-  const recStrategy=REC_STRATEGY[recKey]||"repeat_swaps";
-  $("#blockReviewBody").innerHTML=
-    `<p class="blockreview__prog">${esc(meta.name||t("untitled_program"))}</p>`+
-    `<h2 class="blockreview__hero">${esc(hero)}</h2>`+
-    `<p class="blockreview__range">${esc(t("dialog.block_review.range",{weeks,range}))}</p>`+
-    `<div class="blockreview__adherence"><span>${esc(t("review.sessions_completed",{done:review.completedSessions,planned:review.plannedSessions}))}</span><span>${pct}%</span></div>`+
-    `<div class="blockreview__bar"><span style="width:${pct}%"></span><i class="blockreview__bar-knob" style="left:${pct}%"></i></div>`+
-    `<div class="statrow statrow--4">`+
-    `<div class="statrow__cell"><div class="statrow__val">${review.improvedLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.improved"))}</div></div>`+
-    `<div class="statrow__cell"><div class="statrow__val">${review.flatLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.stable"))}</div></div>`+
-    `<div class="statrow__cell"><div class="statrow__val">${review.stalledLifts}</div><div class="statrow__cap">${esc(t("block_review.stalled"))}</div></div>`+
-    `<div class="statrow__cell"><div class="statrow__val">${pct}%</div><div class="statrow__cap">${esc(t("block_review.volume"))}</div></div></div>`+
-    `<div class="recblock"><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
-    `<div class="recblock__head">${esc(copy.line)}</div>`+
-    `<p class="recblock__body"><span class="recblock__why-lab">${esc(t("review.why"))}</span> ${esc(copy.why)}</p>`+
-    `<button type="button" class="text-link" id="blockSeeAnalysis">${esc(t("block_review.see_analysis"))}</button></div>`+
-    `<p class="section-label">${esc(t("block_review.next_block"))}</p>`+
-    `<div id="blockStrategies">${strategies.map(s=>`<button type="button" class="radio-card blockreview__act${s.id===recStrategy?" is-selected is-recommended":""}" data-strategy="${s.id}">`+
-      `<span class="radio-card__body"><span class="radio-card__title">${esc(s.title)}${s.id===recStrategy?` <span class="tag-rec">${esc(t("aria.recommended"))}</span>`:""}</span>`+
-      `<span class="radio-card__cap">${esc(s.cap)}</span></span><span class="radio-card__mark"></span></button>`).join("")}</div>`+
-    `<p class="blockreview__lock">🔒 ${esc(t("block_review.preserved"))}</p>`+
-    `<div class="blockreview__sticky"><button type="button" class="btn btn--cta" id="blockStartNext">${esc(t("block_review.start_next"))}</button>`+
-    `<button type="button" class="text-link text-link--center text-link--accent" id="blockDecideLater">${esc(t("block_review.decide_later"))}</button></div>`;
-  let selected=recStrategy;
-  $$("#blockStrategies .blockreview__act").forEach(b=>b.onclick=()=>{selected=b.dataset.strategy;
-    $$("#blockStrategies .blockreview__act").forEach(x=>x.classList.toggle("is-selected",x===b))});
-  $("#blockStartNext").onclick=()=>finishBlockAndStart(selected,activationProgramId);
-  $("#blockDecideLater").onclick=closeBlockReview;
-  const anal=$("#blockSeeAnalysis");if(anal)anal.onclick=()=>{
-    closeBlockReview();
-    navTo("stats");setStatsSeg("review");
-    const seg=$(`#statsSeg button[data-seg="review"]`);if(seg)seg.focus()}}
-let blockReviewCurrent=null;
+// --- Schedule repair flow (Plan 056/P6): one diagnosed question, then either
+// the exact Plan 052 sibling proposal (rendered from its own diff and
+// confirmed by hash) or the exact-program guided fallback, which stages a
+// setup draft and never archives. Cancel leaves the program untouched.
+let reviewFlow=null;
+function startScheduleRepair(){reviewFlow={stage:"diagnosis",action:"schedule-repair",kind:"fewer_days",target:""};renderReview()}
+function startGuidedEdit(){reviewFlow={stage:"diagnosis",action:"guided-edit",kind:"fewer_days",target:""};renderReview()}
+function startVolumeReduction(){reviewFlow={stage:"volume-question",action:"reduce-volume"};renderReview()}
+function startRecoveryWeek(){reviewFlow={stage:"recovery-question",action:"recovery-week",answer:null};renderReview()}
+async function closeReviewFlow(){
+  if(reviewFlow?.stage==="staged"){
+    const cleared=await clearSetupDraft();
+    if(!cleared?.ok){reviewFlow={stage:"error",code:cleared?.conflict?"save_conflict":"save_failed"};renderReview();return}}
+  reviewFlow=null;renderReview()}
+function reviewMovementLabel(mid){
+  const raw=String(mid||"").replace(/^(library|custom):/,"");
+  const entry=raw?libraryEntry(raw):null;
+  return libraryName(entry)||raw}
+function renderReviewFlow(el){
+  const flow=reviewFlow||{};
+  if(flow.stage==="preview")return renderSiblingPreview(el,flow);
+  if(flow.stage==="volume-question"){
+    el.innerHTML=`<p class="section-label">${esc(t("review.volume.title"))}</p><p>${esc(t("review.volume.question"))}</p>`+
+      `<p class="lede">${esc(t("review.volume.body"))}</p><div class="btnrow">`+
+      `<button type="button" class="btn btn--cta" data-volume-confirm>${esc(t("review.volume.continue"))}</button>`+
+      `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
+    const confirm=$("[data-volume-confirm]",el);if(confirm)confirm.onclick=proposeVolumeReductionFlow;
+    bindFlowCancel(el);return}
+  if(flow.stage==="recovery-question"){
+    const evidence=reviewRecoveryEvidence(),eligible=evidence.qualifyingPatterns.length>=2;
+    el.innerHTML=`<p class="section-label">${esc(t("review.recovery.title"))}</p>`+
+      `<p>${esc(t("review.recovery.question"))}</p>`+
+      `<div class="review__actions" role="group" aria-label="${esc(t("review.recovery.question"))}">`+
+      ["Yes","No","Not sure"].map(answer=>`<button type="button" class="btn btn--steel" data-recovery-answer="${esc(answer)}">${esc(t(`review.recovery.answer.${answer}`))}</button>`).join("")+`</div>`+
+      (flow.message?`<p class="review__readonly" role="status">${esc(t(flow.message))}</p>`:"")+
+      `<div class="btnrow"><button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
+    $$('[data-recovery-answer]',el).forEach(button=>button.onclick=()=>answerRecoveryQuestion(button.dataset.recoveryAnswer,eligible,evidence));
+    bindFlowCancel(el);return}
+  if(flow.stage==="staged"){
+    el.innerHTML=`<p class="review__staged" role="status">${esc(t("review.staged.done"))}</p>`+
+      `<div class="btnrow"><button type="button" class="btn btn--cta" data-flow-editor>${esc(t("review.staged.open"))}</button>`+
+      `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
+    const open=$("[data-flow-editor]",el);if(open)open.onclick=()=>{
+      reviewFlow=null;startOnboarding("settings",{userInitiated:true});
+      if(entryState?.step==="editor"&&entryState?.result?.preview){entryUiNotice=null;openEntryDraftEditor()}};
+    bindFlowCancel(el);return}
+  if(flow.stage==="error"){
+    const stale=flow.stale===true||String(flow.code||"").includes("stale")||String(flow.code||"").includes("mismatch");
+    el.innerHTML=`<p class="review__error" role="alert">${esc(t(stale?"review.error.stale":"review.error.failed"))}</p>`+
+      `<div class="btnrow"><button type="button" class="btn btn--steel" data-flow-restart>${esc(t("review.error.retry"))}</button>`+
+      `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
+    const restart=$("[data-flow-restart]",el);if(restart)restart.onclick=flow.action==="reduce-volume"
+      ?startVolumeReduction:flow.action==="recovery-week"?startRecoveryWeek:startScheduleRepair;
+    bindFlowCancel(el);return}
+  if(flow.stage==="done"){
+    el.innerHTML=`<p class="review__staged" role="status">${esc(t(flow.doneKey||"review.done.committed"))}</p>`+
+      `<div class="btnrow"><button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.close"))}</button></div>`;
+    bindFlowCancel(el);return}
+  // diagnosis
+  const isDays=flow.kind!=="sessions_too_long";
+  const targetLabel=isDays?t("review.diagnosis.days_question"):t("review.diagnosis.minutes_question");
+  el.innerHTML=`<p class="section-label">${esc(t("review.diagnosis.title"))}</p>`+
+    `<div class="review__diag">`+
+    `<button type="button" class="radio-card${flow.kind==="fewer_days"?" is-selected":""}" data-diag="fewer_days"><span class="radio-card__body"><span class="radio-card__title">${esc(t("review.diagnosis.fewer_days"))}</span></span><span class="radio-card__mark"></span></button>`+
+    `<button type="button" class="radio-card${flow.kind==="sessions_too_long"?" is-selected":""}" data-diag="sessions_too_long"><span class="radio-card__body"><span class="radio-card__title">${esc(t("review.diagnosis.sessions_too_long"))}</span></span><span class="radio-card__mark"></span></button>`+
+    `</div><label class="field"><span>${esc(targetLabel)}</span>`+
+    `<input type="number" inputmode="numeric" min="${isDays?1:15}" max="${isDays?7:240}" step="1" value="${esc(flow.target)}" data-diag-target></label>`+
+    (flow.error?`<p class="review__error" role="alert">${esc(t(flow.error))}</p>`:"")+
+    `<div class="btnrow"><button type="button" class="btn btn--cta" data-diag-continue>${esc(t(flow.action==="guided-edit"?"review.diagnosis.edit":"review.diagnosis.continue"))}</button>`+
+    `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.diagnosis.cancel"))}</button></div>`;
+  $$("[data-diag]",el).forEach(b=>b.onclick=()=>{flow.kind=b.dataset.diag;flow.error=null;renderReview()});
+  const input=$("[data-diag-target]",el);
+  if(input)input.oninput=()=>{flow.target=input.value;flow.error=null};
+  const cont=$("[data-diag-continue]",el);if(cont)cont.onclick=continueScheduleDiagnosis;
+  bindFlowCancel(el)}
+function bindFlowCancel(el){const c=$("[data-flow-cancel]",el);if(c)c.onclick=()=>void closeReviewFlow()}
+async function continueScheduleDiagnosis(){
+  const flow=reviewFlow;if(!flow||flow.stage!=="diagnosis")return;
+  const n=Number(flow.target);
+  const valid=flow.kind==="fewer_days"?Number.isInteger(n)&&n>=1&&n<=7:Number.isInteger(n)&&n>=15&&n<=240;
+  if(!valid){flow.error=flow.kind==="fewer_days"?"review.diagnosis.days_invalid":"review.diagnosis.minutes_invalid";renderReview();return}
+  const answers=flow.kind==="fewer_days"?{availableDays:n}:{sessionMinutes:n};
+  const diagnosis={kind:flow.kind,answers,eligibleEvidenceIds:["explicit_schedule_repair"],insufficientEvidenceReasons:[]};
+  if(flow.action==="guided-edit")return stageGuidedRepairFlow(diagnosis,null);
+  const res=await repforgeProgramTransitionAdapter.proposeSibling({diagnosis,transitionId:uid(),successorProgramId:uid()});
+  if(res?.ok){reviewFlow={stage:"preview",action:"schedule-repair",proposal:res.proposal};renderReview()}
+  else await stageGuidedRepairFlow(diagnosis,res)}
+async function stageGuidedRepairFlow(diagnosis,unavailable){
+  const staged=await window.__repforgeStageGuidedManualRepair(unavailable
+    ?{diagnosis,unavailable,openEditor:false}:{diagnosis,openEditor:false});
+  if(staged?.ok){reviewFlow={stage:"staged"};renderReview()}
+  else{reviewFlow={stage:"error",action:"guided-edit",code:staged?.code||"guided_staging_failed"};renderReview()}}
+async function proposeVolumeReductionFlow(){
+  const result=await repforgeProgramTransitionAdapter.proposeVolumeReduction({
+    diagnosis:{kind:"reduce_training_volume",answers:{confirmed:true},
+      eligibleEvidenceIds:["explicit_volume_reduction"],insufficientEvidenceReasons:[]},
+    transitionId:uid(),successorProgramId:uid()});
+  reviewFlow=result?.ok?{stage:"preview",action:"reduce-volume",proposal:result.proposal}
+    :{stage:"error",action:"reduce-volume",code:result?.code||"volume_reduction_unavailable"};
+  renderReview()}
+async function answerRecoveryQuestion(answer,eligible,evidence){
+  if(answer!=="Yes"){
+    reviewFlow={stage:"recovery-question",action:"recovery-week",answer,
+      message:answer==="No"?"review.recovery.answer_no":"review.recovery.answer_unsure"};renderReview();return}
+  if(!eligible){reviewFlow={stage:"recovery-question",action:"recovery-week",answer,
+    message:"review.recovery.insufficient"};renderReview();return}
+  const result=await repforgeProgramTransitionAdapter.proposeRecoveryWeek({
+    evidence:{outcomesByPattern:evidence.outcomesByPattern,checkpointAnswer:"Yes"},transitionId:uid()});
+  reviewFlow=result?.ok?{stage:"preview",action:"recovery-week",proposal:result.proposal}
+    :{stage:"error",action:"recovery-week",code:result?.code||"recovery_ineligible"};
+  renderReview()}
+function reviewDiffMovement(entry){
+  const slotId=entry?.successorSlot||entry?.predecessorSlot;
+  const live=(state.program||[]).find(row=>(row.slotId||row.id)===slotId);
+  return reviewMovementLabel(entry?.movement||live?.libraryId||live?.movementId)||live?.name||slotId||"—"}
+function reviewPrescriptionText(snapshot){
+  if(!snapshot)return"—";
+  const reps=(snapshot.reps||[]).join("–"),rir=(snapshot.rir||[]).join("–");
+  return t("review.preview.prescription",{sets:snapshot.sets,reps,rir,rest:snapshot.restSeconds,
+    strategy:snapshot.strategy,kind:snapshot.prescriptionClass})}
+function renderSiblingPreview(el,flow){
+  const p=flow.proposal||{},diff=p.diff||{};
+  if(p.kind==="recovery_week")return renderRecoveryPreview(el,flow);
+  const beforeDays=[...new Set(state.program.map(r=>r.day))].length;
+  const afterDays=(diff.days||[]).filter(d=>d.after).length;
+  const beforeMinutes=Number(state.programMeta?.compilerContext?.sessionMinutes)||0;
+  const afterMinutes=p.kind==="shorter_session_sibling"?Number(p.diagnosis?.answers?.sessionMinutes)||0:beforeMinutes;
+  const added=(diff.exercises||[]).filter(e=>!e.before&&e.after);
+  const removed=(diff.exercises||[]).filter(e=>e.before&&!e.after);
+  const changed=(diff.prescriptions||[]).filter(x=>x.reason==="prescription changed");
+  const lines=[];
+  for(const x of diff.days||[]){
+    if(x.before&&x.after&&x.before.label===x.after.label&&x.before.index===x.after.index&&x.before.slots===x.after.slots)continue;
+    lines.push(`<li>${esc(t("review.preview.day_change",{before:x.before?`${x.before.label} · ${x.before.slots}`:"—",
+      after:x.after?`${x.after.label} · ${x.after.slots}`:"—"}))}</li>`)}
+  for(const x of changed)lines.push(`<li>${esc(t("review.preview.prescription_change",{movement:reviewDiffMovement(x),
+    before:reviewPrescriptionText(x.before),after:reviewPrescriptionText(x.after)}))}</li>`);
+  for(const x of added)lines.push(`<li>${esc(t("review.preview.exercise_added",{movement:reviewDiffMovement(x),sets:x.after.sets}))}</li>`);
+  for(const x of removed)lines.push(`<li>${esc(t("review.preview.exercise_removed",{movement:reviewDiffMovement(x),sets:x.before.sets}))}</li>`);
+  el.innerHTML=`<p class="section-label">${esc(t("review.preview.title"))}</p>`+
+    `<p><b>${esc(t("review.preview.frequency",{before:beforeDays,after:afterDays}))}</b></p>`+
+    (beforeMinutes&&afterMinutes?`<p><b>${esc(t("review.preview.duration",{before:beforeMinutes,after:afterMinutes}))}</b></p>`:"")+
+    `<p class="lede">${esc(t("review.preview.provenance"))}</p>`+
+    (lines.length?`<ul class="review__diff">${lines.join("")}</ul>`:`<p class="lede">${esc(t("review.preview.exercises_unchanged"))}</p>`)+
+    `<p class="lede"><code class="review__hash">${esc(String(p.proposalHash||""))}</code></p>`+
+    `<p class="lede">${esc(t("review.preview.hash_note"))}</p>`+
+    `<div class="btnrow review__preview-actions"><button type="button" class="btn btn--cta" data-preview-confirm>${esc(t("review.preview.confirm"))}</button>`+
+    `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.preview.cancel"))}</button></div>`;
+  const confirm=$("[data-preview-confirm]",el);
+  if(confirm)confirm.onclick=async()=>{
+    confirm.disabled=true;
+    const confirmedAt=new Date().toISOString();
+    const persisted=await repforgeProgramTransitionAdapter.confirmTransition({
+      proposal:p,proposalHash:p.proposalHash,transitionId:p.transitionId,
+      successorProgramId:p.successor?.programId,confirmedAt,
+      acknowledgedDraftRaw:readDraftRaw()});
+    if(persisted?.committed){
+      reviewFlow={stage:"done",doneKey:p.kind==="reduce_training_volume"?"review.volume.committed":"review.done.committed"};
+      day=days()[0]||"Day 1";toast(t(reviewFlow.doneKey));render();
+    }else{
+      reviewFlow={stage:"error",action:flow.action,code:persisted?.code,stale:persisted?.duplicate===true||!!persisted?.staleRevision};
+      render()}}
+  bindFlowCancel(el)}
+function renderRecoveryPreview(el,flow){
+  const p=flow.proposal,overlay=p.diff.recoveryWeek;
+  const evidence=overlay.eligibilityEvidence;
+  const entries=overlay.entries.map(entry=>`<li>${esc(reviewDiffMovement({movement:entry.movement,predecessorSlot:entry.slot}))}: `+
+    `${esc(t("review.recovery.set_change",{before:entry.baseWorkingSets,after:entry.effectiveWorkingSets}))} · `+
+    `${esc(t(`review.recovery.reason.${entry.reason}`))}</li>`).join("");
+  const evidenceRows=evidence.qualifyingPatterns.map(pattern=>
+    `<li>${esc(t(`review.recovery.pattern.${pattern}`))}: ${esc(t(EVIDENCE_OUTCOME_KEYS[evidence.outcomesByPattern[pattern]]))}</li>`).join("");
+  el.innerHTML=`<p class="section-label">${esc(t("review.recovery.preview_title"))}</p>`+
+    `<p><b>${esc(t("review.recovery.policy",{version:overlay.policyVersion}))}</b></p>`+
+    `<p>${esc(t("review.recovery.week2"))}</p><ul class="review__diff">${evidenceRows}${entries}</ul>`+
+    `<p class="lede"><code class="review__hash">${esc(p.proposalHash)}</code></p><p class="lede">${esc(t("review.preview.hash_note"))}</p>`+
+    `<div class="btnrow review__preview-actions"><button type="button" class="btn btn--cta" data-preview-confirm>${esc(t("review.recovery.confirm"))}</button>`+
+    `<button type="button" class="btn btn--steel" data-flow-cancel>${esc(t("review.preview.cancel"))}</button></div>`;
+  const confirm=$("[data-preview-confirm]",el);if(confirm)confirm.onclick=async()=>{
+    confirm.disabled=true;
+    const confirmedAt=new Date().toISOString(),due=new Date(Date.parse(confirmedAt)+7*86400000).toISOString();
+    const persisted=await repforgeProgramTransitionAdapter.confirmTransition({proposal:p,proposalHash:p.proposalHash,
+      transitionId:p.transitionId,confirmedAt,reassessmentDueAt:due,acknowledgedDraftRaw:readDraftRaw()});
+    if(persisted?.committed){reviewFlow={stage:"done",doneKey:"review.recovery.committed"};toast(t(reviewFlow.doneKey));render()}
+    else{reviewFlow={stage:"error",action:"recovery-week",code:persisted?.code,stale:!!persisted?.stale||!!persisted?.staleRevision};render()}};
+  bindFlowCancel(el)}
 let pendingBlockTransition=null;
 let onboardingOrigin=null;
 let blockCommitInFlight=null;
-function closeBlockReview(){
-  closeModal($("#blockReview"))}
-function successorProgramList(strategy,list){
-  const src=cloneSnapshot(list||[]);
-  if(strategy==="repeat_swaps")return src.map(e=>e.alternates?.length?{...e,name:e.alternates[0]}:e);
-  if(strategy==="increase_volume")return src.map(e=>({...e,sets:Math.min((e.sets||2)+1,e.maxSets||6)}));
-  return src}
-// Historical snapshots can predate compiler provenance. They remain readable
-// and keep their established draft-safe rollover behavior, but this path never
-// claims a Plan-052 transition record. Any compiler-backed program is routed
-// through proposeVolumeReduction/confirmTransition above instead.
-function legacyBlockSuccessorProgramList(strategy,list){
-  const src=cloneSnapshot(list||[]);
-  if(strategy==="reduce_volume")return src.map(e=>({...e,sets:Math.max((e.sets||2)-1,1)}));
-  return successorProgramList(strategy,src)}
 function capturePendingBlock(strategy,review){
-  return{...captureProgramReplacement(state,review||blockReviewCurrent),strategy}}
+  // The routed Review surface no longer stages a dialog, but the archived
+  // block keeps its review snapshot: capture it from live state here.
+  const snapshot=review||buildBlockReview(state.programMeta,state.program,state.log);
+  return{...captureProgramReplacement(state,snapshot),strategy}}
 function hasArchivableProgram(snapshot){
   const meta=snapshot?.programMeta;
   const hasDefinition=(Array.isArray(snapshot?.program)&&snapshot.program.length>0)||structureDayLabels(meta);
@@ -2750,10 +2995,6 @@ async function commitProgramReplacement(proposal,io=storageIO,{capture=capturePr
       expectedBlockId:expectedBlockId!==undefined?expectedBlockId:snapshotBlockId(state),
       expectedStorageRevision:expectedStorageRevision!==undefined?expectedStorageRevision:readRevision(state)};
   return commitProposedState(proposal,io,{...transition,effect,expectedSetupDraftRaw,replace,expectedFirstRunEmpty,preflight})}
-function blockToast(strategy){
-  const msg={repeat:"toast.new_block_same",repeat_swaps:"toast.new_block_swaps",
-    increase_volume:"toast.new_block_volume_increased",reduce_volume:"toast.new_block_volume_reduced",onboarding:"toast.new_block_started"};
-  toast(t(msg[strategy]||"toast.new_block_started"))}
 function blockTransitionResult(kind,result={}){
   const deferred=kind==="deferred"||result.deferred===true;
   const outcomeKind=deferred?"deferred":kind;
@@ -2779,53 +3020,24 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
   if(blockCommitInFlight?.oldProgramId===oldId)return blockCommitInFlight.promise;
   if(liveId!==oldId)return Promise.resolve(blockTransitionResult("duplicate"));
   const cap=pendingBlockTransition&&pendingBlockTransition.oldProgramId===liveId
-    ?pendingBlockTransition:capturePendingBlock(strategy,blockReviewCurrent);
+    ?pendingBlockTransition:capturePendingBlock(strategy);
   if(!cap||state.programMeta.id!==cap.oldProgramId)return Promise.resolve(blockTransitionResult("duplicate"));
   if(strategy==="onboarding"){
-    pendingBlockTransition=cap;
-    closeBlockReview();
+    pendingBlockTransition=pendingBlockTransition||cap;
     startOnboarding("block");
     return Promise.resolve(blockTransitionResult("deferred"))}
   const task=(async()=>{
     const compilerProvenance = classifyCompilerTransitionProvenance(cap.oldMeta);
-    if(strategy==="reduce_volume"&&compilerProvenance==="present"){
-      const diagnosis={kind:"reduce_training_volume",answers:{},
-        eligibleEvidenceIds:["explicit_volume_reduction"],insufficientEvidenceReasons:[]};
-      const proposed=await repforgeProgramTransitionAdapter.proposeVolumeReduction({
-        diagnosis,transitionId:uid(),successorProgramId:uid(),createdAt:new Date().toISOString(),policyVersion:1});
-      if(!proposed?.ok)
-        return blockTransitionResult("failed",{invalid:true,code:proposed?.code||"volume_reduction_unavailable"});
-      const acknowledgedDraftRaw=readDraftRaw();
-      const persisted=await repforgeProgramTransitionAdapter.confirmTransition({
-        proposal:proposed.proposal,transitionId:proposed.proposal.transitionId,
-        successorProgramId:proposed.proposal.successor.programId,
-        confirmedAt:new Date().toISOString(),proposalHash:proposed.proposal.proposalHash,
-        acknowledgedDraftRaw});
-      const result=blockTransitionDurableResult(persisted);
-      if(result.committed){
-        pendingBlockTransition=null;day=days()[0]||"Day 1";closeBlockReview();blockToast(strategy);render()}
-      return result}
-    if(strategy==="reduce_volume"&&compilerProvenance==="invalid")
-      return blockTransitionResult("failed",{invalid:true,code:"compiler_provenance_unavailable"});
-    const nextProgram=new Program(legacyBlockSuccessorProgramList(strategy,cap.oldProgram)).toJSON();
+    // Plan 056: the legacy program-altering strategies are gone. Structural
+    // change goes through Plan 052 proposals; the only remaining direct path
+    // is the literal repeat, which keeps the program and prescription intact.
+    if(strategy!=="repeat")return blockTransitionResult("failed",{invalid:true,code:"unsupported_strategy"});
+    const nextProgram=cloneSnapshot(cap.oldProgram);
     let effect=null;
-    if(strategy==="reduce_volume"){
-      const draftRaw=readDraftRaw();
-      let draft={};
-      try{const parsed=JSON.parse(draftRaw||"{}");if(isPlainStateObject(parsed))draft=parsed}
-      catch{}
-      const currentById=new Map(cap.oldProgram.map(ex=>[ex.id,ex]));
-      const blocked=nextProgram.some(ex=>{
-        const current=currentById.get(ex.id);
-        return current&&draftHasProgressInRemovedSets(ex.id,ex.sets,current.sets,draft)});
-      effect=draftPreservationEffect(draftRaw);
-      if(blocked||effect.status!==DRAFT_EFFECT_VALID){
-        toast(t("toast.set_count_locked_draft"));
-        return blockTransitionResult("failed",{draftConflict:true})}}
     const proposal=cloneSnapshot(state);
     const nextMeta=buildProgramMeta({name:cap.oldMeta?.name,answers:cap.oldMeta||{}});
-    const literalRepeat=strategy==="repeat";
-    if(literalRepeat){
+    const literalRepeat=true;
+    {
       nextMeta.id=cap.oldMeta.id;
       // A literal repeat keeps the program identity and prescription model;
       // carry compiler/progression provenance into the fresh block while the
@@ -2846,40 +3058,21 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
       :{capture:cap,effect});
     const result=blockTransitionDurableResult(persisted);
     if(result.committed){
-      pendingBlockTransition=null;day=days()[0]||"Day 1";closeBlockReview();blockToast(strategy);render()}
+      pendingBlockTransition=null;day=days()[0]||"Day 1";toast(t("toast.new_block_volume_reduced"));render()}
     return result})();
   blockCommitInFlight={oldProgramId:oldId,promise:task};
   const clear=()=>{if(blockCommitInFlight?.promise===task)blockCommitInFlight=null};
   task.then(clear,clear);
   return task}
-function finishBlockAndStart(strategy,expectedOldId){return commitNextBlock(strategy,storageIO,expectedOldId)}
-function openBlockReview(review,opts={}){
-  blockReviewCurrent=review;renderBlockReviewPanel(review);const d=$("#blockReview");if(!d)return;
-  openModal(d,{
-    initialFocus:$("#blockReviewClose"),
-    returnFocus:opts.returnFocus||document.activeElement,
-    onEscape:closeBlockReview,
-    handoff:!!opts.handoff,
-    prevInert:opts.prevInert
-  });
-  $("#blockReviewClose").onclick=closeBlockReview}
-function promptEndBlock(event){
-  const d=$("#endBlockConfirm");if(!d)return;
-  const invoked=event?.currentTarget;
-  const focused=document.activeElement;
-  const opener=invoked instanceof HTMLElement
-    ?invoked
-    :focused instanceof HTMLElement&&focused!==document.body
-    ?focused
-    :[$("#reviewBlockLink"),$("#endBlock")].find(el=>el&&el.offsetParent!==null);
-  openModal(d,{
-    initialFocus:$("#endBlockCancel"),
-    returnFocus:opener,
-    onEscape:()=>closeModal(d)
-  });
-  $("#endBlockGo").onclick=()=>{
-    openBlockReview(buildBlockReview(state.programMeta,state.program,state.log),{handoff:true,returnFocus:opener})};
-  $("#endBlockCancel").onclick=()=>closeModal(d)}
+function finishBlockAndStart(strategy,expectedOldId){
+  // Only the literal repeat and the onboarding handoff remain reachable.
+  if(strategy!=="repeat"&&strategy!=="onboarding")return Promise.resolve(blockTransitionResult("failed",{invalid:true,code:"unsupported_strategy"}));
+  return commitNextBlock(strategy,storageIO,expectedOldId)}
+// Plan 056: Program's End block (and the Review-block row) route into the
+// single Progress → Review lifecycle. There is no separate competing dialog.
+function promptEndBlock(){
+  navTo("stats");setStatsSeg("review");
+  const seg=$('#statsSeg button[data-seg="review"]');if(seg)seg.focus()}
 async function dismissBlockPrompt(){
   const proposal=cloneSnapshot(state);
   if(!proposal.programMeta)proposal.programMeta=defaultProgramMeta(proposal.log);
@@ -3920,14 +4113,69 @@ function structureDayLabels(meta){
 function makeProgram(list,lookup=null,meta=null){
   return new Program(list,lookup,structureDayLabels(meta),
     meta?.programStructure?.provenance?.source==="manual_build")}
-function syncProgramStructureFromProgram(proposal,program){
+function compactPlannedProgram(program){
+  return(Array.isArray(program)?program:[]).map((row,index)=>{
+    const out={id:String(row?.id||`legacy_${index+1}`),slotId:String(row?.slotId||row?.id||`legacy_${index+1}`),
+      dayId:String(row?.dayId||row?.day||`day_${index+1}`),day:String(row?.day||""),order:Number(row?.order)||index+1,
+      name:String(row?.name||""),sets:Number.isFinite(+row?.sets)?Math.max(0,+row.sets):0,
+      min:Number.isFinite(+row?.min)?+row.min:null,max:Number.isFinite(+row?.max)?+row.max:null,
+      primary:String(row?.primary||""),secondary:String(row?.secondary||"")};
+    for(const key of ["displayName","libraryId","movementId"])if(row?.[key]!=null)out[key]=String(row[key]);
+    return out}).filter(row=>row.name||row.id)}
+function plannedPrescriptionForProgram(program,week,existing){
+  const days=new Map();
+  for(const row of compactPlannedProgram(program).sort((a,b)=>a.order-b.order||a.id.localeCompare(b.id))){
+    const dayId=row.dayId||row.day||`day_${days.size+1}`;
+    if(!days.has(dayId))days.set(dayId,{dayId,slots:[]});
+    days.get(dayId).slots.push({slotId:row.slotId,sets:row.sets});
+  }
+  return{week,phase:typeof existing?.phase==="string"?existing.phase:"manual_edit",days:[...days.values()]}}
+function preserveProgramPrescriptionHistory(structure,previousProgram,nextProgram,previousMeta){
+  const total=Math.max(1,Number(previousMeta?.mesocycleLengthWeeks)||6),life=mesocycleLifecycle(previousMeta);
+  const week=life.elapsedWeek!=null&&life.elapsedWeek>=1&&life.elapsedWeek<=total&&previousMeta?.mesocycleStatus!=="completed"
+    ?life.elapsedWeek:null;
+  if(!Array.isArray(previousProgram))return structure;
+  const oldCompact=compactPlannedProgram(previousProgram),nextCompact=compactPlannedProgram(nextProgram);
+  if(JSON.stringify(oldCompact)===JSON.stringify(nextCompact))return structure;
+  const existingWeeks=new Map((Array.isArray(structure.weekPrescriptions)?structure.weekPrescriptions:[])
+    .filter(entry=>Number.isInteger(entry?.week)).map(entry=>[entry.week,entry]));
+  // A completed block has no new prescription boundary. Keep the durable
+  // receipts that describe its elapsed weeks, but pin the historical program
+  // snapshot as the source for per-muscle projection if a later edit changes
+  // the display/program rows after the block has closed.
+  if(!week){
+    if(!existingWeeks.size)
+      structure.weekPrescriptions=Array.from({length:total},(_,index)=>plannedPrescriptionForProgram(previousProgram,index+1,null));
+    const existingVersions=(Array.isArray(structure.programVersions)?structure.programVersions:[])
+      .filter(entry=>Number.isInteger(entry?.fromWeek)&&entry.fromWeek>=1&&entry.fromWeek<=total&&Array.isArray(entry.program))
+      .map(entry=>({fromWeek:entry.fromWeek,program:compactPlannedProgram(entry.program)}));
+    if(!existingVersions.some(entry=>entry.fromWeek===1)){
+      structure.programVersions=[{fromWeek:1,program:oldCompact},...existingVersions]
+        .sort((a,b)=>a.fromWeek-b.fromWeek);
+    }
+    return structure;
+  }
+  structure.weekPrescriptions=Array.from({length:total},(_,index)=>{
+    const number=index+1;
+    if(number<week)return existingWeeks.get(number)||plannedPrescriptionForProgram(previousProgram,number,null);
+    return plannedPrescriptionForProgram(nextProgram,number,existingWeeks.get(number));
+  });
+  const priorVersions=(Array.isArray(structure.programVersions)?structure.programVersions:[])
+    .filter(entry=>Number.isInteger(entry?.fromWeek)&&entry.fromWeek>=1&&entry.fromWeek<=total&&Array.isArray(entry.program))
+    .map(entry=>({fromWeek:entry.fromWeek,program:compactPlannedProgram(entry.program)}));
+  if(!priorVersions.some(entry=>entry.fromWeek===1))priorVersions.unshift({fromWeek:1,program:oldCompact});
+  const versions=priorVersions.filter(entry=>entry.fromWeek<week);
+  versions.push({fromWeek:week,program:nextCompact});
+  structure.programVersions=versions.sort((a,b)=>a.fromWeek-b.fromWeek);
+  return structure}
+function syncProgramStructureFromProgram(proposal,program,previousProgram=null,previousMeta=null){
   const struct=proposal.programMeta?.programStructure;
   if(!struct||!Array.isArray(struct.days))return;
   const labels=program._structureDays&&program._structureDays.length
     ?program._structureDays.slice():program.days();
   const byLabel=new Map(struct.days.map(d=>[d.label,d]));
   const byIndex=struct.days.slice();
-  proposal.programMeta.programStructure={
+  const synced={
     ...cloneSnapshot(struct),
     days:labels.map((label,i)=>{
       const prev=byLabel.get(label)||byIndex[i];
@@ -3943,7 +4191,10 @@ function syncProgramStructureFromProgram(proposal,program){
         ?label:override;
       return{dayId,label,order:i+1,
         ...(displayNameKey?{displayNameKey}:{}),
-        ...(nameOverride?{nameOverride}:{})}})}
+        ...(nameOverride?{nameOverride}:{})}})};
+  proposal.programMeta.programStructure=previousProgram
+    ?preserveProgramPrescriptionHistory(synced,previousProgram,program.toJSON(),previousMeta||state.programMeta)
+    :synced;
 }
 function scheduledProgramRows(){
   const week=mesocycleLifecycle(state.programMeta).current;
@@ -4109,10 +4360,51 @@ async function goToLogExercise(exId){
   document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-library","is-preview","is-import");
   await enterWorkout({});
   const art=$(`#workout [data-ex="${exId}"]`);if(art){collapsed.delete(exId);art.classList.remove("is-collapsed");art.scrollIntoView({behavior:"smooth",block:"center"})}}
-function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
+function evidenceRenderers(){
+  return{strength:renderStrengthDash,volume:renderVolumeDash,prs:renderPRTimeline}}
+function renderEvidenceView(){
+  if(!evidenceView)return;
+  const fn=evidenceRenderers()[evidenceView];
+  if(fn)fn()}
+function setEvidenceView(view){
+  if(!EVIDENCE_SEG[view]){evidenceView=null;
+    $$("#statsEvidence button").forEach(b=>{b.classList.remove("active");b.setAttribute("aria-selected","false")});
+    for(const id of Object.values(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
+    return}
+  evidenceView=view;
+  $$("#statsEvidence button").forEach(b=>{const on=b.dataset.seg===view;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
+  for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
+  for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===view)}
+  renderEvidenceView()}
+function setStatsSeg(seg){
+  // Legacy one-level values route to their Evidence view (Plan 056 migration).
+  if(EVIDENCE_SEG[seg])return setEvidenceView(seg);
+  if(!STATS_SEG[seg])seg="overview";
+  statsSeg=seg;evidenceView=null;
   $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
+  $$("#statsEvidence button").forEach(b=>{b.classList.remove("active");b.setAttribute("aria-selected","false")});
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
-  if(seg==="overview")redrawChart();else if(seg==="strength")renderStrengthDash();else if(seg==="volume")renderVolumeDash();else if(seg==="prs")renderPRTimeline();else if(seg==="review")renderReview()}
+  for(const [k,id] of Object.entries(EVIDENCE_SEG)){const el=$("#"+id);if(el)el.classList.remove("active")}
+  if(seg==="overview")redrawChart();else if(seg==="review")renderReview();
+  queueMicrotask(()=>maybeShowContextualGuides([seg==="review"?"block-transition":"progress"]))}
+window.__repforgeStatsNav={setStatsSeg,setEvidenceView};
+// Read-only evidence seam: suites assert the model-backed values the Evidence
+// views render, without scraping DOM markup.
+window.__repforgeProgressEvidence={
+  strength:liftId=>{
+    const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return null;
+    return strengthProjection(strengthScope).series.get(liftId)||null},
+  volume:scope=>{
+    const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return null;
+    return Model.buildVolumeEvidence(scope==="block-to-date"?"block-to-date":"this-week",prog.toJSON(),
+      progressEvidenceMeta(),state.log,today())},
+  records:scope=>strengthEvidenceRecords(scope||strengthScope),
+  chartPresentation:n=>n>=3?"trend":n===2?"comparison":"snapshot",
+  keyForExerciseId:exId=>{const ex=prog.find(exId);return ex?exerciseLiftKey(ex):null}};
+window.__repforgeProgressReview={
+  activeRecovery:()=>activeReviewRecovery(),
+  scheduledProgram:()=>scheduledProgramRows(),
+};
 
 // Block (mesocycle) trend — a WEAK signal derived from e1RM across this lift's
 // sessions inside the current block. Only tempers aggressiveness / rep targets.
@@ -6357,7 +6649,7 @@ function strengthDashboard(){
   for(const [k,sess] of byLift){const latest=sess.at(-1),first=sess[0],best=Math.max(...sess.map(s=>s.e1rm));
     const ex=currentExerciseForLiftKey(k);
     const rec=ex?recommendation(ex):{label:"—"};
-    rows.push({exercise:latest.name,latest:`${fmtLoad(latest.top)}×${latest.topReps}`,best,blockDelta:latest.e1rm-first.e1rm,
+    rows.push({key:k,exercise:latest.name,latestLoad:latest.top,latestReps:latest.topReps,best,blockDelta:latest.e1rm-first.e1rm,
       prs:prN.get(k)||0,lastTrained:latest.date,signal:rec.label})}
   return rows.sort((a,b)=>a.exercise.localeCompare(b.exercise))}
 window.__repforgeStrengthDashboard=strengthDashboard;
@@ -6370,63 +6662,113 @@ window.__repforgeProgression={
   sessionsFor:ex=>sessionsFor(ex),
   programSlot:id=>{const slot=prog.find(id);return slot?sessionExercise(slot):null}};
 
-function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;const rows=strengthDashboard();
+function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;
+  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  const scopeSeg=$("#strengthScopeSeg");
+  if(scopeSeg)$$("#strengthScopeSeg button").forEach(b=>{const on=b.dataset.scope===strengthScope;
+    b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false");
+    b.onclick=()=>{strengthScope=b.dataset.scope;renderStrengthDash()}});
+  if(!Model){legacyStrengthTable(el);return}
+  const projection=strengthProjection(strengthScope),dash=projection.dashboard;
+  // Program slots with no logged history still earn a row: zero points is
+  // baseline-building, not an absence.
+  const keys=new Set(projection.keys);
+  for(const ex of prog.exercises){const k=exerciseLiftKey(ex)||`slot:${ex.id}`;if(!keys.has(k))keys.add(k)}
+  if(!keys.size){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
+  const nameOf=k=>dash.find(r=>r.key===k)?.exercise||prog.exercises.find(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===k)?.name||k;
+  el.innerHTML=[...keys].sort((a,b)=>nameOf(a).localeCompare(nameOf(b),locTag())).map(k=>{
+    const series=projection.series.get(k);
+    const label=t(`stats.evidence.${series.presentation}`);
+    const outcome=series.outcome&&EVIDENCE_OUTCOME_KEYS[series.outcome]?` · ${t(EVIDENCE_OUTCOME_KEYS[series.outcome])}`:"";
+    const reason=!series.outcome&&series.reason&&series.presentation!=="empty"?` · ${t(`stats.evidence.reason.${series.reason}`)}`:"";
+    const baseline=series.presentation==="empty"?` · ${t("stats.evidence.baseline")}`:"";
+    const value=series.latest?`${fmtLoad(series.latest.value)}×${series.latest.reps}`:"—";
+    const comparison=series.comparison;
+    const change=comparison?` · ${t("stats.evidence.change",{absolute:`${comparison.absolute>0?"+":""}${fmt(toDisplay(comparison.absolute))} ${unitLabel()}`,percentage:`${comparison.percentage>0?"+":""}${fmt(comparison.percentage)}`})}`:"";
+    const detail=strengthDetailTable(k,projection);
+    return `<button type="button" class="evrow" data-evkey="${esc(k)}" aria-expanded="false">`+
+      `<div class="listrow__main"><div class="listrow__title">${esc(nameOf(k))}</div>`+
+      `<div class="listrow__sub">${esc(label)}${esc(outcome||reason||baseline)}${esc(change)}</div></div>`+
+      `<span class="evrow__val">${esc(value)}</span><span class="chevron" aria-hidden="true"></span></button>`+
+      `<div class="evrow__detail" data-evdetail="${esc(k)}" hidden>${detail}</div>`}).join("");
+  $$("#strengthDash [data-evkey]").forEach(b=>b.onclick=()=>{
+    const detail=$(`[data-evdetail="${b.dataset.evkey}"]`);if(!detail)return;
+    const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false")})}
+function strengthDetailTable(k,projection=strengthProjection(strengthScope)){
+  const sess=projection.sessions.filter(x=>x.liftKey===k);
+  if(!sess.length)return `<p class="lede">${esc(t("stats.evidence.reason.untested"))}</p>`;
+  const u=unitLabel();
+  return `<p class="lede">${esc(t("stats.evidence.range",{start:longDate(sess[0].date),end:longDate(sess.at(-1).date)}))}</p>`+
+    table(sess.map(s=>({[t("stats.table.date")]:shortDate(s.date),[t("stats.table.top")]:fmtLoad(s.top),[t("stats.table.reps")]:s.topReps,
+      [t("stats.table.e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(s.e1rm))),[t("stats.table.rir")]:fmt(s.rir)})))}
+function legacyStrengthTable(el){
+  const rows=strengthDashboard();
   if(!rows.length){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_lifts"))}</div>`;return}
   const u=unitLabel(),fmtDelta=d=>{const n=toDisplay(d),a=Math.abs(n);const s=n>0?"+":n<0?"-":"";return s+(a?fmt(Math.round(a)):0)};
-  el.innerHTML=table(rows.map(r=>({[t("stats.table.exercise")]:r.exercise,[t("stats.table.latest")]:r.latest,[t("stats.table.best_e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(r.best))),
+  el.innerHTML=table(rows.map(r=>({[t("stats.table.exercise")]:r.exercise,[t("stats.table.latest")]:`${fmtLoad(r.latestLoad)}×${r.latestReps}`,[t("stats.table.best_e1rm_unit",{unit:u})]:fmt(Math.round(toDisplay(r.best))),
     [t("stats.table.delta_block")]:fmtDelta(r.blockDelta),[t("stats.table.prs")]:r.prs,[t("stats.table.signal")]:r.signal})))}
 
-// The week reads as a headline: the verdict first, the arithmetic under it, and a
-// session bar so "3 of 4" is legible without reading. The attention tally counts the
-// same lifts the Attention list below shows, so the two numbers never disagree.
-function coachingDestKey(group){if(group==="add")return"details";if(group==="new"||group==="stale")return"log";return"trend"}
-function coachingDestLabel(group){const k=coachingDestKey(group);return k==="details"?t("stats.dest.details"):k==="log"?t("stats.dest.log"):t("stats.dest.trend")}
-function renderThisWeek(){const el=$("#thisWeek");if(!el)return;const w=weeklySnapshot();
-  const attnN=attentionCount();
-  const segs=Math.max(w.plannedDays,w.completedDays,1),done=Math.min(w.completedDays,segs);
-  el.innerHTML=`<div class="ov-week-status">${esc(t("stats.this_week.status",{status:w.status}))}</div>`+
-    `<div class="ov-week-line">${esc(t("stats.this_week.line",{done:w.completedDays,planned:w.plannedDays,hardSets:`${w.totalHardSets} ${tp(w.totalHardSets,"hard set")}`}))}</div>`+
+// The week reads as a headline: the arithmetic the model computed, a session bar so
+// "3 of 4" is legible without reading, and the baseline tally. Every number comes
+// from the same evidence model the lists below render, so none of them disagree.
+function renderThisWeek(){const el=$("#thisWeek");if(!el)return;
+  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return;
+  const w=Model.buildWeekStatus(prog.toJSON(),progressEvidenceMeta(),state.log,today());
+  const records=strengthEvidenceRecords("current-block"),baselineN=records.filter(r=>r.evidenceState==="insufficient").length;
+  const segs=Math.max(w.plannedSessions,w.completedSessions,1),done=Math.min(w.completedSessions,segs);
+  el.innerHTML=`<div class="ov-week-status">${esc(t("stats.this_week.in_progress"))}</div>`+
+    `<div class="ov-week-line">${esc(t("stats.this_week.progress",{sessions:`${w.completedSessions} / ${w.plannedSessions}`,sets:`${w.completedWorkingSets} / ${w.plannedWorkingSets}`}))}</div>`+
     `<div class="ov-week-bar" aria-hidden="true">`+
     Array.from({length:segs},(_,i)=>`<span class="ov-week-bar__seg${i<done?" is-done":""}"></span>`).join("")+`</div>`+
     `<div class="statrow">`+
-    `<div class="statrow__cell" data-week-metric="improved"><div class="statrow__val">${w.improvedLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.improved"))}</div></div>`+
-    `<div class="statrow__cell" data-week-metric="stable"><div class="statrow__val">${w.flatLifts}</div><div class="statrow__cap">${esc(t("stats.this_week.stable"))}</div></div>`+
-    `<div class="statrow__cell${attnN?" is-attn":""}" data-week-metric="attention"><div class="statrow__val">${attnN||0}${attnN?`<span class="statrow__dot"></span>`:""}</div><div class="statrow__cap">${esc(t("stats.this_week.attention"))}</div></div>`+
+    `<div class="statrow__cell" data-week-metric="sessions"><div class="statrow__val">${w.completedSessions}</div><div class="statrow__cap">${esc(t("stats.this_week.sessions"))}</div></div>`+
+    `<div class="statrow__cell" data-week-metric="sets"><div class="statrow__val">${w.completedWorkingSets}</div><div class="statrow__cap">${esc(t("stats.this_week.working_sets"))}</div></div>`+
+    `<div class="statrow__cell" data-week-metric="baseline"><div class="statrow__val">${baselineN}</div><div class="statrow__cap">${esc(t("stats.this_week.baseline"))}</div></div>`+
     `</div>`}
 function overviewBarPct(planned,completed7){return planned>0?Math.min(100,Math.round(completed7/planned*100)):0}
-function overviewVolumeSorted(){return volumeDashboard(7).slice().sort((a,b)=>{
-  const da=Math.max(a.planned-a.completed7,0),db=Math.max(b.planned-b.completed7,0);
-  if(db!==da)return db-da;
-  const ra=a.planned>0?a.completed7/a.planned:Infinity,rb=b.planned>0?b.completed7/b.planned:Infinity;
-  if(ra!==rb)return ra-rb;
-  return muscleLabel(a.muscle).localeCompare(muscleLabel(b.muscle),locTag())})}
+function volumeStatusKey(planned,completed){
+  if(!planned)return completed>0?"high":"on-target";
+  const ratio=completed/planned;
+  return ratio<0.6?"below":ratio<=1.3?"on-target":"high"}
+function overviewVolumeProjection(){
+  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  if(!Model)return volumeDashboard(7).map(row=>({...row,statusKey:volumeStatusKey(row.planned,row.completed7)}));
+  const meta=progressEvidenceMeta(),evidence=Model.buildVolumeEvidence("this-week",prog.toJSON(),meta,state.log,today());
+  const planned=volumePlannedMuscleMap(evidence,meta.weekPrescriptions),completed=volumeMapFromRows(evidence.completedRows,state.program);
+  const names=new Set([...planned.keys(),...completed.keys()]);
+  return[...names].map(muscle=>{
+    const plannedValue=volEff(planned,muscle),completedValue=volEff(completed,muscle);
+    // A muscle with no compatible hard-set observation is baseline-building;
+    // the Overview must not turn that absence into a negative status.
+    const evidenceState=completedValue>0?"sufficient":"insufficient";
+    const periodInProgress=evidence.periodStatus!=="complete";
+    const statusKey=evidenceState==="insufficient"?"baseline":
+      periodInProgress&&plannedValue>0?"in-progress":volumeStatusKey(plannedValue,completedValue);
+    const status=statusKey==="baseline"?t("stats.evidence.baseline"):
+      statusKey==="in-progress"?t("stats.volume.in_progress",{done:fmt(completedValue),planned:fmt(plannedValue)}):
+      statusKey==="high"?t("status.high"):statusKey==="below"?t("stats.volume_below"):t("stats.volume_on_target");
+    return{muscle,planned:plannedValue,completed7:completedValue,status,statusKey,evidenceState,
+      pct:overviewBarPct(plannedValue,completedValue)}
+  }).sort((a,b)=>{
+    const da=Math.max(a.planned-a.completed7,0),db=Math.max(b.planned-b.completed7,0);
+    if(db!==da)return db-da;
+    const ra=a.planned>0?a.completed7/a.planned:Infinity,rb=b.planned>0?b.completed7/b.planned:Infinity;
+    if(ra!==rb)return ra-rb;
+    return muscleLabel(a.muscle).localeCompare(muscleLabel(b.muscle),locTag())})}
+function overviewVolumeSorted(){return overviewVolumeProjection()}
 function renderOverviewVolume(){const el=$("#overviewVolume");if(!el)return;
   const rows=overviewVolumeSorted(),shown=rows.slice(0,8),more=rows.length-shown.length;
-  el.innerHTML=rows.length?shown.map(r=>{
-    const high=r.status===t("status.high"),on=r.status===t("status.on_target"),below=r.status===t("status.low");
-    const pct=overviewBarPct(r.planned,r.completed7);
-    const label=high?t("status.high"):below?t("stats.volume_below"):t("stats.volume_on_target");
-    return `<div class="vrow" data-muscle="${esc(r.muscle)}"><span class="vrow__name">${esc(muscleLabel(r.muscle))}</span>`+
-      `<span class="vrow__bar"><span class="vrow__fill${high?" is-high":on?" is-on":""}" style="width:${pct}%"></span></span>`+
-      `<span class="vrow__num">${fmt(r.completed7)} / ${fmt(r.planned)}</span>`+
-      `<span class="vrow__status${on?" is-on":""}">${esc(label)}</span></div>`}).join("")+
+  el.innerHTML=rows.length?shown.map(row=>{
+    const fillClass=row.statusKey==="high"?" is-high":row.statusKey==="on-target"?" is-on":"";
+    const statusClass=row.statusKey==="on-target"?" is-on":"";
+    return `<button type="button" class="vrow" data-muscle="${esc(row.muscle)}"><span class="vrow__name">${esc(muscleLabel(row.muscle))}</span>`+
+      `<span class="vrow__bar"><span class="vrow__fill${fillClass}" style="width:${row.pct}%"></span></span>`+
+      `<span class="vrow__num">${fmt(row.completed7)} / ${fmt(row.planned)}</span>`+
+      `<span class="vrow__status${statusClass}">${esc(row.status)}</span><span class="chevron" aria-hidden="true"></span></button>`}).join("")+
       (more>0?`<button type="button" class="link-row-cta" id="overviewVolumeMore">${esc(t("stats.volume_more",{n:more}))}</button>`:"")
     :`<div class="empty">${esc(t("stats.empty.no_hard_sets",{n:7}))}</div>`;
+  $$("#overviewVolume [data-muscle]").forEach(button=>button.onclick=()=>{volumeDrillMuscle=button.dataset.muscle;setEvidenceView("volume")});
   const moreBtn=$("#overviewVolumeMore");if(moreBtn)moreBtn.onclick=()=>setStatsSeg("volume")}
-function renderReadyList(){const el=$("#readyList");if(!el)return;
-  const add=attentionGroups().find(g=>g.key==="add");
-  if(!add?.items.length){el.innerHTML="";readyExpanded=false;return}
-  const items=add.items,cap=4,shown=readyExpanded?items:items.slice(0,cap),more=items.length-cap;
-  const row=({ex,why})=>{const r=recommendation(ex);const prev=last(ex);const base=prev.find(s=>s.set===1)?.load??prev[0]?.load;
-      const delta=r.load!=null&&base!=null?r.load-base:null;
-      const deltaTxt=delta!=null?`+${fmtLoad(Math.abs(delta))} ${unitLabel()}`:r.label;
-      const dest=coachingDestLabel("add");
-      return `<button type="button" class="ready-row listrow" data-ready="${esc(ex.id)}" data-dest="details"><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div>`+
-        `<div class="listrow__sub">${esc(why)}</div></div><span class="ready-row__delta">${esc(deltaTxt)}</span><span class="coach-dest">${esc(dest)}</span><span class="chevron" aria-hidden="true"></span></button>`};
-  el.innerHTML=`<p class="section-label">${esc(t("stats.ready_to_progress"))}<span class="section-label__count">${esc(t("stats.section_count",{n:items.length}))}</span></p>`+shown.map(row).join("")+
-    (more>0&&!readyExpanded?`<button type="button" class="link-row-cta" id="readySeeAll"><span>${esc(t("stats.ready_see_all",{n:items.length}))}</span><span class="chevron" aria-hidden="true"></span></button>`:"");
-  $$("#readyList [data-ready]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.ready,"stats"));
-  const see=$("#readySeeAll");if(see)see.onclick=()=>{readyExpanded=true;renderReadyList()}}
 function recentDeltaRows(){const sessMap=new Map();
   for(const x of state.log){if(!sessMap.has(x.session))sessMap.set(x.session,{session:x.session,date:x.date,created:x.created})}
   const recent=[...sessMap.values()].sort((a,b)=>String(b.created).localeCompare(String(a.created))||String(b.date).localeCompare(String(a.date))).slice(0,10);
@@ -6450,10 +6792,9 @@ function renderStats(){
       `<p class="emptystate__body">${esc(t("stats.empty.body"))}</p>`+
       `<button type="button" class="btn btn--cta" id="statsIntroGo">${esc(t("stats.empty.cta"))}</button>`;
     const go=$("#statsIntroGo");if(go)go.onclick=()=>navTo("log");
-    for(const sel of["#thisWeek","#readyList","#attention","#metrics","#statsDeep","#overviewVolume"]){const el=$(sel);if(el)el.classList.toggle("hidden",!hasLog)}
+    for(const sel of["#thisWeek","#attention","#metrics","#statsDeep","#overviewVolume"]){const el=$(sel);if(el)el.classList.toggle("hidden",!hasLog)}
   }
   renderThisWeek();
-  renderReadyList();
   renderOverviewVolume();
   // Stat exercise options: the label and identity both follow what was actually
   // performed, so reusing a program slot cannot merge two different movements.
@@ -6498,9 +6839,10 @@ function renderStats(){
   const progRows=[...topByLift.values()].sort((a,b)=>b.load-a.load||b.reps-a.reps).map(r=>({[t("stats.table.exercise")]:r.Exercise,[unitLabel()]:fmtLoad(r.load),[t("stats.table.reps")]:r.reps,[t("stats.table.rir")]:fmt(r.rir),[t("stats.table.date")]:r.date}));
   $("#tops").innerHTML=table(progRows);
   renderPRs();renderAttention();renderCompleted();renderReview();
-  if(statsSeg==="strength")renderStrengthDash();
-  if(statsSeg==="volume")renderVolumeDash();
-  if(statsSeg==="prs")renderPRTimeline();
+  if(statsSeg==="review")renderReview();
+  renderEvidenceView();
+  if($("#stats")?.classList.contains("active")&&!evidenceView)
+    queueMicrotask(()=>maybeShowContextualGuides([statsSeg==="review"?"block-transition":"progress"]));
 }
 
 function detectPRs(log,opts={}){
@@ -6509,11 +6851,11 @@ function detectPRs(log,opts={}){
   const best=new Map(),events=[];
   for(const row of rows){const k=liftKey(row),ld=+row.load,rp=+row.reps,em=e1rm(ld,rp);
     const cur=best.get(k)||{load:0,repsAtMax:0,e1rm:0};
-    if(ld>cur.load){events.push({kind:"load",liftKey:k,date:row.date,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaLoad:cur.load>0?ld-cur.load:undefined});
+    if(ld>cur.load){events.push({kind:"load",liftKey:k,date:row.date,session:row.session,blockId:row.blockId??null,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaLoad:cur.load>0?ld-cur.load:undefined});
       cur.load=ld;cur.repsAtMax=rp}
-    else if(ld===cur.load&&rp>cur.repsAtMax){events.push({kind:"reps",liftKey:k,date:row.date,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaReps:rp-cur.repsAtMax});
+    else if(ld===cur.load&&rp>cur.repsAtMax){events.push({kind:"reps",liftKey:k,date:row.date,session:row.session,blockId:row.blockId??null,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaReps:rp-cur.repsAtMax});
       cur.repsAtMax=rp}
-    if(em>cur.e1rm){events.push({kind:"e1rm",liftKey:k,date:row.date,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaE1rm:cur.e1rm>0?em-cur.e1rm:undefined});
+    if(em>cur.e1rm){events.push({kind:"e1rm",liftKey:k,date:row.date,session:row.session,blockId:row.blockId??null,load:ld,reps:rp,rir:row.rir,exerciseName:displayName(row),exerciseId:row.exerciseId,deltaE1rm:cur.e1rm>0?em-cur.e1rm:undefined});
       cur.e1rm=em}
     best.set(k,cur)}
   return events}
@@ -6758,7 +7100,9 @@ async function confirmRecoveryTransition(params,Transition,Compiler,catalogue){
   const initialCarrier=isValidRecoveryTransitions(state.recoveryTransitions)
     ?cloneSnapshot(state.recoveryTransitions):{schemaVersion:1,records:[],quarantine:[]};
   const initialProposal=cloneSnapshot(state);
-  initialProposal.programMeta={...cloneSnapshot(state.programMeta),blockId:target};
+  const blockStarted=params.confirmedAt.slice(0,10);
+  initialProposal.programMeta={...cloneSnapshot(state.programMeta),blockId:target,started:blockStarted,
+    mesocycleStatus:"active",updated:params.confirmedAt};
   initialProposal.recoveryTransitions={schemaVersion:1,records:[...initialCarrier.records,cloneSnapshot(initialCommitted)],quarantine:cloneSnapshot(initialCarrier.quarantine)};
   const preflight=async({head})=>{
     const lockedIdem=classifyCommittedRecovery(head,proposal);
@@ -6789,7 +7133,8 @@ async function confirmRecoveryTransition(params,Transition,Compiler,catalogue){
     const existing=isValidRecoveryTransitions(head.recoveryTransitions)
       ?cloneSnapshot(head.recoveryTransitions):{schemaVersion:1,records:[],quarantine:[]};
     const next=cloneSnapshot(head);
-    next.programMeta={...cloneSnapshot(head.programMeta),blockId:target};
+    next.programMeta={...cloneSnapshot(head.programMeta),blockId:target,started:blockStarted,
+      mesocycleStatus:"active",updated:params.confirmedAt};
     next.recoveryTransitions={schemaVersion:1,records:[...existing.records,cloneSnapshot(committed)],quarantine:cloneSnapshot(existing.quarantine)};
     return{proposal:next};
   };
@@ -7186,6 +7531,8 @@ const repforgeProgramTransitionAdapter = {
         // the resulting proposal/journal carries this candidate through
         // replay, while the durable write remains the single confirmation.
         blockId: allocateBlockId(),
+        started: confirmedAt.slice(0,10),
+        mesocycleStatus: "active",
         daysPerWeek: succInstance.frequency,
         sessionLength: String(succContext.sessionMinutes),
         programStructure: cloneSnapshot(succInstance.programStructure),
@@ -7482,6 +7829,12 @@ const repforgeProgramTransitionAdapter = {
 };
 if (typeof window !== "undefined") {
   window.__repforgeProgramTransition = repforgeProgramTransitionAdapter;
+  window.__repforgeProgressReview={
+    recoveryEvidence:()=>cloneSnapshot(reviewRecoveryEvidence()),
+    activeRecovery:()=>cloneSnapshot(activeReviewRecovery()),
+    scheduledProgram:()=>cloneSnapshot(scheduledProgramRows()),
+    flow:()=>cloneSnapshot(reviewFlow),
+  };
 }
 window.__repforgeParseCommand=parseSetCommand;
 window.__repforgeNormalizeCommand=normalizeCommandText;
@@ -7555,13 +7908,18 @@ function renderPRTimeline(){const el=$("#prTimeline");if(!el)return;
   const delta=ev=>ev.kind==="load"?(ev.deltaLoad!=null?`+${fmtLoad(ev.deltaLoad)}${unitLabel()}`:"")
     :ev.kind==="reps"?(ev.deltaReps!=null?`+${ev.deltaReps}`:"")
     :(ev.deltaE1rm!=null?`+${fmt(Math.round(toDisplay(ev.deltaE1rm)))}${unitLabel()}`:"");
-  el.innerHTML=events.map(ev=>{const kc=ev.kind==="load"?"pr-kind--load":ev.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm";
+  el.innerHTML=events.map((ev,i)=>{const kc=ev.kind==="load"?"pr-kind--load":ev.kind==="reps"?"pr-kind--reps":"pr-kind--e1rm";
     const d=delta(ev);
-    return `<div class="prtl__row"><span class="prtl__date">${esc(prDate(ev.date))}</span>`+
+    return `<button type="button" class="prtl__row" data-prrow="${i}" aria-expanded="false"><span class="prtl__date">${esc(prDate(ev.date))}</span>`+
       `<span class="prtl__ex">${esc(ev.exerciseName)}</span>`+
       `<span class="pr-kind ${kc}">${esc(kindLbl(ev.kind))}</span>`+
       `<span class="prtl__set">${esc(fmtLoad(ev.load))}${unitLabel()} × ${esc(ev.reps)}</span>`+
-      (d?`<span class="prtl__delta">${esc(d)}</span>`:"")+`</div>`}).join("")}
+      (d?`<span class="prtl__delta">${esc(d)}</span>`:"")+`<span class="chevron" aria-hidden="true"></span></button>`+
+      `<div class="evrow__detail" data-prdetail="${i}" hidden><p class="lede">${esc(longDate(ev.date))}</p>`+
+      `<p class="lede">${esc(`${kindLbl(ev.kind)} · ${fmtLoad(ev.load)}${unitLabel()} × ${ev.reps}`)}${d?` · ${esc(d)}`:""}</p></div>`}).join("");
+  $$("#prTimeline [data-prrow]").forEach(b=>b.onclick=()=>{
+    const detail=$(`[data-prdetail="${b.dataset.prrow}"]`);if(!detail)return;
+    const open=detail.hidden;detail.hidden=!open;b.setAttribute("aria-expanded",open?"true":"false")})}
 
 function renderPRs(){const el=$("#prLedger");if(!el)return;
   const sel=$("#statExercise").value,events=detectPRs(state.log).filter(ev=>ev.liftKey===sel);
@@ -7580,28 +7938,15 @@ function renderPRs(){const el=$("#prLedger");if(!el)return;
         `<td>${esc(delta)}</td></tr>`}).join("")
   }</tbody></table>`}
 
-// Action board — which lifts need a decision, grouped by signal (one group per lift).
-function attentionSignal(ex,fatigueCluster){
-  const r=recommendation(ex),sess=sessionsFor(ex);
-  if(r.status==="add"||r.status==="add2")return{key:"add",why:t("attention.add.why")};
-  if(r.status==="reduce"||r.stalled)return{key:"reduce",why:t("attention.reduce.why")};
-  if(r.status==="new")return{key:"new",why:t("attention.new.why")};
-  if(sess.length){
-    const lastDate=String(sess.at(-1).date).slice(0,10),cutoff=daysAgo(10);
-    if(lastDate<cutoff){const n=Math.floor((new Date(`${today()}T12:00:00`)-new Date(`${lastDate}T12:00:00`))/86400000);
-      return{key:"stale",why:t("attention.stale.why",{n})}}
-  }
-  const planned=prog.volume(),done=completedHardSets(7);
-  for(const m of muscles(ex.primary)){const p=planned.get(m),d=done.get(m),target=p?p.d+p.p:0,actual=d?d.d+d.p:0;
-    if(target>0&&actual<target)return{key:"vol",why:t("attention.vol.why")}}
-  if(recoverSignal(ex,sess)||(fatigueCluster&&r.status==="hold"&&recoverSignal(ex,sess,1)))return{key:"fatigue",why:t("attention.fatigue.why")};
-  return null}
-function attentionGroups(){const fatigueCluster=prog.exercises.filter(ex=>{const r=recommendation(ex);return r.status==="reduce"||r.stalled}).length>=2;
-  const defs=[{key:"add",cls:"add",lead:t("attention.add.lead")},{key:"reduce",cls:"reduce",lead:t("attention.reduce.lead")},{key:"new",cls:"new",lead:t("attention.new.lead")},
-    {key:"stale",cls:"stale",lead:t("attention.stale.lead")},{key:"vol",cls:"vol",lead:t("attention.vol.lead")},{key:"fatigue",cls:"fatigue",lead:t("attention.fatigue.lead")}];
-  const g=Object.fromEntries(defs.map(d=>[d.key,[]]));
-  for(const ex of prog.exercises){const sig=attentionSignal(ex,fatigueCluster);if(sig)g[sig.key].push({ex,why:sig.why})}
-  return defs.map(d=>({...d,items:g[d.key]})).filter(d=>d.items.length)}
+// Needs action is derived only from canonical sufficient evidence records.
+function attentionGroups(){
+  const items=RepForgeProgressModel.buildProgramActionQueue(prog.toJSON(),progressEvidenceMeta(),state.log,
+    strengthEvidenceRecords("current-block"));
+  const groups=new Map();
+  for(const item of items){const key=item.recommendation,ex=currentExerciseForLiftKey(item.destinationId);
+    if(!groups.has(key))groups.set(key,[]);
+    groups.get(key).push({ex:ex||{id:item.destinationId,name:item.destinationId},why:t(`stats.recommendation.${key}`),item})}
+  return[...groups].map(([key,entries])=>({key,cls:key,lead:t(`stats.recommendation.${key}`),items:entries}))}
 window.__repforgeRecoverSignal=recoverSignal;
 window.__repforgeRecommendation=recommendation;
 window.__repforgeProgressionForExercise=progressionForExercise;
@@ -7611,34 +7956,19 @@ window.__repforgeCapacity={CAPACITY,capRir,capReps,capE1rm,repsAtLoad,typicalRir
 window.__repforgeAttention=attentionGroups;
 // Lifts on the Attention board — everything the board lists, so the "attention" cell in
 // the weekly stat row and the "ATTENTION · n" heading always report the same lifts.
-function attentionCount(groups){return(groups||attentionGroups().filter(g=>g.key!=="add")).reduce((n,g)=>n+g.items.length,0)}
+function attentionCount(groups){return(groups||attentionGroups()).reduce((n,g)=>n+g.items.length,0)}
 function renderAttention(){const el=$("#attention");if(!el)return;
-  const groups=attentionGroups().filter(g=>g.key!=="add");
-  if(!groups.length){el.innerHTML="";return}
-  const n=attentionCount(groups);
-  const html=`<p class="section-label">${esc(t("attention.title"))}<span class="section-label__count">${esc(t("stats.section_count",{n}))}</span></p>`+groups.map(({key,cls,lead,items})=>{
-    // A cause the whole group shares is stated once, above the lifts it holds:
-    // ten rows repeating "Primary muscle under weekly volume target." read as a
-    // rendering fault rather than as ten lifts sharing one reason. A group whose
-    // rows differ — "Last trained 15 days ago." beside 22 — keeps them, because
-    // hoisting one row's sentence would speak for the others.
-    const shared=items.length>1&&items.every(it=>it.why===items[0].why)?items[0].why:"";
-    return `<div class="attn__grp attn--${cls}"><span class="attn__lead">${esc(lead)}</span>`+
-    `<p class="attn__why${shared?"":" visually-hidden"}">${esc(items[0]?.why||"")}</p>`+
-    items.map(({ex,why})=>{const dest=coachingDestLabel(key),destKey=coachingDestKey(key);
-      // The destination is spoken, not printed: the chevron carries it for the
-      // eye, and ten rows of "View trend" were charging the reason beside them
-      // for a word the row already implies. A shared reason goes the same way:
-      // the eye reads it once above the group, and each row keeps it in its own
-      // accessible name, so a row still answers "why" on its own.
-      return `<button type="button" class="attn__chip" data-attn="${esc(ex.id)}" data-attngo="${esc(key)}" data-dest="${esc(destKey)}"><span class="attn__dot" aria-hidden="true"></span><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div>`+
-      `<div class="listrow__sub${shared?" visually-hidden":""}">${esc(why)}</div>`+
-      `</div><span class="coach-dest visually-hidden">${esc(dest)}</span><span class="chevron" aria-hidden="true"></span></button>`}).join("")+`</div>`}).join("");
-  el.innerHTML=html;
-  $$("#attention [data-attn]").forEach(b=>b.onclick=()=>{const grp=b.dataset.attngo,id=b.dataset.attn,ex=prog.find(id);
-    if(grp==="new"||grp==="stale"){if(ex)goToLogExercise(ex.id)}
-    else{const k=ex?exerciseLiftKey(ex):null,has=!!k&&[...$("#statExercise").options].some(o=>o.value===k);
-      if(has){$("#statsDeep").open=true;$("#statExercise").value=k;renderStats();redrawChart();$("#chart").scrollIntoView({behavior:"smooth",block:"center"})}else toast(t("toast.chart_missing_lift"))}});}
+  const groups=attentionGroups(),count=attentionCount(groups);
+  el.innerHTML=`<p class="section-label">${esc(t("stats.needs_action"))}<span class="section-label__count">${esc(t("stats.section_count",{n:count}))}</span></p>`+
+    // The recommendation *is* the group here, so it is stated once as the lead.
+    // Each row keeps it in its own accessible name, so a chip still answers
+    // "why" on its own without printing the same sentence beside every lift.
+    (groups.length?groups.map(group=>`<div class="attn__grp attn--${esc(group.cls)}"><span class="attn__lead">${esc(group.lead)}</span>`+
+      group.items.map(({ex,item,why})=>`<button type="button" class="attn__chip" data-action-lift="${esc(item.destinationId)}" data-attn="${esc(ex.id)}" data-attngo="${esc(group.key)}"><div class="listrow__main"><div class="listrow__title">${esc(ex.name)}</div>`+
+        `<div class="listrow__sub visually-hidden">${esc(why)}</div></div><span class="chevron" aria-hidden="true"></span></button>`).join("")+`</div>`).join("")
+      :`<p class="lede">${esc(t("stats.needs_action.none"))}</p>`);
+  $$("#attention [data-action-lift]").forEach(button=>button.onclick=()=>{strengthScope="current-block";setEvidenceView("strength");
+    const row=$(`#strengthDash [data-evkey="${CSS.escape(button.dataset.actionLift)}"]`);row?.focus();row?.scrollIntoView({block:"center"})})}
 
 // Completed hard sets per muscle over a rolling window (load>0, reps>0, RIR within hardRir).
 function completedHardSets(windowDays){const cutoff=daysAgo(windowDays-1),hr=+state.settings.hardRir,m=new Map();
@@ -7657,7 +7987,196 @@ function volumeDashboard(windowDays){const planned=prog.volume(),c7=completedHar
     return{muscle,planned:p,completed7:c7v,completed28:c28v,status:volumeStatus(p,c7v)}})}
 window.__repforgeVolumeDashboard=volumeDashboard;
 window.__repforgeOverviewVolume={pct:overviewBarPct,sorted:overviewVolumeSorted,label:muscleLabel};
+// Observed outcomes come from the authoritative paired-exposure comparison,
+// never from presentation. flat reads as "maintained" in the evidence model.
+const EVIDENCE_OUTCOME_KEYS={improved:"stats.outcome.improved",maintained:"stats.outcome.maintained",declined:"stats.outcome.declined"};
+function strengthSessionKey(row){return`${String(row?.session??row?.date)}\u0000${String(row?.blockId??"")}`}
+function strengthEvidenceRows(){return state.log.filter(isWork).map(r=>({exerciseId:liftKey(r),session:r.session,
+  sessionKey:strengthSessionKey(r),date:r.date,created:r.created??null,blockId:r.blockId??null,
+  name:displayName(r),day:r.day,primary:r.primary,secondary:r.secondary,
+  load:+r.load,reps:+r.reps,rir:r.rirMeasured===false||r.rir==null||r.rir===""?null:+r.rir,work:true}))}
+function strengthEvidenceRecords(scope="current-block"){
+  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;if(!Model)return[];
+  const meta={started:state.programMeta?.started||null,
+    mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,
+    blockId:snapshotBlockId(state)};
+  const rows=strengthEvidenceRows(),programKeys=new Set(prog.exercises.map(ex=>exerciseLiftKey(ex)||`slot:${ex.id}`));
+  const keys=new Set([...programKeys,...rows.map(liftKey)]);
+  const outcomeByStatus={improved:"improved",flat:"maintained",regressed:"declined"},records=[];
+  const hasEffort=row=>row?.rir!=null&&row.rir!==""&&Number.isFinite(Number(row.rir));
+  for(const key of keys){
+    const series=Model.buildStrengthEvidence(scope,key,rows,meta);
+    if(!programKeys.has(key)&&series.evidenceCount===0)continue;
+    // The model owns scope and chronological point selection. The producer
+    // then asks the authoritative paired-exposure comparison for the final
+    // outcome; a count alone can never produce a sufficient record.
+    const pointRows=new Map(series.points.map(point=>[point.sessionKey,
+      rows.filter(row=>row.exerciseId===key&&row.sessionKey===point.sessionKey)]));
+    const latestPoint=series.points.at(-1),previousPoint=series.points.at(-2);
+    const latestRows=latestPoint?pointRows.get(latestPoint.sessionKey)||[]:[];
+    const previousRows=previousPoint?pointRows.get(previousPoint.sessionKey)||[]:[];
+    let evidenceState="insufficient",reason=series.reason||"untested",outcome;
+    if(series.evidenceCount>=2){
+      const comparableEffort=[...previousRows,...latestRows].every(hasEffort);
+      if(!comparableEffort)reason="missing-effort";
+      else{
+        const delta=buildSessionDelta(previousRows,latestRows);
+        outcome=outcomeByStatus[delta.status];
+        if(outcome){evidenceState="sufficient";reason=null}
+        else reason=delta.status==="changed_load"?"changed-load":"incompatible-exposure";
+      }
+    }else if(series.evidenceCount===1){
+      reason=latestRows.some(row=>!hasEffort(row))?"missing-effort":"single-observation";
+    }
+    const record={exerciseId:key,scope:series.scope,evidenceState,
+      evidenceCount:series.evidenceCount,reason};
+    if(outcome)record.outcome=outcome;
+    records.push(record)}
+  return Model.normalizeEvidenceRecords(records)}
+function strengthFactsByLift(scope="current-block"){
+  return Object.fromEntries(strengthEvidenceRecords(scope).filter(r=>r.outcome).map(r=>[r.exerciseId,r.outcome]))}
+function strengthProjection(scope="current-block"){
+  const Model=RepForgeProgressModel,meta={started:state.programMeta?.started||null,
+    mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,
+    blockId:snapshotBlockId(state)};
+  const records=strengthEvidenceRecords(scope),rows=strengthEvidenceRows(),dashboard=[],keys=new Set();
+  for(const ex of prog.exercises)keys.add(exerciseLiftKey(ex)||`slot:${ex.id}`);
+  for(const row of rows)keys.add(row.exerciseId);
+  const series=new Map();
+  for(const key of keys){
+    const current=Model.buildStrengthEvidence(scope,key,rows,{...meta,evidenceRecords:records});
+    if(!prog.exercises.some(ex=>(exerciseLiftKey(ex)||`slot:${ex.id}`)===key)&&current.evidenceCount===0)continue;
+    const pointKeys=new Set(current.points.map(point=>point.sessionKey));
+    const liftRows=rows.filter(row=>row.exerciseId===key&&pointKeys.has(row.sessionKey));
+    const liftSessions=current.points.map(point=>{
+      const source=liftRows.filter(row=>row.sessionKey===point.sessionKey);
+      const topRow=source.slice().sort((a,b)=>b.load-a.load||b.reps-a.reps)[0]||point;
+      const top=Number(topRow.load),topReps=Number(topRow.reps),volume=source.reduce((n,row)=>n+row.load*row.reps,0);
+      return{session:point.session,date:point.date,day:source[0]?.day||"",liftKey:key,
+        name:source[0]?.name||currentExerciseForLiftKey(key)?.name||key,top,topReps,reps:source.reduce((n,row)=>n+row.reps,0),
+        rir:avg(source.map(row=>row.rir).filter(value=>Number.isFinite(value))),sets:source.length,volume,
+        e1rm:Math.max(...source.map(row=>e1rm(row.load,row.reps))),sessionKey:point.sessionKey};
+    });
+    const latest=liftSessions.at(-1);
+    if(latest){
+      const first=liftSessions[0],best=Math.max(...liftSessions.map(session=>session.e1rm));
+      const scopedPrs=detectPRs(state.log).filter(event=>event.liftKey===key&&
+        pointKeys.has(strengthSessionKey(event)));
+      const ex=currentExerciseForLiftKey(key),rec=ex?recommendation(ex):{label:"—"};
+      // Keep the historical read-only hook's fields stable while the primary
+      // Strength surfaces consume the numeric projection above. `latest` is
+      // the compatibility string only; renderers use latestLoad/latestReps
+      // and the model's numeric points, so no display value re-enters math.
+      dashboard.push({key,exercise:latest.name,latestLoad:latest.top,latestReps:latest.topReps,
+        latest:`${fmtLoad(latest.top)}×${latest.topReps}`,best,blockDelta:latest.e1rm-first.e1rm,
+        prs:scopedPrs.length,lastTrained:latest.date,signal:rec.label});
+    }
+    series.set(key,current)}
+  const sessions=[...series].flatMap(([key,current])=>{
+    const pointKeys=new Set(current.points.map(point=>point.sessionKey));
+    const matching=rows.filter(row=>row.exerciseId===key&&pointKeys.has(row.sessionKey));
+    return current.points.map(point=>{
+      const source=matching.filter(row=>row.sessionKey===point.sessionKey);
+      const top=source.slice().sort((a,b)=>b.load-a.load||b.reps-a.reps)[0]||point;
+      return{session:point.session,date:point.date,day:source[0]?.day||"",liftKey:key,
+        name:source[0]?.name||currentExerciseForLiftKey(key)?.name||key,top:top.load,topReps:top.reps,
+        reps:source.reduce((n,row)=>n+row.reps,0),rir:avg(source.map(row=>row.rir).filter(value=>Number.isFinite(value))),sets:source.length,
+        volume:source.reduce((n,row)=>n+row.load*row.reps,0),e1rm:Math.max(...source.map(row=>e1rm(row.load,row.reps))),sessionKey:point.sessionKey};
+    });
+  });
+  return{keys:new Set(series.keys()),dashboard,sessions,records,series}}
+// The test seam and the legacy fallback both read the same scoped projection
+// as the primary Strength renderer. No caller gets an all-history latest value
+// while the selected surface says current block.
+window.__repforgeStrengthDashboard=()=>strengthProjection(strengthScope).dashboard;
 function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
+  const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
+  const scopeSeg=$("#volumeScopeSeg");
+  if(scopeSeg)$$("#volumeScopeSeg button").forEach(b=>{const on=b.dataset.vscope===volumeScope;
+    b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false");
+    b.onclick=()=>{volumeScope=b.dataset.vscope;renderVolumeDash()}});
+  const periodEl=$("#volumePeriod");
+  if(!Model){legacyVolumeTable(el);if(periodEl)periodEl.textContent="";return}
+  const evidenceMeta=progressEvidenceMeta();
+  const ev=Model.buildVolumeEvidence(volumeScope==="this-week"?"this-week":"block-to-date",prog.toJSON(),
+    evidenceMeta,state.log,today());
+  if(periodEl)periodEl.textContent=ev.period.start
+    ?t("stats.volume.period_text",{start:longDate(ev.period.start),end:longDate(ev.period.end||today())})
+    :t("stats.volume.no_period");
+  const plannedMap=volumePlannedMuscleMap(ev,evidenceMeta.weekPrescriptions);
+  const completed=volumeMapFromRows(ev.completedRows,state.program);
+  const names=new Set([...plannedMap.keys(),...completed.keys()]);
+  if(!names.size){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_hard_sets",{n:7}))}</div>`;return}
+  const rows=[...names].sort((a,b)=>muscleLabel(a).localeCompare(muscleLabel(b),locTag())).map(m=>{
+    const planned=volEff(plannedMap,m),done=volEff(completed,m);
+    const inProgress=ev.periodStatus!=="complete"&&ev.period.end&&String(ev.period.end)>=today();
+    const caption=planned?(!inProgress&&done<planned?t("stats.volume.partial_period")
+      :inProgress?t("stats.volume.in_progress",{done:fmt(done),planned:fmt(planned)}):""):"";
+    const detail=volumeDetailTable(m,ev);
+    return `<button type="button" class="vrow evrow" data-volume-muscle="${esc(m)}" aria-expanded="false"><span class="vrow__name">${esc(muscleLabel(m))}</span>`+
+      `<span class="vrow__bar" aria-hidden="true"><span class="vrow__fill${done>=planned&&planned?" is-on":""}" style="width:${planned?Math.min(100,Math.round(done/planned*100)):0}%"></span></span>`+
+      `<span class="vrow__num">${fmt(done)} / ${fmt(planned)}</span>`+
+      `<span class="vrow__status${inProgress?"":""}">${esc(caption)}</span><span class="chevron" aria-hidden="true"></span></button>`+
+      `<div class="evrow__detail" data-volume-detail="${esc(m)}" hidden>${detail}</div>`}).join("");
+  el.innerHTML=`<div class="evrows">${rows}</div>`;
+  $$("#volumeDash [data-volume-muscle]").forEach(button=>button.onclick=()=>{const detail=$(`[data-volume-detail="${CSS.escape(button.dataset.volumeMuscle)}"]`);
+    const open=detail?.hidden;if(detail)detail.hidden=!open;button.setAttribute("aria-expanded",open?"true":"false");volumeDrillMuscle=open?button.dataset.volumeMuscle:null});
+  if(volumeDrillMuscle){const button=$(`#volumeDash [data-volume-muscle="${CSS.escape(volumeDrillMuscle)}"]`);button?.click()}}
+function volumeDetailTable(muscle,ev){
+  const groups=new Map();
+  for(const row of ev.completedRows||[]){
+    const ms=rowMuscles(row);let weight=0;
+    if(muscles(ms.primary).includes(muscle))weight=1;else if(muscles(ms.secondary).includes(muscle))weight=.5;
+    if(!weight)continue;const key=`${row.session}|${liftKey(row)}`,current=groups.get(key)||{date:row.date,name:displayName(row),sets:0};current.sets+=weight;groups.set(key,current)}
+  const rows=[...groups.values()].sort((a,b)=>String(b.date).localeCompare(String(a.date)));
+  return rows.length?table(rows.map(row=>({[t("stats.table.date")]:shortDate(row.date),[t("stats.table.exercise")]:row.name,[t("stats.table.sets")]:fmt(row.sets)})))
+    :`<p class="lede">${esc(t("stats.evidence.reason.untested"))}</p>`}
+// Planned per-muscle denominators for the rendered scope. Each week is
+// projected from the durable compiler receipt, then the persisted recovery
+// overlay is applied to week one. The current scheduled row is a presentation
+// projection and must never rewrite historical denominators.
+function prescriptionForRows(rows,plannedSessions=undefined){
+  const p=new Program(rows),musclesByName=volMapToObj(p.volume());
+  const structureDays=state.programMeta?.programStructure?.days;
+  return{plannedSessions:plannedSessions??(Array.isArray(structureDays)&&structureDays.length?structureDays.length:p.days().length),
+    plannedWorkingSets:rows.reduce((n,row)=>n+(+row.sets||0),0),musclesByName}}
+function recoveryRowsForPrescription(rows,record){
+  if(!record)return rows;
+  const bySlot=new Map((record.diff?.recoveryWeek?.entries||[]).map(entry=>[entry.slot,entry.effectiveWorkingSets]));
+  return rows.flatMap(row=>{
+    const slotId=row.slotId||row.id;
+    if(!bySlot.has(slotId))return[row];
+    const sets=bySlot.get(slotId);
+    return sets>0?[{...row,sets}]:[]})}
+function progressProgramForWeek(weekNumber){
+  const versions=Array.isArray(state.programMeta?.programStructure?.programVersions)
+    ?state.programMeta.programStructure.programVersions.filter(entry=>Number.isInteger(entry?.fromWeek)&&Array.isArray(entry.program))
+      .sort((a,b)=>a.fromWeek-b.fromWeek):[];
+  const version=[...versions].reverse().find(entry=>entry.fromWeek<=weekNumber);
+  return version?cloneSnapshot(version.program):state.program}
+function progressWeekRows(weekNumber,record){
+  let rows=progressProgramForWeek(weekNumber);
+  if(Number.isInteger(weekNumber)&&typeof ProgramCompiler?.projectProgramForWeek==="function")
+    rows=ProgramCompiler.projectProgramForWeek(rows,state.programMeta?.programStructure,weekNumber);
+  return weekNumber===1?recoveryRowsForPrescription(rows,record):rows}
+function progressWeekPrescriptions(){
+  const weeks=Math.max(1,Number(state.programMeta?.mesocycleLengthWeeks)||6);
+  const record=activeRecoveryRecord&&activeRecoveryRecordBlockId===snapshotBlockId(state)?activeRecoveryRecord:null;
+  return Array.from({length:weeks},(_,index)=>{
+    const rows=progressWeekRows(index+1,record),days=new Set(rows.map(row=>row.dayId||row.day).filter(Boolean));
+    return prescriptionForRows(rows,days.size);
+  })}
+function progressEvidenceMeta(){return{started:state.programMeta?.started||null,
+  mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,hardRir:+state.settings.hardRir,
+  blockId:snapshotBlockId(state),
+  weekPrescriptions:progressWeekPrescriptions()}}
+function volumePlannedMuscleMap(ev,prescriptions=progressWeekPrescriptions()){
+  const m=new Map(),week=ev.period?.weekNumber||mesocycleLifecycle(state.programMeta).elapsedWeek||1;
+  const selected=ev.scope==="block-to-date"?prescriptions.slice(0,ev.period.elapsedNumberedWeeks):[prescriptions[Math.min(Math.max(week-1,0),prescriptions.length-1)]];
+  for(const rx of selected)for(const[name,v]of Object.entries(rx?.musclesByName||{})){
+    const cur=m.get(name)||{d:0,p:0};cur.d+=v.d;cur.p+=v.p;m.set(name,cur)}
+  return m}
+function legacyVolumeTable(el){
   const rows=volumeDashboard(7).map(r=>({[t("stats.table.muscle")]:muscleLabel(r.muscle),[t("stats.table.planned")]:fmt(r.planned),[t("stats.table.completed_7d")]:fmt(r.completed7),[t("stats.table.completed_28d")]:fmt(r.completed28),[t("stats.table.status")]:r.status}));
   el.innerHTML=table(rows)}
 function renderCompleted(){const el=$("#completedVolume");if(!el)return;const m=completedHardSets(volWindow);
@@ -7697,8 +8216,17 @@ function draw(rows,sel="#chart"){
   const accent=pal.accent;
   ctx.strokeStyle=C.rule;ctx.lineWidth=1;ctx.fillStyle=C.dim;ctx.textAlign="right";
   for(let i=0;i<=3;i++){const gy=padT+ih*i/3,val=hi-(rng*i/3);ctx.beginPath();ctx.moveTo(padL,gy);ctx.lineTo(w-padR,gy);ctx.stroke();ctx.fillText(yLabel(val)+` ${unitLabel()}`,padL-8,gy)}
-  ctx.strokeStyle=accent;ctx.lineWidth=2;ctx.lineJoin="round";ctx.lineCap="round";
-  ctx.beginPath();rows.forEach((r,i)=>{const v=r.e1rm??r.top;i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v))});ctx.stroke();
+  // Sparse-evidence policy (UI-29 / G-27): one point is a snapshot with no
+  // connector, two points a comparison with a restrained secondary connector,
+  // three or more a trend. The line never draws before the evidence supports it.
+  const presentation=rows.length>=3?"trend":rows.length===2?"comparison":"snapshot";
+  window.__repforgeChartLastPresentation=presentation;
+  ctx.strokeStyle=accent;ctx.lineJoin="round";ctx.lineCap="round";
+  if(presentation==="trend"){ctx.lineWidth=2;
+    ctx.beginPath();rows.forEach((r,i)=>{const v=r.e1rm??r.top;i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v))});ctx.stroke()}
+  else if(presentation==="comparison"){ctx.lineWidth=1.5;ctx.globalAlpha=.4;
+    ctx.beginPath();rows.forEach((r,i)=>{const v=r.e1rm??r.top;i?ctx.lineTo(X(i),Y(v)):ctx.moveTo(X(i),Y(v))});ctx.stroke();ctx.globalAlpha=1}
+  else window.__repforgeChartLastPresentation=presentation;
   rows.forEach((r,i)=>{const v=r.e1rm??r.top,last=i===rows.length-1;ctx.beginPath();ctx.arc(X(i),Y(v),last?4:3.5,0,7);
     ctx.fillStyle=accent;ctx.fill()});
   const lastV=rows.at(-1).e1rm??rows.at(-1).top,lx=X(rows.length-1),ly=Y(lastV);ctx.fillStyle=pal.deep;ctx.textAlign=lx>w-60?"right":"left";ctx.font='600 12px "Plex Sans",sans-serif';
@@ -7711,7 +8239,7 @@ function draw(rows,sel="#chart"){
 
 function redrawChart(){
   if($("#exercise")?.classList.contains("active")&&exView){draw(summaries().filter(x=>x.liftKey===exView.key),"#exChart");return}
-  if(!$("#stats").classList.contains("active")||statsSeg!=="overview")return;
+  if(!$("#stats").classList.contains("active")||statsSeg!=="overview"||evidenceView!=null)return;
   const sel=$("#statExercise").value,rows=summaries().filter(x=>x.liftKey===sel);draw(rows)}
 
 const historyDiagnostics={enabled:false,builds:0,sourceRowVisits:0,last:null,onBuilt:null,
@@ -8069,7 +8597,8 @@ function editorSnapshotFromDocument(document,base=state){
   proposal.program=cloneSnapshot(document?.program||[]);
   proposal.programMeta={...(cloneSnapshot(base?.programMeta||defaultProgramMeta(base?.log||[]))),...(cloneSnapshot(document?.programMeta||{}))};
   proposal.customExercises=cloneSnapshot(document?.customExercises||base?.customExercises||[]);
-  syncProgramStructureFromProgram(proposal,makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta));
+  syncProgramStructureFromProgram(proposal,makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta),
+    base?.program,base?.programMeta);
   return proposal}
 function editorAdapterTranslate(key,vars,fallback){
   const value=t(key,vars);return value===key?(fallback||key):value}
@@ -8499,7 +9028,17 @@ function programEditorProgram(){
   const snapshot=programEditorSnapshot();
   return makeProgram(snapshot.program,null,snapshot.programMeta)}
 async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
-  if(!setupEditorOpen)return commitProposedState(proposal,io,opts);
+  if(!setupEditorOpen){
+    // Every installed-program mutation, including the legacy field/JSON
+    // editor, crosses this boundary. Record the effective prescription before
+    // the durable commit so an edit in week N cannot reproject weeks < N from
+    // today's mutable program. The mounted editor also uses this helper at
+    // its final Apply, so there is one owner for the history receipt.
+    syncProgramStructureFromProgram(proposal,
+      makeProgram(proposal.program,snapshotLookup(proposal.customExercises),proposal.programMeta),
+      state.program,state.programMeta);
+    return commitProposedState(proposal,io,opts);
+  }
   if(!entryState?.result?.preview)return{localOk:false,idbOk:false,setupDraftInvalid:true};
   const model=makeProgram(proposal.program,null,proposal.programMeta);
   const structure=proposal.programMeta?.programStructure?cloneSnapshot(proposal.programMeta.programStructure):null;
@@ -9149,7 +9688,7 @@ async function saveProgram(){try{const parsed=JSON.parse($("#programJson").value
     const nextExDays=new Set(nextProgram.exercises.map(e=>e.day));
     nextProgram._structureDays=nextProgram._structureDays.filter(d=>nextExDays.has(d)||!prevExDays.has(d))}
   proposal.program=nextProgram.toJSON();
-  syncProgramStructureFromProgram(proposal,nextProgram);
+  syncProgramStructureFromProgram(proposal,nextProgram,currentSnapshot.program,currentSnapshot.programMeta);
   migrateLogSnapshot(proposal);
   const effect=destructiveDraftClearEffect(discardDraftRaw);
   const result=await commitProgramEditorProposal(proposal,storageIO,{effect,...transition});
@@ -14137,7 +14676,8 @@ function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=fa
   // the cue is a flex sibling with no room and collapses into a vertical
   // sliver of one word per line. Anchoring it after the whole header instead
   // keeps it a full-width block without changing which control it names.
-  const placement=anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||anchor;
+  const placement=anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||
+    anchor.closest("#statsSeg")||anchor;
   placement.insertAdjacentElement("afterend",cue);
   activeGuideId=id;activeGuideAnchor=anchor;activeGuideCue=cue;
   activeGuideReturnFocus=returnFocus instanceof HTMLElement?returnFocus:null;
@@ -14539,6 +15079,7 @@ function init(){
   ["#notifyTimer","#notifySession","#notifyUnfinished","#notifyMissed"].forEach(sel=>{const el=$(sel);if(el)el.onchange=commitChangedSettings});
   $$("#volWindow button").forEach(b=>b.onclick=()=>{volWindow=+b.dataset.win;renderCompleted()});
   $$("#statsSeg button").forEach(b=>b.onclick=()=>setStatsSeg(b.dataset.seg));
+  $$("#statsEvidence button").forEach(b=>b.onclick=()=>setEvidenceView(b.dataset.seg));
   const lc=$("#logContext");if(lc)lc.onclick=()=>{navTo("stats");setStatsSeg("review")};
   $("#exportCsv").onclick=exportCsv;$("#exportJson").onclick=exportJson;$("#importJson").onchange=importJson;
   $("#reset").onclick=async()=>{
