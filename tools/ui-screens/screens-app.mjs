@@ -162,7 +162,41 @@ export const APP_SCENARIOS = {
     await resetSheetScroll(page, ".exactions-sheet__body");
   },
   "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-exactions-open]").click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".exactions-sheet__body"); },
-  "workout/reorder": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); await page.locator("[data-session-reorder-down]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".session-sheet__body"); },
+  "workout/reorder": async page => {
+    await focusMode(page);
+    await page.click("#sessionSheetBtn");
+    const before = await page.evaluate(() => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      const button = document.querySelector("[data-session-reorder-down]");
+      const exerciseId = button?.dataset.sessionReorderDown;
+      return {
+        exerciseId,
+        beforeRevision: draft?.revision ?? -1,
+        expectedIndex: exerciseId ? (draft?.exerciseOrder || []).indexOf(exerciseId) + 1 : -1,
+      };
+    });
+    await page.locator("[data-session-reorder-down]").first().click();
+    await page.waitForFunction(({ exerciseId, beforeRevision, expectedIndex }) => {
+      const draft = window.__repforgeWorkoutDraft?.current?.();
+      const active = document.activeElement;
+      const isMovingExercise = active?.dataset?.sessionReorderUp === exerciseId
+        || active?.dataset?.sessionReorderDown === exerciseId;
+      return exerciseId && draft?.revision > beforeRevision
+        && draft.exerciseOrder?.[expectedIndex] === exerciseId
+        && isMovingExercise && !active.disabled;
+    }, before, { timeout: 15000 });
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    // Prove the production announcement was emitted, then let its ordinary
+    // lifetime finish before the frame is captured. Otherwise the transient
+    // toast races the catalog settle pass and makes the same screen alternate
+    // between a toast-covered and uncovered frame.
+    await page.waitForFunction(() => {
+      const toast = document.querySelector("#toast");
+      return toast && !toast.classList.contains("hidden") && toast.textContent.trim();
+    }, undefined, { timeout: 15000 });
+    await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden"), undefined, { timeout: 15000 });
+    await resetSheetScroll(page, ".session-sheet__body");
+  },
   "workout/correction": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-editn]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
   "today/draft-resume": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-k$='_load']").fill("80"); await page.click("#leaveWorkout"); },
 
