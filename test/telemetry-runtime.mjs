@@ -21,6 +21,7 @@
  */
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { EVENT_DUPLICATE_POLICIES, FORBIDDEN_PROPERTY_NAMES } from "./fixtures/telemetry.mjs";
+import { finishEarly, selectExercise } from "./fixtures/focus-workout.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -354,27 +355,29 @@ try {
     const { context, page } = await openApp(browser, { seed: loggableProgram() });
     await page.evaluate(() => {
       window.closeFirstRun?.();
-      window.__repforgeEnterWorkout({ focus: false });
+      window.__repforgeEnterWorkout({});
     });
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 8000 });
     for (const [exerciseId, set, load, reps] of [
       ["ex0", 1, 60, 8],
       ["ex0", 2, 60, 7],
       ["ex1", 1, 50, 10],
+      ["ex1", 2, 50, 9],
     ]) {
-      await page.evaluate(
-        ({ exerciseId, set, load, reps }) => {
-          for (const [suffix, value] of [["load", load], ["reps", reps], ["rir", 1]]) {
-            const cell = document.querySelector(`[data-k="${exerciseId}_${set}_${suffix}"]`);
-            if (!cell) continue;
-            cell.value = String(value);
-            cell.dispatchEvent(new Event("input", { bubbles: true }));
-          }
-          document.querySelector(`.saveset[data-save="${exerciseId}_${set}"]`)?.click();
+      await selectExercise(page, exerciseId);
+      for (const [field, value] of [["load", load], ["reps", reps], ["rir", 1]]) {
+        await page.locator(`#workout .exercise.is-current [data-k="${exerciseId}_${set}_${field}"]`).fill(String(value));
+        await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+      }
+      await page.locator(`#workout .exercise.is-current [data-save="${exerciseId}_${set}"]`).click();
+      await page.waitForFunction(
+        ({ exerciseId, set }) => {
+          const exercise = window.__repforgeWorkoutDraft?.current()?.exercises?.[exerciseId];
+          return Object.values(exercise?.sets || {}).some((row) => row.ordinal === set && row.completion !== "pending");
         },
-        { exerciseId, set, load, reps },
+        { exerciseId, set },
+        { timeout: 5000 },
       );
-      await page.waitForTimeout(90);
     }
     await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
     await page.waitForFunction(() => window.__captured.some(([n]) => n === "session_completed"), undefined, {
@@ -413,19 +416,22 @@ try {
     assert((await captured(page)).length === 0, "opted-out boot reaches no adapter event");
     await page.evaluate(() => {
       window.closeFirstRun?.();
-      window.__repforgeEnterWorkout({ focus: false });
+      window.__repforgeEnterWorkout({});
     });
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 8000 });
-    await page.evaluate(() => {
-      for (const [suffix, value] of [["load", 60], ["reps", 8], ["rir", 1]]) {
-        const cell = document.querySelector(`[data-k="ex0_1_${suffix}"]`);
-        cell.value = String(value);
-        cell.dispatchEvent(new Event("input", { bubbles: true }));
-      }
-      document.querySelector('.saveset[data-save="ex0_1"]')?.click();
-    });
-    await page.waitForTimeout(120);
-    await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
+    await selectExercise(page, "ex0");
+    for (const [field, value] of [["load", 60], ["reps", 8], ["rir", 1]]) {
+      await page.locator(`#workout .exercise.is-current [data-k="ex0_1_${field}"]`).fill(String(value));
+      await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    }
+    await page.locator('#workout .exercise.is-current [data-save="ex0_1"]').click();
+    await page.waitForFunction(
+      () => Object.values(window.__repforgeWorkoutDraft.current()?.exercises?.ex0?.sets || {})
+        .some((row) => row.ordinal === 1 && row.completion !== "pending"),
+      undefined,
+      { timeout: 5000 },
+    );
+    await finishEarly(page);
     await page.waitForFunction(
       key => JSON.parse(window.localStorage.getItem(key) || "{}").log?.length > 0,
       KEY,

@@ -221,7 +221,7 @@ async function enterAndEditDraft(page) {
   // surface action and deliberately does not mutate Settings view state.
   await page.evaluate(() => document.querySelector('nav button[data-view="log"]')?.click());
   await page.waitForTimeout(40);
-  const entered = await page.evaluate(async () => window.__repforgeEnterWorkout({ focus: false }));
+  const entered = await page.evaluate(async () => window.__repforgeEnterWorkout({}));
   if (!entered) {
     const diagnostic = await page.evaluate(() => ({
       bodyClassCount: document.body.classList.length,
@@ -250,7 +250,9 @@ async function enterAndEditDraft(page) {
 }
 
 async function saveWorkoutAndReload(page) {
-  await page.locator("#logForm").evaluate((form) => form.requestSubmit());
+  await page.locator("#sessionSheetBtn").click();
+  await page.locator("#sessionEarlyFinish").click();
+  await page.locator("#sessionEarlyConfirm").click();
   await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 10000 });
   await page.locator("#sumDone").click();
   await page.waitForSelector("#workoutShell.hidden", { state: "attached", timeout: 8000 });

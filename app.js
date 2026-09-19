@@ -1,3 +1,53 @@
+let fallbackGestureController=null;
+const fallbackFocusTimers=new Set();
+function fallbackFocusLater(callback,delay){
+  const timer=setTimeout(()=>{fallbackFocusTimers.delete(timer);callback()},delay);
+  fallbackFocusTimers.add(timer);return timer}
+function cancelFallbackGestures(){
+  for(const timer of fallbackFocusTimers)clearTimeout(timer);
+  fallbackFocusTimers.clear();
+  focusFlinging=false;
+  if(sheetDrag){sheetDragRelease(sheetDrag.rec);sheetDrag=null}
+  const drag=focusDrag;focusDrag=null;
+  drag?.card?.classList.remove("is-dragging");
+  const track=drag?.track||focusTrack();
+  focusSetTrack(track,0);track?.classList.remove("is-settling");
+  $("#focusDeck")?.classList.remove("is-swiping")}
+function mountFallbackGestures() {
+  if(fallbackGestureController)return fallbackGestureController;
+  document.addEventListener("pointerdown", sheetDragStart);
+  window.addEventListener("pointermove", sheetDragMove, { passive: true });
+  window.addEventListener("pointerup", sheetDragEnd);
+  window.addEventListener("pointercancel", sheetDragEnd);
+  const wk = $("#workout");
+  if (wk) wk.addEventListener("pointerdown", focusDragStart);
+  window.addEventListener("pointermove", focusDragMove, { passive: true });
+  window.addEventListener("pointerup", focusDragEnd);
+  window.addEventListener("pointercancel", focusDragEnd);
+  let disposed = false;
+  const onEscape=e=>{if(e.key==="Escape")cancelFallbackGestures()};
+  document.addEventListener("keydown",onEscape,true);
+  fallbackGestureController = {
+    isFluid:false,
+    navigate:dir=>!disposed && fallbackFocusAnimateTo(dir),
+    dispose() {
+      if (disposed) return;
+      disposed = true;
+      cancelFallbackGestures();
+      fallbackGestureController=null;
+      document.removeEventListener("keydown",onEscape,true);
+      document.removeEventListener("pointerdown", sheetDragStart);
+      window.removeEventListener("pointermove", sheetDragMove);
+      window.removeEventListener("pointerup", sheetDragEnd);
+      window.removeEventListener("pointercancel", sheetDragEnd);
+      if (wk) wk.removeEventListener("pointerdown", focusDragStart);
+      window.removeEventListener("pointermove", focusDragMove);
+      window.removeEventListener("pointerup", focusDragEnd);
+      window.removeEventListener("pointercancel", focusDragEnd);
+    }
+  };
+  return fallbackGestureController;
+}
 const KEY="repforge_v1",DRAFT="repforge_draft_v1",NOTIFY_META="repforge_notify_v1";
 const WorkoutDraft=window.RepForgeWorkoutDraft;
 const InstallPolicy=window.RepForgeInstallPolicy;
@@ -858,10 +908,6 @@ function setDisclosure(button,panel,open){
   const show=()=>panel.classList.toggle("is-open",on);
   if(window.RepForgeMotion)window.RepForgeMotion.animateDisclosure(panel,on,show);
   else show()}
-function syncLogModeControls(){
-  const list=logMode==="full",full=$("#modeFull"),focus=$("#modeFocus");
-  if(full){full.classList.toggle("active",list);full.setAttribute("aria-pressed",list?"true":"false")}
-  if(focus){focus.classList.toggle("active",!list);focus.setAttribute("aria-pressed",list?"false":"true")}}
 const uid=()=>crypto?.randomUUID?.()||`id_${Date.now()}_${Math.random().toString(36).slice(2)}`;
 /* Block identity is allocated only at a real activation/block-start boundary.
    Normalisation, boot, replay, and staged proposals must preserve absence or
@@ -983,20 +1029,7 @@ const effortOrRirLabel=rir=>isEffortMode()?effortLabel(effortForRir(rir)):`@${fm
 const targetText=ex=>isEffortMode()
   ?t("today.target_rest_effort",{min:ex.min,max:ex.max,effort:effortWord(targetEffort())})
   :t("today.target_rest",{min:ex.min,max:ex.max,rir:fmt(state.settings.rirHigh)});
-/** The three-way effort picker — the compact radiogroup on a List set row.
- *  Focus states it as a spinner instead; see cursetHtml. */
-function effortControlHtml(key,n,val,{confirmed=true}={}){
-  return `<div class="effort${confirmed?"":" effort--suggested"}" role="radiogroup" aria-label="${esc(t("log.set_effort_aria",{n}))}">`+
-    EFFORT_STEPS.map(e=>{const on=val===e;
-      return `<button type="button" class="effort__btn${on?" active":""}" role="radio" aria-checked="${on?"true":"false"}"`+
-        ` tabindex="${on?"0":"-1"}" data-eff="${esc(key)}" data-e="${e}">`+
-        `<span class="effort__word">${esc(effortLabel(e))}</span></button>`}).join("")+`</div>`}
-/** Move a set's effort pick, in every copy of its picker that is on screen —
- *  the List row's radiogroup and the Focus well's spinner alike. */
 function setEffortPick(key,eff){
-  $$(`.effort__btn[data-eff="${key}"]`).forEach(b=>{const on=b.dataset.e===eff;
-    b.classList.toggle("active",on);b.setAttribute("aria-checked",on?"true":"false");b.tabIndex=on?0:-1;
-    b.closest(".effort")?.classList.remove("effort--suggested")});
   $$(`[data-effspin="${key}"]`).forEach(el=>{
     el.dataset.e=eff;el.textContent=effortLabel(eff);
     el.setAttribute("aria-valuenow",String(EFFORT_STEPS.indexOf(eff)+1));
@@ -1118,17 +1151,20 @@ const loadHeadHtml=()=>`${esc(t("today.load"))} ${unitHintHtml()}`;
 const fmtLoad=kg=>fmt(toDisplay(kg));
 const fmtLoadPlain=kg=>fmtPlain(toDisplay(kg));
 const term=key=>`<button type="button" class="term" data-term="${esc(key)}">${esc(t(`glossary.term.${key}`)||key)}</button>`;
-function resetDraftSessionState(){
+function resetWorkoutSessionIdentity(){
   clearUnfinishedWatch();
   lastCommitAt=0;sessionStartedAt=0;
   committed.clear();touched.clear();warmups.clear();skipped.clear();substituted.clear();substitutedRef.clear();
   contextTouched={day:false,date:false,sessionNotes:false,bodyweight:false};
+  activeWorkoutDraft=null;activeWorkoutDraftRaw=null;draftUiRecovery=null;
+}
+function resetDraftSessionPresentation(){
   const el=$("#unfinishedBanner");
   if(el){el.classList.add("hidden");el.hidden=true}
   delete document.body.dataset.unfinishedPrompt;
-  activeWorkoutDraft=null;activeWorkoutDraftRaw=null;
-  clearDraftUiRecovery();
+  renderDraftRecovery();
 }
+function resetDraftSessionState(){resetWorkoutSessionIdentity();resetDraftSessionPresentation()}
 async function clearDraft(){
   if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed"){
     renderDraftRecovery();focusDraftRecovery();return false}
@@ -1144,7 +1180,7 @@ async function clearDraft(){
     if(parsed?.kind==="valid")return false;
     if(!DraftStore.remove())return false}
   resetDraftSessionState();return true}
-const loadDraft=()=>{if(activeWorkoutDraft)return workoutDraftProjection();
+const loadDraft=()=>{if(activeWorkoutDraft)return WorkoutSession.projection();
   try{return JSON.parse(DraftStore.readRaw()||"{}")}catch{return{}}};
 function convertDraftUnitsRaw(raw,oldUnit,newUnit){
   if(raw==null||oldUnit===newUnit)return raw;
@@ -1626,7 +1662,6 @@ function maybeUnfinishedOnOpen(){
   if(elapsed>=UNFINISHED_MS) showUnfinishedPrompt();
   else armUnfinishedWatch(UNFINISHED_MS-elapsed);
 }
-const collapsed=new Set();
 const skipped=new Set();
 const substituted=new Map();
 /* Which library definition a swap pointed at, when it came from the picker.
@@ -1875,12 +1910,12 @@ function showDraftCommandRecovery(status,attempt,{pendingValue=null,focus=null,r
   draftUiRecovery={kind:draftRecoveryMessageKind(status),status,attempt,pendingValue,
     copyValue:pendingValue,copyKind:"value",focus,retry:status!=="stale",retryAction,discard:false};
   renderDraftRecovery();focusDraftRecovery()}
-function showDraftInitializationRecovery(result,{retryMode="initialize",label=day,focusMode=null,contextTouched=null}={}){
+function showDraftInitializationRecovery(result,{retryMode="initialize",label=day,contextTouched=null}={}){
   const kind=draftRecoveryMessageKind(result?.status,true),raw=result?.raw??workoutDraftRecovery?.raw??null,
     parsed=WorkoutDraft?.parse(raw),identity=parsed?.kind==="valid"?
       {draftId:parsed.draft.draftId,revision:parsed.draft.revision}:null;
   draftUiRecovery={kind,status:result?.status,attempt:null,pendingValue:null,copyValue:raw,copyKind:"data",
-    focus:null,retry:true,retryMode,label,focusMode,contextTouched,discardIdentity:identity,discard:kind==="program"&&!!identity};
+    focus:null,retry:true,retryMode,label,contextTouched,discardIdentity:identity,discard:kind==="program"&&!!identity};
   renderDraftRecovery();focusDraftRecovery()}
 function clearDraftUiRecovery(){draftUiRecovery=null;renderDraftRecovery()}
 async function copyDraftRecoveryValue(){const value=draftUiRecovery?.copyValue;if(value==null)return false;
@@ -1891,28 +1926,27 @@ async function copyDraftRecoveryValue(){const value=draftUiRecovery?.copyValue;i
   toast(t("draft.recovery.copy_failed"),{assertive:true});return false}
 async function applyDraftRetryResult(result,recovery){
   if(result.status==="applied"){activeWorkoutDraft=result.draft;activeWorkoutDraftRaw=result.raw;
-    hydrateDraftCollections(workoutDraftProjection());clearDraftUiRecovery();renderWorkout();restoreDraftFocus(recovery.focus);return result}
+    hydrateDraftCollections(WorkoutSession.projection());clearDraftUiRecovery();renderWorkout();restoreDraftFocus(recovery.focus);return result}
   showDraftCommandRecovery(result.status,recovery.attempt,recovery);return result}
 function retryDraftRecovery(){
   const recovery=draftUiRecovery;if(!recovery)return Promise.resolve({status:"missing"});
   if(recovery.retryAction)return Promise.resolve(recovery.retryAction()).then(result=>{
     if(result?.status==="applied"){clearDraftUiRecovery();renderWorkout()}
     else showDraftCommandRecovery(result?.status,null,recovery);return result});
-  if(!recovery.attempt){const operation=recovery.retryMode==="create"?createWorkoutDraft(recovery.label,{contextTouched:recovery.contextTouched}):
+  if(!recovery.attempt){const operation=recovery.retryMode==="create"?WorkoutSession.start(recovery.label,{contextTouched:recovery.contextTouched}):
       initializeWorkoutDraft({restoreDay:true});return operation.then(result=>{
-    if(result.status==="ready"){hydrateDraftCollections(workoutDraftProjection(),{restoreSelection:true});clearDraftUiRecovery();
+    if(result.status==="ready"){hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});clearDraftUiRecovery();
       if(!workoutActive)setWorkoutActive(true);
-      if(recovery.focusMode===true)logMode="focus";else if(recovery.focusMode===false)logMode="full";
-      syncLogModeControls();document.body.classList.toggle("is-focus-wo",logMode==="focus");
+      document.body.classList.add("is-focus-wo");
       renderTabs();renderWorkout();renderToday();restoreDraftFocus(recovery.focus)}
-    else showDraftInitializationRecovery(result,{retryMode:recovery.retryMode,label:recovery.label,focusMode:recovery.focusMode,contextTouched:recovery.contextTouched});return result})}
+    else showDraftInitializationRecovery(result,{retryMode:recovery.retryMode,label:recovery.label,contextTouched:recovery.contextTouched});return result})}
   const task=draftWriteTail.then(()=>DraftStore.compareAndSwapV2(recovery.attempt))
     .then(result=>applyDraftRetryResult(result,recovery));
   draftWriteTail=task.then(()=>undefined,()=>undefined);return task}
 async function reloadLatestWorkoutDraft(){
   const recovery=draftUiRecovery,loaded=await initializeWorkoutDraft({restoreDay:true});
   if(loaded.status!=="ready"){showDraftInitializationRecovery(loaded);return loaded}
-  hydrateDraftCollections(workoutDraftProjection(),{restoreSelection:true});clearDraftUiRecovery();renderTabs();renderWorkout();renderToday();
+  hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});clearDraftUiRecovery();renderTabs();renderWorkout();renderToday();
   restoreDraftFocus(recovery?.focus);return loaded}
 async function discardRecoveredWorkoutDraft(){
   const captured=draftUiRecovery?.discardIdentity;
@@ -1943,9 +1977,13 @@ function enqueueDraftCommand(type,payload={},ui={}){
     const nextRaw=JSON.stringify(WorkoutDraft.serialize(next));
     const attempt={expectedDraftId:activeWorkoutDraft.draftId,expectedRevision:activeWorkoutDraft.revision,nextRaw,operationId};
     if(installTransferMutationFrozen())return{status:"transfer-frozen",code:"install-transfer-frozen"};
+    if(window.__repforgeDraftFault==="persist-failure"){
+      showDraftCommandRecovery("storage-error",attempt,{pendingValue,focus});
+      return{status:"storage-error",code:"simulated-persist-failure"};
+    }
     const written=await DraftStore.compareAndSwapV2(attempt);
     if(written.status==="applied"){activeWorkoutDraft=written.draft;activeWorkoutDraftRaw=written.raw;
-      hydrateDraftCollections(workoutDraftProjection());clearDraftUiRecovery()}
+      hydrateDraftCollections(WorkoutSession.projection());clearDraftUiRecovery()}
     else showDraftCommandRecovery(written.status,attempt,{pendingValue,focus});
     return written});
   const settled=task.then(()=>undefined,()=>undefined);
@@ -1968,7 +2006,7 @@ function hydrateDraftCollections(d,{restoreSelection=false}={}){
   warmups.clear();retainSetKeys(d.__warm,known).forEach(k=>warmups.add(k));
   skipped.clear();(d.__skipped||[]).forEach(id=>{if(known.has(id))skipped.add(id)});
   if(restoreSelection){const selectedIndex=focusList().findIndex(ex=>ex.id===d.__selectedExerciseId);
-    if(selectedIndex>=0)focusIndex=selectedIndex}
+    focusIndex=selectedIndex>=0?selectedIndex:0}
   substituted.clear();substitutedRef.clear();
   const subs=d.__substituted&&typeof d.__substituted==="object"?d.__substituted:{};
   const refs=d.__substitutedRef&&typeof d.__substitutedRef==="object"?d.__substitutedRef:{};
@@ -1997,17 +2035,19 @@ function hydrateWorkoutDraft({restoreDay=false,restoreSelection=restoreDay}={}){
   if(restoreDay&&typeof d.__day==="string"&&days().includes(d.__day)) day=d.__day;
   return d}
 function applyDraftContextToDom(){
-  const d=loadDraft(),dateEl=$("#date"),bwEl=$("#bodyweight"),notesEl=$("#notes");
+  const d=loadDraft(),dateEl=$("#sessionDate"),bwEl=$("#sessionBodyweight"),notesEl=$("#sessionNotes");
   if(dateEl) dateEl.value=Object.prototype.hasOwnProperty.call(d,"__date")?d.__date:today();
   if(bwEl) bwEl.value=Object.prototype.hasOwnProperty.call(d,"__bodyweight")?d.__bodyweight:lastBodyweight();
   if(notesEl) notesEl.value=Object.prototype.hasOwnProperty.call(d,"__sessionNotes")?d.__sessionNotes:"";
+
 }
 function resetSessionContextFields(){
   contextTouched={day:false,date:false,sessionNotes:false,bodyweight:false};
-  const notesEl=$("#notes"),dateEl=$("#date"),bwEl=$("#bodyweight");
+  const notesEl=$("#sessionNotes"),dateEl=$("#sessionDate"),bwEl=$("#sessionBodyweight");
   if(notesEl)notesEl.value="";
   if(dateEl)dateEl.value=today();
   if(bwEl)bwEl.value=lastBodyweight();
+
 }
 function isDisposableDraft(draft){
   // A stale draft may skip the explicit recovery surface only when replacing
@@ -2052,7 +2092,7 @@ function draftHasProgressInRemovedSets(exerciseId,nextSets,currentSets,d){
     return exercise.setOrder.some(setId=>{
       const set=exercise.sets[setId];
       return set.ordinal>nextSets&&(set.completion!=="pending"||set.role==="warmup"||
-        set.touched.load||set.touched.reps||set.touched.effort||parseDec(set.edited.load)>0)})}
+        set.touched.load||set.touched.reps||set.touched.effort)})}
   const marked=new Set(["__done","__touched","__warm"].flatMap(k=>Array.isArray(d[k])?d[k]:[]));
   for(let n=nextSets+1;n<=currentSets;n++){
     const key=`${exerciseId}_${n}`;
@@ -2075,7 +2115,7 @@ async function requestWorkoutDay(nextDay){
   day=nextDay;
   contextTouched.day=true;
   const selectionContextTouched={day:true,date:false,sessionNotes:false,bodyweight:false};
-  const created=await createWorkoutDraft(nextDay,{contextTouched:selectionContextTouched});
+  const created=await WorkoutSession.start(nextDay,{contextTouched:selectionContextTouched});
   if(created.status!=="ready"){
     showDraftInitializationRecovery(created,{retryMode:"create",label:nextDay,contextTouched:selectionContextTouched});
     return false;
@@ -2092,13 +2132,13 @@ function changeRirMode(newMode){
   return true}
 async function applySkipToggle(id){
   if(!activeWorkoutDraft)return false;
-  const result=await enqueueDraftCommand(skipped.has(id)?"restoreExercise":"skipExercise",{exerciseInstanceId:id});
+  const result=await WorkoutSession.dispatch(skipped.has(id)?"restoreExercise":"skipExercise",{exerciseInstanceId:id});
   if(result.status!=="applied")return false;
-  if(logMode==="focus"){const fl=focusList();focusIndex=Math.min(focusIndex,Math.max(0,fl.length-1))}
+  {const fl=focusList();focusIndex=Math.min(focusIndex,Math.max(0,fl.length-1))}
   renderWorkout();return true}
 async function applyShowAll(){
   if(!activeWorkoutDraft)return false;
-  for(const id of [...skipped]){const result=await enqueueDraftCommand("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return false}
+  for(const id of [...skipped]){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return false}
   renderWorkout();return true}
 function replacementSnapshot(id,name,libraryRef){
   const entry=libraryRef?libraryEntry(libraryRef):null,token=movementToken(name),original=activeWorkoutDraft?.exercises?.[id],slot=prog.find(id);
@@ -2112,7 +2152,7 @@ async function applyPredefinedSub(id,name,libraryRef=null){
   if(!activeWorkoutDraft)return false;
   const type=!n?"restoreOriginalExercise":"substituteExercise";
   const payload={exerciseInstanceId:id};if(n){payload.replacement=replacementSnapshot(id,n,libraryRef);payload.selectedAt=new Date().toISOString()}
-  const result=await enqueueDraftCommand(type,payload);if(result.status!=="applied")return false;
+  const result=await WorkoutSession.dispatch(type,payload);if(result.status!=="applied")return false;
   renderWorkout();return true}
 async function applyCustomSub(id,raw,libraryRef=null){
   const name=String(raw||"").trim().slice(0,80);
@@ -2120,7 +2160,7 @@ async function applyCustomSub(id,raw,libraryRef=null){
   if(!activeWorkoutDraft)return false;
   const restore=!name||name===progName,type=restore?"restoreOriginalExercise":"substituteExercise";
   const payload={exerciseInstanceId:id};if(!restore){payload.replacement=replacementSnapshot(id,name,libraryRef);payload.selectedAt=new Date().toISOString()}
-  const result=await enqueueDraftCommand(type,payload);if(result.status!=="applied")return false;
+  const result=await WorkoutSession.dispatch(type,payload);if(result.status!=="applied")return false;
   renderWorkout();return true}
 function sessionExercise(ex){
   if(!ex||!substituted.has(ex.id))return ex;
@@ -2142,10 +2182,10 @@ function fatigueFlagged(){return exercises().filter(e=>{const r=recommendation(s
 async function applyFatigueTrim(){
   const flagged=new Set(fatigueFlagged().map(e=>e.id));
   if(!activeWorkoutDraft)return;
-  for(const id of [...skipped])if(!flagged.has(id)){const result=await enqueueDraftCommand("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
-  for(const id of flagged)if(!skipped.has(id)){const result=await enqueueDraftCommand("skipExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
+  for(const id of [...skipped])if(!flagged.has(id)){const result=await WorkoutSession.dispatch("restoreExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
+  for(const id of flagged)if(!skipped.has(id)){const result=await WorkoutSession.dispatch("skipExercise",{exerciseInstanceId:id});if(result.status!=="applied")return}
   renderWorkout();toast(t("toast.trimmed_priority"))}
-let logMode="full",focusIndex=0,statsSeg="overview",prFilter="all";
+let focusIndex=0,statsSeg="overview",prFilter="all";
 let focusDrag=null,focusFlinging=false;
 /** Focus mode — the set being re-opened for edit: {exId,n,snap}. `snap` is the
  *  set as it stood when editing began, so cancelling puts it back untouched. */
@@ -3138,7 +3178,7 @@ async function ensureInstallTransferModules(){
   return installTransferModulePromise}
 function installTransferDraftSource(){
   return{
-    flush:()=>drainDraftWork(),
+    flush:()=>WorkoutSession.flush(),
     current:()=>activeWorkoutDraft,
     checkpoint:()=>DraftStore.readV2Checkpoint(),
     read:()=>DraftStore.readCanonicalStatus(),
@@ -4083,11 +4123,20 @@ function jump(load,mult){return Math.max(load*(+state.settings.jumpPct||0)*mult/
 function lastBodyweight(){const rows=state.log.filter(r=>+r.bodyweight>0);
   if(!rows.length)return "";const latest=rows.sort((a,b)=>String(b.created).localeCompare(String(a.created)))[0];
   return fmt(toDisplay(latest.bodyweight))}
-function updateBodyweightField(){const el=$("#bodyweight");if(!el)return;
+function updateBodyweightField(){const el=$("#sessionBodyweight");if(!el)return;
   el.placeholder=unitLabel();
-  const lbl=$("#bodyweightLabel")?.querySelector("span");
+  const lbl=$("#sessionBodyweightLabel")?.querySelector("span");
   if(lbl)lbl.textContent=t("log.bodyweight_unit",{unit:unitLabel()})}
 function focusList(){
+  if(activeWorkoutDraft&&Array.isArray(activeWorkoutDraft.exerciseOrder)){
+    const byId=new Map(exercises().map(e=>[e.id,e]));
+    const list=[];
+    for(const id of activeWorkoutDraft.exerciseOrder){
+      const e=byId.get(id);
+      if(e&&!skipped.has(e.id))list.push(e);
+    }
+    return list;
+  }
   const exs=exercises();
   return exs.filter(e=>!skipped.has(e.id))}
 function setWorkoutOverflow(open){const menu=$("#woOverflow");if(!menu)return;
@@ -4095,11 +4144,10 @@ function setWorkoutOverflow(open){const menu=$("#woOverflow");if(!menu)return;
   $("#woOverflowBtn")?.setAttribute("aria-expanded",open?"true":"false")}
 function closeWorkoutOverflow(){setWorkoutOverflow(false)}
 function toggleWorkoutOverflow(){setWorkoutOverflow($("#woOverflow")?.classList.contains("hidden"))}
-function setLogMode(m){logMode=m;syncLogModeControls();document.body.classList.toggle("is-focus-wo",m==="focus");focusIndex=0;focusEdit=null;closeWorkoutOverflow();renderWorkout()}
 async function goToLogExercise(exId){
   const ex=prog.find(exId);if(!ex)return;
   if(!await requestWorkoutDay(ex.day))return;
-  if(logMode==="focus"){
+  {
     const fl=focusList(),idx=fl.findIndex(e=>e.id===exId);
     focusIndex=idx>=0?idx:0;
   }
@@ -4107,8 +4155,12 @@ async function goToLogExercise(exId){
   if(logBtn){$$("nav button").forEach(x=>{const on=x===logBtn;x.classList.toggle("active",on);x.setAttribute("aria-current",on?"page":"false")})}
   $$(".view").forEach(v=>v.classList.toggle("active",v.id==="log"));
   document.body.classList.remove("is-settings","is-exercise","is-onboarding","is-library","is-preview","is-import");
-  await enterWorkout({});
-  const art=$(`#workout [data-ex="${exId}"]`);if(art){collapsed.delete(exId);art.classList.remove("is-collapsed");art.scrollIntoView({behavior:"smooth",block:"center"})}}
+  if(!await enterWorkout({}))return;
+  const selected=await WorkoutSession.dispatch("selectExercise",{exerciseInstanceId:exId});
+  if(selected.status!=="applied")return;
+  hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
+  renderWorkout();
+  const art=$(`#workout [data-ex="${exId}"]`);if(art){art.scrollIntoView({behavior:"smooth",block:"center"})}}
 function setStatsSeg(seg){if(!STATS_SEG[seg])return;statsSeg=seg;
   $$("#statsSeg button").forEach(b=>{const on=b.dataset.seg===seg;b.classList.toggle("active",on);b.setAttribute("aria-selected",on?"true":"false")});
   for(const [k,id] of Object.entries(STATS_SEG)){const el=$("#"+id);if(el)el.classList.toggle("active",k===seg)}
@@ -4512,8 +4564,8 @@ function explainRecommendation(ex){
   if(!ex)return rows;
   const rec=recommendation(ex),u=unitLabel();
   if(rec.status==="manual")return rows;
-  // A never-trained lift has no history and no arithmetic; the button is hidden there.
-  if(rec.status==="new")return rows;
+  // A new lift can still explain an adjustment from sets logged in this session.
+  if(rec.status==="new"){const note=inSessionNote(ex,loadDraft());return note?[{label:t("why.session"),text:note}]:rows}
   if(rec.strategy&&rec.strategy!=="range")return explainStrategy(ex,rec,u);
   const prev=last(ex).filter(x=>+x.load>0);
   if(prev.length)rows.push({label:t("why.last"),
@@ -4565,12 +4617,12 @@ function suggestionUpdatesFor(ex,draft){
 async function persistUntouchedSuggestions(exId){
   if(!activeWorkoutDraft)return{status:"missing"};
   for(let attempt=0;attempt<2;attempt++){
-    const sourceRevision=activeWorkoutDraft.revision,draft=workoutDraftProjection(),ex=prog.find(exId);
+    const sourceRevision=activeWorkoutDraft.revision,draft=WorkoutSession.projection(),ex=prog.find(exId);
     if(!ex)return{status:"missing"};
     const targets=[ex,...exercises(ex.day).filter(o=>o.id!==ex.id&&!hasCommittedSets(o))];
     const updates=targets.flatMap(o=>suggestionUpdatesFor(sessionExercise(o),draft));
     if(!updates.length)return{status:"unchanged"};
-    const result=await enqueueDraftCommand("refreshUntouchedSuggestions",{sourceRevision,updates});
+    const result=await WorkoutSession.dispatch("refreshUntouchedSuggestions",{sourceRevision,updates});
     if(result.status==="applied")return result;
     if(result.status==="domain-error"&&result.error?.code==="stale-suggestion")continue;
     return result}
@@ -4594,24 +4646,15 @@ async function runRefreshSuggestions(exId){
     await hook({exId})}
   const result=await persistUntouchedSuggestions(exId);
   if(result.status!=="applied"&&result.status!=="unchanged")return result;
-  const ex=prog.find(exId);if(!ex)return result;const draft=workoutDraftProjection();
-  applyAcknowledgedSuggestions(sessionExercise(ex),draft);updateInSessionNote(exId);
+  const ex=prog.find(exId);if(!ex)return result;const draft=WorkoutSession.projection();
+  applyAcknowledgedSuggestions(sessionExercise(ex),draft);
   for(const o of exercises(ex.day)){if(o.id===ex.id||hasCommittedSets(o))continue;
-    applyAcknowledgedSuggestions(sessionExercise(o),draft);updateInSessionNote(o.id)}
+    applyAcknowledgedSuggestions(sessionExercise(o),draft)}
   return result}
 function refreshSuggestions(exId){return trackDraftRefresh(()=>runRefreshSuggestions(exId))}
-function updateInSessionNote(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
-  const ex=sessionExercise(prog.find(exId));if(!ex)return;const text=inSessionNote(ex,loadDraft());
-  let el=art.querySelector(".insession");
-  if(!text){el?.remove();return}
-  if(el){el.textContent=text;return}
-  el=document.createElement("div");el.className="insession";el.textContent=text;
-  const anchor=art.querySelector(".delta-prev")||art.querySelector(".prev");
-  if(anchor)anchor.insertAdjacentElement("afterend",el);
-  else{const head=art.querySelector(".sets__head");if(head)head.insertAdjacentElement("beforebegin",el)}}
 function fmtClock(s){const sec=Math.max(0,Math.round(Number(s)||0));const m=Math.floor(sec/60);return `${m}:${String(sec%60).padStart(2,"0")}`}
-/** Rest reads in two places: the floating bar for List, and the chip in the
- *  workout header for Focus — where it must never sit over a control.
+/** Rest reads in two places: the floating bar outside the workout and the chip
+ *  in the workout header, where it must never sit over a control.
  *  `over` is seconds elapsed past the bell; it drives the overtime styling. */
 function paintRest(text,done,over=0){
   paintRestSheet();
@@ -4632,7 +4675,7 @@ function paintRest(text,done,over=0){
   else chip.setAttribute("aria-label",t(done?"focus.rest.done_aria":"focus.rest.running_aria",{time:text}))}
 /** Show or hide the header chip, and keep the floating bar out of Focus. */
 function updateRestChrome(){
-  const focus=workoutActive&&logMode==="focus";
+  const focus=workoutActive;
   const chip=$("#woRest");
   const restOn=+state.settings.restSec>0;
   if(chip){
@@ -4881,7 +4924,7 @@ function playPanelAnimation(el,cls){if(!el)return;
   void el.offsetWidth;
   el.classList.add(cls);
   el.addEventListener("animationend",()=>el.classList.remove(cls),{once:true})}
-function updateFocusChrome(){document.body.classList.toggle("is-focus-wo",workoutActive&&logMode==="focus");
+function updateFocusChrome(){document.body.classList.toggle("is-focus-wo",workoutActive);
   updateRestChrome()}
 
 /* ---- Exercise note sheet ---- */
@@ -4913,7 +4956,7 @@ async function saveExNoteSheet(){
   const id=exNoteFor,val=$("#exNoteText")?.value??"";
   if(id){const ta=$(`[data-exnote="${id}"]`);if(ta)ta.value=val;
     if(!activeWorkoutDraft)return;
-    await enqueueDraftCommand("setExerciseNotes",{exerciseInstanceId:id,value:val})}
+    await WorkoutSession.dispatch("setExerciseNotes",{exerciseInstanceId:id,value:val})}
   await closeExNoteSheet();
   if(id){
     renderWorkout();
@@ -4987,7 +5030,7 @@ async function confirmPickerDay(){
   if(!next||!days().includes(next))return;
   if(!await requestWorkoutDay(next))return;
   await closeDayPickSheet();
-  await enterWorkout({day:next,focus:true});
+  await enterWorkout({day:next});
   toast(t("toast.day_ready",{day:dayLabel(next)}))}
 /** Keep the sheet above the software keyboard rather than behind it, and inside
  *  the band the keyboard leaves visible so its header stays on screen. */
@@ -5095,6 +5138,7 @@ function sheetDragEnd(e){
   if(!sheetDrag||(e&&e.pointerId!=null&&e.pointerId!==sheetDrag.id))return;
   const{rec,dy,vy,live,motion}=sheetDrag;sheetDrag=null;
   if(!live)return;
+  if(e?.type==="pointercancel"){sheetDragRelease(rec);return}
   // The drag ends over whatever the thumb started on, so a button under it must
   // not also fire.
   if(dy>SHEET_DRAG_LOCK)swallowNextClick();
@@ -5121,7 +5165,7 @@ function focusGo(dir){
   const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0,next=at+dir;
   if(next<0||next>=fl.length)return false;
   focusIndex=next;focusEdit=null;
-  if(activeWorkoutDraft&&fl[next])void enqueueDraftCommand("selectExercise",{exerciseInstanceId:fl[next].id});
+  if(activeWorkoutDraft&&fl[next])void WorkoutSession.dispatch("selectExercise",{exerciseInstanceId:fl[next].id});
   renderWorkout();window.scrollTo({top:0});return true}
 function focusCanGo(dir){const fl=focusList(),at=fl.length?Math.min(focusIndex,fl.length-1):0;
   return at+dir>=0&&at+dir<fl.length}
@@ -5143,6 +5187,9 @@ const reducedMotion=()=>window.matchMedia?.("(prefers-reduced-motion: reduce)").
  *  responsiveness. `focusSettle` below is the half of this that is a real catch,
  *  and that half does use a spring. */
 function focusAnimateTo(dir){
+  const controller=window.__repforgeGestureHandle;
+  return controller?.navigate(dir)||false}
+function fallbackFocusAnimateTo(dir){
   if(focusFlinging||!focusCanGo(dir))return false;
   const track=focusTrack(),deck=$("#focusDeck");
   if(!track||reducedMotion())return focusGo(dir);
@@ -5150,7 +5197,7 @@ function focusAnimateTo(dir){
   deck?.classList.add("is-swiping");
   track.classList.add("is-settling");
   focusSetTrack(track,-dir*focusStep());
-  setTimeout(()=>{
+  fallbackFocusLater(()=>{
     focusFlinging=false;
     track.classList.remove("is-settling");
     deck?.classList.remove("is-swiping");
@@ -5161,7 +5208,7 @@ const FOCUS_SLIDE_MS=210;
 function focusSetTrack(track,dx){
   if(track)track.style.transform=`translate3d(${dx}px,0,0)`}
 function focusDragStart(e){
-  if(focusFlinging||!workoutActive||logMode!=="focus")return;
+  if(focusFlinging||!workoutActive)return;
   if(e.pointerType==="mouse"&&e.button!==0)return;
   const el=e.target instanceof Element?e.target:null;
   // Fields keep their caret; every other part of the card is draggable, with the
@@ -5170,7 +5217,7 @@ function focusDragStart(e){
   const card=focusCard(),track=focusTrack();if(!card||!track)return;
   const ledger=card.querySelector(".fcard__ledger");
   focusDrag={id:e.pointerId,x:e.clientX,y:e.clientY,dx:0,axis:null,card,track,
-    scrolls:!!ledger&&ledger.scrollHeight>ledger.clientHeight+1,
+    scrolls:[ledger,card.querySelector(".fcard__context")].some(el=>el&&el.scrollHeight>el.clientHeight+1),
     vx:0,lastX:e.clientX,lastT:e.timeStamp||performance.now()}}
 const DRAG_LOCK=10;
 function focusDragMove(e){
@@ -5211,7 +5258,7 @@ function focusSettle(track,card,deck,{from=0,velocity=0}={}){
   const run=window.RepForgeMotion?.settleFocusDeck(track,{from,velocity});
   if(run){run.then(done);return}
   focusSetTrack(track,0);
-  setTimeout(done,220)}
+  fallbackFocusLater(done,220)}
 function focusDragEnd(e){
   if(!focusDrag||(e&&e.pointerId!=null&&e.pointerId!==focusDrag.id))return;
   const{card,track,dx,axis,vx}=focusDrag;focusDrag=null;
@@ -5223,22 +5270,32 @@ function focusDragEnd(e){
   // it was thrown (0.4px/ms is roughly a deliberate flick).
   const flick=Math.abs(vx)>=.4&&Math.sign(vx)===Math.sign(dx)&&Math.abs(dx)>=28;
   const past=Math.abs(dx)>=Math.min(110,Math.max(56,width*.2))||flick;
-  if(!past||!focusCanGo(dir)){focusSettle(track,card,deck,{from:dx,velocity:vx});return}
+  if(e?.type==="pointercancel"||!past||!focusCanGo(dir)){focusSettle(track,card,deck,{from:dx,velocity:vx});return}
   card.classList.remove("is-dragging");
   focusAnimateTo(dir)}
 async function enterWorkout(opts={}){if(opts.day&&!await requestWorkoutDay(opts.day))return false;
-  const prepared=await createWorkoutDraft(day);
+  if(opts.day)focusIndex=0;
+  const prepared=await WorkoutSession.start(day);
   if(prepared.status!=="ready"){
-    showDraftInitializationRecovery(prepared,{retryMode:"create",label:day,focusMode:opts.focus});return false}
+    showDraftInitializationRecovery(prepared,{retryMode:"create",label:day});return false}
   clearDraftUiRecovery();
   workoutLeft=false;setWorkoutActive(true);
-  // Focus layout matches mock 01; List remains the default for broad editing/tests.
-  if(opts.focus===true)logMode="focus";
-  else if(opts.focus===false)logMode="full";
-  syncLogModeControls();
-  document.body.classList.toggle("is-focus-wo",logMode==="focus");
+  hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
+  // Focus is the sole workout route.
+  document.body.classList.add("is-focus-wo");
   renderTabs();renderWorkout();renderToday();window.scrollTo({top:0});return true}
-function leaveWorkout(){workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0})}
+async function leaveWorkout(){
+  if(document.activeElement&&document.activeElement.tagName==="INPUT"){
+    document.activeElement.blur();
+  }
+  if(!await WorkoutSession.leave()){
+    toast(t("workout.leave_failed"));
+    showDraftCommandRecovery("storage-error",draftUiRecovery?.attempt||{});
+    return false;
+  }
+  workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");renderToday();window.scrollTo({top:0});
+  return true;
+}
 function dayMuscles(d){const seen=[],exs=exercises(d||day);
   for(const e of exs){const m=String(e.primary||"").split(",")[0].trim();if(m&&!seen.includes(m))seen.push(m);if(seen.length>=3)break}
   return seen}
@@ -5312,8 +5369,8 @@ function todayExListHtml(exs){if(!exs.length)return"";
    part of the dashboard that describes a program is taken down together: a week
    strip and an Up next built from no program are the same lie in smaller type. */
 function renderTodayNoProgram(){
-  for(const sel of["#todayProgram","#todaySessionLabel","#todaySession","#startWorkout","#chooseAnotherDay",
-    "#viewExercises","#reviewTodaySession","#logAnotherSession","#todayWeekLabel","#todayWeek",
+  for(const sel of["#todayProgram","#todaySessionLabel","#todaySession","#startWorkout","#previewSession","#chooseAnotherDay",
+    "#reviewTodaySession","#logAnotherSession","#todayWeekLabel","#todayWeek",
     "#todayUpNextLabel","#todayUpNext","#todayLast"]){
     const el=$(sel);if(el)el.classList.add("hidden")}
   const sess=$("#todaySession");if(sess)sess.innerHTML="";
@@ -5354,11 +5411,11 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
     // A one-day split has no other day to offer, so the picker would open onto
     // the day Today already leads with.
     const canPickDay=!recap&&days().length>1;
-    for(const[sel,shown]of[["#startWorkout",!recap],["#chooseAnotherDay",canPickDay],["#viewExercises",!recap],["#reviewTodaySession",!!recap],["#logAnotherSession",!!recap]]){
+    for(const[sel,shown]of[["#startWorkout",!recap],["#previewSession",!recap],["#chooseAnotherDay",canPickDay],["#reviewTodaySession",!!recap],["#logAnotherSession",!!recap]]){
       const el=$(sel);if(el)el.classList.toggle("hidden",!shown)}
-    const ready=$("#readyLine");if(ready)ready.onclick=()=>{enterWorkout({focus:true});
-      const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");
-      if(first){collapsed.delete(first.dataset.ex);first.classList.remove("is-collapsed");first.scrollIntoView({behavior:"smooth",block:"center"})}}
+    const ready=$("#readyLine");if(ready)ready.onclick=()=>{
+      const first=exercises().find(e=>{const status=recommendation(e).status;return status==="add"||status==="add2"});
+      if(first)void goToLogExercise(first.id)}
     $$("#todayExList [data-exopen]").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
     const more=$("#todayExMore");if(more)more.onclick=()=>{todayExOpen=!todayExOpen;renderToday()}
   // A draft with logged or filled sets means the session is still open.
@@ -5397,6 +5454,328 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
   const woSub=$("#woDaySub");if(woSub){const mc3=mesocycleWeek();
     woSub.textContent=mc3.isComplete?t("meso.complete"):mc3.current!=null?t("today.week_short",{n:mc3.current}):""}
 }
+/* ---- Today preview (read-only) ---- */
+// Pure view model: no draft, no timestamps, no side effects.
+function plannedPreviewModel(d=day){
+  const exs=exercises(d);
+  return exs.map(ex=>{
+    const rec=recommendation(ex);
+    return {id:ex.id,name:ex.name,sets:ex.sets,min:ex.min,max:ex.max,primary:ex.primary,notes:ex.notes||"",rec};
+  });
+}
+function previewExerciseRowHtml(ex){
+  const sets=`${ex.sets} × ${ex.min}–${ex.max}`;
+  const meta=[ex.primary?muscleListLabel(ex.primary):"",ex.notes?`${t("log.setup")}: ${ex.notes}`:""].filter(Boolean).join(" · ");
+  const rec = ex.rec && ex.rec.status!=="new" ? `<span class="preview__meta">${esc(ex.rec.label)} · ${esc(ex.rec.text)}</span>` : "";
+  return `<button type="button" class="preview__row" data-preview-exercise data-exopen="${esc(ex.id)}" aria-label="${esc(t("log.open_exercise_aria",{name:ex.name}))}">`+
+    `<span class="preview__row-main"><span class="preview__name">${esc(ex.name)}</span><span class="preview__sets">${esc(sets)}</span></span>`+
+    (meta?`<span class="preview__meta">${esc(meta)}</span>`:"")+rec+`</button>`;
+}
+function renderPreviewSessionSheet(){
+  const list=$("#previewSessionList");if(!list)return;
+  const dayEl=document.querySelector("[data-preview-day]");if(dayEl)dayEl.textContent=dayLabel(day);
+  const rows=plannedPreviewModel(day);
+  list.innerHTML=rows.map(previewExerciseRowHtml).join("");
+  $$("#previewSessionList [data-exopen]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.exopen;
+    closePreviewSessionSheet().then(()=>openExerciseView(id,"log"));
+  });
+}
+function openPreviewSessionSheet(){
+  if(!hasProgramContent())return;
+  renderPreviewSessionSheet();
+  const sheet=$("#previewSessionSheet"),scrim=$("#previewSessionScrim");
+  if(!sheet)return;
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet,{
+    initialFocus:$("#previewSessionList .preview__row")||$("#previewSessionClose"),
+    onEscape:closePreviewSessionSheet,
+    scrim,
+    delayHide:reducedMotion()?0:280
+  });
+  requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")});
+}
+function closePreviewSessionSheet(){
+  const sheet=$("#previewSessionSheet");
+  if(!sheet)return Promise.resolve(false);
+  if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  return closeModal(sheet);
+}
+
+/* ---- Session sheet (Focus workout) ---- */
+let sessionEarlyRevision = null;
+let sessionEarlyDraftId = null;
+
+function renderSessionSheet(){
+  const sheet = $("#sessionSheet");
+  if (!sheet) return;
+  const draft = activeWorkoutDraft;
+  const dateInput = $("#sessionDate");
+  if (dateInput) dateInput.value = draft?.program?.scheduleDate ?? today();
+  const bwInput = $("#sessionBodyweight");
+  if (bwInput) {
+    bwInput.value = displayDraftText("bodyweight", draft?.session?.bodyweight) || "";
+    bwInput.placeholder = unitLabel();
+  }
+  const notesInput = $("#sessionNotes");
+  if (notesInput) notesInput.value = draft?.session?.notes || "";
+
+  // Render Session map
+  const mapEl = $("#sessionMap");
+  if (mapEl && draft) {
+    const order = draft.exerciseOrder || [];
+    const rows = order.map((exId, idx) => {
+      const ex = draft.exercises[exId];
+      if (!ex) return "";
+      const doneCount = ex.setOrder.filter(sid => ex.sets[sid]?.completion !== "pending").length;
+      const totalCount = ex.setOrder.length;
+      const isSkipped = ex.status === "skipped";
+      const statusText = isSkipped ? t("log.skipped") : `${doneCount}/${totalCount}` + (doneCount === totalCount && totalCount > 0 ? " ✓" : "");
+      return `<div class="session-map__row" data-session-map-ex="${esc(exId)}">` +
+        `<button type="button" class="session-map__jump" data-session-map-jump="${esc(exId)}">` +
+        `<span class="session-map__name">${esc(ex.displayName)}</span>` +
+        `<span class="session-map__status ${doneCount === totalCount && totalCount > 0 ? "is-complete" : isSkipped ? "is-skipped" : ""}">${esc(statusText)}</span>` +
+        `</button>` +
+        `<div class="session-map__reorder">` +
+        `<button type="button" class="session-map__reorder-btn" data-session-reorder-up="${esc(exId)}" aria-label="${esc(t("session.sheet.reorder_up_aria", { name: ex.displayName }))}"${idx === 0 ? " disabled" : ""}>` +
+        `<span class="icon-mask icon-mask--chev-up" aria-hidden="true"></span></button>` +
+        `<button type="button" class="session-map__reorder-btn" data-session-reorder-down="${esc(exId)}" aria-label="${esc(t("session.sheet.reorder_down_aria", { name: ex.displayName }))}"${idx === order.length - 1 ? " disabled" : ""}>` +
+        `<span class="icon-mask icon-mask--chev-down" aria-hidden="true"></span></button>` +
+        `</div></div>`;
+    }).filter(Boolean);
+    mapEl.innerHTML = rows.join("");
+    $$("#sessionMap [data-session-map-ex]").forEach(b => b.onclick = (e) => {
+      if (e.target.closest("[data-session-reorder-up], [data-session-reorder-down]")) return;
+      const exId = b.dataset.sessionMapEx;
+      closeSessionSheet().then(() => {
+        if (activeWorkoutDraft?.exercises[exId]?.status === "skipped") { openExActionsSheet(exId); return; }
+        if (window.__repforgeFocus) {
+          const list = window.__repforgeFocus.list() || [];
+          const idx = list.findIndex(item => item.id === exId);
+          if (idx >= 0) window.__repforgeFocus.to(idx);
+        }
+      });
+    });
+    const restoreReorderFocus = (exerciseId, direction) => {
+      const key = direction === "up" ? "sessionReorderUp" : "sessionReorderDown";
+      const control = [...mapEl.querySelectorAll("[data-session-reorder-up], [data-session-reorder-down]")]
+        .find(button => button.dataset[key] === exerciseId && !button.disabled) ||
+        [...mapEl.querySelectorAll("[data-session-reorder-up], [data-session-reorder-down]")]
+          .find(button => button.dataset[direction === "up" ? "sessionReorderDown" : "sessionReorderUp"] === exerciseId && !button.disabled) ||
+        mapEl.querySelector(`[data-session-map-ex="${CSS.escape(exerciseId)}"]`);
+      if (control) control.focus({ preventScroll: true });
+    };
+    const announceReorder = (exerciseId, direction) => {
+      const order = activeWorkoutDraft?.exerciseOrder || [];
+      const index = order.indexOf(exerciseId);
+      const exercise = activeWorkoutDraft?.exercises?.[exerciseId];
+      restoreReorderFocus(exerciseId, direction);
+      if (index >= 0 && exercise) announce(t("session.sheet.reorder_announcement", {
+        name: exercise.displayName,
+        index: index + 1,
+        count: order.length,
+      }));
+    };
+    $$("#sessionMap [data-session-reorder-up]").forEach(b => b.onclick = async (e) => {
+      e.stopPropagation();
+      const exId = b.dataset.sessionReorderUp;
+      const currentOrder = (activeWorkoutDraft?.exerciseOrder || []).slice();
+      const idx = currentOrder.indexOf(exId);
+      if (idx > 0) {
+        [currentOrder[idx - 1], currentOrder[idx]] = [currentOrder[idx], currentOrder[idx - 1]];
+        const res = await WorkoutSession.dispatch("reorderExercises", { exerciseOrder: currentOrder });
+        if (res.status === "applied") {
+          hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
+          renderWorkout();
+          renderSessionSheet();
+          announceReorder(exId, "up");
+        }
+      }
+    });
+    $$("#sessionMap [data-session-reorder-down]").forEach(b => b.onclick = async (e) => {
+      e.stopPropagation();
+      const exId = b.dataset.sessionReorderDown;
+      const currentOrder = (activeWorkoutDraft?.exerciseOrder || []).slice();
+      const idx = currentOrder.indexOf(exId);
+      if (idx >= 0 && idx < currentOrder.length - 1) {
+        [currentOrder[idx], currentOrder[idx + 1]] = [currentOrder[idx + 1], currentOrder[idx]];
+        const res = await WorkoutSession.dispatch("reorderExercises", { exerciseOrder: currentOrder });
+        if (res.status === "applied") {
+          hydrateDraftCollections(WorkoutSession.projection(),{restoreSelection:true});
+          renderWorkout();
+          renderSessionSheet();
+          announceReorder(exId, "down");
+        }
+      }
+    });
+  }
+
+  // Reset early finish prompt
+  sessionEarlyRevision = null;
+  sessionEarlyDraftId = null;
+  const earlyPrompt = $("#sessionEarlyPrompt");
+  if (earlyPrompt) earlyPrompt.classList.add("hidden");
+  const earlyBtn = $("#sessionEarlyFinish");
+  if (earlyBtn) earlyBtn.classList.remove("hidden");
+  const earlyMsg = $("#sessionEarlyMsg");
+  if (earlyMsg) {
+    earlyMsg.classList.remove("is-error");
+    earlyMsg.textContent = t("session.sheet.early_prompt");
+  }
+}
+
+function renderEarlyFinishPreview(){
+  const draft=activeWorkoutDraft;
+  const rows=draft?WorkoutDraft.toHistoryRows({...draft,session:{...draft.session,status:"finishing"}},new Date().toISOString()):null;
+  const host=$("#sessionEarlyOmissions");
+  if(!host)return;
+  if(!Array.isArray(rows)){host.textContent=t("session.sheet.early_invalid");return}
+  const included=new Set(rows.map(row=>`${row.exerciseId}_${row.set}`));
+  host.innerHTML=draft.exerciseOrder.map(id=>{
+    const exercise=draft.exercises[id];
+    const omitted=exercise.setOrder.filter(setId=>!included.has(`${id}_${exercise.sets[setId].ordinal}`));
+    return omitted.length?`<li>${esc(t("session.sheet.omitted",{name:exercise.displayName,sets:omitted.map(setId=>exercise.sets[setId].ordinal).join(", ")}))}</li>`:"";
+  }).join("");
+}
+function openSessionSheet(){
+  if (!activeWorkoutDraft) return;
+  renderSessionSheet();
+  const sheet = $("#sessionSheet"), scrim = $("#sessionSheetScrim");
+  if (!sheet) return;
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet, {
+    initialFocus: $("#sessionDate") || $("#sessionSheetClose"),
+    onEscape: closeSessionSheet,
+    scrim,
+    delayHide: reducedMotion() ? 0 : 280
+  });
+  requestAnimationFrame(() => { sheet.classList.add("is-open"); scrim?.classList.add("is-open"); });
+}
+
+function closeSessionSheet(){
+  const sheet = $("#sessionSheet");
+  if (!sheet) return Promise.resolve(false);
+  if (sheet.hidden && !(activeModal && activeModal.el === sheet)) return Promise.resolve(false);
+  return closeModal(sheet);
+}
+window.__repforgeSessionSheet = { open: openSessionSheet, close: closeSessionSheet, render: renderSessionSheet };
+
+/* ---- Exercise actions sheet (Focus workout) ---- */
+let activeExActionsId = null;
+
+function renderExActionsSheet(exId) {
+  const sheet = $("#exActionsSheet");
+  if (!sheet || !activeWorkoutDraft) return;
+  activeExActionsId = exId;
+  const draftEx = activeWorkoutDraft.exercises[exId];
+  const progEx = prog.find(exId);
+  if (!draftEx) return;
+
+  const displayName = draftEx.displayName || (progEx ? (substituted.get(progEx.id) || progEx.name) : exId);
+  const titleEl = $("#exActionsTitle");
+  if (titleEl) titleEl.textContent = displayName;
+
+  const subEl = $("#exActionsSub");
+  if (subEl) {
+    const primary = draftEx.programmed?.primary || progEx?.primary || "";
+    const setsTotal = draftEx.setOrder.length;
+    subEl.textContent = (primary ? muscleListLabel(primary) + " · " : "") + `${setsTotal} sets`;
+  }
+
+  // Setup notes
+  const setupTextEl = $("#exActionsSetupText");
+  const setupText = draftEx.programmed?.notes || progEx?.notes || "";
+  if (setupTextEl) {
+    setupTextEl.textContent = setupText || t("ex.actions.no_setup_notes");
+  }
+
+  // Repeat last session
+  const repeatBtn = $("#exActionRepeatBtn");
+  const repeatHint = $("#exActionRepeatHint");
+  const prevSets = progEx ? last(sessionExercise(progEx)) : [];
+  if (repeatBtn) {
+    if (prevSets.length > 0) {
+      repeatBtn.disabled = false;
+      if (repeatHint) repeatHint.textContent = "";
+    } else {
+      repeatBtn.disabled = true;
+      if (repeatHint) repeatHint.textContent = t("ex.actions.no_history");
+    }
+  }
+
+  // Substitution
+  const substBtn = $("#exActionSubstBtn");
+  const restoreOrigBtn = $("#exActionRestoreOrigBtn");
+  const isSubstituted = !!draftEx.substitution;
+  if (substBtn) substBtn.textContent = t(isSubstituted ? "ex.actions.change_substitution" : "ex.actions.substitute");
+  if (restoreOrigBtn) restoreOrigBtn.classList.toggle("hidden", !isSubstituted);
+
+  // Warmup sets list
+  const warmupList = $("#exActionsWarmupList");
+  if (warmupList) {
+    const rows = draftEx.setOrder.map((sid, idx) => {
+      const set = draftEx.sets[sid];
+      if (!set) return "";
+      const isWarmup = set.role === "warmup";
+      const roleLabel = t(isWarmup ? "ex.actions.role_warmup" : "ex.actions.role_working");
+      const btnLabel = t(isWarmup ? "ex.actions.mark_working" : "ex.actions.mark_warmup");
+      return `<div class="exactions__warmup-row">` +
+        `<div class="exactions__warmup-info">` +
+        `<span class="exactions__warmup-num">${esc(t("log.set"))} ${idx + 1}</span>` +
+        `<span class="exactions__warmup-role ${isWarmup ? "is-warmup" : ""}">${esc(roleLabel)}</span>` +
+        `</div>` +
+        `<button type="button" class="btn btn--steel btn--sm" data-warm-toggle-set="${esc(sid)}">${esc(btnLabel)}</button>` +
+        `</div>`;
+    }).filter(Boolean);
+    warmupList.innerHTML = rows.join("");
+    $$("#exActionsWarmupList [data-warm-toggle-set]").forEach(btn => {
+      btn.onclick = async () => {
+        const sid = btn.dataset.warmToggleSet;
+        const set = draftEx.sets[sid];
+        if (!set) return;
+        const type = set.role === "warmup" ? "markWorking" : "markWarmup";
+        const res = await WorkoutSession.dispatch(type, { exerciseInstanceId: exId, setId: sid });
+        if (res.status === "applied") {
+          renderWorkout();
+          renderExActionsSheet(exId);
+        }
+      };
+    });
+  }
+
+  // Skip / restore exercise
+  const skipBtn = $("#exActionSkipBtn");
+  const isSkipped = draftEx.status === "skipped";
+  if (skipBtn) {
+    skipBtn.textContent = t(isSkipped ? "ex.actions.restore" : "ex.actions.skip");
+  }
+}
+
+function openExActionsSheet(exId) {
+  if (!activeWorkoutDraft) return;
+  renderExActionsSheet(exId);
+  const sheet = $("#exActionsSheet"), scrim = $("#exActionsScrim");
+  if (!sheet) return;
+  document.body.classList.add("is-sheet-open");
+  openModal(sheet, {
+    initialFocus: $("#exActionsClose"),
+    onEscape: closeExActionsSheet,
+    scrim,
+    delayHide: reducedMotion() ? 0 : 280
+  });
+  requestAnimationFrame(() => { sheet.classList.add("is-open"); scrim?.classList.add("is-open"); });
+}
+
+function closeExActionsSheet() {
+  const sheet = $("#exActionsSheet");
+  if (!sheet) return Promise.resolve(false);
+  if (sheet.hidden && !(activeModal && activeModal.el === sheet)) return Promise.resolve(false);
+  return closeModal(sheet);
+}
+window.__repforgeExActions = { open: openExActionsSheet, close: closeExActionsSheet, render: renderExActionsSheet };
+
+
+
 
 function render(){applyI18n();
   // Auto-resume an in-progress session (page reload mid-workout), but never
@@ -5420,25 +5799,6 @@ function setFieldVals(ex,n,r,draft,prev){
   const effortVal=draft[`${key}_effort`]||(old&&old.rir!=null?effortForRir(old.rir):"hard");
   const rirVal=draft[`${key}_rir`]??(old&&old.rir!=null?fmtPlain(old.rir):1);
   return{key,isW,kgVal,repsVal,rirVal,effortVal}}
-function setRowHtml(ex,n,r,draft,prev,nextSet){
-  const{key,isW,kgVal,repsVal,rirVal,effortVal}=setFieldVals(ex,n,r,draft,prev);
-  const effortMode=isEffortMode();
-  const cls=`${committed.has(key)?"is-done":(touched.has(key)?"":"is-suggested")}${isW?" is-warmup":""}${n===nextSet?" is-next":""}${effortMode?" has-effort":""}`;
-  // Effort takes a line of its own under the numbers: three words never fit the
-  // RIR column, and clipping the last of them hides the option that matters.
-  const rirInput=effortMode?""
-    :`<input data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="next" aria-label="${esc(t("log.set_rir_aria",{n}))}" value="${esc(rirVal)}">`;
-  const effortLine=effortMode?effortControlHtml(key,n,effortVal,{confirmed:committed.has(key)||touched.has(key)}):"";
-  return `<div class="setrow ${cls}" data-set="${esc(key)}"><button type="button" class="setrow__n" data-warm="${esc(key)}" aria-pressed="${isW?"true":"false"}" title="${esc(t("log.warmup_title"))}">${isW?"W":n}</button>`+
-    `<div class="kg"><button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="-1" tabindex="-1" aria-label="${esc(t("log.set_decrease_aria",{n,unit:unitLabel()}))}">−</button>`+
-    `<input data-k="${ex.id}_${n}_load" type="text" inputmode="decimal" enterkeyhint="next" aria-label="${esc(t("log.set_unit_aria",{n,unit:unitLabel()}))}" placeholder="${unitLabel()}" value="${esc(kgVal)}">`+
-    `<button type="button" class="stepbtn" data-step="${ex.id}_${n}_load" data-dir="1" tabindex="-1" aria-label="${esc(t("log.set_increase_aria",{n,unit:unitLabel()}))}">+</button></div>`+
-    `<input data-k="${ex.id}_${n}_reps" type="text" inputmode="numeric" enterkeyhint="next" aria-label="${esc(t("log.set_reps_aria",{n}))}" value="${esc(repsVal)}">`+
-    rirInput+
-    `<button type="button" class="saveset" data-save="${esc(key)}" aria-pressed="${committed.has(key)?"true":"false"}" aria-label="${esc(t("log.save_set_aria",{n}))}">`+
-    `<span class="saveset__label">${esc(t("log.save_set"))}</span></button>`+
-    effortLine+`</div>`}
-
 /* ============================================================
    Focus mode
    One full-height card per exercise: a scrolling ledger of what has been
@@ -5585,9 +5945,9 @@ function cursetHtml(ex,n,r,draft,prev,{peek=false}={}){
         ` aria-label="${esc(t("log.set_effort_aria",{n}))}" aria-describedby="effpop_${esc(key)}"`+
         ` aria-valuemin="1" aria-valuemax="${EFFORT_STEPS.length}"`+
         ` aria-valuenow="${i+1}" aria-valuetext="${esc(effortLabel(effortVal))}">${esc(effortLabel(effortVal))}</div>`;
-    return focusCell(esc(t("log.effort")),body,{cls:"is-effort",extra:peek?"":effortPopHtml(key,effortVal),
+    return focusCell(peek?esc(t("log.effort")):term("Effort"),body,{cls:"is-effort",extra:peek?"":effortPopHtml(key,effortVal),
       steps:stepBtn(key,-1,t("focus.effort_down_aria"),"data-effstep",peek)+stepBtn(key,1,t("focus.effort_up_aria"),"data-effstep",peek)})})();
-  const rirCell=focusCell("RIR",
+  const rirCell=focusCell(peek?"RIR":term("RIR"),
     val(rirVal,`data-k="${ex.id}_${n}_rir" type="text" inputmode="decimal" enterkeyhint="done" aria-label="${esc(t("log.set_rir_aria",{n}))}"`),
     {steps:stepBtn(`${ex.id}_${n}_rir`,-1,t("log.set_decrease_aria",{n,unit:"RIR"}),"data-step",peek)+stepBtn(`${ex.id}_${n}_rir`,1,t("log.set_increase_aria",{n,unit:"RIR"}),"data-step",peek)});
   return `<div class="curset" data-set="${esc(key)}"><div class="curset__grid">`+
@@ -5637,6 +5997,7 @@ function focusCardHtml(ex,r,draft,prev,opts){
   const{peek=false,hasNext=true,allDone=false,showSkip=true}=opts;
   const effortMode=isEffortMode();
   const n=focusActiveSet(ex);
+  const deltaText=deltaPreviewFor(ex,draft);
   const perf=substituted.get(ex.id);
   const name=perf||ex.name;
   const nameHtml=`<h3 class="focus-ex__name"><button type="button" class="ex__name ex__namebtn"`+
@@ -5650,21 +6011,25 @@ function focusCardHtml(ex,r,draft,prev,opts){
     `<button type="button" class="focus-tool${noteVal?" has-note":""}"`+
     `${peek?dead():` data-exnote-open="${esc(ex.id)}" aria-label="${esc(t("focus.note_aria",{name}))}"`}>`+
     `<span class="icon-mask icon-mask--sm icon-mask--note" aria-hidden="true"></span></button>`+
+    `<button type="button" class="focus-tool"`+
+    `${peek?dead():` data-exactions-open="${esc(ex.id)}" aria-label="${esc(t("focus.actions_aria",{name}))}"`}>`+
+    `<span class="icon-mask icon-mask--sm icon-mask--overflow" aria-hidden="true"></span></button>`+
     (showSkip?`<button type="button" class="focus-tool ex__skip"`+
       `${peek?dead():` data-skip="${esc(ex.id)}" aria-label="${esc(t("log.skip_aria",{name}))}"`}>`+
       `<span class="icon-mask icon-mask--sm icon-mask--skip" aria-hidden="true"></span></button>`:"")+
     `</div>`;
   return `<article class="exercise exercise--focus is-${r.status}${peek?" is-peek":" is-current"}"`+
     (peek?` aria-hidden="true" inert data-peek="${esc(ex.id)}"`:` data-ex="${esc(ex.id)}"`)+`>`+
-    `<div class="fcard__head"><div class="focus-ex__eyebrow">`+
+    `<div class="fcard__context" role="region" aria-label="${esc(name)}" tabindex="${peek?-1:0}"><div class="fcard__head"><div class="focus-ex__eyebrow">`+
     `<span class="focus-ex__muscle">${esc(muscleListLabel(ex.primary))}</span>`+
     `<span class="focus-ex__setof${setofFresh}">${esc(t("focus.set_of",{x:" ",y:ex.sets})).replace(" ",`<b>${setNo}</b>`)}</span></div>`+
     `<div class="focus-ex__title"><div class="focus-ex__titletext">${nameHtml}`+
     `<p class="focus-ex__target"><span class="focus-ex__alvo">${esc(t("today.target_label"))}</span>${esc(targetText(ex))}</p>`+
-    (r.status!=="new"?`<button type="button" class="text-link focus-ex__why"`+
+    (r.status!=="new"||inSessionNote(ex,draft)?`<button type="button" class="text-link focus-ex__why"`+
       `${peek?dead():` data-why="${esc(ex.id)}" aria-label="${esc(t("why.open_aria",{name}))}"`}>${esc(t("why.open"))}</button>`:"")+
     `</div>${tools}</div></div>`+
-    `<div class="fcard__ledger">${focusLedgerHtml(ex,r,draft,prev,{effortMode,peek})}</div>`+
+    `<div class="fcard__ledger"><p class="delta-prev${deltaText?"":" hidden"}" aria-live="polite">${esc(deltaText)}</p>`+
+    `${focusLedgerHtml(ex,r,draft,prev,{effortMode,peek})}</div></div>`+
     focusWellHtml(ex,r,draft,prev,{allDone,hasNext,peek})+`</article>`}
 
 /** The deck: the live card plus an inert copy of each neighbour, parked off
@@ -5690,81 +6055,14 @@ function renderWorkout(){
   const lc=$("#logContext");if(lc){const nm=state.programMeta?.name,mc=mesocycleWeek();
     lc.textContent=nm||mc.current!=null||mc.isComplete?programWeekContext(nm,mc):t("log.context.today")}
   const draft=hydrateWorkoutDraft();
-  const effortMode=isEffortMode();
-  const restOn=+state.settings.restSec>0;
   const hiddenCount=exercises().filter(e=>skipped.has(e.id)).length;
   const banner=hiddenCount?`<div class="skipbar">${esc(t("log.skipbar",{n:hiddenCount}))} <button type="button" class="skipbar__show">${esc(t("log.skipbar.show_all"))}</button></div>`:"";
   const fl=focusList();
-  if(logMode==="focus"&&fl.length)focusIndex=Math.min(focusIndex,fl.length-1);
-  const curId=logMode==="focus"&&fl.length?fl[focusIndex]?.id:null;
-  const at=logMode==="focus"&&fl.length?Math.min(focusIndex,fl.length-1):0;
-  const wk=$("#workout");if(!wk){focusLogged=null;return}wk.classList.toggle("is-focus",logMode==="focus");
-  wk.innerHTML=banner+exercises().map(slotEx=>{const ex=sessionExercise(slotEx);
-    const r=recommendation(ex),prev=last(ex);
-    // Focus renders the current exercise as its own full-height card; the rest
-    // stay as (hidden) List markup, which is what carries their draft fields.
-    if(logMode==="focus"&&ex.id===curId)return focusDeckHtml(ex,r,draft,prev,{fl,at});
-    const prevHtml=prev.length?`<div class="prev"><span>${esc(t("log.prev"))}</span>${prev.map(x=>`${fmtLoad(x.load)}×${x.reps}<small>${esc(effortOrRirLabel(x.rir))}</small>`).join(" ")}<button type="button" class="copylast" data-copy="${esc(ex.id)}">${esc(t("log.copy_last"))}</button></div>`:"";
-    const deltaHtml=(()=>{const txt=deltaPreviewFor(ex,draft);return txt?`<div class="delta-prev">${esc(txt)}</div>`:""})();
-    const blockHtml=r.blockNote?`<p class="rec__block">${esc(r.blockNote)}</p>`:"";
-    const sessNote=inSessionNote(ex,draft),sessHtml=sessNote?`<div class="insession">${esc(sessNote)}</div>`:"";
-    let nextSet=0;for(let n=1;n<=ex.sets;n++){if(!committed.has(`${ex.id}_${n}`)){nextSet=n;break}}
-    const rows=Array.from({length:ex.sets},(_,i)=>setRowHtml(ex,i+1,r,draft,prev,nextSet)).join("");
-    const isSkipped=skipped.has(ex.id),perf=substituted.get(ex.id),display=perf||ex.name;
-    // The heading is the movement being performed and nothing else. Which slot
-    // it stands in is a second thought, and gets its own full-width line down
-    // beside the substitute control rather than wrapping the title into a
-    // four-line paragraph on a phone.
-    const nameLabel=esc(perf||ex.name);
-    const statusHtml=isSkipped?`<span class="ex__state">${esc(t("log.skipped"))}</span>`:"";
-    const openAria=t("log.open_exercise_aria",{name:display})+(isSkipped?` · ${t("log.skipped")}`:"");
-    const nameHtml=`<button type="button" class="ex__name ex__namebtn" data-exopen="${esc(ex.id)}" aria-label="${esc(openAria)}">${nameLabel}${statusHtml}</button>`;
-    const skipLabel=isSkipped?t("log.restore"):t("log.skip");
-    const skipAria=isSkipped?t("log.restore_aria",{name:display}):t("log.skip_aria",{name:display});
-    const noteVal=draft.__exnotes?.[ex.id]??lastExerciseNote(ex);
-    const notePreview=noteVal?esc(noteVal):esc(t("log.note.empty"));
-    const noteHtml=`<div class="exnote${noteVal?" has-note":""}">`+
-      `<button type="button" class="exnote__toggle" data-exnote-toggle="${esc(ex.id)}" aria-expanded="false" aria-controls="exnote_${esc(ex.id)}">`+
-      `<span class="exnote__lab">${esc(t("log.note"))}</span><span class="exnote__preview">${notePreview}</span></button>`+
-      `<textarea class="exnote__input hidden" id="exnote_${esc(ex.id)}" data-exnote="${esc(ex.id)}" rows="2" `+
-      `placeholder="${esc(t("log.note.placeholder"))}" aria-label="${esc(t("log.note_aria",{name:ex.name}))}">${esc(noteVal)}</textarea></div>`;
-    // Every slot can be swapped now, not just the ones that happen to carry
-    // alternates: the machine being taken does not check the program first.
-    // The field says what it holds, and its own label names the job for a
-    // screen reader, so a printed "USE:" beside it was a caption on a caption.
-    const subPick=`<div class="subst${perf?" is-swapped":""}"><span class="subst__lab visually-hidden">${esc(t("log.substitute.label"))}</span>`+
-      `<button type="button" class="subst__pick${perf?" is-swapped":""}" data-sub="${esc(ex.id)}" aria-label="${esc(t("log.substitute.aria",{name:slotEx.name}))}">${esc(perf||ex.name)}</button>`+
-      (perf?`<p class="subst__from">${esc(t("log.substitute_for",{name:slotEx.name}))}</p>`:"")+
-      `</div>`;
-    const recHead=r.load!=null?t("today.rec_keep",{load:fmtLoad(r.load),unit:unitLabel()}):r.label;
-    const recBlock=`<div class="recblock is-${r.status}"><div class="recblock__lab">${esc(t("today.recommendation"))}</div>`+
-      `<div class="recblock__head">${esc(recHead)}</div><p class="recblock__body">${esc(r.text)}</p>${blockHtml}`+
-      (r.status!=="new"?`<button type="button" class="text-link recblock__why" data-why="${esc(ex.id)}" aria-label="${esc(t("why.open_aria",{name:ex.name}))}">${esc(t("why.open"))}</button>`:"")+
-      `</div>`;
-    const listHead=`<div class="ex__top"><div class="ex__head"><h3 class="ex__nameh">${nameHtml}</h3>`+
-      `<p class="ex__meta"><span class="ex__tag">${esc(muscleListLabel(ex.primary))}</span><span class="nowrap">${ex.sets}×${ex.min}-${ex.max} reps</span> · `+
-      `<span class="nowrap">${effortMode?term(EFFORT_TERM[targetEffort()]):`${term("RIR")} 0-${fmt(state.settings.rirHigh)}`}</span></p></div>`+
-      `<div class="ex__topend">`+
-      (restOn?`<button type="button" class="ex__rest" data-rest="1" aria-label="${esc(t("log.rest_aria"))}"><span class="icon-mask icon-mask--sm icon-mask--timer" aria-hidden="true"></span></button>`:"")+
-      `<button type="button" class="ex__skip" data-skip="${esc(ex.id)}" aria-label="${esc(skipAria)}">${esc(skipLabel)}</button>`+
-      `<button type="button" class="ex__caret" data-collapse="${esc(ex.id)}" aria-label="${esc(t("log.toggle_sets_aria",{name:ex.name}))}"><span class="icon-mask icon-mask--sm icon-mask--chev-down" aria-hidden="true"></span></button></div></div>`;
-    return `<article class="exercise is-${r.status}${collapsed.has(ex.id)?" is-collapsed":""}${isSkipped?" is-skipped":""}" data-ex="${esc(ex.id)}">`+
-      listHead+
-      `<div class="heat"><span class="heat__track"><span class="heat__fill" style="width:${Math.round(r.heat*100)}%"></span></span>`+
-      `<span class="chip">${esc(r.label)}</span></div>`+
-      recBlock+
-      (ex.notes?`<p class="setup"><span>${esc(t("log.setup"))}</span>${esc(ex.notes)}</p>`:"")+
-      subPick+
-      prevHtml+deltaHtml+sessHtml+
-      `<div class="sets__head${effortMode?" has-effort":""}"><span>${esc(t("log.set"))}</span><span>${loadHeadHtml()}</span><span>${esc(t("log.reps"))}</span>`+
-      (effortMode?"":`<span>${term("RIR")}</span>`)+
-      `<span class="sets__head-save" aria-hidden="true">${esc(t("log.save_set"))}</span>`+
-      // In effort mode the picker sits on its own line, so its heading does too.
-      (effortMode?`<span class="sets__head-eff">${term("Effort")}</span>`:"")+
-      `</div>${rows}`+
-      noteHtml+
-      `</article>`;
-  }).join("");
+  if(fl.length)focusIndex=Math.min(focusIndex,fl.length-1);
+  const at=fl.length?Math.min(focusIndex,fl.length-1):0;
+  const wk=$("#workout");if(!wk){focusLogged=null;return}wk.classList.add("is-focus");
+  const current=fl[at] ? sessionExercise(fl[at]) : null;
+  wk.innerHTML=banner+(current ? focusDeckHtml(current,recommendation(current),draft,last(current),{fl,at}) : "");
   // The landing animation belongs to this render alone: the markup that plays
   // it has been written, so the next render draws the same card at rest.
   focusLogged=null;
@@ -5799,21 +6097,17 @@ function sizeFocusCard(card){
   if(gap>0||anchor.getBoundingClientRect().top<ledger.getBoundingClientRect().top)
     ledger.scrollTop=Math.max(0,ledger.scrollTop+gap+8)}
 
-// Keep the "next set up" marker on the first unsaved row of an exercise card.
-function updateNextMarker(art){if(!art)return;let found=false;
-  art.querySelectorAll(".setrow").forEach(r=>{const on=!found&&!r.classList.contains("is-done");if(on)found=true;
-    r.classList.toggle("is-next",on)})}
 async function refreshAfterCommittedEdit(row){
   if(!row?.dataset.set||!committed.has(row.dataset.set))return{status:"unchanged"};
   const exId=row.closest(".exercise")?.dataset.ex;
   return exId?refreshSuggestions(exId):{status:"unchanged"}}
 
-function updateExerciseDeltaPreview(exId){const art=$(`#workout [data-ex="${exId}"]`);if(!art)return;
-  const ex=sessionExercise(prog.find(exId));if(!ex)return;const text=deltaPreviewFor(ex,loadDraft()),el=art.querySelector(".delta-prev");
-  if(!text){el?.remove();return}
-  if(el)el.textContent=text;else{const n=document.createElement("div");n.className="delta-prev";n.textContent=text;
-    const anchor=art.querySelector(".prev")||art.querySelector(".sets__head");
-    if(anchor)anchor.insertAdjacentElement(anchor.classList.contains("sets__head")?"beforebegin":"afterend",n)}}
+function updateExerciseDeltaPreview(exId){
+  const card=$(`#workout .exercise.is-current[data-ex="${CSS.escape(exId)}"]`);
+  const ex=sessionExercise(prog.find(exId)),el=card?.querySelector(".delta-prev");
+  if(!ex||!el)return;
+  const text=deltaPreviewFor(ex,WorkoutSession.projection());
+  el.textContent=text;el.classList.toggle("hidden",!text)}
 
 // Latest note the lifter left on this exercise, so machine setup carries into the next session.
 function lastExerciseNote(ex){const match=matchLift(ex);
@@ -5833,7 +6127,8 @@ function applyDraftIssue(issues){
   const issue=(issues||[]).find(item=>item?.field||String(item?.code||"").startsWith("invalid-"));
   if(!issue)return false;
   const field=issue.field==="scheduleDate"?"date":issue.field;
-  let el=field==="date"?$("#date"):field==="bodyweight"?$("#bodyweight"):null;
+  let el=field==="date"?$("#sessionDate"):field==="bodyweight"?$("#sessionBodyweight"):null;
+  if(el)openSessionSheet();
   let loadErrorKey="validation.load";
   if(!el&&issue.exerciseInstanceId&&issue.setId){const exercise=activeWorkoutDraft?.exercises?.[issue.exerciseInstanceId],
       set=exercise?.sets?.[issue.setId],key=set?`${issue.exerciseInstanceId}_${set.ordinal}_${field}`:null;
@@ -5850,10 +6145,10 @@ function applyDraftIssue(issues){
  *  live one takes a handler. */
 const $w=sel=>$$(`#workout ${sel}`).filter(el=>!el.closest(".is-peek"));
 function bindWorkout(){
-  $w("input").forEach(i=>{i.oninput=async()=>{const row=i.closest(".setrow, .curset"),target=draftTargetFromKey(i.dataset.k);
+  $w("input").forEach(i=>{i.oninput=async()=>{const row=i.closest(".curset"),target=draftTargetFromKey(i.dataset.k);
     if(!activeWorkoutDraft||!target?.field)return;
     row?.classList.remove("is-suggested");
-    const result=await enqueueDraftCommand("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
+    const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:target.field,value:canonicalDraftField(target.field,i.value)},{pendingValue:i.value});
     if(result.status!=="applied")return;
     updateSaveMeta();updateExerciseDeltaPreview(target.exerciseInstanceId);await refreshAfterCommittedEdit(row)};
@@ -5868,20 +6163,20 @@ function bindWorkout(){
     const refreshReservation=type==="completeSet"?reserveDraftRefresh():null;
     let refreshStarted=false;
     try{
-      const result=await enqueueDraftCommand(type,{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId});
+      const result=await WorkoutSession.dispatch(type,{exerciseInstanceId:target.exerciseInstanceId,setId:target.setId});
       if(result.status==="domain-error"){applyDraftIssue(result.error?.issues);return}
       if(result.status!=="applied")return;
       const nowDone=activeWorkoutDraft.exercises[target.exerciseInstanceId].sets[target.setId].completion!=="pending";
       if(editing&&nowDone){focusEdit=null;toast(t("toast.set_updated"))}
       if(nowDone&&!editing){lastCommitAt=Date.now();if(!sessionStartedAt)sessionStartedAt=lastCommitAt;startRest();armUnfinishedWatch()}
-      if(logMode==="focus"&&nowDone&&!editing)focusLogged={exId:target.exerciseInstanceId,n:target.ordinal};
+      if(nowDone&&!editing)focusLogged={exId:target.exerciseInstanceId,n:target.ordinal};
       if(nowDone&&refreshReservation){refreshStarted=true;const refreshed=await refreshReservation.start(()=>runRefreshSuggestions(target.exerciseInstanceId));
         if(refreshed.status!=="applied"&&refreshed.status!=="unchanged")return}
       renderWorkout()
     }finally{if(refreshReservation&&!refreshStarted)refreshReservation.cancel()}});
   $w("[data-warm]").forEach(b=>b.onclick=async()=>{const key=b.dataset.warm,target=draftTargetFromKey(key);
     if(!activeWorkoutDraft||!target)return;
-    const result=await enqueueDraftCommand(warmups.has(key)?"markWorking":"markWarmup",
+    const result=await WorkoutSession.dispatch(warmups.has(key)?"markWorking":"markWarmup",
       {exerciseInstanceId:target.exerciseInstanceId,setId:target.setId});if(result.status!=="applied")return;
     renderWorkout()});
   $w(".stepbtn").forEach(b=>b.onclick=async()=>{if(!b.dataset.step)return;
@@ -5895,32 +6190,7 @@ function bindWorkout(){
       inp.value=fmtPlain(toDisplay(nextKg));
     }
     await inp.oninput?.()});
-  $w(".copylast").forEach(b=>b.onclick=async()=>{const ex=sessionExercise(prog.find(b.dataset.copy)),prevSets=ex?last(ex):[];if(!prevSets.length)return;
-    if(!activeWorkoutDraft)return;
-    const values=prevSets.map(s=>({ordinal:s.set,load:canonicalNumberText(s.load),reps:canonicalNumberText(s.reps),
-      ...(isEffortMode()?{effort:effortForRir(s.rir)}:{rir:canonicalNumberText(s.rir)})}));
-    const result=await enqueueDraftCommand("repeatPreviousSetValues",{exerciseInstanceId:b.dataset.copy,values});
-    if(result.status!=="applied")return;renderWorkout();toast(t("toast.filled_from_last"))});
-  $w(".ex__rest").forEach(b=>b.onclick=()=>startRest());
   $w(".ex__skip").forEach(b=>b.onclick=()=>applySkipToggle(b.dataset.skip));
-  $w(".subst__pick").forEach(b=>b.onclick=()=>openSubstitutePicker(b.dataset.sub));
-  $w(".effort__btn").forEach(b=>{
-    b.onclick=async()=>{const key=b.dataset.eff,target=draftTargetFromKey(key);
-      if(!activeWorkoutDraft||!target)return;
-      setEffortPick(key,b.dataset.e);
-      const row=b.closest(".setrow, .curset");if(row)row.classList.remove("is-suggested");
-      const result=await enqueueDraftCommand("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
-        setId:target.setId,field:"effort",value:b.dataset.e});if(result.status!=="applied")return;
-      updateSaveMeta();refreshAfterCommittedEdit(row)};
-    // Arrow keys walk the picker like the single-choice control it is.
-    b.onkeydown=e=>{const step=e.key==="ArrowRight"||e.key==="ArrowDown"?1:e.key==="ArrowLeft"||e.key==="ArrowUp"?-1:0;
-      const jump=e.key==="Home"?0:e.key==="End"?EFFORT_STEPS.length-1:null;
-      if(!step&&jump==null)return;
-      e.preventDefault();
-      const i=EFFORT_STEPS.indexOf(b.dataset.e);
-      const next=jump!=null?jump:(i+step+EFFORT_STEPS.length)%EFFORT_STEPS.length;
-      b.closest(".effort")?.querySelectorAll(".effort__btn")[next]?.click();
-      b.closest(".effort")?.querySelectorAll(".effort__btn")[next]?.focus()}});
   const stepEffort=async(key,dir)=>{
     const el=$(`[data-effspin="${key}"]`);if(!el)return;
     const i=Math.max(0,EFFORT_STEPS.indexOf(el.dataset.e));
@@ -5928,9 +6198,9 @@ function bindWorkout(){
     if(next===el.dataset.e)return;
     const target=draftTargetFromKey(key);if(!activeWorkoutDraft||!target)return;
     setEffortPick(key,next);
-    const result=await enqueueDraftCommand("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
+    const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:"effort",value:next});if(result.status!=="applied")return;
-    updateSaveMeta();refreshAfterCommittedEdit(el.closest(".curset"))};
+    updateSaveMeta();updateExerciseDeltaPreview(target.exerciseInstanceId);refreshAfterCommittedEdit(el.closest(".curset"))};
   $w("[data-effstep]").forEach(b=>b.onclick=()=>stepEffort(b.dataset.effstep,+b.dataset.dir||0));
   $w("[data-effspin]").forEach(el=>{
     // Tapping the word asks what it means; the ± buttons beside it change it.
@@ -5942,25 +6212,9 @@ function bindWorkout(){
       const jump=e.key==="Home"?-EFFORT_STEPS.length:e.key==="End"?EFFORT_STEPS.length:null;
       if(!step&&jump==null)return;
       e.preventDefault();stepEffort(el.dataset.effspin,jump??step)}});
-  $w("[data-exnote-toggle]").forEach(b=>b.onclick=()=>{
-    const id=b.dataset.exnoteToggle;let wrap=b.closest(".exnote");
-    if(!wrap&&id)wrap=$(`#workout [data-ex="${id}"] .exnote`);
-    const ta=wrap?.querySelector(".exnote__input");if(!ta)return;
-    const open=ta.classList.toggle("hidden")===false;b.setAttribute("aria-expanded",open?"true":"false");
-    wrap.classList.toggle("is-open",open);
-    if(open){ta.focus();ta.setSelectionRange(ta.value.length,ta.value.length)}});
-  $w(".exnote__input").forEach(t=>{t.oninput=async()=>{
-    if(!activeWorkoutDraft)return;
-    const result=await enqueueDraftCommand("setExerciseNotes",{exerciseInstanceId:t.dataset.exnote,value:t.value},{pendingValue:t.value});
-    if(result.status!=="applied")return;
-    const prev=t.closest(".exnote")?.querySelector(".exnote__preview");
-    if(prev)prev.textContent=t.value.trim()||t("log.note.empty");
-    t.closest(".exnote")?.classList.toggle("has-note",!!t.value.trim())}});
   $w(".ex__namebtn").forEach(b=>b.onclick=()=>openExerciseView(b.dataset.exopen,"log"));
   const sb=$("#workout .skipbar__show");if(sb)sb.onclick=()=>applyShowAll();
-  $w(".ex__caret").forEach(b=>b.onclick=()=>{const id=b.dataset.collapse,art=b.closest(".exercise");if(!art)return;
-    const now=!collapsed.has(id);now?collapsed.add(id):collapsed.delete(id);art.classList.toggle("is-collapsed",now)});
-  if(logMode==="focus"){const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0;
+  {const fl=focusList();const at=fl.length?Math.min(focusIndex,fl.length-1):0;
     const progEl=$("#woProgress");
     if(progEl){progEl.classList.remove("hidden");
       progEl.innerHTML=`<div class="wo-progress__top">`+
@@ -5978,7 +6232,7 @@ function bindWorkout(){
       if(!activeWorkoutDraft||!target)return;
       focusEdit={exId,n,snap:{load:d[`${key}_load`],reps:d[`${key}_reps`],rir:d[`${key}_rir`],effort:d[`${key}_effort`],
         completedAt:activeWorkoutDraft.exercises[exId].sets[target.setId].completion?.completedAt}};
-      const result=await enqueueDraftCommand("uncommitSet",{exerciseInstanceId:exId,setId:target.setId});
+      const result=await WorkoutSession.dispatch("uncommitSet",{exerciseInstanceId:exId,setId:target.setId});
       if(result.status!=="applied"){focusEdit=null;return}
       renderWorkout()});
     $w("[data-fcancel]").forEach(b=>b.onclick=async()=>{
@@ -5986,16 +6240,16 @@ function bindWorkout(){
       const{exId,n,snap}=focusEdit,key=`${exId}_${n}`,target=draftTargetFromKey(key);
       if(!activeWorkoutDraft||!target)return;
       for(const field of["load","reps","rir","effort"]){
-        if(snap[field]==null)continue;const result=await enqueueDraftCommand("editSetField",{exerciseInstanceId:exId,
+        if(snap[field]==null)continue;const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:exId,
           setId:target.setId,field,value:snap[field]});if(result.status!=="applied")return}
-      const restored=await enqueueDraftCommand("completeSet",{exerciseInstanceId:exId,setId:target.setId,completedAt:snap.completedAt||new Date().toISOString()});
+      const restored=await WorkoutSession.dispatch("completeSet",{exerciseInstanceId:exId,setId:target.setId,completedAt:snap.completedAt||new Date().toISOString()});
       if(restored.status!=="applied")return;focusEdit=null;renderWorkout()});
     $w("[data-fold]").forEach(b=>b.onclick=()=>{
       const id=b.dataset.fold;
       focusUnfolded.has(id)?focusUnfolded.delete(id):focusUnfolded.add(id);
       renderWorkout()});
-    $w("[data-exnote-open]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.exnoteOpen))}
-  else{$("#woProgress")?.classList.add("hidden")}
+    $w("[data-exnote-open]").forEach(b=>b.onclick=()=>openExNoteSheet(b.dataset.exnoteOpen));
+    $w("[data-exactions-open]").forEach(b=>b.onclick=()=>openExActionsSheet(b.dataset.exactionsOpen))}
   updateFocusChrome();
 }
 
@@ -6006,7 +6260,7 @@ function updateGauge(){const exs=exercises();const hot=exs.filter(e=>{const s=re
     if(lab)lab.textContent=hot?t("top.gauge.hot",{n:hot}):t("top.gauge.forge");
     g.classList.toggle("is-hot",hot>0);
     g.style.cursor=hot?"pointer":"default";
-    g.onclick=hot?()=>{enterWorkout({});const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");if(first){collapsed.delete(first.dataset.ex);first.classList.remove("is-collapsed");first.scrollIntoView({behavior:"smooth",block:"center"})}}:null}
+    g.onclick=hot?()=>{enterWorkout({});const first=$("#workout .exercise.is-add, #workout .exercise.is-add2");if(first){first.scrollIntoView({behavior:"smooth",block:"center"})}}:null}
 }
 
 function renderFatigue(){const el=$("#fatigue");if(!el)return;const exs=exercises();
@@ -6103,23 +6357,55 @@ function updateSaveMeta(){const exs=exercises(),planned=sum(exs.map(e=>e.sets));
     const exercise=activeWorkoutDraft.exercises[exId];return count+exercise.setOrder.filter(setId=>{
       const set=exercise.sets[setId],value=set.edited.load;
       return set.touched.load&&typeof value==="string"&&value.trim()!==""}).length},0):
-    $$("#workout input").filter(i=>i.dataset.k&&i.dataset.k.endsWith("_load")&&parseDec(i.value)>0).length;
+    0;
   $("#saveMeta").textContent=done?t("log.save_meta.done",{day:dayLabel(day),done,planned}):(entered?t("log.save_meta.entered",{day:dayLabel(day),entered,planned}):t("log.save_meta.planned",{day:dayLabel(day),planned}));}
 
-async function saveWorkoutV2(io){
+const EARLY_FINISH_CONFIRMATION=Symbol("confirmed early finish");
+const WorkoutSession=(()=>{
+  async function start(label,options){
+    await drainDraftWork();
+    return createWorkoutDraft(label,options)}
+  async function leave(){
+    await drainDraftWork();
+    return !draftUiRecovery?.attempt&&!draftUiRecovery?.status&&window.__repforgeDraftFault!=="persist-failure"}
+function normalFinishIssues(draft){
+  const issues=[];
+  for(const exerciseId of draft?.exerciseOrder||[]){
+    const exercise=draft.exercises?.[exerciseId];
+    if(!exercise)continue;
+    if(exercise.status==="skipped"){
+      issues.push({code:"incomplete-workout",exerciseInstanceId:exerciseId});
+      continue}
+    for(const setId of exercise.setOrder||[]){
+      const set=exercise.sets?.[setId];
+      if(set?.completion==="pending")issues.push({code:"incomplete-workout",exerciseInstanceId:exerciseId,setId})}}
+  return issues}
+async function finish(io,{expectedDraft=null,completion="normal"}={}){
   await drainDraftWork();
-  if(!activeWorkoutDraft)return null;
-  if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed")return{localOk:false,idbOk:false,reason:"recovery-pending"};
+  if(expectedDraft&&(activeWorkoutDraft?.draftId!==expectedDraft.draftId||activeWorkoutDraft?.revision!==expectedDraft.revision)){
+    return{result:{localOk:false,idbOk:false,reason:"stale-confirmation"}}}
+  if(!activeWorkoutDraft)return{result:null};
+  if(draftUiRecovery?.attempt||draftUiRecovery?.status==="refresh-failed")return{result:{localOk:false,idbOk:false,reason:"recovery-pending"}};
+  const earlyConfirmed=completion===EARLY_FINISH_CONFIRMATION;
+  if(completion!=="normal"&&!earlyConfirmed)return{result:{localOk:false,idbOk:false,reason:"invalid-finish-kind"}};
+  if(!earlyConfirmed){
+    // Surface malformed user input before the completeness boundary. A
+    // touched invalid set is not an invitation to take the early-finish path;
+    // it must remain an ordinary validation error while untouched/pending
+    // planned work is what makes normal completion incomplete.
+    const inputIssues=WorkoutDraft.validateForSave(activeWorkoutDraft)
+      .filter(issue=>issue.code!=="finish-required"&&issue.code!=="no-work");
+    if(inputIssues.length)return{result:{localOk:false,idbOk:false,validation:true,issues:inputIssues}};
+    const issues=normalFinishIssues(activeWorkoutDraft);
+    if(issues.length)return{result:{localOk:false,idbOk:false,validation:true,issues}}}
   const capturedDraft=activeWorkoutDraft,capturedRaw=activeWorkoutDraftRaw,operationId=`finish-${uid()}`,now=new Date().toISOString();
   const finishing=WorkoutDraft.reduce(capturedDraft,{type:"beginFinish",operationId,
     expectedRevision:capturedDraft.revision,updatedAt:now,writer:draftWriter(operationId)});
-  if(WorkoutDraft.isDomainError(finishing))return{localOk:false,idbOk:false,validation:true,issues:finishing.issues||[]};
+  if(WorkoutDraft.isDomainError(finishing))return{result:{localOk:false,idbOk:false,validation:true,issues:finishing.issues||[]}};
   const issues=WorkoutDraft.validateForSave(finishing);
-  if(issues.length){
-    if(!applyDraftIssue(issues))toast(t(issues.some(issue=>issue.code==="no-work")?"toast.enter_weight_before_save":"validation.load"));
-    return{localOk:false,idbOk:false,validation:true,issues}}
+  if(issues.length)return{result:{localOk:false,idbOk:false,validation:true,issues}};
   const created=new Date().toISOString(),rows=WorkoutDraft.toHistoryRows(finishing,created);
-  if(WorkoutDraft.isDomainError(rows))return{localOk:false,idbOk:false,validation:true,issues:rows.issues};
+  if(WorkoutDraft.isDomainError(rows))return{result:{localOk:false,idbOk:false,validation:true,issues:rows.issues}};
   const session=capturedDraft.draftId,date=capturedDraft.program.scheduleDate,
     savedDay=capturedDraft.program.dayLabel,startedAt=Date.parse(capturedDraft.session.startedAt)||0,
     prevLog=state.log.slice(),rawDraft=capturedRaw,savedDraft=capturedDraft;
@@ -6135,20 +6421,29 @@ async function saveWorkoutV2(io){
   const result=await commitProposedState(proposal,io||storageIO,
     {effect,reconcileSessionIds:[session],expectedProgramId:savedDraft.program.programId,
       expectedBlockId});
-  if(result.committed!==true||result.settled!==true){
-    const kind=result.draftConflict?"stale":"persist";
-    draftUiRecovery={kind,status:result.draftConflict?"stale":"save-failed",attempt:null,pendingValue:null,
-      copyValue:capturedRaw,copyKind:"data",focus:draftFocusIdentity(),retry:!result.draftConflict,
-      retryAction:result.draftConflict?null:()=>saveWorkoutV2(io),discard:false};
-    renderDraftRecovery();focusDraftRecovery();
+  if(result.committed!==true||result.settled!==true)return{result,capturedRaw};
+  resetWorkoutSessionIdentity();
+  return{result,completed:{rows,prevLog,session,date,day:savedDay,startedAt,draftId:savedDraft.draftId}}}
+  return Object.freeze({start,leave,finish,dispatch:enqueueDraftCommand,projection:workoutDraftProjection,flush:drainDraftWork})})();
+
+async function saveWorkoutV2(io,{expectedDraft=null,completion="normal"}={}){
+  const {result,completed,capturedRaw}=await WorkoutSession.finish(io,{expectedDraft,completion});
+  if(!completed){
+    if(result?.reason==="stale-confirmation")toast(t("session.sheet.stale_error"));
+    if(result?.validation&&!applyDraftIssue(result.issues||[]))
+      toast(t(result.issues?.some(issue=>issue.code==="incomplete-workout")?"toast.finish_incomplete":
+        result.issues?.some(issue=>issue.code==="no-work")?"toast.enter_weight_before_save":"validation.load"));
+    if(capturedRaw!=null){
+      const stale=!!result.draftConflict;
+      draftUiRecovery={kind:stale?"stale":"persist",status:stale?"stale":"save-failed",attempt:null,pendingValue:null,
+        copyValue:capturedRaw,copyKind:"data",focus:draftFocusIdentity(),retry:!stale,
+        retryAction:stale?null:()=>saveWorkoutV2(io,{expectedDraft,completion}),discard:false};
+      renderDraftRecovery();focusDraftRecovery()}
     return result}
-  // The captured draft is no longer active once its durable rows and tombstone
-  // commit. Clear the in-memory identity before any post-commit observer can
-  // open a successor workout; otherwise initialize() would keep returning the
-  // just-saved aggregate and an overlapping successor could reuse its identity.
-  resetDraftSessionState();resetSessionContextFields();stopRest();
+  resetDraftSessionPresentation();resetSessionContextFields();stopRest();
+  const {rows,prevLog,session,date,day:savedDay,startedAt,draftId}=completed;
   if(typeof window.__repforgeDraftAfterSaveCommit==="function")
-    await window.__repforgeDraftAfterSaveCommit({session,draftId:savedDraft.draftId});
+    await window.__repforgeDraftAfterSaveCommit({session,draftId});
   if(!prevLog.some(isWork)&&rows.some(isWork))captureEvent("first_set_logged",{});
   captureEvent("session_completed",{
     set_count:window.RepForgeTelemetry?.bucketCount(rows.filter(isWork).length,"sets"),
@@ -6161,11 +6456,11 @@ async function saveWorkoutV2(io){
     maybeShowInstallBanner()}
   return result}
 
-async function saveWorkout(e,io){if(e&&e.preventDefault)e.preventDefault();if(saving)return;
+async function saveWorkout(e,io,options={}){if(e&&e.preventDefault)e.preventDefault();if(saving)return;
   const form=$("#logForm"),formWasInert=!!form?.inert,formBusy=form?.getAttribute("aria-busy")??null;
   if(!activeWorkoutDraft){showDraftInitializationRecovery({status:"invalid",raw:DraftStore.readRaw()});return{localOk:false,idbOk:false,reason:"missing-active-draft"}}
   saving=true;if(form){form.inert=true;form.setAttribute("aria-busy","true")}
-  try{return await saveWorkoutV2(io)}finally{
+  try{return await saveWorkoutV2(io,options)}finally{
     if(form){form.inert=formWasInert;if(formBusy==null)form.removeAttribute("aria-busy");else form.setAttribute("aria-busy",formBusy)}
     if(form&&!form.inert){const invalid=form.querySelector("[aria-invalid='true']");if(invalid){try{invalid.focus()}catch{}}}
     saving=false}}
@@ -6328,7 +6623,7 @@ function closeSessionSummary(opts={}){
   if(el&&activeModal?.el===el)closeModal(el);
   el?.classList.remove("is-played");
   // Finishing a session ends it: the shell steps back to Today either way.
-  leaveWorkout();
+  workoutLeft=true;focusEdit=null;setWorkoutActive(false);document.body.classList.remove("is-focus-wo");
   if(opts.nav)navTo(opts.nav);
   else render();
   // The control that opened this is gone with the workout, so focus lands on
@@ -7493,8 +7788,8 @@ function resolveExerciseFromCommand(parsed,currentExercises){
     const q=parsed.exerciseName.toLowerCase();
     const hit=currentExercises.filter(e=>{const n=e.name.toLowerCase();return n.startsWith(q)||n.includes(q)});
     return hit.length===1?hit[0]:null}
-  if(logMode==="focus"){const fl=focusList();return fl[Math.min(focusIndex,Math.max(0,fl.length-1))]||null}
-  return currentExercises[0]||null}
+  {const fl=focusList();return fl[Math.min(focusIndex,Math.max(0,fl.length-1))]||null}
+}
 async function applyParsedCommand(parsed,context){
   const d=context?.day??day,exs=exercises(d).filter(e=>!skipped.has(e.id)),ex=resolveExerciseFromCommand(parsed,exs);
   if(!ex)return;
@@ -7512,7 +7807,7 @@ async function applyParsedCommand(parsed,context){
     {field:"reps",value:String(parsed.reps)}];
   if(isEffortMode())fields.push({field:"effort",value:parsed.effort||(parsed.rir!=null?effortForRir(parsed.rir):"hard")});
   else fields.push({field:"rir",value:parsed.rir!=null?canonicalNumberText(parsed.rir):""});
-  for(const field of fields){const result=await enqueueDraftCommand("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
+  for(const field of fields){const result=await WorkoutSession.dispatch("editSetField",{exerciseInstanceId:target.exerciseInstanceId,
       setId:target.setId,field:field.field,value:field.value});if(result.status!=="applied")return}
   renderWorkout();return{ex,set:setN}}
 /** Fill the next open set from a spoken set, e.g. "80 x 8 @1". Returns true when applied. */
@@ -7522,7 +7817,7 @@ async function applyCommandText(text){
   if(!parsed.ok){toast(parsed.error);return false}
   const exs=exercises().filter(e=>!skipped.has(e.id)),ex=resolveExerciseFromCommand(parsed,exs);
   if(!ex){toast(t("command.error.no_exercise_match"));return false}
-  const r=await applyParsedCommand(parsed,{day,logMode});
+  const r=await applyParsedCommand(parsed,{day});
   if(!r)return false;
   const rirBit=parsed.rir!=null?` @${fmt(parsed.rir)}`:parsed.effort?` ${effortLabel(parsed.effort)}`:"";
   toast(t("toast.command_applied",{load:fmt(parsed.load),reps:parsed.reps,rir:rirBit}));
@@ -9300,7 +9595,7 @@ async function commitSettings(silent){const editRevision=settingsEditRevision;
   // in Settings is the lifter saying it plainly — it wins.
   if(oldRestSec!==state.settings.restSec)restLength=0;
   if(oldUnit!==newUnit){
-    const bw=$("#bodyweight");if(bw&&bw.value!==""){const n=parseDec(bw.value);if(Number.isFinite(n))bw.value=fmtPlain(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
+    const bw=$("#sessionBodyweight");if(bw&&bw.value!==""){const n=parseDec(bw.value);if(Number.isFinite(n))bw.value=fmtPlain(toDisplayUnit(fromDisplayUnit(n,oldUnit),newUnit))}}
   if(oldLang!==state.settings.lang&&I18N)I18N.setLang(state.settings.lang);
   if(editRevision===settingsEditRevision)render();
   if(!silent)toast(t("toast.settings_saved"));
@@ -13970,6 +14265,7 @@ function openWhySheetFor(ex,opener){
   const sheet=$("#whySheet"),scrim=$("#whyScrim");
   if(!sheet||!ex)return;
   const rec=recommendation(ex);
+  const decision=$("#whyDecision");if(decision)decision.textContent=rec.label;
   const target=$("#whyTarget");
   if(target)target.textContent=rec.load!=null?t("today.rec_keep",{load:fmtLoad(rec.load),unit:unitLabel()}):rec.label;
   const body=$("#whyBody");
@@ -14197,20 +14493,23 @@ function navTo(view){
 }
 window.__repforgeEnterWorkout=enterWorkout;
 window.__repforgeGoToLogExercise=goToLogExercise;
-window.__repforgeSaveWorkout=(io)=>saveWorkout({preventDefault(){}},io);
+// The public harness seam can exercise only the ordinary completion path. The
+// early-finish capability stays private to the confirmation handler below so
+// callers cannot turn an arbitrary programmatic save into an early finish.
+window.__repforgeSaveWorkout=()=>saveWorkout({preventDefault(){}});
 window.__repforgeWorkoutDraft={
   current:()=>activeWorkoutDraft,
   raw:()=>activeWorkoutDraftRaw,
-  projection:()=>workoutDraftProjection(),
+  projection:()=>WorkoutSession.projection(),
   target:draftTargetFromKey,
-  dispatch:(type,payload)=>enqueueDraftCommand(type,payload),
+  dispatch:(type,payload)=>WorkoutSession.dispatch(type,payload),
   initialize:initializeWorkoutDraft,
   checkpoint:()=>DraftStore.readV2Checkpoint(),
   read:()=>DraftStore.readCanonicalStatus(),
   // Browser harness seam: settle both the ordered DraftV2 write queue and any
   // suggestion refresh that is still computing or retrying before inspecting
   // acknowledged state. Production callers use the same drain internally.
-  flush:()=>drainDraftWork(),
+  flush:()=>WorkoutSession.flush(),
   cas:({expectedRaw,expectedDraftId,expectedRevision,nextRaw,operationId})=>
     DraftStore.compareAndSwapV2({expectedRaw,expectedDraftId,expectedRevision,nextRaw,operationId}),
   stageLegacy:(transactionId,raw)=>DraftStore.writeSidecar(transactionId,raw),
@@ -14229,7 +14528,12 @@ window.__repforgeWorkoutDraft={
 // Test seam for the Focus deck, alongside the other __repforge* harness hooks.
 window.__repforgeFocus={
   go:focusAnimateTo,list:focusList,at:()=>focusIndex,editing:()=>focusEdit,
-  to(i){focusIndex=Math.max(0,i);focusEdit=null;renderWorkout()},
+  to(i){
+    focusIndex=Math.max(0,i);focusEdit=null;
+    const fl=focusList();
+    if(activeWorkoutDraft&&fl[focusIndex])void WorkoutSession.dispatch("selectExercise",{exerciseInstanceId:fl[focusIndex].id});
+    renderWorkout();
+  },
 };
 window.__repforgeLeaveWorkout=leaveWorkout;
 window.__repforgeShowSettings=showSettings;
@@ -14402,21 +14706,22 @@ function init(){
   const ptShare=$("#programTextShare");if(ptShare)ptShare.onclick=shareProgramText;
   trackSheetViewport();
   blockZoomGestures();
-  // Every bottom sheet is dismissed the way its grab handle says it is: pushed
-  // back down. Delegated, so a sheet added later is dragged without new wiring.
-  document.addEventListener("pointerdown",sheetDragStart);
-  window.addEventListener("pointermove",sheetDragMove,{passive:true});
-  window.addEventListener("pointerup",sheetDragEnd);
-  window.addEventListener("pointercancel",sheetDragEnd);
+  // Sheet and card deck gestures are mounted via explicit gesture controller lifetime.
   const openSettingsBtn=$("#openSettings");if(openSettingsBtn)openSettingsBtn.onclick=()=>openSettingsView();
   const settingsBack=$("#settingsBack");if(settingsBack)settingsBack.onclick=()=>navTo("log");
-  const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({focus:true});
+  const startWo=$("#startWorkout");if(startWo)startWo.onclick=()=>enterWorkout({});
+  const previewToday=$("#previewSession");if(previewToday)previewToday.onclick=()=>openPreviewSessionSheet();
+  const previewClose=$("#previewSessionClose");if(previewClose)previewClose.onclick=()=>closePreviewSessionSheet();
+  const previewScrim=$("#previewSessionScrim");if(previewScrim)previewScrim.onclick=()=>closePreviewSessionSheet();
+  const previewStart=document.querySelector("[data-preview-start]");if(previewStart)previewStart.onclick=async()=>{
+    const p=closePreviewSessionSheet(); if(p && typeof p.then==="function") await p;
+    await enterWorkout({});
+  };
   const otherDay=$("#chooseAnotherDay");if(otherDay)otherDay.onclick=()=>openDayPickSheet();
-  const viewEx=$("#viewExercises");if(viewEx)viewEx.onclick=()=>enterWorkout({focus:false});
   const reviewToday=$("#reviewTodaySession");if(reviewToday)reviewToday.onclick=()=>openTodaySessionInHistory();
   // Training twice in a day is the lifter's call, never Today's suggestion, so it
   // opens the day that follows the one already done rather than repeating it.
-  const another=$("#logAnotherSession");if(another)another.onclick=()=>enterWorkout({day:dayAfterTrainedToday()||day,focus:true});
+  const another=$("#logAnotherSession");if(another)another.onclick=()=>enterWorkout({day:dayAfterTrainedToday()||day});
   const leaveWo=$("#leaveWorkout");if(leaveWo)leaveWo.onclick=leaveWorkout;
   const woOv=$("#woOverflowBtn");if(woOv)woOv.onclick=e=>{e.stopPropagation();toggleWorkoutOverflow()};
   // The menu is a popover: any choice inside it, a tap outside, or Escape closes it.
@@ -14437,25 +14742,135 @@ function init(){
     closeEffortPop()},{capture:true});
   let deckResize;
   window.addEventListener("resize",()=>{clearTimeout(deckResize);deckResize=setTimeout(sizeFocusDeck,120)});
-  // Focus mode is a card deck: drag it sideways, or use the arrow keys.
-  const wk=$("#workout");
-  if(wk)wk.addEventListener("pointerdown",focusDragStart);
-  window.addEventListener("pointermove",focusDragMove,{passive:true});
-  window.addEventListener("pointerup",focusDragEnd);
-  window.addEventListener("pointercancel",focusDragEnd);
+  // Keyboard navigation for card deck; pointer drag owned by gesture controller.
   document.addEventListener("keydown",e=>{
-    if(!workoutActive||logMode!=="focus")return;
+    if(!workoutActive)return;
     if(e.metaKey||e.ctrlKey||e.altKey)return;
     const el=e.target instanceof Element?e.target:null;
-    if(el&&el.closest("input,select,textarea,[contenteditable]"))return;
+    if(el&&el.closest("button,a,input,select,textarea,[contenteditable],[role=spinbutton]"))return;
     if(e.key==="ArrowRight")focusAnimateTo(1);
     else if(e.key==="ArrowLeft")focusAnimateTo(-1)});
-  const woDate=$("#date");if(woDate)woDate.addEventListener("change",async()=>{contextTouched.date=true;
-    if(activeWorkoutDraft)await enqueueDraftCommand("setSessionDate",{value:woDate.value},{pendingValue:woDate.value});closeWorkoutOverflow()});
-  const woNotes=$("#notes");if(woNotes)woNotes.addEventListener("input",async()=>{contextTouched.sessionNotes=true;
-    if(activeWorkoutDraft)await enqueueDraftCommand("setSessionNotes",{value:woNotes.value},{pendingValue:woNotes.value})});
-  const woBw=$("#bodyweight");if(woBw)woBw.addEventListener("input",async()=>{contextTouched.bodyweight=true;
-    if(activeWorkoutDraft)await enqueueDraftCommand("setBodyweight",{value:canonicalDraftBodyweight(woBw.value)},{pendingValue:woBw.value})});
+  const sessionSheetBtn=$("#sessionSheetBtn");if(sessionSheetBtn)sessionSheetBtn.onclick=()=>openSessionSheet();
+  const sessionSheetClose=$("#sessionSheetClose");if(sessionSheetClose)sessionSheetClose.onclick=()=>closeSessionSheet();
+  const sessionSheetScrim=$("#sessionSheetScrim");if(sessionSheetScrim)sessionSheetScrim.onclick=()=>closeSessionSheet();
+
+  const sessDate=$("#sessionDate");if(sessDate)sessDate.addEventListener("change",async()=>{
+    contextTouched.date=true;
+    if(activeWorkoutDraft)await WorkoutSession.dispatch("setSessionDate",{value:sessDate.value},{pendingValue:sessDate.value});
+  });
+
+  const sessBw=$("#sessionBodyweight");if(sessBw)sessBw.addEventListener("input",async()=>{
+    contextTouched.bodyweight=true;
+    if(activeWorkoutDraft)await WorkoutSession.dispatch("setBodyweight",{value:canonicalDraftBodyweight(sessBw.value)},{pendingValue:sessBw.value});
+  });
+
+  const sessNotes=$("#sessionNotes");if(sessNotes)sessNotes.addEventListener("input",async()=>{
+    contextTouched.sessionNotes=true;
+    if(activeWorkoutDraft)await WorkoutSession.dispatch("setSessionNotes",{value:sessNotes.value},{pendingValue:sessNotes.value});
+  });
+
+  const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.onclick=async()=>{
+    await WorkoutSession.flush();
+    if(!activeWorkoutDraft)return;
+    renderEarlyFinishPreview();
+    sessionEarlyRevision=activeWorkoutDraft.revision;
+    sessionEarlyDraftId=activeWorkoutDraft.draftId;
+    const earlyMsg=$("#sessionEarlyMsg");
+    if(earlyMsg){earlyMsg.classList.remove("is-error");earlyMsg.textContent=t("session.sheet.early_prompt")}
+    const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.remove("hidden");
+    earlyBtn.classList.add("hidden");
+  };
+
+  const earlyCancel=$("#sessionEarlyCancel");if(earlyCancel)earlyCancel.onclick=()=>{
+    sessionEarlyRevision=null;
+    const earlyPrompt=$("#sessionEarlyPrompt");if(earlyPrompt)earlyPrompt.classList.add("hidden");
+    const earlyBtn=$("#sessionEarlyFinish");if(earlyBtn)earlyBtn.classList.remove("hidden");
+  };
+
+  const exActionRepeat=$("#exActionRepeatBtn");
+  if(exActionRepeat)exActionRepeat.onclick=async()=>{
+    const id=activeExActionsId;
+    const progEx=id?prog.find(id):null;
+    const prevSets=progEx?last(sessionExercise(progEx)):[];
+    if(!prevSets.length||!activeWorkoutDraft)return;
+    const values=prevSets.map(s=>({
+      ordinal:s.set,
+      load:canonicalNumberText(s.load),
+      reps:canonicalNumberText(s.reps),
+      ...(isEffortMode()?{effort:effortForRir(s.rir)}:{rir:canonicalNumberText(s.rir)})
+    }));
+    const res=await WorkoutSession.dispatch("repeatPreviousSetValues",{exerciseInstanceId:id,values});
+    if(res.status==="applied"){
+      renderWorkout();
+      toast(t("toast.filled_from_last"));
+      closeExActionsSheet();
+    }
+  };
+
+  const exActionSubst=$("#exActionSubstBtn");
+  if(exActionSubst)exActionSubst.onclick=()=>{
+    const id=activeExActionsId;
+    closeExActionsSheet().then(()=>{
+      if(id)openSubstitutePicker(id);
+    });
+  };
+
+  const exActionRestoreOrig=$("#exActionRestoreOrigBtn");
+  if(exActionRestoreOrig)exActionRestoreOrig.onclick=async()=>{
+    const id=activeExActionsId;
+    if(id&&activeWorkoutDraft){
+      const res=await WorkoutSession.dispatch("restoreOriginalExercise",{exerciseInstanceId:id});
+      if(res.status==="applied"){
+        renderWorkout();
+        closeExActionsSheet();
+      }
+    }
+  };
+
+  const exActionSkip=$("#exActionSkipBtn");
+  if(exActionSkip)exActionSkip.onclick=async()=>{
+    const id=activeExActionsId;
+    if(id&&activeWorkoutDraft){
+      const isSkipped=activeWorkoutDraft.exercises[id]?.status==="skipped";
+      const type=isSkipped?"restoreExercise":"skipExercise";
+      const res=await WorkoutSession.dispatch(type,{exerciseInstanceId:id});
+      if(res.status==="applied"){
+        renderWorkout();
+        closeExActionsSheet();
+      }
+    }
+  };
+
+  const exActionNotes=$("#exActionNotesBtn");
+  if(exActionNotes)exActionNotes.onclick=()=>{
+    const id=activeExActionsId;
+    closeExActionsSheet().then(()=>{
+      if(id)openExNoteSheet(id);
+    });
+  };
+
+  const exActionsClose=$("#exActionsClose");
+  if(exActionsClose)exActionsClose.onclick=closeExActionsSheet;
+  const exActionsScrim=$("#exActionsScrim");
+  if(exActionsScrim)exActionsScrim.onclick=closeExActionsSheet;
+
+  const earlyConfirm=$("#sessionEarlyConfirm");if(earlyConfirm)earlyConfirm.onclick=async()=>{
+    if(!activeWorkoutDraft)return;
+    if(sessionEarlyRevision==null||activeWorkoutDraft.revision!==sessionEarlyRevision||activeWorkoutDraft.draftId!==sessionEarlyDraftId){
+      const earlyMsg=$("#sessionEarlyMsg");
+      if(earlyMsg){earlyMsg.classList.add("is-error");earlyMsg.textContent=t("session.sheet.stale_error")}
+      toast(t("session.sheet.stale_error"));
+      sessionEarlyRevision=activeWorkoutDraft.revision;
+      sessionEarlyDraftId=activeWorkoutDraft.draftId;
+      renderEarlyFinishPreview();
+      return;
+    }
+    const expectedDraft={draftId:activeWorkoutDraft.draftId,revision:sessionEarlyRevision};
+    const p=closeSessionSheet();if(p&&typeof p.then==="function")await p;
+    const finishPromise=saveWorkout(null,null,{expectedDraft,completion:EARLY_FINISH_CONFIRMATION});
+    window.__repforgeLastWorkoutFinish=finishPromise;
+    await finishPromise;
+  };
   const progEdit=$("#programEditToggle");if(progEdit)progEdit.onclick=async()=>{
     if(setupEditorOpen){requestEntryCancel();return}
     if(programEditMode){requestInstalledDone();return}
@@ -14504,9 +14919,6 @@ function init(){
   $("#statsDeep").addEventListener("toggle",()=>{if($("#statsDeep").open)redrawChart()});
   applyDraftContextToDom();
   updateBodyweightField();
-  $("#modeFull").onclick=()=>setLogMode("full");
-  $("#modeFocus").onclick=()=>setLogMode("focus");
-  syncLogModeControls();
   const vBtn=$("#voiceBtn");if(vBtn)vBtn.onclick=()=>{closeWorkoutOverflow();startVoiceInput()};
   updateVoiceBtn();
   $("#logForm").addEventListener("submit",(e)=>{e.preventDefault();saveWorkout(e)});
@@ -14565,6 +14977,13 @@ function init(){
   if(!maybeShowFirstRun()){
     maybeShowOnboarding();
     if(!$("#onboarding").classList.contains("active"))maybeShowInstallBanner()}
+  // Explicit gesture controller lifetime (Candidate D / R2)
+  if (window.RepForgeMotion?.mountGestureController) {
+    window.__repforgeGestureHandle = window.RepForgeMotion.mountGestureController();
+  } else {
+    window.__repforgeGestureHandle = mountFallbackGestures();
+  }
+
   // The one signal that the whole boot pipeline — replica recovery, first-run
   // persistence, the first render — has finished. Test gates used to wait for a
   // day tab, which a device with no program never grows.

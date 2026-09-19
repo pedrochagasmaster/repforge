@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { exerciseAction } from "./fixtures/focus-workout.mjs";
 /**
  * A mid-session swap must move the work with it.
  *
@@ -112,34 +113,30 @@ async function main() {
     await settle(page);
     await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
     await page.waitForSelector("#workout .exercise", { timeout: 5000 });
-    await page.evaluate((id) => {
-      const art = document.querySelector(`.exercise[data-ex="${id}"]`);
-      if (art?.classList.contains("is-collapsed")) document.querySelector(`.ex__caret[data-collapse="${id}"]`)?.click();
-    }, slot.id);
     await settle(page, 150);
     const beforeSwap = await page.evaluate((id) => ({
-      prev: document.querySelector(`.exercise[data-ex="${id}"] .prev`)?.textContent || "",
-      meta: document.querySelector(`.exercise[data-ex="${id}"] .ex__meta`)?.textContent || "",
+      prev: document.querySelector(`.exercise[data-ex="${id}"] .fcard__ledger`)?.textContent || "",
+      meta: document.querySelector(`.exercise[data-ex="${id}"] .focus-ex__muscle`)?.textContent || "",
     }), slot.id);
     assert(beforeSwap.prev.includes("200"), "the slot initially reads the quad movement's own history", JSON.stringify(beforeSwap));
 
     // Swap it to a lat movement for this session.
-    await page.click(`.subst__pick[data-sub="${slot.id}"]`);
+    await exerciseAction(page, slot.id, "#exActionSubstBtn");
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
     const swapped = await pickExact(page, "Lat pulldown");
     await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     await settle(page);
     assert(swapped, "swapped the quad slot to Lat pulldown");
     const swappedUi = await page.evaluate((id) => ({
-      prev: document.querySelector(`.exercise[data-ex="${id}"] .prev`)?.textContent || "",
-      meta: document.querySelector(`.exercise[data-ex="${id}"] .ex__meta`)?.textContent || "",
-      rec: document.querySelector(`.exercise[data-ex="${id}"] .recblock`)?.textContent || "",
+      prev: document.querySelector(`.exercise[data-ex="${id}"] .fcard__ledger`)?.textContent || "",
+      meta: document.querySelector(`.exercise[data-ex="${id}"] .focus-ex__muscle`)?.textContent || "",
+      rec: document.querySelector(`.exercise[data-ex="${id}"] .focus-cue`)?.textContent || "",
     }), slot.id);
     assert(/Lats/i.test(swappedUi.meta) && !/Quads/i.test(swappedUi.meta),
       "the swapped card shows the performed movement's muscle", JSON.stringify(swappedUi));
     assert(swappedUi.prev.includes("60") && !swappedUi.prev.includes("200"),
       "previous sets and recommendations switch to the performed movement", JSON.stringify(swappedUi));
-    assert(!swappedUi.rec.includes("200"), "the quad load cannot leak into the pulldown recommendation", swappedUi.rec);
+    assert(swappedUi.rec.trim() && !swappedUi.rec.includes("200"), "the quad load cannot leak into the pulldown recommendation", swappedUi.rec);
 
     const volumeBefore = await page.evaluate(() => window.__repforgeCompletedVolume?.());
 
@@ -151,8 +148,13 @@ async function main() {
       set("load", 60); set("reps", 10); set("rir", 2);
     }, slot.id);
     await settle(page, 150);
-    await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
-    await page.waitForTimeout(1200);
+    // The substitution journey intentionally logs only this slot. Persist that
+    // partial session through the user-visible early-finish confirmation rather
+    // than treating a normal form submit as a completion shortcut.
+    await page.locator("#sessionSheetBtn").click();
+    await page.locator("#sessionEarlyFinish").click();
+    await page.locator("#sessionEarlyConfirm").click();
+    await page.waitForSelector("#sessionSummary:not(.hidden)");
     await page.evaluate(() => document.querySelector("#sessionSummary .sumsheet__done, #sessionSummary button")?.click());
     await settle(page, 400);
 

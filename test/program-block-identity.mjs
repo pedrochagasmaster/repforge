@@ -11,6 +11,7 @@
  * This file is an isolated red oracle for the clean contract head. It is not
  * registered in the shared suite inventory until the production consumers land.
  */
+import { finishEarly } from "./fixtures/focus-workout.mjs";
 import { readFileSync } from "node:fs";
 import { launchChromium, waitForAppBoot, assertServingApp } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
@@ -200,7 +201,7 @@ async function activateRealProgram(page, name = "Block identity oracle") {
 
 async function startWorkout(page) {
   const day = await page.evaluate(() => window.__repforgeWorkoutDraft.state()?.program?.[0]?.day || "Day 1");
-  const entered = await page.evaluate((dayLabel) => window.__repforgeEnterWorkout({ day: dayLabel, focus: false }), day);
+  const entered = await page.evaluate((dayLabel) => window.__repforgeEnterWorkout({ day: dayLabel}), day);
   if (!entered || (entered.status && entered.status !== "ready")) {
     throw new Error(`production workout entry failed: ${JSON.stringify(entered)}`);
   }
@@ -251,9 +252,9 @@ async function fillAndSaveOneSet(page) {
   await page.locator("#workout input[data-k$='_reps']").first().fill("8");
   await page.locator("#workout input[data-k$='_rir']").first().fill("2");
   await page.locator("#workout button[data-save]").first().click();
-  await page.waitForFunction(() => document.querySelector("#workout button[data-save]")?.getAttribute("aria-pressed") === "true",
+  await page.waitForFunction(() => !!document.querySelector('#workout .exercise.is-current [data-editn="1"]'),
     undefined, { timeout: 10000 });
-  await page.locator("#logForm .btn--save").click();
+  await finishEarly(page);
   await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === false, undefined, { timeout: 10000 });
   await page.locator("#sumDone").click();
   await page.waitForFunction(() => document.querySelector("#sessionSummary")?.hidden === true, undefined, { timeout: 10000 });

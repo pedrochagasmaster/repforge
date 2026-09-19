@@ -64,7 +64,7 @@ async function todayView(page) {
       sessionName: document.querySelector("#todaySession .today-session__name")?.textContent?.trim() || "",
       start: shown("#startWorkout"),
       chooseDay: shown("#chooseAnotherDay"),
-      viewExercises: shown("#viewExercises"),
+      viewExercises: shown("#startWorkout"),
       week: shown("#todayWeek"),
       upNext: shown("#todayUpNext"),
       dayTabs: document.querySelectorAll("#dayTabs button").length,

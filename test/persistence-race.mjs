@@ -204,6 +204,19 @@ async function flushFieldBearingDraft(page, expectedFields) {
   );
 }
 
+async function completeOnlySet(page) {
+  const button = page.locator('.saveset[data-save="race-press_1"]');
+  await button.click();
+  await page.waitForFunction(() => {
+    const draft = window.__repforgeWorkoutDraft?.current?.();
+    const exerciseId = draft?.exerciseOrder?.[0];
+    const exercise = exerciseId ? draft.exercises?.[exerciseId] : null;
+    const setId = exercise?.setOrder?.[0];
+    return setId ? exercise.sets?.[setId]?.completion !== "pending" : false;
+  });
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+}
+
 async function readAcknowledgedDraft(page) {
   return page.evaluate((draftKey) => {
     const hook = window.__repforgeWorkoutDraft;
@@ -322,51 +335,49 @@ try {
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
 
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.locator('[data-k="race-press_1_load"]').fill("60");
   await page.locator('[data-k="race-press_1_reps"]').fill("10");
   await page.locator('[data-k="race-press_1_rir"]').fill("1");
   const workoutDraftBeforeFault = await flushFieldBearingDraft(page, { load: "60", reps: "10", rir: "1" });
   check(typeof workoutDraftBeforeFault === "string" && workoutDraftBeforeFault.length > 0,
     "same-page race captures the exact field-bearing DraftV2 bytes before fault injection");
+  await completeOnlySet(page);
 
   await page.evaluate(
-    ({ key, dbName, storeName }) => {
+    ({ key }) => {
       let release;
       const gate = new Promise((resolve) => {
         release = resolve;
       });
       window.__raceReleaseWorkoutWrite = release;
       window.__raceWorkoutWriteEntered = false;
-      const writeIdb = async (snapshot) => {
-        const db = await new Promise((resolve, reject) => {
-          const req = indexedDB.open(dbName, 1);
-          req.onupgradeneeded = () => req.result.createObjectStore(storeName);
-          req.onsuccess = () => resolve(req.result);
-          req.onerror = () => reject(req.error);
-        });
-        await new Promise((resolve, reject) => {
-          const tx = db.transaction(storeName, "readwrite");
-          tx.objectStore(storeName).put(snapshot, key);
-          tx.oncomplete = () => resolve();
-          tx.onerror = () => reject(tx.error);
-        });
-        db.close();
+      const adapter = window.RepForgeDurableState?.storageIO;
+      if (!adapter || typeof adapter.writeLocal !== "function" || typeof adapter.writeIdb !== "function") {
+        throw new Error("durable storage adapter unavailable");
+      }
+      const writeLocal = adapter.writeLocal.bind(adapter);
+      const writeIdbOriginal = adapter.writeIdb.bind(adapter);
+      const restoreAdapter = () => {
+        adapter.writeLocal = writeLocal;
+        adapter.writeIdb = writeIdbOriginal;
+        delete window.__restoreRaceWorkoutAdapter;
       };
-      const gatedIo = {
-        async writeLocal(snapshot) {
-          window.__raceWorkoutWriteEntered = true;
-          window.__raceSession = snapshot.log.at(-1)?.session || null;
-          await gate;
-          localStorage.setItem(key, JSON.stringify(snapshot));
-        },
-        async writeIdb(snapshot) {
-          await writeIdb(snapshot);
-        },
+      window.__restoreRaceWorkoutAdapter = restoreAdapter;
+      adapter.writeLocal = async (snapshot) => {
+        window.__raceWorkoutWriteEntered = true;
+        window.__raceSession = snapshot.log.at(-1)?.session || null;
+        // Restore the production adapter as soon as the workout reaches its
+        // gated local write. The concurrent Settings mutation must use the
+        // real adapter; only this already-started normal completion remains
+        // held behind the race gate.
+        restoreAdapter();
+        await gate;
+        await writeLocal(snapshot);
       };
-      window.__raceSaveResult = window.__repforgeSaveWorkout(gatedIo);
+      window.__raceSaveResult = window.__repforgeSaveWorkout();
     },
-    { key: KEY, dbName: DB, storeName: STORE }
+    { key: KEY }
   );
   await page.waitForFunction(() => window.__raceWorkoutWriteEntered === true);
 
@@ -380,6 +391,7 @@ try {
   await page.evaluate(() => window.__raceReleaseWorkoutWrite());
   const accepted = await page.evaluate(async () => {
     const result = await window.__raceSaveResult;
+    window.__restoreRaceWorkoutAdapter?.();
     return {
       result,
       session: window.__raceSession,
@@ -425,10 +437,11 @@ try {
     await peer.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForApp(peer);
 
-    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+    await page.evaluate(() => window.__repforgeEnterWorkout({}));
     await page.locator('[data-k="race-press_1_load"]').fill("62.5");
     await page.locator('[data-k="race-press_1_reps"]').fill("9");
     await page.locator('[data-k="race-press_1_rir"]').fill("1");
+    await completeOnlySet(page);
     const crossAccepted = await page.evaluate(() => window.__repforgeSaveWorkout());
     await flushStorage(page);
 
@@ -467,7 +480,7 @@ try {
   await putBoth(page, loggedState(30));
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.locator('[data-k="race-press_1_load"]').fill("65");
   await page.locator('[data-k="race-press_1_reps"]').fill("8");
   await page.locator('[data-k="race-press_1_rir"]').fill("1");
@@ -527,47 +540,41 @@ try {
   await putBoth(page, resetRaceSeed);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForApp(page);
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.locator('[data-k="race-press_1_load"]').fill("67.5");
   await page.locator('[data-k="race-press_1_reps"]').fill("8");
   await page.locator('[data-k="race-press_1_rir"]').fill("1");
+  await completeOnlySet(page);
   await page.evaluate(
-    ({ key, dbName, storeName }) => {
+    ({ key }) => {
       let release;
       const gate = new Promise((resolve) => {
         release = resolve;
       });
       window.__resetRaceRelease = release;
       window.__resetRaceEntered = false;
-      const writeIdb = async (snapshot) => {
-        const db = await new Promise((resolve, reject) => {
-          const req = indexedDB.open(dbName, 1);
-          req.onupgradeneeded = () => req.result.createObjectStore(storeName);
-          req.onsuccess = () => resolve(req.result);
-          req.onerror = () => reject(req.error);
-        });
-        await new Promise((resolve, reject) => {
-          const tx = db.transaction(storeName, "readwrite");
-          tx.objectStore(storeName).put(snapshot, key);
-          tx.oncomplete = () => resolve();
-          tx.onerror = () => reject(tx.error);
-        });
-        db.close();
+      const adapter = window.RepForgeDurableState?.storageIO;
+      if (!adapter || typeof adapter.writeLocal !== "function" || typeof adapter.writeIdb !== "function") {
+        throw new Error("durable storage adapter unavailable");
+      }
+      const writeLocal = adapter.writeLocal.bind(adapter);
+      const writeIdbOriginal = adapter.writeIdb.bind(adapter);
+      const restoreAdapter = () => {
+        adapter.writeLocal = writeLocal;
+        adapter.writeIdb = writeIdbOriginal;
+        delete window.__restoreResetRaceAdapter;
       };
-      const gatedIo = {
-        async writeLocal(snapshot) {
-          window.__resetRaceEntered = true;
-          window.__resetRaceSession = snapshot.log.at(-1)?.session || null;
-          await gate;
-          localStorage.setItem(key, JSON.stringify(snapshot));
-        },
-        async writeIdb(snapshot) {
-          await writeIdb(snapshot);
-        },
+      window.__restoreResetRaceAdapter = restoreAdapter;
+      adapter.writeLocal = async (snapshot) => {
+        window.__resetRaceEntered = true;
+        window.__resetRaceSession = snapshot.log.at(-1)?.session || null;
+        restoreAdapter();
+        await gate;
+        await writeLocal(snapshot);
       };
-      window.__resetRaceSave = window.__repforgeSaveWorkout(gatedIo);
+      window.__resetRaceSave = window.__repforgeSaveWorkout();
     },
-    { key: KEY, dbName: DB, storeName: STORE }
+    { key: KEY }
   );
   await page.waitForFunction(() => window.__resetRaceEntered === true);
   await page.evaluate(() => window.__repforgeShowSettings());
@@ -576,6 +583,7 @@ try {
   await page.evaluate(() => window.__resetRaceRelease());
   const resetRaceAccepted = await page.evaluate(async () => {
     const result = await window.__resetRaceSave;
+    window.__restoreResetRaceAdapter?.();
     return { result, session: window.__resetRaceSession };
   });
   await flushStorage(page);

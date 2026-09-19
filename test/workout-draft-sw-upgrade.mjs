@@ -5,6 +5,7 @@
  * migrates once and resumes a non-first Focus card while fully offline.
  */
 import assert from "node:assert/strict";
+import { finishEarly } from "./fixtures/focus-workout.mjs";
 import { execFileSync } from "node:child_process";
 import { createServer } from "node:http";
 import { createReadStream, readFileSync, statSync } from "node:fs";
@@ -103,7 +104,9 @@ try {
   assert.equal(await page.evaluate(() => !!navigator.serviceWorker.controller), true, "Plan 050 worker controls its app");
 
   const secondId = seedProgram().filter((exercise) => exercise.day === "Day 1")[1].id;
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: true, day: "Day 1" }));
+  // The retained Plan 050 worker still needs its historical route flag before
+  // the current worker migrates the draft. Current-code calls below omit it.
+  await page.evaluate(() => window.__repforgeEnterWorkout({ day: "Day 1", focus: true }));
   await page.locator("#woNext").click();
   await page.waitForSelector(`#workout.is-focus .exercise.is-current[data-ex="${secondId}"]`);
   for (const [field, value] of [["load", "72.5"], ["reps", "9"], ["rir", "1"]]) {
@@ -137,7 +140,7 @@ try {
   await page.reload({ waitUntil: "domcontentloaded" });await boot(page, base);
   assert.equal(await page.evaluate((draft) => localStorage.getItem(draft), DRAFT), migrated.raw,
     "a second boot reads the same migration instead of converting twice");
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: true, day: "Day 1" }));
+  await page.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
   await page.locator("#woNext").click();
   await page.waitForFunction((id) => window.__repforgeWorkoutDraft.current()?.session.selectedExerciseId === id, secondId);
   const selectedRaw = await page.evaluate((draft) => localStorage.getItem(draft), DRAFT);
@@ -145,7 +148,7 @@ try {
   await context.setOffline(true);
   const response = await page.reload({ waitUntil: "domcontentloaded" });await boot(page, base);
   assert.equal(response?.fromServiceWorker(), true, "the current cached shell boots offline");
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: true }));
+  await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.waitForSelector(`#workout.is-focus .exercise.is-current[data-ex="${secondId}"]`);
   assert.equal(await page.evaluate((draft) => localStorage.getItem(draft), DRAFT), selectedRaw,
     "offline reload preserves the complete selected non-first Focus revision");
@@ -163,7 +166,7 @@ try {
     const exercise = draft?.exercises?.[exerciseId];
     return exercise && exercise.sets[exercise.setOrder[0]].completion !== "pending";
   }, secondId);
-  const offlineSave = await page.evaluate(() => window.__repforgeSaveWorkout());
+  const offlineSave = await finishEarly(page);
   const offlineResult = await page.evaluate(({ stateKey, draftKey, checkpointKey, exerciseId }) => {
     const state = JSON.parse(localStorage.getItem(stateKey) || "{}");
     const checkpoint = JSON.parse(localStorage.getItem(checkpointKey) || "null");

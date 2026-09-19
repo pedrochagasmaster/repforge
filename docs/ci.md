@@ -31,8 +31,8 @@ The fast lane needs npm dependencies, but not an installed browser or server.
 The inventory checks every tracked or unignored test script: runnable suites
 must be scheduled; imported helpers and manual screenshot utilities have explicit
 reasons in `SUPPORT`. Do not execute a filesystem glob or add the same command in
-another workflow. The inventory currently contains 118 commands: fast (43),
-state (31), entry (24), workout (16), privacy (3), and service (1). The PostHog measurement
+another workflow. The inventory currently contains 135 commands: fast (46),
+state (33), entry (30), workout (22), privacy (3), and service (1). The PostHog measurement
 contract runs once in the fast lane as `node --test test/posthog-measurement.mjs`.
 Add property modules to the generative runner's inventory; its self-test rejects
 orphaned modules.

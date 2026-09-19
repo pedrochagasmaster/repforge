@@ -150,7 +150,7 @@ async function initializeDraft(page) {
     const state = window.__repforgeWorkoutDraft.state();
     const day = state.program?.[0]?.day;
     if (!day) return { ok: false, error: "no program day" };
-    await window.__repforgeEnterWorkout({ day, focus: false });
+    await window.__repforgeEnterWorkout({ day});
     const hook = window.__repforgeWorkoutDraft;
     const draft = hook.current();
     const exerciseId = draft?.exerciseOrder?.[0];

@@ -288,13 +288,39 @@ function summary(both) {
 }
 
 async function enterWorkout(page) {
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout({}));
 }
 
 async function fillSet(page, set, { load, reps, rir }) {
   await page.locator(`[data-k="audit-press_${set}_load"]`).fill(String(load));
   await page.locator(`[data-k="audit-press_${set}_reps"]`).fill(String(reps));
   await page.locator(`[data-k="audit-press_${set}_rir"]`).fill(String(rir));
+}
+
+async function completeWorkout(page) {
+  for (const set of [1, 2]) {
+    const values = {
+      load: await page.locator(`[data-k="audit-press_${set}_load"]`).inputValue(),
+      reps: await page.locator(`[data-k="audit-press_${set}_reps"]`).inputValue(),
+      rir: await page.locator(`[data-k="audit-press_${set}_rir"]`).inputValue(),
+    };
+    if (!values.load || !values.reps || !values.rir) {
+      await fillSet(page, set, {
+        load: values.load || 60,
+        reps: values.reps || 10,
+        rir: values.rir || 2,
+      });
+    }
+    await page.locator(`.saveset[data-save="audit-press_${set}"]`).click();
+  }
+  await page.waitForFunction(() => {
+    const draft = window.__repforgeWorkoutDraft?.current?.();
+    return draft?.exerciseOrder?.every((exerciseId) => {
+      const exercise = draft.exercises?.[exerciseId];
+      return exercise?.setOrder?.every((setId) => exercise.sets?.[setId]?.completion !== "pending");
+    });
+  });
+  await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
 }
 
 async function openProgramEditor(page) {
@@ -355,6 +381,7 @@ async function scenarioUnloadWithTwoPendingIntents(browser) {
 
     await enterWorkout(page);
     await fillSet(page, 1, { load: 72.5, reps: 9, rir: 1 });
+    await completeWorkout(page);
     await page.waitForFunction((draftKey) => localStorage.getItem(draftKey) !== null, DRAFT);
     await holdStorageLock(locker);
 
@@ -426,6 +453,7 @@ async function scenarioIdbOnlyThenStaleSettings(browser) {
 
     await enterWorkout(writer);
     await fillSet(writer, 1, { load: 60, reps: 10, rir: 1 });
+    await completeWorkout(writer);
     const accepted = await writer.evaluate(async (key) => {
       const originalSetItem = Storage.prototype.setItem;
       Storage.prototype.setItem = function (candidate, value) {
@@ -448,7 +476,7 @@ async function scenarioIdbOnlyThenStaleSettings(browser) {
         oneSided.local?._storageRevision === beforeRevision &&
         oneSided.local?.log?.length === 0 &&
         oneSided.idb?._storageRevision === accepted.revision &&
-        oneSided.idb?.log?.length === 1,
+        oneSided.idb?.log?.length === 2,
       "precondition: the next workout revision is accepted only by IDB while local remains at the prior head",
       { beforeRevision, accepted, replicas: summary(oneSided) }
     );
@@ -605,6 +633,7 @@ async function scenarioFinishClearsNewerSet(browser) {
 
     await enterWorkout(page);
     await fillSet(page, 1, { load: 70, reps: 8, rir: 1 });
+    await completeWorkout(page);
     await holdStorageLock(locker);
     await page.evaluate(() => {
       window.__auditFinishSet1 = window.__repforgeSaveWorkout();
@@ -995,6 +1024,7 @@ async function scenarioBootReplayFinishClearsCapturedDraft(browser) {
 
     await enterWorkout(writer);
     await fillSet(writer, 1, { load: 77.5, reps: 9, rir: 1 });
+    await completeWorkout(writer);
     await writer.waitForFunction((draftKey) => localStorage.getItem(draftKey) !== null, DRAFT);
     const capturedDraftRaw = await writer.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT);
 
@@ -1038,8 +1068,8 @@ async function scenarioBootReplayFinishClearsCapturedDraft(browser) {
       localSessions.size === 1 &&
         idbSessions.size === 1 &&
         idbSessions.has(savedSession) &&
-        replayed.local.log.filter((row) => row.session === savedSession).length === 1 &&
-        replayed.idb.log.filter((row) => row.session === savedSession).length === 1,
+        replayed.local.log.filter((row) => row.session === savedSession).length === 2 &&
+        replayed.idb.log.filter((row) => row.session === savedSession).length === 2,
       "boot replay makes exactly one session durable in both replicas",
       { replicas: summary(replayed), localSessions: [...localSessions], idbSessions: [...idbSessions] }
     );
@@ -1090,6 +1120,7 @@ async function scenarioInPageFinishPreservesNewerDraft(browser) {
 
     await enterWorkout(writer);
     await fillSet(writer, 1, { load: 82.5, reps: 8, rir: 1 });
+    await completeWorkout(writer);
     await writer.waitForFunction((draftKey) => localStorage.getItem(draftKey) !== null, DRAFT);
     const capturedDraftRaw = await writer.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT);
 
@@ -1132,20 +1163,12 @@ async function scenarioInPageFinishPreservesNewerDraft(browser) {
       },
       `${DRAFT}:recovery`
     );
-    const ui = await writer.evaluate(() => ({
-      formReady:
-        !document.querySelector("#logForm")?.inert &&
-        document.querySelector("#logForm")?.getAttribute("aria-busy") === null,
-      set1Suggested: document.querySelector('[data-set="audit-press_1"]')?.classList.contains("is-suggested"),
-      set1Done: document.querySelector('[data-set="audit-press_1"]')?.classList.contains("is-done"),
-      set2Suggested: document.querySelector('[data-set="audit-press_2"]')?.classList.contains("is-suggested"),
-      set2Load: document.querySelector('[data-k="audit-press_2_load"]')?.value ?? null,
-    }));
+
 
     check(
       (finishResult?.localOk || finishResult?.idbOk) &&
-        final.local?.log?.length === 1 &&
-        final.idb?.log?.length === 1 &&
+        final.local?.log?.length === 2 &&
+        final.idb?.log?.length === 2 &&
         final.persistenceArtifacts.length === 0,
       "precondition: the captured Finish is accepted and only its record is cleaned",
       { finishResult, replicas: summary(final), artifacts: final.persistenceArtifacts }
@@ -1160,16 +1183,7 @@ async function scenarioInPageFinishPreservesNewerDraft(browser) {
         recoveryMatches: recoveryRaw === newerDraftRaw,
       }
     );
-    check(
-      ui.formReady &&
-        ui.set1Suggested === true &&
-        ui.set1Done === false &&
-        ui.set2Suggested === true &&
-        ui.set2Load === "82.5" &&
-        (await writer.evaluate(() => window.__repforgeWorkoutDraft.raw())) === null,
-      "the finishing tab resets stale collections without adopting unacknowledged legacy fields",
-      { ...ui, activeDraftRaw: await writer.evaluate(() => window.__repforgeWorkoutDraft.raw()) }
-    );
+
 
     const fresh = await openApp(context);
     const afterFreshBoot = await readBoth(fresh);
@@ -1186,11 +1200,26 @@ async function scenarioInPageFinishPreservesNewerDraft(browser) {
     check(
       afterFreshBoot.draftRaw === null &&
         recoveryAfterFreshBoot === newerDraftRaw &&
-        (afterFreshBoot.local?.log?.length ?? 0) === 1 &&
-        (afterFreshBoot.idb?.log?.length ?? 0) === 1,
+        (afterFreshBoot.local?.log?.length ?? 0) === 2 &&
+        (afterFreshBoot.idb?.log?.length ?? 0) === 2,
       "a fresh boot retains only the recovery copy beside the accepted session",
       { replicas: summary(afterFreshBoot), recoveryMatches: recoveryAfterFreshBoot === newerDraftRaw }
     );
+    check(await writer.evaluate(() => window.__repforgeWorkoutDraft.raw()) === null,
+      "the finishing tab releases the completed draft identity");
+    await writer.locator("#sumDone").click();
+    await enterWorkout(writer);
+    const next = await writer.evaluate(() => ({
+      load: document.querySelector('#workout .exercise.is-current [data-k="audit-press_1_load"]')?.value,
+      completed: document.querySelectorAll('#workout .exercise.is-current [data-editn]').length,
+      draft: window.__repforgeWorkoutDraft.current(),
+    }));
+    check(next.load === "82.5" && next.completed === 0 &&
+      next.draft.exerciseOrder.every(id => next.draft.exercises[id].setOrder.every(setId => {
+        const set=next.draft.exercises[id].sets[setId];
+        return set.completion === "pending" && !Object.values(set.touched).some(Boolean);
+      })), "a new visible Focus session has fresh suggestions without stale completion or cross-tab input", next);
+
   } finally {
     await context.close();
   }
@@ -1207,6 +1236,7 @@ async function scenarioTotalFinishFailureIsDurablyRejected(browser) {
 
     await enterWorkout(page);
     await fillSet(page, 1, { load: 87.5, reps: 8, rir: 1 });
+    await completeWorkout(page);
     await page.waitForFunction((draftKey) => localStorage.getItem(draftKey) !== null, DRAFT);
     const capturedDraftRaw = await page.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT);
     const result = await page.evaluate(

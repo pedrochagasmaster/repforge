@@ -34,7 +34,8 @@ assert(/takeover\(\)[\s\S]{0,220}dispose\(\{ preserve: true \}\)/.test(layer) &&
   "a settling sheet is re-grabbed from its live presentation position");
 
 assert(/freezeFocusPresentation\(run\.track\)/.test(layer) &&
-  /global\.focusAnimateTo = fluidFocusAnimateTo/.test(layer) &&
+  /navigate: dir => !disposed && \(useFluid \? fluidFocusAnimateTo\(dir\)/.test(layer) &&
+  !/global\.focusAnimateTo\s*=/.test(layer) &&
   /run\.commitDir = dir;[\s\S]{0,120}retargetFocusSlide/.test(layer),
   "focus paging is retargetable instead of locking input for 210ms");
 assert(!/focusFlinging/.test(layer),

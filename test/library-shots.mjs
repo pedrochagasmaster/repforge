@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { exerciseAction } from "./fixtures/focus-workout.mjs";
 /**
  * Screenshots of the exercise-library surfaces, for review and the PR.
  * Writes docs/design/library/*.png.
@@ -185,11 +186,10 @@ await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
 await page.waitForSelector("#workout .exercise", { timeout: 5000 });
 await page.evaluate((id) => {
   const art = document.querySelector(`.exercise[data-ex="${id}"]`);
-  if (art?.classList.contains("is-collapsed")) document.querySelector(`.ex__caret[data-collapse="${id}"]`)?.click();
   art?.scrollIntoView({ block: "center" });
 }, slot.id);
 await settle(page);
-await page.click(`.subst__pick[data-sub="${slot.id}"]`);
+await exerciseAction(page, slot.id, "#exActionSubstBtn");
 await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
 await settle(page, 400);
 await shot(page, "08-workout-swap");

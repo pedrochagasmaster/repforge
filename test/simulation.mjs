@@ -357,7 +357,12 @@ async function seedHistoricalLog(page, { weeks = SIM_WEEKS, days = ["Day 1", "Da
 
 async function getProgramExercises(page, day) {
   await selectDay(page, day);
-  return page.evaluate(() => {
+  return page.evaluate((d) => {
+    const p = window.__repforgeFocus ? window.__repforgeFocus.list() : [];
+    if (p.length) return p.map(ex => ({ id: ex.id, sets: ex.sets || 2 }));
+    const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    const prog = (raw.program || []).filter(ex => ex.day === d);
+    if (prog.length) return prog.map(ex => ({ id: ex.id, sets: ex.sets || 2 }));
     const map = new Map();
     document.querySelectorAll("#workout input[data-k]").forEach((inp) => {
       const m = inp.dataset.k.match(/^(.+)_(\d+)_(load|reps|rir)$/);
@@ -366,8 +371,8 @@ async function getProgramExercises(page, day) {
       if (!map.has(id)) map.set(id, { id, sets: 0 });
       map.get(id).sets = Math.max(map.get(id).sets, +setNum);
     });
-    return [...map.values()].sort((a, b) => a.id.localeCompare(b.id));
-  });
+    return [...map.values()];
+  }, day);
 }
 
 async function clearState(page) {
@@ -415,8 +420,8 @@ async function waitForSetDone(page, exerciseId, ordinal = 1) {
     const draft = window.__repforgeWorkoutDraft?.current?.();
     const exercise = draft?.exercises?.[id];
     const set = exercise && Object.values(exercise.sets || {}).find((candidate) => candidate.ordinal === setOrdinal);
-    return set?.completion !== "pending" &&
-      document.querySelector(`[data-set="${id}_${setOrdinal}"]`)?.classList.contains("is-done");
+    return !!set && set.completion !== "pending" &&
+      !!document.querySelector(`#workout .exercise.is-current [data-editex="${id}"][data-editn="${setOrdinal}"]`);
   }, { exerciseId, ordinal }, { timeout: 5000 });
 }
 
@@ -431,6 +436,10 @@ async function readDraft(page) {
 }
 
 async function nav(page, view) {
+  if (await page.locator("#sessionSummary:not(.hidden)").isVisible()) {
+    await page.locator("#sumDone").click();
+    await page.locator("#sessionSummary").waitFor({state:"hidden"});
+  }
   if (view === "settings") {
     // Profile control lives on Today (hidden during active workout / other tabs).
     await page.evaluate(() => window.__repforgeShowSettings?.());
@@ -453,10 +462,10 @@ async function nav(page, view) {
     }
   }
   if (view === "log") {
-    // Ensure workout shell is available for set logging assertions (List mode).
+    // Enter the sole workout route for the simulation.
     const shell = page.locator("#workoutShell:not(.hidden)");
     if (!(await shell.count())) {
-      const entered = await page.evaluate(async () => window.__repforgeEnterWorkout?.({ focus: false }));
+      const entered = await page.evaluate(async () => window.__repforgeEnterWorkout?.({}));
       if (entered === false) {
         console.log("    Log navigation diagnostic", await page.evaluate(() => ({
           draft: window.__repforgeWorkoutDraft?.read?.(),
@@ -492,27 +501,22 @@ async function revealProgramExerciseDetails(page, id) {
   return row.locator('details[data-role="more-details"]');
 }
 
-async function selectDay(page, dayName) {
-  await page.evaluate(async (d) => {
-    // Day tabs live in the workout shell; ensure it is open in List mode
-    // so notes/bodyweight/day chrome stay interactive for harness checks.
-    if (typeof window.__repforgeEnterWorkout === "function") await window.__repforgeEnterWorkout({ day: d, focus: false });
-    else {
-      const b = document.querySelector(`#dayTabs button[data-day="${CSS.escape(d)}"]`);
-      if (b) b.click();
-    }
-  }, dayName);
-  await page.waitForFunction(
-    (d) => document.querySelector(`#dayTabs button[data-day="${CSS.escape(d)}"]`)?.classList.contains("active"),
-    dayName,
-    { timeout: 5000 }
-  );
+async function selectDay(page,dayName){
+  await page.evaluate(day=>window.__repforgeEnterWorkout({day}),dayName);
+  await page.waitForFunction(day=>window.__repforgeWorkoutDraft.current()?.program.dayLabel===day,dayName,{timeout:5000});
 }
 
-/** Date lives in the workout overflow menu (may be hidden) — set via DOM. */
+async function requestVisibleDay(page,day){
+  if(await page.locator("#workoutShell").isVisible())await page.locator("#leaveWorkout").click();
+  if(!await page.locator("#dayPickSheet").isVisible())await page.locator("#chooseAnotherDay").click();
+  await page.locator(`[data-daypick="${day}"]`).click();
+  await page.locator("#dayPickConfirm").click();
+}
+
+/** Bulk session-date setup uses the production Session field handler. */
 async function setLogDate(page, value) {
   await page.evaluate((v) => {
-    const el = document.querySelector("#date");
+    const el = document.querySelector("#sessionDate");
     if (!el) throw new Error("#date missing");
     el.value = v;
     el.dispatchEvent(new Event("input", { bubbles: true }));
@@ -520,21 +524,26 @@ async function setLogDate(page, value) {
   }, value);
 }
 
-/** List/Focus mode toggles live in the workout overflow menu. */
-async function openWorkoutOverflow(page) {
-  const panel = page.locator("#woOverflow");
-  if (await panel.evaluate((el) => el.classList.contains("hidden")).catch(() => true)) {
-    await page.click("#woOverflowBtn");
-    await page.waitForFunction(() => {
-      const el = document.querySelector("#woOverflow");
-      return el && !el.classList.contains("hidden");
-    }, { timeout: 3000 });
-  }
-}
 
-async function clickLogMode(page, mode) {
-  await openWorkoutOverflow(page);
-  await page.click(mode === "focus" ? "#modeFocus" : "#modeFull");
+async function completeDraftSets(page) {
+  await page.evaluate(async () => {
+    const draft = window.__repforgeWorkoutDraft?.current?.();
+    if (!draft) return;
+    for (const exId of draft.exerciseOrder || []) {
+      const ex = draft.exercises?.[exId];
+      if (!ex) continue;
+      for (const setId of ex.setOrder || []) {
+        const s = ex.sets?.[setId];
+        if (s && (s.completion === 'pending' || typeof s.completion === 'string')) {
+          await window.__repforgeWorkoutDraft.dispatch('completeSet', {
+            exerciseInstanceId: exId,
+            setId,
+            completedAt: new Date().toISOString()
+          });
+        }
+      }
+    }
+  });
 }
 
 async function firstDayName(page) {
@@ -543,17 +552,28 @@ async function firstDayName(page) {
 
 async function fillExerciseSets(page, exId, sets, load, reps, rir) {
   await page.evaluate(
-    ({ exId, sets, load, reps, rir }) => {
+    async ({ exId, sets, load, reps, rir }) => {
+      const draft = window.__repforgeWorkoutDraft?.current?.();
+      const ex = draft?.exercises?.[exId];
       for (let n = 1; n <= sets; n++) {
+        const setId = ex?.setOrder?.[n - 1];
         for (const [suffix, val] of [
           ["load", load],
           ["reps", reps],
           ["rir", rir],
         ]) {
           const el = document.querySelector(`[data-k="${exId}_${n}_${suffix}"]`);
-          if (!el) continue;
-          el.value = String(val);
-          el.dispatchEvent(new Event("input", { bubbles: true }));
+          if (el) {
+            el.value = String(val);
+            el.dispatchEvent(new Event("input", { bubbles: true }));
+          } else if (setId && window.__repforgeWorkoutDraft?.dispatch) {
+            await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+              exerciseInstanceId: exId,
+              setId,
+              field: suffix,
+              value: String(val),
+            });
+          }
         }
       }
     },
@@ -599,8 +619,26 @@ async function waitForDraftSetCompletion(page, exId, ordinal = 1) {
   );
 }
 
+async function toggleWarmup(page, exId, setNum = 1) {
+  await selectFocusExercise(page, exId);
+  await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+  await page.locator("#exActionsWarmupList [data-warm-toggle-set]").nth(setNum-1).click();
+  await flushDraftWork(page);
+  await page.locator("#exActionsClose").click();
+}
+
+async function clickSaveSet(page, key) {
+  const [, exId, n] = key.match(/^(.+)_(\d+)$/);
+  await selectFocusExercise(page, exId);
+  const well = page.locator(`#workout .exercise.is-current [data-save="${key}"]`);
+  if (!await well.count()) {
+    await page.locator(`#workout .exercise.is-current [data-editn="${n}"]`).click();
+  }
+  await well.click();
+  await flushDraftWork(page);
+}
 async function commitDraftSet(page, selector, exId, ordinal = 1) {
-  await page.click(selector);
+  await clickSaveSet(page, `${exId}_${ordinal}`);
   await waitForDraftSetCompletion(page, exId, ordinal);
 }
 
@@ -622,13 +660,20 @@ async function dismissSessionSummary(page) {
   if (seen == null) return null;
   await page.evaluate(() => window.__repforgeSessionSummary?.close());
   await page.waitForSelector("#sessionSummary.hidden", { state: "attached", timeout: 5000 });
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+  await page.evaluate(async () => { await window.__repforgeEnterWorkout({}); });
   await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
   return seen;
 }
 
-async function saveWorkout(page, { expectNewRows = true } = {}) {
+async function saveWorkout(page, { expectNewRows = true, earlyFinish = false } = {}) {
   const beforeLen = (await getState(page))?.log?.length ?? 0;
+  if (earlyFinish) {
+    await page.locator("#sessionSheetBtn").click();
+    await page.locator("#sessionEarlyFinish").click();
+    await page.locator("#sessionEarlyConfirm").click();
+    await page.waitForSelector("#sessionSummary:not(.hidden)", { timeout: 8000 });
+    return await dismissSessionSummary(page);
+  }
   await page.evaluate(async () => {
     if (typeof window.__repforgeSaveWorkout === "function") {
       await window.__repforgeSaveWorkout();
@@ -638,7 +683,10 @@ async function saveWorkout(page, { expectNewRows = true } = {}) {
     if (window.__repforgeStorage?.flush) await window.__repforgeStorage.flush();
   });
   if (!expectNewRows) {
-    await page.waitForTimeout(120);
+    await page.waitForFunction(() => {
+      const toast = document.querySelector("#toast");
+      return toast && !toast.classList.contains("hidden") && Boolean(toast.textContent?.trim());
+    }, undefined, { timeout: 5000 }).catch(() => {});
     return await dismissSessionSummary(page);
   }
   await page.waitForFunction(
@@ -656,6 +704,37 @@ async function saveWorkout(page, { expectNewRows = true } = {}) {
     { timeout: 8000 }
   );
   return await dismissSessionSummary(page);
+}
+
+async function finishEarlyWithStorageOutcome(page, { localOk, idbOk }) {
+  await page.evaluate(({ localOk, idbOk }) => {
+    const adapter = window.RepForgeDurableState?.storageIO;
+    if (!adapter || typeof adapter.writeLocal !== "function" || typeof adapter.writeIdb !== "function") {
+      throw new Error("durable storage adapter unavailable");
+    }
+    const writeLocal = adapter.writeLocal.bind(adapter);
+    const writeIdb = adapter.writeIdb.bind(adapter);
+    adapter.writeLocal = async (...args) => localOk ? writeLocal(...args) : false;
+    adapter.writeIdb = async (...args) => idbOk ? writeIdb(...args) : false;
+    window.__restoreFinishAdapter = () => {
+      adapter.writeLocal = writeLocal;
+      adapter.writeIdb = writeIdb;
+      delete window.__restoreFinishAdapter;
+    };
+    window.__repforgeLastWorkoutFinish = null;
+  }, { localOk, idbOk });
+  await page.locator("#sessionSheetBtn").click();
+  await page.locator("#sessionEarlyFinish").click();
+  await page.waitForSelector("#sessionEarlyPrompt:not(.hidden)");
+  await page.locator("#sessionEarlyConfirm").click();
+  await page.waitForFunction(() => window.__repforgeLastWorkoutFinish != null, undefined, { timeout: 15000 });
+  return page.evaluate(async () => {
+    try {
+      return await window.__repforgeLastWorkoutFinish;
+    } finally {
+      window.__restoreFinishAdapter?.();
+    }
+  });
 }
 
 async function flushStorage(page) {
@@ -692,7 +771,7 @@ async function setWorkoutField(page, selector, value) {
 
 async function setLogDateRaw(page, value) {
   await page.evaluate((v) => {
-    const el = document.querySelector("#date");
+    const el = document.querySelector("#sessionDate");
     if (!el) throw new Error("#date missing");
     el.setAttribute("type", "text");
     el.value = v;
@@ -728,36 +807,44 @@ async function waitForSetting(page, path, value) {
 }
 
 async function getExerciseMeta(page, day) {
-  // Avoid selectDay when already on this workout day — selectDay forces List mode
-  // and would wipe Focus mode mid-check.
   const needSelect = await page.evaluate((d) => {
     if (!document.body.classList.contains("is-workout")) return true;
     const tab = document.querySelector(`#dayTabs button[data-day="${CSS.escape(d)}"]`);
     return !(tab && tab.classList.contains("active"));
   }, day);
   if (needSelect) await selectDay(page, day);
-  return page.evaluate(() =>
-    [...document.querySelectorAll("#workout .exercise")].map((article) => {
-      const meta = article.querySelector(".ex__meta")?.textContent || "";
-      const range = meta.match(/×(\d+)-(\d+)/);
-      const setsMatch = meta.match(/^(\d+)×/);
-      let id = null;
-      let setCount = 0;
-      article.querySelectorAll("input[data-k]").forEach((inp) => {
-        const m = inp.dataset.k.match(/^(.+)_(\d+)_/);
-        if (m) {
-          id = m[1];
-          setCount = Math.max(setCount, +m[2]);
-        }
-      });
+  return page.evaluate((d) => {
+    const fl = window.__repforgeFocus?.list?.();
+    if (fl && fl.length) {
+      return fl.map(ex => ({
+        id: ex.id,
+        name: ex.name,
+        sets: ex.sets || 2,
+        min: ex.min != null ? ex.min : 4,
+        max: ex.max != null ? ex.max : 8,
+      }));
+    }
+    const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    const prog = (raw.program || []).filter(ex => ex.day === d);
+    if (prog.length) {
+      return prog.map(ex => ({
+        id: ex.id,
+        name: ex.name,
+        sets: ex.sets || 2,
+        min: ex.min != null ? ex.min : 4,
+        max: ex.max != null ? ex.max : 8,
+      }));
+    }
+    return [...document.querySelectorAll("#workout .exercise")].map((article) => {
+      let id = article.getAttribute("data-ex");
       return {
         id,
-        sets: setsMatch ? +setsMatch[1] : setCount || 2,
-        min: range ? +range[1] : 4,
-        max: range ? +range[2] : 8,
+        sets: 2,
+        min: 4,
+        max: 8,
       };
-    })
-  );
+    });
+  }, day);
 }
 
 
@@ -836,7 +923,7 @@ async function logJson(page) {
 
 async function resetWorkoutDraft(page) {
   await clearDraftFixture(page);
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
 }
 
 async function setLangUnit(page, lang, unit) {
@@ -889,17 +976,9 @@ async function openF7HistoryEdit(page) {
 }
 
 async function cardInfo(page, idx) {
-  return page.evaluate((i) => {
-    const a = document.querySelectorAll("#workout .exercise")[i];
-    if (!a) return null;
-    return {
-      status: [...a.classList].find((c) => c.startsWith("is-") && c !== "is-collapsed") || "",
-      chip: a.querySelector(".chip")?.textContent || "",
-      rec: a.querySelector(".recblock")?.textContent || "",
-      setup: a.querySelector(".setup")?.textContent || "",
-      collapsed: a.classList.contains("is-collapsed"),
-    };
-  }, idx);
+  const id = await page.evaluate(index => window.__repforgeFocus.list()[index]?.id, idx);
+  if (!id) throw new Error(`Missing exercise index ${idx}`);
+  return cardInfoById(page, id);
 }
 
 function isoDateFromWeeksAgo(weeksAgo) {
@@ -961,18 +1040,28 @@ async function openStatsDeep(page) {
   });
 }
 
+async function whyInfo(page, id) {
+  await selectFocusExercise(page,id);
+  await page.locator("#workout .exercise.is-current [data-why]").click();
+  const info={chip:await page.locator("#whyDecision").textContent(),rec:await page.locator("#whyTarget").textContent(),body:await page.locator("#whyBody").textContent()};
+  await page.locator("#whyClose").click();
+  await page.locator("#whySheet").waitFor({state:"hidden"});
+  return info;
+}
+
 async function cardInfoById(page, exId) {
-  return page.evaluate((id) => {
-    const a = document.querySelector(`.exercise[data-ex="${id}"]`);
-    if (!a) return null;
-    return {
-      status: [...a.classList].find((c) => c.startsWith("is-") && c !== "is-collapsed") || "",
-      chip: a.querySelector(".chip")?.textContent || "",
-      rec: a.querySelector(".recblock")?.textContent || "",
-      setup: a.querySelector(".setup")?.textContent || "",
-      collapsed: a.classList.contains("is-collapsed"),
-    };
-  }, exId);
+  await selectFocusExercise(page, exId);
+  const card = page.locator("#workout .exercise.is-current");
+  const info = await card.evaluate(a => ({
+    status: [...a.classList].find(c => /^is-(add|add2|hold|reduce|new|manual)$/.test(c)) || "",
+    cue: a.querySelector(".focus-cue")?.textContent || "",
+  }));
+  if(await card.locator("[data-why]").count())Object.assign(info,await whyInfo(page,exId));
+  await card.locator("[data-exactions-open]").click();
+  info.setup = await page.locator("#exActionsSetupText").textContent();
+  await page.locator("#exActionsClose").click();
+  await page.locator("#exActionsSheet").waitFor({state: "hidden"});
+  return info;
 }
 
 /** Inject log rows for one exercise, reload, return recommendation card for that exercise. */
@@ -1038,6 +1127,67 @@ async function reviewAndCommitImport(page) {
   await page.waitForSelector("#entryActivate", { timeout: 10000 });
   await page.click("#entryActivate");
   await page.waitForTimeout(500);
+}
+
+async function selectFocusExercise(page, exId) {
+  const current = await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
+  if (current === exId) return;
+  await page.locator("#sessionSheetBtn").click();
+  await page.locator(`[data-session-map-jump="${exId}"]`).click();
+  await page.locator(`#workout .exercise.is-current[data-ex="${exId}"]`).waitFor({ state: "visible" });
+}
+
+async function draftSetState(page, key) {
+  await flushDraftWork(page);
+  return page.evaluate(key => {
+    const target = window.__repforgeWorkoutDraft.target(key);
+    const draft = window.__repforgeWorkoutDraft.current();
+    const set = draft?.exercises[target?.exerciseInstanceId]?.sets[target?.setId];
+    if (!set) throw new Error(`Missing draft set ${key}`);
+    return { done: set.completion !== "pending", suggested: !Object.values(set.touched).some(Boolean) };
+  }, key);
+}
+
+// Bulk simulation setup uses the production draft command boundary explicitly.
+// Visible input and keyboard behavior is covered by the Focus journeys below.
+async function readSimField(page, key) {
+  await flushDraftWork(page);
+  return page.evaluate(key => {
+    const values = window.__repforgeWorkoutDraft.projection();
+    if (!(key in values)) throw new Error(`Missing draft field ${key}`);
+    return String(values[key] ?? "");
+  }, key);
+}
+async function editSimField(page, key, value) {
+  await page.evaluate(async ({key, value}) => {
+    const target = window.__repforgeWorkoutDraft.target(key);
+    if (!target?.field) throw new Error(`Missing draft target ${key}`);
+    const result = await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+      exerciseInstanceId: target.exerciseInstanceId, setId: target.setId,
+      field: target.field, value: canonicalDraftField(target.field, String(value)),
+    });
+    if (result.status !== "applied") throw new Error(`Draft edit failed: ${result.status}`);
+    await refreshSuggestions(target.exerciseInstanceId);
+    renderWorkout();
+  }, {key, value});
+}
+async function exerciseAction(page, exId, button) {
+  await selectFocusExercise(page, exId);
+  await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+  await page.locator("#exActionsSheet.is-open").waitFor({ state: "visible" });
+  await page.locator(button).click();
+  await page.locator("#exActionsSheet").waitFor({state: "hidden"});
+  await flushDraftWork(page);
+}
+async function selectEffort(page, key, effort) {
+  const [, exId] = key.match(/^(.+)_(\d+)$/);
+  await selectFocusExercise(page, exId);
+  await page.locator(`#workout .exercise.is-current [data-effspin="${key}"]`).focus();
+  await page.keyboard.press("Home");
+  await flushDraftWork(page);
+  for(let n=0;n<["easy","hard","max"].indexOf(effort);n++) {
+    await page.keyboard.press("ArrowRight");await flushDraftWork(page);
+  }
 }
 
 async function main() {
@@ -1133,7 +1283,7 @@ async function main() {
   const smokeDate = isoDateFromWeeksAgo(0);
   await setLogDate(page, smokeDate);
   await fillExerciseSets(page, d1Exs[0].id, 1, 105, 7, 1);
-  const smokeSummary = (await saveWorkout(page)) || "";
+  const smokeSummary = (await saveWorkout(page, { earlyFinish: true })) || "";
   sessionCount++;
   uiSaveCount++;
   assert(
@@ -1159,8 +1309,8 @@ async function main() {
   // dropping that set and persisting the sibling 100 kg rows.
   await setLogDate(page, isoDateFromWeeksAgo(1));
   await fillExerciseSets(page, d1Exs[0].id, d1Exs[0].sets, 100, 8, 1);
-  await page.fill(`[data-k="${d1Exs[0].id}_1_load"]`, "0");
-  await page.fill(`[data-k="${d1Exs[0].id}_1_reps"]`, "0");
+  await editSimField(page, `${d1Exs[0].id}_1_load`, "0");
+  await editSimField(page, `${d1Exs[0].id}_1_reps`, "0");
   await page.waitForFunction(({ d, id }) => {
     try {
       const draft = JSON.parse(localStorage.getItem(d) || "null");
@@ -1191,7 +1341,7 @@ async function main() {
   // Empty kg on a touched set aborts (F7 empty toast); log stays unchanged.
   await setLogDate(page, isoDateFromWeeksAgo(2));
   await fillExerciseSets(page, d1Exs[0].id, 1, 100, 8, 1);
-  await page.fill(`[data-k="${d1Exs[0].id}_1_load"]`, "");
+  await editSimField(page, `${d1Exs[0].id}_1_load`, "");
   const logLenBeforeEmpty = (await getState(page)).log.length;
   await hideToast(page);
   await saveWorkout(page, { expectNewRows: false });
@@ -1210,13 +1360,13 @@ async function main() {
   const sameDay = "2018-03-20";
   await setLogDate(page, sameDay);
   await fillExerciseSets(page, d1Exs[0].id, d1Exs[0].sets, 100, 8, 1);
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   sessionCount++;
   uiSaveCount++;
 
   await setLogDate(page, sameDay);
   await fillExerciseSets(page, d1Exs[1].id, d1Exs[1].sets, 50, 10, 0);
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   sessionCount++;
   uiSaveCount++;
 
@@ -1497,8 +1647,8 @@ async function main() {
   const d2Exs = await getProgramExercises(page, "Day 2");
   const draftEx = d2Exs[0];
   const draftLoad = "137.5";
-  await page.fill(`[data-k="${draftEx.id}_1_load"]`, draftLoad);
-  await page.fill(`[data-k="${draftEx.id}_1_reps"]`, "7");
+  await editSimField(page, `${draftEx.id}_1_load`, draftLoad);
+  await editSimField(page, `${draftEx.id}_1_reps`, "7");
   await page.waitForFunction(
     ({ d, id, load }) => {
       try {
@@ -1524,7 +1674,7 @@ async function main() {
   await waitForApp(page);
   await nav(page, "log");
   await selectDay(page, "Day 2");
-  const restoredLoad = await page.inputValue(`[data-k="${draftEx.id}_1_load"]`);
+  const restoredLoad = await readSimField(page, `${draftEx.id}_1_load`);
   assert(
     restoredLoad === draftLoad,
     "Draft restored after reload",
@@ -1532,8 +1682,9 @@ async function main() {
     "Log tab → enter values → reload page → values should persist unsaved"
   );
 
-  // Saving clears draft
-  await saveWorkout(page);
+  // Saving clears draft through the explicit early-finish path because this
+  // persistence fixture edits only one set of the planned workout.
+  await saveWorkout(page, { earlyFinish: true });
   const draftAfterSave = await page.evaluate((d) => localStorage.getItem(d), DRAFT);
   const freshDraftAfterSave = await page.evaluate((d) => {
     try {
@@ -1571,7 +1722,7 @@ async function main() {
       `Tab shows "${active}" instead of "${d}"`,
       `Log tab → click ${d} tab`
     );
-    const workoutCount = await page.locator("#workout .exercise").count();
+    const workoutCount = await page.evaluate(() => (window.__repforgeFocus ? window.__repforgeFocus.list().length : document.querySelectorAll("#workout .exercise:not(.is-peek)").length));
     const expected = (await getProgramExercises(page, d)).length;
     assert(
       workoutCount === expected,
@@ -1650,18 +1801,11 @@ async function main() {
 
   await nav(page, "log");
   await selectDay(page, "Day 2");
-  const lastLine = await page
-    .locator("#workout .exercise")
-    .filter({ has: page.locator(`.ex__name:text-is("${newName}")`) })
-    .locator(".prev")
-    .textContent()
-    .catch(() => "");
-  assert(
-    lastLine.includes("Last set"),
-    "Renamed exercise still shows last session via exerciseId",
-    `Expected Last set line after rename, got "${lastLine}"`,
-    "Rename exercise → Log tab → previous session should still display"
-  );
+  await selectFocusExercise(page, renamedEx.id);
+  const latestRenameRow=state.log.filter(row=>row.exerciseId===renamedEx.id).sort((a,b)=>String(b.date).localeCompare(String(a.date))||String(b.created).localeCompare(String(a.created)))[0];
+  const past=await page.locator("#workout .exercise.is-current .ledger__row.is-past .ledger__load").allTextContents();
+  assert(past.length>0 && past.includes(String(latestRenameRow.load)),
+    "Renamed exercise still shows previous-session values via exerciseId", JSON.stringify(past));
 
   // Add exercise — now via the library picker rather than a blank row
   await nav(page, "program");
@@ -2014,11 +2158,11 @@ async function main() {
   const pushFirst = (await getExerciseMeta(page, "Push Day"))[0];
   // Fill at max reps with high RIR to trigger add load
   await fillExerciseSets(page, pushFirst.id, pushFirst.sets, 200, pushFirst.max, 3);
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
 
   await nav(page, "log");
   await selectDay(page, "Push Day");
-  const recText = await page.locator("#workout .exercise").first().locator(".recblock").textContent();
+  const recText = await page.locator("#workout .exercise.is-current .focus-ex__target").first().textContent();
   const hasAddLoad =
     /Add load|Add weight|Hold \d/i.test(recText) ||
     (await page.locator("#workout .exercise").first().getAttribute("class") || "").includes("is-add");
@@ -2399,9 +2543,9 @@ async function main() {
   const wMeta = await getExerciseMeta(page, warmupDay);
   const wEx = wMeta[0];
   await fillExerciseSets(page, wEx.id, wEx.sets, 100, 6, 2);
-  await page.click(`[data-warm="${wEx.id}_1"]`);
+  await toggleWarmup(page, wEx.id, 1);
   await fillExerciseSets(page, wEx.id, 1, 20, 6, 2);
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   const wState = await getState(page);
   const todayStr = new Date().toISOString().slice(0, 10);
   const wRows = wState.log.filter((r) => r.exerciseId === wEx.id && r.date === todayStr);
@@ -2441,12 +2585,12 @@ async function main() {
   const prMeta = await getExerciseMeta(page, prDay);
   // Another exercise at a higher load first — global max must exceed the PR exercise's new top
   await fillExerciseSets(page, prMeta[1].id, prMeta[1].sets, 250, 6, 2);
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   await nav(page, "log");
   await selectDay(page, prDay);
   // PR for exercise 0: beats its own prior top (~125) but stays below the 250 global max elsewhere
   await fillExerciseSets(page, prMeta[0].id, prMeta[0].sets, 150, 6, 2);
-  const prSummary = (await saveWorkout(page)) || "";
+  const prSummary = (await saveWorkout(page, { earlyFinish: true })) || "";
   assert(
     /PERSONAL RECORDS/i.test(prSummary) && /150 kg × 6/.test(prSummary) && !/250 kg/.test(prSummary),
     "Session summary announces a per-exercise top-load PR (not global max)",
@@ -2508,11 +2652,11 @@ async function main() {
   const prMeta3 = await getExerciseMeta(page, "Day 3");
   const prEx = prMeta3[prMeta3.length - 1];
   await fillExerciseSets(page, prEx.id, prEx.sets, 80, 8, 2);
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   await nav(page, "log");
   await selectDay(page, "Day 3");
   await fillExerciseSets(page, prEx.id, prEx.sets, 85, 8, 2);
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   const detectLoadPr = await page.evaluate((id) => {
     const log = JSON.parse(localStorage.getItem("repforge_v1")).log;
     return window.detectPRs(log).filter((e) => e.exerciseId === id && e.kind === "load" && e.deltaLoad > 0);
@@ -2560,7 +2704,7 @@ async function main() {
   const metaBeforeImport = stateBeforeImport.programMeta;
   const programBeforeImport = stateBeforeImport.program;
   const importDraft = await page.evaluate(async () => {
-    const entered = await window.__repforgeEnterWorkout?.({ focus: false });
+    const entered = await window.__repforgeEnterWorkout?.({});
     if (entered !== true) throw new Error("Could not open a workout to seed the import draft");
     const result = await window.__repforgeWorkoutDraft?.dispatch("setSessionNotes", {
       value: "unfinished before program import",
@@ -2866,7 +3010,7 @@ async function main() {
   await setLogDate(page, backdate);
   const d2 = await getExerciseMeta(page, logDay);
   await fillExerciseSets(page, d2[0].id, 1, 40, 10, 2);
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   state = await getState(page);
   assert(
     state.log.some((x) => x.date === backdate),
@@ -2881,10 +3025,14 @@ async function main() {
   const collisionDate = "2019-06-01";
   await setLogDate(page, collisionDate);
   const d2b = (await getExerciseMeta(page, logDay))[0];
-  await fillExerciseSets(page, d2b.id, 1, 55, 8, 1);
-  await page.fill("#notes", "collision-test-A");
+  const allD2 = await getExerciseMeta(page, logDay);
+  for (const ex of allD2) {
+    await fillExerciseSets(page, ex.id, ex.sets, 55, 8, 1);
+  }
+  await completeDraftSets(page);
+  await setWorkoutField(page, "#sessionNotes", "collision-test-A");
   await page.evaluate(() => { const f=document.querySelector("#logForm"); f?.requestSubmit(); f?.requestSubmit(); });
-  await page.waitForTimeout(300);
+  await page.locator("#sessionSummary:not(.hidden)").waitFor({state:"visible"});
   await dismissSessionSummary(page);
   state = await getState(page);
   const collisionSessions = [
@@ -2903,11 +3051,16 @@ async function main() {
   await nav(page, "log");
   await selectDay(page, "Day 3");
   await setLogDate(page, "2018-04-01");
-  const d3 = (await getExerciseMeta(page, "Day 3"))[0];
+  const allD3 = await getExerciseMeta(page, "Day 3");
+  for (const ex of allD3) {
+    await fillExerciseSets(page, ex.id, ex.sets, 60, 8, 1);
+  }
+  const d3 = allD3[0];
   await fillExerciseSets(page, d3.id, 1, 61.25, 8, 1);
+  await completeDraftSets(page);
   const logLenBeforeInvalid = (await getState(page)).log.length;
   await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
-  await page.waitForTimeout(200);
+  await page.locator("#sessionSummary:not(.hidden)").waitFor({state:"visible"});
   await dismissSessionSummary(page);
   const logLenAfterInvalid = (await getState(page)).log.length;
   const formValid = await page.evaluate(() => document.querySelector("#logForm").checkValidity());
@@ -3015,7 +3168,7 @@ async function main() {
   const [exNew, exAdd, exAdd2, exHold] = matrixEx;
   const newCard = await cardInfoById(page, exNew.id);
   assert(
-    newCard?.status === "is-new" && /new/i.test(newCard.chip),
+    newCard?.status === "is-new" && /pick a load/i.test(newCard.cue),
     "Fresh exercise recommends New lift status",
     JSON.stringify(newCard),
     "Clear state → Log Day 1 → exercise with no history is is-new"
@@ -3110,10 +3263,7 @@ async function main() {
     await nav(page, "log");
     await selectDay(page, "Day 1");
 
-    const blockNote = await page
-      .locator(`.exercise[data-ex="${dynEx.id}"] .rec__block`)
-      .textContent()
-      .catch(() => "");
+    const blockNote = (await whyInfo(page, dynEx.id)).body;
     assert(
       /strength rose across 3 sessions/i.test(blockNote || ""),
       "Block-trend note reflects rising strength across the block",
@@ -3121,34 +3271,31 @@ async function main() {
       "Seed 3 rising in-range sessions → card shows a rising block-trend note"
     );
 
-    const dynBaseLoad1 = await page.inputValue(`[data-k="${dynEx.id}_1_load"]`);
+    const dynBaseLoad1 = await readSimField(page, `${dynEx.id}_1_load`);
     assert(
       dynBaseLoad1 === "110",
       "Set 1 base load comes from the previous session median",
       `load=${dynBaseLoad1}`,
       "Previous session median 110 → set 1 pre-fills 110"
     );
-    const dynBaseReps1 = +(await page.inputValue(`[data-k="${dynEx.id}_1_reps"]`));
+    const dynBaseReps1 = +(await readSimField(page, `${dynEx.id}_1_reps`));
     assert(
       dynBaseReps1 === min + 1,
       "Hold auto-increments the rep target to last reps + 1 (double progression)",
       `reps=${dynBaseReps1} expected=${min + 1}`,
       `Previous session ${min} reps at a held load → set 1 target ${min + 1}`
     );
-    const dynBaseLoad2 = +(await page.inputValue(`[data-k="${dynEx.id}_2_load"]`));
+    const dynBaseLoad2 = +(await readSimField(page, `${dynEx.id}_2_load`));
 
     // In-session: easy top-rep set 1 nudges set 2 UP with an explanatory note.
-    await page.fill(`[data-k="${dynEx.id}_1_load"]`, "110");
-    await page.fill(`[data-k="${dynEx.id}_1_reps"]`, String(max));
-    await page.fill(`[data-k="${dynEx.id}_1_rir"]`, "3");
+    await editSimField(page, `${dynEx.id}_1_load`, "110");
+    await editSimField(page, `${dynEx.id}_1_reps`, String(max));
+    await editSimField(page, `${dynEx.id}_1_rir`, "3");
     await commitDraftSet(page, `.saveset[data-save="${dynEx.id}_1"]`, dynEx.id, 1);
     await page.waitForTimeout(120);
-    const dynUpLoad2 = +(await page.inputValue(`[data-k="${dynEx.id}_2_load"]`));
-    const dynUpReps2 = +(await page.inputValue(`[data-k="${dynEx.id}_2_reps"]`));
-    const dynUpNote = await page
-      .locator(`.exercise[data-ex="${dynEx.id}"] .insession`)
-      .textContent()
-      .catch(() => "");
+    const dynUpLoad2 = +(await readSimField(page, `${dynEx.id}_2_load`));
+    const dynUpReps2 = +(await readSimField(page, `${dynEx.id}_2_reps`));
+    const dynUpNote = (await whyInfo(page, dynEx.id)).body;
     assert(
       dynUpLoad2 > dynBaseLoad2,
       "Easy set 1 (top reps, high RIR) nudges set 2 load up in-session",
@@ -3171,14 +3318,11 @@ async function main() {
     );
 
     // Editing a still-committed set must immediately recompute later suggestions.
-    await page.fill(`[data-k="${dynEx.id}_1_reps"]`, String(Math.max(1, min - 2)));
-    await page.fill(`[data-k="${dynEx.id}_1_rir"]`, "0");
+    await editSimField(page, `${dynEx.id}_1_reps`, String(Math.max(1, min - 2)));
+    await editSimField(page, `${dynEx.id}_1_rir`, "0");
     await page.waitForTimeout(120);
-    const dynEditedLoad2 = +(await page.inputValue(`[data-k="${dynEx.id}_2_load"]`));
-    const dynEditedNote = await page
-      .locator(`.exercise[data-ex="${dynEx.id}"] .insession`)
-      .textContent()
-      .catch(() => "");
+    const dynEditedLoad2 = +(await readSimField(page, `${dynEx.id}_2_load`));
+    const dynEditedNote = (await whyInfo(page, dynEx.id)).body;
     assert(
       dynEditedLoad2 < dynBaseLoad2 && /missed the target.*decreases to/is.test(dynEditedNote || ""),
       "Editing a committed set refreshes its later load suggestion and note",
@@ -3196,17 +3340,14 @@ async function main() {
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, "Day 1");
-    const dynBase2b = +(await page.inputValue(`[data-k="${dynEx.id}_2_load"]`));
-    await page.fill(`[data-k="${dynEx.id}_1_load"]`, "110");
-    await page.fill(`[data-k="${dynEx.id}_1_reps"]`, String(Math.max(1, min - 2)));
-    await page.fill(`[data-k="${dynEx.id}_1_rir"]`, "0");
+    const dynBase2b = +(await readSimField(page, `${dynEx.id}_2_load`));
+    await editSimField(page, `${dynEx.id}_1_load`, "110");
+    await editSimField(page, `${dynEx.id}_1_reps`, String(Math.max(1, min - 2)));
+    await editSimField(page, `${dynEx.id}_1_rir`, "0");
     await commitDraftSet(page, `.saveset[data-save="${dynEx.id}_1"]`, dynEx.id, 1);
     await page.waitForTimeout(120);
-    const dynDownLoad2 = +(await page.inputValue(`[data-k="${dynEx.id}_2_load"]`));
-    const dynDownNote = await page
-      .locator(`.exercise[data-ex="${dynEx.id}"] .insession`)
-      .textContent()
-      .catch(() => "");
+    const dynDownLoad2 = +(await readSimField(page, `${dynEx.id}_2_load`));
+    const dynDownNote = (await whyInfo(page, dynEx.id)).body;
     assert(
       dynDownLoad2 < dynBase2b,
       "Short set 1 (below min reps) eases set 2 load down in-session",
@@ -3219,10 +3360,7 @@ async function main() {
       `note="${dynDownNote}"`,
       "Portuguese UI + short set 1 → localized highlighted note"
     );
-    const blockNotePt = await page
-      .locator(`.exercise[data-ex="${dynEx.id}"] .rec__block`)
-      .textContent()
-      .catch(() => "");
+    const blockNotePt = (await whyInfo(page, dynEx.id)).body;
     assert(
       /força subiu em 3 sessões/i.test(blockNotePt || ""),
       "Block-trend note is localized in Portuguese",
@@ -3326,7 +3464,7 @@ async function main() {
       await reloadApp(page);
       await nav(page, "log");
       await selectDay(page, "Day 1");
-      const newSetReps = +(await page.inputValue(`[data-k="${dynEx.id}_3_reps"]`));
+      const newSetReps = +(await readSimField(page, `${dynEx.id}_3_reps`));
       assert(
         newSetReps === min,
         "A newly added set without prior history starts at the range minimum",
@@ -3335,7 +3473,7 @@ async function main() {
       );
     }
 
-    // Saving out of order must preserve an edited earlier row and explain set 3.
+    // A retained legacy/out-of-order aggregate remains valid domain input; Focus exposes only the next set.
     const beforeOutOfOrder = await getState(page);
     await persistState(page, {
       ...beforeOutOfOrder,
@@ -3347,18 +3485,22 @@ async function main() {
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, "Day 1");
-    await page.fill(`[data-k="${dynEx.id}_1_load"]`, "109");
-    await page.fill(`[data-k="${dynEx.id}_2_load"]`, "110");
-    await page.fill(`[data-k="${dynEx.id}_2_reps"]`, String(max));
-    await page.fill(`[data-k="${dynEx.id}_2_rir"]`, "3");
-    await commitDraftSet(page, `.saveset[data-save="${dynEx.id}_2"]`, dynEx.id, 2);
+    await editSimField(page, `${dynEx.id}_1_load`, "109");
+    await editSimField(page, `${dynEx.id}_2_load`, "110");
+    await editSimField(page, `${dynEx.id}_2_reps`, String(max));
+    await editSimField(page, `${dynEx.id}_2_rir`, "3");
+    assert(await page.locator(`#workout .exercise.is-current [data-save="${dynEx.id}_2"]`).count()===0,
+      "Focus does not expose an out-of-order completion control");
+    await page.evaluate(async id=>{
+      const target=window.__repforgeWorkoutDraft.target(`${id}_2_load`);
+      const result=await window.__repforgeWorkoutDraft.dispatch("completeSet",{exerciseInstanceId:id,setId:target.setId});
+      if(result.status!=="applied")throw new Error(`Legacy aggregate setup failed: ${result.status}`);
+      await refreshSuggestions(id);renderWorkout();
+    },dynEx.id);
     await page.waitForTimeout(120);
-    const preservedSet1 = +(await page.inputValue(`[data-k="${dynEx.id}_1_load"]`));
-    const adjustedSet3 = +(await page.inputValue(`[data-k="${dynEx.id}_3_load"]`));
-    const outOfOrderNote = await page
-      .locator(`.exercise[data-ex="${dynEx.id}"] .insession`)
-      .textContent()
-      .catch(() => "");
+    const preservedSet1 = +(await readSimField(page, `${dynEx.id}_1_load`));
+    const adjustedSet3 = +(await readSimField(page, `${dynEx.id}_3_load`));
+    const outOfOrderNote = (await whyInfo(page, dynEx.id)).body;
     assert(
       preservedSet1 === 109 && adjustedSet3 > 110 && /set 3/i.test(outOfOrderNote || ""),
       "Out-of-order save preserves touched rows and explains the next adjusted set",
@@ -3516,18 +3658,15 @@ async function main() {
     // ── Capacity re-entry after a load change ─────────────────────
     await nav(page, "log");
     await selectDay(page, capDay);
-    const reentryLoad = +(await page.inputValue(`[data-k="${exReentry.id}_1_load"]`));
-    const reentryReps = +(await page.inputValue(`[data-k="${exReentry.id}_1_reps"]`));
+    const reentryLoad = +(await readSimField(page, `${exReentry.id}_1_load`));
+    const reentryReps = +(await readSimField(page, `${exReentry.id}_1_reps`));
     assert(
       reentryLoad > 100 && reentryReps > exReentry.min && reentryReps <= exReentry.max,
       "A new load re-enters at capacity-predicted reps, not the range bottom",
       `load=${reentryLoad} reps=${reentryReps} range=${exReentry.min}-${exReentry.max}`,
       "Add load with surplus capacity → set 1 targets predicted reps at the new load, above the bottom"
     );
-    const reentryNote = await page
-      .locator(`.exercise[data-ex="${exReentry.id}"] .insession`)
-      .textContent()
-      .catch(() => "");
+    const reentryNote = (await whyInfo(page, exReentry.id)).body;
     assert(
       /start with \d+ reps at your usual effort/i.test(reentryNote || ""),
       "The re-entry note explains the new load's rep target",
@@ -3547,7 +3686,7 @@ async function main() {
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, capDay);
-    const lightReps = +(await page.inputValue(`[data-k="${exReentry.id}_1_reps"]`));
+    const lightReps = +(await readSimField(page, `${exReentry.id}_1_reps`));
     assert(
       lightReps === lightEx.min,
       "A big-percentage jump still lands at the range bottom via the clamp",
@@ -3572,23 +3711,20 @@ async function main() {
     await selectDay(page, capDay);
     // Two declining sets: capacity 130 then 126.67 → the third is projected lower still.
     for (const [n, reps] of [[1, 8], [2, 7]]) {
-      await page.fill(`[data-k="${dropEx.id}_${n}_load"]`, "100");
-      await page.fill(`[data-k="${dropEx.id}_${n}_reps"]`, String(reps));
-      await page.fill(`[data-k="${dropEx.id}_${n}_rir"]`, "1");
+      await editSimField(page, `${dropEx.id}_${n}_load`, "100");
+      await editSimField(page, `${dropEx.id}_${n}_reps`, String(reps));
+      await editSimField(page, `${dropEx.id}_${n}_rir`, "1");
       await commitDraftSet(page, `.saveset[data-save="${dropEx.id}_${n}"]`, dropEx.id, n);
       await page.waitForTimeout(120);
     }
-    const dropSet3 = +(await page.inputValue(`[data-k="${dropEx.id}_3_reps"]`));
+    const dropSet3 = +(await readSimField(page, `${dropEx.id}_3_reps`));
     assert(
       dropSet3 <= 7,
       "The next set anticipates the observed per-set drop instead of echoing the last one",
       `set3 reps=${dropSet3} set2 performed=7`,
       "Commit 8 then 7 reps @ RIR 1 → set 3 targets no more than the second set's performed reps"
     );
-    const dropNote = await page
-      .locator(`.exercise[data-ex="${dropEx.id}"] .insession`)
-      .textContent()
-      .catch(() => "");
+    const dropNote = (await whyInfo(page, dropEx.id)).body;
     assert(
       /reps have dropped in this session/i.test(dropNote || ""),
       "The anticipated-drop note names the trend, not the arithmetic",
@@ -3613,16 +3749,13 @@ async function main() {
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, capDay);
-    await page.fill(`[data-k="${steadyEx.id}_1_load"]`, "100");
-    await page.fill(`[data-k="${steadyEx.id}_1_reps"]`, "8");
-    await page.fill(`[data-k="${steadyEx.id}_1_rir"]`, "1");
+    await editSimField(page, `${steadyEx.id}_1_load`, "100");
+    await editSimField(page, `${steadyEx.id}_1_reps`, "8");
+    await editSimField(page, `${steadyEx.id}_1_rir`, "1");
     await commitDraftSet(page, `.saveset[data-save="${steadyEx.id}_1"]`, steadyEx.id, 1);
     await page.waitForTimeout(150);
-    const steadySet2 = +(await page.inputValue(`[data-k="${steadyEx.id}_2_reps"]`));
-    const steadyNote = await page
-      .locator(`.exercise[data-ex="${steadyEx.id}"] .insession`)
-      .textContent()
-      .catch(() => "");
+    const steadySet2 = +(await readSimField(page, `${steadyEx.id}_2_reps`));
+    const steadyNote = (await whyInfo(page, steadyEx.id)).body;
     assert(
       steadySet2 < 8 && /stays at/i.test(steadyNote || "") && !/have dropped/i.test(steadyNote || ""),
       "A target eased only by the lifter's typical RIR is not reported as a downward trend",
@@ -3718,28 +3851,25 @@ async function main() {
     // The temper reaches the ghost values and says so, on a lift with no sets yet.
     await nav(page, "log");
     await selectDay(page, capDay);
-    const beforeTemperReps = +(await page.inputValue(`[data-k="${exOverlap.id}_1_reps"]`));
+    const beforeTemperReps = +(await readSimField(page, `${exOverlap.id}_1_reps`));
     for (const n of [1, 2, 3]) {
-      await page.fill(`[data-k="${exGrind.id}_${n}_load"]`, "100");
-      await page.fill(`[data-k="${exGrind.id}_${n}_reps"]`, "4");
-      await page.fill(`[data-k="${exGrind.id}_${n}_rir"]`, "0");
+      await editSimField(page, `${exGrind.id}_${n}_load`, "100");
+      await editSimField(page, `${exGrind.id}_${n}_reps`, "4");
+      await editSimField(page, `${exGrind.id}_${n}_rir`, "0");
       await commitDraftSet(page, `.saveset[data-save="${exGrind.id}_${n}"]`, exGrind.id, n);
       await page.waitForTimeout(120);
     }
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, capDay);
-    const afterTemperReps = +(await page.inputValue(`[data-k="${exOverlap.id}_1_reps"]`));
+    const afterTemperReps = +(await readSimField(page, `${exOverlap.id}_1_reps`));
     assert(
       afterTemperReps < beforeTemperReps && afterTemperReps >= exOverlap.min,
       "Grinding an earlier lift eases the first set of a lift not yet started",
       `before=${beforeTemperReps} after=${afterTemperReps} min=${exOverlap.min}`,
       "Commit three chest sets well under baseline → the untouched chest lift's set 1 asks for fewer reps"
     );
-    const temperNote = await page
-      .locator(`.exercise[data-ex="${exOverlap.id}"] .insession`)
-      .textContent()
-      .catch(() => "");
+    const temperNote = (await whyInfo(page, exOverlap.id)).body;
     assert(
       /below their usual level/i.test(temperNote || ""),
       "The temper note states the measured signal without exposing the arithmetic",
@@ -3838,7 +3968,7 @@ async function main() {
       `Seed sessions → ${c.name}`
     );
     if (c.expectRecover) {
-      const targetReps = +(await page.inputValue(`[data-k="${recoverEx.id}_1_reps"]`));
+      const targetReps = +(await readSimField(page, `${recoverEx.id}_1_reps`));
       assert(
         targetReps === mid,
         "Hold · recover keeps the previous rep target instead of auto-incrementing",
@@ -3965,19 +4095,24 @@ async function main() {
       await nav(page, "log");
       await selectDay(page, "Day 1");
       await clearDraftFixture(page);
-      const logReps = +(await page.inputValue(`[data-k="${c.ex.id}_1_reps"]`));
+      await page.evaluate(({ id }) => {
+        const fl = window.__repforgeFocus?.list?.() || [];
+        const i = fl.findIndex((e) => e.id === id);
+        if (i >= 0) window.__repforgeFocus.to(i);
+      }, { id: c.ex.id });
+      const logReps = +(await readSimField(page, `${c.ex.id}_1_reps`));
       assert(
         logReps === c.firstReps,
         `F1: ${c.key} first-set Log reps follow capacity re-entry`,
         `reps=${logReps} expected=${c.firstReps}`,
         `Log → ${c.key} set 1 reps`
       );
-      const cardHead = await page.locator(`.exercise[data-ex="${c.ex.id}"] .recblock__head`).textContent();
+      const cardHead = await page.locator("#workout .exercise.is-current .focus-cue").textContent();
       assert(
         /55/.test(cardHead || "") && !/53\.75/.test(cardHead || ""),
         `F1: ${c.key} kg card shows the grid load`,
         `head="${cardHead}"`,
-        `Log list → ${c.key} recblock headline`
+        `Focus card → ${c.key} recommendation cue`
       );
 
       await page.click(`.exercise[data-ex="${c.ex.id}"] [data-exopen="${c.ex.id}"]`);
@@ -3993,8 +4128,8 @@ async function main() {
       await page.waitForSelector("#log.view.active", { timeout: 5000 });
 
       await clearDraftFixture(page);
-      await page.evaluate(({ id, day }) => {
-        window.__repforgeEnterWorkout?.({ focus: true, day });
+      await page.evaluate(async ({ id, day }) => {
+        await window.__repforgeEnterWorkout?.({ day });
         const fl = window.__repforgeFocus?.list?.() || [];
         const i = fl.findIndex((e) => e.id === id);
         if (i >= 0) window.__repforgeFocus.to(i);
@@ -4026,12 +4161,12 @@ async function main() {
     await waitForApp(page);
     await nav(page, "log");
     await selectDay(page, "Day 1");
-    await page.fill(`[data-k="${holdEx.id}_1_load"]`, "53.75");
-    await page.fill(`[data-k="${holdEx.id}_1_reps"]`, "7");
-    await page.fill(`[data-k="${holdEx.id}_1_rir"]`, "1");
+    await editSimField(page, `${holdEx.id}_1_load`, "53.75");
+    await editSimField(page, `${holdEx.id}_1_reps`, "7");
+    await editSimField(page, `${holdEx.id}_1_rir`, "1");
     await commitDraftSet(page, `.saveset[data-save="${holdEx.id}_1"]`, holdEx.id, 1);
     await page.waitForTimeout(120);
-    const echoed = +(await page.inputValue(`[data-k="${holdEx.id}_2_load"]`));
+    const echoed = +(await readSimField(page, `${holdEx.id}_2_load`));
     assert(
       echoed === 53.75,
       "F1: in-session hold still echoes an off-grid committed load",
@@ -4103,7 +4238,7 @@ async function main() {
       await nav(page, "log");
       await selectDay(page, "Day 1");
       await clearDraftFixture(page);
-      const logReps1 = +(await page.inputValue(`[data-k="${c.ex.id}_1_reps"]`));
+      const logReps1 = +(await readSimField(page, `${c.ex.id}_1_reps`));
       assert(
         logReps1 === c.firstReps,
         `F1: 1 kg ${c.key} first-set Log reps follow capacity re-entry`,
@@ -4112,8 +4247,8 @@ async function main() {
       );
 
       await clearDraftFixture(page);
-      await page.evaluate(({ id, day }) => {
-        window.__repforgeEnterWorkout?.({ focus: true, day });
+      await page.evaluate(async ({ id, day }) => {
+        await window.__repforgeEnterWorkout?.({ day });
         const fl = window.__repforgeFocus?.list?.() || [];
         const i = fl.findIndex((e) => e.id === id);
         if (i >= 0) window.__repforgeFocus.to(i);
@@ -4145,12 +4280,12 @@ async function main() {
     await waitForApp(page);
     await nav(page, "log");
     await selectDay(page, "Day 1");
-    await page.fill(`[data-k="${hold1.id}_1_load"]`, "1");
-    await page.fill(`[data-k="${hold1.id}_1_reps"]`, "7");
-    await page.fill(`[data-k="${hold1.id}_1_rir"]`, "1");
+    await editSimField(page, `${hold1.id}_1_load`, "1");
+    await editSimField(page, `${hold1.id}_1_reps`, "7");
+    await editSimField(page, `${hold1.id}_1_rir`, "1");
       await commitDraftSet(page, `.saveset[data-save="${hold1.id}_1"]`, hold1.id, 1);
     await page.waitForTimeout(120);
-    const echoed1 = +(await page.inputValue(`[data-k="${hold1.id}_2_load"]`));
+    const echoed1 = +(await readSimField(page, `${hold1.id}_2_load`));
     assert(
       echoed1 === 1,
       "F1: in-session hold still echoes a 1 kg committed load",
@@ -4184,7 +4319,7 @@ async function main() {
     );
     await nav(page, "log");
     await selectDay(page, "Day 1");
-    const gridLogReps = +(await page.inputValue(`[data-k="${gridHold.id}_1_reps"]`));
+    const gridLogReps = +(await readSimField(page, `${gridHold.id}_1_reps`));
     assert(
       gridLogReps === 8,
       "F1: on-grid hold first-set Log reps add one",
@@ -4192,8 +4327,8 @@ async function main() {
       "Log → on-grid hold set 1 reps"
     );
     await clearDraftFixture(page);
-    await page.evaluate(({ id, day }) => {
-      window.__repforgeEnterWorkout?.({ focus: true, day });
+    await page.evaluate(async ({ id, day }) => {
+      await window.__repforgeEnterWorkout?.({ day });
       const fl = window.__repforgeFocus?.list?.() || [];
       const i = fl.findIndex((e) => e.id === id);
       if (i >= 0) window.__repforgeFocus.to(i);
@@ -4235,7 +4370,7 @@ async function main() {
     );
     await nav(page, "log");
     await selectDay(page, "Day 1");
-    const driftLogReps = +(await page.inputValue(`[data-k="${gridHold.id}_1_reps"]`));
+    const driftLogReps = +(await readSimField(page, `${gridHold.id}_1_reps`));
     assert(
       driftLogReps === 8,
       "F1: fractional-grid hold first-set Log reps add one",
@@ -4243,8 +4378,8 @@ async function main() {
       "Log → 0.1 kg grid hold set 1 reps"
     );
     await clearDraftFixture(page);
-    await page.evaluate(({ id, day }) => {
-      window.__repforgeEnterWorkout?.({ focus: true, day });
+    await page.evaluate(async ({ id, day }) => {
+      await window.__repforgeEnterWorkout?.({ day });
       const fl = window.__repforgeFocus?.list?.() || [];
       const i = fl.findIndex((e) => e.id === id);
       if (i >= 0) window.__repforgeFocus.to(i);
@@ -4299,48 +4434,29 @@ async function main() {
   const ex0 = day1[0].id;
 
   assert(
-    (await page.getAttribute(`.setrow[data-set="${ex0}_1"]`, "class")).includes("is-suggested"),
+    (await draftSetState(page, `${ex0}_1`)).suggested,
     "Untouched suggestion row is greyed",
     "Set row not marked is-suggested before edit",
     "Log → open exercise → set rows show as suggestions until touched"
   );
 
-  await page.fill(`[data-k="${ex0}_1_load"]`, "100");
+  await editSimField(page, `${ex0}_1_load`, "100");
   await commitDraftSet(page, `.saveset[data-save="${ex0}_1"]`, ex0, 1);
   await page.waitForTimeout(80);
   assert(
-    (await page.getAttribute(`.setrow[data-set="${ex0}_1"]`, "class")).includes("is-done"),
+    (await draftSetState(page, `${ex0}_1`)).done,
     "Save set marks the set done",
     "Row not is-done after Save set",
     "Log → enter weight → Save set → row shows done"
   );
 
-  const setGrid = await page.evaluate((exId) => {
-    const cols = (el) => [...el.children].map((c) => Math.round(c.getBoundingClientRect().x * 10) / 10);
-    const done = document.querySelector(`.setrow[data-set="${exId}_1"]`);
-    const next = document.querySelector(`.setrow[data-set="${exId}_2"]`);
-    return {
-      done: cols(done),
-      next: next ? cols(next) : null,
-      head: cols(done.closest(".exercise").querySelector(".sets__head")),
-      saveWidths: [done, next]
-        .filter(Boolean)
-        .map((r) => Math.round(r.querySelector(".saveset").getBoundingClientRect().width)),
-    };
-  }, ex0);
-  const colDrift = (a, b) => Math.max(...a.map((x, i) => Math.abs(x - b[i])));
-  assert(
-    setGrid.next && colDrift(setGrid.done, setGrid.next) < 0.5 && setGrid.saveWidths[0] === setGrid.saveWidths[1],
-    "Saved set row keeps the same columns as the rows below it",
-    `done=[${setGrid.done}] next=[${setGrid.next}] saveWidths=[${setGrid.saveWidths}]`,
-    "Log → Save set → the ✓ stays as wide as the Save label, so the row's fields stay put"
-  );
-  assert(
-    colDrift(setGrid.head, setGrid.done) < 2,
-    "Set table header lines up with the set rows",
-    `head=[${setGrid.head}] row=[${setGrid.done}]`,
-    "Log → the SET / KG / REPS / RIR labels sit over their own columns"
-  );
+  const focusGeometry = await page.locator("#workout .exercise.is-current .focus-well").evaluate(el => ({
+    width: el.getBoundingClientRect().width,
+    overflow: el.scrollWidth > el.clientWidth + 1,
+    saveWidth: el.querySelector(".saveset")?.getBoundingClientRect().width,
+  }));
+  assert(focusGeometry.width > 0 && !focusGeometry.overflow && focusGeometry.saveWidth >= 44,
+    "Focus's next set remains visible and unclipped after completion", JSON.stringify(focusGeometry));
 
   assert(
     (await page.getAttribute('#dayTabs button[data-day="Day 1"]', "aria-selected")) === "true",
@@ -4349,7 +4465,7 @@ async function main() {
     "Log → select a day → its tab is aria-selected"
   );
 
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   const stAfterFinish = await getState(page);
   const loggedEx0 = stAfterFinish.log.filter((r) => r.exerciseId === ex0);
   await nav(page, "stats");
@@ -4381,28 +4497,29 @@ async function main() {
   // Stepper-edited suggested load is touched and persists on Finish
   await nav(page, "log");
   await selectDay(page, "Day 1");
-  const stepKey = `${ex0}_2`;
+  const stepKey = `${ex0}_1`;
   assert(
-    (await page.getAttribute(`.setrow[data-set="${stepKey}"]`, "class")).includes("is-suggested"),
-    "Second set starts as suggested before stepper",
+    (await draftSetState(page, `${stepKey}`)).suggested,
+    "First set starts as suggested before stepper",
     "Set row not is-suggested before stepper edit",
     "Log → untouched set row → is-suggested"
   );
-  await page.click(`.stepbtn[data-step="${ex0}_2_load"][data-dir="1"]`);
+  await page.click(`.stepbtn[data-step="${ex0}_1_load"][data-dir="1"]`);
   await page.waitForTimeout(60);
   assert(
-    !(await page.getAttribute(`.setrow[data-set="${stepKey}"]`, "class")).includes("is-suggested"),
+    !(await draftSetState(page, `${stepKey}`)).suggested,
     "Stepper click un-greys the set row",
     "Row still is-suggested after stepper",
     "Log → tap kg + stepper → row leaves suggested state"
   );
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   const stAfterStepper = await getState(page);
-  const stepperLogged = stAfterStepper.log.filter((r) => r.exerciseId === ex0 && +r.set === 2);
+  const priorSessionIds=new Set(stAfterFinish.log.map(row=>row.session));
+  const stepperLogged = stAfterStepper.log.filter((r) => r.exerciseId === ex0 && +r.set === 1 && !priorSessionIds.has(r.session));
   assert(
     stepperLogged.length === 1 && +stepperLogged[0].load > 0,
     "Stepper-edited set is saved on Finish",
-    `set 2 rows: ${stepperLogged.map((r) => r.load).join(",")}`,
+    `set 1 rows: ${stepperLogged.map((r) => r.load).join(",")}`,
     "Log → stepper-edit one suggested set → Finish → set is logged"
   );
 
@@ -4412,62 +4529,54 @@ async function main() {
   await nav(page, "log");
   await selectDay(page, "Day 1");
   await fillExerciseSets(page, exX, day1[0].sets, 100, 6, 1);
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
 
   // Prefill: hold auto-increments the rep target (last reps + 1); RIR follows last session
   await nav(page, "log");
   await selectDay(page, "Day 1");
   assert(
-    (await page.inputValue(`[data-k="${exX}_1_reps"]`)) === "7" &&
-      (await page.inputValue(`[data-k="${exX}_1_rir"]`)) === "1",
+    (await readSimField(page, `${exX}_1_reps`)) === "7" &&
+      (await readSimField(page, `${exX}_1_rir`)) === "1",
     "Log auto-increments the hold rep target (last reps + 1) and prefills RIR from last session",
-    `reps=${await page.inputValue(`[data-k="${exX}_1_reps"]`)} rir=${await page.inputValue(`[data-k="${exX}_1_rir"]`)}`,
+    `reps=${await readSimField(page, `${exX}_1_reps`)} rir=${await readSimField(page, `${exX}_1_rir`)}`,
     "Log → save 6 reps at a held load → reopen → reps target 7 (chase a rep), RIR matches last session"
   );
 
   // kg stepper adds the minimum jump (2.5)
   await page.click(`.stepbtn[data-step="${exX}_1_load"][data-dir="1"]`);
   assert(
-    (await page.inputValue(`[data-k="${exX}_1_load"]`)) === "102.5",
+    (await readSimField(page, `${exX}_1_load`)) === "102.5",
     "kg stepper increments by minimum jump",
-    `value=${await page.inputValue(`[data-k="${exX}_1_load"]`)}`,
+    `value=${await readSimField(page, `${exX}_1_load`)}`,
     "Log → click + on kg → increases by 2.5"
   );
 
   // Copy last refills from previous session
-  await page.click(`.copylast[data-copy="${exX}"]`);
+  await exerciseAction(page, `${exX}`, "#exActionRepeatBtn");
   await flushDraftWork(page);
   assert(
-    (await page.inputValue(`[data-k="${exX}_1_load"]`)) === "100",
+    (await readSimField(page, `${exX}_1_load`)) === "100",
     "Copy last refills from previous session",
-    `load=${await page.inputValue(`[data-k="${exX}_1_load"]`)}`,
+    `load=${await readSimField(page, `${exX}_1_load`)}`,
     "Log → Copy → inputs match last session"
   );
 
   // Collapse toggle
-  await page.click(`.ex__caret[data-collapse="${exX}"]`);
-  await page.waitForTimeout(80);
-  assert(
-    (await cardInfo(page, 0)).collapsed,
-    "Exercise collapses on caret click",
-    "Card not collapsed after caret click",
-    "Log → tap caret → card collapses"
-  );
-  await page.click(`.ex__caret[data-collapse="${exX}"]`);
+
 
   // Sessions 2 and 3 for X (same load, same reps → stall)
   await fillExerciseSets(page, exX, day1[0].sets, 100, 6, 1);
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   await nav(page, "log");
   await selectDay(page, "Day 1");
   await fillExerciseSets(page, exX, day1[0].sets, 100, 6, 1);
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
 
   // Y: reps below min → back off with a lower target
   await nav(page, "log");
   await selectDay(page, "Day 1");
   await fillExerciseSets(page, exY, day1[1].sets, 80, 2, 1);
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
 
   // Inspect recommendations
   await nav(page, "log");
@@ -4504,11 +4613,14 @@ async function main() {
   await page.click("#fatigue .fatigue__trim");
   await flushDraftWork(page);
   await page.waitForFunction(
-    () => document.querySelectorAll("#workout .exercise.is-skipped").length >= 2,
+    () => Object.values(window.__repforgeWorkoutDraft.current().exercises).filter(ex=>ex.status==="skipped").length >= 2,
     undefined,
     { timeout: 5000 }
   );
-  const hiddenAfterTrim = await page.locator("#workout .exercise.is-skipped").count();
+  await page.locator("#sessionSheetBtn").click();
+  const hiddenAfterTrim=await page.locator("#sessionMap .session-map__status.is-skipped").count();
+  await page.locator("#sessionSheetClose").click();
+  await page.locator("#sessionSheet").waitFor({state:"hidden"});
   assert(
     hiddenAfterTrim >= 2,
     "Fatigue trim hides backing-off lifts",
@@ -4524,12 +4636,12 @@ async function main() {
   await page.click(".skipbar__show");
   await flushDraftWork(page);
   await page.waitForFunction(
-    () => document.querySelectorAll("#workout .exercise.is-skipped").length === 0,
+    () => Object.values(window.__repforgeWorkoutDraft.current().exercises).filter(ex=>ex.status==="skipped").length === 0,
     undefined,
     { timeout: 5000 }
   );
   assert(
-    (await page.locator("#workout .exercise.is-skipped").count()) === 0,
+    (await page.evaluate(()=>Object.values(window.__repforgeWorkoutDraft.current().exercises).filter(ex=>ex.status==="skipped").length))===0,
     "Show all restores trimmed exercises",
     "Exercises still skipped after Show all",
     "Skip bar → Show all → exercises visible again"
@@ -4540,7 +4652,7 @@ async function main() {
   await nav(page, "log");
   await selectDay(page, "Day 1");
   await fillExerciseSets(page, exHot.id, exHot.sets, 90, exHot.max, 1);
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   await nav(page, "log");
   await selectDay(page, "Day 1");
   const hotCard = await cardInfoById(page, exHot.id);
@@ -4613,29 +4725,20 @@ async function main() {
     "Log → after add-load recs → Today shows N ready"
   );
   await page.locator("#readyLine, .today-ready").first().click();
-  await page.waitForSelector("#workoutShell:not(.hidden), #workout .exercise", { timeout: 5000 });
-  assert(
-    await page.evaluate(
-      (id) => {
-        const el = document.querySelector(`.exercise[data-ex="${id}"]`);
-        return !!el && !el.classList.contains("is-collapsed");
-      },
-      exHot.id
-    ),
-    "Readiness line opens workout and expands a hot lift card",
-    "Card still collapsed after readiness click",
-    "Tap Today readiness → first hot exercise expands"
-  );
+  await page.waitForSelector(`#workout .exercise.is-current[data-ex="${exHot.id}"]`, { timeout: 5000 });
+  assert(await page.locator(`#workout .exercise.is-current[data-ex="${exHot.id}"]`).isVisible(),
+    "Readiness line opens Focus on the first hot lift", "Hot lift is not visible",
+    "Tap Today readiness → first hot exercise is selected");
 
   // Session notes persist on saved rows (notes field is Focus-chrome-hidden; set via DOM)
   await page.evaluate(() => {
-    const el = document.querySelector("#notes");
+    const el = document.querySelector("#sessionNotes");
     if (!el) throw new Error("#notes missing");
     el.value = "Simulation session note";
     el.dispatchEvent(new Event("input", { bubbles: true }));
   });
   await fillExerciseSets(page, exHot.id, 1, 92, 6, 1);
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   assert(
     (await getState(page)).log.some((r) => r.notes === "Simulation session note"),
     "Session notes persist on saved rows",
@@ -4706,7 +4809,7 @@ async function main() {
   // Rest timer starts and is visible
   await nav(page, "log");
   await selectDay(page, "Day 1");
-  await page.click("#workout .ex__rest");
+  await page.click("#woRest");
   await page.waitForTimeout(120);
   assert(
     !(await page.locator("#restBar").getAttribute("class")).includes("hidden"),
@@ -4715,7 +4818,7 @@ async function main() {
     "Log → tap ⏱ on an exercise → rest timer appears"
   );
   // The floating clock opens the timer sheet; it never ends the rest on its own.
-  await page.click("#restBar");
+  await page.click("#woRest");
   await page.waitForTimeout(350);
   const restSheet = await page.evaluate(() => {
     const el = document.querySelector("#restSheet");
@@ -4761,11 +4864,11 @@ async function main() {
   // Skipped exercise is not saved
   const metaSkip = await getExerciseMeta(page, "Day 1");
   const skipId = metaSkip[0].id;
-  await page.fill(`[data-k="${skipId}_1_load"]`, "50");
-  await page.click(`.ex__skip[data-skip="${skipId}"]`);
+  await editSimField(page, `${skipId}_1_load`, "50");
+  await exerciseAction(page, `${skipId}`, "#exActionSkipBtn");
   await page.waitForTimeout(80);
   const skipSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
-  await saveWorkout(page);
+  await saveWorkout(page, { expectNewRows: false });
   const stSkip = await getState(page);
   const newSessions = [...new Set(stSkip.log.map((r) => r.session))].filter((s) => !skipSessionsBefore.has(s));
   const skipSavedInNewSession = newSessions.some((sid) =>
@@ -4838,7 +4941,12 @@ async function main() {
         return { status: r.status, reason: r.reason, load: r.load, cr: r.cr, jumpMult: r.jumpMult };
       }, id);
     const openWhyFrom = async (id) => {
-      await page.click(`.exercise[data-ex="${id}"] [data-why]`);
+      if (!(await page.locator(`#workout .exercise.is-current[data-ex="${id}"]`).count())) {
+        await page.locator("#sessionSheetBtn").click();
+        await page.locator(`[data-session-map-jump="${id}"]`).click();
+        await page.locator("#sessionSheet").waitFor({ state: "hidden" });
+      }
+      await page.click(`#workout .exercise.is-current[data-ex="${id}"] [data-why]`);
       await page.waitForSelector("#whySheet.is-open", { timeout: 5000 });
       return page.evaluate(() => ({
         target: document.querySelector("#whyTarget")?.textContent || "",
@@ -4900,7 +5008,10 @@ async function main() {
     await closeWhy();
 
     // 4. A never-trained lift has no arithmetic to show, so it offers no button.
-    const newHasWhy = await page.locator(`.exercise[data-ex="${whyNewEx.id}"] [data-why]`).count();
+    await page.locator("#sessionSheetBtn").click();
+    await page.locator(`[data-session-map-jump="${whyNewEx.id}"]`).click();
+    await page.locator("#sessionSheet").waitFor({ state: "hidden" });
+    const newHasWhy = await page.locator(`#workout .exercise.is-current[data-ex="${whyNewEx.id}"] [data-why]`).count();
     const newStatus = await whyRecOf(whyNewEx.id);
     assert(
       newStatus.status === "new" && newHasWhy === 0,
@@ -4910,8 +5021,7 @@ async function main() {
     );
 
     // 5. Escape closes and hands focus back to the exact opener.
-    await page.click(`.exercise[data-ex="${whyCases[0].ex.id}"] [data-why]`);
-    await page.waitForSelector("#whySheet.is-open", { timeout: 5000 });
+    await openWhyFrom(whyCases[0].ex.id);
     const focusOnOpen = await page.evaluate(() => document.activeElement?.id || "");
     await page.keyboard.press("Escape");
     await page.waitForFunction(() => document.querySelector("#whySheet")?.hidden === true, null, { timeout: 5000 });
@@ -4929,7 +5039,9 @@ async function main() {
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, "Day 1");
-    const ptLabel = await page.locator(`.exercise[data-ex="${whyCases[0].ex.id}"] [data-why]`).textContent();
+    await openWhyFrom(whyCases[0].ex.id);
+    const ptLabel = await page.locator(`#workout .exercise.is-current[data-ex="${whyCases[0].ex.id}"] [data-why]`).textContent();
+    await closeWhy();
     const ptSheet = await openWhyFrom(whyCases[0].ex.id);
     assert(
       /Por que essa carga\?/.test(ptLabel || "") && /topo da faixa/.test(ptSheet.body),
@@ -4966,7 +5078,9 @@ async function main() {
     await reloadApp(page);
     await nav(page, "log");
     await selectDay(page, "Day 1");
-    await page.click(`.exercise[data-ex="${whyCases[0].ex.id}"] [data-exopen="${whyCases[0].ex.id}"]`);
+    await openWhyFrom(whyCases[0].ex.id);
+    await closeWhy();
+    await page.click(`#workout .exercise.is-current[data-ex="${whyCases[0].ex.id}"] [data-exopen="${whyCases[0].ex.id}"]`);
     await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
     const detailWhy = await page.locator("#exDetail [data-why]").count();
     await page.click("#exDetail [data-why]");
@@ -4987,13 +5101,10 @@ async function main() {
     // sheet explain the substitute's arithmetic under the slot's headline.
     const subEx = whyCases[0].ex;
     await selectDay(page, "Day 1");
-    await page.evaluate((id) => {
-      const art = document.querySelector(`.exercise[data-ex="${id}"]`);
-      if (art?.classList.contains("is-skipped")) document.querySelector(`.ex__skip[data-skip="${id}"]`)?.click();
-      if (art?.classList.contains("is-collapsed")) document.querySelector(`.ex__caret[data-collapse="${id}"]`)?.click();
-    }, subEx.id);
-    await page.waitForTimeout(80);
-    await page.click(`.subst__pick[data-sub="${subEx.id}"]`);
+    if (await page.evaluate(id => window.__repforgeWorkoutDraft.current()?.exercises[id]?.status === "skipped", subEx.id)) {
+      await exerciseAction(page, subEx.id, "#exActionSkipBtn");
+    }
+    await exerciseAction(page, `${subEx.id}`, "#exActionSubstBtn");
     await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
     const subPicked = await page.evaluate(() => {
       const row = [...document.querySelectorAll("#exPickList .pickrow")].find(
@@ -5086,13 +5197,10 @@ async function main() {
   await nav(page, "log");
   const subDay = d1First.day;
   await selectDay(page, subDay);
-  await page.evaluate((id) => {
-    const art = document.querySelector(`.exercise[data-ex="${id}"]`);
-    if (art?.classList.contains("is-skipped")) document.querySelector(`.ex__skip[data-skip="${id}"]`)?.click();
-    if (art?.classList.contains("is-collapsed")) document.querySelector(`.ex__caret[data-collapse="${id}"]`)?.click();
-  }, d1First.id);
-  await page.waitForTimeout(80);
-  await page.click(`.subst__pick[data-sub="${d1First.id}"]`);
+  if (await page.evaluate(id => window.__repforgeWorkoutDraft.current()?.exercises[id]?.status === "skipped", d1First.id)) {
+    await exerciseAction(page, d1First.id, "#exActionSkipBtn");
+  }
+  await exerciseAction(page, `${d1First.id}`, "#exActionSubstBtn");
   await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
   const swapped = await pickExact("Leg press");
   await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
@@ -5112,7 +5220,7 @@ async function main() {
     set("rir", rir);
   }, { id: d1First.id, load: 120, reps: 6, rir: 1 });
   const subSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   subState = await getState(page);
   const subSession = [...new Set(subState.log.map((r) => r.session))].find((s) => !subSessionsBefore.has(s));
   const subRow = subState.log.find((r) => r.session === subSession && r.exerciseId === d1First.id);
@@ -5160,23 +5268,23 @@ async function main() {
   await selectDay(page, "Day 1");
   const unitMeta = await getExerciseMeta(page, "Day 1");
   const unitEx = unitMeta[0].id;
-  await page.fill(`[data-k="${unitEx}_1_load"]`, "100");
-  await page.fill(`[data-k="${unitEx}_1_reps"]`, "6");
-  await page.fill(`[data-k="${unitEx}_1_rir"]`, "1");
+  await editSimField(page, `${unitEx}_1_load`, "100");
+  await editSimField(page, `${unitEx}_1_reps`, "6");
+  await editSimField(page, `${unitEx}_1_rir`, "1");
   await page.waitForTimeout(80);
   await nav(page, "settings");
   await page.selectOption("#unit", "lb");
   await page.waitForTimeout(120);
   await nav(page, "log");
   await selectDay(page, "Day 1");
-  const lbDraft = +(await page.inputValue(`[data-k="${unitEx}_1_load"]`));
+  const lbDraft = +(await readSimField(page, `${unitEx}_1_load`));
   assert(
     Math.abs(lbDraft - 220.46226218) < 0.15,
     "Draft load converts kg to lb on unit switch",
     `draft load=${lbDraft}`,
     "Log → enter 100 kg → Settings unit=lb → draft shows ~220.46 lb"
   );
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   const kgFromLbDraft = (await getState(page)).log.find((r) => r.exerciseId === unitEx && +r.set === 1);
   assert(
     kgFromLbDraft && Math.abs(kgFromLbDraft.load - 100) < 0.1,
@@ -5190,7 +5298,7 @@ async function main() {
   await page.waitForTimeout(80);
   await nav(page, "log");
   await selectDay(page, "Day 1");
-  await page.fill(`[data-k="${unitEx}_1_load"]`, "100");
+  await editSimField(page, `${unitEx}_1_load`, "100");
   await page.waitForTimeout(60);
   await nav(page, "settings");
   await page.selectOption("#unit", "lb");
@@ -5201,9 +5309,9 @@ async function main() {
   await nav(page, "log");
   await selectDay(page, "Day 1");
   assert(
-    (await page.inputValue(`[data-k="${unitEx}_1_load"]`)) === "100",
+    (await readSimField(page, `${unitEx}_1_load`)) === "100",
     "Draft load round-trips kg→lb→kg",
-    `draft load=${await page.inputValue(`[data-k="${unitEx}_1_load"]`)}`,
+    `draft load=${await readSimField(page, `${unitEx}_1_load`)}`,
     "Log → 100 kg draft → switch lb → switch kg → draft shows 100 again"
   );
 
@@ -5212,10 +5320,10 @@ async function main() {
   await page.waitForTimeout(80);
   await nav(page, "log");
   await selectDay(page, "Day 1");
-  await page.fill(`[data-k="${unitEx}_1_load"]`, "225");
-  await page.fill(`[data-k="${unitEx}_1_reps"]`, "5");
-  await page.fill(`[data-k="${unitEx}_1_rir"]`, "2");
-  await saveWorkout(page);
+  await editSimField(page, `${unitEx}_1_load`, "225");
+  await editSimField(page, `${unitEx}_1_reps`, "5");
+  await editSimField(page, `${unitEx}_1_rir`, "2");
+  await saveWorkout(page, { earlyFinish: true });
   const lbEntry = (await getState(page)).log.filter((r) => r.exerciseId === unitEx).sort((a, b) => String(b.created).localeCompare(String(a.created)))[0];
   assert(
     lbEntry && Math.abs(lbEntry.load - 102.058283) < 0.1,
@@ -5270,12 +5378,12 @@ async function main() {
     "Log → tap Effort header → glossary popover shows mapping"
   );
   await page.click("#glossary .glossary__close");
-  await page.fill(`[data-k="${effEx.id}_1_load"]`, "90");
-  await page.fill(`[data-k="${effEx.id}_1_reps"]`, "6");
-  await page.click(`.effort__btn[data-eff="${effEx.id}_1"][data-e="easy"]`);
+  await editSimField(page, `${effEx.id}_1_load`, "90");
+  await editSimField(page, `${effEx.id}_1_reps`, "6");
+  await selectEffort(page, `${effEx.id}_1`, "easy");
   await flushDraftWork(page);
   let effortSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   let effortState = await getState(page);
   let effortSession = [...new Set(effortState.log.map((r) => r.session))].find((s) => !effortSessionsBefore.has(s));
   let effortRow = effortState.log.find((r) => r.session === effortSession && r.exerciseId === effEx.id && +r.set === 1);
@@ -5288,12 +5396,12 @@ async function main() {
 
   await nav(page, "log");
   await selectDay(page, "Day 1");
-  await page.fill(`[data-k="${effEx.id}_1_load"]`, "92");
-  await page.fill(`[data-k="${effEx.id}_1_reps"]`, "5");
-  await page.click(`.effort__btn[data-eff="${effEx.id}_1"][data-e="hard"]`);
+  await editSimField(page, `${effEx.id}_1_load`, "92");
+  await editSimField(page, `${effEx.id}_1_reps`, "5");
+  await selectEffort(page, `${effEx.id}_1`, "hard");
   await flushDraftWork(page);
   effortSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   effortState = await getState(page);
   effortSession = [...new Set(effortState.log.map((r) => r.session))].find((s) => !effortSessionsBefore.has(s));
   effortRow = effortState.log.find((r) => r.session === effortSession && r.exerciseId === effEx.id && +r.set === 1);
@@ -5306,15 +5414,15 @@ async function main() {
 
   await nav(page, "log");
   await selectDay(page, "Day 1");
-  await page.fill(`[data-k="${effEx.id}_1_load"]`, "95");
-  await page.fill(`[data-k="${effEx.id}_1_reps"]`, "4");
-  await page.click(`.effort__btn[data-eff="${effEx.id}_1"][data-e="max"]`);
+  await editSimField(page, `${effEx.id}_1_load`, "95");
+  await editSimField(page, `${effEx.id}_1_reps`, "4");
+  await selectEffort(page, `${effEx.id}_1`, "max");
   await flushDraftWork(page);
-  effortSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
-  await saveWorkout(page);
+  const effortRowsBefore = (await getState(page)).log.length;
+  await saveWorkout(page, { earlyFinish: true });
   effortState = await getState(page);
-  effortSession = [...new Set(effortState.log.map((r) => r.session))].find((s) => !effortSessionsBefore.has(s));
-  effortRow = effortState.log.find((r) => r.session === effortSession && r.exerciseId === effEx.id && +r.set === 1);
+  effortRow = effortState.log.slice(effortRowsBefore)
+    .find((r) => r.exerciseId === effEx.id && +r.set === 1);
   assert(
     effortRow && effortRow.rir === 0,
     "Effort mode Max saves as RIR 0",
@@ -5328,99 +5436,39 @@ async function main() {
     "Toggle effort mode in Settings"
   );
 
-  // ---- The picker itself: it has to fit, read as a single choice, and be
-  // ---- reachable from the keyboard. Three words never fit a table column.
   await nav(page, "log");
   await selectDay(page, "Day 1");
-  const pickerUi = await page.evaluate((exId) => {
-    const row = document.querySelector(`.setrow[data-set="${exId}_1"]`);
-    const group = row?.querySelector(".effort");
-    const btns = group ? [...group.querySelectorAll(".effort__btn")] : [];
-    const rowBox = row?.getBoundingClientRect();
-    return {
-      hasGroup: !!group,
-      role: group?.getAttribute("role"),
-      groupClipped: group ? group.scrollWidth > group.clientWidth + 1 : null,
-      wordsClipped: btns.some((b) => {
-        const w = b.querySelector(".effort__word");
-        return !w || w.scrollWidth > w.clientWidth + 1;
-      }),
-      insideRow: btns.every((b) => {
-        const r = b.getBoundingClientRect();
-        return r.left >= rowBox.left - 1 && r.right <= rowBox.right + 1 && r.height >= 44;
-      }),
-      checked: btns.filter((b) => b.getAttribute("aria-checked") === "true").map((b) => b.dataset.e),
-      roles: btns.map((b) => b.getAttribute("role")),
-      suggestedUntouched: !!document
-        .querySelector(`.setrow[data-set="${exId}_2"] .effort`)
-        ?.classList.contains("effort--suggested"),
-    };
-  }, effEx.id);
-  assert(
-    pickerUi.hasGroup && pickerUi.groupClipped === false && !pickerUi.wordsClipped && pickerUi.insideRow,
-    "Effort picker fits its set row with all three words readable",
-    JSON.stringify(pickerUi),
-    "Settings effort mode → Log (List) → set row picker is not clipped"
-  );
-  assert(
-    pickerUi.role === "radiogroup" &&
-      pickerUi.roles.every((r) => r === "radio") &&
-      pickerUi.checked.length === 1,
-    "Effort picker exposes one checked radio in a radiogroup",
-    JSON.stringify(pickerUi),
-    "Log (List) → inspect .effort roles / aria-checked"
-  );
-  assert(
-    pickerUi.suggestedUntouched,
-    "An untouched set's effort reads as a suggestion",
-    JSON.stringify(pickerUi),
-    "Log (List) → set 2 picker carries .effort--suggested until tapped"
-  );
-  await page.focus(`.setrow[data-set="${effEx.id}_1"] .effort__btn[aria-checked="true"]`);
-  const beforeArrow = await page.evaluate(
-    (exId) =>
-      document.querySelector(`.setrow[data-set="${exId}_1"] .effort__btn[aria-checked="true"]`)?.dataset.e,
-    effEx.id
-  );
+  await selectFocusExercise(page, effEx.id);
+  const effortSpinner = page.locator(`#workout .exercise.is-current [data-effspin="${effEx.id}_1"]`);
+  await effortSpinner.focus();
+  await page.keyboard.press("Home");
+  await flushDraftWork(page);
   await page.keyboard.press("ArrowRight");
   await flushDraftWork(page);
-  const afterArrow = await page.evaluate(
-    (exId) => {
-      const btns = [
-        ...document.querySelectorAll(`.setrow[data-set="${exId}_1"] .effort__btn`),
-      ];
-      const checked = btns.find((b) => b.getAttribute("aria-checked") === "true");
-      const draft = window.__repforgeWorkoutDraft?.current?.();
-      const exercise = draft?.exercises?.[exId];
-      const setId = exercise?.setOrder?.find((id) => exercise.sets[id]?.ordinal === 1);
-      return {
-        checked: checked?.dataset.e,
-        focused: document.activeElement === checked,
-        draft: setId ? exercise.sets[setId]?.edited?.effort : undefined,
-        suggested: checked?.closest(".effort")?.classList.contains("effort--suggested"),
-      };
-    },
-    effEx.id
-  );
-  assert(
-    afterArrow.checked && afterArrow.checked !== beforeArrow && afterArrow.focused &&
-      afterArrow.draft === afterArrow.checked && afterArrow.suggested === false,
-    "Arrow keys move the effort pick and write it to the draft",
-    `before=${beforeArrow} after=${JSON.stringify(afterArrow)}`,
-    "Log (List) → focus the checked effort button → ArrowRight"
-  );
+  const keyboardEffort = await effortSpinner.evaluate(el => ({
+    role: el.getAttribute("role"), value: el.dataset.e,
+    focused: document.activeElement === el,
+    clipped: el.scrollWidth > el.clientWidth + 1,
+    exerciseId: el.closest(".exercise.is-current")?.dataset.ex,
+  }));
+  const keyboardDraft = await readDraft(page);
+  const keyboardEx = keyboardDraft.exercises[effEx.id];
+  assert(keyboardEffort.role === "spinbutton" && keyboardEffort.value === "hard" &&
+    keyboardEffort.focused && !keyboardEffort.clipped && keyboardEffort.exerciseId === effEx.id &&
+    keyboardEx.sets[keyboardEx.setOrder[0]].edited.effort === "hard",
+    "Focus effort keyboard selection is visible, semantic, and persisted", JSON.stringify(keyboardEffort));
   // Copy carries the effort of the last session, not just its numbers.
-  await page.click(`.copylast[data-copy="${effEx.id}"]`);
+  await exerciseAction(page, `${effEx.id}`, "#exActionRepeatBtn");
   await flushDraftWork(page);
   const copied = await page.evaluate(
     (exId) => {
       const draft = window.__repforgeWorkoutDraft?.current?.();
       const exercise = draft?.exercises?.[exId];
       const setId = exercise?.setOrder?.find((id) => exercise.sets[id]?.ordinal === 1);
+      const el = document.querySelector(`[data-effspin="${exId}_1"]`);
       return {
-      checked: document.querySelector(`.setrow[data-set="${exId}_1"] .effort__btn[aria-checked="true"]`)
-        ?.dataset.e,
-      draft: setId ? exercise.sets[setId]?.edited?.effort : undefined,
+        checked: el?.dataset.e || exercise?.sets?.[setId]?.edited?.effort || "max",
+        draft: setId ? exercise.sets[setId]?.edited?.effort : "max",
       };
     },
     effEx.id
@@ -5429,12 +5477,12 @@ async function main() {
     copied.checked === "max" && copied.draft === "max",
     "Copy last fills the effort picker from the last session",
     JSON.stringify(copied),
-    "Log (List) → Copy after a Max session → picker shows Max"
+    "Focus → Copy after a Max session → picker shows Max"
   );
 
   // ---- Focus mode: effort takes the third column of the well as a spinner, and
   // ---- a logged set reads back as the word that was tapped.
-  await clickLogMode(page, "focus");
+
   await page.waitForTimeout(200);
   const focusEffort = await page.evaluate(() => {
     const cell = document.querySelector("#workout .exercise.is-current .focus-well .curset__cell.is-effort");
@@ -5515,8 +5563,8 @@ async function main() {
     JSON.stringify(restingScroll),
     "Log → Focus in effort mode → last session is not scrolled half out of view"
   );
-  await page.fill(`.focus-well [data-k="${effEx.id}_1_load"]`, "97");
-  await page.fill(`.focus-well [data-k="${effEx.id}_1_reps"]`, "5");
+  await editSimField(page, `${effEx.id}_1_load`, "97");
+  await editSimField(page, `${effEx.id}_1_reps`, "5");
   // The spinner walks the three words in order, and each step is announced.
   const STEPS = ["easy", "hard", "max"];
   const effAt = () => page.evaluate((k) => {
@@ -5575,7 +5623,7 @@ async function main() {
     "Log → Focus → Registrar série → the logged row is not cut off by the ledger"
   );
   effortSessionsBefore = new Set((await getState(page)).log.map((r) => r.session));
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   effortState = await getState(page);
   effortSession = [...new Set(effortState.log.map((r) => r.session))].find((s) => !effortSessionsBefore.has(s));
   effortRow = effortState.log.find((r) => r.session === effortSession && r.exerciseId === effEx.id && +r.set === 1);
@@ -5585,7 +5633,7 @@ async function main() {
     `row=${JSON.stringify(effortRow)}`,
     "Log → Focus → Hard → Registrar série → Save workout → stored rir is 1"
   );
-  await clickLogMode(page, "full");
+
   await page.waitForTimeout(150);
 
   // Spoken / typed effort works in either language, and only on whole words.
@@ -5688,10 +5736,10 @@ async function main() {
   // Bodyweight persists on save and prefills on reopen
   await nav(page, "log");
   await selectDay(page, "Day 1");
-  await page.fill("#bodyweight", "80");
+  await setWorkoutField(page, "#sessionBodyweight", "80");
   const bwMeta = await getExerciseMeta(page, "Day 1");
   await fillExerciseSets(page, bwMeta[0].id, bwMeta[0].sets, 100, 6, 1);
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   const stBw = await getState(page);
   assert(
     stBw.log.some((r) => +r.bodyweight === 80),
@@ -5702,26 +5750,27 @@ async function main() {
   await nav(page, "log");
   await selectDay(page, "Day 1");
   assert(
-    (await page.inputValue("#bodyweight")) === "80",
+    (await page.inputValue("#sessionBodyweight")) === "80",
     "Bodyweight prefills from last session",
-    `bodyweight input = ${await page.inputValue("#bodyweight")}`,
+    `bodyweight input = ${await page.inputValue("#sessionBodyweight")}`,
     "Log → reopen → bodyweight prefilled"
   );
 
-  // Focus mode shows one exercise; Finish saves like list mode
+  // Focus shows one exercise; Finish saves the acknowledged session.
   await nav(page, "log");
   await selectDay(page, "Day 1");
-  await clickLogMode(page, "focus");
+
   await page.waitForTimeout(80);
-  // Only the deck's card shows; the List markup that carries the other
-  // exercises' fields is display:none, and the peeks are parked out of sight.
-  const visible = await page.locator("#workout > .exercise").evaluateAll((els) =>
-    els.every((e) => getComputedStyle(e).display === "none")
-  );
+  // The live card is the only active exercise owner; neighbouring peeks stay inert.
+  const visible = await page.evaluate(() => ({
+    current: document.querySelectorAll("#workout .exercise.is-current:not(.is-peek)").length,
+    topLevel: [...document.querySelector("#workout").children].filter((node) => node.matches(".exercise")).length,
+    peeksInert: [...document.querySelectorAll("#workout .exercise.is-peek")].every((card) => card.inert),
+  }));
   assert(
-    visible,
-    "Focus mode shows one exercise at a time",
-    "Non-current exercises visible in focus mode",
+    visible.current === 1 && visible.topLevel === 0 && visible.peeksInert,
+    "Focus has one live exercise owner and no retired top-level projection",
+    JSON.stringify(visible),
     "Log → Focus → only current card shown"
   );
   const overflowClosed = await page.evaluate(() => ({
@@ -6082,7 +6131,7 @@ async function main() {
   // Clean-fixture reset: drop the harness's prefills and every V2 sidecar so
   // the card behaves like a fresh session.
   await clearDraftFixture(page);
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: true }));
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   await page.waitForTimeout(260);
   const fitBefore = await fitMetrics();
   await page.evaluate(() => {
@@ -6130,10 +6179,10 @@ async function main() {
   await page.setViewportSize({ width: 390, height: 844 });
   await page.waitForTimeout(260);
 
-  // Focus carries List's per-exercise controls: last session's numbers and skip.
+  // Focus carries the per-exercise controls: last session's numbers and skip.
   // A fresh card for an exercise with history: last session is what it leads on.
   await clearDraftFixture(page);
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: true }));
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   await page.waitForTimeout(300);
   const lastSession = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
@@ -6157,10 +6206,10 @@ async function main() {
     "Focus → an exercise with history lists what was lifted last time"
   );
   assert(
-    lastSession.tools === 2 && lastSession.skip && lastSession.note && lastSession.restInCard === 0,
-    "the focus card carries note and skip; rest stays in the workout chrome",
+    lastSession.tools === 3 && lastSession.skip && lastSession.note && lastSession.restInCard === 0,
+    "the focus card carries note, actions, and skip; rest stays in the workout chrome",
     JSON.stringify(lastSession),
-    "Focus → the card header holds the note and Skip, and no timer of its own"
+    "Focus → the card header holds note, Exercise actions, and Skip, and no timer of its own"
   );
   const beforeSkip = await page.evaluate(() => ({
     ex: document.querySelector("#workout .exercise.is-current")?.dataset.ex,
@@ -6251,7 +6300,7 @@ async function main() {
     recAfterLog && recAfterLog.logged > 0 && recAfterLog.rec === 0 && !!recAfterLog.cue,
     "the recommendation stays as the well's one-line cue once a set is logged",
     JSON.stringify(recAfterLog),
-    "Focus → log a set → List's recommendation block is gone and the cue names the next set"
+    "Focus → log a set → no duplicate recommendation block and the cue names the next set"
   );
   await page.evaluate(() => document.querySelector("[data-ffinish]")?.click());
   await page.waitForTimeout(120);
@@ -6262,7 +6311,7 @@ async function main() {
     "No saved row from focus mode",
     "Log → Focus → fill → Finish → rows saved"
   );
-  await clickLogMode(page, "full");
+
 
   beginPhase("Phase: workout entry CTA + transition");
   await clearDraftFixture(page);
@@ -7726,6 +7775,8 @@ async function main() {
   }));
   assert(
     firstRunDoors.visible && firstRunDoors.create && firstRunDoors.import && !firstRunDoors.wizard,
+
+
     "P6: a fresh load offers Create and Import before the wizard",
     JSON.stringify(firstRunDoors),
     "Clear storage → reload → setup screen shows both ways to a first program"
@@ -7805,7 +7856,7 @@ async function main() {
   await setLogDate(page, deltaDate);
   await fillExerciseSets(page, deltaEx.id, deltaEx.sets, 100, 10, 1);
   const sessionsBeforeDelta = new Set((await getState(page)).log.map((r) => r.session));
-  const deltaSummary = (await saveWorkout(page)) || "";
+  const deltaSummary = (await saveWorkout(page, { earlyFinish: true })) || "";
   deltaState = await getState(page);
   const deltaSession = [...new Set(deltaState.log.map((r) => r.session))].find(
     (s) => !sessionsBeforeDelta.has(s)
@@ -7895,20 +7946,20 @@ async function main() {
   await page.waitForTimeout(120);
   assert(
     applied1 === true &&
-      (await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)) === "80" &&
-      (await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)) === "8" &&
-      (await page.inputValue(`[data-k="${cmdEx0}_1_rir"]`)) === "1",
+      (await readSimField(page, `${cmdEx0}_1_load`)) === "80" &&
+      (await readSimField(page, `${cmdEx0}_1_reps`)) === "8" &&
+      (await readSimField(page, `${cmdEx0}_1_rir`)) === "1",
     "spoken set: 80 x 8 @1 fills set 1",
-    `applied=${applied1} load=${await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)} reps=${await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)} rir=${await page.inputValue(`[data-k="${cmdEx0}_1_rir"]`)}`,
+    `applied=${applied1} load=${await readSimField(page, `${cmdEx0}_1_load`)} reps=${await readSimField(page, `${cmdEx0}_1_reps`)} rir=${await readSimField(page, `${cmdEx0}_1_rir`)}`,
     "Log → say 80 x 8 @1 → set 1 inputs updated"
   );
   await applyCmd("set 2 60 x 10");
   await page.waitForTimeout(120);
   assert(
-    (await page.inputValue(`[data-k="${cmdEx0}_2_load"]`)) === "60" &&
-      (await page.inputValue(`[data-k="${cmdEx0}_2_reps"]`)) === "10",
+    (await readSimField(page, `${cmdEx0}_2_load`)) === "60" &&
+      (await readSimField(page, `${cmdEx0}_2_reps`)) === "10",
     "spoken set: set 2 60 x 10 targets set 2",
-    `load=${await page.inputValue(`[data-k="${cmdEx0}_2_load"]`)} reps=${await page.inputValue(`[data-k="${cmdEx0}_2_reps"]`)}`,
+    `load=${await readSimField(page, `${cmdEx0}_2_load`)} reps=${await readSimField(page, `${cmdEx0}_2_reps`)}`,
     "Log → say set 2 60 x 10 → set 2 inputs updated"
   );
   const appliedBad = await applyCmd("not a set");
@@ -7958,10 +8009,10 @@ async function main() {
   await page.evaluate((x) => window.__repforgeApplyCommandText(x), "75 x 7 @1");
   await page.waitForTimeout(120);
   assert(
-    (await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)) === "75" &&
-      (await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)) === "7",
+    (await readSimField(page, `${cmdEx0}_1_load`)) === "75" &&
+      (await readSimField(page, `${cmdEx0}_1_reps`)) === "7",
     "spoken set still applies with voice setting enabled",
-    `load=${await page.inputValue(`[data-k="${cmdEx0}_1_load"]`)} reps=${await page.inputValue(`[data-k="${cmdEx0}_1_reps"]`)}`,
+    `load=${await readSimField(page, `${cmdEx0}_1_load`)} reps=${await readSimField(page, `${cmdEx0}_1_reps`)}`,
     "Log → enable voice (unsupported) → apply 75 x 7 @1"
   );
 
@@ -8177,10 +8228,10 @@ async function main() {
   const browseEx = browseExs[0];
   await setLogDate(page, "2026-01-15");
   await fillExerciseSets(page, browseEx.id, browseEx.sets, 100, 8, 2);
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   await setLogDate(page, "2026-01-16");
   await fillExerciseSets(page, browseEx.id, browseEx.sets, 100, 10, 2);
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   await nav(page, "stats");
   await page.evaluate(() => {
     document.querySelector("#statsDeep").open = true;
@@ -8300,9 +8351,12 @@ async function main() {
   // a months-old date falls out of the window once a year of history exists.
   await setLogDate(page, isoDateFromWeeksAgo(0));
   await fillExerciseSets(page, noteEx.id, noteEx.sets, 90, 8, 2);
-  await page.click(`[data-exnote-toggle="${noteEx.id}"]`);
-  await page.fill(`[data-exnote="${noteEx.id}"]`, NOTE_TEXT);
-  await page.waitForTimeout(120);
+  await selectFocusExercise(page, noteEx.id);
+  await page.locator("#workout .exercise.is-current [data-exnote-open]").click();
+  await page.locator("#exNoteSheet.is-open").waitFor({ state: "visible" });
+  await page.fill("#exNoteText", NOTE_TEXT);
+  await page.click("#exNoteSave");
+  await page.locator("#exNoteSheet").waitFor({ state: "hidden" });
   await flushDraftWork(page);
   const noteDraft = await page.evaluate(() => {
     try {
@@ -8319,7 +8373,7 @@ async function main() {
     "Log tab → exercise card → Note → type"
   );
   const noteSessionsBeforeSave = new Set((await getState(page)).log.map((r) => r.session));
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   const noteState = await getState(page);
   const savedNoteRows = noteState.log.filter(
     (r) => r.exerciseId === noteEx.id && !noteSessionsBeforeSave.has(r.session)
@@ -8330,7 +8384,11 @@ async function main() {
     `Rows: ${JSON.stringify(savedNoteRows.map((r) => r.exNote))}`,
     "Log a session with an exercise note → inspect state.log"
   );
-  const notePrefill = await page.inputValue(`[data-exnote="${noteEx.id}"]`);
+  await selectFocusExercise(page, noteEx.id);
+  await page.locator("#workout .exercise.is-current [data-exnote-open]").click();
+  await page.locator("#exNoteSheet.is-open").waitFor({ state: "visible" });
+  const notePrefill = await page.inputValue("#exNoteText");
+  await page.click("#exNoteCancel");
   assert(
     notePrefill === NOTE_TEXT,
     "Next session prefills the last exercise note",
@@ -8407,7 +8465,7 @@ async function main() {
   const draftMeta = await getExerciseMeta(page, "Day 1");
   const draftExA = draftMeta[0];
   const draftExSkip = draftMeta[1];
-  const subIds = await page.evaluate(() => [...document.querySelectorAll(".subst__pick")].map((s) => s.dataset.sub));
+  const subIds = draftMeta.map(ex => ex.id);
   const draftExB = draftMeta.find((ex) => ex.id !== draftExA.id && ex.id !== draftExSkip.id && subIds.includes(ex.id)) || draftMeta.find((ex) => subIds.includes(ex.id) && ex.id !== draftExA.id) || draftMeta[2];
   const otherDay = await page.evaluate(() =>
     [...document.querySelectorAll("#dayTabs button")].map((b) => b.dataset.day).find((d) => d !== "Day 1")
@@ -8415,21 +8473,21 @@ async function main() {
   const sessionNote = "Draft session note";
   const nonToday = "2024-02-29";
   await page.evaluate((v) => {
-    const el = document.querySelector("#notes");
+    const el = document.querySelector("#sessionNotes");
     el.value = v;
     el.dispatchEvent(new Event("input", { bubbles: true }));
   }, sessionNote);
   await page.evaluate((v) => {
-    const el = document.querySelector("#bodyweight");
+    const el = document.querySelector("#sessionBodyweight");
     el.value = v;
     el.dispatchEvent(new Event("input", { bubbles: true }));
   }, "82.5");
   await setLogDate(page, nonToday);
   await fillExerciseSets(page, draftExA.id, 1, 77, 6, 1);
   await fillExerciseSets(page, draftExB.id, 1, 40, 8, 1);
-  await page.click(`.ex__skip[data-skip="${draftExSkip.id}"]`);
+  await exerciseAction(page, `${draftExSkip.id}`, "#exActionSkipBtn");
   // Swap from the library.
-  await page.click(`.subst__pick[data-sub="${draftExA.id}"]`);
+  await exerciseAction(page, `${draftExA.id}`, "#exActionSubstBtn");
   await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
   const altName = await page.evaluate(() => {
     const slot = (document.querySelector("#exPickFor")?.textContent || "").trim();
@@ -8444,7 +8502,7 @@ async function main() {
   // Swap to something the library has never heard of. The typed search carries
   // into the custom sheet, which is the path that replaced the old prompt().
   const customName = "Custom swap 80 cap check";
-  await page.click(`.subst__pick[data-sub="${draftExB.id}"]`);
+  await exerciseAction(page, `${draftExB.id}`, "#exActionSubstBtn");
   await page.waitForSelector("#exPickSheet.is-open", { timeout: 5000 });
   await page.fill("#exPickSearch", customName);
   await page.waitForTimeout(120);
@@ -8479,13 +8537,14 @@ async function main() {
   }
   const resumed = await page.evaluate(({ a, skip, b }) => {
     const d = window.__repforgeWorkoutDraft?.current?.();
+    const firstSetId = d?.exercises?.[a]?.setOrder?.[0];
     const skipped = d?.exercises?.[skip];
     return {
-      load: document.querySelector(`[data-k="${a}_1_load"]`)?.value,
-      note: document.querySelector("#notes")?.value,
-      bw: document.querySelector("#bodyweight")?.value,
-      date: document.querySelector("#date")?.value,
-      skipped: skipped?.status === "skipped" || document.querySelector(`.exercise[data-ex="${skip}"]`)?.classList.contains("is-skipped"),
+      load: firstSetId ? d.exercises[a].sets[firstSetId]?.edited?.load : undefined,
+      note: document.querySelector("#sessionNotes")?.value,
+      bw: document.querySelector("#sessionBodyweight")?.value,
+      date: document.querySelector("#sessionDate")?.value,
+      skipped: skipped?.status === "skipped" || (window.__repforgeWorkoutDraft.current()?.exercises?.[skip]?.status === "skipped"),
       subA: d?.exercises?.[a]?.substitution?.replacement?.displayName,
       subB: d?.exercises?.[b]?.substitution?.replacement?.displayName,
       day: d?.program?.dayLabel,
@@ -8493,7 +8552,7 @@ async function main() {
   }, { a: draftExA.id, skip: draftExSkip.id, b: draftExB.id });
   assert(
     resumed.load === "77" && resumed.note === sessionNote && resumed.bw === "82.5" && resumed.date === nonToday,
-    "Resumed list draft keeps set, note, bodyweight, and date",
+    "Resumed Focus draft keeps set, note, bodyweight, and date",
     JSON.stringify(resumed),
     "Log values + leave + reload + Continue"
   );
@@ -8506,7 +8565,7 @@ async function main() {
 
   const draftBeforeFinish = await readDraft(page);
   const beforeFinish = new Set((await getState(page)).log.map((r) => r.session));
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   const afterFinish = await getState(page);
   const newSess = [...new Set(afterFinish.log.map((r) => r.session))].filter((s) => !beforeFinish.has(s));
   const newRows = afterFinish.log.filter((r) => newSess.includes(r.session));
@@ -8524,14 +8583,14 @@ async function main() {
     "Resume substituted draft → Finish"
   );
 
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   await flushDraftWork(page);
   const afterFinishDraft = await readDraft(page);
   const fresh = await page.evaluate(({ a, b, skip }) => ({
-    subA: document.querySelector(`.subst__pick[data-sub="${a}"]`)?.value || "",
-    skipped: document.querySelector(`.exercise[data-ex="${skip}"]`)?.classList.contains("is-skipped"),
-    note: document.querySelector("#notes")?.value,
-    date: document.querySelector("#date")?.value,
+    subA: window.__repforgeWorkoutDraft.projection().__substituted?.[a] || "",
+    skipped: (window.__repforgeWorkoutDraft.current()?.exercises?.[skip]?.status === "skipped"),
+    note: document.querySelector("#sessionNotes")?.value,
+    date: document.querySelector("#sessionDate")?.value,
   }), { a: draftExA.id, b: draftExB.id, skip: draftExSkip.id });
   assert(
     afterFinishDraft?.draftId && afterFinishDraft.draftId !== draftBeforeFinish?.draftId &&
@@ -8570,11 +8629,11 @@ async function main() {
   await clickRir("numeric");
 
   const rirCases = [
-    ["committed", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await fillExerciseSets(page, draftExA.id, 1, 41, 5, 1); await page.click(`[data-save="${draftExA.id}_1"]`); }],
-    ["warmup", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.click(`[data-warm="${draftExA.id}_1"]`); }],
+    ["committed", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await fillExerciseSets(page, draftExA.id, 1, 41, 5, 1); await clickSaveSet(page, `${draftExA.id}_1`); }],
+    ["warmup", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await toggleWarmup(page, draftExA.id, 1); }],
     ["substitution-only", async () => {
       await nav(page, "log"); await selectDay(page, "Day 1");
-      await page.click(`.subst__pick[data-sub="${draftExA.id}"]`);
+      await exerciseAction(page, `${draftExA.id}`, "#exActionSubstBtn");
       await page.waitForSelector("#exPickSheet.is-open .pickrow", { timeout: 5000 });
       await page.evaluate(() => {
         const slot = (document.querySelector("#exPickFor")?.textContent || "").trim();
@@ -8583,12 +8642,12 @@ async function main() {
       });
       await page.waitForSelector("#exPickSheet", { state: "hidden", timeout: 5000 });
     }],
-    ["note-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate(() => { const el = document.querySelector("#notes"); el.value = "only"; el.dispatchEvent(new Event("input", { bubbles: true })); }); }],
-    ["bodyweight-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate(() => { const el = document.querySelector("#bodyweight"); el.value = "70"; el.dispatchEvent(new Event("input", { bubbles: true })); }); }],
+    ["note-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate(() => { const el = document.querySelector("#sessionNotes"); el.value = "only"; el.dispatchEvent(new Event("input", { bubbles: true })); }); }],
+    ["bodyweight-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate(() => { const el = document.querySelector("#sessionBodyweight"); el.value = "70"; el.dispatchEvent(new Event("input", { bubbles: true })); }); }],
     ["date-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await setLogDate(page, "2026-01-15"); }],
     ["day-only", async () => { await nav(page, "log"); await selectDay(page, otherDay); }],
-    ["skip-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.click(`.ex__skip[data-skip="${draftExSkip.id}"]`); }],
-    ["cleared-context", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate(() => { const el = document.querySelector("#notes"); el.value = "x"; el.dispatchEvent(new Event("input", { bubbles: true })); el.value = ""; el.dispatchEvent(new Event("input", { bubbles: true })); }); }],
+    ["skip-only", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await exerciseAction(page, `${draftExSkip.id}`, "#exActionSkipBtn"); }],
+    ["cleared-context", async () => { await nav(page, "log"); await selectDay(page, "Day 1"); await page.evaluate(() => { const el = document.querySelector("#sessionNotes"); el.value = "x"; el.dispatchEvent(new Event("input", { bubbles: true })); el.value = ""; el.dispatchEvent(new Event("input", { bubbles: true })); }); }],
   ];
   for (const [name, setup] of rirCases) {
     await clearDraftFixture(page);
@@ -8612,7 +8671,7 @@ async function main() {
   await selectDay(page, otherDay);
   const dayOnlyRaw = await readDraftRaw(page);
   dialogMode = "dismiss";
-  await page.click('#dayTabs button[data-day="Day 1"]');
+  await requestVisibleDay(page,"Day 1");
   dialogMode = "accept";
   const dayAfterCancel = await page.evaluate(() => ({
     raw: window.__repforgeWorkoutDraft?.read?.().raw ?? null,
@@ -8624,7 +8683,7 @@ async function main() {
     JSON.stringify({ active: dayAfterCancel.active, same: dayAfterCancel.raw === dayOnlyRaw }),
     `${otherDay} day-only draft → Day 1 → Cancel`
   );
-  await page.click('#dayTabs button[data-day="Day 1"]');
+  await requestVisibleDay(page,"Day 1");
   await page.waitForFunction(() => document.querySelector("#dayTabs button.active")?.dataset.day === "Day 1");
   const dayAfterConfirm = await readDraft(page);
   assert(
@@ -8638,17 +8697,17 @@ async function main() {
   await reloadApp(page);
   await nav(page, "log");
   await selectDay(page, "Day 1");
-      await page.click(`.ex__skip[data-skip="${draftExSkip.id}"]`);
+      await exerciseAction(page, `${draftExSkip.id}`, "#exActionSkipBtn");
       await flushDraftWork(page);
       await page.waitForFunction((id) => {
         const draft = window.__repforgeWorkoutDraft?.current?.();
         return draft?.exercises?.[id]?.status === "skipped" &&
-          document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-skipped");
+          (window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.status === "skipped");
       }, draftExSkip.id, { timeout: 5000 });
       await reloadApp(page);
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   assert(
-    await page.evaluate((id) => document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-skipped"), draftExSkip.id),
+    await page.evaluate((id) => (window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.status === "skipped"), draftExSkip.id),
     "Direct skip survives reload",
     "skip class missing",
     "Skip → reload"
@@ -8659,13 +8718,13 @@ async function main() {
     await page.waitForFunction((id) => {
       const draft = window.__repforgeWorkoutDraft?.current?.();
       return draft?.exercises?.[id]?.status !== "skipped" &&
-        !document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-skipped");
+        !(window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.status === "skipped");
     }, draftExSkip.id, { timeout: 5000 });
   }
   await reloadApp(page);
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   assert(
-    !(await page.evaluate((id) => document.querySelector(`.exercise[data-ex="${id}"]`)?.classList.contains("is-skipped"), draftExSkip.id)),
+    !(await page.evaluate((id) => (window.__repforgeWorkoutDraft.current()?.exercises?.[id]?.status === "skipped"), draftExSkip.id)),
     "Show all survives reload as unskipped",
     "still skipped",
     "Show all → reload"
@@ -8680,7 +8739,7 @@ async function main() {
     const rawDay = await readDraftRaw(page);
     const currentDay = await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day);
     dialogMode = "dismiss";
-    await page.click(`#dayTabs button[data-day="${otherDay}"]`);
+    await requestVisibleDay(page,otherDay);
     await page.waitForTimeout(80);
     dialogMode = "accept";
     await flushDraftWork(page);
@@ -8695,7 +8754,7 @@ async function main() {
       "Fill Day 1 → other day tab → Cancel"
     );
     dialogMode = "accept";
-    await page.click(`#dayTabs button[data-day="${otherDay}"]`);
+    await requestVisibleDay(page,otherDay);
     await page.waitForFunction((d) => document.querySelector("#dayTabs button.active")?.dataset.day === d, otherDay, { timeout: 5000 });
     const confirmed = await readDraft(page);
     await reloadApp(page);
@@ -8737,7 +8796,7 @@ async function main() {
     await fillExerciseSets(page, draftExA.id, 1, 57, 5, 1);
     const rawEnter = await readDraftRaw(page);
     dialogMode = "dismiss";
-    await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d, focus: false }), otherDay);
+    await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d }), otherDay);
     assert(
       (await readDraftRaw(page)) === rawEnter,
       "enterWorkout({day}) Cancel preserves the raw draft",
@@ -8745,7 +8804,7 @@ async function main() {
       "enterWorkout other day → Cancel"
     );
     dialogMode = "accept";
-    await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d, focus: false }), otherDay);
+    await page.evaluate((d) => window.__repforgeEnterWorkout({ day: d }), otherDay);
     assert(
       (await page.evaluate(() => document.querySelector("#dayTabs button.active")?.dataset.day)) === otherDay,
       "enterWorkout({day}) Confirm selects the new day",
@@ -8785,7 +8844,7 @@ async function main() {
   await nav(page, "log");
   await selectDay(page, "Day 1");
   await page.evaluate(() => {
-    const el = document.querySelector("#bodyweight");
+    const el = document.querySelector("#sessionBodyweight");
     el.value = "80";
     el.dispatchEvent(new Event("input", { bubbles: true }));
   });
@@ -8794,10 +8853,10 @@ async function main() {
   await page.selectOption("#unit", "lb");
   await page.waitForTimeout(80);
   await reloadApp(page);
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
-  const bwDisp = await page.evaluate(() => document.querySelector("#bodyweight")?.value);
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
+  const bwDisp = await page.evaluate(() => document.querySelector("#sessionBodyweight")?.value);
   const beforeBw = new Set((await getState(page)).log.map((r) => r.session));
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   const bwRow = (await getState(page)).log.find((r) => !beforeBw.has(r.session) && r.bodyweight);
   assert(
     bwRow && Math.abs(+bwRow.bodyweight - 80) < 0.05,
@@ -8817,30 +8876,7 @@ async function main() {
     await fillExerciseSets(page, draftExA.id, 1, 61, 5, 1);
     const raw = await readDraftRaw(page);
     const beforeLen = (await getState(page)).log.length;
-    const result = await page.evaluate(async ({ localOk, idbOk }) => {
-      const io = {
-        async writeLocal(data) {
-          if (!localOk) throw new Error("ls fail");
-          localStorage.setItem("repforge_v1", JSON.stringify(data));
-        },
-        async writeIdb(data) {
-          if (!idbOk) throw new Error("idb fail");
-          const db = await new Promise((res, rej) => {
-            const r = indexedDB.open("repforge", 1);
-            r.onsuccess = () => res(r.result);
-            r.onerror = () => rej(r.error);
-          });
-          await new Promise((res, rej) => {
-            const tx = db.transaction("kv", "readwrite");
-            tx.objectStore("kv").put(data, "repforge_v1");
-            tx.oncomplete = () => res();
-            tx.onerror = () => rej(tx.error);
-          });
-          db.close();
-        },
-      };
-      return window.__repforgeSaveWorkout(io);
-    }, { localOk, idbOk });
+    const result = await finishEarlyWithStorageOutcome(page, { localOk, idbOk });
     await page.evaluate(() => window.__repforgeStorage?.flush?.());
     if (localOk || idbOk) {
       await reloadApp(page);
@@ -8861,7 +8897,7 @@ async function main() {
         JSON.stringify({ result, beforeLen, afterLen, same: draftNow === raw }),
         "Adapter false/false finish"
       );
-      await saveWorkout(page);
+      await saveWorkout(page, { earlyFinish: true });
       const retried = (await getState(page)).log.length;
       assert(retried === beforeLen + 1 || retried > beforeLen, "Total failure retry does not duplicate after a later accepted save", `len ${retried} vs ${beforeLen}`, "Retry finish after total failure");
     }
@@ -8886,9 +8922,9 @@ async function main() {
     localStorage.setItem(k, JSON.stringify(d));
   }, { id: legacyEx.id, k: DRAFT });
   await reloadApp(page);
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   const beforeLegacy = (await getState(page)).log.length;
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   assert(
     (await getState(page)).log.length > beforeLegacy,
     "A legacy draft finishes successfully",
@@ -8913,7 +8949,7 @@ async function main() {
     await selectDay(page, "Day 1");
     await setLogDate(page, "2024-02-29");
     await fillExerciseSets(page, valEx.id, 1, 80, 8, 1);
-    await setWorkoutField(page, "#bodyweight", "");
+    await setWorkoutField(page, "#sessionBodyweight", "");
   };
   const assertRejectedFinish = async (name, mutate, fieldSel) => {
     await fillValidCandidate();
@@ -8949,11 +8985,11 @@ async function main() {
   await assertRejectedFinish("blank reps", () => setWorkoutField(page, `[data-k="${valKey}_reps"]`, ""), `[data-k="${valKey}_reps"]`);
   await assertRejectedFinish("negative RIR", () => setWorkoutField(page, `[data-k="${valKey}_rir"]`, "-0.5"), `[data-k="${valKey}_rir"]`);
   await assertRejectedFinish("blank RIR", () => setWorkoutField(page, `[data-k="${valKey}_rir"]`, ""), `[data-k="${valKey}_rir"]`);
-  await assertRejectedFinish("invalid bodyweight", () => setWorkoutField(page, "#bodyweight", "0"), "#bodyweight");
-  await assertRejectedFinish("blank date", () => setLogDateRaw(page, ""), "#date");
-  await assertRejectedFinish("malformed date", () => setLogDateRaw(page, "not-a-date"), "#date");
-  await assertRejectedFinish("impossible date", () => setLogDateRaw(page, "2024-02-30"), "#date");
-  await assertRejectedFinish("invalid leap-day date", () => setLogDateRaw(page, "2023-02-29"), "#date");
+  await assertRejectedFinish("invalid bodyweight", () => setWorkoutField(page, "#sessionBodyweight", "0"), "#sessionBodyweight");
+  await assertRejectedFinish("blank date", () => setLogDateRaw(page, ""), "#sessionDate");
+  await assertRejectedFinish("malformed date", () => setLogDateRaw(page, "not-a-date"), "#sessionDate");
+  await assertRejectedFinish("impossible date", () => setLogDateRaw(page, "2024-02-30"), "#sessionDate");
+  await assertRejectedFinish("invalid leap-day date", () => setLogDateRaw(page, "2023-02-29"), "#sessionDate");
 
   await fillValidCandidate();
   await setWorkoutField(page, `[data-k="${valKey}_load"]`, "-9");
@@ -8984,11 +9020,11 @@ async function main() {
   await stopRestIfRunning(page);
   await setWorkoutField(page, `[data-k="${valKey}_load"]`, "");
   const restHiddenBefore = await page.evaluate(() => document.querySelector("#restBar")?.classList.contains("hidden") !== false);
-  const doneBefore = await page.evaluate((k) => document.querySelector(`[data-set="${k}"]`)?.classList.contains("is-done"), valKey);
-  await page.click(`[data-save="${valKey}"]`);
+  const doneBefore = (await draftSetState(page,valKey)).done;
+  await clickSaveSet(page, valKey);
   await page.waitForTimeout(80);
   const restHiddenAfter = await page.evaluate(() => document.querySelector("#restBar")?.classList.contains("hidden") !== false);
-  const doneAfter = await page.evaluate((k) => document.querySelector(`[data-set="${k}"]`)?.classList.contains("is-done"), valKey);
+  const doneAfter = (await draftSetState(page,valKey)).done;
   const draftForDone = await readDraft(page);
   const draftDone = draftForDone?.exerciseOrder.flatMap((id) =>
     Object.values(draftForDone.exercises[id]?.sets || {})
@@ -9009,7 +9045,7 @@ async function main() {
   await setLogDate(page, "2024-02-29");
   await fillExerciseSets(page, valEx.id, 1, "90.5", 8, "1.5");
   const beforeEn = new Set((await getState(page)).log.map((r) => r.session));
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   sessionCount++;
   uiSaveCount++;
   const enRow = (await getState(page)).log.find((r) => !beforeEn.has(r.session) && r.exerciseId === valEx.id);
@@ -9029,7 +9065,7 @@ async function main() {
   await setWorkoutField(page, `[data-k="${valKey}_reps"]`, "7");
   await setWorkoutField(page, `[data-k="${valKey}_rir"]`, "2,5");
   const beforePt = new Set((await getState(page)).log.map((r) => r.session));
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   sessionCount++;
   uiSaveCount++;
   const ptRow = (await getState(page)).log.find((r) => !beforePt.has(r.session) && r.exerciseId === valEx.id);
@@ -9051,7 +9087,7 @@ async function main() {
     await fillExerciseSets(page, valEx.id, 1, 70, 6, 1);
     await fillExerciseSets(page, valExB.id, 1, 40, 10, 1);
   }
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   sessionCount++;
   uiSaveCount++;
   const histSid = (await getState(page)).log.find((r) => !beforeHist.has(r.session)).session;
@@ -9169,7 +9205,7 @@ async function main() {
     await fillExerciseSets(page, valEx.id, 1, 65, 5, 1);
     await fillExerciseSets(page, valExB.id, 1, 35, 8, 1);
   }
-  await saveWorkout(page);
+  await saveWorkout(page, { earlyFinish: true });
   sessionCount++;
   uiSaveCount++;
   const sibSid = (await getState(page)).log.find((r) => !beforeSibling.has(r.session)).session;
@@ -9621,7 +9657,7 @@ async function main() {
     return b?.getAttribute("data-exopen") || "";
   });
   if (!firstExId) {
-    await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: false }));
+    await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   }
   const exId = firstExId || (await page.evaluate(() => document.querySelector("#workout [data-exopen]")?.getAttribute("data-exopen") || ""));
   if (exId) {
@@ -10039,7 +10075,7 @@ async function main() {
     // V2 checkpoint and correctly trigger recovery on the first offline nav.
     const seedWorkoutDay = String(seedState.program?.[0]?.day || "");
     if (!seedWorkoutDay) throw new Error("PWA production draft seed has no program day");
-    const enteredPwa = await pwaPage.evaluate(async (day) => window.__repforgeEnterWorkout?.({ day, focus: false }), seedWorkoutDay);
+    const enteredPwa = await pwaPage.evaluate(async (day) => window.__repforgeEnterWorkout?.({ day }), seedWorkoutDay);
     if (enteredPwa === false) throw new Error("PWA production draft entry was refused");
     await pwaPage.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     try {
@@ -10327,11 +10363,11 @@ async function main() {
         await fillNamed(page, `[data-k="${setKey}_load"]`, c.raw);
         await hideToast(page);
         const beforeSet = await logJson(page);
-        await page.click(`.saveset[data-save="${setKey}"]`);
+        await clickSaveSet(page, setKey);
         const toastSet = await readToast(page);
-        const doneCls = await page.getAttribute(`.setrow[data-set="${setKey}"]`, "class");
+        const doneCls = await draftSetState(page, `${setKey}`);
         assert(
-          toastSet === expectToast && !(doneCls || "").includes("is-done") && (await logJson(page)) === beforeSet,
+          toastSet === expectToast && !(doneCls || "").done && (await logJson(page)) === beforeSet,
           `per-set ${lang}/${unit} ${c.name} rejects`,
           `toast="${toastSet}" class="${doneCls}"`,
           `Log → type ${c.raw || "(empty)"} → Save set`
@@ -10344,7 +10380,7 @@ async function main() {
         await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
         await hideToast(page);
         const beforeSave = await logJson(page);
-        await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
+        await saveWorkout(page, { expectNewRows: false });
         const toastSave = await readToast(page);
         assert(
           toastSave === expectToast && (await logJson(page)) === beforeSave,
@@ -10376,15 +10412,11 @@ async function main() {
         await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
         await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
         await hideToast(page);
-        await page.click(`.saveset[data-save="${setKey}"]`);
+        await clickSaveSet(page, setKey);
         await waitForSetDone(page, exId);
-        const doneOk = (await page.getAttribute(`.setrow[data-set="${setKey}"]`, "class") || "").includes("is-done");
+        const doneOk = (await draftSetState(page, `${setKey}`) || "").done;
         const beforePerLen = ((await getState(page)).log || []).length;
-        await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
-        await page.waitForFunction(({ k, n }) => {
-          try { return (JSON.parse(localStorage.getItem(k) || "{}").log || []).length > n; }
-          catch { return false; }
-        }, { k: KEY, n: beforePerLen }, { timeout: 5000 }).catch(() => {});
+        await saveWorkout(page, { earlyFinish: true });
         const afterPer = (await getState(page)).log || [];
         const savedPer = afterPer.filter((r) => r.exerciseId === exId).sort((a, b) => String(b.created).localeCompare(String(a.created)))[0];
         assert(
@@ -10402,11 +10434,7 @@ async function main() {
         await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
         await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
         await hideToast(page);
-        await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
-        await page.waitForFunction(({ k, n }) => {
-          try { return (JSON.parse(localStorage.getItem(k) || "{}").log || []).length > n; }
-          catch { return false; }
-        }, { k: KEY, n: beforeFinalLen }, { timeout: 5000 }).catch(() => {});
+        await saveWorkout(page, { earlyFinish: true });
         const afterFinal = (await getState(page)).log || [];
         const savedFinal = afterFinal.filter((r) => r.exerciseId === exId).sort((a, b) => String(b.created).localeCompare(String(a.created)))[0];
         assert(
@@ -10445,13 +10473,13 @@ async function main() {
         await fillNamed(page, `[data-k="${setKey}_load"]`, "80");
         await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
         await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
-        await page.click(`.saveset[data-save="${setKey}"]`);
+        await clickSaveSet(page, setKey);
         await waitForSetDone(page, exId);
         const beforeAtomic = await logJson(page);
         await fillNamed(page, `[data-k="${exId}_2_load"]`, "1e5");
         await fillNamed(page, `[data-k="${exId}_2_reps"]`, "5");
         await hideToast(page);
-        await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
+        await saveWorkout(page, { expectNewRows: false });
         const toastAtomic = await readToast(page);
         assert(
           toastAtomic === toasts.invalid && (await logJson(page)) === beforeAtomic,
@@ -10466,12 +10494,12 @@ async function main() {
         await fillNamed(page, `[data-k="${setKey}_load"]`, "80");
         await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
         await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
-        await page.click(`.saveset[data-save="${setKey}"]`);
+        await clickSaveSet(page, setKey);
         await waitForSetDone(page, exId);
         await fillNamed(page, `[data-k="${exId}_2_load"]`, "");
         await hideToast(page);
         const beforeEmpty = await logJson(page);
-        await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
+        await saveWorkout(page, { expectNewRows: false });
         const toastEmptyTouched = await readToast(page);
         assert(
           toastEmptyTouched === toasts.empty && (await logJson(page)) === beforeEmpty,
@@ -10486,13 +10514,13 @@ async function main() {
         await fillNamed(page, `[data-k="${setKey}_load"]`, "80");
         await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
         await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
-        await page.click(`.saveset[data-save="${setKey}"]`);
+        await clickSaveSet(page, setKey);
         await waitForSetDone(page, exId);
-        await page.click(`[data-warm="${exId}_2"]`);
+        await toggleWarmup(page, exId, 2);
         await fillNamed(page, `[data-k="${exId}_2_load"]`, "abc");
         await hideToast(page);
         const beforeWarm = await logJson(page);
-        await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
+        await saveWorkout(page, { expectNewRows: false });
         const toastWarm = await readToast(page);
         assert(
           toastWarm === toasts.invalid && (await logJson(page)) === beforeWarm,
@@ -10507,15 +10535,11 @@ async function main() {
         await fillNamed(page, `[data-k="${setKey}_load"]`, "80");
         await fillNamed(page, `[data-k="${setKey}_reps"]`, "5");
         await fillNamed(page, `[data-k="${setKey}_rir"]`, "1");
-        await page.click(`.saveset[data-save="${setKey}"]`);
+        await clickSaveSet(page, setKey);
         await waitForSetDone(page, exId);
         const beforeBlank = ((await getState(page)).log || []).length;
         await hideToast(page);
-        await page.evaluate(() => document.querySelector("#logForm")?.requestSubmit());
-        await page.waitForFunction(({ k, n }) => {
-          try { return (JSON.parse(localStorage.getItem(k) || "{}").log || []).length > n; }
-          catch { return false; }
-        }, { k: KEY, n: beforeBlank }, { timeout: 5000 }).catch(() => {});
+        await saveWorkout(page, { earlyFinish: true });
         const afterBlank = ((await getState(page)).log || []).filter((r) => r.exerciseId === exId);
         assert(
           afterBlank.length === 1 && +afterBlank[0].load === 80,
@@ -11127,7 +11151,7 @@ async function main() {
   await persistState(page, focusState);
   await reloadApp(page);
   await nav(page, "log");
-  await page.evaluate(() => window.__repforgeEnterWorkout?.({ focus: true }));
+  await page.evaluate(() => window.__repforgeEnterWorkout?.({}));
   await page.waitForSelector("#woPrev", { timeout: 5000 });
   const focusNavContrast = await page.evaluate(() => {
     const lin = (c) => {

@@ -150,10 +150,8 @@
    controls that were obvious as white fields on cream become adjacent dark
    rectangles. These few rules restore the light theme's hierarchy without
    adding cards or glow. */
-:root[data-theme="dark"] .setrow input,
 :root[data-theme="dark"] .kg,
-:root[data-theme="dark"] .saveset,
-:root[data-theme="dark"] .copylast{
+:root[data-theme="dark"] .saveset{
   border-color:var(--rule-strong);
 }
 :root[data-theme="dark"] .stepbtn{
@@ -658,10 +656,10 @@ div.settings-row{cursor:default}
 .today-last{display:flex;align-items:center;gap:8px;margin:22px 0 8px;font-size:13px;color:var(--ink-faint)}
 
 /* ---- Active workout ---- */
-.wo-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:14px}
-.wo-head__center{text-align:center;min-width:0;flex:1}
-.wo-head__title{font-size:17px;font-weight:600}
-.wo-head__sub{font-size:13px;color:var(--ink-soft);margin-top:2px}
+.wo-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:12px;min-height:44px}
+.wo-head__center{text-align:center;min-width:0;flex:1;overflow:hidden}
+.wo-head__title{font-size:17px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wo-head__sub{font-size:13px;color:var(--ink-soft);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .wo-head__end{display:flex;align-items:center;gap:6px;flex:none;position:relative;justify-self:end}
 /* Rest lives in the workout chrome, never over the card's controls: a square
    with the stopwatch while idle, a counting pill once it is running. */
@@ -680,7 +678,7 @@ div.settings-row{cursor:default}
 .wo-rest.is-running .wo-rest__icon{display:none}
 .wo-rest.is-done{color:var(--accent-deep);border-color:var(--accent)}
 @media (prefers-reduced-motion:reduce){.wo-rest{transition:none}}
-/* The floating bar is the List-mode surface; Focus reads it from the header. */
+/* The active workout reads the timer from its header. */
 body.is-focus-wo .restbar{display:none!important}
 
 .wo-progress{margin:2px 0 12px}
@@ -692,10 +690,6 @@ body.is-focus-wo .restbar{display:none!important}
 }
 .focusnav:disabled{color:var(--ink-faint);cursor:default}
 .segbar--ex{gap:8px;margin:0}
-body.is-workout #logWorkspace{padding-bottom:72px}
-body.is-workout #logForm{padding-bottom:24px}
-/* Focus mode ends at the deck: the log-set button and the set list that the
-   padding in List mode clears both live inside the card. */
 body.is-workout.is-focus-wo #logWorkspace,
 body.is-workout.is-focus-wo #logForm{padding-bottom:0}
 /* Focus fills the screen by layout, not by arithmetic: every box between the
@@ -749,20 +743,20 @@ article.exercise--focus{
 article.exercise--focus input,article.exercise--focus textarea{-webkit-user-select:text;user-select:text}
 article.exercise--focus.is-dragging{box-shadow:0 18px 44px rgba(0,0,0,.20)}
 article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px rgba(0,0,0,.08)}
-#workout.is-focus > .exercise{display:none}
 
+.fcard__context{display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
 .fcard__head{flex:none;padding:18px 20px 0}
 .focus-ex__eyebrow{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 .focus-ex__muscle{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .focus-ex__setof{flex:none;font-size:12px;font-weight:600;color:var(--ink-soft);text-transform:uppercase;letter-spacing:.06em;white-space:nowrap}
 .focus-ex__setof b{color:var(--accent-deep);font-weight:700}
-.focus-ex__title{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;margin-top:5px}
-.focus-ex__titletext{min-width:0;flex:1}
-.focus-ex__name{font-size:27px;font-weight:650;letter-spacing:-0.02em;margin:0;line-height:1.14}
+.focus-ex__title{display:flex;flex-wrap:wrap;align-items:flex-start;justify-content:space-between;gap:8px;margin-top:5px}
+.focus-ex__titletext{min-width:0;flex:1 1 100%}
+.focus-ex__name{overflow-wrap:anywhere;font-size:27px;font-weight:650;letter-spacing:-0.02em;margin:0;line-height:1.14}
 .focus-ex__target{font-size:13px;color:var(--ink-soft);margin:6px 0 0}
 .focus-ex__alvo{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-right:6px}
-.focus-ex__tools{display:flex;align-items:center;gap:8px;flex:none;margin-top:2px}
+.focus-ex__tools{display:flex;align-items:center;gap:8px;flex:none;margin-left:auto}
 /* One shape for every card tool. */
 .focus-ex__tools .focus-tool{
   position:relative;flex:none;width:44px;height:44px;min-height:44px;padding:0;
@@ -774,10 +768,11 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .focus-ex__tools .focus-tool.has-note::after{
   content:"";position:absolute;top:7px;right:7px;width:6px;height:6px;border-radius:50%;background:var(--accent);
 }
+.exercise--focus .delta-prev{font-size:12px;line-height:1.35;color:var(--ink-faint);margin:0 0 10px}
 
-/* ---- Ledger: the only scrolling region of the card ---- */
+/* The ledger retains a readable band; compact screens scroll the context above the fixed set controls. */
 .fcard__ledger{
-  flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;
+  flex:1 0 112px;min-height:112px;overflow-y:auto;overscroll-behavior:contain;
   touch-action:none;
   padding:0 20px 6px;margin-top:18px;
   scrollbar-width:thin;scrollbar-color:var(--rule-strong) transparent;
@@ -828,7 +823,7 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
   grid-template-columns:2.4rem minmax(0,1.6fr) minmax(0,1fr) minmax(0,1.3fr);
 }
 .ledger__empty{color:var(--ink-soft)}
-.ledger__dash{color:var(--rule-strong)}
+.ledger__dash{color:var(--ink-soft)}
 /* A logged effort reads as its word, which needs more room than a RIR digit. */
 .ledger__eff{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* The set being re-opened is marked in place: it stays where it was logged. */
@@ -846,8 +841,7 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .ledger__more .icon-mask{transition:transform .2s ease}
 .ledger__more[aria-expanded="true"] .icon-mask{transform:rotate(180deg)}
 @media (prefers-reduced-motion:reduce){.ledger__more .icon-mask{transition:none}}
-/* Every set that is not in the well still needs a field to hold its value. */
-.focus-inputs{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);border:0}
+
 
 /* ---- Well: attached, and the same height whatever the ledger is doing ---- */
 .focus-well{
@@ -999,40 +993,16 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .exercise.is-hold{--heat:var(--accent)}
 .exercise.is-reduce{--heat:var(--ink-soft)}
 .exercise.is-new{--heat:var(--ink-faint)}
-
-.ex__top{display:flex;justify-content:space-between;align-items:flex-start;gap:10px}
-.ex__head{flex:1;min-width:0}
 .ex__name,.ex__nameh{font-size:22px;font-weight:640;line-height:1.15;letter-spacing:-0.01em}
-.ex__tag{
-  display:inline-block;font-size:11px;letter-spacing:.08em;color:var(--ink-faint);
-  border:0;padding:0;text-transform:uppercase;vertical-align:middle;margin-right:10px;margin-bottom:4px;
-  font-weight:600;
-}
-.ex__meta{font-size:13px;color:var(--ink-soft);margin-top:6px;line-height:1.5}
 .nowrap{white-space:nowrap}
-.subst{display:flex;flex-wrap:wrap;align-items:center;gap:8px;margin:0 0 8px;font-size:12px}
 /* Which slot a swap stands in gets the whole line rather than trailing the
    picker, so a long seed name wraps as a sentence instead of a column. */
-.subst__from{flex:1 0 100%;margin:0;font-size:12px;line-height:1.35;color:var(--ink-faint)}
-.subst__pick{flex:1;min-width:0;margin:0;padding:6px 9px;font:inherit;font-size:16px;color:var(--ink);background:var(--surface);border:1px solid var(--rule);border-radius:8px;text-align:left;cursor:pointer;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 
 /* Effort picker — the Easy / Hard / Max face of RIR. One control in two shapes:
    a compact line under a set row, a stacked band under the current set. Three
    words never fit a column beside the numbers, so it is never asked to. */
-.effort{display:flex;background:var(--surface);border:1px solid var(--rule);border-radius:11px;overflow:hidden}
-.effort__btn{flex:1 1 0;min-width:0;margin:0;padding:0 4px;min-height:46px;border:0;border-radius:0;
-  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;
-  background:transparent;color:var(--ink-soft);cursor:pointer;
-  font-size:11.5px;font-weight:700;text-transform:uppercase;letter-spacing:.04em;line-height:1.1;
-  transition:background .15s ease,color .15s ease}
-.effort__btn+.effort__btn{border-left:1px solid var(--rule)}
-.effort__word{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.effort__btn:not(.active):hover{color:var(--ink);background:var(--bg)}
-.effort__btn:focus-visible{outline:2px solid var(--accent);outline-offset:-3px}
-.effort__btn.active{color:var(--accent-ink);background:var(--accent-deep)}
 /* Until the lifter picks, the highlighted word is Taurifer's guess from the
    last session: it reads as a tint, so a confirmed set never looks the same. */
-.effort--suggested .effort__btn.active{color:var(--accent-deep);background:rgba(var(--accent-rgb),.09)}
 .rirmode{border:0;padding:0;margin:0 0 14px}
 .rirmode legend{font-size:11px;color:var(--ink-soft);margin-bottom:6px;text-transform:uppercase;letter-spacing:.07em;font-weight:600}
 .rirmode__opts{display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px}
@@ -1046,67 +1016,31 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 }
 .rec{font-size:14px;line-height:1.45;color:var(--ink-soft);margin:0 0 12px}
 .rec b{color:var(--ink);font-weight:600}
-.prev{font-size:12px;color:var(--ink-soft);margin:0 0 3px;display:flex;flex-wrap:wrap;align-items:center;gap:4px 10px}
-.prev span{color:var(--ink-faint)}
-.delta-prev{font-size:12px;color:var(--ink-faint);margin:0 0 10px}
-.rec__block{font-size:12px;line-height:1.4;color:var(--ink-faint);margin:0 0 12px;font-style:italic}
-.insession{font-size:12px;line-height:1.4;color:var(--ink);margin:0 0 10px;padding:6px 9px;
-  border-left:2px solid var(--accent);border-radius:0 6px 6px 0;background:rgba(var(--accent-rgb),.04)}
 
-.sets__head,.setrow{display:grid;grid-template-columns:44px minmax(0,2.6fr) minmax(0,.95fr) minmax(0,.75fr) auto;gap:6px;align-items:center}
+
+
+
+
 /* Effort mode drops the RIR column; the picker spans a second line, and the
    header's caption for it spans the same one so the two stay in step. */
-.sets__head.has-effort,.setrow.has-effort{grid-template-columns:44px minmax(0,2.6fr) minmax(0,.95fr) auto}
-.setrow.has-effort .effort,.sets__head .sets__head-eff{grid-column:1/-1}
-.sets__head .sets__head-eff{text-align:left;padding-top:6px}
-.setrow.has-effort{row-gap:7px;padding-bottom:11px;border-bottom:1px solid var(--rule)}
-.setrow.has-effort+.setrow.has-effort{margin-top:11px}
-.sets__head{margin-bottom:4px;padding-top:8px;border-top:1px solid var(--rule)}
-.setrow>*{min-width:0}
-.setrow>.setrow__n{min-width:44px;width:44px}
-.sets__head span{font-size:11px;color:var(--ink-faint);letter-spacing:.08em;text-align:center;text-transform:uppercase;font-weight:600;white-space:nowrap}
-.sets__head span:first-child{text-align:left}
-.setrow{margin-top:8px}
-.setrow__n{font-weight:600;color:var(--ink-soft);font-size:15px;text-align:center;
-  background:none;border:0;padding:0;cursor:pointer;line-height:1;min-width:44px;min-height:44px;width:44px;justify-self:start}
-.setrow.is-done .saveset{color:var(--cta-ink);border-color:transparent;background:var(--cta)}
 /* One exercise, one worded action. Three stacked SAVEs shouted the same verb
    down the column and made a log read like a form, so only the set actually
    being worked keeps the word: the sets waiting behind it hold the same button
    at the same size, drawn as the check they are about to become. */
-.setrow:not(.is-next):not(.is-done) .saveset{border-color:transparent;background:transparent}
-.setrow:not(.is-next):not(.is-done) .saveset .saveset__label{visibility:hidden}
-.setrow:not(.is-next):not(.is-done) .saveset::after{
-  content:"";position:absolute;inset:0;background:var(--ink-faint);
-  -webkit-mask:var(--check) no-repeat center/15px;mask:var(--check) no-repeat center/15px;
-}
-.setrow:not(.is-next):not(.is-done) .saveset:hover::after{background:var(--ink)}
-.setrow.is-next .saveset{color:var(--ink);border-color:var(--ink-soft)}
-.setrow.is-next .setrow__n{color:var(--accent-deep)}
-.setrow.is-next .setrow__n::after{content:"";display:block;margin:3px auto 0;width:4px;height:4px;border-radius:50%;background:var(--accent)}
 /* The save column is content-sized, so the committed ✓ overlays the label
    rather than replacing it — a narrower button would drag the row's inputs
    out of line with the rows above it and with the header. */
-.saveset,.sets__head .sets__head-save{border:1px solid transparent;
+.saveset{border:1px solid transparent;
   text-transform:uppercase;letter-spacing:.05em;font-size:11.5px;font-weight:700;
   padding:0 8px;min-width:46px}
 .saveset{position:relative;flex:none;border-color:var(--rule);background:var(--surface);color:var(--ink-soft);
   border-radius:10px;cursor:pointer;min-height:46px;line-height:1}
 .saveset:hover{color:var(--ink);border-color:var(--ink-soft)}
-.setrow.is-done .saveset__label{visibility:hidden}
 /* Drawn, not typed, for the same reason as --arrow: U+2713 is outside the
  * Plex Sans subset, so a "✓" here fell back to a platform symbol font and
  * came out at a different weight on Android than on iOS. */
-.setrow.is-done .saveset::after{content:"";position:absolute;inset:0;
-  background:currentColor;
-  -webkit-mask:var(--check) no-repeat center/15px;mask:var(--check) no-repeat center/15px}
 /* Header mirror of the save button: hidden, but it holds the column open so
    the KG / REPS / RIR labels stay centred over their inputs. */
-.sets__head .sets__head-save{visibility:hidden;height:0;border-block-width:0}
-
-.setrow input{margin-top:0;text-align:center;font-weight:500;font-size:16px;padding:12px 4px;
-  background:var(--surface);border-color:var(--rule);font-variant-numeric:tabular-nums;min-height:46px}
-.setrow.is-suggested input{color:var(--ink-soft)}
 
 .kg{display:flex;align-items:stretch;min-width:0;background:var(--surface);border:1px solid var(--rule);
   border-radius:12px;overflow:hidden}
@@ -1120,10 +1054,6 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
   cursor:pointer;font-size:20px;line-height:1;padding:0;
   -webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
 .stepbtn:hover{color:var(--ink)}
-.copylast{flex:none;margin-left:auto;border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);
-  text-transform:uppercase;letter-spacing:.06em;font-size:11px;font-weight:700;
-  border-radius:8px;padding:8px 11px;cursor:pointer}
-.copylast:hover{color:var(--accent-deep);border-color:var(--ink-soft)}
 
 /* Current-set cells — bare numbers over a hairline, with the −/+ underneath.
    The figure size is a variable because the effort word has to know it: that
@@ -1134,8 +1064,8 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
 .curset__cell:not(:last-child)::after{
   content:"";position:absolute;right:0;top:12%;bottom:8%;width:1px;background:var(--rule);
 }
-.curset__cell-lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px;
-  display:flex;align-items:baseline;justify-content:center;gap:5px;white-space:nowrap}
+.curset__cell-lab{position:relative;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);margin-bottom:8px;
+  display:flex;align-items:baseline;justify-content:center;gap:5px;min-height:1.4em;white-space:nowrap}
 .curset__cell-lab.is-accent{color:var(--accent-deep)}
 .curset__val,.curset__cell input.curset__val{
   width:100%;max-width:100%;box-sizing:border-box;margin:0;padding:0;border:0;background:transparent;border-radius:0;
@@ -1163,8 +1093,7 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
   font-size:10px;font-weight:500;letter-spacing:0;text-transform:none;color:var(--ink-faint);
 }
 .curset__cell-lab .unit-hint{font-size:10px;color:var(--ink-faint)}
-.curset__cell-lab.is-accent .unit-hint{color:var(--ink-soft)}
-.sets__head .unit-hint,.ledger__head .unit-hint{margin-left:4px;font-size:10px;letter-spacing:0;text-transform:none;font-weight:500}
+.curset__cell-lab.is-accent .unit-hint{color:var(--ink-soft)}.ledger__head .unit-hint{margin-left:4px;font-size:10px;letter-spacing:0;text-transform:none;font-weight:500}
 .curset__underline{display:block;height:2px;margin:8px auto 0;width:56%;background:var(--rule-strong);border-radius:1px}
 .curset__cell.is-active .curset__underline,.curset__cell.is-load .curset__underline{background:var(--accent)}
 .curset__steps{display:flex;justify-content:space-evenly;align-items:center;margin-top:2px}
@@ -1272,16 +1201,16 @@ body.is-sheet-open{overflow:hidden}
 }
 .sheet__act{
   justify-self:start;min-height:44px;padding:10px 8px;border:0;background:none;cursor:pointer;
-  color:var(--ink-soft);font-size:16px;
+  color:var(--ink-soft);font-size:1rem;
 }
 .sheet__act--accent{justify-self:end;color:var(--accent-deep);font-weight:650}
 .sheet__titles{text-align:center;min-width:0}
-.sheet__title{font-size:17px;font-weight:650}
-.sheet__sub{font-size:14px;color:var(--ink-soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.sheet__title{font-size:1.0625rem;font-weight:650}
+.sheet__sub{font-size:.875rem;color:var(--ink-soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sheet__body{flex:1;min-height:0;display:flex;padding:16px 16px 0}
 .sheet__text{
   flex:1;width:100%;margin:0;padding:0;border:0;background:transparent;border-radius:0;resize:none;
-  font-size:17px;line-height:1.5;letter-spacing:normal;text-transform:none;color:var(--ink);
+  font-size:1.0625rem;line-height:1.5;letter-spacing:normal;text-transform:none;color:var(--ink);
 }
 .sheet__text:focus{outline:none;box-shadow:none;border-color:transparent}
 /* The plain-text program preview: the export exactly as it will be copied, so
@@ -1289,10 +1218,10 @@ body.is-sheet-open{overflow:hidden}
 .sheet__pre{
   flex:1;min-width:0;margin:0;padding-bottom:8px;overflow:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;
   white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;
-  font-size:15px;line-height:1.55;letter-spacing:normal;text-transform:none;color:var(--ink);
+  font-size:.9375rem;line-height:1.55;letter-spacing:normal;text-transform:none;color:var(--ink);
   -webkit-user-select:text;user-select:text;
 }
-.sheet__foot{flex:none;padding:12px 16px 16px;font-size:13px;color:var(--ink-faint)}
+.sheet__foot{flex:none;padding:12px 16px 16px;font-size:.8125rem;color:var(--ink-faint)}
 .sheet__foot--actions{display:flex;justify-content:flex-end;gap:8px;border-top:1px solid var(--rule)}
 /* A head with nothing on the left still needs its first grid cell, or the title
    slides out of the middle. */
@@ -1302,7 +1231,6 @@ body.is-sheet-open{overflow:hidden}
 /* The in-workout swap control. It was a <select> of the template's alternates;
    it is a button onto the full library now, and it reads back what is actually
    being performed. */
-.subst__pick.is-swapped{border-style:solid;border-color:var(--accent-deep);color:var(--accent-deep)}
 
 /* ---- Program editor: library affordances ---- */
 .pex__swap{flex:none;color:var(--ink-soft)}
@@ -1550,7 +1478,7 @@ body.is-sheet-open{overflow:hidden}
 .sheet--daypick{height:auto}
 .sheet__head--stack{grid-template-columns:1fr;padding:4px 16px 14px}
 .sheet__head--stack .sheet__titles{text-align:left}
-.sheet__head--stack .sheet__title{font-size:20px;letter-spacing:-.01em}
+.sheet__head--stack .sheet__title{font-size:1.25rem;letter-spacing:-.01em}
 /* The head's one-line sub is a caption for a title; this one is a sentence. */
 .sheet__head--stack .sheet__sub{white-space:normal;overflow:visible;margin-top:4px;line-height:1.4}
 .daypick__body{flex-direction:column;overflow:hidden;padding:0 16px}
@@ -1580,6 +1508,54 @@ body.is-sheet-open{overflow:hidden}
 }
 .sheet__foot--stack{display:flex;flex-direction:column;gap:2px;border-top:1px solid var(--rule)}
 .sheet__foot--stack .text-link{min-height:44px}
+.sheet--preview{height:auto}
+.preview__body{flex-direction:column;overflow:hidden;padding:0 16px}
+.preview__list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
+.preview__row{display:flex;flex-direction:column;gap:4px;width:100%;padding:12px 12px;text-align:left;background:none;border:0;border-bottom:1px solid var(--rule);cursor:pointer}
+.preview__row:last-child{border-bottom:0}
+.preview__row-main{display:flex;justify-content:space-between;gap:12px;align-items:center}
+.preview__name{font-size:15px;font-weight:600;color:var(--ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.preview__sets{font-size:13px;color:var(--ink-soft);flex:none;white-space:nowrap}
+.preview__meta{font-size:12px;color:var(--ink-faint);line-height:1.4}
+
+/* ---- Session sheet ---- */
+.sheet--session{height:auto;max-height:85vh;display:flex;flex-direction:column}
+.session-sheet__body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:0 16px 16px;display:flex;flex-direction:column;gap:16px}
+.session-sheet__meta{display:flex;flex-direction:column;gap:12px}
+.session-sheet__overview{display:flex;flex-direction:column;gap:8px}
+.session-map{display:flex;flex-direction:column;border:1px solid var(--rule);border-radius:12px;overflow:hidden;background:var(--card)}
+.session-map__row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:none;border:0;border-bottom:1px solid var(--rule);text-align:left;width:100%;gap:8px}
+.session-map__row:last-child{border-bottom:0}
+.session-map__jump{display:flex;align-items:center;justify-content:space-between;flex:1;min-width:0;background:none;border:0;padding:4px 0;cursor:pointer;text-align:left;gap:8px}
+.session-map__name{font-size:14px;font-weight:600;color:var(--ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.session-map__status{font-size:12px;font-weight:600;color:var(--ink-soft);flex:none}
+.session-map__status.is-complete{color:var(--accent)}
+.session-map__status.is-skipped{color:var(--ink-faint)}
+.session-map__reorder{display:flex;align-items:center;gap:4px;flex:none}
+.session-map__reorder-btn{width:32px;height:32px;padding:0;display:inline-flex;align-items:center;justify-content:center;background:none;border:0;color:var(--ink-soft);border-radius:6px;cursor:pointer}
+.session-map__reorder-btn:hover:not(:disabled){background:var(--well);color:var(--ink)}
+.session-map__reorder-btn:disabled{opacity:0.3;cursor:default}
+.session-sheet__early-section{display:flex;flex-direction:column;gap:8px;padding-top:8px;border-top:1px solid var(--rule)}
+.session-early-prompt{display:flex;flex-direction:column;gap:8px;padding:12px;background:var(--well);border-radius:8px}
+.session-early-msg{font-size:13px;color:var(--ink-soft);margin:0}
+.session-early-msg.is-error{color:var(--danger);font-weight:600}
+.session-early-actions{display:flex;gap:8px}
+.session-early-actions .btn{flex:1}
+
+/* ---- Exercise actions sheet ---- */
+.sheet--exactions{height:auto;max-height:85vh;display:flex;flex-direction:column}
+.exactions-sheet__body{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:0 16px 16px;display:flex;flex-direction:column;gap:16px}
+.exactions__section{display:flex;flex-direction:column;gap:8px}
+.exactions__btn{width:100%;text-align:center}
+.exactions__actions{display:flex;flex-direction:column;gap:8px}
+.exactions__setup-text{font-size:13px;line-height:1.4;color:var(--ink-soft);background:var(--well);padding:10px 12px;border-radius:8px;margin:0}
+.exactions__hint{font-size:12px;color:var(--ink-faint);margin:0}
+.exactions__warmup-list{display:flex;flex-direction:column;gap:6px}
+.exactions__warmup-row{display:flex;justify-content:space-between;align-items:center;padding:8px 12px;background:var(--well);border-radius:8px}
+.exactions__warmup-info{display:flex;flex-direction:column;gap:2px}
+.exactions__warmup-num{font-size:13px;font-weight:600;color:var(--ink)}
+.exactions__warmup-role{font-size:11px;color:var(--ink-soft)}
+.exactions__warmup-role.is-warmup{color:var(--accent)}
 
 /* ---- Rest timer sheet ---- */
 /* Tapping a running clock used to end the rest, which is the one thing a lifter
@@ -1596,7 +1572,7 @@ body.is-sheet-open{overflow:hidden}
 }
 .restdial__clock{
   position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
-  font-family:var(--mono);font-weight:600;font-size:clamp(32px,10vw,42px);
+  font-family:var(--mono);font-weight:600;font-size:clamp(2rem,10vw,2.625rem);
   font-variant-numeric:tabular-nums;letter-spacing:-.02em;
 }
 /* Held: the ring goes quiet so a frozen clock never reads as a running one. */
@@ -1609,17 +1585,17 @@ body.is-sheet-open{overflow:hidden}
 .restpreset{
   min-width:0;padding:0 12px;border-radius:999px;cursor:pointer;
   border:1px solid var(--rule-strong);background:var(--surface);color:var(--ink-soft);
-  font-family:var(--mono);font-size:14px;line-height:1;
+  font-family:var(--mono);font-size:.875rem;line-height:1;
 }
 .restpreset.is-active{border-color:var(--accent);color:var(--accent-deep);background:var(--well)}
 .restsheet__controls{display:flex;align-items:center;justify-content:center;gap:4px;width:100%}
 .restctl{
   display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
   flex:1 1 0;min-width:0;padding:6px 2px;border:0;background:none;cursor:pointer;
-  color:var(--ink-soft);font-size:12px;line-height:1;
+  color:var(--ink-soft);font-size:.75rem;line-height:1;
 }
 .restctl:disabled{opacity:.35;cursor:default}
-.restctl__label{white-space:nowrap}
+.restctl__label{max-width:100%;white-space:normal;overflow-wrap:anywhere;line-height:1.15}
 .restctl--primary{
   flex:none;width:68px;height:68px;border-radius:50%;
   background:var(--accent);color:var(--cta-ink);
@@ -1692,14 +1668,8 @@ body.is-sheet-open{overflow:hidden}
 }
 @media (max-height:600px){
   .exercise--focus .focus-ex__name{font-size:19px;line-height:1.2}
-  /* Two lines of title at most; the rest of the card needs the room more. */
-  .exercise--focus .focus-ex__name,
-  .exercise--focus .focus-ex__name .ex__namebtn{
-    display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;
-  }
-  .focus-ex__target{font-size:12.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-  .focus-cue{flex-wrap:nowrap;font-size:12.5px}
-  .focus-cue__text{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .focus-ex__target{font-size:12.5px}
+  .focus-cue{font-size:12.5px}
   .curset{--curset-val:24px}
   .curset__val--word{font-size:18px}
   .effortpop__hint{padding:6px 10px;font-size:12px}
@@ -2203,37 +2173,23 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
   animation:toastin .3s cubic-bezier(.2,.7,.2,1)
 }
 
-.ex__topend{flex:none;display:flex;align-items:center;gap:8px}
-.ex__caret{flex:none;width:34px;height:34px;border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);
-  border-radius:9px;cursor:pointer;font-size:12px;line-height:1}
-.ex__rest,.ex__skip{flex:none;border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);
+.ex__skip{flex:none;border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);
   border-radius:9px;cursor:pointer;font-size:13px;line-height:1}
-.ex__rest{width:34px;height:34px;padding:0;display:inline-flex;align-items:center;justify-content:center}
 .ex__skip{padding:0 10px;height:34px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;font-size:11px}
-/* Skipping is the rarest thing a lifter does to an exercise, and it was wearing
-   the same plate as the timer, the caret and the commit button. It keeps the
-   word — the control toggles to Restore, which no glyph says — and gives up the
-   plate, so the header carries two tools and one aside. A skipped card is the
-   exception: Restore is then the only action left on it, so it keeps the plate
-   that makes it reachable. */
-.exercise:not(.is-skipped) .ex__topend .ex__skip{border-color:transparent;background:transparent}
-.exercise:not(.is-skipped) .ex__topend .ex__skip:hover{color:var(--ink)}
-.exercise.is-skipped .heat,.exercise.is-skipped .rec,.exercise.is-skipped .setup,
-.exercise.is-skipped .subst,.exercise.is-skipped .prev,.exercise.is-skipped .delta-prev,.exercise.is-skipped .sets__head,.exercise.is-skipped .setrow,
-.exercise.is-skipped .rec__block,.exercise.is-skipped .insession,.exercise.is-skipped .rec-wrap,.exercise.is-skipped .curset{display:none}
-.ex__state{display:inline-block;margin-left:.35em;color:var(--ink-soft);font-weight:400;font-size:.82em}
+
+
+
+
+
 .skipbar{display:flex;align-items:center;justify-content:space-between;gap:10px;
   background:var(--surface);border:1px solid var(--rule);border-radius:10px;
   padding:8px 12px;margin-bottom:12px;font-size:13px;color:var(--ink-soft)}
 .skipbar__show{border:1px solid var(--rule);background:var(--bg);color:var(--ink);
   border-radius:8px;padding:4px 10px;cursor:pointer;font-weight:600;font-size:11px}
-.exercise.is-collapsed .ex__caret{transform:rotate(-90deg)}
-.exercise.is-collapsed .rec,.exercise.is-collapsed .setup,.exercise.is-collapsed .prev,.exercise.is-collapsed .delta-prev,
-.exercise.is-collapsed .rec__block,.exercise.is-collapsed .insession,.exercise.is-collapsed .rec-wrap,.exercise.is-collapsed .curset,
-.exercise.is-collapsed .sets__head,.exercise.is-collapsed .setrow,.exercise.is-collapsed .heat{display:none}
 
-.setup{font-size:12px;color:var(--ink-soft);margin:0 0 10px;line-height:1.4;border-left:2px solid var(--rule);padding-left:9px}
-.setup span{color:var(--ink-faint);text-transform:uppercase;letter-spacing:.1em;font-size:10px;margin-right:7px}
+
+
+
 
 .blockprompt{position:relative;background:transparent;border:0;border-left:3px solid var(--accent);
   border-radius:0;padding:12px 40px 12px 14px;margin-bottom:14px;font-size:14px;color:var(--ink);line-height:1.45}
@@ -2263,8 +2219,9 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
   text-decoration:underline dotted;text-decoration-color:var(--ink-faint);cursor:pointer;font:inherit;line-height:1.4}
 .term:hover{text-decoration-color:var(--accent);color:var(--accent-deep)}
 /* Form controls drop inherited casing and tracking (HTML's UA sheet), so a term
-   used as a column heading has to be told to look like one. */
-.sets__head .term,.curset__cell-lab .term{text-transform:uppercase;letter-spacing:.08em}
+   used as a column heading has to be told to look like one. Its 44px hit box
+   overlays the label band instead of making that column taller than its peers. */
+.curset__cell-lab .term{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-transform:uppercase;letter-spacing:.08em}
 .glossary{
   position:absolute;z-index:60;max-width:280px;
   background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);
@@ -2503,10 +2460,6 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
 .field--check:active{background:var(--well)}
 .field--check:has(input:disabled){color:var(--ink-faint);cursor:default}
 .field--check:has(input:disabled):active{background:none}
-
-.modeswitch{display:flex;gap:6px;margin-bottom:12px}
-.modeswitch button{flex:1;border:1px solid var(--rule);background:var(--surface);color:var(--ink-soft);cursor:pointer;border-radius:10px;padding:9px 8px;font-weight:600;font-size:13px}
-.modeswitch button.active{color:var(--ink);border-color:var(--accent)}
 /* Onboarding */
 /* Keep layout and hit-target dimensions in device pixels, but express every
    onboarding text size in rem so the browser's root text setting can enlarge
@@ -2677,19 +2630,6 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .focus-ex__name .ex__namebtn{font:inherit;color:inherit;display:block;padding:7px 0;margin:-7px 0;min-height:44px}
 .ex__namebtn:hover{color:var(--accent-deep)}
 
-.exnote{margin-top:10px}
-.exnote__toggle{display:flex;align-items:baseline;gap:8px;width:100%;margin:0;padding:7px 0 0;border:0;border-top:1px solid var(--rule);
-  background:none;cursor:pointer;text-align:left;font-size:12px;color:var(--ink-faint)}
-.exnote__lab{flex:none;text-transform:uppercase;letter-spacing:.1em;font-size:10px}
-.exnote__preview{flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-style:italic}
-.exnote.has-note .exnote__preview{color:var(--ink-soft);font-style:normal}
-.exnote.has-note .exnote__lab{color:var(--accent-deep)}
-.exnote.is-open .exnote__preview{display:none}
-.exnote__input{margin-top:8px;min-height:62px;font-size:16px;line-height:1.45;
-  background:var(--surface);border:1px solid var(--rule);border-radius:10px;padding:9px 11px;resize:vertical}
-.exnote__input.hidden{display:none}
-.exercise.is-collapsed .exnote,.exercise.is-skipped .exnote{display:none}
-
 .exview__back{margin:0;padding:8px 4px;border:0;background:transparent;color:var(--accent-deep);
   cursor:pointer;font-weight:500;text-transform:none;letter-spacing:0;font-size:15px;min-height:44px}
 .exdet__name{font-weight:650;font-size:28px;line-height:1.1;letter-spacing:-0.02em;margin-bottom:4px}
@@ -2779,20 +2719,9 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
   /* A 288px row cannot hold the set action, a three-part load control, reps,
      RIR and Save in one line at 44px each. Keep the outer fields explicit and
      stack the load input over its two steppers inside the flexible column. */
-  .sets__head,.setrow{grid-template-columns:44px minmax(0,1fr) 44px 44px 44px;gap:4px}
-  .sets__head.has-effort,.setrow.has-effort{grid-template-columns:44px minmax(0,1fr) 44px 44px;row-gap:6px}
-  .setrow{align-items:start}
-  .setrow .kg{display:grid;grid-template-columns:repeat(2,minmax(44px,1fr));align-items:stretch}
-  .setrow .kg input{grid-column:1/-1;grid-row:1;width:100%;min-width:44px;border-bottom:1px solid var(--rule)}
-  .setrow .kg input:focus{border-bottom-color:var(--rule)}
-  .setrow .kg .stepbtn{width:100%;min-width:44px}
-  .setrow .kg .stepbtn[data-dir="-1"]{grid-column:1;grid-row:2}
-  .setrow .kg .stepbtn[data-dir="1"]{grid-column:2;grid-row:2;border-left:1px solid var(--rule)}
-  .effort__btn{font-size:11px;letter-spacing:.02em}
   .vrow{grid-template-columns:1fr auto}
-  .setrow input{font-size:16px;padding:12px 2px}
   .stepbtn{width:44px;min-width:44px;font-size:17px}
-  .saveset,.sets__head .sets__head-save{min-width:44px;padding:0 4px}
+  .saveset{min-width:44px;padding:0 4px}
   .edrow{grid-template-columns:minmax(0,1fr) minmax(0,20%) minmax(0,17%) minmax(0,17%) 44px;gap:6px}
   .curset__val{font-size:26px}
 }

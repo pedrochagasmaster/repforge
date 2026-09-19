@@ -12,6 +12,14 @@ work is the baseline here, not something to be revisited.
 > re-grab listed under Known residuals is implemented. Read that note alongside
 > the rows marked here, which describe the state before it.
 
+Plan 055 replaces listener takeover with an explicit, idempotent controller
+mounted by application boot. The controller owns its listeners and disposal;
+Focus navigation calls its handle. Disposing cancels queued navigation, and
+pointer cancellation never commits a swipe. The fallback has the same lifetime
+when Motion or the whole layer is unavailable. Gesture physics and vendored
+exports are unchanged. `test/focus-geometry.mjs` exercises all three runtime
+configurations with and without reduced motion.
+
 Three questions were asked of every interaction, in this order:
 
 1. **Does it deserve motion at all?** Emil Kowalski's `emil-design-eng`
@@ -193,3 +201,11 @@ left to a person on a real device:
   edge of a long day list held in one hand.
 - Whether the drop animation reads correctly against a screen reader's own
   pacing when both are running.
+
+Plan 055 compact-screen correction: the card context (exercise heading and ledger)
+can scroll above the fixed active-set controls. The ledger retains a 112px
+minimum, enough for its column heading and one complete previous-set row. Both
+gesture owners yield vertical movement when either context or ledger scrolls;
+horizontal paging retains its existing physics. The context is a named keyboard
+region, and inert peeks have no tab stop. Safe-area browser emulation is automated
+evidence; physical one-handed review remains an owner gate.

@@ -945,7 +945,7 @@ try {
     await page.evaluate(({ k, blob }) => localStorage.setItem(k, JSON.stringify(blob)), { k: KEY, blob: marked });
     await idbPut(page, JSON.parse(JSON.stringify(marked)));
     await reloadForApp(page);
-    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: true, day: "Day 1" }));
+    await page.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
     const activeDraftRaw = await page.evaluate((draftKey) => localStorage.getItem(draftKey), DRAFT);
     assert(JSON.parse(activeDraftRaw || "null")?.schemaVersion === 2, "Backup proof starts with a real active DraftV2");
     const [download] = await Promise.all([
