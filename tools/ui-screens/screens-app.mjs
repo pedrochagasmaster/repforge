@@ -72,7 +72,13 @@ async function saveWholeSession(page) {
     set("_1_reps", "6");
     set("_1_rir", "1");
   });
-  await page.evaluate(async () => { await window.__repforgeSaveWorkout(); });
+  // The fixture fills one set per exercise, so the normal finish boundary
+  // correctly rejects it as incomplete. Use the same visible confirmation
+  // path a lifter must use for an intentional partial session.
+  await page.click("#sessionSheetBtn");
+  await page.waitForSelector("#sessionSheet.is-open", { timeout: 15000 });
+  await page.click("#sessionEarlyFinish");
+  await page.click("#sessionEarlyConfirm");
   await page.waitForFunction(() => {
     const el = document.querySelector("#sessionSummary");
     return el && !el.hidden && !el.classList.contains("hidden");
