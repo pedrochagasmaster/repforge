@@ -614,6 +614,13 @@ async function commitDraftSet(page, selector, exId, ordinal = 1) {
  * day, so it re-opens the workout the way a lifter starting the next one would.
  */
 async function dismissSessionSummary(page) {
+  // Finish is asynchronous.  Wait for the form's owner to settle before
+  // inspecting the overlay; otherwise a summary that is still being built can
+  // open over the next action after this helper has already returned.
+  await page.waitForFunction(() => {
+    const form = document.querySelector("#logForm");
+    return !form || form.getAttribute("aria-busy") !== "true";
+  }, null, { timeout: 5000 });
   const seen = await page.evaluate(() => {
     const el = document.querySelector("#sessionSummary");
     if (!el || el.classList.contains("hidden")) return null;
@@ -1010,8 +1017,8 @@ function scenarioRows({ day, ex, sessions }) {
       rir,
       notes,
       created,
-      primary: ex.primary,
-      secondary: ex.secondary,
+      ...(typeof ex.primary === "string" ? { primary: ex.primary } : {}),
+      ...(typeof ex.secondary === "string" ? { secondary: ex.secondary } : {}),
     }));
   });
 }
@@ -1299,106 +1306,76 @@ async function main() {
     "No .attn__lead found",
     "Stats Overview → inspect attention board headings"
   );
+  // Plan 056: the recommendation *is* the group, so it is stated once as the
+  // group's lead and never repeated beside each lift. Each row still carries it
+  // in its own accessible name, so a chip answers "why this lift" on its own.
   assert(
-    (await page.locator("#attention .attn__why").count()) > 0,
-    "Attention group shows a why line",
-    "No .attn__why found",
-    "Stats Overview → each signal group has a why line"
+    (await page.locator("#attention .attn__why").count()) === 0,
+    "No legacy per-group why paragraph survives beside the lead",
+    "a .attn__why element is still rendered",
+    "Stats Overview → inspect an attention group"
   );
-  // A cause every lift in a group shares is stated once above them; a group
-  // whose lifts differ keeps the reason on each row. Either way the row's own
-  // accessible name still answers "why this lift".
-  const attnReasons = await page.evaluate(() =>
-    [...document.querySelectorAll("#attention .attn__grp")].map((g) => {
-      const why = g.querySelector(".attn__why");
+  const attnReasons = await page.evaluate(() => {
+    return [...document.querySelectorAll("#attention .attn__grp")].map((g) => {
+      const lead = g.querySelector(".attn__lead")?.textContent.trim() || "";
       const subs = [...g.querySelectorAll(".attn__chip .listrow__sub")];
       return {
-        hoisted: !!why && !why.classList.contains("visually-hidden"),
-        identical: new Set(subs.map((s) => s.textContent.trim())).size === 1,
+        lead,
+        leadCount: g.querySelectorAll(".attn__lead").length,
         rows: subs.length,
         subsPainted: subs.filter((s) => s.getBoundingClientRect().height > 2).length,
         named: subs.every((s) => s.closest(".attn__chip").textContent.includes(s.textContent.trim())),
       };
-    })
+    });
+  });
+  assert(
+    attnReasons.length > 0 && attnReasons.every((g) => g.lead && g.leadCount === 1),
+    "Each group states its recommendation exactly once in visible text",
+    JSON.stringify(attnReasons),
+    "Stats Overview → compare a group's lead against its rows"
   );
   assert(
-    attnReasons.length > 0 &&
-      attnReasons.every((g) => g.hoisted === (g.rows > 1 && g.identical)),
-    "Attention hoists a reason only when every lift in the group shares it",
+    attnReasons.every((g) => g.subsPainted === 0 && g.named),
+    "A row's reason is never painted twice but is still in its accessible name",
     JSON.stringify(attnReasons),
-    "Stats Overview → compare a one-reason group against a mixed one"
-  );
-  assert(
-    attnReasons.every((g) => (g.hoisted ? g.subsPainted === 0 : g.subsPainted === g.rows) && g.named),
-    "A hoisted reason is drawn once but still named on every row it covers",
-    JSON.stringify(attnReasons),
-    "Stats Overview → inspect a group whose lifts share one reason"
+    "Stats Overview → inspect the rows under a group lead"
   );
   const attnGroups = await page.evaluate(() =>
     typeof window.__repforgeAttention === "function" ? window.__repforgeAttention() : null
   );
   assert(
-    Array.isArray(attnGroups) && attnGroups.length > 0 && attnGroups.every((g) => g.lead && g.items?.length),
-    "__repforgeAttention returns grouped structure",
+    Array.isArray(attnGroups) && attnGroups.length > 0 &&
+      attnGroups.every((g) => g.lead && g.items?.length) &&
+      attnGroups.every((g) => ["progress", "repeat", "review"].includes(g.key)),
+    "__repforgeAttention returns evidence-backed recommendation groups",
     JSON.stringify(attnGroups?.map((g) => g.key)),
     "page.evaluate window.__repforgeAttention after seed"
   );
-  const seedAttnChip = page.locator(
-    "#attention .attn--reduce .attn__chip, #attention .attn--vol .attn__chip, #attention .attn--fatigue .attn__chip"
-  ).first();
-  if ((await seedAttnChip.count()) > 0) {
-    await seedAttnChip.click();
-    assert(
-      (await page.locator("#statsDeep").evaluate((el) => el.open)),
-      "Analysis attention chip opens stats deep section",
-      "statsDeep not open after analysis chip click",
-      "Stats → click reduce/vol/fatigue attention chip"
-    );
-  } else {
-    pass("Analysis attention chip click skipped (no analysis-group chips)");
-  }
-  const actionAttnChip = page.locator("#readyList [data-ready], #attention .attn--new .attn__chip").first();
+  // Every action shares one destination now: the lift's scoped Strength evidence.
+  const actionAttnChip = page.locator("#attention .attn__chip").first();
   if ((await actionAttnChip.count()) > 0) {
     const actionMeta = await page.evaluate(() => {
-      const ready = document.querySelector("#readyList [data-ready]");
-      if (ready) return { id: ready.getAttribute("data-ready"), day: null, via: "ready" };
-      const groups = typeof window.__repforgeAttention === "function" ? window.__repforgeAttention() : [];
-      const newChip = document.querySelector("#attention .attn--new .attn__chip");
-      if (newChip) {
-        const grp = groups.find((g) => g.key === "new");
-        const item = grp?.items?.[0];
-        return item ? { id: item.ex.id, day: item.ex.day, via: "attn" } : null;
-      }
-      return null;
+      const chip = document.querySelector("#attention .attn__chip");
+      return chip ? { id: chip.getAttribute("data-attn"), lift: chip.getAttribute("data-action-lift") } : null;
     });
     await actionAttnChip.click();
-    let actionNavOk = false;
-    if (actionMeta?.via === "ready") {
-      await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
-      actionNavOk = await page.evaluate((id) => {
-        const detail = document.querySelector("#exDetail");
-        return !!detail && (!id || (detail.textContent || "").length > 0);
-      }, actionMeta?.id || "");
-    } else {
-      await page.waitForFunction(() => document.querySelector("#log")?.classList.contains("active"), null, { timeout: 5000 });
-      if (actionMeta?.id) await page.waitForSelector(`#workout [data-ex="${actionMeta.id}"]`, { timeout: 5000 });
-      actionNavOk = await page.evaluate(
-        ({ id, day }) => {
-          const tab = document.querySelector("#dayTabs button.active");
-          const card = document.querySelector(`#workout [data-ex="${id}"]`);
-          return document.querySelector("#log")?.classList.contains("active") && tab?.dataset.day === day && !!card;
-        },
-        actionMeta || { id: "", day: "" }
-      );
-    }
-    assert(
-      actionMeta && actionNavOk,
-      "Action attention/ready row navigates to the lift",
-      `meta=${JSON.stringify(actionMeta)} navOk=${actionNavOk}`,
-      "Stats → click new attention chip or ready row → destination view"
+    await page.waitForSelector("#segStrength.active", { timeout: 5000 });
+    const actionNavOk = await page.evaluate(
+      ({ lift }) => document.querySelector("#stats")?.classList.contains("active") &&
+        document.querySelector('#strengthScopeSeg button.active')?.dataset.scope === "current-block" &&
+        !!document.querySelector(`#strengthDash [data-evkey="${lift}"]`),
+      actionMeta || { lift: "" }
     );
+    assert(
+      actionMeta?.id && actionMeta?.lift && actionNavOk,
+      "An action row opens that lift's current-block Strength evidence",
+      `meta=${JSON.stringify(actionMeta)} navOk=${actionNavOk}`,
+      "Stats → click an action chip → Strength evidence"
+    );
+    await nav(page, "stats");
+    await page.evaluate(() => window.__repforgeStatsNav.setStatsSeg("overview"));
   } else {
-    pass("Action attention chip navigation skipped (no new/add chips)");
+    pass("Action chip navigation skipped (no evidence-backed actions)");
   }
 
   // PWA shell loads (manifest + service worker registration)
@@ -2689,7 +2666,7 @@ async function main() {
     sets: 3,
     min: 5,
     max: 10,
-    primary: "Test",
+    primary: "Chest",
     secondary: "",
   });
   await jsonArea.fill(JSON.stringify(progJson, null, 2));
@@ -4357,10 +4334,11 @@ async function main() {
   await page.waitForTimeout(80);
   const thisWeekPlural = await page.locator("#thisWeek").innerText();
   assert(
-    /1 hard set(?!s)/.test(thisWeekPlural),
-    "This Week card uses singular hard set for one hard set",
+    /working sets/i.test(thisWeekPlural) && /building baseline/i.test(thisWeekPlural) &&
+      !/\b(attention|Below)\b/i.test(thisWeekPlural),
+    "This Week card keeps the neutral baseline state",
     `text=${thisWeekPlural.slice(0, 120)}`,
-    "Clear state → save one hard set → Stats Overview → #thisWeek reads '1 hard set'"
+    "Clear state → save one hard set → Stats Overview → #thisWeek stays neutral without legacy warning copy"
   );
   await nav(page, "history");
   const newLiftDelta = await page.locator(".session__delta").first().textContent();
@@ -4657,27 +4635,39 @@ async function main() {
     "Stats → Completed hard sets shows logged volume"
   );
   assert(
-    (await page.locator("#attention .attn--reduce .attn__chip").count()) > 0,
-    "Attention board lists lifts to back off",
-    "No reduce chips in attention board",
-    "Stats → action board shows Back off / stalled group"
+    (await page.locator("#attention .attn__grp").count()) > 0 &&
+      (await page.evaluate(() => window.__repforgeAttention().every((g) => ["progress", "repeat", "review"].includes(g.key)))),
+    "Action board lists evidence-backed recommendation groups",
+    JSON.stringify(await page.evaluate(() => window.__repforgeAttention().map((g) => g.key))),
+    "Stats → action board shows recommendation groups"
   );
   assert(
-    (await page.locator("#attention .attn__why").count()) > 0,
-    "Attention board groups include why lines",
-    "No .attn__why in attention board",
-    "Stats → action board → each group has a why line"
+    (await page.locator("#attention .attn__why").count()) === 0 &&
+      (await page.locator("#attention .attn__lead").count()) > 0,
+    "Each group states its recommendation once as a lead, with no duplicate why line",
+    "a legacy .attn__why element is still rendered",
+    "Stats → action board → each group has exactly one visible reason"
   );
-  const attnChip = page.locator("#attention .attn--reduce .attn__chip").first();
-  const attnLift = await attnChip.getAttribute("data-attn");
+  const attnChip = page.locator("#attention .attn__chip").first();
+  const attnLift = await attnChip.getAttribute("data-action-lift");
   await attnChip.click();
+  await page.waitForSelector("#segStrength.active", { timeout: 5000 });
   assert(
-    (await page.inputValue("#statExercise")) &&
-      (await page.locator("#statsDeep").evaluate((el) => el.open)),
-    "Reduce attention chip focuses exercise and opens stats deep section",
-    `statExercise=${await page.inputValue("#statExercise")}`,
-    "Stats → click reduce attention chip → chart exercise selected"
+    await page.evaluate(
+      (lift) => document.querySelector('#strengthScopeSeg button.active')?.dataset.scope === "current-block" &&
+        !!document.querySelector(`#strengthDash [data-evkey="${lift}"]`),
+      attnLift
+    ),
+    "An action chip opens that lift's current-block Strength evidence",
+    `lift=${attnLift}`,
+    "Stats → click an action chip → Strength evidence for that lift"
   );
+  await page.evaluate(() => {
+    window.__repforgeStatsNav.setStatsSeg("overview");
+    const d = document.querySelector("#statsDeep");
+    if (d) d.open = true;
+  });
+  await page.waitForTimeout(150);
   await page.click('#volWindow button[data-win="28"]');
   assert(
     (await page.locator('#volWindow button[data-win="28"]').getAttribute("class")).includes("active"),
@@ -6365,19 +6355,27 @@ async function main() {
   await nav(page, "stats");
   const segBtnCount = await page.locator("#statsSeg button").count();
   assert(
-    segBtnCount === 5,
-    "Stats segmented control has 5 segments",
+    segBtnCount === 2,
+    "Stats primary control has Overview and Review (Plan 056)",
     `button count=${segBtnCount}`,
     "Stats tab → inspect #statsSeg buttons"
   );
   const segLabels = await page.locator("#statsSeg button").allTextContents();
   assert(
-    segLabels.includes("Overview") && segLabels.includes("Strength") && segLabels.includes("Volume") && segLabels.includes("PRs") && segLabels.includes("Review"),
-    "Stats segments include Overview, Strength, Volume, PRs, Review",
+    segLabels.includes("Overview") && segLabels.includes("Review"),
+    "Primary segments are Overview and Review",
     `labels=${segLabels.join(",")}`,
-    "Stats tab → segment button labels"
+    "Stats tab → primary segment button labels"
   );
-  await page.click('#statsSeg button[data-seg="strength"]');
+  const evBtnCount = await page.locator("#statsEvidence button").count();
+  const evLabels = await page.locator("#statsEvidence button").allTextContents();
+  assert(
+    evBtnCount === 3 && evLabels.includes("Strength") && evLabels.includes("Volume") && evLabels.includes("PRs"),
+    "Evidence group carries Strength, Volume, PRs",
+    `count=${evBtnCount} labels=${evLabels.join(",")}`,
+    "Stats tab → inspect #statsEvidence buttons"
+  );
+  await page.click('#statsEvidence button[data-seg="strength"]');
   await page.waitForTimeout(80);
   const strengthVisible = await page.evaluate(() => {
     const s = document.querySelector("#segStrength");
@@ -6457,10 +6455,11 @@ async function main() {
   );
   const thisWeekText = await page.locator("#thisWeek").innerText();
   assert(
-    /improved|stable|attention/i.test(thisWeekText),
-    "This Week card shows status line",
+    /week in progress|building baseline/i.test(thisWeekText) &&
+      !/\b(improved|stable|attention)\b/i.test(thisWeekText),
+    "This Week card shows neutral in-progress status",
     `text=${thisWeekText.slice(0, 80)}`,
-    "Stats → Overview → #thisWeek shows improved/stable/attention"
+    "Stats → Overview → #thisWeek shows current-week progress without an outcome label"
   );
   const snap = await page.evaluate(() => window.__repforgeWeeklySnapshot());
   const validStatuses = [
@@ -6531,7 +6530,14 @@ async function main() {
       await persistState(f2Page, {
         ...f2State,
         settings: { ...f2State.settings, lang: "en" },
-        programMeta: { ...f2State.programMeta, name: "F2 Split", programStructure: null },
+        programMeta: {
+          ...f2State.programMeta,
+          name: "F2 Split",
+          started: "2026-08-10",
+          mesocycleLengthWeeks: 5,
+          mesocycleStatus: "active",
+          programStructure: null,
+        },
         program,
         log,
       });
@@ -6577,10 +6583,10 @@ async function main() {
       await nav(f2Page, "stats");
       const progressText = await f2Page.locator("#thisWeek").textContent();
       assert(
-        progressText.includes("2 of 5 sessions"),
-        "F2: Progress This week shows calendar-week 2 of 5",
+        progressText.includes("3 / 5 sessions"),
+        "F2: Progress This week shows the current program-week progress",
         `progress="${progressText.replace(/\s+/g, " ").slice(0, 160)}"`,
-        "Stats → Overview → #thisWeek"
+        "Stats → Overview → #thisWeek counts the three sessions in the current program week"
       );
       await f2Page.evaluate(() => {
         document.body.classList.remove("is-settings", "is-exercise", "is-onboarding", "is-workout");
@@ -6970,62 +6976,65 @@ async function main() {
       "buildPlainSummary at week 8 of 6"
     );
 
-    const openFullScreenReview = async () => {
+    // Plan 056: End block routes into the single Progress → Review surface.
+    // No separate confirm or full-screen dialog opens along the way.
+    const openProgressReview = async () => {
       await nav(page, "program");
       await applyProgramEditor(page);
       await page.click("#reviewBlockLink");
-      await page.waitForSelector("#endBlockConfirm[open]", { timeout: 5000 });
-      await page.click("#endBlockGo");
-      await page.waitForSelector("#blockReview[open]", { timeout: 5000 });
+      await page.waitForSelector("#stats.view.active", { timeout: 5000 });
+      await page.waitForFunction(() => document.querySelector('#statsSeg button[data-seg="review"]')?.classList.contains("active"), null, { timeout: 5000 });
+      await page.waitForFunction(() => !document.querySelector("#endBlockConfirm")?.open);
+      return (await page.locator("#reviewPanel").textContent()) || "";
     };
-    const heroOf = async () => (await page.locator("#blockReview .blockreview__hero").textContent())?.trim() || "";
-    const panelOf = async () => (await page.locator("#blockReview").textContent()) || "";
+    const routeOk = async () => {
+      const st = await page.evaluate(() => ({
+        reviewSeg: document.querySelector('#statsSeg button[data-seg="review"]')?.classList.contains("active"),
+        overviewSeg: document.querySelector('#statsSeg button[data-seg="overview"]')?.classList.contains("active"),
+        panelVisible: document.querySelector("#segReview")?.classList.contains("active"),
+        confirmOpen: !!document.querySelector("#endBlockConfirm")?.open,
+        dialogOpen: !!document.querySelector("#blockReview")?.open,
+      }));
+      return st.reviewSeg && !st.overviewSeg && st.panelVisible && !st.confirmOpen && !st.dialogOpen;
+    };
 
-    await openFullScreenReview();
-    let hero = await heroOf();
-    let panel = await panelOf();
+    let panel = await openProgressReview();
     assert(
-      /Week 6 of 6/.test(hero) && /ready for review/i.test(hero) && !/Block complete/i.test(hero) && !overrunText(hero),
-      "F8: full-screen review headline is ready-for-review while still active",
-      `hero="${hero}"`,
-      "End block → #blockReview hero at week 8 of 6, mesocycleStatus=active"
+      await routeOk(),
+      "F8: End block routes to the single Progress → Review surface",
+      JSON.stringify(await page.evaluate(() => ({ stats: document.querySelector("#stats")?.classList.contains("active"), confirm: !!document.querySelector("#endBlockConfirm")?.open, dialog: !!document.querySelector("#blockReview")?.open }))),
+      "End block → Progress → Review, no competing dialog"
     );
     assert(
       /Week 6 of 6/.test(panel) && /ready for review/i.test(panel) && !/Block complete/i.test(panel) && !overrunText(panel) && !/Week 8 of 6/.test(panel),
-      "F8: full-screen review copy stays clamped and not completed while active",
+      "F8: routed Review copy stays clamped and not completed while active",
       `panel="${panel.replace(/\s+/g, " ").slice(0, 220)}"`,
-      "#blockReview body at active week 8 of 6"
+      "#reviewPanel at active week 8 of 6"
     );
-    await page.click("#blockDecideLater");
-    await page.waitForFunction(() => !document.querySelector("#blockReview")?.open);
     const afterLater = (await getState(page)).programMeta.mesocycleStatus;
     assert(
       afterLater === "active",
-      "F8: Decide later leaves the mesocycle active",
+      "F8: read-only Review leaves the mesocycle active",
       `status=${afterLater}`,
-      "#blockDecideLater at week 8 of 6"
+      "Review route at week 8 of 6"
     );
 
     f8 = await getState(page);
     await persistState(page, { ...f8, settings: { ...f8.settings, lang: "pt" } });
     await reloadApp(page);
-    await openFullScreenReview();
-    hero = await heroOf();
-    panel = await panelOf();
+    panel = await openProgressReview();
     assert(
-      /Semana 6 de 6/.test(hero) && /pronta para revisão/i.test(hero) && !/Bloco concluído/i.test(hero) && !overrunText(hero),
-      "F8: PT full-screen review headline is ready-for-review while still active",
-      `hero="${hero}"`,
-      "lang=pt → #blockReview hero at active week 8 of 6"
+      await routeOk(),
+      "F8: PT End block routes to the single Progress → Review surface",
+      JSON.stringify(await page.evaluate(() => ({ confirm: !!document.querySelector("#endBlockConfirm")?.open, dialog: !!document.querySelector("#blockReview")?.open }))),
+      "lang=pt → End block → Progress → Review"
     );
     assert(
       /Semana 6 de 6/.test(panel) && /pronta para revisão/i.test(panel) && !/Bloco concluído/i.test(panel) && !overrunText(panel) && !/Semana 8 de 6/.test(panel),
-      "F8: PT full-screen review copy stays clamped and not completed while active",
+      "F8: PT routed Review copy stays clamped and not completed while active",
       `panel="${panel.replace(/\s+/g, " ").slice(0, 220)}"`,
-      "lang=pt → #blockReview body at active week 8 of 6"
+      "lang=pt → #reviewPanel at active week 8 of 6"
     );
-    await page.click("#blockDecideLater");
-    await page.waitForFunction(() => !document.querySelector("#blockReview")?.open);
     await persistState(page, { ...(await getState(page)), settings: { ...(await getState(page)).settings, lang: "en" } });
     await reloadApp(page);
 
@@ -7064,42 +7073,44 @@ async function main() {
       "Review panel + plain summary when completed"
     );
 
-    await openFullScreenReview();
-    hero = await heroOf();
-    panel = await panelOf();
+    panel = await openProgressReview();
     assert(
-      /^Block complete$/i.test(hero) && !/ready for review/i.test(hero) && !overrunText(hero),
-      "F8: full-screen review headline is Block complete only when stored-completed",
-      `hero="${hero}"`,
-      "End block → #blockReview hero at mesocycleStatus=completed"
+      await routeOk(),
+      "F8: stored-completed End block still routes to the single Review surface",
+      JSON.stringify(await page.evaluate(() => ({ confirm: !!document.querySelector("#endBlockConfirm")?.open, dialog: !!document.querySelector("#blockReview")?.open }))),
+      "End block → Progress → Review at mesocycleStatus=completed"
     );
     assert(
       /Block complete/i.test(panel) && !/Week 8 of 6/.test(panel) && !overrunText(panel),
-      "F8: completed full-screen review keeps week displays clamped",
+      "F8: completed routed Review keeps week displays clamped",
       `panel="${panel.replace(/\s+/g, " ").slice(0, 220)}"`,
-      "#blockReview body when stored-completed"
+      "#reviewPanel when stored-completed"
     );
-    await page.click("#blockReviewClose");
-    await page.waitForFunction(() => !document.querySelector("#blockReview")?.open);
+    const reviewActions = await page.evaluate(() =>
+      [...document.querySelectorAll("#reviewPanel [data-review-action]")].map((b) => b.dataset.reviewAction));
+    assert(
+      reviewActions.includes("repeat"),
+      "F8: completed block Review exposes the literal repeat structural action",
+      `actions=${reviewActions.join(",")}`,
+      "#reviewPanel actions at block-complete"
+    );
+    assert(
+      ["schedule-repair", "reduce-volume", "guided-edit"].every((kind) => reviewActions.includes(kind)) &&
+        !reviewActions.includes("recovery-week") && !reviewActions.includes("progress"),
+      "F8: wired structural actions render while evidence-ineligible actions stay absent",
+      `actions=${reviewActions.join(",")}`,
+      "completed block with insufficient performance and recovery evidence"
+    );
 
     await persistState(page, { ...(await getState(page)), settings: { ...(await getState(page)).settings, lang: "pt" } });
     await reloadApp(page);
-    await openFullScreenReview();
-    hero = await heroOf();
-    panel = await panelOf();
+    panel = await openProgressReview();
     assert(
-      /^Bloco concluído$/i.test(hero) && !/pronta para revisão/i.test(hero),
-      "F8: PT full-screen review headline is Bloco concluído when stored-completed",
-      `hero="${hero}"`,
-      "lang=pt → #blockReview hero at mesocycleStatus=completed"
-    );
-    assert(
-      /Bloco concluído/i.test(panel) && !/Semana 8 de 6/.test(panel) && !overrunText(panel),
-      "F8: PT completed full-screen review keeps week displays clamped",
+      /Bloco concluído/i.test(panel) && !/pronta para revisão/i.test(panel) && !/Semana 8 de 6/.test(panel),
+      "F8: PT completed routed Review is Bloco concluído",
       `panel="${panel.replace(/\s+/g, " ").slice(0, 220)}"`,
-      "lang=pt → #blockReview body when stored-completed"
+      "lang=pt → #reviewPanel when stored-completed"
     );
-    await page.click("#blockReviewClose");
     await page.waitForFunction(() => !document.querySelector("#blockReview")?.open);
     await persistState(page, f8Restore);
     await reloadApp(page);
@@ -7206,74 +7217,32 @@ async function main() {
     `volumeCompliance=${blockReview?.volumeCompliance}`,
     "__repforgeBuildBlockReview → volumeCompliance capped at 1"
   );
+  // Plan 056: End block routes into the single Progress → Review surface.
+  // No separate confirm or full-screen dialog opens along the way.
   await nav(page, "program");
   await applyProgramEditor(page);
   await page.click("#reviewBlockLink");
-  await page.waitForSelector("#endBlockConfirm[open]", { timeout: 5000 });
+  await page.waitForSelector("#stats.view.active", { timeout: 5000 });
+  await page.waitForFunction(() => document.querySelector('#statsSeg button[data-seg="review"]')?.classList.contains("active"), null, { timeout: 5000 });
   assert(
-    await page.evaluate(() => !document.querySelector("#blockReview")?.open),
-    "P8: confirm open — block review stays hidden",
-    `blockReview hidden=${await page.evaluate(() => !document.querySelector("#blockReview")?.open)}`,
-    "End block → #endBlockConfirm visible, #blockReview still hidden"
+    await page.evaluate(() => !document.querySelector("#endBlockConfirm")?.open && !document.querySelector("#blockReview")?.open),
+    "P8: End block routes to Review with no competing dialog",
+    JSON.stringify(await page.evaluate(() => ({ confirm: !!document.querySelector("#endBlockConfirm")?.open, dialog: !!document.querySelector("#blockReview")?.open }))),
+    "End block → Progress → Review, dialogs stay closed"
   );
-  await page.click("#endBlockCancel");
-  await page.waitForFunction(() => !document.querySelector("#endBlockConfirm")?.open);
+  const KNOWN_RECOMMENDATIONS = [
+    "repeat_or_progress",
+    "repeat_with_small_swaps",
+    "reduce_volume_or_deload",
+    "keep_program_improve_completion",
+    "repeat_with_simpler_schedule",
+  ];
   assert(
-    await page.evaluate(() => !document.querySelector("#blockReview")?.open),
-    "P8: cancel confirm — block review stays hidden",
-    `blockReview hidden=${await page.evaluate(() => !document.querySelector("#blockReview")?.open)}`,
-    "Cancel #endBlockConfirm → overlay hides, review not opened"
+    KNOWN_RECOMMENDATIONS.includes(blockReview.recommendation),
+    "P8: buildBlockReview returns a known recommendation key",
+    `recommendation=${blockReview.recommendation}`,
+    "recommendation vocabulary stays closed"
   );
-  await page.click("#reviewBlockLink");
-  await page.waitForSelector("#endBlockConfirm[open]", { timeout: 5000 });
-  await page.click("#endBlockGo");
-  await page.waitForSelector("#blockReview[open]", { timeout: 5000 });
-  const REC_STRATEGY = {
-    repeat_or_progress: "repeat",
-    repeat_with_small_swaps: "repeat_swaps",
-    reduce_volume_or_deload: "reduce_volume",
-    keep_program_improve_completion: "repeat",
-    repeat_with_simpler_schedule: "reduce_volume",
-  };
-  const expectedStrategy = REC_STRATEGY[blockReview.recommendation];
-  const recommendedInfo = await page.evaluate(() => {
-    const btns = [...document.querySelectorAll(".blockreview__act.is-recommended")];
-    return { count: btns.length, strategy: btns[0]?.dataset.strategy ?? null };
-  });
-  assert(
-    recommendedInfo.count === 1,
-    "P8: exactly one recommended strategy button",
-    `count=${recommendedInfo.count}`,
-    "Open block review → one .blockreview__act.is-recommended"
-  );
-  assert(
-    recommendedInfo.strategy === expectedStrategy,
-    "P8: recommended strategy matches buildBlockReview recommendation",
-    `got=${recommendedInfo.strategy} expected=${expectedStrategy} recommendation=${blockReview.recommendation}`,
-    "REC_STRATEGY map → highlighted data-strategy"
-  );
-  const reviewText = await page.locator("#blockReview").textContent();
-  assert(
-    /Recommendation/i.test(reviewText) && /Why:/i.test(reviewText),
-    "P8: block review panel shows recommendation and Why",
-    reviewText?.slice(0, 160),
-    "Program tab → End block → review panel opens"
-  );
-  const recSnippets = {
-    repeat_with_simpler_schedule: "simpler schedule",
-    reduce_volume_or_deload: "reduce volume",
-    repeat_or_progress: "repeat this block or progress",
-    keep_program_improve_completion: "improve completion",
-    repeat_with_small_swaps: "small swaps",
-  };
-  assert(
-    reviewText.toLowerCase().includes(recSnippets[blockReview.recommendation]),
-    "P8: review panel shows friendly recommendation copy",
-    `panel=${reviewText?.slice(0, 200)} recommendation=${blockReview.recommendation}`,
-    "End block → panel body includes mapped recommendation line"
-  );
-  await page.click("#blockReviewClose");
-  await page.waitForFunction(() => !document.querySelector("#blockReview")?.open);
 
   beginPhase("Phase: P9 next-block flow");
   await page.evaluate(() => window.__repforgeStorage.flush());
@@ -7284,6 +7253,7 @@ async function main() {
       revision: s._storageRevision || 0,
       historyLen: s.programHistory.length,
       metaId: s.programMeta.id,
+      blockId: s.programMeta.blockId || null,
       status: s.programMeta.mesocycleStatus,
       sets: s.program.map((e) => ({ sets: e.sets, maxSets: e.maxSets || 6 })),
     };
@@ -7298,7 +7268,7 @@ async function main() {
     JSON.stringify(p9LegacyHooks),
     "legacy two-step test hooks are absent"
   );
-  const p9Result = await page.evaluate(() => window.__repforgeCommitNextBlock("increase_volume"));
+  const p9Result = await page.evaluate(() => window.__repforgeCommitNextBlock("repeat"));
   await page.evaluate(() => window.__repforgeStorage.flush());
   const p9Today = new Date().toISOString().slice(0, 10);
   const p9After = await page.evaluate((oldId) => {
@@ -7312,6 +7282,7 @@ async function main() {
       archivedSets: archived?.program?.map((e) => e.sets),
       archivedReviewProgramId: archived?.review?.programId,
       metaId: s.programMeta.id,
+      blockId: s.programMeta.blockId || null,
       status: s.programMeta.mesocycleStatus,
       started: s.programMeta.started,
       sets: s.program.map((e) => e.sets),
@@ -7327,36 +7298,30 @@ async function main() {
       p9After.revision === p9Result.revision,
     "P9: canonical next-block commit reports one accepted revision",
     JSON.stringify({ before: p9Before.revision, result: p9Result, after: p9After.revision }),
-    "__repforgeCommitNextBlock(increase_volume) → accepted local/idb result at revision +1"
+    "__repforgeCommitNextBlock(repeat) → accepted local/idb result at revision +1"
   );
+  // Plan 056: the legacy program-altering strategies are gone. The literal
+  // repeat keeps the program identity and prescription into a fresh block —
+  // nothing is archived because nothing is replaced — and structural change
+  // goes through Plan 052 proposals only.
   assert(
-    p9After.historyLen === p9Before.historyLen + 1 &&
-      p9After.archivedCount === 1 &&
-      p9After.archivedMetaId === p9Before.metaId &&
-      p9After.archivedReviewProgramId === p9Before.metaId &&
-      p9After.metaId !== p9Before.metaId &&
+    p9After.metaId === p9Before.metaId &&
+      p9After.blockId !== p9Before.blockId &&
+      p9After.historyLen === p9Before.historyLen &&
+      p9After.archivedCount === 0 &&
       p9After.status === "active" &&
-      p9After.started === p9Today,
-    "P9: one atomic transition archives the old block and activates its successor",
-    JSON.stringify({
-      history: `${p9Before.historyLen} → ${p9After.historyLen}`,
-      archivedCount: p9After.archivedCount,
-      oldId: p9Before.metaId,
-      newId: p9After.metaId,
-      status: p9After.status,
-      started: p9After.started,
-    }),
-    "commitNextBlock proposal contains old archive plus active successor"
-  );
-  assert(
-    Array.isArray(p9After.archivedSets) &&
-      p9After.archivedSets.length === p9Before.sets.length &&
-      p9After.archivedSets.every((n, i) => n === p9Before.sets[i].sets) &&
+      p9After.started === p9Today &&
       p9After.sets.length === p9Before.sets.length &&
-      p9After.sets.every((n, i) => n === Math.min(p9Before.sets[i].sets + 1, p9Before.sets[i].maxSets)),
-    "P9: atomic increase_volume preserves archived sets and caps successor sets",
-    `archived=${p9After.archivedSets.join(",")} successor=${p9After.sets.join(",")}`,
-    "commitNextBlock(increase_volume) → archive unchanged, successor +1 up to maxSets"
+      p9After.sets.every((n, i) => n === p9Before.sets[i].sets),
+    "P9: literal repeat rolls the block identity with the prescription unchanged",
+    JSON.stringify({
+      metaId: p9After.metaId === p9Before.metaId,
+      blockRolled: p9After.blockId !== p9Before.blockId,
+      history: `${p9Before.historyLen} → ${p9After.historyLen}`,
+      started: p9After.started,
+      sets: p9After.sets.join(","),
+    }),
+    "commitNextBlock(repeat) → same program, new blockId, no archive"
   );
 
   beginPhase("Phase: P5 program generation");
@@ -8017,12 +7982,12 @@ async function main() {
     plainReview.summary?.slice(0, 120),
     "__repforgeBuildPlainSummary(__repforgeBlockSnapshot(...)) → string"
   );
-  const summaryInPanel = await page.locator(".review__summary").textContent();
+  const summaryInPanel = await page.locator(".review__readonly").textContent();
   assert(
     summaryInPanel && summaryInPanel.length > 20,
-    "P16: review panel renders plain summary paragraph",
+    "P16: active Review panel states its read-only checkpoint",
     summaryInPanel?.slice(0, 120),
-    "Stats → Review → .review__summary visible"
+    "Stats → Review → active block exposes the read-only note"
   );
 
   beginPhase("Phase: strength dashboard (P12)");
@@ -8030,20 +7995,23 @@ async function main() {
   await seedHistoricalLog(page);
   await reloadApp(page);
   await nav(page, "stats");
-  await page.click('#statsSeg button[data-seg="strength"]');
+  await page.click('#statsEvidence button[data-seg="strength"]');
   await page.waitForTimeout(80);
   assert(
-    (await page.locator("#strengthDash table").count()) > 0,
-    "Strength dashboard renders a table",
-    "No table inside #strengthDash",
-    "Stats → Strength segment → #strengthDash table"
+    (await page.locator("#strengthDash .evrow").count()) > 0,
+    "Strength evidence renders summary rows",
+    "No .evrow inside #strengthDash",
+    "Stats → Strength evidence → summary rows"
   );
-  const dashRows = await page.locator("#strengthDash table tbody tr").count();
+  const loggedExercise = await page.evaluate(() => window.__repforgeStrengthDashboard()[0]?.exercise || "");
+  const evRow = page.locator("#strengthDash .evrow", { hasText: loggedExercise }).first();
+  await evRow.click();
+  const drillRows = await page.locator("#strengthDash .evrow__detail:not([hidden]) table tbody tr").count();
   assert(
-    dashRows > 0,
-    "Strength dashboard table has data rows",
-    `row count=${dashRows}`,
-    "Stats → Strength → table rows for logged lifts"
+    drillRows > 0,
+    "Strength drill-in reveals the complete evidence table",
+    `row count=${drillRows}`,
+    "Stats → Strength → drill-in table rows"
   );
   const dashData = await page.evaluate(() => window.__repforgeStrengthDashboard());
   assert(
@@ -8073,7 +8041,7 @@ async function main() {
 
   beginPhase("Phase: volume dashboard (P13)");
   await nav(page, "stats");
-  await page.click('#statsSeg button[data-seg="volume"]');
+  await page.click('#statsEvidence button[data-seg="volume"]');
   await page.waitForTimeout(80);
   const volSegActive = await page.evaluate(() => document.querySelector("#segVolume")?.classList.contains("active"));
   assert(
@@ -8083,30 +8051,19 @@ async function main() {
     "Stats → click Volume → #segVolume active"
   );
   assert(
-    (await page.locator("#volumeDash table").count()) > 0,
-    "#volumeDash table exists",
-    "No table in #volumeDash",
-    "Stats → Volume segment → volume dashboard table"
+    (await page.locator("#volumeDash .vrow").count()) > 0,
+    "#volumeDash has evidence rows",
+    "No .vrow in #volumeDash",
+    "Stats → Volume evidence → muscle rows"
   );
-  const volRowCount = await page.locator("#volumeDash table tbody tr").count();
+  const periodText = await page.evaluate(() => document.querySelector("#volumePeriod")?.textContent || "");
+  const started = await page.evaluate(() => JSON.parse(localStorage.getItem("repforge_v1")).programMeta.started || null);
+  const periodOk = started ? /From /.test(periodText) : /No block period/.test(periodText);
   assert(
-    volRowCount > 0,
-    "Volume dashboard has muscle rows",
-    `rowCount=${volRowCount}`,
-    "Stats → Volume → table has tbody rows"
-  );
-  const volStatuses = await page.evaluate(() => {
-    const th = [...document.querySelectorAll("#volumeDash th")].map((t) => t.textContent);
-    const idx = th.indexOf("Status");
-    if (idx < 0) return [];
-    return [...document.querySelectorAll("#volumeDash tbody tr")].map((tr) => tr.cells[idx]?.textContent);
-  });
-  const validStatus = new Set(["Low", "On target", "High"]);
-  assert(
-    volStatuses.length > 0 && volStatuses.every((s) => validStatus.has(s)),
-    "Status column values are Low, On target, or High",
-    `statuses=${volStatuses.slice(0, 5).join(",")}`,
-    "Stats → Volume → Status column in {Low, On target, High}"
+    periodOk,
+    "Volume evidence states its period bounds (or honest absence) in accessible text",
+    `period="${periodText}" started=${started}`,
+    "Stats → Volume → period text"
   );
   const volDashApi = await page.evaluate(() => {
     const fn = window.__repforgeVolumeDashboard;
@@ -8125,7 +8082,7 @@ async function main() {
   );
 
   beginPhase("Phase: PR timeline (P14)");
-  await page.click('#statsSeg button[data-seg="prs"]');
+  await page.click('#statsEvidence button[data-seg="prs"]');
   await page.waitForTimeout(80);
   const prSegActive = await page.evaluate(() => document.querySelector("#segPRs")?.classList.contains("active"));
   assert(
@@ -9838,6 +9795,7 @@ async function main() {
         rir,
         notes: "",
         created: `${date}T12:00:0${i}Z`,
+        blockId: "coach-block",
         primary,
         secondary: "",
       }));
@@ -9852,8 +9810,8 @@ async function main() {
       mkEx("ex-reduce", "Day 1", 8, "Coach Reduce", { min: 8, max: 12, primary: "Biceps" }),
       mkEx("ex-vol", "Day 1", 9, "Coach Volume", { sets: 4, primary: "Forearms" }),
       mkEx("ex-fatigue", "Day 1", 10, "Coach Fatigue", { min: 6, max: 12, primary: "Calves" }),
-      mkEx("curl-a", "Day 1", 11, "Coach Curl", { min: 8, max: 12, primary: "Brachialis" }),
-      mkEx("curl-b", "Day 2", 1, "Coach Curl", { min: 8, max: 12, primary: "Brachialis" }),
+      mkEx("curl-a", "Day 1", 11, "Coach Curl", { min: 8, max: 12, primary: "Biceps" }),
+      mkEx("curl-b", "Day 2", 1, "Coach Curl", { min: 8, max: 12, primary: "Biceps" }),
     ];
     const log = [
       ...mkRows({ id: "ex-improved", name: "Coach Improved", day: "Day 1", date: dates.lastWeek, session: "s-imp-prev", load: 80, reps: 6, rir: 1, primary: "Chest" }),
@@ -9881,7 +9839,14 @@ async function main() {
       ...(prior.programMeta || {}),
       id: "coach-fixture",
       name: "Coach fixture",
+      blockId: "coach-block",
       onboarded: true,
+      // Keep the paired exposures inside the explicit current-block scope;
+      // inheriting the preceding simulation's transient block start can make
+      // an otherwise valid fixture look like insufficient baseline data.
+      started: dates.lastWeek,
+      mesocycleLengthWeeks: 6,
+      mesocycleStatus: "active",
       programStructure: {
         schemaVersion: 1,
         days: [
@@ -9902,119 +9867,128 @@ async function main() {
     await reloadApp(page);
     await nav(page, "stats");
 
+    // Plan 056 replaced the legacy signal board (add/new/stale/vol/fatigue with
+    // per-row destinations) with one evidence model: only a *sufficient* record
+    // carrying an observed outcome becomes an action, and its recommendation is
+    // the group. Insufficient lifts are baseline-building, not warnings, so they
+    // must contribute nothing to Needs action.
     const snap = await page.evaluate(() => {
       const w = window.__repforgeWeeklySnapshot();
       const groups = window.__repforgeAttention();
-      const stableDom = document.querySelector('#thisWeek [data-week-metric="stable"] .statrow__val')?.textContent?.trim();
-      const dest = {
-        details: window.RepForgeI18n.t("stats.dest.details"),
-        log: window.RepForgeI18n.t("stats.dest.log"),
-        trend: window.RepForgeI18n.t("stats.dest.trend"),
-      };
-      const ready = [...document.querySelectorAll("#readyList [data-ready]")].map((el) => ({
-        id: el.getAttribute("data-ready"),
-        dest: el.getAttribute("data-dest"),
-        text: el.textContent,
-        name: el.getAttribute("aria-label") || el.textContent,
-      }));
+      const records = window.__repforgeProgressEvidence.records("current-block");
+      const metric = (name) =>
+        document.querySelector(`#thisWeek [data-week-metric="${name}"] .statrow__val`)?.textContent?.trim();
       const chips = [...document.querySelectorAll("#attention [data-attn]")].map((el) => ({
         id: el.getAttribute("data-attn"),
         group: el.getAttribute("data-attngo"),
-        dest: el.getAttribute("data-dest"),
+        lift: el.getAttribute("data-action-lift"),
         text: el.textContent,
       }));
-      return { w, groups: groups.map((g) => ({ key: g.key, ids: g.items.map((i) => i.ex.id) })), stableDom, dest, ready, chips };
+      return {
+        w,
+        groups: groups.map((g) => ({ key: g.key, ids: g.items.map((i) => i.ex.id) })),
+        records: records.map((r) => ({ id: r.exerciseId, state: r.evidenceState, outcome: r.outcome ?? null })),
+        baselineDom: metric("baseline"),
+        sessionsDom: metric("sessions"),
+        chips,
+        countText: document.querySelector("#attention .section-label__count")?.textContent?.trim() || "",
+        attentionText: document.querySelector("#attention")?.textContent || "",
+        leads: [...document.querySelectorAll("#attention .attn__lead")].map((el) => el.textContent.trim()),
+        leadCounts: [...document.querySelectorAll("#attention .attn__grp")]
+          .map((group) => group.querySelectorAll(".attn__lead").length),
+      };
     });
-    assert(
-      snap.w.flatLifts === 1 && snap.stableDom === "1",
-      "Stable count equals exact flat comparisons from this week",
-      JSON.stringify({ flatLifts: snap.w.flatLifts, stableDom: snap.stableDom, improved: snap.w.improvedLifts })
-    );
-    assert(
-      snap.w.improvedLifts >= 1 && snap.w.regressedLifts >= 1,
-      "Fixture includes improved and regressed comparisons this week",
-      JSON.stringify({ improved: snap.w.improvedLifts, regressed: snap.w.regressedLifts })
-    );
-    const readyRow = snap.ready.find((r) => r.id === "ex-ready");
-    assert(
-      readyRow && readyRow.dest === "details" && readyRow.text.includes(snap.dest.details),
-      "Ready to progress shows the Details destination in the accessible name",
-      JSON.stringify(readyRow)
-    );
-    const expectChip = (id, group, destKey) => {
-      const chip = snap.chips.find((c) => c.id === id);
-      const label = snap.dest[destKey];
+
+    const groupOf = (id) => snap.groups.find((g) => g.ids.includes(id))?.key ?? null;
+    const expectAction = (id, key) =>
       assert(
-        chip && chip.group === group && chip.dest === destKey && chip.text.includes(label),
-        `${id} is a ${group} row labeled ${label}`,
-        JSON.stringify(chip)
+        groupOf(id) === key,
+        `${id} is recommended to ${key} from its observed outcome`,
+        JSON.stringify({ id, got: groupOf(id), want: key, groups: snap.groups })
       );
-    };
-    expectChip("ex-untrained", "new", "log");
-    expectChip("ex-stale", "stale", "log");
-    expectChip("ex-reduce", "reduce", "trend");
-    expectChip("ex-vol", "vol", "trend");
-    expectChip("ex-fatigue", "fatigue", "trend");
-    expectChip("curl-a", "new", "log");
-    expectChip("curl-b", "new", "log");
+    // Paired-exposure outcomes from the fixture: improved -> progress,
+    // maintained -> repeat, declined -> review.
+    expectAction("ex-improved", "progress");
+    expectAction("ex-ready", "progress");
+    expectAction("ex-flat", "repeat");
+    expectAction("ex-regressed", "review");
+    expectAction("ex-reduce", "review");
+    expectAction("ex-fatigue", "review");
+
+    const baselineIds = ["ex-oneshot", "ex-untrained", "ex-stale", "ex-vol", "curl-a", "curl-b"];
+    for (const id of baselineIds) {
+      assert(
+        groupOf(id) === null,
+        `${id} has insufficient evidence and never enters Needs action`,
+        JSON.stringify({ id, group: groupOf(id) })
+      );
+    }
     assert(
-      snap.chips.every((c) => c.id && !["Coach Curl", "Coach Untrained"].includes(c.id)),
-      "Coaching rows store exercise IDs, not display names",
-      snap.chips.map((c) => c.id).join(",")
+      snap.records.filter((r) => r.state === "insufficient").length === baselineIds.length &&
+        snap.records.every((r) => r.state === "sufficient" || r.outcome === null),
+      "insufficient records stay outcome-free baseline evidence",
+      JSON.stringify(snap.records)
+    );
+    assert(
+      snap.baselineDom === String(baselineIds.length),
+      "the weekly baseline tally counts exactly the insufficient lifts",
+      JSON.stringify({ baselineDom: snap.baselineDom, want: baselineIds.length })
+    );
+    assert(
+      !/\bAttention\b/.test(snap.attentionText) && !/\bBelow\b/.test(snap.attentionText),
+      "no legacy Attention/Below wording survives on the Overview board",
+      snap.attentionText.slice(0, 200)
     );
 
-    await page.click('#readyList [data-ready="ex-ready"]');
-    await page.waitForSelector("#exercise.view.active", { timeout: 5000 });
-    const readyLanded = await page.evaluate(() => ({
-      view: document.querySelector("#exercise")?.classList.contains("active"),
-      title: document.querySelector("#exName, #exercise h2, #exDetail")?.textContent || "",
-    }));
+    // The tally and the rendered chips are the same lifts, so the two numbers
+    // can never disagree.
+    const actionIds = snap.groups.flatMap((g) => g.ids);
     assert(
-      readyLanded.view && /Coach Ready/i.test(readyLanded.title),
-      "Details destination opens Exercise detail for the ready lift",
-      JSON.stringify(readyLanded)
+      snap.chips.length === actionIds.length && snap.countText.includes(String(actionIds.length)),
+      "the Needs action count equals the chips the board renders",
+      JSON.stringify({ chips: snap.chips.length, ids: actionIds.length, countText: snap.countText })
     );
-    await page.click("#exBack");
-    await nav(page, "stats");
+    assert(
+      snap.chips.every((c) => c.id && c.lift && !["Coach Curl", "Coach Untrained"].includes(c.id)),
+      "action rows store exercise IDs and lift identities, not display names",
+      snap.chips.map((c) => `${c.id}/${c.lift}`).join(",")
+    );
+    // The recommendation is stated once per group, not repeated beside each lift.
+    assert(
+      snap.leadCounts.length > 0 && snap.leadCounts.every((count) => count === 1),
+      "each group states its recommendation exactly once in visible text",
+      JSON.stringify({ leads: snap.leads, leadCounts: snap.leadCounts })
+    );
+    assert(
+      snap.w.improvedLifts >= 1 && snap.w.regressedLifts >= 1 && snap.w.flatLifts === 1,
+      "Fixture includes improved, flat, and regressed comparisons this week",
+      JSON.stringify({ improved: snap.w.improvedLifts, flat: snap.w.flatLifts, regressed: snap.w.regressedLifts })
+    );
 
-    const landLog = async (id, day) => {
-      await page.click(`#attention [data-attn="${id}"]`);
-      await page.waitForFunction(() => document.querySelector("#log")?.classList.contains("active"), null, { timeout: 5000 });
-      await page.waitForSelector(`#workout [data-ex="${id}"]`, { timeout: 5000 });
-      return page.evaluate(
-        ({ id, day }) => {
-          const card = document.querySelector(`#workout [data-ex="${id}"]`);
-          const tab = document.querySelector("#dayTabs button.active");
-          return {
-            log: document.querySelector("#log")?.classList.contains("active"),
-            card: !!card,
-            day: tab?.dataset.day || "",
-            want: day,
-          };
-        },
-        { id, day }
-      );
-    };
-    const untrainedLand = await landLog("ex-untrained", "Day 1");
-    assert(untrainedLand.log && untrainedLand.card, "New-lift Log destination opens the Log card for that ID", JSON.stringify(untrainedLand));
-    await nav(page, "stats");
-    const curlA = await landLog("curl-a", "Day 1");
-    assert(curlA.card && curlA.day === "Day 1", "Duplicate name on Day 1 routes by exercise ID", JSON.stringify(curlA));
-    await nav(page, "stats");
-    const curlB = await landLog("curl-b", "Day 2");
-    assert(curlB.card && curlB.day === "Day 2", "Duplicate name on Day 2 routes by exercise ID", JSON.stringify(curlB));
-    await nav(page, "stats");
-
+    // One destination replaces the old per-group routing: an action opens the
+    // lift's scoped Strength evidence, which is where the decision is made.
     await page.click('#attention [data-attn="ex-reduce"]');
-    const trendLand = await page.evaluate(() => ({
-      deep: !!document.querySelector("#statsDeep")?.open,
-      sel: document.querySelector("#statExercise")?.value || "",
+    const actionLand = await page.evaluate(() => ({
       stats: document.querySelector("#stats")?.classList.contains("active"),
+      strength: !!document.querySelector("#segStrength")?.classList.contains("active"),
+      scope: document.querySelector('#strengthScopeSeg button.active')?.dataset.scope || "",
+      row: !!document.querySelector('#strengthDash [data-evkey="movement:slot:ex-reduce"]'),
     }));
     assert(
-      trendLand.deep && trendLand.sel === "movement:slot:ex-reduce" && trendLand.stats,
-      "View trend destination opens the stats chart for that movement identity",
-      JSON.stringify(trendLand)
+      actionLand.stats && actionLand.strength && actionLand.scope === "current-block" && actionLand.row,
+      "an action opens that lift's current-block Strength evidence",
+      JSON.stringify(actionLand)
+    );
+
+    // Two exercises sharing a display name keep separate evidence identities.
+    const curlRows = await page.evaluate(() => ["curl-a", "curl-b"].map((id) => {
+      const key = window.__repforgeProgressEvidence.keyForExerciseId(id);
+      return { id, key, row: !!document.querySelector(`#strengthDash [data-evkey="${key}"]`) };
+    }));
+    assert(
+      curlRows[0].key !== curlRows[1].key && curlRows.every((r) => r.key && r.row),
+      "duplicate display names keep distinct Strength evidence identities",
+      JSON.stringify(curlRows)
     );
   }
 
@@ -10920,16 +10894,18 @@ async function main() {
   const addEn = enVol.rows.find((r) => r.muscle === "Adductors");
   const frontEn = enVol.rows.find((r) => r.muscle === "Front delts");
   assert(
-    addEn?.width === "0%" && addEn.fillBox < 1 && addEn.num.includes("0") && /below/i.test(addEn.status),
-    "F9: 0/4 is an empty bar and keeps Below",
+    addEn?.width === "0%" && addEn.fillBox < 1 && addEn.num.includes("0") &&
+      /baseline building/i.test(addEn.status) && !addEn.on && !addEn.high,
+    "F9: 0/4 is an empty neutral baseline bar",
     JSON.stringify(addEn),
-    "Overview → Adductors 0/4"
+    "Overview → Adductors 0/4 stays baseline-building"
   );
   assert(
-    frontEn?.width === "100%" && frontEn.num.includes("4") && /on target/i.test(frontEn.status) && frontEn.on,
-    "F9: 4/4 is a full On target bar",
+    frontEn?.width === "100%" && frontEn.num.includes("4") && /toward the full period/i.test(frontEn.status) &&
+      !frontEn.on && !frontEn.high,
+    "F9: 4/4 stays neutral while the current period is open",
     JSON.stringify(frontEn),
-    "Overview → Front delts 4/4"
+    "Overview → Front delts 4/4 before the current week closes"
   );
   const lats = enVol.hook.find((r) => r.muscle === "Lats");
   const calves = enVol.hook.find((r) => r.muscle === "Calves");
@@ -10941,10 +10917,10 @@ async function main() {
     "__repforgeOverviewVolume.pct(5,5)"
   );
   assert(
-    calves?.pct === 100 && calves.completed7 > calves.planned && calves.status === "High",
-    "F9: over-target width is capped at 100% and status is High",
+    calves?.pct === 100 && calves.completed7 > calves.planned && /toward the full period/i.test(calves.status),
+    "F9: over-target width is capped at 100% while the period is open",
     JSON.stringify(calves),
-    "__repforgeOverviewVolume.pct for Calves 12/4"
+    "__repforgeOverviewVolume.pct for Calves 12/4 in an open period"
   );
   assert(
     biceps?.planned === 0 && biceps.pct === 0 && biceps.completed7 > 0,
@@ -11000,10 +10976,14 @@ async function main() {
     JSON.stringify(chartPaint.fillText.map((x) => ({ text: x.text, fillStyle: x.fillStyle }))),
     "Inspect #chart.__rfPaint.fillText colors"
   );
+  // Plan 056 sparse policy: a one-point snapshot draws no connector at all;
+  // comparison/trend keep the brand-orange data stroke.
+  const chartPresentation = await page.evaluate(() => window.__repforgeChartLastPresentation || null);
+  const hasAccentStroke = chartPaint.stroke.some((x) => x.strokeStyle === "#e04e14");
   assert(
-    chartPaint.stroke.some((x) => x.strokeStyle === "#e04e14") &&
-      chartPaint.stroke.some((x) => x.strokeStyle === "#e4e1da"),
-    "C1: chart data stroke stays brand orange; grid stays rule",
+    (chartPresentation === "snapshot" && !hasAccentStroke) ||
+      (chartPresentation !== "snapshot" && hasAccentStroke),
+    "C1: data stroke follows the sparse-evidence policy and stays brand orange",
     JSON.stringify(chartPaint.stroke),
     "Inspect #chart.__rfPaint.stroke colors"
   );
@@ -11023,10 +11003,10 @@ async function main() {
   );
   await page.click("#overviewVolumeMore");
   await page.waitForSelector("#segVolume.active", { timeout: 5000 });
-  const volTableCount = await page.locator("#volumeDash tbody tr").count();
+  const volTableCount = await page.locator("#volumeDash .vrow").count();
   const volActive = await page.evaluate(
     () =>
-      document.querySelector('#statsSeg button[data-seg="volume"]')?.classList.contains("active") &&
+      document.querySelector('#statsEvidence button[data-seg="volume"]')?.classList.contains("active") &&
       document.querySelector("#segVolume")?.classList.contains("active")
   );
   assert(
@@ -11071,8 +11051,8 @@ async function main() {
   );
   const ptCalves = ptVol.hook.find((r) => r.muscle === "Calves");
   assert(
-    ptCalves?.status === "Alto" && ptCalves.completed7 > ptCalves.planned,
-    "F9: Portuguese volumeDashboard labels over-target High as Alto",
+    /rumo ao período completo/i.test(ptCalves?.status || "") && ptCalves.completed7 > ptCalves.planned,
+    "F9: Portuguese Overview keeps an open period neutral",
     JSON.stringify(ptCalves),
     "PT Stats → Overview hook status for Calves 12/4"
   );
@@ -11087,22 +11067,22 @@ async function main() {
   const hsChest = enHigh.rows.find((r) => r.muscle === "Chest");
   const hsCalves = enHigh.rows.find((r) => r.muscle === "Calves");
   assert(
-    hsQuads?.status === "Below" && !hsQuads.on && !hsQuads.high && hsQuads.width === "0%",
-    "F9: Below overview copy is unchanged",
+    /baseline building/i.test(hsQuads?.status || "") && !hsQuads.on && !hsQuads.high && hsQuads.width === "0%",
+    "F9: insufficient overview evidence stays baseline-building",
     JSON.stringify(hsQuads),
-    "Overview → Quads 0/4"
+    "Overview → Quads 0/4 has no legacy Below state"
   );
   assert(
-    hsChest?.status === "On target" && hsChest.on && !hsChest.high && hsChest.width === "100%",
-    "F9: On target overview copy is unchanged",
+    /toward the full period/i.test(hsChest?.status || "") && !hsChest.on && !hsChest.high && hsChest.width === "100%",
+    "F9: an open-period overview row stays neutral at the target",
     JSON.stringify(hsChest),
-    "Overview → Chest 4/4"
+    "Overview → Chest 4/4 before the current week closes"
   );
   assert(
-    hsCalves?.status === "High" && hsCalves.high && !hsCalves.on && hsCalves.width === "100%",
-    "F9: over-target overview row renders High, not On target",
+    /toward the full period/i.test(hsCalves?.status || "") && !hsCalves.high && !hsCalves.on && hsCalves.width === "100%",
+    "F9: over-target overview row stays neutral before period close",
     JSON.stringify(hsCalves),
-    "Overview → Calves 12/4"
+    "Overview → Calves 12/4 before the current week closes"
   );
 
   await persistState(page, highStatusState(await getState(page), "pt"));
@@ -11112,12 +11092,12 @@ async function main() {
   await page.waitForSelector("#overviewVolume .vrow", { timeout: 5000 });
   const ptHigh = await readOverview();
   assert(
-    ptHigh.rows.find((r) => r.muscle === "Quads")?.status === "Abaixo" &&
-      ptHigh.rows.find((r) => r.muscle === "Chest")?.status === "No alvo" &&
-      ptHigh.rows.find((r) => r.muscle === "Calves")?.status === "Alto" &&
-      ptHigh.rows.find((r) => r.muscle === "Calves")?.high &&
+    /construindo base/i.test(ptHigh.rows.find((r) => r.muscle === "Quads")?.status || "") &&
+      /rumo ao período completo/i.test(ptHigh.rows.find((r) => r.muscle === "Chest")?.status || "") &&
+      /rumo ao período completo/i.test(ptHigh.rows.find((r) => r.muscle === "Calves")?.status || "") &&
+      !ptHigh.rows.find((r) => r.muscle === "Calves")?.high &&
       !ptHigh.rows.find((r) => r.muscle === "Calves")?.on,
-    "F9: Portuguese overview uses Alto for over-target, keeping Abaixo/No alvo",
+    "F9: Portuguese overview keeps baseline and open-period rows neutral",
     ptHigh.rows.map((r) => `${r.muscle}:${r.status}`).join("|"),
     "PT Overview → Quads/Chest/Calves status labels"
   );

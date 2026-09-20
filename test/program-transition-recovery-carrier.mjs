@@ -33,7 +33,7 @@ import { readFileSync } from "node:fs";
 import { isDeepStrictEqual } from "node:util";
 import { applyRuleB, parseExecutablePolicy } from "../tools/recovery-policy-contract.mjs";
 
-const BASE = process.env.REPFORGE_URL || "http://127.0.0.1:8052/";
+const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT_KEY = "repforge_draft_v1";
 const CHECKPOINT_KEY = "repforge_draft_v1:v2-checkpoint";
@@ -504,7 +504,12 @@ function stateWithoutRecoveryCommitDelta(snapshot) {
   const copy = clone(snapshot);
   delete copy._storageRevision;
   delete copy.recoveryTransitions;
-  if (copy.programMeta) delete copy.programMeta.blockId;
+  if (copy.programMeta) {
+    delete copy.programMeta.blockId;
+    delete copy.programMeta.started;
+    delete copy.programMeta.mesocycleStatus;
+    delete copy.programMeta.updated;
+  }
   return copy;
 }
 

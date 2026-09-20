@@ -43,7 +43,7 @@ import {
   waitForFirstRun,
 } from "./shared-setup-flow.mjs";
 
-const BASE = process.env.REPFORGE_URL || "http://127.0.0.1:8054/";
+const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const FAULT = process.env.REPFORGE_ENTRY_LANDING_FAULT;
 
 const KEY = "repforge_v1";

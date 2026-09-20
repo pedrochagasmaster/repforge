@@ -749,6 +749,48 @@ test("draft schema rejects nested prototype pollution in result and legacyHints"
   assert.throws(() => Entry.setResult(base, pollutedResult), /Invalid program-entry result/);
   assert.equal({}.polluted, undefined);
 });
+
+test("preview and custom-definition ingress share the closed muscle domain", () => {
+  function importDraft(primary, source = "import") {
+    let state = Entry.selectRoute(fresh(), "import");
+    state = Entry.setAnswers(state, { importReady: true });
+    state = Entry.setResult(state, {
+      fingerprint: "muscle-domain",
+      selected: { id: "import", source: "import" },
+      preview: {
+        source,
+        program: [{ id: "row-1", day: "Day 1", order: 1, name: "Row", sets: 3, min: 8, max: 12, primary }],
+        customExercises: source === "compiler" ? [] : [{ id: "custom:muscle-domain", name: "Custom row", equipment: ["machine"], primary }],
+      },
+    });
+    return Entry.advance(state).state;
+  }
+
+  const canonical = Entry.normalizeSetupDraft(importDraft(" Chest, Mid/upper back "));
+  assert.equal(canonical.ok, true, canonical.issues?.join(","));
+  assert.equal(canonical.value.result.preview.program[0].primary, "Chest,Mid/upper back");
+  assert.equal(canonical.value.result.preview.customExercises[0].primary, "Chest,Mid/upper back");
+
+  for (const value of [
+    Array.from({ length: 129 }, (_, index) => String.fromCodePoint(0x4e00 + index)).join(","),
+    "__proto__",
+    "prototype",
+    "constructor",
+  ]) {
+    const rejected = Entry.normalizeSetupDraft(importDraft(value));
+    assert.equal(rejected.ok, false, `${value.slice(0, 16)} is rejected`);
+    assert.equal(rejected.code, "invalid-muscle-domain");
+  }
+
+  const compiler = importDraft("quads", "compiler");
+  compiler.result.preview.programStructure = {
+    schemaVersion: 1,
+    days: [{ dayId: "compiler_d1", label: "Day 1", order: 1 }],
+    weekPrescriptions: [{ week: 1, days: [{ dayId: "compiler_d1", slots: [{ slotId: "row-1", sets: 3, primary: "quads", secondary: "lats" }] }] }],
+  };
+  assert.equal(Entry.normalizeSetupDraft(compiler).ok, true, "compiler-only internal muscle ids remain staged");
+});
+
 test("build-route setup draft normalizes and preserves diagnostics facts", () => {
   let state = fresh();
   state = Entry.selectRoute(state, "build");

@@ -101,9 +101,36 @@ function dependentScheduledFiles(files, cwd) {
 function entriesForLanes(lanes) {
   return ALL.filter(({ lane }) => lanes.has(lane));
 }
+function entriesForSuiteFiles(files) {
+  return ALL.filter(({ suite }) => files.has(suite.file));
+}
 function addEntries(target, additions) {
   for (const entry of additions) target.set(JSON.stringify(commandArgs(entry.suite)), entry);
 }
+
+const EXPLICIT_INPUT_RULES = [
+  {
+    match: /^docs\/ui-screens\/manifest\.json$/,
+    suiteFiles: [
+      "test/ui-screens.mjs",
+      "tools/check-ui-screens.mjs",
+      "test/ui-plan-050-build-hierarchy.mjs",
+      "test/ui-plan-050-editor.mjs",
+      "test/ui-catalog-contract.mjs",
+    ],
+    why: "UI screen manifest consumers",
+  },
+  {
+    match: /^docs\/ui-screens\/entry-semantics\.json$/,
+    suiteFiles: ["test/ui-screens.mjs"],
+    why: "UI screen semantic baseline",
+  },
+  {
+    match: /^docs\/ui-screens\/screens\/.+\.png$/,
+    suiteFiles: ["test/ui-screens.mjs", "tools/check-ui-screens.mjs"],
+    why: "UI screen catalog baselines",
+  },
+];
 
 const DOMAIN_RULES = [
   { match: /^(services\/install-transfer\/|\.github\/workflows\/install-transfer-service\.yml$)/, lanes: ["service"], why: "install-transfer service gate" },
@@ -146,6 +173,12 @@ export function selectAffected(files, { cwd = ROOT } = {}) {
           return { mode: "all", entries: ALL, files: changed, reasons: [`Unmapped test/tool input: ${file}`] };
         }
       }
+      continue;
+    }
+    const explicitRule = EXPLICIT_INPUT_RULES.find(({ match }) => match.test(file));
+    if (explicitRule) {
+      addEntries(chosen, entriesForSuiteFiles(new Set(explicitRule.suiteFiles)));
+      reasons.push(`${file}: ${explicitRule.why} → ${explicitRule.suiteFiles.join(", ")}`);
       continue;
     }
     const rule = DOMAIN_RULES.find(({ match }) => match.test(file));

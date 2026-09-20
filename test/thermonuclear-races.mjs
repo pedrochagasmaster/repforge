@@ -675,7 +675,7 @@ async function scenarioFinishClearsNewerSet(browser) {
 }
 
 async function scenarioDoubleBlockCompletion(browser) {
-  console.log("\n5. Two tabs complete the same old block with different strategies");
+  console.log("\n5. Two tabs repeat the same old block");
   const context = await browser.newContext({ serviceWorkers: "block" });
   try {
     const first = await openApp(context);
@@ -718,11 +718,11 @@ async function scenarioDoubleBlockCompletion(browser) {
 
     await holdStorageLock(locker);
     await first.evaluate((oldId) => {
-      window.__auditFirstBlock = window.__repforgeCommitNextBlock("increase_volume", undefined, oldId);
+      window.__auditFirstBlock = window.__repforgeCommitNextBlock("repeat", undefined, oldId);
     }, rev30.programMeta.id);
     await waitForPendingStorageLocks(locker, 1);
     await second.evaluate((oldId) => {
-      window.__auditSecondBlock = window.__repforgeCommitNextBlock("reduce_volume", undefined, oldId);
+      window.__auditSecondBlock = window.__repforgeCommitNextBlock("repeat", undefined, oldId);
     }, rev30.programMeta.id);
     await waitForPendingStorageLocks(locker, 2);
 
@@ -755,11 +755,12 @@ async function scenarioDoubleBlockCompletion(browser) {
     check(
       acceptedCount === 1 &&
         !(secondResult?.localOk || secondResult?.idbOk) &&
-        final.local?.program?.[0]?.sets === 3 &&
-        final.idb?.program?.[0]?.sets === 3 &&
-        final.local?.programHistory?.filter((entry) => entry.id === rev30.programMeta.id).length === 1 &&
-        final.idb?.programHistory?.filter((entry) => entry.id === rev30.programMeta.id).length === 1,
-      "only one strategy can complete a captured old program ID",
+        final.local?.program?.[0]?.sets === 2 &&
+        final.idb?.program?.[0]?.sets === 2 &&
+        final.local?.programMeta?.blockId !== rev30.programMeta.id &&
+        final.local?.programMeta?.blockId === final.idb?.programMeta?.blockId &&
+        final.local?.programHistory?.length === 0 && final.idb?.programHistory?.length === 0,
+      "only one repeat can complete a captured old block identity",
       { firstResult, secondResult, acceptedCount, replicas: summary(final) }
     );
     check(
@@ -1619,7 +1620,7 @@ async function scenarioUnrelatedProgramEditPreservesSessionDay(browser) {
       id: "audit-row",
       name: "Audit row",
       order: 2,
-      primary: "Back",
+      primary: "Mid/upper back",
     });
     baseline.log = [
       {
@@ -1649,7 +1650,7 @@ async function scenarioUnrelatedProgramEditPreservesSessionDay(browser) {
         rir: 1,
         notes: "",
         created: "2026-08-14T12:00:00.000Z",
-        primary: "Back",
+        primary: "Mid/upper back",
         secondary: "",
       },
     ];

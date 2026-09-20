@@ -7,7 +7,11 @@
  * encode/decode behaviour rather than on rejection paths.
  */
 import fc from "fast-check";
+import { createRequire } from "node:module";
 import { intIn, smallCount } from "./numbers.mjs";
+
+const require = createRequire(import.meta.url);
+const { MUSCLE_TOKENS } = require("../../../program-entry.js");
 
 export const BUILT_IN_IDS = Object.freeze([
   "ab_mc", "cu_db", "cv_mc", "dl_bb", "hg_mc", "ht_bb", "lc_mc", "le_mc",
@@ -133,6 +137,14 @@ function customId(index) {
   return `custom:gen-${index}`;
 }
 
+function muscleAttribution() {
+  return fc.oneof(
+    { weight: 3, arbitrary: fc.uniqueArray(fc.constantFrom(...MUSCLE_TOKENS), { maxLength: 3 }).map((list) => list.join(",")) },
+    { weight: 1, arbitrary: fc.constant("") },
+    { weight: 1, arbitrary: fc.constant(undefined) },
+  );
+}
+
 function customArbitrary(index) {
   return fc.record({
     id: fc.constant(customId(index)),
@@ -144,8 +156,8 @@ function customArbitrary(index) {
         maxLength: 3,
       })
       .map((list) => [...new Set(list)]),
-    primary: fc.oneof({ weight: 2, arbitrary: nameText(60) }, { weight: 1, arbitrary: fc.constant(undefined) }),
-    secondary: fc.oneof({ weight: 2, arbitrary: nameText(60) }, { weight: 1, arbitrary: fc.constant(undefined) }),
+    primary: muscleAttribution(),
+    secondary: muscleAttribution(),
     notes: fc.oneof({ weight: 2, arbitrary: text(100) }, { weight: 1, arbitrary: fc.constant(undefined) }),
   });
 }

@@ -181,16 +181,17 @@
       </div>
       <div id="statsSeg" class="seg seg--stats" role="tablist" data-i18n-aria="stats.sections_aria" aria-label="Stats sections">
         <button type="button" role="tab" data-seg="overview" class="active" aria-selected="true" data-i18n="stats.overview">Overview</button>
+        <button type="button" role="tab" data-seg="review" aria-selected="false" data-i18n="stats.review">Review</button>
+      </div>
+      <div id="statsEvidence" class="seg seg--stats seg--evidence" role="tablist" data-i18n-aria="stats.evidence_aria" aria-label="Evidence">
         <button type="button" role="tab" data-seg="strength" aria-selected="false" data-i18n="stats.strength">Strength</button>
         <button type="button" role="tab" data-seg="volume" aria-selected="false" data-i18n="stats.volume">Volume</button>
         <button type="button" role="tab" data-seg="prs" aria-selected="false" data-i18n="stats.prs">PRs</button>
-        <button type="button" role="tab" data-seg="review" aria-selected="false" data-i18n="stats.review">Review</button>
       </div>
       <div id="segOverview" class="stats-seg active">
         <div id="statsIntro" class="emptystate hidden"></div>
         <p class="section-label" data-i18n="today.this_week">This week</p>
         <div id="thisWeek" class="thisweek card card--plain"></div>
-        <div id="readyList" class="ready-list"></div>
         <div id="attention" class="attention"></div>
         <div id="metrics" class="metrics"></div>
         <p class="section-label section-label--row">
@@ -224,10 +225,20 @@
           <h3 class="subhead" data-i18n="stats.top_loads_by_exercise">Top loads by exercise</h3><div id="tops" class="table"></div>
         </details>
       </div>
-      <div id="segStrength" class="stats-seg"><h3 class="subhead" data-i18n="stats.strength">Strength</h3><div id="strengthDash" class="table"></div></div>
+      <div id="segStrength" class="stats-seg">
+        <div id="strengthScopeSeg" class="seg seg--window" role="tablist" data-i18n-aria="stats.scope_aria" aria-label="Strength scope">
+          <button type="button" data-scope="current-block" class="active" role="tab" aria-selected="true" data-i18n="stats.scope.current_block">Current block</button>
+          <button type="button" data-scope="all-history" role="tab" aria-selected="false" data-i18n="stats.scope.all_history">All history</button>
+        </div>
+        <h3 class="subhead" data-i18n="stats.strength">Strength</h3><div id="strengthDash"></div></div>
       <div id="segVolume" class="stats-seg">
+        <div id="volumeScopeSeg" class="seg seg--window" role="tablist" data-i18n-aria="stats.volume_scope_aria" aria-label="Volume period">
+          <button type="button" data-vscope="this-week" class="active" role="tab" aria-selected="true" data-i18n="stats.volume.scope.this_week">This week</button>
+          <button type="button" data-vscope="block-to-date" role="tab" aria-selected="false" data-i18n="stats.volume.scope.block_to_date">Block to date</button>
+        </div>
         <h3 class="subhead" data-i18n="stats.volume">Volume</h3>
-        <div id="volumeDash" class="table"></div>
+        <div id="volumePeriod" class="lede" role="text"></div>
+        <div id="volumeDash"></div>
       </div>
       <div id="segPRs" class="stats-seg">
         <p class="lede" data-i18n="stats.prs.lede">Your load, rep, and estimated one-rep-max records.</p>
@@ -467,6 +478,8 @@
           <button type="button" class="btn btn--steel" data-guide-replay="entry" data-i18n="guide.entry.title">Choose how to begin</button>
           <button type="button" class="btn btn--steel" data-guide-replay="install" data-i18n="guide.install.title">Install when it helps</button>
           <button type="button" class="btn btn--steel" data-guide-replay="privacy" data-i18n="guide.privacy.title">Know what stays private</button>
+          <button type="button" class="btn btn--steel" data-guide-replay="progress" data-i18n="guide.progress.title">Read your progress</button>
+          <button type="button" class="btn btn--steel" data-guide-replay="block-transition" data-i18n="guide.block-transition.title">Review a training block</button>
         </div>
         <div class="settings-row" style="cursor:default">
           <span class="settings-row__label" data-i18n="settings.about">About</span>
@@ -584,14 +597,6 @@
     <p class="glossary__term"></p>
     <p class="glossary__body"></p>
   </div>
-  <dialog id="blockReview" class="blockreview" data-i18n-aria="dialog.block_review.aria" aria-label="Block review">
-    <div class="blockreview__head">
-      <button type="button" class="back-link" id="blockReviewClose" data-i18n="dialog.block_review.close">Close</button>
-      <div class="blockreview__head-title" data-i18n="dialog.block_review.title">Block review</div>
-      <div></div>
-    </div>
-    <div id="blockReviewBody" class="blockreview__body"></div>
-  </dialog>
   <dialog id="importChoice" class="importchoice" data-i18n-aria="dialog.import.aria" aria-label="Import backup">
     <p class="importchoice__title" data-i18n="dialog.import.title">Import backup</p>
     <p class="importchoice__body" id="importChoiceBody"></p>
@@ -600,14 +605,6 @@
       <button type="button" id="importReplace" class="btn btn--danger" data-i18n="dialog.import.replace_all">Replace all</button>
       <button type="button" id="importProgramOnly" class="btn btn--steel hidden" data-i18n="dialog.import.program_only">Program only</button>
       <button type="button" id="importCancel" class="btn btn--steel" data-i18n="dialog.import.cancel">Cancel</button>
-    </div>
-  </dialog>
-  <dialog id="endBlockConfirm" class="importchoice" data-i18n-aria="dialog.end_block.aria" aria-label="End training block">
-    <p class="importchoice__title" data-i18n="dialog.end_block.title">End this training block?</p>
-    <p class="importchoice__body" data-i18n="dialog.end_block.body">You'll review this block's progress and pick how to start the next one. Nothing is deleted.</p>
-    <div class="btnrow">
-      <button type="button" id="endBlockGo" class="btn btn--cta" data-i18n="dialog.end_block.review">Review block</button>
-      <button type="button" id="endBlockCancel" class="btn btn--steel" data-i18n="dialog.cancel">Cancel</button>
     </div>
   </dialog>
   <!-- One-time entry landing. Shared links adapt this surface before any
@@ -1088,19 +1085,20 @@ Progress.</p>
        reordering stays reachable through each row's Move controls. -->
   <script src="vendor/motion/motion.js"></script>
   <script src="vendor/dnd-kit/dnd-kit.js"></script>
-  <script src="motion-layer.js?v=257"></script>
-  <script src="program-compiler.js?v=257"></script>
-  <script src="program-entry.js?v=257"></script>
-  <script src="program-entry-adapter.js?v=257"></script>
-  <script src="program-editor.js?v=257"></script>
-  <script src="shared-setup.js?v=257"></script>
-  <script src="workout-draft.js?v=257"></script>
-  <script src="program-transition.js?v=257"></script>
+  <script src="motion-layer.js?v=274"></script>
+  <script src="program-compiler.js?v=274"></script>
+  <script src="program-entry.js?v=274"></script>
+  <script src="program-entry-adapter.js?v=274"></script>
+  <script src="program-editor.js?v=274"></script>
+  <script src="shared-setup.js?v=274"></script>
+  <script src="workout-draft.js?v=274"></script>
+  <script src="program-transition.js?v=274"></script>
   <script src="install-transfer-contract.js"></script>
   <script src="install-transfer.js"></script>
-  <script src="install-policy.js?v=257"></script>
-  <script src="guide-registry.js?v=257"></script>
-  <script src="durable-state.js?v=257"></script>
-  <script src="app.js?v=257"></script>
+  <script src="install-policy.js?v=274"></script>
+  <script src="guide-registry.js?v=274"></script>
+  <script src="durable-state.js?v=274"></script>
+  <script src="progress-model.js?v=274"></script>
+  <script src="app.js?v=274"></script>
 </body>
 </html>

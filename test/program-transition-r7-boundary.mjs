@@ -23,7 +23,7 @@ import { fileURLToPath } from "node:url";
 import { launchChromium, waitForAppBoot, assertServingApp } from "./browser.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const BASE = process.env.REPFORGE_URL || "http://127.0.0.1:8052/";
+const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
 const DB_NAME = "repforge";
 const STORE_NAME = "kv";

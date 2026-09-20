@@ -16,7 +16,7 @@ const Compiler = require("../program-compiler.js");
 const Transition = require("../program-transition.js");
 const { EXERCISE_LIBRARY } = require("../exercises.js");
 
-const BASE = process.env.REPFORGE_URL || "http://127.0.0.1:8052/";
+const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT_KEY = "repforge_draft_v1";
 const CHECKPOINT_KEY = "repforge_draft_v1:v2-checkpoint";
@@ -562,52 +562,18 @@ async function main() {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
 
-    // The user-facing block action must take the same compiler-backed path as
-    // the explicit adapter seam. This is the production boundary that used to
-    // apply the forbidden blanket +/-1 shortcut.
+    // The retired direct block strategy must stay closed. Plan 056 exposes
+    // volume reduction only as a hash-pinned preview through the Plan 052
+    // adapter, which the remainder of this suite exercises.
     const directBefore = await page.evaluate(() => window.__repforgeWorkoutDraft.state());
-    const directSourceBlockId = directBefore.programMeta?.blockId;
-    const directCompiled = Compiler.compile(directBefore.programMeta.compilerContext, EXERCISE_LIBRARY);
-    const directExpected = await Transition.proposeVolumeReduction({
-      predecessorInstance: directCompiled,
-      predecessor: {
-        programId: directBefore.programMeta.id,
-        durableRevision: directBefore._storageRevision,
-        source: "Recommend",
-      },
-      transitionId: "tr_packet_v_direct_oracle",
-      successorProgramId: "prog_packet_v_direct_oracle_succ",
-      createdAt: "2026-10-05T08:59:00.000Z",
-      diagnosis: {
-        kind: "reduce_training_volume",
-        answers: {},
-        eligibleEvidenceIds: ["packet-v-direct-volume"],
-        insufficientEvidenceReasons: [],
-      },
-      policyVersion: 1,
-      supportedVersions: Compiler.VERSIONS,
-    });
-    check(directExpected.ok === true, "independent oracle can derive the direct block successor", directExpected);
     const directResult = await page.evaluate(() => window.__repforgeCommitNextBlock("reduce_volume"));
-    check(directResult?.committed === true && directResult.localOk === true && directResult.idbOk === true,
-      "commitNextBlock(reduce_volume) commits through the production volume adapter", directResult);
+    check(directResult?.committed === false && directResult?.code === "unsupported_strategy" &&
+          directResult.localOk === false && directResult.idbOk === false,
+      "retired commitNextBlock(reduce_volume) fails closed", directResult);
     const directAfter = await readReplicas(page);
-    check(durableProgramMatches(directExpected.successorInstance.program, directAfter.local.program) &&
-          isDeepStrictEqual(directAfter.local.program, directAfter.idb.program),
-      "direct block commit stores the compiler-derived successor in both replicas", {
-        difference: firstNormalizedProgramDifference(directExpected.successorInstance.program, directAfter.local.program),
-      });
-    check(directAfter.local.programMeta?.transitionIn?.kind === "reduce_training_volume" &&
-          directAfter.local.history.length === 1 && directAfter.idb.history.length === 1,
-      "direct block commit writes one volume transition archive", directAfter);
-    check(typeof directAfter.local.programMeta?.blockId === "string" &&
-          directAfter.local.programMeta.blockId !== directSourceBlockId &&
-          directAfter.local.programMeta.blockId === directAfter.idb.programMeta?.blockId,
-      "direct volume block commit mints one fresh block identity in both replicas", {
-        source: directSourceBlockId,
-        local: directAfter.local.programMeta?.blockId,
-        idb: directAfter.idb.programMeta?.blockId,
-      });
+    check(isDeepStrictEqual(directAfter.local, semantic(directBefore)) &&
+          isDeepStrictEqual(directAfter.local, directAfter.idb),
+      "retired direct strategy changes neither replica", directAfter);
 
     // The rest of this suite exercises the explicit preview/confirmation path
     // with a touched DraftV2 and retry/fault oracles from a fresh predecessor.
@@ -626,6 +592,21 @@ async function main() {
     check(typeof draftBefore.raw === "string" && typeof draftBefore.checkpoint === "string",
       "DraftV2 raw and checkpoint are present before proposal");
 
+    const predecessorHistorySeed = await page.evaluate(async () => {
+      const next = window.__repforgeWorkoutDraft.state();
+      next.programMeta.plannedVolumeHistory = {
+        schemaVersion: 1,
+        throughWeek: 2,
+        plannedSessions: 8,
+        plannedWorkingSets: 48,
+        muscles: { direct: { Chest: 32 }, secondary: { Triceps: 16 } },
+      };
+      const result = await window.__repforgeCommitProposedState(next);
+      await window.__repforgeStorage.flush();
+      return result;
+    });
+    check(predecessorHistorySeed.localOk === true && predecessorHistorySeed.idbOk === true,
+      "predecessor historical volume seed commits before replacement");
     const before = await page.evaluate(() => window.__repforgeWorkoutDraft.state());
     const revisionR = before._storageRevision;
     const compilerContext = before.programMeta.compilerContext;
@@ -652,6 +633,8 @@ async function main() {
     check(proposalResult?.ok === true, "production volume proposal reaches the compiler-backed adapter", proposalResult);
     if (!proposalResult?.ok) throw new Error(`volume proposal unavailable: ${JSON.stringify(proposalResult)}`);
     const proposal = proposalResult.proposal;
+    check(proposal.programMeta?.plannedVolumeHistory === undefined,
+      "compiler-backed successor starts without the predecessor's block history", proposal.programMeta?.plannedVolumeHistory);
     check(proposal.kind === "reduce_training_volume", "proposal kind is reduce_training_volume");
     check(proposal.predecessor.durableRevision === revisionR, "proposal pins the current durable revision");
     check(proposalResult.successorInstance?.days?.length === compiled.days.length,

@@ -62,7 +62,7 @@ function fixture(lang = "en") {
     },
     program: ROWS.map(([id, name, day, order]) => ({
       id, name, day, order, sets: 3, min: 6, max: 10,
-      primary: "Back", secondary: "", notes: "", alternates: [],
+      primary: "Mid/upper back", secondary: "", notes: "", alternates: [],
     })),
     log: [], programHistory: [], _storageRevision: 1,
   };

@@ -814,7 +814,8 @@
     const idbOk = !!result?.idbOk;
     const revision = typeof result?.revision === "number" ? result.revision : (options.revision ?? 0);
     const conflict = !!(result?.conflict || result?.duplicate || result?.ineligible ||
-      result?.setupDraftConflict || result?.stale || result?.staleRevision || result?.staleBlock);
+      result?.setupDraftConflict || result?.stale || result?.staleRevision || result?.staleBlock ||
+      result?.stateInvalid);
     const draftConflict = !!result?.draftConflict;
     const alreadyCommitted = !!result?.alreadyCommitted;
     const accepted = !!result?.accepted;
@@ -830,6 +831,7 @@
       journalFailed ? "journal_failed" :
       draftConflict ? "draft_conflict" :
       stale ? "stale_proposal" :
+      result?.stateInvalid ? "invalid-state" :
       conflict ? (result?.reason || "conflict") :
       pendingJournalCleanup ? "journal_cleanup_pending" :
       deferred ? "settlement_deferred" :
@@ -993,6 +995,13 @@
     requireAdapter(io, "writeSnapshot");
     const target = cloneSnapshot(snapshot);
     const revision = readRevision(target);
+    // This is the last common write boundary for normal snapshots, prepared
+    // draft transactions, boot heals, and test adapters. Validate the exact
+    // shape the boot reader accepts before touching either durable replica.
+    if (!isValidStateShape(target)) {
+      return { revision, localOk: false, idbOk: false, conflict: true,
+        stateInvalid: true, code: "invalid-state" };
+    }
     if(io===storageIO&&installTransferMutationFrozen())
       return{revision,localOk:false,idbOk:false,conflict:true,
         transferFrozen:true,code:"install-transfer-frozen"};
@@ -1277,6 +1286,7 @@
       const recoveryTransactionPresent=Object.prototype.hasOwnProperty.call(journal,"recoveryTransaction");
       if(journal.recoveryTransaction!=null&&typeof journal.recoveryTransaction!=="boolean")return null;
       const recoveryTransaction=journal.recoveryTransaction===true;
+      const transitionPayloadMalformed=rawTransitionMetadataMalformed(journal.proposal);
       const expectedProgramFingerprint=typeof journal.expectedProgramFingerprint==="string"&&
         journal.expectedProgramFingerprint.length<=PENDING_EFFECT_MAX_RAW?journal.expectedProgramFingerprint:null;
       if(journal.expectedProgramFingerprint!=null&&!expectedProgramFingerprint)return null;
@@ -1305,7 +1315,8 @@
         expectedProgramId:typeof journal.expectedProgramId==="string"&&journal.expectedProgramId?journal.expectedProgramId:null,
         expectedProgramFingerprint,expectedBlockId,expectedStorageRevision,
         expectedFirstRunEmpty:journal.expectedFirstRunEmpty===true,reconcileSessionIds,dayRenames,
-        effectOutcome,effect:effectOutcome.effect,recoveryTransaction,recoveryTransactionPresent,rollback}}}
+        effectOutcome,effect:effectOutcome.effect,recoveryTransaction,recoveryTransactionPresent,
+        transitionPayloadMalformed,rollback}}}
     catch{return null}}
 
     function readPendingJournal(){
@@ -1546,6 +1557,9 @@
     const frozenBase=cloneSnapshot(base),frozenLiveBase=cloneSnapshot(liveBase);
     const frozenProposal=cloneSnapshot(proposal),frozenEffectOutcome=normalizeDraftEffectOutcome(effect);
     let workingProposal=cloneSnapshot(frozenProposal);
+    if(!isValidStateShape(frozenBase)||!isValidStateShape(frozenLiveBase)||!isValidStateShape(frozenProposal))
+      return Promise.resolve({revision:readRevision(frozenBase),localOk:false,idbOk:false,
+        conflict:true,stateInvalid:true,code:"invalid-state"});
     const frozenReconcileSessionIds=normalizeJournalSessionIds(reconcileSessionIds);
     const frozenDayRenames=normalizeJournalDayRenames(dayRenames);
     if(frozenReconcileSessionIds==null||frozenDayRenames==null)
@@ -1647,6 +1661,9 @@
       const snapshot=stateSnapshotForHead(frozenBase,frozenLiveBase,workingProposal,head,
         {replace,reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
           expectedFirstRunEmpty,sharedRebaseSeed:pendingRecord?.journal.id||coordinationId});
+      if(!isValidStateShape(snapshot))
+        return discardPending({revision:readRevision(head),localOk:false,idbOk:false,
+          conflict:true,stateInvalid:true,code:"invalid-state"});
       const prepared=preparePendingDraftTransaction(snapshot,head,frozenEffect,pendingRecord?.journal.id);
       const transactionId=pendingDraftTransaction(prepared)?.id||coordinationId;
       if(io===storageIO&&installTransferMutationFrozen())return cancelUnstarted();
@@ -1788,6 +1805,12 @@
         // boundary is still clear; a draft created after it was armed survives
         // untouched and the pending start is discarded.
         if(isRecoveryJournalAttempt(journal)&&(!journal.rollback||blockStartDraftGuard(head))){
+          const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+            effect:journal.effectOutcome,discard:true});
+          if(!discarded.settled)
+            return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+          continue}
+        if(journal.transitionPayloadMalformed){
           const discarded=await executeDraftTransaction({record,transactionId:journal.id,
             effect:journal.effectOutcome,discard:true});
           if(!discarded.settled)
@@ -2001,7 +2024,10 @@
       ?{records:carrier.records,quarantine:carrier.quarantine}:null;
   }
 
-  function recoveryJournalNonCarrierEqual(base,proposal,{ignoreBlockId=false}={}){
+  function recoveryJournalNonCarrierEqual(base,proposal,{
+    ignoreBlockId=false,
+    ignoreRecoveryLifecycle=false,
+    recoveryStartRecord=null}={}){
     const left=cloneSnapshot(base),right=cloneSnapshot(proposal);
     if(!isPlainStateObject(left?.programMeta)||!isPlainStateObject(right?.programMeta))return false;
     delete left.recoveryTransitions;
@@ -2009,6 +2035,18 @@
     if(ignoreBlockId){
       delete left.programMeta.blockId;
       delete right.programMeta.blockId}
+    if(recoveryStartRecord){
+      const confirmedAt=recoveryStartRecord.confirmedAt;
+      if(typeof confirmedAt!=="string"||!/^\d{4}-\d{2}-\d{2}T/.test(confirmedAt)||
+        right.programMeta.started!==confirmedAt.slice(0,10)||
+        right.programMeta.mesocycleStatus!=="active"||
+        right.programMeta.updated!==confirmedAt)return false;
+      for(const key of["started","mesocycleStatus","updated"])
+        right.programMeta[key]=left.programMeta[key];
+    }else if(ignoreRecoveryLifecycle){
+      for(const key of["started","mesocycleStatus","updated"]){
+        delete left.programMeta[key];
+        delete right.programMeta[key]}}
     return storageSnapshotsEqual(left,right);
   }
 
@@ -2022,7 +2060,7 @@
     if(!isValidBlockId(sourceBlock,base.programMeta.id)||
       !isValidBlockId(targetBlock,proposal.programMeta.id))return null;
     const baseCarrier=recoveryJournalCarrier(base),proposalCarrier=recoveryJournalCarrier(proposal);
-    if(!baseCarrier||!proposalCarrier||!recoveryJournalNonCarrierEqual(base,proposal,{ignoreBlockId:true}))return null;
+    if(!baseCarrier||!proposalCarrier)return null;
     if(journal.expectedProgramId!==base.programMeta.id||journal.expectedBlockId!==sourceBlock||
       !Number.isInteger(journal.expectedStorageRevision)||journal.expectedStorageRevision<0)return null;
 
@@ -2038,7 +2076,9 @@
         appended.predecessor.durableRevision===journal.expectedStorageRevision&&
         overlay?.blockId===targetBlock&&overlay?.reassessmentOutcome===null&&
         typeof journal.expectedProgramFingerprint==="string"&&
-        draftProgramFingerprint(base)===journal.expectedProgramFingerprint)
+        draftProgramFingerprint(base)===journal.expectedProgramFingerprint&&
+        recoveryJournalNonCarrierEqual(base,proposal,{
+          ignoreBlockId:true,recoveryStartRecord:appended}))
         return"start";
       return null;
     }
@@ -2080,7 +2120,8 @@
     const sourceBlock=base.programMeta.blockId,targetBlock=proposal.programMeta.blockId;
     if(!isValidBlockId(sourceBlock,base.programMeta.id)||
       !isValidBlockId(targetBlock,proposal.programMeta.id)||
-      !recoveryJournalNonCarrierEqual(base,proposal,{ignoreBlockId:true}))return false;
+      !recoveryJournalNonCarrierEqual(base,proposal,{
+        ignoreBlockId:true,ignoreRecoveryLifecycle:true}))return false;
     const baseCarrier=recoveryJournalCarrier(base),proposalCarrier=recoveryJournalCarrier(proposal);
     if(!baseCarrier||!proposalCarrier||
       storageSnapshotsEqual(baseCarrier,proposalCarrier))return false;
@@ -2103,6 +2144,19 @@
   function transitionRecordEqual(a,b){
     if(a==null||b==null)return a==b;
     return storageSnapshotsEqual(a,b)}
+
+  function rawTransitionMetadataMalformed(snapshot){
+    if(!isPlainStateObject(snapshot))return false;
+    const meta=isPlainStateObject(snapshot.programMeta)?snapshot.programMeta:null;
+    if(meta?.transitionIn!=null&&!isCoherentV1TransitionIn(meta.transitionIn))return true;
+    const history=Array.isArray(snapshot.programHistory)?snapshot.programHistory:[];
+    for(const row of history){
+      if(!isPlainStateObject(row))continue;
+      if(row.transitionOut!=null&&!isCoherentV1TransitionOut(row.transitionOut))return true;
+      if(row.meta?.transitionIn!=null&&!isCoherentV1TransitionIn(row.meta.transitionIn))return true;
+    }
+    return false;
+  }
 
   function classifyInheritedTransitionValue(value,validator){
     if(value==null)return "absent";

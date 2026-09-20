@@ -13,6 +13,13 @@
   const MAX_TEXT = 10000;
   const MAX_ID = 240;
   const CONTEXT_TOUCHED_FIELDS = ["day", "date", "sessionNotes", "bodyweight"];
+  const MuscleDomain = root?.RepForgeProgramEntry ||
+    (typeof require === "function" ? require("./program-entry.js") : null);
+  const MAX_MUSCLE_ATTRIBUTION = MuscleDomain?.MUSCLE_ATTRIBUTION_MAX_LENGTH || 500;
+
+  function isCanonicalMuscleAttribution(value) {
+    return MuscleDomain?.isCanonicalMuscleAttribution?.(value) === true;
+  }
 
   function hasOwn(value, key) {
     return Object.prototype.hasOwnProperty.call(value, key);
@@ -30,6 +37,11 @@
 
   function isText(value, { empty = false, max = MAX_TEXT } = {}) {
     return typeof value === "string" && value.length <= max && (empty || value.length > 0);
+  }
+
+  function isMuscleText(value, { empty = false } = {}) {
+    return typeof value === "string" && [...value].length <= MAX_MUSCLE_ATTRIBUTION &&
+      (empty || value.length > 0);
   }
 
   function isOptionalText(value, max = MAX_TEXT) {
@@ -103,8 +115,15 @@
       issues.push(`${path}:object`);
       return;
     }
-    for (const field of ["exerciseInstanceId", "sourceExerciseId", "displayName", "primary", "secondary"]) {
-      if (!isText(value[field], { empty: field === "primary" || field === "secondary", max: field.includes("Id") ? MAX_ID : 500 })) {
+    for (const field of ["exerciseInstanceId", "sourceExerciseId", "displayName"]) {
+      if (!isText(value[field], { max: field.includes("Id") ? MAX_ID : 500 })) {
+        issues.push(`${path}.${field}`);
+      }
+    }
+    for (const field of ["primary", "secondary"]) {
+      if (isMuscleText(value[field], { empty: true }) && !isCanonicalMuscleAttribution(value[field])) {
+        issues.push(`${path}.${field}:invalid-muscle-domain`);
+      } else if (!isMuscleText(value[field], { empty: true })) {
         issues.push(`${path}.${field}`);
       }
     }
@@ -210,8 +229,10 @@
       (typeof value.targetRir !== "number" || !Number.isFinite(value.targetRir) || value.targetRir < 0)) {
       issues.push(`${path}.targetRir`);
     }
-    for (const field of ["notes", "primary", "secondary"]) {
-      if (!isText(value[field], { empty: true })) issues.push(`${path}.${field}`);
+    if (!isText(value.notes, { empty: true })) issues.push(`${path}.notes`);
+    for (const field of ["primary", "secondary"]) {
+      if (!isMuscleText(value[field], { empty: true })) issues.push(`${path}.${field}`);
+      else if (!isCanonicalMuscleAttribution(value[field])) issues.push(`${path}.${field}:invalid-muscle-domain`);
     }
     if (!isOptionalText(value.progressionStrategy, 240)) issues.push(`${path}.progressionStrategy`);
     if (!isOptionalText(value.movementPattern, 240)) issues.push(`${path}.movementPattern`);

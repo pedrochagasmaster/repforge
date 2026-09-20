@@ -42,9 +42,7 @@
   const ENTRY_MOVEMENTS = vocabulary.ENTRY_MOVEMENTS;
   const ENTRY_ENVIRONMENTS = vocabulary.ENTRY_ENVIRONMENTS;
   const CONSTRAINT_REASONS = vocabulary.CONSTRAINT_REASONS;
-  const MUSCLE_TOKENS = Object.freeze(["Chest", "Lats", "Mid/upper back", "Traps", "Front delts", "Side delts", "Rear delts",
-    "Biceps", "Triceps", "Forearms", "Quads", "Hamstrings", "Glutes", "Adductors", "Abductors", "Calves",
-    "Spinal erectors", "Abs", "Obliques"]);
+  const MUSCLE_TOKENS = vocabulary.MUSCLE_TOKENS;
   const PICKER_MUSCLE_GROUPS = Object.freeze([
     Object.freeze(["chest", Object.freeze(["Chest"])]),
     Object.freeze(["back", Object.freeze(["Lats", "Mid/upper back", "Traps"])]),

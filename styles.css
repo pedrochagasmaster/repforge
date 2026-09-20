@@ -1725,7 +1725,7 @@ body.is-sheet-open{overflow:hidden}
 .pr-kind--e1rm{color:var(--accent-deep);background:rgba(var(--accent-rgb),.08)}
 .prtimeline{display:flex;flex-direction:column;gap:0;margin-top:4px}
 .prtl__row{display:grid;grid-template-columns:auto 1fr auto auto auto;gap:6px 10px;align-items:center;
-  padding:14px 0;border-radius:0;background:transparent;border:0;border-bottom:1px solid var(--rule);font-size:13px;line-height:1.35}
+  width:100%;padding:14px 0;border-radius:0;background:transparent;border:0;border-bottom:1px solid var(--rule);font-size:13px;line-height:1.35;text-align:left;cursor:pointer}
 .prtl__date{font-size:12px;color:var(--ink-soft);white-space:nowrap}
 .prtl__ex{font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .prtl__set{font-size:13px;color:var(--ink);white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -2298,6 +2298,8 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
 .blockprogress{margin:0 0 16px;padding:12px 0;border:0;border-radius:0;background:transparent}
 .blockprogress__title{font-weight:600;font-size:12px;margin:0 0 8px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-faint)}
 .review__summary{margin:0;font-size:14px;line-height:1.55;color:var(--ink)}
+.review__hash{display:block;max-width:100%;overflow-wrap:anywhere;word-break:break-all;white-space:normal;font-family:var(--mono)}
+.review__preview-actions .btn{min-width:0;overflow-wrap:anywhere;word-break:break-word}
 
 /* ============================================================
    Session summary — the screen a finished session earns
@@ -2610,6 +2612,20 @@ body.is-sheet-open .installbanner{display:none}
 .seg.seg--stats button{padding:12px 9px;font-size:13px}
 .seg.seg--stats button:first-child{padding-left:0}
 .seg.seg--stats button:last-child{padding-right:0}
+/* Evidence is a secondary group under the two primary tasks (Plan 056): the
+   same tab row language, visually smaller so it never competes with them. */
+.seg.seg--stats.seg--evidence{border-bottom:0;margin-bottom:6px}
+.seg.seg--stats.seg--evidence button{padding:8px 9px;font-size:12px;color:var(--ink-faint)}
+.seg.seg--stats.seg--evidence button.active{color:var(--ink)}
+/* Evidence summary rows (Plan 056 UI-08): full names, one value, drill-in. */
+.evrow{display:flex;align-items:center;gap:8px;width:100%;text-align:left;padding:11px 2px;background:none;border:0;border-bottom:1px solid var(--rule)}
+.evrow .listrow__main{flex:1;min-width:0}
+.evrow__val{font-family:var(--mono);font-size:14px;white-space:nowrap}
+.evrow__detail{padding:8px 2px 14px;border-bottom:1px solid var(--rule);width:100%;min-width:0;max-width:100%;overflow-x:auto}
+.evrows{display:block}
+button.vrow{width:100%;padding:8px 0;background:none;border:0;text-align:left;color:inherit;font:inherit}
+.vrow.evrow{display:grid;grid-template-columns:1fr auto auto auto;gap:6px 12px;align-items:center}
+.vrow.evrow .vrow__bar{grid-column:1/-1}
 @media (max-width:360px){.seg.seg--stats button{padding:12px 6px;font-size:12px}}
 /* The smallest phone is the one width where six columns still ask for more room
    than the card has, so the ledger tightens before it falls back to scrolling. */
@@ -2761,10 +2777,6 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 #unfinishedBanner{margin:0 0 .75rem;padding:.75rem 0;border:0;border-bottom:1px solid var(--rule);border-radius:0}
 #unfinishedBanner.hidden{display:none}
 
-.ready-list__row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 0;border-bottom:1px solid var(--rule);width:100%;background:none;border-left:0;border-right:0;border-top:0;cursor:pointer;text-align:left;font:inherit;color:inherit}
-.ready-list__name{font-size:16px;font-weight:600}
-.ready-list__why{font-size:13px;color:var(--ink-soft);margin-top:2px}
-.ready-list__delta{color:var(--accent-deep);font-weight:600;font-size:15px;flex:none}
 
 .sectionhead-period{font-size:14px;color:var(--ink-soft);background:none;border:0;cursor:pointer;padding:8px 0;min-height:44px}
 

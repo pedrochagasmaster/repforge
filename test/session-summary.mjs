@@ -144,7 +144,18 @@ async function logSet(page, exId, n, load, reps, rir) {
     },
     { exId, n, load, reps, rir }
   );
-  await page.waitForTimeout(90);
+  await page.waitForFunction(
+    ({ exId, n, load, reps, rir }) => {
+      const draft = window.__repforgeWorkoutDraft?.current?.();
+      const set = draft?.exercises?.[exId]?.sets?.[`set-${n}`];
+      return set?.completion !== "pending" &&
+        set?.edited?.load === String(load) &&
+        set?.edited?.reps === String(reps) &&
+        set?.edited?.rir === String(rir);
+    },
+    { exId, n, load, reps, rir },
+    { timeout: 15000 },
+  );
 }
 
 async function enterLog(page) {

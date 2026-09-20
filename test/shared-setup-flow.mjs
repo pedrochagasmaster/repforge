@@ -1051,7 +1051,10 @@ export async function runSharedSetupFlow(browser) {
       if (!result || result.kind !== "compiled") return { kind: result?.kind || null };
       return {
         kind: result.kind,
-        program: result.program,
+        program: result.program.map((row) => {
+          const entry = library.find((candidate) => candidate.id === row.libraryId);
+          return entry ? { ...row, primary: entry.primary, secondary: entry.secondary } : row;
+        }),
         programStructure: result.programStructure,
         relations: (result.relations || []).filter((relation) => relation.state === "attached").map((relation) => ({
           schemaVersion: 1,
@@ -1152,7 +1155,10 @@ export async function runSharedSetupFlow(browser) {
       return {
         kind: result.kind,
         rows: result.program.length,
-        program: result.program,
+        program: result.program.map((row) => {
+          const entry = library.find((candidate) => candidate.id === row.libraryId);
+          return entry ? { ...row, primary: entry.primary, secondary: entry.secondary } : row;
+        }),
         programStructure: result.programStructure,
         compilerContext,
         relations: (result.relations || []).filter((relation) => relation.state === "attached").map((relation) => ({
@@ -1935,7 +1941,14 @@ export async function runSharedSetupFlow(browser) {
       const fragment = encoded.ok ? encoded.value : wireFragment(REPRESENTATIVE_PAYLOAD);
       const before = await page.evaluate(readDurableState);
       await page.goto(`${APP_INDEX}#setup=${fragment}`, { waitUntil: "domcontentloaded" });
-      await page.waitForTimeout(600);
+      await page.waitForFunction(
+        (expected) => {
+          const el = document.querySelector("#toast");
+          return el && !el.classList.contains("hidden") && el.textContent === expected;
+        },
+        SHARED_COPY.en.existing,
+        { timeout: 5000 }
+      );
       const after = await page.evaluate(readDurableState);
       const gate = await page.evaluate(sharedGateSnapshot);
       const toast = await page.evaluate(() => {
@@ -2154,7 +2167,7 @@ export async function runSharedSetupFlow(browser) {
     const ready = await page.evaluate(readSharedHook);
     assert(ready.status === "ready", "tab A holds a ready proposal (edit)", JSON.stringify(ready));
     await commitConcurrentHead(page, {
-      editCustoms: [{ id: "custom:recipient-stale", patch: { name: "Edited name", primary: "Back", secondary: "Biceps", notes: "Edited notes" } }],
+      editCustoms: [{ id: "custom:recipient-stale", patch: { name: "Edited name", primary: "Mid/upper back", secondary: "Biceps", notes: "Edited notes" } }],
     });
     if (!(await clickSharedStart(page))) {
       await context.close();
@@ -2168,7 +2181,7 @@ export async function runSharedSetupFlow(browser) {
     assert(local.programMeta?.onboarded === true, "concurrent-edit acceptance reports success", JSON.stringify({ name: local.programMeta?.name }));
     assert(matches.length === 1, "exactly one definition keeps the recipient identity", JSON.stringify((local.customExercises || []).map((r) => r.id)));
     assert(
-      edited.name === "Edited name" && edited.primary === "Back" && edited.notes === "Edited notes",
+      edited.name === "Edited name" && edited.primary === "Mid/upper back" && edited.notes === "Edited notes",
       "the surviving definition holds the newer durable values",
       JSON.stringify(edited)
     );

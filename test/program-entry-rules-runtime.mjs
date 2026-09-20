@@ -9,7 +9,7 @@ const DRAFT = "repforge_program_setup_draft_v1";
 const state = {
   settings: { unit: "kg", lang: "en", jumpPct: 2.5, minJump: 2.5, rirHigh: 2, hardRir: 4, restSec: 120 },
   programMeta: { id: "rules-active", name: "Current block", started: "2026-08-01", onboarded: true, daysPerWeek: 1, mesocycleLengthWeeks: 6, mesocycleStatus: "active" },
-  program: [{ id: "rules-row", day: "Day 1", order: 1, name: "Barbell row", sets: 2, min: 6, max: 10, primary: "Back", secondary: "Biceps", libraryId: "rw_bb" }], log: [], programHistory: [], customExercises: [], _storageRevision: 2,
+  program: [{ id: "rules-row", day: "Day 1", order: 1, name: "Barbell row", sets: 2, min: 6, max: 10, primary: "Mid/upper back", secondary: "Biceps", libraryId: "rw_bb" }], log: [], programHistory: [], customExercises: [], _storageRevision: 2,
 };
 const browser = await launchChromium();
 const context = await browser.newContext();

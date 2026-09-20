@@ -9,7 +9,7 @@ const DRAFT = "repforge_program_setup_draft_v1";
 const state = {
   settings: { unit: "kg", lang: "en", jumpPct: 2.5, minJump: 2.5, rirHigh: 2, hardRir: 4, restSec: 120 },
   programMeta: { id: "conflict-active", name: "Current block", started: "2026-08-01", created: "2026-08-01T00:00:00.000Z", updated: "2026-08-01T00:00:00.000Z", onboarded: true, mesocycleStatus: "active", mesocycleLengthWeeks: 6, daysPerWeek: 1, goal: "hypertrophy", equipment: ["barbell"] },
-  program: [{ id: "conflict-row", day: "Day 1", order: 1, name: "Barbell row", sets: 2, min: 6, max: 10, primary: "Back", secondary: "Biceps", notes: "", alternates: [], libraryId: "rw_bb" }],
+  program: [{ id: "conflict-row", day: "Day 1", order: 1, name: "Barbell row", sets: 2, min: 6, max: 10, primary: "Mid/upper back", secondary: "Biceps", notes: "", alternates: [], libraryId: "rw_bb" }],
   log: [], programHistory: [], customExercises: [], _storageRevision: 7,
 };
 

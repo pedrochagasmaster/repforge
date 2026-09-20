@@ -130,7 +130,7 @@ export function activeEntryState(lang = "en") {
     },
     program: [{
       id: "catalog-active-1", day: "Day 1", order: 1, name: "Cable row", sets: 3,
-      min: 8, max: 12, primary: "Back", secondary: "Biceps", notes: "", libraryId: "row_cable",
+      min: 8, max: 12, primary: "Mid/upper back", secondary: "Biceps", notes: "", libraryId: "row_cable",
     }],
     _storageRevision: 3,
   };

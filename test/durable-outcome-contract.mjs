@@ -95,6 +95,10 @@ function check(condition, message, detail) {
   if (detail !== undefined) console.error(`    ${JSON.stringify(detail)}`);
 }
 
+function minimalState(revision) {
+  return { program: [], log: [], _storageRevision: revision };
+}
+
 console.log("\n1. Pure outcome contract normalizer");
 
 // Case 1: Committed dual-replica write
@@ -333,7 +337,7 @@ globalThis.localStorage = mockLocalStorage;
     async writeLocal(snapshot) { return true; },
     async writeIdb(snapshot) { throw new Error("Disk quota exceeded"); },
   };
-  const res = await DurableState.writeSnapshot({ _storageRevision: 1 }, failingIdbAdapter);
+  const res = await DurableState.writeSnapshot(minimalState(1), failingIdbAdapter);
   check(res.localOk === true, "Local write succeeded");
   check(res.idbOk === false, "IDB write failed cleanly without unhandled rejection");
 
@@ -348,7 +352,7 @@ globalThis.localStorage = mockLocalStorage;
     async writeLocal(snapshot) { return false; },
     async writeIdb(snapshot) { return false; },
   };
-  const res = await DurableState.writeSnapshot({ _storageRevision: 2 }, totalFailAdapter);
+  const res = await DurableState.writeSnapshot(minimalState(2), totalFailAdapter);
   check(res.localOk === false && res.idbOk === false, "Both replicas fail");
   const health = DurableState.getStorageHealth();
   check(health.localFailed === true && health.idbFailed === true, "Health notes dual failure");
@@ -360,7 +364,7 @@ globalThis.localStorage = mockLocalStorage;
     async writeLocal(snapshot) { return true; },
     async writeIdb(snapshot) { return true; },
   };
-  const res = await DurableState.writeSnapshot({ _storageRevision: 3 }, healthyAdapter);
+  const res = await DurableState.writeSnapshot(minimalState(3), healthyAdapter);
   check(res.localOk === true && res.idbOk === true, "Both replicas succeed");
   const health = DurableState.getStorageHealth();
   check(health.degraded === false, "Health is no longer degraded after successful dual write");
