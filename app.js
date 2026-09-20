@@ -2363,12 +2363,12 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
   if(transitionIn!=null)metaObj.transitionIn=transitionIn;
   return metaObj;}
 
-function withExplicitProgramStructure(program,meta){
+function withExplicitProgramStructure(program,meta,{freezeHistory=false}={}){
   if(!ProgramCompiler?.migrateLegacyStructure)return{program,meta};
   if(meta?.plannedVolumeHistory!=null&&!isValidPlannedVolumeHistory(meta.plannedVolumeHistory))
     throw new TypeError("plannedVolumeHistory: expected bounded aggregate");
   const migrated=ProgramCompiler.migrateLegacyStructure(program,meta?.programStructure);
-  const compacted=compactProgramPrescriptionState(migrated.structure,migrated.program,meta);
+  const compacted=compactProgramPrescriptionState(migrated.structure,migrated.program,meta,{freezeHistory});
   const nextMeta={...meta,programStructure:compacted.structure};
   if(compacted.history)nextMeta.plannedVolumeHistory=compacted.history;
   return{program:migrated.program,meta:nextMeta}
@@ -2449,7 +2449,8 @@ function normalizeProgramHistory(history,lookup){
       // movement identity and captured attribution; resolving it through the
       // current custom library would rewrite history after a definition edit.
       normalized.program=new Program(normalized.program,lookup,null,false,{preserveLinkedSnapshot:true}).toJSON();
-      const structured=withExplicitProgramStructure(normalized.program,normalized.meta||normalized.programMeta||{});
+      const structured=withExplicitProgramStructure(normalized.program,normalized.meta||normalized.programMeta||{},
+        {freezeHistory:true});
       normalized.program=structured.program;
       if(normalized.meta)normalized.meta=structured.meta;
       else normalized.programMeta=structured.meta}
@@ -3083,7 +3084,11 @@ function captureProgramReplacement(snapshot=state,review=null){
   const meta=snapshot?.programMeta;
   const program=Array.isArray(snapshot?.program)?snapshot.program:[];
   if(!hasArchivableProgram(snapshot))return null;
-  return{oldProgramId:meta.id,oldBlockId:snapshotBlockId(snapshot),oldMeta:cloneSnapshot(meta),oldProgram:cloneSnapshot(program),
+  // A predecessor becomes historical at this call boundary. Finalize its
+  // compact prescription aggregate against the boundary clock before the
+  // archive is journaled; later archive normalization is shape-only.
+  const finalized=withExplicitProgramStructure(program,meta);
+  return{oldProgramId:meta.id,oldBlockId:snapshotBlockId(snapshot),oldMeta:cloneSnapshot(finalized.meta),oldProgram:cloneSnapshot(finalized.program),
     programFingerprint:draftProgramFingerprint(snapshot),storageRevision:readRevision(snapshot),
     review:review?cloneSnapshot(review):null}}
 function archiveCapturedProgram(proposal,cap){
@@ -4350,7 +4355,7 @@ function historicalPrescriptionForWeek(existing,versions,program,week,recoveryRe
     plannedPrescriptionForProgram(sourceProgram,week,null);
   return week===1?recoveryReceiptForWeek(receipt,recoveryRecord):receipt;
 }
-function compactProgramPrescriptionState(structure,program,meta,{pastProgram=null,previousMeta=null,force=false,recoveryRecord=null}={}){
+function compactProgramPrescriptionState(structure,program,meta,{pastProgram=null,previousMeta=null,force=false,recoveryRecord=null,freezeHistory=false}={}){
   const source=structure&&typeof structure==="object"&&!Array.isArray(structure)
     ?cloneSnapshot(structure):{};
   const rawWeeks=Array.isArray(source.weekPrescriptions)?source.weekPrescriptions:[];
@@ -4365,6 +4370,15 @@ function compactProgramPrescriptionState(structure,program,meta,{pastProgram=nul
     entry.fromWeek<=total&&Array.isArray(entry.program)).sort((a,b)=>a.fromWeek-b.fromWeek);
   const existingHistory=isValidPlannedVolumeHistory(meta?.plannedVolumeHistory)
     ?cloneSnapshot(meta.plannedVolumeHistory):null;
+  // An old archive may predate the compact aggregate. It is still a
+  // historical snapshot, so keep its bounded legacy receipts intact rather
+  // than projecting an unknown horizon from today's clock or silently
+  // discarding versioned prescription facts.
+  if(freezeHistory&&!existingHistory){
+    source.weekPrescriptions=cloneSnapshot(rawWeeks);
+    if(rawVersions.length)source.programVersions=cloneSnapshot(rawVersions);
+    return{structure:source,history:null};
+  }
   const shouldCompact=force||existingHistory!=null||versions.length>0||rawWeeks.some(receiptHasMuscleAttribution);
   if(!shouldCompact){
     source.weekPrescriptions=cloneSnapshot(rawWeeks);
@@ -4374,7 +4388,9 @@ function compactProgramPrescriptionState(structure,program,meta,{pastProgram=nul
   const history=existingHistory||emptyPlannedVolumeHistory();
   const historicalProgram=Array.isArray(pastProgram)?pastProgram:program;
   const sourceMeta=previousMeta||meta;
-  const target=Math.max(history.throughWeek,plannedVolumeHistoryTarget(sourceMeta,total));
+  const target=freezeHistory
+    ?history.throughWeek
+    :Math.max(history.throughWeek,plannedVolumeHistoryTarget(sourceMeta,total));
   const appliedRecovery=recoveryRecord||
     (activeRecoveryRecord&&activeRecoveryRecord.diff?.recoveryWeek?.blockId===meta?.blockId
       ?activeRecoveryRecord:null);
