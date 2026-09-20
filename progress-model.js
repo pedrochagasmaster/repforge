@@ -222,9 +222,25 @@
 
   function weekPrescription(meta, weekIndex0) {
     const list = Array.isArray(meta?.weekPrescriptions) ? meta.weekPrescriptions : [];
-    const entry = list[weekIndex0];
+    const numbered = list.some((item) => Number.isInteger(item?.week));
+    const entry = numbered
+      ? list.find((item) => item?.week === weekIndex0 + 1)
+      : list[weekIndex0];
     if (!entry || typeof entry !== "object") return null;
     return entry;
+  }
+
+  function validPlannedVolumeHistory(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value) || value.schemaVersion !== 1 ||
+        !Number.isInteger(value.throughWeek) || value.throughWeek < 0 || value.throughWeek > 52 ||
+        !Number.isFinite(value.plannedSessions) || value.plannedSessions < 0 ||
+        !Number.isFinite(value.plannedWorkingSets) || value.plannedWorkingSets < 0 ||
+        !value.muscles || typeof value.muscles !== "object" || Array.isArray(value.muscles)) return false;
+    return ["direct", "secondary"].every((kind) => {
+      const map = value.muscles[kind];
+      return map && typeof map === "object" && !Array.isArray(map) &&
+        Object.entries(map).every(([name, amount]) => name && Number.isFinite(amount) && amount >= 0);
+    });
   }
 
   function evidenceBounds(scope, meta) {
@@ -453,7 +469,14 @@
     const end = complete ? addDays(norm.started, norm.weeks * 7 - 1) : today;
     const rows = scopedRows(log, start, end, meta);
     let plannedWorkingSets = 0, plannedSessions = 0;
-    for (let i = 0; i < elapsed; i++) {
+    const history = validPlannedVolumeHistory(meta?.plannedVolumeHistory) &&
+      meta.plannedVolumeHistory.throughWeek <= elapsed ? meta.plannedVolumeHistory : null;
+    const historyWeeks = history?.throughWeek || 0;
+    if (history) {
+      plannedWorkingSets = history.plannedWorkingSets;
+      plannedSessions = history.plannedSessions;
+    }
+    for (let i = historyWeeks; i < elapsed; i++) {
       const rx = weekPrescription(meta, i);
       plannedWorkingSets += rx?.plannedWorkingSets ?? norm.plannedWorkingSetsPerWeek;
       plannedSessions += rx?.plannedSessions ?? norm.plannedSessionsPerWeek;

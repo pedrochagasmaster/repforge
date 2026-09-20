@@ -76,6 +76,26 @@ const source = await state();
 assert.ok(source.programMeta.blockId && source.programMeta.blockId !== source.programMeta.id,
   "the source is a modern identified block");
 
+// Seed a predecessor total so a recovery transition proves that a new overlay
+// block starts its own history rather than inheriting the source block's
+// block-to-date denominator.
+const seededSourceHistory = await page.evaluate(async () => {
+  const next = window.__repforgeWorkoutDraft.state();
+  next.programMeta.plannedVolumeHistory = {
+    schemaVersion: 1,
+    throughWeek: 1,
+    plannedSessions: 9,
+    plannedWorkingSets: 99,
+    muscles: { direct: { Chest: 99 }, secondary: { Triceps: 9 } },
+  };
+  const result = await window.__repforgeCommitProposedState(next);
+  await window.__repforgeStorage.flush();
+  return result;
+});
+assert.equal(seededSourceHistory.localOk, true, "the predecessor aggregate seed commits");
+assert.equal((await state()).programMeta.plannedVolumeHistory.plannedWorkingSets, 99,
+  "the predecessor carries a distinct historical total before recovery");
+
 for (const [name, evidence, code] of [
   ["missing patterns", { outcomesByPattern: {}, checkpointAnswer: "Yes" }, "insufficient_qualifying_patterns"],
   ["improved evidence", { outcomesByPattern: { "knee-dominant": "improved", "horizontal press": "improved" }, checkpointAnswer: "Yes" }, "insufficient_qualifying_patterns"],
@@ -138,7 +158,7 @@ assert.ok(weekOne.rows.some((row, index) => row.sets !== weekOne.canonical[index
   "week one applies the approved recovery overlay");
 const recoveryWeekSets = recovery.proposal.diff.recoveryWeek.entries.reduce((total, entry) => total + entry.effectiveWorkingSets, 0);
 assert.equal(weekOne.volume.plannedWorkingSets, recoveryWeekSets,
-  "week-one block volume uses the applied recovery prescription");
+  "week-one block volume starts from the applied recovery prescription, not the predecessor total");
 
 await page.evaluate(async () => {
   const next = window.__repforgeWorkoutDraft.state();

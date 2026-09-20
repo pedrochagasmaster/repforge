@@ -53,6 +53,24 @@ function isBoundedProgressionValue(value,depth=0,state={nodes:0}){
   if(!isPlainStateObject(value)||Object.keys(value).length>PROGRESSION_VALUE_LIMITS.keys)return false;
   return Object.keys(value).every(key=>isBoundedProgressionValue(value[key],depth+1,state));
 }
+const PLANNED_VOLUME_HISTORY_KEYS=["schemaVersion","throughWeek","plannedSessions","plannedWorkingSets","muscles"];
+const PLANNED_VOLUME_HISTORY_MUSCLE_KEYS=["direct","secondary"];
+function isValidPlannedVolumeHistory(value){
+  if(!isPlainStateObject(value)||!isBoundedProgressionValue(value)||
+    Object.keys(value).length!==PLANNED_VOLUME_HISTORY_KEYS.length||
+    !PLANNED_VOLUME_HISTORY_KEYS.every(key=>Object.prototype.hasOwnProperty.call(value,key))||
+    value.schemaVersion!==1||!Number.isInteger(value.throughWeek)||value.throughWeek<0||value.throughWeek>52||
+    !Number.isFinite(value.plannedSessions)||value.plannedSessions<0||
+    !Number.isFinite(value.plannedWorkingSets)||value.plannedWorkingSets<0||
+    !isPlainStateObject(value.muscles)||Object.keys(value.muscles).length!==PLANNED_VOLUME_HISTORY_MUSCLE_KEYS.length||
+    !PLANNED_VOLUME_HISTORY_MUSCLE_KEYS.every(key=>Object.prototype.hasOwnProperty.call(value.muscles,key)))return false;
+  return PLANNED_VOLUME_HISTORY_MUSCLE_KEYS.every(kind=>{
+    const map=value.muscles[kind];
+    if(!isPlainStateObject(map)||Object.keys(map).length>PROGRESSION_VALUE_LIMITS.keys)return false;
+    return Object.entries(map).every(([name,amount])=>name&&name.length<=PROGRESSION_VALUE_LIMITS.stringLength&&
+      !["__proto__","prototype","constructor"].includes(name)&&Number.isFinite(amount)&&amount>=0);
+  });
+}
 const TRANSITION_VALUE_LIMITS=Object.freeze({depth:32,nodes:10000,keys:128,arrayItems:256,stringLength:10000});
 function isBoundedTransitionValue(value,depth=0,state={nodes:0}){
   if(++state.nodes>TRANSITION_VALUE_LIMITS.nodes||depth>TRANSITION_VALUE_LIMITS.depth)return false;
@@ -289,6 +307,8 @@ function isSafeProgressionMeta(value){
       (!Array.isArray(value[key])||!isBoundedProgressionValue(value[key])))return false;
   if(Object.prototype.hasOwnProperty.call(value,"programStructure")&&value.programStructure!=null&&
     !isBoundedProgressionValue(value.programStructure))return false;
+  if(Object.prototype.hasOwnProperty.call(value,"plannedVolumeHistory")&&value.plannedVolumeHistory!=null&&
+    !isValidPlannedVolumeHistory(value.plannedVolumeHistory))return false;
   return true}
 function isSafeProgramHistoryEntry(entry){
   if(!isPlainStateObject(entry))return false;
@@ -2266,6 +2286,9 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
   const progressionModifiers=normalizeProgressionModifiers(m.progressionModifiers,progressionOptions);
   if(m.programStructure!=null&&!isBoundedProgressionValue(m.programStructure))throw new TypeError("programStructure: structure exceeds safety bounds");
   const programStructure=m.programStructure&&typeof m.programStructure==="object"?cloneSnapshot(m.programStructure):base.programStructure;
+  if(m.plannedVolumeHistory!=null&&!isValidPlannedVolumeHistory(m.plannedVolumeHistory))
+    throw new TypeError("plannedVolumeHistory: expected bounded aggregate");
+  const plannedVolumeHistory=m.plannedVolumeHistory==null?null:cloneSnapshot(m.plannedVolumeHistory);
   const entrySource=normalizeProgramEntrySource(m.entrySource);
   let compilerContext=null;
   if(m.compilerContext!=null){
@@ -2293,6 +2316,7 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
     created:typeof m.created==="string"?m.created:base.created,updated:typeof m.updated==="string"?m.updated:now,
     goal,experience,daysPerWeek,splitType,equipment,priorityMuscles,sessionLength,mesocycleLengthWeeks,mesocycleStatus,completedAt,onboarded,
     progressionRelations,progressionModifiers,progressionIncompatibilities:incompatibilities,blockPromptDismissedId,programStructure,entrySource};
+  if(plannedVolumeHistory!=null)metaObj.plannedVolumeHistory=plannedVolumeHistory;
   if(Object.prototype.hasOwnProperty.call(m,"blockId"))metaObj.blockId=m.blockId;
   if(compilerContext!=null)metaObj.compilerContext=compilerContext;
   if(transitionIn!=null)metaObj.transitionIn=transitionIn;
@@ -2300,9 +2324,13 @@ function normalizeProgramMeta(m,log=[],program=[],options={}){const now=new Date
 
 function withExplicitProgramStructure(program,meta){
   if(!ProgramCompiler?.migrateLegacyStructure)return{program,meta};
+  if(meta?.plannedVolumeHistory!=null&&!isValidPlannedVolumeHistory(meta.plannedVolumeHistory))
+    throw new TypeError("plannedVolumeHistory: expected bounded aggregate");
   const migrated=ProgramCompiler.migrateLegacyStructure(program,meta?.programStructure);
-  const structure=normalizeProgramStructureReceipts(migrated.structure,migrated.program,meta);
-  return{program:migrated.program,meta:{...meta,programStructure:structure}}
+  const compacted=compactProgramPrescriptionState(migrated.structure,migrated.program,meta);
+  const nextMeta={...meta,programStructure:compacted.structure};
+  if(compacted.history)nextMeta.plannedVolumeHistory=compacted.history;
+  return{program:migrated.program,meta:nextMeta}
 }
 function isImportableState(s){return isValidStateShape(s)}
 /* A custom exercise is a library entry the lifter authored, so it is normalised
@@ -4144,10 +4172,10 @@ function structureDayLabels(meta){
 function makeProgram(list,lookup=null,meta=null){
   return new Program(list,lookup,structureDayLabels(meta),
     meta?.programStructure?.provenance?.source==="manual_build")}
-// Progress needs only immutable weekly slot receipts: identity, effective
-// working sets, and direct/secondary muscle attribution. Keeping names,
-// display metadata, and progression fields out of historical receipts makes
-// the representation bounded without losing the facts used by Volume.
+// Progress needs the exact historical volume facts and a sparse schedule
+// projection for any explicit future overrides. The aggregate below owns
+// elapsed denominators; normal current/future weeks continue to come from the
+// authored program, so a block's size no longer scales with rows × weeks.
 function prescriptionProgramRows(program){
   return(Array.isArray(program)?program:[]).map((row,index)=>({
     id:String(row?.id||`legacy_${index+1}`),
@@ -4195,72 +4223,85 @@ function preservePrescriptionReceipt(existing,program,week){
   }
   return{week,phase:typeof existing.phase==="string"?existing.phase:"manual_edit",days}
 }
-function normalizeProgramStructureReceipts(structure,program,meta){
+function emptyPlannedVolumeHistory(){
+  return{schemaVersion:1,throughWeek:0,plannedSessions:0,plannedWorkingSets:0,
+    muscles:{direct:{},secondary:{}}}}
+function addPlannedVolumeHistory(history,prescription){
+  history.plannedSessions+=Number.isFinite(+prescription?.plannedSessions)?Math.max(0,+prescription.plannedSessions):0;
+  history.plannedWorkingSets+=Number.isFinite(+prescription?.plannedWorkingSets)?Math.max(0,+prescription.plannedWorkingSets):0;
+  for(const [name,value] of Object.entries(prescription?.musclesByName||{})){
+    const direct=Number.isFinite(+value?.d)?Math.max(0,+value.d):0;
+    const secondary=Number.isFinite(+value?.p)?Math.max(0,+value.p):0;
+    if(direct)history.muscles.direct[name]=(history.muscles.direct[name]||0)+direct;
+    if(secondary)history.muscles.secondary[name]=(history.muscles.secondary[name]||0)+secondary;
+  }
+}
+function plannedVolumeHistoryTarget(meta,total){
+  if(meta?.mesocycleStatus==="completed")return total;
+  const elapsed=mesocycleLifecycle(meta).elapsedWeek;
+  return Number.isInteger(elapsed)?Math.max(0,Math.min(total,elapsed-1)):0;
+}
+function prescriptionWeekNumber(entry,index){
+  return Number.isInteger(entry?.week)&&entry.week>=1?entry.week:index+1}
+function receiptHasMuscleAttribution(entry){
+  return(Array.isArray(entry?.days)?entry.days:[]).some(day=>(Array.isArray(day?.slots)?day.slots:[])
+    .some(slot=>typeof slot?.primary==="string"||typeof slot?.secondary==="string"))}
+function isSparsePrescriptionOverride(entry){
+  const phase=String(entry?.phase||"").trim();
+  return!!phase&&!['normal','manual_edit'].includes(phase);
+}
+function historicalPrescriptionForWeek(existing,versions,program,week,recoveryRecord){
+  const version=[...versions].reverse().find(entry=>entry.fromWeek<=week);
+  const sourceProgram=Array.isArray(version?.program)?version.program:program;
+  const receipt=preservePrescriptionReceipt(existing,sourceProgram,week)||
+    plannedPrescriptionForProgram(sourceProgram,week,null);
+  return week===1?recoveryReceiptForWeek(receipt,recoveryRecord):receipt;
+}
+function compactProgramPrescriptionState(structure,program,meta,{pastProgram=null,previousMeta=null,force=false,recoveryRecord=null}={}){
   const source=structure&&typeof structure==="object"&&!Array.isArray(structure)
     ?cloneSnapshot(structure):{};
-  const hasStoredHistory=(Array.isArray(source.weekPrescriptions)&&source.weekPrescriptions.length>0)||
-    (Array.isArray(source.programVersions)&&source.programVersions.length>0);
-  // A legacy structure with no historical prescription data remains lazy until
-  // the first owned program mutation. Reconstructing receipts here would make
-  // them stale when a legacy/imported snapshot changes its current program
-  // before the editor's history owner has recorded that change.
-  if(!hasStoredHistory){source.weekPrescriptions=[];delete source.programVersions;return source}
-  const storedWeekCount=Array.isArray(source.weekPrescriptions)?source.weekPrescriptions.length:0;
-  const total=Math.max(1,storedWeekCount||Number(meta?.mesocycleLengthWeeks)||6);
-  const existingWeeks=new Map((Array.isArray(source.weekPrescriptions)?source.weekPrescriptions:[])
-    .filter(entry=>Number.isInteger(entry?.week)&&entry.week>=1&&entry.week<=total)
-    .map(entry=>[entry.week,entry]));
-  const versions=(Array.isArray(source.programVersions)?source.programVersions:[])
-    .filter(entry=>Number.isInteger(entry?.fromWeek)&&entry.fromWeek>=1&&entry.fromWeek<=total&&Array.isArray(entry.program))
-    .sort((a,b)=>a.fromWeek-b.fromWeek);
-  source.weekPrescriptions=Array.from({length:total},(_,index)=>{
-    const week=index+1,existing=existingWeeks.get(week),version=[...versions].reverse().find(entry=>entry.fromWeek<=week);
-    const sourceProgram=version?.program||program;
-    // Existing compiler receipts are already a valid compact schedule. Keep
-    // them byte-for-byte stable until an owned program edit needs to freeze
-    // their muscle attribution; the renderer can derive current attribution
-    // from the authored program in the meantime.
-    if(existing&&!versions.length)return cloneSnapshot(existing);
-    return preservePrescriptionReceipt(existing,sourceProgram,week)||
-      plannedPrescriptionForProgram(sourceProgram,week,null);
-  });
-  // The receipt is the sole historical program representation. Legacy
-  // programVersions are consumed during migration and never carried forward.
-  delete source.programVersions;
-  return source}
-function preserveProgramPrescriptionHistory(structure,previousProgram,nextProgram,previousMeta){
-  const storedWeekCount=Array.isArray(structure?.weekPrescriptions)?structure.weekPrescriptions.length:0;
-  const total=Math.max(1,storedWeekCount||Number(previousMeta?.mesocycleLengthWeeks)||6),life=mesocycleLifecycle(previousMeta);
-  const week=life.elapsedWeek!=null&&life.elapsedWeek>=1&&life.elapsedWeek<=total&&previousMeta?.mesocycleStatus!=="completed"
-    ?life.elapsedWeek:null;
-  const oldRows=prescriptionProgramRows(previousProgram),nextRows=prescriptionProgramRows(nextProgram);
-  // Existing receipts describe the predecessor/current prescription before
-  // this edit. Use that program to backfill legacy receipts that predate the
-  // attribution fields; the new program is applied only to the edit boundary
-  // and future weeks below.
-  const normalized=normalizeProgramStructureReceipts(structure,previousProgram||nextProgram,previousMeta);
-  if(!Array.isArray(previousProgram)||JSON.stringify(oldRows)===JSON.stringify(nextRows))return normalized;
-  const existingWeeks=new Map(normalized.weekPrescriptions.map(entry=>[entry.week,entry]));
-  if(!week){
-    // A completed block has no new boundary. Existing receipts remain the
-    // record of what was prescribed; if none exist, seed the closed block
-    // from the predecessor program before the current edit.
-    normalized.weekPrescriptions=Array.from({length:total},(_,index)=>
-      preservePrescriptionReceipt(existingWeeks.get(index+1),previousProgram,index+1)||
-      plannedPrescriptionForProgram(previousProgram,index+1,null));
-    return normalized;
+  const rawWeeks=Array.isArray(source.weekPrescriptions)?source.weekPrescriptions:[];
+  const rawVersions=Array.isArray(source.programVersions)?source.programVersions:[];
+  const configured=Math.max(1,Math.min(52,Math.round(Number(meta?.mesocycleLengthWeeks)||6)));
+  const observedWeeks=rawWeeks.map((entry,index)=>prescriptionWeekNumber(entry,index))
+    .concat(rawVersions.map(entry=>Number.isInteger(entry?.fromWeek)?entry.fromWeek:0));
+  const total=Math.max(configured,...observedWeeks.filter(week=>week>=1&&week<=52),1);
+  const existingWeeks=new Map(rawWeeks.map((entry,index)=>[prescriptionWeekNumber(entry,index),entry])
+    .filter(([week])=>week>=1&&week<=total));
+  const versions=rawVersions.filter(entry=>Number.isInteger(entry?.fromWeek)&&entry.fromWeek>=1&&
+    entry.fromWeek<=total&&Array.isArray(entry.program)).sort((a,b)=>a.fromWeek-b.fromWeek);
+  const existingHistory=isValidPlannedVolumeHistory(meta?.plannedVolumeHistory)
+    ?cloneSnapshot(meta.plannedVolumeHistory):null;
+  const shouldCompact=force||existingHistory!=null||versions.length>0||rawWeeks.some(receiptHasMuscleAttribution);
+  if(!shouldCompact){
+    source.weekPrescriptions=cloneSnapshot(rawWeeks);
+    delete source.programVersions;
+    return{structure:source,history:null};
   }
-  normalized.weekPrescriptions=Array.from({length:total},(_,index)=>{
-    const number=index+1,existing=existingWeeks.get(number);
-    return number<week
-      // An existing receipt is already the immutable record for that week;
-      // keep slots that a later program edit removed. Only an absent receipt
-      // may be reconstructed from the predecessor program.
-      ?preservePrescriptionReceipt(existing,previousProgram,number)||
-        plannedPrescriptionForProgram(previousProgram,number,null)
-      :plannedPrescriptionForProgram(nextProgram,number,existing,{preserveSets:false});
+  const history=existingHistory||emptyPlannedVolumeHistory();
+  const historicalProgram=Array.isArray(pastProgram)?pastProgram:program;
+  const sourceMeta=previousMeta||meta;
+  const target=Math.max(history.throughWeek,plannedVolumeHistoryTarget(sourceMeta,total));
+  const appliedRecovery=recoveryRecord||
+    (activeRecoveryRecord&&activeRecoveryRecord.diff?.recoveryWeek?.blockId===meta?.blockId
+      ?activeRecoveryRecord:null);
+  for(let week=history.throughWeek+1;week<=target;week++){
+    const receipt=historicalPrescriptionForWeek(existingWeeks.get(week),versions,historicalProgram,week,appliedRecovery);
+    addPlannedVolumeHistory(history,prescriptionForReceipt(receipt,historicalProgram));
+    history.throughWeek=week;
+  }
+  const retained=[];
+  rawWeeks.forEach((entry,index)=>{
+    const week=prescriptionWeekNumber(entry,index);
+    if(week<=target||!isSparsePrescriptionOverride(entry))return;
+    const normalized=preservePrescriptionReceipt(entry,program,week);
+    if(normalized)retained.push(normalized);
   });
-  return normalized}
+  retained.sort((a,b)=>a.week-b.week);
+  source.weekPrescriptions=retained;
+  delete source.programVersions;
+  return{structure:source,history:history.throughWeek>0||existingHistory?history:null};
+}
 function syncProgramStructureFromProgram(proposal,program,previousProgram=null,previousMeta=null){
   const struct=proposal.programMeta?.programStructure;
   if(!struct||!Array.isArray(struct.days))return;
@@ -4285,9 +4326,12 @@ function syncProgramStructureFromProgram(proposal,program,previousProgram=null,p
       return{dayId,label,order:i+1,
         ...(displayNameKey?{displayNameKey}:{}),
         ...(nameOverride?{nameOverride}:{})}})};
-  proposal.programMeta.programStructure=previousProgram
-    ?preserveProgramPrescriptionHistory(synced,previousProgram,program.toJSON(),previousMeta||state.programMeta)
-    :normalizeProgramStructureReceipts(synced,program.toJSON(),previousMeta||proposal.programMeta||state.programMeta);
+  const sourceMeta=previousMeta||state.programMeta||proposal.programMeta;
+  const compacted=compactProgramPrescriptionState(synced,program.toJSON(),proposal.programMeta||sourceMeta,
+    previousProgram?{pastProgram:previousProgram,previousMeta:sourceMeta,force:true}:{});
+  proposal.programMeta.programStructure=compacted.structure;
+  if(compacted.history)proposal.programMeta.plannedVolumeHistory=compacted.history;
+  else delete proposal.programMeta.plannedVolumeHistory;
 }
 function scheduledProgramRows(){
   const week=mesocycleLifecycle(state.programMeta).current;
@@ -7197,6 +7241,10 @@ async function confirmRecoveryTransition(params,Transition,Compiler,catalogue){
   const blockStarted=params.confirmedAt.slice(0,10);
   initialProposal.programMeta={...cloneSnapshot(state.programMeta),blockId:target,started:blockStarted,
     mesocycleStatus:"active",updated:params.confirmedAt};
+  // Recovery starts a new overlay block. Its block-to-date aggregate must be
+  // rebuilt from the recovery prescription, never inherited from the source
+  // block's historical totals.
+  delete initialProposal.programMeta.plannedVolumeHistory;
   initialProposal.recoveryTransitions={schemaVersion:1,records:[...initialCarrier.records,cloneSnapshot(initialCommitted)],quarantine:cloneSnapshot(initialCarrier.quarantine)};
   const preflight=async({head})=>{
     const lockedIdem=classifyCommittedRecovery(head,proposal);
@@ -7229,6 +7277,7 @@ async function confirmRecoveryTransition(params,Transition,Compiler,catalogue){
     const next=cloneSnapshot(head);
     next.programMeta={...cloneSnapshot(head.programMeta),blockId:target,started:blockStarted,
       mesocycleStatus:"active",updated:params.confirmedAt};
+    delete next.programMeta.plannedVolumeHistory;
     next.recoveryTransitions={schemaVersion:1,records:[...existing.records,cloneSnapshot(committed)],quarantine:cloneSnapshot(existing.quarantine)};
     return{proposal:next};
   };
@@ -7648,6 +7697,10 @@ const repforgeProgramTransitionAdapter = {
         transitionIn: committedRecord,
         updated: confirmedAt,
       };
+      // This is a new block, so historical volume belongs to the archived
+      // predecessor. The successor's aggregate begins when its own weeks are
+      // observed; copying it would make block-to-date totals double-count.
+      delete successorMeta.plannedVolumeHistory;
 
       draftProposal.program = new Program(succInstance.program, snapshotLookup(draftProposal.customExercises)).toJSON();
       draftProposal.programMeta = successorMeta;
@@ -8225,9 +8278,9 @@ function volumeDetailTable(muscle,ev){
   const rows=[...groups.values()].sort((a,b)=>compareLogChronology(b,a));
   return rows.length?table(rows.map(row=>({[t("stats.table.date")]:shortDate(row.date),[t("stats.table.exercise")]:row.name,[t("stats.table.sets")]:fmt(row.sets)})))
     :`<p class="lede">${esc(t("stats.evidence.reason.untested"))}</p>`}
-// Planned per-muscle denominators for the rendered scope. Each week is read
-// directly from the compact durable receipt; the current scheduled row is a
-// presentation projection and must never rewrite historical denominators.
+// Planned per-muscle denominators for the rendered scope. Elapsed weeks come
+// from the compact durable aggregate; only uncovered current/future schedule
+// projections are read from the authored program or sparse receipts.
 function prescriptionForReceipt(receipt,program=state.program){
   const musclesByName=new Map(),days=Array.isArray(receipt?.days)?receipt.days:[];
   const bySlot=new Map(prescriptionProgramRows(program).map(row=>[row.slotId,row]));
@@ -8255,19 +8308,32 @@ function progressWeekPrescriptions(){
   const record=activeRecoveryRecord&&activeRecoveryRecordBlockId===snapshotBlockId(state)?activeRecoveryRecord:null;
   const structure=state.programMeta?.programStructure;
   const receipts=Array.isArray(structure?.weekPrescriptions)?structure.weekPrescriptions:[];
+  const numbered=receipts.some(entry=>Number.isInteger(entry?.week));
   return Array.from({length:weeks},(_,index)=>{
-    const receipt=receipts[index]||plannedPrescriptionForProgram(state.program,index+1,null);
+    const receipt=(numbered?receipts.find(entry=>entry?.week===index+1):receipts[index])||
+      plannedPrescriptionForProgram(state.program,index+1,null);
     return prescriptionForReceipt(index===0?recoveryReceiptForWeek(receipt,record):receipt,state.program);
   })}
 function progressEvidenceMeta(){return{started:state.programMeta?.started||null,
   mesocycleLengthWeeks:state.programMeta?.mesocycleLengthWeeks||6,hardRir:+state.settings.hardRir,
   blockId:snapshotBlockId(state),
-  weekPrescriptions:progressWeekPrescriptions()}}
+  weekPrescriptions:progressWeekPrescriptions(),
+  plannedVolumeHistory:isValidPlannedVolumeHistory(state.programMeta?.plannedVolumeHistory)
+    ?cloneSnapshot(state.programMeta.plannedVolumeHistory):null}}
 function volumePlannedMuscleMap(ev,prescriptions=progressWeekPrescriptions()){
   const m=new Map(),week=ev.period?.weekNumber||mesocycleLifecycle(state.programMeta).elapsedWeek||1;
-  const selected=ev.scope==="block-to-date"?prescriptions.slice(0,ev.period.elapsedNumberedWeeks):[prescriptions[Math.min(Math.max(week-1,0),prescriptions.length-1)]];
+  const elapsed=ev.period?.elapsedNumberedWeeks||0;
+  const history=isValidPlannedVolumeHistory(state.programMeta?.plannedVolumeHistory)&&
+    state.programMeta.plannedVolumeHistory.throughWeek<=elapsed?state.programMeta.plannedVolumeHistory:null;
+  const add=(name,d,p)=>{const cur=m.get(name)||{d:0,p:0};cur.d+=d;cur.p+=p;m.set(name,cur)};
+  if(ev.scope==="block-to-date"&&history){
+    for(const[name,value]of Object.entries(history.muscles.direct||{}))add(name,value,0);
+    for(const[name,value]of Object.entries(history.muscles.secondary||{}))add(name,0,value);
+  }
+  const start=ev.scope==="block-to-date"&&history?history.throughWeek:0;
+  const selected=ev.scope==="block-to-date"?prescriptions.slice(start,elapsed):[prescriptions[Math.min(Math.max(week-1,0),prescriptions.length-1)]];
   for(const rx of selected)for(const[name,v]of Object.entries(rx?.musclesByName||{})){
-    const cur=m.get(name)||{d:0,p:0};cur.d+=v.d;cur.p+=v.p;m.set(name,cur)}
+    add(name,v.d,v.p)}
   return m}
 function legacyVolumeTable(el){
   const rows=volumeDashboard(7).map(r=>({[t("stats.table.muscle")]:muscleLabel(r.muscle),[t("stats.table.planned")]:fmt(r.planned),[t("stats.table.completed_7d")]:fmt(r.completed7),[t("stats.table.completed_28d")]:fmt(r.completed28),[t("stats.table.status")]:r.status}));
@@ -10042,7 +10108,7 @@ function exportProgram(){
   // A program file is a portable template, not an active block/recovery
   // carrier. Identity and lifecycle provenance stay in full backups only;
   // activation will mint a fresh local block at the durable boundary.
-  for(const key of ["blockId","transitionIn","recoveryTransitions","recoveryQuarantine","recoveryLifecycle"])
+  for(const key of ["blockId","transitionIn","plannedVolumeHistory","recoveryTransitions","recoveryQuarantine","recoveryLifecycle"])
     delete meta[key];
   const payload={version:3,meta,exercises,
     customExercises:referencedCustomExercises(exercises)};

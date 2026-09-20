@@ -592,6 +592,21 @@ async function main() {
     check(typeof draftBefore.raw === "string" && typeof draftBefore.checkpoint === "string",
       "DraftV2 raw and checkpoint are present before proposal");
 
+    const predecessorHistorySeed = await page.evaluate(async () => {
+      const next = window.__repforgeWorkoutDraft.state();
+      next.programMeta.plannedVolumeHistory = {
+        schemaVersion: 1,
+        throughWeek: 2,
+        plannedSessions: 8,
+        plannedWorkingSets: 48,
+        muscles: { direct: { Chest: 32 }, secondary: { Triceps: 16 } },
+      };
+      const result = await window.__repforgeCommitProposedState(next);
+      await window.__repforgeStorage.flush();
+      return result;
+    });
+    check(predecessorHistorySeed.localOk === true && predecessorHistorySeed.idbOk === true,
+      "predecessor historical volume seed commits before replacement");
     const before = await page.evaluate(() => window.__repforgeWorkoutDraft.state());
     const revisionR = before._storageRevision;
     const compilerContext = before.programMeta.compilerContext;
@@ -618,6 +633,8 @@ async function main() {
     check(proposalResult?.ok === true, "production volume proposal reaches the compiler-backed adapter", proposalResult);
     if (!proposalResult?.ok) throw new Error(`volume proposal unavailable: ${JSON.stringify(proposalResult)}`);
     const proposal = proposalResult.proposal;
+    check(proposal.programMeta?.plannedVolumeHistory === undefined,
+      "compiler-backed successor starts without the predecessor's block history", proposal.programMeta?.plannedVolumeHistory);
     check(proposal.kind === "reduce_training_volume", "proposal kind is reduce_training_volume");
     check(proposal.predecessor.durableRevision === revisionR, "proposal pins the current durable revision");
     check(proposalResult.successorInstance?.days?.length === compiled.days.length,

@@ -330,6 +330,25 @@ if (fs.existsSync(modelPath)) {
   assert.equal(prescribed.plannedWorkingSets, 30,
     "block-to-date preserves the recovery-week prescription after the overlay is inactive");
 
+  const compactHistory = model.buildVolumeEvidence("block-to-date", program, {
+    started: program.started,
+    mesocycleLengthWeeks: program.mesocycleLengthWeeks,
+    plannedVolumeHistory: {
+      schemaVersion: 1,
+      throughWeek: 2,
+      plannedSessions: 6,
+      plannedWorkingSets: 18,
+      muscles: { direct: { Chest: 12 }, secondary: { Triceps: 3 } },
+    },
+    weekPrescriptions: [
+      { week: 3, plannedSessions: 3, plannedWorkingSets: 12 },
+    ],
+  }, log, "2026-09-16T12:00:00");
+  assert.equal(compactHistory.plannedWorkingSets, 30,
+    "the model consumes the compact historical aggregate once and adds only uncovered weeks");
+  assert.equal(compactHistory.period.plannedSessions, 9,
+    "the model preserves aggregate sessions while projecting the current week");
+
   const completedBlock = model.buildVolumeEvidence("block-to-date", program, {
     started: program.started,
     mesocycleLengthWeeks: program.mesocycleLengthWeeks,
