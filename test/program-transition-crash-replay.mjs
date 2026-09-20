@@ -410,7 +410,7 @@ async function assertRecoverySecondBoot(page, baseline, label) {
 async function enterRecoveryDraft(page, note = "newer acknowledged draft") {
   return page.evaluate(async (sessionNote) => {
     const dayLabel = window.__repforgeWorkoutDraft.state()?.program?.[0]?.day || "Day 1";
-    const entered = await window.__repforgeEnterWorkout({ day: dayLabel, focus: false });
+    const entered = await window.__repforgeEnterWorkout({ day: dayLabel});
     if (!entered) return { ok: false, error: "draft entry failed" };
     const hook = window.__repforgeWorkoutDraft;
     const draft = hook.current();
@@ -702,7 +702,7 @@ async function setupPredecessorWithSentinelAndDraft(page, tag) {
 
   const draftSetup = await page.evaluate(async () => {
     const dayLabel = (window.__repforgeWorkoutDraft.state()?.program || [])[0]?.day || "Day 1";
-    await window.__repforgeEnterWorkout({ day: dayLabel, focus: false });
+    await window.__repforgeEnterWorkout({ day: dayLabel});
     const hook = window.__repforgeWorkoutDraft;
     const draft = hook.current();
     const exIds = Object.keys(draft.exercises || {});

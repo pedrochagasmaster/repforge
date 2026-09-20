@@ -689,18 +689,11 @@
       "variants": "standard"
     },
     {
-      "id": "list",
-      "flow": "workout",
-      "label": "Workout — list mode",
-      "scenario": "The default logging surface.",
-      "variants": "standard"
-    },
-    {
       "id": "focus",
       "flow": "workout",
       "label": "Workout — focus mode",
       "scenario": "One exercise at a time.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "stale-draft",
@@ -728,21 +721,21 @@
       "flow": "workout",
       "label": "Workout — rest timer",
       "scenario": "The rest timer sheet.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "exercise-note",
       "flow": "workout",
       "label": "Workout — exercise note",
       "scenario": "The per-exercise note sheet.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "why-this-weight",
       "flow": "workout",
       "label": "Workout — why this weight",
       "scenario": "The recommendation inspector.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "summary",
@@ -1169,6 +1162,76 @@
       "flow": "install",
       "label": "Install transfer — claimed then expired",
       "scenario": "Claimed-expired recovery remains frozen until explicit divergence confirmation.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "preview",
+      "flow": "today",
+      "label": "Read-only session preview",
+      "scenario": "Read-only session preview through production controls.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "session",
+      "flow": "workout",
+      "label": "Session details and map",
+      "scenario": "Session details and map through production controls.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "early-finish",
+      "flow": "workout",
+      "label": "Early finish confirmation",
+      "scenario": "Early finish confirmation through production controls.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "exercise-actions",
+      "flow": "workout",
+      "label": "Exercise actions",
+      "scenario": "Exercise actions through production controls.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "warmup-actions",
+      "flow": "workout",
+      "label": "Warm-up role",
+      "scenario": "Warm-up role through production controls.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "reorder",
+      "flow": "workout",
+      "label": "Session reorder",
+      "scenario": "Session reorder through production controls.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "correction",
+      "flow": "workout",
+      "label": "Set correction",
+      "scenario": "Set correction through production controls.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "draft-resume",
+      "flow": "today",
+      "label": "Resume saved draft",
+      "scenario": "Resume saved draft through production controls.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "skipped-actions",
+      "flow": "workout",
+      "label": "Skipped exercise actions",
+      "scenario": "workout/skipped-actions",
+      "variants": "demandingText"
+    },
+    {
+      "id": "substituted-actions",
+      "flow": "workout",
+      "label": "Substituted exercise actions",
+      "scenario": "workout/substituted-actions",
       "variants": "demandingText"
     }
   ]

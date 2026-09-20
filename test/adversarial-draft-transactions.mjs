@@ -304,7 +304,7 @@ async function openOldPopup(context, owner, name) {
   await context.route(/\/app\.js(?:\?|$)/, handler);
   const page = await openPopup(context, owner, name);
   await context.unroute(/\/app\.js(?:\?|$)/, handler);
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false, day: "Day 1" }));
+  await page.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
   await page.waitForSelector(`[data-k="${SET_KEY}_load"]`);
   return page;
 }
@@ -743,7 +743,7 @@ async function runUnloadSafeDraftWal(browser) {
   try {
     const page = await openApp(context);
     await seedScenario(page, { draftRaw: null });
-    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+    await page.evaluate(() => window.__repforgeEnterWorkout({}));
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     const before = await readRuntime(page);
     const observed = await page.evaluate(async (load) => {
@@ -781,7 +781,7 @@ async function runSameRawDraftWalAcceptance(browser) {
   try {
     const page = await openApp(context);
     await seedScenario(page, { draftRaw: null });
-    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+    await page.evaluate(() => window.__repforgeEnterWorkout({}));
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     const staged = await page.evaluate(async () => {
       const hook = window.__repforgeWorkoutDraft, draft = hook.current();
@@ -1230,7 +1230,7 @@ async function runOversizedRequiredEffects(browser) {
     const originalState = fixture({ revision: 70 });
     const draftRaw = oversizedDraftRaw("oversized-required-effect");
     await seedScenario(page, { state: originalState, draftRaw });
-    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+    await page.evaluate(() => window.__repforgeEnterWorkout({}));
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
 
     const finishResult = await page.evaluate(() => window.__repforgeSaveWorkout());
@@ -1408,7 +1408,7 @@ async function runDirectDraftOwnerRace(browser) {
       await dialog.dismiss();
     });
     const dayChangeAccepted = await stale.evaluate(() =>
-      window.__repforgeEnterWorkout({ day: "Day 2", focus: false })
+      window.__repforgeEnterWorkout({ day: "Day 2"})
     );
     const afterRefusal = await readRuntime(stale);
     const afterRefusalRaw = latestDraftPendingRaw(afterRefusal);

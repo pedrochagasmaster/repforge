@@ -69,16 +69,16 @@ Application code never touches `window.Motion`. Everything animated through
 Motion goes via `motion-layer.js`, which owns the motion vocabulary, the single
 reduced-motion decision, and the fallback for a runtime that failed to load.
 
-`motion-layer.js` also owns the bottom-sheet and Focus-deck *gesture
-controllers* at runtime. `app.js` still declares its own pointer handlers and
-binds them at boot — that is the no-runtime fallback — and the layer then
-removes those listeners by function reference and installs its own, so the
-handoff depends on `sheetDragStart`, `sheetDragMove`, `sheetDragEnd`,
-`focusDragStart`, `focusDragMove` and `focusDragEnd` staying reachable as
-globals and staying bound without `capture`. Renaming one, or binding it inside
-a module scope, would make the removal a silent no-op and run both controllers
-over the same surface. `test/motion-integration.mjs` guards that: after boot,
-`app.js` must never reach `RepForgeMotion.trackSheetGesture`.
+Boot mounts one sheet/Focus gesture controller through
+`RepForgeMotion.mountGestureController()` and keeps its disposal handle in
+`window.__repforgeGestureHandle`. The layer selects Motion or delegates to
+`mountFallbackGestures()`; if the layer itself is absent, boot mounts that
+fallback directly. Each owner binds and removes its own listeners. Mounting is
+idempotent, and disposal cancels navigation, releases drag state, and permits a
+fresh mount. Route deck navigation through the handle rather than replacing a
+global callback. `test/focus-geometry.mjs` proves cancellation/disposal with
+Motion, without Motion, and without the layer; `test/motion-integration.mjs`
+guards the live gesture path.
 @dnd-kit is reached only from `program-editor.js`. Both runtimes are optional by
 construction: without Motion every caller keeps its stylesheet path; without
 @dnd-kit the editor still mounts and reordering stays reachable through each

@@ -7,7 +7,7 @@ and owner gates only.
 
 - **Plan number:** 055
 - **Phase:** 4 — Focus-only workout
-- **Status:** Planned; implementation has not started
+- **Status:** Implementation started; 055-P1 capability baseline in progress. List deletion remains gated by executable parity and the accepted workout-session owner.
 - **Owner approval state:** Focus-only direction is final; capability parity is an implementation gate
 - **Depends on:** Plan 049 semantic roles; Plan 050 responsive/overflow harness; Plan 051 DraftV2 and DOM-independence; the merged durable-state architecture bridge; Plan 054 entry/guide registry under the hard sequence. No workout-store or persistence-protocol replacement is authorized.
 - **Blocks:** Workout-owned portions of Plan 057/058 and final Plan 059 acceptance

@@ -203,36 +203,40 @@ async function applyInstalledEditor(page) {
 }
 
 async function workoutSurface(page) {
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
-  await page.waitForSelector('#workout article[data-ex="ex0"] .setrow');
-  const list = await page.evaluate(() => {
-    const card = document.querySelector('#workout article[data-ex="ex0"]');
-    return {
-      loads: [...card.querySelectorAll('.setrow input[data-k$="_load"]')].map((input) => input.value),
-      reps: [...card.querySelectorAll('.setrow input[data-k$="_reps"]')].map((input) => input.value),
-      recommendation: card.querySelector('.recblock__body')?.textContent?.trim() || "",
-      effortControls: card.querySelectorAll('.effort[role="radiogroup"]').length,
-    };
+  await page.evaluate(async () => {
+    await window.__repforgeEnterWorkout({});
   });
-  await page.locator('#workout article[data-ex="ex0"] [data-why="ex0"]').click();
-  await page.waitForSelector('#whySheet.is-open');
-  const why = (await page.locator('#whyBody').textContent()).trim();
-  await page.click('#whyClose');
-  await page.waitForSelector('#whySheet', { state: 'hidden' });
-  await page.click('#woOverflowBtn');
-  await page.waitForSelector('#woOverflow:not(.hidden)');
-  await page.click('#modeFocus');
   await page.waitForSelector('#workout.is-focus article.is-current .curset');
-  const focus = await page.evaluate(() => {
+  const data = await page.evaluate(() => {
     const card = document.querySelector('#workout.is-focus article.is-current');
-    return {
+    const P = window.__repforgeProgression;
+    const ex = P.programSlot("ex0");
+    const rec = P.recommendation(ex);
+    const draft = { __done: [], __warm: [], __touched: [] };
+    const suggestions = [];
+    for (let n = 1; n <= ex.sets; n++) suggestions.push(P.setSuggestion(ex, n, rec, draft, null));
+    const isLb = state.settings.unit === "lb";
+    const formatLoad = (val) => isLb ? String(toDisplay(val)) : String(val);
+    const targets = {
+      loads: suggestions.map((s) => formatLoad(s.load)),
+      reps: suggestions.map((s) => String(s.reps)),
+      recommendation: card.querySelector('.focus-ex__target')?.textContent?.trim() || "",
+      effortControls: card.querySelectorAll("[data-effspin], [data-effstep]").length,
+    };
+    const focus = {
       load: card.querySelector('.curset input[data-k$="_load"]')?.value || "",
       reps: card.querySelector('.curset input[data-k$="_reps"]')?.value || "",
       whyName: card.querySelector('[data-why]')?.getAttribute('aria-label') || "",
       effortSpinner: !!card.querySelector('[role="spinbutton"][data-effspin]'),
     };
+    return { targets, focus };
   });
-  return { list, focus, why };
+  await page.locator('#workout.is-focus article.is-current [data-why]').click();
+  await page.waitForSelector('#whySheet.is-open');
+  const why = (await page.locator('#whyBody').textContent()).trim();
+  await page.click('#whyClose');
+  await page.waitForSelector('#whySheet', { state: 'hidden' });
+  return { targets: data.targets, focus: data.focus, why };
 }
 
 /** Nothing the lifter reads may carry an internal identifier or a raw key. */
@@ -267,10 +271,10 @@ try {
   assert(goalMet.explain.length > 0, "the explanation sheet has rows");
   assert(leaked(goalMet).length === 0, "no strategy id or raw key reaches the lifter", leaked(goalMet).join(" | "));
   const goalSurface = await workoutSurface(page);
-  assert(goalSurface.list.loads.every((value) => value === "102.5") && goalSurface.list.reps.every((value) => value === "10"),
-    "List renders the engine's total-rep load and per-set targets", JSON.stringify(goalSurface.list));
-  assert(goalSurface.focus.load === goalSurface.list.loads[0] && goalSurface.focus.reps === goalSurface.list.reps[0],
-    "Focus renders the same engine target as List", JSON.stringify(goalSurface.focus));
+  assert(goalSurface.targets.loads.every((value) => value === "102.5") && goalSurface.targets.reps.every((value) => value === "10"),
+    "the engine exposes every total-rep load and per-set target", JSON.stringify(goalSurface.targets));
+  assert(goalSurface.focus.load === goalSurface.targets.loads[0] && goalSurface.focus.reps === goalSurface.targets.reps[0],
+    "Focus renders the same first actionable engine target", JSON.stringify(goalSurface.focus));
   assert(goalMet.explain.filter((row) => row.text).every((row) => goalSurface.why.includes(row.text)),
     "Why this weight renders the same engine-backed explanation", goalSurface.why);
 
@@ -286,14 +290,44 @@ try {
   assert(partial.suggestions[2].reps === 9, "the third set asks for the exact remaining reps", partial.suggestions[2].reps);
   assert(partial.suggestions[2].load === 100, "an in-session target holds the session load", partial.suggestions[2].load);
   await capture(page, { lang: "en", program: repGoalProgram, rows: log([[7, three(100, 10, 2)]]) });
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
-  await page.locator('[data-k="ex0_2_load"]').fill("77.5");
-  await page.locator('[data-k="ex0_2_reps"]').fill("7");
-  await page.locator('[data-save="ex0_1"]').click();
-  await page.waitForSelector('[data-save="ex0_1"][aria-pressed="true"]');
-  assert(await page.locator('[data-k="ex0_2_load"]').inputValue() === "77.5" &&
-    await page.locator('[data-k="ex0_2_reps"]').inputValue() === "7",
-  "logging a completed set preserves a user-touched future set");
+  await page.evaluate(async () => {
+    await window.__repforgeEnterWorkout({});
+    const draft = window.__repforgeWorkoutDraft.current();
+    const exId = draft?.exerciseOrder?.[0] || "ex0";
+    const ex = draft?.exercises?.[exId];
+    const set2Id = ex?.setOrder?.[1];
+    if (set2Id) {
+      await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+        exerciseInstanceId: exId,
+        setId: set2Id,
+        field: "load",
+        value: "77.5",
+      });
+      await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+        exerciseInstanceId: exId,
+        setId: set2Id,
+        field: "reps",
+        value: "7",
+      });
+    }
+  });
+  await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-well .saveset");
+  await page.locator("#workout.is-focus .exercise.is-current .focus-well .saveset").click();
+  await page.waitForFunction(() => {
+    const draft = window.__repforgeWorkoutDraft.current();
+    const exId = draft?.exerciseOrder?.[0] || "ex0";
+    const ex = draft?.exercises?.[exId];
+    return ex?.sets?.[ex.setOrder[0]]?.completion !== "pending";
+  });
+  const set2Values = await page.evaluate(() => {
+    const card = document.querySelector("#workout.is-focus article.is-current");
+    return {
+      load: card.querySelector('.curset input[data-k$="_load"]')?.value,
+      reps: card.querySelector('.curset input[data-k$="_reps"]')?.value,
+    };
+  });
+  assert(set2Values.load === "77.5" && set2Values.reps === "7",
+    "logging a completed set preserves a user-touched future set", JSON.stringify(set2Values));
 
   console.log("effort_target@1");
   const effortAdvance = await capture(page, {
@@ -306,8 +340,8 @@ try {
     "fixed reps and authored effort targets stay fixed after the load change", JSON.stringify(effortAdvance.suggestions));
   assert(leaked(effortAdvance).length === 0, "effort-target copy exposes no internal identifier", leaked(effortAdvance).join(" | "));
   const effortTargetSurface = await workoutSurface(page);
-  assert(effortTargetSurface.list.loads.every((value) => value === "102.5") && effortTargetSurface.list.reps.every((value) => value === "5"),
-    "List renders the fixed-rep engine target", JSON.stringify(effortTargetSurface.list));
+  assert(effortTargetSurface.targets.loads.every((value) => value === "102.5") && effortTargetSurface.targets.reps.every((value) => value === "5"),
+    "the engine exposes the fixed-rep targets Focus consumes", JSON.stringify(effortTargetSurface.targets));
   assert(effortAdvance.explain.filter((row) => row.text).every((row) => effortTargetSurface.why.includes(row.text)),
     "Why this weight renders the effort evidence and authored target", effortTargetSurface.why);
 
@@ -338,14 +372,44 @@ try {
     lang: "en", program: effortTargetProgram,
     rows: log([[7, [[100, 5, 2], [100, 5, 2]]]]),
   });
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
-  await page.locator('[data-k="ex0_2_load"]').fill("77.5");
-  await page.locator('[data-k="ex0_2_reps"]').fill("7");
-  await page.locator('[data-save="ex0_1"]').click();
-  await page.waitForSelector('[data-save="ex0_1"][aria-pressed="true"]');
-  assert(await page.locator('[data-k="ex0_2_load"]').inputValue() === "77.5" &&
-    await page.locator('[data-k="ex0_2_reps"]').inputValue() === "7",
-  "effort-target refresh preserves a user-touched future set");
+  await page.evaluate(async () => {
+    await window.__repforgeEnterWorkout({});
+    const draft = window.__repforgeWorkoutDraft.current();
+    const exId = draft?.exerciseOrder?.[0] || "ex0";
+    const ex = draft?.exercises?.[exId];
+    const set2Id = ex?.setOrder?.[1];
+    if (set2Id) {
+      await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+        exerciseInstanceId: exId,
+        setId: set2Id,
+        field: "load",
+        value: "77.5",
+      });
+      await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+        exerciseInstanceId: exId,
+        setId: set2Id,
+        field: "reps",
+        value: "7",
+      });
+    }
+  });
+  await page.waitForSelector("#workout.is-focus .exercise.is-current .focus-well .saveset");
+  await page.locator("#workout.is-focus .exercise.is-current .focus-well .saveset").click();
+  await page.waitForFunction(() => {
+    const draft = window.__repforgeWorkoutDraft.current();
+    const exId = draft?.exerciseOrder?.[0] || "ex0";
+    const ex = draft?.exercises?.[exId];
+    return ex?.sets?.[ex.setOrder[0]]?.completion !== "pending";
+  });
+  const set2ValuesEffort = await page.evaluate(() => {
+    const card = document.querySelector("#workout.is-focus article.is-current");
+    return {
+      load: card.querySelector('.curset input[data-k$="_load"]')?.value,
+      reps: card.querySelector('.curset input[data-k$="_reps"]')?.value,
+    };
+  });
+  assert(set2ValuesEffort.load === "77.5" && set2ValuesEffort.reps === "7",
+    "effort-target refresh preserves a user-touched future set", JSON.stringify(set2ValuesEffort));
 
   console.log("anchor_backoff@1");
   const anchorAdvance = await capture(page, {
@@ -360,10 +424,10 @@ try {
     "the anchor is always heavier than its back-offs");
   assert(leaked(anchorAdvance).length === 0, "no strategy id or raw key reaches the lifter", leaked(anchorAdvance).join(" | "));
   const anchorSurface = await workoutSurface(page);
-  assert(anchorSurface.list.loads[0] === "102.5" && anchorSurface.list.loads.slice(1).every((value) => value === "82.5"),
-    "List renders the engine's heavy and lighter targets", JSON.stringify(anchorSurface.list));
-  assert(anchorSurface.focus.load === anchorSurface.list.loads[0] && anchorSurface.focus.reps === anchorSurface.list.reps[0],
-    "Focus starts from the same heavy target as List", JSON.stringify(anchorSurface.focus));
+  assert(anchorSurface.targets.loads[0] === "102.5" && anchorSurface.targets.loads.slice(1).every((value) => value === "82.5"),
+    "the engine exposes the heavy anchor and lighter targets", JSON.stringify(anchorSurface.targets));
+  assert(anchorSurface.focus.load === anchorSurface.targets.loads[0] && anchorSurface.focus.reps === anchorSurface.targets.reps[0],
+    "Focus starts from the heavy anchor target", JSON.stringify(anchorSurface.focus));
 
   const anchorLogged = await capture(page, {
     lang: "en", program: anchorProgram,
@@ -413,15 +477,15 @@ try {
     JSON.stringify(lbGoal.suggestions) === JSON.stringify(goalMet.suggestions),
   "kg and lb use the same internal recommendation and actionable grid");
   const lbSurface = await workoutSurface(page);
-  assert(lbSurface.list.loads.every((value) => Number(value) > 220) && lbSurface.why.includes("lb"),
+  assert(lbSurface.targets.loads.every((value) => Number(value) > 220) && lbSurface.why.includes("lb"),
     "lb converts display values and explanation units without changing strategy", JSON.stringify(lbSurface));
 
   const effortGoal = await capture(page, { lang: "en", rirMode: "effort", program: repGoalProgram, rows: log([[7, three(100, 10, 2)]]) });
   assert(effortGoal.rec.status === goalMet.rec.status && effortGoal.rec.load === goalMet.rec.load,
     "effort entry mode does not change the recommendation");
   const effortSurface = await workoutSurface(page);
-  assert(effortSurface.list.effortControls === 3 && effortSurface.focus.effortSpinner,
-    "new strategy targets remain operable in List and Focus effort controls", JSON.stringify(effortSurface));
+  assert(effortSurface.targets.effortControls === 3 && effortSurface.focus.effortSpinner,
+    "new strategy targets remain operable in Focus effort controls", JSON.stringify(effortSurface));
 
   const missingEffort = await capture(page, { lang: "en", rirMode: "effort", program: repGoalProgram, rows: log([[7, three(100, 10, null)]]) });
   const conservativeEffort = await capture(page, { lang: "en", rirMode: "effort", program: repGoalProgram, rows: log([[7, three(100, 10, 1)]]) });

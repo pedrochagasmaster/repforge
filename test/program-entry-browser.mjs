@@ -1930,10 +1930,10 @@ try {
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
     const durableBeforeWeekOne = await page.evaluate((key) => localStorage.getItem(key), KEY);
-    await page.evaluate(({ day }) => window.__repforgeEnterWorkout({ focus: false, day }), { day: reducedDay });
+    await page.evaluate(({ day }) => window.__repforgeEnterWorkout({day }), { day: reducedDay });
     const weekOneDom = await page.evaluate(() => ({
-      exercises: document.querySelectorAll("#workout > .exercise").length,
-      sets: document.querySelectorAll("#workout .setrow").length,
+      exercises: window.__repforgeWorkoutDraft.current().exerciseOrder.length,
+      sets: Object.values(window.__repforgeWorkoutDraft.current().exercises).reduce((n, ex) => n + ex.setOrder.length, 0),
       durableBytes: localStorage.getItem("repforge_v1"),
     }));
     assert(weekOneDom.exercises === expectedWeekOneExercises,
@@ -1945,6 +1945,8 @@ try {
     assert(weekOneDom.durableBytes === durableBeforeWeekOne,
       "week-one execution leaves authored durable program bytes unchanged");
 
+    const cleared=await page.evaluate(()=>window.__repforgeWorkoutDraft.clear());
+    assert(cleared===true,"week-one draft is explicitly closed before creating a week-two session");
     const weekTwoStart = new Date();
     weekTwoStart.setUTCDate(weekTwoStart.getUTCDate() - 8);
     await page.evaluate(async ({ key, started }) => {
@@ -1968,10 +1970,10 @@ try {
     }, { key: KEY, started: weekTwoStart.toISOString().slice(0, 10) });
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForAppBoot(page, { base: BASE });
-    await page.evaluate(({ day }) => window.__repforgeEnterWorkout({ focus: false, day }), { day: reducedDay });
+    await page.evaluate(({ day }) => window.__repforgeEnterWorkout({day }), { day: reducedDay });
     const weekTwoDom = await page.evaluate(() => ({
-      exercises: document.querySelectorAll("#workout > .exercise").length,
-      sets: document.querySelectorAll("#workout .setrow").length,
+      exercises: window.__repforgeWorkoutDraft.current().exerciseOrder.length,
+      sets: Object.values(window.__repforgeWorkoutDraft.current().exercises).reduce((n, ex) => n + ex.setOrder.length, 0),
     }));
     assert(weekTwoDom.exercises === expectedNormalExercises,
       "interrupted treatment restores all exercises in week two",

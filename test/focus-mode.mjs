@@ -13,6 +13,7 @@
  */
 import { launchChromium } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
+import { finishEarly } from "./fixtures/focus-workout.mjs";
 
 const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
@@ -104,7 +105,7 @@ async function reload(page) {
 
 async function enterFocus(page, index = 0) {
   await page.evaluate(async (i) => {
-    await window.__repforgeEnterWorkout({ focus: true });
+    await window.__repforgeEnterWorkout({});
     window.__repforgeFocus.to(i);
   }, index);
   await page.waitForSelector("#workout.is-focus .exercise.is-current", { state: "attached", timeout: 5000 });
@@ -211,16 +212,6 @@ async function main() {
   phase("State 01: new exercise, no history");
   await boot(page);
   await setSetCount(page, 0, 5);
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
-  await page.waitForSelector("#workout .exercise .ex__tag", { timeout: 5000 });
-  const listGap = await page.evaluate(() => {
-    const tag = document.querySelector("#workout .exercise .ex__tag");
-    const target = tag?.nextElementSibling;
-    if (!tag || !target) return null;
-    return Math.round(target.getBoundingClientRect().left - tag.getBoundingClientRect().right);
-  });
-  assert(listGap != null && listGap >= 8,
-    "list mode leaves space between the muscle group and the set target", String(listGap));
   await enterFocus(page, 0);
   let st = await cardState(page);
   assert(st.emptyRow && st.ledgerRows === 0 && st.pastRows === 0,
@@ -1131,14 +1122,15 @@ async function main() {
   };
   draftPage.on("framenavigated", onFinishFrameNavigation);
   draftPage.on("request", onFinishNavigationRequest);
+  // This resumed draft deliberately contains a skipped exercise, so its
+  // completion must use the explicit early-finish confirmation UI.
+  const result = await finishEarly(draftPage);
   const resumedSave = await draftPage.evaluate(async ({ k, d, exerciseId, performedName }) => {
-    const result = await window.__repforgeSaveWorkout();
     await window.__repforgeStorage.flush();
     const log = JSON.parse(localStorage.getItem(k) || "{}").log || [];
     const matchingRows = log.filter((row) => row.exerciseId === exerciseId && row.performedName === performedName);
     return {
       href: location.href,
-      result,
       logLength: log.length,
       draftCleared: localStorage.getItem(d) === null,
       sessions: [...new Set(matchingRows.map((row) => row.session))],
@@ -1150,6 +1142,7 @@ async function main() {
       })),
     };
   }, { k: KEY, d: DRAFT, exerciseId: keepEx.id, performedName: alt });
+  resumedSave.result = result;
   draftPage.off("framenavigated", onFinishFrameNavigation);
   draftPage.off("request", onFinishNavigationRequest);
   const finishNavigation = {

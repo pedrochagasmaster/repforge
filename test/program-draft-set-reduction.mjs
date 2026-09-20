@@ -3,6 +3,7 @@
  * Focused regression for reducing planned sets while a workout draft is active.
  * Requires the repository root at REPFORGE_URL (default http://localhost:8000/).
  */
+import { finishEarly } from "./fixtures/focus-workout.mjs";
 import { launchChromium } from "./browser.mjs";
 import {
   clearPersistenceArtifacts,
@@ -230,6 +231,14 @@ async function reduceSets(page) {
 }
 
 async function fillSet(page, set, load, reps, rir) {
+  if(!await page.locator(`[data-k="${EXERCISE_ID}_${set}_load"]`).count()) {
+    const correction=page.locator(`[data-editex="${EXERCISE_ID}"][data-editn="${set}"]`);
+    if(await correction.count())await correction.click();
+    else {
+      await page.locator("#workout .exercise.is-current .saveset").click();
+      await page.locator(`[data-k="${EXERCISE_ID}_${set}_load"]`).waitFor();
+    }
+  }
   for (const [field, value] of [["load", load], ["reps", reps], ["rir", rir]]) {
     const key = `${EXERCISE_ID}_${set}_${field}`;
     await page.locator(`[data-k="${key}"]`).fill(String(value));
@@ -313,21 +322,33 @@ async function settleBootStorage(page) {
 }
 
 async function waitForQueuedReductionJournal(page) {
-  await page.waitForFunction(
-    (exerciseId) => Object.keys(localStorage)
-      .filter((key) => key.startsWith("repforge_pending_v1:"))
-      .some((key) => {
-        try {
-          const journal = JSON.parse(localStorage.getItem(key) || "null");
-          const exercise = journal?.proposal?.program?.find((entry) => entry?.id === exerciseId);
-          return journal?.version === 2 && exercise?.sets === 1;
-        } catch {
-          return false;
-        }
-      }),
-    EXERCISE_ID,
-    { timeout: 10000 }
-  );
+  try {
+    await page.waitForFunction(
+      (exerciseId) => Object.keys(localStorage)
+        .filter((key) => key.startsWith("repforge_pending_v1:"))
+        .some((key) => {
+          try {
+            const journal = JSON.parse(localStorage.getItem(key) || "null");
+            const exercise = journal?.proposal?.program?.find((entry) => entry?.id === exerciseId);
+            return journal?.version === 2 && exercise?.sets === 1;
+          } catch {
+            return false;
+          }
+        }),
+      EXERCISE_ID,
+      { timeout: 10000 }
+    );
+  } catch (error) {
+    const detail = await page.evaluate(async () => ({
+      pending: Object.keys(localStorage).filter((key) => key.startsWith("repforge_pending_v1:")),
+      editorOpen: !document.querySelector("#programEditorWrap")?.classList.contains("is-hidden"),
+      editorStatus: document.querySelector('#programEditor [data-role="editor-status"]')?.textContent || "",
+      leaveDialog: document.querySelector("#programEditorLeave")?.hasAttribute("open") || false,
+      programSets: JSON.parse(localStorage.getItem("repforge_v1") || "{}").program?.find((entry) => entry.id === "draft-guard-press")?.sets,
+      locks: await navigator.locks.query(),
+    }));
+    throw new Error(`timed out waiting for queued reduction journal: ${JSON.stringify(detail)}`, { cause: error });
+  }
 }
 
 async function releaseStorageLock(page) {
@@ -360,7 +381,7 @@ async function main() {
     await writeFixture(page, fixture());
     await reloadApp(page);
 
-    await page.click("#viewExercises");
+    await page.click("#startWorkout");
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     await fillSet(page, 1, 100, 8, 1);
     await fillSet(page, 2, 90, 10, 2);
@@ -440,7 +461,7 @@ async function main() {
     await page.waitForSelector("#programEditorLeave[open]", { timeout: 5000 });
     await page.click("#programEditorDiscard");
     await page.waitForSelector("#log.view.active", { timeout: 5000 });
-    await page.click("#viewExercises");
+    await page.click("#startWorkout");
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
 
     const set2Reachable =
@@ -450,7 +471,7 @@ async function main() {
       set2DraftValue: afterReduction.draft?.[`${EXERCISE_ID}_2_load`],
     });
 
-    await page.click("#logForm .btn--save");
+    await finishEarly(page);
     await page.waitForFunction(
       (key) => JSON.parse(localStorage.getItem(key) || "{}").log?.length > 0,
       KEY,
@@ -482,7 +503,7 @@ async function main() {
 
     await writeFixture(page, fixture());
     await reloadApp(page);
-    await page.click("#viewExercises");
+    await page.click("#startWorkout");
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     await fillSet(page, 1, 100, 8, 1);
 
@@ -544,7 +565,7 @@ async function main() {
 
     await writeFixture(page, fixture());
     await reloadApp(page);
-    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+    await page.evaluate(() => window.__repforgeEnterWorkout({}));
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     await fillSet(page, 1, 100, 8, 1);
     await fillSet(page, 2, 92.5, 10, 2);
@@ -597,7 +618,7 @@ async function main() {
       "drafted set 2 remains reachable after rejected reduce_volume"
     );
 
-    await page.evaluate(() => window.__repforgeSaveWorkout());
+    await finishEarly(page);
     await page.evaluate(() => window.__repforgeStorage.flush());
     const afterBlockFinish = await readRuntime(page);
     const blockRows = (afterBlockFinish.local?.log ?? [])
@@ -621,7 +642,7 @@ async function main() {
 
     await writeFixture(page, fixture());
     await reloadApp(page);
-    await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+    await page.evaluate(() => window.__repforgeEnterWorkout({}));
     await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
     await fillSet(page, 1, 105, 8, 1);
 
@@ -659,7 +680,7 @@ async function main() {
       }
     );
 
-    await page.evaluate(() => window.__repforgeSaveWorkout());
+    await finishEarly(page);
     await page.evaluate(() => window.__repforgeStorage.flush());
     const afterSafeFinish = await readRuntime(page);
     const safeRows = (afterSafeFinish.local?.log ?? []).filter(
@@ -690,11 +711,15 @@ async function main() {
       await locker.goto(BASE, { waitUntil: "domcontentloaded" });
       await waitForApp(locker);
       await openProgramEditor(page);
-      await workout.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+      await workout.evaluate(() => window.__repforgeEnterWorkout({}));
       await workout.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
       await settleBootStorage(page);
       await settleBootStorage(workout);
       await settleBootStorage(locker);
+      await fillSet(workout,1,100,8,1);
+      await workout.locator("#workout .exercise.is-current .saveset").click();
+      await workout.locator(`[data-k="${EXERCISE_ID}_2_load"]`).waitFor();
+      await workout.evaluate(()=>window.__repforgeWorkoutDraft.flush());
       await holdStorageLock(locker);
 
       await reduceSets(page);
@@ -708,7 +733,7 @@ async function main() {
       await page.evaluate(() => window.__repforgeStorage.flush());
       const raced = await readRuntime(page);
       await reloadApp(page);
-      await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
+      await page.evaluate(() => window.__repforgeEnterWorkout({}));
       await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
       check(
         programSets(raced.local) === 2 &&

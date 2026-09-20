@@ -1126,7 +1126,7 @@ async function runDraftCreatedAfterConfirmation(browser) {
     const before = await readRuntime(writer);
     await holdStorageLock(locker);
     await writer.evaluate(() => {
-      window.__draftConflictCreatedDraft = window.__repforgeEnterWorkout({ focus: false, day: "Day 1" })
+      window.__draftConflictCreatedDraft = window.__repforgeEnterWorkout({day: "Day 1" })
         .then(() => window.__repforgeWorkoutDraft.raw());
     });
     await waitForPendingStorageLocks(locker, 1);
@@ -1793,7 +1793,7 @@ async function runStaleTabSaveDuringSuccessfulClear(browser) {
     const confirmedDraftRaw = await seedScenario(writer, JSON.stringify(draft("confirmed-stale-tab-save", "110")));
     const before = await readRuntime(writer);
     const stale = await openOldPopup(context, writer, "draft-conflict-stale-tab");
-    await stale.evaluate(() => window.__repforgeEnterWorkout({ focus: false, day: "Day 1" }));
+    await stale.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
     await stale.waitForSelector('#workout:not(.is-focus) [data-k="draft-conflict-press_1_load"]');
     await stale.evaluate((draftPendingPrefix) => {
       const originalSetItem = Storage.prototype.setItem;
@@ -1900,7 +1900,7 @@ async function runQueuedStaleTabUnloadRecovery(browser) {
     const confirmedDraftRaw = await seedScenario(writer, JSON.stringify(draft("confirmed-queued-unload", "112.5")));
     const before = await readRuntime(writer);
     const stale = await openOldPopup(context, writer, "draft-conflict-unload-stale-tab");
-    await stale.evaluate(() => window.__repforgeEnterWorkout({ focus: false, day: "Day 1" }));
+    await stale.evaluate(() => window.__repforgeEnterWorkout({day: "Day 1" }));
     await stale.waitForSelector('#workout:not(.is-focus) [data-k="draft-conflict-press_1_load"]');
 
     const result = await writer.evaluate(

@@ -139,8 +139,15 @@ assert(!/\.view\b/.test(layer) && !/\.toast\b/.test(layer) && !/effortpop/.test(
 }
 {
   assert(/if\s*\(sheetDrag\.motion\)\s*sheetDrag\.motion\.follow/.test(app) && /else\s*\{\s*rec\.el\.style\.transform\s*=/.test(app), "sheet gestures retain a no-runtime fallback");
-  assert(/if\(run\)\{run\.then\(done\);return\}/.test(app) && /setTimeout\(done,220\)/.test(app), "focus snap-back retains its CSS fallback");
-  assert(/function focusAnimateTo\(dir\)\{/.test(app) && /setTimeout\(\(\)=>\{\s*focusFlinging=false/.test(app), "deck carry remains a CSS transition");
+  assert(/if\(run\)\{run\.then\(done\);return\}/.test(app) &&
+    /fallbackFocusLater\(done,220\)/.test(app) &&
+    /function fallbackFocusLater\(callback,delay\)\{\s*const timer=setTimeout/.test(app),
+  "focus snap-back retains its tracked CSS fallback");
+  assert(/function focusAnimateTo\(dir\)\{\s*const controller=window\.__repforgeGestureHandle;\s*return controller\?\.navigate\(dir\)\|\|false\}/.test(app) &&
+    /function fallbackFocusAnimateTo\(dir\)\{/.test(app) &&
+    /fallbackFocusLater\(\(\)=>\{\s*focusFlinging=false/.test(app) &&
+    /const FOCUS_SLIDE_MS=210/.test(app),
+  "deck carry remains a tracked CSS transition behind the gesture owner");
   assert(/if\s*\(root\.RepForgeMotion\?\.animateExerciseReorder\(rows,\s*beforeRects\)\)\s*return;/.test(editor) && /program-editor-flip-y/.test(editor), "editor reorder retains FLIP fallback");
   assert(/settle\s*=\s*true/.test(editor) && /moveExercise\(id,\s*day,\s*index,\s*\{\s*settle:\s*false\s*\}\)/.test(editor), "library drags are not animated twice");
   assert(/if\(window\.RepForgeMotion\)window\.RepForgeMotion\.animateDisclosure\(panel,on,show\);\s*else show\(\)/.test(app), "disclosures toggle exactly once with or without Motion");

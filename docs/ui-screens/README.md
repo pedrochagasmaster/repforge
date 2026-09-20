@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 118 screens,
-620 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 127 screens,
+717 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -138,19 +138,28 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Today — ready to start](screens/today/ready__phone-390-light-en.png) | 3 | A seeded program on its next scheduled day. |
 | [Today — choose another day](screens/today/day-picker__phone-390-light-en.png) | 3 | The day picker sheet open. |
 | [Today — session complete](screens/today/done__phone-390-light-en.png) | 3 | The state after the day's session is logged. |
+| [Read-only session preview](screens/today/preview__phone-390-light-en.png) | 8 | Read-only session preview through production controls. |
+| [Resume saved draft](screens/today/draft-resume__phone-390-light-en.png) | 8 | Resume saved draft through production controls. |
 
 ### Workout logging
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Workout — list mode](screens/workout/list__phone-390-light-en.png) | 3 | The default logging surface. |
-| [Workout — focus mode](screens/workout/focus__phone-390-light-en.png) | 3 | One exercise at a time. |
+| [Workout — focus mode](screens/workout/focus__phone-390-light-en.png) | 8 | One exercise at a time. |
 | [Workout — stale draft recovery](screens/workout/stale-draft__phone-390-light-en.png) | 8 | A conflicting tab won while this tab retains a pending field value and offers Reload latest or Copy value. |
 | [Workout — draft persistence retry](screens/workout/persist-retry__phone-390-light-en.png) | 8 | A field write was interrupted; the exact pending value remains visible beside Retry and Copy value actions. |
 | [Workout — invalid draft recovery](screens/workout/invalid-draft__phone-390-light-en.png) | 8 | An unreadable local draft remains untouched and offers a non-destructive copy action. |
-| [Workout — rest timer](screens/workout/rest-timer__phone-390-light-en.png) | 3 | The rest timer sheet. |
-| [Workout — exercise note](screens/workout/exercise-note__phone-390-light-en.png) | 3 | The per-exercise note sheet. |
-| [Workout — why this weight](screens/workout/why-this-weight__phone-390-light-en.png) | 3 | The recommendation inspector. |
+| [Workout — rest timer](screens/workout/rest-timer__phone-390-light-en.png) | 8 | The rest timer sheet. |
+| [Workout — exercise note](screens/workout/exercise-note__phone-390-light-en.png) | 8 | The per-exercise note sheet. |
+| [Workout — why this weight](screens/workout/why-this-weight__phone-390-light-en.png) | 8 | The recommendation inspector. |
+| [Session details and map](screens/workout/session__phone-390-light-en.png) | 8 | Session details and map through production controls. |
+| [Early finish confirmation](screens/workout/early-finish__phone-390-light-en.png) | 8 | Early finish confirmation through production controls. |
+| [Exercise actions](screens/workout/exercise-actions__phone-390-light-en.png) | 8 | Exercise actions through production controls. |
+| [Warm-up role](screens/workout/warmup-actions__phone-390-light-en.png) | 8 | Warm-up role through production controls. |
+| [Session reorder](screens/workout/reorder__phone-390-light-en.png) | 8 | Session reorder through production controls. |
+| [Set correction](screens/workout/correction__phone-390-light-en.png) | 8 | Set correction through production controls. |
+| [Skipped exercise actions](screens/workout/skipped-actions__phone-390-light-en.png) | 8 | workout/skipped-actions |
+| [Substituted exercise actions](screens/workout/substituted-actions__phone-390-light-en.png) | 8 | workout/substituted-actions |
 
 ### Session summary
 

@@ -282,7 +282,7 @@ async function setupPredecessorWithSentinelAndDraft(page, tag = "p6b") {
 
   const draftSetup = await page.evaluate(async () => {
     const dayLabel = (window.__repforgeWorkoutDraft.state()?.program || [])[0]?.day || "Day 1";
-    await window.__repforgeEnterWorkout({ day: dayLabel, focus: false });
+    await window.__repforgeEnterWorkout({ day: dayLabel});
     const hook = window.__repforgeWorkoutDraft;
     const draft = hook.current();
     const exIds = Object.keys(draft.exercises || {});
@@ -479,7 +479,7 @@ async function main() {
       if (!window.__repforgeWorkoutDraft || typeof window.__repforgeEnterWorkout !== "function") {
         return { ok: false, error: "workout draft or enter workout unavailable" };
       }
-      await window.__repforgeEnterWorkout({ day: dayLabel, focus: false });
+      await window.__repforgeEnterWorkout({ day: dayLabel});
       const hook = window.__repforgeWorkoutDraft;
       const draft = hook.current();
       if (!draft || !draft.exercises) return { ok: false, error: "draft not initialized" };
@@ -1008,7 +1008,7 @@ async function main() {
 
     const draft2 = await page2.evaluate(async () => {
       const dayLabel = (window.__repforgeWorkoutDraft.state()?.program || [])[0]?.day || "Day 1";
-      await window.__repforgeEnterWorkout({ day: dayLabel, focus: false });
+      await window.__repforgeEnterWorkout({ day: dayLabel});
       const hook = window.__repforgeWorkoutDraft;
       const d = hook.current();
       const exId = Object.keys(d.exercises)[0];

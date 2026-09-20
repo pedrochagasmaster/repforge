@@ -179,6 +179,7 @@ async function modalInfo(page, sel) {
     const bodyKids = [...document.body.children].map((c) => ({
       id: c.id,
       inert: !!c.inert,
+      permanent: c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]'),
       tag: c.tagName.toLowerCase(),
     }));
     const stops = [...(el?.querySelectorAll("a[href],button:not([disabled]),input:not([disabled]):not([type=hidden]),select:not([disabled]),textarea:not([disabled]),[tabindex]:not([tabindex='-1'])") || [])]
@@ -190,7 +191,7 @@ async function modalInfo(page, sel) {
       active: document.activeElement?.id || document.activeElement?.tagName || null,
       stops,
       hostInert: host ? !!host.inert : null,
-      inertIds: bodyKids.filter((c) => c.inert).map((c) => c.id || c.tag),
+      inertIds: bodyKids.filter((c) => c.inert && !c.permanent).map((c) => c.id || c.tag),
       liveKids: bodyKids.filter((c) => !c.inert).map((c) => c.id || c.tag),
     };
   }, sel);
@@ -231,27 +232,6 @@ async function persistState(page, state) {
     },
     { k: KEY, blob: state }
   );
-}
-
-async function readLogModeControls(page) {
-  return page.evaluate(() => {
-    const controls = [
-      { mode: "list", element: document.querySelector("#modeFull") },
-      { mode: "focus", element: document.querySelector("#modeFocus") },
-    ];
-    const active = controls.filter(({ element }) => element?.classList.contains("active")).map(({ mode }) => mode);
-    const pressed = controls.filter(({ element }) => element?.getAttribute("aria-pressed") === "true").map(({ mode }) => mode);
-    return {
-      active,
-      pressed,
-      same: active.length === 1 && pressed.length === 1 && active[0] === pressed[0],
-      attributes: controls.map(({ mode, element }) => ({
-        mode,
-        active: !!element?.classList.contains("active"),
-        pressed: element?.getAttribute("aria-pressed") || null,
-      })),
-    };
-  });
 }
 
 async function readLogicalFocus(page, selector) {
@@ -369,7 +349,7 @@ export async function runWorkoutValidationFocusCheck(browser, check = assert) {
 
   await page.click("#startWorkout");
   await page.waitForSelector("#workoutShell:not(.hidden)");
-  await page.evaluate(() => setLogMode("full"));
+
 
   const load = page.locator('#workout input[data-k$="_load"]').first();
   const loadKey = await load.getAttribute("data-k");
@@ -382,7 +362,9 @@ export async function runWorkoutValidationFocusCheck(browser, check = assert) {
   await reps.fill("");
   await rir.fill("1");
 
-  const finish = page.locator("#logForm .btn--save");
+  await page.locator("#sessionSheetBtn").click();
+  await page.locator("#sessionEarlyFinish").click();
+  const finish = page.locator("#sessionEarlyConfirm");
   await finish.focus();
   await page.keyboard.press("Enter");
   await page.waitForFunction(() => {
@@ -398,7 +380,7 @@ export async function runWorkoutValidationFocusCheck(browser, check = assert) {
     const form = document.querySelector("#logForm");
     const invalid = [...form.querySelectorAll("[aria-invalid='true']")];
     const first = invalid[0];
-    const finishButton = form.querySelector(".btn--save");
+    const finishButton = document.querySelector("#sessionEarlyConfirm");
     return {
       activeKey: document.activeElement?.dataset?.k || document.activeElement?.id || null,
       expectedKey,
@@ -454,7 +436,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     panelVisible: document.querySelector("#segReview")?.classList.contains("active"),
     confirmOpen: !!document.querySelector("#endBlockConfirm")?.open,
     dialogOpen: !!document.querySelector("#blockReview")?.open,
-    leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id),
+    leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id),
   }));
   assert(route.activeIsReviewTab && route.reviewSelected === "true" && route.panelVisible,
     "End block: focus lands on the Review tab and the panel opens", JSON.stringify(route));
@@ -494,7 +476,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     panel: document.querySelector("#segReview")?.classList.contains("active"),
     confirmOpen: !!document.querySelector("#endBlockConfirm")?.open,
     dialogOpen: !!document.querySelector("#blockReview")?.open,
-    leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+    leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
   }));
   assert(routed.active && routed.panel && !routed.confirmOpen && !routed.dialogOpen && routed.leaked.length === 0,
     "Block Review route: focus lands on the Review tab, no dialogs, no inertness leak", JSON.stringify(routed));
@@ -504,7 +486,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   const back = await page.evaluate(() => ({
     panel: document.querySelector("#segReview")?.classList.contains("active"),
     evidenceOpen: !!document.querySelector("#segStrength")?.classList.contains("active"),
-    leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+    leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
   }));
   assert(back.panel && !back.evidenceOpen && back.leaked.length === 0,
     "Review ↔ Evidence round trip restores the Review panel with no leak", JSON.stringify(back));
@@ -628,7 +610,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     );
     return {
       open: !!document.querySelector("#storageRecovery")?.open,
-      leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+      leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
       active: active?.id || active?.tagName,
       activeIsStart: active === start,
       activeConnected: !!active?.isConnected,
@@ -672,7 +654,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
     );
     return {
       open: !!document.querySelector("#storageRecovery")?.open,
-      leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+      leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
       active: active?.id || active?.tagName,
       activeIsStart: active === start,
       activeConnected: !!active?.isConnected,
@@ -720,7 +702,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   }, { timeout: 8000 });
   const whyAfter = await page.evaluate(() => ({
     hidden: document.querySelector("#whySheet")?.hidden || document.querySelector("#whySheet")?.classList.contains("hidden"),
-    leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+    leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
     focusWhy: document.activeElement?.getAttribute("data-why"),
   }));
   assert(whyAfter.hidden, "Why sheet: Escape is Cancel and hides the sheet", JSON.stringify(whyAfter));
@@ -751,7 +733,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   });
   const after = await page.evaluate(() => ({
     hidden: document.querySelector("#exNoteSheet")?.hidden || document.querySelector("#exNoteSheet")?.classList.contains("hidden"),
-    leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+    leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
     focusNote: document.activeElement?.getAttribute("data-exnote-open"),
   }));
   assert(after.hidden, "Exercise Note: Escape is Cancel and hides the sheet", JSON.stringify(after));
@@ -770,7 +752,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   }, noteId, { timeout: 8000 });
   const saved = await page.evaluate(() => ({
     focusNote: document.activeElement?.getAttribute("data-exnote-open"),
-    leaked: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+    leaked: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
   }));
   assert(saved.focusNote === noteId, "Exercise Note: Save returns focus after the rerender", JSON.stringify({ noteId, saved }));
   assert(saved.leaked.length === 0, "Exercise Note: Save restores inertness", JSON.stringify(saved.leaked));
@@ -1078,29 +1060,18 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   const { context, page } = await freshPage(browser);
   await page.click("#startWorkout");
   await page.waitForSelector("#workoutShell:not(.hidden)");
-  const pressed = await page.evaluate(() => ({
-    full: document.querySelector("#modeFull")?.getAttribute("aria-pressed"),
-    focus: document.querySelector("#modeFocus")?.getAttribute("aria-pressed"),
-    count: [...document.querySelectorAll("#modeFull, #modeFocus")].filter((b) => b.getAttribute("aria-pressed") === "true").length,
-    fullActive: document.querySelector("#modeFull")?.classList.contains("active"),
+  const modeStatus = await page.evaluate(() => ({
+    modeSwitch: document.querySelector(".modeswitch"),
+    modeFull: document.querySelector("button#modeFull"),
+    modeFocus: document.querySelector("button#modeFocus"),
+    isFocusWo: document.body.classList.contains("is-focus-wo"),
+    isWorkoutFocus: document.querySelector("#workout")?.classList.contains("is-focus"),
   }));
-  assert(pressed.focus === "true" && pressed.full === "false" && pressed.count === 1, "Start workout presses only the Focus button", JSON.stringify(pressed));
-  await page.evaluate(() => setLogMode("focus"));
-  const focus = await page.evaluate(() => ({
-    full: document.querySelector("#modeFull")?.getAttribute("aria-pressed"),
-    focus: document.querySelector("#modeFocus")?.getAttribute("aria-pressed"),
-    count: [...document.querySelectorAll("#modeFull, #modeFocus")].filter((b) => b.getAttribute("aria-pressed") === "true").length,
-  }));
-  assert(focus.full === "false" && focus.focus === "true" && focus.count === 1, "Focus mode presses only the Focus button", JSON.stringify(focus));
-  await page.evaluate(() => enterWorkout({ focus: false }));
-  const list = await page.evaluate(() => ({
-    full: document.querySelector("#modeFull")?.getAttribute("aria-pressed"),
-    focus: document.querySelector("#modeFocus")?.getAttribute("aria-pressed"),
-    count: [...document.querySelectorAll("#modeFull, #modeFocus")].filter((b) => b.getAttribute("aria-pressed") === "true").length,
-  }));
-  assert(list.full === "true" && list.focus === "false" && list.count === 1, "enterWorkout keeps exactly one pressed layout button", JSON.stringify(list));
+  assert(!modeStatus.modeSwitch && !modeStatus.modeFull && !modeStatus.modeFocus, "workout layout toggle is removed in favor of Focus-only", JSON.stringify(modeStatus));
+  assert(modeStatus.isFocusWo && modeStatus.isWorkoutFocus, "Start workout activates Focus mode unconditionally", JSON.stringify(modeStatus));
   await context.close();
 }
+
 
 {
   // Plan 056: the End block confirm modal is gone. Repeated routes must stay
@@ -1110,7 +1081,7 @@ console.log("\nAccessible interactions (UX-07 / UX-16 / A11Y-02)");
   await page.waitForSelector("#stats.view.active", { timeout: 5000 });
   await page.evaluate(() => promptEndBlock());
   const leaked = await page.evaluate(() => ({
-    inert: [...document.body.children].filter((c) => c.inert).map((c) => c.id || c.tagName),
+    inert: [...document.body.children].filter((c) => c.inert && !c.matches('#legacyWorkoutShell[hidden][aria-hidden="true"]')).map((c) => c.id || c.tagName),
     confirm: !document.querySelector("#endBlockConfirm")?.open,
     dialog: !document.querySelector("#blockReview")?.open,
     reviewPanel: document.querySelector("#segReview")?.classList.contains("active"),
@@ -1815,7 +1786,6 @@ async function visitSurfaces(page) {
     await start.click();
     await page.waitForSelector("#workoutShell:not(.hidden)");
     await page.evaluate(() => {
-      if (typeof setLogMode === "function") setLogMode("full");
     });
     const term = page.locator(".term[data-term]").first();
     if (await term.count()) await term.click().catch(() => {});
@@ -1824,7 +1794,7 @@ async function visitSurfaces(page) {
 }
 
 async function runTouchTarget320Regression(browser) {
-  console.log("\nNarrow list-mode touch targets (320×568)");
+  console.log("\nNarrow focus-mode touch targets (320×568)");
   for (const mode of ["numeric", "effort"]) {
     const context = await browser.newContext({
       viewport: { width: 320, height: 568 },
@@ -1834,9 +1804,9 @@ async function runTouchTarget320Regression(browser) {
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await clearState(page);
-    await seedLangUnit(page, "en", "kg", true, mode);
-    await page.click("#viewExercises");
-    await page.waitForSelector("#workoutShell:not(.hidden) #workout .setrow");
+    await seedLangUnit(page, "en", "kg", false, mode);
+    await page.click("#startWorkout");
+    await page.waitForSelector("#workoutShell:not(.hidden) #workout.is-focus .exercise.is-current .focus-well");
     await page.evaluate(() =>
       document.getAnimations().forEach((animation) => animation.finish())
     );
@@ -1854,166 +1824,64 @@ async function runTouchTarget320Regression(browser) {
           bottom: round(rect.bottom),
         };
       };
-      const selectorFor = (element) => {
-        const tag = element.tagName.toLowerCase();
-        if (element.dataset.k) return `${tag}[data-k="${element.dataset.k}"]`;
-        if (element.dataset.warm) return `${tag}[data-warm="${element.dataset.warm}"]`;
-        if (element.dataset.save) return `${tag}[data-save="${element.dataset.save}"]`;
-        if (element.dataset.step) {
-          return `${tag}[data-step="${element.dataset.step}"][data-dir="${element.dataset.dir}"]`;
-        }
-        if (element.dataset.eff) {
-          return `${tag}[data-eff="${element.dataset.eff}"][data-e="${element.dataset.e}"]`;
-        }
-        return tag;
-      };
-      const categoryFor = (element) => {
-        if (element.dataset.warm) return "warm-up";
-        if (element.dataset.save) return "save";
-        if (element.dataset.step) return "load-step";
-        if (element.dataset.eff) return "effort";
-        if (element.dataset.k?.endsWith("_load")) return "load";
-        if (element.dataset.k?.endsWith("_reps")) return "reps";
-        if (element.dataset.k?.endsWith("_rir")) return "rir";
-        return element.tagName.toLowerCase();
-      };
-      const rows = [...document.querySelectorAll("#workout .setrow")];
-      const targets = rows.flatMap((row) =>
-        [...row.querySelectorAll("button,input:not([type=hidden])")].map((element) => ({
-          selector: selectorFor(element),
-          category: categoryFor(element),
-          type: element.getAttribute("type"),
-          inputMode: element.getAttribute("inputmode"),
-          rect: rectOf(element),
-        }))
-      );
-      const expectedFieldSelectors = rows.flatMap((row) => {
-        const key = row.dataset.set;
-        const selectors = [
-          `input[data-k="${key}_load"]`,
-          `input[data-k="${key}_reps"]`,
-        ];
-        if (rirMode === "numeric") selectors.push(`input[data-k="${key}_rir"]`);
-        return selectors;
+      const card = document.querySelector("#workout.is-focus .exercise.is-current");
+      const interactive = [
+        ...document.querySelectorAll("#woHead button:not([hidden])"),
+        ...card.querySelectorAll("button:not([hidden]), input:not([type=hidden]), [role=spinbutton]"),
+        ...document.querySelectorAll("#woProgress button:not([hidden])"),
+      ].filter((el) => {
+        const r = el.getBoundingClientRect();
+        return r.width > 0 && r.height > 0 && getComputedStyle(el).display !== "none" && getComputedStyle(el).visibility !== "hidden";
       });
-      const actualFieldSelectors = rows.flatMap((row) =>
-        [...row.querySelectorAll("input[data-k]")].map(selectorFor)
-      );
-      const loadInputs = targets.filter((target) => target.category === "load");
-      const violations = targets.filter(
-        ({ rect }) => rect.w + 0.01 < 44 || rect.h + 0.01 < 44
-      );
-      const overlaps = [];
-      for (const row of rows) {
-        const firstLine = [...row.children]
-          .filter((element) => !element.classList.contains("effort"))
-          .map((element) => ({ selector: selectorFor(element), rect: rectOf(element) }))
-          .sort((a, b) => a.rect.x - b.rect.x);
-        for (let index = 1; index < firstLine.length; index++) {
-          if (firstLine[index - 1].rect.right > firstLine[index].rect.x + 0.01) {
-            overlaps.push([firstLine[index - 1], firstLine[index]]);
-          }
-        }
-        const load = row.querySelector(".kg input");
-        const down = row.querySelector('.kg [data-dir="-1"]');
-        const up = row.querySelector('.kg [data-dir="1"]');
-        if (load && down && up) {
-          const loadRect = rectOf(load);
-          const downRect = rectOf(down);
-          const upRect = rectOf(up);
-          if (
-            loadRect.bottom > downRect.y + 0.01 ||
-            loadRect.bottom > upRect.y + 0.01 ||
-            downRect.right > upRect.x + 0.01
-          ) {
-            overlaps.push([
-              { selector: selectorFor(load), rect: loadRect },
-              { selector: `${selectorFor(down)} / ${selectorFor(up)}`, rect: downRect },
-            ]);
-          }
-        }
-      }
-      const dimensions = {};
-      for (const target of targets) {
-        dimensions[target.category] ||= [];
-        const value = `${target.rect.w}×${target.rect.h}`;
-        if (!dimensions[target.category].includes(value)) {
-          dimensions[target.category].push(value);
-        }
-      }
+
+      const targets = interactive.map((element) => ({
+        tag: element.tagName.toLowerCase(),
+        id: element.id || null,
+        aria: element.getAttribute("aria-label") || null,
+        k: element.dataset.k || element.dataset.step || element.dataset.effstep || null,
+        rect: rectOf(element),
+      }));
+
+      const violations = targets.filter(({ rect }) => rect.w + 0.01 < 44 || rect.h + 0.01 < 44);
       const root = document.documentElement;
       const workout = document.querySelector("#workout");
-      const firstRow = rows[0];
-      const header = document.querySelector("#workout .sets__head");
-      const rowTracks = firstRow ? getComputedStyle(firstRow).gridTemplateColumns : "";
-      const headerTracks = header ? getComputedStyle(header).gridTemplateColumns : "";
       return {
         mode: rirMode,
-        rowCount: rows.length,
-        expectedFieldSelectors,
-        actualFieldSelectors,
-        loadInputs,
         targetCount: targets.length,
+        targets,
         violations,
-        overlaps,
-        dimensions,
-        rowTracks,
-        headerTracks,
+        hasLoad: !!card.querySelector("input[data-k$=\"_load\"]"),
+        hasReps: !!card.querySelector("input[data-k$=\"_reps\"]"),
+        hasRirOrEffort: rirMode === "numeric" ? !!card.querySelector("input[data-k$=\"_rir\"]") : !!card.querySelector("[data-effspin]"),
         overflow: {
           document: { client: root.clientWidth, scroll: root.scrollWidth },
           workout: {
             client: workout?.clientWidth || 0,
             scroll: workout?.scrollWidth || 0,
           },
-          rows: rows.map((row) => ({
-            key: row.dataset.set,
-            client: row.clientWidth,
-            scroll: row.scrollWidth,
-          })),
         },
       };
     }, mode);
 
-    const exactFields =
-      layout.rowCount === 3 &&
-      JSON.stringify(layout.actualFieldSelectors) ===
-        JSON.stringify(layout.expectedFieldSelectors) &&
-      layout.loadInputs.length === 3 &&
-      layout.loadInputs.every(
-        ({ type, inputMode }) => type === "text" && inputMode === "decimal"
-      );
     assert(
-      exactFields,
-      `320px ${mode} rows expose the exact expected set-field selectors`,
-      JSON.stringify({
-        expected: layout.expectedFieldSelectors,
-        actual: layout.actualFieldSelectors,
-        loads: layout.loadInputs,
-      })
+      layout.hasLoad && layout.hasReps && layout.hasRirOrEffort,
+      `320px ${mode} Focus card exposes the expected input fields`,
+      JSON.stringify({ load: layout.hasLoad, reps: layout.hasReps, rirOrEff: layout.hasRirOrEffort })
     );
     assert(
       layout.violations.length === 0,
-      `320px ${mode} row actions are all at least 44×44 CSS px`,
+      `320px ${mode} Focus actions are all at least 44×44 CSS px`,
       JSON.stringify(layout.violations)
     );
     const noOverflow =
-      layout.rowTracks === layout.headerTracks &&
-      layout.overlaps.length === 0 &&
       layout.overflow.document.scroll <= layout.overflow.document.client &&
-      layout.overflow.workout.scroll <= layout.overflow.workout.client &&
-      layout.overflow.rows.every(({ client, scroll }) => scroll <= client);
+      layout.overflow.workout.scroll <= layout.overflow.workout.client;
     assert(
       noOverflow,
-      `320px ${mode} header and rows align without overlap or horizontal overflow`,
-      JSON.stringify({
-        tracks: { header: layout.headerTracks, row: layout.rowTracks },
-        overlaps: layout.overlaps,
-        overflow: layout.overflow,
-      })
+      `320px ${mode} Focus view aligns without horizontal overflow`,
+      JSON.stringify(layout.overflow)
     );
-    console.log(
-      `    ${mode}: ${layout.rowTracks}; ${JSON.stringify(layout.dimensions)}`
-    );
+    console.log(`    ${mode}: ${layout.targetCount} targets compliant at 320px`);
     await context.close();
   }
 }
@@ -2071,15 +1939,17 @@ async function runDimmedStateAccessibility(browser) {
 
     await page.click("#startWorkout");
     await page.waitForSelector("#workoutShell:not(.hidden)");
-    await page.evaluate(() => setLogMode("full"));
-    await page.locator("#workout [data-warm]").first().click();
-    await page.waitForSelector("#workout .setrow.is-warmup");
+
+    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click();
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    await page.locator("#exActionsClose").click();
     await page.evaluate(() =>
       document.getAnimations().forEach((animation) => animation.finish())
     );
     const warmup = await auditEnabledControlText(
       page,
-      "#workout .setrow.is-warmup"
+      "#workout .exercise.is-current .focus-well"
     );
     assert(
       warmup.controls.length >= 5,
@@ -2092,66 +1962,39 @@ async function runDimmedStateAccessibility(browser) {
       JSON.stringify(warmup.issues)
     );
 
-    await page.locator("#workout .exercise .ex__skip").first().click();
-    await page.waitForSelector("#workout .exercise.is-skipped");
-    await page.evaluate(() =>
-      document.getAnimations().forEach((animation) => animation.finish())
-    );
-    const semantics = await page.evaluate(() => {
-      const card = document.querySelector("#workout .exercise.is-skipped");
-      const action = card?.querySelector(".ex__skip");
-      const status = card?.querySelector(".ex__state");
-      const name = card?.querySelector(".ex__name");
-      return {
-        actionText: action?.textContent.replace(/\s+/g, " ").trim() || "",
-        actionAria: action?.getAttribute("aria-label") || "",
-        statusText: status?.textContent.replace(/\s+/g, " ").trim() || "",
-        statusIsRealDom: !!status,
-        generatedNameContent: name
-          ? getComputedStyle(name, "::after").content
-          : "",
-      };
-    });
-    const copy = expected[lang];
-    assert(
-      semantics.actionText === copy.restore &&
-        semantics.actionAria === copy.restoreAria &&
-        semantics.statusText === copy.skipped &&
-        semantics.statusIsRealDom &&
-        !["Skipped", "Pulado"].some((label) =>
-          semantics.generatedNameContent.includes(label)
-        ),
-      `skipped label and restore action are state-correct real DOM copy (${lang})`,
-      JSON.stringify({ expected: copy, actual: semantics })
-    );
-    const skipped = await auditEnabledControlText(
-      page,
-      "#workout .exercise.is-skipped",
-      ["#workout .exercise.is-skipped .ex__state"]
-    );
-    assert(
-      skipped.issues.length === 0 &&
-        skipped.extraText.length === 1 &&
-        !skipped.extraText[0].missing &&
-        skipped.extraText[0].ratio >= 4.5,
-      `skipped label/action and enabled control text contrast ≥4.5:1 (${lang})`,
-      JSON.stringify(skipped)
-    );
-
-    await page.locator("#workout .exercise.is-skipped .ex__skip").click();
-    await page.waitForSelector("#workout .exercise:not(.is-skipped)");
-    const restored = await page.evaluate(() => {
-      const action = document.querySelector("#workout .exercise .ex__skip");
-      return {
-        text: action?.textContent.replace(/\s+/g, " ").trim() || "",
-        aria: action?.getAttribute("aria-label") || "",
-      };
-    });
-    assert(
-      restored.text === copy.skip && restored.aria === copy.skipAria,
-      `restoring returns the action to Skip semantics (${lang})`,
-      JSON.stringify({ expected: copy, actual: restored })
-    );
+    const skippedId=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
+    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#exActionSkipBtn").click();
+    await page.locator("#exActionsSheet").waitFor({state:"hidden"});
+    await page.locator("#sessionSheetBtn").click();
+    const statusSelector=`[data-session-map-ex="${skippedId}"] .session-map__status`;
+    const copy=expected[lang];
+    assert(await page.locator(statusSelector).textContent()===copy.skipped,
+      `Session map exposes a real skipped status (${lang})`);
+    const skipped=await auditEnabledControlText(page,"#sessionSheet",[statusSelector]);
+    assert(skipped.issues.length===0 && skipped.extraText.length===1 &&
+      !skipped.extraText[0].missing && skipped.extraText[0].ratio>=4.5,
+      `skipped status and enabled controls have contrast ≥4.5:1 (${lang})`,JSON.stringify(skipped));
+    await page.locator(`[data-session-map-jump="${skippedId}"]`).click();
+    await page.locator("#exActionsSheet.is-open").waitFor();
+    const restore=lang==="pt"?"Restaurar exercício":"Restore exercise";
+    assert(await page.getByRole("button",{name:restore,exact:true}).count()===1,
+      `skipped exercise exposes its named Restore action (${lang})`);
+    const actions=await auditEnabledControlText(page,"#exActionsSheet");
+    assert(actions.issues.length===0,`Restore action text has contrast ≥4.5:1 (${lang})`,JSON.stringify(actions));
+    await page.getByRole("button",{name:restore,exact:true}).click();
+    await page.locator("#exActionsSheet").waitFor({state:"hidden"});
+    assert(await page.evaluate(id=>window.__repforgeWorkoutDraft.current().exercises[id].status==="active",skippedId),
+      `Restore returns the exact exercise to active state (${lang})`);
+    await page.locator("#sessionSheetBtn").click();
+    await page.locator(`[data-session-map-jump="${skippedId}"]`).click();
+    await page.locator("#sessionSheet").waitFor({state:"hidden"});
+    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    const skip=lang==="pt"?"Pular exercício":"Skip exercise";
+    assert(await page.getByRole("button",{name:skip,exact:true}).count()===1,
+      `restoring returns the action to Skip semantics (${lang})`);
+    await page.locator("#exActionsClose").click();
+    await page.locator("#exActionsSheet").waitFor({state:"hidden"});
 
     await page.evaluate(() => leaveWorkout());
     await showView(page, "history");
@@ -2283,7 +2126,7 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
   await page.click("#startWorkout");
   await page.waitForSelector("#workoutShell:not(.hidden)");
   const fonts = await page.evaluate(() => {
-    const nodes = [...document.querySelectorAll("#workout input:not([type=hidden]):not([type=checkbox]):not([type=radio]), #workout select, #workout textarea, #notes, #bodyweight, #date")];
+    const nodes = [...document.querySelectorAll("#workout input:not([type=hidden]):not([type=checkbox]):not([type=radio]), #workout select, #workout textarea, #sessionNotes, #sessionBodyweight, #sessionDate")];
     return nodes.filter((el) => getComputedStyle(el).display !== "none").map((el) => ({ id: el.id, px: parseFloat(getComputedStyle(el).fontSize) }));
   });
   assert(fonts.every((f) => f.px >= 16), "visible editable fields are at least 16px", JSON.stringify(fonts));
@@ -2296,7 +2139,7 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
     };
   });
   assert(touch.step === "manipulation" && touch.field === "manipulation", "controls retain touch-action:manipulation", JSON.stringify(touch));
-  await page.evaluate(() => setLogMode("focus"));
+
   await page.waitForSelector("#workout .exercise.is-current");
   const grip = await page.evaluate(() => {
     const card = document.querySelector("#workout .exercise.is-current");
@@ -2380,8 +2223,9 @@ console.log("\nVisual accessibility (UX-05 / UX-06 / A11Y-01 / A11Y-02)");
       await page.click("#startWorkout");
       await page.waitForSelector("#workoutShell:not(.hidden)");
     }
+    if (!await page.locator("#sessionSheet").isVisible()) await page.locator("#sessionSheetBtn").click();
     const info = await page.evaluate((expected) => {
-      const lbl = document.querySelector("#bodyweightLabel");
+      const lbl = document.querySelector("#sessionBodyweightLabel");
       const span = lbl?.querySelector("span");
       const extras = [...(lbl?.childNodes || [])].filter((n) => n.nodeType === 3 && n.textContent.trim()).map((n) => n.textContent);
       const hits = (lbl?.textContent || "").match(/Bodyweight|Peso corporal/g) || [];

@@ -343,6 +343,10 @@ async function main() {
       }
     }
 
+    for (const item of pending) {
+      failures.push({key:item.key,variant:variantSlug(item.capture),error:item.reason});
+    }
+
     if (!filtered) {
       const missing = expandCaptures(MANIFEST)
         .filter((capture) => !existsSync(capturePath(MANIFEST, capture, stagingRoot)));

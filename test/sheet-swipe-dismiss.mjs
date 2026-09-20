@@ -231,7 +231,7 @@ async function run() {
   // ---- the note sheet: a swipe must not save what Cancel discards -------------
   phase("swiping the note sheet away discards, like Cancel");
   await page.click('nav button[data-view="log"]');
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: true }));
+  await page.evaluate(() => window.__repforgeEnterWorkout({}));
   await page.waitForSelector("#workout.is-focus .exercise.is-current", { state: "attached", timeout: 5000 });
   await page.locator("[data-exnote-open]").first().click();
   await page.waitForSelector("#exNoteSheet.is-open", { timeout: 5000 });

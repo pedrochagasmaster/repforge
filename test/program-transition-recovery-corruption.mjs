@@ -460,7 +460,7 @@ async function observeProjection(page, expectations = {}) {
     if (!hook || typeof window.__repforgeEnterWorkout !== "function" || !liveRow?.day) {
       return { ok: false, code: "projection_seam_missing", expectedDayId, liveDayId: liveRow?.dayId ?? null };
     }
-    const entered = await window.__repforgeEnterWorkout({ day: liveRow.day, focus: false });
+    const entered = await window.__repforgeEnterWorkout({ day: liveRow.day});
     const draft = hook.current?.();
     const rows = [];
     for (const exerciseId of draft?.exerciseOrder || []) {

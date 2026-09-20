@@ -48,17 +48,11 @@ const view = async (page, name) => {
 };
 
 async function enterWorkout(page, options = {}) {
-  await page.evaluate((opts) => window.__repforgeEnterWorkout(opts), { focus: false, ...options });
+  await page.evaluate((opts) => window.__repforgeEnterWorkout(opts), options);
   await sleep(page, 600);
 }
 
-async function focusMode(page) {
-  await enterWorkout(page, { focus: false });
-  await page.click("#woOverflowBtn");
-  await sleep(page, 200);
-  await page.click("#modeFocus");
-  await sleep(page, 500);
-}
+async function focusMode(page) { await enterWorkout(page); }
 
 async function openTransferState(page, state) {
   await page.evaluate((name) => window.__repforgeUi.openInstallTransferState(name), state);
@@ -84,7 +78,7 @@ async function logCurrentSet(page) {
 }
 
 async function saveWholeSession(page) {
-  await enterWorkout(page, { focus: true, day: "Day 1" });
+  await enterWorkout(page, { day: "Day 1" });
   await page.evaluate(() => {
     const set = (suffix, value) => {
       document.querySelectorAll(`#workout [data-k$="${suffix}"]`).forEach((el, index) => {
@@ -96,7 +90,13 @@ async function saveWholeSession(page) {
     set("_1_reps", "6");
     set("_1_rir", "1");
   });
-  await page.evaluate(async () => { await window.__repforgeSaveWorkout(); });
+  // The fixture fills one set per exercise, so the normal finish boundary
+  // correctly rejects it as incomplete. Use the same visible confirmation
+  // path a lifter must use for an intentional partial session.
+  await page.click("#sessionSheetBtn");
+  await page.waitForSelector("#sessionSheet.is-open", { timeout: 15000 });
+  await page.click("#sessionEarlyFinish");
+  await page.click("#sessionEarlyConfirm");
   await page.waitForFunction(() => {
     const el = document.querySelector("#sessionSummary");
     return el && !el.hidden && !el.classList.contains("hidden");
@@ -266,6 +266,11 @@ async function openSettings(page, anchor) {
   await sleep(page, 250);
 }
 
+async function resetSheetScroll(page, selector) {
+  await page.locator(selector).evaluate((element) => { element.scrollTop = 0; });
+  await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+}
+
 export const APP_SCENARIOS = {
   "today/no-program": async (page) => { await dismissChrome(page); await sleep(page, 300); },
   "today/ready": async (page) => { await dismissChrome(page); await sleep(page, 300); },
@@ -285,8 +290,70 @@ export const APP_SCENARIOS = {
     await sleep(page, 600);
   },
 
-  "workout/list": (page) => enterWorkout(page),
   "workout/focus": focusMode,
+  "today/preview": async page => { await page.click("#previewSession"); await page.waitForSelector("#previewSessionSheet.is-open"); },
+  "workout/session": async page => { await focusMode(page); await page.click("#sessionSheetBtn"); await resetSheetScroll(page, ".session-sheet__body"); },
+  "workout/early-finish": async page => { await focusMode(page); await logCurrentSet(page); await page.click("#sessionSheetBtn"); await page.click("#sessionEarlyFinish"); await resetSheetScroll(page, ".session-sheet__body"); },
+  "workout/exercise-actions": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-exactions-open]").click(); await resetSheetScroll(page, ".exactions-sheet__body"); },
+  "workout/skipped-actions": async page => {
+    await focusMode(page);
+    const id=await page.locator("#workout .exercise.is-current").getAttribute("data-ex");
+    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#exActionSkipBtn").click();
+    await page.locator("#exActionsSheet").waitFor({state:"hidden"});
+    await page.locator("#sessionSheetBtn").click();
+    await page.locator(`[data-session-map-jump="${id}"]`).click();
+    await page.locator("#exActionsSheet.is-open").waitFor();
+    await resetSheetScroll(page, ".exactions-sheet__body");
+  },
+  "workout/substituted-actions": async page => {
+    await focusMode(page);
+    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await page.locator("#exActionSubstBtn").click();
+    await page.locator("#exPickList .pickrow").first().click();
+    await page.locator("#exPickSheet").waitFor({state:"hidden"});
+    await page.locator("#workout .exercise.is-current [data-exactions-open]").click();
+    await resetSheetScroll(page, ".exactions-sheet__body");
+  },
+  "workout/warmup-actions": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-exactions-open]").click(); await page.locator("#exActionsWarmupList [data-warm-toggle-set]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); await resetSheetScroll(page, ".exactions-sheet__body"); },
+  "workout/reorder": async page => {
+    await focusMode(page);
+    await page.click("#sessionSheetBtn");
+    const before = await page.evaluate(() => {
+      const draft = window.__repforgeWorkoutDraft.current();
+      const button = document.querySelector("[data-session-reorder-down]");
+      const exerciseId = button?.dataset.sessionReorderDown;
+      return {
+        exerciseId,
+        beforeRevision: draft?.revision ?? -1,
+        expectedIndex: exerciseId ? (draft?.exerciseOrder || []).indexOf(exerciseId) + 1 : -1,
+      };
+    });
+    await page.locator("[data-session-reorder-down]").first().click();
+    await page.waitForFunction(({ exerciseId, beforeRevision, expectedIndex }) => {
+      const draft = window.__repforgeWorkoutDraft?.current?.();
+      const active = document.activeElement;
+      const isMovingExercise = active?.dataset?.sessionReorderUp === exerciseId
+        || active?.dataset?.sessionReorderDown === exerciseId;
+      return exerciseId && draft?.revision > beforeRevision
+        && draft.exerciseOrder?.[expectedIndex] === exerciseId
+        && isMovingExercise && !active.disabled;
+    }, before, { timeout: 15000 });
+    await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
+    // Prove the production announcement was emitted, then let its ordinary
+    // lifetime finish before the frame is captured. Otherwise the transient
+    // toast races the catalog settle pass and makes the same screen alternate
+    // between a toast-covered and uncovered frame.
+    await page.waitForFunction(() => {
+      const toast = document.querySelector("#toast");
+      return toast && !toast.classList.contains("hidden") && toast.textContent.trim();
+    }, undefined, { timeout: 15000 });
+    await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden"), undefined, { timeout: 15000 });
+    await resetSheetScroll(page, ".session-sheet__body");
+  },
+  "workout/correction": async page => { await focusMode(page); await logCurrentSet(page); await page.locator("#workout .exercise.is-current [data-editn]").first().click(); await page.evaluate(() => window.__repforgeWorkoutDraft.flush()); },
+  "today/draft-resume": async page => { await focusMode(page); await page.locator("#workout .exercise.is-current [data-k$='_load']").fill("80"); await page.click("#leaveWorkout"); },
+
   "workout/stale-draft": async (page) => {
     await enterWorkout(page);
     await page.evaluate(async () => {

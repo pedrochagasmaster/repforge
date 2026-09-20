@@ -378,8 +378,8 @@ phase("an in-progress session is protected by the discard prompt");
   const days = await page.evaluate((k) => [
     ...new Set(JSON.parse(localStorage.getItem(k) || "{}").program.map((e) => e.day)),
   ], KEY);
-  await page.evaluate(() => window.__repforgeEnterWorkout({ focus: false }));
-  await page.waitForSelector("#workoutShell:not(.hidden) #workout .setrow", { timeout: 5000 });
+  await page.evaluate(() => window.__repforgeEnterWorkout({}));
+  await page.waitForSelector("#workoutShell:not(.hidden) #workout .exercise.is-current .curset", { timeout: 5000 });
   await page.evaluate(() => {
     const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
     const ex = (state.program || []).find((e) => e.day === state.program[0].day);

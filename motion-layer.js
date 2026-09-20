@@ -410,7 +410,10 @@
     const queued = run.queuedDir;
     cleanupFocusSlide(run);
     if (commit) global.focusGo?.(commit);
-    if (commit && queued) requestAnimationFrame(() => fluidFocusAnimateTo(queued));
+    const owner=activeGestureController;
+    if (commit && queued) requestAnimationFrame(() => {
+      if(owner && activeGestureController===owner)owner.navigate(queued);
+    });
   }
   function retargetFocusSlide(run, target) {
     freezeFocusPresentation(run.track);
@@ -490,7 +493,7 @@
     focusGesture = {
       id: event.pointerId, x: event.clientX, y: event.clientY, anchorX: event.clientX,
       dx: 0, axis: null, card, track, deck, baseX: 0,
-      scrolls: !!ledger && ledger.scrollHeight > ledger.clientHeight + 1,
+      scrolls: [ledger, card.querySelector(".fcard__context")].some(el => el && el.scrollHeight > el.clientHeight + 1),
       velocity: 0, lastX: event.clientX, lastT: event.timeStamp || performance.now(),
     };
   }
@@ -577,34 +580,27 @@
     const banner = document.getElementById("installBanner");
     if (banner?.getAttribute("role") === "dialog") banner.setAttribute("role", "region");
   }
-  function installFluidControllers() {
-    if (!available || global.__tauriferFluidControllersInstalled || global.__repforgeBooted !== true) return false;
-    global.__tauriferFluidControllersInstalled = true;
+  let activeGestureController = null;
 
-    document.removeEventListener("pointerdown", global.sheetDragStart);
-    global.removeEventListener("pointermove", global.sheetDragMove);
-    global.removeEventListener("pointerup", global.sheetDragEnd);
-    global.removeEventListener("pointercancel", global.sheetDragEnd);
+  function mountGestureController() {
+    if (activeGestureController) return activeGestureController;
+
+    if (!available) {
+      const fallback=global.mountFallbackGestures();
+      const controller={isFluid:false,navigate:dir=>activeGestureController===controller && global.fallbackFocusAnimateTo(dir),dispose(){
+        fallback.dispose();
+        if(activeGestureController===controller)activeGestureController=null;
+      }};
+      activeGestureController=controller;
+      return controller;
+    }
+    const useFluid = available;
     const workout = document.getElementById("workout");
-    workout?.removeEventListener("pointerdown", global.focusDragStart);
-    global.removeEventListener("pointermove", global.focusDragMove);
-    global.removeEventListener("pointerup", global.focusDragEnd);
-    global.removeEventListener("pointercancel", global.focusDragEnd);
 
-    document.addEventListener("pointerdown", sheetPointerDown);
-    global.addEventListener("pointermove", sheetPointerMove, { passive: true });
-    global.addEventListener("pointerup", sheetPointerEnd);
-    global.addEventListener("pointercancel", sheetPointerEnd);
-    workout?.addEventListener("pointerdown", focusPointerDown);
-    global.addEventListener("pointermove", focusPointerMove, { passive: true });
-    global.addEventListener("pointerup", focusPointerEnd);
-    global.addEventListener("pointercancel", focusPointerEnd);
-
-    global.focusAnimateTo = fluidFocusAnimateTo;
-    if (global.__repforgeFocus) global.__repforgeFocus.go = fluidFocusAnimateTo;
-
-    document.addEventListener("keydown", event => {
+    function onKeyDown(event) {
       if (event.key !== "Escape") return;
+      if (focusSlide) cleanupFocusSlide(focusSlide);
+      if (focusGesture) focusPointerEnd({pointerId:focusGesture.id,type:"pointercancel"});
       if (sheetGesture) clearSheetGesture({ clearRun: true });
       for (const [sheet, motion] of sheetRuns) {
         if (!sheet.hidden && sheet.classList.contains("is-open")) {
@@ -612,11 +608,101 @@
           sheetRuns.delete(sheet);
         }
       }
-    }, true);
-    new MutationObserver(cancelSheetRunsThatClosed).observe(document.body, {
-      subtree: true, attributes: true, attributeFilter: ["class", "hidden"],
-    });
-    return true;
+    }
+
+    let observer = null;
+    if (useFluid && typeof MutationObserver === "function" && document.body) {
+      observer = new MutationObserver(cancelSheetRunsThatClosed);
+      observer.observe(document.body, {
+        subtree: true, attributes: true, attributeFilter: ["class", "hidden"],
+      });
+    }
+
+    const sDown = useFluid ? sheetPointerDown : global.sheetDragStart;
+    const sMove = useFluid ? sheetPointerMove : global.sheetDragMove;
+    const sEnd = useFluid ? sheetPointerEnd : global.sheetDragEnd;
+
+    const fDown = useFluid ? focusPointerDown : global.focusDragStart;
+    const fMove = useFluid ? focusPointerMove : global.focusDragMove;
+    const fEnd = useFluid ? focusPointerEnd : global.focusDragEnd;
+
+    if (sDown) document.addEventListener("pointerdown", sDown);
+    if (sMove) global.addEventListener("pointermove", sMove, { passive: true });
+    if (sEnd) {
+      global.addEventListener("pointerup", sEnd);
+      global.addEventListener("pointercancel", sEnd);
+    }
+
+    if (fDown && workout) workout.addEventListener("pointerdown", fDown);
+    if (fMove) global.addEventListener("pointermove", fMove, { passive: true });
+    if (fEnd) {
+      global.addEventListener("pointerup", fEnd);
+      global.addEventListener("pointercancel", fEnd);
+    }
+
+    if (useFluid) {
+      document.addEventListener("keydown", onKeyDown, true);
+      global.__tauriferFluidControllersInstalled = true;
+    }
+
+
+    let disposed = false;
+    const controller = {
+      isFluid: useFluid,
+      navigate: dir => !disposed && (useFluid ? fluidFocusAnimateTo(dir) : global.fallbackFocusAnimateTo?.(dir)),
+      dispose() {
+        if (disposed) return;
+        disposed = true;
+
+        if (focusSlide) cleanupFocusSlide(focusSlide);
+        if (sheetGesture) clearSheetGesture({ clearRun: true });
+        if (focusGesture) {
+          const g = focusGesture;
+          focusGesture = null;
+          g.card?.classList.remove("is-dragging");
+          try { g.deck?.releasePointerCapture?.(g.id); } catch {}
+          setFocusTrack(g.track, 0);
+          g.track?.classList.remove("is-settling");
+          g.deck?.classList.remove("is-swiping");
+        }
+        for (const [sheet, motion] of sheetRuns) {
+          motion?.cancel();
+        }
+        sheetRuns.clear();
+
+        if (observer) observer.disconnect();
+
+        if (sDown) document.removeEventListener("pointerdown", sDown);
+        if (sMove) global.removeEventListener("pointermove", sMove);
+        if (sEnd) {
+          global.removeEventListener("pointerup", sEnd);
+          global.removeEventListener("pointercancel", sEnd);
+        }
+
+        if (fDown && workout) workout.removeEventListener("pointerdown", fDown);
+        if (fMove) global.removeEventListener("pointermove", fMove);
+        if (fEnd) {
+          global.removeEventListener("pointerup", fEnd);
+          global.removeEventListener("pointercancel", fEnd);
+        }
+
+        if (useFluid) {
+          document.removeEventListener("keydown", onKeyDown, true);
+          global.__tauriferFluidControllersInstalled = false;
+        }
+
+        if (activeGestureController === controller) {
+          activeGestureController = null;
+        }
+      }
+    };
+
+    activeGestureController = controller;
+    return controller;
+  }
+
+  function installFluidControllers() {
+    return mountGestureController();
   }
 
   global.RepForgeMotion = {
@@ -629,6 +715,7 @@
     settleFocusDeck,
     animateExerciseReorder,
     animateDisclosure,
+    mountGestureController,
   };
 
   installPreferenceStyles();
@@ -636,13 +723,4 @@
   if (document.readyState === "loading")
     document.addEventListener("DOMContentLoaded", normalizeInstallBannerSemantics, { once: true });
   else normalizeInstallBannerSemantics();
-
-  let attempts = 0;
-  const controllerTimer = global.setInterval(() => {
-    normalizeInstallBannerSemantics();
-    if (global.__repforgeBooted === true) {
-      installFluidControllers();
-      global.clearInterval(controllerTimer);
-    } else if (++attempts > 1200) global.clearInterval(controllerTimer);
-  }, 25);
 })(typeof window !== "undefined" ? window : this);

@@ -1706,7 +1706,7 @@ export async function runSharedSetupFlow(browser) {
     await deferredPage.page.waitForTimeout(400);
     const settledActivation = await deferredPage.page.evaluate(async (draftKey) => {
       const before = window.__repforgeWorkoutDraft.read().raw;
-      await window.__repforgeEnterWorkout({ focus: false });
+      await window.__repforgeEnterWorkout({});
       const current = window.__repforgeWorkoutDraft.current();
       const dispatched = current ? await window.__repforgeWorkoutDraft.dispatch("setSessionNotes", {
         value: "post-setup closing-marker proof",
