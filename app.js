@@ -3070,29 +3070,41 @@ let pendingBlockTransition=null;
 let onboardingOrigin=null;
 let blockCommitInFlight=null;
 function capturePendingBlock(strategy,review){
-  // The routed Review surface no longer stages a dialog, but the archived
-  // block keeps its review snapshot: capture it from live state here.
+  // Deferred onboarding captures only intent/concurrency pins plus the review
+  // snapshot. The predecessor is still live here, so archive-time history must
+  // not be materialized until the durable successor activation boundary.
   const snapshot=review||buildBlockReview(state.programMeta,state.program,state.log);
-  return{...captureProgramReplacement(state,snapshot),strategy}}
+  const intent=captureProgramReplacementIntent(state,snapshot);
+  return intent?{...intent,strategy}:null}
 function hasArchivableProgram(snapshot){
   const meta=snapshot?.programMeta;
   const hasDefinition=(Array.isArray(snapshot?.program)&&snapshot.program.length>0)||structureDayLabels(meta);
   if(!meta||!hasDefinition)return false;
   return meta.onboarded===true||Array.isArray(snapshot?.log)&&snapshot.log.length>0||
     Array.isArray(snapshot?.programHistory)&&snapshot.programHistory.length>0}
-function captureProgramReplacement(snapshot=state,review=null){
+function captureProgramReplacementIntent(snapshot=state,review=null){
   const meta=snapshot?.programMeta;
-  const program=Array.isArray(snapshot?.program)?snapshot.program:[];
   if(!hasArchivableProgram(snapshot))return null;
-  // A predecessor becomes historical at this call boundary. Finalize its
-  // compact prescription aggregate against the boundary clock before the
-  // archive is journaled; later archive normalization is shape-only.
-  const finalized=withExplicitProgramStructure(program,meta);
-  return{oldProgramId:meta.id,oldBlockId:snapshotBlockId(snapshot),oldMeta:cloneSnapshot(finalized.meta),oldProgram:cloneSnapshot(finalized.program),
+  return{oldProgramId:meta.id,oldBlockId:snapshotBlockId(snapshot),
     programFingerprint:draftProgramFingerprint(snapshot),storageRevision:readRevision(snapshot),
     review:review?cloneSnapshot(review):null}}
+function materializeProgramReplacementCapture(intent,snapshot=state){
+  if(!intent?.oldProgramId||!hasArchivableProgram(snapshot))return null;
+  const meta=snapshot?.programMeta;
+  const program=Array.isArray(snapshot?.program)?snapshot.program:[];
+  if(meta?.id!==intent.oldProgramId)return null;
+  // This is the archive-time boundary. Finalize the still-live predecessor
+  // using the current clock/state, while preserving the deferred intent's
+  // original identity/revision/fingerprint pins for the lock-held CAS.
+  const finalized=withExplicitProgramStructure(program,meta);
+  return{...cloneSnapshot(intent),oldMeta:cloneSnapshot(finalized.meta),oldProgram:cloneSnapshot(finalized.program)}}
+function captureProgramReplacement(snapshot=state,review=null){
+  const intent=captureProgramReplacementIntent(snapshot,review);
+  return intent?materializeProgramReplacementCapture(intent,snapshot):null}
 function archiveCapturedProgram(proposal,cap){
   if(!cap?.oldProgramId)return proposal;
+  if(!isPlainStateObject(cap.oldMeta)||!Array.isArray(cap.oldProgram))
+    throw new TypeError("program replacement capture must be materialized before archive");
   const history=Array.isArray(proposal.programHistory)?proposal.programHistory:[];
   if(history.some(h=>h.id===cap.oldProgramId)){proposal.programHistory=history;return proposal}
   const entry={id:cap.oldProgramId,meta:cloneSnapshot(cap.oldMeta),program:cloneSnapshot(cap.oldProgram),
@@ -3151,13 +3163,19 @@ function commitNextBlock(strategy,io=storageIO,expectedOldId=null){
   if(draftGuard)return Promise.resolve(blockTransitionResult("failed",draftGuard));
   if(blockCommitInFlight?.oldProgramId===oldId)return blockCommitInFlight.promise;
   if(liveId!==oldId)return Promise.resolve(blockTransitionResult("duplicate"));
-  const cap=pendingBlockTransition&&pendingBlockTransition.oldProgramId===liveId
-    ?pendingBlockTransition:capturePendingBlock(strategy);
-  if(!cap||state.programMeta.id!==cap.oldProgramId)return Promise.resolve(blockTransitionResult("duplicate"));
+  const pending=pendingBlockTransition&&pendingBlockTransition.oldProgramId===liveId
+    ?pendingBlockTransition:null;
   if(strategy==="onboarding"){
-    pendingBlockTransition=pendingBlockTransition||cap;
+    const intent=pending||capturePendingBlock(strategy);
+    if(!intent||state.programMeta.id!==intent.oldProgramId)
+      return Promise.resolve(blockTransitionResult("duplicate"));
+    pendingBlockTransition=pendingBlockTransition||intent;
     startOnboarding("block");
     return Promise.resolve(blockTransitionResult("deferred"))}
+  const cap=pending
+    ?materializeProgramReplacementCapture(pending,state)
+    :captureProgramReplacement(state,buildBlockReview(state.programMeta,state.program,state.log));
+  if(!cap||state.programMeta.id!==cap.oldProgramId)return Promise.resolve(blockTransitionResult("duplicate"));
   const task=(async()=>{
     const compilerProvenance = classifyCompilerTransitionProvenance(cap.oldMeta);
     // Plan 056: the legacy program-altering strategies are gone. Structural
@@ -4408,7 +4426,9 @@ function compactProgramPrescriptionState(structure,program,meta,{pastProgram=nul
   });
   retained.sort((a,b)=>a.week-b.week);
   source.weekPrescriptions=retained;
-  delete source.programVersions;
+  const hasFutureLegacyVersion=rawVersions.some(entry=>Number.isInteger(entry?.fromWeek)&&entry.fromWeek>target);
+  if(hasFutureLegacyVersion)source.programVersions=cloneSnapshot(rawVersions);
+  else delete source.programVersions;
   return{structure:source,history:history.throughWeek>0||existingHistory?history:null};
 }
 function syncProgramStructureFromProgram(proposal,program,previousProgram=null,previousMeta=null){
@@ -14254,11 +14274,15 @@ async function finalizeProgramSetup({exercises,name,answers,destination,origin,i
   const adapter=requireAdapter(io||storageIO,"finalizeProgramSetup");
   const originEff=origin||onboardingOrigin||"first-run";
   const blockCap=originEff==="block"?pendingBlockTransition:null;
+  let replacementCapture=null;
   if(originEff==="block"){
     const draftGuard=blockStartDraftGuard();
     if(draftGuard)return blockTransitionResult("failed",draftGuard);
-  }
-  const replacementCapture=blockCap||captureProgramReplacement(state);
+    if(!blockCap)return blockTransitionResult("failed");
+    if(state.programMeta?.id!==blockCap.oldProgramId)return blockTransitionResult("duplicate");
+    replacementCapture=materializeProgramReplacementCapture(blockCap,state);
+    if(!replacementCapture)return blockTransitionResult("duplicate");
+  }else replacementCapture=captureProgramReplacement(state);
   const draftActive=draftHasProgress();
   const confirmedDraftRaw=discardDraftRaw===undefined?readDraftRaw():discardDraftRaw;
   if(draftActive&&!draftConfirmed&&!confirm(t("confirm.replace_program_discard_draft")))

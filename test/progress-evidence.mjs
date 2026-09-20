@@ -36,7 +36,8 @@ const log = [
 ];
 const meta = seedProgramMeta({ id: "evidence-program", started });
 
-async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta = meta, seededProgram = program, fixedNow = "2026-09-17T12:00:00.000Z" } = {}) {
+async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta = meta, seededProgram = program,
+  seededHistory = [], fixedNow = "2026-09-17T12:00:00.000Z" } = {}) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, timezoneId: "UTC" });
   await context.addInitScript((fixedNow) => {
     globalThis.__repforgeTestNow = sessionStorage.getItem("__repforge_test_now") || fixedNow;
@@ -58,11 +59,12 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
     for (const reg of regs) await reg.unregister();
     for (const key of await caches?.keys?.() || []) await caches.delete(key);
   });
-  await page.evaluate(async ({ program, meta, log, lang, unit }) => {
+  await page.evaluate(async ({ program, meta, log, history, lang, unit }) => {
     const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
     raw.program = program;
     raw.programMeta = meta;
     raw.log = log;
+    raw.programHistory = history;
     raw.settings = { ...raw.settings, lang, unit };
     localStorage.setItem("repforge_v1", JSON.stringify(raw));
     const db = await new Promise((res, rej) => {
@@ -78,7 +80,7 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
       tx.onerror = () => rej(tx.error);
     });
     db.close();
-  }, { program: seededProgram, meta: seededMeta, log: seededLog, lang, unit });
+  }, { program: seededProgram, meta: seededMeta, log: seededLog, history: seededHistory, lang, unit });
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 20000 });
   await page.evaluate(() => document.querySelector('nav button[data-view="stats"]')?.click());
@@ -493,8 +495,9 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
 }
 
 // Legacy programVersions are migrated into the same aggregate. A version
-// boundary at week three must freeze weeks one and two while the current
-// authored program remains the source for week three and later.
+// boundary at week three must freeze weeks one and two, retain the future
+// version-specific facts while the live horizon stops at week two, and consume
+// that version once its numbered week is reached.
 {
   const legacyProgram = [
     { id: "legacy-ex-1", slotId: "legacy-slot-1", dayId: "legacy-day-1", day: "Day 1", order: 1, name: "Incline chest press", sets: 2, min: 6, max: 10, primary: "Chest", secondary: "" },
@@ -514,7 +517,7 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
       weekPrescriptions: [],
       programVersions: [
         { fromWeek: 1, program: version(1) },
-        { fromWeek: 3, program: version(2) },
+        { fromWeek: 3, program: version(3) },
       ],
     },
   });
@@ -532,17 +535,99 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
     };
   });
   assert.equal(migrated.valid, true, "legacy programVersions migrate through the durable validator");
-  assert.equal(migrated.structure.programVersions, undefined, "legacy programVersions are consumed");
+  assert.equal(migrated.structure.programVersions?.length, 2,
+    "a future legacy program version remains lossless while the aggregate stops at the current week");
+  assert.equal(migrated.structure.programVersions?.find((entry) => entry.fromWeek === 3)?.program[0]?.sets, 3,
+    "the future legacy version keeps its version-specific prescription facts");
   assert.deepEqual(migrated.structure.weekPrescriptions, [], "legacy migration leaves normal future schedule sparse");
   assert.equal(migrated.history.throughWeek, 2, "legacy migration freezes the two completed weeks");
   assert.equal(migrated.history.plannedWorkingSets, 4, "legacy migration preserves version-specific planned totals");
   assert.equal(migrated.history.muscles.direct.Chest, 2, "legacy migration preserves version-specific direct volume");
   assert.equal(migrated.volume.plannedWorkingSets, 8, "the live model combines migrated history with the current week");
+  await page.evaluate(() => sessionStorage.setItem("__repforge_test_now", "2026-09-24T12:00:00.000Z"));
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 20000 });
-  assert.equal(await page.evaluate(() => window.__repforgeProgressEvidence.volume("block-to-date").plannedWorkingSets), 8,
-    "legacy aggregate survives reload without reconstructing old versions");
+  const materialized = await page.evaluate(async () => {
+    await window.__repforgeStorage.flush();
+    const state = window.__repforgeWorkoutDraft.state();
+    return {
+      volume: window.__repforgeProgressEvidence.volume("block-to-date"),
+      structure: state.programMeta.programStructure,
+      history: state.programMeta.plannedVolumeHistory,
+    };
+  });
+  assert.equal(materialized.history.throughWeek, 3,
+    "the preserved legacy version is materialized when its numbered week is reached");
+  assert.equal(materialized.history.plannedWorkingSets, 10,
+    "the reached legacy version contributes its exact historical prescription");
+  assert.equal(materialized.structure.programVersions, undefined,
+    "legacy version facts are removed only after the future boundary is materialized");
+  assert.equal(materialized.volume.plannedWorkingSets, 14,
+    "the live model combines the materialized legacy history with the current week");
   await context.close();
+
+  const historicalMeta = {
+    ...structuredClone(legacyMeta),
+    id: "legacy-historical-program",
+    plannedVolumeHistory: {
+      schemaVersion: 1,
+      throughWeek: 2,
+      plannedSessions: 2,
+      plannedWorkingSets: 4,
+      muscles: { direct: { Chest: 2, Hamstrings: 2 }, secondary: {} },
+    },
+    programStructure: structuredClone(legacyMeta.programStructure),
+  };
+  const historical = await freshPage({
+    seededProgram: legacyProgram,
+    seededMeta: seedProgramMeta({ id: "legacy-active-control", started: "2026-09-01", blockId: "legacy-active-control-block" }),
+    seededHistory: [{
+      id: historicalMeta.id,
+      meta: historicalMeta,
+      program: structuredClone(legacyProgram),
+      completedAt: "2026-09-17T12:00:00.000Z",
+    }],
+    seededLog: [],
+    fixedNow: "2026-10-10T12:00:00.000Z",
+  });
+  const historicalSnapshot = await historical.page.evaluate(async () => {
+    await window.__repforgeStorage.flush();
+    const archive = window.__repforgeWorkoutDraft.state().programHistory[0];
+    const idbState = await new Promise((resolve, reject) => {
+      const request = indexedDB.open("repforge", 1);
+      request.onerror = () => reject(request.error);
+      request.onsuccess = () => {
+        const db = request.result;
+        const read = db.transaction("kv", "readonly").objectStore("kv").get("repforge_v1");
+        read.onerror = () => reject(read.error);
+        read.onsuccess = () => { db.close(); resolve(read.result); };
+      };
+    });
+    return {
+      archive,
+      idbArchive: idbState.programHistory[0],
+      meta: archive.meta || archive.programMeta,
+      completedAt: archive.completedAt,
+      valid: window.__repforgeValidateStateShape(JSON.parse(localStorage.getItem("repforge_v1"))),
+    };
+  });
+  assert.equal(historicalSnapshot.valid, true, "mixed legacy archive state remains valid after historical normalization");
+  assert.deepEqual(historicalSnapshot.archive, historicalSnapshot.idbArchive,
+    "historical legacy normalization mirrors the complete archive in localStorage and IndexedDB");
+  assert.deepEqual(historicalSnapshot.meta.programStructure.programVersions,
+    legacyMeta.programStructure.programVersions,
+    "historical legacy normalization preserves the complete future version envelope");
+  assert.equal(historicalSnapshot.meta.plannedVolumeHistory.throughWeek, 2,
+    "historical legacy normalization does not project beyond the captured aggregate");
+  assert.equal(historicalSnapshot.meta.plannedVolumeHistory.plannedWorkingSets, 4,
+    "historical legacy normalization preserves the captured aggregate totals");
+  assert.equal(historicalSnapshot.meta.programStructure.programVersions?.length, 2,
+    "historical legacy normalization preserves future version records losslessly");
+  assert.equal(historicalSnapshot.meta.programStructure.programVersions?.find((entry) => entry.fromWeek === 3)?.program[0]?.sets, 3,
+    "historical legacy normalization preserves version-specific future prescriptions");
+  assert.equal(historicalSnapshot.completedAt, "2026-09-17T12:00:00.000Z",
+    "historical legacy normalization leaves the archive boundary timestamp unchanged");
+  await historical.context.close();
 }
 
 // The historical aggregate remains bounded at the scale of a real generated
