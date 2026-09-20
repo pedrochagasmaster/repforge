@@ -36,6 +36,14 @@
   const VERSION_PREFIX_RE = /^v(\d+)\.(.*)$/;
   const DAY_DISPLAY_NAME_KEY_RE = /^program\.day\.([a-z0-9][a-z0-9_]*_d[1-9][0-9]*)$/;
 
+  function muscleDomainApi() {
+    if (root?.RepForgeProgramEntry) return root.RepForgeProgramEntry;
+    if (typeof require === "function") {
+      try { return require("./program-entry.js"); } catch {}
+    }
+    return null;
+  }
+
   function isPlainObject(value) {
     if (!value || typeof value !== "object" || Array.isArray(value)) return false;
     const proto = Object.getPrototypeOf(value);
@@ -71,8 +79,17 @@
     return Object.prototype.hasOwnProperty.call(object, key);
   }
 
-  function schemaFail(issues) {
-    return { ok: false, code: "invalid-schema", issues: issues.slice() };
+  function schemaFail(issues, code = null) {
+    const resolved = code || (issues.some((issue) => String(issue).startsWith("invalid-muscle-domain:")) ? "invalid-muscle-domain" : "invalid-schema");
+    return { ok: false, code: resolved, issues: issues.slice() };
+  }
+
+  function muscleDomainIssue(path, value, issues) {
+    const api = muscleDomainApi();
+    const result = api?.normalizeMuscleAttribution?.(value);
+    if (result?.ok) return result.value;
+    issues.push(`invalid-muscle-domain:${path}:${result?.reason || "unavailable"}`);
+    return undefined;
   }
 
   function resolveHref(url) {
@@ -579,9 +596,15 @@
     });
     if (equipment) custom.equipment = equipment;
     const primary = requireString(raw, "primary", issues, path, { max: 500, required: false });
-    if (primary !== undefined) custom.primary = primary;
+    if (primary !== undefined) {
+      const normalized = muscleDomainIssue(`${path}.primary`, primary, issues);
+      if (normalized !== undefined) custom.primary = normalized;
+    }
     const secondary = requireString(raw, "secondary", issues, path, { max: 500, required: false });
-    if (secondary !== undefined) custom.secondary = secondary;
+    if (secondary !== undefined) {
+      const normalized = muscleDomainIssue(`${path}.secondary`, secondary, issues);
+      if (normalized !== undefined) custom.secondary = normalized;
+    }
     const notes = requireString(raw, "notes", issues, path, { max: 2000, required: false });
     if (notes !== undefined) custom.notes = notes;
     return custom;
@@ -623,7 +646,11 @@
     const issues = [];
     if (!isPlainObject(raw)) return schemaFail(["$: expected object"]);
     collectForbiddenKeys(raw, issues, "$");
-    if (issues.length) return schemaFail(issues);
+    if (issues.length) {
+      const code = issues.some((issue) => issue.startsWith("invalid-muscle-domain:"))
+        ? "invalid-muscle-domain" : "invalid-schema";
+      return schemaFail(issues, code);
+    }
     if (raw.kind !== KIND) issues.push("kind: invalid");
     if (!hasOwn(raw, "version")) issues.push("version: required");
     else if (!isIntInRange(raw.version, 1, Number.MAX_SAFE_INTEGER) || raw.version !== VERSION) {

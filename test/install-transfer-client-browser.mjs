@@ -15,7 +15,7 @@ import { fileURLToPath } from "node:url";
 import { chromium } from "playwright";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const BASE = process.env.REPFORGE_URL || "http://127.0.0.1:8055/";
+const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const ORIGIN = new URL(BASE);
 const INDEX_URL = new URL("index.html?install-transfer-client-browser=1", ORIGIN).href;
 const EXPECTATIONS = JSON.parse(readFileSync(join(ROOT, "test/fixtures/install-transfer-client/browser-expectations.json"), "utf8"));

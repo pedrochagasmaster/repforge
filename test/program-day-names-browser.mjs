@@ -27,6 +27,10 @@ try {
       environment: ["safe_pull", "training_support"],
       loadIncrements: { barbell: 2.5, dumbbell: 2, machine: 5, cable: 5, smith: 2.5 },
     }, window.RepForgeExercises.library);
+    const program = compiled.program.map((row) => {
+      const entry = window.__repforgeExerciseLibrary.find((item) => item.id === row.libraryId);
+      return entry ? { ...row, primary: entry.primary || "", secondary: entry.secondary || "" } : row;
+    });
     const now = new Date().toISOString();
     localStorage.setItem("repforge_v1", JSON.stringify({
       settings: {
@@ -44,7 +48,7 @@ try {
         progressionIncompatibilities: [], blockPromptDismissedId: null,
         programStructure: compiled.programStructure,
       },
-      program: compiled.program,
+      program,
       log: [], programHistory: [], customExercises: [], _storageRevision: 1,
     }));
     localStorage.setItem("repforge_ui_v1", JSON.stringify({ tourDone: true }));

@@ -752,6 +752,20 @@
       "variants": "standard"
     },
     {
+      "id": "overview-baseline",
+      "flow": "progress",
+      "label": "Progress — baseline-building overview",
+      "scenario": "Sparse evidence remains neutral and contributes no Needs action items.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "overview-action",
+      "flow": "progress",
+      "label": "Progress — actionable overview",
+      "scenario": "Sufficient evidence produces linked program-wide action items.",
+      "variants": "standard"
+    },
+    {
       "id": "exercise-chart",
       "flow": "progress",
       "label": "Progress — exercise chart",
@@ -766,11 +780,53 @@
       "variants": "standard"
     },
     {
+      "id": "strength-current-block",
+      "flow": "progress",
+      "label": "Progress — Strength current block",
+      "scenario": "Current-block values, outcomes, and drill-in share one scope.",
+      "variants": "standard"
+    },
+    {
+      "id": "strength-all-history",
+      "flow": "progress",
+      "label": "Progress — Strength all history",
+      "scenario": "All-history scope explicitly includes archived observations.",
+      "variants": "standard"
+    },
+    {
+      "id": "strength-comparison",
+      "flow": "progress",
+      "label": "Progress — Strength comparison",
+      "scenario": "Two compatible points show values, dates, absolute change, and percentage change.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "strength-sparse",
+      "flow": "progress",
+      "label": "Progress — Strength sparse evidence",
+      "scenario": "Zero or one compatible point remains neutral baseline evidence.",
+      "variants": "demandingText"
+    },
+    {
       "id": "volume",
       "flow": "progress",
       "label": "Progress — Volume",
       "scenario": "The Volume sub-tab and its muscle rows.",
       "variants": "standard"
+    },
+    {
+      "id": "volume-block",
+      "flow": "progress",
+      "label": "Progress — Volume block to date",
+      "scenario": "Block-to-date volume uses elapsed weekly prescriptions.",
+      "variants": "standard"
+    },
+    {
+      "id": "volume-drill-in",
+      "flow": "progress",
+      "label": "Progress — Volume muscle detail",
+      "scenario": "A primary muscle row expands to its scoped session evidence.",
+      "variants": "demandingText"
     },
     {
       "id": "prs",
@@ -780,10 +836,108 @@
       "variants": "standard"
     },
     {
+      "id": "prs-drill-in",
+      "flow": "progress",
+      "label": "Progress — PR detail",
+      "scenario": "A personal record expands to locale-formatted evidence detail.",
+      "variants": "standard"
+    },
+    {
       "id": "review",
       "flow": "progress",
       "label": "Progress — Review",
       "scenario": "The mesocycle review surface.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "review-active",
+      "flow": "progress",
+      "label": "Progress — active Review",
+      "scenario": "The active-block checkpoint is read-only.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "review-complete",
+      "flow": "progress",
+      "label": "Progress — completed-block Review",
+      "scenario": "A completed block exposes the evidence-valid structural routes.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "review-insufficient",
+      "flow": "progress",
+      "label": "Progress — insufficient-evidence Review",
+      "scenario": "A completed block with sparse evidence excludes performance-derived actions.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "schedule-diagnosis",
+      "flow": "progress",
+      "label": "Progress — schedule diagnosis",
+      "scenario": "The one-question choice between fewer days and shorter sessions.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "sibling-lower-frequency",
+      "flow": "progress",
+      "label": "Progress — lower-frequency preview",
+      "scenario": "A provenance-backed lower-frequency sibling diff before confirmation.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "sibling-shorter-session",
+      "flow": "progress",
+      "label": "Progress — shorter-session preview",
+      "scenario": "A provenance-backed shorter-session sibling diff before confirmation.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "guided-repair",
+      "flow": "progress",
+      "label": "Progress — guided repair staged",
+      "scenario": "The exact current program is staged for explicit guided editing.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "volume-reduction-preview",
+      "flow": "progress",
+      "label": "Progress — volume-reduction preview",
+      "scenario": "The protected permanent-volume reduction diff before confirmation.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "recovery-ineligible",
+      "flow": "progress",
+      "label": "Progress — recovery eligibility",
+      "scenario": "Recovery stays unavailable without sufficient qualifying pattern evidence.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "recovery-questions",
+      "flow": "progress",
+      "label": "Progress — recovery readiness question",
+      "scenario": "Eligible pattern evidence still requires the explicit local readiness answer.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "recovery-preview",
+      "flow": "progress",
+      "label": "Progress — recovery preview",
+      "scenario": "The policy-versioned week-one prescription diff before confirmation.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "recovery-active",
+      "flow": "progress",
+      "label": "Progress — active recovery week",
+      "scenario": "The confirmed recovery overlay is visible during week one.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "recovery-reassessment",
+      "flow": "progress",
+      "label": "Progress — recovery reassessment",
+      "scenario": "Canonical week two asks Better, About the same, or Worse.",
       "variants": "demandingText"
     },
     {

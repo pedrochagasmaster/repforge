@@ -32,6 +32,7 @@ export const DECODE_FAILURE_CODES = new Set([
   "invalid-utf8",
   "invalid-json",
   "invalid-schema",
+  "invalid-muscle-domain",
 ]);
 
 async function assertDecodeTotality(input) {

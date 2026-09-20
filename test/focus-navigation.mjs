@@ -15,7 +15,7 @@
 import { chromium } from "playwright";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
-const BASE_URL = process.env.REPFORGE_URL || "http://localhost:8807/";
+const BASE_URL = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
 
 function assert(condition, message, detail = "") {

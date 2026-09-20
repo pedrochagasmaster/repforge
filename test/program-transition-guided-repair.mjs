@@ -3,11 +3,10 @@
  * Focused vertical slice test for Plan 052-P3b:
  * Guided manual repair fallback when safe sibling recompilation cannot resolve.
  *
- * Runs end-to-end against a live Taurifer server at port 8052.
+ * Runs end-to-end against the live Taurifer server at REPFORGE_URL.
  *
  * Contract verified:
- *  1. Server lifecycle: checks port 8052 is free before start, starts owned static server,
- *     verifies port free after clean stop in finally.
+ *  1. The shared test runner owns and verifies the current-worktree preview origin.
  *  2. Real active compiled program, nonempty log sentinel, active DraftV2/checkpoint,
  *     and both durable replicas (localStorage and IndexedDB).
  *  3. Derives guided fallback from representative real resolver Unavailable (shorter session
@@ -34,12 +33,9 @@
  *     entrySource.route === "build", setup draft consumed, log sentinel preserved.
  */
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
-import { spawn } from "node:child_process";
-import net from "node:net";
 import { isDeepStrictEqual } from "node:util";
 
-const PORT = 8052;
-const BASE = `http://127.0.0.1:${PORT}/`;
+const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT_KEY = "repforge_draft_v1";
 const CHECKPOINT_KEY = "repforge_draft_v1:v2-checkpoint";
@@ -60,15 +56,6 @@ function check(condition, message, detail) {
   if (detail !== undefined) {
     console.error(`    Detail: ${typeof detail === "object" ? JSON.stringify(detail, null, 2) : detail}`);
   }
-}
-
-async function isPortFree(port, host = "127.0.0.1") {
-  return new Promise((resolve) => {
-    const s = net.createServer();
-    s.once("error", () => resolve(false));
-    s.once("listening", () => s.close(() => resolve(true)));
-    s.listen(port, host);
-  });
 }
 
 async function readIdbState(page) {
@@ -171,38 +158,8 @@ async function clearStorage(page) {
   }, { key: KEY, draftKey: DRAFT_KEY, checkpointKey: CHECKPOINT_KEY, setupDraftKey: SETUP_DRAFT_KEY, dbName: DB_NAME });
 }
 
-let serverProcess = null;
-
 async function run() {
   console.log("Plan 052-P3b Guided Manual Repair Proof");
-
-  // Step 0: Check port 8052 is free before starting owned static server
-  const portFreeBefore = await isPortFree(PORT);
-  check(portFreeBefore, `Port ${PORT} is free before static server launch`);
-  if (!portFreeBefore) {
-    throw new Error(`Port ${PORT} is already in use; cannot run isolated test`);
-  }
-
-  serverProcess = spawn("python3", ["-m", "http.server", String(PORT), "--bind", "127.0.0.1"], {
-    cwd: process.cwd(),
-    stdio: ["ignore", "pipe", "pipe"],
-  });
-  console.log(`Owned static server spawned: PID=${serverProcess.pid}, cwd=${process.cwd()}`);
-
-  let serverReady = false;
-  for (let i = 0; i < 50; i++) {
-    try {
-      const res = await fetch(BASE);
-      const text = await res.text();
-      if (res.ok && text.includes("dayTabs")) {
-        serverReady = true;
-        break;
-      }
-    } catch {}
-    await new Promise((r) => setTimeout(r, 100));
-  }
-  check(serverReady, `Owned static server answering HTTP 200 at ${BASE}`);
-  if (!serverReady) throw new Error("Static server failed to start");
 
   const browser = await launchChromium();
   const page = await browser.newPage();
@@ -896,19 +853,6 @@ async function run() {
     }
   } finally {
     await browser.close();
-    if (serverProcess && !serverProcess.killed) {
-      serverProcess.kill("SIGTERM");
-      await new Promise((r) => setTimeout(r, 200));
-      if (!serverProcess.killed) serverProcess.kill("SIGKILL");
-    }
-    let portFreeAfter = false;
-    for (let i = 0; i < 30; i++) {
-      portFreeAfter = await isPortFree(PORT);
-      if (portFreeAfter) break;
-      await new Promise((r) => setTimeout(r, 100));
-    }
-    check(portFreeAfter, `Port ${PORT} is free after test teardown`);
-    console.log(`Owned static server (PID=${serverProcess.pid}) stopped. Port ${PORT} free: ${portFreeAfter}`);
   }
 
   console.log(`\nResults: ${passed} passed, ${failures.length} failed`);
@@ -921,8 +865,5 @@ async function run() {
 
 run().catch((err) => {
   console.error("Unhandled error in test:", err);
-  if (serverProcess && !serverProcess.killed) {
-    serverProcess.kill("SIGTERM");
-  }
   process.exit(1);
 });

@@ -943,6 +943,7 @@
           days: existing.days.map((entry, index) => normalizeGeneratedDayMetadata(entry, index)),
           provenance: existing.provenance || { source: "legacy_migration", compilerVersion: null },
           weekPrescriptions: existing.weekPrescriptions || [],
+          ...(Array.isArray(existing.programVersions) ? { programVersions: existing.programVersions } : {}),
           customizedFrom: existing.customizedFrom || null,
         },
       };
@@ -979,7 +980,7 @@
       entry.dayId = byLabel.get(entry.day) || days[0]?.dayId || `legacy_d1`;
       entry.slotId = typeof entry.slotId === "string" && entry.slotId ? entry.slotId : typeof entry.id === "string" && entry.id ? entry.id : `${entry.dayId}_legacy_s${index + 1}`;
     });
-    return { program: exercises, structure: { schemaVersion: 1, days, provenance: existing?.provenance || { source: "legacy_migration", compilerVersion: null }, weekPrescriptions: existing?.weekPrescriptions || [], customizedFrom: existing?.customizedFrom || null } };
+    return { program: exercises, structure: { schemaVersion: 1, days, provenance: existing?.provenance || { source: "legacy_migration", compilerVersion: null }, weekPrescriptions: existing?.weekPrescriptions || [], ...(Array.isArray(existing?.programVersions) ? { programVersions: existing.programVersions } : {}), customizedFrom: existing?.customizedFrom || null } };
   }
 
   function getCompatibleSplitChoices(rawContext) {

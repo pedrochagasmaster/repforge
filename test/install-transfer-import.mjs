@@ -25,7 +25,7 @@ const require = createRequire(import.meta.url);
 const Transfer = require("../install-transfer.js");
 const Contract = require("../install-transfer-contract.js");
 
-const BASE = process.env.REPFORGE_URL || "http://127.0.0.1:8056/";
+const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
 const UI_KEY = "repforge_ui_v1";
 const CONSENT_KEY = "repforge_telemetry_enabled_v1";

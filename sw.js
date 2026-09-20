@@ -3,7 +3,7 @@ const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
   "./vendor/motion/motion.js", "./vendor/dnd-kit/dnd-kit.js", "./vendor/dnd-kit/dnd-kit.runtime.js", "./motion-layer.js", "./motion-layer.js?v=280",
   "./telemetry.js", "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js", "./install-transfer-contract.js", "./install-transfer.js",
-  "./progression-engine.js", "./program-compiler.js", "./program-compiler.js?v=280", "./program-entry.js", "./program-entry.js?v=280", "./program-entry-adapter.js", "./program-entry-adapter.js?v=280", "./program-editor.js", "./program-editor.js?v=280",
+  "./progression-engine.js", "./progress-model.js", "./progress-model.js?v=280", "./program-compiler.js", "./program-compiler.js?v=280", "./program-entry.js", "./program-entry.js?v=280", "./program-entry-adapter.js", "./program-entry-adapter.js?v=280", "./program-editor.js", "./program-editor.js?v=280",
   "./shared-setup.js", "./shared-setup.js?v=280", "./workout-draft.js", "./workout-draft.js?v=280", "./program-transition.js", "./program-transition.js?v=280", "./install-policy.js", "./install-policy.js?v=280", "./guide-registry.js", "./guide-registry.js?v=280", "./durable-state.js", "./durable-state.js?v=280", "./app.js", "./app.js?v=280",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",

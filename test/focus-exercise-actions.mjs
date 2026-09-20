@@ -13,12 +13,12 @@
  * 6. Single-exercise skip and restore updates exercise status while preserving set data.
  *
  * Run: node test/focus-exercise-actions.mjs
- * Requires static server on REPFORGE_URL (port 8807).
+ * Requires static server on REPFORGE_URL (port 8000).
  */
 import { launchChromium } from "./browser.mjs";
 import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
-const BASE = process.env.REPFORGE_URL || "http://localhost:8807/";
+const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const STATE_KEY = "repforge_v1";
 
 function assert(condition, message, detail = "") {

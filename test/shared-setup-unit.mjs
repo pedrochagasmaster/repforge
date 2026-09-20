@@ -128,7 +128,7 @@ function completeRoundTripPayload() {
           name: "Coach row",
           namePt: "Remada",
           equipment: ["cable", "band"],
-          primary: "Back",
+          primary: "Mid/upper back",
           secondary: "Biceps",
           notes: "Neutral",
         },
@@ -487,6 +487,31 @@ console.log("schema: prototype-pollution keys");
   withPrototype.program.exercises[0].hack = JSON.parse('{"prototype":{"x":1}}');
   const prototypeResult = Setup.validate(withPrototype, OPTS);
   assert(!prototypeResult.ok && prototypeResult.code === "invalid-schema", "prototype key fails", prototypeResult.code);
+}
+
+console.log("schema: muscle-domain boundary");
+{
+  const payloadFor = (primary) => {
+    const payload = cloneFixture();
+    payload.program.exercises[0].libraryId = "custom:muscle-case";
+    payload.program.customExercises = [{
+      id: "custom:muscle-case", name: "Muscle case", equipment: ["machine"], primary, secondary: "",
+    }];
+    return payload;
+  };
+  const longAttribution = Array.from({ length: 129 }, (_, index) => String.fromCodePoint(0x4e00 + index)).join(",");
+  const longResult = Setup.validate(payloadFor(longAttribution), OPTS);
+  assert(!longResult.ok && longResult.code === "invalid-muscle-domain",
+    "129-token custom attribution is rejected at shared ingress", longResult.code);
+  for (const label of ["__proto__", "prototype", "constructor"]) {
+    const result = Setup.validate(payloadFor(label), OPTS);
+    assert(!result.ok && result.code === "invalid-muscle-domain",
+      `${label} muscle attribution is rejected at shared ingress`, result.code);
+  }
+  const canonical = Setup.validate(payloadFor(" Chest, Mid/upper back "), OPTS);
+  assert(canonical.ok, "canonical custom attribution remains accepted");
+  assert(canonical.ok && canonical.value.program.customExercises[0].primary === "Chest,Mid/upper back",
+    "custom attribution is canonicalized before encoding");
 }
 
 console.log("schema: deeply nested untrusted values");

@@ -20,7 +20,7 @@ import { finishEarly } from "./fixtures/focus-workout.mjs";
 import { launchChromium, waitForAppBoot, assertServingApp } from "./browser.mjs";
 import { readFileSync } from "node:fs";
 
-const BASE = process.env.REPFORGE_URL || "http://127.0.0.1:8052/";
+const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DB_NAME = "repforge";
 const STORE_NAME = "kv";

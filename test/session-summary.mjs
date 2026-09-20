@@ -139,10 +139,19 @@ async function logSet(page, exId, n, load, reps, rir) {
     await page.evaluate(() => window.__repforgeWorkoutDraft.flush());
   }
   await page.locator(`#workout .exercise.is-current [data-save="${exId}_${n}"]`).click();
-  await page.waitForFunction(({exId,n}) => {
-    const exercise = window.__repforgeWorkoutDraft.current()?.exercises[exId];
-    return Object.values(exercise?.sets || {}).some(set => set.ordinal === n && set.completion !== "pending");
-  }, {exId,n});
+  await page.waitForFunction(
+    ({ exId, n, load, reps, rir }) => {
+      const draft = window.__repforgeWorkoutDraft?.current?.();
+      const exercise = draft?.exercises?.[exId];
+      const set = Object.values(exercise?.sets || {}).find(s => s.ordinal === n);
+      return set?.completion !== "pending" &&
+        set?.edited?.load === String(load) &&
+        set?.edited?.reps === String(reps) &&
+        set?.edited?.rir === String(rir);
+    },
+    { exId, n, load, reps, rir },
+    { timeout: 15000 },
+  );
 }
 
 async function enterLog(page) {

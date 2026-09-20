@@ -1,0 +1,306 @@
+{
+  "kind": "taurifer-progress-evidence-fixtures",
+  "schemaVersion": 1,
+  "purpose": "Known schedule + known log for Plan 056 Progress evidence. Every expected value is computed by hand from this schedule in test/progress-model.mjs, independently of progress-model.js.",
+  "anchorDate": "2026-09-17",
+  "program": {
+    "id": "prog-056-fixture",
+    "name": "Evidence fixture split",
+    "started": "2026-08-31",
+    "mesocycleLengthWeeks": 4,
+    "days": [
+      {
+        "id": "d1",
+        "name": "Push",
+        "weekday": 1
+      },
+      {
+        "id": "d2",
+        "name": "Pull",
+        "weekday": 3
+      },
+      {
+        "id": "d3",
+        "name": "Legs",
+        "weekday": 5
+      }
+    ],
+    "exercises": [
+      {
+        "id": "bench",
+        "day": "d1",
+        "primary": "chest",
+        "secondary": "triceps",
+        "slot": "protected",
+        "plannedWorkingSetsPerWeek": 3,
+        "pattern": "horizontal press"
+      },
+      {
+        "id": "lateral",
+        "day": "d1",
+        "primary": "shoulders",
+        "secondary": "",
+        "slot": "reducible",
+        "plannedWorkingSetsPerWeek": 2,
+        "pattern": null
+      },
+      {
+        "id": "rdl",
+        "day": "d2",
+        "primary": "hamstrings",
+        "secondary": "glutes",
+        "slot": "protected",
+        "plannedWorkingSetsPerWeek": 3,
+        "pattern": "hip/hinge"
+      },
+      {
+        "id": "squat",
+        "day": "d3",
+        "primary": "quads",
+        "secondary": "glutes",
+        "slot": "protected",
+        "plannedWorkingSetsPerWeek": 3,
+        "pattern": "knee-dominant"
+      }
+    ]
+  },
+  "canonicalPlan": {
+    "note": "Hand-summed canonical weekly prescription: bench 3 + lateral 2 + rdl 3 + squat 3 = 11 working sets and 3 planned sessions per numbered week.",
+    "plannedSessionsPerWeek": 3,
+    "plannedWorkingSetsPerWeek": 11
+  },
+  "log": [
+    {
+      "session": "s-b1",
+      "date": "2026-08-31",
+      "day": "d1",
+      "exercise": "bench",
+      "load": 80,
+      "reps": 8,
+      "rir": 2,
+      "work": true
+    },
+    {
+      "session": "s-p1",
+      "date": "2026-09-02",
+      "day": "d2",
+      "exercise": "rdl",
+      "load": 100,
+      "reps": 8,
+      "rir": 2,
+      "work": true
+    },
+    {
+      "session": "s-l1",
+      "date": "2026-09-04",
+      "day": "d3",
+      "exercise": "squat",
+      "load": 120,
+      "reps": 8,
+      "rir": 2,
+      "work": true
+    },
+    {
+      "session": "s-b2",
+      "date": "2026-09-07",
+      "day": "d1",
+      "exercise": "bench",
+      "load": 82.5,
+      "reps": 8,
+      "rir": 2,
+      "work": true
+    },
+    {
+      "session": "s-p2",
+      "date": "2026-09-09",
+      "day": "d2",
+      "exercise": "rdl",
+      "load": 102.5,
+      "reps": 8,
+      "rir": 1,
+      "work": true
+    },
+    {
+      "session": "s-b3",
+      "date": "2026-09-14",
+      "day": "d1",
+      "exercise": "bench",
+      "load": 85,
+      "reps": 8,
+      "rir": 2,
+      "work": true
+    },
+    {
+      "session": "s-h0",
+      "date": "2026-08-20",
+      "day": "d1",
+      "exercise": "bench",
+      "load": 75,
+      "reps": 8,
+      "rir": 2,
+      "work": true,
+      "preBlock": true
+    },
+    {
+      "session": "s-h1",
+      "date": "2026-08-24",
+      "day": "d1",
+      "exercise": "bench",
+      "load": 77.5,
+      "reps": 8,
+      "rir": 2,
+      "work": true,
+      "preBlock": true
+    }
+  ],
+  "prEvents": [
+    {
+      "exercise": "bench",
+      "date": "2026-09-07",
+      "kind": "e1rm"
+    }
+  ],
+  "expected": {
+    "weekBoundaries": {
+      "week1": {
+        "start": "2026-08-31",
+        "end": "2026-09-06"
+      },
+      "week2": {
+        "start": "2026-09-07",
+        "end": "2026-09-13"
+      },
+      "week3": {
+        "start": "2026-09-14",
+        "end": "2026-09-20"
+      },
+      "week4": {
+        "start": "2026-09-21",
+        "end": "2026-09-27"
+      }
+    },
+    "elapsedWeekAtAnchor": 3,
+    "currentWeek": {
+      "week": 3,
+      "start": "2026-09-14",
+      "end": "2026-09-20",
+      "completedSessions": 1,
+      "plannedSessions": 3,
+      "completedWorkingSets": 1,
+      "plannedWorkingSets": 11,
+      "status": "in-progress",
+      "note": "Partial week: 1 of 11 sets toward the full week. Not a decline and not a final weekly outcome."
+    },
+    "completedWeeks": {
+      "week1": {
+        "completedSessions": 3,
+        "completedWorkingSets": 3
+      },
+      "week2": {
+        "completedSessions": 2,
+        "completedWorkingSets": 2
+      }
+    },
+    "blockToDate": {
+      "start": "2026-08-31",
+      "through": "2026-09-17",
+      "elapsedNumberedWeeks": 3,
+      "completedSessions": 6,
+      "completedWorkingSets": 6,
+      "plannedSessions": 9,
+      "plannedWorkingSets": 33,
+      "note": "Planned denominators are elapsed numbered weeks x canonical plan (3x3 sessions, 3x11 sets), capped at the 4-week block. Never a fixed 28-day window."
+    },
+    "strengthEvidence": {
+      "bench": {
+        "currentBlock": {
+          "points": 3,
+          "presentation": "trend",
+          "loads": [
+            80,
+            82.5,
+            85
+          ]
+        },
+        "allHistory": {
+          "points": 5,
+          "presentation": "trend",
+          "loads": [
+            75,
+            77.5,
+            80,
+            82.5,
+            85
+          ]
+        }
+      },
+      "rdl": {
+        "currentBlock": {
+          "points": 2,
+          "presentation": "comparison",
+          "loads": [
+            100,
+            102.5
+          ]
+        }
+      },
+      "squat": {
+        "currentBlock": {
+          "points": 1,
+          "presentation": "snapshot",
+          "loads": [
+            120
+          ]
+        }
+      },
+      "lateral": {
+        "currentBlock": {
+          "points": 0,
+          "presentation": "empty",
+          "evidenceState": "insufficient",
+          "reason": "untested"
+        }
+      }
+    },
+    "vocabulary": {
+      "outcomes": [
+        "improved",
+        "maintained",
+        "declined"
+      ],
+      "recommendations": [
+        "progress",
+        "repeat",
+        "review"
+      ],
+      "evidenceStates": [
+        "insufficient",
+        "sufficient"
+      ]
+    },
+    "sparsePolicy": {
+      "0": {
+        "presentation": "empty",
+        "evidenceState": "insufficient"
+      },
+      "1": {
+        "presentation": "snapshot",
+        "evidenceState": "insufficient"
+      },
+      "2": {
+        "presentation": "comparison",
+        "evidenceState": "sufficient"
+      },
+      "3": {
+        "presentation": "trend",
+        "evidenceState": "sufficient"
+      }
+    },
+    "freshProgram": {
+      "note": "Zero-log program: baseline-building context only. No attention rows, no warning colors, no performance transition eligibility.",
+      "actionItems": [],
+      "attentionRows": 0,
+      "transitionEligible": false
+    }
+  }
+}

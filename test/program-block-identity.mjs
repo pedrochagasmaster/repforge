@@ -16,7 +16,7 @@ import { readFileSync } from "node:fs";
 import { launchChromium, waitForAppBoot, assertServingApp } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
-const BASE = process.env.REPFORGE_URL || "http://127.0.0.1:18652/";
+const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const KEY = "repforge_v1";
 const DRAFT_KEY = "repforge_draft_v1";
 const DRAFT_CHECKPOINT_KEY = "repforge_draft_v1:v2-checkpoint";

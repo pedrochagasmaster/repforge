@@ -30,6 +30,7 @@ const expected = [
   "program-entry-adapter.js",
   "program-entry.js",
   "program-transition.js",
+  "progress-model.js",
   "progression-engine.js",
   "schedule.js",
   "shared-setup.js",

@@ -24,8 +24,8 @@
  *     - "guess-fact": replaces a Browse fact with a name-derived guess, failing fact provenance.
  *
  * Run:
- *   REPFORGE_URL=http://127.0.0.1:8054 node test/entry-expert-controls.mjs
- *   REPFORGE_ENTRY_EXPERT_FAULT=hide-choice REPFORGE_URL=http://127.0.0.1:8054 node test/entry-expert-controls.mjs
+ *   node tools/run-tests.mjs entry --suite entry-expert-controls
+ *   REPFORGE_ENTRY_EXPERT_FAULT=hide-choice node tools/run-tests.mjs entry --suite entry-expert-controls
  */
 import { createRequire } from "node:module";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";

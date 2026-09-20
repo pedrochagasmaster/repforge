@@ -139,7 +139,7 @@ function fixture() {
         sets: 2,
         min: 8,
         max: 12,
-        primary: "Back",
+        primary: "Mid/upper back",
         secondary: "Biceps",
         notes: "",
         alternates: [],
