@@ -248,6 +248,10 @@ async function confirmRecovery(page) {
   await waitForRecoveryToast();
   await page.click("[data-flow-cancel]");
   await waitForRecoveryToast();
+  await page.waitForFunction(() => {
+    const toast = document.querySelector("#toast");
+    return !toast || toast.classList.contains("hidden");
+  }, undefined, { timeout: 5000 });
   await sleep(page, 400);
 }
 
