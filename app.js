@@ -1388,8 +1388,8 @@ class Exercise{
      primary/secondary stay written out as plain strings — every reader (volume
      audit, CSV, text export, backups) keeps working unchanged — but for a
      linked slot they are derived, not authored. */
-  resolveIdentity(entries){
-    if(this.libraryId===undefined)return this;
+  resolveIdentity(entries,{preserveLinkedSnapshot=false}={}){
+    if(this.libraryId===undefined||preserveLinkedSnapshot)return this;
     const entry=entries?entries(this.libraryId):libraryEntry(this.libraryId);
     if(!entry){
       // The definition is gone (an import referencing an unknown id). Keep the
@@ -1423,9 +1423,10 @@ class Program{
   /* lookup lets a caller resolve against a snapshot's own custom definitions —
      import and normalizeLoaded work on state that is not live yet.
      structureDays (optional) keeps empty programStructure containers visible. */
-  constructor(list=[],lookup=null,structureDays=null,emptyDayContainers=false){const ids=new Set();
+  constructor(list=[],lookup=null,structureDays=null,emptyDayContainers=false,options={}){const ids=new Set();
+    const preserveLinkedSnapshot=options?.preserveLinkedSnapshot===true;
     this.exercises=(Array.isArray(list)?list:[]).map(e=>{const ex=new Exercise(e);if(ids.has(ex.id))ex.id=uid();ids.add(ex.id);
-      return ex.resolveIdentity(lookup)});
+      return ex.resolveIdentity(lookup,{preserveLinkedSnapshot})});
     this._structureDays=Array.isArray(structureDays)&&structureDays.length
       ?structureDays.map(d=>String(d)).filter(Boolean):null;
     this._emptyDayContainers=emptyDayContainers===true;
@@ -2415,15 +2416,9 @@ function canonicalizeDurableMuscleAttributions(proposal){
   if(isPlainStateObject(out.programMeta)&&out.programMeta.programStructure)
     out.programMeta.programStructure=canonicalizeProgramStructureMuscles(
       out.programMeta.programStructure,out.program,customList);
-  if(Array.isArray(out.programHistory))out.programHistory=out.programHistory.map(entry=>{
-    if(!isPlainStateObject(entry))return entry;
-    const next=entry;
-    next.program=canonicalizeLinkedMuscleRows(next.program,customList);
-    const metaKey=isPlainStateObject(next.meta)?"meta":isPlainStateObject(next.programMeta)?"programMeta":null;
-    if(metaKey&&next[metaKey].programStructure)
-      next[metaKey].programStructure=canonicalizeProgramStructureMuscles(
-        next[metaKey].programStructure,next.program,customList);
-    return next});
+  // programHistory is an immutable archive. Its rows and structure already
+  // carry the attribution captured at archive creation; current custom
+  // definitions may update active linked rows only.
   return out}
 function normalizeCustomExercises(list){
   const out=[],seen=new Set();
@@ -2450,7 +2445,10 @@ function normalizeProgramHistory(history,lookup){
   return(Array.isArray(history)?history:[]).map(entry=>{
     const normalized=cloneSnapshot(entry);
     if(Object.prototype.hasOwnProperty.call(normalized,"program")){
-      normalized.program=new Program(normalized.program,lookup).toJSON();
+      // An archived program is a historical snapshot. Keep its linked
+      // movement identity and captured attribution; resolving it through the
+      // current custom library would rewrite history after a definition edit.
+      normalized.program=new Program(normalized.program,lookup,null,false,{preserveLinkedSnapshot:true}).toJSON();
       const structured=withExplicitProgramStructure(normalized.program,normalized.meta||normalized.programMeta||{});
       normalized.program=structured.program;
       if(normalized.meta)normalized.meta=structured.meta;
