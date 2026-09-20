@@ -332,6 +332,7 @@
   "program.editor.moved": "Exercise moved",
   "program.editor.undo": "Undo",
   "program.editor.invalid": "Fix the highlighted values before continuing.",
+  "program.editor.invalid_muscles": "Use only the listed muscle groups for Primary and Secondary.",
   "program.editor.draft_saved": "Draft saved",
   "program.editor.empty_days": "Add an exercise to each training day.",
   "program.editor.more": "More",

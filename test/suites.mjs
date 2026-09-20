@@ -109,6 +109,7 @@ export const SUITES = {
     s("test/program-freeform-import.mjs"),
     s("test/import-matching.mjs"),
     s("test/program-day-names-browser.mjs"),
+    s("test/muscle-domain-flow.mjs"),
     s("test/shared-setup-flow.mjs"),
     s("test/entry-landing.mjs"),
     s("test/entry-chooser.mjs"),

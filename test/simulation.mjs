@@ -1017,8 +1017,8 @@ function scenarioRows({ day, ex, sessions }) {
       rir,
       notes,
       created,
-      primary: ex.primary,
-      secondary: ex.secondary,
+      ...(typeof ex.primary === "string" ? { primary: ex.primary } : {}),
+      ...(typeof ex.secondary === "string" ? { secondary: ex.secondary } : {}),
     }));
   });
 }
@@ -2666,7 +2666,7 @@ async function main() {
     sets: 3,
     min: 5,
     max: 10,
-    primary: "Test",
+    primary: "Chest",
     secondary: "",
   });
   await jsonArea.fill(JSON.stringify(progJson, null, 2));
@@ -9810,8 +9810,8 @@ async function main() {
       mkEx("ex-reduce", "Day 1", 8, "Coach Reduce", { min: 8, max: 12, primary: "Biceps" }),
       mkEx("ex-vol", "Day 1", 9, "Coach Volume", { sets: 4, primary: "Forearms" }),
       mkEx("ex-fatigue", "Day 1", 10, "Coach Fatigue", { min: 6, max: 12, primary: "Calves" }),
-      mkEx("curl-a", "Day 1", 11, "Coach Curl", { min: 8, max: 12, primary: "Brachialis" }),
-      mkEx("curl-b", "Day 2", 1, "Coach Curl", { min: 8, max: 12, primary: "Brachialis" }),
+      mkEx("curl-a", "Day 1", 11, "Coach Curl", { min: 8, max: 12, primary: "Biceps" }),
+      mkEx("curl-b", "Day 2", 1, "Coach Curl", { min: 8, max: 12, primary: "Biceps" }),
     ];
     const log = [
       ...mkRows({ id: "ex-improved", name: "Coach Improved", day: "Day 1", date: dates.lastWeek, session: "s-imp-prev", load: 80, reps: 6, rir: 1, primary: "Chest" }),

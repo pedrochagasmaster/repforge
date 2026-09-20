@@ -114,7 +114,7 @@ const HISTORY_INDEX_SCRIPT = `(() => {
       const loadA = 50 + Math.floor(i / 10);
       const lifts = [
         ["Alpha Press", "ex-alpha", loadA, "Chest"],
-        ["Beta Row", "ex-beta", 40, "Back"],
+        ["Beta Row", "ex-beta", 40, "Mid/upper back"],
       ];
       for (const [name, id, load, primary] of lifts) {
         for (let set = 1; set <= 2; set++) {
@@ -514,7 +514,7 @@ export async function runHistoryOperabilityChecks(page, check = assert) {
       rir: 1,
       notes: "",
       created: "2026-03-01T12:00:00.000Z",
-      primary: "Shoulders",
+      primary: "Front delts",
       secondary: "",
     },
   ];

@@ -66,7 +66,7 @@ function fixture() {
         sets: 3,
         min: 4,
         max: 8,
-        primary: "Back",
+        primary: "Mid/upper back",
         secondary: "",
         notes: "",
         alternates: [],

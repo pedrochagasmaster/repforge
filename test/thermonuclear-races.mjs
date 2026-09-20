@@ -1620,7 +1620,7 @@ async function scenarioUnrelatedProgramEditPreservesSessionDay(browser) {
       id: "audit-row",
       name: "Audit row",
       order: 2,
-      primary: "Back",
+      primary: "Mid/upper back",
     });
     baseline.log = [
       {
@@ -1650,7 +1650,7 @@ async function scenarioUnrelatedProgramEditPreservesSessionDay(browser) {
         rir: 1,
         notes: "",
         created: "2026-08-14T12:00:00.000Z",
-        primary: "Back",
+        primary: "Mid/upper back",
         secondary: "",
       },
     ];

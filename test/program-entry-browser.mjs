@@ -28,6 +28,30 @@ function assert(cond, name, detail) {
   }
 }
 
+function canonicalCompilerPreview(preview) {
+  const byLibraryId = new Map(EXERCISE_LIBRARY.map((entry) => [entry.id, entry]));
+  const program = (preview?.program || []).map((row) => {
+    const entry = byLibraryId.get(row?.libraryId);
+    return entry ? { ...row, primary: entry.primary || "", secondary: entry.secondary || "" } : row;
+  });
+  const programStructure = structuredClone(preview?.programStructure || null);
+  const bySlot = new Map();
+  for (const row of program) {
+    for (const id of [row?.slotId, row?.id]) if (id != null && !bySlot.has(String(id))) bySlot.set(String(id), row);
+  }
+  for (const week of programStructure?.weekPrescriptions || []) {
+    for (const day of week?.days || []) {
+      for (const slot of day?.slots || []) {
+        const row = bySlot.get(String(slot?.slotId));
+        if (!row) continue;
+        if (Object.hasOwn(slot, "primary")) slot.primary = row.primary;
+        if (Object.hasOwn(slot, "secondary")) slot.secondary = row.secondary;
+      }
+    }
+  }
+  return { program, programStructure };
+}
+
 async function openFresh(browser) {
   const context = await browser.newContext();
   const page = await context.newPage();
@@ -67,13 +91,13 @@ async function seedActiveProgram(page, { libraryId = "row_cable", exerciseName =
       },
       program: [{
         id: "ex1", day: "Day 1", order: 1, name: exerciseName, sets: 3, min: 8, max: 12,
-        primary: "Back", secondary: "Biceps", notes: "", libraryId,
+        primary: "Mid/upper back", secondary: "Biceps", notes: "", libraryId,
       }],
       log: [],
       programHistory: [],
       customExercises: [{
         id: "custom:active-definition", name: "Active custom movement", namePt: "Movimento personalizado ativo",
-        equipment: ["machine"], primary: "Back", secondary: "", notes: "", created: now,
+        equipment: ["machine"], primary: "Mid/upper back", secondary: "", notes: "", created: now,
       }],
       _storageRevision: 3,
     };
@@ -1570,7 +1594,7 @@ try {
         preview: {
           program: [{
             id: "race-exercise-1", day: "Day 1", order: 1, name: "Cable Row",
-            sets: 3, min: 8, max: 12, primary: "Back", secondary: "Biceps",
+            sets: 3, min: 8, max: 12, primary: "Mid/upper back", secondary: "Biceps",
             notes: "", libraryId: "row_cable",
           }, {
             id: "race-exercise-2", day: "Day 2", order: 1, name: "Chest Press",
@@ -1713,7 +1737,7 @@ try {
       const committed = await window.__repforgeFinalizeProgramSetup({
         exercises: [{
           id: "first-program-row", day: "Day 1", order: 1, name: "Cable Row",
-          sets: 3, min: 8, max: 12, primary: "Back", secondary: "Biceps",
+          sets: 3, min: 8, max: 12, primary: "Mid/upper back", secondary: "Biceps",
           notes: "", libraryId: "row_cable",
         }],
         name: "First program",
@@ -1874,6 +1898,7 @@ try {
     const expectedWeekOneSets = programs.targets.reduce((sum, target) => sum + target.sets, 0);
     const expectedNormalExercises = programs.authored.length;
     const expectedNormalSets = programs.authored.reduce((sum, exercise) => sum + exercise.sets, 0);
+    const canonical = canonicalCompilerPreview(compiled.preview);
     const today = new Date().toISOString().slice(0, 10);
     const state = {
       settings: {
@@ -1888,9 +1913,9 @@ try {
         equipment: ["barbell", "dumbbell", "machine", "cable", "smith"], priorityMuscles: [], sessionLength: "60",
         mesocycleLengthWeeks: 6, mesocycleStatus: "active", onboarded: true,
         progressionRelations: [], progressionModifiers: [], progressionIncompatibilities: [],
-        programStructure: compiled.preview.programStructure,
+        programStructure: canonical.programStructure,
       },
-      program: compiled.preview.program,
+      program: canonical.program,
       log: [], programHistory: [], customExercises: [], _storageRevision: 1,
     };
     const { context, page } = await openFresh(browser);

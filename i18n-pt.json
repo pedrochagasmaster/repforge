@@ -332,6 +332,7 @@
   "program.editor.moved": "Exercício movido",
   "program.editor.undo": "Desfazer",
   "program.editor.invalid": "Corrija os valores destacados antes de continuar.",
+  "program.editor.invalid_muscles": "Use apenas os grupos musculares listados em Principal e Secundário.",
   "program.editor.draft_saved": "Rascunho salvo",
   "program.editor.empty_days": "Adicione um exercício a cada dia de treino.",
   "program.editor.more": "Mais",

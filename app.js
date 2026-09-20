@@ -41,6 +41,30 @@ function isPlainStateObject(value){
   const proto=Object.getPrototypeOf(value);
   return proto===Object.prototype||proto===null}
 const PROGRESSION_VALUE_LIMITS=Object.freeze({depth:32,nodes:1000,keys:128,arrayItems:128,stringLength:4000});
+const MuscleDomain=window.RepForgeProgramEntry;
+function normalizeMuscleAttribution(value,field="muscle attribution"){
+  const result=MuscleDomain?.normalizeMuscleAttribution?.(value);
+  if(!result?.ok)throw new TypeError(`${result?.code||"invalid-muscle-domain"}: ${field}`);
+  return result.value}
+function isValidMuscleDomainTree(value,seen=new WeakSet()){
+  if(value===null||typeof value!=="object")return true;
+  if(seen.has(value))return false;
+  seen.add(value);
+  if(Array.isArray(value))return value.every(item=>isValidMuscleDomainTree(item,seen));
+  if(!isPlainStateObject(value))return false;
+  for(const [key,child] of Object.entries(value)){
+    if((key==="primary"||key==="secondary")&&typeof child==="string"){
+      if(!MuscleDomain?.isCanonicalMuscleAttribution?.(child))return false;
+    }else if((key==="performedPrimary"||key==="performedSecondary")&&typeof child==="string"){
+      if(child!==null&&!MuscleDomain?.isCanonicalMuscleAttribution?.(child))return false;
+    }
+    if(!isValidMuscleDomainTree(child,seen))return false}
+  return true}
+function isValidStoredMuscleField(value,nullable=false){
+  return nullable&&value===null||typeof value==="string"&&MuscleDomain?.isCanonicalMuscleAttribution?.(value)}
+function invalidMuscleDomainCommit(value=null){
+  return{ok:false,committed:false,invalid:true,code:"invalid-muscle-domain",
+    message:t("program.editor.invalid_muscles"),localOk:false,idbOk:false}}
 function isValidBlockId(value,programId=null){
   return typeof value==="string"&&value.trim().length>0&&value.length<=240&&
     (programId==null||value!==programId)}
@@ -66,9 +90,9 @@ function isValidPlannedVolumeHistory(value){
     !PLANNED_VOLUME_HISTORY_MUSCLE_KEYS.every(key=>Object.prototype.hasOwnProperty.call(value.muscles,key)))return false;
   return PLANNED_VOLUME_HISTORY_MUSCLE_KEYS.every(kind=>{
     const map=value.muscles[kind];
-    if(!isPlainStateObject(map)||Object.keys(map).length>PROGRESSION_VALUE_LIMITS.keys)return false;
+    if(!isPlainStateObject(map)||Object.keys(map).length>MuscleDomain.MUSCLE_TOKENS.length)return false;
     return Object.entries(map).every(([name,amount])=>name&&name.length<=PROGRESSION_VALUE_LIMITS.stringLength&&
-      !["__proto__","prototype","constructor"].includes(name)&&Number.isFinite(amount)&&amount>=0);
+      MuscleDomain?.isMuscleToken?.(name)&&Number.isFinite(amount)&&amount>=0);
   });
 }
 const TRANSITION_VALUE_LIMITS=Object.freeze({depth:32,nodes:10000,keys:128,arrayItems:256,stringLength:10000});
@@ -290,6 +314,9 @@ async function normalizeRecoveryCarrierSnapshot(snapshot,sourceReplica,{priorQua
 }
 function isSafeProgressionFields(value){
   if(!isPlainStateObject(value))return false;
+  if(!isValidMuscleDomainTree(value))return false;
+  for(const key of ["primary","secondary"])
+    if(Object.prototype.hasOwnProperty.call(value,key)&&!isValidStoredMuscleField(value[key]))return false;
   if(Object.prototype.hasOwnProperty.call(value,"progressionType")&&
     (typeof value.progressionType!=="string"||Array.from(value.progressionType.trim()).length>80))return false;
   for(const key of ["progression","progressionIncompatibility"])
@@ -298,6 +325,7 @@ function isSafeProgressionFields(value){
 function isSafeProgressionMeta(value){
   if(value==null)return true;
   if(!isPlainStateObject(value))return false;
+  if(!isValidMuscleDomainTree(value))return false;
   if(Object.prototype.hasOwnProperty.call(value,"blockId")&&
     !isValidBlockId(value.blockId,value.id))return false;
   if(Object.prototype.hasOwnProperty.call(value,"transitionIn")&&value.transitionIn!=null&&
@@ -319,6 +347,11 @@ function isSafeProgramHistoryEntry(entry){
   return Array.isArray(entry.program)&&entry.program.every(isSafeProgressionFields)}
 function isSafeLogRow(entry){
   if(!isPlainStateObject(entry))return false;
+  if(!isValidMuscleDomainTree(entry))return false;
+  for(const key of ["primary","secondary"])
+    if(Object.prototype.hasOwnProperty.call(entry,key)&&!isValidStoredMuscleField(entry[key],true))return false;
+  for(const key of ["performedPrimary","performedSecondary"])
+    if(Object.prototype.hasOwnProperty.call(entry,key)&&!isValidStoredMuscleField(entry[key],true))return false;
   if(Object.prototype.hasOwnProperty.call(entry,"blockId")&&!isValidBlockId(entry.blockId))return false;
   if(Object.prototype.hasOwnProperty.call(entry,"rirMeasured")&&typeof entry.rirMeasured!=="boolean")return false;
   for(const key of ["performedName","performedLibraryId","performedMovementId","performedPrimary","performedSecondary"])
@@ -327,6 +360,9 @@ function isSafeLogRow(entry){
   return true}
 function isSafeCustomExercise(entry){
   if(!isPlainStateObject(entry))return false;
+  if(!isValidMuscleDomainTree(entry))return false;
+  for(const key of ["primary","secondary"])
+    if(Object.prototype.hasOwnProperty.call(entry,key)&&!isValidStoredMuscleField(entry[key]))return false;
   return typeof entry.id==="string"&&entry.id.startsWith(CUSTOM_ID_PREFIX)&&typeof entry.name==="string"}
 function isValidSetupActivationMarker(marker){
   return isPlainStateObject(marker)&&marker.version===1&&
@@ -342,6 +378,10 @@ function setupActivationMatches(marker,raw,programId){
   return isValidSetupActivationMarker(marker)&&marker.programId===programId&&marker.raw===raw}
 function isValidStateShape(s){
   try{
+    // Pre-contract snapshots may contain arbitrary legacy attribution. Keep
+    // them lossless in the raw replicas and reject them here; boot recovery
+    // can surface the original bytes for deliberate repair instead of
+    // relabeling or dropping unknown historical muscle identity.
     if(!isPlainStateObject(s)||!Array.isArray(s.program)||!s.program.every(isSafeProgressionFields)||
       !Array.isArray(s.log)||!s.log.every(isSafeLogRow))return false;
     if(Object.prototype.hasOwnProperty.call(s,"programMeta")&&!isSafeProgressionMeta(s.programMeta))return false;
@@ -928,7 +968,7 @@ function weekRange(date){const start=weekStart(date);return{start,end:shiftDate(
 function sessionsInRange(start,end){const ids=new Set();for(const x of state.log){if(String(x.date)>=start&&String(x.date)<=end)ids.add(x.session)}return[...ids]}
 window.__repforgeWeek={weekStart,weekRange,sessionsInRange};
 const e1rm=(load,reps)=>load>0&&reps>0?load*(1+reps/30):0;
-const muscles=s=>String(s||"").split(",").map(x=>x.trim()).filter(Boolean);
+const muscles=s=>MuscleDomain.normalizeMuscleAttribution(s).tokens;
 const muscleLabel=name=>{const k="muscle."+name,s=t(k);return s===k?name:s};
 /* Stored muscle tags are comma-joined English tokens ("Hamstrings,Glutes"); every
    place that shows them to the lifter goes through this. */
@@ -2343,6 +2383,48 @@ function snapshotLookup(customList){
     const key=String(id??"");
     if(isCustomLibraryId(key))return own.get(key)||null;
     return LIBRARY_BY_ID.get(key)||LIBRARY_BY_ID.get(LEGACY_LIBRARY_IDS[key])||null}}
+function canonicalizeLinkedMuscleRows(list,customList){
+  if(!Array.isArray(list))return list;
+  const lookup=snapshotLookup(customList);
+  return list.map(row=>{
+    if(!isPlainStateObject(row)||row.libraryId==null)return row;
+    const entry=lookup(row.libraryId);
+    return entry?{...row,primary:entry.primary||"",secondary:entry.secondary||""}:row})}
+function canonicalizeProgramStructureMuscles(structure,program,customList=[]){
+  if(!isPlainStateObject(structure))return structure;
+  const bySlot=new Map();
+  for(const row of Array.isArray(program)?program:[]){
+    for(const id of [row?.slotId,row?.id])
+      if(id!=null&&!bySlot.has(String(id)))bySlot.set(String(id),row)}
+  const out=cloneSnapshot(structure);
+  for(const week of Array.isArray(out.weekPrescriptions)?out.weekPrescriptions:[])
+    for(const day of Array.isArray(week?.days)?week.days:[])
+      for(const slot of Array.isArray(day?.slots)?day.slots:[]){
+        const row=bySlot.get(String(slot?.slotId));
+        if(!row)continue;
+        if(Object.prototype.hasOwnProperty.call(slot,"primary"))slot.primary=row.primary||"";
+        if(Object.prototype.hasOwnProperty.call(slot,"secondary"))slot.secondary=row.secondary||""}
+  for(const version of Array.isArray(out.programVersions)?out.programVersions:[])
+    if(Array.isArray(version?.program))
+      version.program=canonicalizeLinkedMuscleRows(version.program,customList);
+  return out}
+function canonicalizeDurableMuscleAttributions(proposal){
+  if(!isPlainStateObject(proposal))return proposal;
+  const out=cloneSnapshot(proposal),customList=out.customExercises;
+  out.program=canonicalizeLinkedMuscleRows(out.program,customList);
+  if(isPlainStateObject(out.programMeta)&&out.programMeta.programStructure)
+    out.programMeta.programStructure=canonicalizeProgramStructureMuscles(
+      out.programMeta.programStructure,out.program,customList);
+  if(Array.isArray(out.programHistory))out.programHistory=out.programHistory.map(entry=>{
+    if(!isPlainStateObject(entry))return entry;
+    const next=entry;
+    next.program=canonicalizeLinkedMuscleRows(next.program,customList);
+    const metaKey=isPlainStateObject(next.meta)?"meta":isPlainStateObject(next.programMeta)?"programMeta":null;
+    if(metaKey&&next[metaKey].programStructure)
+      next[metaKey].programStructure=canonicalizeProgramStructureMuscles(
+        next[metaKey].programStructure,next.program,customList);
+    return next});
+  return out}
 function normalizeCustomExercises(list){
   const out=[],seen=new Set();
   for(const entry of Array.isArray(list)?list:[]){
@@ -2355,10 +2437,11 @@ function normalizeCustomExercises(list){
     const equipment=(Array.isArray(entry.equipment)?entry.equipment:[])
       .map(x=>String(x).trim().toLowerCase()).filter(Boolean);
     const archived=entry.archived===true;
+    const primary=normalizeMuscleAttribution(entry.primary??"",`${id}.primary`);
+    const secondary=normalizeMuscleAttribution(entry.secondary??"",`${id}.secondary`);
     out.push({id,name,namePt:String(entry.namePt??name).trim()||name,archived,
       equipment:equipment.length?equipment:["machine"],
-      primary:String(entry.primary??"").trim(),
-      secondary:String(entry.secondary??"").trim(),
+      primary,secondary,
       notes:String(entry.notes??"").trim(),
       patterns:[],beginnerFriendly:true,custom:true,
       created:typeof entry.created==="string"?entry.created:new Date().toISOString()})}
@@ -2463,11 +2546,14 @@ async function saveCustomExercise(draft,io=storageIO){
   const name=String(draft?.name??"").trim();
   if(!name)return{result:null,entry:null};
   const id=isCustomLibraryId(draft?.id)?String(draft.id):`${CUSTOM_ID_PREFIX}${uid()}`;
+  const primary=MuscleDomain?.normalizeMuscleAttribution?.(draft?.primary??"");
+  const secondary=MuscleDomain?.normalizeMuscleAttribution?.(draft?.secondary??"");
+  if(!primary?.ok||!secondary?.ok)return{result:invalidMuscleDomainCommit(),entry:null};
   const existing=customExercises().find(e=>e.id===id);
   const entry={id,name,namePt:name,
     equipment:Array.isArray(draft.equipment)&&draft.equipment.length?draft.equipment:["machine"],
-    primary:String(draft.primary??"").trim(),
-    secondary:String(draft.secondary??"").trim(),
+    primary:primary.value,
+    secondary:secondary.value,
     notes:String(draft.notes??"").trim(),
     created:existing?.created||new Date().toISOString()};
   const proposal=cloneSnapshot(state);
@@ -3159,6 +3245,13 @@ function parseProgramImport(parsed){
   if(Array.isArray(parsed?.exercises))return{exercises:parsed.exercises,meta,customExercises:custom};
   if(Array.isArray(parsed?.program))return{exercises:parsed.program,meta,customExercises:custom};
   return null}
+function validImportedCustomExercise(entry){
+  if(!entry||typeof entry!=="object"||Array.isArray(entry))return false;
+  for(const key of ["primary","secondary"]){
+    if(!Object.prototype.hasOwnProperty.call(entry,key))continue;
+    if(!MuscleDomain.normalizeMuscleAttribution(entry[key]).ok)return false;
+  }
+  return true}
 
 /* Merges an import's custom definitions into the lifter's own library.
 
@@ -3297,9 +3390,11 @@ function persist(opts={}){
   return enqueueStateChange(base,snapshot,storageIO,opts)}
 async function commitProposedState(proposal,io=storageIO,opts={}){
   requireAdapter(io,"commitProposedState");
+  const durableProposal=canonicalizeDurableMuscleAttributions(proposal);
+  if(!isValidMuscleDomainTree(durableProposal))return invalidMuscleDomainCommit(proposal);
   const base=cloneSnapshot(mutationBase||state);
   const liveBase=cloneSnapshot(state);
-  const snapshot=cloneSnapshot(proposal);
+  const snapshot=cloneSnapshot(durableProposal);
   const structured=withExplicitProgramStructure(snapshot.program,snapshot.programMeta||defaultProgramMeta(snapshot.log));
   snapshot.program=structured.program;snapshot.programMeta=structured.meta;
   // A lock-held preflight may replace the optimistic proposal with a compiler
@@ -3311,7 +3406,7 @@ async function commitProposedState(proposal,io=storageIO,opts={}){
     durableOpts.preflight=async context=>{
       const checked=await opts.preflight(context);
       if(!checked?.proposal)return checked;
-      const next=cloneSnapshot(checked.proposal);
+      const next=canonicalizeDurableMuscleAttributions(checked.proposal);
       const nextStructured=withExplicitProgramStructure(next.program,
         next.programMeta||defaultProgramMeta(next.log));
       next.program=nextStructured.program;next.programMeta=nextStructured.meta;
@@ -9188,7 +9283,11 @@ function programEditorProgram(){
   const snapshot=programEditorSnapshot();
   return makeProgram(snapshot.program,null,snapshot.programMeta)}
 async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
+  // Check before synchronising the edited program into the compact history
+  // aggregate. An unsupported attribution is an ingress error, not a reason
+  // for the history projector to throw after the user has pressed Apply.
   if(!setupEditorOpen){
+    if(!isValidMuscleDomainTree(proposal))return invalidMuscleDomainCommit(proposal);
     // Every installed-program mutation, including the legacy field/JSON
     // editor, crosses this boundary. Record the effective prescription before
     // the durable commit so an edit in week N cannot reproject weeks < N from
@@ -9200,7 +9299,18 @@ async function commitProgramEditorProposal(proposal,io=storageIO,opts={}){
     return commitProposedState(proposal,io,opts);
   }
   if(!entryState?.result?.preview)return{localOk:false,idbOk:false,setupDraftInvalid:true};
-  const model=makeProgram(proposal.program,null,proposal.programMeta);
+  // Compiler previews intentionally use the compiler's internal lowercase
+  // muscle ids while they are staged outside durable state. Resolve linked
+  // built-ins/customs here before validating the editor result, so the setup
+  // draft may retain its preview representation but every edited candidate
+  // crossing toward activation already has the durable canonical domain.
+  const lookup=snapshotLookup(proposal.customExercises);
+  const model=makeProgram(proposal.program,lookup,proposal.programMeta);
+  const canonicalProgram=model.toJSON();
+  if(!Array.isArray(proposal.customExercises)||
+    !proposal.customExercises.every(isSafeCustomExercise)||
+    !isValidMuscleDomainTree({program:canonicalProgram,customExercises:proposal.customExercises}))
+    return invalidMuscleDomainCommit(proposal);
   const structure=proposal.programMeta?.programStructure?cloneSnapshot(proposal.programMeta.programStructure):null;
   const structureDays=structure?.days||[];
   const previewDays=entryState.route==="shared"
@@ -10566,7 +10676,7 @@ async function saveCustomExerciseSheet(){
     primary:[...customState.primary].join(","),
     secondary:[...customState.secondary].join(","),
     notes:String($("#exCustomNotes")?.value||"").trim()});
-  if(result&&!(result.localOk||result.idbOk)){toast(t("toast.custom_save_failed"));return}
+  if(result&&!(result.localOk||result.idbOk)){toast(result.message||t("toast.custom_save_failed"));return}
   await closeCustomExerciseSheet();
   toast(t(editing?"toast.custom_saved":"toast.custom_created"));
   if(handler&&entry)await handler(entry);
@@ -10711,6 +10821,13 @@ function boundedImportJson(text){
     if(Array.isArray(value))return value.every(child=>visit(child,depth+1));
     return Object.keys(value).every(key=>visit(value[key],depth+1))};
   return visit(parsed,0)?parsed:null}
+function importedMuscleValues(row,{canonical=false}={}){
+  for(const key of ["primary","secondary"]){
+    if(!Object.prototype.hasOwnProperty.call(row,key))continue;
+    const result=MuscleDomain.normalizeMuscleAttribution(row[key]);
+    if(!result.ok||canonical&&result.value!==row[key])return false;
+  }
+  return true}
 function validImportedExerciseRow(row){
   if(!row||typeof row!=="object"||Array.isArray(row))return false;
   const text=v=>typeof v==="string"&&v.trim().length>0;
@@ -10718,7 +10835,7 @@ function validImportedExerciseRow(row){
     text(row.name)&&Number.isInteger(row.sets)&&row.sets>=1&&row.sets<=100&&
     Number.isInteger(row.min)&&row.min>=1&&row.min<=1000&&
     Number.isInteger(row.max)&&row.max>=row.min&&row.max<=1000&&
-    (row.libraryId===undefined||text(row.libraryId));}
+    (row.libraryId===undefined||text(row.libraryId))&&importedMuscleValues(row,{canonical:true});}
 function validRawImportedExerciseRow(row){
   if(!row||typeof row!=="object"||Array.isArray(row))return false;
   const text=v=>typeof v==="string"&&v.trim().length>0;
@@ -10737,7 +10854,7 @@ function validRawImportedExerciseRow(row){
   return text(row.day)&&text(row.name)&&Number.isInteger(row.sets)&&row.sets>=1&&row.sets<=100&&
     Number.isInteger(min)&&min>=1&&min<=1000&&Number.isInteger(max)&&max>=min&&max<=1000&&
     (row.order===undefined||(Number.isInteger(row.order)&&row.order>=1&&row.order<=1000))&&
-    (row.libraryId===undefined||text(row.libraryId));}
+    (row.libraryId===undefined||text(row.libraryId))&&importedMuscleValues(row);}
 function normalizeImportedRows(rows){
   const orders=new Map();
   return rows.map(row=>{
@@ -10749,13 +10866,17 @@ function normalizeImportedRows(rows){
       const next=(orders.get(out.day)||0)+1;orders.set(out.day,next);out.order=next}
     if(out.min===undefined&&Number.isInteger(out.repLow))out.min=out.repLow;
     if(out.max===undefined&&Number.isInteger(out.repHigh))out.max=out.repHigh;
+    for(const key of ["primary","secondary"]){
+      if(!Object.prototype.hasOwnProperty.call(out,key))continue;
+      out[key]=MuscleDomain.normalizeMuscleAttribution(out[key]).value}
     return out})}
 function parseProgramSource(text,fileName=""){
   const trimmed=String(text||"").trim();
   if(trimmed.startsWith("{")||trimmed.startsWith("[")){
     const parsed=boundedImportJson(trimmed);if(parsed===null)return null;
     const imp=parseProgramImport(parsed);
-    if(!imp?.exercises?.length||!imp.exercises.every(validRawImportedExerciseRow))return null;
+    if(!imp?.exercises?.length||!imp.exercises.every(validRawImportedExerciseRow)||
+      !imp.customExercises.every(validImportedCustomExercise))return null;
     imp.exercises=normalizeImportedRows(imp.exercises);
     if(!imp.exercises.every(validImportedExerciseRow))return null;
     return Object.assign({format:"json",legacy:parsed?.version===undefined},imp)}

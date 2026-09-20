@@ -19,6 +19,14 @@
   const KNOWN_EQUIPMENT = Object.freeze(["barbell", "dumbbell", "machine", "cable", "smith", "bodyweight", "band"]);
   const KNOWN_CAPABILITIES = Object.freeze(["safe_pull", "training_support"]);
   const ENTRY_MUSCLES = Object.freeze(["chest", "back", "quads", "hamstrings", "glutes", "side_delts", "biceps", "triceps", "calves", "lats"]);
+  // Muscle attribution is shared by the custom editor, setup links, imports,
+  // durable state, and Progress. Keep the vocabulary here so a producer cannot
+  // accept a label that the bounded historical aggregate cannot represent.
+  const MUSCLE_TOKENS = Object.freeze(["Chest", "Lats", "Mid/upper back", "Traps", "Front delts", "Side delts", "Rear delts",
+    "Biceps", "Triceps", "Forearms", "Quads", "Hamstrings", "Glutes", "Adductors", "Abductors", "Calves",
+    "Spinal erectors", "Abs", "Obliques"]);
+  const MUSCLE_TOKEN_SET = new Set(MUSCLE_TOKENS);
+  const MUSCLE_ATTRIBUTION_MAX_LENGTH = 500;
   const ENTRY_MOVEMENTS = Object.freeze(["squat", "hinge", "press", "shoulder_press", "row", "pulldown"]);
   const KNOWN_EQUIPMENT_SET = new Set(KNOWN_EQUIPMENT);
   const KNOWN_CAPABILITIES_SET = new Set(KNOWN_CAPABILITIES);
@@ -141,6 +149,37 @@
     return bytes;
   }
 
+  function invalidMuscleAttribution(reason) {
+    return { ok: false, code: "invalid-muscle-domain", reason };
+  }
+
+  function normalizeMuscleAttribution(value) {
+    if (value === undefined || value === null) return { ok: true, value: "", tokens: [] };
+    if (typeof value !== "string") return invalidMuscleAttribution("expected-string");
+    if ([...value].length > MUSCLE_ATTRIBUTION_MAX_LENGTH) return invalidMuscleAttribution("too-long");
+    const trimmed = value.trim();
+    if (!trimmed) return { ok: true, value: "", tokens: [] };
+    const tokens = trimmed.split(",").map((token) => token.trim());
+    if (tokens.some((token) => !token)) return invalidMuscleAttribution("empty-token");
+    const seen = new Set();
+    for (const token of tokens) {
+      if (!MUSCLE_TOKEN_SET.has(token)) return invalidMuscleAttribution("unknown-token");
+      if (seen.has(token)) return invalidMuscleAttribution("duplicate-token");
+      seen.add(token);
+    }
+    return { ok: true, value: tokens.join(","), tokens };
+  }
+
+  function isCanonicalMuscleAttribution(value) {
+    if (typeof value !== "string") return false;
+    const result = normalizeMuscleAttribution(value);
+    return result.ok && result.value === value;
+  }
+
+  function isMuscleToken(value) {
+    return typeof value === "string" && MUSCLE_TOKEN_SET.has(value);
+  }
+
   function inspectJson(value, maxBytes) {
     const seen = new WeakSet();
     let nodes = 0;
@@ -208,7 +247,11 @@
   }
 
   function schemaResult(kind, issues, value) {
-    if (issues.length) return { ok: false, code: `invalid-${kind}`, issues };
+    if (issues.length) {
+      const code = issues.some((issue) => String(issue).startsWith("invalid-muscle-domain:"))
+        ? "invalid-muscle-domain" : `invalid-${kind}`;
+      return { ok: false, code, issues };
+    }
     return { ok: true, value };
   }
 
@@ -592,6 +635,24 @@
     }
   }
 
+  function normalizeMuscleField(value, path, issues) {
+    if (value === undefined || value === null) return value;
+    if (typeof value !== "string") {
+      issues.push(`invalid-muscle-domain:${path}:expected-string`);
+      return value;
+    }
+    if ([...value].length > MUSCLE_ATTRIBUTION_MAX_LENGTH) {
+      issues.push(`invalid-muscle-domain:${path}:too-long`);
+      return value;
+    }
+    const result = normalizeMuscleAttribution(value);
+    if (!result.ok) {
+      issues.push(`invalid-muscle-domain:${path}:${result.reason}`);
+      return value;
+    }
+    return result.value;
+  }
+
   function validateDayMetadata(value, path, issues) {
     if (hasOwn(value, "displayNameKey")) {
       const match = typeof value.displayNameKey === "string"
@@ -677,7 +738,7 @@
     });
   }
 
-  function validateStructure(value, path, issues) {
+  function validateStructure(value, path, issues, { allowInternalMuscles = false } = {}) {
     if (value === null) return;
     if (!isPlainObject(value)) { issues.push(`${path}:not_object`); return; }
     rejectUnknownKeys(value, STRUCTURE_KEYS, path, issues);
@@ -718,7 +779,11 @@
               rejectUnknownKeys(slot, new Set(["slotId", "sets", "primary", "secondary"]), slotPath, issues);
               if (!validToken(slot.slotId) || !Number.isInteger(slot.sets)) issues.push(`${slotPath}:invalid`);
               for (const key of ["primary", "secondary"]) {
-                if (slot[key] !== undefined && typeof slot[key] !== "string") issues.push(`${slotPath}.${key}:invalid`);
+                if (slot[key] !== undefined && typeof slot[key] !== "string") {
+                  issues.push(`${slotPath}.${key}:invalid`);
+                } else if (!allowInternalMuscles && slot[key] !== undefined) {
+                  slot[key] = normalizeMuscleField(slot[key], `${slotPath}.${key}`, issues);
+                }
               }
             });
           });
@@ -734,7 +799,10 @@
       if (!isPlainObject(item)) { issues.push(`${itemPath}:not_object`); return; }
       rejectUnknownKeys(item, CUSTOM_EXERCISE_KEYS, itemPath, issues);
       if (!validToken(item.id)) issues.push(`${itemPath}.id:invalid`);
-      for (const key of ["name", "namePt", "primary", "secondary", "notes"]) if (item[key] !== undefined) optionalString(item[key], `${itemPath}.${key}`, issues, key === "notes" ? MAX_DRAFT_BYTES : 256);
+      for (const key of ["name", "namePt", "notes"]) if (item[key] !== undefined) optionalString(item[key], `${itemPath}.${key}`, issues, key === "notes" ? MAX_DRAFT_BYTES : 256);
+      for (const key of ["primary", "secondary"]) {
+        if (item[key] !== undefined) item[key] = normalizeMuscleField(item[key], `${itemPath}.${key}`, issues);
+      }
       if (item.equipment !== undefined) normalizeTokenList(item.equipment, `${itemPath}.equipment`, issues, MAX_LIST_LENGTH);
       if (item.archived !== undefined && typeof item.archived !== "boolean") issues.push(`${itemPath}.archived:invalid`);
       if (item.beginnerFriendly !== undefined && typeof item.beginnerFriendly !== "boolean") issues.push(`${itemPath}.beginnerFriendly:invalid`);
@@ -788,14 +856,19 @@
     }
   }
 
-  function validateProgramRow(value, path, issues) {
+  function validateProgramRow(value, path, issues, { allowInternalMuscles = false } = {}) {
     if (!isPlainObject(value)) { issues.push(`${path}:not_object`); return; }
     rejectUnknownKeys(value, PROGRAM_ROW_KEYS, path, issues);
     for (const key of ["id", "slotId", "dayId", "libraryId", "movementId", "priority", "loadingMode", "progressionType"]) {
       if (hasOwn(value, key)) optionalString(value[key], `${path}.${key}`, issues, MAX_TOKEN_LENGTH);
     }
-    for (const key of ["day", "primary", "secondary", "rest", "rir", "tempo"]) {
+    for (const key of ["day", "rest", "rir", "tempo"]) {
       if (hasOwn(value, key)) optionalString(value[key], `${path}.${key}`, issues, 512);
+    }
+    for (const key of ["primary", "secondary"]) {
+      if (!hasOwn(value, key)) continue;
+      if (allowInternalMuscles) optionalString(value[key], `${path}.${key}`, issues, 512);
+      else value[key] = normalizeMuscleField(value[key], `${path}.${key}`, issues);
     }
     for (const key of ["name", "displayName"]) if (hasOwn(value, key)) optionalString(value[key], `${path}.${key}`, issues, 256);
     if (hasOwn(value, "notes")) optionalString(value.notes, `${path}.notes`, issues, MAX_DRAFT_BYTES);
@@ -812,9 +885,10 @@
     rejectUnknownKeys(value, PREVIEW_KEYS[route] || PREVIEW_KEYS.recommend, path, issues);
     for (const key of ["source", "family", "familyId", "blueprintId", "format"]) if (hasOwn(value, key)) optionalString(value[key], `${path}.${key}`, issues);
     if (hasOwn(value, "frequency") && (!Number.isInteger(value.frequency) || value.frequency < 1 || value.frequency > 7)) issues.push(`${path}.frequency:invalid`);
+    const allowInternalMuscles = value.source === "compiler";
     if (hasOwn(value, "program")) {
       if (!Array.isArray(value.program) || value.program.length > MAX_LIST_LENGTH * 16) issues.push(`${path}.program:invalid`);
-      else value.program.forEach((row, index) => validateProgramRow(row, `${path}.program[${index}]`, issues));
+      else value.program.forEach((row, index) => validateProgramRow(row, `${path}.program[${index}]`, issues, { allowInternalMuscles }));
     }
     if (hasOwn(value, "days")) {
       if (!Array.isArray(value.days) || value.days.length > 7) issues.push(`${path}.days:invalid`);
@@ -828,7 +902,7 @@
         if (hasOwn(day, "estimateMinutes") && (!Number.isInteger(day.estimateMinutes) || day.estimateMinutes < 0)) issues.push(`${dayPath}.estimateMinutes:invalid`);
         if (hasOwn(day, "exercises")) {
           if (!Array.isArray(day.exercises)) issues.push(`${dayPath}.exercises:invalid`);
-          else day.exercises.forEach((row, rowIndex) => validateProgramRow(row, `${dayPath}.exercises[${rowIndex}]`, issues));
+          else day.exercises.forEach((row, rowIndex) => validateProgramRow(row, `${dayPath}.exercises[${rowIndex}]`, issues, { allowInternalMuscles }));
         }
       });
     }
@@ -847,7 +921,7 @@
       else value.progressionIncompatibilities.forEach((item, index) => validateProgressionIncompatibility(item, `${path}.progressionIncompatibilities[${index}]`, issues));
     }
     if (hasOwn(value, "programStructure")) {
-      validateStructure(value.programStructure, `${path}.programStructure`, issues);
+      validateStructure(value.programStructure, `${path}.programStructure`, issues, { allowInternalMuscles });
     }
     if (hasOwn(value, "provenance")) {
       if (!isPlainObject(value.provenance)) issues.push(`${path}.provenance:invalid`);
@@ -1511,6 +1585,11 @@
     KNOWN_EQUIPMENT,
     KNOWN_CAPABILITIES,
     ENTRY_MUSCLES,
+    MUSCLE_TOKENS,
+    MUSCLE_ATTRIBUTION_MAX_LENGTH,
+    normalizeMuscleAttribution,
+    isCanonicalMuscleAttribution,
+    isMuscleToken,
     ENTRY_MOVEMENTS,
     ENTRY_ENVIRONMENTS,
     CONSTRAINT_REASONS,

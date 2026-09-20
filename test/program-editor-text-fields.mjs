@@ -284,16 +284,16 @@ async function main() {
     await primary.click();
     await page.keyboard.press("End");
     await backspace(page, "Chest".length);
-    await primary.pressSequentially("Upper chest ", { delay: 20 });
+    await primary.pressSequentially("Mid/upper back ", { delay: 20 });
     check(
-      (await primary.inputValue()) === "Upper chest ",
+      (await primary.inputValue()) === "Mid/upper back ",
       "a trailing space is left alone while the muscle box is focused",
       { value: await primary.inputValue() }
     );
     await primary.blur();
     check(
-      (await primary.inputValue()) === "Upper chest" &&
-        (await stagedExercise(page))?.primary === "Upper chest",
+      (await primary.inputValue()) === "Mid/upper back" &&
+        (await stagedExercise(page))?.primary === "Mid/upper back",
       "blur trims the muscle box to the stored value",
       { value: await primary.inputValue(), stored: (await stagedExercise(page))?.primary }
     );
@@ -337,7 +337,7 @@ async function main() {
     await waitForApp(page);
     const reloaded = await storedExercise(page);
     check(
-      reloaded?.name === "Seated row" && reloaded?.primary === "Upper chest" &&
+      reloaded?.name === "Seated row" && reloaded?.primary === "Mid/upper back" &&
         JSON.stringify(reloaded?.alternates) === JSON.stringify(["Pec deck"]),
       "edited text fields survive a reload",
       { reloaded }

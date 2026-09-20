@@ -848,7 +848,7 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
       : 1 + (Array.isArray(value)
           ? value.reduce((sum, item) => sum + boundedNodeCount(item), 0)
           : Object.values(value).reduce((sum, item) => sum + boundedNodeCount(item), 0));
-    const maximumMuscleMap = Object.fromEntries(Array.from({ length: 128 }, (_, index) => [`Muscle ${index + 1}`, 1]));
+    const maximumMuscleMap = Object.fromEntries(window.RepForgeProgramEntry.MUSCLE_TOKENS.map((token, index) => [token, index + 1]));
     const maximumHistory = {
       schemaVersion: 1, throughWeek: 52, plannedSessions: 520, plannedWorkingSets: 5200,
       muscles: { direct: maximumMuscleMap, secondary: { ...maximumMuscleMap } },
@@ -873,7 +873,7 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
   assert.ok(upperEdit.maximumHistoryNodes < 1000,
     `the maximum bounded aggregate stays below the progression node bound (${upperEdit.maximumHistoryNodes})`);
   assert.equal(upperEdit.maximumEnvelopeValid, true,
-    "the 128-key direct/secondary aggregate envelope passes read validation");
+    "the complete canonical direct/secondary muscle aggregate passes read validation");
   await page.reload({ waitUntil: "domcontentloaded" });
   await page.waitForFunction(() => window.__repforgeBooted === true, null, { timeout: 20000 });
   assert.deepEqual(await page.evaluate(() => {
