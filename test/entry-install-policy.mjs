@@ -38,11 +38,10 @@
  *
  * Run:
  *   node test/entry-install-policy.mjs
- *   REPFORGE_URL=http://localhost:8000/ node test/entry-install-policy.mjs
- *   REPFORGE_URL=http://127.0.0.1:8054 node test/entry-install-policy.mjs
+ *   node tools/run-tests.mjs entry --suite entry-install-policy
  * Deliberate fault runs:
- *   REPFORGE_ENTRY_INSTALL_POLICY_FAULT=unsafe-ios-transfer REPFORGE_URL=http://127.0.0.1:8054 node test/entry-install-policy.mjs
- *   REPFORGE_ENTRY_INSTALL_POLICY_FAULT=loop-offer REPFORGE_URL=http://127.0.0.1:8054 node test/entry-install-policy.mjs
+ *   REPFORGE_ENTRY_INSTALL_POLICY_FAULT=unsafe-ios-transfer node tools/run-tests.mjs entry --suite entry-install-policy
+ *   REPFORGE_ENTRY_INSTALL_POLICY_FAULT=loop-offer node tools/run-tests.mjs entry --suite entry-install-policy
  */
 import { createRequire } from "node:module";
 import { isDeepStrictEqual } from "node:util";

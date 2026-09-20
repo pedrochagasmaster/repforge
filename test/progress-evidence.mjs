@@ -7,7 +7,7 @@ import { chromium } from "playwright";
 import { assertServingApp } from "./browser.mjs";
 import { seedProgram, seedProgramMeta } from "./fixtures/seed-program.mjs";
 
-const base = process.env.REPFORGE_URL || "http://127.0.0.1:8617/";
+const base = process.env.REPFORGE_URL || "http://localhost:8000/";
 await assertServingApp(base);
 const browser = await chromium.launch();
 const errors = [];

@@ -89,7 +89,7 @@ const BROWSER = process.env.REPFORGE_LIFECYCLE_BROWSER === "1";
 if (BROWSER) {
   const { chromium } = await import("playwright");
   const { assertServingApp } = await import("./browser.mjs");
-  const base = process.env.REPFORGE_URL || "http://127.0.0.1:8617/";
+  const base = process.env.REPFORGE_URL || "http://localhost:8000/";
   await assertServingApp(base);
   const browser = await chromium.launch();
   const errors = [];

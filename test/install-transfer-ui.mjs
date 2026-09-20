@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 
-const BASE = process.env.REPFORGE_URL || "http://127.0.0.1:8136/";
+const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const IOS_UA =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.5 Mobile/15E148 Safari/604.1";
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/install-transfer-clone-v1.json", import.meta.url), "utf8"));

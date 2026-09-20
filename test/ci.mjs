@@ -5,7 +5,7 @@ import { mkdtempSync, readFileSync, rmSync, writeFileSync, existsSync } from "no
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import test from "node:test";
-import { SUITES, SUPPORT, commandArgs, inventoryErrors } from "./suites.mjs";
+import { SUITES, SUPPORT, BROWSER_LANES, commandArgs, inventoryErrors } from "./suites.mjs";
 import { changedFiles, selectVisuals } from "../tools/ci-selection.mjs";
 import { changedFilesForTests, selectAffected } from "../tools/test-selection.mjs";
 import { execute, maybeStartLocalPreview, runLane } from "../tools/run-tests.mjs";
@@ -29,6 +29,24 @@ test("inventory schedules each command once and classifies support explicitly", 
   assert.deepEqual(SUITES.service.map((s) => s.file), ["test/install-transfer-service.mjs"]);
   assert.equal(Object.values(SUITES).flat().some((s) => s.file === "tools/build-vendor-runtimes.mjs"), false);
   assert.deepEqual(commandArgs({ file: "test/x.mjs", args: ["--self-test"], nodeArgs: ["--test"] }), ["--test", "test/x.mjs", "--self-test"]);
+});
+
+test("browser suites use the shared preview origin and never own fixed-port servers", () => {
+  const browserSuites = [...BROWSER_LANES].flatMap((lane) => SUITES[lane]);
+  for (const suite of browserSuites) {
+    assert.equal(suite.env?.REPFORGE_URL, undefined, `${suite.file} must inherit the runner-owned REPFORGE_URL`);
+    const source = readFileSync(join(process.cwd(), suite.file), "utf8");
+    const fallbacks = [...source.matchAll(/process\.env\.REPFORGE_URL\s*\|\|\s*["'](https?:\/\/(?:localhost|127\.0\.0\.1):(\d+)\/)["']/g)];
+    for (const [, origin, port] of fallbacks) {
+      assert.equal(port, "8000", `${suite.file} has a noncanonical REPFORGE_URL fallback: ${origin}`);
+    }
+    const documentedOrigins = [...source.matchAll(/REPFORGE_URL=http:\/\/(?:localhost|127\.0\.0\.1):(\d+)/g)];
+    for (const [, port] of documentedOrigins) {
+      assert.equal(port, "8000", `${suite.file} documents a stale fixed-port REPFORGE_URL example: ${port}`);
+    }
+    assert.doesNotMatch(source, /spawn\(\s*["']python3["'][\s\S]{0,240}http\.server/,
+      `${suite.file} must not start its own static server; the shared runner owns browser preview lifecycle`);
+  }
 });
 
 test("visual capture ignores non-rendering tests/tools but remains conservative for real inputs", () => {
@@ -60,6 +78,24 @@ test("affected selection is narrow when proven and fail-safe when it is not", ()
   assert.ok(runner.entries.length < Object.values(SUITES).flat().length);
   const telemetry = selectAffected(["telemetry.js"]);
   assert.deepEqual([...new Set(telemetry.entries.map(({ lane }) => lane))].sort(), ["fast", "privacy"]);
+  const manifestInput = selectAffected(["docs/ui-screens/manifest.json"]);
+  assert.equal(manifestInput.mode, "selected");
+  assert.deepEqual(manifestInput.entries.map(({ suite }) => suite.file).sort(), [
+    "test/ui-catalog-contract.mjs",
+    "test/ui-plan-050-build-hierarchy.mjs",
+    "test/ui-plan-050-editor.mjs",
+    "test/ui-screens.mjs",
+    "tools/check-ui-screens.mjs",
+  ].sort());
+  const baselineInput = selectAffected(["docs/ui-screens/screens/app/today__phone-390-light-en.png"]);
+  assert.equal(baselineInput.mode, "selected");
+  assert.deepEqual(baselineInput.entries.map(({ suite }) => suite.file).sort(), [
+    "test/ui-screens.mjs",
+    "tools/check-ui-screens.mjs",
+  ].sort());
+  const semanticInput = selectAffected(["docs/ui-screens/entry-semantics.json"]);
+  assert.equal(semanticInput.mode, "selected");
+  assert.deepEqual(semanticInput.entries.map(({ suite }) => suite.file), ["test/ui-screens.mjs"]);
   const app = selectAffected(["app.js"]);
   assert.equal(app.entries.length, Object.values(SUITES).flat().length - SUITES.service.length);
   const service = selectAffected(["services/install-transfer/src/index.js", ".github/workflows/install-transfer-service.yml"]);
@@ -130,7 +166,7 @@ test("temporary preview disables analytics and restores generated files on inter
   await assert.rejects(
     () => maybeStartLocalPreview([{ lane: "entry" }], {
       cwd,
-      env: { ...process.env, REPFORGE_URL: "http://localhost:8000/", CF_PAGES_BRANCH: "main", POSTHOG_ENABLE_PREVIEWS: "true", POSTHOG_PROJECT_TOKEN: "phc_secret" },
+      env: { ...process.env, REPFORGE_URL: "", CF_PAGES_BRANCH: "main", POSTHOG_ENABLE_PREVIEWS: "true", POSTHOG_PROJECT_TOKEN: "phc_secret" },
       signalSource,
       fetchImpl: fakeFetch,
       execFileSyncImpl: fakeExecFileSync,
@@ -177,7 +213,7 @@ test("temporary preview bounds every hanging readiness request and cleans up", a
   };
   const startup = maybeStartLocalPreview([{ lane: "entry" }], {
     cwd,
-    env: { ...process.env, REPFORGE_URL: "http://localhost:8000/" },
+    env: { ...process.env, REPFORGE_URL: "" },
     signalSource,
     fetchImpl: fakeFetch,
     execFileSyncImpl: fakeExecFileSync,
@@ -201,12 +237,58 @@ test("temporary preview bounds every hanging readiness request and cleans up", a
   }
   assert.equal(outcome.kind, "rejected");
   assert.match(outcome.error.message, /Could not start the temporary local preview/);
-  assert.equal(fetchCalls, 41);
-  assert.equal(deadlineAborts, 40);
+  assert.equal(fetchCalls, 40);
+  assert.equal(deadlineAborts, 39);
   assert.deepEqual(timeoutDelays, Array.from({ length: 40 }, () => 500));
   assert.deepEqual(killSignals, ["SIGTERM"]);
   assert.deepEqual(readFileSync(indexPath), originalIndex);
   assert.equal(existsSync(configPath), false);
+});
+
+test("temporary preview exports its isolated origin to browser suites", async (t) => {
+  const cwd = scratch(t);
+  writeFileSync(join(cwd, "index.html"), "original index bytes\n");
+  const signalSource = new EventEmitter();
+  const spawned = [];
+  const child = { pid: 4321, once() { return this; }, kill() {} };
+  const fakeExecFileSync = () => {};
+  const fakeFetch = async (url) => ({
+    ok: true,
+    async text() {
+      const marker = readFileSync(join(cwd, new URL(url).pathname), "utf8");
+      return marker;
+    },
+  });
+  const preview = await maybeStartLocalPreview([{ lane: "entry" }], {
+    cwd,
+    env: { ...process.env, REPFORGE_URL: "" },
+    signalSource,
+    fetchImpl: fakeFetch,
+    execFileSyncImpl: fakeExecFileSync,
+    spawnImpl: (...args) => { spawned.push(args); return child; },
+    killGroup: () => {},
+    allocatePort: async () => 29341,
+    identityToken: "fixture-preview-token",
+  });
+  assert.equal(preview.env.REPFORGE_URL, "http://127.0.0.1:29341/");
+  assert.deepEqual(spawned[0][1], ["-m", "http.server", "29341", "--bind", "127.0.0.1", "--directory", cwd]);
+  preview.cleanup();
+});
+
+test("explicit loopback preview must prove current-worktree identity", async (t) => {
+  const cwd = scratch(t);
+  writeFileSync(join(cwd, "index.html"), "original index bytes\n");
+  const signalSource = new EventEmitter();
+  await assert.rejects(
+    () => maybeStartLocalPreview([{ lane: "state" }], {
+      cwd,
+      env: { ...process.env, REPFORGE_URL: "http://127.0.0.1:8658/" },
+      signalSource,
+      fetchImpl: async () => ({ ok: false, async text() { return ""; } }),
+      identityToken: "wrong-worktree-proof",
+    }),
+    /is not serving this worktree/
+  );
 });
 
 test("runner continues after failure and cannot replay a failed suite to green", async (t) => {

@@ -24,7 +24,7 @@ const Telemetry = require("../telemetry.js");
 const Contract = require("../install-transfer-contract.js");
 const PostHogInit = require("../posthog-init.js");
 
-const BASE = process.env.REPFORGE_URL || "http://127.0.0.1:8056/";
+const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const POSTHOG_SDK_PATH = "/static/1.400.0/array.js";
 const IDENTITY_KEY = "repforge_telemetry_identity_v1";
 const CONSENT_KEY = "repforge_telemetry_enabled_v1";

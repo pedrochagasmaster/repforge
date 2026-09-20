@@ -38,7 +38,7 @@ import { installSeedProgram } from "./fixtures/seed-program.mjs";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const ROOT = resolve(__dirname, "..");
-const BASE = process.env.REPFORGE_URL || "http://127.0.0.1:8054/";
+const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 
 // Fault switch configuration
 const FAULT =
