@@ -17,7 +17,7 @@ import { clonePayloadHashOf } from "../tools/canonical-clone-hash.mjs";
 import { launchChromium, assertServingApp, waitForAppBoot } from "./browser.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const BASE = process.env.REPFORGE_URL || "http://localhost:8053/";
+const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
 const ARTIFACT_DIR = process.env.REPFORGE_ARTIFACT_DIR || "/tmp/plan053-p1a";
 const REPORT_PATH = join(ARTIFACT_DIR, "install-transfer-clone-report.json");
 const STATE_KEY = "repforge_v1";
