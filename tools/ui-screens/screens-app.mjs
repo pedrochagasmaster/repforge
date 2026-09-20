@@ -237,7 +237,17 @@ async function confirmRecovery(page) {
   await recoveryPreview(page);
   await page.click("[data-preview-confirm]");
   await page.waitForSelector(".review__staged", { timeout: 20000 });
+  // The commit toast is written through two animation frames so repeated
+  // captures do not announce the same message without a DOM change. Wait for
+  // that final text before closing the staged flow; otherwise a busy runner
+  // can photograph the toast shell and an intermediate review layout.
+  const waitForRecoveryToast = () => page.waitForFunction(() => {
+    const toast = document.querySelector("#toast");
+    return toast && !toast.classList.contains("hidden") && toast.textContent.trim();
+  }, undefined, { timeout: 5000 });
+  await waitForRecoveryToast();
   await page.click("[data-flow-cancel]");
+  await waitForRecoveryToast();
   await sleep(page, 400);
 }
 
