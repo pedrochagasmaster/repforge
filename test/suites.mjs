@@ -120,6 +120,7 @@ export const SUITES = {
     s("test/entry-expert-controls.mjs"),
     s("test/entry-install-policy.mjs"),
     s("test/entry-guides.mjs"),
+    s("test/settings-groups.mjs"),
     s("test/entry-privacy.mjs"),
   ],
   workout: [

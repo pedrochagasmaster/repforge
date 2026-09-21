@@ -169,7 +169,7 @@ function extractJsKeys(src) {
 }
 
 const DYNAMIC_FAMILIES = [
-  { test: (s) => s.includes("guide.${id}.title") || s.includes("guide.${id}.body"), keys: (en) => Object.keys(en).filter((k) => /^guide\.[^.]+\.(title|body)$/.test(k)) },
+  { test: (s) => s.includes("guide.${id}.title") || s.includes("guide.${id}.body") || s.includes("guide.${guide.id}.title") || s.includes("guide.${guide.id}.body"), keys: (en) => Object.keys(en).filter((k) => /^guide\.[^.]+\.(title|body)$/.test(k)) },
   { test: (s) => s.includes("onb.title.${onbStep}"), keys: (en) => Object.keys(en).filter((k) => /^onb\.title\.\d+$/.test(k)) },
   { test: (s) => s.includes("entry.desired_result.${"), keys: (en) => Object.keys(en).filter((k) => /^entry\.desired_result\.[^.]+\.(label|sub)$/.test(k)) },
   { test: (s) => s.includes("entry.background.experience.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.background.experience.") && k !== "entry.background.experience.label") },

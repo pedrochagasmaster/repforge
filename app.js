@@ -67,6 +67,7 @@ let installTransferModulePromise=null;
 let installTransferTelemetryBooted=false;
 let installTransferFreezeOwner=null;
 let installTransferFreezeChannel=null;
+let installTransferImportedThisBoot=false;
 function installTransferRawAtLoad(key){try{return localStorage.getItem(key)}catch{return null}}
 const installTransferInitialDevice={
   ui:installTransferRawAtLoad(INSTALL_UI_KEY),
@@ -6623,6 +6624,11 @@ function renderWorkout(){
   updateSessionBanner();
   updateFocusChrome();
   sizeFocusDeck();
+  // These two guides own concrete Focus controls. Queue them only after the
+  // current Log action/header projection exists; the guide layer will defer a
+  // hidden anchor rather than navigating to another surface.
+  queueMicrotask(()=>maybeShowContextualGuides(["first-set"]));
+  queueMicrotask(()=>maybeShowContextualGuides(["focus-utilities"]));
 }
 /** After a render, bring every card in the deck to the row that matters — the
  *  peeks included, so a neighbour rides in already showing what it will show
@@ -10584,7 +10590,19 @@ async function setNotificationsEnabled(wanted){
     paintNotifyControls()}
   finally{if(notifyRequestInFlight===request)notifyRequestInFlight=null}}
 
+function renderGuideReplayList(){
+  const list=$("#guideReplayList");
+  if(!list||!GuideRegistry?.GUIDE_DEFINITIONS)return;
+  list.innerHTML=GuideRegistry.GUIDE_DEFINITIONS.map(guide=>
+    `<button type="button" class="btn btn--steel guide-replay__item" data-guide-replay="${esc(guide.id)}">`+
+      `<span class="guide-replay__title">${esc(t(`guide.${guide.id}.title`))}</span>`+
+      `<span class="guide-replay__body">${esc(t(`guide.${guide.id}.body`))}</span>`+
+    `</button>`).join("");
+  $$("#guideReplayList [data-guide-replay]").forEach(button=>{
+    button.onclick=()=>replayContextualGuide(button.dataset.guideReplay)
+  })}
 function renderSettings(){
+  renderGuideReplayList();
   const jp=$("#jumpPct"),mj=$("#minJump"),rh=$("#rirHigh"),hr=$("#hardRir"),rs=$("#restSec"),un=$("#unit");
   if(jp)jp.value=state.settings.jumpPct;if(mj)mj.value=state.settings.minJump;if(rh)rh.value=state.settings.rirHigh;if(hr)hr.value=state.settings.hardRir;
   if(rs)rs.value=state.settings.restSec;if(un)un.value=state.settings.unit;
@@ -15575,14 +15593,16 @@ function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=fa
     event.preventDefault();event.stopPropagation();dismissContextualGuide({restoreFocus:true})});
   // #firstRunPrivacy lives in the narrow header utility row: inserted there,
   // the cue is a flex sibling with no room and collapses into a vertical
-  // sliver of one word per line. Anchoring it after the whole header instead
-  // keeps it a full-width block without changing which control it names.
-  const placement=anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||
+  // sliver of one word per line. Focus's own controls likewise need the whole
+  // owning surface as their insertion point so a cue never joins a fixed row.
+  const placement=anchor.closest(".focus-well")||anchor.closest(".wo-head")||
+    anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||
     anchor.closest("#statsSeg")||anchor;
   placement.insertAdjacentElement("afterend",cue);
   activeGuideId=id;activeGuideAnchor=anchor;activeGuideCue=cue;
   activeGuideReturnFocus=returnFocus instanceof HTMLElement?returnFocus:null;
-  saveGuideTransition(id,"shown");
+  const stored=guideStored(id);
+  if(stored?.version!==guide.version||stored?.status!=="shown")saveGuideTransition(id,"shown");
   if(focus)queueMicrotask(()=>dismiss?.focus({preventScroll:true}));
   return true}
 function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
@@ -15594,10 +15614,16 @@ function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
   // here rather than at a call site: otherwise any future render path
   // re-opens the same hole. The guides keep their state and their real
   // moments — "entry" at the chooser, "install" and "privacy" in Settings.
-  if(firstRunOpen())return false;
+  if(installTransferImportedThisBoot||firstRunOpen())return false;
   if(activeGuideCue?.isConnected&&activeGuideAnchor&&guideAnchor(guideDefinition(activeGuideId))===activeGuideAnchor)return true;
   removeContextualGuide();
-  for(const id of ids)if(showContextualGuide(id))return true;
+  for(const id of ids){
+    // These first-use cues are noise for a lifter with an established log and
+    // would consume the Focus card's fixed geometry on compact history views.
+    // Replay remains explicit and is never filtered by this automatic gate.
+    if((id==="first-set"||id==="focus-utilities")&&
+      (state?.log||[]).some(row=>row&&!row.warmup))continue;
+    if(showContextualGuide(id))return true}
   return false}
 function completeContextualGuide(){
   if(!activeGuideId)return false;
@@ -16035,7 +16061,11 @@ function init(){
   const rirRow=$("#rirModeRow");if(rirRow)rirRow.onclick=()=>setDisclosure(rirRow,$("#rirModePanel"),!$("#rirModePanel")?.classList.contains("is-open"));
   const progRow=$("#progressionRow");if(progRow)progRow.onclick=()=>setDisclosure(progRow,$("#progressionDetails"),!$("#progressionDetails")?.classList.contains("is-open"));
   const notifyCfg=$("#notifyConfigRow");if(notifyCfg)notifyCfg.onclick=()=>setDisclosure(notifyCfg,$("#notifyTypes"),!$("#notifyTypes")?.classList.contains("is-open"));
-  const dataBackup=$("#dataBackupRow");if(dataBackup)dataBackup.onclick=()=>setDisclosure(dataBackup,$("#dataBackupPanel"),!$("#dataBackupPanel")?.classList.contains("is-open"));
+  const dataBackup=$("#dataBackupRow");if(dataBackup)dataBackup.onclick=()=>{
+    const open=!$("#dataBackupPanel")?.classList.contains("is-open");
+    setDisclosure(dataBackup,$("#dataBackupPanel"),open);
+    if(open)requestAnimationFrame(()=>maybeShowContextualGuides(["backup"]));
+  };
   const dataImport=$("#dataImportRow");if(dataImport)dataImport.onclick=()=>setDisclosure(dataImport,$("#dataImportPanel"),!$("#dataImportPanel")?.classList.contains("is-open"));
   [["#restSecRow","#restSecPanel"],["#rirModeRow","#rirModePanel"],["#progressionRow","#progressionDetails"],["#notifyConfigRow","#notifyTypes"],["#dataBackupRow","#dataBackupPanel"],["#dataImportRow","#dataImportPanel"]].forEach(([b,p])=>setDisclosure($(b),$(p),false));
   setDisclosure($("#guideReplayToggle"),$("#guideReplayPanel"),false);
@@ -16376,7 +16406,7 @@ async function boot(){
     if(standalonePrepared?.ok!==true)return{...(standalonePrepared||{ok:false,code:"standalone-transfer-failed"}),decision,productRecovery:true};
     const standaloneTransfer=await installTransferCompleteStandaloneBoot(standalonePrepared);
     if(standaloneTransfer?.ok!==true)return{...(standaloneTransfer||{ok:false,code:"standalone-transfer-failed"}),decision,productRecovery:true};
-    return{ok:true,decision,transferResult:standaloneTransfer};
+    return{ok:true,decision,preBootTransfer,transferResult:standaloneTransfer};
   };
   const transferResult=await installTransferBootNeedsLock()
     ?await withInstallTransferLock(transferWork):await transferWork();
@@ -16401,6 +16431,8 @@ async function boot(){
     openIosInstallSheet(failureState);
     return}
   const decision=transferResult.decision;
+  installTransferImportedThisBoot=transferResult.preBootTransfer?.localOk===true||
+    transferResult.transferResult?.localOk===true;
   bootTelemetry();
   if(transferResult.transferResult?.localOk===true){
     try{

@@ -579,6 +579,9 @@ select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
    space before a caption *is* the boundary, so it has to be wide enough to be
    read as one: 34px above a caption against 8px below it. */
 .settings-group{margin-bottom:34px}
+.settings-group__summary{
+  margin:0 var(--settings-inset) 8px;color:var(--ink-soft);font-size:13px;line-height:1.4;
+}
 .settings-group > .lede{font-size:12px;text-transform:none;letter-spacing:0;font-weight:400;padding:0 0 12px;margin:0;color:var(--ink-soft)}
 .settings-group__label{
   font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
@@ -2542,6 +2545,9 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
 .settings-panel.guide-replay.is-open{display:grid}
 .guide-replay .lede{margin:0 0 2px}
 .guide-replay .btn{width:100%;justify-content:flex-start;text-align:left}
+.guide-replay__item{display:grid;gap:3px}
+.guide-replay__title{font-weight:650}
+.guide-replay__body{font-size:12px;line-height:1.35;color:var(--ink-soft);white-space:normal}
 
 /* Icon and copy share the first row; the action takes a row of its own, the way
    the first-run install card sets it. A CTA is a 100%-width control that does
