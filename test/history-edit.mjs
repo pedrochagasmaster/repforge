@@ -223,6 +223,21 @@ async function main() {
     assert(await deleteButton.count() === 1 && await deleteButton.isVisible(),
       "Delete is a separate named action on the selected session");
     await deleteButton.click();
+    await page.waitForSelector('[data-history-delete-confirm="history-other"]', { timeout: 5000 });
+    const changedForDelete = structuredClone((await readReplicas(page)).local);
+    changedForDelete.log.find((row) => row.session === "history-other" && row.set === 2).load = 61;
+    changedForDelete._storageRevision = Number(changedForDelete._storageRevision || 0) + 1;
+    await writeState(page, changedForDelete);
+    await page.locator('[data-history-delete-confirm="history-other"]').click();
+    await page.waitForSelector('[data-history-operation="conflict"]', { timeout: 5000 });
+    const afterStaleDelete = await readReplicas(page);
+    assert(afterStaleDelete.local.log.some((row) => row.session === "history-other") &&
+      afterStaleDelete.local.log.some((row) => row.session === "history-edit-a"),
+      "Stale Delete refuses to remove a changed session", JSON.stringify(afterStaleDelete.local.log));
+    await page.locator('[data-history-reload]').click();
+    await page.waitForSelector('[data-history-edit="history-other"]', { timeout: 5000 });
+    await page.locator('[data-del="history-other"]').click();
+    await page.locator('[data-history-delete-confirm="history-other"]').click();
     await page.waitForFunction(() => {
       const value = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
       return !value.log?.some((row) => row.session === "history-other");

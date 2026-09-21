@@ -666,7 +666,8 @@ export async function runHistoryOperabilityChecks(page, check = assert) {
   await page.click('[data-history-edit="ui-b"]');
   await page.click('[data-edcancel]');
   await page.click('[data-reading="ui-b"] [data-del="ui-b"]');
-  await page.waitForTimeout(80);
+  await page.click('[data-history-delete-confirm="ui-b"]');
+  await page.waitForFunction(() => !JSON.parse(localStorage.getItem("repforge_v1") || "{}").log?.some((row) => row.session === "ui-b"));
   const remaining = await page.evaluate(() =>
     [...document.querySelectorAll("#sessions [data-sess]")].map((el) => el.getAttribute("data-sess"))
   );

@@ -2110,7 +2110,12 @@ async function main() {
   await delBtn.waitFor({ state: "visible", timeout: 5000 });
   const delSessionId = await delBtn.getAttribute("data-del");
   await delBtn.click();
-  await page.waitForTimeout(150);
+  await page.locator('[data-history-delete-confirm="' + delSessionId + '"]').click();
+  await page.waitForFunction(
+    (sid) => !JSON.parse(localStorage.getItem("repforge_v1") || "{}").log?.some((row) => row.session === sid),
+    delSessionId,
+    { timeout: 5000 }
+  );
 
   state = await getState(page);
   const sessionsAfter = state.log.length;

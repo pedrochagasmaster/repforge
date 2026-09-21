@@ -9011,10 +9011,27 @@ async function historyFinishResult(result,successKey,operation){
     historySetSelection(next||{mode:"calendar",sessionId:null,originalFingerprint:"",workingCopy:null,dirty:false,validation:null,operation:null});
     render();toast(t(successKey));return true}
   render();return false}
-async function deleteSession(sid,io=storageIO){const proposal=cloneSnapshot(state);
+function historyBeginDelete(sid){
+  const rows=historySessionRows(state.log,sid);if(!rows.length)return false;
+  historySetSelection({mode:"deleting",sessionId:String(sid),originalFingerprint:historySessionFingerprint(rows),
+    workingCopy:null,dirty:false,validation:null,operation:"delete"});
+  renderHistory();return true}
+async function deleteSession(sid,io=storageIO,{originalFingerprint=null}={}){
+  const rows=historySessionRows(state.log,sid),original=originalFingerprint||historySessionFingerprint(rows);
+  const proposal=cloneSnapshot(state);
   proposal.log=proposal.log.filter(row=>String(row?.session??"")!==String(sid));
-  const result=await commitProposedState(proposal,io);
-  if(result.localOk||result.idbOk){if(editSession===sid)editSession=null;render();toast(t("toast.session_deleted"))}
+  const preflight=({head})=>{
+    const current=historySessionRows(head.log,sid),fingerprint=historySessionFingerprint(current);
+    if(!current.length)return{reject:true,result:{ok:true,committed:true,alreadyCommitted:true,
+      revision:readRevision(head),localOk:true,idbOk:true,kind:"committed"}};
+    if(fingerprint!==original)return{reject:true,result:{ok:false,committed:false,conflict:true,stale:true,
+      code:"history_stale",revision:readRevision(head),localOk:false,idbOk:false}};
+    const next=cloneSnapshot(head);
+    next.log=next.log.filter(row=>String(row?.session??"")!==String(sid));
+    return{proposal:next};
+  };
+  const result=await commitProposedState(proposal,io,{preflight});
+  await historyFinishResult(result,"toast.session_deleted","delete");
   return result}
 function historyReadingView(s,rows){
   const setRows=rows.map(row=>`<div class="history-read__row"><span class="history-read__name">${esc(displayName(row))}</span>`+
@@ -9028,6 +9045,12 @@ function historyReadingView(s,rows){
     `<div class="history-read__rows">${setRows}</div>`+
     `<div class="history-read__actions"><button type="button" class="btn btn--cta" data-history-edit="${esc(s.session)}">${esc(t("history.session.edit"))}</button>`+
     `<button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div></article>`}
+function historyDeleteView(s){
+  return '<article class="session session--delete" data-deleting="'+esc(s.session)+'" role="alert">'+
+    '<div class="history-delete__icon" aria-hidden="true">!</div><h3>'+esc(t("history.delete_title"))+'</h3>'+
+    '<p>'+esc(t("confirm.delete_session"))+'</p><div class="edbtns">'+
+    '<button type="button" class="btn btn--steel" data-history-delete-cancel>'+esc(t("history.edit.cancel"))+'</button>'+
+    '<button type="button" class="btn btn--danger" data-history-delete-confirm="'+esc(s.session)+'">'+esc(t("history.session.delete"))+'</button></div></article>'}
 function historyConflictView(s,mode,operation){
   const failure=mode==="failure",copy=failure?t("history.operation_failed"):t("history.operation_conflict");
   return`<article class="session history-operation" data-history-operation="${esc(mode)}" role="alert">`+
@@ -9056,10 +9079,10 @@ function historyCancelOperation(){
 function bindHistorySelection(){
   $("[data-history-back]")?.addEventListener("click",historyBackToCalendar);
   $("[data-history-edit]")?.addEventListener("click",historyStartEditing);
+  $("[data-history-delete-cancel]")?.addEventListener("click",historyCancelOperation);
+  $("[data-history-delete-confirm]")?.addEventListener("click",()=>deleteSession($("[data-history-delete-confirm]").dataset.historyDeleteConfirm,storageIO,{originalFingerprint:historySelection.originalFingerprint}));
   $$("[data-del]").forEach(b=>b.addEventListener("click",async e=>{
-    e.stopPropagation();const sid=b.dataset.del;
-    if(!confirm(t("confirm.delete_session")))return;
-    await deleteSession(sid)}));
+    e.stopPropagation();historyBeginDelete(b.dataset.del)}));
   $$("[data-edcancel]").forEach(b=>b.addEventListener("click",historyCancelOperation));
   $$("[data-edsave]").forEach(b=>b.addEventListener("click",()=>saveSessionEdit(b.dataset.edsave)));
   $$("[data-history-reload]").forEach(b=>b.onclick=()=>historyReloadLatest());
@@ -9084,6 +9107,7 @@ function renderHistory(source=state.log){
     let body="";
     if(mode==="reading")body=historyReadingView(record,record.rows);
     else if(mode==="editing")body=sessionEditor(record,copy);
+    else if(mode==="deleting")body=historyDeleteView(record);
     else body=historyConflictView(record,mode,historySelection.operation);
     selectionEl.innerHTML=`<div class="history-selection__head"><button type="button" class="back-link" data-history-back>‹ ${esc(t("history.back_calendar"))}</button>`+
       `<div class="history-selection__date"><span class="section-label">${esc(t("history.selected"))}</span><h3>${esc(longDate)}</h3></div></div>`;
