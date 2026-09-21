@@ -7859,10 +7859,11 @@ async function main() {
     "Seed 100×8 → save 100×10 → summary mentions improved"
   );
   assert(
-    /\d+ improved/.test(deltaSummary),
-    "Session summary delta uses count format",
+    /OUTCOME BY LIFT\s+Hack squat\s+Improved/i.test(deltaSummary) &&
+      !/\b\d+\s+improved\b/i.test(deltaSummary),
+    "Session summary uses canonical outcome rows without a second delta count",
     `Summary: ${JSON.stringify(deltaSummary)}`,
-    "Summary should read like '1 improved'"
+    "Summary should keep the OUTCOME BY LIFT Improved row without inventing a local count"
   );
   const compareImproved = await page.evaluate(
     ({ exId, sid }) => {

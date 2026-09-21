@@ -489,7 +489,12 @@ export const APP_SCENARIOS = {
     await page.waitForSelector("#sessions .session__open", { timeout: 20000 });
     await sleep(page, 500);
     await page.locator("#sessions .session__open").first().click({ timeout: 30000 });
-    await page.waitForSelector(".session--edit", { timeout: 20000 });
+    await page.waitForSelector(".session--read", { timeout: 20000 });
+    await page.waitForSelector("[data-history-edit]", { timeout: 20000 });
+    // The read actions are the destructive boundary at large text. Capture the
+    // scroll-end state so the fixed navigation cannot hide Edit or Delete in
+    // the PT+200 matrix.
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await sleep(page, 400);
   },
 
