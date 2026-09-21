@@ -2825,7 +2825,6 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .today-prog__name{font-size:16px;font-weight:600}
 .today-prog__week{font-size:14px;color:var(--ink-soft);margin-top:4px}
 .today-prog .segbar{margin-top:12px}
-.today-prog__done{margin-top:10px;text-align:right;font-size:13px;color:var(--ink-soft)}
 
 /* Today, once a session is saved: a recap stands where the start CTA would be. */
 .today-done{padding:4px 0 8px}

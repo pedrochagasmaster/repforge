@@ -5945,8 +5945,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
     const segs=mc.total||6,cur=mc.current||0,weekCopy=mesocycleWeekCopy(mc);
     progEl.innerHTML=`<div class="today-prog__name">${esc(nm||t("untitled_program"))}</div>`+
       (weekCopy?`<div class="today-prog__week">${esc(weekCopy)}</div>`:"")+
-      `<div class="segbar">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}${i===Math.min(cur,segs)-1?" is-current":""}"></span>`).join("")}</div>`+
-      (week.plannedDays?`<div class="today-prog__done">${esc(t("today.sessions_done",{done:week.completedDays,planned:week.plannedDays}))}</div>`:"")}
+      `<div class="segbar">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}${i===Math.min(cur,segs)-1?" is-current":""}"></span>`).join("")}</div>`}
     else{progEl.classList.add("hidden");progEl.innerHTML=""}}
   // A saved session means today is spent: Today recaps it instead of offering the
   // day again. An unsaved draft still outranks it — that session is not over.

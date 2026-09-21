@@ -130,6 +130,7 @@ export const SUITES = {
     s("test/history.mjs"),
     s("test/history-edit.mjs"),
     s("test/today-done.mjs"),
+    s("test/today-week-line.mjs"),
     s("test/today-day-picker.mjs"),
     s("test/today-preview.mjs"),
     s("test/focus-mode.mjs"),
