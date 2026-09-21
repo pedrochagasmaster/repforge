@@ -1428,9 +1428,10 @@ class Exercise{
     if(this.libraryId===undefined||preserveLinkedSnapshot)return this;
     const entry=entries?entries(this.libraryId):libraryEntry(this.libraryId);
     if(!entry){
-      // The definition is gone (an import referencing an unknown id). Keep the
-      // copied strings and drop the link rather than pretend it resolves.
-      delete this.libraryId;delete this.displayName;
+      // The definition is gone (an import or older install referencing an
+      // unknown id). Keep the exact identity and copied facts so management
+      // surfaces can fail closed and offer an explicit repair. Share owns the
+      // diagnosis; no reader may silently turn this into a different movement.
       return this}
     this.name=this.displayName||libraryName(entry);
     this.primary=entry.primary||"";
@@ -9358,6 +9359,7 @@ function editorChooseExercise(request){
   return new Promise(resolve=>{
     const options={title:request?.mode==="replace"?t("picker.title_change"):request?.mode==="alternates"?t("picker.title_alternates"):t("picker.add_to",{day:dayLabel(request?.day)}),
       subtitle:request?.exercise?.name||"",exclude:request?.exclude||[],onPick:entry=>resolve(entry),
+      ...(request?.repair?{onCancel:()=>resolve(null),stageOnly:true,repairSeed:request.exercise}:{}),
       ...(request?.mode==="add"?{quick:true,day:request.day}: {})};
     if(request?.mode==="alternates"){
       options.mode="multi";
@@ -9471,6 +9473,12 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     const existing=document.program?.find(item=>item.id===edit.targetId);
     if(!existing)return{conflict:true};
     if(check&&edit.beforeLibraryId!==undefined&&existing.libraryId!==edit.beforeLibraryId)return{conflict:true};
+    if(edit.customExercise){
+      const customExercises=Array.isArray(document.customExercises)?document.customExercises:[];
+      const current=customExercises.find(item=>item?.id===edit.customExercise.id);
+      if(current&&!changeValueEqualForEditor(current,edit.customExercise))return{conflict:true};
+      if(!current)document.customExercises=customExercises.concat(cloneSnapshot(edit.customExercise));
+    }
     if(edit.exercise)Object.assign(existing,cloneSnapshot(edit.exercise));
     return{ok:true};
   }
@@ -9593,7 +9601,7 @@ function createInstalledProgramEditorAdapter(){
           const lockedProposal=editorSnapshotFromDocument(document,lockedHead);
           return{proposal:lockedProposal};
         }});
-      if(result.localOk||result.idbOk){
+      if(result.committed===true&&result.settled===true){
         if(effect?.status==="valid"&&effect.effect?.kind==="clear-draft")resetDraftSessionState();
         installedEditorSession=null;return{...result,ok:true,document,token:installedEditorToken(state)}}
       return{...result,ok:false,conflict:!!(result.conflict||result.staleRevision)};
@@ -9718,6 +9726,7 @@ function openInstalledLeaveDialog({workout=false}={}){
 }
 function finishInstalledEditor({discard=false,historyAlreadyPopped=false}={}){
   const nextView=pendingEditorNavigation;
+  const wasShareRepair=!!shareRepairReturn;
   pendingEditorNavigation=null;
   installedLeaveMode=null;
   closeModal($("#programEditorLeave"));
@@ -9725,6 +9734,7 @@ function finishInstalledEditor({discard=false,historyAlreadyPopped=false}={}){
   installedProgramEditor?.dispose?.();installedProgramEditor=null;installedEditorSession=null;programEditMode=false;
   disarmInstalledEditorHistory({historyAlreadyPopped});
   render();
+  if(wasShareRepair)reopenShareAfterRepair();
   if(nextView){
     const button=$(`nav button[data-view="${CSS.escape(nextView)}"]`);
     if(button)button.click();
@@ -9741,12 +9751,13 @@ async function applyInstalledEditorAndContinue(){
     return result;
   }
   if(result?.conflict||result?.editorConflict||result?.staleRevision){
+    if(shareRepairReturn){finishInstalledEditor({discard:true});return result}
     const status=$("#programEditor [data-role=\"editor-status\"]");
     if(status){status.textContent=t("program.editor.conflict");status.hidden=false;status.classList.add("is-error");}
     closeInstalledLeaveDialog();
     return result;
   }
-  if(result?.ok||result?.localOk||result?.idbOk){
+  if(result?.committed===true&&result?.settled===true){
     finishInstalledEditor();
     maybeShowInstallBanner();
   }
@@ -10684,7 +10695,7 @@ function sharedExercise(ex,preserveIdentity=false){
   const libraryId=LEGACY_LIBRARY_IDS[ex?.libraryId]||ex?.libraryId;
   const out={day:ex?.day,order:ex?.order,libraryId,sets:ex?.sets,min:ex?.min,max:ex?.max,
     notes:ex?.notes||"",alternates:Array.isArray(ex?.alternates)?[...ex.alternates]:[]};
-  if(preserveIdentity){out.id=ex?.id;const movementId=ProgramEntryAdapter.sharedMovementId(ex,LEGACY_LIBRARY_IDS);if(movementId)out.movementId=movementId}
+  if(preserveIdentity&&ex?.id){out.id=ex.id;const movementId=ProgramEntryAdapter.sharedMovementId(ex,LEGACY_LIBRARY_IDS);if(movementId)out.movementId=movementId}
   for(const key of ["displayName","progressionType","targetRirStart","targetRirEnd","minSets","maxSets","priority"])
     if(ex?.[key]!==undefined)out[key]=ex[key];
   for(const key of ["slotId","dayId","loadingMode","loadIncrement"])
@@ -10704,7 +10715,19 @@ function buildSharedSetupPayload(){
   const source=prog.toJSON();
   const relations=normalizeProgressionRelations(state.programMeta?.progressionRelations,source);
   const relationSlots=new Set(relations.flatMap(relation=>relation.members.map(member=>member.exerciseId)));
-  const exercises=source.map(ex=>sharedExercise(ex,relationSlots.has(ex.id)));
+  const exercises=source.map(ex=>{
+    const row=sharedExercise(ex,true);
+    // These facts are diagnostic input only. SharedSetup.validate() consumes
+    // them to explain an unresolved slot, then pickExercise() drops the
+    // private field before canonicalisation so it can never enter a link.
+    row.__diagnostic={
+      displayName:ex?.displayName||ex?.name||ex?.libraryId||"",
+      ...(Array.isArray(ex?.equipment)?{equipment:[...ex.equipment]}:{}),
+      ...(ex?.primary!==undefined?{primary:ex.primary}:{}),
+      ...(ex?.secondary!==undefined?{secondary:ex.secondary}:{}),
+    };
+    return row;
+  });
   return{kind:SharedSetup.KIND,version:SharedSetup.VERSION,
     program:{meta:sharedProgramMeta(state.programMeta,prog),exercises,
       customExercises:referencedCustomExercises(exercises).map(sharedCustomExercise)},
@@ -10778,28 +10801,52 @@ function closeProgramTextSheet(){
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
   programTextReturn=null;
   return closeModal(sheet)}
-let shareSetupReturn=null,shareSetupLink="";
-function setShareSetupState(message,{ready=false}={}){
+let shareSetupReturn=null,shareSetupLink="",shareSetupBlockers=[],shareRepairReturn=null;
+function shareSetupBlockerMessage(count){
+  const n=Number(count)||0;
+  const form=n===1?"one":"other";
+  return t(`program.share_setup_blocked.${form}`,{n});
+}
+function renderShareSetupBlockers(){
+  const summary=$("#shareSetupBlockerSummary"),list=$("#shareSetupBlockers");
+  const blockers=Array.isArray(shareSetupBlockers)?shareSetupBlockers:[];
+  if(summary){summary.textContent=blockers.length?shareSetupBlockerMessage(blockers.length):"";summary.classList.toggle("hidden",!blockers.length)}
+  if(!list)return;
+  list.classList.toggle("hidden",!blockers.length);
+  list.innerHTML=blockers.map(blocker=>{
+    const id=String(blocker?.exerciseInstanceId??"");
+    const reason=t(`program.share_setup_reason.${blocker?.reasonCode}`)||t("program.share_setup_reason.unknown");
+    return `<div class="share-setup__blocker" data-share-blocker-id="${esc(id)}" data-share-day-id="${esc(blocker?.dayId||"")}" data-share-reason="${esc(blocker?.reasonCode||"")}" role="listitem">`+
+      `<div class="share-setup__blocker-copy"><strong>${esc(blocker?.displayName||t("program.share_setup_exercise"))}</strong>`+
+      `<span>${esc(reason)}</span></div>`+
+      `<button type="button" class="btn btn--steel share-setup__repair" data-share-repair="${esc(id)}">${esc(t("program.share_setup_repair"))}</button></div>`;
+  }).join("");
+  $$("#shareSetupBlockers [data-share-repair]").forEach(button=>button.onclick=()=>beginShareRepair(button.dataset.shareRepair));
+}
+function setShareSetupState(message,{ready=false,blockers=null}={}){
+  if(blockers!==null)shareSetupBlockers=Array.isArray(blockers)?blockers:[];
+  renderShareSetupBlockers();
+  const blocked=shareSetupBlockers.length>0;
+  ready=ready&&!blocked;
   const status=$("#shareSetupStatus"),out=$("#shareSetupLink"),share=$("#shareSetupShare"),copy=$("#shareSetupCopy");
   if(status){status.textContent=message||"";status.classList.toggle("hidden",!message)}
   if(out){if("value" in out)out.value=ready?shareSetupLink:"";else out.textContent=ready?shareSetupLink:""}
-  if(share){share.disabled=!ready||typeof navigator.share!=="function";share.classList.toggle("hidden",typeof navigator.share!=="function")}
-  if(copy)copy.disabled=!ready}
-function sharedSetupErrorMessage(result,unlinked=false){
-  if(unlinked)return t("program.share_setup_unlinked");
+  if(share){share.disabled=!ready||typeof navigator.share!=="function";share.classList.toggle("hidden",!ready||typeof navigator.share!=="function")}
+  if(copy){copy.disabled=!ready;copy.classList.toggle("hidden",!ready)}
+}
+function sharedSetupErrorMessage(result){
+  if(result?.code==="unresolved-exercises")return shareSetupBlockerMessage(result.blockers?.length||0);
   if(result?.code==="compression-unavailable")return t("program.share_setup_unsupported");
   if(result?.code==="encoded-too-large")return t("setup.shared.too_large");
   return t("program.share_setup_invalid")}
 async function buildShareSetupLink(){
   shareSetupLink="";
-  setShareSetupState(t("program.share_setup_building"));
+  setShareSetupState(t("program.share_setup_building"),{blockers:[]});
   if(!SharedSetup){setShareSetupState(t("program.share_setup_unsupported"));return}
-  const unlinked=prog.toJSON().some(ex=>!ex.libraryId||!libraryEntry(ex.libraryId));
-  if(unlinked){setShareSetupState(sharedSetupErrorMessage(null,true));return}
   let payload;
   try{payload=buildSharedSetupPayload()}catch{setShareSetupState(t("program.share_setup_invalid"));return}
   const checked=SharedSetup.validate(payload,{builtInIds:SHARED_BUILT_IN_IDS});
-  if(!checked.ok){setShareSetupState(sharedSetupErrorMessage(checked));return}
+  if(!checked.ok){setShareSetupState(sharedSetupErrorMessage(checked),{blockers:checked.blockers||[]});return}
   let encoded;
   try{encoded=await SharedSetup.encode(checked.value,{builtInIds:SHARED_BUILT_IN_IDS})}
   catch{setShareSetupState(t("program.share_setup_unsupported"));return}
@@ -10809,7 +10856,39 @@ async function buildShareSetupLink(){
   url.search="";
   url.hash=`setup=${encoded.value}`;
   shareSetupLink=url.href;
-  setShareSetupState("",{ready:true})}
+  setShareSetupState("",{ready:true,blockers:[]})}
+function shareRepairToken(){
+  return{surface:"share",programId:state?.programMeta?.id||null,blockId:snapshotBlockId(state),exerciseInstanceId:null};
+}
+function shareRepairTargetMatches(token,snapshot=state){
+  return !!token&&token.programId===(snapshot?.programMeta?.id||null)&&token.blockId===snapshotBlockId(snapshot)&&
+    Array.isArray(snapshot?.program)&&snapshot.program.some(ex=>ex?.id===token.exerciseInstanceId);
+}
+function reopenShareAfterRepair(){
+  const token=shareRepairReturn;
+  shareRepairReturn=null;
+  if(token)setTimeout(()=>openShareSetupSheet(),0);
+}
+async function cancelShareRepair(){
+  if(!shareRepairReturn)return;
+  finishInstalledEditor({discard:true});
+}
+async function beginShareRepair(exerciseInstanceId){
+  const id=String(exerciseInstanceId||"");
+  const blocker=shareSetupBlockers.find(item=>String(item?.exerciseInstanceId??"")===id);
+  if(!blocker)return;
+  shareRepairReturn={...shareRepairToken(),exerciseInstanceId:id};
+  const closed=closeShareSetupSheet();
+  if(closed&&typeof closed.then==="function")await closed;
+  if(!shareRepairReturn)return;
+  if(!shareRepairTargetMatches(shareRepairReturn,state)){finishInstalledEditor({discard:true});return}
+  programEditMode=true;
+  renderProgram();
+  const editor=installedProgramEditor;
+  if(!editor){finishInstalledEditor({discard:true});return}
+  const result=await editor.replaceExercise(id);
+  if(!result||result.ok===false||result.cancelled){finishInstalledEditor({discard:true});return}
+}
 function openShareSetupSheet(){
   const sheet=$("#shareSetupSheet"),scrim=$("#shareSetupScrim");
   if(!sheet)return;
@@ -10827,7 +10906,7 @@ function closeShareSetupSheet(){
   shareSetupReturn=null;
   return closeModal(sheet)}
 async function copySetupLink(){
-  if(!shareSetupLink)return false;
+  if(!shareSetupLink||shareSetupBlockers.length)return false;
   try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(shareSetupLink);
     toast(t("toast.setup_link_copied"));return true}}catch{}
   try{const ta=document.createElement("textarea");ta.value=shareSetupLink;ta.setAttribute("readonly","");
@@ -10836,7 +10915,7 @@ async function copySetupLink(){
     if(ok){toast(t("toast.setup_link_copied"));return true}}catch{}
   return false}
 async function shareSetupLinkNow(){
-  if(!shareSetupLink||typeof navigator.share!=="function")return false;
+  if(!shareSetupLink||shareSetupBlockers.length||typeof navigator.share!=="function")return false;
   try{await navigator.share({title:t("program.share_setup_title"),url:shareSetupLink});return true}
   catch{return false}}
 /* ============================================================
@@ -10996,6 +11075,7 @@ async function choosePicked(id){
     renderPickerList();return}
   const active=pickerState,handler=active.onPick;
   active.choosing=true;
+  active.completed=true;
   const sheet=$("#exPickSheet");if(sheet)sheet.setAttribute("aria-busy","true");
   try{if(handler)await handler(entry);await closeExercisePicker();focusEntryEditorStatus()}
   finally{if(pickerState===active)active.choosing=false;if(sheet)sheet.removeAttribute("aria-busy")}}
@@ -11010,17 +11090,17 @@ const NAME_ONLY_PREFIX="name:";
 const nameOnlyEntry=name=>({id:`${NAME_ONLY_PREFIX}${foldSearch(name)}`,name,namePt:name,
   equipment:[],primary:"",secondary:"",patterns:[],nameOnly:true});
 function openExercisePicker({title=null,subtitle="",mode="single",selected=[],exclude=[],extras=[],onPick=null,
-  quick=false,day:dayName=null,query="",muscle=null,equipment=null,tab=null}={}){
+  onCancel=null,stageOnly=false,repairSeed=null,quick=false,day:dayName=null,query="",muscle=null,equipment=null,tab=null}={}){
   const sheet=$("#exPickSheet"),scrim=$("#exPickScrim"),search=$("#exPickSearch");
   if(!sheet)return;
-  pickerState={query:String(query||""),muscle,equipment,mode,onPick,
+  pickerState={query:String(query||""),muscle,equipment,mode,onPick,onCancel,stageOnly,repairSeed,completed:false,
     selected:new Set(selected.filter(Boolean).map(String)),
     exclude:new Set(exclude.filter(Boolean).map(String)),
     extras:extras.filter(Boolean),
     quick,day:dayName,tab:quick&&(LIB_TABS.includes(tab)?tab:"suggested"),
     // Kept so the custom-exercise detour can put this exact picker back, with
     // whatever was typed and filtered still in place.
-    reopen:{title,subtitle,mode,exclude:[...exclude],extras:[...extras],onPick,quick,day:dayName}};
+    reopen:{title,subtitle,mode,exclude:[...exclude],extras:[...extras],onPick,onCancel,stageOnly,repairSeed,quick,day:dayName}};
   pickerReturn=document.activeElement;
   $("#exPickTitle").textContent=title||t("picker.title");
   const sub=$("#exPickFor");if(sub)sub.textContent=subtitle||"";
@@ -11046,14 +11126,16 @@ function closeExercisePicker(){
   const sheet=$("#exPickSheet");
   if(!sheet)return Promise.resolve(false);
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  const active=pickerState,notifyCancel=!!active&&!active.choosing&&!active.completed&&typeof active.onCancel==="function";
   pickerReturn=null;
-  return closeModal(sheet)}
+  return closeModal(sheet).then(result=>{if(notifyCancel)active.onCancel();return result})}
 
 async function confirmPickerSelection(){
   if(!pickerState||pickerState.mode!=="multi"||pickerState.choosing)return;
   const active=pickerState,handler=active.onPick;
   const picked=[...active.selected].map(pickerEntry).filter(Boolean);
   active.choosing=true;
+  active.completed=true;
   try{if(handler)await handler(picked);await closeExercisePicker()}
   finally{if(pickerState===active)active.choosing=false}}
 
@@ -15694,19 +15776,22 @@ function init(){
     const reopen=pickerResumeOptions();
     const selectedNow=reopen?.selected||[];
     const multi=pickerState?.mode==="multi";
+    const stageOnly=pickerState?.stageOnly===true;
+    const repairSeed=stageOnly&&pickerState?.repairSeed?pickerState.repairSeed:null;
     const onPick=pickerState?.onPick;
     const typed=String($("#exPickSearch")?.value||"").trim();
     const backToPicker=extraId=>{
       if(!reopen)return;
       openExercisePicker(Object.assign({},reopen,
         {selected:extraId?selectedNow.concat(extraId):selectedNow}))};
-    openCustomExerciseSheet({entry:typed?{name:typed}:null,handoff:true,
+    const seed=repairSeed?{name:repairSeed.name||typed,equipment:repairSeed.equipment||[],primary:repairSeed.primary||"",secondary:repairSeed.secondary||""}:typed?{name:typed}:null;
+    openCustomExerciseSheet({entry:seed,handoff:true,stageOnly,
       onCancel:()=>backToPicker(null),
       onSave:entry=>{
         // A multi-pick is still being assembled, so the picker comes back with
         // the new movement already ticked; a single pick is finished by it.
         if(multi){backToPicker(entry.id);return}
-        if(onPick)return onPick(entry)}})};
+        if(onPick)return onPick(stageOnly?{...entry,__customDefinition:cloneSnapshot(entry)}:entry)}})};
   const cuCancel=$("#exCustomCancel");if(cuCancel)cuCancel.onclick=cancelCustomExerciseSheet;
   const cuScrim=$("#exCustomScrim");if(cuScrim)cuScrim.onclick=cancelCustomExerciseSheet;
   const cuSave=$("#exCustomSave");if(cuSave)cuSave.onclick=saveCustomExerciseSheet;

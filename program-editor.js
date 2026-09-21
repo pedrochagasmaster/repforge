@@ -396,14 +396,20 @@
       collapsedDays.delete(day); expandedExercises.add(exercise.id);
       return stage(next, { kind: "exercise_add", targetDay: day, targetId: exercise.id, libraryId: entry.id, exercise: exercise });
     });
-    const replaceForExercise = id => {
+    const replaceForExercise = (id, { repair = false } = {}) => {
       const current = document.program?.find(item => item.id === id);
       if (!current) return Promise.resolve(null);
-      return chooseExercise({ mode: "replace", day: current.day, exercise: clone(current), exclude: exercisesFor(document, current.day).filter(item => item.id !== id).map(item => item.libraryId).filter(Boolean) }).then(entry => {
+      return chooseExercise({ mode: "replace", day: current.day, exercise: clone(current), repair, exclude: exercisesFor(document, current.day).filter(item => item.id !== id).map(item => item.libraryId).filter(Boolean) }).then(entry => {
         if (!entry) return null;
-        const next = clone(document); if (!replaceExercise(next, id, entry)) return null;
+        const next = clone(document), customExercise = entry.__customDefinition ? clone(entry.__customDefinition) : null;
+        if (customExercise) {
+          const customExercises = Array.isArray(next.customExercises) ? next.customExercises : [];
+          const existing = customExercises.find(item => item?.id === customExercise.id);
+          if (!existing) next.customExercises = customExercises.concat(customExercise);
+        }
+        if (!replaceExercise(next, id, entry)) return null;
         const replacement = next.program?.find(item => item.id === id);
-        return stage(next, { kind: "exercise_replace", targetId: id, beforeLibraryId: current.libraryId, afterLibraryId: entry.id, exercise: replacement });
+        return stage(next, { kind: "exercise_replace", targetId: id, beforeLibraryId: current.libraryId, afterLibraryId: entry.id, exercise: replacement, ...(customExercise ? { customExercise } : {}) });
       });
     };
     const removeExercise = id => {
@@ -940,6 +946,7 @@
       validationIssues: () => validation(document),
       commit: apply,
       discard,
+      replaceExercise: exerciseInstanceId => replaceForExercise(exerciseInstanceId, { repair: true }),
     };
   }
 

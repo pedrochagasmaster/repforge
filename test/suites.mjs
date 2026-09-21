@@ -113,6 +113,7 @@ export const SUITES = {
     s("test/muscle-domain-flow.mjs"),
     s("test/archived-muscle-immutability.mjs"),
     s("test/shared-setup-flow.mjs"),
+    s("test/share-repair.mjs"),
     s("test/entry-landing.mjs"),
     s("test/entry-chooser.mjs"),
     s("test/entry-expert-controls.mjs"),

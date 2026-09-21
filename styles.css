@@ -3990,6 +3990,13 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   -webkit-user-select:text;user-select:text;
 }
 .share-setup__link:empty{display:none}
+.share-setup__blocker-summary{margin:0;font-size:15px;line-height:1.4;font-weight:650;color:var(--ink);overflow-wrap:anywhere}
+.share-setup__blockers{display:flex;flex-direction:column;gap:10px}
+.share-setup__blocker{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;background:var(--well);border:1px solid var(--rule);border-radius:12px}
+.share-setup__blocker-copy{display:flex;min-width:0;flex:1;flex-direction:column;gap:3px;line-height:1.35}
+.share-setup__blocker-copy strong{font-size:15px;overflow-wrap:anywhere}
+.share-setup__blocker-copy span{font-size:13px;color:var(--ink-soft);overflow-wrap:anywhere}
+.share-setup__repair{flex:none;min-height:40px;padding-inline:14px}
 .share-setup__status{margin:0;font-size:14px;line-height:1.4;color:var(--ink-soft);overflow-wrap:anywhere}
 .share-setup__status:empty{display:none}
 .installsheet{

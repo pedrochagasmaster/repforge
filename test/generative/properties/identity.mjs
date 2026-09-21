@@ -52,7 +52,7 @@ export function buildSuites() {
       }),
     },
     {
-      name: "identity: unknown reference strings are rejected as invalid-schema",
+      name: "identity: unknown reference strings are rejected as unresolved-exercises",
       property: fc.property(
         payloadArbitrary(),
         fc.string({ minLength: 1, maxLength: 24 }).filter((s) => !domain.BUILT_IN_IDS.has(s) && !s.startsWith("custom:")),
@@ -61,7 +61,8 @@ export function buildSuites() {
           target.program.exercises[0].libraryId = bogusId;
           const result = Setup.validate(target, OPTS);
           if (result.ok) throw new Error(`unknown libraryId accepted: ${JSON.stringify(bogusId)}`);
-          if (result.code !== "invalid-schema") throw new Error(`expected invalid-schema, got ${result.code}`);
+          const expectedReason = bogusId.trim() ? "unknown-library-id" : "missing-library-id";
+          if (result.code !== "unresolved-exercises" || result.blockers?.[0]?.reasonCode !== expectedReason) throw new Error(`expected ${expectedReason} blocker, got ${JSON.stringify(result)}`);
         },
       ),
     },
@@ -75,7 +76,7 @@ export function buildSuites() {
           target.program.exercises[0].libraryId = legacyId;
           const result = Setup.validate(target, OPTS);
           if (result.ok) throw new Error(`legacy alias resolved: ${legacyId}`);
-          if (result.code !== "invalid-schema") throw new Error(`expected invalid-schema for ${legacyId}, got ${result.code}`);
+          if (result.code !== "unresolved-exercises" || result.blockers?.[0]?.reasonCode !== "unknown-library-id") throw new Error(`expected unknown-library-id blocker for ${legacyId}, got ${JSON.stringify(result)}`);
         },
       ),
     },
@@ -99,7 +100,7 @@ export function buildSuites() {
           }
           const result = Setup.validate(target, OPTS);
           if (result.ok) throw new Error("dangling custom reference was accepted");
-          if (result.code !== "invalid-schema") throw new Error(`expected invalid-schema, got ${result.code}`);
+          if (result.code !== "unresolved-exercises" || result.blockers?.[0]?.reasonCode !== "missing-custom-definition") throw new Error(`expected missing-custom-definition blocker, got ${JSON.stringify(result)}`);
         },
       ),
     },

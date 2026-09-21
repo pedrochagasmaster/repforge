@@ -79,9 +79,9 @@
     return Object.prototype.hasOwnProperty.call(object, key);
   }
 
-  function schemaFail(issues, code = null) {
+  function schemaFail(issues, code = null, blockers = []) {
     const resolved = code || (issues.some((issue) => String(issue).startsWith("invalid-muscle-domain:")) ? "invalid-muscle-domain" : "invalid-schema");
-    return { ok: false, code: resolved, issues: issues.slice() };
+    return { ok: false, code: resolved, issues: issues.slice(), blockers: blockers.slice() };
   }
 
   function muscleDomainIssue(path, value, issues) {
@@ -513,7 +513,9 @@
     if (day !== undefined) exercise.day = day;
     if (!isIntInRange(raw.order, 1, 1000)) issues.push(`${path}.order: invalid`);
     else exercise.order = raw.order;
-    const libraryId = requireString(raw, "libraryId", issues, path, { max: 200, min: 1 });
+    const libraryId = typeof raw.libraryId === "string" && !raw.libraryId.trim()
+      ? undefined
+      : requireString(raw, "libraryId", issues, path, { max: 200, min: 1, required: false });
     if (libraryId !== undefined) exercise.libraryId = libraryId;
     if (!isIntInRange(raw.sets, 1, 100)) issues.push(`${path}.sets: invalid`);
     else exercise.sets = raw.sets;
@@ -642,6 +644,53 @@
     return new Set();
   }
 
+  function blockerKnownValue(raw, diagnostic, key) {
+    const value = diagnostic && hasOwn(diagnostic, key) ? diagnostic[key] : raw?.[key];
+    if (value === undefined || value === null || value === "" || typeof value === "string" && !value.trim()) return undefined;
+    try { return canonicalize(value); } catch { return undefined; }
+  }
+
+  function shareBlocker(raw, exercise, index, meta, reasonCode) {
+    const diagnostic = isPlainObject(raw?.__diagnostic) ? raw.__diagnostic : null;
+    const day = String(exercise?.day || raw?.day || "");
+    const structureDays = Array.isArray(meta?.programStructure?.days) ? meta.programStructure.days : [];
+    const structureDay = structureDays.find((entry) => isPlainObject(entry) &&
+      (entry.dayId === exercise?.dayId || entry.dayId === raw?.dayId || entry.label === day || entry.dayId === day));
+    const known = {};
+    for (const key of ["libraryId", "equipment", "primary", "secondary"]) {
+      const value = blockerKnownValue(raw, diagnostic, key);
+      if (value !== undefined) known[key] = value;
+    }
+    const displayName = blockerKnownValue(raw, diagnostic, "displayName") ||
+      (typeof raw?.displayName === "string" && raw.displayName.trim()) ||
+      (typeof raw?.name === "string" && raw.name.trim()) ||
+      (typeof raw?.libraryId === "string" && raw.libraryId.trim()) ||
+      `Exercise ${index + 1}`;
+    return {
+      dayId: String(exercise?.dayId || raw?.dayId || structureDay?.dayId || ""),
+      exerciseInstanceId: exercise?.id ?? null,
+      displayName: String(displayName),
+      reasonCode,
+      known,
+    };
+  }
+
+  function unresolvedExerciseBlockers(rawRows, exercises, meta, customById, builtInIds) {
+    const blockers = [];
+    for (let index = 0; index < rawRows.length; index++) {
+      const raw = rawRows[index];
+      const exercise = exercises[index];
+      if (!exercise || !isPlainObject(raw)) continue;
+      const id = exercise.libraryId;
+      let reasonCode = null;
+      if (typeof id !== "string" || !id.trim()) reasonCode = "missing-library-id";
+      else if (id.startsWith(CUSTOM_ID_PREFIX) && !customById.has(id)) reasonCode = "missing-custom-definition";
+      else if (!id.startsWith(CUSTOM_ID_PREFIX) && !builtInIds.has(id)) reasonCode = "unknown-library-id";
+      if (reasonCode) blockers.push(shareBlocker(raw, exercise, index, meta, reasonCode));
+    }
+    return blockers;
+  }
+
   function validate(raw, options) {
     const issues = [];
     if (!isPlainObject(raw)) return schemaFail(["$: expected object"]);
@@ -655,7 +704,7 @@
     if (!hasOwn(raw, "version")) issues.push("version: required");
     else if (!isIntInRange(raw.version, 1, Number.MAX_SAFE_INTEGER) || raw.version !== VERSION) {
       if (isIntInRange(raw.version, 0, Number.MAX_SAFE_INTEGER) && raw.version !== VERSION) {
-        return { ok: false, code: "unsupported-version" };
+        return { ok: false, code: "unsupported-version", issues: [], blockers: [] };
       }
       issues.push("version: invalid");
     }
@@ -669,9 +718,9 @@
     } else if (raw.program.exercises.length > 100) {
       issues.push("program.exercises: too many");
     }
-    const exercises = Array.isArray(raw.program.exercises)
-      ? raw.program.exercises.map((entry, index) => pickExercise(entry, index, issues)).filter(Boolean)
-      : [];
+    const rawRows = Array.isArray(raw.program.exercises) ? raw.program.exercises : [];
+    const parsedRows = rawRows.map((entry, index) => pickExercise(entry, index, issues));
+    const exercises = parsedRows.filter(Boolean);
     if (hasOwn(raw.program, "customExercises") && raw.program.customExercises != null && !Array.isArray(raw.program.customExercises)) {
       issues.push("program.customExercises: expected array");
     }
@@ -679,7 +728,6 @@
     if (customSource.length > 50) issues.push("program.customExercises: too many");
     const customs = customSource.map((entry, index) => pickCustom(entry, index, issues)).filter(Boolean);
     const settings = pickSettings(raw.settings, issues);
-    if (issues.length) return schemaFail(issues);
 
     const allExerciseIds = new Set();
     for (const exercise of exercises) {
@@ -687,16 +735,8 @@
       if (allExerciseIds.has(exercise.id)) issues.push(`program.exercises: duplicate id ${exercise.id}`);
       allExerciseIds.add(exercise.id);
     }
-    if (issues.length) return schemaFail(issues);
-
     const relationSlots = new Set((meta?.progressionRelations || [])
       .flatMap((relation) => relation.members.map((member) => member.exerciseId)));
-    for (const exercise of exercises) {
-      if (!relationSlots.has(exercise.id)) {
-        delete exercise.id;
-        delete exercise.movementId;
-      }
-    }
 
     const positions = new Set();
     const exerciseIds = new Set();
@@ -745,15 +785,20 @@
     const referencedCustom = new Set();
     for (const exercise of exercises) {
       const id = exercise.libraryId;
-      if (typeof id !== "string") continue;
-      if (id.startsWith(CUSTOM_ID_PREFIX)) {
-        if (!customById.has(id)) issues.push(`program.exercises: missing custom ${id}`);
-        else referencedCustom.add(id);
-      } else if (!builtInIds.has(id)) {
-        issues.push(`program.exercises: unknown libraryId ${id}`);
+      if (typeof id === "string" && id.startsWith(CUSTOM_ID_PREFIX) && customById.has(id)) referencedCustom.add(id);
+    }
+    const blockers = unresolvedExerciseBlockers(rawRows, parsedRows, meta, customById, builtInIds);
+    // Diagnostic identities are available only while the blocker list is
+    // assembled. Keep the released canonical rule: non-relational slot IDs
+    // never enter the encoded setup document.
+    for (const exercise of exercises) {
+      if (!relationSlots.has(exercise.id)) {
+        delete exercise.id;
+        delete exercise.movementId;
       }
     }
-    if (issues.length) return schemaFail(issues);
+    if (issues.length) return schemaFail(issues, null, blockers);
+    if (blockers.length) return schemaFail([], "unresolved-exercises", blockers);
 
     const payload = {
       kind: KIND,
@@ -765,7 +810,7 @@
       },
       settings,
     };
-    return { ok: true, value: canonicalize(payload) };
+    return { ok: true, value: canonicalize(payload), blockers: [] };
   }
 
   function bytesToBase64(bytes) {
