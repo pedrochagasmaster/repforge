@@ -4603,14 +4603,6 @@ function formatDelta(delta){if(!delta?.metrics)return"";const{deltas}=delta.metr
   if(Math.abs(e1rmDelta)>=.01){const s=e1rmDelta>0?"+":"";return t("delta.e1rm",{signed:s,delta:Math.round(toDisplay(e1rmDelta)),unit:unitLabel()})}
   const parts=[];if(repsDelta!==0)parts.push(t("delta.reps",{signed:repsDelta>0?"+":"",delta:repsDelta}));if(Math.abs(e1rmDelta)>=.01)parts.push(t("delta.e1rm_labeled",{signed:e1rmDelta>0?"+":"",delta:Math.round(toDisplay(e1rmDelta)),unit:unitLabel()}));
   return parts.length?parts.join(" · "):""}
-function sessionDeltaCounts(rows){const byLift=new Map();
-  for(const r of rows){if(!isWork(r)||!(+r.load>0)||!(+r.reps>0))continue;
-    const k=liftKey(r);if(!byLift.has(k))byLift.set(k,[]);byLift.get(k).push(r)}
-  const counts={improved:0,flat:0,regressed:0,new:0};
-  for(const [,liftRows]of byLift){const row=liftRows[0];
-    const ex=exerciseIdentityFromRow(row);
-    const d=compareExerciseSession(ex,liftRows);if(d.status in counts)counts[d.status]++}
-  return counts}
 function formatDeltaCounts(c,{sep=" · "}={}){const parts=[];
   if(c.improved)parts.push(t("delta.count.improved",{n:c.improved}));if(c.flat)parts.push(t("delta.count.flat",{n:c.flat}));
   if(c.regressed)parts.push(t("delta.count.regressed",{n:c.regressed}));if(c.new)parts.push(t("delta.count.new_lifts",{n:c.new,lifts:tp(c.new,"lift")}));
@@ -6896,6 +6888,15 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
   const work=workingRows(rows);
   const meso=mesocycleWeek(),week=weeklySnapshot(date);
   const ds=days(),idx=Math.max(0,ds.indexOf(sessDay)),next=ds.length>1?ds[(idx+1)%ds.length]:null;
+  // The session is already durable when this runs. Read the single canonical
+  // evidence projection and keep only the lifts this completion actually
+  // touched; summary presentation never derives a second outcome heuristic.
+  const completedLiftIds=new Set(work.map(liftKey));
+  const namesByLift=new Map(work.map(row=>[liftKey(row),displayName(row)]));
+  const outcomes=strengthEvidenceRecords("current-block")
+    .filter(record=>completedLiftIds.has(record.exerciseId)&&record.evidenceState==="sufficient"&&EVIDENCE_OUTCOME_KEYS[record.outcome])
+    .map(record=>({exerciseId:record.exerciseId,outcome:record.outcome,
+      name:namesByLift.get(record.exerciseId)||currentExerciseForLiftKey(record.exerciseId)?.name||record.exerciseId}));
   // A clock only earns a slot when it plausibly measured this session: a draft
   // resumed the next morning would otherwise report a nine-hour workout.
   const mins=startedAt?Math.round((Date.now()-startedAt)/60000):0;
@@ -6905,7 +6906,7 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
     lifts:new Set(work.map(liftKey)).size,
     minutes:mins>=1&&mins<=480?mins:null,
     prs:sessionPRs(rows,prevLog),
-    delta:sessionDeltaCounts(rows),
+    outcomes,
     muscles:sessionMuscleWork(rows),
     week:{done:week.completedDays,planned:week.plannedDays},
     meso:{current:meso.current,total:meso.total,isComplete:meso.isComplete},
@@ -7079,25 +7080,20 @@ function sessionSummaryHtml(s){
   // lift" would be the whole story told as arithmetic. Say what it is instead —
   // but only when there was working weight to call a baseline in the first
   // place, since a session of nothing but warmups is not a first attempt.
-  const noHistory=s.lifts>0&&!s.prs.length&&!s.delta.improved&&!s.delta.flat&&!s.delta.regressed;
+  const noHistory=s.lifts>0&&!s.prs.length&&!s.outcomes.length;
   if(noHistory)out.push(`<p class="sum-baseline">${esc(t("summary.baseline"))}</p>`);
-  else{
-    // Good news reads first, but nothing is left out: the same four counts the
-    // History row shows, in the order a lifter wants to hear them.
-    const chips=[];
-    if(s.delta.improved)chips.push({cls:"is-up",text:t("delta.count.improved",{n:s.delta.improved})});
-    if(s.delta.new)chips.push({cls:"is-new",text:t("delta.count.new_lifts",{n:s.delta.new,lifts:tp(s.delta.new,"lift")})});
-    if(s.delta.flat)chips.push({cls:"",text:t("delta.count.flat",{n:s.delta.flat})});
-    if(s.delta.regressed)chips.push({cls:"",text:t("delta.count.regressed",{n:s.delta.regressed})});
-    if(chips.length)
-      out.push(`<p class="section-label">${esc(t("summary.lifts.title"))}</p>`+
-        `<div class="sum-chips">${chips.map(c=>`<span class="sum-chip ${c.cls}">${esc(c.text)}</span>`).join("")}</div>`)}
+  else if(s.outcomes.length)
+    out.push(`<p class="section-label">${esc(t("summary.outcomes.title"))}</p>`+
+      `<ul class="sum-outcomes">${s.outcomes.map(outcome=>`<li class="sum-outcome" data-exercise-id="${esc(outcome.exerciseId)}" data-outcome="${esc(outcome.outcome)}">`+
+        `<span class="sum-outcome__name">${esc(outcome.name)}</span>`+
+        `<span class="sum-outcome__state sum-outcome__state--${esc(outcome.outcome)}">${esc(t(EVIDENCE_OUTCOME_KEYS[outcome.outcome]))}</span></li>`).join("")}</ul>`);
   if(s.muscles.length){
-    const top=s.muscles.slice(0,4),max=Math.max(...top.map(m=>m.sets),1);
+    const top=s.muscles.slice(0,4);
     out.push(`<p class="section-label">${esc(t("summary.muscles.title"))}</p>`+
+      `<p class="sum-muscles__note">${esc(t("summary.muscles.note"))}</p>`+
       `<div class="volume sum-muscles">`+top.map(m=>`<div class="vrow"><span class="vrow__name">${esc(muscleLabel(m.name))}</span>`+
         `<span class="vrow__num"><b>${fmt(m.sets)}</b> ${esc(tp(m.sets,"set"))}</span>`+
-        `<span class="vrow__bar"><span class="vrow__fill" style="width:${Math.max(4,Math.round(m.sets/max*100))}%"></span></span></div>`).join("")+
+        `</div>`).join("")+
       `</div>`)}
   // Where the session leaves the week — the reason to come back on Thursday.
   if(s.week.planned){

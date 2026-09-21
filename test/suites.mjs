@@ -141,6 +141,7 @@ export const SUITES = {
     s("test/focus-navigation.mjs"),
     s("test/focus-geometry.mjs"),
     s("test/recommendation-parity.mjs"),
+    s("test/management-summary.mjs"),
     s("test/progression-strategies-ui.mjs"),
     s("test/progress-navigation.mjs"),
     s("test/progress-evidence.mjs"),

@@ -210,6 +210,11 @@ const readSummary = (page) =>
       })(),
       more: body.querySelector(".sum-more")?.textContent.trim() || "",
       chips: txt(".sum-chip"),
+      outcomeRoles: [...body.querySelectorAll(".sum-outcome")].map((row) => ({
+        exerciseId: row.dataset.exerciseId,
+        outcome: row.dataset.outcome,
+        text: row.textContent.trim(),
+      })),
       baseline: body.querySelector(".sum-baseline")?.textContent.trim() || "",
       muscles: txt(".sum-muscles .vrow__name"),
       muscleNums: txt(".sum-muscles .vrow__num"),
@@ -287,7 +292,8 @@ async function run() {
   );
   assert(!s.more, "three records or fewer need no overflow line", s.more);
 
-  assert(s.chips.some((c) => /2 improved/.test(c)), "the lift counts are on the screen", JSON.stringify(s.chips));
+  assert(s.outcomeRoles.filter((row) => row.outcome === "improved").length === 2,
+    "canonical lift outcomes are on the screen", JSON.stringify(s.outcomeRoles));
   assert(!s.baseline, "a session with history is not called a baseline", s.baseline);
   assert(
     s.muscles.join(",") === "Chest,Mid/upper back,Biceps,Triceps" && /^2 sets$/.test(s.muscleNums[0]),
@@ -364,6 +370,7 @@ async function run() {
     s.baseline
   );
   assert(!s.chips.length, "a baseline is not also counted as a new lift", JSON.stringify(s.chips));
+  assert(!s.outcomeRoles.length, "a baseline has no sufficient outcome rows", JSON.stringify(s.outcomeRoles));
   assert(
     s.statVals[0] === "1" && s.statCaps[0] === "set logged",
     "one set reads as one set, not '1 sets'",
