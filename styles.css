@@ -2590,13 +2590,30 @@ button.vrow{width:100%;padding:8px 0;background:none;border:0;text-align:left;co
 .seg--window{margin:8px 0 12px}
 
 .session--edit{display:block}
+.session--read,.session--delete,.history-operation{display:block;width:100%}
+.history-selection__head{display:flex;align-items:flex-start;gap:16px;margin:4px 0 12px}
+.history-selection__date{margin-left:auto;text-align:right}
+.history-selection__date .section-label{margin:0}
+.history-selection__date h3{margin:2px 0 0;font-size:18px;font-weight:620}
+.history-read__title{display:flex;justify-content:space-between;gap:12px;margin-bottom:14px}
+.history-read__head,.history-read__row{display:grid;grid-template-columns:minmax(0,1fr) 44px minmax(0,20%) minmax(0,17%) minmax(0,17%);gap:8px;align-items:center}
+.history-read__head{padding:0 0 5px;border-bottom:1px solid var(--rule);color:var(--ink-faint);font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.history-read__head span:not(:first-child),.history-read__row span:not(:first-child){text-align:right}
+.history-read__row{padding:10px 0;border-bottom:1px solid var(--rule);font-size:13px;font-variant-numeric:tabular-nums}
+.history-read__name{min-width:0;overflow-wrap:anywhere;white-space:normal}
+.history-read__set{color:var(--ink-faint)}
+.history-read__actions{display:flex;align-items:center;gap:10px;margin-top:16px}
+.history-read__actions .btn{flex:1}
+.history-read__actions .session__del{padding:12px}
+.history-delete__icon{display:grid;place-items:center;width:40px;height:40px;margin-bottom:12px;border:1px solid var(--danger);border-radius:50%;color:var(--danger);font-weight:700}
+.history-operation{padding:16px 0}
 .edhead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px}
 .edate{display:flex;flex-direction:column;align-items:flex-end;color:var(--ink-soft);font-size:11px;gap:0;text-transform:uppercase;letter-spacing:.08em}
 .edate input{width:auto;margin-top:5px;padding:9px 11px;font-size:16px}
 .edrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,20%) minmax(0,17%) minmax(0,17%) 44px;gap:8px;align-items:center;margin-top:8px}
 .edrow--head span{text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;color:var(--ink-faint);text-align:center;font-weight:600}
 .edrow--head span:first-child{text-align:left}
-.edrow__name{font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.edrow__name{font-size:13px;color:var(--ink);min-width:0;overflow-wrap:anywhere;white-space:normal;word-break:break-word}
 .edrow__name small{color:var(--ink-faint)}
 .edrow__in{width:100%;min-width:0;margin-top:0;text-align:center;font-size:16px;padding:9px 4px;background:var(--surface)}
 .edrow__rm{

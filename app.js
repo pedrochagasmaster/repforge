@@ -1657,6 +1657,7 @@ function applySessionLength(program,sessionLength,equipment,experience,dayOcc){
     list.forEach((e,i)=>{e.order=i+1;out.push(e)})}
   program.length=0;program.push(...out)}
 let state,prog,day,installPrompt=null,saving=false,editSession=null,volWindow=7;
+let historySelection={mode:"calendar",sessionId:null,originalFingerprint:"",workingCopy:null,dirty:false,validation:null,operation:null};
 let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
 let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
 // restPaused holds the milliseconds left while the clock is held (null while it
@@ -5904,7 +5905,7 @@ function todayPrimaryControl(){
   return $("#todayDash .page-title")}
 /** Today's recap hands off to History, opened on the session it describes. */
 function openTodaySessionInHistory(){const done=sessionsToday();if(!done.length)return;
-  editSession=done.at(-1).session;histQuery="";
+  historyStartReading(done.at(-1).session);histQuery="";
   navTo("history");
   $$("#sessions [data-sess]").find(el=>el.dataset.sess===editSession)?.scrollIntoView({behavior:"smooth",block:"center"})}
 // The day's exercises, previewed on Today: sets × rep range per row, the rest
@@ -7149,7 +7150,7 @@ function renderSessionSummary(s){
   [...body.children].forEach((el,i)=>el.style.setProperty("--i",i));
   const done=$("#sumDone");if(done)done.onclick=()=>closeSessionSummary();
   const see=$("#sumSee");if(see)see.onclick=()=>{
-    editSession=s.session;
+    historyStartReading(s.session);
     closeSessionSummary({nav:"history"})}}
 
 /** The screen the lifter earns by finishing. It opens over the workout, so
@@ -8915,6 +8916,7 @@ window.__repforgeHistory={
   buildIndex:buildHistoryIndex,
   indexFor:historyIndexFor,
   searchIndex:searchHistoryIndex,
+  fingerprint:historySessionFingerprint,
   renderWithSource:renderHistoryWithSource,
   diagnostics:historyDiagnostics};
 
@@ -8934,16 +8936,161 @@ function syncHistorySearchChrome(){
   if(histQuery.trim())$("#historySearchWrap")?.classList.remove("hidden");
   $("#historySearchBtn")?.setAttribute("aria-expanded",open?"true":"false");
   const inp=$("#historySearch");if(inp&&inp.value!==histQuery)inp.value=histQuery}
-async function deleteSession(sid,io=storageIO){
-  const proposal=cloneSnapshot(state);
-  proposal.log=proposal.log.filter(row=>row.session!==sid);
+function historySessionRows(source,sid){
+  return(source||[]).filter(row=>String(row?.session??"")===String(sid))
+    .sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||Number(a?.set||0)-Number(b?.set||0))}
+function historySessionFingerprint(rows){
+  // Canonicalize each complete row before sorting the encoded rows. Sorting the
+  // row strings, rather than de-duplicating objects, keeps duplicate sets in
+  // the identity and makes the fingerprint independent of display order.
+  return JSON.stringify((Array.isArray(rows)?rows:[])
+    .map(row=>JSON.stringify(canonicalize(row))).sort())}
+function historySelectionFor(sid,mode="reading",source=state.log){
+  const rows=historySessionRows(source,sid);if(!rows.length)return null;
+  return{mode,sessionId:String(sid),originalFingerprint:historySessionFingerprint(rows),
+    workingCopy:mode==="editing"?cloneSnapshot(rows):null,dirty:false,validation:null,operation:null}}
+function historySelectedRecord(source=state.log){
+  const sid=historySelection.sessionId;if(!sid)return null;
+  return historyIndexFor(source).sessions.find(item=>String(item.session)===String(sid))||null}
+function historySetSelection(next){historySelection=next||{mode:"calendar",sessionId:null,originalFingerprint:"",workingCopy:null,dirty:false,validation:null,operation:null};
+  editSession=historySelection.mode!=="calendar"?historySelection.sessionId:null}
+function historyBackToCalendar(){
+  if(historySelection.mode==="editing"&&historySelection.dirty&&!confirm(t("history.confirm.discard_changes")))return false;
+  historySetSelection({mode:"calendar",sessionId:null,originalFingerprint:"",workingCopy:null,dirty:false,validation:null,operation:null});
+  renderHistory();return true}
+function historyStartReading(sid){
+  const next=historySelectionFor(sid);if(!next)return false;
+  histQuery="";historySetSelection(next);renderHistory();return true}
+function historyStartEditing(){
+  const sid=historySelection.sessionId,rows=historySessionRows(state.log,sid);if(!rows.length)return false;
+  historySetSelection({mode:"editing",sessionId:String(sid),originalFingerprint:historySelection.originalFingerprint||historySessionFingerprint(rows),
+    workingCopy:cloneSnapshot(rows),dirty:false,validation:null,operation:null});
+  renderHistory();return true}
+function historySessionFromWorkingCopy(card){
+  const selection=historySelection,source=selection.workingCopy||historySessionRows(state.log,selection.sessionId),out=[];
+  const dateEl=card?.querySelector('[data-ed="date"]'),dateP=parseCalendarDate(dateEl?.value);
+  if(dateP.field)return{error:{field:dateEl,key:dateP.key},dateP};
+  for(const rowEl of card.querySelectorAll(".edrow[data-edidx]")){
+    if(rowEl.classList.contains("is-removed"))continue;
+    const i=Number(rowEl.dataset.edidx),src=source[i];if(!src)continue;
+    const loadEl=rowEl.querySelector('[data-ek^="load|"]'),repsEl=rowEl.querySelector('[data-ek^="reps|"]'),rirEl=rowEl.querySelector('[data-ek^="rir|"]');
+    const loadP=parseLoadDisplay(loadEl?.value);if(loadP.field)return{error:{field:loadEl,key:loadP.key},dateP};
+    const repsP=parseRepsValue(repsEl?.value);if(repsP.field)return{error:{field:repsEl,key:repsP.key},dateP};
+    const rirP=parseRirValue(rirEl?.value);if(rirP.field)return{error:{field:rirEl,key:rirP.key},dateP};
+    const next=cloneSnapshot(src);next.load=loadP.value;next.reps=repsP.value;next.rir=rirP.value;next.date=dateP.value;out.push(next)}
+  return{rows:out,dateP}
+}
+function historyMarkValidation(card,error){
+  clearFieldInvalid(card);if(error?.field){error.field.setAttribute("aria-invalid","true");try{error.field.focus()}catch{}}
+  if(error?.key)toast(t(error.key));return false}
+function historyApplyWorkingInput(event){
+  const target=event.target,card=target.closest(".session--edit");if(!card||historySelection.mode!=="editing")return;
+  const row=target.closest(".edrow[data-edidx]");if(row){const i=Number(row.dataset.edidx),key=String(target.dataset.ek||"").split("|")[0];
+    if(historySelection.workingCopy?.[i]&&key)historySelection.workingCopy[i][key]=target.value}
+  if(target.matches('[data-ed="date"]'))for(const row of historySelection.workingCopy||[])row.date=target.value;
+  historySelection.dirty=true}
+function historyResultMessage(result,successKey,operation){
+  if(result?.committed===true&&result?.settled===true)return"committed";
+  if(result?.conflict||result?.stale||result?.staleRevision||result?.duplicate){historySelection={...historySelection,mode:"conflict",operation};return"conflict"}
+  historySelection={...historySelection,mode:"failure",operation};return"failure"}
+function adoptHistoryDurableHead(head){
+  if(!head)return;
+  state=cloneSnapshot(head);prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
+  resetPersistenceBase(state);dropMemo.clear();baselineMemo.clear()}
+async function historyReloadLatest(){
+  const sid=historySelection.sessionId,refreshed=await refreshPersistenceHead();
+  if(refreshed?.head)adoptHistoryDurableHead(refreshed.head);
+  const next=historySelectionFor(sid);
+  if(next)historySetSelection(next);else historySetSelection({mode:"calendar",sessionId:null,originalFingerprint:"",workingCopy:null,dirty:false,validation:null,operation:null});
+  render();return next}
+async function historyFinishResult(result,successKey,operation){
+  const status=historyResultMessage(result,successKey,operation);
+  if(status==="committed"){
+    if(result.alreadyCommitted){const refreshed=await refreshPersistenceHead();if(refreshed?.head)adoptHistoryDurableHead(refreshed.head)}
+    const next=historySelectionFor(historySelection.sessionId);
+    historySetSelection(next||{mode:"calendar",sessionId:null,originalFingerprint:"",workingCopy:null,dirty:false,validation:null,operation:null});
+    render();toast(t(successKey));return true}
+  render();return false}
+async function deleteSession(sid,io=storageIO){const proposal=cloneSnapshot(state);
+  proposal.log=proposal.log.filter(row=>String(row?.session??"")!==String(sid));
   const result=await commitProposedState(proposal,io);
-  if(result.localOk||result.idbOk){
-    if(editSession===sid)editSession=null;
-    render();toast(t("toast.session_deleted"))}
+  if(result.localOk||result.idbOk){if(editSession===sid)editSession=null;render();toast(t("toast.session_deleted"))}
   return result}
+function historyReadingView(s,rows){
+  const setRows=rows.map(row=>`<div class="history-read__row"><span class="history-read__name">${esc(displayName(row))}</span>`+
+    `<span class="history-read__set">#${esc(row.set)}</span><span>${esc(fmtLoad(row.load))}</span>`+
+    `<span>${esc(String(row.reps??"—"))}</span><span>${esc(fmt(row.rir))}</span></div>`).join("");
+  const volume=sum(rows.filter(isWork).map(x=>(+x.load||0)*(+x.reps||0)));
+  return`<article class="session session--read" data-reading="${esc(s.session)}" data-sess="${esc(s.session)}">`+
+    `<div class="history-read__title"><div><div class="session__day">${esc(dayLabel(s.day))}</div>`+
+    `<p class="session__sub">${esc(t("history.session_meta",{sets:rows.length,vol:kfmt(toDisplay(volume)),unit:unitLabel()}))}</p></div></div>`+
+    `<div class="history-read__head"><span>${esc(t("history.exercise"))}</span><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${esc(t("glossary.term.RIR"))}</span></div>`+
+    `<div class="history-read__rows">${setRows}</div>`+
+    `<div class="history-read__actions"><button type="button" class="btn btn--cta" data-history-edit="${esc(s.session)}">${esc(t("history.session.edit"))}</button>`+
+    `<button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div></article>`}
+function historyConflictView(s,mode,operation){
+  const failure=mode==="failure",copy=failure?t("history.operation_failed"):t("history.operation_conflict");
+  return`<article class="session history-operation" data-history-operation="${esc(mode)}" role="alert">`+
+    `<h3>${esc(failure?t("history.failure_title"):t("history.conflict_title"))}</h3><p>${esc(copy)}</p>`+
+    `<div class="edbtns"><button type="button" class="btn btn--steel" data-history-cancel>${esc(t("history.edit.cancel"))}</button>`+
+    `<button type="button" class="btn btn--steel" data-history-reload>${esc(t("history.reload"))}</button>`+
+    (operation==="edit"?`<button type="button" class="btn btn--cta" data-history-retry>${esc(t("history.retry"))}</button>`:"")+`</div></article>`}
+function bindHistoryEditRows(){
+  $$("[data-edrm]").forEach(b=>b.onclick=e=>{e.stopPropagation();
+    const row=b.closest(".edrow"),card=b.closest(".session--edit");if(!row||!card)return;
+    const removing=!row.classList.contains("is-removed");
+    if(removing){
+      const left=[...card.querySelectorAll(".edrow[data-edidx]:not(.is-removed)")];
+      if(left.length<=1){toast(t("history.edit.keep_one"));return}
+      row.classList.add("is-removed");setEdrowRmState(b,true);
+      row.querySelectorAll(".edrow__in").forEach(inp=>{inp.disabled=true;inp.removeAttribute("aria-invalid")});
+      historySelection.dirty=true}
+    else{row.classList.remove("is-removed");setEdrowRmState(b,false);
+      row.querySelectorAll(".edrow__in").forEach(inp=>inp.disabled=false);historySelection.dirty=true}});
+  $(".session--edit")?.addEventListener("input",historyApplyWorkingInput);
+}
+function historyCancelOperation(){
+  const next=historySelectionFor(historySelection.sessionId);
+  historySetSelection(next||{mode:"calendar",sessionId:null,originalFingerprint:"",workingCopy:null,dirty:false,validation:null,operation:null});
+  renderHistory()}
+function bindHistorySelection(){
+  $("[data-history-back]")?.addEventListener("click",historyBackToCalendar);
+  $("[data-history-edit]")?.addEventListener("click",historyStartEditing);
+  $$("[data-del]").forEach(b=>b.addEventListener("click",async e=>{
+    e.stopPropagation();const sid=b.dataset.del;
+    if(!confirm(t("confirm.delete_session")))return;
+    await deleteSession(sid)}));
+  $$("[data-edcancel]").forEach(b=>b.addEventListener("click",historyCancelOperation));
+  $$("[data-edsave]").forEach(b=>b.addEventListener("click",()=>saveSessionEdit(b.dataset.edsave)));
+  $$("[data-history-reload]").forEach(b=>b.onclick=()=>historyReloadLatest());
+  $$("[data-history-cancel]").forEach(b=>b.addEventListener("click",historyCancelOperation));
+  $$("[data-history-retry]").forEach(b=>b.addEventListener("click",async()=>{
+    await historyReloadLatest();
+    if(historySelection.mode==="reading"&&historySelection.sessionId)historyStartEditing();
+  }));
+  bindHistoryEditRows()}
 
 function renderHistory(source=state.log){
+  const selected=historySelection.mode!=="calendar";
+  const selectionEl=$("#historySelection"),calendar=$("#historyCalendar"),recent=$("#historyRecentLabel"),tableDetails=$("#historyTable")?.closest("details");
+  if(selected){
+    const record=historySelectedRecord(source);
+    if(!record){historySetSelection({mode:"calendar",sessionId:null,originalFingerprint:"",workingCopy:null,dirty:false,validation:null,operation:null});return renderHistory(source)}
+    calendar?.classList.add("hidden");recent?.classList.add("hidden");tableDetails?.classList.add("hidden");
+    $("#historySearchWrap")?.classList.add("hidden");$("#historySearchBtn")?.classList.add("hidden");$("#historyExportBtn")?.classList.add("hidden");
+    selectionEl?.classList.remove("hidden");
+    const mode=historySelection.mode,copy=historySelection.workingCopy||record.rows;
+    const longDate=formatLongDate(String(record.date||""));
+    let body="";
+    if(mode==="reading")body=historyReadingView(record,record.rows);
+    else if(mode==="editing")body=sessionEditor(record,copy);
+    else body=historyConflictView(record,mode,historySelection.operation);
+    selectionEl.innerHTML=`<div class="history-selection__head"><button type="button" class="back-link" data-history-back>‹ ${esc(t("history.back_calendar"))}</button>`+
+      `<div class="history-selection__date"><span class="section-label">${esc(t("history.selected"))}</span><h3>${esc(longDate)}</h3></div></div>`;
+    $("#sessions").innerHTML=body;$("#historyTable").innerHTML="";
+    bindHistorySelection();return}
+  calendar?.classList.remove("hidden");recent?.classList.remove("hidden");tableDetails?.classList.remove("hidden");
+  $("#historySearchBtn")?.classList.remove("hidden");$("#historyExportBtn")?.classList.remove("hidden");selectionEl?.classList.add("hidden");selectionEl&&(selectionEl.innerHTML="");
   if(!histMonth){const n=new Date();histMonth={y:n.getFullYear(),m:n.getMonth()}}
   const focusedToggle=document.activeElement?.matches?.("#sessions .session__open")?document.activeElement:null;
   const focusedSession=focusedToggle?.closest("[data-sess]")?.dataset.sess||null;
@@ -8979,8 +9126,7 @@ function renderHistory(source=state.log){
   if(focusedSession){
     const next=$$("#sessions .session__open").find(btn=>btn.closest("[data-sess]")?.dataset.sess===focusedSession);
     if(next&&canTakeFocus(next)){try{next.focus({preventScroll:true})}catch{try{next.focus()}catch{}}}}
-  $$("#sessions [data-del]").forEach(b=>b.onclick=async e=>{e.stopPropagation();if(confirm(t("confirm.delete_session")))await deleteSession(b.dataset.del)});
-  $$("#sessions [data-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation();editSession=b.dataset.edit;renderHistory()});
+  $$("#sessions [data-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation();historyStartReading(b.dataset.edit)});
   $$("[data-edcancel]").forEach(b=>b.onclick=()=>{editSession=null;renderHistory()});
   $$("[data-edsave]").forEach(b=>b.onclick=()=>saveSessionEdit(b.dataset.edsave));
   $$("[data-edrm]").forEach(b=>b.onclick=e=>{e.stopPropagation();
@@ -9039,43 +9185,41 @@ function sessionEditor(s,sets){
       `<input class="edrow__in" data-ek="reps|${i}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("log.reps"))}">`+
       `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("glossary.term.RIR"))}">`+
       `<button type="button" class="edrow__rm" data-edrm="${i}" aria-label="${esc(t("history.edit.remove_set"))}" title="${esc(t("history.edit.remove_set"))}"><span class="edrow__rm-glyph" aria-hidden="true">${EDROW_RM_GLYPH.remove}</span></button></div>`}).join("");
-  return `<div class="session session--edit" data-editing="${esc(s.session)}">`+
+  return `<div class="session session--edit" data-editing="${esc(s.session)}" data-history-state="editing">`+
     `<div class="edhead"><div class="session__day">${esc(dayLabel(s.day))}</div>`+
-    `<label class="edate">${esc(t("stats.table.date"))}<input data-ed="date" type="date" value="${esc(s.date)}"></label></div>`+
+    `<label class="edate">${esc(t("stats.table.date"))}<input data-ed="date" type="date" value="${esc(sets[0]?.date||s.date)}"></label></div>`+
     `<div class="edrow edrow--head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${esc(t("glossary.term.RIR"))}</span><span></span></div>`+rows+
     `<div class="edbtns"><button type="button" class="btn btn--steel" data-edcancel="1">${esc(t("history.edit.cancel"))}</button>`+
     `<button type="button" class="btn btn--cta" data-edsave="${esc(s.session)}">${esc(t("history.edit.save"))}</button></div>`+
-    // Where the whole session can be thrown away: behind the way in, under the
-    // edits, and named in full so the row it deletes is never in doubt.
     `<div class="edrisk"><button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div></div>`;
 }
 
 function sessionSetsForEdit(sid){
   return state.log.filter(r=>r.session===sid).sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set)}
 
-async function saveSessionEdit(sid,io=storageIO){const card=$(`.session--edit[data-editing="${sid}"]`);if(!card)return;
-  clearFieldInvalid(card);
-  const dateEl=card.querySelector('[data-ed="date"]'),dateP=parseCalendarDate(dateEl?.value);
-  if(dateP.field){if(dateEl){dateEl.setAttribute("aria-invalid","true");try{dateEl.focus()}catch{}}toast(t(dateP.key));return}
-  const orig=sessionSetsForEdit(sid),proposed=[];
-  for(const rowEl of card.querySelectorAll(".edrow[data-edidx]")){
-    if(rowEl.classList.contains("is-removed"))continue;
-    const i=+rowEl.dataset.edidx,src=orig[i];if(!src)continue;
-    const loadEl=rowEl.querySelector('[data-ek^="load|"]'),repsEl=rowEl.querySelector('[data-ek^="reps|"]'),rirEl=rowEl.querySelector('[data-ek^="rir|"]');
-    const loadP=parseLoadDisplay(loadEl?.value);
-    if(loadP.field){if(loadEl){loadEl.setAttribute("aria-invalid","true");try{loadEl.focus()}catch{}}toast(t(loadP.key));return}
-    const repsP=parseRepsValue(repsEl?.value);
-    if(repsP.field){if(repsEl){repsEl.setAttribute("aria-invalid","true");try{repsEl.focus()}catch{}}toast(t(repsP.key));return}
-    const rirP=parseRirValue(rirEl?.value);
-    if(rirP.field){if(rirEl){rirEl.setAttribute("aria-invalid","true");try{rirEl.focus()}catch{}}toast(t(rirP.key));return}
-    const next=cloneSnapshot(src);
-    next.load=loadP.value;next.reps=repsP.value;next.rir=rirP.value;next.date=dateP.value;
-    proposed.push(next)}
-  if(!proposed.length){toast(t("history.edit.keep_one"));return}
-  const proposal=cloneSnapshot(state);
-  proposal.log=proposal.log.filter(r=>r.session!==sid).concat(proposed);
-  const result=await commitProposedState(proposal,io);
-  if(result.localOk||result.idbOk){editSession=null;render();toast(t("toast.session_updated"))}
+// The editor is a volatile projection. Its commit path validates the exact
+// session fingerprint again while holding the durable-state lock, so an edit
+// can never merge over a changed or deleted session.
+async function saveSessionEdit(sid,io=storageIO){
+  const card=$(".session--edit[data-editing=\""+String(sid).replaceAll("\"","\\\"")+"\"]");if(!card)return;
+  const parsed=historySessionFromWorkingCopy(card);
+  if(parsed.error){historyMarkValidation(card,parsed.error);return}
+  if(!parsed.rows.length){toast(t("history.edit.keep_one"));return}
+  const proposed=parsed.rows,original=historySelection.originalFingerprint||historySessionFingerprint(historySessionRows(state.log,sid));
+  const desired=historySessionFingerprint(proposed),proposal=cloneSnapshot(state);
+  proposal.log=proposal.log.filter(row=>String(row?.session??"")!==String(sid)).concat(proposed);
+  const preflight=({head})=>{
+    const current=historySessionRows(head.log,sid),fingerprint=historySessionFingerprint(current);
+    if(fingerprint===desired)return{reject:true,result:{ok:true,committed:true,alreadyCommitted:true,
+      revision:readRevision(head),localOk:true,idbOk:true,kind:"committed"}};
+    if(!current.length||fingerprint!==original)return{reject:true,result:{ok:false,committed:false,conflict:true,stale:true,
+      code:"history_stale",revision:readRevision(head),localOk:false,idbOk:false}};
+    const next=cloneSnapshot(head);
+    next.log=next.log.filter(row=>String(row?.session??"")!==String(sid)).concat(cloneSnapshot(proposed));
+    return{proposal:next}};
+  historySelection.workingCopy=cloneSnapshot(proposed);historySelection.dirty=true;historySelection.operation="edit";
+  const result=await commitProposedState(proposal,io,{preflight});
+  await historyFinishResult(result,"toast.session_updated","edit");
   return result}
 window.__repforgeSaveSessionEdit=saveSessionEdit;
 

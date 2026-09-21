@@ -790,15 +790,31 @@ async function setLogDateRaw(page, value) {
 async function openSessionEditor(page, sid) {
   await nav(page, "history");
   if (await page.locator(`.session--edit[data-editing="${sid}"]`).count()) return;
-  const editBtn = page.locator(`[data-edit="${sid}"]`);
-  if (await editBtn.count()) {
-    await editBtn.click();
+  const selectedEdit = page.locator(`[data-history-edit="${sid}"]`);
+  if (await selectedEdit.count()) {
+    await selectedEdit.click();
     await page.waitForSelector(`.session--edit[data-editing="${sid}"]`, { timeout: 5000 });
     return;
   }
-  await page.locator(`#sessions .hist-row[data-sess="${sid}"]`).click();
-  await page.locator(`[data-edit="${sid}"]`).waitFor({ state: "visible", timeout: 5000 });
-  await page.click(`[data-edit="${sid}"]`);
+  const back = page.locator("[data-history-back]");
+  if (await back.count()) {
+    await back.click();
+    await page.waitForSelector("#historyCalendar", { timeout: 5000 });
+  }
+  const editBtn = page.locator(`[data-edit="${sid}"]`);
+  if (!(await editBtn.count())) {
+    const day = await page.evaluate((id) => {
+      const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      return state.log?.find((row) => String(row.session) === String(id))?.day || "";
+    }, sid);
+    await page.click("#historySearchBtn");
+    await page.fill("#historySearch", day);
+  }
+  const visibleEdit = page.locator(`[data-edit="${sid}"]`);
+  await visibleEdit.waitFor({ state: "visible", timeout: 5000 });
+  await visibleEdit.click();
+  await page.waitForSelector(`.session--read[data-reading="${sid}"]`, { timeout: 5000 });
+  await page.click(`[data-history-edit="${sid}"]`);
   await page.waitForSelector(`.session--edit[data-editing="${sid}"]`, { timeout: 5000 });
 }
 
@@ -979,6 +995,8 @@ async function openF7HistoryEdit(page) {
   const editBtn = page.locator('#sessions [data-edit="f7-edit-seed"]');
   await editBtn.waitFor({ state: "visible", timeout: 5000 });
   await editBtn.click();
+  await page.locator('[data-history-edit="f7-edit-seed"]').waitFor({ state: "visible", timeout: 5000 });
+  await page.click('[data-history-edit="f7-edit-seed"]');
   await editor.waitFor({ state: "visible", timeout: 5000 });
 }
 
@@ -2088,7 +2106,7 @@ async function main() {
   const openBtn = page.locator("#sessions .session__open").first();
   await openBtn.waitFor({ state: "visible", timeout: 5000 });
   await openBtn.click();
-  const delBtn = page.locator(".session--edit .session__del").first();
+  const delBtn = page.locator(".session--read .session__del").first();
   await delBtn.waitFor({ state: "visible", timeout: 5000 });
   const delSessionId = await delBtn.getAttribute("data-del");
   await delBtn.click();
@@ -4783,8 +4801,11 @@ async function main() {
   await nav(page, "history");
   const editBtn = page.locator("#sessions .session__open").first();
   await editBtn.waitFor({ state: "visible", timeout: 5000 });
+  const editSid = await editBtn.getAttribute("data-edit");
   await editBtn.click();
-  await page.waitForTimeout(100);
+  await page.locator(`[data-history-edit="${editSid}"]`).waitFor({ state: "visible", timeout: 5000 });
+  await page.click(`[data-history-edit="${editSid}"]`);
+  await page.waitForSelector(`.session--edit[data-editing="${editSid}"]`, { timeout: 5000 });
   const editInput = page.locator('.session--edit [data-ek^="load|"]').first();
   await editInput.fill("123");
   await page.locator("[data-edsave]").first().click();

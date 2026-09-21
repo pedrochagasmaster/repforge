@@ -127,6 +127,7 @@ export const SUITES = {
     s("test/accessibility.mjs"),
     s("test/accessibility.mjs", ["--touch-targets-320"]),
     s("test/history.mjs"),
+    s("test/history-edit.mjs"),
     s("test/today-done.mjs"),
     s("test/today-day-picker.mjs"),
     s("test/today-preview.mjs"),
