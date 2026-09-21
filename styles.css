@@ -2045,6 +2045,12 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
   background:var(--surface);color:var(--ink);font-size:17px
 }
 .program-editor-installed .program-editor__add:hover{background:var(--well)}
+.program-ready__head{display:flex;flex-direction:column;gap:18px;margin-bottom:12px}
+.program-ready__title{font-size:28px;font-weight:650;letter-spacing:-.02em}
+.program-ready__list{border-top:1px solid var(--rule)}
+.program-ready__row{min-height:64px}
+.program-ready__row .listrow__sub{margin-top:3px}
+.program-ready-link{margin-top:16px}
 
 /* The installed editor reference is a full-width bottom bar. It deliberately
    drops the overview's floating dock treatment while editing, so the four
@@ -2053,8 +2059,10 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 body:has(#program.program-editor-installed) nav{
   left:0;right:0;bottom:0;transform:none;width:100%;max-width:none;height:calc(var(--dock-h) + env(safe-area-inset-bottom));
   padding:6px max(6px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));
-  border:0;border-top:1px solid var(--rule);border-radius:0;background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none
+  border:0;border-top:1px solid var(--dock-edge);border-radius:0;background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none;
+  box-shadow:inset 0 1px 0 var(--dock-sheen),0 -4px 14px var(--dock-edge)
 }
+body:has(#program.program-editor-installed) #programEditor{padding-bottom:calc(var(--nav) + env(safe-area-inset-bottom))}
 body:has(#program.program-editor-installed) nav button,
 body:has(#program.program-editor-installed) nav button.active{border-radius:0;background:transparent;box-shadow:none}
 body:has(#program.program-editor-installed) nav::before{display:none}

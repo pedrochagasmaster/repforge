@@ -100,6 +100,7 @@ export const SUITES = {
     s("test/install-modes.mjs"),
     s("test/onboarding-cancel.mjs"),
     s("test/program-editor-text-fields.mjs"),
+    s("test/program-actions.mjs"),
     s("test/program-editor-drag-selection.mjs"),
     s("test/program-editor-sorting.mjs"),
     s("test/program-text-export.mjs"),

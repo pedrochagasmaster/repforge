@@ -2273,7 +2273,7 @@ const focusUnfolded=new Set();
 /** Sets logged before older rows fold away, and how many stay above the fold. */
 const FOCUS_FOLD_MIN=5,FOCUS_FOLD_KEEP=2;
 let exView=null;
-let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=false,histMonth=null,histQuery="";
+let workoutActive=false,workoutLeft=false,programEditMode=false,programReadyView=false,setupEditorOpen=false,histMonth=null,histQuery="";
 /* The editor module owns the draft document. Hosts retain only its lifecycle
    and adapter session so the installed editor can stay private until Done. */
 let installedProgramEditor=null,onboardingProgramEditor=null,installedEditorSession=null,pendingEditorNavigation=null;
@@ -9857,9 +9857,11 @@ function renderProgram(){
   // summary of a program that does not exist. A lifter who emptied their own
   // program keeps the editor and its Add day — they have not been sent back to
   // the start — so onboarding is asked about too, not just content.
-  const noProgram=!hasProgramContent()&&state?.programMeta?.onboarded!==true,blank=$("#programNoProgram");
+  const noProgram=!hasProgramContent()&&state?.programMeta?.onboarded!==true,blank=$("#programNoProgram"),nav=document.querySelector("nav");
+  if(nav)nav.dataset.elevation="floating";
   if(blank)blank.classList.toggle("hidden",!noProgram);
   if(noProgram){
+    programReadyView=false;
     for(const sel of["#programOverview","#programMeta","#programBlockBanner","#programEditorWrap","#programEditToggle"]){
       const el=$(sel);if(el)el.classList.add("hidden")}
     const cta=$("#programSetupProgram");
@@ -9873,14 +9875,14 @@ function renderProgram(){
   view?.classList.toggle("program-editor-installed",programEditMode);
   if(ov)ov.classList.toggle("is-hidden",programEditMode);
   if(ed)ed.classList.toggle("is-hidden",!programEditMode);
-  if(meta)meta.classList.toggle("visually-hidden",programEditMode);
-  if(tog)tog.textContent=programEditMode?t("program.done_editing"):t("program.edit");
+  if(meta)meta.classList.toggle("visually-hidden",programEditMode||programReadyView);
+  if(tog){tog.textContent=programEditMode?t("program.done_editing"):t("program.edit");tog.dataset.actionRole="expansion";tog.setAttribute("aria-expanded",programEditMode?"true":"false")}
   const end=$("#endBlock"),lede=ed?.querySelector(":scope > .program-editor-lede"),addDay=$("#addDay"),volumeHead=ed?.querySelector(":scope > .program-volume-head"),volumeLede=ed?.querySelector(":scope > .program-volume-lede"),volume=$("#volume");
   // Advanced remains part of the installed editor. It is inside the editor
   // host, so hiding the disclosure here would strand the raw import/export
   // controls whenever the visual editor is open.
   [end,lede,addDay,volumeHead,volumeLede,volume].forEach(el=>el?.classList.toggle("hidden",programEditMode));
-  if(programEditMode){armInstalledEditorHistory();if(!installedProgramEditor)mountInstalledProgramEditor();return}
+  if(programEditMode){if(nav)nav.dataset.elevation="persistent-action";armInstalledEditorHistory();if(!installedProgramEditor)mountInstalledProgramEditor();return}
   renderProgramHeader();renderProgramEditor();renderVolume();
   // Candidate edits can invalidate a paired relation while the exercise picker
   // is closing. Focus after the editor DOM has been rebuilt, rather than racing
@@ -9899,7 +9901,24 @@ function focusEntryEditorStatus(){
   entryEditorStatusFocusPending=false;
   try{status.focus({preventScroll:true})}catch{try{status.focus()}catch{return false}}
   return true}
+function programReadyExercises(){const ready=[];
+  for(const dayName of prog.days())for(const exercise of prog.forDay(dayName)){
+    const status=recommendation(exercise).status;
+    if(status==="add"||status==="add2")ready.push({id:exercise.id,day:dayName,exercise,status})}
+  return ready}
+function renderProgramReadyView(el,ready){
+  el.innerHTML=`<div class="program-ready__head"><button type="button" class="back-link" id="programReadyBack" data-action-role="navigation">${esc(t("program.ready.back"))}</button>`+
+    `<h3 class="program-ready__title">${esc(t("program.ready.title"))}</h3></div>`+
+    `<div class="program-ready__list">${ready.map(item=>`<button type="button" class="listrow program-ready__row" data-ready-ex="${esc(item.id)}" data-action-role="navigation" aria-label="${esc(t("log.open_exercise_aria",{name:item.exercise.name}))}">`+
+      `<div class="listrow__main"><div class="listrow__title">${esc(item.exercise.name)}</div><div class="listrow__sub">${esc(dayLabel(item.day))}</div></div>`+
+      `<span class="chevron" aria-hidden="true"></span></button>`).join("")}</div>`;
+  $("#programReadyBack")?.addEventListener("click",()=>{programReadyView=false;renderProgram();window.scrollTo({top:0})});
+  $$("#programOverview [data-ready-ex]").forEach(button=>button.addEventListener("click",()=>openExerciseView(button.dataset.readyEx,"program")))}
 function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
+  const ready=programReadyExercises();
+  if(programReadyView){
+    if(ready.length){renderProgramReadyView(el,ready);return}
+    programReadyView=false}
   const meta=state.programMeta||defaultProgramMeta(state.log),mc=mesocycleWeek(),ad=programAdherence(),health=programProgressionHealth(),vol=programVolumeCompliance();
   const ds=prog.days(),goal=meta.goal?t("onb.goal."+meta.goal+".label")||meta.goal:"";
   const segs=mc.total||6,cur=mc.current||0;
@@ -9909,11 +9928,11 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   const saved=Array.isArray(uiPrefs.overviewOpenDays)?uiPrefs.overviewOpenDays.filter(x=>typeof x==="string"):null;
   const openDays=new Set(saved||(ds.length?[ds[0]]:[]));
   for(const d of ds){const exs=prog.forDay(d),sets=sum(exs.map(e=>e.sets)),mus=dayMuscles(d),open=openDays.has(d);
-    daysHtml+=`<div class="prog-day"><button type="button" class="prog-day__head" data-ovday="${esc(d)}" aria-expanded="${open?"true":"false"}"><div>`+
+    daysHtml+=`<div class="prog-day"><button type="button" class="prog-day__head" data-ovday="${esc(d)}" data-action-role="expansion" aria-expanded="${open?"true":"false"}"><div>`+
       `<div class="prog-day__title">${esc(dayLabel(d))}</div>${mus.length?`<div class="prog-day__muscles">${esc(mus.map(muscleLabel).join(" · "))}</div>`:""}</div>`+
       `<div class="prog-day__right">${esc(t("program.day_meta",{ex:exs.length,sets}))}<span class="chevron${open?" is-up":""}" aria-hidden="true"></span></div></button>`;
-    if(open){daysHtml+=`<div class="prog-day__body">${exs.map(e=>`<button type="button" class="prog-ex" data-exopen="${esc(e.id)}"><span>${esc(e.name)}</span><span class="prog-ex__sets">${e.sets} × ${e.min}–${e.max}</span></button>`).join("")}`+
-      `<button type="button" class="link-row-cta" data-ovdetails="${esc(d)}"><span>${esc(t("program.see_details"))}</span><span class="chevron" aria-hidden="true"></span></button></div>`}
+    if(open){daysHtml+=`<div class="prog-day__body">${exs.map(e=>`<button type="button" class="prog-ex" data-exopen="${esc(e.id)}" data-action-role="navigation" aria-label="${esc(t("log.open_exercise_aria",{name:e.name}))}"><span>${esc(e.name)}</span><span class="prog-ex__sets">${e.sets} × ${e.min}–${e.max}</span></button>`).join("")}`+
+      `<button type="button" class="link-row-cta" data-ovdetails="${esc(d)}" data-action-role="navigation"><span>${esc(t("program.see_details"))}</span><span class="chevron" aria-hidden="true"></span></button></div>`}
     daysHtml+=`</div>`}
   const planned=prog.volume();let plannedTotal=0;for(const[,v] of planned)plannedTotal+=v.d+v.p;
   el.innerHTML=`<div class="prog-overview__name">${esc(meta.name||t("untitled_program"))}</div>`+
@@ -9923,24 +9942,27 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
     (started?`<div class="prog-overview__started">${esc(started)}</div>`:"")+
     `<div class="statrow">`+
     `<div class="statrow__cell"><div class="statrow__val">${ad.logged} / ${ad.total}</div><div class="statrow__cap">${esc(t("program.stat.days_7d"))}</div></div>`+
-    `<div class="statrow__cell"><div class="statrow__val">${health?.hot||0}</div><div class="statrow__cap">${esc(t("program.stat.ready"))}</div></div>`+
     `<div class="statrow__cell"><div class="statrow__val">${vol?Math.round(vol.ratio*100)+"%":"—"}</div><div class="statrow__cap">${esc(t("program.stat.volume"))}</div></div>`+
     `</div>${daysHtml}`+
+    (ready.length
+      ? `<button type="button" class="listrow program-ready-link" id="programReadyLink" data-action-role="navigation"><div class="listrow__main"><div class="listrow__title">${esc(t("program.ready_to_add",{n:ready.length}))}</div></div><span class="chevron" aria-hidden="true"></span></button>`
+      : "")+
     `<p class="section-label">${esc(t("program.planned_volume_label"))}</p>`+
-    `<button type="button" class="listrow" id="seeVolumeAudit"><div class="listrow__main"><div class="listrow__title">${esc(t("program.effective_sets",{n:fmt(plannedTotal)}))}</div></div>`+
+    `<button type="button" class="listrow" id="seeVolumeAudit" data-action-role="navigation"><div class="listrow__main"><div class="listrow__title">${esc(t("program.effective_sets",{n:fmt(plannedTotal)}))}</div></div>`+
     `<span class="listrow__meta">${esc(t("program.see_audit"))}<span class="chevron" aria-hidden="true"></span></span></button>`+
     // Nothing to read out when the program has no days left, so the row waits for one.
-    (ds.length?`<button type="button" class="listrow" id="exportProgramText"><div class="listrow__main"><div class="listrow__title">${esc(t("program.export_text"))}</div>`+
+    (ds.length?`<button type="button" class="listrow" id="exportProgramText" data-action-role="navigation"><div class="listrow__main"><div class="listrow__title">${esc(t("program.export_text"))}</div>`+
       `<div class="listrow__sub">${esc(t("program.export_text.sub"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`:"")+
-    (ds.length?`<button type="button" class="listrow" id="shareProgramSetup"><div class="listrow__main"><div class="listrow__title">${esc(t("program.share_setup"))}</div>`+
+    (ds.length?`<button type="button" class="listrow" id="shareProgramSetup" data-action-role="navigation"><div class="listrow__main"><div class="listrow__title">${esc(t("program.share_setup"))}</div>`+
       `<div class="listrow__sub">${esc(t("program.share_setup_sub"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`:"")+
-    `<button type="button" class="listrow" id="reviewBlockLink" style="border-bottom:0"><div class="listrow__main"><div class="listrow__title">${esc(t("program.review_block"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
+    `<button type="button" class="listrow" id="reviewBlockLink" data-action-role="navigation" style="border-bottom:0"><div class="listrow__main"><div class="listrow__title">${esc(t("program.review_block"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
   $$("#programOverview [data-ovday]").forEach(b=>b.onclick=()=>{
     const cur=new Set(openDays);
     cur.has(b.dataset.ovday)?cur.delete(b.dataset.ovday):cur.add(b.dataset.ovday);
     setUiPref("overviewOpenDays",[...cur].filter(x=>ds.includes(x)));renderProgramOverview()});
   $$("#programOverview [data-exopen]").forEach(b=>b.onclick=()=>{if(b.dataset.exopen)openExerciseView(b.dataset.exopen,"program")});
   $$("#programOverview [data-ovdetails]").forEach(b=>b.onclick=()=>openDayInEditor(b.dataset.ovdetails));
+  const readyLink=$("#programReadyLink");if(readyLink)readyLink.onclick=()=>{programReadyView=true;renderProgram();window.scrollTo({top:0})};
   const audit=$("#seeVolumeAudit");if(audit)audit.onclick=()=>{programEditMode=true;renderProgram();$("#volume")?.scrollIntoView({behavior:"smooth"})};
   const asText=$("#exportProgramText");if(asText)asText.onclick=openProgramTextSheet;
   const shareSetup=$("#shareProgramSetup");if(shareSetup)shareSetup.onclick=openShareSetupSheet;
@@ -9955,7 +9977,7 @@ function renderProgramChips(){
   const ad=programAdherence(),mc=mesocycleWeek(),health=programProgressionHealth(),vol=programVolumeCompliance();
   const status=programStatusLabel(ad,health);
   const weekChip=(mc.current!=null||mc.isComplete)?`<span class="pmeta__chip">${esc(mesocycleWeekCopy(mc,"program.week_chip"))}</span>`:"";
-  const healthChip=health?`<span class="pmeta__chip">${esc(t("program.ready_chip",{done:health.hot,total:health.total}))}</span>`:"";
+  const healthChip=health?.hot?`<span class="pmeta__chip">${esc(t("program.ready_chip",{done:health.hot,total:health.total}))}</span>`:"";
   const volChip=vol?`<span class="pmeta__chip">${esc(t("program.volume_chip",{pct:Math.round(vol.ratio*100)}))}</span>`:"";
   top.innerHTML=`${weekChip}<span class="pmeta__chip pmeta__chip--status">${esc(status)}</span>`;
   bottom.innerHTML=`<span class="pmeta__chip">${esc(t("program.days_last_7",{done:ad.logged,planned:ad.total}))}</span>${healthChip}${volChip}`;
