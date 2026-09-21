@@ -1365,7 +1365,6 @@
   "program.share_setup_share": "Share link",
   "program.share_setup_copy": "Copy link",
   "program.share_setup_unsupported": "This browser cannot create setup links.",
-  "program.share_setup_unlinked": "Save every unlinked exercise as a custom exercise before sharing.",
   "program.share_setup_invalid": "This program has settings that cannot be included in a setup link.",
   "program.share_setup_blocked.one": "Resolve 1 exercise before sharing.",
   "program.share_setup_blocked.other": "Resolve {n} exercises before sharing.",

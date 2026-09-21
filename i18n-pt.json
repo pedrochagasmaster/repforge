@@ -1365,7 +1365,6 @@
   "program.share_setup_share": "Compartilhar link",
   "program.share_setup_copy": "Copiar link",
   "program.share_setup_unsupported": "Este navegador não pode criar links de configuração.",
-  "program.share_setup_unlinked": "Salve cada exercício não vinculado como exercício personalizado antes de compartilhar.",
   "program.share_setup_invalid": "Este programa tem ajustes que um link de configuração não aceita.",
   "program.share_setup_blocked.one": "Corrija 1 exercício antes de compartilhar.",
   "program.share_setup_blocked.other": "Corrija {n} exercícios antes de compartilhar.",

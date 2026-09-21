@@ -7,6 +7,7 @@
  * installed editor. A browser result is not accepted from one replica alone.
  */
 import { pathToFileURL } from "url";
+import { readFileSync } from "fs";
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
 import { BUILT_IN_IDS, CURRENT_SETTINGS_DEFAULTS, KIND, VERSION } from "./fixtures/shared-setup.mjs";
 
@@ -150,13 +151,18 @@ async function finishEditor(page) {
 async function run() {
   const browser = await launchChromium();
   try {
+    const english = JSON.parse(readFileSync(new URL("../i18n-en.json", import.meta.url), "utf8"));
+    const portuguese = JSON.parse(readFileSync(new URL("../i18n-pt.json", import.meta.url), "utf8"));
+    assert(!Object.prototype.hasOwnProperty.call(english, "program.share_setup_unlinked") &&
+      !Object.prototype.hasOwnProperty.call(portuguese, "program.share_setup_unlinked"),
+      "Share catalogs carry no retired disclosure copy");
     console.log("validator contract");
     const validator = await (async () => {
       const context = await browser.newContext();
       const page = await context.newPage();
       await page.goto(INDEX, { waitUntil: "domcontentloaded" });
       await waitForAppBoot(page, { base: BASE });
-      const result = await page.evaluate(({ kind, version, ids }) => {
+      const result = await page.evaluate(async ({ kind, version, ids }) => {
         const payload = {
           kind,
           version,
@@ -183,7 +189,16 @@ async function run() {
           ...payload,
           program: { ...payload.program, exercises: [payload.program.exercises[3]] },
         }, { builtInIds: new Set(ids) });
-        return { checked, withSchemaIssue, valid };
+        const largeExercises = Array.from({ length: 40 }, (_, index) => ({
+          ...payload.program.exercises[3],
+          id: `large-${index}`,
+          order: index + 1,
+          notes: Array.from({ length: 1800 }, (_, offset) => String.fromCharCode(0x2500 + ((offset + index * 13) % 80))).join(""),
+        }));
+        const largePayload = { ...payload, program: { ...payload.program, exercises: largeExercises, meta: { ...payload.program.meta, daysPerWeek: 1 } } };
+        const largeChecked = window.RepForgeSharedSetup.validate(largePayload, { builtInIds: new Set(ids) });
+        const largeEncoded = largeChecked.ok ? await window.RepForgeSharedSetup.encode(largeChecked.value, { builtInIds: new Set(ids) }) : largeChecked;
+        return { checked, withSchemaIssue, valid, largeChecked, largeEncoded };
       }, { kind: KIND, version: VERSION, ids: [...BUILT_IN_IDS] });
       await context.close();
       return result;
@@ -193,6 +208,9 @@ async function run() {
     assert(validator.checked.blockers?.[0]?.dayId === "push_d1" && validator.checked.blockers?.[0]?.known?.equipment?.[0] === "cables", "blocker uses stable day identity and only supplied known facts", JSON.stringify(validator.checked.blockers?.[0]));
     assert(validator.withSchemaIssue.code === "invalid-schema" && validator.withSchemaIssue.blockers?.length === 3, "other schema issues retain their code alongside blockers", JSON.stringify(validator.withSchemaIssue));
     assert(validator.valid.ok === true && Array.isArray(validator.valid.blockers) && validator.valid.blockers.length === 0 && !("id" in validator.valid.value.program.exercises[0]), "success returns blockers:[] and strips diagnostic identity from the canonical value", JSON.stringify(validator.valid));
+    assert(validator.largeChecked.ok === true && validator.largeChecked.value.program.exercises.every((row) => row.notes.length === 1800) &&
+      validator.largeEncoded.ok === false && ["decompressed-too-large", "encoded-too-large"].includes(validator.largeEncoded.code),
+      "oversized notes fail closed without truncation", JSON.stringify({ checked: validator.largeChecked, encoded: validator.largeEncoded }));
 
     const { context, page } = await openSeed(browser);
     try {
@@ -215,6 +233,7 @@ async function run() {
           shareVisible: !document.querySelector("#shareSetupShare")?.classList.contains("hidden"),
           copyDisabled: !!document.querySelector("#shareSetupCopy")?.disabled,
           shareDisabled: !!document.querySelector("#shareSetupShare")?.disabled,
+          shareText: (document.querySelector("#shareSetupSheet")?.textContent || "").toLowerCase(),
         };
       });
       const sameBlockers = JSON.stringify((rendered.checked || []).map((row) => ({
@@ -225,6 +244,8 @@ async function run() {
       }))) === JSON.stringify(rendered.dom);
       assert(sameBlockers, "rendered blocker list equals validator output one-to-one", JSON.stringify(rendered));
       assert(!rendered.copyVisible && !rendered.shareVisible && rendered.copyDisabled && rendered.shareDisabled && !rendered.canonicalHasDiagnostics, "Share fails closed and diagnostics stay out of the canonical payload", JSON.stringify(rendered));
+      assert(!/privacy|cookie|transport|bearer|unencrypted|encrypted|host request/.test(rendered.shareText),
+        "Share surface contains task copy only", rendered.shareText);
 
       await clickRepair(page, "ex-missing");
       await page.locator('#exPickList [data-pick="pr_mc"]').click();
