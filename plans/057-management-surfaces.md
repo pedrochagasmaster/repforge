@@ -9,10 +9,10 @@ and owner gates only.
 - **Phase:** 6 — Management surfaces
 - **Status:** Planned; implementation has not started
 - **Owner approval state:** Approved direction; final owner phone review remains
-- **Depends on:** Plan 049; Plan 050; the merged durable-state bridge plus the architecture outputs of Plans 054–056: entry/lifecycle host and Privacy/guide registry, accepted workout-session owner, and outcome/Review contracts with any earned historical projection.
+- **Depends on:** Plan 049; Plan 050; the merged durable-state bridge; Plan 054's entry, installed-editor, Privacy, guide-registry, and install-policy interfaces; Plan 055's `WorkoutSession` owner; and Plan 056's `RepForgeProgressModel`, `strengthEvidenceRecords()`, and Review route.
 - **Blocks:** Plan 058 full-system convergence and Plan 059 launch validation
 - **Governing G decisions:** G-12–G-14, G-17, G-23–G-24, G-38, G-45–G-46, G-49, G-60, G-62–G-69, G-80
-- **Architecture-audit ownership:** Candidate C / R7 installed-management completion; Candidate H shared vocabulary completion; management portion of R5 caller migration.
+- **Architecture-audit ownership:** Candidate C / R7 installed-management completion; Candidate H exact-identity completion through the existing picker vocabulary; management portion of R5 caller migration.
 - **Governing UI findings:** UI-13, UI-14, UI-24, UI-25, UI-26, UI-27, UI-28
 - **Affected surfaces:** History session/read/edit/delete, Share setup/repair, session summary, Today, Program overview/editor/actions, Settings/help/privacy, rest-timer visual semantics
 - **Complexity:** Very high
@@ -53,25 +53,27 @@ Preserve History/session facts, Share's fail-closed exact-identity boundary, Sum
 
 - History calendar and selected-session edit controls coexist in one first viewport. `app.js` groups saved log rows into sessions and directly exposes editable date/load/reps/RIR fields; names use truncation rules. Delete controls visually compete with ordinary fields.
 - Saved log rows are durable state under `repforge_v1`; session identity groups rows. Writes already use durable revision/WAL behavior, but UI edit state needs an explicit original fingerprint to detect stale tabs.
-- `shared-setup.js` validates exercise identity and payload bounds. Share currently disables copy on unresolved slots and shows a generic message/privacy/cookie explanation. Program replacement/custom definition flows already exist in exercise picker/editor and must be reused with stable exercise identity.
-- Summary generation in `app.js` computes PRs, outcomes, volume, and `sessionMuscleWork()`. The centered summary is a protected strength. Current muscle bars are relative, and current status names include flat/regressed variants.
-- Today renders block/week and weekly completion in more than one location. Plan 055 adds distinct Preview/Start behavior; this plan edits only progress information placement.
+- `shared-setup.js` validates exercise identity and payload bounds. Share currently stops before validation when a slot is unlinked, then shows one generic message. Plan 054 left catalogue search in the single `openExercisePicker()` owner and kept its vocabulary exports in `ProgramEntryAdapter`; it did not create a second shared search module.
+- Summary generation in `app.js` computes PRs, legacy per-session deltas, and `sessionMuscleWork()`. Plan 056 established `strengthEvidenceRecords()` as the acknowledged outcome producer for Overview, Strength, and Review. Current muscle bars are relative.
+- Today renders the calendar-week completion value from `weeklySnapshot()` in two places. Plan 055's Preview/Start behavior is merged; this plan edits only progress information placement.
 - Program overview/editor render several row/action patterns and readiness chips. `0 ready` appears; Replace/Remove can have similar light-theme weight. The persistent editor dock is historically flat but G-80 now authorizes restrained elevation.
-- Settings contains appearance, training, notifications, install, backup/data/privacy/help in a long flat/inset layout. Plan 054 supplies cached Privacy and guide registry; Plan 053 supplies install-transfer settings action.
-- Timer behavior exists in Focus header/sheet. Plan 055 fixes its reserved geometry; current ring and primary control both use orange and icon systems mix fill/stroke weight.
+- Settings contains appearance, training, notifications, install, backup/data/privacy/help in a long flat/inset layout. `guide-registry.js` has eight ordered definitions. Entry, install, Privacy, Progress, and block transition are wired; first set, Focus utilities, and backup still have `wired:false`. Plan 054 supplies cached Privacy and the registry; Plan 053 supplies the install-transfer settings action.
+- Timer behavior exists in Focus header/sheet. Plan 055 owns its reserved geometry; current ring and primary control both use orange and icon systems mix fill/stroke weight.
 
 ## Architecture
 
 ### Architecture-audit adoption: management workflow convergence
 
-1. History Save/Delete, Program replacement/editor activation, Share repair return, and other durable management writes consume the normalized durable-state outcome rather than raw WAL/replica flags.
-2. History UI-local working copies remain volatile until explicit Save. The workflow owner delegates atomic durability to the durable-state owner and interprets only the normalized outcome.
-3. Program replacement/editor activation must reuse the entry/lifecycle host established in Plan 054 rather than create a second activation workflow.
-4. Retry after an already committed replacement must be idempotent and must not create another archive/program transition.
-5. Full backup, history merge, setup/share and install-transfer remain distinct workflows.
-6. If Plan 054 established a shared exercise catalogue/search vocabulary seam, migrate Share/repair/Program/search consumers to it; remove compatibility exports from `ProgramEntryAdapter` only after all entry + management identity tests are green; preserve exact library/custom/historical identity; and never fuzzy-repoint an established ID.
-7. If Plan 056 proves an acknowledged historical projection, Summary/Today/Program consumers reuse it where semantically identical. Do not create parallel calculations merely for management rendering.
-8. Keep presentation concerns outside workflow/domain owners.
+1. History Save/Delete, installed Program edits, and Share repair consume `commitProposedState()`'s normalized `committed`, `settled`, `status`, and `code` fields. They do not infer success from `localOk` or `idbOk`.
+2. History UI-local working copies remain volatile until explicit Save. The History workflow delegates the atomic write and lock-held comparison to the durable-state owner.
+3. Whole-program creation and replacement remain in `startOnboarding()` → `activateEntryPreview()` → `finalizeProgramSetup()` / `commitProgramReplacement()`. Plan 057 does not add an activation path or route a slot repair through whole-program replacement.
+4. Installed Program edits and Share slot repair use `mountInstalledProgramEditor()`, `createInstalledProgramEditorAdapter()`, and its lock-held `commitProposedState(..., {preflight})` path. Change that adapter's success test from replica flags to `committed && settled` as part of the caller migration.
+5. Full backup, history merge, setup links, Share repair, and install transfer remain distinct workflows.
+6. Plan 054 did not earn a second catalogue/search module. Share repair uses the existing `openExercisePicker()` / `openCustomExerciseSheet()` path, `libraryEntry()`, and current `ProgramEntryAdapter` vocabulary exports. Do not remove or move those exports in Plan 057. Preserve exact library, custom, slot, and historical identity.
+7. Plan 056 earned one acknowledged historical outcome producer: `strengthEvidenceRecords()`. Summary reuses it after workout commit. Today's calendar-week strip and Program's immediate next-session readiness have different semantics, so they retain `weeklySnapshot()` and `recommendation()` respectively. Do not use `buildWeekStatus()` or `buildProgramActionQueue()` for those two values.
+8. `WorkoutSession.finish()` remains the only owner of workout completion. Summary consumes its `completed.rows` only after the durable result is both committed and settled.
+9. Settings reads `GuideRegistry.GUIDE_DEFINITIONS` in registry order. Install continues through `installPolicyDecision("manual-settings")` and `triggerInstall("manual-settings")`.
+10. Keep presentation concerns outside workflow/domain owners.
 
 ### History read/edit state machine
 
@@ -87,28 +89,42 @@ saving | conflict | failure
 
 Selecting a day/session enters `reading` and removes/hides the month from the active surface; **Back to calendar** restores its prior month/focus. The read view derives full exercise/set rows and compact long-date heading from immutable session data.
 
-**Edit session** deep-copies only the selected session into a working copy. Inputs never mutate `state.log` on change. **Cancel** discards the copy (confirm only when dirty and leaving would lose edits). **Save** validates the complete copy, re-reads the durable session fingerprint under the state lock, replaces all rows for that session atomically, and returns to read state. A stale fingerprint produces a conflict with reload/cancel; no automatic row merge. Delete uses a separate confirmation and the same stale check.
+`historySessionFingerprint(rows)` is the JSON string of each complete canonical row, with object keys sorted and the row strings sorted before the outer serialization. It includes every persisted field, preserves duplicate rows, and excludes unrelated sessions. `originalFingerprint` is taken when `reading` starts.
+
+**Edit session** deep-copies only the selected session into a working copy. Inputs never mutate `state.log` on change. **Cancel** discards the copy. Confirm only when dirty edits would be lost.
+
+**Save** validates the complete copy and calls `commitProposedState()` with a lock-held `preflight`. The preflight reads the session from `head.log`. If its fingerprint still equals `originalFingerprint`, it builds the proposal from that locked head, replaces only the selected session, and preserves every unrelated row. If the current fingerprint equals the desired saved fingerprint, return `{reject:true, result:{alreadyCommitted:true, localOk:true, idbOk:true, revision}}` so the durable-state owner normalizes it. Any other fingerprint or a missing session is a conflict with reload/cancel; never merge rows. Delete uses a separate confirmation and the same preflight. An already missing session returns the same `alreadyCommitted` result for Delete.
+
+Only `committed && settled`, including a settled `already_committed` result, returns to read state and announces success. A rejected stale result enters `conflict`. A `deferred`, `partial`, or `failed` result keeps the working copy and never announces success; reload or retry first re-reads the durable head. This makes Save and Delete safe when a prior attempt settles after the UI receives an uncertain result.
 
 ### Share validation and repair return route
 
-Extend shared-setup validation output with a complete structured blocker list:
+Extend `SharedSetup.validate()` with a complete structured blocker list for unresolved exercise identities:
 
 ```text
 { dayId, exerciseInstanceId, displayName, reasonCode,
   known: { libraryId?, equipment?, primary?, secondary? } }
 ```
 
-The Share sheet renders every blocker in program order and no Copy/System Share action while any exist. Each Repair action closes/suspends Share, opens the existing explicit exercise replacement/custom-definition flow with a return token `{surface:'share', exerciseInstanceId}`, and returns to freshly revalidated Share after success/cancel.
+`reasonCode` is one of `missing-library-id`, `unknown-library-id`, or `missing-custom-definition`. Validation returns `blockers: []` on success and attaches the ordered blockers to every invalid result where it can identify them. Other schema issues stay in `issues` and retain their existing `code`; a result that contains only blockers uses `code:"unresolved-exercises"`. Emit exactly one blocker for each unresolved program row.
 
-Built-in repair accepts only a current library ID. Custom repair requires the user to explicitly provide every required missing fact; prefill only trusted existing values. No display-name alias/fuzzy match, silent omission, or manufactured equipment/muscle data. A program edit/stale identity while repair is open invalidates the return target safely and reopens Share with current blockers.
+`exerciseInstanceId` is the active program row's `id`. Resolve `dayId` from the row or its `programMeta.programStructure` entry; a display label is never an identity. `buildSharedSetupPayload()` supplies every row `id` to validation for diagnostics. Validation keeps its current canonical rule that strips non-relational IDs from the encoded value, so the shared document and cookie format do not change. Remove the generic `unlinked` short circuit in `buildShareSetupLink()` so validation produces the full ordered list.
+
+The Share sheet renders every blocker in program order and no Copy/System Share action while any exist. Each Repair action closes Share and stores a volatile return token `{surface:'share', programId, blockId, exerciseInstanceId}`. Mount the installed Program editor and add a narrow `replaceExercise(exerciseInstanceId)` command to the controller returned by `mountProgramEditor()`. That command calls the existing `replaceForExercise()` path; it does not implement another picker or replacement reducer.
+
+Built-in repair accepts only a current `libraryEntry()` result. For a new custom definition, use `openCustomExerciseSheet({stageOnly:true})`, add that definition to the editor's `nextDocument.customExercises`, and carry it in the existing `exercise_replace` intent so the definition and slot replacement commit in one installed-editor proposal. Cancel writes neither object. Only a `committed && settled` editor Apply returns to freshly revalidated Share as success. Picker, custom-sheet, and Program-editor cancel discard the repair session and return to Share without an editor commit.
+
+Custom repair requires the user to explicitly provide every required missing fact; prefill only trusted existing values. No display-name alias/fuzzy match, silent omission, or manufactured equipment/muscle data. If `programId`, `blockId`, or `exerciseInstanceId` no longer matches when the repair commits or returns, discard the staged editor session and reopen Share with current blockers.
 
 ### Session summary view model
 
-Consume Plan 056's canonical `improved|maintained|declined` outcomes. Map old compatible facts once at the adapter boundary; do not add new thresholds. Render the already-ranked `sessionMuscleWork()` output as numeric weighted hard-set totals. Preserve its existing sets/direct/name tie-break order. Continue the existing primary=1/secondary=0.5 convention and label it; zero rows are omitted. Remove relative bars entirely so 1.5 sets cannot look like 100% of a target.
+After `WorkoutSession.finish()` returns `completed`, `buildSessionSummary()` filters one call to `strengthEvidenceRecords("current-block")` to the lift identities in `completed.rows`. It presents only sufficient `improved|maintained|declined` facts through `EVIDENCE_OUTCOME_KEYS`. Do not call `sessionDeltaCounts()` for summary outcomes or add thresholds.
+
+Render the already-ranked `sessionMuscleWork()` output as numeric weighted hard-set totals. Preserve its existing sets/direct/name tie-break order. Continue the existing primary=1/secondary=0.5 convention and label it; zero rows are omitted. Remove relative bars entirely so 1.5 sets cannot look like 100% of a target.
 
 ### Today information model
 
-Use one block-position model and one current-week completion value from Plan 056. The block line remains near the block progress role; the weekly line is adjacent to the day strip. Remove any second sentence with the same completed/planned value. Plan 055's Preview/Start/draft states remain untouched.
+Keep `mesocycleWeek()` as the block-position owner. Keep `weeklySnapshot().completedDays` / `plannedDays` as the Monday-to-Sunday value beside Today's calendar day strip. `RepForgeProgressModel.buildWeekStatus()` describes the program week relative to the block start and is not interchangeable with that strip. Remove the duplicate `today-prog__done` sentence. Plan 055's Preview/Start/draft states remain untouched.
 
 ### Program action roles
 
@@ -119,7 +135,7 @@ Annotate controls with one semantic role:
 - replacement: explicit non-destructive substitution with a strong distinguishable action role;
 - removal: destructive, separated and warning-labelled/confirmed as appropriate.
 
-Readiness is derived from authoritative progression recommendations. If count is zero, render no readiness row/chip. If positive, render **N exercises ready to add weight** as a navigation action to a filtered/list/first-ready Program state, with a path back and full set of ready exercises.
+Readiness counts exercises whose authoritative `recommendation(ex).status` is `add` or `add2`. `RepForgeProgressModel.buildProgramActionQueue()` remains the evidence-backed Progress action owner and does not drive this immediate next-session value. If count is zero, render no readiness row/chip. If positive, render **N exercises ready to add weight** as a navigation action to a UI-local `programReadyView`. That view replaces the overview with every ready exercise in program day/order, keeps **Back to program**, and uses the existing `openExerciseView(ex.id, "program")` row destination. Recompute the list on render; if it becomes empty, return to the overview. Block review actions continue to call `promptEndBlock()` and enter Progress → Review.
 
 The editor action dock uses Phase 049's `persistent-action` elevation: shallow shadow/boundary, safe-area padding, and no surrounding card/modal treatment. It remains distinct from content and does not cover the last editor row.
 
@@ -128,11 +144,13 @@ The editor action dock uses Phase 049's `persistent-action` elevation: shallow s
 Render four top-level groups with short summaries:
 
 - training behavior: units, effort/RIR, progression/training settings;
-- app experience: appearance, timer/notification behavior, language/install as applicable;
+- app experience: appearance, timer/notification behavior, language, and the policy-eligible install action;
 - data/privacy: backup/import/delete/analytics and a Privacy-page navigation row;
 - help: contextual guide replay and support/about facts.
 
-Keep all required controls visible. Detailed privacy text is not duplicated. Guide replay enumerates Plan 054 registry entries (first set, Focus utilities, Progress interpretation, block transition, backup, installation) and resets only selected presentation state. Install action consumes Plan 054/053 policy.
+Keep all required controls visible. Detailed privacy text is not duplicated. Render all eight `GuideRegistry.GUIDE_DEFINITIONS` in registry order instead of keeping a second hard-coded list in `index.html`. Preserve the existing entry, install, Privacy, Progress, and block-transition wiring. Add the missing EN/PT title and body strings for first set, Focus utilities, and backup. Call `maybeShowContextualGuides(["first-set"])` after ordinary Log set actions render, `maybeShowContextualGuides(["focus-utilities"])` after the Focus header renders, and `maybeShowContextualGuides(["backup"])` after the backup disclosure opens. Then set those three definitions to `wired:true`; keep their current `.saveset`, `#woOverflowBtn`, and `#exportJson` anchors.
+
+Replay calls `replayGuideState()` for only the selected guide. If its owning view or anchor is hidden, preserve the current `deferred` result; do not navigate or replay another guide. Install eligibility and action use `installPolicyDecision("manual-settings")` and `triggerInstall("manual-settings")`. Do not add install platform or cadence logic.
 
 ### Timer ownership boundary
 
@@ -140,19 +158,21 @@ Plan 055 owns timer state, size reservation, title stability, and sheet operatio
 
 ## Domain/state model
 
-- `HistoryEditWorkingCopy` contains selected session rows plus original durable fingerprint; it is volatile until Save.
-- `ShareBlocker` is validation output keyed by stable day/exercise identity and reason; it is not persisted or telemetered.
-- Summary/Today/Program view models consume canonical existing/Plan 056 facts.
+- `HistoryEditWorkingCopy` contains selected session rows plus `originalFingerprint` and `desiredFingerprint`; it is volatile until Save.
+- `ShareBlocker` is `SharedSetup.validate()` output keyed by stable day/exercise identity and reason; it is not persisted, encoded, or telemetered.
+- `ShareRepairReturn` is volatile and contains the source program, block, and exercise identities. It never enters durable state or UI preferences.
+- `programReadyView` is volatile navigation state. Its exercise IDs are derived on render and are never persisted.
+- Summary consumes `strengthEvidenceRecords()`. Today consumes `mesocycleWeek()` plus the calendar-week portion of `weeklySnapshot()`. Program readiness consumes `recommendation()`.
 - Settings grouping and open row are UI state; actual settings remain in their established durable/device boundaries. Appearance stays device-only and never enters backup/setup proposals.
 
 ## Migrations
 
 - No saved-log shape migration. History edit rewrites current canonical rows only on explicit Save.
-- Old summary outcome labels are presentation-mapped; stored history is not rewritten.
+- Old `flat` / `regressed` facts are already mapped once inside `strengthEvidenceRecords()`; stored history is not rewritten.
 - Existing Program action markup/state remains compatible while roles migrate; no program identity change.
-- Old Settings open-section/tour preferences map to new groups/guide registry without replaying dismissed cues unexpectedly.
+- Existing guide records keep their ID and version. The layout adds no settings migration; replay changes only the selected record through `replayGuideState()`.
 - Share payload/schema/cookie remain unchanged. Only validation reporting and repair routing change.
-- Rebuild i18n and advance current SW/script revisions with cached files; catalog states migrate by stable IDs where possible.
+- Rebuild i18n and advance current SW/script revisions with cached files. Keep existing catalog IDs and add the named Plan 057 states to their owning flows.
 
 ## UX state specification
 
@@ -170,7 +190,7 @@ Plan 055 owns timer state, size reservation, title stability, and sheet operatio
 
 - Summary improved/maintained/declined/mixed/no evidence, PRs, ranked muscles.
 - Today zero/partial/complete weekly progress and block position without duplicate.
-- Program readiness hidden/nonzero; row expanded/navigated; replace/remove; sticky dock at start/end/keyboard.
+- Program readiness hidden/nonzero; ready-list Back and exercise-detail return; row expanded/navigated; replace/remove; sticky dock at start/end/keyboard.
 - Settings four groups, Privacy navigation/back, guide list/replay, install states, data deletion separation.
 - Timer idle/running/paused/overtime with orange progress and neutral controls.
 
@@ -186,7 +206,7 @@ Complete EN/PT-BR messages for History modes/conflicts/delete, Share reasons/rep
 
 - 320px: selected History replaces calendar; full names and edit fields stack; Share blockers/actions wrap; sticky Program dock and Settings rows clear chrome/safe areas.
 - Canonical/430: compact management rows, no nested-card tunnels, bounded line length.
-- Desktop: may retain a calendar/sidebar only if selection still clearly enters read-first content and mobile contract remains; editing remains explicit.
+- Desktop follows the same read-first selection state: hide the calendar after selection, keep **Back to calendar**, and require **Edit session** before fields appear.
 - 200%/PT+200: long names/actions/group headings wrap, final actions remain visible, no horizontal document scroll or obscured destructive boundary.
 
 ## Light/dark
@@ -220,13 +240,15 @@ Only Phase 049-approved coarse task outcomes: History read/edit/save/cancel/dele
 Architecture acceptance additionally proves:
 
 - History partial/replica failure never appears saved; stale History save/delete remains conflict, not silent merge.
-- Replacement retry after acknowledged commit archives exactly once.
+- History Save/Delete retry resolves an exact desired state as `alreadyCommitted` and never rewrites unrelated rows.
 - Share repair cannot change unrelated exercise identity.
-- Vocabulary migration leaves import/share/picker identity fixtures byte/semantically equivalent.
+- Share repair retains the current picker vocabulary exports and keeps non-relational diagnostic IDs out of the encoded document.
+- Installed editor Apply and Share repair do not treat a one-replica or deferred result as success.
 - Legacy formats continue to decode.
 
-Conditional reuse follows the actual accepted 054/056 outputs; it must not
-manufacture a second vocabulary or historical projection.
+Plan 054 left catalogue search in `openExercisePicker()` and Plan 056 established
+`strengthEvidenceRecords()`. Tests hold those owners rather than introducing a
+second vocabulary or outcome projection.
 
 - History read/edit state-machine tests: selection replaces calendar; Back restores; no mutation before Save; Cancel exact; Save atomic; stale two-tab conflict; delete separate/confirmed; full names; locale dates.
 - Share valid and every-blocker journeys: list equality with validator; per-row stable Repair; built-in/custom/missing facts; cancel/success/stale return; fail-closed actions; no fuzzy/omission/fabrication; length/no-truncation; task-only copy.
@@ -289,15 +311,19 @@ Rules for every slice in this plan:
 - **Read/edit/cancel/save/destruction tests land before the change.** 057-P0 characterizes the History read → edit →
   cancel → save → delete state machine against persisted sessions before any History markup changes; the Share,
   summary, Today, Program, Settings, and timer slices each open with their own characterization assertion.
-- **Dates and outcomes are consumed, not recomputed.** Summary and Today slices take Plan 056's canonical
-  `improved|maintained|declined` outcomes and week values; no slice adds a threshold or a volume formula.
-- **Share identity is exact.** 057-P3's blocker list is byte-equal to `shared-setup.js` `validate()` output, keyed by
+- **Dates and outcomes are consumed, not recomputed.** Summary takes canonical
+  `improved|maintained|declined` outcomes from `strengthEvidenceRecords()`. Today retains the existing
+  calendar-week value because Plan 056's program week has a different date range. No slice adds a threshold or a volume formula.
+- **Share identity is exact.** 057-P3's ordered blocker list is deep-equal to `SharedSetup.validate()` output, keyed by
   stable day/exercise identity, with no fuzzy or display-name matching, no silent omission, and no invented
   equipment/muscle facts.
-- **Anchors are concrete.** Existing: session grouping + editable date/load/reps/RIR in `app.js`, `repforge_v1` log
-  rows, `shared-setup.js` `validate()` (`shared-setup.js:622`), exercise picker/editor replacement flow,
-  `sessionMuscleWork()` / `buildSessionSummary` / `sessionSummaryHtml` in `app.js`, `weeklySnapshot()`
-  (`app.js:3144`) / `renderThisWeek()` (`app.js:6095`), Program readiness chips, timer in the Focus header/sheet;
+- **Anchors are concrete.** Existing: `renderHistory()`, `sessionEditor()`, `saveSessionEdit()`, `deleteSession()`, and
+  `repforge_v1` log rows; `SharedSetup.validate()` in `shared-setup.js`; `openExercisePicker()`,
+  `openCustomExerciseSheet()`, `mountProgramEditor()`, `mountInstalledProgramEditor()`, and
+  `createInstalledProgramEditorAdapter()`; `WorkoutSession.finish()`, `strengthEvidenceRecords()`,
+  `sessionMuscleWork()`, `buildSessionSummary()`, and `sessionSummaryHtml()`; `weeklySnapshot()` and
+  `renderToday()`; `recommendation()` and `promptEndBlock()`; `GuideRegistry.GUIDE_DEFINITIONS`,
+  `replayContextualGuide()`, `installPolicyDecision()`, and `triggerInstall()`; timer in the Focus header/sheet;
   tests `test/history.mjs`, `test/shared-setup-flow.mjs`, `test/shared-setup-unit.mjs`, `test/session-summary.mjs`,
   `test/today-done.mjs`, `test/appearance.mjs`, `test/accessibility.mjs`, `test/ui-catalog-contract.mjs`. **NEW**
   (this plan): `HistorySelection` state, structured `ShareBlocker` output, `test/history-edit.mjs`,
@@ -313,17 +339,17 @@ numeric labels. Do not add a parallel muscle-volume helper.
 
 | Slice | Maps rows | Bounded objective · mode | Existing anchors (main unless NEW) | Proof-first: PLANNED assertion + independent oracle + deliberate failure | Commands: baseline now → planned | STOP · reviewer gate |
 |---|---|---|---|---|---|---|
-| 057-P0 | 1–2 | Characterize History read/edit/cancel/save/delete over persisted sessions; pin "no mutation before Save" · **build (tests only)** | session grouping + edit fields in `app.js`, `repforge_v1` log rows; `test/history.mjs` | NEW `test/history-edit.mjs`: selecting a session and typing in an edit field produces zero change to `state.log` until Save (oracle = pre-edit durable snapshot); Cancel restores exactly. Failure: an input mutates `state.log` on change | baseline: `node test/history.mjs` → planned: `node test/history-edit.mjs` | STOP if the current surface already mutates before Save — record it, do not fix forward here · reviewer: reproduces the zero-mutation assertion |
-| 057-P1 | 1 | History read/edit state machine: calendar replaced by compact date context + Back; deep-copied working copy; Save re-reads the durable fingerprint under the state lock and replaces all rows atomically; full exercise names · **build** | `HistorySelection` (NEW), durable revision/WAL write path; `test/history.mjs` | extend `test/history-edit.mjs`: a stale fingerprint on Save produces a conflict with reload/cancel and no auto-merge; full names wrap, never ellipsized to hide identity. Failure: two-tab Save silently merges rows | baseline: `node test/history.mjs` → planned: `node test/history-edit.mjs` | STOP if a stale conflict auto-merges or names are truncated · reviewer: reproduces the two-tab conflict |
-| 057-P2 | 2 | Stale-safe session deletion: separate confirmation, same CAS fingerprint check, atomic delete · **build** | history/storage adapter, `test/history.mjs`, `test/persistence-race.mjs` | extend `test/history-edit.mjs`: delete uses its own confirm and the stale check; a crash during delete resolves one complete old/new state via boot replay. Failure: delete competes visually with ordinary fields, or a stale delete removes the wrong session | baseline: `node test/persistence-race.mjs` → planned: `node test/history-edit.mjs` | STOP if delete shares the edit-field affordance or skips the stale check · reviewer: reproduces the delete-crash recovery |
-| 057-P3 | 3 | Share: complete structured blocker list keyed by stable identity; per-row explicit Repair with a return token; built-in accepts only a current library ID; custom requires every missing fact explicitly · **build** | `shared-setup.js` `validate()` (`shared-setup.js:622`), exercise picker/editor replacement; `test/shared-setup-flow.mjs`, `test/shared-setup-unit.mjs` | NEW `test/share-repair.mjs`: the rendered blocker list equals `validate()` output one-to-one in program order; each Repair returns to a freshly revalidated Share; no Copy/System Share while any blocker exists. Failure: a blocker omitted; a display-name/fuzzy match; manufactured equipment/muscle data | baseline: `node test/shared-setup-flow.mjs && node test/shared-setup-unit.mjs` → planned: `node test/share-repair.mjs` | STOP if any unresolved row is omitted, guessed, fuzzy-matched, or given invented facts · reviewer: reproduces the list-equality and one custom-repair-missing-fields case |
-| 057-P4 | 4 | Keep Share task-only: remove disclosure/transport prose; preserve Copy, System Share, and fail-closed errors; Privacy lives on Plan 054's cached page · **build** | Share markup/app/i18n; Plan 054 Privacy page (merged); `test/shared-setup-flow.mjs` | extend `test/share-repair.mjs`: the Share sheet contains only task name/status/actions; the encoder still fails closed and never truncates notes; the Privacy link source is the landing/Settings page. Failure: Share still renders the cookie/transport essay; a payload logged | baseline: `node test/shared-setup-flow.mjs` → planned: `node test/share-repair.mjs` | STOP if Share regains privacy prose or logs/truncates a payload · reviewer: reproduces the copy audit |
-| 057-P5 | 5 | Session summary: preserve the centered completion hierarchy; consume Plan 056 `improved`/`maintained`/`declined`; rank `sessionMuscleWork()` totals descending with numeric weighted hard-set counts and no bars · **build** | `sessionMuscleWork()`, `buildSessionSummary`, `sessionSummaryHtml` in `app.js`; Plan 056 outcome contract; `test/session-summary.mjs` | NEW `test/management-summary.mjs`: saved-session facts and centered layout unchanged; muscle rows are ranked numeric totals (primary 1 / secondary 0.5, labelled), zero rows omitted, no relative bars. Failure: a new performance threshold; a bar that makes 1.5 sets read as 100% | baseline: `node test/session-summary.mjs` → planned: `node test/management-summary.mjs` | STOP if summary adds a threshold or keeps relative bars · reviewer: reproduces the fact-equality and sorting cases |
-| 057-P6 | 6 | Today: block position plus exactly one weekly completion line adjacent to the day strip; remove the duplicate sentence · **build** | `weeklySnapshot()` (`app.js:3144`), `renderThisWeek()` (`app.js:6095`); Plan 055/056 merged; `test/today-done.mjs` | extend `test/management-summary.mjs` (or NEW `test/today-week-line.mjs`): exactly one accessible text carries the completed/planned week value; block line stays near the block-progress role. Failure: two accessible strings with the same week value | baseline: `node test/today-done.mjs` → planned: `node test/today-week-line.mjs` | STOP if Today work changes Plan 055/056 state contracts · reviewer: reproduces the single-weekly-line assertion |
-| 057-P7 | 7 | Program: annotate each control with one semantic role (expansion/navigation/replacement/removal); hide zero readiness; nonzero renders "N exercises ready to add weight" as navigation; editor dock uses the G-80 `persistent-action` elevation · **build** | Program overview/editor renderers, readiness chips in `app.js`; `test/program-editor-text-fields.mjs`, `test/accessibility.mjs` | NEW `test/program-actions.mjs`: `aria-expanded` on expansion controls; Replace vs Remove meet rendered-role distinction and AA in light and dark; a zero readiness count renders no row/chip; the sticky dock never covers the last editor row. Failure: a `0 ready` chip; Replace/Remove indistinguishable in one theme | baseline: `node test/accessibility.mjs` → planned: `node test/program-actions.mjs` | STOP if readiness shows zero, or role semantics/scroll-safety regress · reviewer: reproduces the role inventory and the dock scroll-end case |
-| 057-P8 | 8 | Settings: four visible task groups with short summaries (training behavior / app experience / data-privacy / help); Privacy navigation row; guide replay enumerates the Plan 054 registry; install consumes Plan 053/054 policy · **build** | Settings markup/app; Plan 053 install-transfer action + Plan 054 registry (merged); `test/appearance.mjs`, `test/install-modes.mjs` | NEW `test/settings-groups.mjs`: every required control is still reachable; guide replay resets only the selected presentation state; appearance stays device-only and out of backup/setup. Failure: a control dropped; a dismissed cue replayed unexpectedly | baseline: `node test/appearance.mjs` → planned: `node test/settings-groups.mjs` | STOP if a required control is hidden or a storage boundary changes · reviewer: reproduces the group mapping and one replay |
-| 057-P9 | 9 | Timer: orange only for the live progress arc; neutral primary/secondary controls; normalized icon glyph weight; countdown accuracy and background behavior unchanged (Plan 055 owns function/geometry) · **build** | timer in the Focus header/sheet; `test/focus-mode.mjs` | NEW cases in `test/management-summary.mjs` (timer block): state snapshots for idle/running/paused/overtime show computed neutral control roles and unchanged deadline behavior. Failure: countdown behavior changes; a global token is edited ahead of Plan 058 | baseline: `node test/focus-mode.mjs` → planned: same suite, timer-role cases | STOP if timer styling alters countdown/background behavior or touches global tokens · reviewer: reproduces the timer-equivalence assertion |
-| 057-P10 | 10 | Management catalog + phone gates: destructive/share/history/Program-dock states across EN/PT, light/dark, compact, 200%, PT+200, scroll-end; owner real-phone review · **build + human evidence** | catalog flows `history`, `program`, `settings`, `session`; `test/ui-catalog-contract.mjs`; physical-phone owner | regenerate `node tools/capture-ui-screens.mjs --flow history --flow program --flow settings`; scroll-end clearance for sticky Program dock and Settings rows. Failure recorded, not hidden: a destructive confirmation pushed off-screen at PT+200 | baseline: `node test/ui-catalog-contract.mjs` → planned: `node tools/capture-ui-screens.mjs --flow history` then `node tools/check-ui-screens.mjs` | STOP if a destructive boundary is obscured at any variant · reviewer + owner: real-phone review of History/Share/summary/Program/Settings/timer signed into the PR (Plan 059 repeats sign-off) |
+| 057-P0 | 1–2 | Characterize History read/edit/cancel/save/delete over persisted sessions; pin "no mutation before Save" · **build (tests only)** | session grouping + edit fields in `app.js`, `repforge_v1` log rows; `test/history.mjs` | NEW `test/history-edit.mjs`: selecting a session and typing in an edit field produces zero change to `state.log` until Save (oracle = pre-edit durable snapshot); Cancel restores exactly. Failure: an input mutates `state.log` on change | baseline: `node tools/run-tests.mjs workout --suite history` → planned: register and run `node tools/run-tests.mjs workout --suite history-edit` | STOP if the current surface already mutates before Save — record it, do not fix forward here · reviewer: reproduces the zero-mutation assertion |
+| 057-P1 | 1 | History read/edit state machine: calendar replaced by compact date context + Back; deep-copied working copy; Save re-reads the durable fingerprint under the state lock and replaces all rows atomically; full exercise names · **build** | `HistorySelection` (NEW), `commitProposedState(..., {preflight})`, normalized durable outcome; `test/history.mjs` | extend `test/history-edit.mjs`: a stale fingerprint on Save produces a conflict with reload/cancel and no auto-merge; an exact delayed retry is `alreadyCommitted`; full names wrap. Failure: two-tab Save silently merges rows | baseline: `node tools/run-tests.mjs workout --suite history` → planned: `node tools/run-tests.mjs workout --suite history-edit` | STOP if a stale conflict auto-merges or names are truncated · reviewer: reproduces the two-tab conflict |
+| 057-P2 | 2 | Stale-safe session deletion: separate confirmation, same CAS fingerprint check, atomic delete · **build** | history/storage adapter, `test/history.mjs`, `test/persistence-race.mjs` | extend `test/history-edit.mjs`: delete uses its own confirm and the stale check; a crash during delete resolves one complete old/new state via boot replay. Failure: delete competes visually with ordinary fields, or a stale delete removes the wrong session | baseline: `node tools/run-tests.mjs state --suite persistence-race` → planned: `node tools/run-tests.mjs workout --suite history-edit` plus the exact state suite | STOP if delete shares the edit-field affordance or skips the stale check · reviewer: reproduces the delete-crash recovery |
+| 057-P3 | 3 | Share: complete structured blocker list keyed by stable identity; per-row explicit Repair with a return token; built-in accepts only a current library ID; custom requires every missing fact explicitly · **build** | `SharedSetup.validate()`, `buildShareSetupLink()`, installed Program editor and picker; `test/shared-setup-flow.mjs`, `test/shared-setup-unit.mjs` | NEW `test/share-repair.mjs`: the rendered blocker list equals `validate()` output one-to-one in program order; diagnostic IDs do not enter the encoded value; custom definition + replacement commit atomically; each Repair returns to a freshly revalidated Share. Failure: a blocker omitted, fuzzy match, invented fact, or one-replica result shown as repaired | baseline: `node tools/run-tests.mjs entry --suite shared-setup-flow` and `node tools/run-tests.mjs fast --suite shared-setup-unit` → planned: register and run `node tools/run-tests.mjs entry --suite share-repair` | STOP if any unresolved row is omitted, guessed, fuzzy-matched, given invented facts, or reported repaired before settlement · reviewer: reproduces list equality and one custom repair with missing fields |
+| 057-P4 | 4 | Keep Share task-only: remove disclosure/transport prose; preserve Copy, System Share, and fail-closed errors; Privacy lives on Plan 054's cached page · **build** | Share markup/app/i18n; Plan 054 Privacy page (merged); `test/shared-setup-flow.mjs` | extend `test/share-repair.mjs`: the Share sheet contains only task name/status/actions; the encoder still fails closed and never truncates notes; the Privacy link source is the landing/Settings page. Failure: Share still renders the cookie/transport essay; a payload logged | baseline: `node tools/run-tests.mjs entry --suite shared-setup-flow` → planned: `node tools/run-tests.mjs entry --suite share-repair` | STOP if Share regains privacy prose or logs/truncates a payload · reviewer: reproduces the copy audit |
+| 057-P5 | 5 | Session summary: preserve the centered completion hierarchy; consume `strengthEvidenceRecords()` outcomes after `WorkoutSession.finish()` settles; rank `sessionMuscleWork()` totals with numeric weighted hard-set counts and no bars · **build** | `WorkoutSession.finish()`, `strengthEvidenceRecords()`, `sessionMuscleWork()`, `buildSessionSummary()`, `sessionSummaryHtml()`; `test/session-summary.mjs`, `test/progress-evidence.mjs` | NEW `test/management-summary.mjs`: saved-session facts and centered layout unchanged; outcome rows equal the canonical producer for completed lift identities; muscle rows are ranked numeric totals, zero rows omitted, no relative bars. Failure: a new threshold, pre-settlement summary, or 1.5-set bar shown as 100% | baseline: `node tools/run-tests.mjs workout --suite session-summary` and `node tools/run-tests.mjs workout --suite progress-evidence` → planned: register and run `node tools/run-tests.mjs workout --suite management-summary` | STOP if summary adds a threshold, bypasses the outcome producer, or keeps relative bars · reviewer: reproduces fact equality and sorting |
+| 057-P6 | 6 | Today: block position plus exactly one calendar-week completion line adjacent to the day strip; remove the duplicate sentence · **build** | `mesocycleWeek()`, `weeklySnapshot()`, `renderToday()`; `test/today-done.mjs` | NEW `test/today-week-line.mjs`: exactly one accessible text carries `completedDays/plannedDays`; its dates match the Monday-to-Sunday strip; block line stays near the block-progress role. Failure: duplicate text or a block-relative `buildWeekStatus()` value beside the calendar strip | baseline: `node tools/run-tests.mjs workout --suite today-done` → planned: register and run `node tools/run-tests.mjs workout --suite today-week-line` | STOP if Today work changes Plan 055/056 state contracts or mixes the two week ranges · reviewer: reproduces the single-weekly-line assertion |
+| 057-P7 | 7 | Program: annotate each control with one semantic role (expansion/navigation/replacement/removal); hide zero readiness; nonzero renders "N exercises ready to add weight" from `recommendation()` as navigation; editor dock uses the G-80 `persistent-action` elevation · **build** | Program overview/editor renderers, `recommendation()`, `openExerciseView()`, `promptEndBlock()`; `test/program-editor-text-fields.mjs`, `test/accessibility.mjs` | NEW `test/program-actions.mjs`: `aria-expanded` on expansion controls; Replace vs Remove meet rendered-role distinction and AA in light and dark; zero readiness renders no row; nonzero counts exactly `add` / `add2`, lists all ready exercises in day/order, and preserves ready-list return around exercise detail; Review routes through `promptEndBlock()`; the dock never covers the last row. Failure: a `0 ready` chip or Progress action-queue count substituted for readiness | baseline: `node tools/run-tests.mjs entry --suite program-editor-text-fields` and `node tools/run-tests.mjs workout --suite accessibility` → planned: register and run `node tools/run-tests.mjs entry --suite program-actions` | STOP if readiness shows zero, uses the wrong owner, or role semantics/scroll-safety regress · reviewer: reproduces the role inventory and dock scroll-end case |
+| 057-P8 | 8 | Settings: four visible task groups with short summaries; Privacy navigation; replay list generated from all eight registry definitions; wire first set, Focus utilities, and backup; reuse manual install policy · **build** | `GuideRegistry.GUIDE_DEFINITIONS`, `replayContextualGuide()`, `installPolicyDecision("manual-settings")`, `triggerInstall("manual-settings")`; `test/appearance.mjs`, `test/install-modes.mjs`, `test/entry-guides.mjs`, `test/progress-guides.mjs` | NEW `test/settings-groups.mjs`: every required control and registry entry is reachable in registry order; replay resets only the selected record; a hidden owning anchor becomes `deferred` without navigation; appearance stays device-only. Failure: a control dropped, hard-coded guide omitted, or dismissed cue replayed | baseline: `node tools/run-tests.mjs workout --suite appearance`, `node tools/run-tests.mjs entry --suite install-modes`, `node tools/run-tests.mjs entry --suite entry-guides`, and `node tools/run-tests.mjs workout --suite progress-guides` → planned: register and run `node tools/run-tests.mjs entry --suite settings-groups` | STOP if a required control is hidden, a registry entry diverges, or a storage boundary changes · reviewer: reproduces the group mapping and deferred replay |
+| 057-P9 | 9 | Timer: orange only for the live progress arc; neutral primary/secondary controls; normalized icon glyph weight; countdown accuracy and background behavior unchanged (Plan 055 owns function/geometry) · **build** | timer in the Focus header/sheet; `test/focus-mode.mjs` | extend `test/focus-mode.mjs`: state snapshots for idle/running/paused/overtime show computed neutral control roles and unchanged deadline behavior. Failure: countdown behavior changes; a global token is edited ahead of Plan 058 | baseline and planned: `node tools/run-tests.mjs workout --suite focus-mode` | STOP if timer styling alters countdown/background behavior or touches global tokens · reviewer: reproduces the timer-equivalence assertion |
+| 057-P10 | 10 | Management catalog + phone gates: destructive/share/history/Program-dock states across EN/PT, light/dark, compact, 200%, PT+200, scroll-end; owner real-phone review · **build + human evidence** | catalog flows `today`, `workout`, `session`, `history`, `program`, `settings`; `test/ui-catalog-contract.mjs`; physical-phone owner | regenerate the complete catalog with `node tools/capture-ui-screens.mjs`; inspect the six affected flows and scroll-end clearance for the Program dock and Settings rows. Failure recorded, not hidden: a destructive confirmation pushed off-screen at PT+200 | baseline: `node tools/run-tests.mjs entry --suite ui-catalog-contract` → planned: capture the catalog, then run `node tools/check-ui-screens.mjs` | STOP if a destructive boundary is obscured at any variant · reviewer + owner: real-phone review of History/Share/summary/Program/Settings/timer signed into the PR (Plan 059 repeats sign-off) |
 
 ## Implementation operating protocol
 
