@@ -130,12 +130,12 @@ async function openSeed(browser) {
   return { context, page };
 }
 
-async function waitForShare(page) {
+async function waitForShare(page, { allowReady = false } = {}) {
   await page.waitForSelector("#shareSetupSheet:not(.hidden)", { timeout: 15000 });
-  await page.waitForFunction(() => {
+  await page.waitForFunction((ready) => {
     const list = document.querySelector("#shareSetupBlockers");
-    return list && !list.classList.contains("hidden");
-  }, null, { timeout: 15000 });
+    return list && (!list.classList.contains("hidden") || (ready && !document.querySelector("#shareSetupCopy")?.classList.contains("hidden")));
+  }, allowReady, { timeout: 15000 });
 }
 
 async function clickRepair(page, id) {
@@ -143,9 +143,20 @@ async function clickRepair(page, id) {
   await page.waitForSelector("#exPickSheet:not(.hidden)", { timeout: 10000 });
 }
 
-async function finishEditor(page) {
+async function finishEditor(page, options) {
   await page.locator("#programEditToggle").click();
-  await waitForShare(page);
+  await waitForShare(page, options);
+  if (options?.allowReady) {
+    await page.waitForFunction(() => ["shareSetupCopy", "shareSetupStatus"].includes(document.activeElement?.id), null, { timeout: 5000 });
+  }
+}
+
+async function shareFocus(page) {
+  return page.evaluate(() => ({
+    id: document.activeElement?.id || "",
+    repair: document.activeElement?.getAttribute("data-share-repair") || "",
+    role: document.activeElement?.getAttribute("role") || "",
+  }));
 }
 
 async function run() {
@@ -233,6 +244,7 @@ async function run() {
           shareVisible: !document.querySelector("#shareSetupShare")?.classList.contains("hidden"),
           copyDisabled: !!document.querySelector("#shareSetupCopy")?.disabled,
           shareDisabled: !!document.querySelector("#shareSetupShare")?.disabled,
+          repairNames: [...document.querySelectorAll("#shareSetupBlockers [data-share-repair]")].map((node) => node.getAttribute("aria-label") || node.textContent.trim()),
           shareText: (document.querySelector("#shareSetupSheet")?.textContent || "").toLowerCase(),
         };
       });
@@ -246,10 +258,36 @@ async function run() {
       assert(!rendered.copyVisible && !rendered.shareVisible && rendered.copyDisabled && rendered.shareDisabled && !rendered.canonicalHasDiagnostics, "Share fails closed and diagnostics stay out of the canonical payload", JSON.stringify(rendered));
       assert(!/privacy|cookie|transport|bearer|unencrypted|encrypted|host request/.test(rendered.shareText),
         "Share surface contains task copy only", rendered.shareText);
+      assert(new Set(rendered.repairNames).size === 3 &&
+        rendered.repairNames.every((name) => name && name !== "Repair" && /press|row/i.test(name)),
+        "English Repair controls have distinct accessible exercise names", rendered.repairNames);
+
+      await page.locator("#shareSetupClose").click();
+      await page.waitForFunction(() => document.querySelector("#shareSetupSheet")?.hidden === true);
+      await page.locator('nav button[data-view="log"]').click();
+      await page.waitForSelector("#log.view.active");
+      await page.locator("#openSettings").click();
+      await page.waitForSelector("#settings.view.active");
+      await page.selectOption("#lang", "pt");
+      await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) || "{}").settings?.lang === "pt", KEY);
+      await page.locator("#settingsBack").click();
+      await page.waitForSelector("#log.view.active");
+      await page.click('nav button[data-view="program"]');
+      await page.waitForSelector("#program.view.active");
+      await page.locator("#shareProgramSetup").click();
+      await waitForShare(page);
+      const portugueseRepairNames = await page.locator("#shareSetupBlockers [data-share-repair]").evaluateAll((nodes) =>
+        nodes.map((node) => node.getAttribute("aria-label") || node.textContent.trim()));
+      assert(new Set(portugueseRepairNames).size === 3 &&
+        portugueseRepairNames.every((name) => name && name !== "Corrigir" && /press|row|exercício/i.test(name)),
+        "Portuguese Repair controls have distinct accessible exercise names", portugueseRepairNames);
 
       await clickRepair(page, "ex-missing");
       await page.locator('#exPickList [data-pick="pr_mc"]').click();
       await finishEditor(page);
+      const afterBuiltInFocus = await shareFocus(page);
+      assert(afterBuiltInFocus.repair === "ex-unknown" || afterBuiltInFocus.id === "shareSetupBlockerSummary",
+        "successful repair focuses a remaining blocker or its status", afterBuiltInFocus);
       let durable = await readDurable(page);
       assert(durable.local?.program?.find((row) => row.id === "ex-missing")?.libraryId === "pr_mc" && durable.idb?.program?.find((row) => row.id === "ex-missing")?.libraryId === "pr_mc", "built-in repair settles the exact slot in both replicas", JSON.stringify(durable));
 
@@ -258,7 +296,7 @@ async function run() {
       await page.waitForSelector("#exCustomSheet:not(.hidden)");
       await page.locator("#exCustomName").fill("Coach cable row");
       await page.locator("#exCustomSave").click();
-      await page.waitForTimeout(250);
+      await page.waitForSelector("#exCustomSheet:not(.hidden)");
       assert(await page.locator("#exCustomSheet:not(.hidden)").count() === 1, "custom repair stays open when required facts are missing");
       durable = await readDurable(page);
       assert(!(durable.local?.customExercises || []).some((row) => row.name === "Coach cable row"), "missing custom facts do not write a definition", JSON.stringify(durable.local?.customExercises));
@@ -266,6 +304,9 @@ async function run() {
       await page.locator("#exCustomPrimary .pchip").first().click();
       await page.locator("#exCustomSave").click();
       await finishEditor(page);
+      const afterCustomFocus = await shareFocus(page);
+      assert(afterCustomFocus.repair === "ex-unknown" || afterCustomFocus.id === "shareSetupBlockerSummary",
+        "custom repair focuses the remaining unresolved exercise", afterCustomFocus);
       durable = await readDurable(page);
       const customId = durable.local?.program?.find((row) => row.id === "ex-custom")?.libraryId;
       assert(typeof customId === "string" && customId.startsWith("custom:") && durable.local?.customExercises?.some((row) => row.id === customId) && durable.idb?.customExercises?.some((row) => row.id === customId), "custom definition and replacement settle atomically in both replicas", JSON.stringify(durable));
@@ -274,8 +315,29 @@ async function run() {
       await clickRepair(page, "ex-unknown");
       await page.locator("#exPickCancel").click();
       await waitForShare(page);
+      const afterCancelFocus = await shareFocus(page);
+      assert(afterCancelFocus.repair === "ex-unknown" || afterCancelFocus.id === "shareSetupBlockerSummary",
+        "cancelled repair returns focus to the unresolved exercise or status", afterCancelFocus);
       durable = await readDurable(page);
       assert(JSON.stringify(durable.local) === beforeCancel && durable.local?.program?.find((row) => row.id === "ex-unknown")?.libraryId === "gone:press", "picker cancel returns to Share without a durable write", JSON.stringify(durable));
+
+      await clickRepair(page, "ex-unknown");
+      await page.locator('#exPickList [data-pick="sq_bb"]').click();
+      await finishEditor(page, { allowReady: true });
+      const finalFocus = await shareFocus(page);
+      assert(await page.locator("#shareSetupBlockers.hidden").count() === 1 &&
+        (finalFocus.id === "shareSetupCopy" || finalFocus.id === "shareSetupStatus"),
+        "final repair clears blockers and focuses the share action or success status", JSON.stringify({ finalFocus }));
+
+      // Reset the fixture before the stale-target branch so that the final
+      // success proof does not make the adversarial conflict unreachable.
+      await writeBoth(page, seedState());
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForAppBoot(page, { base: BASE });
+      await page.locator('nav button[data-view="program"]').click();
+      await page.waitForSelector("#program.view.active");
+      await page.locator("#shareProgramSetup").click();
+      await waitForShare(page);
 
       await clickRepair(page, "ex-unknown");
       await page.locator('#exPickList [data-pick="sq_bb"]').click();
@@ -292,6 +354,9 @@ async function run() {
         durable.idb?.program?.find((row) => row.id === "ex-unknown")?.libraryId === "stale:head" &&
         await page.locator('[data-share-repair="ex-unknown"]').count() === 1,
         "stale repair is discarded and never reported as repaired", JSON.stringify(durable));
+      const staleFocus = await shareFocus(page);
+      assert(staleFocus.repair === "ex-unknown" || staleFocus.id === "shareSetupBlockerSummary",
+        "stale repair return focuses the still-unresolved blocker or status", staleFocus);
     } finally {
       await context.close();
     }

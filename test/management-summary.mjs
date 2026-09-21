@@ -96,6 +96,83 @@ try {
     "summary muscle work omits zero rows and retains numeric weighted totals");
   assert.ok(rendered.muscleNumbers.length > 0 && rendered.muscleNumbers.every(text => /\d/.test(text)) && rendered.relativeBars === 0 && rendered.inlineWidths.length === 0,
     "summary renders numeric muscle totals without relative bars", JSON.stringify(rendered));
+
+  // F057-02: deliberately fail the canonical post-commit derivation through
+  // the real completion path. The durable result, not the presentation, is
+  // the oracle for whether this workout finished.
+  await page.evaluate(() => window.__repforgeSessionSummary.close());
+  await page.evaluate(() => window.__repforgeEnterWorkout({}));
+  await page.waitForSelector("#workoutShell:not(.hidden)", { timeout: 5000 });
+  const finishResult = await page.evaluate(async () => {
+    const draft = window.__repforgeWorkoutDraft.current();
+    for (const exerciseId of draft.exerciseOrder) {
+      const exercise = draft.exercises[exerciseId];
+      for (const setId of exercise.setOrder) {
+        await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+          exerciseInstanceId: exerciseId, setId, field: "load", value: "42.5",
+        });
+        await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+          exerciseInstanceId: exerciseId, setId, field: "reps", value: "8",
+        });
+        await window.__repforgeWorkoutDraft.dispatch("editSetField", {
+          exerciseInstanceId: exerciseId, setId, field: "rir", value: "2",
+        });
+        await window.__repforgeWorkoutDraft.dispatch("completeSet", {
+          exerciseInstanceId: exerciseId, setId, completedAt: new Date().toISOString(),
+        });
+      }
+    }
+    await window.__repforgeWorkoutDraft.flush();
+    window.__repforgeSummaryFault = "canonical";
+    return window.__repforgeSaveWorkout();
+  });
+  await page.waitForFunction(() => {
+    const toast = document.querySelector("#toast");
+    return toast && !toast.classList.contains("hidden") && /saved/i.test(toast.textContent || "");
+  }, undefined, { timeout: 8000 });
+  const faultEvidence = await page.evaluate(async (key) => {
+    const local = JSON.parse(localStorage.getItem(key) || "{}");
+    const idb = await new Promise((resolve) => {
+      const request = indexedDB.open("repforge", 1);
+      request.onsuccess = () => {
+        const db = request.result;
+        const tx = db.transaction("kv", "readonly");
+        const get = tx.objectStore("kv").get(key);
+        get.onsuccess = () => { db.close(); resolve(get.result || null); };
+        get.onerror = () => { db.close(); resolve(null); };
+      };
+      request.onerror = () => resolve(null);
+    });
+    const seededSessions = new Set(["sum-previous", "sum-current"]);
+    const newSessionCounts = new Map();
+    for (const row of local.log || []) {
+      if (!seededSessions.has(row.session)) newSessionCounts.set(row.session, (newSessionCounts.get(row.session) || 0) + 1);
+    }
+    return {
+      local,
+      idb,
+      newSessions: [...newSessionCounts].map(([session, count]) => ({ session, count })),
+      summaryOpen: !document.querySelector("#sessionSummary")?.classList.contains("hidden"),
+      outcomeRows: document.querySelectorAll("#sessionSummary .sum-outcome").length,
+      draftRaw: localStorage.getItem("repforge_draft_v1"),
+    };
+  }, KEY);
+  assert(finishResult?.committed === true && finishResult?.settled === true,
+    "summary derivation fault occurs after a committed and settled finish", JSON.stringify(finishResult));
+  assert(faultEvidence.local.log.length === faultEvidence.idb.log.length &&
+    JSON.stringify(faultEvidence.local.log) === JSON.stringify(faultEvidence.idb.log) &&
+    faultEvidence.local.log.length > previous.length + current.length,
+    "summary derivation failure leaves one complete durable log in both replicas",
+    JSON.stringify({ local: faultEvidence.local.log.length, idb: faultEvidence.idb.log.length }));
+  assert(faultEvidence.newSessions.length === 1 && faultEvidence.newSessions[0].count > 0,
+    "summary derivation failure creates exactly one new session identity",
+    JSON.stringify(faultEvidence.newSessions));
+  assert(faultEvidence.draftRaw === null && !faultEvidence.summaryOpen && faultEvidence.outcomeRows === 0,
+    `summary fallback does not resurrect the draft or fabricate outcome rows: ${JSON.stringify(faultEvidence)}`);
+  await page.locator('nav button[data-view="stats"]').click();
+  await page.waitForSelector("#stats.view.active", { timeout: 5000 });
+  assert(await page.locator("#stats.view.active").count() === 1,
+    "the app remains operable after a summary derivation failure");
   await context.close();
 } finally {
   await browser.close();

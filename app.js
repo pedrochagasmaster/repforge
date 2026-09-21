@@ -1658,8 +1658,10 @@ function applySessionLength(program,sessionLength,equipment,experience,dayOcc){
     while(list.length<lo){const extra=pickFillerForDay(list,used,equipment,experience,occ);if(!extra)break;used.add(extra.libraryId);list.push(extra)}
     list.forEach((e,i)=>{e.order=i+1;out.push(e)})}
   program.length=0;program.push(...out)}
-let state,prog,day,installPrompt=null,saving=false,editSession=null,volWindow=7;
-let historySelection={mode:"calendar",sessionId:null,originalFingerprint:"",workingCopy:null,dirty:false,validation:null,operation:null};
+let state,prog,day,installPrompt=null,saving=false,volWindow=7;
+const emptyHistorySelection=()=>({mode:"calendar",sessionId:null,originalFingerprint:"",
+  desiredFingerprint:null,workingCopy:null,dirty:false,validation:null,operation:null});
+let historySelection=emptyHistorySelection();
 let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
 let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
 // restPaused holds the milliseconds left while the clock is held (null while it
@@ -5899,9 +5901,8 @@ function todayPrimaryControl(){
   return $("#todayDash .page-title")}
 /** Today's recap hands off to History, opened on the session it describes. */
 function openTodaySessionInHistory(){const done=sessionsToday();if(!done.length)return;
-  historyStartReading(done.at(-1).session);histQuery="";
-  navTo("history");
-  $$("#sessions [data-sess]").find(el=>el.dataset.sess===editSession)?.scrollIntoView({behavior:"smooth",block:"center"})}
+  const sid=done.at(-1).session;historyStartReading(sid);histQuery="";
+  navTo("history");historyFocusRead(sid)}
 // The day's exercises, previewed on Today: sets × rep range per row, the rest
 // behind a "+N" disclosure. Tapping a row opens that exercise's page.
 function todayExListHtml(exs){if(!exs.length)return"";
@@ -6640,6 +6641,8 @@ function sizeFocusDeck(){
   else sizeFocusCard(focusCard())}
 function sizeFocusCard(card){
   if(!card)return;
+  const rootFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+  card.classList.toggle("is-text-scaled",Number.isFinite(rootFontSize)&&rootFontSize>16.1);
   const ledger=card.querySelector(".fcard__ledger");if(!ledger)return;
   const scrolls=ledger.scrollHeight>ledger.clientHeight+1;
   ledger.classList.toggle("is-scrollable",scrolls);
@@ -6890,6 +6893,11 @@ function sessionMuscleWork(rows){
 
 /** Everything the finished session earns the right to say about itself. */
 function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
+  // Test-only fault seam for the post-commit boundary. The completion owner
+  // has already returned a settled durable result before this derivation runs.
+  if(window.__repforgeSummaryFault==="canonical"){
+    delete window.__repforgeSummaryFault;
+    throw new Error("summary canonical derivation fault")}
   const work=workingRows(rows);
   const meso=mesocycleWeek(),week=weeklySnapshot(date);
   const ds=days(),idx=Math.max(0,ds.indexOf(sessDay)),next=ds.length>1?ds[(idx+1)%ds.length]:null;
@@ -7016,10 +7024,18 @@ async function saveWorkoutV2(io,{expectedDraft=null,completion="normal"}={}){
     exercise_count:window.RepForgeTelemetry?.bucketCount(new Set(rows.filter(isWork).map(row=>row.exerciseId)).size,"exercises"),
     duration:window.RepForgeTelemetry?.bucketDuration(startedAt?Math.max(0,(Date.now()-startedAt)/60000):0)});
   const btn=$(".btn--save");if(btn){btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped")}
-  const summary=buildSessionSummary({rows,prevLog,session,date,day:savedDay,startedAt});render();
-  if(!openSessionSummary(summary)){
+  const savedFallback=()=>{
+    render();
+    clearSessionSummaryView();
+    closeSessionSummary();
     toast(t("toast.workout_forged",{n:rows.length,sets:tp(rows.length,"set")}));
-    maybeShowInstallBanner()}
+    maybeShowInstallBanner()};
+  let summary;
+  try{summary=buildSessionSummary({rows,prevLog,session,date,day:savedDay,startedAt})}
+  catch{savedFallback();return result}
+  render();
+  try{if(!openSessionSummary(summary))savedFallback()}
+  catch{savedFallback()}
   return result}
 
 async function saveWorkout(e,io,options={}){if(e&&e.preventDefault)e.preventDefault();if(saving)return;
@@ -7154,6 +7170,14 @@ function renderSessionSummary(s){
   const see=$("#sumSee");if(see)see.onclick=()=>{
     historyStartReading(s.session);
     closeSessionSummary({nav:"history"})}}
+
+function clearSessionSummaryView(){
+  sessionSummaryCurrent=null;
+  const el=$("#sessionSummary");
+  if(el&&activeModal?.el===el)closeModal(el);
+  $("#sessionSummaryBody")?.replaceChildren();
+  el?.classList.remove("is-played");
+}
 
 /** The screen the lifter earns by finishing. It opens over the workout, so
  *  leaving it is what actually ends the session and returns to Today. */
@@ -8919,6 +8943,7 @@ window.__repforgeHistory={
   indexFor:historyIndexFor,
   searchIndex:searchHistoryIndex,
   fingerprint:historySessionFingerprint,
+  selection:()=>cloneSnapshot(historySelection),
   renderWithSource:renderHistoryWithSource,
   diagnostics:historyDiagnostics};
 
@@ -8950,24 +8975,46 @@ function historySessionFingerprint(rows){
 function historySelectionFor(sid,mode="reading",source=state.log){
   const rows=historySessionRows(source,sid);if(!rows.length)return null;
   return{mode,sessionId:String(sid),originalFingerprint:historySessionFingerprint(rows),
-    workingCopy:mode==="editing"?cloneSnapshot(rows):null,dirty:false,validation:null,operation:null}}
+    desiredFingerprint:null,workingCopy:mode==="editing"?cloneSnapshot(rows):null,
+    dirty:false,validation:null,operation:null}}
 function historySelectedRecord(source=state.log){
   const sid=historySelection.sessionId;if(!sid)return null;
   return historyIndexFor(source).sessions.find(item=>String(item.session)===String(sid))||null}
-function historySetSelection(next){historySelection=next||{mode:"calendar",sessionId:null,originalFingerprint:"",workingCopy:null,dirty:false,validation:null,operation:null};
-  editSession=historySelection.mode!=="calendar"?historySelection.sessionId:null}
+function historySetSelection(next){historySelection=next||emptyHistorySelection()}
+function historyFocus(node){
+  if(!node||!canTakeFocus(node))return false;
+  try{node.focus({preventScroll:true})}catch{try{node.focus()}catch{return false}}
+  return true}
+function historyEditAction(sid){
+  return $$("#sessions [data-history-edit]").find(button=>String(button.dataset.historyEdit)===String(sid))||null}
+function historyCalendarAction(sid){
+  return $$("#sessions .session__open").find(button=>String(button.closest("[data-sess]")?.dataset.sess)===String(sid))||null}
+function historyFocusRead(sid){
+  const edit=historyEditAction(sid);
+  if(historyFocus(edit))return true;
+  const calendar=historyCalendarAction(sid);
+  if(historyFocus(calendar))return true;
+  return historyFocus($("#historyRecentLabel"))}
+function historyFocusFailure(mode){
+  return historyFocus($('[data-history-operation="'+CSS.escape(mode)+'"] h3'))}
+function historyFocusEditing(){
+  return historyFocus($("[data-history-editing-heading]"))}
 function historyBackToCalendar(){
-  if(historySelection.mode==="editing"&&historySelection.dirty&&!confirm(t("history.confirm.discard_changes")))return false;
-  historySetSelection({mode:"calendar",sessionId:null,originalFingerprint:"",workingCopy:null,dirty:false,validation:null,operation:null});
-  renderHistory();return true}
+  const sid=historySelection.sessionId;
+  if(historySelection.dirty&&!confirm(t("history.confirm.discard_changes")))return false;
+  historySetSelection(emptyHistorySelection());
+  renderHistory();
+  historyFocus(historyCalendarAction(sid)||$("#historyRecentLabel"));
+  return true}
 function historyStartReading(sid){
   const next=historySelectionFor(sid);if(!next)return false;
-  histQuery="";historySetSelection(next);renderHistory();return true}
+  histQuery="";historySetSelection(next);renderHistory();
+  historyFocus($("[data-history-selection-heading]"));return true}
 function historyStartEditing(){
   const sid=historySelection.sessionId,rows=historySessionRows(state.log,sid);if(!rows.length)return false;
   historySetSelection({mode:"editing",sessionId:String(sid),originalFingerprint:historySelection.originalFingerprint||historySessionFingerprint(rows),
-    workingCopy:cloneSnapshot(rows),dirty:false,validation:null,operation:null});
-  renderHistory();return true}
+    desiredFingerprint:null,workingCopy:cloneSnapshot(rows),dirty:false,validation:null,operation:null});
+  renderHistory();historyFocusEditing();return true}
 function historySessionFromWorkingCopy(card){
   const selection=historySelection,source=selection.workingCopy||historySessionRows(state.log,selection.sessionId),out=[];
   const dateEl=card?.querySelector('[data-ed="date"]'),dateP=parseCalendarDate(dateEl?.value);
@@ -9003,21 +9050,57 @@ async function historyReloadLatest(){
   const sid=historySelection.sessionId,refreshed=await refreshPersistenceHead();
   if(refreshed?.head)adoptHistoryDurableHead(refreshed.head);
   const next=historySelectionFor(sid);
-  if(next)historySetSelection(next);else historySetSelection({mode:"calendar",sessionId:null,originalFingerprint:"",workingCopy:null,dirty:false,validation:null,operation:null});
-  render();return next}
+  if(next)historySetSelection(next);else historySetSelection(emptyHistorySelection());
+  render();
+  if(next)historyFocusRead(sid);else historyFocus($("#historyRecentLabel"));
+  return next}
 async function historyFinishResult(result,successKey,operation){
+  const sid=historySelection.sessionId;
   const status=historyResultMessage(result,successKey,operation);
   if(status==="committed"){
     if(result.alreadyCommitted){const refreshed=await refreshPersistenceHead();if(refreshed?.head)adoptHistoryDurableHead(refreshed.head)}
-    const next=historySelectionFor(historySelection.sessionId);
-    historySetSelection(next||{mode:"calendar",sessionId:null,originalFingerprint:"",workingCopy:null,dirty:false,validation:null,operation:null});
-    render();toast(t(successKey));return true}
-  render();return false}
+    const next=historySelectionFor(sid);
+    historySetSelection(next||emptyHistorySelection());
+    render();historyFocusRead(sid);toast(t(successKey));return true}
+  render();historyFocusFailure(status);return false}
+function historyEditCommit(sid,proposed,original,io=storageIO,{forceDesired=false}={}){
+  const desired=historySessionFingerprint(proposed),proposal=cloneSnapshot(state);
+  proposal.log=proposal.log.filter(row=>String(row?.session??"")!==String(sid)).concat(cloneSnapshot(proposed));
+  const preflight=({head})=>{
+    const current=historySessionRows(head.log,sid),fingerprint=historySessionFingerprint(current);
+    if(fingerprint===desired&&!forceDesired)return{reject:true,result:{ok:true,committed:true,alreadyCommitted:true,
+      revision:readRevision(head),localOk:true,idbOk:true,kind:"committed"}};
+    if(!current.length || (fingerprint!==original && !(forceDesired && fingerprint===desired)))return{reject:true,result:{ok:false,committed:false,conflict:true,stale:true,
+      code:"history_stale",revision:readRevision(head),localOk:false,idbOk:false}};
+    const next=cloneSnapshot(head);
+    next.log=next.log.filter(row=>String(row?.session??"")!==String(sid)).concat(cloneSnapshot(proposed));
+    return{proposal:next}};
+  return commitProposedState(proposal,io,{preflight})}
+async function historyRetryEdit(){
+  const sid=historySelection.sessionId,original=historySelection.originalFingerprint;
+  const proposed=cloneSnapshot(historySelection.workingCopy||[]);
+  const desired=historySelection.desiredFingerprint||historySessionFingerprint(proposed);
+  if(!sid||!original||!proposed.length)return false;
+  const refreshed=await refreshPersistenceHead();
+  if(refreshed?.head)adoptHistoryDurableHead(refreshed.head);
+  const current=historySessionRows(state.log,sid),fingerprint=historySessionFingerprint(current);
+  if(!current.length || (fingerprint!==original && fingerprint!==desired)){
+    historySelection={...historySelection,mode:"conflict",desiredFingerprint:desired,
+      workingCopy:proposed,dirty:true,operation:"edit"};
+    render();historyFocusFailure("conflict");return false}
+  const local=readLocalStatus(),idb=await readIdbStatus();
+  const replicasSettled=local.status==="valid"&&idb.status==="valid"&&storageSnapshotsEqual(local.parsed,idb.parsed)&&
+    historySessionFingerprint(historySessionRows(local.parsed.log,sid))===desired;
+  const result=fingerprint===desired&&replicasSettled
+    ?{ok:true,committed:true,settled:true,alreadyCommitted:true,revision:readRevision(state),localOk:true,idbOk:true,kind:"committed"}
+    :await historyEditCommit(sid,proposed,original,storageIO,{forceDesired:fingerprint===desired});
+  await historyFinishResult(result,"toast.session_updated","edit");
+  return result?.committed===true&&result?.settled===true}
 function historyBeginDelete(sid){
   const rows=historySessionRows(state.log,sid);if(!rows.length)return false;
   historySetSelection({mode:"deleting",sessionId:String(sid),originalFingerprint:historySessionFingerprint(rows),
-    workingCopy:null,dirty:false,validation:null,operation:"delete"});
-  renderHistory();return true}
+    desiredFingerprint:null,workingCopy:null,dirty:false,validation:null,operation:"delete"});
+  renderHistory();historyFocus($("[data-history-delete-status]"));return true}
 async function deleteSession(sid,io=storageIO,{originalFingerprint=null}={}){
   const rows=historySessionRows(state.log,sid),original=originalFingerprint||historySessionFingerprint(rows);
   const proposal=cloneSnapshot(state);
@@ -9049,14 +9132,14 @@ function historyReadingView(s,rows){
     `<button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div></article>`}
 function historyDeleteView(s){
   return '<article class="session session--delete" data-deleting="'+esc(s.session)+'" role="alert">'+
-    '<div class="history-delete__icon" aria-hidden="true">!</div><h3>'+esc(t("history.delete_title"))+'</h3>'+
+    '<div class="history-delete__icon" aria-hidden="true">!</div><h3 data-history-delete-status tabindex="-1">'+esc(t("history.delete_title"))+'</h3>'+
     '<p>'+esc(t("confirm.delete_session"))+'</p><div class="edbtns">'+
     '<button type="button" class="btn btn--steel" data-history-delete-cancel>'+esc(t("history.edit.cancel"))+'</button>'+
     '<button type="button" class="btn btn--danger" data-history-delete-confirm="'+esc(s.session)+'">'+esc(t("history.session.delete"))+'</button></div></article>'}
 function historyConflictView(s,mode,operation){
   const failure=mode==="failure",copy=failure?t("history.operation_failed"):t("history.operation_conflict");
   return`<article class="session history-operation" data-history-operation="${esc(mode)}" role="alert">`+
-    `<h3>${esc(failure?t("history.failure_title"):t("history.conflict_title"))}</h3><p>${esc(copy)}</p>`+
+    `<h3 tabindex="-1">${esc(failure?t("history.failure_title"):t("history.conflict_title"))}</h3><p>${esc(copy)}</p>`+
     `<div class="edbtns"><button type="button" class="btn btn--steel" data-history-cancel>${esc(t("history.edit.cancel"))}</button>`+
     `<button type="button" class="btn btn--steel" data-history-reload>${esc(t("history.reload"))}</button>`+
     (operation==="edit"?`<button type="button" class="btn btn--cta" data-history-retry>${esc(t("history.retry"))}</button>`:"")+`</div></article>`}
@@ -9075,9 +9158,13 @@ function bindHistoryEditRows(){
   $(".session--edit")?.addEventListener("input",historyApplyWorkingInput);
 }
 function historyCancelOperation(){
+  const sid=historySelection.sessionId;
+  if(historySelection.dirty&&!confirm(t("history.confirm.discard_changes")))return false;
   const next=historySelectionFor(historySelection.sessionId);
-  historySetSelection(next||{mode:"calendar",sessionId:null,originalFingerprint:"",workingCopy:null,dirty:false,validation:null,operation:null});
-  renderHistory()}
+  historySetSelection(next||emptyHistorySelection());
+  renderHistory();
+  if(next)historyFocusRead(sid);else historyFocus($("#historyRecentLabel"));
+  return true}
 function bindHistorySelection(){
   $("[data-history-back]")?.addEventListener("click",historyBackToCalendar);
   $("[data-history-edit]")?.addEventListener("click",historyStartEditing);
@@ -9089,10 +9176,7 @@ function bindHistorySelection(){
   $$("[data-edsave]").forEach(b=>b.addEventListener("click",()=>saveSessionEdit(b.dataset.edsave)));
   $$("[data-history-reload]").forEach(b=>b.onclick=()=>historyReloadLatest());
   $$("[data-history-cancel]").forEach(b=>b.addEventListener("click",historyCancelOperation));
-  $$("[data-history-retry]").forEach(b=>b.addEventListener("click",async()=>{
-    await historyReloadLatest();
-    if(historySelection.mode==="reading"&&historySelection.sessionId)historyStartEditing();
-  }));
+  $$("[data-history-retry]").forEach(b=>b.addEventListener("click",historyRetryEdit));
   bindHistoryEditRows()}
 
 function renderHistory(source=state.log){
@@ -9100,7 +9184,7 @@ function renderHistory(source=state.log){
   const selectionEl=$("#historySelection"),calendar=$("#historyCalendar"),recent=$("#historyRecentLabel"),tableDetails=$("#historyTable")?.closest("details");
   if(selected){
     const record=historySelectedRecord(source);
-    if(!record){historySetSelection({mode:"calendar",sessionId:null,originalFingerprint:"",workingCopy:null,dirty:false,validation:null,operation:null});return renderHistory(source)}
+    if(!record){historySetSelection(emptyHistorySelection());return renderHistory(source)}
     calendar?.classList.add("hidden");recent?.classList.add("hidden");tableDetails?.classList.add("hidden");
     $("#historySearchWrap")?.classList.add("hidden");$("#historySearchBtn")?.classList.add("hidden");$("#historyExportBtn")?.classList.add("hidden");
     selectionEl?.classList.remove("hidden");
@@ -9112,7 +9196,7 @@ function renderHistory(source=state.log){
     else if(mode==="deleting")body=historyDeleteView(record);
     else body=historyConflictView(record,mode,historySelection.operation);
     selectionEl.innerHTML=`<div class="history-selection__head"><button type="button" class="back-link" data-history-back>‹ ${esc(t("history.back_calendar"))}</button>`+
-      `<div class="history-selection__date"><span class="section-label">${esc(t("history.selected"))}</span><h3>${esc(longDate)}</h3></div></div>`;
+      `<div class="history-selection__date"><span class="section-label">${esc(t("history.selected"))}</span><h3 data-history-selection-heading tabindex="-1">${esc(longDate)}</h3></div></div>`;
     $("#sessions").innerHTML=body;$("#historyTable").innerHTML="";
     bindHistorySelection();return}
   calendar?.classList.remove("hidden");recent?.classList.remove("hidden");tableDetails?.classList.remove("hidden");
@@ -9128,7 +9212,6 @@ function renderHistory(source=state.log){
   let lastMonth="";
   $("#sessions").innerHTML=sessions.length?sessions.map(s=>{
     const sets=s.rows;
-    if(s.session===editSession)return sessionEditor(s,sets);
     const work=sets.filter(isWork),vol=sum(work.map(x=>(+x.load||0)*(+x.reps||0)));
     const delta=s.delta||{improved:0,flat:0,regressed:0,new:0},deltaLine=hasDeltaSummary(delta)?`<div class="session__delta">${esc(formatDeltaCounts(delta))}</div>`:"";
     const mus=[...new Set(work.map(r=>String(r.primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3);
@@ -9153,18 +9236,6 @@ function renderHistory(source=state.log){
     const next=$$("#sessions .session__open").find(btn=>btn.closest("[data-sess]")?.dataset.sess===focusedSession);
     if(next&&canTakeFocus(next)){try{next.focus({preventScroll:true})}catch{try{next.focus()}catch{}}}}
   $$("#sessions [data-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation();historyStartReading(b.dataset.edit)});
-  $$("[data-edcancel]").forEach(b=>b.onclick=()=>{editSession=null;renderHistory()});
-  $$("[data-edsave]").forEach(b=>b.onclick=()=>saveSessionEdit(b.dataset.edsave));
-  $$("[data-edrm]").forEach(b=>b.onclick=e=>{e.stopPropagation();
-    const row=b.closest(".edrow"),card=b.closest(".session--edit");if(!row||!card)return;
-    const removing=!row.classList.contains("is-removed");
-    if(removing){
-      const left=[...card.querySelectorAll(".edrow[data-edidx]:not(.is-removed)")];
-      if(left.length<=1){toast(t("history.edit.keep_one"));return}
-      row.classList.add("is-removed");setEdrowRmState(b,true);
-      row.querySelectorAll(".edrow__in").forEach(inp=>{inp.disabled=true;inp.removeAttribute("aria-invalid")})}
-    else{row.classList.remove("is-removed");setEdrowRmState(b,false);
-      row.querySelectorAll(".edrow__in").forEach(inp=>inp.disabled=false)}});
   const rows=index.tableRows.map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.day")]:dayLabel(x.day),[t("stats.table.exercise")]:displayName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)}));
   $("#historyTable").innerHTML=table(rows);
 }
@@ -9212,6 +9283,8 @@ function sessionEditor(s,sets){
       `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("glossary.term.RIR"))}">`+
       `<button type="button" class="edrow__rm" data-edrm="${i}" aria-label="${esc(t("history.edit.remove_set"))}" title="${esc(t("history.edit.remove_set"))}"><span class="edrow__rm-glyph" aria-hidden="true">${EDROW_RM_GLYPH.remove}</span></button></div>`}).join("");
   return `<div class="session session--edit" data-editing="${esc(s.session)}" data-history-state="editing">`+
+    `<h4 class="history-editing__heading" data-history-editing-heading tabindex="-1">${esc(t("history.editing_title"))}</h4>`+
+    `<p class="history-editing__status" data-history-editing-status role="status" aria-live="polite">${esc(t("history.editing_status"))}</p>`+
     `<div class="edhead"><div class="session__day">${esc(dayLabel(s.day))}</div>`+
     `<label class="edate">${esc(t("stats.table.date"))}<input data-ed="date" type="date" value="${esc(sets[0]?.date||s.date)}"></label></div>`+
     `<div class="edrow edrow--head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${esc(t("glossary.term.RIR"))}</span><span></span></div>`+rows+
@@ -9219,9 +9292,6 @@ function sessionEditor(s,sets){
     `<button type="button" class="btn btn--cta" data-edsave="${esc(s.session)}">${esc(t("history.edit.save"))}</button></div>`+
     `<div class="edrisk"><button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div></div>`;
 }
-
-function sessionSetsForEdit(sid){
-  return state.log.filter(r=>r.session===sid).sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set)}
 
 // The editor is a volatile projection. Its commit path validates the exact
 // session fingerprint again while holding the durable-state lock, so an edit
@@ -9232,19 +9302,11 @@ async function saveSessionEdit(sid,io=storageIO){
   if(parsed.error){historyMarkValidation(card,parsed.error);return}
   if(!parsed.rows.length){toast(t("history.edit.keep_one"));return}
   const proposed=parsed.rows,original=historySelection.originalFingerprint||historySessionFingerprint(historySessionRows(state.log,sid));
-  const desired=historySessionFingerprint(proposed),proposal=cloneSnapshot(state);
-  proposal.log=proposal.log.filter(row=>String(row?.session??"")!==String(sid)).concat(proposed);
-  const preflight=({head})=>{
-    const current=historySessionRows(head.log,sid),fingerprint=historySessionFingerprint(current);
-    if(fingerprint===desired)return{reject:true,result:{ok:true,committed:true,alreadyCommitted:true,
-      revision:readRevision(head),localOk:true,idbOk:true,kind:"committed"}};
-    if(!current.length||fingerprint!==original)return{reject:true,result:{ok:false,committed:false,conflict:true,stale:true,
-      code:"history_stale",revision:readRevision(head),localOk:false,idbOk:false}};
-    const next=cloneSnapshot(head);
-    next.log=next.log.filter(row=>String(row?.session??"")!==String(sid)).concat(cloneSnapshot(proposed));
-    return{proposal:next}};
-  historySelection.workingCopy=cloneSnapshot(proposed);historySelection.dirty=true;historySelection.operation="edit";
-  const result=await commitProposedState(proposal,io,{preflight});
+  const desired=historySessionFingerprint(proposed);
+  historySelection.workingCopy=cloneSnapshot(proposed);
+  historySelection.desiredFingerprint=desired;
+  historySelection.dirty=true;historySelection.operation="edit";
+  const result=await historyEditCommit(sid,proposed,original,io);
   await historyFinishResult(result,"toast.session_updated","edit");
   return result}
 window.__repforgeSaveSessionEdit=saveSessionEdit;
@@ -9983,10 +10045,9 @@ function renderProgramChips(){
   const ad=programAdherence(),mc=mesocycleWeek(),health=programProgressionHealth(),vol=programVolumeCompliance();
   const status=programStatusLabel(ad,health);
   const weekChip=(mc.current!=null||mc.isComplete)?`<span class="pmeta__chip">${esc(mesocycleWeekCopy(mc,"program.week_chip"))}</span>`:"";
-  const healthChip=health?.hot?`<span class="pmeta__chip">${esc(t("program.ready_chip",{done:health.hot,total:health.total}))}</span>`:"";
   const volChip=vol?`<span class="pmeta__chip">${esc(t("program.volume_chip",{pct:Math.round(vol.ratio*100)}))}</span>`:"";
   top.innerHTML=`${weekChip}<span class="pmeta__chip pmeta__chip--status">${esc(status)}</span>`;
-  bottom.innerHTML=`<span class="pmeta__chip">${esc(t("program.days_last_7",{done:ad.logged,planned:ad.total}))}</span>${healthChip}${volChip}`;
+  bottom.innerHTML=`<span class="pmeta__chip">${esc(t("program.days_last_7",{done:ad.logged,planned:ad.total}))}</span>${volChip}`;
 }
 
 function renderProgramHeader(){
@@ -10836,7 +10897,7 @@ function closeProgramTextSheet(){
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
   programTextReturn=null;
   return closeModal(sheet)}
-let shareSetupReturn=null,shareSetupLink="",shareSetupBlockers=[],shareRepairReturn=null;
+let shareSetupReturn=null,shareSetupLink="",shareSetupBlockers=[],shareRepairReturn=null,shareRepairFocusIntent=null;
 function shareSetupBlockerMessage(count){
   const n=Number(count)||0;
   const form=n===1?"one":"other";
@@ -10850,11 +10911,12 @@ function renderShareSetupBlockers(){
   list.classList.toggle("hidden",!blockers.length);
   list.innerHTML=blockers.map(blocker=>{
     const id=String(blocker?.exerciseInstanceId??"");
+    const name=blocker?.displayName||t("program.share_setup_exercise");
     const reason=t(`program.share_setup_reason.${blocker?.reasonCode}`)||t("program.share_setup_reason.unknown");
     return `<div class="share-setup__blocker" data-share-blocker-id="${esc(id)}" data-share-day-id="${esc(blocker?.dayId||"")}" data-share-reason="${esc(blocker?.reasonCode||"")}" role="listitem">`+
-      `<div class="share-setup__blocker-copy"><strong>${esc(blocker?.displayName||t("program.share_setup_exercise"))}</strong>`+
+      `<div class="share-setup__blocker-copy"><strong>${esc(name)}</strong>`+
       `<span>${esc(reason)}</span></div>`+
-      `<button type="button" class="btn btn--steel share-setup__repair" data-share-repair="${esc(id)}">${esc(t("program.share_setup_repair"))}</button></div>`;
+      `<button type="button" class="btn btn--steel share-setup__repair" data-share-repair="${esc(id)}" aria-label="${esc(t("program.share_setup_repair_aria",{name}))}">${esc(t("program.share_setup_repair"))}</button></div>`;
   }).join("");
   $$("#shareSetupBlockers [data-share-repair]").forEach(button=>button.onclick=()=>beginShareRepair(button.dataset.shareRepair));
 }
@@ -10899,10 +10961,20 @@ function shareRepairTargetMatches(token,snapshot=state){
   return !!token&&token.programId===(snapshot?.programMeta?.id||null)&&token.blockId===snapshotBlockId(snapshot)&&
     Array.isArray(snapshot?.program)&&snapshot.program.some(ex=>ex?.id===token.exerciseInstanceId);
 }
+function shareSetupRepairButton(id){
+  return $$("#shareSetupBlockers [data-share-repair]").find(button=>button.dataset.shareRepair===id)||null}
+function focusShareSetupRepair(token){
+  const remaining=$$("#shareSetupBlockers [data-share-repair]");
+  const exact=token?.exerciseInstanceId?shareSetupRepairButton(token.exerciseInstanceId):null;
+  const target=[exact,...remaining,$("#shareSetupBlockerSummary"),$("#shareSetupStatus"),$("#shareSetupCopy"),$("#shareSetupClose")].find(canTakeFocus);
+  if(canTakeFocus(target)){try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}}}
 function reopenShareAfterRepair(){
   const token=shareRepairReturn;
   shareRepairReturn=null;
-  if(token)setTimeout(()=>openShareSetupSheet(),0);
+  if(!token)return;
+  shareRepairFocusIntent=token;
+  queueMicrotask(()=>{
+    if(shareRepairFocusIntent===token)openShareSetupSheet({repairFocus:token})});
 }
 async function cancelShareRepair(){
   if(!shareRepairReturn)return;
@@ -10924,16 +10996,20 @@ async function beginShareRepair(exerciseInstanceId){
   const result=await editor.replaceExercise(id);
   if(!result||result.ok===false||result.cancelled){finishInstalledEditor({discard:true});return}
 }
-function openShareSetupSheet(){
+function openShareSetupSheet({repairFocus=null}={}){
   const sheet=$("#shareSetupSheet"),scrim=$("#shareSetupScrim");
   if(!sheet)return;
+  if(!repairFocus)shareRepairFocusIntent=null;
   const subtitle=$("#shareSetupFor");if(subtitle)subtitle.textContent=state.programMeta?.name||t("untitled_program");
   shareSetupReturn=document.activeElement;
   document.body.classList.add("is-sheet-open");
-  openModal(sheet,{initialFocus:$("#shareSetupClose"),returnFocus:shareSetupReturn,
+  openModal(sheet,{initialFocus:repairFocus?()=>shareSetupRepairButton(repairFocus.exerciseInstanceId)||$("#shareSetupClose"):$("#shareSetupClose"),returnFocus:shareSetupReturn,
     onEscape:closeShareSetupSheet,scrim,delayHide:reducedMotion()?0:280});
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")});
-  buildShareSetupLink()}
+  buildShareSetupLink().then(()=>{
+    if(repairFocus&&shareRepairFocusIntent===repairFocus&&activeModal?.el===sheet){
+      shareRepairFocusIntent=null;
+      focusShareSetupRepair(repairFocus)}})}
 function closeShareSetupSheet(){
   const sheet=$("#shareSetupSheet");
   if(!sheet)return Promise.resolve(false);
@@ -15618,11 +15694,6 @@ function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
   if(activeGuideCue?.isConnected&&activeGuideAnchor&&guideAnchor(guideDefinition(activeGuideId))===activeGuideAnchor)return true;
   removeContextualGuide();
   for(const id of ids){
-    // These first-use cues are noise for a lifter with an established log and
-    // would consume the Focus card's fixed geometry on compact history views.
-    // Replay remains explicit and is never filtered by this automatic gate.
-    if((id==="first-set"||id==="focus-utilities")&&
-      (state?.log||[]).some(row=>row&&!row.warmup))continue;
     if(showContextualGuide(id))return true}
   return false}
 function completeContextualGuide(){

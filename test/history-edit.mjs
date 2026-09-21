@@ -1,12 +1,11 @@
 #!/usr/bin/env node
 /**
- * Plan 057-P0: characterize the persisted History edit/delete boundary.
+ * Plan 057-P0: prove the persisted History edit/delete boundary.
  *
- * This slice deliberately describes the current edit surface before the
- * read-first state machine is introduced. The durable snapshot is the
- * independent oracle: typing and cancelling must not change either replica;
- * Save changes only the selected session; Delete removes only its confirmed
- * target.
+ * The durable snapshot is the independent oracle: typing and cancelling must
+ * not change either replica; Save changes only the selected session; failed,
+ * partial, and stale operations retain their explicit recovery state; Delete
+ * removes only its confirmed target.
  */
 import { pathToFileURL } from "node:url";
 import { launchChromium } from "./browser.mjs";
@@ -122,7 +121,15 @@ async function main() {
   try {
     const context = await browser.newContext({ viewport: { width: 390, height: 844 }, serviceWorkers: "block" });
     const page = await context.newPage();
-    page.on("dialog", (dialog) => dialog.accept());
+    let dialogDecision = "accept";
+    page.on("dialog", async (dialog) => {
+      if (dialogDecision === "dismiss") {
+        dialogDecision = "accept";
+        await dialog.dismiss();
+        return;
+      }
+      await dialog.accept();
+    });
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForApp(page);
     await clearState(page);
@@ -155,6 +162,14 @@ async function main() {
     await page.waitForSelector('.session--read[data-reading="history-edit-a"]', { timeout: 5000 });
     await page.locator('[data-history-edit="history-edit-a"]').click();
     await page.waitForSelector('.session--edit[data-editing="history-edit-a"]', { timeout: 5000 });
+    const editingA11y = await page.evaluate(() => ({
+      heading: document.querySelector('[data-history-editing-heading]')?.textContent.trim() || "",
+      status: document.querySelector('[data-history-editing-status]')?.textContent.trim() || "",
+      role: document.querySelector('[data-history-editing-status]')?.getAttribute("role") || "",
+      focused: document.activeElement?.matches?.('[data-history-editing-heading], .session--edit input, .session--edit [data-ed="date"]') || false,
+    }));
+    assert(editingA11y.heading.length > 0 && editingA11y.status.length > 0 && editingA11y.role === "status" && editingA11y.focused,
+      "entering History Edit announces and focuses the editing state", editingA11y);
     const editorName = await page.locator('.session--edit[data-editing="history-edit-a"] .edrow__name').first().textContent();
     assert(editorName?.includes("A Very Long Exercise Name That Must Remain Whole"),
       "The characterized editor exposes the complete exercise identity", editorName);
@@ -168,6 +183,9 @@ async function main() {
       JSON.stringify({ localChanged: canonical(afterTyping.local) !== canonical(beforeEdit.local), idbChanged: canonical(afterTyping.idb) !== canonical(beforeEdit.idb) }));
 
     await page.locator("[data-edcancel]").click();
+    await page.waitForSelector('.session--read[data-reading="history-edit-a"]', { timeout: 5000 });
+    assert(await page.evaluate(() => document.activeElement?.matches?.('[data-history-edit="history-edit-a"]') || false),
+      "Cancel restores focus to the selected session Edit action");
     const afterCancel = await readReplicas(page);
     assert(canonical(afterCancel.local) === canonical(beforeEdit.local) && canonical(afterCancel.idb) === canonical(beforeEdit.idb),
       "Cancel restores the exact persisted snapshot");
@@ -176,6 +194,8 @@ async function main() {
     await page.locator('.session--edit[data-editing="history-edit-a"] input[data-ek^="load|"]').first().fill("123.5");
     await page.locator('[data-edsave="history-edit-a"]').click();
     await page.waitForSelector('.session--edit[data-editing="history-edit-a"]', { state: "detached", timeout: 5000 });
+    assert(await page.evaluate(() => document.activeElement?.matches?.('[data-history-edit="history-edit-a"]') || false),
+      "successful History Save restores focus to the read-state Edit action");
     await page.evaluate(() => window.__repforgeStorage.flush());
     const afterSave = await readReplicas(page);
     const savedRows = afterSave.local.log.filter((row) => row.session === "history-edit-a");
@@ -187,6 +207,99 @@ async function main() {
     assert(canonical(afterSave.local) === canonical(afterSave.idb),
       "Save leaves localStorage and IndexedDB at the same session result");
 
+    // F057-01: a complete storage failure keeps the immutable desired copy
+    // attached to the operation. Retry must not silently rebuild it from the
+    // durable head; the user has to see the value they tried to save.
+    await page.locator('[data-history-edit="history-edit-a"]').click();
+    await page.locator('.session--edit[data-editing="history-edit-a"] input[data-ek^="load|"]').first().fill("150");
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      window.__historyFaultOriginal = { writeLocal: io.writeLocal, writeIdb: io.writeIdb };
+      io.writeLocal = async () => false;
+      io.writeIdb = async () => false;
+    });
+    await page.locator('[data-edsave="history-edit-a"]').click();
+    await page.waitForSelector('[data-history-operation="failure"]', { timeout: 5000 });
+    assert(await page.evaluate(() => document.activeElement?.matches?.('[data-history-operation="failure"] h3') || false),
+      "History failure moves focus to its live operation heading");
+    const failedSelection = await page.evaluate(() => window.__repforgeHistory.selection());
+    assert(failedSelection.mode === "failure" && failedSelection.desiredFingerprint &&
+      Number(failedSelection.workingCopy?.[0]?.load) === 150,
+      "failed History Save retains its exact desired working copy", JSON.stringify(failedSelection));
+    assert(await page.locator('[data-history-retry]').count() === 1,
+      "failed History Save exposes a retry action while retaining the operation");
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      const original = window.__historyFaultOriginal;
+      io.writeLocal = original.writeLocal;
+      io.writeIdb = original.writeIdb;
+      delete window.__historyFaultOriginal;
+    });
+    await page.locator('[data-history-retry]').click();
+    await page.waitForSelector('.session--read[data-reading="history-edit-a"]', { timeout: 5000 });
+    const afterFailedRetry = await readReplicas(page);
+    assert(afterFailedRetry.local.log.find((row) => row.session === "history-edit-a" && row.set === 1).load === 150 &&
+      canonical(afterFailedRetry.local) === canonical(afterFailedRetry.idb),
+      "Retry commits the preserved failed edit to both replicas", JSON.stringify(afterFailedRetry));
+
+    // A one-replica outcome is a separate deferred/partial proof. The retry
+    // remains the same desired copy even when the first attempt advanced one
+    // durable replica before settlement stopped.
+    await page.locator('[data-history-edit="history-edit-a"]').click();
+    await page.locator('.session--edit[data-editing="history-edit-a"] input[data-ek^="load|"]').first().fill("160");
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      window.__historyFaultOriginal = { writeLocal: io.writeLocal, writeIdb: io.writeIdb };
+      io.writeIdb = async () => false;
+    });
+    await page.locator('[data-edsave="history-edit-a"]').click();
+    await page.waitForSelector('[data-history-operation="failure"]', { timeout: 5000 });
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      const original = window.__historyFaultOriginal;
+      io.writeLocal = original.writeLocal;
+      io.writeIdb = original.writeIdb;
+      delete window.__historyFaultOriginal;
+    });
+    await page.locator('[data-history-retry]').click();
+    await page.waitForSelector('.session--read[data-reading="history-edit-a"]', { timeout: 5000 });
+    const afterPartialRetry = await readReplicas(page);
+    assert(afterPartialRetry.local.log.find((row) => row.session === "history-edit-a" && row.set === 1).load === 160 &&
+      canonical(afterPartialRetry.local) === canonical(afterPartialRetry.idb),
+      "Partial/deferred retry settles one complete state in both replicas", JSON.stringify(afterPartialRetry));
+
+    // A dirty failed operation must ask before Back discards its desired copy.
+    await page.locator('[data-history-edit="history-edit-a"]').click();
+    await page.locator('.session--edit[data-editing="history-edit-a"] input[data-ek^="load|"]').first().fill("170");
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      window.__historyFaultOriginal = { writeLocal: io.writeLocal, writeIdb: io.writeIdb };
+      io.writeLocal = async () => false;
+      io.writeIdb = async () => false;
+    });
+    await page.locator('[data-edsave="history-edit-a"]').click();
+    await page.waitForSelector('[data-history-operation="failure"]', { timeout: 5000 });
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      const original = window.__historyFaultOriginal;
+      io.writeLocal = original.writeLocal;
+      io.writeIdb = original.writeIdb;
+      delete window.__historyFaultOriginal;
+    });
+    dialogDecision = "dismiss";
+    await page.locator('[data-history-back]').click();
+    await page.waitForSelector('[data-history-operation="failure"]', { timeout: 5000 });
+    assert(dialogDecision === "accept", "Back from a dirty failed edit requires explicit discard confirmation");
+    await page.locator('[data-history-back]').click();
+    await page.waitForSelector('#historyCalendar:not(.hidden)', { timeout: 5000 });
+    const calendarFocus = await page.evaluate(() => document.activeElement?.matches?.('[data-sess="history-edit-a"] .session__open') || false);
+    assert(calendarFocus, "Back from History selection returns focus to the selected calendar session");
+    await page.locator('#sessions [data-sess="history-edit-a"] .session__open').click();
+    await page.waitForSelector('.session--read[data-reading="history-edit-a"]', { timeout: 5000 });
+    const durableAfterDiscard = await readReplicas(page);
+    assert(durableAfterDiscard.local.log.find((row) => row.session === "history-edit-a" && row.set === 1).load === 160,
+      "Explicit discard returns to the durable session rather than the failed copy");
+
     await page.locator('[data-history-edit="history-edit-a"]').click();
     await page.locator('.session--edit[data-editing="history-edit-a"] input[data-ek^="load|"]').first().fill("130");
     const changedElsewhere = structuredClone((await readReplicas(page)).local);
@@ -195,13 +308,14 @@ async function main() {
     await writeState(page, changedElsewhere);
     await page.locator('[data-edsave="history-edit-a"]').click();
     await page.waitForSelector('[data-history-operation="conflict"]', { timeout: 5000 });
+    assert(await page.evaluate(() => document.activeElement?.matches?.('[data-history-operation="conflict"] h3') || false),
+      "History conflict moves focus to its live operation heading");
     const afterConflict = await readReplicas(page);
-    assert(afterConflict.local.log.find((row) => row.session === "history-edit-a" && row.set === 1).load === 123.5 &&
+    assert(afterConflict.local.log.find((row) => row.session === "history-edit-a" && row.set === 1).load === 160 &&
       afterConflict.local.log.find((row) => row.session === "history-edit-a" && row.set === 2).load === 81,
       "Stale Save refuses to merge over a changed session", JSON.stringify(afterConflict.local.log));
 
     await page.locator('[data-history-reload]').click();
-    await page.waitForTimeout(1000);
     await page.waitForSelector('[data-history-edit="history-edit-a"]', { timeout: 5000 });
     await page.locator('[data-history-edit="history-edit-a"]').click();
     await page.locator('.session--edit[data-editing="history-edit-a"] input[data-ek^="load|"]').first().fill("140");
@@ -210,7 +324,6 @@ async function main() {
     exactRetry._storageRevision = Number(exactRetry._storageRevision || 0) + 1;
     await writeState(page, exactRetry);
     await page.locator('[data-edsave="history-edit-a"]').click();
-    await page.waitForTimeout(1000);
     await page.waitForSelector('[data-history-edit="history-edit-a"]', { timeout: 5000 });
     const afterAlreadyCommitted = await readReplicas(page);
     assert(afterAlreadyCommitted.local.log.find((row) => row.session === "history-edit-a" && row.set === 1).load === 140 &&

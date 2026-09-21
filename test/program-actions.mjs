@@ -214,7 +214,14 @@ try {
   await install(page, rowsFor(["seed-ex-1", "seed-ex-2"]));
   await openProgram(page);
   const oracle = await readyOracle(page);
+  const readinessRepresentations = await page.evaluate(() => ({
+    actionable: document.querySelectorAll("#programOverview #programReadyLink").length,
+    positiveChips: [...document.querySelectorAll("#programMeta .pmeta__chip")]
+      .filter((node) => /ready|pronto/i.test(node.textContent || "")).length,
+  }));
   check(oracle.ids.length > 0, "the fixture produces at least one recommendation-owned ready exercise", oracle);
+  check(readinessRepresentations.actionable === 1 && readinessRepresentations.positiveChips === 0,
+    "positive readiness has one actionable representation and no duplicate chip", readinessRepresentations);
   const readyLink = page.locator("#programReadyLink");
   if (await readyLink.count()) {
     const readiness = await page.evaluate((expected) => ({

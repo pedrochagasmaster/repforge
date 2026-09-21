@@ -73,12 +73,22 @@ try {
     .map((group) => ({
       id: group.dataset.settingsGroup || "",
       visible: !group.hidden && !group.classList.contains("hidden") && getComputedStyle(group).display !== "none",
+      heading: group.querySelector(":scope > h2") ? {
+        text: group.querySelector(":scope > h2").textContent.trim(),
+        id: group.querySelector(":scope > h2").id,
+        role: group.querySelector(":scope > h2").getAttribute("role") || "heading",
+        level: group.querySelector(":scope > h2").getAttribute("aria-level") || "2",
+      } : null,
+      labelledBy: group.getAttribute("aria-labelledby") || "",
       summary: group.querySelector(".settings-group__summary")?.textContent.trim() || "",
     })));
   check(JSON.stringify(groups.map((group) => group.id)) === JSON.stringify(["training", "app", "data", "help"]),
     "Settings renders the four required task groups in order", groups);
   check(groups.length === 4 && groups.every((group) => group.visible && group.summary.length > 0),
     "every task group is visible and has a short summary", groups);
+  check(groups.every((group) => group.heading?.role === "heading" && group.heading.level === "2" &&
+    group.heading.id && group.labelledBy === group.heading.id && group.heading.text.length > 0),
+    "every Settings group exposes a named level-two heading", groups);
 
   for (const selector of ["#progressionRow", "#restSecRow", "#notifyConfigRow", "#dataBackupRow", "#dataImportRow", "#guideReplayToggle"]) {
     await page.click(selector);
@@ -134,7 +144,8 @@ try {
   if (await selected.count()) {
     const before = await page.evaluate((uiKey) => JSON.parse(localStorage.getItem(uiKey) || "{}"), UI_KEY);
     await selected.click({ timeout: 5000 });
-    await page.waitForTimeout(500);
+    await page.waitForFunction(({ uiKey }) => JSON.parse(localStorage.getItem(uiKey) || "{}").guideState?.["first-set"]?.status === "deferred",
+      { uiKey: UI_KEY });
     const after = await page.evaluate((uiKey) => JSON.parse(localStorage.getItem(uiKey) || "{}"), UI_KEY);
     const unrelatedIds = Object.keys(before.guideState || {}).filter((id) => id !== "first-set");
     check(unrelatedIds.every((id) => JSON.stringify(after.guideState?.[id]) === JSON.stringify(before.guideState?.[id])),

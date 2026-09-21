@@ -378,7 +378,7 @@
     <section id="settings" class="view" data-i18n-aria="settings.aria" aria-label="Settings">
       <div class="settings-head">
         <button type="button" class="back-link" id="settingsBack" data-i18n="settings.back_today">‹ Today</button>
-        <div class="settings-head__title" data-i18n="settings.title">Settings</div>
+        <h1 class="settings-head__title" data-i18n="settings.title">Settings</h1>
         <div></div>
       </div>
 
@@ -392,8 +392,8 @@
         </div>
       </div>
 
-      <p class="settings-group__label" data-i18n="settings.group.training">Training behavior</p>
-      <div class="settings-group" data-settings-group="training">
+      <section class="settings-group" data-settings-group="training" aria-labelledby="settingsGroupTraining">
+        <h2 id="settingsGroupTraining" class="settings-group__label" data-i18n="settings.group.training">Training behavior</h2>
         <p class="settings-group__summary" data-i18n="settings.group.training_summary">Units, effort logging, and how Taurifer sets the next load.</p>
         <label class="settings-row" for="unit">
           <span class="settings-row__label" data-i18n="settings.units">Units</span>
@@ -436,10 +436,10 @@
           <button id="saveSettings" class="btn btn--cta" data-i18n="settings.save">Save settings</button>
           </div>
         </div>
-      </div>
+      </section>
 
-      <p class="settings-group__label" data-i18n="settings.group.app">App</p>
-      <div class="settings-group" data-settings-group="app">
+      <section class="settings-group" data-settings-group="app" aria-labelledby="settingsGroupApp">
+        <h2 id="settingsGroupApp" class="settings-group__label" data-i18n="settings.group.app">App</h2>
         <p class="settings-group__summary" data-i18n="settings.group.app_summary">Appearance, reminders, language, and installation.</p>
         <button type="button" class="settings-row" id="restSecRow" aria-expanded="false" aria-controls="restSecPanel">
           <span class="settings-row__label" data-i18n="settings.rest_timer_short">Rest timer</span>
@@ -485,10 +485,10 @@
           <span class="settings-row__label" data-i18n="settings.add_home">Add to home screen</span>
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
         </button>
-      </div>
+      </section>
 
-      <p class="settings-group__label" data-i18n="settings.group.privacy">Data &amp; privacy</p>
-      <div class="settings-group" data-settings-group="data">
+      <section class="settings-group" data-settings-group="data" aria-labelledby="settingsGroupData">
+        <h2 id="settingsGroupData" class="settings-group__label" data-i18n="settings.group.privacy">Data &amp; privacy</h2>
         <p class="settings-group__summary" data-i18n="settings.group.data_summary">Backups, privacy, analytics, and deleting training data.</p>
         <div class="settings-row" style="cursor:default">
           <span>
@@ -527,10 +527,10 @@
           <span class="settings-row__label" data-i18n="settings.delete_all">Delete workout history</span>
         </button>
         <p class="visually-hidden" data-i18n="settings.danger_lede">Taurifer deletes the saved log and any unfinished workout. It keeps your program and settings. Export a backup first.</p>
-      </div>
+      </section>
 
-      <p class="settings-group__label" data-i18n="settings.group.help">Help</p>
-      <div class="settings-group" data-settings-group="help">
+      <section class="settings-group" data-settings-group="help" aria-labelledby="settingsGroupHelp">
+        <h2 id="settingsGroupHelp" class="settings-group__label" data-i18n="settings.group.help">Help</h2>
         <p class="settings-group__summary" data-i18n="settings.group.help_summary">Replay guides and keep the app facts close.</p>
         <button type="button" class="settings-row" id="guideReplayToggle" aria-expanded="false" aria-controls="guideReplayPanel">
           <span class="settings-row__label" data-i18n="settings.guides">Contextual guides</span>
@@ -550,7 +550,7 @@
           <span class="settings-row__label" data-i18n="settings.about">About</span>
           <span class="settings-row__value"><span data-i18n="settings.version">Version</span> 1.0</span>
         </div>
-      </div>
+      </section>
     </section>
 
     <section id="onboarding" class="view onboarding hidden ph-no-capture" data-i18n-aria="onb.aria" aria-label="Create a program">
@@ -1033,10 +1033,10 @@ Progress.</p>
     </div>
     <div class="sheet__body share-setup">
       <p id="shareSetupBody" data-i18n="program.share_setup_body">Create a setup link for this program. Copy the link or open the system Share sheet.</p>
-      <p id="shareSetupBlockerSummary" class="share-setup__blocker-summary hidden" role="status"></p>
+      <p id="shareSetupBlockerSummary" class="share-setup__blocker-summary hidden" role="status" tabindex="-1"></p>
       <div id="shareSetupBlockers" class="share-setup__blockers hidden" role="list" data-i18n-aria="program.share_setup_blockers" aria-label="Unresolved exercises"></div>
       <p id="shareSetupLink" class="share-setup__link" tabindex="0"></p>
-      <p id="shareSetupStatus" class="share-setup__status hidden" role="status"></p>
+      <p id="shareSetupStatus" class="share-setup__status hidden" role="status" tabindex="-1"></p>
     </div>
     <div class="sheet__foot sheet__foot--actions">
       <button type="button" class="btn btn--steel" id="shareSetupCopy" data-i18n="program.share_setup_copy">Copy link</button>
@@ -1180,20 +1180,20 @@ Progress.</p>
   <script src="vendor/motion/motion.js"></script>
   <script src="vendor/dnd-kit/dnd-kit.js"></script>
   <div hidden inert aria-hidden="true" id="legacyWorkoutShell"><span id="modeFull"></span><span id="modeFocus"></span><input id="date" type="date"><input id="bodyweight"><textarea id="notes"></textarea></div>
-  <script src="motion-layer.js?v=288"></script>
-  <script src="program-compiler.js?v=288"></script>
-  <script src="program-entry.js?v=288"></script>
-  <script src="program-entry-adapter.js?v=288"></script>
-  <script src="program-editor.js?v=288"></script>
-  <script src="shared-setup.js?v=288"></script>
-  <script src="workout-draft.js?v=288"></script>
-  <script src="program-transition.js?v=288"></script>
+  <script src="motion-layer.js?v=289"></script>
+  <script src="program-compiler.js?v=289"></script>
+  <script src="program-entry.js?v=289"></script>
+  <script src="program-entry-adapter.js?v=289"></script>
+  <script src="program-editor.js?v=289"></script>
+  <script src="shared-setup.js?v=289"></script>
+  <script src="workout-draft.js?v=289"></script>
+  <script src="program-transition.js?v=289"></script>
   <script src="install-transfer-contract.js"></script>
   <script src="install-transfer.js"></script>
-  <script src="install-policy.js?v=288"></script>
-  <script src="guide-registry.js?v=288"></script>
-  <script src="durable-state.js?v=288"></script>
-  <script src="progress-model.js?v=288"></script>
-  <script src="app.js?v=288"></script>
+  <script src="install-policy.js?v=289"></script>
+  <script src="guide-registry.js?v=289"></script>
+  <script src="durable-state.js?v=289"></script>
+  <script src="progress-model.js?v=289"></script>
+  <script src="app.js?v=289"></script>
 </body>
 </html>
