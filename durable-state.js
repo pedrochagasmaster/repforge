@@ -1900,7 +1900,22 @@
         await writeSnapshot(cloneSnapshot(decision.snapshot),storageIO);
       return Object.assign({},decision,{draftConflict})})}
 
-    function recoveryChoiceMatches(candidate,current){
+  async function settlePendingJournal(){
+    const before=readPendingJournal();
+    if(!before.entries.length&&!before.invalid.length)
+      return normalizeDurableOutcome({localOk:false,idbOk:false,
+        pendingJournalCleanup:true,code:"journal_cleanup_pending"});
+    const decision=await resolveBootReplicas();
+    const remaining=readPendingJournal();
+    const snapshot=decision?.snapshot||persistHead;
+    if(decision?.kind==="unresolved"||remaining.entries.length||remaining.invalid.length)
+      return normalizeDurableOutcome({revision:readRevision(snapshot),localOk:false,idbOk:false,
+        pendingJournalCleanup:true,code:"journal_cleanup_pending"});
+    return normalizeDurableOutcome({revision:readRevision(snapshot),localOk:true,idbOk:true,
+      alreadyCommitted:true});
+  }
+
+  function recoveryChoiceMatches(candidate,current){
     if(candidate?.kind!=="chosen"||(candidate.source!=="local"&&candidate.source!=="idb"))return false;
     const selected=candidate.source==="local"?current.local:current.idb;
     return selected?.status==="valid"&&storageSnapshotsEqual(selected.parsed,candidate.snapshot)}
@@ -2436,6 +2451,7 @@
     storageSnapshotsEqual,
     isValidStateShape,
     resolveBootReplicas,
+    settlePendingJournal,
 
     // Snapshot Meta & Helpers
     cloneSnapshot,

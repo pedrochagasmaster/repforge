@@ -322,6 +322,25 @@ async function run() {
       assert(JSON.stringify(durable.local) === beforeCancel && durable.local?.program?.find((row) => row.id === "ex-unknown")?.libraryId === "gone:press", "picker cancel returns to Share without a durable write", JSON.stringify(durable));
 
       await clickRepair(page, "ex-unknown");
+      await page.locator("#exPickCustom").click();
+      await page.waitForSelector("#exCustomSheet:not(.hidden)");
+      await page.locator("#exCustomCancel").click();
+      await page.waitForFunction(() => {
+        const visible = (selector) => { const node = document.querySelector(selector); return !!node && !node.classList.contains("hidden") && !node.hidden; };
+        return visible("#shareSetupSheet") && !visible("#exPickSheet") && !visible("#exCustomSheet");
+      }, undefined, { timeout: 5000 });
+      const customCancelSurface = await page.evaluate(() => ({
+        share: !document.querySelector("#shareSetupSheet")?.classList.contains("hidden"),
+        picker: !document.querySelector("#exPickSheet")?.classList.contains("hidden"),
+        custom: !document.querySelector("#exCustomSheet")?.classList.contains("hidden"),
+      }));
+      assert(customCancelSurface.share && !customCancelSurface.picker && !customCancelSurface.custom,
+        "custom repair cancel returns directly to Share", JSON.stringify(customCancelSurface));
+      durable = await readDurable(page);
+      assert(JSON.stringify(durable.local) === beforeCancel && durable.local?.program?.find((row) => row.id === "ex-unknown")?.libraryId === "gone:press",
+        "custom repair cancel discards staged changes without a durable write", JSON.stringify(durable));
+
+      await clickRepair(page, "ex-unknown");
       await page.locator('#exPickList [data-pick="sq_bb"]').click();
       await finishEditor(page, { allowReady: true });
       const finalFocus = await shareFocus(page);

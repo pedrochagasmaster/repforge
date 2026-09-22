@@ -1660,7 +1660,8 @@ function applySessionLength(program,sessionLength,equipment,experience,dayOcc){
   program.length=0;program.push(...out)}
 let state,prog,day,installPrompt=null,saving=false,volWindow=7;
 const emptyHistorySelection=()=>({mode:"calendar",sessionId:null,originalFingerprint:"",
-  desiredFingerprint:null,workingCopy:null,dirty:false,validation:null,operation:null});
+  desiredFingerprint:null,workingCopy:null,removedRowIndices:[],dirty:false,validation:null,
+  operation:null,operationId:null});
 let historySelection=emptyHistorySelection();
 let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
 let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
@@ -8976,11 +8977,14 @@ function historySelectionFor(sid,mode="reading",source=state.log){
   const rows=historySessionRows(source,sid);if(!rows.length)return null;
   return{mode,sessionId:String(sid),originalFingerprint:historySessionFingerprint(rows),
     desiredFingerprint:null,workingCopy:mode==="editing"?cloneSnapshot(rows):null,
-    dirty:false,validation:null,operation:null}}
+    removedRowIndices:[],dirty:false,validation:null,operation:null,operationId:null}}
 function historySelectedRecord(source=state.log){
   const sid=historySelection.sessionId;if(!sid)return null;
   return historyIndexFor(source).sessions.find(item=>String(item.session)===String(sid))||null}
 function historySetSelection(next){historySelection=next||emptyHistorySelection()}
+function historyOperationCurrent(operationId,sid,operation){
+  return typeof operationId==="string"&&operationId.length>0&&historySelection.operationId===operationId&&
+    String(historySelection.sessionId)===String(sid)&&historySelection.operation===operation}
 function historyFocus(node){
   if(!node||!canTakeFocus(node))return false;
   try{node.focus({preventScroll:true})}catch{try{node.focus()}catch{return false}}
@@ -9013,15 +9017,17 @@ function historyStartReading(sid){
 function historyStartEditing(){
   const sid=historySelection.sessionId,rows=historySessionRows(state.log,sid);if(!rows.length)return false;
   historySetSelection({mode:"editing",sessionId:String(sid),originalFingerprint:historySelection.originalFingerprint||historySessionFingerprint(rows),
-    desiredFingerprint:null,workingCopy:cloneSnapshot(rows),dirty:false,validation:null,operation:null});
+    desiredFingerprint:null,workingCopy:cloneSnapshot(rows),removedRowIndices:[],dirty:false,validation:null,
+    operation:null,operationId:null});
   renderHistory();historyFocusEditing();return true}
 function historySessionFromWorkingCopy(card){
   const selection=historySelection,source=selection.workingCopy||historySessionRows(state.log,selection.sessionId),out=[];
   const dateEl=card?.querySelector('[data-ed="date"]'),dateP=parseCalendarDate(dateEl?.value);
   if(dateP.field)return{error:{field:dateEl,key:dateP.key},dateP};
+  const removed=new Set((selection.removedRowIndices||[]).map(Number));
   for(const rowEl of card.querySelectorAll(".edrow[data-edidx]")){
-    if(rowEl.classList.contains("is-removed"))continue;
-    const i=Number(rowEl.dataset.edidx),src=source[i];if(!src)continue;
+    const i=Number(rowEl.dataset.edidx);if(removed.has(i))continue;
+    const src=source[i];if(!src)continue;
     const loadEl=rowEl.querySelector('[data-ek^="load|"]'),repsEl=rowEl.querySelector('[data-ek^="reps|"]'),rirEl=rowEl.querySelector('[data-ek^="rir|"]');
     const loadP=parseLoadDisplay(loadEl?.value);if(loadP.field)return{error:{field:loadEl,key:loadP.key},dateP};
     const repsP=parseRepsValue(repsEl?.value);if(repsP.field)return{error:{field:repsEl,key:repsP.key},dateP};
@@ -9035,13 +9041,16 @@ function historyMarkValidation(card,error){
 function historyApplyWorkingInput(event){
   const target=event.target,card=target.closest(".session--edit");if(!card||historySelection.mode!=="editing")return;
   const row=target.closest(".edrow[data-edidx]");if(row){const i=Number(row.dataset.edidx),key=String(target.dataset.ek||"").split("|")[0];
-    if(historySelection.workingCopy?.[i]&&key)historySelection.workingCopy[i][key]=target.value}
-  if(target.matches('[data-ed="date"]'))for(const row of historySelection.workingCopy||[])row.date=target.value;
+    const parsed=key==="load"?parseLoadDisplay(target.value):key==="reps"?parseRepsValue(target.value):key==="rir"?parseRirValue(target.value):null;
+    if(historySelection.workingCopy?.[i]&&key&&parsed&&!parsed.field)historySelection.workingCopy[i][key]=parsed.value}
+  if(target.matches('[data-ed="date"]')){
+    const parsed=parseCalendarDate(target.value);
+    if(!parsed.field)for(const row of historySelection.workingCopy||[])row.date=parsed.value}
   historySelection.dirty=true}
-function historyResultMessage(result,successKey,operation){
+function historyResultMessage(result,successKey,operation,operationId){
   if(result?.committed===true&&result?.settled===true)return"committed";
-  if(result?.conflict||result?.stale||result?.staleRevision||result?.duplicate){historySelection={...historySelection,mode:"conflict",operation};return"conflict"}
-  historySelection={...historySelection,mode:"failure",operation};return"failure"}
+  if(result?.conflict||result?.stale||result?.staleRevision||result?.duplicate){historySelection={...historySelection,mode:"conflict",operation,operationId};return"conflict"}
+  historySelection={...historySelection,mode:"failure",operation,operationId};return"failure"}
 function adoptHistoryDurableHead(head){
   if(!head)return;
   state=cloneSnapshot(head);prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
@@ -9054,9 +9063,10 @@ async function historyReloadLatest(){
   render();
   if(next)historyFocusRead(sid);else historyFocus($("#historyRecentLabel"));
   return next}
-async function historyFinishResult(result,successKey,operation){
+async function historyFinishResult(result,successKey,operation,operationId){
   const sid=historySelection.sessionId;
-  const status=historyResultMessage(result,successKey,operation);
+  if(!historyOperationCurrent(operationId,sid,operation))return false;
+  const status=historyResultMessage(result,successKey,operation,operationId);
   if(status==="committed"){
     if(result.alreadyCommitted){const refreshed=await refreshPersistenceHead();if(refreshed?.head)adoptHistoryDurableHead(refreshed.head)}
     const next=historySelectionFor(sid);
@@ -9081,27 +9091,45 @@ async function historyRetryEdit(){
   const proposed=cloneSnapshot(historySelection.workingCopy||[]);
   const desired=historySelection.desiredFingerprint||historySessionFingerprint(proposed);
   if(!sid||!original||!proposed.length)return false;
+  const operationId=uid();
+  historySelection={...historySelection,mode:"failure",operation:"edit",operationId,
+    desiredFingerprint:desired,workingCopy:proposed,dirty:true};
   const refreshed=await refreshPersistenceHead();
+  if(!historyOperationCurrent(operationId,sid,"edit"))return false;
   if(refreshed?.head)adoptHistoryDurableHead(refreshed.head);
   const current=historySessionRows(state.log,sid),fingerprint=historySessionFingerprint(current);
   if(!current.length || (fingerprint!==original && fingerprint!==desired)){
     historySelection={...historySelection,mode:"conflict",desiredFingerprint:desired,
-      workingCopy:proposed,dirty:true,operation:"edit"};
+      workingCopy:proposed,dirty:true,operation:"edit",operationId};
     render();historyFocusFailure("conflict");return false}
-  const local=readLocalStatus(),idb=await readIdbStatus();
-  const replicasSettled=local.status==="valid"&&idb.status==="valid"&&storageSnapshotsEqual(local.parsed,idb.parsed)&&
-    historySessionFingerprint(historySessionRows(local.parsed.log,sid))===desired;
-  const result=fingerprint===desired&&replicasSettled
-    ?{ok:true,committed:true,settled:true,alreadyCommitted:true,revision:readRevision(state),localOk:true,idbOk:true,kind:"committed"}
-    :await historyEditCommit(sid,proposed,original,storageIO,{forceDesired:fingerprint===desired});
-  await historyFinishResult(result,"toast.session_updated","edit");
+  if(DurableState.hasPendingJournal?.()){
+    const settled=await settlePendingJournal();
+    if(!historyOperationCurrent(operationId,sid,"edit"))return false;
+    if(!(settled?.committed===true&&settled?.settled===true)){
+      await historyFinishResult(settled,"toast.session_updated","edit",operationId);
+      return false}
+    const refreshedAfterSettlement=await refreshPersistenceHead();
+    if(!historyOperationCurrent(operationId,sid,"edit"))return false;
+    if(refreshedAfterSettlement?.head)adoptHistoryDurableHead(refreshedAfterSettlement.head);
+    const settledRows=historySessionRows(state.log,sid);
+    if(historySessionFingerprint(settledRows)===desired){
+      await historyFinishResult(settled,"toast.session_updated","edit",operationId);
+      return true}
+  }
+  // Retry remains a durable-owner operation even when the visible replica
+  // already contains the desired rows. The normalized owner result is the
+  // only authority for whether the preserved WAL has actually settled.
+  const result=await historyEditCommit(sid,proposed,original,storageIO,{forceDesired:fingerprint===desired});
+  await historyFinishResult(result,"toast.session_updated","edit",operationId);
   return result?.committed===true&&result?.settled===true}
 function historyBeginDelete(sid){
   const rows=historySessionRows(state.log,sid);if(!rows.length)return false;
+  if(historySelection.mode==="editing"&&historySelection.dirty&&!confirm(t("history.confirm.discard_changes")))return false;
   historySetSelection({mode:"deleting",sessionId:String(sid),originalFingerprint:historySessionFingerprint(rows),
-    desiredFingerprint:null,workingCopy:null,dirty:false,validation:null,operation:"delete"});
+    desiredFingerprint:null,workingCopy:null,removedRowIndices:[],dirty:false,validation:null,
+    operation:"delete",operationId:uid()});
   renderHistory();historyFocus($("[data-history-delete-status]"));return true}
-async function deleteSession(sid,io=storageIO,{originalFingerprint=null}={}){
+async function deleteSession(sid,io=storageIO,{originalFingerprint=null,operationId=null}={}){
   const rows=historySessionRows(state.log,sid),original=originalFingerprint||historySessionFingerprint(rows);
   const proposal=cloneSnapshot(state);
   proposal.log=proposal.log.filter(row=>String(row?.session??"")!==String(sid));
@@ -9116,7 +9144,7 @@ async function deleteSession(sid,io=storageIO,{originalFingerprint=null}={}){
     return{proposal:next};
   };
   const result=await commitProposedState(proposal,io,{preflight});
-  await historyFinishResult(result,"toast.session_deleted","delete");
+  await historyFinishResult(result,"toast.session_deleted","delete",operationId||historySelection.operationId);
   return result}
 function historyReadingView(s,rows){
   const setRows=rows.map(row=>`<div class="history-read__row"><span class="history-read__name">${esc(displayName(row))}</span>`+
@@ -9146,14 +9174,17 @@ function historyConflictView(s,mode,operation){
 function bindHistoryEditRows(){
   $$("[data-edrm]").forEach(b=>b.onclick=e=>{e.stopPropagation();
     const row=b.closest(".edrow"),card=b.closest(".session--edit");if(!row||!card)return;
+    const index=Number(row.dataset.edidx),removed=new Set((historySelection.removedRowIndices||[]).map(Number));
     const removing=!row.classList.contains("is-removed");
     if(removing){
       const left=[...card.querySelectorAll(".edrow[data-edidx]:not(.is-removed)")];
       if(left.length<=1){toast(t("history.edit.keep_one"));return}
+      removed.add(index);historySelection.removedRowIndices=[...removed].sort((a,c)=>a-c);
       row.classList.add("is-removed");setEdrowRmState(b,true);
       row.querySelectorAll(".edrow__in").forEach(inp=>{inp.disabled=true;inp.removeAttribute("aria-invalid")});
       historySelection.dirty=true}
-    else{row.classList.remove("is-removed");setEdrowRmState(b,false);
+    else{removed.delete(index);historySelection.removedRowIndices=[...removed].sort((a,c)=>a-c);
+      row.classList.remove("is-removed");setEdrowRmState(b,false);
       row.querySelectorAll(".edrow__in").forEach(inp=>inp.disabled=false);historySelection.dirty=true}});
   $(".session--edit")?.addEventListener("input",historyApplyWorkingInput);
 }
@@ -9169,7 +9200,7 @@ function bindHistorySelection(){
   $("[data-history-back]")?.addEventListener("click",historyBackToCalendar);
   $("[data-history-edit]")?.addEventListener("click",historyStartEditing);
   $("[data-history-delete-cancel]")?.addEventListener("click",historyCancelOperation);
-  $("[data-history-delete-confirm]")?.addEventListener("click",()=>deleteSession($("[data-history-delete-confirm]").dataset.historyDeleteConfirm,storageIO,{originalFingerprint:historySelection.originalFingerprint}));
+  $("[data-history-delete-confirm]")?.addEventListener("click",()=>deleteSession($("[data-history-delete-confirm]").dataset.historyDeleteConfirm,storageIO,{originalFingerprint:historySelection.originalFingerprint,operationId:historySelection.operationId}));
   $$("[data-del]").forEach(b=>b.addEventListener("click",async e=>{
     e.stopPropagation();historyBeginDelete(b.dataset.del)}));
   $$("[data-edcancel]").forEach(b=>b.addEventListener("click",historyCancelOperation));
@@ -9276,12 +9307,14 @@ function setEdrowRmState(btn,removed){
   glyph.textContent=removed?EDROW_RM_GLYPH.undo:EDROW_RM_GLYPH.remove}
 
 function sessionEditor(s,sets){
+  const removed=new Set((historySelection.removedRowIndices||[]).map(Number));
   const rows=sets.map((r,i)=>{
-    return `<div class="edrow" data-edidx="${i}"><span class="edrow__name">${esc(displayName(r))} <small>#${r.set}</small></span>`+
-      `<input class="edrow__in" data-ek="load|${i}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${unitLabel()}">`+
-      `<input class="edrow__in" data-ek="reps|${i}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("log.reps"))}">`+
-      `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("glossary.term.RIR"))}">`+
-      `<button type="button" class="edrow__rm" data-edrm="${i}" aria-label="${esc(t("history.edit.remove_set"))}" title="${esc(t("history.edit.remove_set"))}"><span class="edrow__rm-glyph" aria-hidden="true">${EDROW_RM_GLYPH.remove}</span></button></div>`}).join("");
+    const isRemoved=removed.has(i),disabled=isRemoved?" disabled":"",label=t(isRemoved?"history.edit.undo_remove":"history.edit.remove_set");
+    return `<div class="edrow${isRemoved?" is-removed":""}" data-edidx="${i}"><span class="edrow__name">${esc(displayName(r))} <small>#${r.set}</small></span>`+
+      `<input class="edrow__in" data-ek="load|${i}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${unitLabel()}"${disabled}>`+
+      `<input class="edrow__in" data-ek="reps|${i}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("log.reps"))}"${disabled}>`+
+      `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("glossary.term.RIR"))}"${disabled}>`+
+      `<button type="button" class="edrow__rm${isRemoved?" is-undo":""}" data-edrm="${i}" aria-label="${esc(label)}" title="${esc(label)}"><span class="edrow__rm-glyph" aria-hidden="true">${isRemoved?EDROW_RM_GLYPH.undo:EDROW_RM_GLYPH.remove}</span></button></div>`}).join("");
   return `<div class="session session--edit" data-editing="${esc(s.session)}" data-history-state="editing">`+
     `<h4 class="history-editing__heading" data-history-editing-heading tabindex="-1">${esc(t("history.editing_title"))}</h4>`+
     `<p class="history-editing__status" data-history-editing-status role="status" aria-live="polite">${esc(t("history.editing_status"))}</p>`+
@@ -9303,11 +9336,12 @@ async function saveSessionEdit(sid,io=storageIO){
   if(!parsed.rows.length){toast(t("history.edit.keep_one"));return}
   const proposed=parsed.rows,original=historySelection.originalFingerprint||historySessionFingerprint(historySessionRows(state.log,sid));
   const desired=historySessionFingerprint(proposed);
+  const operationId=uid();
   historySelection.workingCopy=cloneSnapshot(proposed);
   historySelection.desiredFingerprint=desired;
-  historySelection.dirty=true;historySelection.operation="edit";
+  historySelection.removedRowIndices=[];historySelection.dirty=true;historySelection.operation="edit";historySelection.operationId=operationId;
   const result=await historyEditCommit(sid,proposed,original,io);
-  await historyFinishResult(result,"toast.session_updated","edit");
+  await historyFinishResult(result,"toast.session_updated","edit",operationId);
   return result}
 window.__repforgeSaveSessionEdit=saveSessionEdit;
 
@@ -9920,6 +9954,14 @@ function openEntryDraftEditor(){
 function closeEntryDraftEditor(){
   setupEditorOpen=false;programEditMode=false;onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
   onboardingOrigin=null;document.body.classList.remove("is-entry-editor");closeOnboarding()}
+function setProgramMetadataHidden(hidden,{inert=false}={}){
+  const meta=$("#programMeta");if(!meta)return;
+  const trulyHidden=hidden&&inert;
+  meta.hidden=trulyHidden;
+  meta.setAttribute("aria-hidden",trulyHidden?"true":"false");
+  meta.classList.toggle("visually-hidden",hidden);
+  if(trulyHidden)meta.innerHTML="";
+}
 function renderProgram(){
   // Nothing to show: the tab is the same invitation Today carries, not a
   // summary of a program that does not exist. A lifter who emptied their own
@@ -9930,6 +9972,7 @@ function renderProgram(){
   if(blank)blank.classList.toggle("hidden",!noProgram);
   if(noProgram){
     programReadyView=false;
+    setProgramMetadataHidden(true,{inert:true});
     for(const sel of["#programOverview","#programMeta","#programBlockBanner","#programEditorWrap","#programEditToggle"]){
       const el=$(sel);if(el)el.classList.add("hidden")}
     const cta=$("#programSetupProgram");
@@ -9939,11 +9982,14 @@ function renderProgram(){
     const el=$(sel);if(el)el.classList.remove("hidden")}
   $("#programEditorWrap")?.classList.remove("hidden");
   renderProgramOverview();
-  const view=$("#program"),ov=$("#programOverview"),ed=$("#programEditorWrap"),tog=$("#programEditToggle"),meta=$("#programMeta");
+  const view=$("#program"),ov=$("#programOverview"),ed=$("#programEditorWrap"),tog=$("#programEditToggle");
   view?.classList.toggle("program-editor-installed",programEditMode);
   if(ov)ov.classList.toggle("is-hidden",programEditMode);
   if(ed)ed.classList.toggle("is-hidden",!programEditMode);
-  if(meta)meta.classList.toggle("visually-hidden",programEditMode||programReadyView);
+  // The overview's readiness list must not expose stale metadata controls. The
+  // installed editor keeps the existing metadata DOM for its production edit
+  // seam, but leaves it out of the visual layout like the prior editor did.
+  setProgramMetadataHidden(programEditMode||programReadyView,{inert:programReadyView});
   if(tog){tog.textContent=programEditMode?t("program.done_editing"):t("program.edit");tog.dataset.actionRole="expansion";tog.setAttribute("aria-expanded",programEditMode?"true":"false")}
   const end=$("#endBlock"),lede=ed?.querySelector(":scope > .program-editor-lede"),addDay=$("#addDay"),volumeHead=ed?.querySelector(":scope > .program-volume-head"),volumeLede=ed?.querySelector(":scope > .program-volume-lede"),volume=$("#volume");
   // Advanced remains part of the installed editor. It is inside the editor
@@ -10052,6 +10098,8 @@ function renderProgramChips(){
 
 function renderProgramHeader(){
   const el=$("#programMeta");if(!el)return;
+  if(programReadyView){setProgramMetadataHidden(true,{inert:true});return}
+  setProgramMetadataHidden(false);
   if(!setupEditorOpen&&document.activeElement?.closest("#programMeta"))return;
   if(setupEditorOpen){
     const snapshot=programEditorSnapshot(),meta=snapshot.programMeta;
@@ -15898,9 +15946,16 @@ function init(){
       if(!reopen)return;
       openExercisePicker(Object.assign({},reopen,
         {selected:extraId?selectedNow.concat(extraId):selectedNow}))};
+    const cancelRepair=stageOnly&&repairSeed?async()=>{
+      const activePicker=pickerState;
+      await closeCustomExerciseSheet();
+      if(pickerState!==activePicker)return;
+      activePicker.completed=true;
+      if(typeof activePicker.onCancel==="function")activePicker.onCancel();
+    }:null;
     const seed=repairSeed?{name:repairSeed.name||typed,equipment:repairSeed.equipment||[],primary:repairSeed.primary||"",secondary:repairSeed.secondary||""}:typed?{name:typed}:null;
     openCustomExerciseSheet({entry:seed,handoff:true,stageOnly,
-      onCancel:()=>backToPicker(null),
+      onCancel:cancelRepair||(()=>backToPicker(null)),
       onSave:entry=>{
         // A multi-pick is still being assembled, so the picker comes back with
         // the new movement already ticked; a single pick is finished by it.
@@ -16352,6 +16407,7 @@ function recoveryChoiceMatches(candidate,current){
   const selected=candidate.source==="local"?current.local:current.idb;
   return selected?.status==="valid"&&storageSnapshotsEqual(selected.parsed,candidate.snapshot)}
 async function resolveBootReplicas(candidate=null){return DurableState.resolveBootReplicas(candidate)}
+async function settlePendingJournal(){return DurableState.settlePendingJournal()}
 async function applyBootDecision(decision){
   if(decision.kind==="first-run")state=normalizeLoaded(null);
   else state=normalizeLoaded(decision.snapshot);

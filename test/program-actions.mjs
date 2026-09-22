@@ -230,6 +230,26 @@ try {
     }), oracle.expected);
     check(readiness.text === oracle.expected, "readiness action names the exact recommendation-owned count", readiness);
     await readyLink.click();
+    const readyMetadata = await page.evaluate((key) => {
+      const meta = document.querySelector("#programMeta");
+      const controls = [...(meta?.querySelectorAll("a[href],button,input,select,textarea,[tabindex]") || [])];
+      const before = JSON.parse(localStorage.getItem(key) || "{}").programMeta || {};
+      document.querySelector("#programReadyBack")?.focus();
+      const focusedBeforeTabs = document.activeElement?.id || "";
+      return {
+        hidden: meta?.hidden === true || meta?.getAttribute("aria-hidden") === "true",
+        controls: controls.map((node) => ({ id: node.id, disabled: node.disabled === true, tabIndex: node.tabIndex })),
+        before,
+        focusedBeforeTabs,
+      };
+    }, KEY);
+    await page.keyboard.press("Tab");
+    const readyFocus = await page.evaluate(() => document.activeElement?.id || "");
+    const readyMetadataAfter = await page.evaluate((key) => JSON.parse(localStorage.getItem(key) || "{}").programMeta || {}, KEY);
+    check(readyMetadata.hidden && readyMetadata.controls.length === 0 && !["programName", "programStarted"].includes(readyFocus),
+      "Program readiness removes hidden metadata controls from focus order", { readyMetadata, readyFocus });
+    check(JSON.stringify(readyMetadata.before) === JSON.stringify(readyMetadataAfter),
+      "keyboard navigation through Program readiness cannot mutate metadata", { before: readyMetadata.before, after: readyMetadataAfter });
     const readyView = await page.evaluate(() => ({
       ids: [...document.querySelectorAll("#programOverview [data-ready-ex]")].map((node) => node.dataset.readyEx),
       back: document.querySelector("#programReadyBack")?.textContent.trim() || "",

@@ -7,7 +7,13 @@
  * poisoned every frame after it.
  */
 import { catalogState, emptyEntryState, localeState } from "./fixtures.mjs";
-import { dismissChrome, LOG_DRAFT, sleep } from "./session.mjs";
+import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, sleep } from "./session.mjs";
+
+function isoDaysAgo(n) {
+  const date = new Date(Date.parse(CAPTURE_NOW));
+  date.setUTCDate(date.getUTCDate() - n);
+  return date.toISOString().slice(0, 10);
+}
 
 export function appState(key, lang) {
   if (key === "today/no-program" || key === "program/no-program") {
@@ -18,6 +24,63 @@ export function appState(key, lang) {
     return emptyEntryState(lang);
   }
   const state = catalogState();
+  if (key.startsWith("session/summary-")) {
+    const dayExercises = state.program.filter((exercise) => exercise.day === "Day 1");
+    const loads = dayExercises.map((_, index) => 80 + index * 5);
+    const priorLoads = key === "session/summary-declined"
+      ? loads.map((load) => load + 10)
+      : key === "session/summary-mixed"
+        ? loads.map((load, index) => index % 2 ? load + 10 : load)
+        : loads;
+    const priorDate = isoDaysAgo(1);
+    state.log.push(...dayExercises.map((exercise, index) => ({
+      session: "summary-" + key.slice("session/summary-".length) + "-prior",
+      date: priorDate,
+      day: exercise.day,
+      name: exercise.name,
+      exerciseId: exercise.id,
+      set: 1,
+      load: priorLoads[index],
+      reps: key === "session/summary-declined" || (key === "session/summary-mixed" && index % 2)
+        ? 8
+        : 6,
+      rir: 1,
+      work: true,
+      notes: "",
+      created: priorDate + "T12:00:00.000Z",
+      primary: exercise.primary,
+      secondary: exercise.secondary,
+      performedLibraryId: exercise.libraryId || undefined,
+    })));
+  }
+  if (key === "program/readiness") {
+    const exercise = state.program[0];
+    const date = isoDaysAgo(2);
+    state.log = Array.from({ length: exercise.sets }, (_, index) => ({
+      session: "program-readiness",
+      date,
+      day: exercise.day,
+      name: exercise.name,
+      exerciseId: exercise.id,
+      set: index + 1,
+      load: 100,
+      reps: 8,
+      rir: 1,
+      work: true,
+      notes: "",
+      created: `${date}T12:0${index}:00.000Z`,
+      primary: exercise.primary,
+      secondary: exercise.secondary,
+      performedLibraryId: exercise.libraryId || undefined,
+    }));
+  }
+  if (key.startsWith("program/share-")) {
+    const libraryIds = ["sq_bb", "lc_mc", "pr_bb", "rw1_db", "dl_cb", "pd_bw", "dl_bb", "sp_cb", "cu_bb", "le_mc", "ci_mc", "tr_cb"];
+    state.program.forEach((exercise, index) => { exercise.libraryId = libraryIds[index] || "sq_bb"; });
+    if (key === "program/share-one-blocker" || key === "program/share-repair-return") {
+      state.program[0].libraryId = "";
+    }
+  }
   if (key === "progress/overview-baseline" || key === "progress/review-insufficient") {
     const seen = new Set();
     state.log = state.log.filter((row) => {
@@ -72,7 +135,7 @@ async function logCurrentSet(page) {
       else if (key.endsWith("_rir")) el.value = "1";
       el.dispatchEvent(new Event("input", { bubbles: true }));
     });
-    card?.querySelector(".focus-well .btn--cta, .saveset")?.click();
+    card?.querySelector(".saveset, .focus-well .btn--cta")?.click();
   });
   await sleep(page, 600);
 }
@@ -104,6 +167,46 @@ async function saveWholeSession(page) {
   await sleep(page, 900);
 }
 
+async function saveMixedSummarySession(page) {
+  await enterWorkout(page, { day: "Day 1" });
+  for (const exerciseIndex of [0, 1]) {
+    if (exerciseIndex > 0) {
+      await page.click("#sessionSheetBtn");
+      await page.waitForSelector("#sessionSheet.is-open", { timeout: 15000 });
+      const target = page.locator("[data-session-map-jump]").nth(exerciseIndex);
+      const exerciseId = await target.getAttribute("data-session-map-jump");
+      await target.click();
+      await page.waitForSelector("#sessionSheet.is-open", { state: "hidden", timeout: 15000 });
+      await page.waitForFunction(
+        (id) => document.querySelector("#workout .exercise.is-current")?.dataset.ex === id,
+        exerciseId,
+        { timeout: 15000 },
+      );
+    }
+    await page.evaluate(() => {
+      const card = document.querySelector("#workout .exercise.is-current");
+      card?.querySelectorAll("input").forEach((el) => {
+        const key = el.dataset.k || "";
+        if (key.endsWith("_load")) el.value = "100";
+        else if (key.endsWith("_reps")) el.value = "6";
+        else if (key.endsWith("_rir")) el.value = "1";
+        el.dispatchEvent(new Event("input", { bubbles: true }));
+      });
+      card?.querySelector(".saveset")?.click();
+    });
+    await sleep(page, 700);
+  }
+  await page.click("#sessionSheetBtn");
+  await page.waitForSelector("#sessionSheet.is-open", { timeout: 15000 });
+  await page.click("#sessionEarlyFinish");
+  await page.click("#sessionEarlyConfirm");
+  await page.waitForFunction(() => {
+    const el = document.querySelector("#sessionSummary");
+    return el && !el.hidden && !el.classList.contains("hidden");
+  }, undefined, { timeout: 15000 });
+  await sleep(page, 900);
+}
+
 async function openLibrary(page) {
   await page.evaluate(() => window.__repforgeOpenLibrary({}));
   await sleep(page, 600);
@@ -111,6 +214,21 @@ async function openLibrary(page) {
 
 async function openProgram(page) {
   await view(page, "program");
+}
+
+async function openHistoryEditor(page) {
+  await view(page, "history");
+  await page.waitForSelector("#sessions .session__open", { timeout: 20000 });
+  await page.locator("#sessions .session__open").first().click();
+  await page.waitForSelector(".session--read", { timeout: 20000 });
+  await page.locator("[data-history-edit]").click();
+  await page.waitForSelector(".session--edit", { timeout: 20000 });
+}
+
+async function openShare(page) {
+  await openProgram(page);
+  await page.click("#shareProgramSetup");
+  await page.waitForSelector("#shareSetupSheet.is-open", { timeout: 20000 });
 }
 
 async function progressSegment(page, segment) {
@@ -431,6 +549,19 @@ export const APP_SCENARIOS = {
   },
 
   "session/summary": saveWholeSession,
+  "session/summary-maintained": async (page) => {
+    await saveWholeSession(page);
+    await page.waitForSelector('.sum-outcome[data-outcome="maintained"]', { timeout: 20000 });
+  },
+  "session/summary-declined": async (page) => {
+    await saveWholeSession(page);
+    await page.waitForSelector('.sum-outcome[data-outcome="declined"]', { timeout: 20000 });
+  },
+  "session/summary-mixed": async (page) => {
+    await saveMixedSummarySession(page);
+    await page.waitForSelector('.sum-outcome[data-outcome="declined"]', { timeout: 20000 });
+    await page.waitForSelector('.sum-outcome[data-outcome="improved"]', { timeout: 20000 });
+  },
 
   "progress/overview": (page) => view(page, "stats"),
   "progress/overview-baseline": (page) => view(page, "stats"),
@@ -497,6 +628,44 @@ export const APP_SCENARIOS = {
     await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
     await sleep(page, 400);
   },
+  "history/edit-dirty": async (page) => {
+    await openHistoryEditor(page);
+    await page.locator('.session--edit input[data-ek^="load|"]').first().fill("175");
+    await sleep(page, 500);
+  },
+  "history/edit-invalid": async (page) => {
+    await openHistoryEditor(page);
+    await page.locator('.session--edit input[data-ek^="load|"]').first().fill("x");
+    await page.locator("[data-edsave]").click();
+    await page.waitForSelector('.session--edit input[aria-invalid="true"]', { timeout: 20000 });
+    await sleep(page, 400);
+  },
+  "history/delete-confirm": async (page) => {
+    await view(page, "history");
+    await page.waitForSelector("#sessions .session__open", { timeout: 20000 });
+    await page.locator("#sessions .session__open").first().click();
+    await page.waitForSelector(".session--read", { timeout: 20000 });
+    await page.locator("[data-del]").click();
+    await page.waitForSelector("[data-history-delete-confirm]", { timeout: 20000 });
+    await sleep(page, 400);
+  },
+  "history/conflict": async (page) => {
+    await openHistoryEditor(page);
+    await page.locator('.session--edit input[data-ek^="load|"]').first().fill("175");
+    await page.evaluate(async () => {
+      const next = structuredClone(JSON.parse(localStorage.getItem("repforge_v1") || "{}"));
+      const session = document.querySelector(".session--edit")?.dataset.editing;
+      const target = next.log?.find((row) => row.session === session);
+      if (!target) throw new Error("history conflict fixture has no log row");
+      target.load = Number(target.load) + 7.5;
+      const result = await window.__repforgeCommitProposedState(next);
+      if (!(result?.committed === true && result?.settled === true)) throw new Error("history conflict commit failed");
+      await window.__repforgeStorage.flush();
+    });
+    await page.locator("[data-edsave]").click();
+    await page.waitForSelector('[data-history-operation="conflict"]', { timeout: 20000 });
+    await sleep(page, 400);
+  },
 
   "library/list": openLibrary,
   "library/exercise-preview": async (page) => {
@@ -548,6 +717,40 @@ export const APP_SCENARIOS = {
     await page.waitForSelector("#shareSetupSheet.is-open", { timeout: 10000 });
     await sleep(page, 500);
   },
+  "program/share-one-blocker": async (page) => {
+    await openShare(page);
+    await page.waitForSelector("#shareSetupBlockers:not(.hidden)", { timeout: 20000 });
+    await sleep(page, 400);
+  },
+  "program/share-repair-return": async (page) => {
+    await openShare(page);
+    await page.waitForSelector("#shareSetupBlockers:not(.hidden)", { timeout: 20000 });
+    await page.locator("[data-share-repair]").click();
+    await page.waitForSelector("#exPickSheet.is-open", { timeout: 20000 });
+    await page.locator("#exPickCustom").click();
+    await page.waitForSelector("#exCustomSheet.is-open", { timeout: 20000 });
+    await page.locator("#exCustomCancel").click();
+    await page.waitForFunction(() => {
+      const visible = (selector) => {
+        const node = document.querySelector(selector);
+        return !!node && !node.classList.contains("hidden") && !node.hidden;
+      };
+      return visible("#shareSetupSheet") && !visible("#exPickSheet") && !visible("#exCustomSheet");
+    }, undefined, { timeout: 20000 });
+    await sleep(page, 400);
+  },
+  "program/share-ready": async (page) => {
+    await openShare(page);
+    await page.waitForSelector("#shareSetupCopy:not(.hidden)", { timeout: 20000 });
+    await sleep(page, 400);
+  },
+  "program/readiness": async (page) => {
+    await openProgram(page);
+    await page.waitForSelector("#programReadyLink", { timeout: 20000 });
+    await page.click("#programReadyLink");
+    await page.waitForSelector("#programReadyBack", { timeout: 20000 });
+    await sleep(page, 400);
+  },
   "program/text-export": async (page) => {
     await openProgram(page);
     await page.click("#exportProgramText");
@@ -562,6 +765,14 @@ export const APP_SCENARIOS = {
     await page.click("#guideReplayToggle");
     await page.waitForSelector("#guideReplayPanel.is-open");
     await sleep(page, 300);
+  },
+  "settings/guides-replay": async (page) => {
+    await openSettings(page);
+    await page.click("#guideReplayToggle");
+    await page.waitForSelector("#guideReplayPanel.is-open", { timeout: 20000 });
+    await page.locator('#guideReplayList [data-guide-replay="privacy"]').click();
+    await page.waitForSelector('.guide-cue[data-guide-cue="privacy"]', { timeout: 20000 });
+    await sleep(page, 400);
   },
   "settings/privacy": (page) => openSettings(page, "#telemetryToggle"),
   "settings/privacy-disclosure": async (page) => {

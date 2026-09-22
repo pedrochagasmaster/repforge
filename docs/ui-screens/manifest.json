@@ -745,6 +745,27 @@
       "variants": "standard"
     },
     {
+      "id": "summary-maintained",
+      "flow": "session",
+      "label": "Session summary — maintained",
+      "scenario": "The finished session reports maintained performance alongside its next-step context.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "summary-declined",
+      "flow": "session",
+      "label": "Session summary — declined",
+      "scenario": "The finished session reports declined performance without turning the result into a prescription.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "summary-mixed",
+      "flow": "session",
+      "label": "Session summary — mixed outcomes",
+      "scenario": "The finished session keeps maintained and declined lift outcomes distinct in one summary.",
+      "variants": "demandingText"
+    },
+    {
       "id": "overview",
       "flow": "progress",
       "label": "Progress — overview",
@@ -955,6 +976,34 @@
       "variants": "demandingText"
     },
     {
+      "id": "edit-dirty",
+      "flow": "history",
+      "label": "History — dirty edit",
+      "scenario": "A session edit with an unsaved canonical change and its destructive actions still visible.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "edit-invalid",
+      "flow": "history",
+      "label": "History — invalid edit",
+      "scenario": "An invalid set value is held at the field boundary with the editor's validation state visible.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "delete-confirm",
+      "flow": "history",
+      "label": "History — confirmed delete",
+      "scenario": "The explicit delete confirmation surface for one selected session.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "conflict",
+      "flow": "history",
+      "label": "History — edit conflict",
+      "scenario": "A stale session edit refuses to overwrite a newer durable change and offers recovery actions.",
+      "variants": "demandingText"
+    },
+    {
       "id": "list",
       "flow": "library",
       "label": "Exercise library",
@@ -1018,6 +1067,34 @@
       "variants": "demandingText"
     },
     {
+      "id": "share-one-blocker",
+      "flow": "program",
+      "label": "Program — share with one blocker",
+      "scenario": "The share sheet names one unresolved exercise and keeps copy/share unavailable.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "share-repair-return",
+      "flow": "program",
+      "label": "Program — repair returns to Share",
+      "scenario": "The custom repair path has been cancelled and returns directly to the blocked Share sheet.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "share-ready",
+      "flow": "program",
+      "label": "Program — share link ready",
+      "scenario": "A valid setup link is ready for copy or system sharing.",
+      "variants": "demandingText"
+    },
+    {
+      "id": "readiness",
+      "flow": "program",
+      "label": "Program — ready exercises",
+      "scenario": "The recommendation-owned readiness list, with metadata hidden and inert while the list is open.",
+      "variants": "accessibility"
+    },
+    {
       "id": "text-export",
       "flow": "program",
       "label": "Program — text export",
@@ -1043,6 +1120,13 @@
       "flow": "settings",
       "label": "Settings — contextual guides",
       "scenario": "The per-guide replay controls; replay changes presentation state only.",
+      "variants": "standard"
+    },
+    {
+      "id": "guides-replay",
+      "flow": "settings",
+      "label": "Settings — replayed guide",
+      "scenario": "A real contextual guide replayed from Settings and anchored to its live privacy action.",
       "variants": "standard"
     },
     {

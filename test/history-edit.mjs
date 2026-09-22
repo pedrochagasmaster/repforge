@@ -207,6 +207,165 @@ async function main() {
     assert(canonical(afterSave.local) === canonical(afterSave.idb),
       "Save leaves localStorage and IndexedDB at the same session result");
 
+    // The History working copy must stay canonical when the display unit changes
+    // or a render replaces its inputs. A typed 100 lb is about 45.36 kg; it must
+    // not become 100 kg merely because the editor was rendered again.
+    const historyBaseline = structuredClone(afterSave.local);
+    const poundState = structuredClone(historyBaseline);
+    poundState.settings.unit = "lb";
+    await writeState(page, poundState);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.locator('nav button[data-view="history"]').click();
+    await page.locator('#sessions [data-sess="history-edit-a"] .session__open').click();
+    await page.waitForSelector('.session--read[data-reading="history-edit-a"]', { timeout: 5000 });
+    await page.locator('[data-history-edit="history-edit-a"]').click();
+    const poundInput = page.locator('.session--edit[data-editing="history-edit-a"] input[data-ek^="load|"]').first();
+    await poundInput.fill("100");
+    await page.locator('nav button[data-view="log"]').click();
+    await page.locator('nav button[data-view="history"]').click();
+    await page.waitForSelector('.session--edit[data-editing="history-edit-a"]', { timeout: 5000 });
+    const rerenderedPounds = await page.locator('.session--edit[data-editing="history-edit-a"] input[data-ek^="load|"]').first().inputValue();
+    assert(Math.abs(Number(rerenderedPounds) - 100) < 0.01,
+      "History keeps the typed pound value across navigation and render", rerenderedPounds);
+    await page.locator('[data-edsave="history-edit-a"]').click();
+    await page.waitForSelector('.session--read[data-reading="history-edit-a"]', { timeout: 5000 });
+    const afterPoundSave = await readReplicas(page);
+    const poundLoad = Number(afterPoundSave.local.log.find((row) => row.session === "history-edit-a" && row.set === 1)?.load);
+    assert(Math.abs(poundLoad - (100 / 2.2046226218)) < 0.02,
+      "Saving a rerendered pound edit stores canonical kilograms", poundLoad);
+
+    // Row removal belongs to the working copy, not only to the current DOM.
+    await writeState(page, historyBaseline);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.locator('nav button[data-view="history"]').click();
+    await page.locator('#sessions [data-sess="history-edit-a"] .session__open').click();
+    await page.locator('[data-history-edit="history-edit-a"]').click();
+    await page.locator('.session--edit[data-editing="history-edit-a"] [data-edrm="1"]').click();
+    await page.locator('nav button[data-view="log"]').click();
+    await page.locator('nav button[data-view="history"]').click();
+    await page.waitForSelector('.session--edit[data-editing="history-edit-a"]', { timeout: 5000 });
+    const removedAfterRender = await page.evaluate(() => {
+      const row = document.querySelector('.session--edit[data-editing="history-edit-a"] .edrow[data-edidx="1"]');
+      return { removed: row?.classList.contains("is-removed") === true, disabled: row?.querySelector("input")?.disabled === true };
+    });
+    assert(removedAfterRender.removed && removedAfterRender.disabled,
+      "History keeps a removed row marked through navigation and render", removedAfterRender);
+    await page.locator('[data-edsave="history-edit-a"]').click();
+    await page.waitForSelector('.session--read[data-reading="history-edit-a"]', { timeout: 5000 });
+    const afterRemovedSave = await readReplicas(page);
+    assert(afterRemovedSave.local.log.filter((row) => row.session === "history-edit-a").length === 1,
+      "Saving after a rerender removes exactly the selected row", afterRemovedSave.local.log);
+
+    // Entering Delete from a dirty editor is destructive navigation. Dismissing
+    // its confirmation must leave the edit and its value intact.
+    await writeState(page, historyBaseline);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.locator('nav button[data-view="history"]').click();
+    await page.locator('#sessions [data-sess="history-edit-a"] .session__open').click();
+    await page.locator('[data-history-edit="history-edit-a"]').click();
+    const dirtyBeforeDelete = page.locator('.session--edit[data-editing="history-edit-a"] input[data-ek^="load|"]').first();
+    await dirtyBeforeDelete.fill("175");
+    dialogDecision = "dismiss";
+    await page.locator('.session--edit[data-editing="history-edit-a"] [data-del="history-edit-a"]').click();
+    await page.waitForFunction(() => document.querySelector('.session--edit[data-editing="history-edit-a"]') || document.querySelector('[data-history-delete-confirm="history-edit-a"]'), undefined, { timeout: 5000 });
+    const retainedDirtyEdit = await page.locator('.session--edit[data-editing="history-edit-a"]').count() === 1 &&
+      await page.locator('.session--edit[data-editing="history-edit-a"] input[data-ek^="load|"]').first().inputValue() === "175";
+    assert(retainedDirtyEdit, "Delete asks before discarding a dirty History edit");
+
+    // Retry must remain under the durable owner. Blocking only WAL cleanup makes
+    // replica equality look successful to the old UI even though settlement is
+    // still pending.
+    if (retainedDirtyEdit) await page.locator('[data-edcancel]').click();
+    else await page.locator('[data-history-delete-cancel]').click();
+    await page.waitForSelector('.session--read[data-reading="history-edit-a"]', { timeout: 5000 });
+    await writeState(page, historyBaseline);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.locator('nav button[data-view="history"]').click();
+    await page.locator('#sessions [data-sess="history-edit-a"] .session__open').click();
+    await page.locator('[data-history-edit="history-edit-a"]').click();
+    await page.locator('.session--edit[data-editing="history-edit-a"] input[data-ek^="load|"]').first().fill("180");
+    await page.evaluate(() => {
+      const removeItem = Storage.prototype.removeItem;
+      window.__historyWalCleanup = true;
+      window.__historyWalRemoveOriginal = removeItem;
+      Storage.prototype.removeItem = function (key) {
+        if (window.__historyWalCleanup && String(key).startsWith("repforge_pending_v1:")) return;
+        return removeItem.call(this, key);
+      };
+    });
+    await page.locator('[data-edsave="history-edit-a"]').click();
+    await page.waitForSelector('[data-history-operation="failure"]', { timeout: 5000 });
+    const pendingAfterSave = await page.evaluate(() => Object.keys(localStorage).filter((key) => key.startsWith("repforge_pending_v1:")).length);
+    assert(pendingAfterSave > 0, "History failure retains the pending WAL for Retry", pendingAfterSave);
+    await page.locator('[data-history-retry="1"], [data-history-retry]').click();
+    await page.waitForFunction(() => document.querySelector('[data-history-operation="failure"]') || document.querySelector('.session--read[data-reading="history-edit-a"]'), undefined, { timeout: 5000 });
+    const retryWhileBlocked = await page.evaluate(() => ({
+      failure: !!document.querySelector('[data-history-operation="failure"]'),
+      pending: Object.keys(localStorage).filter((key) => key.startsWith("repforge_pending_v1:")).length,
+    }));
+    assert(retryWhileBlocked.failure && retryWhileBlocked.pending > 0,
+      "Retry does not claim success while WAL cleanup remains pending", retryWhileBlocked);
+    if (retryWhileBlocked.failure) {
+      await page.evaluate(() => { window.__historyWalCleanup = false; });
+      await page.evaluate(() => document.querySelector('[data-history-retry]')?.click());
+      await page.waitForSelector('.session--read[data-reading="history-edit-a"]', { timeout: 5000 });
+      const afterWalSettlement = await page.evaluate(() => ({
+        pending: Object.keys(localStorage).filter((key) => key.startsWith("repforge_pending_v1:")).length,
+        load: JSON.parse(localStorage.getItem("repforge_v1") || "{}").log?.find((row) => row.session === "history-edit-a" && row.set === 1)?.load,
+      }));
+      assert(afterWalSettlement.pending === 0 && Math.abs(Number(afterWalSettlement.load) - 180) < 0.01,
+        "Retry settles the preserved History edit after WAL cleanup recovers", afterWalSettlement);
+    } else {
+      await page.evaluate(() => { window.__historyWalCleanup = false; });
+    }
+
+    // A late completion for session A must not reset a newer dirty selection B.
+    await writeState(page, historyBaseline);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.locator('nav button[data-view="history"]').click();
+    await page.locator('#sessions [data-sess="history-edit-a"] .session__open').click();
+    await page.locator('[data-history-edit="history-edit-a"]').click();
+    await page.locator('.session--edit[data-editing="history-edit-a"] input[data-ek^="load|"]').first().fill("181");
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      const original = io.writeLocal;
+      window.__historyCommitGate = { release: null, original };
+      io.writeLocal = (snapshot) => new Promise((resolve) => {
+        window.__historyCommitGate.release = () => original(snapshot).then(resolve);
+      });
+    });
+    const pendingSave = page.locator('[data-edsave="history-edit-a"]').click();
+    await page.waitForFunction(() => typeof window.__historyCommitGate?.release === "function", undefined, { timeout: 5000 });
+    await page.locator('[data-history-back]').click();
+    await page.locator('#sessions [data-sess="history-other"] .session__open').click();
+    await page.locator('[data-history-edit="history-other"]').click();
+    const newerInput = page.locator('.session--edit[data-editing="history-other"] input[data-ek^="load|"]').first();
+    await newerInput.fill("222");
+    await page.evaluate(async () => { await window.__historyCommitGate.release(); });
+    await pendingSave;
+    await page.waitForFunction((key) => JSON.parse(localStorage.getItem(key) || "{}").log?.some((row) => row.session === "history-edit-a" && row.set === 1 && Number(row.load) === 181), KEY, { timeout: 5000 });
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      if (window.__historyCommitGate?.original) io.writeLocal = window.__historyCommitGate.original;
+      delete window.__historyCommitGate;
+    });
+    assert(await page.locator('.session--edit[data-editing="history-other"]').count() === 1 && await newerInput.inputValue() === "222",
+      "A stale History completion cannot replace a newer dirty selection");
+    dialogDecision = "accept";
+    await page.locator('[data-edcancel]').click();
+    await page.waitForSelector('.session--read[data-reading="history-other"]', { timeout: 5000 });
+    await writeState(page, historyBaseline);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.locator('nav button[data-view="history"]').click();
+    await page.locator('#sessions [data-sess="history-edit-a"] .session__open').click();
+    await page.waitForSelector('.session--read[data-reading="history-edit-a"]', { timeout: 5000 });
+
     // F057-01: a complete storage failure keeps the immutable desired copy
     // attached to the operation. Retry must not silently rebuild it from the
     // durable head; the user has to see the value they tried to save.
