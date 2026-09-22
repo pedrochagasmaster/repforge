@@ -130,7 +130,11 @@ jobs:
 
   visual-evidence:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # A full sweep is currently 807 frames. Each frame opens, boots and settles
+    # a browser context; the failed run reached 756/807 without a capture error
+    # before the old 20-minute ceiling. Leave room for the final frames and
+    # registration/comparison checks, plus normal hosted-runner variance.
+    timeout-minutes: 30
     env:
       REPFORGE_URL: http://localhost:8000/
     steps:
