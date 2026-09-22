@@ -771,7 +771,21 @@ export const APP_SCENARIOS = {
     await page.click("#guideReplayToggle");
     await page.waitForSelector("#guideReplayPanel.is-open", { timeout: 20000 });
     await page.locator('#guideReplayList [data-guide-replay="privacy"]').click();
-    await page.waitForSelector('.guide-cue[data-guide-cue="privacy"]', { timeout: 20000 });
+    const cue = page.locator('.guide-cue[data-guide-cue="privacy"]');
+    await cue.waitFor({ state: "visible", timeout: 20000 });
+    // The replay focuses its dismiss button without scrolling, but the click
+    // that opened the panel is allowed to auto-scroll. Establish the frame's
+    // subject explicitly so a different preceding scroll position cannot
+    // produce a different catalog image.
+    await cue.evaluate((element) => {
+      element.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+    });
+    await page.waitForFunction(() => {
+      const element = document.querySelector('.guide-cue[data-guide-cue="privacy"]');
+      if (!element) return false;
+      const rect = element.getBoundingClientRect();
+      return Math.abs((rect.top + rect.bottom) / 2 - window.innerHeight / 2) <= 1;
+    });
     await sleep(page, 400);
   },
   "settings/privacy": (page) => openSettings(page, "#telemetryToggle"),

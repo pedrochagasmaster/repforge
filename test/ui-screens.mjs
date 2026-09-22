@@ -31,6 +31,7 @@ const workflow = readFileSync(resolve(root, ".github/workflows/simulation.yml"),
 const toolsReadme = readFileSync(resolve(root, "tools/README.md"), "utf8");
 const capture = readFileSync(resolve(root, "tools/capture-ui-screens.mjs"), "utf8");
 const session = readFileSync(resolve(root, "tools/ui-screens/session.mjs"), "utf8");
+const appScreens = readFileSync(resolve(root, "tools/ui-screens/screens-app.mjs"), "utf8");
 const scenarios = { ...APP_SCENARIOS, ...ONBOARDING_SCENARIOS };
 
 // ---------------------------------------------------------------- registry
@@ -155,6 +156,13 @@ assert.match(session, /locale: locale\.browserLocale/, "the browser locale is pi
 assert.match(session, /serviceWorkers: "block"/, "a stale installed shell cannot serve the capture");
 assert.match(capture, /collectProgramEntrySemantics/, "onboarding frames record semantics from the page");
 assert.match(capture, /normalizeSemanticRecords/, "collected Program JSON goes through the shared Node seam");
+const replayScenarioStart = appScreens.indexOf('"settings/guides-replay"');
+const replayScenarioEnd = appScreens.indexOf('"settings/privacy"', replayScenarioStart);
+assert.ok(replayScenarioStart >= 0 && replayScenarioEnd > replayScenarioStart,
+  "guide replay scenario remains discoverable for determinism checks");
+assert.match(appScreens.slice(replayScenarioStart, replayScenarioEnd),
+  /scrollIntoView\(\{ block: "center", inline: "nearest", behavior: "auto" \}\)/,
+  "guide replay capture establishes a deterministic viewport subject");
 
 
 // --------------------------------------------- committed evidence, if built
