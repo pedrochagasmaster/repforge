@@ -10940,10 +10940,6 @@ async function saveCustomExerciseSheet(){
   if(!customState)return;
   const name=String($("#exCustomName")?.value||"").trim();
   if(!name){toast(t("toast.custom_needs_name"));return}
-  // Equipment and a primary muscle are what make the definition usable: the
-  // wizard filters on one and the volume audit groups by the other.
-  if(!customState.equipment.size){toast(t("toast.custom_needs_equipment"));return}
-  if(!customState.primary.size){toast(t("toast.custom_needs_primary"));return}
   if(!customState.id){
     const twin=pickableExercises().find(e=>foldSearch(libraryName(e))===foldSearch(name)||foldSearch(e.name)===foldSearch(name));
     if(twin&&!customState.duplicateAcknowledged){
@@ -10956,6 +10952,12 @@ async function saveCustomExerciseSheet(){
           : twin);
         return}
       customState.duplicateAcknowledged=true}}
+  // Equipment and a primary muscle are what make the definition usable: the
+  // wizard filters on one and the volume audit groups by the other. Exact
+  // duplicates above reuse their trusted definition instead of requiring the
+  // custom form to restate those facts.
+  if(!customState.equipment.size){toast(t("toast.custom_needs_equipment"));return}
+  if(!customState.primary.size){toast(t("toast.custom_needs_primary"));return}
   const handler=customState.onSave;
   const editing=!!customState.id;
   if(customState.stageOnly){

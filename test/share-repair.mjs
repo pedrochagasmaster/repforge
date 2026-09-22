@@ -190,8 +190,6 @@ async function duplicateBuiltInRepairCase(browser) {
     await page.locator("#exPickCustom").click();
     await page.waitForSelector("#exCustomSheet:not(.hidden)");
     await page.locator("#exCustomName").fill(builtIn.name);
-    await page.locator("#exCustomEquip .pchip[aria-pressed=\"false\"]").first().click();
-    await page.locator("#exCustomPrimary .pchip[aria-pressed=\"false\"]").first().click();
     page.once("dialog", async dialog => { await dialog.accept(); });
     await page.locator("#exCustomSave").click();
     const surface = await waitForRepairSurface(page);
@@ -237,8 +235,6 @@ async function duplicateExistingCustomRepairCase(browser) {
     await page.locator("#exPickCustom").click();
     await page.waitForSelector("#exCustomSheet:not(.hidden)");
     await page.locator("#exCustomName").fill("Coach custom row");
-    await page.locator("#exCustomEquip .pchip[aria-pressed=\"false\"]").first().click();
-    await page.locator("#exCustomPrimary .pchip[aria-pressed=\"false\"]").first().click();
     page.once("dialog", async dialog => { await dialog.accept(); });
     await page.locator("#exCustomSave").click();
     await waitForShare(page);
@@ -255,6 +251,57 @@ async function duplicateExistingCustomRepairCase(browser) {
       "duplicate existing custom repair removes the fresh Share blocker");
     assert(JSON.stringify(durable.local) === JSON.stringify(durable.idb),
       "duplicate existing custom repair settles equal durable replicas", JSON.stringify(durable));
+  } finally {
+    await context.close();
+  }
+}
+
+async function declinedDuplicateRepairCase(browser) {
+  const { context, page } = await openSeed(browser);
+  try {
+    const before = await readDurable(page);
+    const builtIn = await page.evaluate(() => window.__repforgeLibraryEntry("pr_mc"));
+    await clickRepair(page, "ex-unknown");
+    await page.locator("#exPickCustom").click();
+    await page.waitForSelector("#exCustomSheet:not(.hidden)");
+    await page.locator("#exCustomName").fill(builtIn.name);
+    page.once("dialog", async dialog => {
+      assert(dialog.type() === "confirm", "declined duplicate repair uses the exact-duplicate confirmation");
+      await dialog.dismiss();
+    });
+    await page.locator("#exCustomSave").click();
+    await page.waitForSelector("#exCustomSheet:not(.hidden)");
+    assert(await page.locator("#exCustomSheet:not(.hidden)").count() === 1,
+      "declining an exact duplicate keeps the genuine custom form open");
+
+    await page.locator("#exCustomSave").click();
+    await page.waitForSelector("#exCustomSheet:not(.hidden)");
+    const blocked = await readDurable(page);
+    assert(JSON.stringify(blocked.local?.customExercises || []) === JSON.stringify(before.local?.customExercises || []) &&
+      JSON.stringify(blocked.idb?.customExercises || []) === JSON.stringify(before.idb?.customExercises || []) &&
+      blocked.local?.program?.find(row => row.id === "ex-unknown")?.libraryId === "gone:press" &&
+      blocked.idb?.program?.find(row => row.id === "ex-unknown")?.libraryId === "gone:press",
+      "declined duplicate cannot save without equipment and primary facts", JSON.stringify(blocked));
+
+    await page.locator("#exCustomEquip .pchip[aria-pressed=\"false\"]").first().click();
+    await page.locator("#exCustomPrimary .pchip[aria-pressed=\"false\"]").first().click();
+    await page.locator("#exCustomSave").click();
+    await waitForShare(page);
+    const durable = await readDurable(page);
+    const localTarget = durable.local?.program?.find(row => row.id === "ex-unknown");
+    const idbTarget = durable.idb?.program?.find(row => row.id === "ex-unknown");
+    assert(typeof localTarget?.libraryId === "string" && localTarget.libraryId.startsWith("custom:") &&
+      localTarget.libraryId !== "pr_mc" && idbTarget?.libraryId === localTarget.libraryId,
+      "declined duplicate proceeds only as a genuine new custom definition", JSON.stringify(durable));
+    assert((durable.local?.customExercises || []).length === (before.local?.customExercises || []).length + 1 &&
+      (durable.idb?.customExercises || []).length === (before.idb?.customExercises || []).length + 1 &&
+      !(durable.local?.customExercises || []).some(row => row.id === "pr_mc") &&
+      !(durable.idb?.customExercises || []).some(row => row.id === "pr_mc"),
+      "declined duplicate appends one new custom definition instead of reusing the built-in", JSON.stringify(durable));
+    assert(await page.locator('[data-share-repair="ex-unknown"]').count() === 0,
+      "declined duplicate genuine custom repair removes the Share blocker");
+    assert(JSON.stringify(durable.local) === JSON.stringify(durable.idb),
+      "declined duplicate genuine custom repair settles equal durable replicas");
   } finally {
     await context.close();
   }
@@ -328,6 +375,7 @@ async function run() {
 
     await duplicateBuiltInRepairCase(browser);
     await duplicateExistingCustomRepairCase(browser);
+    await declinedDuplicateRepairCase(browser);
 
     const { context, page } = await openSeed(browser);
     try {
