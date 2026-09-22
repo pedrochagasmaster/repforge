@@ -166,4 +166,3 @@ try {
 }
 console.log("\nsummary-evidence: " + results.passed + " passed, " + results.failed + " failed");
 if (results.failed) process.exitCode = 1;
-
