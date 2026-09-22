@@ -152,6 +152,57 @@ These are real but do not outrank the foundation above.
 
 > The former draft-result-contract and persistence-extraction debt items were promoted by owner decision into the post-Plan053 architecture bridge in the Now sequence. They are no longer independent Later work.
 
+### Post-overhaul modularity rule
+
+Modularity is a standing implementation constraint, **not** a new standalone
+refactor programme. Plans 055–059 already own the remaining accepted
+architecture-audit work: workout-session ownership, gesture lifetime, entry and
+management workflow ownership, earned historical projections/vocabulary reuse,
+release/source coverage, obsolete-facade removal, and final proof that there is
+one authority per responsibility. Finish those dispositions through the normal
+overhaul sequence before inventing a second architecture queue.
+
+After Plan 059, preserve the architecture review's target: a statically deployed
+application composed from a **small number of deep JavaScript modules with
+outcome-oriented interfaces**. `app.js` should increasingly act as the
+application host/composition layer — boot, wiring, routing of user intent, and
+render coordination — rather than becoming the default home for new domain
+algorithms or lifecycle protocols.
+
+Apply a strangler rule to post-overhaul work:
+
+1. New substantial domain behavior starts behind an owned module/interface when
+   it has a real boundary; do not first grow a large implementation inside
+   `app.js` with a promise to extract it later.
+2. Historical migration must keep source parsing/normalization, provenance,
+   reconciliation, duplicate/unit/date policy, and import outcomes behind an
+   importer boundary that reuses the existing identity matcher rather than
+   scattering vendor conditionals through the application host.
+3. One-off planning must keep deterministic time/equipment/focus planning and
+   program-versus-one-off eligibility semantics outside the renderer/host; the
+   accepted session result is consumed by the existing workout-session owner
+   rather than creating a second workout store or lifecycle.
+4. Future persistent equipment-context intelligence, if evidence earns it,
+   receives its own domain ownership and must not become a collection of
+   cross-cutting `app.js` conditionals.
+5. Existing code moves only when extraction materially reduces coupling,
+   establishes one authority, makes scheduled work safer, or earns reuse from
+   real consumers. Moving helpers into more files without hiding implementation
+   details is not progress.
+6. When a new owner replaces an old path, migrate callers and delete the old
+   implementation/facade once its compatibility duty is finished. Do not leave
+   dual authorities.
+7. Do not introduce a framework rewrite, repository/service-container layer,
+   event bus, global dependency-injection system, package-manager migration, or
+   one-file-per-helper architecture merely to make the tree look conventional.
+
+Success is measured by **ownership and caller knowledge, not `app.js` line
+count**. A smaller host with callers that still understand draft receipts,
+replica settlement, recovery timing, transition internals, or another module's
+lifecycle is not a successful refactor. The governing rationale and accepted
+owner map remain
+[the architecture refactoring plan](taurifer-architecture-refactoring-plan.md).
+
 | Status | Item | Boundary |
 |---|---|---|
 | Next | Systematic exercise alias pass | Supporting slice of the Next historical-migration work, not an isolated vocabulary project. Extend `tools/exercise-curation.json` with gym vernacular, acronyms and morphological variants in EN/PT from the migration/import corpus, prioritizing observed names over speculative synonym enumeration. Plan 061's fixture-gated identity rules remain authoritative: aliases add ways to reach an entry and never repoint a `libraryId` at a different movement. |
@@ -241,6 +292,11 @@ Every new backlog entry must state:
 3. what it depends on;
 4. whether it is Now, Next, Gated, Later, or Evidence only; and
 5. which existing item it replaces, if any.
+
+For substantial post-overhaul implementation work, the plan must also identify
+the domain owner/interface it extends or justify a new deep module boundary.
+Defaulting new domain behavior into `app.js`, or extracting code only to reduce
+file size, is not an acceptable architecture rationale.
 
 Do not preserve an idea merely because an old audit mentioned it. Do not delete
 an accepted decision merely because implementation is inconvenient.
