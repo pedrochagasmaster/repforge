@@ -1,10 +1,10 @@
-const CACHE = "repforge-v291";
+const CACHE = "repforge-v292";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
-  "./vendor/motion/motion.js", "./vendor/dnd-kit/dnd-kit.js", "./vendor/dnd-kit/dnd-kit.runtime.js", "./motion-layer.js", "./motion-layer.js?v=291",
+  "./vendor/motion/motion.js", "./vendor/dnd-kit/dnd-kit.js", "./vendor/dnd-kit/dnd-kit.runtime.js", "./motion-layer.js", "./motion-layer.js?v=292",
   "./telemetry.js", "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js", "./install-transfer-contract.js", "./install-transfer.js",
-  "./progression-engine.js", "./progress-model.js", "./progress-model.js?v=291", "./program-compiler.js", "./program-compiler.js?v=291", "./program-entry.js", "./program-entry.js?v=291", "./program-entry-adapter.js", "./program-entry-adapter.js?v=291", "./program-editor.js", "./program-editor.js?v=291",
-  "./shared-setup.js", "./shared-setup.js?v=291", "./workout-draft.js", "./workout-draft.js?v=291", "./program-transition.js", "./program-transition.js?v=291", "./install-policy.js", "./install-policy.js?v=291", "./guide-registry.js", "./guide-registry.js?v=291", "./durable-state.js", "./durable-state.js?v=291", "./app.js", "./app.js?v=291",
+  "./progression-engine.js", "./progress-model.js", "./progress-model.js?v=292", "./program-compiler.js", "./program-compiler.js?v=292", "./program-entry.js", "./program-entry.js?v=292", "./program-entry-adapter.js", "./program-entry-adapter.js?v=292", "./program-editor.js", "./program-editor.js?v=292",
+  "./shared-setup.js", "./shared-setup.js?v=292", "./workout-draft.js", "./workout-draft.js?v=292", "./program-transition.js", "./program-transition.js?v=292", "./install-policy.js", "./install-policy.js?v=292", "./guide-registry.js", "./guide-registry.js?v=292", "./durable-state.js", "./durable-state.js?v=292", "./history-ui.js", "./history-ui.js?v=292", "./app.js", "./app.js?v=292",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",
@@ -51,7 +51,7 @@ self.addEventListener("activate", event => {
   );
 });
 
-const SHELL = new Set(["/", "/index.html", "/app.js", "/workout-draft.js", "/program-transition.js", "/durable-state.js", "/styles.css", "/motion-polish.css", "/motion-layer.js", "/vendor/motion/motion.js", "/vendor/dnd-kit/dnd-kit.js", "/vendor/dnd-kit/dnd-kit.runtime.js", "/i18n.js", "/exercises.js", "/shared-setup.js", "/program-compiler.js", "/program-entry.js", "/program-entry-adapter.js", "/program-editor.js", "/install-policy.js", "/guide-registry.js", "/install-transfer-contract.js", "/install-transfer.js", "/telemetry.js", "/posthog-init.js", "/posthog-config.js", "/manifest.webmanifest"]);
+const SHELL = new Set(["/", "/index.html", "/app.js", "/history-ui.js", "/workout-draft.js", "/program-transition.js", "/durable-state.js", "/styles.css", "/motion-polish.css", "/motion-layer.js", "/vendor/motion/motion.js", "/vendor/dnd-kit/dnd-kit.js", "/vendor/dnd-kit/dnd-kit.runtime.js", "/i18n.js", "/exercises.js", "/shared-setup.js", "/program-compiler.js", "/program-entry.js", "/program-entry-adapter.js", "/program-editor.js", "/install-policy.js", "/guide-registry.js", "/install-transfer-contract.js", "/install-transfer.js", "/telemetry.js", "/posthog-init.js", "/posthog-config.js", "/manifest.webmanifest"]);
 const IMMUTABLE_RUNTIMES = new Set(["/vendor/motion/motion.js", "/vendor/dnd-kit/dnd-kit.runtime.js"]);
 const SCOPE_PATH = new URL(self.registration.scope).pathname.replace(/\/$/, "");
 function shellPathname(pathname) {

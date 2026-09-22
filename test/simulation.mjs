@@ -7859,7 +7859,7 @@ async function main() {
     "Seed 100×8 → save 100×10 → summary mentions improved"
   );
   assert(
-    /OUTCOME BY LIFT\s+Hack squat\s+Improved/i.test(deltaSummary) &&
+    /OUTCOME BY LIFT\s+Hack squat\s+(?:[▲▼■]\s*)?Improved/i.test(deltaSummary) &&
       !/\b\d+\s+improved\b/i.test(deltaSummary),
     "Session summary uses canonical outcome rows without a second delta count",
     `Summary: ${JSON.stringify(deltaSummary)}`,

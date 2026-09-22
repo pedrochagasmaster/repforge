@@ -143,14 +143,6 @@ async function clickRepair(page, id) {
   await page.waitForSelector("#exPickSheet:not(.hidden)", { timeout: 10000 });
 }
 
-async function finishEditor(page, options) {
-  await page.locator("#programEditToggle").click();
-  await waitForShare(page, options);
-  if (options?.allowReady) {
-    await page.waitForFunction(() => ["shareSetupCopy", "shareSetupStatus"].includes(document.activeElement?.id), null, { timeout: 5000 });
-  }
-}
-
 async function shareFocus(page) {
   return page.evaluate(() => ({
     id: document.activeElement?.id || "",
@@ -185,7 +177,7 @@ async function run() {
               programStructure: { schemaVersion: 1, days: [{ dayId: "push_d1", label: "Day 1", order: 1 }] },
             },
             exercises: [
-              { id: "slot-a", day: "Day 1", order: 1, sets: 3, min: 8, max: 12, libraryId: "", __diagnostic: { displayName: "No link", equipment: ["cables"], primary: "Chest" } },
+              { id: "slot-a", day: "Day 1", order: 1, sets: 3, min: 8, max: 12, libraryId: "", displayName: "No link" },
               { id: "slot-b", day: "Day 1", order: 2, sets: 3, min: 8, max: 12, libraryId: "gone:press", displayName: "Gone press" },
               { id: "slot-c", day: "Day 1", order: 3, sets: 3, min: 8, max: 12, libraryId: "custom:gone", displayName: "Missing custom" },
               { id: "slot-d", day: "Day 1", order: 4, sets: 3, min: 8, max: 12, libraryId: "pr_mc", displayName: "Known press" },
@@ -194,12 +186,14 @@ async function run() {
           },
           settings: { jumpPct: 2.5, minJump: 2.5, rirHigh: 2, hardRir: 4, restSec: 120, unit: "kg", lang: "en", rirMode: "numeric" },
         };
-        const checked = window.RepForgeSharedSetup.validate(payload, { builtInIds: new Set(ids) });
-        const withSchemaIssue = window.RepForgeSharedSetup.validate({ ...payload, settings: { ...payload.settings, lang: "fr" } }, { builtInIds: new Set(ids) });
+        const diagnostics = { "slot-a": { displayName: "No link", equipment: ["cables"], primary: "Chest" } };
+        const options = { builtInIds: new Set(ids), diagnostics };
+        const checked = window.RepForgeSharedSetup.validate(payload, options);
+        const withSchemaIssue = window.RepForgeSharedSetup.validate({ ...payload, settings: { ...payload.settings, lang: "fr" } }, options);
         const valid = window.RepForgeSharedSetup.validate({
           ...payload,
           program: { ...payload.program, exercises: [payload.program.exercises[3]] },
-        }, { builtInIds: new Set(ids) });
+        }, options);
         const largeExercises = Array.from({ length: 40 }, (_, index) => ({
           ...payload.program.exercises[3],
           id: `large-${index}`,
@@ -207,7 +201,7 @@ async function run() {
           notes: Array.from({ length: 1800 }, (_, offset) => String.fromCharCode(0x2500 + ((offset + index * 13) % 80))).join(""),
         }));
         const largePayload = { ...payload, program: { ...payload.program, exercises: largeExercises, meta: { ...payload.program.meta, daysPerWeek: 1 } } };
-        const largeChecked = window.RepForgeSharedSetup.validate(largePayload, { builtInIds: new Set(ids) });
+        const largeChecked = window.RepForgeSharedSetup.validate(largePayload, options);
         const largeEncoded = largeChecked.ok ? await window.RepForgeSharedSetup.encode(largeChecked.value, { builtInIds: new Set(ids) }) : largeChecked;
         return { checked, withSchemaIssue, valid, largeChecked, largeEncoded };
       }, { kind: KIND, version: VERSION, ids: [...BUILT_IN_IDS] });
@@ -226,9 +220,11 @@ async function run() {
     const { context, page } = await openSeed(browser);
     try {
       const rendered = await page.evaluate(() => {
-        const payload = window.__repforgeSharedSetup.build();
+        const built = window.__repforgeSharedSetup.buildValidation();
+        const payload = built.payload;
         const checked = window.RepForgeSharedSetup.validate(payload, {
           builtInIds: new Set(window.RepForgeExercises.library.map((entry) => entry.id)),
+          diagnostics: built.diagnostics,
         });
         const dom = [...document.querySelectorAll("#shareSetupBlockers [data-share-blocker-id]")].map((node) => ({
           id: node.dataset.shareBlockerId,
@@ -239,7 +235,7 @@ async function run() {
         return {
           checked: checked.blockers,
           dom,
-          canonicalHasDiagnostics: JSON.stringify(checked.value || {}).includes("__diagnostic"),
+          canonicalHasDiagnostics: Object.keys(checked.value?.program?.exercises?.[0] || {}).some((key) => key.includes("diagnostic")),
           copyVisible: !document.querySelector("#shareSetupCopy")?.classList.contains("hidden"),
           shareVisible: !document.querySelector("#shareSetupShare")?.classList.contains("hidden"),
           copyDisabled: !!document.querySelector("#shareSetupCopy")?.disabled,
@@ -284,7 +280,7 @@ async function run() {
 
       await clickRepair(page, "ex-missing");
       await page.locator('#exPickList [data-pick="pr_mc"]').click();
-      await finishEditor(page);
+      await waitForShare(page);
       const afterBuiltInFocus = await shareFocus(page);
       assert(afterBuiltInFocus.repair === "ex-unknown" || afterBuiltInFocus.id === "shareSetupBlockerSummary",
         "successful repair focuses a remaining blocker or its status", afterBuiltInFocus);
@@ -303,7 +299,7 @@ async function run() {
       await page.locator("#exCustomEquip .pchip").first().click();
       await page.locator("#exCustomPrimary .pchip").first().click();
       await page.locator("#exCustomSave").click();
-      await finishEditor(page);
+      await waitForShare(page);
       const afterCustomFocus = await shareFocus(page);
       assert(afterCustomFocus.repair === "ex-unknown" || afterCustomFocus.id === "shareSetupBlockerSummary",
         "custom repair focuses the remaining unresolved exercise", afterCustomFocus);
@@ -342,7 +338,7 @@ async function run() {
 
       await clickRepair(page, "ex-unknown");
       await page.locator('#exPickList [data-pick="sq_bb"]').click();
-      await finishEditor(page, { allowReady: true });
+      await waitForShare(page, { allowReady: true });
       const finalFocus = await shareFocus(page);
       assert(await page.locator("#shareSetupBlockers.hidden").count() === 1 &&
         (finalFocus.id === "shareSetupCopy" || finalFocus.id === "shareSetupStatus"),
@@ -358,15 +354,14 @@ async function run() {
       await page.locator("#shareProgramSetup").click();
       await waitForShare(page);
 
-      await clickRepair(page, "ex-unknown");
-      await page.locator('#exPickList [data-pick="sq_bb"]').click();
       const stale = await readDurable(page);
       stale.local.program.find((row) => row.id === "ex-unknown").libraryId = "stale:head";
       stale.idb.program.find((row) => row.id === "ex-unknown").libraryId = "stale:head";
       stale.local._storageRevision += 1;
       stale.idb._storageRevision = stale.local._storageRevision;
       await writeBoth(page, stale.local);
-      await page.locator("#programEditToggle").click();
+      await clickRepair(page, "ex-unknown");
+      await page.locator('#exPickList [data-pick="sq_bb"]').click();
       await waitForShare(page);
       durable = await readDurable(page);
       assert(durable.local?.program?.find((row) => row.id === "ex-unknown")?.libraryId === "stale:head" &&

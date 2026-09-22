@@ -650,8 +650,19 @@
     try { return canonicalize(value); } catch { return undefined; }
   }
 
-  function shareBlocker(raw, exercise, index, meta, reasonCode) {
-    const diagnostic = isPlainObject(raw?.__diagnostic) ? raw.__diagnostic : null;
+  function diagnosticFor(diagnostics, raw, exercise, index) {
+    if (diagnostics instanceof Map) {
+      const key = exercise?.id ?? raw?.id;
+      return isPlainObject(diagnostics.get(key)) ? diagnostics.get(key) : null;
+    }
+    if (Array.isArray(diagnostics)) return isPlainObject(diagnostics[index]) ? diagnostics[index] : null;
+    if (!isPlainObject(diagnostics)) return null;
+    const key = exercise?.id ?? raw?.id;
+    return isPlainObject(diagnostics[key]) ? diagnostics[key] : null;
+  }
+
+  function shareBlocker(raw, exercise, index, meta, reasonCode, diagnostics) {
+    const diagnostic = diagnosticFor(diagnostics, raw, exercise, index);
     const day = String(exercise?.day || raw?.day || "");
     const structureDays = Array.isArray(meta?.programStructure?.days) ? meta.programStructure.days : [];
     const structureDay = structureDays.find((entry) => isPlainObject(entry) &&
@@ -675,7 +686,7 @@
     };
   }
 
-  function unresolvedExerciseBlockers(rawRows, exercises, meta, customById, builtInIds) {
+  function unresolvedExerciseBlockers(rawRows, exercises, meta, customById, builtInIds, diagnostics) {
     const blockers = [];
     for (let index = 0; index < rawRows.length; index++) {
       const raw = rawRows[index];
@@ -686,12 +697,12 @@
       if (typeof id !== "string" || !id.trim()) reasonCode = "missing-library-id";
       else if (id.startsWith(CUSTOM_ID_PREFIX) && !customById.has(id)) reasonCode = "missing-custom-definition";
       else if (!id.startsWith(CUSTOM_ID_PREFIX) && !builtInIds.has(id)) reasonCode = "unknown-library-id";
-      if (reasonCode) blockers.push(shareBlocker(raw, exercise, index, meta, reasonCode));
+      if (reasonCode) blockers.push(shareBlocker(raw, exercise, index, meta, reasonCode, diagnostics));
     }
     return blockers;
   }
 
-  function validate(raw, options) {
+  function validate(raw, options = {}) {
     const issues = [];
     if (!isPlainObject(raw)) return schemaFail(["$: expected object"]);
     collectForbiddenKeys(raw, issues, "$");
@@ -776,6 +787,7 @@
     if (meta && meta.daysPerWeek !== days.size) issues.push("program.meta.daysPerWeek: day count mismatch");
 
     const builtInIds = builtInSet(options);
+    const diagnostics = options && typeof options === "object" ? options.diagnostics : null;
     const customById = new Map();
     for (const custom of customs) {
       if (customById.has(custom.id)) issues.push(`program.customExercises: duplicate ${custom.id}`);
@@ -787,7 +799,7 @@
       const id = exercise.libraryId;
       if (typeof id === "string" && id.startsWith(CUSTOM_ID_PREFIX) && customById.has(id)) referencedCustom.add(id);
     }
-    const blockers = unresolvedExerciseBlockers(rawRows, parsedRows, meta, customById, builtInIds);
+    const blockers = unresolvedExerciseBlockers(rawRows, parsedRows, meta, customById, builtInIds, diagnostics);
     // Diagnostic identities are available only while the blocker list is
     // assembled. Keep the released canonical rule: non-relational slot IDs
     // never enter the encoded setup document.

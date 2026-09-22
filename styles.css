@@ -2378,8 +2378,9 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
 .sum-outcome:first-child{border-top:1px solid var(--rule)}
 .sum-outcome__name{min-width:0;font-size:15px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
 .sum-outcome__state{flex:none;font-size:13px;font-weight:650;color:var(--ink-soft);white-space:nowrap}
+.sum-outcome__glyph{display:inline-block;margin-right:5px;font-size:11px}
 .sum-outcome__state--improved{color:var(--positive)}
-.sum-outcome__state--declined{color:var(--danger)}
+.sum-outcome__state--declined{color:var(--warning)}
 .sum-muscles__note{margin:-4px 0 8px;font-size:12px;line-height:1.4;color:var(--ink-soft)}
 
 .sum-baseline{

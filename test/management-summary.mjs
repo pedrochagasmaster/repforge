@@ -79,6 +79,7 @@ try {
       exerciseId: row.dataset.exerciseId,
       outcome: row.dataset.outcome,
       text: row.textContent.trim(),
+      glyph: row.querySelector(".sum-outcome__glyph")?.textContent || "",
     })),
     muscleNumbers: [...document.querySelectorAll("#sessionSummary .sum-muscles .vrow__num")].map(row => row.textContent.trim()),
     relativeBars: document.querySelectorAll("#sessionSummary .sum-muscles .vrow__fill").length,
@@ -90,6 +91,8 @@ try {
     "summary does not expose a second local delta outcome model");
   assert.deepEqual(rendered.outcomes.map(({ exerciseId, outcome }) => ({ exerciseId, outcome })), result.canonical,
     "rendered outcome rows preserve canonical lift identity and role");
+  assert.deepEqual(Object.fromEntries(rendered.outcomes.map(({ outcome, glyph }) => [outcome, glyph])), { improved: "▲", maintained: "■" },
+    "summary pairs each canonical outcome word with its semantic indicator glyph");
   assert.ok((result.summary.outcomes || []).every(row => ["improved", "maintained", "declined"].includes(row.outcome)),
     "summary exposes only canonical outcome roles");
   assert.ok(result.summary.muscles.length > 0 && result.summary.muscles.every(row => row.sets > 0),
