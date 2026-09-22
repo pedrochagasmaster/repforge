@@ -1067,7 +1067,7 @@
     persistHead = cloneSnapshot(snapshot);
   }
 
-    async function refreshPersistenceHead(){
+  async function refreshPersistenceHead(){
     const local=readLocalStatus(),idb=await readIdbStatus();
     const decision=chooseSnapshot(local,idb);
     if(decision.kind==="first-run")return{head:cloneSnapshot(persistHead)};
@@ -1584,9 +1584,10 @@
       noteWriteHealth(failed);
       return Promise.resolve(failed)}
     const discardPending=async result=>{
+      const pendingJournalId=pendingRecord?.journal.id||null;
       const discarded=await executeDraftTransaction({record:pendingRecord,
         transactionId:pendingRecord?.journal.id||null,effect:frozenEffectOutcome,discard:true});
-      return Object.assign({},result,{pendingJournalCleanup:discarded.settled!==true})};
+      return Object.assign({},result,{pendingJournalCleanup:discarded.settled!==true,pendingJournalId})};
     const cancelUnstarted=()=>{
       const transactionId=pendingRecord?.journal.id||null;
       const related=transactionId?DraftStore.related(transactionId):{entries:[],invalid:[]};
@@ -1735,8 +1736,7 @@
   }
 
   // --- Boot Replay & Resolution ---
-    async function resolveBootReplicas(candidate=null){
-    return withStorageLock(storageIO,async()=>{
+  async function resolveBootReplicasLocked(candidate=null){
       const local=readLocalStatus(),idb=await readIdbStatus();
       let decision=chooseSnapshot(local,idb);
       if(decision.kind==="unresolved"){
@@ -1898,7 +1898,90 @@
         recoveryChanged:!!decision.recoveryChanged};
       if(decision.kind==="chosen"&&decision.heal&&!decision.recoveryChanged)
         await writeSnapshot(cloneSnapshot(decision.snapshot),storageIO);
-      return Object.assign({},decision,{draftConflict})})}
+      return Object.assign({},decision,{draftConflict})}
+
+  async function resolveBootReplicas(candidate=null){
+    return withStorageLock(storageIO,()=>resolveBootReplicasLocked(candidate));
+  }
+
+  async function readDurableState(){
+    return enqueueWrite(()=>withStorageLock(storageIO,async()=>{
+      const refreshed=await refreshPersistenceHead();
+      const head=cloneSnapshot(refreshed.head||persistHead);
+      const pending=readPendingJournal();
+      return{ok:!refreshed.conflict,conflict:!!refreshed.conflict,head,
+        revision:readRevision(head),pendingJournal:pending.entries.length>0||pending.invalid.length>0};
+    }));
+  }
+
+  async function runDurableStateTestHook(name,payload){
+    const hook=root.__repforgeDurableStateTestHooks?.[name];
+    if(typeof hook==="function")await hook(payload);
+  }
+
+  async function settleHistoryAlreadyCommitted({verify,pendingJournalId=null}={}){
+    return enqueueWrite(()=>withStorageLock(storageIO,async()=>{
+      await runDurableStateTestHook("historySettlementLockHeld");
+      let refreshed=await refreshPersistenceHead();
+      let head=cloneSnapshot(refreshed.head||persistHead);
+      if(refreshed.conflict||!isValidStateShape(head))
+        return normalizeDurableOutcome({revision:readRevision(head),localOk:false,idbOk:false,
+          conflict:true,code:"history_settlement_unresolved",head});
+
+      // An already-committed preflight may have failed to close its own WAL
+      // entry. Reconcile only that entry: another document can have queued an
+      // unrelated journal behind this lock and must remain untouched.
+      if(typeof pendingJournalId==="string"&&pendingJournalId){
+        const record=readPendingJournal().entries.find(item=>item.journal.id===pendingJournalId);
+        if(record){
+          const discarded=await executeDraftTransaction({record,transactionId:record.journal.id,
+            effect:record.journal.effectOutcome,discard:true});
+          if(!discarded.settled)
+            return normalizeDurableOutcome({revision:readRevision(head),localOk:false,idbOk:false,
+              pendingJournalCleanup:true,code:"history_settlement_pending",head});
+        }
+        refreshed=await refreshPersistenceHead();
+        head=cloneSnapshot(refreshed.head||persistHead);
+        if(refreshed.conflict||!isValidStateShape(head))
+          return normalizeDurableOutcome({revision:readRevision(head),localOk:false,idbOk:false,
+            conflict:true,code:"history_settlement_unresolved",head});
+      }
+
+      let checked;
+      try{checked=typeof verify==="function"?await verify(cloneSnapshot(head)):null}
+      catch{return normalizeDurableOutcome({revision:readRevision(head),localOk:false,idbOk:false,
+        conflict:true,code:"history_settlement_unresolved",head})}
+      if(!checked?.ok)
+        return normalizeDurableOutcome({revision:readRevision(head),localOk:false,idbOk:false,
+          conflict:true,code:checked?.code||"history_settlement_mismatch",head});
+
+      const localBefore=readLocalStatus(),idbBefore=await readIdbStatus();
+      const replicasSettled=localBefore.status==="valid"&&idbBefore.status==="valid"&&
+        storageSnapshotsEqual(localBefore.parsed,idbBefore.parsed);
+      if(replicasSettled){
+        persistHead=cloneSnapshot(head);
+        return normalizeDurableOutcome({revision:readRevision(head),localOk:true,idbOk:true,
+          alreadyCommitted:true,head});
+      }
+
+      // The lock remains held across the authoritative reread, semantic check,
+      // dual-replica write, and post-write proof. No unrelated writer can land
+      // between the head we verified and the bytes we heal from it.
+      const written=await writeSnapshot(head,storageIO);
+      const local=readLocalStatus(),idb=await readIdbStatus();
+      const healedReplicasSettled=local.status==="valid"&&idb.status==="valid"&&
+        storageSnapshotsEqual(local.parsed,idb.parsed);
+      const ownJournalPending=typeof pendingJournalId==="string"&&pendingJournalId&&
+        readPendingJournal().entries.some(item=>item.journal.id===pendingJournalId);
+      if(!written.localOk||!written.idbOk||!healedReplicasSettled||ownJournalPending)
+        return normalizeDurableOutcome({revision:readRevision(head),localOk:!!written.localOk,idbOk:!!written.idbOk,
+          conflict:true,pendingJournalCleanup:!!ownJournalPending,
+          code:ownJournalPending?"history_settlement_pending":"history_settlement_unresolved",head});
+      persistHead=cloneSnapshot(head);
+      return normalizeDurableOutcome({revision:readRevision(head),localOk:true,idbOk:true,
+        alreadyCommitted:true,head});
+    }));
+  }
 
   async function settlePendingJournal(){
     const before=readPendingJournal();
@@ -2451,6 +2534,8 @@
     storageSnapshotsEqual,
     isValidStateShape,
     resolveBootReplicas,
+    readDurableState,
+    settleHistoryAlreadyCommitted,
     settlePendingJournal,
 
     // Snapshot Meta & Helpers

@@ -6903,10 +6903,23 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
   // touched; summary presentation never derives a second outcome heuristic.
   const completedLiftIds=new Set(work.map(liftKey));
   const namesByLift=new Map(work.map(row=>[liftKey(row),displayName(row)]));
-  const outcomes=strengthEvidenceRecords("current-block")
-    .filter(record=>completedLiftIds.has(record.exerciseId)&&record.evidenceState==="sufficient"&&EVIDENCE_OUTCOME_KEYS[record.outcome])
-    .map(record=>({exerciseId:record.exerciseId,outcome:record.outcome,
-      name:namesByLift.get(record.exerciseId)||currentExerciseForLiftKey(record.exerciseId)?.name||record.exerciseId}));
+  const evidence=strengthEvidenceRecords("current-block")
+    .filter(record=>completedLiftIds.has(record.exerciseId))
+    .map(record=>{
+      const sufficient=record.evidenceState==="sufficient"&&EVIDENCE_OUTCOME_KEYS[record.outcome];
+      const baseline=!sufficient&&record.evidenceState==="insufficient"&&
+        record.evidenceCount===1&&record.reason==="single-observation";
+      return{exerciseId:record.exerciseId,
+        name:namesByLift.get(record.exerciseId)||currentExerciseForLiftKey(record.exerciseId)?.name||record.exerciseId,
+        kind:sufficient?"outcome":baseline?"baseline":"insufficient",
+        evidenceState:record.evidenceState,evidenceCount:record.evidenceCount,
+        reason:record.reason??null,...(sufficient?{outcome:record.outcome}:{})}});
+  const outcomes=evidence.filter(item=>item.kind==="outcome")
+    .map(({exerciseId,outcome,name})=>({exerciseId,outcome,name}));
+  // The first-session sentence is valid only when every lift in this completion
+  // is genuinely a first observation. A prior-but-insufficient record must not
+  // disappear into the old \"no outcome\" fallback.
+  const showBaseline=evidence.length>0&&evidence.every(item=>item.kind==="baseline");
   // A clock only earns a slot when it plausibly measured this session: a draft
   // resumed the next morning would otherwise report a nine-hour workout.
   const mins=startedAt?Math.round((Date.now()-startedAt)/60000):0;
@@ -6917,6 +6930,8 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
     minutes:mins>=1&&mins<=480?mins:null,
     prs:sessionPRs(rows,prevLog),
     outcomes,
+    evidence,
+    showBaseline,
     muscles:sessionMuscleWork(rows),
     week:{done:week.completedDays,planned:week.plannedDays},
     meso:{current:meso.current,total:meso.total,isComplete:meso.isComplete},
@@ -7098,7 +7113,7 @@ function sessionSummaryHtml(s){
   // lift" would be the whole story told as arithmetic. Say what it is instead —
   // but only when there was working weight to call a baseline in the first
   // place, since a session of nothing but warmups is not a first attempt.
-  const noHistory=s.lifts>0&&!s.prs.length&&!s.outcomes.length;
+  const noHistory=s.showBaseline===true;
   if(noHistory)out.push(`<p class="sum-baseline">${esc(t("summary.baseline"))}</p>`);
   else if(s.outcomes.length)
     out.push(`<p class="section-label">${esc(t("summary.outcomes.title"))}</p>`+
@@ -8860,11 +8875,12 @@ const HistoryUi=window.RepForgeHistoryUi.create({
   displayName, currentNameForRow, dayLabel, canTakeFocus, parseCalendarDate,
   parseLoadDisplay, parseRepsValue, parseRirValue, clearFieldInvalid,
   toast, formatLongDate, fmtLoad, sum, kfmt, fmt, toDisplay, unitLabel,
-  weekdayLetters, table, today, uid, readRevision, commitProposedState,
-  refreshPersistenceHead, settlePendingJournal, writeSnapshot, enqueueWrite,
-  readLocalStatus, readIdbStatus, snapshotsEqual,
-  hasPendingJournal:()=>DurableState.hasPendingJournal?.(),
-  storageIO, getState:()=>state, renderApp:()=>render(),
+  weekdayLetters, table, today, uid, readRevision,
+  commitProposedState:(proposal,opts)=>commitProposedState(proposal,storageIO,opts),
+  readDurableState:()=>DurableState.readDurableState(),
+  settleHistoryAlreadyCommitted:opts=>DurableState.settleHistoryAlreadyCommitted(opts),
+  settlePendingJournal,
+  getState:()=>state, renderApp:()=>render(),
   adoptHistoryDurableHead, captureEvent,
 });
 window.__repforgeHistory=HistoryUi;
@@ -8987,7 +9003,10 @@ function editorChooseExercise(request){
         // reopening Share before that handoff completes leaves a hidden sheet
         // with a stale active-modal record.
         if(request?.repair)await closeExercisePicker();
-        resolve(entry)},
+        if(request?.repair){
+          const handoff=entry?.entry?entry:{entry,stagedCustomDefinition:null};
+          resolve(handoff);
+        }else resolve(entry)},
       ...(request?.repair?{onCancel:()=>resolve(null),stageOnly:true,repairSeed:request.exercise}:{}),
       ...(request?.mode==="add"?{quick:true,day:request.day}: {})};
     if(request?.mode==="alternates"){
@@ -10873,13 +10892,14 @@ function renderCustomChips(){
         customState[key==="primary"?"secondary":"primary"].delete(v)}
       renderCustomChips()})}}
 
-/* stageOnly builds the definition without writing it: import review needs the
-   entry to show, but nothing durable may move before the final Import. */
-function openCustomExerciseSheet({entry=null,onSave=null,onCancel=null,handoff=false,stageOnly=false}={}){
+/* stageOnly builds a definition without writing it. Import review consumes the
+   raw entry; Share repair consumes the explicit provenance handoff below, but
+   neither flow writes durable state before its final commit. */
+function openCustomExerciseSheet({entry=null,onSave=null,onCancel=null,handoff=false,stageOnly=false,repairHandoff=false}={}){
   const sheet=$("#exCustomSheet"),scrim=$("#exCustomScrim"),name=$("#exCustomName");
   if(!sheet)return;
   const inUse=entry?customExerciseInUse(entry.id):false;
-  customState={id:entry?.id||null,onSave,stageOnly,
+  customState={id:entry?.id||null,sourceEntry:entry||null,onSave,stageOnly,repairHandoff,
     // Empty for a new definition: defaulting every custom exercise to Machine
     // quietly mislabels dumbbell and cable work the wizard then filters on.
     equipment:new Set(entry?.equipment||[]),
@@ -10931,7 +10951,9 @@ async function saveCustomExerciseSheet(){
       if(confirm(t("confirm.custom_duplicate",{name:libraryName(twin)}))){
         const handler=customState.onSave;
         await closeCustomExerciseSheet();
-        if(handler)await handler(twin);
+        if(handler)await handler(customState.repairHandoff
+          ? {entry:twin,stagedCustomDefinition:null}
+          : twin);
         return}
       customState.duplicateAcknowledged=true}}
   const handler=customState.onSave;
@@ -10943,7 +10965,13 @@ async function saveCustomExerciseSheet(){
       secondary:[...customState.secondary].join(","),
       notes:String($("#exCustomNotes")?.value||"").trim()}])[0];
     await closeCustomExerciseSheet();
-    if(handler&&staged)await handler(staged);
+    if(handler&&staged){
+      const choice=customState.repairHandoff
+        ? {entry:customState.id?customState.sourceEntry||staged:staged,
+          stagedCustomDefinition:customState.id?null:staged}
+        : staged;
+      await handler(choice);
+    }
     return}
   const {result,entry}=await saveCustomExercise({id:customState.id,name,
     equipment:[...customState.equipment],
@@ -15491,13 +15519,14 @@ function init(){
       if(typeof activePicker.onCancel==="function")activePicker.onCancel();
     }:null;
     const seed=repairSeed?{name:repairSeed.name||typed,equipment:repairSeed.equipment||[],primary:repairSeed.primary||"",secondary:repairSeed.secondary||""}:typed?{name:typed}:null;
-    openCustomExerciseSheet({entry:seed,handoff:true,stageOnly,
+    openCustomExerciseSheet({entry:seed,handoff:true,stageOnly,repairHandoff:stageOnly,
       onCancel:cancelRepair||(()=>backToPicker(null)),
-      onSave:entry=>{
+      onSave:choice=>{
         // A multi-pick is still being assembled, so the picker comes back with
         // the new movement already ticked; a single pick is finished by it.
+        const entry=choice?.entry||choice;
         if(multi){backToPicker(entry.id);return}
-        if(onPick)return onPick(stageOnly?{...entry,__customDefinition:cloneSnapshot(entry)}:entry)}})};
+        if(onPick)return onPick(stageOnly?choice:entry)}})};
   const cuCancel=$("#exCustomCancel");if(cuCancel)cuCancel.onclick=cancelCustomExerciseSheet;
   const cuScrim=$("#exCustomScrim");if(cuScrim)cuScrim.onclick=cancelCustomExerciseSheet;
   const cuSave=$("#exCustomSave");if(cuSave)cuSave.onclick=saveCustomExerciseSheet;

@@ -7,8 +7,7 @@
       parseLoadDisplay, parseRepsValue, parseRirValue, clearFieldInvalid,
       toast, formatLongDate, fmtLoad, sum, kfmt, toDisplay, unitLabel,
       weekdayLetters, table, fmt, today, uid, readRevision, commitProposedState,
-      refreshPersistenceHead, settlePendingJournal, hasPendingJournal, storageIO, getState,
-      writeSnapshot, enqueueWrite, readLocalStatus, readIdbStatus, snapshotsEqual,
+      readDurableState, settleHistoryAlreadyCommitted, settlePendingJournal, getState,
       renderApp, captureEvent,
     } = deps;
     const state=new Proxy({}, {get(_target,key){return getState()?.[key]}});
@@ -210,20 +209,17 @@ function historyResultMessage(result,successKey,operation,operationId){
   if(result?.conflict||result?.stale||result?.staleRevision||result?.duplicate){historySelection={...historySelection,mode:"conflict",operation,operationId};historyOutcome(action,"conflict");return"conflict"}
   historySelection={...historySelection,mode:"failure",operation,operationId};historyOutcome(action,"failure");return"failure"}
 function adoptHistoryDurableHead(head){if(head)deps.adoptHistoryDurableHead(head)}
-async function healAlreadyCommittedReplicas(head){
-  if(!head||typeof writeSnapshot!=="function")return null;
-  let local=null,idb=null;
-  try{local=typeof readLocalStatus==="function"?await readLocalStatus():null;
-    idb=typeof readIdbStatus==="function"?await readIdbStatus():null}catch{return null}
-  if(local?.status==="valid"&&idb?.status==="valid"&&
-    (typeof snapshotsEqual!=="function"?JSON.stringify(local.parsed)===JSON.stringify(idb.parsed):snapshotsEqual(local.parsed,idb.parsed)))
-    return{localOk:true,idbOk:true,alreadySynchronized:true,revision:readRevision(head)};
-  try{
-    const write=()=>writeSnapshot(cloneSnapshot(head),storageIO);
-    return typeof enqueueWrite==="function"?await enqueueWrite(write):await write();
-  }catch{return null}}
 async function historyReloadLatest(){
-  const sid=historySelection.sessionId,refreshed=await refreshPersistenceHead();
+  const sid=historySelection.sessionId,startedMode=historySelection.mode,
+    startedOperation=historySelection.operation,startedOperationId=historySelection.operationId,
+    refreshed=await readDurableState();
+  if(String(historySelection.sessionId)!==String(sid)||historySelection.mode!==startedMode||
+    historySelection.operation!==startedOperation||historySelection.operationId!==startedOperationId)return null;
+  // The durable owner returns its last trusted head when replicas disagree or
+  // a recovery journal is still pending. That head is not a reload result: do
+  // not let a UI refresh turn an unresolved storage state into a silent stale
+  // selection.
+  if(refreshed?.ok!==true||refreshed.pendingJournal===true)return null;
   if(refreshed?.head)adoptHistoryDurableHead(refreshed.head);
   const next=historySelectionFor(sid);
   if(next)historySetSelection(next);else historySetSelection(emptyHistorySelection());
@@ -235,13 +231,20 @@ async function historyFinishResult(result,successKey,operation,operationId){
   if(!historyOperationCurrent(operationId,sid,operation))return false;
   let settledResult=result;
   if(result?.alreadyCommitted){
-    const refreshed=await refreshPersistenceHead();
-    if(refreshed?.head){
-      const healed=await healAlreadyCommittedReplicas(refreshed.head);
-      if(healed?.localOk&&healed?.idbOk)
-        settledResult={...result,localOk:true,idbOk:true,revision:healed.revision??result.revision,settled:true};
-      else settledResult={...result,alreadyCommitted:false,committed:false,settled:false,localOk:false,idbOk:false,failed:true};
-      adoptHistoryDurableHead(refreshed.head)}
+    const desired=historySelection.desiredFingerprint;
+    const settled=await settleHistoryAlreadyCommitted({
+      pendingJournalId:result.pendingJournalId,
+      verify:head=>{
+        const rows=historySessionRows(head?.log,sid);
+        const ok=operation==="delete"
+          ? rows.length===0
+          : typeof desired==="string"&&historySessionFingerprint(rows)===desired;
+        return{ok,code:"history_settlement_mismatch"}}
+    });
+    settledResult=settled;
+    if(!historyOperationCurrent(operationId,sid,operation))return false;
+    if(settled?.committed===true&&settled?.settled===true&&settled.head)
+      adoptHistoryDurableHead(settled.head);
   }
   const status=historyResultMessage(settledResult,successKey,operation,operationId);
   if(status==="committed"){
@@ -249,7 +252,7 @@ async function historyFinishResult(result,successKey,operation,operationId){
     historySetSelection(next||emptyHistorySelection());
     render();historyFocusRead(sid);toast(t(successKey));return true}
   render();historyFocusFailure(status);return false}
-function historyEditCommit(sid,proposed,original,io=storageIO){
+function historyEditCommit(sid,proposed,original){
   const desired=historySessionFingerprint(proposed),proposal=cloneSnapshot(deps.getState());
   proposal.log=proposal.log.filter(row=>String(row?.session??"")!==String(sid)).concat(cloneSnapshot(proposed));
   const preflight=({head})=>{
@@ -261,7 +264,7 @@ function historyEditCommit(sid,proposed,original,io=storageIO){
     const next=cloneSnapshot(head);
     next.log=next.log.filter(row=>String(row?.session??"")!==String(sid)).concat(cloneSnapshot(proposed));
     return{proposal:next}};
-  return commitProposedState(proposal,io,{preflight})}
+  return commitProposedState(proposal,{preflight})}
 async function historyRetryEdit(){
   const sid=historySelection.sessionId,original=historySelection.originalFingerprint;
   const proposed=cloneSnapshot(historySelection.workingCopy||[]);
@@ -270,32 +273,36 @@ async function historyRetryEdit(){
   const operationId=uid();
   historySelection={...historySelection,mode:"failure",operation:"edit",operationId,
     desiredFingerprint:desired,workingCopy:proposed,dirty:true};
-  const refreshed=await refreshPersistenceHead();
+  const refreshed=await readDurableState();
   if(!historyOperationCurrent(operationId,sid,"edit"))return false;
+  if(refreshed?.ok!==true){
+    historySelection={...historySelection,mode:"conflict",operation:"edit",operationId};
+    render();historyFocusFailure("conflict");return false}
   if(refreshed?.head)adoptHistoryDurableHead(refreshed.head);
   const current=historySessionRows(state.log,sid),fingerprint=historySessionFingerprint(current);
   if(!current.length || (fingerprint!==original && fingerprint!==desired)){
     historySelection={...historySelection,mode:"conflict",desiredFingerprint:desired,
       workingCopy:proposed,dirty:true,operation:"edit",operationId};
     render();historyFocusFailure("conflict");return false}
-  if(hasPendingJournal?.()){
+  if(refreshed?.pendingJournal){
     const settled=await settlePendingJournal();
     if(!historyOperationCurrent(operationId,sid,"edit"))return false;
     if(!(settled?.committed===true&&settled?.settled===true)){
-      await historyFinishResult(settled,"toast.session_updated","edit",operationId);
-      return false}
-    const refreshedAfterSettlement=await refreshPersistenceHead();
+      return await historyFinishResult(settled,"toast.session_updated","edit",operationId)}
+    const refreshedAfterSettlement=await readDurableState();
     if(!historyOperationCurrent(operationId,sid,"edit"))return false;
+    if(refreshedAfterSettlement?.ok!==true){
+      historySelection={...historySelection,mode:"conflict",operation:"edit",operationId};
+      render();historyFocusFailure("conflict");return false}
     if(refreshedAfterSettlement?.head)adoptHistoryDurableHead(refreshedAfterSettlement.head);
     const settledRows=historySessionRows(state.log,sid);
     if(historySessionFingerprint(settledRows)===desired){
-      await historyFinishResult(settled,"toast.session_updated","edit",operationId);
-      return true}
+      return await historyFinishResult(settled,"toast.session_updated","edit",operationId)}
   }
   // Retry remains a durable-owner operation even when the visible replica
   // already contains the desired rows. The normalized owner result is the
   // only authority for whether the preserved WAL has actually settled.
-  const result=await historyEditCommit(sid,proposed,original,storageIO);
+  const result=await historyEditCommit(sid,proposed,original);
   await historyFinishResult(result,"toast.session_updated","edit",operationId);
   return result?.committed===true&&result?.settled===true}
 function historyBeginDelete(sid){
@@ -306,7 +313,7 @@ function historyBeginDelete(sid){
     desiredFingerprint:null,workingCopy:null,removedRowIndices:[],dirty:false,validation:null,
     operation:"delete",operationId:uid()});
   renderHistory();historyFocus($("[data-history-delete-status]"));return true}
-async function deleteSession(sid,io=storageIO,{originalFingerprint=null,operationId=null}={}){
+async function deleteSession(sid,{originalFingerprint=null,operationId=null}={}){
   const original=typeof originalFingerprint==="string"?originalFingerprint:"";
   if(!original){
     const result={ok:false,committed:false,settled:true,failed:true,code:"history_missing_fingerprint",revision:readRevision(state),localOk:false,idbOk:false};
@@ -324,7 +331,7 @@ async function deleteSession(sid,io=storageIO,{originalFingerprint=null,operatio
     next.log=next.log.filter(row=>String(row?.session??"")!==String(sid));
     return{proposal:next};
   };
-  const result=await commitProposedState(proposal,io,{preflight});
+  const result=await commitProposedState(proposal,{preflight});
   await historyFinishResult(result,"toast.session_deleted","delete",operationId||historySelection.operationId);
   return result}
 function historyReadingView(s,rows){
@@ -381,7 +388,7 @@ function bindHistorySelection(){
   $("[data-history-back]")?.addEventListener("click",historyBackToCalendar);
   $("[data-history-edit]")?.addEventListener("click",historyStartEditing);
   $("[data-history-delete-cancel]")?.addEventListener("click",historyCancelOperation);
-  $("[data-history-delete-confirm]")?.addEventListener("click",()=>deleteSession($("[data-history-delete-confirm]").dataset.historyDeleteConfirm,storageIO,{originalFingerprint:historySelection.originalFingerprint,operationId:historySelection.operationId}));
+  $("[data-history-delete-confirm]")?.addEventListener("click",()=>deleteSession($("[data-history-delete-confirm]").dataset.historyDeleteConfirm,{originalFingerprint:historySelection.originalFingerprint,operationId:historySelection.operationId}));
   $$("[data-del]").forEach(b=>b.addEventListener("click",async e=>{
     e.stopPropagation();historyBeginDelete(b.dataset.del)}));
   $$("[data-edcancel]").forEach(b=>b.addEventListener("click",historyCancelOperation));
@@ -510,7 +517,7 @@ function sessionEditor(s,sets){
 // The editor is a volatile projection. Its commit path validates the exact
 // session fingerprint again while holding the durable-state lock, so an edit
 // can never merge over a changed or deleted session.
-async function saveSessionEdit(sid,io=storageIO){
+async function saveSessionEdit(sid){
   const card=$(".session--edit[data-editing=\""+String(sid).replaceAll("\"","\\\"")+"\"]");if(!card)return;
   const parsed=historySessionFromWorkingCopy(card);
   if(parsed.error){historyMarkValidation(card,parsed.error);historyOutcome("edit_save","failure");return}
@@ -526,7 +533,7 @@ async function saveSessionEdit(sid,io=storageIO){
     const result={ok:false,committed:false,settled:true,failed:true,code:"history_missing_fingerprint",revision:readRevision(state),localOk:false,idbOk:false};
     await historyFinishResult(result,"toast.session_updated","edit",operationId);
     return result}
-  const result=await historyEditCommit(sid,proposed,original,io);
+  const result=await historyEditCommit(sid,proposed,original);
   await historyFinishResult(result,"toast.session_updated","edit",operationId);
   return result}
 
@@ -544,6 +551,7 @@ async function saveSessionEdit(sid,io=storageIO){
       startEditing:historyStartEditing,
       beginDelete:historyBeginDelete,
       cancelOperation:historyCancelOperation,
+      reloadLatest:historyReloadLatest,
       retryEdit:historyRetryEdit,
       saveSessionEdit,
       deleteSession,

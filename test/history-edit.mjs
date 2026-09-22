@@ -359,6 +359,44 @@ async function main() {
     dialogDecision = "accept";
     await page.locator('[data-edcancel]').click();
     await page.waitForSelector('.session--read[data-reading="history-other"]', { timeout: 5000 });
+
+    // The already-committed recovery branch also awaits durable settlement.
+    // Navigate to another dirty session while its lock-held test gate is open;
+    // the late completion must settle storage without rewriting this view.
+    await writeState(page, historyBaseline);
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(page);
+    await page.locator('nav button[data-view="history"]').click();
+    await page.locator('#sessions [data-sess="history-edit-a"] .session__open').click();
+    await page.locator('[data-history-edit="history-edit-a"]').click();
+    await page.locator('.session--edit[data-editing="history-edit-a"] input[data-ek^="load|"]').first().fill("183");
+    const alreadyCommitted = structuredClone((await readReplicas(page)).local);
+    alreadyCommitted.log.find((row) => row.session === "history-edit-a" && row.set === 1).load = 183;
+    alreadyCommitted._storageRevision = Number(alreadyCommitted._storageRevision || 0) + 1;
+    await writeState(page, alreadyCommitted);
+    await page.evaluate(() => {
+      window.__historySettlementGate = { release: null };
+      window.__repforgeDurableStateTestHooks = {
+        historySettlementLockHeld: async () => new Promise((resolve) => {
+          window.__historySettlementGate.release = resolve;
+        }),
+      };
+    });
+    const pendingAlreadyCommitted = page.locator('[data-edsave="history-edit-a"]').click();
+    await page.waitForFunction(() => typeof window.__historySettlementGate?.release === "function", undefined, { timeout: 5000 });
+    await page.locator('[data-history-back]').click();
+    await page.waitForSelector('#historyCalendar:not(.hidden)', { timeout: 5000 });
+    await page.locator('#sessions [data-sess="history-other"] .session__open').click();
+    await page.locator('[data-history-edit="history-other"]').click();
+    const newerAlreadyInput = page.locator('.session--edit[data-editing="history-other"] input[data-ek^="load|"]').first();
+    await newerAlreadyInput.fill("223");
+    await page.evaluate(() => window.__historySettlementGate.release());
+    await pendingAlreadyCommitted;
+    assert(await page.locator('.session--edit[data-editing="history-other"]').count() === 1 &&
+      await newerAlreadyInput.inputValue() === "223",
+    "an already-committed late completion cannot replace a newer dirty selection");
+    await page.evaluate(() => { delete window.__repforgeDurableStateTestHooks; });
+
     await writeState(page, historyBaseline);
     await page.reload({ waitUntil: "domcontentloaded" });
     await waitForApp(page);
@@ -474,6 +512,34 @@ async function main() {
       afterConflict.local.log.find((row) => row.session === "history-edit-a" && row.set === 2).load === 81,
       "Stale Save refuses to merge over a changed session", JSON.stringify(afterConflict.local.log));
 
+    // Reload must fail closed when the two replicas disagree at one revision;
+    // the durable owner exposes no safe head for History to adopt.
+    const unresolvedLocal = structuredClone(afterConflict.local);
+    const unresolvedIdb = structuredClone(afterConflict.idb);
+    unresolvedIdb.log.find((row) => row.session === "history-other" && row.set === 1).load = 999;
+    await page.evaluate(async ({ key, value }) => {
+      const db = await new Promise((resolve, reject) => {
+        const request = indexedDB.open("repforge", 1);
+        request.onsuccess = () => resolve(request.result);
+        request.onerror = () => reject(request.error);
+      });
+      await new Promise((resolve, reject) => {
+        const tx = db.transaction("kv", "readwrite");
+        tx.objectStore("kv").put(value, key);
+        tx.oncomplete = resolve;
+        tx.onerror = () => reject(tx.error);
+      });
+      db.close();
+    }, { key: KEY, value: unresolvedIdb });
+    await page.evaluate(async () => window.__repforgeHistory.reloadLatest());
+    const afterUnresolvedReload = await readReplicas(page);
+    assert(await page.locator('[data-history-operation="conflict"]').count() === 1 &&
+      Number(afterUnresolvedReload.idb.log.find((row) => row.session === "history-other" && row.set === 1).load) === 999 &&
+      Number(afterUnresolvedReload.local.log.find((row) => row.session === "history-other" && row.set === 1).load) !== 999,
+      "Unresolved replica disagreement leaves History in conflict without adopting a fallback head",
+      JSON.stringify({ selection: await page.evaluate(() => window.__repforgeHistory.selection()), afterUnresolvedReload }));
+
+    await writeState(page, afterConflict.local);
     await page.locator('[data-history-reload]').click();
     await page.waitForSelector('[data-history-edit="history-edit-a"]', { timeout: 5000 });
     await page.locator('[data-history-edit="history-edit-a"]').click();

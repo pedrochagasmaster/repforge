@@ -114,13 +114,13 @@ async function readDurable(page) {
   }, KEY);
 }
 
-async function openSeed(browser) {
+async function openSeed(browser, value = seedState()) {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
   await page.goto(INDEX, { waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
   await clearSite(page);
-  await writeBoth(page, seedState());
+  await writeBoth(page, value);
   await page.reload({ waitUntil: "domcontentloaded" });
   await waitForAppBoot(page, { base: BASE });
   await page.locator('nav button[data-view="program"]').click();
@@ -138,6 +138,36 @@ async function waitForShare(page, { allowReady = false } = {}) {
   }, allowReady, { timeout: 15000 });
 }
 
+async function waitForRepairSurface(page) {
+  try {
+    await page.waitForFunction(() => {
+      const node = document.querySelector("#exCustomSheet");
+      return !node || node.hidden || node.classList.contains("hidden");
+    }, undefined, { timeout: 15000 });
+  } catch {}
+  try {
+    await page.waitForFunction(() => {
+      const visible = selector => {
+        const node = document.querySelector(selector);
+        return !!node && !node.hidden && !node.classList.contains("hidden");
+      };
+      return visible("#shareSetupSheet");
+    }, undefined, { timeout: 15000 });
+  } catch {}
+  return page.evaluate(() => {
+    const visible = selector => {
+      const node = document.querySelector(selector);
+      return !!node && !node.hidden && !node.classList.contains("hidden");
+    };
+    return {
+      share: visible("#shareSetupSheet"),
+      editor: visible("#programEditor"),
+      picker: visible("#exPickSheet"),
+      custom: visible("#exCustomSheet"),
+    };
+  });
+}
+
 async function clickRepair(page, id) {
   await page.locator(`[data-share-repair="${id}"]`).click();
   await page.waitForSelector("#exPickSheet:not(.hidden)", { timeout: 10000 });
@@ -149,6 +179,85 @@ async function shareFocus(page) {
     repair: document.activeElement?.getAttribute("data-share-repair") || "",
     role: document.activeElement?.getAttribute("role") || "",
   }));
+}
+
+async function duplicateBuiltInRepairCase(browser) {
+  const { context, page } = await openSeed(browser);
+  try {
+    const before = await readDurable(page);
+    const builtIn = await page.evaluate(() => window.__repforgeLibraryEntry("pr_mc"));
+    await clickRepair(page, "ex-unknown");
+    await page.locator("#exPickCustom").click();
+    await page.waitForSelector("#exCustomSheet:not(.hidden)");
+    await page.locator("#exCustomName").fill(builtIn.name);
+    await page.locator("#exCustomEquip .pchip[aria-pressed=\"false\"]").first().click();
+    await page.locator("#exCustomPrimary .pchip[aria-pressed=\"false\"]").first().click();
+    page.once("dialog", async dialog => { await dialog.accept(); });
+    await page.locator("#exCustomSave").click();
+    const surface = await waitForRepairSurface(page);
+    assert(surface.share, "duplicate built-in repair returns to the Share validation surface", JSON.stringify(surface));
+    if (!surface.share) return;
+
+    const durable = await readDurable(page);
+    const localTarget = durable.local?.program?.find(row => row.id === "ex-unknown");
+    const idbTarget = durable.idb?.program?.find(row => row.id === "ex-unknown");
+    assert(localTarget?.libraryId === "pr_mc" && idbTarget?.libraryId === "pr_mc",
+      "duplicate built-in accepted from custom sheet keeps the exact built-in identity", JSON.stringify(durable));
+    assert(JSON.stringify(durable.local?.customExercises || []) === JSON.stringify(before.local?.customExercises || []) &&
+      JSON.stringify(durable.idb?.customExercises || []) === JSON.stringify(before.idb?.customExercises || []),
+      "duplicate built-in repair does not append a built-in object to customExercises", JSON.stringify(durable));
+    assert(await page.locator('[data-share-repair="ex-unknown"]').count() === 0,
+      "duplicate built-in repair removes the fresh Share blocker");
+    assert(durable.local?.program?.find(row => row.id === "ex-missing")?.libraryId === "" &&
+      durable.idb?.program?.find(row => row.id === "ex-missing")?.libraryId === "",
+      "duplicate built-in repair leaves unrelated program rows unchanged", JSON.stringify(durable));
+    assert(JSON.stringify(durable.local) === JSON.stringify(durable.idb),
+      "duplicate built-in repair settles equal durable replicas", JSON.stringify(durable));
+    await page.reload({ waitUntil: "domcontentloaded" });
+    await waitForAppBoot(page, { base: BASE });
+    await page.locator('nav button[data-view="program"]').click();
+    await page.waitForSelector("#program.view.active");
+    await page.locator("#shareProgramSetup").click();
+    await waitForShare(page);
+    assert(await page.locator('[data-share-repair="ex-unknown"]').count() === 0,
+      "duplicate built-in repair survives reload and Share reopen");
+  } finally {
+    await context.close();
+  }
+}
+
+async function duplicateExistingCustomRepairCase(browser) {
+  const value = seedState();
+  value.program.push({ id: "ex-existing", name: "Coach custom row", day: "Day 1", order: 4, sets: 3, min: 8, max: 12, primary: "Chest", secondary: "", libraryId: "" });
+  value.customExercises = [{ id: "custom:existing", name: "Coach custom row", equipment: ["machine"], primary: "Chest", secondary: "", notes: "" }];
+  const { context, page } = await openSeed(browser, value);
+  try {
+    const before = await readDurable(page);
+    await clickRepair(page, "ex-existing");
+    await page.locator("#exPickCustom").click();
+    await page.waitForSelector("#exCustomSheet:not(.hidden)");
+    await page.locator("#exCustomName").fill("Coach custom row");
+    await page.locator("#exCustomEquip .pchip[aria-pressed=\"false\"]").first().click();
+    await page.locator("#exCustomPrimary .pchip[aria-pressed=\"false\"]").first().click();
+    page.once("dialog", async dialog => { await dialog.accept(); });
+    await page.locator("#exCustomSave").click();
+    await waitForShare(page);
+
+    const durable = await readDurable(page);
+    const localTarget = durable.local?.program?.find(row => row.id === "ex-existing");
+    const idbTarget = durable.idb?.program?.find(row => row.id === "ex-existing");
+    assert(localTarget?.libraryId === "custom:existing" && idbTarget?.libraryId === "custom:existing",
+      "duplicate existing custom accepted from custom sheet keeps the exact custom identity", JSON.stringify(durable));
+    assert(JSON.stringify(durable.local?.customExercises || []) === JSON.stringify(before.local?.customExercises || []) &&
+      JSON.stringify(durable.idb?.customExercises || []) === JSON.stringify(before.idb?.customExercises || []),
+      "duplicate existing custom repair does not append a second definition", JSON.stringify(durable));
+    assert(await page.locator('[data-share-repair="ex-existing"]').count() === 0,
+      "duplicate existing custom repair removes the fresh Share blocker");
+    assert(JSON.stringify(durable.local) === JSON.stringify(durable.idb),
+      "duplicate existing custom repair settles equal durable replicas", JSON.stringify(durable));
+  } finally {
+    await context.close();
+  }
 }
 
 async function run() {
@@ -216,6 +325,9 @@ async function run() {
     assert(validator.largeChecked.ok === true && validator.largeChecked.value.program.exercises.every((row) => row.notes.length === 1800) &&
       validator.largeEncoded.ok === false && ["decompressed-too-large", "encoded-too-large"].includes(validator.largeEncoded.code),
       "oversized notes fail closed without truncation", JSON.stringify({ checked: validator.largeChecked, encoded: validator.largeEncoded }));
+
+    await duplicateBuiltInRepairCase(browser);
+    await duplicateExistingCustomRepairCase(browser);
 
     const { context, page } = await openSeed(browser);
     try {

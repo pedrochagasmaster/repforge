@@ -399,9 +399,13 @@
     const replaceForExercise = (id, { repair = false } = {}) => {
       const current = document.program?.find(item => item.id === id);
       if (!current) return Promise.resolve(null);
-      return chooseExercise({ mode: "replace", day: current.day, exercise: clone(current), repair, exclude: exercisesFor(document, current.day).filter(item => item.id !== id).map(item => item.libraryId).filter(Boolean) }).then(entry => {
+      return chooseExercise({ mode: "replace", day: current.day, exercise: clone(current), repair, exclude: exercisesFor(document, current.day).filter(item => item.id !== id).map(item => item.libraryId).filter(Boolean) }).then(choice => {
+        if (!choice) return null;
+        const handoff = choice?.entry ? choice : { entry: choice, stagedCustomDefinition: null };
+        const entry = handoff.entry;
         if (!entry) return null;
-        const next = clone(document), customExercise = entry.__customDefinition ? clone(entry.__customDefinition) : null;
+        const next = clone(document), customExercise = handoff.stagedCustomDefinition ? clone(handoff.stagedCustomDefinition) : null;
+        if (customExercise && customExercise.id !== entry.id) return null;
         if (customExercise) {
           const customExercises = Array.isArray(next.customExercises) ? next.customExercises : [];
           const existing = customExercises.find(item => item?.id === customExercise.id);
