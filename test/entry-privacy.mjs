@@ -229,7 +229,7 @@ export function checkPillarInCatalog(catalog, pillar, lang = "en") {
 // Suite Runner
 // =============================================================================
 
-async function run() {
+export async function runPrivacy(scope = "all") {
   console.log("===============================================================================");
   console.log("Plan 054 Packet 054-P9 Assertion Suite: In-App Privacy Route & Share Audit");
   console.log(`Target origin: ${BASE}`);
@@ -242,7 +242,7 @@ async function run() {
   // Phase 1: Pure Domain Oracle & i18n Catalog Audit
   // ---------------------------------------------------------------------------
   console.log("Phase 1: Pure Domain Oracle & i18n Catalog Coverage Audit (EN/PT)");
-  {
+  if (scope === "all" || scope === "contract") {
     const enCatalogPath = join(ROOT, "i18n-en.json");
     const ptCatalogPath = join(ROOT, "i18n-pt.json");
 
@@ -286,7 +286,7 @@ async function run() {
   // Phase 2: Pure Deliberate Fault Switch Characterization
   // ---------------------------------------------------------------------------
   console.log("\nPhase 2: Pure Deliberate Fault Switch Characterization");
-  {
+  if (scope === "all" || scope === "contract") {
     // Fault 1: offline blank-page detection
     const validState = verifyPrivacyRenderState({
       title: "Privacy",
@@ -328,6 +328,7 @@ async function run() {
   // ---------------------------------------------------------------------------
   // Launch Browser for Integration Phases
   // ---------------------------------------------------------------------------
+  if (scope !== "contract") {
   const browser = await launchChromium();
 
   try {
@@ -335,7 +336,7 @@ async function run() {
     // Phase 3: Generic Landing Privacy Link, Production Control & Focus Return
     // -------------------------------------------------------------------------
     console.log("\nPhase 3: Generic Landing Privacy Link & Focus Return");
-    {
+    if (scope === "all" || scope === "ui") {
       const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
       const page = await context.newPage();
 
@@ -393,7 +394,7 @@ async function run() {
     // Phase 4: Settings Privacy Link, Production Control & Focus Return
     // -------------------------------------------------------------------------
     console.log("\nPhase 4: Settings Privacy Link & Focus Return");
-    {
+    if (scope === "all" || scope === "ui") {
       const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
       const page = await context.newPage();
 
@@ -442,7 +443,7 @@ async function run() {
     // Phase 5: Complete Rendered Content Audit (EN and PT)
     // -------------------------------------------------------------------------
     console.log("\nPhase 5: Complete Rendered Content Audit (EN and PT)");
-    {
+    if (scope === "all" || scope === "ui") {
       const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
       const page = await context.newPage();
 
@@ -535,7 +536,7 @@ async function run() {
     // Phase 6: Service Worker Priming, Offline Shell & Blank Route Failure Test
     // -------------------------------------------------------------------------
     console.log("\nPhase 6: Service Worker Priming, Offline Shell & Blank Route Failure Test");
-    {
+    if (scope === "all" || scope === "offline") {
       const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
       const page = await context.newPage();
 
@@ -617,7 +618,7 @@ async function run() {
     // Phase 7: Share Sheet Audit & Approved Cookie Transport Preservation
     // -------------------------------------------------------------------------
     console.log("\nPhase 7: Share Sheet Audit & Approved Cookie Transport Preservation");
-    {
+    if (scope === "all" || scope === "share") {
       const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
       const page = await context.newPage();
 
@@ -741,6 +742,7 @@ async function run() {
   } finally {
     await browser.close();
   }
+  }
 
   // ---------------------------------------------------------------------------
   // Summary & Classification
@@ -773,7 +775,6 @@ async function run() {
   }
 }
 
-run().catch((err) => {
-  console.error("Test execution fatal error:", err);
-  process.exit(2);
-});
+if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
+  runPrivacy().catch((err) => { console.error("Test execution fatal error:", err); process.exit(2); });
+}

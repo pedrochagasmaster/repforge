@@ -37,6 +37,8 @@ Use `node tools/capture-ui-screens.mjs --list-affected` to inspect the visual pl
 
 `tools/ci-plan.mjs` writes `.ci-results/ci-plan.json` before dependency installation. Feedback selects commands by ID from the central inventory; browser and visual jobs do not install Chromium when unselected. Candidate/main run fast, state, entry, workout, privacy, the applicable service gate, and full visual evidence. The exact plan, full logs, timings, preview logs and traces are retained as artifacts. `simulation` requires every candidate job; `simulation-feedback` accepts only properly skipped unselected jobs.
 
+The short simulation covers twelve deterministic weeks and the real save/domain lifecycle through Phase 1; the complete 52-week simulation remains candidate-tier. Privacy contracts are scheduled separately as pure catalogue/oracle, entry UI, offline service-worker, and share-flow checks. Accessibility remains an integrated candidate-tier sweep because its cross-surface focus and touch-target assertions do not yet have equivalent narrower owners. Strict persistence, stale-tab and recovery race tests remain intact.
+
 ## Failures and performance evidence
 
 Every script writes its command, initial result, duration and complete stdout /

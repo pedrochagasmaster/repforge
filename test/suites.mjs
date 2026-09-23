@@ -11,6 +11,7 @@ const s = (file, args = [], extra = {}) => {
 export const SUITES = {
   fast: [
     s("test/ci.mjs", [], {"nodeArgs": ["--test"]}),
+    s("test/privacy-contract.mjs", [], { domains: ["privacy"], cost: "tiny" }),
     s("test/generative/self-test.mjs", [], {"nodeArgs": ["--test"]}),
     s("test/shared-setup-unit.mjs"),
     s("test/program-day-names.mjs"),
@@ -61,6 +62,7 @@ export const SUITES = {
   ],
   state: [
     s("test/ci-browser.mjs"),
+    s("test/privacy-offline.mjs", [], { domains: ["privacy", "offline"], tier: "packet" }),
     s("test/program-entry-conflict-runtime.mjs"),
     s("test/sw-upgrade.mjs"),
     s("test/install-transfer-sw-upgrade.mjs"),
@@ -126,7 +128,8 @@ export const SUITES = {
     s("test/entry-expert-controls.mjs"),
     s("test/entry-install-policy.mjs"),
     s("test/entry-guides.mjs"),
-    s("test/entry-privacy.mjs"),
+    s("test/privacy-ui.mjs", [], { domains: ["entry", "settings", "privacy"] }),
+    s("test/privacy-share-flow.mjs", [], { domains: ["entry", "privacy"] }),
   ],
   workout: [
     s("test/i18n.mjs"),
@@ -170,6 +173,7 @@ export const SUITES = {
 };
 
 export const SUPPORT = {
+  "test/entry-privacy.mjs": "Shared privacy characterization/oracles imported by the four scoped contracts.",
   "test/suites.mjs": "CI/local inventory, imported by tools/run-tests.mjs.",
   "test/browser.mjs": "Shared Playwright launcher and boot helpers.",
   "test/browser-artifacts.mjs": "Diagnostic-only tracing, imported by browser.mjs.",
