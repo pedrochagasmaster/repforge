@@ -1,0 +1,242 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-20T00:00:00Z",
+  "title": "Design System: Taurifer",
+  "extensions": {
+    "colorMeta": {
+      "paper": {
+        "role": "neutral",
+        "displayName": "Warm Paper",
+        "canonical": "#F4F2EF",
+        "darkValue": "#141310",
+        "tonalRamp": ["#141310", "#1F1C18", "#332F29", "#4A453D", "#6E6A63", "#9A958C", "#D9D5CD", "#F4F2EF"]
+      },
+      "card-stock": {
+        "role": "neutral",
+        "displayName": "Card Stock",
+        "canonical": "#FFFFFF",
+        "darkValue": "#1E1C18",
+        "tonalRamp": ["#17150F", "#1E1C18", "#2E2B26", "#4A453D", "#8C877E", "#C7C2B9", "#EFEDE8", "#FFFFFF"]
+      },
+      "well": {
+        "role": "neutral",
+        "displayName": "Well",
+        "canonical": "#FAF8F5",
+        "darkValue": "#191713",
+        "tonalRamp": ["#191713", "#221F1A", "#35312A", "#4E483F", "#8F8A80", "#CAC5BC", "#F0EDE8", "#FAF8F5"]
+      },
+      "ink": {
+        "role": "neutral",
+        "displayName": "Ink",
+        "canonical": "#1B1A17",
+        "darkValue": "#F2EFE9",
+        "tonalRamp": ["#0D0C0A", "#1B1A17", "#2E2B26", "#4A453D", "#6E6A63", "#ADA79D", "#D9D5CD", "#F2EFE9"]
+      },
+      "ink-soft": {
+        "role": "neutral",
+        "displayName": "Soft Ink",
+        "canonical": "#6E6A63",
+        "darkValue": "#ADA79D",
+        "tonalRamp": ["#1B1A17", "#2E2B26", "#4A453D", "#6E6A63", "#8C877E", "#ADA79D", "#CFC9C0", "#EDEAE4"]
+      },
+      "ink-faint": {
+        "role": "neutral",
+        "displayName": "Faint Ink",
+        "canonical": "#716D66",
+        "darkValue": "#99938A",
+        "tonalRamp": ["#1D1B18", "#302D28", "#4C473F", "#716D66", "#918C83", "#B2ACA3", "#D2CDC5", "#EEEBE5"]
+      },
+      "hairline": {
+        "role": "neutral",
+        "displayName": "Hairline",
+        "canonical": "#E4E1DA",
+        "darkValue": "#2E2B26",
+        "tonalRamp": ["#1A1815", "#2E2B26", "#45403A", "#635E56", "#918C84", "#BEB9B1", "#E4E1DA", "#F6F4F0"]
+      },
+      "hairline-strong": {
+        "role": "neutral",
+        "displayName": "Hairline Strong",
+        "canonical": "#D9D5CD",
+        "darkValue": "#4A453D",
+        "tonalRamp": ["#1E1B17", "#33302A", "#4A453D", "#6A6459", "#968F84", "#BFB9AF", "#D9D5CD", "#F1EEE9"]
+      },
+      "forge-orange": {
+        "role": "primary",
+        "displayName": "Forge Orange",
+        "canonical": "#E04E14",
+        "darkValue": "#F2703B",
+        "tonalRamp": ["#2E0D02", "#521805", "#7A260A", "#A5350F", "#E04E14", "#F2703B", "#F9A177", "#FDDCCB"]
+      },
+      "forge-orange-deep": {
+        "role": "primary",
+        "displayName": "Forge Orange Deep",
+        "canonical": "#B8410E",
+        "darkValue": "#FF8A3D",
+        "tonalRamp": ["#260A01", "#451404", "#672008", "#8A2F0B", "#B8410E", "#DC5C22", "#F08C5C", "#FACDB6"]
+      },
+      "cta-black": {
+        "role": "secondary",
+        "displayName": "CTA Black",
+        "canonical": "#161513",
+        "darkValue": "#DED7CC",
+        "tonalRamp": ["#0A0908", "#161513", "#2B2823", "#453F38", "#6E675C", "#9C9488", "#C6BEB2", "#DED7CC"]
+      },
+      "positive": {
+        "role": "tertiary",
+        "displayName": "Positive",
+        "canonical": "#2F7D33",
+        "darkValue": "#63C267",
+        "tonalRamp": ["#0A2109", "#143D13", "#1F5A1F", "#2F7D33", "#45A149", "#63C267", "#96DA99", "#D2F1D3"]
+      },
+      "danger": {
+        "role": "tertiary",
+        "displayName": "Danger",
+        "canonical": "#C93A2B",
+        "darkValue": "#FF6670",
+        "tonalRamp": ["#2B0805", "#4D100B", "#731A12", "#9C271C", "#C93A2B", "#E85C55", "#FF6670", "#FFC9CC"]
+      }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "Page titles and h2. The only tier that carries negative tracking, and only at -0.02em." },
+      "title": { "displayName": "Title", "purpose": "The primary CTA label and card headings." },
+      "body": { "displayName": "Body", "purpose": "Prose, recommendations and list rows." },
+      "label": { "displayName": "Label", "purpose": "Eyebrows, card titles, section labels and chips. The one sanctioned use of uppercase." },
+      "numeric": { "displayName": "Numeric", "purpose": "Load, reps and RIR inputs in Plex Mono. 16px is an iOS zoom floor, not a style choice." }
+    },
+    "shadows": [
+      { "name": "dock-ambient", "value": "0 10px 30px rgba(27,26,23,.13), 0 2px 8px rgba(27,26,23,.07)", "purpose": "The floating navigation capsule's separation from the page beneath it." },
+      { "name": "dock-sheen", "value": "inset 0 1px 0 rgba(255,255,255,.7), inset 0 -1px 0 rgba(27,26,23,.05)", "purpose": "Top-edge highlight that makes the dock read as glass rather than a flat pill." },
+      { "name": "sheet-lift", "value": "0 -8px 40px rgba(0,0,0,.18)", "purpose": "A bottom sheet arriving over the page." },
+      { "name": "focus-ring", "value": "0 0 0 3px rgba(var(--accent-rgb),.12)", "purpose": "Focus indication on inputs and grouped fields. Not elevation — drawn with box-shadow so it follows the border radius." },
+      { "name": "focus-ring-control", "value": "0 0 0 3px rgba(var(--accent-rgb),.28)", "purpose": "The heavier focus ring on drawn checkbox and radio boxes, which need more against a small target." }
+    ],
+    "motion": [
+      { "name": "ease-emphasis", "value": "cubic-bezier(.2,.7,.2,1)", "purpose": "View entry (rise, 350ms) and sheet travel (260ms). The system's standard decelerating curve." },
+      { "name": "ease-overshoot", "value": "cubic-bezier(.2,1.3,.4,1)", "purpose": "A deliberate slight overshoot on small drawn marks — the checkbox tick scaling in from 0.2. Confined to control affordances, never layout." },
+      { "name": "press", "value": "transform .12s ease", "purpose": "Button press: translateY(1px) scale(.995) on buttons, scale(.93) on nav items." },
+      { "name": "state", "value": "background .2s ease, border-color .2s ease, filter .2s ease", "purpose": "Colour and border state changes on interactive surfaces." },
+      { "name": "reduced-motion", "value": "@media (prefers-reduced-motion:reduce)", "purpose": "Honoured in 19 places in CSS; the single runtime decision lives in motion-layer.js. Application code never re-implements it." }
+    ],
+    "breakpoints": [
+      { "name": "xs", "value": "340px" },
+      { "name": "sm", "value": "360px" },
+      { "name": "column-max", "value": "560px" },
+      { "name": "roomy", "value": "720px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary CTA",
+      "kind": "button",
+      "refersTo": "button-cta",
+      "description": "The single primary action on a surface. Full width, near-black, with a masked orange arrow at the right edge.",
+      "html": "<button class=\"ds-btn-cta\">Save workout</button>",
+      "css": ".ds-btn-cta { position: relative; display: inline-flex; align-items: center; justify-content: center; width: 100%; min-height: 54px; border: 0; border-radius: var(--radius, 14px); background: var(--cta, #161513); color: var(--cta-ink, #fff); font-family: var(--body, \"Plex Sans\", system-ui, sans-serif); font-size: 1.0625rem; font-weight: 600; padding: 13px 48px; cursor: pointer; transition: transform .12s ease, background .2s ease; } .ds-btn-cta::after { content: \"\"; position: absolute; right: 18px; top: 50%; transform: translateY(-50%); width: 22px; height: 22px; background: var(--accent, #E04E14); -webkit-mask: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12h15'/%3E%3Cpolyline points='13.2 6.2 19 12 13.2 17.8'/%3E%3C/svg%3E\") no-repeat center/contain; mask: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12h15'/%3E%3Cpolyline points='13.2 6.2 19 12 13.2 17.8'/%3E%3C/svg%3E\") no-repeat center/contain; } .ds-btn-cta:active { transform: translateY(1px) scale(.995); } .ds-btn-cta:focus-visible { outline: 2px solid var(--accent, #E04E14); outline-offset: 2px; } .ds-btn-cta:disabled { opacity: 1; background: var(--rule, #E4E1DA); color: var(--ink-soft, #6E6A63); cursor: default; } .ds-btn-cta:disabled::after { background: var(--ink-faint, #716D66); }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "The default button: card stock, hairline border, ink text.",
+      "html": "<button class=\"ds-btn\">Add exercise</button>",
+      "css": ".ds-btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--rule, #E4E1DA); border-radius: var(--radius, 14px); background: var(--surface, #fff); color: var(--ink, #1B1A17); font-family: var(--body, \"Plex Sans\", system-ui, sans-serif); font-size: .9375rem; font-weight: 600; padding: 13px 16px; cursor: pointer; transition: transform .12s ease, border-color .2s ease, background .2s ease; } .ds-btn:hover { border-color: var(--rule-strong, #D9D5CD); } .ds-btn:active { transform: translateY(1px) scale(.995); } .ds-btn:focus-visible { outline: 2px solid var(--accent, #E04E14); outline-offset: 2px; } .ds-btn:disabled { opacity: .4; cursor: default; }"
+    },
+    {
+      "name": "Ghost Button",
+      "kind": "button",
+      "refersTo": "button-ghost",
+      "description": "Tertiary action in a row. A pill with no fill.",
+      "html": "<button class=\"ds-btn-ghost\">Skip</button>",
+      "css": ".ds-btn-ghost { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; border: 1px solid var(--rule, #E4E1DA); border-radius: 999px; background: transparent; color: var(--ink, #1B1A17); font-family: var(--body, \"Plex Sans\", system-ui, sans-serif); font-size: .8125rem; font-weight: 600; padding: 8px 13px; cursor: pointer; transition: transform .12s ease, border-color .2s ease; } .ds-btn-ghost:hover { border-color: var(--rule-strong, #D9D5CD); } .ds-btn-ghost:active { transform: translateY(1px) scale(.995); } .ds-btn-ghost:focus-visible { outline: 2px solid var(--accent, #E04E14); outline-offset: 2px; }"
+    },
+    {
+      "name": "Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "A flat content surface. Hairline border, no shadow, 14px inset applied to children so a full-bleed child can reach the edge.",
+      "html": "<section class=\"ds-card\"><h3 class=\"ds-card__title\">Program</h3><p class=\"ds-card__body\">Upper A · 6 exercises · Week 3</p></section>",
+      "css": ".ds-card { background: var(--surface, #fff); border: 1px solid var(--rule, #E4E1DA); border-radius: var(--radius, 14px); box-shadow: none; padding: 0; overflow: hidden; font-family: var(--body, \"Plex Sans\", system-ui, sans-serif); } .ds-card__title { color: var(--ink-faint, #716D66); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; margin: 14px 14px 4px; } .ds-card__body { color: var(--ink, #1B1A17); font-size: .9375rem; line-height: 1.45; margin: 0 14px 14px; }"
+    },
+    {
+      "name": "Numeric Field",
+      "kind": "input",
+      "refersTo": "input-numeric",
+      "description": "The load/reps input: a hairline strip that focuses as one unit, with 44px step buttons flanking a centred tabular input.",
+      "html": "<div class=\"ds-kg\"><button class=\"ds-kg__step\" aria-label=\"Decrease\">−</button><input class=\"ds-kg__input\" type=\"text\" inputmode=\"decimal\" value=\"82.5\"><button class=\"ds-kg__step\" aria-label=\"Increase\">+</button></div>",
+      "css": ".ds-kg { display: flex; align-items: stretch; min-width: 0; background: var(--surface, #fff); border: 1px solid var(--rule, #E4E1DA); border-radius: 12px; overflow: hidden; font-family: var(--body, \"Plex Sans\", system-ui, sans-serif); } .ds-kg:focus-within { border-color: var(--accent, #E04E14); box-shadow: 0 0 0 3px rgba(var(--accent-rgb, 224,78,20), .12); } .ds-kg__input { flex: 1; min-width: 0; width: auto; border: 0; background: transparent; color: var(--ink, #1B1A17); text-align: center; font-family: var(--mono, \"Plex Mono\", ui-monospace, Menlo, monospace); font-size: 16px; font-weight: 500; font-variant-numeric: tabular-nums; min-height: 46px; padding: 12px 4px; } .ds-kg__input:focus { outline: none; box-shadow: none; } .ds-kg__step { flex: none; width: 44px; min-width: 44px; min-height: 44px; border: 0; background: var(--bg, #F4F2EF); color: var(--ink-soft, #6E6A63); font-size: 20px; line-height: 1; padding: 0; cursor: pointer; -webkit-user-select: none; user-select: none; } .ds-kg__step:hover { color: var(--ink, #1B1A17); } .ds-kg__step:focus-visible { outline: 2px solid var(--accent, #E04E14); outline-offset: -2px; }"
+    },
+    {
+      "name": "Dock Navigation",
+      "kind": "nav",
+      "refersTo": null,
+      "description": "The floating glass capsule. The only permanently elevated element in the system.",
+      "html": "<nav class=\"ds-nav\"><button class=\"ds-nav__btn ds-is-active\"><span class=\"ds-nav__icon\"></span>Log</button><button class=\"ds-nav__btn\"><span class=\"ds-nav__icon\"></span>Stats</button><button class=\"ds-nav__btn\"><span class=\"ds-nav__icon\"></span>History</button><button class=\"ds-nav__btn\"><span class=\"ds-nav__icon\"></span>Program</button></nav>",
+      "css": ".ds-nav { display: grid; grid-template-columns: repeat(4, 1fr); gap: 2px; padding: 6px; height: 62px; width: min(100%, 560px); border: 1px solid var(--dock-edge, rgba(27,26,23,.10)); border-radius: 31px; background: var(--dock-glass, rgba(250,248,245,.8)); backdrop-filter: blur(30px) saturate(180%); -webkit-backdrop-filter: blur(30px) saturate(180%); box-shadow: inset 0 1px 0 var(--dock-sheen, rgba(255,255,255,.7)), inset 0 -1px 0 rgba(27,26,23,.05), 0 10px 30px rgba(27,26,23,.13), 0 2px 8px rgba(27,26,23,.07); font-family: var(--body, \"Plex Sans\", system-ui, sans-serif); } .ds-nav__btn { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px; min-height: 44px; border: 0; border-radius: 25px; background: transparent; color: var(--ink-soft, #6E6A63); font-size: 11px; font-weight: 500; cursor: pointer; transition: color .2s ease, transform .18s ease; } .ds-nav__btn:active { transform: scale(.93); } .ds-nav__btn.ds-is-active { background: var(--dock-pill, rgba(255,255,255,.82)); color: var(--ink, #1B1A17); } .ds-nav__icon { width: 22px; height: 22px; background: currentColor; -webkit-mask: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1V10.5z'/%3E%3C/svg%3E\") no-repeat center/contain; mask: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 10.5L12 4l8 6.5V20a1 1 0 0 1-1 1h-4.5v-6h-5v6H5a1 1 0 0 1-1-1V10.5z'/%3E%3C/svg%3E\") no-repeat center/contain; } .ds-nav__btn.ds-is-active .ds-nav__icon { background: var(--accent, #E04E14); }"
+    },
+    {
+      "name": "Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "A label with a colour, not a capsule. No fill and no border.",
+      "html": "<span class=\"ds-chip\">Personal record</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; gap: 6px; color: var(--accent-deep, #B8410E); font-family: var(--body, \"Plex Sans\", system-ui, sans-serif); font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; }"
+    },
+    {
+      "name": "Set Row Save",
+      "kind": "custom",
+      "refersTo": null,
+      "description": "The signature control. Only the set being worked carries the word; queued sets hold the same button drawn as the check they will become; a completed set fills with the CTA colour.",
+      "html": "<div class=\"ds-setrow\"><button class=\"ds-saveset ds-is-next\"><span class=\"ds-saveset__label\">Save</span></button><button class=\"ds-saveset ds-is-queued\"><span class=\"ds-saveset__label\">Save</span></button><button class=\"ds-saveset ds-is-done\"><span class=\"ds-saveset__label\">Save</span></button></div>",
+      "css": ".ds-setrow { display: flex; gap: 8px; font-family: var(--body, \"Plex Sans\", system-ui, sans-serif); } .ds-saveset { position: relative; min-width: 44px; min-height: 46px; padding: 0 14px; border: 1px solid var(--rule, #E4E1DA); border-radius: 12px; background: var(--surface, #fff); color: var(--ink, #1B1A17); font-size: .8125rem; font-weight: 600; cursor: pointer; transition: background .2s ease, border-color .2s ease, color .2s ease; } .ds-saveset.ds-is-queued { border-color: transparent; background: transparent; } .ds-saveset.ds-is-queued .ds-saveset__label { visibility: hidden; } .ds-saveset.ds-is-queued::after { content: \"\"; position: absolute; inset: 0; background: var(--ink-faint, #716D66); -webkit-mask: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 12.5 9.5 18 20 6.5'/%3E%3C/svg%3E\") no-repeat center/15px; mask: url(\"data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 12.5 9.5 18 20 6.5'/%3E%3C/svg%3E\") no-repeat center/15px; } .ds-saveset.ds-is-done { border-color: transparent; background: var(--cta, #161513); color: var(--cta-ink, #fff); } .ds-saveset:focus-visible { outline: 2px solid var(--accent, #E04E14); outline-offset: 2px; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Training Ledger",
+    "overview": "Taurifer looks like a warm paper record book that happens to compute. The page is unbleached paper (#F4F2EF), the type is near-black ink, and figures sit in aligned columns with font-variant-numeric: tabular-nums set globally on body so a column of loads never shifts under its own digits. Content lives on white card stock bounded by a single hairline rule — never a shadow, never a second fill. One colour, a hot burnt orange, is the only mark the hand makes, and it appears where something is live or has changed. Everything else is paper, ink, and rules.\n\nThe system is dense but not cramped. It is built for one hand, standing, at a machine, between sets: a 560px maximum column, a 44px floor on every interactive target, and a floating capsule dock that keeps navigation under the thumb. It is unhurried in a specific way — transitions are 120–260ms, there is no ornament, and nothing animates to congratulate the reader. The product's personality is a quiet training partner, and the visual system's job is to stay out of the way of a number.\n\nDark is not a second design. It is the same system with the token values swapped under :root[data-theme=\"dark\"] — paper becomes #141310, ink becomes #F2EFE9, and the orange brightens to #F2703B to hold contrast against a dark ground. Any rule written here holds in both.",
+    "keyCharacteristics": [
+      "Warm unbleached paper, never pure white as the page",
+      "Hairline rules instead of shadows for every content boundary",
+      "One accent, used sparingly, to mean \"live\" or \"changed\"",
+      "Tabular figures everywhere numbers are compared",
+      "Flat at rest; only things that float free of the page are lifted",
+      "Mobile-only column, capped at 560px",
+      "44px minimum on every target, no exceptions"
+    ],
+    "rules": [
+      { "name": "The One Mark Rule", "body": "Forge Orange marks what is live or what changed — nothing else. If a screen has more than one orange element competing for attention, the screen is wrong, not the token. Its scarcity is what makes the active tab findable.", "section": "colors" },
+      { "name": "The Warm Paper Rule", "body": "The page ground is never pure white and the ink is never pure black. Both are warmed (#F4F2EF, #1B1A17). A surface that reads cold against its neighbours has picked the wrong token.", "section": "colors" },
+      { "name": "The Two-Ink Accent Rule", "body": "Orange as a mark and orange as text are different tokens. Anything that must be read at body size or smaller uses --accent-deep; anything that is a fill, ring, glyph or edge uses --accent. Never substitute one for the other to \"keep it consistent\" — they exist because the contrast maths differs.", "section": "colors" },
+      { "name": "The Channel Triplet Rule", "body": "Any translucent use of a theme colour reads its --*-rgb triplet (rgba(var(--accent-rgb),.12)), never a hardcoded rgba. This is what lets a theme swap carry the washes and focus rings with it.", "section": "colors" },
+      { "name": "The Tabular Figures Rule", "body": "font-variant-numeric: tabular-nums is set on body and must never be turned off on a surface that shows a series of measurements. A column of loads that reflows as digits change is a bug.", "section": "typography" },
+      { "name": "The Uppercase Label Rule", "body": "Uppercase is for the 11px/0.08em label tier only — eyebrows, card titles, chips, section labels. Never a sentence, never a button, never a heading.", "section": "typography" },
+      { "name": "The 16px Input Floor Rule", "body": "Any input a thumb will focus on iOS is at least 16px. Below that the browser zooms the page and the lifter loses their place in the set.", "section": "typography" },
+      { "name": "The Single Column Rule", "body": "There is one content column and it is 560px wide. Do not introduce a sidebar, a two-up grid of cards, or a desktop layout. Wider viewports get more margin, not more columns.", "section": "layout" },
+      { "name": "The Dock Reservation Rule", "body": "Anything fixed to the bottom of the screen positions itself from --nav. A hardcoded bottom offset will collide with the dock on some device.", "section": "layout" },
+      { "name": "The Flat Content Rule", "body": "A card, row, field, well or panel in the content column has no shadow. If it needs to separate from its surroundings, it gets a hairline or a different neutral — never a lift.", "section": "elevation" },
+      { "name": "The Floating Material Rule", "body": "Glass and shadow are reserved for elements that float over the page and are not part of it: the dock, sheets, toasts. Adding a third floating layer is a design decision, not a styling one.", "section": "elevation" },
+      { "name": "The No Nested Cards Rule", "body": "A bounded surface does not contain another bounded surface. Use a squared inner edge with the parent clipping, a --well ground, or a hairline. Never a second card.", "section": "shapes" },
+      { "name": "The Concentric Radius Rule", "body": "An element inside a rounded parent computes its radius from the parent's, minus the padding. Do not eyeball it.", "section": "shapes" }
+    ],
+    "dos": [
+      "Do name tokens, never raw colour values. Dark theme is a token swap under :root[data-theme=\"dark\"]; a hardcoded hex strands the rule in light mode.",
+      "Do use rgba(var(--accent-rgb), α) for any translucent accent, so the theme swap carries the wash with it.",
+      "Do use --accent-deep whenever the accent has to be read as text at body size or smaller, and --accent for fills, rings, glyphs and edges.",
+      "Do keep every interactive target at 44px minimum and every focusable input at 16px minimum font size.",
+      "Do separate surfaces with a hairline, a --well ground, or a squared inner edge under the parent's overflow: hidden.",
+      "Do position anything fixed to the bottom from --nav.",
+      "Do keep tabular figures on wherever a column of measurements is compared.",
+      "Do put motion through motion-layer.js, which owns the single reduced-motion decision."
+    ],
+    "donts": [
+      "Don't put a shadow on a content surface. Flat is the invariant; the dock and sheets are the only exceptions and they already exist.",
+      "Don't nest a bounded card inside another bounded card.",
+      "Don't add a second accent colour, or spend the orange on decoration. It means live or changed.",
+      "Don't use uppercase outside the 11px/0.08em label tier.",
+      "Don't apply negative tracking beyond the -0.02em on the display tier. Anything tighter costs legibility at this size.",
+      "Don't introduce a second column, a sidebar, or a desktop layout. Wider viewports get margin.",
+      "Don't add a score, streak, badge, points total, grade or celebration animation. The product records and computes; it does not congratulate. This is a product-level prohibition, not a stylistic preference.",
+      "Don't blanket-opacity a disabled control. The CTA's flat --rule/--ink-soft treatment exists because 40% opacity on near-black produced a mid-grey that read as enabled.",
+      "Don't judge copy length in English alone. Portuguese ships at full parity and is usually longer; labels are validated in PT-BR first."
+    ]
+  }
+}
