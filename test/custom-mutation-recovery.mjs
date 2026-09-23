@@ -110,6 +110,19 @@ async function installLocalOnlyFault(page) {
   });
 }
 
+async function installImmediateLocalOnlyFault(page) {
+  await page.evaluate(() => {
+    const io = window.RepForgeDurableState.storageIO;
+    const original = io.writeIdb;
+    let calls = 0;
+    io.writeIdb = snapshot => {
+      calls++;
+      if (calls === 1) return Promise.resolve(false);
+      return original.call(io, snapshot);
+    };
+  });
+}
+
 async function installIdbOnlyFault(page) {
   await page.evaluate(() => {
     const io = window.RepForgeDurableState.storageIO;
@@ -618,6 +631,286 @@ async function linkCustomToProgram(page, id) {
   }, id);
 }
 
+async function testDeleteRecoveryRestoresNewReference(page, otherPage) {
+  await reset(page);
+  const id = await seedCustomFixture(page, "Delete recovery reference winner");
+  await otherPage.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForApp(otherPage);
+  const staleProposal = await otherPage.evaluate(async () =>
+    (await window.__debugProgramEditor()).state);
+  await openCustomEdit(page, id);
+  await installImmediateLocalOnlyFault(page);
+  await page.evaluate(() => {
+    const durable = window.RepForgeDurableState;
+    const settle = durable.settleCustomExerciseMutation;
+    durable.settleCustomExerciseMutation = async options => {
+      window.__customDeleteRecoveryWaiting = true;
+      window.__customDeletePendingJournalId = options.pendingJournalId;
+      await new Promise(resolve => { window.__releaseCustomDeleteRecovery = resolve; });
+      durable.settleCustomExerciseMutation = settle;
+      window.__customDeleteRecoveryStarted = true;
+      const hooks = window.__repforgeDurableStateTestHooks ||= {};
+      hooks.durableSettlementLockHeld = async () => { window.__customDeleteRecoveryLockHeld = true; };
+      try {
+        const receipt = await settle(options);
+        if (typeof receipt?.pendingJournalId === "string")
+          window.__customDeletePendingJournalId = receipt.pendingJournalId;
+        window.__customDeleteRecoveryReceipt = receipt;
+        return receipt;
+      } catch (error) {
+        window.__customDeleteRecoveryError = String(error);
+        throw error;
+      }
+    };
+  });
+  await page.click("#exCustomDelete");
+  await page.waitForFunction(() => window.__customDeleteRecoveryWaiting === true,
+    undefined, { timeout: 5000 });
+  const partial = await readReplicas(page);
+  check(!partial.local?.customExercises?.some(entry => entry.id === id) &&
+      partial.idb?.customExercises?.some(entry => entry.id === id) === true,
+    "recovery fixture reaches a local-only Delete before the competing reference", {
+      localRevision: partial.local?._storageRevision, idbRevision: partial.idb?._storageRevision,
+      localDefined: partial.local?.customExercises?.some(entry => entry.id === id) === true,
+      idbDefined: partial.idb?.customExercises?.some(entry => entry.id === id) === true,
+    });
+  const originalDeleteJournal = await page.evaluate(() => {
+    const id = window.__customDeletePendingJournalId;
+    const raw = localStorage.getItem(`repforge_pending_v1:${id}`);
+    return { raw, journal: raw ? JSON.parse(raw) : null };
+  });
+
+  // Submit a real two-tab durable commit from the other tab's pre-Delete
+  // snapshot. The mandatory installed-editor regression separately proves
+  // the current UI producer now rejects this stale custom identity under lock.
+  const concurrent = await otherPage.evaluate(async ({ proposal, customId }) => {
+    const row = proposal.program?.[0];
+    if (!row) throw new Error("Delete recovery fixture needs a program row");
+    row.libraryId = customId;
+    row.movementId = "library:" + customId;
+    row.name = "Delete recovery reference winner";
+    const result = await window.__repforgeCommitProposedState(proposal);
+    return { committed: result?.committed, settled: result?.settled, revision: result?.revision, code: result?.code };
+  }, { proposal: staleProposal, customId: id });
+  const raced = await readReplicas(otherPage);
+  check(concurrent.committed === true && concurrent.settled === true &&
+      raced.local?.program?.some(row => row.libraryId === id) === true &&
+      raced.idb?.program?.some(row => row.libraryId === id) === true &&
+      !raced.local?.customExercises?.some(entry => entry.id === id) &&
+      !raced.idb?.customExercises?.some(entry => entry.id === id),
+    "a stale peer commit introduces the referenced identity after partial Delete", {
+      concurrent, localRevision: raced.local?._storageRevision, idbRevision: raced.idb?._storageRevision,
+      localReference: raced.local?.program?.some(row => row.libraryId === id) === true,
+      idbReference: raced.idb?.program?.some(row => row.libraryId === id) === true,
+      localDefined: raced.local?.customExercises?.some(entry => entry.id === id) === true,
+      idbDefined: raced.idb?.customExercises?.some(entry => entry.id === id) === true,
+    });
+
+  await page.evaluate(() => {
+    const io = window.RepForgeDurableState.storageIO;
+    const original = io.writeIdb;
+    let failed = false;
+    io.writeIdb = async snapshot => {
+      if (!failed) { failed = true; window.__customSemanticRecoveryIdbFailed = true; return false; }
+      return original.call(io, snapshot);
+    };
+    window.__restoreCustomSemanticRecoveryIO = () => { io.writeIdb = original; };
+  });
+  await page.evaluate(() => window.__releaseCustomDeleteRecovery());
+  try {
+    await page.waitForFunction(() => window.__customDeleteRecoveryReceipt !== undefined ||
+      window.__customDeleteRecoveryError, undefined, { timeout: 10000 });
+  } catch {}
+  const recoveryReceipt = await page.evaluate(() => ({
+    status: window.__customDeleteRecoveryReceipt?.status,
+    code: window.__customDeleteRecoveryReceipt?.code,
+    semanticRecovery: window.__customDeleteRecoveryReceipt?.semanticRecovery,
+    pendingJournalId: window.__customDeleteRecoveryReceipt?.pendingJournalId || null,
+    revision: window.__customDeleteRecoveryReceipt?.revision,
+    localOk: window.__customDeleteRecoveryReceipt?.localOk,
+    idbOk: window.__customDeleteRecoveryReceipt?.idbOk,
+    pendingJournalCleanup: window.__customDeleteRecoveryReceipt?.pendingJournalCleanup,
+    lockHeld: window.__customDeleteRecoveryLockHeld === true,
+    idbFaultInjected: window.__customSemanticRecoveryIdbFailed === true,
+    error: window.__customDeleteRecoveryError || null,
+  }));
+  check(recoveryReceipt.lockHeld && recoveryReceipt.status === "deferred" &&
+      recoveryReceipt.code === "custom_recovery_replica_write_failed" &&
+      recoveryReceipt.semanticRecovery !== true && recoveryReceipt.pendingJournalCleanup === true &&
+      typeof recoveryReceipt.pendingJournalId === "string" &&
+      recoveryReceipt.idbFaultInjected,
+    "an interrupted semantic recovery remains owned and does not claim Delete success",
+    recoveryReceipt);
+  const interrupted = await readReplicas(page);
+  const recoveryJournal = await page.evaluate(customId => {
+    const journalId = window.__customDeletePendingJournalId;
+    const key = `repforge_pending_v1:${journalId}`;
+    const raw = localStorage.getItem(key), value = JSON.parse(raw || "null");
+    return { key, raw, marker: value?.customMutationRecovery || null,
+      intent: value?.customMutationIntent || null,
+      proposalHasDefinition: value?.proposal?.customExercises?.some(entry => entry.id === customId) === true,
+      proposalHasReference: value?.proposal?.program?.some(row => row.libraryId === customId) === true };
+  }, id);
+  check(recoveryJournal.raw === originalDeleteJournal.raw && recoveryJournal.marker === null &&
+      recoveryJournal.intent?.version === 1 && recoveryJournal.intent?.operation === "delete" &&
+      recoveryJournal.intent?.id === id && recoveryJournal.intent?.entry?.id === id &&
+      !recoveryJournal.proposalHasDefinition && !recoveryJournal.proposalHasReference &&
+      interrupted.local?._storageRevision > interrupted.idb?._storageRevision &&
+      interrupted.local?.customExercises?.some(entry => entry.id === id) === true &&
+      interrupted.local?.program?.some(row => row.libraryId === id) === true &&
+      interrupted.idb?.customExercises?.some(entry => entry.id === id) !== true &&
+      interrupted.idb?.program?.some(row => row.libraryId === id) === true,
+    "the immutable Delete intent and its source definition remain owned while semantic recovery has healed only one replica", {
+      recoveryJournal, localRevision: interrupted.local?._storageRevision, idbRevision: interrupted.idb?._storageRevision,
+      localDefined: interrupted.local?.customExercises?.some(entry => entry.id === id) === true,
+      idbDefined: interrupted.idb?.customExercises?.some(entry => entry.id === id) === true,
+    });
+  await page.evaluate(() => window.__restoreCustomSemanticRecoveryIO?.());
+  await page.click("#exCustomRecoveryRetry");
+  await page.waitForFunction(() => document.querySelector("#exCustomSheet")?.dataset.phase === "editing" &&
+    document.querySelector("#exCustomDelete")?.dataset.i18n === "custom.archive", undefined, { timeout: 10000 });
+  const restored = await readReplicas(page);
+  const ui = await page.evaluate(() => ({
+    phase: document.querySelector("#exCustomSheet")?.dataset.phase,
+    action: document.querySelector("#exCustomDelete")?.dataset.i18n,
+    text: document.querySelector("#exCustomDelete")?.textContent?.trim(),
+    disabled: document.querySelector("#exCustomDelete")?.disabled,
+    inUseVisible: !document.querySelector("#exCustomInUse")?.classList.contains("hidden"),
+    toast: document.querySelector("#toast")?.textContent?.trim() || "",
+  }));
+  const safe = snapshot => snapshot?.customExercises?.some(entry => entry.id === id) === true &&
+    snapshot?.program?.some(row => row.libraryId === id) === true;
+  check(safe(restored.local) && safe(restored.idb) && ui.phase === "editing" &&
+      ui.action === "custom.archive" && ui.text === "Archive exercise" && !ui.disabled &&
+      ui.inUseVisible && ui.toast.includes("now in use") && !ui.toast.includes("Exercise deleted.") &&
+      !recoveryJournal.key.includes("undefined") &&
+      await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith("repforge_pending_v1:")).length === 0),
+    "retry heals the owner-validated definition, closes only its Delete journal, and requires explicit Archive", {
+      ui,
+      local: { revision: restored.local?._storageRevision, safe: safe(restored.local) },
+      idb: { revision: restored.idb?._storageRevision, safe: safe(restored.idb) },
+    });
+  check(restored.local?._storageRevision === restored.idb?._storageRevision,
+    "semantic Delete recovery advances one shared revision for the restored identity", {
+      local: restored.local?._storageRevision, idb: restored.idb?._storageRevision,
+    });
+
+  await page.click("#exCustomDelete");
+  await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 5000 });
+  const archived = await readReplicas(page);
+  check(archived.local?.customExercises?.some(entry => entry.id === id && entry.archived === true) &&
+      archived.idb?.customExercises?.some(entry => entry.id === id && entry.archived === true) &&
+      archived.local?.program?.some(row => row.libraryId === id) &&
+      archived.idb?.program?.some(row => row.libraryId === id),
+    "the explicit follow-up Archive retains the concurrent reference in both replicas", {
+      local: { revision: archived.local?._storageRevision, archived: archived.local?.customExercises?.find(entry => entry.id === id)?.archived },
+      idb: { revision: archived.idb?._storageRevision, archived: archived.idb?.customExercises?.find(entry => entry.id === id)?.archived },
+    });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  const reloaded = await readReplicas(page);
+  check(reloaded.local?.customExercises?.some(entry => entry.id === id && entry.archived === true) &&
+      reloaded.idb?.customExercises?.some(entry => entry.id === id && entry.archived === true) &&
+      reloaded.local?.program?.some(row => row.libraryId === id) &&
+      reloaded.idb?.program?.some(row => row.libraryId === id),
+    "reload preserves the explicitly archived custom identity after recovery", {
+      local: { revision: reloaded.local?._storageRevision, archived: reloaded.local?.customExercises?.find(entry => entry.id === id)?.archived },
+      idb: { revision: reloaded.idb?._storageRevision, archived: reloaded.idb?.customExercises?.find(entry => entry.id === id)?.archived },
+    });
+}
+
+async function testDeleteRecoveryPreservesPostPartialEdit(page, otherPage) {
+  await reset(page);
+  const id = await seedCustomFixture(page, "Delete recovery edit winner");
+  await otherPage.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForApp(otherPage);
+  const staleProposal = await otherPage.evaluate(async () =>
+    (await window.__debugProgramEditor()).state);
+  await openCustomEdit(page, id);
+  await installImmediateLocalOnlyFault(page);
+  await page.evaluate(() => {
+    const durable = window.RepForgeDurableState;
+    const settle = durable.settleCustomExerciseMutation;
+    durable.settleCustomExerciseMutation = async options => {
+      window.__customDeleteEditRecoveryWaiting = true;
+      await new Promise(resolve => { window.__releaseCustomDeleteEditRecovery = resolve; });
+      durable.settleCustomExerciseMutation = settle;
+      window.__repforgeDurableStateTestHooks ||= {};
+      window.__repforgeDurableStateTestHooks.durableSettlementLockHeld = async () => {
+        window.__customDeleteEditRecoveryLockHeld = true;
+      };
+      const receipt = await settle(options);
+      window.__customDeleteEditRecoveryReceipt = receipt;
+      return receipt;
+    };
+  });
+  await page.click("#exCustomDelete");
+  await page.waitForFunction(() => window.__customDeleteEditRecoveryWaiting === true,
+    undefined, { timeout: 5000 });
+
+  const definition = staleProposal.customExercises?.find(entry => entry.id === id);
+  if (!definition) throw new Error("Stale peer fixture lost its custom definition");
+  definition.name = "Another tab custom edit";
+  definition.namePt = definition.name;
+  definition.notes = "Committed after the partial Delete";
+  const concurrent = await otherPage.evaluate(async proposal => {
+    const result = await window.__repforgeCommitProposedState(proposal);
+    return { committed: result?.committed, settled: result?.settled, revision: result?.revision };
+  }, staleProposal);
+  const beforeRecovery = await readReplicas(otherPage);
+  check(concurrent.committed === true && concurrent.settled === true &&
+      beforeRecovery.local?.customExercises?.find(entry => entry.id === id)?.name === definition.name &&
+      beforeRecovery.idb?.customExercises?.find(entry => entry.id === id)?.name === definition.name,
+    "a newer custom definition lands after partial Delete while owner recovery is gated", {
+      concurrent,
+      localName: beforeRecovery.local?.customExercises?.find(entry => entry.id === id)?.name,
+      idbName: beforeRecovery.idb?.customExercises?.find(entry => entry.id === id)?.name,
+    });
+
+  await page.evaluate(() => window.__releaseCustomDeleteEditRecovery());
+  await page.waitForFunction(() => window.__customDeleteEditRecoveryReceipt !== undefined,
+    undefined, { timeout: 10000 });
+  const settled = await readReplicas(page);
+  const ui = await page.evaluate(() => ({
+    phase: document.querySelector("#exCustomSheet")?.dataset.phase,
+    action: document.querySelector("#exCustomDelete")?.dataset.i18n,
+    name: document.querySelector("#exCustomName")?.value,
+    toast: document.querySelector("#toast")?.textContent?.trim() || "",
+    lockHeld: window.__customDeleteEditRecoveryLockHeld === true,
+    receipt: {
+      status: window.__customDeleteEditRecoveryReceipt?.status,
+      code: window.__customDeleteEditRecoveryReceipt?.code,
+      semanticRecovery: window.__customDeleteEditRecoveryReceipt?.semanticRecovery,
+      committed: window.__customDeleteEditRecoveryReceipt?.committed,
+      pendingJournalCleanup: window.__customDeleteEditRecoveryReceipt?.pendingJournalCleanup,
+    },
+  }));
+  check(settled.local?.customExercises?.find(entry => entry.id === id)?.name === definition.name &&
+      settled.idb?.customExercises?.find(entry => entry.id === id)?.name === definition.name &&
+      ui.phase === "editing" && ui.action === "custom.delete" && ui.name === definition.name &&
+      ui.toast.includes("changed elsewhere") && !ui.toast.includes("Exercise deleted.") &&
+      ui.lockHeld && ui.receipt.status === "rejected" &&
+      ui.receipt.code === "custom_delete_changed_elsewhere" &&
+      ui.receipt.semanticRecovery === true && ui.receipt.committed === false &&
+      ui.receipt.pendingJournalCleanup !== true,
+    "recovery cancels its stale Delete journal and preserves the newer definition", {
+      ui,
+      localName: settled.local?.customExercises?.find(entry => entry.id === id)?.name,
+      idbName: settled.idb?.customExercises?.find(entry => entry.id === id)?.name,
+      pending: await page.evaluate(() => Object.keys(localStorage)
+        .filter(key => key.startsWith("repforge_pending_v1:")).length),
+    });
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  const reloaded = await readReplicas(page);
+  check(reloaded.local?.customExercises?.find(entry => entry.id === id)?.name === definition.name &&
+      reloaded.idb?.customExercises?.find(entry => entry.id === id)?.name === definition.name,
+    "reload cannot replay the canceled Delete over the newer custom definition", {
+      localName: reloaded.local?.customExercises?.find(entry => entry.id === id)?.name,
+      idbName: reloaded.idb?.customExercises?.find(entry => entry.id === id)?.name,
+    });
+}
+
 async function assertNoCompetingCustomAction(page, phase, calls) {
   await page.evaluate(() => {
     document.querySelector("#exCustomSave")?.click();
@@ -743,6 +1036,93 @@ async function testDestructiveOneReplicaRecovery(page, operation, successfulRepl
       ? reloadedLocal?.archived === true && reloadedIdb?.archived === true
       : reloadedLocal === null && reloadedIdb === null,
     `reloaded ${operation} remains exact in both replicas`, { reloadedLocal, reloadedIdb });
+}
+
+async function testArchiveRecoveryPreservesUnrelatedProgramEdit(page, otherPage) {
+  await reset(page);
+  const id = await seedCustomFixture(page, "Archive with concurrent program edit");
+  const linked = await linkCustomToProgram(page, id);
+  check(linked.committed === true && linked.settled === true,
+    "unrelated-edit Archive fixture has a valid custom program reference", linked);
+  await otherPage.goto(BASE, { waitUntil: "domcontentloaded" });
+  await waitForApp(otherPage);
+  await openCustomEdit(page, id);
+  await installTwoPhaseReplicaFault(page, "local");
+  await page.click("#exCustomDelete");
+  await page.waitForFunction(() => typeof window.__releaseInitialCustomWrite === "function",
+    undefined, { timeout: 5000 });
+  await page.evaluate(() => window.__releaseInitialCustomWrite());
+  await page.waitForFunction(() => typeof window.__releaseCustomRecoveryWrite === "function",
+    undefined, { timeout: 5000 });
+
+  const partial = await readReplicas(page);
+  check(partial.local?.customExercises?.find(entry => entry.id === id)?.archived === true &&
+      partial.idb?.customExercises?.find(entry => entry.id === id)?.archived !== true,
+    "Archive recovery pauses with only its owner replica updated", {
+      localArchived: partial.local?.customExercises?.find(entry => entry.id === id)?.archived,
+      idbArchived: partial.idb?.customExercises?.find(entry => entry.id === id)?.archived,
+    });
+  await otherPage.evaluate(() => {
+    const proposal = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    proposal.programMeta.name = "Program edit queued during Archive recovery";
+    window.__archiveUnrelatedEditStatus = { settled: false };
+    window.__archiveUnrelatedEditPromise = window.__repforgeCommitProposedState(proposal)
+      .then(result => {
+        window.__archiveUnrelatedEditStatus = { settled: true, committed: result?.committed,
+          status: result?.status, code: result?.code };
+        return result;
+      }, error => {
+        window.__archiveUnrelatedEditStatus = { settled: true, error: String(error) };
+        return null;
+      });
+  });
+  try {
+    await otherPage.waitForFunction(() => Object.keys(localStorage)
+      .filter(key => key.startsWith("repforge_pending_v1:")).length >= 2,
+    undefined, { timeout: 5000 });
+  } catch {}
+  const pending = await page.evaluate(() => ({
+    toast: document.querySelector("#toast")?.textContent?.trim() || "",
+    phase: document.querySelector("#exCustomSheet")?.dataset.phase,
+    journals: Object.keys(localStorage).filter(key => key.startsWith("repforge_pending_v1:")).length,
+  }));
+  const editStatus = await otherPage.evaluate(() => window.__archiveUnrelatedEditStatus);
+  check(pending.phase === "recovering" && (pending.journals >= 2 || editStatus?.settled === false) &&
+      !pending.toast.includes("Exercise archived."),
+    "a distinct program edit starts while Archive recovery owns settlement without early success",
+    { pending, editStatus });
+
+  await page.evaluate(() => window.__releaseCustomRecoveryWrite());
+  await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 10000 });
+  const concurrent = await otherPage.evaluate(async () => window.__archiveUnrelatedEditPromise);
+  const final = await readReplicas(page);
+  check(concurrent?.committed === true && concurrent?.settled === true &&
+      final.local?.programMeta?.name === "Program edit queued during Archive recovery" &&
+      final.idb?.programMeta?.name === "Program edit queued during Archive recovery" &&
+      final.local?.customExercises?.find(entry => entry.id === id)?.archived === true &&
+      final.idb?.customExercises?.find(entry => entry.id === id)?.archived === true &&
+      final.local?.program?.some(row => row.libraryId === id) &&
+      final.idb?.program?.some(row => row.libraryId === id),
+    "Archive recovery preserves both its archive and the newer unrelated program edit", {
+      concurrent: { committed: concurrent?.committed, settled: concurrent?.settled, revision: concurrent?.revision },
+      local: { name: final.local?.programMeta?.name, revision: final.local?._storageRevision,
+        archived: final.local?.customExercises?.find(entry => entry.id === id)?.archived },
+      idb: { name: final.idb?.programMeta?.name, revision: final.idb?._storageRevision,
+        archived: final.idb?.customExercises?.find(entry => entry.id === id)?.archived },
+    });
+  check(await page.locator("#toast").textContent().then(value => value.includes("Exercise archived.")),
+    "settled Archive announces its success after the unrelated write survives");
+  await page.reload({ waitUntil: "domcontentloaded" });
+  await waitForApp(page);
+  const reloaded = await readReplicas(page);
+  check(reloaded.local?.programMeta?.name === "Program edit queued during Archive recovery" &&
+      reloaded.idb?.programMeta?.name === "Program edit queued during Archive recovery" &&
+      reloaded.local?.customExercises?.find(entry => entry.id === id)?.archived === true &&
+      reloaded.idb?.customExercises?.find(entry => entry.id === id)?.archived === true,
+    "reload preserves unrelated edits alongside Archive recovery", {
+      local: { name: reloaded.local?.programMeta?.name, archived: reloaded.local?.customExercises?.find(entry => entry.id === id)?.archived },
+      idb: { name: reloaded.idb?.programMeta?.name, archived: reloaded.idb?.customExercises?.find(entry => entry.id === id)?.archived },
+    });
 }
 
 async function testArchiveNormalAndHistoryOnly(page) {
@@ -975,10 +1355,13 @@ async function main() {
     await testCreateWaitsForDeferredJournalCleanup(page);
     await testEditOneReplicaRecovery(page, "local");
     await testEditOneReplicaRecovery(page, "idb");
+    await testDeleteRecoveryRestoresNewReference(page, otherPage);
+    await testDeleteRecoveryPreservesPostPartialEdit(page, otherPage);
     await testDestructiveOneReplicaRecovery(page, "delete", "local");
     await testDestructiveOneReplicaRecovery(page, "delete", "idb", "pt");
     await testDestructiveOneReplicaRecovery(page, "archive", "local");
     await testDestructiveOneReplicaRecovery(page, "archive", "idb", "pt");
+    await testArchiveRecoveryPreservesUnrelatedProgramEdit(page, otherPage);
     await testArchiveNormalAndHistoryOnly(page);
     await testProgramHistoryOnlyArchive(page);
     await testCrossTabStaleEditAndDeleteBecomesArchive(page, otherPage);

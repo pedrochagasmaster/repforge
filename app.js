@@ -2657,7 +2657,9 @@ async function deleteCustomExercise(id,io=storageIO,{action=null,expectedEntry=n
     if(operation==="delete"&&customExerciseInUse(id,head))
       return{reject:true,result:{conflict:true,code:"custom-exercise-became-used"}};
     return{proposal:customExerciseRemoveOrArchive(head,id,operation)}};
-  const result=await commitProposedState(proposal,io,{preflight});
+  const result=await commitProposedState(proposal,io,{preflight,
+    customMutationIntent:operation==="delete"
+      ?{version:1,operation:"delete",id,entry:source}:null});
   return result?Object.assign(result,{archived:operation==="archive",operation}):result}
 function programAdherence(asOf=today()){const totalDays=prog.days().length;if(!totalDays)return{logged:0,total:0,ratio:0};
   // Inclusive rolling [asOf-6, asOf] — distinct planned days; future rows excluded.
@@ -9150,6 +9152,8 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     if(check&&document.program?.some(item=>item.id===edit.targetId))return{conflict:true};
     if(edit.targetDay&&!editorDocumentDays(document).includes(edit.targetDay))return{conflict:true};
     if(edit.exercise){
+      if(!editorHasCustomDefinition(document,edit.exercise.libraryId))
+        return{conflict:true,code:"missing_custom_definition"};
       document.program=(document.program||[]).concat(cloneSnapshot(edit.exercise));
       syncProgramStructureFromProgram(document,makeProgram(document.program,snapshotLookup(document.customExercises),document.programMeta));
     }
@@ -9160,12 +9164,17 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     if(!existing)return{conflict:true};
     if(check&&edit.beforeLibraryId!==undefined&&existing.libraryId!==edit.beforeLibraryId)return{conflict:true};
     if(edit.customExercise){
+      if(!isCustomLibraryId(edit.customExercise.id)||edit.exercise?.libraryId!==edit.customExercise.id)
+        return{conflict:true,code:"invalid_staged_custom_definition"};
       const customExercises=Array.isArray(document.customExercises)?document.customExercises:[];
       const current=customExercises.find(item=>item?.id===edit.customExercise.id);
       if(current&&!changeValueEqualForEditor(current,edit.customExercise))return{conflict:true};
       if(!current)document.customExercises=customExercises.concat(cloneSnapshot(edit.customExercise));
     }
-    if(edit.exercise)Object.assign(existing,cloneSnapshot(edit.exercise));
+    if(edit.exercise){
+      if(!editorHasCustomDefinition(document,edit.exercise.libraryId))
+        return{conflict:true,code:"missing_custom_definition"};
+      Object.assign(existing,cloneSnapshot(edit.exercise))}
     return{ok:true};
   }
   if(kind==="exercise_remove"){
@@ -9184,9 +9193,14 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
   return{ok:true};
 }
 function changeValueEqualForEditor(a,b){return JSON.stringify(canonicalize(a))===JSON.stringify(canonicalize(b))}
+// Legacy snapshots remain readable, so custom-link integrity is enforced at
+// the editor mutation boundary that creates or changes a program reference.
+function editorHasCustomDefinition(document,id){
+  return !isCustomLibraryId(id)||(document?.customExercises||[]).some(entry=>entry?.id===id)}
 function editorRebaseDocument(session,head){
   const rebased=editorDocumentFromSnapshot(head),edits=session?.edits||[];
-  for(const edit of edits){const result=applyInstalledEditorIntent(rebased,edit);if(result?.conflict)return{conflict:true};}
+  for(const edit of edits){const result=applyInstalledEditorIntent(rebased,edit);
+    if(result?.conflict)return{conflict:true,code:result.code||"editor_intent_conflict"};}
   return{document:rebased,conflict:false}}
 function installedEditorImpact(document,base=state,edits=[]){
   const current=editorDocumentFromSnapshot(base),next=editorDocumentFromSnapshot(document);
@@ -9249,7 +9263,8 @@ function createInstalledProgramEditorAdapter(){
       if(expectedToken?.blockId!==headToken.blockId)
         return{ok:false,conflict:true,editorConflict:true,staleBlock:true};
       if(!editorTokenEqual(expectedToken,headToken)){
-        const rebased=editorRebaseDocument({edits},head);if(rebased.conflict)return{ok:false,conflict:true,editorConflict:true};
+        const rebased=editorRebaseDocument({edits},head);
+        if(rebased.conflict)return{ok:false,conflict:true,editorConflict:true,code:rebased.code};
         document=rebased.document}
       const impact=installedEditorImpact(document,head,edits);
       if(impact.active&&impact.incompatible&&intent.kind!=="apply_discard_workout")
@@ -9270,7 +9285,7 @@ function createInstalledProgramEditorAdapter(){
           if(!editorTokenEqual(headToken,lockedToken)){
             const rebased=editorRebaseDocument({edits},lockedHead);
             if(rebased.conflict)
-              return{reject:true,result:{ok:false,conflict:true,editorConflict:true}};
+              return{reject:true,result:{ok:false,conflict:true,editorConflict:true,code:rebased.code}};
             document=rebased.document;
           }
           const lockedImpact=installedEditorImpact(document,lockedHead,edits);
@@ -11030,7 +11045,7 @@ function customExerciseMutationNeedsRecovery(result){
     result?.pendingJournalCleanup===true}
 function customExerciseMutationMatches(snapshot,mutation){
   const current=customExercises(snapshot).find(value=>value.id===mutation.id)||null;
-  if(mutation.operation==="delete")return current===null;
+  if(mutation.operation==="delete")return current===null&&!customExerciseInUse(mutation.id,snapshot);
   if(!current)return false;
   if(mutation.operation==="archive"){
     if(current.archived!==true)return false;
@@ -11038,6 +11053,81 @@ function customExerciseMutationMatches(snapshot,mutation){
     delete expected.archived;delete actual.archived;
     return customExerciseStateEqual(actual,expected)}
   return customExerciseStateEqual(current,mutation.entry)}
+function resolveCustomMutationIntent({head,journal}){
+  const intent=journal?.customMutationIntent;
+  if(intent?.version!==1||intent.operation!=="delete"||!isCustomLibraryId(intent.id)||
+    intent.entry?.id!==intent.id)return{ok:false,code:"custom_mutation_intent_invalid"};
+  const id=intent.id,source=normalizeCustomExercises([intent.entry])[0];
+  if(!source||source.id!==id)return{ok:false,code:"custom_mutation_intent_invalid"};
+  const current=customExercises(head).find(value=>value.id===id)||null;
+  const referenced=customExerciseInUse(id,head);
+  let snapshot=cloneSnapshot(head),mode="delete";
+  if(referenced){
+    mode="preserve-used";
+    if(!current)snapshot=customExerciseUpsert(snapshot,source);
+  }else if(current&&!customExerciseStateEqual(current,source)){
+    // A concurrent edit owns the newer definition. The older Delete intent
+    // must not erase it, even when the ID has not gained a reference.
+    mode="preserve-changed";
+  }else if(current){
+    snapshot=customExerciseRemoveOrArchive(snapshot,id,"delete");
+  }
+  const expected=current&&!referenced&&!customExerciseStateEqual(current,source)
+    ?cloneSnapshot(current):null;
+  return{ok:true,snapshot,
+    code:mode==="preserve-used"?"custom_delete_became_used":
+      mode==="preserve-changed"?"custom_delete_changed_elsewhere":null,
+    verify:value=>{
+      const actual=customExercises(value).find(entry=>entry.id===id)||null;
+      if(mode==="preserve-used")return actual
+        ?{ok:true}:{ok:false,code:"custom_delete_definition_missing"};
+      if(mode==="preserve-changed")return customExerciseStateEqual(actual,expected)
+        ?{ok:true}:{ok:false,code:"custom_delete_newer_definition_changed"};
+      return!actual&&!customExerciseInUse(id,value)
+        ?{ok:true}:{ok:false,code:"custom_delete_not_safe"};
+    }}
+}
+function customExerciseDeleteRecovery({snapshot,journal,mutation,stage}){
+  if(mutation.operation!=="delete")return null;
+  const marker=journal?.customMutationRecovery;
+  if(stage==="journal")
+    return marker?.operation==="delete"&&marker.id===mutation.id?{owned:true}:null;
+  const referenced=customExerciseInUse(mutation.id,snapshot);
+  const current=customExercises(snapshot).find(value=>value.id===mutation.id)||null;
+  if(!referenced&&!current&&marker?.id!==mutation.id)return null;
+  const entry=current||normalizeCustomExercises([mutation.entry])[0];
+  if(!entry||entry.id!==mutation.id)return null;
+  const candidate=current?snapshot:customExerciseUpsert(snapshot,entry);
+  return{
+    snapshot:candidate,
+    code:referenced?"custom_delete_became_used":"custom_delete_changed_elsewhere",
+    journalMarker:{version:1,operation:"delete",id:mutation.id},
+    verify:value=>({ok:customExercises(value).some(item=>item.id===mutation.id)})
+  }}
+function returnCustomDeleteToEditing(active,mutation,snapshot,code){
+  const entry=customExercises(snapshot).find(value=>value.id===mutation.id);
+  if(!entry)return false;
+  const inUse=customExerciseInUse(mutation.id,snapshot);
+  active.sourceEntry=cloneSnapshot(entry);
+  active.equipment=new Set(entry.equipment||[]);
+  active.primary=new Set(String(entry.primary||"").split(",").filter(Boolean));
+  active.secondary=new Set(String(entry.secondary||"").split(",").filter(Boolean));
+  active.deleteAction=inUse?"custom.archive":"custom.delete";
+  active.deleteOperation=inUse?"archive":"delete";
+  active.mutationOperation=null;
+  active.mutationId=null;
+  active.pendingMutation=null;
+  active.recoveryAttempt=false;
+  active.recoveryNeedsAction=false;
+  active.recoveryStatusKey=null;
+  const name=$("#exCustomName");if(name)name.value=entry.name||"";
+  const notes=$("#exCustomNotes");if(notes)notes.value=entry.notes||"";
+  renderCustomChips();
+  $("#exCustomInUse")?.classList.toggle("hidden",!inUse);
+  setCustomExercisePhase(active,"editing");
+  if(inUse)toast(t("toast.custom_became_used"));
+  else if(code==="custom_delete_changed_elsewhere")toast(t("toast.custom_changed"));
+  return true}
 async function recoverCustomExerciseMutation(active,mutation){
   if(customState!==active)return false;
   active.pendingMutation=mutation;
@@ -11049,10 +11139,17 @@ async function recoverCustomExerciseMutation(active,mutation){
   try{receipt=await DurableState.settleCustomExerciseMutation({
     pendingJournalId:mutation.pendingJournalId,
     verify:({snapshot})=>customExerciseMutationMatches(snapshot,mutation)
-      ?{ok:true}:{ok:false,code:"custom_settlement_mismatch"}
+      ?{ok:true}
+      :{ok:false,code:mutation.operation==="delete"&&customExerciseInUse(mutation.id,snapshot)
+        ?"custom_delete_became_used":"custom_settlement_mismatch"},
+    recover:context=>customExerciseDeleteRecovery({...context,mutation})
   })}catch{}
   if(customState!==active)return false;
+  if(typeof receipt?.pendingJournalId==="string")mutation.pendingJournalId=receipt.pendingJournalId;
   if(customExerciseMutationSucceeded(receipt))return true;
+  if(receipt?.semanticRecovery===true&&
+    (receipt.code==="custom_delete_became_used"||receipt.code==="custom_delete_changed_elsewhere")&&
+    returnCustomDeleteToEditing(active,mutation,receipt.head,receipt.code))return false;
   active.recoveryAttempt=false;active.recoveryNeedsAction=true;
   active.recoveryStatusKey="custom.recovery.unresolved";
   setCustomExercisePhase(active,"recovering");
@@ -16350,6 +16447,7 @@ if(DurableState){
     readSetupDraftRaw,
     rebaseStateChange,
     rebaseSharedSetupSnapshot,
+    resolveCustomMutationIntent,
     applyAcceptedSnapshot,
     normalizeRecoveryCarrierSnapshot,
     blockStartDraftGuard,

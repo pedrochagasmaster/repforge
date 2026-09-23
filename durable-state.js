@@ -1281,6 +1281,18 @@
     catch{}
     return[...new Set(keys)]}
 
+    function normalizeCustomMutationRecovery(value){
+    if(!value||value.version!==1||value.operation!=="delete"||
+      typeof value.id!=="string"||!value.id.startsWith("custom:"))return null;
+    return{version:1,operation:"delete",id:value.id}}
+
+    function normalizeCustomMutationIntent(value){
+    if(!value||value.version!==1||value.operation!=="delete"||
+      typeof value.id!=="string"||!value.id.startsWith("custom:")||
+      !isValidStateShape({program:[],log:[],customExercises:[value.entry]})||
+      value.entry.id!==value.id)return null;
+    return{version:1,operation:"delete",id:value.id,entry:cloneSnapshot(value.entry)}}
+
     function decodePendingJournal(key,raw){
     try{
       const journal=JSON.parse(raw);
@@ -1295,6 +1307,14 @@
       const recoveryTransactionPresent=Object.prototype.hasOwnProperty.call(journal,"recoveryTransaction");
       if(journal.recoveryTransaction!=null&&typeof journal.recoveryTransaction!=="boolean")return null;
       const recoveryTransaction=journal.recoveryTransaction===true;
+      let customMutationRecovery=null;
+      if(Object.prototype.hasOwnProperty.call(journal,"customMutationRecovery")){
+        customMutationRecovery=normalizeCustomMutationRecovery(journal.customMutationRecovery);
+        if(!customMutationRecovery)return null}
+      let customMutationIntent=null;
+      if(Object.prototype.hasOwnProperty.call(journal,"customMutationIntent")){
+        customMutationIntent=normalizeCustomMutationIntent(journal.customMutationIntent);
+        if(!customMutationIntent)return null}
       const transitionPayloadMalformed=rawTransitionMetadataMalformed(journal.proposal);
       const expectedProgramFingerprint=typeof journal.expectedProgramFingerprint==="string"&&
         journal.expectedProgramFingerprint.length<=PENDING_EFFECT_MAX_RAW?journal.expectedProgramFingerprint:null;
@@ -1325,6 +1345,7 @@
         expectedProgramFingerprint,expectedBlockId,expectedStorageRevision,
         expectedFirstRunEmpty:journal.expectedFirstRunEmpty===true,reconcileSessionIds,dayRenames,
         effectOutcome,effect:effectOutcome.effect,recoveryTransaction,recoveryTransactionPresent,
+        customMutationRecovery,customMutationIntent,
         transitionPayloadMalformed,rollback}}}
     catch{return null}}
 
@@ -1351,6 +1372,20 @@
       return localStorage.getItem(record.key)!==record.raw}
     catch{return false}}
 
+    function rewritePendingJournalProposal(record,snapshot,recovery){
+    if(!record||!isValidStateShape(snapshot)||!recovery||
+      recovery.version!==1||recovery.operation!=="delete"||
+      typeof recovery.id!=="string"||!recovery.id.startsWith("custom:"))return null;
+    try{
+      if(localStorage.getItem(record.key)!==record.raw)return null;
+      const journal=JSON.parse(record.raw);
+      journal.proposal=unversionedSnapshot(snapshot);
+      journal.customMutationRecovery={version:1,operation:"delete",id:recovery.id};
+      const raw=JSON.stringify(journal);
+      localStorage.setItem(record.key,raw);
+      return decodePendingJournal(record.key,raw)}
+    catch{return null}}
+
     function clearPendingJournalById(id){
     if(typeof id!=="string"||!id)return;
     const key=PENDING_PREFIX+id;
@@ -1367,7 +1402,12 @@
 
     function writePendingJournal(base,liveBase,proposal,{replace=false,expectedProgramId=null,
     expectedProgramFingerprint=null,expectedBlockId=undefined,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
-    reconcileSessionIds=[],dayRenames=[],effectOutcome=null,recoveryTransaction=false}={}){
+    reconcileSessionIds=[],dayRenames=[],effectOutcome=null,recoveryTransaction=false,
+    customMutationRecovery=null,customMutationIntent=null}={}){
+    const recoveryMarker=customMutationRecovery==null?null:normalizeCustomMutationRecovery(customMutationRecovery);
+    if(customMutationRecovery!=null&&!recoveryMarker)return null;
+    const mutationIntent=customMutationIntent==null?null:normalizeCustomMutationIntent(customMutationIntent);
+    if(customMutationIntent!=null&&!mutationIntent)return null;
     const id=pendingJournalUuid(),key=PENDING_PREFIX+id;
     const journal={version:2,id,order:pendingJournalOrder(),base:unversionedSnapshot(base),liveBase:unversionedSnapshot(liveBase),
       proposal:unversionedSnapshot(proposal),replace:!!replace,expectedProgramId:expectedProgramId||null};
@@ -1382,6 +1422,8 @@
     // recovery crash protocol without inferring ownership from a carrier delta
     // that could belong to another state-changing workflow.
     if(recoveryTransaction)journal.recoveryTransaction=true;
+    if(recoveryMarker)journal.customMutationRecovery=recoveryMarker;
+    if(mutationIntent)journal.customMutationIntent=mutationIntent;
     const outcome=normalizeDraftEffectOutcome(effectOutcome);
     if(outcome.status===DRAFT_EFFECT_VALID)journal.effect=outcome.effect;
     const raw=JSON.stringify(journal);
@@ -1479,7 +1521,8 @@
 
     async function executeDraftTransaction({record=null,transactionId=record?.journal?.id||null,effect=null,
     prepared=null,snapshot=null,io=null,writePrepared=true,preparedResult=null,
-    retainRecordOnWriteFailure=false,discard=false,forceFinalization=false}={}){
+    retainRecordOnWriteFailure=false,retainRecordOnReplicaPartial=false,
+    discard=false,forceFinalization=false}={}){
     const effectOutcome=normalizeDraftEffectOutcome(effect);
     const transaction=prepared&&pendingDraftTransaction(prepared);
     const id=transaction?.id||transactionId;
@@ -1512,6 +1555,9 @@
     let result=preparedResult;
     if(writePrepared){
       result=await writeSnapshot(prepared,io);
+      if(retainRecordOnReplicaPartial&&(result.localOk===true)!==(result.idbOk===true))
+        return{kind:"write-partial-retained",accepted:false,rejected:false,settled:false,
+          snapshot:prepared,result};
       if(!(result.localOk||result.idbOk)){
         let closed=null;
         if(retainRecordOnWriteFailure){
@@ -1559,7 +1605,8 @@
     function enqueueStateChangeRaw(base,proposal,io,{replace=false,liveBase=base,expectedProgramId=null,
     expectedProgramFingerprint=null,expectedBlockId=undefined,expectedStorageRevision=undefined,expectedFirstRunEmpty=false,
     expectedSetupDraftRaw=undefined,
-    reconcileSessionIds=[],dayRenames=[],effect=null,preflight=null,recoveryTransaction=false}={}){
+    reconcileSessionIds=[],dayRenames=[],effect=null,preflight=null,recoveryTransaction=false,
+    customMutationIntent=null}={}){
     requireAdapter(io,"enqueueStateChange");
     if(io===storageIO&&installTransferMutationFrozen())
       return Promise.resolve({revision:readRevision(base),localOk:false,idbOk:false,conflict:true,transferFrozen:true,code:"install-transfer-frozen"});
@@ -1585,7 +1632,7 @@
           expectedStorageRevision,
           expectedFirstRunEmpty,
           reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
-          effectOutcome:frozenEffectOutcome,recoveryTransaction})
+          effectOutcome:frozenEffectOutcome,recoveryTransaction,customMutationIntent})
       :null;
     if(io===storageIO&&!pendingRecord){
       const failed={revision:readRevision(frozenBase),localOk:false,idbOk:false,journalFailed:true};
@@ -1638,7 +1685,7 @@
           workingProposal=cloneSnapshot(checked.proposal);
           // Keep crash recovery pointed at the proposal that survived the
           // lock-held semantic rebase, not the stale copy written before it.
-          if(pendingRecord){
+          if(pendingRecord&&!pendingRecord.journal.customMutationIntent){
             try{
               const journal=JSON.parse(pendingRecord.raw);
               journal.proposal=unversionedSnapshot(workingProposal);
@@ -1679,6 +1726,7 @@
       if(io===storageIO&&installTransferMutationFrozen())return cancelUnstarted();
       const execution=await executeDraftTransaction({record:pendingRecord,transactionId,
         effect:frozenEffectOutcome,prepared,snapshot,io,writePrepared:true,
+        retainRecordOnReplicaPartial:!!pendingRecord?.journal.customMutationIntent,
         forceFinalization:recoveryTransaction});
       if(execution.kind==="close-failed")
         return{revision:readRevision(head),localOk:false,idbOk:false,draftConflict:true,closeFailed:true,
@@ -1688,6 +1736,8 @@
           pendingJournalCleanup:execution.settled!==true,pendingJournalId:coordinationId};
       if(execution.kind==="write-failed")return Object.assign({},execution.result,
         {pendingJournalCleanup:execution.settled!==true,pendingJournalId:coordinationId});
+      if(execution.kind==="write-partial-retained")return Object.assign({},execution.result,
+        {pendingJournalCleanup:true,pendingJournalId:coordinationId,customMutationPending:true});
       if(execution.kind==="rejected"||execution.kind==="compensated"){
         if(execution.settled&&execution.snapshot){
           persistHead=cloneSnapshot(execution.snapshot);
@@ -1784,6 +1834,60 @@
       for(const invalid of pending.invalid)clearPendingJournal(invalid);
       for(const record of pending.entries){
         const journal=record.journal;
+        if(journal.customMutationIntent){
+          const resolveIntent=host?.resolveCustomMutationIntent;
+          if(typeof resolveIntent!=="function")
+            return{kind:"unresolved",reason:"custom-mutation-recovery-unavailable",
+              local:readLocalStatus(),idb:await readIdbStatus()};
+          let resolution;
+          try{resolution=await resolveIntent({head:cloneSnapshot(head||journal.base),journal:cloneSnapshot(journal)})}
+          catch{resolution=null}
+          if(!resolution?.ok||!resolution.snapshot||typeof resolution.verify!=="function")
+            return{kind:"unresolved",reason:"custom-mutation-intent-invalid",
+              local:readLocalStatus(),idb:await readIdbStatus()};
+          let candidate=cloneSnapshot(resolution.snapshot);
+          if(!isValidStateShape(candidate)||pendingDraftTransaction(candidate))
+            return{kind:"unresolved",reason:"custom-mutation-candidate-invalid",
+              local:readLocalStatus(),idb:await readIdbStatus()};
+          if(!storageSnapshotsEqual(candidate,head)){
+            const revision=readRevision(head);
+            if(revision>=Number.MAX_SAFE_INTEGER)
+              return{kind:"unresolved",reason:"custom-mutation-revision-exhausted",
+                local:readLocalStatus(),idb:await readIdbStatus()};
+            candidate[STORAGE_REV]=revision+1;
+          }
+          let safe;
+          try{safe=await resolution.verify(cloneSnapshot(candidate))}catch{safe=null}
+          if(!safe?.ok)
+            return{kind:"unresolved",reason:safe?.code||"custom-mutation-candidate-unsafe",
+              local:readLocalStatus(),idb:await readIdbStatus()};
+          let localNow=readLocalStatus(),idbNow=await readIdbStatus();
+          const bothMatch=localNow.status==="valid"&&idbNow.status==="valid"&&
+            storageSnapshotsEqual(localNow.parsed,candidate)&&storageSnapshotsEqual(idbNow.parsed,candidate);
+          if(!bothMatch){
+            const written=await writeSnapshot(candidate,storageIO);
+            localNow=readLocalStatus();idbNow=await readIdbStatus();
+            const replicasMatch=localNow.status==="valid"&&idbNow.status==="valid"&&
+              storageSnapshotsEqual(localNow.parsed,candidate)&&storageSnapshotsEqual(idbNow.parsed,candidate);
+            let postWriteSafe=null;
+            if(replicasMatch){try{postWriteSafe=await resolution.verify(cloneSnapshot(localNow.parsed))}catch{}}
+            if(!written.localOk||!written.idbOk||!replicasMatch||!postWriteSafe?.ok)
+              return{kind:"unresolved",reason:"custom-mutation-recovery-write-failed",
+                local:localNow,idb:idbNow};
+          }
+          const currentRecord=readPendingJournal().entries.find(item=>item.journal.id===journal.id);
+          if(!currentRecord||currentRecord.raw!==record.raw)
+            return{kind:"unresolved",reason:"custom-mutation-journal-changed",
+              local:readLocalStatus(),idb:await readIdbStatus()};
+          const closed=await executeDraftTransaction({record:currentRecord,
+            transactionId:journal.id,effect:journal.effectOutcome,discard:true});
+          if(!closed.settled)
+            return{kind:"unresolved",reason:"custom-mutation-journal-pending",
+              local:readLocalStatus(),idb:await readIdbStatus()};
+          head=candidate;
+          replayed=true;
+          continue;
+        }
         if(journal.effectOutcome.status===DRAFT_EFFECT_INVALID){
           const discarded=await executeDraftTransaction({record,transactionId:journal.id,
             effect:journal.effectOutcome,discard:true});
@@ -1993,7 +2097,7 @@
     }));
   }
 
-  async function settleCustomExerciseMutation({verify,pendingJournalId=null}={}){
+  async function settleCustomExerciseMutation({verify,recover=null,pendingJournalId=null}={}){
     if(typeof verify!=="function")
       return normalizeDurableOutcome({localOk:false,idbOk:false,conflict:true,
         code:"custom_settlement_verifier_missing"});
@@ -2006,21 +2110,93 @@
         const record=ownPending();
         return normalizeDurableOutcome({revision:readRevision(head||persistHead),
           localOk:local.status==="valid",idbOk:idb.status==="valid",deferred:true,
-          pendingJournalCleanup:!!record,code,head:head&&cloneSnapshot(head)});
+          pendingJournalCleanup:!!record,pendingJournalId:record?.journal.id||undefined,
+          code,head:head&&cloneSnapshot(head)});
       };
       const verifySnapshot=async(snapshot,journal=null)=>{
         try{return await verify({snapshot:cloneSnapshot(snapshot),journal:journal&&cloneSnapshot(journal)})}
         catch{return null}};
+      const recoverSnapshot=async(snapshot,journal,code,stage)=>{
+        if(typeof recover!=="function")return null;
+        try{return await recover({snapshot:cloneSnapshot(snapshot),journal:journal&&cloneSnapshot(journal),code,stage})}
+        catch{return null}};
+      const finishSemanticRecovery=async(snapshot,recovery,record)=>{
+        if(!recovery?.snapshot||!isValidStateShape(recovery.snapshot)||
+          pendingDraftTransaction(recovery.snapshot))return unresolved("custom_recovery_candidate_invalid",snapshot);
+        let candidate=cloneSnapshot(recovery.snapshot);
+        if(!storageSnapshotsEqual(candidate,snapshot)){
+          const revision=readRevision(snapshot);
+          if(revision>=Number.MAX_SAFE_INTEGER)return unresolved("custom_recovery_revision_exhausted",snapshot);
+          candidate[STORAGE_REV]=revision+1;
+        }
+        let ownedRecord=record;
+        if(record){
+          const current=ownPending();
+          if(!current||current.raw!==record.raw)
+            return unresolved("custom_settlement_journal_changed",snapshot);
+          // A custom Delete journal carries immutable intent and its source
+          // definition. Keep those original bytes as the recovery authority;
+          // boot can recompute the safe candidate from the then-current head
+          // if a replica write or journal close is interrupted.
+          if(current.journal.customMutationIntent)ownedRecord=current;
+          else{
+            ownedRecord=rewritePendingJournalProposal(current,candidate,recovery.journalMarker);
+            if(!ownedRecord)return unresolved("custom_recovery_journal_rewrite_failed",snapshot)}
+        }else{
+          ownedRecord=writePendingJournal(snapshot,snapshot,candidate,
+            {customMutationRecovery:recovery.journalMarker});
+          if(!ownedRecord)return unresolved("custom_recovery_journal_write_failed",snapshot);
+          pendingJournalId=ownedRecord.journal.id;
+        }
+        let local=readLocalStatus(),idb=await readIdbStatus();
+        const replicasAlreadyMatch=local.status==="valid"&&idb.status==="valid"&&
+          storageSnapshotsEqual(local.parsed,candidate)&&storageSnapshotsEqual(idb.parsed,candidate);
+        if(!replicasAlreadyMatch){
+          const written=await writeSnapshot(candidate,storageIO);
+          local=readLocalStatus();idb=await readIdbStatus();
+          const same=local.status==="valid"&&idb.status==="valid"&&
+            storageSnapshotsEqual(local.parsed,candidate)&&storageSnapshotsEqual(idb.parsed,candidate);
+          if(!written.localOk||!written.idbOk||!same)
+            return unresolved("custom_recovery_replica_write_failed",candidate);
+        }
+        const validate=async value=>{
+          try{return typeof recovery.verify==="function"?await recovery.verify(cloneSnapshot(value)):{ok:true}}
+          catch{return null}};
+        const repaired=await validate(candidate);
+        if(!repaired?.ok)return unresolved("custom_recovery_candidate_invalid",candidate);
+        if(ownedRecord){
+          const current=ownPending();
+          if(!current||current.raw!==ownedRecord.raw)
+            return unresolved("custom_settlement_journal_changed",candidate);
+          const closed=await executeDraftTransaction({record:current,
+            transactionId:current.journal.id,effect:current.journal.effectOutcome,discard:true});
+          if(!closed.settled)return unresolved("custom_settlement_journal_pending",candidate);
+        }
+        local=readLocalStatus();idb=await readIdbStatus();
+        if(local.status!=="valid"||idb.status!=="valid"||
+          !storageSnapshotsEqual(local.parsed,candidate)||!storageSnapshotsEqual(idb.parsed,candidate)||
+          ownPending())return unresolved("custom_recovery_replica_write_failed",candidate);
+        const liveBase=cloneSnapshot(persistHead||candidate);
+        persistHead=cloneSnapshot(candidate);
+        applyAcceptedSnapshot(liveBase,candidate);
+        return normalizeDurableOutcome({revision:readRevision(candidate),localOk:true,idbOk:true,
+          conflict:true,code:recovery.code||"custom_mutation_recovered",
+          semanticRecovery:true,head:candidate});
+      };
 
       // Reconcile the current durable head first. Custom mutations have no
       // draft side effect, so an owned journal can be closed once the exact
       // semantic result is already present. Running the boot replay loop here
       // would also consume unrelated queued journals and could replay this
       // already-written proposal as a second revision.
-      const owner=ownPending();
+      let owner=ownPending();
       if(owner){
         const owned=await verifySnapshot(owner.journal.proposal,owner.journal);
-        if(!owned?.ok)return unresolved(owned?.code||"custom_settlement_ownership_mismatch");
+        if(owner.journal.customMutationRecovery){
+          const recoveryOwner=await recoverSnapshot(owner.journal.proposal,owner.journal,
+            owned?.code||"custom_settlement_recovered_owner","journal");
+          if(!recoveryOwner?.owned)return unresolved("custom_settlement_ownership_mismatch");
+        }else if(!owned?.ok)return unresolved(owned?.code||"custom_settlement_ownership_mismatch");
         if(owner.journal.effectOutcome.status!==DRAFT_EFFECT_NONE||owner.journal.recoveryTransaction)
           return unresolved("custom_settlement_journal_not_custom");
       }
@@ -2030,8 +2206,13 @@
       if(refreshed.conflict||!isValidStateShape(refreshedHead)||pendingDraftTransaction(refreshedHead))
         return unresolved("custom_settlement_unresolved",refreshedHead);
       const refreshedCheck=await verifySnapshot(refreshedHead);
-      if(!refreshedCheck?.ok)
+      if(owner?.journal.customMutationRecovery||!refreshedCheck?.ok){
+        const recovery=await recoverSnapshot(refreshedHead,owner?.journal,
+          refreshedCheck?.code||"custom_settlement_mismatch","head");
+        if(recovery?.snapshot)
+          return finishSemanticRecovery(refreshedHead,recovery,owner);
         return unresolved(refreshedCheck?.code||"custom_settlement_mismatch",refreshedHead);
+      }
 
       if(owner){
         const currentOwner=ownPending();
