@@ -1060,6 +1060,20 @@
       "variants": "standard"
     },
     {
+      "id": "custom-exercise-saving",
+      "flow": "program",
+      "label": "Program — saving a custom exercise",
+      "scenario": "A new custom movement is saving; its actions stay unavailable until the durable write settles.",
+      "variants": "standard"
+    },
+    {
+      "id": "custom-exercise-deleting",
+      "flow": "program",
+      "label": "Program — deleting a custom exercise",
+      "scenario": "A custom movement is deleting; the action names deletion and all competing actions stay unavailable until the durable write settles.",
+      "variants": "standard"
+    },
+    {
       "id": "share-setup",
       "flow": "program",
       "label": "Program — share setup link",

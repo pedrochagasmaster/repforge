@@ -61,6 +61,18 @@ function seedState() {
   };
 }
 
+function customIdentityB() {
+  return {
+    id: "custom:share-identity-b",
+    name: "Coach row B",
+    namePt: "Coach row B",
+    equipment: ["cable"],
+    primary: "Lats",
+    secondary: "Biceps",
+    notes: "",
+  };
+}
+
 async function clearSite(page) {
   await page.evaluate(async (key) => {
     localStorage.clear();
@@ -337,6 +349,27 @@ async function declinedDuplicateRepairCase(browser) {
       blocked.idb?.program?.find(row => row.id === "ex-unknown")?.libraryId === "gone:press",
       "declined duplicate cannot save without equipment and primary facts", JSON.stringify(blocked));
 
+    await page.locator('#exCustomPrimary .pchip[aria-pressed="true"]').first().click();
+    await page.locator('#exCustomEquip .pchip[aria-pressed="false"]').first().click();
+    await page.waitForFunction(() => {
+      const toast = document.querySelector("#toast");
+      return !toast || toast.classList.contains("hidden");
+    });
+    const beforePrimaryGuard = watcher.dialogs.length;
+    await page.locator("#exCustomSave").click();
+    await page.waitForFunction(() => {
+      const toast = document.querySelector("#toast");
+      return toast && !toast.classList.contains("hidden") &&
+        toast.textContent.includes("Choose at least one primary muscle.");
+    });
+    assert(watcher.dialogs.length === beforePrimaryGuard,
+      "declined duplicate reaches primary validation without repeating confirmation");
+    const primaryBlocked = await readDurable(page);
+    assert(JSON.stringify(primaryBlocked.local) === JSON.stringify(before.local) &&
+      JSON.stringify(primaryBlocked.idb) === JSON.stringify(before.idb),
+      "missing primary fact after declined duplicate remains write-free", JSON.stringify(primaryBlocked));
+    await page.locator('#exCustomEquip .pchip[aria-pressed="true"]').first().click();
+
     await page.locator("#exCustomName").fill(`  ${builtIn.name.toUpperCase()}  `);
     await expectRequiredFactsWithoutDuplicate(page, watcher,
       "casing and trimmed spacing that still resolve to A reuse A's acknowledgement");
@@ -353,6 +386,7 @@ async function declinedDuplicateRepairCase(browser) {
       save.click();
       const result = {
         saveDisabled: save.disabled,
+        saveLabel: save.textContent,
         cancelDisabled: document.querySelector("#exCustomCancel").disabled,
         sheetBusy: document.querySelector("#exCustomSheet").getAttribute("aria-busy") === "true",
       };
@@ -360,8 +394,8 @@ async function declinedDuplicateRepairCase(browser) {
       save.click();
       return result;
     });
-    assert(inFlight.saveDisabled && inFlight.cancelDisabled && inFlight.sheetBusy,
-      "staged Share save prevents duplicate submit and cancel during modal handoff", JSON.stringify(inFlight));
+    assert(inFlight.saveDisabled && inFlight.cancelDisabled && inFlight.sheetBusy && inFlight.saveLabel === "Saving…",
+      "staged Share save prevents repeat actions and announces its busy state during modal handoff", JSON.stringify(inFlight));
     await waitForShare(page);
     const durable = await readDurable(page);
     const localTarget = durable.local?.program?.find(row => row.id === "ex-unknown");
@@ -388,15 +422,7 @@ async function declinedDuplicateRepairCase(browser) {
 
 async function declinedAThenAcceptBRepairCase(browser) {
   const value = seedState();
-  const customB = {
-    id: "custom:share-identity-b",
-    name: "Coach row B",
-    namePt: "Coach row B",
-    equipment: ["cable"],
-    primary: "Lats",
-    secondary: "Biceps",
-    notes: "",
-  };
+  const customB = customIdentityB();
   value.customExercises = [customB];
   const { context, page } = await openSeed(browser, value);
   const watcher = watchDialogs(page);
@@ -433,15 +459,7 @@ async function declinedAThenAcceptBRepairCase(browser) {
 
 async function declinedAThenDeclineBRepairCase(browser) {
   const value = seedState();
-  const customB = {
-    id: "custom:share-identity-b",
-    name: "Coach row B",
-    namePt: "Coach row B",
-    equipment: ["cable"],
-    primary: "Lats",
-    secondary: "Biceps",
-    notes: "",
-  };
+  const customB = customIdentityB();
   value.customExercises = [customB];
   const { context, page } = await openSeed(browser, value);
   const watcher = watchDialogs(page);

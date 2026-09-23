@@ -10895,12 +10895,18 @@ function renderCustomChips(){
 function setCustomExercisePhase(active,phase){
   if(customState!==active)return false;
   active.phase=phase;
-  const busy=phase==="saving"||phase==="canceling";
+  const busy=phase==="saving"||phase==="deleting"||phase==="canceling";
   const sheet=$("#exCustomSheet");
   if(busy)sheet?.setAttribute("aria-busy","true");
   else sheet?.removeAttribute("aria-busy");
+  const save=$("#exCustomSave");
+  if(save){const key=phase==="saving"?"custom.saving":phase==="canceling"?"custom.closing":"dialog.save";
+    save.dataset.i18n=key;save.textContent=t(key)}
   for(const selector of ["#exCustomSave","#exCustomCancel","#exCustomDelete"]){
     const button=$(selector);if(button)button.disabled=busy}
+  const del=$("#exCustomDelete");
+  if(del&&active.deleteAction){const key=phase==="deleting"?"custom.deleting":active.deleteAction;
+    del.dataset.i18n=key;del.textContent=t(key)}
   return true}
 
 /* stageOnly builds a definition without writing it. Import review consumes the
@@ -10912,6 +10918,7 @@ function openCustomExerciseSheet({entry=null,onSave=null,onCancel=null,handoff=f
   const inUse=entry?customExerciseInUse(entry.id):false;
   customState={id:entry?.id||null,sourceEntry:entry||null,onSave,stageOnly,repairHandoff,
     phase:"editing",duplicateAcknowledgedId:null,
+    deleteAction:entry?(inUse?"custom.archive":"custom.delete"):null,
     // Empty for a new definition: defaulting every custom exercise to Machine
     // quietly mislabels dumbbell and cable work the wizard then filters on.
     equipment:new Set(entry?.equipment||[]),
@@ -11022,7 +11029,7 @@ async function saveCustomExerciseSheet(){
 async function deleteCustomExerciseSheet(){
   const active=customState;
   if(!active?.id||active.phase!=="editing")return;
-  setCustomExercisePhase(active,"saving");
+  setCustomExercisePhase(active,"deleting");
   let result;
   try{result=await deleteCustomExercise(active.id)}
   catch(error){setCustomExercisePhase(active,"editing");throw error}

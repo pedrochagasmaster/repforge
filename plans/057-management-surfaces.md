@@ -7,7 +7,7 @@ and owner gates only.
 
 - **Plan number:** 057
 - **Phase:** 6 — Management surfaces
-- **Status:** Planned; implementation has not started
+- **Status:** Implementation candidate in PR #248; automated engineering evidence is complete, owner physical-device review remains
 - **Owner approval state:** Approved direction; final owner phone review remains
 - **Depends on:** Plan 049; Plan 050; the merged durable-state bridge; Plan 054's entry, installed-editor, Privacy, guide-registry, and install-policy interfaces; Plan 055's `WorkoutSession` owner; and Plan 056's `RepForgeProgressModel`, `strengthEvidenceRecords()`, and Review route.
 - **Blocks:** Plan 058 full-system convergence and Plan 059 launch validation

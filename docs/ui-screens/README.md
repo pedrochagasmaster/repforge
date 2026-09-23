@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 139 screens,
-807 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 141 screens,
+813 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -231,6 +231,8 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Program — editor](screens/program/progression-editor__phone-390-light-en.png) | 3 | The installed program editor, with the first day open. |
 | [Program — exercise picker](screens/program/exercise-picker__phone-390-light-en.png) | 3 | The picker sheet. |
 | [Program — custom exercise](screens/program/custom-exercise__phone-390-light-en.png) | 3 | The custom movement sheet. |
+| [Program — saving a custom exercise](screens/program/custom-exercise-saving__phone-390-light-en.png) | 3 | A new custom movement is saving; its actions stay unavailable until the durable write settles. |
+| [Program — deleting a custom exercise](screens/program/custom-exercise-deleting__phone-390-light-en.png) | 3 | A custom movement is deleting; the action names deletion and all competing actions stay unavailable until the durable write settles. |
 | [Program — share setup link](screens/program/share-setup__phone-390-light-en.png) | 8 | The setup-link share sheet. |
 | [Program — share with one blocker](screens/program/share-one-blocker__phone-390-light-en.png) | 8 | The share sheet names one unresolved exercise and keeps copy/share unavailable. |
 | [Program — repair returns to Share](screens/program/share-repair-return__phone-390-light-en.png) | 8 | The custom repair path has been cancelled and returns directly to the blocked Share sheet. |

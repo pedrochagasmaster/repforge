@@ -402,6 +402,7 @@ async function main() {
       save.click();
       const state = {
         saveDisabled: save.disabled,
+        saveLabel: save.textContent,
         cancelDisabled: document.querySelector("#exCustomCancel").disabled,
         sheetBusy: document.querySelector("#exCustomSheet").getAttribute("aria-busy") === "true",
       };
@@ -409,8 +410,9 @@ async function main() {
       save.click();
       return state;
     });
-    assert(rapidSubmitState.saveDisabled && rapidSubmitState.cancelDisabled && rapidSubmitState.sheetBusy,
-      "an asynchronous custom save disables repeat Save and Cancel actions", JSON.stringify(rapidSubmitState));
+    assert(rapidSubmitState.saveDisabled && rapidSubmitState.cancelDisabled && rapidSubmitState.sheetBusy &&
+      rapidSubmitState.saveLabel === "Saving…",
+      "an asynchronous custom save disables repeat actions and announces its visible busy state", JSON.stringify(rapidSubmitState));
     await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 5000 });
     await page.waitForFunction(() => {
       const toast = document.querySelector("#toast");
@@ -432,7 +434,27 @@ async function main() {
     }));
     assert(!deleteUi.inUse && deleteUi.visible && /delete/i.test(deleteUi.button),
       "an unused definition offers Delete without an in-use warning", JSON.stringify(deleteUi));
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      const writeIdb = io.writeIdb;
+      io.writeIdb = snapshot => new Promise((resolve, reject) => {
+        window.__releaseCustomDeleteWrite = () => writeIdb.call(io, snapshot).then(resolve, reject);
+      });
+    });
     await page.click("#exCustomDelete");
+    await page.waitForFunction(() => typeof window.__releaseCustomDeleteWrite === "function", undefined, { timeout: 5000 });
+    const deleting = await page.evaluate(() => ({
+      saveLabel: document.querySelector("#exCustomSave")?.textContent?.trim(),
+      saveDisabled: document.querySelector("#exCustomSave")?.disabled,
+      deleteLabel: document.querySelector("#exCustomDelete")?.textContent?.trim(),
+      deleteDisabled: document.querySelector("#exCustomDelete")?.disabled,
+      cancelDisabled: document.querySelector("#exCustomCancel")?.disabled,
+      sheetBusy: document.querySelector("#exCustomSheet")?.getAttribute("aria-busy") === "true",
+    }));
+    assert(deleting.saveLabel === "Save" && deleting.saveDisabled && deleting.deleteLabel === "Deleting…" &&
+      deleting.deleteDisabled && deleting.cancelDisabled && deleting.sheetBusy,
+      "an in-flight custom delete announces deletion and disables every competing action", JSON.stringify(deleting));
+    await page.evaluate(() => window.__releaseCustomDeleteWrite());
     await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 5000 });
     await settle(page);
     const remains = (await getState(page)).customExercises.some((e) => e.id === editedList[0].id);

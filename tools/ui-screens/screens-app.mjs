@@ -718,6 +718,60 @@ export const APP_SCENARIOS = {
     await page.waitForSelector("#exCustomSheet.is-open", { timeout: 20000 });
     await sleep(page, 400);
   },
+  "program/custom-exercise-saving": async (page) => {
+    await page.evaluate(() => window.__repforgeOpenPicker({ title: "Add exercise", mode: "single" }));
+    await page.waitForSelector("#exPickSheet.is-open", { timeout: 20000 });
+    await page.locator("#exPickSheet [data-act='custom'], #exPickSheet button")
+      .filter({ hasText: /custom|personalizad/i }).first().click({ timeout: 20000 });
+    await page.waitForSelector("#exCustomSheet.is-open", { timeout: 20000 });
+    await page.locator("#exCustomName").fill("Paused cable row");
+    await page.locator('#exCustomEquip .pchip[aria-pressed="false"]').first().click();
+    await page.locator('#exCustomPrimary .pchip[aria-pressed="false"]').first().click();
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      const writeIdb = io.writeIdb;
+      io.writeIdb = async (snapshot) => {
+        await new Promise((resolve) => setTimeout(resolve, 15000));
+        return writeIdb.call(io, snapshot);
+      };
+    });
+    await page.locator("#exCustomSave").click();
+    await page.waitForFunction(() => {
+      const sheet = document.querySelector("#exCustomSheet");
+      return sheet?.getAttribute("aria-busy") === "true" &&
+        document.querySelector("#exCustomSave")?.disabled;
+    });
+    await sleep(page, 350);
+  },
+  "program/custom-exercise-deleting": async (page) => {
+    await page.evaluate(() => window.__repforgeOpenLibrary({}));
+    await page.waitForSelector("#library.active", { timeout: 20000 });
+    await page.locator("#libCustom").click();
+    await page.waitForSelector("#exCustomSheet.is-open", { timeout: 20000 });
+    await page.locator("#exCustomName").fill("Paused cable row");
+    await page.locator('#exCustomEquip .pchip[aria-pressed="false"]').first().click();
+    await page.locator('#exCustomPrimary .pchip[aria-pressed="false"]').first().click();
+    await page.locator("#exCustomSave").click();
+    await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 20000 });
+    const customId = await page.evaluate(() => {
+      const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      return state.customExercises?.find(entry => entry.name === "Paused cable row")?.id || null;
+    });
+    if (!customId) throw new Error("The custom deletion fixture was not created through the UI");
+    await page.evaluate(id => window.__repforgeEditCustom(id), customId);
+    await page.waitForSelector("#exCustomSheet.is-open", { timeout: 20000 });
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      const writeIdb = io.writeIdb;
+      io.writeIdb = snapshot => new Promise(resolve => {
+        window.__releaseCustomDeleteWrite = () => resolve(writeIdb.call(io, snapshot));
+      });
+    });
+    await page.locator("#exCustomDelete").click();
+    await page.waitForFunction(() => document.querySelector("#exCustomSheet")?.getAttribute("aria-busy") === "true" &&
+      document.querySelector("#exCustomDelete")?.dataset.i18n === "custom.deleting");
+    await sleep(page, 350);
+  },
   "program/share-setup": async (page) => {
     await openProgram(page);
     await page.click("#shareProgramSetup");
