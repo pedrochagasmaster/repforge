@@ -729,11 +729,7 @@ export const APP_SCENARIOS = {
     await page.locator('#exCustomPrimary .pchip[aria-pressed="false"]').first().click();
     await page.evaluate(() => {
       const io = window.RepForgeDurableState.storageIO;
-      const writeIdb = io.writeIdb;
-      io.writeIdb = async (snapshot) => {
-        await new Promise((resolve) => setTimeout(resolve, 15000));
-        return writeIdb.call(io, snapshot);
-      };
+      io.writeIdb = () => new Promise(() => {});
     });
     await page.locator("#exCustomSave").click();
     await page.waitForFunction(() => {
@@ -741,6 +737,7 @@ export const APP_SCENARIOS = {
       return sheet?.getAttribute("aria-busy") === "true" &&
         document.querySelector("#exCustomSave")?.disabled;
     });
+    await page.locator("#exCustomSheet .custom__form").evaluate(form => { form.scrollTop = 0; });
     await sleep(page, 350);
   },
   "program/custom-exercise-deleting": async (page) => {
