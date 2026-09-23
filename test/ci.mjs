@@ -57,7 +57,7 @@ test("visual capture ignores non-rendering tests/tools but remains conservative 
   for (const file of ["README.md", "docs/backlog.md", "plans/060.md", "test/accessibility.mjs", "test/ci.mjs", "tools/run-tests.mjs", "tools/test-selection.mjs", "tools/ci-plan.mjs", "tools/check-test-syntax.mjs", ".github/workflows/simulation.yml"]) {
     assert.equal(selectVisuals([file], manifest).mode, "none", file);
   }
-  for (const file of ["app.js", "index.html", "styles.css", "i18n-en.json", "sw.js", "shared-setup.js", "fonts/new.woff2", "assets/exercises/foo.png", "test/browser.mjs", "test/fixtures/shared-setup.mjs", "test/fixtures/seed-program.mjs", "test/fixtures/telemetry.mjs", "test/fixtures/README.md", "test/fixtures/nested/AGENTS.md", "tools/ui-screens/session.mjs", "tools/capture-ui-screens.mjs", "docs/ui-screens/manifest.json", "docs/ui-screens/entry-semantics.json", "unknown.txt"]) {
+  for (const file of ["app.js", "index.html", "styles.css", "i18n-en.json", "sw.js", "shared-setup.js", "fonts/new.woff2", "assets/exercises/foo.png", "test/browser.mjs", "test/fixtures/shared-setup.mjs", "test/fixtures/seed-program.mjs", "test/fixtures/telemetry.mjs", "test/fixtures/README.md", "test/fixtures/nested/AGENTS.md", "tools/ui-screens/session.mjs", "tools/ui-screens/screens-app.mjs", "tools/capture-ui-screens.mjs", "docs/ui-screens/manifest.json", "docs/ui-screens/entry-semantics.json", "unknown.txt"]) {
     assert.equal(selectVisuals([file], manifest).mode, "full", file);
   }
   assert.equal(selectVisuals(null, manifest).mode, "full");
@@ -93,6 +93,10 @@ test("affected selection is narrow when proven and fail-safe when it is not", ()
   assert.ok(runner.entries.length < Object.values(SUITES).flat().length);
   const telemetry = selectAffected(["telemetry.js"]);
   assert.deepEqual([...new Set(telemetry.entries.map(({ lane }) => lane))].sort(), ["fast", "privacy"]);
+  const captureScenario = selectAffected(["tools/ui-screens/screens-app.mjs"]);
+  assert.equal(captureScenario.mode, "selected");
+  assert.deepEqual(captureScenario.entries.map(({ suite }) => suite.file).sort(),
+    ["test/ui-catalog-contract.mjs", "test/ui-plan-050-editor.mjs", "test/ui-screens.mjs", "tools/check-ui-screens.mjs"].sort());
   const manifestInput = selectAffected(["docs/ui-screens/manifest.json"]);
   assert.equal(manifestInput.mode, "selected");
   assert.deepEqual(manifestInput.entries.map(({ suite }) => suite.file).sort(), [

@@ -232,7 +232,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Program — custom exercise](screens/program/custom-exercise__phone-390-light-en.png) | 3 | The custom movement sheet. |
 | [Program — saving a custom exercise](screens/program/custom-exercise-saving__phone-390-light-en.png) | 3 | A new custom movement is saving; its actions stay unavailable until the durable write settles. |
 | [Program — deleting a custom exercise](screens/program/custom-exercise-deleting__phone-390-light-en.png) | 3 | A custom movement is deleting; the action names deletion and all competing actions stay unavailable until the durable write settles. |
-| [Program — archiving a custom exercise](screens/program/custom-exercise-archiving__phone-390-light-en.png) | 3 | An in-use custom movement is archiving; the action names archive and preserves its program reference. |
+| [Program — archiving a custom exercise](screens/program/custom-exercise-archiving__phone-390-light-en.png) | 3 | A custom movement referenced by a performedMovementId-only history row is archiving; the action names archive and preserves its history identity. |
 | [Program — recovering a custom exercise change](screens/program/custom-exercise-recovery__phone-390-light-en.png) | 3 | A partial archive stays visibly unresolved with recovery status, Retry recovery, and Reload actions. |
 | [Program — share setup link](screens/program/share-setup__phone-390-light-en.png) | 8 | The setup-link share sheet. |
 | [Program — share with one blocker](screens/program/share-one-blocker__phone-390-light-en.png) | 8 | The share sheet names one unresolved exercise and keeps copy/share unavailable. |

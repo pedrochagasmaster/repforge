@@ -1077,7 +1077,7 @@
       "id": "custom-exercise-archiving",
       "flow": "program",
       "label": "Program — archiving a custom exercise",
-      "scenario": "An in-use custom movement is archiving; the action names archive and preserves its program reference.",
+      "scenario": "A custom movement referenced by a performedMovementId-only history row is archiving; the action names archive and preserves its history identity.",
       "variants": "standard"
     },
     {

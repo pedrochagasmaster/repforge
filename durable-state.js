@@ -1452,6 +1452,7 @@
       {replace:journal.replace,reconcileSessionIds:journal.reconcileSessionIds,
         dayRenames:journal.dayRenames,expectedFirstRunEmpty:journal.expectedFirstRunEmpty,
         sharedRebaseSeed:journal.id});
+    if(missingCustomProgramReference(journal.base,candidate,{replace:journal.replace}))return false;
     return readRevision(candidate)===readRevision(head)&&storageSnapshotsEqual(candidate,head)}
 
     function setupActivationMatches(marker,raw,programId){
@@ -1494,6 +1495,28 @@
     return rollback}
 
   // --- Snapshot Derivation ---
+    // Legacy snapshots can contain an already-dangling custom Program row and
+    // remain readable. A new durable transition may carry that exact legacy
+    // row forward, but it may not create one or remove the definition from a
+    // previously valid reference. This guard belongs beside snapshot
+    // derivation so ordinary commits and boot replay enforce the same rule.
+    function missingCustomProgramReference(head,candidate,{replace=false}={}){
+    const definitions=new Set((candidate?.customExercises||[]).map(entry=>entry?.id));
+    const legacyDangling=new Set();
+    if(!replace){
+      const headDefinitions=new Set((head?.customExercises||[]).map(entry=>entry?.id));
+      for(const row of head?.program||[]){
+        const id=row?.libraryId;
+        if(typeof id==="string"&&id.startsWith("custom:")&&!headDefinitions.has(id))
+          legacyDangling.add(`${row?.id||""}\u0000${id}`)}
+    }
+    for(const row of candidate?.program||[]){
+      const id=row?.libraryId;
+      if(typeof id!=="string"||!id.startsWith("custom:")||definitions.has(id)||
+        legacyDangling.has(`${row?.id||""}\u0000${id}`))continue;
+      return id}
+    return null}
+
     function stateSnapshotForHead(base,liveBase,proposal,head,{replace=false,reconcileSessionIds=[],dayRenames=[],expectedFirstRunEmpty=false,sharedRebaseSeed=null}={}){
     const durableHead=cloneSnapshot(head||base);
     const liveHead=replace?durableHead:rebaseStateChange(base,liveBase,durableHead);
@@ -1718,6 +1741,9 @@
       const snapshot=stateSnapshotForHead(frozenBase,frozenLiveBase,workingProposal,head,
         {replace,reconcileSessionIds:frozenReconcileSessionIds,dayRenames:frozenDayRenames,
           expectedFirstRunEmpty,sharedRebaseSeed:pendingRecord?.journal.id||coordinationId});
+      if(missingCustomProgramReference(head,snapshot,{replace}))
+        return discardPending({revision:readRevision(head),localOk:false,idbOk:false,
+          conflict:true,stale:true,code:"missing_custom_definition"});
       if(!isValidStateShape(snapshot))
         return discardPending({revision:readRevision(head),localOk:false,idbOk:false,
           conflict:true,stateInvalid:true,code:"invalid-state"});
@@ -1989,6 +2015,14 @@
         const snapshot=stateSnapshotForHead(journal.base,journal.liveBase,journal.proposal,journalHead,
           {replace:journal.replace,reconcileSessionIds:journal.reconcileSessionIds,dayRenames:journal.dayRenames,
             expectedFirstRunEmpty:journal.expectedFirstRunEmpty,sharedRebaseSeed:journal.id});
+        if(missingCustomProgramReference(journal.base,snapshot,{replace:journal.replace})||
+          missingCustomProgramReference(journalHead,snapshot,{replace:journal.replace})){
+          const discarded=await executeDraftTransaction({record,transactionId:journal.id,
+            effect:journal.effectOutcome,discard:true});
+          if(!discarded.settled)
+            return{kind:"unresolved",reason:"pending-transaction",local:readLocalStatus(),idb:await readIdbStatus()};
+          draftConflict=true;
+          continue}
         const prepared=preparePendingDraftTransaction(snapshot,journalHead,journal.effectOutcome,journal.id);
         const execution=await executeDraftTransaction({record,transactionId:journal.id,
           effect:journal.effectOutcome,prepared,snapshot,io:storageIO,writePrepared:true,
@@ -2844,6 +2878,7 @@
     pendingJournalSuccessorMatches,
     setupActivationMatches,
     setupActivationAlreadyCommitted,
+    missingCustomProgramReference,
 
     // Transaction Engine & Execution
     draftEffectOutcome,

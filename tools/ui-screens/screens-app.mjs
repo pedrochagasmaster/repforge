@@ -403,14 +403,24 @@ async function createInUseCustomExercise(page) {
     const proposal = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
     const row = proposal.program?.[0];
     if (!row) throw new Error("The archive evidence fixture has no program row");
-    row.libraryId = created.entry.id;
-    row.movementId = `library:${created.entry.id}`;
-    row.name = created.entry.name;
-    row.primary = created.entry.primary;
-    row.secondary = created.entry.secondary;
+    proposal.log = Array.isArray(proposal.log) ? proposal.log : [];
+    proposal.log.push({
+      session: "ui-screen-custom-archive-history",
+      date: "2026-01-03",
+      day: row.day,
+      exerciseId: "ui-screen-custom-archive-slot",
+      name: created.entry.name,
+      performedName: created.entry.name,
+      performedMovementId: `library:${created.entry.id}`,
+      set: 1,
+      load: 10,
+      reps: 8,
+      rir: 2,
+      created: "2026-01-03T12:00:00.000Z",
+    });
     const linked = await window.__repforgeCommitProposedState(proposal);
     if (linked?.committed !== true || linked?.settled !== true)
-      throw new Error("The archive evidence program reference did not settle");
+      throw new Error("The archive evidence log identity did not settle");
     return created.entry.id;
   });
   await page.evaluate(id => window.__repforgeEditCustom(id), result);

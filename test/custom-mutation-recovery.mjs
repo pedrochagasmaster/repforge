@@ -1208,6 +1208,60 @@ async function testArchiveNormalAndHistoryOnly(page) {
     "history-only archive preserves log attribution in both replicas", { local: historyCommit.local, historyIdb });
 }
 
+async function testMovementIdOnlyLogReferenceArchives(page) {
+  await reset(page);
+  const id = await seedCustomFixture(page, "Movement ID-only log reference");
+  const committed = await page.evaluate(async customId => {
+    const proposal = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    const entry = proposal.customExercises?.find(value => value.id === customId);
+    if (!entry) throw new Error("The movement-ID log fixture needs its custom definition");
+    const row = {
+      session: "custom-movement-id-only-history",
+      date: "2026-01-03",
+      day: "Day 1",
+      exerciseId: "custom-movement-id-only-slot",
+      name: entry.name,
+      performedName: entry.name,
+      performedMovementId: `library:${customId}`,
+      set: 1,
+      load: 10,
+      reps: 8,
+      rir: 1,
+      created: "2026-01-03T12:00:00.000Z",
+    };
+    proposal.log.push(row);
+    const result = await window.__repforgeCommitProposedState(proposal);
+    return { result, row };
+  }, id);
+  const logged = await readReplicas(page);
+  check(committed.result?.committed === true && committed.result?.settled === true &&
+      [logged.local, logged.idb].every(snapshot => snapshot?.log?.some(row =>
+        row.performedLibraryId === undefined && row.performedMovementId === `library:${id}`) === true),
+    "the accepted history fixture references X through performedMovementId alone", {
+      result: { committed: committed.result?.committed, settled: committed.result?.settled },
+      local: logged.local?.log, idb: logged.idb?.log,
+    });
+
+  await openCustomEdit(page, id);
+  const action = await page.evaluate(() => ({
+    phase: document.querySelector("#exCustomSheet")?.dataset.phase,
+    operation: document.querySelector("#exCustomDelete")?.dataset.i18n,
+    inUseVisible: !document.querySelector("#exCustomInUse")?.classList.contains("hidden"),
+  }));
+  check(action.phase === "editing" && action.operation === "custom.archive" && action.inUseVisible,
+    "movement-ID-only history makes the custom action Archive", action);
+  await page.click("#exCustomDelete");
+  await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 5000 });
+  const archived = await readReplicas(page);
+  check([archived.local, archived.idb].every(snapshot =>
+      snapshot?.customExercises?.some(entry => entry.id === id && entry.archived === true) === true &&
+      snapshot?.log?.some(row => row.performedLibraryId === undefined &&
+        row.performedMovementId === `library:${id}`) === true),
+    "Archive preserves the exact movement-ID-only log identity in both replicas", {
+      local: archived.local, idb: archived.idb,
+    });
+}
+
 async function testProgramHistoryOnlyArchive(page) {
   await reset(page);
   const id = await seedCustomFixture(page, "Program history only archive");
@@ -1375,6 +1429,7 @@ async function main() {
     await testDestructiveOneReplicaRecovery(page, "archive", "idb", "pt");
     await testArchiveRecoveryPreservesUnrelatedProgramEdit(page, otherPage);
     await testArchiveNormalAndHistoryOnly(page);
+    await testMovementIdOnlyLogReferenceArchives(page);
     await testProgramHistoryOnlyArchive(page);
     await testCrossTabStaleEditAndDeleteBecomesArchive(page, otherPage);
   } finally {

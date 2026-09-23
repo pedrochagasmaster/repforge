@@ -253,6 +253,103 @@ async function testStaleFullLibraryAddAfterDelete(browser) {
   }
 }
 
+async function gateNextStateLockRequest(page) {
+  await page.evaluate(() => {
+    const locks = navigator.locks;
+    const original = locks.request.bind(locks);
+    Object.defineProperty(locks, "request", {
+      configurable: true,
+      value(name, ...args) {
+        if (name === "repforge:state-write") {
+          window.__f05712StateLockQueued = true;
+          return new Promise(resolve => {
+            window.__releaseF05712StateLock = () => resolve(undefined);
+          });
+        }
+        return original(name, ...args);
+      },
+    });
+  });
+}
+
+async function testPendingEditorJournalReplayAfterDelete(browser) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const tabA = await context.newPage();
+  const tabB = await context.newPage();
+  try {
+    await reset(tabA);
+    const id = await seedCustom(tabA, "F057-12 pending editor replay");
+    await tabB.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(tabB);
+    const slot = await stageCustomReplacementInInstalledEditor(tabB, id, "F057-12 pending editor replay");
+
+    // The real editor writes its immutable proposal before requesting the lock.
+    // Holding that request models a tab crash in the WAL-before-lock window.
+    await gateNextStateLockRequest(tabB);
+    await tabB.click("#programEditToggle");
+    await tabB.waitForFunction(customId => {
+      if (window.__f05712StateLockQueued !== true) return false;
+      return Object.keys(localStorage).some(key => {
+        if (!key.startsWith("repforge_pending_v1:")) return false;
+        try {
+          const journal = JSON.parse(localStorage.getItem(key) || "null");
+          return journal?.proposal?.program?.some(row => row.libraryId === customId) === true;
+        } catch { return false; }
+      });
+    }, id, { timeout: 10000 });
+    const pending = await tabB.evaluate(customId => Object.keys(localStorage)
+      .filter(key => key.startsWith("repforge_pending_v1:"))
+      .map(key => {
+        try { return { key, journal: JSON.parse(localStorage.getItem(key) || "null") }; }
+        catch { return null; }
+      })
+      .find(item => item?.journal?.proposal?.program?.some(row => row.libraryId === customId)) || null, id);
+    check(pending?.journal?.base?.customExercises?.some(entry => entry.id === id) === true &&
+        pending?.journal?.proposal?.program?.some(row => row.id === slot.id && row.libraryId === id) === true,
+      "the installed editor leaves a real custom replacement WAL entry before lock acquisition", {
+        key: pending?.key,
+        baseHasDefinition: pending?.journal?.base?.customExercises?.some(entry => entry.id === id) === true,
+        proposalRow: pending?.journal?.proposal?.program?.find(row => row.id === slot.id) || null,
+      });
+
+    await openCustomManagement(tabA, id);
+    await tabA.click("#exCustomDelete");
+    await tabA.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 10000 });
+    const deleted = await readReplicas(tabA);
+    const deleteRevision = deleted.local?._storageRevision ?? null;
+    check([deleted.local, deleted.idb].every(snapshot =>
+      !snapshot?.customExercises?.some(entry => entry.id === id) &&
+      !snapshot?.program?.some(row => row.libraryId === id)),
+    "Tab A settles Delete while Tab B's editor journal is still waiting outside the lock", {
+      local: stateSummary(deleted.local, id, slot.id),
+      idb: stateSummary(deleted.idb, id, slot.id),
+    });
+
+    await tabB.reload({ waitUntil: "domcontentloaded" });
+    await waitForApp(tabB);
+    const replayed = await readReplicas(tabB);
+    const journalCount = await tabB.evaluate(() => Object.keys(localStorage)
+      .filter(key => key.startsWith("repforge_pending_v1:")).length);
+    check([replayed.local, replayed.idb].every(snapshot =>
+      !snapshot?.program?.some(row => row.libraryId === id) &&
+      !snapshot?.customExercises?.some(entry => entry.id === id) &&
+      snapshot?._storageRevision === deleteRevision) && journalCount === 0,
+    "boot drops the stale editor journal instead of replaying a dangling custom reference", {
+      journalCount,
+      deleteRevision,
+      local: stateSummary(replayed.local, id, slot.id),
+      idb: stateSummary(replayed.idb, id, slot.id),
+    });
+  } finally {
+    await context.close();
+  }
+}
+
+function logReferencesCustomId(snapshot, id) {
+  return snapshot?.log?.some(row => row.performedLibraryId === id ||
+    row.performedMovementId === `library:${id}`) === true;
+}
+
 async function gateDeleteRecoveryBeforeOwnerLock(page, id) {
   await page.evaluate(customId => {
     const durable = window.RepForgeDurableState;
@@ -410,6 +507,29 @@ async function testPostPartialStaleWorkoutLog(browser) {
         idb: stateSummary(workout.idb, id, slot.id),
       });
 
+    const movementOnly = await tabB.evaluate(async customId => {
+      const proposal = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      const row = proposal.log?.find(value => value.performedLibraryId === customId);
+      if (!row) throw new Error("The completed stale-tab workout has no custom attribution row");
+      delete row.performedLibraryId;
+      row.performedMovementId = `library:${customId}`;
+      const result = await window.__repforgeCommitProposedState(proposal);
+      const stored = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      const storedRow = stored.log?.find(value => value.session === row.session && value.set === row.set) || null;
+      return { result, row: storedRow };
+    }, id);
+    const movementOnlyReplicas = await readReplicas(tabB);
+    check(movementOnly.result?.committed === true && movementOnly.result?.settled === true &&
+        movementOnly.row?.performedLibraryId === undefined &&
+        movementOnly.row?.performedMovementId === `library:${id}` &&
+        [movementOnlyReplicas.local, movementOnlyReplicas.idb].every(snapshot =>
+          snapshot?.log?.some(row => row.performedLibraryId === undefined &&
+            row.performedMovementId === `library:${id}`) === true),
+      "a valid legacy-shaped log keeps the custom identity in performedMovementId alone", {
+        result: { committed: movementOnly.result?.committed, settled: movementOnly.result?.settled },
+        row: movementOnly.row,
+      });
+
     const beforeCrash = await tabA.evaluate(() => {
       const id = window.__f05712RecoveryPendingJournalId;
       const key = `repforge_pending_v1:${id}`;
@@ -435,28 +555,36 @@ async function testPostPartialStaleWorkoutLog(browser) {
     const recovered = await readReplicas(tabA);
     check([recovered.local, recovered.idb].every(snapshot =>
         snapshot?.customExercises?.some(entry => entry.id === id) === true &&
-        snapshot?.log?.some(row => row.performedLibraryId === id) === true),
+        logReferencesCustomId(snapshot, id)),
       "boot recovery preserves the definition for the post-partial log identity", {
         pendingBeforeCrash: { id: beforeCrash.id, rawPresent: typeof beforeCrash.raw === "string",
           customMutationIntent: beforeCrash.journal?.customMutationIntent || null },
         local: stateSummary(recovered.local, id, slot.id),
         idb: stateSummary(recovered.idb, id, slot.id),
       });
-    await openCustomManagement(tabA, id);
-    const ui = await tabA.evaluate(() => ({
-      phase: document.querySelector("#exCustomSheet")?.dataset.phase,
-      action: document.querySelector("#exCustomDelete")?.dataset.i18n,
-      toast: document.querySelector("#toast")?.textContent?.trim() || "",
-    }));
     const safe = snapshot => snapshot?.customExercises?.some(entry => entry.id === id) === true &&
-      snapshot?.log?.some(row => row.performedLibraryId === id) === true;
-    check([recovered.local, recovered.idb].every(safe) && ui.action === "custom.archive" &&
-        !ui.toast.includes("Exercise deleted."),
-      "Delete recovery restores X for the new log identity and requires explicit Archive", {
-        ui, local: stateSummary(recovered.local, id, slot.id), idb: stateSummary(recovered.idb, id, slot.id),
+      logReferencesCustomId(snapshot, id);
+    const recoveredDefinition = [recovered.local, recovered.idb].every(snapshot =>
+      snapshot?.customExercises?.some(entry => entry.id === id) === true);
+    if (recoveredDefinition) {
+      await openCustomManagement(tabA, id);
+      const ui = await tabA.evaluate(() => ({
+        phase: document.querySelector("#exCustomSheet")?.dataset.phase,
+        action: document.querySelector("#exCustomDelete")?.dataset.i18n,
+        toast: document.querySelector("#toast")?.textContent?.trim() || "",
+      }));
+      check([recovered.local, recovered.idb].every(safe) && ui.action === "custom.archive" &&
+          !ui.toast.includes("Exercise deleted."),
+        "Delete recovery restores X for the new log identity and requires explicit Archive", {
+          ui, local: stateSummary(recovered.local, id, slot.id), idb: stateSummary(recovered.idb, id, slot.id),
+        });
+      await tabA.click("#exCustomDelete");
+      await tabA.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 10000 });
+    } else {
+      check(false, "Delete recovery exposes Archive for the movement-ID-only log identity", {
+        local: stateSummary(recovered.local, id, slot.id), idb: stateSummary(recovered.idb, id, slot.id),
       });
-    await tabA.click("#exCustomDelete");
-    await tabA.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 10000 });
+    }
     await Promise.all([tabA, tabB].map(async page => {
       await page.reload({ waitUntil: "domcontentloaded" });
       await waitForApp(page);
@@ -464,7 +592,7 @@ async function testPostPartialStaleWorkoutLog(browser) {
     const [reloadA, reloadB] = await Promise.all([readReplicas(tabA), readReplicas(tabB)]);
     check([reloadA.local, reloadA.idb, reloadB.local, reloadB.idb].every(snapshot =>
       snapshot?.customExercises?.some(entry => entry.id === id && entry.archived === true) === true &&
-      snapshot?.log?.some(row => row.performedLibraryId === id) === true),
+      logReferencesCustomId(snapshot, id)),
       "both tabs reload with Archive preserving the stale workout attribution", {
         tabA: { local: stateSummary(reloadA.local, id, slot.id), idb: stateSummary(reloadA.idb, id, slot.id) },
         tabB: { local: stateSummary(reloadB.local, id, slot.id), idb: stateSummary(reloadB.idb, id, slot.id) },
@@ -502,7 +630,8 @@ function stateSummary(snapshot, id, slotId) {
     customDefined: snapshot?.customExercises?.some(entry => entry.id === id) === true,
     slotLibraryId: slot?.libraryId ?? null,
     programReferences: snapshot?.program?.filter(row => row.libraryId === id).length ?? 0,
-    logReferences: snapshot?.log?.filter(row => row.performedLibraryId === id).length ?? 0,
+    logReferences: snapshot?.log?.filter(row => row.performedLibraryId === id ||
+      row.performedMovementId === `library:${id}`).length ?? 0,
     programHistoryReferences: snapshot?.programHistory?.reduce((count, history) =>
       count + (history?.program?.filter(row => row.libraryId === id).length ?? 0), 0) ?? 0,
   };
@@ -635,6 +764,7 @@ async function run() {
       });
     await testPostPartialStaleWorkoutLog(browser);
     await testStaleFullLibraryAddAfterDelete(browser);
+    await testPendingEditorJournalReplayAfterDelete(browser);
   } finally {
     await context.close();
     await browser.close();

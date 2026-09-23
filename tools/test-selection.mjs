@@ -138,6 +138,11 @@ const EXPLICIT_INPUT_RULES = [
     suiteFiles: ["test/ci.mjs"], why: "CI planning and selection contracts",
   },
   {
+    match: /^tools\/ui-screens\/screens-(?:app|onboarding)\.mjs$/,
+    suiteFiles: ["test/ui-screens.mjs", "tools/check-ui-screens.mjs"],
+    why: "UI capture scenarios",
+  },
+  {
     match: /^docs\/ui-screens\/manifest\.json$/,
     suiteFiles: [
       "test/ui-screens.mjs",

@@ -2640,7 +2640,8 @@ async function saveCustomExercise(draft,io=storageIO,{expectedEntry=null}={}){
    rather than deleted: hidden from the pickers, intact behind the history. */
 function customExerciseInUse(id,snapshot=state){
   if((snapshot?.program||[]).some(e=>e.libraryId===id))return true;
-  if((snapshot?.log||[]).some(r=>r.performedLibraryId===id))return true;
+  if((snapshot?.log||[]).some(r=>r.performedLibraryId===id||
+    r.performedMovementId===`library:${id}`))return true;
   return(snapshot?.programHistory||[]).some(h=>(h?.program||[]).some(e=>e.libraryId===id))}
 async function deleteCustomExercise(id,io=storageIO,{action=null,expectedEntry=null}={}){
   if(!isCustomLibraryId(id))return null;
@@ -3495,15 +3496,7 @@ function persist(opts={}){
 // At the lock-held write boundary, however, every newly introduced custom
 // Program identity must resolve inside the candidate's own custom library.
 function missingCustomProgramReference(head,candidate,{replace=false}={}){
-  const definitions=new Set(customExercises(candidate).map(entry=>entry?.id));
-  const existing=new Set(replace?[]:(head?.program||[])
-    .filter(row=>isCustomLibraryId(row?.libraryId))
-    .map(row=>`${row?.id||""}\u0000${row.libraryId}`));
-  for(const row of candidate?.program||[]){
-    const id=row?.libraryId;
-    if(!isCustomLibraryId(id)||definitions.has(id)||existing.has(`${row?.id||""}\u0000${id}`))continue;
-    return id}
-  return null}
+  return DurableState.missingCustomProgramReference(head,candidate,{replace})}
 async function commitProposedState(proposal,io=storageIO,opts={}){
   requireAdapter(io,"commitProposedState");
   const durableProposal=canonicalizeDurableMuscleAttributions(proposal);
