@@ -7,7 +7,9 @@ import { join } from "node:path";
 import test from "node:test";
 import { SUITES, SUPPORT, BROWSER_LANES, commandArgs, inventoryErrors } from "./suites.mjs";
 import { changedFiles, selectVisuals } from "../tools/ci-selection.mjs";
-import { changedFilesForTests, selectAffected } from "../tools/test-selection.mjs";
+import { makeCiPlan } from "../tools/ci-plan.mjs";
+import { domainsForAppDiff } from "../tools/visual-domains.mjs";
+import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, selectAffected, selectEdit } from "../tools/test-selection.mjs";
 import { execute, maybeStartLocalPreview, runLane } from "../tools/run-tests.mjs";
 
 const manifest = { screens: [{ flow: "app", id: "today" }, { flow: "onboarding", id: "start" }] };
@@ -29,6 +31,8 @@ test("inventory schedules each command once and classifies support explicitly", 
   assert.deepEqual(SUITES.service.map((s) => s.file), ["test/install-transfer-service.mjs"]);
   assert.equal(Object.values(SUITES).flat().some((s) => s.file === "tools/build-vendor-runtimes.mjs"), false);
   assert.deepEqual(commandArgs({ file: "test/x.mjs", args: ["--self-test"], nodeArgs: ["--test"] }), ["--test", "test/x.mjs", "--self-test"]);
+  assert.ok(Object.values(SUITES).flat().every((s) => s.domains.length && s.cost && s.tier));
+  assert.match(inventoryErrors(files, { fast: [{ ...SUITES.fast[0], domains: ["imaginary"] }] }).join("\n"), /Invalid domains/);
 });
 
 test("browser suites use the shared preview origin and never own fixed-port servers", () => {
@@ -50,14 +54,25 @@ test("browser suites use the shared preview origin and never own fixed-port serv
 });
 
 test("visual capture ignores non-rendering tests/tools but remains conservative for real inputs", () => {
-  for (const file of ["README.md", "docs/backlog.md", "plans/060.md", "test/accessibility.mjs", "test/ci.mjs", "tools/run-tests.mjs", "tools/check-test-syntax.mjs"]) {
+  for (const file of ["README.md", "docs/backlog.md", "plans/060.md", "test/accessibility.mjs", "test/ci.mjs", "tools/run-tests.mjs", "tools/test-selection.mjs", "tools/ci-plan.mjs", "tools/check-test-syntax.mjs", ".github/workflows/simulation.yml"]) {
     assert.equal(selectVisuals([file], manifest).mode, "none", file);
   }
-  for (const file of ["app.js", "index.html", "styles.css", "i18n-en.json", "sw.js", "shared-setup.js", "fonts/new.woff2", "assets/exercises/foo.png", "test/browser.mjs", "test/fixtures/shared-setup.mjs", "test/fixtures/seed-program.mjs", "test/fixtures/telemetry.mjs", "test/fixtures/README.md", "test/fixtures/nested/AGENTS.md", "tools/test-selection.mjs", "tools/ci-selection.mjs", "tools/ui-screens/session.mjs", "tools/capture-ui-screens.mjs", ".github/workflows/simulation.yml", "docs/ui-screens/manifest.json", "docs/ui-screens/entry-semantics.json", "unknown.txt"]) {
+  for (const file of ["app.js", "index.html", "styles.css", "i18n-en.json", "sw.js", "shared-setup.js", "fonts/new.woff2", "assets/exercises/foo.png", "test/browser.mjs", "test/fixtures/shared-setup.mjs", "test/fixtures/seed-program.mjs", "test/fixtures/telemetry.mjs", "test/fixtures/README.md", "test/fixtures/nested/AGENTS.md", "tools/ui-screens/session.mjs", "tools/capture-ui-screens.mjs", "docs/ui-screens/manifest.json", "docs/ui-screens/entry-semantics.json", "unknown.txt"]) {
     assert.equal(selectVisuals([file], manifest).mode, "full", file);
   }
   assert.equal(selectVisuals(null, manifest).mode, "full");
   assert.equal(selectVisuals([], manifest, { force: true }).mode, "full");
+});
+
+test("annotated app hunks select visual domains and unknown regions widen", () => {
+  const source = ["const boot = 1;", "// @ci-domain progress", "const stats = 2;", "// @ci-domain history", "const history = 3;", "// @ci-domain global", "const shared = 4;"].join("\n");
+  assert.deepEqual([...domainsForAppDiff(source, "@@ -3 +3 @@\n-const stats = 1;\n+const stats = 2;\n")], ["progress"]);
+  assert.deepEqual([...domainsForAppDiff(source, "@@ -5 +5 @@\n-const history = 1;\n+const history = 3;\n")], ["history"]);
+  assert.deepEqual([...domainsForAppDiff(source, "@@ -1 +1 @@\n-const boot = 0;\n+const boot = 1;\n")], ["global"]);
+  assert.deepEqual([...domainsForAppDiff(source, "@@ -3 +3 @@\n-old\n+new\n@@ -5 +5 @@\n-old\n+new\n")].sort(), ["history", "progress"]);
+  assert.throws(() => domainsForAppDiff("// @ci-domain imaginary\n", "@@ -1 +1 @@\n-old\n+new\n"), /invalid/);
+  const sample = { screens: [{ flow: "history", id: "edit" }, { flow: "progress", id: "overview" }] };
+  assert.deepEqual(selectVisuals(["app.js"], sample, { appSource: source, appDiff: "@@ -5 +5 @@\n-old\n+new\n" }).screens, ["history/edit"]);
 });
 
 test("baseline-only selection recaptures whole screens, never isolated variants", () => {
@@ -302,6 +317,7 @@ test("runner continues after failure and cannot replay a failed suite to green",
   assert.equal(report.failed, 1); assert.equal(report.notRun, 0);
   assert.equal(report.results[0].initial.exitCode, 9); assert.equal(report.results[0].diagnostic.exitCode, 0);
   assert.equal(report.results[0].status, "failed");
+  assert.equal(report.results[0].suspectedFlake, true);
   assert.equal(report.results[1].status, "passed"); assert.ok(existsSync(join(cwd, "later-ran")));
   assert.equal(JSON.parse(readFileSync(join(cwd, "results/results.json"), "utf8")).failed, 1);
   assert.match(readFileSync(join(cwd, "summary.md"), "utf8"), /diagnostic only/);
@@ -313,4 +329,77 @@ test("a hung suite is bounded and remains a failure", async (t) => {
   const result = await execute({ file: "hang.mjs", args: [] }, { cwd, outputDir: join(cwd, "result"), timeoutMs: 100 });
   assert.equal(result.status, "failed"); assert.equal(result.timedOut, true);
   assert.ok(result.durationMs < 10000);
+});
+
+test("edit selects a directly changed suite without scheduling its whole lane", () => {
+  const plan = selectEdit(["test/shared-setup-unit.mjs"]);
+  assert.deepEqual(plan.entries.map(({ suite }) => suite.file), ["test/shared-setup-unit.mjs"]);
+});
+
+test("edit and packet resolve their distinct Git boundaries", (t) => {
+  const cwd = scratch(t);
+  const git = (...args) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
+  git("init", "-q"); git("config", "user.email", "test@example.com"); git("config", "user.name", "Test");
+  writeFileSync(join(cwd, "initial.js"), "initial\n"); git("add", "."); git("commit", "-qm", "initial");
+  const base = git("rev-parse", "HEAD");
+  writeFileSync(join(cwd, "committed.js"), "committed\n"); git("add", "."); git("commit", "-qm", "second");
+  assert.deepEqual(changedFilesForEdit({ cwd }).files, ["committed.js"]);
+  writeFileSync(join(cwd, "dirty.js"), "dirty\n");
+  assert.deepEqual(changedFilesForEdit({ cwd }).files, ["dirty.js"]);
+  assert.deepEqual(changedFilesForPacket({ cwd, base }).files, ["committed.js", "dirty.js"]);
+  assert.throws(() => changedFilesForPacket({ cwd }), /requires --base/);
+  assert.throws(() => changedFilesForPacket({ cwd, base: "missing" }), /common ancestor/);
+});
+
+test("fail-fast records unexecuted commands while keep-going runs them", async (t) => {
+  const cwd = scratch(t);
+  writeFileSync(join(cwd, "fail.mjs"), "process.exit(2)\n");
+  writeFileSync(join(cwd, "later.mjs"), 'import { writeFileSync } from "node:fs"; writeFileSync("later-ran", "yes")\n');
+  const entries = [{ file: "fail.mjs", args: [] }, { file: "later.mjs", args: [] }];
+  const first = await runLane("fixture", entries, { cwd, outputDir: join(cwd, "one"), failFast: true });
+  assert.equal(first.failed, 1); assert.equal(first.notRun, 1);
+  assert.equal(first.results[1].status, "not-run-after-failure");
+  assert.equal(existsSync(join(cwd, "later-ran")), false);
+  const second = await runLane("fixture", entries, { cwd, outputDir: join(cwd, "two"), failFast: false });
+  assert.equal(second.failed, 1); assert.equal(second.notRun, 0);
+  assert.equal(existsSync(join(cwd, "later-ran")), true);
+});
+
+test("CI feedback is selected and candidate/main retain the exhaustive exact-SHA gate", () => {
+  const baseSha = "a".repeat(40), headSha = "b".repeat(40);
+  const common = { event: "pull_request", draft: true, baseSha, headSha, files: ["test/shared-setup-unit.mjs"], manifest };
+  const feedback = makeCiPlan(common);
+  assert.equal(feedback.mode, "feedback");
+  assert.equal(feedback.baseSha, baseSha); assert.equal(feedback.headSha, headSha);
+  assert.equal(feedback.browser.length, 0);
+  assert.equal(feedback.visual.mode, "none");
+  assert.ok(feedback.tests.fast.includes("test-shared-setup-unit-mjs"));
+  assert.equal(feedback.tests.state.length, 0);
+  const candidate = makeCiPlan({ ...common, draft: false });
+  assert.equal(candidate.mode, "candidate");
+  assert.equal(candidate.visual.mode, "full");
+  assert.equal(Object.values(candidate.tests).flat().length, Object.values(SUITES).flat().length);
+  assert.equal(makeCiPlan({ ...common, event: "push" }).mode, "candidate");
+  assert.throws(() => makeCiPlan({ ...common, event: "workflow_dispatch", requestedMode: "candidate", expectedSha: baseSha }), /mismatch/);
+  assert.equal(makeCiPlan({ ...common, event: "workflow_dispatch", requestedMode: "candidate", expectedSha: headSha }).headSha, headSha);
+  const service = makeCiPlan({ ...common, files: ["services/install-transfer/src/index.js"] });
+  assert.equal(service.service.required, true);
+  assert.deepEqual(service.browser, []);
+  const workflow = makeCiPlan({ ...common, files: [".github/workflows/simulation.yml"] });
+  assert.equal(workflow.visual.mode, "none");
+  assert.deepEqual(workflow.tests.fast, ["test-ci-mjs"]);
+  const unknown = makeCiPlan({ ...common, files: ["future-runtime.js"] });
+  assert.equal(Object.values(unknown.tests).flat().length, Object.values(SUITES).flat().length);
+});
+
+test("workflow keeps feedback separate from candidate and installs browsers only after planning", () => {
+  const workflow = readFileSync(join(process.cwd(), ".github/workflows/simulation.yml"), "utf8");
+  assert.match(workflow, /pull_request:\s*\n\s+types: \[opened, reopened, synchronize, ready_for_review\]/);
+  assert.match(workflow, /expected_sha:/);
+  assert.match(workflow, /simulation-feedback:/);
+  assert.match(workflow, /if: needs\.plan\.outputs\.browser != '\[\]'/);
+  assert.match(workflow, /if: needs\.plan\.outputs\.visual != 'none'/);
+  assert.match(workflow, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' && github\.event\.pull_request\.draft \}\}/);
+  assert.match(workflow, /node tools\/ci-plan\.mjs/);
+  assert.match(workflow, /node tools\/run-tests\.mjs "\$LANE" --suite-ids/);
 });

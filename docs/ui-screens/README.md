@@ -13,8 +13,7 @@ Whenever a change alters a user-visible surface (`index.html`, `styles.css`, `ap
 install UI), regenerate before merging:
 
 ```bash
-python3 -m http.server 8000
-REPFORGE_URL=http://localhost:8000/ node tools/capture-ui-screens.mjs
+node tools/capture-ui-screens.mjs --affected --accept-visual-change
 ```
 
 CI runs `tools/check-ui-screens.mjs` (every registered frame exists, no strays) and

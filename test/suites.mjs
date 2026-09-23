@@ -125,6 +125,8 @@ export const SUITES = {
     s("test/guide-eligibility.mjs"),
     s("test/settings-groups.mjs"),
     s("test/entry-privacy.mjs"),
+    s("test/privacy-ui.mjs", [], { domains: ["entry", "settings", "privacy"] }),
+    s("test/privacy-share-flow.mjs", [], { domains: ["entry", "privacy"] }),
   ],
   workout: [
     s("test/i18n.mjs"),

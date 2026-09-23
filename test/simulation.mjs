@@ -31,7 +31,8 @@ const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 const SETUP_DRAFT = "repforge_program_setup_draft_v1";
 const OPTIONAL_DEPLOYMENT_SHELL_ASSET = "/posthog-config.js";
-const SIM_WEEKS = Math.max(1, +(process.env.REPFORGE_SIM_WEEKS || 52));
+const SIM_WEEKS = process.argv.includes("--smoke") ? 12 : Math.max(1, +(process.env.REPFORGE_SIM_WEEKS || 52));
+const SMOKE = process.argv.includes("--smoke");
 const PROFILE = process.env.REPFORGE_PROFILE === "1";
 
 const results = { passed: 0, failed: 0, bugs: [] };
@@ -1633,6 +1634,16 @@ async function main() {
     "Computed style on :root → contrast(--ink-soft vs --bg/--surface)"
   );
   await nav(page, "log");
+
+  if (SMOKE) {
+    assert(consoleErrors.length === 0, "No console errors during short integration simulation", consoleErrors.slice(0, 5).join("; "));
+    await context.close();
+    await browser.close();
+    console.log(`Short integration simulation: ${SIM_WEEKS} weeks, ${sessionCount} sessions, ${results.passed} passed, ${results.failed} failed.`);
+    if (results.bugs.length) console.error(results.bugs.map((bug) => `${bug.name}: ${bug.detail}`).join("\n"));
+    process.exitCode = results.failed ? 1 : 0;
+    return;
+  }
 
   // ── Phase 2: Draft persistence ───────────────────────────────────
   beginPhase("Phase 2: Draft persistence");

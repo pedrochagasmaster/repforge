@@ -1,18 +1,16 @@
 #!/usr/bin/env node
 /** Run isolated suites with terse default output; full logs always go to .ci-results. */
 import { spawn, execFileSync } from "node:child_process";
-import { appendFileSync, closeSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync, writeSync } from "node:fs";
-import { randomUUID } from "node:crypto";
-import { createServer } from "node:net";
-import { dirname, join, resolve } from "node:path";
+import { appendFileSync, closeSync, mkdirSync, openSync, rmSync, writeFileSync, writeSync } from "node:fs";
+import { dirname, join, resolve, relative, isAbsolute } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { SUITES, BROWSER_LANES, commandArgs, inventoryErrors, suiteId } from "../test/suites.mjs";
-import { changedFilesForTests, formatAffected, selectAffected } from "./test-selection.mjs";
+import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, formatAffected, selectBranch, selectPacket, selectEdit } from "./test-selection.mjs";
+import { maybeStartLocalPreview } from "./local-preview.mjs";
+export { maybeStartLocalPreview } from "./local-preview.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const MAX_FAILURE_EXCERPT = 12 * 1024;
-const PREVIEW_GENERATED_FILES = ["index.html", "posthog-config.js"];
-const PREVIEW_READINESS_TIMEOUT_MS = 500;
 
 export function execute(suite, { cwd = ROOT, outputDir, env = process.env, timeoutMs = suite.timeoutMs || 600000, verbose = false } = {}) {
   mkdirSync(outputDir, { recursive: true });
@@ -68,9 +66,10 @@ export function execute(suite, { cwd = ROOT, outputDir, env = process.env, timeo
 export async function runLane(lane, entries, {
   cwd = ROOT, outputDir = join(ROOT, ".ci-results", lane), env = process.env,
   diagnosticReplay = false, browser = BROWSER_LANES.has(lane), summaryPath = env.GITHUB_STEP_SUMMARY, verbose = false,
+  failFast = false,
 } = {}) {
   mkdirSync(outputDir, { recursive: true });
-  const report = { lane, revision: env.GITHUB_SHA || null, results: [] };
+  const report = { lane, revision: env.CI_SOURCE_SHA || env.GITHUB_SHA || null, results: [] };
   const save = () => writeFileSync(join(outputDir, "results.json"), JSON.stringify(report, null, 2) + "\n");
   for (const suite of entries) {
     const id = suiteId(suite);
@@ -81,6 +80,7 @@ export async function runLane(lane, entries, {
     if (verbose) console.log(`\n=== ${row.command.join(" ")} ===`);
     row.initial = await execute(suite, { cwd, outputDir: join(suiteDir, "initial"), env, verbose });
     row.status = row.initial.status;
+    if (row.status === "failed") row.failureClass = row.initial.timedOut ? "timeout" : row.initial.error ? "workflow/infrastructure" : "product/test assertion or test-harness synchronization";
     save();
     const seconds = (row.initial.durationMs / 1000).toFixed(2);
     console.log(`${row.status === "passed" ? "✓" : "✗"} ${row.command.join(" ")}  ${seconds}s`);
@@ -93,20 +93,25 @@ export async function runLane(lane, entries, {
         cwd, outputDir: join(suiteDir, "diagnostic"), env: { ...env, REPFORGE_TRACE: "1" }, verbose,
       });
       console.log(`  diagnostic ${row.diagnostic.status} in ${(row.diagnostic.durationMs / 1000).toFixed(2)}s; original remains FAILED`);
+      row.suspectedFlake = row.diagnostic.status === "passed";
+      if (row.suspectedFlake) console.warn(`Suspected synchronization flake: ${id}; initial failed, diagnostic passed. Gate remains red.`);
       save();
     }
-    if (row.initial.interrupted || row.diagnostic?.interrupted) break;
+    if (row.initial.interrupted || row.diagnostic?.interrupted || (failFast && row.status === "failed")) break;
   }
   report.notRun = entries.length - report.results.length;
-  report.failed = report.results.filter((r) => r.status !== "passed").length;
+  for (const suite of entries.slice(report.results.length)) report.results.push({
+    id: suiteId(suite), command: ["node", ...commandArgs(suite)], status: "not-run-after-failure",
+  });
+  report.failed = report.results.filter((r) => r.status === "failed").length;
   save();
   const lines = [
     `## Tests: ${lane}`, "", "| Suite | Result | Initial time | Diagnostic time |", "| --- | --- | ---: | ---: |",
-    ...report.results.map((r) => `| \`${r.command.join(" ").replaceAll("|", "\\|")}\` | ${r.status} | ${(r.initial.durationMs / 1000).toFixed(2)}s | ${r.diagnostic ? (r.diagnostic.durationMs / 1000).toFixed(2) + "s (diagnostic only)" : "—"} |`),
-    "", `${report.failed} failed; ${report.notRun} not run. Diagnostic replays never make a failed gate pass.`, "",
+    ...report.results.map((r) => `| \`${r.command.join(" ").replaceAll("|", "\\|")}\` | ${r.status} | ${r.initial ? (r.initial.durationMs / 1000).toFixed(2) + "s" : "—"} | ${r.diagnostic ? (r.diagnostic.durationMs / 1000).toFixed(2) + "s (diagnostic only)" : "—"} |`),
+    "", `${report.failed} failed; ${report.notRun} not run; ${report.results.filter((r) => r.suspectedFlake).length} suspected synchronization flake(s). Diagnostic replays never make a failed gate pass.`, "",
   ];
   if (summaryPath) appendFileSync(summaryPath, lines.join("\n"));
-  console.log(`${lane}: ${report.results.length - report.failed}/${entries.length} passed`);
+  console.log(`${lane}: ${entries.length - report.failed - report.notRun}/${entries.length} passed`);
   return report;
 }
 
@@ -115,208 +120,6 @@ function repositoryFiles() {
     { cwd: ROOT, encoding: "utf8" }).split("\0").filter(Boolean);
 }
 
-function snapshotPreviewFiles(cwd) {
-  return PREVIEW_GENERATED_FILES.map((relativePath) => {
-    const path = join(cwd, relativePath);
-    try {
-      return { path, exists: true, bytes: readFileSync(path) };
-    } catch (error) {
-      if (error.code === "ENOENT") return { path, exists: false, bytes: null };
-      throw error;
-    }
-  });
-}
-
-function restorePreviewFiles(snapshot) {
-  for (const file of snapshot) {
-    if (file.exists) writeFileSync(file.path, file.bytes);
-    else rmSync(file.path, { force: true });
-  }
-}
-
-async function allocateLoopbackPort(createServerImpl = createServer) {
-  return new Promise((resolvePort, reject) => {
-    const server = createServerImpl();
-    server.unref?.();
-    server.once("error", reject);
-    server.listen(0, "127.0.0.1", () => {
-      const address = server.address();
-      const port = typeof address === "object" && address ? address.port : null;
-      server.close((error) => {
-        if (error) reject(error);
-        else if (!Number.isInteger(port)) reject(new Error("Could not allocate a loopback preview port"));
-        else resolvePort(port);
-      });
-    });
-  });
-}
-
-const isLoopback = (url) => ["localhost", "127.0.0.1"].includes(url.hostname);
-
-export async function maybeStartLocalPreview(entries, {
-  cwd = ROOT,
-  env = process.env,
-  fetchImpl = globalThis.fetch,
-  execFileSyncImpl = execFileSync,
-  spawnImpl = spawn,
-  signalSource = process,
-  killGroup = (pid, signal) => process.kill(-pid, signal),
-  setTimeoutImpl = setTimeout,
-  clearTimeoutImpl = clearTimeout,
-  wait = (milliseconds) => new Promise((resolveWait) => setTimeout(resolveWait, milliseconds)),
-  allocatePort = () => allocateLoopbackPort(),
-  identityToken = randomUUID(),
-} = {}) {
-  if (!entries.some(({ lane }) => BROWSER_LANES.has(lane))) return null;
-
-  const explicitUrl = typeof env.REPFORGE_URL === "string" && env.REPFORGE_URL.trim()
-    ? new URL(env.REPFORGE_URL)
-    : null;
-  if (explicitUrl && !isLoopback(explicitUrl)) {
-    return { env: { ...env, REPFORGE_URL: explicitUrl.href }, cleanup() {} };
-  }
-
-  mkdirSync(join(cwd, ".ci-results"), { recursive: true });
-  const identityRelativePath = `.ci-results/preview-identity-${identityToken}.txt`;
-  const identityPath = join(cwd, identityRelativePath);
-  writeFileSync(identityPath, identityToken);
-
-  let serverLog = null;
-  let child = null;
-  let childExited = false;
-  let cleanupDone = false;
-  let cleanupError = null;
-  let interrupted = false;
-  let spawnError = null;
-  let snapshot = null;
-  const abort = new AbortController();
-  const removeSignalListener = () => {
-    signalSource.removeListener("SIGINT", onSignal);
-    signalSource.removeListener("SIGTERM", onSignal);
-  };
-  const cleanup = () => {
-    if (cleanupDone) return cleanupError;
-    cleanupDone = true;
-    removeSignalListener();
-    const errors = [];
-    if (child && !childExited && child.pid) {
-      try {
-        if (process.platform === "win32") child.kill("SIGTERM");
-        else killGroup(child.pid, "SIGTERM");
-      } catch (error) {
-        if (error.code !== "ESRCH") errors.push(error);
-      }
-    }
-    if (serverLog !== null) {
-      try { closeSync(serverLog); } catch (error) { if (error.code !== "EBADF") errors.push(error); }
-    }
-    if (snapshot) {
-      try { restorePreviewFiles(snapshot); } catch (error) { errors.push(error); }
-    }
-    try { rmSync(identityPath, { force: true }); } catch (error) { errors.push(error); }
-    cleanupError = errors.length ? new AggregateError(errors, "Could not clean up the temporary local preview") : null;
-    return cleanupError;
-  };
-  const onSignal = () => {
-    interrupted = true;
-    abort.abort();
-    cleanup();
-  };
-  const fetchWithDeadline = async (url) => {
-    const requestAbort = new AbortController();
-    let rejectDeadline;
-    let rejectLifecycle;
-    let lifecycleRejected = false;
-    const deadline = new Promise((_, reject) => { rejectDeadline = reject; });
-    const lifecycle = new Promise((_, reject) => { rejectLifecycle = reject; });
-    const rejectOnLifecycle = () => {
-      if (lifecycleRejected) return;
-      lifecycleRejected = true;
-      rejectLifecycle(abort.signal.reason || new Error("Local preview startup interrupted"));
-    };
-    const relayAbort = () => requestAbort.abort(abort.signal.reason);
-    const onLifecycleAbort = () => {
-      relayAbort();
-      rejectOnLifecycle();
-    };
-    if (abort.signal.aborted) onLifecycleAbort();
-    else abort.signal.addEventListener("abort", onLifecycleAbort, { once: true });
-    const timeout = setTimeoutImpl(() => {
-      const error = new Error("Local preview readiness request timed out");
-      requestAbort.abort(error);
-      rejectDeadline(error);
-    }, PREVIEW_READINESS_TIMEOUT_MS);
-    try {
-      const response = await Promise.race([
-        Promise.resolve().then(() => fetchImpl(url, { signal: requestAbort.signal })), deadline, lifecycle,
-      ]);
-      return response;
-    } finally {
-      clearTimeoutImpl(timeout);
-      abort.signal.removeEventListener("abort", onLifecycleAbort);
-    }
-  };
-  const verifyIdentity = async (target) => {
-    const identityUrl = new URL(identityRelativePath, target);
-    const response = await fetchWithDeadline(identityUrl);
-    if (!response.ok) return false;
-    return (await response.text()) === identityToken;
-  };
-
-  signalSource.once("SIGINT", onSignal);
-  signalSource.once("SIGTERM", onSignal);
-  try {
-    if (explicitUrl) {
-      let matches = false;
-      try { matches = await verifyIdentity(explicitUrl); } catch {}
-      if (!matches) {
-        throw new Error(
-          `REPFORGE_URL (${explicitUrl.href}) is not serving this worktree. ` +
-          `Use a server rooted at ${cwd} or unset REPFORGE_URL so the runner can start an isolated preview.`
-        );
-      }
-      console.log(`Verified local preview belongs to this worktree: ${explicitUrl.href}`);
-      return { env: { ...env, REPFORGE_URL: explicitUrl.href }, cleanup: () => { const error = cleanup(); if (error) throw error; } };
-    }
-
-    snapshot = snapshotPreviewFiles(cwd);
-    execFileSyncImpl(process.execPath, ["scripts/generate-posthog-config.mjs"], {
-      cwd,
-      stdio: "ignore",
-      env: { ...env, CF_PAGES_BRANCH: "", POSTHOG_ENABLE_PREVIEWS: "false", POSTHOG_PROJECT_TOKEN: "" },
-    });
-    if (interrupted) throw new Error("Temporary local preview startup interrupted");
-    const port = await allocatePort();
-    const target = new URL(`http://127.0.0.1:${port}/`);
-    serverLog = openSync(join(cwd, ".ci-results/local-server.log"), "w");
-    child = spawnImpl("python3", ["-m", "http.server", String(port), "--bind", "127.0.0.1", "--directory", cwd], {
-      cwd, detached: process.platform !== "win32", stdio: ["ignore", serverLog, serverLog],
-    });
-    child.once?.("error", (error) => { spawnError = error; });
-    child.once?.("exit", () => { childExited = true; });
-    child.once?.("close", () => { childExited = true; });
-    for (let attempt = 0; attempt < 40; attempt++) {
-      if (interrupted) throw new Error("Temporary local preview startup interrupted");
-      if (spawnError) throw spawnError;
-      try {
-        if (await verifyIdentity(target)) {
-          console.log(`Started isolated local preview for browser checks: ${target.href}`);
-          return { env: { ...env, REPFORGE_URL: target.href }, cleanup: () => { const error = cleanup(); if (error) throw error; } };
-        }
-      } catch (error) {
-        if (interrupted) throw new Error("Temporary local preview startup interrupted", { cause: error });
-        if (spawnError) throw spawnError;
-      }
-      await wait(100);
-    }
-    throw new Error(`Could not start the temporary local preview for ${cwd}`);
-  } catch (error) {
-    removeSignalListener();
-    const cleanupFailure = cleanup();
-    if (cleanupFailure) throw new AggregateError([error, cleanupFailure], "Temporary local preview failed");
-    throw error;
-  }
-}
 
 async function main() {
   const argv = process.argv.slice(2);
@@ -327,26 +130,58 @@ async function main() {
     return;
   }
   const target = argv.shift();
-  if (target !== "all" && target !== "affected" && !Object.hasOwn(SUITES, target || "")) {
-    throw new Error("Usage: node tools/run-tests.mjs fast|state|entry|workout|privacy|all|affected [--list] [--suite file-or-stem] [--base ref] [--verbose], or --check");
+  if (!["all", "affected", "edit", "packet", "branch", "candidate"].includes(target) && !Object.hasOwn(SUITES, target || "")) {
+    throw new Error("Usage: node tools/run-tests.mjs fast|state|entry|workout|privacy|all|edit|packet|branch|candidate|affected [--list] [--explain] [--suite file-or-stem] [--base ref] [--fail-fast|--keep-going] [--verbose], or --check");
   }
-  let list = false, verbose = false, filter, base;
+  let list = false, explain = false, verbose = false, filter, filterId, ids, base, failurePolicy, evidence;
   while (argv.length) {
     const arg = argv.shift();
     if (arg === "--list") list = true;
+    else if (arg === "--explain") explain = true;
     else if (arg === "--verbose") verbose = true;
+    else if (arg === "--fail-fast" || arg === "--keep-going") failurePolicy = arg === "--fail-fast";
     else if (arg === "--suite" && argv[0] && !argv[0].startsWith("--")) filter = argv.shift();
+    else if (arg === "--suite-id" && argv[0] && !argv[0].startsWith("--")) filterId = argv.shift();
+    else if (arg === "--suite-ids" && argv[0] && !argv[0].startsWith("--")) ids = argv.shift().split(",").filter(Boolean);
     else if (arg === "--base" && argv[0] && !argv[0].startsWith("--")) base = argv.shift();
+    else if (arg === "--evidence" && argv[0] && !argv[0].startsWith("--")) evidence = resolve(argv.shift());
     else throw new Error(`Unknown or incomplete argument: ${arg}`);
   }
 
   let groups;
-  if (target === "affected") {
-    if (filter) throw new Error("affected already selects suites; use a lane plus --suite for one explicit rerun");
-    const changed = changedFilesForTests({ cwd: ROOT, base });
-    const plan = selectAffected(changed.files, { cwd: ROOT });
-    console.log(`Affected base: ${changed.base || "unavailable"}`);
+  const invocationStarted = Date.now();
+  if (evidence && (list || ids || ["all", "candidate", "branch", "packet", "affected", "edit"].includes(target))) {
+    throw new Error("--evidence requires an executing exact lane with --suite");
+  }
+  let sourceBefore, evidenceFd;
+  if (evidence) {
+    if (!filter && !filterId) throw new Error("--evidence requires --suite or --suite-id");
+    const parent = resolve(dirname(evidence));
+    const fromRoot = relative(ROOT, parent);
+    if (fromRoot === "" || (!isAbsolute(fromRoot) && fromRoot !== ".." && !fromRoot.startsWith("../"))) {
+      throw new Error("Evidence report must be outside the worktree");
+    }
+    sourceBefore = sourceAtHead();
+    if (sourceBefore.status) throw new Error("--evidence requires a clean source worktree");
+  }
+  if (["affected", "branch", "edit", "packet", "candidate"].includes(target)) {
+    if (filter || filterId) throw new Error(`${target} already selects suites; use a lane plus --suite-id for one explicit rerun`);
+    if (target === "affected") console.warn("affected is the branch-wide compatibility alias; use edit or packet for local feedback.");
+    const changed = target === "edit" ? changedFilesForEdit({ cwd: ROOT })
+      : target === "packet" ? changedFilesForPacket({ cwd: ROOT, base: base || process.env.REPFORGE_PACKET_BASE })
+      : target === "candidate" ? { base: "HEAD", files: null }
+      : changedFilesForTests({ cwd: ROOT, base });
+    const plan = target === "candidate"
+      ? { mode: "all", entries: Object.entries(SUITES).filter(([lane]) => lane !== "service").flatMap(([lane, suites]) => suites.map((suite) => ({ lane, suite }))), files: [], reasons: ["Complete local candidate gate; service requires its external environment."] }
+      : (target === "edit" ? selectEdit : target === "packet" ? selectPacket : selectBranch)(changed.files, { cwd: ROOT });
+    const selectionDurationMs = Date.now() - invocationStarted;
+    console.log(`${target} base: ${changed.base || "unavailable"}`);
     console.log(formatAffected(plan));
+    if (target === "candidate") console.log("SKIPPED — external/environment gate: install-transfer service requires service credentials and infrastructure.");
+    if (explain) {
+      console.log(`Changed files: ${changed.files?.join(", ") || "(none or complete gate)"}`);
+      for (const reason of plan.reasons) console.log(`Reason: ${reason}`);
+    }
     if (list) {
       for (const { lane, suite } of plan.entries) console.log(`${lane}\tnode ${commandArgs(suite).join(" ")}`);
       return;
@@ -354,32 +189,85 @@ async function main() {
     if (!plan.entries.length) return;
     groups = Object.entries(SUITES).map(([lane]) => [lane, plan.entries.filter((entry) => entry.lane === lane).map((entry) => entry.suite)]).filter(([, entries]) => entries.length);
     const preview = await maybeStartLocalPreview(plan.entries, { cwd: ROOT });
-    try { await runGroups(groups, { verbose, env: preview?.env || process.env }); } finally { preview?.cleanup?.(); }
+    try {
+      const reports = await runGroups(groups, { verbose, env: preview?.env || process.env, failFast: failurePolicy ?? target !== "candidate" });
+      writeInvocation(target, plan.entries, reports, selectionDurationMs, invocationStarted);
+    } finally { preview?.cleanup?.(); }
     return;
   }
 
   groups = (target === "all" ? Object.entries(SUITES) : [[target, SUITES[target]]]).map(([lane, entries]) => [lane,
-    entries.filter((suite) => !filter || suite.file === filter || suite.file.split("/").at(-1).replace(/\.mjs$/, "") === filter)]);
+    entries.filter((suite) => ids ? ids.includes(suiteId(suite)) : filterId ? suiteId(suite) === filterId
+      : !filter || suite.file === filter || suite.file.split("/").at(-1).replace(/\.mjs$/, "") === filter)]);
   const selected = groups.reduce((sum, [, entries]) => sum + entries.length, 0);
-  if (!selected) throw new Error(`No suite matches ${JSON.stringify(filter)}`);
+  if (ids && (selected !== ids.length || new Set(ids).size !== ids.length)) throw new Error("--suite-ids must resolve uniquely to commands in this lane");
+  if (!selected) throw new Error(`No suite matches ${JSON.stringify(filterId || filter)}`);
+  if (evidence && selected !== 1) throw new Error("--evidence requires exactly one inventory command; use --suite-id for variants");
   if (list) {
     for (const [lane, entries] of groups) for (const suite of entries) console.log(`${lane}\tnode ${commandArgs(suite).join(" ")}`);
     return;
   }
   const previewEntries = groups.flatMap(([lane, entries]) => entries.map((suite) => ({ lane, suite })));
   const preview = await maybeStartLocalPreview(previewEntries, { cwd: ROOT });
-  try { await runGroups(groups, { verbose, env: preview?.env || process.env }); } finally { preview?.cleanup?.(); }
+  if (evidence) evidenceFd = openSync(evidence, "wx", 0o600);
+  let failure, reports;
+  const startedAt = new Date().toISOString();
+  try { reports = await runGroups(groups, { verbose, env: preview?.env || process.env, failFast: failurePolicy ?? Boolean(filter) }); }
+  catch (error) { failure = error; throw error; }
+  finally {
+    try { preview?.cleanup?.(); }
+    catch (error) { failure ||= error; }
+    if (evidence) {
+      const after = sourceAtHead();
+      const outcome = after.head !== sourceBefore.head || after.tree !== sourceBefore.tree || after.status
+        ? "source-changed" : failure || process.exitCode ? "command-failed" : "command-passed";
+      writeFileSync(evidenceFd, JSON.stringify({ schemaVersion: 1,
+        meaning: "Command execution provenance only; semantic coverage and owner approval require review.",
+        root: ROOT, command: ["node", "tools/run-tests.mjs", target, "--suite-id", suiteId(groups.flatMap(([, entries]) => entries)[0])],
+        runtime: { node: process.version, platform: process.platform, arch: process.arch },
+        startedAt, finishedAt: new Date().toISOString(), sourceBefore, sourceAfter: after,
+        execution: reports?.[0]?.results?.[0] || null, outcome,
+      }, null, 2) + "\n");
+      closeSync(evidenceFd);
+      if (outcome !== "command-passed") process.exitCode = 1;
+    }
+    if (failure) throw failure;
+  }
 }
 
-async function runGroups(groups, { verbose, env = process.env }) {
+function sourceAtHead() {
+  const git = (args) => execFileSync("git", args, { cwd: ROOT, encoding: "utf8" }).trimEnd();
+  return { head: git(["rev-parse", "HEAD"]), tree: git(["rev-parse", "HEAD^{tree}"]),
+    status: git(["status", "--porcelain=v1", "--untracked-files=all"]) };
+}
+
+function writeInvocation(scope, entries, reports, selectionDurationMs, started) {
+  mkdirSync(join(ROOT, ".ci-results"), { recursive: true });
+  writeFileSync(join(ROOT, ".ci-results/invocation.json"), JSON.stringify({
+    scope, selectionCount: entries.length,
+    selectionByLane: Object.fromEntries(Object.keys(SUITES).map((lane) => [lane, entries.filter((entry) => entry.lane === lane).length])),
+    selectionDurationMs, executionDurationMs: Date.now() - started - selectionDurationMs,
+    failed: reports.reduce((sum, report) => sum + report.failed, 0),
+    notRun: entries.length - reports.reduce((sum, report) => sum + report.results.filter((row) => row.initial).length, 0),
+  }, null, 2) + "\n");
+}
+
+async function runGroups(groups, { verbose, env = process.env, failFast = false }) {
   let failed = false;
+  const reports = [];
   for (const [lane, entries] of groups) {
     if (!entries.length) continue;
-    const report = await runLane(lane, entries, { env, diagnosticReplay: env.REPFORGE_DIAGNOSTIC_REPLAY === "1", verbose });
+    const report = await runLane(lane, entries, { env, diagnosticReplay: env.REPFORGE_DIAGNOSTIC_REPLAY === "1", verbose, failFast });
+    reports.push(report);
     failed ||= report.failed > 0 || report.notRun > 0;
-    if (report.notRun) break;
+    if (report.failed) {
+      const first = report.results.find((row) => row.status === "failed");
+      console.error(`FAILED ${first.command.join(" ")}\nLog: .ci-results/${lane}/${first.id}/initial/output.log\nRerun only this contract:\n  node tools/run-tests.mjs ${lane} --suite-id ${first.id}`);
+    }
+    if (report.notRun || (failFast && report.failed)) break;
   }
   if (failed) process.exitCode = 1;
+  return reports;
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {

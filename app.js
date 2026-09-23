@@ -8927,6 +8927,7 @@ function redrawChart(){
   if(!$("#stats").classList.contains("active")||statsSeg!=="overview"||evidenceView!=null)return;
   const sel=$("#statExercise").value,rows=summaries().filter(x=>x.liftKey===sel);draw(rows)}
 
+// @ci-domain history
 function adoptHistoryDurableHead(head){
   if(!head)return;
   state=cloneSnapshot(head);prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
