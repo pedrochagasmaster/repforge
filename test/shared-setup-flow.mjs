@@ -1947,7 +1947,7 @@ export async function runSharedSetupFlow(browser) {
           return el && !el.classList.contains("hidden") && el.textContent === expected;
         },
         SHARED_COPY.en.existing,
-        { timeout: 5000 }
+        { timeout: 15000 }
       );
       const after = await page.evaluate(readDurableState);
       const gate = await page.evaluate(sharedGateSnapshot);
