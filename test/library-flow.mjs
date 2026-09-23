@@ -459,6 +459,42 @@ async function main() {
     await settle(page);
     const remains = (await getState(page)).customExercises.some((e) => e.id === editedList[0].id);
     assert(!remains, "the visible Delete action removes an unused definition");
+
+    // The full Library's final Save must wait for both durable replicas before
+    // closing or announcing a successful Program edit.
+    await reset(page);
+    const partialTarget = await page.evaluate(async () => {
+      const saved = await window.__repforgeSaveCustomExercise({
+        name: "Partial library add", equipment: ["machine"], primary: "Chest", secondary: "", notes: "",
+      });
+      return saved.entry?.id || null;
+    });
+    assert(!!partialTarget, "a custom definition is available for the partial library-write fixture");
+    await page.evaluate(() => window.__repforgeOpenLibrary({}));
+    await page.waitForSelector(`#libList [data-lib-toggle="${partialTarget}"]`, { timeout: 5000 });
+    await page.locator(`#libList [data-lib-toggle="${partialTarget}"]`).click();
+    await page.click("#libPrimary");
+    await page.waitForSelector(`#libConfigureRows [data-cfg="${partialTarget}"]`, { timeout: 5000 });
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      window.__libraryWriteIdb = io.writeIdb;
+      io.writeIdb = () => Promise.resolve(false);
+    });
+    await page.click("#libPrimary");
+    await page.waitForFunction(() => {
+      const toast = document.querySelector("#toast");
+      return toast && !toast.classList.contains("hidden");
+    }, undefined, { timeout: 10000 });
+    const partialUi = await page.evaluate(() => ({
+      libraryOpen: document.querySelector("#library")?.classList.contains("active") === true,
+      toast: document.querySelector("#toast")?.textContent?.trim() || "",
+    }));
+    assert(partialUi.libraryOpen && !partialUi.toast.includes("exercises added"),
+      "a one-replica full-library Program write is not presented as success", JSON.stringify(partialUi));
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      if (window.__libraryWriteIdb) io.writeIdb = window.__libraryWriteIdb;
+    });
   } finally {
     await context.close();
     await browser.close();

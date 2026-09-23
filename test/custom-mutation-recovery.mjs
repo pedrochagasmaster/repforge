@@ -680,25 +680,37 @@ async function testDeleteRecoveryRestoresNewReference(page, otherPage) {
     return { raw, journal: raw ? JSON.parse(raw) : null };
   });
 
-  // Submit a real two-tab durable commit from the other tab's pre-Delete
-  // snapshot. The mandatory installed-editor regression separately proves
-  // the current UI producer now rejects this stale custom identity under lock.
+  // Model a pre-F057-12 peer that already staged a custom reference before
+  // Delete. Current application mutation boundaries reject this stale intent;
+  // write the old worker's proposal at the durable I/O seam so this recovery
+  // consumer remains tested against the hostile state it must repair.
   const concurrent = await otherPage.evaluate(async ({ proposal, customId }) => {
-    const row = proposal.program?.[0];
-    if (!row) throw new Error("Delete recovery fixture needs a program row");
-    row.libraryId = customId;
-    row.movementId = "library:" + customId;
-    row.name = "Delete recovery reference winner";
-    const result = await window.__repforgeCommitProposedState(proposal);
-    return { committed: result?.committed, settled: result?.settled, revision: result?.revision, code: result?.code };
+    const durable = window.RepForgeDurableState;
+    const staleRow = proposal.program?.[0];
+    if (!staleRow) throw new Error("Delete recovery fixture needs a program row");
+    staleRow.libraryId = customId;
+    staleRow.movementId = "library:" + customId;
+    staleRow.name = "Delete recovery reference winner";
+    return durable.withStorageLock(durable.storageIO, async () => {
+      const local = durable.readLocalStatus(), idb = await durable.readIdbStatus();
+      const decision = durable.chooseSnapshot(local, idb);
+      if (decision.kind !== "chosen") throw new Error("Could not resolve the hostile peer write head");
+      const candidate = durable.cloneSnapshot(decision.snapshot);
+      const target = candidate.program?.find(item => item.id === staleRow.id);
+      if (!target) throw new Error("Delete recovery fixture needs a durable program row");
+      Object.assign(target, staleRow);
+      candidate._storageRevision = durable.readRevision(candidate) + 1;
+      const result = await durable.writeSnapshot(candidate, durable.storageIO);
+      return { ...result, revision: result.revision };
+    });
   }, { proposal: staleProposal, customId: id });
   const raced = await readReplicas(otherPage);
-  check(concurrent.committed === true && concurrent.settled === true &&
+  check(concurrent.localOk === true && concurrent.idbOk === true &&
       raced.local?.program?.some(row => row.libraryId === id) === true &&
       raced.idb?.program?.some(row => row.libraryId === id) === true &&
       !raced.local?.customExercises?.some(entry => entry.id === id) &&
       !raced.idb?.customExercises?.some(entry => entry.id === id),
-    "a stale peer commit introduces the referenced identity after partial Delete", {
+    "a pre-F057-12 peer write models a new reference after partial Delete", {
       concurrent, localRevision: raced.local?._storageRevision, idbRevision: raced.idb?._storageRevision,
       localReference: raced.local?.program?.some(row => row.libraryId === id) === true,
       idbReference: raced.idb?.program?.some(row => row.libraryId === id) === true,

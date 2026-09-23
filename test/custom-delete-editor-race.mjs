@@ -184,6 +184,75 @@ async function openCustomManagement(page, id) {
   await page.waitForSelector("#exCustomSheet.is-open", { timeout: 5000 });
 }
 
+async function testStaleFullLibraryAddAfterDelete(browser) {
+  const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
+  const tabA = await context.newPage();
+  const tabB = await context.newPage();
+  try {
+    await reset(tabA);
+    const id = await seedCustom(tabA, "F057-12 stale library selection");
+    await tabB.goto(BASE, { waitUntil: "domcontentloaded" });
+    await waitForApp(tabB);
+
+    // Stage X through the actual full Library UI while its definition exists.
+    await tabB.evaluate(() => window.__repforgeOpenLibrary({}));
+    await tabB.waitForSelector(`#libList [data-lib-toggle="${id}"]`, { timeout: 5000 });
+    await tabB.locator(`#libList [data-lib-toggle="${id}"]`).click();
+    await tabB.click("#libPrimary");
+    await tabB.waitForSelector(`#libConfigureRows [data-cfg="${id}"]`, { timeout: 5000 });
+
+    // Delete fully settles in Tab A before Tab B applies its stale selection.
+    await openCustomManagement(tabA, id);
+    await tabA.click("#exCustomDelete");
+    await tabA.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 10000 });
+    const afterDelete = await readReplicas(tabA);
+    check([afterDelete.local, afterDelete.idb].every(snapshot =>
+      !snapshot?.customExercises?.some(entry => entry.id === id)),
+    "the full-library race starts after Delete is fully settled in both replicas", {
+      local: stateSummary(afterDelete.local, id, null),
+      idb: stateSummary(afterDelete.idb, id, null),
+    });
+
+    await tabB.click("#libPrimary");
+    await tabB.waitForFunction(() => {
+      const library = document.querySelector("#library");
+      const toast = document.querySelector("#toast")?.textContent?.trim() || "";
+      return !library?.classList.contains("active") || !!toast;
+    }, undefined, { timeout: 10000 });
+    const afterApply = await readReplicas(tabB);
+    const applyUi = await tabB.evaluate(() => ({
+      libraryOpen: document.querySelector("#library")?.classList.contains("active") === true,
+      toast: document.querySelector("#toast")?.textContent?.trim() || "",
+    }));
+    const safe = [afterApply.local, afterApply.idb].every(snapshot =>
+      customReferenceHasDefinition(snapshot, id));
+    check(safe && [afterApply.local, afterApply.idb].every(snapshot =>
+        !snapshot?.program?.some(row => row.libraryId === id)) && applyUi.libraryOpen &&
+        !applyUi.toast.includes("exercises added"),
+    "the full-library ingress rejects a stale custom identity after Delete", {
+      applyUi,
+      local: stateSummary(afterApply.local, id, null),
+      idb: stateSummary(afterApply.idb, id, null),
+    });
+
+    await Promise.all([tabA, tabB].map(async page => {
+      await page.reload({ waitUntil: "domcontentloaded" });
+      await waitForApp(page);
+    }));
+    const [reloadA, reloadB] = await Promise.all([readReplicas(tabA), readReplicas(tabB)]);
+    check([reloadA.local, reloadA.idb, reloadB.local, reloadB.idb].every(snapshot =>
+      customReferenceHasDefinition(snapshot, id)) &&
+      [reloadA.local, reloadA.idb, reloadB.local, reloadB.idb].every(snapshot =>
+        !snapshot?.program?.some(row => row.libraryId === id)),
+    "both tabs reload without a dangling full-library custom reference", {
+      tabA: { local: stateSummary(reloadA.local, id, null), idb: stateSummary(reloadA.idb, id, null) },
+      tabB: { local: stateSummary(reloadB.local, id, null), idb: stateSummary(reloadB.idb, id, null) },
+    });
+  } finally {
+    await context.close();
+  }
+}
+
 async function gateDeleteRecoveryBeforeOwnerLock(page, id) {
   await page.evaluate(customId => {
     const durable = window.RepForgeDurableState;
@@ -565,6 +634,7 @@ async function run() {
         tabB: { local: stateSummary(reloadB.local, id, slot.id), idb: stateSummary(reloadB.idb, id, slot.id) },
       });
     await testPostPartialStaleWorkoutLog(browser);
+    await testStaleFullLibraryAddAfterDelete(browser);
   } finally {
     await context.close();
     await browser.close();

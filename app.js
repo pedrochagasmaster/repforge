@@ -3491,6 +3491,19 @@ function persist(opts={}){
   state.program=structured.program;state.programMeta=structured.meta;
   const snapshot=cloneSnapshot(state);
   return enqueueStateChange(base,snapshot,storageIO,opts)}
+// State-shape validation still reads legacy dangling references losslessly.
+// At the lock-held write boundary, however, every newly introduced custom
+// Program identity must resolve inside the candidate's own custom library.
+function missingCustomProgramReference(head,candidate,{replace=false}={}){
+  const definitions=new Set(customExercises(candidate).map(entry=>entry?.id));
+  const existing=new Set(replace?[]:(head?.program||[])
+    .filter(row=>isCustomLibraryId(row?.libraryId))
+    .map(row=>`${row?.id||""}\u0000${row.libraryId}`));
+  for(const row of candidate?.program||[]){
+    const id=row?.libraryId;
+    if(!isCustomLibraryId(id)||definitions.has(id)||existing.has(`${row?.id||""}\u0000${id}`))continue;
+    return id}
+  return null}
 async function commitProposedState(proposal,io=storageIO,opts={}){
   requireAdapter(io,"commitProposedState");
   const durableProposal=canonicalizeDurableMuscleAttributions(proposal);
@@ -3505,17 +3518,26 @@ async function commitProposedState(proposal,io=storageIO,opts={}){
   // optimistic proposal so boot never has to perform a second, revisionful
   // migration of a valid committed state.
   const durableOpts=Object.assign({},opts,{liveBase});
-  if(typeof opts.preflight==="function"){
-    durableOpts.preflight=async context=>{
-      const checked=await opts.preflight(context);
-      if(!checked?.proposal)return checked;
-      const next=canonicalizeDurableMuscleAttributions(checked.proposal);
+  const callerPreflight=opts.preflight;
+  durableOpts.preflight=async context=>{
+    const checked=typeof callerPreflight==="function"?await callerPreflight(context):null;
+    if(checked?.reject)return checked;
+    let next=context.proposal;
+    if(checked?.proposal){
+      next=canonicalizeDurableMuscleAttributions(checked.proposal);
       const nextStructured=withExplicitProgramStructure(next.program,
         next.programMeta||defaultProgramMeta(next.log));
       next.program=nextStructured.program;next.programMeta=nextStructured.meta;
-      return{...checked,proposal:next};
-    };
-  }
+    }
+    const candidateHead=durableOpts.replace?cloneSnapshot(context.head):
+      rebaseStateChange(base,liveBase,context.head);
+    const candidate=durableOpts.replace?cloneSnapshot(next):
+      rebaseStateChange(liveBase,next,candidateHead);
+    if(missingCustomProgramReference(context.head,candidate,{replace:!!durableOpts.replace}))
+      return{reject:true,result:{conflict:true,stale:true,code:"missing_custom_definition"}};
+    if(!checked?.proposal)return checked;
+    return{...checked,proposal:next};
+  };
   const result=await enqueueStateChange(base,snapshot,io,durableOpts);
   if(result.draftConflict&&!result.journalFailed)toast(t("toast.draft_conflict_retry"),{assertive:true});
   return result}
@@ -11868,7 +11890,10 @@ async function commitLibrarySelection(){
   const result=libFlow.editorScope
     ?await commitProgramEditorProposal(proposal)
     :await commitProposedState(proposal);
-  if(!(result.localOk||result.idbOk)){toast(t("toast.program_save_failed"));return result}
+  const setupDraftAccepted=editorScope&&setupEditorOpen&&result?.setupDraft===true&&
+    result?.localOk===true&&result?.idbOk===true;
+  if(!(result?.committed===true&&result?.settled===true)&&!setupDraftAccepted){
+    toast(t("toast.program_save_failed"));return result}
   const n=rows.length,target=libFlow.day;
   setDayCollapsed(target,false);
   closeLibrary({toProgram:true});
