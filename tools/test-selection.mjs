@@ -205,7 +205,7 @@ export function selectAffected(files, { cwd = ROOT } = {}) {
       if (!PROSE.test(file) && ![...dependencyFiles].some((candidate) => candidate === file)) {
         const knownDirect = ALL.some(({ suite }) => suite.file === file);
         if (knownDirect) continue;
-        if (!/^tools\/(?:test-selection|run-tests|ci-selection|check-test-syntax)\.mjs$/.test(file)) {
+        if (!/^tools\/(?:test-selection|run-tests|ci-selection|check-test-syntax|measure-ci-selection)\.mjs$/.test(file)) {
           return { mode: "all", entries: ALL, files: changed, reasons: [`Unmapped test/tool input: ${file}`] };
         }
       }
