@@ -181,6 +181,62 @@ async function shareFocus(page) {
   }));
 }
 
+function watchDialogs(page) {
+  const dialogs = [];
+  let nextDecision = "dismiss";
+  const listener = async dialog => {
+    dialogs.push({ type: dialog.type(), message: dialog.message() });
+    const decision = nextDecision;
+    nextDecision = "dismiss";
+    await dialog[decision]();
+  };
+  page.on("dialog", listener);
+  return {
+    dialogs,
+    decide(decision) { nextDecision = decision; },
+    close() { page.off("dialog", listener); },
+  };
+}
+
+async function openCustomRepair(page, rowId) {
+  await clickRepair(page, rowId);
+  await page.locator("#exPickCustom").click();
+  await page.waitForSelector("#exCustomSheet:not(.hidden)");
+}
+
+async function fillCustomFacts(page) {
+  const equipment = page.locator('#exCustomEquip .pchip[aria-pressed="false"]').first();
+  const primary = page.locator('#exCustomPrimary .pchip[aria-pressed="false"]').first();
+  await equipment.click();
+  await primary.click();
+}
+
+async function expectDuplicatePrompt(page, watcher, candidate, decision, label) {
+  const before = watcher.dialogs.length;
+  watcher.decide(decision);
+  await page.locator("#exCustomSave").click();
+  const dialog = watcher.dialogs[before];
+  const shown = watcher.dialogs.length === before + 1 && dialog?.type === "confirm" &&
+    dialog.message.includes(candidate.name);
+  assert(shown, label, JSON.stringify({ expectedName: candidate.name, dialogs: watcher.dialogs.slice(before) }));
+  return shown;
+}
+
+async function expectRequiredFactsWithoutDuplicate(page, watcher, label) {
+  await page.waitForFunction(() => {
+    const toast = document.querySelector("#toast");
+    return !toast || toast.classList.contains("hidden");
+  });
+  const before = watcher.dialogs.length;
+  await page.locator("#exCustomSave").click();
+  await page.waitForFunction(() => {
+    const toast = document.querySelector("#toast");
+    return toast && !toast.classList.contains("hidden") &&
+      toast.textContent.includes("Choose at least one piece of equipment.");
+  });
+  assert(watcher.dialogs.length === before, label, JSON.stringify(watcher.dialogs.slice(before)));
+}
+
 async function duplicateBuiltInRepairCase(browser) {
   const { context, page } = await openSeed(browser);
   try {
@@ -258,23 +314,21 @@ async function duplicateExistingCustomRepairCase(browser) {
 
 async function declinedDuplicateRepairCase(browser) {
   const { context, page } = await openSeed(browser);
+  const watcher = watchDialogs(page);
   try {
     const before = await readDurable(page);
     const builtIn = await page.evaluate(() => window.__repforgeLibraryEntry("pr_mc"));
-    await clickRepair(page, "ex-unknown");
-    await page.locator("#exPickCustom").click();
-    await page.waitForSelector("#exCustomSheet:not(.hidden)");
+    await openCustomRepair(page, "ex-unknown");
     await page.locator("#exCustomName").fill(builtIn.name);
-    page.once("dialog", async dialog => {
-      assert(dialog.type() === "confirm", "declined duplicate repair uses the exact-duplicate confirmation");
-      await dialog.dismiss();
-    });
-    await page.locator("#exCustomSave").click();
+    const prompted = await expectDuplicatePrompt(page, watcher, builtIn, "dismiss",
+      "declined duplicate repair uses the exact candidate confirmation");
+    if (!prompted) return;
     await page.waitForSelector("#exCustomSheet:not(.hidden)");
     assert(await page.locator("#exCustomSheet:not(.hidden)").count() === 1,
       "declining an exact duplicate keeps the genuine custom form open");
 
-    await page.locator("#exCustomSave").click();
+    await expectRequiredFactsWithoutDuplicate(page, watcher,
+      "saving again on the declined identity does not repeat its duplicate confirmation");
     await page.waitForSelector("#exCustomSheet:not(.hidden)");
     const blocked = await readDurable(page);
     assert(JSON.stringify(blocked.local?.customExercises || []) === JSON.stringify(before.local?.customExercises || []) &&
@@ -283,9 +337,31 @@ async function declinedDuplicateRepairCase(browser) {
       blocked.idb?.program?.find(row => row.id === "ex-unknown")?.libraryId === "gone:press",
       "declined duplicate cannot save without equipment and primary facts", JSON.stringify(blocked));
 
-    await page.locator("#exCustomEquip .pchip[aria-pressed=\"false\"]").first().click();
-    await page.locator("#exCustomPrimary .pchip[aria-pressed=\"false\"]").first().click();
-    await page.locator("#exCustomSave").click();
+    await page.locator("#exCustomName").fill(`  ${builtIn.name.toUpperCase()}  `);
+    await expectRequiredFactsWithoutDuplicate(page, watcher,
+      "casing and trimmed spacing that still resolve to A reuse A's acknowledgement");
+    const stillBlocked = await readDurable(page);
+    assert(JSON.stringify(stillBlocked.local) === JSON.stringify(before.local) &&
+      JSON.stringify(stillBlocked.idb) === JSON.stringify(before.idb),
+      "normalized same-identity retry remains write-free", JSON.stringify(stillBlocked));
+
+    await page.locator("#exCustomName").fill(builtIn.name);
+    await fillCustomFacts(page);
+    const beforeCreate = watcher.dialogs.length;
+    const inFlight = await page.evaluate(() => {
+      const save = document.querySelector("#exCustomSave");
+      save.click();
+      const result = {
+        saveDisabled: save.disabled,
+        cancelDisabled: document.querySelector("#exCustomCancel").disabled,
+        sheetBusy: document.querySelector("#exCustomSheet").getAttribute("aria-busy") === "true",
+      };
+      document.querySelector("#exCustomCancel").click();
+      save.click();
+      return result;
+    });
+    assert(inFlight.saveDisabled && inFlight.cancelDisabled && inFlight.sheetBusy,
+      "staged Share save prevents duplicate submit and cancel during modal handoff", JSON.stringify(inFlight));
     await waitForShare(page);
     const durable = await readDurable(page);
     const localTarget = durable.local?.program?.find(row => row.id === "ex-unknown");
@@ -298,11 +374,179 @@ async function declinedDuplicateRepairCase(browser) {
       !(durable.local?.customExercises || []).some(row => row.id === "pr_mc") &&
       !(durable.idb?.customExercises || []).some(row => row.id === "pr_mc"),
       "declined duplicate appends one new custom definition instead of reusing the built-in", JSON.stringify(durable));
+    assert(watcher.dialogs.length === beforeCreate,
+      "genuine custom creation on acknowledged A does not re-prompt", JSON.stringify(watcher.dialogs.slice(beforeCreate)));
     assert(await page.locator('[data-share-repair="ex-unknown"]').count() === 0,
       "declined duplicate genuine custom repair removes the Share blocker");
     assert(JSON.stringify(durable.local) === JSON.stringify(durable.idb),
       "declined duplicate genuine custom repair settles equal durable replicas");
   } finally {
+    watcher.close();
+    await context.close();
+  }
+}
+
+async function declinedAThenAcceptBRepairCase(browser) {
+  const value = seedState();
+  const customB = {
+    id: "custom:share-identity-b",
+    name: "Coach row B",
+    namePt: "Coach row B",
+    equipment: ["cable"],
+    primary: "Lats",
+    secondary: "Biceps",
+    notes: "",
+  };
+  value.customExercises = [customB];
+  const { context, page } = await openSeed(browser, value);
+  const watcher = watchDialogs(page);
+  try {
+    const before = await readDurable(page);
+    const a = await page.evaluate(() => window.__repforgeLibraryEntry("pr_mc"));
+    await openCustomRepair(page, "ex-unknown");
+    await page.locator("#exCustomName").fill(a.name);
+    if (!await expectDuplicatePrompt(page, watcher, a, "dismiss",
+      "A→B Share repair first confirms and records declined identity A")) return;
+
+    await page.locator("#exCustomName").fill(customB.name);
+    await fillCustomFacts(page);
+    if (!await expectDuplicatePrompt(page, watcher, customB, "accept",
+      "declining duplicate A requires a fresh confirmation for existing custom B")) return;
+
+    await waitForShare(page);
+    const durable = await readDurable(page);
+    assert(durable.local?.program?.find(row => row.id === "ex-unknown")?.libraryId === customB.id &&
+      durable.idb?.program?.find(row => row.id === "ex-unknown")?.libraryId === customB.id,
+      "accepting B after declining A reuses B's exact custom identity", JSON.stringify(durable));
+    assert(JSON.stringify(durable.local?.customExercises) === JSON.stringify(before.local?.customExercises) &&
+      JSON.stringify(durable.idb?.customExercises) === JSON.stringify(before.idb?.customExercises),
+      "accepting B after declining A appends no custom definition", JSON.stringify(durable));
+    assert(await page.locator('[data-share-repair="ex-unknown"]').count() === 0,
+      "accepting B after declining A clears the freshly validated blocker");
+    assert(JSON.stringify(durable.local) === JSON.stringify(durable.idb),
+      "accepting B after declining A settles equal durable replicas");
+  } finally {
+    watcher.close();
+    await context.close();
+  }
+}
+
+async function declinedAThenDeclineBRepairCase(browser) {
+  const value = seedState();
+  const customB = {
+    id: "custom:share-identity-b",
+    name: "Coach row B",
+    namePt: "Coach row B",
+    equipment: ["cable"],
+    primary: "Lats",
+    secondary: "Biceps",
+    notes: "",
+  };
+  value.customExercises = [customB];
+  const { context, page } = await openSeed(browser, value);
+  const watcher = watchDialogs(page);
+  try {
+    const before = await readDurable(page);
+    const a = await page.evaluate(() => window.__repforgeLibraryEntry("pr_mc"));
+    await openCustomRepair(page, "ex-unknown");
+    await page.locator("#exCustomName").fill(a.name);
+    if (!await expectDuplicatePrompt(page, watcher, a, "dismiss",
+      "A→B decline branch first acknowledges exact identity A")) return;
+
+    await page.locator("#exCustomName").fill(customB.name);
+    await fillCustomFacts(page);
+    if (!await expectDuplicatePrompt(page, watcher, customB, "dismiss",
+      "declined A does not suppress the duplicate confirmation for B")) return;
+
+    const dialogsAfterBDecline = watcher.dialogs.length;
+    await waitForShare(page);
+    const durable = await readDurable(page);
+    const newDefinitions = (durable.local?.customExercises || []).filter(entry =>
+      !(before.local?.customExercises || []).some(original => original.id === entry.id));
+    const target = durable.local?.program?.find(row => row.id === "ex-unknown");
+    assert(watcher.dialogs.length === dialogsAfterBDecline,
+      "declining B proceeds through custom creation without an extra confirmation", JSON.stringify(watcher.dialogs.slice(dialogsAfterBDecline)));
+    assert(newDefinitions.length === 1 && newDefinitions[0]?.name === customB.name &&
+      newDefinitions[0]?.id?.startsWith("custom:") && newDefinitions[0].id !== customB.id &&
+      target?.libraryId === newDefinitions[0].id,
+      "declining B creates exactly one new definition with its own identity", JSON.stringify({ newDefinitions, target }));
+    assert((durable.local?.customExercises || []).length === (before.local?.customExercises || []).length + 1 &&
+      (durable.idb?.customExercises || []).length === (before.idb?.customExercises || []).length + 1 &&
+      (durable.local?.customExercises || []).filter(entry => entry.id === customB.id).length === 1 &&
+      durable.idb?.program?.find(row => row.id === "ex-unknown")?.libraryId === target?.libraryId,
+      "declining B neither copies the existing custom nor loses atomic repair settlement", JSON.stringify(durable));
+    assert(await page.locator('[data-share-repair="ex-unknown"]').count() === 0,
+      "declining B and creating a genuine custom removes the fresh Share blocker");
+    assert(JSON.stringify(durable.local) === JSON.stringify(durable.idb),
+      "declined B repair settles equal durable replicas");
+  } finally {
+    watcher.close();
+    await context.close();
+  }
+}
+
+async function declinedAThenUniqueNameRepairCase(browser) {
+  const { context, page } = await openSeed(browser);
+  const watcher = watchDialogs(page);
+  try {
+    const before = await readDurable(page);
+    const a = await page.evaluate(() => window.__repforgeLibraryEntry("pr_mc"));
+    await openCustomRepair(page, "ex-unknown");
+    await page.locator("#exCustomName").fill(a.name);
+    if (!await expectDuplicatePrompt(page, watcher, a, "dismiss",
+      "unique-name branch first acknowledges duplicate A")) return;
+
+    const uniqueName = "Coach's new incline press";
+    await page.locator("#exCustomName").fill(uniqueName);
+    await expectRequiredFactsWithoutDuplicate(page, watcher,
+      "changing from declined A to a unique name skips duplicate confirmation and reaches custom validation");
+    const blocked = await readDurable(page);
+    assert(JSON.stringify(blocked.local) === JSON.stringify(before.local) &&
+      JSON.stringify(blocked.idb) === JSON.stringify(before.idb),
+      "unique-name required-field refusal is write-free", JSON.stringify(blocked));
+
+    await fillCustomFacts(page);
+    const beforeCreate = watcher.dialogs.length;
+    await page.locator("#exCustomSave").click();
+    await waitForShare(page);
+    const durable = await readDurable(page);
+    const target = durable.local?.program?.find(row => row.id === "ex-unknown");
+    const definition = (durable.local?.customExercises || []).find(entry => entry.id === target?.libraryId);
+    assert(watcher.dialogs.length === beforeCreate,
+      "unique custom creation remains free of a stale duplicate prompt", JSON.stringify(watcher.dialogs.slice(beforeCreate)));
+    assert(target?.libraryId?.startsWith("custom:") && definition?.name === uniqueName &&
+      (durable.local?.customExercises || []).length === (before.local?.customExercises || []).length + 1 &&
+      durable.idb?.program?.find(row => row.id === "ex-unknown")?.libraryId === target.libraryId,
+      "unique-name repair creates and atomically references one new definition", JSON.stringify(durable));
+  } finally {
+    watcher.close();
+    await context.close();
+  }
+}
+
+async function closeReopenResetsDuplicateAcknowledgementCase(browser) {
+  const { context, page } = await openSeed(browser);
+  const watcher = watchDialogs(page);
+  try {
+    const a = await page.evaluate(() => window.__repforgeLibraryEntry("pr_mc"));
+    await openCustomRepair(page, "ex-unknown");
+    await page.locator("#exCustomName").fill(a.name);
+    if (!await expectDuplicatePrompt(page, watcher, a, "dismiss",
+      "first Share repair row records a declined duplicate identity")) return;
+
+    await page.locator("#exCustomCancel").click();
+    const returned = await waitForRepairSurface(page);
+    assert(returned.share && !returned.custom && !returned.picker,
+      "closing the first custom repair returns directly to Share", JSON.stringify(returned));
+
+    await openCustomRepair(page, "ex-missing");
+    await page.locator("#exCustomName").fill(a.name);
+    const secondPrompt = await expectDuplicatePrompt(page, watcher, a, "dismiss",
+      "closing and reopening for another Share row resets duplicate acknowledgement");
+    assert(secondPrompt,
+      "duplicate acknowledgement does not leak across Share repair rows");
+  } finally {
+    watcher.close();
     await context.close();
   }
 }
@@ -376,6 +620,10 @@ async function run() {
     await duplicateBuiltInRepairCase(browser);
     await duplicateExistingCustomRepairCase(browser);
     await declinedDuplicateRepairCase(browser);
+    await declinedAThenAcceptBRepairCase(browser);
+    await declinedAThenDeclineBRepairCase(browser);
+    await declinedAThenUniqueNameRepairCase(browser);
+    await closeReopenResetsDuplicateAcknowledgementCase(browser);
 
     const { context, page } = await openSeed(browser);
     try {

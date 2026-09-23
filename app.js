@@ -10892,6 +10892,17 @@ function renderCustomChips(){
         customState[key==="primary"?"secondary":"primary"].delete(v)}
       renderCustomChips()})}}
 
+function setCustomExercisePhase(active,phase){
+  if(customState!==active)return false;
+  active.phase=phase;
+  const busy=phase==="saving"||phase==="canceling";
+  const sheet=$("#exCustomSheet");
+  if(busy)sheet?.setAttribute("aria-busy","true");
+  else sheet?.removeAttribute("aria-busy");
+  for(const selector of ["#exCustomSave","#exCustomCancel","#exCustomDelete"]){
+    const button=$(selector);if(button)button.disabled=busy}
+  return true}
+
 /* stageOnly builds a definition without writing it. Import review consumes the
    raw entry; Share repair consumes the explicit provenance handoff below, but
    neither flow writes durable state before its final commit. */
@@ -10900,11 +10911,13 @@ function openCustomExerciseSheet({entry=null,onSave=null,onCancel=null,handoff=f
   if(!sheet)return;
   const inUse=entry?customExerciseInUse(entry.id):false;
   customState={id:entry?.id||null,sourceEntry:entry||null,onSave,stageOnly,repairHandoff,
+    phase:"editing",duplicateAcknowledgedId:null,
     // Empty for a new definition: defaulting every custom exercise to Machine
     // quietly mislabels dumbbell and cable work the wizard then filters on.
     equipment:new Set(entry?.equipment||[]),
     primary:new Set(String(entry?.primary||"").split(",").filter(Boolean)),
     secondary:new Set(String(entry?.secondary||"").split(",").filter(Boolean))};
+  setCustomExercisePhase(customState,"editing");
   customReturn=document.activeElement;
   if(name)name.value=entry?.name||"";
   const notes=$("#exCustomNotes");if(notes)notes.value=entry?.notes||"";
@@ -10932,66 +10945,94 @@ function closeCustomExerciseSheet(){
    search and any multi-selection intact. Dropping the lifter back to the
    program instead would throw away a browse they never finished. */
 async function cancelCustomExerciseSheet(){
-  const back=customState?.onCancel;
+  const active=customState;
+  if(!active||active.phase!=="editing")return;
+  const back=active.onCancel;
+  setCustomExercisePhase(active,"canceling");
   await closeCustomExerciseSheet();
-  if(back)back()}
+  if(customState!==active)return;
+  setCustomExercisePhase(active,"finished");
+  if(back)await back()}
 
 async function saveCustomExerciseSheet(){
-  if(!customState)return;
+  const active=customState;
+  if(!active||active.phase!=="editing")return;
   const name=String($("#exCustomName")?.value||"").trim();
   if(!name){toast(t("toast.custom_needs_name"));return}
-  if(!customState.id){
+  if(!active.id){
     const twin=pickableExercises().find(e=>foldSearch(libraryName(e))===foldSearch(name)||foldSearch(e.name)===foldSearch(name));
-    if(twin&&!customState.duplicateAcknowledged){
+    if(twin&&twin.id!==active.duplicateAcknowledgedId){
       // Offer what already exists before minting a near-identical second copy.
       if(confirm(t("confirm.custom_duplicate",{name:libraryName(twin)}))){
-        const handler=customState.onSave;
+        const handler=active.onSave;
+        setCustomExercisePhase(active,"saving");
         await closeCustomExerciseSheet();
-        if(handler)await handler(customState.repairHandoff
+        if(customState!==active)return;
+        if(handler)await handler(active.repairHandoff
           ? {entry:twin,stagedCustomDefinition:null}
           : twin);
+        setCustomExercisePhase(active,"finished");
         return}
-      customState.duplicateAcknowledged=true}}
+      active.duplicateAcknowledgedId=twin.id}}
   // Equipment and a primary muscle are what make the definition usable: the
   // wizard filters on one and the volume audit groups by the other. Exact
   // duplicates above reuse their trusted definition instead of requiring the
   // custom form to restate those facts.
-  if(!customState.equipment.size){toast(t("toast.custom_needs_equipment"));return}
-  if(!customState.primary.size){toast(t("toast.custom_needs_primary"));return}
-  const handler=customState.onSave;
-  const editing=!!customState.id;
-  if(customState.stageOnly){
-    const staged=normalizeCustomExercises([{id:customState.id||`${CUSTOM_ID_PREFIX}${uid()}`,name,
-      equipment:[...customState.equipment],
-      primary:[...customState.primary].join(","),
-      secondary:[...customState.secondary].join(","),
+  if(!active.equipment.size){toast(t("toast.custom_needs_equipment"));return}
+  if(!active.primary.size){toast(t("toast.custom_needs_primary"));return}
+  const handler=active.onSave;
+  const editing=!!active.id;
+  setCustomExercisePhase(active,"saving");
+  if(active.stageOnly){
+    const staged=normalizeCustomExercises([{id:active.id||`${CUSTOM_ID_PREFIX}${uid()}`,name,
+      equipment:[...active.equipment],
+      primary:[...active.primary].join(","),
+      secondary:[...active.secondary].join(","),
       notes:String($("#exCustomNotes")?.value||"").trim()}])[0];
     await closeCustomExerciseSheet();
+    if(customState!==active)return;
     if(handler&&staged){
-      const choice=customState.repairHandoff
-        ? {entry:customState.id?customState.sourceEntry||staged:staged,
-          stagedCustomDefinition:customState.id?null:staged}
+      const choice=active.repairHandoff
+        ? {entry:active.id?active.sourceEntry||staged:staged,
+          stagedCustomDefinition:active.id?null:staged}
         : staged;
       await handler(choice);
     }
+    setCustomExercisePhase(active,"finished");
     return}
-  const {result,entry}=await saveCustomExercise({id:customState.id,name,
-    equipment:[...customState.equipment],
-    primary:[...customState.primary].join(","),
-    secondary:[...customState.secondary].join(","),
-    notes:String($("#exCustomNotes")?.value||"").trim()});
-  if(result&&!(result.localOk||result.idbOk)){toast(result.message||t("toast.custom_save_failed"));return}
+  let saved;
+  try{saved=await saveCustomExercise({id:active.id,name,
+    equipment:[...active.equipment],
+    primary:[...active.primary].join(","),
+    secondary:[...active.secondary].join(","),
+    notes:String($("#exCustomNotes")?.value||"").trim()})}
+  catch(error){setCustomExercisePhase(active,"editing");throw error}
+  if(customState!==active)return;
+  const {result,entry}=saved;
+  if(result&&!(result.localOk||result.idbOk)){
+    setCustomExercisePhase(active,"editing");
+    toast(result.message||t("toast.custom_save_failed"));return}
   await closeCustomExerciseSheet();
+  if(customState!==active)return;
   toast(t(editing?"toast.custom_saved":"toast.custom_created"));
   if(handler&&entry)await handler(entry);
-  else if(pickerState)renderPickerList()}
+  else if(pickerState)renderPickerList();
+  setCustomExercisePhase(active,"finished")}
 
 async function deleteCustomExerciseSheet(){
-  if(!customState?.id)return;
-  const result=await deleteCustomExercise(customState.id);
-  if(!result){toast(t("toast.custom_in_use"));return}
-  if(!(result.localOk||result.idbOk)){toast(t("toast.custom_save_failed"));return}
+  const active=customState;
+  if(!active?.id||active.phase!=="editing")return;
+  setCustomExercisePhase(active,"saving");
+  let result;
+  try{result=await deleteCustomExercise(active.id)}
+  catch(error){setCustomExercisePhase(active,"editing");throw error}
+  if(customState!==active)return;
+  if(!result){setCustomExercisePhase(active,"editing");toast(t("toast.custom_in_use"));return}
+  if(!(result.localOk||result.idbOk)){
+    setCustomExercisePhase(active,"editing");toast(t("toast.custom_save_failed"));return}
   await closeCustomExerciseSheet();
+  if(customState!==active)return;
+  setCustomExercisePhase(active,"finished");
   toast(t(result.archived?"toast.custom_archived":"toast.custom_deleted"));
   if(libFlow)renderLibrary();else if(pickerState)renderPickerList()}
 
