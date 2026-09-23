@@ -60,11 +60,26 @@ onboarding, individual program audit, payment, fake door, or stable entitlement
 promise.
 
 
-## 2. Next — complete the program relationship
+## 2. Next — post-overhaul adoption and real-life execution validation
 
-No independent Next work is scheduled: the overhaul DAG above owns the
-sequenced program-relationship work (Plans 052–057), and everything else that
-lived here is deferred to Later below with its gate preserved.
+This queue activates only after the owner-approved UI-overhaul and launch-
+validation boundary in §1 clears. Nothing here may leak into Plans 049–059.
+The ordering is deliberate: remove switching friction first, then validate how
+often real-life constraints break an otherwise good program before paying the
+complexity cost of broader execution models.
+
+| Order | Work | User problem / business risk | Smallest observable success condition | Depends on | Scheduling effect |
+|---:|---|---|---|---|---|
+| 1 | Historical migration foundation — Hevy, Strong, generic CSV | An experienced lifter can prefer Taurifer's progression model and still refuse to switch because years of training history are stranded elsewhere. Program import does not solve that switching cost. | Import real Hevy, Strong, and generic CSV histories through a previewable pipeline with source provenance, identity reconciliation, explicit unresolved rows, partial-failure reporting, and no silent merging of non-comparable movements. Imported sessions remain truthful History records. Use the shipped Plan 061 matcher and pull the systematic alias pass into this work only where the migration corpus proves vocabulary gaps. | Plan 061 import matching; History performed-identity contract; a dedicated history-import plan that settles source schemas, duplicate handling, units, dates, eligibility, and rollback before code. | Replaces the Later `Strong/Sheets CSV import` item. A Sheets export is handled as generic CSV; additional vendor formats remain Later until demand is observed. |
+| 2 | Free one-off sessions | Real training weeks contain travel, limited time, crowded gyms, friend sessions, and extra sessions. Requiring every workout to be a program day makes Taurifer brittle exactly where a gym logger must be useful. | Ship the ratified Free one-off semantics: manual, classic, muscle-focus, and user-directed planned-session adaptation with time/equipment constraints, deterministic review, and honest History/program/progression eligibility. Completing a pure one-off must not complete/reorder/edit the program, inflate block adherence, or advance automatic program progression. | The existing one-off specification; post-overhaul Today/Workout/History contracts; existing draft and durable-state guarantees. | Moves the existing deferred Free one-off work to Next. Pro program-aware one-off planning remains Gated and cannot be sold before it works. |
+| 3 | Ephemeral equipment-context validation through one-offs | Equipment availability changes by gym, travel, crowding, and session. Building persistent multi-gym identity before proving this is common would front-load one of Taurifer's most complex history-comparability problems. | The one-off/adaptation flow can express exact available equipment, deterministic compatible substitutions, and `Minimize equipment changes` without creating a named persistent gym. Collect only approved privacy-safe categorical evidence needed to learn whether users repeatedly switch contexts or hit substitution friction. | Free one-off sessions; canonical equipment vocabulary; substitution identity semantics; telemetry allowlist approval for any new event. | Full persistent equipment contexts/sibling program instances stay Later until this experiment shows repeated need. |
+| 4 | Unsupported workout-grammar measurement | Imported programs contain concepts Taurifer does not execute today. Blindly adding supersets, rest prescriptions, tempo, cardio, or additional set kinds risks turning the product into a generic logger without evidence that those constructs block adoption. | Record privacy-safe categorical counts for unsupported concepts surfaced by the free-form import path — initially `supersets`, `rest_times`, `rir_rpe`, `tempo`, `warmups`, `cardio`, `progression_rules`, and `deload` — without storing source text. The resulting distribution must be sufficient to rank which, if any, executable-model extension deserves a plan. | Shipped free-form import; telemetry/privacy review; the existing unsupported-concept sidecar or an equivalent reviewed categorical contract. | Replaces the vague Later `Free-form import: measure and widen` item. Measurement moves Next; executable grammar expansion remains Evidence only. |
+
+Historical migration should not become an importer arms race. After the initial
+three source shapes work, add another vendor only from observed switching demand.
+Likewise, the one-off equipment experiment is intentionally not a shortcut to
+persistent multi-gym: the latter still needs explicit history-comparability and
+machine-identity semantics.
 
 ## 3. Gated — working Pro and paid beta
 
@@ -110,11 +125,9 @@ These are real but do not outrank the foundation above.
 | Later | Full factory reset | If added, explicitly distinguish clearing logs, deleting all local Taurifer data, and resetting the installation identifier. Preserve export warnings. |
 | Later | One-tap `+1 rep` | Test whether it materially improves active-set speed without creating accidental commits. |
 | Later | Client-side encrypted export | Use a separately reviewed Web Crypto/passphrase design with recovery and failure behavior. Bad crypto is worse than none. |
-| Later | Free-form import: measure and widen | Read whether the paste door is used and where it fails (reply refused, lifter never returns) before naming more assistants or accepting more reply shapes. Structured spreadsheet/CSV import stays its own Strong/Sheets item. |
-| Later | Strong/Sheets CSV import | Define mapping, identity reconciliation, preview, and partial-failure behavior before implementation. |
+| Later | Additional historical migration sources | After the Next Hevy/Strong/generic-CSV foundation is in real use, add another vendor format only when switching research or failed-import evidence shows material demand. Preserve the same provenance, identity-reconciliation, preview, duplicate, unit/date, and partial-failure guarantees; do not chase format count as a feature metric. |
 | Later | Publisher attribution (deferred) | Unrelated to the overhaul: versioned publisher name, handle, description, and referral id with safe creator-specific acquisition events. Attribution is provenance, never engine input. Reopen only before creator pilots with a new scheduling decision. |
-| Later | Free one-off sessions (deferred) | Unrelated to the overhaul: manual, classic, muscle-focus, and user-directed temporary adaptation with honest History/program/progression eligibility. See the one-off specification. Reopen with a new scheduling decision, not through an overhaul PR. |
-| Later | Equipment contexts and sibling program instances (deferred) | Unrelated to the overhaul: two or three gym contexts, curated sibling mappings, comparable free-weight history, separate non-comparable machine histories, explicit crowded-gym substitutions. Reopen with a new scheduling decision. |
+| Later | Equipment contexts and sibling program instances (deferred) | Persistent two- or three-gym contexts, curated sibling mappings, comparable free-weight history, separate non-comparable machine histories, and explicit crowded-gym substitutions. Do not schedule from competitive parity alone: first use the Next one-off equipment experiment to establish repeated context switching/substitution demand, then require a new scheduling decision for persistent identity. |
 | Later | Cause-routed interventions (deferred) | Unrelated to the overhaul: per-issue evidence, diagnosis question, permitted change, cooldown/ignore behavior, and reassessment window. Reopen with a new scheduling decision. |
 | Later | General lifecycle/friction observability (deferred) | Only the Phase 049-approved telemetry allowlist is scheduled (see Completed: Plans 045–048 are done; the overhaul row governs). Persisting general transition/skip/override/friction/reason catalogues beyond that needs a new product decision. Submitted free text stays on the separate consented research path, never PostHog. |
 | Later | Program lifecycle and next-program transition (deferred) | Broader than the audit-bounded transition work owned by Plans 052/056: archiving, starting another program of any authorship, and honest partial-history interpretation as general lifecycle. Reopen with a new scheduling decision once the overhaul lifecycle is in place. |
@@ -128,6 +141,7 @@ These are real but do not outrank the foundation above.
 | Evidence only | Web Push and extra reminder types | Reopen a server sidecar, backup/block-end reminders, or explicit schedule UI only when installed-PWA/local notifications fail a demonstrated retention or safety need. Pilot backup prominence is deferred with pilot-data protection above. Unrelated to the one-hour install-transfer exception ([ADR 0013](adr/0013-temporary-install-transfer.md)), which is not a notification or reminder path. |
 | Evidence only | Hosted short/opaque setup links | The released self-contained setup formats remain canonical. Add an opaque-token service only when measured URL length, revocation, attribution, or handoff needs justify server dependency. The approved install-transfer token ([ADR 0013](adr/0013-temporary-install-transfer.md)) is a separate one-hour claim object, not a setup-link format. |
 | Evidence only | Per-exercise units or plate calculator | First solve the end-to-end lb/load-step contract. Add equipment-specific loading tools only from observed logging friction. |
+| Evidence only | Executable workout-grammar expansion | Add a currently unsupported construct only when the Next categorical measurement plus direct user evidence shows it blocks meaningful program adoption or execution. Candidate concepts include supersets, explicit rest prescriptions, tempo, additional set kinds, timed/cardio work, or imported progression/deload rules. Extend the executable/history/progression model deliberately per construct; do not accept richer import JSON that the engine cannot truthfully execute. |
 | Evidence only | ~~Opener fallback/backdrop dismissal/coach marks~~ → Superseded in part | Superseded in part by G-40: the global tour is removed in favor of action-linked contextual cues (Plans 054–057 own the registry and anchors). Reopen per cue only with a reproduced accessibility or comprehension problem. |
 | Evidence only | ~~Broad Focus/Program/Block redesign~~ → Superseded | Superseded by the owner-approved overhaul (G-02–G-04): whole-product polish, not partial cleanup. File specific observed problems against the overhaul contracts instead. |
 | Completed | Free-form program import | "I already have a program" almost never meant a Taurifer file. The import route now has a paste door: the lifter's free-form program is wrapped in a reviewed prompt and handed to their own ChatGPT or Claude through a link they tap, and the reply comes back through the existing import review. No key, account, backend or LLM dependency, and no front-running of ADR 0011. See [ADR 0014](adr/0014-free-form-program-import-handoff.md). |
@@ -138,9 +152,60 @@ These are real but do not outrank the foundation above.
 
 > The former draft-result-contract and persistence-extraction debt items were promoted by owner decision into the post-Plan053 architecture bridge in the Now sequence. They are no longer independent Later work.
 
+### Post-overhaul modularity rule
+
+Modularity is a standing implementation constraint, **not** a new standalone
+refactor programme. Plans 055–059 already own the remaining accepted
+architecture-audit work: workout-session ownership, gesture lifetime, entry and
+management workflow ownership, earned historical projections/vocabulary reuse,
+release/source coverage, obsolete-facade removal, and final proof that there is
+one authority per responsibility. Finish those dispositions through the normal
+overhaul sequence before inventing a second architecture queue.
+
+After Plan 059, preserve the architecture review's target: a statically deployed
+application composed from a **small number of deep JavaScript modules with
+outcome-oriented interfaces**. `app.js` should increasingly act as the
+application host/composition layer — boot, wiring, routing of user intent, and
+render coordination — rather than becoming the default home for new domain
+algorithms or lifecycle protocols.
+
+Apply a strangler rule to post-overhaul work:
+
+1. New substantial domain behavior starts behind an owned module/interface when
+   it has a real boundary; do not first grow a large implementation inside
+   `app.js` with a promise to extract it later.
+2. Historical migration must keep source parsing/normalization, provenance,
+   reconciliation, duplicate/unit/date policy, and import outcomes behind an
+   importer boundary that reuses the existing identity matcher rather than
+   scattering vendor conditionals through the application host.
+3. One-off planning must keep deterministic time/equipment/focus planning and
+   program-versus-one-off eligibility semantics outside the renderer/host; the
+   accepted session result is consumed by the existing workout-session owner
+   rather than creating a second workout store or lifecycle.
+4. Future persistent equipment-context intelligence, if evidence earns it,
+   receives its own domain ownership and must not become a collection of
+   cross-cutting `app.js` conditionals.
+5. Existing code moves only when extraction materially reduces coupling,
+   establishes one authority, makes scheduled work safer, or earns reuse from
+   real consumers. Moving helpers into more files without hiding implementation
+   details is not progress.
+6. When a new owner replaces an old path, migrate callers and delete the old
+   implementation/facade once its compatibility duty is finished. Do not leave
+   dual authorities.
+7. Do not introduce a framework rewrite, repository/service-container layer,
+   event bus, global dependency-injection system, package-manager migration, or
+   one-file-per-helper architecture merely to make the tree look conventional.
+
+Success is measured by **ownership and caller knowledge, not `app.js` line
+count**. A smaller host with callers that still understand draft receipts,
+replica settlement, recovery timing, transition internals, or another module's
+lifecycle is not a successful refactor. The governing rationale and accepted
+owner map remain
+[the architecture refactoring plan](taurifer-architecture-refactoring-plan.md).
+
 | Status | Item | Boundary |
 |---|---|---|
-| Later | Systematic exercise alias pass | Editorial pass over all 270 movements in `tools/exercise-curation.json`, adding gym vernacular, acronyms and morphological variants in EN and PT. Plan 061 aliases only what its corpus proves broken; this is the rest. Boundary: aliases add ways to reach an entry and never repoint a `libraryId` at a different movement. |
+| Next | Systematic exercise alias pass | Supporting slice of the Next historical-migration work, not an isolated vocabulary project. Extend `tools/exercise-curation.json` with gym vernacular, acronyms and morphological variants in EN/PT from the migration/import corpus, prioritizing observed names over speculative synonym enumeration. Plan 061's fixture-gated identity rules remain authoritative: aliases add ways to reach an entry and never repoint a `libraryId` at a different movement. |
 | Later | Centralize browser-test helpers | Unify app boot, lock fixtures, state seeding, and common browser assertions without hiding test intent. |
 | Completed | History identity/search contract | Current History matching uses performed library/movement identity for aliases and preserves immutable performed labels; focused tests hold the rule. |
 | Completed | Fast-check foundation | The framework exists. The remaining work is expanding domain/state-machine coverage listed under deferred generative expansion, not choosing another property-testing library. |
@@ -227,6 +292,11 @@ Every new backlog entry must state:
 3. what it depends on;
 4. whether it is Now, Next, Gated, Later, or Evidence only; and
 5. which existing item it replaces, if any.
+
+For substantial post-overhaul implementation work, the plan must also identify
+the domain owner/interface it extends or justify a new deep module boundary.
+Defaulting new domain behavior into `app.js`, or extracting code only to reduce
+file size, is not an acceptable architecture rationale.
 
 Do not preserve an idea merely because an old audit mentioned it. Do not delete
 an accepted decision merely because implementation is inconvenient.
