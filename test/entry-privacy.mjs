@@ -377,7 +377,7 @@ export async function runPrivacy(scope = "all") {
       await closeBtn.click();
 
       // Wait for modal animation to settle and sheet to hide
-      await page.waitForSelector("#privacySheet.hidden, #privacySheet:not(.is-open)", { timeout: 5000 });
+      await page.waitForSelector("#privacySheet.hidden, #privacySheet:not(.is-open)", { state: "hidden", timeout: 5000 });
       await page.waitForFunction(() => document.activeElement?.id === "firstRunPrivacy");
 
       const activeIdAfterClose = await page.evaluate(() => document.activeElement?.id);
@@ -426,7 +426,7 @@ export async function runPrivacy(scope = "all") {
 
       // Close Privacy sheet via Escape key
       await page.keyboard.press("Escape");
-      await page.waitForSelector("#privacySheet.hidden, #privacySheet:not(.is-open)", { timeout: 5000 });
+      await page.waitForSelector("#privacySheet.hidden, #privacySheet:not(.is-open)", { state: "hidden", timeout: 5000 });
       await page.waitForFunction(() => document.activeElement?.id === "privacyDetails");
 
       const activeIdAfterSettingsClose = await page.evaluate(() => document.activeElement?.id);
@@ -482,7 +482,7 @@ export async function runPrivacy(scope = "all") {
       await page.evaluate(() => {
         if (typeof window.closePrivacySheet === "function") window.closePrivacySheet();
       });
-      await page.waitForSelector("#privacySheet.hidden, #privacySheet:not(.is-open)");
+      await page.waitForSelector("#privacySheet.hidden, #privacySheet:not(.is-open)", { state: "hidden" });
 
       // Switch to Portuguese
       await page.evaluate(() => {
@@ -527,7 +527,7 @@ export async function runPrivacy(scope = "all") {
       await page.evaluate(() => {
         if (typeof window.closePrivacySheet === "function") window.closePrivacySheet();
       });
-      await page.waitForSelector("#privacySheet.hidden, #privacySheet:not(.is-open)");
+      await page.waitForSelector("#privacySheet.hidden, #privacySheet:not(.is-open)", { state: "hidden" });
 
       await context.close();
     }

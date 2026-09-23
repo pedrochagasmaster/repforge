@@ -100,6 +100,8 @@ jobs:
         with:
           ref: ${{ needs.plan.outputs.head }}
           persist-credentials: false
+          # Historical migration contracts use git show/archive on older commits.
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           name: ci-plan-${{ needs.plan.outputs.head }}
