@@ -377,7 +377,7 @@ async function main() {
     await page.evaluate(() => {
       window.__historySettlementGate = { release: null };
       window.__repforgeDurableStateTestHooks = {
-        historySettlementLockHeld: async () => new Promise((resolve) => {
+        durableSettlementLockHeld: async () => new Promise((resolve) => {
           window.__historySettlementGate.release = resolve;
         }),
       };

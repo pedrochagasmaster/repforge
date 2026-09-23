@@ -180,7 +180,7 @@ async function main() {
     await pageA.evaluate(() => {
       window.__historyRace = { entered: false, released: false };
       window.__repforgeDurableStateTestHooks = {
-        historySettlementLockHeld: async () => {
+        durableSettlementLockHeld: async () => {
           window.__historyRace.entered = true;
           await new Promise((resolve) => { window.__releaseHistoryRace = resolve; });
         },

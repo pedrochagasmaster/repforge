@@ -873,6 +873,15 @@
       committed = false;
       settled = false;
       rejected = false;
+    } else if (transferFrozen && localOk !== idbOk) {
+      // A freeze can begin after the first replica has already accepted this
+      // snapshot. Keep that exact mutation recoverable; it is not a settled
+      // rejection merely because the second write was stopped at the boundary.
+      status = "partial";
+      kind = "deferred_pending";
+      committed = false;
+      settled = false;
+      rejected = false;
     } else if (conflict || draftConflict || transferFrozen) {
       status = "rejected";
       kind = "rejected_conflict";
@@ -1673,24 +1682,25 @@
         forceFinalization:recoveryTransaction});
       if(execution.kind==="close-failed")
         return{revision:readRevision(head),localOk:false,idbOk:false,draftConflict:true,closeFailed:true,
-          pendingJournalCleanup:execution.settled!==true};
+          pendingJournalCleanup:execution.settled!==true,pendingJournalId:coordinationId};
       if(execution.kind==="precondition-rejected")
         return{revision:readRevision(head),localOk:false,idbOk:false,draftConflict:true,
-          pendingJournalCleanup:execution.settled!==true};
+          pendingJournalCleanup:execution.settled!==true,pendingJournalId:coordinationId};
       if(execution.kind==="write-failed")return Object.assign({},execution.result,
-        {pendingJournalCleanup:execution.settled!==true});
+        {pendingJournalCleanup:execution.settled!==true,pendingJournalId:coordinationId});
       if(execution.kind==="rejected"||execution.kind==="compensated"){
         if(execution.settled&&execution.snapshot){
           persistHead=cloneSnapshot(execution.snapshot);
           applyAcceptedSnapshot(frozenLiveBase,execution.snapshot)}
         return{revision:execution.result?.revision??readRevision(head),localOk:false,idbOk:false,
           draftConflict:!!execution.rejected,compensationPending:!execution.settled,
-          compensationLocalOk:!!execution.result?.localOk,compensationIdbOk:!!execution.result?.idbOk}}
+          compensationLocalOk:!!execution.result?.localOk,compensationIdbOk:!!execution.result?.idbOk,
+          pendingJournalId:coordinationId}}
       if(execution.kind==="settlement-deferred"){
           persistHead=cloneSnapshot(prepared);
           applyAcceptedSnapshot(frozenLiveBase,snapshot);
           return Object.assign({},execution.result,
-            {accepted:true,deferred:true,finalizationPending:true})}
+            {accepted:true,deferred:true,finalizationPending:true,pendingJournalId:coordinationId})}
       if(execution.kind==="close-deferred"){
         /* Only the journal record is still outstanding: the snapshot below is
            already durable, so live state has to adopt it. Reporting success while
@@ -1700,13 +1710,13 @@
           applyAcceptedSnapshot(frozenLiveBase,execution.snapshot)}
         if(!execution.accepted)
           return{revision:execution.result?.revision??readRevision(head),localOk:false,idbOk:false,
-            draftConflict:true,compensationPending:true};
+            draftConflict:true,compensationPending:true,pendingJournalId:coordinationId};
         return Object.assign({},execution.result,
-          {accepted:true,deferred:true,finalizationPending:true})}
+          {accepted:true,deferred:true,finalizationPending:true,pendingJournalId:coordinationId})}
       if(execution.kind==="committed"){
         persistHead=cloneSnapshot(snapshot);
         applyAcceptedSnapshot(frozenLiveBase,snapshot);
-        return Object.assign({accepted:true},execution.result)}
+        return Object.assign({accepted:true,pendingJournalId:coordinationId},execution.result)}
       return{revision:readRevision(head),localOk:false,idbOk:false,conflict:true}},
       {onFrozen:cancelUnstarted}));
     return operation}
@@ -1921,7 +1931,7 @@
 
   async function settleHistoryAlreadyCommitted({verify,pendingJournalId=null}={}){
     return enqueueWrite(()=>withStorageLock(storageIO,async()=>{
-      await runDurableStateTestHook("historySettlementLockHeld");
+      await runDurableStateTestHook("durableSettlementLockHeld");
       let refreshed=await refreshPersistenceHead();
       let head=cloneSnapshot(refreshed.head||persistHead);
       if(refreshed.conflict||!isValidStateShape(head))
@@ -1978,6 +1988,90 @@
           conflict:true,pendingJournalCleanup:!!ownJournalPending,
           code:ownJournalPending?"history_settlement_pending":"history_settlement_unresolved",head});
       persistHead=cloneSnapshot(head);
+      return normalizeDurableOutcome({revision:readRevision(head),localOk:true,idbOk:true,
+        alreadyCommitted:true,head});
+    }));
+  }
+
+  async function settleCustomExerciseMutation({verify,pendingJournalId=null}={}){
+    if(typeof verify!=="function")
+      return normalizeDurableOutcome({localOk:false,idbOk:false,conflict:true,
+        code:"custom_settlement_verifier_missing"});
+    return enqueueWrite(()=>withStorageLock(storageIO,async()=>{
+      await runDurableStateTestHook("durableSettlementLockHeld",{pendingJournalId});
+      const ownPending=()=>typeof pendingJournalId==="string"&&pendingJournalId
+        ?readPendingJournal().entries.find(item=>item.journal.id===pendingJournalId)||null:null;
+      const unresolved=async(code,head=null)=>{
+        const local=readLocalStatus(),idb=await readIdbStatus();
+        const record=ownPending();
+        return normalizeDurableOutcome({revision:readRevision(head||persistHead),
+          localOk:local.status==="valid",idbOk:idb.status==="valid",deferred:true,
+          pendingJournalCleanup:!!record,code,head:head&&cloneSnapshot(head)});
+      };
+      const verifySnapshot=async(snapshot,journal=null)=>{
+        try{return await verify({snapshot:cloneSnapshot(snapshot),journal:journal&&cloneSnapshot(journal)})}
+        catch{return null}};
+
+      // Reconcile the current durable head first. Custom mutations have no
+      // draft side effect, so an owned journal can be closed once the exact
+      // semantic result is already present. Running the boot replay loop here
+      // would also consume unrelated queued journals and could replay this
+      // already-written proposal as a second revision.
+      const owner=ownPending();
+      if(owner){
+        const owned=await verifySnapshot(owner.journal.proposal,owner.journal);
+        if(!owned?.ok)return unresolved(owned?.code||"custom_settlement_ownership_mismatch");
+        if(owner.journal.effectOutcome.status!==DRAFT_EFFECT_NONE||owner.journal.recoveryTransaction)
+          return unresolved("custom_settlement_journal_not_custom");
+      }
+
+      const refreshed=await refreshPersistenceHead();
+      let refreshedHead=cloneSnapshot(refreshed.head||persistHead);
+      if(refreshed.conflict||!isValidStateShape(refreshedHead)||pendingDraftTransaction(refreshedHead))
+        return unresolved("custom_settlement_unresolved",refreshedHead);
+      const refreshedCheck=await verifySnapshot(refreshedHead);
+      if(!refreshedCheck?.ok)
+        return unresolved(refreshedCheck?.code||"custom_settlement_mismatch",refreshedHead);
+
+      if(owner){
+        const currentOwner=ownPending();
+        if(!currentOwner||currentOwner.raw!==owner.raw)
+          return unresolved("custom_settlement_journal_changed",refreshedHead);
+        const closed=await executeDraftTransaction({record:currentOwner,
+          transactionId:currentOwner.journal.id,effect:currentOwner.journal.effectOutcome,discard:true});
+        if(!closed.settled)return unresolved("custom_settlement_journal_pending",refreshedHead);
+      }
+
+      const localBefore=readLocalStatus(),idbBefore=await readIdbStatus();
+      const decision=chooseSnapshot(localBefore,idbBefore);
+      if(decision.kind!=="chosen"||!isValidStateShape(decision.snapshot)||
+        pendingDraftTransaction(decision.snapshot))
+        return unresolved("custom_settlement_unresolved");
+      let head=cloneSnapshot(decision.snapshot);
+      const checked=await verifySnapshot(head);
+      if(!checked?.ok)return unresolved(checked?.code||"custom_settlement_mismatch",head);
+      if(ownPending())return unresolved("custom_settlement_journal_pending",head);
+
+      const replicasSettled=localBefore.status==="valid"&&idbBefore.status==="valid"&&
+        storageSnapshotsEqual(localBefore.parsed,idbBefore.parsed);
+      if(!replicasSettled){
+        // The semantic operation is present in the authoritative durable head.
+        // Heal that exact revision under the same lock; do not mint a second
+        // proposal or consume an unrelated journal.
+        const written=await writeSnapshot(head,storageIO);
+        const localAfter=readLocalStatus(),idbAfter=await readIdbStatus();
+        const settled=localAfter.status==="valid"&&idbAfter.status==="valid"&&
+          storageSnapshotsEqual(localAfter.parsed,idbAfter.parsed);
+        const verified=settled?await verifySnapshot(localAfter.parsed):null;
+        if(!written.localOk||!written.idbOk||!settled||!verified?.ok||ownPending())
+          return unresolved(verified?.code||"custom_settlement_replica_write_failed",head);
+        head=cloneSnapshot(localAfter.parsed);
+      }
+
+      if(ownPending())return unresolved("custom_settlement_journal_pending",head);
+      const liveBase=cloneSnapshot(persistHead||head);
+      persistHead=cloneSnapshot(head);
+      applyAcceptedSnapshot(liveBase,head);
       return normalizeDurableOutcome({revision:readRevision(head),localOk:true,idbOk:true,
         alreadyCommitted:true,head});
     }));
@@ -2536,6 +2630,7 @@
     resolveBootReplicas,
     readDurableState,
     settleHistoryAlreadyCommitted,
+    settleCustomExerciseMutation,
     settlePendingJournal,
 
     // Snapshot Meta & Helpers

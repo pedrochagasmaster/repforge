@@ -1480,6 +1480,9 @@ body.is-sheet-open{overflow:hidden}
 .custom__form .pick__filters{flex-wrap:wrap;overflow:visible;margin:0;padding:0}
 .custom__delete{margin-top:22px;width:100%;color:var(--danger)}
 .custom__note{margin-top:16px;font-size:13px;color:var(--ink-faint)}
+.custom__recovery{border-top:1px solid var(--rule);padding:16px 18px 8px}
+.custom__recovery p{margin:0 0 12px;color:var(--ink-soft);font-size:13px;line-height:1.45}
+.custom__recovery-actions{display:flex;gap:8px;flex-wrap:wrap}
 
 /* ---- Choose-another-day sheet ---- */
 /* One row per day of the split, so the sheet is as tall as the program is long

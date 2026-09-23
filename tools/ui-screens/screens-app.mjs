@@ -389,6 +389,35 @@ async function resetSheetScroll(page, selector) {
   await page.evaluate(() => new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve))));
 }
 
+async function createInUseCustomExercise(page) {
+  const result = await page.evaluate(async () => {
+    const created = await window.__repforgeSaveCustomExercise({
+      name: "Paused cable row",
+      equipment: ["machine"],
+      primary: "Mid/upper back",
+      secondary: "Biceps",
+      notes: "Seat 4, handles at chest height",
+    });
+    if (created?.result?.committed !== true || created?.result?.settled !== true || !created.entry?.id)
+      throw new Error("The archive evidence custom definition did not settle");
+    const proposal = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+    const row = proposal.program?.[0];
+    if (!row) throw new Error("The archive evidence fixture has no program row");
+    row.libraryId = created.entry.id;
+    row.movementId = `library:${created.entry.id}`;
+    row.name = created.entry.name;
+    row.primary = created.entry.primary;
+    row.secondary = created.entry.secondary;
+    const linked = await window.__repforgeCommitProposedState(proposal);
+    if (linked?.committed !== true || linked?.settled !== true)
+      throw new Error("The archive evidence program reference did not settle");
+    return created.entry.id;
+  });
+  await page.evaluate(id => window.__repforgeEditCustom(id), result);
+  await page.waitForSelector("#exCustomSheet.is-open", { timeout: 20000 });
+  return result;
+}
+
 export const APP_SCENARIOS = {
   "today/no-program": async (page) => { await dismissChrome(page); await sleep(page, 300); },
   "today/ready": async (page) => { await dismissChrome(page); await sleep(page, 300); },
@@ -767,6 +796,41 @@ export const APP_SCENARIOS = {
     await page.locator("#exCustomDelete").click();
     await page.waitForFunction(() => document.querySelector("#exCustomSheet")?.getAttribute("aria-busy") === "true" &&
       document.querySelector("#exCustomDelete")?.dataset.i18n === "custom.deleting");
+    await sleep(page, 350);
+  },
+  "program/custom-exercise-archiving": async (page) => {
+    await createInUseCustomExercise(page);
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      io.writeIdb = () => new Promise(() => {});
+    });
+    await page.locator("#exCustomDelete").click();
+    await page.waitForFunction(() => document.querySelector("#exCustomSheet")?.getAttribute("aria-busy") === "true" &&
+      document.querySelector("#exCustomDelete")?.dataset.i18n === "custom.archiving");
+    await sleep(page, 350);
+  },
+  "program/custom-exercise-recovery": async (page) => {
+    await createInUseCustomExercise(page);
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      const writeIdb = io.writeIdb;
+      let calls = 0;
+      io.writeIdb = snapshot => ++calls <= 2
+        ? Promise.resolve(false)
+        : writeIdb.call(io, snapshot);
+    });
+    await page.locator("#exCustomDelete").click();
+    await page.waitForFunction(() => {
+      const recovery = document.querySelector("#exCustomRecovery");
+      return recovery?.hidden === false &&
+        document.querySelector("#exCustomRecoveryRetry")?.hidden === false &&
+        document.querySelector("#exCustomRecoveryStatus")?.textContent?.trim();
+    }, undefined, { timeout: 20000 });
+    await page.waitForFunction(() => {
+      const toast = document.querySelector("#toast");
+      return !toast || toast.classList.contains("hidden");
+    }, undefined, { timeout: 10000 });
+    await resetSheetScroll(page, "#exCustomSheet .custom__form");
     await sleep(page, 350);
   },
   "program/share-setup": async (page) => {

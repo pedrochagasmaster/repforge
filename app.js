@@ -2583,7 +2583,22 @@ async function persistProgramMeta(partial={}){
 /* Creates or edits one of the lifter's own movements. Returns the stored entry
    so a caller can drop it straight into a program slot — creating a custom
    exercise is almost always the first half of "put this in my program". */
-async function saveCustomExercise(draft,io=storageIO){
+function customExerciseStateEqual(a,b){
+  return !!a&&!!b&&JSON.stringify(canonicalize(a))===JSON.stringify(canonicalize(b))}
+function customExerciseUpsert(snapshot,entry){
+  const next=cloneSnapshot(snapshot),list=customExercises(next);
+  const existing=list.some(value=>value.id===entry.id);
+  next.customExercises=normalizeCustomExercises(existing
+    ?list.map(value=>value.id===entry.id?entry:value)
+    :list.concat(entry));
+  return next}
+function customExerciseRemoveOrArchive(snapshot,id,operation){
+  const next=cloneSnapshot(snapshot),list=customExercises(next);
+  next.customExercises=operation==="archive"
+    ?list.map(value=>value.id===id?Object.assign(cloneSnapshot(value),{archived:true}):value)
+    :list.filter(value=>value.id!==id);
+  return next}
+async function saveCustomExercise(draft,io=storageIO,{expectedEntry=null}={}){
   const name=String(draft?.name??"").trim();
   if(!name)return{result:null,entry:null};
   const id=isCustomLibraryId(draft?.id)?String(draft.id):`${CUSTOM_ID_PREFIX}${uid()}`;
@@ -2591,36 +2606,47 @@ async function saveCustomExercise(draft,io=storageIO){
   const secondary=MuscleDomain?.normalizeMuscleAttribution?.(draft?.secondary??"");
   if(!primary?.ok||!secondary?.ok)return{result:invalidMuscleDomainCommit(),entry:null};
   const existing=customExercises().find(e=>e.id===id);
-  const entry={id,name,namePt:name,
+  const entry=normalizeCustomExercises([{id,name,namePt:name,
     equipment:Array.isArray(draft.equipment)&&draft.equipment.length?draft.equipment:["machine"],
     primary:primary.value,
     secondary:secondary.value,
     notes:String(draft.notes??"").trim(),
-    created:existing?.created||new Date().toISOString()};
-  const proposal=cloneSnapshot(state);
-  const list=Array.isArray(proposal.customExercises)?proposal.customExercises:[];
-  proposal.customExercises=normalizeCustomExercises(
-    existing?list.map(e=>e.id===id?entry:e):list.concat(entry));
-  const result=await commitProposedState(proposal,io);
-  return{result,entry:proposal.customExercises.find(e=>e.id===id)||null}}
+    created:existing?.created||new Date().toISOString()}])[0];
+  const source=existing?(expectedEntry||cloneSnapshot(existing)):null;
+  const proposal=customExerciseUpsert(state,entry);
+  const preflight=({head})=>{
+    const current=customExercises(head).find(value=>value.id===id)||null;
+    if(source&&!customExerciseStateEqual(current,source))
+      return{reject:true,result:{conflict:true,stale:true,code:"custom-exercise-changed"}};
+    if(!source&&current)
+      return{reject:true,result:{conflict:true,duplicate:true,code:"custom-id-collision"}};
+    return{proposal:customExerciseUpsert(head,entry)}};
+  const result=await commitProposedState(proposal,io,{preflight});
+  return{result,entry}}
 /* A definition with anything pointing at it — a program slot, an archived
    block, a logged set — is still the meaning of that data, so it is archived
    rather than deleted: hidden from the pickers, intact behind the history. */
-function customExerciseInUse(id){
-  if((state.program||[]).some(e=>e.libraryId===id))return true;
-  if((state.log||[]).some(r=>r.performedLibraryId===id))return true;
-  return(state.programHistory||[]).some(h=>(h?.program||[]).some(e=>e.libraryId===id))}
-async function deleteCustomExercise(id,io=storageIO){
+function customExerciseInUse(id,snapshot=state){
+  if((snapshot?.program||[]).some(e=>e.libraryId===id))return true;
+  if((snapshot?.log||[]).some(r=>r.performedLibraryId===id))return true;
+  return(snapshot?.programHistory||[]).some(h=>(h?.program||[]).some(e=>e.libraryId===id))}
+async function deleteCustomExercise(id,io=storageIO,{action=null,expectedEntry=null}={}){
   if(!isCustomLibraryId(id))return null;
-  const proposal=cloneSnapshot(state);
-  if(customExerciseInUse(id)){
-    const list=customExercises(proposal).map(e=>e.id===id?Object.assign(cloneSnapshot(e),{archived:true}):e);
-    if(!list.some(e=>e.id===id))return null;
-    proposal.customExercises=list;
-    const result=await commitProposedState(proposal,io);
-    return result?Object.assign(result,{archived:true}):result}
-  proposal.customExercises=customExercises(proposal).filter(e=>e.id!==id);
-  return commitProposedState(proposal,io)}
+  const existing=customExercises().find(e=>e.id===id)||null;
+  if(!existing)return null;
+  const source=expectedEntry||cloneSnapshot(existing);
+  const operation=action||(customExerciseInUse(id)?"archive":"delete");
+  if(operation!=="delete"&&operation!=="archive")return null;
+  const proposal=customExerciseRemoveOrArchive(state,id,operation);
+  const preflight=({head})=>{
+    const current=customExercises(head).find(value=>value.id===id)||null;
+    if(!customExerciseStateEqual(current,source))
+      return{reject:true,result:{conflict:true,stale:true,code:"custom-exercise-changed"}};
+    if(operation==="delete"&&customExerciseInUse(id,head))
+      return{reject:true,result:{conflict:true,code:"custom-exercise-became-used"}};
+    return{proposal:customExerciseRemoveOrArchive(head,id,operation)}};
+  const result=await commitProposedState(proposal,io,{preflight});
+  return result?Object.assign(result,{archived:operation==="archive",operation}):result}
 function programAdherence(asOf=today()){const totalDays=prog.days().length;if(!totalDays)return{logged:0,total:0,ratio:0};
   // Inclusive rolling [asOf-6, asOf] — distinct planned days; future rows excluded.
   const end=asOf,start=shiftDate(end,-6),programDaySet=new Set(prog.days()),loggedDays=new Set();
@@ -10894,19 +10920,40 @@ function renderCustomChips(){
 
 function setCustomExercisePhase(active,phase){
   if(customState!==active)return false;
-  active.phase=phase;
-  const busy=phase==="saving"||phase==="deleting"||phase==="canceling";
+  const wasBusy=["saving","deleting","archiving","recovering","canceling"].includes(active.phase);
+  const busy=["saving","deleting","archiving","recovering","canceling"].includes(phase);
   const sheet=$("#exCustomSheet");
+  if(!wasBusy&&busy&&sheet?.contains(document.activeElement))active.busyFocus=document.activeElement;
+  active.phase=phase;
+  if(sheet)sheet.dataset.phase=phase;
   if(busy)sheet?.setAttribute("aria-busy","true");
   else sheet?.removeAttribute("aria-busy");
+  const form=$("#exCustomSheet .custom__form");if(form)form.inert=busy;
   const save=$("#exCustomSave");
-  if(save){const key=phase==="saving"?"custom.saving":phase==="canceling"?"custom.closing":"dialog.save";
+  if(save){const key=phase==="saving"?"custom.saving":phase==="canceling"?"custom.closing":
+    phase==="recovering"?active.mutationOperation==="archive"?"custom.finishing_archive":
+      active.mutationOperation==="delete"?"custom.finishing_delete":"custom.finishing_save":"dialog.save";
     save.dataset.i18n=key;save.textContent=t(key)}
   for(const selector of ["#exCustomSave","#exCustomCancel","#exCustomDelete"]){
     const button=$(selector);if(button)button.disabled=busy}
   const del=$("#exCustomDelete");
-  if(del&&active.deleteAction){const key=phase==="deleting"?"custom.deleting":active.deleteAction;
+  if(del&&active.deleteAction){
+    const pending=phase==="deleting"||phase==="archiving"||phase==="recovering";
+    const key=pending&&active.mutationOperation==="archive"?"custom.archiving":
+      pending&&active.mutationOperation==="delete"?"custom.deleting":active.deleteAction;
     del.dataset.i18n=key;del.textContent=t(key)}
+  const recovery=$("#exCustomRecovery"),status=$("#exCustomRecoveryStatus");
+  const recovering=phase==="recovering";
+  if(recovery)recovery.hidden=!recovering;
+  if(status){status.textContent=recovering?t(active.recoveryStatusKey||"custom.finishing_save"):"";
+    status.setAttribute("aria-live","polite")}
+  const retry=$("#exCustomRecoveryRetry");
+  if(retry){retry.hidden=!recovering||!active.recoveryNeedsAction;
+    retry.disabled=!active.recoveryNeedsAction||active.recoveryAttempt}
+  const reload=$("#exCustomRecoveryReload");if(reload)reload.hidden=!recovering||!active.recoveryNeedsAction;
+  if(!busy&&phase==="editing"&&wasBusy&&active.busyFocus?.isConnected){
+    try{active.busyFocus.focus({preventScroll:true})}catch{try{active.busyFocus.focus()}catch{}}
+    active.busyFocus=null}
   return true}
 
 /* stageOnly builds a definition without writing it. Import review consumes the
@@ -10916,9 +10963,11 @@ function openCustomExerciseSheet({entry=null,onSave=null,onCancel=null,handoff=f
   const sheet=$("#exCustomSheet"),scrim=$("#exCustomScrim"),name=$("#exCustomName");
   if(!sheet)return;
   const inUse=entry?customExerciseInUse(entry.id):false;
-  customState={id:entry?.id||null,sourceEntry:entry||null,onSave,stageOnly,repairHandoff,
-    phase:"editing",duplicateAcknowledgedId:null,
+  customState={id:entry?.id||null,sourceEntry:entry?cloneSnapshot(entry):null,onSave,stageOnly,repairHandoff,
+    phase:"editing",duplicateAcknowledgedId:null,mutationId:null,mutationOperation:null,
+    pendingMutation:null,recoveryAttempt:false,recoveryNeedsAction:false,recoveryStatusKey:null,busyFocus:null,
     deleteAction:entry?(inUse?"custom.archive":"custom.delete"):null,
+    deleteOperation:entry?(inUse?"archive":"delete"):null,
     // Empty for a new definition: defaulting every custom exercise to Machine
     // quietly mislabels dumbbell and cable work the wizard then filters on.
     equipment:new Set(entry?.equipment||[]),
@@ -10961,6 +11010,62 @@ async function cancelCustomExerciseSheet(){
   setCustomExercisePhase(active,"finished");
   if(back)await back()}
 
+function customExerciseMutationSucceeded(result){
+  return result?.committed===true&&result?.settled===true}
+function customExerciseMutationNeedsRecovery(result){
+  return result?.status==="partial"||result?.status==="deferred"||
+    result?.recoveryPending===true||result?.finalizationPending===true||
+    result?.pendingJournalCleanup===true}
+function customExerciseMutationMatches(snapshot,mutation){
+  const current=customExercises(snapshot).find(value=>value.id===mutation.id)||null;
+  if(mutation.operation==="delete")return current===null;
+  if(!current)return false;
+  if(mutation.operation==="archive"){
+    if(current.archived!==true)return false;
+    const expected=cloneSnapshot(mutation.entry),actual=cloneSnapshot(current);
+    delete expected.archived;delete actual.archived;
+    return customExerciseStateEqual(actual,expected)}
+  return customExerciseStateEqual(current,mutation.entry)}
+async function recoverCustomExerciseMutation(active,mutation){
+  if(customState!==active)return false;
+  active.pendingMutation=mutation;
+  active.recoveryAttempt=true;active.recoveryNeedsAction=false;
+  active.recoveryStatusKey=mutation.operation==="archive"?"custom.finishing_archive":
+    mutation.operation==="delete"?"custom.finishing_delete":"custom.finishing_save";
+  setCustomExercisePhase(active,"recovering");
+  let receipt=null;
+  try{receipt=await DurableState.settleCustomExerciseMutation({
+    pendingJournalId:mutation.pendingJournalId,
+    verify:({snapshot})=>customExerciseMutationMatches(snapshot,mutation)
+      ?{ok:true}:{ok:false,code:"custom_settlement_mismatch"}
+  })}catch{}
+  if(customState!==active)return false;
+  if(customExerciseMutationSucceeded(receipt))return true;
+  active.recoveryAttempt=false;active.recoveryNeedsAction=true;
+  active.recoveryStatusKey="custom.recovery.unresolved";
+  setCustomExercisePhase(active,"recovering");
+  $("#exCustomRecoveryRetry")?.focus();
+  return false}
+async function retryCustomExerciseRecovery(){
+  const active=customState;
+  if(!active||active.phase!=="recovering"||active.recoveryAttempt||!active.pendingMutation)return;
+  const mutation=active.pendingMutation;
+  const settled=await recoverCustomExerciseMutation(active,mutation);
+  if(settled)await finishCustomExerciseMutation(active,{operation:mutation.operation,entry:mutation.entry})}
+async function finishCustomExerciseMutation(active,{operation,entry}){
+  await closeCustomExerciseSheet();
+  if(customState!==active)return;
+  setCustomExercisePhase(active,"finished");
+  const message=operation==="create"?"toast.custom_created":
+    operation==="edit"?"toast.custom_saved":
+    operation==="archive"?"toast.custom_archived":"toast.custom_deleted";
+  toast(t(message));
+  if(operation==="delete"||operation==="archive"){
+    if(libFlow)renderLibrary();else if(pickerState)renderPickerList();
+    return}
+  if(active.onSave&&entry)await active.onSave(entry);
+  else if(pickerState)renderPickerList()}
+
 async function saveCustomExerciseSheet(){
   const active=customState;
   if(!active||active.phase!=="editing")return;
@@ -10970,7 +11075,7 @@ async function saveCustomExerciseSheet(){
     const twin=pickableExercises().find(e=>foldSearch(libraryName(e))===foldSearch(name)||foldSearch(e.name)===foldSearch(name));
     if(twin&&twin.id!==active.duplicateAcknowledgedId){
       // Offer what already exists before minting a near-identical second copy.
-      if(confirm(t("confirm.custom_duplicate",{name:libraryName(twin)}))){
+  if(confirm(t("confirm.custom_duplicate",{name:libraryName(twin)}))){
         const handler=active.onSave;
         setCustomExercisePhase(active,"saving");
         await closeCustomExerciseSheet();
@@ -10987,8 +11092,11 @@ async function saveCustomExerciseSheet(){
   // custom form to restate those facts.
   if(!active.equipment.size){toast(t("toast.custom_needs_equipment"));return}
   if(!active.primary.size){toast(t("toast.custom_needs_primary"));return}
-  const handler=active.onSave;
   const editing=!!active.id;
+  const operation=editing?"edit":"create";
+  const handler=active.onSave;
+  if(!active.mutationId)active.mutationId=active.id||`${CUSTOM_ID_PREFIX}${uid()}`;
+  active.mutationOperation=operation;
   setCustomExercisePhase(active,"saving");
   if(active.stageOnly){
     const staged=normalizeCustomExercises([{id:active.id||`${CUSTOM_ID_PREFIX}${uid()}`,name,
@@ -11008,40 +11116,54 @@ async function saveCustomExerciseSheet(){
     setCustomExercisePhase(active,"finished");
     return}
   let saved;
-  try{saved=await saveCustomExercise({id:active.id,name,
+  try{saved=await saveCustomExercise({id:active.mutationId,name,
     equipment:[...active.equipment],
     primary:[...active.primary].join(","),
     secondary:[...active.secondary].join(","),
-    notes:String($("#exCustomNotes")?.value||"").trim()})}
-  catch(error){setCustomExercisePhase(active,"editing");throw error}
+    notes:String($("#exCustomNotes")?.value||"").trim()},storageIO,
+    {expectedEntry:editing?active.sourceEntry:null})}
+  catch{setCustomExercisePhase(active,"editing");toast(t("toast.custom_save_failed"));return}
   if(customState!==active)return;
   const {result,entry}=saved;
-  if(result&&!(result.localOk||result.idbOk)){
-    setCustomExercisePhase(active,"editing");
-    toast(result.message||t("toast.custom_save_failed"));return}
-  await closeCustomExerciseSheet();
-  if(customState!==active)return;
-  toast(t(editing?"toast.custom_saved":"toast.custom_created"));
-  if(handler&&entry)await handler(entry);
-  else if(pickerState)renderPickerList();
-  setCustomExercisePhase(active,"finished")}
+  if(customExerciseMutationSucceeded(result)){
+    await finishCustomExerciseMutation(active,{operation,entry});return}
+  if(customExerciseMutationNeedsRecovery(result)){
+    const settled=await recoverCustomExerciseMutation(active,{operation,id:active.mutationId,entry,
+      pendingJournalId:result.pendingJournalId||null});
+    if(settled)await finishCustomExerciseMutation(active,{operation,entry});
+    return}
+  setCustomExercisePhase(active,"editing");
+  toast(t(result?.code==="custom-exercise-changed"?"toast.custom_changed":"toast.custom_save_failed"))}
 
 async function deleteCustomExerciseSheet(){
   const active=customState;
   if(!active?.id||active.phase!=="editing")return;
-  setCustomExercisePhase(active,"deleting");
+  const operation=active.deleteOperation||"delete";
+  active.mutationOperation=operation;
+  setCustomExercisePhase(active,operation==="archive"?"archiving":"deleting");
   let result;
-  try{result=await deleteCustomExercise(active.id)}
-  catch(error){setCustomExercisePhase(active,"editing");throw error}
+  try{result=await deleteCustomExercise(active.id,storageIO,
+    {action:operation,expectedEntry:active.sourceEntry})}
+  catch{setCustomExercisePhase(active,"editing");toast(t("toast.custom_save_failed"));return}
   if(customState!==active)return;
   if(!result){setCustomExercisePhase(active,"editing");toast(t("toast.custom_in_use"));return}
-  if(!(result.localOk||result.idbOk)){
-    setCustomExercisePhase(active,"editing");toast(t("toast.custom_save_failed"));return}
-  await closeCustomExerciseSheet();
-  if(customState!==active)return;
-  setCustomExercisePhase(active,"finished");
-  toast(t(result.archived?"toast.custom_archived":"toast.custom_deleted"));
-  if(libFlow)renderLibrary();else if(pickerState)renderPickerList()}
+  if(customExerciseMutationSucceeded(result)){
+    await finishCustomExerciseMutation(active,{operation,entry:active.sourceEntry});
+    return}
+  if(customExerciseMutationNeedsRecovery(result)){
+    const settled=await recoverCustomExerciseMutation(active,{operation,id:active.id,
+      entry:active.sourceEntry,pendingJournalId:result.pendingJournalId||null});
+    if(settled)await finishCustomExerciseMutation(active,{operation,entry:active.sourceEntry});
+    return}
+  setCustomExercisePhase(active,"editing");
+  if(result.code==="custom-exercise-became-used"){
+    active.deleteOperation="archive";active.deleteAction="custom.archive";
+    active.mutationOperation=null;
+    const deleteButton=$("#exCustomDelete");
+    if(deleteButton){deleteButton.dataset.i18n=active.deleteAction;deleteButton.textContent=t(active.deleteAction)}
+    $("#exCustomInUse")?.classList.remove("hidden");
+    toast(t("toast.custom_became_used"));return}
+  toast(t(result?.code==="custom-exercise-changed"?"toast.custom_changed":"toast.custom_save_failed"))}
 
 /** Clipboard first; the hidden-textarea path covers browsers that refuse the
  *  async clipboard, and only a genuine failure of both surfaces a toast. */
@@ -15581,6 +15703,8 @@ function init(){
   const cuScrim=$("#exCustomScrim");if(cuScrim)cuScrim.onclick=cancelCustomExerciseSheet;
   const cuSave=$("#exCustomSave");if(cuSave)cuSave.onclick=saveCustomExerciseSheet;
   const cuDelete=$("#exCustomDelete");if(cuDelete)cuDelete.onclick=deleteCustomExerciseSheet;
+  const cuRecoveryRetry=$("#exCustomRecoveryRetry");if(cuRecoveryRetry)cuRecoveryRetry.onclick=retryCustomExerciseRecovery;
+  const cuRecoveryReload=$("#exCustomRecoveryReload");if(cuRecoveryReload)cuRecoveryReload.onclick=()=>location.reload();
   const ptClose=$("#programTextClose");if(ptClose)ptClose.onclick=closeProgramTextSheet;
   const ptScrim=$("#programTextScrim");if(ptScrim)ptScrim.onclick=closeProgramTextSheet;
   const ptCopy=$("#programTextCopy");if(ptCopy)ptCopy.onclick=copyProgramText;

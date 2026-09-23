@@ -1074,6 +1074,20 @@
       "variants": "standard"
     },
     {
+      "id": "custom-exercise-archiving",
+      "flow": "program",
+      "label": "Program — archiving a custom exercise",
+      "scenario": "An in-use custom movement is archiving; the action names archive and preserves its program reference.",
+      "variants": "standard"
+    },
+    {
+      "id": "custom-exercise-recovery",
+      "flow": "program",
+      "label": "Program — recovering a custom exercise change",
+      "scenario": "A partial archive stays visibly unresolved with recovery status, Retry recovery, and Reload actions.",
+      "variants": "standard"
+    },
+    {
       "id": "share-setup",
       "flow": "program",
       "label": "Program — share setup link",

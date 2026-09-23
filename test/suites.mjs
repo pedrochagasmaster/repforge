@@ -106,6 +106,7 @@ export const SUITES = {
     s("test/program-text-export.mjs"),
     s("test/exercise-picker.mjs"),
     s("test/library-flow.mjs"),
+    s("test/custom-mutation-recovery.mjs"),
     s("test/performed-attribution.mjs"),
     s("test/program-import-review.mjs"),
     s("test/program-freeform-import.mjs"),
