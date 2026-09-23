@@ -824,7 +824,7 @@ const EN = {
   "custom.finishing_save": "Finishing save…",
   "custom.finishing_delete": "Finishing delete…",
   "custom.finishing_archive": "Finishing archive…",
-  "custom.recovery.unresolved": "Taurifer still can’t confirm this change. Retry recovery or reload to continue.",
+  "custom.recovery.unresolved": "Taurifer still can't confirm this change. Retry recovery or reload to continue.",
   "custom.recovery.retry": "Retry recovery",
   "custom.recovery.reload": "Reload",
   "custom.name": "Name",

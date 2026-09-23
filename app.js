@@ -2584,7 +2584,19 @@ async function persistProgramMeta(partial={}){
    so a caller can drop it straight into a program slot — creating a custom
    exercise is almost always the first half of "put this in my program". */
 function customExerciseStateEqual(a,b){
-  return !!a&&!!b&&JSON.stringify(canonicalize(a))===JSON.stringify(canonicalize(b))}
+  const comparable=entry=>{
+    const value=normalizeCustomExercises([entry])[0];
+    if(!value)return null;
+    // Boot normalizes older durable rows with current defaults and derived
+    // fields. Compare that meaning on both sides of the lock-held preflight;
+    // comparing the raw IndexedDB/localStorage row against the already-
+    // normalized in-memory entry would misreport an unchanged definition as
+    // a concurrent edit. `created` is immutable provenance and may be
+    // synthesized for legacy rows, so it does not participate in this CAS.
+    delete value.created;
+    return value};
+  const left=comparable(a),right=comparable(b);
+  return !!left&&!!right&&JSON.stringify(canonicalize(left))===JSON.stringify(canonicalize(right))}
 function customExerciseUpsert(snapshot,entry){
   const next=cloneSnapshot(snapshot),list=customExercises(next);
   const existing=list.some(value=>value.id===entry.id);
