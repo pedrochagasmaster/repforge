@@ -1,5 +1,13 @@
 /** Single inventory for local commands and CI. No test-file execution glob. */
-const s = (file, args = [], extra = {}) => ({ file, args, ...extra });
+const DOMAIN_VOCABULARY = new Set(["shell", "entry", "program", "history", "today", "workout", "progress", "settings", "library", "install", "persistence", "transition", "privacy", "telemetry", "offline", "service", "global"]);
+const COST_VOCABULARY = new Set(["tiny", "normal", "long"]);
+const TIER_VOCABULARY = new Set(["feedback", "packet", "candidate"]);
+const s = (file, args = [], extra = {}) => {
+  const domains = extra.domains || [...DOMAIN_VOCABULARY].filter((domain) => domain !== "global" && new RegExp(domain).test(file));
+  const long = /(?:simulation|thermonuclear|persistence-race|accessibility|progress-lifecycle|progress-recovery)/.test(file);
+  return { file, args, domains: domains.length ? domains : ["global"], cost: long ? "long" : "normal",
+    tier: long ? "candidate" : "feedback", ...extra };
+};
 export const SUITES = {
   fast: [
     s("test/ci.mjs", [], {"nodeArgs": ["--test"]}),
@@ -148,6 +156,7 @@ export const SUITES = {
     s("test/sheet-swipe-dismiss.mjs"),
     s("test/motion-integration.mjs"),
     s("test/session-summary.mjs"),
+    s("test/simulation.mjs", ["--smoke"], { domains: ["workout", "progress", "history"], cost: "long", tier: "packet", timeoutMs: 900000 }),
     s("test/simulation.mjs", [], {"env": {"REPFORGE_SIM_WEEKS": "52", "REPFORGE_PROFILE": "1"}, "timeoutMs": 900000}),
   ],
   privacy: [
@@ -195,6 +204,9 @@ export function inventoryErrors(files, suites = SUITES, support = SUPPORT) {
       if (commands.has(command)) errors.push(`Duplicate command: ${command}`);
       commands.add(command);
       const id = suiteId(entry);
+      if (!Array.isArray(entry.domains) || !entry.domains.length || entry.domains.some((domain) => !DOMAIN_VOCABULARY.has(domain))) errors.push(`Invalid domains: ${entry.file}`);
+      if (!COST_VOCABULARY.has(entry.cost)) errors.push(`Invalid cost: ${entry.file}`);
+      if (!TIER_VOCABULARY.has(entry.tier)) errors.push(`Invalid tier: ${entry.file}`);
       if (ids.has(id)) errors.push(`Duplicate artifact id: ${id}`);
       ids.add(id);
       scheduled.add(entry.file);

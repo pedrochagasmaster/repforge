@@ -7223,6 +7223,7 @@ window.__repforgeProgression={
   sessionsFor:ex=>sessionsFor(ex),
   programSlot:id=>{const slot=prog.find(id);return slot?sessionExercise(slot):null}};
 
+// @ci-domain progress
 function renderStrengthDash(){const el=$("#strengthDash");if(!el)return;
   const Model=typeof RepForgeProgressModel!=="undefined"?RepForgeProgressModel:null;
   const scopeSeg=$("#strengthScopeSeg");
@@ -8825,6 +8826,7 @@ function redrawChart(){
   if(!$("#stats").classList.contains("active")||statsSeg!=="overview"||evidenceView!=null)return;
   const sel=$("#statExercise").value,rows=summaries().filter(x=>x.liftKey===sel);draw(rows)}
 
+// @ci-domain history
 const historyDiagnostics={enabled:false,builds:0,sourceRowVisits:0,last:null,onBuilt:null,
   reset(){this.enabled=true;this.builds=0;this.sourceRowVisits=0;this.last=null;this.onBuilt=null},
   disable(){this.enabled=false;this.last=null;this.onBuilt=null}};
@@ -9078,6 +9080,7 @@ async function saveSessionEdit(sid,io=storageIO){const card=$(`.session--edit[da
   if(result.localOk||result.idbOk){editSession=null;render();toast(t("toast.session_updated"))}
   return result}
 window.__repforgeSaveSessionEdit=saveSessionEdit;
+// @ci-domain global
 
 // ---- Exercise detail: one lift's stats, session history and session notes ----
 // Reached by tapping an exercise name on the Log tab; not part of the bottom nav.

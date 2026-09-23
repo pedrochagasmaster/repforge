@@ -377,7 +377,7 @@ async function run() {
 
       // Wait for modal animation to settle and sheet to hide
       await page.waitForSelector("#privacySheet.hidden, #privacySheet:not(.is-open)", { timeout: 5000 });
-      await page.waitForTimeout(350);
+      await page.waitForFunction(() => document.activeElement?.id === "firstRunPrivacy");
 
       const activeIdAfterClose = await page.evaluate(() => document.activeElement?.id);
       assert(
@@ -426,7 +426,7 @@ async function run() {
       // Close Privacy sheet via Escape key
       await page.keyboard.press("Escape");
       await page.waitForSelector("#privacySheet.hidden, #privacySheet:not(.is-open)", { timeout: 5000 });
-      await page.waitForTimeout(350);
+      await page.waitForFunction(() => document.activeElement?.id === "privacyDetails");
 
       const activeIdAfterSettingsClose = await page.evaluate(() => document.activeElement?.id);
       assert(
@@ -481,7 +481,7 @@ async function run() {
       await page.evaluate(() => {
         if (typeof window.closePrivacySheet === "function") window.closePrivacySheet();
       });
-      await page.waitForTimeout(350);
+      await page.waitForSelector("#privacySheet.hidden, #privacySheet:not(.is-open)");
 
       // Switch to Portuguese
       await page.evaluate(() => {
@@ -494,7 +494,7 @@ async function run() {
           langSelect.dispatchEvent(new Event("change", { bubbles: true }));
         }
       });
-      await page.waitForTimeout(200);
+      await page.waitForFunction(() => document.querySelector("#lang")?.value === "pt");
 
       await page.evaluate(() => {
         if (typeof window.openPrivacySheet === "function") window.openPrivacySheet();
@@ -526,7 +526,7 @@ async function run() {
       await page.evaluate(() => {
         if (typeof window.closePrivacySheet === "function") window.closePrivacySheet();
       });
-      await page.waitForTimeout(350);
+      await page.waitForSelector("#privacySheet.hidden, #privacySheet:not(.is-open)");
 
       await context.close();
     }
@@ -734,7 +734,7 @@ async function run() {
 
       // Close Share sheet
       await page.locator("#shareSetupClose").click();
-      await page.waitForTimeout(350);
+      await page.locator("#shareSetupSheet").waitFor({ state: "hidden" });
 
       await context.close();
     }

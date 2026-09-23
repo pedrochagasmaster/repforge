@@ -31,7 +31,7 @@ const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 const SETUP_DRAFT = "repforge_program_setup_draft_v1";
 const OPTIONAL_DEPLOYMENT_SHELL_ASSET = "/posthog-config.js";
-const SIM_WEEKS = Math.max(1, +(process.env.REPFORGE_SIM_WEEKS || 52));
+const SIM_WEEKS = process.argv.includes("--smoke") ? 12 : Math.max(1, +(process.env.REPFORGE_SIM_WEEKS || 52));
 const PROFILE = process.env.REPFORGE_PROFILE === "1";
 
 const results = { passed: 0, failed: 0, bugs: [] };

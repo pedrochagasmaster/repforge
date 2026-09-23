@@ -1,97 +1,50 @@
 # Test execution and CI
 
-`test/suites.mjs` is the executable inventory for local work and
-`.github/workflows/simulation.yml`. The workflow owns scheduling and provisioning;
-it no longer duplicates the list of scripts. The app remains a static PWA. All
-npm dependencies stay under `test/`; this change adds no dependencies.
+`test/suites.mjs` is the single executable command inventory. The static app has no root package manager. Browser-only dependencies live under `test/`.
 
-## Run locally
+## Which command should I run?
+
+| Purpose | Command | Meaning |
+| --- | --- | --- |
+| Fix one contract | `node tools/run-tests.mjs <lane> --suite-id <id>` | Exact command; the failure output prints its ID. |
+| Edit | `node tools/run-tests.mjs edit` | Dirty worktree, or the latest commit if clean; fail fast. Feedback only. |
+| Packet | `node tools/run-tests.mjs packet --base <packet-start-sha>` | Coherent changes since an explicit base, plus dirty files; fail fast. |
+| Branch diagnostic | `node tools/run-tests.mjs branch --base origin/main` | Conservative merge-base impact. `affected` remains an alias. |
+| Candidate | `node tools/run-tests.mjs candidate` | Complete local inventory except the external service gate; keep going. |
+| Inventory | `node tools/run-tests.mjs --check` | Reconcile every scheduled/support script. |
+
+Use `--list` for exact commands and `--explain` for files, reasons and scope. Unknown executable inputs widen to all commands. Suite metadata (`domains`, `tier`, `cost`) is scheduling policy; direct test edits and high-risk persistence inputs retain strict proof. The complete candidate gate keeps the long simulation and race tests.
+
+## Edit, packet and candidate
+
+During correction, run the exact owning suite or `edit`. Commit a coherent packet, then run `packet --base <sha>` where `<sha>` predates that packet. A clean source can capture focused provenance **in that same execution** with `--evidence /tmp/proof.json`; it records the exact command, outcome and before/after source identity, not semantic approval. `tools/record-verification.mjs` remains available for arbitrary commands.
+
+At handoff, dispatch the candidate workflow at the stable SHA:
 
 ```sh
-(cd test && npm ci && npx playwright install --with-deps --only-shell chromium)
-node tools/run-tests.mjs --check
-node tools/run-tests.mjs fast
-node tools/run-tests.mjs all
-# Or a lane / one existing script:
-node tools/run-tests.mjs state
-node tools/run-tests.mjs entry --suite program-editor-sorting
-node tools/run-tests.mjs all --list
-# Optional: reuse a manually served current worktree instead of runner-owned preview:
-python3 -m http.server 8000 --directory "$PWD"
-REPFORGE_URL=http://localhost:8000/ node tools/run-tests.mjs entry --suite program-editor-sorting
+gh workflow run simulation.yml --ref <branch> -f mode=candidate -f expected_sha=<40-character-head-sha>
 ```
 
-### Agent/local feedback loop
+The plan job rejects a ref that no longer matches the expected SHA before installing browsers. Ready PRs and main pushes run candidate automatically. Draft PRs run feedback CI; **Feedback CI passed** is not merge evidence. Candidate runs emit the stable `simulation` aggregate; feedback runs emit `simulation-feedback`. A source change invalidates the final same-candidate gate. Inspect one concise remote status snapshot, continue independent work while it runs, and inspect failed artifacts promptly. Do not retry a red run to seek green.
 
-`node tools/run-tests.mjs affected --base origin/main` is the default implementation check. It compares the selected base with HEAD **and the current working tree**, includes untracked files, follows static test/tool imports, and applies a small reviewed production-domain map. Unknown executable inputs fail safe to the full inventory. It is a developer-feedback selector, not a replacement for required CI regression.
+## Browser preview and visual evidence
 
-The runner is quiet by default: one timing/result line per suite, with a bounded excerpt only on failure. Full output is always retained under `.ci-results/`. Add `--verbose` to stream child output. After a failure, rerun one exact suite with `<lane> --suite <stem>`; after a coherent integration packet rerun the affected set/lane; reserve local `all` for plan-required checkpoints and final regression when it is actually required. Whenever browser checks are selected and `REPFORGE_URL` is unset, the runner starts an analytics-disabled preview for the current worktree on a fresh loopback port and injects that exact origin into every browser suite. A supplied local `REPFORGE_URL` is accepted only after a transient file proves it serves the current worktree, preventing a stale server from another worktree from becoming test evidence.
+In a fresh checkout, run `(cd test && npm ci && npx playwright install --with-deps --only-shell chromium)` once. Normal browser and screenshot commands leave `REPFORGE_URL` unset: `tools/local-preview.mjs` generates an analytics-disabled isolated current-worktree server on a fresh loopback port, verifies identity and cleans up. Explicit local URLs must serve the same worktree.
 
-The fast lane needs npm dependencies, but not an installed browser or server.
-The inventory checks every tracked or unignored test script: runnable suites
-must be scheduled; imported helpers and manual screenshot utilities have explicit
-reasons in `SUPPORT`. Do not execute a filesystem glob or add the same command in
-another workflow. The inventory currently contains 135 commands: fast (46),
-state (33), entry (30), workout (22), privacy (3), and service (1). The PostHog measurement
-contract runs once in the fast lane as `node --test test/posthog-measurement.mjs`.
-Add property modules to the generative runner's inventory; its self-test rejects
-orphaned modules.
+Use `node tools/capture-ui-screens.mjs --list-affected` to inspect the visual plan; `--affected --accept-visual-change` captures complete variants for selected screens and records an intentional baseline update. Without acceptance, a changed baseline fails comparison. Candidate/main retain full catalog capture while domain selector recall is observed. Global CSS, unannotated shared source, capture fixtures and unknown inputs still select full capture. The source-to-visual mapping is in `tools/visual-domains.mjs`, independent of suite selection. CI preserves the committed baseline, recaptures and checks registration, pixels and semantics.
 
-## Jobs and compatibility
+## GitHub jobs and artifacts
 
-| Job/check | Responsibility |
-| --- | --- |
-| `interaction-runtime` | Fast contracts, syntax, generative properties, recorder self-tests and catalog integrity. The historical check name is preserved. |
-| `browser (state)` | Persistence, recovery, draft transactions, cross-tab races and worker upgrades. |
-| `browser (entry)` | Program compilation, import/share, onboarding, editor and entry UI. |
-| `browser (workout)` | Browser i18n, workout interaction, accessibility, progression, history and the complete 52-week simulation. |
-| `telemetry-privacy` | Runtime event meaning and hostile-sentinel leakage, not screenshots. Pure telemetry contracts are in the fast job. |
-| `install-transfer-service` | The inventoried Worker source check, local-runtime tests, and dry deployment bundle. |
-| `visual-evidence` | Selected capture, registration, perceptual and semantic comparison. |
-| `verification-evidence` | Compatibility alias for the fast job, not a second recorder execution. |
-| `simulation` | Aggregate gate; every dependency must succeed. Failed, cancelled or unexpectedly skipped jobs cannot produce a green aggregate. |
-
-Browser lanes run on separate runners, with one script at a time per lane.
-This preserves test isolation, avoids local CPU contention and lets unrelated
-lanes finish after a failure (`fail-fast: false`). There is no job per test file.
-Headless-only Chromium avoids downloading the unused headed browser; npm's
-lockfile cache remains in use. Test counts and the simulation's 52-week history
-are not reduced. Browser jobs retain full checkout history conservatively until
-all legacy history consumers have been reconciled.
-
-The two former single-purpose workflows are folded into Simulation. Existing
-job/check names are retained to reduce branch-protection disruption. Check the
-repository's required checks before merging: workflow-specific organization rules
-or deployment configuration are not changed by this PR. Prefer the aggregate
-`simulation` gate for future required-check configuration.
-
-## Visual scheduling policy
-
-This changes **CI scheduling**, not the requirement in `AGENTS.md` to regenerate
-and commit screenshots with a user-visible change. Registration and comparator
-self-tests remain in the fast lane. Fresh rendered evidence is separate from
-privacy and follows these conservative rules:
-
-- Only explicitly allowlisted Markdown prose changed: skip fresh captures and
-  browser installation in the visual job, with an explicit scope summary.
-- Only registered PNG baselines and prose changed: recapture **every variant** of
-  each affected screen; compare against an immutable snapshot of the whole
-  committed catalog, including semantic evidence.
-- Application code, CSS, translations, fixtures, harness/tooling, manifest,
-  semantic evidence, unknown paths, an unavailable comparison base, or a manual
-  workflow run: regenerate and compare the **full catalog**.
-
-There is no guessed dependency graph and no `paths-ignore` workflow that leaves
-a required check pending. Global changes cannot select a convenient subset.
-Renames include both old and new paths. Thresholds, overflow checks, release
-variants and semantic comparison are unchanged.
+`tools/ci-plan.mjs` writes `.ci-results/ci-plan.json` before dependency installation. Feedback selects commands by ID from the central inventory; browser and visual jobs do not install Chromium when unselected. Candidate/main run fast, state, entry, workout, privacy, the applicable service gate, and full visual evidence. The exact plan, full logs, timings, preview logs and traces are retained as artifacts. `simulation` requires every candidate job; `simulation-feedback` accepts only properly skipped unselected jobs.
 
 ## Failures and performance evidence
 
 Every script writes its command, initial result, duration and complete stdout /
 stderr under `.ci-results/<lane>/`; the terminal shows only a bounded failure
 excerpt unless `--verbose` is used. Reports are updated after each script, not
-only at successful job completion. The runner continues after a failing script.
+only at successful job completion. Local edit/packet/exact-suite runs fail fast;
+candidate and CI lanes keep going to collect failures. Unexecuted suites have
+`not-run-after-failure` status rather than being counted as passed.
 Per-script timeouts terminate the process group, including abandoned browsers.
 GitHub summaries show timings; artifacts upload with `if: always()` and expire
 after seven days. `.ci-results/` is ignored by git.

@@ -114,6 +114,13 @@ when preparing the first acceptance contract. The historical
 [Plan 052 resume prompt](../docs/agents/prompts/plan-052-herdr.md) are retained only as records of earlier execution
 and do not govern Plans 055–059.
 
+New implementation plans should name the required contracts, risky first proof,
+final completion evidence, and owner/environment gates. Reference the live
+`docs/ci.md` edit → packet → candidate mechanics instead of copying an
+exhaustive command cadence. Historical Plans 055–059 keep their original proof
+claims; current agent execution follows the live CI and evidence docs. A plan
+may require an earlier broad suite when it names the risk that justifies it.
+
 1. Confirm the work is present and correctly prioritized in
    [`docs/backlog.md`](../docs/backlog.md).
 2. Read the current `AGENTS.md`, governing ADRs, and relevant specification.

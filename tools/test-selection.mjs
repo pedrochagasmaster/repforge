@@ -134,6 +134,10 @@ function addEntries(target, additions) {
 
 const EXPLICIT_INPUT_RULES = [
   {
+    match: /^\.github\/workflows\/simulation\.yml$|^tools\/(?:ci-plan|visual-domains)\.mjs$|^test\/suites\.mjs$/,
+    suiteFiles: ["test/ci.mjs"], why: "CI planning and selection contracts",
+  },
+  {
     match: /^docs\/ui-screens\/manifest\.json$/,
     suiteFiles: [
       "test/ui-screens.mjs",
@@ -163,6 +167,8 @@ const DOMAIN_RULES = [
   { match: /^workout-draft\.js$/, lanes: ["fast", "state", "workout"], why: "durable workout draft" },
   { match: /^(program-entry(?:-adapter)?\.js|program-compiler\.js)$/, lanes: ["fast", "state", "entry", "workout"], why: "program entry/compiler contract" },
   { match: /^program-editor\.js$/, lanes: ["entry", "workout"], why: "program editor UI" },
+  { match: /^progress-model\.js$/, lanes: ["fast", "workout"], why: "Progress projections and History consumers" },
+  { match: /^progression-engine\.js$/, lanes: ["fast", "state", "workout"], why: "progression domain and offline behavior" },
   { match: /^shared-setup\.js$/, lanes: ["fast", "state", "entry", "workout"], why: "shared setup contract" },
   { match: /^(motion-layer\.js|motion-polish\.css|vendor\/)/, lanes: ["fast", "workout"], why: "interaction runtime" },
   { match: /^(schedule\.js|notify\.js|i18n\.js|i18n-(?:en|pt)\.json|exercises\.js)$/, lanes: ["fast", "entry", "workout"], why: "shared display/domain module" },
@@ -187,6 +193,12 @@ export function selectAffected(files, { cwd = ROOT } = {}) {
   }
 
   for (const file of code) {
+    const explicitRule = EXPLICIT_INPUT_RULES.find(({ match }) => match.test(file));
+    if (explicitRule) {
+      addEntries(chosen, entriesForSuiteFiles(new Set(explicitRule.suiteFiles)));
+      reasons.push(`${file}: ${explicitRule.why} → ${explicitRule.suiteFiles.join(", ")}`);
+      continue;
+    }
     if (/^(test|tools|scripts)\//.test(file)) {
       if (dependencyFiles.has(file) || ALL.some(({ suite }) => suite.file === file)) continue;
       // A support/tool file with no proven scheduled consumer is not safe to ignore.
@@ -197,12 +209,6 @@ export function selectAffected(files, { cwd = ROOT } = {}) {
           return { mode: "all", entries: ALL, files: changed, reasons: [`Unmapped test/tool input: ${file}`] };
         }
       }
-      continue;
-    }
-    const explicitRule = EXPLICIT_INPUT_RULES.find(({ match }) => match.test(file));
-    if (explicitRule) {
-      addEntries(chosen, entriesForSuiteFiles(new Set(explicitRule.suiteFiles)));
-      reasons.push(`${file}: ${explicitRule.why} → ${explicitRule.suiteFiles.join(", ")}`);
       continue;
     }
     const rule = DOMAIN_RULES.find(({ match }) => match.test(file));
@@ -216,15 +222,26 @@ export function selectAffected(files, { cwd = ROOT } = {}) {
 }
 
 export const selectBranch = selectAffected;
-export const selectPacket = selectAffected;
+const HIGH_RISK = /^(durable-state|workout-draft|shared-setup|program-compiler|program-transition|sw|telemetry|posthog-adapter)\.js$/;
+export function selectPacket(files, context = {}) {
+  const plan = selectBranch(files, context);
+  if (!files || plan.mode === "all" || files.some((file) => HIGH_RISK.test(file))) return plan;
+  const entries = plan.entries.filter(({ suite }) => suite.tier !== "candidate" || files.includes(suite.file));
+  return { ...plan, entries, reasons: [...plan.reasons, "Candidate-tier contracts run at the final gate unless directly changed or required by a high-risk owner."] };
+}
 
 export function selectEdit(files, context = {}) {
   if (!files) return selectBranch(null, context);
   const direct = new Set(ALL.map(({ suite }) => suite.file));
   const directFiles = files.filter((file) => direct.has(file));
   const otherFiles = files.filter((file) => !direct.has(file));
-  if (!directFiles.length) return selectBranch(otherFiles, context);
-  const selected = selectBranch(otherFiles, context);
+  if (!directFiles.length) {
+    const selected = selectPacket(otherFiles, context);
+    if (!files.some((file) => HIGH_RISK.test(file)) && selected.mode !== "all")
+      return { ...selected, entries: selected.entries.filter(({ suite }) => suite.tier === "feedback") };
+    return selected;
+  }
+  const selected = selectPacket(otherFiles, context);
   const chosen = new Map();
   addEntries(chosen, selected.entries);
   addEntries(chosen, entriesForSuiteFiles(new Set(directFiles)));

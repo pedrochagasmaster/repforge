@@ -5,9 +5,8 @@
  * Designers and agents read those PNGs as the visual source of truth. Re-run
  * this whenever a UI change lands so the folder stays current:
  *
- *   python3 -m http.server 8000
  *   (cd test && npm ci && npx playwright install chromium --with-deps)  # once
- *   node tools/capture-ui-screens.mjs
+ *   node tools/capture-ui-screens.mjs --affected --accept-visual-change
  *
  * The screen list, the variant matrix and every output path come from
  * docs/ui-screens/manifest.json. Add a screen there and give it a scenario in
@@ -24,6 +23,7 @@
  * requested capture has succeeded.
  */
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { basename, dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
@@ -34,6 +34,8 @@ import { ONBOARDING_SCENARIOS, focusOnboardingSubject, onboardingState } from ".
 import { buildSemanticArtifact, collectProgramEntrySemantics, normalizeSemanticRecords, validateSemanticArtifact } from "./ui-screens/semantics.mjs";
 import { collectCatalogEvidence, configForCapture, validateCatalogEvidence, validateCatalogMetadata } from "./ui-screens/catalog-contract.mjs";
 import { maybeStartLocalPreview } from "./local-preview.mjs";
+import { changedFilesForEdit, changedFilesForPacket } from "./test-selection.mjs";
+import { selectVisuals } from "./ci-selection.mjs";
 
 const MANIFEST = loadManifest();
 const CATALOG_METADATA_ERRORS = validateCatalogMetadata(MANIFEST);
@@ -65,12 +67,17 @@ const CAPTURE_ATTEMPTS = Number(process.env.CAPTURE_ATTEMPTS || 3);
 const CAPTURE_CONCURRENCY = Math.max(1, Number(process.env.CAPTURE_CONCURRENCY || 2));
 
 function parseArgs(argv) {
-  const options = { flows: [], screens: [], canonical: false, keepGoing: false };
+  const options = { flows: [], screens: [], canonical: false, keepGoing: false, affected: false, listAffected: false, acceptVisualChange: false };
   for (let i = 0; i < argv.length; i++) {
     if (argv[i] === "--flow") options.flows.push(argv[++i]);
     else if (argv[i] === "--screen") options.screens.push(argv[++i]);
     else if (argv[i] === "--canonical") options.canonical = true;
     else if (argv[i] === "--keep-going") options.keepGoing = true;
+    else if (argv[i] === "--affected") options.affected = true;
+    else if (argv[i] === "--list-affected") options.listAffected = true;
+    else if (argv[i] === "--accept-visual-change") options.acceptVisualChange = true;
+    else if (argv[i] === "--base" && argv[i + 1]) options.base = argv[++i];
+    else throw new Error(`Unknown or incomplete capture argument: ${argv[i]}`);
   }
   if (process.env.CAPTURE_FILTER) options.screens.push(process.env.CAPTURE_FILTER);
   return options;
@@ -119,8 +126,7 @@ function writeReadme() {
     "install UI), regenerate before merging:",
     "",
     "```bash",
-    "python3 -m http.server 8000",
-    "REPFORGE_URL=http://localhost:8000/ node tools/capture-ui-screens.mjs",
+    "node tools/capture-ui-screens.mjs --affected --accept-visual-change",
     "```",
     "",
     "CI runs `tools/check-ui-screens.mjs` (every registered frame exists, no strays) and",
@@ -198,12 +204,11 @@ export function replaceCatalog(stagingRoot, targetRoot, operations = {}) {
   }
 }
 
-async function main() {
+async function main(options = parseArgs(process.argv.slice(2))) {
   if (CATALOG_METADATA_ERRORS.length) {
     console.error(`catalog contract metadata failed: ${CATALOG_METADATA_ERRORS.join("; ")}`);
     return 1;
   }
-  const options = parseArgs(process.argv.slice(2));
   const captures = selectCaptures(options);
   const filtered = Boolean(options.flows.length || options.screens.length || options.canonical);
   if (!captures.length) {
@@ -388,16 +393,49 @@ async function main() {
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
   try {
+    const options = parseArgs(process.argv.slice(2));
+    if (options.affected || options.listAffected) {
+      if (options.screens.length || options.flows.length) throw new Error("--affected cannot be combined with --screen or --flow");
+      const changed = options.base ? changedFilesForPacket({ cwd: ROOT, base: options.base }) : changedFilesForEdit({ cwd: ROOT });
+      const plan = selectVisuals(changed.files, MANIFEST, { cwd: ROOT,
+        base: options.base || (changed.base === "HEAD (working tree)" ? "HEAD" : changed.base) });
+      console.log(`Visual scope ${plan.mode}: ${plan.reason}`);
+      if (options.listAffected) {
+        for (const screen of plan.screens) console.log(screen);
+        process.exit(0);
+      }
+      if (plan.mode === "none") process.exit(0);
+      if (plan.mode === "screens") options.screens = plan.screens;
+    }
+    const baseline = options.affected ? mkdtempSync(join(tmpdir(), "repforge-visual-baseline-")) : null;
+    if (baseline) {
+      cpSync(ARTIFACT_ROOT, join(baseline, "screens"), { recursive: true });
+      cpSync(SEMANTIC_PATH, join(baseline, "entry-semantics.json"));
+    }
     const preview = await maybeStartLocalPreview([{ lane: "entry" }], { cwd: ROOT });
     const previous = process.env.REPFORGE_URL;
     try {
       process.env.REPFORGE_URL = preview.env.REPFORGE_URL;
       setCaptureBase(preview.env.REPFORGE_URL);
-      process.exitCode = await main();
+      process.exitCode = await main(options);
     } finally {
       if (previous === undefined) delete process.env.REPFORGE_URL;
       else process.env.REPFORGE_URL = previous;
       preview.cleanup();
+    }
+    if (baseline) {
+      try {
+        if (!process.exitCode) {
+          execFileSync(process.execPath, ["tools/check-ui-screens.mjs"], { cwd: ROOT, stdio: "inherit" });
+          try {
+            execFileSync(process.execPath, ["tools/compare-ui-screens.mjs", "--baseline", join(baseline, "screens"),
+              "--baseline-semantic", join(baseline, "entry-semantics.json")], { cwd: ROOT, stdio: "inherit" });
+          } catch (error) {
+            if (!options.acceptVisualChange) throw error;
+            console.log("Visual baseline changed intentionally; review the updated catalog before committing.");
+          }
+        }
+      } finally { rmSync(baseline, { recursive: true, force: true }); }
     }
   } catch (error) {
     console.error(error.stack || error);

@@ -69,3 +69,11 @@ provider limits, genuine integration defects, or human review time. No claim of
 measured cost savings is made before this procedure is used.
 
 No production implementation is authorized by this documentation task.
+
+## Execution lessons from Plans 055–057
+
+Plan 062 inspected the recorded Codex execution traces, not only the CI configuration. The 055–056 experiment that deferred tests until the end moved failures into a late integration/debugging cycle: approximately 134 minutes of direct test commands, 173 minutes of runner lanes and 142 minutes of visual capture. The later 057 runs corrected in the opposite direction, repeatedly running branch-wide `affected` after small changes: seven, three and twelve such runs in the inspected takeover, remediation and closure threads, respectively. The final closure alone spent approximately 332 minutes in those branch-wide runs. These are trace-derived estimates, not a controlled benchmark.
+
+Visual work also repeatedly required manual servers/ports; remote `gh run watch` blocked one run for about 90 minutes and another for about 45. Focused tests were sometimes executed twice solely to obtain clean-SHA provenance. Several browser failures passed diagnostic replay on the same SHA; the initial run correctly stayed red, but the pattern pointed to synchronization that needed investigation rather than rerun-to-green.
+
+Proof-first remains correct. The missing concept was proof scope. Evidence should widen as a change matures from edit → coherent packet → candidate. The live execution mechanics are in `docs/ci.md`; this retrospective does not change the historical completion claims or the owner's physical-device gates.

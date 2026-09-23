@@ -80,21 +80,22 @@ when a copy is necessary, generate it or compare the parsed structures.
 ## Record what actually ran
 
 Run narrow checks during implementation. After committing a coherent slice,
-record its focused proof with `tools/record-verification.mjs` as documented in
+record focused proof in one execution with `node tools/run-tests.mjs <lane> --suite-id <id> --evidence /tmp/proof.json`.
+For arbitrary commands use `tools/record-verification.mjs` as documented in
 [tools](../../tools/README.md#record-verificationmjs). Keep reports outside the
-worktree and attach them to CI or the PR. The recorder captures command output,
-exit status, and Git state before and after execution. Its successful result
+worktree and attach them to CI or the PR. The evidence records execution outcome
+and Git state before and after. Its successful result
 means **command passed on an unchanged clean commit**, not **phase complete**.
 
-For ordinary coding loops, use `node tools/run-tests.mjs affected --base origin/main` before choosing a broader gate. The runner is intentionally quiet; retained `.ci-results/` logs and failure artifacts are the evidence source, not thousands of passing terminal lines. Correct an exact failing suite first, then widen after the packet is coherent. Do not spend agent time/tokens repeatedly running full regression after each edit; full gates belong at the plan-defined checkpoint/final clean candidate.
+Evidence has a scope and candidate SHA. Correct with the exact suite or `edit`; after a coherent commit use `packet --base <packet-start-sha>`; run the final candidate gate at the plan-defined clean SHA. A feedback CI pass is not a candidate pass. The runner retains `.ci-results/` logs and bounded terminal excerpts.
 
 - Name the exact assertion and its limitations beside each report.
 - Record failing cases too. A failed command must remain distinguishable from
   a test suite that successfully rejected a deliberately invalid fixture.
 - Describe screenshots, real-device reviews, and owner decisions separately.
   They require actual evidence; a script cannot attest that a person approved.
-- After source changes, rerun affected proof. Older evidence remains historical.
-  Reuse unaffected evidence only with an explicit dependency explanation; final
+- After source changes, rerun the smallest proof whose dependency intersects the change. Older evidence remains historical and may no longer apply to the new candidate.
+  Reuse unaffected expensive evidence only with an explicit dependency boundary; final
   release evidence still follows Plan 059's same-candidate requirement.
 - Fetch the remote PR head and checks directly before issuing a verdict. The
   owner should not have to relay CI state or supply information available in Git.
