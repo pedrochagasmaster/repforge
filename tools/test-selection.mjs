@@ -44,6 +44,30 @@ export function changedFilesForTests({ cwd = ROOT, base } = {}) {
   } catch { return { base: resolvedBase, files: null }; }
 }
 
+export function changedFilesForEdit({ cwd = ROOT } = {}) {
+  try {
+    const dirty = zlist(git(["status", "--porcelain=v1", "-z", "--untracked-files=all"], cwd));
+    if (dirty.length) {
+      const tracked = zlist(git(["diff", "--name-only", "--no-renames", "-z", "HEAD", "--"], cwd));
+      const untracked = zlist(git(["ls-files", "--others", "--exclude-standard", "-z"], cwd));
+      return { base: "HEAD (working tree)", files: [...new Set([...tracked, ...untracked])].sort() };
+    }
+    const parent = git(["rev-parse", "HEAD^"], cwd).trim();
+    return { base: parent, files: zlist(git(["diff", "--name-only", "--no-renames", "-z", parent, "HEAD", "--"], cwd)) };
+  } catch { return changedFilesForTests({ cwd }); }
+}
+
+export function changedFilesForPacket({ cwd = ROOT, base } = {}) {
+  if (!base) throw new Error("packet requires --base <sha-or-ref> (or REPFORGE_PACKET_BASE)");
+  let ancestor;
+  try { ancestor = git(["merge-base", "HEAD", base], cwd).trim(); }
+  catch { throw new Error(`Cannot resolve a common ancestor for packet base ${base}`); }
+  if (!ancestor) throw new Error(`Cannot resolve a common ancestor for packet base ${base}`);
+  const tracked = zlist(git(["diff", "--name-only", "--no-renames", "-z", ancestor, "--"], cwd));
+  const untracked = zlist(git(["ls-files", "--others", "--exclude-standard", "-z"], cwd));
+  return { base: ancestor, files: [...new Set([...tracked, ...untracked])].sort() };
+}
+
 function listedCodeFiles(cwd) {
   try {
     return zlist(git(["ls-files", "-z", "--", "test", "tools", "scripts"], cwd))
@@ -189,6 +213,23 @@ export function selectAffected(files, { cwd = ROOT } = {}) {
 
   const entries = [...chosen.values()];
   return { mode: entries.length ? "selected" : "none", entries, files: changed, reasons: reasons.length ? reasons : ["No executable consumer selected."] };
+}
+
+export const selectBranch = selectAffected;
+export const selectPacket = selectAffected;
+
+export function selectEdit(files, context = {}) {
+  if (!files) return selectBranch(null, context);
+  const direct = new Set(ALL.map(({ suite }) => suite.file));
+  const directFiles = files.filter((file) => direct.has(file));
+  const otherFiles = files.filter((file) => !direct.has(file));
+  if (!directFiles.length) return selectBranch(otherFiles, context);
+  const selected = selectBranch(otherFiles, context);
+  const chosen = new Map();
+  addEntries(chosen, selected.entries);
+  addEntries(chosen, entriesForSuiteFiles(new Set(directFiles)));
+  return { ...selected, entries: [...chosen.values()], files,
+    reasons: [...selected.reasons, `Direct changed suite(s): ${directFiles.join(", ")}`] };
 }
 
 export function formatAffected(plan) {

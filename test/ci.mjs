@@ -7,7 +7,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { SUITES, SUPPORT, BROWSER_LANES, commandArgs, inventoryErrors } from "./suites.mjs";
 import { changedFiles, selectVisuals } from "../tools/ci-selection.mjs";
-import { changedFilesForTests, selectAffected } from "../tools/test-selection.mjs";
+import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, selectAffected, selectEdit } from "../tools/test-selection.mjs";
 import { execute, maybeStartLocalPreview, runLane } from "../tools/run-tests.mjs";
 
 const manifest = { screens: [{ flow: "app", id: "today" }, { flow: "onboarding", id: "start" }] };
@@ -313,4 +313,38 @@ test("a hung suite is bounded and remains a failure", async (t) => {
   const result = await execute({ file: "hang.mjs", args: [] }, { cwd, outputDir: join(cwd, "result"), timeoutMs: 100 });
   assert.equal(result.status, "failed"); assert.equal(result.timedOut, true);
   assert.ok(result.durationMs < 10000);
+});
+
+test("edit selects a directly changed suite without scheduling its whole lane", () => {
+  const plan = selectEdit(["test/shared-setup-unit.mjs"]);
+  assert.deepEqual(plan.entries.map(({ suite }) => suite.file), ["test/shared-setup-unit.mjs"]);
+});
+
+test("edit and packet resolve their distinct Git boundaries", (t) => {
+  const cwd = scratch(t);
+  const git = (...args) => execFileSync("git", args, { cwd, encoding: "utf8" }).trim();
+  git("init", "-q"); git("config", "user.email", "test@example.com"); git("config", "user.name", "Test");
+  writeFileSync(join(cwd, "initial.js"), "initial\n"); git("add", "."); git("commit", "-qm", "initial");
+  const base = git("rev-parse", "HEAD");
+  writeFileSync(join(cwd, "committed.js"), "committed\n"); git("add", "."); git("commit", "-qm", "second");
+  assert.deepEqual(changedFilesForEdit({ cwd }).files, ["committed.js"]);
+  writeFileSync(join(cwd, "dirty.js"), "dirty\n");
+  assert.deepEqual(changedFilesForEdit({ cwd }).files, ["dirty.js"]);
+  assert.deepEqual(changedFilesForPacket({ cwd, base }).files, ["committed.js", "dirty.js"]);
+  assert.throws(() => changedFilesForPacket({ cwd }), /requires --base/);
+  assert.throws(() => changedFilesForPacket({ cwd, base: "missing" }), /common ancestor/);
+});
+
+test("fail-fast records unexecuted commands while keep-going runs them", async (t) => {
+  const cwd = scratch(t);
+  writeFileSync(join(cwd, "fail.mjs"), "process.exit(2)\n");
+  writeFileSync(join(cwd, "later.mjs"), 'import { writeFileSync } from "node:fs"; writeFileSync("later-ran", "yes")\n');
+  const entries = [{ file: "fail.mjs", args: [] }, { file: "later.mjs", args: [] }];
+  const first = await runLane("fixture", entries, { cwd, outputDir: join(cwd, "one"), failFast: true });
+  assert.equal(first.failed, 1); assert.equal(first.notRun, 1);
+  assert.equal(first.results[1].status, "not-run-after-failure");
+  assert.equal(existsSync(join(cwd, "later-ran")), false);
+  const second = await runLane("fixture", entries, { cwd, outputDir: join(cwd, "two"), failFast: false });
+  assert.equal(second.failed, 1); assert.equal(second.notRun, 0);
+  assert.equal(existsSync(join(cwd, "later-ran")), true);
 });

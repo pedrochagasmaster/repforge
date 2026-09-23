@@ -28,11 +28,12 @@ import { basename, dirname, join, resolve } from "node:path";
 import { tmpdir } from "node:os";
 import { fileURLToPath } from "node:url";
 import { ROOT, capturePath, captureKey, expandCaptures, loadManifest, screenKey, variantSlug } from "./ui-screens/manifest.mjs";
-import { dismissChrome, launchChromium, openPage, settle } from "./ui-screens/session.mjs";
+import { dismissChrome, launchChromium, openPage, settle, setCaptureBase } from "./ui-screens/session.mjs";
 import { APP_SCENARIOS, APP_USER_AGENT, appState } from "./ui-screens/screens-app.mjs";
 import { ONBOARDING_SCENARIOS, focusOnboardingSubject, onboardingState } from "./ui-screens/screens-onboarding.mjs";
 import { buildSemanticArtifact, collectProgramEntrySemantics, normalizeSemanticRecords, validateSemanticArtifact } from "./ui-screens/semantics.mjs";
 import { collectCatalogEvidence, configForCapture, validateCatalogEvidence, validateCatalogMetadata } from "./ui-screens/catalog-contract.mjs";
+import { maybeStartLocalPreview } from "./local-preview.mjs";
 
 const MANIFEST = loadManifest();
 const CATALOG_METADATA_ERRORS = validateCatalogMetadata(MANIFEST);
@@ -386,5 +387,20 @@ async function main() {
 }
 
 if (process.argv[1] && fileURLToPath(import.meta.url) === resolve(process.argv[1])) {
-  process.exitCode = await main();
+  try {
+    const preview = await maybeStartLocalPreview([{ lane: "entry" }], { cwd: ROOT });
+    const previous = process.env.REPFORGE_URL;
+    try {
+      process.env.REPFORGE_URL = preview.env.REPFORGE_URL;
+      setCaptureBase(preview.env.REPFORGE_URL);
+      process.exitCode = await main();
+    } finally {
+      if (previous === undefined) delete process.env.REPFORGE_URL;
+      else process.env.REPFORGE_URL = previous;
+      preview.cleanup();
+    }
+  } catch (error) {
+    console.error(error.stack || error);
+    process.exitCode = 1;
+  }
 }
