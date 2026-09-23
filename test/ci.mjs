@@ -394,6 +394,7 @@ test("CI feedback is selected and candidate/main retain the exhaustive exact-SHA
 
 test("workflow keeps feedback separate from candidate and installs browsers only after planning", () => {
   const workflow = readFileSync(join(process.cwd(), ".github/workflows/simulation.yml"), "utf8");
+  assert.match(workflow, /pull_request:\s*\n\s+types: \[opened, reopened, synchronize, ready_for_review\]/);
   assert.match(workflow, /expected_sha:/);
   assert.match(workflow, /simulation-feedback:/);
   assert.match(workflow, /if: needs\.plan\.outputs\.browser != '\[\]'/);
