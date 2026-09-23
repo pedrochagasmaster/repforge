@@ -13,10 +13,10 @@
 - **Priority**: P2 (direction; must work before alpha participants receive a second program)
 - **Effort**: M (Phase 1); M–L (Phase 2)
 - **Risk**: LOW (Phase 1 is docs and tests) / MED (Phase 2 changes an entry gate)
-- **Depends on**: advisor plan 001 (its characterization test is the baseline this design relaxes). The overhaul's entry and management plans (054/057) own the surfaces involved, so coordinate sequencing with the owner.
+- **Depends on**: advisor plan 001 (it guarantees that activation archives any existing program, which this design relies on). Product/UX work waits for the overhaul (Q604); the entry and management plans (054/057) own the surfaces involved.
 - **Category**: direction (program relationship)
 - **Planned at**: commit `76a31602`, 2026-09-23 (on `origin/ui-overhaul/057-management-surfaces`)
-- **Backlog**: `docs/backlog.md:121` lists "Existing-user shared-program handoff (deferred) — Later — Reopen before a participant receives a later creator program, with a new scheduling decision." `docs/business-product-thesis.md:~2442`: "Non-destructive existing-user program handoff and next-program transition must work before participants reach those cases."
+- **Backlog**: **Gated**: the "Existing-user shared-program handoff" row in §5. Gate: an owner-approved design (this plan's Phase 1) before any participant receives a second coach program; product/UX work, so it waits for the overhaul (Q604, Q615).
 
 ## Why this matters
 

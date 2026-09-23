@@ -15,7 +15,7 @@
 - **Depends on**: none (plan 011 changes `build-i18n.mjs --check` diagnostics; no conflict with a read-only spike)
 - **Category**: perf (investigate)
 - **Planned at**: commit `ff9991cf`, 2026-09-22
-- **Backlog**: not in `docs/backlog.md`. `tools/AGENTS.md` requires measured evidence for performance changes, and this spike produces it.
+- **Backlog**: **Evidence only**: the "Single-language i18n catalogs" row (Q608). Do not execute unless an English-first launch or measured boot-time complaints trigger it.
 
 ## Why this matters
 

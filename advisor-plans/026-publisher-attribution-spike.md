@@ -15,7 +15,7 @@
 - **Depends on**: none. Plan 025 is complementary: attribution matters most when a coach sends a *second* program.
 - **Category**: direction (creator distribution)
 - **Planned at**: commit `76a31602`, 2026-09-23 (on `origin/ui-overhaul/057-management-surfaces`)
-- **Backlog**: `docs/backlog.md:115` lists "Publisher attribution (deferred) — Later — Reopen only before creator pilots with a new scheduling decision." `CONTEXT.md` ("Publisher attribution"): "approved, unimplemented — P0 before creator pilots … needs an explicit compatible versioning path, not mutation of a locked schema."
+- **Backlog**: **Later**: the first step of the "Publisher attribution" row in §5 once creator pilots are scheduled (Q615).
 
 ## Why this matters
 

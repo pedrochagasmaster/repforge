@@ -19,7 +19,7 @@
 - **Depends on**: none
 - **Category**: docs
 - **Planned at**: commit `ff9991cf`, 2026-09-22
-- **Backlog**: documentation hygiene. The repo's own rule (`plans/README.md` step 5) already requires this update on completion of each plan, so no backlog entry is needed.
+- **Backlog**: **Now**: the "CI and documentation drift" row. Run only **after PR #248 merges**, as one small docs change that also records Plan 057's state (Q614, Q621).
 
 ## Why this matters
 

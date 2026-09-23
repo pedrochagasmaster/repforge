@@ -19,7 +19,7 @@
 - **Depends on**: none (textual neighbour of plans 007, 012, 013, and 019 in `app.js`)
 - **Category**: perf
 - **Planned at**: commit `ff9991cf`, 2026-09-22
-- **Backlog**: not in `docs/backlog.md`. The owner must accept it there, or approve it directly, before execution.
+- **Backlog**: **Later**: the "Render and search history scans" row in §6; after the UI overhaul (Q611).
 
 ## Why this matters
 

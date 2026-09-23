@@ -17,7 +17,7 @@
 - **Depends on**: none
 - **Category**: migration
 - **Planned at**: commit `ff9991cf`, 2026-09-22
-- **Backlog**: not in `docs/backlog.md`. The owner must accept it there, or approve it directly, before execution.
+- **Backlog**: **Later**: the "Vendored-runtime build tool refresh" row in §6 (Q613).
 
 ## Why this matters
 

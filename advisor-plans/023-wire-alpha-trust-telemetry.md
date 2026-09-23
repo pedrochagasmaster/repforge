@@ -16,7 +16,7 @@
 - **Priority**: P1 (direction; the alpha cannot measure its central hypothesis without it)
 - **Effort**: M
 - **Risk**: MED (privacy-sensitive surface; must stay enum-only)
-- **Depends on**: an owner sign-off on two definitions (Step 2). Sequence with Plan 059, whose final gate binds telemetry evidence.
+- **Depends on**: none. The owner approved the event definitions on 2026-09-23 (Q616–Q618). Finish before Plan 059's final evidence gate.
 - **Category**: direction (measurement)
 - **Planned at**: commit `76a31602`, 2026-09-23 (on `origin/ui-overhaul/057-management-surfaces`)
 - **Backlog**: `docs/backlog.md` §5 says only the Phase-049-approved telemetry allowlist is scheduled. These events **are** in that allowlist (`telemetry.js` `EVENTS`, phase `"alpha"`). This plan wires already-approved events; it adds no new event or property. The owner must still schedule it.
@@ -109,14 +109,14 @@ Keep the regex consistent with `telemetry.js` formatting (4-space indent, `name:
 
 **Verify**: `node test/telemetry-call-sites.mjs` → **fails**, listing exactly `set_saved, recommendation_explained, exercise_skipped, block_review_viewed`.
 
-### Step 2: Owner sign-off on two definitions (STOP until confirmed)
+### Step 2: Record the approved definitions
 
-Propose these to the owner and record them in `docs/measurement/alpha-scorecard.md` under a new "Event definitions" subsection:
+The owner approved these definitions on 2026-09-23 (decision register Q616–Q618). Record them in `docs/measurement/alpha-scorecard.md` under a new "Event definitions" subsection, citing those question numbers:
 - **`vs_suggestion`** (per working set at fresh commit): `no_suggestion` if `programmed.suggestedLoad==null`. Otherwise compare the parsed `edited.load` with `suggestedLoad` in the lifter's unit. `matched` if `|Δ| < settings.minJump/2`; `raised` if Δ > 0; `lowered` if Δ < 0. Loads only; reps and effort are ignored. Warm-up sets emit nothing.
 - **`block_review_viewed.completion`**, from `mesocycleLifecycle(state.programMeta)`: `extended` if `overrunWeeks>0`; `complete` if `isComplete || current>=total`; `partial` if `current>=Math.ceil(total/2)`; otherwise `early`. Emit at most once per `renderReview()` call that the lifter navigated to (not on background re-renders; see Step 4).
 - **`exercise_skipped`**: emitted for the lifter's individual skip toggles (`app.js:2204`, `15703`) when the result is `skipExercise` applied, with `context:"planned_session"`. The bulk fatigue skip at `2255` does **not** emit.
 
-**Verify**: owner approval is recorded in the report (quote it). Without approval, STOP.
+**Verify**: `grep -c "Q616\|Q617\|Q618" docs/measurement/alpha-scorecard.md` → at least `3`. If the definitions in `docs/product-grilling-decision-register.md` (Q616–Q618) differ from the text above, the register wins; follow it and report the difference.
 
 ### Step 3: Wire `set_saved` and `recommendation_explained`
 
@@ -167,12 +167,12 @@ Bump NN → NN+1 (read NN via `grep -o 'repforge-v[0-9]*' sw.js`) in `sw.js` (`C
 - [ ] The census shows ≥1 producer for `set_saved`, `recommendation_explained`, `exercise_skipped`, `block_review_viewed`
 - [ ] `node test/telemetry-call-sites.mjs` passes with the `RESERVED` map
 - [ ] `node tools/run-tests.mjs privacy` and `fast` exit 0
-- [ ] The Step 2 definitions are in `docs/measurement/alpha-scorecard.md`, with owner approval quoted in the report
+- [ ] The Step 2 definitions are in `docs/measurement/alpha-scorecard.md`, citing Q616–Q618
 - [ ] `telemetry.js` is unchanged (`git diff --stat telemetry.js` is empty); the `advisor-plans/README.md` row is updated
 
 ## STOP conditions
 
-- The owner does not approve the Step 2 definitions.
+- An approved definition cannot be implemented as written. For example, `settings.minJump` is not available where the set is committed. Report it rather than choosing a new rule.
 - Any emission would need a property value not in the enum.
 - `test/telemetry-leakage.mjs` fails.
 - The review panel has no distinct navigation event, so `block_review_viewed` would fire on background renders. Wire the other three and leave this one reserved, with the reason stated.

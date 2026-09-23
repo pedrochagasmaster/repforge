@@ -20,7 +20,7 @@
 - **Depends on**: none (conflicts textually with plans 008, 012, 013, and 019 in `app.js`; land them one at a time)
 - **Category**: perf
 - **Planned at**: commit `ff9991cf`, 2026-09-22
-- **Backlog**: not in `docs/backlog.md`. `tools/AGENTS.md` says "Performance changes need measured evidence", and this plan measures deterministically (row-visit counts). The owner must still accept it into the backlog.
+- **Backlog**: **Later**: the "Render and search history scans" row in §6; after the UI overhaul (Q611).
 
 ## Why this matters
 

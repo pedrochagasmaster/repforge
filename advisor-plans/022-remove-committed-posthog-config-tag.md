@@ -18,7 +18,7 @@
 - **Depends on**: none; complements plan 002
 - **Category**: bug
 - **Planned at**: commit `ff9991cf`, 2026-09-22
-- **Backlog**: none needed. This reverts an accidental artifact. Coordinate with the owner of open draft PR #248 (Plan 057), whose branch introduced it.
+- **Backlog**: Owner decision Q605: fix inside PR #248 before merge; the blocker comment is posted on #248. No backlog row.
 
 ## Why this matters
 

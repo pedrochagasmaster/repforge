@@ -17,7 +17,7 @@
 - **Depends on**: none
 - **Category**: direction (acquisition / migration)
 - **Planned at**: commit `76a31602`, 2026-09-23 (on `origin/ui-overhaul/057-management-surfaces`)
-- **Backlog**: `docs/backlog.md:114` lists "Strong/Sheets CSV import — Later — Define mapping, identity reconciliation, preview, and partial-failure behavior before implementation." This spike is exactly that definition work.
+- **Backlog**: **Later**: the first step of the "Strong/Sheets CSV import" row in §5 (Q615).
 
 ## Why this matters
 

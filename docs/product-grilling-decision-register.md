@@ -2,7 +2,9 @@
 
 **Status:** Owner decision record through August 26, 2026
 
-**Answered coverage:** Q1–Q602, subject to the transcript notes below
+**Answered coverage:** Q1–Q602, subject to the transcript notes below; plus
+Q603–Q621, a reopened branch triaging the advisor plans in `advisor-plans/`
+(September 23, 2026)
 
 **Pending:** No product-level branch remained when the owner closed the session
 **Purpose:** Preserve the owner’s answers, qualifications, corrections,
@@ -794,6 +796,35 @@ not every option sentence. Canonical product meaning is consolidated in §§9,
 | Q601 — turning AI off | A | Stop new processing/prompts/notifications; retain but do not proactively surface history, memory, and proposals. Deletion is separate. |
 | Q602 — setting exact limits | A | Before Preview, derive published limits from measured cost and representative journeys; changes apply prospectively with notice. |
 
+### Q603–Q621 — advisor-plan backlog triage (reopened September 23, 2026)
+
+A deep codebase audit produced proposals in `advisor-plans/` (PR #250). The
+owner reopened this register for that one branch, answered every question
+with the recommended option except where noted, and closed it after Q621.
+Plan numbers below are advisor-plan numbers, not `plans/NNN`.
+
+| Question | Answer | Canonical outcome |
+|---|---|---|
+| Q603 — where decisions are recorded | A | Record Q603+ here and the resulting rows in `docs/backlog.md`, in the same docs change as the advisor plans. |
+| Q604 — work during the UI overhaul | B | Correctness, data-integrity, and measurement fixes may ship as standalone PRs while Plans 055–059 proceed. Product and UX changes wait for the overhaul. Nothing is pulled into an overhaul PR. |
+| Q605 — deploy-only PostHog tag on the Plan 057 branch | Direct answer: flag it as a blocker on PR #248 | `index.html` must not carry the generated `posthog-config.js?v=` tag. It is fixed in PR #248 before merge, with a guard test. |
+| Q606 — thesis versus backlog on pilot-data protection | A | The thesis wins: browser-persistence mitigation is alpha-readiness work, limited to requesting persistent storage and an honest storage-status line. |
+| Q607 — un-onboarded device with a program loses it on activation | A | Any program content is archivable. Activation on every entry route archives such a program instead of discarding it. ADR 0007's setup-link eligibility is unchanged. |
+| Q608 — low-value advisor items | Agreed with recommendation | CI browser caching and single-language catalogs are Evidence only with stated triggers; the `.editorconfig` proposal is rejected. |
+| Q609 — bug and data-safety fixes | Recommendation | Crash-journal write failure, program archive on activation, and never caching error responses are Now, in that order. |
+| Q610 — alpha measurement producers | Recommendation | Wire the already-approved alpha events that have no producer (`set_saved`, `recommendation_explained`, `exercise_skipped`, `block_review_viewed`) as Now, before Plan 059's evidence gate. Events without an honest source stay reserved; no event or property is added. |
+| Q611 — render and search performance | Recommendation | Later, after the overhaul. |
+| Q612 — test and tooling improvements | Recommendation | CI i18n generator check and transfer constant drift guard are Now; the DraftV2 generative model and the durable-state fault hook are Next after the crash-journal fix; fixed-sleep removal is Later. |
+| Q613 — code tidying | Recommendation | Duplicate validators and dead `app.js` functions fold into Plan 058's obsolete-path removal. Dynamic i18n fallbacks, the circular usual-hour fix, setup URL hardening, and the esbuild bump are Later. |
+| Q614 — plan-index and CLAUDE.md drift | Recommendation | Now, docs only. |
+| Q615 — direction items | Recommendation | Existing-user setup-link handoff becomes Gated on an approved design before any participant receives a second coach program. The publisher-attribution spike and the history-import spike attach to their existing Later rows. |
+| Q616 — "matched the suggestion" | Recommendation | A working set matches when its load is within half of the lifter's `minJump`; loads only; warm-ups excluded; re-saving an edited set does not count again. |
+| Q617 — block-review completion label | Recommendation | Extended past the planned length; complete in or after the final week; partial at least halfway; otherwise early. Recorded only when the lifter opens the review, not on background renders. |
+| Q618 — which skips count | Recommendation | Only the lifter's individual skips. Accepting the bulk "skip flagged exercises" action is not an exercise skip. |
+| Q619 — how a rescued program is archived | Recommendation | Like any other archived program, with no special marking. |
+| Q620 — persistent-storage request and copy | Recommendation | Request once, after the first completed session, never at first boot. Settings shows whether the browser keeps the data and, if not, advises regular backups. A proactive backup reminder is a separate Later item that needs a design first. |
+| Q621 — plan-index fix timing | Recommendation | After PR #248 merges, in one small docs change that also records Plan 057's state. |
+
 ## Canonical decisions reached across the session
 
 The ledger above preserves sequence. This section is the consolidated product
@@ -1329,6 +1360,8 @@ marketed as an “AI personal trainer.”
 | Withhold all users until Pro | Noncommercial alpha before Pro; payment waits for working Pro |
 | Powerlifting in initial scope | Hypertrophy and general strength only; no powerlifting claim |
 | One universal double-progression equation | Capacity as evidence plus explicit shared strategies |
+| Pilot-data protection deferred to Later | Persistent-storage request and storage-status line are alpha-readiness work (Q606, Q620) |
+| Existing-user shared-program handoff Later | Gated on an approved design before a participant receives a second coach program (Q615) |
 | Copied/named classic templates | Original Taurifer-owned, versioned program families |
 | Family-specific progression systems | One declarative shared engine, no program-ID branches |
 | Fake-door/payment-intent test first | No fake doors; interviews/external prototypes; payment only for working Pro |
@@ -1393,3 +1426,7 @@ must still derive and verify:
 
 Those are implementation/evaluation outputs. If they expose a genuine product
 trade-off, reopen only that branch and add the resulting owner decision here.
+
+The advisor-plan triage branch (Q603–Q621) was reopened under that rule on
+September 23, 2026. The owner confirmed shared understanding after Q621, and
+that branch is closed.

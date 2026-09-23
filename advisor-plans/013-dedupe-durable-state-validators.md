@@ -18,7 +18,7 @@
 - **Depends on**: none (textual neighbour of 003 in `durable-state.js`, and of 007, 008, 012, and 019 in `app.js`)
 - **Category**: tech-debt
 - **Planned at**: commit `ff9991cf`, 2026-09-22
-- **Backlog**: not in `docs/backlog.md`. The owner must accept it there, or approve it directly, before execution.
+- **Backlog**: **Folded into Plan 058** (obsolete-path removal) by owner decision Q613. Execute only as part of Plan 058, or with the owner's explicit go-ahead.
 
 ## Why this matters
 

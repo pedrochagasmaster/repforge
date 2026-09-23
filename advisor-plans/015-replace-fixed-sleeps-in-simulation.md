@@ -18,7 +18,7 @@
 - **Depends on**: none
 - **Category**: tests
 - **Planned at**: commit `ff9991cf`, 2026-09-22
-- **Backlog**: `docs/backlog.md` §6 "Centralize browser-test helpers" (Later) is the nearest item. The owner must schedule this plan.
+- **Backlog**: **Later**: the "Replace fixed test sleeps" row in §6 (Q612).
 
 ## Why this matters
 

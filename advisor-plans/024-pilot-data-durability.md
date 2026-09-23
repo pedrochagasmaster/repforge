@@ -1,9 +1,10 @@
 # Plan 024: Resolve the pilot-data-protection contradiction, then ship the cheap durability mitigations the thesis names
 
-> **Executor instructions**: This plan has a **decision gate**. Part A is an
-> owner decision. Part B (implementation) runs only if the owner chooses to
-> schedule it. Follow the steps, run every verification, and honor the STOP
-> conditions. When done, update this plan's row in `advisor-plans/README.md`.
+> **Executor instructions**: Part A is **already decided**: the owner chose
+> Option 1 on 2026-09-23 (Q606), and the backlog records it. Execute Part B
+> steps B1, B2, and B4. B3 is **out of scope**: it is now the separate Later
+> item "Proactive backup reminder" (Q620). Run every verification and honor the
+> STOP conditions. When done, update this plan's row in `advisor-plans/README.md`.
 >
 > **Drift check (run first)**: `git diff --stat 76a31602..HEAD -- app.js index.html docs/backlog.md docs/business-product-thesis.md i18n-en.json i18n-pt.json guide-registry.js`
 > Then run `grep -n "storage.persist" *.js`. If it now finds a call, re-scope Part B.
@@ -11,12 +12,12 @@
 ## Status
 
 - **Priority**: P2 (direction; alpha-readiness)
-- **Effort**: S (Part B1 + B2) to M (with B3 reminder)
-- **Risk**: LOW–MED (B3 is user-visible and must not nag)
-- **Depends on**: an owner decision (Part A). Do not start during an overhaul plan's user-visible work without the owner's sequencing call.
+- **Effort**: S (B1 + B2)
+- **Risk**: LOW
+- **Depends on**: none. B2 changes Settings copy, so coordinate with any open Plan 057/058 PR that touches Settings.
 - **Category**: direction (data protection)
 - **Planned at**: commit `76a31602`, 2026-09-23 (on `origin/ui-overhaul/057-management-surfaces`)
-- **Backlog**: `docs/backlog.md:123` lists "Pilot-data protection (deferred) — Later — Reopen with a new scheduling decision". This plan is that decision's input.
+- **Backlog**: **Now**: the "Browser-persistence mitigation" row (owner decisions Q604, Q606, Q620). The former "Pilot-data protection (deferred)" row was replaced by that Now row plus a Later "Proactive backup reminder" row.
 
 ## Why this matters
 
@@ -52,23 +53,16 @@ Meanwhile the code has **no `navigator.storage.persist()` call anywhere**. The l
 
 ## Scope
 
-**Part A:** `docs/backlog.md` (one row) and this plan's row. Nothing else.
-**Part B:** `app.js`; `i18n-en.json`, `i18n-pt.json` (then regenerate `i18n.js`); `guide-registry.js` (B3 only); new/updated tests; UI catalog PNGs for any changed screen; the cache ritual files.
-**Out of scope:** sync, cloud backup, encrypted export (a separate backlog item), Web Push, and any server.
+**In scope:** `app.js`; `i18n-en.json`, `i18n-pt.json` (then regenerate `i18n.js`); new or updated tests; UI catalog PNGs for any changed screen; the cache ritual files.
+**Out of scope:** `guide-registry.js` and any backup reminder (B3 is the separate Later item, Q620); sync, cloud backup, encrypted export (a separate backlog item), Web Push, and any server.
 
 ## Steps
 
-### Part A — Decision
+### Part A — Decision (done)
 
-#### Step A1: Put the contradiction to the owner
+The owner chose Option 1 on 2026-09-23 (Q606): the thesis wins, and browser-persistence mitigation is alpha-readiness work, limited to B1 and B2 (Q620). `docs/backlog.md` already records it as the Now row "Browser-persistence mitigation". Nothing to do here.
 
-Report, quoting the thesis and backlog lines above, and offer:
-- **Option 1**: move "Pilot-data protection" from Later to Now (alpha-readiness), limited to B1–B3.
-- **Option 2**: keep it deferred, and amend the thesis's alpha-readiness sentence so the docs agree.
-
-**Verify**: the owner's choice is recorded. Under Option 2, edit only the thesis sentence (with approval) and mark this plan DONE (decision). Under Option 1, update the `docs/backlog.md` row to "Now" with the B1–B3 outcome, and continue.
-
-### Part B — Implementation (Option 1 only)
+### Part B — Implementation
 
 #### Step B1: Request persistent storage at a meaningful moment
 
@@ -96,11 +90,9 @@ Beside `#storageNote`, render one line from `navigator.storage.persisted()`. Whe
 
 **Verify**: `node test/i18n.mjs` → exit 0; refresh the Settings catalog screens and `node tools/check-ui-screens.mjs` → exit 0.
 
-#### Step B3 (design first): An action-linked backup cue
+#### Step B3: Not in this plan
 
-Propose, and get owner approval for, one cue in the guide registry. Suggested: after a session is completed, when `lastExport` is empty or older than 30 days **and** ≥ 5 sessions have been logged since, show the existing `backup` guide anchored to the session summary's close action, at most once per 30 days. The per-cue state belongs in the guide registry's existing records; check `guide-registry.js` `guideRecord` for how status and `lastTransitionAt` persist, and do not invent a new pref key. Check install-transfer eligibility per `AGENTS.md` if the registry state lives in `repforge_ui_v1`.
-
-**Verify**: owner approval recorded, then tests in the guide-eligibility suite: shown when the thresholds are met, not shown within 30 days of a dismissal, not shown when a backup is recent.
+The proactive backup cue is the Later backlog item "Proactive backup reminder" (Q620), and it needs its own owner-approved design. Starting-point idea for that future design, not for execution here: after a completed session, when `lastExport` is empty or older than 30 days **and** ≥ 5 sessions have been logged since, show the existing `backup` guide anchored to the session summary's close action, at most once per 30 days. Its state would go in the guide registry's records, checked against install-transfer eligibility (`AGENTS.md`).
 
 #### Step B4: Cache ritual
 
@@ -110,15 +102,14 @@ Bump NN → NN+1 (read NN via `grep -o 'repforge-v[0-9]*' sw.js`) in `sw.js` (`C
 
 ## Done criteria
 
-- [ ] Part A decision recorded; `docs/backlog.md` and the thesis no longer contradict each other
-- [ ] Option 1 only: `grep -c "navigator.storage.persist" app.js` ≥ 1; the B1 test proves one call after the first session and none at boot; the B2 copy exists in EN and PT; the catalog is refreshed; B3 is implemented or explicitly deferred by the owner
-- [ ] The `advisor-plans/README.md` row is updated
+- [ ] `grep -c "navigator.storage.persist" app.js` ≥ 1; the B1 test proves one call after the first session and none at boot
+- [ ] The B2 copy exists in EN and PT; `node test/i18n.mjs` passes; the Settings catalog screens are refreshed
+- [ ] `guide-registry.js` is unchanged; the `advisor-plans/README.md` row is updated
 
 ## STOP conditions
 
-- The owner chooses Option 2 (finish after A1).
-- Adding B3 state would make a fresh device ineligible for install transfer (see the `AGENTS.md` rule). Redesign or drop B3.
 - Any copy change conflicts with a Plan 057/058 surface currently in review. Coordinate before touching Settings.
+- The first-completed-session hook no longer exists where described (the `first_set_logged` emission). Report where session completion now lives rather than choosing a different moment.
 
 ## Maintenance notes
 

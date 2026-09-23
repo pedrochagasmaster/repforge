@@ -18,7 +18,7 @@
 - **Depends on**: none
 - **Category**: docs
 - **Planned at**: commit `ff9991cf`, 2026-09-22
-- **Backlog**: documentation hygiene. No backlog entry needed.
+- **Backlog**: **Now**: the "CI and documentation drift" row (Q614).
 
 ## Why this matters
 

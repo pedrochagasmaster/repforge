@@ -1,7 +1,7 @@
 # Taurifer canonical backlog
 
-**Status:** Living source of truth, reconciled through Q602 and the August 2026
-deferred-work review.
+**Status:** Living source of truth, reconciled through Q602, the August 2026
+deferred-work review, and the Q603–Q621 advisor-plan triage (September 2026).
 
 **Active initiative:** the owner-approved UI overhaul (Plans 049–059) precedes
 the noncommercial alpha for polish purposes (G-04). It is specified by
@@ -47,6 +47,12 @@ separate teams or synchronized delivery dates.
 |---|---|---|
 | Deliver the owner-approved UI overhaul | Execute Plans 049–059 in DAG order with owner gates honored: reconciled contracts, verified defect fixes, DraftV2/transition/transfer foundations, landing/entry, Focus-only workout, truthful Progress, converged management surfaces, system migration, and same-SHA launch validation. No governing current-tense document contradicts G-01–G-88. | [Plan 049](../plans/049-ui-overhaul-canonical-reconciliation.md), [sequence](ui-overhaul-implementation-sequence.md), [dispositions](ui-overhaul-disposition-register.md) |
 | Finish launch-readiness evidence | Complete the remaining real-device iOS/VoiceOver and Android/TalkBack cells, with the exact release-candidate build and evidence required by Plan 041. The implementation itself landed in PR #114. | [Plan 041](../plans/041-prelaunch-all-findings-remediation.md) |
+| Alpha data-safety fixes | A lifter's only copy of their data must not be lost or corrupted by a storage failure, a restored backup, or a deploy window. In this order: (1) a failed crash-journal update during a lock-held rebase aborts the write instead of being swallowed; (2) activation on every entry route archives any existing program content instead of discarding it (Q607, Q619); (3) the service worker never stores an error response over a good cached copy. Each lands with its regression test. Standalone PRs, per Q604. | Q604, Q607, Q609; advisor plans [003](../advisor-plans/003-durable-state-rebase-journal-write.md), [001](../advisor-plans/001-setup-link-eligibility-decision.md), [002](../advisor-plans/002-sw-never-cache-error-responses.md) |
+| Alpha measurement producers | The alpha must be able to measure whether lifters follow and understand recommendations. Emit the already-approved `set_saved`, `recommendation_explained`, `exercise_skipped`, and `block_review_viewed` using the Q616–Q618 definitions, and add a CI guard that fails when an approved event has neither a producer nor a reserved reason. No new event or property. Finish before Plan 059's evidence gate. | Q610, Q616–Q618; advisor plan [023](../advisor-plans/023-wire-alpha-trust-telemetry.md) |
+| Browser-persistence mitigation | Pilot data lives only in evictable browser storage. Request persistent storage once after the first completed session (never at first boot), and show in Settings whether the browser keeps Taurifer's data, advising regular backups when it does not. Replaces the deferred pilot-data-protection row; the proactive backup reminder stays Later. | Q606, Q620; advisor plan [024](../advisor-plans/024-pilot-data-durability.md) |
+| CI and documentation drift | Agents act on stale orientation docs and on generated files CI never re-checks. Run `build-i18n --check` in CI, with diagnostics that name the drift; guard the install-transfer client against contract drift; correct CLAUDE.md's drifted facts; after PR #248 merges, correct the plan index (Q621). | Q612, Q614, Q621; advisor plans [011](../advisor-plans/011-i18n-generator-check-in-ci.md), [006](../advisor-plans/006-install-transfer-constant-drift-guard.md), [005](../advisor-plans/005-claude-md-stale-architecture-table.md), [004](../advisor-plans/004-reconcile-plan-index-status.md) |
+
+> Advisor-plan items (Q603–Q621) ship as standalone PRs and are never pulled into an overhaul PR (Q604). Each advisor plan edits the shared cache revision, so run them one at a time.
 
 > The remaining PR #239 architecture findings are not a second queue. They are absorbed into Plans 054–059 as explicit implementation/acceptance deltas: entry/lifecycle ownership in 054/057; workout-session and gesture ownership in 055; historical projections in 056; release/cache, presentation and obsolete-path convergence in 058; and final architecture/evidence closure in 059.
 
@@ -62,9 +68,16 @@ promise.
 
 ## 2. Next — complete the program relationship
 
-No independent Next work is scheduled: the overhaul DAG above owns the
-sequenced program-relationship work (Plans 052–057), and everything else that
-lived here is deferred to Later below with its gate preserved.
+No independent program-relationship work is scheduled: the overhaul DAG above
+owns the sequenced program-relationship work (Plans 052–057), and everything
+else that lived here is deferred to Later below with its gate preserved.
+
+Engineering work that follows the Now data-safety fixes (Q612):
+
+| Work | Required outcome | Governing detail |
+|---|---|---|
+| DraftV2 store model search | Generated save, stale-save, removal, fault, quota, and reboot sequences never lose or invent a workout draft. Counterexamples become regressions, not in-plan fixes. A bounded slice of the deferred generative expansion. Starts after the crash-journal fix lands. | Q612; advisor plan [009](../advisor-plans/009-generative-draft-store-model.md) |
+| Durable-state fault hook through the host adapter | `durable-state.js` takes its draft fault-injection hook through `configureHost` instead of an undeclared `app.js` global, so Node harnesses can drive every draft path. | Q612; advisor plan [016](../advisor-plans/016-durable-state-fault-hook-via-host.md) |
 
 ## 3. Gated — working Pro and paid beta
 
@@ -111,21 +124,21 @@ These are real but do not outrank the foundation above.
 | Later | One-tap `+1 rep` | Test whether it materially improves active-set speed without creating accidental commits. |
 | Later | Client-side encrypted export | Use a separately reviewed Web Crypto/passphrase design with recovery and failure behavior. Bad crypto is worse than none. |
 | Later | Free-form import: measure and widen | Read whether the paste door is used and where it fails (reply refused, lifter never returns) before naming more assistants or accepting more reply shapes. Structured spreadsheet/CSV import stays its own Strong/Sheets item. |
-| Later | Strong/Sheets CSV import | Define mapping, identity reconciliation, preview, and partial-failure behavior before implementation. |
-| Later | Publisher attribution (deferred) | Unrelated to the overhaul: versioned publisher name, handle, description, and referral id with safe creator-specific acquisition events. Attribution is provenance, never engine input. Reopen only before creator pilots with a new scheduling decision. |
+| Later | Strong/Sheets CSV import | Define mapping, identity reconciliation, preview, and partial-failure behavior before implementation. First step when scheduled: the history-import specification spike, [advisor plan 027](../advisor-plans/027-competitor-history-import-spike.md) (Q615). |
+| Later | Publisher attribution (deferred) | Unrelated to the overhaul: versioned publisher name, handle, description, and referral id with safe creator-specific acquisition events. Attribution is provenance, never engine input. Reopen only before creator pilots with a new scheduling decision. First step when scheduled: the versioning and URL-size spike, [advisor plan 026](../advisor-plans/026-publisher-attribution-spike.md) (Q615). |
 | Later | Free one-off sessions (deferred) | Unrelated to the overhaul: manual, classic, muscle-focus, and user-directed temporary adaptation with honest History/program/progression eligibility. See the one-off specification. Reopen with a new scheduling decision, not through an overhaul PR. |
 | Later | Equipment contexts and sibling program instances (deferred) | Unrelated to the overhaul: two or three gym contexts, curated sibling mappings, comparable free-weight history, separate non-comparable machine histories, explicit crowded-gym substitutions. Reopen with a new scheduling decision. |
 | Later | Cause-routed interventions (deferred) | Unrelated to the overhaul: per-issue evidence, diagnosis question, permitted change, cooldown/ignore behavior, and reassessment window. Reopen with a new scheduling decision. |
 | Later | General lifecycle/friction observability (deferred) | Only the Phase 049-approved telemetry allowlist is scheduled (see Completed: Plans 045–048 are done; the overhaul row governs). Persisting general transition/skip/override/friction/reason catalogues beyond that needs a new product decision. Submitted free text stays on the separate consented research path, never PostHog. |
 | Later | Program lifecycle and next-program transition (deferred) | Broader than the audit-bounded transition work owned by Plans 052/056: archiving, starting another program of any authorship, and honest partial-history interpretation as general lifecycle. Reopen with a new scheduling decision once the overhaul lifecycle is in place. |
-| Later | Existing-user shared-program handoff (deferred) | A reviewed, non-destructive replacement/transition flow for setup links, preserving ADR 0007's released payload contracts. Reopen before a participant receives a later creator program, with a new scheduling decision. |
+| Gated | Existing-user shared-program handoff | A reviewed, non-destructive replacement/transition flow for setup links, preserving ADR 0007's released payload contracts and reusing the entry hub's archive-and-replace activation. Gate: an owner-approved design ([advisor plan 025](../advisor-plans/025-existing-user-setup-link-handoff.md), Phase 1) before any participant receives a second coach program (Q615). Product/UX work, so it waits for the overhaul (Q604). |
 | Later | Generative/model-based journey expansion (deferred) | Exercise onboarding, generation, strategies, long histories, skips, stalls, overrides, interruptions, abandonment, transitions, and version migrations as a general program. Overhaul plans specify their own required test evidence; broader expansion needs a new scheduling decision. Keep seeds and minimize failures. |
-| Later | Pilot-data protection (deferred) | Persistent storage where supported, prominent backup/export, honest prototype-durability disclosure, offline-first training. Reopen with a new scheduling decision; do not turn it into premature cloud sync. |
+| Later | Proactive backup reminder | The remainder of pilot-data protection after the Now browser-persistence mitigation (Q606, Q620): an action-linked backup cue through the guide registry that does not nag. Needs an owner-approved design before building. Must not make a fresh device ineligible for install transfer. Do not turn it into premature cloud sync. |
 | Later | Bodyweight and relative-strength trends | Add only when enough users log bodyweight and the view answers a real question; never turn bodyweight-normalized strength into a universal training score. |
 | Evidence only | Larger chart ranges/global period | Reopen 12/26/52-week selection or one global Progress period only if users cannot answer real questions with the current scoped controls. |
 | Evidence only | Landscape-specific layout | Keep responsive correctness; build a dedicated landscape treatment only after real use shows value. |
 | Evidence only | History virtualization beyond current gate | Current linear index is tested at 5,000 sessions/20,000 rows. Add pagination/virtualization only when measured devices cross a performance budget. |
-| Evidence only | Web Push and extra reminder types | Reopen a server sidecar, backup/block-end reminders, or explicit schedule UI only when installed-PWA/local notifications fail a demonstrated retention or safety need. Pilot backup prominence is deferred with pilot-data protection above. Unrelated to the one-hour install-transfer exception ([ADR 0013](adr/0013-temporary-install-transfer.md)), which is not a notification or reminder path. |
+| Evidence only | Web Push and extra reminder types | Reopen a server sidecar, backup/block-end reminders, or explicit schedule UI only when installed-PWA/local notifications fail a demonstrated retention or safety need. A proactive backup cue is the Later "Proactive backup reminder" item above, not a push notification. Unrelated to the one-hour install-transfer exception ([ADR 0013](adr/0013-temporary-install-transfer.md)), which is not a notification or reminder path. |
 | Evidence only | Hosted short/opaque setup links | The released self-contained setup formats remain canonical. Add an opaque-token service only when measured URL length, revocation, attribution, or handoff needs justify server dependency. The approved install-transfer token ([ADR 0013](adr/0013-temporary-install-transfer.md)) is a separate one-hour claim object, not a setup-link format. |
 | Evidence only | Per-exercise units or plate calculator | First solve the end-to-end lb/load-step contract. Add equipment-specific loading tools only from observed logging friction. |
 | Evidence only | ~~Opener fallback/backdrop dismissal/coach marks~~ → Superseded in part | Superseded in part by G-40: the global tour is removed in favor of action-linked contextual cues (Plans 054–057 own the registry and anchors). Reopen per cue only with a reproduced accessibility or comprehension problem. |
@@ -142,6 +155,14 @@ These are real but do not outrank the foundation above.
 |---|---|---|
 | Later | Systematic exercise alias pass | Editorial pass over all 270 movements in `tools/exercise-curation.json`, adding gym vernacular, acronyms and morphological variants in EN and PT. Plan 061 aliases only what its corpus proves broken; this is the rest. Boundary: aliases add ways to reach an entry and never repoint a `libraryId` at a different movement. |
 | Later | Centralize browser-test helpers | Unify app boot, lock fixtures, state seeding, and common browser assertions without hiding test intent. |
+| Later | Render and search history scans | Today recomputes each recommendation several times per render, and the exercise picker rescans history per keystroke. Memoize within one render and cache per log identity, proven by deterministic row-visit counts with unchanged output. After the overhaul (Q611). See [advisor plans 007](../advisor-plans/007-today-render-history-scans.md) and [008](../advisor-plans/008-exercise-picker-keystroke-cost.md). |
+| Later | Replace fixed test sleeps | ~399 `waitForTimeout` calls; start with `test/simulation.mjs` (127, ≥ 20.8 s per run). Wait on observable state instead; no assertion weakened (Q612). See [advisor plan 015](../advisor-plans/015-replace-fixed-sleeps-in-simulation.md). |
+| Later | Small correctness hardening | Reachable fallbacks for dynamically built i18n keys; the usual training hour computed across midnight; setup-link URL helpers that fail closed without ever widening the cookie path (Q613). See [advisor plans 012](../advisor-plans/012-i18n-dynamic-key-fallbacks.md), [017](../advisor-plans/017-usual-hour-circular.md), [020](../advisor-plans/020-shared-setup-url-parse-hardening.md). |
+| Later | Vendored-runtime build tool refresh | Bump the build-time esbuild pin, with runtime-budget and browser equivalence evidence (Q613). See [advisor plan 014](../advisor-plans/014-bump-vendor-build-esbuild.md). |
+| Evidence only | CI browser-install cache | Measured at 19–26 s per parallel job. Reopen when browser lanes approach their timeout or CI cost becomes a problem (Q608). See [advisor plan 010](../advisor-plans/010-ci-playwright-browser-cache.md). |
+| Evidence only | Single-language i18n catalogs | EN is the mandatory fallback and the market is PT-first. Reopen for an English-first launch or measured boot-time complaints, starting with the measurement spike (Q608). See [advisor plan 021](../advisor-plans/021-i18n-catalog-split-spike.md). |
+
+> Duplicate `app.js`/`durable-state.js` validators and thirteen unreferenced `app.js` functions fold into Plan 058's obsolete-path removal rather than a separate item (Q613); see [advisor plans 013](../advisor-plans/013-dedupe-durable-state-validators.md) and [019](../advisor-plans/019-remove-dead-app-functions.md).
 | Completed | History identity/search contract | Current History matching uses performed library/movement identity for aliases and preserves immutable performed labels; focused tests hold the rule. |
 | Completed | Fast-check foundation | The framework exists. The remaining work is expanding domain/state-machine coverage listed under deferred generative expansion, not choosing another property-testing library. |
 
@@ -215,6 +236,8 @@ Do not re-add these as backlog without new owner evidence.
 - Form-check video empire, a launch marketplace, a sixth navigation tab, or a
   default white-label product.
 - Mandatory accounts/cloud storage for Free/core training.
+- A root `.editorconfig` (advisor plan 018): the tree has no whitespace
+  problem; re-propose only if whitespace churn appears in reviews (Q608).
 
 ---
 

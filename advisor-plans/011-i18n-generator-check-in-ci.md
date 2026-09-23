@@ -17,7 +17,7 @@
 - **Depends on**: none
 - **Category**: dx
 - **Planned at**: commit `ff9991cf`, 2026-09-22
-- **Backlog**: not in `docs/backlog.md`. The owner must accept it there, or approve it directly, before execution.
+- **Backlog**: **Now**: the "CI and documentation drift" row (Q612).
 
 ## Why this matters
 

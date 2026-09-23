@@ -18,7 +18,7 @@
 - **Depends on**: none (textual neighbour of 007, 008, 012, and 013 in `app.js`; land it separately)
 - **Category**: tech-debt
 - **Planned at**: commit `ff9991cf`, 2026-09-22
-- **Backlog**: the architecture plan's disposition assigns "delete obsolete paths" to Plan 058 (R9). This plan is a small, safe subset of that work, so the owner may prefer to fold it into 058. Ask first.
+- **Backlog**: **Folded into Plan 058** (obsolete-path removal) by owner decision Q613. Execute only as part of Plan 058, or with the owner's explicit go-ahead.
 
 ## Why this matters
 

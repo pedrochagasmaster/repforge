@@ -20,7 +20,7 @@
 - **Depends on**: none
 - **Category**: bug
 - **Planned at**: commit `ff9991cf`, 2026-09-22
-- **Backlog**: not in `docs/backlog.md`. The owner must accept it there, or approve it directly, before execution.
+- **Backlog**: **Now**: the "Alpha data-safety fixes" row, item (3); standalone PR (owner decisions Q604, Q609).
 
 ## Why this matters
 

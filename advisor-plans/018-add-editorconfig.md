@@ -17,7 +17,7 @@
 - **Depends on**: none
 - **Category**: dx
 - **Planned at**: commit `ff9991cf`, 2026-09-22
-- **Backlog**: not in `docs/backlog.md`. It is a one-file DX addition, and the owner may decline it; record REJECTED if so.
+- **Backlog**: **Rejected** by owner decision Q608 (§7 Rejected). Do not execute.
 
 ## Why this matters
 

@@ -12,11 +12,15 @@ check against the branch you execute on. If PR #248 has not merged, execute on
 top of it, or expect STOP conditions to trigger.
 
 **Why this directory and not `plans/`:** `plans/` is the project's own governed
-plan series (Plans 001–061, owner gates, the UI-overhaul DAG). These advisor
-plans are *proposals*. Per `CLAUDE.md` and `docs/backlog.md`, the backlog is the
-only work queue ("If work isn't here, it isn't scheduled"), so the owner must
-accept a plan into `docs/backlog.md`, or approve it directly, before an executor
-runs it. Plan numbers here are independent of `plans/NNN`.
+plan series (Plans 001–061, owner gates, the UI-overhaul DAG). Plan numbers here
+are independent of `plans/NNN`.
+
+**Backlog decisions:** the owner triaged every plan in a grilling session on
+2026-09-23. The answers are recorded as Q603–Q621 in
+`docs/product-grilling-decision-register.md`, and as rows in `docs/backlog.md`,
+which remains the only work queue. Execute a plan only when its backlog status
+says so. Advisor-plan work ships as standalone PRs and is never pulled into an
+overhaul PR (Q604).
 
 **Before executing any plan:** run `git status` first, and never mix another
 person's uncommitted changes into an advisor-plan commit. Every plan that edits
@@ -27,52 +31,47 @@ a precached file includes the cache-revision ritual (`sw.js` `CACHE` + every
 
 ## Execution order & status
 
-### Audit findings (001–022)
+Ordered by backlog status, then by the order the owner set within it.
 
-| Plan | Title | Priority | Effort | Depends on | Status |
-|------|-------|----------|--------|------------|--------|
-| [022](022-remove-committed-posthog-config-tag.md) | Remove the committed deploy-generated `posthog-config.js` tag and guard against it | P1 | S | — | TODO |
-| [002](002-sw-never-cache-error-responses.md) | Service worker never caches error responses over good copies | P1 | S | — | TODO |
-| [003](003-durable-state-rebase-journal-write.md) | Failed rebase-journal write aborts instead of being swallowed | P1 | S | — | TODO |
-| [004](004-reconcile-plan-index-status.md) | Plan index and backlog record merged 055/056 and in-progress 057 | P2 | S | — | TODO |
-| [005](005-claude-md-stale-architecture-table.md) | CLAUDE.md stops stating drifted numbers and facts | P2 | S | — | TODO |
-| [001](001-setup-link-eligibility-decision.md) | Characterize, then (owner decision) tighten, setup-link eligibility for un-onboarded devices holding a program | P2 | S | — (Part B needs owner) | TODO |
-| [008](008-exercise-picker-keystroke-cost.md) | Picker typing stops rescanning history per keystroke | P2 | S | — | TODO |
-| [007](007-today-render-history-scans.md) | Today render memoizes recommendations and groups week rows once | P2 | M | — | TODO |
-| [009](009-generative-draft-store-model.md) | fast-check model of DraftV2 store commands with injected faults | P2 | L | 003 recommended | TODO |
-| [016](016-durable-state-fault-hook-via-host.md) | `durable-state.js` takes its fault hook via `configureHost`, not an `app.js` global | P3 | S | — (update 009's shim if landed) | TODO |
-| [006](006-install-transfer-constant-drift-guard.md) | Test guards the transfer client against contract drift | P3 | S | — | TODO |
-| [011](011-i18n-generator-check-in-ci.md) | CI runs `build-i18n --check`, which names what drifted | P3 | S | — | TODO |
-| [012](012-i18n-dynamic-key-fallbacks.md) | Dynamic i18n keys get reachable fallbacks (`tOr`) | P3 | S | — | TODO |
-| [013](013-dedupe-durable-state-validators.md) | Delegate duplicated validators; pin the `isPlainStateObject` divergence | P3 | S | — | TODO |
-| [019](019-remove-dead-app-functions.md) | Remove 13 unreferenced `app.js` functions | P3 | S | — | TODO |
-| [020](020-shared-setup-url-parse-hardening.md) | Setup-link URL helpers fail closed | P3 | S | — | TODO |
-| [017](017-usual-hour-circular.md) | Usual training hour computed on a 24-hour circle | P3 | S | — | TODO |
-| [014](014-bump-vendor-build-esbuild.md) | Bump the build-time esbuild pin with equivalence evidence | P3 | S | — | TODO |
-| [015](015-replace-fixed-sleeps-in-simulation.md) | Replace fixed sleeps in `test/simulation.mjs` (first slice) | P3 | M | — | TODO |
-| [010](010-ci-playwright-browser-cache.md) | Measure, then maybe cache, the CI Chromium download | P3 | S | — | TODO |
-| [021](021-i18n-catalog-split-spike.md) | Spike: is loading only the active i18n catalog worth it? | P3 | S | — | TODO |
-| [018](018-add-editorconfig.md) | Add a root `.editorconfig` | P3 | S | — | TODO |
+| Plan | Title | Backlog (decision) | Effort | Depends on | Status |
+|------|-------|--------------------|--------|------------|--------|
+| [022](022-remove-committed-posthog-config-tag.md) | Remove the committed deploy-generated `posthog-config.js` tag and guard against it | Blocker on PR #248, comment posted (Q605) | S | — | TODO (in #248) |
+| [003](003-durable-state-rebase-journal-write.md) | Failed rebase-journal write aborts instead of being swallowed | Now: data-safety (1) (Q609) | S | — | TODO |
+| [001](001-setup-link-eligibility-decision.md) | Activation archives an un-onboarded device's program instead of discarding it | Now: data-safety (2) (Q607, Q619) | S | — | TODO |
+| [002](002-sw-never-cache-error-responses.md) | Service worker never caches error responses over good copies | Now: data-safety (3) (Q609) | S | — | TODO |
+| [023](023-wire-alpha-trust-telemetry.md) | Emit the alpha's recommendation-trust events; guard against unwired events | Now: measurement (Q610, Q616–Q618) | M | before Plan 059's evidence gate | TODO |
+| [024](024-pilot-data-durability.md) | Request persistent storage after the first session; storage status in Settings | Now: browser persistence (Q606, Q620) | S | — | TODO |
+| [011](011-i18n-generator-check-in-ci.md) | CI runs `build-i18n --check`, which names what drifted | Now: CI/docs drift (Q612) | S | — | TODO |
+| [006](006-install-transfer-constant-drift-guard.md) | Test guards the transfer client against contract drift | Now: CI/docs drift (Q612) | S | — | TODO |
+| [005](005-claude-md-stale-architecture-table.md) | CLAUDE.md stops stating drifted numbers and facts | Now: CI/docs drift (Q614) | S | — | TODO |
+| [004](004-reconcile-plan-index-status.md) | Plan index and backlog record merged 055/056 and 057's state | Now: CI/docs drift (Q614, Q621) | S | PR #248 merged | BLOCKED (waits for #248) |
+| [009](009-generative-draft-store-model.md) | fast-check model of DraftV2 store commands with injected faults | Next (Q612) | L | 003 | TODO |
+| [016](016-durable-state-fault-hook-via-host.md) | `durable-state.js` takes its fault hook via `configureHost` | Next (Q612) | S | — (update 009's shim if landed) | TODO |
+| [025](025-existing-user-setup-link-handoff.md) | Design: existing users receive a setup link via archive-and-replace | Gated: approved design before a second coach program (Q615) | M | 001; after the overhaul (Q604) | TODO (Phase 1 only) |
+| [007](007-today-render-history-scans.md) | Today render memoizes recommendations and groups week rows once | Later, after the overhaul (Q611) | M | — | TODO |
+| [008](008-exercise-picker-keystroke-cost.md) | Picker typing stops rescanning history per keystroke | Later, after the overhaul (Q611) | S | — | TODO |
+| [015](015-replace-fixed-sleeps-in-simulation.md) | Replace fixed sleeps in `test/simulation.mjs` (first slice) | Later (Q612) | M | — | TODO |
+| [012](012-i18n-dynamic-key-fallbacks.md) | Dynamic i18n keys get reachable fallbacks (`tOr`) | Later (Q613) | S | — | TODO |
+| [017](017-usual-hour-circular.md) | Usual training hour computed on a 24-hour circle | Later (Q613) | S | — | TODO |
+| [020](020-shared-setup-url-parse-hardening.md) | Setup-link URL helpers fail closed | Later (Q613) | S | — | TODO |
+| [014](014-bump-vendor-build-esbuild.md) | Bump the build-time esbuild pin with equivalence evidence | Later (Q613) | S | — | TODO |
+| [026](026-publisher-attribution-spike.md) | Spike: versioning path and size cost for publisher attribution | Later: first step of "Publisher attribution" (Q615) | S–M | creator pilots scheduled | TODO |
+| [027](027-competitor-history-import-spike.md) | Spike: Hevy/Strong CSV history-import mapping and match rates | Later: first step of "Strong/Sheets CSV import" (Q615) | M | — | TODO |
+| [013](013-dedupe-durable-state-validators.md) | Delegate duplicated validators; pin the `isPlainStateObject` divergence | Folded into Plan 058 (Q613) | S | Plan 058 | FOLDED → 058 |
+| [019](019-remove-dead-app-functions.md) | Remove 13 unreferenced `app.js` functions | Folded into Plan 058 (Q613) | S | Plan 058 | FOLDED → 058 |
+| [010](010-ci-playwright-browser-cache.md) | Measure, then maybe cache, the CI Chromium download | Evidence only (Q608) | S | trigger: lanes near timeout | PARKED |
+| [021](021-i18n-catalog-split-spike.md) | Spike: is loading only the active i18n catalog worth it? | Evidence only (Q608) | S | trigger: EN-first launch or boot complaints | PARKED |
+| [018](018-add-editorconfig.md) | Add a root `.editorconfig` | Rejected (Q608) | S | — | REJECTED — no whitespace problem exists |
 
-### Direction (023–027) — design, spike, or decision-gated
-
-| Plan | Title | Priority | Effort | Depends on | Status |
-|------|-------|----------|--------|------------|--------|
-| [023](023-wire-alpha-trust-telemetry.md) | Emit the alpha's recommendation-trust events; guard against declared-but-unwired events | P1 | M | owner sign-off on 2 definitions; coordinate with Plan 059 | TODO |
-| [024](024-pilot-data-durability.md) | Resolve thesis-vs-backlog on pilot-data protection, then `persist()` + status + backup cue | P2 | S–M | owner decision (Part A) | TODO |
-| [025](025-existing-user-setup-link-handoff.md) | Design: existing users receive a setup link via archive-and-replace | P2 | M | 001 (baseline test); owner approval before Phase 2 | TODO |
-| [026](026-publisher-attribution-spike.md) | Spike: versioning path and size cost for publisher attribution | P3 | S–M | — (complements 025) | TODO |
-| [027](027-competitor-history-import-spike.md) | Spike: Hevy/Strong CSV history-import mapping and match rates | P3 | M | — | TODO |
-
-Status values: TODO | IN PROGRESS | DONE | BLOCKED (with a one-line reason) | REJECTED (with a one-line rationale)
+Status values: TODO | IN PROGRESS | DONE | BLOCKED (with a one-line reason) | PARKED (Evidence only) | FOLDED → plan | REJECTED (with a one-line rationale)
 
 ## Dependency notes
 
 - **009 after 003**: both exercise the durable engine. Landing 003 first means the model runs against the fixed rebase path.
 - **016 and 009**: if 009 landed first, 016's Step 4 removes 009's `globalThis.workoutDraftFault` shim.
-- **025 after 001**: 001's characterization test is the baseline that 025 relaxes for configured devices.
+- **025 after 001**: 001 guarantees that activation archives any existing program; 025's archive-and-replace design depends on it.
 - **023 and 025**: 025 may produce `program_transition_selected`; 023's `RESERVED` list must then drop it.
-- **Serialize everything that touches `app.js` or bumps the cache revision**: 001B, 003, 007, 008, 012, 013, 014, 016, 017, 019, 020, 023, 024B. They share the revision number, and most share `app.js`.
+- **Serialize everything that touches `app.js` or bumps the cache revision**: 001, 002, 003, 007, 008, 012, 013, 014, 016, 017, 019, 020, 023, 024. They share the revision number, and most share `app.js`.
 - **004 vs PR #248**: 004 must not edit `plans/057-…md` while PR #248 is open.
 - **002 and 022** are complementary: 022 removes the phantom request, and 002 stops any 404 from being cached.
 
@@ -80,7 +79,7 @@ Status values: TODO | IN PROGRESS | DONE | BLOCKED (with a one-line reason) | RE
 
 | Finding # | Plan | Note |
 |---|---|---|
-| 1 | 001 | **Downgraded** from bug to decision: ADR 0007 literally defines configured state as onboarded/log/history, the tests deliberately treat "program present + `onboarded:false`" as eligible, and the lifter confirms explicitly. Part A characterizes; Part B needs the owner. |
+| 1 | 001 | **Downgraded** from bug to decision: ADR 0007 literally defines configured state as onboarded/log/history, the tests deliberately treat "program present + `onboarded:false`" as eligible, and the lifter confirms explicitly. The grilling session then established (Q607) that such a program is **discarded unarchived** on any activation, so 001 was rewritten to widen the archive guard. |
 | 2 | 002 | **Re-targeted**: atomic Motion precache is deliberate and test-enforced (see rejected). The real defect in the same code is caching non-OK responses. |
 | 3 | 003 | Confirmed. |
 | 4 | 004 | Confirmed; `docs/backlog.md` and `docs/taurifer-architecture-refactoring-plan.md` are also stale. |

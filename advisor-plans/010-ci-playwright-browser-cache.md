@@ -17,7 +17,7 @@
 - **Depends on**: none
 - **Category**: dx
 - **Planned at**: commit `ff9991cf`, 2026-09-22
-- **Backlog**: not in `docs/backlog.md`. CI changes are shared infrastructure, so the owner must approve before merging.
+- **Backlog**: **Evidence only**: the "CI browser-install cache" row (Q608). Do not execute unless its trigger fires (browser lanes near their timeout, or CI cost becomes a problem).
 
 ## Why this matters
 

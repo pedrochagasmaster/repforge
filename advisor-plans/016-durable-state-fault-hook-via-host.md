@@ -18,7 +18,7 @@
 - **Depends on**: none (same file region as plan 009's harness; if 009 landed first, delete its `globalThis.workoutDraftFault` shim in Step 4)
 - **Category**: tech-debt
 - **Planned at**: commit `ff9991cf`, 2026-09-22
-- **Backlog**: aligned with the owner-ratified architecture disposition (`docs/taurifer-architecture-refactoring-plan.md`, "Owner-ratified disposition after Plan 053", R5: "Bridge establishes interface/facade"). Still needs owner acceptance as a standalone PR.
+- **Backlog**: **Next**: §2 "Durable-state fault hook through the host adapter" (Q612).
 
 **Scope note (read first):** the audit also flagged "`app.js` keeps growing and `durable-state.js` is a host-adapter shell". That broad finding is **already governed** by the repo's architecture plan and its owner-ratified disposition (candidates A–H into the bridge and Plans 055–059, with obsolete delegates removed in 058 and "no dual authorities" verified in 059). It is **rejected as a separate plan** here. This plan fixes only the concrete leak the audit exposed.
 

@@ -17,7 +17,7 @@
 - **Depends on**: none (plan 001 touches the same `app.js` region; land them separately)
 - **Category**: bug (hardening)
 - **Planned at**: commit `ff9991cf`, 2026-09-22
-- **Backlog**: not in `docs/backlog.md`. The owner must accept it there, or approve it directly, before execution.
+- **Backlog**: **Later**: the "Small correctness hardening" row in §6 (Q613).
 
 ## Why this matters
 

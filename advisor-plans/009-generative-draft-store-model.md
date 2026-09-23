@@ -19,7 +19,7 @@
 - **Depends on**: plan 003 is recommended first (it touches the same engine; no textual conflict)
 - **Category**: tests
 - **Planned at**: commit `ff9991cf`, 2026-09-22
-- **Backlog**: `docs/backlog.md` §5 lists "Generative/model-based journey expansion (deferred)" as **Later**. This plan is a bounded slice of it, so the owner must schedule it explicitly before execution.
+- **Backlog**: **Next**: §2 "DraftV2 store model search"; start after advisor plan 003 lands (Q612).
 
 ## Why this matters
 
