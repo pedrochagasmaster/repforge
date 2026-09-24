@@ -12426,8 +12426,8 @@ function extractNotImported(obj){
   if(!obj||typeof obj!=="object")return[];
   const raw=Array.isArray(obj.notImported)?obj.notImported:[];
   const grammar=window.RepForgeUnsupportedWorkoutGrammar;
-  return grammar?.normalizeForDisplay
-    ?grammar.normalizeForDisplay(raw,Object.keys(FREEFORM_NOT_IMPORTED_KEYS))
+  return grammar?.recognizedForDisplay
+    ?grammar.recognizedForDisplay(raw,Object.keys(FREEFORM_NOT_IMPORTED_KEYS))
     :[]}
 
 function captureUnsupportedWorkoutConcepts(sidecar){

@@ -565,8 +565,8 @@ async function main() {
       JSON.stringify(step3Results.normalImport.notImported) === "[]" &&
       JSON.stringify(step3Results.normalImport.exercises) === JSON.stringify(step3Results.normalImport.baseline),
       "ordinary supported imports with no sidecar preserve the executable parser result", JSON.stringify(step3Results.normalImport));
-    assert(JSON.stringify(step3Results.repeated) === JSON.stringify(["tempo", "supersets"]),
-      "repeated concepts deduplicate in stable sidecar order", JSON.stringify(step3Results.repeated));
+    assert(JSON.stringify(step3Results.repeated) === JSON.stringify(["tempo", "tempo", "supersets", "supersets"]),
+      "local sidecar disclosure keeps its existing source order and repeated values", JSON.stringify(step3Results.repeated));
     assert(JSON.stringify(step3Results.unknownOnly) === "[]",
       "unknown sidecar values remain unclassified", JSON.stringify(step3Results.unknownOnly));
     assert(JSON.stringify(step3Results.malformedSidecars) === JSON.stringify([[], [], [], []]),
