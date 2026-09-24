@@ -7,7 +7,7 @@ and owner gates only.
 
 - **Plan number:** 058
 - **Phase:** 7 — System convergence
-- **Status:** Planned; implementation has not started
+- **Status:** Semantic foundation P1–P3 in progress from `78492da2`; P4–P7 have not started
 - **Owner approval state:** Semantic direction is approved; rendered results require owner visual review
 - **Depends on:** Plans 049–057 and the durable-state bridge merged, including the accepted architecture outputs of 054–057; principal public surfaces and interaction structure must have stopped moving.
 - **Blocks:** Plan 059 public-launch validation
