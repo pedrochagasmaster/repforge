@@ -35,8 +35,14 @@
 
 <div class="rv-bar" id="bar">
   <div class="rv-wrap">
-    <div class="rv-dirs" role="tablist" aria-label="Direction" id="dirs"></div>
-    <div class="rv-screens" role="tablist" aria-label="Screen" id="screens"></div>
+    <div class="rv-bar__row">
+      <button class="rv-fold" id="fold" aria-expanded="true" aria-controls="barBody"><span class="rv-fold__ic" aria-hidden="true"></span><span id="foldLabel">Collapse</span></button>
+      <p class="rv-now" id="now" hidden></p>
+    </div>
+    <div id="barBody">
+      <div class="rv-dirs" role="tablist" aria-label="Direction" id="dirs"></div>
+      <div class="rv-screens" role="tablist" aria-label="Screen" id="screens"></div>
+    </div>
   </div>
 </div>
 

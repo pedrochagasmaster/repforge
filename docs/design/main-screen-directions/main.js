@@ -35,6 +35,7 @@
   for (const k of ["lang", "theme", "view"]) { const v = recall(k); if (v) U[k] = v; }
   if (!["one", "all", "compare"].includes(U.view)) U.view = "one";
   const w = +recall("w"); if (HEIGHT[w]) U.w = w;
+  let folded = recall("bar") === "folded";
 
   const isScreen = (id) => SCREENS.some(([s]) => s === id);
   function readHash() {
@@ -103,6 +104,12 @@
     $("dirs").innerHTML = KEYS.map((k) => { const d = DIRS[k]; return `<button class="rv-dir${d.family ? " is-new" : ""}" role="tab" aria-selected="${d.key === U.dir}" data-dir="${d.key}"><b>${letter(k)}. ${d.name}</b><span>${d.en}</span></button>`; }).join("");
     $("screens").innerHTML = SCREENS.map(([id, label, extra], i) => `<button class="rv-scr${extra ? " is-extra" : ""}" role="tab" aria-selected="${U.view !== "all" && baseScreen(U.screen) === id}" data-screen="${id}"><i>${String(i + 1).padStart(2, "0")}</i>${label}</button>`).join("");
     $("screens").hidden = U.view === "all";
+    $("bar").classList.toggle("is-folded", folded);
+    $("fold").setAttribute("aria-expanded", String(!folded));
+    $("foldLabel").textContent = folded ? "Switcher" : "Collapse";
+    const cur = DIRS[U.dir], si = SCREENS.findIndex(([id]) => id === baseScreen(U.screen));
+    $("now").hidden = !folded;
+    $("now").innerHTML = `<b>${letter(cur.key)}. ${cur.name}</b>${U.view === "all" ? "" : ` <span>· ${String(si + 1).padStart(2, "0")} ${SCREENS[si][1]}</span>`}`;
     for (const b of document.querySelectorAll("#lang button")) b.setAttribute("aria-pressed", b.dataset.lang === U.lang);
     for (const b of document.querySelectorAll("#theme button")) b.setAttribute("aria-pressed", b.dataset.themeSet === U.theme);
     for (const b of document.querySelectorAll("#width button")) b.setAttribute("aria-pressed", +b.dataset.w === U.w);
@@ -155,6 +162,7 @@
   document.addEventListener("click", (e) => {
     const t = e.target.closest("button,[data-go],[data-pt],[data-field]");
     if (!t) return;
+    if (t.id === "fold") { folded = !folded; store("bar", folded ? "folded" : "open"); return render(); }
     const ph = t.closest(".ph");
     if (t.dataset.dir && !ph) { U.dir = t.dataset.dir; resetFor(U.screen); return render(); }
     if (t.dataset.screen && !ph) { U.screen = t.dataset.screen; if (U.view === "all") U.view = "one"; resetFor(U.screen); return render(); }
