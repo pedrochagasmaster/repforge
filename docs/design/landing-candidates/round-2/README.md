@@ -22,6 +22,15 @@ Every number the page claims comes from `progression-engine.js`:
 
 Each prints its JSON; `--check` verifies the copy embedded in `index.html`, `--write` updates it.
 
+## App renders
+
+`render/` holds the pipeline for the new real-app renders (captured from the running app, framed
+with Form iPhone Studio in the Plan 054 scene, cropped to bands below the dynamic island). The
+bands live in `assets/`: S's ledger shows the matching Focus screen for each outcome, U closes on
+the app's e1RM chart for the same six weeks, V's worked example shows its Focus screen, and the
+paste hand-off shows the real review screen (S) or the paste, review and hub screens (U, V).
+See `render/README.md`.
+
 ## Checks
 
 `verify.mjs` runs in Playwright (from `test/`): no horizontal scroll and no heading orphans at 360/375/430,

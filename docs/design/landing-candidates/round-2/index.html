@@ -231,6 +231,12 @@ details.faq b{color:var(--ink);font-weight:600}
 .crop img{position:absolute;left:0;width:100%;top:-17.97%;max-width:none}
 @supports (aspect-ratio:1){.crop{height:auto}}
 figure{margin:0}
+.band{display:block;margin:0 calc(-1 * max(var(--g),env(safe-area-inset-left)))}
+@media (min-width:560px){.band{max-width:460px;margin:0 auto}}
+.band img{display:block;width:100%;height:auto}
+.proof{margin:14px 0 0}
+.proof figcaption{margin-top:6px}
+.U .uProof{margin:28px 0 0}
 figcaption{font-size:13.5px;color:var(--ink-soft);text-align:center;margin:10px 0 0}
 
 /* ---------- ledger (S, T and V share it) ---------- */
@@ -289,8 +295,8 @@ figcaption{font-size:13.5px;color:var(--ink-soft);text-align:center;margin:10px 
 .S .kv dt{font:600 11px/1.9 var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
 .S .kv dd{font-size:14.5px}
 .S .close{padding:48px 0 0}
-.S .phone{max-height:50vh}
-.S .crop{max-height:50vh;width:auto;height:50vh;max-width:78vw}
+.S .phone{max-height:46vh}
+.S .crop{max-height:46vh;width:auto;height:46vh;max-width:78vw}
 .S .kv{margin:14px 0 22px}
 .S .demo{margin:32px 0 0}
 
@@ -512,6 +518,13 @@ var K = {
   "install.ios.step4": ["Deixe <b>Abrir como Web App</b> ativado e toque em <b>Adicionar</b>.", "Leave <b>Open as Web App</b> on and tap <b>Add</b>."],
   "install.browser_instructions": ["Abra o menu do navegador e escolha <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.", "Open your browser menu and choose <b>Install app</b> or <b>Add to Home Screen</b>."],
   "nav.settings": ["Ajustes", "Settings"],
+  "focus.cue.up": ["Subir para {load} {unit}", "Go up to {load} {unit}"],
+  "focus.cue.hold": ["Manter {load} {unit}", "Hold {load} {unit}"],
+  "focus.cue.down": ["Reduzir para {load} {unit}", "Drop to {load} {unit}"],
+  "focus.cue.reps": ["buscar {reps} reps", "aim for {reps} reps"],
+  "focus.last_session": ["Última sessão", "Last session"],
+  "entry.freeform.open_chatgpt": ["Abrir no ChatGPT", "Open in ChatGPT"],
+  "entry.freeform.open_claude": ["Abrir no Claude", "Open in Claude"],
   "privacy.open": ["Detalhes de privacidade", "Privacy details"],
   "settings.analytics.title": ["Ajude a melhorar o Taurifer", "Help improve Taurifer"],
   "landing.shot.focus.alt": ["A tela de série em foco: agachamento livre com barra, série 1 de 3, alvo de 5 a 8 reps com RIR 0 a 2. A última sessão foi 100 kg para 8, 7 e 6 reps. A linha AGORA diz Manter 100 kg, buscar 8 reps, com os seletores de carga, reps e RIR em 100, 8 e 1 acima do botão Registrar série.", "The focused set view: barbell back squat, set 1 of 3, target 5 to 8 reps at RIR 0 to 2. Last session was 100 kg for 8, 7 and 6 reps. The recommendation is Hold 100 kg, aim for 8 reps, with the load, reps and RIR dials at 100, 8 and 1 above a Log set button."]
@@ -540,6 +553,8 @@ function ex(id){ return EX[id][lang === "pt" ? 0 : 1]; }
 /*@CASES*/var CASES = {"add":{"ex":"bench","sets":3,"repMin":8,"repMax":10,"logged":[[60,10,2],[60,10,2],[60,10,2]],"status":"advance","reason":"range.performed_top","load":62.5,"reps":8},"hold":{"ex":"squat","sets":3,"repMin":5,"repMax":8,"logged":[[100,8,1],[100,7,0],[100,6,0]],"status":"hold","reason":"range.room_in_range","load":100,"reps":8},"reduce":{"ex":"bench","sets":3,"repMin":8,"repMax":10,"logged":[[70,7,0],[70,6,0],[70,6,0]],"status":"reduce","reason":"range.below_floor","load":67.5,"reps":8}};/*@end*/
 /* node round-2/engine-grid.mjs --write */
 /*@GRID*/var GRID = {"load":60,"repMin":8,"repMax":10,"fixed":[[60,10,1],[60,7,0]],"reps":[6,7,8,9,10],"rirs":[0,1,2,3],"hardRir":4,"cells":{"6/0":{"status":"reduce","reason":"range.below_floor","verdict":"reduce","rule":"rec.reduce.text","load":57.5,"reps":9,"capacityReps":7},"6/1":{"status":"reduce","reason":"range.below_floor","verdict":"reduce","rule":"rec.reduce.text","load":57.5,"reps":8,"capacityReps":7},"6/2":{"status":"hold","reason":"range.room_in_range","verdict":"hold","rule":"rec.hold_add_reps.text","load":60,"reps":10,"capacityReps":8},"6/3":{"status":"hold","reason":"range.capacity_room","verdict":"push","rule":"rec.push_reps.text","load":60,"reps":10,"capacityReps":9},"7/0":{"status":"reduce","reason":"range.below_floor","verdict":"reduce","rule":"rec.reduce.text","load":57.5,"reps":9,"capacityReps":7},"7/1":{"status":"hold","reason":"range.room_in_range","verdict":"hold","rule":"rec.hold_add_reps.text","load":60,"reps":10,"capacityReps":8},"7/2":{"status":"hold","reason":"range.capacity_room","verdict":"push","rule":"rec.push_reps.text","load":60,"reps":10,"capacityReps":9},"7/3":{"status":"hold","reason":"range.capacity_room","verdict":"push","rule":"rec.push_reps.text","load":60,"reps":10,"capacityReps":10},"8/0":{"status":"hold","reason":"range.room_in_range","verdict":"hold","rule":"rec.hold_add_reps.text","load":60,"reps":10,"capacityReps":8},"8/1":{"status":"hold","reason":"range.room_in_range","verdict":"hold","rule":"rec.hold_add_reps.text","load":60,"reps":10,"capacityReps":9},"8/2":{"status":"hold","reason":"range.capacity_room","verdict":"push","rule":"rec.push_reps.text","load":60,"reps":10,"capacityReps":10},"8/3":{"status":"advance","reason":"range.capacity_top","verdict":"add","rule":"why.rule.cap_top","load":62.5,"reps":8,"capacityReps":11},"9/0":{"status":"hold","reason":"range.room_in_range","verdict":"hold","rule":"rec.hold_add_reps.text","load":60,"reps":10,"capacityReps":9},"9/1":{"status":"hold","reason":"range.room_in_range","verdict":"hold","rule":"rec.hold_add_reps.text","load":60,"reps":10,"capacityReps":10},"9/2":{"status":"advance","reason":"range.capacity_top","verdict":"add","rule":"why.rule.cap_top","load":62.5,"reps":8,"capacityReps":11},"9/3":{"status":"advance","reason":"range.capacity_top","verdict":"add","rule":"why.rule.cap_top","load":62.5,"reps":8,"capacityReps":11},"10/0":{"status":"hold","reason":"range.room_in_range","verdict":"hold","rule":"rec.hold_add_reps.text","load":60,"reps":10,"capacityReps":10},"10/1":{"status":"advance","reason":"range.capacity_top","verdict":"add","rule":"why.rule.cap_top","load":62.5,"reps":8,"capacityReps":11},"10/2":{"status":"advance","reason":"range.capacity_top","verdict":"add","rule":"why.rule.cap_top","load":62.5,"reps":8,"capacityReps":11},"10/3":{"status":"advance","reason":"range.capacity_top","verdict":"add","rule":"why.rule.cap_top","load":62.5,"reps":8,"capacityReps":11}}};/*@end*/
+/* Round-2 renders (render/README.md): [width, height] per language. */
+/*@ASSETS*/var ASSETS = {"focus-add":{"pt":[720,366],"en":[720,366]},"focus-hold":{"pt":[720,320],"en":[720,366]},"focus-reduce":{"pt":[720,366],"en":[720,366]},"exchart-six":{"pt":[720,491],"en":[720,491]},"paste-send":{"pt":[720,413],"en":[720,440]},"paste-review":{"pt":[720,644],"en":[720,612]},"hub-own":{"pt":[720,615],"en":[720,591]}};/*@end*/
 /* node round-2/six-weeks.mjs --write */
 /*@WEEKS*/var WEEKS = {"exercise":"bench","sets":3,"repMin":8,"repMax":10,"weeks":[{"week":1,"load":60,"logged":[[10,2],[10,2],[10,1]],"status":"advance","verdict":"add","reason":"range.performed_top","rule":"rec.add.text","next":{"load":62.5,"reps":8},"miss":false},{"week":2,"load":62.5,"logged":[[9,1],[8,1],[8,0]],"status":"hold","verdict":"hold","reason":"range.room_in_range","rule":"rec.hold_add_reps.text","next":{"load":62.5,"reps":10},"miss":false},{"week":3,"load":62.5,"logged":[[10,1],[10,1],[10,0]],"status":"advance","verdict":"add","reason":"range.performed_top","rule":"rec.add.text","next":{"load":65,"reps":8},"miss":false},{"week":4,"load":65,"logged":[[8,1],[7,0],[6,0]],"status":"reduce","verdict":"reduce","reason":"range.below_floor","rule":"rec.reduce.text","next":{"load":62.5,"reps":8},"miss":true},{"week":5,"load":62.5,"logged":[[10,1],[10,1],[10,0]],"status":"advance","verdict":"add","reason":"range.performed_top","rule":"rec.add.text","next":{"load":65,"reps":8},"miss":false},{"week":6,"load":65,"logged":[[10,1],[10,0],[10,0]],"status":"advance","verdict":"add","reason":"range.performed_top","rule":"rec.add.text","next":{"load":67.5,"reps":9},"miss":false}]};/*@end*/
 
@@ -589,6 +604,22 @@ function shot(name, alt, o){
   o = o || {};
   var base = ROOT + "assets/brand/" + name + "-" + lang + "-";
   return '<picture><source media="(prefers-color-scheme: dark)" srcset="' + base + 'dark.webp"><img class="' + (o.cls || "phone") + '" src="' + base + 'light.webp" width="903" height="1832" alt="' + esc(alt) + '"' + (o.eager ? ' fetchpriority="high"' : ' loading="lazy"') + ' decoding="async"></picture>';
+}
+/* A band cropped from a round-2 render: a real app screen, framed to the rows
+   the copy points at and clear of the dynamic island. */
+function band(name, alt){
+  var d = ASSETS[name][lang], base = "assets/" + name + "-" + lang + "-";
+  return '<picture class="band"><source media="(prefers-color-scheme: dark)" srcset="' + base + 'dark.webp"><img src="' + base + 'light.webp" width="' + d[0] + '" height="' + d[1] + '" alt="' + esc(alt) + '" loading="lazy" decoding="async"></picture>';
+}
+function cue(verdict, load, reps){
+  var key = { add: "focus.cue.up", hold: "focus.cue.hold", reduce: "focus.cue.down" }[verdict];
+  return k(key, { load: n(load), unit: "kg" }) + " · " + k("focus.cue.reps", { reps: n(reps) });
+}
+function focusBandAlt(id){
+  var c = CASES[id];
+  return L("A tela de treino do Taurifer com a última sessão de " + ex(c.ex) + ", ", "Taurifer's workout screen with the last session of " + ex(c.ex) + ", ") +
+    c.logged.map(function(x){ return kg(x[0]) + " × " + n(x[1]) + " RIR " + n(x[2]); }).join(", ") +
+    L(", e a linha Agora: ", ", and the Now line: ") + cue(STATUS_TO_VERDICT[c.status], c.load, c.reps) + ".";
 }
 function footer(){
   return '<footer class="footer"><span>Taurifer</span><nav aria-label="' + L("Rodapé", "Footer") + '"><a href="#' + L("dados", "data") + '">' + L("Privacidade", "Privacy") + '</a><a href="' + APP + '">' + L("Abrir o app", "Open the app") + '</a></nav></footer>';
@@ -647,17 +678,34 @@ function whereToPaste(){
     'Na primeira tela do app, toque em <b>' + k("landing.track") + '</b> e a tela de colar abre. Ela também fica em <b>' + k("entry.hub.title") + '</b>, dentro de <b>' + k("entry.hub.own.title") + '</b>, como <b>' + k("entry.hub.freeform.title") + '</b>.',
     'On the app\'s first screen, tap <b>' + k("landing.track") + '</b> and the paste screen opens. It also lives in <b>' + k("entry.hub.title") + '</b>, under <b>' + k("entry.hub.own.title") + '</b>, as <b>' + k("entry.hub.freeform.title") + '</b>.');
 }
-function handoff(){
-  var prog = [["bench", 4, 8, 10], ["incline", 3, 10, 12], ["fly", 3, 12, 12], ["pressdown", 3, 12, 15]];
-  return '<div class="hand">' +
-    '<div class="msg"><div class="msg__who"><b>' + L("Mensagem do personal", "Message from your coach") + '</b><span>' + L("07:42", "7:42 AM") + '</span></div>' +
-    '<pre>' + L("TREINO A · peito e tríceps\nSupino reto 4x8-10\nSupino inclinado halter 3x10-12\nCrucifixo polia 3x12\nTríceps polia 3x12-15", "WORKOUT A · chest and triceps\nBench press 4x8-10\nIncline DB press 3x10-12\nCable fly 3x12\nTriceps pushdown 3x12-15") + '</pre></div>' +
+/* The paste hand-off. S keeps round-1 D's message-to-program demo, then shows
+   the real review step; U and V show the real screens end to end. */
+function pasteBand(){
+  return '<figure class="proof">' + band("paste-send", L("A tela Colar um programa de qualquer lugar do Taurifer com " + n(5) + " linhas coladas e os botões " + k("entry.freeform.open_chatgpt") + " e " + k("entry.freeform.open_claude") + ".", "Taurifer's Paste a program from anywhere screen with " + n(5) + " lines pasted and the " + k("entry.freeform.open_chatgpt") + " and " + k("entry.freeform.open_claude") + " buttons.")) +
+    '<figcaption>' + L("No app: o texto colado e os botões " + k("entry.freeform.open_chatgpt") + " e " + k("entry.freeform.open_claude") + ".", "In the app: your pasted text and the " + k("entry.freeform.open_chatgpt") + " and " + k("entry.freeform.open_claude") + " buttons.") + '</figcaption></figure>';
+}
+function reviewBand(){
+  return '<figure class="proof">' + band("paste-review", L("A tela Revise os exercícios: " + n(0) + " vinculados e " + n(4) + " para revisar, com Supino reto sugerido como " + ex("bench") + ", marcado Provável.", "The Review the exercises screen: " + n(1) + " linked and " + n(3) + " to review, with Bench press suggested as " + ex("bench") + ", marked Likely.")) +
+    '<figcaption>' + L("Com a resposta colada, o app pede que você confira cada exercício antes de salvar.", "With the reply pasted, the app asks you to check every exercise before saving.") + '</figcaption></figure>';
+}
+function hubBand(){
+  return '<figure class="proof">' + band("hub-own", L("A tela " + k("entry.hub.title") + " com o grupo " + k("entry.hub.group.own") + " aberto: Montar um programa, " + k("entry.hub.freeform.title") + " e Importar um programa.", "The " + k("entry.hub.title") + " screen with " + k("entry.hub.group.own") + " open: Build a program, " + k("entry.hub.freeform.title") + " and Import a program.")) + '</figure>';
+}
+function handoff(real){
+  var prog = [["bench", 3, 8, 10], ["incline", 3, 10, 12], ["fly", 3, 12, 15], ["pressdown", 3, 12, 15]];
+  var relay = '<p>' + L("Você copia o comando do Taurifer, cola no ChatGPT ou no Claude junto com o seu treino e traz a resposta de volta. Antes de salvar, você confere cada exercício.", "You copy Taurifer's prompt, paste it into ChatGPT or Claude along with your program, and bring the reply back. Before anything is saved, you check every exercise.") + '</p>';
+  var note = '<p class="note">' + I.lock + '<span>' + L(FREEFORM_PRIVACY_PT_BR, k("entry.freeform.privacy")) + '</span></p>';
+  var msg = '<div class="msg"><div class="msg__who"><b>' + L("Mensagem do personal", "Message from your coach") + '</b><span>' + L("07:42", "7:42 AM") + '</span></div>' +
+    '<pre>' + L("TREINO A · peito e tríceps\nSupino reto 3x8-10\nSupino inclinado halter 3x10-12\nCrucifixo polia 3x12-15\nTríceps polia 3x12-15", "WORKOUT A · chest and triceps\nBench press 3x8-10\nIncline DB press 3x10-12\nCable fly 3x12-15\nTriceps pushdown 3x12-15") + '</pre></div>';
+  if (real) return '<div class="hand">' + msg +
+    '<div class="turn">' + I.turn + '<span>' + L("você cola no Taurifer", "you paste it into Taurifer") + '</span></div>' +
+    pasteBand() + relay + reviewBand() + note +
+    '<p class="where">' + whereToPaste() + '</p>' + hubBand() + '</div>';
+  return '<div class="hand">' + msg +
     '<div class="turn">' + I.turn + '<span>' + L("vira um dia do seu programa, para você conferir", "becomes a day in your program, for you to check") + '</span></div>' +
     '<div class="card prog"><div class="prog__head"><div><div class="label">' + L("Dia A", "Day A") + '</div><div class="prog__title">' + L("Peito e tríceps", "Chest and triceps") + '</div></div><span class="label">' + n(4) + L(" exercícios", " exercises") + '</span></div><ul>' +
     prog.map(function(p){ return '<li><span>' + ex(p[0]) + '</span><span>' + n(p[1]) + ' × ' + (p[2] === p[3] ? n(p[2]) : rng(p[2], p[3])) + '</span></li>'; }).join("") +
-    '</ul></div>' +
-    '<p>' + L("Você copia o comando do Taurifer, cola no ChatGPT ou no Claude junto com o seu treino e traz a resposta de volta. Antes de salvar, você confere cada exercício.", "You copy Taurifer's prompt, paste it into ChatGPT or Claude along with your program, and bring the reply back. Before anything is saved, you check every exercise.") + '</p>' +
-    '<p class="note">' + I.lock + '<span>' + L(FREEFORM_PRIVACY_PT_BR, k("entry.freeform.privacy")) + '</span></p>' +
+    '</ul></div>' + relay + reviewBand() + note +
     '<p class="where">' + whereToPaste() + '</p>' +
   '</div>';
 }
@@ -731,7 +779,7 @@ function S(){
   '<div class="demo"><span class="label" id="segLabel">' + L("Escolha como foi a sessão", "Pick how the session went") + '</span>' +
     '<div class="segc" role="radiogroup" aria-labelledby="segLabel" id="seg">' + segs.map(function(s, i){ return '<button type="button" role="radio" aria-checked="' + (i === 0) + '" tabindex="' + (i === 0 ? 0 : -1) + '" data-case="' + S_ORDER[i] + '">' + s + '</button>'; }).join("") + '</div>' +
     '<div class="ledger card" id="ledger"></div>' +
-    '<p class="foot">' + L("Resultado do motor de progressão do Taurifer para estas séries.", "Output of Taurifer's progression engine for these sets.") + '</p>' +
+    '<figure class="proof" id="sProof"></figure>' +
   '</div>' +
 
   '<section aria-labelledby="sStart"><div class="idx"><b>' + n(1).padStart(2, "0") + '</b> / ' + L("Começar", "Start") + '</div>' +
@@ -785,6 +833,8 @@ function initS(root){
     current = id;
     btns.forEach(function(b){ var onb = b.dataset.case === id; b.setAttribute("aria-checked", onb); b.tabIndex = onb ? 0 : -1; });
     ledger.innerHTML = sLedger(id);
+    root.querySelector("#sProof").innerHTML = band("focus-" + id, focusBandAlt(id)) +
+      '<figcaption>' + L("A mesma sessão, na tela de treino do app.", "The same session, on the app's workout screen.") + '</figcaption>';
     var rows = [].slice.call(ledger.querySelectorAll("[data-row]")), next = ledger.querySelector("#ledgerNext");
     if (animate) fillRows(rows, next, 40);
     else { rows.forEach(function(r){ r.classList.add("on"); }); next.classList.add("on"); }
@@ -937,13 +987,15 @@ function U(){
     '<div class="card end" data-wk="' + (W.length + 1) + '"><div class="next on"><div class="body">' +
       '<div class="label">' + L("Próxima sessão", "Next session") + '</div>' +
       '<div class="load">' + kg(last.next.load) + ' <small>× ' + n(last.next.reps) + " · " + n(3) + " " + setsWord(3) + '</small></div>' +
-      '<p>' + L("De " + kg(W[0].load) + " para " + kg(last.next.load) + " em seis semanas, com um recuo no meio. A mesma linha aparece em Progresso para cada exercício.", "From " + kg(W[0].load) + " to " + kg(last.next.load) + " in six weeks, with one step back along the way. The same line shows up in Progress for every exercise.") + '</p>' +
+      '<p>' + L("De " + kg(W[0].load) + " para " + kg(last.next.load) + " em seis semanas, com um recuo no meio.", "From " + kg(W[0].load) + " to " + kg(last.next.load) + " in six weeks, with one step back along the way.") + '</p>' +
     '</div></div></div>' +
   '</div>' +
+  '<figure class="proof uProof">' + band("exchart-six", L("O gráfico de e1RM estimado do " + ex("bench") + " na página do exercício do Taurifer, depois destas seis semanas: sobe até " + kg(87) + ", com uma queda na semana " + n(4) + ".", "The estimated e1RM chart for " + ex("bench") + " on Taurifer's exercise page after these six weeks: it climbs to " + kg(87) + ", with a dip in week " + n(4) + ".")) +
+  '<figcaption>' + L("No app, o e1RM estimado destas mesmas seis semanas.", "In the app: the estimated e1RM for these same six weeks.") + '</figcaption></figure>' +
 
   '<section aria-labelledby="uStart"><h2 class="h2" id="uStart">' + L("Três jeitos de começar.", "Three ways to start.") + '</h2>' +
   '<ul class="routes">' + routes().map(function(r){ return '<li><b>' + k("entry.hub.group." + r[0]) + '</b><span>' + r[2] + '</span></li>'; }).join("") + '</ul>' +
-  '<button type="button" class="disc" aria-expanded="false" aria-controls="uHand" id="uHandBtn">' + L("Ver como colar um treino", "See how pasting a program works") + '<i aria-hidden="true"></i></button><div id="uHand" hidden>' + handoff() + '</div></section>' +
+  '<button type="button" class="disc" aria-expanded="false" aria-controls="uHand" id="uHandBtn">' + L("Ver como colar um treino", "See how pasting a program works") + '<i aria-hidden="true"></i></button><div id="uHand" hidden>' + handoff(true) + '</div></section>' +
 
   '<section id="' + L("dados", "data") + '" aria-labelledby="uData" tabindex="-1"><h2 class="h2" id="uData">' + L("Seus dados", "Your data") + '</h2>' +
   '<div class="card">' + dataRows().map(function(r){ return '<div class="priv__row">' + r[0] + '<div><b>' + r[1] + '</b><span>' + r[2] + '</span></div></div>'; }).join("") + '</div>' + privacyPointer() + '</section>' +
@@ -1018,8 +1070,8 @@ function V(){
         '<div class="load">' + kg(c.load) + ' <small>× ' + n(c.reps) + " · " + n(c.sets) + " " + setsWord(c.sets) + '</small></div><p>' + x.numeric + '</p><p class="rule">' + x.rule + '</p></div></div>' +
       '</div>' +
       '<p class="foot">' + L("Resultado do motor de progressão do Taurifer para estas séries. Quando a faixa ainda tem espaço, a carga fica; quando a maioria das séries fica abaixo do piso, ela desce.", "Output of Taurifer's progression engine for these sets. When the range still has room, the load holds; when most sets fall below the floor, it comes down.") + '</p>' +
-      shot("why-this-weight", L("A folha Por que essa carga explicando Mantenha " + kg(100) + ": a última sessão foi " + kg(100) + " por " + n(8) + " reps com RIR " + n(1) + ", depois " + n(7) + " e " + n(6) + " reps com RIR " + n(0) + ". A faixa ainda tem espaço, então a carga fica enquanto as reps sobem.", "The Why this weight sheet explaining Hold " + kg(100) + ": last session was " + kg(100) + " for " + n(8) + " reps at RIR " + n(1) + ", then " + n(7) + " and " + n(6) + " reps at RIR " + n(0) + ". The range still has room, so the load stays while the reps climb.")) +
-      '<h3>' + L("Trazer o treino que você já faz", "Bringing the program you already follow") + '</h3>' + handoff() +
+      '<figure class="proof">' + band("focus-add", focusBandAlt("add")) + '<figcaption>' + L("A mesma sessão na tela de treino do app.", "The same session on the app's workout screen.") + '</figcaption></figure>' +
+      '<h3>' + L("Trazer o treino que você já faz", "Bringing the program you already follow") + '</h3>' + handoff(true) +
       '<h3>' + L("Perguntas", "Questions") + '</h3>' + faqFree() + faqStore() + faqRir() + faqCoach() +
       privacyPointer() +
     '</div></div>' +

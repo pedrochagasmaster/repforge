@@ -156,8 +156,17 @@ for (const id of IDS) for (const lang of LANGS) {
       }
     }
     // screenshots match the page language
-    const srcs = await page.evaluate(() => [...document.querySelectorAll("#stage img, #stage source")].map((e) => e.getAttribute("src") || e.getAttribute("srcset")).filter((s) => /assets\/brand\/(?!mark)/.test(s)));
+    const srcs = await page.evaluate(() => [...document.querySelectorAll("#stage img, #stage source")].map((e) => e.getAttribute("src") || e.getAttribute("srcset")).filter((s) => /(^|\/)assets\/(brand\/)?(?!mark)[\w-]+-(pt|en)-(light|dark)\.webp/.test(s)));
+    if (!srcs.length && id !== "T") fail(where, "no screenshots found to check");
     for (const s of srcs) if (!s.includes("-" + lang + "-")) fail(where, "image language mismatch: " + s);
+    await expandAll(page);
+    const broken = await page.evaluate(async () => {
+      const imgs = [...document.querySelectorAll("#stage img")];
+      imgs.forEach((i) => { i.loading = "eager"; });
+      await Promise.all(imgs.map((i) => i.decode().catch(() => {})));
+      return imgs.filter((i) => !i.naturalWidth).map((i) => i.getAttribute("src"));
+    });
+    if (broken.length) fail(where, "images that did not load: " + broken.join(", "));
     await ctx.close();
   }
 
