@@ -96,6 +96,10 @@ never changes.
 | training-data | Plex Mono for training data and technical values, assigned by semantic value rather than component ancestry | 058 |
 | display | 2.5rem titles | 058 |
 | title | 1.875rem screen titles | 058 |
+| feature-title | 1.75rem focal exercise, program, result, or editorial beat title | 058 |
+| focal-data | 1.75rem Mono value anchoring the active workout task | 058 |
+| section-title | 1.5rem section and sheet headings | 058 |
+| metric | 1.375rem prominent numeric value | 058 |
 | subtitle | 1.125rem content headings | 058 |
 | body | 1rem rows, prose, and controls; also the control-text step, never a separate size | 058 |
 | body-small | 0.875rem secondary rows | 058 |
@@ -105,10 +109,13 @@ never changes.
 | standard | 1.4 line height for body and controls | 058 |
 | reading | 1.55 line height for sustained prose | 058 |
 
-Weights are regular, medium, and semibold from shipped font support; they
-are not separate roles. If a current unique size cannot map onto the steps
-above without losing hierarchy or 200% fit, Plan 058 documents one named
-additional role rather than retaining a literal.
+The intermediate roles were added after inspecting the live post-057
+product, where 22–28px names and metrics carry real hierarchy between the
+preliminary 18px and 30px steps. They apply by content job, not by a legacy
+pixel value. Weights are regular, medium, and semibold from shipped font
+support; they are not separate roles. A genuinely new content job that cannot
+map onto these steps without losing hierarchy or 200% fit requires a P2
+contract review, rather than a local literal.
 
 ### Family: controls
 

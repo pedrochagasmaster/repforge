@@ -106,7 +106,7 @@ test("affected selection is narrow when proven and fail-safe when it is not", ()
   const captureScenario = selectAffected(["tools/ui-screens/screens-app.mjs"]);
   assert.equal(captureScenario.mode, "selected");
   assert.deepEqual(captureScenario.entries.map(({ suite }) => suite.file).sort(),
-    ["test/ci.mjs", "test/ui-catalog-contract.mjs", "test/ui-plan-050-editor.mjs", "test/ui-screens.mjs", "tools/check-ui-screens.mjs"].sort());
+    ["test/ci.mjs", "test/ui-catalog-contract.mjs", "test/ui-plan-050-editor.mjs", "test/ui-screens.mjs", "test/ui-system.mjs", "tools/check-ui-screens.mjs", "tools/check-ui-system.mjs"].sort());
   const manifestInput = selectAffected(["docs/ui-screens/manifest.json"]);
   assert.equal(manifestInput.mode, "selected");
   assert.deepEqual(manifestInput.entries.map(({ suite }) => suite.file).sort(), [

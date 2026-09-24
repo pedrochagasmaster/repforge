@@ -7,7 +7,7 @@ export const ROLE_FAMILIES = Object.freeze({
   control: ["primary", "secondary", "quiet-navigation", "destructive", "disclosure", "selection", "adjustment", "field"],
   progress: ["block", "week", "exercise-set", "task"],
   boundary: ["decorative", "required"],
-  typography: ["label", "caption", "body-small", "body", "subtitle", "title", "display", "training-data"],
+  typography: ["label", "caption", "body-small", "body", "control", "subtitle", "metric", "section-title", "feature-title", "focal-data", "title", "display", "training-data"],
 });
 
 export function loadRoleInventory(path = join(ROOT, "tools", "ui-role-inventory.json")) {
@@ -48,13 +48,20 @@ export function validateRoleInventory(inventory, manifest) {
     if (!item.owner || !item.rationale) errors.push(`${item.selector} needs owner and rationale`);
     if (item.sourceOnly && !item.sourceOnlyReason) errors.push(`${item.selector} needs a reason for not rendering in canonical catalog states`);
     if (!Array.isArray(item.states) || !item.states.length) errors.push(`${item.selector} needs interaction states`);
+    if (item.roles?.control) {
+      for (const state of ["default", "focus-visible"]) if (!item.states?.includes(state)) errors.push(`${item.selector} needs shared ${state} control state`);
+      if (!item.states?.includes("disabled") && !item.neverDisabledReason) errors.push(`${item.selector} needs disabled state or an explicit non-applicability reason`);
+    }
     if (!Array.isArray(item.catalogStates) || !item.catalogStates.length) errors.push(`${item.selector} needs affected catalog states`);
     for (const key of item.catalogStates || []) if (!expected.has(key)) errors.push(`${item.selector} names stale catalog state ${key}`);
   }
+  const exceptionSelectors = new Set();
   for (const item of inventory.exceptions || []) {
-    if (!item.selector || item.selector === "*" || item.selector.includes("**") || !item.role || item.role === "*" || !item.rationale || !item.owner || !Array.isArray(item.catalogStates) || !item.catalogStates.length) {
+    if (!item.selector || !/^[.#]/.test(item.selector) || item.selector.includes("*") || item.selector.includes(",") || !item.role || item.role === "*" || !item.rationale || !item.owner || !Array.isArray(item.catalogStates) || !item.catalogStates.length) {
       errors.push(`exception ${item.selector || "?"} needs exact selector, role, rationale, owner and catalog states`);
     }
+    if (exceptionSelectors.has(item.selector)) errors.push(`duplicate exception selector ${item.selector}`);
+    exceptionSelectors.add(item.selector);
     for (const key of item.catalogStates || []) if (!expected.has(key)) errors.push(`exception ${item.selector} names stale catalog state ${key}`);
     for (const literal of item.cssLiterals || []) {
       if (!literal.property || !literal.value) errors.push(`exception ${item.selector} has an incomplete CSS literal`);
@@ -89,7 +96,9 @@ export function cssLiteralDebt(css, exceptions = []) {
     const isLocalRoleToken = property.startsWith("--") && /(?:font|radius|shadow|color|ink|bg|boundary|surface|accent|rule)/.test(property);
     if (!isType && !isRadius && !isShadow && !isColor && !isLocalRoleToken) continue;
     let literal = false;
-    if (isType || isRadius) literal = /(?:^|[\s,(])(?:-?\d*\.?\d+)(?:px|rem|em|%|pt|vh|vw|dvh|svh|lvh)?(?=[\s,)/]|$)/.test(value) && !/^(?:var\([^)]*\)|inherit|initial|unset|revert|normal)$/.test(value);
+    if (isType || isRadius) literal = /(?:^|[\s,(])(?:-?\d*\.?\d+)(?:px|rem|em|%|pt|vh|vw|dvh|svh|lvh)?(?=[\s,)/]|$)/.test(value)
+      && !/^(?:var\([^)]*\)|inherit|initial|unset|revert|normal|0)$/.test(value)
+      && !(isRadius && value === "50%");
     if (isShadow) literal = value !== "none" && !/^var\([^)]*\)$/.test(value);
     if (isColor) literal = !/url\(/i.test(value) && (/#(?:[\da-f]{3,4}|[\da-f]{6}|[\da-f]{8})\b/i.test(value)
       || /\b(?:rgb|rgba|hsl|hsla|lab|lch|oklab|oklch)\s*\((?!\s*var\()/i.test(value)

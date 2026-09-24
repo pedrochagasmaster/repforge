@@ -10608,6 +10608,7 @@ async function main() {
     }
     const hasSel = (sel) =>
       rules.filter((r) => r.sel.split(",").map((s) => s.trim()).includes(sel));
+    const resolvedOpacity = (raw) => raw.startsWith("var(") ? token(raw.slice(4, -1)) : raw;
     return {
       accent: token("--accent"),
       accentText: token("--accent-deep"),
@@ -10626,8 +10627,8 @@ async function main() {
       vrowFill: hasSel(".vrow__fill").map((r) => ({ bg: r.bg, minWidth: r.minWidth })),
       focusVisible: rules.filter((r) => r.sel.includes(":focus-visible")).map((r) => r.outline),
       navIcon: hasSel("nav button.active .nav__icon").map((r) => r.bg),
-      btnDisabled: hasSel(".btn:disabled").map((r) => ({ opacity: r.opacity, cursor: r.cursor })),
-      iconbtnDisabled: hasSel(".iconbtn:disabled").map((r) => ({ opacity: r.opacity, cursor: r.cursor })),
+      btnDisabled: hasSel(".btn:disabled").map((r) => ({ opacity: resolvedOpacity(r.opacity), cursor: r.cursor })),
+      iconbtnDisabled: hasSel(".iconbtn:disabled").map((r) => ({ opacity: resolvedOpacity(r.opacity), cursor: r.cursor })),
       focusnavDisabled: hasSel(".focusnav:disabled").map((r) => r.color),
       accentTextSels: rules.filter((r) => r.color.includes("--accent-deep")).map((r) => r.sel),
     };
@@ -10694,8 +10695,8 @@ async function main() {
     "Inspect .vrow__fill min-width"
   );
   assert(
-    contrastAudit.btnDisabled.some((r) => r.opacity === "0.4" && r.cursor === "default") &&
-      contrastAudit.iconbtnDisabled.some((r) => r.opacity === "0.3" && r.cursor === "default"),
+    contrastAudit.btnDisabled.some((r) => +r.opacity === 0.4 && r.cursor === "default") &&
+      contrastAudit.iconbtnDisabled.some((r) => +r.opacity === 0.3 && r.cursor === "default"),
     "F6: .btn:disabled is dimmed; .iconbtn:disabled is unchanged",
     JSON.stringify({ btn: contrastAudit.btnDisabled, icon: contrastAudit.iconbtnDisabled }),
     "Inspect .btn:disabled vs .iconbtn:disabled"

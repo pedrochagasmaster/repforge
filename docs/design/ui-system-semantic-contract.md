@@ -47,11 +47,36 @@ its explanation remains readable. `horizontal-scroller` is a region affordance,
 not a button role. Shared states are default, hover (pointer only), pressed,
 focus-visible, selected where applicable, disabled with reason, validation
 error, and loading. A state that does not apply to a role is not synthesized.
+The destination dock has an exact `neverDisabledReason`: top-level destinations
+remain reachable and show their own empty states. Every other inventoried
+control declares its disabled state. The checker requires default and focus
+states for every control and an explicit reason wherever disabled is omitted.
 
 The inventory assigns every visible control a role in its catalog state.
 Exceptions and variants are selector-exact; they are not blanket style
 exemptions. P4 may apply shared role tokens to consumers, but may not map a
 stepper to selection or a drill-in chevron to disclosure for styling ease.
+
+### Permitted contextual variants
+
+The inventory lists the exact affected catalog states and rationale for each
+variant. These selectors may use a distinct recipe within their parent role;
+they do not create new roles.
+
+| Variant | Exact selector | Parent role |
+| --- | --- | --- |
+| Rapid workout stepper | `.stepbtn` | adjustment |
+| Deliberate Program stepper | `button[data-role="adjust"]` | adjustment |
+| Floating navigation capsule | `nav` | persistent-action |
+| Flush Program edit dock | `body:has(#program.program-editor-installed) nav` | persistent-action |
+| Featured entry action | `.entry-card--primary` | primary |
+| Full-screen entry gate | `#firstRun` | modal |
+| Full-screen saved-session summary | `#sessionSummary` | modal |
+| Scope-dependent volume indicator | `#volumeDash .vrow__bar` | week or block from selected scope |
+| First-run headline | `.firstrun .firstrun-hero__title` | landing headline type |
+| First-run climax data | `.firstrun-pull--climax .firstrun-pull__value` | landing Mono data type |
+| Saved-session hero | `.sum-hero` | summary hero type |
+| Responsive rest clock | `.restdial__clock` | rest clock type |
 
 ## Progress
 
@@ -66,9 +91,12 @@ stepper to selection or a drill-in chevron to disclosure for styling ease.
 (`block-to-date`) with the selected scope. Every listed indicator carries
 `data-progress-dimension` and `data-progress-scope` on the rendered element.
 The adjacent copy supplies the accessible value. A rest countdown is temporal
-status. The Program distribution bar and completed-volume comparison bar are
-relative data visualizations with no goal denominator. These three have
-selector-exact exclusions from the four-dimensional checker. The review
+status. The completed-volume comparison bar is a relative data visualization
+with no goal denominator. These two have selector-exact exclusions from the
+four-dimensional checker. The old `#volume` Program distribution bar has no
+reachable catalog state: its host is hidden outside installed edit mode, and
+installed edit mode hides the bar. It is dead presentation code for P6 removal,
+not an exception to the live progress contract. The review
 evidence container uses `block` to identify its scope, but its prose is not a
 second numeric progress bar. Do not remove two marks solely because they share
 a dimension: prove that their denominator, value, scope, and accessible copy
@@ -79,7 +107,19 @@ are duplicates first.
 Plex Sans is for language and controls; Plex Mono is for loads, reps, RIR,
 time, counts, and visible technical IDs. Choose by value, not ancestry.
 Type sizes are `label` 11px, `caption` 12px, `body-small` 14px, `body/control`
-16px, `subtitle` 18px, `title` 30px, `display` 40px at the default root size.
+16px, `subtitle` 18px, `metric` 22px, `section-title` 24px,
+`feature-title`/`focal-data` 28px, `title` 30px, and `display` 40px at the
+default root size. `metric` is a prominent numeric value, `section-title`
+names a section or sheet, `feature-title` names a focal exercise, program,
+result, or editorial beat, and `focal-data` is the Mono workout value that
+anchors the current task. The two 28px roles share one scale step but keep
+their content and font-family meanings distinct. These intermediate roles
+close the gap between the preliminary 18px
+and 30px tiers in the live product; they are general roles, not one-off
+exceptions. Page titles use `title`, and full display statements use
+`display`. Controls and prose use the 16px roles even where a legacy rule uses
+15px or 17px. Structural labels and supporting notes use label, caption, or
+body-small according to whether they carry essential information.
 Line heights are tight 1.1, standard 1.4, reading 1.55; weights are 400, 500,
 600. Labels/captions cannot be the sole critical control text. Four exact
 contextual variants protect established hierarchy: the Plan 054 first-run
@@ -87,8 +127,11 @@ headline (38px, 52px wide), its Mono climax data (`min(68px,16vw)`, then
 `min(88px,7.5vw)` wide), the Plan 057 summary hero (34px), and the responsive
 Mono rest clock (`clamp(32px,10vw,42px)`). Their selectors and catalog owners
 are in the inventory; no other surface inherits them by visual resemblance.
-P4 maps other unique sizes by semantic job and 200% fit; any truly missing
-size is a P2 contract review, not a local literal.
+Text glyphs used as control icons use `--control-icon-size` within the common
+44px target; their glyph size is independent of the action label's type role.
+P4 maps old sizes to the roles above by the named content job and checks 200%
+fit. It may not introduce a new size because a legacy literal falls between
+tiers; a genuinely new content job requires P2 contract review.
 
 Radius roles are none 0, compact 4px, control 8px, surface 12px,
 prominent/modal 16px, pill 999px, round 50%. The old 14px `--radius`/`--r`
@@ -104,9 +147,24 @@ summary keep their interaction role without being forced into card depth.
 New rules use semantic tokens; P4–P6 remove literal debt and the legacy aliases
 after consumers move.
 
+Control tokens follow intent: primary commits use the CTA ground/ink,
+secondary and adjustment controls use the ordinary surface and required
+boundary, quiet navigation and disclosure use an unfilled surface with legible
+ink, destructive actions use the danger ink with a required boundary when
+their shape carries the affordance, selection uses a required boundary and
+the selected fill/boundary when chosen, and fields use the ordinary surface,
+ink, and required boundary. The featured Plan 054 entry action keeps its
+declared accent-outline variant; Focus and Program steppers retain their
+declared rapid/deliberate variants. Pressed, focus, disabled, and error
+tokens are shared facets. A visible label does not become an icon simply
+because a CSS pseudo-element draws an arrow.
+
 Brand orange remains action/decorative emphasis. Small accent text uses
-`--accent-deep`; filled accent uses `--accent-ink`. Improved, declined,
-maintained, warning, destructive, disabled explanation, focus, required
+`--accent-deep`; filled accent uses `--accent-ink`.
+`--color-action-text` is a foreground color job shared by differently intended
+controls, not a quiet-navigation variant: existing accent links include Back,
+Edit, and Clear. Improved, declined, maintained, warning, destructive,
+disabled explanation, focus, required
 boundary, decorative separator, surface, and ink hierarchy are separate
 semantic roles even if two currently share a palette value. Required control
 boundaries use the high-contrast boundary token. Decorative rules may use
@@ -126,18 +184,17 @@ to decorative merely to make a contrast failure disappear.
 
 ## Exact exceptions and catalog reachability
 
-The JSON inventory owns the catalog-state arrays and these seven exact
+The JSON inventory owns the catalog-state arrays and these six exact
 selectors. None is a subtree waiver.
 
-| Selector | Exception |
-| --- | --- |
-| `.settings-identity__mark` | Brand artwork's paper and small shadow, not elevated Settings content |
-| `.firstrun__logo` | Ground-free mark's dark paper plate |
-| `.exdet-art` | Licensed illustration's sampled `mediaBg` and reviewed fallback paper |
-| `#restSheet .restdial__arc` | Rest countdown status, not workflow progress |
-| `#completedVolume .vrow__bar` | Relative completed-muscle comparison, no target |
-| `#volume .vrow__bar` | Relative Program distribution, no target |
-| `.safaribar__side` | Decorative Safari teaching artwork, not a live control |
+| Selector | Exception | Rendered catalog states |
+| --- | --- | --- |
+| `.settings-identity__mark` | Brand artwork's paper and small shadow, not elevated Settings content | `settings/main`, `settings/appearance`, `settings/guides`, `settings/guides-replay`, `settings/privacy` |
+| `.firstrun__logo` | Ground-free mark's dark paper plate | `onboarding-start/first-run`, `onboarding-shared/preview`, `onboarding-shared/gate`, `onboarding-shared/invalid` |
+| `.exdet-art` | Licensed illustration's sampled `mediaBg` and reviewed fallback paper | `library/exercise-preview`, `library/exercise-detail` |
+| `#restSheet .restdial__arc` | Rest countdown status, not workflow progress | `workout/rest-timer` |
+| `#completedVolume .vrow__bar` | Relative completed-muscle comparison, no target | `progress/volume`, `progress/overview`, `progress/overview-action`, `progress/overview-baseline`, `progress/exercise-chart` |
+| `.safaribar__side` | Decorative Safari teaching artwork, not a live control | `install/ios-sheet`, `install/transfer-ready` |
 
 Three owned controls do not appear in the canonical catalog frames:
 `#glossary` opens only after a term tap, `#restBar` requires a running timer,
@@ -158,3 +215,30 @@ at a time in the order stated by Plan 058. P6 removes aliases and closes
 literal debt; P7 regenerates/reviews the entire catalog and required device
 matrix. This document and the inventory are the role authority until an
 explicit P2/P3 contract review changes them.
+
+## Luna Max execution handoff
+
+The foundation starts with 704 reported CSS literal declarations. This is
+P4–P6 migration debt, not an allowlist; `--strict-css` is expected to fail
+until P6. Use `node tools/check-ui-system.mjs --metadata` for a quick contract
+check, `node test/ui-system.mjs` for deliberate failure and token proofs,
+`node tools/check-ui-system.mjs` for all 143 live states, and
+`node tools/check-ui-screens.mjs` for the 819-frame catalog. Run
+`node tools/check-ui-system.mjs --state <flow/screen> --verbose` to reproduce
+a single catalog failure without re-rendering the whole catalog. Run
+`node tools/run-tests.mjs affected --base origin/main` after each coherent
+slice, then the final plan-required CI gate. The exact affected state and
+selector lists are in `tools/ui-role-inventory.json`; update them only after
+rendered evidence proves the live ownership changed.
+
+Proceed in Plan 058 order: P4a entry/landing, P4b Today/Focus/summary, P4c
+Progress, P4d History/Share/Program/Settings/library/install/help. Migrate
+consumers to the named roles while keeping each Plan 054–057 interaction and
+state contract. P5 extends the computed-role AA check to every relevant
+theme, locale, and state. P6 removes the legacy aliases, the old hidden
+`#volume` presentation path, dead selectors, and remaining literal debt;
+`node tools/check-ui-system.mjs --strict-css` must then pass. P6 also needs the
+owner visual board approval specified in the plan. P7 regenerates and reviews
+the complete catalog and responsive/theme/text/reduced/installed matrix.
+The PR for this foundation remains separate from those migrations and is not
+merge authorization.

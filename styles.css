@@ -3,7 +3,8 @@
    Light: cream surfaces, near-black ink, burnt-orange accent.
    Dark: the same layout on warm charcoal, reached only by
    swapping the :root tokens (see [data-theme="dark"] below).
-   Separation via hairline rules and whitespace — not cards.
+   Ordinary content separates through hairlines and whitespace. Bounded
+   depth marks selected, floating, modal and persistent-action roles.
    ============================================================ */
 
 @font-face{font-family:"Plex Sans";src:url(fonts/plexsans.woff2) format("woff2");font-weight:100 700;font-display:swap}
@@ -60,6 +61,10 @@
   --font-size-body:1rem;
   --font-size-control:1rem;
   --font-size-subtitle:1.125rem;
+  --font-size-metric:1.375rem;
+  --font-size-section-title:1.5rem;
+  --font-size-feature-title:1.75rem;
+  --font-size-focal-data:var(--font-size-feature-title);
   --font-size-title:1.875rem;
   --font-size-display:2.5rem;
   /* The selected landing and the saved-session hero have deliberate scale
@@ -110,7 +115,7 @@
   --color-maintained:var(--ink-soft);
   --color-warning:var(--accent-deep);
   --color-destructive:var(--danger);
-  --color-focus:var(--accent-deep);
+  --color-focus:var(--accent);
   --color-disabled-reason:var(--ink-soft);
   --boundary-required:var(--ink-soft);
   --boundary-decorative:var(--rule);
@@ -118,6 +123,35 @@
   --color-ink:var(--ink);
   --color-ink-secondary:var(--ink-soft);
   --control-target:44px;
+  --control-icon-size:24px;
+  --control-primary-bg:var(--cta);
+  --control-primary-ink:var(--cta-ink);
+  --control-primary-boundary:transparent;
+  --control-primary-disabled-bg:var(--rule);
+  --control-primary-disabled-ink:var(--ink-soft);
+  --control-secondary-bg:var(--surface);
+  --control-secondary-ink:var(--ink);
+  --control-secondary-boundary:var(--boundary-required);
+  --control-quiet-bg:transparent;
+  --control-quiet-ink:var(--ink);
+  --control-quiet-boundary:transparent;
+  --control-destructive-bg:transparent;
+  --control-destructive-ink:var(--color-destructive);
+  --control-destructive-boundary:var(--boundary-required);
+  --control-disclosure-bg:transparent;
+  --control-disclosure-ink:var(--ink);
+  --control-disclosure-boundary:transparent;
+  --control-selection-bg:var(--surface);
+  --control-selection-ink:var(--ink);
+  --control-selection-boundary:var(--boundary-required);
+  --control-selection-active-bg:var(--entry-tint);
+  --control-adjustment-bg:var(--control-secondary-bg);
+  --control-adjustment-ink:var(--control-secondary-ink);
+  --control-adjustment-boundary:var(--control-secondary-boundary);
+  --control-field-bg:var(--surface);
+  --control-field-ink:var(--ink);
+  --control-field-boundary:var(--boundary-required);
+  --control-focus-outline:2px solid var(--color-focus);
   --control-pressed-transform:translateY(1px) scale(.995);
   --control-disabled-opacity:.4;
   --control-selected-boundary:var(--boundary-selected);

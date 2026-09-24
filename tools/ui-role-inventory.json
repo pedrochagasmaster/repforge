@@ -7263,6 +7263,7 @@
         "focus-visible"
       ],
       "rationale": "Destination switch; the current destination is selected within a persistent action dock.",
+      "neverDisabledReason": "The five top-level destinations remain available; missing program content has its own reachable state instead of disabling navigation.",
       "owner": "plan-058",
       "catalogStates": [
         "history/conflict",
@@ -7470,7 +7471,9 @@
       "owner": "plan-054/058",
       "catalogStates": [
         "onboarding-start/first-run",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "onboarding-shared/gate",
+        "onboarding-shared/invalid"
       ]
     },
     {
@@ -7575,7 +7578,9 @@
       "owner": "plan-054/058",
       "catalogStates": [
         "onboarding-start/first-run",
-        "onboarding-shared/preview"
+        "onboarding-shared/preview",
+        "onboarding-shared/gate",
+        "onboarding-shared/invalid"
       ]
     },
     {
@@ -7594,17 +7599,11 @@
       "rationale": "Shows each muscle as a share of the observed maximum, with no planned target or completion value.",
       "owner": "plan-056/058",
       "catalogStates": [
-        "progress/volume"
-      ],
-      "boundary": "decorative"
-    },
-    {
-      "selector": "#volume .vrow__bar",
-      "role": "relative data bar, not goal progress",
-      "rationale": "Program editor distribution compares muscles to the largest current value, with no planned target or completion value.",
-      "owner": "plan-057/058",
-      "catalogStates": [
-        "program/overview"
+        "progress/volume",
+        "progress/overview",
+        "progress/overview-action",
+        "progress/overview-baseline",
+        "progress/exercise-chart"
       ],
       "boundary": "decorative"
     },
@@ -7614,7 +7613,8 @@
       "rationale": "The illustrated Safari controls are aria-hidden teaching artwork, not live control boundaries.",
       "owner": "plan-054/058",
       "catalogStates": [
-        "install/ios-sheet"
+        "install/ios-sheet",
+        "install/transfer-ready"
       ],
       "boundary": "decorative"
     },
@@ -7624,7 +7624,8 @@
       "rationale": "The licensed illustration keeps its sampled mediaBg paper; its reviewed static fallback remains the same warm plate when metadata is absent.",
       "owner": "plan-058",
       "catalogStates": [
-        "library/exercise-preview"
+        "library/exercise-preview",
+        "library/exercise-detail"
       ],
       "cssLiterals": [
         {
