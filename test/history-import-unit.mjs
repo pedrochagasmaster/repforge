@@ -95,6 +95,10 @@ const strong = fixture("strong.csv");
 const strongParse = HistoryImport.parseSourceText(strong);
 check(strongParse.ok && strongParse.source === "strong" && strongParse.delimiter === ";",
   "detects Strong headers and semicolon delimiter");
+const strongDistanceUnit = "Date;Workout #;Workout Name;Exercise Name;Set Order;Weight (kg);Reps;Distance;Distance Unit\n2024-04-13;104;Cardio;Treadmill;1;;1;3;mi";
+const strongDistanceParsed = HistoryImport.parseSourceText(strongDistanceUnit);
+check(strongDistanceParsed.ok && strongDistanceParsed.records[0].values.distanceUnit[0] === "mi",
+  "accepts Strong's documented Distance Unit column");
 const strongReview = await prepare(strong);
 check(strongReview.status === "needs-review" && strongReview.blockers.some(item => item.code === "possible-duplicate-session"),
   "a second semantically identical workout is presented as a possible duplicate");
@@ -190,6 +194,8 @@ check(HistoryImport.parseSourceText("date,date,exercise_name,reps", { source: "g
   "duplicate field headers reject the file");
 check(HistoryImport.parseSourceText("date,exercise_name,reps,unmapped", { source: "generic" }).issues[0].code === "unsupported-columns",
   "unknown columns fail closed until a schema version is reviewed");
+check(HistoryImport.parseSourceText("date,exercise_name,reps,weight[kg]", { source: "generic" }).issues[0].code === "unsupported-columns",
+  "punctuation variants outside the bounded header aliases fail closed");
 check(HistoryImport.parseSourceText("date,exercise_name,reps,notes\n2024-01-01," + "x".repeat(HistoryImport.LIMITS.maxCellChars + 1) + ",1,a", { source: "generic" }).issues[0].code === "cell-too-large",
   "oversized cells reject rather than truncate");
 check(HistoryImport.parseSourceText("x".repeat(HistoryImport.LIMITS.maxBytes + 1), { source: "generic" }).issues[0].code === "file-too-large",
@@ -235,6 +241,41 @@ const identicalSplit = await prepare(repeatedIdentical, {
 check(identicalSplit.status === "ready" && identicalSplit.proposal.sessions.length === 2,
   "an explicit split keeps identical-looking source rows in separate sessions");
 
+const repeatedUnindexedSets = "date,title,exercise_name,weight_kg,reps\n2024-06-01,Push,Barbell bench press,80,8\n2024-06-01,Push,Barbell bench press,80,8";
+const repeatedUnindexedReady = await prepare(repeatedUnindexedSets, { source: "generic" });
+check(repeatedUnindexedReady.status === "ready" && repeatedUnindexedReady.proposal.rows.length === 2,
+  "identical unindexed sets stay separate when there is no visible repeated exercise block");
+
+const repeatedExerciseBlocks = "date,title,exercise_name,weight_kg,reps\n2024-06-01,Push,Barbell bench press,80,8\n2024-06-01,Push,Seated Cable Row,45,10\n2024-06-01,Push,Barbell bench press,82,6\n2024-06-01,Push,Seated Cable Row,50,8";
+const repeatedBlockReview = await prepare(repeatedExerciseBlocks, { source: "generic" });
+check(repeatedBlockReview.status === "needs-review" && repeatedBlockReview.blockers.some(item => item.code === "session-identity-ambiguous"),
+  "a visibly repeated exercise block without session or set ids requires reconciliation");
+const repeatedBlockKey = repeatedBlockReview.sessions[0].decisionKey;
+const repeatedBlockRows = repeatedBlockReview.sessions[0].rows;
+const repeatedBlockSplit = await prepare(repeatedExerciseBlocks, {
+  source: "generic",
+  sessionDecisions: {
+    [repeatedBlockKey]: {
+      kind: "split",
+      assignments: Object.fromEntries(repeatedBlockRows.map((row, index) => [row.sourceRowKey, index < 2 ? "first" : "second"])),
+    },
+  },
+});
+check(repeatedBlockSplit.status === "ready" && repeatedBlockSplit.proposal.sessions.length === 2 &&
+  repeatedBlockSplit.proposal.rows.every(row => row.set === 1),
+  "splitting a repeated unindexed block starts set numbering for each session");
+
+const indexedReversed = "date,session_id,title,exercise_name,set,weight_kg,reps\n2024-06-05,order-1,Push,Barbell bench press,2,82,6\n2024-06-05,order-1,Push,Barbell bench press,1,80,8";
+const indexedReady = await prepare(indexedReversed, { source: "generic" });
+check(indexedReady.status === "ready" && indexedReady.proposal.rows.map(row => row.set).join(",") === "1,2",
+  "explicit set indices determine proposal order even when CSV rows are reversed");
+const indexedReimport = await prepare(indexedReversed.split("\n").slice(0, 1).concat(indexedReversed.split("\n").slice(1).reverse()).join("\n"), {
+  source: "generic",
+  existingLog: indexedReady.proposal.rows,
+});
+check(indexedReimport.status === "no-new-sessions" && indexedReimport.skippedDuplicateSessions === 1,
+  "reordered indexed sets keep a deterministic source fingerprint on retry");
+
 const conflictingLabels = "date,session_id,title,exercise_name,exercise_id,set,weight_kg,reps\n2024-06-02,v-1,Push,Barbell bench press,reused-id,1,80,8\n2024-06-02,v-1,Push,Hammer Strength Chest Press,reused-id,2,80,8";
 const labelConflict = await prepare(conflictingLabels, { source: "generic" });
 check(labelConflict.status === "needs-review", "different source-name classifications do not silently share an imported identity");
@@ -254,6 +295,10 @@ const firstImport = await prepare(retryCsv, { source: "generic" });
 const retryImport = await prepare(retryCsv, { source: "generic", existingLog: firstImport.proposal.rows });
 check(retryImport.status === "no-new-sessions" && retryImport.skippedDuplicateSessions === 1,
   "repeated identical imports deterministically skip the previously proposed session");
+const duplicateRowExport = `${retryCsv}\n${retryCsv.split("\n")[1]}`;
+const duplicateRowRetry = await prepare(duplicateRowExport, { source: "generic", existingLog: firstImport.proposal.rows });
+check(duplicateRowRetry.status === "no-new-sessions" && duplicateRowRetry.skippedDuplicateSessions === 1,
+  "an extra identical row under a reliable session id does not change the source fingerprint");
 const legacyHistoryRow = { ...firstImport.proposal.rows[0] };
 delete legacyHistoryRow.historyImport;
 const legacyDuplicate = await prepare(retryCsv, { source: "generic", existingLog: [legacyHistoryRow] });

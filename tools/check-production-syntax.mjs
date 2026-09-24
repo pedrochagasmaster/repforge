@@ -18,6 +18,7 @@ const expected = [
   "durable-state.js",
   "exercises.js",
   "guide-registry.js",
+  "history-import.js",
   "history-ui.js",
   "i18n.js",
   "install-policy.js",

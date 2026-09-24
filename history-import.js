@@ -47,6 +47,8 @@
       weight: "weight",
       weight_kg: "weightKg",
       weight_lbs: "weightLb",
+      "weight (kg)": "weightKg",
+      "weight (lbs)": "weightLb",
       weight_unit: "weightUnit",
       unit: "weightUnit",
       load_unit: "weightUnit",
@@ -85,24 +87,25 @@
       rpe: "rpe",
     }),
     strong: Object.freeze({
-      workout: "sessionId",
-      workout_number: "sessionId",
+      "workout #": "sessionId",
+      "workout number": "sessionId",
       date: "date",
-      workout_name: "sessionTitle",
+      "workout name": "sessionTitle",
       duration: "duration",
-      duration_sec: "durationSeconds",
-      exercise_name: "exerciseName",
-      set_order: "setIndex",
+      "duration (sec)": "durationSeconds",
+      "exercise name": "exerciseName",
+      "set order": "setIndex",
       weight: "weight",
-      weight_kg: "weightKg",
-      weight_lbs: "weightLb",
-      weight_unit: "weightUnit",
+      "weight (kg)": "weightKg",
+      "weight (lbs)": "weightLb",
+      "weight unit": "weightUnit",
       reps: "reps",
       rpe: "rpe",
       distance: "distance",
+      "distance unit": "distanceUnit",
       seconds: "seconds",
       notes: "exerciseNote",
-      workout_notes: "sessionNote",
+      "workout notes": "sessionNote",
     }),
   });
 
@@ -130,7 +133,7 @@
   }
 
   function canonicalHeader(value) {
-    return fold(value).replace(/[^a-z0-9]+/g, "_").replace(/^_+|_+$/g, "");
+    return fold(value);
   }
 
   async function sha256(value) {
@@ -263,7 +266,7 @@
     const found = new Set(headers.map(canonicalHeader));
     const hevy = ["start_time", "exercise_title", "set_index", "set_type"]
       .every(field => found.has(field));
-    const strong = ["date", "workout_name", "exercise_name", "set_order"]
+    const strong = ["date", "workout name", "exercise name", "set order"]
       .every(field => found.has(field));
     if (hevy && strong) return { error: "ambiguous-source" };
     if (hevy) return { source: "hevy" };
@@ -534,6 +537,42 @@
     return { reliable: false, key: [source, "unplaced-row", record.sourceRowNumber] };
   }
 
+  function assignSetNumbers(rows) {
+    const validRows = rows.filter(row => row.valid && !row.duplicate);
+    const allNumbered = validRows.length > 0 && validRows.every(row => row.sourceSetIndex != null);
+    const byExercise = new Map();
+    for (const row of rows) {
+      const key = `${row.exerciseKey}\u0000${row.exerciseOccurrence}`;
+      if (!byExercise.has(key)) byExercise.set(key, []);
+      byExercise.get(key).push(row);
+    }
+    for (const exerciseRows of byExercise.values()) {
+      exerciseRows.sort((a, b) => allNumbered
+        ? a.sourceSetIndex - b.sourceSetIndex || a.sourceRowNumber - b.sourceRowNumber
+        : a.sourceRowNumber - b.sourceRowNumber);
+      exerciseRows.filter(row => row.valid && !row.duplicate).forEach((row, index) => { row.set = index + 1; });
+    }
+  }
+
+  function candidateSemanticFacts(rows) {
+    return rows.map(row => ({
+      identity: row.identity?.targetId ? `library:${row.identity.targetId}` : `movement:${row.sourceMovementId}`,
+      date: row.date,
+      set: row.set,
+      load: row.loadKg,
+      reps: row.reps,
+      rir: row.rir,
+      warmup: row.warmup,
+    })).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+  }
+
+  function fingerprintSourceRows(rows) {
+    const uniqueRows = rows.filter(row => !row.duplicate);
+    if (!uniqueRows.every(row => row.sourceSetIndex != null)) return uniqueRows;
+    return uniqueRows.sort((a, b) => a.exerciseOrder - b.exerciseOrder ||
+      a.sourceSetIndex - b.sourceSetIndex || a.sourceRowNumber - b.sourceRowNumber);
+  }
+
   async function normalizeSourceRecords(parsed, options = {}) {
     if (!parsed?.ok) return parsed;
     if (parsed.status === "empty") return { ok: true, status: "empty", phase: "normalize", source: parsed.source, sessions: [], issues: parsed.issues || [] };
@@ -679,7 +718,30 @@
 
     const sessionPlans = [];
     for (const group of sessionMap.values()) {
-      for (const row of group.rows) row.exerciseOccurrence = 1;
+      const exerciseOrders = new Map();
+      for (const row of group.rows) {
+        row.exerciseOccurrence = 1;
+        const exerciseKey = `${row.exerciseKey}\u0000${row.exerciseOccurrence}`;
+        if (!exerciseOrders.has(exerciseKey)) exerciseOrders.set(exerciseKey, exerciseOrders.size);
+        row.exerciseOrder = exerciseOrders.get(exerciseKey);
+      }
+
+      if (!group.reliableSourceKey && group.rows.length > 1 && group.rows.every(row => row.sourceSetIndex == null)) {
+        const seenExerciseBlocks = new Set();
+        let previousExerciseKey = null;
+        for (const row of group.rows) {
+          const exerciseKey = `${row.exerciseKey}\u0000${row.exerciseOccurrence}`;
+          if (exerciseKey === previousExerciseKey) continue;
+          if (seenExerciseBlocks.has(exerciseKey)) {
+            group.identityAmbiguous = true;
+            group.issues.push(issue("session-identity-ambiguous", row.sourceRowNumber));
+            break;
+          }
+          seenExerciseBlocks.add(exerciseKey);
+          previousExerciseKey = exerciseKey;
+        }
+      }
+
       const setKeys = new Map();
       for (const row of group.rows) {
         if (row.sourceSetIndex == null) continue;
@@ -707,21 +769,8 @@
         const row = group.rows[index];
         row.sourceRowKey = `${group.sourceRowNumbers[0]}:${row.sourceRowNumber}:${row.exerciseOccurrence}:${row.sourceSetIndex ?? index}`;
       }
-      const validRows = group.rows.filter(row => row.valid && !row.duplicate);
-      const allNumbered = validRows.length > 0 && validRows.every(row => row.sourceSetIndex != null);
-      const byExercise = new Map();
-      for (const row of group.rows) {
-        const key = `${row.exerciseKey}\u0000${row.exerciseOccurrence}`;
-        if (!byExercise.has(key)) byExercise.set(key, []);
-        byExercise.get(key).push(row);
-      }
-      for (const rows of byExercise.values()) {
-        rows.sort((a, b) => allNumbered
-          ? a.sourceSetIndex - b.sourceSetIndex || a.sourceRowNumber - b.sourceRowNumber
-          : a.sourceRowNumber - b.sourceRowNumber);
-        rows.filter(row => row.valid && !row.duplicate).forEach((row, index) => { row.set = index + 1; });
-      }
-      const fingerprintFacts = group.rows.map(row => ({
+      assignSetNumbers(group.rows);
+      const fingerprintFacts = fingerprintSourceRows(group.rows).map(row => ({
         name: row.name,
         exerciseId: row.sourceExerciseId,
         sourceSetIndex: row.sourceSetIndex,
@@ -932,21 +981,15 @@
   }
 
   function stableSessionRows(session) {
-    return session.rows.filter(row => row.valid && !row.duplicate)
-      .sort((a, b) => a.sourceRowNumber - b.sourceRowNumber);
+    const rows = session.rows.filter(row => row.valid && !row.duplicate);
+    const allNumbered = rows.length > 0 && rows.every(row => row.sourceSetIndex != null);
+    return rows.sort(allNumbered
+      ? (a, b) => a.exerciseOrder - b.exerciseOrder || a.set - b.set || a.sourceRowNumber - b.sourceRowNumber
+      : (a, b) => a.sourceRowNumber - b.sourceRowNumber);
   }
 
   function semanticFingerprintPayload(session) {
-    const facts = stableSessionRows(session).map(row => ({
-      identity: row.identity?.targetId ? `library:${row.identity.targetId}` : row.sourceMovementId,
-      date: row.date,
-      set: row.set,
-      load: row.loadKg,
-      reps: row.reps,
-      rir: row.rir,
-      warmup: row.warmup,
-    }));
-    facts.sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+    const facts = candidateSemanticFacts(stableSessionRows(session));
     return JSON.stringify({ date: session.date, rows: facts });
   }
 
@@ -1068,9 +1111,15 @@
               return { ok: false, status: "invalid", phase: "validate", issues: [issue("hash-unavailable")] };
             }
             const dates = new Set(rows.map(row => row.date).filter(Boolean));
+            const splitRows = rows.map(row => ({
+              ...row,
+              issues: [...row.issues],
+              blockingIssues: [...(row.blockingIssues || [])],
+            }));
+            assignSetNumbers(splitRows);
             const child = {
               ...original,
-              rows,
+              rows: splitRows,
               sourceSessionKey,
               sourceSessionFingerprint,
               sessionId: `history-import:v1:${original.source}:${sourceSessionKey.slice(7)}`,
@@ -1120,15 +1169,7 @@
         }
         if (badBlockingRows.length) continue;
 
-        const newFacts = sessionRows.map(row => ({
-          identity: row.identity?.targetId ? `library:${row.identity.targetId}` : `movement:${row.sourceMovementId}`,
-          date: row.date,
-          set: row.set,
-          load: row.loadKg,
-          reps: row.reps,
-          rir: row.rir,
-          warmup: row.warmup,
-        })).sort((a, b) => JSON.stringify(a).localeCompare(JSON.stringify(b)));
+        const newFacts = candidateSemanticFacts(sessionRows);
         preparedSessions.push({
           session,
           original,

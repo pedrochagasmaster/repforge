@@ -134,6 +134,11 @@ function addEntries(target, additions) {
 
 const EXPLICIT_INPUT_RULES = [
   {
+    match: /^history-import\.js$/,
+    suiteFiles: ["test/history-import-unit.mjs", "test/history-import-matching.mjs"],
+    why: "historical source normalization and shipped matcher contract",
+  },
+  {
     match: /^test\/fixtures\/history-import\//,
     suiteFiles: ["test/history-import-unit.mjs", "test/history-import-matching.mjs"],
     why: "synthetic historical-import source fixtures",
@@ -188,7 +193,6 @@ const DOMAIN_RULES = [
   { match: /^(program-entry(?:-adapter)?\.js|program-compiler\.js)$/, lanes: ["fast", "state", "entry", "workout"], why: "program entry/compiler contract" },
   { match: /^program-editor\.js$/, lanes: ["entry", "workout"], why: "program editor UI" },
   { match: /^progress-model\.js$/, lanes: ["fast", "workout"], why: "Progress projections and History consumers" },
-  { match: /^history-import\.js$/, lanes: ["fast"], why: "historical source normalization and proposal domain" },
   { match: /^progression-engine\.js$/, lanes: ["fast", "state", "workout"], why: "progression domain and offline behavior" },
   { match: /^shared-setup\.js$/, lanes: ["fast", "state", "entry", "workout"], why: "shared setup contract" },
   { match: /^(motion-layer\.js|motion-polish\.css|vendor\/)/, lanes: ["fast", "workout"], why: "interaction runtime" },
