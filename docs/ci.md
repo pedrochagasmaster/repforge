@@ -111,7 +111,9 @@ the production telemetry contract. Runtime behavior remains owned by the existin
 production adapter/browser/generative, Focus, motion, accessibility and telemetry
 runtime suites. The telemetry facade restriction that is genuinely an
 architecture/privacy invariant now lives in `tools/check-production-syntax.mjs`
-rather than masquerading as a product test.
+rather than masquerading as a product test. The retained Progress lifecycle
+suite likewise no longer freezes retired dialog/function names in source; its
+model and browser behavior remain the contract.
 
 Support-file selection follows actual ownership. Static fixtures select their
 scheduled importers; dynamically loaded generative adapters/arbitraries/models,
