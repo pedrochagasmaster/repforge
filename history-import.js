@@ -573,28 +573,32 @@
       a.sourceSetIndex - b.sourceSetIndex || a.sourceRowNumber - b.sourceRowNumber);
   }
 
+  function normalizedSourceRowFacts(row) {
+    return {
+      name: row.name,
+      sourceExerciseId: row.sourceExerciseId,
+      supersetId: row.supersetId,
+      sessionTitle: row.sessionTitle,
+      sessionDurationSeconds: row.sessionDurationSeconds,
+      sessionDurationRaw: row.sessionDurationRaw,
+      sourceSetIndex: row.sourceSetIndex,
+      date: row.date,
+      created: row.created,
+      sourceTimestamp: row.sourceTimestamp,
+      sourceEndTimestamp: row.sourceEndTimestamp,
+      loadKg: row.loadKg,
+      reps: row.reps,
+      rir: row.rir,
+      warmup: row.warmup,
+      sourceSetType: row.sourceSetType,
+      exerciseNote: row.exerciseNote,
+      sessionNote: row.sessionNote,
+      issues: row.issues.map(item => item.code),
+    };
+  }
+
   function sameSourceSetFacts(left, right) {
-    const facts = row => [
-      row.name,
-      row.sourceExerciseId,
-      row.supersetId,
-      row.sessionTitle,
-      row.sessionDurationSeconds,
-      row.sessionDurationRaw,
-      row.date,
-      row.created,
-      row.sourceTimestamp,
-      row.sourceEndTimestamp,
-      row.loadKg,
-      row.reps,
-      row.rir,
-      row.warmup,
-      row.sourceSetType,
-      row.exerciseNote,
-      row.sessionNote,
-      row.issues.map(item => item.code),
-    ];
-    return JSON.stringify(facts(left)) === JSON.stringify(facts(right));
+    return JSON.stringify(normalizedSourceRowFacts(left)) === JSON.stringify(normalizedSourceRowFacts(right));
   }
 
   async function normalizeSourceRecords(parsed, options = {}) {
@@ -796,19 +800,7 @@
         row.sourceRowKey = `${group.sourceRowNumbers[0]}:${row.sourceRowNumber}:${row.exerciseOccurrence}:${row.sourceSetIndex ?? index}`;
       }
       assignSetNumbers(group.rows);
-      const fingerprintFacts = fingerprintSourceRows(group.rows).map(row => ({
-        name: row.name,
-        exerciseId: row.sourceExerciseId,
-        sourceSetIndex: row.sourceSetIndex,
-        supersetId: row.supersetId,
-        loadKg: row.loadKg,
-        reps: row.reps,
-        rir: row.rir,
-        warmup: row.warmup,
-        sourceSetType: row.sourceSetType,
-        exerciseNote: row.exerciseNote,
-        issues: row.issues.map(item => item.code),
-      }));
+      const fingerprintFacts = fingerprintSourceRows(group.rows).map(normalizedSourceRowFacts);
       const fingerprintPayload = JSON.stringify({
         date: group.date,
         title: group.title,

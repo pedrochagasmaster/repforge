@@ -325,6 +325,13 @@ const changedSeparate = await prepare(changedCsv, {
 });
 check(changedSeparate.status === "ready" && changedSeparate.proposal.rows[0].session !== firstImport.proposal.rows[0].session,
   "an explicit keep-separate choice produces a content-specific session id");
+const rowNoteExport = "Date;Workout #;Workout Name;Exercise Name;Set Order;Weight (kg);Reps;Workout Notes\n2024-06-03;note-retry-1;Push;Barbell bench press;1;80;8;session note\n2024-06-03;note-retry-1;Push;Barbell bench press;2;82;6;old later note";
+const rowNoteImport = await prepare(rowNoteExport);
+const changedRowNote = await prepare(rowNoteExport.replace("old later note", "new later note"), {
+  existingLog: rowNoteImport.proposal.rows,
+});
+check(changedRowNote.status === "needs-review" && changedRowNote.blockers.some(item => item.code === "source-session-changed"),
+  "changing a later set's session note changes the source fingerprint and blocks a repeated import");
 
 const strongOne = "Date,Workout #,Workout Name,Exercise Name,Set Order,Weight (kg),Reps,RPE\n2024-06-04,st-1,Push,Barbell bench press,1,80,8,8";
 const genericSame = "date,session_id,title,exercise_name,set,weight_kg,reps,rir\n2024-06-04,g-2,Push,Barbell bench press,1,80,8,2";
