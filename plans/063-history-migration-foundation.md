@@ -84,6 +84,7 @@ exercise note, and session note. Use this bounded header-alias table:
 | Session ID | `session`, `session_id`, `workout_id` |
 | Session title | `day`, `title`, `workout_name`, `session_name` |
 | Start time | `start_time`, `start_at`, `created` |
+| End time | `end_time` |
 | Exercise | `name`, `exercise`, `exercise_name`, `exercise_title`, `movement` |
 | Source exercise ID | `exercise_id`, `source_exercise_id`, `movement_id` |
 | Set index | `set`, `set_index`, `set_order`, `set_number` |
@@ -179,12 +180,16 @@ set row because History is a flat `log` array and has no session aggregate:
   "sourceSessionFingerprint": "sha256:<digest>",
   "sourceRowKey": "<stable-row-key>",
   "sessionStatus": "complete",
-  "identity": "exact"
+  "identity": "exact",
+  "sourceSetType": "drop_set",
+  "sourceSupersetId": "1"
 }
 ```
 
 `source` is `hevy`, `strong`, or `generic-csv`. `identity` is `exact`, `alias`,
 `explicit-link`, or `kept-source`. `sessionStatus` is `complete` or `partial`.
+`sourceSetType` is present only when the source set is not a normal working set;
+`sourceSupersetId` is present only when Hevy supplies a superset marker.
 Store digests and stable keys, not a filename, account name, raw payload, or
 imported source URL. Preserve source labels and notes only in the History row
 fields that already display or export workout data.
