@@ -109,7 +109,10 @@ follow-up source-shape suite, plus the standalone telemetry-fixture
 self-test after its meaningful schema-coverage assertion was consolidated into
 the production telemetry contract. Runtime behavior remains owned by the existing
 production adapter/browser/generative, Focus, motion, accessibility and telemetry
-runtime suites. The telemetry facade restriction that is genuinely an
+runtime suites. The Apple follow-up's unique reduced-transparency and
+increased-contrast preferences remain in the owning vendored-runtime contract;
+the rest of that deleted source-shape suite is covered by runtime/browser behavior.
+The telemetry facade restriction that is genuinely an
 architecture/privacy invariant now lives in `tools/check-production-syntax.mjs`
 rather than masquerading as a product test. The retained Progress lifecycle
 suite likewise no longer freezes retired dialog/function names in source; its
