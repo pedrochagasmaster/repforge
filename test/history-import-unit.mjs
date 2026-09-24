@@ -103,6 +103,15 @@ const strongReview = await prepare(strong);
 check(strongReview.status === "needs-review" && strongReview.blockers.some(item => item.code === "possible-duplicate-session"),
   "a second semantically identical workout is presented as a possible duplicate");
 check(strongReview.sessions[0].duplicateRows === 1, "an identical set row is deduplicated under a reliable session id");
+const conflictingWorkoutNotes = "Date;Workout #;Workout Name;Exercise Name;Set Order;Weight (kg);Reps;Workout Notes\n2024-06-04;note-1;Push;Barbell bench press;1;80;8;first note\n2024-06-04;note-1;Push;Barbell bench press;1;80;8;changed note";
+const workoutNoteConflict = await prepare(conflictingWorkoutNotes);
+check(workoutNoteConflict.status === "needs-review" && workoutNoteConflict.proposal === null &&
+  workoutNoteConflict.blockers.some(item => item.code === "session-source-conflict"),
+  "a duplicate set key with changed workout notes blocks the session instead of dropping the changed note");
+const conflictingWorkoutTitles = "Date;Workout #;Workout Name;Exercise Name;Set Order;Weight (kg);Reps\n2024-06-04;title-1;Push;Barbell bench press;1;80;8\n2024-06-04;title-1;Pull;Barbell bench press;1;80;8";
+const workoutTitleConflict = await prepare(conflictingWorkoutTitles);
+check(workoutTitleConflict.status === "needs-review" && workoutTitleConflict.blockers.some(item => item.code === "session-source-conflict"),
+  "duplicate set rows with conflicting session metadata block the session");
 const duplicateSession = strongReview.sessions.find(session => session.sourceSessionId === "103");
 const strongReady = await prepare(strong, {
   sessionDecisions: { [duplicateSession.decisionKey]: { kind: "skip" } },

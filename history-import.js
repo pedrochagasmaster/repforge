@@ -573,6 +573,30 @@
       a.sourceSetIndex - b.sourceSetIndex || a.sourceRowNumber - b.sourceRowNumber);
   }
 
+  function sameSourceSetFacts(left, right) {
+    const facts = row => [
+      row.name,
+      row.sourceExerciseId,
+      row.supersetId,
+      row.sessionTitle,
+      row.sessionDurationSeconds,
+      row.sessionDurationRaw,
+      row.date,
+      row.created,
+      row.sourceTimestamp,
+      row.sourceEndTimestamp,
+      row.loadKg,
+      row.reps,
+      row.rir,
+      row.warmup,
+      row.sourceSetType,
+      row.exerciseNote,
+      row.sessionNote,
+      row.issues.map(item => item.code),
+    ];
+    return JSON.stringify(facts(left)) === JSON.stringify(facts(right));
+  }
+
   async function normalizeSourceRecords(parsed, options = {}) {
     if (!parsed?.ok) return parsed;
     if (parsed.status === "empty") return { ok: true, status: "empty", phase: "normalize", source: parsed.source, sessions: [], issues: parsed.issues || [] };
@@ -652,6 +676,9 @@
         exerciseKey: fold(firstNonEmpty(values, ["sourceExerciseId"]) || name),
         setIndexRaw,
         sourceSetIndex: parseInteger(setIndexRaw, { min: 0, max: 100000 }),
+        sessionTitle: firstNonEmpty(values, ["sessionTitle"]),
+        sessionDurationSeconds: durationParsed?.seconds ?? null,
+        sessionDurationRaw: durationRaw || "",
         loadKg: null,
         reps: parseInteger(firstNonEmpty(values, ["reps"]), { min: 1, max: 1000 }),
         rir: null,
@@ -748,8 +775,7 @@
         const key = `${row.exerciseKey}\u0000${row.exerciseOccurrence}\u0000${row.sourceSetIndex}`;
         const previous = setKeys.get(key);
         if (!previous) { setKeys.set(key, row); continue; }
-        const same = JSON.stringify([previous.loadKg, previous.reps, previous.rir, previous.warmup, previous.sourceSetType, previous.exerciseNote]) ===
-          JSON.stringify([row.loadKg, row.reps, row.rir, row.warmup, row.sourceSetType, row.exerciseNote]);
+        const same = sameSourceSetFacts(previous, row);
         if (group.reliableSourceKey && same) {
           row.duplicate = true;
           row.valid = false;
