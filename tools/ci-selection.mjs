@@ -7,7 +7,7 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 import { visualDomains, screensForDomains } from "./visual-domains.mjs";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans)\/.+\.md$/;
+const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans|advisor-plans)\/.+\.md$/;
 const VISUAL_FIXTURE = /^test\/fixtures(?:\/|$)/;
 const NON_RENDERING_TEST = /^test\/(?!browser\.mjs$|fixtures(?:\/|$)).+\.(?:mjs|js)$/;
 const NON_RENDERING_TOOL = /^tools\/(?:run-tests|test-selection|ci-selection|ci-plan|wait-for-ci|check-test-syntax|visual-domains)\.mjs$/;
