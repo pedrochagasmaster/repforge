@@ -42,7 +42,7 @@ The short simulation covers twelve deterministic weeks and the real save/domain 
 ## Failures and performance evidence
 
 Every script writes its command, initial result, duration and complete stdout /
-stderr under `.ci-results/<lane>/`; the terminal shows only a bounded failure
+stderr under `.ci-results/<lane>/`. Browser contracts also write per-suite `evidence.json` with source identity, exact command, outcome, duration, rerun command and a SHA-256 digest of the retained output; contract-specific artifacts use the same suite directory via `REPFORGE_ARTIFACT_DIR`. The terminal shows only a bounded failure
 excerpt unless `--verbose` is used. Reports are updated after each script, not
 only at successful job completion. Local edit/packet/exact-suite runs fail fast;
 candidate and CI lanes keep going to collect failures. Unexecuted suites have

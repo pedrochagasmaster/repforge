@@ -348,6 +348,13 @@ test("runner continues after failure and cannot replay a failed suite to green",
   assert.equal(report.results[0].initial.exitCode, 9); assert.equal(report.results[0].diagnostic.exitCode, 0);
   assert.equal(report.results[0].status, "failed");
   assert.equal(report.results[0].suspectedFlake, true);
+  const evidence = JSON.parse(readFileSync(join(cwd, "results", "flips-mjs", "evidence.json"), "utf8"));
+  assert.equal(evidence.kind, "browser-contract-execution");
+  assert.equal(evidence.result, "failed");
+  assert.match(evidence.outputSha256, /^[0-9a-f]{64}$/);
+  assert.deepEqual(evidence.command, ["node", "flips.mjs"]);
+  assert.equal(typeof evidence.source, "object");
+  assert.equal(evidence.rerun, "node flips.mjs");
   assert.equal(report.results[1].status, "passed"); assert.ok(existsSync(join(cwd, "later-ran")));
   assert.equal(JSON.parse(readFileSync(join(cwd, "results/results.json"), "utf8")).failed, 1);
   assert.match(readFileSync(join(cwd, "summary.md"), "utf8"), /diagnostic only/);
@@ -478,6 +485,8 @@ test("workflow keeps feedback separate from candidate and installs browsers only
   assert.match(workflow, /pull_request:\s*\n\s+types: \[opened, reopened, synchronize, ready_for_review\]/);
   assert.match(workflow, /expected_sha:/);
   assert.match(workflow, /simulation-feedback:/);
+  const aggregateSections = [workflow.slice(workflow.indexOf("  simulation:\n"), workflow.indexOf("  simulation-feedback:\n")), workflow.slice(workflow.indexOf("  simulation-feedback:\n"))];
+  assert.ok(aggregateSections.every((section) => section.includes("uses: actions/checkout@v5")), "aggregate jobs check out the CI helper they import");
   assert.match(workflow, /if: needs\.plan\.outputs\.browser != '\[\]'/);
   assert.match(workflow, /if: needs\.plan\.outputs\.visual != 'none'/);
   assert.match(workflow, /group: simulation-\$\{\{ github\.event_name == 'pull_request' && github\.event\.pull_request\.head\.ref \|\| github\.ref_name \}\}/);

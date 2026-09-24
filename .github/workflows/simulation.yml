@@ -232,6 +232,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
+      - uses: actions/checkout@v5
       - name: Require selected candidate lanes to pass
         env:
           RESULTS: ${{ toJSON(needs) }}
@@ -244,6 +245,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
+      - uses: actions/checkout@v5
       - name: Require selected feedback lanes to pass
         env:
           RESULTS: ${{ toJSON(needs) }}

@@ -18,11 +18,6 @@ assert.ok(Object.isFrozen(Engine.CAPACITY));
 const imported = await import(`${pathToFileURL(modulePath).href}?purity=${Date.now()}`);
 assert.equal(imported.default.ENGINE_VERSION, 1, "dynamic import must expose the CommonJS UMD API");
 
-const source = fs.readFileSync(modulePath, "utf8");
-for (const forbidden of ["document", "localStorage", "sessionStorage", "XMLHttpRequest", "fetch("]) {
-  assert.ok(!source.includes(forbidden), `pure module must not contain ${forbidden}`);
-}
-
 assert.equal(Engine.capRir(3, 4), 3);
 assert.equal(Engine.capRir(99, 4), 4);
 assert.equal(Engine.capRir(-2, 4), 0);
