@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#F4F2EF">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Taurifer candidate</title>
+<link rel="stylesheet" href="phone.css">
+<link rel="stylesheet" href="phone-e.css">
+<link rel="stylesheet" href="phone-f.css">
+<link rel="stylesheet" href="phone-g.css">
+<style>
+  /* Full-screen player: one direction, no review chrome. On a phone the app
+     fills the viewport; on a wider screen it sits in a phone-sized frame. */
+  html,body{margin:0;height:100%;background:#1B1A17;overscroll-behavior:none}
+  #stage{position:fixed;inset:0;display:grid;place-items:center}
+  .play-frame{position:relative;overflow:hidden;border-radius:44px;box-shadow:0 30px 80px rgba(0,0,0,.5)}
+  .play-frame .ph{border-radius:44px}
+  body.is-bare .play-frame,body.is-bare .play-frame .ph{border-radius:0;box-shadow:none}
+  /* On a real phone the device draws its own status bar and home indicator. */
+  body.is-bare .ph .sb,body.is-bare .ph .home-ind{display:none}
+  body.is-bare .ph .scr{padding-top:max(env(safe-area-inset-top),12px)}
+  body.is-bare .ph{--dock-b:max(env(safe-area-inset-bottom),12px)}
+</style>
+</head>
+<body data-play="1">
+<div id="stage"></div>
+<script src="../../../i18n.js"></script>
+<script src="../../../progression-engine.js"></script>
+<script src="data.js"></script>
+<script src="data-d.js"></script>
+<script src="kit.js"></script>
+<script src="kit-d.js"></script>
+<script src="dir-a.js"></script>
+<script src="dir-b.js"></script>
+<script src="dir-c.js"></script>
+<script src="dir-d.js"></script>
+<script src="dir-e.js"></script>
+<script src="dir-f.js"></script>
+<script src="dir-g.js"></script>
+<script src="main.js"></script>
+</body>
+</html>

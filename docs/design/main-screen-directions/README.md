@@ -30,6 +30,8 @@ served from the repo root.
 - **One screen / Compare / All screens**: one phone with its note; the current
   screen in every direction side by side; or one direction's whole set.
 
+**Full screen:** `play.html?d=1` to `?d=7` (A to G) opens one direction as the bare app, filling the viewport on a phone and in a phone-sized frame on a wider screen, with `&lang=en` and `&theme=dark` optional. Every in-app button navigates, so you can go from Today through the workout, rest and summary to Progress and History. On desktop, `l` switches the language and `t` the theme. Each screen note on the review page links to it.
+
 Deep links use a bare hash, for example `#d-workout` or `#f-why`. The phones
 are live: the shelf's fields and pads work (a second tap on the selected field
 opens a real input), Why opens, the calculation discloses, logging a set

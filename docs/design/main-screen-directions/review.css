@@ -104,3 +104,5 @@ code{font:500 .88em "Plex Mono",ui-monospace,monospace}
 .rv-bar.is-folded{padding-block:6px 6px}
 .rv-bar.is-folded .rv-bar__row{margin-bottom:0}
 .rv-bar.is-folded #barBody{display:none}
+.rv-full{display:inline-flex;align-items:center;min-height:40px;padding:0 14px;border-radius:10px;background:var(--r-on);color:var(--r-on-ink);font:500 14px "Plex Sans",system-ui,sans-serif;text-decoration:none}
+.rv-full:focus-visible{outline:2px solid var(--r-accent);outline-offset:2px}

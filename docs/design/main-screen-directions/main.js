@@ -38,7 +38,22 @@
   let folded = recall("bar") === "folded";
 
   const isScreen = (id) => SCREENS.some(([s]) => s === id);
+  // Full-screen player (play.html, served at /1 to /7): one direction, no review chrome.
+  const PLAY = !!document.body.dataset.play;
+  if (PLAY) {
+    const q = new URLSearchParams(location.search);
+    const n = (location.pathname.match(/\/([1-9])\/?$/) || [])[1] || q.get("d");
+    const key = /^[1-9]$/.test(n || "") ? KEYS[+n - 1] : n;
+    if (DIRS[key]) U.dir = key;
+    if (q.get("lang") === "en" || q.get("lang") === "pt") U.lang = q.get("lang");
+    if (q.get("theme") === "dark" || q.get("theme") === "light") U.theme = q.get("theme");
+  }
   function readHash() {
+    if (PLAY) {
+      const scr = (location.hash || "").slice(1);
+      U.screen = scr && (DIRS[U.dir].screens[scr] || isScreen(scr)) ? scr : "today";
+      return;
+    }
     const h = (location.hash || "").slice(1).split("-");
     if (DIRS[h[0]]) U.dir = h[0];
     const scr = h.slice(1).join("-");
@@ -117,7 +132,23 @@
   }
   const ideaHTML = (D) => `<div class="rv-idea"><h2>${letter(D.key)}. ${D.name}<span>${D.en}</span></h2><p>${D.idea}</p></div>`;
 
+  function renderPlay() {
+    const bare = window.innerWidth <= 540;
+    const w = bare ? window.innerWidth : 390, h = bare ? window.innerHeight : 844;
+    const scale = bare ? 1 : Math.min(1, (window.innerHeight - 32) / h);
+    const p = phoneHTML(U.dir, U.screen);
+    const fam = DIRS[U.dir].family ? " dx" : "";
+    document.body.classList.toggle("is-bare", bare);
+    document.documentElement.lang = U.lang === "pt" ? "pt-BR" : "en";
+    document.title = `${letter(U.dir)}. ${DIRS[U.dir].name} · Taurifer`;
+    const meta = document.querySelector('meta[name="theme-color"]');
+    if (meta) meta.content = U.theme === "dark" ? "#141310" : "#F4F2EF";
+    $("stage").innerHTML = `<div class="play-frame" style="width:${w * scale}px;height:${h * scale}px"><div class="ph d${U.dir}${fam} ${p.cls}" data-theme="${U.theme}" data-dir="${U.dir}" data-phone="main" data-screen="${U.screen}" lang="${U.lang === "pt" ? "pt-BR" : "en"}" style="width:${w}px;height:${h}px;transform:scale(${scale});transform-origin:top left">${p.html}</div></div>`;
+    history.replaceState(null, "", location.pathname + location.search + "#" + U.screen);
+  }
+
   function render() {
+    if (PLAY) return renderPlay();
     renderChrome();
     const D = DIRS[U.dir];
     const s = baseScreen(U.screen), idx = SCREENS.findIndex(([id]) => id === s);
@@ -125,7 +156,7 @@
       const drawn = resolve(U.dir, s).drawn;
       $("stage").innerHTML = `<div class="rv-one">${device(U.dir, U.screen, fitScale(true), "main")}
         <div class="rv-note">${ideaHTML(D)}<div class="rv-note__scr"><h3>${String(idx + 1).padStart(2, "0")} ${SCREENS[idx][1]}</h3>${drawn ? "" : notDrawn(D, s)}<p>${noteFor(D, U.screen)}</p>
-        <div class="rv-pager"><button data-step="-1">Previous</button><button data-step="1">Next</button></div></div></div></div>`;
+        <div class="rv-pager"><button data-step="-1">Previous</button><button data-step="1">Next</button><a class="rv-full" href="play.html?d=${KEYS.indexOf(U.dir) + 1}&lang=${U.lang}&theme=${U.theme}#${U.screen}" target="_blank" rel="noopener">Full screen</a></div></div></div></div>`;
     } else if (U.view === "compare") {
       const sc = fitScale(false);
       $("stage").innerHTML = `<div class="rv-all-head"><div class="rv-idea"><h2>${String(idx + 1).padStart(2, "0")} ${SCREENS[idx][1]}<span>Every direction on the same screen</span></h2></div></div>` +
@@ -153,7 +184,7 @@
   function go(screen, ph, after) {
     resetFor(screen);
     if (after) after();
-    if (U.view === "one" && isScreen(baseScreen(screen))) { U.screen = screen; render(); }
+    if (PLAY || (U.view === "one" && isScreen(baseScreen(screen)))) { U.screen = screen; render(); }
     else if (ph) { ph.dataset.screen = screen; refresh(ph); }
   }
 
@@ -250,6 +281,11 @@
 
   document.addEventListener("keydown", (e) => {
     if (e.target.closest && e.target.closest("input,textarea")) return;
+    if (PLAY) {
+      if (e.key === "l") { U.lang = U.lang === "pt" ? "en" : "pt"; render(); }
+      if (e.key === "t") { U.theme = U.theme === "dark" ? "light" : "dark"; render(); }
+      return;
+    }
     if (e.key === "ArrowRight" && U.view !== "all") step(1);
     else if (e.key === "ArrowLeft" && U.view !== "all") step(-1);
     else if (/^[1-9]$/.test(e.key) && KEYS[+e.key - 1]) { U.dir = KEYS[+e.key - 1]; resetFor(U.screen); render(); }
