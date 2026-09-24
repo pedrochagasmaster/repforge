@@ -343,6 +343,7 @@ test("runner continues after failure and cannot replay a failed suite to green",
   const report = await runLane("fixture", [{ file: "flips.mjs", args: [] }, { file: "later.mjs", args: [] }], {
     cwd, outputDir: join(cwd, "results"), env: { ...process.env, REPFORGE_TRACE: "0" }, browser: true,
     diagnosticReplay: true, summaryPath: join(cwd, "summary.md"),
+    source: { head: "fixture-clean-head", dirty: false },
   });
   assert.equal(report.failed, 1); assert.equal(report.notRun, 0);
   assert.equal(report.results[0].initial.exitCode, 9); assert.equal(report.results[0].diagnostic.exitCode, 0);
@@ -353,7 +354,7 @@ test("runner continues after failure and cannot replay a failed suite to green",
   assert.equal(evidence.result, "failed");
   assert.match(evidence.outputSha256, /^[0-9a-f]{64}$/);
   assert.deepEqual(evidence.command, ["node", "flips.mjs"]);
-  assert.equal(typeof evidence.source, "object");
+  assert.deepEqual(evidence.source, { head: "fixture-clean-head", dirty: false });
   assert.equal(evidence.rerun, "node flips.mjs");
   assert.equal(report.results[1].status, "passed"); assert.ok(existsSync(join(cwd, "later-ran")));
   assert.equal(JSON.parse(readFileSync(join(cwd, "results/results.json"), "utf8")).failed, 1);
