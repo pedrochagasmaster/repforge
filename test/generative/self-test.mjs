@@ -2,14 +2,17 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readdirSync } from "node:fs";
 import fc from "fast-check";
-import { parseArgs, parameters, PROFILES, SUITE_FILES } from "./run.mjs";
+import { fnv1a, parseArgs, parameters, PROFILES, SUITE_FILES } from "./run.mjs";
 
 test("all property modules are scheduled, not silently orphaned", () => {
   const files = readdirSync(new URL("./properties/", import.meta.url)).filter((f) => f.endsWith(".mjs")).map((f) => f.slice(0, -4)).sort();
   assert.deepEqual([...SUITE_FILES].sort(), files);
 });
-test("seed zero and exact replay are validated", () => {
+test("seed zero, exact replay, and exact-SHA CI seeds are deterministic", () => {
   assert.equal(parseArgs([], { REPFORGE_GENERATIVE_SEED: "0" }).seed, 0);
+  const sha = "a".repeat(40);
+  assert.equal(parseArgs([], { CI_SOURCE_SHA: sha }).seed, fnv1a(sha));
+  assert.equal(parseArgs([], { CI_SOURCE_SHA: sha }).seed, parseArgs([], { CI_SOURCE_SHA: sha }).seed);
   assert.equal(parseArgs(["--seed", "0"], {}).seed, 0);
   assert.equal(parseArgs(["--property", "example", "--seed", "42", "--path", "0:1"], {}).path, "0:1");
   for (const args of [["--seed"], ["--seed", "no"], ["--seed", "1.5"], ["--profile", "unknown"], ["--path", "0"], ["--filter", "x", "--property", "x"]]) {

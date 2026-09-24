@@ -105,8 +105,7 @@ function reverseImports(cwd) {
   return reverse;
 }
 
-function dependentScheduledFiles(files, cwd) {
-  const reverse = reverseImports(cwd);
+function dependentScheduledFiles(files, cwd, reverse = reverseImports(cwd)) {
   const scheduled = new Set(ALL.map(({ suite }) => suite.file));
   const selected = new Set();
   const queue = [...files];
@@ -133,6 +132,11 @@ function addEntries(target, additions) {
 }
 
 const EXPLICIT_INPUT_RULES = [
+  {
+    match: /^test\/generative\/(?:adapters|arbitraries|model|properties|regressions)\//,
+    suiteFiles: ["test/generative/run.mjs", "test/generative/self-test.mjs"],
+    why: "generative property input",
+  },
   {
     match: /^\.github\/workflows\/simulation\.yml$|^tools\/(?:ci-plan|visual-domains)\.mjs$|^test\/suites\.mjs$/,
     suiteFiles: ["test/ci.mjs"], why: "CI planning and selection contracts",
@@ -191,7 +195,11 @@ export function selectAffected(files, { cwd = ROOT } = {}) {
 
   const chosen = new Map();
   const reasons = [];
-  const dependencyFiles = dependentScheduledFiles(code.filter((file) => /^(test|tools|scripts)\//.test(file)), cwd);
+  const supportInputs = code.filter((file) => /^(test|tools|scripts)\//.test(file));
+  const reverse = supportInputs.length ? reverseImports(cwd) : new Map();
+  const dependencyByInput = new Map(supportInputs.map((file) =>
+    [file, dependentScheduledFiles([file], cwd, reverse)]));
+  const dependencyFiles = new Set([...dependencyByInput.values()].flatMap((files) => [...files]));
   if (dependencyFiles.size) {
     addEntries(chosen, ALL.filter(({ suite }) => dependencyFiles.has(suite.file)));
     reasons.push(`Dependency graph reaches ${dependencyFiles.size} scheduled suite file(s).`);
@@ -205,14 +213,17 @@ export function selectAffected(files, { cwd = ROOT } = {}) {
       continue;
     }
     if (/^(test|tools|scripts)\//.test(file)) {
-      if (dependencyFiles.has(file) || ALL.some(({ suite }) => suite.file === file)) continue;
+      if (ALL.some(({ suite }) => suite.file === file)) continue;
+      if (dependencyByInput.get(file)?.size) continue;
+      // A deleted test is an inventory change, not an unknown executable input.
+      if (/^test\/.+\.(?:mjs|js)$/.test(file) && !existsSync(resolve(cwd, file))) {
+        addEntries(chosen, entriesForSuiteFiles(new Set(["test/ci.mjs"])));
+        reasons.push(`${file}: removed test inventory → test/ci.mjs`);
+        continue;
+      }
       // A support/tool file with no proven scheduled consumer is not safe to ignore.
-      if (!PROSE.test(file) && ![...dependencyFiles].some((candidate) => candidate === file)) {
-        const knownDirect = ALL.some(({ suite }) => suite.file === file);
-        if (knownDirect) continue;
-        if (!/^tools\/(?:test-selection|run-tests|ci-selection|check-test-syntax|measure-ci-selection)\.mjs$/.test(file)) {
-          return { mode: "all", entries: ALL, files: changed, reasons: [`Unmapped test/tool input: ${file}`] };
-        }
+      if (!/^tools\/(?:test-selection|run-tests|ci-selection|check-test-syntax|measure-ci-selection)\.mjs$/.test(file)) {
+        return { mode: "all", entries: ALL, files: changed, reasons: [`Unmapped test/tool input: ${file}`] };
       }
       continue;
     }

@@ -7,7 +7,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { SUITES, SUPPORT, BROWSER_LANES, commandArgs, inventoryErrors } from "./suites.mjs";
 import { changedFiles, selectVisuals } from "../tools/ci-selection.mjs";
-import { makeCiPlan } from "../tools/ci-plan.mjs";
+import { makeCiPlan, resolveCiInputs } from "../tools/ci-plan.mjs";
 import { domainsForAppDiff } from "../tools/visual-domains.mjs";
 import { stabilizeShareUrlForCapture } from "../tools/ui-screens/screens-app.mjs";
 import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, selectAffected, selectEdit } from "../tools/test-selection.mjs";
@@ -66,8 +66,11 @@ test("visual capture ignores non-rendering tests/tools but remains conservative 
   for (const file of ["README.md", "docs/backlog.md", "plans/060.md", "advisor-plans/001-example.md", "test/accessibility.mjs", "test/ci.mjs", "tools/run-tests.mjs", "tools/test-selection.mjs", "tools/ci-plan.mjs", "tools/check-test-syntax.mjs", ".github/workflows/simulation.yml"]) {
     assert.equal(selectVisuals([file], manifest).mode, "none", file);
   }
-  for (const file of ["app.js", "index.html", "styles.css", "i18n-en.json", "sw.js", "shared-setup.js", "fonts/new.woff2", "assets/exercises/foo.png", "test/browser.mjs", "test/fixtures/shared-setup.mjs", "test/fixtures/seed-program.mjs", "test/fixtures/telemetry.mjs", "test/fixtures/README.md", "test/fixtures/nested/AGENTS.md", "tools/ui-screens/session.mjs", "tools/ui-screens/screens-app.mjs", "tools/capture-ui-screens.mjs", "docs/ui-screens/manifest.json", "docs/ui-screens/entry-semantics.json", "unknown.txt"]) {
+  for (const file of ["app.js", "index.html", "styles.css", "i18n-en.json", "sw.js", "shared-setup.js", "fonts/new.woff2", "assets/exercises/foo.png", "test/browser.mjs", "test/fixtures/shared-setup.mjs", "tools/ui-screens/session.mjs", "tools/ui-screens/screens-app.mjs", "tools/capture-ui-screens.mjs", "docs/ui-screens/manifest.json", "docs/ui-screens/entry-semantics.json", "unknown.txt"]) {
     assert.equal(selectVisuals([file], manifest).mode, "full", file);
+  }
+  for (const file of ["test/fixtures/seed-program.mjs", "test/fixtures/telemetry.mjs", "test/fixtures/README.md", "test/fixtures/nested/AGENTS.md"]) {
+    assert.equal(selectVisuals([file], manifest).mode, "none", file);
   }
   assert.equal(selectVisuals(null, manifest).mode, "full");
   assert.equal(selectVisuals([], manifest, { force: true }).mode, "full");
@@ -103,6 +106,19 @@ test("affected selection is narrow when proven and fail-safe when it is not", ()
   assert.ok(runner.entries.length < Object.values(SUITES).flat().length);
   const telemetry = selectAffected(["telemetry.js"]);
   assert.deepEqual([...new Set(telemetry.entries.map(({ lane }) => lane))].sort(), ["fast", "privacy"]);
+  const telemetryFixture = selectAffected(["test/fixtures/telemetry.mjs"]);
+  assert.equal(telemetryFixture.mode, "selected");
+  assert.deepEqual(telemetryFixture.entries.map(({ suite }) => suite.file).sort(), [
+    "test/telemetry-leakage.mjs",
+    "test/telemetry-runtime.mjs",
+    "test/telemetry-unit.mjs",
+  ].sort());
+  const generativeProperty = selectAffected(["test/generative/properties/malformed-inputs.mjs"]);
+  assert.equal(generativeProperty.mode, "selected");
+  assert.deepEqual(generativeProperty.entries.map(({ suite }) => suite.file).sort(), [
+    "test/generative/run.mjs",
+    "test/generative/self-test.mjs",
+  ].sort());
   const captureScenario = selectAffected(["tools/ui-screens/screens-app.mjs"]);
   assert.equal(captureScenario.mode, "selected");
   assert.deepEqual(captureScenario.entries.map(({ suite }) => suite.file).sort(),
@@ -379,7 +395,31 @@ test("fail-fast records unexecuted commands while keep-going runs them", async (
   assert.equal(existsSync(join(cwd, "later-ran")), true);
 });
 
-test("CI feedback is selected and candidate/main retain the exhaustive exact-SHA gate", () => {
+test("workflow-dispatch candidate derives its PR comparison base from the branch merge-base", (t) => {
+  const cwd = scratch(t);
+  execFileSync("git", ["init", "-b", "main"], { cwd });
+  execFileSync("git", ["config", "user.email", "ci@example.test"], { cwd });
+  execFileSync("git", ["config", "user.name", "CI"], { cwd });
+  writeFileSync(join(cwd, "base.txt"), "base\n");
+  execFileSync("git", ["add", "."] , { cwd });
+  execFileSync("git", ["commit", "-m", "base"], { cwd });
+  const baseSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8" }).trim();
+  execFileSync("git", ["checkout", "-b", "feature"], { cwd });
+  writeFileSync(join(cwd, "feature.txt"), "feature\n");
+  execFileSync("git", ["add", "."] , { cwd });
+  execFileSync("git", ["commit", "-m", "feature"], { cwd });
+  const headSha = execFileSync("git", ["rev-parse", "HEAD"], { cwd, encoding: "utf8" }).trim();
+  const inputs = resolveCiInputs({
+    GITHUB_EVENT_NAME: "workflow_dispatch",
+    CI_MODE: "candidate",
+    CI_EXPECTED_SHA: headSha,
+  }, cwd);
+  assert.equal(inputs.baseSha, baseSha);
+  assert.equal(inputs.headSha, headSha);
+  assert.deepEqual(inputs.files, ["feature.txt"]);
+});
+
+test("CI keeps exhaustive candidate contracts while PR visuals stay change-proportional", () => {
   const baseSha = "a".repeat(40), headSha = "b".repeat(40);
   const common = { event: "pull_request", draft: true, baseSha, headSha, files: ["test/shared-setup-unit.mjs"], manifest };
   const feedback = makeCiPlan(common);
@@ -391,9 +431,11 @@ test("CI feedback is selected and candidate/main retain the exhaustive exact-SHA
   assert.equal(feedback.tests.state.length, 0);
   const candidate = makeCiPlan({ ...common, draft: false });
   assert.equal(candidate.mode, "candidate");
-  assert.equal(candidate.visual.mode, "full");
+  assert.equal(candidate.visual.mode, "none");
   assert.equal(Object.values(candidate.tests).flat().length, Object.values(SUITES).flat().length);
-  assert.equal(makeCiPlan({ ...common, event: "push" }).mode, "candidate");
+  const mainPush = makeCiPlan({ ...common, event: "push" });
+  assert.equal(mainPush.mode, "candidate");
+  assert.equal(mainPush.visual.mode, "full");
   assert.throws(() => makeCiPlan({ ...common, event: "workflow_dispatch", requestedMode: "candidate", expectedSha: baseSha }), /mismatch/);
   assert.equal(makeCiPlan({ ...common, event: "workflow_dispatch", requestedMode: "candidate", expectedSha: headSha }).headSha, headSha);
   const service = makeCiPlan({ ...common, files: ["services/install-transfer/src/index.js"] });
@@ -413,7 +455,8 @@ test("workflow keeps feedback separate from candidate and installs browsers only
   assert.match(workflow, /simulation-feedback:/);
   assert.match(workflow, /if: needs\.plan\.outputs\.browser != '\[\]'/);
   assert.match(workflow, /if: needs\.plan\.outputs\.visual != 'none'/);
-  assert.match(workflow, /cancel-in-progress: \$\{\{ github\.event_name == 'pull_request' && github\.event\.pull_request\.draft \}\}/);
+  assert.match(workflow, /group: simulation-\$\{\{ github\.event_name == 'pull_request' && github\.event\.pull_request\.head\.ref \|\| github\.ref_name \}\}/);
+  assert.match(workflow, /cancel-in-progress: \$\{\{ github\.event_name != 'push' \}\}/);
   assert.match(workflow, /node tools\/ci-plan\.mjs/);
   assert.match(workflow, /node tools\/run-tests\.mjs "\$LANE" --suite-ids/);
 });
