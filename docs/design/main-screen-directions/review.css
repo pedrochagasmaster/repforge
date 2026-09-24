@@ -1,0 +1,85 @@
+/* Review page chrome. Same paper, ink and orange as the app, following the
+   viewer's theme; the phones carry their own theme from the toggle. */
+:root{
+  color-scheme:light;
+  --r-bg:#ECE9E4;--r-surface:#F7F5F1;--r-ink:#1B1A17;--r-soft:#5F5B55;--r-rule:#D9D5CD;
+  --r-accent:#E04E14;--r-accent-deep:#B8410E;--r-on:#1B1A17;--r-on-ink:#F7F5F1;
+  --r-bezel:#1B1A17;--r-shadow:0 30px 60px -20px rgba(27,26,23,.35),0 12px 24px -12px rgba(27,26,23,.25);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    color-scheme:dark;
+    --r-bg:#0E0D0B;--r-surface:#191713;--r-ink:#F2EFE9;--r-soft:#ADA79D;--r-rule:#2E2B26;
+    --r-accent:#F2703B;--r-accent-deep:#FF8A3D;--r-on:#F2EFE9;--r-on-ink:#141310;
+    --r-bezel:#2A2723;--r-shadow:0 30px 60px -20px rgba(0,0,0,.7),0 12px 24px -12px rgba(0,0,0,.6);
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme:dark;
+  --r-bg:#0E0D0B;--r-surface:#191713;--r-ink:#F2EFE9;--r-soft:#ADA79D;--r-rule:#2E2B26;
+  --r-accent:#F2703B;--r-accent-deep:#FF8A3D;--r-on:#F2EFE9;--r-on-ink:#141310;
+  --r-bezel:#2A2723;--r-shadow:0 30px 60px -20px rgba(0,0,0,.7),0 12px 24px -12px rgba(0,0,0,.6);
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html{-webkit-text-size-adjust:100%}
+body{margin:0;background:var(--r-bg);color:var(--r-ink);font:15px/1.5 "Plex Sans",system-ui,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums}
+code{font:500 .88em "Plex Mono",ui-monospace,monospace}
+.rv-wrap{max-width:1180px;margin:0 auto;padding-inline:16px}
+.rv-head{padding-block:28px 14px}
+.rv-kicker{margin:0;font-size:13px;color:var(--r-soft)}
+.rv-title{margin:2px 0 6px;font-size:clamp(28px,5vw,40px);font-weight:650;letter-spacing:-.02em;line-height:1.05}
+.rv-intro{margin:0;max-width:68ch;color:var(--r-soft)}
+
+.rv-tools{display:flex;flex-wrap:wrap;gap:8px;margin-top:16px}
+.rv-seg{display:flex;border:1px solid var(--r-rule);border-radius:10px;overflow:hidden;background:var(--r-surface)}
+.rv-seg button{min-height:38px;padding:0 12px;border:0;background:none;color:var(--r-soft);font:500 13px "Plex Sans",system-ui,sans-serif;cursor:pointer}
+.rv-seg button+button{border-left:1px solid var(--r-rule)}
+.rv-seg button[aria-pressed="true"]{background:var(--r-on);color:var(--r-on-ink)}
+.rv-bar{position:sticky;top:env(safe-area-inset-top,0px);z-index:10;padding-block:10px 0;background:color-mix(in srgb,var(--r-bg) 92%,transparent);backdrop-filter:blur(14px);-webkit-backdrop-filter:blur(14px);border-bottom:1px solid var(--r-rule)}
+.rv-dirs{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;max-width:720px}
+.rv-dir{display:flex;flex-direction:column;align-items:flex-start;justify-content:center;min-height:48px;padding:4px 12px;border:1px solid var(--r-rule);border-radius:12px;background:var(--r-surface);color:var(--r-ink);font:inherit;line-height:1.2;cursor:pointer;text-align:left;min-width:0}
+.rv-dir b{font-weight:600;font-size:14.5px}
+.rv-dir span{font-size:12px;color:var(--r-soft)}
+.rv-dir[aria-selected="true"]{background:var(--r-on);color:var(--r-on-ink);border-color:var(--r-on)}
+.rv-dir[aria-selected="true"] span{color:inherit;opacity:.72}
+.rv-screens{display:flex;gap:4px;overflow-x:auto;scrollbar-width:thin;padding-block:8px}
+.rv-scr{flex:none;min-height:36px;padding:0 12px;border:0;border-radius:18px;background:none;color:var(--r-soft);font:500 13.5px "Plex Sans",system-ui,sans-serif;cursor:pointer;white-space:nowrap}
+.rv-scr[aria-selected="true"]{background:var(--r-surface);color:var(--r-ink);box-shadow:inset 0 0 0 1px var(--r-rule)}
+.rv-scr i{font-style:normal;color:var(--r-soft);font:400 11.5px "Plex Mono",monospace;margin-right:6px}
+.rv-dir:focus-visible,.rv-seg button:focus-visible,.rv-scr:focus-visible,.rv-pager button:focus-visible{outline:2px solid var(--r-accent);outline-offset:2px}
+@media (max-width:520px){.rv-dir span{display:none}.rv-dir{min-height:44px}.rv-dir b{font-size:13.5px}}
+
+.rv-main{padding-block:24px 40px}
+.rv-idea{display:grid;gap:6px;padding-bottom:18px;border-bottom:1px solid var(--r-rule)}
+.rv-idea h2{margin:0;font-size:24px;font-weight:650;letter-spacing:-.015em;line-height:1.15}
+.rv-idea h2 span{display:block;color:var(--r-soft);font-weight:400;font-size:14px;letter-spacing:0;margin-top:2px}
+.rv-idea p{margin:0;font-size:17px;line-height:1.45}
+.rv-all-head{flex:1 0 100%;max-width:760px;margin:0 auto 6px}
+.rv-stage{display:flex;flex-wrap:wrap;gap:36px 28px;align-items:flex-start;justify-content:center}
+.rv-one{display:grid;grid-template-columns:auto minmax(0,340px);gap:40px;align-items:start;justify-content:center}
+.rv-note{position:sticky;top:130px;display:grid;gap:18px}
+.rv-note__scr{display:grid;gap:8px}
+.rv-note h3{margin:0;font-size:20px;font-weight:650;letter-spacing:-.01em}
+.rv-note p{margin:0;color:var(--r-soft)}
+.rv-note .rv-pager{display:flex;gap:8px;margin-top:6px}
+.rv-pager button{min-height:40px;padding:0 14px;border:1px solid var(--r-rule);border-radius:10px;background:var(--r-surface);color:var(--r-ink);font:500 14px "Plex Sans",system-ui,sans-serif;cursor:pointer}
+.rv-cell{display:grid;gap:10px;justify-items:center}
+.rv-cell figcaption{max-width:320px;text-align:center;font-size:13.5px;color:var(--r-soft)}
+.rv-cell figcaption b{display:block;color:var(--r-ink);font-size:14.5px;margin-bottom:2px}
+.rv-cell{margin:0}
+@media (max-width:760px){
+  .rv-one{grid-template-columns:1fr;justify-items:center;gap:18px}
+  .rv-note{display:contents}
+  .rv-idea{order:-1;max-width:440px}
+  .rv-note__scr{order:2;max-width:440px}
+}
+
+/* device */
+.dev{position:relative;flex:none}
+.device{position:absolute;top:0;left:0;transform-origin:top left;padding:11px;border-radius:58px;background:var(--r-bezel);box-shadow:var(--r-shadow)}
+.device .ph{border-radius:47px}
+.device::before{content:"";position:absolute;left:50%;top:21px;width:108px;height:31px;border-radius:16px;background:#000;transform:translateX(-50%);z-index:100}
+.rv-foot{padding-block:10px 40px;color:var(--r-soft);font-size:13.5px}
+.rv-foot p{max-width:80ch;margin:0}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
