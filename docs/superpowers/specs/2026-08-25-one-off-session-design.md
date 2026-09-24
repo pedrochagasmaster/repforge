@@ -5,6 +5,13 @@
 > generation, execution, history, and entitlement semantics.
 > **Entry point:** The existing **Choose another day** button below **Start
 > workout** on Today.
+> **Implementation status:** The Free domain foundation is in place and
+> intentionally not wired into the production page: `session-intent.js`
+> (session kinds, validated context, row eligibility, scoped selectors, queue
+> projection), `session-planner.js` (classic, muscle-focus, manual, and
+> planned-day adaptation), and an optional `sessionContext` on the existing
+> DraftV2 aggregate. Entry UI, History presentation, and caller adoption of the
+> scoped selectors follow the post-overhaul Today/Workout/History contracts.
 > **Strategic context:**
 > [`docs/product-grilling-decision-register.md`](../../product-grilling-decision-register.md),
 > [`docs/backlog.md`](../../backlog.md), and

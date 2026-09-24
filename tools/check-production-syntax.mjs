@@ -34,6 +34,8 @@ const expected = [
   "progress-model.js",
   "progression-engine.js",
   "schedule.js",
+  "session-intent.js",
+  "session-planner.js",
   "shared-setup.js",
   "sw.js",
   "telemetry.js",
