@@ -40,6 +40,10 @@ aliases. It does not infer a schema from a filename. Unknown or ambiguous
 headers fail before a proposal is created. The source and fixture evidence is
 recorded here so a future export change can add a reviewed schema version.
 
+The parser accepts files up to 25 MiB, at most 200,000 non-empty data rows, and
+at most 16,384 characters in one cell. Crossing any limit rejects the whole
+file before reconciliation. It never truncates a field.
+
 ### Hevy CSV
 
 Accept the current set-level header family:
@@ -81,8 +85,9 @@ exercise note, and session note. Use this bounded header-alias table:
 | Session title | `day`, `title`, `workout_name`, `session_name` |
 | Start time | `start_time`, `start_at`, `created` |
 | Exercise | `name`, `exercise`, `exercise_name`, `exercise_title`, `movement` |
-| Source exercise ID | `exercise_id`, `movement_id` |
+| Source exercise ID | `exercise_id`, `source_exercise_id`, `movement_id` |
 | Set index | `set`, `set_index`, `set_order`, `set_number` |
+| Session duration | `duration`, `duration_seconds`, `workout_duration` |
 | Load | `load`, `weight`, `weight_kg`, `weight_lbs`, `weight (kg)`, `weight (lbs)` |
 | Unit | `unit`, `weight_unit`, `load_unit` |
 | Repetitions | `reps`, `repetitions`, `rep_count` |
@@ -223,9 +228,10 @@ round-trip proof before enabling import.
 - A blank load with valid repetitions is retained as a bodyweight or unknown
   external-load set with `load: 0`. Do not copy today's bodyweight into the
   imported row. Such a row is not load-progression evidence.
-- Convert RPE from 6 through 10 to `rir = 10 - rpe`. Store RPE from 1 through
-  5 as unknown RIR (`null`), as Plan 027 specifies. Reject an RPE outside 1
-  through 10. Preserve an explicit valid RIR without converting it.
+- Convert RPE from 6 through 10 to `rir = 10 - rpe`. Store RPE from 0 through
+  5 as unknown RIR (`null`), as Plan 027 specifies. Reject an RPE outside 0
+  through 10. Preserve an explicit valid RIR without converting it. When both
+  RIR and RPE exist, preserve RIR and do not infer or compare effort values.
 - Import a valid reps-based drop set as work and record its source set type.
   Mark warm-ups with the existing `warmup: true` field. Skip Strong rest-timer
   rows as unsupported non-set rows and report their count.
