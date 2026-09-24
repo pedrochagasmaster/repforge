@@ -258,8 +258,9 @@
         <input id="historySearch" type="search" data-i18n-placeholder="history.search_placeholder" data-i18n-aria="history.search_input_aria" placeholder="Filter sessions…" aria-label="Filter sessions by day or exercise" autocomplete="off">
         <button type="button" id="historySearchClear" class="link-accent" data-i18n="history.search_clear">Clear</button>
       </div>
+      <div id="historySelection" class="history-selection hidden" aria-live="polite"></div>
       <div id="historyCalendar" class="cal"></div>
-      <p class="section-label" data-i18n="history.recent">Recent</p>
+      <p id="historyRecentLabel" class="section-label" data-i18n="history.recent">Recent</p>
       <div id="sessions" class="sessions ph-no-capture"></div>
       <details class="advanced">
         <summary data-i18n="history.every_set">Every set</summary>
@@ -282,7 +283,7 @@
           <h2 class="page-title" data-i18n="program.title">Program</h2>
         </div>
         <div class="pagehead__actions">
-          <button type="button" class="link-accent" id="programEditToggle" data-i18n="program.edit">Edit</button>
+          <button type="button" class="link-accent" id="programEditToggle" data-action-role="expansion" aria-expanded="false" aria-controls="programEditorWrap" data-i18n="program.edit">Edit</button>
         </div>
       </div>
       <!-- Same rule as Today: with nothing onboarded there is no program to
@@ -377,7 +378,7 @@
     <section id="settings" class="view" data-i18n-aria="settings.aria" aria-label="Settings">
       <div class="settings-head">
         <button type="button" class="back-link" id="settingsBack" data-i18n="settings.back_today">‹ Today</button>
-        <div class="settings-head__title" data-i18n="settings.title">Settings</div>
+        <h1 class="settings-head__title" data-i18n="settings.title">Settings</h1>
         <div></div>
       </div>
 
@@ -391,15 +392,9 @@
         </div>
       </div>
 
-      <p class="settings-group__label" data-i18n="settings.group.training">Training</p>
-      <div class="settings-group">
-        <button type="button" class="settings-row" id="restSecRow" aria-expanded="false" aria-controls="restSecPanel">
-          <span class="settings-row__label" data-i18n="settings.rest_timer_short">Rest timer</span>
-          <span class="settings-row__value"><span id="restSecDisplay">2:00</span> <span class="chevron" aria-hidden="true"></span></span>
-        </button>
-        <div id="restSecPanel" class="settings-panel">
-          <label class="field"><span data-i18n="settings.rest_timer">Rest timer (seconds, 0 = off)</span><input id="restSec" type="text" inputmode="numeric" enterkeyhint="done"></label>
-        </div>
+      <section class="settings-group" data-settings-group="training" aria-labelledby="settingsGroupTraining">
+        <h2 id="settingsGroupTraining" class="settings-group__label" data-i18n="settings.group.training">Training behavior</h2>
+        <p class="settings-group__summary" data-i18n="settings.group.training_summary">Units, effort logging, and how Taurifer sets the next load.</p>
         <label class="settings-row" for="unit">
           <span class="settings-row__label" data-i18n="settings.units">Units</span>
           <span class="settings-row__value"><select id="unit" class="select-flat"><option value="kg">kg</option><option value="lb">lb</option></select></span>
@@ -418,87 +413,6 @@
           </fieldset>
           <p class="lede" data-i18n="settings.effort_lede">Easy ≈ 3 reps left in the tank (RIR 3) · Hard ≈ 1 left (RIR 1) · Max ≈ nothing left (RIR 0).</p>
         </div>
-        <div class="settings-row" style="cursor:default">
-          <span class="settings-row__label" data-i18n="settings.voice_enable">Enable voice input</span>
-          <button type="button" class="toggle" id="voiceToggle" aria-pressed="false" data-i18n-aria="settings.voice_enable"></button>
-          <input type="checkbox" id="voiceInputEnabled" class="visually-hidden">
-        </div>
-        <p class="lede" data-i18n="settings.voice_lede">Your browser controls whether voice input is available. When you enable it, the workout ⋯ menu shows Voice input. Your browser provider may process what you say.</p>
-      </div>
-
-      <p class="settings-group__label" data-i18n="settings.group.notifications">Notifications</p>
-      <div class="settings-group">
-        <div class="settings-row" style="cursor:default">
-          <span>
-            <span class="settings-row__label" data-i18n="settings.notifications">Notifications</span>
-            <span class="settings-row__cap" data-i18n="settings.notifications.caption">Timer, today's session and unfinished workout</span>
-          </span>
-          <button type="button" class="toggle" id="notifyToggle" aria-pressed="false" data-i18n-aria="settings.notifications.toggle_aria" aria-label="Notifications"></button>
-          <input type="checkbox" id="notifyEnabled" class="visually-hidden">
-        </div>
-        <button type="button" class="settings-row" id="notifyConfigRow" aria-expanded="false" aria-controls="notifyTypes">
-          <span class="settings-row__label" data-i18n="settings.notifications.configure">Configure reminders</span>
-          <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
-        </button>
-        <div id="notifyTypes" class="notifytypes settings-panel">
-          <label class="field field--check"><input type="checkbox" id="notifyTimer"> <span data-i18n="settings.notifications.timer">Rest timer done</span></label>
-          <label class="field field--check"><input type="checkbox" id="notifySession"> <span data-i18n="settings.notifications.session">Today's session (on open)</span></label>
-          <label class="field field--check"><input type="checkbox" id="notifyUnfinished"> <span data-i18n="settings.notifications.unfinished">Unfinished session (15 min idle)</span></label>
-          <label class="field field--check"><input type="checkbox" id="notifyMissed"> <span data-i18n="settings.notifications.missed">Missed day (after usual training hour)</span></label>
-        </div>
-        <p class="lede" id="notifyPermStatus"></p>
-      </div>
-
-      <p class="settings-group__label" data-i18n="settings.group.app">App</p>
-      <div class="settings-group">
-        <label class="settings-row" for="theme">
-          <span class="settings-row__label" data-i18n="settings.appearance">Appearance</span>
-          <span class="settings-row__value"><select id="theme" class="select-flat"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></span>
-        </label>
-        <label class="settings-row" for="lang">
-          <span class="settings-row__label" data-i18n="settings.language">Language</span>
-          <span class="settings-row__value"><select id="lang" class="select-flat"><option value="en">English</option><option value="pt">Português</option></select></span>
-        </label>
-        <button type="button" class="settings-row" id="guideReplayToggle" aria-expanded="false" aria-controls="guideReplayPanel">
-          <span class="settings-row__label" data-i18n="settings.guides">Contextual guides</span>
-          <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
-        </button>
-        <div id="guideReplayPanel" class="settings-panel guide-replay" aria-hidden="true">
-          <p class="lede" data-i18n="settings.guides_body">Replay one guide without changing your training data.</p>
-          <button type="button" class="btn btn--steel" data-guide-replay="entry" data-i18n="guide.entry.title">Choose how to begin</button>
-          <button type="button" class="btn btn--steel" data-guide-replay="install" data-i18n="guide.install.title">Install when it helps</button>
-          <button type="button" class="btn btn--steel" data-guide-replay="privacy" data-i18n="guide.privacy.title">Know what stays private</button>
-          <button type="button" class="btn btn--steel" data-guide-replay="progress" data-i18n="guide.progress.title">Read your progress</button>
-          <button type="button" class="btn btn--steel" data-guide-replay="block-transition" data-i18n="guide.block-transition.title">Review a training block</button>
-        </div>
-        <div class="settings-row" style="cursor:default">
-          <span class="settings-row__label" data-i18n="settings.about">About</span>
-          <span class="settings-row__value">1.0</span>
-        </div>
-        <button type="button" class="settings-row hidden" id="installApp">
-          <span class="settings-row__label" data-i18n="settings.add_home">Add to home screen</span>
-          <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
-        </button>
-      </div>
-
-      <p class="settings-group__label" data-i18n="settings.group.privacy">Privacy &amp; analytics</p>
-      <div class="settings-group">
-        <div class="settings-row" style="cursor:default">
-          <span>
-            <span class="settings-row__label" data-i18n="settings.analytics.title">Help improve Taurifer</span>
-            <span class="settings-row__cap" data-i18n="settings.analytics.caption">Share anonymous product usage</span>
-          </span>
-          <button type="button" class="toggle" id="telemetryToggle" aria-pressed="true" data-i18n-aria="settings.analytics.toggle_aria" aria-label="Analytics"></button>
-        </div>
-        <p class="lede" data-i18n="settings.analytics.disclosure">Taurifer sends anonymous product events, never workout values, exercise names, notes, free text, setup links, or backup data. Turn this off at any time.</p>
-        <button type="button" class="settings-row" id="privacyDetails">
-          <span class="settings-row__label" data-i18n="privacy.open">Privacy details</span>
-          <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
-        </button>
-      </div>
-
-      <p class="settings-group__label" data-i18n="settings.group.program">Program &amp; progression</p>
-      <div class="settings-group">
         <button type="button" class="settings-row" id="createProgram">
           <span class="settings-row__label" data-i18n="settings.create_program">Create new program</span>
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
@@ -522,10 +436,72 @@
           <button id="saveSettings" class="btn btn--cta" data-i18n="settings.save">Save settings</button>
           </div>
         </div>
-      </div>
+      </section>
 
-      <p class="settings-group__label" data-i18n="settings.group.data">Data</p>
-      <div class="settings-group">
+      <section class="settings-group" data-settings-group="app" aria-labelledby="settingsGroupApp">
+        <h2 id="settingsGroupApp" class="settings-group__label" data-i18n="settings.group.app">App</h2>
+        <p class="settings-group__summary" data-i18n="settings.group.app_summary">Appearance, reminders, language, and installation.</p>
+        <button type="button" class="settings-row" id="restSecRow" aria-expanded="false" aria-controls="restSecPanel">
+          <span class="settings-row__label" data-i18n="settings.rest_timer_short">Rest timer</span>
+          <span class="settings-row__value"><span id="restSecDisplay">2:00</span> <span class="chevron" aria-hidden="true"></span></span>
+        </button>
+        <div id="restSecPanel" class="settings-panel">
+          <label class="field"><span data-i18n="settings.rest_timer">Rest timer (seconds, 0 = off)</span><input id="restSec" type="text" inputmode="numeric" enterkeyhint="done"></label>
+        </div>
+        <div class="settings-row" style="cursor:default">
+          <span class="settings-row__label" data-i18n="settings.voice_enable">Enable voice input</span>
+          <button type="button" class="toggle" id="voiceToggle" aria-pressed="false" data-i18n-aria="settings.voice_enable"></button>
+          <input type="checkbox" id="voiceInputEnabled" class="visually-hidden">
+        </div>
+        <p class="lede" data-i18n="settings.voice_lede">Your browser controls whether voice input is available. When you enable it, the workout ⋯ menu shows Voice input. Your browser provider may process what you say.</p>
+        <div class="settings-row" style="cursor:default">
+          <span>
+            <span class="settings-row__label" data-i18n="settings.notifications">Notifications</span>
+            <span class="settings-row__cap" data-i18n="settings.notifications.caption">Timer, today's session and unfinished workout</span>
+          </span>
+          <button type="button" class="toggle" id="notifyToggle" aria-pressed="false" data-i18n-aria="settings.notifications.toggle_aria" aria-label="Notifications"></button>
+          <input type="checkbox" id="notifyEnabled" class="visually-hidden">
+        </div>
+        <button type="button" class="settings-row" id="notifyConfigRow" aria-expanded="false" aria-controls="notifyTypes">
+          <span class="settings-row__label" data-i18n="settings.notifications.configure">Configure reminders</span>
+          <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
+        </button>
+        <div id="notifyTypes" class="notifytypes settings-panel">
+          <label class="field field--check"><input type="checkbox" id="notifyTimer"> <span data-i18n="settings.notifications.timer">Rest timer done</span></label>
+          <label class="field field--check"><input type="checkbox" id="notifySession"> <span data-i18n="settings.notifications.session">Today's session (on open)</span></label>
+          <label class="field field--check"><input type="checkbox" id="notifyUnfinished"> <span data-i18n="settings.notifications.unfinished">Unfinished session (15 min idle)</span></label>
+          <label class="field field--check"><input type="checkbox" id="notifyMissed"> <span data-i18n="settings.notifications.missed">Missed day (after usual training hour)</span></label>
+        </div>
+        <p class="lede" id="notifyPermStatus"></p>
+        <label class="settings-row" for="theme">
+          <span class="settings-row__label" data-i18n="settings.appearance">Appearance</span>
+          <span class="settings-row__value"><select id="theme" class="select-flat"><option value="system">System</option><option value="light">Light</option><option value="dark">Dark</option></select></span>
+        </label>
+        <label class="settings-row" for="lang">
+          <span class="settings-row__label" data-i18n="settings.language">Language</span>
+          <span class="settings-row__value"><select id="lang" class="select-flat"><option value="en">English</option><option value="pt">Português</option></select></span>
+        </label>
+        <button type="button" class="settings-row hidden" id="installApp">
+          <span class="settings-row__label" data-i18n="settings.add_home">Add to home screen</span>
+          <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
+        </button>
+      </section>
+
+      <section class="settings-group" data-settings-group="data" aria-labelledby="settingsGroupData">
+        <h2 id="settingsGroupData" class="settings-group__label" data-i18n="settings.group.privacy">Data &amp; privacy</h2>
+        <p class="settings-group__summary" data-i18n="settings.group.data_summary">Backups, privacy, analytics, and deleting training data.</p>
+        <div class="settings-row" style="cursor:default">
+          <span>
+            <span class="settings-row__label" data-i18n="settings.analytics.title">Help improve Taurifer</span>
+            <span class="settings-row__cap" data-i18n="settings.analytics.caption">Share anonymous product usage</span>
+          </span>
+          <button type="button" class="toggle" id="telemetryToggle" aria-pressed="true" data-i18n-aria="settings.analytics.toggle_aria" aria-label="Analytics"></button>
+        </div>
+        <p class="lede" data-i18n="settings.analytics.disclosure">Taurifer sends anonymous product events, never workout values, exercise names, notes, free text, setup links, or backup data. Turn this off at any time.</p>
+        <button type="button" class="settings-row" id="privacyDetails">
+          <span class="settings-row__label" data-i18n="privacy.open">Privacy details</span>
+          <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
+        </button>
         <button type="button" class="settings-row" id="dataBackupRow" aria-expanded="false" aria-controls="dataBackupPanel">
           <span class="settings-row__label" data-i18n="settings.backup_export">Backup &amp; export</span>
           <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
@@ -547,12 +523,34 @@
           <span class="settings-row__label" data-i18n="settings.storage">Storage</span>
           <span class="settings-row__value" id="storageSize">—</span>
         </div>
-      </div>
+        <button type="button" class="settings-row is-danger" id="reset">
+          <span class="settings-row__label" data-i18n="settings.delete_all">Delete workout history</span>
+        </button>
+        <p class="visually-hidden" data-i18n="settings.danger_lede">Taurifer deletes the saved log and any unfinished workout. It keeps your program and settings. Export a backup first.</p>
+      </section>
 
-      <button type="button" class="settings-row is-danger" id="reset">
-        <span class="settings-row__label" data-i18n="settings.delete_all">Delete workout history</span>
-      </button>
-      <p class="visually-hidden" data-i18n="settings.danger_lede">Taurifer deletes the saved log and any unfinished workout. It keeps your program and settings. Export a backup first.</p>
+      <section class="settings-group" data-settings-group="help" aria-labelledby="settingsGroupHelp">
+        <h2 id="settingsGroupHelp" class="settings-group__label" data-i18n="settings.group.help">Help</h2>
+        <p class="settings-group__summary" data-i18n="settings.group.help_summary">Replay guides and keep the app facts close.</p>
+        <button type="button" class="settings-row" id="guideReplayToggle" aria-expanded="false" aria-controls="guideReplayPanel">
+          <span class="settings-row__label" data-i18n="settings.guides">Contextual guides</span>
+          <span class="settings-row__value"><span class="chevron" aria-hidden="true"></span></span>
+        </button>
+        <div id="guideReplayPanel" class="settings-panel guide-replay" aria-hidden="true">
+          <p class="lede" data-i18n="settings.guides_body">Replay one guide without changing your training data.</p>
+          <div id="guideReplayList"></div>
+        </div>
+        <div class="settings-row" style="cursor:default" id="settingsSupport">
+          <span>
+            <span class="settings-row__label" data-i18n="settings.support">Support</span>
+            <span class="settings-row__cap" data-i18n="settings.support_caption">Works offline. No account required.</span>
+          </span>
+        </div>
+        <div class="settings-row" style="cursor:default" id="settingsAbout">
+          <span class="settings-row__label" data-i18n="settings.about">About</span>
+          <span class="settings-row__value"><span data-i18n="settings.version">Version</span> 1.0</span>
+        </div>
+      </section>
     </section>
 
     <section id="onboarding" class="view onboarding hidden ph-no-capture" data-i18n-aria="onb.aria" aria-label="Create a program">
@@ -1035,8 +1033,10 @@ Progress.</p>
     </div>
     <div class="sheet__body share-setup">
       <p id="shareSetupBody" data-i18n="program.share_setup_body">Create a setup link for this program. Copy the link or open the system Share sheet.</p>
+      <p id="shareSetupBlockerSummary" class="share-setup__blocker-summary hidden" role="status" tabindex="-1"></p>
+      <div id="shareSetupBlockers" class="share-setup__blockers hidden" role="list" data-i18n-aria="program.share_setup_blockers" aria-label="Unresolved exercises"></div>
       <p id="shareSetupLink" class="share-setup__link" tabindex="0"></p>
-      <p id="shareSetupStatus" class="share-setup__status hidden" role="status"></p>
+      <p id="shareSetupStatus" class="share-setup__status hidden" role="status" tabindex="-1"></p>
     </div>
     <div class="sheet__foot sheet__foot--actions">
       <button type="button" class="btn btn--steel" id="shareSetupCopy" data-i18n="program.share_setup_copy">Copy link</button>
@@ -1091,6 +1091,13 @@ Progress.</p>
           <input id="exCustomNotes" type="text" data-i18n-placeholder="custom.notes_placeholder" placeholder="Seat 4, handles at chest height" autocomplete="off"></label>
         <button type="button" class="btn btn--steel custom__delete hidden" id="exCustomDelete" data-i18n="custom.delete">Delete exercise</button>
         <p class="custom__note hidden" id="exCustomInUse" data-i18n="custom.in_use">In use by your program or history. Archiving keeps those records intact.</p>
+      </div>
+    </div>
+    <div class="custom__recovery" id="exCustomRecovery" hidden>
+      <p id="exCustomRecoveryStatus" role="status" aria-live="polite"></p>
+      <div class="custom__recovery-actions">
+        <button type="button" class="btn btn--steel" id="exCustomRecoveryRetry" data-i18n="custom.recovery.retry">Retry recovery</button>
+        <button type="button" class="text-link" id="exCustomRecoveryReload" data-i18n="custom.recovery.reload">Reload</button>
       </div>
     </div>
   </div>
@@ -1180,20 +1187,21 @@ Progress.</p>
   <script src="vendor/motion/motion.js"></script>
   <script src="vendor/dnd-kit/dnd-kit.js"></script>
   <div hidden inert aria-hidden="true" id="legacyWorkoutShell"><span id="modeFull"></span><span id="modeFocus"></span><input id="date" type="date"><input id="bodyweight"><textarea id="notes"></textarea></div>
-  <script src="motion-layer.js?v=280"></script>
-  <script src="program-compiler.js?v=280"></script>
-  <script src="program-entry.js?v=280"></script>
-  <script src="program-entry-adapter.js?v=280"></script>
-  <script src="program-editor.js?v=280"></script>
-  <script src="shared-setup.js?v=280"></script>
-  <script src="workout-draft.js?v=280"></script>
-  <script src="program-transition.js?v=280"></script>
+  <script src="motion-layer.js?v=301"></script>
+  <script src="program-compiler.js?v=301"></script>
+  <script src="program-entry.js?v=301"></script>
+  <script src="program-entry-adapter.js?v=301"></script>
+  <script src="program-editor.js?v=301"></script>
+  <script src="shared-setup.js?v=301"></script>
+  <script src="workout-draft.js?v=301"></script>
+  <script src="program-transition.js?v=301"></script>
   <script src="install-transfer-contract.js"></script>
   <script src="install-transfer.js"></script>
-  <script src="install-policy.js?v=280"></script>
-  <script src="guide-registry.js?v=280"></script>
-  <script src="durable-state.js?v=280"></script>
-  <script src="progress-model.js?v=280"></script>
-  <script src="app.js?v=280"></script>
+  <script src="install-policy.js?v=301"></script>
+  <script src="guide-registry.js?v=301"></script>
+  <script src="durable-state.js?v=301"></script>
+  <script src="progress-model.js?v=301"></script>
+  <script src="history-ui.js?v=301"></script>
+  <script src="app.js?v=301"></script>
 </body>
 </html>

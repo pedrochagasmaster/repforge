@@ -2000,6 +2000,8 @@ async function runDimmedStateAccessibility(browser) {
     await showView(page, "history");
     await page.waitForSelector("#sessions [data-sess]");
     await page.locator("#sessions .session__open").first().click();
+    await page.waitForSelector(".session--read");
+    await page.locator("[data-history-edit]").click();
     await page.waitForSelector(".session--edit");
     const removeAction = await page.evaluate(() => {
       const action = document.querySelector(".session--edit [data-edrm]");

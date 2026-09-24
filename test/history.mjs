@@ -641,24 +641,33 @@ export async function runHistoryOperabilityChecks(page, check = assert) {
   const openRow = page.locator("#sessions [data-sess='ui-a'] .session__open");
   await openRow.focus();
   await page.keyboard.press("Enter");
+  const reading = await page.locator('.session--read[data-reading="ui-a"]').count();
+  check(reading === 1, "Enter on the row opens its read view first", `readers=${reading}`);
+  const readEdit = await page.locator('[data-history-edit="ui-a"]').count();
+  const readerDelete = await page.locator('.session--read[data-reading="ui-a"] [data-del="ui-a"]').count();
+  check(readEdit === 1 && readerDelete === 1, "The read view owns explicit Edit and Delete actions", `edit=${readEdit} delete=${readerDelete}`);
+  await page.click('[data-history-edit="ui-a"]');
   const editing = await page.locator('.session--edit[data-editing="ui-a"]').count();
-  check(editing === 1, "Enter on the row opens that session, with no step in between", `editors=${editing}`);
-  const editorDelete = await page.locator('.session--edit[data-editing="ui-a"] [data-del="ui-a"]').count();
-  check(editorDelete === 1, "The open session carries its own delete, under the edits", `controls=${editorDelete}`);
+  check(editing === 1, "Edit enters a separate working state", `editors=${editing}`);
   await page.click("[data-edcancel]");
-  const backToFeed = await page.evaluate(() => ({
+  const backToRead = await page.evaluate(() => ({
     rows: document.querySelectorAll("#sessions [data-sess]").length,
     editors: document.querySelectorAll(".session--edit").length,
+    readers: document.querySelectorAll(".session--read").length,
   }));
   check(
-    backToFeed.rows === 3 && backToFeed.editors === 0,
-    "Cancel returns the feed with every session back in it",
-    JSON.stringify(backToFeed)
+    backToRead.rows === 1 && backToRead.readers === 1 && backToRead.editors === 0,
+    "Cancel returns the exact read view without a durable edit",
+    JSON.stringify(backToRead)
   );
+  await page.click("[data-history-back]");
 
   await page.locator("#sessions [data-sess='ui-b'] .session__open").press(" ");
-  await page.click('.session--edit[data-editing="ui-b"] [data-del="ui-b"]');
-  await page.waitForTimeout(80);
+  await page.click('[data-history-edit="ui-b"]');
+  await page.click('[data-edcancel]');
+  await page.click('[data-reading="ui-b"] [data-del="ui-b"]');
+  await page.click('[data-history-delete-confirm="ui-b"]');
+  await page.waitForFunction(() => !JSON.parse(localStorage.getItem("repforge_v1") || "{}").log?.some((row) => row.session === "ui-b"));
   const remaining = await page.evaluate(() =>
     [...document.querySelectorAll("#sessions [data-sess]")].map((el) => el.getAttribute("data-sess"))
   );

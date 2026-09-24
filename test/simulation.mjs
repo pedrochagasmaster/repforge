@@ -31,7 +31,8 @@ const KEY = "repforge_v1";
 const DRAFT = "repforge_draft_v1";
 const SETUP_DRAFT = "repforge_program_setup_draft_v1";
 const OPTIONAL_DEPLOYMENT_SHELL_ASSET = "/posthog-config.js";
-const SIM_WEEKS = Math.max(1, +(process.env.REPFORGE_SIM_WEEKS || 52));
+const SIM_WEEKS = process.argv.includes("--smoke") ? 12 : Math.max(1, +(process.env.REPFORGE_SIM_WEEKS || 52));
+const SMOKE = process.argv.includes("--smoke");
 const PROFILE = process.env.REPFORGE_PROFILE === "1";
 
 const results = { passed: 0, failed: 0, bugs: [] };
@@ -790,15 +791,31 @@ async function setLogDateRaw(page, value) {
 async function openSessionEditor(page, sid) {
   await nav(page, "history");
   if (await page.locator(`.session--edit[data-editing="${sid}"]`).count()) return;
-  const editBtn = page.locator(`[data-edit="${sid}"]`);
-  if (await editBtn.count()) {
-    await editBtn.click();
+  const selectedEdit = page.locator(`[data-history-edit="${sid}"]`);
+  if (await selectedEdit.count()) {
+    await selectedEdit.click();
     await page.waitForSelector(`.session--edit[data-editing="${sid}"]`, { timeout: 5000 });
     return;
   }
-  await page.locator(`#sessions .hist-row[data-sess="${sid}"]`).click();
-  await page.locator(`[data-edit="${sid}"]`).waitFor({ state: "visible", timeout: 5000 });
-  await page.click(`[data-edit="${sid}"]`);
+  const back = page.locator("[data-history-back]");
+  if (await back.count()) {
+    await back.click();
+    await page.waitForSelector("#historyCalendar", { timeout: 5000 });
+  }
+  const editBtn = page.locator(`[data-edit="${sid}"]`);
+  if (!(await editBtn.count())) {
+    const day = await page.evaluate((id) => {
+      const state = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      return state.log?.find((row) => String(row.session) === String(id))?.day || "";
+    }, sid);
+    await page.click("#historySearchBtn");
+    await page.fill("#historySearch", day);
+  }
+  const visibleEdit = page.locator(`[data-edit="${sid}"]`);
+  await visibleEdit.waitFor({ state: "visible", timeout: 5000 });
+  await visibleEdit.click();
+  await page.waitForSelector(`.session--read[data-reading="${sid}"]`, { timeout: 5000 });
+  await page.click(`[data-history-edit="${sid}"]`);
   await page.waitForSelector(`.session--edit[data-editing="${sid}"]`, { timeout: 5000 });
 }
 
@@ -979,6 +996,8 @@ async function openF7HistoryEdit(page) {
   const editBtn = page.locator('#sessions [data-edit="f7-edit-seed"]');
   await editBtn.waitFor({ state: "visible", timeout: 5000 });
   await editBtn.click();
+  await page.locator('[data-history-edit="f7-edit-seed"]').waitFor({ state: "visible", timeout: 5000 });
+  await page.click('[data-history-edit="f7-edit-seed"]');
   await editor.waitFor({ state: "visible", timeout: 5000 });
 }
 
@@ -1616,6 +1635,16 @@ async function main() {
   );
   await nav(page, "log");
 
+  if (SMOKE) {
+    assert(consoleErrors.length === 0, "No console errors during short integration simulation", consoleErrors.slice(0, 5).join("; "));
+    await context.close();
+    await browser.close();
+    console.log(`Short integration simulation: ${SIM_WEEKS} weeks, ${sessionCount} sessions, ${results.passed} passed, ${results.failed} failed.`);
+    if (results.bugs.length) console.error(results.bugs.map((bug) => `${bug.name}: ${bug.detail}`).join("\n"));
+    process.exitCode = results.failed ? 1 : 0;
+    return;
+  }
+
   // ── Phase 2: Draft persistence ───────────────────────────────────
   beginPhase("Phase 2: Draft persistence");
 
@@ -2088,11 +2117,16 @@ async function main() {
   const openBtn = page.locator("#sessions .session__open").first();
   await openBtn.waitFor({ state: "visible", timeout: 5000 });
   await openBtn.click();
-  const delBtn = page.locator(".session--edit .session__del").first();
+  const delBtn = page.locator(".session--read .session__del").first();
   await delBtn.waitFor({ state: "visible", timeout: 5000 });
   const delSessionId = await delBtn.getAttribute("data-del");
   await delBtn.click();
-  await page.waitForTimeout(150);
+  await page.locator('[data-history-delete-confirm="' + delSessionId + '"]').click();
+  await page.waitForFunction(
+    (sid) => !JSON.parse(localStorage.getItem("repforge_v1") || "{}").log?.some((row) => row.session === sid),
+    delSessionId,
+    { timeout: 5000 }
+  );
 
   state = await getState(page);
   const sessionsAfter = state.log.length;
@@ -4783,8 +4817,11 @@ async function main() {
   await nav(page, "history");
   const editBtn = page.locator("#sessions .session__open").first();
   await editBtn.waitFor({ state: "visible", timeout: 5000 });
+  const editSid = await editBtn.getAttribute("data-edit");
   await editBtn.click();
-  await page.waitForTimeout(100);
+  await page.locator(`[data-history-edit="${editSid}"]`).waitFor({ state: "visible", timeout: 5000 });
+  await page.click(`[data-history-edit="${editSid}"]`);
+  await page.waitForSelector(`.session--edit[data-editing="${editSid}"]`, { timeout: 5000 });
   const editInput = page.locator('.session--edit [data-ek^="load|"]').first();
   await editInput.fill("123");
   await page.locator("[data-edsave]").first().click();
@@ -7833,10 +7870,11 @@ async function main() {
     "Seed 100×8 → save 100×10 → summary mentions improved"
   );
   assert(
-    /\d+ improved/.test(deltaSummary),
-    "Session summary delta uses count format",
+    /OUTCOME BY LIFT\s+Hack squat\s+(?:[▲▼■]\s*)?Improved/i.test(deltaSummary) &&
+      !/\b\d+\s+improved\b/i.test(deltaSummary),
+    "Session summary uses canonical outcome rows without a second delta count",
     `Summary: ${JSON.stringify(deltaSummary)}`,
-    "Summary should read like '1 improved'"
+    "Summary should keep the OUTCOME BY LIFT Improved row without inventing a local count"
   );
   const compareImproved = await page.evaluate(
     ({ exId, sid }) => {

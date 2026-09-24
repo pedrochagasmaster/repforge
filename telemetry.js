@@ -85,6 +85,10 @@
     session_summary_viewed: event({}, "Completed-session summary opened", "once_per_session"),
     block_review_viewed: event({ completion: values("early", "partial", "complete", "extended") }, "Block review opened", "repeatable"),
     program_transition_selected: event({ transition: values("resume", "repair", "rebase", "switch") }, "Program transition selected", "once_per_setup_flow"),
+    history_session_outcome: event({ action: values("read", "edit_save", "cancel", "delete"), status: values("success", "conflict", "failure") }, "History session operation outcome", "repeatable"),
+    share_setup_outcome: event({ blocker_count_bucket: values("0", "1", "2-5", "6+"), action: values("repair_opened", "shared", "copied") }, "Shared setup management outcome", "repeatable"),
+    guide_replay: event({ guideId: values("entry", "first-set", "focus-utilities", "progress", "block-transition", "backup", "install", "privacy") }, "Contextual guide replayed", "repeatable"),
+    program_readiness_navigated: event({ ready_count_bucket: values("0", "1", "2-5", "6+") }, "Program readiness view opened", "repeatable"),
     late_install_transfer: Object.freeze({
       phase: "install_transfer",
       properties: Object.freeze({

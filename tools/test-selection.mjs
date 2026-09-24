@@ -44,6 +44,30 @@ export function changedFilesForTests({ cwd = ROOT, base } = {}) {
   } catch { return { base: resolvedBase, files: null }; }
 }
 
+export function changedFilesForEdit({ cwd = ROOT } = {}) {
+  try {
+    const dirty = zlist(git(["status", "--porcelain=v1", "-z", "--untracked-files=all"], cwd));
+    if (dirty.length) {
+      const tracked = zlist(git(["diff", "--name-only", "--no-renames", "-z", "HEAD", "--"], cwd));
+      const untracked = zlist(git(["ls-files", "--others", "--exclude-standard", "-z"], cwd));
+      return { base: "HEAD (working tree)", files: [...new Set([...tracked, ...untracked])].sort() };
+    }
+    const parent = git(["rev-parse", "HEAD^"], cwd).trim();
+    return { base: parent, files: zlist(git(["diff", "--name-only", "--no-renames", "-z", parent, "HEAD", "--"], cwd)) };
+  } catch { return changedFilesForTests({ cwd }); }
+}
+
+export function changedFilesForPacket({ cwd = ROOT, base } = {}) {
+  if (!base) throw new Error("packet requires --base <sha-or-ref> (or REPFORGE_PACKET_BASE)");
+  let ancestor;
+  try { ancestor = git(["merge-base", "HEAD", base], cwd).trim(); }
+  catch { throw new Error(`Cannot resolve a common ancestor for packet base ${base}`); }
+  if (!ancestor) throw new Error(`Cannot resolve a common ancestor for packet base ${base}`);
+  const tracked = zlist(git(["diff", "--name-only", "--no-renames", "-z", ancestor, "--"], cwd));
+  const untracked = zlist(git(["ls-files", "--others", "--exclude-standard", "-z"], cwd));
+  return { base: ancestor, files: [...new Set([...tracked, ...untracked])].sort() };
+}
+
 function listedCodeFiles(cwd) {
   try {
     return zlist(git(["ls-files", "-z", "--", "test", "tools", "scripts"], cwd))
@@ -110,6 +134,15 @@ function addEntries(target, additions) {
 
 const EXPLICIT_INPUT_RULES = [
   {
+    match: /^\.github\/workflows\/simulation\.yml$|^tools\/(?:ci-plan|visual-domains)\.mjs$|^test\/suites\.mjs$/,
+    suiteFiles: ["test/ci.mjs"], why: "CI planning and selection contracts",
+  },
+  {
+    match: /^tools\/ui-screens\/screens-(?:app|onboarding)\.mjs$/,
+    suiteFiles: ["test/ui-screens.mjs", "tools/check-ui-screens.mjs"],
+    why: "UI capture scenarios",
+  },
+  {
     match: /^docs\/ui-screens\/manifest\.json$/,
     suiteFiles: [
       "test/ui-screens.mjs",
@@ -139,6 +172,8 @@ const DOMAIN_RULES = [
   { match: /^workout-draft\.js$/, lanes: ["fast", "state", "workout"], why: "durable workout draft" },
   { match: /^(program-entry(?:-adapter)?\.js|program-compiler\.js)$/, lanes: ["fast", "state", "entry", "workout"], why: "program entry/compiler contract" },
   { match: /^program-editor\.js$/, lanes: ["entry", "workout"], why: "program editor UI" },
+  { match: /^progress-model\.js$/, lanes: ["fast", "workout"], why: "Progress projections and History consumers" },
+  { match: /^progression-engine\.js$/, lanes: ["fast", "state", "workout"], why: "progression domain and offline behavior" },
   { match: /^shared-setup\.js$/, lanes: ["fast", "state", "entry", "workout"], why: "shared setup contract" },
   { match: /^(motion-layer\.js|motion-polish\.css|vendor\/)/, lanes: ["fast", "workout"], why: "interaction runtime" },
   { match: /^(schedule\.js|notify\.js|i18n\.js|i18n-(?:en|pt)\.json|exercises\.js)$/, lanes: ["fast", "entry", "workout"], why: "shared display/domain module" },
@@ -163,22 +198,22 @@ export function selectAffected(files, { cwd = ROOT } = {}) {
   }
 
   for (const file of code) {
+    const explicitRule = EXPLICIT_INPUT_RULES.find(({ match }) => match.test(file));
+    if (explicitRule) {
+      addEntries(chosen, entriesForSuiteFiles(new Set(explicitRule.suiteFiles)));
+      reasons.push(`${file}: ${explicitRule.why} → ${explicitRule.suiteFiles.join(", ")}`);
+      continue;
+    }
     if (/^(test|tools|scripts)\//.test(file)) {
       if (dependencyFiles.has(file) || ALL.some(({ suite }) => suite.file === file)) continue;
       // A support/tool file with no proven scheduled consumer is not safe to ignore.
       if (!PROSE.test(file) && ![...dependencyFiles].some((candidate) => candidate === file)) {
         const knownDirect = ALL.some(({ suite }) => suite.file === file);
         if (knownDirect) continue;
-        if (!/^tools\/(?:test-selection|run-tests|ci-selection|check-test-syntax)\.mjs$/.test(file)) {
+        if (!/^tools\/(?:test-selection|run-tests|ci-selection|check-test-syntax|measure-ci-selection)\.mjs$/.test(file)) {
           return { mode: "all", entries: ALL, files: changed, reasons: [`Unmapped test/tool input: ${file}`] };
         }
       }
-      continue;
-    }
-    const explicitRule = EXPLICIT_INPUT_RULES.find(({ match }) => match.test(file));
-    if (explicitRule) {
-      addEntries(chosen, entriesForSuiteFiles(new Set(explicitRule.suiteFiles)));
-      reasons.push(`${file}: ${explicitRule.why} → ${explicitRule.suiteFiles.join(", ")}`);
       continue;
     }
     const rule = DOMAIN_RULES.find(({ match }) => match.test(file));
@@ -189,6 +224,34 @@ export function selectAffected(files, { cwd = ROOT } = {}) {
 
   const entries = [...chosen.values()];
   return { mode: entries.length ? "selected" : "none", entries, files: changed, reasons: reasons.length ? reasons : ["No executable consumer selected."] };
+}
+
+export const selectBranch = selectAffected;
+const HIGH_RISK = /^(durable-state|workout-draft|shared-setup|program-compiler|program-transition|sw|telemetry|posthog-adapter)\.js$/;
+export function selectPacket(files, context = {}) {
+  const plan = selectBranch(files, context);
+  if (!files || plan.mode === "all" || files.some((file) => HIGH_RISK.test(file))) return plan;
+  const entries = plan.entries.filter(({ suite }) => suite.tier !== "candidate" || files.includes(suite.file));
+  return { ...plan, entries, reasons: [...plan.reasons, "Candidate-tier contracts run at the final gate unless directly changed or required by a high-risk owner."] };
+}
+
+export function selectEdit(files, context = {}) {
+  if (!files) return selectBranch(null, context);
+  const direct = new Set(ALL.map(({ suite }) => suite.file));
+  const directFiles = files.filter((file) => direct.has(file));
+  const otherFiles = files.filter((file) => !direct.has(file));
+  if (!directFiles.length) {
+    const selected = selectPacket(otherFiles, context);
+    if (!files.some((file) => HIGH_RISK.test(file)) && selected.mode !== "all")
+      return { ...selected, entries: selected.entries.filter(({ suite }) => suite.tier === "feedback") };
+    return selected;
+  }
+  const selected = selectPacket(otherFiles, context);
+  const chosen = new Map();
+  addEntries(chosen, selected.entries);
+  addEntries(chosen, entriesForSuiteFiles(new Set(directFiles)));
+  return { ...selected, entries: [...chosen.values()], files,
+    reasons: [...selected.reasons, `Direct changed suite(s): ${directFiles.join(", ")}`] };
 }
 
 export function formatAffected(plan) {

@@ -292,11 +292,11 @@ console.log("\nToday — completed session state");
   await page.click("#reviewTodaySession");
   await page.waitForSelector("#history.view.active", { timeout: 5000 });
   const opened = await page.evaluate((session) => {
-    const editor = document.querySelector(".session--edit");
-    return { editing: editor?.dataset.editing || null, want: session };
+    const reading = document.querySelector(".session--read");
+    return { reading: reading?.dataset.reading || null, want: session };
   }, rows[0].session);
   assert(
-    opened.editing === opened.want,
+    opened.reading === opened.want,
     "View today's session opens that session on History",
     JSON.stringify(opened)
   );

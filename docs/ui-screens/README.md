@@ -1,7 +1,7 @@
 # UI screen catalog
 
-Phone-frame captures of every user-visible Taurifer surface — 127 screens,
-717 frames. This folder is the visual reference for UI and Brand Designers.
+Phone-frame captures of every user-visible Taurifer surface — 143 screens,
+819 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -13,8 +13,7 @@ Whenever a change alters a user-visible surface (`index.html`, `styles.css`, `ap
 install UI), regenerate before merging:
 
 ```bash
-python3 -m http.server 8000
-REPFORGE_URL=http://localhost:8000/ node tools/capture-ui-screens.mjs
+node tools/capture-ui-screens.mjs --affected --accept-visual-change
 ```
 
 CI runs `tools/check-ui-screens.mjs` (every registered frame exists, no strays) and
@@ -166,6 +165,9 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Session summary](screens/session/summary__phone-390-light-en.png) | 3 | The summary shown after Save workout. |
+| [Session summary — maintained](screens/session/summary-maintained__phone-390-light-en.png) | 8 | The finished session reports maintained performance alongside its next-step context. |
+| [Session summary — declined](screens/session/summary-declined__phone-390-light-en.png) | 8 | The finished session reports declined performance without turning the result into a prescription. |
+| [Session summary — mixed outcomes](screens/session/summary-mixed__phone-390-light-en.png) | 8 | The finished session keeps maintained and declined lift outcomes distinct in one summary. |
 
 ### Progress
 
@@ -206,6 +208,10 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | --- | --- | --- |
 | [History](screens/history/list__phone-390-light-en.png) | 3 | The logged session list. |
 | [History — expanded session](screens/history/session__phone-390-light-en.png) | 8 | One session expanded in place. |
+| [History — dirty edit](screens/history/edit-dirty__phone-390-light-en.png) | 8 | A session edit with an unsaved canonical change and its destructive actions still visible. |
+| [History — invalid edit](screens/history/edit-invalid__phone-390-light-en.png) | 8 | An invalid set value is held at the field boundary with the editor's validation state visible. |
+| [History — confirmed delete](screens/history/delete-confirm__phone-390-light-en.png) | 8 | The explicit delete confirmation surface for one selected session. |
+| [History — edit conflict](screens/history/conflict__phone-390-light-en.png) | 8 | A stale session edit refuses to overwrite a newer durable change and offers recovery actions. |
 
 ### Exercise library
 
@@ -224,7 +230,15 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Program — editor](screens/program/progression-editor__phone-390-light-en.png) | 3 | The installed program editor, with the first day open. |
 | [Program — exercise picker](screens/program/exercise-picker__phone-390-light-en.png) | 3 | The picker sheet. |
 | [Program — custom exercise](screens/program/custom-exercise__phone-390-light-en.png) | 3 | The custom movement sheet. |
+| [Program — saving a custom exercise](screens/program/custom-exercise-saving__phone-390-light-en.png) | 3 | A new custom movement is saving; its actions stay unavailable until the durable write settles. |
+| [Program — deleting a custom exercise](screens/program/custom-exercise-deleting__phone-390-light-en.png) | 3 | A custom movement is deleting; the action names deletion and all competing actions stay unavailable until the durable write settles. |
+| [Program — archiving a custom exercise](screens/program/custom-exercise-archiving__phone-390-light-en.png) | 3 | A custom movement referenced by a performedMovementId-only history row is archiving; the action names archive and preserves its history identity. |
+| [Program — recovering a custom exercise change](screens/program/custom-exercise-recovery__phone-390-light-en.png) | 3 | A partial archive stays visibly unresolved with recovery status, Retry recovery, and Reload actions. |
 | [Program — share setup link](screens/program/share-setup__phone-390-light-en.png) | 8 | The setup-link share sheet. |
+| [Program — share with one blocker](screens/program/share-one-blocker__phone-390-light-en.png) | 8 | The share sheet names one unresolved exercise and keeps copy/share unavailable. |
+| [Program — repair returns to Share](screens/program/share-repair-return__phone-390-light-en.png) | 8 | The custom repair path has been cancelled and returns directly to the blocked Share sheet. |
+| [Program — share link ready](screens/program/share-ready__phone-390-light-en.png) | 8 | A valid setup link is ready for copy or system sharing. |
+| [Program — ready exercises](screens/program/readiness__phone-390-light-en.png) | 7 | The recommendation-owned readiness list, with metadata hidden and inert while the list is open. |
 | [Program — text export](screens/program/text-export__phone-390-light-en.png) | 3 | The plain-text program export sheet. |
 
 ### Settings
@@ -234,6 +248,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | [Settings](screens/settings/main__phone-390-light-en.png) | 3 | The settings list. |
 | [Settings — Appearance](screens/settings/appearance__phone-390-light-en.png) | 3 | The appearance/theme row. |
 | [Settings — contextual guides](screens/settings/guides__phone-390-light-en.png) | 3 | The per-guide replay controls; replay changes presentation state only. |
+| [Settings — replayed guide](screens/settings/guides-replay__phone-390-light-en.png) | 3 | A real contextual guide replayed from Settings and anchored to its live privacy action. |
 | [Settings — privacy and analytics](screens/settings/privacy__phone-390-light-en.png) | 3 | The privacy and analytics section. |
 | [Privacy — temporary install transfer](screens/settings/privacy-disclosure__phone-390-light-en.png) | 8 | The cached ADR 0013 disclosure reached from Settings. |
 

@@ -59,6 +59,7 @@ not grant merge authority for the next plan.
 
 | Plan | State | Meaning |
 |---|---|---|
+| [062](./062-ci-agent-feedback-loop.md) | **PROPOSED** | Refactors CI and local verification around explicit edit, packet and candidate loops so coding agents get fast targeted feedback while final persistence, race, privacy, offline, accessibility, generative and visual gates remain strict. |
 | [061](./061-import-exercise-matching.md) | **IMPLEMENTED IN PR #230** | Fixes shared import exercise matching: stopword/equipment/containment scoring, up to three candidates per review row, curated aliases via the curation file, gated on a two-tier fixture corpus. Independent of Plan 060 and of PR #225. |
 | [060](./060-free-form-import-grilling-reconciliation.md) | **IMPLEMENTED ACROSS PRS #225/#230** | Reconciles two independent grilling sessions on the PR #225 free-form import hand-off into one executable contract. Amends ADR 0014 on persistence and telemetry enumerations. Independent of Plans 049–059; do not sequence it into their DAG. |
 
@@ -112,6 +113,13 @@ when preparing the first acceptance contract. The historical
 [Herdr procedure](../docs/agents/herdr-ui-overhaul-execution.md) and
 [Plan 052 resume prompt](../docs/agents/prompts/plan-052-herdr.md) are retained only as records of earlier execution
 and do not govern Plans 055–059.
+
+New implementation plans should name the required contracts, risky first proof,
+final completion evidence, and owner/environment gates. Reference the live
+`docs/ci.md` edit → packet → candidate mechanics instead of copying an
+exhaustive command cadence. Historical Plans 055–059 keep their original proof
+claims; current agent execution follows the live CI and evidence docs. A plan
+may require an earlier broad suite when it names the risk that justifies it.
 
 1. Confirm the work is present and correctly prioritized in
    [`docs/backlog.md`](../docs/backlog.md).

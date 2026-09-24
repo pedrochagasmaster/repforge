@@ -169,7 +169,7 @@ function extractJsKeys(src) {
 }
 
 const DYNAMIC_FAMILIES = [
-  { test: (s) => s.includes("guide.${id}.title") || s.includes("guide.${id}.body"), keys: (en) => Object.keys(en).filter((k) => /^guide\.[^.]+\.(title|body)$/.test(k)) },
+  { test: (s) => s.includes("guide.${id}.title") || s.includes("guide.${id}.body") || s.includes("guide.${guide.id}.title") || s.includes("guide.${guide.id}.body"), keys: (en) => Object.keys(en).filter((k) => /^guide\.[^.]+\.(title|body)$/.test(k)) },
   { test: (s) => s.includes("onb.title.${onbStep}"), keys: (en) => Object.keys(en).filter((k) => /^onb\.title\.\d+$/.test(k)) },
   { test: (s) => s.includes("entry.desired_result.${"), keys: (en) => Object.keys(en).filter((k) => /^entry\.desired_result\.[^.]+\.(label|sub)$/.test(k)) },
   { test: (s) => s.includes("entry.background.experience.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("entry.background.experience.") && k !== "entry.background.experience.label") },
@@ -211,6 +211,8 @@ const DYNAMIC_FAMILIES = [
   { test: (s) => s.includes('"split."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("split.")) },
   { test: (s) => s.includes('"equipment."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("equipment.")) },
   { test: (s) => s.includes('"muscle."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("muscle.")) },
+  { test: (s) => s.includes("program.share_setup_blocked.${"), keys: (en) => Object.keys(en).filter((k) => /^program\.share_setup_blocked\.(one|other)$/.test(k)) },
+  { test: (s) => s.includes("program.share_setup_reason.${"), keys: (en) => Object.keys(en).filter((k) => k.startsWith("program.share_setup_reason.")) },
   { test: (s) => s.includes('"seed.ex."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("seed.ex.")) },
   { test: (s) => s.includes('"seed.note."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("seed.note.")) },
   { test: (s) => s.includes('"picker.equipment."'), keys: (en) => Object.keys(en).filter((k) => k.startsWith("picker.equipment.")) },

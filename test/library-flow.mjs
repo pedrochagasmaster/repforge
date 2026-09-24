@@ -83,7 +83,14 @@ async function main() {
   const browser = await launchChromium();
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
-  page.on("dialog", (d) => d.accept());
+  const dialogs = [];
+  let nextDialogAction = "accept";
+  page.on("dialog", async dialog => {
+    dialogs.push({ type: dialog.type(), message: dialog.message() });
+    const action = nextDialogAction;
+    nextDialogAction = "accept";
+    await dialog[action]();
+  });
   const badRequests = [];
   const isExerciseArtwork = (url) => new URL(url).pathname.includes("/assets/exercises/");
   page.on("requestfailed", (r) => { if (isExerciseArtwork(r.url())) badRequests.push(r.url()); });
@@ -326,6 +333,97 @@ async function main() {
       JSON.stringify(afterDup.map((e) => e.name))
     );
 
+    // Duplicate acknowledgement belongs to the exact existing entry, even
+    // when custom creation starts from the ordinary library route.
+    const standardBefore = await getState(page);
+    const standardA = await page.evaluate(() => window.__repforgeLibraryEntry("pr_mc"));
+    const standardB = await page.evaluate(() => window.__repforgeLibraryEntry("pr_bb"));
+    await page.fill("#libSearch", standardA.name);
+    await page.click("#libCustom");
+    await page.waitForSelector("#exCustomSheet.is-open", { timeout: 5000 });
+    await page.locator("#exCustomName").fill(standardA.name);
+    let dialogCount = dialogs.length;
+    nextDialogAction = "dismiss";
+    await page.click("#exCustomSave");
+    assert(dialogs.length === dialogCount + 1 && dialogs[dialogCount]?.type === "confirm" &&
+      dialogs[dialogCount].message.includes(standardA.name),
+      "ordinary custom creation confirms duplicate A before custom validation", JSON.stringify(dialogs.slice(dialogCount)));
+
+    await page.locator("#exCustomName").fill(standardB.name);
+    await page.locator('#exCustomEquip .pchip[aria-pressed="false"]').first().click();
+    await page.locator('#exCustomPrimary .pchip[aria-pressed="false"]').first().click();
+    dialogCount = dialogs.length;
+    nextDialogAction = "accept";
+    await page.click("#exCustomSave");
+    await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 5000 });
+    await page.waitForFunction(({ id, previousCustomIds }) => {
+      const selected = window.__repforgeLibraryFlow()?.selected || [];
+      return selected.includes(id) || selected.some(selectedId =>
+        selectedId.startsWith("custom:") && !previousCustomIds.includes(selectedId));
+    }, { id: standardB.id, previousCustomIds: (standardBefore.customExercises || []).map(entry => entry.id) }, { timeout: 5000 });
+    assert(dialogs.length === dialogCount + 1 && dialogs[dialogCount]?.type === "confirm" &&
+      dialogs[dialogCount].message.includes(standardB.name),
+      "declining duplicate A does not suppress B's confirmation in ordinary custom creation", JSON.stringify(dialogs.slice(dialogCount)));
+    const standardAfter = await getState(page);
+    assert(JSON.stringify(standardAfter.customExercises || []) === JSON.stringify(standardBefore.customExercises || []),
+      "accepting B in ordinary custom creation does not append a custom definition", JSON.stringify(standardAfter.customExercises));
+    assert((await flow(page)).selected.includes(standardB.id),
+      "ordinary custom creation routes the accepted duplicate to B's exact library identity", JSON.stringify(await flow(page)));
+
+    const existingCustom = (standardBefore.customExercises || [])[0];
+    const dialogsBeforeEdit = dialogs.length;
+    await page.evaluate((id) => window.__repforgeEditCustom(id), existingCustom.id);
+    await page.waitForSelector("#exCustomSheet.is-open", { timeout: 5000 });
+    await page.locator("#exCustomName").fill(standardA.name);
+    await page.click("#exCustomSave");
+    await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 5000 });
+    const editedDuplicate = (await getState(page)).customExercises.find(entry => entry.id === existingCustom.id);
+    assert(dialogs.length === dialogsBeforeEdit,
+      "editing an existing custom definition does not enter new-definition duplicate confirmation", JSON.stringify(dialogs.slice(dialogsBeforeEdit)));
+    assert(editedDuplicate?.id === existingCustom.id && editedDuplicate.name === standardA.name,
+      "editing a custom name that matches a built-in preserves the existing custom identity", JSON.stringify(editedDuplicate));
+
+    await page.evaluate((id) => window.__repforgeEditCustom(id), existingCustom.id);
+    await page.waitForSelector("#exCustomSheet.is-open", { timeout: 5000 });
+    await page.locator("#exCustomName").fill(existingCustom.name);
+    await page.click("#exCustomSave");
+    await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 5000 });
+
+    const beforeRapidSave = await getState(page);
+    const rapidName = "Rapid save custom";
+    await page.fill("#libSearch", rapidName);
+    await page.click("#libCustom");
+    await page.waitForSelector("#exCustomSheet.is-open", { timeout: 5000 });
+    await page.locator("#exCustomName").fill(rapidName);
+    await page.locator('#exCustomEquip .pchip[aria-pressed="false"]').first().click();
+    await page.locator('#exCustomPrimary .pchip[aria-pressed="false"]').first().click();
+    const rapidSubmitState = await page.evaluate(() => {
+      const save = document.querySelector("#exCustomSave");
+      save.click();
+      const state = {
+        saveDisabled: save.disabled,
+        saveLabel: save.textContent,
+        cancelDisabled: document.querySelector("#exCustomCancel").disabled,
+        sheetBusy: document.querySelector("#exCustomSheet").getAttribute("aria-busy") === "true",
+      };
+      document.querySelector("#exCustomCancel").click();
+      save.click();
+      return state;
+    });
+    assert(rapidSubmitState.saveDisabled && rapidSubmitState.cancelDisabled && rapidSubmitState.sheetBusy &&
+      rapidSubmitState.saveLabel === "Saving…",
+      "an asynchronous custom save disables repeat actions and announces its visible busy state", JSON.stringify(rapidSubmitState));
+    await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 5000 });
+    await page.waitForFunction(() => {
+      const toast = document.querySelector("#toast");
+      return toast && !toast.classList.contains("hidden") && toast.textContent === "Exercise created.";
+    }, undefined, { timeout: 5000 });
+    await page.waitForFunction(() => document.querySelector("#toast")?.classList.contains("hidden"), undefined, { timeout: 5000 });
+    const afterRapidSave = await getState(page);
+    assert((afterRapidSave.customExercises || []).filter(entry => entry.name === rapidName).length === 1 &&
+      (afterRapidSave.customExercises || []).length === (beforeRapidSave.customExercises || []).length + 1,
+      "rapid repeated Save clicks create one custom definition", JSON.stringify(afterRapidSave.customExercises));
+
     // An unused definition is deleted through the visible editor action.
     await page.evaluate((id) => window.__repforgeEditCustom(id), editedList[0].id);
     await page.waitForSelector("#exCustomSheet.is-open", { timeout: 5000 });
@@ -336,11 +434,67 @@ async function main() {
     }));
     assert(!deleteUi.inUse && deleteUi.visible && /delete/i.test(deleteUi.button),
       "an unused definition offers Delete without an in-use warning", JSON.stringify(deleteUi));
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      const writeIdb = io.writeIdb;
+      io.writeIdb = snapshot => new Promise((resolve, reject) => {
+        window.__releaseCustomDeleteWrite = () => writeIdb.call(io, snapshot).then(resolve, reject);
+      });
+    });
     await page.click("#exCustomDelete");
+    await page.waitForFunction(() => typeof window.__releaseCustomDeleteWrite === "function", undefined, { timeout: 5000 });
+    const deleting = await page.evaluate(() => ({
+      saveLabel: document.querySelector("#exCustomSave")?.textContent?.trim(),
+      saveDisabled: document.querySelector("#exCustomSave")?.disabled,
+      deleteLabel: document.querySelector("#exCustomDelete")?.textContent?.trim(),
+      deleteDisabled: document.querySelector("#exCustomDelete")?.disabled,
+      cancelDisabled: document.querySelector("#exCustomCancel")?.disabled,
+      sheetBusy: document.querySelector("#exCustomSheet")?.getAttribute("aria-busy") === "true",
+    }));
+    assert(deleting.saveLabel === "Save" && deleting.saveDisabled && deleting.deleteLabel === "Deleting…" &&
+      deleting.deleteDisabled && deleting.cancelDisabled && deleting.sheetBusy,
+      "an in-flight custom delete announces deletion and disables every competing action", JSON.stringify(deleting));
+    await page.evaluate(() => window.__releaseCustomDeleteWrite());
     await page.waitForSelector("#exCustomSheet", { state: "hidden", timeout: 5000 });
     await settle(page);
     const remains = (await getState(page)).customExercises.some((e) => e.id === editedList[0].id);
     assert(!remains, "the visible Delete action removes an unused definition");
+
+    // The full Library's final Save must wait for both durable replicas before
+    // closing or announcing a successful Program edit.
+    await reset(page);
+    const partialTarget = await page.evaluate(async () => {
+      const saved = await window.__repforgeSaveCustomExercise({
+        name: "Partial library add", equipment: ["machine"], primary: "Chest", secondary: "", notes: "",
+      });
+      return saved.entry?.id || null;
+    });
+    assert(!!partialTarget, "a custom definition is available for the partial library-write fixture");
+    await page.evaluate(() => window.__repforgeOpenLibrary({}));
+    await page.waitForSelector(`#libList [data-lib-toggle="${partialTarget}"]`, { timeout: 5000 });
+    await page.locator(`#libList [data-lib-toggle="${partialTarget}"]`).click();
+    await page.click("#libPrimary");
+    await page.waitForSelector(`#libConfigureRows [data-cfg="${partialTarget}"]`, { timeout: 5000 });
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      window.__libraryWriteIdb = io.writeIdb;
+      io.writeIdb = () => Promise.resolve(false);
+    });
+    await page.click("#libPrimary");
+    await page.waitForFunction(() => {
+      const toast = document.querySelector("#toast");
+      return toast && !toast.classList.contains("hidden");
+    }, undefined, { timeout: 10000 });
+    const partialUi = await page.evaluate(() => ({
+      libraryOpen: document.querySelector("#library")?.classList.contains("active") === true,
+      toast: document.querySelector("#toast")?.textContent?.trim() || "",
+    }));
+    assert(partialUi.libraryOpen && !partialUi.toast.includes("exercises added"),
+      "a one-replica full-library Program write is not presented as success", JSON.stringify(partialUi));
+    await page.evaluate(() => {
+      const io = window.RepForgeDurableState.storageIO;
+      if (window.__libraryWriteIdb) io.writeIdb = window.__libraryWriteIdb;
+    });
   } finally {
     await context.close();
     await browser.close();

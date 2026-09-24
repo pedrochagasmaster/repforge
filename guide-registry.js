@@ -17,11 +17,11 @@
     // two actions. version:2 so a device that already dismissed/completed
     // the old landing-anchored cue sees it once more at its new anchor.
     Object.freeze({ id: "entry", version: 2, anchorSelector: "[data-entry-route=\"recommend\"]", coveredByOldTour: false, wired: true }),
-    Object.freeze({ id: "first-set", version: 1, anchorSelector: ".saveset", coveredByOldTour: true, wired: false }),
-    Object.freeze({ id: "focus-utilities", version: 1, anchorSelector: "#woOverflowBtn", coveredByOldTour: true, wired: false }),
+    Object.freeze({ id: "first-set", version: 1, anchorSelector: ".saveset", coveredByOldTour: true, wired: true }),
+    Object.freeze({ id: "focus-utilities", version: 1, anchorSelector: "#woOverflowBtn", coveredByOldTour: true, wired: true }),
     Object.freeze({ id: "progress", version: 2, anchorSelector: "#statsSeg [data-seg=\"overview\"]", coveredByOldTour: true, wired: true }),
     Object.freeze({ id: "block-transition", version: 2, anchorSelector: "#statsSeg [data-seg=\"review\"]", coveredByOldTour: true, wired: true }),
-    Object.freeze({ id: "backup", version: 1, anchorSelector: "#exportJson", coveredByOldTour: true, wired: false }),
+    Object.freeze({ id: "backup", version: 1, anchorSelector: "#exportJson", coveredByOldTour: true, wired: true }),
     Object.freeze({ id: "install", version: 1, anchorSelector: "#firstRunInstallAction, #installApp", coveredByOldTour: true, wired: true }),
     Object.freeze({ id: "privacy", version: 1, anchorSelector: "#firstRunPrivacy, #privacyDetails", coveredByOldTour: false, wired: true }),
   ]);
