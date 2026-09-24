@@ -49,6 +49,25 @@ export function makeCiPlan({ event, draft = false, requestedMode, baseSha, headS
   };
 }
 
+export function requireSelectedCiResults(needs, { log = console.log } = {}) {
+  const outputs = needs?.plan?.outputs || {};
+  const selected = (name) =>
+    name === "plan" ||
+    name === "verification-evidence" ||
+    name === "interaction-runtime" && Boolean(outputs.fast) ||
+    name === "browser" && outputs.browser !== "[]" ||
+    name === "install-transfer-service" && outputs.service === "true" ||
+    name === "visual-evidence" && outputs.visual !== "none";
+  const failures = [];
+  for (const [name, job] of Object.entries(needs || {})) {
+    const required = selected(name);
+    const expected = required ? "success" : "skipped";
+    log(`${name}: ${job.result}${required ? " (required)" : " (not selected)"}`);
+    if (job.result !== expected) failures.push(`${name}: expected ${expected}, got ${job.result}`);
+  }
+  if (failures.length) throw new Error(`CI aggregate failed: ${failures.join("; ")}`);
+}
+
 export function resolveCiInputs(env = process.env, cwd = ROOT) {
   const event = env.GITHUB_EVENT_NAME || "workflow_dispatch";
   const payload = env.GITHUB_EVENT_PATH ? JSON.parse(readFileSync(env.GITHUB_EVENT_PATH, "utf8")) : {};

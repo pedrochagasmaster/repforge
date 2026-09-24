@@ -7,7 +7,7 @@ import { join } from "node:path";
 import test from "node:test";
 import { SUITES, SUPPORT, BROWSER_LANES, commandArgs, inventoryErrors } from "./suites.mjs";
 import { changedFiles, selectVisuals } from "../tools/ci-selection.mjs";
-import { makeCiPlan, resolveCiInputs } from "../tools/ci-plan.mjs";
+import { makeCiPlan, requireSelectedCiResults, resolveCiInputs } from "../tools/ci-plan.mjs";
 import { domainsForAppDiff } from "../tools/visual-domains.mjs";
 import { stabilizeShareUrlForCapture } from "../tools/ui-screens/screens-app.mjs";
 import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, selectAffected, selectEdit } from "../tools/test-selection.mjs";
@@ -446,6 +446,31 @@ test("CI keeps exhaustive candidate contracts while PR visuals stay change-propo
   assert.deepEqual(workflow.tests.fast, ["test-ci-mjs"]);
   const unknown = makeCiPlan({ ...common, files: ["future-runtime.js"] });
   assert.equal(Object.values(unknown.tests).flat().length, Object.values(SUITES).flat().length);
+});
+
+test("CI aggregate accepts skipped jobs only when the plan did not select them", () => {
+  const base = {
+    plan: { result: "success", outputs: {
+      fast: "test-ci-mjs",
+      browser: "[\"entry\"]",
+      service: "true",
+      visual: "none",
+    } },
+    "interaction-runtime": { result: "success" },
+    browser: { result: "success" },
+    "install-transfer-service": { result: "success" },
+    "visual-evidence": { result: "skipped" },
+    "verification-evidence": { result: "success" },
+  };
+  assert.doesNotThrow(() => requireSelectedCiResults(base, { log() {} }));
+  assert.throws(() => requireSelectedCiResults({
+    ...base,
+    "visual-evidence": { result: "success" },
+  }, { log() {} }), /visual-evidence: expected skipped, got success/);
+  assert.throws(() => requireSelectedCiResults({
+    ...base,
+    browser: { result: "failure" },
+  }, { log() {} }), /browser: expected success, got failure/);
 });
 
 test("workflow keeps feedback separate from candidate and installs browsers only after planning", () => {
