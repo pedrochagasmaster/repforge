@@ -2,7 +2,7 @@
 
 - **Plan number:** 063
 - **Phase:** Post-overhaul adoption; additive foundation may proceed before the overhaul closes
-- **Status:** Owner-authorized; commit this plan before implementation
+- **Status:** Foundation implementation in progress; plan committed before production code
 - **Base inspected:** `origin/main` at `78492da2`
 - **Depends on:** Plan 061; current performed-identity and durable-state contracts
 - **Blocks:** Final History import UI and durable commit integration until Plans 058 and 059 settle their public-surface and release contracts
@@ -137,8 +137,10 @@ source movement together across sessions and repeated imports. Use the
 provider's source exercise ID when present. Otherwise hash the exact normalized
 source label within its source family. It is not a Taurifer library match. A
 later explicit choice can link the row to a built-in or existing custom
-definition. Creating a new custom definition and persisting it are
-final-integration work.
+definition. Set empty `performedPrimary` and `performedSecondary` snapshots on
+unresolved rows so readers cannot infer muscle attribution from a current
+program exercise that happens to share the source label. Creating a new custom
+definition and persisting it are final-integration work.
 
 ### Reconciliation
 
