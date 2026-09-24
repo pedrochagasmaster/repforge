@@ -1,0 +1,6 @@
+title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_index,set_type,weight_lbs,reps,distance_miles,duration_seconds,rpe
+Upper,2024-03-10T01:30:00-05:00,2024-03-10T02:30:00-05:00,"synthetic session",Bench Press (Barbell),A,ramp set,0,warm_up,135,8,,,8
+Upper,2024-03-10T01:30:00-05:00,2024-03-10T02:30:00-05:00,"synthetic session",Bench Press (Barbell),,,1,normal,140,6,,,9
+Upper,2024-03-10T01:30:00-05:00,2024-03-10T02:30:00-05:00,"synthetic session",Hammer Strength Iso-Lateral Chest Press,,brand model remains unresolved,0,normal,90,10,,,8
+Upper,2024-03-10T01:30:00-05:00,2024-03-10T02:30:00-05:00,"synthetic session",Treadmill Run,,,2,normal,,,"1.2",900,
+Upper,2024-03-10T08:00:00-05:00,2024-03-10T09:00:00-05:00,"same title, different start",Bench Press (Barbell),,,0,normal,145,5,,,9

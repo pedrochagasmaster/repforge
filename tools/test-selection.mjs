@@ -134,6 +134,21 @@ function addEntries(target, additions) {
 
 const EXPLICIT_INPUT_RULES = [
   {
+    match: /^test\/fixtures\/history-import\//,
+    suiteFiles: ["test/history-import-unit.mjs", "test/history-import-matching.mjs"],
+    why: "synthetic historical-import source fixtures",
+  },
+  {
+    match: /^test\/fixtures\/import-matching\.mjs$/,
+    suiteFiles: ["test/import-matching.mjs"],
+    why: "Plan 061 and migration vocabulary corpus",
+  },
+  {
+    match: /^tools\/exercise-curation\.json$/,
+    suiteFiles: ["test/exercise-library.mjs", "test/import-matching.mjs", "test/history-import-matching.mjs"],
+    why: "reviewed exercise aliases and matching regressions",
+  },
+  {
     match: /^\.github\/workflows\/simulation\.yml$|^tools\/(?:ci-plan|visual-domains)\.mjs$|^test\/suites\.mjs$/,
     suiteFiles: ["test/ci.mjs"], why: "CI planning and selection contracts",
   },
@@ -173,6 +188,7 @@ const DOMAIN_RULES = [
   { match: /^(program-entry(?:-adapter)?\.js|program-compiler\.js)$/, lanes: ["fast", "state", "entry", "workout"], why: "program entry/compiler contract" },
   { match: /^program-editor\.js$/, lanes: ["entry", "workout"], why: "program editor UI" },
   { match: /^progress-model\.js$/, lanes: ["fast", "workout"], why: "Progress projections and History consumers" },
+  { match: /^history-import\.js$/, lanes: ["fast"], why: "historical source normalization and proposal domain" },
   { match: /^progression-engine\.js$/, lanes: ["fast", "state", "workout"], why: "progression domain and offline behavior" },
   { match: /^shared-setup\.js$/, lanes: ["fast", "state", "entry", "workout"], why: "shared setup contract" },
   { match: /^(motion-layer\.js|motion-polish\.css|vendor\/)/, lanes: ["fast", "workout"], why: "interaction runtime" },

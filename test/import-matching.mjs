@@ -6,7 +6,7 @@
  * not against a copy of the matcher.
  */
 import { launchChromium, waitForAppBoot } from "./browser.mjs";
-import { STRICT, LOOSE } from "./fixtures/import-matching.mjs";
+import { STRICT, LOOSE, MIGRATION } from "./fixtures/import-matching.mjs";
 
 const URL = process.env.REPFORGE_URL;
 if (!URL) { console.error("Set REPFORGE_URL"); process.exit(1); }
@@ -42,6 +42,20 @@ try {
       `"${row.input}" reaches ${row.ids.join(" or ")}${resolved ? " (confirmed)" : ""}`,
       (resolved || shortlisted) ? ""
         : `got ${got.matchId || "no match"} [${got.candidateIds.join(", ")}] — was: ${row.was}`);
+  }
+
+  console.log("\nHistory-migration vocabulary uses the same Plan 061 matcher");
+  for (const row of MIGRATION) {
+    const got = await page.evaluate(n => window.__repforgeMatchCandidates(n), row.input);
+    if (row.autoResolvable === false) {
+      assert(!["exact", "alias"].includes(got.status),
+        `"${row.input}" remains review-only`,
+        `got ${got.status} → ${got.matchId || "no target"}`);
+      continue;
+    }
+    assert(got.status === row.status && got.matchId === row.id,
+      `"${row.input}" keeps its ${row.status} identity ${row.id}`,
+      `got ${got.status} → ${got.matchId || "no target"}`);
   }
 
   console.log("\nThe shortlist stays short and ordered");

@@ -53,3 +53,14 @@ export const LOOSE = [
   { input: "Agachamento no Smith, pés à frente", ids: ["sq_sm", "sqc_sm"], arbitration: true,
     was: "sqc_sm won a three-way tie at 0.50; sq_sm is the plainer reading" },
 ];
+
+// Vocabulary found while shaping the history-migration adapters. The Hevy
+// spelling is reported by the linked set-level export sample; PT labels reuse
+// the reviewed Plan 061 corpus. Machine-specific wording remains review-only.
+export const MIGRATION = [
+  { input: "Bench Press (Barbell)", id: "pr_bb", status: "alias", source: "Hevy CSV" },
+  { input: "Cadeira flexora", id: "lc_mc", status: "alias", source: "generic Portuguese CSV" },
+  { input: "Abdução em pé no cabo", id: "ha_cb", status: "alias", source: "generic Portuguese CSV" },
+  { input: "RDL", id: "hg_bb", status: "alias", source: "generic CSV" },
+  { input: "Hammer Strength Iso-Lateral Chest Press", autoResolvable: false, source: "machine-specific history" },
+];
