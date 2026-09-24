@@ -201,7 +201,7 @@ adapter and application. Editing this section alone adds no runtime code.
   test-only description of the future service contract, never a shipped
   generator.
 - Coverage: `test/program-entry.mjs` (pure graph, schemas, migration, resume,
-  switching, stale drafts), `test/program-entry-fixture-services.mjs`
+  switching, stale drafts), `test/program-entry-browser.mjs`
   (deterministic compile, closed inputs, 2–6 day coverage, catalogue
   filtering), and `test/generative/properties/program-entry.mjs` with
   `test/generative/model/program-entry.mjs` (seeded route/switch/resume/
@@ -259,7 +259,7 @@ partially built next slice.
 
 - Plans 045, 046, and 047 are merged to `main`; this branch has merged current
   `origin/main` with an explicit merge commit.
-- Pure suite, `test/program-entry-fixture-services.mjs`, and the
+- Pure suite, `test/program-entry-browser.mjs`, and the
   `program-entry` generative suites pass, plus every browser suite in
   `.github/workflows/simulation.yml` touching entry, first-run, install modes,
   shared setup, and session summary.

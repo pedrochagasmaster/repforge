@@ -44,6 +44,12 @@ export function fnv1a(text) {
   for (let i = 0; i < text.length; i++) { hash ^= text.charCodeAt(i); hash = Math.imul(hash, 0x01000193); }
   return hash >>> 0;
 }
+export function resolveMasterSeed(args, env = process.env, { now = Date.now(), pid = process.pid } = {}) {
+  if (args.seed !== undefined) return args.seed;
+  const sourceSha = env.CI_SOURCE_SHA || env.GITHUB_SHA;
+  if (sourceSha) return fnv1a(sourceSha);
+  return (now ^ (fnv1a(String(pid)) << 8)) >>> 0;
+}
 export function parameters(profile, seed, path) {
   return {
     numRuns: profile.numRuns, seed, verbose: true,
@@ -67,7 +73,7 @@ async function main() {
   if (args.list) { for (const s of suites) console.log(`${s.file}\t${s.name}`); console.log(`${suites.length} suites`); return; }
   const selected = suites.filter((s) => args.property !== undefined ? s.name === args.property : args.filter === undefined || s.name.includes(args.filter));
   if (!selected.length) throw new Error("No property matches the requested filter");
-  const masterSeed = args.seed ?? (Date.now() ^ (fnv1a(String(process.pid)) << 8)) >>> 0;
+  const masterSeed = resolveMasterSeed(args);
   console.log(`Generative properties — profile=${args.profile} numRuns=${profile.numRuns} masterSeed=${masterSeed}`);
   const results = [];
   const started = performance.now();

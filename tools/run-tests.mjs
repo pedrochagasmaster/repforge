@@ -1,7 +1,8 @@
 #!/usr/bin/env node
 /** Run isolated suites with terse default output; full logs always go to .ci-results. */
 import { spawn, execFileSync } from "node:child_process";
-import { appendFileSync, closeSync, mkdirSync, openSync, rmSync, writeFileSync, writeSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { appendFileSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, rmSync, writeFileSync, writeSync } from "node:fs";
 import { dirname, join, resolve, relative, isAbsolute } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { SUITES, BROWSER_LANES, commandArgs, inventoryErrors, suiteId } from "../test/suites.mjs";
@@ -63,13 +64,40 @@ export function execute(suite, { cwd = ROOT, outputDir, env = process.env, timeo
   });
 }
 
+function sourceIdentity(cwd, env) {
+  const fromEnv = env.CI_SOURCE_SHA || env.GITHUB_SHA || null;
+  try {
+    const gitOptions = { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] };
+    const head = fromEnv || execFileSync("git", ["rev-parse", "HEAD"], gitOptions).trim();
+    const status = execFileSync("git", ["status", "--porcelain=v1", "--untracked-files=all"], gitOptions).trim();
+    return { head, dirty: Boolean(status) };
+  } catch {
+    return { head: fromEnv, dirty: null };
+  }
+}
+
+function writeBrowserEvidence({ suiteDir, row, source }) {
+  const log = readFileSync(join(suiteDir, "initial", "output.log"));
+  const evidence = {
+    schemaVersion: 1, kind: "browser-contract-execution", source,
+    command: row.command, result: row.status, startedAt: row.initial.startedAt,
+    durationMs: row.initial.durationMs,
+    outputSha256: createHash("sha256").update(log).digest("hex"),
+    rerun: row.command.join(" "),
+  };
+  const path = join(suiteDir, "evidence.json");
+  writeFileSync(path, JSON.stringify(evidence, null, 2) + "\n");
+  return path;
+}
+
 export async function runLane(lane, entries, {
   cwd = ROOT, outputDir = join(ROOT, ".ci-results", lane), env = process.env,
   diagnosticReplay = false, browser = BROWSER_LANES.has(lane), summaryPath = env.GITHUB_STEP_SUMMARY, verbose = false,
   failFast = false,
 } = {}) {
   mkdirSync(outputDir, { recursive: true });
-  const report = { lane, revision: env.CI_SOURCE_SHA || env.GITHUB_SHA || null, results: [] };
+  const source = sourceIdentity(cwd, env);
+  const report = { lane, revision: source.head, results: [] };
   const save = () => writeFileSync(join(outputDir, "results.json"), JSON.stringify(report, null, 2) + "\n");
   for (const suite of entries) {
     const id = suiteId(suite);
@@ -81,6 +109,7 @@ export async function runLane(lane, entries, {
     row.initial = await execute(suite, { cwd, outputDir: join(suiteDir, "initial"), env, verbose });
     row.status = row.initial.status;
     if (row.status === "failed") row.failureClass = row.initial.timedOut ? "timeout" : row.initial.error ? "workflow/infrastructure" : "product/test assertion or test-harness synchronization";
+    if (browser) row.evidence = relative(outputDir, writeBrowserEvidence({ suiteDir, row, source })).replaceAll("\\", "/");
     save();
     const seconds = (row.initial.durationMs / 1000).toFixed(2);
     console.log(`${row.status === "passed" ? "✓" : "✗"} ${row.command.join(" ")}  ${seconds}s`);
@@ -117,7 +146,7 @@ export async function runLane(lane, entries, {
 
 function repositoryFiles() {
   return execFileSync("git", ["ls-files", "--cached", "--others", "--exclude-standard", "-z", "--", "test", "tools", "scripts"],
-    { cwd: ROOT, encoding: "utf8" }).split("\0").filter(Boolean);
+    { cwd: ROOT, encoding: "utf8" }).split("\0").filter(Boolean).filter((file) => existsSync(resolve(ROOT, file)));
 }
 
 

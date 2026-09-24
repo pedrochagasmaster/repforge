@@ -32,7 +32,7 @@ node generative/run.mjs --filter "setup links" --seed 12345
 ```
 
 Profiles: `REPFORGE_GENERATIVE_PROFILE` selects the default;
-`REPFORGE_GENERATIVE_SEED` pins the master seed. Every suite derives its own
+`REPFORGE_GENERATIVE_SEED` pins the master seed. Required CI derives the master seed deterministically from `CI_SOURCE_SHA`/`GITHUB_SHA`; local exploratory runs without either remain variable. Every suite derives its own
 seed from `(masterSeed ^ fnv1a(suiteName))` so runs are reproducible and
 suites stay independent.
 

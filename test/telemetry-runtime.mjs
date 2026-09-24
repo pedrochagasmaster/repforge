@@ -2,7 +2,7 @@
 /**
  * What the running app actually emits.
  *
- * test/telemetry-call-sites.mjs reads source text; it can only prove which
+ * Source scans can only prove which
  * event names appear in app.js. It cannot tell whether an event fires when a
  * screen merely appears, whether a whole cohort is silently dropped, or
  * whether one user action produces two events. This drives the real app in a

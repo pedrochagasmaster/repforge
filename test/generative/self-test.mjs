@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readdirSync } from "node:fs";
 import fc from "fast-check";
-import { parseArgs, parameters, PROFILES, SUITE_FILES } from "./run.mjs";
+import { parseArgs, parameters, PROFILES, resolveMasterSeed, SUITE_FILES } from "./run.mjs";
 
 test("all property modules are scheduled, not silently orphaned", () => {
   const files = readdirSync(new URL("./properties/", import.meta.url)).filter((f) => f.endsWith(".mjs")).map((f) => f.slice(0, -4)).sort();
@@ -15,6 +15,14 @@ test("seed zero and exact replay are validated", () => {
   for (const args of [["--seed"], ["--seed", "no"], ["--seed", "1.5"], ["--profile", "unknown"], ["--path", "0"], ["--filter", "x", "--property", "x"]]) {
     assert.throws(() => parseArgs(args, {}));
   }
+});
+test("required CI seed is deterministic for one source SHA", () => {
+  const args = parseArgs([], {});
+  const first = resolveMasterSeed(args, { CI_SOURCE_SHA: "abc123" }, { now: 1, pid: 2 });
+  const second = resolveMasterSeed(args, { CI_SOURCE_SHA: "abc123" }, { now: 999, pid: 777 });
+  assert.equal(first, second);
+  assert.notEqual(first, resolveMasterSeed(args, { CI_SOURCE_SHA: "def456" }, { now: 1, pid: 2 }));
+  assert.equal(resolveMasterSeed({ seed: 0 }, { CI_SOURCE_SHA: "abc123" }), 0);
 });
 test("a failure shrinks and the recorded path replays the minimized counterexample", async () => {
   const property = fc.property(fc.integer({ min: 0, max: 10000 }), (n) => n < 10);

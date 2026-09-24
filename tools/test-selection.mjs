@@ -138,6 +138,14 @@ const EXPLICIT_INPUT_RULES = [
     suiteFiles: ["test/ci.mjs"], why: "CI planning and selection contracts",
   },
   {
+    match: /^test\/generative\/(?:properties|adapters|arbitraries|model|regressions)\//,
+    suiteFiles: ["test/generative/run.mjs"], why: "generative property input",
+  },
+  {
+    match: /^test\/fixtures\/progression-strategies-v1\.json$/,
+    suiteFiles: ["test/progression-engine.mjs"], why: "progression executable fixture",
+  },
+  {
     match: /^tools\/ui-screens\/screens-(?:app|onboarding)\.mjs$/,
     suiteFiles: ["test/ui-screens.mjs", "tools/check-ui-screens.mjs"],
     why: "UI capture scenarios",
@@ -191,7 +199,9 @@ export function selectAffected(files, { cwd = ROOT } = {}) {
 
   const chosen = new Map();
   const reasons = [];
-  const dependencyFiles = dependentScheduledFiles(code.filter((file) => /^(test|tools|scripts)\//.test(file)), cwd);
+  const supportFiles = code.filter((file) => /^(test|tools|scripts)\//.test(file));
+  const dependencyByFile = new Map(supportFiles.map((file) => [file, dependentScheduledFiles([file], cwd)]));
+  const dependencyFiles = new Set([...dependencyByFile.values()].flatMap((files) => [...files]));
   if (dependencyFiles.size) {
     addEntries(chosen, ALL.filter(({ suite }) => dependencyFiles.has(suite.file)));
     reasons.push(`Dependency graph reaches ${dependencyFiles.size} scheduled suite file(s).`);
@@ -205,7 +215,12 @@ export function selectAffected(files, { cwd = ROOT } = {}) {
       continue;
     }
     if (/^(test|tools|scripts)\//.test(file)) {
-      if (dependencyFiles.has(file) || ALL.some(({ suite }) => suite.file === file)) continue;
+      if (!existsSync(resolve(cwd, file)) && /^test\/.+\.(?:mjs|js)$/.test(file)) {
+        addEntries(chosen, entriesForSuiteFiles(new Set(["test/ci.mjs"])));
+        reasons.push(`${file}: deleted standalone test → inventory/selector contract`);
+        continue;
+      }
+      if (dependencyByFile.get(file)?.size || ALL.some(({ suite }) => suite.file === file)) continue;
       // A support/tool file with no proven scheduled consumer is not safe to ignore.
       if (!PROSE.test(file) && ![...dependencyFiles].some((candidate) => candidate === file)) {
         const knownDirect = ALL.some(({ suite }) => suite.file === file);

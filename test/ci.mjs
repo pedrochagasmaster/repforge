@@ -10,7 +10,7 @@ import { changedFiles, selectVisuals } from "../tools/ci-selection.mjs";
 import { makeCiPlan } from "../tools/ci-plan.mjs";
 import { domainsForAppDiff } from "../tools/visual-domains.mjs";
 import { stabilizeShareUrlForCapture } from "../tools/ui-screens/screens-app.mjs";
-import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, selectAffected, selectEdit } from "../tools/test-selection.mjs";
+import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, selectAffected, selectEdit, selectPacket } from "../tools/test-selection.mjs";
 import { execute, maybeStartLocalPreview, runLane } from "../tools/run-tests.mjs";
 
 const manifest = { screens: [{ flow: "app", id: "today" }, { flow: "onboarding", id: "start" }] };
@@ -129,6 +129,18 @@ test("affected selection is narrow when proven and fail-safe when it is not", ()
   assert.equal(app.entries.length, Object.values(SUITES).flat().length - SUITES.service.length);
   const service = selectAffected(["services/install-transfer/src/index.js", ".github/workflows/install-transfer-service.yml"]);
   assert.deepEqual([...new Set(service.entries.map(({ lane }) => lane))], ["service"]);
+  const fixture = selectPacket(["test/fixtures/telemetry.mjs"]);
+  assert.notEqual(fixture.mode, "all");
+  assert.ok(fixture.entries.some(({ suite }) => suite.file === "test/telemetry-unit.mjs"));
+  assert.ok(fixture.entries.some(({ suite }) => suite.file === "test/telemetry-runtime.mjs"));
+  const property = selectPacket(["test/generative/properties/malformed-inputs.mjs"]);
+  assert.notEqual(property.mode, "all");
+  assert.deepEqual(property.entries.map(({ suite }) => suite.file), ["test/generative/run.mjs"]);
+  const deletedTest = selectPacket(["test/no-longer-present.mjs"]);
+  assert.notEqual(deletedTest.mode, "all");
+  assert.deepEqual(deletedTest.entries.map(({ suite }) => suite.file), ["test/ci.mjs"]);
+  const progressionFixture = selectPacket(["test/fixtures/progression-strategies-v1.json"]);
+  assert.deepEqual(progressionFixture.entries.map(({ suite }) => suite.file), ["test/progression-engine.mjs"]);
   assert.equal(selectAffected(["mystery.bin"]).mode, "all");
 });
 
@@ -332,6 +344,11 @@ test("runner continues after failure and cannot replay a failed suite to green",
   assert.equal(report.results[0].initial.exitCode, 9); assert.equal(report.results[0].diagnostic.exitCode, 0);
   assert.equal(report.results[0].status, "failed");
   assert.equal(report.results[0].suspectedFlake, true);
+  const evidence = JSON.parse(readFileSync(join(cwd, "results", "flips-mjs", "evidence.json"), "utf8"));
+  assert.equal(evidence.kind, "browser-contract-execution");
+  assert.equal(evidence.result, "failed");
+  assert.match(evidence.outputSha256, /^[0-9a-f]{64}$/);
+  assert.deepEqual(evidence.command, ["node", "flips.mjs"]);
   assert.equal(report.results[1].status, "passed"); assert.ok(existsSync(join(cwd, "later-ran")));
   assert.equal(JSON.parse(readFileSync(join(cwd, "results/results.json"), "utf8")).failed, 1);
   assert.match(readFileSync(join(cwd, "summary.md"), "utf8"), /diagnostic only/);
@@ -391,9 +408,12 @@ test("CI feedback is selected and candidate/main retain the exhaustive exact-SHA
   assert.equal(feedback.tests.state.length, 0);
   const candidate = makeCiPlan({ ...common, draft: false });
   assert.equal(candidate.mode, "candidate");
-  assert.equal(candidate.visual.mode, "full");
+  assert.equal(candidate.visual.mode, "none");
   assert.equal(Object.values(candidate.tests).flat().length, Object.values(SUITES).flat().length);
-  assert.equal(makeCiPlan({ ...common, event: "push" }).mode, "candidate");
+  const main = makeCiPlan({ ...common, event: "push" });
+  assert.equal(main.mode, "candidate");
+  assert.equal(main.visual.mode, "full");
+  assert.equal(makeCiPlan({ ...common, draft: false, files: ["styles.css"] }).visual.mode, "full");
   assert.throws(() => makeCiPlan({ ...common, event: "workflow_dispatch", requestedMode: "candidate", expectedSha: baseSha }), /mismatch/);
   assert.equal(makeCiPlan({ ...common, event: "workflow_dispatch", requestedMode: "candidate", expectedSha: headSha }).headSha, headSha);
   const service = makeCiPlan({ ...common, files: ["services/install-transfer/src/index.js"] });
