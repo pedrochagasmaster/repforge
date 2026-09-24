@@ -362,6 +362,7 @@ export async function runPrivacy(scope = "all") {
       await privacyTrigger.click();
 
       await page.waitForSelector("#privacySheet:not(.hidden)", { state: "visible", timeout: 5000 });
+      await page.waitForFunction(() => document.querySelector("#privacySheet")?.classList.contains("is-open"));
       const sheetOpen = await page.evaluate(() => {
         const sheet = document.querySelector("#privacySheet");
         return sheet && !sheet.hidden && sheet.classList.contains("is-open");
@@ -419,6 +420,7 @@ export async function runPrivacy(scope = "all") {
       await settingsTrigger.click();
 
       await page.waitForSelector("#privacySheet:not(.hidden)", { state: "visible", timeout: 5000 });
+      await page.waitForFunction(() => document.querySelector("#privacySheet")?.classList.contains("is-open"));
       const settingsSheetOpen = await page.locator("#privacySheet").evaluate(
         (sheet) => !sheet.hidden && sheet.classList.contains("is-open")
       );
