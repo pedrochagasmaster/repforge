@@ -15,13 +15,11 @@
   D.register({
     "f.count": ["{done} de {total} séries", "{done} of {total} sets"],
     "f.head": ["{day} · {done} de {total} séries", "{day} · {done} of {total} sets"],
-    "f.slot_aria": ["Série {n}: {load} kg, {reps} reps", "Set {n}: {load} kg, {reps} reps"],
     "f.before": ["antes {sets}", "last {sets}"],
     "f.why.hide": ["Fechar a explicação", "Close the explanation"],
     "f.first_time": ["primeira vez", "first time"],
     "f.sheet_note": ["Cada caixa é uma série. Ao treinar, você preenche esta mesma folha.", "Each box is a set. When you train, you fill in this same sheet."],
     "f.program_note": ["Cada dia é a folha que você vai preencher. As cargas são as próximas do Taurifer.", "Each day is the sheet you will fill in. Loads are Taurifer's next ones."],
-    "f.history.lifts": ["{n} exercícios · {sets} séries", "{n} exercises · {sets} sets"],
     "f.progress.top": ["{a}→{b} kg", "{a}→{b} kg"],
     "f.next": ["Próxima", "Next"],
   });

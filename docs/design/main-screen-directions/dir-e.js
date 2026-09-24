@@ -20,8 +20,6 @@
     "e.block_line": ["{program} · semana {n} de {total}", "{program} · week {n} of {total}"],
     "e.grid_note": ["Cada coluna é uma semana do bloco: maior série registrada e, na semana {n}, a prescrição de hoje.", "Each column is a week of the block: the top set logged and, in week {n}, today's prescription."],
     "e.col.before": ["Antes", "Before"],
-    "e.col.today": ["Hoje", "Today"],
-    "e.col.next": ["Próxima", "Next"],
     "e.why.weeks": ["Semana a semana", "Week by week"],
     "e.why.weeks_note": ["A decisão usa a semana {n}. As anteriores mostram a tendência do bloco.", "The decision uses week {n}. Earlier weeks show the block's trend."],
     "e.history.block": ["Bloco atual · semana {n} de {total}", "Current block · week {n} of {total}"],

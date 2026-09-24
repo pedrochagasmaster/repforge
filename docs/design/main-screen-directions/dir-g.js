@@ -28,7 +28,6 @@
     "g.last_set_norir": ["Da última vez: {load} × {reps}, sem RIR", "Last time: {load} × {reps}, no RIR"],
     "g.first": ["Sem sessão anterior", "No previous session"],
     "g.detail.before": ["Da última vez, {date}", "Last time, {date}"],
-    "g.progress.open": ["Ver o gráfico", "Open the chart"],
   });
 
   const targetText = (r) => (r.glyph === "manual" ? `${r.manual.lo}–${r.manual.hi}` : r.strategy === "rep_goal" ? r.sets.map((x) => x.reps).join("·") : r.strategy === "anchor_backoff" ? `${r.anchor.reps} + ${r.sets.length - 1}×${r.backoff.reps}` : `${r.sets.length}×${r.reps}`);
