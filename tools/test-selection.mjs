@@ -133,6 +133,11 @@ function addEntries(target, additions) {
 
 const EXPLICIT_INPUT_RULES = [
   {
+    match: /^test\/fixtures\/progression-strategies-v1\.json$/,
+    suiteFiles: ["test/progression-fixtures.mjs", "test/progression-engine.mjs"],
+    why: "reviewed progression fixture catalogue",
+  },
+  {
     match: /^test\/generative\/(?:adapters|arbitraries|model|properties|regressions)\//,
     suiteFiles: ["test/generative/run.mjs", "test/generative/self-test.mjs"],
     why: "generative property input",

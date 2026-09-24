@@ -119,10 +119,12 @@ suite likewise no longer freezes retired dialog/function names in source; its
 model and browser behavior remain the contract.
 
 Support-file selection follows actual ownership. Static fixtures select their
-scheduled importers; dynamically loaded generative adapters/arbitraries/models,
-properties and regression cases select the generative runner and its inventory
-self-test. An unknown executable input still widens safely. A deleted test selects
-the inventory checker instead of forcing an unrelated full product matrix.
+scheduled importers; the reviewed progression strategy JSON selects both its
+fixture-integrity validator and the engine that executes its cases; dynamically
+loaded generative adapters/arbitraries/models, properties and regression cases
+select the generative runner and its inventory self-test. An unknown executable
+input still widens safely. A deleted test selects the inventory checker instead
+of forcing an unrelated full product matrix.
 
 Long simulations, persistence/race suites, migration compatibility, privacy,
 offline behavior and accessibility remain because they cover distinct failure
