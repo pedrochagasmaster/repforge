@@ -6,13 +6,16 @@
 <title>Taurifer screen directions</title>
 <link rel="stylesheet" href="review.css">
 <link rel="stylesheet" href="phone.css">
+<link rel="stylesheet" href="phone-e.css">
+<link rel="stylesheet" href="phone-f.css">
+<link rel="stylesheet" href="phone-g.css">
 </head>
 <body>
 <header class="rv-head">
   <div class="rv-wrap">
     <p class="rv-kicker">Taurifer · main screens</p>
-    <h1 class="rv-title">Three directions</h1>
-    <p class="rv-intro">Each direction redraws the same eleven screens from one lifter's real week 4. Portuguese is the default; switch to EN to check the second language. Recommendations come from <code>progression-engine.js</code> run on this history with the app defaults.</p>
+    <h1 class="rv-title">Main-screen candidates</h1>
+    <p class="rv-intro">Seven directions redraw the same eleven screens from one lifter's real week 4. A, B and C are the first round. D is built to <code>DIRECTION-D-SPEC.md</code>; E, F and G are candidates built on D that apply the same correctness fixes and system rules in different ways. D to G also draw six extra screens: the set-2 Why, a mixed-strategy day and a first session. In D to G, every target is computed live by <code>progression-engine.js</code> and every shipped word is read from <code>i18n.js</code>. Portuguese is the default; switch to EN to check the second language.</p>
     <div class="rv-tools">
       <div class="rv-seg" role="group" aria-label="Language" id="lang">
         <button data-lang="pt" aria-pressed="true">PT</button><button data-lang="en" aria-pressed="false">EN</button>
@@ -24,7 +27,7 @@
         <button data-w="360">360</button><button data-w="390">390</button><button data-w="430">430</button>
       </div>
       <div class="rv-seg" role="group" aria-label="View" id="view">
-        <button data-view="one">One screen</button><button data-view="all">All screens</button>
+        <button data-view="one">One screen</button><button data-view="compare">Compare</button><button data-view="all">All screens</button>
       </div>
     </div>
   </div>
@@ -42,14 +45,22 @@
 </main>
 
 <footer class="rv-wrap rv-foot">
-  <p>Review page only. It is not loaded by the app, not precached, and does not touch <code>index.html</code>, <code>styles.css</code> or <code>app.js</code>. Serve the repository root over HTTP and open <code>docs/design/main-screen-directions/</code>. Arrow keys move between screens; 1, 2 and 3 switch direction.</p>
+  <p>Review page only. It is not loaded by the app, not precached, and does not touch <code>index.html</code>, <code>styles.css</code>, <code>app.js</code> or <code>sw.js</code>. Serve the repository root over HTTP and open <code>docs/design/main-screen-directions/</code>. Arrow keys move between screens; 1 to 7 switch direction. Compare shows every direction on the current screen.</p>
 </footer>
 
+<script src="../../../i18n.js"></script>
+<script src="../../../progression-engine.js"></script>
 <script src="data.js"></script>
+<script src="data-d.js"></script>
 <script src="kit.js"></script>
+<script src="kit-d.js"></script>
 <script src="dir-a.js"></script>
 <script src="dir-b.js"></script>
 <script src="dir-c.js"></script>
+<script src="dir-d.js"></script>
+<script src="dir-e.js"></script>
+<script src="dir-f.js"></script>
+<script src="dir-g.js"></script>
 <script src="main.js"></script>
 </body>
 </html>
