@@ -50,7 +50,7 @@ test("browser suites use the shared preview origin and never own fixed-port serv
 });
 
 test("visual capture ignores non-rendering tests/tools but remains conservative for real inputs", () => {
-  for (const file of ["README.md", "docs/backlog.md", "plans/060.md", "test/accessibility.mjs", "test/ci.mjs", "tools/run-tests.mjs", "tools/check-test-syntax.mjs"]) {
+  for (const file of ["README.md", "docs/backlog.md", "plans/060.md", "advisor-plans/001-example.md", "test/accessibility.mjs", "test/ci.mjs", "tools/run-tests.mjs", "tools/check-test-syntax.mjs"]) {
     assert.equal(selectVisuals([file], manifest).mode, "none", file);
   }
   for (const file of ["app.js", "index.html", "styles.css", "i18n-en.json", "sw.js", "shared-setup.js", "fonts/new.woff2", "assets/exercises/foo.png", "test/browser.mjs", "test/fixtures/shared-setup.mjs", "test/fixtures/seed-program.mjs", "test/fixtures/telemetry.mjs", "test/fixtures/README.md", "test/fixtures/nested/AGENTS.md", "tools/test-selection.mjs", "tools/ci-selection.mjs", "tools/ui-screens/session.mjs", "tools/capture-ui-screens.mjs", ".github/workflows/simulation.yml", "docs/ui-screens/manifest.json", "docs/ui-screens/entry-semantics.json", "unknown.txt"]) {
@@ -70,6 +70,7 @@ test("baseline-only selection recaptures whole screens, never isolated variants"
 
 test("affected selection is narrow when proven and fail-safe when it is not", () => {
   assert.equal(selectAffected(["docs/ci.md"]).mode, "none");
+  assert.equal(selectAffected(["advisor-plans/README.md"]).mode, "none");
   const direct = selectAffected(["test/accessibility.mjs"]);
   assert.equal(direct.mode, "selected");
   assert.ok(direct.entries.some(({ suite }) => suite.file === "test/accessibility.mjs"));

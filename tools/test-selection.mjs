@@ -8,7 +8,7 @@ import { SUITES, commandArgs } from "../test/suites.mjs";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const ALL = Object.entries(SUITES).flatMap(([lane, suites]) => suites.map((suite) => ({ lane, suite })));
-const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans)\/.+\.(md|html)$/;
+const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans|advisor-plans)\/.+\.(md|html)$/;
 
 function git(args, cwd) {
   return execFileSync("git", args, { cwd, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] });

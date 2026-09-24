@@ -6,7 +6,7 @@ import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
-const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans)\/.+\.md$/;
+const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans|advisor-plans)\/.+\.md$/;
 const VISUAL_FIXTURE = /^test\/fixtures(?:\/|$)/;
 const NON_RENDERING_TEST = /^test\/(?!browser\.mjs$|fixtures(?:\/|$)).+\.(?:mjs|js)$/;
 const NON_RENDERING_TOOL = /^tools\/(?:run-tests|check-test-syntax)\.mjs$/;
