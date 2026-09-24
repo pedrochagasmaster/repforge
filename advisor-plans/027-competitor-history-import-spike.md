@@ -17,7 +17,7 @@
 - **Depends on**: none
 - **Category**: direction (acquisition / migration)
 - **Planned at**: commit `76a31602`, 2026-09-23 (on `origin/ui-overhaul/057-management-surfaces`)
-- **Backlog**: **Later**: the first step of the "Strong/Sheets CSV import" row in §5 (Q615).
+- **Backlog**: **Next (post-overhaul)**: the history-import specification that §2 item 1 "Historical migration foundation — Hevy, Strong, generic CSV" requires before code (PR #249; Q615). That queue activates only after the overhaul's launch-validation boundary clears.
 
 ## Why this matters
 
@@ -37,7 +37,7 @@ The thesis names Hevy as the dominant Portuguese-language competitor in Brazil (
 - **History feeds recommendations by movement identity.** `matchLift(ex)` (`app.js:4528-4535`): when a row has `performedLibraryId`/`performedMovementId`, it matches by `liftKey(row)===exerciseLiftKey(ex)`. So imported rows stamped with the right library id inform the matching program slot's `recommendation()`.
 - Name → library matching (Plan 061): `rankImportCandidates(name,candidates,limit)` (`app.js:~11283`) and `classifyImportRow(row,candidates)` (`app.js:~11252`), with curated aliases in `tools/exercise-curation.json`. The import review UI already resolves likely/unknown names (`CONTEXT.md` "Import review").
 - Capacity needs RIR. Foreign exports typically carry RPE or nothing. `CONTEXT.md` "Capacity": RIR is credited only up to `hardRir`, so rows without trusted RIR yield weaker (reps-only) evidence.
-- Units: `settings.unit` is `kg` or `lb`. Brazil is kg-first. The lb contract is itself a deferred backlog item (`docs/backlog.md:101`).
+- Units: `settings.unit` is `kg` or `lb`. Brazil is kg-first. The lb contract is itself a deferred backlog item (`docs/backlog.md` §5 "Pound display and actionable increments").
 
 ## Commands you will need
 
@@ -65,7 +65,7 @@ In `docs/design/history-import.md`, define per source:
 - column → log-row field (date/time → `date`/`created`; workout title → `day`; exercise name → `name` + library resolution; set order → `set`; weight/reps → `load`/`reps`; RPE → `rir` as `10 − RPE` **only** when RPE ≥ 6, otherwise `null`, with the trust rule stated)
 - session grouping (what makes one Taurifer `session`) and deterministic `session` ids, so re-importing the same file is idempotent under `mergeImportedLog`'s id dedupe
 - warm-up and drop-set handling
-- unit conversion rules (never falsify history; see backlog:101)
+- unit conversion rules (never falsify history; see the backlog item "Pound display and actionable increments")
 - which rows are rejected, and how partial failure is reported
 
 **Verify**: every field of the log-row shape above appears in the spec with a rule or "not set".

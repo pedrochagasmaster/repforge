@@ -25,7 +25,7 @@ Every alpha participant's training history exists only in their browser's storag
 
 - `docs/business-product-thesis.md:~2440`: "alpha readiness requires … honest browser-persistence mitigations."
 - `:~2484-2497` names them: "request persistent browser storage where supported; encourage installation where useful; automatic or prominent export/backup nudges for pilot users; clearly communicate prototype/beta status… Do not turn this mitigation work into a major PWA infrastructure project."
-- `docs/backlog.md:123` defers all of it to "Later".
+- `docs/backlog.md` deferred all of it to "Later" until the owner resolved the contradiction in the thesis's favour (Q606).
 
 Meanwhile the code has **no `navigator.storage.persist()` call anywhere**. The last-backup date is shown only inside Settings (`app.js:10286`), and the backup guide appears only when the lifter opens Settings → Data backup (`app.js:15758-15761`), which means they already went looking for it. Losing an alpha participant's history is also a lost data point, and the thesis treats that as a reason for Phase 2 native work.
 
