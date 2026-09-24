@@ -2397,9 +2397,10 @@
       "id": "firstruncreate",
       "selector": "#firstRunCreate",
       "roles": {
-        "control": "primary"
+        "control": "primary",
+        "boundary": "decorative"
       },
-      "variant": null,
+      "variant": "landing-accent-primary",
       "facets": [],
       "states": [
         "default",
@@ -2409,7 +2410,7 @@
         "disabled",
         "loading"
       ],
-      "rationale": "Advances the current task with the strongest action weight.",
+      "rationale": "Opens the main first-run creation route without saving a program; the approved landing gives this primary action an accent fill.",
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-shared/invalid",
@@ -2420,9 +2421,10 @@
       "id": "firstruncreateclose",
       "selector": "#firstRunCreateClose",
       "roles": {
-        "control": "primary"
+        "control": "primary",
+        "boundary": "decorative"
       },
-      "variant": null,
+      "variant": "landing-accent-primary",
       "facets": [],
       "states": [
         "default",
@@ -2432,7 +2434,7 @@
         "disabled",
         "loading"
       ],
-      "rationale": "Advances the current task with the strongest action weight.",
+      "rationale": "Repeats the same main first-run creation route at the closing chapter with the same accent-filled primary treatment.",
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-shared/invalid",
@@ -2443,9 +2445,10 @@
       "id": "firstrunimport",
       "selector": "#firstRunImport",
       "roles": {
-        "control": "quiet-navigation"
+        "control": "quiet-navigation",
+        "boundary": "required"
       },
-      "variant": null,
+      "variant": "landing-bordered-navigation",
       "facets": [],
       "states": [
         "default",
@@ -2454,7 +2457,7 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "Opens the import route without committing training state; the approved opaque landing button needs its accent boundary to remain identifiable.",
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-shared/invalid",
@@ -2465,9 +2468,10 @@
       "id": "firstrunimportclose",
       "selector": "#firstRunImportClose",
       "roles": {
-        "control": "quiet-navigation"
+        "control": "quiet-navigation",
+        "boundary": "required"
       },
-      "variant": null,
+      "variant": "landing-bordered-navigation",
       "facets": [],
       "states": [
         "default",
@@ -2476,7 +2480,7 @@
         "focus-visible",
         "disabled"
       ],
-      "rationale": "Moves to another view, detail, or dismisses a layer without committing training state.",
+      "rationale": "Repeats the same import route at the closing chapter without committing training state and keeps the same required accent boundary.",
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-shared/invalid",
@@ -2510,9 +2514,10 @@
       "id": "firstrunsharedstart",
       "selector": "#firstRunSharedStart",
       "roles": {
-        "control": "primary"
+        "control": "primary",
+        "boundary": "decorative"
       },
-      "variant": null,
+      "variant": "landing-accent-primary",
       "facets": [],
       "states": [
         "default",
@@ -2522,7 +2527,7 @@
         "disabled",
         "loading"
       ],
-      "rationale": "Advances the current task with the strongest action weight.",
+      "rationale": "Advances the received-program first-run gate into review; its existing accent fill shares the exact first-run primary recipe.",
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-shared/gate"
@@ -7352,6 +7357,29 @@
     }
   ],
   "contextualVariants": [
+    {
+      "id": "landing-accent-primary",
+      "selector": "#firstRunCreate, #firstRunCreateClose, #firstRunSharedStart",
+      "role": "primary",
+      "rationale": "The two creation controls share a route, and received-program Start advances its own gate to review; all three are exact first-run primary actions with the approved accent fill.",
+      "owner": "plan-054/058",
+      "catalogStates": [
+        "onboarding-shared/gate",
+        "onboarding-shared/invalid",
+        "onboarding-start/first-run"
+      ]
+    },
+    {
+      "id": "landing-bordered-navigation",
+      "selector": "#firstRunImport, #firstRunImportClose",
+      "role": "quiet-navigation",
+      "rationale": "The two import controls open the same route without a training-state write; the opaque paper and required accent boundary preserve the approved landing hierarchy.",
+      "owner": "plan-054/058",
+      "catalogStates": [
+        "onboarding-shared/invalid",
+        "onboarding-start/first-run"
+      ]
+    },
     {
       "id": "rapid-workout-stepper",
       "selector": ".stepbtn",

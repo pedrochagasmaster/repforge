@@ -70,6 +70,8 @@ they do not create new roles.
 | Floating navigation capsule | `nav` | persistent-action |
 | Flush Program edit dock | `body:has(#program.program-editor-installed) nav` | persistent-action |
 | Featured entry action | `.entry-card--primary` | primary |
+| Accent-filled first-run start | `#firstRunCreate`, `#firstRunCreateClose`, `#firstRunSharedStart` | primary |
+| Bordered first-run import route | `#firstRunImport`, `#firstRunImportClose` | quiet-navigation |
 | Full-screen entry gate | `#firstRun` | modal |
 | Full-screen saved-session summary | `#sessionSummary` | modal |
 | Scope-dependent volume indicator | `#volumeDash .vrow__bar` | week or block from selected scope |
@@ -77,6 +79,40 @@ they do not create new roles.
 | First-run climax data | `.firstrun-pull--climax .firstrun-pull__value` | landing Mono data type |
 | Saved-session hero | `.sum-hero` | summary hero type |
 | Responsive rest clock | `.restdial__clock` | rest clock type |
+
+The two creation buttons share one `landing-accent-primary` recipe. Both open
+the same main creation route without saving a program. `#firstRunSharedStart`
+uses the same accent-filled primary treatment to advance a received program
+to review; it is the only other consumer of that treatment on the first-run
+gate. The two import buttons share one `landing-bordered-navigation` recipe.
+Both open the same import route without committing training state. The closing
+chapter repeats the same actions, so its placement does not create another
+control intent or color treatment. The recipe selectors name all five IDs
+exactly: creation and import in `onboarding-start/first-run` and
+`onboarding-shared/invalid`, plus received-program Start in
+`onboarding-shared/gate`.
+The existing featured entry action is an outlined recommendation card on the
+subsequent chooser, so it cannot supply either landing recipe.
+
+| State | `landing-accent-primary` | `landing-bordered-navigation` |
+| --- | --- | --- |
+| Default | `background: --color-action-text`; `color: --color-action-on-fill`; border the same as the fill, decorative | `background: --bg` (opaque paper); `color: --color-ink`; `border-color: --color-action-text`, required |
+| Hover | Keep the default colors and boundary; do not substitute the ordinary CTA ground | `background: --well`; keep default ink and required accent boundary |
+| Pressed | Keep the hover colors and boundary; use shared `--control-pressed-transform` | Keep the hover colors and boundary; use shared `--control-pressed-transform` |
+| Focus visible | Keep default colors; use `--control-focus-outline` with 2px outside offset | Keep default colors and required boundary; use `--control-focus-outline` with 2px outside offset |
+| Disabled | Native disabled state, `background: --control-primary-disabled-bg`, `color: --color-ink`, decorative transparent border, full opacity, no hover/press; explain unavailability in separate readable text | Native disabled state, `background: --bg`, `color: --color-disabled-reason`, decorative `--boundary-decorative` border, full opacity, no hover/press; explain unavailability in separate readable text |
+
+The aliases resolve in light to burnt orange `#B8410E`, white fill ink,
+paper `#F4F2EF`, hover paper `#FAF8F5`, and dark ink `#1B1A17`.
+In dark they resolve to orange `#FF8A3D`, dark fill ink `#231A14`,
+paper `#141310`, hover paper `#191713`, and light ink `#F2EFE9`.
+The accent-filled label measures 5.53:1 in light and 7.28:1 in dark.
+The import label exceeds 15:1 on both paper states; its required accent
+boundary measures at least 4.95:1 in light and 7.63:1 in dark. The
+focus outline measures at least 3.57:1 against the page in light and 6.33:1
+in dark. Disabled labels retain at least 4.5:1 without opacity, while the
+separate reason keeps the shared disabled-reason treatment. No new palette
+value or global control recipe is needed.
 
 ## Progress
 
@@ -154,7 +190,10 @@ ink, destructive actions use the danger ink with a required boundary when
 their shape carries the affordance, selection uses a required boundary and
 the selected fill/boundary when chosen, and fields use the ordinary surface,
 ink, and required boundary. The featured Plan 054 entry action keeps its
-declared accent-outline variant; Focus and Program steppers retain their
+declared accent-outline variant. The first-run creation and import controls
+keep the two selector-exact landing recipes above; the import hairline is a
+required boundary even though the action remains quiet navigation. Focus and
+Program steppers retain their
 declared rapid/deliberate variants. Pressed, focus, disabled, and error
 tokens are shared facets. A visible label does not become an icon simply
 because a CSS pseudo-element draws an arrow.

@@ -87,6 +87,45 @@ assert.equal(roleOf(".prog-day__head:not([id])"), "disclosure", "Program day che
 assert.equal(roleOf(".prog-ex:not([id])"), "quiet-navigation", "Program exercise row with a chevron drills in");
 assert.equal(roleOf("#entryFreeformStartOver"), "destructive", "Start over discards staged work");
 
+const landingStates = ["onboarding-shared/invalid", "onboarding-start/first-run"];
+const landingRecipes = [
+  { id: "landing-accent-primary", role: "primary", boundary: "decorative",
+    selectors: ["#firstRunCreate", "#firstRunCreateClose", "#firstRunSharedStart"],
+    states: ["onboarding-shared/gate", ...landingStates] },
+  { id: "landing-bordered-navigation", role: "quiet-navigation", boundary: "required",
+    selectors: ["#firstRunImport", "#firstRunImportClose"], states: landingStates },
+];
+function landingContractErrors(candidate) {
+  const errors = [];
+  for (const recipe of landingRecipes) {
+    const declarations = candidate.contextualVariants.filter((item) => item.id === recipe.id);
+    const variant = declarations[0];
+    if (declarations.length !== 1 || variant.role !== recipe.role ||
+        JSON.stringify(variant.selector.split(/,\s*/)) !== JSON.stringify(recipe.selectors) ||
+        JSON.stringify(variant.catalogStates) !== JSON.stringify(recipe.states)) errors.push(`${recipe.id} declaration`);
+    const members = candidate.components.filter((item) => item.variant === recipe.id);
+    if (JSON.stringify(members.map((item) => item.selector)) !== JSON.stringify(recipe.selectors)) errors.push(`${recipe.id} exact members`);
+    for (const selector of recipe.selectors) {
+      const item = candidate.components.find((member) => member.selector === selector);
+      const states = selector === "#firstRunSharedStart" ? ["onboarding-shared/gate"] : landingStates;
+      if (!item || item.roles.control !== recipe.role || item.roles.boundary !== recipe.boundary ||
+          JSON.stringify(item.catalogStates) !== JSON.stringify(states) ||
+          !item.states.includes("focus-visible") || !item.states.includes("disabled")) errors.push(`${selector} role, boundary, state or catalog owner`);
+    }
+  }
+  return errors;
+}
+assert.deepEqual(landingContractErrors(inventory), [], "four landing actions and shared Start have two exact recipes and only their rendered states");
+const wrongLandingRole = structuredClone(inventory);
+wrongLandingRole.components.find((item) => item.selector === "#firstRunImport").roles.control = "secondary";
+assert.ok(landingContractErrors(wrongLandingRole).some((error) => error.includes("#firstRunImport")), "visual resemblance cannot silently reclassify import");
+const widenedLandingVariant = structuredClone(inventory);
+widenedLandingVariant.contextualVariants.find((item) => item.id === "landing-bordered-navigation").selector = ".firstrun__cta--secondary";
+assert.ok(landingContractErrors(widenedLandingVariant).includes("landing-bordered-navigation declaration"), "a broad landing selector cannot replace exact IDs");
+const wrongLandingOwner = structuredClone(inventory);
+wrongLandingOwner.components.find((item) => item.selector === "#firstRunCreateClose").catalogStates.push("onboarding-shared/preview");
+assert.ok(landingContractErrors(wrongLandingOwner).some((error) => error.includes("#firstRunCreateClose")), "landing recipe cannot spread into the shared proposal state");
+
 const preview = await maybeStartLocalPreview([{ lane: "state" }], { cwd: ROOT });
 setCaptureBase(preview.env.REPFORGE_URL);
 const browser = await launchChromium();
@@ -166,6 +205,30 @@ try {
     assert.match(contract.data, /Plex Mono/, "training data family remains Plex Mono");
     assert.match(contract.shadow, theme === "dark" ? /rgba\(0,0,0/ : /rgba\(27,26,23/,
       `${theme} depth uses the proper shadow channels`);
+    const landingColors = await opened.page.evaluate(() => {
+      const sample = document.createElement("span");
+      document.body.append(sample);
+      const resolve = (token) => {
+        sample.style.backgroundColor = `var(${token})`;
+        return getComputedStyle(sample).backgroundColor;
+      };
+      const colors = Object.fromEntries([
+        "--color-action-text", "--color-action-on-fill", "--color-ink", "--color-focus",
+        "--color-disabled-reason", "--bg", "--well", "--control-primary-disabled-bg",
+      ].map((token) => [token, resolve(token)]));
+      sample.remove();
+      return colors;
+    });
+    const rgb = (token) => landingColors[token].match(/\d+/g).slice(0, 3).map(Number);
+    const ratio = (a, b) => contrastRatio(rgb(a), rgb(b));
+    assert.ok(ratio("--color-action-on-fill", "--color-action-text") >= 4.5, `${theme} landing fill label has AA contrast`);
+    for (const paper of ["--bg", "--well"]) {
+      assert.ok(ratio("--color-ink", paper) >= 4.5, `${theme} landing import label has AA contrast on ${paper}`);
+      assert.ok(ratio("--color-action-text", paper) >= 3, `${theme} required import boundary has AA contrast on ${paper}`);
+    }
+    assert.ok(ratio("--color-focus", "--bg") >= 3, `${theme} landing focus ring is visible outside the button`);
+    assert.ok(ratio("--color-ink", "--control-primary-disabled-bg") >= 4.5, `${theme} disabled creation label remains readable`);
+    assert.ok(ratio("--color-disabled-reason", "--bg") >= 4.5, `${theme} disabled import label remains readable`);
   }
   await opened.page.evaluate(() => document.documentElement.style.setProperty("--r", "var(--radius-control)"));
   assert.ok((await tokenContract()).errors.some((error) => error.includes("--r no longer resolves")), "wrong alias step is rejected");
