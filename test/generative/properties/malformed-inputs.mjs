@@ -23,16 +23,20 @@ const { Setup } = domain;
 const OPTS = domain.opts();
 
 export const DECODE_FAILURE_CODES = new Set([
+  // decode() returns both envelope errors and validate() failures unchanged.
   "missing",
   "unsupported-version",
   "encoded-too-large",
   "invalid-base64",
   "invalid-gzip",
+  "decompression-unavailable",
   "decompressed-too-large",
   "invalid-utf8",
   "invalid-json",
   "invalid-schema",
   "invalid-muscle-domain",
+  // Plan 057's blocker-only identity result, distinct from malformed schema.
+  "unresolved-exercises",
 ]);
 
 async function assertDecodeTotality(input) {
@@ -47,6 +51,13 @@ async function assertDecodeTotality(input) {
   }
   if (!result.ok && !DECODE_FAILURE_CODES.has(result.code)) {
     throw new Error(`untyped failure code "${result.code}" for ${describeInput(input)}`);
+  }
+  if (
+    !result.ok && result.code === "unresolved-exercises" &&
+    (!Array.isArray(result.blockers) || result.blockers.length === 0 ||
+      !Array.isArray(result.issues) || result.issues.length !== 0)
+  ) {
+    throw new Error("unresolved-exercises must remain a blocker-only validation result");
   }
   if (result.ok && !Setup.validate(result.value, OPTS).ok) {
     throw new Error("decode accepted an envelope whose value fails validation");
