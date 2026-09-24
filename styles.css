@@ -579,10 +579,13 @@ select:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
    space before a caption *is* the boundary, so it has to be wide enough to be
    read as one: 34px above a caption against 8px below it. */
 .settings-group{margin-bottom:34px}
+.settings-group__summary{
+  margin:0 var(--settings-inset) 8px;color:var(--ink-soft);font-size:13px;line-height:1.4;
+}
 .settings-group > .lede{font-size:12px;text-transform:none;letter-spacing:0;font-weight:400;padding:0 0 12px;margin:0;color:var(--ink-soft)}
 .settings-group__label{
   font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
-  color:var(--ink-faint);margin:0 0 8px var(--settings-inset);
+  color:var(--ink-faint);display:block;line-height:1.2;margin:0 0 8px var(--settings-inset);
 }
 .settings-row{
   position:relative;
@@ -671,12 +674,12 @@ div.settings-row{cursor:default}
   font-family:var(--mono);font-size:15px;line-height:1;
   transition:border-radius .2s ease,width .2s ease,color .2s ease,border-color .2s ease;
 }
-.wo-rest__dot{display:none;width:8px;height:8px;border-radius:50%;background:var(--accent);flex:none}
+.wo-rest__dot{display:none;width:8px;height:8px;border-radius:50%;background:var(--ink-soft);flex:none}
 .wo-rest__time{display:none;font-variant-numeric:tabular-nums}
 .wo-rest.is-running{width:auto;min-width:88px;padding:0 14px;border-radius:999px}
 .wo-rest.is-running .wo-rest__dot,.wo-rest.is-running .wo-rest__time{display:block}
 .wo-rest.is-running .wo-rest__icon{display:none}
-.wo-rest.is-done{color:var(--accent-deep);border-color:var(--accent)}
+.wo-rest.is-done{color:var(--ink);border-color:var(--rule-strong)}
 @media (prefers-reduced-motion:reduce){.wo-rest{transition:none}}
 /* The active workout reads the timer from its header. */
 body.is-focus-wo .restbar{display:none!important}
@@ -745,6 +748,7 @@ article.exercise--focus.is-dragging{box-shadow:0 18px 44px rgba(0,0,0,.20)}
 article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px rgba(0,0,0,.08)}
 
 .fcard__context{display:flex;flex-direction:column;flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;touch-action:pan-y}
+.fcard__context:has(.ledger__row.is-past){min-height:88px}
 .fcard__head{flex:none;padding:18px 20px 0}
 .focus-ex__eyebrow{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
 .focus-ex__muscle{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint);
@@ -777,6 +781,13 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
   padding:0 20px 6px;margin-top:18px;
   scrollbar-width:thin;scrollbar-color:var(--rule-strong) transparent;
 }
+/* A logged or previous-session band is the card's record of the work. Reserve
+   a third of the full-height card for it, but let scaled text use the compact
+   ledger path so the record remains scrollable without hiding the controls. */
+.fcard__ledger:has(.ledger__row.is-past),
+.fcard__ledger:has(.ledger__row[data-editn]){min-height:30vh}
+.exercise--focus.is-text-scaled .fcard__ledger:has(.ledger__row.is-past),
+.exercise--focus.is-text-scaled .fcard__ledger:has(.ledger__row[data-editn]){min-height:112px}
 .fcard__ledger.is-scrollable{touch-action:pan-y}
 .fcard__ledger::-webkit-scrollbar{width:4px}
 .fcard__ledger::-webkit-scrollbar-thumb{background:var(--rule-strong);border-radius:4px}
@@ -946,8 +957,8 @@ article.exercise--focus.is-peek{box-shadow:0 1px 2px rgba(0,0,0,.04),0 10px 30px
   box-shadow:0 4px 16px rgba(0,0,0,.08);
 }
 .restbar.hidden{display:none!important}
-.restbar__dot{width:7px;height:7px;border-radius:50%;background:var(--accent)}
-.restbar.is-done{border-color:var(--accent);color:var(--accent-deep)}
+.restbar__dot{width:7px;height:7px;border-radius:50%;background:var(--ink-soft)}
+.restbar.is-done{border-color:var(--rule-strong);color:var(--ink)}
 .restbar__time{min-width:2.5em;text-align:center}
 
 /* Overtime — the clock has passed zero and is counting up in the negative.
@@ -1196,16 +1207,16 @@ body.is-sheet-open{overflow:hidden}
    them the sheet's own scrollers keep their native panning. */
 .sheet__grab,.sheet__head{touch-action:none}
 .sheet__head{
-  flex:none;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:8px;
+  flex:none;display:grid;grid-template-columns:minmax(44px,1fr) minmax(0,2fr) minmax(44px,1fr);align-items:center;gap:8px;
   padding:4px 10px 12px;border-bottom:1px solid var(--rule);
 }
 .sheet__act{
-  justify-self:start;min-height:44px;padding:10px 8px;border:0;background:none;cursor:pointer;
-  color:var(--ink-soft);font-size:1rem;
+  justify-self:start;min-width:0;width:100%;min-height:44px;padding:10px 8px;border:0;background:none;cursor:pointer;
+  color:var(--ink-soft);font-size:1rem;white-space:normal;overflow-wrap:anywhere;word-break:break-word;
 }
 .sheet__act--accent{justify-self:end;color:var(--accent-deep);font-weight:650}
 .sheet__titles{text-align:center;min-width:0}
-.sheet__title{font-size:1.0625rem;font-weight:650}
+.sheet__title{font-size:1.0625rem;font-weight:650;overflow-wrap:anywhere;word-break:break-word}
 .sheet__sub{font-size:.875rem;color:var(--ink-soft);margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .sheet__body{flex:1;min-height:0;display:flex;padding:16px 16px 0}
 .sheet__text{
@@ -1469,6 +1480,9 @@ body.is-sheet-open{overflow:hidden}
 .custom__form .pick__filters{flex-wrap:wrap;overflow:visible;margin:0;padding:0}
 .custom__delete{margin-top:22px;width:100%;color:var(--danger)}
 .custom__note{margin-top:16px;font-size:13px;color:var(--ink-faint)}
+.custom__recovery{border-top:1px solid var(--rule);padding:16px 18px 8px}
+.custom__recovery p{margin:0 0 12px;color:var(--ink-soft);font-size:13px;line-height:1.45}
+.custom__recovery-actions{display:flex;gap:8px;flex-wrap:wrap}
 
 /* ---- Choose-another-day sheet ---- */
 /* One row per day of the split, so the sheet is as tall as the program is long
@@ -1587,7 +1601,7 @@ body.is-sheet-open{overflow:hidden}
   border:1px solid var(--rule-strong);background:var(--surface);color:var(--ink-soft);
   font-family:var(--mono);font-size:.875rem;line-height:1;
 }
-.restpreset.is-active{border-color:var(--accent);color:var(--accent-deep);background:var(--well)}
+.restpreset.is-active{border-color:var(--rule-strong);color:var(--ink);background:var(--well)}
 .restsheet__controls{display:flex;align-items:center;justify-content:center;gap:4px;width:100%}
 .restctl{
   display:inline-flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;
@@ -1595,10 +1609,11 @@ body.is-sheet-open{overflow:hidden}
   color:var(--ink-soft);font-size:.75rem;line-height:1;
 }
 .restctl:disabled{opacity:.35;cursor:default}
+.restctl .icon-mask{width:22px;height:22px}
 .restctl__label{max-width:100%;white-space:normal;overflow-wrap:anywhere;line-height:1.15}
 .restctl--primary{
   flex:none;width:68px;height:68px;border-radius:50%;
-  background:var(--accent);color:var(--cta-ink);
+  background:var(--cta);color:var(--cta-ink);
 }
 .restctl--primary .icon-mask{width:26px;height:26px}
 /* Idle or held, the button offers to start; running, it offers to hold. */
@@ -1634,6 +1649,8 @@ body.is-sheet-open{overflow:hidden}
   .wo-progress__top{margin-bottom:8px}
   .fcard__head{padding-top:15px}
   .fcard__ledger{margin-top:12px}
+  .fcard__ledger:has(.ledger__row.is-past),
+  .fcard__ledger:has(.ledger__row[data-editn]){min-height:112px}
   .exercise--focus .focus-ex__name{font-size:24px}
   .focus-well{padding:12px 14px 14px}
   .focus-well.is-done{padding-bottom:21px}
@@ -2045,6 +2062,12 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
   background:var(--surface);color:var(--ink);font-size:17px
 }
 .program-editor-installed .program-editor__add:hover{background:var(--well)}
+.program-ready__head{display:flex;flex-direction:column;gap:18px;margin-bottom:12px}
+.program-ready__title{font-size:28px;font-weight:650;letter-spacing:-.02em}
+.program-ready__list{border-top:1px solid var(--rule)}
+.program-ready__row{min-height:64px}
+.program-ready__row .listrow__sub{margin-top:3px}
+.program-ready-link{margin-top:16px}
 
 /* The installed editor reference is a full-width bottom bar. It deliberately
    drops the overview's floating dock treatment while editing, so the four
@@ -2053,8 +2076,10 @@ td{font-size:13px;color:var(--ink);font-variant-numeric:tabular-nums}
 body:has(#program.program-editor-installed) nav{
   left:0;right:0;bottom:0;transform:none;width:100%;max-width:none;height:calc(var(--dock-h) + env(safe-area-inset-bottom));
   padding:6px max(6px,env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) max(6px,env(safe-area-inset-left));
-  border:0;border-top:1px solid var(--rule);border-radius:0;background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none;box-shadow:none
+  border:0;border-top:1px solid var(--dock-edge);border-radius:0;background:var(--surface);backdrop-filter:none;-webkit-backdrop-filter:none;
+  box-shadow:inset 0 1px 0 var(--dock-sheen),0 -4px 14px var(--dock-edge)
 }
+body:has(#program.program-editor-installed) #programEditor{padding-bottom:calc(var(--nav) + env(safe-area-inset-bottom))}
 body:has(#program.program-editor-installed) nav button,
 body:has(#program.program-editor-installed) nav button.active{border-radius:0;background:transparent;box-shadow:none}
 body:has(#program.program-editor-installed) nav::before{display:none}
@@ -2351,6 +2376,15 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
 }
 .sum-chip.is-up{color:var(--positive);border-color:rgba(var(--positive-rgb),.35)}
 .sum-chip.is-new{color:var(--accent-deep);border-color:rgba(var(--accent-rgb),.35)}
+.sum-outcomes{list-style:none;margin:0;padding:0}
+.sum-outcome{display:flex;align-items:baseline;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid var(--rule)}
+.sum-outcome:first-child{border-top:1px solid var(--rule)}
+.sum-outcome__name{min-width:0;font-size:15px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
+.sum-outcome__state{flex:none;font-size:13px;font-weight:650;color:var(--ink-soft);white-space:nowrap}
+.sum-outcome__glyph{display:inline-block;margin-right:5px;font-size:11px}
+.sum-outcome__state--improved{color:var(--positive)}
+.sum-outcome__state--declined{color:var(--warning)}
+.sum-muscles__note{margin:-4px 0 8px;font-size:12px;line-height:1.4;color:var(--ink-soft)}
 
 .sum-baseline{
   margin-top:24px;padding-left:14px;border-left:2px solid var(--accent);
@@ -2526,6 +2560,9 @@ body.is-library::after,body.is-preview::after,body.is-import::after{content:none
 .settings-panel.guide-replay.is-open{display:grid}
 .guide-replay .lede{margin:0 0 2px}
 .guide-replay .btn{width:100%;justify-content:flex-start;text-align:left}
+.guide-replay__item{display:grid;gap:3px}
+.guide-replay__title{font-weight:650}
+.guide-replay__body{font-size:12px;line-height:1.35;color:var(--ink-soft);white-space:normal}
 
 /* Icon and copy share the first row; the action takes a row of its own, the way
    the first-run install card sets it. A CTA is a 100%-width control that does
@@ -2590,13 +2627,32 @@ button.vrow{width:100%;padding:8px 0;background:none;border:0;text-align:left;co
 .seg--window{margin:8px 0 12px}
 
 .session--edit{display:block}
+.session--read,.session--delete,.history-operation{display:block;width:100%}
+.history-selection__head{display:flex;align-items:flex-start;gap:16px;margin:4px 0 12px}
+.history-selection__date{margin-left:auto;text-align:right}
+.history-selection__date .section-label{margin:0}
+.history-selection__date h3{margin:2px 0 0;font-size:18px;font-weight:620}
+.history-editing__heading{margin:0 0 4px;font-size:18px;font-weight:620}
+.history-editing__status{margin:0 0 14px;color:var(--ink-soft);font-size:13px;line-height:1.4}
+.history-read__title{display:flex;justify-content:space-between;gap:12px;margin-bottom:14px}
+.history-read__head,.history-read__row{display:grid;grid-template-columns:minmax(0,1fr) 44px minmax(0,20%) minmax(0,17%) minmax(0,17%);gap:8px;align-items:center}
+.history-read__head{padding:0 0 5px;border-bottom:1px solid var(--rule);color:var(--ink-faint);font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase}
+.history-read__head span:not(:first-child),.history-read__row span:not(:first-child){text-align:right}
+.history-read__row{padding:10px 0;border-bottom:1px solid var(--rule);font-size:13px;font-variant-numeric:tabular-nums}
+.history-read__name{min-width:0;overflow-wrap:anywhere;white-space:normal}
+.history-read__set{color:var(--ink-faint)}
+.history-read__actions{display:flex;align-items:center;gap:10px;margin-top:16px}
+.history-read__actions .btn{flex:1}
+.history-read__actions .session__del{padding:12px}
+.history-delete__icon{display:grid;place-items:center;width:40px;height:40px;margin-bottom:12px;border:1px solid var(--danger);border-radius:50%;color:var(--danger);font-weight:700}
+.history-operation{padding:16px 0}
 .edhead{display:flex;align-items:flex-end;justify-content:space-between;gap:12px;margin-bottom:12px}
 .edate{display:flex;flex-direction:column;align-items:flex-end;color:var(--ink-soft);font-size:11px;gap:0;text-transform:uppercase;letter-spacing:.08em}
 .edate input{width:auto;margin-top:5px;padding:9px 11px;font-size:16px}
 .edrow{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,20%) minmax(0,17%) minmax(0,17%) 44px;gap:8px;align-items:center;margin-top:8px}
 .edrow--head span{text-transform:uppercase;letter-spacing:.08em;font-size:10.5px;color:var(--ink-faint);text-align:center;font-weight:600}
 .edrow--head span:first-child{text-align:left}
-.edrow__name{font-size:13px;color:var(--ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.edrow__name{font-size:13px;color:var(--ink);min-width:0;overflow-wrap:anywhere;white-space:normal;word-break:break-word}
 .edrow__name small{color:var(--ink-faint)}
 .edrow__in{width:100%;min-width:0;margin-top:0;text-align:center;font-size:16px;padding:9px 4px;background:var(--surface)}
 .edrow__rm{
@@ -2611,7 +2667,7 @@ button.vrow{width:100%;padding:8px 0;background:none;border:0;text-align:left;co
 .edrow.is-removed .edrow__in{visibility:hidden}
 input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-deep);outline-offset:1px}
 .edbtns{display:flex;gap:10px;margin-top:14px}
-.edbtns .btn{flex:1;padding:12px}
+.edbtns .btn{flex:1;min-width:0;padding:12px;white-space:normal;overflow-wrap:anywhere;word-break:break-word}
 /* Throwing the session away sits after the edits and under a rule, so the eye
    reaches Save first and never lands on it while aiming for something else. */
 .edrisk{display:flex;justify-content:center;margin-top:14px;padding-top:12px;border-top:1px solid var(--rule)}
@@ -2751,16 +2807,16 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
   -webkit-mask:no-repeat center/contain;mask:no-repeat center/contain;
 }
 .icon-mask--sm{width:16px;height:16px}
-.icon-mask--minus{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E")}
-.icon-mask--plus{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E")}
+.icon-mask--minus{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12h14'/%3E%3C/svg%3E")}
+.icon-mask--plus{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14M5 12h14'/%3E%3C/svg%3E")}
 .icon-mask--play{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M8 5.4a1 1 0 0 1 1.53-.85l9 6.6a1 1 0 0 1 0 1.7l-9 6.6A1 1 0 0 1 8 18.6z'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M8 5.4a1 1 0 0 1 1.53-.85l9 6.6a1 1 0 0 1 0 1.7l-9 6.6A1 1 0 0 1 8 18.6z'/%3E%3C/svg%3E")}
 .icon-mask--pause{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='7' y='5' width='3.6' height='14' rx='1.2'/%3E%3Crect x='13.4' y='5' width='3.6' height='14' rx='1.2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='7' y='5' width='3.6' height='14' rx='1.2'/%3E%3Crect x='13.4' y='5' width='3.6' height='14' rx='1.2'/%3E%3C/svg%3E")}
 .icon-mask--stop{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='6.5' y='6.5' width='11' height='11' rx='2'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Crect x='6.5' y='6.5' width='11' height='11' rx='2'/%3E%3C/svg%3E")}
-.icon-mask--reset{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.34-5.66'/%3E%3Cpolyline points='20 3.5 20 8.5 15 8.5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.34-5.66'/%3E%3Cpolyline points='20 3.5 20 8.5 15 8.5'/%3E%3C/svg%3E")}
+.icon-mask--reset{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.34-5.66'/%3E%3Cpolyline points='20 3.5 20 8.5 15 8.5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M20 12a8 8 0 1 1-2.34-5.66'/%3E%3Cpolyline points='20 3.5 20 8.5 15 8.5'/%3E%3C/svg%3E")}
 .icon-mask--chev-down{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E")}
 .icon-mask--overflow{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='1.6'/%3E%3Ccircle cx='12' cy='12' r='1.6'/%3E%3Ccircle cx='19' cy='12' r='1.6'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Ccircle cx='5' cy='12' r='1.6'/%3E%3Ccircle cx='12' cy='12' r='1.6'/%3E%3Ccircle cx='19' cy='12' r='1.6'/%3E%3C/svg%3E")}
 .icon-mask--note{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 3.5h8.5l4.5 4.5v12.5h-13z'/%3E%3Cpath d='M14 3.5V8h4.5'/%3E%3Cpath d='M8.5 12.5h7M8.5 16h4.5'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5.5 3.5h8.5l4.5 4.5v12.5h-13z'/%3E%3Cpath d='M14 3.5V8h4.5'/%3E%3Cpath d='M8.5 12.5h7M8.5 16h4.5'/%3E%3C/svg%3E")}
-.icon-mask--timer{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='13.5' r='7.5'/%3E%3Cpath d='M9.5 2.5h5'/%3E%3Cpath d='M12 2.5V6'/%3E%3Cpath d='M18.6 7.4l1.6-1.6'/%3E%3Cpath d='M12 13.5V9.8'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='13.5' r='7.5'/%3E%3Cpath d='M9.5 2.5h5'/%3E%3Cpath d='M12 2.5V6'/%3E%3Cpath d='M18.6 7.4l1.6-1.6'/%3E%3Cpath d='M12 13.5V9.8'/%3E%3C/svg%3E")}
+.icon-mask--timer{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='13.5' r='7.5'/%3E%3Cpath d='M9.5 2.5h5'/%3E%3Cpath d='M12 2.5V6'/%3E%3Cpath d='M18.6 7.4l1.6-1.6'/%3E%3Cpath d='M12 13.5V9.8'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.75' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='13.5' r='7.5'/%3E%3Cpath d='M9.5 2.5h5'/%3E%3Cpath d='M12 2.5V6'/%3E%3Cpath d='M18.6 7.4l1.6-1.6'/%3E%3Cpath d='M12 13.5V9.8'/%3E%3C/svg%3E")}
 .icon-mask--skip{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 5 14 12 6 19'/%3E%3Cpath d='M18 5v14'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 5 14 12 6 19'/%3E%3Cpath d='M18 5v14'/%3E%3C/svg%3E")}
 .icon-mask--close{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round'%3E%3Cpath d='M6 6l12 12M18 6L6 18'/%3E%3C/svg%3E")}
 .icon-mask--chev-up{-webkit-mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 15 12 9 18 15'/%3E%3C/svg%3E");mask-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 15 12 9 18 15'/%3E%3C/svg%3E")}
@@ -2800,7 +2856,6 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .today-prog__name{font-size:16px;font-weight:600}
 .today-prog__week{font-size:14px;color:var(--ink-soft);margin-top:4px}
 .today-prog .segbar{margin-top:12px}
-.today-prog__done{margin-top:10px;text-align:right;font-size:13px;color:var(--ink-soft)}
 
 /* Today, once a session is saved: a recap stands where the start CTA would be. */
 .today-done{padding:4px 0 8px}
@@ -3973,6 +4028,13 @@ body.is-firstrun nav,body.is-firstrun #installBtn,body.is-firstrun #restBar{disp
   -webkit-user-select:text;user-select:text;
 }
 .share-setup__link:empty{display:none}
+.share-setup__blocker-summary{margin:0;font-size:15px;line-height:1.4;font-weight:650;color:var(--ink);overflow-wrap:anywhere}
+.share-setup__blockers{display:flex;flex-direction:column;gap:10px}
+.share-setup__blocker{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px;background:var(--well);border:1px solid var(--rule);border-radius:12px}
+.share-setup__blocker-copy{display:flex;min-width:0;flex:1;flex-direction:column;gap:3px;line-height:1.35}
+.share-setup__blocker-copy strong{font-size:15px;overflow-wrap:anywhere}
+.share-setup__blocker-copy span{font-size:13px;color:var(--ink-soft);overflow-wrap:anywhere}
+.share-setup__repair{flex:none;min-height:40px;padding-inline:14px}
 .share-setup__status{margin:0;font-size:14px;line-height:1.4;color:var(--ink-soft);overflow-wrap:anywhere}
 .share-setup__status:empty{display:none}
 .installsheet{

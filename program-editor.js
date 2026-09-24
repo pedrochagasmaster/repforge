@@ -396,14 +396,24 @@
       collapsedDays.delete(day); expandedExercises.add(exercise.id);
       return stage(next, { kind: "exercise_add", targetDay: day, targetId: exercise.id, libraryId: entry.id, exercise: exercise });
     });
-    const replaceForExercise = id => {
+    const replaceForExercise = (id, { repair = false } = {}) => {
       const current = document.program?.find(item => item.id === id);
       if (!current) return Promise.resolve(null);
-      return chooseExercise({ mode: "replace", day: current.day, exercise: clone(current), exclude: exercisesFor(document, current.day).filter(item => item.id !== id).map(item => item.libraryId).filter(Boolean) }).then(entry => {
+      return chooseExercise({ mode: "replace", day: current.day, exercise: clone(current), repair, exclude: exercisesFor(document, current.day).filter(item => item.id !== id).map(item => item.libraryId).filter(Boolean) }).then(choice => {
+        if (!choice) return null;
+        const handoff = choice?.entry ? choice : { entry: choice, stagedCustomDefinition: null };
+        const entry = handoff.entry;
         if (!entry) return null;
-        const next = clone(document); if (!replaceExercise(next, id, entry)) return null;
+        const next = clone(document), customExercise = handoff.stagedCustomDefinition ? clone(handoff.stagedCustomDefinition) : null;
+        if (customExercise && customExercise.id !== entry.id) return null;
+        if (customExercise) {
+          const customExercises = Array.isArray(next.customExercises) ? next.customExercises : [];
+          const existing = customExercises.find(item => item?.id === customExercise.id);
+          if (!existing) next.customExercises = customExercises.concat(customExercise);
+        }
+        if (!replaceExercise(next, id, entry)) return null;
         const replacement = next.program?.find(item => item.id === id);
-        return stage(next, { kind: "exercise_replace", targetId: id, beforeLibraryId: current.libraryId, afterLibraryId: entry.id, exercise: replacement });
+        return stage(next, { kind: "exercise_replace", targetId: id, beforeLibraryId: current.libraryId, afterLibraryId: entry.id, exercise: replacement, ...(customExercise ? { customExercise } : {}) });
       });
     };
     const removeExercise = id => {
@@ -553,8 +563,8 @@
             <label><span>${esc(label("max"))}</span><input type="number" inputmode="numeric" min="1" step="1" data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="max" value="${esc(exercise.max)}"></label>
           </fieldset>
           <div class="program-editor__exercise-actions">
-            <button type="button" class="program-editor__replace" data-role="replace" data-id="${esc(exercise.id)}">${esc(label("replaceExercise"))}</button>
-            <button type="button" class="program-editor__remove" data-role="remove-exercise" data-id="${esc(exercise.id)}">${esc(label("removeExercise"))}</button>
+            <button type="button" class="program-editor__replace" data-role="replace" data-action-role="replacement" data-id="${esc(exercise.id)}">${esc(label("replaceExercise"))}</button>
+            <button type="button" class="program-editor__remove" data-role="remove-exercise" data-action-role="removal" data-id="${esc(exercise.id)}">${esc(label("removeExercise"))}</button>
           </div>
           <details class="program-editor__more" data-role="more-details" data-id="${esc(exercise.id)}">
             <summary>${esc(label("details"))}</summary>
@@ -569,8 +579,8 @@
           <input class="program-editor__exercise-name pex__name" data-role="exercise-field" data-id="${esc(exercise.id)}" data-field="name" value="${esc(name)}" placeholder="${esc(label("namePlaceholder"))}" aria-label="${esc(name)}">
           <span class="program-editor__summary" data-role="exercise-summary">${esc(summary(exercise))}</span>
           <button type="button" class="program-editor__drag-handle" data-role="drag-handle" data-id="${esc(exercise.id)}" aria-label="${esc(label("move", undefined, `${label("moveUp")} ${name}`))}" title="${esc(label("move"))}">≡</button>
-          <button type="button" class="program-editor__exercise-toggle" data-role="toggle-exercise" data-id="${esc(exercise.id)}" aria-expanded="${open ? "true" : "false"}" aria-label="${esc(open ? "Collapse" : "Expand")} ${esc(name)}"><span class="icon-mask icon-mask--chev-${open ? "up" : "down"}" aria-hidden="true"></span></button>
-          <button type="button" class="program-editor__exercise-menu" data-role="exercise-menu" data-id="${esc(exercise.id)}" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(label("more"))}">⋮</button>
+          <button type="button" class="program-editor__exercise-toggle" data-role="toggle-exercise" data-action-role="expansion" data-id="${esc(exercise.id)}" aria-expanded="${open ? "true" : "false"}" aria-label="${esc(open ? "Collapse" : "Expand")} ${esc(name)}"><span class="icon-mask icon-mask--chev-${open ? "up" : "down"}" aria-hidden="true"></span></button>
+          <button type="button" class="program-editor__exercise-menu" data-role="exercise-menu" data-action-role="expansion" data-id="${esc(exercise.id)}" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(label("more"))}">⋮</button>
         </header>${details}
         <div class="program-editor__menu" data-role="move-menu" data-id="${esc(exercise.id)}" hidden role="menu">
           <button type="button" role="menuitem" data-role="more-details" data-id="${esc(exercise.id)}">${esc(label("details"))}</button>
@@ -594,12 +604,12 @@
         <header class="program-editor__day-head pday__head" data-role="day-header">
           <input class="program-editor__day-name pday__name" data-role="day-name" data-day="${esc(day)}" value="${esc(titleFor(day, index))}" aria-label="${esc(label("dayName"))}">
           <span class="program-editor__day-count pday__count">${esc(dayCount(list.length))}</span>
-          <button type="button" class="program-editor__day-menu" data-role="day-menu" data-day="${esc(day)}" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(label("more"))}">⋮</button>
-          <button type="button" class="program-editor__day-toggle pday__caret" data-role="toggle-day" data-day="${esc(day)}" aria-expanded="${open ? "true" : "false"}" aria-label="${esc(open ? "Collapse" : "Expand")} ${esc(titleFor(day, index))}"><span class="icon-mask icon-mask--chev-${open ? "up" : "down"}" aria-hidden="true"></span></button>
+          <button type="button" class="program-editor__day-menu" data-role="day-menu" data-action-role="expansion" data-day="${esc(day)}" aria-haspopup="menu" aria-expanded="false" aria-label="${esc(label("more"))}">⋮</button>
+          <button type="button" class="program-editor__day-toggle pday__caret" data-role="toggle-day" data-action-role="expansion" data-day="${esc(day)}" aria-expanded="${open ? "true" : "false"}" aria-label="${esc(open ? "Collapse" : "Expand")} ${esc(titleFor(day, index))}"><span class="icon-mask icon-mask--chev-${open ? "up" : "down"}" aria-hidden="true"></span></button>
         </header>
         <div class="program-editor__day-menu-panel" data-role="day-menu-panel" data-day="${esc(day)}" hidden role="menu">
           <button type="button" role="menuitem" data-role="toggle-reorder">${esc(label("reorder", undefined, "Reorder exercises"))}</button>
-          <button type="button" role="menuitem" data-role="remove-day" data-day="${esc(day)}">${esc(label("removeDay", undefined, "Remove day"))}</button>
+          <button type="button" role="menuitem" data-role="remove-day" data-action-role="removal" data-day="${esc(day)}">${esc(label("removeDay", undefined, "Remove day"))}</button>
         </div>
         <div class="program-editor__day-body pexlist" data-role="day-body"${open ? "" : " hidden"}>
           ${list.map((exercise, itemIndex) => renderExercise(exercise, itemIndex, list.length, day)).join("") || `<p class="program-editor__empty pday__empty" data-role="day-empty">${esc(label("emptyDays"))}</p>`}
@@ -940,6 +950,7 @@
       validationIssues: () => validation(document),
       commit: apply,
       discard,
+      replaceExercise: exerciseInstanceId => replaceForExercise(exerciseInstanceId, { repair: true }),
     };
   }
 

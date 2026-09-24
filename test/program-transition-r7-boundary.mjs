@@ -769,6 +769,7 @@ async function installOldWorker(page, base) {
     undefined,
     { timeout: 15000 },
   );
+  await page.waitForFunction((cache) => caches.has(cache), OLD_CACHE, { timeout: 10000 });
   const historicalIdentity = await page.evaluate(async () => {
     const digest = async (response) => {
       const bytes = await response.arrayBuffer();

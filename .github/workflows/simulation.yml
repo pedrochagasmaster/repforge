@@ -4,166 +4,182 @@ on:
   push:
     branches: [main]
   pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
   workflow_dispatch:
+    inputs:
+      mode:
+        description: Verification scope
+        type: choice
+        required: true
+        options: [feedback, candidate]
+      expected_sha:
+        description: Exact 40-character source SHA
+        required: true
 
 permissions:
   contents: read
 
 concurrency:
-  group: simulation-${{ github.workflow }}-${{ github.ref }}
-  cancel-in-progress: true
+  group: simulation-${{ github.event_name == 'pull_request' && github.event.pull_request.draft && format('feedback-{0}', github.event.pull_request.number) || format('candidate-{0}', github.event_name == 'workflow_dispatch' && inputs.expected_sha || github.sha) }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft }}
 
 jobs:
-  # Preserve the existing check name while running its contracts only once.
-  interaction-runtime:
+  plan:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    outputs:
+      mode: ${{ steps.select.outputs.mode }}
+      head: ${{ steps.select.outputs.head }}
+      browser: ${{ steps.select.outputs.browser }}
+      fast: ${{ steps.select.outputs.fast }}
+      service: ${{ steps.select.outputs.service }}
+      visual: ${{ steps.select.outputs.visual }}
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
           persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/setup-node@v5
+        with:
+          node-version: "22"
+      - name: Select commands and verify exact source SHA
+        id: select
+        run: node tools/ci-plan.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ci-plan-${{ steps.select.outputs.head }}
+          path: .ci-results/ci-plan.json
+          retention-days: 14
+
+  interaction-runtime:
+    needs: plan
+    if: needs.plan.outputs.fast != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      CI_SOURCE_SHA: ${{ needs.plan.outputs.head }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ needs.plan.outputs.head }}
+          persist-credentials: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-plan-${{ needs.plan.outputs.head }}
+          path: .ci-results
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: test/package-lock.json
       - run: npm ci --prefix test
-      - name: Reconcile the executable inventory
-        run: node tools/run-tests.mjs --check
-      - name: Fast contracts (no browser installation)
-        run: node tools/run-tests.mjs fast
-      - name: Upload contract results
-        if: always()
+      - run: node tools/run-tests.mjs --check
+      - name: Selected fast contracts
+        run: node tools/run-tests.mjs fast --suite-ids "${{ needs.plan.outputs.fast }}" --keep-going
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: contracts-${{ github.sha }}
+          name: contracts-${{ needs.plan.outputs.head }}
           path: .ci-results/
           include-hidden-files: true
           retention-days: 7
 
   browser:
+    needs: plan
+    if: needs.plan.outputs.browser != '[]'
     runs-on: ubuntu-latest
-    timeout-minutes: 30
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
-        lane: [state, entry, workout]
+        lane: ${{ fromJSON(needs.plan.outputs.browser) }}
     env:
-      REPFORGE_URL: http://localhost:8000/
       REPFORGE_DIAGNOSTIC_REPLAY: "1"
+      CI_SOURCE_SHA: ${{ needs.plan.outputs.head }}
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: ${{ needs.plan.outputs.head }}
           persist-credentials: false
+          # Historical migration contracts use git show/archive on older commits.
           fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-plan-${{ needs.plan.outputs.head }}
+          path: .ci-results
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
           cache: npm
           cache-dependency-path: test/package-lock.json
-      - name: Install the pinned headless browser only
+      - name: Install pinned headless browser
         working-directory: test
         run: |
           npm ci
           npx playwright install --with-deps --only-shell chromium
-      - name: Serve an analytics-disabled preview
+      - name: Run selected ${{ matrix.lane }} contracts
+        env:
+          LANE: ${{ matrix.lane }}
         run: |
-          node scripts/generate-posthog-config.mjs
-          mkdir -p .ci-results
-          python3 -m http.server 8000 >.ci-results/server.log 2>&1 &
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8000/ >/dev/null; then exit 0; fi
-            sleep 1
-          done
-          exit 1
-      - name: Run ${{ matrix.lane }} suites
-        run: node tools/run-tests.mjs "${{ matrix.lane }}"
-      - name: Upload timings, failure logs and diagnostic traces
-        if: always()
+          ids="$(node --input-type=module -e 'import{readFileSync}from"node:fs";const p=JSON.parse(readFileSync(".ci-results/ci-plan.json"));process.stdout.write(p.tests[process.env.LANE].join(","))')"
+          node tools/run-tests.mjs "$LANE" --suite-ids "$ids" --keep-going
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: browser-${{ matrix.lane }}-${{ github.sha }}
+          name: browser-${{ matrix.lane }}-${{ needs.plan.outputs.head }}
           path: .ci-results/
           include-hidden-files: true
           retention-days: 7
 
-  telemetry-privacy:
+  install-transfer-service:
+    needs: plan
+    if: needs.plan.outputs.service == 'true'
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
     env:
-      REPFORGE_URL: http://localhost:8000/
-      REPFORGE_DIAGNOSTIC_REPLAY: "1"
+      CI_SOURCE_SHA: ${{ needs.plan.outputs.head }}
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: ${{ needs.plan.outputs.head }}
           persist-credentials: false
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
-          cache: npm
-          cache-dependency-path: test/package-lock.json
-      - name: Install the pinned headless browser only
-        working-directory: test
-        run: |
-          npm ci
-          npx playwright install --with-deps --only-shell chromium
-      - name: Serve an analytics-disabled preview
-        run: |
-          node scripts/generate-posthog-config.mjs
-          mkdir -p .ci-results
-          python3 -m http.server 8000 >.ci-results/server.log 2>&1 &
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8000/ >/dev/null; then exit 0; fi
-            sleep 1
-          done
-          exit 1
-      - name: Runtime event meaning and hostile-sentinel leakage
-        run: node tools/run-tests.mjs privacy
-      - name: Upload privacy results
-        if: always()
+      - run: npm ci
+        working-directory: services/install-transfer
+      - run: node tools/run-tests.mjs service --keep-going
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: privacy-${{ github.sha }}
-          path: .ci-results/
+          name: service-${{ needs.plan.outputs.head }}
+          path: .ci-results/service/
           include-hidden-files: true
           retention-days: 7
 
   visual-evidence:
+    needs: plan
+    if: needs.plan.outputs.visual != 'none'
     runs-on: ubuntu-latest
-    timeout-minutes: 20
-    env:
-      REPFORGE_URL: http://localhost:8000/
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v5
         with:
+          ref: ${{ needs.plan.outputs.head }}
           persist-credentials: false
-          fetch-depth: 2
+      - uses: actions/download-artifact@v4
+        with:
+          name: ci-plan-${{ needs.plan.outputs.head }}
+          path: .ci-results
       - uses: actions/setup-node@v5
         with:
           node-version: "22"
-      - name: Select visual scope before installing a browser
-        id: scope
-        env:
-          CI_BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.before }}
-        run: node tools/ci-selection.mjs
-      - name: Install capture dependencies only when needed
-        if: steps.scope.outputs.mode != 'none'
+      - name: Install pinned headless browser
         working-directory: test
         run: |
           npm ci
           npx playwright install --with-deps --only-shell chromium
-      - name: Serve an analytics-disabled preview
-        if: steps.scope.outputs.mode != 'none'
-        run: |
-          node scripts/generate-posthog-config.mjs
-          python3 -m http.server 8000 >.ci-results/server.log 2>&1 &
-          for i in $(seq 1 30); do
-            if curl -sf http://localhost:8000/ >/dev/null; then exit 0; fi
-            sleep 1
-          done
-          exit 1
-      - name: Regenerate and compare visual and semantic evidence
-        if: steps.scope.outputs.mode != 'none'
+      - name: Recapture and compare pixels and semantics
         shell: bash
         run: |
           set -euo pipefail
@@ -173,61 +189,61 @@ jobs:
           chmod -R a-w "$baseline"
           cleanup() {
             status=$?
-            if [ "$status" -ne 0 ]; then
-              cp -a "$baseline" .ci-results/visual-baseline || true
-            fi
+            if [ "$status" -ne 0 ]; then cp -a "$baseline" .ci-results/visual-baseline || true; fi
             chmod -R u+w -- "$baseline" 2>/dev/null || true
             rm -rf -- "$baseline"
-            exit "$status"
           }
           trap cleanup EXIT
           mapfile -d '' -t capture_args < <(node --input-type=module -e '
             import { readFileSync } from "node:fs";
-            const plan = JSON.parse(readFileSync(".ci-results/visual-plan.json", "utf8"));
-            for (const key of plan.screens) process.stdout.write("--screen\0" + key + "\0");
+            const p = JSON.parse(readFileSync(".ci-results/ci-plan.json"));
+            if (p.visual.mode === "screens") for (const key of p.visual.screens)
+              process.stdout.write("--screen\0" + key + "\0");
           ')
-          echo 'Capture started; catalog is not fresh until capture exits successfully.' >.ci-results/visual-status.txt
           node tools/capture-ui-screens.mjs "${capture_args[@]}" 2>&1 | tee .ci-results/capture.log
-          echo 'Capture succeeded; checking registration and comparing pixels and semantics.' >.ci-results/visual-status.txt
           node tools/check-ui-screens.mjs 2>&1 | tee .ci-results/catalog.log
           node tools/compare-ui-screens.mjs --baseline "$baseline/screens" --baseline-semantic "$baseline/entry-semantics.json" 2>&1 | tee .ci-results/compare.log
-          echo 'Capture, registration, perceptual comparison and semantics passed.' >.ci-results/visual-status.txt
-      - name: Upload selection and visual logs even on failure
-        if: always()
+      - if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: visual-results-${{ github.sha }}
+          name: visual-results-${{ needs.plan.outputs.head }}
           path: .ci-results/
           include-hidden-files: true
           retention-days: 7
-      - name: Upload current catalog for a failed visual run
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: visual-current-${{ github.sha }}
-          path: docs/ui-screens/
-          retention-days: 7
 
-  # Compatibility alias: the recorder's rejection tests are in the fast lane.
   verification-evidence:
     if: always()
-    needs: interaction-runtime
+    needs: [plan, interaction-runtime]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
       - env:
-          RESULT: ${{ needs.interaction-runtime.result }}
-        run: test "$RESULT" = success
+          PLAN: ${{ needs.plan.result }}
+          FAST: ${{ needs.interaction-runtime.result }}
+          FAST_SELECTED: ${{ needs.plan.outputs.fast }}
+        run: test "$PLAN" = success && { test -z "$FAST_SELECTED" || test "$FAST" = success; }
 
-  # Keep the old required check name; a failed, cancelled or missing lane fails it.
+  # Required check is emitted only for candidate mode. A feedback pass cannot satisfy it.
   simulation:
-    if: always()
-    needs: [interaction-runtime, browser, telemetry-privacy, visual-evidence, verification-evidence]
+    if: always() && (needs.plan.outputs.mode == 'candidate' || github.event_name == 'push' || github.event_name == 'workflow_dispatch' && inputs.mode == 'candidate' || github.event_name == 'pull_request' && !github.event.pull_request.draft)
+    needs: [plan, interaction-runtime, browser, install-transfer-service, visual-evidence, verification-evidence]
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
-      - name: Require every lane to succeed
+      - name: Require selected candidate lanes to pass
         env:
           RESULTS: ${{ toJSON(needs) }}
         run: |
-          node -e 'const needs=JSON.parse(process.env.RESULTS); for(const [name,job] of Object.entries(needs)){console.log(`${name}: ${job.result}`); if(job.result!=="success")process.exitCode=1;}'
+          node -e 'const n=JSON.parse(process.env.RESULTS);for(const [k,v] of Object.entries(n)){console.log(`${k}: ${v.result}`);if(v.result!=="success")process.exitCode=1}'
+
+  simulation-feedback:
+    if: always() && (needs.plan.outputs.mode == 'feedback' || github.event_name == 'pull_request' && github.event.pull_request.draft || github.event_name == 'workflow_dispatch' && inputs.mode == 'feedback')
+    needs: [plan, interaction-runtime, browser, install-transfer-service, visual-evidence, verification-evidence]
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Require selected feedback lanes to pass
+        env:
+          RESULTS: ${{ toJSON(needs) }}
+        run: |
+          node -e 'const n=JSON.parse(process.env.RESULTS),o=n.plan.outputs||{};for(const [k,v] of Object.entries(n)){const selected=k==="plan"||k==="verification-evidence"||k==="interaction-runtime"&&!!o.fast||k==="browser"&&o.browser!=="[]"||k==="install-transfer-service"&&o.service==="true"||k==="visual-evidence"&&o.visual!=="none";console.log(`${k}: ${v.result}${selected?" (required)":" (not selected)"}`);if(v.result!==(selected?"success":"skipped"))process.exitCode=1}'

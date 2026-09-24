@@ -435,21 +435,21 @@ console.log("schema: kind, version, slots, ids");
   const unknown = cloneFixture();
   unknown.program.exercises[0].libraryId = "no_such_id";
   const unknownResult = Setup.validate(unknown, OPTS);
-  assert(!unknownResult.ok && unknownResult.code === "invalid-schema", "unknown built-in id fails through supplied resolver", unknownResult.code);
+  assert(!unknownResult.ok && unknownResult.code === "unresolved-exercises" && unknownResult.blockers?.[0]?.reasonCode === "unknown-library-id", "unknown built-in id reports a structured blocker", json(unknownResult));
 
   const emptyResolver = Setup.validate(cloneFixture(), { builtInIds: new Set() });
-  assert(!emptyResolver.ok && emptyResolver.code === "invalid-schema", "resolver with no ids rejects a current built-in");
+  assert(!emptyResolver.ok && emptyResolver.code === "unresolved-exercises" && emptyResolver.blockers?.[0]?.reasonCode === "unknown-library-id", "resolver with no ids reports a structured blocker", json(emptyResolver));
 
   const legacy = cloneFixture();
   legacy.program.exercises[0].libraryId = "dl_mc";
   const legacyResult = Setup.validate(legacy, OPTS);
-  assert(!legacyResult.ok && legacyResult.code === "invalid-schema", "received legacy alias is rejected by the strict v1 validator", legacyResult.code);
+  assert(!legacyResult.ok && legacyResult.code === "unresolved-exercises" && legacyResult.blockers?.[0]?.reasonCode === "unknown-library-id", "received legacy alias is rejected by the strict v1 validator", json(legacyResult));
 
   const missingCustom = cloneFixture();
   missingCustom.program.exercises[0].libraryId = "custom:missing";
   missingCustom.program.customExercises = [];
   const missingCustomResult = Setup.validate(missingCustom, OPTS);
-  assert(!missingCustomResult.ok && missingCustomResult.code === "invalid-schema", "custom references require definitions", missingCustomResult.code);
+  assert(!missingCustomResult.ok && missingCustomResult.code === "unresolved-exercises" && missingCustomResult.blockers?.[0]?.reasonCode === "missing-custom-definition", "custom references report a structured blocker", json(missingCustomResult));
 
   const unused = cloneFixture(REPRESENTATIVE_PAYLOAD);
   unused.program.customExercises.push({

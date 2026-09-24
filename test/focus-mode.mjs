@@ -366,7 +366,7 @@ async function main() {
   // Tapping a running clock opens the timer sheet; ending the rest is a
   // deliberate choice inside it, never the side effect of a stray tap.
   await page.click("#woRest");
-  await page.waitForTimeout(350);
+  await page.waitForSelector("#restSheet:not([hidden]).is-open");
   const restSheet = await page.evaluate(() => {
     const el = document.querySelector("#restSheet");
     return {
@@ -381,21 +381,95 @@ async function main() {
     "tapping the running chip opens the timer with the rest still running", JSON.stringify(restSheet));
   assert(restSheet.presets >= 4 && restSheet.armed === 1,
     "the sheet offers rest lengths and marks the one this rest is armed at", JSON.stringify(restSheet));
+  const timerAppearance = () => page.evaluate(() => {
+    const root = getComputedStyle(document.documentElement);
+    const resolve = (value) => {
+      const probe = document.createElement("span");
+      probe.style.color = value.trim();
+      document.body.append(probe);
+      const resolved = getComputedStyle(probe).color;
+      probe.remove();
+      return resolved;
+    };
+    const color = (selector, property) => {
+      const node = document.querySelector(selector);
+      return node ? getComputedStyle(node)[property] : "";
+    };
+    const neutral = {
+      accent: resolve(root.getPropertyValue("--accent")),
+      cta: resolve(root.getPropertyValue("--cta")),
+      ink: resolve(root.getPropertyValue("--ink")),
+      soft: resolve(root.getPropertyValue("--ink-soft")),
+    };
+    return {
+      state: [...document.querySelector("#restSheet").classList].filter((name) => name.startsWith("is-")).sort(),
+      clock: document.querySelector("#restSheetClock").textContent.trim(),
+      arc: color("#restDialArc", "stroke"),
+      chipDot: color("#woRest .wo-rest__dot", "backgroundColor"),
+      primary: {
+        background: color("#restPlayPause", "backgroundColor"),
+        foreground: color("#restPlayPause", "color"),
+      },
+      secondary: ["#restMinus", "#restPlus", "#restReset", "#restStop"].map((selector) => ({
+        selector,
+        foreground: color(selector, "color"),
+        background: color(selector, "backgroundColor"),
+      })),
+      selectedPreset: {
+        foreground: color("#restPresets .is-active", "color"),
+        background: color("#restPresets .is-active", "backgroundColor"),
+        border: color("#restPresets .is-active", "borderTopColor"),
+      },
+      icons: ["#restMinus .icon-mask", "#restPlus .icon-mask", "#restReset .icon-mask", "#woRest .icon-mask"]
+        .map((selector) => getComputedStyle(document.querySelector(selector)).webkitMaskImage || ""),
+      neutral,
+    };
+  });
+  const runningAppearance = await timerAppearance();
+  assert(runningAppearance.arc === runningAppearance.neutral.accent &&
+    runningAppearance.primary.background === runningAppearance.neutral.cta &&
+    runningAppearance.primary.background !== runningAppearance.neutral.accent &&
+    runningAppearance.primary.foreground !== runningAppearance.neutral.accent &&
+    runningAppearance.secondary.every((control) => control.foreground !== runningAppearance.neutral.accent) &&
+    runningAppearance.chipDot !== runningAppearance.neutral.accent &&
+    runningAppearance.selectedPreset.foreground === runningAppearance.neutral.ink &&
+    runningAppearance.selectedPreset.border !== runningAppearance.neutral.accent,
+  "running timer reserves accent for the live arc and keeps controls neutral", JSON.stringify(runningAppearance));
+  assert(runningAppearance.icons.every((mask) => /stroke-width(?:%3D|=)['"]1\.75/.test(mask)),
+    "timer outline masks share the 1.75 glyph weight", JSON.stringify(runningAppearance.icons));
   await page.click("#restPlayPause");
-  await page.waitForTimeout(700);
-  const heldOnce = await page.evaluate(() => document.querySelector("#restSheetClock").textContent.trim());
-  await page.waitForTimeout(700);
+  const heldOnce = await page.evaluate(() => ({
+    clock: document.querySelector("#restSheetClock").textContent.trim(),
+    startedAt: performance.now(),
+  }));
+  // This is the one wall-clock wait in the timer proof: the invariant is that
+  // the visible clock stays equal after real elapsed time while paused. The
+  // predicate also requires the owned paused state, so it cannot pass merely
+  // because the browser happened to poll twice quickly.
+  await page.waitForFunction(({ clock, startedAt }) => {
+    const sheet = document.querySelector("#restSheet");
+    return sheet?.classList.contains("is-paused") &&
+      performance.now() - startedAt >= 700 &&
+      document.querySelector("#restSheetClock")?.textContent.trim() === clock;
+  }, heldOnce, { timeout: 2000 });
   const heldTwice = await page.evaluate(() => ({
     clock: document.querySelector("#restSheetClock").textContent.trim(),
     chip: document.querySelector("#woRest").getAttribute("aria-label") || "",
   }));
-  assert(heldOnce === heldTwice.clock && /held/i.test(heldTwice.chip),
-    "the hold freezes the clock and the chip says so", `${heldOnce} → ${JSON.stringify(heldTwice)}`);
+  assert(heldOnce.clock === heldTwice.clock && /held/i.test(heldTwice.chip),
+    "the hold freezes the clock and the chip says so", `${heldOnce.clock} → ${JSON.stringify(heldTwice)}`);
+  const pausedAppearance = await timerAppearance();
+  assert(pausedAppearance.state.includes("is-paused") && pausedAppearance.primary.background === pausedAppearance.neutral.cta &&
+    pausedAppearance.secondary.every((control) => control.foreground !== pausedAppearance.neutral.accent) &&
+    pausedAppearance.chipDot !== pausedAppearance.neutral.accent,
+  "paused timer keeps the neutral control roles while the deadline is frozen", JSON.stringify(pausedAppearance));
   await page.click("#restPlayPause");
-  // Long enough that the rounded second has to have moved on, whichever side of
-  // a tick the hold froze it.
-  await page.waitForTimeout(1600);
-  assert(await page.evaluate(() => document.querySelector("#restSheetClock").textContent.trim()) !== heldOnce,
+  await page.waitForFunction((clock) => {
+    const sheet = document.querySelector("#restSheet");
+    return !sheet?.classList.contains("is-paused") &&
+      document.querySelector("#restSheetClock")?.textContent.trim() !== clock;
+  }, heldOnce.clock, { timeout: 3000 });
+  assert(await page.evaluate(() => document.querySelector("#restSheetClock").textContent.trim()) !== heldOnce.clock,
     "releasing the hold puts the clock back on the move");
   const nudged = await page.evaluate(async () => {
     const read = () => {
@@ -408,7 +482,11 @@ async function main() {
   });
   assert(nudged.after - nudged.before >= 29, "+30s adds half a minute to the clock", JSON.stringify(nudged));
   await page.click("#restStop");
-  await page.waitForTimeout(400);
+  await page.waitForFunction(() => {
+    const sheet = document.querySelector("#restSheet");
+    return !!sheet?.hidden && !document.querySelector("#woRest")?.classList.contains("is-running") &&
+      document.activeElement?.id === "woRest";
+  });
   const ended = await page.evaluate(() => ({
     hidden: document.querySelector("#restSheet").hidden,
     running: document.querySelector("#woRest").classList.contains("is-running"),
@@ -416,12 +494,37 @@ async function main() {
   }));
   assert(ended.hidden && !ended.running && ended.focused === "woRest",
     "Stop ends the rest, closes the sheet and hands focus back to the chip", JSON.stringify(ended));
+  await page.evaluate(() => document.querySelector("#restBar").click());
+  await page.waitForFunction(() => document.querySelector("#restSheet")?.classList.contains("is-idle"));
+  const idleAppearance = await timerAppearance();
+  assert(idleAppearance.state.includes("is-idle") && idleAppearance.primary.background === idleAppearance.neutral.cta &&
+    idleAppearance.secondary.every((control) => control.foreground !== idleAppearance.neutral.accent) &&
+    idleAppearance.chipDot !== idleAppearance.neutral.accent,
+  "idle timer keeps the same neutral control roles", JSON.stringify(idleAppearance));
+  await page.click("#restSheetClose");
+  await page.waitForFunction(() => document.querySelector("#restSheet")?.hidden === true);
   await page.click("#woRest");
-  await page.waitForTimeout(200);
+  await page.waitForFunction(() => document.querySelector("#woRest")?.classList.contains("is-running"));
   assert(await page.evaluate(() => document.querySelector("#woRest").classList.contains("is-running")),
     "tapping the idle chip starts rest again");
+  await page.click("#woRest");
+  await page.waitForSelector("#restSheet:not([hidden]).is-open");
+  await page.evaluate(() => {
+    window.__repforgeRest.expire();
+    document.dispatchEvent(new Event("visibilitychange"));
+  });
+  await page.waitForFunction(() => document.querySelector("#restSheet")?.classList.contains("is-over") &&
+    /^-\d+:\d\d$/.test(document.querySelector("#restSheetClock")?.textContent.trim() || ""));
+  const overtimeAppearance = await timerAppearance();
+  assert(overtimeAppearance.state.includes("is-over") && /^-\d+:\d\d$/.test(overtimeAppearance.clock) &&
+    overtimeAppearance.primary.background === overtimeAppearance.neutral.cta &&
+    overtimeAppearance.secondary.every((control) => control.foreground !== overtimeAppearance.neutral.accent) &&
+    overtimeAppearance.chipDot !== overtimeAppearance.neutral.accent,
+  "overtime changes only the timer state treatment, not the neutral control roles", JSON.stringify(overtimeAppearance));
+  await page.click("#restStop");
+  await page.waitForFunction(() => document.querySelector("#restSheet")?.hidden === true);
   await page.evaluate(() => window.stopRest());
-  await page.waitForTimeout(150);
+  await page.waitForFunction(() => !document.querySelector("#woRest")?.classList.contains("is-running"));
 
   // ---- 06 — editing a logged set --------------------------------------------
   phase("State 06: editing a previously logged set");

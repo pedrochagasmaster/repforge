@@ -782,6 +782,7 @@ const I18N=window.RepForgeI18n;
 const t=(k,v)=>I18N?I18N.t(k,v):k;
 const tp=(n,w)=>I18N?I18N.tp(n,w):(+n===1?w:w+"s");
 const captureEvent=(event,properties)=>{try{return window.RepForgeTelemetry?.capture(event,properties)===true}catch{return false}};
+const coarseCountBucket=value=>{const n=Number(value);return!Number.isSafeInteger(n)||n<0?"0":n===0?"0":n===1?"1":n<=5?"2-5":"6+"};
 function installTransferGuardTelemetry(){
   const telemetry=window.RepForgeTelemetry;
   if(!telemetry?.setEnabled||telemetry.__repforgeInstallTransferGuarded)return;
@@ -1428,9 +1429,10 @@ class Exercise{
     if(this.libraryId===undefined||preserveLinkedSnapshot)return this;
     const entry=entries?entries(this.libraryId):libraryEntry(this.libraryId);
     if(!entry){
-      // The definition is gone (an import referencing an unknown id). Keep the
-      // copied strings and drop the link rather than pretend it resolves.
-      delete this.libraryId;delete this.displayName;
+      // The definition is gone (an import or older install referencing an
+      // unknown id). Keep the exact identity and copied facts so management
+      // surfaces can fail closed and offer an explicit repair. Share owns the
+      // diagnosis; no reader may silently turn this into a different movement.
       return this}
     this.name=this.displayName||libraryName(entry);
     this.primary=entry.primary||"";
@@ -1656,7 +1658,7 @@ function applySessionLength(program,sessionLength,equipment,experience,dayOcc){
     while(list.length<lo){const extra=pickFillerForDay(list,used,equipment,experience,occ);if(!extra)break;used.add(extra.libraryId);list.push(extra)}
     list.forEach((e,i)=>{e.order=i+1;out.push(e)})}
   program.length=0;program.push(...out)}
-let state,prog,day,installPrompt=null,saving=false,editSession=null,volWindow=7;
+let state,prog,day,installPrompt=null,saving=false,volWindow=7;
 let activeRecoveryRecord=null,activeRecoveryRecordBlockId=null;
 let restEnd=0,restTick=null,restNotified=false,restAnnounced=false;
 // restPaused holds the milliseconds left while the clock is held (null while it
@@ -2271,7 +2273,7 @@ const focusUnfolded=new Set();
 /** Sets logged before older rows fold away, and how many stay above the fold. */
 const FOCUS_FOLD_MIN=5,FOCUS_FOLD_KEEP=2;
 let exView=null;
-let workoutActive=false,workoutLeft=false,programEditMode=false,setupEditorOpen=false,histMonth=null,histQuery="";
+let workoutActive=false,workoutLeft=false,programEditMode=false,programReadyView=false,setupEditorOpen=false;
 /* The editor module owns the draft document. Hosts retain only its lifecycle
    and adapter session so the installed editor can stay private until Done. */
 let installedProgramEditor=null,onboardingProgramEditor=null,installedEditorSession=null,pendingEditorNavigation=null;
@@ -2581,7 +2583,34 @@ async function persistProgramMeta(partial={}){
 /* Creates or edits one of the lifter's own movements. Returns the stored entry
    so a caller can drop it straight into a program slot — creating a custom
    exercise is almost always the first half of "put this in my program". */
-async function saveCustomExercise(draft,io=storageIO){
+function customExerciseStateEqual(a,b){
+  const comparable=entry=>{
+    const value=normalizeCustomExercises([entry])[0];
+    if(!value)return null;
+    // Boot normalizes older durable rows with current defaults and derived
+    // fields. Compare that meaning on both sides of the lock-held preflight;
+    // comparing the raw IndexedDB/localStorage row against the already-
+    // normalized in-memory entry would misreport an unchanged definition as
+    // a concurrent edit. `created` is immutable provenance and may be
+    // synthesized for legacy rows, so it does not participate in this CAS.
+    delete value.created;
+    return value};
+  const left=comparable(a),right=comparable(b);
+  return !!left&&!!right&&JSON.stringify(canonicalize(left))===JSON.stringify(canonicalize(right))}
+function customExerciseUpsert(snapshot,entry){
+  const next=cloneSnapshot(snapshot),list=customExercises(next);
+  const existing=list.some(value=>value.id===entry.id);
+  next.customExercises=normalizeCustomExercises(existing
+    ?list.map(value=>value.id===entry.id?entry:value)
+    :list.concat(entry));
+  return next}
+function customExerciseRemoveOrArchive(snapshot,id,operation){
+  const next=cloneSnapshot(snapshot),list=customExercises(next);
+  next.customExercises=operation==="archive"
+    ?list.map(value=>value.id===id?Object.assign(cloneSnapshot(value),{archived:true}):value)
+    :list.filter(value=>value.id!==id);
+  return next}
+async function saveCustomExercise(draft,io=storageIO,{expectedEntry=null}={}){
   const name=String(draft?.name??"").trim();
   if(!name)return{result:null,entry:null};
   const id=isCustomLibraryId(draft?.id)?String(draft.id):`${CUSTOM_ID_PREFIX}${uid()}`;
@@ -2589,36 +2618,50 @@ async function saveCustomExercise(draft,io=storageIO){
   const secondary=MuscleDomain?.normalizeMuscleAttribution?.(draft?.secondary??"");
   if(!primary?.ok||!secondary?.ok)return{result:invalidMuscleDomainCommit(),entry:null};
   const existing=customExercises().find(e=>e.id===id);
-  const entry={id,name,namePt:name,
+  const entry=normalizeCustomExercises([{id,name,namePt:name,
     equipment:Array.isArray(draft.equipment)&&draft.equipment.length?draft.equipment:["machine"],
     primary:primary.value,
     secondary:secondary.value,
     notes:String(draft.notes??"").trim(),
-    created:existing?.created||new Date().toISOString()};
-  const proposal=cloneSnapshot(state);
-  const list=Array.isArray(proposal.customExercises)?proposal.customExercises:[];
-  proposal.customExercises=normalizeCustomExercises(
-    existing?list.map(e=>e.id===id?entry:e):list.concat(entry));
-  const result=await commitProposedState(proposal,io);
-  return{result,entry:proposal.customExercises.find(e=>e.id===id)||null}}
+    created:existing?.created||new Date().toISOString()}])[0];
+  const source=existing?(expectedEntry||cloneSnapshot(existing)):null;
+  const proposal=customExerciseUpsert(state,entry);
+  const preflight=({head})=>{
+    const current=customExercises(head).find(value=>value.id===id)||null;
+    if(source&&!customExerciseStateEqual(current,source))
+      return{reject:true,result:{conflict:true,stale:true,code:"custom-exercise-changed"}};
+    if(!source&&current)
+      return{reject:true,result:{conflict:true,duplicate:true,code:"custom-id-collision"}};
+    return{proposal:customExerciseUpsert(head,entry)}};
+  const result=await commitProposedState(proposal,io,{preflight});
+  return{result,entry}}
 /* A definition with anything pointing at it — a program slot, an archived
    block, a logged set — is still the meaning of that data, so it is archived
    rather than deleted: hidden from the pickers, intact behind the history. */
-function customExerciseInUse(id){
-  if((state.program||[]).some(e=>e.libraryId===id))return true;
-  if((state.log||[]).some(r=>r.performedLibraryId===id))return true;
-  return(state.programHistory||[]).some(h=>(h?.program||[]).some(e=>e.libraryId===id))}
-async function deleteCustomExercise(id,io=storageIO){
+function customExerciseInUse(id,snapshot=state){
+  if((snapshot?.program||[]).some(e=>e.libraryId===id))return true;
+  if((snapshot?.log||[]).some(r=>r.performedLibraryId===id||
+    r.performedMovementId===`library:${id}`))return true;
+  return(snapshot?.programHistory||[]).some(h=>(h?.program||[]).some(e=>e.libraryId===id))}
+async function deleteCustomExercise(id,io=storageIO,{action=null,expectedEntry=null}={}){
   if(!isCustomLibraryId(id))return null;
-  const proposal=cloneSnapshot(state);
-  if(customExerciseInUse(id)){
-    const list=customExercises(proposal).map(e=>e.id===id?Object.assign(cloneSnapshot(e),{archived:true}):e);
-    if(!list.some(e=>e.id===id))return null;
-    proposal.customExercises=list;
-    const result=await commitProposedState(proposal,io);
-    return result?Object.assign(result,{archived:true}):result}
-  proposal.customExercises=customExercises(proposal).filter(e=>e.id!==id);
-  return commitProposedState(proposal,io)}
+  const existing=customExercises().find(e=>e.id===id)||null;
+  if(!existing)return null;
+  const source=expectedEntry||cloneSnapshot(existing);
+  const operation=action||(customExerciseInUse(id)?"archive":"delete");
+  if(operation!=="delete"&&operation!=="archive")return null;
+  const proposal=customExerciseRemoveOrArchive(state,id,operation);
+  const preflight=({head})=>{
+    const current=customExercises(head).find(value=>value.id===id)||null;
+    if(!customExerciseStateEqual(current,source))
+      return{reject:true,result:{conflict:true,stale:true,code:"custom-exercise-changed"}};
+    if(operation==="delete"&&customExerciseInUse(id,head))
+      return{reject:true,result:{conflict:true,code:"custom-exercise-became-used"}};
+    return{proposal:customExerciseRemoveOrArchive(head,id,operation)}};
+  const result=await commitProposedState(proposal,io,{preflight,
+    customMutationIntent:operation==="delete"
+      ?{version:1,operation:"delete",id,entry:source}:null});
+  return result?Object.assign(result,{archived:operation==="archive",operation}):result}
 function programAdherence(asOf=today()){const totalDays=prog.days().length;if(!totalDays)return{logged:0,total:0,ratio:0};
   // Inclusive rolling [asOf-6, asOf] — distinct planned days; future rows excluded.
   const end=asOf,start=shiftDate(end,-6),programDaySet=new Set(prog.days()),loggedDays=new Set();
@@ -3449,6 +3492,11 @@ function persist(opts={}){
   state.program=structured.program;state.programMeta=structured.meta;
   const snapshot=cloneSnapshot(state);
   return enqueueStateChange(base,snapshot,storageIO,opts)}
+// State-shape validation still reads legacy dangling references losslessly.
+// At the lock-held write boundary, however, every newly introduced custom
+// Program identity must resolve inside the candidate's own custom library.
+function missingCustomProgramReference(head,candidate,{replace=false}={}){
+  return DurableState.missingCustomProgramReference(head,candidate,{replace})}
 async function commitProposedState(proposal,io=storageIO,opts={}){
   requireAdapter(io,"commitProposedState");
   const durableProposal=canonicalizeDurableMuscleAttributions(proposal);
@@ -3463,17 +3511,26 @@ async function commitProposedState(proposal,io=storageIO,opts={}){
   // optimistic proposal so boot never has to perform a second, revisionful
   // migration of a valid committed state.
   const durableOpts=Object.assign({},opts,{liveBase});
-  if(typeof opts.preflight==="function"){
-    durableOpts.preflight=async context=>{
-      const checked=await opts.preflight(context);
-      if(!checked?.proposal)return checked;
-      const next=canonicalizeDurableMuscleAttributions(checked.proposal);
+  const callerPreflight=opts.preflight;
+  durableOpts.preflight=async context=>{
+    const checked=typeof callerPreflight==="function"?await callerPreflight(context):null;
+    if(checked?.reject)return checked;
+    let next=context.proposal;
+    if(checked?.proposal){
+      next=canonicalizeDurableMuscleAttributions(checked.proposal);
       const nextStructured=withExplicitProgramStructure(next.program,
         next.programMeta||defaultProgramMeta(next.log));
       next.program=nextStructured.program;next.programMeta=nextStructured.meta;
-      return{...checked,proposal:next};
-    };
-  }
+    }
+    const candidateHead=durableOpts.replace?cloneSnapshot(context.head):
+      rebaseStateChange(base,liveBase,context.head);
+    const candidate=durableOpts.replace?cloneSnapshot(next):
+      rebaseStateChange(liveBase,next,candidateHead);
+    if(missingCustomProgramReference(context.head,candidate,{replace:!!durableOpts.replace}))
+      return{reject:true,result:{conflict:true,stale:true,code:"missing_custom_definition"}};
+    if(!checked?.proposal)return checked;
+    return{...checked,proposal:next};
+  };
   const result=await enqueueStateChange(base,snapshot,io,durableOpts);
   if(result.draftConflict&&!result.journalFailed)toast(t("toast.draft_conflict_retry"),{assertive:true});
   return result}
@@ -4601,14 +4658,6 @@ function formatDelta(delta){if(!delta?.metrics)return"";const{deltas}=delta.metr
   if(Math.abs(e1rmDelta)>=.01){const s=e1rmDelta>0?"+":"";return t("delta.e1rm",{signed:s,delta:Math.round(toDisplay(e1rmDelta)),unit:unitLabel()})}
   const parts=[];if(repsDelta!==0)parts.push(t("delta.reps",{signed:repsDelta>0?"+":"",delta:repsDelta}));if(Math.abs(e1rmDelta)>=.01)parts.push(t("delta.e1rm_labeled",{signed:e1rmDelta>0?"+":"",delta:Math.round(toDisplay(e1rmDelta)),unit:unitLabel()}));
   return parts.length?parts.join(" · "):""}
-function sessionDeltaCounts(rows){const byLift=new Map();
-  for(const r of rows){if(!isWork(r)||!(+r.load>0)||!(+r.reps>0))continue;
-    const k=liftKey(r);if(!byLift.has(k))byLift.set(k,[]);byLift.get(k).push(r)}
-  const counts={improved:0,flat:0,regressed:0,new:0};
-  for(const [,liftRows]of byLift){const row=liftRows[0];
-    const ex=exerciseIdentityFromRow(row);
-    const d=compareExerciseSession(ex,liftRows);if(d.status in counts)counts[d.status]++}
-  return counts}
 function formatDeltaCounts(c,{sep=" · "}={}){const parts=[];
   if(c.improved)parts.push(t("delta.count.improved",{n:c.improved}));if(c.flat)parts.push(t("delta.count.flat",{n:c.flat}));
   if(c.regressed)parts.push(t("delta.count.regressed",{n:c.regressed}));if(c.new)parts.push(t("delta.count.new_lifts",{n:c.new,lifts:tp(c.new,"lift")}));
@@ -5904,9 +5953,8 @@ function todayPrimaryControl(){
   return $("#todayDash .page-title")}
 /** Today's recap hands off to History, opened on the session it describes. */
 function openTodaySessionInHistory(){const done=sessionsToday();if(!done.length)return;
-  editSession=done.at(-1).session;histQuery="";
-  navTo("history");
-  $$("#sessions [data-sess]").find(el=>el.dataset.sess===editSession)?.scrollIntoView({behavior:"smooth",block:"center"})}
+  const sid=done.at(-1).session;HistoryUi.startReading(sid);
+  navTo("history");HistoryUi.focusRead(sid)}
 // The day's exercises, previewed on Today: sets × rep range per row, the rest
 // behind a "+N" disclosure. Tapping a row opens that exercise's page.
 function todayExListHtml(exs){if(!exs.length)return"";
@@ -5951,8 +5999,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
     const segs=mc.total||6,cur=mc.current||0,weekCopy=mesocycleWeekCopy(mc);
     progEl.innerHTML=`<div class="today-prog__name">${esc(nm||t("untitled_program"))}</div>`+
       (weekCopy?`<div class="today-prog__week">${esc(weekCopy)}</div>`:"")+
-      `<div class="segbar">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}${i===Math.min(cur,segs)-1?" is-current":""}"></span>`).join("")}</div>`+
-      (week.plannedDays?`<div class="today-prog__done">${esc(t("today.sessions_done",{done:week.completedDays,planned:week.plannedDays}))}</div>`:"")}
+      `<div class="segbar">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}${i===Math.min(cur,segs)-1?" is-current":""}"></span>`).join("")}</div>`}
     else{progEl.classList.add("hidden");progEl.innerHTML=""}}
   // A saved session means today is spent: Today recaps it instead of offering the
   // day again. An unsaved draft still outranks it — that session is not over.
@@ -6340,7 +6387,7 @@ function render(){applyI18n();
   // override an explicit leave — otherwise every tab switch re-hides the nav.
   if(!workoutActive&&!workoutLeft&&draftHasProgress())workoutActive=true;
   setWorkoutActive(workoutActive);
-  renderToday();renderTabs();renderWorkout();renderStats();renderHistory();renderProgram();renderSettings();renderBlockPrompt();
+  renderToday();renderTabs();renderWorkout();renderStats();HistoryUi.render();renderProgram();renderSettings();renderBlockPrompt();
   updateSessionBanner();
   if(exView&&$("#exercise")?.classList.contains("active"))renderExerciseView();
   queueMicrotask(()=>maybeShowContextualGuides())}
@@ -6630,6 +6677,11 @@ function renderWorkout(){
   updateSessionBanner();
   updateFocusChrome();
   sizeFocusDeck();
+  // These two guides own concrete Focus controls. Queue them only after the
+  // current Log action/header projection exists; the guide layer will defer a
+  // hidden anchor rather than navigating to another surface.
+  queueMicrotask(()=>maybeShowContextualGuides(["first-set"]));
+  queueMicrotask(()=>maybeShowContextualGuides(["focus-utilities"]));
 }
 /** After a render, bring every card in the deck to the row that matters — the
  *  peeks included, so a neighbour rides in already showing what it will show
@@ -6641,6 +6693,8 @@ function sizeFocusDeck(){
   else sizeFocusCard(focusCard())}
 function sizeFocusCard(card){
   if(!card)return;
+  const rootFontSize=parseFloat(getComputedStyle(document.documentElement).fontSize);
+  card.classList.toggle("is-text-scaled",Number.isFinite(rootFontSize)&&rootFontSize>16.1);
   const ledger=card.querySelector(".fcard__ledger");if(!ledger)return;
   const scrolls=ledger.scrollHeight>ledger.clientHeight+1;
   ledger.classList.toggle("is-scrollable",scrolls);
@@ -6891,9 +6945,36 @@ function sessionMuscleWork(rows){
 
 /** Everything the finished session earns the right to say about itself. */
 function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
+  // Test-only fault seam for the post-commit boundary. The completion owner
+  // has already returned a settled durable result before this derivation runs.
+  if(window.__repforgeSummaryFault==="canonical"){
+    delete window.__repforgeSummaryFault;
+    throw new Error("summary canonical derivation fault")}
   const work=workingRows(rows);
   const meso=mesocycleWeek(),week=weeklySnapshot(date);
   const ds=days(),idx=Math.max(0,ds.indexOf(sessDay)),next=ds.length>1?ds[(idx+1)%ds.length]:null;
+  // The session is already durable when this runs. Read the single canonical
+  // evidence projection and keep only the lifts this completion actually
+  // touched; summary presentation never derives a second outcome heuristic.
+  const completedLiftIds=new Set(work.map(liftKey));
+  const namesByLift=new Map(work.map(row=>[liftKey(row),displayName(row)]));
+  const evidence=strengthEvidenceRecords("current-block")
+    .filter(record=>completedLiftIds.has(record.exerciseId))
+    .map(record=>{
+      const sufficient=record.evidenceState==="sufficient"&&EVIDENCE_OUTCOME_KEYS[record.outcome];
+      const baseline=!sufficient&&record.evidenceState==="insufficient"&&
+        record.evidenceCount===1&&record.reason==="single-observation";
+      return{exerciseId:record.exerciseId,
+        name:namesByLift.get(record.exerciseId)||currentExerciseForLiftKey(record.exerciseId)?.name||record.exerciseId,
+        kind:sufficient?"outcome":baseline?"baseline":"insufficient",
+        evidenceState:record.evidenceState,evidenceCount:record.evidenceCount,
+        reason:record.reason??null,...(sufficient?{outcome:record.outcome}:{})}});
+  const outcomes=evidence.filter(item=>item.kind==="outcome")
+    .map(({exerciseId,outcome,name})=>({exerciseId,outcome,name}));
+  // The first-session sentence is valid only when every lift in this completion
+  // is genuinely a first observation. A prior-but-insufficient record must not
+  // disappear into the old \"no outcome\" fallback.
+  const showBaseline=evidence.length>0&&evidence.every(item=>item.kind==="baseline");
   // A clock only earns a slot when it plausibly measured this session: a draft
   // resumed the next morning would otherwise report a nine-hour workout.
   const mins=startedAt?Math.round((Date.now()-startedAt)/60000):0;
@@ -6903,7 +6984,9 @@ function buildSessionSummary({rows,prevLog,session,date,day:sessDay,startedAt}){
     lifts:new Set(work.map(liftKey)).size,
     minutes:mins>=1&&mins<=480?mins:null,
     prs:sessionPRs(rows,prevLog),
-    delta:sessionDeltaCounts(rows),
+    outcomes,
+    evidence,
+    showBaseline,
     muscles:sessionMuscleWork(rows),
     week:{done:week.completedDays,planned:week.plannedDays},
     meso:{current:meso.current,total:meso.total,isComplete:meso.isComplete},
@@ -7008,10 +7091,18 @@ async function saveWorkoutV2(io,{expectedDraft=null,completion="normal"}={}){
     exercise_count:window.RepForgeTelemetry?.bucketCount(new Set(rows.filter(isWork).map(row=>row.exerciseId)).size,"exercises"),
     duration:window.RepForgeTelemetry?.bucketDuration(startedAt?Math.max(0,(Date.now()-startedAt)/60000):0)});
   const btn=$(".btn--save");if(btn){btn.classList.remove("is-stamped");void btn.offsetWidth;btn.classList.add("is-stamped")}
-  const summary=buildSessionSummary({rows,prevLog,session,date,day:savedDay,startedAt});render();
-  if(!openSessionSummary(summary)){
+  const savedFallback=()=>{
+    render();
+    clearSessionSummaryView();
+    closeSessionSummary();
     toast(t("toast.workout_forged",{n:rows.length,sets:tp(rows.length,"set")}));
-    maybeShowInstallBanner()}
+    maybeShowInstallBanner()};
+  let summary;
+  try{summary=buildSessionSummary({rows,prevLog,session,date,day:savedDay,startedAt})}
+  catch{savedFallback();return result}
+  render();
+  try{if(!openSessionSummary(summary))savedFallback()}
+  catch{savedFallback()}
   return result}
 
 async function saveWorkout(e,io,options={}){if(e&&e.preventDefault)e.preventDefault();if(saving)return;
@@ -7077,25 +7168,20 @@ function sessionSummaryHtml(s){
   // lift" would be the whole story told as arithmetic. Say what it is instead —
   // but only when there was working weight to call a baseline in the first
   // place, since a session of nothing but warmups is not a first attempt.
-  const noHistory=s.lifts>0&&!s.prs.length&&!s.delta.improved&&!s.delta.flat&&!s.delta.regressed;
+  const noHistory=s.showBaseline===true;
   if(noHistory)out.push(`<p class="sum-baseline">${esc(t("summary.baseline"))}</p>`);
-  else{
-    // Good news reads first, but nothing is left out: the same four counts the
-    // History row shows, in the order a lifter wants to hear them.
-    const chips=[];
-    if(s.delta.improved)chips.push({cls:"is-up",text:t("delta.count.improved",{n:s.delta.improved})});
-    if(s.delta.new)chips.push({cls:"is-new",text:t("delta.count.new_lifts",{n:s.delta.new,lifts:tp(s.delta.new,"lift")})});
-    if(s.delta.flat)chips.push({cls:"",text:t("delta.count.flat",{n:s.delta.flat})});
-    if(s.delta.regressed)chips.push({cls:"",text:t("delta.count.regressed",{n:s.delta.regressed})});
-    if(chips.length)
-      out.push(`<p class="section-label">${esc(t("summary.lifts.title"))}</p>`+
-        `<div class="sum-chips">${chips.map(c=>`<span class="sum-chip ${c.cls}">${esc(c.text)}</span>`).join("")}</div>`)}
+  else if(s.outcomes.length)
+    out.push(`<p class="section-label">${esc(t("summary.outcomes.title"))}</p>`+
+      `<ul class="sum-outcomes">${s.outcomes.map(outcome=>`<li class="sum-outcome" data-exercise-id="${esc(outcome.exerciseId)}" data-outcome="${esc(outcome.outcome)}">`+
+        `<span class="sum-outcome__name">${esc(outcome.name)}</span>`+
+        `<span class="sum-outcome__state sum-outcome__state--${esc(outcome.outcome)}"><span class="sum-outcome__glyph" aria-hidden="true">${esc(EVIDENCE_OUTCOME_GLYPHS[outcome.outcome]||"")}</span> ${esc(t(EVIDENCE_OUTCOME_KEYS[outcome.outcome]))}</span></li>`).join("")}</ul>`);
   if(s.muscles.length){
-    const top=s.muscles.slice(0,4),max=Math.max(...top.map(m=>m.sets),1);
+    const top=s.muscles.slice(0,4);
     out.push(`<p class="section-label">${esc(t("summary.muscles.title"))}</p>`+
+      `<p class="sum-muscles__note">${esc(t("summary.muscles.note"))}</p>`+
       `<div class="volume sum-muscles">`+top.map(m=>`<div class="vrow"><span class="vrow__name">${esc(muscleLabel(m.name))}</span>`+
         `<span class="vrow__num"><b>${fmt(m.sets)}</b> ${esc(tp(m.sets,"set"))}</span>`+
-        `<span class="vrow__bar"><span class="vrow__fill" style="width:${Math.max(4,Math.round(m.sets/max*100))}%"></span></span></div>`).join("")+
+        `</div>`).join("")+
       `</div>`)}
   // Where the session leaves the week — the reason to come back on Thursday.
   if(s.week.planned){
@@ -7149,8 +7235,16 @@ function renderSessionSummary(s){
   [...body.children].forEach((el,i)=>el.style.setProperty("--i",i));
   const done=$("#sumDone");if(done)done.onclick=()=>closeSessionSummary();
   const see=$("#sumSee");if(see)see.onclick=()=>{
-    editSession=s.session;
+    HistoryUi.startReading(s.session);
     closeSessionSummary({nav:"history"})}}
+
+function clearSessionSummaryView(){
+  sessionSummaryCurrent=null;
+  const el=$("#sessionSummary");
+  if(el&&activeModal?.el===el)closeModal(el);
+  $("#sessionSummaryBody")?.replaceChildren();
+  el?.classList.remove("is-played");
+}
 
 /** The screen the lifter earns by finishing. It opens over the workout, so
  *  leaving it is what actually ends the session and returns to Today. */
@@ -8561,6 +8655,7 @@ window.__repforgeOverviewVolume={pct:overviewBarPct,sorted:overviewVolumeSorted,
 // Observed outcomes come from the authoritative paired-exposure comparison,
 // never from presentation. flat reads as "maintained" in the evidence model.
 const EVIDENCE_OUTCOME_KEYS={improved:"stats.outcome.improved",maintained:"stats.outcome.maintained",declined:"stats.outcome.declined"};
+const EVIDENCE_OUTCOME_GLYPHS={improved:"▲",maintained:"■",declined:"▼"};
 function strengthSessionKey(row){return`${String(row?.session??row?.date)}\u0000${String(row?.blockId??"")}`}
 function strengthEvidenceRows(){return state.log.filter(isWork).map(r=>({exerciseId:liftKey(r),session:r.session,
   sessionKey:strengthSessionKey(r),date:r.date,created:r.created??null,blockId:r.blockId??null,
@@ -8825,259 +8920,27 @@ function redrawChart(){
   if(!$("#stats").classList.contains("active")||statsSeg!=="overview"||evidenceView!=null)return;
   const sel=$("#statExercise").value,rows=summaries().filter(x=>x.liftKey===sel);draw(rows)}
 
-const historyDiagnostics={enabled:false,builds:0,sourceRowVisits:0,last:null,onBuilt:null,
-  reset(){this.enabled=true;this.builds=0;this.sourceRowVisits=0;this.last=null;this.onBuilt=null},
-  disable(){this.enabled=false;this.last=null;this.onBuilt=null}};
-const historyIndexCache=new WeakMap();
-function buildHistoryIndex(log){
-  const source=log||[];
-  // Read the program's current movement names once per build; this is the only
-  // thing in the index that depends on the program, and it is why historyIndexFor
-  // still invalidates its cache when the program identity changes.
-  const currentNames=currentMovementNames();
-  const rows=[];
-  const n=source.length;
-  for(let i=0;i<n;i++){const raw=source[i];rows.push(raw&&typeof raw==="object"?raw:{})}
-  const sessionMap=new Map();
-  for(const row of rows){
-    const sid=row&&row.session!=null?String(row.session):"";
-    if(!sessionMap.has(sid))sessionMap.set(sid,{session:row.session,date:row.date,day:row.day,created:row.created,rows:[]});
-    const session=mergeLogChronology(sessionMap.get(sid),row);
-    session.rows.push(row)}
-  for(const sess of sessionMap.values()){
-    sess.rows.sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set)}
-  const sessions=[...sessionMap.values()].sort((a,b)=>compareLogChronology(b,a));
-  const liftChrono=new Map();
-  for(const row of rows){
-    if(!isWork(row)||!(+row.load>0)||!(+row.reps>0))continue;
-    const k=liftKey(row);
-    if(!liftChrono.has(k))liftChrono.set(k,new Map());
-    const sm=liftChrono.get(k);
-    if(!sm.has(row.session))sm.set(row.session,{session:row.session,date:row.date,created:row.created,rows:[]});
-    const session=mergeLogChronology(sm.get(row.session),row);
-    session.rows.push(row)}
-  const liftPred=new Map();
-  for(const[k,sm]of liftChrono){
-    const ordered=[...sm.values()].sort(compareLogChronology);
-    for(let i=0;i<ordered.length;i++){
-      const cur=ordered[i],pred=i>0?ordered[i-1].rows:[];
-      liftPred.set(`${cur.session}|${k}`,pred)}}
-  for(const sess of sessions){
-    const byLift=new Map();
-    for(const r of sess.rows){
-      if(!isWork(r)||!(+r.load>0)||!(+r.reps>0))continue;
-      const k=liftKey(r);if(!byLift.has(k))byLift.set(k,[]);byLift.get(k).push(r)}
-    const counts={improved:0,flat:0,regressed:0,new:0};
-    for(const[k,liftRows]of byLift){
-      const pred=liftPred.get(`${sess.session}|${k}`)||[];
-      if(!pred.length){counts.new++;continue}
-      const d=buildSessionDelta(pred,liftRows);if(d.status in counts)counts[d.status]++}
-    sess.delta=counts;
-    const names=new Set(sess.rows.map(r=>String(displayName(r)||"")));
-    // Aliases are additive: the performed label always stays searchable, and
-    // the current program name only widens what finds the session.
-    const aliases=new Set();
-    for(const r of sess.rows){const alias=currentNameForRow(r,currentNames);if(alias&&!names.has(alias))aliases.add(alias)}
-    sess.searchText=`${String(sess.day||"")} ${dayLabel(sess.day)} ${[...names,...aliases].join(" ")}`.toLowerCase()}
-  const prEvents=detectPRs(rows);
-  const prDates=new Set(prEvents.map(ev=>String(ev.date)));
-  const months=new Map();
-  for(const row of rows){
-    const date=String(row.date||""),ym=date.slice(0,7);
-    if(!/^\d{4}-\d{2}$/.test(ym))continue;
-    if(!months.has(ym))months.set(ym,{sessions:new Set(),sets:0,byDay:new Map()});
-    const bucket=months.get(ym);bucket.sessions.add(row.session);bucket.sets++;
-    const dayNum=+date.slice(8,10);
-    if(!bucket.byDay.has(dayNum))bucket.byDay.set(dayNum,{sets:0,pr:false});
-    bucket.byDay.get(dayNum).sets++;
-    if(prDates.has(date))bucket.byDay.get(dayNum).pr=true}
-  const tableRows=[...rows].sort((a,b)=>compareLogChronology(b,a)||displayName(a).localeCompare(displayName(b))||a.set-b.set);
-  const index={rows,sessions,months,prEvents,tableRows,liftPred};
-  if(historyDiagnostics.enabled){
-    historyDiagnostics.builds++;historyDiagnostics.sourceRowVisits+=rows.length;historyDiagnostics.last=index;
-    if(typeof historyDiagnostics.onBuilt==="function")historyDiagnostics.onBuilt(index)}
-  return index}
-function historyIndexFor(log){
-  const source=log||[];
-  if(source&&typeof source==="object"){
-    const cached=historyIndexCache.get(source);
-    if(cached?.program===state.program)return cached.index;
-    const index=buildHistoryIndex(source);
-    historyIndexCache.set(source,{program:state.program,index});
-    return index}
-  return buildHistoryIndex(source)}
-function searchHistoryIndex(index,query){
-  const q=String(query||"").trim().toLowerCase(),sessions=index?.sessions||[];
-  if(!q)return sessions.slice();
-  return sessions.filter(s=>String(s.searchText||"").includes(q))}
-function renderHistoryWithSource(source){renderHistory(source)}
-window.__repforgeHistory={
-  buildIndex:buildHistoryIndex,
-  indexFor:historyIndexFor,
-  searchIndex:searchHistoryIndex,
-  renderWithSource:renderHistoryWithSource,
-  diagnostics:historyDiagnostics};
-
-function isHistorySearchOpen(){return!$("#historySearchWrap")?.classList.contains("hidden")}
-function setHistorySearchOpen(open){
-  if(!open&&histQuery.trim())return;
-  $("#historySearchWrap")?.classList.toggle("hidden",!open);
-  $("#historySearchBtn")?.setAttribute("aria-expanded",open?"true":"false");
-  if(open)$("#historySearch")?.focus()}
-function clearHistorySearch(){
-  histQuery="";
-  const inp=$("#historySearch");if(inp)inp.value="";
-  renderHistory();
-  setHistorySearchOpen(false)}
-function syncHistorySearchChrome(){
-  const open=isHistorySearchOpen()||!!histQuery.trim();
-  if(histQuery.trim())$("#historySearchWrap")?.classList.remove("hidden");
-  $("#historySearchBtn")?.setAttribute("aria-expanded",open?"true":"false");
-  const inp=$("#historySearch");if(inp&&inp.value!==histQuery)inp.value=histQuery}
-async function deleteSession(sid,io=storageIO){
-  const proposal=cloneSnapshot(state);
-  proposal.log=proposal.log.filter(row=>row.session!==sid);
-  const result=await commitProposedState(proposal,io);
-  if(result.localOk||result.idbOk){
-    if(editSession===sid)editSession=null;
-    render();toast(t("toast.session_deleted"))}
-  return result}
-
-function renderHistory(source=state.log){
-  if(!histMonth){const n=new Date();histMonth={y:n.getFullYear(),m:n.getMonth()}}
-  const focusedToggle=document.activeElement?.matches?.("#sessions .session__open")?document.activeElement:null;
-  const focusedSession=focusedToggle?.closest("[data-sess]")?.dataset.sess||null;
-  const index=historyIndexFor(source);
-  renderHistoryCalendar(index);
-  const q=histQuery.trim();
-  const sessions=searchHistoryIndex(index,q);
-  syncHistorySearchChrome();
-  let lastMonth="";
-  $("#sessions").innerHTML=sessions.length?sessions.map(s=>{
-    const sets=s.rows;
-    if(s.session===editSession)return sessionEditor(s,sets);
-    const work=sets.filter(isWork),vol=sum(work.map(x=>(+x.load||0)*(+x.reps||0)));
-    const delta=s.delta||{improved:0,flat:0,regressed:0,new:0},deltaLine=hasDeltaSummary(delta)?`<div class="session__delta">${esc(formatDeltaCounts(delta))}</div>`:"";
-    const mus=[...new Set(work.map(r=>String(r.primary||"").split(",")[0].trim()).filter(Boolean))].slice(0,3);
-    const d=new Date(`${s.date}T12:00:00`);
-    const monthKey=`${d.getFullYear()}-${d.getMonth()}`;
-    let monthHdr="";
-    if(monthKey!==lastMonth){lastMonth=monthKey;monthHdr=`<p class="section-label">${esc(t("month."+d.getMonth()).toUpperCase())}</p>`}
-    const eyebrow=esc(t("history.session_eyebrow",{weekday:t("weekday."+d.getDay()),day:d.getDate(),month:t("month_short."+d.getMonth())}));
-    // The card is the way in. It used to be a disclosure whose panel held one
-    // link to the session — a tap to reveal a tap — and the panel was drawn on
-    // every row regardless, because `display:flex` outranks the `hidden` it
-    // carried. Deleting a session already moved inside the session, so nothing
-    // is left for a row to reveal and the whole card opens it.
-    return monthHdr+`<article class="hist-row session" data-sess="${esc(s.session)}">`+
-      `<button type="button" class="session__open" data-edit="${esc(s.session)}" aria-label="${esc(t("history.session_open_aria",{day:dayLabel(s.day)}))}">`+
-      `<div class="session__info"><div class="hist-eyebrow">${eyebrow}</div><div class="session__day hist-row__title">${esc(dayLabel(s.day))}</div>`+
-      (mus.length?`<div class="session__sub">${esc(mus.map(muscleLabel).join(" · "))}</div>`:"")+
-      `<div class="session__sub">${esc(t("history.session_meta",{sets:sets.length,vol:kfmt(toDisplay(vol)),unit:unitLabel()}))}</div>${deltaLine}`+
-      `</div><span class="chevron" aria-hidden="true"></span></button></article>`;
-  }).join(""):`<div class="table"><div class="empty" data-hist-empty="${q?"nomatch":"none"}">${esc(t(q?"history.empty.no_match":"history.empty.sessions"))}</div></div>`;
-  if(focusedSession){
-    const next=$$("#sessions .session__open").find(btn=>btn.closest("[data-sess]")?.dataset.sess===focusedSession);
-    if(next&&canTakeFocus(next)){try{next.focus({preventScroll:true})}catch{try{next.focus()}catch{}}}}
-  $$("#sessions [data-del]").forEach(b=>b.onclick=async e=>{e.stopPropagation();if(confirm(t("confirm.delete_session")))await deleteSession(b.dataset.del)});
-  $$("#sessions [data-edit]").forEach(b=>b.onclick=e=>{e.stopPropagation();editSession=b.dataset.edit;renderHistory()});
-  $$("[data-edcancel]").forEach(b=>b.onclick=()=>{editSession=null;renderHistory()});
-  $$("[data-edsave]").forEach(b=>b.onclick=()=>saveSessionEdit(b.dataset.edsave));
-  $$("[data-edrm]").forEach(b=>b.onclick=e=>{e.stopPropagation();
-    const row=b.closest(".edrow"),card=b.closest(".session--edit");if(!row||!card)return;
-    const removing=!row.classList.contains("is-removed");
-    if(removing){
-      const left=[...card.querySelectorAll(".edrow[data-edidx]:not(.is-removed)")];
-      if(left.length<=1){toast(t("history.edit.keep_one"));return}
-      row.classList.add("is-removed");setEdrowRmState(b,true);
-      row.querySelectorAll(".edrow__in").forEach(inp=>{inp.disabled=true;inp.removeAttribute("aria-invalid")})}
-    else{row.classList.remove("is-removed");setEdrowRmState(b,false);
-      row.querySelectorAll(".edrow__in").forEach(inp=>inp.disabled=false)}});
-  const rows=index.tableRows.map(x=>({[t("stats.table.date")]:x.date,[t("stats.table.day")]:dayLabel(x.day),[t("stats.table.exercise")]:displayName(x),[t("stats.table.set")]:x.warmup?"W"+x.set:x.set,[unitLabel()]:fmtLoad(x.load),[t("stats.table.reps")]:x.reps,[t("stats.table.rir")]:fmt(x.rir)}));
-  $("#historyTable").innerHTML=table(rows);
-}
-function renderHistoryCalendar(index){const el=$("#historyCalendar");if(!el)return;
-  const {y,m}=histMonth,first=new Date(y,m,1),startDow=(first.getDay()+6)%7;
-  const daysInMonth=new Date(y,m+1,0).getDate(),prevDays=new Date(y,m,0).getDate();
-  const ym=`${y}-${String(m+1).padStart(2,"0")}`;
-  const month=index?.months?.get(ym)||{sessions:new Set(),sets:0,byDay:new Map()};
-  const byDay=month.byDay;
-  const sessCount=month.sessions.size,setCount=month.sets;
-  const letters=weekdayLetters();
-  // Monday-start letters already match weekdayLetters
-  let cells=letters.map(l=>`<div class="cal-grid__dow">${esc(l)}</div>`).join("");
-  for(let i=0;i<42;i++){let dayNum,out=false,iso;
-    if(i<startDow){dayNum=prevDays-startDow+i+1;out=true;const pm=m===0?11:m-1,py=m===0?y-1:y;iso=`${py}-${String(pm+1).padStart(2,"0")}-${String(dayNum).padStart(2,"0")}`}
-    else if(i-startDow>=daysInMonth){dayNum=i-startDow-daysInMonth+1;out=true;const nm=m===11?0:m+1,ny=m===11?y+1:y;iso=`${ny}-${String(nm+1).padStart(2,"0")}-${String(dayNum).padStart(2,"0")}`}
-    else{dayNum=i-startDow+1;iso=`${y}-${String(m+1).padStart(2,"0")}-${String(dayNum).padStart(2,"0")}`}
-    const info=!out&&byDay.get(dayNum),isToday=iso===today();
-    let mark="";if(info?.pr)mark=`<span class="cal-grid__mark is-pr"></span>`;else if(info)mark=`<span class="cal-grid__mark is-check">✓</span>`;else if(isToday)mark=`<span class="cal-grid__mark is-today"></span>`;
-    cells+=`<div class="cal-grid__day${out?" is-out":""}">${dayNum}${mark}</div>`;
-    if(i===41)break;if(i>=startDow+daysInMonth-1&&(i+1)%7===0)break}
-  el.innerHTML=`<div class="cal-head"><button type="button" class="icon-btn icon-btn--ghost" id="calPrev" aria-label="${esc(t("history.calendar_prev_aria"))}">‹</button>`+
-    `<div class="cal-head__title">${esc(t("history.month_title",{month:(()=>{const s=t("month."+m);return s?s.charAt(0).toUpperCase()+s.slice(1):s})(),year:y}))}</div>`+
-    `<button type="button" class="icon-btn icon-btn--ghost" id="calNext" aria-label="${esc(t("history.calendar_next_aria"))}">›</button></div>`+
-    `<div class="cal-summary">${esc(t("history.month_summary",{sessions:sessCount,sets:setCount}))}</div>`+
-    `<div class="cal-grid">${cells}</div>`;
-  $("#calPrev").onclick=()=>{if(histMonth.m===0){histMonth={y:histMonth.y-1,m:11}}else histMonth={y:histMonth.y,m:histMonth.m-1};renderHistory()};
-  $("#calNext").onclick=()=>{if(histMonth.m===11){histMonth={y:histMonth.y+1,m:0}}else histMonth={y:histMonth.y,m:histMonth.m+1};renderHistory()}}
-
-
-const EDROW_RM_GLYPH={remove:"×",undo:"↺"};
-// The per-row remove control is icon-only, so its state lives in the glyph plus
-// the accessible name rather than visible copy.
-function setEdrowRmState(btn,removed){
-  const label=t(removed?"history.edit.undo_remove":"history.edit.remove_set");
-  btn.setAttribute("aria-label",label);btn.title=label;btn.classList.toggle("is-undo",removed);
-  const glyph=btn.querySelector(".edrow__rm-glyph")||btn;
-  glyph.textContent=removed?EDROW_RM_GLYPH.undo:EDROW_RM_GLYPH.remove}
-
-function sessionEditor(s,sets){
-  const rows=sets.map((r,i)=>{
-    return `<div class="edrow" data-edidx="${i}"><span class="edrow__name">${esc(displayName(r))} <small>#${r.set}</small></span>`+
-      `<input class="edrow__in" data-ek="load|${i}" type="text" inputmode="decimal" enterkeyhint="next" value="${esc(fmtLoadPlain(r.load))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${unitLabel()}">`+
-      `<input class="edrow__in" data-ek="reps|${i}" type="text" inputmode="numeric" enterkeyhint="next" value="${esc(r.reps)}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("log.reps"))}">`+
-      `<input class="edrow__in" data-ek="rir|${i}" type="text" inputmode="decimal" enterkeyhint="done" value="${esc(fmt(r.rir))}" aria-label="${esc(displayName(r))} ${esc(t("log.set").toLowerCase())} ${r.set} ${esc(t("glossary.term.RIR"))}">`+
-      `<button type="button" class="edrow__rm" data-edrm="${i}" aria-label="${esc(t("history.edit.remove_set"))}" title="${esc(t("history.edit.remove_set"))}"><span class="edrow__rm-glyph" aria-hidden="true">${EDROW_RM_GLYPH.remove}</span></button></div>`}).join("");
-  return `<div class="session session--edit" data-editing="${esc(s.session)}">`+
-    `<div class="edhead"><div class="session__day">${esc(dayLabel(s.day))}</div>`+
-    `<label class="edate">${esc(t("stats.table.date"))}<input data-ed="date" type="date" value="${esc(s.date)}"></label></div>`+
-    `<div class="edrow edrow--head"><span>${esc(t("log.set"))}</span><span>${unitLabel()}</span><span>${esc(t("log.reps"))}</span><span>${esc(t("glossary.term.RIR"))}</span><span></span></div>`+rows+
-    `<div class="edbtns"><button type="button" class="btn btn--steel" data-edcancel="1">${esc(t("history.edit.cancel"))}</button>`+
-    `<button type="button" class="btn btn--cta" data-edsave="${esc(s.session)}">${esc(t("history.edit.save"))}</button></div>`+
-    // Where the whole session can be thrown away: behind the way in, under the
-    // edits, and named in full so the row it deletes is never in doubt.
-    `<div class="edrisk"><button type="button" class="session__del" data-del="${esc(s.session)}">${esc(t("history.session.delete"))}</button></div></div>`;
-}
-
-function sessionSetsForEdit(sid){
-  return state.log.filter(r=>r.session===sid).sort((a,b)=>String(displayName(a)).localeCompare(String(displayName(b)))||a.set-b.set)}
-
-async function saveSessionEdit(sid,io=storageIO){const card=$(`.session--edit[data-editing="${sid}"]`);if(!card)return;
-  clearFieldInvalid(card);
-  const dateEl=card.querySelector('[data-ed="date"]'),dateP=parseCalendarDate(dateEl?.value);
-  if(dateP.field){if(dateEl){dateEl.setAttribute("aria-invalid","true");try{dateEl.focus()}catch{}}toast(t(dateP.key));return}
-  const orig=sessionSetsForEdit(sid),proposed=[];
-  for(const rowEl of card.querySelectorAll(".edrow[data-edidx]")){
-    if(rowEl.classList.contains("is-removed"))continue;
-    const i=+rowEl.dataset.edidx,src=orig[i];if(!src)continue;
-    const loadEl=rowEl.querySelector('[data-ek^="load|"]'),repsEl=rowEl.querySelector('[data-ek^="reps|"]'),rirEl=rowEl.querySelector('[data-ek^="rir|"]');
-    const loadP=parseLoadDisplay(loadEl?.value);
-    if(loadP.field){if(loadEl){loadEl.setAttribute("aria-invalid","true");try{loadEl.focus()}catch{}}toast(t(loadP.key));return}
-    const repsP=parseRepsValue(repsEl?.value);
-    if(repsP.field){if(repsEl){repsEl.setAttribute("aria-invalid","true");try{repsEl.focus()}catch{}}toast(t(repsP.key));return}
-    const rirP=parseRirValue(rirEl?.value);
-    if(rirP.field){if(rirEl){rirEl.setAttribute("aria-invalid","true");try{rirEl.focus()}catch{}}toast(t(rirP.key));return}
-    const next=cloneSnapshot(src);
-    next.load=loadP.value;next.reps=repsP.value;next.rir=rirP.value;next.date=dateP.value;
-    proposed.push(next)}
-  if(!proposed.length){toast(t("history.edit.keep_one"));return}
-  const proposal=cloneSnapshot(state);
-  proposal.log=proposal.log.filter(r=>r.session!==sid).concat(proposed);
-  const result=await commitProposedState(proposal,io);
-  if(result.localOk||result.idbOk){editSession=null;render();toast(t("toast.session_updated"))}
-  return result}
-window.__repforgeSaveSessionEdit=saveSessionEdit;
+// @ci-domain history
+function adoptHistoryDurableHead(head){
+  if(!head)return;
+  state=cloneSnapshot(head);prog=makeProgram(state.program,null,state.programMeta);state.program=prog.toJSON();
+  resetPersistenceBase(state);dropMemo.clear();baselineMemo.clear()}
+const HistoryUi=window.RepForgeHistoryUi.create({
+  $, $$, t, esc, cloneSnapshot, currentMovementNames, mergeLogChronology,
+  compareLogChronology, isWork, liftKey, buildSessionDelta, detectPRs,
+  displayName, currentNameForRow, dayLabel, canTakeFocus, parseCalendarDate,
+  parseLoadDisplay, parseRepsValue, parseRirValue, clearFieldInvalid,
+  toast, formatLongDate, fmtLoad, sum, kfmt, fmt, toDisplay, unitLabel,
+  weekdayLetters, table, today, uid, readRevision,
+  commitProposedState:(proposal,opts)=>commitProposedState(proposal,storageIO,opts),
+  readDurableState:()=>DurableState.readDurableState(),
+  settleHistoryAlreadyCommitted:opts=>DurableState.settleHistoryAlreadyCommitted(opts),
+  settlePendingJournal,
+  getState:()=>state, renderApp:()=>render(),
+  adoptHistoryDurableHead, captureEvent,
+});
+window.__repforgeHistory=HistoryUi;
+window.__repforgeSaveSessionEdit=HistoryUi.saveSessionEdit;
 
 // ---- Exercise detail: one lift's stats, session history and session notes ----
 // Reached by tapping an exercise name on the Log tab; not part of the bottom nav.
@@ -9189,7 +9052,18 @@ function editorAdapterTranslate(key,vars,fallback){
 function editorChooseExercise(request){
   return new Promise(resolve=>{
     const options={title:request?.mode==="replace"?t("picker.title_change"):request?.mode==="alternates"?t("picker.title_alternates"):t("picker.add_to",{day:dayLabel(request?.day)}),
-      subtitle:request?.exercise?.name||"",exclude:request?.exclude||[],onPick:entry=>resolve(entry),
+      subtitle:request?.exercise?.name||"",exclude:request?.exclude||[],onPick:async entry=>{
+        // Share repair applies as soon as the picker has handed back a valid
+        // replacement. Wait for the picker's own close transition first: the
+        // modal controller still owns it while choosePicked awaits onPick, and
+        // reopening Share before that handoff completes leaves a hidden sheet
+        // with a stale active-modal record.
+        if(request?.repair)await closeExercisePicker();
+        if(request?.repair){
+          const handoff=entry?.entry?entry:{entry,stagedCustomDefinition:null};
+          resolve(handoff);
+        }else resolve(entry)},
+      ...(request?.repair?{onCancel:()=>resolve(null),stageOnly:true,repairSeed:request.exercise}:{}),
       ...(request?.mode==="add"?{quick:true,day:request.day}: {})};
     if(request?.mode==="alternates"){
       options.mode="multi";
@@ -9294,6 +9168,8 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     if(check&&document.program?.some(item=>item.id===edit.targetId))return{conflict:true};
     if(edit.targetDay&&!editorDocumentDays(document).includes(edit.targetDay))return{conflict:true};
     if(edit.exercise){
+      if(!editorHasCustomDefinition(document,edit.exercise.libraryId))
+        return{conflict:true,code:"missing_custom_definition"};
       document.program=(document.program||[]).concat(cloneSnapshot(edit.exercise));
       syncProgramStructureFromProgram(document,makeProgram(document.program,snapshotLookup(document.customExercises),document.programMeta));
     }
@@ -9303,7 +9179,18 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
     const existing=document.program?.find(item=>item.id===edit.targetId);
     if(!existing)return{conflict:true};
     if(check&&edit.beforeLibraryId!==undefined&&existing.libraryId!==edit.beforeLibraryId)return{conflict:true};
-    if(edit.exercise)Object.assign(existing,cloneSnapshot(edit.exercise));
+    if(edit.customExercise){
+      if(!isCustomLibraryId(edit.customExercise.id)||edit.exercise?.libraryId!==edit.customExercise.id)
+        return{conflict:true,code:"invalid_staged_custom_definition"};
+      const customExercises=Array.isArray(document.customExercises)?document.customExercises:[];
+      const current=customExercises.find(item=>item?.id===edit.customExercise.id);
+      if(current&&!changeValueEqualForEditor(current,edit.customExercise))return{conflict:true};
+      if(!current)document.customExercises=customExercises.concat(cloneSnapshot(edit.customExercise));
+    }
+    if(edit.exercise){
+      if(!editorHasCustomDefinition(document,edit.exercise.libraryId))
+        return{conflict:true,code:"missing_custom_definition"};
+      Object.assign(existing,cloneSnapshot(edit.exercise))}
     return{ok:true};
   }
   if(kind==="exercise_remove"){
@@ -9322,9 +9209,14 @@ function applyInstalledEditorIntent(document,edit,{check=true}={}){
   return{ok:true};
 }
 function changeValueEqualForEditor(a,b){return JSON.stringify(canonicalize(a))===JSON.stringify(canonicalize(b))}
+// Legacy snapshots remain readable, so custom-link integrity is enforced at
+// the editor mutation boundary that creates or changes a program reference.
+function editorHasCustomDefinition(document,id){
+  return !isCustomLibraryId(id)||(document?.customExercises||[]).some(entry=>entry?.id===id)}
 function editorRebaseDocument(session,head){
   const rebased=editorDocumentFromSnapshot(head),edits=session?.edits||[];
-  for(const edit of edits){const result=applyInstalledEditorIntent(rebased,edit);if(result?.conflict)return{conflict:true};}
+  for(const edit of edits){const result=applyInstalledEditorIntent(rebased,edit);
+    if(result?.conflict)return{conflict:true,code:result.code||"editor_intent_conflict"};}
   return{document:rebased,conflict:false}}
 function installedEditorImpact(document,base=state,edits=[]){
   const current=editorDocumentFromSnapshot(base),next=editorDocumentFromSnapshot(document);
@@ -9387,7 +9279,8 @@ function createInstalledProgramEditorAdapter(){
       if(expectedToken?.blockId!==headToken.blockId)
         return{ok:false,conflict:true,editorConflict:true,staleBlock:true};
       if(!editorTokenEqual(expectedToken,headToken)){
-        const rebased=editorRebaseDocument({edits},head);if(rebased.conflict)return{ok:false,conflict:true,editorConflict:true};
+        const rebased=editorRebaseDocument({edits},head);
+        if(rebased.conflict)return{ok:false,conflict:true,editorConflict:true,code:rebased.code};
         document=rebased.document}
       const impact=installedEditorImpact(document,head,edits);
       if(impact.active&&impact.incompatible&&intent.kind!=="apply_discard_workout")
@@ -9408,7 +9301,7 @@ function createInstalledProgramEditorAdapter(){
           if(!editorTokenEqual(headToken,lockedToken)){
             const rebased=editorRebaseDocument({edits},lockedHead);
             if(rebased.conflict)
-              return{reject:true,result:{ok:false,conflict:true,editorConflict:true}};
+              return{reject:true,result:{ok:false,conflict:true,editorConflict:true,code:rebased.code}};
             document=rebased.document;
           }
           const lockedImpact=installedEditorImpact(document,lockedHead,edits);
@@ -9425,7 +9318,7 @@ function createInstalledProgramEditorAdapter(){
           const lockedProposal=editorSnapshotFromDocument(document,lockedHead);
           return{proposal:lockedProposal};
         }});
-      if(result.localOk||result.idbOk){
+      if(result.committed===true&&result.settled===true){
         if(effect?.status==="valid"&&effect.effect?.kind==="clear-draft")resetDraftSessionState();
         installedEditorSession=null;return{...result,ok:true,document,token:installedEditorToken(state)}}
       return{...result,ok:false,conflict:!!(result.conflict||result.staleRevision)};
@@ -9550,6 +9443,7 @@ function openInstalledLeaveDialog({workout=false}={}){
 }
 function finishInstalledEditor({discard=false,historyAlreadyPopped=false}={}){
   const nextView=pendingEditorNavigation;
+  const wasShareRepair=!!shareRepairReturn;
   pendingEditorNavigation=null;
   installedLeaveMode=null;
   closeModal($("#programEditorLeave"));
@@ -9557,6 +9451,7 @@ function finishInstalledEditor({discard=false,historyAlreadyPopped=false}={}){
   installedProgramEditor?.dispose?.();installedProgramEditor=null;installedEditorSession=null;programEditMode=false;
   disarmInstalledEditorHistory({historyAlreadyPopped});
   render();
+  if(wasShareRepair)reopenShareAfterRepair();
   if(nextView){
     const button=$(`nav button[data-view="${CSS.escape(nextView)}"]`);
     if(button)button.click();
@@ -9573,12 +9468,13 @@ async function applyInstalledEditorAndContinue(){
     return result;
   }
   if(result?.conflict||result?.editorConflict||result?.staleRevision){
+    if(shareRepairReturn){finishInstalledEditor({discard:true});return result}
     const status=$("#programEditor [data-role=\"editor-status\"]");
     if(status){status.textContent=t("program.editor.conflict");status.hidden=false;status.classList.add("is-error");}
     closeInstalledLeaveDialog();
     return result;
   }
-  if(result?.ok||result?.localOk||result?.idbOk){
+  if(result?.committed===true&&result?.settled===true){
     finishInstalledEditor();
     maybeShowInstallBanner();
   }
@@ -9678,14 +9574,25 @@ function openEntryDraftEditor(){
 function closeEntryDraftEditor(){
   setupEditorOpen=false;programEditMode=false;onboardingProgramEditor?.dispose?.();onboardingProgramEditor=null;
   onboardingOrigin=null;document.body.classList.remove("is-entry-editor");closeOnboarding()}
+function setProgramMetadataHidden(hidden,{inert=false}={}){
+  const meta=$("#programMeta");if(!meta)return;
+  const trulyHidden=hidden&&inert;
+  meta.hidden=trulyHidden;
+  meta.setAttribute("aria-hidden",trulyHidden?"true":"false");
+  meta.classList.toggle("visually-hidden",hidden);
+  if(trulyHidden)meta.innerHTML="";
+}
 function renderProgram(){
   // Nothing to show: the tab is the same invitation Today carries, not a
   // summary of a program that does not exist. A lifter who emptied their own
   // program keeps the editor and its Add day — they have not been sent back to
   // the start — so onboarding is asked about too, not just content.
-  const noProgram=!hasProgramContent()&&state?.programMeta?.onboarded!==true,blank=$("#programNoProgram");
+  const noProgram=!hasProgramContent()&&state?.programMeta?.onboarded!==true,blank=$("#programNoProgram"),nav=document.querySelector("nav");
+  if(nav)nav.dataset.elevation="floating";
   if(blank)blank.classList.toggle("hidden",!noProgram);
   if(noProgram){
+    programReadyView=false;
+    setProgramMetadataHidden(true,{inert:true});
     for(const sel of["#programOverview","#programMeta","#programBlockBanner","#programEditorWrap","#programEditToggle"]){
       const el=$(sel);if(el)el.classList.add("hidden")}
     const cta=$("#programSetupProgram");
@@ -9695,18 +9602,21 @@ function renderProgram(){
     const el=$(sel);if(el)el.classList.remove("hidden")}
   $("#programEditorWrap")?.classList.remove("hidden");
   renderProgramOverview();
-  const view=$("#program"),ov=$("#programOverview"),ed=$("#programEditorWrap"),tog=$("#programEditToggle"),meta=$("#programMeta");
+  const view=$("#program"),ov=$("#programOverview"),ed=$("#programEditorWrap"),tog=$("#programEditToggle");
   view?.classList.toggle("program-editor-installed",programEditMode);
   if(ov)ov.classList.toggle("is-hidden",programEditMode);
   if(ed)ed.classList.toggle("is-hidden",!programEditMode);
-  if(meta)meta.classList.toggle("visually-hidden",programEditMode);
-  if(tog)tog.textContent=programEditMode?t("program.done_editing"):t("program.edit");
+  // The overview's readiness list must not expose stale metadata controls. The
+  // installed editor keeps the existing metadata DOM for its production edit
+  // seam, but leaves it out of the visual layout like the prior editor did.
+  setProgramMetadataHidden(programEditMode||programReadyView,{inert:programReadyView});
+  if(tog){tog.textContent=programEditMode?t("program.done_editing"):t("program.edit");tog.dataset.actionRole="expansion";tog.setAttribute("aria-expanded",programEditMode?"true":"false")}
   const end=$("#endBlock"),lede=ed?.querySelector(":scope > .program-editor-lede"),addDay=$("#addDay"),volumeHead=ed?.querySelector(":scope > .program-volume-head"),volumeLede=ed?.querySelector(":scope > .program-volume-lede"),volume=$("#volume");
   // Advanced remains part of the installed editor. It is inside the editor
   // host, so hiding the disclosure here would strand the raw import/export
   // controls whenever the visual editor is open.
   [end,lede,addDay,volumeHead,volumeLede,volume].forEach(el=>el?.classList.toggle("hidden",programEditMode));
-  if(programEditMode){armInstalledEditorHistory();if(!installedProgramEditor)mountInstalledProgramEditor();return}
+  if(programEditMode){if(nav)nav.dataset.elevation="persistent-action";armInstalledEditorHistory();if(!installedProgramEditor)mountInstalledProgramEditor();return}
   renderProgramHeader();renderProgramEditor();renderVolume();
   // Candidate edits can invalidate a paired relation while the exercise picker
   // is closing. Focus after the editor DOM has been rebuilt, rather than racing
@@ -9725,7 +9635,24 @@ function focusEntryEditorStatus(){
   entryEditorStatusFocusPending=false;
   try{status.focus({preventScroll:true})}catch{try{status.focus()}catch{return false}}
   return true}
+function programReadyExercises(){const ready=[];
+  for(const dayName of prog.days())for(const exercise of prog.forDay(dayName)){
+    const status=recommendation(exercise).status;
+    if(status==="add"||status==="add2")ready.push({id:exercise.id,day:dayName,exercise,status})}
+  return ready}
+function renderProgramReadyView(el,ready){
+  el.innerHTML=`<div class="program-ready__head"><button type="button" class="back-link" id="programReadyBack" data-action-role="navigation">${esc(t("program.ready.back"))}</button>`+
+    `<h3 class="program-ready__title">${esc(t("program.ready.title"))}</h3></div>`+
+    `<div class="program-ready__list">${ready.map(item=>`<button type="button" class="listrow program-ready__row" data-ready-ex="${esc(item.id)}" data-action-role="navigation" aria-label="${esc(t("log.open_exercise_aria",{name:item.exercise.name}))}">`+
+      `<div class="listrow__main"><div class="listrow__title">${esc(item.exercise.name)}</div><div class="listrow__sub">${esc(dayLabel(item.day))}</div></div>`+
+      `<span class="chevron" aria-hidden="true"></span></button>`).join("")}</div>`;
+  $("#programReadyBack")?.addEventListener("click",()=>{programReadyView=false;renderProgram();window.scrollTo({top:0})});
+  $$("#programOverview [data-ready-ex]").forEach(button=>button.addEventListener("click",()=>openExerciseView(button.dataset.readyEx,"program")))}
 function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
+  const ready=programReadyExercises();
+  if(programReadyView){
+    if(ready.length){renderProgramReadyView(el,ready);return}
+    programReadyView=false}
   const meta=state.programMeta||defaultProgramMeta(state.log),mc=mesocycleWeek(),ad=programAdherence(),health=programProgressionHealth(),vol=programVolumeCompliance();
   const ds=prog.days(),goal=meta.goal?t("onb.goal."+meta.goal+".label")||meta.goal:"";
   const segs=mc.total||6,cur=mc.current||0;
@@ -9735,11 +9662,11 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   const saved=Array.isArray(uiPrefs.overviewOpenDays)?uiPrefs.overviewOpenDays.filter(x=>typeof x==="string"):null;
   const openDays=new Set(saved||(ds.length?[ds[0]]:[]));
   for(const d of ds){const exs=prog.forDay(d),sets=sum(exs.map(e=>e.sets)),mus=dayMuscles(d),open=openDays.has(d);
-    daysHtml+=`<div class="prog-day"><button type="button" class="prog-day__head" data-ovday="${esc(d)}" aria-expanded="${open?"true":"false"}"><div>`+
+    daysHtml+=`<div class="prog-day"><button type="button" class="prog-day__head" data-ovday="${esc(d)}" data-action-role="expansion" aria-expanded="${open?"true":"false"}"><div>`+
       `<div class="prog-day__title">${esc(dayLabel(d))}</div>${mus.length?`<div class="prog-day__muscles">${esc(mus.map(muscleLabel).join(" · "))}</div>`:""}</div>`+
       `<div class="prog-day__right">${esc(t("program.day_meta",{ex:exs.length,sets}))}<span class="chevron${open?" is-up":""}" aria-hidden="true"></span></div></button>`;
-    if(open){daysHtml+=`<div class="prog-day__body">${exs.map(e=>`<button type="button" class="prog-ex" data-exopen="${esc(e.id)}"><span>${esc(e.name)}</span><span class="prog-ex__sets">${e.sets} × ${e.min}–${e.max}</span></button>`).join("")}`+
-      `<button type="button" class="link-row-cta" data-ovdetails="${esc(d)}"><span>${esc(t("program.see_details"))}</span><span class="chevron" aria-hidden="true"></span></button></div>`}
+    if(open){daysHtml+=`<div class="prog-day__body">${exs.map(e=>`<button type="button" class="prog-ex" data-exopen="${esc(e.id)}" data-action-role="navigation" aria-label="${esc(t("log.open_exercise_aria",{name:e.name}))}"><span>${esc(e.name)}</span><span class="prog-ex__sets">${e.sets} × ${e.min}–${e.max}</span></button>`).join("")}`+
+      `<button type="button" class="link-row-cta" data-ovdetails="${esc(d)}" data-action-role="navigation"><span>${esc(t("program.see_details"))}</span><span class="chevron" aria-hidden="true"></span></button></div>`}
     daysHtml+=`</div>`}
   const planned=prog.volume();let plannedTotal=0;for(const[,v] of planned)plannedTotal+=v.d+v.p;
   el.innerHTML=`<div class="prog-overview__name">${esc(meta.name||t("untitled_program"))}</div>`+
@@ -9749,24 +9676,27 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
     (started?`<div class="prog-overview__started">${esc(started)}</div>`:"")+
     `<div class="statrow">`+
     `<div class="statrow__cell"><div class="statrow__val">${ad.logged} / ${ad.total}</div><div class="statrow__cap">${esc(t("program.stat.days_7d"))}</div></div>`+
-    `<div class="statrow__cell"><div class="statrow__val">${health?.hot||0}</div><div class="statrow__cap">${esc(t("program.stat.ready"))}</div></div>`+
     `<div class="statrow__cell"><div class="statrow__val">${vol?Math.round(vol.ratio*100)+"%":"—"}</div><div class="statrow__cap">${esc(t("program.stat.volume"))}</div></div>`+
     `</div>${daysHtml}`+
+    (ready.length
+      ? `<button type="button" class="listrow program-ready-link" id="programReadyLink" data-action-role="navigation"><div class="listrow__main"><div class="listrow__title">${esc(t("program.ready_to_add",{n:ready.length}))}</div></div><span class="chevron" aria-hidden="true"></span></button>`
+      : "")+
     `<p class="section-label">${esc(t("program.planned_volume_label"))}</p>`+
-    `<button type="button" class="listrow" id="seeVolumeAudit"><div class="listrow__main"><div class="listrow__title">${esc(t("program.effective_sets",{n:fmt(plannedTotal)}))}</div></div>`+
+    `<button type="button" class="listrow" id="seeVolumeAudit" data-action-role="navigation"><div class="listrow__main"><div class="listrow__title">${esc(t("program.effective_sets",{n:fmt(plannedTotal)}))}</div></div>`+
     `<span class="listrow__meta">${esc(t("program.see_audit"))}<span class="chevron" aria-hidden="true"></span></span></button>`+
     // Nothing to read out when the program has no days left, so the row waits for one.
-    (ds.length?`<button type="button" class="listrow" id="exportProgramText"><div class="listrow__main"><div class="listrow__title">${esc(t("program.export_text"))}</div>`+
+    (ds.length?`<button type="button" class="listrow" id="exportProgramText" data-action-role="navigation"><div class="listrow__main"><div class="listrow__title">${esc(t("program.export_text"))}</div>`+
       `<div class="listrow__sub">${esc(t("program.export_text.sub"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`:"")+
-    (ds.length?`<button type="button" class="listrow" id="shareProgramSetup"><div class="listrow__main"><div class="listrow__title">${esc(t("program.share_setup"))}</div>`+
+    (ds.length?`<button type="button" class="listrow" id="shareProgramSetup" data-action-role="navigation"><div class="listrow__main"><div class="listrow__title">${esc(t("program.share_setup"))}</div>`+
       `<div class="listrow__sub">${esc(t("program.share_setup_sub"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`:"")+
-    `<button type="button" class="listrow" id="reviewBlockLink" style="border-bottom:0"><div class="listrow__main"><div class="listrow__title">${esc(t("program.review_block"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
+    `<button type="button" class="listrow" id="reviewBlockLink" data-action-role="navigation" style="border-bottom:0"><div class="listrow__main"><div class="listrow__title">${esc(t("program.review_block"))}</div></div><span class="chevron" aria-hidden="true"></span></button>`;
   $$("#programOverview [data-ovday]").forEach(b=>b.onclick=()=>{
     const cur=new Set(openDays);
     cur.has(b.dataset.ovday)?cur.delete(b.dataset.ovday):cur.add(b.dataset.ovday);
     setUiPref("overviewOpenDays",[...cur].filter(x=>ds.includes(x)));renderProgramOverview()});
   $$("#programOverview [data-exopen]").forEach(b=>b.onclick=()=>{if(b.dataset.exopen)openExerciseView(b.dataset.exopen,"program")});
   $$("#programOverview [data-ovdetails]").forEach(b=>b.onclick=()=>openDayInEditor(b.dataset.ovdetails));
+  const readyLink=$("#programReadyLink");if(readyLink)readyLink.onclick=()=>{captureEvent("program_readiness_navigated",{ready_count_bucket:coarseCountBucket(ready.length)});programReadyView=true;renderProgram();window.scrollTo({top:0})};
   const audit=$("#seeVolumeAudit");if(audit)audit.onclick=()=>{programEditMode=true;renderProgram();$("#volume")?.scrollIntoView({behavior:"smooth"})};
   const asText=$("#exportProgramText");if(asText)asText.onclick=openProgramTextSheet;
   const shareSetup=$("#shareProgramSetup");if(shareSetup)shareSetup.onclick=openShareSetupSheet;
@@ -9781,14 +9711,15 @@ function renderProgramChips(){
   const ad=programAdherence(),mc=mesocycleWeek(),health=programProgressionHealth(),vol=programVolumeCompliance();
   const status=programStatusLabel(ad,health);
   const weekChip=(mc.current!=null||mc.isComplete)?`<span class="pmeta__chip">${esc(mesocycleWeekCopy(mc,"program.week_chip"))}</span>`:"";
-  const healthChip=health?`<span class="pmeta__chip">${esc(t("program.ready_chip",{done:health.hot,total:health.total}))}</span>`:"";
   const volChip=vol?`<span class="pmeta__chip">${esc(t("program.volume_chip",{pct:Math.round(vol.ratio*100)}))}</span>`:"";
   top.innerHTML=`${weekChip}<span class="pmeta__chip pmeta__chip--status">${esc(status)}</span>`;
-  bottom.innerHTML=`<span class="pmeta__chip">${esc(t("program.days_last_7",{done:ad.logged,planned:ad.total}))}</span>${healthChip}${volChip}`;
+  bottom.innerHTML=`<span class="pmeta__chip">${esc(t("program.days_last_7",{done:ad.logged,planned:ad.total}))}</span>${volChip}`;
 }
 
 function renderProgramHeader(){
   const el=$("#programMeta");if(!el)return;
+  if(programReadyView){setProgramMetadataHidden(true,{inert:true});return}
+  setProgramMetadataHidden(false);
   if(!setupEditorOpen&&document.activeElement?.closest("#programMeta"))return;
   if(setupEditorOpen){
     const snapshot=programEditorSnapshot(),meta=snapshot.programMeta;
@@ -10388,7 +10319,19 @@ async function setNotificationsEnabled(wanted){
     paintNotifyControls()}
   finally{if(notifyRequestInFlight===request)notifyRequestInFlight=null}}
 
+function renderGuideReplayList(){
+  const list=$("#guideReplayList");
+  if(!list||!GuideRegistry?.GUIDE_DEFINITIONS)return;
+  list.innerHTML=GuideRegistry.GUIDE_DEFINITIONS.map(guide=>
+    `<button type="button" class="btn btn--steel guide-replay__item" data-guide-replay="${esc(guide.id)}">`+
+      `<span class="guide-replay__title">${esc(t(`guide.${guide.id}.title`))}</span>`+
+      `<span class="guide-replay__body">${esc(t(`guide.${guide.id}.body`))}</span>`+
+    `</button>`).join("");
+  $$("#guideReplayList [data-guide-replay]").forEach(button=>{
+    button.onclick=()=>replayContextualGuide(button.dataset.guideReplay)
+  })}
 function renderSettings(){
+  renderGuideReplayList();
   const jp=$("#jumpPct"),mj=$("#minJump"),rh=$("#rirHigh"),hr=$("#hardRir"),rs=$("#restSec"),un=$("#unit");
   if(jp)jp.value=state.settings.jumpPct;if(mj)mj.value=state.settings.minJump;if(rh)rh.value=state.settings.rirHigh;if(hr)hr.value=state.settings.hardRir;
   if(rs)rs.value=state.settings.restSec;if(un)un.value=state.settings.unit;
@@ -10516,7 +10459,7 @@ function sharedExercise(ex,preserveIdentity=false){
   const libraryId=LEGACY_LIBRARY_IDS[ex?.libraryId]||ex?.libraryId;
   const out={day:ex?.day,order:ex?.order,libraryId,sets:ex?.sets,min:ex?.min,max:ex?.max,
     notes:ex?.notes||"",alternates:Array.isArray(ex?.alternates)?[...ex.alternates]:[]};
-  if(preserveIdentity){out.id=ex?.id;const movementId=ProgramEntryAdapter.sharedMovementId(ex,LEGACY_LIBRARY_IDS);if(movementId)out.movementId=movementId}
+  if(preserveIdentity&&ex?.id){out.id=ex.id;const movementId=ProgramEntryAdapter.sharedMovementId(ex,LEGACY_LIBRARY_IDS);if(movementId)out.movementId=movementId}
   for(const key of ["displayName","progressionType","targetRirStart","targetRirEnd","minSets","maxSets","priority"])
     if(ex?.[key]!==undefined)out[key]=ex[key];
   for(const key of ["slotId","dayId","loadingMode","loadIncrement"])
@@ -10531,16 +10474,30 @@ function sharedSettings(settings){
   return{jumpPct:settings.jumpPct,minJump:settings.minJump,rirHigh:settings.rirHigh,
     hardRir:settings.hardRir,restSec:settings.restSec,unit:settings.unit,
     lang:settings.lang||I18N?.getLang?.()||I18N?.detectLang?.()||"en",rirMode:settings.rirMode}}
-function buildSharedSetupPayload(){
+function buildSharedSetupValidation(){
   if(!SharedSetup)throw new TypeError("Shared setup unavailable");
   const source=prog.toJSON();
   const relations=normalizeProgressionRelations(state.programMeta?.progressionRelations,source);
   const relationSlots=new Set(relations.flatMap(relation=>relation.members.map(member=>member.exerciseId)));
-  const exercises=source.map(ex=>sharedExercise(ex,relationSlots.has(ex.id)));
-  return{kind:SharedSetup.KIND,version:SharedSetup.VERSION,
+  const diagnostics={};
+  const exercises=source.map(ex=>{
+    const row=sharedExercise(ex,true);
+    // These facts explain unresolved slots at the validation boundary. They
+    // stay beside the payload and are never smuggled through its schema.
+    diagnostics[ex.id]={
+      displayName:ex?.displayName||ex?.name||ex?.libraryId||"",
+      ...(Array.isArray(ex?.equipment)?{equipment:[...ex.equipment]}:{}),
+      ...(ex?.primary!==undefined?{primary:ex.primary}:{}),
+      ...(ex?.secondary!==undefined?{secondary:ex.secondary}:{}),
+    };
+    return row;
+  });
+  return{payload:{kind:SharedSetup.KIND,version:SharedSetup.VERSION,
     program:{meta:sharedProgramMeta(state.programMeta,prog),exercises,
       customExercises:referencedCustomExercises(exercises).map(sharedCustomExercise)},
-    settings:sharedSettings(state.settings)}}
+    settings:sharedSettings(state.settings)},diagnostics}
+}
+function buildSharedSetupPayload(){return buildSharedSetupValidation().payload}
 function exportProgram(){
   const exercises=prog.toJSON();
   const meta=cloneSnapshot(state.programMeta||{});
@@ -10610,28 +10567,53 @@ function closeProgramTextSheet(){
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
   programTextReturn=null;
   return closeModal(sheet)}
-let shareSetupReturn=null,shareSetupLink="";
-function setShareSetupState(message,{ready=false}={}){
+let shareSetupReturn=null,shareSetupLink="",shareSetupBlockers=[],shareRepairReturn=null,shareRepairFocusIntent=null;
+function shareSetupBlockerMessage(count){
+  const n=Number(count)||0;
+  const form=n===1?"one":"other";
+  return t(`program.share_setup_blocked.${form}`,{n});
+}
+function renderShareSetupBlockers(){
+  const summary=$("#shareSetupBlockerSummary"),list=$("#shareSetupBlockers");
+  const blockers=Array.isArray(shareSetupBlockers)?shareSetupBlockers:[];
+  if(summary){summary.textContent=blockers.length?shareSetupBlockerMessage(blockers.length):"";summary.classList.toggle("hidden",!blockers.length)}
+  if(!list)return;
+  list.classList.toggle("hidden",!blockers.length);
+  list.innerHTML=blockers.map(blocker=>{
+    const id=String(blocker?.exerciseInstanceId??"");
+    const name=blocker?.displayName||t("program.share_setup_exercise");
+    const reason=t(`program.share_setup_reason.${blocker?.reasonCode}`)||t("program.share_setup_reason.unknown");
+    return `<div class="share-setup__blocker" data-share-blocker-id="${esc(id)}" data-share-day-id="${esc(blocker?.dayId||"")}" data-share-reason="${esc(blocker?.reasonCode||"")}" role="listitem">`+
+      `<div class="share-setup__blocker-copy"><strong>${esc(name)}</strong>`+
+      `<span>${esc(reason)}</span></div>`+
+      `<button type="button" class="btn btn--steel share-setup__repair" data-share-repair="${esc(id)}" aria-label="${esc(t("program.share_setup_repair_aria",{name}))}">${esc(t("program.share_setup_repair"))}</button></div>`;
+  }).join("");
+  $$("#shareSetupBlockers [data-share-repair]").forEach(button=>button.onclick=()=>beginShareRepair(button.dataset.shareRepair));
+}
+function setShareSetupState(message,{ready=false,blockers=null}={}){
+  if(blockers!==null)shareSetupBlockers=Array.isArray(blockers)?blockers:[];
+  renderShareSetupBlockers();
+  const blocked=shareSetupBlockers.length>0;
+  ready=ready&&!blocked;
   const status=$("#shareSetupStatus"),out=$("#shareSetupLink"),share=$("#shareSetupShare"),copy=$("#shareSetupCopy");
   if(status){status.textContent=message||"";status.classList.toggle("hidden",!message)}
   if(out){if("value" in out)out.value=ready?shareSetupLink:"";else out.textContent=ready?shareSetupLink:""}
-  if(share){share.disabled=!ready||typeof navigator.share!=="function";share.classList.toggle("hidden",typeof navigator.share!=="function")}
-  if(copy)copy.disabled=!ready}
-function sharedSetupErrorMessage(result,unlinked=false){
-  if(unlinked)return t("program.share_setup_unlinked");
+  if(share){share.disabled=!ready||typeof navigator.share!=="function";share.classList.toggle("hidden",!ready||typeof navigator.share!=="function")}
+  if(copy){copy.disabled=!ready;copy.classList.toggle("hidden",!ready)}
+}
+function sharedSetupErrorMessage(result){
+  if(result?.code==="unresolved-exercises")return shareSetupBlockerMessage(result.blockers?.length||0);
   if(result?.code==="compression-unavailable")return t("program.share_setup_unsupported");
   if(result?.code==="encoded-too-large")return t("setup.shared.too_large");
   return t("program.share_setup_invalid")}
 async function buildShareSetupLink(){
   shareSetupLink="";
-  setShareSetupState(t("program.share_setup_building"));
+  setShareSetupState(t("program.share_setup_building"),{blockers:[]});
   if(!SharedSetup){setShareSetupState(t("program.share_setup_unsupported"));return}
-  const unlinked=prog.toJSON().some(ex=>!ex.libraryId||!libraryEntry(ex.libraryId));
-  if(unlinked){setShareSetupState(sharedSetupErrorMessage(null,true));return}
-  let payload;
-  try{payload=buildSharedSetupPayload()}catch{setShareSetupState(t("program.share_setup_invalid"));return}
-  const checked=SharedSetup.validate(payload,{builtInIds:SHARED_BUILT_IN_IDS});
-  if(!checked.ok){setShareSetupState(sharedSetupErrorMessage(checked));return}
+  let built;
+  try{built=buildSharedSetupValidation()}catch{setShareSetupState(t("program.share_setup_invalid"));return}
+  const checked=SharedSetup.validate(built.payload,{builtInIds:SHARED_BUILT_IN_IDS,diagnostics:built.diagnostics});
+  if(!checked.ok){setShareSetupState(sharedSetupErrorMessage(checked),{blockers:checked.blockers||[]});return}
   let encoded;
   try{encoded=await SharedSetup.encode(checked.value,{builtInIds:SHARED_BUILT_IN_IDS})}
   catch{setShareSetupState(t("program.share_setup_unsupported"));return}
@@ -10641,17 +10623,65 @@ async function buildShareSetupLink(){
   url.search="";
   url.hash=`setup=${encoded.value}`;
   shareSetupLink=url.href;
-  setShareSetupState("",{ready:true})}
-function openShareSetupSheet(){
+  setShareSetupState("",{ready:true,blockers:[]})}
+function shareRepairToken(){
+  return{surface:"share",programId:state?.programMeta?.id||null,blockId:snapshotBlockId(state),exerciseInstanceId:null};
+}
+function shareRepairTargetMatches(token,snapshot=state){
+  return !!token&&token.programId===(snapshot?.programMeta?.id||null)&&token.blockId===snapshotBlockId(snapshot)&&
+    Array.isArray(snapshot?.program)&&snapshot.program.some(ex=>ex?.id===token.exerciseInstanceId);
+}
+function shareSetupRepairButton(id){
+  return $$("#shareSetupBlockers [data-share-repair]").find(button=>button.dataset.shareRepair===id)||null}
+function focusShareSetupRepair(token){
+  const remaining=$$("#shareSetupBlockers [data-share-repair]");
+  const exact=token?.exerciseInstanceId?shareSetupRepairButton(token.exerciseInstanceId):null;
+  const target=[exact,...remaining,$("#shareSetupBlockerSummary"),$("#shareSetupStatus"),$("#shareSetupCopy"),$("#shareSetupClose")].find(canTakeFocus);
+  if(canTakeFocus(target)){try{target.focus({preventScroll:true})}catch{try{target.focus()}catch{}}}}
+function reopenShareAfterRepair(){
+  const token=shareRepairReturn;
+  shareRepairReturn=null;
+  if(!token)return;
+  shareRepairFocusIntent=token;
+  queueMicrotask(()=>{
+    if(shareRepairFocusIntent===token)openShareSetupSheet({repairFocus:token})});
+}
+async function cancelShareRepair(){
+  if(!shareRepairReturn)return;
+  finishInstalledEditor({discard:true});
+}
+async function beginShareRepair(exerciseInstanceId){
+  const id=String(exerciseInstanceId||"");
+  const blocker=shareSetupBlockers.find(item=>String(item?.exerciseInstanceId??"")===id);
+  if(!blocker)return;
+  captureEvent("share_setup_outcome",{blocker_count_bucket:coarseCountBucket(shareSetupBlockers.length),action:"repair_opened"});
+  shareRepairReturn={...shareRepairToken(),exerciseInstanceId:id};
+  const closed=closeShareSetupSheet();
+  if(closed&&typeof closed.then==="function")await closed;
+  if(!shareRepairReturn)return;
+  if(!shareRepairTargetMatches(shareRepairReturn,state)){finishInstalledEditor({discard:true});return}
+  programEditMode=true;
+  renderProgram();
+  const editor=installedProgramEditor;
+  if(!editor){finishInstalledEditor({discard:true});return}
+  const result=await editor.replaceExercise(id);
+  if(!result||result.ok===false||result.cancelled){finishInstalledEditor({discard:true});return}
+  await applyInstalledEditorAndContinue();
+}
+function openShareSetupSheet({repairFocus=null}={}){
   const sheet=$("#shareSetupSheet"),scrim=$("#shareSetupScrim");
   if(!sheet)return;
+  if(!repairFocus)shareRepairFocusIntent=null;
   const subtitle=$("#shareSetupFor");if(subtitle)subtitle.textContent=state.programMeta?.name||t("untitled_program");
   shareSetupReturn=document.activeElement;
   document.body.classList.add("is-sheet-open");
-  openModal(sheet,{initialFocus:$("#shareSetupClose"),returnFocus:shareSetupReturn,
+  openModal(sheet,{initialFocus:repairFocus?()=>shareSetupRepairButton(repairFocus.exerciseInstanceId)||$("#shareSetupClose"):$("#shareSetupClose"),returnFocus:shareSetupReturn,
     onEscape:closeShareSetupSheet,scrim,delayHide:reducedMotion()?0:280});
   requestAnimationFrame(()=>{sheet.classList.add("is-open");scrim?.classList.add("is-open")});
-  buildShareSetupLink()}
+  buildShareSetupLink().then(()=>{
+    if(repairFocus&&shareRepairFocusIntent===repairFocus&&activeModal?.el===sheet){
+      shareRepairFocusIntent=null;
+      focusShareSetupRepair(repairFocus)}})}
 function closeShareSetupSheet(){
   const sheet=$("#shareSetupSheet");
   if(!sheet)return Promise.resolve(false);
@@ -10659,17 +10689,17 @@ function closeShareSetupSheet(){
   shareSetupReturn=null;
   return closeModal(sheet)}
 async function copySetupLink(){
-  if(!shareSetupLink)return false;
+  if(!shareSetupLink||shareSetupBlockers.length)return false;
   try{if(navigator.clipboard?.writeText){await navigator.clipboard.writeText(shareSetupLink);
-    toast(t("toast.setup_link_copied"));return true}}catch{}
+    toast(t("toast.setup_link_copied"));captureEvent("share_setup_outcome",{blocker_count_bucket:"0",action:"copied"});return true}}catch{}
   try{const ta=document.createElement("textarea");ta.value=shareSetupLink;ta.setAttribute("readonly","");
     ta.style.cssText="position:fixed;top:0;left:0;opacity:0";document.body.append(ta);ta.select();
     const ok=document.execCommand("copy");ta.remove();
-    if(ok){toast(t("toast.setup_link_copied"));return true}}catch{}
+    if(ok){toast(t("toast.setup_link_copied"));captureEvent("share_setup_outcome",{blocker_count_bucket:"0",action:"copied"});return true}}catch{}
   return false}
 async function shareSetupLinkNow(){
-  if(!shareSetupLink||typeof navigator.share!=="function")return false;
-  try{await navigator.share({title:t("program.share_setup_title"),url:shareSetupLink});return true}
+  if(!shareSetupLink||shareSetupBlockers.length||typeof navigator.share!=="function")return false;
+  try{await navigator.share({title:t("program.share_setup_title"),url:shareSetupLink});captureEvent("share_setup_outcome",{blocker_count_bucket:"0",action:"shared"});return true}
   catch{return false}}
 /* ============================================================
    Exercise picker
@@ -10828,6 +10858,7 @@ async function choosePicked(id){
     renderPickerList();return}
   const active=pickerState,handler=active.onPick;
   active.choosing=true;
+  active.completed=true;
   const sheet=$("#exPickSheet");if(sheet)sheet.setAttribute("aria-busy","true");
   try{if(handler)await handler(entry);await closeExercisePicker();focusEntryEditorStatus()}
   finally{if(pickerState===active)active.choosing=false;if(sheet)sheet.removeAttribute("aria-busy")}}
@@ -10842,17 +10873,17 @@ const NAME_ONLY_PREFIX="name:";
 const nameOnlyEntry=name=>({id:`${NAME_ONLY_PREFIX}${foldSearch(name)}`,name,namePt:name,
   equipment:[],primary:"",secondary:"",patterns:[],nameOnly:true});
 function openExercisePicker({title=null,subtitle="",mode="single",selected=[],exclude=[],extras=[],onPick=null,
-  quick=false,day:dayName=null,query="",muscle=null,equipment=null,tab=null}={}){
+  onCancel=null,stageOnly=false,repairSeed=null,quick=false,day:dayName=null,query="",muscle=null,equipment=null,tab=null}={}){
   const sheet=$("#exPickSheet"),scrim=$("#exPickScrim"),search=$("#exPickSearch");
   if(!sheet)return;
-  pickerState={query:String(query||""),muscle,equipment,mode,onPick,
+  pickerState={query:String(query||""),muscle,equipment,mode,onPick,onCancel,stageOnly,repairSeed,completed:false,
     selected:new Set(selected.filter(Boolean).map(String)),
     exclude:new Set(exclude.filter(Boolean).map(String)),
     extras:extras.filter(Boolean),
     quick,day:dayName,tab:quick&&(LIB_TABS.includes(tab)?tab:"suggested"),
     // Kept so the custom-exercise detour can put this exact picker back, with
     // whatever was typed and filtered still in place.
-    reopen:{title,subtitle,mode,exclude:[...exclude],extras:[...extras],onPick,quick,day:dayName}};
+    reopen:{title,subtitle,mode,exclude:[...exclude],extras:[...extras],onPick,onCancel,stageOnly,repairSeed,quick,day:dayName}};
   pickerReturn=document.activeElement;
   $("#exPickTitle").textContent=title||t("picker.title");
   const sub=$("#exPickFor");if(sub)sub.textContent=subtitle||"";
@@ -10878,14 +10909,16 @@ function closeExercisePicker(){
   const sheet=$("#exPickSheet");
   if(!sheet)return Promise.resolve(false);
   if(sheet.hidden&&!(activeModal&&activeModal.el===sheet))return Promise.resolve(false);
+  const active=pickerState,notifyCancel=!!active&&!active.choosing&&!active.completed&&typeof active.onCancel==="function";
   pickerReturn=null;
-  return closeModal(sheet)}
+  return closeModal(sheet).then(result=>{if(notifyCancel)active.onCancel();return result})}
 
 async function confirmPickerSelection(){
   if(!pickerState||pickerState.mode!=="multi"||pickerState.choosing)return;
   const active=pickerState,handler=active.onPick;
   const picked=[...active.selected].map(pickerEntry).filter(Boolean);
   active.choosing=true;
+  active.completed=true;
   try{if(handler)await handler(picked);await closeExercisePicker()}
   finally{if(pickerState===active)active.choosing=false}}
 
@@ -10928,18 +10961,62 @@ function renderCustomChips(){
         customState[key==="primary"?"secondary":"primary"].delete(v)}
       renderCustomChips()})}}
 
-/* stageOnly builds the definition without writing it: import review needs the
-   entry to show, but nothing durable may move before the final Import. */
-function openCustomExerciseSheet({entry=null,onSave=null,onCancel=null,handoff=false,stageOnly=false}={}){
+function setCustomExercisePhase(active,phase){
+  if(customState!==active)return false;
+  const wasBusy=["saving","deleting","archiving","recovering","canceling"].includes(active.phase);
+  const busy=["saving","deleting","archiving","recovering","canceling"].includes(phase);
+  const sheet=$("#exCustomSheet");
+  if(!wasBusy&&busy&&sheet?.contains(document.activeElement))active.busyFocus=document.activeElement;
+  active.phase=phase;
+  if(sheet)sheet.dataset.phase=phase;
+  if(busy)sheet?.setAttribute("aria-busy","true");
+  else sheet?.removeAttribute("aria-busy");
+  const form=$("#exCustomSheet .custom__form");if(form)form.inert=busy;
+  const save=$("#exCustomSave");
+  if(save){const key=phase==="saving"?"custom.saving":phase==="canceling"?"custom.closing":
+    phase==="recovering"?active.mutationOperation==="archive"?"custom.finishing_archive":
+      active.mutationOperation==="delete"?"custom.finishing_delete":"custom.finishing_save":"dialog.save";
+    save.dataset.i18n=key;save.textContent=t(key)}
+  for(const selector of ["#exCustomSave","#exCustomCancel","#exCustomDelete"]){
+    const button=$(selector);if(button)button.disabled=busy}
+  const del=$("#exCustomDelete");
+  if(del&&active.deleteAction){
+    const pending=phase==="deleting"||phase==="archiving"||phase==="recovering";
+    const key=pending&&active.mutationOperation==="archive"?"custom.archiving":
+      pending&&active.mutationOperation==="delete"?"custom.deleting":active.deleteAction;
+    del.dataset.i18n=key;del.textContent=t(key)}
+  const recovery=$("#exCustomRecovery"),status=$("#exCustomRecoveryStatus");
+  const recovering=phase==="recovering";
+  if(recovery)recovery.hidden=!recovering;
+  if(status){status.textContent=recovering?t(active.recoveryStatusKey||"custom.finishing_save"):"";
+    status.setAttribute("aria-live","polite")}
+  const retry=$("#exCustomRecoveryRetry");
+  if(retry){retry.hidden=!recovering||!active.recoveryNeedsAction;
+    retry.disabled=!active.recoveryNeedsAction||active.recoveryAttempt}
+  const reload=$("#exCustomRecoveryReload");if(reload)reload.hidden=!recovering||!active.recoveryNeedsAction;
+  if(!busy&&phase==="editing"&&wasBusy&&active.busyFocus?.isConnected){
+    try{active.busyFocus.focus({preventScroll:true})}catch{try{active.busyFocus.focus()}catch{}}
+    active.busyFocus=null}
+  return true}
+
+/* stageOnly builds a definition without writing it. Import review consumes the
+   raw entry; Share repair consumes the explicit provenance handoff below, but
+   neither flow writes durable state before its final commit. */
+function openCustomExerciseSheet({entry=null,onSave=null,onCancel=null,handoff=false,stageOnly=false,repairHandoff=false}={}){
   const sheet=$("#exCustomSheet"),scrim=$("#exCustomScrim"),name=$("#exCustomName");
   if(!sheet)return;
   const inUse=entry?customExerciseInUse(entry.id):false;
-  customState={id:entry?.id||null,onSave,stageOnly,
+  customState={id:entry?.id||null,sourceEntry:entry?cloneSnapshot(entry):null,onSave,stageOnly,repairHandoff,
+    phase:"editing",duplicateAcknowledgedId:null,mutationId:null,mutationOperation:null,
+    pendingMutation:null,recoveryAttempt:false,recoveryNeedsAction:false,recoveryStatusKey:null,busyFocus:null,
+    deleteAction:entry?(inUse?"custom.archive":"custom.delete"):null,
+    deleteOperation:entry?(inUse?"archive":"delete"):null,
     // Empty for a new definition: defaulting every custom exercise to Machine
     // quietly mislabels dumbbell and cable work the wizard then filters on.
     equipment:new Set(entry?.equipment||[]),
     primary:new Set(String(entry?.primary||"").split(",").filter(Boolean)),
     secondary:new Set(String(entry?.secondary||"").split(",").filter(Boolean))};
+  setCustomExercisePhase(customState,"editing");
   customReturn=document.activeElement;
   if(name)name.value=entry?.name||"";
   const notes=$("#exCustomNotes");if(notes)notes.value=entry?.notes||"";
@@ -10967,58 +11044,251 @@ function closeCustomExerciseSheet(){
    search and any multi-selection intact. Dropping the lifter back to the
    program instead would throw away a browse they never finished. */
 async function cancelCustomExerciseSheet(){
-  const back=customState?.onCancel;
+  const active=customState;
+  if(!active||active.phase!=="editing")return;
+  const back=active.onCancel;
+  setCustomExercisePhase(active,"canceling");
   await closeCustomExerciseSheet();
-  if(back)back()}
+  if(customState!==active)return;
+  setCustomExercisePhase(active,"finished");
+  if(back)await back()}
 
-async function saveCustomExerciseSheet(){
-  if(!customState)return;
-  const name=String($("#exCustomName")?.value||"").trim();
-  if(!name){toast(t("toast.custom_needs_name"));return}
-  // Equipment and a primary muscle are what make the definition usable: the
-  // wizard filters on one and the volume audit groups by the other.
-  if(!customState.equipment.size){toast(t("toast.custom_needs_equipment"));return}
-  if(!customState.primary.size){toast(t("toast.custom_needs_primary"));return}
-  if(!customState.id){
-    const twin=pickableExercises().find(e=>foldSearch(libraryName(e))===foldSearch(name)||foldSearch(e.name)===foldSearch(name));
-    if(twin&&!customState.duplicateAcknowledged){
-      // Offer what already exists before minting a near-identical second copy.
-      if(confirm(t("confirm.custom_duplicate",{name:libraryName(twin)}))){
-        const handler=customState.onSave;
-        await closeCustomExerciseSheet();
-        if(handler)await handler(twin);
-        return}
-      customState.duplicateAcknowledged=true}}
-  const handler=customState.onSave;
-  const editing=!!customState.id;
-  if(customState.stageOnly){
-    const staged=normalizeCustomExercises([{id:customState.id||`${CUSTOM_ID_PREFIX}${uid()}`,name,
-      equipment:[...customState.equipment],
-      primary:[...customState.primary].join(","),
-      secondary:[...customState.secondary].join(","),
-      notes:String($("#exCustomNotes")?.value||"").trim()}])[0];
-    await closeCustomExerciseSheet();
-    if(handler&&staged)await handler(staged);
-    return}
-  const {result,entry}=await saveCustomExercise({id:customState.id,name,
-    equipment:[...customState.equipment],
-    primary:[...customState.primary].join(","),
-    secondary:[...customState.secondary].join(","),
-    notes:String($("#exCustomNotes")?.value||"").trim()});
-  if(result&&!(result.localOk||result.idbOk)){toast(result.message||t("toast.custom_save_failed"));return}
+function customExerciseMutationSucceeded(result){
+  return result?.committed===true&&result?.settled===true}
+function customExerciseMutationNeedsRecovery(result){
+  return result?.status==="partial"||result?.status==="deferred"||
+    result?.recoveryPending===true||result?.finalizationPending===true||
+    result?.pendingJournalCleanup===true}
+function customExerciseMutationMatches(snapshot,mutation){
+  const current=customExercises(snapshot).find(value=>value.id===mutation.id)||null;
+  if(mutation.operation==="delete")return current===null&&!customExerciseInUse(mutation.id,snapshot);
+  if(!current)return false;
+  if(mutation.operation==="archive"){
+    if(current.archived!==true)return false;
+    const expected=cloneSnapshot(mutation.entry),actual=cloneSnapshot(current);
+    delete expected.archived;delete actual.archived;
+    return customExerciseStateEqual(actual,expected)}
+  return customExerciseStateEqual(current,mutation.entry)}
+function resolveCustomMutationIntent({head,journal}){
+  const intent=journal?.customMutationIntent;
+  if(intent?.version!==1||intent.operation!=="delete"||!isCustomLibraryId(intent.id)||
+    intent.entry?.id!==intent.id)return{ok:false,code:"custom_mutation_intent_invalid"};
+  const id=intent.id,source=normalizeCustomExercises([intent.entry])[0];
+  if(!source||source.id!==id)return{ok:false,code:"custom_mutation_intent_invalid"};
+  const current=customExercises(head).find(value=>value.id===id)||null;
+  const referenced=customExerciseInUse(id,head);
+  let snapshot=cloneSnapshot(head),mode="delete";
+  if(referenced){
+    mode="preserve-used";
+    if(!current)snapshot=customExerciseUpsert(snapshot,source);
+  }else if(current&&!customExerciseStateEqual(current,source)){
+    // A concurrent edit owns the newer definition. The older Delete intent
+    // must not erase it, even when the ID has not gained a reference.
+    mode="preserve-changed";
+  }else if(current){
+    snapshot=customExerciseRemoveOrArchive(snapshot,id,"delete");
+  }
+  const expected=current&&!referenced&&!customExerciseStateEqual(current,source)
+    ?cloneSnapshot(current):null;
+  return{ok:true,snapshot,
+    code:mode==="preserve-used"?"custom_delete_became_used":
+      mode==="preserve-changed"?"custom_delete_changed_elsewhere":null,
+    verify:value=>{
+      const actual=customExercises(value).find(entry=>entry.id===id)||null;
+      if(mode==="preserve-used")return actual
+        ?{ok:true}:{ok:false,code:"custom_delete_definition_missing"};
+      if(mode==="preserve-changed")return customExerciseStateEqual(actual,expected)
+        ?{ok:true}:{ok:false,code:"custom_delete_newer_definition_changed"};
+      return!actual&&!customExerciseInUse(id,value)
+        ?{ok:true}:{ok:false,code:"custom_delete_not_safe"};
+    }}
+}
+function customExerciseDeleteRecovery({snapshot,journal,mutation,stage}){
+  if(mutation.operation!=="delete")return null;
+  const marker=journal?.customMutationRecovery;
+  if(stage==="journal")
+    return marker?.operation==="delete"&&marker.id===mutation.id?{owned:true}:null;
+  const referenced=customExerciseInUse(mutation.id,snapshot);
+  const current=customExercises(snapshot).find(value=>value.id===mutation.id)||null;
+  if(!referenced&&!current&&marker?.id!==mutation.id)return null;
+  const entry=current||normalizeCustomExercises([mutation.entry])[0];
+  if(!entry||entry.id!==mutation.id)return null;
+  const candidate=current?snapshot:customExerciseUpsert(snapshot,entry);
+  return{
+    snapshot:candidate,
+    code:referenced?"custom_delete_became_used":"custom_delete_changed_elsewhere",
+    journalMarker:{version:1,operation:"delete",id:mutation.id},
+    verify:value=>({ok:customExercises(value).some(item=>item.id===mutation.id)})
+  }}
+function returnCustomDeleteToEditing(active,mutation,snapshot,code){
+  const entry=customExercises(snapshot).find(value=>value.id===mutation.id);
+  if(!entry)return false;
+  const inUse=customExerciseInUse(mutation.id,snapshot);
+  active.sourceEntry=cloneSnapshot(entry);
+  active.equipment=new Set(entry.equipment||[]);
+  active.primary=new Set(String(entry.primary||"").split(",").filter(Boolean));
+  active.secondary=new Set(String(entry.secondary||"").split(",").filter(Boolean));
+  active.deleteAction=inUse?"custom.archive":"custom.delete";
+  active.deleteOperation=inUse?"archive":"delete";
+  active.mutationOperation=null;
+  active.mutationId=null;
+  active.pendingMutation=null;
+  active.recoveryAttempt=false;
+  active.recoveryNeedsAction=false;
+  active.recoveryStatusKey=null;
+  const name=$("#exCustomName");if(name)name.value=entry.name||"";
+  const notes=$("#exCustomNotes");if(notes)notes.value=entry.notes||"";
+  renderCustomChips();
+  $("#exCustomInUse")?.classList.toggle("hidden",!inUse);
+  setCustomExercisePhase(active,"editing");
+  if(inUse)toast(t("toast.custom_became_used"));
+  else if(code==="custom_delete_changed_elsewhere")toast(t("toast.custom_changed"));
+  return true}
+async function recoverCustomExerciseMutation(active,mutation){
+  if(customState!==active)return false;
+  active.pendingMutation=mutation;
+  active.recoveryAttempt=true;active.recoveryNeedsAction=false;
+  active.recoveryStatusKey=mutation.operation==="archive"?"custom.finishing_archive":
+    mutation.operation==="delete"?"custom.finishing_delete":"custom.finishing_save";
+  setCustomExercisePhase(active,"recovering");
+  let receipt=null;
+  try{receipt=await DurableState.settleCustomExerciseMutation({
+    pendingJournalId:mutation.pendingJournalId,
+    verify:({snapshot})=>customExerciseMutationMatches(snapshot,mutation)
+      ?{ok:true}
+      :{ok:false,code:mutation.operation==="delete"&&customExerciseInUse(mutation.id,snapshot)
+        ?"custom_delete_became_used":"custom_settlement_mismatch"},
+    recover:context=>customExerciseDeleteRecovery({...context,mutation})
+  })}catch{}
+  if(customState!==active)return false;
+  if(typeof receipt?.pendingJournalId==="string")mutation.pendingJournalId=receipt.pendingJournalId;
+  if(customExerciseMutationSucceeded(receipt))return true;
+  if(receipt?.semanticRecovery===true&&
+    (receipt.code==="custom_delete_became_used"||receipt.code==="custom_delete_changed_elsewhere")&&
+    returnCustomDeleteToEditing(active,mutation,receipt.head,receipt.code))return false;
+  active.recoveryAttempt=false;active.recoveryNeedsAction=true;
+  active.recoveryStatusKey="custom.recovery.unresolved";
+  setCustomExercisePhase(active,"recovering");
+  $("#exCustomRecoveryRetry")?.focus();
+  return false}
+async function retryCustomExerciseRecovery(){
+  const active=customState;
+  if(!active||active.phase!=="recovering"||active.recoveryAttempt||!active.pendingMutation)return;
+  const mutation=active.pendingMutation;
+  const settled=await recoverCustomExerciseMutation(active,mutation);
+  if(settled)await finishCustomExerciseMutation(active,{operation:mutation.operation,entry:mutation.entry})}
+async function finishCustomExerciseMutation(active,{operation,entry}){
   await closeCustomExerciseSheet();
-  toast(t(editing?"toast.custom_saved":"toast.custom_created"));
-  if(handler&&entry)await handler(entry);
+  if(customState!==active)return;
+  setCustomExercisePhase(active,"finished");
+  const message=operation==="create"?"toast.custom_created":
+    operation==="edit"?"toast.custom_saved":
+    operation==="archive"?"toast.custom_archived":"toast.custom_deleted";
+  toast(t(message));
+  if(operation==="delete"||operation==="archive"){
+    if(libFlow)renderLibrary();else if(pickerState)renderPickerList();
+    return}
+  if(active.onSave&&entry)await active.onSave(entry);
   else if(pickerState)renderPickerList()}
 
+async function saveCustomExerciseSheet(){
+  const active=customState;
+  if(!active||active.phase!=="editing")return;
+  const name=String($("#exCustomName")?.value||"").trim();
+  if(!name){toast(t("toast.custom_needs_name"));return}
+  if(!active.id){
+    const twin=pickableExercises().find(e=>foldSearch(libraryName(e))===foldSearch(name)||foldSearch(e.name)===foldSearch(name));
+    if(twin&&twin.id!==active.duplicateAcknowledgedId){
+      // Offer what already exists before minting a near-identical second copy.
+  if(confirm(t("confirm.custom_duplicate",{name:libraryName(twin)}))){
+        const handler=active.onSave;
+        setCustomExercisePhase(active,"saving");
+        await closeCustomExerciseSheet();
+        if(customState!==active)return;
+        if(handler)await handler(active.repairHandoff
+          ? {entry:twin,stagedCustomDefinition:null}
+          : twin);
+        setCustomExercisePhase(active,"finished");
+        return}
+      active.duplicateAcknowledgedId=twin.id}}
+  // Equipment and a primary muscle are what make the definition usable: the
+  // wizard filters on one and the volume audit groups by the other. Exact
+  // duplicates above reuse their trusted definition instead of requiring the
+  // custom form to restate those facts.
+  if(!active.equipment.size){toast(t("toast.custom_needs_equipment"));return}
+  if(!active.primary.size){toast(t("toast.custom_needs_primary"));return}
+  const editing=!!active.id;
+  const operation=editing?"edit":"create";
+  const handler=active.onSave;
+  if(!active.mutationId)active.mutationId=active.id||`${CUSTOM_ID_PREFIX}${uid()}`;
+  active.mutationOperation=operation;
+  setCustomExercisePhase(active,"saving");
+  if(active.stageOnly){
+    const staged=normalizeCustomExercises([{id:active.id||`${CUSTOM_ID_PREFIX}${uid()}`,name,
+      equipment:[...active.equipment],
+      primary:[...active.primary].join(","),
+      secondary:[...active.secondary].join(","),
+      notes:String($("#exCustomNotes")?.value||"").trim()}])[0];
+    await closeCustomExerciseSheet();
+    if(customState!==active)return;
+    if(handler&&staged){
+      const choice=active.repairHandoff
+        ? {entry:active.id?active.sourceEntry||staged:staged,
+          stagedCustomDefinition:active.id?null:staged}
+        : staged;
+      await handler(choice);
+    }
+    setCustomExercisePhase(active,"finished");
+    return}
+  let saved;
+  try{saved=await saveCustomExercise({id:active.mutationId,name,
+    equipment:[...active.equipment],
+    primary:[...active.primary].join(","),
+    secondary:[...active.secondary].join(","),
+    notes:String($("#exCustomNotes")?.value||"").trim()},storageIO,
+    {expectedEntry:editing?active.sourceEntry:null})}
+  catch{setCustomExercisePhase(active,"editing");toast(t("toast.custom_save_failed"));return}
+  if(customState!==active)return;
+  const {result,entry}=saved;
+  if(customExerciseMutationSucceeded(result)){
+    await finishCustomExerciseMutation(active,{operation,entry});return}
+  if(customExerciseMutationNeedsRecovery(result)){
+    const settled=await recoverCustomExerciseMutation(active,{operation,id:active.mutationId,entry,
+      pendingJournalId:result.pendingJournalId||null});
+    if(settled)await finishCustomExerciseMutation(active,{operation,entry});
+    return}
+  setCustomExercisePhase(active,"editing");
+  toast(t(result?.code==="custom-exercise-changed"?"toast.custom_changed":"toast.custom_save_failed"))}
+
 async function deleteCustomExerciseSheet(){
-  if(!customState?.id)return;
-  const result=await deleteCustomExercise(customState.id);
-  if(!result){toast(t("toast.custom_in_use"));return}
-  if(!(result.localOk||result.idbOk)){toast(t("toast.custom_save_failed"));return}
-  await closeCustomExerciseSheet();
-  toast(t(result.archived?"toast.custom_archived":"toast.custom_deleted"));
-  if(libFlow)renderLibrary();else if(pickerState)renderPickerList()}
+  const active=customState;
+  if(!active?.id||active.phase!=="editing")return;
+  const operation=active.deleteOperation||"delete";
+  active.mutationOperation=operation;
+  setCustomExercisePhase(active,operation==="archive"?"archiving":"deleting");
+  let result;
+  try{result=await deleteCustomExercise(active.id,storageIO,
+    {action:operation,expectedEntry:active.sourceEntry})}
+  catch{setCustomExercisePhase(active,"editing");toast(t("toast.custom_save_failed"));return}
+  if(customState!==active)return;
+  if(!result){setCustomExercisePhase(active,"editing");toast(t("toast.custom_in_use"));return}
+  if(customExerciseMutationSucceeded(result)){
+    await finishCustomExerciseMutation(active,{operation,entry:active.sourceEntry});
+    return}
+  if(customExerciseMutationNeedsRecovery(result)){
+    const settled=await recoverCustomExerciseMutation(active,{operation,id:active.id,
+      entry:active.sourceEntry,pendingJournalId:result.pendingJournalId||null});
+    if(settled)await finishCustomExerciseMutation(active,{operation,entry:active.sourceEntry});
+    return}
+  setCustomExercisePhase(active,"editing");
+  if(result.code==="custom-exercise-became-used"){
+    active.deleteOperation="archive";active.deleteAction="custom.archive";
+    active.mutationOperation=null;
+    const deleteButton=$("#exCustomDelete");
+    if(deleteButton){deleteButton.dataset.i18n=active.deleteAction;deleteButton.textContent=t(active.deleteAction)}
+    $("#exCustomInUse")?.classList.remove("hidden");
+    toast(t("toast.custom_became_used"));return}
+  toast(t(result?.code==="custom-exercise-changed"?"toast.custom_changed":"toast.custom_save_failed"))}
 
 /** Clipboard first; the hidden-textarea path covers browsers that refuse the
  *  async clipboard, and only a genuine failure of both surfaces a toast. */
@@ -11614,7 +11884,10 @@ async function commitLibrarySelection(){
   const result=libFlow.editorScope
     ?await commitProgramEditorProposal(proposal)
     :await commitProposedState(proposal);
-  if(!(result.localOk||result.idbOk)){toast(t("toast.program_save_failed"));return result}
+  const setupDraftAccepted=editorScope&&setupEditorOpen&&result?.setupDraft===true&&
+    result?.localOk===true&&result?.idbOk===true;
+  if(!(result?.committed===true&&result?.settled===true)&&!setupDraftAccepted){
+    toast(t("toast.program_save_failed"));return result}
   const n=rows.length,target=libFlow.day;
   setDayCollapsed(target,false);
   closeLibrary({toProgram:true});
@@ -15308,14 +15581,16 @@ function showContextualGuide(id,{focus=false,returnFocus=null,persistDeferred=fa
     event.preventDefault();event.stopPropagation();dismissContextualGuide({restoreFocus:true})});
   // #firstRunPrivacy lives in the narrow header utility row: inserted there,
   // the cue is a flex sibling with no room and collapses into a vertical
-  // sliver of one word per line. Anchoring it after the whole header instead
-  // keeps it a full-width block without changing which control it names.
-  const placement=anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||
+  // sliver of one word per line. Focus's own controls likewise need the whole
+  // owning surface as their insertion point so a cue never joins a fixed row.
+  const placement=anchor.closest(".focus-well")||anchor.closest(".wo-head")||
+    anchor.closest(".firstrun__actions")||anchor.closest(".firstrun__header")||
     anchor.closest("#statsSeg")||anchor;
   placement.insertAdjacentElement("afterend",cue);
   activeGuideId=id;activeGuideAnchor=anchor;activeGuideCue=cue;
   activeGuideReturnFocus=returnFocus instanceof HTMLElement?returnFocus:null;
-  saveGuideTransition(id,"shown");
+  const stored=guideStored(id);
+  if(stored?.version!==guide.version||stored?.status!=="shown")saveGuideTransition(id,"shown");
   if(focus)queueMicrotask(()=>dismiss?.focus({preventScroll:true}));
   return true}
 function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
@@ -15330,7 +15605,8 @@ function maybeShowContextualGuides(ids=GuideRegistry?.PLAN_054_GUIDE_IDS||[]){
   if(firstRunOpen())return false;
   if(activeGuideCue?.isConnected&&activeGuideAnchor&&guideAnchor(guideDefinition(activeGuideId))===activeGuideAnchor)return true;
   removeContextualGuide();
-  for(const id of ids)if(showContextualGuide(id))return true;
+  for(const id of ids){
+    if(showContextualGuide(id))return true}
   return false}
 function completeContextualGuide(){
   if(!activeGuideId)return false;
@@ -15341,6 +15617,7 @@ function replayContextualGuide(id){
   if(activeGuideId===id)removeContextualGuide();
   const next=GuideRegistry.replayGuideState(uiPrefs,id,{version:guide.version,nowMs:Date.now()});
   if(!replaceUiPrefs({...next}))return false;
+  captureEvent("guide_replay",{guideId:id});
   const returnFocus=document.activeElement;
   queueMicrotask(()=>showContextualGuide(id,{focus:true,returnFocus,persistDeferred:true}));return true}
 function contextualGuideState(){return cloneSnapshot(uiPrefs.guideState||{})}
@@ -15526,23 +15803,36 @@ function init(){
     const reopen=pickerResumeOptions();
     const selectedNow=reopen?.selected||[];
     const multi=pickerState?.mode==="multi";
+    const stageOnly=pickerState?.stageOnly===true;
+    const repairSeed=stageOnly&&pickerState?.repairSeed?pickerState.repairSeed:null;
     const onPick=pickerState?.onPick;
     const typed=String($("#exPickSearch")?.value||"").trim();
     const backToPicker=extraId=>{
       if(!reopen)return;
       openExercisePicker(Object.assign({},reopen,
         {selected:extraId?selectedNow.concat(extraId):selectedNow}))};
-    openCustomExerciseSheet({entry:typed?{name:typed}:null,handoff:true,
-      onCancel:()=>backToPicker(null),
-      onSave:entry=>{
+    const cancelRepair=stageOnly&&repairSeed?async()=>{
+      const activePicker=pickerState;
+      await closeCustomExerciseSheet();
+      if(pickerState!==activePicker)return;
+      activePicker.completed=true;
+      if(typeof activePicker.onCancel==="function")activePicker.onCancel();
+    }:null;
+    const seed=repairSeed?{name:repairSeed.name||typed,equipment:repairSeed.equipment||[],primary:repairSeed.primary||"",secondary:repairSeed.secondary||""}:typed?{name:typed}:null;
+    openCustomExerciseSheet({entry:seed,handoff:true,stageOnly,repairHandoff:stageOnly,
+      onCancel:cancelRepair||(()=>backToPicker(null)),
+      onSave:choice=>{
         // A multi-pick is still being assembled, so the picker comes back with
         // the new movement already ticked; a single pick is finished by it.
+        const entry=choice?.entry||choice;
         if(multi){backToPicker(entry.id);return}
-        if(onPick)return onPick(entry)}})};
+        if(onPick)return onPick(stageOnly?choice:entry)}})};
   const cuCancel=$("#exCustomCancel");if(cuCancel)cuCancel.onclick=cancelCustomExerciseSheet;
   const cuScrim=$("#exCustomScrim");if(cuScrim)cuScrim.onclick=cancelCustomExerciseSheet;
   const cuSave=$("#exCustomSave");if(cuSave)cuSave.onclick=saveCustomExerciseSheet;
   const cuDelete=$("#exCustomDelete");if(cuDelete)cuDelete.onclick=deleteCustomExerciseSheet;
+  const cuRecoveryRetry=$("#exCustomRecoveryRetry");if(cuRecoveryRetry)cuRecoveryRetry.onclick=retryCustomExerciseRecovery;
+  const cuRecoveryReload=$("#exCustomRecoveryReload");if(cuRecoveryReload)cuRecoveryReload.onclick=()=>location.reload();
   const ptClose=$("#programTextClose");if(ptClose)ptClose.onclick=closeProgramTextSheet;
   const ptScrim=$("#programTextScrim");if(ptScrim)ptScrim.onclick=closeProgramTextSheet;
   const ptCopy=$("#programTextCopy");if(ptCopy)ptCopy.onclick=copyProgramText;
@@ -15756,16 +16046,20 @@ function init(){
   const leaveApply=$("#programEditorApply");if(leaveApply)leaveApply.onclick=()=>applyInstalledEditorAndContinue();
   const leaveDiscard=$("#programEditorDiscard");if(leaveDiscard)leaveDiscard.onclick=()=>finishInstalledEditor({discard:true});
   const leaveKeep=$("#programEditorKeep");if(leaveKeep)leaveKeep.onclick=()=>closeInstalledLeaveDialog();
-  const histSearchBtn=$("#historySearchBtn");if(histSearchBtn)histSearchBtn.onclick=()=>setHistorySearchOpen(!isHistorySearchOpen());
-  const histSearch=$("#historySearch");if(histSearch)histSearch.oninput=()=>{histQuery=histSearch.value;renderHistory()};
-  const histSearchClear=$("#historySearchClear");if(histSearchClear)histSearchClear.onclick=()=>clearHistorySearch();
+  const histSearchBtn=$("#historySearchBtn");if(histSearchBtn)histSearchBtn.onclick=()=>HistoryUi.setSearchOpen(!HistoryUi.isSearchOpen());
+  const histSearch=$("#historySearch");if(histSearch)histSearch.oninput=()=>HistoryUi.setQuery(histSearch.value);
+  const histSearchClear=$("#historySearchClear");if(histSearchClear)histSearchClear.onclick=()=>HistoryUi.clearSearch();
   const histExport=$("#historyExportBtn");if(histExport)histExport.onclick=exportCsv;
   const gotoVol=$("#gotoVolume");if(gotoVol)gotoVol.onclick=()=>setStatsSeg("volume");
   const restRow=$("#restSecRow");if(restRow)restRow.onclick=()=>setDisclosure(restRow,$("#restSecPanel"),!$("#restSecPanel")?.classList.contains("is-open"));
   const rirRow=$("#rirModeRow");if(rirRow)rirRow.onclick=()=>setDisclosure(rirRow,$("#rirModePanel"),!$("#rirModePanel")?.classList.contains("is-open"));
   const progRow=$("#progressionRow");if(progRow)progRow.onclick=()=>setDisclosure(progRow,$("#progressionDetails"),!$("#progressionDetails")?.classList.contains("is-open"));
   const notifyCfg=$("#notifyConfigRow");if(notifyCfg)notifyCfg.onclick=()=>setDisclosure(notifyCfg,$("#notifyTypes"),!$("#notifyTypes")?.classList.contains("is-open"));
-  const dataBackup=$("#dataBackupRow");if(dataBackup)dataBackup.onclick=()=>setDisclosure(dataBackup,$("#dataBackupPanel"),!$("#dataBackupPanel")?.classList.contains("is-open"));
+  const dataBackup=$("#dataBackupRow");if(dataBackup)dataBackup.onclick=()=>{
+    const open=!$("#dataBackupPanel")?.classList.contains("is-open");
+    setDisclosure(dataBackup,$("#dataBackupPanel"),open);
+    if(open)requestAnimationFrame(()=>maybeShowContextualGuides(["backup"]));
+  };
   const dataImport=$("#dataImportRow");if(dataImport)dataImport.onclick=()=>setDisclosure(dataImport,$("#dataImportPanel"),!$("#dataImportPanel")?.classList.contains("is-open"));
   [["#restSecRow","#restSecPanel"],["#rirModeRow","#rirModePanel"],["#progressionRow","#progressionDetails"],["#notifyConfigRow","#notifyTypes"],["#dataBackupRow","#dataBackupPanel"],["#dataImportRow","#dataImportPanel"]].forEach(([b,p])=>setDisclosure($(b),$(p),false));
   setDisclosure($("#guideReplayToggle"),$("#guideReplayPanel"),false);
@@ -15981,6 +16275,7 @@ function recoveryChoiceMatches(candidate,current){
   const selected=candidate.source==="local"?current.local:current.idb;
   return selected?.status==="valid"&&storageSnapshotsEqual(selected.parsed,candidate.snapshot)}
 async function resolveBootReplicas(candidate=null){return DurableState.resolveBootReplicas(candidate)}
+async function settlePendingJournal(){return DurableState.settlePendingJournal()}
 async function applyBootDecision(decision){
   if(decision.kind==="first-run")state=normalizeLoaded(null);
   else state=normalizeLoaded(decision.snapshot);
@@ -16006,6 +16301,7 @@ window.__repforgeSharedSetup={
     lang:sharedSetupDraft.payload.settings.lang}:null},
   build:buildSharedSetupPayload,
   buildPayload:buildSharedSetupPayload,
+  buildValidation:buildSharedSetupValidation,
   proposal:proposalFromSharedSetup,
   proposalFromSharedSetup,
   buildProposal:(payload,base)=>proposalFromSharedSetup(payload,base||state),
@@ -16106,7 +16402,7 @@ async function boot(){
     if(standalonePrepared?.ok!==true)return{...(standalonePrepared||{ok:false,code:"standalone-transfer-failed"}),decision,productRecovery:true};
     const standaloneTransfer=await installTransferCompleteStandaloneBoot(standalonePrepared);
     if(standaloneTransfer?.ok!==true)return{...(standaloneTransfer||{ok:false,code:"standalone-transfer-failed"}),decision,productRecovery:true};
-    return{ok:true,decision,transferResult:standaloneTransfer};
+    return{ok:true,decision,preBootTransfer,transferResult:standaloneTransfer};
   };
   const transferResult=await installTransferBootNeedsLock()
     ?await withInstallTransferLock(transferWork):await transferWork();
@@ -16170,6 +16466,7 @@ if(DurableState){
     readSetupDraftRaw,
     rebaseStateChange,
     rebaseSharedSetupSnapshot,
+    resolveCustomMutationIntent,
     applyAcceptedSnapshot,
     normalizeRecoveryCarrierSnapshot,
     blockStartDraftGuard,

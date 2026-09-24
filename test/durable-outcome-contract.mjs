@@ -169,6 +169,21 @@ console.log("\n1. Pure outcome contract normalizer");
   check(outcome.code === "install-transfer-frozen", "Code is 'install-transfer-frozen'");
 }
 
+// A transfer freeze can begin between the two replica writes. The first
+// accepted replica is a recoverable partial result, not a settled rejection.
+{
+  const outcome = DurableState.normalizeDurableOutcome({
+    localOk: true,
+    idbOk: false,
+    conflict: true,
+    transferFrozen: true,
+  });
+  check(outcome.status === "partial" && outcome.kind === "deferred_pending",
+    "A mid-write install-transfer freeze remains a recoverable partial result");
+  check(outcome.committed === false && outcome.settled === false && outcome.recoveryPending === true,
+    "A mid-write freeze cannot claim durable completion", outcome);
+}
+
 // Case 5: Draft conflict
 {
   const outcome = DurableState.normalizeDurableOutcome({

@@ -380,7 +380,6 @@ async function main() {
     state.customExercises.push({
       id: historyId, name: "History-only row", namePt: "History-only row", archived: false,
       equipment: ["machine"], primary: "Lats", secondary: "Biceps", notes: "",
-      created: "2026-08-01T00:00:00.000Z",
     });
     state.programHistory.push({
       id: "history-custom-program",
@@ -397,14 +396,37 @@ async function main() {
       const result = await window.__repforgeDeleteCustomExercise(id);
       const stored = window.__repforgeCustomExercises().find((e) => e.id === id);
       const raw = JSON.parse(localStorage.getItem("repforge_v1") || "{}");
+      const durable = await window.RepForgeDurableState.readDurableState();
+      const durableDefinition = durable.head?.customExercises?.find((e) => e.id === id) || null;
+      const idb = await window.RepForgeDurableState.readIdbStatus();
+      const idbDefinition = idb.parsed?.customExercises?.find((e) => e.id === id) || null;
       return {
+        outcome: {
+          status: result?.status,
+          committed: result?.committed,
+          settled: result?.settled,
+          rejected: result?.rejected,
+          conflict: result?.conflict,
+          code: result?.code,
+          localOk: result?.localOk,
+          idbOk: result?.idbOk,
+          revision: result?.revision,
+          alreadyCommitted: result?.alreadyCommitted,
+          pendingJournalCleanup: result?.pendingJournalCleanup,
+        },
         resultArchived: result?.archived === true,
         storedArchived: stored?.archived === true,
+        durableArchived: raw.customExercises?.find((e) => e.id === id)?.archived === true,
+        idbArchived: idbDefinition?.archived === true,
+        memoryDefinition: stored,
+        durableDefinition,
         historyLinked: raw.programHistory?.some((h) => h.program?.some((e) => e.libraryId === id)),
       };
     }, historyId);
     assert(
-      historyDelete.resultArchived && historyDelete.storedArchived && historyDelete.historyLinked,
+      historyDelete.outcome.committed === true && historyDelete.outcome.settled === true &&
+      historyDelete.resultArchived && historyDelete.storedArchived && historyDelete.durableArchived &&
+      historyDelete.idbArchived && historyDelete.historyLinked,
       "a history-only custom exercise remains linked and is archived rather than deleted after reload",
       JSON.stringify(historyDelete)
     );

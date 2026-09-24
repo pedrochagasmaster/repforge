@@ -7,7 +7,8 @@
  */
 import { launchChromium } from "../../test/browser.mjs";
 
-export const BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
+export let BASE = process.env.REPFORGE_URL || "http://localhost:8000/";
+export function setCaptureBase(url) { BASE = url; }
 export const KEY = "repforge_v1";
 export const UI_KEY = "repforge_ui_v1";
 export const LOG_DRAFT = "repforge_draft_v1";

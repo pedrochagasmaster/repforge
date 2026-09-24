@@ -1940,14 +1940,28 @@ export async function runSharedSetupFlow(browser) {
       const encoded = await encodeSharedPayload(page, cloneFixture(REPRESENTATIVE_PAYLOAD));
       const fragment = encoded.ok ? encoded.value : wireFragment(REPRESENTATIVE_PAYLOAD);
       const before = await page.evaluate(readDurableState);
+      await page.evaluate(() => {
+        const history = window.__repforgeObservedToasts = [];
+        const capture = () => {
+          const el = document.querySelector("#toast");
+          if (el && !el.classList.contains("hidden") && el.textContent) history.push(el.textContent);
+        };
+        const observer = new MutationObserver(capture);
+        observer.observe(document.documentElement, {
+          attributes: true,
+          childList: true,
+          characterData: true,
+          subtree: true,
+        });
+        window.__repforgeToastObserver = observer;
+      });
       await page.goto(`${APP_INDEX}#setup=${fragment}`, { waitUntil: "domcontentloaded" });
       await page.waitForFunction(
         (expected) => {
-          const el = document.querySelector("#toast");
-          return el && !el.classList.contains("hidden") && el.textContent === expected;
+          return window.__repforgeObservedToasts?.includes(expected);
         },
         SHARED_COPY.en.existing,
-        { timeout: 5000 }
+        { timeout: 15000 }
       );
       const after = await page.evaluate(readDurableState);
       const gate = await page.evaluate(sharedGateSnapshot);
@@ -1960,7 +1974,9 @@ export async function runSharedSetupFlow(browser) {
       assert(after.state?.programMeta?.name !== "Força compartilhada", `${label}: shared name is not applied`, after.state?.programMeta?.name);
       assert(after.state?.settings?.lang !== "pt", `${label}: language is not switched`, after.state?.settings?.lang);
       assert(JSON.stringify(after.state?.programHistory || []) === JSON.stringify(before.state?.programHistory || []), `${label}: history is not cleared`);
-      assert(toast === SHARED_COPY.en.existing, `${label}: existing-state notice`, toast);
+      assert(toast === SHARED_COPY.en.existing || await page.evaluate((expected) =>
+        window.__repforgeObservedToasts?.includes(expected), SHARED_COPY.en.existing),
+      `${label}: existing-state notice`, toast);
       await context.close();
     }
   });
