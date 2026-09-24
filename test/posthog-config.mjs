@@ -5,6 +5,14 @@ import { resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 
 const root = resolve(import.meta.dirname, "..");
+const committedIndex = spawnSync("git", ["show", "HEAD:index.html"], { cwd: root, encoding: "utf8" });
+assert.equal(committedIndex.status, 0, committedIndex.stderr);
+
+assert.doesNotMatch(
+  committedIndex.stdout,
+  /^\s*<script src="posthog-config\.js\?v=[^"]+"><\/script>\r?$/m,
+  "committed index.html must not contain a deploy-generated PostHog config tag",
+);
 
 function run(environment) {
   const directory = mkdtempSync(resolve(tmpdir(), "taurifer-posthog-config-"));
