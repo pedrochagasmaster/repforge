@@ -50,7 +50,78 @@
   --knob:#FFFFFF;
   /* Scrims stay dark in both themes: they exist to push the page back. */
   --scrim:rgba(27,26,23,.42);
-  --radius:14px;
+  /* Plan 058 semantic scales. Consumers migrate by role in P4–P6. The 14px
+     historical radius remains an exact visual compatibility value until then. */
+  --font-language:"Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+  --font-training-data:"Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --font-size-label:.6875rem;
+  --font-size-caption:.75rem;
+  --font-size-body-small:.875rem;
+  --font-size-body:1rem;
+  --font-size-control:1rem;
+  --font-size-subtitle:1.125rem;
+  --font-size-title:1.875rem;
+  --font-size-display:2.5rem;
+  /* The selected landing and the saved-session hero have deliberate scale
+     breaks above the ordinary display tier. These are bounded role variants,
+     not permission for one-off sizes in other surfaces. */
+  --font-size-summary-hero:2.125rem;
+  --font-size-landing-headline:2.375rem;
+  --font-size-landing-headline-wide:3.25rem;
+  --font-size-landing-climax:min(4.25rem,16vw);
+  --font-size-landing-climax-wide:min(5.5rem,7.5vw);
+  --font-size-rest-clock:clamp(2rem,10vw,2.625rem);
+  --line-tight:1.1;
+  --line-standard:1.4;
+  --line-reading:1.55;
+  --weight-regular:400;
+  --weight-medium:500;
+  --weight-semibold:600;
+  --radius-none:0;
+  --radius-compact:4px;
+  --radius-control:8px;
+  --radius-surface:12px;
+  --radius-prominent:16px;
+  --radius-pill:999px;
+  --radius-round:50%;
+  --radius-legacy:14px;
+  --radius:var(--radius-legacy);
+  --elevation-flat-shadow:none;
+  --elevation-selected-shadow:inset 0 0 0 2px var(--boundary-selected);
+  --elevation-floating-shadow:0 8px 24px rgba(var(--shadow-rgb),.18);
+  --elevation-focus-shadow:0 1px 2px rgba(var(--shadow-rgb),.04),0 10px 30px rgba(var(--shadow-rgb),.10);
+  --elevation-modal-shadow:0 10px 22px rgba(var(--shadow-rgb),.18),0 2px 5px rgba(var(--shadow-rgb),.08);
+  --elevation-dialog-shadow:0 16px 40px rgba(var(--shadow-rgb),.12);
+  --elevation-persistent-shadow:0 -4px 16px rgba(var(--shadow-rgb),.09);
+  --elevation-nav-shadow:inset 0 1px 0 var(--dock-sheen),inset 0 -1px 0 rgba(var(--shadow-rgb),.05),0 10px 30px rgba(var(--shadow-rgb),.13),0 2px 8px rgba(var(--shadow-rgb),.07);
+  --elevation-program-dock-shadow:inset 0 1px 0 var(--dock-sheen),0 -4px 14px var(--dock-edge);
+  --boundary-flat:var(--rule);
+  --boundary-selected:var(--accent-deep);
+  --boundary-floating:var(--rule-strong);
+  --boundary-modal:var(--rule-strong);
+  --boundary-persistent:var(--rule-strong);
+  --shadow-rgb:27,26,23;
+  /* Semantic color jobs. These aliases have no consumer change in P3. */
+  --color-action:var(--accent);
+  --color-action-text:var(--accent-deep);
+  --color-action-on-fill:var(--accent-ink);
+  --color-improved:var(--positive);
+  --color-declined:var(--danger);
+  --color-maintained:var(--ink-soft);
+  --color-warning:var(--accent-deep);
+  --color-destructive:var(--danger);
+  --color-focus:var(--accent-deep);
+  --color-disabled-reason:var(--ink-soft);
+  --boundary-required:var(--ink-soft);
+  --boundary-decorative:var(--rule);
+  --color-surface:var(--surface);
+  --color-ink:var(--ink);
+  --color-ink-secondary:var(--ink-soft);
+  --control-target:44px;
+  --control-pressed-transform:translateY(1px) scale(.995);
+  --control-disabled-opacity:.4;
+  --control-selected-boundary:var(--boundary-selected);
+  --control-error-boundary:var(--color-destructive);
   /* Settings is one text column: the caption of a group, the label of every row
      in it, and the rule between those rows all begin at this inset. */
   --settings-inset:16px;
@@ -70,11 +141,11 @@
   --dock-pill-sheen:rgba(255,255,255,.82);
   --maxw:560px;
 
-  --display:"Plex Sans",system-ui,sans-serif;
-  --body:"Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
-  --mono:"Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --display:var(--font-language);
+  --body:var(--font-language);
+  --mono:var(--font-training-data);
   --r:var(--radius);
-  --shadow:none;
+  --shadow:var(--elevation-flat-shadow);
   --check:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 12.5 9.5 18 20 6.5'/%3E%3C/svg%3E");
   --bolt:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M13.6 2 4 13.4h6.1L9.4 22 20 10.2h-6.6z'/%3E%3C/svg%3E");
   /* The forward arrow is drawn, not typed. U+2192 is not in the Plex Sans
@@ -131,6 +202,7 @@
   --danger-rgb:255,102,112;
   --ink-rgb:242,239,233;
   --bg-rgb:20,19,16;
+  --shadow-rgb:0,0,0;
   --entry-tint:rgba(242,112,59,.12);
   --knob:#F7F5F1;
   --scrim:rgba(0,0,0,.62);
@@ -214,7 +286,7 @@ a{color:inherit;text-decoration:none}
 button,a[href],summary,input:not([type=hidden]),select,textarea,
 [role=button],[role=tab],[role=switch],[role=checkbox],
 [tabindex]:not([tabindex="-1"]),.term[data-term]{
-  min-width:44px;min-height:44px;
+  min-width:var(--control-target);min-height:var(--control-target);
 }
 main{
   width:min(100%,var(--maxw));margin:0 auto;
@@ -287,8 +359,8 @@ h2{font-size:1.875rem;font-weight:650;letter-spacing:-0.02em;line-height:1.05}
   padding:13px 16px;font-weight:600;cursor:pointer;font-size:.9375rem;
   transition:transform .12s ease,filter .2s ease,border-color .2s ease,background .2s ease;
 }
-.btn:active{transform:translateY(1px) scale(.995)}
-.btn:disabled{opacity:.4;cursor:default}
+.btn:active{transform:var(--control-pressed-transform)}
+.btn:disabled{opacity:var(--control-disabled-opacity);cursor:default}
 /* A blanket 40% on the near-black CTA produced a mid-grey fill with washed
    white text (~2.5:1) that read as an enabled secondary button rather than a
    blocked one. Give it a flat, legible "not yet" treatment instead. */

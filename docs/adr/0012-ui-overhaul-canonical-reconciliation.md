@@ -1,7 +1,7 @@
 # UI overhaul canonical reconciliation
 
 - **Status:** Accepted; Phase 0 contract for the owner-approved overhaul
-- **Contract version:** 1
+- **Contract version:** 2 (Plan 058 semantic foundation: field/adjustment roles and role-facet clarification)
 - **Contract owner:** Plan 049
 - **Consumers:** Plans 050–059 (see per-role and per-surface owners below)
 - **Product direction:** [`docs/ui-audit.md`](../ui-audit.md) (authoritative)
@@ -130,6 +130,15 @@ interactions are never forced into one visual component.
 | disabled | Unavailable actions; muted mass, no competing live accent, reason exposed where required | 050 |
 | icon-only | Glyph buttons with accessible names; normalized stroke weight | 055 |
 | horizontal-scroller | Intentional horizontal scroll regions with non-overlapping chip geometry and an edge continuation cue; reconciled into Plan 058's scroller inventory under this name | 050 |
+| field | Text, number, date, search and note entry with a visible label, value, validation and required boundary where the field would otherwise disappear | 058 |
+| adjustment | Repeated numeric changes; workout and program steppers keep separate contextual pacing while sharing target, focus and disabled rules | 058 |
+
+`icon-only` is a presentation facet of an action. Its underlying action still
+has one of the primary, secondary, quiet-navigation, destructive, disclosure or
+selection meanings. `disabled` is an availability state of that action, not a
+replacement for its meaning. A disabled primary action therefore stays primary
+in the inventory, carries the disabled facet, and exposes its reason. These
+facets never justify assigning the same action two competing intents.
 
 ### Family: progress
 
@@ -144,6 +153,13 @@ dimensions remain separately labelled. No dimension may be deleted as a
 | week | Sessions and volume within the current week | 057 |
 | exercise-set | Current exercise and ordered set execution | 055 |
 | task | Entry, import, transfer, and onboarding workflow progress | 054 |
+
+The rest-timer ring is a countdown status with seconds remaining. A relative
+muscle-distribution bar compares values to the largest observed value. Neither
+has a completion denominator in one of these four dimensions, so Plan 058
+records them by exact selector as exclusions rather than calling them task or
+week progress. A muscle bar against a plan *does* have a denominator: it is
+`week` for this-week scope and `block` for block-to-date scope.
 
 ### Family: color
 

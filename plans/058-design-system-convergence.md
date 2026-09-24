@@ -7,7 +7,7 @@ and owner gates only.
 
 - **Plan number:** 058
 - **Phase:** 7 — System convergence
-- **Status:** Semantic foundation P1–P3 in progress from `78492da2`; P4–P7 have not started
+- **Status:** Semantic foundation P1–P3 implemented from `78492da2` for review; P4–P7 have not started
 - **Owner approval state:** Semantic direction is approved; rendered results require owner visual review
 - **Depends on:** Plans 049–057 and the durable-state bridge merged, including the accepted architecture outputs of 054–057; principal public surfaces and interaction structure must have stopped moving.
 - **Blocks:** Plan 059 public-launch validation
@@ -75,6 +75,12 @@ a separate engineering queue or permission to implement this plan early.
 7. Record every retained delegate/exception with its real consumer, reason and existing plan owner; a broad allowlist or unowned deferral does not satisfy convergence. Plan 059 verifies the final authority and executable-release result on its candidate SHA.
 
 ### Re-runnable role inventory
+
+The P1–P3 role and token decisions are frozen in
+[`docs/design/ui-system-semantic-contract.md`](../docs/design/ui-system-semantic-contract.md)
+and the selector/state binding in `tools/ui-role-inventory.json`. Later surface
+slices consume these contracts and record any proposed change as a P2/P3
+contract review.
 
 Add planning/test artifacts that make convergence auditable:
 

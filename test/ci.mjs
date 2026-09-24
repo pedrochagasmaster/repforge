@@ -125,6 +125,10 @@ test("affected selection is narrow when proven and fail-safe when it is not", ()
   const semanticInput = selectAffected(["docs/ui-screens/entry-semantics.json"]);
   assert.equal(semanticInput.mode, "selected");
   assert.deepEqual(semanticInput.entries.map(({ suite }) => suite.file), ["test/ui-screens.mjs"]);
+  const roleInventory = selectAffected(["tools/ui-role-inventory.json"]);
+  assert.equal(roleInventory.mode, "selected");
+  assert.deepEqual(roleInventory.entries.map(({ suite }) => suite.file).sort(),
+    ["test/ui-system.mjs", "tools/check-ui-system.mjs"].sort());
   const app = selectAffected(["app.js"]);
   assert.equal(app.entries.length, Object.values(SUITES).flat().length - SUITES.service.length);
   const service = selectAffected(["services/install-transfer/src/index.js", ".github/workflows/install-transfer-service.yml"]);

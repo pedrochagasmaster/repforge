@@ -325,7 +325,7 @@
         <div class="exview-head__right"><button type="button" class="link-accent" id="libClose" data-i18n="dialog.close">Close</button></div>
       </div>
       <div class="libwrap">
-        <div id="libStep" class="libstep hidden"></div>
+        <div id="libStep" class="libstep hidden" data-progress-dimension="task" data-progress-scope="exercise-picker-step"></div>
         <div id="libBrowse">
           <input id="libSearch" type="search" class="pick__search" data-i18n-placeholder="library.search_placeholder" data-i18n-aria="picker.search_aria" placeholder="Search by name, muscle or equipment" autocomplete="off" enterkeyhint="search">
           <div id="libTabs" class="picktabs" role="tablist" data-i18n-aria="picker.tabs_aria" aria-label="Exercise sources"></div>
@@ -561,7 +561,7 @@
           <div class="onb__title" id="onbEyebrow" data-i18n="entry.eyebrow">Create a program</div>
           <div></div>
           <p class="onb__step" id="onbStepLabel" aria-live="polite">Step 1 of 8</p>
-          <div id="onbSegbar" class="segbar" style="grid-column:1/-1"></div>
+          <div id="onbSegbar" class="segbar" data-progress-dimension="task" data-progress-scope="entry-route-step" style="grid-column:1/-1"></div>
         </div>
         <h2 id="onbTitle" class="visually-hidden">Create a program</h2>
         <div id="onbBody" class="onb__body"></div>
@@ -1187,21 +1187,21 @@ Progress.</p>
   <script src="vendor/motion/motion.js"></script>
   <script src="vendor/dnd-kit/dnd-kit.js"></script>
   <div hidden inert aria-hidden="true" id="legacyWorkoutShell"><span id="modeFull"></span><span id="modeFocus"></span><input id="date" type="date"><input id="bodyweight"><textarea id="notes"></textarea></div>
-  <script src="motion-layer.js?v=301"></script>
-  <script src="program-compiler.js?v=301"></script>
-  <script src="program-entry.js?v=301"></script>
-  <script src="program-entry-adapter.js?v=301"></script>
-  <script src="program-editor.js?v=301"></script>
-  <script src="shared-setup.js?v=301"></script>
-  <script src="workout-draft.js?v=301"></script>
-  <script src="program-transition.js?v=301"></script>
+  <script src="motion-layer.js?v=302"></script>
+  <script src="program-compiler.js?v=302"></script>
+  <script src="program-entry.js?v=302"></script>
+  <script src="program-entry-adapter.js?v=302"></script>
+  <script src="program-editor.js?v=302"></script>
+  <script src="shared-setup.js?v=302"></script>
+  <script src="workout-draft.js?v=302"></script>
+  <script src="program-transition.js?v=302"></script>
   <script src="install-transfer-contract.js"></script>
   <script src="install-transfer.js"></script>
-  <script src="install-policy.js?v=301"></script>
-  <script src="guide-registry.js?v=301"></script>
-  <script src="durable-state.js?v=301"></script>
-  <script src="progress-model.js?v=301"></script>
-  <script src="history-ui.js?v=301"></script>
-  <script src="app.js?v=301"></script>
+  <script src="install-policy.js?v=302"></script>
+  <script src="guide-registry.js?v=302"></script>
+  <script src="durable-state.js?v=302"></script>
+  <script src="progress-model.js?v=302"></script>
+  <script src="history-ui.js?v=302"></script>
+  <script src="app.js?v=302"></script>
 </body>
 </html>
