@@ -12,7 +12,7 @@ const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans|advisor-pl
 const VISUAL_FIXTURE = /^test\/fixtures\/shared-setup\.mjs$/;
 const NON_RENDERING_FIXTURE = /^test\/fixtures(?:\/|$)/;
 const NON_RENDERING_TEST = /^test\/(?!browser\.mjs$).+\.(?:mjs|js)$/;
-const NON_RENDERING_TOOL = /^tools\/(?:run-tests|test-selection|ci-selection|ci-plan|wait-for-ci|check-test-syntax|visual-domains)\.mjs$/;
+const NON_RENDERING_TOOL = /^tools\/(?:run-tests|test-selection|ci-selection|ci-plan|wait-for-ci|check-production-syntax|check-test-syntax|visual-domains)\.mjs$/;
 const NON_RENDERING_INFRA = /^\.github\/workflows\/|^test\/suites\.mjs$/;
 function revisionOnly(file, base, cwd) {
   if (!base || !["index.html", "sw.js"].includes(file)) return false;

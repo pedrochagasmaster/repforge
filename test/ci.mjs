@@ -63,7 +63,7 @@ test("share-link visual fixtures pin random preview origins without changing the
 });
 
 test("visual capture ignores non-rendering tests/tools but remains conservative for real inputs", () => {
-  for (const file of ["README.md", "docs/backlog.md", "plans/060.md", "advisor-plans/001-example.md", "test/accessibility.mjs", "test/ci.mjs", "tools/run-tests.mjs", "tools/test-selection.mjs", "tools/ci-plan.mjs", "tools/check-test-syntax.mjs", ".github/workflows/simulation.yml"]) {
+  for (const file of ["README.md", "docs/backlog.md", "plans/060.md", "advisor-plans/001-example.md", "test/accessibility.mjs", "test/ci.mjs", "tools/run-tests.mjs", "tools/test-selection.mjs", "tools/ci-plan.mjs", "tools/check-production-syntax.mjs", "tools/check-test-syntax.mjs", ".github/workflows/simulation.yml"]) {
     assert.equal(selectVisuals([file], manifest).mode, "none", file);
   }
   for (const file of ["app.js", "index.html", "styles.css", "i18n-en.json", "sw.js", "shared-setup.js", "fonts/new.woff2", "assets/exercises/foo.png", "test/browser.mjs", "test/fixtures/shared-setup.mjs", "tools/ui-screens/session.mjs", "tools/ui-screens/screens-app.mjs", "tools/capture-ui-screens.mjs", "docs/ui-screens/manifest.json", "docs/ui-screens/entry-semantics.json", "unknown.txt"]) {
