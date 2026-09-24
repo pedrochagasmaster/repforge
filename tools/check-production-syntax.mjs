@@ -37,6 +37,7 @@ const expected = [
   "shared-setup.js",
   "sw.js",
   "telemetry.js",
+  "unsupported-workout-grammar.js",
   "workout-draft.js",
 ];
 const missing = expected.filter((file) => !files.includes(file));

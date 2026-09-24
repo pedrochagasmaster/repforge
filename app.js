@@ -12429,7 +12429,17 @@ const FREEFORM_NOT_IMPORTED_CATEGORIES=new Set([
 function extractNotImported(obj){
   if(!obj||typeof obj!=="object")return[];
   const raw=Array.isArray(obj.notImported)?obj.notImported:[];
-  return raw.filter(item=>typeof item==="string"&&FREEFORM_NOT_IMPORTED_CATEGORIES.has(item))}
+  const seen=new Set();
+  return raw.filter(item=>{
+    if(typeof item!=="string"||!FREEFORM_NOT_IMPORTED_CATEGORIES.has(item)||seen.has(item))return false;
+    seen.add(item);
+    return true})}
+
+function captureUnsupportedWorkoutConcepts(sidecar){
+  const grammar=window.RepForgeUnsupportedWorkoutGrammar;
+  if(!grammar?.normalize)return;
+  for(const category of grammar.normalize(sidecar))
+    captureEvent("program_import_unsupported_concept",{category})}
 
 function parseRepsInput(str){
   if(typeof str!=="string"&&typeof str!=="number")return null;
@@ -12745,6 +12755,7 @@ function startFreeformReview(){
     return null;
   }
   if(source.status==="gaps"){
+    captureUnsupportedWorkoutConcepts(source.notImported);
     entryFreeformGapResult=source;
     entryFreeformGapAnswers={};
     entryFreeformGapErrors.clear();
@@ -12759,6 +12770,7 @@ function startFreeformReview(){
     toast(t("toast.freeform_unreadable"));
     return null;
   }
+  captureUnsupportedWorkoutConcepts(source.notImported);
   captureEvent("program_import_parsed",{source:"freeform",outcome:"complete",gap_count:0});
   return loadFreeformProgram(source);
 }

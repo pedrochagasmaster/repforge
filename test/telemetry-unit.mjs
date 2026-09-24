@@ -81,6 +81,15 @@ function boot({ storage = memoryStorage(), adapter, onReject, crypto } = {}) {
 }
 
 {
+  const { sent } = boot();
+  for (const category of ["supersets", "rest_times", "rir_rpe", "tempo", "warmups", "cardio", "progression_rules", "deload"])
+    assert.equal(Telemetry.capture("program_import_unsupported_concept", { category }), true, category);
+  assert.equal(Telemetry.capture("program_import_unsupported_concept", { category: "Bench press from my private program" }), false);
+  assert.equal(sent.length, 8);
+  assert.doesNotMatch(JSON.stringify(sent), /Bench press|private program/);
+}
+
+{
   const rejected = [];
   const { sent } = boot({ onReject: value => rejected.push(value) });
   for (const [name, properties] of INVALID_EVENTS) assert.equal(Telemetry.capture(name, properties), false, name);
@@ -96,6 +105,7 @@ function boot({ storage = memoryStorage(), adapter, onReject, crypto } = {}) {
   const { sent } = boot({ storage });
   Telemetry.setEnabled(false);
   assert.equal(Telemetry.capture("first_set_logged", {}), false);
+  assert.equal(Telemetry.capture("program_import_unsupported_concept", { category: "tempo" }), false);
   assert.equal(sent.length, 0);
   assert.equal(storage.snapshot().repforge_telemetry_enabled_v1, "false");
   const next = boot({ storage });

@@ -45,6 +45,13 @@ Health queries are explicitly broader so bad or absent labels remain visible.
 | Session reliability | `set_saved` → `session_completed`, `one_off_completed`, or explicit `session_abandoned` | Installation + PostHog SDK session | One SDK session | completion duration; abandonment stage/reason | SDK sessions containing `set_saved`; missing session IDs reported separately |
 | Repeated use | first observed `session_completed` → later-date, different-SDK-session `session_completed` | Unique new installation | Repeat within 7, 30, or 60 elapsed days | activation route and version category | Mature anchors; compiled view requires a witnessed first-run boot |
 
+Unsupported workout concepts are measured separately by
+`program_import_unsupported_concept`. Each successfully parsed free-form
+reply emits at most one event per recognized category. The event count and
+unique installation count therefore measure how often an import surfaced a
+category, not how many times the source repeated it. Break down by `category`;
+do not add raw sidecar values or inferred labels.
+
 `app_boot` is a separate entry/collection diagnostic, not a prerequisite that
 changes the path-selector denominator. `first_set_logged` is installation-once:
 it cannot measure every later session or every reactivation. Returning-installation

@@ -43,6 +43,7 @@ const PASTED = [
   "",
   "Pull A",
   "Barbell row 4x6-10",
+  "Contact: source-owner@example.test TAURIFER_SOURCE_SENTINEL",
 ].join("\n");
 
 /* What an assistant actually sends back: a sentence, a fenced block, and an
@@ -51,10 +52,10 @@ const REPLY = [
   "Sure! Here is your program in the requested format:",
   "",
   "```json",
-  '{"version":3,"meta":{"name":"Coach split"},"exercises":[',
+  '{"version":3,"meta":{"name":"Coach split","private_reply":"TAURIFER_REPLY_SENTINEL"},"exercises":[',
   ' {"day":"Push A","order":1,"name":"Barbell bench press","sets":4,"min":6,"max":8},',
   ' {"day":"Push A","order":2,"name":"Overhead press","sets":3,"min":8,"max":10},',
-  ' {"day":"Pull A","order":1,"name":"Barbell row","sets":4,"min":6,"max":10}]}',
+  ' {"day":"Pull A","order":1,"name":"Barbell row","sets":4,"min":6,"max":10}],"notImported":["supersets","tempo","tempo","other_notes","unknown TAURIFER_UNKNOWN_CONCEPT_SENTINEL"]}',
   "```",
   "",
   "Let me know if you want a fourth day!",
@@ -201,6 +202,15 @@ async function main() {
     await page.waitForSelector("#entryFreeformOut", { timeout: 20000 });
     assert(await page.locator("#entryFreeformOut").isVisible(), "copying advances to stage 3");
     await page.fill("#entryFreeformOut", REPLY);
+    await page.evaluate(() => {
+      const telemetry = window.RepForgeTelemetry;
+      const original = telemetry.capture;
+      window.__capturedTelemetryCalls = [];
+      telemetry.capture = function(event, properties) {
+        window.__capturedTelemetryCalls.push({event, properties});
+        return original.call(this, event, properties);
+      };
+    });
     await page.click("#entryFreeformReview");
     await page.waitForSelector("#importReview.active", { timeout: 20000 });
     const review = await page.evaluate(() => ({
@@ -210,6 +220,17 @@ async function main() {
     assert(review.rows === 3, "prose around a fenced block still imports every exercise", String(review.rows));
     assert(review.text.includes("Barbell bench press") && review.text.includes("Barbell row"),
       "the review shows the names the reply used, not the library's");
+    const telemetryCalls = await page.evaluate(() => window.__capturedTelemetryCalls || []);
+    const measuredCategories = telemetryCalls
+      .filter(call => call.event === "program_import_unsupported_concept")
+      .map(call => call.properties?.category);
+    assert(JSON.stringify(measuredCategories) === JSON.stringify(["supersets", "tempo"]),
+      "parsed sidecar emits one event per distinct recognized concept", JSON.stringify(measuredCategories));
+    const telemetryJson = JSON.stringify(telemetryCalls);
+    assert(!/source-owner@example\.test|TAURIFER_SOURCE_SENTINEL|TAURIFER_REPLY_SENTINEL|TAURIFER_UNKNOWN_CONCEPT_SENTINEL|Barbell bench press|Coach split/.test(telemetryJson),
+      "measurement excludes source, exercise, reply, unknown sidecar, and personal sentinels", telemetryJson);
+    assert(!telemetryCalls.some(call => call.event === "program_import_unsupported_concept" && call.properties?.category === "other_notes"),
+      "the existing display-only other_notes category is not measured");
 
     // The row leads with its shortlist and keeps the escape hatches behind a
     // disclosure, so resolving one means taking a candidate or opening that.
@@ -426,9 +447,29 @@ async function main() {
           { day: "Upper", order: 2, name: "Barbell row", sets: 3, min: 8, max: 12 },
         ],
         missing: [],
-        notImported: ["rest_times", "tempo", "unrecognized_garbage"]
+        notImported: ["rest_times", "tempo", "other_notes", "unrecognized_garbage"]
       });
       const parsedComplete = freeform.parseReply(completeEnvelope);
+      const normalEnvelope = JSON.stringify({version:3,meta:{name:"Ordinary import"},
+        exercises:[{day:"A",order:1,name:"Bench press",sets:3,min:8,max:12}]});
+      const normalImport = freeform.parseReply(normalEnvelope);
+      const normalBaseline = parseSource(normalEnvelope);
+      const allCategories = ["supersets", "rest_times", "rir_rpe", "tempo", "warmups", "cardio", "progression_rules", "deload"];
+      const categoryChecks = allCategories.map(category => freeform.parseReply(JSON.stringify({
+        version: 3, meta: { name: "Safe" },
+        exercises: [{ day: "A", order: 1, name: "Bench press", sets: 3, min: 8, max: 12 }],
+        notImported: [category],
+      }))?.notImported);
+      const repeated = freeform.parseReply(JSON.stringify({version:3,meta:{name:"Safe"},
+        exercises:[{day:"A",order:1,name:"Bench press",sets:3,min:8,max:12}],
+        notImported:["tempo","tempo","supersets","supersets"]}));
+      const unknownOnly = freeform.parseReply(JSON.stringify({version:3,meta:{name:"Safe"},
+        exercises:[{day:"A",order:1,name:"Bench press",sets:3,min:8,max:12}],
+        notImported:["TAURIFER_PRIVATE_UNKNOWN_SENTINEL"]}));
+      const malformedSidecars = [null, "tempo", {}, [null, 4, {category:"tempo"}]].map(sidecar =>
+        freeform.parseReply(JSON.stringify({version:3,meta:{name:"Safe"},
+          exercises:[{day:"A",order:1,name:"Bench press",sets:3,min:8,max:12}],
+          notImported:sidecar}))?.notImported);
 
       // 2. Gap path: missing reps and missing sets with missing sidecar
       const gapEnvelope = JSON.stringify({
@@ -480,6 +521,13 @@ async function main() {
       const collisionParsed = parseSource(collisionDoc);
 
       return {
+        categoryOrder: allCategories,
+        normalImport: {
+          status: normalImport?.status,
+          notImported: normalImport?.notImported,
+          exercises: normalImport?.exercises?.map(({day,order,name,sets,min,max}) => ({day,order,name,sets,min,max})),
+          baseline: normalBaseline?.exercises?.map(({day,order,name,sets,min,max}) => ({day,order,name,sets,min,max})),
+        },
         collision: {
           keys: parsedCollision?.gaps?.map(g => g.key),
           sets: collisionParsed?.exercises?.map(e => e.sets),
@@ -489,6 +537,10 @@ async function main() {
           exercisesCount: parsedComplete?.exercises?.length,
           notImported: parsedComplete?.notImported,
         },
+        categoryChecks,
+        repeated: repeated?.notImported,
+        unknownOnly: unknownOnly?.notImported,
+        malformedSidecars,
         parsedGaps: {
           status: parsedGaps?.status,
           gapsCount: parsedGaps?.gaps?.length,
@@ -507,10 +559,24 @@ async function main() {
       };
     });
 
+    assert(JSON.stringify(step3Results.categoryChecks) === JSON.stringify(step3Results.categoryOrder.map(category => [category])),
+      "each canonical unsupported concept is recognized individually");
+    assert(step3Results.normalImport.status === "complete" &&
+      JSON.stringify(step3Results.normalImport.notImported) === "[]" &&
+      JSON.stringify(step3Results.normalImport.exercises) === JSON.stringify(step3Results.normalImport.baseline),
+      "ordinary supported imports with no sidecar preserve the executable parser result", JSON.stringify(step3Results.normalImport));
+    assert(JSON.stringify(step3Results.repeated) === JSON.stringify(["tempo", "supersets"]),
+      "repeated concepts deduplicate in stable sidecar order", JSON.stringify(step3Results.repeated));
+    assert(JSON.stringify(step3Results.unknownOnly) === "[]",
+      "unknown sidecar values remain unclassified", JSON.stringify(step3Results.unknownOnly));
+    assert(JSON.stringify(step3Results.malformedSidecars) === JSON.stringify([[], [], [], []]),
+      "missing and malformed sidecars safely produce no classifications", JSON.stringify(step3Results.malformedSidecars));
+
     assert(step3Results.parsedComplete.status === "complete" && step3Results.parsedComplete.exercisesCount === 2,
       "fast path directly returns parsed complete program", JSON.stringify(step3Results.parsedComplete));
     assert(step3Results.parsedComplete.notImported.includes("rest_times") &&
            step3Results.parsedComplete.notImported.includes("tempo") &&
+           step3Results.parsedComplete.notImported.includes("other_notes") &&
            !step3Results.parsedComplete.notImported.includes("unrecognized_garbage"),
       "fast path preserves valid notImported categories and drops unrecognized ones", JSON.stringify(step3Results.parsedComplete.notImported));
 
