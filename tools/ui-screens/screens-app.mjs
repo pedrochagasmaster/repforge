@@ -9,6 +9,29 @@
 import { catalogState, emptyEntryState, localeState } from "./fixtures.mjs";
 import { CAPTURE_NOW, dismissChrome, LOG_DRAFT, sleep } from "./session.mjs";
 
+export function stabilizeShareUrlForCapture(value) {
+  const url = new URL(String(value));
+  if (/^(localhost|127(?:\.\d{1,3}){3}|\[::1\])$/i.test(url.hostname)) {
+    url.protocol = "http:";
+    url.host = "localhost:8765";
+  }
+  return url.href;
+}
+
+async function stabilizeShareLink(page) {
+  await page.waitForFunction(() => {
+    const link = document.querySelector("#shareSetupLink");
+    return ("value" in (link || {}) ? link.value : link?.textContent || "").startsWith("http");
+  }, undefined, { timeout: 20000 });
+  const link = page.locator("#shareSetupLink");
+  const value = await link.evaluate(node => "value" in node ? node.value : node.textContent);
+  const stable = stabilizeShareUrlForCapture(value);
+  await link.evaluate((node, next) => {
+    if ("value" in node) node.value = next;
+    else node.textContent = next;
+  }, stable);
+}
+
 function isoDaysAgo(n) {
   const date = new Date(Date.parse(CAPTURE_NOW));
   date.setUTCDate(date.getUTCDate() - n);
@@ -847,6 +870,7 @@ export const APP_SCENARIOS = {
     await openProgram(page);
     await page.click("#shareProgramSetup");
     await page.waitForSelector("#shareSetupSheet.is-open", { timeout: 10000 });
+    await stabilizeShareLink(page);
     await sleep(page, 500);
   },
   "program/share-one-blocker": async (page) => {
@@ -874,6 +898,7 @@ export const APP_SCENARIOS = {
   "program/share-ready": async (page) => {
     await openShare(page);
     await page.waitForSelector("#shareSetupCopy:not(.hidden)", { timeout: 20000 });
+    await stabilizeShareLink(page);
     await sleep(page, 400);
   },
   "program/readiness": async (page) => {

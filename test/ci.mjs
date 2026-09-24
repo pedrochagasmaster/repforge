@@ -9,6 +9,7 @@ import { SUITES, SUPPORT, BROWSER_LANES, commandArgs, inventoryErrors } from "./
 import { changedFiles, selectVisuals } from "../tools/ci-selection.mjs";
 import { makeCiPlan } from "../tools/ci-plan.mjs";
 import { domainsForAppDiff } from "../tools/visual-domains.mjs";
+import { stabilizeShareUrlForCapture } from "../tools/ui-screens/screens-app.mjs";
 import { changedFilesForTests, changedFilesForEdit, changedFilesForPacket, selectAffected, selectEdit } from "../tools/test-selection.mjs";
 import { execute, maybeStartLocalPreview, runLane } from "../tools/run-tests.mjs";
 
@@ -51,6 +52,14 @@ test("browser suites use the shared preview origin and never own fixed-port serv
     assert.doesNotMatch(source, /spawn\(\s*["']python3["'][\s\S]{0,240}http\.server/,
       `${suite.file} must not start its own static server; the shared runner owns browser preview lifecycle`);
   }
+});
+
+test("share-link visual fixtures pin random preview origins without changing the payload", () => {
+  const hash = "#setup=v3.fixture-payload";
+  assert.equal(stabilizeShareUrlForCapture(`http://127.0.0.1:43129/index.html${hash}`),
+    `http://localhost:8765/index.html${hash}`);
+  const production = "https://pedrochagasmaster.github.io/repforge/index.html#setup=v3.fixture-payload";
+  assert.equal(stabilizeShareUrlForCapture(production), production);
 });
 
 test("visual capture ignores non-rendering tests/tools but remains conservative for real inputs", () => {
@@ -96,7 +105,7 @@ test("affected selection is narrow when proven and fail-safe when it is not", ()
   const captureScenario = selectAffected(["tools/ui-screens/screens-app.mjs"]);
   assert.equal(captureScenario.mode, "selected");
   assert.deepEqual(captureScenario.entries.map(({ suite }) => suite.file).sort(),
-    ["test/ui-catalog-contract.mjs", "test/ui-plan-050-editor.mjs", "test/ui-screens.mjs", "tools/check-ui-screens.mjs"].sort());
+    ["test/ci.mjs", "test/ui-catalog-contract.mjs", "test/ui-plan-050-editor.mjs", "test/ui-screens.mjs", "tools/check-ui-screens.mjs"].sort());
   const manifestInput = selectAffected(["docs/ui-screens/manifest.json"]);
   assert.equal(manifestInput.mode, "selected");
   assert.deepEqual(manifestInput.entries.map(({ suite }) => suite.file).sort(), [
