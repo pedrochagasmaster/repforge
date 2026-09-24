@@ -12422,18 +12422,13 @@ function freeformJsonCandidates(text){
       if(ch===open)depth++;
       else if(ch===close&&--depth===0){out.push(text.slice(i,j+1));i=j;break}}}
   return out}
-const FREEFORM_NOT_IMPORTED_CATEGORIES=new Set([
-  "rest_times","rir_rpe","tempo","supersets","warmups","cardio",
-  "progression_rules","deload","other_notes"]);
-
 function extractNotImported(obj){
   if(!obj||typeof obj!=="object")return[];
   const raw=Array.isArray(obj.notImported)?obj.notImported:[];
-  const seen=new Set();
-  return raw.filter(item=>{
-    if(typeof item!=="string"||!FREEFORM_NOT_IMPORTED_CATEGORIES.has(item)||seen.has(item))return false;
-    seen.add(item);
-    return true})}
+  const grammar=window.RepForgeUnsupportedWorkoutGrammar;
+  return grammar?.normalizeForDisplay
+    ?grammar.normalizeForDisplay(raw,Object.keys(FREEFORM_NOT_IMPORTED_KEYS))
+    :[]}
 
 function captureUnsupportedWorkoutConcepts(sidecar){
   const grammar=window.RepForgeUnsupportedWorkoutGrammar;
@@ -12731,6 +12726,7 @@ function openFreeformApp(app,event){
   return true}
 function loadFreeformProgram(source){
   pendingImportIo=null;
+  captureUnsupportedWorkoutConcepts(source.notImported);
   const draft=buildImportDraft(source,t("entry.freeform.source_name"));
   draft.sourceType="freeform";
   draft.notImported=source.notImported||[];
@@ -12755,7 +12751,6 @@ function startFreeformReview(){
     return null;
   }
   if(source.status==="gaps"){
-    captureUnsupportedWorkoutConcepts(source.notImported);
     entryFreeformGapResult=source;
     entryFreeformGapAnswers={};
     entryFreeformGapErrors.clear();
@@ -12770,7 +12765,6 @@ function startFreeformReview(){
     toast(t("toast.freeform_unreadable"));
     return null;
   }
-  captureUnsupportedWorkoutConcepts(source.notImported);
   captureEvent("program_import_parsed",{source:"freeform",outcome:"complete",gap_count:0});
   return loadFreeformProgram(source);
 }

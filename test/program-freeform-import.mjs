@@ -800,11 +800,28 @@ async function main() {
 
     // A gapped reply reaches the existing gap step, disclosure and all.
     await toStage3(page);
+    await page.evaluate(() => {
+      const telemetry = window.RepForgeTelemetry;
+      const original = telemetry.capture;
+      window.__gapTelemetryCalls = [];
+      telemetry.capture = function(event, properties) {
+        window.__gapTelemetryCalls.push({event, properties});
+        return original.call(this, event, properties);
+      };
+    });
     await setClip(page, "text", GAPPED);
     await page.click("#entryFreeformClipboard");
     await page.waitForSelector("#entryFreeformSubmitGaps", { timeout: 20000 });
     const gapText = await page.evaluate(() => document.querySelector(".entry__notice--info")?.textContent || "");
     assert(gapText.length > 0, "a gapped clipboard reply reaches the existing gap step with its disclosure", gapText);
+    await page.click("#entryFreeformBackToReply");
+    await page.waitForSelector("#entryFreeformOut", { timeout: 20000 });
+    await page.click("#entryFreeformClipboard");
+    await page.waitForSelector("#entryFreeformSubmitGaps", { timeout: 20000 });
+    const gapAttemptCategories = await page.evaluate(() => (window.__gapTelemetryCalls || [])
+      .filter(call => call.event === "program_import_unsupported_concept"));
+    assert(gapAttemptCategories.length === 0,
+      "repeated gapped-reply review attempts emit no category counts before import review");
 
     // Unreadable text is just another reply.
     await toStage3(page);

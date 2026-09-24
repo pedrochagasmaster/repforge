@@ -46,8 +46,8 @@ Health queries are explicitly broader so bad or absent labels remain visible.
 | Repeated use | first observed `session_completed` → later-date, different-SDK-session `session_completed` | Unique new installation | Repeat within 7, 30, or 60 elapsed days | activation route and version category | Mature anchors; compiled view requires a witnessed first-run boot |
 
 Unsupported workout concepts are measured separately by
-`program_import_unsupported_concept`. Each successfully parsed free-form
-reply emits at most one event per recognized category. The event count and
+`program_import_unsupported_concept`. Each free-form import that reaches review
+emits at most one event per recognized category. The event count and
 unique installation count therefore measure how often an import surfaced a
 category, not how many times the source repeated it. Break down by `category`;
 do not add raw sidecar values or inferred labels.

@@ -13,8 +13,10 @@ closed-enum `category` value from:
 - `progression_rules`
 - `deload`
 
-The importer emits one event for each distinct recognized category in a parsed
-reply, in canonical order. Repeated mentions collapse into one event. Unknown,
+The importer emits one event for each distinct recognized category when a
+successfully parsed reply reaches import review, in canonical order. Repeated
+mentions collapse into one event, including a reply that goes through gap
+resolution or is retried before review. Unknown,
 malformed, and partially invalid sidecar entries are ignored; the client never
 infers a category from source text, exercise names, model prose, or an unknown
 sidecar value. These categories remain informational and do not change the

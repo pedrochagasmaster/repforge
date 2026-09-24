@@ -17,14 +17,24 @@
   ]);
   const CATEGORY_SET = new Set(CATEGORIES);
 
-  function normalize(sidecar) {
+  function dedupeKnown(sidecar, allowedCategories) {
     if (!Array.isArray(sidecar)) return [];
+    const allowed = new Set(allowedCategories);
     const found = new Set();
     for (const item of sidecar) {
-      if (typeof item === "string" && CATEGORY_SET.has(item)) found.add(item);
+      if (typeof item === "string" && allowed.has(item)) found.add(item);
     }
+    return [...found];
+  }
+
+  function normalize(sidecar) {
+    const found = new Set(dedupeKnown(sidecar, CATEGORIES));
     return CATEGORIES.filter(category => found.has(category));
   }
 
-  return Object.freeze({ CATEGORIES, normalize });
+  function normalizeForDisplay(sidecar, displayCategories) {
+    return dedupeKnown(sidecar, displayCategories);
+  }
+
+  return Object.freeze({ CATEGORIES, normalize, normalizeForDisplay });
 });
