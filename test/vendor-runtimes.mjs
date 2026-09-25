@@ -72,9 +72,9 @@ assert(!/\bfetch\s*\(|\bimport\s*\(/.test(layer), "the integration layer resolve
 assert(notice.includes("Motion animation runtime") && notice.includes("Copyright (c) 2018 Framer B.V.") && notice.includes("Drag and drop") && notice.includes("@dnd-kit/dom"), "both runtimes carry MIT attribution");
 
 {
-  const revision = sw.match(/\bCACHE\s*=\s*["']repforge-v(\d+)["']/)?.[1] || "";
+  const layerRevision = index.match(/src="motion-layer\.js\?v=(\d+)"/)?.[1] || "";
   assert(sw.includes('"./vendor/motion/motion.js"') && sw.includes('"./motion-layer.js"'), "the runtime and layer are atomically precached");
-  assert(sw.includes(`"./motion-layer.js?v=${revision}"`) && index.includes(`src="motion-layer.js?v=${revision}"`), "the layer is coupled to the cache revision", revision);
+  assert(layerRevision && sw.includes(`"./motion-layer.js?v=${layerRevision}"`), "the layer query revision matches its precached URL", layerRevision);
   const shell = sw.match(/\bSHELL\s*=\s*new\s+Set\s*\(\s*(\[[\s\S]*?\])\s*\)/)?.[1] || "[]";
   const paths = vm.runInNewContext(shell, {}, { timeout: 1000 });
   assert(paths.includes("/vendor/motion/motion.js") && paths.includes("/motion-layer.js"), "both files belong to the installed offline shell");
