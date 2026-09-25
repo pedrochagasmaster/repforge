@@ -4636,18 +4636,23 @@ function previousSessionForExercise(ex,beforeSessionId){const match=matchLift(ex
   if(curIdx<0){const current=state.log.find(r=>r.session===beforeSessionId);if(!current)return ordered.length?ordered.at(-1).rows:[];
     const older=ordered.filter(s=>compareLogChronology(s,current)<0);return older.length?older.at(-1).rows:[]}
   return curIdx>0?ordered[curIdx-1].rows:[]}
+// Session outcome, as defined in CONTEXT.md. At the same load total reps decide;
+// when the load went up, best-set e1RM decides within DELTA_THRESHOLDS.e1rmPct, so a
+// prescribed increase with the expected rep drop reads flat, not regressed; when the
+// load went down it improves only on more strength or more volume at similar effort,
+// otherwise the sessions are not comparable (a deload never reads regressed).
 function buildSessionDelta(prevRows,currentRows){const previous=exerciseSessionMetrics(prevRows),current=exerciseSessionMetrics(currentRows),T=DELTA_THRESHOLDS;
   if(!previous||!current)return{status:"not_comparable",label:t("delta.not_comparable.label"),text:t("delta.not_comparable.text"),metrics:null};
   const loadDelta=current.topLoad-previous.topLoad,repsDelta=current.totalReps-previous.totalReps,volumeDelta=current.totalVolume-previous.totalVolume,
     e1rmDelta=current.bestE1rm-previous.bestE1rm,avgRirDelta=current.avgRir-previous.avgRir,deltas={loadDelta,repsDelta,volumeDelta,e1rmDelta,avgRirDelta};
-  let status,label,text;
-  if(e1rmDelta>previous.bestE1rm*T.e1rmPct){status="improved";label=t("delta.improved.label");text=t("delta.improved.text")}
-  else if(Math.abs(loadDelta)<.01&&repsDelta>0){status="improved";label=t("delta.improved.label");text=t("delta.improved.text")}
-  else if(volumeDelta>previous.totalVolume*T.volumePct&&avgRirDelta<=T.rir){status="improved";label=t("delta.improved.label");text=t("delta.improved.text")}
-  else if(Math.abs(e1rmDelta)<=previous.bestE1rm*T.e1rmPct&&repsDelta===0&&Math.abs(volumeDelta)<=previous.totalVolume*T.volumePct){status="flat";label=t("delta.flat.label");text=t("delta.flat.text")}
-  else if(e1rmDelta<0&&repsDelta<0){status="regressed";label=t("delta.regressed.label");text=t("delta.regressed.text")}
-  else{status="changed_load";label=t("delta.changed_load.label");text=t("delta.changed_load.text")}
-  return{status,label,text,metrics:{current,previous,deltas}}}
+  const band=previous.bestE1rm*T.e1rmPct;
+  let status;
+  if(Math.abs(loadDelta)<.01)status=repsDelta>0?"improved":repsDelta<0?"regressed":"flat";
+  else if(loadDelta>0)status=e1rmDelta>band?"improved":e1rmDelta<-band?"regressed":"flat";
+  else status=e1rmDelta>band||(volumeDelta>previous.totalVolume*T.volumePct&&avgRirDelta<=T.rir)?"improved":"changed_load";
+  const copy={improved:["delta.improved.label","delta.improved.text"],flat:["delta.flat.label","delta.flat.text"],
+    regressed:["delta.regressed.label","delta.regressed.text"],changed_load:["delta.changed_load.label","delta.changed_load.text"]}[status];
+  return{status,label:t(copy[0]),text:t(copy[1]),metrics:{current,previous,deltas}}}
 function compareExerciseSession(ex,currentRows){const cur=workingRows(currentRows);
   if(!cur.length)return{status:"not_comparable",label:t("delta.not_comparable.label"),text:t("delta.not_comparable.text"),metrics:null};
   const prev=previousSessionForExercise(ex,cur[0]?.session);
@@ -5136,7 +5141,7 @@ function explainStrategy(ex,rec,u){
   const prev=last(ex).filter(x=>+x.load>0);
   if(prev.length)rows.push({label:t("why.last"),
     text:prev.map(x=>`${fmtLoad(x.load)}\u00d7${x.reps} ${effortOrRirLabel(x.rir)}`).join(" \u00b7 ")});
-  const result=RepForgeProgression.evaluateProgression(progressionInput(ex)),f=result.facts;
+  const input=progressionInput(ex),result=RepForgeProgression.evaluateProgression(input),f=result.facts;
   if(rec.strategy==="rep_goal"){
     if(f.performedTotal!=null)rows.push({text:t("why.repgoal.total",
       {done:f.performedTotal,goal:f.repGoal,sets:params.workingSets})});
@@ -5152,8 +5157,14 @@ function explainStrategy(ex,rec,u){
     if(result.reasonCodes.includes("effort_target.grid_rounded"))
       rows.push({text:t("why.effort.grid",{load:fmtLoad(f.targetLoad),unit:u})})}
   else{
-    if(f.anchorLoad!=null)rows.push({text:t("why.anchor.top",
-      {load:fmtLoad(f.anchorLoad),unit:u,reps:Math.round(f.capacityReps)})});
+    // Name the top set the lifter logged, not the capacity the engine read from it:
+    // today's anchor when one is logged, otherwise the latest session's first set.
+    const cur=input.currentSession||[],explicit=cur.findIndex(x=>x.role==="anchor"),
+      idx=explicit>=0?explicit:cur.some(x=>x.role!=null)?-1:0,
+      top=cur.length&&idx>=0?cur[idx]:input.history.at(-1)?.sets?.[0];
+    if(f.anchorLoad!=null&&top&&sameLoad(+top.load,f.anchorLoad)){
+      rows.push({text:t("why.anchor.top",{load:fmtLoad(f.anchorLoad),unit:u,reps:+top.reps})});
+      if(top.rir!=null&&top.rir!==""&&Number.isFinite(+top.rir))rows.push({text:t("why.anchor.top_rir",{rir:fmt(+top.rir)})})}
     if(f.backoffLoad!=null)rows.push({text:t("why.anchor.backoff",
       {percent:fmt(Math.round(params.backoffPercent*100)),load:fmtLoad(f.backoffLoad),unit:u})});
     if(result.reasonCodes.includes("anchor_backoff.backoff_recalculated"))

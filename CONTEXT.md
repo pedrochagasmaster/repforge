@@ -48,6 +48,15 @@ _Avoid_: Score, rating, grade, level, streak
 All log rows saved together in one workout, sharing a session id, date, and training day.
 _Avoid_: Workout (acceptable in casual copy; session is the domain term)
 
+**Session outcome**:
+How one lift's session compares with its previous session of the same lift: improved (Melhorou), maintained (Manteve), declined (Regressou), or not enough evidence. It describes the logged sets only, never what the engine prescribed. "Same load" means the top load is within 0.01 kg; strength is the RIR-blind Epley e1RM of the best set.
+- First exposure, or any set in either session without RIR: not enough evidence.
+- Same load: more total reps is improved, fewer is declined, equal is maintained.
+- Load went up: e1RM more than 1% higher is improved, within 1% is maintained, more than 1% lower is declined. Rep counts at different loads are not compared, so a prescribed load increase with the expected rep drop reads maintained.
+- Load went down: improved when e1RM is more than 1% higher, or volume is more than 2.5% higher while average RIR rose by no more than 0.75 (the sets were not easier); otherwise not enough evidence (changed load). A deload is never read as declined.
+Derived at read time and never stored, so a rule change re-reads all history. The summary, History and Progress show the same outcome for the same lift and session.
+_Avoid_: Delta status, regression, grade, verdict (a verdict is the engine's recommendation)
+
 **Log row**:
 One recorded set — load, reps, RIR — linked to an exercise template via exercise id.
 _Avoid_: Set entry, record

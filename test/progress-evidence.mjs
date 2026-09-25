@@ -318,7 +318,7 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
 }
 
 // Two visible observations are still baseline-building when effort is absent,
-// and a changed exposure is not promoted to an action outcome. Both cases use
+// and a changed exposure (a lower load with no gain in strength or volume; a higher load is judged on e1RM) is not promoted to an action outcome. Both cases use
 // the real producer → model → renderer path.
 {
   const scopedMeta = seedProgramMeta({ id: "evidence-contract", started: "2026-09-14", blockId: "block-contract" });
@@ -326,7 +326,7 @@ async function freshPage({ lang = "en", unit = "kg", seededLog = log, seededMeta
     { session: "bench-1", date: "2026-09-15", created: "2026-09-15T09:00:00.000Z", blockId: "block-contract", day: "Day 1", exerciseId: "pev-1", name: "Incline chest press", load: 100, reps: 8, set: 1, work: true },
     { session: "bench-2", date: "2026-09-16", created: "2026-09-16T09:00:00.000Z", blockId: "block-contract", day: "Day 1", exerciseId: "pev-1", name: "Incline chest press", load: 101, reps: 8, set: 1, work: true },
     { session: "rdl-1", date: "2026-09-15", created: "2026-09-15T10:00:00.000Z", blockId: "block-contract", day: "Day 2", exerciseId: "pev-3", name: "Romanian deadlift", load: 100, reps: 8, rir: 2, set: 1, work: true },
-    { session: "rdl-2", date: "2026-09-16", created: "2026-09-16T10:00:00.000Z", blockId: "block-contract", day: "Day 2", exerciseId: "pev-3", name: "Romanian deadlift", load: 103, reps: 7, rir: 2, set: 1, work: true },
+    { session: "rdl-2", date: "2026-09-16", created: "2026-09-16T10:00:00.000Z", blockId: "block-contract", day: "Day 2", exerciseId: "pev-3", name: "Romanian deadlift", load: 95, reps: 8, rir: 2, set: 1, work: true },
   ];
   const { context, page } = await freshPage({ seededLog: contractLog, seededMeta: scopedMeta });
   const values = await page.evaluate(() => {

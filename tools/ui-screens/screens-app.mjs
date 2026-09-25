@@ -50,11 +50,12 @@ export function appState(key, lang) {
   if (key.startsWith("session/summary-")) {
     const dayExercises = state.program.filter((exercise) => exercise.day === "Day 1");
     const loads = dayExercises.map((_, index) => 80 + index * 5);
-    const priorLoads = key === "session/summary-declined"
-      ? loads.map((load) => load + 10)
-      : key === "session/summary-mixed"
-        ? loads.map((load, index) => index % 2 ? load + 10 : load)
-        : loads;
+    // Declined means the same load for fewer total reps (CONTEXT.md "Session
+    // outcome"): a lower load never reads declined. The mixed fixture logs
+    // 100 kg × 6, so its odd lifts had 100 kg × 8 last time.
+    const priorLoads = key === "session/summary-mixed"
+      ? loads.map((load, index) => index % 2 ? 100 : load)
+      : loads;
     const priorDate = isoDaysAgo(1);
     state.log.push(...dayExercises.map((exercise, index) => ({
       session: "summary-" + key.slice("session/summary-".length) + "-prior",

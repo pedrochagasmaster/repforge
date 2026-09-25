@@ -1540,6 +1540,7 @@
   "why.repgoal.distribution": "As repetições restantes são distribuídas pelas séries que você ainda não registrou.",
   "why.repgoal.rebuild": "O total continua {goal}. Na nova carga você começa com {reps} por série e volta até ele.",
   "why.anchor.top": "Sua série principal foi {load} {unit} por {reps} repetições.",
+  "why.anchor.top_rir": "Você registrou RIR {rir} nela.",
   "why.anchor.backoff": "As séries leves são {percent}% da série principal, o que dá {load} {unit}.",
   "why.anchor.untouched": "Só as séries que você ainda não registrou foram atualizadas.",
   "rec.effort.new.label": "Exercício novo",
