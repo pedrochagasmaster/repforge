@@ -3354,8 +3354,9 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry-body .entry__hub{gap:0;margin-top:4px}
 .entry-body .entry-card{
   flex-direction:row;align-items:center;gap:14px;min-height:64px;
-  padding:16px 4px;border:0;border-bottom:1px solid var(--rule);
-  border-radius:0;background:transparent;box-shadow:none;transition:background-color .15s ease
+  padding:16px 4px;border:0;border-bottom:1px solid var(--boundary-decorative);
+  border-radius:var(--radius-none);background:var(--control-quiet-bg);color:var(--color-ink);
+  box-shadow:none;transition:background-color .15s ease
 }
 /* The shared card base paints no inset ring here. Recommend receives the one
    focal keyline below; every other job stays subordinate to that first path. */
@@ -3364,16 +3365,47 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 /* In the flow a route row is borderless, so hover reads as a wash rather than
    a keyline; the copper ring stays reserved for `:focus-visible`. */
 .entry-body .entry-card:hover{background:var(--well)}
-.entry-body .entry-card:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.entry-body .entry-card:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+.entry-body .entry-card:active:not(:disabled){background:var(--well);transform:var(--control-pressed-transform)}
 .entry-body .entry-card--nested{min-height:52px;padding:12px 4px 12px 14px;border-bottom:0}
 .entry-body .entry-card--subordinate{min-height:54px;padding:12px 4px;color:var(--ink-soft)}
-.entry-body .entry-card--subordinate .entry-card__title{font-size:.9375rem;color:var(--ink)}
+.entry-body .entry-card--subordinate .entry-card__title{font-size:var(--font-size-body-small);color:var(--color-ink)}
 .entry-body .entry-card__icon{width:28px;height:28px;flex:none;background:currentColor;color:var(--ink-soft)}
 .entry-body .entry-card__body{display:flex;flex:1;min-width:0;flex-direction:column;gap:3px;text-align:left}
-.entry-body .entry-card__title{font-size:1rem;line-height:1.25;font-weight:700}
-.entry-body .entry-card--secondary .entry-card__title{font-weight:700}
-.entry-body .entry-card__cap{font-size:.8125rem;line-height:1.4;color:var(--ink-soft)}
+.entry-body .entry-card__title{font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);font-weight:var(--weight-semibold)}
+.entry-body .entry-card--secondary .entry-card__title{font-weight:var(--weight-semibold)}
+.entry-body .entry-card__cap{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .entry-body .entry-card__go{flex:none;color:var(--ink-faint)}
+
+/* Secondary hub routes share the quiet-navigation recipe. The Freeform card
+   keeps its exact ID owner; the file door and its peer routes use the generic
+   secondary-card owner. Remembering an import source never selects a card. */
+.entry-body #entryFreeformStart,
+.entry-body .entry-card--secondary:not([id]){
+  background:var(--control-quiet-bg);color:var(--control-quiet-ink);
+  border-color:var(--control-quiet-boundary);border-bottom-color:var(--boundary-decorative)
+}
+.entry-body #entryFreeformStart:hover:not(:disabled),
+.entry-body #entryFreeformStart:active:not(:disabled),
+.entry-body .entry-card--secondary:not([id]):hover:not(:disabled),
+.entry-body .entry-card--secondary:not([id]):active:not(:disabled){
+  background:var(--well);color:var(--control-quiet-ink);
+  border-color:var(--control-quiet-boundary);border-bottom-color:var(--boundary-decorative)
+}
+.entry-body #entryFreeformStart:focus-visible,
+.entry-body .entry-card--secondary:not([id]):focus-visible{
+  border-color:var(--control-quiet-boundary);border-bottom-color:var(--boundary-decorative)
+}
+.entry-body #entryFreeformStart:disabled,
+.entry-body #entryFreeformStart:disabled:hover,
+.entry-body #entryFreeformStart:disabled:active,
+.entry-body .entry-card--secondary:not([id]):disabled,
+.entry-body .entry-card--secondary:not([id]):disabled:hover,
+.entry-body .entry-card--secondary:not([id]):disabled:active{
+  background:var(--control-quiet-bg);color:var(--color-disabled-reason);
+  border-color:var(--control-quiet-boundary);border-bottom-color:var(--boundary-decorative);
+  opacity:1;cursor:not-allowed;transform:none
+}
 /* The focal route: a full rounded keyline and a whisper of copper wash, so it
    reads as the recommended path without a fake selected state. */
 .entry-body .entry-card[data-entry-route="recommend"]{
@@ -3381,6 +3413,7 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
   border-radius:12px;background:var(--entry-tint)
 }
 .entry-body .entry-card[data-entry-route="recommend"]:hover{background:var(--entry-tint)}
+.entry-body .entry-card[data-entry-route="recommend"]:active:not(:disabled){background:var(--entry-tint)}
 .entry-body .entry-card[data-entry-route="recommend"] .entry-card__icon,
 .entry-body .entry-card[data-entry-route="recommend"] .entry-card__go{color:var(--accent)}
 /* The chooser's entry guide sits right after the Recommend card it explains.
