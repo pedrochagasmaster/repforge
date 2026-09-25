@@ -4970,7 +4970,7 @@ body.is-entry-editor #entryProgramName,
   background:var(--control-field-bg);color:var(--color-disabled-reason);
   border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed
 }
-:is(#onbBody.entry-route--recommend, #onbBody.entry-route--custom, #onbBody.entry-route--browse, #onbBody.entry-route--build) .entry__group-lab{
+#onbBody.entry-route--build .entry__group-lab{
   color:var(--color-ink-secondary);font-family:var(--font-language);
   font-size:var(--font-size-label);font-weight:var(--weight-semibold);
   line-height:var(--line-standard)
