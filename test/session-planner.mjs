@@ -6,6 +6,7 @@ import fc from "fast-check";
 
 const require = createRequire(import.meta.url);
 const Planner = require("../session-planner.js");
+const Compiler = require("../program-compiler.js");
 const Intent = require("../session-intent.js");
 const { EXERCISE_LIBRARY, LEGACY_LIBRARY_IDS } = require("../exercises.js");
 const { MUSCLE_TOKENS } = require("../program-entry.js");
@@ -350,12 +351,46 @@ console.log("planned-session adaptation (Free, user-directed)");
     { id: "l1", day: "Day 1", name: "Leg extension", libraryId: "le_mc", sets: 3, min: 10, max: 15 },
     { id: "l2", day: "Day 1", name: "Sled push", libraryId: "custom:sled", sets: 3, min: 10, max: 10 },
   ] });
-  const primary = Planner.primaryPurposes(legacyDay.exercises, catalogue, LEGACY_LIBRARY_IDS);
-  assert(primary.size === 1 && primary.has("l1"), "a day without compounds or declared priority keeps its first exercise as primary");
+  const primary = Planner.primaryPurposes(legacyDay.exercises);
+  assert(primary === null, "manual days without declared priority have no invented primary purpose");
   const legacyAdapted = Planner.adaptPlannedSession({ catalogue, plannedDay: legacyDay, constraints: { minutes: 45, equipment: ["machine"] }, restSeconds: 90 });
-  assert(legacyAdapted.ok && legacyAdapted.plan.exercises.some((exercise) => exercise.exerciseInstanceId === "l2") &&
-    legacyAdapted.plan.warnings.some((warning) => warning.code === "equipment-unverified"),
-  "custom work without metadata is kept as the athlete's choice, never substituted, and flagged unverified");
+  assert(!legacyAdapted.ok && legacyAdapted.code === "primary-purpose-undeclared",
+    "manual adaptation cannot claim planned completion without a ratified priority rule");
+}
+
+console.log("compiler-produced planned days");
+for (const familyId of Compiler.FAMILY_IDS) for (const frequency of Compiler.FREQUENCIES) {
+  const home = familyId === "home";
+  const compiled = Compiler.compile({ schemaVersion: 1, familyId, frequency, sessionMinutes: 90,
+    equipment: home ? [] : ["barbell", "dumbbell", "machine", "cable", "smith"],
+    environment: home ? [] : ["safe_pull", "training_support"],
+    loadIncrements: home ? {} : { barbell: 2.5, dumbbell: 2, machine: 5, cable: 5, smith: 2.5 },
+  }, EXERCISE_LIBRARY);
+  assert(compiled.kind === "compiled", `${familyId}/${frequency}: compiler produced a program`);
+  if (compiled.kind !== "compiled") continue;
+  for (const day of compiled.days) {
+    const rows = compiled.program.filter((row) => row.dayId === day.dayId);
+    const protectedIds = rows.filter((row) => row.priority === "protected").map((row) => row.id);
+    const source = { programId: "compiler-program", programFingerprint: "compiler-fingerprint",
+      dayId: day.dayId, dayLabel: day.label, exercises: rows };
+    const adapted = Planner.adaptPlannedSession({ catalogue, plannedDay: source,
+      constraints: { minutes: 90 }, restSeconds: 120 });
+    if (!protectedIds.length) {
+      assert(!adapted.ok && adapted.code === "primary-purpose-undeclared",
+        `${familyId}/${frequency}/${day.dayId}: compiler day without protected slots cannot claim planned completion`);
+      continue;
+    }
+    assert(adapted.ok && protectedIds.every((id) => adapted.plan.context.adaptation.preservedPurposes.includes(id) &&
+      adapted.plan.exercises.some((exercise) => exercise.exerciseInstanceId === id)),
+    `${familyId}/${frequency}/${day.dayId}: every compiler protected slot survives adaptation`, json(adapted));
+    const withoutProtected = { ...source, exercises: rows.filter((row) => row.priority !== "protected") };
+    if (protectedIds.length && withoutProtected.exercises.length) {
+      const missing = Planner.adaptPlannedSession({ catalogue, plannedDay: withoutProtected,
+        constraints: { minutes: 90 }, restSeconds: 120 });
+      assert(!missing.ok || !missing.plan.context.adaptation.preservedPurposes.some((id) => protectedIds.includes(id)),
+        `${familyId}/${frequency}/${day.dayId}: removed protected input cannot claim the lost slot`);
+    }
+  }
 }
 
 console.log("owner adapters");

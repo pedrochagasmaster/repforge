@@ -15,6 +15,7 @@ import fc from "fast-check";
 
 const require = createRequire(import.meta.url);
 const Draft = require("../workout-draft.js");
+const TransferContract = require("../install-transfer-contract.js");
 const Intent = require("../session-intent.js");
 const Planner = require("../session-planner.js");
 const ProgressModel = require("../progress-model.js");
@@ -304,6 +305,20 @@ console.log("fail-closed boundary where the session-intent domain is absent");
   const created = vm.runInContext("RepForgeWorkoutDraft.create(JSON.parse(__input), JSON.parse(__selection))", sandbox);
   assert(BrowserDraft.isDomainError(created) && created.code === "session-context-unsupported", 
     "the production page cannot create a one-off draft before integration");
+}
+
+console.log("install-transfer compatibility boundary");
+{
+  const fixture = JSON.parse(readFileSync(new URL("fixtures/install-transfer-clone-v1.json", import.meta.url), "utf8"));
+  const oneOff = Draft.logicalCloneSection(startOneOff(classicPlan, "oneoff-transfer"));
+  assert(json(oneOff.sessionContext) === json(classicPlan.context),
+    "acknowledged draft clone retains the complete one-off context");
+  const envelope = { ...fixture, workoutDraft: oneOff };
+  const rejected = TransferContract.validateEnvelope(envelope);
+  assert(!rejected.ok && rejected.code === "unknown-section",
+    "current exact-key transfer validator rejects a DraftV2 context before destination storage writes", json(rejected));
+  assert(json(envelope.workoutDraft.sessionContext) === json(classicPlan.context),
+    "transfer rejection leaves the source draft unchanged for recovery");
 }
 
 // ------------------------------------------------------------------ ledgers, adherence, progression, queue

@@ -648,13 +648,13 @@
 
   // Primary-purpose derivation for a program day (spec §8.2, Slice 3). A
   // compiled program declares it: `priority: "protected"` rows are primary.
-  // A program without that metadata derives it deterministically: compound
-  // movements are primary; a day with no compound keeps its first exercise.
-  function primaryPurposes(dayRows, catalogue, legacyIds) {
+  // A day without a declared protected slot has no ratified completion rule.
+  // Do not infer one from the movement name or catalogue classification.
+  function primaryPurposes(dayRows) {
     const declared = dayRows.some((row) => typeof row.priority === "string");
-    if (declared) return new Set(dayRows.filter((row) => row.priority === "protected").map((row) => row.id));
-    const compound = dayRows.filter((row) => resolveEntry(catalogue, row.libraryId, legacyIds)?.compound);
-    return new Set((compound.length ? compound : dayRows.slice(0, 1)).map((row) => row.id));
+    if (!declared) return null;
+    const protectedIds = dayRows.filter((row) => row.priority === "protected").map((row) => row.id);
+    return protectedIds.length ? new Set(protectedIds) : null;
   }
 
   function removalRank(row, primary) {
@@ -716,7 +716,8 @@
     const { minutes, equipment: available, minimizeEquipmentChanges } = constraints.constraints;
     if (minutes === null && available === null) return fail("nothing-to-adapt");
     const legacyIds = isPlainObject(input.legacyIds) ? input.legacyIds : null;
-    const primary = primaryPurposes(rows, env.catalogue, legacyIds);
+    const primary = primaryPurposes(rows);
+    if (!primary) return fail("primary-purpose-undeclared");
     const planIdentities = new Set(rows.map((row) => row.libraryId).filter(Boolean));
     const used = new Set();
     const kept = [];
