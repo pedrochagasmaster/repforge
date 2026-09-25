@@ -12422,14 +12422,19 @@ function freeformJsonCandidates(text){
       if(ch===open)depth++;
       else if(ch===close&&--depth===0){out.push(text.slice(i,j+1));i=j;break}}}
   return out}
-const FREEFORM_NOT_IMPORTED_CATEGORIES=new Set([
-  "rest_times","rir_rpe","tempo","supersets","warmups","cardio",
-  "progression_rules","deload","other_notes"]);
-
 function extractNotImported(obj){
   if(!obj||typeof obj!=="object")return[];
   const raw=Array.isArray(obj.notImported)?obj.notImported:[];
-  return raw.filter(item=>typeof item==="string"&&FREEFORM_NOT_IMPORTED_CATEGORIES.has(item))}
+  const grammar=window.RepForgeUnsupportedWorkoutGrammar;
+  return grammar?.recognizedForDisplay
+    ?grammar.recognizedForDisplay(raw,Object.keys(FREEFORM_NOT_IMPORTED_KEYS))
+    :[]}
+
+function captureUnsupportedWorkoutConcepts(sidecar){
+  const grammar=window.RepForgeUnsupportedWorkoutGrammar;
+  if(!grammar?.normalize)return;
+  for(const category of grammar.normalize(sidecar))
+    captureEvent("program_import_unsupported_concept",{category})}
 
 function parseRepsInput(str){
   if(typeof str!=="string"&&typeof str!=="number")return null;
@@ -12721,6 +12726,7 @@ function openFreeformApp(app,event){
   return true}
 function loadFreeformProgram(source){
   pendingImportIo=null;
+  captureUnsupportedWorkoutConcepts(source.notImported);
   const draft=buildImportDraft(source,t("entry.freeform.source_name"));
   draft.sourceType="freeform";
   draft.notImported=source.notImported||[];

@@ -50,6 +50,7 @@ export const SUITES = {
     s("test/vendor-runtimes.mjs"),
     s("test/telemetry-fixtures.mjs"),
     s("test/telemetry-unit.mjs"),
+    s("test/unsupported-workout-grammar.mjs"),
     s("test/posthog-adapter.mjs"),
     s("test/posthog-config.mjs"),
     s("test/telemetry-call-sites.mjs"),
