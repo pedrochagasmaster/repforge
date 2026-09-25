@@ -1428,19 +1428,18 @@
       "id": "entryfreeformstart",
       "selector": "#entryFreeformStart",
       "roles": {
-        "control": "selection"
+        "control": "quiet-navigation"
       },
-      "variant": null,
+      "variant": "entry-alternative",
       "facets": [],
       "states": [
         "default",
         "hover",
         "pressed",
         "focus-visible",
-        "selected",
         "disabled"
       ],
-      "rationale": "Changes a chosen value, active option, or reversible status.",
+      "rationale": "Enters the import route through its freeform subview; the remembered source is device UI context, not a selected state on the hub.",
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-start/hub-own-open"

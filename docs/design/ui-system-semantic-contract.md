@@ -115,6 +115,21 @@ in dark. Disabled labels retain at least 4.5:1 without opacity, while the
 separate reason keeps the shared disabled-reason treatment. No new palette
 value or global control recipe is needed.
 
+### Entry hub import doors
+
+In `onboarding-start/hub-own-open`, `#entryFreeformStart` and the secondary
+`[data-entry-route="import"]` card both enter the `import` route. Each sets
+`uiPrefs.importSourceMode` so the route opens on the subview named by that
+card and can resume with the last-used source. This device-only preference is
+route context; it does not commit a program or leave either hub card selected.
+The file path retains its confirmation before discarding staged freeform work.
+Both cards are `quiet-navigation` with the existing `entry-alternative`
+component variant, no facet, and default, hover, pressed, focus-visible, and
+disabled states. `#entryFreeformStart` keeps its exact selector because its ID
+excludes it from `.entry-card.entry-card--secondary:not([id])`, which owns the
+file card and the other secondary route cards. No selected state or new recipe
+is implied by remembering the source.
+
 ### Exercise-preference selection
 
 The two search-result buttons at `.entry__exercise-action:not([id])` belong

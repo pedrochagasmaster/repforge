@@ -87,6 +87,30 @@ assert.equal(roleOf(".prog-day__head:not([id])"), "disclosure", "Program day che
 assert.equal(roleOf(".prog-ex:not([id])"), "quiet-navigation", "Program exercise row with a chevron drills in");
 assert.equal(roleOf("#entryFreeformStartOver"), "destructive", "Start over discards staged work");
 
+const importDoorSelectors = ["#entryFreeformStart", ".entry-card.entry-card--secondary:not([id])"];
+const importDoorStates = ["default", "hover", "pressed", "focus-visible", "disabled"];
+function importDoorContractErrors(candidate) {
+  const errors = [];
+  for (const selector of importDoorSelectors) {
+    const members = candidate.components.filter((item) => item.selector === selector);
+    const item = members[0];
+    if (members.length !== 1 || item.roles.control !== "quiet-navigation" || item.variant !== "entry-alternative" ||
+        item.facets.length !== 0 || JSON.stringify(item.states) !== JSON.stringify(importDoorStates) ||
+        !item.catalogStates.includes("onboarding-start/hub-own-open")) {
+      errors.push(`${selector} must enter import as an unselected entry-alternative navigation control`);
+    }
+  }
+  return errors;
+}
+assert.deepEqual(importDoorContractErrors(inventory), [], "both hub import doors share the exact unselected navigation recipe");
+const asymmetricImportDoors = structuredClone(inventory);
+asymmetricImportDoors.components.find((item) => item.selector === "#entryFreeformStart").roles.control = "selection";
+assert.ok(importDoorContractErrors(asymmetricImportDoors).some((error) => error.includes("#entryFreeformStart")),
+  "a future freeform/file role asymmetry fails the frozen contract");
+const selectedImportDoor = structuredClone(inventory);
+selectedImportDoor.components.find((item) => item.selector === "#entryFreeformStart").states.push("selected");
+assert.ok(importDoorContractErrors(selectedImportDoor).length, "the hub cannot claim a selected state it does not render");
+
 const preferenceSelector = ".entry__exercise-action:not([id])";
 const preferenceCatalog = ["onboarding-custom/exercise-preferences"];
 function preferenceContractErrors(candidate) {
@@ -528,5 +552,50 @@ try {
     assert.ok(localizedNames.every(({ name, label, exercise }) => name === `${label} ${exercise}`),
       "Portuguese Include and Avoid controls name their exercise in the accessible label");
   } finally { await ptPreferencePage.context.close(); }
-  console.log("ui-system: exact preference and radius contracts, live preference ownership, landing label, AA failures, and deliberate contract negatives passed");
+  for (const { selector, mode, subview } of [
+    { selector: "#entryFreeformStart", mode: "freeform", subview: "#entryFreeformIn" },
+    { selector: '[data-entry-route="import"]', mode: "file", subview: "#entryImportPick" },
+  ]) {
+    const hubCapture = { ...capture, screen: "hub-own-open" };
+    const hubPage = await openPage(browser, manifest, hubCapture, onboardingState("onboarding-start/hub-own-open", "en"));
+    try {
+      await ONBOARDING_SCENARIOS["onboarding-start/hub-own-open"](hubPage.page);
+      const hub = await hubPage.page.evaluate(() => {
+        const doors = [document.querySelector("#entryFreeformStart"), document.querySelector('[data-entry-route="import"]')];
+        return {
+          present: doors.every(Boolean),
+          selected: doors.some((door) => door?.matches("[aria-selected='true'],[aria-checked='true'],[aria-pressed='true'],[aria-current],.is-selected,.is-active")),
+        };
+      });
+      assert.equal(hub.present, true, "both import doors render together on the own-program hub");
+      assert.equal(hub.selected, false, "neither hub door advertises a selected source");
+      const coverage = await hubPage.page.evaluate(inspectRoleCoverage, {
+        key: "onboarding-start/hub-own-open", components: inventory.components,
+        exceptions: inventory.exceptions, progressCandidateSelectors: inventory.progressCandidateSelectors,
+        allowProgressDebt: true,
+      });
+      assert.ok(coverage.matched.includes("entryfreeformstart") && coverage.matched.includes("entry-card-entry-card-secondary-not-id"),
+        "both rendered import doors reach their distinct inventory selectors");
+      assert.deepEqual(coverage.problems, [], "the hub has no ambiguous semantic owners");
+      await hubPage.page.click(selector);
+      await hubPage.page.waitForSelector(`#onbBody.entry-route--import ${subview}`, { timeout: 20000 });
+      const entered = await hubPage.page.evaluate(() => ({
+        mode: JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").importSourceMode,
+        route: document.querySelector("#onbBody")?.classList.contains("entry-route--import"),
+        hubVisible: !!document.querySelector("#entryFreeformStart"),
+      }));
+      assert.deepEqual(entered, { mode, route: true, hubVisible: false },
+        `${selector} enters import with its named device-only source and leaves the hub`);
+      await hubPage.page.click("#onbBack");
+      await hubPage.page.waitForSelector("#entryOwnToggle", { timeout: 20000 });
+      await hubPage.page.click("#entryOwnToggle");
+      const returnedDoors = await hubPage.page.locator("#entryFreeformStart, [data-entry-route=import]").evaluateAll((doors) => ({
+        count: doors.length,
+        selected: doors.some((door) => door.matches("[aria-selected='true'],[aria-checked='true'],[aria-pressed='true'],[aria-current],.is-selected,.is-active")),
+      }));
+      assert.deepEqual(returnedDoors, { count: 2, selected: false },
+        `${selector} leaves both hub doors present and unselected after return`);
+    } finally { await hubPage.context.close(); }
+  }
+  console.log("ui-system: exact import-door, preference and radius contracts, live ownership, landing label, AA failures, and deliberate contract negatives passed");
 } finally { await context?.close(); await browser.close(); preview.cleanup(); }
