@@ -329,14 +329,80 @@
       <span class="d-sess__n"><span>${n("d.history.sets", { n: sn.sets })}</span><span>${num(sn.vol, 0)} ${U_}</span>${p ? `<span class="d-pr">${n(p > 1 ? "d.history.prs_many" : "d.history.prs", { n: p })}</span>` : ""}</span>
     </button>`;
   }
-  function history(U) {
+  /* ---------- History frequency views (owner Q7: five shapes to compare) ----------
+     Every shape follows the same guardrails: one session is one filled mark,
+     no intensity by sets or volume, no streak count, nothing marks a missed
+     day, and the list below stays the way into a session. */
+  const BLOCK_WEEKS = 6, PLANNED = T.PROGRAM.days.length;
+  const addDays = (iso, d) => { const x = new Date(Date.parse(iso + "T12:00:00Z") + d * 864e5); return x.toISOString().slice(0, 10); };
+  const blockDay = (w, d) => addDays(D.CONTEXT.blockStart, (w - 1) * 7 + d);
+  const sessionOn = (iso) => T.SESSIONS.find((x) => x.date === iso);
+  const doneIn = (w) => [0, 1, 2, 3, 4, 5, 6].filter((d) => sessionOn(blockDay(w, d))).length;
+  const nowWeek = X.weekOf(T.TODAY);
+  const weekdayLetters = () => (T.state.lang === "pt" ? ["S", "T", "Q", "Q", "S", "S", "D"] : ["M", "T", "W", "T", "F", "S", "S"]);
+  const blockTotal = () => { let done = 0; for (let w = 1; w <= BLOCK_WEEKS; w++) done += doneIn(w); return done; };
+  const freqLabel = () => n("d.freq.total", { done: blockTotal(), planned: PLANNED * BLOCK_WEEKS, n: nowWeek, total: BLOCK_WEEKS });
+  const cellClass = (iso) => [sessionOn(iso) ? "is-on" : "", iso === T.TODAY ? "is-today" : "", iso > T.TODAY ? "is-future" : ""].filter(Boolean).join(" ");
+
+  // A. The block as weeks by weekdays.
+  function freqGrid() {
+    const heads = weekdayLetters().map((c) => `<span>${c}</span>`).join("");
+    const rows = Array.from({ length: BLOCK_WEEKS }, (_, i) => {
+      const w = i + 1, future = w > nowWeek;
+      const cells = [0, 1, 2, 3, 4, 5, 6].map((d) => `<i class="${cellClass(blockDay(w, d))}"></i>`).join("");
+      return `<div class="d-fg__row${w === nowWeek ? " is-now" : ""}"><span class="d-fg__w">${n("d.freq.wk", { n: w })}</span>${cells}<span class="d-fg__n">${future ? "" : n("d.freq.count", { done: doneIn(w), planned: PLANNED })}</span></div>`;
+    }).join("");
+    return `<div class="d-freq d-fg" role="img" aria-label="${freqLabel()}"><div class="d-fg__row d-fg__head" aria-hidden="true"><span></span>${heads}<span></span></div>${rows}</div>`;
+  }
+  // B. A weekday strip inside each week header (drawn by history()).
+  function weekStrip(w, labels) {
+    const cells = [0, 1, 2, 3, 4, 5, 6].map((d, i) => `<i class="${cellClass(blockDay(w, d))}">${labels ? `<b>${weekdayLetters()[i]}</b>` : ""}</i>`).join("");
+    return `<span class="d-ws${labels ? " d-ws--labels" : ""}" aria-hidden="true">${cells}</span>`;
+  }
+  // C. Weeks by training days: which program day happened, and when.
+  function freqDays() {
+    const heads = T.PROGRAM.days.map((d) => `<span>${T.two(d.name)}</span>`).join("");
+    const rows = Array.from({ length: BLOCK_WEEKS }, (_, i) => {
+      const w = i + 1;
+      const cells = T.PROGRAM.days.map((_, di) => {
+        const iso = [0, 1, 2, 3, 4, 5, 6].map((d) => blockDay(w, d)).find((x) => sessionOn(x) && sessionOn(x).day === di);
+        return iso ? `<span class="d-fd__c is-on">${date.wd(iso)} ${date.day(iso)}</span>` : `<span class="d-fd__c${w > nowWeek || (w === nowWeek) ? " is-future" : ""}"></span>`;
+      }).join("");
+      return `<div class="d-fd__row${w === nowWeek ? " is-now" : ""}"><span class="d-fg__w">${n("d.freq.wk", { n: w })}</span>${cells}</div>`;
+    }).join("");
+    return `<div class="d-freq d-fd" role="img" aria-label="${freqLabel()}"><div class="d-fd__row d-fd__head" aria-hidden="true"><span></span>${heads}</div>${rows}</div>`;
+  }
+  // D. Planned slots per week, filled when done.
+  function freqSlots() {
+    const groups = Array.from({ length: BLOCK_WEEKS }, (_, i) => {
+      const w = i + 1, done = doneIn(w);
+      const dots = Array.from({ length: PLANNED }, (_, k) => `<i class="${k < done ? "is-on" : w > nowWeek ? "is-future" : ""}"></i>`).join("");
+      return `<span class="d-fs__g${w === nowWeek ? " is-now" : ""}"><small>${n("d.freq.wk", { n: w })}</small><span>${dots}</span></span>`;
+    }).join("");
+    return `<div class="d-freq d-fs" role="img" aria-label="${freqLabel()}"><div class="d-fs__row" aria-hidden="true">${groups}</div><p class="d-fs__total" aria-hidden="true">${freqLabel()}</p></div>`;
+  }
+  // E. Two small counts: sessions per week against the plan, sessions by weekday.
+  function freqBars() {
+    const bars = (vals, max, labels, cls) => `<div class="d-fb__bars">${vals.map((v, i) => `<span class="d-fb__b${cls(i)}"><em>${v == null ? "" : v}</em><i style="height:${v ? Math.round((v / max) * 100) : 0}%"></i><small>${labels[i]}</small></span>`).join("")}</div>`;
+    const perWeek = Array.from({ length: BLOCK_WEEKS }, (_, i) => (i + 1 > nowWeek ? null : doneIn(i + 1)));
+    const perDay = [0, 1, 2, 3, 4, 5, 6].map((d) => { let c = 0; for (let w = 1; w <= nowWeek; w++) if (sessionOn(blockDay(w, d))) c++; return c; });
+    const wkLabels = Array.from({ length: BLOCK_WEEKS }, (_, i) => n("d.freq.wk", { n: i + 1 }));
+    return `<div class="d-freq d-fb" role="img" aria-label="${freqLabel()}">
+      <div class="d-fb__col"><p>${n("d.freq.per_week")}</p><div class="d-fb__plot">${bars(perWeek, PLANNED, wkLabels, (i) => (i + 1 === nowWeek ? " is-now" : i + 1 > nowWeek ? " is-future" : ""))}<span class="d-fb__plan" aria-hidden="true"></span></div></div>
+      <div class="d-fb__col"><p>${n("d.freq.per_weekday")}</p><div class="d-fb__plot">${bars(perDay.map((v) => v || null), nowWeek, weekdayLetters(), () => "")}</div></div>
+    </div>`;
+  }
+
+  function history(U, freq) {
     const weeks = [[4, ["2026-09-21"]], [3, ["2026-09-18", "2026-09-16", "2026-09-14"]], [2, ["2026-09-11", "2026-09-09", "2026-09-07"]], [1, ["2026-09-04", "2026-09-02", "2026-08-31"]]];
     const sep = T.SESSIONS.filter((x) => x.date >= "2026-09-01");
     const sepSets = sep.reduce((t, x) => t + T.sessionTotals(x).sets, 0);
-    const list = weeks.map(([w, ds]) => `<div class="d-wk"><h2>${n("d.history.week", { n: w, done: ds.length, planned: 3 })}</h2></div>${ds.map(sessRow).join("")}`).join("");
+    const list = weeks.map(([w, ds], i) => `<div class="d-wk${freq === "b" ? " d-wk--strip" : ""}"><h2>${n("d.history.week", { n: w, done: ds.length, planned: 3 })}</h2>${freq === "b" ? weekStrip(w, i === 0) : ""}</div>${ds.map(sessRow).join("")}`).join("");
+    const view = { a: freqGrid, c: freqDays, d: freqSlots, e: freqBars }[freq];
     const body = `
       <div class="d-pg">
         <div class="d-top d-top--h"><h1 class="d-h1 d-h1--page">${s("history.title")}</h1><div class="d-top__r"><button class="d-icb" aria-label="${n("d.history.search")}">${ic("search")}</button><button class="d-icb" data-sheet="cal" aria-label="${n("d.history.calendar")}">${calIcon()}</button></div></div>
+        ${view ? `<div class="d-sec d-sec--freq"><h2 class="d-h2">${n("d.freq.title")}</h2></div>${view()}` : ""}
         <p class="d-month"><b>${s("history.month_title", { month: date.month(8), year: 2026 })}</b><span>${s("history.month_summary", { sessions: sep.length, sets: sepSets })}</span></p>
         ${list}
       </div>`;
@@ -412,7 +478,9 @@
     screens: {
       today: (U) => today(U, MAIN), workout, why, rest, "why-set2": whySet2,
       summary: (U) => summary(U, T.TODAY), summary2: (U) => summary(U, T.LAST_DAY3),
-      progress, chart, history, session, program,
+      progress, chart, history: (U) => history(U), session, program,
+      "history-freq-a": (U) => history(U, "a"), "history-freq-b": (U) => history(U, "b"), "history-freq-c": (U) => history(U, "c"),
+      "history-freq-d": (U) => history(U, "d"), "history-freq-e": (U) => history(U, "e"),
       "today-mixed": (U) => today(U, MIXD), "why-repgoal": whyMix("ht"), "why-anchor": whyMix("dl"), "why-manual": whyMix("cp"),
       "summary-first": (U) => summary(U, D.MIX.first, true),
       "workout-mixed": workoutMixed,
@@ -436,6 +504,11 @@
       progress: "Attention rows are full-width buttons with the shipped verdict and reason, evidence in soft text. Strength defaults to Maior carga.",
       chart: "One honest series in the selected metric's units. Load increases are the step itself with a small tick; the table selects the same points.",
       history: "Weeks, not a calendar strip. The calendar is one button away as a sheet.",
+      "history-freq-a": "A. The block as a grid: six weeks down, seven weekdays across. A routine shows as columns; this week's count sits at the end of its row.",
+      "history-freq-b": "B. No new region: each week header carries its own seven-day strip, aligned so the columns line up as you scroll.",
+      "history-freq-c": "C. Weeks by training days: which program day was done each week, and on which date. Adherence rather than calendar frequency.",
+      "history-freq-d": "D. Planned slots: three per week, one per program day, filled as sessions land. The most compact; it drops the weekday.",
+      "history-freq-e": "E. Two small counts: sessions per week against the plan line, and sessions by weekday, which shows the habit without a calendar.",
       session: "A page, not a sheet: each lift with its canonical outcome and the previous exposure above its sets.",
       program: "Every day open. Próxima is the engine's next load, the strategy name sits under each exercise.",
       "today-mixed": "Every strategy on one Today: anchor 1 + 2, rep goal total 36, fixed effort, manual in soft ink with no mark, a custom exercise and a set logged without RIR.",

@@ -1064,3 +1064,61 @@
 .dd .d-prow__n{display:flex;align-items:center;justify-content:flex-end;gap:2px;font:500 15px var(--mono);color:var(--ink-soft);white-space:nowrap}
 .dd .d-prow__n .mk{width:18px;height:18px}
 .dd .d-prow__n .mk .ic{width:15px;height:15px}
+
+/* D · History frequency views (owner Q7). One session = one filled mark; no
+   intensity, no streaks, nothing marks a missed day. Ink only, never orange. */
+.dd .d-sec--freq{margin-top:14px}
+.dd .d-freq{margin-top:10px}
+.dd .d-freq+.d-month{margin-top:20px}
+/* A. grid */
+.dd .d-fg__row{display:grid;grid-template-columns:30px repeat(7,minmax(0,1fr)) 54px;gap:4px;align-items:center;min-height:26px}
+.dd .d-fg__head span{font-size:12px;color:var(--ink-soft);text-align:center}
+.dd .d-fg__w{font:500 12px var(--mono);color:var(--ink-soft);text-align:left!important}
+.dd .d-fg__row.is-now .d-fg__w,.dd .d-fg__row.is-now .d-fg__n{color:var(--ink);font-weight:600}
+.dd .d-fg__n{font:400 12px var(--mono);color:var(--ink-soft);text-align:right}
+.dd .d-fg i{display:block;height:20px;border-radius:4px;background:var(--well);box-shadow:inset 0 0 0 1px var(--rule)}
+.dd .d-fg i.is-on{background:var(--ink);box-shadow:none}
+.dd .d-fg i.is-today{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.dd .d-fg i.is-future{background:none;box-shadow:inset 0 0 0 1px var(--rule);opacity:.6}
+/* B. strip per week header */
+.dd .d-wk--strip{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+.dd .d-ws{display:flex;gap:3px;flex:none}
+.dd .d-ws i{display:grid;place-items:center;width:18px;height:18px;border-radius:4px;background:var(--well);box-shadow:inset 0 0 0 1px var(--rule)}
+.dd .d-ws i.is-on{background:var(--ink);box-shadow:none}
+.dd .d-ws i.is-today{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.dd .d-ws i.is-future{background:none;opacity:.6}
+.dd .d-ws--labels i{position:relative}
+.dd .d-ws--labels b{position:absolute;bottom:22px;font:500 12px var(--sans);color:var(--ink-soft)}
+.dd .d-wk--strip:first-of-type{padding-top:14px}
+/* C. weeks by training days */
+.dd .d-fd__row{display:grid;grid-template-columns:30px repeat(3,minmax(0,1fr));gap:4px;align-items:center;min-height:30px;border-bottom:1px solid var(--rule)}
+.dd .d-fd__head{min-height:24px;font-size:12px;color:var(--ink-soft)}
+.dd .d-fd__head span{padding-left:8px}
+.dd .d-fd__row.is-now .d-fg__w{color:var(--ink);font-weight:600}
+.dd .d-fd__c{display:flex;align-items:center;min-height:24px;padding-left:8px;font:500 13px var(--mono);color:var(--ink)}
+.dd .d-fd__c.is-on{box-shadow:inset 2px 0 0 var(--ink)}
+.dd .d-fd__c.is-future{box-shadow:inset 1px 0 0 var(--rule)}
+/* D. planned slots */
+.dd .d-fs__row{display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:6px}
+.dd .d-fs__g{display:flex;flex-direction:column;align-items:center;gap:6px;padding:6px 0;border-radius:4px}
+.dd .d-fs__g small{font:500 12px var(--mono);color:var(--ink-soft)}
+.dd .d-fs__g.is-now small{color:var(--ink);font-weight:600}
+.dd .d-fs__g.is-now{box-shadow:inset 0 0 0 1px var(--rule-strong)}
+.dd .d-fs__g>span{display:flex;gap:4px}
+.dd .d-fs__g i{width:10px;height:10px;border-radius:50%;box-shadow:inset 0 0 0 1.5px var(--rule-strong)}
+.dd .d-fs__g i.is-on{background:var(--ink);box-shadow:none}
+.dd .d-fs__g i.is-future{box-shadow:inset 0 0 0 1px var(--rule)}
+.dd .d-fs__total{margin-top:8px;font-size:13px;color:var(--ink-soft)}
+/* E. two small counts */
+.dd .d-fb{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+.dd .d-fb__col>p{font-size:13px;color:var(--ink-soft)}
+.dd .d-fb__plot{position:relative;margin-top:6px}
+.dd .d-fb__bars{display:flex;align-items:flex-end;justify-content:space-between;gap:3px;height:92px;border-bottom:1px solid var(--rule)}
+.dd .d-fb__b{position:relative;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;flex:1;height:100%;padding-bottom:0}
+.dd .d-fb__b i{display:block;width:12px;max-height:64px;border-radius:2px 2px 0 0;background:var(--ink)}
+.dd .d-fb__b em{font:400 12px var(--mono);font-style:normal;color:var(--ink-soft);margin-bottom:2px}
+.dd .d-fb__b small{position:absolute;top:calc(100% + 4px);font:500 12px var(--mono);color:var(--ink-soft)}
+.dd .d-fb__b.is-now small{color:var(--ink);font-weight:600}
+.dd .d-fb__b.is-future i{height:0!important}
+.dd .d-fb__plot{padding-bottom:20px}
+.dd .d-fb__plan{position:absolute;left:0;right:0;top:28px;border-top:1px dashed var(--rule-strong)}

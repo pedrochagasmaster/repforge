@@ -9,12 +9,14 @@
   const SCREENS = [
     ["today", "Today"], ["workout", "Workout"], ["why", "Why this weight"], ["rest", "Rest timer"], ["why-set2", "Why, set 2", true],
     ["summary", "Summary"], ["summary2", "Summary, no PRs"], ["progress", "Progress"], ["chart", "Exercise chart"],
-    ["history", "History"], ["session", "History session"], ["program", "Program"],
+    ["history", "History"], ["history-freq-a", "History, frequency A", true], ["history-freq-b", "History, frequency B", true],
+    ["history-freq-c", "History, frequency C", true], ["history-freq-d", "History, frequency D", true], ["history-freq-e", "History, frequency E", true],
+    ["session", "History session"], ["program", "Program"],
     ["today-mixed", "Today, mixed day", true], ["why-repgoal", "Why, rep goal", true], ["why-anchor", "Why, anchor", true],
     ["why-manual", "Why, manual", true], ["summary-first", "Summary, first session", true],
   ];
   // Screens A, B and C did not draw fall back to their base screen, labelled.
-  const FALLBACK = { "why-set2": "rest", "today-mixed": "today", "why-repgoal": "why", "why-anchor": "why", "why-manual": "why", "summary-first": "summary" };
+  const FALLBACK = { "history-freq-a": "history", "history-freq-b": "history", "history-freq-c": "history", "history-freq-d": "history", "history-freq-e": "history", "why-set2": "rest", "today-mixed": "today", "why-repgoal": "why", "why-anchor": "why", "why-manual": "why", "summary-first": "summary" };
   // Screens reached only by tapping, named after the review screen they belong to.
   const PARENT = { workout2: "rest", "workout-mixed": "today-mixed" };
   const HEIGHT = { 360: 780, 390: 844, 430: 932 };

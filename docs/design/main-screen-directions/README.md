@@ -298,6 +298,12 @@ calls in `dir-e.js`, `dir-f.js` and `dir-g.js`.
 | `d.history.prs` | D, E, F, G | {n} PR | {n} PR |
 | `d.history.prs_many` | D, E, F, G | {n} PRs | {n} PRs |
 | `d.history.before` | D, E, F, G | Antes, {date}: {sets} | Before, {date}: {sets} |
+| `d.freq.title` | D, E, F, G | Frequência no bloco | Frequency this block |
+| `d.freq.wk` | D, E, F, G | S{n} | W{n} |
+| `d.freq.count` | D, E, F, G | {done} de {planned} | {done} of {planned} |
+| `d.freq.total` | D, E, F, G | {done} de {planned} sessões no bloco, semana {n} de {total} | {done} of {planned} sessions this block, week {n} of {total} |
+| `d.freq.per_week` | D, E, F, G | Por semana | Per week |
+| `d.freq.per_weekday` | D, E, F, G | Por dia da semana | By weekday |
 | `d.history.cal_hint` | D, E, F, G | Dias com sessão estão marcados. | Days with a session are marked. |
 | `d.program.status` | D, E, F, G | {status}: {n} de {m} nos últimos 7 dias | {status}: {n} of {m} in the last 7 days |
 | `d.program.legend` | D, E, F, G | Próxima: carga sugerida pelo Taurifer para a próxima sessão | Next: the load Taurifer suggests for the next session |

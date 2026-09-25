@@ -24,7 +24,7 @@ const { chromium } = require("playwright");
 
 const BASE = process.env.REVIEW_URL || "http://localhost:8000/docs/design/main-screen-directions/";
 const DIRS = (process.env.DIRS || "d,e,f,g").split(",");
-const SCREENS = ["today", "workout", "why", "rest", "why-set2", "summary", "summary2", "progress", "chart", "history", "session", "program",
+const SCREENS = ["today", "workout", "why", "rest", "why-set2", "summary", "summary2", "progress", "chart", "history", "history-freq-a", "history-freq-b", "history-freq-c", "history-freq-d", "history-freq-e", "session", "program",
   "today-mixed", "why-repgoal", "why-anchor", "why-manual", "summary-first"];
 // Interaction states that reveal more controls: [screen, selector to click, label]
 const STATES = [
