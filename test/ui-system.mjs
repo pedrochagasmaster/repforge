@@ -87,6 +87,59 @@ assert.equal(roleOf(".prog-day__head:not([id])"), "disclosure", "Program day che
 assert.equal(roleOf(".prog-ex:not([id])"), "quiet-navigation", "Program exercise row with a chevron drills in");
 assert.equal(roleOf("#entryFreeformStartOver"), "destructive", "Start over discards staged work");
 
+const preferenceSelector = ".entry__exercise-action:not([id])";
+const preferenceCatalog = ["onboarding-custom/exercise-preferences"];
+function preferenceContractErrors(candidate) {
+  const errors = [];
+  const members = candidate.components.filter((item) => item.selector === preferenceSelector);
+  const item = members[0];
+  if (members.length !== 1 || item.roles.control !== "selection" || item.variant !== null ||
+      JSON.stringify(item.catalogStates) !== JSON.stringify(preferenceCatalog) ||
+      item.states.includes("selected") || !["default", "hover", "pressed", "focus-visible", "disabled"].every((state) => item.states.includes(state))) {
+    errors.push("exercise-preference actions need one unselected selection owner");
+  }
+  if (candidate.contextualVariants.some((variant) => variant.selector.includes("entry__exercise-action"))) {
+    errors.push("exercise-preference actions cannot acquire an accent variant");
+  }
+  return errors;
+}
+assert.deepEqual(preferenceContractErrors(inventory), [], "Include and Avoid share one ordinary selection recipe in their exact catalog state");
+const tintedPreference = structuredClone(inventory);
+tintedPreference.components.find((item) => item.selector === preferenceSelector).variant = "accent-include";
+assert.ok(preferenceContractErrors(tintedPreference).length, "a visual accent cannot silently become a preference state");
+const selectedPreference = structuredClone(inventory);
+selectedPreference.components.find((item) => item.selector === preferenceSelector).states.push("selected");
+assert.ok(preferenceContractErrors(selectedPreference).length, "search-result actions cannot claim the list's selected state");
+const widenedPreferenceOwner = structuredClone(inventory);
+widenedPreferenceOwner.components.find((item) => item.selector === preferenceSelector).catalogStates.push("onboarding-custom/result");
+assert.ok(preferenceContractErrors(widenedPreferenceOwner).length, "preference buttons cannot claim another catalog state");
+
+const radiusRecipe = [
+  { selector: ".firstrun-stage", condition: "default", token: "--radius-landing-stage" },
+  { selector: ".firstrun-stage--signature-crop", condition: "min-width:341px", token: "--radius-landing-crop" },
+  { selector: ".firstrun-stage", condition: "max-width:340px", token: "--radius-landing-stage-compact" },
+];
+const radiusCatalog = ["onboarding-shared/gate", "onboarding-shared/invalid", "onboarding-start/first-run"];
+function radiusContractErrors(candidate) {
+  const matches = candidate.contextualVariants.filter((item) => item.id === "landing-device-stage-radius");
+  const variant = matches[0];
+  if (matches.length !== 1 || variant.selector !== ".firstrun-stage" || variant.role !== "radius:landing-device-stage" ||
+      JSON.stringify(variant.catalogStates) !== JSON.stringify(radiusCatalog) ||
+      JSON.stringify(variant.radiusRecipes) !== JSON.stringify(radiusRecipe)) return ["landing stage radius scope or recipe changed"];
+  return [];
+}
+assert.equal(inventory.contextualVariants.length, 15, "one exact landing radius recipe raises the variant count from 14 to 15");
+assert.deepEqual(radiusContractErrors(inventory), [], "normal stage, compact stage, and reasoning crop retain exact Plan 054 geometry");
+const flattenedRadius = structuredClone(inventory);
+flattenedRadius.contextualVariants.find((item) => item.id === "landing-device-stage-radius").radiusRecipes[1].token = "--radius-prominent";
+assert.ok(radiusContractErrors(flattenedRadius).length, "mapping the crop to prominent is rejected");
+const widenedRadius = structuredClone(inventory);
+widenedRadius.contextualVariants.find((item) => item.id === "landing-device-stage-radius").selector = ".firstrun *";
+assert.ok(radiusContractErrors(widenedRadius).length, "landing radius cannot spread to the whole gate");
+const widenedRadiusOwner = structuredClone(inventory);
+widenedRadiusOwner.contextualVariants.find((item) => item.id === "landing-device-stage-radius").catalogStates.push("onboarding-shared/preview");
+assert.ok(radiusContractErrors(widenedRadiusOwner).length, "stage radius cannot claim the entry preview state");
+
 const landingStates = ["onboarding-shared/invalid", "onboarding-start/first-run"];
 const landingRecipes = [
   { id: "landing-accent-primary", role: "primary", boundary: "decorative",
@@ -152,6 +205,7 @@ try {
       "--radius-none": "0", "--radius-compact": "4px", "--radius-control": "8px",
       "--radius-surface": "12px", "--radius-prominent": "16px", "--radius-pill": "999px",
       "--radius-round": "50%", "--radius-legacy": "14px",
+      "--radius-landing-stage": "24px", "--radius-landing-stage-compact": "20px", "--radius-landing-crop": "14px",
       "--control-target": "44px", "--control-icon-size": "24px", "--control-disabled-opacity": ".4",
     };
     const errors = Object.entries(expected).filter(([name, wanted]) => value(name) !== wanted)
@@ -214,7 +268,8 @@ try {
       };
       const colors = Object.fromEntries([
         "--color-action-text", "--color-action-on-fill", "--color-ink", "--color-focus",
-        "--color-disabled-reason", "--bg", "--well", "--control-primary-disabled-bg",
+        "--color-disabled-reason", "--bg", "--well", "--surface", "--control-primary-disabled-bg",
+        "--control-selection-ink", "--control-selection-boundary",
       ].map((token) => [token, resolve(token)]));
       sample.remove();
       return colors;
@@ -229,10 +284,23 @@ try {
     assert.ok(ratio("--color-focus", "--bg") >= 3, `${theme} landing focus ring is visible outside the button`);
     assert.ok(ratio("--color-ink", "--control-primary-disabled-bg") >= 4.5, `${theme} disabled creation label remains readable`);
     assert.ok(ratio("--color-disabled-reason", "--bg") >= 4.5, `${theme} disabled import label remains readable`);
+    assert.ok(ratio("--control-selection-ink", "--surface") >= 4.5, `${theme} Include and Avoid default labels have AA contrast`);
+    assert.ok(ratio("--control-selection-ink", "--well") >= 4.5, `${theme} Include and Avoid hover labels have AA contrast`);
+    assert.ok(ratio("--control-selection-boundary", "--surface") >= 3, `${theme} preference selection boundary is visible`);
+    assert.ok(ratio("--color-focus", "--surface") >= 3, `${theme} preference focus outline is visible`);
+    assert.ok(ratio("--color-disabled-reason", "--surface") >= 4.5, `${theme} disabled preference explanation remains readable`);
   }
   await opened.page.evaluate(() => document.documentElement.style.setProperty("--r", "var(--radius-control)"));
   assert.ok((await tokenContract()).errors.some((error) => error.includes("--r no longer resolves")), "wrong alias step is rejected");
-  await opened.page.evaluate(() => { document.documentElement.style.removeProperty("--r"); document.documentElement.setAttribute("data-theme", "light"); });
+  await opened.page.evaluate(() => {
+    document.documentElement.style.removeProperty("--r");
+    document.documentElement.style.setProperty("--radius-landing-crop", "16px");
+  });
+  assert.ok((await tokenContract()).errors.some((error) => error.includes("--radius-landing-crop")), "flattening the crop's rendered token is rejected");
+  await opened.page.evaluate(() => {
+    document.documentElement.style.removeProperty("--radius-landing-crop");
+    document.documentElement.setAttribute("data-theme", "light");
+  });
   const real = await opened.page.evaluate(measureRenderedRoles, [{ selector: "#firstRunCreate", kind: "text" }]);
   assert.equal(real[0].status, "pass", `actual landing CTA has compliant rendered label: ${JSON.stringify(real)}`);
   const wrongExceptionStates = inventory.exceptions.map((item) => item.selector === ".firstrun__logo"
@@ -316,5 +384,45 @@ try {
     allowProgressDebt: true,
   });
   assert.ok(ambiguousRendered.problems.some((item) => item.includes("#uiUnmapped ambiguous roles")), "overlapping selectors fail instead of guessing by order");
-  console.log("ui-system: live landing label, six deliberate AA failures, unsupported background, disabled reason, literal and selector negatives passed");
+  const preferenceCapture = { ...capture, flow: "onboarding-custom", screen: "exercise-preferences" };
+  const preferencePage = await openPage(browser, manifest, preferenceCapture, onboardingState("onboarding-custom/exercise-preferences", "en"));
+  try {
+    await ONBOARDING_SCENARIOS["onboarding-custom/exercise-preferences"](preferencePage.page);
+    const initial = await preferencePage.page.evaluate(() => {
+      const buttons = [...document.querySelectorAll(".entry__exercise-action:not([id])")];
+      return { statuses: [...new Set(buttons.map((button) => button.dataset.entryExerciseStatus))].sort(),
+        selectedButtons: buttons.filter((button) => button.matches("[aria-pressed='true'],[aria-selected='true'],[aria-checked='true'],.is-selected")).length,
+        includeList: document.querySelector("#entryIncludeListLabel")?.textContent,
+        avoidList: document.querySelector("#entryAvoidListLabel")?.textContent };
+    });
+    assert.deepEqual(initial.statuses, ["avoid", "include"], "one production search result offers both reversible choices");
+    assert.equal(initial.selectedButtons, 0, "selected preferences live in lists, not on the search-result buttons");
+    assert.equal(initial.includeList, "Include");
+    assert.equal(initial.avoidList, "Avoid");
+    const preferenceCoverage = await preferencePage.page.evaluate(inspectRoleCoverage, {
+      key: "onboarding-custom/exercise-preferences", components: inventory.components,
+      exceptions: inventory.exceptions, progressCandidateSelectors: inventory.progressCandidateSelectors,
+      allowProgressDebt: true,
+    });
+    assert.ok(preferenceCoverage.matched.includes("entry-exercise-action-not-id"), "the rendered pair matches its exact inventory owner");
+    assert.equal(preferenceCoverage.problems.length, 0, `exercise-preference state has no ambiguous owner: ${preferenceCoverage.problems.join("; ")}`);
+    const includeRow = preferencePage.page.locator(".entry__exercise-result").first();
+    const includedName = await includeRow.locator(".entry__exercise-name").textContent();
+    await includeRow.locator('[data-entry-exercise-status="include"]').click();
+    await preferencePage.page.waitForFunction((name) =>
+      document.querySelector("#entryIncludeListLabel")?.parentElement?.textContent?.includes(name), includedName);
+    assert.equal(await preferencePage.page.locator(`.entry__exercise-result:has-text("${includedName}")`).count(), 0,
+      "Include moves the exercise into its named list instead of selecting its search button");
+    const avoidRow = preferencePage.page.locator(".entry__exercise-result").first();
+    const avoidedName = await avoidRow.locator(".entry__exercise-name").textContent();
+    await avoidRow.locator('[data-entry-exercise-status="avoid"]').click();
+    assert.equal(await preferencePage.page.locator(".entry__avoid-pending").count(), 1,
+      "Avoid opens the required reason before committing an exclusion");
+    await preferencePage.page.locator('.entry__avoid-pending [data-entry-pick="avoidReason"]').first().click();
+    await preferencePage.page.waitForFunction((name) =>
+      document.querySelector("#entryAvoidListLabel")?.parentElement?.querySelector(".entry__avoid-list")?.textContent?.includes(name), avoidedName);
+    assert.equal(await preferencePage.page.locator(".entry__avoid-pending").count(), 0,
+      "the chosen reason commits an Avoid preference into its named list");
+  } finally { await preferencePage.context.close(); }
+  console.log("ui-system: exact preference and radius contracts, live preference ownership, landing label, AA failures, and deliberate contract negatives passed");
 } finally { await context?.close(); await browser.close(); preview.cleanup(); }

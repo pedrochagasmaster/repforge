@@ -5914,10 +5914,9 @@
         "hover",
         "pressed",
         "focus-visible",
-        "selected",
         "disabled"
       ],
-      "rationale": "Changes a chosen value, active option, or reversible status.",
+      "rationale": "Include adds a must-have exercise; Avoid opens a required reason before adding a reversible exclusion. Neither search-result button remains selected: the exercise moves to its named list, so both use the ordinary unselected selection recipe.",
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-custom/exercise-preferences"
@@ -7378,6 +7377,23 @@
       "catalogStates": [
         "onboarding-shared/invalid",
         "onboarding-start/first-run"
+      ]
+    },
+    {
+      "id": "landing-device-stage-radius",
+      "selector": ".firstrun-stage",
+      "role": "radius:landing-device-stage",
+      "rationale": "The approved Plan 054 product-render plate uses 24px at normal width, 20px at compact width, and its smaller overlapping crop uses 14px above the compact breakpoint. The later compact rule also gives the crop 20px at 320px.",
+      "owner": "plan-054/058",
+      "catalogStates": [
+        "onboarding-shared/gate",
+        "onboarding-shared/invalid",
+        "onboarding-start/first-run"
+      ],
+      "radiusRecipes": [
+        { "selector": ".firstrun-stage", "condition": "default", "token": "--radius-landing-stage" },
+        { "selector": ".firstrun-stage--signature-crop", "condition": "min-width:341px", "token": "--radius-landing-crop" },
+        { "selector": ".firstrun-stage", "condition": "max-width:340px", "token": "--radius-landing-stage-compact" }
       ]
     },
     {

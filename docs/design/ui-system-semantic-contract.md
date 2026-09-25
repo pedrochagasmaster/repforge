@@ -72,6 +72,7 @@ they do not create new roles.
 | Featured entry action | `.entry-card--primary` | primary |
 | Accent-filled first-run start | `#firstRunCreate`, `#firstRunCreateClose`, `#firstRunSharedStart` | primary |
 | Bordered first-run import route | `#firstRunImport`, `#firstRunImportClose` | quiet-navigation |
+| First-run device-stage radius | `.firstrun-stage` (including `.firstrun-stage--signature-crop`) | radius:landing-device-stage |
 | Full-screen entry gate | `#firstRun` | modal |
 | Full-screen saved-session summary | `#sessionSummary` | modal |
 | Scope-dependent volume indicator | `#volumeDash .vrow__bar` | week or block from selected scope |
@@ -113,6 +114,40 @@ focus outline measures at least 3.57:1 against the page in light and 6.33:1
 in dark. Disabled labels retain at least 4.5:1 without opacity, while the
 separate reason keeps the shared disabled-reason treatment. No new palette
 value or global control recipe is needed.
+
+### Exercise-preference selection
+
+The two search-result buttons at `.entry__exercise-action:not([id])` belong
+only to `onboarding-custom/exercise-preferences`. Include adds that exercise
+to `mustHaveExercises`. Avoid opens the required reason choice; choosing a
+reason adds an `exerciseConstraints` exclusion. Both are reversible selections.
+Neither button remains selected: after activation its exercise leaves search
+results and appears under the separately named Include or Avoid list, where
+Remove reverses it. `aria-pressed` and `aria-selected` would misdescribe these
+one-shot buttons; the selected list and reason radio group carry the resulting
+state. Each repeated button needs an accessible name that includes its exercise,
+such as "Include Barbell back squat" or "Avoid Barbell back squat".
+
+The old accent-tinted *unselected* Include button is legacy visual emphasis,
+not a distinct state or control intent. Both buttons use the ordinary selection
+recipe, with no contextual variant or Include/Avoid visual facet. Their labels,
+exercise-specific names, resulting lists, and required Avoid reason carry the
+meaning. P4 must apply these states to both buttons:
+
+| State | Both Include and Avoid search-result buttons |
+| --- | --- |
+| Default | `--control-selection-bg`, `--control-selection-ink`, required `--control-selection-boundary` |
+| Hover | `--well` background; keep default ink and required boundary |
+| Pressed | Keep hover colors and boundary; use `--control-pressed-transform` |
+| Focus visible | Keep default colors and boundary; use `--control-focus-outline` with 2px outside offset |
+| Selected | No selected state on either button. The chosen exercise moves to its separately named Include or Avoid list with a Remove action; list membership and its heading identify the committed preference. |
+| Disabled | Native disabled state, full opacity, `--control-selection-bg`, `--color-disabled-reason`, decorative `--boundary-decorative` border, no hover/press, and a separate readable reason. |
+
+Both buttons retain the shared 44px target and visible focus treatment.
+The existing semantic tokens resolve in both themes. Required default boundaries
+and focus outlines must meet 3:1; button text and disabled reasons must meet
+4.5:1 against their composited surfaces. An accent-tinted unselected button
+must not masquerade as a selected exercise.
 
 ## Progress
 
@@ -182,6 +217,19 @@ sheets and dialogs have separate depth tokens, while the full-screen gate and
 summary keep their interaction role without being forced into card depth.
 New rules use semantic tokens; P4–P6 remove literal debt and the legacy aliases
 after consumers move.
+
+The owner-directed Plan 054 composition has one exact
+`landing-device-stage-radius` recipe outside the reusable radius scale. Large
+product-render plates use `--radius-landing-stage:24px`. At
+`@media (max-width:340px)`, `.firstrun-stage` uses
+`--radius-landing-stage-compact:20px`. The smaller overlapping reasoning crop
+uses `--radius-landing-crop:14px` above 340px. The compact rule follows the
+crop rule, so the crop also resolves to 20px at 320px. This matches the
+rendered page at `300de203`. These are stage-composition values, not general
+radius steps or exceptions. Only `.firstrun-stage` and its
+`.firstrun-stage--signature-crop` subtype in the three first-run gate catalog
+states own the recipe. P4a's 16px mapping changes their established framing;
+the consumer must use the named tokens.
 
 Control tokens follow intent: primary commits use the CTA ground/ink,
 secondary and adjustment controls use the ordinary surface and required

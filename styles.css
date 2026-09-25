@@ -87,6 +87,10 @@
   --radius-control:8px;
   --radius-surface:12px;
   --radius-prominent:16px;
+  /* Exact Plan 054 device-stage composition; these are not reusable scale steps. */
+  --radius-landing-stage:24px;
+  --radius-landing-stage-compact:20px;
+  --radius-landing-crop:14px;
   --radius-pill:999px;
   --radius-round:50%;
   --radius-legacy:14px;
