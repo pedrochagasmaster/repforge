@@ -1,10 +1,10 @@
-const CACHE = "repforge-v303";
+const CACHE = "repforge-v304";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
-  "./vendor/motion/motion.js", "./vendor/dnd-kit/dnd-kit.js", "./vendor/dnd-kit/dnd-kit.runtime.js", "./motion-layer.js", "./motion-layer.js?v=303",
+  "./vendor/motion/motion.js", "./vendor/dnd-kit/dnd-kit.js", "./vendor/dnd-kit/dnd-kit.runtime.js", "./motion-layer.js", "./motion-layer.js?v=304",
   "./telemetry.js", "./posthog-init.js", "./schedule.js", "./notify.js", "./i18n.js", "./exercises.js", "./install-transfer-contract.js", "./install-transfer.js",
-  "./progression-engine.js", "./progress-model.js", "./progress-model.js?v=303", "./program-compiler.js", "./program-compiler.js?v=303", "./program-entry.js", "./program-entry.js?v=303", "./program-entry-adapter.js", "./program-entry-adapter.js?v=303", "./program-editor.js", "./program-editor.js?v=303",
-  "./shared-setup.js", "./shared-setup.js?v=303", "./workout-draft.js", "./workout-draft.js?v=303", "./program-transition.js", "./program-transition.js?v=303", "./install-policy.js", "./install-policy.js?v=303", "./guide-registry.js", "./guide-registry.js?v=303", "./durable-state.js", "./durable-state.js?v=303", "./history-ui.js", "./history-ui.js?v=303", "./app.js", "./app.js?v=303",
+  "./progression-engine.js", "./progress-model.js", "./progress-model.js?v=304", "./program-compiler.js", "./program-compiler.js?v=304", "./program-entry.js", "./program-entry.js?v=304", "./program-entry-adapter.js", "./program-entry-adapter.js?v=304", "./program-editor.js", "./program-editor.js?v=304",
+  "./shared-setup.js", "./shared-setup.js?v=304", "./workout-draft.js", "./workout-draft.js?v=304", "./program-transition.js", "./program-transition.js?v=304", "./install-policy.js", "./install-policy.js?v=304", "./guide-registry.js", "./guide-registry.js?v=304", "./durable-state.js", "./durable-state.js?v=304", "./history-ui.js", "./history-ui.js?v=304", "./app.js", "./app.js?v=304",
   "./icons/icon.svg", "./icons/favicon-32.png", "./icons/icon-192.png",
   "./icons/icon-512.png", "./icons/icon-1024.png",
   "./icons/icon-maskable-512.png", "./icons/apple-touch-icon.png",

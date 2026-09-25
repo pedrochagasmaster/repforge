@@ -250,8 +250,8 @@ function textMetricsMatchScale(metrics, scale) {
 
 function customTextMetricsMatchScale(metrics, fields, scale) {
   const expected = scale === 2
-    ? { muscleName: 28, muscleCurrent: 20, muscleState: 22, exerciseName: 28, exerciseAction: 24, exerciseSelected: 28 }
-    : { muscleName: 14, muscleCurrent: 10, muscleState: 11, exerciseName: 14, exerciseAction: 12, exerciseSelected: 14 };
+    ? { muscleName: 28, muscleCurrent: 20, muscleState: 22, exerciseName: 28, exerciseAction: 32, exerciseSelected: 28 }
+    : { muscleName: 14, muscleCurrent: 10, muscleState: 11, exerciseName: 14, exerciseAction: 16, exerciseSelected: 14 };
   return fields.every((key) => Number.isFinite(metrics[key]) && Math.abs(metrics[key] - expected[key]) < 0.1);
 }
 

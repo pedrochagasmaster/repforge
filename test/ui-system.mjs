@@ -289,6 +289,60 @@ try {
     assert.ok(ratio("--control-selection-boundary", "--surface") >= 3, `${theme} preference selection boundary is visible`);
     assert.ok(ratio("--color-focus", "--surface") >= 3, `${theme} preference focus outline is visible`);
     assert.ok(ratio("--color-disabled-reason", "--surface") >= 4.5, `${theme} disabled preference explanation remains readable`);
+
+    for (const [width, expectedStage, expectedCrop] of [[390, 24, 14], [340, 20, 20], [320, 20, 20]]) {
+      await opened.page.setViewportSize({ width, height: 844 });
+      const radii = await opened.page.evaluate(() => ({
+        stages: [...document.querySelectorAll(".firstrun-stage:not(.firstrun-stage--signature-crop)")]
+          .map((stage) => getComputedStyle(stage).borderTopLeftRadius),
+        crops: [...document.querySelectorAll(".firstrun-stage--signature-crop")]
+          .map((stage) => getComputedStyle(stage).borderTopLeftRadius),
+      }));
+      assert.ok(radii.stages.length > 0, `${theme} landing has a normal device stage at ${width}px`);
+      assert.ok(radii.crops.length > 0, `${theme} landing has a signature crop at ${width}px`);
+      assert.ok(radii.stages.every((radius) => radius === `${expectedStage}px`),
+        `${theme} normal device stage keeps ${expectedStage}px at ${width}px: ${JSON.stringify(radii)}`);
+      assert.ok(radii.crops.every((radius) => radius === `${expectedCrop}px`),
+        `${theme} signature crop keeps ${expectedCrop}px at ${width}px: ${JSON.stringify(radii)}`);
+    }
+    await opened.page.setViewportSize({ width: 390, height: 844 });
+    const typography = await opened.page.evaluate(() => ({
+      prose: getComputedStyle(document.querySelector('.firstrun-facts b[data-i18n="landing.program.fact2.value"]')).fontFamily,
+      data: getComputedStyle(document.querySelector('.firstrun-facts b[data-i18n="landing.program.fact3.value"]')).fontFamily,
+    }));
+    assert.match(typography.prose, /Plex Sans/, `${theme} ordinary landing prose uses the language font`);
+    assert.match(typography.data, /Plex Mono/, `${theme} actual counts and training data retain Mono`);
+
+    const cdp = await opened.context.newCDPSession(opened.page);
+    await cdp.send("DOM.enable");
+    await cdp.send("CSS.enable");
+    const { root } = await cdp.send("DOM.getDocument");
+    const { nodeId } = await cdp.send("DOM.querySelector", { nodeId: root.nodeId, selector: "#firstRunImport" });
+    assert.ok(nodeId, "landing Import control is present for pressed-state proof");
+    await cdp.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: ["active"] });
+    const pressedImport = await opened.page.locator("#firstRunImport").evaluate((button) => {
+      const resolve = (token, property) => {
+        const probe = document.createElement("span");
+        probe.style.setProperty(property, `var(${token})`);
+        document.body.append(probe);
+        const value = getComputedStyle(probe).getPropertyValue(property);
+        probe.remove();
+        return value;
+      };
+      return {
+        background: getComputedStyle(button).backgroundColor,
+        ink: getComputedStyle(button).color,
+        boundary: getComputedStyle(button).borderTopColor,
+        expectedWell: resolve("--well", "background-color"),
+        expectedInk: resolve("--color-ink", "color"),
+        expectedBoundary: resolve("--color-action-text", "color"),
+      };
+    });
+    assert.equal(pressedImport.background, pressedImport.expectedWell, `${theme} Import press retains the hover paper`);
+    assert.equal(pressedImport.ink, pressedImport.expectedInk, `${theme} Import press retains hover ink`);
+    assert.equal(pressedImport.boundary, pressedImport.expectedBoundary, `${theme} Import press retains its required boundary`);
+    await cdp.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: [] });
+    await cdp.detach();
   }
   await opened.page.evaluate(() => document.documentElement.style.setProperty("--r", "var(--radius-control)"));
   assert.ok((await tokenContract()).errors.some((error) => error.includes("--r no longer resolves")), "wrong alias step is rejected");
@@ -392,13 +446,53 @@ try {
       const buttons = [...document.querySelectorAll(".entry__exercise-action:not([id])")];
       return { statuses: [...new Set(buttons.map((button) => button.dataset.entryExerciseStatus))].sort(),
         selectedButtons: buttons.filter((button) => button.matches("[aria-pressed='true'],[aria-selected='true'],[aria-checked='true'],.is-selected")).length,
+        accessibleNames: buttons.map((button) => button.getAttribute("aria-label")),
+        visibleNames: buttons.map((button) => button.textContent.trim()),
+        exerciseNames: buttons.map((button) => button.closest(".entry__exercise-result")?.querySelector(".entry__exercise-name")?.textContent || ""),
+        targetHeights: buttons.map((button) => button.getBoundingClientRect().height),
         includeList: document.querySelector("#entryIncludeListLabel")?.textContent,
         avoidList: document.querySelector("#entryAvoidListLabel")?.textContent };
     });
     assert.deepEqual(initial.statuses, ["avoid", "include"], "one production search result offers both reversible choices");
     assert.equal(initial.selectedButtons, 0, "selected preferences live in lists, not on the search-result buttons");
+    assert.ok(initial.accessibleNames.every((name, index) => name === `${initial.visibleNames[index]} ${initial.exerciseNames[index]}`),
+      "Include and Avoid controls name their exercise in the accessible label");
+    assert.ok(initial.targetHeights.every((height) => height >= 44), "Include and Avoid keep the shared 44px target");
     assert.equal(initial.includeList, "Include");
     assert.equal(initial.avoidList, "Avoid");
+    const cdp = await preferencePage.context.newCDPSession(preferencePage.page);
+    await cdp.send("DOM.enable");
+    await cdp.send("CSS.enable");
+    const { root } = await cdp.send("DOM.getDocument");
+    for (const action of ["include", "avoid"]) {
+      const selector = `.entry__exercise-action[data-entry-exercise-status="${action}"]`;
+      const { nodeId } = await cdp.send("DOM.querySelector", { nodeId: root.nodeId, selector });
+      assert.ok(nodeId, `${action} result control is present for pressed-state proof`);
+      await cdp.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: ["active"] });
+      const pressed = await preferencePage.page.locator(selector).first().evaluate((button) => {
+        const resolve = (token, property) => {
+          const probe = document.createElement("span");
+          probe.style.setProperty(property, `var(${token})`);
+          document.body.append(probe);
+          const value = getComputedStyle(probe).getPropertyValue(property);
+          probe.remove();
+          return value;
+        };
+        return {
+          background: getComputedStyle(button).backgroundColor,
+          ink: getComputedStyle(button).color,
+          boundary: getComputedStyle(button).borderTopColor,
+          expectedWell: resolve("--well", "background-color"),
+          expectedInk: resolve("--control-selection-ink", "color"),
+          expectedBoundary: resolve("--control-selection-boundary", "color"),
+        };
+      });
+      assert.equal(pressed.background, pressed.expectedWell, `${action} press retains the hover paper`);
+      assert.equal(pressed.ink, pressed.expectedInk, `${action} press retains selection ink`);
+      assert.equal(pressed.boundary, pressed.expectedBoundary, `${action} press retains the required selection boundary`);
+      await cdp.send("CSS.forcePseudoState", { nodeId, forcedPseudoClasses: [] });
+    }
+    await cdp.detach();
     const preferenceCoverage = await preferencePage.page.evaluate(inspectRoleCoverage, {
       key: "onboarding-custom/exercise-preferences", components: inventory.components,
       exceptions: inventory.exceptions, progressCandidateSelectors: inventory.progressCandidateSelectors,
@@ -424,5 +518,15 @@ try {
     assert.equal(await preferencePage.page.locator(".entry__avoid-pending").count(), 0,
       "the chosen reason commits an Avoid preference into its named list");
   } finally { await preferencePage.context.close(); }
+  const ptPreferencePage = await openPage(browser, manifest, preferenceCapture, onboardingState("onboarding-custom/exercise-preferences", "pt"));
+  try {
+    await ONBOARDING_SCENARIOS["onboarding-custom/exercise-preferences"](ptPreferencePage.page);
+    const localizedNames = await ptPreferencePage.page.locator(".entry__exercise-action:not([id])").evaluateAll((buttons) => buttons.map((button) => ({
+      name: button.getAttribute("aria-label"), label: button.textContent.trim(),
+      exercise: button.closest(".entry__exercise-result")?.querySelector(".entry__exercise-name")?.textContent || "",
+    })));
+    assert.ok(localizedNames.every(({ name, label, exercise }) => name === `${label} ${exercise}`),
+      "Portuguese Include and Avoid controls name their exercise in the accessible label");
+  } finally { await ptPreferencePage.context.close(); }
   console.log("ui-system: exact preference and radius contracts, live preference ownership, landing label, AA failures, and deliberate contract negatives passed");
 } finally { await context?.close(); await browser.close(); preview.cleanup(); }

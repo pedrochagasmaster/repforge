@@ -11978,13 +11978,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Assisted chest dip (kneeling)",
+          "label": "Include Assisted chest dip (kneeling)",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Assisted chest dip (kneeling)",
+          "label": "Avoid Assisted chest dip (kneeling)",
           "type": "button"
         },
         {
@@ -11999,13 +12001,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Assisted pull-up",
+          "label": "Include Assisted pull-up",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Assisted pull-up",
+          "label": "Avoid Assisted pull-up",
           "type": "button"
         },
         {
@@ -12020,13 +12024,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Assisted triceps dip (kneeling)",
+          "label": "Include Assisted triceps dip (kneeling)",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Assisted triceps dip (kneeling)",
+          "label": "Avoid Assisted triceps dip (kneeling)",
           "type": "button"
         },
         {
@@ -12041,13 +12047,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Barbell back squat",
+          "label": "Include Barbell back squat",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Barbell back squat",
+          "label": "Avoid Barbell back squat",
           "type": "button"
         },
         {
@@ -12062,13 +12070,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Barbell close-grip bench press",
+          "label": "Include Barbell close-grip bench press",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Barbell close-grip bench press",
+          "label": "Avoid Barbell close-grip bench press",
           "type": "button"
         },
         {
@@ -12083,13 +12093,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Barbell deadlift",
+          "label": "Include Barbell deadlift",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Barbell deadlift",
+          "label": "Avoid Barbell deadlift",
           "type": "button"
         },
         {
@@ -12104,13 +12116,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Barbell decline bench press",
+          "label": "Include Barbell decline bench press",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Barbell decline bench press",
+          "label": "Avoid Barbell decline bench press",
           "type": "button"
         },
         {
@@ -12125,13 +12139,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Barbell front raise",
+          "label": "Include Barbell front raise",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Barbell front raise",
+          "label": "Avoid Barbell front raise",
           "type": "button"
         },
         {
@@ -12312,13 +12328,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Assisted chest dip (kneeling)",
+          "label": "Include Assisted chest dip (kneeling)",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Assisted chest dip (kneeling)",
+          "label": "Avoid Assisted chest dip (kneeling)",
           "type": "button"
         },
         {
@@ -12333,13 +12351,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Assisted pull-up",
+          "label": "Include Assisted pull-up",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Assisted pull-up",
+          "label": "Avoid Assisted pull-up",
           "type": "button"
         },
         {
@@ -12354,13 +12374,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Assisted triceps dip (kneeling)",
+          "label": "Include Assisted triceps dip (kneeling)",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Assisted triceps dip (kneeling)",
+          "label": "Avoid Assisted triceps dip (kneeling)",
           "type": "button"
         },
         {
@@ -12375,13 +12397,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Barbell back squat",
+          "label": "Include Barbell back squat",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Barbell back squat",
+          "label": "Avoid Barbell back squat",
           "type": "button"
         },
         {
@@ -12396,13 +12420,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Barbell close-grip bench press",
+          "label": "Include Barbell close-grip bench press",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Barbell close-grip bench press",
+          "label": "Avoid Barbell close-grip bench press",
           "type": "button"
         },
         {
@@ -12417,13 +12443,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Barbell deadlift",
+          "label": "Include Barbell deadlift",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Barbell deadlift",
+          "label": "Avoid Barbell deadlift",
           "type": "button"
         },
         {
@@ -12438,13 +12466,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Barbell decline bench press",
+          "label": "Include Barbell decline bench press",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Barbell decline bench press",
+          "label": "Avoid Barbell decline bench press",
           "type": "button"
         },
         {
@@ -12459,13 +12489,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Barbell front raise",
+          "label": "Include Barbell front raise",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Barbell front raise",
+          "label": "Avoid Barbell front raise",
           "type": "button"
         },
         {
@@ -12646,13 +12678,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Assisted chest dip (kneeling)",
+          "label": "Include Assisted chest dip (kneeling)",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Assisted chest dip (kneeling)",
+          "label": "Avoid Assisted chest dip (kneeling)",
           "type": "button"
         },
         {
@@ -12667,13 +12701,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Assisted pull-up",
+          "label": "Include Assisted pull-up",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Assisted pull-up",
+          "label": "Avoid Assisted pull-up",
           "type": "button"
         },
         {
@@ -12688,13 +12724,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Assisted triceps dip (kneeling)",
+          "label": "Include Assisted triceps dip (kneeling)",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Assisted triceps dip (kneeling)",
+          "label": "Avoid Assisted triceps dip (kneeling)",
           "type": "button"
         },
         {
@@ -12709,13 +12747,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Barbell back squat",
+          "label": "Include Barbell back squat",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Barbell back squat",
+          "label": "Avoid Barbell back squat",
           "type": "button"
         },
         {
@@ -12730,13 +12770,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Barbell close-grip bench press",
+          "label": "Include Barbell close-grip bench press",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Barbell close-grip bench press",
+          "label": "Avoid Barbell close-grip bench press",
           "type": "button"
         },
         {
@@ -12751,13 +12793,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Barbell deadlift",
+          "label": "Include Barbell deadlift",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Barbell deadlift",
+          "label": "Avoid Barbell deadlift",
           "type": "button"
         },
         {
@@ -12772,13 +12816,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Barbell decline bench press",
+          "label": "Include Barbell decline bench press",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Barbell decline bench press",
+          "label": "Avoid Barbell decline bench press",
           "type": "button"
         },
         {
@@ -12793,13 +12839,15 @@
         {
           "tag": "button",
           "text": "Include",
-          "name": "Include",
+          "name": "Include Barbell front raise",
+          "label": "Include Barbell front raise",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Avoid",
-          "name": "Avoid",
+          "name": "Avoid Barbell front raise",
+          "label": "Avoid Barbell front raise",
           "type": "button"
         },
         {
@@ -12980,13 +13028,15 @@
         {
           "tag": "button",
           "text": "Incluir",
-          "name": "Incluir",
+          "name": "Incluir Mergulho nas paralelas ajoelhado assistido",
+          "label": "Incluir Mergulho nas paralelas ajoelhado assistido",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Evitar",
-          "name": "Evitar",
+          "name": "Evitar Mergulho nas paralelas ajoelhado assistido",
+          "label": "Evitar Mergulho nas paralelas ajoelhado assistido",
           "type": "button"
         },
         {
@@ -13001,13 +13051,15 @@
         {
           "tag": "button",
           "text": "Incluir",
-          "name": "Incluir",
+          "name": "Incluir Barra fixa assistida",
+          "label": "Incluir Barra fixa assistida",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Evitar",
-          "name": "Evitar",
+          "name": "Evitar Barra fixa assistida",
+          "label": "Evitar Barra fixa assistida",
           "type": "button"
         },
         {
@@ -13022,13 +13074,15 @@
         {
           "tag": "button",
           "text": "Incluir",
-          "name": "Incluir",
+          "name": "Incluir Mergulho de tríceps ajoelhado assistido",
+          "label": "Incluir Mergulho de tríceps ajoelhado assistido",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Evitar",
-          "name": "Evitar",
+          "name": "Evitar Mergulho de tríceps ajoelhado assistido",
+          "label": "Evitar Mergulho de tríceps ajoelhado assistido",
           "type": "button"
         },
         {
@@ -13043,13 +13097,15 @@
         {
           "tag": "button",
           "text": "Incluir",
-          "name": "Incluir",
+          "name": "Incluir Agachamento livre com barra",
+          "label": "Incluir Agachamento livre com barra",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Evitar",
-          "name": "Evitar",
+          "name": "Evitar Agachamento livre com barra",
+          "label": "Evitar Agachamento livre com barra",
           "type": "button"
         },
         {
@@ -13064,13 +13120,15 @@
         {
           "tag": "button",
           "text": "Incluir",
-          "name": "Incluir",
+          "name": "Incluir Supino fechado com barra",
+          "label": "Incluir Supino fechado com barra",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Evitar",
-          "name": "Evitar",
+          "name": "Evitar Supino fechado com barra",
+          "label": "Evitar Supino fechado com barra",
           "type": "button"
         },
         {
@@ -13085,13 +13143,15 @@
         {
           "tag": "button",
           "text": "Incluir",
-          "name": "Incluir",
+          "name": "Incluir Levantamento terra com barra",
+          "label": "Incluir Levantamento terra com barra",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Evitar",
-          "name": "Evitar",
+          "name": "Evitar Levantamento terra com barra",
+          "label": "Evitar Levantamento terra com barra",
           "type": "button"
         },
         {
@@ -13106,13 +13166,15 @@
         {
           "tag": "button",
           "text": "Incluir",
-          "name": "Incluir",
+          "name": "Incluir Supino declinado com barra",
+          "label": "Incluir Supino declinado com barra",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Evitar",
-          "name": "Evitar",
+          "name": "Evitar Supino declinado com barra",
+          "label": "Evitar Supino declinado com barra",
           "type": "button"
         },
         {
@@ -13127,13 +13189,15 @@
         {
           "tag": "button",
           "text": "Incluir",
-          "name": "Incluir",
+          "name": "Incluir Elevação frontal com barra",
+          "label": "Incluir Elevação frontal com barra",
           "type": "button"
         },
         {
           "tag": "button",
           "text": "Evitar",
-          "name": "Evitar",
+          "name": "Evitar Elevação frontal com barra",
+          "label": "Evitar Elevação frontal com barra",
           "type": "button"
         },
         {

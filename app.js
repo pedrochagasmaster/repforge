@@ -13468,9 +13468,12 @@ function renderExercisePreferencesStep(){
   const included=entryState?.answers?.mustHaveExercises||[];
   const constraints=entryState?.answers?.exerciseConstraints||[];
   const matches=entryExerciseMatches(entryExerciseQuery);
-  const resultRows=matches.map(entry=>`<div class="entry__exercise-result" role="listitem"><span class="entry__exercise-name">${esc(libraryName(entry))}</span><span class="entry__exercise-actions">`+
-    `<button type="button" class="entry__exercise-action" data-entry-exercise-add="${esc(entry.id)}" data-entry-exercise-status="include">${esc(t("entry.exercise_preferences.include"))}</button>`+
-    `<button type="button" class="entry__exercise-action entry__exercise-action--avoid" data-entry-exercise-add="${esc(entry.id)}" data-entry-exercise-status="avoid">${esc(t("entry.exercise_preferences.avoid"))}</button></span></div>`).join("");
+  const resultRows=matches.map(entry=>{const exercise=libraryName(entry);
+    const includeLabel=`${t("entry.exercise_preferences.include")} ${exercise}`;
+    const avoidLabel=`${t("entry.exercise_preferences.avoid")} ${exercise}`;
+    return `<div class="entry__exercise-result" role="listitem"><span class="entry__exercise-name">${esc(exercise)}</span><span class="entry__exercise-actions">`+
+    `<button type="button" class="entry__exercise-action" aria-label="${esc(includeLabel)}" data-entry-exercise-add="${esc(entry.id)}" data-entry-exercise-status="include">${esc(t("entry.exercise_preferences.include"))}</button>`+
+    `<button type="button" class="entry__exercise-action" aria-label="${esc(avoidLabel)}" data-entry-exercise-add="${esc(entry.id)}" data-entry-exercise-status="avoid">${esc(t("entry.exercise_preferences.avoid"))}</button></span></div>`}).join("");
   const pending=entryPendingAvoid?(()=>{
     const entry=libraryEntry(entryPendingAvoid),exercise=entry?libraryName(entry):entryPendingAvoid;
     const reasonLab=t("entry.exercise_preferences.avoid_reason",{exercise});
