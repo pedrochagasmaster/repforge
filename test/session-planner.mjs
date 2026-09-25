@@ -359,6 +359,8 @@ console.log("planned-session adaptation (Free, user-directed)");
 }
 
 console.log("compiler-produced planned days");
+let compilerReductionCases = 0;
+let compilerPurposeLossProved = false;
 for (const familyId of Compiler.FAMILY_IDS) for (const frequency of Compiler.FREQUENCIES) {
   const home = familyId === "home";
   const compiled = Compiler.compile({ schemaVersion: 1, familyId, frequency, sessionMinutes: 90,
@@ -383,6 +385,20 @@ for (const familyId of Compiler.FAMILY_IDS) for (const frequency of Compiler.FRE
     assert(adapted.ok && protectedIds.every((id) => adapted.plan.context.adaptation.preservedPurposes.includes(id) &&
       adapted.plan.exercises.some((exercise) => exercise.exerciseInstanceId === id)),
     `${familyId}/${frequency}/${day.dayId}: every compiler protected slot survives adaptation`, json(adapted));
+    const constrained = Planner.adaptPlannedSession({ catalogue, plannedDay: source,
+      constraints: { minutes: 45 }, restSeconds: 120 });
+    assert(constrained.ok && protectedIds.every((id) => constrained.plan.exercises.some((exercise) => exercise.exerciseInstanceId === id)) &&
+      constrained.plan.omitted.every((item) => !protectedIds.includes(item.purpose)),
+    `${familyId}/${frequency}/${day.dayId}: constrained compiler day removes only unprotected work`, json(constrained));
+    if (constrained.ok && constrained.plan.omitted.length) compilerReductionCases++;
+    if (!compilerPurposeLossProved && protectedIds.length && familyId === "growth" && frequency === 2) {
+      const sourceEntriesOnly = { ...catalogue, entries: catalogue.entries.filter((entry) => rows.some((row) => row.libraryId === entry.id)) };
+      const lost = Planner.adaptPlannedSession({ catalogue: sourceEntriesOnly, plannedDay: source,
+        constraints: { minutes: 90, equipment: ["bodyweight"] }, restSeconds: 120 });
+      assert(!lost.ok && lost.code === "purpose-not-preserved" && lost.lostPurposes.some((id) => protectedIds.includes(id)),
+        "a compiler-protected slot with no compatible equipment or substitute cannot count as planned completion", json(lost));
+      compilerPurposeLossProved = true;
+    }
     const withoutProtected = { ...source, exercises: rows.filter((row) => row.priority !== "protected") };
     if (protectedIds.length && withoutProtected.exercises.length) {
       const missing = Planner.adaptPlannedSession({ catalogue, plannedDay: withoutProtected,
@@ -392,6 +408,8 @@ for (const familyId of Compiler.FAMILY_IDS) for (const frequency of Compiler.FRE
     }
   }
 }
+assert(compilerReductionCases > 0 && compilerPurposeLossProved,
+  "the real compiler matrix exercises optional removal and protected-purpose failure");
 
 console.log("owner adapters");
 {

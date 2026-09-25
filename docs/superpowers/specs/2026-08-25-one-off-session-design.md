@@ -929,7 +929,7 @@ The integration branch must migrate each current reader before enabling one-off 
 
 ### Open primary-purpose rule
 
-The compiler marks protected slots on some days and none on others. The new compiler-produced matrix in `test/session-planner.mjs` found days without any protected slot. A manual day also has no compiler priority. The product spec does not ratify a "compound or first exercise" fallback for either case. `adaptPlannedSession` now returns `primary-purpose-undeclared` in those cases instead of granting planned-session completion. The integration branch needs an explicit product rule for these days before exposing their adaptation route.
+The compiler marks protected slots on some days and none on others. The compiler-produced matrix in `test/session-planner.mjs` checks every protected slot under both generous and 45-minute constraints, confirms that constrained removals are unprotected, and forces a real compiled protected slot to fail planned completion when no compatible equipment or substitute remains. It also found days without any protected slot. A manual day has no compiler priority. The product spec does not ratify a "compound or first exercise" fallback for either case. `adaptPlannedSession` returns `primary-purpose-undeclared` in those cases instead of granting planned-session completion. The integration branch needs an explicit product rule for these days before exposing their adaptation route.
 
 ### Future rebase note
 
