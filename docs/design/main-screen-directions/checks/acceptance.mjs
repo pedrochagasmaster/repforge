@@ -52,7 +52,9 @@ const ALLOW = [
 /* ---------- independent oracles ---------- */
 // Canonical outcome, rebuilt from app.js's own source text (buildSessionDelta and helpers).
 function appOracle() {
-  const src = readFileSync(new URL("app.js", root), "utf8");
+  // APP_JS points the oracle at another checkout's app.js, for a branch that
+  // predates the session-outcome rule the review page now mirrors.
+  const src = readFileSync(process.env.APP_JS || new URL("app.js", root), "utf8");
   const grab = (re) => { const m = src.match(re); if (!m) throw new Error("app.js moved: " + re); return m[0]; };
   const code = [
     grab(/^const avg=.*$/m), grab(/^const e1rm=.*$/m), grab(/^const isWork=.*$/m),

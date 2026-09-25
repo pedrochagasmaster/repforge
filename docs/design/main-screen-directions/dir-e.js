@@ -407,7 +407,7 @@
       "why-set2": "In session, the week strip ends at set 1. Observed capacity 8, predicted about 7,5 for set 2.",
       rest: "Rest takes the cue slot; the ledger keeps last week and this week side by side.",
       summary: "Each lift ends on three cells, last week, today and next week. The next target is always in the rightmost cell.",
-      summary2: "Week 3's session: the trio shifts one week left. Carga alterada and Manteve come from canonicalOutcome.",
+      summary2: "Week 3's session: the trio shifts one week left. Manteve and Regressou come from canonicalOutcome.",
       progress: "Attention rows, then the whole block as a matrix: one row per lift, top load per week, latest canonical outcome under the name.",
       chart: "The honest chart, labelled by week inside the block and by date before it.",
       history: "History is the block itself: weeks down, training days across, each cell a session.",

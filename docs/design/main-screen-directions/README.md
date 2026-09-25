@@ -97,30 +97,31 @@ different:
 
 ## Notes and questions for the owner
 
-1. **Canonical evidence reads a planned load increase with the expected rep
-   drop as Regressou. Is that the intended semantics? This is a question for
-   the owner (PRODUCT principle 1), not a copy fix.** The fixture squat goes
-   100 × 8, 8, 8 → 102,5 × 7, 6, 6: e1RM −0,2 %, reps −5, so
-   `buildSessionDelta` says `regressed`, while the same session sets a load PR.
-   Every candidate shows both, as the rule produces them.
-2. **A second canonical edge case.** A session at the same load with the same
-   best e1RM and one rep fewer (supino inclinado and remada curvada, 18 Sep)
-   falls through every branch of `buildSessionDelta` to `changed_load`, so it
-   reads **Carga alterada** although the load did not change. The candidates
-   render it as the rule produces it. Same question as 1.
-3. **The shipped Why sheet passes capacity where `why.anchor.top` names
-   performed reps** (`app.js:5155-5156`): a logged 135 × 5 at RIR 1 would read
-   "Sua série principal foi 135 kg por 6 repetições". D to G pass the
-   performed reps and give the RIR in a second sentence. Worth fixing in the
-   app.
+1. **Decided: outcomes describe the logged sets, not the prescription.** The
+   owner ruled on 2026-09-25 (grilling on this PR's open questions) that a
+   prescribed load increase with the expected rep drop is no regression. The
+   rule is the "Session outcome" entry in `CONTEXT.md`, shipped in the app by
+   the backlog row "Truthful session outcomes". `canonicalOutcome()` mirrors
+   it: at the same load, total reps decide; when the load went up, best-set
+   e1RM decides at ±1 %; when it went down, the lift reads Melhorou only on
+   more strength or more volume at similar effort, and otherwise Carga
+   alterada (a deload never reads Regressou). The fixture squat (100 × 8, 8, 8
+   → 102,5 × 7, 6, 6) now reads **Manteve** beside its load PR.
+2. **Decided: same load, fewer reps is a decline.** The incline press and the
+   row on 18 Sep (same load, one rep fewer) used to fall through to "Carga
+   alterada" although the load did not change. They now read **Regressou**.
+3. **Decided: the anchor Why names the logged reps.** The shipped sheet
+   passed capacity reps to `why.anchor.top`, so a logged 135 × 5 at RIR 1 read
+   "por 6 repetições". The app fix shows the performed reps and the RIR as a
+   second sentence, which is what D to G already do.
 4. **Observed vs predicted capacity (§2.2).** Set 1 at 102,5 × 7, RIR 1 "mostrou
    uma capacidade de 8"; about 7,5 is the engine's fatigue-adjusted capacity
    for set 2 (`range.current_hold`), and the set-2 target stays 7. The
    set-2 Why says both, in that order.
-5. **Pause, not Hold.** The rest controls read Pausar / Pause. The shipped
-   `rest.sheet.pause_aria` still says "Hold rest" in EN; that is app copy and
-   out of scope here. EN verdict labels such as "Hold · add reps" are the
-   shipped `rec.*.label` values and stay.
+5. **Pause, not Hold.** The rest controls read Pausar / Pause. The app fix
+   changes the EN `rest.sheet.pause_aria` from "Hold rest" to "Pause rest".
+   EN verdict labels such as "Hold · add reps" are the shipped `rec.*.label`
+   values and stay.
 6. **Chart targets.** With all nine squat sessions on 328 px the points are
    33 px apart, too close for a 44 px column each. The whole plot is one
    target that snaps to the nearest session, and every row of the table under
@@ -155,7 +156,8 @@ node docs/design/main-screen-directions/checks/strings-table.mjs   # refreshes t
 ```
 
 The parity check does not trust `data-d.js`: it evaluates `buildSessionDelta`
-and its helpers from `app.js`'s own source and recomputes every target with
+and its helpers from `app.js`'s own source (set `APP_JS` to another checkout's
+`app.js` while this branch predates the outcome fix) and recomputes every target with
 the engine in Node, then compares both with what each screen shows.
 `captures/` holds the PT 390 light shots of Today, focus, Why, rest and the
 summary for each of D to G (§7.6, the landing-page shots of §8).

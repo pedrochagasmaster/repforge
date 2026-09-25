@@ -389,12 +389,15 @@
   }
 
   /* ---------- canonical outcomes (§2.1) ----------
-     Reproduces buildSessionDelta (app.js:4639-4651) with DELTA_THRESHOLDS
-     (app.js:4626: e1rmPct .01, volumePct .025, rir .75) and the evidence
-     states of strengthEvidenceRecords (app.js:8664-8700): a second comparable
-     observation is required, every row must carry effort, and delta statuses
-     map improved→improved, flat→maintained, regressed→declined, with
-     changed_load and not_comparable reported as insufficient. */
+     Mirrors buildSessionDelta in app.js (Session outcome, CONTEXT.md), as
+     amended by the owner decision of 2026-09-25 on PR #264's questions: at
+     the same load total reps decide; when the load went up, best-set e1RM
+     decides at DELTA_THRESHOLDS.e1rmPct (a prescribed increase with the
+     expected rep drop reads flat); when the load went down it improves only
+     on more strength or more volume at similar effort, otherwise it is not
+     comparable. Evidence states follow strengthEvidenceRecords: a second
+     comparable observation is required, every row must carry effort, and
+     improved/flat/regressed map to improved/maintained/declined. */
   const DELTA = { e1rmPct: 0.01, volumePct: 0.025, rir: 0.75 };
   const e1rm = (load, reps) => load * (1 + reps / 30);
   function metrics(rows) {
@@ -414,12 +417,12 @@
     const loadDelta = b.topLoad - a.topLoad, repsDelta = b.totalReps - a.totalReps, volumeDelta = b.totalVolume - a.totalVolume,
       e1rmDelta = b.bestE1rm - a.bestE1rm, avgRirDelta = b.avgRir - a.avgRir;
     const d = { loadDelta, repsDelta, volumeDelta, e1rmDelta, avgRirDelta, prev: a, cur: b };
-    if (e1rmDelta > a.bestE1rm * DELTA.e1rmPct) return { status: "improved", d };
-    if (Math.abs(loadDelta) < 0.01 && repsDelta > 0) return { status: "improved", d };
-    if (volumeDelta > a.totalVolume * DELTA.volumePct && avgRirDelta <= DELTA.rir) return { status: "improved", d };
-    if (Math.abs(e1rmDelta) <= a.bestE1rm * DELTA.e1rmPct && repsDelta === 0 && Math.abs(volumeDelta) <= a.totalVolume * DELTA.volumePct) return { status: "flat", d };
-    if (e1rmDelta < 0 && repsDelta < 0) return { status: "regressed", d };
-    return { status: "changed_load", d };
+    const band = a.bestE1rm * DELTA.e1rmPct;
+    let status;
+    if (Math.abs(loadDelta) < 0.01) status = repsDelta > 0 ? "improved" : repsDelta < 0 ? "regressed" : "flat";
+    else if (loadDelta > 0) status = e1rmDelta > band ? "improved" : e1rmDelta < -band ? "regressed" : "flat";
+    else status = e1rmDelta > band || (volumeDelta > a.totalVolume * DELTA.volumePct && avgRirDelta <= DELTA.rir) ? "improved" : "changed_load";
+    return { status, d };
   }
   const hasEffort = (r) => r.rir != null && r.rir !== "" && Number.isFinite(Number(r.rir));
   function canonicalOutcome(k, iso) {
