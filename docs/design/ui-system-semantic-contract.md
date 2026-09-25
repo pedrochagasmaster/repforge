@@ -142,6 +142,23 @@ no contextual variant or facet, and have default, hover, pressed,
 focus-visible, and disabled states. Neither remains selected, and neither uses
 `aria-selected` or `aria-pressed`.
 
+### Import review mapping actions
+
+The ordinary `.improw__btn:not(.improw__btn--change):not([id])` controls choose
+the proposed exercise mapping or keep the imported exercise as-is. Their
+selection completes the row decision, after which these alternatives leave the
+row and the chosen target is rendered as row content. They are `selection`
+controls without a selected state, variant, or facet.
+
+`.improw__btn.improw__btn--change:not([id])` reopens the mapping alternatives
+for a settled row. It preserves the current decision, changes the row from its
+summary to its editing choices, and disappears when that view is rendered. It
+is `quiet-navigation`, with no variant, facet, or selected state. The active
+row already represents the current decision; neither role requires
+`aria-selected` or `aria-pressed` on these one-shot controls. The separate
+`.improw__more` disclosure remains responsible for expanding its options in
+place.
+
 ### Exercise-preference selection
 
 The two search-result buttons at `.entry__exercise-action:not([id])` belong

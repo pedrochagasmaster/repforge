@@ -1463,41 +1463,43 @@ body.is-sheet-open{overflow:hidden}
 /* A full view rather than a sheet: reviewing a twelve-exercise split is not a
    glance, and nothing is written until Import is pressed. */
 .impreview{padding:0 16px calc(28px + var(--nav) + env(safe-area-inset-bottom))}
-.impreview__file{margin:14px 0 0;font-size:13px;color:var(--ink-faint)}
-.impreview__head{margin:6px 0 4px;font-size:26px;font-weight:650;letter-spacing:-.01em}
-.impcounts{display:flex;gap:0;margin:16px 0 6px;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.impreview__file{margin:14px 0 0;color:var(--color-ink-secondary);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard)}
+.impreview__head{margin:6px 0 4px;color:var(--color-ink);font-family:var(--font-language);font-size:var(--font-size-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);letter-spacing:-.01em}
+.impcounts{display:flex;gap:0;margin:16px 0 6px;border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative)}
 .impcount{
   flex:1;display:flex;flex-direction:column;align-items:center;gap:2px;
-  padding:12px 4px;font-size:12px;color:var(--ink-soft);text-align:center;
+  padding:12px 4px;color:var(--color-ink-secondary);font-family:var(--font-language);
+  font-size:var(--font-size-caption);line-height:var(--line-standard);text-align:center;
 }
-.impcount+.impcount{border-left:1px solid var(--rule)}
-.impcount b{font-size:20px;font-weight:650;color:var(--accent-deep);font-family:var(--mono)}
+.impcount+.impcount{border-left:1px solid var(--boundary-decorative)}
+.impcount b{color:var(--color-ink);font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-semibold);font-variant-numeric:tabular-nums}
 .improw{
   display:grid;grid-template-columns:1fr auto auto 1.1fr;align-items:center;gap:8px;
-  padding:12px 0;border-bottom:1px solid var(--rule);
+  padding:12px 0;border-bottom:1px solid var(--boundary-decorative);
 }
-.improw__from{margin:0;font-size:14px;color:var(--ink)}
-.improw__arrow{color:var(--ink-faint);font-size:13px}
+.improw__from{margin:0;color:var(--color-ink);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading)}
+.improw__arrow{color:var(--color-ink-secondary);font-size:var(--font-size-caption)}
 .improw__to{min-width:0}
-.improw__name{margin:0;font-size:14px;font-weight:600;color:var(--ink)}
-.impbadge{display:inline-block;margin-top:4px;font-size:11px;font-weight:600}
-.impbadge.is-done{color:var(--ink-faint)}
-.impbadge.is-open{color:var(--accent-deep)}
+.improw__name{margin:0;color:var(--color-ink);font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);line-height:var(--line-reading);overflow-wrap:anywhere}
+.impbadge{display:inline-block;margin-top:4px;color:var(--color-ink-secondary);font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard)}
+.impbadge.is-done{color:var(--color-ink-secondary)}
+.impbadge.is-open{color:var(--color-action-text)}
 /* The actions belong to the row above them and wrap under it on a narrow
    screen rather than squeezing the two names into nothing. */
 .improw__acts{grid-column:1/-1;display:flex;flex-wrap:wrap;gap:8px;margin-top:6px}
 .improw__btn{
-  min-height:36px;padding:7px 12px;border:1px solid var(--rule-strong);border-radius:999px;
-  background:var(--surface);font:inherit;font-size:13px;color:var(--ink);cursor:pointer;
+  min-height:var(--control-target);min-width:0;padding:8px 12px;
+  border:1px solid var(--control-selection-boundary);border-radius:var(--radius-control);
+  background:var(--control-selection-bg);color:var(--control-selection-ink);
+  font-family:var(--font-language);font-size:var(--font-size-control);
+  font-weight:var(--weight-medium);line-height:var(--line-standard);cursor:pointer;
 }
 /* A settled row carries one quiet chip instead of three alternatives, so the
    screen you read before replacing a program is the list, not the controls. */
 .improw.is-folded{padding:10px 0}
-.improw__btn--change{border-color:var(--rule);color:var(--ink-soft)}
 .improw.is-open{background:transparent}
-.improw.is-open .improw__btn:first-child{border-color:var(--accent-deep);color:var(--accent-deep)}
-.impreview__safe{margin:20px 0 12px;text-align:center;font-size:13px;color:var(--ink-faint)}
-#importCommit[disabled]{opacity:.5;cursor:not-allowed}
+.impreview__safe{margin:20px 0 12px;text-align:center;color:var(--color-ink-secondary);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading)}
+#importCommit[disabled]{background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
 
 /* ---- Exercise picker sheet ---- */
 /* Search and filters sit outside .sheet__body so the list is the only thing
@@ -3286,19 +3288,19 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry__field--area{gap:8px}
 .entry__field--area textarea{
   font:inherit;font-weight:500;text-transform:none;letter-spacing:normal;
-  padding:12px 14px;border-radius:var(--radius);border:1px solid var(--rule);
-  background:var(--surface);color:var(--ink);font-size:1rem;line-height:1.45;
+  padding:12px 14px;border-radius:var(--radius-control);border:1px solid var(--control-field-boundary);
+  background:var(--control-field-bg);color:var(--control-field-ink);font-family:var(--font-language);
+  font-size:var(--font-size-control);line-height:var(--line-reading);
   resize:vertical;min-height:96px;width:100%;box-sizing:border-box
 }
 .entry__freeform-apps{display:flex;flex-wrap:wrap;gap:10px;margin:4px 0 0}
 .entry__freeform-app{flex:1 1 150px;text-decoration:none;text-align:center}
-.entry__freeform-app.is-disabled{opacity:.4}
+.entry__freeform-app.is-disabled{background:var(--control-secondary-bg);color:var(--color-disabled-reason);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed}
 /* The escape hatches sit behind one line so three candidates and a way out fit
    a 390px row without wrapping into a wall of buttons. */
 .improw__more{grid-column:1/-1;flex:1 0 100%;width:100%;min-width:0;margin:6px 0 0}
-.improw__more summary{cursor:pointer;color:var(--ink-soft);font-size:.8125rem;font-weight:600;padding:4px 0}
+.improw__more summary{min-height:var(--control-target);padding:10px 0;cursor:pointer;background:var(--control-disclosure-bg);color:var(--control-disclosure-ink);border-color:var(--control-disclosure-boundary);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)}
 .improw__more .improw__acts{margin-top:6px}
-.improw__btn--pick{font-weight:600}
 /* A quiet "or" between the clipboard route and the manual one. Both are real
    paths, so the divider separates them rather than demoting either. */
 .entry__divider{display:flex;align-items:center;gap:12px;margin:18px 0 12px;
@@ -3307,18 +3309,18 @@ input[aria-invalid="true"],[aria-invalid="true"]{outline:2px solid var(--accent-
 .entry__gaps-list{display:flex;flex-direction:column;gap:12px;margin:16px 0}
 /* The gap step tells the lifter which fields are highlighted, so they have to
    actually be highlighted; aria-invalid carries the same state to a reader. */
-.entry__field-input.is-invalid{border-color:var(--danger);box-shadow:0 0 0 2px rgba(var(--danger-rgb),.25)}
+.entry__field-input.is-invalid{border-color:var(--control-error-boundary);box-shadow:none}
 /* Coming back from the assistant marks the reply field rather than stealing
    focus or the keyboard. */
-.entry__field--area textarea.is-returned{border-color:var(--accent);box-shadow:0 0 0 3px rgba(var(--accent-rgb),.28);transition:box-shadow .25s ease,border-color .25s ease}
+.entry__field--area textarea.is-returned{border-color:var(--color-action);transition:border-color .25s ease}
 @media (prefers-reduced-motion:reduce){.entry__field--area textarea.is-returned{transition:none}}
-.entry__original-text{margin:16px 0;padding:8px 12px;border:1px solid var(--rule);border-radius:var(--radius);background:var(--surface)}
-.entry__original-text summary{cursor:pointer;font-weight:600;color:var(--ink-soft);font-size:.875rem}
-.entry__original-text pre{margin:10px 0 0;font:inherit;font-family:monospace;font-size:.8125rem;white-space:pre-wrap;word-break:break-word;color:var(--ink)}
-.entry__freeform-summary{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border:1px solid var(--rule);border-radius:var(--radius);background:var(--surface);margin-bottom:16px;font-size:.875rem;color:var(--ink-soft)}
-.entry__freeform-preview{margin:12px 0;font-size:.8125rem}
-.entry__freeform-preview summary{cursor:pointer;color:var(--ink-soft);font-weight:600}
-.entry__freeform-prompt-preview{margin:8px 0 0;padding:10px;background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);font-family:monospace;font-size:.75rem;white-space:pre-wrap;max-height:160px;overflow-y:auto}
+.entry__original-text{margin:16px 0;padding:8px 12px;border:1px solid var(--boundary-decorative);border-radius:var(--radius-surface);background:var(--color-surface)}
+.entry__original-text summary{min-height:var(--control-target);padding:10px 0;cursor:pointer;background:var(--control-disclosure-bg);color:var(--control-disclosure-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)}
+.entry__original-text pre{margin:10px 0 0;font:inherit;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);white-space:pre-wrap;word-break:break-word;color:var(--color-ink)}
+.entry__freeform-summary{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:10px 14px;border:1px solid var(--boundary-decorative);border-radius:var(--radius-surface);background:var(--color-surface);margin-bottom:16px;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+.entry__freeform-preview{margin:12px 0;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading)}
+.entry__freeform-preview summary{min-height:var(--control-target);padding:10px 0;cursor:pointer;background:var(--control-disclosure-bg);color:var(--control-disclosure-ink);font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)}
+.entry__freeform-prompt-preview{margin:8px 0 0;padding:10px;background:var(--color-surface);border:1px solid var(--boundary-decorative);border-radius:var(--radius-surface);color:var(--color-ink-secondary);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);white-space:pre-wrap;max-height:160px;overflow-y:auto}
 .entry__switch{margin:16px 0 0;display:flex;justify-content:center}
 .entry-body .entry__switch .btn--ghost{color:var(--ink-soft)}
 .radio-card.is-disabled,.radio-card:disabled{
@@ -4975,3 +4977,251 @@ body.is-entry-editor #entryProgramName,
   font-size:var(--font-size-label);font-weight:var(--weight-semibold);
   line-height:var(--line-standard)
 }
+
+/* Import follows the same frozen control roles as the other Plan 054 routes.
+   Its file review is outside #onbBody, so those owners are styled separately. */
+#onboarding:has(#onbBody.entry-route--import) :is(#onbCancel, #onbBack){
+  min-height:var(--control-target);border-color:var(--control-quiet-boundary);
+  border-radius:var(--radius-control);background:var(--control-quiet-bg);
+  color:var(--control-quiet-ink);font-family:var(--font-language);
+  font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)
+}
+#onboarding:has(#onbBody.entry-route--import) :is(#onbCancel, #onbBack):is(:hover:not(:disabled), :active:not(:disabled)){
+  background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
+}
+#onboarding:has(#onbBody.entry-route--import) :is(#onbCancel, #onbBack):active:not(:disabled){transform:var(--control-pressed-transform)}
+#onboarding:has(#onbBody.entry-route--import) :is(#onbCancel, #onbBack):focus-visible,
+#onbBody.entry-route--import :is(
+  #entryImportPick, #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
+  #entryFreeformSubmitGaps, #entryActivate, #entryEdit, #entryRestart,
+  #entryFreeformCopy, #entryFreeformCopyRepair, #entryFreeformEditSource,
+  #entryFreeformTryAnother, #entryFreeformBackToReply, #entryFreeformStartOver,
+  #entryFreeformSwitch, #entryFreeformFile, .btn.btn--steel:not(.btn--destructive):not([id]),
+  .entry__freeform-app:not([id]), .improw__btn, summary
+):focus-visible,
+#importReview :is(#importBack, #importReviewCancel, #importCommit, .improw__btn, summary):focus-visible{
+  outline:var(--control-focus-outline);outline-offset:2px
+}
+#onboarding:has(#onbBody.entry-route--import) :is(#onbCancel, #onbBack):disabled{
+  background:var(--control-quiet-bg);color:var(--color-disabled-reason);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+}
+
+#onbBody.entry-route--import :is(.onb__q, .entry__decision h3){
+  color:var(--color-ink);font-family:var(--font-language);font-size:var(--font-size-title);
+  font-weight:var(--weight-semibold);line-height:var(--line-tight)
+}
+#onbBody.entry-route--import .onb__explain{
+  color:var(--color-ink-secondary);font-family:var(--font-language);
+  font-size:var(--font-size-body);line-height:var(--line-reading)
+}
+#onbBody.entry-route--import :is(.entry__hint, .entry__pain, .entry__notice p){
+  color:var(--color-ink-secondary);font-family:var(--font-language);
+  font-size:var(--font-size-body-small);line-height:var(--line-reading)
+}
+#onbBody.entry-route--import .entry__group-lab,
+#onbBody.entry-route--import .entry__row-lab{
+  color:var(--color-action-text);font-family:var(--font-language);
+  font-size:var(--font-size-caption);font-weight:var(--weight-semibold);line-height:var(--line-standard)
+}
+#onbBody.entry-route--import :is(.entry__ident--boxed, .entry__metrics--boxed, .entry__notice, .entry__disclosure, .onb__day){
+  background:var(--color-surface);border-color:var(--boundary-decorative);border-radius:var(--radius-surface)
+}
+#onbBody.entry-route--import .entry__source{
+  color:var(--color-ink-secondary);font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard)
+}
+#onbBody.entry-route--import .entry__source span{
+  color:var(--color-ink-secondary);font-family:var(--font-language);font-size:var(--font-size-label)
+}
+#onbBody.entry-route--import .entry__metrics{
+  color:var(--color-ink);font-family:var(--font-training-data);font-size:var(--font-size-body-small);
+  line-height:var(--line-standard);font-variant-numeric:tabular-nums
+}
+#onbBody.entry-route--import :is(.entry__metrics--boxed, .entry__metrics--boxed .entry__metric, .entry__rows, .entry__row){
+  border-color:var(--boundary-decorative)
+}
+#onbBody.entry-route--import :is(.entry__row-ico, .entry__metrics--boxed .entry__metric .icon-mask){color:var(--color-action)}
+#onbBody.entry-route--import .entry__active{
+  background:var(--color-surface);border-color:var(--boundary-decorative);border-radius:var(--radius-surface);
+  color:var(--color-ink-secondary);font-family:var(--font-language);
+  font-size:var(--font-size-body-small);line-height:var(--line-reading)
+}
+#onbBody.entry-route--import #onbStepLabel{
+  color:var(--color-ink-secondary);font-family:var(--font-language);
+  font-size:var(--font-size-label);line-height:var(--line-standard)
+}
+#onbBody.entry-route--import #onbSegbar .segbar__seg{background:var(--boundary-required)}
+#onbBody.entry-route--import #onbSegbar .segbar__seg.is-done,
+#onbBody.entry-route--import #onbSegbar .segbar__seg.is-current{background:var(--color-action-text)}
+#onbBody.entry-route--import .entry__notice[role="alert"]{border-left-color:var(--color-destructive)}
+#onbBody.entry-route--import .entry__notice--warn{border-left-color:var(--color-warning)}
+#onbBody.entry-route--import .entry__notice[role="alert"]>strong{color:var(--color-destructive)}
+#onbBody.entry-route--import .entry__notice--warn>strong::before{color:var(--color-warning)}
+
+#onbBody.entry-route--import :is(
+  #entryImportPick, #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
+  #entryFreeformSubmitGaps, #entryActivate
+){
+  border-radius:var(--radius-control);background:var(--control-primary-bg);
+  color:var(--control-primary-ink);border-color:var(--control-primary-boundary);
+  font-family:var(--font-language);font-size:var(--font-size-control);
+  font-weight:var(--weight-medium);line-height:var(--line-standard)
+}
+#onbBody.entry-route--import :is(
+  #entryImportPick, #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
+  #entryFreeformSubmitGaps, #entryActivate
+):hover:not(:disabled){
+  background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary)
+}
+#onbBody.entry-route--import :is(
+  #entryImportPick, #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
+  #entryFreeformSubmitGaps, #entryActivate
+):active:not(:disabled){
+  background:var(--control-primary-bg);color:var(--control-primary-ink);
+  border-color:var(--control-primary-boundary);transform:var(--control-pressed-transform)
+}
+#onbBody.entry-route--import :is(
+  #entryImportPick, #entryFreeformContinue, #entryFreeformClipboard, #entryFreeformReview,
+  #entryFreeformSubmitGaps, #entryActivate
+):disabled{
+  background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+}
+#importCommit{
+  border-radius:var(--radius-control);background:var(--control-primary-bg);
+  color:var(--control-primary-ink);border-color:var(--control-primary-boundary);
+  font-family:var(--font-language);font-size:var(--font-size-control);
+  font-weight:var(--weight-medium);line-height:var(--line-standard)
+}
+#importCommit:hover:not(:disabled){background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary)}
+#importCommit:active:not(:disabled){background:var(--control-primary-bg);color:var(--control-primary-ink);border-color:var(--control-primary-boundary);transform:var(--control-pressed-transform)}
+#importCommit:focus-visible,#importBack:focus-visible,#importReviewCancel:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#importCommit:disabled{background:var(--control-primary-disabled-bg);color:var(--control-primary-disabled-ink);border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none}
+
+#onbBody.entry-route--import :is(
+  #entryEdit, #entryFreeformCopy, #entryFreeformCopyRepair, #entryFreeformEditSource,
+  #entryFreeformTryAnother, .btn.btn--steel:not(.btn--destructive):not([id]), .entry__freeform-app:not([id])
+){
+  min-height:var(--control-target);border:1px solid var(--control-secondary-boundary);
+  border-radius:var(--radius-control);background:var(--control-secondary-bg);color:var(--control-secondary-ink);
+  font-family:var(--font-language);font-size:var(--font-size-control);
+  font-weight:var(--weight-medium);line-height:var(--line-standard)
+}
+#onbBody.entry-route--import :is(
+  #entryEdit, #entryFreeformCopy, #entryFreeformCopyRepair, #entryFreeformEditSource,
+  #entryFreeformTryAnother, .btn.btn--steel:not(.btn--destructive):not([id]), .entry__freeform-app:not([id])
+):is(:hover:not(:disabled), :active:not(:disabled)){
+  background:var(--well);color:var(--control-secondary-ink);border-color:var(--control-secondary-boundary)
+}
+#onbBody.entry-route--import :is(
+  #entryEdit, #entryFreeformCopy, #entryFreeformCopyRepair, #entryFreeformEditSource,
+  #entryFreeformTryAnother, .btn.btn--steel:not(.btn--destructive):not([id]), .entry__freeform-app:not([id])
+):active:not(:disabled){transform:var(--control-pressed-transform)}
+#onbBody.entry-route--import :is(
+  #entryEdit, #entryFreeformCopy, #entryFreeformCopyRepair, #entryFreeformEditSource,
+  #entryFreeformTryAnother, .btn.btn--steel:not(.btn--destructive):not([id]), .entry__freeform-app:not([id])
+):disabled{
+  background:var(--control-secondary-bg);color:var(--color-disabled-reason);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+}
+#onbBody.entry-route--import .entry__freeform-app:is(.is-disabled, [aria-disabled="true"]),
+#onbBody.entry-route--import .entry__freeform-app:is(.is-disabled, [aria-disabled="true"]):is(:hover, :active){
+  background:var(--control-secondary-bg);color:var(--color-disabled-reason);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+}
+
+#onbBody.entry-route--import :is(#entryFreeformSwitch, #entryFreeformFile, #entryFreeformBackToReply),
+#importBack,#importReviewCancel{
+  min-height:var(--control-target);border-color:var(--control-quiet-boundary);
+  border-radius:var(--radius-control);background:var(--control-quiet-bg);color:var(--control-quiet-ink);
+  font-family:var(--font-language);font-size:var(--font-size-control);
+  font-weight:var(--weight-medium);line-height:var(--line-standard)
+}
+#onbBody.entry-route--import :is(#entryFreeformSwitch, #entryFreeformFile, #entryFreeformBackToReply):is(:hover:not(:disabled), :active:not(:disabled)),
+#importBack:is(:hover:not(:disabled), :active:not(:disabled)),
+#importReviewCancel:is(:hover:not(:disabled), :active:not(:disabled)){
+  background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
+}
+#onbBody.entry-route--import :is(#entryFreeformSwitch, #entryFreeformFile, #entryFreeformBackToReply):active:not(:disabled),
+#importBack:active:not(:disabled),#importReviewCancel:active:not(:disabled){transform:var(--control-pressed-transform)}
+#onbBody.entry-route--import :is(#entryFreeformSwitch, #entryFreeformFile, #entryFreeformBackToReply):disabled,
+#importBack:disabled,#importReviewCancel:disabled{
+  background:var(--control-quiet-bg);color:var(--color-disabled-reason);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+}
+#onbBody.entry-route--import #entryFreeformStartOver,
+#onbBody.entry-route--import #entryRestart{
+  min-height:var(--control-target);border:1px solid var(--control-destructive-boundary);
+  border-radius:var(--radius-control);background:var(--control-destructive-bg);color:var(--control-destructive-ink);
+  font-family:var(--font-language);font-size:var(--font-size-control);
+  font-weight:var(--weight-medium);line-height:var(--line-standard)
+}
+#onbBody.entry-route--import :is(#entryFreeformStartOver, #entryRestart):is(:hover:not(:disabled), :active:not(:disabled)){
+  background:var(--well);color:var(--control-destructive-ink);border-color:var(--control-destructive-boundary)
+}
+#onbBody.entry-route--import :is(#entryFreeformStartOver, #entryRestart):active:not(:disabled){transform:var(--control-pressed-transform)}
+#onbBody.entry-route--import :is(#entryFreeformStartOver, #entryRestart):disabled{
+  background:var(--control-destructive-bg);color:var(--color-disabled-reason);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+}
+
+#importRows .improw__btn:not(.improw__btn--change):not([id]):is(:hover:not(:disabled), :active:not(:disabled)){
+  background:var(--well);color:var(--control-selection-ink);border-color:var(--control-selection-boundary)
+}
+#importRows .improw__btn:not(.improw__btn--change):not([id]):active:not(:disabled){transform:var(--control-pressed-transform)}
+#importRows .improw__btn:not(.improw__btn--change):not([id]):disabled{
+  background:var(--control-selection-bg);color:var(--color-disabled-reason);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+}
+#importRows .improw__btn.improw__btn--change:not([id]){
+  min-height:var(--control-target);border-color:var(--control-quiet-boundary);border-radius:var(--radius-control);
+  background:var(--control-quiet-bg);color:var(--control-quiet-ink);
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)
+}
+#importRows .improw__btn.improw__btn--change:not([id]):is(:hover:not(:disabled), :active:not(:disabled)){
+  background:var(--well);color:var(--control-quiet-ink);border-color:var(--control-quiet-boundary)
+}
+#importRows .improw__btn.improw__btn--change:not([id]):active:not(:disabled){transform:var(--control-pressed-transform)}
+#importRows .improw__btn.improw__btn--change:not([id]):disabled{
+  background:var(--control-quiet-bg);color:var(--color-disabled-reason);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed;transform:none
+}
+#onbBody.entry-route--import :is(#entryFreeformIn, #entryFreeformOut){
+  border:1px solid var(--control-field-boundary);border-radius:var(--radius-control);
+  background:var(--control-field-bg);color:var(--control-field-ink);
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);
+  line-height:var(--line-reading)
+}
+#onbBody.entry-route--import .entry__field-input:not([id]){
+  min-height:var(--control-target);width:100%;padding:8px 14px;
+  border:1px solid var(--control-field-boundary);border-radius:var(--radius-control);
+  background:var(--control-field-bg);color:var(--control-field-ink);
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard)
+}
+#onbBody.entry-route--import :is(#entryFreeformIn, #entryFreeformOut, .entry__field-input:not([id])):hover:not(:disabled),
+#onbBody.entry-route--import :is(#entryFreeformIn, #entryFreeformOut, .entry__field-input:not([id])):active:not(:disabled){
+  background:var(--control-field-bg);color:var(--control-field-ink);border-color:var(--control-field-boundary)
+}
+#onbBody.entry-route--import :is(#entryFreeformIn, #entryFreeformOut, .entry__field-input:not([id])):is([aria-invalid="true"], .is-invalid){
+  border-color:var(--control-error-boundary);box-shadow:none
+}
+#onbBody.entry-route--import :is(#entryFreeformIn, #entryFreeformOut, .entry__field-input:not([id])):disabled{
+  background:var(--control-field-bg);color:var(--color-disabled-reason);
+  border-color:var(--boundary-decorative);opacity:1;cursor:not-allowed
+}
+#onbBody.entry-route--import :is(.entry__freeform-preview, .entry__original-text)>summary,
+#importReview :is(.entry__freeform-preview, .entry__original-text, .improw__more)>summary{
+  min-height:var(--control-target);padding:10px 0;cursor:pointer;
+  border-color:var(--control-disclosure-boundary);border-radius:var(--radius-control);
+  background:var(--control-disclosure-bg);color:var(--control-disclosure-ink);
+  font-family:var(--font-language);font-size:var(--font-size-control);
+  font-weight:var(--weight-medium);line-height:var(--line-standard)
+}
+#onbBody.entry-route--import :is(.entry__freeform-preview, .entry__original-text)>summary:hover,
+#importReview :is(.entry__freeform-preview, .entry__original-text, .improw__more)>summary:hover{background:var(--well);color:var(--control-disclosure-ink)}
+#onbBody.entry-route--import :is(.entry__freeform-preview, .entry__original-text)>summary:active,
+#importReview :is(.entry__freeform-preview, .entry__original-text, .improw__more)>summary:active{
+  background:var(--well);color:var(--control-disclosure-ink);transform:var(--control-pressed-transform)
+}
+#onbBody.entry-route--import :is(.entry__freeform-preview, .entry__original-text)[open]>summary,
+#importReview :is(.entry__freeform-preview, .entry__original-text, .improw__more)[open]>summary{border-bottom-color:var(--boundary-decorative)}

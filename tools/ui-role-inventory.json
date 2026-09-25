@@ -201,7 +201,7 @@
     "onboarding-import/review": {
       "owner": "plan-054",
       "content": "flat",
-      "scenario": "Reviewing candidate matches: collapsed candidate chips, disclosure expanded, and unmatched flat escape hatches."
+      "scenario": "Reviewing candidate matches: a settled row with Change, candidate chips, an expanded disclosure, and unmatched escape hatches."
     },
     "onboarding-import/preview": {
       "owner": "plan-054",
@@ -5109,10 +5109,7 @@
       "rationale": "Transient feedback overlays content without blocking it.",
       "owner": "plan-058",
       "catalogStates": [
-        "onboarding-import/freeform-gaps",
-        "onboarding-import/freeform-gaps-invalid",
-        "onboarding-import/freeform-stage3",
-        "onboarding-import/freeform-unreadable"
+        "onboarding-import/freeform-stage3"
       ]
     },
     {
@@ -6198,7 +6195,7 @@
     },
     {
       "id": "improw-btn-not-id",
-      "selector": ".improw__btn:not([id])",
+      "selector": ".improw__btn:not(.improw__btn--change):not([id])",
       "roles": {
         "control": "selection"
       },
@@ -6209,10 +6206,30 @@
         "hover",
         "pressed",
         "focus-visible",
-        "selected",
         "disabled"
       ],
-      "rationale": "Changes a chosen value, active option, or reversible status.",
+      "rationale": "Chooses a proposed import mapping or how to keep the exercise. Once chosen, the alternatives leave the row and the resulting mapping is shown as row content.",
+      "owner": "plan-058",
+      "catalogStates": [
+        "onboarding-import/review"
+      ]
+    },
+    {
+      "id": "improw-btn-change-not-id",
+      "selector": ".improw__btn.improw__btn--change:not([id])",
+      "roles": {
+        "control": "quiet-navigation"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Reopens a settled import row's mapping choices without changing its current decision; the active row then replaces this button.",
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-import/review"

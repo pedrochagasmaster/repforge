@@ -144,6 +144,49 @@ asymmetricImportModeSwitch.components.find((item) => item.selector === "#entryFr
 assert.ok(importModeSwitchContractErrors(asymmetricImportModeSwitch).some((error) => error.includes("#entryFreeformSwitch")),
   "the File and Freeform subview switches cannot drift to different control roles");
 
+const importReviewSelectionSelector = ".improw__btn:not(.improw__btn--change):not([id])";
+const importReviewChangeSelector = ".improw__btn.improw__btn--change:not([id])";
+const importReviewStates = ["default", "hover", "pressed", "focus-visible", "disabled"];
+const importReviewCatalog = ["onboarding-import/review"];
+function importReviewActionContractErrors(candidate) {
+  const errors = [];
+  const expected = [
+    [importReviewSelectionSelector, "selection"],
+    [importReviewChangeSelector, "quiet-navigation"],
+  ];
+  for (const [selector, role] of expected) {
+    const members = candidate.components.filter((item) => item.selector === selector);
+    const item = members[0];
+    if (members.length !== 1 || item.roles.control !== role || item.variant !== null || item.facets.length !== 0 ||
+        JSON.stringify(item.states) !== JSON.stringify(importReviewStates) ||
+        JSON.stringify(item.catalogStates) !== JSON.stringify(importReviewCatalog)) {
+      errors.push(`${selector} must use the exact Import review ${role} contract without selected state`);
+    }
+  }
+  if (candidate.components.some((item) => item.selector === ".improw__btn:not([id])")) {
+    errors.push("Import review mapping and Change actions must have separate non-overlapping owners");
+  }
+  return errors;
+}
+assert.deepEqual(importReviewActionContractErrors(inventory), [],
+  "Import review mapping choices and Change have distinct, unselected semantic owners");
+const selectedImportReviewAction = structuredClone(inventory);
+selectedImportReviewAction.components.find((item) => item.selector === importReviewSelectionSelector).states.push("selected");
+assert.ok(importReviewActionContractErrors(selectedImportReviewAction).length,
+  "a mapping action cannot retain a selected state after its alternatives leave the row");
+const selectedImportReviewChange = structuredClone(inventory);
+selectedImportReviewChange.components.find((item) => item.selector === importReviewChangeSelector).states.push("selected");
+assert.ok(importReviewActionContractErrors(selectedImportReviewChange).length,
+  "Change cannot claim a selected state when it is only a temporary route back to editing");
+const wrongImportReviewChange = structuredClone(inventory);
+wrongImportReviewChange.components.find((item) => item.selector === importReviewChangeSelector).roles.control = "selection";
+assert.ok(importReviewActionContractErrors(wrongImportReviewChange).length,
+  "Change cannot share the mapping actions' selection role");
+const asymmetricImportReview = structuredClone(inventory);
+asymmetricImportReview.components.find((item) => item.selector === importReviewSelectionSelector).roles.control = "quiet-navigation";
+assert.ok(importReviewActionContractErrors(asymmetricImportReview).length,
+  "mapping choices cannot drift to the Change action's navigation role");
+
 const preferenceSelector = ".entry__exercise-action:not([id])";
 const preferenceCatalog = ["onboarding-custom/exercise-preferences"];
 function preferenceContractErrors(candidate) {
