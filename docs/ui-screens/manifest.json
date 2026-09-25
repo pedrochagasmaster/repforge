@@ -504,28 +504,28 @@
       "flow": "onboarding-browse",
       "label": "Browse 1 — real week",
       "scenario": "Days per week and session length, the only questions Browse asks.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "environment",
       "flow": "onboarding-browse",
       "label": "Browse 2 — environment",
       "scenario": "Environment shortcuts before the catalogue is filtered.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "catalogue",
       "flow": "onboarding-browse",
       "label": "Browse — catalogue",
       "scenario": "Released, complete, tested programs with purpose, frequency and mismatches.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "preview",
       "flow": "onboarding-browse",
       "label": "Browse — review",
       "scenario": "The common review surface for a catalogue program.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "setup",
