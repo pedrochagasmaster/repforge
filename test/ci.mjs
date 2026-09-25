@@ -103,7 +103,7 @@ test("affected selection is narrow when proven and fail-safe when it is not", ()
   assert.ok(runner.entries.length < Object.values(SUITES).flat().length);
   const telemetry = selectAffected(["telemetry.js"]);
   assert.deepEqual([...new Set(telemetry.entries.map(({ lane }) => lane))].sort(), ["fast", "privacy"]);
-  const historyImportFiles = ["test/history-import-matching.mjs", "test/history-import-unit.mjs"];
+  const historyImportFiles = ["test/history-import-fingerprint.mjs", "test/history-import-matching.mjs", "test/history-import-unit.mjs"];
   for (const plan of [selectAffected(["history-import.js"]), selectEdit(["history-import.js"]), selectPacket(["history-import.js"])]) {
     assert.deepEqual(plan.entries.map(({ suite }) => suite.file).sort(), historyImportFiles);
   }

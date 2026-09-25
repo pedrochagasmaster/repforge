@@ -135,12 +135,12 @@ function addEntries(target, additions) {
 const EXPLICIT_INPUT_RULES = [
   {
     match: /^history-import\.js$/,
-    suiteFiles: ["test/history-import-unit.mjs", "test/history-import-matching.mjs"],
+    suiteFiles: ["test/history-import-unit.mjs", "test/history-import-fingerprint.mjs", "test/history-import-matching.mjs"],
     why: "historical source normalization and shipped matcher contract",
   },
   {
     match: /^test\/fixtures\/history-import\//,
-    suiteFiles: ["test/history-import-unit.mjs", "test/history-import-matching.mjs"],
+    suiteFiles: ["test/history-import-unit.mjs", "test/history-import-fingerprint.mjs", "test/history-import-matching.mjs"],
     why: "synthetic historical-import source fixtures",
   },
   {

@@ -1,44 +1,28 @@
 # Plan 063: historical migration foundation
 
 - **Plan number:** 063
-- **Phase:** Post-overhaul adoption; additive foundation may proceed before the overhaul closes
-- **Status:** Foundation implementation in progress; plan committed before production code
+- **Phase:** Post-overhaul adoption; draft branch work only until the Plan 059 boundary clears
+- **Status:** Draft proposal pipeline on PR #258; provider format evidence and Advisor 027 spike remain open
 - **Base inspected:** `origin/main` at `78492da2`
-- **Depends on:** Plan 061; current performed-identity and durable-state contracts
+- **Depends on:** Advisor Plan 027 specification spike, Plan 061, and current performed-identity and durable-state contracts
 - **Blocks:** Final History import UI and durable commit integration until Plans 058 and 059 settle their public-surface and release contracts
 - **Objective:** Parse Hevy, Strong, and generic CSV workout histories into an immutable, validated import proposal without adding parsing or identity rules to the History UI
 - **Product behavior in this plan:** No production UI and no durable History writes
 - **Risk:** High for identity, date, unit, and duplicate mistakes; low durable-data risk while the plan stops before commit
 
-## Why this foundation can proceed now
+## Authority and sequence
 
-Historical migration is first in the backlog's post-overhaul queue. Plan 057 has
-merged in PR #248, but Plans 058 and 059 still own system-wide presentation and
-release validation. The importer can define and prove source semantics without
-depending on either unfinished surface.
+[Advisor Plan 027](../advisor-plans/027-competitor-history-import-spike.md) is the prerequisite specification spike named by the canonical [backlog](../docs/backlog.md). This implementation plan is derived work on an existing draft PR. It neither replaces nor completes Advisor 027. Its production parser was written before the spike's required current provider exports were obtained. That sequencing defect remains open; the branch must not merge as a completed foundation until the spike evidence exists and the owner schedules implementation under the post-overhaul queue.
 
-This plan builds the source-to-proposal pipeline. It does not add an import
-button, a temporary production flow, or a second History store. The final
-History handoff and the durable commit adapter wait until the overhaul's
-History and release contracts have settled.
+Plans 058 and 059 still own presentation and launch validation. Draft branch work does not change the backlog's activation gate. This PR adds no import button, production flow, or durable History write. See [the history import design record](../docs/design/history-import.md) for the provider STOP status and proposed mapping.
 
-## Source evidence and supported files
+## Source evidence and parser claims
 
-Official Hevy and Strong help pages confirm workout CSV export but do not
-publish complete headers. The [Hevy export guide](https://help.hevyapp.com/hc/en-us/articles/43708290987415-Exporting-Your-Data-from-Hevy)
-documents export availability. The [Strong export guide](https://help.strongapp.io/article/235-export-workout-data)
-documents CSV export. The Hevy set-level header below is corroborated by a
-[July 2026 export-format report](https://thetaperapp.com/articles/how-to-export-hevy-data/)
-and a [user-posted sample](https://www.reddit.com/r/Hevy/comments/1nximdf/follow_up_on_asking_for_random_users_hevy_export/).
-Strong's supported field families are corroborated by a [reported Strong 6.2.4
-export](https://kinoku.app/compare/kinoku-vs-strong) and [older export
-samples](https://www.reddit.com/r/strongapp/comments/mww3xm). Fixtures in this
-repository are constructed and contain no private workout data.
+The [Hevy export guide](https://help.hevyapp.com/hc/en-us/articles/43708290987415-Exporting-Your-Data-from-Hevy) and [Strong export guide](https://help.strongapp.io/article/235-export-workout-data) confirm CSV export, but neither publishes a current complete header or representative rows. No clean test-account export is available to this branch. `test/fixtures/history-import/hevy.csv` and `strong.csv` are synthetic compatibility fixtures. They do not prove current provider format support. Advisor 027's provider-specific STOP condition applies to **both Hevy and Strong**. The parser code stays for review; no provider-specific support or acceptance claim is made.
 
-The implementation accepts only the schemas below and their named header
-aliases. It does not infer a schema from a filename. Unknown or ambiguous
-headers fail before a proposal is created. The source and fixture evidence is
-recorded here so a future export change can add a reviewed schema version.
+The bounded generic CSV grammar is a Taurifer-defined input contract. Unknown vendor columns still fail closed. Whether a verified provider schema uses an exact allowlist or explicitly safe ignored extensions remains **PENDING — current export evidence**. See [the design record](../docs/design/history-import.md).
+
+The following Hevy and Strong schemas describe only what the draft parser currently recognizes. Their headings are not assertions about current exports.
 
 The parser accepts files up to 25 MiB, at most 200,000 non-empty data rows, and
 at most 16,384 characters in one cell. Crossing any limit rejects the whole
@@ -46,7 +30,7 @@ file before reconciliation. It never truncates a field.
 
 ### Hevy CSV
 
-Accept the current set-level header family:
+Draft parser recognizes this unverified set-level header family:
 
 ```text
 title,start_time,end_time,description,exercise_title,superset_id,exercise_notes,set_index,set_type,weight_lbs,reps,distance_miles,duration_seconds,rpe
@@ -422,3 +406,7 @@ Before requesting review, try to falsify each point:
 | Final History entry point and reconciliation/preview UI | Deferred until Plan 058 settles the design-system contracts; build on Plan 057's merged History behavior and meet Plan 059's release gate |
 | Durable History commit, imported metadata validator/backup round-trip, atomic retry, rollback/recovery evidence, and progression eligibility integration | Deferred until the post-overhaul History contract is final |
 | Additional vendor formats, arbitrary column mapping, measurements, bodyweight history, and duration/distance-only activities | Out of scope |
+
+## Acceptance and unresolved gates
+
+The [history import evidence and mapping record](../docs/design/history-import.md) contains the producer-to-consumer acceptance contract, deliberate failures, provider STOP status, and the hard gates for durable integration. The current draft proposal is not an accepted provider import feature.

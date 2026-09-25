@@ -54,11 +54,11 @@ export const LOOSE = [
     was: "sqc_sm won a three-way tie at 0.50; sq_sm is the plainer reading" },
 ];
 
-// Vocabulary found while shaping the history-migration adapters. The Hevy
-// spelling is reported by the linked set-level export sample; PT labels reuse
-// the reviewed Plan 061 corpus. Machine-specific wording remains review-only.
+// Migration vocabulary is checked through the Plan 061 matcher. Hevy's own
+// exercise page names "Bench Press (Barbell)"; this does not prove a CSV header.
+// PT labels reuse the reviewed Plan 061 corpus. Machine wording remains review-only.
 export const MIGRATION = [
-  { input: "Bench Press (Barbell)", id: "pr_bb", status: "alias", source: "Hevy CSV" },
+  { input: "Bench Press (Barbell)", id: "pr_bb", status: "alias", source: "https://www.hevyapp.com/exercises/how-to-bench-press-barbell/" },
   { input: "Cadeira flexora", id: "lc_mc", status: "alias", source: "generic Portuguese CSV" },
   { input: "Abdução em pé no cabo", id: "ha_cb", status: "alias", source: "generic Portuguese CSV" },
   { input: "RDL", id: "hg_bb", status: "alias", source: "generic CSV" },

@@ -15,6 +15,7 @@ export const SUITES = {
     s("test/generative/self-test.mjs", [], {"nodeArgs": ["--test"]}),
     s("test/shared-setup-unit.mjs"),
     s("test/history-import-unit.mjs", [], { domains: ["history"] }),
+    s("test/history-import-fingerprint.mjs", [], { domains: ["history"] }),
     s("test/program-day-names.mjs"),
     s("test/program-entry-fixture-services.mjs"),
     s("test/program-transition.mjs"),

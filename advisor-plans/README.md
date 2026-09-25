@@ -56,7 +56,7 @@ Ordered by backlog status, then by the order the owner set within it.
 | [020](020-shared-setup-url-parse-hardening.md) | Setup-link URL helpers fail closed | Later (Q613) | S | — | TODO |
 | [014](014-bump-vendor-build-esbuild.md) | Bump the build-time esbuild pin with equivalence evidence | Later (Q613) | S | — | TODO |
 | [026](026-publisher-attribution-spike.md) | Spike: versioning path and size cost for publisher attribution | Later: first step of "Publisher attribution" (Q615) | S–M | creator pilots scheduled | TODO |
-| [027](027-competitor-history-import-spike.md) | Spike: Hevy/Strong CSV history-import mapping and match rates | Next (post-overhaul): spec for §2 item 1 "Historical migration foundation" (PR #249, Q615) | M | overhaul launch boundary | TODO |
+| [027](027-competitor-history-import-spike.md) | Spike: Hevy/Strong CSV history-import mapping and match rates | Next (post-overhaul): spec for §2 item 1 "Historical migration foundation" (PR #249, Q615) | M | overhaul launch boundary and current test-account exports | BLOCKED: current Hevy/Strong formats unverified; PR #258 remains draft |
 | [013](013-dedupe-durable-state-validators.md) | Delegate duplicated validators; pin the `isPlainStateObject` divergence | Folded into Plan 058 (Q613) | S | Plan 058 | FOLDED → 058 |
 | [019](019-remove-dead-app-functions.md) | Remove 13 unreferenced `app.js` functions | Folded into Plan 058 (Q613) | S | Plan 058 | FOLDED → 058 |
 | [010](010-ci-playwright-browser-cache.md) | Measure, then maybe cache, the CI Chromium download | Evidence only (Q608) | S | trigger: lanes near timeout | PARKED |

@@ -59,7 +59,7 @@ not grant merge authority for the next plan.
 
 | Plan | State | Meaning |
 |---|---|---|
-| [063](./063-history-migration-foundation.md) | **OWNER-AUTHORIZED — FOUNDATION IN PROGRESS** | Build the non-UI Hevy, Strong, and generic CSV pipeline through immutable validated proposals. Final History UI waits for Plan 058; durable import waits for a reviewed integration plan. |
+| [063](./063-history-migration-foundation.md) | **DRAFT — POST-OVERHAUL; ADVISOR 027 OPEN** | PR #258 contains a proposal pipeline for review. Current Hevy and Strong export evidence is missing. No merge exception or owner build authorization is recorded; durable import and History UI remain pending. |
 | [062](./062-ci-agent-feedback-loop.md) | **PROPOSED** | Refactors CI and local verification around explicit edit, packet and candidate loops so coding agents get fast targeted feedback while final persistence, race, privacy, offline, accessibility, generative and visual gates remain strict. |
 | [061](./061-import-exercise-matching.md) | **IMPLEMENTED IN PR #230** | Fixes shared import exercise matching: stopword/equipment/containment scoring, up to three candidates per review row, curated aliases via the curation file, gated on a two-tier fixture corpus. Independent of Plan 060 and of PR #225. |
 | [060](./060-free-form-import-grilling-reconciliation.md) | **IMPLEMENTED ACROSS PRS #225/#230** | Reconciles two independent grilling sessions on the PR #225 free-form import hand-off into one executable contract. Amends ADR 0014 on persistence and telemetry enumerations. Independent of Plans 049–059; do not sequence it into their DAG. |
