@@ -16,6 +16,13 @@
   const MuscleDomain = root?.RepForgeProgramEntry ||
     (typeof require === "function" ? require("./program-entry.js") : null);
   const MAX_MUSCLE_ATTRIBUTION = MuscleDomain?.MUSCLE_ATTRIBUTION_MAX_LENGTH || 500;
+  // Optional session provenance (one-off spec §11). A draft without
+  // `sessionContext` is a normal planned session, exactly as before. A draft
+  // with one is valid only where the session-intent domain is present to
+  // validate it; without it the draft fails closed as invalid rather than
+  // being executed or saved as planned work.
+  const SessionIntent = root?.RepForgeSessionIntent ||
+    (typeof require === "function" ? require("./session-intent.js") : null);
 
   function isCanonicalMuscleAttribution(value) {
     return MuscleDomain?.isCanonicalMuscleAttribution?.(value) === true;
@@ -324,7 +331,27 @@
       validateExercise(value.exercises[exerciseId], exerciseId, `exercises.${exerciseId}`, issues);
     });
     if (value.session?.selectedExerciseId != null && !unique.has(value.session.selectedExerciseId)) issues.push("session.selectedExerciseId:unknown");
+    if (hasOwn(value, "sessionContext")) sessionContextIssues(value, issues);
     return issues;
+  }
+
+  function sessionContextIssues(value, issues) {
+    if (!SessionIntent) {
+      issues.push("sessionContext:unsupported");
+      return;
+    }
+    const normalized = SessionIntent.normalizeContext(value.sessionContext);
+    if (!normalized.ok) {
+      issues.push(...normalized.issues.map((issue) => `sessionContext.${issue}`));
+      return;
+    }
+    // Stored contexts are always the canonical normalized value, so a
+    // hand-edited or partially migrated context cannot smuggle extra meaning.
+    if (JSON.stringify(normalized.context) !== JSON.stringify(value.sessionContext)) {
+      issues.push("sessionContext:canonical");
+      return;
+    }
+    issues.push(...SessionIntent.draftIssues(normalized.context, value));
   }
 
   function validate(value) {
@@ -422,6 +449,22 @@
         setOrder,
         sets,
       };
+      if (source.substitution != null) {
+        // A session-only substitution accepted before start (an adapted or
+        // one-off plan) uses the same original/replacement semantics as a
+        // mid-session substitution, so it stays restorable and History keeps
+        // both the prescribed and the performed identity.
+        const replacementIssues = [];
+        validateMovementSnapshot(source.substitution, "substitution", replacementIssues);
+        if (replacementIssues.length || source.substitution.exerciseInstanceId !== exerciseInstanceId) {
+          return error("invalid-create-substitution", { exerciseInstanceId });
+        }
+        exercise.substitution = {
+          original: snapshotFromExercise(exercise),
+          replacement: jsonClone(source.substitution),
+          selectedAt: sessionSelection.startedAt,
+        };
+      }
       exerciseOrder.push(exerciseInstanceId);
       exercises[exerciseInstanceId] = exercise;
     }
@@ -458,6 +501,12 @@
       exercises,
     };
     if (hasOwn(programContext, "blockId")) draft.program.blockId = programContext.blockId;
+    if (hasOwn(programContext, "sessionContext")) {
+      if (!SessionIntent) return error("session-context-unsupported");
+      const normalized = SessionIntent.normalizeContext(programContext.sessionContext);
+      if (!normalized.ok) return error("invalid-session-context", { issues: normalized.issues });
+      draft.sessionContext = jsonClone(normalized.context);
+    }
     const checked = validate(draft);
     return checked.ok ? deepFreeze(draft) : error("invalid-created-draft", { issues: checked.issues });
   }
@@ -470,6 +519,9 @@
 
   function contextMismatch(draft, context) {
     if (!isPlainObject(context)) return null;
+    // A pure one-off keeps its accepted snapshot when the program changes
+    // (spec §13); it was never bound to a program day.
+    if (hasOwn(draft, "sessionContext") && !SessionIntent.bindsToProgram(draft.sessionContext)) return null;
     const fields = ["programId", "programFingerprint", "durableRevision", "dayId", "blockId"];
     for (const field of fields) {
       if (hasOwn(context, field) && context[field] !== draft.program[field]) return field;
@@ -923,6 +975,7 @@
         if (set.role === "warmup") row.warmup = true;
         const bodyweight = draft.session.bodyweight;
         if (bodyweight != null && bodyweight !== "") row.bodyweight = Number(bodyweight);
+        if (hasOwn(draft, "sessionContext")) Object.assign(row, SessionIntent.rowFields(draft.sessionContext, exercise.exerciseInstanceId));
         rows.push(row);
       }
     }

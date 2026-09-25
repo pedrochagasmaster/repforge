@@ -105,6 +105,18 @@ _Avoid_: Automatic adjustment, recommendation (reserved for the deterministic en
 The full-screen close of a finished session, opened by Finish workout. Reads back what the session did — sets, load moved, lifts, any personal records, how the lifts moved, hard sets per muscle, where the week now stands — and returns to Today when dismissed. Every figure is one an existing surface already computes, so it can never disagree with History or Progress. Deterministic and offline; unrelated to Taurifer AI.
 _Avoid_: Score, rating, streak, badge, points, celebration screen
 
+**One-off session**:
+Real training for today that is not a program day. It appears in History and general stats with its performed movements, but never completes, skips, reorders or edits a program day, never counts toward adherence or block volume, and never feeds automatic progression. Built manually, from a classic blueprint, or around chosen muscles, under this session's time and equipment. Its saved label is **One-off**.
+_Avoid_: Quick workout, freestyle, extra day, bonus session
+
+**Adapted planned session**:
+A program day executed under temporary time or equipment constraints — fewer sets or exercises, or session-only substitutions — that keeps every primary purpose of that day and therefore counts as that day. If a purpose cannot survive, it is not an adapted planned session; it may be started as a one-off instead.
+_Avoid_: Modified day, shortened program, custom day
+
+**Session context**:
+The validated provenance an accepted plan carries into the workout draft and onto its saved rows: session kind, one-off intent, source program day, constraints and generation versions. Eligibility for the program ledgers derives from it; nothing infers it from a label or a screen.
+_Avoid_: Session metadata, workout type, mode
+
 **Shared program**:
 A program received through a setup link (`#setup=` fragment): externally authored — by a coach, creator, or friend — carried self-contained in the URL, confirmed at the first-run gate, and first-class once started: it runs on the same execution and progression engine as any other program.
 _Avoid_: Imported program (that is the file-review path), template

@@ -5,6 +5,13 @@
 > generation, execution, history, and entitlement semantics.
 > **Entry point:** The existing **Choose another day** button below **Start
 > workout** on Today.
+> **Implementation status:** The Free domain foundation is in place and
+> intentionally not wired into the production page: `session-intent.js`
+> (session kinds, validated context, row eligibility, scoped selectors, queue
+> projection), `session-planner.js` (classic, muscle-focus, manual, and
+> planned-day adaptation), and an optional `sessionContext` on the existing
+> DraftV2 aggregate. Entry UI, History presentation, and caller adoption of the
+> scoped selectors follow the post-overhaul Today/Workout/History contracts.
 > **Strategic context:**
 > [`docs/product-grilling-decision-register.md`](../../product-grilling-decision-register.md),
 > [`docs/backlog.md`](../../backlog.md), and
@@ -882,3 +889,48 @@ tracked there behind their proper gates.
 Reusable one-off templates, a two-athlete optimizer, and progression credit for
 pure one-offs are not authorized by this specification. They require a new
 product decision; they must not appear as incidental implementation scope.
+
+## Foundation acceptance contract for PR #257
+
+This contract applies [the repository evidence protocol](../../agents/implementation-evidence.md) to the optional DraftV2 `sessionContext`. The branch remains a domain foundation. `index.html` does not load `session-intent.js` or `session-planner.js`, so the shipped page cannot create a contextual draft. The tests below are foundation evidence, not proof of a production one-off journey.
+
+| ID | Producer → representation → consumer → observable behavior | Deliberate failure | Test and current evidence |
+|---|---|---|---|
+| F257-01a | Existing `WorkoutDraft.create` → DraftV2 without `sessionContext` → `WorkoutDraft.parse`, `toHistoryRows` → planned rows retain their previous fields and eligibility. | A contextual row must not leak into the legacy path. | `node test/one-off-session.mjs`, "normal programmed session" assertions. Foundation passed; live reload after future wiring pending. |
+| F257-01b | `SessionPlanner.oneOffDraftContext` → canonical `sessionContext` in `WorkoutDraft.create` → `serialize`, `parse`, `toHistoryRows` → one-off identity survives reload and rows exclude program credit. | Context tampering, block claim, and absent validator are rejected. | `node test/one-off-session.mjs`, "pure one-offs", "draft recovery", and "fail-closed boundary" assertions. Pure model and parser passed; production creation deliberately unavailable. |
+| F257-01c | `SessionPlanner.adaptedDraftContext` → contextual DraftV2 with exact day and fingerprint → `WorkoutDraft.parse`, `toHistoryRows` → adapted rows retain planned eligibility and substitution identity. | Changed fingerprint returns `stale`; stored eligibility flags cannot override normalized context. | `node test/one-off-session.mjs`, "adapted programmed session" and "draft recovery" assertions. Foundation passed; browser lifecycle pending. |
+| F257-01d | `SessionPlanner.oneOffDraftContext` → accepted snapshot without block ID → `WorkoutDraft.parse` after program mutation → snapshot remains usable. | Program day ID or active block impersonation is invalid. | `node test/one-off-session.mjs`, "draft recovery" and `node test/session-intent.mjs`, `draftIssues` assertions. Foundation passed; destructive transaction proof pending. |
+| F257-01e | `SessionPlanner.adaptPlannedSession` → original and replacement identities → `WorkoutDraft.create`, `restoreOriginalExercise`, `toHistoryRows` → History row names the prescribed work and performed movement. | An incompatible substitution must not become the original movement's history. | `node test/one-off-session.mjs`, "adapted programmed session" assertions. Foundation passed. |
+| F257-01f | `WorkoutDraft.create` → DraftV2 under `repforge_draft_v1`, pending entries, checkpoint → production `DraftStore` settlement and recovery → exactly one acknowledged owner. | A stale writer or coordinated discard must preserve the acknowledged draft. | Existing `node test/workout-draft-storage.mjs` and `node test/workout-draft-migration.mjs` cover legacy drafts. Contextual draft through those owners remains **PENDING — production wiring**. |
+| F257-01g | `WorkoutDraft.toHistoryRows` → row provenance and eligibility → `SessionIntent.selectRows` → athlete History includes all work while program ledgers exclude one-offs. | Stored `true` eligibility on a one-off cannot grant program credit. | `node test/session-intent.mjs`, "row eligibility", "scoped ledgers", and "next program day" assertions. New selectors passed; live `app.js` adoption pending. |
+
+### DraftV2 compatibility decision
+
+The optional extension is **not yet compatible with every retained reader**. `WorkoutDraft.parse` accepts old DraftV2 and normalizes missing `contextTouched`; with `sessionContext`, it requires `RepForgeSessionIntent`. The current production page does not load that module, so it rejects a contextual draft instead of saving it as planned work. `WorkoutDraft.logicalCloneSection` preserves `sessionContext`, but `InstallTransferContract.validateWorkoutDraft` uses the exact `DRAFT_KEYS` list without that field. The transfer envelope therefore fails with `unknown-section` before a destination write. `node test/one-off-session.mjs` asserts this exact failure and source non-mutation. This is a safe dormant state because no shipped entry creates contextual drafts, but it does not satisfy install-transfer fidelity once production entry exists.
+
+Do not enable production creation until the integration branch chooses and proves a version or migration strategy across current and retained older shells, the transfer validator, recovery, and both install modes. A version bump alone cannot make an older reader preserve data. The branch's `repforge-v302` is provisional; allocate the real next revision only after Plan 059 merges and this branch rebases.
+
+### Production consumer checklist
+
+The integration branch must migrate each current reader before enabling one-off entry. `planned_adapted` counts where planned work counts. `one_off` counts only for all training unless noted. Every row below is **PENDING — production wiring**.
+
+| Current function or reader | Current behavior | Required ledger and one-off treatment |
+|---|---|---|
+| `app.js` `nextDayAfter`, `renderToday`, day queue logic | Matches ordinary log day/session. | `program_completion`; one-offs never advance Today, adapted sessions do. |
+| `programAdherence`, `weeklySnapshot`, `ProgressModel.buildWeekStatus` | Counts logged program day names in a date range. | `program_completion`; exclude one-offs, include adapted sessions. |
+| `buildBlockReview`, `programVolumeCompliance`, `ProgressModel.buildVolumeEvidence` | Counts block rows or matching days. | `active_block` for volume and `program_completion` for completed days; one-offs excluded, adapted sessions included. |
+| `recommendation`, `matchLift`, `ProgressModel.buildProgramActionQueue`, `completedHardSets`, `strengthEvidenceRows` | Selects movement history from generic log rows. | `program_progression` for program prescriptions; one-offs excluded, adapted performed movements included only under their real identity. |
+| `blockSnapshot`, `programProgressionHealth`, program trends | Projects program metrics from generic log. | Program completion or progression ledger according to metric; one-offs excluded, adapted included. |
+| `sessionSummaryHtml` | Gives generic saved session summary. | Classify from saved provenance; one-off gets no program-day completion implication, adapted does. |
+| History renderers and `history-ui.js` | Group generic sessions and display movement rows. | `all_training` plus provenance classification; one-offs and adapted sessions both visible. |
+| `RepForgeSchedule.hasLoggedOn`, `mostOverdueDay`, `usualHour`, `app.js` notification calls | Uses generic log presence/day for missed-session timing. | `program_completion` for missed planned work; one-offs do not satisfy it, adapted sessions do. `usualHour` may use `all_training` only after a separate notification choice. |
+| `detectPRs`, general Stats renderers, lift History | Uses all performed work. | `all_training`; one-offs and adapted sessions both count under performed movement identity. |
+| `app.js` direct `row.day` and `row.session` matches | Several callers infer program identity from labels. | Audit each call at integration; only program completion selectors may claim a day, while athlete chronology uses `all_training`. |
+
+### Open primary-purpose rule
+
+The compiler marks protected slots on some days and none on others. The compiler-produced matrix in `test/session-planner.mjs` checks every protected slot under both generous and 45-minute constraints, confirms that constrained removals are unprotected, and forces a real compiled protected slot to fail planned completion when no compatible equipment or substitute remains. It also found days without any protected slot. A manual day has no compiler priority. The product spec does not ratify a "compound or first exercise" fallback for either case. `adaptPlannedSession` returns `primary-purpose-undeclared` in those cases instead of granting planned-session completion. The integration branch needs an explicit product rule for these days before exposing their adaptation route.
+
+### Future rebase note
+
+Plan 058 #256 also changes `index.html`, `sw.js`, and revision expectations. Expect overlap in `test/exercise-library.mjs`, shell revision checks, and workout draft tests. Rebase only after Plan 059 establishes the actual shell baseline, then run contextual draft recovery, transfer, older-shell, and production consumer proofs on the resulting SHA.

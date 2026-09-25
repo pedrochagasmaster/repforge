@@ -170,6 +170,7 @@ const DOMAIN_RULES = [
   { match: /^(telemetry\.js|posthog-(?:adapter|init)\.js|posthog-config\.js|scripts\/generate-posthog-config\.mjs)$/, lanes: ["fast", "privacy"], why: "telemetry boundary" },
   { match: /^durable-state\.js$/, lanes: ["fast", "state", "workout"], why: "durable state and persistence engine" },
   { match: /^workout-draft\.js$/, lanes: ["fast", "state", "workout"], why: "durable workout draft" },
+  { match: /^session-(?:intent|planner)\.js$/, lanes: ["fast", "state", "workout"], why: "session provenance and one-off planning domain (workout draft dependency)" },
   { match: /^(program-entry(?:-adapter)?\.js|program-compiler\.js)$/, lanes: ["fast", "state", "entry", "workout"], why: "program entry/compiler contract" },
   { match: /^program-editor\.js$/, lanes: ["entry", "workout"], why: "program editor UI" },
   { match: /^progress-model\.js$/, lanes: ["fast", "workout"], why: "Progress projections and History consumers" },
@@ -227,7 +228,7 @@ export function selectAffected(files, { cwd = ROOT } = {}) {
 }
 
 export const selectBranch = selectAffected;
-const HIGH_RISK = /^(durable-state|workout-draft|shared-setup|program-compiler|program-transition|sw|telemetry|posthog-adapter)\.js$/;
+const HIGH_RISK = /^(durable-state|workout-draft|session-intent|shared-setup|program-compiler|program-transition|sw|telemetry|posthog-adapter)\.js$/;
 export function selectPacket(files, context = {}) {
   const plan = selectBranch(files, context);
   if (!files || plan.mode === "all" || files.some((file) => HIGH_RISK.test(file))) return plan;
