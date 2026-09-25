@@ -239,7 +239,7 @@ assert(EXERCISE_LIBRARY.length >= 200, "library is a real library, not a stub",
   // document and the worker's exact precache inventory.
   const index = readFileSync(join(ROOT, "index.html"), "utf8");
   const sw = readFileSync(join(ROOT, "sw.js"), "utf8");
-  const expectedCacheRevision = "305";
+  const expectedCacheRevision = "306";
   const expectedScriptRevision = "304";
   const cacheRevision = sw.match(/const CACHE = "repforge-v(\d+)"/)?.[1] || "";
   const transitionAssets = [

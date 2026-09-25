@@ -1,4 +1,4 @@
-const CACHE = "repforge-v305";
+const CACHE = "repforge-v306";
 const ASSETS = [
   "./", "./index.html", "./styles.css", "./motion-polish.css", "./manifest.webmanifest",
   "./vendor/motion/motion.js", "./vendor/dnd-kit/dnd-kit.js", "./vendor/dnd-kit/dnd-kit.runtime.js", "./motion-layer.js", "./motion-layer.js?v=304",

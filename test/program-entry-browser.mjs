@@ -242,8 +242,8 @@ async function onboardingControlGeometry(page) {
 
 function textMetricsMatchScale(metrics, scale) {
   const expected = scale === 2
-    ? { eyebrow: 34, step: 22, heading: 60, explain: 30, option: 31, back: 30, next: 34 }
-    : { eyebrow: 17, step: 11, heading: 30, explain: 15, option: 15.5, back: 15, next: 17 };
+    ? { eyebrow: 34, step: 22, heading: 60, explain: 32, option: 32, back: 30, next: 34 }
+    : { eyebrow: 17, step: 11, heading: 30, explain: 16, option: 16, back: 15, next: 17 };
   return Object.entries(expected).every(([key, value]) =>
     Number.isFinite(metrics[key]) && Math.abs(metrics[key] - value) < 0.1);
 }
