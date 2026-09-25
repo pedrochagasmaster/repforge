@@ -1,0 +1,5 @@
+date,session_id,title,exercise_name,exercise_id,set_number,weight_kg,reps,rir,rpe,set_type,exercise_note,notes
+2024-05-06,g-1,Pull,Cadeira flexora,source-hamstring-curl,1,30,12,2,9,normal,synthetic PT label,constructed generic history
+2024-05-06,g-1,Pull,RDL,source-romanian-deadlift,1,60,8,,8,normal,,constructed generic history
+2024-05-06,g-1,Pull,Romanian deadlift,source-romanian-deadlift,2,65,6,1,10,drop set,back-off,constructed generic history
+2024-05-06,g-1,Pull,Custom cable movement,source-custom-01,1,,10,,,,user-defined movement,constructed generic history

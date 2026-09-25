@@ -7,6 +7,9 @@
     ],
     "_srcName": "barbell bench press",
     "name": "Barbell bench press",
+    "aliases": [
+      "Bench Press (Barbell)"
+    ],
     "beginnerFriendly": false
   },
   {

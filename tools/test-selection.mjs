@@ -134,6 +134,26 @@ function addEntries(target, additions) {
 
 const EXPLICIT_INPUT_RULES = [
   {
+    match: /^history-import\.js$/,
+    suiteFiles: ["test/history-import-unit.mjs", "test/history-import-fingerprint.mjs", "test/history-import-matching.mjs"],
+    why: "historical source normalization and shipped matcher contract",
+  },
+  {
+    match: /^test\/fixtures\/history-import\//,
+    suiteFiles: ["test/history-import-unit.mjs", "test/history-import-fingerprint.mjs", "test/history-import-matching.mjs"],
+    why: "synthetic historical-import source fixtures",
+  },
+  {
+    match: /^test\/fixtures\/import-matching\.mjs$/,
+    suiteFiles: ["test/import-matching.mjs"],
+    why: "Plan 061 and migration vocabulary corpus",
+  },
+  {
+    match: /^tools\/exercise-curation\.json$/,
+    suiteFiles: ["test/exercise-library.mjs", "test/import-matching.mjs", "test/history-import-matching.mjs"],
+    why: "reviewed exercise aliases and matching regressions",
+  },
+  {
     match: /^\.github\/workflows\/simulation\.yml$|^tools\/(?:ci-plan|visual-domains)\.mjs$|^test\/suites\.mjs$/,
     suiteFiles: ["test/ci.mjs"], why: "CI planning and selection contracts",
   },

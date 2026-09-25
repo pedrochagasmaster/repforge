@@ -44,6 +44,7 @@ depend on them. Full inventory in `AGENTS.md` and `docs/brand-guide.md`.
 | --- | --- |
 | `index.html` | App shell; inline pre-paint theme snippet; carries `?v=NN` revisions for `shared-setup.js` and `app.js` |
 | `app.js` | ~566 KB single-file app: storage engine (localStorage `repforge_v1` + IndexedDB `repforge`/`kv`), cross-tab lock, write-ahead journal, rendering, progression engine, all UI |
+| `history-import.js` | Local historical CSV adapters and immutable import proposals; the later History integration owns durable commit and UI |
 | `styles.css` | All styles; dark is a `:root[data-theme="dark"]` token swap — new rules must name tokens, not colours |
 | `shared-setup.js` | Setup-link codec (`v1.` canonical + `v2.` compact envelopes; both decode forever) |
 | `exercises.js` | **Generated** exercise library (270 movements EN/PT) — never hand-edit |
