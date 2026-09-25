@@ -111,6 +111,39 @@ const selectedImportDoor = structuredClone(inventory);
 selectedImportDoor.components.find((item) => item.selector === "#entryFreeformStart").states.push("selected");
 assert.ok(importDoorContractErrors(selectedImportDoor).length, "the hub cannot claim a selected state it does not render");
 
+const importModeSwitchSelectors = ["#entryFreeformSwitch", "#entryFreeformFile"];
+const importModeSwitchStates = ["default", "hover", "pressed", "focus-visible", "disabled"];
+const importModeSwitchCatalog = {
+  "#entryFreeformSwitch": ["onboarding-import/source"],
+  "#entryFreeformFile": ["onboarding-import/freeform-empty", "onboarding-import/freeform-filled",
+    "onboarding-import/freeform-stage2", "onboarding-import/freeform-stage3", "onboarding-import/freeform-unreadable"],
+};
+function importModeSwitchContractErrors(candidate) {
+  const errors = [];
+  for (const selector of importModeSwitchSelectors) {
+    const members = candidate.components.filter((item) => item.selector === selector);
+    const item = members[0];
+    if (members.length !== 1 || item.roles.control !== "quiet-navigation" || item.variant !== null ||
+        item.facets.length !== 0 || JSON.stringify(item.states) !== JSON.stringify(importModeSwitchStates) ||
+        JSON.stringify(item.catalogStates) !== JSON.stringify(importModeSwitchCatalog[selector])) {
+      errors.push(`${selector} must be an ordinary unselected import-subview navigation control`);
+    }
+  }
+  return errors;
+}
+assert.deepEqual(importModeSwitchContractErrors(inventory), [],
+  "both inner import switches share the exact quiet-navigation contract");
+for (const selector of importModeSwitchSelectors) {
+  const selectedSwitch = structuredClone(inventory);
+  selectedSwitch.components.find((item) => item.selector === selector).states.push("selected");
+  assert.ok(importModeSwitchContractErrors(selectedSwitch).some((error) => error.includes(selector)),
+    `${selector} cannot claim a selected state after it leaves the rendered subview`);
+}
+const asymmetricImportModeSwitch = structuredClone(inventory);
+asymmetricImportModeSwitch.components.find((item) => item.selector === "#entryFreeformSwitch").roles.control = "selection";
+assert.ok(importModeSwitchContractErrors(asymmetricImportModeSwitch).some((error) => error.includes("#entryFreeformSwitch")),
+  "the File and Freeform subview switches cannot drift to different control roles");
+
 const preferenceSelector = ".entry__exercise-action:not([id])";
 const preferenceCatalog = ["onboarding-custom/exercise-preferences"];
 function preferenceContractErrors(candidate) {
@@ -597,5 +630,5 @@ try {
         `${selector} leaves both hub doors present and unselected after return`);
     } finally { await hubPage.context.close(); }
   }
-  console.log("ui-system: exact import-door, preference and radius contracts, live ownership, landing label, AA failures, and deliberate contract negatives passed");
+  console.log("ui-system: exact import-door and import-subview contracts, preference and radius contracts, live ownership, landing label, AA failures, and deliberate contract negatives passed");
 } finally { await context?.close(); await browser.close(); preview.cleanup(); }

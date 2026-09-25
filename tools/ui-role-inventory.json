@@ -1331,7 +1331,7 @@
       "id": "entryfreeformfile",
       "selector": "#entryFreeformFile",
       "roles": {
-        "control": "selection"
+        "control": "quiet-navigation"
       },
       "variant": null,
       "facets": [],
@@ -1340,10 +1340,9 @@
         "hover",
         "pressed",
         "focus-visible",
-        "selected",
         "disabled"
       ],
-      "rationale": "Changes a chosen value, active option, or reversible status.",
+      "rationale": "Navigates from the Freeform import subview to the File subview; the active subview carries the remembered UI route context.",
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-import/freeform-empty",
@@ -1494,7 +1493,7 @@
       "id": "entryfreeformswitch",
       "selector": "#entryFreeformSwitch",
       "roles": {
-        "control": "selection"
+        "control": "quiet-navigation"
       },
       "variant": null,
       "facets": [],
@@ -1503,10 +1502,9 @@
         "hover",
         "pressed",
         "focus-visible",
-        "selected",
         "disabled"
       ],
-      "rationale": "Changes a chosen value, active option, or reversible status.",
+      "rationale": "Navigates from the File import subview to the Freeform subview; the active subview carries the remembered UI route context.",
       "owner": "plan-058",
       "catalogStates": [
         "onboarding-import/source"

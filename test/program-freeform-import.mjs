@@ -124,7 +124,12 @@ async function main() {
   const browser = await launchChromium();
   const context = await browser.newContext({ viewport: { width: 390, height: 844 } });
   const page = await context.newPage();
-  page.on("dialog", (d) => d.accept());
+  let dialogAction = "accept", lastDialog = null;
+  page.on("dialog", async (d) => {
+    lastDialog = { type: d.type(), message: d.message() };
+    if (dialogAction === "dismiss" && d.type() === "confirm") await d.dismiss();
+    else await d.accept();
+  });
   try {
     await page.goto(BASE, { waitUntil: "domcontentloaded" });
     await waitForAppBoot(page);
@@ -269,12 +274,72 @@ async function main() {
     assert(await page.locator("#entryFreeformIn").isVisible(), "Edit source returns to stage 1");
 
     console.log("\nThe doors stay each other's neighbour");
+    const trainingStateBeforeSwitch = await page.evaluate((key) => localStorage.getItem(key), KEY);
+    const freeformSwitchSemantics = await page.locator("#entryFreeformFile").evaluate((button) => ({
+      tag: button.tagName,
+      pressed: button.hasAttribute("aria-pressed"),
+      selected: button.hasAttribute("aria-selected"),
+    }));
+    assert(freeformSwitchSemantics.tag === "BUTTON" && !freeformSwitchSemantics.pressed && !freeformSwitchSemantics.selected,
+      "the Freeform-to-File switch is a one-shot navigation button without selected ARIA state",
+      JSON.stringify(freeformSwitchSemantics));
+    const freeformSourceBeforeSwitch = await page.locator("#entryFreeformIn").inputValue();
+
+    dialogAction = "dismiss";
+    lastDialog = null;
+    await page.click("#entryFreeformFile");
+    await settle(page);
+    const dismissedSwitch = await page.evaluate(() => ({
+      mode: JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").importSourceMode,
+      route: document.querySelector("#onbBody")?.classList.contains("entry-route--import"),
+      source: document.querySelector("#entryFreeformIn")?.value || null,
+      fileSwitch: !!document.querySelector("#entryFreeformFile"),
+    }));
+    assert(lastDialog?.type === "confirm" && dismissedSwitch.mode === "freeform" && dismissedSwitch.route &&
+      dismissedSwitch.source === freeformSourceBeforeSwitch && dismissedSwitch.fileSwitch,
+      "dismissing the staged-work confirmation keeps the Freeform subview and its source",
+      JSON.stringify({ dialog: lastDialog, state: dismissedSwitch }));
+    assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === trainingStateBeforeSwitch,
+      "dismissing a source switch leaves committed training state unchanged");
+
+    dialogAction = "accept";
+    lastDialog = null;
     await page.click("#entryFreeformFile");
     await page.waitForSelector("#entryImportPick", { timeout: 20000 });
-    assert(await page.locator("#entryImportPick").isVisible(), "the file door is one tap from the paste door");
+    const switchedToFile = await page.evaluate(() => ({
+      mode: JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").importSourceMode,
+      route: document.querySelector("#onbBody")?.classList.contains("entry-route--import"),
+      pick: !!document.querySelector("#entryImportPick"),
+      trigger: !!document.querySelector("#entryFreeformFile"),
+    }));
+    assert(lastDialog?.type === "confirm" && switchedToFile.mode === "file" && switchedToFile.route &&
+      switchedToFile.pick && !switchedToFile.trigger,
+      "accepting the confirmation switches to File and removes the triggering Freeform control",
+      JSON.stringify({ dialog: lastDialog, state: switchedToFile }));
+
+    const fileSwitchSemantics = await page.locator("#entryFreeformSwitch").evaluate((button) => ({
+      tag: button.tagName,
+      pressed: button.hasAttribute("aria-pressed"),
+      selected: button.hasAttribute("aria-selected"),
+    }));
+    assert(fileSwitchSemantics.tag === "BUTTON" && !fileSwitchSemantics.pressed && !fileSwitchSemantics.selected,
+      "the File-to-Freeform switch is a one-shot navigation button without selected ARIA state",
+      JSON.stringify(fileSwitchSemantics));
+    lastDialog = null;
     await page.click("#entryFreeformSwitch");
     await page.waitForSelector("#entryFreeformIn", { timeout: 20000 });
-    assert(await page.locator("#entryFreeformIn").isVisible(), "and the paste door is one tap back");
+    const switchedToFreeform = await page.evaluate(() => ({
+      mode: JSON.parse(localStorage.getItem("repforge_ui_v1") || "{}").importSourceMode,
+      route: document.querySelector("#onbBody")?.classList.contains("entry-route--import"),
+      input: !!document.querySelector("#entryFreeformIn"),
+      trigger: !!document.querySelector("#entryFreeformSwitch"),
+    }));
+    assert(!lastDialog && switchedToFreeform.mode === "freeform" && switchedToFreeform.route &&
+      switchedToFreeform.input && !switchedToFreeform.trigger,
+      "switching to Freeform stays on Import, updates UI route context, and removes the triggering File control",
+      JSON.stringify({ dialog: lastDialog, state: switchedToFreeform }));
+    assert(await page.evaluate((key) => localStorage.getItem(key), KEY) === trainingStateBeforeSwitch,
+      "switching between File and Freeform leaves committed training state unchanged");
 
     await reset(page);
     await page.waitForSelector("#firstRunCreate", { timeout: 20000 });

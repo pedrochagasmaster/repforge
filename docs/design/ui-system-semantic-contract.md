@@ -130,6 +130,18 @@ excludes it from `.entry-card.entry-card--secondary:not([id])`, which owns the
 file card and the other secondary route cards. No selected state or new recipe
 is implied by remembering the source.
 
+### Import-mode subview switches
+
+On the Import route, `#entryFreeformSwitch` navigates from the File subview to
+the Freeform subview, and `#entryFreeformFile` navigates back to File. Both call
+`setImportSourceMode()`, which records `uiPrefs.importSourceMode` as device-only
+UI route context and does not mutate training state. Each switch disappears
+when its destination subview renders; the active subview itself carries the
+current mode. Both controls are ordinary `quiet-navigation` ghost buttons with
+no contextual variant or facet, and have default, hover, pressed,
+focus-visible, and disabled states. Neither remains selected, and neither uses
+`aria-selected` or `aria-pressed`.
+
 ### Exercise-preference selection
 
 The two search-result buttons at `.entry__exercise-action:not([id])` belong
