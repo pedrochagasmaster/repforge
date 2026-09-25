@@ -532,7 +532,7 @@
       "flow": "onboarding-build",
       "label": "Build 1 — name and days",
       "scenario": "The build_setup step: program name and day count before the editor opens.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "editor-empty",

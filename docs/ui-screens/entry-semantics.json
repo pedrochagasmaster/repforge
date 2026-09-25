@@ -15761,6 +15761,130 @@
       ]
     },
     {
+      "key": "onboarding-build/setup__phone-320-light-en",
+      "flow": "onboarding-build",
+      "screen": "setup",
+      "label": "Build 1 — name and days",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Build a program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Name it and choose how many empty training days to start with."
+        },
+        {
+          "tag": "span",
+          "text": "Program name"
+        },
+        {
+          "tag": "input",
+          "name": "Program name",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Training days"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "2 days3 days4 days5 days6 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "2 days",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "3 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "4 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "4 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "5 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "5 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "6 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "6 days"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Open editor",
+          "name": "Open editor",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-build/setup__phone-390-dark-en",
       "flow": "onboarding-build",
       "screen": "setup",
@@ -16009,6 +16133,254 @@
       ]
     },
     {
+      "key": "onboarding-build/setup__phone-390-light-en-reduced",
+      "flow": "onboarding-build",
+      "screen": "setup",
+      "label": "Build 1 — name and days",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Build a program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Name it and choose how many empty training days to start with."
+        },
+        {
+          "tag": "span",
+          "text": "Program name"
+        },
+        {
+          "tag": "input",
+          "name": "Program name",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Training days"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "2 days3 days4 days5 days6 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "2 days",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "3 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "4 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "4 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "5 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "5 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "6 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "6 days"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Open editor",
+          "name": "Open editor",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-build/setup__phone-390-light-en-text200",
+      "flow": "onboarding-build",
+      "screen": "setup",
+      "label": "Build 1 — name and days",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Build a program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Name it and choose how many empty training days to start with."
+        },
+        {
+          "tag": "span",
+          "text": "Program name"
+        },
+        {
+          "tag": "input",
+          "name": "Program name",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Training days"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "2 days3 days4 days5 days6 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "2 days",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "3 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "4 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "4 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "5 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "5 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "6 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "6 days"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Open editor",
+          "name": "Open editor",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-build/setup__phone-390-light-pt",
       "flow": "onboarding-build",
       "screen": "setup",
@@ -16127,6 +16499,130 @@
           "tag": "button",
           "text": "Abrir editor",
           "name": "Abrir editor",
+          "disabled": true,
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-build/setup__phone-430-light-en",
+      "flow": "onboarding-build",
+      "screen": "setup",
+      "label": "Build 1 — name and days",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "h2",
+          "text": "Build a program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "Name it and choose how many empty training days to start with."
+        },
+        {
+          "tag": "span",
+          "text": "Program name"
+        },
+        {
+          "tag": "input",
+          "name": "Program name",
+          "type": "text"
+        },
+        {
+          "tag": "p",
+          "text": "Training days"
+        },
+        {
+          "tag": "div",
+          "role": "radiogroup",
+          "name": "2 days3 days4 days5 days6 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "2 days",
+          "aria-checked": "false",
+          "tabindex": "0",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "2 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "3 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "3 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "4 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "4 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "5 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "5 days"
+        },
+        {
+          "tag": "button",
+          "role": "radio",
+          "name": "6 days",
+          "aria-checked": "false",
+          "tabindex": "-1",
+          "type": "button"
+        },
+        {
+          "tag": "span",
+          "text": "6 days"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Open editor",
+          "name": "Open editor",
           "disabled": true,
           "type": "button"
         }

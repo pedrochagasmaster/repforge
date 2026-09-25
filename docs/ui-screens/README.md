@@ -1,7 +1,7 @@
 # UI screen catalog
 
 Phone-frame captures of every user-visible Taurifer surface — 143 screens,
-835 frames. This folder is the visual reference for UI and Brand Designers.
+839 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -94,7 +94,7 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 
 | Screen | Frames | What it shows |
 | --- | --- | --- |
-| [Build 1 — name and days](screens/onboarding-build/setup__phone-390-light-en.png) | 3 | The build_setup step: program name and day count before the editor opens. |
+| [Build 1 — name and days](screens/onboarding-build/setup__phone-390-light-en.png) | 7 | The build_setup step: program name and day count before the editor opens. |
 | [Build — empty days](screens/onboarding-build/editor-empty__phone-390-light-en.png) | 8 | Real empty day containers, Add exercise, Save draft, activation disabled. |
 | [Build — partial draft](screens/onboarding-build/editor-partial__phone-390-light-en.png) | 8 | One populated day and one incomplete day. Activation stays disabled. |
 | [Build — activation ready](screens/onboarding-build/editor-ready__phone-390-light-en.png) | 8 | A complete manual draft with supported progression and activation enabled. |
