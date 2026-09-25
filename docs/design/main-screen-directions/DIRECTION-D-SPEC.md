@@ -6,6 +6,33 @@ settles the disagreements between the two design reviews of PR #259
 of them wrong, write the evidence in the README notes and pick the smallest
 change that fixes it.
 
+## Amendments, 2026-09-25 (owner decisions)
+
+D was built on the review page (#264), and the owner selected it as the
+reference for the main screens. These decisions change how the rest of this
+spec is read:
+
+- **Order.** Plan 058 finishes first. D is then built on 058's semantic roles,
+  and Plan 059 validates the result before anything ships. See the
+  "Direction D redesign" row in `docs/backlog.md` (#266).
+- **Numbers defer to Plan 058.** Where §3 or §5 names a size, radius or depth
+  that 058's frozen role scale does not have, 058 wins. Known cases: body 16px
+  (not 15), the cue's second line on the 18px `subtitle` role (not 17), the
+  Today load figure on the 22px `metric` role (not 20; it fits at 360 with a
+  66px kg column), the rest clock at 058's protected `clamp(32px,10vw,42px)`
+  (not 56px), and the CTA and shelf radius decided by 058's Today/Focus
+  migration (not 14px). Anything D needs that 058 lacks, such as the shelf or
+  inline rest, goes through 058's contract review as a new content job.
+- **§2.1 is decided.** Outcomes describe the logged sets, not the
+  prescription. The rule is "Session outcome" in `CONTEXT.md`, shipped by #265
+  together with D: at the same load total reps decide; when the load went up,
+  best-set e1RM decides at ±1% (the fixture squat reads Manteve); when it went
+  down, the lift reads Melhorou only on more strength or more volume at
+  similar effort, and a deload is never Regressou. The owner note §2.1 asked
+  for is answered.
+- **Copy fixes from the review:** "Why this weight" names the logged anchor
+  reps plus their RIR (not capacity reps), and the EN pause label is "Pause".
+
 ## 0. What to build
 
 Add a fourth direction, **D · Folha e polegar** ("Sheet and thumb"), to the
