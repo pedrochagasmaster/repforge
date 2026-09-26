@@ -644,7 +644,7 @@
       "flow": "onboarding-shared",
       "label": "Shared setup — review",
       "scenario": "The editable preview a shared payload lands in before explicit activation.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "resume",

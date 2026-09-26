@@ -51184,6 +51184,144 @@
       ]
     },
     {
+      "key": "onboarding-shared/preview__phone-320-light-en",
+      "flow": "onboarding-shared",
+      "screen": "preview",
+      "label": "Shared setup — review",
+      "viewport": "phone-320",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Shared program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+        },
+        {
+          "tag": "h3",
+          "text": "Coach program"
+        },
+        {
+          "tag": "p",
+          "text": "Shared Taurifer program"
+        },
+        {
+          "tag": "span",
+          "text": "Source"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "span",
+          "text": "3 working sets"
+        },
+        {
+          "tag": "span",
+          "text": "about 12 minutes"
+        },
+        {
+          "tag": "h4",
+          "text": "Priorities"
+        },
+        {
+          "tag": "p",
+          "text": "Chest"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipment assumptions"
+        },
+        {
+          "tag": "p",
+          "text": "Machine"
+        },
+        {
+          "tag": "h4",
+          "text": "Progression"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
+        },
+        {
+          "tag": "h4",
+          "text": "Adjustments"
+        },
+        {
+          "tag": "p",
+          "text": "No adjustments were needed."
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Edit before using",
+          "name": "Edit before using",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Weekly structure"
+        },
+        {
+          "tag": "summary",
+          "text": "Day 1",
+          "name": "1Day 11 exercise · 3 working sets · about 12 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise · 3 working sets · about 12 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×6–10"
+        },
+        {
+          "tag": "b",
+          "text": "Chest press machine"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-shared/preview__phone-390-dark-en",
       "flow": "onboarding-shared",
       "screen": "preview",
@@ -51460,6 +51598,282 @@
       ]
     },
     {
+      "key": "onboarding-shared/preview__phone-390-light-en-reduced",
+      "flow": "onboarding-shared",
+      "screen": "preview",
+      "label": "Shared setup — review",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "reduced",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Shared program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+        },
+        {
+          "tag": "h3",
+          "text": "Coach program"
+        },
+        {
+          "tag": "p",
+          "text": "Shared Taurifer program"
+        },
+        {
+          "tag": "span",
+          "text": "Source"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "span",
+          "text": "3 working sets"
+        },
+        {
+          "tag": "span",
+          "text": "about 12 minutes"
+        },
+        {
+          "tag": "h4",
+          "text": "Priorities"
+        },
+        {
+          "tag": "p",
+          "text": "Chest"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipment assumptions"
+        },
+        {
+          "tag": "p",
+          "text": "Machine"
+        },
+        {
+          "tag": "h4",
+          "text": "Progression"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
+        },
+        {
+          "tag": "h4",
+          "text": "Adjustments"
+        },
+        {
+          "tag": "p",
+          "text": "No adjustments were needed."
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Edit before using",
+          "name": "Edit before using",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Weekly structure"
+        },
+        {
+          "tag": "summary",
+          "text": "Day 1",
+          "name": "1Day 11 exercise · 3 working sets · about 12 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise · 3 working sets · about 12 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×6–10"
+        },
+        {
+          "tag": "b",
+          "text": "Chest press machine"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-shared/preview__phone-390-light-en-text200",
+      "flow": "onboarding-shared",
+      "screen": "preview",
+      "label": "Shared setup — review",
+      "viewport": "phone-390",
+      "theme": "light",
+      "locale": "en",
+      "text": "text200",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Shared program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+        },
+        {
+          "tag": "h3",
+          "text": "Coach program"
+        },
+        {
+          "tag": "p",
+          "text": "Shared Taurifer program"
+        },
+        {
+          "tag": "span",
+          "text": "Source"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "span",
+          "text": "3 working sets"
+        },
+        {
+          "tag": "span",
+          "text": "about 12 minutes"
+        },
+        {
+          "tag": "h4",
+          "text": "Priorities"
+        },
+        {
+          "tag": "p",
+          "text": "Chest"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipment assumptions"
+        },
+        {
+          "tag": "p",
+          "text": "Machine"
+        },
+        {
+          "tag": "h4",
+          "text": "Progression"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
+        },
+        {
+          "tag": "h4",
+          "text": "Adjustments"
+        },
+        {
+          "tag": "p",
+          "text": "No adjustments were needed."
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Edit before using",
+          "name": "Edit before using",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Weekly structure"
+        },
+        {
+          "tag": "summary",
+          "text": "Day 1",
+          "name": "1Day 11 exercise · 3 working sets · about 12 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise · 3 working sets · about 12 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×6–10"
+        },
+        {
+          "tag": "b",
+          "text": "Chest press machine"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
+          "type": "button"
+        }
+      ]
+    },
+    {
       "key": "onboarding-shared/preview__phone-390-light-pt",
       "flow": "onboarding-shared",
       "screen": "preview",
@@ -51593,6 +52007,144 @@
           "text": "Voltar",
           "name": "Voltar",
           "label": "Voltar",
+          "type": "button"
+        }
+      ]
+    },
+    {
+      "key": "onboarding-shared/preview__phone-430-light-en",
+      "flow": "onboarding-shared",
+      "screen": "preview",
+      "label": "Shared setup — review",
+      "viewport": "phone-430",
+      "theme": "light",
+      "locale": "en",
+      "text": "normal",
+      "motion": "normal",
+      "semantic": [
+        {
+          "tag": "section",
+          "label": "Create a program"
+        },
+        {
+          "tag": "button",
+          "text": "Cancel",
+          "name": "Cancel",
+          "type": "button"
+        },
+        {
+          "tag": "div",
+          "text": "Shared program"
+        },
+        {
+          "tag": "h2",
+          "text": "Review program",
+          "tabindex": "-1"
+        },
+        {
+          "tag": "p",
+          "text": "This draft is editable. Your active program stays unchanged until you confirm."
+        },
+        {
+          "tag": "h3",
+          "text": "Coach program"
+        },
+        {
+          "tag": "p",
+          "text": "Shared Taurifer program"
+        },
+        {
+          "tag": "span",
+          "text": "Source"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise"
+        },
+        {
+          "tag": "span",
+          "text": "3 working sets"
+        },
+        {
+          "tag": "span",
+          "text": "about 12 minutes"
+        },
+        {
+          "tag": "h4",
+          "text": "Priorities"
+        },
+        {
+          "tag": "p",
+          "text": "Chest"
+        },
+        {
+          "tag": "h4",
+          "text": "Equipment assumptions"
+        },
+        {
+          "tag": "p",
+          "text": "Machine"
+        },
+        {
+          "tag": "h4",
+          "text": "Progression"
+        },
+        {
+          "tag": "p",
+          "text": "Taurifer updates targets from completed training, using each exercise's supported progression."
+        },
+        {
+          "tag": "h4",
+          "text": "Adjustments"
+        },
+        {
+          "tag": "p",
+          "text": "No adjustments were needed."
+        },
+        {
+          "tag": "button",
+          "text": "Use this program",
+          "name": "Use this program",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Edit before using",
+          "name": "Edit before using",
+          "type": "button"
+        },
+        {
+          "tag": "button",
+          "text": "Start over",
+          "name": "Start over",
+          "type": "button"
+        },
+        {
+          "tag": "p",
+          "text": "Weekly structure"
+        },
+        {
+          "tag": "summary",
+          "text": "Day 1",
+          "name": "1Day 11 exercise · 3 working sets · about 12 minutes"
+        },
+        {
+          "tag": "span",
+          "text": "1 exercise · 3 working sets · about 12 minutes"
+        },
+        {
+          "tag": "div",
+          "text": "· 3×6–10"
+        },
+        {
+          "tag": "b",
+          "text": "Chest press machine"
+        },
+        {
+          "tag": "button",
+          "text": "Back",
+          "name": "Back",
+          "label": "Back",
           "type": "button"
         }
       ]

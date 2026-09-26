@@ -673,5 +673,41 @@ try {
         `${selector} leaves both hub doors present and unselected after return`);
     } finally { await hubPage.context.close(); }
   }
-  console.log("ui-system: exact import-door and import-subview contracts, preference and radius contracts, live ownership, landing label, AA failures, and deliberate contract negatives passed");
+  for (const sharedCapture of [
+    { ...capture, flow: "onboarding-shared", screen: "preview", viewport: "phone-320" },
+    { ...capture, flow: "onboarding-shared", screen: "preview", text: "text200" },
+  ]) {
+    const sharedPage = await openPage(browser, manifest, sharedCapture, onboardingState("onboarding-shared/preview", "en"));
+    try {
+      await ONBOARDING_SCENARIOS["onboarding-shared/preview"](sharedPage.page);
+      const geometry = await sharedPage.page.evaluate(() => {
+        const strip = document.querySelector(".entry__metrics--boxed");
+        const metrics = [...document.querySelectorAll(".entry__metrics--boxed .entry__metric")];
+        const rects = metrics.map((node) => {
+          const rect = node.getBoundingClientRect();
+          return { left: rect.left, right: rect.right, top: rect.top, bottom: rect.bottom,
+            text: node.textContent.trim(), scrollWidth: node.scrollWidth, clientWidth: node.clientWidth,
+            scrollHeight: node.scrollHeight, clientHeight: node.clientHeight };
+        });
+        const overlaps = [];
+        for (let left = 0; left < rects.length; left++) for (let right = left + 1; right < rects.length; right++) {
+          const a = rects[left], b = rects[right];
+          if (Math.min(a.right, b.right) - Math.max(a.left, b.left) > 1 &&
+              Math.min(a.bottom, b.bottom) - Math.max(a.top, b.top) > 1) overlaps.push([a.text, b.text]);
+        }
+        return { viewport: document.documentElement.clientWidth, document: document.documentElement.scrollWidth,
+          stripWidth: strip?.scrollWidth || 0, stripClientWidth: strip?.clientWidth || 0,
+          metricCount: metrics.length, overlaps, overflowingMetrics: rects.filter((item) => item.scrollWidth > item.clientWidth + 1 || item.scrollHeight > item.clientHeight + 1) };
+      });
+      assert.equal(geometry.metricCount, 3, `${sharedCapture.viewport}/${sharedCapture.text}: all three shared summary facts render`);
+      assert.ok(geometry.document <= geometry.viewport, `${sharedCapture.viewport}/${sharedCapture.text}: no document overflow: ${JSON.stringify(geometry)}`);
+      assert.ok(geometry.stripWidth <= geometry.stripClientWidth + 1,
+        `${sharedCapture.viewport}/${sharedCapture.text}: summary metrics fit their strip: ${JSON.stringify(geometry)}`);
+      assert.deepEqual(geometry.overlaps, [],
+        `${sharedCapture.viewport}/${sharedCapture.text}: summary metric rows do not overlap: ${JSON.stringify(geometry)}`);
+      assert.deepEqual(geometry.overflowingMetrics, [],
+        `${sharedCapture.viewport}/${sharedCapture.text}: summary metric text remains inside each item: ${JSON.stringify(geometry)}`);
+    } finally { await sharedPage.context.close(); }
+  }
+  console.log("ui-system: exact import-door and import-subview contracts, preference and radius contracts, shared-preview responsive metrics, live ownership, AA failures, and deliberate contract negatives passed");
 } finally { await context?.close(); await browser.close(); preview.cleanup(); }
