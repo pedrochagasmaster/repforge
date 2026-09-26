@@ -37,7 +37,7 @@
       "reenterReps": true,
       "stalled": false,
       "status": "add",
-      "text": "Every set hit the top of the range. Add weight.",
+      "text": "You reached the most reps in your target. Add weight.",
       "typRir": 3
     },
     "suggestions": {
@@ -171,7 +171,7 @@
       "reenterReps": true,
       "stalled": false,
       "status": "reduce",
-      "text": "Most sets fell below 6 reps. Reduce the load until you can complete at least 6 reps per set.",
+      "text": "On most sets you did fewer than 6 reps, the minimum of your target. Lower the weight until you can do at least 6 on every set.",
       "typRir": 0
     },
     "suggestions": {
@@ -987,7 +987,7 @@
       "reenterReps": true,
       "stalled": false,
       "status": "add",
-      "text": "Every set hit the top of the range. Add weight.",
+      "text": "You reached the most reps in your target. Add weight.",
       "typRir": 1
     },
     "suggestions": {
@@ -1120,7 +1120,7 @@
       "reenterReps": true,
       "stalled": false,
       "status": "add",
-      "text": "Every set hit the top of the range. Add weight.",
+      "text": "You reached the most reps in your target. Add weight.",
       "typRir": 1
     },
     "suggestions": {
@@ -1502,7 +1502,7 @@
       "reenterReps": true,
       "stalled": false,
       "status": "add",
-      "text": "Every set hit the top of the range. Add weight.",
+      "text": "You reached the most reps in your target. Add weight.",
       "typRir": 1
     },
     "suggestions": {
@@ -1772,7 +1772,7 @@
       "reenterReps": false,
       "stalled": false,
       "status": "hold",
-      "text": "Keep the load and add reps within your RIR target.",
+      "text": "Keep the weight and aim for more reps, within your target RIR.",
       "typRir": 1
     },
     "suggestions": {
@@ -2043,7 +2043,7 @@
       "reenterReps": true,
       "stalled": false,
       "status": "add",
-      "text": "Every set hit the top of the range. Add weight.",
+      "text": "You reached the most reps in your target. Add weight.",
       "typRir": 1
     },
     "suggestions": {
@@ -2392,7 +2392,7 @@
       "reenterReps": true,
       "stalled": false,
       "status": "reduce",
-      "text": "Most sets fell below 6 reps. Reduce the load until you can complete at least 6 reps per set.",
+      "text": "On most sets you did fewer than 6 reps, the minimum of your target. Lower the weight until you can do at least 6 on every set.",
       "typRir": 0
     },
     "suggestions": {
