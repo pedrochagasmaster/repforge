@@ -1,0 +1,1157 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F4F2EF">
+<title>Taurifer landing candidates · round 2</title>
+<link rel="icon" href="../../../../icons/favicon-32.png">
+<link rel="preload" href="../../../../fonts/plexsans.woff2" as="font" type="font/woff2" crossorigin>
+<style>
+@font-face{font-family:"Plex Sans";src:url("../../../../fonts/plexsans.woff2") format("woff2");font-weight:100 700;font-display:swap}
+@font-face{font-family:"Plex Mono";src:url("../../../../fonts/plexmono-400.woff2") format("woff2");font-weight:400;font-display:swap}
+@font-face{font-family:"Plex Mono";src:url("../../../../fonts/plexmono-500.woff2") format("woff2");font-weight:500;font-display:swap}
+@font-face{font-family:"Plex Mono";src:url("../../../../fonts/plexmono-600.woff2") format("woff2");font-weight:600;font-display:swap}
+
+/* ---- Tokens: copied verbatim from styles.css (:root and :root[data-theme="dark"]). ---- */
+:root{
+  color-scheme:light;
+  /* `color-scheme` is a keyword property, so the few rules that pin a native
+     control to one appearance read it from here instead of hard-coding it and
+     stranding that control in the light palette. */
+  --scheme:light;
+  --bg:#F4F2EF;
+  --surface:#FFFFFF;
+  --ink:#1B1A17;
+  --ink-soft:#6E6A63;
+  --ink-faint:#716D66;
+  --rule:#E4E1DA;
+  --rule-strong:#D9D5CD;
+  --accent:#E04E14;
+  --accent-deep:#B8410E;
+  --positive:#2F7D33;
+  --cta:#161513;
+  --well:#FAF8F5;
+  --cta-ink:#FFFFFF;
+  /* Ink for copy sitting on a filled --accent-deep ground. It is not --cta-ink:
+     in dark the CTA inverts to a light pill while the orange stays orange, so
+     the two inks move in opposite directions. */
+  --accent-ink:#FFFFFF;
+  --danger:#C93A2B;
+  /* Channel triplets for the tints, focus rings and washes that need the theme
+     colour at partial alpha. Keeping them beside the hex means a theme swap
+     carries the translucent surfaces with it. */
+  --accent-rgb:224,78,20;
+  --positive-rgb:47,125,51;
+  --danger-rgb:201,58,43;
+  --ink-rgb:27,26,23;
+  --bg-rgb:244,242,239;
+  /* The wash behind a selected program-entry choice: warm copper at a low
+     alpha so a bounded white card gains a tint without a second surface
+     colour. Defined per theme so dark lifts it enough to register. */
+  --entry-tint:rgba(224,78,20,.06);
+  --knob:#FFFFFF;
+  /* Scrims stay dark in both themes: they exist to push the page back. */
+  --scrim:rgba(27,26,23,.42);
+  --radius:14px;
+  /* Settings is one text column: the caption of a group, the label of every row
+     in it, and the rule between those rows all begin at this inset. */
+  --settings-inset:16px;
+  /* The dock floats: it is a capsule of --dock-h parked --dock-gap above the
+     safe area, inset --dock-inset from each edge. --nav stays the single
+     "space the dock claims at the bottom" token every other floating element
+     (rest bar, toast, tour, FAB) already measures itself against. */
+  --dock-h:62px;
+  --dock-gap:10px;
+  --dock-inset:14px;
+  --nav:calc(var(--dock-h) + var(--dock-gap));
+  --dock-glass:rgba(250,248,245,.8);
+  --dock-glass-opaque:rgba(250,248,245,.97);
+  --dock-edge:rgba(27,26,23,.10);
+  --dock-sheen:rgba(255,255,255,.7);
+  --dock-pill:rgba(255,255,255,.82);
+  --dock-pill-sheen:rgba(255,255,255,.82);
+  --maxw:560px;
+
+  --display:"Plex Sans",system-ui,sans-serif;
+  --body:"Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+  --mono:"Plex Mono",ui-monospace,SFMono-Regular,Menlo,monospace;
+  --r:var(--radius);
+  --shadow:none;
+  --check:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='4 12.5 9.5 18 20 6.5'/%3E%3C/svg%3E");
+  --bolt:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='black'%3E%3Cpath d='M13.6 2 4 13.4h6.1L9.4 22 20 10.2h-6.6z'/%3E%3C/svg%3E");
+  /* The forward arrow is drawn, not typed. U+2192 is not in the Plex Sans
+   * subset we ship, so a "→" in `content` falls through to whatever the
+   * platform hands us: SF Pro on iOS draws a proper arrow, while Android
+   * lands on a symbol fallback that ignores our weight and sits off-centre
+   * against the label. A mask renders identically everywhere. */
+  /* A <select> cannot carry a pseudo-element, so its chevron is a background
+     image rather than a mask, and the ink has to be baked into the SVG. That
+     is why this one glyph exists twice instead of following currentColor. */
+  --select-caret:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%231B1A17' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+  --arrow:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='black' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M4 12h15'/%3E%3Cpolyline points='13.2 6.2 19 12 13.2 17.8'/%3E%3C/svg%3E");
+}
+@media (prefers-color-scheme:dark){
+:root{
+  color-scheme:dark;
+  --scheme:dark;
+  --bg:#141310;
+  --surface:#1E1C18;
+  --ink:#F2EFE9;
+  --ink-soft:#ADA79D;
+  --ink-faint:#99938A;
+  --rule:#2E2B26;
+  --rule-strong:#4A453D;
+  --accent:#F2703B;
+  /* Text emphasis stays in the same burnt-orange family as the mark. The
+     first dark pass was lighter but too peach beside the red danger action. */
+  --accent-deep:#FF8A3D;
+  --positive:#63C267;
+  /* A quiet parchment rather than a lit white card. Scale and placement make
+     the CTA primary; maximum luminance does not need to. */
+  --cta:#DED7CC;
+  --well:#191713;
+  --cta-ink:#161513;
+  --accent-ink:#231A14;
+  --danger:#FF6670;
+  --accent-rgb:242,112,59;
+  --positive-rgb:99,194,103;
+  --danger-rgb:255,102,112;
+  --ink-rgb:242,239,233;
+  --bg-rgb:20,19,16;
+  --entry-tint:rgba(242,112,59,.12);
+  --knob:#F7F5F1;
+  --scrim:rgba(0,0,0,.62);
+  /* Dark content showing through glass becomes visual noise around the nav
+     labels. Keep the material, but make it read as smoked glass, not a lens. */
+  --dock-glass:rgba(30,28,24,.92);
+  --dock-glass-opaque:rgba(24,22,19,.97);
+  --dock-edge:rgba(255,255,255,.10);
+  --dock-sheen:rgba(255,255,255,.04);
+  --dock-pill:rgba(255,255,255,.07);
+  --dock-pill-sheen:rgba(255,255,255,.05);
+  --select-caret:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23F2EFE9' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'/%3E%3C/svg%3E");
+}
+}
+
+
+/* ---------- base ---------- */
+:root{--rv:0px;--g:16px;--ease:cubic-bezier(.2,.7,.2,1)}
+*{box-sizing:border-box}
+html{-webkit-text-size-adjust:100%;scroll-padding-top:calc(var(--rv) + 12px)}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 15px/1.45 var(--body);font-variant-numeric:tabular-nums;-webkit-font-smoothing:antialiased;padding-top:var(--rv);overflow-x:hidden}
+img{display:block;max-width:100%;height:auto}
+picture{display:block}
+a{color:inherit}
+button{font:inherit;color:inherit}
+h1,h2,h3{text-wrap:balance}
+p{text-wrap:pretty}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:8px}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
+.mono{font-family:var(--mono)}
+
+/* ---------- review chrome (not part of any candidate) ---------- */
+.rv{position:fixed;inset:0 0 auto 0;z-index:100;background:var(--ink);color:var(--bg);padding:6px max(10px,env(safe-area-inset-left)) 6px;padding-top:max(6px,env(safe-area-inset-top));font-size:12px}
+.rv__in{max-width:720px;margin:0 auto}
+.rv__head{display:flex;align-items:center;justify-content:space-between;gap:10px;min-height:44px}
+.rv__badge{font:600 12px/1 var(--mono);opacity:.78;letter-spacing:.02em}
+.rv__collapse{appearance:none;border:0;background:transparent;color:inherit;opacity:.86;display:inline-flex;align-items:center;gap:6px;min-height:44px;min-width:44px;padding:0 6px;cursor:pointer;font:500 12px/1 var(--body);border-radius:9px}
+.rv__collapse i{flex:none;width:14px;height:14px;position:relative}
+.rv__collapse i::before,.rv__collapse i::after{content:"";position:absolute;left:1px;right:1px;top:6px;height:1.75px;background:currentColor;border-radius:2px;transition:transform .2s var(--ease)}
+.rv__collapse i::after{transform:rotate(90deg)}
+.rv__collapse[aria-expanded="true"] i::after{transform:rotate(0)}
+.rv__collapse:focus-visible{outline-color:var(--bg)}
+.rv--collapsed .rv__body{display:none}
+.rv--collapsed .rv__head{min-height:32px}
+.rv__top{display:flex;gap:8px;align-items:stretch;margin-top:6px}
+.rv__seg{display:flex;gap:3px;padding:3px;border-radius:12px;background:rgba(var(--bg-rgb),.12)}
+.rv__tabs{flex:1}
+.rv__seg button{appearance:none;border:0;background:transparent;color:inherit;opacity:.78;border-radius:9px;min-height:44px;min-width:44px;padding:0 6px;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:5px;font:500 12px/1.1 var(--body);transition:background .18s var(--ease),color .18s var(--ease)}
+.rv__tabs button{flex:1}
+.rv__seg button b{font:600 13px/1 var(--mono)}
+.rv__seg button[aria-selected="true"],.rv__seg button[aria-pressed="true"]{background:var(--bg);color:var(--ink);opacity:1}
+.rv__seg button:focus-visible{outline-color:var(--bg)}
+.rv__row{display:flex;align-items:center;gap:10px;margin-top:4px;min-height:44px}
+.rv__note{flex:1;margin:0;line-height:1.35;opacity:.86}
+.rv__note strong{font-weight:600;opacity:1}
+.rv__r1{flex:none;display:inline-flex;align-items:center;min-height:44px;padding:0 4px;font-weight:600;text-underline-offset:3px}
+.rv__r1:focus-visible{outline-color:var(--bg)}
+.bare .rv{display:none}
+@media (max-width:370px){.rv__seg button span{display:none}}
+
+/* ---------- shared candidate parts ---------- */
+.wrap{max-width:var(--maxw);margin:0 auto;padding:0 max(var(--g),env(safe-area-inset-left))}
+.label{font:600 11px/1.3 var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+.top{display:flex;align-items:center;justify-content:space-between;min-height:60px}
+.brand{display:flex;align-items:center;gap:9px;min-height:44px;text-decoration:none;font:650 18px/1 var(--display);letter-spacing:-.01em}
+.brand img{width:30px;height:30px;border-radius:8px}
+@media (prefers-color-scheme:dark){.brand img{background:var(--knob);padding:2px}} /* the ground-free mark needs its paper plate on charcoal (brand guide, The mark) */
+.pill{display:inline-flex;align-items:center;min-height:44px;padding:0 15px;border-radius:999px;border:1px solid var(--rule);background:var(--surface);font-weight:600;font-size:13px;text-decoration:none}
+.cta{display:flex;align-items:center;justify-content:center;position:relative;width:100%;min-height:54px;padding:13px 48px;border:0;border-radius:var(--radius);background:var(--cta);color:var(--cta-ink);font:600 1.0625rem/1.2 var(--body);text-decoration:none;cursor:pointer;transition:transform .12s var(--ease)}
+.cta::after{content:"";position:absolute;right:18px;top:50%;transform:translateY(-50%);width:22px;height:22px;color:var(--accent);background:currentColor;-webkit-mask:var(--arrow) no-repeat center/contain;mask:var(--arrow) no-repeat center/contain}
+.cta:active{transform:translateY(1px) scale(.995)}
+.link2{display:flex;align-items:center;justify-content:center;min-height:44px;margin-top:4px;font-weight:600;font-size:15px;text-decoration:underline;text-decoration-color:var(--rule-strong);text-underline-offset:4px}
+.meta{display:flex;flex-wrap:wrap;justify-content:center;gap:4px 0;margin:8px 0 0;padding:0;list-style:none;font:500 12.5px/1.3 var(--body);color:var(--ink-soft)}
+.meta li+li::before{content:"·";margin:0 8px;color:var(--ink-faint)}
+.card{background:var(--surface);border:1px solid var(--rule);border-radius:var(--radius);overflow:hidden}
+.btn2{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;min-height:48px;padding:0 16px;border:1px solid var(--rule-strong);border-radius:var(--radius);background:var(--surface);color:var(--ink);font:600 15px/1.2 var(--body);cursor:pointer;transition:transform .12s var(--ease),background .2s var(--ease)}
+.btn2:active{transform:translateY(1px) scale(.995)}
+.btn2[aria-disabled="true"]{color:var(--ink-soft);background:var(--well);cursor:default}
+.idx{font:500 12px/1 var(--mono);color:var(--ink-faint)}
+.idx b{color:var(--ink);font-weight:600}
+.h2{font:650 1.625rem/1.1 var(--display);letter-spacing:-.02em;margin:10px 0 12px}
+.sub{color:var(--ink-soft);margin:0 0 18px;font-size:16px}
+.foot{font-size:12.5px;color:var(--ink-faint);margin:10px 2px 0}
+.disc{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:44px;padding:10px 0;border:0;background:none;font-weight:600;font-size:15px;text-align:left;cursor:pointer}
+.disc i{flex:none;width:20px;height:20px;position:relative}
+.disc i::before,.disc i::after,details.faq summary i::before,details.faq summary i::after{content:"";position:absolute;left:3px;right:3px;top:9px;height:1.75px;background:currentColor;border-radius:2px;transition:transform .2s var(--ease)}
+.disc i::after,details.faq summary i::after{transform:rotate(90deg)}
+.disc[aria-expanded="true"] i::after,details.faq[open] summary i::after{transform:rotate(0)}
+details.faq{border-top:1px solid var(--rule)}
+details.faq:last-of-type{border-bottom:1px solid var(--rule)}
+details.faq summary{list-style:none;display:flex;align-items:center;justify-content:space-between;gap:12px;min-height:52px;padding:12px 0;font-weight:600;font-size:16px;cursor:pointer}
+details.faq summary::-webkit-details-marker{display:none}
+details.faq summary i{flex:none;width:20px;height:20px;position:relative}
+details.faq .ans{padding:0 0 16px;color:var(--ink-soft)}
+details.faq .ans p{margin:0 0 10px}
+details.faq .ans p:last-child{margin-bottom:0}
+details.faq ol{margin:6px 0 12px;padding-left:20px}
+details.faq li{padding:2px 0}
+details.faq b{color:var(--ink);font-weight:600}
+.ico{width:22px;height:22px;flex:none;color:var(--ink)}
+.footer{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:20px 0 28px;border-top:1px solid var(--rule);margin-top:40px;color:var(--ink-faint);font-size:13px}
+.footer nav{display:flex;gap:16px}
+.footer a{min-height:44px;min-width:44px;justify-content:center;display:inline-flex;align-items:center;text-decoration:none}
+
+/* phone renders */
+.phone{display:block;margin:0 auto;width:auto;height:auto;max-width:min(78vw,330px);max-height:60vh;aspect-ratio:903/1832;object-fit:contain}
+.crop{position:relative;overflow:hidden;margin:0 auto;aspect-ratio:903/1458;max-height:60vh;width:min(78vw,330px)}
+.crop img{position:absolute;left:0;width:100%;top:-17.97%;max-width:none}
+@supports (aspect-ratio:1){.crop{height:auto}}
+figure{margin:0}
+.band{display:block;margin:0 calc(-1 * max(var(--g),env(safe-area-inset-left)))}
+@media (min-width:560px){.band{max-width:460px;margin:0 auto}}
+.band img{display:block;width:100%;height:auto}
+.proof{margin:14px 0 0}
+.proof figcaption{margin-top:6px}
+.U .uProof{margin:28px 0 0}
+figcaption{font-size:13.5px;color:var(--ink-soft);text-align:center;margin:10px 0 0}
+
+/* ---------- ledger (S, T and V share it) ---------- */
+.ledger__head{padding:14px 14px 12px}
+.ledger__ex{font:600 1.0625rem/1.3 var(--display);margin:4px 0 2px}
+.ledger__rx{color:var(--ink-soft);font-size:14px}
+.grid{display:grid;grid-template-columns:44px 1fr 1fr 1fr 28px;align-items:center;padding:0 14px;text-align:left}
+.grid--h{border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);min-height:34px}
+.grid--h small{font-size:10px;letter-spacing:.04em;text-transform:none;font-weight:500;margin-left:3px}
+.row{min-height:46px;border-bottom:1px solid var(--rule);font:500 16px/1 var(--mono)}
+.row .n{color:var(--ink-soft)}
+.row .v{opacity:0;transition:opacity .18s var(--ease)}
+.row .ck{width:22px;height:22px;border-radius:7px;display:grid;place-items:center;background:var(--cta);color:var(--cta-ink);transform:scale(.2);opacity:0;transition:transform .2s var(--ease),opacity .2s var(--ease)}
+.row .ck svg{width:14px;height:14px}
+.row.on .v{opacity:1}.row.on .ck{transform:none;opacity:1}
+.next{background:var(--well);padding:16px 14px 16px 16px;position:relative}
+.next::before{content:"";position:absolute;left:0;top:14px;bottom:14px;width:2px;background:var(--accent);border-radius:2px;transform:scaleY(0);transform-origin:top;transition:transform .26s var(--ease)}
+.next .body{opacity:.25;transition:opacity .26s var(--ease)}
+.next.on::before{transform:none}.next.on .body{opacity:1}
+.verdict{display:flex;align-items:center;gap:7px;font:600 15px/1.3 var(--body);margin:6px 0 0}
+.verdict svg{width:18px;height:18px;flex:none}
+.load{font:500 2rem/1.05 var(--mono);margin:6px 0 8px;letter-spacing:-.01em}
+.load small{font-size:15px;color:var(--ink-soft);font-weight:400;letter-spacing:0}
+.next p{margin:0 0 6px;color:var(--ink-soft);font-size:14.5px}
+.next p.rule{color:var(--ink)}
+
+/* segmented control (a radiogroup) */
+.segc{display:grid;grid-template-columns:repeat(3,1fr);gap:3px;padding:3px;border:1px solid var(--rule);border-radius:12px;background:var(--well)}
+.segc button{appearance:none;border:1px solid transparent;background:transparent;border-radius:9px;min-height:44px;padding:4px 4px;font:600 13.5px/1.15 var(--body);color:var(--ink-soft);cursor:pointer;transition:background .18s var(--ease),color .18s var(--ease),border-color .18s var(--ease)}
+.segc button[aria-checked="true"]{background:var(--surface);border-color:var(--rule-strong);color:var(--ink)}
+
+/* sticky CTA: the page's only floating layer */
+.dock{position:fixed;left:14px;right:14px;bottom:calc(10px + env(safe-area-inset-bottom));z-index:50;max-width:528px;margin:0 auto;padding:6px;border-radius:20px;background:rgba(var(--bg-rgb),.82);-webkit-backdrop-filter:blur(30px) saturate(180%);backdrop-filter:blur(30px) saturate(180%);border:1px solid var(--dock-edge);box-shadow:inset 0 1px 0 var(--dock-sheen),0 10px 30px rgba(var(--ink-rgb),.13),0 2px 8px rgba(var(--ink-rgb),.07);transform:translateY(calc(100% + 24px));visibility:hidden;transition:transform .26s var(--ease),visibility 0s .26s}
+.dock.on{transform:none;visibility:visible;transition:transform .26s var(--ease),visibility 0s}
+.dock .cta{border-radius:14px}
+.has-dock{padding-bottom:calc(54px + 12px + 10px + 16px + env(safe-area-inset-bottom))}
+
+@media (prefers-reduced-motion:reduce){*,*::before,*::after{transition:none!important;animation:none!important;scroll-behavior:auto!important}}
+
+/* ============ S · Síntese ============ */
+.S .hero{padding:14px 0 0}
+.S h1{font:650 2.25rem/1.05 var(--display);letter-spacing:-.02em;margin:10px 0 12px}
+.S .lede{font-size:17px;line-height:1.45;color:var(--ink-soft);margin:0 0 20px}
+.S .demo{margin:40px 0 0}
+.S .demo>.label{display:block;margin:0 0 8px}
+.S .ledger{margin:10px 0 0}
+.S section{padding:44px 0 0}
+.S .lines{list-style:none;margin:0;padding:0;border-top:1px solid var(--ink)}
+.S .lines>li{display:grid;grid-template-columns:24px 1fr;gap:10px;padding:14px 0;border-bottom:1px solid var(--rule)}
+.S .lines .k{font:600 13px/1.5 var(--mono);color:var(--ink)}
+.S .lines h3{font:600 16px/1.3 var(--body);margin:0 0 3px}
+.S .lines p{margin:0;color:var(--ink-soft);font-size:14.5px}
+.S .lines .disc{margin-top:4px;color:var(--ink)}
+.S .kv{display:grid;grid-template-columns:auto 1fr;gap:0 14px;margin:18px 0 26px;border-top:1px solid var(--rule)}
+.S .kv dt,.S .kv dd{margin:0;padding:11px 0;border-bottom:1px solid var(--rule)}
+.S .kv dt{font:600 11px/1.9 var(--body);letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+.S .kv dd{font-size:14.5px}
+.S .close{padding:48px 0 0}
+.S .phone{max-height:46vh}
+.S .crop{max-height:46vh;width:auto;height:46vh;max-width:78vw}
+.S .kv{margin:14px 0 22px}
+.S .demo{margin:32px 0 0}
+
+/* paste hand-off demo (S and V) */
+.hand{padding:4px 0 6px}
+.msg{background:var(--surface);border:1px solid var(--rule);border-radius:18px 18px 18px 6px;padding:11px 14px 10px;max-width:90%;font-size:14.5px}
+.msg__who{display:flex;justify-content:space-between;gap:12px;font-size:12px;color:var(--ink-faint);margin-bottom:5px}
+.msg__who b{color:var(--ink);font-weight:600}
+.msg pre{margin:0;font:400 14.5px/1.5 var(--body);white-space:pre-wrap}
+.turn{display:flex;align-items:center;gap:10px;margin:12px 0 12px 16px;color:var(--ink-soft);font-size:13px}
+.turn svg{width:22px;height:22px;flex:none;color:var(--ink-soft)}
+.prog__head{padding:13px 14px 10px;display:flex;justify-content:space-between;align-items:flex-end;gap:10px}
+.prog__title{font:600 16px/1.25 var(--body);margin:3px 0 0}
+.prog ul{margin:0;padding:0;list-style:none}
+.prog li{display:flex;justify-content:space-between;gap:12px;padding:11px 14px;border-top:1px solid var(--rule);font-size:15px}
+.prog li span:first-child{font-weight:600}
+.prog li span:last-child{font:500 15px/1.3 var(--mono);white-space:nowrap}
+.prog li{opacity:0;transform:translateY(6px);transition:opacity .22s var(--ease),transform .22s var(--ease)}
+.prog li.on{opacity:1;transform:none}
+.hand p{margin:14px 0 0;font-size:14.5px;color:var(--ink)}
+.hand .note{display:flex;gap:10px;margin:12px 0 0;color:var(--ink-soft);font-size:14px}
+.hand .note svg{width:18px;height:18px;flex:none;margin-top:2px;color:var(--ink)}
+.hand .where{color:var(--ink-soft)}
+.hand .where b{color:var(--ink);font-weight:600}
+
+/* privacy rows (S, U) */
+.priv__row{display:grid;grid-template-columns:24px 1fr;gap:12px;padding:14px}
+.priv__row+.priv__row{border-top:1px solid var(--rule)}
+.priv__row b{display:block;font-size:15px}
+.priv__row span{display:block;color:var(--ink-soft);font-size:14px}
+.pointer{font-size:14px;color:var(--ink-soft);margin:12px 2px 0}
+.pointer b{color:var(--ink);font-weight:600}
+
+/* setup-link card (FAQ) */
+.share{margin:12px 0 4px;color:var(--ink)}
+.share__row{display:flex;gap:12px;align-items:flex-start;padding:13px 14px}
+.share__row b{display:block;font-size:15px}
+.share__row span{display:block;font-size:13px;color:var(--ink-soft)}
+.share__cols{display:grid;grid-template-columns:1fr 1fr;border-top:1px solid var(--rule)}
+.share__cols div{padding:12px 14px}
+.share__cols div+div{border-left:1px solid var(--rule)}
+.share__cols ul{margin:6px 0 0;padding:0;list-style:none;font-size:14px}
+.share__cols li{padding:2px 0}
+
+/* ============ T · Sua vez ============ */
+.T .hero{padding:10px 0 0}
+.T h1{font:650 2.125rem/1.05 var(--display);letter-spacing:-.02em;margin:6px 0 10px}
+.T .lede{font-size:16.5px;color:var(--ink-soft);margin:0 0 18px}
+.T .ledger{margin:26px 0 0}
+.T .ctx{margin:8px 0 0;font-size:14px;color:var(--ink)}
+.T .cur{position:relative;padding:12px 14px 14px;border-bottom:1px solid var(--rule)}
+.T .cur::before{content:"";position:absolute;left:0;top:12px;bottom:14px;width:2px;background:var(--accent);border-radius:2px;transition:opacity .2s var(--ease)}
+.T .cur.done::before{opacity:0}
+.T .cur__h{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px}
+.T .cells{display:grid;grid-template-columns:1fr 1.25fr 1.25fr}
+.T .cell{text-align:center;padding:4px 2px 0;position:relative;min-width:0}
+.T .cell+.cell::before{content:"";position:absolute;left:0;top:10%;bottom:10%;width:1px;background:var(--rule)}
+.T .cell .label{display:block;margin-bottom:4px}
+.T .val{display:block;font:650 32px/44px var(--mono);height:44px;border-radius:8px;outline-offset:-2px}
+.T .val--fixed{color:var(--ink-soft)}
+.T .steps{display:flex;justify-content:center;gap:6px;margin-top:2px}
+.T .step{width:44px;height:44px;border:1px solid var(--rule);border-radius:12px;background:var(--bg);color:var(--ink);font:500 20px/1 var(--mono);cursor:pointer;display:grid;place-items:center;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+.T .step:disabled{color:var(--rule-strong);cursor:default}
+.T .cur .btn2{margin-top:12px}
+.T .res .next{border-top:0}
+.T .res[hidden]{display:none}
+.T .pending{padding:14px;color:var(--ink-soft);font-size:14px;background:var(--well)}
+.T section{padding:44px 0 0}
+.T .routes{list-style:none;margin:0;padding:0;border-top:1px solid var(--ink)}
+.T .routes li{padding:12px 0;border-bottom:1px solid var(--rule)}
+.T .routes b{display:block;font-size:15.5px;font-weight:600}
+.T .routes span{display:block;font-size:14px;color:var(--ink-soft)}
+.T .close{padding:40px 0 0}
+
+/* ============ U · Seis semanas ============ */
+.U .hero{padding:14px 0 0}
+.U h1{font:650 2.25rem/1.05 var(--display);letter-spacing:-.02em;margin:10px 0 12px}
+.U .lede{font-size:17px;color:var(--ink-soft);margin:0 0 20px}
+.U .run{margin:44px 0 0;position:relative}
+.U .chart{position:sticky;top:calc(var(--rv) + 8px);z-index:5;padding:10px 14px 8px;margin:0 0 18px}
+.U .chart__top{display:flex;justify-content:space-between;align-items:baseline;gap:10px}
+.U .chart__ex{font:600 15px/1.3 var(--body)}
+.U .chart__ex small{display:block;font:400 12.5px/1.3 var(--body);color:var(--ink-soft)}
+.U .chart__now{font:500 13px/1.3 var(--mono);color:var(--ink-soft);white-space:nowrap}
+.U svg.plot{display:block;width:100%;height:auto;margin-top:6px;overflow:visible}
+.U .plot .axis{stroke:var(--rule);stroke-width:1}
+.U .plot .grid{stroke:var(--rule);stroke-width:1;stroke-dasharray:2 4}
+.U .plot text{font:500 10px var(--mono);fill:var(--ink-faint)}
+.U .plot .seg{stroke:var(--ink);stroke-width:1.75;fill:none;stroke-dasharray:1;stroke-dashoffset:1;transition:stroke-dashoffset .32s var(--ease)}
+.U .plot .seg--next{stroke-dasharray:.04 .04;stroke-dashoffset:0;opacity:0;transition:opacity .2s var(--ease)}
+.U .plot .seg.on{stroke-dashoffset:0}
+.U .plot .seg--next.on{opacity:1}
+.U .plot .dot{fill:var(--surface);stroke:var(--ink);stroke-width:1.5;opacity:0;transition:opacity .2s var(--ease)}
+.U .plot .dot.on{opacity:1}
+.U .plot .dot.now{fill:var(--accent);stroke:var(--accent)}
+.U .plot .dot--next{stroke-dasharray:2 2}
+.U .chart__cap{font-size:11.5px;color:var(--ink-faint);margin:2px 0 0}
+.U .wk{padding:14px;margin:0 0 14px;min-height:42vh}
+.U .wk__top{display:flex;justify-content:space-between;align-items:baseline}
+.U .wk__load{font:500 26px/1.1 var(--mono);margin:6px 0 10px}
+.U .wk__load small{font:400 14px/1 var(--body);color:var(--ink-soft)}
+.U .sets{display:grid;grid-template-columns:repeat(3,1fr);border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.U .sets div{padding:9px 0;text-align:center;font:500 15px/1.25 var(--mono)}
+.U .sets div+div{border-left:1px solid var(--rule)}
+.U .sets small{display:block;font:500 11.5px/1.3 var(--mono);color:var(--ink-soft)}
+.U .wk .verdict{margin-top:12px}
+.U .wk .to{font:400 14px/1.3 var(--body);color:var(--ink-soft);margin:4px 0 0}
+.U .wk p{margin:8px 0 0;font-size:14.5px;color:var(--ink-soft)}
+.U .wk .miss{font-size:13px;color:var(--ink);margin:0}
+.U .end{padding:0}
+.U .end .next{padding:16px 14px 16px 16px}
+.U section{padding:48px 0 0}
+.U .routes{list-style:none;margin:0;padding:0;border-top:1px solid var(--ink)}
+.U .routes li{padding:12px 0;border-bottom:1px solid var(--rule)}
+.U .routes b{display:block;font-size:15.5px;font-weight:600}
+.U .routes span{display:block;font-size:14px;color:var(--ink-soft)}
+.U .close{padding:52px 0 0}
+
+/* ============ V · Duas telas ============ */
+.V .s1{min-height:calc(100svh - var(--rv));display:flex;flex-direction:column;overflow:hidden}
+.V .hero{padding:4px 0 0}
+.V h1{font:650 2.375rem/1.03 var(--display);letter-spacing:-.02em;margin:8px 0 10px}
+.V .lede{font-size:16.5px;color:var(--ink-soft);margin:0 0 18px}
+.V .bleed{flex:1;min-height:170px;position:relative;margin-top:22px}
+.V .bleed img{position:absolute;left:50%;top:0;transform:translateX(-50%);width:min(84vw,360px);max-width:none;max-height:none;height:auto}
+.V .s2{padding:30px 0 0;border-top:1px solid var(--rule);position:relative;background:var(--bg)}
+.V .h2{font-size:1.5rem;margin:0 0 14px}
+.V .routes{list-style:none;margin:0;padding:0;border-top:1px solid var(--rule)}
+.V .routes li{display:grid;grid-template-columns:24px 1fr;gap:10px;padding:12px 0;border-bottom:1px solid var(--rule)}
+.V .routes .ico{margin-top:1px}
+.V .routes b{display:block;font-size:15.5px;font-weight:600}
+.V .routes span{display:block;font-size:14px;color:var(--ink-soft)}
+.V .priv{display:flex;gap:12px;margin:16px 0 20px;font-size:14.5px}
+.V .priv b{font-weight:600}
+.V .how{margin:26px 0 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.V .how .disc{min-height:56px;font-size:16px}
+.V .how__body{padding:0 0 22px}
+.V .how__body h3{font:600 17px/1.3 var(--body);margin:22px 0 8px}
+.V .how__body>p{margin:0 0 10px;color:var(--ink-soft);font-size:15px}
+.V .how__body .ledger{margin:12px 0 0}
+.V .how__body .phone{margin-top:16px}
+</style>
+</head>
+<body>
+
+<div class="rv" id="rv" role="region" aria-label="Review switcher">
+  <div class="rv__in">
+    <div class="rv__head">
+      <span class="rv__badge" id="rvBadge" aria-hidden="true"></span>
+      <button type="button" class="rv__collapse" id="rvCollapse" aria-expanded="true" aria-controls="rvBody">
+        <span id="rvCollapseLabel"></span><i aria-hidden="true"></i>
+      </button>
+    </div>
+    <div class="rv__body" id="rvBody">
+      <div class="rv__top">
+        <div class="rv__seg rv__tabs" role="tablist" aria-label="Landing candidates" id="tabs"></div>
+        <div class="rv__seg" role="group" aria-label="Language" id="langs">
+          <button type="button" data-lang="pt" aria-pressed="true">PT</button>
+          <button type="button" data-lang="en" aria-pressed="false">EN</button>
+        </div>
+      </div>
+      <div class="rv__row">
+        <p class="rv__note" id="note"></p>
+        <a class="rv__r1" id="r1" href="../index.html">Ver rodada 1</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+<main id="stage" tabindex="-1"></main>
+
+<script>
+(function(){
+"use strict";
+/* Every CTA points at the app's first-run screen, which offers
+   "Montar meu programa" and "Acompanhar meu programa atual". The app reads
+   only ?goto=<day>, so there is no deep link into an entry route. */
+var APP = "https://pedrochagasmaster.github.io/repforge/";
+var ROOT = "../../../../";
+var lang = "pt";
+var reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function L(pt, en){ return lang === "pt" ? pt : en; }
+function esc(s){ return String(s).replace(/&/g,"&amp;").replace(/"/g,"&quot;").replace(/</g,"&lt;"); }
+
+/* ---------- numbers: always Intl, from a numeric source ---------- */
+var NF = {};
+function n(x){ var loc = lang === "pt" ? "pt-BR" : "en"; if (!NF[loc]) NF[loc] = new Intl.NumberFormat(loc, { maximumFractionDigits: 1 }); return NF[loc].format(x); }
+function kg(x){ return n(x) + " kg"; }
+function rng(a, b){ return n(a) + "–" + n(b); }
+function list(xs){ return xs.slice(0, -1).map(n).join(", ") + L(" e ", " and ") + n(xs[xs.length - 1]); }
+
+/* ---------- app strings, copied verbatim from i18n-pt.json / i18n-en.json ---------- */
+var K = {
+  "landing.build": ["Montar meu programa", "Build my program"],
+  "landing.track": ["Acompanhar meu programa atual", "Track my current program"],
+  "today.log_set": ["Registrar série", "Log set"],
+  "rec.add.label": ["Aumentar carga", "Add load"],
+  "rec.add.text": ["Todas as séries bateram o topo da faixa. Aumente o peso.", "Every set hit the top of the range. Add weight."],
+  "rec.hold_add_reps.label": ["Manter · somar reps", "Hold · add reps"],
+  "rec.hold_add_reps.text": ["Mantenha a carga e adicione reps dentro do alvo de RIR.", "Keep the load and add reps within your RIR target."],
+  "rec.reduce.label": ["Reduzir", "Back off"],
+  "rec.reduce.text": ["A maioria das séries ficou abaixo de {min} reps. Reduza a carga até conseguir pelo menos {min} reps por série.", "Most sets fell below {min} reps. Reduce the load until you can complete at least {min} reps per set."],
+  "rec.push_reps.label": ["Adicionar reps", "Add reps"],
+  "rec.push_reps.text": ["Você deixou reps sobrando. Treine mais perto da falha antes de aumentar a carga.", "You left reps in reserve. Train closer to failure before adding load."],
+  "why.rule.cap_top": ["O topo da faixa é {max} e sua capacidade mostrou cerca de {cr}. A carga sobe.", "The range tops out at {max} and your capacity showed about {cr}. The load goes up."],
+  "why.showed": ["Contando reps mais até {cap} RIR, a última sessão mostrou uma capacidade de cerca de {cr} com {load} {unit}.", "Counting reps plus up to {cap} RIR, last session showed a rep capacity of about {cr} at {load} {unit}."],
+  "entry.hub.title": ["Criar um programa", "Create a program"],
+  "entry.hub.group.written": ["O Taurifer monta o programa", "Taurifer builds the program"],
+  "entry.hub.group.browse": ["Escolha um programa pronto", "Choose a ready-made program"],
+  "entry.hub.group.own": ["Traga ou monte o seu", "Bring or build your own"],
+  "entry.hub.own.title": ["Usar meu próprio programa", "Use my own program"],
+  "entry.hub.freeform.title": ["Colar de qualquer lugar", "Paste from anywhere"],
+  "entry.freeform.privacy": ["O que colar é mantido neste separador apenas para esta importação. Nunca entra no histórico, exportações ou telemetria, e o Taurifer descarta-o quando o fluxo termina.", "What you paste is held in this browser tab only for this import. It never enters history, exports or telemetry, and Taurifer drops it when the flow ends."],
+  "program.share_setup": ["Compartilhar link de configuração", "Share setup link"],
+  "program.share_setup_sub": ["Programa, ajustes e idioma do app · sem histórico de treinos", "Program, settings and app language · no workout history"],
+  "install.ios.step1": ["Toque em ••• à direita da barra de endereço e escolha <b>Compartilhar</b>.", "Tap ••• at the right of the address bar, then choose <b>Share</b>."],
+  "install.ios.step2": ["No menu de compartilhamento, toque em <b>Ver Mais</b>, no fim da linha de ações.", "In the share sheet, tap <b>View More</b> at the end of the actions row."],
+  "install.ios.step3": ["Escolha <b>Adicionar à Tela de Início</b>.", "Choose <b>Add to Home Screen</b>."],
+  "install.ios.step4": ["Deixe <b>Abrir como Web App</b> ativado e toque em <b>Adicionar</b>.", "Leave <b>Open as Web App</b> on and tap <b>Add</b>."],
+  "install.browser_instructions": ["Abra o menu do navegador e escolha <b>Instalar app</b> ou <b>Adicionar à tela inicial</b>.", "Open your browser menu and choose <b>Install app</b> or <b>Add to Home Screen</b>."],
+  "nav.settings": ["Ajustes", "Settings"],
+  "focus.cue.up": ["Subir para {load} {unit}", "Go up to {load} {unit}"],
+  "focus.cue.hold": ["Manter {load} {unit}", "Hold {load} {unit}"],
+  "focus.cue.down": ["Reduzir para {load} {unit}", "Drop to {load} {unit}"],
+  "focus.cue.reps": ["buscar {reps} reps", "aim for {reps} reps"],
+  "focus.last_session": ["Última sessão", "Last session"],
+  "entry.freeform.open_chatgpt": ["Abrir no ChatGPT", "Open in ChatGPT"],
+  "entry.freeform.open_claude": ["Abrir no Claude", "Open in Claude"],
+  "privacy.open": ["Detalhes de privacidade", "Privacy details"],
+  "settings.analytics.title": ["Ajude a melhorar o Taurifer", "Help improve Taurifer"],
+  "landing.shot.focus.alt": ["A tela de série em foco: agachamento livre com barra, série 1 de 3, alvo de 5 a 8 reps com RIR 0 a 2. A última sessão foi 100 kg para 8, 7 e 6 reps. A linha AGORA diz Manter 100 kg, buscar 8 reps, com os seletores de carga, reps e RIR em 100, 8 e 1 acima do botão Registrar série.", "The focused set view: barbell back squat, set 1 of 3, target 5 to 8 reps at RIR 0 to 2. Last session was 100 kg for 8, 7 and 6 reps. The recommendation is Hold 100 kg, aim for 8 reps, with the load, reps and RIR dials at 100, 8 and 1 above a Log set button."]
+};
+/* entry.freeform.privacy ships in European Portuguese in i18n-pt.json
+   ("separador", "descarta-o"). The page renders the same claim in PT-BR (você)
+   and keeps the catalog value above only as the source it is checked against. */
+var FREEFORM_PRIVACY_PT_BR = "O texto que você cola fica nesta aba só durante esta importação. Ele nunca entra no histórico, nas exportações nem na telemetria, e o Taurifer descarta o texto quando o fluxo termina.";
+function k(key, vars){
+  var s = K[key][lang === "pt" ? 0 : 1];
+  if (vars) Object.keys(vars).forEach(function(v){ s = s.split("{" + v + "}").join(vars[v]); });
+  return s;
+}
+/* Exercise names, exactly as exercises.js has them (namePt / name). */
+var EX = {
+  bench: ["Supino com barra", "Barbell bench press"],
+  squat: ["Agachamento livre com barra", "Barbell back squat"],
+  incline: ["Supino inclinado com halteres", "Dumbbell incline press"],
+  fly: ["Crucifixo na polia", "Cable fly"],
+  pressdown: ["Tríceps na polia", "Cable pressdown"]
+};
+function ex(id){ return EX[id][lang === "pt" ? 0 : 1]; }
+
+/* ---------- engine output, generated by the scripts beside this file ---------- */
+/* node round-2/engine-cases.mjs --write */
+/*@CASES*/var CASES = {"add":{"ex":"bench","sets":3,"repMin":8,"repMax":10,"logged":[[60,10,2],[60,10,2],[60,10,2]],"status":"advance","reason":"range.performed_top","load":62.5,"reps":8},"hold":{"ex":"squat","sets":3,"repMin":5,"repMax":8,"logged":[[100,8,1],[100,7,0],[100,6,0]],"status":"hold","reason":"range.room_in_range","load":100,"reps":8},"reduce":{"ex":"bench","sets":3,"repMin":8,"repMax":10,"logged":[[70,7,0],[70,6,0],[70,6,0]],"status":"reduce","reason":"range.below_floor","load":67.5,"reps":8}};/*@end*/
+/* node round-2/engine-grid.mjs --write */
+/*@GRID*/var GRID = {"load":60,"repMin":8,"repMax":10,"fixed":[[60,10,1],[60,7,0]],"reps":[6,7,8,9,10],"rirs":[0,1,2,3],"hardRir":4,"cells":{"6/0":{"status":"reduce","reason":"range.below_floor","verdict":"reduce","rule":"rec.reduce.text","load":57.5,"reps":9,"capacityReps":7},"6/1":{"status":"reduce","reason":"range.below_floor","verdict":"reduce","rule":"rec.reduce.text","load":57.5,"reps":8,"capacityReps":7},"6/2":{"status":"hold","reason":"range.room_in_range","verdict":"hold","rule":"rec.hold_add_reps.text","load":60,"reps":10,"capacityReps":8},"6/3":{"status":"hold","reason":"range.capacity_room","verdict":"push","rule":"rec.push_reps.text","load":60,"reps":10,"capacityReps":9},"7/0":{"status":"reduce","reason":"range.below_floor","verdict":"reduce","rule":"rec.reduce.text","load":57.5,"reps":9,"capacityReps":7},"7/1":{"status":"hold","reason":"range.room_in_range","verdict":"hold","rule":"rec.hold_add_reps.text","load":60,"reps":10,"capacityReps":8},"7/2":{"status":"hold","reason":"range.capacity_room","verdict":"push","rule":"rec.push_reps.text","load":60,"reps":10,"capacityReps":9},"7/3":{"status":"hold","reason":"range.capacity_room","verdict":"push","rule":"rec.push_reps.text","load":60,"reps":10,"capacityReps":10},"8/0":{"status":"hold","reason":"range.room_in_range","verdict":"hold","rule":"rec.hold_add_reps.text","load":60,"reps":10,"capacityReps":8},"8/1":{"status":"hold","reason":"range.room_in_range","verdict":"hold","rule":"rec.hold_add_reps.text","load":60,"reps":10,"capacityReps":9},"8/2":{"status":"hold","reason":"range.capacity_room","verdict":"push","rule":"rec.push_reps.text","load":60,"reps":10,"capacityReps":10},"8/3":{"status":"advance","reason":"range.capacity_top","verdict":"add","rule":"why.rule.cap_top","load":62.5,"reps":8,"capacityReps":11},"9/0":{"status":"hold","reason":"range.room_in_range","verdict":"hold","rule":"rec.hold_add_reps.text","load":60,"reps":10,"capacityReps":9},"9/1":{"status":"hold","reason":"range.room_in_range","verdict":"hold","rule":"rec.hold_add_reps.text","load":60,"reps":10,"capacityReps":10},"9/2":{"status":"advance","reason":"range.capacity_top","verdict":"add","rule":"why.rule.cap_top","load":62.5,"reps":8,"capacityReps":11},"9/3":{"status":"advance","reason":"range.capacity_top","verdict":"add","rule":"why.rule.cap_top","load":62.5,"reps":8,"capacityReps":11},"10/0":{"status":"hold","reason":"range.room_in_range","verdict":"hold","rule":"rec.hold_add_reps.text","load":60,"reps":10,"capacityReps":10},"10/1":{"status":"advance","reason":"range.capacity_top","verdict":"add","rule":"why.rule.cap_top","load":62.5,"reps":8,"capacityReps":11},"10/2":{"status":"advance","reason":"range.capacity_top","verdict":"add","rule":"why.rule.cap_top","load":62.5,"reps":8,"capacityReps":11},"10/3":{"status":"advance","reason":"range.capacity_top","verdict":"add","rule":"why.rule.cap_top","load":62.5,"reps":8,"capacityReps":11}}};/*@end*/
+/* Round-2 renders (render/README.md): [width, height] per language. */
+/*@ASSETS*/var ASSETS = {"focus-add":{"pt":[720,366],"en":[720,366]},"focus-hold":{"pt":[720,320],"en":[720,366]},"focus-reduce":{"pt":[720,366],"en":[720,366]},"exchart-six":{"pt":[720,491],"en":[720,491]},"paste-send":{"pt":[720,413],"en":[720,440]},"paste-review":{"pt":[720,644],"en":[720,612]},"hub-own":{"pt":[720,615],"en":[720,591]}};/*@end*/
+/* node round-2/six-weeks.mjs --write */
+/*@WEEKS*/var WEEKS = {"exercise":"bench","sets":3,"repMin":8,"repMax":10,"weeks":[{"week":1,"load":60,"logged":[[10,2],[10,2],[10,1]],"status":"advance","verdict":"add","reason":"range.performed_top","rule":"rec.add.text","next":{"load":62.5,"reps":8},"miss":false},{"week":2,"load":62.5,"logged":[[9,1],[8,1],[8,0]],"status":"hold","verdict":"hold","reason":"range.room_in_range","rule":"rec.hold_add_reps.text","next":{"load":62.5,"reps":10},"miss":false},{"week":3,"load":62.5,"logged":[[10,1],[10,1],[10,0]],"status":"advance","verdict":"add","reason":"range.performed_top","rule":"rec.add.text","next":{"load":65,"reps":8},"miss":false},{"week":4,"load":65,"logged":[[8,1],[7,0],[6,0]],"status":"reduce","verdict":"reduce","reason":"range.below_floor","rule":"rec.reduce.text","next":{"load":62.5,"reps":8},"miss":true},{"week":5,"load":62.5,"logged":[[10,1],[10,1],[10,0]],"status":"advance","verdict":"add","reason":"range.performed_top","rule":"rec.add.text","next":{"load":65,"reps":8},"miss":false},{"week":6,"load":65,"logged":[[10,1],[10,0],[10,0]],"status":"advance","verdict":"add","reason":"range.performed_top","rule":"rec.add.text","next":{"load":67.5,"reps":9},"miss":false}]};/*@end*/
+
+/* ---------- one registry for everything a candidate starts ---------- */
+var REG;
+function resetReg(){ REG = { timers: new Set(), obs: [], offs: [] }; }
+resetReg();
+function later(fn, ms){ var id = setTimeout(function(){ REG.timers.delete(id); fn(); }, ms); REG.timers.add(id); return id; }
+function watch(io){ REG.obs.push(io); return io; }
+function on(t, ev, fn, o){ t.addEventListener(ev, fn, o); REG.offs.push(function(){ t.removeEventListener(ev, fn, o); }); }
+function clearAll(){
+  REG.timers.forEach(clearTimeout);
+  REG.obs.forEach(function(o){ o.disconnect(); });
+  REG.offs.forEach(function(f){ f(); });
+  resetReg();
+}
+window.__r2 = { live: function(){ return { timers: REG.timers.size, observers: REG.obs.length, listeners: REG.offs.length }; } };
+function once(el, fn, threshold){
+  var io = watch(new IntersectionObserver(function(es){ if (es[0].isIntersecting){ io.disconnect(); fn(); } }, { threshold: threshold || .35 }));
+  io.observe(el);
+}
+
+/* ---------- small shared pieces ---------- */
+var I = {
+  arrow: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"/></svg>',
+  check: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
+  add: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V5M6 11l6-6 6 6"/></svg>',
+  hold: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14"/></svg>',
+  push: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>',
+  reduce: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M6 13l6 6 6-6"/></svg>',
+  turn: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 4v8a4 4 0 0 0 4 4h8M15 12l4 4-4 4"/></svg>',
+  lock: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/></svg>',
+  link: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7.3l3-3a4 4 0 0 0-5.7-5.6l-1.2 1.1"/><path d="M14 10a4 4 0 0 0-5.7-.3l-3 3a4 4 0 0 0 5.7 5.6l1.2-1.1"/></svg>',
+  phone: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6.5" y="3" width="11" height="18" rx="2.5"/><path d="M10.5 18h3"/></svg>',
+  wifi: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 9.5a11 11 0 0 1 15 0M7.5 12.8a6.6 6.6 0 0 1 9 0M10.5 16a2.2 2.2 0 0 1 3 0"/><path d="M12 19.5h.01"/></svg>',
+  chart: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19h16"/><path d="M7 15l4-4 3 3 5-6"/></svg>',
+  wand: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 19l10-10"/><path d="M14 4v3M12.5 5.5h3M19 9v2M18 10h2"/></svg>',
+  search: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="6"/><path d="M20 20l-4.5-4.5"/></svg>',
+  paste: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="4.5" width="12" height="16" rx="2.5"/><path d="M9.5 4.5V3.5h5v1M9 10h6M9 13.5h6M9 17h3.5"/></svg>'
+};
+function top(){ return '<header class="top"><a class="brand" href="' + APP + '"><img src="' + ROOT + 'assets/brand/mark.png" alt="" width="30" height="30">Taurifer</a><a class="pill" href="' + APP + '">' + L("Abrir o app", "Open the app") + '</a></header>'; }
+function cta(id){ return '<a class="cta"' + (id ? ' id="' + id + '"' : "") + ' href="' + APP + '">' + k("landing.build") + '</a>'; }
+function track(){ return '<a class="link2" href="' + APP + '">' + k("landing.track") + '</a>'; }
+function meta(){ return '<ul class="meta" aria-label="' + L("Sem riscos", "No risk") + '"><li>' + L("Sem conta", "No account") + '</li><li>' + L("Funciona sem internet", "Works offline") + '</li><li>' + L("Gratuito", "Free") + '</li></ul>'; }
+function heroActions(id){ return cta(id) + track() + meta(); }
+function shot(name, alt, o){
+  o = o || {};
+  var base = ROOT + "assets/brand/" + name + "-" + lang + "-";
+  return '<picture><source media="(prefers-color-scheme: dark)" srcset="' + base + 'dark.webp"><img class="' + (o.cls || "phone") + '" src="' + base + 'light.webp" width="903" height="1832" alt="' + esc(alt) + '"' + (o.eager ? ' fetchpriority="high"' : ' loading="lazy"') + ' decoding="async"></picture>';
+}
+/* A band cropped from a round-2 render: a real app screen, framed to the rows
+   the copy points at and clear of the dynamic island. */
+function band(name, alt){
+  var d = ASSETS[name][lang], base = "assets/" + name + "-" + lang + "-";
+  return '<picture class="band"><source media="(prefers-color-scheme: dark)" srcset="' + base + 'dark.webp"><img src="' + base + 'light.webp" width="' + d[0] + '" height="' + d[1] + '" alt="' + esc(alt) + '" loading="lazy" decoding="async"></picture>';
+}
+function cue(verdict, load, reps){
+  var key = { add: "focus.cue.up", hold: "focus.cue.hold", reduce: "focus.cue.down" }[verdict];
+  return k(key, { load: n(load), unit: "kg" }) + " · " + k("focus.cue.reps", { reps: n(reps) });
+}
+function focusBandAlt(id){
+  var c = CASES[id];
+  return L("A tela de treino do Taurifer com a última sessão de " + ex(c.ex) + ", ", "Taurifer's workout screen with the last session of " + ex(c.ex) + ", ") +
+    c.logged.map(function(x){ return kg(x[0]) + " × " + n(x[1]) + " RIR " + n(x[2]); }).join(", ") +
+    L(", e a linha Agora: ", ", and the Now line: ") + cue(STATUS_TO_VERDICT[c.status], c.load, c.reps) + ".";
+}
+function footer(){
+  return '<footer class="footer"><span>Taurifer</span><nav aria-label="' + L("Rodapé", "Footer") + '"><a href="#' + L("dados", "data") + '">' + L("Privacidade", "Privacy") + '</a><a href="' + APP + '">' + L("Abrir o app", "Open the app") + '</a></nav></footer>';
+}
+function dock(){ return '<div class="dock" id="dock">' + cta() + '</div>'; }
+/* Shows the dock once the hero CTA has scrolled above the viewport, hides it
+   while the closing CTA is on screen. The page reserves bottom padding for it. */
+function stickyDock(root){
+  var bar = root.querySelector("#dock"), hero = root.querySelector("#heroCta"), close = root.querySelector("#closeCta");
+  var heroGone = false, closeSeen = false;
+  function paint(){ var show = heroGone && !closeSeen; bar.classList.toggle("on", show); bar.setAttribute("aria-hidden", show ? "false" : "true"); }
+  watch(new IntersectionObserver(function(es){ var e = es[es.length - 1]; heroGone = !e.isIntersecting && e.boundingClientRect.bottom < (e.rootBounds ? e.rootBounds.top : 0) + 1; paint(); }, { rootMargin: "-" + (parseInt(getComputedStyle(document.documentElement).getPropertyValue("--rv"), 10) || 0) + "px 0px 0px 0px" })).observe(hero);
+  watch(new IntersectionObserver(function(es){ closeSeen = es[es.length - 1].isIntersecting; paint(); })).observe(close);
+  paint();
+}
+
+/* Row fill for a ledger: each logged row inks in 120 ms after the last. */
+function fillRows(rows, next, start){
+  rows.forEach(function(r){ r.classList.remove("on"); });
+  if (next) next.classList.remove("on");
+  if (reduce){ rows.forEach(function(r){ r.classList.add("on"); }); if (next) next.classList.add("on"); return; }
+  rows.forEach(function(r, i){ later(function(){ r.classList.add("on"); }, (start || 60) + i * 120); });
+  if (next) later(function(){ next.classList.add("on"); }, (start || 60) + rows.length * 120 + 140);
+}
+function ledgerRows(logged){
+  return logged.map(function(s, i){
+    return '<div class="grid row" data-row><span class="n">' + n(i + 1) + '</span><span class="v">' + n(s[0]) + '</span><span class="v">' + n(s[1]) + '</span><span class="v">' + n(s[2]) + '</span><span class="ck">' + I.check + '</span></div>';
+  }).join("");
+}
+function ledgerHead(){
+  return '<div class="grid grid--h label" aria-hidden="true"><span>' + L("Série", "Set") + '</span><span>' + L("Carga", "Load") + '<small>kg</small></span><span>Reps</span><span>RIR</span><span></span></div>';
+}
+function ledgerSr(logged){
+  return '<p class="sr">' + logged.map(function(s, i){ return L("Série ", "Set ") + n(i + 1) + ": " + kg(s[0]) + " × " + n(s[1]) + ", RIR " + n(s[2]); }).join(". ") + '.</p>';
+}
+var VERDICT = {
+  add: function(){ return k("rec.add.label"); },
+  hold: function(){ return k("rec.hold_add_reps.label"); },
+  push: function(){ return k("rec.push_reps.label"); },
+  reduce: function(){ return k("rec.reduce.label"); }
+};
+var STATUS_TO_VERDICT = { advance: "add", hold: "hold", reduce: "reduce" };
+function verdictLine(v){ return '<div class="verdict">' + I[v] + '<span>' + VERDICT[v]() + '</span></div>'; }
+function setsWord(x){ return x === 1 ? L("série", "set") : L("séries", "sets"); }
+
+/* The three routes, titled by the entry hub's groups. */
+function routes(){
+  return [
+    ["written", I.wand, L("Responda algumas perguntas ou escolha prioridades musculares. O Taurifer monta um programa de seis semanas para os dias em que você treina.", "Answer a few questions or pick muscle priorities. Taurifer builds a six-week program around the days you train.")],
+    ["browse", I.search, L("Programas Taurifer completos, por objetivo e frequência.", "Complete Taurifer programs, by purpose and schedule.")],
+    ["own", I.paste, L("Comece com dias vazios, cole o treino que você já segue ou importe um arquivo Taurifer.", "Start with empty days, paste the program you already follow, or import a Taurifer file.")]
+  ];
+}
+function whereToPaste(){
+  return L(
+    'Na primeira tela do app, toque em <b>' + k("landing.track") + '</b> e a tela de colar abre. Ela também fica em <b>' + k("entry.hub.title") + '</b>, dentro de <b>' + k("entry.hub.own.title") + '</b>, como <b>' + k("entry.hub.freeform.title") + '</b>.',
+    'On the app\'s first screen, tap <b>' + k("landing.track") + '</b> and the paste screen opens. It also lives in <b>' + k("entry.hub.title") + '</b>, under <b>' + k("entry.hub.own.title") + '</b>, as <b>' + k("entry.hub.freeform.title") + '</b>.');
+}
+/* The paste hand-off. S keeps round-1 D's message-to-program demo, then shows
+   the real review step; U and V show the real screens end to end. */
+function pasteBand(){
+  return '<figure class="proof">' + band("paste-send", L("A tela Colar um programa de qualquer lugar do Taurifer com " + n(5) + " linhas coladas e os botões " + k("entry.freeform.open_chatgpt") + " e " + k("entry.freeform.open_claude") + ".", "Taurifer's Paste a program from anywhere screen with " + n(5) + " lines pasted and the " + k("entry.freeform.open_chatgpt") + " and " + k("entry.freeform.open_claude") + " buttons.")) +
+    '<figcaption>' + L("No app: o texto colado e os botões " + k("entry.freeform.open_chatgpt") + " e " + k("entry.freeform.open_claude") + ".", "In the app: your pasted text and the " + k("entry.freeform.open_chatgpt") + " and " + k("entry.freeform.open_claude") + " buttons.") + '</figcaption></figure>';
+}
+function reviewBand(){
+  return '<figure class="proof">' + band("paste-review", L("A tela Revise os exercícios: " + n(0) + " vinculados e " + n(4) + " para revisar, com Supino reto sugerido como " + ex("bench") + ", marcado Provável.", "The Review the exercises screen: " + n(1) + " linked and " + n(3) + " to review, with Bench press suggested as " + ex("bench") + ", marked Likely.")) +
+    '<figcaption>' + L("Com a resposta colada, o app pede que você confira cada exercício antes de salvar.", "With the reply pasted, the app asks you to check every exercise before saving.") + '</figcaption></figure>';
+}
+function hubBand(){
+  return '<figure class="proof">' + band("hub-own", L("A tela " + k("entry.hub.title") + " com o grupo " + k("entry.hub.group.own") + " aberto: Montar um programa, " + k("entry.hub.freeform.title") + " e Importar um programa.", "The " + k("entry.hub.title") + " screen with " + k("entry.hub.group.own") + " open: Build a program, " + k("entry.hub.freeform.title") + " and Import a program.")) + '</figure>';
+}
+function handoff(real){
+  var prog = [["bench", 3, 8, 10], ["incline", 3, 10, 12], ["fly", 3, 12, 15], ["pressdown", 3, 12, 15]];
+  var relay = '<p>' + L("Você copia o comando do Taurifer, cola no ChatGPT ou no Claude junto com o seu treino e traz a resposta de volta. Antes de salvar, você confere cada exercício.", "You copy Taurifer's prompt, paste it into ChatGPT or Claude along with your program, and bring the reply back. Before anything is saved, you check every exercise.") + '</p>';
+  var note = '<p class="note">' + I.lock + '<span>' + L(FREEFORM_PRIVACY_PT_BR, k("entry.freeform.privacy")) + '</span></p>';
+  var msg = '<div class="msg"><div class="msg__who"><b>' + L("Mensagem do personal", "Message from your coach") + '</b><span>' + L("07:42", "7:42 AM") + '</span></div>' +
+    '<pre>' + L("TREINO A · peito e tríceps\nSupino reto 3x8-10\nSupino inclinado halter 3x10-12\nCrucifixo polia 3x12-15\nTríceps polia 3x12-15", "WORKOUT A · chest and triceps\nBench press 3x8-10\nIncline DB press 3x10-12\nCable fly 3x12-15\nTriceps pushdown 3x12-15") + '</pre></div>';
+  if (real) return '<div class="hand">' + msg +
+    '<div class="turn">' + I.turn + '<span>' + L("você cola no Taurifer", "you paste it into Taurifer") + '</span></div>' +
+    pasteBand() + relay + reviewBand() + note +
+    '<p class="where">' + whereToPaste() + '</p>' + hubBand() + '</div>';
+  return '<div class="hand">' + msg +
+    '<div class="turn">' + I.turn + '<span>' + L("vira um dia do seu programa, para você conferir", "becomes a day in your program, for you to check") + '</span></div>' +
+    '<div class="card prog"><div class="prog__head"><div><div class="label">' + L("Dia A", "Day A") + '</div><div class="prog__title">' + L("Peito e tríceps", "Chest and triceps") + '</div></div><span class="label">' + n(4) + L(" exercícios", " exercises") + '</span></div><ul>' +
+    prog.map(function(p){ return '<li><span>' + ex(p[0]) + '</span><span>' + n(p[1]) + ' × ' + (p[2] === p[3] ? n(p[2]) : rng(p[2], p[3])) + '</span></li>'; }).join("") +
+    '</ul></div>' + relay + reviewBand() + note +
+    '<p class="where">' + whereToPaste() + '</p>' +
+  '</div>';
+}
+function disclosure(root, btn, body, onOpen){
+  on(btn, "click", function(){
+    var open = btn.getAttribute("aria-expanded") !== "true";
+    btn.setAttribute("aria-expanded", open);
+    body.hidden = !open;
+    if (open && onOpen) onOpen();
+  });
+}
+function revealProg(root){
+  var items = root.querySelectorAll(".prog li");
+  items.forEach(function(li, i){ if (reduce) li.classList.add("on"); else later(function(){ li.classList.add("on"); }, 80 + i * 120); });
+}
+
+/* Usage data. The app's toggle ships ON (telemetry.js readEnabled() defaults to
+   true; index.html #telemetryToggle aria-pressed="true"), so the page cannot
+   say it is off until you turn it on. This row states what the code does. */
+function usageRow(){
+  return [L("Dados de uso", "Usage data"), L("Eventos de uso do produto, nunca valores de treino, nomes de exercícios ou notas. Desligue quando quiser em " + k("nav.settings") + ", em " + k("settings.analytics.title") + ".", "Product usage events, never workout values, exercise names or notes. Turn it off any time in " + k("nav.settings") + " under " + k("settings.analytics.title") + ".")];
+}
+function dataRows(){
+  return [
+    [I.phone, L("Neste dispositivo", "On this device"), L("Sem conta. Os treinos só saem daqui se você criar a transferência de instalação, que expira em uma hora. Exporte em JSON, CSV ou texto.", "No account. Your sessions only leave this device if you create the install transfer, which expires within an hour. Export as JSON, CSV or text.")],
+    [I.wifi, L("Funciona sem internet", "Works without a connection"), L("Depois de aberto uma vez, registrar séries e ver a próxima meta não dependem de sinal.", "Once it has been opened, logging sets and seeing the next target don't need a signal.")],
+    [I.chart].concat(usageRow())
+  ];
+}
+function privacyPointer(){
+  return '<p class="pointer">' + L('No app, abra <b>' + k("nav.settings") + '</b> e toque em <b>' + k("privacy.open") + '</b> para ler tudo.', 'In the app, open <b>' + k("nav.settings") + '</b> and tap <b>' + k("privacy.open") + '</b> for the full details.') + '</p>';
+}
+function faqItem(q, a){ return '<details class="faq"><summary>' + q + '<i aria-hidden="true"></i></summary><div class="ans">' + a + '</div></details>'; }
+function faqFree(){ return faqItem(L("É grátis?", "Is it free?"), '<p>' + L("Montar um programa, registrar as sessões e receber a próxima meta é gratuito, sem conta e sem cadastro.", "Building a program, logging sessions and getting the next target are free, with no account and no sign-up.") + '</p>'); }
+function faqStore(){
+  return faqItem(L("Preciso de loja de apps?", "Do I need an app store?"),
+    '<p>' + L("Não. O Taurifer abre no navegador. Para ter o ícone na tela de início:", "No. Taurifer opens in the browser. To put its icon on your home screen:") + '</p>' +
+    '<p><b>' + L("iPhone, no Safari", "iPhone, in Safari") + '</b></p><ol><li>' + k("install.ios.step1") + '</li><li>' + k("install.ios.step2") + '</li><li>' + k("install.ios.step3") + '</li><li>' + k("install.ios.step4") + '</li></ol>' +
+    '<p><b>' + L("Android, no Chrome", "Android, in Chrome") + '</b></p><p>' + k("install.browser_instructions") + '</p>');
+}
+function faqRir(){ return faqItem(L("O que é RIR?", "What is RIR?"), '<p>' + L("Repetições em reserva: quantas você ainda faria ao terminar a série. Parou em " + n(10) + " e daria mais " + n(2) + ", é RIR " + n(2) + ".", "Reps in reserve: how many more you could have done when you stopped. Stopped at " + n(10) + " with " + n(2) + " left, that's RIR " + n(2) + ".") + '</p>'); }
+function faqCoach(){
+  return faqItem(L("Meu treinador pode me mandar um programa?", "Can my coach send me a program?"),
+    '<p>' + L("Pode. Ele monta o programa no Taurifer e toca em " + k("program.share_setup") + ". Você abre o link, confere o programa e começa no seu celular.", "Yes. They build the program in Taurifer and tap " + k("program.share_setup") + ". You open the link, review the program and start on your own phone.") + '</p>' +
+    '<div class="card share"><div class="share__row">' + I.link + '<span><b>' + k("program.share_setup") + '</b><span>' + k("program.share_setup_sub") + '</span></span></div>' +
+    '<div class="share__cols"><div><span class="label">' + L("Vai no link", "In the link") + '</span><ul><li>' + L("Programa", "Program") + '</li><li>' + L("Ajustes", "Settings") + '</li><li>' + L("Idioma", "Language") + '</li></ul></div><div><span class="label">' + L("Não vai", "Not in the link") + '</span><ul><li>' + L("Histórico de treinos", "Workout history") + '</li><li>' + L("Sessões registradas", "Logged sessions") + '</li></ul></div></div></div>' +
+    '<p>' + L("O link não é criptografado: quem o receber pode ler o programa.", "The link isn't encrypted: anyone who gets it can read the program.") + '</p>');
+}
+
+/* ============================ S · Síntese ============================ */
+var S_ORDER = ["add", "hold", "reduce"];
+function sCase(id){
+  var c = CASES[id], reps = c.logged.map(function(s){ return s[1]; });
+  var numeric = {
+    add: L("As três séries fizeram " + n(reps[0]) + " reps com " + kg(c.logged[0][0]) + ", o topo da faixa de " + rng(c.repMin, c.repMax) + ".", "All three sets did " + n(reps[0]) + " reps at " + kg(c.logged[0][0]) + ", the top of the " + rng(c.repMin, c.repMax) + " range."),
+    hold: L("As séries fizeram " + list(reps) + " reps com " + kg(c.logged[0][0]) + ", dentro da faixa de " + rng(c.repMin, c.repMax) + ".", "The sets did " + list(reps) + " reps at " + kg(c.logged[0][0]) + ", inside the " + rng(c.repMin, c.repMax) + " range."),
+    reduce: L("As séries fizeram " + list(reps) + " reps com " + kg(c.logged[0][0]) + ", abaixo do piso de " + n(c.repMin) + ".", "The sets did " + list(reps) + " reps at " + kg(c.logged[0][0]) + ", below the floor of " + n(c.repMin) + ".")
+  }[id];
+  var rule = { add: k("rec.add.text"), hold: k("rec.hold_add_reps.text"), reduce: k("rec.reduce.text", { min: n(c.repMin) }) }[id];
+  return { c: c, numeric: numeric, rule: rule };
+}
+function S(){
+  var segs = [L("Aumentar carga", "Add load"), L("Manter", "Hold"), L("Reduzir", "Back off")];
+  return '<div class="S has-dock"><div class="wrap">' + top() +
+  '<div class="hero">' +
+    '<div class="label">' + L("Progressão de carga, série por série", "Progressive overload, set by set") + '</div>' +
+    '<h1>' + L("Chegue no treino sabendo quanto colocar na barra.", "Walk in knowing what goes on the bar.") + '</h1>' +
+    '<p class="lede">' + L("O Taurifer monta seu programa, guarda cada série que você faz e calcula a meta da próxima sessão, sempre com o motivo por escrito.", "Taurifer builds your program, keeps every set you do and works out the target for your next session, always with the reason written down.") + '</p>' +
+    heroActions("heroCta") +
+  '</div>' +
+  '<div class="demo"><span class="label" id="segLabel">' + L("Escolha como foi a sessão", "Pick how the session went") + '</span>' +
+    '<div class="segc" role="radiogroup" aria-labelledby="segLabel" id="seg">' + segs.map(function(s, i){ return '<button type="button" role="radio" aria-checked="' + (i === 0) + '" tabindex="' + (i === 0 ? 0 : -1) + '" data-case="' + S_ORDER[i] + '">' + s + '</button>'; }).join("") + '</div>' +
+    '<div class="ledger card" id="ledger"></div>' +
+    '<figure class="proof" id="sProof"></figure>' +
+  '</div>' +
+
+  '<section aria-labelledby="sStart"><div class="idx"><b>' + n(1).padStart(2, "0") + '</b> / ' + L("Começar", "Start") + '</div>' +
+  '<h2 class="h2" id="sStart">' + L("Três jeitos de começar um programa.", "Three ways to start a program.") + '</h2>' +
+  '<ol class="lines">' + routes().map(function(r, i){
+    return '<li><span class="k" aria-hidden="true">' + "abc"[i] + '</span><div><h3>' + k("entry.hub.group." + r[0]) + '</h3><p>' + r[2] + '</p>' +
+      (r[0] === "own" ? '<button type="button" class="disc" aria-expanded="false" aria-controls="sHand" id="sHandBtn">' + L("Ver como colar um treino", "See how pasting a program works") + '<i aria-hidden="true"></i></button><div id="sHand" hidden>' + handoff() + '</div>' : "") +
+    '</div></li>';
+  }).join("") + '</ol></section>' +
+
+  '<section aria-labelledby="sTrain"><div class="idx"><b>' + n(2).padStart(2, "0") + '</b> / ' + L("Treinar e acompanhar", "Train and track") + '</div>' +
+  '<h2 class="h2" id="sTrain">' + L("Feito para usar entre uma série e outra.", "Made for the moments between sets.") + '</h2>' +
+  shot("focus", k("landing.shot.focus.alt")) +
+  '<dl class="kv">' +
+    '<dt>' + L("Sugestão", "Prefilled") + '</dt><dd>' + L("A carga e as reps da meta já vêm preenchidas. Bateu, toque em " + k("today.log_set") + ".", "The target load and reps are filled in. Hit them and tap " + k("today.log_set") + ".") + '</dd>' +
+    '<dt>' + L("Descanso", "Rest") + '</dt><dd>' + L("O timer conta o intervalo e avisa quando acabar.", "The timer counts your rest and tells you when it's up.") + '</dd>' +
+    '<dt>' + L("Troca", "Swap") + '</dt><dd>' + L("Equipamento ocupado? Troque o exercício, e o histórico guarda o que você fez de verdade.", "Equipment taken? Swap the exercise, and history keeps what you actually did.") + '</dd>' +
+    '<dt>' + L("Notas", "Notes") + '</dt><dd>' + L("Altura do banco, pegada, ajuste. A nota volta na próxima sessão.", "Bench height, grip, settings. The note comes back next session.") + '</dd>' +
+  '</dl>' +
+  '<figure><div class="crop">' + shot("exercise-chart", L("A tendência de força do Agachamento livre com barra: maior carga de " + n(92.5) + " para " + kg(100) + " ao longo de " + n(4) + " sessões, com a tabela das sessões e o gráfico.", "The strength trend for the Barbell back squat: top load from " + n(92.5) + " to " + kg(100) + " across " + n(4) + " sessions, with the session table and chart."), { cls: "x" }) + '</div>' +
+  '<figcaption>' + n(92.5) + " → " + kg(100) + L(" em " + n(4) + " sessões", " over " + n(4) + " sessions") + '</figcaption></figure></section>' +
+
+  '<section id="' + L("dados", "data") + '" aria-labelledby="sData" tabindex="-1"><div class="idx"><b>' + n(3).padStart(2, "0") + '</b> / ' + L("Seus dados", "Your data") + '</div>' +
+  '<h2 class="h2" id="sData">' + L("Seu histórico fica no seu celular.", "Your history stays on your phone.") + '</h2>' +
+  '<div class="card">' + dataRows().map(function(r){ return '<div class="priv__row">' + r[0] + '<div><b>' + r[1] + '</b><span>' + r[2] + '</span></div></div>'; }).join("") + '</div>' +
+  privacyPointer() + '</section>' +
+
+  '<section aria-labelledby="sFaq"><h2 class="h2" id="sFaq">' + L("Perguntas", "Questions") + '</h2>' + faqFree() + faqStore() + faqRir() + faqCoach() + '</section>' +
+
+  '<div class="close"><h2 class="h2">' + L("Comece de onde você está.", "Start where you are.") + '</h2>' +
+  cta("closeCta") + track() + '</div>' +
+  footer() + '</div>' + dock() + '</div>';
+}
+function sLedger(id){
+  var x = sCase(id), c = x.c;
+  return '<div class="ledger__head"><div class="label">' + L("Sessão registrada", "Logged session") + '</div>' +
+    '<div class="ledger__ex">' + ex(c.ex) + '</div>' +
+    '<div class="ledger__rx">' + n(c.sets) + " " + setsWord(c.sets) + " · " + rng(c.repMin, c.repMax) + ' reps</div></div>' +
+    ledgerHead() + ledgerRows(c.logged) + ledgerSr(c.logged) +
+    '<div class="next" id="ledgerNext"><div class="body" aria-live="polite" aria-atomic="true">' +
+      '<div class="label">' + L("Próxima sessão", "Next session") + '</div>' +
+      verdictLine(STATUS_TO_VERDICT[c.status]) +
+      '<div class="load">' + kg(c.load) + ' <small>× ' + n(c.reps) + " · " + n(c.sets) + " " + setsWord(c.sets) + '</small></div>' +
+      '<p>' + x.numeric + '</p><p class="rule">' + x.rule + '</p>' +
+    '</div></div>';
+}
+function initS(root){
+  var seg = root.querySelector("#seg"), ledger = root.querySelector("#ledger"), btns = [].slice.call(seg.querySelectorAll("[role=radio]"));
+  var seen = false, current = "add";
+  function show(id, animate){
+    current = id;
+    btns.forEach(function(b){ var onb = b.dataset.case === id; b.setAttribute("aria-checked", onb); b.tabIndex = onb ? 0 : -1; });
+    ledger.innerHTML = sLedger(id);
+    root.querySelector("#sProof").innerHTML = band("focus-" + id, focusBandAlt(id)) +
+      '<figcaption>' + L("A mesma sessão, na tela de treino do app.", "The same session, on the app's workout screen.") + '</figcaption>';
+    var rows = [].slice.call(ledger.querySelectorAll("[data-row]")), next = ledger.querySelector("#ledgerNext");
+    if (animate) fillRows(rows, next, 40);
+    else { rows.forEach(function(r){ r.classList.add("on"); }); next.classList.add("on"); }
+  }
+  show("add", false);
+  if (!reduce){
+    ledger.querySelectorAll("[data-row]").forEach(function(r){ r.classList.remove("on"); });
+    ledger.querySelector("#ledgerNext").classList.remove("on");
+    once(ledger, function(){ seen = true; fillRows([].slice.call(ledger.querySelectorAll("[data-row]")), ledger.querySelector("#ledgerNext"), 120); }, .45);
+  }
+  on(seg, "click", function(e){ var b = e.target.closest("[role=radio]"); if (b && b.dataset.case !== current) show(b.dataset.case, true); });
+  on(seg, "keydown", function(e){
+    var i = S_ORDER.indexOf(current), j = null;
+    if (e.key === "ArrowRight" || e.key === "ArrowDown") j = (i + 1) % 3;
+    else if (e.key === "ArrowLeft" || e.key === "ArrowUp") j = (i + 2) % 3;
+    else if (e.key === "Home") j = 0; else if (e.key === "End") j = 2;
+    if (j === null) return;
+    e.preventDefault(); show(S_ORDER[j], true); btns[j].focus();
+  });
+  disclosure(root, root.querySelector("#sHandBtn"), root.querySelector("#sHand"), function(){ revealProg(root); });
+  stickyDock(root);
+}
+
+/* ============================ T · Sua vez ============================ */
+function tCell(reps, rir){ return GRID.cells[reps + "/" + rir]; }
+function tRule(c){
+  if (c.rule === "why.rule.cap_top") return k("why.rule.cap_top", { max: n(GRID.repMax), cr: n(c.capacityReps) });
+  if (c.rule === "rec.reduce.text") return k("rec.reduce.text", { min: n(GRID.repMin) });
+  return k(c.rule);
+}
+function tResult(reps, rir){
+  var c = tCell(reps, rir);
+  return '<div class="next on"><div class="body">' +
+    '<div class="label">' + L("Próxima sessão", "Next session") + '</div>' +
+    verdictLine(c.verdict) +
+    '<div class="load">' + kg(c.load) + ' <small>× ' + n(c.reps) + " · " + n(3) + " " + setsWord(3) + '</small></div>' +
+    '<p>' + k("why.showed", { cap: n(GRID.hardRir), cr: n(c.capacityReps), load: n(GRID.load), unit: "kg" }) + '</p>' +
+    '<p class="rule">' + tRule(c) + '</p>' +
+  '</div></div>';
+}
+function T(){
+  var f = GRID.fixed;
+  return '<div class="T"><div class="wrap">' + top() +
+  '<div class="hero">' +
+    '<h1>' + L("Sua vez: registre a última série.", "Your turn: log the last set.") + '</h1>' +
+    '<p class="lede">' + L("O Taurifer guarda cada série e calcula a carga da próxima sessão. Escolha as reps e o RIR da série " + n(3) + " e veja o resultado.", "Taurifer keeps every set and works out the load for your next session. Pick the reps and RIR for set " + n(3) + " and see what comes out.") + '</p>' +
+    heroActions("heroCta") +
+  '</div>' +
+  '<div class="ledger card" id="tLedger">' +
+    '<div class="ledger__head"><div class="label">' + L("Sessão de hoje", "Today's session") + '</div>' +
+      '<div class="ledger__ex">' + ex("bench") + '</div>' +
+      '<div class="ledger__rx">' + n(3) + " " + setsWord(3) + " · " + rng(GRID.repMin, GRID.repMax) + " reps · " + kg(GRID.load) + '</div>' +
+      '<p class="ctx">' + L("A série " + n(2) + " caiu para " + n(f[1][1]) + ". A série " + n(3) + " decide.", "Set " + n(2) + " dropped to " + n(f[1][1]) + ". Set " + n(3) + " decides.") + '</p></div>' +
+    ledgerHead() + ledgerRows(f) + ledgerSr(f) +
+    '<div class="cur" id="tCur" role="group" aria-labelledby="tCurLab">' +
+      '<div class="cur__h"><span class="label" id="tCurLab">' + L("Série " + n(3) + " de " + n(3), "Set " + n(3) + " of " + n(3)) + '</span></div>' +
+      '<div class="cells">' +
+        '<div class="cell"><span class="label">' + L("Carga", "Load") + '</span><span class="val val--fixed">' + n(GRID.load) + '</span><span class="sr">kg</span></div>' +
+        stepper("reps", "Reps", L("Reps da série " + n(3), "Set " + n(3) + " reps"), L("Uma rep a menos", "One rep fewer"), L("Uma rep a mais", "One rep more")) +
+        stepper("rir", "RIR", L("RIR da série " + n(3), "Set " + n(3) + " RIR"), L("RIR menor", "Lower RIR"), L("RIR maior", "Higher RIR")) +
+      '</div>' +
+      '<button type="button" class="btn2" id="tLog">' + k("today.log_set") + '</button>' +
+    '</div>' +
+    '<div class="res" id="tRes" aria-live="polite" aria-atomic="true"><p class="pending">' + L("Registre a série " + n(3) + " para ver a próxima sessão.", "Log set " + n(3) + " to see the next session.") + '</p></div>' +
+  '</div>' +
+  '<p class="foot">' + L("Saída real do motor de progressão do Taurifer, calculada antes para as " + n(GRID.reps.length * GRID.rirs.length) + " combinações.", "Real output of Taurifer's progression engine, computed ahead for all " + n(GRID.reps.length * GRID.rirs.length) + " combinations.") + '</p>' +
+
+  '<section aria-labelledby="tMore"><h2 class="h2" id="tMore">' + L("O mesmo cálculo, em cada exercício do seu programa.", "The same maths, for every exercise in your program.") + '</h2>' +
+  '<p class="sub">' + L("Três jeitos de começar, os mesmos do app:", "Three ways to start, the same as in the app:") + '</p>' +
+  '<ul class="routes">' + routes().map(function(r){ return '<li><b>' + k("entry.hub.group." + r[0]) + '</b><span>' + r[2] + (r[0] === "own" ? " " + L("Para colar, toque em " + k("landing.track") + " na primeira tela do app.", "To paste, tap " + k("landing.track") + " on the app's first screen.") : "") + '</span></li>'; }).join("") + '</ul>' +
+  '<p class="pointer" id="' + L("dados", "data") + '" tabindex="-1">' + L("Sem conta. Seus treinos ficam neste dispositivo e o app funciona sem internet. Detalhes em <b>" + k("nav.settings") + "</b>, em <b>" + k("privacy.open") + "</b>.", "No account. Your sessions stay on this device and the app works offline. Details in <b>" + k("nav.settings") + "</b> under <b>" + k("privacy.open") + "</b>.") + '</p></section>' +
+
+  '<div class="close">' + cta("closeCta") + track() + '</div>' +
+  footer() + '</div></div>';
+}
+function stepper(key, label, aria, less, more){
+  var vals = key === "reps" ? GRID.reps : GRID.rirs;
+  return '<div class="cell"><span class="label" aria-hidden="true">' + label + '</span>' +
+    '<span class="val" role="spinbutton" tabindex="0" id="tv-' + key + '" aria-label="' + esc(aria) + '" aria-valuemin="' + vals[0] + '" aria-valuemax="' + vals[vals.length - 1] + '"></span>' +
+    '<span class="steps"><button type="button" class="step" data-step="' + key + '" data-d="-1" aria-label="' + esc(less) + '">−</button><button type="button" class="step" data-step="' + key + '" data-d="1" aria-label="' + esc(more) + '">+</button></span></div>';
+}
+function initT(root){
+  var st = { reps: 8, rir: 1 }, logged = false;
+  var res = root.querySelector("#tRes"), cur = root.querySelector("#tCur"), log = root.querySelector("#tLog");
+  function paint(){
+    ["reps", "rir"].forEach(function(key){
+      var vals = key === "reps" ? GRID.reps : GRID.rirs, v = st[key], el = root.querySelector("#tv-" + key);
+      el.textContent = n(v); el.setAttribute("aria-valuenow", v); el.setAttribute("aria-valuetext", n(v));
+      root.querySelector('[data-step="' + key + '"][data-d="-1"]').disabled = v <= vals[0];
+      root.querySelector('[data-step="' + key + '"][data-d="1"]').disabled = v >= vals[vals.length - 1];
+    });
+    cur.classList.toggle("done", logged);
+    log.setAttribute("aria-disabled", logged ? "true" : "false");
+  }
+  function bump(key, d){
+    var vals = key === "reps" ? GRID.reps : GRID.rirs, i = vals.indexOf(st[key]) + d;
+    if (i < 0 || i >= vals.length) return;
+    st[key] = vals[i];
+    if (logged){ logged = false; res.innerHTML = '<p class="pending">' + L("Série " + n(3) + " alterada. Toque em " + k("today.log_set") + " de novo.", "Set " + n(3) + " changed. Tap " + k("today.log_set") + " again.") + '</p>'; }
+    paint();
+  }
+  on(root, "click", function(e){
+    var b = e.target.closest("[data-step]");
+    if (b && !b.disabled) bump(b.dataset.step, +b.dataset.d);
+  });
+  on(root, "keydown", function(e){
+    var el = e.target.closest && e.target.closest("[role=spinbutton]");
+    if (!el) return;
+    var key = el.id.slice(3), vals = key === "reps" ? GRID.reps : GRID.rirs;
+    if (e.key === "ArrowUp" || e.key === "ArrowRight"){ e.preventDefault(); bump(key, 1); }
+    else if (e.key === "ArrowDown" || e.key === "ArrowLeft"){ e.preventDefault(); bump(key, -1); }
+    else if (e.key === "Home"){ e.preventDefault(); bump(key, -vals.indexOf(st[key])); }
+    else if (e.key === "End"){ e.preventDefault(); bump(key, vals.length - 1 - vals.indexOf(st[key])); }
+  });
+  on(log, "click", function(){
+    if (logged) return;
+    logged = true; paint();
+    res.innerHTML = tResult(st.reps, st.rir);
+    if (!reduce){ var nx = res.querySelector(".next"); nx.classList.remove("on"); later(function(){ nx.classList.add("on"); }, 60); }
+  });
+  paint();
+  fillRows([].slice.call(root.querySelectorAll("#tLedger [data-row]")), null, 200);
+}
+
+/* ============================ U · Seis semanas ============================ */
+function uRule(w){ return w.rule === "rec.reduce.text" ? k(w.rule, { min: n(WEEKS.repMin) }) : k(w.rule); }
+function U(){
+  var W = WEEKS.weeks, last = W[W.length - 1];
+  return '<div class="U has-dock"><div class="wrap">' + top() +
+  '<div class="hero">' +
+    '<div class="label">' + L("Seis semanas, uma sessão por semana", "Six weeks, one session a week") + '</div>' +
+    '<h1>' + L("Semana após semana, a carga certa na barra.", "Week after week, the right load on the bar.") + '</h1>' +
+    '<p class="lede">' + L("O Taurifer registra cada série e calcula a carga da próxima sessão. Role e veja seis semanas de " + ex("bench") + ", com a semana ruim no meio.", "Taurifer logs every set and works out the load for your next session. Scroll through six weeks of " + ex("bench") + ", bad week included.") + '</p>' +
+    heroActions("heroCta") +
+  '</div>' +
+  '<div class="run" id="uRun">' +
+    '<div class="card chart" id="uChart"><div class="chart__top"><span class="chart__ex">' + ex("bench") + '<small>' + n(3) + " × " + rng(WEEKS.repMin, WEEKS.repMax) + ' reps</small></span><span class="chart__now" id="uNow" aria-live="polite"></span></div>' +
+    uPlot() +
+    '<p class="chart__cap">' + L("Exemplo calculado pelo motor do Taurifer. Carga em kg.", "Example calculated by Taurifer's engine. Load in kg.") + '</p></div>' +
+    W.map(function(w){
+      return '<article class="card wk" data-wk="' + w.week + '" aria-labelledby="wk' + w.week + '">' +
+        '<div class="wk__top"><span class="label" id="wk' + w.week + '">' + L("Semana ", "Week ") + n(w.week) + '</span>' + (w.miss ? '<span class="miss">' + L("Semana ruim", "A bad week") + '</span>' : "") + '</div>' +
+        '<div class="wk__load">' + kg(w.load) + ' <small>· ' + L("registrado", "logged") + '</small></div>' +
+        '<div class="sets" role="list">' + w.logged.map(function(s, i){ return '<div role="listitem" aria-label="' + esc(L("Série ", "Set ") + n(i + 1) + ": " + n(s[0]) + " reps, RIR " + n(s[1])) + '">' + n(s[0]) + ' reps<small>RIR ' + n(s[1]) + '</small></div>'; }).join("") + '</div>' +
+        verdictLine(w.verdict) +
+        '<div class="to">' + L("Próxima: ", "Next: ") + kg(w.next.load) + " × " + n(w.next.reps) + '</div>' +
+        '<p>' + uRule(w) + '</p>' +
+      '</article>';
+    }).join("") +
+    '<div class="card end" data-wk="' + (W.length + 1) + '"><div class="next on"><div class="body">' +
+      '<div class="label">' + L("Próxima sessão", "Next session") + '</div>' +
+      '<div class="load">' + kg(last.next.load) + ' <small>× ' + n(last.next.reps) + " · " + n(3) + " " + setsWord(3) + '</small></div>' +
+      '<p>' + L("De " + kg(W[0].load) + " para " + kg(last.next.load) + " em seis semanas, com um recuo no meio.", "From " + kg(W[0].load) + " to " + kg(last.next.load) + " in six weeks, with one step back along the way.") + '</p>' +
+    '</div></div></div>' +
+  '</div>' +
+  '<figure class="proof uProof">' + band("exchart-six", L("O gráfico de e1RM estimado do " + ex("bench") + " na página do exercício do Taurifer, depois destas seis semanas: sobe até " + kg(87) + ", com uma queda na semana " + n(4) + ".", "The estimated e1RM chart for " + ex("bench") + " on Taurifer's exercise page after these six weeks: it climbs to " + kg(87) + ", with a dip in week " + n(4) + ".")) +
+  '<figcaption>' + L("No app, o e1RM estimado destas mesmas seis semanas.", "In the app: the estimated e1RM for these same six weeks.") + '</figcaption></figure>' +
+
+  '<section aria-labelledby="uStart"><h2 class="h2" id="uStart">' + L("Três jeitos de começar.", "Three ways to start.") + '</h2>' +
+  '<ul class="routes">' + routes().map(function(r){ return '<li><b>' + k("entry.hub.group." + r[0]) + '</b><span>' + r[2] + '</span></li>'; }).join("") + '</ul>' +
+  '<button type="button" class="disc" aria-expanded="false" aria-controls="uHand" id="uHandBtn">' + L("Ver como colar um treino", "See how pasting a program works") + '<i aria-hidden="true"></i></button><div id="uHand" hidden>' + handoff(true) + '</div></section>' +
+
+  '<section id="' + L("dados", "data") + '" aria-labelledby="uData" tabindex="-1"><h2 class="h2" id="uData">' + L("Seus dados", "Your data") + '</h2>' +
+  '<div class="card">' + dataRows().map(function(r){ return '<div class="priv__row">' + r[0] + '<div><b>' + r[1] + '</b><span>' + r[2] + '</span></div></div>'; }).join("") + '</div>' + privacyPointer() + '</section>' +
+
+  '<section aria-labelledby="uFaq"><h2 class="h2" id="uFaq">' + L("Perguntas", "Questions") + '</h2>' + faqFree() + faqStore() + faqRir() + faqCoach() + '</section>' +
+
+  '<div class="close"><h2 class="h2">' + L("Sua primeira semana começa hoje.", "Your first week starts today.") + '</h2>' +
+  '<p class="sub">' + L("Registre uma sessão. Na próxima, a carga de cada exercício já vem calculada.", "Log one session. Next time, every exercise has its load worked out.") + '</p>' +
+  cta("closeCta") + track() + '</div>' +
+  footer() + '</div>' + dock() + '</div>';
+}
+function uPoints(){
+  var W = WEEKS.weeks, loads = W.map(function(w){ return w.load; }).concat([W[W.length - 1].next.load]);
+  var lo = Math.floor(Math.min.apply(null, loads) / 5) * 5 - 2.5, hi = Math.ceil(Math.max.apply(null, loads) / 5) * 5 + 2.5;
+  var x0 = 30, x1 = 312, y0 = 78, y1 = 8;
+  return { loads: loads, lo: lo, hi: hi, x0: x0, y0: y0,
+    x: function(i){ return x0 + (x1 - x0) * i / (loads.length - 1); },
+    y: function(v){ return y0 - (y0 - y1) * (v - lo) / (hi - lo); } };
+}
+function uPlot(){
+  var P = uPoints(), W = WEEKS.weeks, s = "";
+  for (var g = Math.ceil(P.lo / 5) * 5; g <= P.hi; g += 5) s += '<line class="grid" x1="' + P.x0 + '" x2="312" y1="' + P.y(g) + '" y2="' + P.y(g) + '"/><text x="0" y="' + (P.y(g) + 3.5) + '">' + n(g) + '</text>';
+  s += '<line class="axis" x1="' + P.x0 + '" x2="312" y1="' + P.y0 + '" y2="' + P.y0 + '"/>';
+  P.loads.forEach(function(v, i){ s += '<text x="' + P.x(i) + '" y="' + (P.y0 + 15) + '" text-anchor="middle">' + (i < W.length ? L("S", "W") + n(i + 1) : L("Próx.", "Next")) + '</text>'; });
+  for (var i = 1; i < P.loads.length; i++) s += '<line class="seg' + (i === P.loads.length - 1 ? " seg--next" : "") + '" pathLength="1" data-seg="' + i + '" x1="' + P.x(i - 1) + '" y1="' + P.y(P.loads[i - 1]) + '" x2="' + P.x(i) + '" y2="' + P.y(P.loads[i]) + '"/>';
+  P.loads.forEach(function(v, i){ s += '<circle class="dot' + (i === P.loads.length - 1 ? " dot--next" : "") + '" data-dot="' + i + '" r="4" cx="' + P.x(i) + '" cy="' + P.y(v) + '"/>'; });
+  var desc = P.loads.map(function(v, i){ return (i < W.length ? L("semana ", "week ") + n(i + 1) : L("próxima sessão", "next session")) + " " + kg(v); }).join(", ");
+  return '<svg class="plot" viewBox="0 0 320 96" role="img" aria-label="' + esc(L("Carga do " + ex("bench") + " por semana: ", ex("bench") + " load by week: ") + desc) + '">' + s + '</svg>';
+}
+function initU(root){
+  var W = WEEKS.weeks, now = root.querySelector("#uNow"), segs = root.querySelectorAll("[data-seg]"), dots = root.querySelectorAll("[data-dot]");
+  var stage = -1;
+  function set(k){
+    if (k === stage) return; stage = k;
+    // k = weeks revealed (1..6), 7 = next session shown too
+    segs.forEach(function(s){ var i = +s.dataset.seg; s.classList.toggle("on", reduce ? true : i < k); });
+    dots.forEach(function(d){ var i = +d.dataset.dot; d.classList.toggle("on", reduce ? true : i < k); d.classList.toggle("now", i === k - 1); });
+    now.textContent = k <= W.length ? L("Semana ", "Week ") + n(k) + " · " + kg(W[k - 1].load) : L("Próxima · ", "Next · ") + kg(W[W.length - 1].next.load);
+  }
+  set(1);
+  var io = watch(new IntersectionObserver(function(es){
+    es.forEach(function(e){ if (e.isIntersecting) set(+e.target.dataset.wk); });
+  }, { rootMargin: "-50% 0px -40% 0px" }));
+  root.querySelectorAll("[data-wk]").forEach(function(el){ io.observe(el); });
+  disclosure(root, root.querySelector("#uHandBtn"), root.querySelector("#uHand"), function(){ revealProg(root); });
+  stickyDock(root);
+}
+
+/* ============================ V · Duas telas ============================ */
+function V(){
+  var c = CASES.add, x = sCase("add");
+  return '<div class="V"><div class="s1"><div class="wrap">' + top() +
+    '<div class="hero">' +
+      '<h1>' + L("A próxima carga, já calculada.", "Your next load, already worked out.") + '</h1>' +
+      '<p class="lede">' + L("Monte seu programa, registre cada série e o Taurifer diz quanto colocar na barra na próxima sessão.", "Build your program, log every set, and Taurifer tells you what goes on the bar next session.") + '</p>' +
+      heroActions("heroCta") +
+    '</div></div>' +
+    '<div class="bleed">' + shot("focus", k("landing.shot.focus.alt"), { cls: "", eager: true }) + '</div>' +
+  '</div>' +
+  '<div class="s2"><div class="wrap">' +
+    '<h2 class="h2">' + L("Três jeitos de começar.", "Three ways to start.") + '</h2>' +
+    '<ul class="routes">' + routes().map(function(r){ return '<li>' + r[1] + '<div><b>' + k("entry.hub.group." + r[0]) + '</b><span>' + r[2] + '</span></div></li>'; }).join("") + '</ul>' +
+    '<p class="priv" id="' + L("dados", "data") + '" tabindex="-1">' + I.phone + '<span><b>' + L("Sem conta.", "No account.") + '</b> ' + L("Seus treinos ficam neste dispositivo e o app funciona sem internet.", "Your sessions stay on this device and the app works offline.") + '</span></p>' +
+    cta("closeCta") + track() +
+    '<div class="how"><button type="button" class="disc" aria-expanded="false" aria-controls="vHow" id="vHowBtn">' + L("Como funciona", "How it works") + '<i aria-hidden="true"></i></button>' +
+    '<div class="how__body" id="vHow" hidden>' +
+      '<h3>' + L("Estas séries, esta próxima carga", "These sets, this next load") + '</h3>' +
+      '<div class="ledger card">' +
+        '<div class="ledger__head"><div class="label">' + L("Sessão registrada", "Logged session") + '</div><div class="ledger__ex">' + ex(c.ex) + '</div><div class="ledger__rx">' + n(c.sets) + " " + setsWord(c.sets) + " · " + rng(c.repMin, c.repMax) + ' reps</div></div>' +
+        ledgerHead() + ledgerRows(c.logged).replace(/class="grid row"/g, 'class="grid row on"') + ledgerSr(c.logged) +
+        '<div class="next on"><div class="body"><div class="label">' + L("Próxima sessão", "Next session") + '</div>' + verdictLine("add") +
+        '<div class="load">' + kg(c.load) + ' <small>× ' + n(c.reps) + " · " + n(c.sets) + " " + setsWord(c.sets) + '</small></div><p>' + x.numeric + '</p><p class="rule">' + x.rule + '</p></div></div>' +
+      '</div>' +
+      '<p class="foot">' + L("Resultado do motor de progressão do Taurifer para estas séries. Quando a faixa ainda tem espaço, a carga fica; quando a maioria das séries fica abaixo do piso, ela desce.", "Output of Taurifer's progression engine for these sets. When the range still has room, the load holds; when most sets fall below the floor, it comes down.") + '</p>' +
+      '<figure class="proof">' + band("focus-add", focusBandAlt("add")) + '<figcaption>' + L("A mesma sessão na tela de treino do app.", "The same session on the app's workout screen.") + '</figcaption></figure>' +
+      '<h3>' + L("Trazer o treino que você já faz", "Bringing the program you already follow") + '</h3>' + handoff(true) +
+      '<h3>' + L("Perguntas", "Questions") + '</h3>' + faqFree() + faqStore() + faqRir() + faqCoach() +
+      privacyPointer() +
+    '</div></div>' +
+    footer() +
+  '</div></div></div>';
+}
+function initV(root){
+  var body = root.querySelector("#vHow");
+  disclosure(root, root.querySelector("#vHowBtn"), body, function(){ revealProg(root); });
+}
+
+/* ============================ switcher ============================ */
+var CANDS = [
+  { id: "S", name: { pt: "Síntese", en: "Synthesis" }, render: S, init: initS,
+    note: { pt: "<strong>Síntese recomendada.</strong> O caderno do A, interativo, com as três saídas do C. Montar e trazer um programa ficam a um toque.", en: "<strong>Recommended synthesis.</strong> A's ledger made interactive with C's three outcomes. Building and bringing a program are both one tap away." } },
+  { id: "T", name: { pt: "Sua vez", en: "Your turn" }, render: T, init: initT,
+    note: { pt: "<strong>Sua vez.</strong> Fazer vence assistir: o visitante registra a última série e o motor responde.", en: "<strong>Your turn.</strong> Doing beats watching: the visitor logs the last set and the engine answers." } },
+  { id: "U", name: { pt: "Seis semanas", en: "Six weeks" }, render: U, init: initU,
+    note: { pt: "<strong>Seis semanas.</strong> O resultado ao longo do tempo vende o benefício: um bloco real, calculado pelo motor, desenha a linha enquanto você rola.", en: "<strong>Six weeks.</strong> Outcome over time sells the benefit: a real engine-computed block draws its line as you scroll." } },
+  { id: "V", name: { pt: "Duas telas", en: "Two screens" }, render: V, init: initV,
+    note: { pt: "<strong>Duas telas.</strong> Produto grátis e sem conta converte melhor numa página curta: duas telas e o resto num Como funciona.", en: "<strong>Two screens.</strong> A free, no-account product converts best on a very short page: two screens, the rest behind How it works." } }
+];
+var current = 0, stage = document.getElementById("stage"), tabs = document.getElementById("tabs"), note = document.getElementById("note"), r1 = document.getElementById("r1");
+var rvBadge = document.getElementById("rvBadge"), rvCollapse = document.getElementById("rvCollapse"), rvCollapseLabel = document.getElementById("rvCollapseLabel");
+function parse(h){ var m = /^#([STUV])-(pt|en)$/.exec(h || ""); return m ? { i: "STUV".indexOf(m[1]), lang: m[2] } : null; }
+function url(){ return "#" + CANDS[current].id + "-" + lang; }
+function render(){
+  clearAll();
+  document.documentElement.lang = lang === "pt" ? "pt-BR" : "en";
+  var c = CANDS[current];
+  tabs.innerHTML = CANDS.map(function(x, i){ return '<button type="button" role="tab" aria-selected="' + (i === current) + '" tabindex="' + (i === current ? 0 : -1) + '" data-i="' + i + '"><b>' + x.id + '</b><span>' + x.name[lang] + '</span></button>'; }).join("");
+  note.innerHTML = c.note[lang];
+  r1.textContent = L("Ver rodada 1", "See round 1");
+  rvBadge.textContent = c.id + " · " + lang.toUpperCase();
+  rvCollapseLabel.textContent = rvCollapse.getAttribute("aria-expanded") === "true" ? L("Ocultar", "Hide") : L("Mostrar", "Show");
+  document.querySelectorAll("[data-lang]").forEach(function(b){ b.setAttribute("aria-pressed", b.dataset.lang === lang); });
+  document.title = "Taurifer · " + c.id + " " + c.name[lang] + " · " + L("rodada 2", "round 2");
+  stage.innerHTML = c.render();
+  c.init(stage);
+}
+function go(i, l, push){
+  current = i; lang = l;
+  if (push) history.pushState(null, "", url()); else history.replaceState(null, "", url());
+  render();
+  window.scrollTo(0, 0);
+}
+tabs.addEventListener("click", function(e){ var b = e.target.closest("[data-i]"); if (b && +b.dataset.i !== current) go(+b.dataset.i, lang, true); });
+tabs.addEventListener("keydown", function(e){
+  var d = e.key === "ArrowRight" ? 1 : e.key === "ArrowLeft" ? -1 : 0; if (!d) return;
+  e.preventDefault(); go((current + d + CANDS.length) % CANDS.length, lang, true); tabs.querySelector('[data-i="' + current + '"]').focus();
+});
+document.querySelectorAll("[data-lang]").forEach(function(b){ b.addEventListener("click", function(){ if (b.dataset.lang !== lang) go(current, b.dataset.lang, true); }); });
+window.addEventListener("popstate", function(){ var p = parse(location.hash); if (p){ current = p.i; lang = p.lang; render(); window.scrollTo(0, 0); } });
+/* In-page anchors (#dados / #data) scroll without touching the deep-link hash. */
+stage.addEventListener("click", function(e){
+  var a = e.target.closest('a[href^="#"]'); if (!a) return;
+  var t = stage.querySelector(a.getAttribute("href")); if (!t) return;
+  e.preventDefault(); t.scrollIntoView({ block: "start", behavior: reduce ? "auto" : "smooth" }); t.focus({ preventScroll: true });
+});
+var rv = document.getElementById("rv");
+if (/[?&]bare\b/.test(location.search)) document.documentElement.classList.add("bare");
+function fit(){ document.documentElement.style.setProperty("--rv", (document.documentElement.classList.contains("bare") ? 0 : rv.offsetHeight) + "px"); }
+function setCollapsed(collapsed){
+  rv.classList.toggle("rv--collapsed", collapsed);
+  rvCollapse.setAttribute("aria-expanded", !collapsed);
+  rvCollapseLabel.textContent = collapsed ? L("Mostrar", "Show") : L("Ocultar", "Hide");
+  try { sessionStorage.setItem("r2-rv-collapsed", collapsed ? "1" : "0"); } catch (e) {}
+  fit();
+}
+rvCollapse.addEventListener("click", function(){ setCollapsed(rv.classList.contains("rv--collapsed") ? false : true); });
+var startCollapsed = false;
+try { startCollapsed = sessionStorage.getItem("r2-rv-collapsed") === "1"; } catch (e) {}
+setCollapsed(startCollapsed);
+new ResizeObserver(fit).observe(rv);
+fit();
+var p0 = parse(location.hash);
+if (p0){ current = p0.i; lang = p0.lang; }
+history.replaceState(null, "", location.pathname + location.search + url());
+render();
+})();
+</script>
+</body>
+</html>
