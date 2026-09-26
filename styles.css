@@ -2666,15 +2666,15 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
    a whole session deserves, under a ring that opens once and goes. */
 .sum-crest{display:flex;justify-content:center}
 .sum-crest__mark{
-  position:relative;width:64px;height:64px;border-radius:50%;border:2px solid var(--accent);
+  position:relative;width:64px;height:64px;border-radius:var(--radius-round);border:2px solid var(--color-action);
 }
 .sum-crest__mark::after{
-  content:"";position:absolute;inset:0;background:var(--accent);
+  content:"";position:absolute;inset:0;background:var(--color-action);
   -webkit-mask:var(--check) no-repeat center/30px;mask:var(--check) no-repeat center/30px;
 }
 .sumsheet.is-played .sum-crest__mark{animation:sum-strike .5s cubic-bezier(.2,1.25,.4,1) both}
 .sumsheet.is-played .sum-crest__mark::before{
-  content:"";position:absolute;inset:-6px;border-radius:50%;border:2px solid var(--accent);
+  content:"";position:absolute;inset:-6px;border-radius:var(--radius-round);border:2px solid var(--color-action);
   animation:sum-ring .8s .1s cubic-bezier(.2,.7,.2,1) both;
 }
 @keyframes sum-strike{
@@ -2692,38 +2692,46 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 @keyframes sum-settle{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
 
 .sum-eyebrow{
-  margin-top:16px;text-align:center;font-size:11px;font-weight:600;letter-spacing:.14em;
-  text-transform:uppercase;color:var(--accent-deep);
+  margin-top:16px;text-align:center;font-family:var(--font-language);font-size:var(--font-size-label);
+  font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.14em;
+  text-transform:uppercase;color:var(--color-action-text);
 }
 /* The heading takes focus so a screen reader is read the session before the
    controls, not because it is one. A ring here would draw a box around a title
    nobody can act on, so it stays off — every actual control keeps its own. */
-.sum-hero{margin-top:6px;text-align:center;font-size:34px;font-weight:650;letter-spacing:-.02em;line-height:1.05}
+.sum-hero{margin-top:6px;text-align:center;font-family:var(--font-language);font-size:var(--font-size-summary-hero);font-weight:var(--weight-semibold);letter-spacing:-.02em;line-height:var(--line-tight);color:var(--color-ink)}
 .sum-hero:focus,.sum-hero:focus-visible{outline:none}
-.sum-sub{margin-top:6px;text-align:center;font-size:14px;color:var(--ink-soft)}
+.sum-sub{margin-top:6px;text-align:center;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 .sum-stats{margin-top:22px}
+#sessionSummary .sum-stats{grid-template-columns:repeat(auto-fit,minmax(5rem,1fr))}
+#sessionSummary .sum-stats .statrow__val{font-family:var(--font-training-data);font-size:var(--font-size-metric);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
+#sessionSummary .sum-stats.statrow--4 .statrow__val{font-size:var(--font-size-subtitle)}
+#sessionSummary .sum-stats .statrow__cap{font-family:var(--font-language);font-size:var(--font-size-caption);font-weight:var(--weight-regular);line-height:var(--line-standard);color:var(--color-ink-secondary);white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
+#sessionSummary .section-label{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+#sessionSummary .section-label--accent{color:var(--color-action-text)}
 
 /* A record reads as one line: what kind, on what, by how much, at what. */
 .sum-prs{list-style:none;margin:0;padding:0}
 .sum-pr{
   display:grid;grid-template-columns:auto minmax(0,1fr) auto;align-items:center;gap:6px 11px;
-  padding:12px 0;border-bottom:1px solid var(--rule);
+  padding:12px 0;border-bottom:1px solid var(--boundary-decorative);
 }
-.sum-pr:first-child{border-top:1px solid var(--rule)}
+.sum-pr:first-child{border-top:1px solid var(--boundary-decorative)}
 /* A block whose records are all one kind drops the badge, so the row is two
    columns and the load-by-reps figure keeps the right edge. */
 .sum-prs--onekind .sum-pr{grid-template-columns:minmax(0,1fr) auto}
 .sum-pr__badge{
-  font-size:10px;font-weight:600;letter-spacing:.07em;text-transform:uppercase;
-  color:var(--cta-ink);background:var(--accent-deep);border-radius:999px;padding:4px 8px;white-space:nowrap;
+  font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);
+  line-height:var(--line-standard);letter-spacing:.07em;text-transform:uppercase;
+  color:var(--color-action-on-fill);background:var(--accent-deep);border-radius:var(--radius-pill);padding:4px 8px;white-space:nowrap;
 }
 .sum-pr__text{min-width:0}
 /* The lift is the point of the line, so a long name wraps rather than being cut
    off — an ellipsis on "Chest-supported machine row" hides which lift it was. */
-.sum-pr__name{display:block;font-size:15px;font-weight:600;color:var(--ink);line-height:1.25}
-.sum-pr__over{display:block;margin-top:2px;font-size:12px;color:var(--accent-deep)}
-.sum-pr__val{font-family:var(--mono);font-size:13px;color:var(--ink-soft);white-space:nowrap;align-self:center}
-.sum-more{margin-top:10px;font-size:13px;color:var(--ink-faint)}
+.sum-pr__name{display:block;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);color:var(--color-ink);line-height:var(--line-tight)}
+.sum-pr__over{display:block;margin-top:2px;font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-action-text)}
+.sum-pr__val{font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);white-space:nowrap;align-self:center}
+.sum-more{margin-top:10px;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 
 .sum-chips{display:flex;flex-wrap:wrap;gap:8px}
 .sum-chip{
@@ -2733,29 +2741,43 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sum-chip.is-up{color:var(--positive);border-color:rgba(var(--positive-rgb),.35)}
 .sum-chip.is-new{color:var(--accent-deep);border-color:rgba(var(--accent-rgb),.35)}
 .sum-outcomes{list-style:none;margin:0;padding:0}
-.sum-outcome{display:flex;align-items:baseline;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid var(--rule)}
-.sum-outcome:first-child{border-top:1px solid var(--rule)}
-.sum-outcome__name{min-width:0;font-size:15px;font-weight:600;line-height:1.3;overflow-wrap:anywhere}
-.sum-outcome__state{flex:none;font-size:13px;font-weight:650;color:var(--ink-soft);white-space:nowrap}
-.sum-outcome__glyph{display:inline-block;margin-right:5px;font-size:11px}
-.sum-outcome__state--improved{color:var(--positive)}
-.sum-outcome__state--declined{color:var(--warning)}
-.sum-muscles__note{margin:-4px 0 8px;font-size:12px;line-height:1.4;color:var(--ink-soft)}
+.sum-outcome{display:flex;align-items:baseline;justify-content:space-between;gap:14px;padding:11px 0;border-bottom:1px solid var(--boundary-decorative)}
+.sum-outcome:first-child{border-top:1px solid var(--boundary-decorative)}
+.sum-outcome__name{min-width:0;font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);overflow-wrap:anywhere}
+.sum-outcome__state{flex:none;font-family:var(--font-language);font-size:var(--font-size-body-small);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-maintained);white-space:nowrap}
+.sum-outcome__glyph{display:inline-block;margin-right:5px;font-family:var(--font-language);font-size:var(--font-size-label);line-height:var(--line-standard)}
+.sum-outcome__state--improved{color:var(--color-improved)}
+.sum-outcome__state--declined{color:var(--color-declined)}
+.sum-muscles__note{margin:-4px 0 8px;font-family:var(--font-language);font-size:var(--font-size-caption);line-height:var(--line-standard);color:var(--color-ink-secondary)}
+#sessionSummary .sum-muscles .vrow__name{font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-standard);color:var(--color-ink)}
+#sessionSummary .sum-muscles .vrow__num{font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary)}
 
 .sum-baseline{
-  margin-top:24px;padding-left:14px;border-left:2px solid var(--accent);
-  font-size:15px;line-height:1.55;color:var(--ink-soft);
+  margin-top:24px;padding-left:14px;border-left:2px solid var(--color-action);
+  font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink-secondary);
 }
-.sum-week{font-size:15px;color:var(--ink)}
+.sum-week{font-family:var(--font-language);font-size:var(--font-size-body);line-height:var(--line-reading);color:var(--color-ink)}
 .sum-segbar{margin-top:10px}
+#sessionSummary .sum-segbar .segbar__seg{background:var(--boundary-required);border-radius:var(--radius-compact)}
+#sessionSummary .sum-segbar .segbar__seg.is-done{background:var(--color-action)}
 .sum-next{
   display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;margin-top:26px;padding:14px 0;
-  border-top:1px solid var(--rule);border-bottom:1px solid var(--rule);
+  border-top:1px solid var(--boundary-decorative);border-bottom:1px solid var(--boundary-decorative);
 }
-.sum-next__lab{font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
-.sum-next__day{font-size:17px;font-weight:600}
-.sum-next__meta{margin-left:auto;font-size:13px;color:var(--ink-soft)}
+.sum-next__lab{font-family:var(--font-language);font-size:var(--font-size-label);font-weight:var(--weight-semibold);line-height:var(--line-standard);letter-spacing:.08em;text-transform:uppercase;color:var(--color-ink-secondary)}
+.sum-next__day{font-family:var(--font-language);font-size:var(--font-size-subtitle);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
+.sum-next__meta{margin-left:auto;font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
 .sum-secondary{margin-top:26px}
+#sumSee{
+  display:flex;align-items:center;justify-content:center;min-height:var(--control-target);width:100%;
+  border:1px solid var(--control-quiet-boundary);border-radius:var(--radius-control);
+  background:var(--control-quiet-bg);color:var(--control-quiet-ink);
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-medium);line-height:var(--line-standard);
+}
+#sumSee:hover:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink)}
+#sumSee:active:not(:disabled){background:var(--well);border-color:var(--control-quiet-boundary);color:var(--control-quiet-ink);transform:var(--control-pressed-transform)}
+#sumSee:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#sumSee:disabled{background:var(--control-quiet-bg);border-color:var(--boundary-decorative);color:var(--color-disabled-reason);opacity:1;cursor:not-allowed;transform:none}
 /* The way out is never below the fold. A session ends with a lifter holding a
    phone and breathing hard, and on a session with records, four muscles and a
    next day the only exit used to be a scroll away — so the action stays put and
@@ -2764,11 +2786,17 @@ body.is-focus-wo #glossary .glossary__body{font-family:var(--font-language);font
 .sum-actions{
   position:sticky;bottom:calc(-1 * var(--sum-pad-b));z-index:1;
   margin-top:14px;padding:12px 0 var(--sum-pad-b);background:var(--bg);
+  box-shadow:var(--elevation-persistent-shadow);
 }
-.sum-actions::before{
-  content:"";position:absolute;left:0;right:0;bottom:100%;height:20px;
-  background:linear-gradient(to top,var(--bg),transparent);pointer-events:none;
+#sumDone{
+  min-height:54px;border:1px solid var(--control-primary-boundary);border-radius:var(--radius-control);
+  background:var(--control-primary-bg);color:var(--control-primary-ink);
+  font-family:var(--font-language);font-size:var(--font-size-control);font-weight:var(--weight-semibold);line-height:var(--line-standard);
 }
+#sumDone:hover:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink)}
+#sumDone:active:not(:disabled){background:var(--control-primary-bg);border-color:var(--control-primary-boundary);color:var(--control-primary-ink);transform:var(--control-pressed-transform)}
+#sumDone:focus-visible{outline:var(--control-focus-outline);outline-offset:2px}
+#sumDone:disabled{background:var(--control-primary-disabled-bg);border-color:var(--boundary-decorative);color:var(--control-primary-disabled-ink);opacity:1;cursor:not-allowed;transform:none}
 
 @media (prefers-reduced-motion:reduce){
   /* The panel still arrives as a full screen; it just stops moving to do it. */
