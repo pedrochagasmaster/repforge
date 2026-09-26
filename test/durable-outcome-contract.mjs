@@ -646,6 +646,62 @@ globalThis.localStorage = mockLocalStorage;
   }
 }
 
+// Fault Test D4: A rebased proposal must not commit when its WAL rewrite fails.
+{
+  mockLocalStorage.clear();
+  const base={program:[],log:[],programHistory:[],settings:{},programMeta:{},_storageRevision:7};
+  const proposal={...base,settings:{units:"lb"}};
+  const rebased={...base,settings:{units:"lb",lang:"pt"}};
+  mockLocalStorage.setItem("repforge_v1",JSON.stringify(base));
+  DurableState.setPersistHead(base);
+  const idbValues=new Map([["repforge_v1",base]]);
+  const database={
+    objectStoreNames:{contains:()=>true},createObjectStore(){},close(){},
+    transaction(_store,mode){
+      const transaction={oncomplete:null,onerror:null,error:null,objectStore(){return{
+        get(key){const request={onsuccess:null,onerror:null,error:null,result:undefined};
+          queueMicrotask(()=>{request.result=idbValues.get(key);request.onsuccess?.()});return request},
+        put(value,key){idbValues.set(key,value);queueMicrotask(()=>transaction.oncomplete?.())},
+        delete(key){idbValues.delete(key);queueMicrotask(()=>transaction.oncomplete?.())}
+      }}};
+      return transaction}
+  };
+  const indexedDbDescriptor=Object.getOwnPropertyDescriptor(globalThis,"indexedDB");
+  const navigatorDescriptor=Object.getOwnPropertyDescriptor(globalThis,"navigator");
+  Object.defineProperty(globalThis,"indexedDB",{configurable:true,value:{open(){
+    const request={result:database,error:null,onupgradeneeded:null,onsuccess:null,onerror:null};
+    queueMicrotask(()=>request.onsuccess?.());return request
+  }}});
+  Object.defineProperty(globalThis,"navigator",{configurable:true,value:{locks:{request:async(_name,callback)=>callback()}}});
+  const setItem=mockLocalStorage.setItem;
+  let failNextPending=false;
+  mockLocalStorage.setItem=(key,value)=>{
+    if(failNextPending&&key.startsWith("repforge_pending_v1:")){
+      failNextPending=false;
+      throw Object.assign(new Error("injected quota"),{name:"QuotaExceededError"})}
+    return setItem(key,value)};
+  try{
+    const outcome=await DurableState.enqueueStateChange(base,proposal,DurableState.storageIO,{
+      preflight:()=>{failNextPending=true;return{proposal:rebased}}
+    });
+    check(outcome.committed===false&&outcome.kind==="rejected_failure",
+      "Failed rebase-journal write aborts the transaction",outcome);
+    check(JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision===7&&
+      idbValues.get("repforge_v1")._storageRevision===7,
+      "Neither replica is written after the rebase-journal failure",{
+        local:JSON.parse(mockLocalStorage.getItem("repforge_v1"))._storageRevision,
+        idb:idbValues.get("repforge_v1")._storageRevision
+      });
+  }finally{
+    mockLocalStorage.setItem=setItem;
+    DurableState.clearAllPendingJournal();
+    if(indexedDbDescriptor)Object.defineProperty(globalThis,"indexedDB",indexedDbDescriptor);
+    else delete globalThis.indexedDB;
+    if(navigatorDescriptor)Object.defineProperty(globalThis,"navigator",navigatorDescriptor);
+    else delete globalThis.navigator;
+  }
+}
+
 // Fault Test E: WAL journal decode and cleanup under corruption
 {
   mockLocalStorage.clear();
