@@ -44,7 +44,7 @@ needs drawing, 107 rules only, 2 retired.
 - The surfaces in spec §4, their catalog states, and the shared components in
   spec §7.
 - The session-outcome rule (already on the branch) and its catalog frames.
-- The review page as the drawing surface for P1.
+- The review page as the drawing surface for P1, trimmed to D in P12d.
 - New i18n keys from the strings appendix, the D catalog fixture, the
   real-app acceptance gate, and the `DESIGN.md` rewrite.
 
@@ -92,15 +92,27 @@ owns its surface; the backlog's post-overhaul modularity rule applies.
 
 ## Owner gates
 
-1. **P1 drawings.** Each of the 17 "needs drawing" screens is approved on the
-   review page before it is built.
-2. **Changed frames.** From P4, every slice's changed-frame inventory is
-   reviewed in PT and EN, light and dark.
-3. **Telemetry retirement.** Decision 10 removes the only producer of
-   `program_readiness_navigated`. Recommended: mark it retired in the
-   allowlist with that reason. The owner confirms before P11 lands.
-4. **P12 board.** The five-second read on Today, Focus and Why at 390, and a
-   board of every D surface in both themes, before Plan 059 starts.
+Decided with the owner on 2026-09-26. An approval counts only as a reply by
+the owner in a #272 comment. The agent posts the board or tunnel link as a
+comment, and links the owner's reply in the PR body's Approved rows.
+
+1. **P1 drawings, by flow.** Four review rounds on the review page: Today (2),
+   workout sheets (7), Progress (6), History edit (2). The owner approves or
+   returns each screen in the round. Pending drawings block only their own
+   states: a slice builds its drawn states and leaves the pending ones for a
+   later commit in the same slice.
+2. **Changed frames, sampled.** From P4, each slice posts one board: every
+   changed state at 390 in PT light and EN dark, plus the worst case at 360
+   PT with 200 % text. The gate covers every frame. The full changed-frame
+   inventory is linked from the comment.
+3. **Telemetry.** Decision 10 removes the only producer of
+   `program_readiness_navigated`. `telemetry.js` has no retired state, so P11
+   deletes the event from the allowlist in `telemetry.js` and from
+   `test/fixtures/telemetry.mjs`, and says why in the commit and the backlog.
+4. **P12 board.** The owner does the five-second read on Today, Focus and Why
+   on a real phone over the tunnel, and reviews a board of every D surface in
+   both themes, before Plan 059 starts. Testing with outside lifters belongs
+   to Plan 059.
 
 ## STOP conditions and routing
 
@@ -149,6 +161,7 @@ is coherent and proven. Commits already on the branch are marked done.
 | P12a | `refactor(ui): apply D rules to the remaining surfaces` | Rules-only sweep | `ui-system`, gate | rules-only flows |
 | P12b | `docs(design): rewrite DESIGN.md for Direction D` | D's rules on 058's roles | doc review | none |
 | P12c | `test(catalog): regenerate the complete catalog for Direction D` | Full catalog, compare, gate over every D state | `run-tests.mjs all`, `capture-ui-screens.mjs`, `check-ui-screens.mjs`, `compare-ui-screens.mjs` | all |
+| P12d | `docs(design): trim the review page to Direction D` | Remove the A, B, C, E, F and G renderers and styles; D stays as the drawing reference | `checks/acceptance.mjs` on D | none |
 
 Every commit that changes a precached asset bumps the cache revision in
 `sw.js`, `index.html` and `test/exercise-library.mjs` in the same commit.
@@ -194,7 +207,8 @@ the final contract review.
 
 Each commit reverts on its own. P3c's components are unused until a screen
 adopts them. P5a keeps the input well behind the same commit path until P5c
-removes it. The session-outcome commit reverts independently of every screen.
+removes it. There is no runtime switch back to the input well (owner, 2026-09-26):
+nothing ships to lifters before Plan 059, and P5a and P5c revert cleanly. The session-outcome commit reverts independently of every screen.
 
 ## Handoff
 

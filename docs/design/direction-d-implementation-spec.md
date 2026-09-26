@@ -307,9 +307,10 @@ These hold through every packet and are tested by the existing suites named.
     measurement producers"). Whichever lands second attaches them to D's
     controls: the shelf CTA, Why opening, and Skip in the exercise actions.
   - `program_readiness_navigated` loses its only producer when decision 10
-    removes the readiness line. Plan 063 marks it retired in the allowlist
-    after the owner confirms (Plan 063 owner gate 3).
-  - No new event and no new property.
+    removes the readiness line. P11 deletes it from the allowlist in
+    `telemetry.js` and from `test/fixtures/telemetry.mjs` (owner,
+    2026-09-26).
+  - No other event is added or removed, and no property changes.
 
 ## 6. Copy and strings
 
