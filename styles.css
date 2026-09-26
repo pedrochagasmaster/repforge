@@ -1608,9 +1608,12 @@ body.is-sheet-open{overflow:hidden}
 .sheet--daypick{height:auto}
 .sheet__head--stack{grid-template-columns:1fr;padding:4px 16px 14px}
 .sheet__head--stack .sheet__titles{text-align:left}
-.sheet__head--stack .sheet__title{font-family:var(--font-language);font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
+#dayPickSheet .sheet__head--stack .sheet__title,#previewSessionSheet .sheet__head--stack .sheet__title{font-family:var(--font-language);font-size:var(--font-size-section-title);font-weight:var(--weight-semibold);line-height:var(--line-tight);color:var(--color-ink)}
 /* The head's one-line sub is a caption for a title; this one is a sentence. */
-.sheet__head--stack .sheet__sub{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);white-space:normal;overflow:visible;margin-top:4px}
+#dayPickSheet .sheet__head--stack .sheet__sub,#previewSessionSheet .sheet__head--stack .sheet__sub{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary);white-space:normal;overflow:visible;margin-top:4px}
+/* Keep Plan 055 sheet headings at their pre-Today geometry until Focus migrates. */
+#sessionSheet .sheet__head--stack .sheet__title,#exActionsSheet .sheet__head--stack .sheet__title{font-size:1.25rem;letter-spacing:-.01em}
+#sessionSheet .sheet__head--stack .sheet__sub,#exActionsSheet .sheet__head--stack .sheet__sub{white-space:normal;overflow:visible;margin-top:4px;line-height:1.4}
 .daypick__body{flex-direction:column;overflow:hidden;padding:0 16px}
 .daypick__list{flex:1;min-height:0;overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;margin:0 -16px;padding:0 16px}
 .daypick__row{
@@ -1655,6 +1658,11 @@ body.is-sheet-open{overflow:hidden}
 #previewSessionSheet .preview__name{font-family:var(--font-language);font-size:var(--font-size-body);font-weight:var(--weight-semibold);line-height:var(--line-standard);color:var(--color-ink);flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 #previewSessionSheet .preview__sets{font-family:var(--font-training-data);font-size:var(--font-size-body-small);line-height:var(--line-standard);color:var(--color-ink-secondary);flex:none;white-space:nowrap}
 #previewSessionSheet .preview__meta{font-family:var(--font-language);font-size:var(--font-size-body-small);line-height:var(--line-reading);color:var(--color-ink-secondary)}
+
+/* The exercise library has static muscle data with the same legacy class name,
+   but it is not an interactive Today preview row. Keep its stacked details. */
+#exercisePreview .preview__row{display:flex;flex-direction:column;gap:4px;width:100%;padding:12px 12px;text-align:left;background:none;border:0;border-bottom:1px solid var(--boundary-decorative)}
+#exercisePreview .preview__row:last-child{border-bottom:0}
 
 /* ---- Session sheet ---- */
 .sheet--session{height:auto;max-height:85vh;display:flex;flex-direction:column}
