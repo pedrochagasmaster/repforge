@@ -523,11 +523,39 @@ for (const p of ["AGENTS.md", "README.md", "docs/adr/0007-shared-setup-links.md"
   check(docs.get(p).includes("v3."), `${p}: shipped v3 setup format not documented`);
 }
 
-// Backlog status honesty: no Next rows remain anywhere, and no stale
-// Now-scoped claims survive the deferral.
+// Backlog status honesty: Next is approved work behind the overhaul and
+// launch-validation boundary, not part of the active overhaul plan queue.
 {
   const backlog = docs.get("docs/backlog.md");
-  check(!/^\| Next \|/m.test(backlog), "backlog: Next rows remain scheduled");
+  const headings = [...backlog.matchAll(/^## \d+\. (.+)$/gm)];
+  const section = (status) => {
+    const i = headings.findIndex((heading) => heading[1].split(/\W/u)[0] === status);
+    return i < 0 ? "" : backlog.slice(headings[i].index, headings[i + 1]?.index ?? backlog.length);
+  };
+  const now = section("Now");
+  const next = section("Next");
+  const nextIntro = next.split(/^\| Order \|/m)[0].replace(/\s+/g, " ");
+  check(!!now && !!next, "backlog: Now and Next sections must exist");
+  check(
+    /queue activates only after.*UI.overhaul and launch[- ]*validation boundary.*clears/i.test(nextIntro),
+    "backlog: Next activation must follow the UI-overhaul and launch-validation boundary",
+  );
+  check(
+    /Nothing here may leak into Plans 049[–-]059/i.test(nextIntro),
+    "backlog: Next must remain outside Plans 049–059",
+  );
+  check(!/^\|\s*Next\s*\|/mi.test(now), "backlog: Next status row appears in Now section");
+  check(!/^\|\s*Now\s*\|/mi.test(backlog.replace(now, "")), "backlog: Now status row appears outside Now section");
+  const nextWork = [...next.matchAll(/^\|\s*\d+\s*\|\s*([^|]+?)\s*\|/gm)].map((row) => row[1].trim());
+  check(nextWork.length > 0, "backlog: Next queue has no ordered work rows");
+  const overhaulPlans = readdirSync(join(ROOT, "plans")).filter((name) => /^0(49|5[0-9])-.*\.md$/.test(name));
+  for (const work of nextWork) {
+    check(!now.includes(work), `backlog: Next work is also scheduled Now ("${work}")`);
+    for (const name of overhaulPlans) {
+      const plan = `plans/${name}`;
+      check(!read(plan).includes(work), `backlog: Next work appears in ${plan} ("${work}")`);
+    }
+  }
   check(!/already Now|under Now|Now-tier/.test(backlog), "backlog: stale Now-scoped claim");
 }
 
