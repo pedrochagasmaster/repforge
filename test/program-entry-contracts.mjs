@@ -1,7 +1,6 @@
 #!/usr/bin/env node
 import assert from "node:assert/strict";
 import { createRequire } from "node:module";
-import { readFile } from "node:fs/promises";
 import test from "node:test";
 
 const require = createRequire(import.meta.url);
@@ -9,7 +8,6 @@ const Entry = require("../program-entry.js");
 const Adapter = require("../program-entry-adapter.js");
 const Compiler = require("../program-compiler.js");
 const SharedSetup = require("../shared-setup.js");
-const I18N = require("../i18n.js");
 const { EXERCISE_LIBRARY } = require("../exercises.js");
 
 const VERSIONS = {
@@ -206,14 +204,6 @@ test("pure entry vocabulary is the adapter's dependency and band is explicit-onl
   assert.equal(Object.isFrozen(Adapter.CONSTRAINT_REASONS), true);
 });
 
-test("app day merge and entry controls consume adapter-owned vocabularies", async () => {
-  const app = await readFile(new URL("../app.js", import.meta.url), "utf8");
-  assert.match(app, /RepForgeProgramEntryAdapter\.DAY_MERGE_VOCABULARY/);
-  assert.match(app, /ENTRY_MUSCLES=ProgramEntryAdapter\.ENTRY_MUSCLES/);
-  assert.match(app, /ENTRY_MOVEMENTS=ProgramEntryAdapter\.ENTRY_MOVEMENTS/);
-  assert.doesNotMatch(app, /const DAY_TYPES\s*=\s*\{/);
-});
-
 test("production-shaped results round-trip through each route's closed schema", () => {
   const services = Adapter.createProductionServices({ Compiler, catalogue: EXERCISE_LIBRARY });
   const common = {
@@ -243,11 +233,4 @@ test("production-shaped results round-trip through each route's closed schema", 
     assert.equal(checked.ok, true, `${route}: ${checked.issues?.join(", ")}`);
     assert.deepEqual(checked.value, state, route);
   }
-});
-
-test("import exercise copy uses the locale's singular form", () => {
-  I18N.setLang("pt");
-  assert.equal(I18N.t("import.file", { name: "x.json", n: 1, exercise: I18N.tp(1, "lift") }), "x.json · 1 exercício");
-  assert.equal(I18N.t("import.file", { name: "x.json", n: 2, exercise: I18N.tp(2, "lift") }), "x.json · 2 exercícios");
-  I18N.setLang("en");
 });

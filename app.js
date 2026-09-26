@@ -8942,6 +8942,7 @@ const HistoryUi=window.RepForgeHistoryUi.create({
 window.__repforgeHistory=HistoryUi;
 window.__repforgeSaveSessionEdit=HistoryUi.saveSessionEdit;
 
+// @ci-domain global
 // ---- Exercise detail: one lift's stats, session history and session notes ----
 // Reached by tapping an exercise name on the Log tab; not part of the bottom nav.
 function exerciseSessionsDetail(key){const m=new Map();

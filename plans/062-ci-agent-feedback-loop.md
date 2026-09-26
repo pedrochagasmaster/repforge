@@ -927,9 +927,9 @@ select whole *domains within a lane*, not a handwritten test list.
 
 Correctness outranks clever YAML.
 
-### B7. Candidate mode stays exhaustive initially
+### B7. Candidate contract mode stays exhaustive
 
-Candidate mode runs the complete current automated contract:
+Candidate mode runs the complete current behavioral/engineering contract:
 
 - `interaction-runtime` / fast;
 - state;
@@ -938,11 +938,13 @@ Candidate mode runs the complete current automated contract:
 - telemetry/privacy;
 - applicable install-transfer service gate;
 - verification evidence alias if still required for compatibility;
-- full visual catalog;
 - aggregate `simulation`.
 
-A later measured optimization may narrow candidate visuals under 062-C's rollout
-criteria. 062-B itself does not.
+Visual evidence is scheduled independently under 062-C. The September 24, 2026
+owner-directed follow-up keeps all candidate contract suites exhaustive while
+allowing PR candidates to use reviewed affected-screen selection. Unknown or
+global render ownership still widens to a full visual sweep, and `main` remains
+the full-catalog oracle.
 
 ### B8. Main remains exhaustive
 
@@ -1306,29 +1308,29 @@ If selection is:
 - `screens`: capture those screens and all required variants;
 - `full`: perform full capture.
 
-### C11. Candidate visual mode remains full initially
+### C11. PR candidate visual mode is change-proportional
 
-For the first rollout period, candidate CI and `main` retain full visual
-capture.
+The initial full-candidate observation period has ended by explicit owner
+direction after reviewing the live Codex/CI traces from the September 24, 2026
+draft PRs. PR candidates now use the same reviewed affected-screen selector as
+feedback runs. Global CSS, unannotated/shared rendering inputs, capture-harness
+changes and unknown ownership still widen to full automatically.
 
-This is the oracle used to assess whether affected selection misses drift.
+Pushes to `main` retain the full catalog and remain the selector-miss oracle.
 
 ### C12. Selector-recall audit
 
-For a bounded observation window — recommended at least two weeks **and** enough
-UI-changing PRs to exercise several domains — collect:
+Continue recording:
 
 - affected screens predicted by selector;
-- full candidate/main drift;
+- full `main` drift;
 - any changed screen outside prediction;
 - root cause of each miss;
 - false-positive full/domain expansions;
 - elapsed time and frame count.
 
-Only after the owner/reviewer accepts selector recall may candidate visual
-capture become affected-by-default.
-
-Even then, `main` may remain full if cost is acceptable.
+Any selector miss is a selector bug. Widen the affected ownership immediately;
+do not weaken comparison thresholds or hide the miss with retries.
 
 ### C13. Visual concurrency
 
@@ -2003,13 +2005,20 @@ Do not treat “generated” as either automatically cheap or automatically glob
 
 ## S6. Cache revision changes
 
-A pure revision-number bump caused by an already-selected cached source change
-should not independently expand the entire test universe.
+A `sw.js` change is revision-only only when the base and current files are
+byte-identical after replacing the digits in the one canonical
+`const CACHE = "repforge-vN";` declaration and the new revision is greater.
+That proven change selects the cache/revision contracts in
+`test/exercise-library.mjs`, `test/sw-upgrade.mjs`, and
+`test/vendor-runtimes.mjs`; it does not select unrelated service-worker
+behavior suites. The visual selector uses the same strict comparison and
+skips capture for that case.
 
-However service-worker compatibility and cache-inventory proofs must remain
-selected.
-
-The selector may recognize cache-lockstep files as a coupled group.
+Any `ASSETS` or `SHELL` change, protected query URL change, change to
+fetch/install/activate behavior, malformed declaration, or unavailable
+comparison base retains the full service-worker owner set and full visual
+capture. Unknown diffs widen; neither selector normalizes arbitrary
+`repforge-vNNN` strings or query parameters.
 
 ## S7. Changed tests and fixtures
 
@@ -2395,7 +2404,7 @@ privacy boundaries.
 | 062-24 | unannotated shared hunk widens to full | annotation fixture |
 | 062-25 | invalid domain annotation fails | checker negative fixture |
 | 062-26 | global CSS remains full visual | selector unit test |
-| 062-27 | candidate visuals remain full during observation window | CI-plan assertion |
+| 062-27 | PR candidate visuals use reviewed affected scope; main/global/unknown inputs remain full | CI-plan assertion |
 | 062-28 | suite metadata has valid domains/cost/tier | inventory validation |
 | 062-29 | direct changed candidate-tier suite can still run in edit | selector unit test |
 | 062-30 | long simulation retains full-horizon contract | candidate run |
@@ -2462,8 +2471,8 @@ Plan 062 is complete only when all of the following are true.
 - workflow/docs-only changes do not force catalog capture;
 - affected visual domains work for proven local ownership;
 - unknown/global render changes remain full;
-- candidate/main full safety net has observed selector behavior;
-- any move to narrower candidate visuals is separately justified by recall data.
+- PR candidates use reviewed affected-screen selection and widen on unknown/global ownership;
+- `main` retains the full-catalog selector-miss safety net.
 
 ### Test corpus
 

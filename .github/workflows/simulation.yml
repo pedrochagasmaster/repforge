@@ -20,8 +20,10 @@ permissions:
   contents: read
 
 concurrency:
-  group: simulation-${{ github.event_name == 'pull_request' && github.event.pull_request.draft && format('feedback-{0}', github.event.pull_request.number) || format('candidate-{0}', github.event_name == 'workflow_dispatch' && inputs.expected_sha || github.sha) }}
-  cancel-in-progress: ${{ github.event_name == 'pull_request' && github.event.pull_request.draft }}
+  # A manually dispatched exact-SHA candidate supersedes the automatic draft
+  # feedback run for the same branch instead of duplicating the whole matrix.
+  group: simulation-${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || github.ref_name }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
 
 jobs:
   plan:
@@ -230,11 +232,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
+      - uses: actions/checkout@v5
       - name: Require selected candidate lanes to pass
         env:
           RESULTS: ${{ toJSON(needs) }}
         run: |
-          node -e 'const n=JSON.parse(process.env.RESULTS);for(const [k,v] of Object.entries(n)){console.log(`${k}: ${v.result}`);if(v.result!=="success")process.exitCode=1}'
+          node --input-type=module -e 'import { requireSelectedCiResults } from "./tools/ci-plan.mjs"; requireSelectedCiResults(JSON.parse(process.env.RESULTS));'
 
   simulation-feedback:
     if: always() && (needs.plan.outputs.mode == 'feedback' || github.event_name == 'pull_request' && github.event.pull_request.draft || github.event_name == 'workflow_dispatch' && inputs.mode == 'feedback')
@@ -242,8 +245,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 2
     steps:
+      - uses: actions/checkout@v5
       - name: Require selected feedback lanes to pass
         env:
           RESULTS: ${{ toJSON(needs) }}
         run: |
-          node -e 'const n=JSON.parse(process.env.RESULTS),o=n.plan.outputs||{};for(const [k,v] of Object.entries(n)){const selected=k==="plan"||k==="verification-evidence"||k==="interaction-runtime"&&!!o.fast||k==="browser"&&o.browser!=="[]"||k==="install-transfer-service"&&o.service==="true"||k==="visual-evidence"&&o.visual!=="none";console.log(`${k}: ${v.result}${selected?" (required)":" (not selected)"}`);if(v.result!==(selected?"success":"skipped"))process.exitCode=1}'
+          node --input-type=module -e 'import { requireSelectedCiResults } from "./tools/ci-plan.mjs"; requireSelectedCiResults(JSON.parse(process.env.RESULTS));'

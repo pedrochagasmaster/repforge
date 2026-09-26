@@ -5,20 +5,22 @@ import { appendFileSync, mkdirSync, readFileSync, writeFileSync } from "node:fs"
 import { dirname, resolve } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 import { visualDomains, screensForDomains } from "./visual-domains.mjs";
+import { isCacheRevisionOnlyServiceWorkerChange } from "./revision-diff.mjs";
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 
 const PROSE = /(^|\/)(README|AGENTS|CLAUDE|CONTEXT)\.md$|^(docs|plans|advisor-plans)\/.+\.md$/;
-const VISUAL_FIXTURE = /^test\/fixtures(?:\/|$)/;
-const NON_RENDERING_TEST = /^test\/(?!browser\.mjs$|fixtures(?:\/|$)).+\.(?:mjs|js)$/;
-const NON_RENDERING_TOOL = /^tools\/(?:run-tests|test-selection|ci-selection|ci-plan|wait-for-ci|check-test-syntax|visual-domains)\.mjs$/;
+// Only shared-setup.mjs is imported by the production screen-capture scenarios.
+const VISUAL_FIXTURE = /^test\/fixtures\/shared-setup\.mjs$/;
+const NON_RENDERING_FIXTURE = /^test\/fixtures(?:\/|$)/;
+const NON_RENDERING_TEST = /^test\/(?!browser\.mjs$).+\.(?:mjs|js)$/;
+const NON_RENDERING_TOOL = /^tools\/(?:run-tests|test-selection|ci-selection|ci-plan|revision-diff|wait-for-ci|check-production-syntax|check-test-syntax|visual-domains)\.mjs$/;
 const NON_RENDERING_INFRA = /^\.github\/workflows\/|^test\/suites\.mjs$/;
 function revisionOnly(file, base, cwd) {
-  if (!base || !["index.html", "sw.js"].includes(file)) return false;
+  if (!base || file !== "sw.js") return false;
   try {
     const old = execFileSync("git", ["show", `${base}:${file}`], { cwd, encoding: "utf8" });
     const now = readFileSync(resolve(cwd, file), "utf8");
-    const normalize = (text) => text.replace(/\?v=\d+/g, "?v=REV").replace(/repforge-v\d+/g, "repforge-vREV");
-    return old !== now && normalize(old) === normalize(now);
+    return isCacheRevisionOnlyServiceWorkerChange(old, now);
   } catch { return false; }
 }
 
@@ -30,8 +32,8 @@ export function selectVisuals(files, manifest, { force = false, cwd = ROOT, base
   const screens = new Set();
   const domains = new Set();
   for (const file of files) {
-    if (VISUAL_FIXTURE.test(file)) return full(`Fixture input: ${file}`);
-    if (PROSE.test(file) || NON_RENDERING_TEST.test(file) || NON_RENDERING_TOOL.test(file) || NON_RENDERING_INFRA.test(file)) continue;
+    if (VISUAL_FIXTURE.test(file)) return full(`Screen-capture fixture input: ${file}`);
+    if (PROSE.test(file) || NON_RENDERING_FIXTURE.test(file) || NON_RENDERING_TEST.test(file) || NON_RENDERING_TOOL.test(file) || NON_RENDERING_INFRA.test(file)) continue;
     if (revisionOnly(file, base, cwd)) continue;
     const match = file.match(/^docs\/ui-screens\/screens\/([^/]+)\/([^/]+)__[^/]+\.png$/);
     if (match && known.has(`${match[1]}/${match[2]}`)) { screens.add(`${match[1]}/${match[2]}`); continue; }

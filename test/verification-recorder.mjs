@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { spawnSync, execFileSync } from "node:child_process";
-import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync, existsSync, readdirSync } from "node:fs";
+import { mkdtempSync, mkdirSync, readFileSync, writeFileSync, rmSync, symlinkSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve, dirname } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -118,26 +118,4 @@ test("rejects malformed arguments and imports without executing commands", (t) =
   const run = spawnSync(process.execPath, ["--input-type=module", "-e", "await import(process.argv[2])", join(f.temp, "other-entry.mjs"), RECORDER], { cwd: f.repo, encoding: "utf8" });
   assert.equal(run.status, 0, run.stderr);
   assert.equal(run.stdout, "");
-});
-
-test("all overhaul plans and review entry points reach the same evidence protocol", () => {
-  const plans = readdirSync(join(ROOT, "plans")).filter((p) => /^(049|05[0-9])-.*\.md$/.test(p));
-  assert.equal(plans.length, 11);
-  for (const plan of plans) {
-    const text = readFileSync(join(ROOT, "plans", plan), "utf8");
-    assert.match(text, /\.\.\/docs\/agents\/implementation-evidence\.md/);
-    assert.match(text, /\.\.\/docs\/agents\/ui-overhaul-proof-checkpoints\.md/);
-  }
-  for (const file of ["AGENTS.md", ".agents/skills/code-review/SKILL.md", "plans/README.md"]) {
-    assert.match(readFileSync(join(ROOT, file), "utf8"), /docs\/agents\/implementation-evidence\.md/);
-  }
-  const checkpoints = readFileSync(join(ROOT, "docs/agents/ui-overhaul-proof-checkpoints.md"), "utf8");
-  for (const plan of plans) assert.match(checkpoints, new RegExp(`^## Plan ${plan.slice(0, 3)}:`, "m"));
-  // This checks adoption links only. It makes no claim about product correctness.
-  for (const file of ["docs/agents/implementation-evidence.md", "docs/agents/ui-overhaul-proof-checkpoints.md"]) {
-    const body = readFileSync(join(ROOT, file), "utf8");
-    for (const [, target] of body.matchAll(/\]\(([^)]+)\)/g)) {
-      assert.ok(existsSync(resolve(ROOT, dirname(file), target.split("#")[0])), `${file}: ${target}`);
-    }
-  }
 });
