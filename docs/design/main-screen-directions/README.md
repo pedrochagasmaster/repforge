@@ -156,8 +156,7 @@ node docs/design/main-screen-directions/checks/strings-table.mjs   # refreshes t
 ```
 
 The parity check does not trust `data-d.js`: it evaluates `buildSessionDelta`
-and its helpers from `app.js`'s own source (set `APP_JS` to another checkout's
-`app.js` while this branch predates the outcome fix) and recomputes every target with
+and its helpers from `app.js`'s own source and recomputes every target with
 the engine in Node, then compares both with what each screen shows.
 `captures/` holds the PT 390 light shots of Today, focus, Why, rest and the
 summary for each of D to G (§7.6, the landing-page shots of §8).

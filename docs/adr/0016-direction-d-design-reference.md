@@ -37,7 +37,7 @@ in one bottom shelf.
    row, the History frequency counts) goes through 058's contract review as a
    new content job.
 4. **Outcomes describe the logged sets.** The "Session outcome" rule in
-   `CONTEXT.md` (PR #265) lands with D.
+   `CONTEXT.md` lands with D, in the same workfront PR (#272).
 5. **Superseded decisions.** The owner reviewed each overlap between D and an
    implemented overhaul decision:
 
@@ -62,5 +62,6 @@ in one bottom shelf.
 - `DESIGN.md` is rewritten to D's rules on 058's roles when Plan 063 lands:
   the orange budget, the shelf as the only floating layer besides the dock
   and sheets, ledger rows instead of cards, and the ledger type roles.
-- The review page (PR #264) stays as the drawing surface. Surfaces D has not
-  drawn are drawn there first (Plan 063 P1) before they are built.
+- The review page (drawn in PR #264, carried on the workfront PR #272) stays
+  as the drawing surface. Surfaces D has not drawn are drawn there first
+  (Plan 063 P1) before they are built.

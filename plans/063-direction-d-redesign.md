@@ -1,112 +1,203 @@
 # Plan 063: Direction D redesign
 
-Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md).
-The screen contracts, owner decisions, surface inventory and verification
-rules live in the [implementation spec](../docs/design/direction-d-implementation-spec.md);
-this plan defines scope, sequence, proof and owner gates.
+Implementation and review use the [evidence protocol](../docs/agents/implementation-evidence.md)
+and the model-routing policy in the `taurifer-model-policy` Codex skill. This
+plan defines scope, sequence, proof and gates. The screen contracts, owner
+decisions, surface inventory, strings and fixtures live in the
+[implementation spec](../docs/design/direction-d-implementation-spec.md) and
+its [strings appendix](../docs/design/direction-d-strings.md). The design
+reference is `docs/design/main-screen-directions/DIRECTION-D-SPEC.md` and the
+review page beside it.
 
 - **Plan number:** 063
 - **Phase:** between Plan 058 (system convergence) and Plan 059 (public-launch validation)
-- **Status:** Proposed; waits for Plan 058 to merge
-- **Owner approval state:** Direction selected ([ADR 0016](../docs/adr/0016-direction-d-design-reference.md)); every "needs drawing" screen and every packet's changed frames need owner review
-- **Depends on:** Plan 058 merged; PR #260 (D spec) and PR #264 (review page) merged as documentation; PR #265 (session outcomes) rebased
+- **Status:** Planned. Documentation and the session-outcome fix are on the workfront PR; implementation waits for Plan 058 to merge
+- **Workfront PR:** #272, branch `redesign/direction-d`, one PR for the whole plan
+- **Owner approval state:** Direction selected and every product decision in spec §1 is made ([ADR 0016](../docs/adr/0016-direction-d-design-reference.md)). Open owner gates: the 17 drawings in P1, the changed frames of every slice, the telemetry retirement in §Owner gates, and the P12 board
+- **Depends on:** Plan 058 merged to `main`
 - **Blocks:** Plan 059 and the alpha (backlog row "Direction D redesign")
-- **Supersedes for these surfaces:** G-23, G-29, G-44, G-60, G-65 (ADR 0016)
-- **Affected surfaces:** Today, Focus and rest, Why this weight, session summary, Progress and the exercise chart, History, Program; shared components reach the rest of the catalog
+- **Supersedes for the named surfaces:** G-23, G-29, G-44, G-60, G-65
+- **Affected surfaces:** Today, Focus and rest, Why this weight, session summary, Progress and the exercise chart, History, Program; D's shared rules reach the rest of the catalog
 - **Complexity:** High
-- **Risk:** Medium to high. The workout shelf sits on DraftV2 and the most-used flow in the app.
+- **Risk:** Medium to high. The shelf sits on DraftV2 in the most-used flow
 
 ## Problem
 
-Plans 049–058 fixed what the audits found and converged the design system,
-but the main screens still show the template instead of the prescription,
-explain recommendations as a list of rows, spread set entry across a card,
-and celebrate a saved session. The owner compared seven directions on the
-review page and selected D: read everything as a ledger, act on every set
+Plans 049–058 fixed the audited defects and converged the design system, but
+the main screens still show the template instead of the prescription, explain
+recommendations as a stack of rows, spread set entry across a card, and
+celebrate a saved session. The owner compared seven directions and selected D:
+read everything as a ledger of aligned columns and hairlines, act on every set
 from one bottom shelf.
 
-## Direction
+## Objective
 
-Build D on Plan 058's roles, screen by screen, keeping every state,
-persistence and recovery contract the earlier plans established. The spec's
-§1 lists the owner decisions this plan executes; §3 assigns every catalog
-screen a treatment (17 redesign, 17 needs drawing, 107 rules only,
-2 retired).
+Rebuild the main screens to Direction D on Plan 058's semantic roles, keeping
+every state, persistence, recovery and telemetry contract of Plans 051–058.
+The spec's §3 assigns all 143 catalog screens a treatment: 17 redesign, 17
+needs drawing, 107 rules only, 2 retired.
 
-## Preserved
+## Scope boundary
 
-DraftV2 and its commit path, the rest timer's state machine and
-notifications, the engine and its explanations, `compareExerciseSession` as
-the one outcome source, the guide registry and its anchors, History's search
-index and edit contract (G-68), Program's editor and its action layer (G-80),
-Plan 056's Progress contents and lifecycle surfaces, units and effort mode,
-the Focus swipe, and the complete catalog.
+### In this plan
 
-## Non-goals
+- The surfaces in spec §4, their catalog states, and the shared components in
+  spec §7.
+- The session-outcome rule (already on the branch) and its catalog frames.
+- The review page as the drawing surface for P1.
+- New i18n keys from the strings appendix, the D catalog fixture, the
+  real-app acceptance gate, and the `DESIGN.md` rewrite.
 
-- No engine, schema, persistence, setup-link or telemetry change.
-- No change to onboarding, Settings, Library or install layouts beyond the
-  shared rules.
-- No new capability. Anything D shows exists in the app today.
-- No code from the review page. It is a drawing.
+### Out of scope
 
-## Execution slices
+- The progression engine, DraftV2 schema, persistence, journal, cross-tab
+  lock, setup links and install transfer.
+- Onboarding, Settings, Library and install layouts beyond shared rules.
+- New capabilities. Every control D shows exists in the app today.
+- Code from the review page. It is a drawing; its renderers are not ported.
+- The E, F and G candidates.
 
-Each slice is one PR against `main`, in order. A slice starts only when the
-previous one has merged.
+## Preserved contracts
 
-| Slice | Goal | Owns | Proof | Catalog | STOP if |
-| --- | --- | --- | --- | --- | --- |
-| **063-P0** Refresh | Re-read the code after 058 merges; confirm §7's role mapping against 058's contract; take the five new content jobs (shelf, inline rest, prescription row, ledger open row, frequency counts) through 058's contract review; update the spec's §12 code map | spec and plan docs only | Doc review by owner | none | 058 moved a D surface's contract in a way the spec does not cover |
-| **063-P1** Draw the rest | Draw the 17 "needs drawing" screens on the review page in D, with the same acceptance checks; owner approves each | review page, D spec | `checks/acceptance.mjs` passes; owner approval recorded per screen | none (review page only) | A drawing needs a capability or decision the spec does not have |
-| **063-P2** Outcomes | Rebase and merge PR #265 (session-outcome rule, anchor Why reps, EN pause) | `app.js` outcome and Why code, i18n, tests | full `simulation.mjs`, `summary-evidence`, `progress-evidence`, `progression-strategies-ui`, affected lane | session summary frames | An outcome test changes meaning rather than fixture |
-| **063-P3** Shared parts and gates | D's shared components on 058 roles: ledger row, verdict mark, tab row, sheet header, shelf shell (not yet wired); the real-app gates for targets, overflow, orange budget and strings over D-owned states | `styles.css`, shared renderers, new gate tool, test wiring | new gate runs green on current screens with D states marked pending; 058's `ui-system` suite, `accessibility` | none intended | A shared part changes a screen before its slice |
-| **063-P4** Today | Prescription table, tally, row → exercise page, day picker sheet, done and draft-resume states; retire the Preview action and `today/preview`; add the `today/mixed-strategies` fixture | Today renderer, index markup, i18n, catalog scenarios | `today-*` (`today-preview.mjs` rewritten for row → exercise page), `recommendation-parity`, `focus-only-parity`, i18n, gate | today flow | Removing Preview breaks a guide or route still in use |
-| **063-P5** Focus and shelf | Header routes (Session sheet per G-42, ⋯ exercise actions), cue, ledger, the shelf over DraftV2 (fields, pads, input on second tap, units, effort mode, CTA, correction, completion actions), recovery banners, swipe kept; the workout sheets drawn in P1 | Focus renderers, shelf, workout sheets, i18n | `workout-draft*`, `adversarial-draft-transactions`, `focus-*`, `workout-finish-boundary`, `persistence*`, `recommendation-parity`, gate | workout flow | The shelf needs a second commit path or a DraftV2 change |
-| **063-P6** Inline rest | Rest block in the cue slot, drain bar, rest pads, overrun "+0:15", presets sheet from the header timer; replace `workout/rest-timer` with `rest-running` and `rest-done` | rest renderers, shelf states, i18n, catalog | `schedule.mjs`, `focus-mode`, `focus-*`, `motion-integration`, gate | workout flow | Rest state is read from anywhere but the existing timer |
-| **063-P7** Why this weight | Sentences first, calculation disclosure, evidence footer, in-session variant, strategy variants; new catalog states for rep goal, anchor, manual and in-session | Why sheet, explanation formatting, i18n, catalog | `progression-strategies-ui`, `recommendation-parity`, i18n, gate | workout flow | A sentence needs a fact the engine does not return |
-| **063-P8** Summary | Ledger summary (G-60 superseded), outcome and next-target groups, first-session baseline, muscles, week line, actions; add `session/summary-first` | summary renderer, i18n, catalog | `session-summary`, `summary-evidence`, `management-summary`, gate | session flow | The summary disagrees with History or Progress for any lift |
-| **063-P9** Progress | One tab row (G-29 superseded), overview, attention rows, strength rows and tab states, exercise chart (step series, e1RM toggle, snapping plot, table) | Progress renderers, chart, i18n, catalog | `progress-*`, `progress-evidence`, `progress-lifecycle`, `progress-navigation`, gate | progress flow | A lifecycle surface from Plan 056 changes behavior |
-| **063-P10** History | Week list, frequency counts (option E), calendar sheet, session page, edit states in D style (G-23 superseded, G-68 kept) | `history-ui.js`, History markup, i18n, catalog | `history*`, `history-persistence-race`, `history-delete-replay`, gate | history flow | Editing or search loses a Plan 057 guarantee |
-| **063-P11** Program | Day ledgers with Próxima, strategy names, legend, status line; retire the readiness line and `program/readiness` (G-65 superseded) | Program renderer, i18n, catalog | `program-actions`, `program-editor-*`, `share-repair`, gate | program flow | The editor or Share repair changes behavior |
-| **063-P12** Close | Rules-only sweep of the remaining surfaces; `DESIGN.md` rewritten to D on 058's roles; the full catalog regenerated; the gate over every D-owned state; the owner's five-second read on Today, Focus and Why | `DESIGN.md`, `styles.css`, catalog, gate | full `run-tests.mjs all`, full catalog capture and compare, `check-ui-screens` | all flows | Any D-owned state fails the gate or lacks owner review |
+| Contract | Owner | Proof that must stay green |
+| --- | --- | --- |
+| DraftV2 edits, commit, correction, reload, cross-tab, journal | Plan 051 | `workout-draft*`, `adversarial-draft-transactions`, `persistence*`, `focus-only-parity` |
+| Focus capability parity and Session sheet ownership (G-22, G-41–G-43) | Plan 055 | `focus-*`, `focus-session-sheet`, `focus-exercise-actions`, `workout-finish-boundary` |
+| One outcome source for summary, History and Progress | Plans 056–057, spec §5 | `summary-evidence`, `progress-evidence`, `management-summary` |
+| Engine targets and explanations | Plans 045–048 engine | `recommendation-parity`, `progression-strategies-ui` |
+| Rest timer state machine, notifications, overrun | Plan 055 | `schedule.mjs`, `focus-mode` |
+| History read-first editing (G-12, G-68), search | Plan 057 | `history*`, `history-persistence-race`, `history-delete-replay` |
+| Program editor and its action layer (G-80), Share repair | Plan 057 | `program-actions`, `program-editor-*`, `share-repair` |
+| Progress lifecycle, recovery and evidence contents | Plan 056 | `progress-*` |
+| Guide anchors (G-49, G-62, G-69) | Plans 054–057 | `progress-guides`, entry and focus guide suites |
+| Semantic roles, contrast, catalog | Plan 058 | `ui-system`, `check-ui-system`, `check-ui-screens` |
+| Telemetry allowlist and producers | G-83, backlog "Alpha measurement producers" | `telemetry-runtime`, `telemetry-leakage` |
+
+## Architecture and ownership
+
+No new domain behavior. Each view model lives with the module that already
+owns its surface; the backlog's post-overhaul modularity rule applies.
+
+| Piece | Owner | Kind |
+| --- | --- | --- |
+| Today prescription rows | `app.js` Today section, consuming `recommendation()` | pure view model plus renderer |
+| Shelf and ledger | `app.js` Focus section, over the existing DraftV2 commands and `data-k` inputs | renderer; no new commit path |
+| Inline rest | `app.js` rest section, reading the existing timer state | renderer |
+| Why sheet | `app.js` Why section, consuming `explainRecommendation()` | renderer |
+| Frequency counts | `history-ui.js`, new pure `historyFrequency(log, block, plannedPerWeek)` | pure function with unit tests |
+| Chart series | `progress-model.js` Strength evidence (existing) | consumer only |
+| Motion | `motion-layer.js` | extends existing helpers |
+| Catalog fixture | `tools/ui-screens/fixtures.mjs`, new `directionDState()` (spec §11) | test fixture |
+| Real-app acceptance gate | `tools/check-direction-d.mjs` plus `test/direction-d.mjs` | new checker with seeded failures |
 
 ## Owner gates
 
-- P1: each "needs drawing" screen approved on the review page before it is
-  built.
-- Every slice from P4: the changed-frame inventory reviewed in PT and EN,
-  light and dark.
-- P12: the five-second read and a board of every D surface before Plan 059
-  starts.
+1. **P1 drawings.** Each of the 17 "needs drawing" screens is approved on the
+   review page before it is built.
+2. **Changed frames.** From P4, every slice's changed-frame inventory is
+   reviewed in PT and EN, light and dark.
+3. **Telemetry retirement.** Decision 10 removes the only producer of
+   `program_readiness_navigated`. Recommended: mark it retired in the
+   allowlist with that reason. The owner confirms before P11 lands.
+4. **P12 board.** The five-second read on Today, Focus and Why at 390, and a
+   board of every D surface in both themes, before Plan 059 starts.
+
+## STOP conditions and routing
+
+A STOP pauses only the dependent slice. Route it by its kind:
+
+| STOP | Route |
+| --- | --- |
+| A 058 role cannot express a D element; two authorities disagree on a token, role or variant; a new content job needs a contract | **Semantic.** Focused Sol XHigh sub-agent, analysis-only, using the skill's brief schema; the Luna parent verifies and resumes |
+| DraftV2, commit path, timer, outcome or engine data flow is unclear; a persistence or recovery invariant would change | **Semantic.** Sol XHigh sub-agent with the exact producer and consumer |
+| A drawing is missing, a screen needs a capability that does not exist, copy would change meaning, or a supersession is unclear | **Product.** Owner. Record the question under Outstanding owner decisions and continue other slices |
+| A shipped contract in "Preserved contracts" would change | **Product.** Owner |
+| A test fails for an actionable, narrowing reason | Not a STOP. Keep working |
+
+Pre-identified semantic questions, likely in P0: which 058 control role and
+radius the shelf fields, pads and CTA use; whether the ledger's open row is a
+`selected` or `field` treatment; whether the inline rest block reuses the
+protected rest-clock variant unchanged; how the prescription row and the
+frequency counts enter the role inventory.
+
+## Slices and atomic commit sequence
+
+One PR, commits in this order. A slice may take several commits; each commit
+is coherent and proven. Commits already on the branch are marked done.
+
+| Slice | Commit | Delivers | Focused proof | Catalog |
+| --- | --- | --- | --- | --- |
+| docs | done | Review page, D spec and amendments, candidates, frequency views, ADR 0016, spec, strings appendix, this plan, backlog order | `checks/acceptance.mjs` 5/5 on D–G; `strings-table.mjs` | none |
+| P2 (landed early) | done: `Make session outcomes describe the logged sets` | Session-outcome rule, anchor Why reps, EN pause | simulation 927/0; affected lane; see PR evidence | 10 summary frames |
+| P0 | `docs(plan-063): refresh the D code map and role mapping after 058` | Spec §7 and §13 against merged 058; Sol consultations resolved and recorded | owner review of the diff | none |
+| P1 | `docs(design): draw the remaining D screens` | The 17 drawings on the review page, owner-approved | `checks/acceptance.mjs` over the new screens | none |
+| P3a | `test(direction-d): add the real-app acceptance gate` | Checker and test for targets, overflow, orange budget, parity, strings over D-owned states, with seeded failures | the gate rejects each seeded failure and passes today's app with D states pending | none |
+| P3b | `test(catalog): add the Direction D fixture` | `directionDState()` per spec §11 | fixture unit test: the engine targets match the review page's | none |
+| P3c | `refactor(ui): add D shared components on 058 roles` | Ledger row, verdict mark, tab row, sheet header, shelf shell, unused | `ui-system`, gate, no frame change | none |
+| P4 | `feat(today): show the prescription` | Today per spec §4.1; Preview retired; mixed-strategies state | `today-*`, `recommendation-parity`, `focus-only-parity`, gate, i18n | today |
+| P5a | `feat(focus): add the shelf over DraftV2` | Shelf, ledger, cue, header routes, units, effort mode, correction, completion actions | draft, focus, persistence, finish-boundary suites, gate | workout |
+| P5b | `feat(focus): restyle the workout sheets` | Session sheet, exercise actions, note, warm-up, reorder, skipped, substituted, early finish | `focus-session-sheet`, `focus-exercise-actions`, gate | workout |
+| P5c | `refactor(focus): remove the input well` | Old well removed after the shelf passes everything | full workout lane | none intended |
+| P6 | `feat(rest): move rest inline` | Inline rest, overrun, presets sheet | `schedule.mjs`, `focus-mode`, `motion-integration`, gate | workout |
+| P7 | `feat(why): lead with sentences` | Why per spec §4.3 and its four new states | `progression-strategies-ui`, `recommendation-parity`, gate | workout |
+| P8 | `feat(summary): end each lift on its next target` | Summary per spec §4.4; summary-first state | `session-summary`, `summary-evidence`, `management-summary`, gate | session |
+| P9a | `feat(progress): one tab row and the D overview` | Tabs, overview, attention, strength rows | `progress-*`, gate | progress |
+| P9b | `feat(progress): the honest exercise chart` | Step series, e1RM toggle, snapping plot, table | `progress-evidence`, gate | progress |
+| P10a | `feat(history): list sessions by week with frequency counts` | Week list, `historyFrequency`, calendar sheet | `history*`, frequency unit test, gate | history |
+| P10b | `feat(history): the session as a page` | Session page and edit states | `history-edit`, `history-delete-replay`, `history-persistence-race`, gate | history |
+| P11 | `feat(program): the program as a ledger` | Program per spec §4.9; readiness retired | `program-actions`, `program-editor-*`, `share-repair`, telemetry suites, gate | program |
+| P12a | `refactor(ui): apply D rules to the remaining surfaces` | Rules-only sweep | `ui-system`, gate | rules-only flows |
+| P12b | `docs(design): rewrite DESIGN.md for Direction D` | D's rules on 058's roles | doc review | none |
+| P12c | `test(catalog): regenerate the complete catalog for Direction D` | Full catalog, compare, gate over every D state | `run-tests.mjs all`, `capture-ui-screens.mjs`, `check-ui-screens.mjs`, `compare-ui-screens.mjs` | all |
+
+Every commit that changes a precached asset bumps the cache revision in
+`sw.js`, `index.html` and `test/exercise-library.mjs` in the same commit.
+
+## Operating protocol
+
+For each commit row:
+
+1. Mark the row 🟡 in the PR's Planned commit sequence and update Current
+   state.
+2. Re-read the spec section and the preserved contracts it touches. Trace the
+   real producer and consumer before editing.
+3. Implement only that row. If a STOP appears, route it (table above).
+4. Run the row's focused proof, then `node tools/run-tests.mjs affected --base
+   <row-start-sha>`; record evidence with `--evidence /tmp/<row>.json`.
+5. Capture the row's catalog flows; inspect every changed frame in PT and EN,
+   light and dark, 360 and 430, 200 % text; list them in the PR.
+6. Inspect the complete diff; remove anything unrelated; `git diff --check`.
+7. Commit with the exact message, push immediately, mark the row ✅ with its
+   SHA, and update Verification evidence, Next exact steps and Handoff.
+8. Never rebase or force-push published history. Synchronize with `main` by an
+   explicit merge commit. Never merge the PR without owner authorization.
+
+Model routing follows `taurifer-model-policy`: GPT-6 Luna Max owns the PR end
+to end; a semantic STOP gets one focused Sol XHigh sub-agent that returns a
+decision; product STOPs go to the owner. After P5a and before P12c, the parent
+may spawn one Sol XHigh review sub-agent for the shelf's draft invariants and
+the final contract review.
 
 ## Testing and evidence
 
-Per slice: the suites `tools/run-tests.mjs affected` selects, the slice's
-named suites, `test/i18n.mjs` and `build-i18n --check`, the catalog capture
-for its flows with the changed-frame inventory, and the P3 gate. The spec's
-§10 lists what the gate checks. Every slice's PR body records the commands
-and results.
-
-## Screen catalog changes
-
-- Retired: `today/preview` (P4), `program/readiness` (P11), the sheet form
-  of `workout/rest-timer` (P6).
-- Added: `today/mixed-strategies` (P4), `workout/rest-running` and
-  `workout/rest-done` (P6), `workout/why-in-session`, `workout/why-rep-goal`,
-  `workout/why-anchor`, `workout/why-manual` (P7), `session/summary-first`
-  (P8).
-- Every other D-owned state regenerates in its slice.
+- Per commit: the row's focused suites, the affected lane, `test/i18n.mjs`,
+  `node tools/build-i18n.mjs --check`, the gate, and the row's catalog flows.
+- The gate (P3a) is the review page's five checks moved to the real app,
+  specified in spec §10. Its seeded failures are part of its own test.
+- Outcome and target parity keep an independent oracle: outcomes from
+  `compareExerciseSession` in the app versus the rule table in `CONTEXT.md`
+  encoded in the test; targets versus `evaluateProgression` in Node.
+- Visual evidence: the D fixture's captures are compared by the owner with the
+  review page's drawings of the same state.
 
 ## Rollback
 
-Each slice reverts on its own. P3's shared parts stay unused until a screen
-slice adopts them. P5 keeps the old input well behind the same commit path
-until the shelf passes every workout suite, then removes it in the same PR.
+Each commit reverts on its own. P3c's components are unused until a screen
+adopts them. P5a keeps the input well behind the same commit path until P5c
+removes it. The session-outcome commit reverts independently of every screen.
 
-## STOP conditions
+## Handoff
 
-Stop and ask the owner if a slice would change a state, persistence or
-recovery contract; if a screen needs a capability that does not exist; if a
-058 role cannot express a D element and the contract review has not approved
-a new one; or if any outcome word or target differs between screens.
+The PR body is the living record: Planned commit sequence, Current state,
+Verification evidence, Review findings, Outstanding owner decisions and Next
+exact steps, in the shape of PR #227.

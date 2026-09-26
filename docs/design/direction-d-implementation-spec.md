@@ -4,11 +4,12 @@
   to merge.
 - **Decision record:** [ADR 0016](../adr/0016-direction-d-design-reference.md)
 - **Execution plan:** [Plan 063](../../plans/063-direction-d-redesign.md)
-- **Design sources:** `docs/design/main-screen-directions/DIRECTION-D-SPEC.md`
-  (PR #260), its 2026-09-25 amendments, and the review page in the same
-  folder (PR #264). Both merge to `main` as documentation before Plan 063
-  starts.
-- **Scheduling:** backlog row "Direction D redesign" (PR #266).
+- **Strings:** [appendix](direction-d-strings.md), every key with PT and EN
+- **Design sources:** `docs/design/main-screen-directions/DIRECTION-D-SPEC.md`,
+  its 2026-09-25 amendments, and the review page in the same folder
+- **Workfront PR:** #272 (`redesign/direction-d`), which carries this spec,
+  the plan, the review page, the session-outcome fix and the backlog order
+- **Scheduling:** backlog row "Direction D redesign"
 
 ## 0. How to read this
 
@@ -28,7 +29,7 @@ When sources disagree, the first one wins:
    string templates over a fixture, and none of its code ships.
 
 Nothing here changes the progression engine, persistence schemas, the draft
-state model or the setup-link contracts. Code locations in §12 were read at
+state model or the setup-link contracts. Code locations in §13 were read at
 `main` `29fc1c36` and must be refreshed after Plan 058 merges (Plan 063 P0).
 
 ## 1. Owner decisions
@@ -38,7 +39,7 @@ state model or the setup-link contracts. Code locations in §12 were read at
 | 1 | Reference | D is the reference for the main screens (ADR 0016). |
 | 2 | Order | Plan 058 → Plan 063 (D) → Plan 059 → alpha. Nothing ships before 059 signs off on D. |
 | 3 | Numbers | 058's role scale wins over D's numbers. Known cases: body and controls 16 px (D said 15), the cue's second line on the 18 px `subtitle` role (D said 17), the Today load figure on the 22 px `metric` role (D said 20; it fits at 360 with a 66 px kg column), the rest clock on 058's protected `clamp(32px,10vw,42px)` (D said 56), and the CTA and shelf radius set by 058's Today/Focus migration (D said 14). |
-| 4 | Outcomes | The "Session outcome" rule in `CONTEXT.md` (PR #265), rebased and merged as P2 of this plan. |
+| 4 | Outcomes | The "Session outcome" rule in `CONTEXT.md`, already committed on the workfront branch (slice P2). |
 | 5 | Progress navigation | One tab row of five, superseding G-29. |
 | 6 | Session summary | D's ledger summary, superseding G-60: no check circle, outcome words in ink, green only for records. |
 | 7 | History | D's week list, superseding G-23, with the calendar as a sheet and a session as a page. |
@@ -49,19 +50,19 @@ state model or the setup-link contracts. Code locations in §12 were read at
 | 12 | Effort mode | When the lifter logs effort instead of RIR, the shelf's RIR field shows the effort word, and its pads step through Easy, Hard and Max. |
 | 13 | Swipe | The Focus swipe between exercises stays as an additional gesture. |
 | 14 | Rest overrun | After zero the rest line reads "Descanso concluído · +0:15" and keeps counting. |
-| 15 | Copy fixes | "Why this weight" names the logged anchor reps and their RIR; EN pause reads "Pause" (both in PR #265). |
+| 15 | Copy fixes | "Why this weight" names the logged anchor reps and their RIR; EN pause reads "Pause" (both in the session-outcome commit on #272). |
 
 ## 2. Preconditions
 
 Plan 063 starts only when all of these hold:
 
 - Plan 058 has merged, so its role scale, control roles and elevation roles
-  are frozen on `main`.
-- PR #260 (the D spec) and PR #264 (the review page) have merged as
-  documentation.
-- PR #265 rebases cleanly onto the post-058 `main` (it becomes P2).
-- The owner has approved every screen marked "needs drawing" in §3 on the
-  review page (P1).
+  are frozen on `main`, and `main` has been merged into `redesign/direction-d`
+  with an explicit merge commit.
+- P0 has refreshed §7 and §13 against the merged 058 and recorded any Sol
+  consultations.
+- Before a screen marked "needs drawing" in §3 is built, the owner has
+  approved its drawing on the review page (P1).
 
 ## 3. Surface inventory
 
@@ -181,7 +182,7 @@ Everything else is the D spec section named.
   as today. Sentences first, each with a bold lead; the worked calculation
   behind "Ver o cálculo"; the evidence footer; "Entendi".
 - The first sentence carries the RIR it used. The anchor strategy names the
-  logged top set (PR #265).
+  logged top set (the session-outcome commit).
 - In-session variant, opened from the rest cue: `why.session` leads, using
   `log.insession.*`. It says the observed capacity ("mostrou 8") before the
   prediction for the next set ("cerca de 7,5"), never the reverse.
@@ -295,14 +296,30 @@ These hold through every packet and are tested by the existing suites named.
   settings. A lb lifter sees lb everywhere the shelf, cue and Why show a load.
 - **Guides** keep their anchors (G-49, G-62, G-69). When D moves a control,
   its guide anchor moves with it. The first-set cue anchors to the shelf CTA.
+- **Telemetry** stays on the allowlist (G-83) and follows its controls:
+  - `first_set_logged` and `session_completed` fire from the one commit and
+    save path, unchanged.
+  - `session_summary_viewed` fires when the D summary opens.
+  - `history_session_outcome` fires from the History session page's read,
+    Edit, Save, Cancel and Delete, as today.
+  - `set_saved`, `recommendation_explained` (surface `focus`) and
+    `exercise_skipped` are approved but have no producer yet (backlog "Alpha
+    measurement producers"). Whichever lands second attaches them to D's
+    controls: the shelf CTA, Why opening, and Skip in the exercise actions.
+  - `program_readiness_navigated` loses its only producer when decision 10
+    removes the readiness line. Plan 063 marks it retired in the allowlist
+    after the owner confirms (Plan 063 owner gate 3).
+  - No new event and no new property.
 
 ## 6. Copy and strings
 
-- Every shipped key is reused word for word. The review page's table lists 137
-  D-family strings. 25 match shipped keys exactly and reuse them; the rest are
-  added under the owning namespace (`today.*`, `focus.shelf.*`, `why.*`,
-  `summary.*`, `stats.*`, `history.freq.*`, `program.*`), in EN and PT
-  together.
+- The [strings appendix](direction-d-strings.md) is the complete list: 144
+  strings, each with its app key, PT, EN, the surface that renders it and the
+  review-page key it came from. 25 reuse shipped keys word for word; 119 are
+  new, under the owning namespace (`today.*`, `ledger.*`, `focus.*`,
+  `rest.inline.*`, `why.*`, `summary.*`, `stats.*`, `exercise.chart.*`,
+  `history.*`, `program.overview.*`). Use the appendix's key names; do not
+  invent parallel ones.
 - Every dynamic `t()` family is enumerated as literal keys, because
   `test/i18n.mjs` fails on unenumerated template keys.
 - No em dashes in app prose, no "Regrediu", and no "Hold" as a timer label.
@@ -368,7 +385,7 @@ Each packet runs the suites `tools/run-tests.mjs affected` selects, regenerates
 the catalog for its flows, and records the changed-frame inventory.
 
 The review page's acceptance checks move to the real app as a catalog gate
-(P11), run over every D-owned catalog state in PT and EN:
+(P3a), run over every D-owned catalog state in PT and EN:
 
 1. **Targets:** every `button, a, input, [role=button]` at least 44 × 44 at
    360 (extends `accessibility.mjs --touch-targets-320`).
@@ -383,14 +400,40 @@ The owner reviews each packet's changed frames. Before Plan 059, the owner
 repeats the five-second read on Today, Focus and Why at 390: "the app tells me
 the exact load and reps, and why".
 
-## 11. Out of scope
+## 11. Catalog fixture for D states
+
+D-owned catalog states render one lifter, the same one the review page draws,
+so the owner can compare a capture with its drawing.
+
+- Add `directionDState()` to `tools/ui-screens/fixtures.mjs`. Its source of
+  truth is the review page's `data.js` (program, sessions, prior block) and
+  `data-d.js` (the mixed day). Convert, don't retype: a small generator reads
+  those files and writes the fixture, so the drawing and the app cannot drift.
+- Dates shift by −21 days so the review page's "today" (Monday 21 Sep 2026,
+  week 4) lands on the pinned capture clock `CAPTURE_NOW` (Monday 31 Aug
+  2026). The block therefore starts on 10 Aug, and every weekday is preserved.
+- Program exercises carry the library ids and names from `exercises.js`, the
+  range prescription (sets, min, max, RIR 0–2) for the main days, and the exact
+  `progression` envelopes of `data-d.js` for the mixed day (anchor and back-off,
+  rep goal, fixed effort, manual). The custom exercise is a real custom
+  definition in state. The manual slot's authored load is a program field.
+- Log rows use the existing row shape: session id, date, day, name,
+  exerciseId, set, load, reps, rir (blank for the one missing-effort set),
+  work, created, primary, secondary, performedLibraryId.
+- The fixture's unit test runs `evaluateProgression` on it and asserts the
+  same targets the review page shows (squat 102,5 × 7, and so on). If they
+  differ, the conversion is wrong.
+- States that are not D-owned keep `catalogState()`, so rules-only frames do
+  not change because of the fixture.
+
+## 12. Out of scope
 
 - Engine, persistence, draft schema and setup-link changes.
 - Onboarding, Settings, Library and install layouts (rules only).
 - New features. D is a redesign of existing capabilities.
 - The E, F and G candidates. They remain on the review page as record.
 
-## 12. Code map (refresh in P0)
+## 13. Code map (refresh in P0)
 
 Read at `main` `29fc1c36`. Plan 058's surface migrations will move these;
 P0 records the post-058 locations before any packet starts.
