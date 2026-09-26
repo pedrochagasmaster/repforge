@@ -20,6 +20,7 @@
 - **Category**: bug (data integrity)
 - **Planned at**: commit `ff9991cf`, 2026-09-22
 - **Backlog**: **Now**: the "Alpha data-safety fixes" row, item (1), first in order; standalone PR (Q604, Q609).
+- **Execution:** IN PROGRESS — draft branch `advisor/003-rebase-journal-write`, seeded from `main` at `29fc1c36180abec3ff1839e4889f6d44a39fa6dc`. Re-run every drift check against the live branch before implementing; this line records execution kickoff only and does not override repository source-of-truth documents.
 
 ## Why this matters
 
