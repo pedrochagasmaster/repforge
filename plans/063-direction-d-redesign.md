@@ -13,7 +13,7 @@ review page beside it.
 - **Phase:** between Plan 058 (system convergence) and Plan 059 (public-launch validation)
 - **Status:** Planned. Documentation and the session-outcome fix are on the workfront PR; implementation waits for Plan 058 to merge
 - **Workfront PR:** #272, branch `redesign/direction-d`, one PR for the whole plan
-- **Owner approval state:** Direction selected and every product decision in spec §1 is made ([ADR 0016](../docs/adr/0016-direction-d-design-reference.md)). Open owner gates: the 17 drawings in P1, the changed frames of every slice, the telemetry retirement in §Owner gates, and the P12 board
+- **Owner approval state:** Direction selected and every product decision in spec §1 is made ([ADR 0016](../docs/adr/0016-direction-d-design-reference.md)). Gate rules decided 2026-09-26 (§Owner gates). Open approvals: the four P1 rounds, each slice's frame board, and the P12 board
 - **Depends on:** Plan 058 merged to `main`
 - **Blocks:** Plan 059 and the alpha (backlog row "Direction D redesign")
 - **Supersedes for the named surfaces:** G-23, G-29, G-44, G-60, G-65
