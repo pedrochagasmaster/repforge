@@ -9,7 +9,7 @@ and owner gates only.
 - **Phase:** 8 — Public-launch validation
 - **Status:** Planned; implementation has not started
 - **Owner approval state:** Validation method is approved; final launch sign-off belongs to the owner
-- **Depends on:** Plans 049–058, the durable-state bridge, their architecture acceptance deltas, and all existing owner gates. No implementation plan is authorized early by this final verification allocation.
+- **Depends on:** Plans 049–058, the Direction D redesign (owner decision 2026-09-25; see `docs/backlog.md`), the durable-state bridge, their architecture acceptance deltas, and all existing owner gates. No implementation plan is authorized early by this final verification allocation.
 - **Blocks:** Public-launch UI/UX acceptance; it does not authorize release/merge by itself
 - **Governing G decisions:** G-01, G-05–G-06, G-59, G-74–G-76, G-83
 - **Architecture-audit ownership:** Candidate F final-SHA release/cache verification; Candidate G complete runtime/test-scope closure; R9 final architecture/evidence closure; verification of every owner-ratified PR239 disposition.

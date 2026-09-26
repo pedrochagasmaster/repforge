@@ -1,0 +1,72 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Taurifer screen directions</title>
+<link rel="stylesheet" href="review.css">
+<link rel="stylesheet" href="phone.css">
+<link rel="stylesheet" href="phone-e.css">
+<link rel="stylesheet" href="phone-f.css">
+<link rel="stylesheet" href="phone-g.css">
+</head>
+<body>
+<header class="rv-head">
+  <div class="rv-wrap">
+    <p class="rv-kicker">Taurifer · main screens</p>
+    <h1 class="rv-title">Main-screen candidates</h1>
+    <p class="rv-intro">Seven directions redraw the same eleven screens from one lifter's real week 4. A, B and C are the first round. D is built to <code>DIRECTION-D-SPEC.md</code>; E, F and G are candidates built on D that apply the same correctness fixes and system rules in different ways. D to G also draw six extra screens: the set-2 Why, a mixed-strategy day and a first session. In D to G, every target is computed live by <code>progression-engine.js</code> and every shipped word is read from <code>i18n.js</code>. Portuguese is the default; switch to EN to check the second language.</p>
+    <div class="rv-tools">
+      <div class="rv-seg" role="group" aria-label="Language" id="lang">
+        <button data-lang="pt" aria-pressed="true">PT</button><button data-lang="en" aria-pressed="false">EN</button>
+      </div>
+      <div class="rv-seg" role="group" aria-label="App theme" id="theme">
+        <button data-theme-set="light">Light</button><button data-theme-set="dark">Dark</button>
+      </div>
+      <div class="rv-seg" role="group" aria-label="Phone width" id="width">
+        <button data-w="360">360</button><button data-w="390">390</button><button data-w="430">430</button>
+      </div>
+      <div class="rv-seg" role="group" aria-label="View" id="view">
+        <button data-view="one">One screen</button><button data-view="compare">Compare</button><button data-view="all">All screens</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="rv-bar" id="bar">
+  <div class="rv-wrap">
+    <div class="rv-bar__row">
+      <button class="rv-fold" id="fold" aria-expanded="true" aria-controls="barBody"><span class="rv-fold__ic" aria-hidden="true"></span><span id="foldLabel">Collapse</span></button>
+      <p class="rv-now" id="now" hidden></p>
+    </div>
+    <div id="barBody">
+      <div class="rv-dirs" role="tablist" aria-label="Direction" id="dirs"></div>
+      <div class="rv-screens" role="tablist" aria-label="Screen" id="screens"></div>
+    </div>
+  </div>
+</div>
+
+<main class="rv-wrap rv-main">
+  <section class="rv-stage" id="stage" aria-live="polite"></section>
+</main>
+
+<footer class="rv-wrap rv-foot">
+  <p>Review page only. It is not loaded by the app, not precached, and does not touch <code>index.html</code>, <code>styles.css</code>, <code>app.js</code> or <code>sw.js</code>. Serve the repository root over HTTP and open <code>docs/design/main-screen-directions/</code>. Arrow keys move between screens; 1 to 7 switch direction. Compare shows every direction on the current screen.</p>
+</footer>
+
+<script src="../../../i18n.js"></script>
+<script src="../../../progression-engine.js"></script>
+<script src="data.js"></script>
+<script src="data-d.js"></script>
+<script src="kit.js"></script>
+<script src="kit-d.js"></script>
+<script src="dir-a.js"></script>
+<script src="dir-b.js"></script>
+<script src="dir-c.js"></script>
+<script src="dir-d.js"></script>
+<script src="dir-e.js"></script>
+<script src="dir-f.js"></script>
+<script src="dir-g.js"></script>
+<script src="main.js"></script>
+</body>
+</html>

@@ -116,9 +116,11 @@ try {
     missingEffort.outcomes.length === 0 && !missingEffort.baselineVisible,
   "missing effort removes both the outcome and the false first-session copy", JSON.stringify(missingEffort));
 
+  // A lower load with no more strength or work is the one exposure change the
+  // session-outcome rule refuses to judge (CONTEXT.md "Session outcome").
   const changedExposure = await build(page,
     [row("changed-previous", "2026-09-15", "seed-ex-4", 100, 8, 2)],
-    [row("changed-current", "2026-09-17", "seed-ex-4", 103, 7, 2)]);
+    [row("changed-current", "2026-09-17", "seed-ex-4", 95, 8, 2)]);
   check(changedExposure.records[0]?.evidenceState === "insufficient" &&
     changedExposure.records[0]?.reason === "changed-load" &&
     changedExposure.outcomes.length === 0 && !changedExposure.baselineVisible,

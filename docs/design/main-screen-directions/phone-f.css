@@ -1,0 +1,209 @@
+/* ================================================================
+   F. Uma folha só: one document, every set a box. Tokens only;
+   shares the D-family components in phone.css (.dx).
+   ================================================================ */
+.df .f-pg{padding:8px var(--gut) 0}
+.df .f-pg--w{padding-top:10px}
+.df .f-top{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:44px;margin-right:-10px}
+.df .f-top--h{margin-bottom:4px}
+.df .f-top__r{display:flex;align-items:center;flex:none}
+.df .f-date{font-size:14px;line-height:1.3;color:var(--ink-soft);text-wrap:balance}
+.df .f-icb{display:grid;place-items:center;flex:none;width:44px;height:44px;border-radius:50%;color:var(--ink)}
+.df .f-textbtn{min-height:44px;padding:0 10px;color:var(--accent-deep);font-size:14px;font-weight:500;text-align:right}
+.df .f-textbtn--l{padding:0;margin-top:4px;text-align:left}
+.df .f-h1{margin-top:6px;font-size:30px;font-weight:650;letter-spacing:-.02em;line-height:1.05;text-wrap:balance}
+.df .f-h1--page{margin:0}
+.df .f-h1--ex{margin:4px 0 14px}
+.df .f-lede{margin-top:6px;font-size:15px;color:var(--ink-soft);text-wrap:pretty}
+.df .f-eyebrow{margin-top:14px;font-size:14px;color:var(--ink-soft)}
+.df .f-soft{color:var(--ink-soft)}
+.df .f-h2{margin-top:26px;padding-bottom:8px;font-size:17px;font-weight:600}
+.df .f-h2--split{display:flex;align-items:baseline;justify-content:space-between;gap:10px;border-bottom:1px solid var(--rule)}
+.df .f-h2--split em{flex:none;font-style:normal;font-size:13px;font-weight:400;color:var(--ink-soft)}
+.df .f-note{margin-top:12px;font-size:13px;line-height:1.4;color:var(--ink-soft)}
+.df .f-split{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:20px;padding-top:12px;border-top:1px solid var(--rule)}
+.df .f-k{display:block;font-size:13px;color:var(--ink-soft)}
+.df .f-v{display:block;margin-top:1px;font-size:15px;font-weight:500}
+
+/* the sheet */
+.df .f-sheethead{display:grid;gap:6px;margin-top:16px;padding-bottom:10px;border-bottom:1px solid var(--ink)}
+.df .f-count{font:500 15px var(--mono)}
+.df .f-tally{display:flex;flex-wrap:wrap;gap:2px 14px;font-size:14px}
+.df .f-tally__i{display:inline-flex;align-items:center;gap:3px;white-space:nowrap}
+.df .f-tally .mk{width:18px;height:18px}
+.df .f-tally .mk .ic{width:15px;height:15px}
+.df .f-sheet{border-top:0}
+.df .f-sheet--top{margin-top:18px;border-top:1px solid var(--rule)}
+.df .f-lift{position:relative;padding:12px 0;border-bottom:1px solid var(--rule)}
+.df .f-lift__h{display:grid;grid-template-columns:22px minmax(0,1fr) auto;gap:6px;align-items:start;font-size:15px;line-height:1.3}
+.df .f-lift__h--sum{grid-template-columns:minmax(0,1fr) auto}
+.df .f-lift__n{font-weight:500}
+.df .f-lift__n small{display:block;margin-top:2px;font-size:13px;font-weight:400;color:var(--ink-soft)}
+.df .f-lift__h em{max-width:132px;padding-top:1px;font-style:normal;font-size:13px;line-height:1.3;color:var(--ink-soft);text-align:right}
+.df .f-lift__h em.f-out{max-width:none;font-size:14px;font-weight:500;color:var(--ink)}
+.df .f-lift__h em.f-out.is-insuf{font-weight:400;color:var(--ink-soft)}
+.df .f-tags{display:flex;gap:10px;align-items:baseline}
+.df .f-tags .f-out{font-style:normal;font-size:14px;font-weight:500}
+.df .f-tags .f-out.is-insuf{font-weight:400;color:var(--ink-soft)}
+.df .f-slots{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin-top:8px}
+.df .f-slot{display:flex;flex-direction:column;justify-content:center;min-height:52px;padding:5px 8px;border:1px solid var(--rule-strong);border-radius:12px;background:transparent;text-align:left}
+.df .f-slot small{display:flex;align-items:center;height:16px;font:500 12px var(--mono);color:var(--ink-soft)}
+.df .f-slot small .ic{width:14px;height:14px;color:var(--ink)}
+.df .f-slot b{font:500 15px/1.25 var(--mono);white-space:nowrap}
+.df .f-slot i{font:400 13px/1.25 var(--mono);font-style:normal;color:var(--ink-soft)}
+.df .f-slot.is-plan b{color:var(--ink);font-size:20px;line-height:1.1}
+.df .f-slot.is-plan i{color:var(--ink);font-size:14px}
+.df .f-slot.is-plan.is-soft b,.df .f-slot.is-plan.is-soft i{color:var(--ink-soft)}
+.df .f-slot.is-plan{border-style:dashed}
+.df .f-slot.is-soft b{color:var(--ink-soft)}
+.df .f-slot.is-now{border:1.5px solid var(--ink);background:var(--well)}
+.df .f-slot.is-now b{color:var(--ink-soft)}
+.df .f-slot.is-done{border-color:var(--rule);background:var(--surface)}
+.df .f-before{margin-top:6px;font-size:13px;color:var(--ink-soft)}
+.df .f-lift.is-later .f-lift__n{color:var(--ink)}
+.df .f-lift--now{padding-top:14px}
+.df .f-nowbar{position:absolute;left:calc(-1 * var(--gut));top:14px;width:3px;height:56px;border-radius:0 2px 2px 0;background:var(--accent)}
+.df .f-exh{display:flex;gap:12px;align-items:flex-start}
+.df .f-exname{font-size:20px;font-weight:600;line-height:1.2}
+.df .f-exmeta{margin-top:3px;font-size:13px;line-height:1.35;color:var(--ink-soft)}
+.df .f-exnote{display:flex;gap:8px;align-items:center;margin-top:6px;font-size:14px;color:var(--ink-soft)}
+.df .f-exnote .ic{width:18px;height:18px}
+.df .f-cue{margin-top:14px}
+.df .f-cue__l1{display:flex;align-items:flex-start;gap:6px;font-size:24px;font-weight:600;line-height:1.2;letter-spacing:-.01em}
+.df .f-cue__l1 .mk{width:26px;height:26px;margin-top:2px;margin-left:-2px}
+.df .f-cue__l1 .mk .ic{width:22px;height:22px}
+.df .f-cue__l2{margin-top:2px;font-size:17px;color:var(--ink-soft)}
+.df .f-why{display:inline-flex;align-items:center;min-height:44px;min-width:44px;color:var(--accent-deep);font-size:15px;font-weight:500}
+.df .f-rest{margin-top:14px}
+.df .f-rest__row{display:flex;align-items:baseline;gap:10px}
+.df .f-rest__row span{font-size:15px;color:var(--ink-soft)}
+.df .f-rest__row b{font:500 56px/1 var(--mono);letter-spacing:-.02em}
+.df .f-rest__row em{font:400 15px var(--mono);font-style:normal;color:var(--ink-soft)}
+.df .f-rest__bar{height:4px;margin-top:12px;border-radius:2px;background:var(--rule);overflow:hidden}
+.df .f-rest__bar i{display:block;height:100%;background:var(--accent)}
+.df .f-nextcue{margin-top:10px;font-size:17px;line-height:1.35}
+.df .f-nextcue--top{margin-top:14px;font-weight:500}
+.df .f-restdone{display:flex;align-items:center;gap:6px;margin-top:14px;font-size:17px;color:var(--ink-soft)}
+.df .f-restdone .ic{width:18px;height:18px}
+.df .f-whyband{margin:12px 0 4px;padding:2px 0 4px 14px;border-left:2px solid var(--ink)}
+.df .f-whyband__t{font-size:13px;color:var(--ink-soft)}
+.df .f-reasons{margin-top:4px}
+.df .f-reason{padding:10px 0;border-bottom:1px solid var(--rule)}
+.df .f-reason b{display:block;font-size:15px;font-weight:600}
+.df .f-reason p{margin-top:2px;font-size:15px;line-height:1.45}
+.df .f-reason__lab{margin:0 0 2px!important;font-size:13px!important;color:var(--ink-soft)}
+.df .f-disc{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:48px;border-bottom:1px solid var(--rule);font-size:15px;font-weight:500}
+.df .f-disc .ic{width:20px;height:20px}
+.df .f-calcs{padding:4px 0 8px;border-bottom:1px solid var(--rule)}
+.df .f-calc__g{margin:10px 0 2px;font-size:13px;color:var(--ink-soft)}
+.df .f-calc{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 12px;padding:6px 0;font-size:14px}
+.df .f-calc__k{color:var(--ink-soft)}
+.df .f-calc__v{font:500 14px var(--mono);text-align:right}
+.df .f-calc__v em{margin-left:10px;font-style:normal;color:var(--ink-soft)}
+.df .f-calc small{grid-column:1 / -1;font-size:13px;color:var(--ink-soft)}
+.df .f-calc--t{grid-template-columns:1fr}
+.df .f-calc--t .f-calc__v{font:400 14px var(--sans);text-align:left}
+.df .f-calc--sum{margin-top:4px;padding-top:10px;border-top:1px solid var(--ink)}
+.df .f-calc--sum .f-calc__k{color:var(--ink);font-weight:600}
+.df .f-evidence{margin-top:10px;font-size:13px;color:var(--ink-soft)}
+.df .f-whyclose{min-height:44px;color:var(--ink);font-size:15px;font-weight:500;text-decoration:underline;text-underline-offset:3px;text-decoration-color:var(--rule-strong)}
+
+/* live header */
+.df .f-wtop{display:grid;grid-template-columns:44px minmax(0,1fr) auto 44px;align-items:center;padding:4px 6px 0}
+.df .f-wtop__c{padding:0 4px;font-size:13.5px;line-height:1.25;color:var(--ink-soft);text-align:center;text-wrap:balance}
+.df .f-timer{width:auto;min-width:44px;padding:0 8px;border-radius:22px;display:flex;gap:4px;font:500 14px var(--mono)}
+.df .f-timer.is-live{background:var(--well);box-shadow:inset 0 0 0 1px var(--rule)}
+.df .f-timer.is-live .ic{width:18px;height:18px}
+.df .f-meter{height:3px;margin:6px var(--gut) 0;border-radius:2px;background:var(--rule-strong);overflow:hidden}
+.df .f-meter i{display:block;height:100%;background:var(--ink)}
+
+/* sheets (modal) */
+.df .f-sheet__t{padding-right:44px;font-size:20px;font-weight:650;letter-spacing:-.01em;line-height:1.2}
+.df .f-sheet__sub{margin-top:6px;font-size:14px;color:var(--ink-soft)}
+.df .f-opts{margin:12px 0 16px;border-top:1px solid var(--rule)}
+.df .f-opt{display:flex;align-items:center;justify-content:space-between;gap:10px;width:100%;min-height:56px;padding:8px 0;border-bottom:1px solid var(--rule);text-align:left}
+.df .f-opt b{display:block;font-weight:600}
+.df .f-opt small{display:block;font-size:13px;color:var(--ink-soft)}
+.df .f-opt em{font-style:normal;font-size:13px;color:var(--ink-soft)}
+.df .f-presets{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-top:14px}
+.df .f-presets button{min-height:48px;border:1px solid var(--rule);border-radius:14px;background:var(--bg);font:500 15px var(--mono);text-align:center}
+.df .f-presets button.is-on{border-color:var(--ink);box-shadow:inset 0 0 0 1px var(--ink)}
+.df .f-presets--ctl button{font:500 14px var(--sans)}
+.df .f-acts{margin-top:10px;border-top:1px solid var(--rule)}
+.df .f-act{display:flex;align-items:center;gap:12px;width:100%;min-height:52px;border-bottom:1px solid var(--rule);font-size:15px;text-align:left}
+.df .f-act .ic{width:20px;height:20px;color:var(--ink-soft)}
+
+/* summary */
+.df .f-totals{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:18px;padding:12px 0;border-top:1px solid var(--rule);border-bottom:1px solid var(--rule)}
+.df .f-totals--2{grid-template-columns:repeat(2,minmax(0,1fr))}
+.df .f-totals b{display:block;font:500 22px/1.1 var(--mono);white-space:nowrap}
+.df .f-totals b i{font-style:normal;font-size:16px;color:var(--ink-soft)}
+.df .f-totals span{display:block;margin-top:3px;font-size:13px;line-height:1.3;color:var(--ink-soft)}
+.df .f-baseline{margin-top:14px;font-size:15px;line-height:1.45}
+.df .f-h2+.f-sheet{border-top:1px solid var(--ink)}
+.df .f-pr{margin-top:6px;font-size:14px;font-weight:500;color:var(--positive)}
+.df .f-tags .f-pr{margin:0}
+.df .f-next{display:flex;align-items:center;gap:6px;margin-top:8px;font:500 15px var(--mono)}
+.df .f-next .mk{width:20px;height:20px}
+.df .f-next .mk .ic{width:16px;height:16px}
+.df .f-mus{display:grid;grid-template-columns:1fr 1fr;column-gap:20px;border-top:1px solid var(--rule)}
+.df .f-mus div{display:flex;justify-content:space-between;gap:8px;padding:9px 0;border-bottom:1px solid var(--rule);font-size:14px}
+.df .f-mus b{font:500 14px var(--mono)}
+
+/* progress */
+.df .f-weekline{margin-top:8px;font-size:14px}
+.df .f-h2+.f-att{border-top:1px solid var(--rule)}
+.df .f-att{display:grid;gap:6px;width:100%;min-height:64px;padding:12px 0;border-bottom:1px solid var(--rule);text-align:left}
+.df .f-att__why{font-size:14px;line-height:1.4}
+.df .f-att__row{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.df .f-att__row .f-slot{min-height:48px}
+.df .f-att__row .f-slot b{white-space:normal}
+.df .f-att__ev{font-size:13px;color:var(--ink-soft)}
+.df .f-str{display:grid;grid-template-columns:minmax(0,1fr) 60px auto;gap:10px;align-items:center;width:100%;min-height:56px;padding:8px 0;border-bottom:1px solid var(--rule);text-align:left}
+.df .f-str__m b{display:block;font-size:15px;font-weight:500;line-height:1.3}
+.df .f-str__m small{display:block;margin-top:2px;font-size:13px;color:var(--ink-soft)}
+.df .f-str__f{font:500 14px var(--mono);white-space:nowrap;text-align:right}
+
+/* chart */
+.df .f-back{display:inline-flex;align-items:center;gap:2px;min-height:44px;margin-left:-8px;padding-right:10px;font-size:15px}
+.df .f-toggles{display:grid;gap:8px}
+.df .f-chart{margin-top:18px;cursor:pointer;touch-action:pan-y}
+.df .f-readout{min-height:22px;margin-top:6px;font:400 13px var(--mono)}
+.df .f-hcols{display:grid;grid-template-columns:56px 1fr 64px;gap:8px;margin-top:10px;padding:8px 0 6px;border-bottom:1px solid var(--rule);font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-faint)}
+.df .f-hcols span:last-child{text-align:right}
+.df .f-hrow{display:grid;grid-template-columns:56px 1fr 64px;gap:8px;align-items:center;width:100%;min-height:48px;border-bottom:1px solid var(--rule);font-size:14px;text-align:left}
+.df .f-hrow__s{font:400 14px var(--mono)}
+.df .f-hrow__v{font:500 14px var(--mono);text-align:right}
+.df .f-hrow.is-old .f-hrow__d{color:var(--ink-soft)}
+.df .f-hrow.is-sel{box-shadow:inset 3px 0 0 var(--ink);padding-left:8px}
+
+/* history */
+.df .f-mhead{display:flex;flex-wrap:wrap;align-items:baseline;justify-content:space-between;gap:2px 10px;margin-top:20px;padding-bottom:8px;border-bottom:1px solid var(--ink)}
+.df .f-mhead h2{font-size:17px;font-weight:600}
+.df .f-mhead span{font-size:13px;color:var(--ink-soft)}
+.df .f-sess{display:grid;grid-template-columns:40px minmax(0,1fr) auto;gap:10px;align-items:start;width:100%;min-height:56px;padding:10px 0;border-bottom:1px solid var(--rule);text-align:left}
+.df .f-sess__d{display:flex;flex-direction:column;font:500 17px/1.1 var(--mono)}
+.df .f-sess__d small{margin-bottom:2px;font:400 12px var(--sans);color:var(--ink-soft)}
+.df .f-sess__m b{display:block;font-weight:500}
+.df .f-sess__m small{display:block;margin-top:2px;font-size:13px;line-height:1.35;color:var(--ink-soft)}
+.df .f-sess__n{display:flex;flex-direction:column;align-items:flex-end;gap:2px;font:400 13px var(--mono);color:var(--ink-soft);white-space:nowrap}
+.df .f-sess__n em{font:500 13px var(--sans);font-style:normal;color:var(--positive)}
+.df .f-cal{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;margin-top:10px}
+.df .f-cal__h{text-align:center;font-size:12px;color:var(--ink-soft)}
+.df .f-cal__d{display:grid;place-items:center;height:40px;border-radius:10px;font:400 14px var(--mono)}
+.df .f-cal__d.is-out{color:var(--ink-soft);opacity:.55}
+.df .f-cal__d.is-on{background:var(--ink);color:var(--bg);font-weight:500}
+.df .f-cal__d.is-today{box-shadow:inset 0 0 0 1.5px var(--ink)}
+.df .f-calhead{display:flex;align-items:center;justify-content:space-between;padding-right:44px}
+.df .f-calhead .f-sheet__t{padding:0}
+
+/* session */
+.df .f-actions{display:grid;grid-template-columns:1fr auto;gap:12px;align-items:center;margin-top:22px}
+.df .f-danger{min-height:44px;padding:0 6px;color:var(--danger);font-size:15px;font-weight:500}
+
+/* program */
+.df .f-status{margin-top:12px;font-size:15px}
+.df .f-day{margin-top:24px}
+.df .f-day__h{display:grid;gap:2px;padding-bottom:8px;border-bottom:1px solid var(--ink)}
+.df .f-day__h b{font-size:17px;font-weight:600}
+.df .f-day__h span{font-size:13px;color:var(--ink-soft)}
