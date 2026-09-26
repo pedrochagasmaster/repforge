@@ -180,6 +180,21 @@ if any reappears as a requirement. Transcribed from the sequence document.
 | R-10 | Do not preserve List merely because earlier Plan 013 did |
 | R-11 | Do not infer a dock-occlusion bug from a non-terminal screenshot |
 
+## Superseded by ADR 0016 (Direction D)
+
+On 2026-09-25 the owner selected Direction D for the main screens
+([ADR 0016](adr/0016-direction-d-design-reference.md), executed by Plan 063).
+These decisions stay as the record of what Plans 055–057 built and are
+superseded for the named surfaces when Plan 063 lands:
+
+| # | Superseded for | Replaced by |
+|---|---|---|
+| G-23 | History | Week-grouped list with frequency counts; calendar as a sheet; session as a page |
+| G-29 | Progress | One tab row of five |
+| G-44 | Today | No Preview action; rows open the exercise page |
+| G-60 | Session summary | Ledger summary; outcome words in ink; green only for records |
+| G-65 | Today and Program | No readiness route |
+
 ## Owner gates recorded here
 
 | Gate | State | Blocking |
