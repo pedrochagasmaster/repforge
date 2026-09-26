@@ -1,7 +1,7 @@
 # UI overhaul canonical reconciliation
 
 - **Status:** Accepted; Phase 0 contract for the owner-approved overhaul
-- **Contract version:** 1
+- **Contract version:** 2 (Plan 058 semantic foundation: field/adjustment roles and role-facet clarification)
 - **Contract owner:** Plan 049
 - **Consumers:** Plans 050–059 (see per-role and per-surface owners below)
 - **Product direction:** [`docs/ui-audit.md`](../ui-audit.md) (authoritative)
@@ -96,6 +96,10 @@ never changes.
 | training-data | Plex Mono for training data and technical values, assigned by semantic value rather than component ancestry | 058 |
 | display | 2.5rem titles | 058 |
 | title | 1.875rem screen titles | 058 |
+| feature-title | 1.75rem focal exercise, program, result, or editorial beat title | 058 |
+| focal-data | 1.75rem Mono value anchoring the active workout task | 058 |
+| section-title | 1.5rem section and sheet headings | 058 |
+| metric | 1.375rem prominent numeric value | 058 |
 | subtitle | 1.125rem content headings | 058 |
 | body | 1rem rows, prose, and controls; also the control-text step, never a separate size | 058 |
 | body-small | 0.875rem secondary rows | 058 |
@@ -105,10 +109,13 @@ never changes.
 | standard | 1.4 line height for body and controls | 058 |
 | reading | 1.55 line height for sustained prose | 058 |
 
-Weights are regular, medium, and semibold from shipped font support; they
-are not separate roles. If a current unique size cannot map onto the steps
-above without losing hierarchy or 200% fit, Plan 058 documents one named
-additional role rather than retaining a literal.
+The intermediate roles were added after inspecting the live post-057
+product, where 22–28px names and metrics carry real hierarchy between the
+preliminary 18px and 30px steps. They apply by content job, not by a legacy
+pixel value. Weights are regular, medium, and semibold from shipped font
+support; they are not separate roles. A genuinely new content job that cannot
+map onto these steps without losing hierarchy or 200% fit requires a P2
+contract review, rather than a local literal.
 
 ### Family: controls
 
@@ -130,6 +137,15 @@ interactions are never forced into one visual component.
 | disabled | Unavailable actions; muted mass, no competing live accent, reason exposed where required | 050 |
 | icon-only | Glyph buttons with accessible names; normalized stroke weight | 055 |
 | horizontal-scroller | Intentional horizontal scroll regions with non-overlapping chip geometry and an edge continuation cue; reconciled into Plan 058's scroller inventory under this name | 050 |
+| field | Text, number, date, search and note entry with a visible label, value, validation and required boundary where the field would otherwise disappear | 058 |
+| adjustment | Repeated numeric changes; workout and program steppers keep separate contextual pacing while sharing target, focus and disabled rules | 058 |
+
+`icon-only` is a presentation facet of an action. Its underlying action still
+has one of the primary, secondary, quiet-navigation, destructive, disclosure or
+selection meanings. `disabled` is an availability state of that action, not a
+replacement for its meaning. A disabled primary action therefore stays primary
+in the inventory, carries the disabled facet, and exposes its reason. These
+facets never justify assigning the same action two competing intents.
 
 ### Family: progress
 
@@ -144,6 +160,13 @@ dimensions remain separately labelled. No dimension may be deleted as a
 | week | Sessions and volume within the current week | 057 |
 | exercise-set | Current exercise and ordered set execution | 055 |
 | task | Entry, import, transfer, and onboarding workflow progress | 054 |
+
+The rest-timer ring is a countdown status with seconds remaining. A relative
+muscle-distribution bar compares values to the largest observed value. Neither
+has a completion denominator in one of these four dimensions, so Plan 058
+records them by exact selector as exclusions rather than calling them task or
+week progress. A muscle bar against a plan *does* have a denominator: it is
+`week` for this-week scope and `block` for block-to-date scope.
 
 ### Family: color
 

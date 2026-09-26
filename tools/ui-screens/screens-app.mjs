@@ -47,6 +47,28 @@ export function appState(key, lang) {
     return emptyEntryState(lang);
   }
   const state = catalogState();
+  if (key === "today/ready") {
+    const exercise = state.program.find((item) => item.name === "Barbell bench press");
+    const date = isoDaysAgo(1);
+    if (!exercise) throw new Error("Today hot-readiness fixture is missing its bench press");
+    state.log.push(...Array.from({ length: exercise.sets }, (_, index) => ({
+      session: "today-ready-hot",
+      date,
+      day: exercise.day,
+      name: exercise.name,
+      exerciseId: exercise.id,
+      set: index + 1,
+      load: 90,
+      reps: exercise.max,
+      rir: 1,
+      work: true,
+      notes: "",
+      created: `${date}T12:${String(index).padStart(2, "0")}:00.000Z`,
+      primary: exercise.primary,
+      secondary: exercise.secondary,
+      performedLibraryId: exercise.libraryId || undefined,
+    })));
+  }
   if (key.startsWith("session/summary-")) {
     const dayExercises = state.program.filter((exercise) => exercise.day === "Day 1");
     const loads = dayExercises.map((_, index) => 80 + index * 5);
@@ -453,7 +475,14 @@ async function createInUseCustomExercise(page) {
 
 export const APP_SCENARIOS = {
   "today/no-program": async (page) => { await dismissChrome(page); await sleep(page, 300); },
-  "today/ready": async (page) => { await dismissChrome(page); await sleep(page, 300); },
+  "today/ready": async (page) => {
+    await dismissChrome(page);
+    const ready = page.locator("#readyLine");
+    await ready.waitFor({ state: "visible", timeout: 20000 });
+    const label = (await ready.innerText()).trim();
+    if (!label) throw new Error("Today readiness shortcut has no accessible text");
+    await sleep(page, 300);
+  },
   "today/day-picker": async (page) => {
     await page.click("#chooseAnotherDay");
     await page.waitForSelector("#dayPickSheet.is-open", { timeout: 20000 });

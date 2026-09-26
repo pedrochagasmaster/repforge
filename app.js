@@ -2881,7 +2881,7 @@ function renderReview(){const el=$("#reviewPanel");if(!el)return;
   const evidenceNote=checkpoint.lifecycle==="block-complete"&&!checkpoint.hasSufficientEvidence
     ?`<p class="review__summary">${esc(t("review.insufficient.note"))}</p>`:"";
   if(reviewFlow){renderReviewFlow(el);return}
-  el.innerHTML=reviewRecoveryStatusHtml()+`<div class="blockprogress"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
+  el.innerHTML=reviewRecoveryStatusHtml()+`<div class="blockprogress" data-progress-dimension="block" data-progress-scope="block-review-evidence"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
     `<p><b>${esc(weekLine)}</b></p>`+
     `<p><b>${esc(t("review.sessions"))}</b> ${esc(t("review.sessions_completed",{done:volume.completedSessions,planned:volume.period.plannedSessions||volume.plannedSessions}))}</p>`+
     `<p><b>${esc(t("review.volume"))}</b> ${esc(t("review.volume_planned",{pct}))}</p>`+
@@ -2958,7 +2958,7 @@ function bindReviewActions(){
 function legacyReviewPanel(el){
   const snap=blockSnapshot(state.programMeta,state.log),pct=Math.round((snap.volumeCompliance||0)*100),summary=buildPlainSummary(snap);
   const weekLine=snap.isComplete?t("meso.complete"):snap.isFinalWeek?t("meso.week_ready",{n:snap.weekCurrent,total:snap.weekTotal}):t("review.week_of",{n:snap.weekCurrent??"—",total:snap.weekTotal});
-  el.innerHTML=`<div class="blockprogress"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
+  el.innerHTML=`<div class="blockprogress" data-progress-dimension="block" data-progress-scope="block-review-evidence"><h4 class="blockprogress__title">${esc(t("review.progress_title"))}</h4>`+
     `<p><b>${esc(weekLine)}</b></p>`+
     `<p><b>${esc(t("review.sessions"))}</b> ${esc(t("review.sessions_completed",{done:snap.completedSessions,planned:snap.plannedSessions}))}</p>`+
     `<p><b>${esc(t("review.lifts"))}</b> ${esc(t("review.lifts_summary",{improved:snap.improvedLifts,flat:snap.flatLifts,stalled:snap.stalledLifts}))}</p>`+
@@ -5999,7 +5999,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
     const segs=mc.total||6,cur=mc.current||0,weekCopy=mesocycleWeekCopy(mc);
     progEl.innerHTML=`<div class="today-prog__name">${esc(nm||t("untitled_program"))}</div>`+
       (weekCopy?`<div class="today-prog__week">${esc(weekCopy)}</div>`:"")+
-      `<div class="segbar">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}${i===Math.min(cur,segs)-1?" is-current":""}"></span>`).join("")}</div>`}
+      `<div class="segbar" data-progress-dimension="block" data-progress-scope="active-program-week">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}${i===Math.min(cur,segs)-1?" is-current":""}"></span>`).join("")}</div>`}
     else{progEl.classList.add("hidden");progEl.innerHTML=""}}
   // A saved session means today is spent: Today recaps it instead of offering the
   // day again. An unsaved draft still outranks it — that session is not over.
@@ -6034,7 +6034,7 @@ function renderToday(){const dateEl=$("#todayDate");if(dateEl)dateEl.textContent
       const isToday=iso===today(),done=trained.has(iso);
       const mark=done?`<span class="week-letters__check">✓</span>`:`<span class="week-letters__dot${isToday?" is-today":""}"></span>`;
       return `<div><div class="week-letters__d">${esc(lab)}</div><div class="week-letters__m">${mark}</div></div>`}).join("");
-    weekEl.innerHTML=`<div class="ov-week-line">${esc(t("today.sessions_done",{done:w.completedDays,planned:w.plannedDays}))}</div><div class="week-letters">${cells}</div>`}
+    weekEl.innerHTML=`<div class="ov-week-line">${esc(t("today.sessions_done",{done:w.completedDays,planned:w.plannedDays}))}</div><div class="week-letters" data-progress-dimension="week" data-progress-scope="current-week-trained-days">${cells}</div>`}
   const up=$("#todayUpNext");if(up){const next=nextDayAfter(recap?recap.lastDay:day);
     if(next){const nEx=exercises(next).length;
       up.innerHTML=`<button type="button" class="listrow" id="upNextBtn"><div class="listrow__main"><div class="listrow__title">${esc(dayLabel(next))}</div>`+
@@ -6833,7 +6833,7 @@ function bindWorkout(){
         `<button type="button" class="focusnav" id="woPrev" aria-label="${esc(t("focus.prev_ex"))}"${at<=0?" disabled":""}>‹</button>`+
         `<div class="wo-progress__lab">${esc(t("today.exercise_of",{n:fl.length?at+1:0,m:fl.length}))}</div>`+
         `<button type="button" class="focusnav" id="woNext" aria-label="${esc(t("focus.next_ex"))}"${at>=fl.length-1?" disabled":""}>›</button></div>`+
-        `<div class="segbar segbar--ex">${fl.map((_,i)=>`<span class="segbar__seg${i<at?" is-done":""}${i===at?" is-current":""}"></span>`).join("")}</div>`;
+        `<div class="segbar segbar--ex" data-progress-dimension="exercise-set" data-progress-scope="workout-exercise-order">${fl.map((_,i)=>`<span class="segbar__seg${i<at?" is-done":""}${i===at?" is-current":""}"></span>`).join("")}</div>`;
       $("#woPrev").onclick=()=>focusAnimateTo(-1);
       $("#woNext").onclick=()=>focusAnimateTo(1)}
     const f=$w("[data-ffinish]")[0];if(f)f.onclick=()=>$("#logForm").requestSubmit();
@@ -7188,7 +7188,7 @@ function sessionSummaryHtml(s){
     const segs=Math.max(s.week.planned,s.week.done,1),done=Math.min(s.week.done,segs);
     out.push(`<p class="section-label">${esc(t("summary.week.title"))}</p>`+
       `<p class="sum-week">${esc(t("today.sessions_done",{done:s.week.done,planned:s.week.planned}))}</p>`+
-      `<div class="segbar sum-segbar" aria-hidden="true">`+
+      `<div class="segbar sum-segbar" data-progress-dimension="week" data-progress-scope="completed-session-week" aria-hidden="true">`+
       Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<done?" is-done":""}"></span>`).join("")+`</div>`)}
   if(s.next)
     out.push(`<div class="sum-next"><span class="sum-next__lab">${esc(t("summary.next"))}</span>`+
@@ -7373,7 +7373,7 @@ function renderThisWeek(){const el=$("#thisWeek");if(!el)return;
   const segs=Math.max(w.plannedSessions,w.completedSessions,1),done=Math.min(w.completedSessions,segs);
   el.innerHTML=`<div class="ov-week-status">${esc(t("stats.this_week.in_progress"))}</div>`+
     `<div class="ov-week-line">${esc(t("stats.this_week.progress",{sessions:`${w.completedSessions} / ${w.plannedSessions}`,sets:`${w.completedWorkingSets} / ${w.plannedWorkingSets}`}))}</div>`+
-    `<div class="ov-week-bar" aria-hidden="true">`+
+    `<div class="ov-week-bar" data-progress-dimension="week" data-progress-scope="current-week-sessions" aria-hidden="true">`+
     Array.from({length:segs},(_,i)=>`<span class="ov-week-bar__seg${i<done?" is-done":""}"></span>`).join("")+`</div>`+
     `<div class="statrow">`+
     `<div class="statrow__cell" data-week-metric="sessions"><div class="statrow__val">${w.completedSessions}</div><div class="statrow__cap">${esc(t("stats.this_week.sessions"))}</div></div>`+
@@ -7417,7 +7417,7 @@ function renderOverviewVolume(){const el=$("#overviewVolume");if(!el)return;
     const fillClass=row.statusKey==="high"?" is-high":row.statusKey==="on-target"?" is-on":"";
     const statusClass=row.statusKey==="on-target"?" is-on":"";
     return `<button type="button" class="vrow" data-muscle="${esc(row.muscle)}"><span class="vrow__name">${esc(muscleLabel(row.muscle))}</span>`+
-      `<span class="vrow__bar"><span class="vrow__fill${fillClass}" style="width:${row.pct}%"></span></span>`+
+      `<span class="vrow__bar" data-progress-dimension="week" data-progress-scope="current-week-muscle-sets"><span class="vrow__fill${fillClass}" style="width:${row.pct}%"></span></span>`+
       `<span class="vrow__num">${fmt(row.completed7)} / ${fmt(row.planned)}</span>`+
       `<span class="vrow__status${statusClass}">${esc(row.status)}</span><span class="chevron" aria-hidden="true"></span></button>`}).join("")+
       (more>0?`<button type="button" class="link-row-cta" id="overviewVolumeMore">${esc(t("stats.volume_more",{n:more}))}</button>`:"")
@@ -8773,6 +8773,8 @@ function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
   const completed=volumeMapFromRows(ev.completedRows,state.program);
   const names=new Set([...plannedMap.keys(),...completed.keys()]);
   if(!names.size){el.innerHTML=`<div class="empty">${esc(t("stats.empty.no_hard_sets",{n:7}))}</div>`;return}
+  const progressDimension=volumeScope==="this-week"?"week":"block";
+  const progressScope=volumeScope==="this-week"?"current-week-muscle-sets":"block-to-date-muscle-sets";
   const rows=[...names].sort((a,b)=>muscleLabel(a).localeCompare(muscleLabel(b),locTag())).map(m=>{
     const planned=volEff(plannedMap,m),done=volEff(completed,m);
     const inProgress=ev.periodStatus!=="complete"&&ev.period.end&&String(ev.period.end)>=today();
@@ -8780,7 +8782,7 @@ function renderVolumeDash(){const el=$("#volumeDash");if(!el)return;
       :inProgress?t("stats.volume.in_progress",{done:fmt(done),planned:fmt(planned)}):""):"";
     const detail=volumeDetailTable(m,ev);
     return `<button type="button" class="vrow evrow" data-volume-muscle="${esc(m)}" aria-expanded="false"><span class="vrow__name">${esc(muscleLabel(m))}</span>`+
-      `<span class="vrow__bar" aria-hidden="true"><span class="vrow__fill${done>=planned&&planned?" is-on":""}" style="width:${planned?Math.min(100,Math.round(done/planned*100)):0}%"></span></span>`+
+      `<span class="vrow__bar" data-progress-dimension="${progressDimension}" data-progress-scope="${progressScope}" aria-hidden="true"><span class="vrow__fill${done>=planned&&planned?" is-on":""}" style="width:${planned?Math.min(100,Math.round(done/planned*100)):0}%"></span></span>`+
       `<span class="vrow__num">${fmt(done)} / ${fmt(planned)}</span>`+
       `<span class="vrow__status${inProgress?"":""}">${esc(caption)}</span><span class="chevron" aria-hidden="true"></span></button>`+
       `<div class="evrow__detail" data-volume-detail="${esc(m)}" hidden>${detail}</div>`}).join("");
@@ -9673,7 +9675,7 @@ function renderProgramOverview(){const el=$("#programOverview");if(!el)return;
   el.innerHTML=`<div class="prog-overview__name">${esc(meta.name||t("untitled_program"))}</div>`+
     `<div class="prog-overview__meta">${[goal,t("program.days_per_week",{n:ds.length})].filter(Boolean).join(" · ")}</div>`+
     (mc.current!=null||mc.isComplete?`<div class="prog-overview__week">${esc(mesocycleWeekCopy(mc))}</div>`+
-      `<div class="segbar">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}"></span>`).join("")}</div>`:"")+
+      `<div class="segbar" data-progress-dimension="block" data-progress-scope="active-program-week">${Array.from({length:segs},(_,i)=>`<span class="segbar__seg${i<Math.min(cur,segs)?" is-done":""}"></span>`).join("")}</div>`:"")+
     (started?`<div class="prog-overview__started">${esc(started)}</div>`:"")+
     `<div class="statrow">`+
     `<div class="statrow__cell"><div class="statrow__val">${ad.logged} / ${ad.total}</div><div class="statrow__cap">${esc(t("program.stat.days_7d"))}</div></div>`+
@@ -13467,9 +13469,12 @@ function renderExercisePreferencesStep(){
   const included=entryState?.answers?.mustHaveExercises||[];
   const constraints=entryState?.answers?.exerciseConstraints||[];
   const matches=entryExerciseMatches(entryExerciseQuery);
-  const resultRows=matches.map(entry=>`<div class="entry__exercise-result" role="listitem"><span class="entry__exercise-name">${esc(libraryName(entry))}</span><span class="entry__exercise-actions">`+
-    `<button type="button" class="entry__exercise-action" data-entry-exercise-add="${esc(entry.id)}" data-entry-exercise-status="include">${esc(t("entry.exercise_preferences.include"))}</button>`+
-    `<button type="button" class="entry__exercise-action entry__exercise-action--avoid" data-entry-exercise-add="${esc(entry.id)}" data-entry-exercise-status="avoid">${esc(t("entry.exercise_preferences.avoid"))}</button></span></div>`).join("");
+  const resultRows=matches.map(entry=>{const exercise=libraryName(entry);
+    const includeLabel=`${t("entry.exercise_preferences.include")} ${exercise}`;
+    const avoidLabel=`${t("entry.exercise_preferences.avoid")} ${exercise}`;
+    return `<div class="entry__exercise-result" role="listitem"><span class="entry__exercise-name">${esc(exercise)}</span><span class="entry__exercise-actions">`+
+    `<button type="button" class="entry__exercise-action" aria-label="${esc(includeLabel)}" data-entry-exercise-add="${esc(entry.id)}" data-entry-exercise-status="include">${esc(t("entry.exercise_preferences.include"))}</button>`+
+    `<button type="button" class="entry__exercise-action" aria-label="${esc(avoidLabel)}" data-entry-exercise-add="${esc(entry.id)}" data-entry-exercise-status="avoid">${esc(t("entry.exercise_preferences.avoid"))}</button></span></div>`}).join("");
   const pending=entryPendingAvoid?(()=>{
     const entry=libraryEntry(entryPendingAvoid),exercise=entry?libraryName(entry):entryPendingAvoid;
     const reasonLab=t("entry.exercise_preferences.avoid_reason",{exercise});
@@ -13890,9 +13895,9 @@ function renderCatalogueStep(){
     range:t("program.progression.strategy.range"),rep_goal:t("program.progression.strategy.rep_goal"),
     effort_target:t("program.progression.strategy.effort_target"),anchor_backoff:t("program.progression.strategy.anchor_backoff")};
   const contextFacts=[
-    entryState.answers.daysPerWeek?t("entry.catalogue.context_days",{days:entryState.answers.daysPerWeek}):"",
-    entryState.answers.sessionMinutes?t("entry.catalogue.context_minutes",{minutes:entryState.answers.sessionMinutes}):"",
-    entryEnvironmentLabel()].filter(Boolean);
+    {kind:"data",text:entryState.answers.daysPerWeek?t("entry.catalogue.context_days",{days:entryState.answers.daysPerWeek}):""},
+    {kind:"data",text:entryState.answers.sessionMinutes?t("entry.catalogue.context_minutes",{minutes:entryState.answers.sessionMinutes}):""},
+    {kind:"language",text:entryEnvironmentLabel()}].filter(fact=>fact.text);
   function renderCard(card){
     const familyName=isPt()?card.familyNamePt||card.familyName:card.familyName;
     const name=isPt()?card.namePt||card.name:card.name;
@@ -13926,7 +13931,7 @@ function renderCatalogueStep(){
   if(!cards.length)return entryHeading(t("entry.catalogue.title"))+`<div class="entry__notice" role="alert"><strong>${esc(t("entry.catalogue.empty_title"))}</strong>`+
     `<p>${esc(t("entry.catalogue.empty_body"))}</p><button type="button" class="btn btn--cta" data-entry-action="change-schedule">${esc(t("entry.custom_shape.change_schedule"))}</button></div>`;
   return entryHeading(t("entry.catalogue.title"))+`<p class="onb__explain">${esc(t("entry.catalogue.lede"))}</p>`+
-    `<div class="entry__facts" aria-label="${esc(t("entry.catalogue.context"))}">${contextFacts.map(fact=>`<span>${esc(fact)}</span>`).join("")}</div>`+
+    `<div class="entry__facts" aria-label="${esc(t("entry.catalogue.context"))}">${contextFacts.map(fact=>`<span class="entry__fact--${fact.kind}">${esc(fact.text)}</span>`).join("")}</div>`+
     /* Every family is released at every frequency, so a flat list is twenty
        near-identical rows. Split the ones that match the answered schedule from
        the rest, which is the comparison the reader is actually making. */

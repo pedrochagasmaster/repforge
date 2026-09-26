@@ -242,16 +242,16 @@ async function onboardingControlGeometry(page) {
 
 function textMetricsMatchScale(metrics, scale) {
   const expected = scale === 2
-    ? { eyebrow: 34, step: 22, heading: 60, explain: 30, option: 31, back: 30, next: 34 }
-    : { eyebrow: 17, step: 11, heading: 30, explain: 15, option: 15.5, back: 15, next: 17 };
+    ? { eyebrow: 34, step: 22, heading: 60, explain: 32, option: 32, back: 30, next: 34 }
+    : { eyebrow: 17, step: 11, heading: 30, explain: 16, option: 16, back: 15, next: 17 };
   return Object.entries(expected).every(([key, value]) =>
     Number.isFinite(metrics[key]) && Math.abs(metrics[key] - value) < 0.1);
 }
 
 function customTextMetricsMatchScale(metrics, fields, scale) {
   const expected = scale === 2
-    ? { muscleName: 28, muscleCurrent: 20, muscleState: 22, exerciseName: 28, exerciseAction: 24, exerciseSelected: 28 }
-    : { muscleName: 14, muscleCurrent: 10, muscleState: 11, exerciseName: 14, exerciseAction: 12, exerciseSelected: 14 };
+    ? { muscleName: 32, muscleCurrent: 22, muscleState: 32, exerciseName: 28, exerciseAction: 32, exerciseSelected: 28 }
+    : { muscleName: 16, muscleCurrent: 11, muscleState: 16, exerciseName: 14, exerciseAction: 16, exerciseSelected: 14 };
   return fields.every((key) => Number.isFinite(metrics[key]) && Math.abs(metrics[key] - expected[key]) < 0.1);
 }
 
@@ -579,6 +579,79 @@ try {
       "resume notice receives focus when it opens");
     assert(await page.locator("#onboarding .onb__nav").isHidden(),
       "resume notice owns the surface without a competing footer");
+
+    const resumeViewport = page.viewportSize();
+    await page.setViewportSize({ width: 320, height: 568 });
+    const recoveryTokens = await page.evaluate(() => {
+      const tokenValue = (property, token) => {
+        const probe = document.createElement("span");
+        probe.style.setProperty(property, `var(${token})`);
+        document.body.append(probe);
+        const value = getComputedStyle(probe).getPropertyValue(property);
+        probe.remove();
+        return value;
+      };
+      const controls = {
+        primary: ["#entryResumeContinue", "--control-primary-bg", "--control-primary-ink", "--control-primary-boundary"],
+        destructive: ["#entryResumeRestart", "--control-destructive-bg", "--control-destructive-ink", "--control-destructive-boundary"],
+        quiet: ["#onbCancel", "--control-quiet-bg", "--control-quiet-ink", "--control-quiet-boundary"],
+      };
+      return Object.fromEntries(Object.entries(controls).map(([role, [selector, background, ink, boundary]]) => {
+        const style = getComputedStyle(document.querySelector(selector));
+        return [role, {
+          actual: [style.backgroundColor, style.color, style.borderColor],
+          expected: [tokenValue("background-color", background), tokenValue("color", ink), tokenValue("border-color", boundary)],
+        }];
+      }));
+    });
+    assert(Object.values(recoveryTokens).every(({ actual, expected }) => actual.every((value, index) => value === expected[index])),
+      "Resume, Start over, and Cancel use their inventoried control tokens", JSON.stringify(recoveryTokens));
+    const recoveryTargets = await page.locator("#onbCancel, #entryResumeContinue, #entryResumeRestart").evaluateAll((els) =>
+      els.map((el) => {
+        const rect = el.getBoundingClientRect();
+        return { id: el.id, width: rect.width, height: rect.height };
+      }));
+    assert(recoveryTargets.length === 3 && recoveryTargets.every(({ width, height }) => width >= 44 && height >= 44),
+      "320px recovery actions retain 44px targets", JSON.stringify(recoveryTargets));
+    const recoveryFocusPath = [
+      ["#onbCancel", "Shift+Tab"],
+      ["#entryResumeContinue", "Tab"],
+      ["#entryResumeRestart", "Tab"],
+    ];
+    for (const [selector, key] of recoveryFocusPath) {
+      await page.keyboard.press(key);
+      const outline = await page.evaluate((expected) => {
+        const el = document.activeElement;
+        const style = getComputedStyle(el);
+        return {
+          id: el?.id,
+          expected: expected.replace(/^#/, ""),
+          style: style.outlineStyle,
+          width: Number.parseFloat(style.outlineWidth) || 0,
+          offset: style.outlineOffset,
+        };
+      }, selector);
+      assert(outline.id === outline.expected && outline.style !== "none" && outline.width >= 2 && outline.offset === "2px",
+        `${selector} retains the frozen keyboard focus ring in Tab order`, JSON.stringify(outline));
+    }
+    const recoveryGeometry = await page.evaluate(() => ({
+      document: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      body: document.body.scrollWidth - document.body.clientWidth,
+    }));
+    assert(recoveryGeometry.document <= 0 && recoveryGeometry.body <= 0,
+      "320px recovery has no horizontal or document overflow", JSON.stringify(recoveryGeometry));
+    await page.evaluate(() => { document.documentElement.style.fontSize = "200%"; });
+    const largeRecoveryGeometry = await page.evaluate(() => ({
+      document: document.documentElement.scrollWidth - document.documentElement.clientWidth,
+      body: document.body.scrollWidth - document.body.clientWidth,
+      targets: [...document.querySelectorAll("#onbCancel, #entryResumeContinue, #entryResumeRestart")]
+        .map((el) => el.getBoundingClientRect().height),
+    }));
+    assert(largeRecoveryGeometry.document <= 0 && largeRecoveryGeometry.body <= 0 &&
+      largeRecoveryGeometry.targets.length === 3 && largeRecoveryGeometry.targets.every((height) => height >= 44),
+    "200% recovery remains overflow-free with reachable 44px actions", JSON.stringify(largeRecoveryGeometry));
+    await page.evaluate(() => document.documentElement.style.removeProperty("font-size"));
+    await page.setViewportSize(resumeViewport);
     await page.click("#entryResumeContinue");
     await page.click("#onbCancel");
     await page.click("#entryCancelDiscard");

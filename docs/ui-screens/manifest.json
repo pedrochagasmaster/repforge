@@ -504,35 +504,35 @@
       "flow": "onboarding-browse",
       "label": "Browse 1 — real week",
       "scenario": "Days per week and session length, the only questions Browse asks.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "environment",
       "flow": "onboarding-browse",
       "label": "Browse 2 — environment",
       "scenario": "Environment shortcuts before the catalogue is filtered.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "catalogue",
       "flow": "onboarding-browse",
       "label": "Browse — catalogue",
       "scenario": "Released, complete, tested programs with purpose, frequency and mismatches.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "preview",
       "flow": "onboarding-browse",
       "label": "Browse — review",
       "scenario": "The common review surface for a catalogue program.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "setup",
       "flow": "onboarding-build",
       "label": "Build 1 — name and days",
       "scenario": "The build_setup step: program name and day count before the editor opens.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "editor-empty",
@@ -644,21 +644,21 @@
       "flow": "onboarding-shared",
       "label": "Shared setup — review",
       "scenario": "The editable preview a shared payload lands in before explicit activation.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "resume",
       "flow": "onboarding-recovery",
       "label": "Resume setup",
       "scenario": "The resumable notice after reload: route, step, recency, Resume, Start over.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "rules-drift",
       "flow": "onboarding-recovery",
       "label": "Rules changed",
       "scenario": "A draft whose compiler rules are stale. Rebuild is required before activation.",
-      "variants": "localized"
+      "variants": "accessibility"
     },
     {
       "id": "no-program",
@@ -671,22 +671,22 @@
       "id": "ready",
       "flow": "today",
       "label": "Today — ready to start",
-      "scenario": "A seeded program on its next scheduled day.",
-      "variants": "standard"
+      "scenario": "A seeded program with recent max-rep evidence makes the readiness shortcut visible.",
+      "variants": "demandingText"
     },
     {
       "id": "day-picker",
       "flow": "today",
       "label": "Today — choose another day",
       "scenario": "The day picker sheet open.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "done",
       "flow": "today",
       "label": "Today — session complete",
       "scenario": "The state after the day's session is logged.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "focus",
