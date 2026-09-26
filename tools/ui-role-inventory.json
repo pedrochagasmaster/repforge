@@ -4,7 +4,7 @@
   "manifestSchemaVersion": 2,
   "observed": {
     "screens": 143,
-    "frames": 819,
+    "frames": 866,
     "probe": "production catalog scenarios, phone-390 light EN canonical frame, Chromium; no scenario failures"
   },
   "catalogStates": {
@@ -241,7 +241,7 @@
     "today/ready": {
       "owner": "plan-057",
       "content": "flat",
-      "scenario": "A seeded program on its next scheduled day."
+      "scenario": "A seeded program with recent max-rep evidence makes the Today readiness shortcut visible."
     },
     "today/day-picker": {
       "owner": "plan-057",
@@ -4319,6 +4319,27 @@
       "owner": "plan-058",
       "catalogStates": [
         "program/overview"
+      ]
+    },
+    {
+      "id": "readyline",
+      "selector": "#readyLine",
+      "roles": {
+        "control": "secondary"
+      },
+      "variant": null,
+      "facets": [],
+      "states": [
+        "default",
+        "hover",
+        "pressed",
+        "focus-visible",
+        "disabled"
+      ],
+      "rationale": "Opens Focus on the first lift with an add-load recommendation, starting or resuming its reversible workout draft as a supporting action.",
+      "owner": "plan-058",
+      "catalogStates": [
+        "today/ready"
       ]
     },
     {

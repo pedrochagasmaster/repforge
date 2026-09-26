@@ -1,7 +1,7 @@
 # UI screen catalog
 
 Phone-frame captures of every user-visible Taurifer surface — 143 screens,
-851 frames. This folder is the visual reference for UI and Brand Designers.
+866 frames. This folder is the visual reference for UI and Brand Designers.
 
 The catalog is **mobile only**. Taurifer is a phone PWA and a desktop frame was
 evidence nobody reviewed, so the manifest rejects non-phone viewports.
@@ -134,9 +134,9 @@ was inserted or removed. Flow order lives in the manifest and is reflected below
 | Screen | Frames | What it shows |
 | --- | --- | --- |
 | [Today — no program](screens/today/no-program__phone-390-light-en.png) | 3 | A fresh device after leaving setup, with no program or workout controls. |
-| [Today — ready to start](screens/today/ready__phone-390-light-en.png) | 3 | A seeded program on its next scheduled day. |
-| [Today — choose another day](screens/today/day-picker__phone-390-light-en.png) | 3 | The day picker sheet open. |
-| [Today — session complete](screens/today/done__phone-390-light-en.png) | 3 | The state after the day's session is logged. |
+| [Today — ready to start](screens/today/ready__phone-390-light-en.png) | 8 | A seeded program with recent max-rep evidence makes the readiness shortcut visible. |
+| [Today — choose another day](screens/today/day-picker__phone-390-light-en.png) | 8 | The day picker sheet open. |
+| [Today — session complete](screens/today/done__phone-390-light-en.png) | 8 | The state after the day's session is logged. |
 | [Read-only session preview](screens/today/preview__phone-390-light-en.png) | 8 | Read-only session preview through production controls. |
 | [Resume saved draft](screens/today/draft-resume__phone-390-light-en.png) | 8 | Resume saved draft through production controls. |
 

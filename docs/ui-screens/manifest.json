@@ -671,22 +671,22 @@
       "id": "ready",
       "flow": "today",
       "label": "Today — ready to start",
-      "scenario": "A seeded program on its next scheduled day.",
-      "variants": "standard"
+      "scenario": "A seeded program with recent max-rep evidence makes the readiness shortcut visible.",
+      "variants": "demandingText"
     },
     {
       "id": "day-picker",
       "flow": "today",
       "label": "Today — choose another day",
       "scenario": "The day picker sheet open.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "done",
       "flow": "today",
       "label": "Today — session complete",
       "scenario": "The state after the day's session is logged.",
-      "variants": "standard"
+      "variants": "demandingText"
     },
     {
       "id": "focus",

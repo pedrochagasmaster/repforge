@@ -52,6 +52,11 @@ remain reachable and show their own empty states. Every other inventoried
 control declares its disabled state. The checker requires default and focus
 states for every control and an explicit reason wherever disabled is omitted.
 
+On Today, `#readyLine` is a supporting `secondary` action. It appears only when
+the current day has a lift with an add-load recommendation and opens Focus on
+the first such lift, creating or resuming its reversible workout draft. The
+primary Start workout action remains the screen commitment.
+
 The inventory assigns every visible control a role in its catalog state.
 Exceptions and variants are selector-exact; they are not blanket style
 exemptions. P4 may apply shared role tokens to consumers, but may not map a
